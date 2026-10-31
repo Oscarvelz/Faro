@@ -12,6 +12,8 @@ import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study, S
 import { ExportPanel } from "./export-panel";
 import { Mark, SectionIcon } from "./icons";
 import { Instruments } from "./instruments";
+import { isTron as vtTron, tronize as vtTronize } from "@/lib/faro/colors";
+const vtint = (c: string) => (vtTron() ? vtTronize(c) : c);
 import { FaroPane, useFaro, type Api } from "./provider";
 
 const BOOKS = ["income", "fixed", "variable", "shops", "subs"] as const;
@@ -953,7 +955,7 @@ export function Shell() {
                     </button>
                   ))}
                 </div>
-                <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? "#8fb9a6" : vault === "retiro" ? "#e7c27a" : vault === "emergencia" ? "#7aa2c4" : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
+                <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#e7c27a") : vault === "emergencia" ? vtint("#7aa2c4") : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
                   <i className={`vault-glide${vault ? " is-on" : ""}${vault === "save" ? " is-save" : ""}`} aria-hidden />
                   {VAULT.map((id) => (
                     <button key={id} type="button" role="tab" aria-selected={vault === id} aria-current={vault === id ? "page" : undefined} onClick={() => {
@@ -1193,7 +1195,7 @@ function SectionView() {
               </button>
             ))}
           </div>
-          <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? "#8fb9a6" : vault === "retiro" ? "#e7c27a" : vault === "emergencia" ? "#7aa2c4" : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
+          <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#e7c27a") : vault === "emergencia" ? vtint("#7aa2c4") : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
             <i className={`vault-glide${vault ? " is-on" : ""}${vault === "save" ? " is-save" : ""}`} aria-hidden />
             {VAULT.map((id) => (
               <button key={id} type="button" role="tab" aria-selected={vault === id} aria-current={vault === id ? "page" : undefined} onClick={() => {

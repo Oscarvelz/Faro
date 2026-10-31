@@ -5,6 +5,7 @@ import { useFaro } from "@/components/faro/provider";
 import { readCoach, type Coach, type CoachLine, type Pillar, type Tone } from "@/lib/faro/coach";
 import type { LineKind, SectionId } from "@/lib/faro/types";
 import { StatFold } from "@/components/faro/charts";
+import { isTron } from "@/lib/faro/colors";
 
 function sectionFor(kind: string): SectionId {
   if (kind.startsWith("income")) return "income";
@@ -45,6 +46,7 @@ export function LineList({ coach, ids, empty }: { coach: Coach; ids: string[]; e
 
 /** Semicircle dial for the health score. */
 export function ScoreDial({ score, tone, label, size = 168 }: { score: number; tone: Tone; label: string; size?: number }) {
+  if (isTron()) return <TronDial score={score} tone={tone} label={label} size={size} />;
   const r = 70;
   const len = Math.PI * r;
   const on = (Math.max(0, Math.min(100, score)) / 100) * len;
@@ -73,6 +75,54 @@ export function ScoreDial({ score, tone, label, size = 168 }: { score: number; t
   );
 }
 
+/** Tron only: the same score as a light-cycle speedometer. Same footprint, same reading. */
+function TronDial({ score, tone, label, size }: { score: number; tone: Tone; label: string; size: number }) {
+  const v = Math.max(0, Math.min(100, score));
+  const cx = 90, cy = 94;
+  const at = (p: number, r: number) => {
+    const a = Math.PI * (1 - p / 100);
+    return [cx + Math.cos(a) * r, cy - Math.sin(a) * r] as const;
+  };
+  // 0-40 red, 40-70 orange, 70-100 teal: the same bands the score label uses.
+  const band = (p: number) => (p < 40 ? "var(--bad)" : p < 70 ? "var(--warn)" : "var(--good)");
+  const SEG = 30;
+  const segs = Array.from({ length: SEG }, (_, i) => {
+    const p0 = (i / SEG) * 100 + 0.9, p1 = ((i + 1) / SEG) * 100 - 0.9;
+    const [x1, y1] = at(p0, 70), [x2, y2] = at(p1, 70), [x3, y3] = at(p1, 60), [x4, y4] = at(p0, 60);
+    const lit = (i + 0.5) / SEG * 100 <= v;
+    return { d: `M${x1.toFixed(2)} ${y1.toFixed(2)} A70 70 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${x3.toFixed(2)} ${y3.toFixed(2)} A60 60 0 0 0 ${x4.toFixed(2)} ${y4.toFixed(2)}Z`, lit, c: band((i + 0.5) / SEG * 100), i };
+  });
+  const rot = -90 + (v / 100) * 180;
+  return (
+    <div className="pano-dial t-speedo" style={{ width: size, ["--s" as string]: `${size}px`, ["--rot" as string]: `${rot}deg` }}>
+      <svg viewBox="0 0 180 104" aria-hidden>
+        <path className="t-speedo-bezel" d={`M${cx - 82} ${cy} A82 82 0 0 1 ${cx + 82} ${cy}`} />
+        {Array.from({ length: 51 }, (_, i) => {
+          const p = i * 2;
+          const major = p % 10 === 0;
+          const [x1, y1] = at(p, major ? 74 : 76), [x2, y2] = at(p, 80);
+          return <line key={i} className={major ? "t-tick is-major" : "t-tick"} x1={x1} y1={y1} x2={x2} y2={y2} />;
+        })}
+        {[0, 20, 40, 60, 80, 100].map((p) => {
+          const [x, y] = at(p, 88);
+          return <text key={p} className="t-speedo-num" x={x} y={y + 2.4} textAnchor="middle">{p}</text>;
+        })}
+        {segs.map((sg) => (
+          <path key={sg.i} d={sg.d} className={sg.lit ? "t-seg is-lit" : "t-seg"} style={sg.lit ? { fill: sg.c, color: sg.c, animationDelay: `${sg.i * 22}ms` } : undefined} />
+        ))}
+        <g className="t-needle" style={{ color: band(v) }}>
+          <path d={`M${cx - 1.6} ${cy - 46} L${cx} ${cy - 80} L${cx + 1.6} ${cy - 46}Z`} />
+          <line x1={cx} y1={cy - 46} x2={cx} y2={cy - 80} />
+        </g>
+      </svg>
+      <div className="pano-dial-read">
+        <strong className="num serif" style={{ color: toneVar[tone] }}>{score}</strong>
+        <span>{label}</span>
+      </div>
+    </div>
+  );
+}
+
 export function Head({ kicker, title, children }: { kicker?: string; title: string; children?: ReactNode }) {
   return (
     <div className="pano-head">
@@ -81,6 +131,26 @@ export function Head({ kicker, title, children }: { kicker?: string; title: stri
       {children}
     </div>
   );
+}
+
+/** Each slice of the month ring as its own one-hue sweep: dim tail, full color, bright head,
+ *  the way a light trail fades behind what drew it. */
+function cone(parts: { c: string; f: number }[], gapDeg: number) {
+  if (!parts.length) return "var(--ring-base, var(--surface-2))";
+  let at = 0;
+  const stops: string[] = [];
+  for (const p of parts) {
+    const span = p.f * 360;
+    const a = at, b = Math.max(a, at + span - gapDeg);
+    stops.push(
+      `color-mix(in oklab, ${p.c} 22%, transparent) ${a.toFixed(2)}deg`,
+      `${p.c} ${(a + (b - a) * 0.78).toFixed(2)}deg`,
+      `color-mix(in oklab, ${p.c} 72%, white) ${b.toFixed(2)}deg`,
+      `transparent ${b.toFixed(2)}deg ${(at + span).toFixed(2)}deg`,
+    );
+    at += span;
+  }
+  return `conic-gradient(from 0deg, ${stops.join(", ")}), var(--ring-base, var(--surface-2))`;
 }
 
 /* 1 · Where the month's money went: ring of five buckets. */
@@ -99,8 +169,9 @@ export function PulseCard({ coach }: { coach: Coach }) {
     <section className="card pano-card">
       <Head kicker={lang === "en" ? "This month" : "Este mes"} title={lang === "en" ? "Your month at a glance" : "Tu mes de un vistazo"} />
       <div className="pano-pulse">
-        <svg viewBox="0 0 160 160" className="pano-ring" role="img" aria-label={coach.verdict}>
-          <circle cx="80" cy="80" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="18" />
+        <i className="pano-cone" aria-hidden style={{ background: cone(parts.map((b) => ({ c: b.color, f: b.minor / total })), parts.length > 1 ? (gap / C) * 360 : 0) }} />
+        <svg viewBox="0 0 160 160" className="pano-ring is-cone" role="img" aria-label={coach.verdict}>
+          <circle cx="80" cy="80" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="18" className="pano-ring-base" />
           {parts.map((b) => {
             const len = (b.minor / total) * C;
             const seg = (

@@ -2068,3 +2068,23 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .spend-bubble { padding-inline: max(14px, 9cqi); }
 :is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .vault-lever-read p strong { color: color-mix(in oklab, var(--seg, #d5e2ea) 50%, var(--fg)); }
 :is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .vault-lever-read > div .vault-mark.is-on em { color: color-mix(in oklab, var(--seg, var(--fg)) 50%, var(--fg)); }
+
+/* New-account row: photo tile with a + badge, live preview, clear, and an add button that wakes when the row is complete. */
+.bank-add { gap: 8px; }
+.bank-photo-wrap { position: relative; display: grid; }
+.bank-photo-btn { width: 44px; height: 44px; border-radius: 14px; border: 1.5px dashed color-mix(in srgb, var(--fg) 28%, transparent); background: color-mix(in srgb, var(--surface) 80%, var(--fg) 4%); color: color-mix(in srgb, var(--fg) 70%, transparent); cursor: pointer; transition: border-color .2s, transform .15s, box-shadow .2s; overflow: visible; }
+.bank-photo-btn:hover, .bank-photo-btn:focus-within { border-color: color-mix(in srgb, var(--fg) 55%, transparent); }
+.bank-photo-btn:active { transform: scale(.96); }
+.bank-photo-btn.is-set { border-style: solid; border-color: color-mix(in srgb, var(--fg) 18%, transparent); padding: 0; overflow: hidden; }
+.bank-photo-btn.is-set img { width: 100%; height: 100%; border-radius: 0; object-fit: contain; }
+.bank-photo-plus { position: absolute; right: -5px; bottom: -5px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; background: var(--fg); color: var(--bg); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+.bank-photo-plus svg { width: 11px; height: 11px; stroke-width: 3; }
+.bank-photo-clear { position: absolute; right: -6px; top: -6px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--fg); color: var(--bg); box-shadow: 0 0 0 2px var(--surface); border: 0; padding: 0; }
+.bank-photo-clear svg { width: 11px; height: 11px; stroke-width: 3; }
+.bank-add .field { height: 44px; border-radius: 13px; transition: border-color .2s, box-shadow .2s; }
+.bank-add-go { width: 44px; height: 44px; min-width: 44px; transition: transform .2s, box-shadow .25s, background .25s, opacity .25s; opacity: .55; }
+.bank-add-go.is-ready { opacity: 1; background: var(--fg); color: var(--bg); border-color: transparent; box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--fg) 60%, transparent); }
+
+/* Projection lever: lit in its pocket's own color (Meta, Retiro, Emergencia). */
+.vault-lever-rail i::after { box-shadow: 0 0 8px color-mix(in oklab, var(--seg, #d5e2ea) 55%, transparent); }
+.vault-lever-rail b { box-shadow: 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 60%, transparent), 0 0 12px color-mix(in oklab, var(--seg, #d5e2ea) 50%, transparent), 0 2px 6px rgb(0 0 0 / 25%); }

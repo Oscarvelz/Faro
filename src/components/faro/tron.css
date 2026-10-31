@@ -524,3 +524,113 @@ html[data-theme="tron"] .save-ledger {
 /* Orbitron runs wide: pocket names size to their cell so long words (Emergencia) never cut. */
 [data-theme="tron"] .save-seg { container-type: inline-size; }
 [data-theme="tron"] .save-seg strong { font-size: clamp(.5rem, 10.5cqi, .74rem); letter-spacing: .05em; white-space: nowrap; overflow: visible; text-overflow: clip; }
+
+/* Bank disc: a full identity disc. Spinning ring, bright temple glyph. */
+[data-theme="tron"] .save-band .bank-tap { width: 44px !important; height: 44px !important; min-width: 44px !important; isolation: isolate; }
+[data-theme="tron"] .save-band .bank-tap::before {
+  content: ""; position: absolute; inset: -3px; border-radius: 50%; z-index: -1; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 8%, #3fd6f5 8% 30%, transparent 30% 50%, #ff9d2a 50% 72%, transparent 72%);
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(70% - 3px), #000 calc(70% - 2px)); mask: radial-gradient(circle, transparent 0 calc(70% - 3px), #000 calc(70% - 2px));
+  filter: drop-shadow(0 0 4px #3fd6f5); animation: tron-disc-spin 7s linear infinite;
+}
+[data-theme="tron"] .save-band .bank-mark { width: 24px !important; height: 24px !important; filter: drop-shadow(0 0 2px #3fd6f5) drop-shadow(0 0 7px rgba(63, 214, 245, .8)); }
+[data-theme="tron"] .save-band .bank-mark :is(path, circle) { fill: #dffaff !important; }
+[data-theme="tron"] .save-band .bank-tap[aria-expanded="true"] .bank-mark :is(path, circle) { fill: #ffe2bd !important; }
+[data-theme="tron"] .save-band .bank-tap[aria-expanded="true"] .bank-mark { filter: drop-shadow(0 0 2px #ff9d2a) drop-shadow(0 0 7px rgba(255, 157, 42, .8)); }
+@keyframes tron-disc-spin { to { transform: rotate(360deg); } }
+html[data-hidden][data-theme="tron"] .bank-tap::before { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { [data-theme="tron"] .save-band .bank-tap::before { animation: none; } }
+
+/* New-account row: an upload bay on the Grid. */
+[data-theme="tron"] .bank-photo-btn {
+  border-radius: 4px; border: 1px dashed rgba(63, 214, 245, .55) !important; color: #7fe9ff;
+  background: linear-gradient(rgba(63, 214, 245, .07), rgba(63, 214, 245, 0)), #03090c !important;
+  box-shadow: inset 0 0 12px rgba(63, 214, 245, .12);
+}
+[data-theme="tron"] .bank-photo-btn::before { content: ""; position: absolute; inset: -4px; pointer-events: none;
+  background: linear-gradient(#3fd6f5, #3fd6f5) 0 0 / 7px 1.5px, linear-gradient(#3fd6f5, #3fd6f5) 0 0 / 1.5px 7px,
+    linear-gradient(#3fd6f5, #3fd6f5) 100% 100% / 7px 1.5px, linear-gradient(#3fd6f5, #3fd6f5) 100% 100% / 1.5px 7px;
+  background-repeat: no-repeat; filter: drop-shadow(0 0 3px #3fd6f5); }
+[data-theme="tron"] .bank-photo-btn.is-set { border: 1px solid #3fd6f5 !important; box-shadow: 0 0 10px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .bank-photo-plus { background: #3fd6f5; color: #021014; box-shadow: 0 0 0 2px #061014, 0 0 8px #3fd6f5; }
+[data-theme="tron"] .bank-photo-clear { background: #ff2a2a; color: #fff; box-shadow: 0 0 0 2px #061014, 0 0 8px #ff2a2a; }
+[data-theme="tron"] .bank-add .field { border-radius: 4px; background: #03090c; border-color: rgba(120, 225, 250, .22); }
+[data-theme="tron"] .bank-add .field:focus { border-color: #3fd6f5; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35); outline: none; }
+[data-theme="tron"] .bank-add .field::placeholder { color: rgba(170, 225, 240, .45); text-transform: uppercase; letter-spacing: .08em; font-size: .68rem; font-weight: 500; }
+[data-theme="tron"] .bank-add-go.is-ready { background: radial-gradient(circle at 50% 40%, #7fe9ff, #1aa9c9) !important; color: #021014 !important; box-shadow: 0 0 0 1px #c9f6ff, 0 0 16px rgba(63, 214, 245, .7) !important; }
+/* Keep the pocket's text clear of its lit left edge. */
+html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)) !important; padding-right: 14px !important; }
+/* Projection lever: a light column in the pocket's color, knob is a glowing node. */
+[data-theme="tron"] .vault-lever-rail i { background: color-mix(in oklab, var(--seg) 18%, #02070a); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 35%, transparent); }
+[data-theme="tron"] .vault-lever-rail i::after { background: linear-gradient(180deg, color-mix(in oklab, white 40%, var(--seg)), var(--seg)); box-shadow: 0 0 6px var(--seg), 0 0 16px color-mix(in oklab, var(--seg) 60%, transparent); }
+[data-theme="tron"] .vault-lever-rail b { background: radial-gradient(circle at 40% 35%, #fff, color-mix(in oklab, white 45%, var(--seg)) 45%, var(--seg) 80%); box-shadow: 0 0 0 1.5px var(--seg), 0 0 10px var(--seg), 0 0 24px color-mix(in oklab, var(--seg) 55%, transparent); }
+
+/* Savings switcher (Ahorros · Meta · Retiro · Emergencia): a lit bay, not the gold pill.
+   Tap: the bay snaps over with a light trail, the chosen tab flashes a scanline and its icon locks on. */
+[data-theme="tron"] .vault-bar { border-radius: 6px; background: linear-gradient(180deg, #071014, #03080b); border: 1px solid rgba(120, 225, 250, .2); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .6), 0 0 18px -10px #3fd6f5; }
+[data-theme="tron"] .vault-glide, [data-theme="tron"] .vault-glide.is-save {
+  border-radius: 3px;
+  --vt: var(--vtint);
+  background:
+    linear-gradient(var(--vt), var(--vt)) left bottom / 100% 2px no-repeat,
+    linear-gradient(180deg, color-mix(in oklab, var(--vt) 6%, transparent), color-mix(in oklab, var(--vt) 22%, transparent)),
+    #061015 !important;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vt) 55%, transparent), 0 0 14px -2px color-mix(in oklab, var(--vt) 70%, transparent), 0 4px 10px -4px var(--vt) !important;
+}
+[data-theme="tron"] .vault-glide.is-save { --vt: #3fd6f5; }
+[data-theme="tron"] .vault-glide::before, [data-theme="tron"] .vault-glide::after {
+  content: ""; position: absolute; width: 6px; height: 6px; pointer-events: none; border-color: var(--vt); border-style: solid; filter: drop-shadow(0 0 2px var(--vt));
+}
+[data-theme="tron"] .vault-glide::before { left: -1px; top: -1px; border-width: 1.5px 0 0 1.5px; }
+[data-theme="tron"] .vault-glide::after { right: -1px; top: -1px; border-width: 1.5px 1.5px 0 0; }
+[data-theme="tron"] .vault-bar button { font-family: var(--t-display, inherit); text-transform: uppercase; letter-spacing: .06em; font-size: .56rem; font-weight: 600; color: rgba(170, 225, 240, .55); overflow: hidden; border-radius: 3px; }
+[data-theme="tron"] .vault-bar button[aria-current="page"] { color: #f2fdff; text-shadow: 0 0 8px var(--vtint, #3fd6f5); }
+[data-theme="tron"] .vault-bar:has(.vault-glide.is-save) button[aria-current="page"] { text-shadow: 0 0 8px #3fd6f5; }
+[data-theme="tron"] .vault-bar button[aria-current="page"] svg { color: var(--vtint, #3fd6f5); filter: drop-shadow(0 0 4px currentColor); animation: tron-vlock .42s steps(2, end) 1; }
+[data-theme="tron"] .vault-bar:has(.vault-glide.is-save) button[aria-current="page"] svg { color: #3fd6f5; }
+/* scanline sweep on the tab the moment it is chosen */
+[data-theme="tron"] .vault-bar button::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(220, 250, 255, .55) 48%, #fff 50%, rgba(220, 250, 255, .55) 52%, transparent) 0 0 / 40% 100% no-repeat; }
+[data-theme="tron"] .vault-bar button[aria-current="page"]::after { animation: tron-vscan .5s cubic-bezier(.3, .7, .4, 1) 1; }
+[data-theme="tron"] .vault-bar button:active { filter: brightness(1.4); transform: none !important; }
+@keyframes tron-vscan { 0% { opacity: 1; background-position: -60% 0; } 100% { opacity: 0; background-position: 160% 0; } }
+@keyframes tron-vlock { 0% { opacity: .2; transform: scale(1.35); } 50% { opacity: 1; } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { [data-theme="tron"] .vault-bar button::after, [data-theme="tron"] .vault-bar button svg { animation: none !important; } }
+
+/* ── Gauges as light-cycle speedometers ─────────────────────────────── */
+[data-theme="tron"] .t-speedo svg { overflow: visible; }
+[data-theme="tron"] .t-speedo-bezel { fill: none; stroke: rgba(63, 214, 245, .35); stroke-width: 1; filter: drop-shadow(0 0 3px #3fd6f5); }
+[data-theme="tron"] .t-tick { stroke: rgba(150, 230, 250, .35); stroke-width: .8; }
+[data-theme="tron"] .t-tick.is-major { stroke: #bff4ff; stroke-width: 1.3; filter: drop-shadow(0 0 2px #3fd6f5); }
+[data-theme="tron"] .t-speedo-num { font-family: var(--t-display, sans-serif); font-size: 6.2px; font-weight: 600; fill: rgba(190, 240, 252, .7); letter-spacing: .04em; }
+[data-theme="tron"] .t-seg { fill: rgba(63, 214, 245, .07); stroke: rgba(63, 214, 245, .14); stroke-width: .4; }
+[data-theme="tron"] .t-seg.is-lit { stroke: none; filter: drop-shadow(0 0 2.5px currentColor); animation: t-seg-on .5s steps(2, end) both; }
+@keyframes t-seg-on { from { opacity: 0; } to { opacity: 1; } }
+[data-theme="tron"] .t-needle { transform-origin: 90px 94px; transform: rotate(var(--rot)); animation: t-needle 1.3s cubic-bezier(.2, .9, .25, 1.15) both; filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 7px currentColor); }
+[data-theme="tron"] .t-needle path { fill: #fff; }
+[data-theme="tron"] .t-needle line { stroke: currentColor; stroke-width: .8; opacity: .6; }
+@keyframes t-needle { 0% { transform: rotate(-90deg); } 55% { transform: rotate(90deg); } 100% { transform: rotate(var(--rot)); } }
+[data-theme="tron"] .t-speedo .pano-dial-read strong { font-family: var(--t-display, inherit); letter-spacing: .02em; text-shadow: 0 0 14px currentColor; }
+[data-theme="tron"] .t-speedo .pano-dial-read span { font-family: var(--t-display, inherit); text-transform: uppercase; letter-spacing: .12em; font-size: max(.56rem, calc(var(--s, 168px) * .06)); }
+@media (prefers-reduced-motion: reduce) { [data-theme="tron"] :is(.t-needle, .t-seg.is-lit) { animation: none; } }
+
+/* Credit gauge (Asesor): zones become segmented light bars, glowing needle. */
+[data-theme="tron"] .a2-gauge path { stroke-dasharray: 4.2 1.6; filter: drop-shadow(0 0 3px currentColor); }
+[data-theme="tron"] .a2-gauge :is(.z-good, .z-warn, .z-bad) { stroke: currentColor; }
+[data-theme="tron"] .a2-gauge .z-good { color: var(--good); }
+[data-theme="tron"] .a2-gauge .z-warn { color: var(--warn); }
+[data-theme="tron"] .a2-gauge .z-bad { color: var(--bad); }
+[data-theme="tron"] .a2-gauge text { font-family: var(--t-display, inherit); fill: rgba(190, 240, 252, .75); }
+[data-theme="tron"] .a2-needle { stroke: #fff !important; filter: drop-shadow(0 0 3px #3fd6f5) drop-shadow(0 0 7px #3fd6f5); }
+[data-theme="tron"] .a2-hub { fill: #061015 !important; stroke: #3fd6f5 !important; stroke-width: 1.5; filter: drop-shadow(0 0 4px #3fd6f5); }
+
+/* Month ring (Estudio): a speedometer bezel of ticks turns slowly around it. */
+[data-theme="tron"] .pano-pulse::before { content: ""; position: absolute; width: min(262px, 79vw); aspect-ratio: 1; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(150, 230, 250, .55) 0 .6deg, transparent .6deg 6deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(70.7% - 6px), #000 calc(70.7% - 5px) calc(70.7% - 1px), transparent 70.7%);
+  mask: radial-gradient(circle, transparent 0 calc(70.7% - 6px), #000 calc(70.7% - 5px) calc(70.7% - 1px), transparent 70.7%);
+  filter: drop-shadow(0 0 2px #3fd6f5); animation: tron-disc-spin 60s linear infinite; }
+@media (prefers-reduced-motion: reduce) { [data-theme="tron"] .pano-pulse::before { animation: none; } }
+/* Month ring cone in Tron: the colors burn, each head throws light. */
+[data-theme="tron"] .pano-cone { filter: saturate(1.15) drop-shadow(0 0 6px rgba(63, 214, 245, .25)); }
+[data-theme="tron"] .pano-cone { --ring-base: #061015; }

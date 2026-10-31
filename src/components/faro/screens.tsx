@@ -2,13 +2,14 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, ty
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2, X } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { PALETTE, categoryColor, colorFor, isTron, tronize } from "@/lib/faro/colors";
+import { shrinkIcon } from "@/lib/faro/icon";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import type { Category, Currency, Line, LineKind, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
@@ -2241,7 +2242,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }
 
   const vaultStore = focus === "meta" || focus === "retiro" || focus === "emergencia" ? focus : focus === "save" ? "save" : pocketKind;
-  const vaultTone = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#e7c27a" : vaultStore === "emergencia" ? "#7aa2c4" : "#d5e2ea";
+  const vaultTone0 = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#e7c27a" : vaultStore === "emergencia" ? "#7aa2c4" : "#d5e2ea";
+  const vaultTone = isTron() ? tronize(vaultTone0) : vaultTone0;
   const vaultBase = focus === "save" ? accountTotal : (openSeg?.minor ?? 0);
   const spanNode = (
     <SpanCut
@@ -2748,35 +2750,21 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             </div>
             {focusedAccount ? <p className="text-sm text-muted">{t("save.accounts.one")}</p> : null}
             <div className="save-pocket bank-add">
-              <label className="bank-photo-btn">
-                {accountIcon ? <img src={accountIcon} alt="" /> : <ImageIcon className="size-3.5" />}
+              <span className="bank-photo-wrap">
+              <label className={`bank-photo-btn${accountIcon ? " is-set" : ""}`} title={t("save.accountIcon")}>
+                {accountIcon ? <img src={accountIcon} alt="" /> : <><ImageIcon className="size-4" /><i className="bank-photo-plus" aria-hidden><Plus /></i></>}
                 <input type="file" accept="image/*" aria-label={t("save.accountIcon")} onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const img = new Image();
-                    img.onload = () => {
-                      const canvas = document.createElement("canvas");
-                      const size = 64;
-                      canvas.width = size;
-                      canvas.height = size;
-                      const ctx = canvas.getContext("2d");
-                      if (!ctx) return;
-                      const scale = Math.max(size / img.width, size / img.height);
-                      const w = img.width * scale;
-                      const h = img.height * scale;
-                      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-                      setAccountIcon(canvas.toDataURL("image/jpeg", 0.82));
-                    };
-                    img.src = String(reader.result);
-                  };
-                  reader.readAsDataURL(file);
+                  e.currentTarget.value = "";
+                  shrinkIcon(file).then(setAccountIcon).catch(() => {});
                 }} />
               </label>
+              {accountIcon ? <button type="button" className="bank-photo-clear" aria-label={lang === "es" ? "Quitar icono" : "Remove icon"} onClick={() => setAccountIcon("")}><X /></button> : null}
+              </span>
               <input className="field" value={accountName} placeholder={t("save.accountName")} aria-label={t("save.accountName")} onChange={(e) => setAccountName(e.target.value)} />
               <input className="field num" inputMode="decimal" value={accountAmt} placeholder={t("save.opening")} aria-label={t("save.opening")} onChange={(e) => setAccountAmt(e.target.value)} />
-              <button type="button" className="icon-btn" aria-label={t("save.keep")} onClick={addAccount}><Plus className="size-4" /></button>
+              <button type="button" className={`icon-btn bank-add-go${accountName.trim() && parseAmount(accountAmt) !== null ? " is-ready" : ""}`} aria-label={t("save.keep")} onClick={addAccount}><Plus className="size-4" /></button>
             </div>
             </>
             )}
@@ -2983,27 +2971,7 @@ export function Shops() {
   const [paint, setPaint] = useState<string | null>(null);
   const stores = session?.ledger.structure.catalog.filter((c) => c.kind === "store") ?? [];
   const cats = session?.ledger.structure.purchases ?? [];
-  const readIcon = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const size = 64;
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const scale = Math.max(size / img.width, size / img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        setStoreIcon(canvas.toDataURL("image/jpeg", 0.82));
-      };
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
+  const readIcon = (file: File) => { shrinkIcon(file).then(setStoreIcon).catch(() => {}); };
   useEffect(() => {
     if (!open) return;
     const onBack = (e: Event) => {
