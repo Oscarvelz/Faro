@@ -178,3 +178,10 @@
 @media (prefers-reduced-motion: reduce) {
   .pano-seg, .pano-waffle button, .pano-rule-track b, .pano-days i, .pano-mover-track b, .pano-hbar-fill, .pano-agenda > i, .pano-dial-arc, .pano-pillar-track b, .coach-bar i, .coach-steps li, .pano-pick { animation: none; }
 }
+
+/* "Te queda" = money not spent: hollow gold, never a fill that looks like a category */
+.pano-waffle button.is-free { background: transparent; box-shadow: inset 0 0 0 2px #ffd98a; }
+.pano-waffle button.is-free::after { content: ""; display: block; width: 30%; height: 30%; margin: 35%; border-radius: 50%; background: #ffd98a; opacity: .55; }
+.pano-legend button.is-free i { background: transparent; box-shadow: inset 0 0 0 2px #ffd98a; }
+.pano-legend button.is-free { border-color: color-mix(in oklab, #ffd98a 45%, var(--line)); }
+.coach-bar i.is-free { background: transparent; box-shadow: inset 0 0 0 2px #ffd98a; }

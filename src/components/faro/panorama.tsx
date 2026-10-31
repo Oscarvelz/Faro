@@ -162,8 +162,8 @@ export function WaffleCard({ coach }: { coach: Coach }) {
             key={i}
             type="button"
             tabIndex={-1}
-            className={`${!sq.id ? "is-blank" : ""}${pick && sq.id !== pick ? " is-dim" : ""}`}
-            style={{ background: sq.color || undefined, animationDelay: `${(i % 10) * 18 + Math.floor(i / 10) * 18}ms` }}
+            className={`${!sq.id ? "is-blank" : ""}${sq.id === "free" ? " is-free" : ""}${pick && sq.id !== pick ? " is-dim" : ""}`}
+            style={{ background: sq.id === "free" ? undefined : sq.color || undefined, animationDelay: `${(i % 10) * 18 + Math.floor(i / 10) * 18}ms` }}
             onClick={() => sq.id && setPick((cur) => (cur === sq.id ? null : sq.id))}
             aria-hidden
           />
@@ -171,8 +171,8 @@ export function WaffleCard({ coach }: { coach: Coach }) {
       </div>
       <div className="pano-legend">
         {coach.per100.map((c) => (
-          <button key={c.id} type="button" aria-pressed={pick === c.id} onClick={() => setPick((cur) => (cur === c.id ? null : c.id))}>
-            <i style={{ background: c.color }} />
+          <button key={c.id} type="button" className={c.id === "free" ? "is-free" : undefined} aria-pressed={pick === c.id} onClick={() => setPick((cur) => (cur === c.id ? null : c.id))}>
+            <i style={c.id === "free" ? undefined : { background: c.color }} />
             <span>{c.name}</span>
             <strong className="num">{c.count}</strong>
           </button>
@@ -491,7 +491,7 @@ export function CoachHero() {
       </div>
       {coach.income > 0 ? (
         <div className="coach-bar" aria-hidden>
-          {coach.buckets.filter((b) => b.minor > 0).map((b) => <i key={b.id} style={{ flexGrow: b.minor, background: b.color }} />)}
+          {coach.buckets.filter((b) => b.minor > 0).map((b) => <i key={b.id} className={b.id === "free" ? "is-free" : undefined} style={{ flexGrow: b.minor, background: b.id === "free" ? undefined : b.color }} />)}
         </div>
       ) : null}
       {coach.income > 0 ? <p className="coach-line">{coach.per100Line}</p> : null}

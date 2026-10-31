@@ -58,7 +58,7 @@ export type Coach = {
   glossary: { term: string; plain: string }[];
 };
 
-const PALETTE = { needs: "#7fb2a0", wants: "#e0a35c", debt: "#d0837a", save: "#7fa6cf", free: "#c9d6a3" };
+const PALETTE = { needs: "#7fb2a0", wants: "#e0a35c", debt: "#d0837a", save: "#7fa6cf", free: "#ffd98a" };
 
 function L(lang: Lang, es: string, en: string) {
   return lang === "en" ? en : es;
