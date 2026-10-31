@@ -25,3 +25,4 @@
 - 1.3.25: ToolSheet title = brand lamp + Faro (.tool-brand). Cambio gear (.cv-gear) opens CvSettings: 6 quick-amount slots each for US$ and C$, starting currency + amount, Restaurar; localStorage faro-cv-prefs. Test: browser-test/cvs.mjs.
 - 1.3.26: Tron .currency-bubble .gold-coin amber (hue-rotate 5deg, not teal); other gold coins stay teal.
 - 1.3.27: Cambio sheet brand bigger/higher (.tool-brand 2.9rem, lamp 40px); Cerrar -> small round X (.tool-close).
+- 1.3.28: Mark bold variant (wider lamp, tapered tower, gallery line, thicker base) on Cambio sheet title only.

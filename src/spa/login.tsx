@@ -92,7 +92,7 @@ export function Login({ note, recovery }: { note?: string; recovery?: boolean })
         <span aria-current={lang === "en"}>EN</span>
       </button>
       <header className="gate-brand">
-        <span className="gate-lamp"><Mark className="size-10" /></span>
+        <span className="gate-lamp"><Mark className="size-10" bold /></span>
         <h1 className="serif">Faro</h1>
         <p>{t("app.tagline")}</p>
       </header>

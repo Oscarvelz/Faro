@@ -551,7 +551,7 @@ export function Shell() {
       <main className="splash">
         <div className="splash-beam" aria-hidden />
         <div className="brand-lockup">
-          <Mark className="size-12" />
+          <Mark className="size-12" bold />
           <h1 className="text-5xl">Faro</h1>
           <p className="tagline">{t("boot")}</p>
         </div>
@@ -621,7 +621,7 @@ export function Shell() {
               <span className="brand-lamp" aria-hidden>
                 <i className="brand-beam" />
                 <i className="brand-glow" />
-                <Mark className="size-7" />
+                <Mark className="size-7" bold />
               </span>
               <span className="brand-word">Faro</span>
               <i className={`sync-dot ${sync}`} title={t(SYNC_KEY[sync])} />
