@@ -11,3 +11,4 @@
 ## 1.3.9: pocket block = wordless 6-month deposit trail (non-Tron); Oscar rejected text in the block (not premium).
 ## 1.3.10 (main b6dc361): non-Tron pocket block = full-colour .save-band with drifting swells, no text. Oscar rejected text gauges and the 6-month dash trail (looked empty).
 ## 1.3.11: tap-glint (spring+glint+halo, spa/main.tsx listener) on .lens/.save-seg non-Tron; picked = colour ring. Retiro = #a98fd6 purple everywhere. Desk Retiro details behind .save-retire-fold. Tron dock: only icon glitches (sheen slab off).
+## 1.3.12: Tron .seg tabs use t-glitch-ico on icon only; label no scan-in.

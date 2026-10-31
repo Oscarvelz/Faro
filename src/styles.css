@@ -781,13 +781,13 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .lens-corner { position: absolute; right: 7px; bottom: 7px; z-index: 2; width: 22px; height: 22px; min-width: 22px; padding: 0; border: 0; border-radius: 999px; display: grid; place-items: center; font: inherit; font-size: 1rem; line-height: 1; font-weight: 650; transition: box-shadow .22s ease; }
 .lens-corner.is-plus { background: #1b6b48; color: #f4fbf6; }
 .lens-corner.is-minus { background: #8a5a2b; color: #fff8ee; }
-.lens-corner.is-cobro { background: linear-gradient(180deg, #7eafcc, #2c5874); color: #f4fafc; }
+.lens-corner.is-cobro { background: linear-gradient(180deg, #e0918a, #8e3029); color: #fff6f5; }
 .lens-corner.is-cobro svg { width: 13px; height: 13px; }
-.lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #8aa4c4 42%, transparent); }
+.lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #c98a82 42%, transparent); }
 .lens-corner[aria-pressed="true"] { outline: none; }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-have) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #6d9a84 46%, transparent); }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-spend) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #b08958 46%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #8aa4c4 46%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #c98a82 46%, transparent); }
 .cobros { display: grid; gap: 12px; margin: 12px 0 2px; padding: 14px 12px 12px; border-radius: 26px; border: 1px solid color-mix(in oklab, #8aa4c4 55%, var(--line)); background: radial-gradient(110% 70% at 0% 0%, color-mix(in oklab, #9ec4de 30%, transparent), transparent 48%), linear-gradient(165deg, color-mix(in oklab, #3a5574 30%, var(--surface)), var(--surface) 70%); box-shadow: inset 0 1px 0 color-mix(in oklab, white 28%, transparent), 0 18px 34px color-mix(in oklab, var(--fg) 8%, transparent); }
 .cobro-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 999px; border: 1px solid color-mix(in oklab, white 18%, var(--line)); background: color-mix(in oklab, black 14%, transparent); }
 .cobro-swap { display: grid; gap: 12px; animation: study-in .22s cubic-bezier(.22, 1, .36, 1); }
@@ -1098,10 +1098,10 @@ html[data-theme="piedra"] .lens-wrap:has(.is-spend) .lens-corner,
 html[data-theme="ion"] .lens-wrap:has(.is-spend) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #c6ae86 40%, transparent); }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-have) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #9dceb6, 0 0 8px 1px color-mix(in oklab, #9dceb6 50%, transparent); }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-spend) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #e2bc78, 0 0 8px 1px color-mix(in oklab, #e2bc78 48%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #b7d0e6, 0 0 8px 1px color-mix(in oklab, #b7d0e6 48%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #e6a49b, 0 0 8px 1px color-mix(in oklab, #e6a49b 48%, transparent); }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens-wrap:has(.is-have) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #5f8f78, 0 0 7px 1px color-mix(in oklab, #5f8f78 35%, transparent); }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens-wrap:has(.is-spend) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #a67c45, 0 0 7px 1px color-mix(in oklab, #a67c45 32%, transparent); }
-html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #6d90b0, 0 0 7px 1px color-mix(in oklab, #6d90b0 32%, transparent); }
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #b0605a, 0 0 7px 1px color-mix(in oklab, #b0605a 32%, transparent); }
 html[data-theme="claro"] .save-band,
 html[data-theme="lino"] .save-band,
 html[data-theme="costa"] .save-band,
@@ -1205,22 +1205,22 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-spend .lens-value { color: #f8f1e6; }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt,
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt[aria-pressed="true"] {
-  color: #eef3f8;
-  border-color: #8aa4c4;
-  background: linear-gradient(165deg, #3a5574 0%, #1c2a3c 42%, #10161e 100%);
+  color: #f8eceb;
+  border-color: #c4847c;
+  background: linear-gradient(165deg, #74352f 0%, #3c1d1a 42%, #1e1010 100%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%);
 }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt .lens-kicker,
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt .lens-note,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt .lens-value { color: #eef3f8; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt .lens-value { color: #f8eceb; }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens.is-debt {
-  color: #1c3348;
-  border-color: #8aa4c4;
-  background: linear-gradient(165deg, #d4e4f4 0%, #eef4fa 36%, #ffffff 78%);
+  color: #4a1814;
+  border-color: #c98a82;
+  background: linear-gradient(165deg, #f6d6d1 0%, #fbecea 36%, #ffffff 78%);
 }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens.is-debt .lens-kicker,
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens.is-debt .lens-note,
-html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens.is-debt .lens-value { color: #1c3348; }
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens.is-debt .lens-value { color: #4a1814; }
 html .lenses:has([aria-pressed="true"]) .lens[aria-pressed="false"] { opacity: .62; }
 html .lenses .lens[aria-pressed="true"] {
   opacity: 1;
@@ -2103,10 +2103,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 /* ── Premium tap (all themes but Tron): spring press, glass glint, halo in the card's colour ── */
 html:not([data-theme="tron"]) .lens.is-have { --tone: #5f8f78; }
 html:not([data-theme="tron"]) .lens.is-spend { --tone: #a67c45; }
-html:not([data-theme="tron"]) .lens.is-debt { --tone: #6d90b0; }
+html:not([data-theme="tron"]) .lens.is-debt { --tone: #b0605a; }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-have { --tone: #9dceb6; }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-spend { --tone: #e2bc78; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-debt { --tone: #b7d0e6; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-debt { --tone: #e6a49b; }
 html:not([data-theme="tron"]) .save-seg { --tone: var(--seg, var(--accent)); }
 
 html:not([data-theme="tron"]) :is(.lens, .save-seg) {
