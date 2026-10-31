@@ -866,3 +866,49 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .xp-part.is-so { border-color: rgba(255, 194, 58, .35); background: rgba(255, 194, 58, .05); }
 [data-theme="tron"] .xp-part.is-so .xp-ico { background: rgba(255, 194, 58, .1); color: #ffc23a; box-shadow: inset 0 0 0 1px rgba(255, 194, 58, .5); }
 [data-theme="tron"] .xp-ok { border-radius: 6px; background: rgba(63, 214, 245, .14); color: #eafbff; box-shadow: inset 0 0 0 1px #3fd6f5, 0 0 14px rgba(63, 214, 245, .35); font-family: var(--t-display, inherit); letter-spacing: .06em; }
+
+/* Libros books in Tron: amber is the Grid's second light. Teal keeps the left/top, amber takes the totals, the edit control,
+   the row traces and the bottom-right bracket, so each book reads as a lit Tron cell. */
+[data-theme="tron"] .card:has(> .span-cut) {
+  --amb: #ffc23a;
+  background:
+    linear-gradient(#7fe9ff, #7fe9ff) left top / 16px 1.5px no-repeat,
+    linear-gradient(#7fe9ff, #7fe9ff) left top / 1.5px 16px no-repeat,
+    linear-gradient(var(--amb), var(--amb)) right bottom / 22px 2px no-repeat,
+    linear-gradient(var(--amb), var(--amb)) right bottom / 2px 22px no-repeat,
+    linear-gradient(90deg, transparent 6%, var(--t-edge) 30%, var(--t-edge) 70%, transparent 94%) center top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent 40%, rgba(255, 194, 58, .35) 80%, transparent) center bottom / 100% 1px no-repeat,
+    var(--t-steel);
+}
+[data-theme="tron"] .card:has(> .span-cut) > .row:first-child h2 { position: relative; padding-bottom: 8px; }
+[data-theme="tron"] .card:has(> .span-cut) > .row:first-child h2::after { content: ""; position: absolute; left: 0; bottom: 0; width: 34px; height: 2px; background: var(--amb); box-shadow: 0 0 8px rgba(255, 194, 58, .8); }
+[data-theme="tron"] .card:has(> .span-cut) > .row:first-child h2::before { content: ""; position: absolute; left: 40px; bottom: 0; width: 6px; height: 2px; background: var(--amb); opacity: .55; }
+
+/* Month total: an amber readout. */
+[data-theme="tron"] .card > .span-cut .span-fold-bar {
+  border-radius: 6px !important; border-color: rgba(255, 194, 58, .42) !important;
+  background: linear-gradient(90deg, rgba(63, 214, 245, .08), rgba(2, 8, 11, .6) 45%, rgba(255, 194, 58, .1)) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .4), inset 3px 0 0 #3fd6f5, 0 0 18px -6px rgba(255, 194, 58, .45) !important;
+}
+[data-theme="tron"] .card > .span-cut .span-fold-main span { color: #7fe9ff; font-family: var(--t-display, inherit); letter-spacing: .2em; }
+[data-theme="tron"] .card > .span-cut .span-fold-main strong {
+  border-radius: 4px; padding: 6px 12px; color: #ffd36a; background: rgba(255, 194, 58, .08);
+  box-shadow: inset 0 0 0 1px rgba(255, 194, 58, .55), 0 0 14px -4px rgba(255, 194, 58, .6);
+  text-shadow: 0 0 10px rgba(255, 194, 58, .55); font-variant-numeric: tabular-nums;
+}
+[data-theme="tron"] .card > .span-cut .fold-chev { border-radius: 4px; color: #ffc23a; border-color: rgba(255, 194, 58, .45); }
+
+/* Rows: a trace that runs teal into an amber node; edit is amber, delete stays red. */
+[data-theme="tron"] .card:has(> .span-cut) .line-row {
+  border-top-color: transparent !important;
+  background-image:
+    linear-gradient(90deg, rgba(63, 214, 245, .45), rgba(63, 214, 245, .12) 55%, rgba(255, 194, 58, .55)),
+    radial-gradient(circle, #ffc23a 0 2px, rgba(255, 194, 58, .35) 3px, transparent 4.5px) !important;
+  background-size: calc(100% - 114px) 1px, 9px 9px !important;
+  background-position: left top, calc(100% - 110px) -4px !important;
+  background-repeat: no-repeat !important;
+}
+[data-theme="tron"] .card:has(> .span-cut) .span-cut + .line-stack > .line-row { background-image: none !important; }
+[data-theme="tron"] .card:has(> .span-cut) .line-amt > :not(:first-child) { color: rgba(255, 194, 58, .72); }
+[data-theme="tron"] .card:has(> .span-cut) .line-act:not(.is-danger) { border-radius: 6px; color: #ffc23a; border-color: rgba(255, 194, 58, .5); background: rgba(255, 194, 58, .05); box-shadow: 0 0 10px -4px rgba(255, 194, 58, .7); }
+[data-theme="tron"] .card:has(> .span-cut) .line-act.is-danger { border-radius: 6px; }
