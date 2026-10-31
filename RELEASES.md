@@ -26,3 +26,4 @@
 - 1.3.26: Tron .currency-bubble .gold-coin amber (hue-rotate 5deg, not teal); other gold coins stay teal.
 - 1.3.27: Cambio sheet brand bigger/higher (.tool-brand 2.9rem, lamp 40px); Cerrar -> small round X (.tool-close).
 - 1.3.28: Mark bold variant (wider lamp, tapered tower, gallery line, thicker base) on Cambio sheet title only.
+- 1.3.29: Mark bold everywhere in the live app (header, splash fallback, sign-in gate, Cambio).

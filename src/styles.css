@@ -2192,3 +2192,10 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 @media (prefers-reduced-motion: reduce) {
   html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) .desk-bar::after { animation: none; }
 }
+
+/* Libro groups breathe: space between tables ~ a third of a row, so each reads as its own table. */
+.glass-stack.desk-board { gap: clamp(16px, 4.6vw, 22px); }
+@media (width >= 1100px) {
+  .app-frame:not(.is-split.is-cols) .desk-board,
+  .app-frame:not(.is-split.is-cols) .desk-col { gap: 20px; }
+}
