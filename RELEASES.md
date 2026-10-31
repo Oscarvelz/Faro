@@ -29,3 +29,4 @@
 - 1.3.29: Mark bold everywhere in the live app (header, splash fallback, sign-in gate, Cambio).
 - 1.3.30: .desk-board gap clamp(16px,4.6vw,22px) (was 8px); desktop 20px.
 - 1.3.31: Guardados Seleccionar mode: checkboxes, Todos, Borrar (n) with one .ask confirm (lists up to 4). .ask-body pre-line. Test: browser-test/slips.mjs.
+- 1.3.32: Números clave illustrated: Insight.viz (ring/parts/split/cover/days/delta/share) set in engine.ts buildInsights; KeyNumbers rows with 56px SVG picture, big value, small i (study2.tsx/.css, tron.css). Test: browser-test/kn.mjs.
