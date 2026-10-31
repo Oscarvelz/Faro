@@ -65,7 +65,12 @@ function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
   );
 }
 
-const RELOCK_MS = 60_000;
+// Fingerprint lock asks again only after a long absence (Oscar, 1.3.45: "not even Facebook asks so many times").
+// Switching apps or closing and reopening within this window opens straight in.
+const RELOCK_MS = 12 * 60 * 60 * 1000;
+const SEEN = (uid: string) => `faro.seen.${uid}`;
+const markSeen = (uid: string) => { try { localStorage.setItem(SEEN(uid), String(Date.now())); } catch { /* ignore */ } };
+const awayTooLong = (uid: string) => { try { const t = Number(localStorage.getItem(SEEN(uid)) || 0); return !t || Date.now() - t > RELOCK_MS; } catch { return true; } };
 
 // A reload made only to pick up an update skips the launch animation (no second splash).
 const QUIET_BOOT = (() => {
@@ -156,13 +161,20 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
 
   useEffect(() => {
     if (!user) { setOpen(false); return; }
-    setOpen(!lockCredential(user.id));
+    const uid = user.id;
+    const locked = !!lockCredential(uid) && awayTooLong(uid);
+    setOpen(!locked);
+    if (!locked) markSeen(uid);
     const onVis = () => {
-      if (document.visibilityState === "hidden") hiddenAt.current = Date.now();
-      else if (hiddenAt.current && Date.now() - hiddenAt.current > RELOCK_MS && lockCredential(user.id)) setOpen(false);
+      if (document.visibilityState === "hidden") { hiddenAt.current = Date.now(); markSeen(uid); }
+      else if (lockCredential(uid) && awayTooLong(uid)) setOpen(false);
+      else markSeen(uid);
     };
+    const beat = window.setInterval(() => { if (document.visibilityState === "visible") markSeen(uid); }, 60_000);
+    const onHide = () => markSeen(uid);
     document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", onHide);
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", onHide); window.clearInterval(beat); };
   }, [user]);
 
   if (!CLOUD_READY && /[?&]gate=(in|up|reset)/.test(location.search)) {
@@ -180,7 +192,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   if (!booted) return <Boot />;
   if (recovery) return <Login recovery />;
   if (!user || expired) return <Login note={expired ? w("acct.relogin") : undefined} />;
-  if (!open) return <Locked uid={user.id} onOpen={() => setOpen(true)} />;
+  if (!open) return <Locked uid={user.id} onOpen={() => { markSeen(user.id); setOpen(true); }} />;
   return (
     <FaroProvider userId={user.id}>
       <Shell />
