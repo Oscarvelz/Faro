@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
-import { LongVisual, MediumVisual, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
+import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2 } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
@@ -3454,62 +3454,18 @@ export function Advisor() {
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />
         <span>{t("study.unfold")}</span>
       </label>
-      <section className={`advice-hero is-${reading.tone}`} aria-label={reading.monthTag}>
-        <p className="advice-kicker">{t("advice.horizon.short")} · {reading.monthTag}</p>
-        <h2 className="serif advice-cause">{reading.headline}</h2>
-        <p className="advice-tone">{reading.toneLabel}</p>
-        <div className="advice-split">
-          {(["base", "unique", "transfer"] as const).map((id) => {
-            const part: FigurePart = reading.parts[id];
-            const shown = id === "base" ? part.signed : part.signed;
-            return (
-              <button key={id} type="button" className={`advice-fig is-${toneOf(id)}${spreadParts || openPart === id ? " is-open" : ""}`} aria-expanded={spreadParts || openPart === id} onClick={() => { setSpreadParts(false); setOpenPart((cur) => (cur === id ? null : id)); }}>
-                <em><span>{part.label}</span><ChevronDown className={spreadParts || openPart === id ? "advice-fig-chev is-open" : "advice-fig-chev"} /></em>
-                <strong className="num">{shown > 0 ? `+${fmt(shown)}` : shown < 0 ? `−${fmt(-shown)}` : fmt(0)}</strong>
-              </button>
-            );
-          })}
-        </div>
-        {reading.outTotal > 0 ? (
-          <div className="advice-compose" aria-hidden>
-            {(
-              [
-                ["is-base", reading.recurrentMinor],
-                ["is-unique", reading.uniqueMinor],
-                ["is-transfer", reading.transferMinor],
-              ] as const
-            ).filter(([, minor]) => minor > 0).map(([kind, minor]) => (
-              <i key={kind} className={kind} style={{ width: `${(minor / reading.outTotal) * 100}%` }} />
-            ))}
+      <section className="advice-hero-2" aria-label={reading.monthTag}>
+        <MonthTower reading={reading} income={summary.income} left={summary.opportunity} openPart={openPart} onPart={(id) => { setSpreadParts(false); setOpenPart((cur) => (cur === id ? null : id)); }} more={more} onMore={() => setMore((on) => !on)}>
+          <p className="advice-aside">{reading.headline}</p>
+          {reading.alert ? <p className="advice-aside">{reading.alert}</p> : null}
+          {reading.creditBlurb ? <p className="advice-aside">{reading.creditBlurb}</p> : null}
+          <div className="advice-facts">
+            <span><em>{t("advice.in")}</em><strong className="num">{fmt(summary.income)}</strong></span>
+            <span><em>{t("advice.out")}</em><strong className="num">{fmt(summary.expense)}</strong></span>
+            <span><em>{t("advice.real")}</em><strong className="num">{fmt(reading.realSpend)}</strong></span>
+            <span><em>{summary.opportunity < 0 ? t("advice.short") : t("advice.left")}</em><strong className="num">{fmt(Math.abs(summary.opportunity))}</strong></span>
           </div>
-        ) : null}
-        {(spreadParts ? (["base", "unique", "transfer"] as const) : openPart ? [openPart as "base" | "unique" | "transfer"] : []).map((part) => (
-          <div key={part} className="advice-break">
-            <p className="advice-tip">{reading.parts[part].rule}</p>
-          </div>
-        ))}
-        <p className="advice-action">{reading.action}</p>
-        <div className="advice-more">
-          <button type="button" className="advice-more-btn" aria-expanded={more} onClick={() => setMore((on) => !on)}>
-            <span>{t("advice.more")}</span>
-            <ChevronDown className={more ? "advice-fig-chev is-open" : "advice-fig-chev"} />
-          </button>
-          {more ? (
-            <>
-              {reading.alert ? <p className="advice-aside">{reading.alert}</p> : null}
-              {reading.creditBlurb ? <p className="advice-aside">{reading.creditBlurb}</p> : null}
-              <div className="advice-facts">
-                <span><em>{t("advice.in")}</em><strong className="num">{fmt(summary.income)}</strong></span>
-                <span><em>{t("advice.out")}</em><strong className="num">{fmt(summary.expense)}</strong></span>
-                <span><em>{t("advice.real")}</em><strong className="num">{fmt(reading.realSpend)}</strong></span>
-                <span>
-                  <em>{summary.opportunity < 0 ? t("advice.short") : t("advice.left")}</em>
-                  <strong className={`num ${summary.opportunity < 0 && reading.tone === "bad" ? "bad" : reading.tone === "good" ? "good" : ""}`}>{fmt(Math.abs(summary.opportunity))}</strong>
-                </span>
-              </div>
-            </>
-          ) : null}
-        </div>
+        </MonthTower>
       </section>
       {awakeOn && wake?.notice ? <p className="advice-because is-notice">{wake.notice}</p> : null}
       {awakeOn && wake ? wake.findings.map((item) => {
@@ -3568,7 +3524,7 @@ export function Advisor() {
           <div>
             <p className="advice-kicker">{t("advice.plan.kicker")}</p>
             <h2 className="serif">{t("advice.plan")}</h2>
-            {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{(reading.plan.match(/^(24 horas|24 hours):\s*(.+?[.:])/m)?.[2] ?? "").slice(0, 70)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
+            {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{(reading.plan.match(/^(24 horas|24 hours):\s*(.+?[.:])/m)?.[2] ?? "").replace(/[.:]$/, "").slice(0, 70)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
           </div>
           <ChevronDown className={cardOn("plan") ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
         </button>

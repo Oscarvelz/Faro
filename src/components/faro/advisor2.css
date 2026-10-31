@@ -106,3 +106,47 @@
 @media (prefers-reduced-motion: reduce) { .a2 *, .a2 *::before { animation: none !important; } }
 .advice-card > .a2 { margin: 14px 14px 16px; }
 .advice-card.is-plan > .a2 { margin: 14px 14px 6px; }
+
+/* Month tower hero */
+.a2-tower { position: relative; display: grid; gap: 14px; padding: 18px 16px 16px; border-radius: 26px; border: 1px solid var(--line); overflow: hidden;
+  background: radial-gradient(90% 70% at 18% 8%, color-mix(in oklab, #ffd98a 14%, transparent), transparent 60%), linear-gradient(180deg, #0f1a2b 0%, color-mix(in oklab, #0f1a2b 40%, var(--surface)) 70%, var(--surface)); color: #eef2f6; }
+.a2-tower.is-short { background: radial-gradient(90% 70% at 18% 8%, color-mix(in oklab, #ff8a7a 14%, transparent), transparent 60%), linear-gradient(180deg, #1d1418, var(--surface)); }
+.a2-tower-top { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 12px; align-items: center; }
+.a2-tower-art { width: 116px; height: auto; overflow: visible; }
+.a2-body { fill: rgba(255,255,255,.07); stroke: rgba(255,255,255,.35); stroke-width: 1.2; }
+.a2-roof { fill: #c9584d; }
+.a2-lantern { fill: rgba(255, 231, 168, .18); stroke: rgba(255,255,255,.5); stroke-width: 1; }
+.a2-gallery { fill: #2a3646; stroke: rgba(255,255,255,.35); stroke-width: 1; }
+.a2-rock { fill: #1e2a38; }
+.a2-stripe { stroke: rgba(255,255,255,.18); stroke-width: 6; fill: none; }
+.a2-layer { animation: a2-fill 1s cubic-bezier(.22, 1, .36, 1) both; transform-box: fill-box; transform-origin: bottom; }
+.a2-free { fill: #ffd98a; opacity: .35; animation: a2-shimmer 3.2s ease-in-out infinite; }
+.a2-lamp { filter: drop-shadow(0 0 6px #ffe7a8); animation: a2-breathe 3s ease-in-out infinite; }
+.a2-halo { animation: a2-breathe 3s ease-in-out infinite; }
+.a2-beam { transform-origin: 60px 46px; animation: a2-sweep 9s ease-in-out infinite; mix-blend-mode: screen; }
+.a2-tower-say { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.a2-tower-say em { font-style: normal; font-size: .85rem; color: rgba(238,242,246,.7); }
+.a2-tower-say strong { font-size: clamp(2rem, 9vw, 2.7rem); line-height: 1; letter-spacing: -.02em; color: #ffe7a8; }
+.a2-tower-say strong.bad { color: #ff9a8a; }
+.a2-badge { padding: 4px 10px; border-radius: 999px; background: rgba(255, 217, 138, .16); color: #ffe7a8; font-size: .78rem; font-weight: 700; }
+.a2-sub { font-size: .8rem; color: rgba(238,242,246,.6); }
+.a2-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.a2-keys button { display: grid; gap: 4px; justify-items: start; padding: 10px; border-radius: 16px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: inherit; font: inherit; text-align: left; min-width: 0; }
+.a2-keys button.is-open { border-color: var(--c); background: color-mix(in oklab, var(--c) 18%, transparent); }
+.a2-keys i { width: 22px; height: 6px; border-radius: 99px; background: var(--c); }
+.a2-keys span { font-size: .74rem; color: rgba(238,242,246,.72); }
+.a2-keys strong { font-size: .92rem; font-weight: 700; overflow-wrap: anywhere; }
+.a2-rule { margin: 0; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.05); font-size: .86rem; line-height: 1.45; color: rgba(238,242,246,.85); }
+.a2-do { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px; border-radius: 18px; background: linear-gradient(135deg, rgba(255, 217, 138, .2), rgba(255, 217, 138, .06)); border: 1px solid rgba(255, 217, 138, .35); }
+.a2-do-ico { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #ffd98a; color: #2b1e06; font-weight: 800; }
+.a2-do p { margin: 0; font-size: .93rem; line-height: 1.4; font-weight: 550; }
+.a2-more { justify-self: start; padding: 6px 2px; border: 0; background: none; color: rgba(238,242,246,.7); font: inherit; font-size: .85rem; text-decoration: underline; text-underline-offset: 3px; }
+.a2-tower .advice-aside { padding: 0; color: rgba(238,242,246,.75); }
+.a2-tower .advice-facts { padding: 0; }
+@keyframes a2-fill { from { transform: scaleY(0); } }
+@keyframes a2-shimmer { 50% { opacity: .6; } }
+@keyframes a2-breathe { 50% { opacity: .65; } }
+@keyframes a2-sweep { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) { .a2-tower *, .a2-tower *::before { animation: none !important; } }
+.a2-keys strong { white-space: nowrap; font-size: .84rem; }
+.a2-keys button { padding: 10px 8px; overflow: hidden; }

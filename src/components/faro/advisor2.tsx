@@ -1,6 +1,8 @@
 // Asesor 2: each advice card leads with a picture; words come second.
 import "./advisor2.css";
 import { ChevronRight } from "lucide-react";
+import { useId } from "react";
+import type React from "react";
 import { useFaro } from "@/components/faro/provider";
 import type { AdviceCard, SectionId } from "@/lib/faro/types";
 import type { readAdvisor } from "@/lib/faro/advisor";
@@ -245,6 +247,80 @@ export function PlanRoute({ steps, sum }: { steps: { chip: string; text: string 
           );
         })}
       </ol>
+    </div>
+  );
+}
+
+/* ── Este mes, hecho: a lighthouse that fills with where the money went ── */
+export function MonthTower({ reading, income, left, openPart, onPart, more, onMore, children }: {
+  reading: Reading; income: number; left: number; openPart: string | null; onPart: (id: "base" | "unique" | "transfer") => void;
+  more: boolean; onMore: () => void; children?: React.ReactNode;
+}) {
+  const { fmt, lang } = useFaro();
+  const uid = useId().replace(/:/g, "");
+  const base = Math.max(income, reading.outTotal, 1);
+  const layers = [
+    { id: "base" as const, name: L(lang, "De cada mes", "Every month"), minor: reading.recurrentMinor, c: "#7fb2a0" },
+    { id: "unique" as const, name: L(lang, "De una vez", "One-time"), minor: reading.uniqueMinor, c: "#d0837a" },
+    { id: "transfer" as const, name: L(lang, "Al ahorro", "To savings"), minor: reading.transferMinor, c: "#7fa6cf" },
+  ];
+  const short = left < 0;
+  // tower body spans y 64..196
+  const H = 132, Y0 = 196;
+  let acc = 0;
+  const rects = layers.filter((l) => l.minor > 0).map((l) => {
+    const h = (l.minor / base) * H;
+    const r = { ...l, y: Y0 - acc - h, h };
+    acc += h;
+    return r;
+  });
+  const pctLeft = income > 0 ? Math.round((Math.max(0, left) / income) * 100) : 0;
+  return (
+    <div className={`a2-tower${short ? " is-short" : ""}`}>
+      <div className="a2-tower-top">
+        <svg viewBox="0 0 120 210" className="a2-tower-art" role="img" aria-label={short ? L(lang, `Te faltan ${fmt(-left)}`, `Short ${fmt(-left)}`) : L(lang, `Te quedan ${fmt(left)}`, `${fmt(left)} left`)}>
+          <defs>
+            <clipPath id={`${uid}-body`}><path d="M38 64 L82 64 L92 196 L28 196 Z" /></clipPath>
+            <radialGradient id={`${uid}-glow`}><stop offset="0" stopColor={short ? "#ff8a7a" : "#ffe7a8"} /><stop offset="1" stopColor={short ? "#ff8a7a" : "#ffd98a"} stopOpacity="0" /></radialGradient>
+            <linearGradient id={`${uid}-beam`} x1="0" x2="1"><stop offset="0" stopColor="#ffe7a8" stopOpacity=".55" /><stop offset="1" stopColor="#ffe7a8" stopOpacity="0" /></linearGradient>
+          </defs>
+          {!short ? <g className="a2-beam"><path d="M60 46 L180 20 L180 72 Z" fill={`url(#${uid}-beam)`} /><path d="M60 46 L-60 20 L-60 72 Z" fill={`url(#${uid}-beam)`} /></g> : null}
+          <circle cx="60" cy="46" r="30" fill={`url(#${uid}-glow)`} className="a2-halo" />
+          <path d="M44 34 L60 22 L76 34 Z" className="a2-roof" />
+          <rect x="45" y="34" width="30" height="22" rx="3" className="a2-lantern" />
+          <circle cx="60" cy="45" r="6" className="a2-lamp" fill={short ? "#ff8a7a" : "#ffe7a8"} />
+          <rect x="40" y="56" width="40" height="8" rx="2" className="a2-gallery" />
+          <path d="M38 64 L82 64 L92 196 L28 196 Z" className="a2-body" />
+          <g clipPath={`url(#${uid}-body)`}>
+            {rects.map((r, i) => <rect key={r.id} x="20" y={r.y} width="80" height={r.h + 0.5} fill={r.c} className="a2-layer" style={{ animationDelay: `${300 + i * 220}ms` }} />)}
+            {!short && left > 0 ? <rect x="20" y={Y0 - acc - (left / base) * H} width="80" height={(left / base) * H} className="a2-free" /> : null}
+            <path d="M20 100 L100 92 M20 140 L100 132" className="a2-stripe" />
+          </g>
+          <path d="M18 196 Q60 188 102 196 L102 206 L18 206 Z" className="a2-rock" />
+        </svg>
+        <div className="a2-tower-say">
+          <em>{short ? L(lang, "Este mes te faltan", "This month you're short") : L(lang, "Este mes te quedan", "This month you keep")}</em>
+          <strong className={`num serif ${short ? "bad" : ""}`}>{fmt(Math.abs(left))}</strong>
+          {!short && income > 0 ? <span className="a2-badge">{L(lang, `${pctLeft} de cada C$100`, `${pctLeft} of every 100`)}</span> : null}
+          <span className="a2-sub">{L(lang, `Entraron ${fmt(income)}`, `${fmt(income)} came in`)}</span>
+        </div>
+      </div>
+      <div className="a2-keys">
+        {layers.map((l) => (
+          <button key={l.id} type="button" aria-expanded={openPart === l.id} className={openPart === l.id ? "is-open" : ""} onClick={() => onPart(l.id)} style={{ ["--c" as string]: l.c }}>
+            <i />
+            <span>{l.name}</span>
+            <strong className="num">{fmt(l.minor)}</strong>
+          </button>
+        ))}
+      </div>
+      {openPart ? <p className="a2-rule">{reading.parts[openPart as "base" | "unique" | "transfer"].rule}</p> : null}
+      <div className="a2-do">
+        <span className="a2-do-ico" aria-hidden>➜</span>
+        <p>{(() => { const a = reading.action.replace(/^(Qué hacer|What to do):\s*/, ""); return a.charAt(0).toUpperCase() + a.slice(1); })()}</p>
+      </div>
+      <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</button>
+      {more ? children : null}
     </div>
   );
 }
