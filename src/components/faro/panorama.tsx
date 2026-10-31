@@ -49,7 +49,7 @@ export function ScoreDial({ score, tone, label, size = 168 }: { score: number; t
   const len = Math.PI * r;
   const on = (Math.max(0, Math.min(100, score)) / 100) * len;
   return (
-    <div className="pano-dial" style={{ width: size }}>
+    <div className="pano-dial" style={{ width: size, ["--s" as string]: `${size}px` }}>
       <svg viewBox="0 0 180 104" aria-hidden>
         <defs>
           <linearGradient id="dial-grad" x1="0" x2="1">

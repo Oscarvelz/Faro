@@ -1,6 +1,6 @@
 // Asesor 2: each advice card leads with a picture; words come second.
 import "./advisor2.css";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, House, PiggyBank, ShoppingBag, Wallet } from "lucide-react";
 import { useId } from "react";
 import type React from "react";
 import { useFaro } from "@/components/faro/provider";
@@ -262,9 +262,9 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
   const hundred = fmt(10000).replace(/[.,]00$/, "");
   const pctLeft = income > 0 ? Math.round((Math.max(0, left) / income) * 100) : 0;
   const rows = [
-    { id: "base" as const, name: L(lang, "Cuentas de cada mes", "Monthly bills"), hint: L(lang, "casa, comida, cuotas", "home, food, payments"), minor: reading.recurrentMinor },
-    { id: "unique" as const, name: L(lang, "Compras de una vez", "One-time buys"), hint: L(lang, "no se repiten", "won't repeat"), minor: reading.uniqueMinor },
-    { id: "transfer" as const, name: L(lang, "Lo que guardaste", "What you saved"), hint: L(lang, "sigue siendo tuyo", "still yours"), minor: reading.transferMinor },
+    { id: "base" as const, Icon: House, name: L(lang, "Cuentas de cada mes", "Monthly bills"), hint: L(lang, "casa, comida, cuotas", "home, food, payments"), minor: reading.recurrentMinor },
+    { id: "unique" as const, Icon: ShoppingBag, name: L(lang, "Compras de una vez", "One-time buys"), hint: L(lang, "no se repiten", "won't repeat"), minor: reading.uniqueMinor },
+    { id: "transfer" as const, Icon: PiggyBank, name: L(lang, "Lo que guardaste", "What you saved"), hint: L(lang, "sigue siendo tuyo", "still yours"), minor: reading.transferMinor },
   ].filter((r) => r.minor > 0);
   const scale = Math.max(income, reading.outTotal, 1);
   const action = reading.action.replace(/^(Qué hacer|What to do):\s*/, "");
@@ -314,21 +314,21 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
       </div>
       <div className="a2-sum" role="list">
         <div className="a2-sum-row is-in" role="listitem">
-          <span className="a2-op">+</span>
-          <span className="a2-sum-name">{L(lang, "Entró", "Came in")}</span>
+          <span className="a2-op"><Wallet aria-hidden /></span>
+          <span className="a2-sum-name">{L(lang, "Entró", "Came in")}<em>{L(lang, "tu punto de partida", "where you start")}</em></span>
           <strong className="num">{fmt(income)}</strong>
         </div>
         {rows.map((r) => (
           <button key={r.id} type="button" role="listitem" className={`a2-sum-row${openPart === r.id ? " is-open" : ""}`} aria-expanded={openPart === r.id} onClick={() => onPart(r.id)}>
-            <span className="a2-op">−</span>
+            <span className="a2-op"><r.Icon aria-hidden /></span>
             <span className="a2-sum-name">{r.name}<em>{r.hint}</em></span>
-            <strong className="num">{fmt(r.minor)}</strong>
+            <strong className="num"><i className="a2-sign">−</i>{fmt(r.minor)}</strong>
             <span className="a2-sum-bar" aria-hidden><b style={{ width: `${Math.max(2, (r.minor / scale) * 100)}%` }} /></span>
             {openPart === r.id ? <p className="a2-sum-rule">{reading.parts[r.id].rule}</p> : null}
           </button>
         ))}
         <div className={`a2-sum-row is-total${short ? " is-short" : ""}`} role="listitem">
-          <span className="a2-op">=</span>
+          <span className="a2-op a2-lampdot" aria-hidden />
           <span className="a2-sum-name">{short ? L(lang, "Te faltan", "Short") : L(lang, "Te quedan", "Left")}</span>
           <strong className="num">{fmt(Math.abs(left))}</strong>
         </div>

@@ -123,8 +123,8 @@
 .pano-dial-arc { animation: pano-dial 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes pano-dial { from { stroke-dasharray: 0 999; } }
 .pano-dial-read { position: absolute; left: 0; right: 0; bottom: 0; display: grid; justify-items: center; line-height: 1; }
-.pano-dial-read strong { font-size: 2.4rem; letter-spacing: -0.04em; }
-.pano-dial-read span { margin-top: 4px; font-size: 0.74rem; font-weight: 650; color: var(--muted); text-align: center; }
+.pano-dial-read strong { font-size: calc(var(--s, 168px) * 0.2); letter-spacing: -0.03em; }
+.pano-dial-read span { margin-top: 3px; font-size: max(0.66rem, calc(var(--s, 168px) * 0.075)); font-weight: 650; color: var(--muted); text-align: center; }
 .pano-health { display: grid; gap: 10px; }
 .pano-pillars { display: grid; }
 .pano-pillar + .pano-pillar { border-top: 1px solid var(--line); }

@@ -161,3 +161,16 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 @keyframes a2-breathe { 50% { opacity: .6; } }
 @keyframes a2-sweep { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
 @media (prefers-reduced-motion: reduce) { .a2-tower *, .a2-tower *::before { animation: none !important; } }
+
+/* Receipt personality (quiet) */
+.a2-op svg { width: 13px; height: 13px; }
+.a2-op { width: 30px; height: 30px; border-radius: 10px; background: rgba(255,255,255,.07); color: rgba(238,242,246,.85); }
+.a2-sum-row { grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 12px; }
+.a2-sum-row.is-in .a2-op { background: rgba(156, 195, 168, .16); color: #b5d8c0; }
+.a2-sign { font-style: normal; opacity: .55; margin-right: 2px; }
+.a2-sum-bar b { background: linear-gradient(90deg, rgba(238,242,246,.35), rgba(238,242,246,.7)); }
+.a2-sum-row.is-total { border-top: 0; position: relative; }
+.a2-sum-row.is-total::before { content: ""; position: absolute; left: 14px; right: 14px; top: 0; border-top: 1.5px dashed rgba(255, 217, 138, .45); }
+.a2-sum-row.is-total .a2-op.a2-lampdot { background: radial-gradient(circle, #fff1c4 0 4px, rgba(255, 217, 138, .35) 5px, rgba(255, 217, 138, .12) 12px, transparent 15px); box-shadow: none; animation: a2-breathe 3.2s ease-in-out infinite; }
+.a2-sum-row.is-total.is-short .a2-op.a2-lampdot { background: radial-gradient(circle, #ffc2b8 0 4px, rgba(255, 138, 122, .35) 5px, transparent 15px); }
+.a2-sum-row strong { font-variant-numeric: tabular-nums; }
