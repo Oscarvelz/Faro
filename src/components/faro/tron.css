@@ -237,18 +237,35 @@ html[data-theme="tron"] .lens-corner.is-cobro svg { color: #fff !important; stro
 /* The lighthouse, Grid edition: a tower of light, Ares-red bands, orange lamp, teal beam. */
 [data-theme="tron"] .a2-tower-say strong { color: #f2fdff; text-shadow: 0 0 12px rgba(63, 214, 245, .7), 0 0 30px rgba(63, 214, 245, .3); }
 /* The tower in the poster: dark gunmetal, edged in teal light, Ares-red bands, a teal beam. */
-[data-theme="tron"] .a2-tower-art { filter: drop-shadow(0 0 1px #7fe9ff) drop-shadow(0 0 7px rgba(63, 214, 245, .55)); }
+[data-theme="tron"] .a2-tower-art { filter: none; }
+/* The teal glow sits on the tower only, so it never tints the amber beam. */
+[data-theme="tron"] .a2-tower-art > :is(path, rect, g:not(.a2-beam)) { filter: drop-shadow(0 0 1px #7fe9ff) drop-shadow(0 0 5px rgba(63, 214, 245, .5)); }
+[data-theme="tron"] .a2-tower-art > :is(.a2-lantern, .a2-mullion) { filter: drop-shadow(0 0 4px rgba(255, 194, 58, .7)); }
 [data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(1) { stop-color: #0a161b; }
 [data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(2) { stop-color: #23414d; }
 [data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(3) { stop-color: #142a33; }
 [data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(4) { stop-color: #050c10; }
 [data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(2) stop:nth-child(odd) { stop-color: #b0100c; }
 [data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(2) stop:nth-child(even) { stop-color: #ff3a2e; }
-[data-theme="tron"] .a2-tower-art defs radialGradient stop { stop-color: #8fefff; }
-[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(3) stop { stop-color: #7fe9ff; }
-[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(4) stop { stop-color: #e9fdff; }
-[data-theme="tron"] .a2-tower-art .a2-lamp { fill: #e9fdff; }
-[data-theme="tron"] .a2-tower-art :is(.a2-lantern, .a2-gallery, .a2-rail, .a2-mullion, .a2-rock, .a2-door, .a2-window) { stroke: #3fd6f5; }
+/* Tron lighthouse light: amber, like the currency coin (red when the month is short). */
+[data-theme="tron"] .a2-tower-art defs radialGradient stop { stop-color: #ffc23a; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(3) stop { stop-color: #ff9410; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(3) stop:first-child { stop-color: #ffd36a; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(4) stop { stop-color: #ffd98a; }
+[data-theme="tron"] .a2-tower-art .a2-lamp { fill: #fff1c8; filter: drop-shadow(0 0 5px #ffc23a) drop-shadow(0 0 12px rgba(255, 170, 40, .8)); animation: a2-amberflash 9s linear infinite; }
+[data-theme="tron"] .a2-tower-art .a2-lantern { fill: rgba(255, 194, 58, .22); stroke: #ffc23a; }
+[data-theme="tron"] .a2-tower-art .a2-mullion { stroke: rgba(255, 194, 58, .7); }
+[data-theme="tron"] .a2-tower-art .a2-beam { mix-blend-mode: plus-lighter; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(3) stop:nth-child(1) { stop-opacity: 1; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(3) stop:nth-child(2) { stop-opacity: .72; stop-color: #ffb22e; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(3) stop:nth-child(3) { stop-opacity: .38; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(3) stop:nth-child(4) { stop-opacity: .14; }
+[data-theme="tron"] .a2-tower-art defs linearGradient:nth-of-type(4) stop:first-child { stop-color: #ffe7a8; stop-opacity: .7; }
+@keyframes a2-amberflash { 0%, 15%, 35%, 100% { transform: scale(1); } 25% { transform: scale(1.5); } }
+[data-theme="tron"] .a2-tower.is-short .a2-tower-art defs radialGradient stop { stop-color: #ff5a4a; }
+[data-theme="tron"] .a2-tower.is-short .a2-tower-art .a2-lamp { fill: #ffd0c8; filter: drop-shadow(0 0 6px #ff3a2e); }
+[data-theme="tron"] .a2-tower.is-short .a2-tower-art .a2-lantern { fill: rgba(255, 58, 46, .2); stroke: #ff5a4a; }
+[data-theme="tron"] .a2-tower-art :is(.a2-gallery, .a2-rail, .a2-rock, .a2-door, .a2-window) { stroke: #3fd6f5; }
 [data-theme="tron"] .a2-badge { color: #a9ecfb; background: rgba(63, 214, 245, .1); box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .5); }
 [data-theme="tron"] :is(.a2-note, .a2-tiles span) { background: rgba(0, 0, 0, .35); border-color: rgba(120, 225, 250, .18); }
 [data-theme="tron"] .a2-more { border-color: rgba(120, 225, 250, .4); color: #bdeefa; }
