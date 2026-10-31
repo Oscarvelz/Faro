@@ -67,17 +67,23 @@ function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
 
 const RELOCK_MS = 60_000;
 
+// A reload made only to pick up an update skips the launch animation (no second splash).
+const QUIET_BOOT = (() => {
+  try { const q = sessionStorage.getItem("faro-quiet-boot") === "1"; sessionStorage.removeItem("faro-quiet-boot"); return q; } catch { return false; }
+})();
+
 function App() {
-  const [splash, setSplash] = useState(true);
+  const [splash, setSplash] = useState(!QUIET_BOOT);
   const [minDone, setMinDone] = useState(false);
   const [capDone, setCapDone] = useState(false);
   useEffect(() => {
     const a = window.setTimeout(() => setMinDone(true), SPLASH_MIN_MS);
-    const b = window.setTimeout(() => setCapDone(true), 5000);
+    const b = window.setTimeout(() => setCapDone(true), 9000);
     return () => { window.clearTimeout(a); window.clearTimeout(b); };
   }, []);
-  const [ready, setReady] = useState(!CLOUD_READY);
+  const [ready, setReady] = useState(false);
   const gone = useCallback(() => { document.documentElement.classList.remove("booting"); setSplash(false); }, []);
+  useEffect(() => { if (QUIET_BOOT) document.documentElement.classList.remove("booting"); }, []);
   const view = <Gate onReady={setReady} />;
   return (
     <>
@@ -115,10 +121,23 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
         }
       } catch { /* offline: keep the remembered user */ }
       setBooted(true);
-      onReady(true);
     })();
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Hold the launch splash until the screen behind it is really drawn, so the books'
+  // own loading view never shows as a second splash.
+  const [shellReady, setShellReady] = useState(false);
+  useEffect(() => {
+    const on = () => setShellReady(true);
+    window.addEventListener("faro:shell-ready", on);
+    return () => window.removeEventListener("faro:shell-ready", on);
+  }, []);
+  const willShell = !CLOUD_READY || (booted && !recovery && !!user && !expired && open);
+  useEffect(() => {
+    if (!CLOUD_READY) { if (shellReady) onReady(true); return; }
+    if (booted) onReady(!willShell || shellReady);
+  }, [booted, willShell, shellReady]);
 
   useEffect(() => {
     if (!user) { setOpen(false); return; }
@@ -168,7 +187,10 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
       reg.addEventListener("updatefound", () => {
         const nw = reg.installing;
         nw?.addEventListener("statechange", () => {
-          if (nw.state === "activated" && navigator.serviceWorker.controller) location.reload();
+          if (nw.state === "activated" && navigator.serviceWorker.controller) {
+            try { sessionStorage.setItem("faro-quiet-boot", "1"); } catch { /* ignore */ }
+            location.reload();
+          }
         });
       });
       setInterval(() => void reg.update(), 60 * 60 * 1000);

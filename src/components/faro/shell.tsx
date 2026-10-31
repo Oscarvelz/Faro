@@ -508,6 +508,10 @@ export function Shell() {
 
   const cal = useMemo(() => buildCal(session, calYear, calMonth), [session, calYear, calMonth]);
 
+  useEffect(() => {
+    if (ready && session) window.dispatchEvent(new Event("faro:shell-ready"));
+  }, [ready, !!session]);
+
   if (!ready || !session) {
     return (
       <main className="splash">

@@ -122,7 +122,9 @@
 .a2-rock { fill: #1b2633; }
 .a2-lamp { filter: drop-shadow(0 0 7px #fff1c4); animation: a2-breathe 3.2s ease-in-out infinite; }
 .a2-halo { opacity: var(--glow, .8); animation: a2-breathe 3.2s ease-in-out infinite; }
-.a2-beam { opacity: var(--glow, .8); transform-origin: 60px 46px; animation: a2-sweep 10s ease-in-out infinite; mix-blend-mode: screen; }
+.a2-beam { opacity: var(--glow, .8); transform-origin: 60px 46px; animation: a2-sweep 12s ease-in-out infinite; mix-blend-mode: screen; pointer-events: none; }
+.a2-tower-top { position: relative; }
+.a2-tower-say { position: relative; z-index: 1; }
 .a2-tower-say { display: grid; gap: 6px; justify-items: start; min-width: 0; }
 .a2-tower-say em { font-style: normal; font-size: .9rem; color: rgba(238,242,246,.72); }
 .a2-tower-say strong { font-size: clamp(2.1rem, 10vw, 2.9rem); line-height: 1; letter-spacing: -.02em; color: #ffe7a8; }
@@ -159,7 +161,7 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .a2-tower .advice-aside { padding: 0; color: rgba(238,242,246,.75); }
 .a2-tower .advice-facts { padding: 0; }
 @keyframes a2-breathe { 50% { opacity: .6; } }
-@keyframes a2-sweep { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+@keyframes a2-sweep { 0%, 100% { transform: rotate(-3deg); opacity: calc(var(--glow, .8) * .85); } 50% { transform: rotate(3deg); opacity: var(--glow, .8); } }
 @media (prefers-reduced-motion: reduce) { .a2-tower *, .a2-tower *::before { animation: none !important; } }
 
 /* Receipt personality (quiet) */

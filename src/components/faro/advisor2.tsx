@@ -284,10 +284,12 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
               <stop offset="0" stopColor="#8f3a33" /><stop offset=".35" stopColor="#c9584d" /><stop offset=".7" stopColor="#b44a40" /><stop offset="1" stopColor="#6e2b25" />
             </linearGradient>
             <radialGradient id={`${uid}-glow`}><stop offset="0" stopColor={short ? "#ff9a8a" : "#fff1c4"} /><stop offset="1" stopColor={short ? "#ff9a8a" : "#ffd98a"} stopOpacity="0" /></radialGradient>
-            <linearGradient id={`${uid}-beam`} x1="0" x2="1"><stop offset="0" stopColor="#fff1c4" stopOpacity=".5" /><stop offset="1" stopColor="#fff1c4" stopOpacity="0" /></linearGradient>
+            <linearGradient id={`${uid}-beam`} gradientUnits="userSpaceOnUse" x1="60" y1="0" x2="400" y2="0"><stop offset="0" stopColor="#fff4d0" stopOpacity=".62" /><stop offset=".12" stopColor="#ffe7a8" stopOpacity=".34" /><stop offset=".35" stopColor="#ffd98a" stopOpacity=".14" /><stop offset=".65" stopColor="#ffd98a" stopOpacity=".05" /><stop offset="1" stopColor="#ffd98a" stopOpacity="0" /></linearGradient>
+            <linearGradient id={`${uid}-core`} gradientUnits="userSpaceOnUse" x1="60" y1="0" x2="250" y2="0"><stop offset="0" stopColor="#fffaf0" stopOpacity=".55" /><stop offset="1" stopColor="#fffaf0" stopOpacity="0" /></linearGradient>
+            <filter id={`${uid}-soft`} x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.4" /></filter>
             <clipPath id={`${uid}-body`}><path d="M40 66 L80 66 L90 192 L30 192 Z" /></clipPath>
           </defs>
-          {!short ? <g className="a2-beam"><path d="M60 46 L190 18 L190 74 Z" fill={`url(#${uid}-beam)`} /><path d="M60 46 L-70 18 L-70 74 Z" fill={`url(#${uid}-beam)`} /></g> : null}
+          {!short ? <g className="a2-beam" filter={`url(#${uid}-soft)`}><path d="M62 42 L400 -24 L400 124 L62 50 Z" fill={`url(#${uid}-beam)`} /><path d="M62 44.5 L250 36 L250 56 L62 47.5 Z" fill={`url(#${uid}-core)`} /></g> : null}
           <circle cx="60" cy="46" r="32" fill={`url(#${uid}-glow)`} className="a2-halo" />
           <path d="M43 34 Q60 16 77 34 Z" fill={`url(#${uid}-band)`} />
           <circle cx="60" cy="19" r="2.2" fill="#c9584d" />
