@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { CoachHero, PANORAMA_IDS, PanoramaCards, panoramaLabels } from "@/components/faro/panorama";
+import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
+import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2 } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
@@ -3171,6 +3172,7 @@ export function Subs() {
 }
 
 export function Study() {
+  const coach = useCoach();
   const { t, insights, slices, session, ui, setUi, lang, summary, fmt, names, lines, viewLine } = useFaro();
   const [span, setSpan] = useState<"year" | "month" | "week">("year");
   const [picked, setPicked] = useState<string | null>(null);
@@ -3238,13 +3240,12 @@ export function Study() {
   const owedFile = owedRows.filter((row) => row.archived).reduce((sum, row) => sum + convertMinor(row.unpaidMinor || cobroDue(row).left, row.currency, display, rate), 0);
   const owedPeople = [...owedActive].sort((a, b) => b.left - a.left).slice(0, 5);
   const owedPeak = Math.max(...owedPeople.map((row) => row.left), 1);
-  const panoNames = panoramaLabels(lang);
-  const visible = [...PANORAMA_IDS, "numeros", "span", "net", "bars", "where", "savebox", "owed"];
-  if (summary) visible.push("mix");
-  if (compare.length) visible.push("compare");
-  if (board) visible.push("flow", "rate", "runway");
+  const es = lang !== "en";
+  const owedAny = owedRows.length > 0;
+  const visible = ["pulse", "health", "pace", "agenda", "waffle", "where", "rule", "movers", "time", "cushion", "numeros"];
   if (sankey.links.length) visible.push("sankey");
   if (board?.envelopes.length) visible.push("plan");
+  if (owedAny) visible.push("owed");
   const detailRows = storePick
     ? pickedRows.filter((line) => line.storeId === storePick)
     : pickedRows.filter((line) => line.kind !== "purchase" || !line.storeId);
@@ -3256,106 +3257,52 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={[...PANORAMA_IDS]}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "rule", "movers", "time", "cushion", "plan", "owed"]}
       items={[
-        ...PANORAMA_IDS.map((id) => ({ id, label: panoNames[id], section: "panorama" })),
-        { id: "numeros", label: t("study.numbers"), section: "general" },
-        { id: "span", label: t("study.span"), section: "general" },
-        { id: "net", label: t("study.net"), section: "general" },
-        { id: "bars", label: t(`study.bars.${span}`), section: "general" },
-        { id: "compare", label: t(`study.compare.${span}`), section: "general" },
-        { id: "plan", label: t("study.plan"), section: "general" },
-        { id: "mix", label: t("study.mix"), section: "income" },
-        { id: "flow", label: t("study.flow"), section: "income" },
-        { id: "sankey", label: t("study.sankey"), section: "spend" },
+        { id: "pulse", label: es ? "Tu mes de un vistazo" : "Your month at a glance", section: "now" },
+        { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
+        { id: "pace", label: es ? "Hasta dónde te alcanza" : "How far your money goes", section: "now" },
+        { id: "agenda", label: es ? "Próximos pagos" : "Payments ahead", section: "now" },
+        { id: "waffle", label: es ? "Tus C$100" : "Your 100", section: "spend" },
         { id: "where", label: t("study.where"), section: "spend" },
-        { id: "rate", label: t("study.rate"), section: "save" },
-        { id: "runway", label: t("study.runway"), section: "save" },
-        { id: "savebox", label: t("study.save.title"), section: "save" },
+        { id: "sankey", label: t("study.sankey"), section: "spend" },
+        { id: "rule", label: es ? "La regla 50 · 30 · 20" : "The 50 · 30 · 20 rule", section: "general" },
+        { id: "plan", label: es ? "¿Vas dentro del tope?" : "Within your limits?", section: "general" },
+        { id: "movers", label: es ? "Qué se movió" : "What moved", section: "general" },
+        { id: "time", label: es ? "Entra, sale y queda" : "In, out and left", section: "time" },
+        { id: "cushion", label: es ? "Ahorro y colchón" : "Savings and cushion", section: "save" },
         { id: "owed", label: t("study.owed.title"), section: "owed" },
+        { id: "numeros", label: es ? "Números clave" : "Key numbers", section: "keys" },
       ]}
       sections={[
-        { id: "panorama", label: lang === "en" ? "At a glance" : "De un vistazo" },
-        { id: "general", label: t("study.sec.general") },
-        { id: "income", label: t("study.sec.income") },
-        { id: "spend", label: t("study.sec.spend") },
-        { id: "save", label: t("study.sec.save") },
+        { id: "now", label: es ? "Este mes" : "This month" },
+        { id: "spend", label: es ? "A dónde va tu dinero" : "Where your money goes" },
+        { id: "general", label: es ? "¿Vas bien?" : "Are you on track?" },
+        { id: "time", label: es ? "Con el tiempo" : "Over time" },
+        { id: "save", label: es ? "Tu colchón" : "Your cushion" },
         { id: "owed", label: t("study.sec.owed") },
+        { id: "keys", label: es ? "Para los curiosos" : "For the curious" },
       ]}
       visible={visible}
     >
     <StudyStack>
       <StatBreaks />
-      <PanoramaCards />
-      {insights.length === 0 ? <p>{t("stats.need")}</p> : null}
-      <StatFold id="numeros">
-        <section className="card">
-          <h2 className="serif text-2xl">{t("study.numbers")}</h2>
-          <div className="stat-board">
-            {insights.map((item) => (
-              <article key={item.id} className="stat-tile">
-                <div className="stat-head">
-                  <h2>{item.title}</h2>
-                  <Explain title={item.title} meaning={item.meaning} formula={item.formula} implication={item.implication} label={item.title} />
-                </div>
-                <p className={`num serif ${item.tone === "neutral" ? "" : item.tone}`}>{item.value}</p>
-                <p className="stat-detail">{item.detail}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      </StatFold>
-      {summary ? (
-        <StatFold id="mix">
-        <section className="card">
-          <h2 className="serif text-2xl">{t("study.mix")}</h2>
-          <div className="mix" aria-hidden>
-            {parts.map((p) => <i key={p.name} className={p.tone} style={{ width: `${(p.minor / whole) * 100}%` }} />)}
-            {summary.opportunity > 0 ? <i className="tone-left" style={{ width: `${(summary.opportunity / whole) * 100}%` }} /> : null}
-          </div>
-          <div className="share-list">
-            {parts.map((p) => (
-              <p key={p.name}><i className={`sw ${p.tone}`} /> {p.name} <strong className="num">{fmt(p.minor)}</strong></p>
-            ))}
-            <p><i className="sw tone-left" /> {t("desk.opportunity")} <strong className="num">{fmt(summary.opportunity)}</strong></p>
-          </div>
-        </section>
-        </StatFold>
+      {coach ? (
+        <>
+          <StatFold id="pulse"><PulseCard coach={coach} /></StatFold>
+          <StatFold id="health"><HealthCard coach={coach} /></StatFold>
+          <StatFold id="pace"><PaceCard coach={coach} /></StatFold>
+          <StatFold id="agenda"><AgendaCard coach={coach} /></StatFold>
+          <StatFold id="waffle"><WaffleCard coach={coach} /></StatFold>
+          <StatFold id="rule"><RuleCard coach={coach} /></StatFold>
+          <StatFold id="movers"><MoversCard coach={coach} /></StatFold>
+          <StatFold id="cushion"><CushionCard coach={coach} pockets={saveBars} goal={saveGoal} /></StatFold>
+        </>
       ) : null}
-      <StatFold id="span">
-      <section className="card span-study">
-      <h2 className="serif text-2xl">{t("study.span")}</h2>
-      <div className="span-fold-bar pot-help">
-        <div className="span-filter" role="tablist" aria-label={t("study.span")}>
-          {(["week", "month", "year"] as const).map((id) => (
-            <button key={id} type="button" aria-pressed={span === id} onClick={() => setSpan(id)}>{t(`study.span.${id}`)}</button>
-          ))}
-        </div>
-        <Explain title={t("study.span")} meaning={t("study.span.help.meaning")} formula={t("study.span.help.formula")} implication={t("study.span.help.implication")} label={t("study.span.help")} />
-      </div>
-      <div className="span-facts">
-        <div>
-          <em>{t("study.in")}</em>
-          <strong className="num">{fmt(Math.round(points.reduce((sum, point) => sum + point.income, 0) * 100))}</strong>
-        </div>
-        <div>
-          <em>{t("study.out")}</em>
-          <strong className="num">{fmt(Math.round(points.reduce((sum, point) => sum + point.expense, 0) * 100))}</strong>
-        </div>
-      </div>
-      <div className="cut-lanes">
-        {points.map((point) => {
-          const max = Math.max(...points.map((item) => item.expense), 0.01);
-          return (
-            <span key={point.key} className="cut-lane">
-              <i style={{ height: `${Math.max(point.expense > 0 ? 14 : 4, (point.expense / max) * 100)}%` }} />
-              <b>{point.label.replace(".", "")}</b>
-            </span>
-          );
-        })}
-      </div>
-      </section>
-      </StatFold>
+      {insights.length === 0 ? <p>{t("stats.need")}</p> : null}
+      <StatFold id="time"><TimeCard points={points} span={span} onSpan={setSpan} activeKey={activeKey} /></StatFold>
+      {board?.envelopes.length ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
+      <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold>
       <StudyCharts
         points={points}
         compare={compare}
@@ -3410,32 +3357,10 @@ export function Study() {
           runway: t("study.runway"),
           runwayNote: t("study.runway.note"),
           top: t("study.top"),
+          whereHint: es ? "Toca un rubro para ver sus tiendas y cada gasto; toca un gasto para abrirlo." : "Tap a category to see its stores and each expense; tap an expense to open it.",
         }}
       />
-      <StatFold id="savebox">
-        <section className="card">
-          <div className="stat-head">
-            <h2 className="serif text-2xl">{t("study.save.title")}</h2>
-            <Explain title={t("study.save.title")} meaning={t("study.save.help.meaning")} formula={t("study.save.help.formula")} implication={t("study.save.help.implication")} label={t("study.save.help")} />
-          </div>
-          <p className="num serif text-3xl">{fmt(saveHave)}</p>
-          <p className="text-sm text-muted">{t("study.save.have")}</p>
-          <div className="save-meter">
-            <div className="env-name">
-              <span>{t("study.save.month")}</span>
-              <strong className="num">{fmt(saveFlow)} / {fmt(saveGoal)}</strong>
-            </div>
-            <div className="bar-track"><div className="bar-fill tone-left" style={{ width: `${saveGoal > 0 ? saveMonth : 0}%` }} /></div>
-          </div>
-          {saveBars.some((row) => row.minor > 0) ? saveBars.map((row) => (
-            <div key={row.id} className="share">
-              <span className="share-name"><i className="sw" style={{ background: row.color }} />{row.name}</span>
-              <span className="num">{fmt(row.minor)}</span>
-              <div className="bar-track"><div className="bar-fill" style={{ width: `${Math.max(row.minor > 0 ? 6 : 0, (row.minor / savePeak) * 100)}%`, background: row.color }} /></div>
-            </div>
-          )) : <p className="text-sm text-muted">{t("study.save.empty")}</p>}
-        </section>
-      </StatFold>
+      {owedAny ? (
       <StatFold id="owed">
         <section className="card">
           <div className="stat-head">
@@ -3462,6 +3387,7 @@ export function Study() {
           {owedFile > 0 ? <p className="text-sm text-muted">{t("study.owed.file")}: <strong className="num">{fmt(owedFile)}</strong></p> : null}
         </section>
       </StatFold>
+      ) : null}
     </StudyStack>
     </StatFoldProvider>
   );

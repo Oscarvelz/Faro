@@ -22,7 +22,7 @@ export function useCoach(): Coach | null {
 const toneVar: Record<Tone, string> = { good: "var(--good)", warn: "var(--warn)", bad: "var(--bad)", neutral: "var(--muted)" };
 
 /** A list of real lines; tapping one opens it in its book. */
-function LineList({ coach, ids, empty }: { coach: Coach; ids: string[]; empty?: string }) {
+export function LineList({ coach, ids, empty }: { coach: Coach; ids: string[]; empty?: string }) {
   const { fmt, setUi, lang } = useFaro();
   const rows = coach.lines.filter((l) => ids.includes(l.id)).sort((a, b) => b.minor - a.minor);
   if (!rows.length) return empty ? <p className="pano-empty">{empty}</p> : null;
@@ -73,7 +73,7 @@ export function ScoreDial({ score, tone, label, size = 168 }: { score: number; t
   );
 }
 
-function Head({ kicker, title, children }: { kicker?: string; title: string; children?: ReactNode }) {
+export function Head({ kicker, title, children }: { kicker?: string; title: string; children?: ReactNode }) {
   return (
     <div className="pano-head">
       {kicker ? <p className="pano-kicker">{kicker}</p> : null}
@@ -84,7 +84,7 @@ function Head({ kicker, title, children }: { kicker?: string; title: string; chi
 }
 
 /* 1 · Where the month's money went: ring of five buckets. */
-function PulseCard({ coach }: { coach: Coach }) {
+export function PulseCard({ coach }: { coach: Coach }) {
   const { fmt, lang } = useFaro();
   const [pick, setPick] = useState<string | null>(null);
   const parts = coach.buckets.filter((b) => b.minor > 0);
@@ -144,7 +144,7 @@ function PulseCard({ coach }: { coach: Coach }) {
 }
 
 /* 2 · Of every 100: a 10×10 waffle. */
-function WaffleCard({ coach }: { coach: Coach }) {
+export function WaffleCard({ coach }: { coach: Coach }) {
   const { fmt, lang, session } = useFaro();
   const [pick, setPick] = useState<string | null>(null);
   const unit = session?.ledger.settings.display === "USD" ? "$100" : "C$100";
@@ -193,7 +193,7 @@ function WaffleCard({ coach }: { coach: Coach }) {
 }
 
 /* 3 · The 50/30/20 guide. */
-function RuleCard({ coach }: { coach: Coach }) {
+export function RuleCard({ coach }: { coach: Coach }) {
   const { lang, fmt } = useFaro();
   const needs = coach.buckets.find((b) => b.id === "needs")!;
   const wants = coach.buckets.find((b) => b.id === "wants")!;
@@ -245,7 +245,7 @@ function RuleCard({ coach }: { coach: Coach }) {
 }
 
 /* 4 · How long the money lasts at this pace. */
-function PaceCard({ coach }: { coach: Coach }) {
+export function PaceCard({ coach }: { coach: Coach }) {
   const { fmt, lang, ui } = useFaro();
   const now = new Date();
   const sameMonth = now.getFullYear() === ui.year && now.getMonth() + 1 === ui.month;
@@ -279,7 +279,7 @@ function PaceCard({ coach }: { coach: Coach }) {
 }
 
 /* 5 · What changed against last month. */
-function MoversCard({ coach }: { coach: Coach }) {
+export function MoversCard({ coach }: { coach: Coach }) {
   const { fmt, lang } = useFaro();
   const peak = Math.max(1, ...coach.movers.map((m) => Math.abs(m.delta)));
   return (
@@ -310,7 +310,7 @@ function MoversCard({ coach }: { coach: Coach }) {
 }
 
 /* 6 · Twelve months of closing balance. */
-function HistoryCard({ coach }: { coach: Coach }) {
+export function HistoryCard({ coach }: { coach: Coach }) {
   const { fmt, lang, setUi } = useFaro();
   const [pick, setPick] = useState<string | null>(null);
   const peak = Math.max(1, ...coach.months.map((m) => Math.abs(m.net)));
@@ -361,7 +361,7 @@ function HistoryCard({ coach }: { coach: Coach }) {
 }
 
 /* 7 · Dated payments in the next five weeks. */
-function AgendaCard({ coach }: { coach: Coach }) {
+export function AgendaCard({ coach }: { coach: Coach }) {
   const { fmt, lang } = useFaro();
   const peak = Math.max(1, ...coach.dues.map((d) => d.minor));
   const day = (iso: string) => new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`));
@@ -425,7 +425,7 @@ function PillarRow({ pillar, open, onToggle }: { pillar: Pillar; open: boolean; 
 }
 
 /* 8 · Financial health: dial plus five pillars. */
-function HealthCard({ coach }: { coach: Coach }) {
+export function HealthCard({ coach }: { coach: Coach }) {
   const { lang } = useFaro();
   const [open, setOpen] = useState<string | null>(null);
   return (

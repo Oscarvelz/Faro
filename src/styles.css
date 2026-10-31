@@ -2032,3 +2032,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .vault-restore { min-height: 40px; padding: 0 12px; }
 .vault-more { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .vault-more .btn { flex: 1 1 140px; }
+.where-hint { margin-top: 4px; }
+.where-top { display: grid; gap: 2px; margin-top: 14px; }
+.where-top h3 { margin: 0 0 6px; font-family: var(--font-serif); font-size: 1.1rem; font-weight: 560; }
+.where-top p { display: flex; justify-content: space-between; gap: 10px; margin: 0; padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.92rem; }
+.where-top p span { min-width: 0; overflow-wrap: anywhere; }
+.stat-break.is-now, .stat-break.is-time, .stat-break.is-keys { }

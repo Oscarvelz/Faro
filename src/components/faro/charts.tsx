@@ -50,7 +50,7 @@ export function StatFoldProvider({
   const [order, setOrder] = useState<string[]>(() => {
     const fallback = ids.split("\0").filter(Boolean);
     try {
-      const raw = JSON.parse(localStorage.getItem("faro-study-order") || "[]") as string[];
+      const raw = JSON.parse(localStorage.getItem("faro-study-order-2") || "[]") as string[];
       if (!Array.isArray(raw)) return fallback;
       const known = new Set(fallback);
       const next = raw.filter((id) => known.has(id));
@@ -138,7 +138,7 @@ export function StatFoldProvider({
       if (sectionAt(next[index] ?? "") !== sectionAt(next[to] ?? "")) return placed;
       const [row] = next.splice(index, 1);
       next.splice(to, 0, row!);
-      try { localStorage.setItem("faro-study-order", JSON.stringify(next)); } catch { /* ignore */ }
+      try { localStorage.setItem("faro-study-order-2", JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
   };
@@ -909,6 +909,7 @@ export function StudyCharts({
     runway: string;
     runwayNote: string;
     top: string;
+    whereHint: string;
   };
   picked: string | null;
   onPick: (id: string) => void;
@@ -932,42 +933,11 @@ export function StudyCharts({
   const rateWidth = rate === null ? 0 : Math.max(0, Math.min(100, rate));
   return (
     <div className="study-charts">
-      <StatFold id="net">
-        <CashFlow points={points} activeKey={activeKey} incomeLabel={incomeLabel} expenseLabel={expenseLabel} netLabel={copy.net} netValue={copy.netValue} inValue={copy.inValue} outValue={copy.outValue} trendLabel={copy.trend} mark={mark} onMark={(key) => setMark((cur) => (cur === key ? null : key))} />
-        {focus && fold?.isOpen("net") ? (
-          <p className="stat-readout">
-            <span>{focus.label.replace(".", "")}</span>
-            <span className="good num">{money(focus.income)}</span>
-            <span className="warn num">{money(focus.expense)}</span>
-          </p>
-        ) : null}
-      </StatFold>
-      <StatFold id="bars">
-      <section className="card study-year">
-        <h2 className="serif text-2xl">{barsTitle}</h2>
-        <div className="study-legend">
-          <span><i className="sw in" /> {incomeLabel}</span>
-          <span><i className="sw out" /> {expenseLabel}</span>
-        </div>
-        <div className="year-bars" role="group" aria-label={incomeLabel} style={{ gridTemplateColumns: `repeat(${Math.max(points.length, 1)}, minmax(0, 1fr))` }}>
-          {points.map((p) => (
-            <button key={p.key} type="button" className={p.key === (mark || activeKey) ? "is-on" : undefined} aria-pressed={mark === p.key} onClick={() => setMark((cur) => (cur === p.key ? null : p.key))}>
-              <div className="pair">
-                <i className="in" style={{ height: `${Math.max(p.income > 0 ? 4 : 0, (p.income / max) * 100)}%` }} />
-                <i className="out" style={{ height: `${Math.max(p.expense > 0 ? 4 : 0, (p.expense / max) * 100)}%` }} />
-              </div>
-              <span>{p.label.replace(".", "")}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-      </StatFold>
-      {compare.length ? <StatFold id="compare"><CompareRail points={compare} money={money} incomeLabel={incomeLabel} expenseLabel={expenseLabel} title={compareTitle} /></StatFold> : null}
-      {board ? <StatFold id="flow"><FlowSplit flow={board.flow} income={board.income} title={copy.flow} empty={copy.empty} money={money} note={copy.flowNote} bare={copy.flowBare} /></StatFold> : null}
       {sankey.links.length ? <StatFold id="sankey"><MoneySankey model={sankey} title={copy.sankey} note={copy.sankeyNote} empty={copy.empty} money={money} /></StatFold> : null}
       <StatFold id="where">
       <section className="card">
         <h2 className="serif text-2xl">{whereLabel}</h2>
+        <p className="pano-lead where-hint">{copy.whereHint}</p>
         {slices.length ? (
           <Donut
             slices={slices.map((s) => ({ id: s.id, name: s.name, minor: s.minor, color: s.color }))}
@@ -996,6 +966,14 @@ export function StudyCharts({
             </button>
           );
         })}
+        {!picked && board?.top.length ? (
+          <div className="where-top">
+            <h3>{copy.top}</h3>
+            {board.top.map((row) => (
+              <p key={row.name}><span>{row.name}</span><strong className="num">{money(row.minor)}</strong></p>
+            ))}
+          </div>
+        ) : null}
         {picked && detail.length ? (
           <div className="stat-detail">
             {detail.map((row) => (
@@ -1008,86 +986,6 @@ export function StudyCharts({
         ) : null}
       </section>
       </StatFold>
-      {board ? (
-        <StatFold id="rate">
-        <section className="card">
-          <h2 className="serif text-2xl">{copy.rate}</h2>
-          <p className={`num serif text-3xl ${rate === null ? "" : rate >= 20 ? "good" : rate >= 0 ? "warn" : "bad"}`}>
-            {rate === null ? "—" : `${Math.round(rate)}%`}
-          </p>
-          <div className="meter" aria-hidden>
-            <i style={{ width: `${rateWidth}%` }} className={rate !== null && rate >= 20 ? "good" : "warn"} />
-            <b style={{ left: "20%" }} />
-          </div>
-          <p className="text-sm text-muted">20%</p>
-          <h3 className="serif text-xl mt-4">{copy.burn}</h3>
-          <div className="burn">
-            <span>{copy.now}</span>
-            <div className="bar-track"><div className="bar-fill tone-2" style={{ width: `${(board.burn / burnMax) * 100}%` }} /></div>
-            <strong className="num">{money(board.burn)}</strong>
-          </div>
-          <div className="burn">
-            <span>{copy.prev}</span>
-            <div className="bar-track"><div className="bar-fill tone-left" style={{ width: `${((board.burnPrev ?? 0) / burnMax) * 100}%` }} /></div>
-            <strong className="num">{board.burnPrev === null ? "—" : money(board.burnPrev)}</strong>
-          </div>
-          <h3 className="serif text-xl mt-4">{copy.creep}</h3>
-          {subMax <= 0 ? <p className="text-sm text-muted">{copy.creepEmpty}</p> : (
-            <svg className="spark" viewBox="0 0 120 32" role="img" aria-label={copy.creep}>
-              <path d={board.subs.map((s, i) => `${i ? "L" : "M"}${(i / 11) * 120} ${28 - (s.minor / subMax) * 24}`).join(" ")} />
-            </svg>
-          )}
-        </section>
-        </StatFold>
-      ) : null}
-      {board && board.envelopes.length ? (
-        <StatFold id="plan">
-        <section className="card">
-          <h2 className="serif text-2xl">{copy.plan}</h2>
-          <p className="text-sm text-muted">{copy.planNote}</p>
-          {board.envelopes.map((row) => {
-            const over = row.actual > row.budget;
-            const span = Math.abs(row.actual - row.budget);
-            const width = Math.max(6, (span / envScale) * 100);
-            return (
-              <div key={row.name} className="env">
-                <div className="env-name">
-                  <span>{row.name}</span>
-                  <strong className={`num ${over ? "bad" : "good"}`}>{over ? "−" : "+"}{money(span)}</strong>
-                </div>
-                <div className="diverge">
-                  <div>{over ? <i className="over" style={{ width: `${Math.min(100, width)}%` }} /> : null}</div>
-                  <div>{!over ? <i className="under" style={{ width: `${Math.min(100, width)}%` }} /> : null}</div>
-                </div>
-                <p className="text-sm text-muted">{money(row.actual)} / {money(row.budget)}</p>
-              </div>
-            );
-          })}
-        </section>
-        </StatFold>
-      ) : null}
-      {board ? (
-        <StatFold id="runway">
-        <section className="card">
-          <h2 className="serif text-2xl">{copy.runway}</h2>
-          <div className="meter" aria-hidden>
-            <i className="good" style={{ width: `${Math.max(0, Math.min(100, ((board.runwayMonths ?? 0) / Math.max(board.runwayGoal, 1)) * 100))}%` }} />
-          </div>
-          <p className="text-sm">{board.runwayMonths === null ? copy.runwayNote : `${board.runwayMonths.toFixed(1)} / ${board.runwayGoal}`}</p>
-          {board.runwayHave > 0 ? <p className="num">{money(board.runwayHave)}</p> : null}
-          {board.top.length ? <h3 className="serif text-xl mt-4">{copy.top}</h3> : null}
-          {board.top.map((row) => (
-            <div key={row.name} className="share">
-              <span className="share-name">{row.name}</span>
-              <span className="num">{money(row.minor)}</span>
-              <div className="bar-track">
-                <div className="bar-fill tone-5" style={{ width: `${Math.max(4, (row.minor / topMax) * 100)}%` }} />
-              </div>
-            </div>
-          ))}
-        </section>
-        </StatFold>
-      ) : null}
     </div>
   );
 }
