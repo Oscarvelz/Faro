@@ -1,0 +1,1024 @@
+import { readAdvisor } from "./advisor";
+import { colorFor } from "./colors";
+import { displayName } from "./defaults";
+import { convertMinor, formatMoney, formatPct, monthlyEquivalent, roundHalfAway } from "./money";
+import type {
+  AdviceCard,
+  BudgetPlan,
+  Currency,
+  Insight,
+  Lang,
+  LedgerState,
+  Line,
+  MonthPoint,
+  Slice,
+  Structure,
+  Summary,
+  Tone,
+} from "./types";
+
+type Namer = {
+  cat: (id: string) => string;
+  sub: (id: string) => string;
+  purchase: (id: string) => string;
+  catalog: (id: string) => string;
+};
+
+function L(lang: Lang, es: string, en: string): string {
+  return lang === "en" ? en : es;
+}
+
+export function roleOf(structure: Structure, categoryId: string): string {
+  return structure.categories.find((c) => c.id === categoryId)?.role ?? "";
+}
+
+export function inView(line: Line, display: Currency, rateE4: number): number {
+  if (!line.active) return 0;
+  return convertMinor(line.amountMinor, line.currency, display, rateE4);
+}
+
+function sum(lines: Line[], display: Currency, rateE4: number, pred: (l: Line) => boolean): number {
+  return lines.reduce((acc, line) => (pred(line) ? acc + inView(line, display, rateE4) : acc), 0);
+}
+
+export function monthLines(state: LedgerState, key: string): Line[] {
+  return state.months[key]?.lines ?? [];
+}
+
+export function summarize(state: LedgerState, key: string, lang: Lang): Summary {
+  const { settings, structure } = state;
+  const lines = monthLines(state, key);
+  const { display, rateE4 } = settings;
+  const income = sum(lines, display, rateE4, (l) => l.kind === "income-fixed" || l.kind === "income-variable");
+  const fixed = sum(lines, display, rateE4, (l) => l.kind === "expense-fixed");
+  const variable = sum(lines, display, rateE4, (l) => l.kind === "expense-variable");
+  const purchases = sum(lines, display, rateE4, (l) => l.kind === "purchase");
+  const subscriptions = sum(lines, display, rateE4, (l) => l.kind === "subscription");
+  const expense = fixed + variable + purchases + subscriptions;
+  const opportunity = income - expense;
+  const spentPct = income > 0 ? (expense / income) * 100 : null;
+  const debt = sum(lines, display, rateE4, (l) => l.kind === "expense-fixed" && roleOf(structure, l.categoryId) === "debt");
+  const debtPct = income > 0 ? (debt / income) * 100 : null;
+  const debtAllowance = roundHalfAway((income * settings.debtGreenPct) / 100);
+  const savingsFlow = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "savings");
+  const savingsGoal = roundHalfAway((income * settings.savingsGoalPct) / 100);
+  const petty = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "petty");
+  const remittance = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "remittance");
+  const housing = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "housing");
+  const money = (n: number) => formatMoney(n, display, lang);
+  let tone: Tone = "neutral";
+  let semaphore = L(
+    lang,
+    "Sin ingresos registrados, el semáforo no juzga la carga. Anota lo que entra este mes.",
+    "With no income recorded, the signal cannot judge the load. Enter what comes in this month.",
+  );
+  if (income > 0 && debtPct !== null) {
+    if (debtPct < settings.debtGreenPct) {
+      tone = "good";
+      semaphore = L(
+        lang,
+        `Pagos a créditos: ${money(debt)} (${formatPct(debtPct, lang)} del ingreso). Verde: está bajo tu tope de ${settings.debtGreenPct}%. El cupo de deuda que te marcaste es ${money(debtAllowance)}.`,
+        `Credit payments: ${money(debt)} (${formatPct(debtPct, lang)} of income). Green: under your ${settings.debtGreenPct}% cap. The debt allowance you set is ${money(debtAllowance)}.`,
+      );
+    } else if (debtPct <= settings.debtYellowPct) {
+      tone = "warn";
+      semaphore = L(
+        lang,
+        `Pagos a créditos: ${money(debt)} (${formatPct(debtPct, lang)}). Amarillo: entre ${settings.debtGreenPct}% y ${settings.debtYellowPct}%. El cupo verde era ${money(debtAllowance)}.`,
+        `Credit payments: ${money(debt)} (${formatPct(debtPct, lang)}). Yellow: between ${settings.debtGreenPct}% and ${settings.debtYellowPct}%. The green allowance was ${money(debtAllowance)}.`,
+      );
+    } else {
+      tone = "bad";
+      semaphore = L(
+        lang,
+        `Pagos a créditos: ${money(debt)} (${formatPct(debtPct, lang)}). Rojo: pasa tu techo de ${settings.debtYellowPct}%. Esto es el pago del mes, no el saldo, salvo que lo hayas anotado aparte.`,
+        `Credit payments: ${money(debt)} (${formatPct(debtPct, lang)}). Red: above your ${settings.debtYellowPct}% ceiling. This is the month's payment, not the balance, unless you recorded that separately.`,
+      );
+    }
+  } else if (income > 0 && debt === 0) {
+    tone = "good";
+    semaphore = L(
+      lang,
+      "No hay pagos en la categoría de créditos. El semáforo queda en verde porque la carga registrada es cero, no porque se haya verificado una deuda externa.",
+      "No payments sit in the credit category. The signal is green because the recorded load is zero, not because an outside debt was verified.",
+    );
+  }
+  return {
+    income,
+    fixed,
+    variable,
+    purchases,
+    subscriptions,
+    expense,
+    opportunity,
+    spentPct,
+    debt,
+    debtPct,
+    debtAllowance,
+    savingsFlow,
+    savingsGoal,
+    petty,
+    remittance,
+    housing,
+    tone,
+    semaphore,
+  };
+}
+
+function slicesFor(lines: Line[], structure: Structure, display: Currency, rateE4: number, names: Namer): Slice[] {
+  const map = new Map<string, Slice>();
+  for (const line of lines) {
+    if (!line.active) continue;
+    if (!line.kind.startsWith("expense") && line.kind !== "purchase" && line.kind !== "subscription") continue;
+    const id = line.categoryId || line.kind;
+    const name =
+      (line.categoryId && (names.cat(line.categoryId) || names.purchase(line.categoryId))) ||
+      names.catalog(line.storeId) ||
+      names.catalog(line.providerId) ||
+      line.concept;
+    const prev = map.get(id) ?? { id, name, minor: 0, color: colorFor(structure, id) };
+    prev.minor += inView(line, display, rateE4);
+    prev.name = name || prev.name;
+    prev.color = colorFor(structure, id);
+    map.set(id, prev);
+  }
+  return [...map.values()].filter((s) => s.minor !== 0).sort((a, b) => b.minor - a.minor);
+}
+
+export function categorySlices(state: LedgerState, key: string, names: Namer): Slice[] {
+  return slicesFor(monthLines(state, key), state.structure, state.settings.display, state.settings.rateE4, names);
+}
+
+export function yearPoints(state: LedgerState, year: number, lang: Lang, kinds?: string[], subs?: string[]): MonthPoint[] {
+  const { display, rateE4 } = state.settings;
+  const fmt = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" });
+  const points: MonthPoint[] = [];
+  for (let m = 1; m <= 12; m += 1) {
+    const key = `${year}-${String(m).padStart(2, "0")}`;
+    const lines = monthLines(state, key).filter((line) => line.active && (!kinds?.length || kinds.includes(line.kind)) && (!subs || subs.includes(line.subId)));
+    const income = sum(lines, display, rateE4, (l) => l.kind.startsWith("income"));
+    const expense = sum(lines, display, rateE4, (l) => !l.kind.startsWith("income"));
+    points.push({ key, label: fmt.format(new Date(year, m - 1, 1)), income: income / 100, expense: expense / 100 });
+  }
+  return points;
+}
+
+function lineDay(line: Line): string {
+  if (line.bookedOn && line.bookedOn.startsWith(line.monthKey)) return line.bookedOn;
+  return `${line.monthKey}-01`;
+}
+
+function pair(lines: Line[], display: Currency, rateE4: number) {
+  const income = sum(lines, display, rateE4, (l) => l.kind.startsWith("income"));
+  const expense = sum(lines, display, rateE4, (l) => !l.kind.startsWith("income"));
+  return { income: income / 100, expense: expense / 100 };
+}
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function spanPoints(state: LedgerState, year: number, month: number, span: "year" | "month" | "week", lang: Lang, kinds?: string[], subs?: string[]): MonthPoint[] {
+  if (span === "year") return yearPoints(state, year, lang, kinds, subs);
+  const { display, rateE4 } = state.settings;
+  const key = `${year}-${String(month).padStart(2, "0")}`;
+  const lines = monthLines(state, key).filter((l) => l.active && (!kinds?.length || kinds.includes(l.kind)) && (!subs || subs.includes(l.subId)));
+  const last = new Date(year, month, 0).getDate();
+  if (span === "month") {
+    const points: MonthPoint[] = [];
+    let day = 1;
+    while (day <= last) {
+      const date = new Date(year, month - 1, day);
+      const untilSun = date.getDay() === 0 ? 0 : 7 - date.getDay();
+      const end = Math.min(last, day + untilSun);
+      const start = `${key}-${String(day).padStart(2, "0")}`;
+      const stop = `${key}-${String(end).padStart(2, "0")}`;
+      const bucket = lines.filter((l) => {
+        const on = lineDay(l);
+        return on >= start && on <= stop;
+      });
+      points.push({ key: start, label: `${day}–${end}`, ...pair(bucket, display, rateE4) });
+      day = end + 1;
+    }
+    return points;
+  }
+  const today = new Date();
+  const anchor = today.getFullYear() === year && today.getMonth() + 1 === month ? today : new Date(year, month - 1, 1);
+  const monday = new Date(anchor);
+  const dow = monday.getDay();
+  monday.setDate(monday.getDate() + (dow === 0 ? -6 : 1 - dow));
+  const fmt = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { weekday: "short" });
+  const points: MonthPoint[] = [];
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const id = isoDate(d);
+    const bucket = lines.filter((l) => lineDay(l) === id);
+    points.push({ key: id, label: fmt.format(d).replace(".", ""), ...pair(bucket, display, rateE4) });
+  }
+  return points;
+}
+
+export function compareSpans(state: LedgerState, year: number, month: number, span: "year" | "month" | "week", count: number, lang: Lang): MonthPoint[] {
+  const { display, rateE4 } = state.settings;
+  const lines = Object.values(state.months).flatMap((bucket) => bucket.lines).filter((line) => line.active);
+  const inRange = (start: string, stop: string) => lines.filter((line) => {
+    const on = lineDay(line);
+    return on >= start && on <= stop;
+  });
+  if (span === "year") {
+    return Array.from({ length: count }, (_, index) => {
+      const y = year - (count - 1 - index);
+      return { key: String(y), label: String(y), ...pair(inRange(`${y}-01-01`, `${y}-12-31`), display, rateE4) };
+    });
+  }
+  if (span === "month") {
+    const fmt = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" });
+    return Array.from({ length: count }, (_, index) => {
+      const date = new Date(year, month - 1 - (count - 1 - index), 1);
+      const y = date.getFullYear();
+      const m = date.getMonth() + 1;
+      const key = `${y}-${String(m).padStart(2, "0")}`;
+      const last = String(new Date(y, m, 0).getDate()).padStart(2, "0");
+      return { key, label: fmt.format(date).replace(".", ""), ...pair(inRange(`${key}-01`, `${key}-${last}`), display, rateE4) };
+    });
+  }
+  const today = new Date();
+  const anchor = today.getFullYear() === year && today.getMonth() + 1 === month ? today : new Date(year, month - 1, 1);
+  const monday = new Date(anchor);
+  const dow = monday.getDay();
+  monday.setDate(monday.getDate() + (dow === 0 ? -6 : 1 - dow) - (count - 1) * 7);
+  const fmt = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" });
+  return Array.from({ length: count }, (_, index) => {
+    const start = new Date(monday);
+    start.setDate(monday.getDate() + index * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const a = isoDate(start);
+    const b = isoDate(end);
+    return { key: a, label: fmt.format(start).replace(".", ""), ...pair(inRange(a, b), display, rateE4) };
+  });
+}
+
+export type StudyBoard = {
+  savingsRate: number | null;
+  burn: number;
+  burnPrev: number | null;
+  subs: { label: string; minor: number }[];
+  envelopes: { name: string; budget: number; actual: number }[];
+  runwayMonths: number | null;
+  runwayGoal: number;
+  runwayHave: number;
+  top: { name: string; minor: number }[];
+  flow: { name: string; minor: number; tone: string }[];
+  donut: { name: string; minor: number; color: string }[];
+  income: number;
+};
+
+export function studyBoard(state: LedgerState, key: string, lang: Lang, names: Namer): StudyBoard {
+  const s = summarize(state, key, lang);
+  const { display, rateE4 } = state.settings;
+  const [yStr, mStr] = key.split("-");
+  const y = Number(yStr) || 2026;
+  const days = new Date(y, Number(mStr) || 1, 0).getDate() || 30;
+  const burn = days > 0 ? Math.round(s.expense / days) : 0;
+  const prev = previousKey(key);
+  const prevLines = monthLines(state, prev);
+  const hasPrev = prevLines.some((l) => l.active);
+  const prevExpense = hasPrev ? sum(prevLines, display, rateE4, (l) => !l.kind.startsWith("income")) : 0;
+  const prevDays = new Date(Number(prev.slice(0, 4)), Number(prev.slice(5, 7)), 0).getDate() || 30;
+  const burnPrev = hasPrev ? Math.round(prevExpense / prevDays) : null;
+  const savingsRate = s.income > 0 ? ((s.income - s.expense) / s.income) * 100 : null;
+  const fmtMonth = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" });
+  const subs = Array.from({ length: 12 }, (_, i) => {
+    const k = `${y}-${String(i + 1).padStart(2, "0")}`;
+    return {
+      label: fmtMonth.format(new Date(y, i, 1)),
+      minor: sum(monthLines(state, k), display, rateE4, (l) => l.kind === "subscription"),
+    };
+  });
+  const room = s.income - s.savingsGoal - s.fixed - s.subscriptions;
+  const envelopes = [
+    { name: L(lang, "Día a día", "Everyday"), budget: Math.max(0, room), actual: s.variable + s.purchases },
+    { name: L(lang, "Créditos", "Credit"), budget: s.debtAllowance, actual: s.debt },
+    { name: L(lang, "Casa", "Home"), budget: s.income > 0 ? roundHalfAway((s.income * 35) / 100) : 0, actual: s.housing },
+  ].filter((row) => row.budget > 0 || row.actual > 0);
+  const lines = monthLines(state, key).filter((l) => l.active);
+  const runwayHave = lines
+    .filter((l) => roleOf(state.structure, l.categoryId) === "savings" && l.balanceMinor !== null)
+    .reduce((acc, l) => acc + convertMinor(l.balanceMinor || 0, l.balanceCurrency, display, rateE4), 0);
+  const runwayMonths = s.fixed > 0 ? runwayHave / s.fixed : null;
+  const top = lines
+    .filter((l) => !l.kind.startsWith("income"))
+    .map((l) => ({
+      name: l.concept || names.cat(l.categoryId) || names.purchase(l.categoryId) || names.catalog(l.storeId) || l.kind,
+      minor: inView(l, display, rateE4),
+    }))
+    .filter((l) => l.minor > 0)
+    .sort((a, b) => b.minor - a.minor)
+    .slice(0, 5);
+  const flow = [
+    { name: L(lang, "Fijos", "Fixed"), minor: s.fixed, tone: "tone-1" },
+    { name: L(lang, "Variables", "Variable"), minor: s.variable, tone: "tone-2" },
+    { name: L(lang, "Compras", "Purchases"), minor: s.purchases, tone: "tone-3" },
+    { name: L(lang, "Cuotas", "Subscriptions"), minor: s.subscriptions, tone: "tone-4" },
+    { name: L(lang, "Queda", "Left"), minor: Math.max(0, s.opportunity), tone: "tone-0" },
+  ].filter((b) => b.minor > 0);
+  const raw = slicesFor(lines, state.structure, display, rateE4, names);
+  const head = raw.slice(0, 6);
+  const tail = raw.slice(6).reduce((acc, sl) => acc + sl.minor, 0);
+  const donut = tail > 0
+    ? [...head.map((sl) => ({ name: sl.name, minor: sl.minor, color: sl.color })), { name: L(lang, "Otras", "Other"), minor: tail, color: "#c5c1b8" }]
+    : head.map((sl) => ({ name: sl.name, minor: sl.minor, color: sl.color }));
+  return {
+    savingsRate,
+    burn,
+    burnPrev,
+    subs,
+    envelopes,
+    runwayMonths,
+    runwayGoal: state.settings.emergencyMonths,
+    runwayHave,
+    top,
+    flow,
+    donut,
+    income: s.income,
+  };
+}
+
+export type SankeyNode = { id: string; name: string; minor: number; color: string; col: 0 | 1 | 2 };
+export type SankeyLink = { source: string; target: string; minor: number };
+export type CashSankey = { nodes: SankeyNode[]; links: SankeyLink[] };
+
+/** Income → categories → the biggest pieces inside them. Real month lines only. */
+export function cashSankey(state: LedgerState, key: string, lang: Lang, names: Namer): CashSankey {
+  const { display, rateE4 } = state.settings;
+  const lines = monthLines(state, key).filter((line) => line.active);
+  const income = lines.filter((line) => line.kind.startsWith("income")).reduce((sum, line) => sum + inView(line, display, rateE4), 0);
+  type Sub = { id: string; name: string; minor: number };
+  type Bucket = { id: string; name: string; minor: number; color: string; subs: Map<string, Sub> };
+  const cats = new Map<string, Bucket>();
+  for (const line of lines) {
+    if (line.kind.startsWith("income")) continue;
+    if (!line.kind.startsWith("expense") && line.kind !== "purchase" && line.kind !== "subscription") continue;
+    const minor = inView(line, display, rateE4);
+    if (minor <= 0) continue;
+    const id = line.categoryId || line.kind;
+    const bucket = cats.get(id) ?? {
+      id,
+      name: names.cat(id) || names.purchase(id) || line.concept || id,
+      minor: 0,
+      color: colorFor(state.structure, id),
+      subs: new Map<string, Sub>(),
+    };
+    bucket.minor += minor;
+    if (line.subId) {
+      const sub = bucket.subs.get(line.subId) ?? { id: line.subId, name: names.sub(line.subId) || line.concept || line.subId, minor: 0 };
+      sub.minor += minor;
+      if (!sub.name) sub.name = line.concept || sub.id;
+      bucket.subs.set(line.subId, sub);
+    }
+    cats.set(id, bucket);
+  }
+  const ranked = [...cats.values()].filter((cat) => cat.minor > 0).sort((a, b) => b.minor - a.minor);
+  const head = ranked.slice(0, 5);
+  const restMinor = ranked.slice(5).reduce((sum, cat) => sum + cat.minor, 0);
+  if (restMinor > 0) {
+    head.push({ id: "otras", name: L(lang, "Otras", "Other"), minor: restMinor, color: "#c5c1b8", subs: new Map() });
+  }
+  if (!head.length && income <= 0) return { nodes: [], links: [] };
+  const nodes: SankeyNode[] = [];
+  const links: SankeyLink[] = [];
+  const spent = head.reduce((sum, cat) => sum + cat.minor, 0);
+  const left = income > spent ? income - spent : 0;
+  if (left > 0) head.push({ id: "queda", name: L(lang, "Queda", "Left"), minor: left, color: "#8fb9a6", subs: new Map() });
+  const sourceMinor = head.reduce((sum, cat) => sum + cat.minor, 0);
+  if (sourceMinor <= 0) return { nodes: [], links: [] };
+  nodes.push({
+    id: "src",
+    name: income > 0 ? L(lang, "Entra", "In") : L(lang, "Sale", "Out"),
+    minor: sourceMinor,
+    color: "#8fb9a6",
+    col: 0,
+  });
+  for (const cat of head) {
+    nodes.push({ id: cat.id, name: cat.name, minor: cat.minor, color: cat.color, col: 1 });
+    links.push({ source: "src", target: cat.id, minor: cat.minor });
+    const subs = [...cat.subs.values()].filter((sub) => sub.minor > 0).sort((a, b) => b.minor - a.minor).slice(0, 3);
+    for (const sub of subs) {
+      if (subs.length === 1 && sub.minor >= cat.minor * 0.92) continue;
+      const sid = `${cat.id}>${sub.id}`;
+      nodes.push({ id: sid, name: sub.name, minor: sub.minor, color: cat.color, col: 2 });
+      links.push({ source: cat.id, target: sid, minor: sub.minor });
+    }
+  }
+  return { nodes, links };
+}
+
+function previousKey(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(y || 2026, (m || 1) - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function buildInsights(state: LedgerState, key: string, lang: Lang, names: Namer): Insight[] {
+  const s = summarize(state, key, lang);
+  const { display, rateE4 } = state.settings;
+  const money = (n: number) => formatMoney(n, display, lang);
+  const lines = monthLines(state, key).filter((l) => l.active);
+  const out: Insight[] = [];
+  const push = (row: Insight) => out.push(row);
+
+  push({
+    id: "spent",
+    title: L(lang, "Cuánto del ingreso ya está comprometido", "How much of income is already committed"),
+    value: formatPct(s.spentPct, lang),
+    detail: L(lang, `${money(s.expense)} de ${money(s.income)}`, `${money(s.expense)} of ${money(s.income)}`),
+    tone: s.spentPct === null ? "neutral" : s.spentPct > 100 ? "bad" : s.spentPct > 80 ? "warn" : "good",
+    meaning: L(lang, "Relación entre todo lo anotado como gasto este mes y todo lo anotado como ingreso.", "Ratio of everything recorded as spending this month to everything recorded as income."),
+    formula: L(lang, "Gastos ÷ ingresos × 100. Si no hay ingreso, no hay porcentaje.", "Spending ÷ income × 100. No income, no percentage."),
+    implication: L(
+      lang,
+      s.income <= 0
+        ? "Sin ingreso, un porcentaje sería teatro. Primero anota lo que entra."
+        : s.opportunity >= 0
+          ? `Quedan ${money(s.opportunity)} después de lo anotado. Esa cifra es el techo real de ahorro o de abono extra, no una meta de ánimo.`
+          : `Lo anotado supera al ingreso por ${money(-s.opportunity)}. El mes no cierra si estas cifras están completas.`,
+      s.income <= 0
+        ? "Without income, a percentage would be theater. Enter what comes in first."
+        : s.opportunity >= 0
+          ? `${money(s.opportunity)} remains after what you recorded. That figure is the real ceiling for saving or an extra payment, not a pep talk.`
+          : `Recorded spending exceeds income by ${money(-s.opportunity)}. The month does not close if these figures are complete.`,
+    ),
+  });
+
+  const fixedPct = s.income > 0 ? (s.fixed / s.income) * 100 : null;
+  push({
+    id: "rigid",
+    title: L(lang, "Rigidez", "Rigidity"),
+    value: formatPct(fixedPct, lang),
+    detail: L(lang, `${money(s.fixed)} en fijos, sin contar compras sueltas.`, `${money(s.fixed)} fixed, excluding one-off purchases.`),
+    tone: fixedPct === null ? "neutral" : fixedPct > 70 ? "bad" : fixedPct > 50 ? "warn" : "good",
+    meaning: L(lang, "Parte del ingreso que se va en gastos fijos. Es lo que no se recorta este mes sin renegociar un contrato, una renta o un crédito.", "Share of income that leaves in fixed expenses. It is what you cannot cut this month without renegotiating rent, a contract, or a credit."),
+    formula: L(lang, "Gastos fijos ÷ ingresos. Las suscripciones de este mes van aparte, en su propia lectura.", "Fixed expenses ÷ income. This month's subscriptions are read separately."),
+    implication: L(
+      lang,
+      fixedPct !== null && fixedPct > 70
+        ? "La palanca de este mes casi no está en el café. Está en el fijo más grande."
+        : "Todavía hay margen variable. Recortar hormiga no sustituye revisar un fijo que ya come la mitad.",
+      fixedPct !== null && fixedPct > 70
+        ? "This month's lever is not the coffee. It is the largest fixed bill."
+        : "There is still variable room. Cutting leaks does not replace reviewing a fixed bill that already takes half.",
+    ),
+  });
+
+  const flex = s.variable + s.purchases;
+  const flexPct = s.income > 0 ? (flex / s.income) * 100 : null;
+  push({
+    id: "flex",
+    title: L(lang, "Gasto con margen", "Spending with room"),
+    value: money(flex),
+    detail: formatPct(flexPct, lang),
+    tone: "neutral",
+    meaning: L(lang, "Variables más compras. Es la zona donde un recorte de este mes sí cambia el cierre, sin tocar la renta.", "Variable spending plus purchases. This is where a cut this month actually changes the close, without touching rent."),
+    formula: L(lang, "Suma de líneas variables activas + compras activas, en la moneda de la vista.", "Sum of active variable lines + active purchases, in the view currency."),
+    implication: L(lang, "Si el plan de presupuesto pide recortes, salen de aquí, de mayor a menor.", "If the budget plan asks for cuts, they come from here, largest first."),
+  });
+
+  const pettyYear = s.petty * 12;
+  push({
+    id: "petty",
+    title: L(lang, "Hormiga en un año", "Leaks over a year"),
+    value: money(pettyYear),
+    detail: L(lang, `${money(s.petty)} este mes en la categoría de gastos hormiga.`, `${money(s.petty)} this month in leak spending.`),
+    tone: s.income > 0 && s.petty > s.income * 0.05 ? "warn" : "neutral",
+    meaning: L(lang, "Proyección simple: el gasto hormiga de este mes, repetido doce veces. No es un promedio histórico si solo existe este mes.", "Simple projection: this month's leak spending, repeated twelve times. It is not a historical average if only this month exists."),
+    formula: L(lang, "Hormiga del mes × 12.", "This month's leaks × 12."),
+    implication: L(
+      lang,
+      s.petty === 0
+        ? "No hay nada en esa categoría. Si el café está dentro de restaurantes, esta lectura lo está subestimando."
+        : `Doce meses así apartan ${money(pettyYear)} que no construyen un fondo, salvo que esa categoría esté mal clasificada.`,
+      s.petty === 0
+        ? "Nothing sits in that category. If coffee is inside restaurants, this reading understates it."
+        : `Twelve months like this set aside ${money(pettyYear)} that do not build a fund, unless the category is misfiled.`,
+    ),
+  });
+
+  const subs = lines.filter((l) => l.kind === "subscription");
+  const runRate = subs.reduce((acc, l) => acc + convertMinor(monthlyEquivalent(l.amountMinor, l.cadence || "monthly"), l.currency, display, rateE4), 0);
+  push({
+    id: "subs",
+    title: L(lang, "Ritmo de suscripciones", "Subscription run-rate"),
+    value: money(runRate),
+    detail: L(lang, `${money(s.subscriptions)} cobrados en este mes. El ritmo usa la frecuencia de cada una.`, `${money(s.subscriptions)} charged this month. The run-rate uses each cadence.`),
+    tone: s.income > 0 && runRate > s.income * 0.1 ? "warn" : "neutral",
+    meaning: L(lang, "Cuánto costarían al mes las suscripciones activas de este mes si su frecuencia se mantiene. Una anual se reparte en doce. Una semanal se lleva a mes.", "What this month's active subscriptions would cost per month if their cadence holds. A yearly plan is spread over twelve. A weekly plan is scaled up."),
+    formula: L(lang, "Semanal × 52 ÷ 12. Anual ÷ 12. Mensual se queda igual. Luego se convierte a la vista.", "Weekly × 52 ÷ 12. Yearly ÷ 12. Monthly stays. Then converted to the view."),
+    implication: L(lang, `En doce meses, ese ritmo son ${money(runRate * 12)} si ninguna se cancela y el precio no cambia.`, `Over twelve months that run-rate is ${money(runRate * 12)} if none are cancelled and the price holds.`),
+  });
+
+  const slices = slicesFor(lines, state.structure, display, rateE4, names);
+  const expenseAbs = slices.reduce((a, sl) => a + Math.max(0, sl.minor), 0);
+  let walk = 0;
+  const pareto: string[] = [];
+  for (const sl of slices) {
+    if (sl.minor <= 0) continue;
+    walk += sl.minor;
+    pareto.push(`${sl.name} ${money(sl.minor)}`);
+    if (expenseAbs > 0 && walk >= expenseAbs * 0.8) break;
+  }
+  push({
+    id: "pareto",
+    title: L(lang, "Dónde se va el 80%", "Where 80% goes"),
+    value: pareto.length ? String(pareto.length) : "—",
+    detail: pareto.join(" · ") || L(lang, "Sin gastos activos.", "No active spending."),
+    tone: "neutral",
+    meaning: L(lang, "Las categorías que, sumadas de mayor a menor, alcanzan el 80% del gasto del mes. El resto es cola.", "The categories that, added from largest to smallest, reach 80% of the month's spending. The rest is the tail."),
+    formula: L(lang, "Ordenar categorías por monto descendente y acumular hasta 80% del gasto.", "Sort categories by amount descending and accumulate until 80% of spending."),
+    implication: L(lang, "Si una decisión solo cabe en una categoría, que sea la primera de esta lista.", "If a decision only fits in one category, make it the first on this list."),
+  });
+
+  const usdMinor = lines.reduce((acc, l) => (l.currency === "USD" ? acc + l.amountMinor : acc), 0);
+  const nioMinor = lines.reduce((acc, l) => (l.currency === "NIO" ? acc + l.amountMinor : acc), 0);
+  push({
+    id: "fx",
+    title: L(lang, "Exposición al tipo de cambio", "Exchange-rate exposure"),
+    value: L(lang, `${formatMoney(usdMinor, "USD", lang)} en dólares`, `${formatMoney(usdMinor, "USD", lang)} in dollars`),
+    detail: L(lang, `${formatMoney(nioMinor, "NIO", lang)} anotados en córdobas.`, `${formatMoney(nioMinor, "NIO", lang)} recorded in córdobas.`),
+    tone: "neutral",
+    meaning: L(lang, "Cuánto del mes vive en cada moneda. La vista convierte; el registro no.", "How much of the month lives in each currency. The view converts; the record does not."),
+    formula: L(lang, "Si la tasa sube C$1.00, la vista en córdobas de esos dólares sube exactamente el monto en dólares. C$36 más de tasa sobre $100 son C$100 más.", "If the rate rises C$1.00, the córdoba view of those dollars rises by exactly the dollar amount. C$36 more of rate on $100 is C$100 more."),
+    implication: L(
+      lang,
+      usdMinor === 0
+        ? "Este mes no tiene líneas en dólares. Cambiar la tasa no mueve ningún total."
+        : `Un movimiento de C$1 en la tasa mueve la vista de estas líneas en ${formatMoney(usdMinor, "NIO", lang)} por cada dólar de monto. El registro en dólares queda igual.`,
+      usdMinor === 0
+        ? "This month has no dollar lines. Changing the rate moves no total."
+        : `A C$1 move in the rate moves the view of these lines by ${formatMoney(usdMinor, "NIO", lang)} for each dollar of face amount. The dollar record stays put.`,
+    ),
+  });
+
+  const prev = monthLines(state, previousKey(key));
+  const prevIncome = sum(prev, display, rateE4, (l) => l.kind.startsWith("income"));
+  const prevExpense = sum(prev, display, rateE4, (l) => !l.kind.startsWith("income"));
+  const hasPrev = prev.some((l) => l.active);
+  push({
+    id: "mom",
+    title: L(lang, "Contra el mes anterior", "Against last month"),
+    value: hasPrev ? money(s.expense - prevExpense) : "—",
+    detail: hasPrev
+      ? L(lang, `Ingreso ${money(s.income - prevIncome)} frente al mes previo. Gasto, la cifra grande.`, `Income ${money(s.income - prevIncome)} versus the prior month. Spending is the large figure.`)
+      : L(lang, "No hay otro mes con movimientos. Una comparación con un mes vacío no dice nada.", "There is no other month with entries. A comparison with an empty month says nothing."),
+    tone: !hasPrev ? "neutral" : s.expense > prevExpense ? "warn" : "good",
+    meaning: L(lang, "Diferencia de gasto y de ingreso contra el mes calendario anterior, en la vista de hoy.", "Difference in spending and income versus the previous calendar month, in today's view."),
+    formula: L(lang, "Total de este mes − total del mes anterior, misma tasa de hoy.", "This month's total − last month's total, at today's rate."),
+    implication: L(lang, "Un solo salto no es una tendencia. El gráfico del año enseña si se repite.", "One jump is not a trend. The year chart shows whether it repeats."),
+  });
+
+  const emergency = lines.filter((l) => roleOf(state.structure, l.categoryId) === "savings" && l.balanceMinor !== null);
+  const stock = emergency.reduce((acc, l) => acc + convertMinor(l.balanceMinor || 0, l.balanceCurrency, display, rateE4), 0);
+  const monthsCover = s.fixed > 0 && stock > 0 ? stock / s.fixed : null;
+  push({
+    id: "cushion",
+    title: L(lang, "Colchón real", "Real cushion"),
+    value: stock > 0 ? money(stock) : "—",
+    detail:
+      monthsCover !== null
+        ? L(lang, `${formatPct(monthsCover * 100, lang).replace("%", "")} meses de fijos. Meta: ${state.settings.emergencyMonths}.`, `${monthsCover.toFixed(1)} months of fixed bills. Goal: ${state.settings.emergencyMonths}.`)
+        : L(lang, "El aporte de ahorro del mes no es el saldo del fondo. Anota el saldo en la línea de emergencia.", "This month's savings contribution is not the fund balance. Enter the balance on the emergency line."),
+    tone: monthsCover === null ? "neutral" : monthsCover >= state.settings.emergencyMonths ? "good" : "warn",
+    meaning: L(lang, "Saldo acumulado que tú anotaste en líneas de ahorro, dividido entre los fijos de este mes.", "Accumulated balance you entered on savings lines, divided by this month's fixed bills."),
+    formula: L(lang, "Suma de saldos de ahorro ÷ gastos fijos del mes. Si el fijo es 0, no hay meses que calcular.", "Sum of savings balances ÷ this month's fixed expenses. If fixed is 0, there are no months to compute."),
+    implication: L(
+      lang,
+      monthsCover === null
+        ? `Quieres ${state.settings.emergencyMonths} meses. Sin saldo, no digo que ya los tienes.`
+        : monthsCover >= state.settings.emergencyMonths
+          ? "El saldo anotado cubre la meta contra los fijos de este mes. Si los fijos suben, la cobertura baja."
+          : `Faltan ${money(Math.max(0, s.fixed * state.settings.emergencyMonths - stock))} para ${state.settings.emergencyMonths} meses de los fijos actuales.`,
+      monthsCover === null
+        ? `You want ${state.settings.emergencyMonths} months. Without a balance, I will not say you already have them.`
+        : monthsCover >= state.settings.emergencyMonths
+          ? "The recorded balance covers the goal against this month's fixed bills. If fixed bills rise, coverage falls."
+          : `${money(Math.max(0, s.fixed * state.settings.emergencyMonths - stock))} short of ${state.settings.emergencyMonths} months of current fixed bills.`,
+    ),
+  });
+
+  const remPct = s.income > 0 ? (s.remittance / s.income) * 100 : null;
+  push({
+    id: "remit",
+    title: L(lang, "Remesas", "Remittances"),
+    value: money(s.remittance),
+    detail: formatPct(remPct, lang),
+    tone: "neutral",
+    meaning: L(lang, "Lo enviado en la categoría de remesas. No incluye un ingreso que hayas llamado remesa si lo anotaste como ingreso.", "What left through the remittance category. It does not include income you named remittance if you filed it as income."),
+    formula: L(lang, "Suma de líneas cuyo rol es remesa.", "Sum of lines whose role is remittance."),
+    implication: L(lang, "Si ese envío es innegociable, trátalo como fijo al armar el plan, aunque el resto de la categoría cambie.", "If that transfer is non-negotiable, treat it as fixed when building the plan."),
+  });
+
+  const housePct = s.income > 0 ? (s.housing / s.income) * 100 : null;
+  push({
+    id: "house",
+    title: L(lang, "Carga de casa", "Housing load"),
+    value: formatPct(housePct, lang),
+    detail: money(s.housing),
+    tone: housePct !== null && housePct > 35 ? "warn" : "neutral",
+    meaning: L(lang, "Todo lo etiquetado con rol de casa, fijo o variable, contra el ingreso.", "Everything tagged with the home role, fixed or variable, against income."),
+    formula: L(lang, "Gastos con rol casa ÷ ingresos. Un umbral útil de lectura es 35%, no una ley.", "Home-role spending ÷ income. 35% is a useful reading line, not a law."),
+    implication: L(lang, "Por encima de eso, el resto del presupuesto hereda la decisión de la vivienda.", "Above that, the rest of the budget inherits the housing decision."),
+  });
+
+  const largest = [...lines].filter((l) => !l.kind.startsWith("income")).sort((a, b) => inView(b, display, rateE4) - inView(a, display, rateE4))[0];
+  push({
+    id: "largest",
+    title: L(lang, "La línea que manda", "The line that dominates"),
+    value: largest ? money(inView(largest, display, rateE4)) : "—",
+    detail: largest ? largest.concept || names.cat(largest.categoryId) : L(lang, "Sin gastos.", "No spending."),
+    tone: "neutral",
+    meaning: L(lang, "El gasto activo más grande del mes, una sola línea.", "The single largest active expense this month."),
+    formula: L(lang, "Máximo de los gastos convertidos a la vista.", "Maximum of expenses converted to the view."),
+    implication: L(lang, "Si solo vas a revisar un número con calma, es este.", "If you only review one number carefully, review this one."),
+  });
+
+  const days = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate();
+  let breakDay: number | null = null;
+  if (s.income > 0 && s.expense > s.income) breakDay = Math.max(1, Math.min(days, Math.floor((s.income / s.expense) * days)));
+  push({
+    id: "break",
+    title: L(lang, "Día en que el mes no alcanza", "Day the month runs out"),
+    value: breakDay ? String(breakDay) : L(lang, "Cierra", "It closes"),
+    detail: breakDay
+      ? L(lang, `A ritmo parejo, el ingreso se agota el día ${breakDay} de ${days}.`, `At an even pace, income runs out on day ${breakDay} of ${days}.`)
+      : L(lang, "El gasto anotado no supera al ingreso, o falta el ingreso.", "Recorded spending does not exceed income, or income is missing."),
+    tone: breakDay ? "bad" : "good",
+    meaning: L(lang, "Supone que el gasto se reparte en partes iguales cada día. Es una alarma, no un calendario real.", "Assumes spending is spread evenly each day. It is an alarm, not a real calendar."),
+    formula: L(lang, "Día = ingreso ÷ gasto × días del mes, solo si el gasto es mayor.", "Day = income ÷ spending × days in the month, only if spending is greater."),
+    implication: L(lang, "Si aparece un día, el plan de este mes tiene que bajar gasto o subir ingreso antes de ese punto.", "If a day appears, this month's plan has to lower spending or raise income before that point."),
+  });
+
+  return out;
+}
+
+export function buildBudget(state: LedgerState, key: string, lang: Lang, names: Namer): BudgetPlan {
+  const s = summarize(state, key, lang);
+  const lines = monthLines(state, key).filter((l) => l.active);
+  const room = s.income - s.savingsGoal - s.fixed - s.subscriptions;
+  const variableActual = s.variable + s.purchases;
+  const gap = variableActual - Math.max(0, room);
+  const groups = new Map<string, number>();
+  for (const line of lines) {
+    if (line.kind !== "expense-variable" && line.kind !== "purchase") continue;
+    const name = names.cat(line.categoryId) || names.purchase(line.categoryId) || line.concept || line.kind;
+    groups.set(name, (groups.get(name) ?? 0) + inView(line, state.settings.display, state.settings.rateE4));
+  }
+  const ranked = [...groups.entries()].sort((a, b) => b[1] - a[1]);
+  let left = Math.max(0, gap);
+  const cuts: BudgetPlan["cuts"] = [];
+  if (s.income > 0 && room < 0) {
+    /* fixed already overflow: cuts cannot close it */
+  } else {
+    for (const [name, minor] of ranked) {
+      if (left <= 0) break;
+      const cut = Math.min(minor, left);
+      if (cut > 0) cuts.push({ name, minor: cut });
+      left -= cut;
+    }
+  }
+  const money = (n: number) => formatMoney(n, state.settings.display, lang);
+  let note = "";
+  if (s.income <= 0) {
+    note = L(lang, "Primero anota un ingreso. Sin eso, un presupuesto sería un invento.", "Enter an income first. Without it, a budget would be a guess.");
+  } else if (room < 0) {
+    note = L(
+      lang,
+      `Los fijos y la meta se pasan del ingreso por ${money(-room)}.\nUn gasto suelto no lo cierra. Baja un fijo, o sube el ingreso.`,
+      `Fixed bills and the goal already exceed income by ${money(-room)}.\nA small expense will not close it. Lower a fixed bill, or raise income.`,
+    );
+  } else if (gap <= 0) {
+    note = L(
+      lang,
+      `La meta del ${state.settings.savingsGoalPct}% son ${money(s.savingsGoal)}.\nDespués de los fijos quedan ${money(room)} para el día a día.\nLo anotado cabe. Sobran ${money(-gap)}.`,
+      `The ${state.settings.savingsGoalPct}% goal is ${money(s.savingsGoal)}.\nAfter fixed bills, ${money(room)} is left for everyday spending.\nWhat you recorded fits. ${money(-gap)} is spare.`,
+    );
+  } else {
+    note = L(
+      lang,
+      `El día a día se pasa por ${money(gap)}.\nEmpieza por el más grande. Los fijos se quedan.`,
+      `Everyday spending is over by ${money(gap)}.\nStart with the largest. Fixed bills stay.`,
+    );
+  }
+  return {
+    income: s.income,
+    savingsTarget: s.savingsGoal,
+    fixed: s.fixed,
+    debt: s.debt,
+    room: Math.max(0, room),
+    variableActual,
+    gap,
+    cuts,
+    feasible: s.income > 0 && room >= 0 && gap <= 0,
+    note,
+  };
+}
+
+export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: Namer): AdviceCard[] {
+  const s = summarize(state, key, lang);
+  const reading = readAdvisor(state, key, lang, names);
+  const money = (n: number) => formatMoney(n, state.settings.display, lang);
+  const pct = (n: number | null) => formatPct(n, lang);
+  const lines = monthLines(state, key).filter((l) => l.active);
+  const debts = lines.filter((l) => roleOf(state.structure, l.categoryId) === "debt");
+  const absLeft = Math.abs(s.opportunity);
+
+  const shortPoints: AdviceCard["points"] = [
+    {
+      label: L(lang, "Base", "Base"),
+      value: money(reading.baseSurplus),
+      note: reading.parts.base.rule,
+      emphasis: true,
+    },
+    {
+      label: L(lang, "Únicas", "One-offs"),
+      value: money(reading.parts.unique.signed),
+      note: reading.parts.unique.rule,
+    },
+    {
+      label: L(lang, "Apartado", "Transfer"),
+      value: money(reading.parts.transfer.signed),
+      note: reading.parts.transfer.rule,
+    },
+  ];
+  if (reading.splitNote) {
+    shortPoints.push({
+      label: L(lang, "No es un hábito", "Not a habit"),
+      value: money(reading.ironmanMinor),
+      note: reading.splitNote,
+    });
+  }
+  if (reading.classificationError) {
+    shortPoints.push({
+      label: L(lang, "Clasificación", "Classification"),
+      value: money(reading.naiveFixed),
+      note: reading.classificationError,
+    });
+  }
+  if (reading.realSpend !== reading.outTotal) {
+    shortPoints.push({
+      label: L(lang, "Gasto real", "Real spend"),
+      value: money(reading.realSpend),
+      note: L(
+        lang,
+        `Sin apartados. La salida total es ${money(reading.outTotal)}; el apartado de ${money(reading.transferMinor)} no es gasto.`,
+        `Without transfers. Total outflow is ${money(reading.outTotal)}; the ${money(reading.transferMinor)} transfer is not spending.`,
+      ),
+    });
+  }
+  for (const row of reading.top) {
+    if (shortPoints.some((point) => point.value === money(row.minor) && point.label === row.name)) continue;
+    shortPoints.push({
+      label: row.name,
+      value: money(row.minor),
+      note: L(
+        lang,
+        row.cls === "transfer"
+          ? "Es un apartado, no un gasto. Va primero por tamaño."
+          : row.cls === "unique"
+            ? "Parece único — sin confirmar. Ya salió: se devuelve, se vende o se compensa."
+            : "Se repite. No es la palanca de este mes si hay partidas más grandes.",
+        row.cls === "transfer"
+          ? "It is a transfer, not spending. It comes first because of its size."
+          : row.cls === "unique"
+            ? "Looks one-off — unconfirmed. It already left: return it, sell it, or offset it."
+            : "It repeats. It is not this month's lever if larger lines exist.",
+      ),
+    });
+  }
+  if (reading.vagueQuestion) {
+    shortPoints.push({
+      label: L(lang, "Pregunta", "Question"),
+      value: reading.vagueName || "—",
+      note: reading.vagueQuestion,
+    });
+  }
+  if (reading.antNote) {
+    shortPoints.push({
+      label: L(lang, "Después de lo grande", "After the large lines"),
+      value: L(lang, "Orden", "Housekeeping"),
+      note: reading.antNote,
+    });
+  }
+
+  const spentCaption = L(
+    lang,
+    `Gasto real ${money(reading.realSpend)}. Salida total ${money(reading.outTotal)}. ${reading.toneLabel}`,
+    `Real spend ${money(reading.realSpend)}. Total outflow ${money(reading.outTotal)}. ${reading.toneLabel}`,
+  );
+
+  const mediumBits: AdviceCard["points"] = [];
+  for (const d of debts) {
+    const pay = inView(d, state.settings.display, state.settings.rateE4);
+    const name = d.concept || names.sub(d.subId) || names.cat(d.categoryId);
+    if (d.balanceMinor === null) {
+      mediumBits.push({
+        label: name,
+        value: money(pay),
+        note: L(lang, "Pago de este mes. Anota el saldo, la tasa anual y el pago mínimo, y te digo en cuántos meses termina. Sin esos tres datos no hay plazo.", "This month's payment. Enter the balance, the annual rate, and the minimum payment, and I will say how many months are left. Without those three there is no payoff date."),
+      });
+      continue;
+    }
+    const bal = convertMinor(d.balanceMinor, d.balanceCurrency, state.settings.display, state.settings.rateE4);
+    if (d.aprBps > 0) {
+      const r = d.aprBps / 10000 / 12;
+      const interest = roundHalfAway(bal * r);
+      if (pay <= interest) {
+        mediumBits.push({
+          label: name,
+          value: money(bal),
+          note: L(lang, `Debes esto y pagas ${money(pay)}. El interés del mes es cerca de ${money(interest)}: el pago no lo cubre y la deuda no baja.`, `You owe this and pay ${money(pay)}. Interest this month is about ${money(interest)}: the payment does not cover it and the balance does not fall.`),
+        });
+      } else {
+        const n = Math.log(pay / (pay - bal * r)) / Math.log(1 + r);
+        const months = Number.isFinite(n) ? Math.ceil(n) : null;
+        mediumBits.push({
+          label: name,
+          value: money(bal),
+          note: L(lang, `Debes esto y pagas ${money(pay)}. Al ${d.aprBps / 100}% anual, terminas en unos ${months ?? "—"} meses.`, `You owe this and pay ${money(pay)}. At ${d.aprBps / 100}% a year, you finish in about ${months ?? "—"} months.`),
+        });
+      }
+    } else {
+      const n = pay > 0 ? Math.ceil(bal / pay) : null;
+      mediumBits.push({
+        label: name,
+        value: money(bal),
+        note: L(lang, `Debes esto y pagas ${money(pay)}. Sin tasa anotada, unos ${n ?? "—"} meses. Si cobra interés, tarda más.`, `You owe this and pay ${money(pay)}. With no rate recorded, about ${n ?? "—"} months. Interest would make it longer.`),
+      });
+    }
+  }
+  if (debts.length && s.opportunity < 0) {
+    mediumBits.push({
+      label: L(lang, "Este mes", "This month"),
+      value: L(lang, "No subas el pago", "Do not raise it"),
+      note: L(lang, `Ya te faltan ${money(absLeft)}. Primero cierra el mes; después acelera el crédito.`, `You are already short ${money(absLeft)}. Close the month first, then speed up the credit.`),
+    });
+  }
+
+  const mediumLead = (() => {
+    if (!debts.length || s.debt <= 0) {
+      return L(lang, "Este mes no hay créditos. No invento un plazo.", "No credit this month. I will not invent a payoff date.");
+    }
+    const load = s.debtPct !== null
+      ? L(lang, `, el ${pct(s.debtPct)} de lo que entra.`, `, ${pct(s.debtPct)} of what comes in.`)
+      : ".";
+    if (s.tone === "bad") {
+      return L(
+        lang,
+        `Pagas ${money(s.debt)}${load} Pasaste el techo de ${state.settings.debtYellowPct}% que te marcaste.`,
+        `You pay ${money(s.debt)}${load} That is past the ${state.settings.debtYellowPct}% ceiling you set.`,
+      );
+    }
+    if (s.tone === "warn") {
+      return L(
+        lang,
+        `Pagas ${money(s.debt)}${load} Estás entre el tope cómodo (${state.settings.debtGreenPct}%) y el techo (${state.settings.debtYellowPct}%).`,
+        `You pay ${money(s.debt)}${load} You are between the easy cap (${state.settings.debtGreenPct}%) and the ceiling (${state.settings.debtYellowPct}%).`,
+      );
+    }
+    const missing = debts.some((d) => d.balanceMinor === null);
+    return L(
+      lang,
+      `Pagas ${money(s.debt)}${load} Tu zona cómoda llega a ${money(s.debtAllowance)}. El pago está bien.${missing ? " Faltan el saldo, la tasa anual y el pago mínimo para saber el plazo." : ""}`,
+      `You pay ${money(s.debt)}${load} Your easy zone goes up to ${money(s.debtAllowance)}. The payment is fine.${missing ? " The balance, the annual rate, and the minimum payment are missing, so the payoff date is too." : ""}`,
+    );
+  })();
+
+  const keys = Object.keys(state.months).filter((k) => (state.months[k]?.lines.length ?? 0) > 0).sort();
+  const baseSeries = (keys.length ? keys : [key]).map((k) => readAdvisor(state, k, lang, names).baseSurplus);
+  const avgBase = baseSeries.length ? Math.round(baseSeries.reduce((a, b) => a + b, 0) / baseSeries.length) : reading.baseSurplus;
+  const oneMonth = keys.length < 2;
+  const yearFigure = oneMonth ? reading.baseSurplus * 12 : avgBase * 12;
+  const emergencyTarget = reading.recurrentMinor * state.settings.emergencyMonths;
+  const stock = lines
+    .filter((l) => roleOf(state.structure, l.categoryId) === "savings" && l.balanceMinor !== null)
+    .reduce((acc, l) => acc + convertMinor(l.balanceMinor || 0, l.balanceCurrency, state.settings.display, state.settings.rateE4), 0);
+  const gapFund = Math.max(0, emergencyTarget - stock);
+  const pace = s.opportunity;
+  const monthsToFund = pace > 0 && gapFund > 0 ? Math.ceil(gapFund / pace) : null;
+
+  const longLead = oneMonth
+    ? yearFigure < 0
+      ? L(lang, "Si la base recurrente se repite, el año cierra con un hueco. No es un pronóstico: es la cuenta si nada cambia.", "If the repeating base repeats, the year closes with a hole. That is not a forecast. It is the arithmetic if nothing changes.")
+      : L(lang, "Si la base recurrente se repite, esto es lo que quedaría en un año. Las compras únicas no entran. No es un pronóstico: es la cuenta si nada cambia.", "If the repeating base repeats, this is what a year would leave. One-off purchases are not included. That is not a forecast. It is the arithmetic if nothing changes.")
+    : yearFigure < 0
+      ? L(lang, `En ${keys.length} meses el promedio de la base cierra en rojo. Doce meses así siguen en hueco. No es un pronóstico: es la cuenta si nada cambia.`, `Across ${keys.length} months the base average closes in the red. Twelve months like that stay short. That is not a forecast. It is the arithmetic if nothing changes.`)
+      : L(lang, `En ${keys.length} meses, esto es el promedio de la base llevado a un año. Las únicas no entran. No es un pronóstico: es la cuenta si nada cambia.`, `Across ${keys.length} months, this is the base average carried to a year. One-offs are not included. That is not a forecast. It is the arithmetic if nothing changes.`);
+
+  const longPoints: AdviceCard["points"] = [
+    {
+      label: yearFigure < 0 ? L(lang, "Hueco en un año", "Hole in a year") : L(lang, "En un año", "In a year"),
+      value: money(Math.abs(yearFigure)),
+      note: oneMonth
+        ? L(lang, "Sale de multiplicar la base recurrente (sin compras únicas ni apartados) por doce. No es un pronóstico: es la cuenta si nada cambia.", "It comes from multiplying the repeating base (no one-off purchases, no transfers) by twelve. That is not a forecast. It is the arithmetic if nothing changes.")
+        : L(lang, `Sale del promedio de la base recurrente: ${money(avgBase)} al mes. No es un pronóstico: es la cuenta si nada cambia.`, `It comes from the average repeating base: ${money(avgBase)} a month. That is not a forecast. It is the arithmetic if nothing changes.`),
+      emphasis: true,
+    },
+  ];
+  if (reading.recurrentMinor > 0) {
+    longPoints.push({
+      label: L(lang, "Colchón", "Cushion"),
+      value: money(emergencyTarget),
+      note: L(lang, `${state.settings.emergencyMonths} × esenciales reales (${money(reading.recurrentMinor)}). El colchón es dinero guardado para un golpe; la meta sana son esos meses. No incluye apartados.`, `${state.settings.emergencyMonths} × real essentials (${money(reading.recurrentMinor)}). The cushion is money kept for a shock; a sound goal is that many months. Transfers are not included.`),
+    });
+    longPoints.push({
+      label: L(lang, "Ya anotado", "Already recorded"),
+      value: stock > 0 ? money(stock) : L(lang, "Nada", "Nothing"),
+      note: stock > 0
+        ? L(lang, "Saldo que pusiste en una línea de ahorro.", "Balance you entered on a savings line.")
+        : L(lang, "Todavía no hay un saldo de fondo. Anótalo en esa línea y el plazo se vuelve real.", "There is no fund balance yet. Enter it on that line and the timeline becomes real."),
+    });
+    if (gapFund > 0) {
+      longPoints.push({
+        label: L(lang, "Para llenarlo", "To fill it"),
+        value: money(gapFund),
+        note: monthsToFund
+          ? L(lang, `Unos ${monthsToFund} meses, y solo si ahorras todo lo que queda.`, `About ${monthsToFund} months, and only if you save everything left.`)
+          : L(lang, "Mientras el mes cierre en rojo, el fondo no crece.", "While the month closes in the red, the fund does not grow."),
+      });
+    } else {
+      longPoints.push({
+        label: L(lang, "Para llenarlo", "To fill it"),
+        value: L(lang, "Listo", "Done"),
+        note: L(lang, "El saldo anotado ya cubre esos meses de fijos.", "The recorded balance already covers those months of fixed bills."),
+      });
+    }
+  } else {
+    longPoints.push({
+      label: L(lang, "Colchón", "Cushion"),
+      value: "—",
+      note: L(lang, "Sin gastos fijos no hay colchón que medir.", "With no fixed bills there is no cushion to measure."),
+    });
+  }
+  if (reading.contradiction) {
+    longPoints.push({
+      label: L(lang, "Bolsas", "Pockets"),
+      value: money(reading.pocketAside),
+      note: reading.contradiction,
+    });
+  }
+  if (s.savingsFlow > 0) {
+    longPoints.push({
+      label: L(lang, "Ahorro del mes", "Saved this month"),
+      value: money(s.savingsFlow),
+      note: s.opportunity < 0
+        ? L(lang, "El mes está en rojo. Este apartado es una decisión a revisar, no un logro. Mover dinero no cuenta como tasa de ahorro (de cada $100 que entran, cuántos quedan) si se gastó más de lo que entró.", "The month is in the red. This transfer is a decision to review, not a win. Moving money does not count as a savings rate (of each $100 that comes in, how many are left) if spending was higher than income.")
+        : L(lang, "Lo que ya moviste a una categoría de ahorro. No es lo mismo que lo que queda.", "What you already moved to a savings category. It is not the same as what is left."),
+    });
+  }
+
+  const debtMeterPct = s.debtAllowance > 0 ? Math.max(0, Math.min(100, (s.debt / s.debtAllowance) * 100)) : 0;
+  const fundMeterPct = emergencyTarget > 0 ? Math.max(0, Math.min(100, (stock / emergencyTarget) * 100)) : 0;
+
+  const shortCard: AdviceCard = {
+    horizon: "short",
+    title: L(lang, "Qué pasó", "What happened"),
+    lead: reading.headline,
+    body: "",
+    evidence: spentCaption,
+    points: shortPoints,
+    meter: reading.outTotal > 0 ? { pct: Math.max(0, Math.min(100, (reading.uniqueMinor / reading.outTotal) * 100)), caption: spentCaption } : null,
+  };
+  const mediumCard: AdviceCard = {
+    horizon: "medium",
+    title: L(lang, "Cómo va mi crédito", "How is my credit"),
+    lead: mediumLead,
+    body: "",
+    evidence: L(lang, `Pagos ${money(s.debt)} · Tope cómodo ${money(s.debtAllowance)}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}`),
+    points: mediumBits,
+    meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `El pago usa el ${pct(s.debtPct)} del ingreso. El tope cómodo es ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,
+  };
+  const longCard: AdviceCard = {
+    horizon: "long",
+    title: L(lang, "Y si la base se repite", "What if the base repeats"),
+    lead: longLead,
+    body: "",
+    evidence: L(lang, `Meses con datos: ${keys.length || (lines.length ? 1 : 0)}. Colchón: ${state.settings.emergencyMonths} meses de esenciales reales.`, `Months with data: ${keys.length || (lines.length ? 1 : 0)}. Cushion: ${state.settings.emergencyMonths} months of real essentials.`),
+    points: longPoints,
+    meter: emergencyTarget > 0 ? { pct: fundMeterPct, caption: stock >= emergencyTarget ? L(lang, "El fondo anotado ya cubre el colchón.", "The recorded fund already covers the cushion.") : L(lang, `Llevas el ${pct(fundMeterPct)} del colchón.`, `You have ${pct(fundMeterPct)} of the cushion.`) } : null,
+  };
+
+  for (const card of [shortCard, mediumCard, longCard]) {
+    card.body = [card.lead, ...card.points.map((p) => `${p.label}: ${p.value}. ${p.note}`), card.evidence].filter(Boolean).join("\n");
+  }
+  return [shortCard, mediumCard, longCard];
+}
+
+export function lineLabel(line: Line, names: Namer, lang: Lang): string {
+  const cat = names.cat(line.categoryId) || names.purchase(line.categoryId);
+  const sub = names.sub(line.subId);
+  const store = names.catalog(line.storeId);
+  const provider = names.catalog(line.providerId);
+  return [line.concept, cat, sub, store, provider, line.note, line.productCode].filter(Boolean).join(" ");
+}
+
+export { displayName };
