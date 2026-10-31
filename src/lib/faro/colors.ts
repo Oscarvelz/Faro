@@ -50,9 +50,9 @@ export function isTron(): boolean {
 }
 
 /**
- * Tron (Legacy) has two sides: users in cyan, programs in Clu's orange.
- * Warm colors become shades of orange, cool ones shades of cyan, keeping each
- * category apart by hue step and lightness. Only while the Tron theme is on.
+ * Tron (Legacy): every category keeps its own hue, lit like a light line on the
+ * Grid: full saturation, a lightness tuned per hue so each glows evenly on black.
+ * Greys stay quiet. Only while the Tron theme is on.
  */
 export function tronize(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -63,12 +63,9 @@ export function tronize(hex: string): string {
   let h = 0;
   if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
   h = (h * 60 + 360) % 360;
-  const l = (max + min) / 2;
-  const warm = h >= 300 || h < 80 || d < 0.08;
-  const step = warm ? ((h + 60) % 360) / 140 : (h - 80) / 220;
-  const hue = warm ? 16 + Math.min(1, step) * 30 : 176 + Math.min(1, Math.max(0, step)) * 34;
-  const light = 50 + Math.round(Math.max(0, Math.min(1, (l - 0.45) / 0.4)) * 16);
-  return `hsl(${hue.toFixed(0)} 100% ${light}%)`;
+  if (d < 0.06) return `hsl(${h.toFixed(0)} 18% 70%)`;
+  const light = h >= 45 && h < 170 ? 54 : h >= 200 && h < 290 ? 66 : 60;
+  return `hsl(${h.toFixed(0)} 100% ${light}%)`;
 }
 
 export function categoryColor(id: string, chosen?: string): string {

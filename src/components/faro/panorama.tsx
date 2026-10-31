@@ -163,7 +163,7 @@ export function WaffleCard({ coach }: { coach: Coach }) {
             type="button"
             tabIndex={-1}
             className={`${!sq.id ? "is-blank" : ""}${sq.id === "free" ? " is-free" : ""}${pick && sq.id !== pick ? " is-dim" : ""}`}
-            style={{ background: sq.id === "free" ? undefined : sq.color || undefined, animationDelay: `${(i % 10) * 18 + Math.floor(i / 10) * 18}ms` }}
+            style={{ background: sq.id === "free" ? undefined : sq.color || undefined, ["--c" as string]: sq.color || undefined, animationDelay: `${(i % 10) * 18 + Math.floor(i / 10) * 18}ms` }}
             onClick={() => sq.id && setPick((cur) => (cur === sq.id ? null : sq.id))}
             aria-hidden
           />

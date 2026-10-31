@@ -59,8 +59,8 @@ export type Coach = {
 };
 
 const DAY_PALETTE = { needs: "#7fb2a0", wants: "#e0a35c", debt: "#d0837a", save: "#7fa6cf", free: "#ffd98a" };
-/* Tron: needs and savings on the users' cyan side, wants on Clu's orange, debt Ares red, what's left white-hot. */
-const TRON_PALETTE = { needs: "#00e5ff", wants: "#ff8a00", debt: "#ff2a2a", save: "#4d7cff", free: "#eafdff" };
+/* Tron: the same hues, lit like light lines on the Grid. */
+const TRON_PALETTE = { needs: "#2effc4", wants: "#ffa236", debt: "#ff4b3e", save: "#4fa8ff", free: "#ffd84a" };
 const PALETTE = new Proxy(DAY_PALETTE, { get: (t, k: keyof typeof DAY_PALETTE) => (typeof document !== "undefined" && document.documentElement.dataset.theme === "tron" ? TRON_PALETTE : t)[k] });
 
 function L(lang: Lang, es: string, en: string) {

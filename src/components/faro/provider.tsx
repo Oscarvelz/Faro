@@ -390,6 +390,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
     const shown = session.ledger.settings.theme === "ion" ? "ion-noche" : session.ledger.settings.theme;
     document.documentElement.dataset.theme = shown;
+    if (shown === "tron" && !document.getElementById("tron-fonts")) {
+      const l = document.createElement("link");
+      l.id = "tron-fonts"; l.rel = "stylesheet";
+      l.href = "https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Exo+2:wght@400;500;600;700&display=swap";
+      document.head.appendChild(l);
+    }
     document.documentElement.lang = session.ledger.settings.lang;
     localStorage.setItem("faro-theme", shown);
     localStorage.setItem("faro-lang", session.ledger.settings.lang);
