@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Calculator, Compass, Info, X } from "lucide-react";
+import { BookOpen, Calculator, CircleHelp, Compass, X } from "lucide-react";
 
 export function Modal({
   open,
@@ -76,7 +76,7 @@ export function Explain({
   return (
     <>
       <button type="button" className="icon-btn" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
-        <Info className="size-4" aria-hidden />
+        <CircleHelp className="size-4" aria-hidden />
       </button>
       {open
         ? createPortal(
@@ -84,7 +84,7 @@ export function Explain({
               <div className="xp-sheet" role="dialog" aria-modal="true" aria-label={title}>
                 <i className="xp-grip" aria-hidden />
                 <header className="xp-head">
-                  <span className="xp-badge" aria-hidden><Info /></span>
+                  <span className="xp-badge" aria-hidden><CircleHelp /></span>
                   <h3>{title}</h3>
                   <button ref={closeBtn} type="button" className="xp-x" aria-label={en ? "Close" : "Cerrar"} onClick={close}><X /></button>
                 </header>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Eye, EyeOff, Info, Lock, Mail, User, X } from "lucide-react";
+import { Check, CircleHelp, Eye, EyeOff, Lock, Mail, User, X } from "lucide-react";
 import { Mark } from "@/components/faro/icons";
 import type { Lang } from "@/lib/faro/types";
 import { emitUser, keepSignedIn, rememberUser, setKeepSignedIn, supabase } from "./cloud";
@@ -133,7 +133,7 @@ export function Login({ note, recovery }: { note?: string; recovery?: boolean })
                 <span>{mode === "reset" ? t("login.newpass") : t("login.password")}</span>
                 <button type="button" className="gate-eye" aria-label={show ? t("login.hide") : t("login.show")} onClick={() => setShow((on) => !on)}>{show ? <EyeOff /> : <Eye />}</button>
               </label>
-              <button type="button" className={`gate-info${tip ? " is-on" : ""}`} aria-expanded={tip} aria-label={t("login.about")} onClick={() => setTip((on) => !on)}><Info /></button>
+              <button type="button" className={`gate-info${tip ? " is-on" : ""}`} aria-expanded={tip} aria-label={t("login.about")} onClick={() => setTip((on) => !on)}><CircleHelp /></button>
             </div>
           ) : null}
           {tip && mode !== "forgot" ? (
