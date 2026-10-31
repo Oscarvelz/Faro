@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useRef, useState } from "react";
+import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "@/styles.css";
 import { FaroProvider } from "@/components/faro/provider";
@@ -11,6 +11,7 @@ import { lockCredential, unlock } from "@/spa/lock";
 import { w } from "@/spa/words";
 import { startFit } from "@/spa/fit";
 import "@/spa/gate.css";
+import { Splash, SPLASH_MIN_MS } from "@/spa/splash";
 
 function Night() {
   return (
@@ -66,6 +67,26 @@ function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
 const RELOCK_MS = 60_000;
 
 function App() {
+  const [splash, setSplash] = useState(true);
+  const [minDone, setMinDone] = useState(false);
+  const [capDone, setCapDone] = useState(false);
+  useEffect(() => {
+    const a = window.setTimeout(() => setMinDone(true), SPLASH_MIN_MS);
+    const b = window.setTimeout(() => setCapDone(true), 5000);
+    return () => { window.clearTimeout(a); window.clearTimeout(b); };
+  }, []);
+  const [ready, setReady] = useState(!CLOUD_READY);
+  const gone = useCallback(() => setSplash(false), []);
+  const view = <Gate onReady={setReady} />;
+  return (
+    <>
+      {view}
+      {splash ? <Splash done={(minDone && ready) || capDone} onGone={gone} /> : null}
+    </>
+  );
+}
+
+function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   const user = useFaroUser();
   const [booted, setBooted] = useState(false);
   const [recovery, setRecovery] = useState(false);
@@ -93,6 +114,7 @@ function App() {
         }
       } catch { /* offline: keep the remembered user */ }
       setBooted(true);
+      onReady(true);
     })();
     return () => sub.subscription.unsubscribe();
   }, []);
