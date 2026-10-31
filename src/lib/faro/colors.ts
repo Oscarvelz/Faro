@@ -45,13 +45,43 @@ const NAMED: Record<string, string> = {
   ia: "#b9a8d4",
 };
 
+export function isTron(): boolean {
+  return typeof document !== "undefined" && document.documentElement.dataset.theme === "tron";
+}
+
+/**
+ * Tron (Legacy) has two sides: users in cyan, programs in Clu's orange.
+ * Warm colors become shades of orange, cool ones shades of cyan, keeping each
+ * category apart by hue step and lightness. Only while the Tron theme is on.
+ */
+export function tronize(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const v = parseInt(m[1], 16);
+  const r = ((v >> 16) & 255) / 255, g = ((v >> 8) & 255) / 255, b = (v & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  const l = (max + min) / 2;
+  const warm = h >= 300 || h < 80 || d < 0.08;
+  const step = warm ? ((h + 60) % 360) / 140 : (h - 80) / 220;
+  const hue = warm ? 16 + Math.min(1, step) * 30 : 176 + Math.min(1, Math.max(0, step)) * 34;
+  const light = 50 + Math.round(Math.max(0, Math.min(1, (l - 0.45) / 0.4)) * 16);
+  return `hsl(${hue.toFixed(0)} 100% ${light}%)`;
+}
+
 export function categoryColor(id: string, chosen?: string): string {
   const custom = chosen?.trim();
-  if (custom) return custom;
-  if (NAMED[id]) return NAMED[id];
-  let n = 0;
-  for (let i = 0; i < id.length; i += 1) n = (n + id.charCodeAt(i) * (i + 1)) % PALETTE.length;
-  return PALETTE[n] ?? PALETTE[0];
+  let base: string;
+  if (custom) base = custom;
+  else if (NAMED[id]) base = NAMED[id];
+  else {
+    let n = 0;
+    for (let i = 0; i < id.length; i += 1) n = (n + id.charCodeAt(i) * (i + 1)) % PALETTE.length;
+    base = PALETTE[n] ?? PALETTE[0];
+  }
+  return isTron() ? tronize(base) : base;
 }
 
 export function colorFor(structure: Structure, categoryId: string): string {

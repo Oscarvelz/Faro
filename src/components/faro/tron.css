@@ -1,247 +1,313 @@
 /* =====================================================================
-   Faro · Tron (night). Learned from Weekly 1.4 / Cadence Tron, adapted to Faro.
-   Skin only: colors, light, motion. No layout, data or text changes.
-   Palette: cyan light-lines #00e5ff (white-hot core), Legacy amber #ffb21e
-   (Faro's lamp — "Te queda" and the lighthouse are amber), Ares red #ff2a2a
-   for money going out. Every animation stops under reduced motion and while
-   the tab is hidden (html[data-hidden]).
+   Faro · Tron (night). Reference: the TRON: LEGACY poster, plus Ares red.
+   - A teal storm sky over a Grid floor that runs to a lone tower on the
+     horizon (Faro's lighthouse).
+   - Gunmetal, glossy panels edged with light lines, never flat neon boxes.
+   - Two sides of light: teal (users, what comes in) and Clu orange (programs,
+     what goes out). Ares red is a rare touch: errors, deletes, the lighthouse
+     bands, and the second light-cycle that sometimes chases the first.
+   Skin only. All motion stops under reduced motion and while the tab is hidden.
    ===================================================================== */
 
 [data-theme="tron"] {
-  --bg: #02060c; --surface: #061220; --surface-2: #0a1c2e; --fg: #e6faff; --muted: #8fb6c8; --faint: #5f8798;
-  --line: rgba(0, 229, 255, 0.28); --accent: #00e5ff; --accent-fg: #001319;
-  --good: #00e5ff; --warn: #ffb21e; --bad: #ff4d4d; --glow: #00e5ff;
-  --t-cyan: #00e5ff; --t-line: #6fe3ff; --t-amber: #ffb21e; --t-amber-core: #fff1c4; --t-red: #ff2a2a;
+  --bg: #03080b; --surface: #0a1317; --surface-2: #111e24; --fg: #e4f7fb; --muted: #8fb1bb; --faint: #5d7d87;
+  --line: rgba(80, 200, 230, 0.22); --accent: #3fd6f5; --accent-fg: #021014;
+  --good: #3fd6f5; --warn: #ff9d2a; --bad: #ff3b30; --glow: #3fd6f5;
+  --t-teal: #3fd6f5; --t-teal-hot: #c9f6ff; --t-orange: #ff9d2a; --t-orange-hot: #ffe2b0; --t-red: #ff2a2a;
+  --t-edge: rgba(120, 225, 250, .55);
+  --t-steel: linear-gradient(180deg, rgba(22, 36, 42, .94) 0%, rgba(9, 16, 20, .96) 46%, rgba(5, 10, 13, .97) 100%);
   color-scheme: dark;
-  scrollbar-color: rgba(0, 229, 255, 0.45) #02060c;
+  scrollbar-color: rgba(63, 214, 245, .4) #03080b;
 }
-.swatch-tron { --swatch-bg: #02060c; --swatch-surface: #061a2a; --swatch-fg: #dffbff; --swatch-accent: #00e5ff; }
-.swatch-tron { box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .55), 0 0 12px rgba(0, 229, 255, .25); }
-.swatch-tron strong { text-transform: uppercase; letter-spacing: .14em; font-family: var(--font-sans, inherit); font-weight: 500; text-shadow: 0 0 8px #00e5ff; }
 .swatch-ion-noche { --swatch-bg: #070b12; --swatch-surface: #101722; --swatch-fg: #e7f2ff; --swatch-accent: #22d3ee; }
 
-/* ---------- The Grid: cyan lattice, cyan + amber circuits, horizon glow ---------- */
+/* ---------- The world: storm sky, horizon, Grid floor, the tower ---------- */
 [data-theme="tron"] body {
-  background-color: #02060c;
+  background-color: #03080b;
   background-image:
-    radial-gradient(120% 40% at 50% 112%, rgba(255, 178, 30, 0.12), transparent 60%),
-    radial-gradient(70% 26% at 18% -4%, rgba(0, 229, 255, 0.16), transparent 62%),
-    linear-gradient(rgba(0, 229, 255, 0.065) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 229, 255, 0.065) 1px, transparent 1px),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='264' height='264'%3E%3Cg fill='none' stroke-width='1'%3E%3Cg stroke='%2300e5ff' stroke-opacity='0.17'%3E%3Cpath d='M12 48H78V96H140'/%3E%3Cpath d='M36 200H110V72'/%3E%3Cpath d='M180 28V84H250'/%3E%3C/g%3E%3Cg stroke='%23ffb21e' stroke-opacity='0.16'%3E%3Cpath d='M150 240V170H220'/%3E%3Cpath d='M200 120H250V150'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='78' cy='48' r='2' fill='%2300e5ff' fill-opacity='0.5'/%3E%3Ccircle cx='140' cy='96' r='2' fill='%2300e5ff' fill-opacity='0.4'/%3E%3Ccircle cx='110' cy='72' r='2' fill='%2300e5ff' fill-opacity='0.4'/%3E%3Ccircle cx='220' cy='170' r='2.2' fill='%23ffb21e' fill-opacity='0.55'/%3E%3Ccircle cx='250' cy='150' r='2' fill='%23ff2a2a' fill-opacity='0.5'/%3E%3C/svg%3E");
-  background-size: auto, auto, 44px 44px, 44px 44px, 264px 264px;
+    radial-gradient(60% 22% at 30% 6%, rgba(70, 150, 170, .22), transparent 70%),
+    radial-gradient(50% 18% at 78% 12%, rgba(50, 120, 140, .2), transparent 70%),
+    radial-gradient(90% 30% at 50% 0%, rgba(20, 70, 86, .55), transparent 75%),
+    linear-gradient(180deg, #071419 0%, #040b0e 45%, #03080b 100%);
   background-attachment: fixed;
 }
+[data-theme="tron"] body::before,
+[data-theme="tron"] body::after { content: ""; position: fixed; left: 0; right: 0; pointer-events: none; z-index: -1; }
+/* Horizon glow + the tower, far away. */
+[data-theme="tron"] body::before {
+  top: 30vh; height: 22vh;
+  background:
+    linear-gradient(180deg, transparent 48%, rgba(120, 225, 250, .55) 50%, transparent 52%),
+    radial-gradient(40% 70% at 50% 50%, rgba(63, 214, 245, .28), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='120' viewBox='0 0 40 120'%3E%3Cg fill='none' stroke='%2378e1fa' stroke-opacity='.75'%3E%3Cpath d='M20 4V60M16 22h8M14 40h12M10 60h20'/%3E%3C/g%3E%3Ccircle cx='20' cy='10' r='2.4' fill='%23ff9d2a'/%3E%3C/svg%3E") 50% 0 / 20px 60px no-repeat;
+  opacity: .8;
+}
+/* The Grid floor in perspective, fading into the horizon. Kept inside the viewport
+   (overflow clip) so it never widens the page or pushes the dock. */
+html[data-theme="tron"], html[data-theme="tron"] body { overflow-x: clip; }
+[data-theme="tron"] body::after {
+  bottom: 0; height: 62vh;
+  background-image:
+    linear-gradient(rgba(63, 214, 245, .34) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, rgba(63, 214, 245, .34) 1.5px, transparent 1.5px);
+  background-size: 44px 44px;
+  background-position: center top;
+  transform: perspective(320px) rotateX(62deg);
+  transform-origin: 50% 0;
+  -webkit-mask: linear-gradient(180deg, transparent 0%, #000 45%);
+          mask: linear-gradient(180deg, transparent 0%, #000 45%);
+  opacity: .55;
+}
 
-/* ---------- Header: dark glass, a light-line, an occasional light-cycle ---------- */
+/* ---------- Header: black glass, a light line, cycles racing ---------- */
 [data-theme="tron"] .top-chrome {
   position: sticky;
-  background: linear-gradient(180deg, rgba(2, 8, 16, .96), rgba(3, 16, 28, .94));
+  background: linear-gradient(180deg, rgba(3, 9, 12, .97), rgba(6, 16, 20, .94));
   border-bottom-color: transparent;
-  box-shadow: 0 1px 0 rgba(111, 227, 255, .55), 0 0 14px rgba(0, 229, 255, .22);
+  box-shadow: 0 1px 0 rgba(120, 225, 250, .5), 0 8px 18px -10px rgba(63, 214, 245, .35);
 }
+[data-theme="tron"] .top-chrome::before,
 [data-theme="tron"] .top-chrome::after {
-  content: ""; position: absolute; left: 0; bottom: -1px; width: 22%; height: 2px; pointer-events: none; opacity: 0;
-  background: linear-gradient(90deg, transparent 0, rgba(0, 229, 255, .35) 40%, #00e5ff 78%, #fff 96%, transparent 100%);
-  box-shadow: 0 0 8px rgba(0, 229, 255, .8);
+  content: ""; position: absolute; left: 0; bottom: -1px; width: 24%; height: 2px; pointer-events: none; opacity: 0;
   transform: translateX(-110%);
-  animation: tron-cycle 8.5s cubic-bezier(.55, 0, .3, 1) 1.2s infinite;
+}
+/* Teal cycle (users)… */
+[data-theme="tron"] .top-chrome::after {
+  background: linear-gradient(90deg, transparent, rgba(63, 214, 245, .4) 40%, #3fd6f5 80%, #fff 97%, transparent);
+  box-shadow: 0 0 10px rgba(63, 214, 245, .9);
+  animation: tron-cycle 9s cubic-bezier(.55, 0, .3, 1) 1.2s infinite;
+}
+/* …chased by Ares red, a beat later. */
+[data-theme="tron"] .top-chrome::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 42, 42, .45) 40%, #ff2a2a 80%, #ffd0c8 97%, transparent);
+  box-shadow: 0 0 10px rgba(255, 42, 42, .9);
+  animation: tron-cycle 9s cubic-bezier(.55, 0, .3, 1) 1.75s infinite;
 }
 @keyframes tron-cycle {
   0% { opacity: 0; transform: translateX(-110%); }
-  4% { opacity: 1; }
-  22% { opacity: 1; transform: translateX(560%); }
-  24%, 100% { opacity: 0; transform: translateX(560%); }
+  3% { opacity: 1; }
+  20% { opacity: 1; transform: translateX(520%); }
+  22%, 100% { opacity: 0; transform: translateX(520%); }
 }
 
-/* Wordmark: glowing Legacy type with a rare derez glitch. */
+/* Wordmark: hollow neon letters, like the poster title. */
 [data-theme="tron"] .brand-word {
   position: relative;
-  font-family: var(--font-sans, ui-sans-serif, system-ui);
-  font-weight: 400;
-  font-size: 1.55rem;
-  letter-spacing: .2em;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: .16em;
   text-transform: uppercase;
-  color: #dffbff;
-  text-shadow: 0 0 2px #fff, 0 0 8px #00e5ff, 0 0 18px rgba(0, 229, 255, .75), 0 0 36px rgba(0, 229, 255, .4);
+  color: transparent;
+  -webkit-text-stroke: 1.3px #bff3ff;
+  text-shadow: 0 0 6px rgba(63, 214, 245, .9), 0 0 16px rgba(63, 214, 245, .6), 0 0 34px rgba(63, 214, 245, .35);
 }
-[data-theme="tron"] .brand-word::before,
-[data-theme="tron"] .brand-word::after { content: "Faro"; position: absolute; inset: 0; pointer-events: none; opacity: 0; }
-[data-theme="tron"] .brand-word::before { color: #eafdff; text-shadow: -2px 0 rgba(0, 229, 255, .9); animation: tron-derez-a 11s steps(1) 3s infinite; }
-[data-theme="tron"] .brand-word::after { color: #fff1c4; text-shadow: 2px 0 rgba(255, 138, 0, .8); animation: tron-derez-b 11s steps(1) 3s infinite; }
-@keyframes tron-derez-a { 0%, 93%, 100% { opacity: 0; transform: none; clip-path: none; } 94% { opacity: .9; transform: translate(-3px, 0); clip-path: inset(10% 0 55% 0); } 95% { opacity: .9; transform: translate(2px, 0); clip-path: inset(60% 0 8% 0); } 96% { opacity: 0; } }
-@keyframes tron-derez-b { 0%, 93%, 100% { opacity: 0; transform: none; clip-path: none; } 94% { opacity: .8; transform: translate(3px, 0); clip-path: inset(48% 0 20% 0); } 95% { opacity: .8; transform: translate(-2px, 0); clip-path: inset(5% 0 70% 0); } 96% { opacity: 0; } }
-[data-theme="tron"] .hub-name { color: #b5f6ff; font-family: var(--font-sans, inherit); text-transform: uppercase; letter-spacing: .22em; font-size: .78rem; text-shadow: 0 0 10px rgba(0, 229, 255, .55); }
-[data-theme="tron"] .sync-dot { box-shadow: 0 0 6px currentColor, 0 0 0 1px rgba(0, 0, 0, .4); }
-[data-theme="tron"] .sync-dot:not(.offline):not(.error):not(.syncing):not(.conflict) { background: #00e5ff; color: #00e5ff; }
+[data-theme="tron"] .brand-word::after {
+  content: "Faro"; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  -webkit-text-stroke: 1.3px #ffd0c8; text-shadow: 0 0 8px #ff2a2a, 0 0 18px rgba(255, 42, 42, .6);
+  animation: tron-derez 12s steps(1) 4s infinite;
+}
+@keyframes tron-derez {
+  0%, 92%, 100% { opacity: 0; transform: none; clip-path: none; }
+  93% { opacity: 1; transform: translateX(-2px); clip-path: inset(12% 0 52% 0); }
+  94% { opacity: 1; transform: translateX(2px); clip-path: inset(58% 0 8% 0); }
+  95% { opacity: 0; }
+}
+[data-theme="tron"] .hub-name { color: #a9ecfb; font-family: var(--font-sans); font-weight: 500; text-transform: uppercase; letter-spacing: .3em; font-size: .7rem; text-shadow: 0 0 8px rgba(63, 214, 245, .5); }
+[data-theme="tron"] .brand-lamp { filter: drop-shadow(0 0 6px rgba(255, 157, 42, .6)); }
+[data-theme="tron"] .sync-dot:not(.offline):not(.error):not(.syncing):not(.conflict) { background: #3fd6f5; box-shadow: 0 0 6px #3fd6f5; }
+[data-theme="tron"] .sync-dot:is(.offline, .error) { background: #ff2a2a; box-shadow: 0 0 6px #ff2a2a; }
 
-/* The header lamp: Faro's amber light, Tron-bright. */
-[data-theme="tron"] .brand-lamp { filter: drop-shadow(0 0 6px rgba(255, 178, 30, .55)); }
-
-/* Round tool buttons: dark glass, cyan hairline. */
 [data-theme="tron"] :is(.icon-btn, .bubble) {
-  color: #c9f4ff;
-  background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .8));
-  border-color: rgba(0, 229, 255, .4);
-  box-shadow: inset 0 1px 0 rgba(111, 227, 255, .2);
+  color: #bdeefa; border-color: rgba(120, 225, 250, .35);
+  background: radial-gradient(120% 90% at 30% 0%, rgba(120, 225, 250, .14), transparent 60%), #071014;
 }
-@media (hover: hover) { [data-theme="tron"] :is(.icon-btn, .bubble):hover { border-color: #8ff4ff; box-shadow: inset 0 1px 0 rgba(111, 227, 255, .3), 0 0 12px rgba(0, 229, 255, .4); } }
 
-/* ---------- Panels: dark glass, circuit corners, a top light-line ---------- */
-[data-theme="tron"] :is(.card, .ridge, .coach, .a2-tower) {
-  border-color: transparent;
+/* ---------- Panels: gunmetal with light seams (the suits) ---------- */
+[data-theme="tron"] :is(.card, .coach, .a2-tower) {
+  border-color: rgba(120, 225, 250, .16);
   background:
-    linear-gradient(var(--t-line), var(--t-line)) left top / 16px 2px no-repeat,
-    linear-gradient(var(--t-line), var(--t-line)) left top / 2px 16px no-repeat,
-    linear-gradient(var(--t-line), var(--t-line)) right bottom / 16px 2px no-repeat,
-    linear-gradient(var(--t-line), var(--t-line)) right bottom / 2px 16px no-repeat,
-    linear-gradient(90deg, transparent, rgba(111, 227, 255, .55), transparent) center top / 70% 1px no-repeat,
-    linear-gradient(180deg, rgba(8, 26, 44, .93), rgba(3, 12, 22, .95));
-  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .26), 0 0 16px rgba(0, 229, 255, .1);
+    linear-gradient(90deg, transparent 6%, var(--t-edge) 30%, var(--t-edge) 70%, transparent 94%) center top / 100% 1px no-repeat,
+    var(--t-steel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 14px 28px -18px rgba(0, 0, 0, .9);
 }
-[data-theme="tron"] .stat-fold.is-open > .card { box-shadow: inset 3px 0 0 #00e5ff, inset 0 0 0 1px rgba(143, 244, 255, .55), 0 0 18px rgba(0, 229, 255, .22); }
-[data-theme="tron"] .card :is(h2, h3).serif,
-[data-theme="tron"] .card > h2,
-[data-theme="tron"] .stat-head h2 { color: #eafdff; text-shadow: 0 0 1px #fff, 0 0 10px rgba(0, 229, 255, .45), 0 0 26px rgba(0, 229, 255, .18); }
+[data-theme="tron"] .stat-fold.is-open > .card {
+  border-color: rgba(120, 225, 250, .3);
+  box-shadow: inset 2px 0 0 #3fd6f5, -4px 0 14px -6px rgba(63, 214, 245, .8), 0 14px 28px -18px rgba(0, 0, 0, .9);
+}
+[data-theme="tron"] :is(.card h2, .stat-head h2, .card .serif) { color: #eafbff; text-shadow: 0 0 14px rgba(63, 214, 245, .3); }
 
-/* Category groups keep their own color as a lit edge. */
-[data-theme="tron"] .ridge { box-shadow: inset 3px 0 0 var(--ridge), inset 0 0 0 1px color-mix(in oklab, var(--ridge) 40%, rgba(0, 229, 255, .2)), -2px 0 12px -3px var(--ridge); }
-[data-theme="tron"] .ridge-head strong { color: #d8fdff; letter-spacing: .14em; }
+/* Category groups: a light seam in their own color down the left, like a suit line. */
+[data-theme="tron"] .ridge {
+  border-color: rgba(120, 225, 250, .14);
+  background: var(--t-steel);
+  box-shadow: inset 2px 0 0 var(--ridge), -3px 0 12px -5px var(--ridge);
+}
+[data-theme="tron"] .ridge-head strong { color: #dff7fd; letter-spacing: .16em; }
 [data-theme="tron"] .ridge-head strong::before { box-shadow: 0 0 8px var(--ridge); }
-[data-theme="tron"] .ridge-head .num { background: rgba(2, 10, 18, .6); }
+[data-theme="tron"] .ridge-head .num { background: rgba(0, 0, 0, .4); }
 
-/* Rows: glass with a lit left edge in their own tone. */
 [data-theme="tron"] :is(.glass-line, .own-line) {
-  border-color: transparent;
-  background: linear-gradient(180deg, rgba(10, 34, 56, .55), rgba(3, 12, 22, .72));
-  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .22), inset 0 1px 0 rgba(111, 227, 255, .14);
+  border-color: rgba(120, 225, 250, .2);
+  background: linear-gradient(180deg, rgba(20, 34, 40, .8), rgba(6, 12, 15, .9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
 }
-[data-theme="tron"] .own-line { box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .45), inset 3px 0 0 #ffb21e, 0 0 12px -2px rgba(255, 138, 0, .3); }
-[data-theme="tron"] :is(.glass-line, .own-line)[aria-expanded="true"] { box-shadow: inset 0 0 0 1px #8ff4ff, inset 3px 0 0 #00e5ff, 0 0 16px rgba(0, 229, 255, .35); }
+[data-theme="tron"] .own-line { border-color: rgba(255, 157, 42, .45); box-shadow: inset 2px 0 0 #ff9d2a, -3px 0 12px -5px #ff9d2a; }
 
-/* Money: in = cyan light, out = Ares red light, what's left = Faro amber. */
-[data-theme="tron"] .amt-in { color: #7ff3ff; text-shadow: 0 0 8px rgba(0, 229, 255, .55); }
-[data-theme="tron"] .amt-out { color: #ff7a7a; text-shadow: 0 0 1px rgba(255, 217, 210, .6), 0 0 8px rgba(255, 42, 42, .5); }
-[data-theme="tron"] .amt-zero { color: #5f8798; text-shadow: none; }
-[data-theme="tron"] .desk-bar strong { color: #ffd27a; text-shadow: 0 0 2px #fff1c4, 0 0 10px rgba(255, 178, 30, .6); }
-[data-theme="tron"] .desk-bar strong.bad { color: #ff7a7a; text-shadow: 0 0 10px rgba(255, 42, 42, .6); }
-[data-theme="tron"] .desk-bar em, [data-theme="tron"] .lens .lens-kicker { color: #8fdcf0; letter-spacing: .14em; }
+/* ---------- Money: teal in, orange out, the rest white-hot ---------- */
+[data-theme="tron"] .amt-in { color: #6fe2fa; text-shadow: 0 0 8px rgba(63, 214, 245, .5); }
+[data-theme="tron"] .amt-out { color: #ffad4d; text-shadow: 0 0 8px rgba(255, 122, 0, .45); }
+[data-theme="tron"] .amt-zero { color: #5d7d87; text-shadow: none; }
+[data-theme="tron"] .bad { color: #ff4d42; text-shadow: 0 0 8px rgba(255, 42, 42, .5); }
 [data-theme="tron"] .desk-bar {
-  background: linear-gradient(180deg, rgba(10, 34, 56, .7), rgba(3, 12, 22, .85));
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .5), 0 0 16px rgba(255, 138, 0, .16);
+  border-color: rgba(120, 225, 250, .25);
+  background: var(--t-steel);
+  box-shadow: inset 0 -2px 0 #3fd6f5, 0 6px 16px -8px rgba(63, 214, 245, .6);
+}
+[data-theme="tron"] .desk-bar em { color: #8fd8ea; letter-spacing: .16em; }
+[data-theme="tron"] .desk-bar strong { color: #f2fdff; text-shadow: 0 0 10px rgba(63, 214, 245, .65); }
+[data-theme="tron"] .desk-bar strong.bad { color: #ff4d42; text-shadow: 0 0 10px rgba(255, 42, 42, .6); }
+
+html[data-theme="tron"] .lens {
+  color: #e4f7fb !important; border-color: rgba(120, 225, 250, .18) !important;
+  background: var(--t-steel) !important;
+}
+html[data-theme="tron"] .lens .lens-kicker { color: #8fb1bb !important; letter-spacing: .12em; }
+html[data-theme="tron"] .lens .lens-note { color: #8fb1bb !important; }
+html[data-theme="tron"] .lens .lens-value { color: #f2fdff !important; }
+html[data-theme="tron"] .lens.is-have { box-shadow: inset 0 -2px 0 #3fd6f5, 0 6px 14px -8px rgba(63, 214, 245, .7) !important; }
+html[data-theme="tron"] .lens.is-spend { box-shadow: inset 0 -2px 0 #ff9d2a, 0 6px 14px -8px rgba(255, 122, 0, .7) !important; }
+html[data-theme="tron"] .lens.is-debt { box-shadow: inset 0 -2px 0 #ff9d2a, 0 6px 14px -8px rgba(255, 122, 0, .5) !important; }
+html[data-theme="tron"] .lens.is-have .lens-kicker { color: #6fe2fa !important; }
+html[data-theme="tron"] .lens:is(.is-spend, .is-debt) .lens-kicker { color: #ffad4d !important; }
+
+/* ---------- Switches and the dock: only the gliding pill lights up ---------- */
+[data-theme="tron"] .seg:not(.is-follow) button { color: #9cc9d4; background: #071014; border-color: rgba(120, 225, 250, .25); }
+[data-theme="tron"] .seg:not(.is-follow) button[aria-current="page"] { color: #eafbff; border-color: #3fd6f5; box-shadow: 0 0 10px rgba(63, 214, 245, .45); background: rgba(63, 214, 245, .12); }
+[data-theme="tron"] .seg.is-follow { background: rgba(0, 0, 0, .45) !important; box-shadow: inset 0 0 0 1px rgba(120, 225, 250, .2); }
+[data-theme="tron"] .seg.is-follow button { color: #8fb1bb; }
+[data-theme="tron"] .seg.is-follow button[aria-current="page"] { color: #eafbff; text-shadow: 0 0 8px rgba(63, 214, 245, .7); }
+[data-theme="tron"] .seg.is-follow button[aria-current="page"] .seg-ico { color: #3fd6f5; }
+[data-theme="tron"] .seg-pill {
+  background: linear-gradient(180deg, rgba(40, 70, 80, .9), rgba(10, 22, 27, .95)) !important;
+  box-shadow: inset 0 0 0 1px rgba(120, 225, 250, .55), inset 0 -2px 0 #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important;
 }
 
-/* The three lenses: Tengo cyan, Gastaré red, Pagos amber — lit outlines, never slabs. */
-html[data-theme="tron"] .lens { background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)); border-color: transparent; box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .35); color: #e6faff; }
-html[data-theme="tron"] .lens.is-have { color: #e6faff !important; background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)) !important; border-color: transparent !important; box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .7), 0 0 12px rgba(0, 229, 255, .2); }
-html[data-theme="tron"] .lens.is-spend { color: #e6faff !important; background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)) !important; border-color: transparent !important; box-shadow: inset 0 0 0 1px rgba(255, 42, 42, .7), 0 0 12px rgba(255, 42, 42, .2); }
-html[data-theme="tron"] .lens.is-debt { color: #e6faff !important; background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)) !important; border-color: transparent !important; box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .7), 0 0 12px rgba(255, 138, 0, .2); }
-html[data-theme="tron"] .lens[aria-pressed="true"] { color: #fff; background: linear-gradient(180deg, rgba(0, 229, 255, .2), rgba(0, 229, 255, .05)); text-shadow: 0 0 8px rgba(0, 229, 255, .7); }
-html[data-theme="tron"] .lens :is(.lens-value, .lens-kicker, .lens-note) { color: #dffbff !important; }
-html[data-theme="tron"] .lens .lens-value { color: #eafdff; text-shadow: 0 0 8px rgba(0, 229, 255, .45); }
-
-/* ---------- Segmented switches + dock: lit tint, a gliding light ---------- */
-[data-theme="tron"] .seg { background: transparent; }
-[data-theme="tron"] .seg button { color: #9cd8ea; background: rgba(3, 12, 22, .6); border-color: rgba(0, 229, 255, .3); letter-spacing: .04em; }
-[data-theme="tron"] .seg button[aria-current="page"],
-[data-theme="tron"] .seg.is-follow button[aria-current="page"] { color: #d8fdff; text-shadow: 0 0 8px rgba(0, 229, 255, .8); }
-[data-theme="tron"] .seg:not(.is-follow) button[aria-current="page"] { background: linear-gradient(180deg, rgba(0, 229, 255, .22), rgba(0, 229, 255, .06)); box-shadow: inset 0 0 0 1px #8ff4ff, 0 0 12px rgba(0, 229, 255, .45); }
-[data-theme="tron"] .seg-pill { background: linear-gradient(180deg, rgba(0, 229, 255, .24), rgba(0, 229, 255, .06)) !important; box-shadow: inset 0 0 0 1px #8ff4ff, 0 0 14px rgba(0, 229, 255, .5) !important; }
-[data-theme="tron"] .seg.is-follow button[aria-current="page"] .seg-ico { color: #00e5ff; filter: drop-shadow(0 0 4px #00e5ff); }
-
-[data-theme="tron"] .dock {
-  background: linear-gradient(180deg, rgba(4, 18, 32, .94), rgba(2, 8, 16, .96));
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .45), 0 0 18px rgba(0, 229, 255, .22), 0 12px 30px rgba(0, 0, 0, .6);
+[data-theme="tron"] .dock { background: linear-gradient(180deg, rgba(10, 20, 24, .96), rgba(3, 8, 10, .97)); border-color: rgba(120, 225, 250, .28); box-shadow: 0 -1px 0 rgba(120, 225, 250, .15), 0 14px 30px rgba(0, 0, 0, .7); }
+[data-theme="tron"] :is(.dock, .rail, .side-dock) .nav-btn { color: #7fa6b0; }
+[data-theme="tron"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] { color: #eafbff; background: transparent; box-shadow: none; text-shadow: 0 0 8px rgba(63, 214, 245, .7); }
+[data-theme="tron"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] svg { color: #3fd6f5; filter: drop-shadow(0 0 4px #3fd6f5); }
+[data-theme="tron"] :is(.dock-glide, .dock-glass) {
+  background: linear-gradient(180deg, rgba(40, 70, 80, .85), rgba(8, 18, 22, .95)) !important;
+  border-color: rgba(120, 225, 250, .55) !important;
+  box-shadow: inset 0 -2px 0 #3fd6f5, 0 0 14px rgba(63, 214, 245, .35) !important;
 }
-[data-theme="tron"] :is(.dock, .rail) .nav-btn { color: #7fb6c8; letter-spacing: .06em; }
-[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"] {
-  position: relative; overflow: hidden;
-  color: #d8fdff;
-  background: linear-gradient(180deg, rgba(0, 229, 255, .22), rgba(0, 229, 255, .05));
-  box-shadow: inset 0 0 0 1px #8ff4ff, 0 0 14px rgba(0, 229, 255, .5);
-  text-shadow: 0 0 8px rgba(0, 229, 255, .8);
-}
-[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"] svg { filter: drop-shadow(0 0 4px #00e5ff); }
-[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"]::before {
-  content: ""; position: absolute; left: 0; bottom: 0; width: 60%; height: 2px; pointer-events: none;
-  background: linear-gradient(90deg, transparent, #00e5ff 70%, #fff 96%, transparent);
-  transform: translateX(-120%);
-  animation: tron-tab-beam 6.5s cubic-bezier(.55, 0, .3, 1) .4s infinite;
-}
-@keyframes tron-tab-beam { 0% { transform: translateX(-120%); opacity: 0; } 3% { opacity: 1; } 16% { transform: translateX(200%); opacity: 1; } 18%, 100% { transform: translateX(200%); opacity: 0; } }
-[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"] { animation: tron-power .5s steps(1) both; }
-@keyframes tron-power { 0% { opacity: .35; } 20% { opacity: 1; } 35% { opacity: .55; } 50%, 100% { opacity: 1; } }
 
-/* ---------- Buttons, inputs, checkboxes ---------- */
-[data-theme="tron"] .btn:not(.ghost):not(.danger):not(.secondary) { color: #8ff4ff; background: linear-gradient(180deg, rgba(0, 229, 255, .12), rgba(2, 10, 18, .4)); box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .7), 0 0 12px rgba(0, 229, 255, .3); text-shadow: 0 0 8px rgba(0, 229, 255, .6); }
-[data-theme="tron"] .btn.secondary { color: #c9f4ff; border-color: rgba(0, 229, 255, .4); background: rgba(3, 12, 22, .6); }
+/* ---------- Buttons, fields ---------- */
+[data-theme="tron"] .btn:not(.ghost):not(.danger):not(.secondary) { color: #021014; background: linear-gradient(180deg, #8ae9fb, #3fd6f5); box-shadow: 0 0 14px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .btn.secondary { color: #cdeff7; border-color: rgba(120, 225, 250, .35); background: #071014; }
+[data-theme="tron"] :is(.btn.danger, .line-act.is-danger) { color: #ff5a4e; border-color: rgba(255, 42, 42, .45); }
 [data-theme="tron"] :is(.field, .select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
-  color: #e6faff; caret-color: #00e5ff; border-color: transparent;
-  background: linear-gradient(180deg, rgba(10, 34, 56, .7), rgba(3, 12, 22, .8));
-  box-shadow: inset 0 1px 0 rgba(111, 227, 255, .3), 0 0 0 1px rgba(0, 229, 255, .4);
+  color: #e4f7fb; caret-color: #3fd6f5; border-color: rgba(120, 225, 250, .3); background: #050c0f;
 }
-[data-theme="tron"] :is(.field, .select, input, textarea, select):focus-visible { outline: none; box-shadow: 0 0 0 1px #00e5ff, 0 0 12px rgba(0, 229, 255, .6), 0 0 28px rgba(0, 229, 255, .25); }
-[data-theme="tron"] :is(input, textarea)::placeholder { color: #7fa6b8; }
-[data-theme="tron"] .search-pill { background: linear-gradient(180deg, rgba(10, 34, 56, .7), rgba(3, 12, 22, .8)); border-color: rgba(0, 229, 255, .4); }
-[data-theme="tron"] .search-pill input { box-shadow: none; background: transparent; }
-[data-theme="tron"] input[type="checkbox"], [data-theme="tron"] input[type="radio"] { accent-color: #00e5ff; }
+[data-theme="tron"] :is(.field, .select, input, textarea, select):focus-visible { outline: none; border-color: #3fd6f5; box-shadow: 0 0 0 1px #3fd6f5, 0 0 14px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .search-pill { background: #050c0f; border-color: rgba(120, 225, 250, .3); }
+[data-theme="tron"] .search-pill input { background: transparent; border: 0; box-shadow: none; }
+[data-theme="tron"] input[type="checkbox"], [data-theme="tron"] input[type="radio"] { accent-color: #3fd6f5; }
 
 /* ---------- Faro's own pieces ---------- */
-/* Bubbles (Libros): neon rings in their own color, not pastel balloons. */
 [data-theme="tron"] .spend-bubble {
-  color: #eafdff !important;
-  background: radial-gradient(120% 90% at 30% 0%, color-mix(in oklab, var(--tone) 26%, transparent), transparent 60%), rgba(3, 12, 22, .85) !important;
-  box-shadow: inset 0 0 0 1.5px var(--tone), 0 0 14px color-mix(in oklab, var(--tone) 55%, transparent), inset 0 0 18px color-mix(in oklab, var(--tone) 25%, transparent) !important;
+  color: #eafbff !important;
+  background: radial-gradient(110% 80% at 30% 0%, color-mix(in oklab, var(--tone) 30%, transparent), transparent 62%), #071014 !important;
+  box-shadow: inset 0 0 0 1.5px var(--tone), 0 0 12px color-mix(in oklab, var(--tone) 50%, transparent) !important;
 }
-[data-theme="tron"] .spend-bubble strong { text-shadow: 0 0 6px color-mix(in oklab, var(--tone) 80%, transparent); }
-[data-theme="tron"] .spend-bubble .num { color: #fff; text-shadow: 0 0 8px var(--tone); }
-[data-theme="tron"] .spend-mark { color: var(--tone); filter: drop-shadow(0 0 4px var(--tone)); }
+[data-theme="tron"] .spend-bubble .num { color: #fff; }
+[data-theme="tron"] .save-seg { background: var(--t-steel); border-color: color-mix(in oklab, var(--seg) 55%, transparent); }
+[data-theme="tron"] .bar-track { background: #02070a; box-shadow: inset 0 0 0 1px rgba(120, 225, 250, .18); }
+[data-theme="tron"] .bar-fill { background: #3fd6f5; box-shadow: 0 0 8px #3fd6f5; }
+[data-theme="tron"] .pano-waffle button.is-free { box-shadow: inset 0 0 0 2px #eafdff, 0 0 6px rgba(234, 253, 255, .4); }
+[data-theme="tron"] .pano-waffle button.is-free::after { background: #eafdff; }
 
-/* Savings tiles: a lit fuel cell. */
-[data-theme="tron"] .save-seg { background: rgba(3, 12, 22, .7); border-color: color-mix(in oklab, var(--seg) 70%, transparent); box-shadow: 0 0 10px -2px color-mix(in oklab, var(--seg) 60%, transparent); }
-[data-theme="tron"] .save-seg b { background: rgba(2, 8, 16, .9); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 55%, transparent); }
-[data-theme="tron"] .save-seg b i { box-shadow: 0 0 10px var(--seg); }
+/* The lighthouse, Grid edition: a tower of light, Ares-red bands, orange lamp, teal beam. */
+[data-theme="tron"] .a2-tower-say strong { color: #f2fdff; text-shadow: 0 0 12px rgba(63, 214, 245, .7), 0 0 30px rgba(63, 214, 245, .3); }
+[data-theme="tron"] .a2-beam { mix-blend-mode: screen; filter: hue-rotate(160deg) saturate(2) brightness(1.1); }
+[data-theme="tron"] .a2-tower-art { filter: drop-shadow(0 0 5px rgba(255, 42, 42, .45)) drop-shadow(0 0 10px rgba(63, 214, 245, .25)); }
+[data-theme="tron"] .a2-badge { color: #a9ecfb; background: rgba(63, 214, 245, .1); box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .5); }
+[data-theme="tron"] :is(.a2-note, .a2-tiles span) { background: rgba(0, 0, 0, .35); border-color: rgba(120, 225, 250, .18); }
+[data-theme="tron"] .a2-more { border-color: rgba(120, 225, 250, .4); color: #bdeefa; }
 
-/* Bars and progress: a dark groove with a light bar. */
-[data-theme="tron"] :is(.bar-track) { background: rgba(2, 8, 16, .9); box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .22); }
-[data-theme="tron"] :is(.bar-fill) { background: #00e5ff; box-shadow: 0 0 8px #00e5ff; }
-
-/* Waffle "Te queda": hollow amber light. */
-[data-theme="tron"] .pano-waffle button.is-free { box-shadow: inset 0 0 0 2px #ffb21e, 0 0 6px rgba(255, 178, 30, .5); }
-[data-theme="tron"] .pano-waffle button:not(.is-free) { box-shadow: 0 0 6px -1px currentColor; }
-
-/* The lighthouse: Grid edition. Cyan beam, amber lamp, Ares-red bands, light-line tower. */
-[data-theme="tron"] .a2-tower { color: #e6faff; }
-[data-theme="tron"] .a2-tower-say strong { color: #ffd27a; text-shadow: 0 0 2px #fff1c4, 0 0 14px rgba(255, 178, 30, .7), 0 0 34px rgba(255, 138, 0, .35); }
-[data-theme="tron"] .a2-beam { mix-blend-mode: screen; filter: hue-rotate(150deg) saturate(2.4) brightness(1.15); }
-[data-theme="tron"] .a2-tower-art { filter: drop-shadow(0 0 6px rgba(0, 229, 255, .35)); }
-[data-theme="tron"] .a2-badge { color: #ffd27a; background: rgba(255, 178, 30, .1); box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .6); }
-[data-theme="tron"] :is(.a2-note, .a2-tiles span) { background: rgba(3, 12, 22, .7); border-color: rgba(0, 229, 255, .25); }
-[data-theme="tron"] .a2-tiles span.is-left { border-color: rgba(255, 178, 30, .7); box-shadow: 0 0 12px rgba(255, 138, 0, .25); }
-[data-theme="tron"] .a2-more { border-color: rgba(0, 229, 255, .45); color: #b5f6ff; }
-
-/* Score dial and coach: tron dashboard. */
-[data-theme="tron"] .coach { color: #e6faff; }
-[data-theme="tron"] .coach-verdict { color: #eafdff; text-shadow: 0 0 10px rgba(0, 229, 255, .35); }
-
-/* Modals and sheets. */
 [data-theme="tron"] :is(.modal, .cal-pop, .export-sheet, .view-menu, .hits) {
-  background: linear-gradient(180deg, rgba(6, 20, 34, .98), rgba(2, 8, 16, .98));
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px rgba(143, 244, 255, .6), 0 0 24px rgba(0, 229, 255, .3), 0 20px 50px rgba(0, 0, 0, .7);
+  background: var(--t-steel), #050b0e; border-color: rgba(120, 225, 250, .35);
+  box-shadow: inset 0 1px 0 rgba(120, 225, 250, .35), 0 24px 50px rgba(0, 0, 0, .75);
 }
 
-/* Panels rez in on first paint. */
-[data-theme="tron"] :is(.card, .ridge) { animation: tron-rez .5s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes tron-rez { 0% { opacity: 0; clip-path: inset(0 0 100% 0); filter: brightness(2.2); } 60% { opacity: 1; clip-path: inset(0 0 0 0); filter: brightness(1.35); } 100% { opacity: 1; clip-path: none; filter: none; } }
+/* Panels power on when they appear. */
+[data-theme="tron"] :is(.card, .ridge) { animation: tron-rez .45s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes tron-rez { 0% { opacity: 0; filter: brightness(2); clip-path: inset(0 0 100% 0); } 70% { opacity: 1; clip-path: inset(0); filter: brightness(1.25); } 100% { opacity: 1; clip-path: none; filter: none; } }
 
-/* Calm: no motion when asked, none while the tab is hidden. */
 @media (prefers-reduced-motion: reduce) {
   [data-theme="tron"] *, [data-theme="tron"] *::before, [data-theme="tron"] *::after { animation: none !important; }
 }
 html[data-theme="tron"][data-hidden] *, html[data-theme="tron"][data-hidden] *::before, html[data-theme="tron"][data-hidden] *::after { animation-play-state: paused !important; }
 
-/* Charts glow: the category colors turn to neon. */
-[data-theme="tron"] :is(.pano-waffle, .coach-bar, .pano-card svg, .s2-card svg, .pano-legend i) { filter: saturate(1.7) brightness(1.08); }
+/* The Tron card in Settings: the film's two sides. Cyan (Flynn / users) meets Legacy orange (Clu / programs)
+   on a Grid floor, two light-cycle trails crossing, a split cyan|orange frame and title. */
+.theme-swatch.swatch-tron {
+  --swatch-bg: #010409; --swatch-fg: #dffbff; --swatch-accent: #3fd6f5;
+  position: relative; overflow: hidden; isolation: isolate;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#010409, #010409) padding-box,
+    linear-gradient(120deg, #a8efff 0%, #3fd6f5 38%, #ff9d2a 62%, #ff7a00 100%) border-box;
+  box-shadow: -6px 0 16px -6px rgba(63, 214, 245, .75), 6px 0 16px -6px rgba(255, 122, 0, .7), 0 0 22px rgba(63, 214, 245, .12);
+}
+.theme-swatch.swatch-tron .swatch-scene {
+  position: relative; overflow: hidden; gap: 6px; border-radius: 9px;
+  background:
+    radial-gradient(90% 60% at 0% 100%, rgba(63, 214, 245, .28), transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, rgba(255, 122, 0, .26), transparent 60%),
+    linear-gradient(180deg, transparent 54%, rgba(63, 214, 245, .55) 55%, transparent 57%),
+    repeating-linear-gradient(90deg, rgba(63, 214, 245, .16) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(0deg, rgba(255, 178, 30, .1) 0 1px, transparent 1px 12px),
+    #020812;
+  box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .25);
+}
+/* Trail 1: cyan cycle from the left. */
+.theme-swatch.swatch-tron .swatch-bar {
+  width: 58%; height: 4px; justify-self: start;
+  background: linear-gradient(90deg, transparent, rgba(63, 214, 245, .6) 30%, #3fd6f5 80%, #fff 100%);
+  box-shadow: 0 0 6px #3fd6f5, 0 0 14px rgba(63, 214, 245, .6);
+}
+/* Trail 2: orange cycle from the right. */
+.theme-swatch.swatch-tron .swatch-chip:not(.is-accent) {
+  width: 72%; height: 4px; justify-self: end; border-radius: 999px;
+  background: linear-gradient(270deg, transparent, rgba(255, 122, 0, .6) 30%, #ff9d2a 80%, #fff1c4 100%);
+  box-shadow: 0 0 6px #ff7a00, 0 0 14px rgba(255, 122, 0, .6);
+}
+/* The disc: half cyan, half orange. */
+.theme-swatch.swatch-tron .swatch-chip.is-accent {
+  width: 16px; height: 16px; justify-self: center; border-radius: 50%;
+  background: conic-gradient(from 180deg, #3fd6f5 0 50%, #ff9d2a 50% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 0 3.5px, #000 4px);
+          mask: radial-gradient(circle, transparent 0 3.5px, #000 4px);
+  box-shadow: none;
+  filter: drop-shadow(-2px 0 4px rgba(63, 214, 245, .9)) drop-shadow(2px 0 4px rgba(255, 122, 0, .9));
+}
+.theme-swatch.swatch-tron strong {
+  font-family: var(--font-sans, ui-sans-serif, system-ui); font-weight: 500; text-transform: uppercase; letter-spacing: .22em;
+  width: max-content;
+  background: linear-gradient(90deg, #b5f6ff 0 46%, #ffc23a 54% 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 4px rgba(63, 214, 245, .55)) drop-shadow(0 0 6px rgba(255, 122, 0, .4));
+}
+.theme-swatch.swatch-tron[aria-pressed="true"] { outline: 2px solid #eafdff; outline-offset: 3px; }
+/* Living touch: the two cycles race in, now and then. */
+.theme-swatch.swatch-tron .swatch-bar { animation: tron-sw-left 7s cubic-bezier(.5, 0, .2, 1) 1s infinite; }
+.theme-swatch.swatch-tron .swatch-chip:not(.is-accent) { animation: tron-sw-right 7s cubic-bezier(.5, 0, .2, 1) 1.25s infinite; }
+.theme-swatch.swatch-tron .swatch-chip.is-accent { animation: tron-sw-spin 7s cubic-bezier(.5, 0, .2, 1) 1s infinite; }
+@keyframes tron-sw-left { 0% { transform: translateX(-105%); } 14%, 100% { transform: none; } }
+@keyframes tron-sw-right { 0% { transform: translateX(105%); } 14%, 100% { transform: none; } }
+@keyframes tron-sw-spin { 0%, 10% { transform: rotate(0); } 22%, 100% { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .theme-swatch.swatch-tron :is(.swatch-bar, .swatch-chip) { animation: none !important; }
+}
