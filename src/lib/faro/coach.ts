@@ -253,7 +253,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       id: "cushion",
       label: L(lang, "Colchón", "Cushion"),
       score: Math.round(s),
-      value: cushionMonths === null ? "—" : L(lang, `${cushionMonths.toFixed(1)} de ${cushionTarget} meses`, `${cushionMonths.toFixed(1)} of ${cushionTarget} months`),
+      value: cushionMonths === null ? "—" : L(lang, `${cushionMonths.toFixed(1).replace(/\.0$/, "")} de ${cushionTarget} meses`, `${cushionMonths.toFixed(1).replace(/\.0$/, "")} of ${cushionTarget} months`),
       note: cushionMonths === null
         ? L(lang, "Anota tus gastos para saber cuánto colchón necesitas.", "Record your bills to know how big a cushion you need.")
         : cushionMonths < 0.5

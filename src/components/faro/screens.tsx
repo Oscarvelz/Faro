@@ -779,7 +779,8 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
           <div className="spend-cloud">
             {[...chipRows].sort((a, b) => b.amountMinor - a.amountMinor).map((line) => {
               const share = line.amountMinor / Math.max(chipRows.reduce((sum, item) => sum + item.amountMinor, 0), 1);
-              const span = Math.max(4, Math.min(8, Math.round(4 + share * 9)));
+              const label = line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId) || "";
+              const span = Math.max(label.length > 12 ? 5 : 4, Math.min(8, Math.round(4 + share * 9)));
               return (
                 <div key={line.id} className="spend-slot" style={{ gridColumn: `span ${span}`, minHeight: `${78 + share * 64}px` }}>
                 <button
@@ -830,7 +831,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
                 <strong className="block">{line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId)}</strong>
                 <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).join(" · ")}</span>
               </div>
-              {moneyRow(line, `${line.kind.startsWith("income") ? "" : "−"}${viewLine(line)}`, recordLine(line), display)}
+              {moneyRow(line, `${line.kind.startsWith("income") || line.amountMinor === 0 ? "" : "−"}${viewLine(line)}`, recordLine(line), display)}
               <button type="button" className="icon-btn line-act" aria-label={t("edit")} onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}><Pencil className="size-4" /></button>
               <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${line.concept}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => deleteLine(s, key, line.id), line.concept) })}><Trash2 className="size-4" /></button>
               {ui.editing === line.id ? <div className="line-edit"><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
@@ -906,7 +907,7 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
                 {line.storeId ? <BrandMark id={line.storeId} src={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("data:") ? session.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon : undefined} className="buy-mark" /> : <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>}
                 <strong>{line.concept || names.purchase(line.categoryId)}</strong>
               </span>
-              <span className="num">−{viewLine(line)}</span>
+              <span className="num">{line.amountMinor === 0 ? "" : "−"}{viewLine(line)}</span>
             </button>
             {picked === line.id ? (
               <BubbleTools
@@ -2913,7 +2914,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   <section key={group.id} className="ridge" style={{ ["--ridge" as string]: tint, ["--i" as string]: String(index) }}>
                     <header className="ridge-head">
                       <strong>{group.title}</strong>
-                      <span className={`num ${income ? "amt-in" : "amt-out"}`}>{income ? "" : "−"}{fmt(total)}</span>
+                      <span className={`num ${total === 0 ? "amt-zero" : income ? "amt-in" : "amt-out"}`}>{income || total === 0 ? "" : "−"}{fmt(total)}</span>
                     </header>
                     <div className="ridge-lines">
                       {group.lines.map((line) => {
@@ -2925,10 +2926,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                               <i className="ridge-pip" style={{ background: line.color || tint }} />
                               <span className="min-w-0">
                                 <strong className="block">{line.concept || sub || group.title}</strong>
-                                {sub && line.concept ? <span className="block text-sm text-muted">{sub}</span> : null}
+                                {sub && line.concept && sub.trim().toLowerCase() !== line.concept.trim().toLowerCase() ? <span className="block text-sm text-muted">{sub}</span> : null}
                                 {lens === "debt" && line.balanceMinor != null && line.balanceMinor > 0 ? <span className="block text-sm text-muted">{fmt(convertMinor(line.balanceMinor, line.balanceCurrency, rate.display, rate.rateE4))}</span> : null}
                               </span>
-                              <span className={`num ${line.kind.startsWith("income") ? "amt-in" : "amt-out"}`}>{line.kind.startsWith("income") ? "" : "−"}{viewLine(line)}</span>
+                              <span className={`num ${line.amountMinor === 0 ? "amt-zero" : line.kind.startsWith("income") ? "amt-in" : "amt-out"}`}>{line.kind.startsWith("income") || line.amountMinor === 0 ? "" : "−"}{viewLine(line)}</span>
                             </button>
                             {deskWork(line)}
                           </div>

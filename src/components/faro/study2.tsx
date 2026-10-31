@@ -127,7 +127,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
     <section className="card s2-cushion">
       <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If nothing came in tomorrow")} />
       <div className={`s2-voyage${done ? " is-home" : ""}`}>
-        <svg viewBox="0 0 320 124" role="img" aria-label={L(lang, `Cubres ${covered.toFixed(1)} de ${target} meses`, `${covered.toFixed(1)} of ${target} months covered`)}>
+        <svg viewBox="0 0 320 124" role="img" aria-label={L(lang, `Cubres ${covered.toFixed(1).replace(/\.0$/, "")} de ${target} meses`, `${covered.toFixed(1).replace(/\.0$/, "")} of ${target} months covered`)}>
           <defs>
             <linearGradient id="s2-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a4b63" /><stop offset="1" stopColor="#0f1d2a" /></linearGradient>
             <linearGradient id="s2-beam" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stopColor="#ffd98a" stopOpacity=".55" /><stop offset="1" stopColor="#ffd98a" stopOpacity="0" /></linearGradient>
@@ -177,7 +177,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
           </div>
           <div>
             <em>{L(lang, "Meses cubiertos", "Months covered")}</em>
-            <strong className="serif num">{months === null ? "—" : covered.toFixed(1)}<small> / {target}</small></strong>
+            <strong className="serif num">{months === null ? "—" : covered.toFixed(1).replace(/\.0$/, "")}<small> / {target}</small></strong>
           </div>
         </div>
       </div>
@@ -185,7 +185,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
         {months === null
           ? L(lang, "Anota tus gastos de casa y comida para trazar la ruta.", "Record your home and food costs to chart the route.")
           : done
-            ? L(lang, `Llegaste al faro: lo guardado (${fmt(have)}) cubre ${covered.toFixed(1)} meses de lo básico.`, `You reached the lighthouse: your savings (${fmt(have)}) cover ${covered.toFixed(1)} months of basics.`)
+            ? L(lang, `Llegaste al faro: lo guardado (${fmt(have)}) cubre ${covered.toFixed(1).replace(/\.0$/, "")} meses de lo básico.`, `You reached the lighthouse: your savings (${fmt(have)}) cover ${covered.toFixed(1).replace(/\.0$/, "")} months of basics.`)
             : L(lang, `Lo básico te cuesta ${fmt(need)} al mes. El faro está a ${target} meses: ${fmt(target * need)} guardados.`, `Basics cost ${fmt(need)} a month. The lighthouse is ${target} months out: ${fmt(target * need)} saved.`)}
       </p>
 

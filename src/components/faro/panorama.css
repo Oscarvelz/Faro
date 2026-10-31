@@ -185,3 +185,5 @@
 .pano-legend button.is-free i { background: transparent; box-shadow: inset 0 0 0 2px #ffd98a; }
 .pano-legend button.is-free { border-color: color-mix(in oklab, #ffd98a 45%, var(--line)); }
 .coach-bar i.is-free { background: transparent; box-shadow: inset 0 0 0 2px #ffd98a; }
+.coach-verdict, .coach-sub { text-wrap: pretty; }
+@media (max-width: 520px) { .coach-verdict { font-size: clamp(1.18rem, 5vw, 1.4rem); line-height: 1.2; } .coach-top { gap: 4px; } }
