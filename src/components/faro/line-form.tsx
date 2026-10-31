@@ -501,13 +501,13 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
       </div>
-      <div className="row mt-3">
-        <label className="row text-sm">
+      <div className="row mt-3 form-toggles">
+        <label className="row text-sm form-toggle">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
           {t("active")}
         </label>
         {kind !== "subscription" ? (
-          <label className="row text-sm">
+          <label className="row text-sm form-toggle">
             <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
             {t("recurring")}
           </label>
@@ -515,7 +515,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         {icon ? <Glyph name={icon} /> : null}
       </div>
       {recurring && kind !== "subscription" ? (
-        <div className="grid-2 mt-3">
+        <div className="grid-2 mt-3 form-repeat">
           <label className="label">
             {t("pot.first")}
             <DayField value={startedOn} onChange={setStartedOn} />
@@ -536,8 +536,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         </div>
       ) : null}
       {err ? <p className="bad mt-2 text-sm">{err}</p> : null}
-      <p className="faint mt-2 text-sm">{t("calc.hint")}</p>
-      <div className="row mt-3">
+      <p className="faint mt-2 text-sm form-hint">{t("calc.hint")}</p>
+      <div className="row mt-3 form-actions">
         <button type="button" className="btn" onClick={() => confirm({ title: t("entry.save"), body: concept.trim() || t("amount"), yes: t("entry.save.yes"), run: save })}>{t("save")}</button>
         <button type="button" className="btn secondary" onClick={() => confirm({ title: t("entry.leave"), body: concept.trim() || t("amount"), yes: t("entry.leave.yes"), run: onClose })}>{t("cancel")}</button>
       </div>

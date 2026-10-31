@@ -555,6 +555,7 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
                 formula={t(saving ? "pot.save.formula" : income ? "pot.total.formula.in" : "pot.total.formula.out")}
                 implication={t(saving ? "pot.save.implication" : income ? "pot.total.implication.in" : "pot.total.implication.out")}
                 label={t(saving ? "pot.save.help" : "pot.total.help")}
+                legend={average > 0 ? t("pot.avg.line").replace("{avg}", fmt(Math.round(average * 100))).replace("{n}", String(points.length)) : undefined}
               />
               <em>{t("pot.total")}</em>
               <strong className="num">{money}</strong>
@@ -836,7 +837,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
               {moneyRow(line, `${line.kind.startsWith("income") || line.amountMinor === 0 ? "" : "−"}${viewLine(line)}`, recordLine(line), display)}
               <button type="button" className="icon-btn line-act" aria-label={t("edit")} onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}><Pencil className="size-4" /></button>
               <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${line.concept}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => deleteLine(s, key, line.id), line.concept) })}><Trash2 className="size-4" /></button>
-              {ui.editing === line.id ? <div className="line-edit"><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
+              {ui.editing === line.id ? <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<b>{line.concept}</b></p><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
             </div>
             <PotReport line={line} span={span} />
           </div>

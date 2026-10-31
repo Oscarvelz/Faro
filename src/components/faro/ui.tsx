@@ -46,12 +46,14 @@ export function Explain({
   formula,
   implication,
   label,
+  legend,
 }: {
   title: string;
   meaning: string;
   formula: string;
   implication: string;
   label: string;
+  legend?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -69,6 +71,7 @@ export function Explain({
     { key: "what", Icon: BookOpen, head: en ? "What it is" : "Qué es", text: meaning },
     { key: "how", Icon: Calculator, head: en ? "How it's worked out" : "Cómo se calcula", text: formula },
     { key: "so", Icon: Compass, head: en ? "What it means for you" : "Qué significa para ti", text: implication },
+    { key: "line", Icon: null, head: en ? "The amber dashed line" : "La línea ámbar punteada", text: legend ?? "" },
   ].filter((p) => p.text);
   return (
     <>
@@ -88,7 +91,7 @@ export function Explain({
                 <div className="xp-body">
                   {parts.map(({ key, Icon, head, text }) => (
                     <section key={key} className={`xp-part is-${key}`}>
-                      <span className="xp-ico" aria-hidden><Icon /></span>
+                      <span className="xp-ico" aria-hidden>{Icon ? <Icon /> : null}</span>
                       <div>
                         <h4>{head}</h4>
                         <p>{text}</p>
