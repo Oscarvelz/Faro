@@ -40,3 +40,4 @@
 - 1.3.40: inline line editor (.line-edit) framed panel w/ header, paired fields, switch toggles (.form-toggle), Primer pago+Frecuencia box, = hint chip, full-width actions; Tron skin. Explain gets optional legend (4th card 'La línea ámbar punteada', key pot.avg.line) on Acumulado; Promedio label gets dashed swatch. Tests: le.mjs, av.mjs.
 - 1.3.41: Promedio dashed amber key moved from before the label to an underline under the number (labels/values aligned with Este mes).
 - 1.3.42: help buttons use lucide CircleHelp (?) instead of Info (i): Explain button + sheet badge, login tip. Same 24px box/stroke. Rule: help/explanation windows use the ? icon.
+- 1.3.43: Promedio label reads 'PROMEDIO (x̄)' in amber (Oscar's idea); dashed underline removed.

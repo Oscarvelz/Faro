@@ -957,3 +957,12 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .xp-part.is-line { border-color: rgba(255, 194, 58, .35); background: rgba(255, 194, 58, .05); }
 [data-theme="tron"] .xp-part.is-line .xp-ico { background: rgba(255, 194, 58, .08); box-shadow: inset 0 0 0 1px rgba(255, 194, 58, .45); }
 [data-theme="tron"] .xp-part.is-line .xp-ico::before { border-top-color: #ffc23a; filter: drop-shadow(0 0 3px #ffc23a); }
+
+/* Editor amber touches (Oscar, 1.3.44): the amount, the name being edited, the schedule box, the date and menu glyphs, and focus. */
+[data-theme="tron"] .line-edit .field.num { color: #ffd36a !important; border-color: rgba(255, 194, 58, .45) !important; box-shadow: inset 0 -2px 0 rgba(255, 194, 58, .55) !important; }
+[data-theme="tron"] .line-edit .label:has(.field.num) { color: #e0b04a; }
+[data-theme="tron"] .line-edit-head b { color: #ffd36a; text-shadow: 0 0 10px rgba(255, 194, 58, .4); }
+[data-theme="tron"] .line-edit-head { border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, rgba(63, 214, 245, .35), rgba(255, 194, 58, .5)) 1; }
+[data-theme="tron"] .line-edit .form-repeat { border-color: rgba(255, 194, 58, .4); background: rgba(255, 194, 58, .03); }
+[data-theme="tron"] .line-edit :is(.day-field-btn, .theme-select-btn) svg { color: #ffc23a; }
+[data-theme="tron"] .line-edit :is(.field, .theme-select-btn, .day-field-btn):focus-visible { border-color: #ffc23a !important; box-shadow: 0 0 0 1px #ffc23a, 0 0 14px rgba(255, 194, 58, .4) !important; }
