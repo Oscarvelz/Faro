@@ -2090,10 +2090,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .vault-lever-rail b { box-shadow: 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 60%, transparent), 0 0 12px color-mix(in oklab, var(--seg, #d5e2ea) 50%, transparent), 0 2px 6px rgb(0 0 0 / 25%); }
 
 /* Savings pocket gauge: the colored block now reads something (months covered or % of the month's goal). */
-.save-seg b.save-trail { position: relative; display: flex; align-items: flex-end; gap: 3px; padding: 5px 7px 6px; overflow: hidden; }
-.save-seg b.save-trail i { position: static; flex: 1 1 0; min-width: 0; height: 4px; border-radius: 3px 3px 1px 1px; background: color-mix(in oklab, var(--seg) 55%, transparent) !important; transform-origin: bottom; animation: save-trail-in .6s cubic-bezier(.22, 1, .36, 1) both; }
-.save-seg b.save-trail i.is-zero { height: 3px; background: color-mix(in oklab, var(--seg) 30%, transparent) !important; }
-.save-seg b.save-trail i.is-now { background: linear-gradient(180deg, color-mix(in oklab, white 25%, var(--seg)), var(--seg)) !important; box-shadow: 0 0 6px color-mix(in oklab, var(--seg) 45%, transparent); }
-.save-seg b.save-trail i.is-now.is-zero { box-shadow: none; background: var(--seg) !important; opacity: .8; }
-@keyframes save-trail-in { from { transform: scaleY(0); } }
-@media (prefers-reduced-motion: reduce) { .save-seg b.save-trail i { animation: none; } }
+.save-seg b.save-band { position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in oklab, white 18%, var(--seg)) 0%, var(--seg) 55%, color-mix(in oklab, black 18%, var(--seg)) 100%) !important; box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), inset 0 -2px 0 color-mix(in oklab, black 20%, var(--seg)), 0 2px 6px -2px color-mix(in oklab, var(--seg) 60%, transparent) !important; }
+.save-seg b.save-band::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 90% at 18% 0%, rgb(255 255 255 / 38%), transparent 55%); }
+.save-seg b.save-band svg { position: absolute; left: 0; bottom: 0; width: 200%; height: 100%; animation: save-swell 14s linear infinite; }
+.save-seg b.save-band .w1 { fill: rgb(255 255 255 / 14%); }
+.save-seg b.save-band .w2 { fill: rgb(255 255 255 / 20%); }
+@keyframes save-swell { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .save-seg b.save-band svg { animation: none; } }

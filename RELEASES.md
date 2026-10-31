@@ -8,3 +8,4 @@
 - Month ring: solid slices again in all themes (cone removed). StatFold: an open card folds only from its title, so taps inside charts never close it.
 - Tron: Estudio s2-* and Asesor (advisor2 tc()) colors neon; Libros/Estudio tabs light-cycle streak + icon rez; dock glitch select.
 - Savings pockets: block = gauge (Emergencia months covered / emergencyMonths; others % of month goal), non-Tron only; Tron keeps segmented energy gauge.
+## 1.3.9: pocket block = wordless 6-month deposit trail (non-Tron); Oscar rejected text in the block (not premium).

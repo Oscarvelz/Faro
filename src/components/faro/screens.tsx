@@ -2429,22 +2429,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 {(() => {
                   // Tron keeps its own segmented energy gauge.
                   if (isTron()) return <b aria-hidden><i style={{ height: `${s.minor > 0 ? Math.max(12, (s.minor / savePeak) * 100) : 8}%`, background: tint, opacity: openSave && !on ? 0.35 : 1 }} /></b>;
-                  // Everywhere else the block is a wordless 6-month trail of what went into this pocket:
-                  // one column per month, this month brightest. No text: the picture is the reading.
-                  const trail = Array.from({ length: 6 }, (_, k) => {
-                    const d = new Date(ui.year, ui.month - 1 - (5 - k), 1);
-                    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-                    const ls = session.ledger.months[mk]?.lines ?? [];
-                    return ls.filter((l) => l.active && savingsIds.has(l.categoryId) && (s.id === "rest" ? !(l.subId && seed.some((x) => x.id === l.subId)) : l.subId === s.id))
-                      .reduce((sum, l) => sum + convertMinor(l.amountMinor, l.currency, rate.display, rate.rateE4), 0);
-                  });
-                  trail[5] = s.minor;
-                  const top = Math.max(...trail, 1);
+                  // Everywhere else the block is a full-colour band: the pocket's own colour with soft sea swells.
                   return (
-                    <b className="save-trail" aria-hidden style={{ opacity: openSave && !on ? 0.45 : 1 }}>
-                      {trail.map((v, k) => (
-                        <i key={k} className={`${k === 5 ? "is-now" : ""}${v <= 0 ? " is-zero" : ""}`} style={{ height: v > 0 ? `${Math.max(14, (v / top) * 100)}%` : undefined, animationDelay: `${k * 45}ms` }} />
-                      ))}
+                    <b className="save-band" aria-hidden style={{ opacity: openSave && !on ? 0.5 : 1 }}>
+                      <svg viewBox="0 0 240 28" preserveAspectRatio="none">
+                        <path className="w1" d="M0 16.0 L4 17.4 L8 18.6 L12 19.3 L16 19.5 L20 19.0 L24 18.1 L28 16.7 L32 15.3 L36 13.9 L40 13.0 L44 12.5 L48 12.7 L52 13.4 L56 14.6 L60 16.0 L64 17.4 L68 18.6 L72 19.3 L76 19.5 L80 19.0 L84 18.1 L88 16.7 L92 15.3 L96 13.9 L100 13.0 L104 12.5 L108 12.7 L112 13.4 L116 14.6 L120 16.0 L124 17.4 L128 18.6 L132 19.3 L136 19.5 L140 19.0 L144 18.1 L148 16.7 L152 15.3 L156 13.9 L160 13.0 L164 12.5 L168 12.7 L172 13.4 L176 14.6 L180 16.0 L184 17.4 L188 18.6 L192 19.3 L196 19.5 L200 19.0 L204 18.1 L208 16.7 L212 15.3 L216 13.9 L220 13.0 L224 12.5 L228 12.7 L232 13.4 L236 14.6 L240 16.0 V28 H0Z" />
+                        <path className="w2" d="M0 22.4 L4 22.3 L8 21.4 L12 19.9 L16 18.4 L20 17.6 L24 17.7 L28 18.6 L32 20.1 L36 21.6 L40 22.4 L44 22.3 L48 21.4 L52 19.9 L56 18.4 L60 17.6 L64 17.7 L68 18.6 L72 20.1 L76 21.6 L80 22.4 L84 22.3 L88 21.4 L92 19.9 L96 18.4 L100 17.6 L104 17.7 L108 18.6 L112 20.1 L116 21.6 L120 22.4 L124 22.3 L128 21.4 L132 19.9 L136 18.4 L140 17.6 L144 17.7 L148 18.6 L152 20.1 L156 21.6 L160 22.4 L164 22.3 L168 21.4 L172 19.9 L176 18.4 L180 17.6 L184 17.7 L188 18.6 L192 20.1 L196 21.6 L200 22.4 L204 22.3 L208 21.4 L212 19.9 L216 18.4 L220 17.6 L224 17.7 L228 18.6 L232 20.1 L236 21.6 L240 22.4 V28 H0Z" />
+                      </svg>
                     </b>
                   );
                 })()}
