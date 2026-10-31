@@ -676,8 +676,10 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
   animation: t-cycle .5s cubic-bezier(.2, .7, .2, 1) both !important;
 }
 @keyframes t-cycle { 0% { transform: translateX(-100%); opacity: 1; } 75% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(0); opacity: 0; } }
-[data-theme="tron"] .seg.is-follow button[aria-current="page"] .seg-ico { animation: t-rez .46s steps(6, end) both; }
-[data-theme="tron"] .seg.is-follow button[aria-current="page"] .seg-label { animation: t-scanin .42s cubic-bezier(.2, .7, .2, 1) both; }
+/* Oscar (Oct 31): same as the dock, only the icon glitches; the label stays clean, no boxes behind either. */
+[data-theme="tron"] .seg button[aria-current="page"] :is(.seg-ico, svg) { animation: t-glitch-ico .5s steps(1, end) both; }
+[data-theme="tron"] .seg button[aria-current="page"] .seg-label { animation: none; text-shadow: 0 0 8px rgba(63, 214, 245, .55); }
+[data-theme="tron"] .seg button :is(.seg-ico, .seg-label) { background: transparent !important; box-shadow: none !important; }
 @keyframes t-rez {
   0% { opacity: 0; filter: blur(2px) drop-shadow(0 0 0 #3fd6f5); clip-path: inset(0 0 100% 0); }
   35% { opacity: 1; clip-path: inset(0 0 55% 0); }
