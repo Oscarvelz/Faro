@@ -10,6 +10,7 @@ import { Login } from "@/spa/login";
 import { lockCredential, unlock } from "@/spa/lock";
 import { w } from "@/spa/words";
 import { startFit } from "@/spa/fit";
+import { startStatusBar } from "@/spa/statusbar";
 import "@/spa/gate.css";
 import { Splash, SPLASH_MIN_MS } from "@/spa/splash";
 
@@ -154,6 +155,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
 }
 
 startFit();
+startStatusBar();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

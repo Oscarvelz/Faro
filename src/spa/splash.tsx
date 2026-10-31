@@ -10,12 +10,6 @@ const EXIT_MS = reduce ? 200 : 560;
 export function Splash({ done, onGone }: { done: boolean; onGone: () => void }) {
   const [leaving, setLeaving] = useState(false);
   useEffect(() => {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    const prev = meta?.getAttribute("content");
-    meta?.setAttribute("content", "#0e1114");
-    return () => { if (meta && prev) meta.setAttribute("content", prev); };
-  }, []);
-  useEffect(() => {
     if (!done) return;
     setLeaving(true);
     const t = window.setTimeout(onGone, EXIT_MS);
