@@ -2294,7 +2294,6 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 
 .xp-part.is-line .xp-ico::before { content: ""; width: 18px; border-top: 2px dashed #d9a033; }
 .xp-part.is-line .xp-ico { background: color-mix(in oklab, #e0a43a 14%, var(--surface)); }
-/* Promedio: the chart's dashed amber line runs under its number, so labels stay aligned and the key reads at a glance. */
-.span-cut .span-facts > div:last-child strong { justify-self: start; padding-bottom: 5px; background: repeating-linear-gradient(90deg, #d9a033 0 6px, transparent 6px 10px) left bottom / 100% 2px no-repeat; }
-[data-theme="tron"] .span-cut .span-facts > div:last-child strong { background: repeating-linear-gradient(90deg, #ffc23a 0 6px, transparent 6px 10px) left bottom / 100% 2px no-repeat; filter: drop-shadow(0 0 3px rgba(255, 194, 58, .45)); }
-.span-cut .span-facts > div:nth-child(2) strong { padding-bottom: 5px; }
+/* Promedio: the chart's x-bar mark rides after the label, so the number stays clean and aligned. */
+.span-cut .span-facts > div:last-child em::after { content: " (x̄)"; color: #c58a1c; font-weight: 800; letter-spacing: 0; text-transform: none; }
+[data-theme="tron"] .span-cut .span-facts > div:last-child em::after { color: #ffc23a; text-shadow: 0 0 6px rgba(255, 194, 58, .6); }
