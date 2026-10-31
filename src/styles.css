@@ -1959,3 +1959,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .tree-tools { display: flex; align-items: center; justify-content: space-between; gap: 2px; width: 100%; max-width: 100%; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in oklab, var(--fg) 5%, var(--surface)); }
 .tree-tools .icon-btn { width: 36px; height: 36px; min-width: 36px; border-color: transparent; background: transparent; }
 .tree-tools .icon-btn.line-act.is-danger { color: #e07a7a; }
+
+/* spa: amounts never wider than their box */
+.num{max-width:100%}
+.explain-pop p{overflow-wrap:anywhere}
+@media (width<=380px){.seg-label{font-size:.92em;letter-spacing:-.01em}}

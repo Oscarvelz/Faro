@@ -9,6 +9,7 @@ import { useFaroUser } from "@/spa/gates";
 import { Login } from "@/spa/login";
 import { lockCredential, unlock } from "@/spa/lock";
 import { w } from "@/spa/words";
+import { startFit } from "@/spa/fit";
 
 function Boot() {
   return (
@@ -111,6 +112,7 @@ function App() {
   );
 }
 
+startFit();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
