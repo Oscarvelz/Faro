@@ -405,3 +405,111 @@ html[data-theme="tron"][data-hidden] *, html[data-theme="tron"][data-hidden] *::
 [data-theme="tron"] .plus-mark svg { filter: hue-rotate(155deg) saturate(1.6) brightness(1.05) drop-shadow(0 0 5px rgba(63, 214, 245, .7)); }
 [data-theme="tron"] .gold-coin { filter: hue-rotate(155deg) saturate(1.6) brightness(1.05) drop-shadow(0 0 4px rgba(63, 214, 245, .6)); }
 [data-theme="tron"] .brand-lamp svg { filter: hue-rotate(155deg) saturate(1.8) drop-shadow(0 0 4px #3fd6f5); }
+
+/* ---------- Ahorros: a power bay of light cells ---------- */
+[data-theme="tron"] .save-band {
+  border-radius: 6px; border-color: rgba(120, 225, 250, .18);
+  background:
+    linear-gradient(#7fe9ff, #7fe9ff) left top / 16px 1.5px no-repeat,
+    linear-gradient(#7fe9ff, #7fe9ff) left top / 1.5px 16px no-repeat,
+    linear-gradient(#7fe9ff, #7fe9ff) right bottom / 16px 1.5px no-repeat,
+    linear-gradient(#7fe9ff, #7fe9ff) right bottom / 1.5px 16px no-repeat,
+    linear-gradient(90deg, transparent 6%, var(--t-edge) 30%, var(--t-edge) 70%, transparent 94%) center top / 100% 1px no-repeat,
+    radial-gradient(80% 60% at 50% 0%, rgba(63, 214, 245, .08), transparent 70%),
+    var(--t-steel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 14px 28px -18px rgba(0, 0, 0, .9);
+}
+[data-theme="tron"] .save-band .save-name :is(h2, h2 button, .save-word) { font-family: var(--t-display); font-weight: 600; text-transform: uppercase; letter-spacing: .12em; font-size: 1.2rem; color: #eafbff; text-shadow: 0 0 12px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .save-band .save-tools strong.num { color: #f2fdff; text-shadow: 0 0 10px rgba(63, 214, 245, .55); }
+[data-theme="tron"] .save-band .save-tools em { color: #ffc070; font-style: normal; letter-spacing: .02em; }
+[data-theme="tron"] .save-band .bank-tap {
+  border: 0 !important;
+  background: radial-gradient(circle, #061014 58%, transparent 60%), conic-gradient(from 210deg, #3fd6f5, rgba(63, 214, 245, .15) 40%, #ff9d2a 62%, rgba(255, 157, 42, .15) 85%, #3fd6f5) !important;
+  box-shadow: 0 0 12px rgba(63, 214, 245, .45) !important;
+}
+[data-theme="tron"] .save-band .bank-mark { fill: #7fe9ff; filter: drop-shadow(0 0 3px #3fd6f5); }
+
+/* The track: a light line on the Grid. Empty, a cycle runs along it waiting for the first deposit. */
+[data-theme="tron"] .save-track { position: relative; height: 6px; gap: 2px; border-radius: 1px; background: #02070a; box-shadow: inset 0 0 0 1px rgba(120, 225, 250, .22); overflow: hidden; }
+[data-theme="tron"] .save-track i { border-radius: 1px; box-shadow: 0 0 8px currentColor; }
+[data-theme="tron"] .save-track i:only-child:not([style]) {
+  width: 100%;
+  background: linear-gradient(90deg, transparent, rgba(63, 214, 245, .3) 70%, #c9f6ff 96%, transparent) no-repeat;
+  background-size: 22% 100%; background-position: -30% 0;
+  box-shadow: none;
+  animation: tron-wait 4.5s cubic-bezier(.55, 0, .3, 1) infinite;
+}
+@keyframes tron-wait { 0% { background-position: -30% 0; } 60%, 100% { background-position: 130% 0; } }
+
+/* Each pocket: a cell with its own light, a segmented energy gauge, and lit corners. */
+[data-theme="tron"] .save-seg {
+  position: relative; gap: 6px; padding: 8px 8px 9px; border-radius: 4px !important;
+  border: 1px solid color-mix(in oklab, var(--seg) 40%, transparent) !important;
+  background:
+    linear-gradient(var(--seg), var(--seg)) left top / 10px 1.5px no-repeat,
+    linear-gradient(var(--seg), var(--seg)) left top / 1.5px 10px no-repeat,
+    linear-gradient(var(--seg), var(--seg)) right bottom / 10px 1.5px no-repeat,
+    linear-gradient(var(--seg), var(--seg)) right bottom / 1.5px 10px no-repeat,
+    linear-gradient(180deg, color-mix(in oklab, var(--seg) 12%, transparent), transparent 55%),
+    #050b0e !important;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--seg) 60%, transparent), 0 0 12px -6px var(--seg) !important;
+}
+[data-theme="tron"] .save-seg.is-on { border-color: var(--seg) !important; box-shadow: inset 0 0 0 1px var(--seg), 0 0 18px -4px var(--seg) !important; }
+[data-theme="tron"] .save-seg b {
+  height: 22px; border-radius: 2px !important;
+  background: repeating-linear-gradient(90deg, color-mix(in oklab, var(--seg) 16%, #02070a) 0 5px, #02070a 5px 7px) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 35%, transparent) !important;
+}
+[data-theme="tron"] .save-seg b i {
+  background: repeating-linear-gradient(90deg, var(--seg) 0 5px, transparent 5px 7px) !important;
+  box-shadow: none; filter: drop-shadow(0 0 4px var(--seg));
+}
+[data-theme="tron"] .save-seg strong { font-family: var(--t-display); font-weight: 500; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: color-mix(in oklab, var(--seg) 55%, white); text-shadow: 0 0 8px color-mix(in oklab, var(--seg) 50%, transparent); }
+[data-theme="tron"] .save-seg .num { font-size: 1.12rem; color: #f2fdff; }
+[data-theme="tron"] .save-seg small { justify-self: start; padding: 1px 6px; border-radius: 2px; font-size: .68rem; color: color-mix(in oklab, var(--seg) 70%, white); background: color-mix(in oklab, var(--seg) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 40%, transparent); }
+
+@media (prefers-reduced-motion: reduce) { [data-theme="tron"] .save-track i { animation: none !important; } }
+
+/* ---------- Tap: no ripples on the Grid. A press re-rezzes the control:
+   its edge flashes white-teal and a scan line sweeps through it. ---------- */
+[data-theme="tron"] :is(.btn:not(.ghost):not(.danger), .seg button, .dock .nav-btn, .lens, .currency-bubble, .lens-corner, .save-seg, .desk-bar button)::after {
+  content: ""; position: absolute; z-index: 4; inset: 0; top: 0; left: 0; width: auto; height: auto; aspect-ratio: auto;
+  border-radius: inherit; pointer-events: none; opacity: 0; transform: none !important;
+  background:
+    linear-gradient(180deg, transparent 0 44%, rgba(201, 246, 255, .7) 50%, transparent 56%) no-repeat,
+    repeating-linear-gradient(0deg, rgba(63, 214, 245, .14) 0 1px, transparent 1px 3px) !important;
+  background-size: 100% 260%, 100% 100% !important;
+  box-shadow: inset 0 0 0 1.5px #c9f6ff, inset 0 0 16px rgba(63, 214, 245, .55);
+}
+[data-theme="tron"] :is(.btn:not(.ghost):not(.danger), .seg button, .dock .nav-btn, .lens, .currency-bubble, .lens-corner, .save-seg, .desk-bar button):active::after {
+  animation: tron-tap .42s steps(1, end) 0s 1 normal both, tron-tap-scan .42s cubic-bezier(.3, 0, .2, 1) both !important;
+}
+@keyframes tron-tap { 0% { opacity: 1; } 18% { opacity: .35; } 30% { opacity: 1; } 100% { opacity: 1; } }
+@keyframes tron-tap-scan { 0% { background-position: 0 -130%, 0 0; filter: brightness(1.6); } 100% { background-position: 0 130%, 0 0; opacity: 0; filter: none; } }
+[data-theme="tron"] :is(.btn, .icon-btn, .seg button, .nav-btn, .lens, .save-seg, .currency-bubble, .bank-tap, .spend-bubble, .buy-glass, .lens-corner, .desk-bar button):active { transform: translateY(.5px) scale(.985) !important; filter: brightness(1.25); }
+/* The bank disc: a ring fires outward instead of a ripple. */
+[data-theme="tron"] .bank-tap::after { background: transparent !important; border-radius: 50% !important; box-shadow: 0 0 0 1.5px #c9f6ff, 0 0 14px #3fd6f5 !important; }
+/* Bubbles and store cards: a square lock-on reticle at the finger, not a liquid ring. */
+[data-theme="tron"] :is(.spend-bubble, .buy-glass)::after {
+  width: 26px !important; height: 26px !important; border-radius: 2px !important; background: transparent !important;
+  border: 1.5px solid #c9f6ff !important;
+  box-shadow: 0 0 10px #3fd6f5, inset 0 0 6px rgba(63, 214, 245, .6) !important;
+}
+[data-theme="tron"] :is(.spend-bubble, .buy-glass).is-rippling::after { animation: tron-lock .6s cubic-bezier(.2, .8, .2, 1) both !important; }
+@keyframes tron-lock {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(2.4) rotate(45deg); }
+  45% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  60% { opacity: .3; }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15) rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="tron"] :is(.btn, .seg button, .nav-btn, .lens, .save-seg, .currency-bubble, .lens-corner, .desk-bar button):active::after { animation: none !important; opacity: 1; background: none !important; }
+}
+[data-theme="tron"] .bank-tap::after { width: 150% !important; }
+/* The opened pocket below the cells: same bay, lit by that pocket's color. */
+html[data-theme="tron"] .save-ledger {
+  border-radius: 4px !important; border: 1px solid color-mix(in oklab, var(--seg) 40%, transparent) !important;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--seg) 10%, #071014), #04090c) !important;
+  box-shadow: inset 2px 0 0 var(--seg), -3px 0 12px -5px var(--seg) !important;
+}

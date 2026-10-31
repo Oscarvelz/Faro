@@ -8,7 +8,7 @@ import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
-import { PALETTE, categoryColor, colorFor } from "@/lib/faro/colors";
+import { PALETTE, categoryColor, colorFor, isTron, tronize } from "@/lib/faro/colors";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import type { Category, Currency, Line, LineKind, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
@@ -1770,7 +1770,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   if (rest > 0 && seed.length) saveSegs.push({ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "", minor: rest });
   const saveTotal = saveSegs.reduce((acc, s) => acc + s.minor, 0);
   const savePeak = Math.max(...saveSegs.map((s) => s.minor), 1);
-  const saveTints = ["#8fb9a6", "#e7c27a", "#7aa2c4", "#e07a5f", "#c9a6d4", "#d7b48a"];
+  const saveTints = ["#8fb9a6", "#e7c27a", "#7aa2c4", "#e07a5f", "#c9a6d4", "#d7b48a"].map((c) => (isTron() ? tronize(c) : c));
   const openSeg = saveSegs.find((s) => s.id === openSave) ?? null;
   const openLines = openSave
     ? lines.filter((line) => {
