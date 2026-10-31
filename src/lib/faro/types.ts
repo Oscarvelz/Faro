@@ -195,6 +195,7 @@ export type AdviceCard = {
   evidence: string;
   points: AdvicePoint[];
   meter: AdviceMeter | null;
+  nums?: Record<string, number>;
 };
 
 export type MonthPoint = { key: string; label: string; income: number; expense: number };

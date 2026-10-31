@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
+import { LongVisual, MediumVisual, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2 } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
@@ -3394,7 +3395,7 @@ export function Study() {
 }
 
 export function Advisor() {
-  const { t, advice, budget, fmt, summary, session, lang, names, key, awakeOn, wake, notePlanCopied, dismissFinding, planStale } = useFaro();
+  const { t, advice, budget, fmt, summary, session, lang, names, key, ui, awakeOn, wake, notePlanCopied, dismissFinding, planStale } = useFaro();
   const [copied, setCopied] = useState(false);
   const [openPart, setOpenPart] = useState<string | null>(null);
   const [spreadParts, setSpreadParts] = useState(false);
@@ -3535,6 +3536,7 @@ export function Advisor() {
       {advice.map((card, index) => {
         const Icon = mark[card.horizon];
         const open = cardOn(card.horizon);
+        const teaser = adviceTeaser(card, reading, fmt, lang, new Date(ui.year, ui.month, 0).getDate() || 30);
         const rows = card.points.filter((point) => {
           if (card.horizon === "short" && (["Base", "Únicas", "Apartado", "One-offs", "Transfer", "De siempre", "De una vez", "Ahorro", "Usual", "One-time", "Saved"].includes(point.label))) return false;
           return card.horizon === "short" || !point.emphasis;
@@ -3546,53 +3548,15 @@ export function Advisor() {
               <div>
                 <p className="advice-kicker">{t(`advice.horizon.${card.horizon}`)}</p>
                 <h2 className="serif">{card.title}</h2>
+                {!open && teaser ? <p className="advice-teaser"><strong className="num">{teaser.big}</strong><span>{teaser.small}</span></p> : null}
               </div>
               <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
             </button>
             {awakeOn && wake?.causes[card.horizon] ? <p className="advice-because">{wake.causes[card.horizon]}</p> : null}
             {open ? (
               <>
-                {card.horizon === "short" ? <p className="advice-lead">{reading.paceNote}</p> : <p className="advice-lead">{card.lead}</p>}
-                {card.horizon !== "short" && card.meter ? (
-                  <div className="advice-meter">
-                    <b><i style={{ width: `${card.meter.pct}%` }} /></b>
-                    <span>{card.meter.caption}</span>
-                  </div>
-                ) : null}
-                {card.horizon === "short" && reading.outTotal > 0 ? (
-                  <div className="advice-meter">
-                    <b>
-                      <i className="is-base" style={{ width: `${(reading.recurrentMinor / reading.outTotal) * 100}%` }} />
-                    </b>
-                    <span>{reading.splitNote || reading.compareNote}</span>
-                  </div>
-                ) : null}
-                {card.points.some((point) => point.emphasis) && card.horizon !== "short" ? (
-                  <ul className="advice-points">
-                    {card.points.filter((point) => point.emphasis).map((point) => (
-                      <li key={`${point.label}-${point.value}`} className="is-hero">
-                        <span>{point.label}</span>
-                        <strong className="num">{point.value}</strong>
-                        {point.note ? <em>{point.note}</em> : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {rows.length ? (
-                  <ul className="advice-points">
-                    {rows.map((point) => (
-                      <li key={`${card.horizon}-${point.label}-${point.value}`} className="advice-pair">
-                        <div className="advice-product">
-                          <span>{point.label}</span>
-                          <strong className="num">{point.value}</strong>
-                          {point.note ? <p className="advice-caption">{point.note}</p> : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {card.horizon === "long" ? <p className="advice-aside">{reading.calendarNote}</p> : null}
-                {card.horizon === "short" ? <p className="advice-aside">{reading.compareNote}</p> : null}
+                {card.horizon === "short" ? <ShortVisual reading={reading} /> : card.horizon === "medium" ? <MediumVisual card={card} reading={reading} /> : <LongVisual card={card} />}
+                {card.horizon === "short" && reading.compareNote ? <p className="advice-aside">{reading.compareNote}</p> : null}
               </>
             ) : null}
           </article>
@@ -3604,6 +3568,7 @@ export function Advisor() {
           <div>
             <p className="advice-kicker">{t("advice.plan.kicker")}</p>
             <h2 className="serif">{t("advice.plan")}</h2>
+            {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{(reading.plan.match(/^(24 horas|24 hours):\s*(.+?[.:])/m)?.[2] ?? "").slice(0, 70)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
           </div>
           <ChevronDown className={cardOn("plan") ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
         </button>
@@ -3623,25 +3588,7 @@ export function Advisor() {
               const notes = rest.filter((line) => !/^(Plan Faro|Faro plan)\s/.test(line));
               return (
                 <>
-                  {sum ? (
-                    <div className="advice-plan-sum">
-                      <div>
-                        <p className="advice-kicker">{sum[1]}</p>
-                        <p>{sum[2]}</p>
-                      </div>
-                      <strong className="num">{sum[3]}</strong>
-                    </div>
-                  ) : null}
-                  {steps.length ? (
-                    <ol className="advice-timeline">
-                      {steps.map((step) => (
-                        <li key={step.chip}>
-                          <em>{step.chip}</em>
-                          <p>{step.text}</p>
-                        </li>
-                      ))}
-                    </ol>
-                  ) : null}
+                  <PlanRoute steps={steps} sum={sum ? { title: sum[1], body: sum[2], left: sum[3] } : null} />
                   {notes.map((line) => <p key={line} className="advice-caption is-foot">{line}</p>)}
                 </>
               );

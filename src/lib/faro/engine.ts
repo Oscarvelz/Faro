@@ -995,6 +995,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     body: "",
     evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}`),
     points: mediumBits,
+    nums: { debt: s.debt, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income },
     meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,
   };
   const longCard: AdviceCard = {
@@ -1004,6 +1005,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     body: "",
     evidence: L(lang, `Meses con datos: ${keys.length || (lines.length ? 1 : 0)}. Colchón: ${state.settings.emergencyMonths} meses de tus gastos esenciales.`, `Months with data: ${keys.length || (lines.length ? 1 : 0)}. Cushion: ${state.settings.emergencyMonths} months of real essentials.`),
     points: longPoints,
+    nums: { monthly: oneMonth ? reading.baseSurplus : avgBase, year: yearFigure, target: emergencyTarget, stock, gap: gapFund, months: monthsToFund ?? -1, seen: keys.length || 1, pace },
     meter: emergencyTarget > 0 ? { pct: fundMeterPct, caption: stock >= emergencyTarget ? L(lang, "El fondo anotado ya cubre el colchón.", "The recorded fund already covers the cushion.") : L(lang, `Llevas el ${pct(fundMeterPct)} del colchón.`, `You have ${pct(fundMeterPct)} of the cushion.`) } : null,
   };
 
