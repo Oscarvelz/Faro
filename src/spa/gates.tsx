@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { lastUser, onUser, signOutEverywhereLocal, type FaroUser } from "./cloud";
 import { disableLock, enableLock, lockCredential, lockSupported } from "./lock";
 import { w } from "./words";
+import { useFaro } from "@/components/faro/provider";
+import { wipeLocalBackups } from "./vault";
 
 export function useFaroUser(): FaroUser | null {
   const [u, setU] = useState<FaroUser | null>(() => lastUser());
@@ -19,6 +21,7 @@ function wipeDevice(uid: string) {
 
 export function UserButton() {
   const user = useFaroUser();
+  const { confirm } = useFaro();
   const [busy, setBusy] = useState(false);
   const [canLock, setCanLock] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -57,13 +60,21 @@ export function UserButton() {
         type="button"
         className="btn danger"
         disabled={busy}
-        onClick={async () => {
-          if (!window.confirm(w("acct.outWarn"))) return;
-          setBusy(true);
-          wipeDevice(user.id);
-          disableLock(user.id);
-          await signOutEverywhereLocal();
-        }}
+        onClick={() => confirm({
+          title: w("acct.out"),
+          body: w("acct.outWarn"),
+          danger: true,
+          yes: w("acct.out"),
+          run: () => {
+            void (async () => {
+              setBusy(true);
+              wipeDevice(user.id);
+              await wipeLocalBackups(user.id);
+              disableLock(user.id);
+              await signOutEverywhereLocal();
+            })();
+          },
+        })}
       >
         {w("acct.out")}
       </button>

@@ -17,6 +17,7 @@ import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, mont
 import { blankSession, commit as commitSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { withAugustSample } from "@/lib/faro/sample";
+import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
@@ -75,6 +76,9 @@ export type Api = {
   exportJson: () => void;
   importFile: (file: File) => void;
   pickFolder: () => void;
+  backups: BackupInfo[];
+  backupNow: () => void;
+  restoreBackup: (info: BackupInfo) => void;
   restoreConflict: () => void;
   goSection: (delta: number) => void;
   goMonth: (delta: number) => void;
@@ -172,8 +176,8 @@ async function loadHandle(): Promise<FileSystemDirectoryHandle | null> {
   }
 }
 
-function download(filename: string, text: string, type: string) {
-  const blob = new Blob([text], { type });
+function download(filename: string, text: string | Uint8Array, type: string) {
+  const blob = new Blob([text as BlobPart], { type });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -406,6 +410,20 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     }
   }, [userId]);
 
+  const [backups, setBackups] = useState<BackupInfo[]>([]);
+  const backingUp = useRef(false);
+  const runBackup = useCallback(async (force = false) => {
+    const led = sessionRef.current?.ledger;
+    if (!led || backingUp.current) return;
+    backingUp.current = true;
+    try {
+      const online = typeof navigator === "undefined" || navigator.onLine !== false;
+      const done = await autoBackup(userId, led, { online, force });
+      if (done.device || done.cloud || force || backups.length === 0) setBackups(await listBackups(userId));
+      if (force) setUi({ notice: done.cloud ? translate(sessionRef.current?.ledger.settings.lang ?? "es", "backup.done.both") : translate(sessionRef.current?.ledger.settings.lang ?? "es", "backup.done.device") });
+    } catch { /* keep going */ } finally { backingUp.current = false; }
+  }, [userId, backups.length, setUi]);
+
   const syncNow = useCallback(async () => {
     const current = sessionRef.current;
     if (!current || syncing.current) return;
@@ -464,10 +482,13 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   useEffect(() => {
     if (!ready) return;
     const timer = window.setTimeout(() => void syncNow(), 400);
+    const firstCopy = window.setTimeout(() => void runBackup(), 6000);
+    const copyPoll = window.setInterval(() => void runBackup(), 15 * 60_000);
     const poll = window.setInterval(() => void syncNow(), 12000);
     const onVis = () => {
       if (document.visibilityState === "hidden") {
         void syncNow();
+        void runBackup();
         void (async () => {
           const handle = await loadHandle();
           const led = sessionRef.current?.ledger;
@@ -477,9 +498,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           };
           const q = withPerm.queryPermission ? await withPerm.queryPermission({ mode: "readwrite" }) : "prompt";
           if (q !== "granted") return;
-          const file = await handle.getFileHandle(`Faro_Backup_${led.updatedAt.slice(0, 10)}.json`, { create: true });
+          const file = await handle.getFileHandle(`Faro_Backup_${led.updatedAt.slice(0, 10)}.json.gz`, { create: true });
           const writable = await file.createWritable();
-          await writable.write(JSON.stringify({ app: "FARO", v: 1, exportedAt: new Date().toISOString(), ledger: led }, null, 2));
+          await writable.write((await backupBlob(led)) as BlobPart);
           await writable.close();
         })().catch(() => undefined);
       }
@@ -493,12 +514,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     return () => {
       window.clearTimeout(timer);
       window.clearInterval(poll);
+      window.clearTimeout(firstCopy);
+      window.clearInterval(copyPoll);
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("offline", onOff);
       window.removeEventListener("online", onOn);
       window.removeEventListener("beforeunload", onVis);
     };
-  }, [ready, syncNow]);
+  }, [ready, syncNow, runBackup]);
 
   useEffect(() => {
     if (!session?.dirty) return;
@@ -741,11 +764,31 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   function exportJson() {
     if (!session) return;
     const stamp = new Date().toISOString().slice(0, 10);
-    download(
-      `Faro_Backup_${stamp}.json`,
-      JSON.stringify({ app: "FARO", v: 1, exportedAt: new Date().toISOString(), ledger: session.ledger }, null, 2),
-      "application/json",
-    );
+    void backupBlob(session.ledger).then((bytes) => {
+      const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
+      download(`Faro_Backup_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
+    });
+  }
+
+  function askRestore(text: string, title: string) {
+    const parsed = JSON.parse(text) as { ledger?: unknown };
+    const ledger = isLedger(parsed) ? parsed : parsed.ledger;
+    if (!isLedger(ledger)) { setUi({ notice: t("backup.bad") }); return; }
+    setConfirm({
+      title,
+      body: t("backup.restore.body"),
+      danger: true,
+      yes: t("backup.restore.yes"),
+      run: () => {
+        const apply = () => {
+          const updatedAt = new Date().toISOString();
+          setSession(blankSession({ ...ledger, revision: (sessionRef.current?.ledger.revision ?? 1) + 1, updatedAt }, true));
+        };
+        const cur = sessionRef.current?.ledger;
+        if (!cur) { apply(); return; }
+        void autoBackup(userId, cur, { online: false, safety: true }).catch(() => undefined).finally(apply);
+      },
+    });
   }
 
   const value: Api = {
@@ -804,21 +847,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     },
     exportJson,
     importFile: (file) => {
-      void file.text().then((text) => {
-        const parsed = JSON.parse(text) as { ledger?: unknown };
-        const ledger = isLedger(parsed) ? parsed : parsed.ledger;
-        if (!isLedger(ledger)) return;
-        setConfirm({
-          title: t("settings.import"),
-          body: t("rate.note"),
-          danger: true,
-          yes: t("yes"),
-          run: () => {
-            const updatedAt = new Date().toISOString();
-            setSession(blankSession({ ...ledger, revision: (session?.ledger.revision ?? 1) + 1, updatedAt }, true));
-          },
-        });
-      }).catch(() => undefined);
+      void file.arrayBuffer().then((buf) => gunzip(new Uint8Array(buf))).then((text) => askRestore(text, t("settings.import"))).catch(() => setUi({ notice: t("backup.bad") }));
+    },
+    backups,
+    backupNow: () => { void runBackup(true); },
+    restoreBackup: (info) => {
+      void readBackup(userId, info).then((text) => { if (text) askRestore(text, t("backup.restore.title")); else setUi({ notice: t("backup.bad") }); }).catch(() => setUi({ notice: t("backup.bad") }));
     },
     pickFolder: () => {
       const picker = (window as Window & { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
@@ -875,15 +909,24 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     <Ctx.Provider value={value}>
       {children}
       {confirmState ? (
-        <div className="modal-back" role="presentation" onMouseDown={() => setConfirm(null)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="faro-confirm-title" onMouseDown={(e) => e.stopPropagation()}>
-            <h2 id="faro-confirm-title" className="serif text-2xl">{confirmState.title}</h2>
-            <p className="mt-3">{confirmState.body}</p>
-            <div className="mt-4 flex gap-2">
-              <button type="button" className="btn secondary" onClick={() => setConfirm(null)}>{t("cancel")}</button>
+        <div className="ask-back" role="presentation" onMouseDown={() => setConfirm(null)}>
+          <div className={`ask${confirmState.danger ? " is-danger" : ""}`} role="alertdialog" aria-modal="true" aria-labelledby="faro-confirm-title" aria-describedby="faro-confirm-body" onMouseDown={(e) => e.stopPropagation()}>
+            <i className="ask-glow" aria-hidden />
+            <span className="ask-seal" aria-hidden>
+              {confirmState.danger ? (
+                <svg viewBox="0 0 24 24"><path d="M12 4.2 2.8 19.5h18.4L12 4.2Z" /><path d="M12 10v4.2" /><path d="M12 17.2h.01" /></svg>
+              ) : (
+                <svg viewBox="0 0 32 32"><path d="M16 4.5 20.4 13H11.6L16 4.5Z" className="ask-lamp" /><rect x="14.2" y="13" width="3.6" height="10.5" rx="1" /><path d="M7.5 27h17" /></svg>
+              )}
+            </span>
+            <h2 id="faro-confirm-title" className="ask-title">{confirmState.title}</h2>
+            <p id="faro-confirm-body" className="ask-body">{confirmState.body}</p>
+            <div className="ask-actions">
+              <button type="button" className="ask-btn is-quiet" onClick={() => setConfirm(null)}>{t("cancel")}</button>
               <button
                 type="button"
-                className={confirmState.danger ? "btn danger" : "btn"}
+                autoFocus
+                className={`ask-btn ${confirmState.danger ? "is-danger" : "is-go"}`}
                 onClick={() => {
                   confirmState.run();
                   setConfirm(null);

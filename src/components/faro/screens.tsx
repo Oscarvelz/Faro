@@ -15,6 +15,7 @@ import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { useFaro } from "./provider";
+import type { BackupInfo } from "@/spa/vault";
 import { Explain, Modal } from "./ui";
 
 const STORE_TINT: Record<string, string> = {
@@ -3780,7 +3781,7 @@ function Fold({ title, open, onToggle, children }: { title: string; open: boolea
 }
 
 export function Settings() {
-  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm } = useFaro();
+  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
   const [themeSide, setThemeSide] = useState<{ day: boolean; night: boolean } | null>(null);
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
@@ -3971,9 +3972,10 @@ export function Settings() {
         })}
       </Fold>
       <Fold title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
-        <div className="row">
-          <button type="button" className="btn" onClick={exportJson}>{t("settings.export")}</button>
-          <label className="btn ghost">{t("settings.import")}<input type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }} /></label>
+        <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />
+        <div className="vault-more">
+          <button type="button" className="btn secondary" onClick={exportJson}>{t("settings.export")}</button>
+          <label className="btn secondary">{t("settings.import")}<input type="file" accept="application/json,application/gzip,.json,.gz" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.currentTarget.value = ""; }} /></label>
           <button type="button" className="btn ghost" onClick={pickFolder}>{t("settings.folder")}</button>
           {hasConflict ? <button type="button" className="btn" onClick={restoreConflict}>{t("settings.conflict")}</button> : null}
         </div>
@@ -3983,6 +3985,66 @@ export function Settings() {
       <Fold title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />
       </Fold>
+    </div>
+  );
+}
+
+function BackupPanel({ backups, onNow, onRestore }: { backups: BackupInfo[]; onNow: () => void; onRestore: (b: BackupInfo) => void }) {
+  const { t, lang } = useFaro();
+  const loc = lang === "en" ? "en-US" : "es-NI";
+  const when = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(loc, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  };
+  const dayLabel = (day: string) => {
+    const safety = day.endsWith("·");
+    const d = new Date(`${day.slice(0, 10)}T12:00:00`);
+    const base = d.toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long" });
+    return safety ? `${base} · ${t("backup.safety")}` : base;
+  };
+  const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`);
+  const last = (where: "device" | "cloud") => backups.filter((b) => b.where === where).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
+  const places: Array<["device" | "cloud", BackupInfo | undefined]> = [["device", last("device")], ["cloud", last("cloud")]];
+  return (
+    <div className="vault">
+      <div className="vault-head">
+        <span className="vault-seal" aria-hidden>
+          <svg viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.3 7.5 9.5 4.4-1.2 7.5-4.9 7.5-9.5V6L12 3Z" /><path d="m8.6 12.2 2.4 2.4 4.4-4.6" /></svg>
+        </span>
+        <div>
+          <p className="vault-title">{t("backup.auto")}</p>
+          <p className="vault-sub">{t("backup.keep")}</p>
+        </div>
+      </div>
+      <div className="vault-places">
+        {places.map(([where, b]) => (
+          <div key={where} className={`vault-place${b ? " is-on" : ""}`}>
+            <span className="vault-icon" aria-hidden>
+              {where === "device"
+                ? <svg viewBox="0 0 24 24"><rect x="7" y="2.8" width="10" height="18.4" rx="2.4" /><path d="M10.5 18h3" /></svg>
+                : <svg viewBox="0 0 24 24"><path d="M7.2 18.5h10a4 4 0 0 0 .6-7.95A5.6 5.6 0 0 0 6.9 9.3a4.6 4.6 0 0 0 .3 9.2Z" /></svg>}
+            </span>
+            <span className="vault-where">{t(`backup.where.${where}`)}</span>
+            <span className="vault-when">{b ? when(b.at) : "—"}</span>
+            {b ? <span className="vault-size num">{kb(b.bytes)}</span> : null}
+          </div>
+        ))}
+      </div>
+      <button type="button" className="btn vault-now" onClick={onNow}>{t("backup.now")}</button>
+      {backups.length ? (
+        <>
+          <h3 className="vault-list-title">{t("backup.list")}</h3>
+          <ul className="vault-list">
+            {backups.slice(0, 10).map((b) => (
+              <li key={`${b.where}-${b.day}`}>
+                <span className="vault-dot" data-where={b.where} aria-hidden />
+                <span className="vault-day">{dayLabel(b.day)}<small>{t(`backup.where.${b.where}`)} · <span className="num">{kb(b.bytes)}</span></small></span>
+                <button type="button" className="btn ghost vault-restore" onClick={() => onRestore(b)}>{t("backup.restore")}</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : <p className="vault-sub mt-3">{t("backup.none")}</p>}
     </div>
   );
 }
@@ -4036,10 +4098,11 @@ function StructureTree() {
       ))}
       <div className="row mt-4">
         <input className="field" value={catName} onChange={(e) => setCatName(e.target.value)} placeholder={t("add.cat")} aria-label={t("add.cat")} />
-        <select className="select" value={catGroup} onChange={(e) => setCatGroup(e.target.value as "fixed" | "variable")}>
-          <option value="fixed">{t("group.fixed")}</option>
-          <option value="variable">{t("group.variable")}</option>
-        </select>
+        <div className="seg" role="radiogroup">
+          {(["fixed", "variable"] as const).map((g) => (
+            <button key={g} type="button" role="radio" aria-checked={catGroup === g} aria-pressed={catGroup === g} onClick={() => setCatGroup(g)}>{t(`group.${g}`)}</button>
+          ))}
+        </div>
         <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
           const name = catName.trim();
           if (!name) return;
