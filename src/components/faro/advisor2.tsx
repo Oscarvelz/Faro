@@ -251,73 +251,94 @@ export function PlanRoute({ steps, sum }: { steps: { chip: string; text: string 
   );
 }
 
-/* ── Este mes, hecho: a lighthouse that fills with where the money went ── */
+/* ── Este mes, hecho: a calm lighthouse, then a plain subtraction ── */
 export function MonthTower({ reading, income, left, openPart, onPart, more, onMore, children }: {
   reading: Reading; income: number; left: number; openPart: string | null; onPart: (id: "base" | "unique" | "transfer") => void;
   more: boolean; onMore: () => void; children?: React.ReactNode;
 }) {
   const { fmt, lang } = useFaro();
   const uid = useId().replace(/:/g, "");
-  const base = Math.max(income, reading.outTotal, 1);
-  const layers = [
-    { id: "base" as const, name: L(lang, "De cada mes", "Every month"), minor: reading.recurrentMinor, c: "#7fb2a0" },
-    { id: "unique" as const, name: L(lang, "De una vez", "One-time"), minor: reading.uniqueMinor, c: "#d0837a" },
-    { id: "transfer" as const, name: L(lang, "Al ahorro", "To savings"), minor: reading.transferMinor, c: "#7fa6cf" },
-  ];
   const short = left < 0;
-  // tower body spans y 64..196
-  const H = 132, Y0 = 196;
-  let acc = 0;
-  const rects = layers.filter((l) => l.minor > 0).map((l) => {
-    const h = (l.minor / base) * H;
-    const r = { ...l, y: Y0 - acc - h, h };
-    acc += h;
-    return r;
-  });
+  const hundred = fmt(10000).replace(/[.,]00$/, "");
   const pctLeft = income > 0 ? Math.round((Math.max(0, left) / income) * 100) : 0;
+  const rows = [
+    { id: "base" as const, name: L(lang, "Cuentas de cada mes", "Monthly bills"), hint: L(lang, "casa, comida, cuotas", "home, food, payments"), minor: reading.recurrentMinor },
+    { id: "unique" as const, name: L(lang, "Compras de una vez", "One-time buys"), hint: L(lang, "no se repiten", "won't repeat"), minor: reading.uniqueMinor },
+    { id: "transfer" as const, name: L(lang, "Lo que guardaste", "What you saved"), hint: L(lang, "sigue siendo tuyo", "still yours"), minor: reading.transferMinor },
+  ].filter((r) => r.minor > 0);
+  const scale = Math.max(income, reading.outTotal, 1);
+  const action = reading.action.replace(/^(Qué hacer|What to do):\s*/, "");
+  const cap = action.charAt(0).toUpperCase() + action.slice(1);
+  const m = cap.match(/^(.+?\.)\s+(.*)$/);
+  const [doHead, doRest] = m ? [m[1], m[2]] : [cap, ""];
+  const glow = short ? 0.35 : 0.55 + Math.min(0.45, pctLeft / 60);
   return (
     <div className={`a2-tower${short ? " is-short" : ""}`}>
       <div className="a2-tower-top">
-        <svg viewBox="0 0 120 210" className="a2-tower-art" role="img" aria-label={short ? L(lang, `Te faltan ${fmt(-left)}`, `Short ${fmt(-left)}`) : L(lang, `Te quedan ${fmt(left)}`, `${fmt(left)} left`)}>
+        <svg viewBox="0 0 120 210" className="a2-tower-art" aria-hidden style={{ ["--glow" as string]: glow }}>
           <defs>
-            <clipPath id={`${uid}-body`}><path d="M38 64 L82 64 L92 196 L28 196 Z" /></clipPath>
-            <radialGradient id={`${uid}-glow`}><stop offset="0" stopColor={short ? "#ff8a7a" : "#ffe7a8"} /><stop offset="1" stopColor={short ? "#ff8a7a" : "#ffd98a"} stopOpacity="0" /></radialGradient>
-            <linearGradient id={`${uid}-beam`} x1="0" x2="1"><stop offset="0" stopColor="#ffe7a8" stopOpacity=".55" /><stop offset="1" stopColor="#ffe7a8" stopOpacity="0" /></linearGradient>
+            <linearGradient id={`${uid}-wall`} x1="0" x2="1">
+              <stop offset="0" stopColor="#c9d1da" /><stop offset=".35" stopColor="#f6f8fa" /><stop offset=".7" stopColor="#e3e8ee" /><stop offset="1" stopColor="#9aa6b3" />
+            </linearGradient>
+            <linearGradient id={`${uid}-band`} x1="0" x2="1">
+              <stop offset="0" stopColor="#8f3a33" /><stop offset=".35" stopColor="#c9584d" /><stop offset=".7" stopColor="#b44a40" /><stop offset="1" stopColor="#6e2b25" />
+            </linearGradient>
+            <radialGradient id={`${uid}-glow`}><stop offset="0" stopColor={short ? "#ff9a8a" : "#fff1c4"} /><stop offset="1" stopColor={short ? "#ff9a8a" : "#ffd98a"} stopOpacity="0" /></radialGradient>
+            <linearGradient id={`${uid}-beam`} x1="0" x2="1"><stop offset="0" stopColor="#fff1c4" stopOpacity=".5" /><stop offset="1" stopColor="#fff1c4" stopOpacity="0" /></linearGradient>
+            <clipPath id={`${uid}-body`}><path d="M40 66 L80 66 L90 192 L30 192 Z" /></clipPath>
           </defs>
-          {!short ? <g className="a2-beam"><path d="M60 46 L180 20 L180 72 Z" fill={`url(#${uid}-beam)`} /><path d="M60 46 L-60 20 L-60 72 Z" fill={`url(#${uid}-beam)`} /></g> : null}
-          <circle cx="60" cy="46" r="30" fill={`url(#${uid}-glow)`} className="a2-halo" />
-          <path d="M44 34 L60 22 L76 34 Z" className="a2-roof" />
-          <rect x="45" y="34" width="30" height="22" rx="3" className="a2-lantern" />
-          <circle cx="60" cy="45" r="6" className="a2-lamp" fill={short ? "#ff8a7a" : "#ffe7a8"} />
-          <rect x="40" y="56" width="40" height="8" rx="2" className="a2-gallery" />
-          <path d="M38 64 L82 64 L92 196 L28 196 Z" className="a2-body" />
+          {!short ? <g className="a2-beam"><path d="M60 46 L190 18 L190 74 Z" fill={`url(#${uid}-beam)`} /><path d="M60 46 L-70 18 L-70 74 Z" fill={`url(#${uid}-beam)`} /></g> : null}
+          <circle cx="60" cy="46" r="32" fill={`url(#${uid}-glow)`} className="a2-halo" />
+          <path d="M43 34 Q60 16 77 34 Z" fill={`url(#${uid}-band)`} />
+          <circle cx="60" cy="19" r="2.2" fill="#c9584d" />
+          <rect x="45" y="34" width="30" height="22" rx="2.5" className="a2-lantern" />
+          <path d="M52 34 V56 M60 34 V56 M68 34 V56" className="a2-mullion" />
+          <circle cx="60" cy="45" r="5.5" className="a2-lamp" fill={short ? "#ff9a8a" : "#fff1c4"} />
+          <rect x="38" y="56" width="44" height="5" rx="1.5" className="a2-gallery" />
+          <path d="M38 61 H82 M40 61 V66 M47 61 V66 M54 61 V66 M61 61 V66 M68 61 V66 M75 61 V66 M80 61 V66" className="a2-rail" />
+          <path d="M40 66 L80 66 L90 192 L30 192 Z" fill={`url(#${uid}-wall)`} />
           <g clipPath={`url(#${uid}-body)`}>
-            {rects.map((r, i) => <rect key={r.id} x="20" y={r.y} width="80" height={r.h + 0.5} fill={r.c} className="a2-layer" style={{ animationDelay: `${300 + i * 220}ms` }} />)}
-            {!short && left > 0 ? <rect x="20" y={Y0 - acc - (left / base) * H} width="80" height={(left / base) * H} className="a2-free" /> : null}
-            <path d="M20 100 L100 92 M20 140 L100 132" className="a2-stripe" />
+            <rect x="20" y="96" width="80" height="22" fill={`url(#${uid}-band)`} />
+            <rect x="20" y="146" width="80" height="22" fill={`url(#${uid}-band)`} />
           </g>
-          <path d="M18 196 Q60 188 102 196 L102 206 L18 206 Z" className="a2-rock" />
+          <rect x="56.5" y="78" width="7" height="11" rx="3.5" className="a2-window" />
+          <rect x="56.5" y="128" width="7" height="11" rx="3.5" className="a2-window" />
+          <path d="M54 192 V178 Q60 171 66 178 V192 Z" className="a2-door" />
+          <path d="M14 194 Q36 186 60 189 Q86 186 106 194 L106 206 L14 206 Z" className="a2-rock" />
         </svg>
         <div className="a2-tower-say">
           <em>{short ? L(lang, "Este mes te faltan", "This month you're short") : L(lang, "Este mes te quedan", "This month you keep")}</em>
           <strong className={`num serif ${short ? "bad" : ""}`}>{fmt(Math.abs(left))}</strong>
-          {!short && income > 0 ? <span className="a2-badge">{L(lang, `${pctLeft} de cada C$100`, `${pctLeft} of every 100`)}</span> : null}
-          <span className="a2-sub">{L(lang, `Entraron ${fmt(income)}`, `${fmt(income)} came in`)}</span>
+          {!short && income > 0 ? <span className="a2-badge">{L(lang, `${pctLeft} de cada ${hundred}`, `${pctLeft} of every ${hundred}`)}</span> : null}
         </div>
       </div>
-      <div className="a2-keys">
-        {layers.map((l) => (
-          <button key={l.id} type="button" aria-expanded={openPart === l.id} className={openPart === l.id ? "is-open" : ""} onClick={() => onPart(l.id)} style={{ ["--c" as string]: l.c }}>
-            <i />
-            <span>{l.name}</span>
-            <strong className="num">{fmt(l.minor)}</strong>
+      <div className="a2-sum" role="list">
+        <div className="a2-sum-row is-in" role="listitem">
+          <span className="a2-op">+</span>
+          <span className="a2-sum-name">{L(lang, "Entró", "Came in")}</span>
+          <strong className="num">{fmt(income)}</strong>
+        </div>
+        {rows.map((r) => (
+          <button key={r.id} type="button" role="listitem" className={`a2-sum-row${openPart === r.id ? " is-open" : ""}`} aria-expanded={openPart === r.id} onClick={() => onPart(r.id)}>
+            <span className="a2-op">−</span>
+            <span className="a2-sum-name">{r.name}<em>{r.hint}</em></span>
+            <strong className="num">{fmt(r.minor)}</strong>
+            <span className="a2-sum-bar" aria-hidden><b style={{ width: `${Math.max(2, (r.minor / scale) * 100)}%` }} /></span>
+            {openPart === r.id ? <p className="a2-sum-rule">{reading.parts[r.id].rule}</p> : null}
           </button>
         ))}
+        <div className={`a2-sum-row is-total${short ? " is-short" : ""}`} role="listitem">
+          <span className="a2-op">=</span>
+          <span className="a2-sum-name">{short ? L(lang, "Te faltan", "Short") : L(lang, "Te quedan", "Left")}</span>
+          <strong className="num">{fmt(Math.abs(left))}</strong>
+        </div>
       </div>
-      {openPart ? <p className="a2-rule">{reading.parts[openPart as "base" | "unique" | "transfer"].rule}</p> : null}
       <div className="a2-do">
         <span className="a2-do-ico" aria-hidden>➜</span>
-        <p>{(() => { const a = reading.action.replace(/^(Qué hacer|What to do):\s*/, ""); return a.charAt(0).toUpperCase() + a.slice(1); })()}</p>
+        <div>
+          <p className="a2-do-head">{doHead}</p>
+          {doRest ? <p className="a2-do-rest">{doRest}</p> : null}
+        </div>
       </div>
       <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</button>
       {more ? children : null}
