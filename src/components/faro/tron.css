@@ -797,3 +797,5 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .cvs-seg button.is-on { background: rgba(63, 214, 245, .14); color: #eafbff; box-shadow: inset 0 -2px 0 #3fd6f5, 0 0 10px rgba(63, 214, 245, .3); }
 [data-theme="tron"] .cvs-reset { color: #7fa9b5; }
 [data-theme="tron"] .tool-brand .brand-word { text-transform: none; }
+/* Currency coin: amber (Tron's warm yellow), coin details kept. */
+[data-theme="tron"] .currency-bubble .gold-coin { filter: hue-rotate(5deg) saturate(1.55) brightness(1.1) contrast(1.05) drop-shadow(0 0 4px rgba(255, 184, 74, .75)) drop-shadow(0 0 10px rgba(255, 157, 42, .35)); }
