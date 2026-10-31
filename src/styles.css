@@ -500,7 +500,7 @@ button.advice-head > div { flex: 1; min-width: 0; }
 }
 .advice-because { margin: 0; padding: 0 14px 12px; color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
 .advice-stale { margin: 0 14px 12px; color: var(--warn); font-size: 0.84rem; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .advice-fig.is-gold strong { color: #9fd0ea; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .advice-fig.is-gold strong { color: #9fd0ea; }
 
 
 .book-reel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
@@ -691,8 +691,8 @@ html .save-band.is-records .save-ledger.is-manage .save-ledger-head strong,
 .sankey-name, .sankey-amt { fill: #111; stroke: none; font-weight: 600; font-family: var(--font-sans), system-ui, sans-serif; }
 .sankey-name { font-size: 13px; }
 .sankey-amt { font-size: 12px; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .sankey-name,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .sankey-amt { fill: #fff; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .sankey-name,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .sankey-amt { fill: #fff; }
 .stat-pill { justify-self: start; width: fit-content; margin: 0; padding: 4px 12px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--accent) 36%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, white 28%, var(--surface)), color-mix(in oklab, var(--accent) 12%, var(--surface))); box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent); font-size: 0.95rem; letter-spacing: -0.03em; }
 .flow-note { margin: 0; color: var(--muted); font-size: 0.82rem; }
 .flow-list { display: grid; gap: 12px; }
@@ -785,9 +785,9 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .lens-corner.is-cobro svg { width: 13px; height: 13px; }
 .lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #8aa4c4 42%, transparent); }
 .lens-corner[aria-pressed="true"] { outline: none; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens-wrap:has(.is-have) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #6d9a84 46%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens-wrap:has(.is-spend) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #b08958 46%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #8aa4c4 46%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-have) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #6d9a84 46%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-spend) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #b08958 46%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #8aa4c4 46%, transparent); }
 .cobros { display: grid; gap: 12px; margin: 12px 0 2px; padding: 14px 12px 12px; border-radius: 26px; border: 1px solid color-mix(in oklab, #8aa4c4 55%, var(--line)); background: radial-gradient(110% 70% at 0% 0%, color-mix(in oklab, #9ec4de 30%, transparent), transparent 48%), linear-gradient(165deg, color-mix(in oklab, #3a5574 30%, var(--surface)), var(--surface) 70%); box-shadow: inset 0 1px 0 color-mix(in oklab, white 28%, transparent), 0 18px 34px color-mix(in oklab, var(--fg) 8%, transparent); }
 .cobro-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 999px; border: 1px solid color-mix(in oklab, white 18%, var(--line)); background: color-mix(in oklab, black 14%, transparent); }
 .cobro-swap { display: grid; gap: 12px; animation: study-in .22s cubic-bezier(.22, 1, .36, 1); }
@@ -1096,9 +1096,9 @@ html[data-theme="marfil"] .lens-wrap:has(.is-spend) .lens-corner,
 html[data-theme="niebla"] .lens-wrap:has(.is-spend) .lens-corner,
 html[data-theme="piedra"] .lens-wrap:has(.is-spend) .lens-corner,
 html[data-theme="ion"] .lens-wrap:has(.is-spend) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #c6ae86 40%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens-wrap:has(.is-have) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #9dceb6, 0 0 8px 1px color-mix(in oklab, #9dceb6 50%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens-wrap:has(.is-spend) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #e2bc78, 0 0 8px 1px color-mix(in oklab, #e2bc78 48%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #b7d0e6, 0 0 8px 1px color-mix(in oklab, #b7d0e6 48%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-have) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #9dceb6, 0 0 8px 1px color-mix(in oklab, #9dceb6 50%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-spend) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #e2bc78, 0 0 8px 1px color-mix(in oklab, #e2bc78 48%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #b7d0e6, 0 0 8px 1px color-mix(in oklab, #b7d0e6 48%, transparent); }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens-wrap:has(.is-have) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #5f8f78, 0 0 7px 1px color-mix(in oklab, #5f8f78 35%, transparent); }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens-wrap:has(.is-spend) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #a67c45, 0 0 7px 1px color-mix(in oklab, #a67c45 32%, transparent); }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #6d90b0, 0 0 7px 1px color-mix(in oklab, #6d90b0 32%, transparent); }
@@ -1183,36 +1183,36 @@ html[data-theme="ion"] .save-band { background: linear-gradient(180deg, #f3f7f4 
   transform: translate(-50%, -50%) scale(0.18);
 }
 .lens:active::after { animation: .55s cubic-bezier(.22, 1, .36, 1) tap-ripple; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-have,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-have[aria-pressed="true"] {
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-have,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-have[aria-pressed="true"] {
   color: #eef7f2;
   border-color: #6d9a84;
   background: linear-gradient(165deg, #3a6752 0%, #1b3128 40%, #101814 100%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%);
 }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-have .lens-kicker,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-have .lens-note,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-have .lens-value { color: #eef7f2; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-spend,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-spend[aria-pressed="true"] {
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-have .lens-kicker,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-have .lens-note,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-have .lens-value { color: #eef7f2; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-spend,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-spend[aria-pressed="true"] {
   color: #f8f1e6;
   border-color: #b08958;
   background: linear-gradient(165deg, #6b5434 0%, #2a2218 42%, #14110e 100%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%);
 }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-spend .lens-kicker,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-spend .lens-note,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-spend .lens-value { color: #f8f1e6; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-debt,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-debt[aria-pressed="true"] {
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-spend .lens-kicker,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-spend .lens-note,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-spend .lens-value { color: #f8f1e6; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt[aria-pressed="true"] {
   color: #eef3f8;
   border-color: #8aa4c4;
   background: linear-gradient(165deg, #3a5574 0%, #1c2a3c 42%, #10161e 100%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%);
 }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-debt .lens-kicker,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-debt .lens-note,
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .lens.is-debt .lens-value { color: #eef3f8; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt .lens-kicker,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt .lens-note,
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .lens.is-debt .lens-value { color: #eef3f8; }
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lens.is-debt {
   color: #1c3348;
   border-color: #8aa4c4;
@@ -1383,7 +1383,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .save-flow-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .save-flow-ico { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; flex: none; background: color-mix(in oklab, #8fb9a6 24%, var(--surface)); color: var(--fg); }
 .save-flow-ico svg { width: 14px; height: 14px; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .save-flow-ico {
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .save-flow-ico {
   background: color-mix(in oklab, var(--ico, #8fb9a6) 34%, #101614) !important;
   color: color-mix(in oklab, var(--ico, #d7efe4) 55%, white);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ico, #8fb9a6) 62%, transparent);
@@ -1526,7 +1526,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .save-name h2 { margin: 0; height: 36px; display: flex; align-items: center; line-height: 1; }
 .save-word { margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-family: var(--font-serif); font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 .save-word.is-gold { color: #c4890a; text-shadow: 0 0 14px rgb(232 184 64 / 70%); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .save-word.is-gold { color: #f3e6c8; text-shadow: 0 0 16px rgb(243 230 200 / 42%); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .save-word.is-gold { color: #f3e6c8; text-shadow: 0 0 16px rgb(243 230 200 / 42%); }
 .save-tools { flex-direction: column; align-items: flex-end; gap: 1px; }
 .save-from { margin: 0; text-align: right; }
 .save-from .explain-pop { text-align: left; }

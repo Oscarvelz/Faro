@@ -3712,8 +3712,8 @@ export function Settings() {
           const night = NIGHT_THEMES.includes(settings.theme);
           const groups = themeSide ?? { day: !night, night };
           const swatch = (id: ThemeId) => (
-            <button key={id} type="button" className={`theme-swatch swatch-${id}`} aria-pressed={settings.theme === id || (id === "ion" && settings.theme === "ion-noche")} onClick={() => {
-              const next = id === "ion" && night ? "ion-noche" : id;
+            <button key={id} type="button" className={`theme-swatch swatch-${id}`} aria-pressed={settings.theme === id || (id === "ion-noche" && settings.theme === "ion")} onClick={() => {
+              const next = id;
               commit((s) => ({ ...s, settings: { ...s.settings, theme: next } }), next);
             }}>
               <span className="swatch-scene" aria-hidden>
@@ -3730,7 +3730,7 @@ export function Settings() {
                 {DAY_THEMES.map(swatch)}
               </ThemeSide>
               <ThemeSide title={t("theme.night")} open={groups.night} onToggle={() => setThemeSide({ ...groups, night: !groups.night })}>
-                {NIGHT_THEMES.filter((id) => id !== "ion-noche").map(swatch)}
+                {NIGHT_THEMES.map(swatch)}
               </ThemeSide>
             </>
           );

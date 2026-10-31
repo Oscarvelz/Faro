@@ -197,3 +197,10 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
     }).catch(() => undefined);
   });
 }
+
+// Tron (and any living theme) pauses its light while the tab is hidden.
+if (typeof document !== "undefined") {
+  const markHidden = () => { if (document.hidden) document.documentElement.dataset.hidden = ""; else delete document.documentElement.dataset.hidden; };
+  document.addEventListener("visibilitychange", markHidden);
+  markHidden();
+}

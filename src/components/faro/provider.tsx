@@ -349,6 +349,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const seeded = withAugustSample(ledger);
       ledger = seeded.ledger;
       if (seeded.added) dirty = true;
+      if (ledger.settings.theme === "ion") {
+        ledger = { ...ledger, settings: { ...ledger.settings, theme: "ion-noche" }, revision: ledger.revision + 1, updatedAt: new Date().toISOString() };
+        dirty = true;
+      }
       if (!daySet) {
         localStorage.setItem("faro-day", "1");
         if (ledger.settings.theme !== "claro") {
@@ -384,12 +388,13 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       return;
     }
     localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
-    document.documentElement.dataset.theme = session.ledger.settings.theme;
+    const shown = session.ledger.settings.theme === "ion" ? "ion-noche" : session.ledger.settings.theme;
+    document.documentElement.dataset.theme = shown;
     document.documentElement.lang = session.ledger.settings.lang;
-    localStorage.setItem("faro-theme", session.ledger.settings.theme);
+    localStorage.setItem("faro-theme", shown);
     localStorage.setItem("faro-lang", session.ledger.settings.lang);
-    const night = NIGHT_THEMES.includes(session.ledger.settings.theme);
-    const chrome = session.ledger.settings.theme === "ion" ? "#e7eef8" : session.ledger.settings.theme === "ion-noche" ? "#070b12" : night ? "#0e1114" : "#f4f1ea";
+    const night = NIGHT_THEMES.includes(shown);
+    const chrome = shown === "ion-noche" ? "#070b12" : shown === "tron" ? "#02060c" : night ? "#0e1114" : "#f4f1ea";
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chrome);
   }, [session, userId]);
 

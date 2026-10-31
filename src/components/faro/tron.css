@@ -1,0 +1,247 @@
+/* =====================================================================
+   Faro · Tron (night). Learned from Weekly 1.4 / Cadence Tron, adapted to Faro.
+   Skin only: colors, light, motion. No layout, data or text changes.
+   Palette: cyan light-lines #00e5ff (white-hot core), Legacy amber #ffb21e
+   (Faro's lamp — "Te queda" and the lighthouse are amber), Ares red #ff2a2a
+   for money going out. Every animation stops under reduced motion and while
+   the tab is hidden (html[data-hidden]).
+   ===================================================================== */
+
+[data-theme="tron"] {
+  --bg: #02060c; --surface: #061220; --surface-2: #0a1c2e; --fg: #e6faff; --muted: #8fb6c8; --faint: #5f8798;
+  --line: rgba(0, 229, 255, 0.28); --accent: #00e5ff; --accent-fg: #001319;
+  --good: #00e5ff; --warn: #ffb21e; --bad: #ff4d4d; --glow: #00e5ff;
+  --t-cyan: #00e5ff; --t-line: #6fe3ff; --t-amber: #ffb21e; --t-amber-core: #fff1c4; --t-red: #ff2a2a;
+  color-scheme: dark;
+  scrollbar-color: rgba(0, 229, 255, 0.45) #02060c;
+}
+.swatch-tron { --swatch-bg: #02060c; --swatch-surface: #061a2a; --swatch-fg: #dffbff; --swatch-accent: #00e5ff; }
+.swatch-tron { box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .55), 0 0 12px rgba(0, 229, 255, .25); }
+.swatch-tron strong { text-transform: uppercase; letter-spacing: .14em; font-family: var(--font-sans, inherit); font-weight: 500; text-shadow: 0 0 8px #00e5ff; }
+.swatch-ion-noche { --swatch-bg: #070b12; --swatch-surface: #101722; --swatch-fg: #e7f2ff; --swatch-accent: #22d3ee; }
+
+/* ---------- The Grid: cyan lattice, cyan + amber circuits, horizon glow ---------- */
+[data-theme="tron"] body {
+  background-color: #02060c;
+  background-image:
+    radial-gradient(120% 40% at 50% 112%, rgba(255, 178, 30, 0.12), transparent 60%),
+    radial-gradient(70% 26% at 18% -4%, rgba(0, 229, 255, 0.16), transparent 62%),
+    linear-gradient(rgba(0, 229, 255, 0.065) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.065) 1px, transparent 1px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='264' height='264'%3E%3Cg fill='none' stroke-width='1'%3E%3Cg stroke='%2300e5ff' stroke-opacity='0.17'%3E%3Cpath d='M12 48H78V96H140'/%3E%3Cpath d='M36 200H110V72'/%3E%3Cpath d='M180 28V84H250'/%3E%3C/g%3E%3Cg stroke='%23ffb21e' stroke-opacity='0.16'%3E%3Cpath d='M150 240V170H220'/%3E%3Cpath d='M200 120H250V150'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='78' cy='48' r='2' fill='%2300e5ff' fill-opacity='0.5'/%3E%3Ccircle cx='140' cy='96' r='2' fill='%2300e5ff' fill-opacity='0.4'/%3E%3Ccircle cx='110' cy='72' r='2' fill='%2300e5ff' fill-opacity='0.4'/%3E%3Ccircle cx='220' cy='170' r='2.2' fill='%23ffb21e' fill-opacity='0.55'/%3E%3Ccircle cx='250' cy='150' r='2' fill='%23ff2a2a' fill-opacity='0.5'/%3E%3C/svg%3E");
+  background-size: auto, auto, 44px 44px, 44px 44px, 264px 264px;
+  background-attachment: fixed;
+}
+
+/* ---------- Header: dark glass, a light-line, an occasional light-cycle ---------- */
+[data-theme="tron"] .top-chrome {
+  position: sticky;
+  background: linear-gradient(180deg, rgba(2, 8, 16, .96), rgba(3, 16, 28, .94));
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 rgba(111, 227, 255, .55), 0 0 14px rgba(0, 229, 255, .22);
+}
+[data-theme="tron"] .top-chrome::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; width: 22%; height: 2px; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent 0, rgba(0, 229, 255, .35) 40%, #00e5ff 78%, #fff 96%, transparent 100%);
+  box-shadow: 0 0 8px rgba(0, 229, 255, .8);
+  transform: translateX(-110%);
+  animation: tron-cycle 8.5s cubic-bezier(.55, 0, .3, 1) 1.2s infinite;
+}
+@keyframes tron-cycle {
+  0% { opacity: 0; transform: translateX(-110%); }
+  4% { opacity: 1; }
+  22% { opacity: 1; transform: translateX(560%); }
+  24%, 100% { opacity: 0; transform: translateX(560%); }
+}
+
+/* Wordmark: glowing Legacy type with a rare derez glitch. */
+[data-theme="tron"] .brand-word {
+  position: relative;
+  font-family: var(--font-sans, ui-sans-serif, system-ui);
+  font-weight: 400;
+  font-size: 1.55rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: #dffbff;
+  text-shadow: 0 0 2px #fff, 0 0 8px #00e5ff, 0 0 18px rgba(0, 229, 255, .75), 0 0 36px rgba(0, 229, 255, .4);
+}
+[data-theme="tron"] .brand-word::before,
+[data-theme="tron"] .brand-word::after { content: "Faro"; position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+[data-theme="tron"] .brand-word::before { color: #eafdff; text-shadow: -2px 0 rgba(0, 229, 255, .9); animation: tron-derez-a 11s steps(1) 3s infinite; }
+[data-theme="tron"] .brand-word::after { color: #fff1c4; text-shadow: 2px 0 rgba(255, 138, 0, .8); animation: tron-derez-b 11s steps(1) 3s infinite; }
+@keyframes tron-derez-a { 0%, 93%, 100% { opacity: 0; transform: none; clip-path: none; } 94% { opacity: .9; transform: translate(-3px, 0); clip-path: inset(10% 0 55% 0); } 95% { opacity: .9; transform: translate(2px, 0); clip-path: inset(60% 0 8% 0); } 96% { opacity: 0; } }
+@keyframes tron-derez-b { 0%, 93%, 100% { opacity: 0; transform: none; clip-path: none; } 94% { opacity: .8; transform: translate(3px, 0); clip-path: inset(48% 0 20% 0); } 95% { opacity: .8; transform: translate(-2px, 0); clip-path: inset(5% 0 70% 0); } 96% { opacity: 0; } }
+[data-theme="tron"] .hub-name { color: #b5f6ff; font-family: var(--font-sans, inherit); text-transform: uppercase; letter-spacing: .22em; font-size: .78rem; text-shadow: 0 0 10px rgba(0, 229, 255, .55); }
+[data-theme="tron"] .sync-dot { box-shadow: 0 0 6px currentColor, 0 0 0 1px rgba(0, 0, 0, .4); }
+[data-theme="tron"] .sync-dot:not(.offline):not(.error):not(.syncing):not(.conflict) { background: #00e5ff; color: #00e5ff; }
+
+/* The header lamp: Faro's amber light, Tron-bright. */
+[data-theme="tron"] .brand-lamp { filter: drop-shadow(0 0 6px rgba(255, 178, 30, .55)); }
+
+/* Round tool buttons: dark glass, cyan hairline. */
+[data-theme="tron"] :is(.icon-btn, .bubble) {
+  color: #c9f4ff;
+  background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .8));
+  border-color: rgba(0, 229, 255, .4);
+  box-shadow: inset 0 1px 0 rgba(111, 227, 255, .2);
+}
+@media (hover: hover) { [data-theme="tron"] :is(.icon-btn, .bubble):hover { border-color: #8ff4ff; box-shadow: inset 0 1px 0 rgba(111, 227, 255, .3), 0 0 12px rgba(0, 229, 255, .4); } }
+
+/* ---------- Panels: dark glass, circuit corners, a top light-line ---------- */
+[data-theme="tron"] :is(.card, .ridge, .coach, .a2-tower) {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--t-line), var(--t-line)) left top / 16px 2px no-repeat,
+    linear-gradient(var(--t-line), var(--t-line)) left top / 2px 16px no-repeat,
+    linear-gradient(var(--t-line), var(--t-line)) right bottom / 16px 2px no-repeat,
+    linear-gradient(var(--t-line), var(--t-line)) right bottom / 2px 16px no-repeat,
+    linear-gradient(90deg, transparent, rgba(111, 227, 255, .55), transparent) center top / 70% 1px no-repeat,
+    linear-gradient(180deg, rgba(8, 26, 44, .93), rgba(3, 12, 22, .95));
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .26), 0 0 16px rgba(0, 229, 255, .1);
+}
+[data-theme="tron"] .stat-fold.is-open > .card { box-shadow: inset 3px 0 0 #00e5ff, inset 0 0 0 1px rgba(143, 244, 255, .55), 0 0 18px rgba(0, 229, 255, .22); }
+[data-theme="tron"] .card :is(h2, h3).serif,
+[data-theme="tron"] .card > h2,
+[data-theme="tron"] .stat-head h2 { color: #eafdff; text-shadow: 0 0 1px #fff, 0 0 10px rgba(0, 229, 255, .45), 0 0 26px rgba(0, 229, 255, .18); }
+
+/* Category groups keep their own color as a lit edge. */
+[data-theme="tron"] .ridge { box-shadow: inset 3px 0 0 var(--ridge), inset 0 0 0 1px color-mix(in oklab, var(--ridge) 40%, rgba(0, 229, 255, .2)), -2px 0 12px -3px var(--ridge); }
+[data-theme="tron"] .ridge-head strong { color: #d8fdff; letter-spacing: .14em; }
+[data-theme="tron"] .ridge-head strong::before { box-shadow: 0 0 8px var(--ridge); }
+[data-theme="tron"] .ridge-head .num { background: rgba(2, 10, 18, .6); }
+
+/* Rows: glass with a lit left edge in their own tone. */
+[data-theme="tron"] :is(.glass-line, .own-line) {
+  border-color: transparent;
+  background: linear-gradient(180deg, rgba(10, 34, 56, .55), rgba(3, 12, 22, .72));
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .22), inset 0 1px 0 rgba(111, 227, 255, .14);
+}
+[data-theme="tron"] .own-line { box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .45), inset 3px 0 0 #ffb21e, 0 0 12px -2px rgba(255, 138, 0, .3); }
+[data-theme="tron"] :is(.glass-line, .own-line)[aria-expanded="true"] { box-shadow: inset 0 0 0 1px #8ff4ff, inset 3px 0 0 #00e5ff, 0 0 16px rgba(0, 229, 255, .35); }
+
+/* Money: in = cyan light, out = Ares red light, what's left = Faro amber. */
+[data-theme="tron"] .amt-in { color: #7ff3ff; text-shadow: 0 0 8px rgba(0, 229, 255, .55); }
+[data-theme="tron"] .amt-out { color: #ff7a7a; text-shadow: 0 0 1px rgba(255, 217, 210, .6), 0 0 8px rgba(255, 42, 42, .5); }
+[data-theme="tron"] .amt-zero { color: #5f8798; text-shadow: none; }
+[data-theme="tron"] .desk-bar strong { color: #ffd27a; text-shadow: 0 0 2px #fff1c4, 0 0 10px rgba(255, 178, 30, .6); }
+[data-theme="tron"] .desk-bar strong.bad { color: #ff7a7a; text-shadow: 0 0 10px rgba(255, 42, 42, .6); }
+[data-theme="tron"] .desk-bar em, [data-theme="tron"] .lens .lens-kicker { color: #8fdcf0; letter-spacing: .14em; }
+[data-theme="tron"] .desk-bar {
+  background: linear-gradient(180deg, rgba(10, 34, 56, .7), rgba(3, 12, 22, .85));
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .5), 0 0 16px rgba(255, 138, 0, .16);
+}
+
+/* The three lenses: Tengo cyan, Gastaré red, Pagos amber — lit outlines, never slabs. */
+html[data-theme="tron"] .lens { background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)); border-color: transparent; box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .35); color: #e6faff; }
+html[data-theme="tron"] .lens.is-have { color: #e6faff !important; background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)) !important; border-color: transparent !important; box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .7), 0 0 12px rgba(0, 229, 255, .2); }
+html[data-theme="tron"] .lens.is-spend { color: #e6faff !important; background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)) !important; border-color: transparent !important; box-shadow: inset 0 0 0 1px rgba(255, 42, 42, .7), 0 0 12px rgba(255, 42, 42, .2); }
+html[data-theme="tron"] .lens.is-debt { color: #e6faff !important; background: linear-gradient(180deg, rgba(10, 34, 56, .6), rgba(3, 12, 22, .85)) !important; border-color: transparent !important; box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .7), 0 0 12px rgba(255, 138, 0, .2); }
+html[data-theme="tron"] .lens[aria-pressed="true"] { color: #fff; background: linear-gradient(180deg, rgba(0, 229, 255, .2), rgba(0, 229, 255, .05)); text-shadow: 0 0 8px rgba(0, 229, 255, .7); }
+html[data-theme="tron"] .lens :is(.lens-value, .lens-kicker, .lens-note) { color: #dffbff !important; }
+html[data-theme="tron"] .lens .lens-value { color: #eafdff; text-shadow: 0 0 8px rgba(0, 229, 255, .45); }
+
+/* ---------- Segmented switches + dock: lit tint, a gliding light ---------- */
+[data-theme="tron"] .seg { background: transparent; }
+[data-theme="tron"] .seg button { color: #9cd8ea; background: rgba(3, 12, 22, .6); border-color: rgba(0, 229, 255, .3); letter-spacing: .04em; }
+[data-theme="tron"] .seg button[aria-current="page"],
+[data-theme="tron"] .seg.is-follow button[aria-current="page"] { color: #d8fdff; text-shadow: 0 0 8px rgba(0, 229, 255, .8); }
+[data-theme="tron"] .seg:not(.is-follow) button[aria-current="page"] { background: linear-gradient(180deg, rgba(0, 229, 255, .22), rgba(0, 229, 255, .06)); box-shadow: inset 0 0 0 1px #8ff4ff, 0 0 12px rgba(0, 229, 255, .45); }
+[data-theme="tron"] .seg-pill { background: linear-gradient(180deg, rgba(0, 229, 255, .24), rgba(0, 229, 255, .06)) !important; box-shadow: inset 0 0 0 1px #8ff4ff, 0 0 14px rgba(0, 229, 255, .5) !important; }
+[data-theme="tron"] .seg.is-follow button[aria-current="page"] .seg-ico { color: #00e5ff; filter: drop-shadow(0 0 4px #00e5ff); }
+
+[data-theme="tron"] .dock {
+  background: linear-gradient(180deg, rgba(4, 18, 32, .94), rgba(2, 8, 16, .96));
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .45), 0 0 18px rgba(0, 229, 255, .22), 0 12px 30px rgba(0, 0, 0, .6);
+}
+[data-theme="tron"] :is(.dock, .rail) .nav-btn { color: #7fb6c8; letter-spacing: .06em; }
+[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"] {
+  position: relative; overflow: hidden;
+  color: #d8fdff;
+  background: linear-gradient(180deg, rgba(0, 229, 255, .22), rgba(0, 229, 255, .05));
+  box-shadow: inset 0 0 0 1px #8ff4ff, 0 0 14px rgba(0, 229, 255, .5);
+  text-shadow: 0 0 8px rgba(0, 229, 255, .8);
+}
+[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"] svg { filter: drop-shadow(0 0 4px #00e5ff); }
+[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"]::before {
+  content: ""; position: absolute; left: 0; bottom: 0; width: 60%; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #00e5ff 70%, #fff 96%, transparent);
+  transform: translateX(-120%);
+  animation: tron-tab-beam 6.5s cubic-bezier(.55, 0, .3, 1) .4s infinite;
+}
+@keyframes tron-tab-beam { 0% { transform: translateX(-120%); opacity: 0; } 3% { opacity: 1; } 16% { transform: translateX(200%); opacity: 1; } 18%, 100% { transform: translateX(200%); opacity: 0; } }
+[data-theme="tron"] :is(.dock, .rail) .nav-btn[aria-current="page"] { animation: tron-power .5s steps(1) both; }
+@keyframes tron-power { 0% { opacity: .35; } 20% { opacity: 1; } 35% { opacity: .55; } 50%, 100% { opacity: 1; } }
+
+/* ---------- Buttons, inputs, checkboxes ---------- */
+[data-theme="tron"] .btn:not(.ghost):not(.danger):not(.secondary) { color: #8ff4ff; background: linear-gradient(180deg, rgba(0, 229, 255, .12), rgba(2, 10, 18, .4)); box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .7), 0 0 12px rgba(0, 229, 255, .3); text-shadow: 0 0 8px rgba(0, 229, 255, .6); }
+[data-theme="tron"] .btn.secondary { color: #c9f4ff; border-color: rgba(0, 229, 255, .4); background: rgba(3, 12, 22, .6); }
+[data-theme="tron"] :is(.field, .select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+  color: #e6faff; caret-color: #00e5ff; border-color: transparent;
+  background: linear-gradient(180deg, rgba(10, 34, 56, .7), rgba(3, 12, 22, .8));
+  box-shadow: inset 0 1px 0 rgba(111, 227, 255, .3), 0 0 0 1px rgba(0, 229, 255, .4);
+}
+[data-theme="tron"] :is(.field, .select, input, textarea, select):focus-visible { outline: none; box-shadow: 0 0 0 1px #00e5ff, 0 0 12px rgba(0, 229, 255, .6), 0 0 28px rgba(0, 229, 255, .25); }
+[data-theme="tron"] :is(input, textarea)::placeholder { color: #7fa6b8; }
+[data-theme="tron"] .search-pill { background: linear-gradient(180deg, rgba(10, 34, 56, .7), rgba(3, 12, 22, .8)); border-color: rgba(0, 229, 255, .4); }
+[data-theme="tron"] .search-pill input { box-shadow: none; background: transparent; }
+[data-theme="tron"] input[type="checkbox"], [data-theme="tron"] input[type="radio"] { accent-color: #00e5ff; }
+
+/* ---------- Faro's own pieces ---------- */
+/* Bubbles (Libros): neon rings in their own color, not pastel balloons. */
+[data-theme="tron"] .spend-bubble {
+  color: #eafdff !important;
+  background: radial-gradient(120% 90% at 30% 0%, color-mix(in oklab, var(--tone) 26%, transparent), transparent 60%), rgba(3, 12, 22, .85) !important;
+  box-shadow: inset 0 0 0 1.5px var(--tone), 0 0 14px color-mix(in oklab, var(--tone) 55%, transparent), inset 0 0 18px color-mix(in oklab, var(--tone) 25%, transparent) !important;
+}
+[data-theme="tron"] .spend-bubble strong { text-shadow: 0 0 6px color-mix(in oklab, var(--tone) 80%, transparent); }
+[data-theme="tron"] .spend-bubble .num { color: #fff; text-shadow: 0 0 8px var(--tone); }
+[data-theme="tron"] .spend-mark { color: var(--tone); filter: drop-shadow(0 0 4px var(--tone)); }
+
+/* Savings tiles: a lit fuel cell. */
+[data-theme="tron"] .save-seg { background: rgba(3, 12, 22, .7); border-color: color-mix(in oklab, var(--seg) 70%, transparent); box-shadow: 0 0 10px -2px color-mix(in oklab, var(--seg) 60%, transparent); }
+[data-theme="tron"] .save-seg b { background: rgba(2, 8, 16, .9); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 55%, transparent); }
+[data-theme="tron"] .save-seg b i { box-shadow: 0 0 10px var(--seg); }
+
+/* Bars and progress: a dark groove with a light bar. */
+[data-theme="tron"] :is(.bar-track) { background: rgba(2, 8, 16, .9); box-shadow: inset 0 0 0 1px rgba(0, 229, 255, .22); }
+[data-theme="tron"] :is(.bar-fill) { background: #00e5ff; box-shadow: 0 0 8px #00e5ff; }
+
+/* Waffle "Te queda": hollow amber light. */
+[data-theme="tron"] .pano-waffle button.is-free { box-shadow: inset 0 0 0 2px #ffb21e, 0 0 6px rgba(255, 178, 30, .5); }
+[data-theme="tron"] .pano-waffle button:not(.is-free) { box-shadow: 0 0 6px -1px currentColor; }
+
+/* The lighthouse: Grid edition. Cyan beam, amber lamp, Ares-red bands, light-line tower. */
+[data-theme="tron"] .a2-tower { color: #e6faff; }
+[data-theme="tron"] .a2-tower-say strong { color: #ffd27a; text-shadow: 0 0 2px #fff1c4, 0 0 14px rgba(255, 178, 30, .7), 0 0 34px rgba(255, 138, 0, .35); }
+[data-theme="tron"] .a2-beam { mix-blend-mode: screen; filter: hue-rotate(150deg) saturate(2.4) brightness(1.15); }
+[data-theme="tron"] .a2-tower-art { filter: drop-shadow(0 0 6px rgba(0, 229, 255, .35)); }
+[data-theme="tron"] .a2-badge { color: #ffd27a; background: rgba(255, 178, 30, .1); box-shadow: inset 0 0 0 1px rgba(255, 178, 30, .6); }
+[data-theme="tron"] :is(.a2-note, .a2-tiles span) { background: rgba(3, 12, 22, .7); border-color: rgba(0, 229, 255, .25); }
+[data-theme="tron"] .a2-tiles span.is-left { border-color: rgba(255, 178, 30, .7); box-shadow: 0 0 12px rgba(255, 138, 0, .25); }
+[data-theme="tron"] .a2-more { border-color: rgba(0, 229, 255, .45); color: #b5f6ff; }
+
+/* Score dial and coach: tron dashboard. */
+[data-theme="tron"] .coach { color: #e6faff; }
+[data-theme="tron"] .coach-verdict { color: #eafdff; text-shadow: 0 0 10px rgba(0, 229, 255, .35); }
+
+/* Modals and sheets. */
+[data-theme="tron"] :is(.modal, .cal-pop, .export-sheet, .view-menu, .hits) {
+  background: linear-gradient(180deg, rgba(6, 20, 34, .98), rgba(2, 8, 16, .98));
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px rgba(143, 244, 255, .6), 0 0 24px rgba(0, 229, 255, .3), 0 20px 50px rgba(0, 0, 0, .7);
+}
+
+/* Panels rez in on first paint. */
+[data-theme="tron"] :is(.card, .ridge) { animation: tron-rez .5s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes tron-rez { 0% { opacity: 0; clip-path: inset(0 0 100% 0); filter: brightness(2.2); } 60% { opacity: 1; clip-path: inset(0 0 0 0); filter: brightness(1.35); } 100% { opacity: 1; clip-path: none; filter: none; } }
+
+/* Calm: no motion when asked, none while the tab is hidden. */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="tron"] *, [data-theme="tron"] *::before, [data-theme="tron"] *::after { animation: none !important; }
+}
+html[data-theme="tron"][data-hidden] *, html[data-theme="tron"][data-hidden] *::before, html[data-theme="tron"][data-hidden] *::after { animation-play-state: paused !important; }
+
+/* Charts glow: the category colors turn to neon. */
+[data-theme="tron"] :is(.pano-waffle, .coach-bar, .pano-card svg, .s2-card svg, .pano-legend i) { filter: saturate(1.7) brightness(1.08); }

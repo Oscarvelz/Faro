@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
 import "./float.css";
+import "./tron.css";
 import { UserButton } from "@/lib/auth/gates";
 import { monthLines } from "@/lib/faro/engine";
 import { monthName } from "@/lib/faro/i18n";
@@ -653,11 +654,6 @@ export function Shell() {
                 aria-label={NIGHT_THEMES.includes(session.ledger.settings.theme) ? t("theme.day") : t("theme.night")}
                 onClick={() => {
                   const current = session.ledger.settings.theme;
-                  if (current === "ion" || current === "ion-noche") {
-                    const next = current === "ion" ? "ion-noche" : "ion";
-                    faro.commit((s) => ({ ...s, settings: { ...s.settings, theme: next } }), next);
-                    return;
-                  }
                   const night = NIGHT_THEMES.includes(current);
                   if (night) localStorage.setItem("faro-night-theme", current);
                   else localStorage.setItem("faro-day-theme", current);
