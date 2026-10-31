@@ -193,3 +193,50 @@
 .pano-seg.is-dim { opacity: 0.42; }
 .pano-seg.is-pick { filter: drop-shadow(0 0 5px color-mix(in oklab, var(--c) 60%, transparent)); }
 .pano-seg:focus-visible { filter: drop-shadow(0 0 4px var(--c)); }
+
+/* Health score "?" and its explainer. */
+.pano-dial-wrap { position: relative; justify-self: center; }
+.pano-help-btn {
+  position: absolute; top: 2px; right: -30px; width: 28px; height: 28px; border-radius: 999px;
+  display: grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  font: inherit; font-size: 0.85rem; font-weight: 700; line-height: 1; cursor: pointer;
+  transition: background-color .15s, color .15s, transform .15s cubic-bezier(.22,1,.36,1);
+}
+.pano-help-btn::before { content: ""; position: absolute; inset: -9px; } /* 46px touch target */
+.pano-help-btn:active { transform: scale(0.92); }
+.pano-help-btn.is-on { background: var(--fg); color: var(--bg); border-color: transparent; }
+.pano-help {
+  display: grid; gap: 10px; padding: 14px; border-radius: 18px;
+  border: 1px solid var(--line); background: color-mix(in oklab, var(--surface-2) 70%, var(--surface));
+  animation: pano-in 0.2s ease both;
+}
+.pano-help p { margin: 0; font-size: 0.9rem; line-height: 1.45; }
+.pano-help-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pano-help-top strong { font-size: 1rem; }
+.pano-help-x { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; margin: -6px -6px -6px 0; }
+.pano-help-scale { position: relative; display: flex; gap: 3px; padding-top: 22px; }
+.pano-help-scale > span { display: grid; gap: 3px; min-width: 0; flex: 1 1 0; align-content: start; text-align: center; opacity: 0.55; }
+.pano-help-scale > span.is-here { opacity: 1; }
+.pano-help-scale i { display: block; height: 8px; border-radius: 4px; }
+.pano-help-scale .is-bad i { background: var(--bad); }
+.pano-help-scale .is-warn i { background: var(--warn); }
+.pano-help-scale .is-good i { background: var(--good); }
+.pano-help-scale span:last-child i { background: color-mix(in oklab, var(--good) 75%, var(--fg)); }
+.pano-help-scale em { font-style: normal; font-size: 0.68rem; font-weight: 600; line-height: 1.15; overflow-wrap: normal; hyphens: none; }
+.pano-help-scale small { font-size: 0.64rem; color: var(--muted); }
+.pano-help-scale b {
+  position: absolute; top: 0; transform: translateX(-50%); font-size: 0.72rem; line-height: 1;
+  padding: 3px 6px; border-radius: 999px; background: var(--fg); color: var(--bg);
+}
+.pano-help-scale b::after { content: ""; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%); border: 4px solid transparent; border-bottom: 0; border-top-color: var(--fg); }
+.pano-help-kicker { font-size: 0.7rem !important; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 2px !important; }
+.pano-help-sum { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pano-help-sum li { display: grid; grid-template-columns: minmax(0, 6.5em) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 0.86rem; }
+.pano-help-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.pano-help-bar i { display: block; height: 100%; border-radius: 3px; }
+.pano-help-sum .num { white-space: nowrap; color: var(--muted); }
+.pano-help-sum li.is-total { border-top: 1px solid var(--line); padding-top: 7px; font-weight: 700; }
+.pano-help-sum li.is-total .num { color: var(--fg); }
+.pano-help-next { color: var(--muted); font-size: 0.85rem !important; }
+@media (prefers-reduced-motion: reduce) { .pano-help { animation: none; } }

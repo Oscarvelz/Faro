@@ -1,0 +1,117 @@
+/* Cambio: converter as two stacked currency rows, and the floating calculator. */
+.cv { display: grid; gap: 12px; }
+.cv-pair { position: relative; display: grid; gap: 6px; }
+.cv-row {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px;
+  min-height: 72px; padding: 10px 16px; border-radius: 20px;
+  border: 1px solid var(--line); background: var(--surface);
+  container-type: inline-size;
+}
+.cv-row.is-from { cursor: text; }
+.cv-row.is-from:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent); }
+.cv-row.is-to { background: color-mix(in oklab, var(--accent) 10%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
+.cv-cur { display: grid; gap: 1px; min-width: 3.6rem; }
+.cv-cur b { font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em; }
+.cv-cur small { font-size: 0.68rem; color: var(--muted); font-weight: 600; letter-spacing: 0.02em; }
+.cv-in, .cv-out {
+  min-width: 0; width: 100%; text-align: right; font-family: var(--font-serif);
+  font-size: clamp(1.4rem, 11cqi, 2.2rem); line-height: 1.1; letter-spacing: -0.035em; white-space: nowrap;
+}
+.cv-in { border: 0; outline: none; background: transparent; color: var(--fg); padding: 0; }
+.cv-in::placeholder { color: var(--faint); }
+.cv-out { display: block; overflow: hidden; color: var(--fg); font-weight: 600; }
+.cv-swap {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+  width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  box-shadow: 0 4px 14px color-mix(in oklab, var(--fg) 12%, transparent);
+  transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
+.cv-swap::before { content: ""; position: absolute; inset: -4px; }
+.cv-swap:active { transform: translate(-50%, -50%) rotate(180deg) scale(.94); }
+.cv-rate { margin: -2px 0 0; text-align: center; color: var(--muted); font-size: 0.8rem; }
+.cv-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.cv-chips button {
+  flex: 1 0 auto; min-height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: transparent; color: var(--muted); font: inherit; font-size: 0.85rem; font-weight: 600;
+}
+.cv-chips button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: transparent; }
+.cv-use { width: 100%; justify-content: center; min-height: 48px; }
+.cv-use:disabled { opacity: .5; }
+
+/* Calculator */
+.calc2 {
+  position: fixed; z-index: 90; box-sizing: border-box;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; gap: clamp(6px, 2cqmin, 10px);
+  padding: 10px 12px 12px; border-radius: 24px; overflow: hidden;
+  container-type: size;
+  color: var(--fg); background: var(--surface);
+  border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line));
+  box-shadow: 0 24px 60px color-mix(in oklab, #000 28%, transparent), 0 2px 0 color-mix(in oklab, white 40%, transparent) inset;
+  animation: calc2-in .22s cubic-bezier(.22,1,.36,1) both;
+  touch-action: none;
+}
+.calc2.is-in { position: absolute; }
+.calc2.is-big { border-radius: 20px; }
+.calc2.is-moving { transition: none; user-select: none; }
+@keyframes calc2-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+.calc2-bar { display: flex; align-items: center; gap: 6px; min-height: 36px; cursor: grab; position: relative; padding-top: 6px; }
+.calc2.is-big .calc2-bar { cursor: default; }
+.calc2-grab { position: absolute; left: 50%; top: -2px; width: 36px; height: 4px; border-radius: 4px; transform: translateX(-50%); background: var(--line); }
+.calc2-bar strong { flex: 1; min-width: 0; font-size: clamp(1rem, 5.5cqw, 1.2rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calc2-chip { flex: none; min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; font-size: 0.8rem; font-weight: 650; }
+.calc2-chip:disabled { opacity: .45; }
+.calc2-icon { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: var(--muted); }
+.calc2-icon svg { width: 17px; height: 17px; }
+.calc2-screen {
+  display: grid; gap: 2px; padding: clamp(8px, 2.6cqmin, 14px) 14px; border-radius: 18px; min-width: 0;
+  background: color-mix(in oklab, var(--surface-2) 55%, var(--surface)); border: 1px solid var(--line);
+  transition: background-color .35s;
+}
+.calc2-screen.is-flash { background: color-mix(in oklab, var(--accent) 22%, var(--surface)); }
+.calc2-expr {
+  width: 100%; min-width: 0; border: 0; outline: none; background: transparent; padding: 0; text-align: right;
+  color: var(--muted); font: inherit; font-size: clamp(0.9rem, 5cqw, 1.25rem); letter-spacing: 0.01em;
+}
+.calc2-result {
+  display: block; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.035em; line-height: 1.05;
+  font-size: clamp(1.6rem, min(13cqw, 9cqh), 3.4rem);
+}
+.calc2-pad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(0, 1fr)); gap: clamp(5px, 1.8cqmin, 10px); min-height: 0; }
+.calc2-pad button {
+  min-width: 0; min-height: 0; height: 100%; padding: 0; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: clamp(12px, 4cqmin, 20px);
+  background: color-mix(in oklab, var(--surface) 70%, var(--bg)); color: var(--fg);
+  font: inherit; font-weight: 560; font-size: clamp(1rem, min(7cqw, 5cqh), 1.9rem);
+  transition: transform .12s cubic-bezier(.22,1,.36,1), background-color .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.calc2-pad button svg { width: 1em; height: 1em; }
+.calc2-pad button:active { transform: scale(.94); }
+.calc2-pad .is-fn { color: var(--muted); background: transparent; }
+.calc2-pad .is-op { color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); font-weight: 700; }
+.calc2-pad .is-eq { color: var(--accent-fg); background: var(--accent); border-color: transparent; font-weight: 700; }
+.calc2-put { width: 100%; justify-content: center; min-height: clamp(40px, 11cqh, 50px); }
+.calc2-put:disabled { opacity: .5; }
+.calc2-put .num { opacity: .8; font-weight: 600; }
+/* Resize grips: an L in each corner, generous to grab, visible but quiet. */
+.calc2-size { position: absolute; width: 36px; height: 36px; z-index: 3; touch-action: none; }
+.calc2-size::after { content: ""; position: absolute; width: 14px; height: 14px; border: 0 solid color-mix(in oklab, var(--accent) 55%, var(--line)); opacity: .7; transition: opacity .15s; }
+.calc2-size:hover::after, .calc2.is-moving .calc2-size::after { opacity: 1; }
+.calc2-size.is-br { right: 0; bottom: 0; cursor: nwse-resize; }
+.calc2-size.is-br::after { right: 6px; bottom: 6px; border-right-width: 2.5px; border-bottom-width: 2.5px; border-bottom-right-radius: 8px; }
+.calc2-size.is-bl { left: 0; bottom: 0; cursor: nesw-resize; }
+.calc2-size.is-bl::after { left: 6px; bottom: 6px; border-left-width: 2.5px; border-bottom-width: 2.5px; border-bottom-left-radius: 8px; }
+.calc2-size.is-tr { right: 0; top: 0; cursor: nesw-resize; width: 20px; height: 20px; }
+.calc2-size.is-tl { left: 0; top: 0; cursor: nwse-resize; width: 20px; height: 20px; }
+.calc2-size.is-tr::after, .calc2-size.is-tl::after { display: none; }
+/* Keep the button row clear of the bottom grips. */
+.calc2 { padding-bottom: 18px; }
+@media (prefers-reduced-motion: reduce) { .calc2, .cv-swap { animation: none; transition: none; } }
+@container (max-width: 290px) {
+  .calc2-chip { padding: 0 9px; font-size: 0.74rem; }
+  .calc2-icon { width: 30px; height: 30px; }
+}
+.calc2-put { white-space: nowrap; overflow: hidden; }
+@container (max-width: 300px) { .calc2-put .num { display: none; } }

@@ -17,6 +17,9 @@ export type Tone = "good" | "warn" | "bad" | "neutral";
 export type BucketId = "needs" | "wants" | "debt" | "save" | "free";
 export type Bucket = { id: BucketId; label: string; hint: string; minor: number; pct: number; ideal: number | null; color: string; lineIds: string[] };
 export type Cell = { id: string; name: string; color: string; count: number; minor: number; lineIds: string[] };
+/** How much each pillar counts toward the 0-100 score (sums to 1). */
+export const SCORE_WEIGHTS: Record<string, number> = { spend: 0.3, save: 0.2, debt: 0.2, cushion: 0.2, steady: 0.1 };
+
 export type Pillar = { id: string; label: string; score: number; value: string; note: string; tip: string; tone: Tone };
 export type Mover = { id: string; name: string; now: number; before: number; delta: number; color: string };
 export type Step = { id: string; title: string; detail: string; impactMinor: number; tone: Tone };
@@ -293,7 +296,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       tone: tone(s),
     });
   }
-  const weights: Record<string, number> = { spend: 0.3, save: 0.2, debt: 0.2, cushion: 0.2, steady: 0.1 };
+  const weights = SCORE_WEIGHTS;
   const score = income > 0 ? Math.round(pillars.reduce((a, p) => a + p.score * (weights[p.id] ?? 0), 0)) : 0;
   // "On alert" is for months that don't close or debt past the ceiling. A month that fits but
   // has no cushion yet is fragile, not an emergency.

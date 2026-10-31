@@ -1,8 +1,8 @@
 import "./panorama.css";
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight, CalendarClock, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CalendarClock, ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
 import { useFaro } from "@/components/faro/provider";
-import { readCoach, type Coach, type CoachLine, type Pillar, type Tone } from "@/lib/faro/coach";
+import { readCoach, SCORE_WEIGHTS, type Coach, type CoachLine, type Pillar, type Tone } from "@/lib/faro/coach";
 import type { LineKind, SectionId } from "@/lib/faro/types";
 import { StatFold } from "@/components/faro/charts";
 import { isTron } from "@/lib/faro/colors";
@@ -477,15 +477,111 @@ function PillarRow({ pillar, open, onToggle }: { pillar: Pillar; open: boolean; 
   );
 }
 
+/** Four equal bands: place the score inside its own band. */
+function markAt(s: number, bands: { from: number; to: number }[]) {
+  const i = Math.max(0, bands.findIndex((b) => s >= b.from && s <= b.to));
+  const b = bands[i];
+  const within = (s - b.from + 0.5) / (b.to - b.from + 1);
+  return Math.min(96, Math.max(4, ((i + within) / bands.length) * 100));
+}
+
+/** Behind the "?": what the number means, where it sits on the scale, and how its points add up. */
+function ScoreHelp({ coach, onClose }: { coach: Coach; onClose: () => void }) {
+  const { lang } = useFaro();
+  const en = lang === "en";
+  const rows = useMemo(() => {
+    const raw = coach.pillars.map((p) => {
+      const max = Math.round((SCORE_WEIGHTS[p.id] ?? 0) * 100);
+      return { id: p.id, label: p.label, max, exact: (p.score * max) / 100, tone: p.tone };
+    });
+    // Round so the parts add up to exactly the score shown (largest remainder).
+    const pts = raw.map((r) => Math.floor(r.exact));
+    let left = coach.score - pts.reduce((a, b) => a + b, 0);
+    raw.map((r, i) => ({ i, rem: r.exact - Math.floor(r.exact) })).sort((a, b) => b.rem - a.rem).forEach(({ i }) => {
+      if (left > 0 && pts[i] < raw[i].max) { pts[i] += 1; left -= 1; }
+    });
+    return raw.map((r, i) => ({ ...r, pts: pts[i] }));
+  }, [coach]);
+  const gaps = rows.map((r) => ({ ...r, miss: r.max - r.pts })).filter((r) => r.miss > 0).sort((a, b) => b.miss - a.miss);
+  const top = gaps.filter((g) => g.miss === gaps[0]?.miss).slice(0, 2);
+  const bands = [
+    { from: 0, to: 44, label: en ? "Fragile" : "Frágil", tone: "bad" },
+    { from: 45, to: 64, label: en ? "Needs tuning" : "Por ajustar", tone: "warn" },
+    { from: 65, to: 79, label: en ? "On track" : "Bien encaminada", tone: "good" },
+    { from: 80, to: 100, label: en ? "Solid" : "Sólida", tone: "good" },
+  ];
+  const s = Math.max(0, Math.min(100, coach.score));
+  const join = (xs: string[]) => xs.join(en ? " and " : " y ");
+  return (
+    <div className="pano-help" role="region" aria-label={en ? "About the score" : "Sobre la nota"}>
+      <div className="pano-help-top">
+        <strong>{en ? `What does ${coach.score} mean?` : `¿Qué significa ${coach.score}?`}</strong>
+        <button type="button" className="pano-help-x" onClick={onClose} aria-label={en ? "Close" : "Cerrar"}><X size={16} /></button>
+      </div>
+      <p>
+        {en
+          ? "It's your money's grade this month, from 0 to 100. Like at school: higher is better. It's not a credit score; it only uses what you record in Faro."
+          : "Es la nota de tu dinero este mes, de 0 a 100. Como en la escuela: más alto, mejor. No es tu puntaje de crédito; solo usa lo que anotas en Faro."}
+      </p>
+      <div className="pano-help-scale" aria-hidden>
+        {bands.map((b) => (
+          <span key={b.from} className={`is-${b.tone}${s >= b.from && s <= b.to ? " is-here" : ""}`}>
+            <i />
+            <em>{b.label}</em>
+            <small>{b.from}–{b.to}</small>
+          </span>
+        ))}
+        <b style={{ left: `${markAt(s, bands)}%` }}>{coach.score}</b>
+      </div>
+      <p className="pano-help-kicker">{en ? "How the points add up" : "Cómo se suman los puntos"}</p>
+      <ul className="pano-help-sum">
+        {rows.map((r) => (
+          <li key={r.id}>
+            <span>{r.label}</span>
+            <span className="pano-help-bar"><i style={{ width: `${r.max ? (r.pts / r.max) * 100 : 0}%`, background: toneVar[r.tone] }} /></span>
+            <span className="num">{en ? `${r.pts} of ${r.max}` : `${r.pts} de ${r.max}`}</span>
+          </li>
+        ))}
+        <li className="is-total">
+          <span>{en ? "Your score" : "Tu nota"}</span>
+          <span />
+          <span className="num">{en ? `${coach.score} of 100` : `${coach.score} de 100`}</span>
+        </li>
+      </ul>
+      {top.length ? (
+        <p className="pano-help-next">
+          {en
+            ? `Most points left in ${join(top.map((t) => t.label))} (${top[0].miss} points${top.length > 1 ? " each" : ""}). Open ${top.length > 1 ? "them" : "it"} below to see how.`
+            : `Donde más puntos te faltan: ${join(top.map((t) => t.label))} (${top[0].miss} puntos${top.length > 1 ? " en cada uno" : ""}). Ábrelo${top.length > 1 ? "s" : ""} abajo para ver cómo subirlos.`}
+        </p>
+      ) : (
+        <p className="pano-help-next">{en ? "Full marks in all five. Keep it up." : "Nota completa en las cinco. Sigue así."}</p>
+      )}
+    </div>
+  );
+}
+
 /* 8 · Financial health: dial plus five pillars. */
 export function HealthCard({ coach }: { coach: Coach }) {
   const { lang } = useFaro();
   const [open, setOpen] = useState<string | null>(null);
+  const [help, setHelp] = useState(false);
+  const en = lang === "en";
   return (
     <section className="card pano-card">
-      <Head kicker={lang === "en" ? "Health" : "Salud"} title={lang === "en" ? "Your money's health" : "La salud de tu dinero"} />
+      <Head kicker={en ? "Health" : "Salud"} title={en ? "Your money's health" : "La salud de tu dinero"} />
       <div className="pano-health">
-        <ScoreDial score={coach.score} tone={coach.scoreTone} label={coach.scoreLabel} />
+        <div className="pano-dial-wrap">
+          <ScoreDial score={coach.score} tone={coach.scoreTone} label={coach.scoreLabel} />
+          <button
+            type="button"
+            className={`pano-help-btn${help ? " is-on" : ""}`}
+            aria-expanded={help}
+            aria-label={en ? `What does ${coach.score} mean?` : `¿Qué significa ${coach.score}?`}
+            onClick={() => setHelp((v) => !v)}
+          >?</button>
+        </div>
+        {help ? <ScoreHelp coach={coach} onClose={() => setHelp(false)} /> : null}
         <p className="pano-lead">
           {lang === "en"
             ? "A 0–100 score from five things: how much you spend, save, owe, how big your cushion is, and how steady your income is."
