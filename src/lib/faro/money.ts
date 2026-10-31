@@ -165,6 +165,9 @@ export function parseAmount(raw: string): number | null {
 }
 
 export function formatMoney(minor: number, currency: Currency, lang: Lang): string {
+  // Negative amounts read "-$335.00" (sign before the symbol); -0 never shows a sign.
+  if (minor < 0 && Math.round(minor) !== 0) return `-${formatMoney(-minor, currency, lang)}`;
+  minor = Math.abs(minor);
   const value = minor / 100;
   const formatted = new Intl.NumberFormat(lang === "en" ? "en-US" : "es-NI", {
     minimumFractionDigits: 2,
@@ -257,4 +260,19 @@ export function payDates(start: string, cadence: string, until?: string): string
     else cursor = isoDate(Number(cursor.slice(0, 4)) + (Number(cursor.slice(5, 7)) === 12 ? 1 : 0), Number(cursor.slice(5, 7)) === 12 ? 1 : Number(cursor.slice(5, 7)) + 1, anchor);
   }
   return dates;
+}
+
+/** A friendly amount to act on: rounded down so it never exceeds what is there ($5/$10 or C$50 steps). */
+export function niceDown(minor: number, currency: Currency): number {
+  if (minor <= 0) return 0;
+  const step = currency === "USD" ? (minor < 10000 ? 500 : 1000) : 5000;
+  const down = Math.floor(minor / step) * step;
+  return down > 0 ? down : Math.round(minor);
+}
+
+/** A friendly amount to reserve: rounded up so it always covers ($10 or C$50 steps). */
+export function niceUp(minor: number, currency: Currency): number {
+  if (minor <= 0) return 0;
+  const step = currency === "USD" ? 1000 : 5000;
+  return Math.ceil(minor / step) * step;
 }

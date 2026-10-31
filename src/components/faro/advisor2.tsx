@@ -232,7 +232,7 @@ export function PlanRoute({ steps, sum }: { steps: { chip: string; text: string 
             <em>{sum.title}</em>
             <p>{sum.body}</p>
           </div>
-          <strong className="num serif">{sum.left}<small>{L(lang, "queda", "left")}</small></strong>
+          <strong className="num serif">{sum.left.replace(/^-/, "")}<small>{sum.left.startsWith("-") ? L(lang, "falta", "short") : L(lang, "queda", "left")}</small></strong>
         </div>
       ) : null}
       <ol className="a2-route">

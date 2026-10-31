@@ -18,3 +18,4 @@
 - 1.3.16: Retiro softened to #72b4b2.
 - 1.3.17-19: the selected chip's inset ring now uses its own tone (the gray is gone). New ripple .tap-drop on .lens: a dot and two rings growing from the tap point (non-Tron). Tron selected lens gets a 1px ring in its own colour plus a glow. Theme flip: html.theme-swap kills transitions for 2 frames.
 - 1.3.20: Cadence ripple (ink in --tone, 580ms) on .lens + .save-seg (non-Tron), via a listener in spa/main.tsx; removed the bloom/drop effects. The provider sets data-theme during render (not in an effect) so isTron() tints flip in the same frame.
+- 1.3.21: day .desk-bar gets paper-glass gradients, an accent-to-gold bottom hairline, a 9s sheen, hairline dividers, a tinted Queda and a USADO meter (--usedf; turns red when data-over).

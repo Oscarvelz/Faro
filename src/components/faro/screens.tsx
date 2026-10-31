@@ -3527,7 +3527,7 @@ export function Advisor() {
           <div>
             <p className="advice-kicker">{t("advice.plan.kicker")}</p>
             <h2 className="serif">{t("advice.plan")}</h2>
-            {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{(reading.plan.match(/^(24 horas|24 hours):\s*(.+?[.:])/m)?.[2] ?? "").replace(/[.:]$/, "").slice(0, 70)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
+            {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{(reading.plan.match(/^(24 horas|24 hours):\s*(.+?)(?:[.:](?:\s|$))/m)?.[2] ?? "").slice(0, 70)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
           </div>
           <ChevronDown className={cardOn("plan") ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
         </button>
@@ -3543,7 +3543,7 @@ export function Advisor() {
                 return [{ chip, text: step[2] }];
               });
               const rest = lines.filter((line) => !/^(24 horas|7 días|30 días|90 días|24 hours|7 days|30 days|90 days):/.test(line));
-              const sum = rest.map((line) => line.match(/^(Plan Faro|Faro plan)\s+[—–-]\s+(.*?)\s+\((?:queda|left):\s*(.+)\)$/)).find(Boolean);
+              const sum = rest.map((line) => line.match(/^(Plan Faro|Faro plan)\s+[—–-]\s+(.*?)\s+\((?:te queda|queda|left):\s*(.+)\)$/)).find(Boolean);
               const notes = rest.filter((line) => !/^(Plan Faro|Faro plan)\s/.test(line));
               return (
                 <>

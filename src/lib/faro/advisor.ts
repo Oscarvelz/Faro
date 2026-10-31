@@ -1,4 +1,4 @@
-import { convertMinor, formatMoney, formatPct } from "./money.ts";
+import { convertMinor, formatMoney, formatPct, niceDown, niceUp } from "./money.ts";
 import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
 
 type Namer = {
@@ -72,6 +72,13 @@ export type Reading = {
   naiveFixed: number;
   classificationError: string | null;
   cushionMinor: number;
+  cushionStock: number;
+  cushionPace: number;
+  essentialsMonthly: number;
+  incomeFloor: number;
+  trendNote: string | null;
+  subsTotal: number;
+  subsCount: number;
   variablePct: number | null;
   topSourceName: string;
   topSourceMinor: number;
@@ -179,22 +186,54 @@ function lineName(line: Line, names: Namer): string {
   return line.concept || names.sub(line.subId) || names.cat(line.categoryId) || names.purchase(line.categoryId) || line.kind;
 }
 
-function categoryName(line: Line, names: Namer): string {
-  return names.cat(line.categoryId) || names.purchase(line.categoryId) || line.categoryId || line.kind;
+function categoryName(line: Line, names: Namer, lang: Lang = "es"): string {
+  const named = names.cat(line.categoryId) || names.purchase(line.categoryId);
+  if (named) return named;
+  if (line.kind === "purchase") return L(lang, "Compras", "Purchases");
+  if (line.kind === "subscription") return L(lang, "Suscripciones", "Subscriptions");
+  return line.categoryId || L(lang, "Otros", "Other");
 }
 
-function classify(line: Line, state: LedgerState, key: string): { cls: OutClass; recurrent: boolean; unconfirmed: boolean } {
+/* Everyday words: things people buy every week. These never read as "one-time" just because it is the first month. */
+const EVERYDAY_RE = /(super|mercado|despensa|comida|almuerzo|desayuno|cena|caf[eé]|panader|tortill|leche|frutas?|verdura|abarrot|pulper|bus\b|buses|metro|taxi|pasaje|gasolin|combustible|transporte|farmacia|medicin|medicament|doctor|m[eé]dic|consulta|luz|agua|internet|celular|tel[eé]fono|renta|alquiler|escuela|colegio|guarder|pa[nñ]al|restaurant|salidas|antojo|snack|grocer|food|lunch|coffee|gas\b|fuel|pharmacy|rent|uber\b|lyft)/i;
+/* Essential words: food, health, getting to work, the roof. They count as needs even when filed under a "personal" category. */
+const ESSENTIAL_RE = /(super|mercado|despensa|comida|abarrot|pulper|panader|tortill|leche|frutas?|verdura|farmacia|medicin|medicament|doctor|m[eé]dic|consulta|hospital|dentist|gasolin|combustible|bus\b|buses|metro|pasaje|transporte|luz|agua|renta|alquiler|hipoteca|escuela|colegio|guarder|pa[nñ]al|internet|celular|tel[eé]fono|seguro|grocer|food|pharmacy|rent|fuel)/i;
+const ESSENTIAL_SUBS = new Set(["v.personales.salud", "v.mascotas.vet", "v.transporte.taxi", "v.transporte.estacionamiento", "v.transporte.mantenimiento"]);
+const EVERYDAY_ROLES = new Set(["food", "petty", "transport", "leisure", "personal", "health", "pets"]);
+const ONEOFF_SUBS = new Set(["v.casa.reparaciones", "v.casa.mejora", "v.transporte.tenencia", "v.viajes.hotel", "v.viajes.transporte", "v.viajes.regalos", "v.entretenimiento.eventos", "v.entretenimiento.fiestas", "v.familia.juguetes"]);
+
+function isEssential(line: Line, role: string): boolean {
+  if (ESSENTIAL.has(role) && role !== "family") return true;
+  if (role === "family") return line.subId !== "v.familia.juguetes";
+  return ESSENTIAL_SUBS.has(line.subId) || ESSENTIAL_RE.test(line.concept || "");
+}
+
+function classify(line: Line, state: LedgerState, key: string, income = 0, minor = 0): { cls: OutClass; recurrent: boolean; unconfirmed: boolean } {
   const role = roleOf(state.structure, line.categoryId);
   if (role === "savings") return { cls: "transfer", recurrent: false, unconfirmed: false };
   const hits = seenIn(state, line, key);
   const marked = line.kind === "expense-fixed" || line.kind === "subscription" || line.recurring === true || hits >= 2;
   if (role === "debt") return { cls: "credit", recurrent: marked, unconfirmed: false };
-  if (!marked) return { cls: "unique", recurrent: false, unconfirmed: true };
+  const essential = isEssential(line, role);
+  if (!marked) {
+    // A purchase is one-time by definition. A first-month grocery run, bus fare or coffee is not:
+    // it is the day-to-day, even before there is history to prove it.
+    const everyday = line.kind !== "purchase" && (EVERYDAY_RE.test(line.concept || "") || ESSENTIAL_SUBS.has(line.subId) || (EVERYDAY_ROLES.has(role) && !ONEOFF_SUBS.has(line.subId)));
+    const big = income > 0 ? minor >= income * 0.15 : true;
+    const oneoff = line.kind === "purchase" || role === "travel" || ONEOFF_SUBS.has(line.subId);
+    if (oneoff || (!everyday && big) || (everyday && !essential && big && hits <= 1 && income > 0 && minor >= income * 0.3)) {
+      return { cls: "unique", recurrent: false, unconfirmed: true };
+    }
+    return { cls: essential ? "essential-variable" : "discretionary", recurrent: true, unconfirmed: false };
+  }
   if (line.kind === "subscription") return { cls: "discretionary", recurrent: true, unconfirmed: false };
-  const roleName = role || "";
-  if (!ESSENTIAL.has(roleName) && roleName) return { cls: "discretionary", recurrent: true, unconfirmed: false };
+  if (!essential) return { cls: "discretionary", recurrent: true, unconfirmed: false };
   if (line.kind === "expense-variable") return { cls: "essential-variable", recurrent: true, unconfirmed: false };
   return { cls: "essential-fixed", recurrent: true, unconfirmed: false };
+}
+
+function goalMinorOf(income: number, pctGoal: number): number {
+  return income > 0 ? Math.round((income * pctGoal) / 100) : 0;
 }
 
 function isVague(name: string): boolean {
@@ -209,18 +248,19 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const money = (n: number) => formatMoney(n, display, lang);
   const pct = (n: number | null) => formatPct(n, lang);
   const lines = (state.months[key]?.lines ?? []).filter((line) => line.active);
+  const incomeAll = lines.filter((line) => line.kind.startsWith("income")).reduce((acc, line) => acc + inView(line, display, rateE4), 0);
   const read: ReadLine[] = [];
   for (const line of lines) {
     if (line.kind.startsWith("income")) continue;
     const minor = inView(line, display, rateE4);
     if (!minor) continue;
-    const cls = classify(line, state, key);
+    const cls = classify(line, state, key, incomeAll, minor);
     const name = lineName(line, names);
     read.push({
       id: line.id,
       name,
       categoryId: line.categoryId,
-      category: categoryName(line, names),
+      category: categoryName(line, names, lang),
       minor,
       cls: cls.cls,
       recurrent: cls.recurrent,
@@ -256,8 +296,8 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     transferInsideFixed > 0
       ? L(
           lang,
-          `Tus “fijos” de ${money(naiveFixed)} incluyen ${money(transferInsideFixed)} que en realidad es ahorro. Ahorrar no es gastar: muévelo a la categoría Ahorro y tus fijos se verán como son.`,
-          `The “fixed” total of ${money(naiveFixed)} includes the ${money(transferInsideFixed)} transfer. A transfer is not spending and it is not fixed: that is a classification error.`,
+          `De tus fijos (${money(naiveFixed)}), ${money(transferInsideFixed)} son ahorro: no es gasto, sigue siendo tuyo. Lo que de verdad pagas fijo cada mes son ${money(naiveFixed - transferInsideFixed)}.`,
+          `Of your fixed total (${money(naiveFixed)}), ${money(transferInsideFixed)} is savings: not spending, still yours. What you really pay in fixed bills is ${money(naiveFixed - transferInsideFixed)}.`,
         )
       : null;
 
@@ -370,7 +410,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   let paceNote = L(
     lang,
     `Lo que se repite cada mes te cuesta ${money(perDay)} al día. Si anotas cuánto tienes en el banco, te digo cuántos días aguantarías si dejara de entrar dinero.`,
-    `Repeating spending is ${money(perDay)} a day. I will not invent runway days (how many days you could last if nothing else came in): there is no cash balance on file.`,
+    `What repeats costs you ${money(perDay)} a day. Enter what you have in the bank and I'll tell you how many days you'd last if money stopped coming in.`,
   );
   if (dated.length && income > 0) {
     let running = 0;
@@ -394,7 +434,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     paceNote = L(
       lang,
       `El hueco no viene del gasto de todos los días: son compras de una vez por ${money(uniqueMinor)} que ya salieron. Ponles fecha a tus pagos y te digo qué día aprieta.`,
-      `There are no dates, so I will not invent a break day. The hole is not a daily pace: it is ${money(uniqueMinor)} of one-off purchases that already left.`,
+      `The gap doesn't come from everyday spending: it's ${money(uniqueMinor)} of one-time buys that already left. Add dates to your payments and I'll show which day gets tight.`,
     );
   }
 
@@ -424,13 +464,21 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
         "No outflows are dated in the next 30 days. With no date I will not warn about a due day.",
       );
 
-  const subs = read.filter((line) => line.cls === "discretionary" && lines.find((raw) => raw.id === line.id)?.kind === "subscription");
-  const antNote = subs.length
-    ? L(
-        lang,
-        `${subs.map((line) => `${line.name}: ${money(line.minor)} al mes son ${money(line.minor * 12)} al año`).join(". ")}. Revísalas, pero primero mira lo grande: los gastos hormiga (chiquitos que se repiten) importan después.`,
-        `${subs.map((line) => `${line.name} ${money(line.minor)} a month is ${money(line.minor * 12)} a year`).join(". ")}. This does not close your hole; it is housekeeping, not a rescue. Leak spending (small repeats you stop noticing) comes after the large lines.`,
-      )
+  const subsRead = read.filter((line) => lines.find((raw) => raw.id === line.id)?.kind === "subscription").sort((a, b) => b.minor - a.minor);
+  const subsSum = subsRead.reduce((acc, line) => acc + line.minor, 0);
+  const subsShare = incomeAll > 0 ? (subsSum / incomeAll) * 100 : null;
+  const antNote = subsRead.length
+    ? subsRead.length === 1
+      ? L(
+          lang,
+          `${subsRead[0]!.name}: ${money(subsRead[0]!.minor)} al mes son ${money(subsRead[0]!.minor * 12)} al año. Si la usas, déjala; si no, es dinero fácil de recuperar.`,
+          `${subsRead[0]!.name}: ${money(subsRead[0]!.minor)} a month is ${money(subsRead[0]!.minor * 12)} a year. Keep it if you use it; if not, it's easy money back.`,
+        )
+      : L(
+          lang,
+          `Tus ${subsRead.length} suscripciones suman ${money(subsSum)} al mes, ${money(subsSum * 12)} al año${subsShare !== null ? ` (${pct(subsShare)} de lo que entra)` : ""}. Las más caras: ${subsRead.slice(0, 3).map((line) => `${line.name} ${money(line.minor)}`).join(", ")}. ${subsShare !== null && subsShare >= 5 ? "No es poca cosa: quita las que no usaste este mes." : "Revisa si usas todas."}`,
+          `Your ${subsRead.length} subscriptions add up to ${money(subsSum)} a month, ${money(subsSum * 12)} a year${subsShare !== null ? ` (${pct(subsShare)} of what comes in)` : ""}. Most expensive: ${subsRead.slice(0, 3).map((line) => `${line.name} ${money(line.minor)}`).join(", ")}. ${subsShare !== null && subsShare >= 5 ? "That's real money: drop the ones you didn't use this month." : "Check that you use them all."}`,
+        )
     : null;
 
   const monthDate = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1);
@@ -442,101 +490,301 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
         ? L(lang, "hecho", "closed")
         : L(lang, "hasta hoy", "so far");
 
+  // ---- Context the advice adapts to -------------------------------------------------
+  const roundNice = (n: number) => {
+    // Friendly targets: whole dollars rounded to 10, córdobas to 50.
+    const step = display === "USD" ? 1000 : 5000;
+    return n <= 0 ? 0 : Math.max(step, Math.round(n / step) * step);
+  };
+  const essentialsMonthly = sumCls((line) => line.cls === "essential-fixed" || line.cls === "essential-variable" || line.cls === "credit");
+  const wantsRecurring = read.filter((line) => line.cls === "discretionary").sort((a, b) => b.minor - a.minor);
+  // Savings already kept (all months), the same way the savings card reads it.
+  let stockEm = 0;
+  let stockRet = 0;
+  let stockAll = 0;
+  // A balance is a snapshot (keep the latest per series); a plain amount is a deposit (add them up).
+  const snapshots = new Map<string, { month: string; line: Line }>();
+  const addStock = (item: Line, v: number) => {
+    stockAll += v;
+    if (item.subId.endsWith(".emergencia")) stockEm += v;
+    else if (item.subId.endsWith(".retiro")) stockRet += v;
+  };
+  for (const [monthKey, month] of Object.entries(state.months)) {
+    if (monthKey > key) continue;
+    for (const item of month.lines) {
+      if (!item.active || roleOf(state.structure, item.categoryId) !== "savings") continue;
+      if (item.balanceMinor !== null && item.balanceMinor !== undefined) {
+        const sid = item.seriesId || item.id;
+        const prev = snapshots.get(sid);
+        if (!prev || prev.month < monthKey) snapshots.set(sid, { month: monthKey, line: item });
+      } else addStock(item, inView(item, display, rateE4));
+    }
+  }
+  for (const { line: item } of snapshots.values()) addStock(item, convertMinor(item.balanceMinor as number, item.balanceCurrency || item.currency, display, rateE4));
+  const cushionStock = stockEm > 0 ? stockEm : Math.max(0, stockAll - stockRet);
+  if (!dated.length && cushionStock > 0 && perDay > 0 && !(uniqueMinor > 0 && left < 0)) {
+    const essentialPerDay = Math.max(1, Math.round(essentialsMonthly / days));
+    const lastDays = Math.floor(cushionStock / essentialPerDay);
+    paceNote = L(
+      lang,
+      `Lo que se repite te cuesta ${money(perDay)} al día. Con lo que tienes guardado (${money(cushionStock)}) cubrirías lo esencial unos ${lastDays} días si dejara de entrar dinero.`,
+      `What repeats costs you ${money(perDay)} a day. With what you've saved (${money(cushionStock)}) you'd cover essentials for about ${lastDays} days if money stopped coming in.`,
+    );
+  }
+  // Income history: the floor of a changing income is its worst recent month.
+  const priorIncome = lastKeys(key, 7)
+    .filter((month) => month !== key)
+    .map((month) => (state.months[month]?.lines ?? []).filter((item) => item.active && item.kind.startsWith("income")))
+    .filter((bucket) => bucket.length > 0);
+  const priorTotals = priorIncome.map((bucket) => bucket.reduce((acc, item) => acc + inView(item, display, rateE4), 0));
+  let incomeFloor = incomeFixed;
+  let floorFromHistory = false;
+  if (income > 0 && incomeVariable > 0 && incomeFixed < income * 0.5 && priorTotals.length >= 2) {
+    const worst = Math.min(income, ...priorTotals);
+    if (worst > incomeFixed) {
+      incomeFloor = worst;
+      floorFromHistory = true;
+    }
+  }
+  // A paycheck that came every month and is missing now.
+  const lastPaid = priorIncome[priorIncome.length - 1] ?? [];
+  const missingPay = income <= 0 && lastPaid.length
+    ? { name: lineName([...lastPaid].sort((a, b) => inView(b, display, rateE4) - inView(a, display, rateE4))[0]!, names), minor: lastPaid.reduce((acc, item) => acc + inView(item, display, rateE4), 0) }
+    : null;
+  const emptyMonth = lines.length === 0;
+  // Spending that keeps climbing: compare what repeats now with the earlier months.
+  const priorSpend = lastKeys(key, 4)
+    .filter((month) => month !== key)
+    .map((month) => (state.months[month]?.lines ?? []).filter((item) => item.active && !item.kind.startsWith("income") && item.kind !== "purchase" && roleOf(state.structure, item.categoryId) !== "savings"))
+    .filter((bucket) => bucket.length > 0);
+  let trendNote: string | null = null;
+  let trendLine: { name: string; delta: number } | null = null;
+  if (priorSpend.length >= 2 && income > 0) {
+    const oldest = priorSpend[0]!;
+    const oldTotal = oldest.reduce((acc, item) => acc + inView(item, display, rateE4), 0);
+    const nowTotal = recurrentMinor;
+    if (oldTotal > 0 && nowTotal - oldTotal >= oldTotal * 0.15 && nowTotal - oldTotal >= income * 0.05) {
+      const keyOf = (item: Line) => item.seriesId || `${norm(item.concept)}|${item.categoryId}`;
+      const before = new Map<string, number>();
+      for (const item of oldest) before.set(keyOf(item), (before.get(keyOf(item)) ?? 0) + inView(item, display, rateE4));
+      let best: { name: string; delta: number } | null = null;
+      for (const item of lines) {
+        if (item.kind.startsWith("income") || item.kind === "purchase" || roleOf(state.structure, item.categoryId) === "savings") continue;
+        const delta = inView(item, display, rateE4) - (before.get(keyOf(item)) ?? 0);
+        if (!best || delta > best.delta) best = { name: lineName(item, names), delta };
+      }
+      trendLine = best && best.delta > 0 ? best : null;
+      trendNote = L(
+        lang,
+        `Lo de cada mes subió de ${money(oldTotal)} a ${money(nowTotal)} en ${priorSpend.length} meses.${trendLine ? ` Lo que más subió: ${trendLine.name} (+${money(trendLine.delta)}).` : ""}`,
+        `What repeats went from ${money(oldTotal)} to ${money(nowTotal)} in ${priorSpend.length} months.${trendLine ? ` The biggest climb: ${trendLine.name} (+${money(trendLine.delta)}).` : ""}`,
+      );
+    }
+  }
+  const habitBuys = read.filter((line) => line.cls === "discretionary" && lines.find((raw) => raw.id === line.id)?.kind === "purchase");
+  const habitSum = habitBuys.reduce((acc, line) => acc + line.minor, 0);
+  const buyHabit = habitBuys.length >= 3 && income > 0 && habitSum >= income * 0.05;
+  const subLines = read.filter((line) => lines.find((raw) => raw.id === line.id)?.kind === "subscription").sort((a, b) => b.minor - a.minor);
+  const subsTotal = subLines.reduce((acc, line) => acc + line.minor, 0);
+  const subsHeavy = subLines.length > 0 && income > 0 && (subsTotal >= income * 0.05 || (left > 0 && subsTotal >= left * 0.5) || subLines.length >= 5);
+  const goalGap = Math.max(0, goalMinorOf(income, state.settings.savingsGoalPct) - transferMinor);
+  // How fast the cushion can grow: what is left free plus what already goes to Emergency
+  // (or to savings in general when no pocket is marked Emergency).
+  const emergencyFlow = lines.filter((item) => roleOf(state.structure, item.categoryId) === "savings" && item.subId.endsWith(".emergencia")).reduce((acc, item) => acc + inView(item, display, rateE4), 0);
+  const paceBase = left >= 0 ? left : baseSurplus > 0 && uniqueMinor > 0 ? baseSurplus : 0;
+  const cushionPace = niceDown(paceBase + (emergencyFlow > 0 ? emergencyFlow : stockEm > 0 ? 0 : transferMinor), display);
+  const saveRate = income > 0 ? (transferMinor / income) * 100 : null;
+
   const red = left < 0;
   const atypical = baseSurplus >= 0 && uniqueMinor > 0 && red;
   const tone: Reading["tone"] = income <= 0 ? "amber" : !red ? "good" : atypical ? "amber" : "bad";
-  const toneLabel =
-    tone === "good"
+  const toneLabel = income <= 0
+    ? emptyMonth
+      ? L(lang, "Todavía no hay nada anotado este mes.", "Nothing recorded this month yet.")
+      : L(lang, "Falta el ingreso de este mes: sin él no puedo decirte cómo vas.", "This month's income is missing: without it I can't tell how you're doing.")
+    : tone === "good"
       ? L(lang, "Vas bien: tus gastos de cada mes caben en lo que entra.", "You're on track: your monthly bills fit in what comes in.")
       : tone === "amber"
         ? L(lang, "Mes raro, pero manejable: lo desbalancearon compras de una vez, no tu día a día.", "An unusual month, but manageable: one-time buys tipped it, not your everyday spending.")
         : L(lang, "Alerta: tus gastos de cada mes ya no caben en lo que entra. Hay que bajar algo o subir el ingreso.", "Alert: your monthly bills no longer fit in what comes in. Something has to come down or income has to go up.");
 
-  const cushionMinor = recurrentMinor * (state.settings.emergencyMonths || 3);
+  const cushionMinor = roundNice(essentialsMonthly * (state.settings.emergencyMonths || 3));
   const goalMinor = income > 0 ? Math.round((income * state.settings.savingsGoalPct) / 100) : 0;
-  const hundred = display === "USD" ? 10000 : convertMinor(10000, "USD", display, rateE4);
+  const hundred = roundNice(display === "USD" ? 10000 : convertMinor(10000, "USD", display, rateE4));
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  // The biggest things that can still move: wants that repeat, then the largest repeating needs.
+  const movable = wantsRecurring.slice(0, 3);
+  const movableSum = movable.reduce((acc, line) => acc + line.minor, 0);
+  const bigNeeds = read.filter((line) => line.cls === "essential-fixed" || line.cls === "essential-variable").sort((a, b) => b.minor - a.minor).slice(0, 2);
+  const rawDebtLines = lines.filter((line) => roleOf(state.structure, line.categoryId) === "debt" && inView(line, display, rateE4) > 0);
+  const priciest = [...rawDebtLines].filter((line) => line.aprBps > 0).sort((a, b) => b.aprBps - a.aprBps)[0];
+  const listNames = (items: { name: string; minor: number }[]) => items.map((line) => `${line.name} ${money(line.minor)}`).join(", ");
 
   let headline = "";
   let action = "";
-  if (income <= 0) {
+  if (income <= 0 && emptyMonth) {
+    headline = L(lang, "Todavía no hay nada anotado este mes. Empieza por lo que te entra y lo que pagas cada mes.", "Nothing is recorded this month yet. Start with what comes in and what you pay every month.");
+    action = L(lang, "Qué hacer: anota tu ingreso y tus gastos de cada mes (casa, comida, transporte).", "What to do: enter your income and your monthly bills (home, food, transport).");
+  } else if (income <= 0 && missingPay) {
+    headline = L(
+      lang,
+      `Todavía no anotaste ingresos este mes. El mes pasado entraron ${money(missingPay.minor)} (${missingPay.name}). Si ya llegó, anótalo. Si se cortó, lo de cada mes te cuesta ${money(recurrentMinor)} y eso saldría de tus ahorros.`,
+      `No income is recorded this month yet. Last month ${money(missingPay.minor)} came in (${missingPay.name}). If it arrived, add it. If it stopped, your monthly bills cost ${money(recurrentMinor)} and that would come out of savings.`,
+    );
+    action = L(
+      lang,
+      `Qué hacer: si perdiste ese ingreso, deja solo lo esencial (${money(essentialsMonthly)} al mes) y pausa lo demás hasta que vuelva a entrar dinero.${cushionStock > 0 && essentialsMonthly > 0 ? ` Lo que tienes guardado alcanza para unos ${Math.max(0, Math.floor((cushionStock / essentialsMonthly) * 10) / 10)} meses de lo esencial.` : ""}`,
+      `What to do: if that income is gone, keep only the essentials (${money(essentialsMonthly)} a month) and pause the rest until money comes in again.${cushionStock > 0 && essentialsMonthly > 0 ? ` Your savings cover about ${Math.max(0, Math.floor((cushionStock / essentialsMonthly) * 10) / 10)} months of essentials.` : ""}`,
+    );
+  } else if (income <= 0) {
     headline = L(
       lang,
       "Este mes todavía no tiene ingresos. Anota lo que te entra y te digo cómo vas.",
-      "This month has no income. Without it I will not judge percents or invent a plan. Enter what comes in.",
+      "This month has no income yet. Enter what comes in and I'll tell you how you're doing.",
     );
     action = L(lang, "Qué hacer: anota el ingreso de este mes, aunque sea uno.", "What to do: enter this month's income, even one line.");
   } else if (baseSurplus < 0 && uniqueMinor === 0) {
     headline = L(
       lang,
-      `Tus gastos de cada mes, sin contar compras de una vez, ya son más grandes que lo que entra: faltan ${money(-baseSurplus)}. Esto no se arregla solo.`,
-      `There is a structural deficit (your usual bills, without one-off purchases, are already larger than income): ${money(baseSurplus)}. Waiting does not fix that.`,
+      `Tus gastos de cada mes ya son más grandes que lo que entra: faltan ${money(-baseSurplus)}. Esto no se arregla solo.`,
+      `Your monthly bills are already larger than what comes in: ${money(-baseSurplus)} short. This won't fix itself.`,
     );
-    action = L(
-      lang,
-      `Qué hacer: baja un gasto que se repite o consigue un ingreso seguro de al menos ${money(-baseSurplus)} al mes.`,
-      `Action #1: lower a repeating bill or raise the income floor by at least ${money(-baseSurplus)}.`,
-    );
+    action = movableSum >= -baseSurplus && movable.length
+      ? L(
+          lang,
+          `Qué hacer: el hueco cabe en lo que eliges gastar. Baja entre ${listNames(movable)} hasta juntar ${money(-baseSurplus)}.`,
+          `What to do: the gap fits inside what you choose to spend. Trim ${listNames(movable)} until you free ${money(-baseSurplus)}.`,
+        )
+      : L(
+          lang,
+          `Qué hacer: ${movable.length ? `los gustos que se repiten solo suman ${money(movableSum)}, así que no alcanzan. El hueco` : "el hueco"} se cierra bajando un gasto grande${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}${priciest ? `, pidiendo una tasa más baja en ${lineName(priciest, names)} (${priciest.aprBps / 100}%)` : ""} o con ${money(-baseSurplus)} más de ingreso al mes.`,
+          `What to do: ${movable.length ? `repeating wants only add up to ${money(movableSum)}, so they won't close it. The gap` : "the gap"} closes by lowering a big bill${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}${priciest ? `, asking for a lower rate on ${lineName(priciest, names)} (${priciest.aprBps / 100}%)` : ""} or with ${money(-baseSurplus)} more income a month.`,
+        );
   } else if (atypical && transferMinor > 0) {
     headline = L(
       lang,
-      `Tu día a día está bien. Lo que desbalanceó el mes fueron ${uniqueCount} compra${uniqueCount === 1 ? "" : "s"} grande${uniqueCount === 1 ? "" : "s"} y un ahorro que salió en el peor momento.`,
-      `Your daily spending did not fail. ${uniqueCount} large purchases and a transfer in the wrong month broke it.`,
+      `Tu día a día está bien. Lo que desbalanceó el mes ${plural(uniqueCount, "fue 1 compra grande", `fueron ${uniqueCount} compras grandes`)} y un ahorro que salió en el peor momento.`,
+      `Your everyday spending is fine. ${uniqueCount} large ${plural(uniqueCount, "purchase", "purchases")} and a transfer at the wrong moment tipped the month.`,
     );
     action = L(
       lang,
       `Qué hacer: decide qué pasa con los ${money(transferMinor)} que ahorraste. Si pueden tapar el hueco, lo que falta baja a ${money(Math.abs(leftIfTransferCovers))}. Si son intocables, hay que recortar en otro lado.`,
-      `Action #1: decide the transfer. If that ${money(transferMinor)} can cover the hole, the month's real gap falls to ${money(Math.abs(leftIfTransferCovers))}. If it was untouchable, the plan is different.`,
+      `What to do: decide what happens with the ${money(transferMinor)} you saved. If it can cover the hole, the gap drops to ${money(Math.abs(leftIfTransferCovers))}. If it's untouchable, the cut has to come from elsewhere.`,
     );
   } else if (atypical) {
     headline = L(
       lang,
-      `Tu día a día está bien. Lo que desbalanceó el mes fueron ${uniqueCount} compra${uniqueCount === 1 ? "" : "s"} grande${uniqueCount === 1 ? "" : "s"}. Sin ellas, te sobraban ${money(baseSurplus)}.`,
-      `Your daily spending did not fail. ${uniqueCount} large purchases broke it. The base, without them, closed at ${money(baseSurplus)}.`,
+      `Tu día a día está bien. Lo que desbalanceó el mes ${plural(uniqueCount, "fue 1 compra grande. Sin ella", `fueron ${uniqueCount} compras grandes. Sin ellas`)}, te sobraban ${money(baseSurplus)}.`,
+      `Your everyday spending is fine. ${uniqueCount} large ${plural(uniqueCount, "purchase", "purchases")} tipped the month. Without ${plural(uniqueCount, "it", "them")}, ${money(baseSurplus)} would be left.`,
     );
     action = biggestUnique
       ? L(
           lang,
           `Qué hacer: mira si ${biggestUnique.name} (${money(biggestUnique.minor)}) se puede devolver o vender. Ya se gastó, así que recortar el día a día no lo arregla.`,
-          `Action #1: check whether ${biggestUnique.name} (${money(biggestUnique.minor)}) can be returned or offset. It is already spent: it cannot be “cut” from everyday spending.`,
+          `What to do: check whether ${biggestUnique.name} (${money(biggestUnique.minor)}) can be returned or sold. It's already spent, so trimming everyday spending won't fix it.`,
         )
       : L(lang, "Qué hacer: marca qué compra fue de una vez y cuál se repite.", "What to do: mark which purchase was one-time and which repeats.");
   } else if (!red) {
-    headline = L(
-      lang,
-      `Tus gastos de cada mes caben y te sobran ${money(baseSurplus)}. ${uniqueMinor > 0 ? `Aparte hubo ${money(uniqueMinor)} en compras de una vez.` : "No hubo compras grandes de una vez."}`,
-      `The base closes ahead: ${money(baseSurplus)}. ${uniqueMinor > 0 ? `One-off purchases are ${money(uniqueMinor)}.` : "There are no one-off purchases to cut."}`,
-    );
-    action = L(
-      lang,
-      `Qué hacer: no recortes lo que ya cabe. Si vas a ahorrar, usa lo que sobra (${money(Math.max(0, left))}) antes de que se vaya en gastos pequeños.`,
-      `Action #1: do not cut what already fits. If you set money aside, use what is left (${money(Math.max(0, left))}), not money you already spent.`,
-    );
+    headline = transferMinor > 0
+      ? L(
+          lang,
+          `Tus gastos de cada mes caben. Ya apartaste ${money(transferMinor)} para ahorro${saveRate !== null ? ` (${pct(saveRate)} de lo que entra)` : ""} y aún te quedan ${money(left)}.`,
+          `Your monthly bills fit. You already set aside ${money(transferMinor)}${saveRate !== null ? ` (${pct(saveRate)} of income)` : ""} and ${money(left)} is still left.`,
+        )
+      : uniqueMinor > 0
+        ? L(
+            lang,
+            `Tus gastos de cada mes caben y te sobran ${money(baseSurplus)}. Con las compras de una vez (${money(uniqueMinor)}), te quedan ${money(left)}.`,
+            `Your monthly bills fit with ${money(baseSurplus)} to spare. After one-time buys (${money(uniqueMinor)}), ${money(left)} is left.`,
+          )
+        : L(lang, `Tus gastos de cada mes caben y te quedan ${money(left)}.`, `Your monthly bills fit and ${money(left)} is left.`);
+    const cushionGap = Math.max(0, cushionMinor - cushionStock);
+    if (trendNote && trendLine) {
+      action = L(
+        lang,
+        `Qué hacer: vigila ${trendLine.name}. ${trendNote} A este paso, el margen se va acabando.`,
+        `What to do: watch ${trendLine.name}. ${trendNote} At this pace the margin keeps shrinking.`,
+      );
+    } else if (buyHabit) {
+      action = L(
+        lang,
+        `Qué hacer: tus compras sueltas ya son costumbre: ${habitBuys.length} este mes por ${money(habitSum)}, y se repiten cada mes. Ponles un tope mensual (por ejemplo ${money(niceDown(habitSum / 2, display))}) y lo demás mándalo a tu ahorro.`,
+        `What to do: your small purchases are a habit now: ${habitBuys.length} this month for ${money(habitSum)}, and they repeat every month. Give them a monthly cap (say ${money(niceDown(habitSum / 2, display))}) and send the rest to savings.`,
+      );
+    } else if (subsHeavy) {
+      action = L(
+        lang,
+        `Qué hacer: tus ${subsRead.length} suscripciones se llevan ${money(subsSum)} al mes. Quita las que no usaste este mes; empieza por ${subsRead.slice(0, 2).map((line) => line.name).join(" y ")}.`,
+        `What to do: your ${subsRead.length} subscriptions take ${money(subsSum)} a month. Drop the ones you didn't use; start with ${subsRead.slice(0, 2).map((line) => line.name).join(" and ")}.`,
+      );
+    } else if (goalGap <= 0 && transferMinor > 0) {
+      action = cushionGap > 0
+        ? L(
+            lang,
+            `Qué hacer: sigue igual, ya cumples tu ahorro. Los ${money(left)} que quedan pueden ir a tu colchón: te faltan ${money(cushionGap)} para ${state.settings.emergencyMonths || 3} meses de lo esencial.`,
+            `What to do: keep going, you meet your savings goal. The ${money(left)} left can go to your cushion: ${money(cushionGap)} to go for ${state.settings.emergencyMonths || 3} months of essentials.`,
+          )
+        : L(
+            lang,
+            `Qué hacer: sigue igual. Tu colchón ya está completo; lo que queda puede ir a una meta con fecha.`,
+            `What to do: keep going. Your cushion is full; what's left can go to a goal with a date.`,
+          );
+    } else if (left > 0) {
+      const move = niceDown(Math.min(left, goalGap > 0 ? goalGap : left), display);
+      action = L(
+        lang,
+        `Qué hacer: aparta hoy ${money(move)} para tu ${cushionGap > 0 ? "colchón" : "ahorro"}, antes de que se vaya en gastos pequeños.${goalGap > left ? ` Tu meta del ${state.settings.savingsGoalPct}% serían ${money(niceDown(goalMinor, display))}; empieza con lo que sí cabe.` : ""}`,
+        `What to do: move ${money(move)} to your ${cushionGap > 0 ? "cushion" : "savings"} today, before small spending eats it.${goalGap > left ? ` Your ${state.settings.savingsGoalPct}% goal would be ${money(goalMinor)}; start with what fits.` : ""}`,
+      );
+    } else {
+      action = L(lang, "Qué hacer: el mes queda justo. Evita compras nuevas hasta que vuelvas a cobrar.", "What to do: the month is tight. Avoid new purchases until your next paycheck.");
+    }
   } else {
     headline = L(
       lang,
-      `El mes cierra en ${money(left)}. Lo de cada mes deja ${money(baseSurplus)}; las compras de una vez fueron ${money(uniqueMinor)} y el ahorro ${money(transferMinor)}.`,
-      `The month closes at ${money(left)}. The repeating base is ${money(baseSurplus)}; one-offs are ${money(uniqueMinor)}; the transfer is ${money(transferMinor)}.`,
+      `El mes cierra en ${money(left)}. Lo de cada mes deja ${money(baseSurplus)}; las compras de una vez fueron ${money(uniqueMinor)}${transferMinor > 0 ? ` y el ahorro ${money(transferMinor)}` : ""}.`,
+      `The month closes at ${money(left)}. What repeats leaves ${money(baseSurplus)}; one-time buys were ${money(uniqueMinor)}${transferMinor > 0 ? ` and savings ${money(transferMinor)}` : ""}.`,
     );
     action = L(
       lang,
       `Qué hacer: empieza por el gasto más grande que todavía puedes cambiar, no por el más chiquito.`,
-      `Action #1: move the largest line you can still decide, not the smallest one.`,
+      `What to do: start with the largest line you can still change, not the smallest.`,
     );
   }
 
-  const floorPhrase = L(
-    lang,
-    `ingreso seguro (lo que entra casi seguro cada mes)`,
-    `income floor (what almost certainly comes in each month, even if everything else fails)`,
-  );
-  const alert =
-    income <= 0
-      ? L(lang, "Sin ingresos anotados no puedo medir tus compromisos.", "With no income recorded I can't measure your commitments.")
-      : L(
-          lang,
-          `El ${pct(variablePct)} de lo que entra cambia de mes a mes${topSourceName ? ` (${topSourceName} es el ${pct(topSourcePct)})` : ""}. Lo prudente es pagar tus gastos de cada mes (${money(recurrentMinor)}) con tu ${floorPhrase}: ${money(incomeFixed)}.`,
-          `${pct(variablePct)} of what comes in is variable. ${topSourceName ? `${topSourceName} is ${pct(topSourcePct)}.` : ""} Your commitments (${money(recurrentMinor)}) are judged against the ${floorPhrase}: ${money(incomeFixed)}.`,
-        );
+  const floorPhrase = L(lang, `ingreso seguro`, `steady income`);
+  let alert = "";
+  if (income <= 0) {
+    alert = emptyMonth
+      ? L(lang, "Cuando anotes lo que entra y lo que sale, aquí verás si tu ingreso aguanta tus gastos.", "Once you enter what comes in and goes out, you'll see here whether your income holds up.")
+      : L(lang, "Sin ingresos anotados no puedo medir tus compromisos.", "With no income recorded I can't measure your commitments.");
+  } else if ((variablePct ?? 0) <= 10) {
+    alert = incomeFixed >= recurrentMinor
+      ? L(lang, `Tu ingreso es estable: ${money(incomeFixed)} seguros cubren tus gastos de cada mes (${money(recurrentMinor)}).`, `Your income is steady: ${money(incomeFixed)} you can count on covers your monthly bills (${money(recurrentMinor)}).`)
+      : L(lang, `Tu ingreso es estable, pero no alcanza: entran ${money(incomeFixed)} seguros y lo de cada mes son ${money(recurrentMinor)}.`, `Your income is steady but short: ${money(incomeFixed)} comes in and your monthly bills are ${money(recurrentMinor)}.`);
+  } else if (floorFromHistory) {
+    alert = incomeFloor >= recurrentMinor
+      ? L(lang, `Tu ingreso cambia de mes a mes, pero aun en tu peor mes reciente entraron ${money(incomeFloor)}, más que lo de cada mes (${money(recurrentMinor)}). En los meses buenos, guarda la diferencia.`, `Your income changes month to month, but even your worst recent month brought ${money(incomeFloor)}, more than your monthly bills (${money(recurrentMinor)}). Save the difference in good months.`)
+      : L(lang, `Tu ingreso cambia de mes a mes. En tu peor mes reciente entraron ${money(incomeFloor)} y lo de cada mes son ${money(recurrentMinor)}: en un mes flojo faltarían ${money(recurrentMinor - incomeFloor)}. Guarda eso de los meses buenos.`, `Your income changes month to month. Your worst recent month brought ${money(incomeFloor)} and your monthly bills are ${money(recurrentMinor)}: a slow month would be ${money(recurrentMinor - incomeFloor)} short. Keep that from the good months.`);
+  } else if (incomeFixed > 0 && incomeFixed < recurrentMinor) {
+    alert = L(
+      lang,
+      `Tu ingreso fijo (${money(incomeFixed)}) no alcanza para lo de cada mes (${money(recurrentMinor)}): ${money(recurrentMinor - incomeFixed)} dependen de ${topSourceName || "lo variable"}.${priorTotals.length >= 2 ? " Hasta ahora ha llegado, pero si un mes falla, ahí está el hueco: ese es el primer colchón que conviene juntar." : " Si un mes no llega, ahí está el hueco."}`,
+      `Your fixed income (${money(incomeFixed)}) doesn't cover your monthly bills (${money(recurrentMinor)}): ${money(recurrentMinor - incomeFixed)} depends on ${topSourceName || "variable income"}. If it doesn't arrive one month, that's the gap.`,
+    );
+  } else if (incomeFixed > 0) {
+    alert = L(
+      lang,
+      `Tu ingreso fijo (${money(incomeFixed)}) ya cubre lo de cada mes (${money(recurrentMinor)}). Lo variable${topSourceName ? ` (${topSourceName})` : ""} es extra: úsalo para ahorrar.`,
+      `Your fixed income (${money(incomeFixed)}) already covers your monthly bills (${money(recurrentMinor)}). The variable part${topSourceName ? ` (${topSourceName})` : ""} is extra: use it to save.`,
+    );
+  } else {
+    alert = L(
+      lang,
+      `Todo lo que entra cambia de mes a mes${topSourceName ? ` (${topSourceName} es el ${pct(topSourcePct)})` : ""}. Apenas te paguen, separa primero ${money(niceUp(recurrentMinor, display))} para lo de cada mes.`,
+      `Everything that comes in changes month to month${topSourceName ? ` (${topSourceName} is ${pct(topSourcePct)})` : ""}. As soon as you're paid, set aside ${money(niceUp(recurrentMinor, display))} for monthly bills first.`,
+    );
+  }
 
   const creditBlurb =
     debtMinor <= 0
@@ -570,7 +818,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       L(
         lang,
         "Lo que entra menos lo que pagas todos los meses (casa, comida, créditos, cuotas). Sin contar compras de una vez ni ahorro.",
-        "Income minus what repeats (essentials, credit, and subscriptions). No one-off purchases and no transfers.",
+        "What comes in minus what you pay every month (home, food, credit, subscriptions). Without one-time buys or savings.",
       ),
       (line) => line.cls !== "unique" && line.cls !== "transfer",
     ),
@@ -582,7 +830,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       L(
         lang,
         "Compras que no aparecen en tus meses anteriores ni están marcadas como fijas. Parecen de una sola vez; si alguna se repite, márcala fija.",
-        "It left once. Without a history of 2 of the last 3 months, and not marked fixed: looks one-off — unconfirmed.",
+        "Buys that don't show up in your earlier months and aren't marked fixed. They look one-time; if one repeats, mark it fixed.",
       ),
       (line) => line.cls === "unique",
     ),
@@ -594,7 +842,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       L(
         lang,
         "Dinero que pasó a tus bolsas de ahorro. No es gasto: sigue siendo tuyo. Si el mes cierra en rojo, vale la pena revisar si era el momento.",
-        "Money moving between pockets. It is not spending and it is not fixed. In a red month it is a decision to review, not a win.",
+        "Money that went into your savings pockets. It isn't spending: it's still yours. If the month closes in the red, check whether it was the right time.",
       ),
       (line) => line.cls === "transfer",
     ),
@@ -630,7 +878,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       text: L(
         lang,
         `Hoy (${fmtDay(when0)}): decide si los ${money(transferMinor)} ahorrados tapan el hueco. Si sí, el mes pasa de ${money(left)} a ${money(leftIfTransferCovers)}.`,
-        `Decide the ${money(transferMinor)} transfer on ${fmtDay(when0)}. If it covers the hole, the month's real gap moves from ${money(left)} to ${money(leftIfTransferCovers)}.`,
+        `Today (${fmtDay(when0)}): decide whether the ${money(transferMinor)} you saved covers the gap. If so, the month goes from ${money(left)} to ${money(leftIfTransferCovers)}.`,
       ),
     });
   }
@@ -645,7 +893,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       text: L(
         lang,
         `Antes del ${fmtDay(when7)}: pregunta si ${biggestUnique.name} (${money(biggestUnique.minor)}) se puede devolver. Si te reembolsan, el mes pasa de ${money(left)} a ${money(after)}.`,
-        `Check a return of ${biggestUnique.name} (${money(biggestUnique.minor)}) before ${fmtDay(when7)}. If it comes back, the hole moves from ${money(left)} to ${money(after)}. It is already spent: it is not an everyday cut.`,
+        `Before ${fmtDay(when7)}: ask whether ${biggestUnique.name} (${money(biggestUnique.minor)}) can be returned. If refunded, the month goes from ${money(left)} to ${money(after)}.`,
       ),
     });
   }
@@ -661,11 +909,11 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       text: L(
         lang,
         `Antes del ${fmtDay(when30)}: vende o recupera ${nextUnique.name} (${money(nextUnique.minor)}). Si entra ese dinero, el mes pasa de ${money(left)} a ${money(after)}.`,
-        `Sell or offset ${nextUnique.name} (${money(nextUnique.minor)}) before ${fmtDay(when30)}. If that amount comes in, the hole moves from ${money(left)} to ${money(after)}.`,
+        `Before ${fmtDay(when30)}: sell or recover ${nextUnique.name} (${money(nextUnique.minor)}). If that money comes in, the month goes from ${money(left)} to ${money(after)}.`,
       ),
     });
   }
-  if (!red && baseSurplus >= 0) {
+  if (!red && baseSurplus >= 0 && income > 0) {
     levers.push({
       id: "keep",
       verb: L(lang, "Mantener", "Keep"),
@@ -675,7 +923,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       text: L(
         lang,
         `No hace falta recortar nada: el mes cierra con ${money(left)} a favor.`,
-        `Keep the base. On ${fmtDay(when0)} there is no cut to make: the month closes at ${money(left)}.`,
+        `No cut needed: the month closes ${money(left)} ahead.`,
       ),
     });
   }
@@ -689,44 +937,103 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       text: L(
         lang,
         `Anota hoy lo que te entra este mes.`,
-        `Enter income on ${fmtDay(when0)}. Without that amount there is no effect to calculate.`,
+        `Enter what comes in this month today.`,
       ),
     });
   }
 
-  const transferNames = read
-    .filter((line) => line.cls === "transfer")
-    .map((line) => line.name)
-    .slice(0, 3)
-    .join("/");
-  const day24 = levers[0]
-    ? levers[0].text
-    : L(lang, `Hoy no hay nada urgente. Revisa solo los pagos que tienen fecha.`, `On ${fmtDay(when0)} there is no large lever. Review only what has a date.`);
-  const day7 = L(
-    lang,
-    `Para el ${fmtDay(when7)}: paga primero lo que tiene fecha con tu ${floorPhrase} (${money(incomeFixed)})${debtMinor > 0 ? `. No subas la cuota del crédito (${money(debtMinor)}) este mes y anota cuánto debes, la tasa y el pago mínimo` : ""}.`,
-    `Cover dated payments with the ${floorPhrase} (${money(incomeFixed)})${debtMinor > 0 ? `; do not raise the credit payment (${money(debtMinor)}) this month; enter the balance, the annual rate, and the minimum payment` : ""}. Date: ${fmtDay(when7)}.`,
-  );
-  const day30 = L(
-    lang,
-    `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. Cuando te entre un ingreso extra, repártelo así: 50% a tapar huecos, 30% al colchón y 20% para ti.`,
-    `No one-off purchase above ${money(hundred)} without a 24-hour rule and a written source. The next variable income splits 50% hole / 30% cushion / 20% free. Date: ${fmtDay(when30)}.`,
-  );
-  const day90 = L(
-    lang,
-    `Para el ${fmtDay(when90)}: arma un colchón (dinero solo para emergencias) de ${money(cushionMinor)}, que son ${state.settings.emergencyMonths || 3} meses de lo esencial. Ahorra tu ${state.settings.savingsGoalPct}% (${money(goalMinor)}) en los meses que cierren a favor.`,
-    `Minimum cushion (money kept for a shock; a sound goal is 3 months of essentials) of ${money(cushionMinor)}, reconciled between Savings and the set-aside. The ${state.settings.savingsGoalPct}% goal (${money(goalMinor)}) only in months where the base closes green. Date: ${fmtDay(when90)}.`,
-  );
+  const months = state.settings.emergencyMonths || 3;
+  const cushionGap = Math.max(0, cushionMinor - cushionStock);
+  const unknownDebts = rawDebtLines.filter((line) => line.balanceMinor === null || !(line.aprBps > 0));
+  const loudNames = loud.map((line) => lineName(line, names)).slice(0, 2);
+  let day24 = "";
+  let day7 = "";
+  let day30 = "";
+  let day90 = "";
+  if (income <= 0 && emptyMonth) {
+    day24 = L(lang, "Anota lo que te entra este mes.", "Enter what comes in this month.");
+    day7 = L(lang, `Para el ${fmtDay(when7)}: anota lo que pagas cada mes: casa, comida, transporte, créditos.`, `By ${fmtDay(when7)}: enter what you pay every month: home, food, transport, credit.`);
+    day30 = L(lang, `Para el ${fmtDay(when30)}: anota también lo pequeño (café, salidas). Ahí se ve a dónde se va el dinero.`, `By ${fmtDay(when30)}: add the small stuff too (coffee, outings). That's where money hides.`);
+    day90 = L(lang, `Para el ${fmtDay(when90)}: con tres meses anotados te digo tu promedio real y cuánto colchón necesitas.`, `By ${fmtDay(when90)}: with three months recorded I'll show your real average and the cushion you need.`);
+  } else if (income <= 0) {
+    day24 = missingPay
+      ? L(lang, `Si ya cobraste, anota tu ingreso. Si no llegó, deja hoy solo lo esencial (${money(essentialsMonthly)} al mes).`, `If you've been paid, enter it. If not, keep only the essentials today (${money(essentialsMonthly)} a month).`)
+      : L(lang, "Anota hoy lo que te entra este mes.", "Enter what comes in this month today.");
+    day7 = L(
+      lang,
+      `Para el ${fmtDay(when7)}: pausa lo que no es esencial${wantsRecurring.length ? ` (${wantsRecurring.slice(0, 3).map((line) => line.name).join(", ")})` : ""} y avisa a quien cobras fijo si vas a necesitar más tiempo.`,
+      `By ${fmtDay(when7)}: pause what isn't essential${wantsRecurring.length ? ` (${wantsRecurring.slice(0, 3).map((line) => line.name).join(", ")})` : ""} and tell fixed billers early if you'll need more time.`,
+    );
+    day30 = L(lang, `Para el ${fmtDay(when30)}: busca un ingreso, aunque sea temporal, que cubra al menos ${money(essentialsMonthly)}.`, `By ${fmtDay(when30)}: find income, even temporary, that covers at least ${money(essentialsMonthly)}.`);
+    day90 = L(lang, `Para el ${fmtDay(when90)}: cuando vuelva a entrar dinero, primero rellena lo que sacaste de tus ahorros.`, `By ${fmtDay(when90)}: once money comes in again, first refill what you took from savings.`);
+  } else {
+    // 24 hours: the one move that matters today.
+    if (levers[0] && levers[0].id !== "keep") day24 = levers[0].text;
+    else if ((debtPct ?? 0) > state.settings.debtYellowPct && rawDebtLines.length) day24 = L(lang, `Llama a ${rawDebtLines.slice(0, 3).map((line) => lineName(line, names)).join(", ")} y pide bajar la tasa o un plan de pagos. Con ${pct(debtPct)} de lo que entra en cuotas, esa llamada vale más que cualquier recorte.`, `Call ${rawDebtLines.slice(0, 3).map((line) => lineName(line, names)).join(", ")} and ask for a lower rate or a payment plan. With ${pct(debtPct)} of income going to payments, that call beats any cut.`);
+    else if (red && priciest && priciest.aprBps >= 1500) day24 = L(lang, `Llama a ${lineName(priciest, names)} y pide bajar la tasa (${priciest.aprBps / 100}%) o un plan de pagos. Es la llamada que más dinero te ahorra.`, `Call ${lineName(priciest, names)} and ask for a lower rate (${priciest.aprBps / 100}%) or a payment plan. It's the call that saves the most.`);
+    else if (red) day24 = movable.length
+      ? L(lang, `Elige hoy qué bajas: ${listNames(movable)}. ${movableSum >= -left ? `Con eso puedes cerrar los ${money(-left)}.` : `Eso solo cubre ${money(movableSum)} de ${money(-left)}; también hace falta tocar un gasto grande.`}`, `Choose today what to trim: ${listNames(movable)}. ${movableSum >= -left ? `That can close the ${money(-left)}.` : `That only covers ${money(movableSum)} of ${money(-left)}; a big bill has to move too.`}`)
+      : L(lang, `Revisa tus dos gastos más grandes${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}: ahí está el cambio que se nota.`, `Review your two biggest bills${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}: that's where change shows.`);
+    else if (subsHeavy) day24 = L(lang, `Cancela hoy las suscripciones que no usaste este mes. Empieza por ${subsRead.slice(0, 2).map((line) => `${line.name} (${money(line.minor)})`).join(" y ")}.`, `Cancel today the subscriptions you didn't use this month. Start with ${subsRead.slice(0, 2).map((line) => `${line.name} (${money(line.minor)})`).join(" and ")}.`);
+    else if (left > 0 && goalGap > 0) day24 = L(lang, `Mueve hoy ${money(niceDown(Math.min(left, goalGap), display))} a tu ${cushionGap > 0 ? "colchón" : "ahorro"}, antes de que se vaya en gastos pequeños.`, `Move ${money(niceDown(Math.min(left, goalGap), display))} to your ${cushionGap > 0 ? "cushion" : "savings"} today, before small spending eats it.`);
+    else day24 = L(lang, `No hace falta recortar nada: el mes cierra con ${money(left)} a favor.`, `No cut needed: the month closes ${money(left)} ahead.`);
+
+    // 7 days: payments and the paycheck routine.
+    const dueBit = loudNames.length ? L(lang, `separa dinero para ${loudNames.join(" y ")}, que vencen pronto`, `set money aside for ${loudNames.join(" and ")}, due soon`) : "";
+    const askBit = unknownDebts.length
+      ? L(lang, `anota cuánto debes y la tasa de ${unknownDebts.slice(0, 2).map((line) => lineName(line, names)).join(" y ")} para saber cuándo terminas`, `enter the balance and rate of ${unknownDebts.slice(0, 2).map((line) => lineName(line, names)).join(" and ")} to see when you finish`)
+      : "";
+    const holdBit = rawDebtLines.length && red && (debtPct ?? 0) > state.settings.debtGreenPct ? L(lang, `no subas la cuota del crédito (${money(debtMinor)}) este mes`, `don't raise the credit payment (${money(debtMinor)}) this month`) : "";
+    const debtBit = [holdBit, askBit].filter(Boolean).join(L(lang, " y ", " and "));
+    const saveBit = goalGap > 0 && !red && left > 0 ? niceDown(Math.min(goalGap, left), display) : 0;
+    const payBit = incomeFixed >= recurrentMinor
+      ? L(lang, `cuando te paguen, separa primero ${money(niceUp(recurrentMinor, display))} para lo de cada mes${saveBit ? ` y ${money(saveBit)} para ahorro` : ""}; lo demás es para gastar tranquilo`, `when you're paid, set aside ${money(niceUp(recurrentMinor, display))} for monthly bills first${saveBit ? ` and ${money(saveBit)} for savings` : ""}; the rest is guilt-free`)
+      : L(lang, `cada vez que te entre dinero, aparta primero la parte de lo de cada mes (${money(niceUp(recurrentMinor, display))} en total) antes de gastar en otra cosa`, `each time money comes in, set aside its share of the monthly bills (${money(niceUp(recurrentMinor, display))} in total) before anything else`);
+    const structural = baseSurplus < 0;
+    const parts7 = [dueBit, debtBit, structural ? "" : payBit].filter(Boolean);
+    if (structural && !parts7.length) parts7.push(L(lang, `anota cada gasto por una semana: lo que no se ve no se puede bajar`, `log every expense for a week: what you can't see you can't cut`));
+    const joined7 = parts7.join(L(lang, "; ", "; "));
+    day7 = L(lang, `Para el ${fmtDay(when7)}: ${joined7}.`, `By ${fmtDay(when7)}: ${joined7}.`);
+
+    // 30 days: the purchase rule and where extra money goes.
+    const tight = red || (debtPct ?? 0) > state.settings.debtGreenPct;
+    day30 = L(
+      lang,
+      `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. ${tight ? "Si te entra dinero extra: la mitad a tapar el hueco o la deuda, 30% al colchón y 20% para ti." : "Si te entra dinero extra: la mitad a tu colchón o meta y la otra mitad para ti."}`,
+      `By ${fmtDay(when30)}: before any purchase over ${money(hundred)}, wait 24 hours and decide where the money comes from. ${tight ? "If extra money comes in: half to the gap or debt, 30% to the cushion and 20% for you." : "If extra money comes in: half to your cushion or goal, half for you."}`,
+    );
+
+    // 90 days: the bigger goal that fits this month's numbers.
+    if (red && baseSurplus < 0) {
+      day90 = L(lang, `Para el ${fmtDay(when90)}: que lo de cada mes quepa en lo que entra, con ${money(-baseSurplus)} menos de gasto o más de ingreso. El colchón viene después.`, `By ${fmtDay(when90)}: make monthly bills fit income, with ${money(-baseSurplus)} less spending or more income. The cushion comes after.`);
+    } else if (red) {
+      const monthsBack = baseSurplus > 0 ? Math.ceil(-left / baseSurplus) : null;
+      day90 = L(
+        lang,
+        `Para el ${fmtDay(when90)}: recupera el hueco de este mes (${money(-left)})${monthsBack ? ` con lo que te sobra cada mes (${money(baseSurplus)}): ${monthsBack <= 3 ? "lo cierras en este plazo" : `te toma unos ${monthsBack} meses`}` : ""}. Mientras tanto, nada de compras grandes nuevas.`,
+        `By ${fmtDay(when90)}: win back this month's gap (${money(-left)})${monthsBack ? ` with what's left each month (${money(baseSurplus)}): ${monthsBack <= 3 ? "you close it in that time" : `it takes about ${monthsBack} months`}` : ""}. Meanwhile, no new big purchases.`,
+      );
+    } else if (cushionGap <= 0 && cushionMinor > 0) {
+      day90 = L(lang, `Para el ${fmtDay(when90)}: tu colchón ya cubre ${months} meses. Ponle fecha a una meta (casa, estudios, retiro) y manda ahí lo que sobre.`, `By ${fmtDay(when90)}: your cushion covers ${months} months. Give a goal a date (home, school, retirement) and send what's left there.`);
+    } else {
+      const monthly = cushionPace;
+      const reach = monthly > 0 ? Math.min(cushionGap, monthly * 3) : 0;
+      day90 = monthly > 0
+        ? L(
+            lang,
+            `Para el ${fmtDay(when90)}: junta ${money(niceDown(reach, display))} en tu colchón (la meta es ${money(cushionMinor)}, ${months} meses de lo esencial). Son ${money(monthly)} al mes${emergencyFlow > 0 ? `: lo que ya mandas a Emergencia más lo que te queda libre` : left > 0 ? ": lo que te queda libre" : ""}.`,
+            `By ${fmtDay(when90)}: put ${money(niceDown(reach, display))} in your cushion (the goal is ${money(cushionMinor)}, ${months} months of essentials). That's ${money(monthly)} a month${emergencyFlow > 0 ? `: what already goes to Emergency plus what's free` : left > 0 ? ": what's free" : ""}.`,
+          )
+        : L(lang, `Para el ${fmtDay(when90)}: arma un colchón de ${money(cushionMinor)} (${months} meses de lo esencial). Empieza con lo que sobre cada mes, aunque sea poco.`, `By ${fmtDay(when90)}: build a ${money(cushionMinor)} cushion (${months} months of essentials). Start with whatever is left each month, even a little.`);
+    }
+  }
   const plan = [
     L(lang, `Plan Faro — este mes (te queda: ${money(left)})`, `Faro plan — this month (left: ${money(left)})`),
     L(lang, `24 horas: ${day24}`, `24 hours: ${day24}`),
     L(lang, `7 días: ${day7}`, `7 days: ${day7}`),
     L(lang, `30 días: ${day30}`, `30 days: ${day30}`),
     L(lang, `90 días: ${day90}`, `90 days: ${day90}`),
-    transferNames ? L(lang, `Cuentas de ahorro: ${transferNames}.`, `Transfer accounts: ${transferNames}.`) : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].join("\n");
 
   const scenarios = [
     {
@@ -747,7 +1054,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       detail: L(
         lang,
         "El ahorro tapa el hueco y no cuenta como gasto. Las compras de una vez se quedan porque ya salieron.",
-        "The transfer covers the hole and is not counted as spending. One-offs stay because they already left.",
+        "Savings cover the gap and don't count as spending. One-time buys stay because they already left.",
       ),
       left: leftIfTransferCovers,
     },
@@ -777,6 +1084,13 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     naiveFixed,
     classificationError,
     cushionMinor,
+    cushionStock,
+    cushionPace,
+    essentialsMonthly,
+    incomeFloor,
+    trendNote,
+    subsTotal: subsSum,
+    subsCount: subsRead.length,
     variablePct,
     topSourceName,
     topSourceMinor,
