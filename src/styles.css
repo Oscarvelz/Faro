@@ -2090,9 +2090,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .vault-lever-rail b { box-shadow: 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 60%, transparent), 0 0 12px color-mix(in oklab, var(--seg, #d5e2ea) 50%, transparent), 0 2px 6px rgb(0 0 0 / 25%); }
 
 /* Savings pocket gauge: the colored block now reads something (months covered or % of the month's goal). */
-.save-seg b.save-gauge { position: relative; overflow: hidden; display: grid; place-items: center; }
-.save-seg b.save-gauge i { top: 0; bottom: 0; left: 0; right: auto; height: auto !important; max-width: 100%; border-radius: inherit; transition: width .7s cubic-bezier(.22, 1, .36, 1); }
-.save-seg b.save-gauge::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, transparent calc(25% - .5px), color-mix(in oklab, var(--seg) 45%, transparent) 25%, transparent calc(25% + .5px), transparent calc(50% - .5px), color-mix(in oklab, var(--seg) 45%, transparent) 50%, transparent calc(50% + .5px), transparent calc(75% - .5px), color-mix(in oklab, var(--seg) 45%, transparent) 75%, transparent calc(75% + .5px)); opacity: .55; }
-.save-seg b.save-gauge em { position: relative; z-index: 2; font-style: normal; font-family: inherit; font-variant-numeric: tabular-nums; font-size: .66rem; font-weight: 700; letter-spacing: .01em; white-space: nowrap; color: color-mix(in oklab, var(--seg) 45%, var(--fg)); text-shadow: 0 0 6px var(--surface), 0 0 2px var(--surface); }
-.save-seg b.save-gauge.is-full em { color: var(--fg); }
-.save-seg b.save-gauge.is-empty em { opacity: .8; }
+.save-seg b.save-trail { position: relative; display: flex; align-items: flex-end; gap: 3px; padding: 5px 7px 6px; overflow: hidden; }
+.save-seg b.save-trail i { position: static; flex: 1 1 0; min-width: 0; height: 4px; border-radius: 3px 3px 1px 1px; background: color-mix(in oklab, var(--seg) 55%, transparent) !important; transform-origin: bottom; animation: save-trail-in .6s cubic-bezier(.22, 1, .36, 1) both; }
+.save-seg b.save-trail i.is-zero { height: 3px; background: color-mix(in oklab, var(--seg) 30%, transparent) !important; }
+.save-seg b.save-trail i.is-now { background: linear-gradient(180deg, color-mix(in oklab, white 25%, var(--seg)), var(--seg)) !important; box-shadow: 0 0 6px color-mix(in oklab, var(--seg) 45%, transparent); }
+.save-seg b.save-trail i.is-now.is-zero { box-shadow: none; background: var(--seg) !important; opacity: .8; }
+@keyframes save-trail-in { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .save-seg b.save-trail i { animation: none; } }

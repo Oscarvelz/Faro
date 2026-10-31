@@ -2427,23 +2427,24 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 onDoubleClick={() => { setSaveOn(s.id); setOpenSave(s.id); setEditId(null); setAdding(false); setMoving(null); }}
               >
                 {(() => {
-                  // The block is a gauge with a job: Emergencia counts months of fixed bills covered;
-                  // every other pocket shows how much of this month's saving goal it holds.
-                  // Tron keeps its own segmented energy gauge; the meter is for every other theme.
+                  // Tron keeps its own segmented energy gauge.
                   if (isTron()) return <b aria-hidden><i style={{ height: `${s.minor > 0 ? Math.max(12, (s.minor / savePeak) * 100) : 8}%`, background: tint, opacity: openSave && !on ? 0.35 : 1 }} /></b>;
-                  const isEmerg = s.id.endsWith(".emergencia");
-                  const months = session.ledger.settings.emergencyMonths || 3;
-                  const target = isEmerg ? summary.fixed * months : summary.savingsGoal;
-                  const fill = target > 0 ? Math.min(1, s.minor / target) : saveTotal > 0 ? s.minor / saveTotal : 0;
-                  const have = isEmerg && summary.fixed > 0 ? s.minor / summary.fixed : 0;
-                  const label = isEmerg && summary.fixed > 0
-                    ? `${have >= 10 ? Math.round(have) : (Math.floor(have * 10) / 10).toLocaleString(lang)}/${months} ${lang === "en" ? "mo" : "meses"}`
-                    : target > 0 ? `${Math.round((s.minor / target) * 100)}% ${lang === "en" ? "of goal" : "de meta"}` : `${pct}%`;
-                  const done = target > 0 && s.minor >= target;
+                  // Everywhere else the block is a wordless 6-month trail of what went into this pocket:
+                  // one column per month, this month brightest. No text: the picture is the reading.
+                  const trail = Array.from({ length: 6 }, (_, k) => {
+                    const d = new Date(ui.year, ui.month - 1 - (5 - k), 1);
+                    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    const ls = session.ledger.months[mk]?.lines ?? [];
+                    return ls.filter((l) => l.active && savingsIds.has(l.categoryId) && (s.id === "rest" ? !(l.subId && seed.some((x) => x.id === l.subId)) : l.subId === s.id))
+                      .reduce((sum, l) => sum + convertMinor(l.amountMinor, l.currency, rate.display, rate.rateE4), 0);
+                  });
+                  trail[5] = s.minor;
+                  const top = Math.max(...trail, 1);
                   return (
-                    <b className={`save-gauge${done ? " is-full" : ""}${s.minor <= 0 ? " is-empty" : ""}`} title={label}>
-                      <i style={{ width: `${fill * 100}%`, opacity: openSave && !on ? 0.4 : 1 }} />
-                      <em>{done ? `✓ ${label}` : label}</em>
+                    <b className="save-trail" aria-hidden style={{ opacity: openSave && !on ? 0.45 : 1 }}>
+                      {trail.map((v, k) => (
+                        <i key={k} className={`${k === 5 ? "is-now" : ""}${v <= 0 ? " is-zero" : ""}`} style={{ height: v > 0 ? `${Math.max(14, (v / top) * 100)}%` : undefined, animationDelay: `${k * 45}ms` }} />
+                      ))}
                     </b>
                   );
                 })()}

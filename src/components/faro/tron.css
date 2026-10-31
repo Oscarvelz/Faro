@@ -727,5 +727,3 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
   [data-theme="tron"] :is(.seg.is-follow button .seg-ico, .seg.is-follow button .seg-label, .nav-btn, .nav-btn svg) { animation: none !important; }
 }
 html[data-hidden] [data-theme="tron"] .dock-sheen { animation: none !important; }
-[data-theme="tron"] .save-seg b.save-gauge em { font-family: var(--t-display, inherit); font-weight: 500; font-size: .6rem; letter-spacing: .06em; color: #eafbff; text-shadow: 0 0 6px var(--seg), 0 0 2px #000; }
-[data-theme="tron"] .save-seg b.save-gauge::before { opacity: .9; }
