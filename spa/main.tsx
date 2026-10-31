@@ -84,11 +84,15 @@ function App() {
   const [ready, setReady] = useState(false);
   const gone = useCallback(() => { document.documentElement.classList.remove("booting"); setSplash(false); }, []);
   useEffect(() => { if (QUIET_BOOT) document.documentElement.classList.remove("booting"); }, []);
+  // The dark boot background only has to cover until the splash starts fading. Drop it as the fade
+  // begins, so the theme's own page shows through instead of a black frame behind the cards.
+  const leaving = (minDone && ready) || capDone;
+  useEffect(() => { if (leaving) document.documentElement.classList.remove("booting"); }, [leaving]);
   const view = <Gate onReady={setReady} />;
   return (
     <>
       {view}
-      {splash ? <Splash done={(minDone && ready) || capDone} onGone={gone} /> : null}
+      {splash ? <Splash done={leaving} onGone={gone} /> : null}
     </>
   );
 }
