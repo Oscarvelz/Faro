@@ -450,7 +450,7 @@ export function wake(input: WakeInput): WakeResult {
 
 const VAULT_TONE: Record<string, string> = {
   meta: "#8fb9a6",
-  retiro: "#e7c27a",
+  retiro: "#a98fd6",
   emergencia: "#7aa2c4",
   save: "#d5e2ea",
 };

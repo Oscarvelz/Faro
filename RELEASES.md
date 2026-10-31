@@ -9,3 +9,4 @@
 - Tron: Estudio s2-* and Asesor (advisor2 tc()) colors neon; Libros/Estudio tabs light-cycle streak + icon rez; dock glitch select.
 - Savings pockets: block = gauge (Emergencia months covered / emergencyMonths; others % of month goal), non-Tron only; Tron keeps segmented energy gauge.
 ## 1.3.9: pocket block = wordless 6-month deposit trail (non-Tron); Oscar rejected text in the block (not premium).
+## 1.3.10 (main b6dc361): non-Tron pocket block = full-colour .save-band with drifting swells, no text. Oscar rejected text gauges and the 6-month dash trail (looked empty).

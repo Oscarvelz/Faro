@@ -691,21 +691,10 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
 
 /* ---------- Bottom dock: glitch select (Tron only) ----------
    The pill tears into offset slices with a teal/Ares-red split, then snaps clean. */
-[data-theme="tron"] .dock-sheen {
-  inset: 0; background: none !important; transform: none;
-  animation: t-glitch-slab .44s steps(1, end) both !important;
-}
-[data-theme="tron"] .dock-sheen::before, [data-theme="tron"] .dock-sheen::after {
-  content: ""; position: absolute; left: 0; right: 0; height: 22%;
-  background: rgba(63, 214, 245, .55); mix-blend-mode: screen; box-shadow: 4px 0 0 rgba(255, 42, 42, .6);
-}
-[data-theme="tron"] .dock-sheen::before { top: 18%; animation: t-glitch-a .44s steps(1, end) both; }
-[data-theme="tron"] .dock-sheen::after { top: 62%; height: 12%; animation: t-glitch-b .44s steps(1, end) both; }
-@keyframes t-glitch-slab { 0% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes t-glitch-a { 0% { transform: translateX(-14%); } 20% { transform: translateX(9%); top: 40%; } 40% { transform: translateX(-5%); top: 8%; } 60% { transform: translateX(12%); top: 70%; } 80% { transform: translateX(-3%); top: 30%; } 100% { transform: none; opacity: 0; } }
-@keyframes t-glitch-b { 0% { transform: translateX(10%); } 25% { transform: translateX(-12%); top: 20%; } 50% { transform: translateX(6%); top: 82%; } 75% { transform: translateX(-8%); top: 50%; } 100% { transform: none; opacity: 0; } }
-[data-theme="tron"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] { animation: t-glitch-txt .44s steps(1, end) both; }
-[data-theme="tron"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] svg { animation: t-glitch-ico .44s steps(1, end) both; }
+/* Oscar (Oct 31): the pill itself must not tear; only the icon glitches. */
+[data-theme="tron"] .dock-sheen, [data-theme="tron"] .dock-sheen::before, [data-theme="tron"] .dock-sheen::after { animation: none !important; opacity: 0 !important; background: none !important; box-shadow: none !important; }
+[data-theme="tron"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] { animation: none; text-shadow: 0 0 8px rgba(63, 214, 245, .7); }
+[data-theme="tron"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] svg { animation: t-glitch-ico .5s steps(1, end) both; }
 @keyframes t-glitch-txt {
   0% { text-shadow: -3px 0 #ff2a2a, 3px 0 #3fd6f5; transform: translateX(2px); }
   20% { text-shadow: 2px 0 #ff2a2a, -2px 0 #3fd6f5; transform: translateX(-2px) skewX(-8deg); }
@@ -715,12 +704,15 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
   100% { text-shadow: 0 0 8px rgba(63, 214, 245, .7); transform: none; }
 }
 @keyframes t-glitch-ico {
-  0% { filter: drop-shadow(-2px 0 #ff2a2a) drop-shadow(2px 0 #3fd6f5); transform: translate(2px, -1px); }
-  25% { filter: drop-shadow(2px 0 #ff2a2a) drop-shadow(-2px 0 #3fd6f5); transform: translate(-2px, 1px); }
-  50% { opacity: .4; transform: none; }
-  75% { opacity: 1; filter: drop-shadow(-1px 0 #ff2a2a) drop-shadow(1px 0 #3fd6f5); }
-  100% { filter: drop-shadow(0 0 4px #3fd6f5); transform: none; }
+  0% { filter: drop-shadow(-3px 0 #ff2a2a) drop-shadow(3px 0 #3fd6f5); transform: translate(3px, 0) skewX(-12deg); clip-path: inset(0 0 55% 0); }
+  12% { filter: drop-shadow(3px 0 #ff2a2a) drop-shadow(-3px 0 #3fd6f5); transform: translate(-3px, 1px); clip-path: inset(40% 0 0 0); }
+  24% { transform: translate(2px, -1px) skewX(10deg); clip-path: inset(20% 0 30% 0); opacity: .6; }
+  36% { filter: drop-shadow(-2px 0 #ff2a2a) drop-shadow(2px 0 #3fd6f5); transform: none; clip-path: none; opacity: 1; }
+  52% { transform: translateX(-1px); clip-path: inset(60% 0 10% 0); }
+  64% { transform: none; clip-path: none; filter: drop-shadow(-1px 0 #ff2a2a) drop-shadow(1px 0 #3fd6f5); }
+  100% { filter: drop-shadow(0 0 5px #3fd6f5); transform: none; clip-path: none; }
 }
+
 [data-theme="tron"] .dock .nav-btn.nav-btn.nav-btn:active::after { animation: none !important; opacity: 0 !important; }
 @media (prefers-reduced-motion: reduce) {
   [data-theme="tron"] :is(.seg-pill.is-gliding::after, .dock-sheen, .dock-sheen::before, .dock-sheen::after) { animation: none !important; opacity: 0; }

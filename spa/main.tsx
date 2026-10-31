@@ -204,3 +204,15 @@ if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", markHidden);
   markHidden();
 }
+
+// Premium tap: a glass glint sweeps the card and a soft halo in its own colour breathes out.
+// Tron keeps its own tap language.
+document.addEventListener("pointerdown", (e) => {
+  if (document.documentElement.dataset.theme === "tron") return;
+  const el = (e.target as Element | null)?.closest?.(".lens, .save-seg");
+  if (!(el instanceof HTMLElement)) return;
+  el.classList.remove("tap-glint");
+  void el.offsetWidth;
+  el.classList.add("tap-glint");
+  window.setTimeout(() => el.classList.remove("tap-glint"), 750);
+}, { passive: true });

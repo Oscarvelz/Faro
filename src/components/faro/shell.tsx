@@ -955,7 +955,7 @@ export function Shell() {
                     </button>
                   ))}
                 </div>
-                <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#e7c27a") : vault === "emergencia" ? vtint("#7aa2c4") : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
+                <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#a98fd6") : vault === "emergencia" ? vtint("#7aa2c4") : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
                   <i className={`vault-glide${vault ? " is-on" : ""}${vault === "save" ? " is-save" : ""}`} aria-hidden />
                   {VAULT.map((id) => (
                     <button key={id} type="button" role="tab" aria-selected={vault === id} aria-current={vault === id ? "page" : undefined} onClick={() => {
@@ -1195,7 +1195,7 @@ function SectionView() {
               </button>
             ))}
           </div>
-          <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#e7c27a") : vault === "emergencia" ? vtint("#7aa2c4") : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
+          <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#a98fd6") : vault === "emergencia" ? vtint("#7aa2c4") : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
             <i className={`vault-glide${vault ? " is-on" : ""}${vault === "save" ? " is-save" : ""}`} aria-hidden />
             {VAULT.map((id) => (
               <button key={id} type="button" role="tab" aria-selected={vault === id} aria-current={vault === id ? "page" : undefined} onClick={() => {
