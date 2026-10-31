@@ -31,3 +31,4 @@
 - 1.3.31: Guardados Seleccionar mode: checkboxes, Todos, Borrar (n) with one .ask confirm (lists up to 4). .ask-body pre-line. Test: browser-test/slips.mjs.
 - 1.3.32: Números clave illustrated: Insight.viz (ring/parts/split/cover/days/delta/share) set in engine.ts buildInsights; KeyNumbers rows with 56px SVG picture, big value, small i (study2.tsx/.css, tron.css). Test: browser-test/kn.mjs.
 - 1.3.33: Asesor MonthTower card has a daylight scene in day themes (sky, sun glow, sea line, ink text, white receipt; beam/halo hidden). Ion keeps the night scene. advisor2.css end block. Test: browser-test/tw.mjs (tap the Asesor tab).
+- 1.3.34: Tron lighthouse light amber (#ffc23a lamp/lantern/halo, #ffd36a→#ff9410 beam, plus-lighter blend). Teal glow moved off the whole svg onto tower parts so it doesn't tint the beam. Short month = red light. tron.css ~240-270.

@@ -9,6 +9,9 @@ function parse(c: string): [number, number, number, number] | null {
 function topColor(): string | null {
   let el = document.elementFromPoint(Math.round(innerWidth / 2), 2) as HTMLElement | null;
   while (el) {
+    // Only full-width surfaces (header, page, sheet backdrop) may colour the bar. A chip, bar or card
+    // passing under the top edge while scrolling must not flash the status bar (it went orange in Tron).
+    if (el.getBoundingClientRect().width < innerWidth * 0.92) { el = el.parentElement; continue; }
     const cs = getComputedStyle(el);
     const c = parse(cs.backgroundColor);
     if (c && c[3] >= 0.5) return `rgb(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0})`;
