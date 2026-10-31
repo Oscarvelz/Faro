@@ -1068,11 +1068,11 @@ function ToolSheet({ contained = false }: { contained?: boolean }) {
           <span className="brand-lamp" aria-hidden>
             <i className="brand-beam" />
             <i className="brand-glow" />
-            <Mark className="size-7" />
+            <Mark className="size-9" />
           </span>
           <span className="brand-word">Faro</span>
         </div>
-        <button type="button" className="btn secondary" onClick={() => setUi({ instruments: false, calcOpen: false })}>{t("close")}</button>
+        <button type="button" className="tool-close" aria-label={t("close")} title={t("close")} onClick={() => setUi({ instruments: false, calcOpen: false })}><X /></button>
       </div>
       <div className="tool-sheet-body">
         <Instruments contained={contained} />

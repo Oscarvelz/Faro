@@ -23,3 +23,4 @@
 - 1.3.23: html.booting is removed when the splash starts fading (spa/main.tsx), not after it is gone, so day themes no longer flash a black frame behind the cards.
 - 1.3.24: HealthCard '?' explainer (ScoreHelp in panorama.tsx, SCORE_WEIGHTS exported from coach.ts). Cambio redesign (.cv-* stacked rows, swap disc, quick chips) + CalcPanel (.calc2: drag, 4-corner resize, fill-screen toggle, keyboard, = key, geo in localStorage faro-calc-geo, ResizeObserver clamp) in instruments.tsx/instruments.css; Tron skin in tron.css. Test: browser-test/cv.mjs, help.mjs.
 - 1.3.25: ToolSheet title = brand lamp + Faro (.tool-brand). Cambio gear (.cv-gear) opens CvSettings: 6 quick-amount slots each for US$ and C$, starting currency + amount, Restaurar; localStorage faro-cv-prefs. Test: browser-test/cvs.mjs.
+- 1.3.26: Tron .currency-bubble .gold-coin amber (hue-rotate 5deg, not teal); other gold coins stay teal.

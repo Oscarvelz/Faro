@@ -799,3 +799,6 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .tool-brand .brand-word { text-transform: none; }
 /* Currency coin: amber (Tron's warm yellow), coin details kept. */
 [data-theme="tron"] .currency-bubble .gold-coin { filter: hue-rotate(5deg) saturate(1.55) brightness(1.1) contrast(1.05) drop-shadow(0 0 4px rgba(255, 184, 74, .75)) drop-shadow(0 0 10px rgba(255, 157, 42, .35)); }
+[data-theme="tron"] .tool-brand .brand-word { font-size: 1.75rem; letter-spacing: .22em; }
+[data-theme="tron"] .tool-close { border-radius: 3px; border-color: rgba(63, 214, 245, .35); color: #7fa9b5; background: rgba(3, 10, 14, .5); }
+[data-theme="tron"] .tool-close:hover { color: #ff2a2a; border-color: rgba(255, 42, 42, .6); box-shadow: 0 0 10px rgba(255, 42, 42, .3); }

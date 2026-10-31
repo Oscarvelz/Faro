@@ -140,3 +140,19 @@
 .cvs-reset { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .82rem; font-weight: 600; padding: 6px 2px; }
 .cvs-done { min-height: 40px; padding: 0 18px; gap: 6px; }
 @container (max-width: 330px) { .cvs-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Sheet header: the app's name leads, close stays quiet. */
+.tool-sheet-bar:has(.tool-brand) { margin-top: -6px; margin-bottom: 10px; align-items: center; }
+.tool-brand { font-size: 2.9rem; gap: 12px; transform: translateY(-3px); }
+.tool-brand .brand-word { transform: translateY(2px); }
+.tool-close {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center; padding: 0;
+  border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted);
+  transition: color .15s, border-color .15s, transform .12s;
+}
+.tool-close svg { width: 16px; height: 16px; }
+.tool-close:hover { color: var(--fg); border-color: color-mix(in oklab, var(--fg) 30%, var(--line)); }
+.tool-close:active { transform: scale(.92); }
+.tool-close::before { content: ""; position: absolute; inset: -6px; }
+.tool-close { position: relative; }
+.tool-brand .brand-lamp svg { width: 40px !important; height: 40px !important; }
+.tool-brand .brand-lamp { transform: translateY(-2px); }
