@@ -3456,14 +3456,29 @@ export function Advisor() {
       </label>
       <section className="advice-hero-2" aria-label={reading.monthTag}>
         <MonthTower reading={reading} income={summary.income} left={summary.opportunity} openPart={openPart} onPart={(id) => { setSpreadParts(false); setOpenPart((cur) => (cur === id ? null : id)); }} more={more} onMore={() => setMore((on) => !on)}>
-          <p className="advice-aside">{reading.headline}</p>
-          {reading.alert ? <p className="advice-aside">{reading.alert}</p> : null}
-          {reading.creditBlurb ? <p className="advice-aside">{reading.creditBlurb}</p> : null}
-          <div className="advice-facts">
+          <div className="a2-notes">
+            {[
+              { id: "month", tone: "calm", Icon: CalendarDays, text: reading.headline },
+              { id: "alert", tone: "warn", Icon: ArrowLeftRight, text: reading.alert },
+              { id: "credit", tone: "calm", Icon: CreditCard, text: reading.creditBlurb },
+            ].filter((n) => n.text).map((n) => {
+              const text = String(n.text);
+              const cut = text.search(/[.:](\s|$)/);
+              const lead = cut > 0 ? text.slice(0, cut + 1) : text;
+              const rest = cut > 0 ? text.slice(cut + 1).trim() : "";
+              return (
+                <div key={n.id} className={`a2-note is-${n.tone}`}>
+                  <span className="a2-note-ico" aria-hidden><n.Icon /></span>
+                  <p><strong>{lead}</strong>{rest ? <span> {rest}</span> : null}</p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="a2-tiles">
             <span><em>{t("advice.in")}</em><strong className="num">{fmt(summary.income)}</strong></span>
             <span><em>{t("advice.out")}</em><strong className="num">{fmt(summary.expense)}</strong></span>
-            <span><em>{t("advice.real")}</em><strong className="num">{fmt(reading.realSpend)}</strong></span>
-            <span><em>{summary.opportunity < 0 ? t("advice.short") : t("advice.left")}</em><strong className="num">{fmt(Math.abs(summary.opportunity))}</strong></span>
+            {reading.realSpend !== summary.expense ? <span><em>{t("advice.real")}</em><strong className="num">{fmt(reading.realSpend)}</strong></span> : null}
+            <span className={summary.opportunity < 0 ? "is-short" : "is-left"}><em>{summary.opportunity < 0 ? t("advice.short") : t("advice.left")}</em><strong className="num">{fmt(Math.abs(summary.opportunity))}</strong></span>
           </div>
         </MonthTower>
       </section>

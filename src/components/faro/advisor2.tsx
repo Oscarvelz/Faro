@@ -342,8 +342,8 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
           {doRest ? <p className="a2-do-rest">{doRest}</p> : null}
         </div>
       </div>
-      <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</button>
-      {more ? children : null}
+      <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}><span>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</span><ChevronRight aria-hidden className="a2-more-chev" /></button>
+      {more ? <div className="a2-detail">{children}</div> : null}
     </div>
   );
 }
