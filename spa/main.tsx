@@ -77,7 +77,7 @@ function App() {
     return () => { window.clearTimeout(a); window.clearTimeout(b); };
   }, []);
   const [ready, setReady] = useState(!CLOUD_READY);
-  const gone = useCallback(() => setSplash(false), []);
+  const gone = useCallback(() => { document.documentElement.classList.remove("booting"); setSplash(false); }, []);
   const view = <Gate onReady={setReady} />;
   return (
     <>

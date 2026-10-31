@@ -454,7 +454,7 @@ const es: Record<string, string> = {
 
 const en: Record<string, string> = {
   "app.name": "Faro",
-  "app.tagline": "Every córdoba in its place.",
+  "app.tagline": "Every dollar in its place.",
   "boot": "Opening your books",
   "nav.desk": "Desk",
   "nav.income": "Income",

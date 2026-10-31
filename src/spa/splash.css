@@ -1,13 +1,14 @@
 /* Faro cold-start splash. Same look as the original: charcoal, white lighthouse, FARO, tagline. */
 .sp {
-  position: fixed; inset: 0; z-index: 1000;
+  position: fixed; inset: -2px 0; z-index: 1000;
   display: grid; place-items: center;
-  padding: 24px 20px calc(10vh + env(safe-area-inset-bottom));
+  padding: calc(26px + env(safe-area-inset-top)) 20px calc(10vh + env(safe-area-inset-bottom));
+  box-shadow: 0 -40px 0 #0e1114, 0 40px 0 #0e1114;
   background: #0e1114; color: #f7faf8;
   overflow: hidden; isolation: isolate;
   transition: opacity 0.56s cubic-bezier(0.4, 0, 0.2, 1), transform 0.56s cubic-bezier(0.4, 0, 0.2, 1), filter 0.56s;
 }
-.sp.is-leaving { opacity: 0; transform: scale(1.035); filter: blur(2px); pointer-events: none; }
+.sp.is-leaving { opacity: 0; transform: scale(1.035); pointer-events: none; }
 
 /* The soft column of light from above, as before; now it rises and breathes. */
 .sp-ambient {
@@ -23,7 +24,8 @@
 
 .sp-mark { position: relative; width: 60px; height: 60px; margin-bottom: 6px; }
 .sp-mark svg { position: relative; width: 100%; height: 100%; overflow: visible; }
-.sp-base { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-dasharray: 18; stroke-dashoffset: 18; animation: sp-draw 0.55s 0.05s cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+.sp-base { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-dasharray: 18; stroke-dashoffset: 18; opacity: 0; animation: sp-show 0.01s 0.05s forwards, sp-draw 0.55s 0.05s cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+@keyframes sp-show { to { opacity: 1; } }
 @keyframes sp-draw { to { stroke-dashoffset: 0; } }
 .sp-tower { fill: currentColor; transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); animation: sp-grow 0.5s 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 @keyframes sp-grow { to { transform: scaleY(1); } }
@@ -63,7 +65,7 @@
   .sp *, .sp *::after { animation: none !important; }
   .sp-ambient, .sp-lamp, .sp-word span, .sp-tag { opacity: 1; transform: none; filter: none; }
   .sp-tower { transform: none; }
-  .sp-base { stroke-dashoffset: 0; }
+  .sp-base { stroke-dashoffset: 0; opacity: 1; }
   .sp-beam, .sp-halo { display: none; }
   .sp.is-leaving { transform: none; filter: none; }
 }

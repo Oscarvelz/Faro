@@ -566,8 +566,12 @@ export function Shell() {
         <header className="top-chrome">
           <div className="top-row">
             <button type="button" className="brand-mini" onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
-              <Mark className="size-7" />
-              <span>Faro</span>
+              <span className="brand-lamp" aria-hidden>
+                <i className="brand-beam" />
+                <i className="brand-glow" />
+                <Mark className="size-7" />
+              </span>
+              <span className="brand-word">Faro</span>
               <i className={`sync-dot ${sync}`} title={t(SYNC_KEY[sync])} />
             </button>
             <div className="top-actions">
