@@ -133,26 +133,6 @@ export function Head({ kicker, title, children }: { kicker?: string; title: stri
   );
 }
 
-/** Each slice of the month ring as its own one-hue sweep: dim tail, full color, bright head,
- *  the way a light trail fades behind what drew it. */
-function cone(parts: { c: string; f: number }[], gapDeg: number) {
-  if (!parts.length) return "var(--ring-base, var(--surface-2))";
-  let at = 0;
-  const stops: string[] = [];
-  for (const p of parts) {
-    const span = p.f * 360;
-    const a = at, b = Math.max(a, at + span - gapDeg);
-    stops.push(
-      `color-mix(in oklab, ${p.c} 22%, transparent) ${a.toFixed(2)}deg`,
-      `${p.c} ${(a + (b - a) * 0.78).toFixed(2)}deg`,
-      `color-mix(in oklab, ${p.c} 72%, white) ${b.toFixed(2)}deg`,
-      `transparent ${b.toFixed(2)}deg ${(at + span).toFixed(2)}deg`,
-    );
-    at += span;
-  }
-  return `conic-gradient(from 0deg, ${stops.join(", ")}), var(--ring-base, var(--surface-2))`;
-}
-
 /* 1 · Where the month's money went: ring of five buckets. */
 export function PulseCard({ coach }: { coach: Coach }) {
   const { fmt, lang } = useFaro();
@@ -169,19 +149,21 @@ export function PulseCard({ coach }: { coach: Coach }) {
     <section className="card pano-card">
       <Head kicker={lang === "en" ? "This month" : "Este mes"} title={lang === "en" ? "Your month at a glance" : "Tu mes de un vistazo"} />
       <div className="pano-pulse">
-        <i className="pano-cone" aria-hidden style={{ background: cone(parts.map((b) => ({ c: b.color, f: b.minor / total })), parts.length > 1 ? (gap / C) * 360 : 0) }} />
-        <svg viewBox="0 0 160 160" className="pano-ring is-cone" role="img" aria-label={coach.verdict}>
+        <svg viewBox="0 0 160 160" className={`pano-ring${pick ? " has-pick" : ""}`} role="img" aria-label={coach.verdict}>
           <circle cx="80" cy="80" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="18" className="pano-ring-base" />
           {parts.map((b) => {
             const len = (b.minor / total) * C;
             const seg = (
               <circle
                 key={b.id}
-                className={`pano-seg${pick && pick !== b.id ? " is-dim" : ""}`}
+                className={`pano-seg${pick && pick !== b.id ? " is-dim" : ""}${pick === b.id ? " is-pick" : ""}`}
+                style={{ ["--c" as string]: b.color }}
                 cx="80" cy="80" r={R} fill="none" stroke={b.color} strokeWidth={pick === b.id ? 22 : 18}
                 strokeDasharray={`${Math.max(0, len - gap)} ${C}`} strokeDashoffset={-at}
                 transform="rotate(-90 80 80)"
-                onClick={() => setPick((cur) => (cur === b.id ? null : b.id))}
+                role="button" tabIndex={0} aria-label={`${b.label} ${Math.round(b.pct)}%`} aria-pressed={pick === b.id}
+                onClick={(e) => { e.stopPropagation(); setPick((cur) => (cur === b.id ? null : b.id)); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPick((cur) => (cur === b.id ? null : b.id)); } }}
               />
             );
             at += len;

@@ -188,19 +188,8 @@
 .coach-verdict, .coach-sub { text-wrap: pretty; }
 @media (max-width: 520px) { .coach-verdict { font-size: clamp(1.18rem, 5vw, 1.4rem); line-height: 1.2; } .coach-top { gap: 4px; } }
 
-/* Month ring as a conic sweep: the colored layer sits under the SVG, the SVG keeps the taps. */
-@property --sweep { syntax: "<angle>"; inherits: false; initial-value: 360deg; }
-.pano-cone {
-  position: absolute; width: min(240px, 72vw); aspect-ratio: 1; border-radius: 50%; pointer-events: none;
-  /* ring band = r 62 ± 9 of a 160 box → 66.25%..88.75% of the radius */
-  -webkit-mask: radial-gradient(closest-side, transparent 66%, #000 66.4%, #000 88.6%, transparent 89%), conic-gradient(#000 var(--sweep), transparent 0);
-  -webkit-mask-composite: source-in;
-  mask: radial-gradient(closest-side, transparent 66%, #000 66.4%, #000 88.6%, transparent 89%) intersect, conic-gradient(#000 var(--sweep), transparent 0);
-  animation: pano-sweep 1s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@keyframes pano-sweep { from { --sweep: 0deg; } }
-.pano-ring.is-cone { position: relative; }
-.pano-ring.is-cone .pano-seg { stroke: transparent; animation: none; }
-.pano-ring.is-cone .pano-seg.is-dim { stroke: var(--surface); opacity: 0.66; }
-.pano-ring.is-cone .pano-ring-base { stroke: transparent; }
-@media (prefers-reduced-motion: reduce) { .pano-cone { animation: none; } }
+/* Month ring: solid slices; a pick lifts its slice, the rest step back without going muddy. */
+.pano-seg { outline: none; }
+.pano-seg.is-dim { opacity: 0.42; }
+.pano-seg.is-pick { filter: drop-shadow(0 0 5px color-mix(in oklab, var(--c) 60%, transparent)); }
+.pano-seg:focus-visible { filter: drop-shadow(0 0 4px var(--c)); }

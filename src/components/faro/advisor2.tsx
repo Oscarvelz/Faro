@@ -6,6 +6,8 @@ import type React from "react";
 import { useFaro } from "@/components/faro/provider";
 import type { AdviceCard, SectionId } from "@/lib/faro/types";
 import type { readAdvisor } from "@/lib/faro/advisor";
+import { isTron, tronize } from "@/lib/faro/colors";
+const tc = (c: string) => (isTron() ? tronize(c) : c);
 
 type Reading = ReturnType<typeof readAdvisor>;
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
@@ -76,10 +78,10 @@ export function ShortVisual({ reading }: { reading: Reading }) {
         <div className="a2-river">
           <p className="a2-kick">{L(lang, "Todo lo que salió", "Everything that went out")} · <span className="num">{fmt(reading.outTotal)}</span></p>
           <div className="a2-river-bar">
-            {parts.map((p) => <i key={p.id} style={{ flexGrow: p.minor, background: p.c }}><b className="num">{Math.round((p.minor / total) * 100)}%</b></i>)}
+            {parts.map((p) => <i key={p.id} style={{ flexGrow: p.minor, background: tc(p.c) }}><b className="num">{Math.round((p.minor / total) * 100)}%</b></i>)}
           </div>
           <div className="a2-chips">
-            {parts.map((p) => <span key={p.id}><i style={{ background: p.c }} />{p.name}<strong className="num">{fmt(p.minor)}</strong></span>)}
+            {parts.map((p) => <span key={p.id}><i style={{ background: tc(p.c) }} />{p.name}<strong className="num">{fmt(p.minor)}</strong></span>)}
           </div>
         </div>
       ) : null}
@@ -89,8 +91,8 @@ export function ShortVisual({ reading }: { reading: Reading }) {
           {rows.map((r, i) => {
             const k = CLS[r.cls] ?? CLS.discretionary;
             return (
-              <button key={r.id} type="button" className="a2-line" style={{ ["--c" as string]: k.c, animationDelay: `${i * 50}ms` }} onClick={() => setUi({ section: sectionFor(kindOf(r.id)), highlight: r.id })}>
-                <span className="a2-line-name">{r.name}<em style={{ color: k.c }}>{lang === "en" ? k.en : k.es}</em></span>
+              <button key={r.id} type="button" className="a2-line" style={{ ["--c" as string]: tc(k.c), animationDelay: `${i * 50}ms` }} onClick={() => setUi({ section: sectionFor(kindOf(r.id)), highlight: r.id })}>
+                <span className="a2-line-name">{r.name}<em style={{ color: tc(k.c) }}>{lang === "en" ? k.en : k.es}</em></span>
                 <strong className="num">{fmt(r.minor)}</strong>
                 <ChevronRight aria-hidden />
                 <span className="a2-line-bar"><b style={{ width: `${Math.max(4, (r.minor / peak) * 100)}%` }} /></span>
@@ -98,8 +100,8 @@ export function ShortVisual({ reading }: { reading: Reading }) {
             );
           })}
           <p className="a2-foot">
-            <b style={{ color: CLS.unique.c }}>{L(lang, "Una vez", "One-time")}</b>{L(lang, ": ya salió; se puede devolver, vender o compensar. ", ": already gone; return, sell or offset it. ")}
-            <b style={{ color: CLS["essential-fixed"].c }}>{L(lang, "Cada mes", "Monthly")}</b>{L(lang, ": aquí está el ahorro que dura.", ": this is where lasting savings live.")}
+            <b style={{ color: tc(CLS.unique.c) }}>{L(lang, "Una vez", "One-time")}</b>{L(lang, ": ya salió; se puede devolver, vender o compensar. ", ": already gone; return, sell or offset it. ")}
+            <b style={{ color: tc(CLS["essential-fixed"].c) }}>{L(lang, "Cada mes", "Monthly")}</b>{L(lang, ": aquí está el ahorro que dura.", ": this is where lasting savings live.")}
           </p>
         </div>
       ) : null}
@@ -151,8 +153,8 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
       {debts.length ? (
         <div className="a2-lines">
           {debts.map((d) => (
-            <div key={d.id} className="a2-line is-static" style={{ ["--c" as string]: CLS.credit.c }}>
-              <span className="a2-line-name">{d.name}<em style={{ color: CLS.credit.c }}>{L(lang, "Cuota del mes", "This month's payment")}</em></span>
+            <div key={d.id} className="a2-line is-static" style={{ ["--c" as string]: tc(CLS.credit.c) }}>
+              <span className="a2-line-name">{d.name}<em style={{ color: tc(CLS.credit.c) }}>{L(lang, "Cuota del mes", "This month's payment")}</em></span>
               <strong className="num">{fmt(d.minor)}</strong>
               <span className="a2-line-bar"><b style={{ width: `${n.allowance > 0 ? Math.min(100, (d.minor / n.allowance) * 100) : 0}%` }} /></span>
             </div>

@@ -325,7 +325,13 @@ export function StatFold({ id, children }: { id: string; children: ReactNode }) 
       data-section={ctx.section(id)}
       style={{ order: ctx.order(id) * 2 + 1 }}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest("button, a, input, textarea, select, summary, [role='button']")) return;
+        const t = e.target as Element;
+        if (t.closest("button, a, input, textarea, select, summary, label, [role='button'], [role='tab'], [tabindex]")) return;
+        // An open card folds only from its title; taps inside the chart never close it.
+        if (open) {
+          const head = e.currentTarget.querySelector(":scope > :not(.stat-fold-tools)")?.firstElementChild;
+          if (!head || !head.contains(t)) return;
+        }
         ctx.toggle(id);
       }}
     >

@@ -2426,7 +2426,27 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 onClick={() => pickSeg(s.id)}
                 onDoubleClick={() => { setSaveOn(s.id); setOpenSave(s.id); setEditId(null); setAdding(false); setMoving(null); }}
               >
-                <b aria-hidden><i style={{ height: `${s.minor > 0 ? Math.max(12, (s.minor / savePeak) * 100) : 8}%`, background: tint, opacity: openSave && !on ? 0.35 : 1 }} /></b>
+                {(() => {
+                  // The block is a gauge with a job: Emergencia counts months of fixed bills covered;
+                  // every other pocket shows how much of this month's saving goal it holds.
+                  // Tron keeps its own segmented energy gauge; the meter is for every other theme.
+                  if (isTron()) return <b aria-hidden><i style={{ height: `${s.minor > 0 ? Math.max(12, (s.minor / savePeak) * 100) : 8}%`, background: tint, opacity: openSave && !on ? 0.35 : 1 }} /></b>;
+                  const isEmerg = s.id.endsWith(".emergencia");
+                  const months = session.ledger.settings.emergencyMonths || 3;
+                  const target = isEmerg ? summary.fixed * months : summary.savingsGoal;
+                  const fill = target > 0 ? Math.min(1, s.minor / target) : saveTotal > 0 ? s.minor / saveTotal : 0;
+                  const have = isEmerg && summary.fixed > 0 ? s.minor / summary.fixed : 0;
+                  const label = isEmerg && summary.fixed > 0
+                    ? `${have >= 10 ? Math.round(have) : (Math.floor(have * 10) / 10).toLocaleString(lang)}/${months} ${lang === "en" ? "mo" : "meses"}`
+                    : target > 0 ? `${Math.round((s.minor / target) * 100)}% ${lang === "en" ? "of goal" : "de meta"}` : `${pct}%`;
+                  const done = target > 0 && s.minor >= target;
+                  return (
+                    <b className={`save-gauge${done ? " is-full" : ""}${s.minor <= 0 ? " is-empty" : ""}`} title={label}>
+                      <i style={{ width: `${fill * 100}%`, opacity: openSave && !on ? 0.4 : 1 }} />
+                      <em>{done ? `✓ ${label}` : label}</em>
+                    </b>
+                  );
+                })()}
                 <strong>{s.name}</strong>
                 <span className="num">{fmt(s.minor)}</span>
                 <small>{pct}%</small>
