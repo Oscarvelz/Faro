@@ -1068,7 +1068,7 @@ function ToolSheet({ contained = false }: { contained?: boolean }) {
           <span className="brand-lamp" aria-hidden>
             <i className="brand-beam" />
             <i className="brand-glow" />
-            <Mark className="size-9" />
+            <Mark className="size-9" bold />
           </span>
           <span className="brand-word">Faro</span>
         </div>

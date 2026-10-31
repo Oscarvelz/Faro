@@ -328,7 +328,18 @@ export function Glyph({ name, className }: { name: string; className?: string })
   return <I className={className ?? "size-4"} strokeWidth={1.75} aria-hidden />;
 }
 
-export function Mark({ className }: { className?: string }) {
+export function Mark({ className, bold = false }: { className?: string; bold?: boolean }) {
+  if (bold) {
+    // Sturdier lighthouse for large sizes: wider lamp, tapered tower, a gallery line and a firmer base.
+    return (
+      <svg viewBox="0 0 32 32" className={className ?? "size-8"} aria-hidden>
+        <path d="M16 3.2 21.3 12.4H10.7L16 3.2Z" fill="currentColor" />
+        <path d="M13.3 13.6h5.4l1.05 10.4h-7.5L13.3 13.6Z" fill="currentColor" />
+        <path d="M11.6 13.6h8.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".75" />
+        <path d="M6.6 27.1h18.8" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 32 32" className={className ?? "size-8"} aria-hidden>
       <path d="M16 4.5 20.4 13H11.6L16 4.5Z" fill="currentColor" />
