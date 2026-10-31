@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { CoachHero, PANORAMA_IDS, PanoramaCards, panoramaLabels } from "@/components/faro/panorama";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2 } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
@@ -3236,7 +3237,8 @@ export function Study() {
   const owedFile = owedRows.filter((row) => row.archived).reduce((sum, row) => sum + convertMinor(row.unpaidMinor || cobroDue(row).left, row.currency, display, rate), 0);
   const owedPeople = [...owedActive].sort((a, b) => b.left - a.left).slice(0, 5);
   const owedPeak = Math.max(...owedPeople.map((row) => row.left), 1);
-  const visible = ["numeros", "span", "net", "bars", "where", "savebox", "owed"];
+  const panoNames = panoramaLabels(lang);
+  const visible = [...PANORAMA_IDS, "numeros", "span", "net", "bars", "where", "savebox", "owed"];
   if (summary) visible.push("mix");
   if (compare.length) visible.push("compare");
   if (board) visible.push("flow", "rate", "runway");
@@ -3253,7 +3255,9 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
+      openByDefault={[...PANORAMA_IDS]}
       items={[
+        ...PANORAMA_IDS.map((id) => ({ id, label: panoNames[id], section: "panorama" })),
         { id: "numeros", label: t("study.numbers"), section: "general" },
         { id: "span", label: t("study.span"), section: "general" },
         { id: "net", label: t("study.net"), section: "general" },
@@ -3270,6 +3274,7 @@ export function Study() {
         { id: "owed", label: t("study.owed.title"), section: "owed" },
       ]}
       sections={[
+        { id: "panorama", label: lang === "en" ? "At a glance" : "De un vistazo" },
         { id: "general", label: t("study.sec.general") },
         { id: "income", label: t("study.sec.income") },
         { id: "spend", label: t("study.sec.spend") },
@@ -3280,6 +3285,7 @@ export function Study() {
     >
     <StudyStack>
       <StatBreaks />
+      <PanoramaCards />
       {insights.length === 0 ? <p>{t("stats.need")}</p> : null}
       <StatFold id="numeros">
         <section className="card">
@@ -3515,6 +3521,7 @@ export function Advisor() {
   }
   return (
     <div className="advice-stack">
+      <CoachHero />
       <label className="unfold-all">
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />
         <span>{t("study.unfold")}</span>
@@ -3530,7 +3537,7 @@ export function Advisor() {
             return (
               <button key={id} type="button" className={`advice-fig is-${toneOf(id)}${spreadParts || openPart === id ? " is-open" : ""}`} aria-expanded={spreadParts || openPart === id} onClick={() => { setSpreadParts(false); setOpenPart((cur) => (cur === id ? null : id)); }}>
                 <em><span>{part.label}</span><ChevronDown className={spreadParts || openPart === id ? "advice-fig-chev is-open" : "advice-fig-chev"} /></em>
-                <strong className="num">{shown > 0 ? `+${fmt(shown)}` : fmt(shown)}</strong>
+                <strong className="num">{shown > 0 ? `+${fmt(shown)}` : shown < 0 ? `−${fmt(-shown)}` : fmt(0)}</strong>
               </button>
             );
           })}
@@ -3602,7 +3609,7 @@ export function Advisor() {
         const Icon = mark[card.horizon];
         const open = cardOn(card.horizon);
         const rows = card.points.filter((point) => {
-          if (card.horizon === "short" && (point.label === "Base" || point.label === "Únicas" || point.label === "Apartado" || point.label === "One-offs" || point.label === "Transfer")) return false;
+          if (card.horizon === "short" && (["Base", "Únicas", "Apartado", "One-offs", "Transfer", "De siempre", "De una vez", "Ahorro", "Usual", "One-time", "Saved"].includes(point.label))) return false;
           return card.horizon === "short" || !point.emphasis;
         });
         return (

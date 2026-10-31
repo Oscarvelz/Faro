@@ -1,0 +1,519 @@
+// Coach: turns one month of the books into plain language and simple pictures.
+// Everything here is read-only; it never writes the ledger.
+import { readAdvisor, type ReadLine } from "./advisor";
+import { savingsPicture } from "./awake";
+import { colorFor } from "./colors";
+import { convertMinor, formatMoney, formatPct } from "./money";
+import type { Currency, Lang, LedgerState, Line } from "./types";
+
+type Namer = {
+  cat: (id: string) => string;
+  sub: (id: string) => string;
+  purchase: (id: string) => string;
+  catalog: (id: string) => string;
+};
+
+export type Tone = "good" | "warn" | "bad" | "neutral";
+export type BucketId = "needs" | "wants" | "debt" | "save" | "free";
+export type Bucket = { id: BucketId; label: string; hint: string; minor: number; pct: number; ideal: number | null; color: string; lineIds: string[] };
+export type Cell = { id: string; name: string; color: string; count: number; minor: number; lineIds: string[] };
+export type Pillar = { id: string; label: string; score: number; value: string; note: string; tip: string; tone: Tone };
+export type Mover = { id: string; name: string; now: number; before: number; delta: number; color: string };
+export type Step = { id: string; title: string; detail: string; impactMinor: number; tone: Tone };
+export type Due = { id: string; name: string; minor: number; day: string; inDays: number };
+export type MonthNet = { key: string; label: string; income: number; expense: number; net: number; rate: number | null; current: boolean };
+export type CoachLine = { id: string; name: string; minor: number; category: string; kind: string };
+
+export type Coach = {
+  currency: Currency;
+  income: number;
+  spend: number;
+  saved: number;
+  left: number;
+  score: number;
+  scoreLabel: string;
+  scoreTone: Tone;
+  verdict: string;
+  verdictSub: string;
+  base100: "income" | "spend";
+  buckets: Bucket[];
+  per100: Cell[];
+  per100Line: string;
+  pillars: Pillar[];
+  movers: Mover[];
+  moversNote: string;
+  hasPrior: boolean;
+  perDay: number;
+  daysInMonth: number;
+  coverDays: number | null;
+  paceNote: string;
+  steps: Step[];
+  dues: Due[];
+  months: MonthNet[];
+  historyNote: string;
+  cushionMonths: number | null;
+  cushionTarget: number;
+  needsMonthly: number;
+  lines: CoachLine[];
+  glossary: { term: string; plain: string }[];
+};
+
+const PALETTE = { needs: "#7fb2a0", wants: "#e0a35c", debt: "#d0837a", save: "#7fa6cf", free: "#c9d6a3" };
+
+function L(lang: Lang, es: string, en: string) {
+  return lang === "en" ? en : es;
+}
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+function shiftKey(key: string, delta: number) {
+  const d = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1 + delta, 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
+function clamp(n: number, lo = 0, hi = 100) {
+  return Math.max(lo, Math.min(hi, n));
+}
+function viewOf(line: Line, display: Currency, rateE4: number) {
+  if (!line.active) return 0;
+  return convertMinor(line.amountMinor, line.currency, display, rateE4);
+}
+function roleOf(state: LedgerState, categoryId: string) {
+  return state.structure.categories.find((c) => c.id === categoryId)?.role ?? "";
+}
+function monthTotals(state: LedgerState, key: string) {
+  const { display, rateE4 } = state.settings;
+  let income = 0;
+  let expense = 0;
+  let saved = 0;
+  for (const line of state.months[key]?.lines ?? []) {
+    const n = viewOf(line, display, rateE4);
+    if (!n) continue;
+    if (line.kind.startsWith("income")) income += n;
+    else if (roleOf(state, line.categoryId) === "savings") saved += n;
+    else expense += n;
+  }
+  return { income, expense, saved };
+}
+
+/** Largest-remainder rounding so the cells always add up to exactly 100. */
+function toHundred(parts: { minor: number }[], whole: number): number[] {
+  if (whole <= 0) return parts.map(() => 0);
+  const raw = parts.map((p) => (p.minor / whole) * 100);
+  const floor = raw.map((r) => Math.floor(r));
+  let rest = 100 - floor.reduce((a, b) => a + b, 0);
+  const order = raw.map((r, i) => ({ i, frac: r - Math.floor(r) })).sort((a, b) => b.frac - a.frac);
+  for (const item of order) {
+    if (rest <= 0) break;
+    floor[item.i] += 1;
+    rest -= 1;
+  }
+  return floor;
+}
+
+export function readCoach(state: LedgerState, key: string, lang: Lang, names: Namer, today: Date = new Date()): Coach {
+  const { display, rateE4, savingsGoalPct, debtGreenPct, debtYellowPct, emergencyMonths } = state.settings;
+  const money = (n: number) => formatMoney(n, display, lang);
+  const pct = (n: number | null) => formatPct(n, lang);
+  const unit = display === "USD" ? "$100" : "C$100";
+  const reading = readAdvisor(state, key, lang, names, { today });
+  const read: ReadLine[] = reading.lines;
+  const income = reading.income;
+  const lineById = new Map((state.months[key]?.lines ?? []).map((line) => [line.id, line]));
+
+  const sumOf = (pred: (l: ReadLine) => boolean) => read.filter(pred).reduce((a, l) => a + l.minor, 0);
+  const idsOf = (pred: (l: ReadLine) => boolean) => read.filter(pred).map((l) => l.id);
+  const isNeed = (l: ReadLine) => l.cls === "essential-fixed" || l.cls === "essential-variable";
+  const isWant = (l: ReadLine) => l.cls === "discretionary" || l.cls === "unique";
+  const isDebt = (l: ReadLine) => l.cls === "credit";
+  const isSave = (l: ReadLine) => l.cls === "transfer";
+  const needs = sumOf(isNeed);
+  const wants = sumOf(isWant);
+  const debt = sumOf(isDebt);
+  const saved = sumOf(isSave);
+  const spend = needs + wants + debt;
+  const left = income - spend - saved;
+  const free = Math.max(0, left);
+  const base = income > 0 && income >= spend + saved ? income : spend + saved;
+  const share = (n: number) => (base > 0 ? (n / base) * 100 : 0);
+
+  const buckets: Bucket[] = [
+    { id: "needs", label: L(lang, "Necesidades", "Needs"), hint: L(lang, "Casa, comida, transporte, salud, familia: lo que no se puede dejar de pagar.", "Home, food, transport, health, family: what you can't stop paying."), minor: needs, pct: share(needs), ideal: 50, color: PALETTE.needs, lineIds: idsOf(isNeed) },
+    { id: "wants", label: L(lang, "Gustos", "Wants"), hint: L(lang, "Lo que eliges: salidas, compras, plataformas, antojos.", "What you choose: outings, shopping, streaming, treats."), minor: wants, pct: share(wants), ideal: 30, color: PALETTE.wants, lineIds: idsOf(isWant) },
+    { id: "debt", label: L(lang, "Deudas", "Debt"), hint: L(lang, "Cuotas de tarjetas y préstamos.", "Card and loan payments."), minor: debt, pct: share(debt), ideal: null, color: PALETTE.debt, lineIds: idsOf(isDebt) },
+    { id: "save", label: L(lang, "Ahorro", "Savings"), hint: L(lang, "Lo que mandaste a tus bolsas de ahorro.", "What you moved into your savings pockets."), minor: saved, pct: share(saved), ideal: 20, color: PALETTE.save, lineIds: idsOf(isSave) },
+    { id: "free", label: L(lang, "Te queda", "Left over"), hint: L(lang, "Lo que todavía no tiene destino.", "Money that has no job yet."), minor: free, pct: share(free), ideal: null, color: PALETTE.free, lineIds: [] },
+  ];
+
+  // Where each 100 goes, by category (top 6, the rest together, then savings and what is left).
+  const byCat = new Map<string, Cell>();
+  for (const l of read) {
+    if (isSave(l)) continue;
+    const id = l.categoryId || "other";
+    const cell = byCat.get(id) ?? { id, name: l.category, color: colorFor(state.structure, id), count: 0, minor: 0, lineIds: [] };
+    cell.minor += l.minor;
+    cell.lineIds.push(l.id);
+    byCat.set(id, cell);
+  }
+  const cats = [...byCat.values()].sort((a, b) => b.minor - a.minor);
+  const top = cats.slice(0, 6);
+  const rest = cats.slice(6);
+  const cells: Cell[] = [...top];
+  if (rest.length) cells.push({ id: "rest", name: L(lang, "Lo demás", "Everything else"), color: "#8b97a8", count: 0, minor: rest.reduce((a, c) => a + c.minor, 0), lineIds: rest.flatMap((c) => c.lineIds) });
+  if (saved > 0) cells.push({ id: "save", name: L(lang, "Ahorro", "Savings"), color: PALETTE.save, count: 0, minor: saved, lineIds: idsOf(isSave) });
+  if (free > 0) cells.push({ id: "free", name: L(lang, "Te queda", "Left over"), color: PALETTE.free, count: 0, minor: free, lineIds: [] });
+  const counts = toHundred(cells, base);
+  cells.forEach((cell, i) => (cell.count = counts[i] ?? 0));
+  const per100 = cells.filter((c) => c.count > 0);
+  const base100: Coach["base100"] = income > 0 && income >= spend + saved ? "income" : "spend";
+  const firstThree = per100.filter((c) => c.id !== "free").slice(0, 3).map((c) => `${c.count} ${L(lang, "en", "on")} ${c.name.toLowerCase()}`);
+  const freeCell = per100.find((c) => c.id === "free");
+  const per100Line = base <= 0
+    ? L(lang, "Todavía no hay movimientos este mes.", "No movements this month yet.")
+    : L(
+        lang,
+        `De cada ${unit} que ${base100 === "income" ? "entran" : "salen"}: ${firstThree.join(", ")}${freeCell ? ` y te quedan ${freeCell.count}` : ""}.`,
+        `Of every ${unit} that ${base100 === "income" ? "comes in" : "goes out"}: ${firstThree.join(", ")}${freeCell ? `, and ${freeCell.count} stay with you` : ""}.`,
+      );
+
+  // Savings stock and cushion.
+  const pic = savingsPicture(state, key);
+  const needsMonthly = needs + debt;
+  const cushionStock = pic.emergencia > 0 ? pic.emergencia : pic.savingsTotal - pic.retiro;
+  const cushionMonths = needsMonthly > 0 ? cushionStock / needsMonthly : null;
+  const cushionTarget = emergencyMonths || 3;
+
+  // Pillars, each 0-100.
+  const spendPct = income > 0 ? (spend / income) * 100 : null;
+  const saveRate = income > 0 ? (saved / income) * 100 : null;
+  const debtPct = income > 0 ? (debt / income) * 100 : null;
+  const fixedShare = income > 0 ? (reading.incomeFixed / income) * 100 : null;
+  const tone = (score: number): Tone => (score >= 75 ? "good" : score >= 45 ? "warn" : "bad");
+  const pillars: Pillar[] = [];
+  {
+    const s = spendPct === null ? 0 : clamp(((100 - spendPct) / 30) * 100);
+    pillars.push({
+      id: "spend",
+      label: L(lang, "Gasto", "Spending"),
+      score: Math.round(s),
+      value: spendPct === null ? "—" : L(lang, `${pct(spendPct)} del ingreso`, `${pct(spendPct)} of income`),
+      note: spendPct === null
+        ? L(lang, "Falta anotar el ingreso para medirlo.", "Income is missing, so it can't be measured.")
+        : spendPct <= 70
+          ? L(lang, "Gastas bastante menos de lo que entra. Eso te da aire.", "You spend well under what comes in. That gives you room.")
+          : spendPct < 100
+            ? L(lang, "Alcanza, pero con poco margen para imprevistos.", "It covers, but with little room for surprises.")
+            : L(lang, "Sale más de lo que entra. Ese hueco se paga con ahorro o con deuda.", "More goes out than comes in. That gap gets paid with savings or debt."),
+      tip: L(lang, "Meta sana: gastar 70% o menos de lo que entra.", "Healthy target: spend 70% or less of what comes in."),
+      tone: tone(s),
+    });
+  }
+  {
+    const goal = savingsGoalPct > 0 ? savingsGoalPct : 10;
+    const s = saveRate === null ? 0 : clamp((saveRate / goal) * 100);
+    pillars.push({
+      id: "save",
+      label: L(lang, "Ahorro", "Saving"),
+      score: Math.round(s),
+      value: saveRate === null ? "—" : L(lang, `${pct(saveRate)} (meta ${goal}%)`, `${pct(saveRate)} (goal ${goal}%)`),
+      note: saved <= 0
+        ? L(lang, "Este mes no mandaste nada a tus bolsas de ahorro.", "Nothing went into your savings pockets this month.")
+        : s >= 100
+          ? L(lang, "Cumpliste tu meta de ahorro. Muy bien.", "You hit your savings goal. Well done.")
+          : L(lang, `Vas en ${money(saved)} de ${money(Math.round((income * goal) / 100))}.`, `You're at ${money(saved)} of ${money(Math.round((income * goal) / 100))}.`),
+      tip: L(lang, "Ahorra apenas te pagan, no con lo que sobra al final.", "Save as soon as you're paid, not with what's left at the end."),
+      tone: tone(s),
+    });
+  }
+  {
+    let s = 100;
+    if (debtPct !== null && debtPct > debtGreenPct) {
+      s = debtPct <= debtYellowPct
+        ? 100 - ((debtPct - debtGreenPct) / Math.max(1, debtYellowPct - debtGreenPct)) * 50
+        : clamp(50 - ((debtPct - debtYellowPct) / Math.max(1, debtYellowPct * 0.5)) * 50);
+    }
+    pillars.push({
+      id: "debt",
+      label: L(lang, "Deudas", "Debt"),
+      score: Math.round(s),
+      value: debt <= 0 ? L(lang, "Sin cuotas", "No payments") : L(lang, `${pct(debtPct)} del ingreso`, `${pct(debtPct)} of income`),
+      note: debt <= 0
+        ? L(lang, "No tienes pagos de crédito anotados este mes.", "No credit payments recorded this month.")
+        : (debtPct ?? 0) <= debtGreenPct
+          ? L(lang, "Tus cuotas están en zona cómoda.", "Your payments are in the comfortable zone.")
+          : (debtPct ?? 0) <= debtYellowPct
+            ? L(lang, "Las cuotas ya aprietan. Evita sumar deudas nuevas.", "Payments are getting tight. Avoid adding new debt.")
+            : L(lang, "Las deudas se llevan demasiado. Ataca primero la de tasa más alta.", "Debt takes too much. Attack the highest-rate one first."),
+      tip: L(lang, `Zona cómoda: hasta ${debtGreenPct}% de lo que entra.`, `Comfortable zone: up to ${debtGreenPct}% of what comes in.`),
+      tone: tone(s),
+    });
+  }
+  {
+    const s = cushionMonths === null ? 0 : clamp((cushionMonths / cushionTarget) * 100);
+    pillars.push({
+      id: "cushion",
+      label: L(lang, "Colchón", "Cushion"),
+      score: Math.round(s),
+      value: cushionMonths === null ? "—" : L(lang, `${cushionMonths.toFixed(1)} de ${cushionTarget} meses`, `${cushionMonths.toFixed(1)} of ${cushionTarget} months`),
+      note: cushionMonths === null
+        ? L(lang, "Anota tus gastos para saber cuánto colchón necesitas.", "Record your bills to know how big a cushion you need.")
+        : cushionMonths < 0.5
+          ? L(lang, "Si mañana dejara de entrar dinero, no tendrías con qué cubrir un mes.", "If money stopped coming in tomorrow, you couldn't cover a month.")
+          : cushionMonths < cushionTarget
+            ? L(lang, `Aguantarías unos ${cushionMonths.toFixed(1)} meses sin ingresos.`, `You could last about ${cushionMonths.toFixed(1)} months without income.`)
+            : L(lang, "Tu colchón ya cubre la meta. Lo que ahorres de más puede ir a metas.", "Your cushion covers the goal. Extra savings can go to goals."),
+      tip: L(lang, `El colchón es dinero para un golpe: ${cushionTarget} meses de lo esencial (${money(needsMonthly * cushionTarget)}).`, `A cushion is money for a shock: ${cushionTarget} months of essentials (${money(needsMonthly * cushionTarget)}).`),
+      tone: tone(s),
+    });
+  }
+  {
+    const s = fixedShare === null ? 0 : clamp((fixedShare / 80) * 100);
+    pillars.push({
+      id: "steady",
+      label: L(lang, "Estabilidad", "Stability"),
+      score: Math.round(s),
+      value: fixedShare === null ? "—" : L(lang, `${pct(fixedShare)} es seguro`, `${pct(fixedShare)} is steady`),
+      note: fixedShare === null
+        ? L(lang, "Sin ingresos anotados.", "No income recorded.")
+        : fixedShare >= 80
+          ? L(lang, "Casi todo lo que entra es fijo: puedes planear con calma.", "Almost all income is steady: you can plan calmly.")
+          : L(lang, `Solo ${money(reading.incomeFixed)} entra seguro cada mes. Paga lo esencial con eso y trata lo demás como extra.`, `Only ${money(reading.incomeFixed)} comes in for sure each month. Cover essentials with that and treat the rest as extra.`),
+      tip: L(lang, "Ingreso seguro: salario o lo que llega casi seguro cada mes.", "Steady income: salary or what arrives almost surely every month."),
+      tone: tone(s),
+    });
+  }
+  const weights: Record<string, number> = { spend: 0.3, save: 0.2, debt: 0.2, cushion: 0.2, steady: 0.1 };
+  const score = income > 0 ? Math.round(pillars.reduce((a, p) => a + p.score * (weights[p.id] ?? 0), 0)) : 0;
+  const scoreTone: Tone = income <= 0 ? "neutral" : score >= 75 ? "good" : score >= 50 ? "warn" : "bad";
+  const scoreLabel = income <= 0
+    ? L(lang, "Sin datos", "No data")
+    : score >= 80
+      ? L(lang, "Sólida", "Solid")
+      : score >= 65
+        ? L(lang, "Bien encaminada", "On track")
+        : score >= 45
+          ? L(lang, "Por ajustar", "Needs tuning")
+          : L(lang, "En alerta", "On alert");
+
+  // Verdict in one breath.
+  const biggest = cats[0];
+  const verdict = income <= 0
+    ? L(lang, "Anota lo que te entra este mes y te digo cómo vas.", "Add what comes in this month and I'll tell you how you're doing.")
+    : left >= 0
+      ? L(lang, `Este mes entran ${money(income)} y te quedan ${money(left)} libres.`, `This month ${money(income)} comes in and ${money(left)} is left free.`)
+      : L(lang, `Este mes sale ${money(-left)} más de lo que entra.`, `This month ${money(-left)} more goes out than comes in.`);
+  const verdictSub = !biggest || base <= 0
+    ? ""
+    : L(
+        lang,
+        `Lo que más pesa es ${biggest.name.toLowerCase()}: ${money(biggest.minor)}, unos ${Math.round(share(biggest.minor))} de cada ${unit}.`,
+        `Your heaviest item is ${biggest.name.toLowerCase()}: ${money(biggest.minor)}, about ${Math.round(share(biggest.minor))} of every ${unit}.`,
+      );
+
+  // Movers vs previous month, by category.
+  const prevKey = shiftKey(key, -1);
+  const prevLines = state.months[prevKey]?.lines ?? [];
+  const hasPrior = prevLines.some((l) => l.active);
+  const prevByCat = new Map<string, number>();
+  for (const line of prevLines) {
+    if (line.kind.startsWith("income") || roleOf(state, line.categoryId) === "savings") continue;
+    const id = line.categoryId || "other";
+    prevByCat.set(id, (prevByCat.get(id) ?? 0) + viewOf(line, display, rateE4));
+  }
+  const catName = (id: string) => names.cat(id) || names.purchase(id) || id;
+  const moverIds = new Set([...byCat.keys(), ...prevByCat.keys()]);
+  const movers: Mover[] = hasPrior
+    ? [...moverIds]
+        .map((id) => {
+          const now = byCat.get(id)?.minor ?? 0;
+          const before = prevByCat.get(id) ?? 0;
+          return { id, name: byCat.get(id)?.name ?? catName(id), now, before, delta: now - before, color: colorFor(state.structure, id) };
+        })
+        .filter((m) => m.delta !== 0)
+        .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+        .slice(0, 6)
+    : [];
+  const up = movers.filter((m) => m.delta > 0)[0];
+  const down = movers.filter((m) => m.delta < 0)[0];
+  const moversNote = !hasPrior
+    ? L(lang, "Cuando tengas el mes anterior anotado, aquí verás qué subió y qué bajó.", "Once last month is recorded, you'll see here what went up and down.")
+    : !movers.length
+      ? L(lang, "Gastaste casi igual que el mes pasado.", "You spent about the same as last month.")
+      : [
+          up ? L(lang, `${up.name} subió ${money(up.delta)}.`, `${up.name} went up ${money(up.delta)}.`) : "",
+          down ? L(lang, `${down.name} bajó ${money(-down.delta)}.`, `${down.name} went down ${money(-down.delta)}.`) : "",
+        ].filter(Boolean).join(" ");
+
+  // Pace: how many days the income lasts at this month's daily spend.
+  const daysInMonth = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate() || 30;
+  const perDay = Math.round((spend + saved) / daysInMonth);
+  const coverDays = perDay > 0 && income > 0 ? Math.floor(income / perDay) : null;
+  const paceNote = coverDays === null
+    ? L(lang, "Anota ingresos y gastos para ver tu ritmo.", "Record income and spending to see your pace.")
+    : coverDays >= daysInMonth
+      ? L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra te alcanza para ${coverDays} días: el mes completo y ${coverDays - daysInMonth} más.`, `You spend about ${money(perDay)} a day. At that pace your income lasts ${coverDays} days: the whole month and ${coverDays - daysInMonth} more.`)
+      : L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra se acaba el día ${coverDays} y faltan ${daysInMonth - coverDays} días.`, `You spend about ${money(perDay)} a day. At that pace your income runs out on day ${coverDays}, ${daysInMonth - coverDays} days short.`);
+
+  // Upcoming dated payments.
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dues: Due[] = [];
+  const seen = new Set<string>();
+  for (const k of [key, shiftKey(key, 1)]) {
+    for (const line of state.months[k]?.lines ?? []) {
+      if (!line.active || line.kind.startsWith("income")) continue;
+      const when = (line.nextDue || "").slice(0, 10);
+      if (!when) continue;
+      const sig = `${line.seriesId || line.id}:${when}`;
+      if (seen.has(sig)) continue;
+      const day = new Date(`${when}T12:00:00`);
+      const inDays = Math.round((day.getTime() - start.getTime()) / 86400000);
+      if (inDays < 0 || inDays > 35) continue;
+      seen.add(sig);
+      dues.push({ id: line.id, name: line.concept || catName(line.categoryId), minor: viewOf(line, display, rateE4), day: when, inDays });
+    }
+  }
+  dues.sort((a, b) => a.inDays - b.inDays);
+
+  // Twelve months ending at this one.
+  const months: MonthNet[] = [];
+  for (let i = 11; i >= 0; i -= 1) {
+    const k = shiftKey(key, -i);
+    const t = monthTotals(state, k);
+    const label = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" }).format(new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 1)).replace(".", "");
+    months.push({ key: k, label, income: t.income, expense: t.expense, net: t.income - t.expense - t.saved, rate: t.income > 0 ? (t.saved / t.income) * 100 : null, current: k === key });
+  }
+  const active = months.filter((m) => m.income > 0 || m.expense > 0);
+  const green = active.filter((m) => m.net >= 0).length;
+  const historyNote = active.length <= 1
+    ? L(lang, "Con cada mes que anotes, esta línea cuenta tu historia.", "Each month you record adds to this story.")
+    : L(lang, `De ${active.length} meses anotados, ${green} cerraron a favor.`, `Of ${active.length} recorded months, ${green} closed ahead.`);
+
+  // Steps: the three most useful things to do, with what they are worth.
+  const steps: Step[] = [];
+  if (income <= 0) {
+    steps.push({ id: "income", title: L(lang, "Anota lo que te entra", "Add your income"), detail: L(lang, "Sin el ingreso no puedo decirte cuánto te queda ni si vas bien.", "Without income I can't tell you what's left or how you're doing."), impactMinor: 0, tone: "warn" });
+  }
+  if (income > 0 && left < 0) {
+    const cut = read.filter(isWant).sort((a, b) => b.minor - a.minor)[0];
+    steps.push({
+      id: "gap",
+      title: L(lang, `Cierra el hueco de ${money(-left)}`, `Close the ${money(-left)} gap`),
+      detail: cut
+        ? L(lang, `Lo más fácil de mover es ${cut.name} (${money(cut.minor)}). ${cut.cls === "unique" ? "Si fue una compra de una vez, el próximo mes no se repite." : "Pausarlo un mes te devuelve ese dinero."}`, `The easiest thing to move is ${cut.name} (${money(cut.minor)}). ${cut.cls === "unique" ? "If it was a one-time buy, it won't repeat next month." : "Pausing it for a month gives that money back."}`)
+        : L(lang, "Revisa tus gastos más grandes primero: ahí está el cambio que se nota.", "Check your largest bills first: that's where change shows."),
+      impactMinor: -left,
+      tone: "bad",
+    });
+  }
+  const goalMinor = Math.round((income * (savingsGoalPct || 10)) / 100);
+  if (income > 0 && left > 0 && saved < goalMinor) {
+    const move = Math.min(left, goalMinor - saved);
+    steps.push({
+      id: "save",
+      title: L(lang, `Aparta ${money(move)} hoy`, `Set aside ${money(move)} today`),
+      detail: L(lang, `Te quedan ${money(left)} sin destino. Si los mueves ahora a tu ahorro, cumples tu meta del ${savingsGoalPct || 10}% y no se van en gastos pequeños.`, `You have ${money(left)} with no job. Move it to savings now and you meet your ${savingsGoalPct || 10}% goal before small spending eats it.`),
+      impactMinor: move,
+      tone: "good",
+    });
+  }
+  if (cushionMonths !== null && cushionMonths < cushionTarget && needsMonthly > 0) {
+    const gap = Math.max(0, Math.round(needsMonthly * cushionTarget - cushionStock));
+    const monthly = Math.max(saved, Math.round(income * 0.1));
+    const monthsTo = monthly > 0 ? Math.ceil(gap / monthly) : null;
+    steps.push({
+      id: "cushion",
+      title: L(lang, "Arma tu colchón", "Build your cushion"),
+      detail: monthsTo
+        ? L(lang, `Te faltan ${money(gap)} para cubrir ${cushionTarget} meses de lo esencial. Con ${money(monthly)} al mes lo logras en unos ${monthsTo} meses.`, `You need ${money(gap)} more to cover ${cushionTarget} months of essentials. With ${money(monthly)} a month you'd get there in about ${monthsTo} months.`)
+        : L(lang, `Te faltan ${money(gap)} para cubrir ${cushionTarget} meses de lo esencial.`, `You need ${money(gap)} more to cover ${cushionTarget} months of essentials.`),
+      impactMinor: gap,
+      tone: "warn",
+    });
+  }
+  if (income > 0 && share(wants) > 35) {
+    const target = Math.round(base * 0.3);
+    steps.push({
+      id: "wants",
+      title: L(lang, `Baja los gustos a 30%`, `Bring wants down to 30%`),
+      detail: L(lang, `Hoy los gustos se llevan ${Math.round(share(wants))} de cada ${unit}. Llevarlos a 30 libera ${money(wants - target)} al mes.`, `Wants take ${Math.round(share(wants))} of every ${unit} today. Bringing them to 30 frees ${money(wants - target)} a month.`),
+      impactMinor: wants - target,
+      tone: "warn",
+    });
+  }
+  if (debtPct !== null && debtPct > debtGreenPct) {
+    steps.push({
+      id: "debt",
+      title: L(lang, "Afloja las deudas", "Ease your debt"),
+      detail: L(lang, `Las cuotas se llevan ${pct(debtPct)} de lo que entra. No abras crédito nuevo y paga extra a la de tasa más alta.`, `Payments take ${pct(debtPct)} of income. Open no new credit and pay extra on the highest-rate one.`),
+      impactMinor: debt,
+      tone: "warn",
+    });
+  }
+  const subs = (state.months[key]?.lines ?? []).filter((l) => l.active && l.kind === "subscription");
+  const subsMinor = subs.reduce((a, l) => a + viewOf(l, display, rateE4), 0);
+  if (subsMinor > 0) {
+    steps.push({
+      id: "subs",
+      title: L(lang, "Revisa tus cuotas", "Review subscriptions"),
+      detail: L(lang, `Tus ${subs.length} cuota${subs.length === 1 ? "" : "s"} suman ${money(subsMinor)} al mes, ${money(subsMinor * 12)} al año. Cancela la que no usaste este mes.`, `Your ${subs.length} subscription${subs.length === 1 ? "" : "s"} add up to ${money(subsMinor)} a month, ${money(subsMinor * 12)} a year. Cancel the one you didn't use this month.`),
+      impactMinor: subsMinor * 12,
+      tone: "neutral",
+    });
+  }
+  if (reading.vagueName) {
+    steps.push({
+      id: "vague",
+      title: L(lang, `Ponle nombre a «${reading.vagueName}»`, `Name “${reading.vagueName}”`),
+      detail: L(lang, `Son ${money(reading.vagueMinor)} y el nombre no dice qué es. Lo que no se nombra no se puede mejorar.`, `It's ${money(reading.vagueMinor)} and the name doesn't say what it is. What isn't named can't be improved.`),
+      impactMinor: reading.vagueMinor,
+      tone: "neutral",
+    });
+  }
+  if (income > 0 && left >= 0 && saved >= goalMinor && steps.length === 0) {
+    steps.push({ id: "keep", title: L(lang, "Sigue así", "Keep it up"), detail: L(lang, "Cubres lo tuyo y cumples tu ahorro. Lo que sobra puede ir a una meta con fecha.", "You cover your bills and meet your savings. What's left can go to a goal with a date."), impactMinor: Math.max(0, left), tone: "good" });
+  }
+
+  const lines: CoachLine[] = read.map((l) => ({ id: l.id, name: l.name, minor: l.minor, category: l.category, kind: lineById.get(l.id)?.kind ?? "" }));
+
+  const glossary = [
+    { term: L(lang, "Necesidades", "Needs"), plain: buckets[0]!.hint },
+    { term: L(lang, "Gustos", "Wants"), plain: buckets[1]!.hint },
+    { term: L(lang, "Colchón", "Cushion"), plain: L(lang, "Dinero guardado solo para emergencias: si pierdes el trabajo, te enfermas o se daña algo.", "Money kept only for emergencies: losing a job, getting sick, something breaking.") },
+    { term: L(lang, "Ingreso seguro", "Steady income"), plain: L(lang, "Lo que llega casi seguro cada mes, como el salario.", "What arrives almost surely every month, like a salary.") },
+    { term: L(lang, "Compra de una vez", "One-time buy"), plain: L(lang, "Algo que no se repite cada mes, como un electrodoméstico.", "Something that doesn't repeat monthly, like an appliance.") },
+    { term: L(lang, "Regla 50/30/20", "50/30/20 rule"), plain: L(lang, "Una guía sencilla: 50 de cada 100 a necesidades, 30 a gustos y 20 al ahorro o a pagar deudas.", "A simple guide: 50 of every 100 to needs, 30 to wants, and 20 to savings or paying debt.") },
+  ];
+
+  return {
+    currency: display,
+    income,
+    spend,
+    saved,
+    left,
+    score,
+    scoreLabel,
+    scoreTone,
+    verdict,
+    verdictSub,
+    base100,
+    buckets,
+    per100,
+    per100Line,
+    pillars,
+    movers,
+    moversNote,
+    hasPrior,
+    perDay,
+    daysInMonth,
+    coverDays,
+    paceNote,
+    steps: steps.slice(0, 3),
+    dues,
+    months,
+    historyNote,
+    cushionMonths,
+    cushionTarget,
+    needsMonthly,
+    lines,
+    glossary,
+  };
+}

@@ -1,0 +1,212 @@
+/* Faro sign-in: night sea, a lighthouse beam, and a glass card. */
+.gate {
+  --gold: #f4c670;
+  --gold-2: #e9a94a;
+  --ink: #e9eef5;
+  --ink-2: #a9b6c8;
+  --ink-3: #74839a;
+  --glass: rgba(255, 255, 255, 0.055);
+  --glass-line: rgba(255, 255, 255, 0.12);
+  position: relative;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 22px;
+  padding: calc(56px + env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom));
+  color: var(--ink);
+  background:
+    radial-gradient(120% 60% at 50% -10%, #1b2d44 0%, transparent 60%),
+    linear-gradient(180deg, #060a12 0%, #0a1320 55%, #0b1828 100%);
+  isolation: isolate;
+}
+.gate-sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.gate-stars {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(1.2px 1.2px at 12% 18%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 28% 8%, #dfe8ff 50%, transparent 51%),
+    radial-gradient(1.4px 1.4px at 44% 26%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 63% 12%, #cfdcff 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 78% 22%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 90% 6%, #dfe8ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 6% 38%, #cfdcff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 93% 40%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 52% 4%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 35% 44%, #b9c9ee 50%, transparent 51%);
+  opacity: 0.8;
+  animation: gate-twinkle 6s ease-in-out infinite alternate;
+}
+.gate-stars.is-far {
+  background-image:
+    radial-gradient(0.8px 0.8px at 18% 30%, #fff 50%, transparent 51%),
+    radial-gradient(0.8px 0.8px at 38% 16%, #fff 50%, transparent 51%),
+    radial-gradient(0.8px 0.8px at 58% 34%, #fff 50%, transparent 51%),
+    radial-gradient(0.8px 0.8px at 72% 6%, #fff 50%, transparent 51%),
+    radial-gradient(0.8px 0.8px at 84% 30%, #fff 50%, transparent 51%),
+    radial-gradient(0.8px 0.8px at 24% 52%, #fff 50%, transparent 51%),
+    radial-gradient(0.8px 0.8px at 66% 50%, #fff 50%, transparent 51%);
+  opacity: 0.45;
+  animation-duration: 9s;
+  animation-direction: alternate-reverse;
+}
+/* The beam turns around the lamp of the logo. */
+.gate-beam {
+  position: absolute;
+  left: 50%;
+  top: calc(84px + env(safe-area-inset-top));
+  width: 220vmax;
+  height: 220vmax;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(244, 198, 112, 0.16) 8deg, rgba(244, 198, 112, 0.05) 18deg, transparent 26deg, transparent 180deg, rgba(244, 198, 112, 0.10) 188deg, rgba(244, 198, 112, 0.03) 198deg, transparent 206deg);
+  -webkit-mask: radial-gradient(circle, #000 0%, #000 22%, transparent 48%);
+  mask: radial-gradient(circle, #000 0%, #000 22%, transparent 48%);
+  animation: gate-sweep 14s linear infinite;
+}
+.gate-sea { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 22vh; }
+.gate-sea .wave-a { fill: rgba(30, 60, 92, 0.35); animation: gate-drift 9s ease-in-out infinite alternate; }
+.gate-sea .wave-b { fill: rgba(12, 30, 50, 0.85); animation: gate-drift 12s ease-in-out infinite alternate-reverse; }
+@keyframes gate-sweep { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes gate-twinkle { from { opacity: 0.35; } to { opacity: 0.85; } }
+@keyframes gate-drift { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
+
+.gate-lang {
+  position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 14px;
+  display: inline-flex; gap: 2px; padding: 3px;
+  border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  color: var(--ink-3); font: inherit; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em;
+}
+.gate-lang span { padding: 6px 10px; border-radius: 999px; }
+.gate-lang span[aria-current="true"] { background: rgba(244, 198, 112, 0.16); color: var(--gold); }
+
+.gate-brand { display: grid; justify-items: center; gap: 4px; text-align: center; position: relative; }
+.gate-lamp {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px;
+  color: var(--gold);
+  background: radial-gradient(circle at 50% 30%, rgba(244, 198, 112, 0.28), rgba(244, 198, 112, 0.04) 60%, transparent 70%);
+  filter: drop-shadow(0 0 18px rgba(244, 198, 112, 0.45));
+}
+.gate-brand h1 { margin: 2px 0 0; font-size: clamp(3rem, 15vw, 4.2rem); line-height: 0.95; letter-spacing: -0.04em; font-weight: 560; color: #f6f1e7; }
+.gate-brand p { margin: 0; color: var(--ink-2); font-size: 0.98rem; }
+
+.gate-card {
+  position: relative;
+  width: min(430px, 100%);
+  display: grid; gap: 14px;
+  padding: 18px 18px 16px;
+  border-radius: 28px;
+  border: 1px solid var(--glass-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03));
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 30px 60px rgba(0, 0, 0, 0.45);
+  animation: gate-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes gate-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.gate-title { margin: 2px 0 0; font-size: 1.7rem; letter-spacing: -0.02em; font-weight: 560; }
+.gate-lead { margin: 0; color: var(--ink-2); font-size: 0.92rem; line-height: 1.45; }
+
+.gate-switch {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr;
+  padding: 4px; border-radius: 999px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--glass-line);
+}
+.gate-switch > i {
+  position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(244, 198, 112, 0.22), rgba(244, 198, 112, 0.10));
+  border: 1px solid rgba(244, 198, 112, 0.35);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gate-switch[data-on="up"] > i { transform: translateX(100%); }
+.gate-switch button {
+  position: relative; min-height: 42px; border: 0; background: none; font: inherit; font-weight: 600;
+  color: var(--ink-3); border-radius: 999px; transition: color 0.2s;
+}
+.gate-switch button[aria-selected="true"] { color: var(--gold); }
+
+.gate-form { display: grid; gap: 10px; }
+.gate-field {
+  position: relative; display: block;
+  border-radius: 16px; border: 1px solid var(--glass-line); background: rgba(3, 8, 16, 0.45);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.gate-field:focus-within { border-color: rgba(244, 198, 112, 0.6); box-shadow: 0 0 0 4px rgba(244, 198, 112, 0.10); }
+.gate-field.is-bad { border-color: rgba(232, 128, 116, 0.7); }
+.gate-field.is-good { border-color: rgba(142, 205, 160, 0.6); }
+.gate-field > svg:first-child { position: absolute; left: 14px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+.gate-field:focus-within > svg:first-child { color: var(--gold); }
+.gate-field input {
+  width: 100%; min-height: 58px; padding: 22px 46px 6px 44px;
+  border: 0; outline: none; background: transparent; color: var(--ink); font: inherit; font-size: 16px;
+}
+.gate-field input:-webkit-autofill { -webkit-text-fill-color: var(--ink); transition: background-color 9999s; }
+.gate-field > span {
+  position: absolute; left: 44px; top: 50%; transform: translateY(-50%);
+  color: var(--ink-3); font-size: 0.98rem; pointer-events: none;
+  transition: top 0.18s, font-size 0.18s, color 0.18s;
+}
+.gate-field input:focus + span,
+.gate-field input:not(:placeholder-shown) + span { top: 15px; font-size: 0.7rem; letter-spacing: 0.04em; color: var(--ink-2); }
+.gate-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; display: grid; place-items: center; border: 0; background: none; color: var(--ink-3); border-radius: 12px; }
+.gate-eye svg { width: 18px; height: 18px; }
+.gate-ok { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: #8ecda0; }
+
+.gate-pass { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.gate-info {
+  width: 44px; height: 44px; display: grid; place-items: center; border-radius: 999px;
+  border: 1px solid var(--glass-line); background: var(--glass); color: var(--ink-2);
+}
+.gate-info svg { width: 18px; height: 18px; }
+.gate-info.is-on { color: var(--gold); border-color: rgba(244, 198, 112, 0.45); background: rgba(244, 198, 112, 0.10); }
+.gate-tip {
+  position: relative; display: grid; gap: 6px; padding: 12px 40px 12px 14px;
+  border-radius: 16px; border: 1px solid rgba(244, 198, 112, 0.30); background: rgba(244, 198, 112, 0.07);
+  font-size: 0.86rem; line-height: 1.45; color: var(--ink);
+  animation: gate-rise 0.25s ease both;
+}
+.gate-tip p { margin: 0; }
+.gate-tip b { color: var(--gold); font-weight: 600; }
+.gate-tip button { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; display: grid; place-items: center; border: 0; background: none; color: var(--ink-3); }
+.gate-tip button svg { width: 16px; height: 16px; }
+
+.gate-meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; align-items: center; padding: 0 4px; }
+.gate-meter i { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.10); transition: background-color 0.25s; }
+.gate-meter span { grid-column: 1 / -1; font-size: 0.76rem; color: var(--ink-3); }
+.gate-meter.s1 i:nth-child(-n+1) { background: #e8a074; }
+.gate-meter.s2 i:nth-child(-n+3) { background: var(--gold); }
+.gate-meter.s3 i { background: #8ecda0; }
+.gate-meter.s1 span { color: #e8a074; }
+.gate-meter.s2 span { color: var(--gold); }
+.gate-meter.s3 span { color: #8ecda0; }
+
+.gate-note { margin: 0; font-size: 0.86rem; color: var(--ink-2); padding: 0 4px; }
+.gate-note.is-bad { color: #f0a197; }
+
+.gate-go {
+  position: relative; overflow: hidden; min-height: 54px; margin-top: 4px;
+  border: 0; border-radius: 16px; font: inherit; font-weight: 650; font-size: 1.02rem; letter-spacing: 0.01em;
+  color: #1d1406;
+  background: linear-gradient(180deg, #f8d58c, var(--gold) 45%, var(--gold-2));
+  box-shadow: 0 10px 28px rgba(233, 169, 74, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 0.15s, opacity 0.2s, filter 0.2s;
+}
+.gate-go::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-120%);
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  animation: gate-shine 4.5s ease-in-out infinite 1.2s;
+}
+.gate-go:active { transform: scale(0.98); }
+.gate-go:disabled { filter: grayscale(0.6) brightness(0.7); box-shadow: none; }
+.gate-go:disabled::after { animation: none; }
+@keyframes gate-shine { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+
+.gate-link { justify-self: center; min-height: 40px; border: 0; background: none; font: inherit; font-size: 0.9rem; color: var(--ink-2); text-decoration: underline; text-decoration-color: rgba(255, 255, 255, 0.25); text-underline-offset: 4px; }
+.gate-foot { width: min(430px, 100%); margin: 0; text-align: center; font-size: 0.78rem; line-height: 1.5; color: var(--ink-3); }
+
+@media (min-height: 860px) { .gate { padding-top: calc(10vh + env(safe-area-inset-top)); } .gate-beam { top: calc(10vh + 28px + env(safe-area-inset-top)); } }
+@media (prefers-reduced-motion: reduce) {
+  .gate-beam, .gate-stars, .gate-sea path, .gate-go::after, .gate-card { animation: none; }
+}

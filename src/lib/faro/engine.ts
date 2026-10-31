@@ -734,18 +734,18 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
 
   const shortPoints: AdviceCard["points"] = [
     {
-      label: L(lang, "Base", "Base"),
+      label: L(lang, "De siempre", "Usual"),
       value: money(reading.baseSurplus),
       note: reading.parts.base.rule,
       emphasis: true,
     },
     {
-      label: L(lang, "Únicas", "One-offs"),
+      label: L(lang, "De una vez", "One-time"),
       value: money(reading.parts.unique.signed),
       note: reading.parts.unique.rule,
     },
     {
-      label: L(lang, "Apartado", "Transfer"),
+      label: L(lang, "Ahorro", "Saved"),
       value: money(reading.parts.transfer.signed),
       note: reading.parts.transfer.rule,
     },
@@ -759,7 +759,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
   }
   if (reading.classificationError) {
     shortPoints.push({
-      label: L(lang, "Clasificación", "Classification"),
+      label: L(lang, "Ojo con esto", "Heads up"),
       value: money(reading.naiveFixed),
       note: reading.classificationError,
     });
@@ -770,7 +770,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       value: money(reading.realSpend),
       note: L(
         lang,
-        `Sin apartados. La salida total es ${money(reading.outTotal)}; el apartado de ${money(reading.transferMinor)} no es gasto.`,
+        `Sin contar ahorro. En total salieron ${money(reading.outTotal)}, pero ${money(reading.transferMinor)} fueron a tu ahorro y siguen siendo tuyos.`,
         `Without transfers. Total outflow is ${money(reading.outTotal)}; the ${money(reading.transferMinor)} transfer is not spending.`,
       ),
     });
@@ -783,10 +783,10 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       note: L(
         lang,
         row.cls === "transfer"
-          ? "Es un apartado, no un gasto. Va primero por tamaño."
+          ? "Es ahorro, no gasto. Aparece arriba solo por su tamaño."
           : row.cls === "unique"
-            ? "Parece único — sin confirmar. Ya salió: se devuelve, se vende o se compensa."
-            : "Se repite. No es la palanca de este mes si hay partidas más grandes.",
+            ? "Parece compra de una vez. Ya salió: se puede devolver, vender o compensar."
+            : "Se repite cada mes. Si hay gastos más grandes, empieza por esos.",
         row.cls === "transfer"
           ? "It is a transfer, not spending. It comes first because of its size."
           : row.cls === "unique"
@@ -804,7 +804,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
   }
   if (reading.antNote) {
     shortPoints.push({
-      label: L(lang, "Después de lo grande", "After the large lines"),
+      label: L(lang, "Gastos hormiga", "Small leaks"),
       value: L(lang, "Orden", "Housekeeping"),
       note: reading.antNote,
     });
@@ -812,7 +812,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
 
   const spentCaption = L(
     lang,
-    `Gasto real ${money(reading.realSpend)}. Salida total ${money(reading.outTotal)}. ${reading.toneLabel}`,
+    `Gastaste ${money(reading.realSpend)} (sin contar ahorro). ${reading.toneLabel}`,
     `Real spend ${money(reading.realSpend)}. Total outflow ${money(reading.outTotal)}. ${reading.toneLabel}`,
   );
 
@@ -824,7 +824,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       mediumBits.push({
         label: name,
         value: money(pay),
-        note: L(lang, "Pago de este mes. Anota el saldo, la tasa anual y el pago mínimo, y te digo en cuántos meses termina. Sin esos tres datos no hay plazo.", "This month's payment. Enter the balance, the annual rate, and the minimum payment, and I will say how many months are left. Without those three there is no payoff date."),
+        note: L(lang, "Cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.", "This month's payment. Enter the balance, the annual rate, and the minimum payment, and I will say how many months are left. Without those three there is no payoff date."),
       });
       continue;
     }
@@ -866,7 +866,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
 
   const mediumLead = (() => {
     if (!debts.length || s.debt <= 0) {
-      return L(lang, "Este mes no hay créditos. No invento un plazo.", "No credit this month. I will not invent a payoff date.");
+      return L(lang, "Este mes no hay pagos de crédito.", "No credit payments this month.");
     }
     const load = s.debtPct !== null
       ? L(lang, `, el ${pct(s.debtPct)} de lo que entra.`, `, ${pct(s.debtPct)} of what comes in.`)
@@ -874,21 +874,21 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     if (s.tone === "bad") {
       return L(
         lang,
-        `Pagas ${money(s.debt)}${load} Pasaste el techo de ${state.settings.debtYellowPct}% que te marcaste.`,
+        `Pagas ${money(s.debt)}${load} Ya pasaste el límite de ${state.settings.debtYellowPct}% que te pusiste: evita deudas nuevas.`,
         `You pay ${money(s.debt)}${load} That is past the ${state.settings.debtYellowPct}% ceiling you set.`,
       );
     }
     if (s.tone === "warn") {
       return L(
         lang,
-        `Pagas ${money(s.debt)}${load} Estás entre el tope cómodo (${state.settings.debtGreenPct}%) y el techo (${state.settings.debtYellowPct}%).`,
+        `Pagas ${money(s.debt)}${load} Ya pasaste la zona cómoda (${state.settings.debtGreenPct}%), pero sigues bajo tu límite (${state.settings.debtYellowPct}%).`,
         `You pay ${money(s.debt)}${load} You are between the easy cap (${state.settings.debtGreenPct}%) and the ceiling (${state.settings.debtYellowPct}%).`,
       );
     }
     const missing = debts.some((d) => d.balanceMinor === null);
     return L(
       lang,
-      `Pagas ${money(s.debt)}${load} Tu zona cómoda llega a ${money(s.debtAllowance)}. El pago está bien.${missing ? " Faltan el saldo, la tasa anual y el pago mínimo para saber el plazo." : ""}`,
+      `Pagas ${money(s.debt)}${load} Tu zona cómoda llega a ${money(s.debtAllowance)}. El pago está bien.${missing ? " Anota cuánto debes, la tasa y el pago mínimo para saber cuándo terminas." : ""}`,
       `You pay ${money(s.debt)}${load} Your easy zone goes up to ${money(s.debtAllowance)}. The payment is fine.${missing ? " The balance, the annual rate, and the minimum payment are missing, so the payoff date is too." : ""}`,
     );
   })();
@@ -908,19 +908,19 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
 
   const longLead = oneMonth
     ? yearFigure < 0
-      ? L(lang, "Si la base recurrente se repite, el año cierra con un hueco. No es un pronóstico: es la cuenta si nada cambia.", "If the repeating base repeats, the year closes with a hole. That is not a forecast. It is the arithmetic if nothing changes.")
-      : L(lang, "Si la base recurrente se repite, esto es lo que quedaría en un año. Las compras únicas no entran. No es un pronóstico: es la cuenta si nada cambia.", "If the repeating base repeats, this is what a year would leave. One-off purchases are not included. That is not a forecast. It is the arithmetic if nothing changes.")
+      ? L(lang, "Si cada mes fuera como este (sin compras de una vez), el año cerraría con un hueco. No es una predicción: es la cuenta si nada cambia.", "If the repeating base repeats, the year closes with a hole. That is not a forecast. It is the arithmetic if nothing changes.")
+      : L(lang, "Si cada mes fuera como este (sin compras de una vez), esto es lo que te quedaría en un año. No es una predicción: es la cuenta si nada cambia.", "If the repeating base repeats, this is what a year would leave. One-off purchases are not included. That is not a forecast. It is the arithmetic if nothing changes.")
     : yearFigure < 0
-      ? L(lang, `En ${keys.length} meses el promedio de la base cierra en rojo. Doce meses así siguen en hueco. No es un pronóstico: es la cuenta si nada cambia.`, `Across ${keys.length} months the base average closes in the red. Twelve months like that stay short. That is not a forecast. It is the arithmetic if nothing changes.`)
-      : L(lang, `En ${keys.length} meses, esto es el promedio de la base llevado a un año. Las únicas no entran. No es un pronóstico: es la cuenta si nada cambia.`, `Across ${keys.length} months, this is the base average carried to a year. One-offs are not included. That is not a forecast. It is the arithmetic if nothing changes.`);
+      ? L(lang, `En ${keys.length} meses, lo de cada mes cierra en rojo en promedio. Doce meses así dejan un hueco. No es una predicción: es la cuenta si nada cambia.`, `Across ${keys.length} months the base average closes in the red. Twelve months like that stay short. That is not a forecast. It is the arithmetic if nothing changes.`)
+      : L(lang, `Tu promedio de ${keys.length} meses, llevado a un año. Sin compras de una vez. No es una predicción: es la cuenta si nada cambia.`, `Across ${keys.length} months, this is the base average carried to a year. One-offs are not included. That is not a forecast. It is the arithmetic if nothing changes.`);
 
   const longPoints: AdviceCard["points"] = [
     {
       label: yearFigure < 0 ? L(lang, "Hueco en un año", "Hole in a year") : L(lang, "En un año", "In a year"),
       value: money(Math.abs(yearFigure)),
       note: oneMonth
-        ? L(lang, "Sale de multiplicar la base recurrente (sin compras únicas ni apartados) por doce. No es un pronóstico: es la cuenta si nada cambia.", "It comes from multiplying the repeating base (no one-off purchases, no transfers) by twelve. That is not a forecast. It is the arithmetic if nothing changes.")
-        : L(lang, `Sale del promedio de la base recurrente: ${money(avgBase)} al mes. No es un pronóstico: es la cuenta si nada cambia.`, `It comes from the average repeating base: ${money(avgBase)} a month. That is not a forecast. It is the arithmetic if nothing changes.`),
+        ? L(lang, "Lo que te sobra de tus gastos de cada mes, por doce. Sin compras de una vez ni ahorro.", "It comes from multiplying the repeating base (no one-off purchases, no transfers) by twelve. That is not a forecast. It is the arithmetic if nothing changes.")
+        : L(lang, `Sale de lo que te sobra en promedio cada mes: ${money(avgBase)}.`, `It comes from the average repeating base: ${money(avgBase)} a month. That is not a forecast. It is the arithmetic if nothing changes.`),
       emphasis: true,
     },
   ];
@@ -928,14 +928,14 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     longPoints.push({
       label: L(lang, "Colchón", "Cushion"),
       value: money(emergencyTarget),
-      note: L(lang, `${state.settings.emergencyMonths} × esenciales reales (${money(reading.recurrentMinor)}). El colchón es dinero guardado para un golpe; la meta sana son esos meses. No incluye apartados.`, `${state.settings.emergencyMonths} × real essentials (${money(reading.recurrentMinor)}). The cushion is money kept for a shock; a sound goal is that many months. Transfers are not included.`),
+      note: L(lang, `${state.settings.emergencyMonths} meses de tus gastos de cada mes (${money(reading.recurrentMinor)}). Es dinero guardado solo para emergencias: perder el trabajo, una enfermedad, algo que se daña.`, `${state.settings.emergencyMonths} × real essentials (${money(reading.recurrentMinor)}). The cushion is money kept for a shock; a sound goal is that many months. Transfers are not included.`),
     });
     longPoints.push({
       label: L(lang, "Ya anotado", "Already recorded"),
       value: stock > 0 ? money(stock) : L(lang, "Nada", "Nothing"),
       note: stock > 0
         ? L(lang, "Saldo que pusiste en una línea de ahorro.", "Balance you entered on a savings line.")
-        : L(lang, "Todavía no hay un saldo de fondo. Anótalo en esa línea y el plazo se vuelve real.", "There is no fund balance yet. Enter it on that line and the timeline becomes real."),
+        : L(lang, "Todavía no anotaste cuánto tienes ahorrado. Anótalo en tu línea de ahorro y el cálculo se vuelve real.", "There is no fund balance yet. Enter it on that line and the timeline becomes real."),
     });
     if (gapFund > 0) {
       longPoints.push({
@@ -971,7 +971,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       label: L(lang, "Ahorro del mes", "Saved this month"),
       value: money(s.savingsFlow),
       note: s.opportunity < 0
-        ? L(lang, "El mes está en rojo. Este apartado es una decisión a revisar, no un logro. Mover dinero no cuenta como tasa de ahorro (de cada $100 que entran, cuántos quedan) si se gastó más de lo que entró.", "The month is in the red. This transfer is a decision to review, not a win. Moving money does not count as a savings rate (of each $100 that comes in, how many are left) if spending was higher than income.")
+        ? L(lang, "El mes cerró en rojo, así que este ahorro en realidad salió de otro lado. Vale la pena revisar si era el momento de ahorrarlo.", "The month is in the red. This transfer is a decision to review, not a win. Moving money does not count as a savings rate (of each $100 that comes in, how many are left) if spending was higher than income.")
         : L(lang, "Lo que ya moviste a una categoría de ahorro. No es lo mismo que lo que queda.", "What you already moved to a savings category. It is not the same as what is left."),
     });
   }
@@ -993,16 +993,16 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     title: L(lang, "Cómo va mi crédito", "How is my credit"),
     lead: mediumLead,
     body: "",
-    evidence: L(lang, `Pagos ${money(s.debt)} · Tope cómodo ${money(s.debtAllowance)}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}`),
+    evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}`),
     points: mediumBits,
-    meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `El pago usa el ${pct(s.debtPct)} del ingreso. El tope cómodo es ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,
+    meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,
   };
   const longCard: AdviceCard = {
     horizon: "long",
-    title: L(lang, "Y si la base se repite", "What if the base repeats"),
+    title: L(lang, "Si cada mes fuera así", "If every month were like this"),
     lead: longLead,
     body: "",
-    evidence: L(lang, `Meses con datos: ${keys.length || (lines.length ? 1 : 0)}. Colchón: ${state.settings.emergencyMonths} meses de esenciales reales.`, `Months with data: ${keys.length || (lines.length ? 1 : 0)}. Cushion: ${state.settings.emergencyMonths} months of real essentials.`),
+    evidence: L(lang, `Meses con datos: ${keys.length || (lines.length ? 1 : 0)}. Colchón: ${state.settings.emergencyMonths} meses de tus gastos esenciales.`, `Months with data: ${keys.length || (lines.length ? 1 : 0)}. Cushion: ${state.settings.emergencyMonths} months of real essentials.`),
     points: longPoints,
     meter: emergencyTarget > 0 ? { pct: fundMeterPct, caption: stock >= emergencyTarget ? L(lang, "El fondo anotado ya cubre el colchón.", "The recorded fund already covers the cushion.") : L(lang, `Llevas el ${pct(fundMeterPct)} del colchón.`, `You have ${pct(fundMeterPct)} of the cushion.`) } : null,
   };

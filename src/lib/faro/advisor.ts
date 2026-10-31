@@ -256,7 +256,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     transferInsideFixed > 0
       ? L(
           lang,
-          `Los “fijos” de ${money(naiveFixed)} incluyen el apartado de ${money(transferInsideFixed)}. Un apartado no es gasto ni es fijo: es un error de clasificación.`,
+          `Tus “fijos” de ${money(naiveFixed)} incluyen ${money(transferInsideFixed)} que en realidad es ahorro. Ahorrar no es gastar: muévelo a la categoría Ahorro y tus fijos se verán como son.`,
           `The “fixed” total of ${money(naiveFixed)} includes the ${money(transferInsideFixed)} transfer. A transfer is not spending and it is not fixed: that is a classification error.`,
         )
       : null;
@@ -274,7 +274,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     pocketAside === 0 && savingsFlow > 0
       ? L(
           lang,
-          `Apartado del mes marca ${money(0)} y Ahorro marca ${money(savingsFlow)}. Hay que reconciliar las bolsas: mover a una cuenta no es lo mismo que apartar en la meta.`,
+          `Mandaste ${money(savingsFlow)} a una cuenta de ahorro, pero tus metas (Meta, Retiro, Emergencia) siguen en ${money(0)}. Decide a cuál meta va ese dinero para que el avance se vea.`,
           `This month's set-aside shows ${money(0)} and Savings shows ${money(savingsFlow)}. The pockets have to be reconciled: moving money to an account is not the same as funding the goal.`,
         )
       : null;
@@ -287,7 +287,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const creditAsk = !debtTermKnown && debtMinor > 0
     ? L(
         lang,
-        "Del crédito solo puedo juzgar la carga de este mes. Anota el saldo, la tasa anual y el pago mínimo: sin esos tres datos no hay plazo.",
+        "Por ahora solo veo la cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.",
         "On the credit I can only judge this month's load. Enter the balance, the annual rate, and the minimum payment: without those three there is no payoff date.",
       )
     : null;
@@ -322,7 +322,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     const share = income > 0 ? (big.minor / income) * 100 : null;
     const note = L(
       lang,
-      `${big.category} no es un hábito. ${money(big.minor)} es una sola compra (${big.name})${share !== null ? `, el ${pct(share)} de lo que entra` : ""}. Lo que sí se repite en esa categoría son ${money(recurrentSum)}${recurrent[0] ? ` (${recurrent.map((line) => line.name).join(", ")})` : ""}.`,
+      `${big.category} no es un hábito: ${money(big.minor)} fue una sola compra (${big.name})${share !== null ? `, el ${pct(share)} de lo que entra` : ""}. Lo que sí se repite ahí cada mes son ${money(recurrentSum)}${recurrent[0] ? ` (${recurrent.map((line) => line.name).join(", ")})` : ""}.`,
       `${big.category} is not a habit. ${money(big.minor)} is one purchase (${big.name})${share !== null ? `, ${pct(share)} of what comes in` : ""}. What does repeat in that category is ${money(recurrentSum)}${recurrent[0] ? ` (${recurrent.map((line) => line.name).join(", ")})` : ""}.`,
     );
     if (!splitNote || big.minor > ironmanMinor) {
@@ -341,7 +341,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const vagueQuestion = vague
     ? L(
         lang,
-        `${vague.name} son ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} de lo que entra)` : ""} y el nombre no dice qué es. ¿Qué es ${vague.name}, antes de aconsejar sobre esa partida?`,
+        `«${vague.name}» son ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} de lo que entra)` : ""}, pero el nombre no dice qué es. Ponle un nombre claro y te digo si conviene moverlo.`,
         `${vague.name} is ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} of what comes in)` : ""} and the name does not say what it is. What is ${vague.name}, before any advice on that line?`,
       )
     : null;
@@ -351,12 +351,12 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     prior.length === 0
       ? L(
           lang,
-          "Es el primer mes con datos. No hay promedio de 3 ni de 6 meses. Las compras únicas se quedan como eventos y no entran a un promedio.",
+          "Es tu primer mes con datos, así que todavía no hay promedios para comparar. Las compras de una vez no cuentan como hábito.",
           "This is the first month with data. There is no 3-month or 6-month average. One-off purchases stay events and do not enter an average.",
         )
       : L(
           lang,
-          `Comparo solo lo recurrente contra ${prior.length} mes${prior.length === 1 ? "" : "es"} previo${prior.length === 1 ? "" : "s"}. Las únicas no entran al promedio.`,
+          `Comparo solo lo que se repite contra ${prior.length} mes${prior.length === 1 ? "" : "es"} anterior${prior.length === 1 ? "" : "es"}. Las compras de una vez no entran al promedio.`,
           `I compare only what repeats against ${prior.length} earlier month${prior.length === 1 ? "" : "s"}. One-offs do not enter the average.`,
         );
 
@@ -369,7 +369,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     .sort((a, b) => a.day.localeCompare(b.day));
   let paceNote = L(
     lang,
-    `El gasto que se repite son ${money(perDay)} al día. No invento días de pista (cuántos días podrías vivir si mañana no entrara nada): no hay un saldo de caja anotado.`,
+    `Lo que se repite cada mes te cuesta ${money(perDay)} al día. Si anotas cuánto tienes en el banco, te digo cuántos días aguantarías si dejara de entrar dinero.`,
     `Repeating spending is ${money(perDay)} a day. I will not invent runway days (how many days you could last if nothing else came in): there is no cash balance on file.`,
   );
   if (dated.length && income > 0) {
@@ -382,18 +382,18 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     paceNote = crossed
       ? L(
           lang,
-          `El día en que el mes no alcanza es el ${crossed.day}, cuando entra ${crossed.name}. No es un promedio ciego: es esa salida.`,
+          `El ${crossed.day}, con ${crossed.name}, lo que sale pasa a ser más de lo que entra. Ese es el día que hay que cuidar.`,
           `The day the month stops covering is ${crossed.day}, when ${crossed.name} lands. That is not a blind average: it is that outflow.`,
         )
       : L(
           lang,
-          `Con las fechas anotadas, ninguna salida cruza el ingreso por sí sola. El gasto que se repite son ${money(perDay)} al día.`,
+          `Con las fechas anotadas, ningún pago deja el mes en rojo. Lo que se repite te cuesta ${money(perDay)} al día.`,
           `With the dates on file, no single outflow crosses income by itself. Repeating spending is ${money(perDay)} a day.`,
         );
   } else if (uniqueMinor > 0 && left < 0) {
     paceNote = L(
       lang,
-      `No hay fechas, así que no invento un día de quiebre. El hueco no es un ritmo diario: son compras únicas de ${money(uniqueMinor)} que ya salieron.`,
+      `El hueco no viene del gasto de todos los días: son compras de una vez por ${money(uniqueMinor)} que ya salieron. Ponles fecha a tus pagos y te digo qué día aprieta.`,
       `There are no dates, so I will not invent a break day. The hole is not a daily pace: it is ${money(uniqueMinor)} of one-off purchases that already left.`,
     );
   }
@@ -412,15 +412,15 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     ? L(
         lang,
         loud.length
-          ? `En 30 días hay ${upcoming.length} salidas fechadas. ${loud.length} pasan el aviso (${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
-          : `En 30 días hay ${upcoming.length} salidas fechadas. Ninguna pasa el aviso de ${money(warnAt)}.`,
+          ? `En los próximos 30 días tienes ${upcoming.length} pagos con fecha. Los más grandes (más de ${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
+          : `En los próximos 30 días tienes ${upcoming.length} pagos con fecha, ninguno mayor de ${money(warnAt)}.`,
         loud.length
           ? `The next 30 days have ${upcoming.length} dated outflows. ${loud.length} cross the warning (${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
           : `The next 30 days have ${upcoming.length} dated outflows. None cross the ${money(warnAt)} warning.`,
       )
     : L(
         lang,
-        "No hay salidas con fecha en los próximos 30 días. Sin fecha no aviso un vencimiento.",
+        "No hay pagos con fecha en los próximos 30 días. Ponles fecha a tus pagos fijos y te aviso antes de que venzan.",
         "No outflows are dated in the next 30 days. With no date I will not warn about a due day.",
       );
 
@@ -428,7 +428,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const antNote = subs.length
     ? L(
         lang,
-        `${subs.map((line) => `${line.name} ${money(line.minor)} al mes son ${money(line.minor * 12)} al año`).join(". ")}. Esto no cierra tu hueco; es orden, no rescate. El gasto hormiga (gastos chiquitos que se repiten) importa después de las partidas grandes.`,
+        `${subs.map((line) => `${line.name}: ${money(line.minor)} al mes son ${money(line.minor * 12)} al año`).join(". ")}. Revísalas, pero primero mira lo grande: los gastos hormiga (chiquitos que se repiten) importan después.`,
         `${subs.map((line) => `${line.name} ${money(line.minor)} a month is ${money(line.minor * 12)} a year`).join(". ")}. This does not close your hole; it is housekeeping, not a rescue. Leak spending (small repeats you stop noticing) comes after the large lines.`,
       )
     : null;
@@ -447,10 +447,10 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const tone: Reading["tone"] = income <= 0 ? "amber" : !red ? "good" : atypical ? "amber" : "bad";
   const toneLabel =
     tone === "good"
-      ? L(lang, "Verde: la base cierra.", "Green: the base closes.")
+      ? L(lang, "Vas bien: tus gastos de cada mes caben en lo que entra.", "You're on track: your monthly bills fit in what comes in.")
       : tone === "amber"
-        ? L(lang, "Ámbar: atípico, manejable. No es una emergencia de todos los meses.", "Amber: unusual, manageable. Not an every-month emergency.")
-        : L(lang, "Rojo: la base ya no alcanza. Eso sí hay que bajar o cubrir.", "Red: the base itself does not cover. That does have to come down or be covered.");
+        ? L(lang, "Mes raro, pero manejable: lo desbalancearon compras de una vez, no tu día a día.", "An unusual month, but manageable: one-time buys tipped it, not your everyday spending.")
+        : L(lang, "Alerta: tus gastos de cada mes ya no caben en lo que entra. Hay que bajar algo o subir el ingreso.", "Alert: your monthly bills no longer fit in what comes in. Something has to come down or income has to go up.");
 
   const cushionMinor = recurrentMinor * (state.settings.emergencyMonths || 3);
   const goalMinor = income > 0 ? Math.round((income * state.settings.savingsGoalPct) / 100) : 0;
@@ -461,86 +461,86 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   if (income <= 0) {
     headline = L(
       lang,
-      "Este mes no tiene ingresos. Sin eso no juzgo porcentajes ni invento un plan. Anota lo que entra.",
+      "Este mes todavía no tiene ingresos. Anota lo que te entra y te digo cómo vas.",
       "This month has no income. Without it I will not judge percents or invent a plan. Enter what comes in.",
     );
-    action = L(lang, "Acción #1: anota el ingreso de este mes, aunque sea uno.", "Action #1: enter this month's income, even one line.");
+    action = L(lang, "Qué hacer: anota el ingreso de este mes, aunque sea uno.", "What to do: enter this month's income, even one line.");
   } else if (baseSurplus < 0 && uniqueMinor === 0) {
     headline = L(
       lang,
-      `Hay un déficit estructural (tus gastos de siempre, sin compras únicas, ya son más grandes que el ingreso): ${money(baseSurplus)}. Eso no se arregla esperando.`,
+      `Tus gastos de cada mes, sin contar compras de una vez, ya son más grandes que lo que entra: faltan ${money(-baseSurplus)}. Esto no se arregla solo.`,
       `There is a structural deficit (your usual bills, without one-off purchases, are already larger than income): ${money(baseSurplus)}. Waiting does not fix that.`,
     );
     action = L(
       lang,
-      `Acción #1: baja un gasto que se repite o sube el ingreso piso en al menos ${money(-baseSurplus)}.`,
+      `Qué hacer: baja un gasto que se repite o consigue un ingreso seguro de al menos ${money(-baseSurplus)} al mes.`,
       `Action #1: lower a repeating bill or raise the income floor by at least ${money(-baseSurplus)}.`,
     );
   } else if (atypical && transferMinor > 0) {
     headline = L(
       lang,
-      `No falló tu gasto diario. Lo rompieron ${uniqueCount} compras grandes y un apartado en el mes equivocado.`,
+      `Tu día a día está bien. Lo que desbalanceó el mes fueron ${uniqueCount} compra${uniqueCount === 1 ? "" : "s"} grande${uniqueCount === 1 ? "" : "s"} y un ahorro que salió en el peor momento.`,
       `Your daily spending did not fail. ${uniqueCount} large purchases and a transfer in the wrong month broke it.`,
     );
     action = L(
       lang,
-      `Acción #1: decide el apartado. Si esos ${money(transferMinor)} pueden cubrir el hueco, la deuda real del mes baja a ${money(Math.abs(leftIfTransferCovers))}. Si eran intocables, el plan es otro.`,
+      `Qué hacer: decide qué pasa con los ${money(transferMinor)} que ahorraste. Si pueden tapar el hueco, lo que falta baja a ${money(Math.abs(leftIfTransferCovers))}. Si son intocables, hay que recortar en otro lado.`,
       `Action #1: decide the transfer. If that ${money(transferMinor)} can cover the hole, the month's real gap falls to ${money(Math.abs(leftIfTransferCovers))}. If it was untouchable, the plan is different.`,
     );
   } else if (atypical) {
     headline = L(
       lang,
-      `No falló tu gasto diario. Lo rompieron ${uniqueCount} compras grandes. La base, sin ellas, cerraba ${money(baseSurplus)}.`,
+      `Tu día a día está bien. Lo que desbalanceó el mes fueron ${uniqueCount} compra${uniqueCount === 1 ? "" : "s"} grande${uniqueCount === 1 ? "" : "s"}. Sin ellas, te sobraban ${money(baseSurplus)}.`,
       `Your daily spending did not fail. ${uniqueCount} large purchases broke it. The base, without them, closed at ${money(baseSurplus)}.`,
     );
     action = biggestUnique
       ? L(
           lang,
-          `Acción #1: revisa si ${biggestUnique.name} (${money(biggestUnique.minor)}) admite devolución o se compensa. Ya se gastó: no se “baja” del día a día.`,
+          `Qué hacer: mira si ${biggestUnique.name} (${money(biggestUnique.minor)}) se puede devolver o vender. Ya se gastó, así que recortar el día a día no lo arregla.`,
           `Action #1: check whether ${biggestUnique.name} (${money(biggestUnique.minor)}) can be returned or offset. It is already spent: it cannot be “cut” from everyday spending.`,
         )
-      : L(lang, "Acción #1: anota qué compra fue única y cuál se repite.", "Action #1: mark which purchase was one-off and which one repeats.");
+      : L(lang, "Qué hacer: marca qué compra fue de una vez y cuál se repite.", "What to do: mark which purchase was one-time and which repeats.");
   } else if (!red) {
     headline = L(
       lang,
-      `La base cierra a favor: ${money(baseSurplus)}. ${uniqueMinor > 0 ? `Las compras únicas son ${money(uniqueMinor)}.` : "No hay compras únicas que recortar."}`,
+      `Tus gastos de cada mes caben y te sobran ${money(baseSurplus)}. ${uniqueMinor > 0 ? `Aparte hubo ${money(uniqueMinor)} en compras de una vez.` : "No hubo compras grandes de una vez."}`,
       `The base closes ahead: ${money(baseSurplus)}. ${uniqueMinor > 0 ? `One-off purchases are ${money(uniqueMinor)}.` : "There are no one-off purchases to cut."}`,
     );
     action = L(
       lang,
-      `Acción #1: no recortes lo que ya cabe. Si vas a apartar, hazlo con lo que sobra (${money(Math.max(0, left))}), no con dinero del gasto.`,
+      `Qué hacer: no recortes lo que ya cabe. Si vas a ahorrar, usa lo que sobra (${money(Math.max(0, left))}) antes de que se vaya en gastos pequeños.`,
       `Action #1: do not cut what already fits. If you set money aside, use what is left (${money(Math.max(0, left))}), not money you already spent.`,
     );
   } else {
     headline = L(
       lang,
-      `El mes cierra ${money(left)}. La base recurrente es ${money(baseSurplus)}; las únicas son ${money(uniqueMinor)}; el apartado es ${money(transferMinor)}.`,
+      `El mes cierra en ${money(left)}. Lo de cada mes deja ${money(baseSurplus)}; las compras de una vez fueron ${money(uniqueMinor)} y el ahorro ${money(transferMinor)}.`,
       `The month closes at ${money(left)}. The repeating base is ${money(baseSurplus)}; one-offs are ${money(uniqueMinor)}; the transfer is ${money(transferMinor)}.`,
     );
     action = L(
       lang,
-      `Acción #1: mueve primero la partida más grande que todavía se puede decidir, no la más chica.`,
+      `Qué hacer: empieza por el gasto más grande que todavía puedes cambiar, no por el más chiquito.`,
       `Action #1: move the largest line you can still decide, not the smallest one.`,
     );
   }
 
   const floorPhrase = L(
     lang,
-    `ingreso piso (lo que entra casi seguro cada mes, aunque todo lo demás falle)`,
+    `ingreso seguro (lo que entra casi seguro cada mes)`,
     `income floor (what almost certainly comes in each month, even if everything else fails)`,
   );
   const alert =
     income <= 0
-      ? L(lang, "Sin ingreso no hay piso contra el cual medir compromisos.", "With no income there is no floor to measure commitments against.")
+      ? L(lang, "Sin ingresos anotados no puedo medir tus compromisos.", "With no income recorded I can't measure your commitments.")
       : L(
           lang,
-          `El ${pct(variablePct)} de lo que entra es variable. ${topSourceName ? `${topSourceName} es el ${pct(topSourcePct)}.` : ""} Tus compromisos (${money(recurrentMinor)}) se miden contra el ${floorPhrase}: ${money(incomeFixed)}.`,
+          `El ${pct(variablePct)} de lo que entra cambia de mes a mes${topSourceName ? ` (${topSourceName} es el ${pct(topSourcePct)})` : ""}. Lo prudente es pagar tus gastos de cada mes (${money(recurrentMinor)}) con tu ${floorPhrase}: ${money(incomeFixed)}.`,
           `${pct(variablePct)} of what comes in is variable. ${topSourceName ? `${topSourceName} is ${pct(topSourcePct)}.` : ""} Your commitments (${money(recurrentMinor)}) are judged against the ${floorPhrase}: ${money(incomeFixed)}.`,
         );
 
   const creditBlurb =
     debtMinor <= 0
-      ? L(lang, "Este mes no hay un pago de crédito. No invento un plazo.", "No credit payment this month. I will not invent a payoff date.")
+      ? L(lang, "Este mes no hay pagos de crédito.", "No credit payments this month.")
       : debtPct !== null && debtPct < state.settings.debtGreenPct
         ? L(
             lang,
@@ -564,36 +564,36 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const parts = {
     base: partOf(
       "base",
-      L(lang, "Base", "Base"),
+      L(lang, "De siempre", "Usual"),
       recurrentMinor,
       baseSurplus,
       L(
         lang,
-        "Ingreso menos lo que se repite (esencial, crédito y cuotas). Sin compras únicas y sin apartados.",
+        "Lo que entra menos lo que pagas todos los meses (casa, comida, créditos, cuotas). Sin contar compras de una vez ni ahorro.",
         "Income minus what repeats (essentials, credit, and subscriptions). No one-off purchases and no transfers.",
       ),
       (line) => line.cls !== "unique" && line.cls !== "transfer",
     ),
     unique: partOf(
       "unique",
-      L(lang, "Únicas", "One-offs"),
+      L(lang, "De una vez", "One-time"),
       uniqueMinor,
       -uniqueMinor,
       L(
         lang,
-        "Salió una vez. Sin historia de 2 de los últimos 3 meses, ni marcada fija: parece único — sin confirmar.",
+        "Compras que no aparecen en tus meses anteriores ni están marcadas como fijas. Parecen de una sola vez; si alguna se repite, márcala fija.",
         "It left once. Without a history of 2 of the last 3 months, and not marked fixed: looks one-off — unconfirmed.",
       ),
       (line) => line.cls === "unique",
     ),
     transfer: partOf(
       "transfer",
-      L(lang, "Apartado", "Transfer"),
+      L(lang, "Ahorro", "Saved"),
       transferMinor,
       -transferMinor,
       L(
         lang,
-        "Dinero que cambia de bolsa. No es gasto y no es fijo. En un mes rojo es una decisión a revisar, no un logro.",
+        "Dinero que pasó a tus bolsas de ahorro. No es gasto: sigue siendo tuyo. Si el mes cierra en rojo, vale la pena revisar si era el momento.",
         "Money moving between pockets. It is not spending and it is not fixed. In a red month it is a decision to review, not a win.",
       ),
       (line) => line.cls === "transfer",
@@ -629,7 +629,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       effectMinor: leftIfTransferCovers,
       text: L(
         lang,
-        `Decidir el apartado de ${money(transferMinor)} el ${fmtDay(when0)}. Si cubre el hueco, la deuda real del mes pasa de ${money(left)} a ${money(leftIfTransferCovers)}.`,
+        `Hoy (${fmtDay(when0)}): decide si los ${money(transferMinor)} ahorrados tapan el hueco. Si sí, el mes pasa de ${money(left)} a ${money(leftIfTransferCovers)}.`,
         `Decide the ${money(transferMinor)} transfer on ${fmtDay(when0)}. If it covers the hole, the month's real gap moves from ${money(left)} to ${money(leftIfTransferCovers)}.`,
       ),
     });
@@ -644,7 +644,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       effectMinor: after,
       text: L(
         lang,
-        `Revisar devolución de ${biggestUnique.name} (${money(biggestUnique.minor)}) antes del ${fmtDay(when7)}. Si vuelve, el hueco pasa de ${money(left)} a ${money(after)}. Ya se gastó: no se recorta del día a día.`,
+        `Antes del ${fmtDay(when7)}: pregunta si ${biggestUnique.name} (${money(biggestUnique.minor)}) se puede devolver. Si te reembolsan, el mes pasa de ${money(left)} a ${money(after)}.`,
         `Check a return of ${biggestUnique.name} (${money(biggestUnique.minor)}) before ${fmtDay(when7)}. If it comes back, the hole moves from ${money(left)} to ${money(after)}. It is already spent: it is not an everyday cut.`,
       ),
     });
@@ -660,7 +660,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       effectMinor: after,
       text: L(
         lang,
-        `Vender o compensar ${nextUnique.name} (${money(nextUnique.minor)}) antes del ${fmtDay(when30)}. Si entra ese monto, el hueco pasa de ${money(left)} a ${money(after)}.`,
+        `Antes del ${fmtDay(when30)}: vende o recupera ${nextUnique.name} (${money(nextUnique.minor)}). Si entra ese dinero, el mes pasa de ${money(left)} a ${money(after)}.`,
         `Sell or offset ${nextUnique.name} (${money(nextUnique.minor)}) before ${fmtDay(when30)}. If that amount comes in, the hole moves from ${money(left)} to ${money(after)}.`,
       ),
     });
@@ -674,7 +674,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       effectMinor: left,
       text: L(
         lang,
-        `Mantener la base. El ${fmtDay(when0)} no hay un recorte que hacer: el mes cierra ${money(left)}.`,
+        `No hace falta recortar nada: el mes cierra con ${money(left)} a favor.`,
         `Keep the base. On ${fmtDay(when0)} there is no cut to make: the month closes at ${money(left)}.`,
       ),
     });
@@ -688,7 +688,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       effectMinor: 0,
       text: L(
         lang,
-        `Anotar el ingreso el ${fmtDay(when0)}. Sin ese monto no hay efecto que calcular.`,
+        `Anota hoy lo que te entra este mes.`,
         `Enter income on ${fmtDay(when0)}. Without that amount there is no effect to calculate.`,
       ),
     });
@@ -701,29 +701,29 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     .join("/");
   const day24 = levers[0]
     ? levers[0].text
-    : L(lang, `El ${fmtDay(when0)} no hay una palanca grande. Revisa solo lo que tenga fecha.`, `On ${fmtDay(when0)} there is no large lever. Review only what has a date.`);
+    : L(lang, `Hoy no hay nada urgente. Revisa solo los pagos que tienen fecha.`, `On ${fmtDay(when0)} there is no large lever. Review only what has a date.`);
   const day7 = L(
     lang,
-    `Cubrir los pagos fechados con el ${floorPhrase} (${money(incomeFixed)})${debtMinor > 0 ? `; no subir el pago del crédito (${money(debtMinor)}) este mes; anotar saldo, tasa anual y pago mínimo` : ""}. Fecha: ${fmtDay(when7)}.`,
+    `Para el ${fmtDay(when7)}: paga primero lo que tiene fecha con tu ${floorPhrase} (${money(incomeFixed)})${debtMinor > 0 ? `. No subas la cuota del crédito (${money(debtMinor)}) este mes y anota cuánto debes, la tasa y el pago mínimo` : ""}.`,
     `Cover dated payments with the ${floorPhrase} (${money(incomeFixed)})${debtMinor > 0 ? `; do not raise the credit payment (${money(debtMinor)}) this month; enter the balance, the annual rate, and the minimum payment` : ""}. Date: ${fmtDay(when7)}.`,
   );
   const day30 = L(
     lang,
-    `Ninguna compra única mayor a ${money(hundred)} sin una regla de 24 horas y sin una fuente escrita. El próximo ingreso variable se reparte 50% hueco / 30% colchón / 20% libre. Fecha: ${fmtDay(when30)}.`,
+    `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. Cuando te entre un ingreso extra, repártelo así: 50% a tapar huecos, 30% al colchón y 20% para ti.`,
     `No one-off purchase above ${money(hundred)} without a 24-hour rule and a written source. The next variable income splits 50% hole / 30% cushion / 20% free. Date: ${fmtDay(when30)}.`,
   );
   const day90 = L(
     lang,
-    `Colchón mínimo (dinero guardado para un golpe; meta sana: 3 meses de esenciales) de ${money(cushionMinor)}, reconciliado entre Ahorro y Apartado. La meta del ${state.settings.savingsGoalPct}% (${money(goalMinor)}) solo en meses donde la base cierre en verde. Fecha: ${fmtDay(when90)}.`,
+    `Para el ${fmtDay(when90)}: arma un colchón (dinero solo para emergencias) de ${money(cushionMinor)}, que son ${state.settings.emergencyMonths || 3} meses de lo esencial. Ahorra tu ${state.settings.savingsGoalPct}% (${money(goalMinor)}) en los meses que cierren a favor.`,
     `Minimum cushion (money kept for a shock; a sound goal is 3 months of essentials) of ${money(cushionMinor)}, reconciled between Savings and the set-aside. The ${state.settings.savingsGoalPct}% goal (${money(goalMinor)}) only in months where the base closes green. Date: ${fmtDay(when90)}.`,
   );
   const plan = [
-    L(lang, `Plan Faro — este mes (queda: ${money(left)})`, `Faro plan — this month (left: ${money(left)})`),
+    L(lang, `Plan Faro — este mes (te queda: ${money(left)})`, `Faro plan — this month (left: ${money(left)})`),
     L(lang, `24 horas: ${day24}`, `24 hours: ${day24}`),
     L(lang, `7 días: ${day7}`, `7 days: ${day7}`),
     L(lang, `30 días: ${day30}`, `30 days: ${day30}`),
     L(lang, `90 días: ${day90}`, `90 days: ${day90}`),
-    transferNames ? L(lang, `Cuentas del apartado: ${transferNames}.`, `Transfer accounts: ${transferNames}.`) : "",
+    transferNames ? L(lang, `Cuentas de ahorro: ${transferNames}.`, `Transfer accounts: ${transferNames}.`) : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -731,14 +731,14 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const scenarios = [
     {
       id: "base" as const,
-      label: L(lang, "Solo la base", "Base only"),
-      detail: L(lang, "Sin compras únicas y sin apartado.", "No one-off purchases and no transfer."),
+      label: L(lang, "Solo lo de siempre", "Usual bills only"),
+      detail: L(lang, "Sin compras de una vez y sin ahorro.", "No one-time buys and no savings."),
       left: baseSurplus,
     },
     {
       id: "repeat" as const,
       label: L(lang, "Repetir el mes", "Repeat the month"),
-      detail: L(lang, "Todo lo anotado se queda, incluidas únicas y apartado.", "Everything recorded stays, one-offs and the transfer included."),
+      detail: L(lang, "Todo lo anotado se queda, incluidas compras de una vez y ahorro.", "Everything recorded stays, one-time buys and savings included."),
       left,
     },
     {
@@ -746,7 +746,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       label: L(lang, "Plan sugerido", "Suggested plan"),
       detail: L(
         lang,
-        "El apartado cubre hueco y no se cuenta como gasto. Las únicas se quedan porque ya salieron.",
+        "El ahorro tapa el hueco y no cuenta como gasto. Las compras de una vez se quedan porque ya salieron.",
         "The transfer covers the hole and is not counted as spending. One-offs stay because they already left.",
       ),
       left: leftIfTransferCovers,

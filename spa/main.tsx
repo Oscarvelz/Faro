@@ -10,16 +10,31 @@ import { Login } from "@/spa/login";
 import { lockCredential, unlock } from "@/spa/lock";
 import { w } from "@/spa/words";
 import { startFit } from "@/spa/fit";
+import "@/spa/gate.css";
+
+function Night() {
+  return (
+    <div className="gate-sky" aria-hidden>
+      <i className="gate-stars" />
+      <i className="gate-stars is-far" />
+      <i className="gate-beam" />
+      <svg className="gate-sea" viewBox="0 0 400 80" preserveAspectRatio="none">
+        <path className="wave-a" d="M0 34 Q50 24 100 34 T200 34 T300 34 T400 34 V80 H0Z" />
+        <path className="wave-b" d="M0 48 Q50 40 100 48 T200 48 T300 48 T400 48 V80 H0Z" />
+      </svg>
+    </div>
+  );
+}
 
 function Boot() {
   return (
-    <main className="splash">
-      <div className="splash-beam" aria-hidden />
-      <div className="brand-lockup">
-        <Mark className="size-14" />
-        <h1 className="serif text-6xl">Faro</h1>
-        <p className="tagline">{w("app.tagline")}</p>
-      </div>
+    <main className="gate is-still">
+      <Night />
+      <header className="gate-brand">
+        <span className="gate-lamp"><Mark className="size-10" /></span>
+        <h1 className="serif">Faro</h1>
+        <p>{w("app.tagline")}</p>
+      </header>
     </main>
   );
 }
@@ -33,16 +48,16 @@ function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
   };
   useEffect(() => { if (!tried.current) { tried.current = true; void go(); } });
   return (
-    <main className="splash">
-      <div className="splash-beam" aria-hidden />
-      <div className="brand-lockup">
-        <Mark className="size-14" />
-        <h1 className="serif text-5xl">Faro</h1>
-        <p className="tagline">{w("lock.title")}</p>
-      </div>
-      <section className="splash-card">
-        <button type="button" className="btn" onClick={() => void go()}>{err ? w("lock.again") : w("lock.open")}</button>
-        {err ? <p className="text-sm text-bad">{err}</p> : null}
+    <main className="gate">
+      <Night />
+      <header className="gate-brand">
+        <span className="gate-lamp"><Mark className="size-10" /></span>
+        <h1 className="serif">Faro</h1>
+        <p>{w("lock.title")}</p>
+      </header>
+      <section className="gate-card">
+        <button type="button" className="gate-go" onClick={() => void go()}><span>{err ? w("lock.again") : w("lock.open")}</span></button>
+        {err ? <p className="gate-note is-bad">{err}</p> : null}
       </section>
     </main>
   );
@@ -93,6 +108,10 @@ function App() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [user]);
 
+  if (!CLOUD_READY && /[?&]gate=(in|up|reset)/.test(location.search)) {
+    const m = location.search.match(/gate=(in|up|reset)/)?.[1];
+    return <Login recovery={m === "reset"} />;
+  }
   if (!CLOUD_READY) {
     // Accounts not connected yet: run on this device only.
     return (

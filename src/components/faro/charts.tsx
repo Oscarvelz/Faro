@@ -26,8 +26,10 @@ export function StatFoldProvider({
   items,
   sections,
   visible,
+  openByDefault,
   children,
 }: {
+  openByDefault?: string[];
   label: string;
   pinLabel: string;
   foldLabel: string;
@@ -108,10 +110,10 @@ export function StatFoldProvider({
       return at < 0 ? placed.length : at;
     },
     section: (id) => items.find((item) => item.id === id)?.section ?? "",
-    isOpen: (id) => !!pinned[id] || (shut[id] ? false : forced[id] ? true : spread),
+    isOpen: (id) => !!pinned[id] || (shut[id] ? false : forced[id] ? true : spread || !!openByDefault?.includes(id)),
     isPinned: (id) => !!pinned[id],
     toggle: (id) => {
-      const open = !!pinned[id] || (shut[id] ? false : forced[id] ? true : spread);
+      const open = !!pinned[id] || (shut[id] ? false : forced[id] ? true : spread || !!openByDefault?.includes(id));
       setPinned((p) => ({ ...p, [id]: false }));
       if (open) {
         setShut((s) => ({ ...s, [id]: true }));
@@ -125,7 +127,7 @@ export function StatFoldProvider({
       setPinned((p) => ({ ...p, [id]: !p[id] }));
       setShut((s) => ({ ...s, [id]: false }));
     },
-  }), [spread, shut, forced, pinned, pinLabel, foldLabel, placed, breaks, items]);
+  }), [spread, shut, forced, pinned, pinLabel, foldLabel, placed, breaks, items, openByDefault]);
   const checked = spread && !Object.values(shut).some(Boolean);
   const sectionAt = (id: string) => items.find((item) => item.id === id)?.section ?? "";
   const move = (index: number, dir: -1 | 1) => {
