@@ -2291,7 +2291,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     <div className={focus ? "vault-pane" : "desk-layout"}>
       {focus ? null : (
       <>
-      <div className="desk-bar">
+      <div className="desk-bar" data-over={summary.spentPct !== null && summary.spentPct > 100 ? "" : undefined} style={{ ["--usedf" as string]: String(Math.max(0, Math.min(1, (summary.spentPct ?? 0) / 100))) }}>
         <span>
           <em>{t("desk.bar.left")}</em>
           <strong className={`num ${summary.opportunity < 0 ? "bad" : ""}`}>{fmt(summary.opportunity)}</strong>

@@ -17,3 +17,4 @@
 - 1.3.15: removed the thick selected ring on lenses and pockets (back to the original look). Tap = a light bloom from the finger, a sheen, and a soft drop-shadow glow in the card's tone.
 - 1.3.16: Retiro softened to #72b4b2.
 - 1.3.17-19: the selected chip's inset ring now uses its own tone (the gray is gone). New ripple .tap-drop on .lens: a dot and two rings growing from the tap point (non-Tron). Tron selected lens gets a 1px ring in its own colour plus a glow. Theme flip: html.theme-swap kills transitions for 2 frames.
+- 1.3.20: Cadence ripple (ink in --tone, 580ms) on .lens + .save-seg (non-Tron), via a listener in spa/main.tsx; removed the bloom/drop effects. The provider sets data-theme during render (not in an effect) so isTron() tints flip in the same frame.
