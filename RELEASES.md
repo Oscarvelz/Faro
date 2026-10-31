@@ -12,3 +12,5 @@
 ## 1.3.10 (main b6dc361): non-Tron pocket block = full-colour .save-band with drifting swells, no text. Oscar rejected text gauges and the 6-month dash trail (looked empty).
 ## 1.3.11: tap-glint (spring+glint+halo, spa/main.tsx listener) on .lens/.save-seg non-Tron; picked = colour ring. Retiro = #a98fd6 purple everywhere. Desk Retiro details behind .save-retire-fold. Tron dock: only icon glitches (sheen slab off).
 ## 1.3.12: Tron .seg tabs use t-glitch-ico on icon only; label no scan-in.
+## 1.3.13: Pagos lens + cobro button red in all themes (day #c98a82 border, night dark red gradient).
+- Open: Oscar said Retiro's purple is too harsh. I suggested mauve #c7a3b4 (night #d9b8c6), with aqua #6fc1bf as the alternative; waiting on his choice.

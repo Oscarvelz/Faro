@@ -1772,7 +1772,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   if (rest > 0 && seed.length) saveSegs.push({ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "", minor: rest });
   const saveTotal = saveSegs.reduce((acc, s) => acc + s.minor, 0);
   const savePeak = Math.max(...saveSegs.map((s) => s.minor), 1);
-  const saveTints = ["#8fb9a6", "#a98fd6", "#7aa2c4", "#e07a5f", "#c9a6d4", "#d7b48a"].map((c) => (isTron() ? tronize(c) : c));
+  const saveTints = ["#8fb9a6", "#3fb5ad", "#7aa2c4", "#e07a5f", "#c9a6d4", "#d7b48a"].map((c) => (isTron() ? tronize(c) : c));
   const openSeg = saveSegs.find((s) => s.id === openSave) ?? null;
   const openLines = openSave
     ? lines.filter((line) => {
@@ -2243,7 +2243,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }
 
   const vaultStore = focus === "meta" || focus === "retiro" || focus === "emergencia" ? focus : focus === "save" ? "save" : pocketKind;
-  const vaultTone0 = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#a98fd6" : vaultStore === "emergencia" ? "#7aa2c4" : "#d5e2ea";
+  const vaultTone0 = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#3fb5ad" : vaultStore === "emergencia" ? "#7aa2c4" : "#d5e2ea";
   const vaultTone = isTron() ? tronize(vaultTone0) : vaultTone0;
   const vaultBase = focus === "save" ? accountTotal : (openSeg?.minor ?? 0);
   const spanNode = (
@@ -3207,7 +3207,7 @@ export function Study() {
     id: sub.id,
     name: names.sub(sub.id),
     minor: bag(sub.id),
-    color: sub.id.endsWith(".meta") ? "#8fb9a6" : sub.id.endsWith(".retiro") ? "#a98fd6" : sub.id.endsWith(".emergencia") ? "#7aa2c4" : "#d7b48a",
+    color: sub.id.endsWith(".meta") ? "#8fb9a6" : sub.id.endsWith(".retiro") ? "#3fb5ad" : sub.id.endsWith(".emergencia") ? "#7aa2c4" : "#d7b48a",
   }));
   const bankMinor = bankSubs.reduce((sum, sub) => sum + bag(sub.id), 0);
   if (bankSubs.length) saveBars.push({ id: "banks", name: t("study.save.banks"), minor: bankMinor, color: "#d5e2ea" });
