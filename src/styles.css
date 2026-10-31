@@ -2118,27 +2118,29 @@ html:not([data-theme="tron"]) :is(.lens, .save-seg):active { transform: scale(.9
 html:not([data-theme="tron"]) :is(.lens, .save-seg)::after,
 html:not([data-theme="tron"]) :is(.lens, .save-seg):active::after,
 html:not([data-theme="tron"]) .lenses .lens.is-picked::after { animation: none !important; opacity: 0; }
-/* glint */
+/* tap: soft light blooms from the finger, a glass sheen crosses, a gentle colour glow breathes out (no border change) */
 html:not([data-theme="tron"]) :is(.lens, .save-seg)::after {
   content: ""; position: absolute; z-index: 4; inset: 0; top: 0; left: 0; width: auto; aspect-ratio: auto; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0) 38%, rgb(255 255 255 / 55%) 50%, rgb(255 255 255 / 0) 62%, transparent 70%);
-  transform: translateX(-110%);
+  background:
+    radial-gradient(circle at var(--tx, 50%) var(--ty, 50%), rgb(255 255 255 / 62%) 0%, color-mix(in oklab, var(--tone) 22%, transparent) 28%, transparent 62%),
+    linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 38%) 50%, transparent 65%);
+  background-size: 100% 100%, 260% 100%;
+  background-repeat: no-repeat;
+  background-position: 0 0, 130% 0;
+  opacity: 0;
 }
-html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint::after { animation: tap-glint .7s cubic-bezier(.22, 1, .36, 1) !important; }
-@keyframes tap-glint { 0% { opacity: 1; transform: translateX(-110%); } 100% { opacity: 1; transform: translateX(110%); } }
-html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint { animation: tap-halo .7s ease-out; }
+html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint::after { animation: tap-bloom .75s cubic-bezier(.22, 1, .36, 1) !important; }
+@keyframes tap-bloom {
+  0% { opacity: 0; background-size: 30% 30%, 260% 100%; background-position: var(--tx, 50%) var(--ty, 50%), 130% 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; background-size: 260% 260%, 260% 100%; background-position: var(--tx, 50%) var(--ty, 50%), -30% 0; }
+}
+html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint { animation: tap-halo .8s ease-out; }
 @keyframes tap-halo {
-  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--tone) 55%, transparent); }
-  100% { box-shadow: 0 0 0 10px color-mix(in oklab, var(--tone) 0%, transparent); }
+  0% { filter: drop-shadow(0 0 0 color-mix(in oklab, var(--tone) 0%, transparent)); }
+  30% { filter: drop-shadow(0 6px 14px color-mix(in oklab, var(--tone) 45%, transparent)); }
+  100% { filter: drop-shadow(0 0 0 color-mix(in oklab, var(--tone) 0%, transparent)); }
 }
-/* chosen card: a clean ring in its own colour and a soft lift, no dark double border */
-html:not([data-theme="tron"]) .lenses .lens[aria-pressed="true"],
-html:not([data-theme="tron"]) .save-seg.is-on {
-  border-color: var(--tone) !important;
-  box-shadow: 0 0 0 1.5px var(--tone), 0 8px 20px -10px color-mix(in oklab, var(--tone) 75%, transparent) !important;
-  transform: translateY(-1px);
-}
-html:not([data-theme="tron"]) .lenses:has([aria-pressed="true"]) .lens[aria-pressed="false"] { opacity: .7; filter: saturate(.8); }
 @media (prefers-reduced-motion: reduce) {
   html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint, html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint::after { animation: none !important; }
 }

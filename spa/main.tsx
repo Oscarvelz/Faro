@@ -211,8 +211,11 @@ document.addEventListener("pointerdown", (e) => {
   if (document.documentElement.dataset.theme === "tron") return;
   const el = (e.target as Element | null)?.closest?.(".lens, .save-seg");
   if (!(el instanceof HTMLElement)) return;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--tx", `${(((e as PointerEvent).clientX - r.left) / r.width) * 100}%`);
+  el.style.setProperty("--ty", `${(((e as PointerEvent).clientY - r.top) / r.height) * 100}%`);
   el.classList.remove("tap-glint");
   void el.offsetWidth;
   el.classList.add("tap-glint");
-  window.setTimeout(() => el.classList.remove("tap-glint"), 750);
+  window.setTimeout(() => el.classList.remove("tap-glint"), 820);
 }, { passive: true });
