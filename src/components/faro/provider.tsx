@@ -389,13 +389,6 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     }
     localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
     const shown = session.ledger.settings.theme === "ion" ? "ion-noche" : session.ledger.settings.theme;
-    if (document.documentElement.dataset.theme && document.documentElement.dataset.theme !== shown) {
-      // Instant, clean theme flip: freeze every colour transition for two frames so nothing fades through an overlay.
-      const root = document.documentElement;
-      root.classList.add("theme-swap");
-      root.dataset.theme = shown;
-      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-swap")));
-    }
     document.documentElement.dataset.theme = shown;
     if (shown === "tron" && !document.getElementById("tron-fonts")) {
       const l = document.createElement("link");
@@ -922,6 +915,17 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     dismissFinding,
     planStale,
   };
+
+  // Apply the theme during render, before children paint, so colour maths (isTron, tints) and CSS flip in the same frame.
+  if (session && typeof document !== "undefined") {
+    const shownNow = session.ledger.settings.theme === "ion" ? "ion-noche" : session.ledger.settings.theme;
+    const root = document.documentElement;
+    if (root.dataset.theme !== shownNow) {
+      root.classList.add("theme-swap");
+      root.dataset.theme = shownNow;
+      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-swap")));
+    }
+  }
 
   return (
     <Ctx.Provider value={value}>

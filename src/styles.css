@@ -2118,41 +2118,17 @@ html:not([data-theme="tron"]) :is(.lens, .save-seg):active { transform: scale(.9
 html:not([data-theme="tron"]) :is(.lens, .save-seg)::after,
 html:not([data-theme="tron"]) :is(.lens, .save-seg):active::after,
 html:not([data-theme="tron"]) .lenses .lens.is-picked::after { animation: none !important; opacity: 0; }
-/* tap: soft light blooms from the finger, a glass sheen crosses, a gentle colour glow breathes out (no border change) */
-html:not([data-theme="tron"]) :is(.lens, .save-seg)::after {
-  content: ""; position: absolute; z-index: 4; inset: 0; top: 0; left: 0; width: auto; aspect-ratio: auto; border-radius: inherit; pointer-events: none;
-  background:
-    radial-gradient(circle at var(--tx, 50%) var(--ty, 50%), rgb(255 255 255 / 62%) 0%, color-mix(in oklab, var(--tone) 22%, transparent) 28%, transparent 62%),
-    linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 38%) 50%, transparent 65%);
-  background-size: 100% 100%, 260% 100%;
-  background-repeat: no-repeat;
-  background-position: 0 0, 130% 0;
-  opacity: 0;
-}
-html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint::after { animation: tap-bloom .75s cubic-bezier(.22, 1, .36, 1) !important; }
-@keyframes tap-bloom {
-  0% { opacity: 0; background-size: 30% 30%, 260% 100%; background-position: var(--tx, 50%) var(--ty, 50%), 130% 0; }
-  18% { opacity: 1; }
-  100% { opacity: 0; background-size: 260% 260%, 260% 100%; background-position: var(--tx, 50%) var(--ty, 50%), -30% 0; }
-}
-html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint { animation: tap-halo .8s ease-out; }
-@keyframes tap-halo {
-  0% { filter: drop-shadow(0 0 0 color-mix(in oklab, var(--tone) 0%, transparent)); }
-  30% { filter: drop-shadow(0 6px 14px color-mix(in oklab, var(--tone) 45%, transparent)); }
-  100% { filter: drop-shadow(0 0 0 color-mix(in oklab, var(--tone) 0%, transparent)); }
-}
 @media (prefers-reduced-motion: reduce) {
   html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint, html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint::after { animation: none !important; }
 }
 
-/* lens ripple (own): a drop lands where you touch — a lit dot and two thin rings in the chip's colour */
-.tap-drop { position: absolute; z-index: 5; left: var(--tx); top: var(--ty); width: 0; height: 0; pointer-events: none; }
-.tap-drop::before, .tap-drop::after { content: ""; position: absolute; left: 0; top: 0; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%);
-  border: 2px solid color-mix(in oklab, var(--tone) 85%, #fff); box-shadow: 0 0 10px color-mix(in oklab, var(--tone) 40%, transparent);
-  background: radial-gradient(circle, rgb(255 255 255 / .9) 0 22%, transparent 24%);
-  animation: drop-ring 1s cubic-bezier(.2, .55, .35, 1) forwards; }
-.tap-drop::after { animation-delay: .16s; opacity: 0; border-width: 1.25px; background: none; }
-@keyframes drop-ring { 0% { width: 10px; height: 10px; opacity: 1; } 70% { opacity: .55; } 100% { width: 170px; height: 170px; opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .tap-drop { display: none; } }
 html:not([data-theme="tron"]) .lens { position: relative; overflow: hidden; isolation: isolate; }
 html.theme-swap *, html.theme-swap *::before, html.theme-swap *::after { transition: none !important; }
+
+/* Cadence ripple on the six chips (main three + savings pockets): soft ink in the chip's own tone */
+html:not([data-theme="tron"]) :is(.lens, .save-seg) { position: relative; isolation: isolate; }
+.ripple-well { position: absolute !important; inset: 0; z-index: 0 !important; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.cadence-ripple { position: absolute; border-radius: 9999px; pointer-events: none; transform: scale(.12); opacity: .85;
+  animation: cadence-ripple 580ms cubic-bezier(.16, .72, .24, 1) forwards; }
+@keyframes cadence-ripple { 55% { opacity: .45; } to { transform: scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cadence-ripple { display: none; } }

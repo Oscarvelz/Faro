@@ -205,23 +205,31 @@ if (typeof document !== "undefined") {
   markHidden();
 }
 
-// Premium tap: a glass glint sweeps the card and a soft halo in its own colour breathes out.
-// Tron keeps its own tap language.
+// Cadence ripple on the six chips: ink in the chip's own tone grows from the finger. Tron keeps its own tap language.
 document.addEventListener("pointerdown", (e) => {
   if (document.documentElement.dataset.theme === "tron") return;
-  const el = (e.target as Element | null)?.closest?.(".lens, .save-seg");
-  if (!(el instanceof HTMLElement)) return;
-  const r = el.getBoundingClientRect();
-  el.style.setProperty("--tx", `${(((e as PointerEvent).clientX - r.left) / r.width) * 100}%`);
-  el.style.setProperty("--ty", `${(((e as PointerEvent).clientY - r.top) / r.height) * 100}%`);
-  if (el.classList.contains("lens")) {
-    const d = document.createElement("span");
-    d.className = "tap-drop";
-    el.appendChild(d);
-    window.setTimeout(() => d.remove(), 1100);
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const host = (e.target as Element | null)?.closest?.(".lens, .save-seg");
+  if (!(host instanceof HTMLElement)) return;
+  let well = host.querySelector<HTMLElement>(":scope > .ripple-well");
+  if (!well) {
+    well = document.createElement("span");
+    well.className = "ripple-well";
+    well.setAttribute("aria-hidden", "true");
+    host.appendChild(well);
   }
-  el.classList.remove("tap-glint");
-  void el.offsetWidth;
-  el.classList.add("tap-glint");
-  window.setTimeout(() => el.classList.remove("tap-glint"), 820);
+  const rect = well.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const size = Math.hypot(rect.width, rect.height);
+  const x = (e as PointerEvent).clientX - rect.left;
+  const y = (e as PointerEvent).clientY - rect.top;
+  const ink = document.createElement("span");
+  ink.className = "cadence-ripple";
+  ink.style.width = `${size}px`;
+  ink.style.height = `${size}px`;
+  ink.style.left = `${x - size / 2}px`;
+  ink.style.top = `${y - size / 2}px`;
+  ink.style.background = `color-mix(in srgb, var(--tone, var(--fg)) 36%, transparent)`;
+  well.appendChild(ink);
+  window.setTimeout(() => ink.remove(), 640);
 }, { passive: true });
