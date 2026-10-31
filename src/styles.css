@@ -1224,7 +1224,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 html .lenses:has([aria-pressed="true"]) .lens[aria-pressed="false"] { opacity: .62; }
 html .lenses .lens[aria-pressed="true"] {
   opacity: 1;
-  box-shadow: inset 0 0 0 1.75px color-mix(in oklab, var(--fg) 46%, transparent);
+  box-shadow: inset 0 0 0 1.25px color-mix(in oklab, var(--tone, var(--fg)) 70%, transparent);
 }
 html .lenses .lens.is-picked::after {
   background: color-mix(in oklab, white 80%, transparent);
@@ -2144,3 +2144,15 @@ html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint { animation: tap-h
 @media (prefers-reduced-motion: reduce) {
   html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint, html:not([data-theme="tron"]) :is(.lens, .save-seg).tap-glint::after { animation: none !important; }
 }
+
+/* lens ripple (own): a drop lands where you touch — a lit dot and two thin rings in the chip's colour */
+.tap-drop { position: absolute; z-index: 5; left: var(--tx); top: var(--ty); width: 0; height: 0; pointer-events: none; }
+.tap-drop::before, .tap-drop::after { content: ""; position: absolute; left: 0; top: 0; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%);
+  border: 2px solid color-mix(in oklab, var(--tone) 85%, #fff); box-shadow: 0 0 10px color-mix(in oklab, var(--tone) 40%, transparent);
+  background: radial-gradient(circle, rgb(255 255 255 / .9) 0 22%, transparent 24%);
+  animation: drop-ring 1s cubic-bezier(.2, .55, .35, 1) forwards; }
+.tap-drop::after { animation-delay: .16s; opacity: 0; border-width: 1.25px; background: none; }
+@keyframes drop-ring { 0% { width: 10px; height: 10px; opacity: 1; } 70% { opacity: .55; } 100% { width: 170px; height: 170px; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tap-drop { display: none; } }
+html:not([data-theme="tron"]) .lens { position: relative; overflow: hidden; isolation: isolate; }
+html.theme-swap *, html.theme-swap *::before, html.theme-swap *::after { transition: none !important; }

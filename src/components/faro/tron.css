@@ -721,3 +721,8 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
   [data-theme="tron"] :is(.seg.is-follow button .seg-ico, .seg.is-follow button .seg-label, .nav-btn, .nav-btn svg) { animation: none !important; }
 }
 html[data-hidden] [data-theme="tron"] .dock-sheen { animation: none !important; }
+/* selected main chip: thin ring in its own colour with a soft glow */
+html[data-theme="tron"] .lenses .lens.is-have[aria-pressed="true"] { border-color: #3fd6f5 !important; box-shadow: inset 0 -2px 0 #3fd6f5, 0 0 0 1px #3fd6f5, 0 0 12px 1px rgba(63, 214, 245, .45) !important; }
+html[data-theme="tron"] .lenses .lens.is-spend[aria-pressed="true"] { border-color: #ff9d2a !important; box-shadow: inset 0 -2px 0 #ff9d2a, 0 0 0 1px #ff9d2a, 0 0 12px 1px rgba(255, 140, 20, .45) !important; }
+html[data-theme="tron"] .lenses .lens.is-debt[aria-pressed="true"] { border-color: #ff2a2a !important; box-shadow: inset 0 -2px 0 #ff2a2a, 0 0 0 1px #ff2a2a, 0 0 12px 1px rgba(255, 42, 42, .45) !important; }
+html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; }

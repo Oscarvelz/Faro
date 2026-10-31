@@ -15,3 +15,4 @@
 ## 1.3.13: Pagos lens + cobro button red in all themes (day #c98a82 border, night dark red gradient).
 - 1.3.14: Retiro changed to turquoise #3fb5ad (Oscar found purple too harsh, and rose too close to the Pagos red).
 - 1.3.15: removed the thick selected ring on lenses and pockets (back to the original look). Tap = a light bloom from the finger, a sheen, and a soft drop-shadow glow in the card's tone.
+- 1.3.16: Retiro softened to #72b4b2.

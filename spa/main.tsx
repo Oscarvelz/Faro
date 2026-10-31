@@ -214,6 +214,12 @@ document.addEventListener("pointerdown", (e) => {
   const r = el.getBoundingClientRect();
   el.style.setProperty("--tx", `${(((e as PointerEvent).clientX - r.left) / r.width) * 100}%`);
   el.style.setProperty("--ty", `${(((e as PointerEvent).clientY - r.top) / r.height) * 100}%`);
+  if (el.classList.contains("lens")) {
+    const d = document.createElement("span");
+    d.className = "tap-drop";
+    el.appendChild(d);
+    window.setTimeout(() => d.remove(), 1100);
+  }
   el.classList.remove("tap-glint");
   void el.offsetWidth;
   el.classList.add("tap-glint");
