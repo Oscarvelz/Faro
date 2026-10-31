@@ -84,3 +84,58 @@ strong.s2-out { color: var(--c); }
 .s2-more { justify-self: start; }
 
 @media (prefers-reduced-motion: reduce) { .s2-pair i, .s2-cells b, .s2-track b, .s2-ring-on { transition: none; } }
+
+/* Voyage */
+.s2-voyage { display: grid; gap: 10px; }
+.s2-voyage svg { width: 100%; height: auto; display: block; border-radius: 18px; border: 1px solid var(--line); }
+.s2-star { fill: #fff; opacity: .5; animation: s2-twinkle 4s ease-in-out infinite; }
+.s2-wave { fill: #1d3a4f; opacity: .55; animation: s2-drift 9s linear infinite; }
+.s2-wave.b { fill: #16303f; opacity: .8; animation-duration: 13s; animation-direction: reverse; }
+.s2-route { stroke: #5f7383; stroke-width: 1.4; stroke-dasharray: 2 4; }
+.s2-route-on { stroke: #ffd98a; stroke-width: 2; stroke-linecap: round; }
+.s2-tick circle { fill: #33444f; }
+.s2-tick.is-on circle { fill: #ffd98a; }
+.s2-tick text { fill: #8ea0ad; font-size: 8px; font-family: inherit; }
+.s2-lamp { fill: #ffd98a; animation: s2-glow 3s ease-in-out infinite; }
+.s2-beamcone { opacity: .55; animation: s2-glow 3s ease-in-out infinite; }
+.s2-boat { transition: transform 1.2s cubic-bezier(.22, 1, .36, 1); }
+.s2-bob { animation: s2-bob 3.2s ease-in-out infinite; transform-origin: 0 95px; }
+.s2-voyage.is-home .s2-lamp { filter: drop-shadow(0 0 6px #ffd98a); }
+.s2-voyage-read { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.s2-voyage-read div { padding: 10px 12px; border-radius: 16px; background: color-mix(in oklab, var(--fg) 4%, var(--surface)); border: 1px solid var(--line); display: grid; gap: 2px; min-width: 0; }
+.s2-voyage-read em { font-style: normal; font-size: .75rem; color: var(--muted); }
+.s2-voyage-read strong { font-size: 1.45rem; line-height: 1.1; color: #ffd98a; }
+.s2-voyage-read small { font-size: .85rem; color: var(--muted); }
+[data-theme="light"] .s2-voyage-read strong, .light .s2-voyage-read strong { color: #a77a1e; }
+
+/* Jar */
+.s2-jar { position: relative; width: 64px; height: 80px; justify-self: center; }
+.s2-jar-glass { position: absolute; inset: 8px 2px 0; border: 2px solid color-mix(in oklab, var(--fg) 35%, transparent); border-radius: 12px 12px 16px 16px; overflow: hidden; background: color-mix(in oklab, var(--fg) 5%, transparent); }
+.s2-jar-water { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(#7fa6cf, #4f7aa3); transition: height 1s cubic-bezier(.22, 1, .36, 1); }
+.s2-jar-water svg { position: absolute; left: -50%; top: -7px; width: 200%; height: 8px; animation: s2-slosh 4s linear infinite; }
+.s2-jar-water svg path { fill: #7fa6cf; }
+.s2-jar-glass span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; font-size: .95rem; color: var(--fg); text-shadow: 0 1px 3px rgb(0 0 0 / 35%); }
+.s2-jar-lid { position: absolute; left: 10px; right: 10px; top: 0; height: 9px; border-radius: 4px; background: #c4a15a; }
+.s2-month { grid-template-columns: 70px minmax(0, 1fr); }
+
+/* What-if */
+.s2-whatif { display: grid; gap: 8px; padding: 14px; border-radius: 20px; border: 1px dashed color-mix(in oklab, #ffd98a 45%, var(--line)); background: radial-gradient(120% 90% at 100% 0%, color-mix(in oklab, #ffd98a 9%, transparent), transparent 60%); }
+.s2-whatif-q { margin: 0; font-size: .9rem; color: var(--muted); }
+.s2-whatif-amt { font-size: 1.9rem; line-height: 1; }
+.s2-whatif input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 99px; background: linear-gradient(90deg, #ffd98a var(--p), color-mix(in oklab, var(--fg) 12%, transparent) var(--p)); outline: none; margin: 8px 0; }
+.s2-whatif input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff8e4, #e7c27a 60%, #c4a15a); border: 2px solid var(--bg); box-shadow: 0 0 0 4px color-mix(in oklab, #ffd98a 25%, transparent), 0 2px 8px rgb(0 0 0 / 35%); }
+.s2-whatif input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #e7c27a; border: 2px solid var(--bg); }
+.s2-whatif-dots { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 12px; }
+.s2-whatif-dots i { width: 12px; height: 12px; border-radius: 4px; background: color-mix(in oklab, #ffd98a 70%, transparent); animation: s2-pop .3s both; }
+.s2-whatif-dots i:last-of-type { background: #ffd98a; box-shadow: 0 0 8px #ffd98a; }
+.s2-whatif-dots b { font-size: .8rem; color: var(--muted); margin-left: 4px; }
+.s2-whatif-a { margin: 0; font-size: .95rem; }
+.s2-whatif-a strong { color: #ffd98a; }
+
+@keyframes s2-twinkle { 50% { opacity: .15; } }
+@keyframes s2-drift { to { transform: translateX(-80px); } }
+@keyframes s2-glow { 50% { opacity: .65; } }
+@keyframes s2-bob { 50% { transform: translateY(-2px) rotate(-3deg); } }
+@keyframes s2-slosh { to { transform: translateX(25%); } }
+@keyframes s2-pop { from { transform: scale(0); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .s2-star, .s2-wave, .s2-lamp, .s2-beamcone, .s2-bob, .s2-jar-water svg, .s2-whatif-dots i { animation: none; } .s2-boat { transition: none; } }

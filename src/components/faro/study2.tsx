@@ -92,47 +92,113 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
   );
 }
 
-/* ── Ahorro y colchón: savings box + runway + savings rate in one card ─── */
+/* ── Ahorro y colchón: a voyage to the lighthouse, a jar, and a what-if dial ─ */
 export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: { id: string; name: string; minor: number; color: string }[]; goal: number }) {
   const { fmt, lang } = useFaro();
   const have = pockets.reduce((a, p) => a + p.minor, 0);
   const months = coach.cushionMonths;
   const target = Math.max(1, coach.cushionTarget);
-  const cells = Math.max(3, Math.min(12, Math.round(target)));
-  const covered = months ?? 0;
+  const need = coach.needsMonthly;
+  const covered = Math.max(0, months ?? 0);
+  const reach = Math.min(1, covered / target);
   const saved = coach.saved;
   const goalPct = goal > 0 ? Math.max(0, Math.min(100, (saved / goal) * 100)) : 0;
   const gap = Math.max(0, goal - saved);
   const move = Math.min(gap, Math.max(0, coach.left));
   const peak = Math.max(...pockets.map((p) => p.minor), 1);
-  const R = 34;
-  const C = 2 * Math.PI * R;
+  const locale = lang === "en" ? "en-US" : "es-NI";
+  const day = (d: Date) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(d).replace(".", "");
+  const mon = (d: Date) => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(d);
+  const today = new Date();
+  const until = new Date(today.getTime() + covered * 30.44 * 86400000);
+  // What-if dial: how long to the full cushion if you set aside X a month.
+  const missing = Math.max(0, target * need - have);
+  const step = Math.max(100, Math.round(need / 2000) * 100);
+  const top = Math.max(step * 4, Math.round(Math.max(coach.left, goal, need / 2) * 1.5 / step) * step);
+  const [per, setPer] = useState(() => Math.min(top, Math.max(step, Math.round((goal || need / 4) / step) * step)));
+  const runs = per > 0 && missing > 0 ? Math.ceil(missing / per) : 0;
+  const land = new Date(today.getFullYear(), today.getMonth() + runs, 1);
+  // Voyage geometry (viewBox 320 × 120).
+  const x0 = 26, x1 = 282;
+  const bx = x0 + (x1 - x0) * reach;
+  const ticks = Array.from({ length: Math.round(target) + 1 }, (_, i) => i);
+  const done = reach >= 1;
   return (
     <section className="card s2-cushion">
       <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If nothing came in tomorrow")} />
-      <div className="s2-runway">
-        <div className="s2-runway-big">
-          <strong className="num serif">{months === null ? "—" : months.toFixed(1)}</strong>
-          <span>{L(lang, `de ${target} meses`, `of ${target} months`)}</span>
-        </div>
-        <div className="s2-cells" aria-hidden>
-          {Array.from({ length: cells }, (_, i) => {
-            const fill = Math.max(0, Math.min(1, covered * (cells / target) - i));
-            return <i key={i}><b style={{ width: `${fill * 100}%` }} /></i>;
-          })}
+      <div className={`s2-voyage${done ? " is-home" : ""}`}>
+        <svg viewBox="0 0 320 124" role="img" aria-label={L(lang, `Cubres ${covered.toFixed(1)} de ${target} meses`, `${covered.toFixed(1)} of ${target} months covered`)}>
+          <defs>
+            <linearGradient id="s2-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a4b63" /><stop offset="1" stopColor="#0f1d2a" /></linearGradient>
+            <linearGradient id="s2-beam" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stopColor="#ffd98a" stopOpacity=".55" /><stop offset="1" stopColor="#ffd98a" stopOpacity="0" /></linearGradient>
+            <clipPath id="s2-clip"><rect x="0" y="0" width="320" height="124" rx="18" /></clipPath>
+          </defs>
+          <g clipPath="url(#s2-clip)">
+            <rect width="320" height="124" fill="#0c1520" />
+            {[[40, 18], [92, 30], [150, 14], [210, 26], [250, 12], [118, 44], [180, 40]].map(([x, y], i) => <circle key={i} className="s2-star" cx={x} cy={y} r={i % 3 ? 0.9 : 1.3} style={{ animationDelay: `${i * 0.6}s` }} />)}
+            <polygon className="s2-beamcone" points={`${x1 + 6},50 ${Math.max(x0, bx + 10)},38 ${Math.max(x0, bx + 10)},66`} fill="url(#s2-beam)" />
+            <rect y="78" width="320" height="46" fill="url(#s2-sea)" />
+            <path className="s2-wave a" d="M0 80 Q 20 75 40 80 T 80 80 T 120 80 T 160 80 T 200 80 T 240 80 T 280 80 T 320 80 T 360 80 T 400 80 V124 H0Z" />
+            <path className="s2-wave b" d="M0 88 Q 25 83 50 88 T 100 88 T 150 88 T 200 88 T 250 88 T 300 88 T 350 88 T 400 88 V124 H0Z" />
+            <line x1={x0} y1="104" x2={x1} y2="104" className="s2-route" />
+            <line x1={x0} y1="104" x2={bx} y2="104" className="s2-route-on" />
+            {ticks.map((i) => {
+              const tx = x0 + ((x1 - x0) * i) / target;
+              const d = new Date(today.getFullYear(), today.getMonth() + i, today.getDate());
+              return (
+                <g key={i} className={i / target <= reach ? "s2-tick is-on" : "s2-tick"}>
+                  <circle cx={tx} cy="104" r="2.6" />
+                  <text x={tx} y="118" textAnchor="middle">{i === 0 ? L(lang, "hoy", "today") : day(d)}</text>
+                </g>
+              );
+            })}
+            {/* lighthouse */}
+            <g transform={`translate(${x1 + 4} 30)`} className="s2-house">
+              <path d="M-7 50 L-4 8 L4 8 L7 50 Z" fill="#e9e2d0" />
+              <path d="M-6.2 38 L6.2 38 L6.6 44 L-6.6 44 Z M-5.2 22 L5.2 22 L5.6 28 L-5.6 28 Z" fill="#c45c4a" />
+              <rect x="-5" y="2" width="10" height="7" rx="1.5" className="s2-lamp" />
+              <path d="M-6 2 L0 -4 L6 2 Z" fill="#c45c4a" />
+              <rect x="-10" y="49" width="20" height="4" rx="2" fill="#3a4a56" />
+            </g>
+            {/* boat */}
+            <g className="s2-boat" style={{ transform: `translate(${bx}px, 0px)` }}>
+              <g className="s2-bob">
+                <path d="M-11 92 L11 92 L7 99 L-7 99 Z" fill="#d7b48a" />
+                <path d="M0 91 L0 72 L10 89 Z" fill="#f4efe4" />
+                <path d="M-1 91 L-1 76 L-8 89 Z" fill="#cfd8de" />
+              </g>
+            </g>
+          </g>
+        </svg>
+        <div className="s2-voyage-read">
+          <div>
+            <em>{L(lang, "Te alcanzaría hasta", "It would last until")}</em>
+            <strong className="serif">{months === null ? "—" : covered < 0.034 ? L(lang, "hoy mismo", "today") : day(until)}</strong>
+          </div>
+          <div>
+            <em>{L(lang, "Meses cubiertos", "Months covered")}</em>
+            <strong className="serif num">{months === null ? "—" : covered.toFixed(1)}<small> / {target}</small></strong>
+          </div>
         </div>
       </div>
       <p className="pano-lead">
         {months === null
-          ? L(lang, "Anota tus gastos de casa y comida para saber cuánto colchón necesitas.", "Record your home and food costs to see how much cushion you need.")
-          : L(lang, `Con lo guardado (${fmt(have)}) cubres ${months.toFixed(1)} meses de lo básico, que te cuesta ${fmt(coach.needsMonthly)} al mes. La meta sana son ${target}.`, `Your savings (${fmt(have)}) cover ${months.toFixed(1)} months of basics, which cost ${fmt(coach.needsMonthly)} a month. A healthy goal is ${target}.`)}
+          ? L(lang, "Anota tus gastos de casa y comida para trazar la ruta.", "Record your home and food costs to chart the route.")
+          : done
+            ? L(lang, `Llegaste al faro: lo guardado (${fmt(have)}) cubre ${covered.toFixed(1)} meses de lo básico.`, `You reached the lighthouse: your savings (${fmt(have)}) cover ${covered.toFixed(1)} months of basics.`)
+            : L(lang, `Lo básico te cuesta ${fmt(need)} al mes. El faro está a ${target} meses: ${fmt(target * need)} guardados.`, `Basics cost ${fmt(need)} a month. The lighthouse is ${target} months out: ${fmt(target * need)} saved.`)}
       </p>
+
       <div className="s2-month">
-        <svg viewBox="0 0 80 80" className="s2-ring" aria-hidden>
-          <circle cx="40" cy="40" r={R} className="s2-ring-bg" />
-          <circle cx="40" cy="40" r={R} className="s2-ring-on" strokeDasharray={`${(goalPct / 100) * C} ${C}`} transform="rotate(-90 40 40)" />
-          <text x="40" y="45" textAnchor="middle">{Math.round(goalPct)}%</text>
-        </svg>
+        <div className="s2-jar" aria-hidden>
+          <div className="s2-jar-glass">
+            <div className="s2-jar-water" style={{ height: `${Math.max(goalPct, 3)}%` }}>
+              <svg viewBox="0 0 120 12" preserveAspectRatio="none"><path d="M0 6 Q 15 0 30 6 T 60 6 T 90 6 T 120 6 V12 H0Z" /></svg>
+            </div>
+            <span className="num">{Math.round(goalPct)}%</span>
+          </div>
+          <i className="s2-jar-lid" />
+        </div>
         <div>
           <em>{L(lang, "Este mes guardaste", "Saved this month")}</em>
           <strong className="num">{fmt(saved)} <small>/ {fmt(goal)}</small></strong>
@@ -140,13 +206,31 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
             {goal <= 0
               ? L(lang, "Pon una meta de ahorro en Ajustes.", "Set a savings goal in Settings.")
               : gap <= 0
-                ? L(lang, "Meta del mes cumplida.", "Monthly goal reached.")
+                ? L(lang, "Frasco lleno: meta del mes cumplida.", "Jar full: monthly goal reached.")
                 : move > 0
-                  ? L(lang, `Te sobraron ${fmt(coach.left)}. Pasa ${fmt(move)} al ahorro y ${move >= gap ? "cumples la meta" : "te acercas a la meta"}.`, `You had ${fmt(coach.left)} left. Move ${fmt(move)} to savings and ${move >= gap ? "you hit the goal" : "you get closer"}.`)
-                  : L(lang, `Faltan ${fmt(gap)} para la meta.`, `${fmt(gap)} to go.`)}
+                  ? L(lang, `Te sobraron ${fmt(coach.left)}. Pasa ${fmt(move)} al ahorro y ${move >= gap ? "llenas el frasco" : "te acercas"}.`, `You had ${fmt(coach.left)} left. Move ${fmt(move)} to savings and ${move >= gap ? "the jar is full" : "you get closer"}.`)
+                  : L(lang, `Faltan ${fmt(gap)} para llenar el frasco.`, `${fmt(gap)} to fill the jar.`)}
           </p>
         </div>
       </div>
+
+      {months !== null && missing > 0 ? (
+        <div className="s2-whatif">
+          <p className="s2-whatif-q">{L(lang, "¿Y si apartara cada mes…?", "What if I set aside each month…?")}</p>
+          <div className="s2-whatif-amt num serif">{fmt(per)}</div>
+          <input type="range" min={step} max={top} step={step} value={per} onChange={(e) => setPer(Number(e.target.value))} aria-label={L(lang, "Ahorro al mes", "Monthly saving")} style={{ ["--p" as string]: `${((per - step) / Math.max(1, top - step)) * 100}%` }} />
+          <div className="s2-whatif-dots" aria-hidden>
+            {Array.from({ length: Math.min(runs, 36) }, (_, i) => <i key={i} style={{ animationDelay: `${i * 18}ms` }} />)}
+            {runs > 36 ? <b className="num">+{runs - 36}</b> : null}
+          </div>
+          <p className="s2-whatif-a">
+            {L(lang, "Llegas al faro en ", "You reach the lighthouse in ")}
+            <strong>{runs} {runs === 1 ? L(lang, "mes", "month") : L(lang, "meses", "months")}</strong>
+            {L(lang, `, hacia ${mon(land)}.`, `, around ${mon(land)}.`)}
+          </p>
+        </div>
+      ) : null}
+
       {pockets.some((p) => p.minor > 0) ? (
         <div className="s2-pockets">
           {pockets.filter((p) => p.minor > 0).map((p) => (
