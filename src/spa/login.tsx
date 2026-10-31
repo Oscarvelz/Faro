@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Check, Eye, EyeOff, Info, Lock, Mail, User, X } from "lucide-react";
 import { Mark } from "@/components/faro/icons";
 import type { Lang } from "@/lib/faro/types";
-import { emitUser, rememberUser, supabase } from "./cloud";
+import { emitUser, keepSignedIn, rememberUser, setKeepSignedIn, supabase } from "./cloud";
 import { currentLang, w } from "./words";
 import "./gate.css";
 
@@ -18,6 +18,7 @@ export function Login({ note, recovery }: { note?: string; recovery?: boolean })
   const [error, setError] = useState("");
   const [info, setInfo] = useState(note ?? "");
   const [busy, setBusy] = useState(false);
+  const [keep, setKeep] = useState(keepSignedIn);
   const t = (k: string) => w(k, lang);
   const here = window.location.origin + window.location.pathname;
 
@@ -46,12 +47,14 @@ export function Login({ note, recovery }: { note?: string; recovery?: boolean })
         return;
       }
       if (mode === "up") {
+        setKeepSignedIn(keep);
         const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name: name || email }, emailRedirectTo: here } });
         if (error) throw error;
         if (!data.session) { setInfo(t("login.check")); setMode("in"); return; }
         emitUser(rememberUser(data.session));
         return;
       }
+      setKeepSignedIn(keep);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       emitUser(rememberUser(data.session));
@@ -155,6 +158,12 @@ export function Login({ note, recovery }: { note?: string; recovery?: boolean })
               </label>
               {confirm && !matches ? <p className="gate-note is-bad">{t("login.mismatch")}</p> : null}
             </>
+          ) : null}
+          {mode === "in" || mode === "up" ? (
+            <label className="gate-keep">
+              <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+              <span>{t("login.keep")}</span>
+            </label>
           ) : null}
           {info ? <p className="gate-note">{info}</p> : null}
           {error ? <p className="gate-note is-bad">{error}</p> : null}

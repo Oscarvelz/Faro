@@ -2199,3 +2199,11 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
   .app-frame:not(.is-split.is-cols) .desk-board,
   .app-frame:not(.is-split.is-cols) .desk-col { gap: 20px; }
 }
+
+/* Libro's five tabs: icon above the name, so each word gets the full column (no crowding, no clipped "Variables"). */
+.seg.is-follow:not(.is-pair) { border-radius: 22px; padding: 4px; gap: 2px; }
+.seg.is-follow:not(.is-pair) button { flex-direction: column; height: 50px; min-height: 50px; padding: 6px 2px 5px; gap: 5px; font-size: 0.7rem; letter-spacing: -0.01em; border-radius: 18px; }
+.seg.is-follow:not(.is-pair) .seg-ico, .seg.is-follow:not(.is-pair) .seg-ico svg { width: 17px; height: 17px; }
+.seg.is-follow:not(.is-pair) .seg-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.seg.is-follow:not(.is-pair) .seg-pill { border-radius: 18px; }
+@media (width<=380px) { .seg.is-follow:not(.is-pair) .seg-label { font-size: 1em; } }

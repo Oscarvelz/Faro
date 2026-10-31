@@ -4,7 +4,7 @@ import "@/styles.css";
 import { FaroProvider } from "@/components/faro/provider";
 import { Shell } from "@/components/faro/shell";
 import { Mark } from "@/components/faro/icons";
-import { CLOUD_READY, emitUser, lastUser, rememberUser, supabase } from "@/spa/cloud";
+import { CLOUD_READY, emitUser, keepSignedIn, lastUser, rememberUser, setSessionGone, supabase } from "@/spa/cloud";
 import { useFaroUser } from "@/spa/gates";
 import { Login } from "@/spa/login";
 import { lockCredential, unlock } from "@/spa/lock";
@@ -101,7 +101,17 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   const user = useFaroUser();
   const [booted, setBooted] = useState(false);
   const [recovery, setRecovery] = useState(false);
-  const [expired, setExpired] = useState(false);
+  const [expiredRaw, setExpired] = useState(false);
+  const [relogin, setRelogin] = useState(false);
+  // "Mantener sesión abierta": an ended cloud session doesn't block the books; Ajustes offers to sign in again.
+  const softExpired = expiredRaw && keepSignedIn() && !relogin;
+  const expired = expiredRaw && !softExpired;
+  useEffect(() => { setSessionGone(expiredRaw); }, [expiredRaw]);
+  useEffect(() => {
+    const go = () => setRelogin(true);
+    window.addEventListener("faro-relogin", go);
+    return () => window.removeEventListener("faro-relogin", go);
+  }, []);
   const [open, setOpen] = useState(false);
   const hiddenAt = useRef(0);
 
@@ -111,6 +121,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
       if (session) {
         setExpired(false);
+        setRelogin(false);
         emitUser(rememberUser(session));
       }
     });

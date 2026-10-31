@@ -210,3 +210,5 @@
 @media (prefers-reduced-motion: reduce) {
   .gate-beam, .gate-stars, .gate-sea path, .gate-go::after, .gate-card { animation: none; }
 }
+.gate-keep { display: flex; align-items: center; gap: 10px; padding: 2px 4px; font-size: 0.9rem; font-weight: 600; color: var(--ink-2); cursor: pointer; user-select: none; }
+.gate-keep input { width: 1.15rem; height: 1.15rem; margin: 0; flex: none; accent-color: var(--gold); cursor: pointer; }

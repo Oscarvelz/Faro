@@ -847,3 +847,7 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .kn-dot { fill: #3fd6f5; }
 [data-theme="tron"] .kn-dot.is-off { fill: #ff2a2a; }
 [data-theme="tron"] .kn-bar.is-prev { fill: rgba(127, 169, 181, .35); }
+/* Libro's five tabs in Tron: the display font is wide, so tighten it and square the cells. */
+[data-theme="tron"] .seg.is-follow:not(.is-pair) .seg-label { font-size: .64rem; letter-spacing: .02em; }
+[data-theme="tron"] .seg.is-follow:not(.is-pair) { border-radius: 8px !important; }
+[data-theme="tron"] .seg.is-follow:not(.is-pair) :is(button, .seg-pill) { border-radius: 6px !important; }
