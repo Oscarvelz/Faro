@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Moon, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
+import "./float.css";
 import { UserButton } from "@/lib/auth/gates";
 import { monthLines } from "@/lib/faro/engine";
 import { monthName } from "@/lib/faro/i18n";
@@ -92,6 +93,26 @@ export function Shell() {
     } catch { /* ignore */ }
     return "income";
   });
+  const [floatOn, setFloatOn] = useState(() => {
+    try { return localStorage.getItem("faro-float") === "1"; } catch { return false; }
+  });
+  const [floatMin, setFloatMin] = useState(() => {
+    try { return localStorage.getItem("faro-float-min") === "1"; } catch { return false; }
+  });
+  const [floatSection, setFloatSection] = useState<SectionId>(() => {
+    try {
+      const stored = localStorage.getItem("faro-float-section");
+      if (isSplitSection(stored)) return stored;
+    } catch { /* ignore */ }
+    return "advice";
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("faro-float", floatOn ? "1" : "0");
+      localStorage.setItem("faro-float-min", floatMin ? "1" : "0");
+      localStorage.setItem("faro-float-section", floatSection);
+    } catch { /* ignore */ }
+  }, [floatOn, floatMin, floatSection]);
   const stackRef = useRef<HTMLDivElement>(null);
   const topPaneRef = useRef<HTMLDivElement>(null);
   const wideRef = useRef(wide);
@@ -654,6 +675,28 @@ export function Shell() {
               >
                 {wide && (!split || splitAxis === "row") ? <Columns2 className="size-4" /> : <Rows2 className="size-4" />}
               </button>
+              <button
+                type="button"
+                className={`icon-btn theme-toggle cal-launch float-launch${floatOn ? " is-on" : ""}`}
+                aria-pressed={floatOn && !floatMin}
+                aria-label={!floatOn || floatMin ? t("float.unfold") : t("float.fold")}
+                title={t("float")}
+                onClick={() => {
+                  if (!floatOn) {
+                    const taken = new Set<SectionId>([ui.section, ...(split ? [lower] : [])]);
+                    if (taken.has(floatSection)) {
+                      const pick = (["advice", "stats", "desk", "income", "variable"] as SectionId[]).find((id) => !taken.has(id));
+                      if (pick) setFloatSection(pick);
+                    }
+                    setFloatMin(false);
+                    setFloatOn(true);
+                    return;
+                  }
+                  setFloatMin((m) => !m);
+                }}
+              >
+                <PictureInPicture2 className="size-4" />
+              </button>
               <div className="cal-anchor search-anchor" ref={searchRef}>
                 <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => { setSearchListed(false); setSearchOpen((v) => !v); }}>
                   <Search className="size-4" />
@@ -993,6 +1036,16 @@ export function Shell() {
             : (recall ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />)}
         </button>
       ) : null}
+      {floatOn ? (
+        <FloatWindow
+          section={floatSection}
+          onSection={setFloatSection}
+          folded={floatMin}
+          onFold={setFloatMin}
+          onClose={() => { setFloatOn(false); setFloatMin(false); }}
+          onFull={(id) => { setFloatOn(false); setFloatMin(false); setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: id }); }}
+        />
+      ) : null}
       <Help />
     </div>
   );
@@ -1215,4 +1268,215 @@ function buildCal(session: ReturnType<typeof useFaro>["session"], year: number, 
     };
   });
   return { lead, cells, days, income, expense, undated };
+}
+
+type FloatGeo = { x: number; y: number; w: number; h: number; bx: number; by: number; alpha: number };
+const FLOAT_KEY = "faro-float-geo";
+const BUBBLE = 58;
+
+function floatDefaults(): FloatGeo {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const phone = vw < 640;
+  const w = phone ? vw - 28 : Math.min(400, vw - 32);
+  const h = phone ? Math.round(vh * 0.52) : Math.min(600, vh - 160);
+  return { x: vw - w - 14, y: phone ? Math.round(vh * 0.22) : 96, w, h, bx: vw - BUBBLE - 8, by: Math.round(vh * 0.38), alpha: 1 };
+}
+
+function clampFloat(g: FloatGeo): FloatGeo {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const minW = Math.min(250, vw - 16);
+  const minH = Math.min(240, vh - 80);
+  const w = Math.round(Math.min(vw - 16, Math.max(minW, g.w)));
+  const h = Math.round(Math.min(vh - 16, Math.max(minH, g.h)));
+  return {
+    w,
+    h,
+    x: Math.round(Math.min(vw - w - 8, Math.max(8, g.x))),
+    y: Math.round(Math.min(vh - h - 8, Math.max(8, g.y))),
+    bx: Math.round(Math.min(vw - BUBBLE - 6, Math.max(6, g.bx))),
+    by: Math.round(Math.min(vh - BUBBLE - 90, Math.max(64, g.by))),
+    alpha: g.alpha === 0.85 || g.alpha === 0.65 ? g.alpha : 1,
+  };
+}
+
+function loadFloat(): FloatGeo {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FLOAT_KEY) ?? "null") as Partial<FloatGeo> | null;
+    if (raw && typeof raw.w === "number") return clampFloat({ ...floatDefaults(), ...raw });
+  } catch { /* ignore */ }
+  return clampFloat(floatDefaults());
+}
+
+function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
+  section: SectionId;
+  onSection: (id: SectionId) => void;
+  folded: boolean;
+  onFold: (folded: boolean) => void;
+  onClose: () => void;
+  onFull: (id: SectionId) => void;
+}) {
+  const { t } = useFaro();
+  const [geo, setGeo] = useState<FloatGeo>(loadFloat);
+  const live = useRef(geo);
+  live.current = geo;
+  const winRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLButtonElement>(null);
+  const [moving, setMoving] = useState(false);
+
+  useEffect(() => {
+    const fit = () => setGeo((g) => clampFloat(g));
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(FLOAT_KEY, JSON.stringify(geo)); } catch { /* ignore */ }
+  }, [geo]);
+  useEffect(() => {
+    if (folded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && winRef.current?.contains(document.activeElement)) onFold(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [folded, onFold]);
+
+  const paint = (g: FloatGeo) => {
+    const win = winRef.current;
+    if (win) {
+      win.style.left = `${g.x}px`;
+      win.style.top = `${g.y}px`;
+      win.style.width = `${g.w}px`;
+      win.style.height = `${g.h}px`;
+    }
+    const bub = bubbleRef.current;
+    if (bub) {
+      bub.style.left = `${g.bx}px`;
+      bub.style.top = `${g.by}px`;
+    }
+  };
+
+  const grab = (mode: "move" | "se" | "sw" | "s" | "bubble") => (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
+    if (mode === "move" && (e.target as HTMLElement).closest("button")) return;
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const sx = e.clientX;
+    const sy = e.clientY;
+    const start = { ...live.current };
+    let moved = false;
+    let last = start;
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - sx;
+      const dy = ev.clientY - sy;
+      if (!moved) {
+        if (Math.hypot(dx, dy) < 5) return;
+        moved = true;
+        setMoving(true);
+      }
+      let g = { ...start };
+      if (mode === "move") { g.x = start.x + dx; g.y = start.y + dy; }
+      else if (mode === "se") { g.w = start.w + dx; g.h = start.h + dy; }
+      else if (mode === "s") { g.h = start.h + dy; }
+      else if (mode === "sw") {
+        const w = clampFloat({ ...start, w: start.w - dx }).w;
+        g.w = w;
+        g.x = start.x + (start.w - w);
+        g.h = start.h + dy;
+      } else { g.bx = start.bx + dx; g.by = start.by + dy; }
+      g = clampFloat(g);
+      last = g;
+      paint(g);
+    };
+    const onUp = () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      setMoving(false);
+      if (mode === "bubble") {
+        if (!moved) { onFold(false); return; }
+        const vw = window.innerWidth;
+        last = clampFloat({ ...last, bx: last.bx + BUBBLE / 2 < vw / 2 ? 6 : vw - BUBBLE - 6 });
+      }
+      if (moved) setGeo(last);
+    };
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+  };
+
+  const nudge = (e: ReactKeyboardEvent<HTMLElement>, kind: "move" | "size") => {
+    const step = e.shiftKey ? 40 : 12;
+    const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    setGeo((g) => clampFloat(kind === "move" ? { ...g, x: g.x + d[0], y: g.y + d[1] } : { ...g, w: g.w + d[0], h: g.h + d[1] }));
+  };
+
+  const map = useCallback((api: Api): Api => ({
+    ...api,
+    ui: { ...api.ui, section },
+    goSection: (delta: number) => onSection(stepSection(section, delta)),
+    setUi: (patch) => {
+      const { section: next, ...rest } = patch;
+      if (next && next !== "settings") onSection(next);
+      else if (next === "settings") api.setUi({ section: "settings" });
+      if (Object.keys(rest).length) api.setUi(rest);
+    },
+  }), [section, onSection]);
+
+  const name = hubOf(section) === "books" || hubOf(section) === "study"
+    ? t(section === "subs" ? "tab.subs" : `nav.${section}`)
+    : t("nav.desk");
+
+  if (folded) {
+    return (
+      <button
+        ref={bubbleRef}
+        type="button"
+        className={`float-bubble${moving ? " is-moving" : ""}`}
+        style={{ left: geo.bx, top: geo.by }}
+        aria-label={`${t("float.unfold")}: ${name}`}
+        onPointerDown={grab("bubble")}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFold(false); } }}
+      >
+        <i className="float-bubble-glow" aria-hidden />
+        <SectionIcon id={section} className="size-5" />
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={winRef}
+      className={`float-win${moving ? " is-moving" : ""}`}
+      role="dialog"
+      aria-modal="false"
+      aria-label={`${t("float")}: ${name}`}
+      style={{ left: geo.x, top: geo.y, width: geo.w, height: geo.h, ["--float-alpha" as string]: geo.alpha }}
+    >
+      <div className="float-bar" onPointerDown={grab("move")} onDoubleClick={() => onFold(true)}>
+        <span className="float-handle" tabIndex={0} role="button" aria-label={t("float.move")} onKeyDown={(e) => nudge(e, "move")}><i /></span>
+        <span className="float-title"><SectionIcon id={section} className="size-3.5" />{name}</span>
+        <span className="float-tools">
+          <button type="button" aria-label={t("float.alpha")} aria-pressed={geo.alpha < 1} onClick={() => setGeo((g) => ({ ...g, alpha: g.alpha === 1 ? 0.85 : g.alpha === 0.85 ? 0.65 : 1 }))}><Blend /></button>
+          <button type="button" aria-label={t("float.full")} onClick={() => onFull(section)}><Maximize2 /></button>
+          <button type="button" aria-label={t("float.fold")} onClick={() => onFold(true)}><Minus /></button>
+          <button type="button" aria-label={t("float.close")} onClick={onClose}><X /></button>
+        </span>
+      </div>
+      <FaroPane map={map}>
+        <div className="float-body">
+          <div className="workspace">
+            <SectionView />
+          </div>
+          <DockNav section={section} onSection={onSection} />
+        </div>
+      </FaroPane>
+      <span className="float-size is-sw" aria-hidden onPointerDown={grab("sw")} />
+      <span className="float-size is-s" aria-hidden onPointerDown={grab("s")} />
+      <span className="float-size is-se" role="button" tabIndex={0} aria-label={t("float.size")} onPointerDown={grab("se")} onKeyDown={(e) => nudge(e, "size")}><i /></span>
+    </div>
+  );
 }

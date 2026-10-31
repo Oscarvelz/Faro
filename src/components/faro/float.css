@@ -1,0 +1,87 @@
+/* Floating window (Samsung-style pop-up view) */
+.float-win {
+  position: fixed; z-index: 60;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg); color: var(--fg);
+  border-radius: 22px;
+  border: 1px solid color-mix(in oklab, var(--fg) 14%, transparent);
+  box-shadow: 0 24px 60px rgb(0 0 0 / .38), 0 2px 0 color-mix(in oklab, white 10%, transparent) inset;
+  opacity: var(--float-alpha, 1);
+  transition: opacity .2s;
+  animation: float-in .26s cubic-bezier(.22, 1, .36, 1);
+  touch-action: none;
+}
+.float-win:hover, .float-win:focus-within { opacity: max(var(--float-alpha, 1), .92); }
+.float-win.is-moving { opacity: .9; box-shadow: 0 30px 70px rgb(0 0 0 / .45); user-select: none; }
+.float-win.is-moving .float-body { pointer-events: none; }
+@keyframes float-in { from { opacity: 0; transform: scale(.94) translateY(10px); } }
+
+.float-bar {
+  flex: none; position: relative;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px;
+  height: 40px; padding: 0 6px 0 4px;
+  background: color-mix(in oklab, var(--surface) 82%, var(--fg) 4%);
+  border-bottom: 1px solid var(--line);
+  cursor: grab; touch-action: none; user-select: none;
+}
+.float-win.is-moving .float-bar { cursor: grabbing; }
+.float-handle { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; }
+.float-handle i { width: 18px; height: 4px; border-radius: 99px; background: var(--muted); box-shadow: 0 6px 0 var(--muted); transform: translateY(-3px); opacity: .7; }
+.float-handle:focus-visible { outline: 2px solid var(--accent); }
+.float-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: .82rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.float-title svg { flex: none; color: var(--accent); }
+.float-tools { display: inline-flex; gap: 2px; }
+.float-tools button {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.float-tools button svg { width: 15px; height: 15px; }
+.float-tools button:hover, .float-tools button:focus-visible { background: var(--surface-2); color: var(--fg); }
+.float-tools button[aria-pressed="true"] { color: var(--accent); }
+.float-tools button:last-child:hover { background: color-mix(in oklab, var(--bad) 22%, transparent); color: var(--fg); }
+
+.float-body { position: relative; z-index: 1; isolation: isolate; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; touch-action: auto; }
+.float-body .workspace { flex: 1 1 auto; min-height: 0; overflow: auto; display: block; overscroll-behavior: contain; }
+.float-body .main-pad { padding: 12px 12px 14px; min-height: 100%; }
+.float-body .dock {
+  position: relative; left: auto; right: auto; bottom: auto; display: grid; flex: none;
+  margin: 0 8px 8px; padding: 3px; gap: 2px; border-radius: 16px; box-shadow: none;
+}
+.float-body .dock .nav-btn { min-height: 36px; padding: 3px 2px 4px; border-radius: 12px; font-size: .62rem; gap: 1px; }
+.float-body .dock .nav-btn svg { width: 14px; height: 14px; }
+.float-body .dock-glide { top: 3px; bottom: 3px; border-radius: 12px; width: calc((100% - 10px) / 3); left: calc(3px + var(--dock, 0) * ((100% - 10px) / 3 + 2px)); }
+
+.float-size { position: absolute; bottom: 0; z-index: 5; touch-action: none; }
+.float-size.is-se { right: 0; width: 30px; height: 30px; cursor: nwse-resize; display: grid; place-items: center; }
+.float-size.is-sw { left: 0; width: 24px; height: 24px; cursor: nesw-resize; }
+.float-size.is-s { left: 30px; right: 30px; height: 8px; cursor: ns-resize; }
+.float-size.is-se i {
+  width: 12px; height: 12px; margin: 0 4px 4px 0; align-self: end; justify-self: end;
+  border-right: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); border-bottom-right-radius: 6px; opacity: .65;
+}
+.float-size.is-se:hover i, .float-size.is-se:focus-visible i { opacity: 1; border-color: var(--accent); }
+
+.float-bubble {
+  position: fixed; z-index: 60; width: 58px; height: 58px; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer; touch-action: none;
+  color: var(--fg); border: 1px solid color-mix(in oklab, var(--fg) 16%, transparent);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 30px rgb(0 0 0 / .32);
+  transition: left .28s cubic-bezier(.22, 1, .36, 1), top .28s cubic-bezier(.22, 1, .36, 1), transform .15s;
+  animation: float-pop .3s cubic-bezier(.22, 1, .36, 1);
+}
+.float-bubble.is-moving { transition: none; transform: scale(1.08); }
+.float-bubble:active { transform: scale(.95); }
+.float-bubble:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.float-bubble svg { position: relative; color: var(--accent); }
+.float-bubble-glow { position: absolute; inset: 6px; border-radius: 50%; background: radial-gradient(circle, color-mix(in oklab, #ffd98a 38%, transparent), transparent 70%); animation: float-glow 3.4s ease-in-out infinite; }
+@keyframes float-pop { from { transform: scale(.6); opacity: 0; } }
+@keyframes float-glow { 50% { opacity: .35; } }
+
+.float-launch.is-on { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .float-win, .float-bubble, .float-bubble-glow { animation: none; }
+  .float-bubble { transition: none; }
+}
