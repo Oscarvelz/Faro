@@ -85,3 +85,36 @@
   .float-win, .float-bubble, .float-bubble-glow { animation: none; }
   .float-bubble { transition: none; }
 }
+
+/* View menu (split + floating, from one icon) */
+.view-anchor { position: relative; }
+.view-menu {
+  position: absolute; top: calc(100% + 8px); right: -40px; z-index: 70; width: 248px;
+  padding: 12px; border-radius: 20px; display: grid; gap: 10px;
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 50px rgb(0 0 0 / .35);
+  animation: float-in .2s cubic-bezier(.22, 1, .36, 1);
+}
+.view-menu-kicker { margin: 0; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.view-menu-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.view-menu-row button {
+  display: grid; justify-items: center; gap: 6px; padding: 10px 4px 8px; border-radius: 14px;
+  border: 1px solid transparent; background: var(--surface-2); color: var(--muted);
+  font: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; line-height: 1.15; text-align: center;
+}
+.view-menu-row button[aria-checked="true"] { color: var(--fg); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--surface-2)); }
+.view-glyph { display: flex; gap: 3px; width: 30px; height: 40px; padding: 3px; border-radius: 7px; border: 1.5px solid currentColor; }
+.view-glyph.is-row { flex-direction: column; }
+.view-glyph b { flex: 1; border-radius: 3px; background: currentColor; opacity: .55; }
+.view-menu-row button[aria-checked="true"] .view-glyph b { background: var(--accent); opacity: .9; }
+.view-float {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 14px;
+  border: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; text-align: left;
+}
+.view-float span { flex: 1; }
+.view-float svg:first-child { color: var(--accent); }
+.view-float[aria-checked="true"] { border-color: var(--accent); }
+.view-float-x { padding: 4px; width: 24px; height: 24px; border-radius: 8px; color: var(--muted); }
+.view-float-x:hover { background: var(--surface-2); color: var(--fg); }
+@media (prefers-reduced-motion: reduce) { .view-menu { animation: none; } }

@@ -113,6 +113,16 @@ export function Shell() {
       localStorage.setItem("faro-float-section", floatSection);
     } catch { /* ignore */ }
   }, [floatOn, floatMin, floatSection]);
+  const [viewOpen, setViewOpen] = useState(false);
+  const viewRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!viewOpen) return;
+    const off = (e: PointerEvent) => { if (!viewRef.current?.contains(e.target as Node)) setViewOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setViewOpen(false); };
+    document.addEventListener("pointerdown", off);
+    window.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", off); window.removeEventListener("keydown", esc); };
+  }, [viewOpen]);
   const stackRef = useRef<HTMLDivElement>(null);
   const topPaneRef = useRef<HTMLDivElement>(null);
   const wideRef = useRef(wide);
@@ -555,6 +565,20 @@ export function Shell() {
   const homeSide = moneyOpen || vault || ui.section === "desk" || ui.section === "settings" ? "left" : "right";
   const dockClass = !split && !recall ? (homeSide === "left" ? " is-hide-right" : " is-hide-left") : "";
 
+  const openLower = () => setLower((cur) => (cur === ui.section ? pairedSection(ui.section) : cur));
+  const toggleFloat = () => {
+    if (!floatOn) {
+      const taken = new Set<SectionId>([ui.section, ...(split ? [lower] : [])]);
+      if (taken.has(floatSection)) {
+        const pick = (["advice", "stats", "desk", "income", "variable"] as SectionId[]).find((id) => !taken.has(id));
+        if (pick) setFloatSection(pick);
+      }
+      setFloatMin(false);
+      setFloatOn(true);
+      return;
+    }
+    setFloatMin((m) => !m);
+  };
   return (
     <div className={`app-frame${split ? " is-split" : ""}${wide && split && splitAxis === "col" ? " is-cols" : ""}${dragging ? " is-dragging" : ""}${dockClass}`}>
       <nav ref={railRef} className="rail" aria-label={t("nav.desk")}>
@@ -645,58 +669,44 @@ export function Shell() {
               >
                 {NIGHT_THEMES.includes(session.ledger.settings.theme) ? <Sun className="size-4" /> : <Moon className="size-4" />}
               </button>
-              <button
-                type="button"
-                className={`icon-btn theme-toggle cal-launch${split ? " is-on" : ""}`}
-                aria-pressed={split}
-                aria-label={!wide ? (split ? t("split.one") : t("split")) : !split ? t("split.col") : splitAxis === "col" ? t("split.row") : t("split.one")}
-                onClick={() => {
-                  const openLower = () => setLower((cur) => (cur === ui.section ? pairedSection(ui.section) : cur));
-                  if (!wide) {
-                    setSplit((on) => {
-                      if (!on) openLower();
-                      return !on;
-                    });
-                    return;
-                  }
-                  if (!split) {
-                    setSplitAxis("col");
-                    setSplitRatio(50);
-                    openLower();
-                    setSplit(true);
-                    return;
-                  }
-                  if (splitAxis === "col") {
-                    setSplitAxis("row");
-                    return;
-                  }
-                  setSplit(false);
-                }}
-              >
-                {wide && (!split || splitAxis === "row") ? <Columns2 className="size-4" /> : <Rows2 className="size-4" />}
-              </button>
-              <button
-                type="button"
-                className={`icon-btn theme-toggle cal-launch float-launch${floatOn ? " is-on" : ""}`}
-                aria-pressed={floatOn && !floatMin}
-                aria-label={!floatOn || floatMin ? t("float.unfold") : t("float.fold")}
-                title={t("float")}
-                onClick={() => {
-                  if (!floatOn) {
-                    const taken = new Set<SectionId>([ui.section, ...(split ? [lower] : [])]);
-                    if (taken.has(floatSection)) {
-                      const pick = (["advice", "stats", "desk", "income", "variable"] as SectionId[]).find((id) => !taken.has(id));
-                      if (pick) setFloatSection(pick);
-                    }
-                    setFloatMin(false);
-                    setFloatOn(true);
-                    return;
-                  }
-                  setFloatMin((m) => !m);
-                }}
-              >
-                <PictureInPicture2 className="size-4" />
-              </button>
+              <div className="cal-anchor view-anchor" ref={viewRef}>
+                <button
+                  type="button"
+                  className={`icon-btn theme-toggle cal-launch${split || floatOn ? " is-on" : ""}`}
+                  aria-haspopup="menu"
+                  aria-expanded={viewOpen}
+                  aria-label={t("view.title")}
+                  onClick={() => setViewOpen((o) => !o)}
+                >
+                  {floatOn && !split ? <PictureInPicture2 className="size-4" /> : wide && split && splitAxis === "col" ? <Columns2 className="size-4" /> : <Rows2 className="size-4" />}
+                </button>
+                {viewOpen ? (
+                  <div className="view-menu" role="menu" aria-label={t("view.title")}>
+                    <p className="view-menu-kicker">{t("view.title")}</p>
+                    <div className="view-menu-row">
+                      <button type="button" role="menuitemradio" aria-checked={!split} onClick={() => { setSplit(false); setViewOpen(false); }}>
+                        <i className="view-glyph is-one" aria-hidden><b /></i>
+                        <span>{t("split.one")}</span>
+                      </button>
+                      {wide ? (
+                        <button type="button" role="menuitemradio" aria-checked={split && splitAxis === "col"} onClick={() => { const fresh = !split; setSplitAxis("col"); if (fresh) { setSplitRatio(50); openLower(); } setSplit(true); setViewOpen(false); }}>
+                          <i className="view-glyph is-col" aria-hidden><b /><b /></i>
+                          <span>{t("view.cols")}</span>
+                        </button>
+                      ) : null}
+                      <button type="button" role="menuitemradio" aria-checked={split && (!wide || splitAxis === "row")} onClick={() => { const fresh = !split; setSplitAxis("row"); if (fresh) openLower(); setSplit(true); setViewOpen(false); }}>
+                        <i className="view-glyph is-row" aria-hidden><b /><b /></i>
+                        <span>{t("view.rows")}</span>
+                      </button>
+                    </div>
+                    <button type="button" className="view-float" role="menuitemcheckbox" aria-checked={floatOn} onClick={() => { toggleFloat(); setViewOpen(false); }}>
+                      <PictureInPicture2 className="size-4" />
+                      <span>{floatOn ? (floatMin ? t("float.unfold") : t("float.fold")) : t("float")}</span>
+                      {floatOn ? <X className="size-3.5 view-float-x" aria-label={t("float.close")} onClick={(e) => { e.stopPropagation(); setFloatOn(false); setFloatMin(false); setViewOpen(false); }} /> : null}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <div className="cal-anchor search-anchor" ref={searchRef}>
                 <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => { setSearchListed(false); setSearchOpen((v) => !v); }}>
                   <Search className="size-4" />
