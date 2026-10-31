@@ -21,3 +21,4 @@
 - 1.3.21: day .desk-bar gets paper-glass gradients, an accent-to-gold bottom hairline, a 9s sheen, hairline dividers, a tinted Queda and a USADO meter (--usedf; turns red when data-over).
 - 1.3.22: Asesor audit (see /workspace/work/audit/AUDIT.md). advisor.ts/coach.ts/engine.ts/money.ts plus small screens.tsx/advisor2.tsx plan fixes.
 - 1.3.23: html.booting is removed when the splash starts fading (spa/main.tsx), not after it is gone, so day themes no longer flash a black frame behind the cards.
+- 1.3.24: HealthCard '?' explainer (ScoreHelp in panorama.tsx, SCORE_WEIGHTS exported from coach.ts). Cambio redesign (.cv-* stacked rows, swap disc, quick chips) + CalcPanel (.calc2: drag, 4-corner resize, fill-screen toggle, keyboard, = key, geo in localStorage faro-calc-geo, ResizeObserver clamp) in instruments.tsx/instruments.css; Tron skin in tron.css. Test: browser-test/cv.mjs, help.mjs.

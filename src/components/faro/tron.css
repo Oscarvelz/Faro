@@ -785,3 +785,15 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .slip-mini { border-color: rgba(63, 214, 245, .5); color: #3fd6f5; border-radius: 3px; }
 [data-theme="tron"] .slip-edit { border-radius: 3px; border-color: #3fd6f5; background: #020a0e; color: #eafbff; }
 @container (max-width: 290px) { [data-theme="tron"] .calc2-bar strong { letter-spacing: .06em; } [data-theme="tron"] .calc2-chip { letter-spacing: .06em; padding: 0 7px; } }
+[data-theme="tron"] .cv-gear.is-on { background: rgba(255, 157, 42, .15); color: #ff9d2a; border-color: #ff9d2a; box-shadow: 0 0 12px rgba(255, 157, 42, .45); }
+[data-theme="tron"] .cvs { border-radius: 3px 16px 3px 16px; border: 1px solid rgba(255, 157, 42, .45); background: repeating-linear-gradient(0deg, rgba(63, 214, 245, .03) 0 1px, transparent 1px 3px), rgba(3, 10, 14, .85); box-shadow: inset 0 0 18px rgba(255, 157, 42, .08); }
+[data-theme="tron"] .cvs-label { font-family: var(--t-display); text-transform: uppercase; letter-spacing: .1em; font-size: .62rem; color: #7fa9b5; }
+[data-theme="tron"] .cvs-label b { font-size: .78rem; color: #3fd6f5; text-shadow: 0 0 8px rgba(63, 214, 245, .5); }
+[data-theme="tron"] .cvs-group:nth-of-type(2) .cvs-label b { color: #ff9d2a; text-shadow: 0 0 8px rgba(255, 157, 42, .5); }
+[data-theme="tron"] .cvs-slot { border-radius: 3px; background: #020a0e !important; border-color: rgba(63, 214, 245, .3); color: #eafbff; font-family: "Exo 2", system-ui, sans-serif; }
+[data-theme="tron"] .cvs-slot:focus { border-color: #3fd6f5; box-shadow: 0 0 10px rgba(63, 214, 245, .4); }
+[data-theme="tron"] .cvs-seg { border-radius: 3px; background: #020a0e; border-color: rgba(63, 214, 245, .3); }
+[data-theme="tron"] .cvs-seg button { border-radius: 2px; font-family: "Exo 2", system-ui, sans-serif; }
+[data-theme="tron"] .cvs-seg button.is-on { background: rgba(63, 214, 245, .14); color: #eafbff; box-shadow: inset 0 -2px 0 #3fd6f5, 0 0 10px rgba(63, 214, 245, .3); }
+[data-theme="tron"] .cvs-reset { color: #7fa9b5; }
+[data-theme="tron"] .tool-brand .brand-word { text-transform: none; }

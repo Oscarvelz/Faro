@@ -1,5 +1,5 @@
 /* Cambio: converter as two stacked currency rows, and the floating calculator. */
-.cv { display: grid; gap: 12px; }
+.cv { display: grid; gap: 12px; container-type: inline-size; }
 .cv-pair { position: relative; display: grid; gap: 6px; }
 .cv-row {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px;
@@ -115,3 +115,28 @@
 }
 .calc2-put { white-space: nowrap; overflow: hidden; }
 @container (max-width: 300px) { .calc2-put .num { display: none; } }
+/* Sheet title = the app's own lamp + name */
+.tool-brand { display: flex; align-items: center; pointer-events: none; }
+/* Exchange settings */
+.cv-tools { display: inline-flex; gap: 8px; align-items: center; }
+.cv-gear { width: 36px; height: 36px; min-width: 36px; }
+.cv-gear.is-on { background: var(--fg); color: var(--bg); border-color: transparent; }
+.cvs { display: grid; gap: 14px; padding: 14px; border-radius: 18px; border: 1px dashed color-mix(in oklab, var(--accent) 40%, var(--line)); background: color-mix(in oklab, var(--accent) 6%, var(--surface)); animation: calc2-in .2s ease both; }
+.cvs-intro { margin: 0; font-size: .85rem; color: var(--muted); line-height: 1.35; }
+.cvs-group { display: grid; gap: 8px; }
+.cvs-label { margin: 0; display: flex; align-items: baseline; gap: 8px; font-size: .8rem; font-weight: 650; color: var(--muted); }
+.cvs-label b { color: var(--fg); font-size: .9rem; }
+.cvs-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.cvs-slot { width: 100%; min-width: 0; height: 40px; padding: 0 4px; text-align: center; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; font-size: .9rem; font-weight: 600; }
+.cvs-slot:placeholder-shown { border-style: dashed; }
+.cvs-slot::placeholder { color: var(--faint); font-weight: 500; }
+.cvs-slot:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent); }
+.cvs-start { display: grid; grid-template-columns: minmax(0, 1fr) 6.5rem; gap: 8px; align-items: end; }
+.cvs-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; gap: 3px; border-radius: 999px; background: color-mix(in oklab, var(--surface-2) 60%, var(--surface)); border: 1px solid var(--line); }
+.cvs-seg button { min-height: 34px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: .78rem; font-weight: 650; padding: 0 6px; }
+.cvs-seg button.is-on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 4px color-mix(in oklab, var(--fg) 14%, transparent); }
+.cvs-amount { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); font-weight: 650; }
+.cvs-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cvs-reset { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .82rem; font-weight: 600; padding: 6px 2px; }
+.cvs-done { min-height: 40px; padding: 0 18px; gap: 6px; }
+@container (max-width: 330px) { .cvs-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

@@ -1,7 +1,7 @@
 import "./instruments.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpDown, Calculator, ChevronDown, Delete, Maximize2, Minimize2, Pencil, X } from "lucide-react";
+import { ArrowUpDown, Calculator, Check, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, X } from "lucide-react";
 import { convertMinor, evalExpr, formatMoney, formatRate, parseAmount } from "@/lib/faro/money";
 import type { Currency } from "@/lib/faro/types";
 import { useFaro } from "./provider";
@@ -23,8 +23,14 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
   const { t, session, summary, commit, refreshRate, saveRate, insertAmount, ui, setUi, confirm } = useFaro();
   const settings = session?.ledger.settings;
   const box = useRef<HTMLDivElement>(null);
-  const [from, setFrom] = useState<Currency>("USD");
-  const [text, setText] = useState("100");
+  const [prefs, setPrefs] = useState<CvPrefs>(() => readPrefs());
+  const [from, setFrom] = useState<Currency>(() => readPrefs().start);
+  const [text, setText] = useState(() => readPrefs().amount);
+  const [prefsOn, setPrefsOn] = useState(false);
+  const savePrefs = (next: CvPrefs) => {
+    setPrefs(next);
+    localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+  };
   const [rateText, setRateText] = useState(settings ? formatRate(settings.rateE4) : "36.6243");
   const [expr, setExpr] = useState("");
   const [calcOn, setCalcOn] = useState(false);
@@ -145,10 +151,16 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
       <section className="card tool-card tool-convert cv">
         <div className="tool-title">
           <span className="serif text-xl">{t("convert.title")}</span>
+          <span className="cv-tools">
+          <button type="button" className={`icon-btn cv-gear${prefsOn ? " is-on" : ""}`} aria-pressed={prefsOn} aria-expanded={prefsOn} aria-label={lang === "en" ? "Exchange settings" : "Ajustes del cambio"} onClick={() => setPrefsOn((v) => !v)}>
+            <SlidersHorizontal className="size-4" />
+          </button>
           <button type="button" className={`icon-btn calc-launch${calcOn ? " is-on" : ""}`} aria-pressed={calcOn} aria-label={t("calc.open")} onClick={() => setCalcOn((v) => !v)}>
             <Calculator className="size-4" />
           </button>
+          </span>
         </div>
+        {prefsOn ? <CvSettings prefs={prefs} lang={lang} onChange={savePrefs} onDone={() => setPrefsOn(false)} /> : null}
         <div className="cv-pair">
           <label className={`cv-row is-from cur-${from}`}>
             <span className="cv-cur"><b>{from === "USD" ? "US$" : "C$"}</b><small>{from === "USD" ? (lang === "en" ? "Dollars" : "Dólares") : (lang === "en" ? "Córdobas" : "Córdobas")}</small></span>
@@ -176,7 +188,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
         </div>
         <p className="cv-rate num">1 US$ = C${formatRate(settings.rateE4)}</p>
         <div className="cv-chips" role="group" aria-label={lang === "en" ? "Quick amounts" : "Montos rápidos"}>
-          {(from === "USD" ? ["10", "20", "50", "100", "500"] : ["100", "500", "1000", "2000", "5000"]).map((v) => (
+          {(from === "USD" ? prefs.usd : prefs.nio).map((v) => (
             <button key={v} type="button" aria-pressed={text === v} onClick={() => { touched.current = true; setText(v); }}>
               {Number(v).toLocaleString(lang === "en" ? "en-US" : "es-NI")}
             </button>
@@ -265,6 +277,109 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
     </div>
   );
 }
+/* ---------- Exchange settings: only for the Cambio box. ---------- */
+
+const PREFS_KEY = "faro-cv-prefs";
+const SLOTS = 6;
+type CvPrefs = { usd: string[]; nio: string[]; start: Currency; amount: string };
+const CV_DEFAULT: CvPrefs = { usd: ["10", "20", "50", "100", "500"], nio: ["100", "500", "1000", "2000", "5000"], start: "USD", amount: "100" };
+const cleanList = (list: unknown, fallback: string[]) => {
+  if (!Array.isArray(list)) return fallback;
+  const out = list.map((v) => String(v).trim().replace(/,/g, "")).filter((v) => /^\d+(\.\d{1,2})?$/.test(v) && Number(v) > 0);
+  return [...new Set(out)].slice(0, SLOTS);
+};
+function readPrefs(): CvPrefs {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || "null") as Partial<CvPrefs> | null;
+    if (!raw) return CV_DEFAULT;
+    return {
+      usd: cleanList(raw.usd, CV_DEFAULT.usd),
+      nio: cleanList(raw.nio, CV_DEFAULT.nio),
+      start: raw.start === "NIO" ? "NIO" : "USD",
+      amount: typeof raw.amount === "string" && raw.amount.trim() ? raw.amount : CV_DEFAULT.amount,
+    };
+  } catch {
+    return CV_DEFAULT;
+  }
+}
+
+function CvSettings({ prefs, lang, onChange, onDone }: { prefs: CvPrefs; lang: string; onChange: (p: CvPrefs) => void; onDone: () => void }) {
+  const en = lang === "en";
+  const [usd, setUsd] = useState(() => [...prefs.usd, ...Array(SLOTS).fill("")].slice(0, SLOTS));
+  const [nio, setNio] = useState(() => [...prefs.nio, ...Array(SLOTS).fill("")].slice(0, SLOTS));
+  const [start, setStart] = useState<Currency>(prefs.start);
+  const [amount, setAmount] = useState(prefs.amount);
+  const push = (next: Partial<{ usd: string[]; nio: string[]; start: Currency; amount: string }>) => {
+    const u = next.usd ?? usd;
+    const n = next.nio ?? nio;
+    onChange({ usd: cleanList(u, []), nio: cleanList(n, []), start: next.start ?? start, amount: (next.amount ?? amount).trim() || "0" });
+  };
+  const row = (cur: "usd" | "nio", list: string[], set: (l: string[]) => void) => (
+    <div className="cvs-group">
+      <p className="cvs-label">
+        <b>{cur === "usd" ? "US$" : "C$"}</b>
+        {en ? (cur === "usd" ? "Quick amounts in dollars" : "Quick amounts in córdobas") : (cur === "usd" ? "Montos rápidos en dólares" : "Montos rápidos en córdobas")}
+      </p>
+      <div className="cvs-slots">
+        {list.map((v, i) => (
+          <input
+            key={i}
+            className="cvs-slot num"
+            inputMode="decimal"
+            value={v}
+            placeholder="+"
+            aria-label={`${en ? "Amount" : "Monto"} ${i + 1}`}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => {
+              const next = list.slice();
+              next[i] = e.target.value.replace(/[^\d.,]/g, "").slice(0, 9);
+              set(next);
+              push(cur === "usd" ? { usd: next } : { nio: next });
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="cvs" role="group" aria-label={en ? "Exchange settings" : "Ajustes del cambio"}>
+      <p className="cvs-intro">{en ? "Choose the amounts you use most. Leave a box empty to hide it." : "Elige los montos que más usas. Deja una casilla vacía para quitarla."}</p>
+      {row("usd", usd, setUsd)}
+      {row("nio", nio, setNio)}
+      <div className="cvs-group">
+        <p className="cvs-label">{en ? "When it opens" : "Al abrir"}</p>
+        <div className="cvs-start">
+          <div className="cvs-seg" role="radiogroup">
+            {(["USD", "NIO"] as Currency[]).map((c) => (
+              <button key={c} type="button" role="radio" aria-checked={start === c} className={start === c ? "is-on" : undefined} onClick={() => { setStart(c); push({ start: c }); }}>
+                {c === "USD" ? (en ? "From dollars" : "Desde dólares") : (en ? "From córdobas" : "Desde córdobas")}
+              </button>
+            ))}
+          </div>
+          <label className="cvs-amount">
+            <span>{en ? "Amount" : "Monto"}</span>
+            <input className="cvs-slot num" inputMode="decimal" value={amount} onFocus={(e) => e.currentTarget.select()} onChange={(e) => { const v = e.target.value.replace(/[^\d.,]/g, "").slice(0, 9); setAmount(v); push({ amount: v }); }} />
+          </label>
+        </div>
+      </div>
+      <div className="cvs-foot">
+        <button
+          type="button"
+          className="cvs-reset"
+          onClick={() => {
+            const pad = (l: string[]) => [...l, ...Array(SLOTS).fill("")].slice(0, SLOTS);
+            setUsd(pad(CV_DEFAULT.usd)); setNio(pad(CV_DEFAULT.nio)); setStart(CV_DEFAULT.start); setAmount(CV_DEFAULT.amount);
+            onChange(CV_DEFAULT);
+          }}
+        >
+          <RotateCcw className="size-3.5" /> {en ? "Restore" : "Restaurar"}
+        </button>
+        <button type="button" className="btn cvs-done" onClick={onDone}><Check className="size-4" /> {en ? "Done" : "Listo"}</button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Calculator: a floating panel you can drag, resize from any corner, or blow up to fill. ---------- */
 
 type Key = { k: string; label?: string; kind?: "op" | "fn" | "eq" };

@@ -1064,7 +1064,14 @@ function ToolSheet({ contained = false }: { contained?: boolean }) {
   return (
     <div className={`tool-sheet${contained ? " is-pane" : ""}`} role="dialog" aria-label={t("convert.title")}>
       <div className="tool-sheet-bar">
-        <h2 className="serif text-2xl">{t("convert.title")}</h2>
+        <div className="brand-mini tool-brand" aria-label="Faro">
+          <span className="brand-lamp" aria-hidden>
+            <i className="brand-beam" />
+            <i className="brand-glow" />
+            <Mark className="size-7" />
+          </span>
+          <span className="brand-word">Faro</span>
+        </div>
         <button type="button" className="btn secondary" onClick={() => setUi({ instruments: false, calcOpen: false })}>{t("close")}</button>
       </div>
       <div className="tool-sheet-body">
