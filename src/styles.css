@@ -2238,3 +2238,31 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 @keyframes xp-in { from { transform: translateY(8px); opacity: 0; } }
 @media (min-width: 900px) { .xp-scrim { align-items: center; } }
 @media (prefers-reduced-motion: reduce) { .xp-scrim, .xp-sheet, .xp-part { animation: none !important; } }
+
+/* Book buttons: compact. Book chart: slots, a baseline, the peak lit, and the average as a dashed line. */
+.icon-btn.line-act { width: 26px; min-width: 26px; height: 26px; }
+.icon-btn.line-act svg { width: 12px; height: 12px; }
+.line-row { gap: 8px; }
+.pot-help > .icon-btn { position: absolute; top: 6px; right: 6px; }
+.seg.is-follow + .icon-btn { margin-bottom: 12px; }
+.cut-lanes { position: relative; height: 96px; padding: 4px 2px 0; }
+.cut-lanes::after { content: ""; position: absolute; left: 0; right: 0; bottom: 18px; height: 1px; background: color-mix(in oklab, var(--fg) 14%, transparent); pointer-events: none; }
+.cut-lane { position: relative; }
+.cut-lane::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 18px; width: min(18px, 100%); transform: translateX(-50%); border-radius: 7px 7px 2px 2px; background: color-mix(in oklab, var(--fg) 5%, transparent); }
+.cut-lane i { position: relative; z-index: 1; width: min(18px, 100%); border-radius: 7px 7px 2px 2px; transform-origin: bottom; animation: cut-grow .55s cubic-bezier(.22, 1, .36, 1) both; }
+.cut-lane:nth-child(3) i { animation-delay: .04s; } .cut-lane:nth-child(4) i { animation-delay: .08s; } .cut-lane:nth-child(5) i { animation-delay: .12s; } .cut-lane:nth-child(6) i { animation-delay: .16s; } .cut-lane:nth-child(7) i { animation-delay: .2s; }
+.cut-lane.is-empty i { opacity: .35; }
+.cut-lane.is-peak b { color: var(--fg); font-weight: 700; }
+.cut-lanes.is-out .cut-lane i { background: linear-gradient(180deg, color-mix(in oklab, white 22%, var(--warn)), var(--warn)); }
+.cut-avg { position: absolute; z-index: 2; left: 0; right: 0; bottom: calc(18px + (100% - 22px) * var(--a, 0)); height: 0; border-top: 1.5px dashed color-mix(in oklab, #d9a033 85%, transparent); pointer-events: none; text-decoration: none; }
+.cut-avg::after { content: "x̄"; position: absolute; right: 0; top: -15px; font-size: .62rem; font-weight: 700; color: #c58a1c; }
+@keyframes cut-grow { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .cut-lane i { animation: none; } }
+
+/* Facts: the running total gets the whole top row; this period and the average share the row under it. */
+.span-cut .span-facts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.span-cut .span-facts > div:first-child { grid-column: 1 / -1; min-height: 58px; }
+.span-cut .span-facts > div:first-child strong { font-size: 1.3rem; }
+.span-cut .span-facts > div + div { border-left: 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, var(--line)); }
+.span-cut .span-facts > div:nth-child(3) { border-left: 1px solid color-mix(in oklab, var(--fg) 8%, var(--line)); }
+.span-cut .span-facts strong { overflow: hidden; text-overflow: ellipsis; }

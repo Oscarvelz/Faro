@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
@@ -568,11 +568,12 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
               <strong className="num">{fmt(Math.round(average * 100))}</strong>
             </div>
           </div>
-          <div className="cut-lanes">
+          <div className={`cut-lanes ${income ? "is-in" : "is-out"}`} style={{ "--a": max > 0 ? Math.min(1, average / max) : 0 } as CSSProperties}>
+            {average > 0 ? <s className="cut-avg" aria-hidden /> : null}
             {points.map((point) => {
               const value = income ? point.income : point.expense;
               return (
-                <span key={point.key} className="cut-lane">
+                <span key={point.key} className={`cut-lane${value <= 0 ? " is-empty" : ""}${value > 0 && value >= max ? " is-peak" : ""}`}>
                   <i style={{ height: `${Math.max(value > 0 ? 14 : 4, (value / max) * 100)}%` }} />
                   <b>{point.label.replace(".", "")}</b>
                 </span>
