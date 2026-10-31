@@ -1,7 +1,7 @@
 import "./instruments.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpDown, Calculator, Check, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, X } from "lucide-react";
+import { ArrowUpDown, Calculator, Check, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, Trash2, X } from "lucide-react";
 import { convertMinor, evalExpr, formatMoney, formatRate, parseAmount } from "@/lib/faro/money";
 import type { Currency } from "@/lib/faro/types";
 import { useFaro } from "./provider";
@@ -27,6 +27,8 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
   const [from, setFrom] = useState<Currency>(() => readPrefs().start);
   const [text, setText] = useState(() => readPrefs().amount);
   const [prefsOn, setPrefsOn] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const savePrefs = (next: CvPrefs) => {
     setPrefs(next);
     localStorage.setItem(PREFS_KEY, JSON.stringify(next));
@@ -214,10 +216,69 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
         />
       ) : null}
       <section className="card tool-card">
-        <h2 className="serif text-xl">{t("slips.title")}</h2>
+        <div className="slip-head">
+          <h2 className="serif text-xl">{t("slips.title")}</h2>
+          {slips.length > 0 ? (
+            <button
+              type="button"
+              className={`slip-pick${picking ? " is-on" : ""}`}
+              aria-pressed={picking}
+              onClick={() => { setPicking((v) => !v); setPicked(new Set()); setEditId(null); }}
+            >
+              {picking ? (lang === "en" ? "Cancel" : "Cancelar") : (lang === "en" ? "Select" : "Seleccionar")}
+            </button>
+          ) : null}
+        </div>
+        {picking && slips.length > 0 ? (
+          <div className="slip-bulk">
+            <label className="unfold-all slip-all">
+              <input
+                type="checkbox"
+                checked={picked.size === slips.length}
+                ref={(el) => { if (el) el.indeterminate = picked.size > 0 && picked.size < slips.length; }}
+                onChange={() => setPicked(picked.size === slips.length ? new Set() : new Set(slips.map((x) => x.id)))}
+              />
+              <span>{lang === "en" ? "All" : "Todos"}</span>
+            </label>
+            <button
+              type="button"
+              className="slip-kill"
+              disabled={picked.size === 0}
+              onClick={() => {
+                const n = picked.size;
+                const all = n === slips.length;
+                const en = lang === "en";
+                confirm({
+                  title: all ? (en ? "Delete all saved?" : "¿Borrar todos los guardados?") : (en ? `Delete ${n} saved?` : `¿Borrar ${n} guardado${n === 1 ? "" : "s"}?`),
+                  body: slips.filter((x) => picked.has(x.id)).map((x) => (x.kind === "sum" ? pretty(x.label) : x.label)).slice(0, 4).join("\n") + (n > 4 ? (en ? `\n…and ${n - 4} more` : `\n…y ${n - 4} más`) : ""),
+                  danger: true,
+                  yes: all ? (en ? "Delete all" : "Borrar todos") : (en ? `Delete ${n}` : `Borrar ${n}`),
+                  run: () => {
+                    writeSlips(slips.filter((x) => !picked.has(x.id)));
+                    setPicked(new Set());
+                    setPicking(false);
+                  },
+                });
+              }}
+            >
+              <Trash2 className="size-4" />
+              {lang === "en" ? `Delete${picked.size ? ` (${picked.size})` : ""}` : `Borrar${picked.size ? ` (${picked.size})` : ""}`}
+            </button>
+          </div>
+        ) : null}
         {slips.length === 0 ? <p className="mt-2 text-sm text-muted">{t("slips.empty")}</p> : (
-          <div className="slip-row">
-            {slips.map((slip) => (
+          <div className={`slip-row${picking ? " is-picking" : ""}`}>
+            {slips.map((slip) => picking ? (
+              <label key={slip.id} className={`slip-item slip-choice${picked.has(slip.id) ? " is-picked" : ""}`}>
+                <input
+                  type="checkbox"
+                  className="slip-check"
+                  checked={picked.has(slip.id)}
+                  onChange={() => setPicked((cur) => { const next = new Set(cur); if (next.has(slip.id)) next.delete(slip.id); else next.add(slip.id); return next; })}
+                />
+                <span className="slip-btn">{slip.kind === "sum" ? pretty(slip.label) : slip.label}</span>
+              </label>
+            ) : (
               <div key={slip.id} className="slip-item">
                 {editId === slip.id ? (
                   <input

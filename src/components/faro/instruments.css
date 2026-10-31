@@ -156,3 +156,21 @@
 .tool-close { position: relative; }
 .tool-brand .brand-lamp svg { width: 40px !important; height: 40px !important; }
 .tool-brand .brand-lamp { transform: translateY(-2px); }
+/* Guardados: select many, delete with one confirmation */
+.slip-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.slip-head h2 { margin: 0; }
+.slip-pick { flex: none; min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 650; }
+.slip-pick.is-on { color: var(--fg); border-color: color-mix(in oklab, var(--fg) 35%, var(--line)); }
+.slip-bulk { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 6px 6px 6px 10px; border-radius: 14px; background: color-mix(in oklab, var(--surface-2) 45%, transparent); animation: calc2-in .18s ease both; }
+.slip-all { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 650; }
+.slip-kill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--bad) 55%, var(--line)); background: color-mix(in oklab, var(--bad) 12%, var(--surface)); color: var(--bad); font: inherit; font-size: .82rem; font-weight: 700; transition: opacity .15s; }
+.slip-kill:disabled { opacity: .4; }
+.slip-choice { cursor: pointer; gap: 10px; -webkit-tap-highlight-color: transparent; }
+.slip-check { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 22px; height: 22px; margin: 0; border-radius: 7px; border: 1.5px solid color-mix(in oklab, var(--fg) 35%, transparent); background: transparent; transition: background-color .15s, border-color .15s; }
+.slip-check:checked { background: var(--bad); border-color: var(--bad); }
+.slip-check:checked::after { content: ""; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.slip-choice .slip-btn { display: block; transition: opacity .15s, filter .15s; }
+.slip-row.is-picking .slip-choice:not(.is-picked) .slip-btn { opacity: .62; filter: saturate(.7); }
+.ask-body { white-space: pre-line; }
+.slip-bulk .slip-all { display: inline-flex !important; align-items: center !important; min-height: 36px; margin: 0; padding: 0; }
+.slip-bulk { align-items: center; }

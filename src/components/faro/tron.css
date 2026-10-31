@@ -802,3 +802,9 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .tool-brand .brand-word { font-size: 1.75rem; letter-spacing: .22em; }
 [data-theme="tron"] .tool-close { border-radius: 3px; border-color: rgba(63, 214, 245, .35); color: #7fa9b5; background: rgba(3, 10, 14, .5); }
 [data-theme="tron"] .tool-close:hover { color: #ff2a2a; border-color: rgba(255, 42, 42, .6); box-shadow: 0 0 10px rgba(255, 42, 42, .3); }
+[data-theme="tron"] .slip-pick { border-radius: 3px; border-color: rgba(63, 214, 245, .4); color: #a6e9f7; font-family: var(--t-display); font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; }
+[data-theme="tron"] .slip-bulk { border-radius: 3px; background: rgba(3, 10, 14, .7); border: 1px solid rgba(63, 214, 245, .2); }
+[data-theme="tron"] .slip-kill { border-radius: 3px; border-color: rgba(255, 42, 42, .6); background: rgba(40, 4, 4, .7); color: #ff5a5a; text-shadow: 0 0 8px rgba(255, 42, 42, .5); font-family: var(--t-display); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; }
+[data-theme="tron"] .slip-kill:not(:disabled) { box-shadow: 0 0 12px rgba(255, 42, 42, .3); }
+[data-theme="tron"] .slip-check { border-radius: 3px; border-color: rgba(63, 214, 245, .55); }
+[data-theme="tron"] .slip-check:checked { background: #ff2a2a; border-color: #ff2a2a; box-shadow: 0 0 10px rgba(255, 42, 42, .6); }
