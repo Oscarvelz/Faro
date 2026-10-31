@@ -204,3 +204,13 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .a2-tiles span.is-short strong { color: #ffb4a8; }
 @media (prefers-reduced-motion: reduce) { .a2-detail, .a2-more-chev { animation: none; transition: none; } }
 .a2-tiles span:last-child:nth-child(odd) { grid-column: 1 / -1; grid-template-columns: 1fr auto; align-items: baseline; }
+
+/* Day themes: the lighthouse card is a night scene, so it stays dark all the way down (text is light). */
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .a2-tower {
+  background: radial-gradient(90% 70% at 18% 6%, color-mix(in oklab, #ffd98a 13%, transparent), transparent 60%), linear-gradient(180deg, #0f1a2b 0%, #142236 55%, #18263a 100%);
+  border-color: color-mix(in oklab, #0f1a2b 60%, var(--line));
+  box-shadow: 0 14px 30px -18px rgba(15, 26, 43, .55);
+}
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .a2-tower.is-short {
+  background: radial-gradient(90% 70% at 18% 6%, color-mix(in oklab, #ff8a7a 12%, transparent), transparent 60%), linear-gradient(180deg, #1d1418, #241a20);
+}

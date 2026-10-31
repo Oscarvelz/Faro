@@ -2066,3 +2066,5 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .spend-bubble .num { font-size: min(1.02rem, 13.5cqi); }
 .spend-bubble strong { font-size: min(0.8rem, 11.5cqi); }
 .spend-bubble { padding-inline: max(14px, 9cqi); }
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .vault-lever-read p strong { color: color-mix(in oklab, var(--seg, #d5e2ea) 50%, var(--fg)); }
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .vault-lever-read > div .vault-mark.is-on em { color: color-mix(in oklab, var(--seg, var(--fg)) 50%, var(--fg)); }

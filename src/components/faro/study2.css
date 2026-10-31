@@ -139,3 +139,8 @@ strong.s2-out { color: var(--c); }
 @keyframes s2-slosh { to { transform: translateX(25%); } }
 @keyframes s2-pop { from { transform: scale(0); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .s2-star, .s2-wave, .s2-lamp, .s2-beamcone, .s2-bob, .s2-jar-water svg, .s2-whatif-dots i { animation: none; } .s2-boat { transition: none; } }
+
+/* Day themes: deepen pale gold and pastel figures so they read on light cards (night unchanged). */
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) :is(.s2-voyage-read strong, .s2-whatif-a strong) { color: #8a5a0e; }
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) :is(strong.s2-in, strong.s2-out) { color: color-mix(in oklab, var(--c) 55%, var(--fg)); }
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .s2-whatif { border-color: color-mix(in oklab, #c4962e 45%, var(--line)); }
