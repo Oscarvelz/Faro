@@ -128,7 +128,9 @@ export function StatFoldProvider({
       setShut((s) => ({ ...s, [id]: false }));
     },
   }), [spread, shut, forced, pinned, pinLabel, foldLabel, placed, breaks, items, openByDefault]);
-  const checked = spread && !Object.values(shut).some(Boolean);
+  const openNow = (id: string) => !!pinned[id] || (shut[id] ? false : forced[id] ? true : spread || !!openByDefault?.includes(id));
+  const liveIds = live.split("\0").filter(Boolean);
+  const checked = liveIds.length > 0 && liveIds.every(openNow);
   const sectionAt = (id: string) => items.find((item) => item.id === id)?.section ?? "";
   const move = (index: number, dir: -1 | 1) => {
     setOrder(() => {
@@ -150,9 +152,17 @@ export function StatFoldProvider({
             type="checkbox"
             checked={checked}
             onChange={() => {
-              setSpread(!checked);
-              setShut({});
-              setForced({});
+              if (checked) {
+                const all: Record<string, boolean> = {};
+                for (const id of items) all[id.id] = true;
+                setSpread(false);
+                setForced({});
+                setShut(all);
+              } else {
+                setSpread(true);
+                setShut({});
+                setForced({});
+              }
             }}
           />
           <span>{label}</span>
