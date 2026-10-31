@@ -147,7 +147,18 @@ export type Insight = {
   meaning: string;
   formula: string;
   implication: string;
+  /** Optional picture data for the Números clave card. */
+  viz?: InsightViz;
 };
+
+export type InsightViz =
+  | { kind: "ring"; pct: number; mark?: number }
+  | { kind: "parts"; parts: { name: string; share: number; color: string }[]; cut: number }
+  | { kind: "split"; a: number; b: number; aLabel: string; bLabel: string }
+  | { kind: "cover"; months: number; goal: number }
+  | { kind: "days"; day: number | null; days: number }
+  | { kind: "delta"; now: number; prev: number }
+  | { kind: "share"; pct: number };
 
 export type Slice = { id: string; name: string; minor: number; color: string };
 

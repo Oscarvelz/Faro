@@ -440,6 +440,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: formatPct(s.spentPct, lang),
     detail: L(lang, `${money(s.expense)} de ${money(s.income)}`, `${money(s.expense)} of ${money(s.income)}`),
     tone: s.spentPct === null ? "neutral" : s.spentPct > 100 ? "bad" : s.spentPct > 80 ? "warn" : "good",
+    viz: s.spentPct === null ? undefined : { kind: "ring", pct: s.spentPct, mark: 80 },
     meaning: L(lang, "Relación entre todo lo anotado como gasto este mes y todo lo anotado como ingreso.", "Ratio of everything recorded as spending this month to everything recorded as income."),
     formula: L(lang, "Gastos ÷ ingresos × 100. Si no hay ingreso, no hay porcentaje.", "Spending ÷ income × 100. No income, no percentage."),
     implication: L(
@@ -467,6 +468,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: formatPct(fixedPct, lang),
     detail: L(lang, `${money(realFixed)} en fijos${savingsFixed > 0 ? `, sin contar ${money(savingsFixed)} de ahorro` : ""}.`, `${money(realFixed)} fixed${savingsFixed > 0 ? `, not counting ${money(savingsFixed)} of savings` : ""}.`),
     tone: fixedPct === null ? "neutral" : fixedPct > 70 ? "bad" : fixedPct > 50 ? "warn" : "good",
+    viz: fixedPct === null ? undefined : { kind: "ring", pct: fixedPct, mark: 50 },
     meaning: L(lang, "Parte del ingreso que se va en gastos fijos. Es lo que no se recorta este mes sin renegociar un contrato, una renta o un crédito.", "Share of income that leaves in fixed expenses. It is what you cannot cut this month without renegotiating rent, a contract, or a credit."),
     formula: L(lang, "Gastos fijos ÷ ingresos. Las suscripciones de este mes van aparte, en su propia lectura.", "Fixed expenses ÷ income. This month's subscriptions are read separately."),
     implication: L(
@@ -490,8 +492,9 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     id: "flex",
     title: L(lang, "Gasto con margen", "Spending with room"),
     value: money(flex),
-    detail: formatPct(flexPct, lang),
+    detail: flexPct === null ? L(lang, "Gastos variables y compras.", "Variable spending and purchases.") : L(lang, `${formatPct(flexPct, lang)} de tu ingreso, en gastos variables y compras.`, `${formatPct(flexPct, lang)} of your income, in variable spending and purchases.`),
     tone: "neutral",
+    viz: flexPct === null ? undefined : { kind: "ring", pct: flexPct },
     meaning: L(lang, "Variables más compras. Es la zona donde un recorte de este mes sí cambia el cierre, sin tocar la renta.", "Variable spending plus purchases. This is where a cut this month actually changes the close, without touching rent."),
     formula: L(lang, "Suma de líneas variables activas + compras activas, en la moneda de la vista.", "Sum of active variable lines + active purchases, in the view currency."),
     implication: L(lang, "Si el plan de presupuesto pide recortes, salen de aquí, de mayor a menor.", "If the budget plan asks for cuts, they come from here, largest first."),
@@ -504,6 +507,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: money(pettyYear),
     detail: L(lang, `${money(s.petty)} este mes en la categoría de gastos hormiga.`, `${money(s.petty)} this month in leak spending.`),
     tone: s.income > 0 && s.petty > s.income * 0.05 ? "warn" : "neutral",
+    viz: s.income > 0 ? { kind: "share", pct: (s.petty / s.income) * 100 } : undefined,
     meaning: L(lang, "Proyección simple: el gasto hormiga de este mes, repetido doce veces. No es un promedio histórico si solo existe este mes.", "Simple projection: this month's leak spending, repeated twelve times. It is not a historical average if only this month exists."),
     formula: L(lang, "Hormiga del mes × 12.", "This month's leaks × 12."),
     implication: L(
@@ -525,6 +529,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: money(runRate),
     detail: L(lang, `${money(s.subscriptions)} cobrados en este mes. El ritmo usa la frecuencia de cada una.`, `${money(s.subscriptions)} charged this month. The run-rate uses each cadence.`),
     tone: s.income > 0 && runRate > s.income * 0.1 ? "warn" : "neutral",
+    viz: s.income > 0 ? { kind: "share", pct: (runRate / s.income) * 100 } : undefined,
     meaning: L(lang, "Cuánto costarían al mes las suscripciones activas de este mes si su frecuencia se mantiene. Una anual se reparte en doce. Una semanal se lleva a mes.", "What this month's active subscriptions would cost per month if their cadence holds. A yearly plan is spread over twelve. A weekly plan is scaled up."),
     formula: L(lang, "Semanal × 52 ÷ 12. Anual ÷ 12. Mensual se queda igual. Luego se convierte a la vista.", "Weekly × 52 ÷ 12. Yearly ÷ 12. Monthly stays. Then converted to the view."),
     implication: L(lang, `En doce meses, ese ritmo son ${money(runRate * 12)} si ninguna se cancela y el precio no cambia.`, `Over twelve months that run-rate is ${money(runRate * 12)} if none are cancelled and the price holds.`),
@@ -546,6 +551,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: pareto.length ? String(pareto.length) : "—",
     detail: pareto.join(" · ") || L(lang, "Sin gastos activos.", "No active spending."),
     tone: "neutral",
+    viz: expenseAbs > 0 ? { kind: "parts", cut: pareto.length, parts: slices.filter((sl) => sl.minor > 0).slice(0, 8).map((sl) => ({ name: sl.name, share: sl.minor / expenseAbs, color: sl.color })) } : undefined,
     meaning: L(lang, "Las categorías que, sumadas de mayor a menor, alcanzan el 80% del gasto del mes. El resto es cola.", "The categories that, added from largest to smallest, reach 80% of the month's spending. The rest is the tail."),
     formula: L(lang, "Ordenar categorías por monto descendente y acumular hasta 80% del gasto.", "Sort categories by amount descending and accumulate until 80% of spending."),
     implication: L(lang, "Si una decisión solo cabe en una categoría, que sea la primera de esta lista.", "If a decision only fits in one category, make it the first on this list."),
@@ -559,6 +565,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: L(lang, `${formatMoney(usdMinor, "USD", lang)} en dólares`, `${formatMoney(usdMinor, "USD", lang)} in dollars`),
     detail: L(lang, `${formatMoney(nioMinor, "NIO", lang)} anotados en córdobas.`, `${formatMoney(nioMinor, "NIO", lang)} recorded in córdobas.`),
     tone: "neutral",
+    viz: usdMinor + nioMinor > 0 ? { kind: "split", a: convertMinor(usdMinor, "USD", display, rateE4), b: convertMinor(nioMinor, "NIO", display, rateE4), aLabel: "US$", bLabel: "C$" } : undefined,
     meaning: L(lang, "Cuánto del mes vive en cada moneda. La vista convierte; el registro no.", "How much of the month lives in each currency. The view converts; the record does not."),
     formula: L(lang, "Si la tasa sube C$1.00, la vista en córdobas de esos dólares sube exactamente el monto en dólares. C$36 más de tasa sobre $100 son C$100 más.", "If the rate rises C$1.00, the córdoba view of those dollars rises by exactly the dollar amount. C$36 more of rate on $100 is C$100 more."),
     implication: L(
@@ -590,6 +597,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
         )
       : L(lang, "No hay otro mes con movimientos. Una comparación con un mes vacío no dice nada.", "There is no other month with entries. A comparison with an empty month says nothing."),
     tone: !hasPrev ? "neutral" : s.expense > prevExpense ? "warn" : "good",
+    viz: hasPrev ? { kind: "delta", now: s.expense, prev: prevExpense } : undefined,
     meaning: L(lang, "Diferencia de gasto y de ingreso contra el mes calendario anterior, en la vista de hoy.", "Difference in spending and income versus the previous calendar month, in today's view."),
     formula: L(lang, "Total de este mes − total del mes anterior, misma tasa de hoy.", "This month's total − last month's total, at today's rate."),
     implication: L(lang, "Un solo salto no es una tendencia. El gráfico del año enseña si se repite.", "One jump is not a trend. The year chart shows whether it repeats."),
@@ -607,6 +615,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
         ? L(lang, `${monthsCover.toFixed(1)} meses de lo esencial. Meta: ${state.settings.emergencyMonths}.`, `${monthsCover.toFixed(1)} months of essentials. Goal: ${state.settings.emergencyMonths}.`)
         : L(lang, "Todavía no hay nada en tus bolsas de ahorro.", "Nothing in your savings pockets yet."),
     tone: monthsCover === null ? "neutral" : monthsCover >= state.settings.emergencyMonths ? "good" : "warn",
+    viz: monthsCover !== null ? { kind: "cover", months: monthsCover, goal: state.settings.emergencyMonths } : undefined,
     meaning: L(lang, "Saldo acumulado que tú anotaste en líneas de ahorro, dividido entre los fijos de este mes.", "Accumulated balance you entered on savings lines, divided by this month's fixed bills."),
     formula: L(lang, "Suma de saldos de ahorro ÷ gastos fijos del mes. Si el fijo es 0, no hay meses que calcular.", "Sum of savings balances ÷ this month's fixed expenses. If fixed is 0, there are no months to compute."),
     implication: L(
@@ -631,6 +640,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: money(s.remittance),
     detail: formatPct(remPct, lang),
     tone: "neutral",
+    viz: remPct !== null ? { kind: "share", pct: remPct } : undefined,
     meaning: L(lang, "Lo enviado en la categoría de remesas. No incluye un ingreso que hayas llamado remesa si lo anotaste como ingreso.", "What left through the remittance category. It does not include income you named remittance if you filed it as income."),
     formula: L(lang, "Suma de líneas cuyo rol es remesa.", "Sum of lines whose role is remittance."),
     implication: L(lang, "Si ese envío es innegociable, trátalo como fijo al armar el plan, aunque el resto de la categoría cambie.", "If that money is non-negotiable, treat it as a fixed bill when you plan."),
@@ -643,6 +653,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: formatPct(housePct, lang),
     detail: money(s.housing),
     tone: housePct !== null && housePct > 35 ? "warn" : "neutral",
+    viz: housePct === null ? undefined : { kind: "ring", pct: housePct, mark: 35 },
     meaning: L(lang, "Todo lo etiquetado con rol de casa, fijo o variable, contra el ingreso.", "Everything tagged with the home role, fixed or variable, against income."),
     formula: L(lang, "Gastos con rol casa ÷ ingresos. Un umbral útil de lectura es 35%, no una ley.", "Home-role spending ÷ income. 35% is a useful reading line, not a law."),
     implication: L(lang, "Por encima de eso, el resto del presupuesto hereda la decisión de la vivienda.", "Above that, the rest of the budget inherits the housing decision."),
@@ -655,6 +666,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: largest ? money(inView(largest, display, rateE4)) : "—",
     detail: largest ? largest.concept || names.cat(largest.categoryId) : L(lang, "Sin gastos.", "No spending."),
     tone: "neutral",
+    viz: largest && s.expense > 0 ? { kind: "share", pct: (inView(largest, display, rateE4) / s.expense) * 100 } : undefined,
     meaning: L(lang, "El gasto activo más grande del mes, una sola línea.", "The single largest active expense this month."),
     formula: L(lang, "Máximo de los gastos convertidos a la vista.", "Maximum of expenses converted to the view."),
     implication: L(lang, "Si solo vas a revisar un número con calma, es este.", "If you only review one number carefully, review this one."),
@@ -671,6 +683,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
       ? L(lang, `A ritmo parejo, el ingreso se agota el día ${breakDay} de ${days}.`, `At an even pace, income runs out on day ${breakDay} of ${days}.`)
       : L(lang, "El gasto anotado no supera al ingreso, o falta el ingreso.", "Recorded spending does not exceed income, or income is missing."),
     tone: breakDay ? "bad" : "good",
+    viz: { kind: "days", day: breakDay, days },
     meaning: L(lang, "Supone que el gasto se reparte en partes iguales cada día. Es una alarma, no un calendario real.", "Assumes spending is spread evenly each day. It is an alarm, not a real calendar."),
     formula: L(lang, "Día = ingreso ÷ gasto × días del mes, solo si el gasto es mayor.", "Day = income ÷ spending × days in the month, only if spending is greater."),
     implication: L(lang, "Si aparece un día, el plan de este mes tiene que bajar gasto o subir ingreso antes de ese punto.", "If a day appears, this month's plan has to lower spending or raise income before that point."),

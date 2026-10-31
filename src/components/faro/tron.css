@@ -808,3 +808,25 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .slip-kill:not(:disabled) { box-shadow: 0 0 12px rgba(255, 42, 42, .3); }
 [data-theme="tron"] .slip-check { border-radius: 3px; border-color: rgba(63, 214, 245, .55); }
 [data-theme="tron"] .slip-check:checked { background: #ff2a2a; border-color: #ff2a2a; box-shadow: 0 0 10px rgba(255, 42, 42, .6); }
+/* Números clave, Tron */
+[data-theme="tron"] .s2-keys li.kn-row { border-radius: 4px 16px 4px 16px; background: linear-gradient(90deg, rgba(3, 14, 20, .92), rgba(8, 22, 30, .78)); border-color: rgba(63, 214, 245, .18); box-shadow: inset 3px 0 0 var(--kt, #3fd6f5); }
+[data-theme="tron"] .kn-row { --kt: #3fd6f5; }
+[data-theme="tron"] .kn-row.tone-warn { --kt: #ff9d2a; }
+[data-theme="tron"] .kn-row.tone-bad { --kt: #ff2a2a; }
+[data-theme="tron"] .kn-row.tone-good { --kt: #3fd6f5; }
+[data-theme="tron"] .kn-title { font-family: var(--t-display); font-weight: 500; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: #7fa9b5; line-height: 1.5; }
+[data-theme="tron"] .s2-keys li .kn-value { font-family: "Exo 2", system-ui, sans-serif; font-weight: 600; letter-spacing: .01em; color: #eafbff; text-shadow: 0 0 12px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .kn-viz { --v: #3fd6f5; filter: drop-shadow(0 0 4px var(--v)); }
+[data-theme="tron"] .kn-viz.is-warn { --v: #ff9d2a; }
+[data-theme="tron"] .kn-viz.is-bad { --v: #ff2a2a; }
+[data-theme="tron"] .kn-track, [data-theme="tron"] .kn-cell { stroke: rgba(63, 214, 245, .12); }
+[data-theme="tron"] .kn-cell { fill: rgba(63, 214, 245, .08); }
+[data-theme="tron"] .kn-arc { stroke-linecap: butt; }
+[data-theme="tron"] .kn-arc.is-a { stroke: #3fd6f5; }
+[data-theme="tron"] .kn-arc.is-b { stroke: #ff9d2a; }
+[data-theme="tron"] .kn-in { fill: #eafbff; font-family: "Exo 2", system-ui, sans-serif; }
+[data-theme="tron"] .kn-mark { stroke: #ff9d2a; opacity: .9; }
+[data-theme="tron"] .kn-jar { stroke: rgba(63, 214, 245, .5); }
+[data-theme="tron"] .kn-dot { fill: #3fd6f5; }
+[data-theme="tron"] .kn-dot.is-off { fill: #ff2a2a; }
+[data-theme="tron"] .kn-bar.is-prev { fill: rgba(127, 169, 181, .35); }

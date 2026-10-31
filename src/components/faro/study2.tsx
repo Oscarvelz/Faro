@@ -274,8 +274,111 @@ export function LimitsCard({ rows }: { rows: { name: string; budget: number; act
   );
 }
 
-/* ── Números clave: the formula tiles as a clean list, empty ones hidden ─ */
+/* ── Números clave: each number with its own small picture; formulas stay behind the i ─ */
 const EMPTY = /^(—|-|[^\d]*0([.,]0+)?\s*%?|[^\d]*0([.,]0+)?\s*(en dólares|in dollars)?)$/i;
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+function Ring({ pct, mark, tone }: { pct: number; mark?: number; tone: string }) {
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  const over = pct > 100;
+  const f = clamp01(pct / 100);
+  const m = mark !== undefined ? clamp01(mark / 100) * 2 * Math.PI - Math.PI / 2 : null;
+  return (
+    <svg viewBox="0 0 56 56" className={`kn-viz is-${tone}`} aria-hidden>
+      <circle cx="28" cy="28" r={r} className="kn-track" />
+      <circle cx="28" cy="28" r={r} className={`kn-arc${over ? " is-over" : ""}`} strokeDasharray={`${f * c} ${c}`} transform="rotate(-90 28 28)" />
+      {m !== null ? <line x1={28 + Math.cos(m) * 16} y1={28 + Math.sin(m) * 16} x2={28 + Math.cos(m) * 27.5} y2={28 + Math.sin(m) * 27.5} className="kn-mark" /> : null}
+      <text x="28" y="31.5" className="kn-in">{Math.round(pct)}%</text>
+    </svg>
+  );
+}
+
+function Viz({ item }: { item: Insight }) {
+  const v = item.viz;
+  const tone = item.tone === "neutral" ? "calm" : item.tone;
+  if (!v) return <span className="kn-viz kn-blank" aria-hidden />;
+  if (v.kind === "ring" || v.kind === "share") return <Ring pct={v.pct} mark={v.kind === "ring" ? v.mark : undefined} tone={tone} />;
+  if (v.kind === "parts") {
+    const r = 22;
+    const c = 2 * Math.PI * r;
+    let at = 0;
+    return (
+      <svg viewBox="0 0 56 56" className="kn-viz" aria-hidden>
+        <circle cx="28" cy="28" r={r} className="kn-track" />
+        {v.parts.map((p, i) => {
+          const len = p.share * c;
+          const el = <circle key={i} cx="28" cy="28" r={r} className="kn-part" style={{ stroke: p.color, opacity: i < v.cut ? 1 : 0.22 }} strokeDasharray={`${Math.max(0, len - 1.2)} ${c}`} strokeDashoffset={-at} transform="rotate(-90 28 28)" />;
+          at += len;
+          return el;
+        })}
+        <text x="28" y="32.5" className="kn-in is-big">{v.cut}</text>
+      </svg>
+    );
+  }
+  if (v.kind === "split") {
+    const tot = v.a + v.b || 1;
+    const r = 22;
+    const c = 2 * Math.PI * r;
+    const fa = v.a / tot;
+    return (
+      <svg viewBox="0 0 56 56" className="kn-viz" aria-hidden>
+        <circle cx="28" cy="28" r={r} className="kn-arc is-b" strokeDasharray={`${c} ${c}`} />
+        <circle cx="28" cy="28" r={r} className="kn-arc is-a" strokeDasharray={`${fa * c} ${c}`} transform="rotate(-90 28 28)" />
+        <text x="28" y="26" className="kn-in is-sm">{v.aLabel}</text>
+        <text x="28" y="37" className="kn-in">{Math.round(fa * 100)}%</text>
+      </svg>
+    );
+  }
+  if (v.kind === "cover") {
+    const goal = Math.max(1, Math.round(v.goal));
+    const cells = Array.from({ length: goal }, (_, i) => clamp01(v.months - i));
+    const h = 40 / goal;
+    return (
+      <svg viewBox="0 0 56 56" className={`kn-viz is-${tone}`} aria-hidden>
+        <rect x="16" y="6" width="24" height="44" rx="6" className="kn-jar" />
+        {cells.map((f, i) => (
+          <g key={i}>
+            <rect x="19" y={48 - (i + 1) * h + 1} width="18" height={h - 2} rx="2.5" className="kn-cell" />
+            {f > 0 ? <rect x="19" y={48 - i * h - 1 - (h - 2) * f} width="18" height={(h - 2) * f} rx="2.5" className="kn-fill" /> : null}
+          </g>
+        ))}
+      </svg>
+    );
+  }
+  if (v.kind === "days") {
+    const cols = 7;
+    const rows = Math.ceil(v.days / cols);
+    const gap = 44 / cols;
+    return (
+      <svg viewBox="0 0 56 56" className={`kn-viz is-${v.day ? "bad" : "good"}`} aria-hidden>
+        {Array.from({ length: v.days }, (_, i) => (
+          <circle key={i} cx={6 + (i % cols) * gap + gap / 2 - 0.5} cy={28 - (rows * gap) / 2 + Math.floor(i / cols) * gap + gap / 2} r={2.1} className={v.day && i + 1 > v.day ? "kn-dot is-off" : "kn-dot"} />
+        ))}
+      </svg>
+    );
+  }
+  // delta: last month vs this month, two bars on one scale
+  const max = Math.max(v.now, v.prev, 1);
+  const hp = (v.prev / max) * 38;
+  const hn = (v.now / max) * 38;
+  return (
+    <svg viewBox="0 0 56 56" className={`kn-viz is-${v.now > v.prev ? "warn" : "good"}`} aria-hidden>
+      <line x1="8" y1="47" x2="48" y2="47" className="kn-base" />
+      <rect x="14" y={47 - hp} width="11" height={hp} rx="3" className="kn-bar is-prev" />
+      <rect x="31" y={47 - hn} width="11" height={hn} rx="3" className="kn-bar is-now" />
+    </svg>
+  );
+}
+
+const CAPTION: Record<string, [string, string]> = {
+  petty: ["del ingreso, al mes", "of income, monthly"],
+  subs: ["del ingreso", "of income"],
+  remit: ["del ingreso", "of income"],
+  largest: ["del gasto del mes", "of the month's spending"],
+  flex: ["del ingreso", "of income"],
+};
+
 export function KeyNumbers({ items }: { items: Insight[] }) {
   const { lang } = useFaro();
   const [all, setAll] = useState(false);
@@ -285,19 +388,27 @@ export function KeyNumbers({ items }: { items: Insight[] }) {
   return (
     <section className="card s2-keys">
       <Head title={L(lang, "Números clave", "Key numbers")}>
-        <p className="pano-lead">{L(lang, "Las cuentas de fondo, con su fórmula en la i.", "The numbers underneath, with the formula behind the i.")}</p>
+        <p className="pano-lead">{L(lang, "Lo que hay debajo de tu mes. Toca la i para ver cómo se calcula.", "What sits under your month. Tap the i to see how it's worked out.")}</p>
       </Head>
-      <ul>
-        {list.map((i) => (
-          <li key={i.id}>
-            <div className="s2-key-text">
-              <span>{i.title}</span>
-              <small>{i.detail}</small>
-            </div>
-            <strong className={`num serif ${i.tone === "neutral" ? "" : i.tone}`}>{i.value}</strong>
-            <Explain title={i.title} meaning={i.meaning} formula={i.formula} implication={i.implication} label={i.title} />
-          </li>
-        ))}
+      <ul className="kn-list">
+        {list.map((i, n) => {
+          const cap = CAPTION[i.id];
+          const pct = i.viz && (i.viz.kind === "share" || i.viz.kind === "ring") ? i.viz.pct : null;
+          return (
+            <li key={i.id} className={`kn-row tone-${i.tone}`} style={{ ["--n" as string]: String(n) }}>
+              <Viz item={i} />
+              <div className="kn-text">
+                <span className="kn-title">{i.title}</span>
+                <strong className={`kn-value num ${i.tone === "neutral" ? "" : i.tone}`}>{i.value}</strong>
+                <small className="kn-detail">
+                  {cap && pct !== null && i.viz?.kind === "share" ? `${Math.round(pct)}% ${L(lang, cap[0], cap[1])} · ` : ""}
+                  {i.detail}
+                </small>
+              </div>
+              <Explain title={i.title} meaning={i.meaning} formula={i.formula} implication={i.implication} label={i.title} />
+            </li>
+          );
+        })}
       </ul>
       {shown.length > 6 ? (
         <button type="button" className="btn ghost s2-more" onClick={() => setAll((v) => !v)}>
