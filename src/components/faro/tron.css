@@ -521,3 +521,6 @@ html[data-theme="tron"] .save-ledger {
   background: linear-gradient(180deg, color-mix(in oklab, var(--seg) 10%, #071014), #04090c) !important;
   box-shadow: inset 2px 0 0 var(--seg), -3px 0 12px -5px var(--seg) !important;
 }
+/* Orbitron runs wide: pocket names size to their cell so long words (Emergencia) never cut. */
+[data-theme="tron"] .save-seg { container-type: inline-size; }
+[data-theme="tron"] .save-seg strong { font-size: clamp(.5rem, 10.5cqi, .74rem); letter-spacing: .05em; white-space: nowrap; overflow: visible; text-overflow: clip; }
