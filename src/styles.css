@@ -1,4 +1,6 @@
 
+@source "./";
+@source "../spa";
 @import "tailwindcss";
 
 @theme inline {
