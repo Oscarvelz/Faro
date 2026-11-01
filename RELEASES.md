@@ -44,3 +44,4 @@
 - 1.3.44: Tron line editor amber touches: amount field + MONTO label, edited name, Primer pago/Frecuencia box, date/menu glyphs, amber focus ring.
 - 1.3.45: fingerprint lock asks only after 12h away (RELOCK_MS, faro.seen.<uid> heartbeat each minute + on hide/pagehide/unlock); applies to resume AND cold launch. Was: every launch + after 60s away.
 - 1.3.46 (2026-11-01): lock like Journey: asks after leaving the app >10s and on fresh launch; file pickers and update reloads exempt; replaces 12h rule. main 7b03b32, source b92b66a
+- 1.3.47 (2026-11-01): fingerprint lock credential kept through sign-out (wipeDevice skips faro.lock.<uid>).

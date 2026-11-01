@@ -69,6 +69,15 @@ function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
 // leaving the app (home, another app, screen off) or opening it fresh asks again. A short grace absorbs flickers
 // (notification shade, system dialogs), and a photo/backup file picker opened from inside Faro never counts as leaving.
 const LEAVE_GRACE_MS = 10_000;
+// Working mode (Oscar, Nov 1: switching back and forth while actively working shouldn't ask): if he touched Faro in the
+// last 2 minutes before leaving, a trip to another app of up to 5 minutes comes back open.
+const ACTIVE_WINDOW_MS = 2 * 60_000;
+const WORK_GRACE_MS = 5 * 60_000;
+let touchedAt = 0;
+if (typeof document !== "undefined") {
+  const touch = () => { touchedAt = Date.now(); };
+  for (const ev of ["pointerdown", "keydown", "wheel", "touchstart"]) document.addEventListener(ev, touch, { capture: true, passive: true });
+}
 const SEEN = (uid: string) => `faro.seen.${uid}`;
 const markSeen = (uid: string) => { try { localStorage.setItem(SEEN(uid), String(Date.now())); } catch { /* ignore */ } };
 let pickerAt = 0;
@@ -127,6 +136,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const hiddenAt = useRef(0);
   const openRef = useRef(false);
+  const graceRef = useRef(LEAVE_GRACE_MS);
 
   useEffect(() => {
     if (!CLOUD_READY) return;
@@ -182,11 +192,12 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
         markSeen(uid);
         // Only a hide while the app is open counts; the fingerprint prompt itself hides the page while locked.
         hiddenAt.current = openRef.current && Date.now() - pickerAt > 3_000 ? Date.now() : 0;
+        graceRef.current = Date.now() - touchedAt < ACTIVE_WINDOW_MS ? WORK_GRACE_MS : LEAVE_GRACE_MS;
         return;
       }
       const left = hiddenAt.current;
       hiddenAt.current = 0;
-      if (left && lockCredential(uid) && Date.now() - left > LEAVE_GRACE_MS) { openRef.current = false; setOpen(false); }
+      if (left && lockCredential(uid) && Date.now() - left > graceRef.current) { openRef.current = false; setOpen(false); }
       else markSeen(uid);
     };
     const onHide = () => markSeen(uid);
