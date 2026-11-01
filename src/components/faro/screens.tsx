@@ -2494,7 +2494,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     </b>
                   );
                 })()}
-                <strong>{s.name}</strong>
+                <strong data-long={s.name.length > 8 ? "" : undefined}>{s.name}</strong>
                 <span className="num">{fmt(s.minor)}</span>
                 <small>{pct}%</small>
               </button>

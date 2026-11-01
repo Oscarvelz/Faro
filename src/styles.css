@@ -2628,3 +2628,7 @@ section.save-band { container: savecard / inline-size; }
 }
 /* fix6: keep "Comprometido" clear of the corner button on narrow lenses */
 .lenses .lens.is-debt .lens-note { white-space: nowrap; font-size: min(0.573rem, 9.8cqi); letter-spacing: -0.01em; }
+/* fix7 (Nov 1 2026): only a long pocket name ("Emergencia") shrinks, and only in narrow tiles at normal text; other tiles untouched. */
+@container (max-width: 90px) {
+  :where(html:not([data-theme="tron"])) .save-segs > .save-seg > strong[data-long] { font-size: .73rem; letter-spacing: -.015em; padding-inline: 6px 0; }
+}
