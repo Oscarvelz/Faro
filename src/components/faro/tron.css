@@ -1026,7 +1026,7 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
 [data-theme="tron"] .cobro-form .day-pop { border-radius: 4px; box-shadow: 0 0 0 1px rgba(63, 214, 245, .15), 0 0 22px -8px rgba(63, 214, 245, .45), 0 18px 34px -12px #000; }
 [data-theme="tron"] .cobro-group > .cobro-card + .cobro-card { border-top-color: rgba(63, 214, 245, .14); }
 
-/* Final fix round (Nov 1 2026): teal is the editor's voice; amber stays only on amount values. Nothing amber loops. */
+/* Final fix round (Nov 1 2026): teal is the editor's voice; amber stays on amount values and the line-editor meteors. */
 [data-theme="tron"] .card:has(> .span-cut) > .row:first-child h2::after { background: #3fd6f5; box-shadow: 0 0 8px rgba(63, 214, 245, .7); }
 [data-theme="tron"] .card:has(> .span-cut) > .row:first-child h2::before { background: #3fd6f5; opacity: .5; }
 [data-theme="tron"] .card > .span-cut .span-fold-bar { border-color: rgba(63, 214, 245, .42) !important; background: linear-gradient(90deg, rgba(63, 214, 245, .08), rgba(2, 8, 11, .6) 45%, rgba(63, 214, 245, .05)) !important; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .4), inset 3px 0 0 #3fd6f5, 0 0 18px -6px rgba(63, 214, 245, .4) !important; }
@@ -1038,8 +1038,9 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
 [data-theme="tron"] .form-hint::before { color: #3fd6f5; }
 [data-theme="tron"] .line-edit :is(.day-field-btn, .theme-select-btn) svg { color: #3fd6f5; }
 [data-theme="tron"] .line-edit :is(.field, .theme-select-btn, .day-field-btn):is(:focus, :focus-visible) { border-color: #3fd6f5 !important; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important; }
-[data-theme="tron"] .line-edit::before, [data-theme="tron"] .line-edit::after { content: none; animation: none !important; display: none; }
 /* Monto fields (line editor and Cobros): teal frame like every other input; amber only for the typed amount. */
 [data-theme="tron"] :is(.line-edit, .cobro-form) .field.num { border-color: rgba(120, 225, 250, .24) !important; box-shadow: none !important; color: #ffd36a !important; }
 [data-theme="tron"] :is(.line-edit, .cobro-form) .cobro-pct .field.num { color: #e6f8fc !important; }
 [data-theme="tron"] :is(.line-edit, .cobro-form) .field.num:is(:focus, :focus-visible) { border-color: #3fd6f5 !important; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important; }
+/* fix3: at 360 the Tron lenses are as narrow as every other theme; tighten the debt note so "Comprometido" clears the corner button. Only narrow lenses (360-class phones). */
+@container (max-width: 90px) { [data-theme="tron"] .lenses .lens.is-debt .lens-note { letter-spacing: -.03em; } }

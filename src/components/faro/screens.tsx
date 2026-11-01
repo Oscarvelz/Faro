@@ -39,6 +39,15 @@ function moneyRow(line: Line, view: string, record: string, display: string) {
   );
 }
 
+// A short last token ("Salario 1", "Fase II") never sits alone on its own line: it is glued to the word before it
+// with a no-break space (same width as a space, so labels that fit on one line render exactly as before).
+function keepTail(label: string, glueShort = false) {
+  const tail = label.replace(/ (\S{1,3})$/, "\u00a0$1");
+  // Libros rows only: one-letter words ("o", "y") also travel with the word after them ("Bono / o pagos", never
+  // "Bono o / pagos"). Not used on the Home boards, where it would re-wrap labels that already wrap at normal size.
+  return glueShort ? tail.replace(/(^|\s)(\S) /g, "$1$2\u00a0") : tail;
+}
+
 function sectionFor(kind: LineKind): SectionId {
   if (kind.startsWith("income")) return "income";
   if (kind === "expense-fixed") return "fixed";
@@ -831,7 +840,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
           <div key={line.id} className="line-stack">
             <div className="line-row" data-line-id={line.id} data-hot={ui.highlight === line.id}>
               <div className="min-w-0">
-                <strong className="block">{line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId)}</strong>
+                <strong className="block">{keepTail(line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId), true)}</strong>
                 <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).join(" · ")}</span>
               </div>
               {moneyRow(line, `${line.kind.startsWith("income") || line.amountMinor === 0 ? "" : "−"}${viewLine(line)}`, recordLine(line), display)}
@@ -2921,7 +2930,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <div key={line.id}>
                 <button type="button" className="own-line" data-line-id={line.id} aria-expanded={deskLine === line.id} onClick={() => setDeskLine((cur) => cur === line.id ? null : line.id)}>
                   <span className="min-w-0">
-                    <strong className="block">{line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId)}</strong>
+                    <strong className="block">{keepTail(line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId))}</strong>
                     <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId)].filter(Boolean).join(" · ")}</span>
                   </span>
                   <span className="num amt-in">{viewLine(line)}</span>
@@ -2965,8 +2974,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 return (
                   <section key={group.id} className="ridge" style={{ ["--ridge" as string]: tint, ["--i" as string]: String(index) }}>
                     <header className="ridge-head">
-                      <strong>{group.title}</strong>
-                      <span className={`num ${total === 0 ? "amt-zero" : income ? "amt-in" : "amt-out"}`}>{income || total === 0 ? "" : "−"}{fmt(total)}</span>
+                      <div className="ridge-head-row">
+                        <strong>{group.title}</strong>
+                        <span className={`num ${total === 0 ? "amt-zero" : income ? "amt-in" : "amt-out"}`}>{income || total === 0 ? "" : "−"}{fmt(total)}</span>
+                      </div>
                     </header>
                     <div className="ridge-lines">
                       {group.lines.map((line) => {
@@ -2977,7 +2988,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                             <button type="button" className={`glass-line${debt && lens === "debt" ? " is-debt" : ""}`} data-line-id={line.id} aria-expanded={deskLine === line.id} onClick={() => setDeskLine((cur) => cur === line.id ? null : line.id)}>
                               <i className="ridge-pip" style={{ background: line.color || tint }} />
                               <span className="min-w-0">
-                                <strong className="block">{line.concept || sub || group.title}</strong>
+                                <strong className="block">{keepTail(line.concept || sub || group.title)}</strong>
                                 {sub && line.concept && sub.trim().toLowerCase() !== line.concept.trim().toLowerCase() ? <span className="block text-sm text-muted">{sub}</span> : null}
                                 {lens === "debt" && line.balanceMinor != null && line.balanceMinor > 0 ? <span className="block text-sm text-muted">{fmt(convertMinor(line.balanceMinor, line.balanceCurrency, rate.display, rate.rateE4))}</span> : null}
                               </span>

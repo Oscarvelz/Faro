@@ -2513,3 +2513,118 @@ html[data-theme="lino"] .cobros .cobro-group h3 b { border-color: color-mix(in o
 /* Final fix round (Nov 1 2026): the person's name takes all the room it has. No width cap; when the amount drops
    to its own line the name uses the full row and wraps to two lines before it is ever cut. */
 .cobro-who strong { flex: 1 1 auto; min-width: 0; max-width: none; width: auto; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; word-break: normal; hyphens: manual; line-height: 1.25; }
+
+/* fix3 (Nov 1 2026): the phone Home grid had an implicit auto column, so its min-content (big kicker figure) could push it past the viewport. Same track as desktop. */
+.desk-layout { grid-template-columns: minmax(0, 1fr); }
+/* The kicker figure drops under its label only when the label's longest word and the figure cannot share the row
+   (Tron display face at 360, large text). Label basis 0 keeps wrapping off whenever they fit, so normal layouts are unchanged. */
+.desk-kicker { flex-wrap: wrap; row-gap: 2px; }
+.desk-kicker > span { flex: 1 1 0; }
+
+/* fix4 (Nov 1 2026): large text (root 20px) on 360-412 phones. Every rule below is either a wrap that never triggers when the
+   row already fits on one line (normal text), or sits behind a rem-based container query that only matches narrow containers
+   at large text (rem in a container query follows the root size, so 360/412 at 16px never match).
+   Thresholds sit between the 360@16px and 412@20px content widths, measured Nov 1 2026. */
+/* Board category headers: dot + name stay together; if the pill can't share the line it drops under the name.
+   .ridge-head is the size container; its flex row moved into .ridge-head-row (same flex rules, so normal layouts are unchanged). */
+.ridge-head { display: block; container-type: inline-size; }
+.ridge-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* fix5: at every size the dot and the name stay on one line, and the pill drops under the name (right-aligned) only when
+   the two can't share a line (e.g. ENTRETENIMIENTO beside a wide amount, INGRESOS VARIABLES on 360 phones).
+   Headers that already fit on one line are untouched: nowrap/wrap/margin-auto change nothing there. */
+.ridge-head-row { flex-wrap: wrap; row-gap: 6px; }
+.ridge-head strong { white-space: nowrap; }
+.ridge-head .num { margin-left: auto; white-space: nowrap; }
+@container (max-width: 16.75rem) {
+  .ridge-head strong { letter-spacing: .04em; }
+  html[data-theme="tron"] .ridge-head strong { letter-spacing: .08em; }
+  .ridge-head .num { padding: 2px 8px; font-size: .8rem; }
+}
+/* Board rows: label takes the free space and balances its lines; the amount never wraps and gets a little smaller. */
+.ridge-lines .glass-line { container-type: inline-size; }
+@container (max-width: 16.25rem) {
+  .ridge-lines .glass-line .min-w-0 { flex: 1 1 0; min-width: 0; }
+  .ridge-lines .glass-line .min-w-0 strong { text-wrap: balance; }
+  .ridge-lines .glass-line .num { flex: none; white-space: nowrap; font-size: .78rem; }
+}
+/* Pagos lens: at large text "Comprometido" sits on its own line above the corner button instead of under it. */
+@container (max-width: 5.2rem) {
+  .lens-wrap > .lens.is-debt .lens-note, .lenses .lens.is-debt .lens-note { padding-right: 0; margin-bottom: 24px; letter-spacing: -.02em; }
+}
+/* Savings segments: long names ("Emergencia") shrink to fit narrow segments at large text instead of being cut. */
+.save-seg { container-type: inline-size; }
+@container (max-width: 5.15rem) {
+  html:not([data-theme="tron"]) .save-seg > strong { padding-inline: 2px; font-size: .68rem; letter-spacing: -.01em; }
+}
+/* Cobros "Prestado en el tiempo": at large text it may use two balanced lines instead of an ellipsis. */
+@container (max-width: 18.5rem) {
+  .cobros .span-fold-main span { white-space: normal; overflow: visible; text-overflow: clip; text-wrap: balance; line-height: 1.2; font-size: .58rem; }
+}
+/* Claro family: the "Con interés" dot was near-white on a pale card; give it a real fill. */
+html:is([data-theme="claro"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .cobro-group.is-rate h3 i { background: #4f7f9f; box-shadow: 0 0 0 3px color-mix(in oklab, #4f7f9f 24%, transparent); }
+/* Libros vault switcher: at large text on 360 phones the last tab ("Emergencia") pushed the page 6px wider; tabs tighten instead. */
+.vault-bar { container-type: inline-size; }
+@container (max-width: 18rem) {
+  html:not([data-theme="tron"]) .vault-bar button { padding-inline: 3px; gap: 3px; }
+}
+/* Libros book rows (label · amount · edit · delete) at large text: the label gets a little more room and balances its lines
+   ("Salario 1" no longer leaves "1" alone; "Honorarios" no longer runs into its amount). */
+.line-stack > .line-row { container-type: inline-size; }
+@container (max-width: 18.5rem) {
+  .line-stack > .line-row > .min-w-0 { margin-right: 4px; }
+  .line-stack > .line-row > .min-w-0 > strong { text-wrap: balance; }
+  .line-stack > .line-row > .line-amt { font-size: .86em; }
+  /* Tron's display face runs wider: a touch smaller on both sides so one-word labels clear the amount. */
+  html[data-theme="tron"] .line-stack > .line-row > .line-amt { font-size: .8em; }
+  html[data-theme="tron"] .line-stack > .line-row > .min-w-0 > strong { font-size: .94em; }
+}
+
+/* fix5 (Nov 1 2026): remaining large-text (root 20px) defects on 360 phones. Same rule as fix4: every query is rem-based and
+   sits between the 360@16px and 360-412@20px container widths (measured Nov 1 2026), or the rule only changes a row that
+   would otherwise wrap, so normal-size layouts stay pixel-identical. */
+/* Libros book rows: one-word labels never run into the amount (at least .6rem between them), the amount never wraps.
+   (fix4 already gives 8px gap + 4px margin = .6rem at 20px root.) */
+.line-stack > .line-row { container-name: bookrow; }
+@container bookrow (max-width: 18.5rem) {
+  .line-stack > .line-row > .min-w-0 > strong { overflow-wrap: normal; word-break: normal; hyphens: manual; }
+  .line-stack > .line-row > .line-amt { white-space: nowrap; letter-spacing: -.01em; }
+}
+/* Card heads ("Ingresos variables" + gold plus): the title wraps inside its own column instead of pushing the plus onto a
+   line of its own. Only changes heads that would otherwise wrap. */
+.card > .income-head { flex-wrap: nowrap; }
+.card > .income-head > h2 { min-width: 0; text-wrap: balance; }
+/* Line editor: the Frecuencia value ("Mensual", "Quincenal") fits beside its chevron at large text. */
+.line-edit .form-block { container-name: leform; }
+@container leform (max-width: 16.5rem) {
+  .line-edit .theme-select-btn { padding: 0 5px 0 10px !important; gap: 2px !important; }
+  .line-edit .theme-select-btn > span:first-child { font-size: .8rem; letter-spacing: -.015em; }
+}
+/* Libros section tabs (icon over label): full labels at large text, a little smaller, instead of "Ingre…/Varia…/Com…". */
+.seg.is-follow:not(.is-pair) { container: segtabs / inline-size; }
+@container segtabs (max-width: 20rem) {
+  .seg.is-follow:not(.is-pair) button { padding-inline: 1px; }
+  .seg.is-follow:not(.is-pair) .seg-label { font-size: .58rem; letter-spacing: -.03em; }
+  html[data-theme="tron"] .seg.is-follow:not(.is-pair) .seg-label { font-size: .56rem; letter-spacing: -.01em; }
+}
+/* Tron vault switcher: at large text "EMERGENCIA" ran 28px past the screen edge; tighter tabs keep all four inside. */
+.vault-bar { container-name: vaultbar; }
+@container vaultbar (max-width: 18rem) {
+  html[data-theme="tron"] .vault-bar button { padding-inline: 2px; gap: 2px; letter-spacing: .015em; font-size: .52rem; }
+}
+/* Home savings card at large text: the goal line gets its own row under the heading (no crowding under "Ahorros"), and the
+   three pocket tiles share one padding so "Emergencia" fits inside its tile and every amount renders at the same size. */
+section.save-band { container: savecard / inline-size; }
+@container savecard (max-width: 18.75rem) {
+  .save-head { row-gap: 6px; }
+  .save-head > .save-tools { display: contents; }
+  .save-head > .save-tools > details:first-child { grid-column: 2; grid-row: 1; justify-self: end; }
+  .save-head > .save-tools > details + details { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+  html:not([data-theme="tron"]) .save-segs > .save-seg { padding-inline: 3px; }
+  html:not([data-theme="tron"]) .save-segs > .save-seg > :is(strong, .num, small) { padding-inline: 4px; }
+  html:not([data-theme="tron"]) .save-segs > .save-seg > strong { font-size: .62rem; letter-spacing: -.02em; }
+  html:not([data-theme="tron"]) .save-segs > .save-seg > .num { font-size: .92rem; }
+  /* Tron: its label floor (.5rem) was wider than the tile at 20px root, so "EMERGENCIA" widened its tile and shrank C$0.00. */
+  html[data-theme="tron"] .save-segs > .save-seg > strong { font-size: clamp(.42rem, 10.5cqi, .74rem); letter-spacing: .03em; }
+}
+/* fix6: keep "Comprometido" clear of the corner button on narrow lenses */
+.lenses .lens.is-debt .lens-note { white-space: nowrap; font-size: min(0.573rem, 9.8cqi); letter-spacing: -0.01em; }
