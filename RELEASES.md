@@ -45,3 +45,4 @@
 - 1.3.45: fingerprint lock asks only after 12h away (RELOCK_MS, faro.seen.<uid> heartbeat each minute + on hide/pagehide/unlock); applies to resume AND cold launch. Was: every launch + after 60s away.
 - 1.3.46 (2026-11-01): lock like Journey: asks after leaving the app >10s and on fresh launch; file pickers and update reloads exempt; replaces 12h rule. main 7b03b32, source b92b66a
 - 1.3.47 (2026-11-01): fingerprint lock credential kept through sign-out (wipeDevice skips faro.lock.<uid>).
+- 1.3.48 (2026-11-01): working mode: touched within 2 min before leaving → up to 5 min away stays unlocked; otherwise 10s grace. main b96ab8a, source 5eb2240
