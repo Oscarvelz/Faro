@@ -42,3 +42,4 @@
 - 1.3.42: help buttons use lucide CircleHelp (?) instead of Info (i): Explain button + sheet badge, login tip. Same 24px box/stroke. Rule: help/explanation windows use the ? icon.
 - 1.3.43: Promedio label reads 'PROMEDIO (x̄)' in amber (Oscar's idea); dashed underline removed.
 - 1.3.44: Tron line editor amber touches: amount field + MONTO label, edited name, Primer pago/Frecuencia box, date/menu glyphs, amber focus ring.
+- 1.3.45: fingerprint lock asks only after 12h away (RELOCK_MS, faro.seen.<uid> heartbeat each minute + on hide/pagehide/unlock); applies to resume AND cold launch. Was: every launch + after 60s away.

@@ -65,12 +65,19 @@ function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
   );
 }
 
-// Fingerprint lock asks again only after a long absence (Oscar, 1.3.45: "not even Facebook asks so many times").
-// Switching apps or closing and reopening within this window opens straight in.
-const RELOCK_MS = 12 * 60 * 60 * 1000;
+// Fingerprint lock works like Journey (Oscar, Nov 1 2026: "ask for my fingerprint or password after I leave the app"):
+// leaving the app (home, another app, screen off) or opening it fresh asks again. A short grace absorbs flickers
+// (notification shade, system dialogs), and a photo/backup file picker opened from inside Faro never counts as leaving.
+const LEAVE_GRACE_MS = 10_000;
 const SEEN = (uid: string) => `faro.seen.${uid}`;
 const markSeen = (uid: string) => { try { localStorage.setItem(SEEN(uid), String(Date.now())); } catch { /* ignore */ } };
-const awayTooLong = (uid: string) => { try { const t = Number(localStorage.getItem(SEEN(uid)) || 0); return !t || Date.now() - t > RELOCK_MS; } catch { return true; } };
+let pickerAt = 0;
+if (typeof document !== "undefined") {
+  document.addEventListener("click", (e) => {
+    const el = e.target as Element | null;
+    try { if (el?.closest?.('input[type="file"], label:has(input[type="file"])')) pickerAt = Date.now(); } catch { if (el?.closest?.("label, input")?.querySelector?.('input[type="file"]') || (el as HTMLInputElement | null)?.type === "file") pickerAt = Date.now(); }
+  }, true);
+}
 
 // A reload made only to pick up an update skips the launch animation (no second splash).
 const QUIET_BOOT = (() => {
@@ -119,6 +126,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   }, []);
   const [open, setOpen] = useState(false);
   const hiddenAt = useRef(0);
+  const openRef = useRef(false);
 
   useEffect(() => {
     if (!CLOUD_READY) return;
@@ -162,19 +170,29 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   useEffect(() => {
     if (!user) { setOpen(false); return; }
     const uid = user.id;
-    const locked = !!lockCredential(uid) && awayTooLong(uid);
+    // Fresh launch asks, except the silent reload that installs an update right after use.
+    const quietResume = (() => { try { return QUIET_BOOT && Date.now() - Number(localStorage.getItem(SEEN(uid)) || 0) < LEAVE_GRACE_MS * 6; } catch { return false; } })();
+    const locked = !!lockCredential(uid) && !quietResume;
+    openRef.current = !locked;
     setOpen(!locked);
     if (!locked) markSeen(uid);
+    hiddenAt.current = 0;
     const onVis = () => {
-      if (document.visibilityState === "hidden") { hiddenAt.current = Date.now(); markSeen(uid); }
-      else if (lockCredential(uid) && awayTooLong(uid)) setOpen(false);
+      if (document.visibilityState === "hidden") {
+        markSeen(uid);
+        // Only a hide while the app is open counts; the fingerprint prompt itself hides the page while locked.
+        hiddenAt.current = openRef.current && Date.now() - pickerAt > 3_000 ? Date.now() : 0;
+        return;
+      }
+      const left = hiddenAt.current;
+      hiddenAt.current = 0;
+      if (left && lockCredential(uid) && Date.now() - left > LEAVE_GRACE_MS) { openRef.current = false; setOpen(false); }
       else markSeen(uid);
     };
-    const beat = window.setInterval(() => { if (document.visibilityState === "visible") markSeen(uid); }, 60_000);
     const onHide = () => markSeen(uid);
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("pagehide", onHide);
-    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", onHide); window.clearInterval(beat); };
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", onHide); };
   }, [user]);
 
   if (!CLOUD_READY && /[?&]gate=(in|up|reset)/.test(location.search)) {
@@ -192,7 +210,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   if (!booted) return <Boot />;
   if (recovery) return <Login recovery />;
   if (!user || expired) return <Login note={expired ? w("acct.relogin") : undefined} />;
-  if (!open) return <Locked uid={user.id} onOpen={() => { markSeen(user.id); setOpen(true); }} />;
+  if (!open) return <Locked uid={user.id} onOpen={() => { markSeen(user.id); hiddenAt.current = 0; openRef.current = true; setOpen(true); }} />;
   return (
     <FaroProvider userId={user.id}>
       <Shell />
