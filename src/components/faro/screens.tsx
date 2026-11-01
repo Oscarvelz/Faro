@@ -289,11 +289,9 @@ function readMark(storeId: string): LeverMark {
 
 function readLeverOpen(storeId: string) {
   const pin = readVaultPref("faro-vault-lever-pin", storeId) === "1";
-  const open = readVaultPref("faro-vault-lever-open", storeId);
+  // The projector starts folded on every visit to a savings tab; only the pin keeps it open (Oscar, Nov 1 2026).
   if (pin) return { pin: true, open: true };
-  if (open === "0") return { pin: false, open: false };
-  if (open === "1") return { pin: false, open: true };
-  return { pin: false, open: true };
+  return { pin: false, open: false };
 }
 
 function VaultLever({ base, tone, storeId }: { base: number; tone: string; storeId: string }) {

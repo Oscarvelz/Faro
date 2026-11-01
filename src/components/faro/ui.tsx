@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Calculator, CircleHelp, Compass, X } from "lucide-react";
 
@@ -67,6 +67,21 @@ export function Explain({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+  // Shrink the text step by step until the whole explanation fits on screen without scrolling.
+  const sheet = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const fit = () => {
+      const el = sheet.current;
+      if (!el) return;
+      let sc = 1;
+      el.style.setProperty("--xp-s", "1");
+      while (el.scrollHeight > el.clientHeight + 1 && sc > 0.66) { sc -= 0.03; el.style.setProperty("--xp-s", sc.toFixed(2)); }
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [open]);
   const parts = [
     { key: "what", Icon: BookOpen, head: en ? "What it is" : "Qué es", text: meaning },
     { key: "how", Icon: Calculator, head: en ? "How it's worked out" : "Cómo se calcula", text: formula },
@@ -81,7 +96,7 @@ export function Explain({
       {open
         ? createPortal(
             <div className={`xp-scrim${leaving ? " is-leaving" : ""}`} onPointerDown={(e) => { if (e.target === e.currentTarget) close(); }}>
-              <div className="xp-sheet" role="dialog" aria-modal="true" aria-label={title}>
+              <div ref={sheet} className="xp-sheet" role="dialog" aria-modal="true" aria-label={title}>
                 <i className="xp-grip" aria-hidden />
                 <header className="xp-head">
                   <span className="xp-badge" aria-hidden><CircleHelp /></span>
