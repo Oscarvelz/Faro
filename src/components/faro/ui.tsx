@@ -144,7 +144,7 @@ export function FieldTip({ text }: { text: string }) {
     // with a small pointer at its "?".
     const btn = ref.current?.getBoundingClientRect();
     if (!btn) return;
-    const host = ref.current?.closest(".cobro-form, .line-edit, .form-block, .card, main") as HTMLElement | null;
+    const host = ref.current?.closest(".cobro-form, .line-edit, .ah-form, .form-block, .card, main") as HTMLElement | null;
     const hr = host?.getBoundingClientRect();
     const lo = Math.max(10, hr ? hr.left + 4 : 10);
     const hi = Math.min(window.innerWidth - 10, hr ? hr.right - 4 : window.innerWidth - 10);

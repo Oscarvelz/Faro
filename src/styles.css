@@ -2632,3 +2632,122 @@ section.save-band { container: savecard / inline-size; }
 @container (max-width: 90px) {
   :where(html:not([data-theme="tron"])) .save-segs > .save-seg > strong[data-long] { font-size: .73rem; letter-spacing: -.015em; padding-inline: 6px 0; }
 }
+
+/* ==== ahorros-pass (Nov 1 2026): the Ahorros forms (new pocket, retirement dates, account deposit/withdraw/opening, new
+   account) speak the line editor / Cobros language: labels with "?", two columns where fields pair, one tint and no inner
+   frames, Cancelar | Guardar on the columns. Every selector is under .ah-form, which only these forms carry. ==== */
+.ah-form { --ah-acc: var(--seg, var(--accent)); --ah-ink: #1c1408; container-type: inline-size; display: grid; gap: 14px; min-width: 0; font-size: 1rem; }
+.save-ledger .ah-form { margin: 2px 0 10px; padding: 14px 14px 16px; border-radius: 20px; background: color-mix(in oklab, var(--ah-acc) 11%, var(--surface)); }
+.ah-form > .book-look { margin-bottom: -2px; justify-items: start; }
+.save-account .ah-form { --ah-acc: #c4a15a; flex: 1 0 100%; margin: 2px 0 4px; padding: 12px 4px 6px; border-top: 1px solid color-mix(in oklab, #c4a15a 32%, var(--line)); }
+.save-more .ah-form.is-bank { --ah-acc: #c4a15a; margin-top: 2px; padding: 14px 2px 2px; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.ah-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 10px; }
+.ah-grid > * { min-width: 0; }
+.ah-grid > .is-wide { grid-column: 1 / -1; }
+.ah-form .label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: .64rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.ah-form .lab-head { white-space: nowrap; min-width: 0; gap: 5px; }
+.ah-form :is(.field, .day-field-btn) { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: var(--surface); color: var(--fg); font: inherit; font-size: .95rem; font-weight: 500; letter-spacing: 0; text-transform: none; box-shadow: none; }
+.ah-form .field.num, .ah-form .field.num::placeholder { font-family: inherit; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.ah-form .field.num { font-size: 1.05rem; font-weight: 700; }
+.ah-form .field::placeholder { color: var(--faint); font-weight: 500; font-size: .95rem; text-transform: none; letter-spacing: 0; }
+.ah-form :is(.field, .day-field-btn):focus { outline: none; border-color: color-mix(in oklab, var(--ah-acc) 75%, var(--fg)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ah-acc) 24%, transparent); }
+.ah-form .day-field { min-width: 0; }
+.ah-form .day-field-btn { gap: 6px; padding: 0 10px 0 12px; }
+.ah-form .day-field-btn > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ah-form .day-field-btn svg { flex: 0 0 1.25em; width: 1.25em !important; height: 1.25em !important; color: var(--muted); }
+/* The calendar opens across both columns, edge to edge with the fields. */
+.ah-form .day-pop { width: calc(200% + 10px); max-width: none; }
+/* Read-only result: a quiet row, not a box. */
+.ah-form .ah-read { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -2px 0 0; padding: 10px 2px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); color: var(--muted); font-size: .64rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.ah-form .ah-read strong { flex: none; color: var(--fg); font-size: 1.05rem; font-weight: 750; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Deposit / withdrawal: two choices on the two columns. */
+.ah-form .ah-sign { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.ah-form .ah-sign button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 42px; padding: 0 8px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 2%, var(--surface)); color: var(--muted); font: inherit; font-size: .86rem; font-weight: 640; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+.ah-form .ah-sign button svg { flex: none; width: 15px; height: 15px; }
+.ah-form .ah-sign button[aria-pressed="true"] { color: color-mix(in oklab, var(--ah-acc) 55%, var(--fg)); border-color: var(--ah-acc); background: color-mix(in oklab, var(--ah-acc) 16%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ah-acc) 40%, transparent); font-weight: 720; }
+/* New account: the logo picker leads the name field. */
+.ah-form .ah-bank-name { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.ah-form .ah-go { display: flex; align-items: flex-end; }
+.ah-form .ah-go .lab-head { display: none; }
+.ah-form .ah-go .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-width: 0; min-height: 44px; height: 44px; padding: 0 10px; border-radius: 14px; font-size: .9rem; white-space: nowrap; opacity: .6; }
+.ah-form .ah-go .btn svg { flex: none; width: 16px; height: 16px; }
+.ah-form .ah-go .btn.is-ready { opacity: 1; }
+/* Actions on the columns: Cancelar left, Guardar right. */
+.ah-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 2px; }
+.ah-actions .btn { width: 100%; min-width: 0; min-height: 46px; height: 46px; padding: 0 10px; border-radius: 14px; font-size: .92rem; font-weight: 680; letter-spacing: .01em; text-transform: none; white-space: nowrap; }
+.save-account .ah-actions .btn { min-height: 42px; height: 42px; }
+.ah-actions .btn.secondary { background: color-mix(in oklab, var(--surface) 88%, transparent); color: var(--fg); border: 1px solid color-mix(in oklab, var(--ah-acc) 40%, var(--line)); box-shadow: none; }
+html:not([data-theme="tron"]) .ah-form :is(.ah-actions .btn:not(.secondary), .ah-go .btn) { color: var(--ah-ink); background: linear-gradient(180deg, color-mix(in oklab, white 28%, var(--ah-acc)), color-mix(in oklab, var(--ah-acc) 82%, black)); border: 1px solid color-mix(in oklab, var(--ah-acc) 70%, white); box-shadow: inset 0 1px 0 rgb(255 255 255 / 42%); }
+.ah-actions .btn:disabled { opacity: .5; }
+/* Narrow cells (small phones, large text): tighten before anything wraps. */
+@container (max-width: 19em) {
+  .ah-form .label, .ah-form .ah-read { letter-spacing: .05em; }
+  .ah-form .lab-head { gap: 4px; }
+  .ah-form .day-field-btn { padding: 0 8px 0 10px; font-size: .9rem; }
+  .ah-form .ah-sign button { font-size: .8rem; gap: 4px; }
+}
+@container (max-width: 16em) {
+  .ah-form .label, .ah-form .ah-read { font-size: .6rem; letter-spacing: .02em; }
+  .ah-form .lab-head { gap: 2px; }
+  .ah-form .ah-actions .btn, .ah-form .ah-go .btn { font-size: .86rem; }
+}
+/* Night themes: edges you can see, the same choice tint as Cobros. */
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .ah-form :is(.field, .day-field-btn) { border-color: rgba(255, 255, 255, .14); background: color-mix(in oklab, var(--surface) 88%, black); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .ah-form .ah-sign button:not([aria-pressed="true"]) { border-color: rgba(255, 255, 255, .12); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .ah-form .ah-sign button[aria-pressed="true"] { color: var(--fg); background: color-mix(in oklab, var(--ah-acc) 20%, var(--surface)); }
+/* Lino: the warm umber of the Cobros fix instead of the pocket's sea tint. */
+html[data-theme="lino"] .ah-form { --ah-acc: #8a5a3b; --ah-ink: #fff6ea; }
+html[data-theme="lino"] .save-ledger .ah-form { background: color-mix(in oklab, #b88a62 13%, var(--surface)); }
+html[data-theme="lino"] .ah-form .ah-sign button[aria-pressed="true"] { color: #7a4e31; border-color: #8a5a3b; background: #efe2d3; }
+html[data-theme="lino"] .ah-form :is(.ah-actions .btn:not(.secondary), .ah-go .btn) { background: linear-gradient(180deg, #96603e, #7a4d2f); border-color: transparent; box-shadow: none; }
+html[data-theme="lino"] .ah-form .day-pop-grid button.is-on { background: #8a5a3b; color: #fff6ea; }
+html[data-theme="lino"] .ah-form .day-pop-grid button.is-today { box-shadow: inset 0 0 0 1px #8a5a3b; }
+/* ahorros-pass fix round (Nov 1 2026). */
+/* Each form is one column that can never be wider than its card: the "Acumulado" row (label + amount on one line) had
+   pushed the Retiro form's grid 7px past its tint, so its right gutter was half the left one. */
+.ah-form { grid-template-columns: minmax(0, 1fr); }
+.ah-form .ah-read { padding-inline: 0; }
+/* Open account card: the row keeps its asymmetric padding (grip on the left), the form takes back the 6px difference so
+   its divider and its fields sit the same distance from both sides of the card. */
+.save-account > .ah-form { flex: 1 0 calc(100% + 6px); margin-right: -6px; padding-inline: 4px; }
+/* Large text: the closed "Si apartas" lever (rail min 72px + years + amount) was the min-content that widened the whole
+   Ahorros card past its border. The card's column can't grow past the card, and the lever's rail gives way first. */
+section.save-band { grid-template-columns: minmax(0, 1fr); }
+@container savecard (max-width: 18.75rem) {
+  .vault-lever-flat { gap: 6px; }
+  .vault-lever-rail.is-flat { min-width: 40px; }
+}
+/* Night themes: a thin, light focus ring instead of the thick tinted halo. */
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .ah-form :is(.field, .day-field-btn):focus { border-color: color-mix(in oklab, var(--ah-acc) 60%, white); box-shadow: 0 0 0 2px rgba(255, 255, 255, .18); }
+/* "Acumulado si no se toca": label and amount share a line while they fit; when they don't (large text, long amounts)
+   the amount drops to its own line, right-aligned, instead of running under the "?". */
+.ah-form .ah-read { flex-wrap: wrap; row-gap: 2px; }
+.ah-form .ah-read .lab-head { flex: 0 1 auto; min-width: auto; }
+.ah-form .ah-read strong { margin-left: auto; }
+/* Account rows at large text (savecard container is narrower than 18.75rem only when the root font is enlarged): names stay
+   on one line ("State Farm") and never run under the amount ("PayPal" vs C$1,250.00). Normal text never matches. */
+@container savecard (max-width: 18.75rem) {
+  .save-accounts > .save-account { column-gap: 4px; }
+  .save-accounts .save-account-hit { gap: 6px; }
+  .save-accounts .bank-name { gap: 6px; }
+  .save-accounts .bank-name > button:not(.look-mark) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+  .save-accounts .bank-sum { flex: none; font-size: .86rem; }
+}
+/* Retiro calendar: the Ahorros card clips overflow (its wave art), so a floating calendar was cut off at the card's bottom.
+   Here it opens in the form's flow instead: the form grows around it and nothing below it is covered. */
+.ah-form.is-retire .ah-grid { align-items: start; }
+.ah-form .day-pop { position: relative; z-index: 1; margin-top: 8px; }
+.ah-form .day-pop-head strong { white-space: nowrap; }
+@container (max-width: 19em) {
+  .ah-form .day-pop-head { gap: 2px; }
+  .ah-form .day-pop-head strong { font-size: .8rem; letter-spacing: .02em; }
+}
+/* Same for the pocket rows and the Retiro fold line (Tron's pocket bay is narrower). Large text only. */
+@container savecard (max-width: 18.75rem) {
+  .save-ledger .pocket-row .save-account-hit { gap: 6px; }
+  .save-ledger .pocket-row .bank-name { gap: 6px; }
+  .save-ledger .pocket-row .bank-name > span { font-size: .88rem; }
+  .save-ledger .pocket-row .bank-sum { flex: none; font-size: .86rem; }
+  .save-retire-fold > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html[data-theme="tron"] .save-retire-fold { font-size: .78rem; }
+}

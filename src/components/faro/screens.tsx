@@ -2535,11 +2535,22 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             {focus && focus !== "save" && pocketFold ? null : (
             <>
             {adding && (pocketKind === "meta" || pocketKind === "emergencia") ? (
-              <div className="save-pocket">
+              <div className="ah-form is-pocket">
                 <BookLook glyph={pocketGlyph} color={pocketColor} onGlyph={setPocketGlyph} onColor={setPocketColor} />
-                <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal") : t("save.emerg")} aria-label={pocketKind === "meta" ? t("save.goal") : t("save.emerg")} onChange={(e) => setPocketName(e.target.value)} />
-                <input className="field num" inputMode="decimal" value={pocketAmt} placeholder={t("amount")} aria-label={t("amount")} onChange={(e) => setPocketAmt(e.target.value)} />
-                <button type="button" className="btn" onClick={addPocket}>{t("save.keep")}</button>
+                <div className="ah-grid">
+                  <label className="label is-wide">
+                    <span className="lab-head">{pocketKind === "meta" ? t("save.goal") : t("save.emerg")}<FieldTip text={t(pocketKind === "meta" ? "tip.save.goal" : "tip.save.emerg")} /></span>
+                    <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
+                  </label>
+                  <label className="label is-wide">
+                    <span className="lab-head">{t("amount")}<FieldTip text={t("tip.save.pocketAmt")} /></span>
+                    <input className="field num" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
+                  </label>
+                </div>
+                <div className="ah-actions">
+                  <button type="button" className="btn secondary" onClick={() => { setAdding(false); setPocketName(""); setPocketAmt(""); }}>{t("cancel")}</button>
+                  <button type="button" className="btn" onClick={addPocket}>{t("save.keep")}</button>
+                </div>
               </div>
             ) : adding ? (
               <>
@@ -2648,19 +2659,24 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               </button>
             ) : null}
             {pocketKind === "retiro" && !(focus && focus !== "save") && retireDeskOpen ? (
-              <div className="save-retire">
-                <div className="save-line">
-                  <span>{t("save.sendOn")}</span>
-                  <DayField value={retireStart} onChange={setRetireDate} />
+              <div className="ah-form is-retire">
+                <div className="ah-grid">
+                  <div className="label">
+                    <span className="lab-head">{t("save.f.first")}<FieldTip text={t("tip.save.first")} /></span>
+                    <DayField value={retireStart} onChange={setRetireDate} />
+                  </div>
+                  <label className="label is-right">
+                    <span className="lab-head">{t("save.f.have")}<FieldTip text={t("tip.save.have")} /></span>
+                    <input className="field num" inputMode="decimal" value={retireNow} placeholder={retireLine?.balanceMinor != null ? fmt(convertMinor(retireLine.balanceMinor, retireLine.balanceCurrency, rate.display, rate.rateE4)) : "0.00"} onChange={(e) => setRetireNow(e.target.value)} />
+                  </label>
                 </div>
-                <div className="save-line">
-                  <span>{t("save.accrued")}</span>
+                <p className="ah-read">
+                  <span className="lab-head">{t("save.accrued")}<FieldTip text={t("tip.save.accrued")} /></span>
                   <strong className="num">{fmt(retireAccrued)}</strong>
-                </div>
-                <div className="save-line">
-                  <span>{t("save.haveNow")}</span>
-                  <input className="field num save-inline" inputMode="decimal" value={retireNow} placeholder={retireLine?.balanceMinor != null ? fmt(convertMinor(retireLine.balanceMinor, retireLine.balanceCurrency, rate.display, rate.rateE4)) : t("amount")} aria-label={t("save.haveNow")} onChange={(e) => setRetireNow(e.target.value)} />
-                  <button type="button" className="icon-btn" aria-label={t("save.keep")} onClick={() => saveRetire()}><Check className="size-4" /></button>
+                </p>
+                <div className="ah-actions">
+                  <button type="button" className="btn secondary" onClick={() => { setRetireDeskOpen(false); setRetireNow(""); setRetireDate(""); }}>{t("cancel")}</button>
+                  <button type="button" className="btn" onClick={() => saveRetire()}>{t("save.keep")}</button>
                 </div>
               </div>
             ) : null}
@@ -2791,20 +2807,39 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   </div>
                   {accountFocus === row.id ? (
                     row.minor > 0 || lines.some((line) => line.subId === row.id && line.startedOn) ? (
-                      <div className="save-account-edit">
-                        <button type="button" className={`bank-sign${accountSign === 1 ? " is-on" : ""}`} aria-pressed={accountSign === 1} aria-label={t("save.deposit")} onClick={() => setAccountSign(1)}><Plus className="size-4" /></button>
-                        <button type="button" className={`bank-sign${accountSign === -1 ? " is-on" : ""}`} aria-pressed={accountSign === -1} aria-label={t("save.withdraw")} onClick={() => setAccountSign(-1)}><Minus className="size-4" /></button>
-                        {accountSign ? (
-                          <>
-                            <input className="field num" inputMode="decimal" autoFocus value={accountAmt} placeholder={accountSign > 0 ? t("save.deposit") : t("save.withdraw")} aria-label={accountSign > 0 ? t("save.deposit") : t("save.withdraw")} onChange={(e) => setAccountAmt(e.target.value)} />
-                            <button type="button" className="bank-sign is-save" aria-label={t("save.keep")} onClick={() => adjustAccount(row, accountSign)}><Check className="size-4" /></button>
-                          </>
-                        ) : null}
+                      <div className="ah-form is-account">
+                        <div className="ah-grid">
+                          <div className="label is-wide">
+                            <span className="lab-head">{t("save.f.move")}<FieldTip text={t("tip.save.move")} /></span>
+                            <div className="ah-sign" role="group">
+                              <button type="button" aria-pressed={accountSign === 1} onClick={() => setAccountSign(1)}><Plus aria-hidden />{t("save.deposit")}</button>
+                              <button type="button" aria-pressed={accountSign === -1} onClick={() => setAccountSign(-1)}><Minus aria-hidden />{t("save.withdraw")}</button>
+                            </div>
+                          </div>
+                          {accountSign ? (
+                            <label className="label is-wide">
+                              <span className="lab-head">{t("amount")}<FieldTip text={t(accountSign > 0 ? "tip.save.deposit" : "tip.save.withdraw")} /></span>
+                              <input className="field num" inputMode="decimal" autoFocus value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
+                            </label>
+                          ) : null}
+                        </div>
+                        <div className="ah-actions">
+                          <button type="button" className="btn secondary" onClick={() => { setAccountFocus(null); setAccountAmt(""); setAccountSign(null); }}>{t("cancel")}</button>
+                          <button type="button" className="btn" disabled={!accountSign} onClick={() => { if (accountSign) adjustAccount(row, accountSign); }}>{t("save.keep")}</button>
+                        </div>
                       </div>
                     ) : (
-                      <div className="save-account-edit">
-                        <input className="field num" inputMode="decimal" autoFocus value={accountAmt} placeholder={t("save.opening")} aria-label={t("save.opening")} onChange={(e) => setAccountAmt(e.target.value)} />
-                        <button type="button" className="bank-sign is-save" aria-label={t("save.keep")} onClick={() => setOpening(row)}><Check className="size-4" /></button>
+                      <div className="ah-form is-account">
+                        <div className="ah-grid">
+                          <label className="label is-wide">
+                            <span className="lab-head">{t("save.opening")}<FieldTip text={t("tip.save.opening")} /></span>
+                            <input className="field num" inputMode="decimal" autoFocus value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
+                          </label>
+                        </div>
+                        <div className="ah-actions">
+                          <button type="button" className="btn secondary" onClick={() => { setAccountFocus(null); setAccountAmt(""); }}>{t("cancel")}</button>
+                          <button type="button" className="btn" onClick={() => setOpening(row)}>{t("save.keep")}</button>
+                        </div>
                       </div>
                     )
                   ) : null}
@@ -2821,23 +2856,35 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 </div>
               ))}
             </div>
-            {focusedAccount ? <p className="text-sm text-muted">{t("save.accounts.one")}</p> : null}
-            <div className="save-pocket bank-add">
-              <span className="bank-photo-wrap">
-              <label className={`bank-photo-btn${accountIcon ? " is-set" : ""}`} title={t("save.accountIcon")}>
-                {accountIcon ? <img src={accountIcon} alt="" /> : <><ImageIcon className="size-4" /><i className="bank-photo-plus" aria-hidden><Plus /></i></>}
-                <input type="file" accept="image/*" aria-label={t("save.accountIcon")} onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  e.currentTarget.value = "";
-                  shrinkIcon(file).then(setAccountIcon).catch(() => {});
-                }} />
-              </label>
-              {accountIcon ? <button type="button" className="bank-photo-clear" aria-label={lang === "es" ? "Quitar icono" : "Remove icon"} onClick={() => setAccountIcon("")}><X /></button> : null}
-              </span>
-              <input className="field" value={accountName} placeholder={t("save.accountName")} aria-label={t("save.accountName")} onChange={(e) => setAccountName(e.target.value)} />
-              <input className="field num" inputMode="decimal" value={accountAmt} placeholder={t("save.opening")} aria-label={t("save.opening")} onChange={(e) => setAccountAmt(e.target.value)} />
-              <button type="button" className={`icon-btn bank-add-go${accountName.trim() && parseAmount(accountAmt) !== null ? " is-ready" : ""}`} aria-label={t("save.keep")} onClick={addAccount}><Plus className="size-4" /></button>
+            <div className="ah-form is-bank">
+              <div className="ah-grid">
+                <div className="label is-wide">
+                  <span className="lab-head">{t("save.f.newAccount")}<FieldTip text={t("tip.save.accountName")} /></span>
+                  <div className="ah-bank-name">
+                    <span className="bank-photo-wrap">
+                    <label className={`bank-photo-btn${accountIcon ? " is-set" : ""}`} title={t("save.accountIcon")}>
+                      {accountIcon ? <img src={accountIcon} alt="" /> : <><ImageIcon className="size-4" /><i className="bank-photo-plus" aria-hidden><Plus /></i></>}
+                      <input type="file" accept="image/*" aria-label={t("save.accountIcon")} onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        e.currentTarget.value = "";
+                        shrinkIcon(file).then(setAccountIcon).catch(() => {});
+                      }} />
+                    </label>
+                    {accountIcon ? <button type="button" className="bank-photo-clear" aria-label={lang === "es" ? "Quitar icono" : "Remove icon"} onClick={() => setAccountIcon("")}><X /></button> : null}
+                    </span>
+                    <input className="field" value={accountName} placeholder={t("save.f.accountPh")} aria-label={t("save.accountName")} onChange={(e) => setAccountName(e.target.value)} />
+                  </div>
+                </div>
+                <label className="label">
+                  <span className="lab-head">{t("save.opening")}<FieldTip text={t("tip.save.opening")} /></span>
+                  <input className="field num" inputMode="decimal" value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
+                </label>
+                <div className="label is-right ah-go">
+                  <span className="lab-head" aria-hidden>&nbsp;</span>
+                  <button type="button" className={`btn${accountName.trim() && parseAmount(accountAmt) !== null ? " is-ready" : ""}`} onClick={addAccount}><Plus aria-hidden />{t("save.f.add")}</button>
+                </div>
+              </div>
             </div>
             </>
             )}
