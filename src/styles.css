@@ -220,10 +220,10 @@
 .book-look { display: grid; gap: 8px; margin-bottom: 10px; justify-items: end; }
 .book-look .look-dock { justify-self: stretch; width: 100%; }
 
-.tone-pick { display: grid; grid-template-columns: repeat(7, 26px); gap: 7px; width: max-content; max-width: 100%; margin: 0 0 12px; padding: 10px; border-radius: 16px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--bg) 28%, var(--surface)); }
-.tone-pick button { width: 26px; height: 26px; min-height: 26px; padding: 0; border: 2px solid transparent; border-radius: 50%; }
+.tone-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(20px, 1fr)); justify-items: center; gap: 6px 4px; width: 100%; max-width: 100%; margin: 0 0 12px; padding: 4px 0; border-radius: 16px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--bg) 28%, var(--surface)); }
+.tone-pick button { width: 20px; height: 20px; min-height: 20px; padding: 0; border: 2px solid transparent; border-radius: 50%; }
 .tone-pick button[aria-pressed="true"] { border-color: var(--fg); box-shadow: 0 0 0 2px color-mix(in oklab, var(--fg) 16%, transparent); }
-.tone-pick input[type="color"] { width: 26px; height: 26px; min-height: 26px; padding: 0; border: 1px dashed color-mix(in oklab, var(--fg) 40%, var(--line)); border-radius: 50%; background: transparent; appearance: none; -webkit-appearance: none; }
+.tone-pick input[type="color"] { width: 20px; height: 20px; min-height: 20px; padding: 0; border: 1px dashed color-mix(in oklab, var(--fg) 40%, var(--line)); border-radius: 50%; background: transparent; appearance: none; -webkit-appearance: none; }
 .tone-pick input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 .tone-pick input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 50%; }
 
@@ -2307,3 +2307,15 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 /* Promedio: the chart's x-bar mark rides after the label, so the number stays clean and aligned. */
 .span-cut .span-facts > div:last-child em::after { content: " (x̄)"; color: #c58a1c; font-weight: 800; letter-spacing: 0; text-transform: none; }
 [data-theme="tron"] .span-cut .span-facts > div:last-child em::after { color: #ffc23a; text-shadow: 0 0 6px rgba(255, 194, 58, .6); }
+
+/* Field help "?" in editors (Oscar, Nov 1 2026): one plain sentence per field, on tap. */
+.lab-head { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.ftip { position: relative; display: inline-flex; flex: none; }
+.ftip-btn { width: 18px; height: 18px; min-height: 18px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: color-mix(in oklab, var(--muted) 80%, transparent); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ftip-btn svg { width: 13px; height: 13px; }
+.ftip-btn[aria-expanded="true"] { color: var(--accent); }
+.ftip-pop { position: fixed; z-index: 95; top: 0; left: 0; width: max-content; max-width: min(250px, 72vw); padding: 9px 11px; border-radius: 12px; background: var(--surface); color: var(--fg); border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line)); box-shadow: 0 12px 28px -12px rgba(0, 0, 0, .45); font-size: .8rem; font-weight: 500; line-height: 1.4; letter-spacing: 0; text-transform: none; white-space: normal; text-align: left; animation: ftip-in .18s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes ftip-in { from { opacity: 0; transform: translateY(-4px); } }
+.form-toggle .ftip { margin-left: -4px; }
+@media (prefers-reduced-motion: reduce) { .ftip-pop { animation: none; } }
+.tone-pick { border: 0 !important; background: transparent !important; box-shadow: none !important; }

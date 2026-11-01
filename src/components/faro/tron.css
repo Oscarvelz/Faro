@@ -983,3 +983,7 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) { [data-theme="tron"] .line-edit::before, [data-theme="tron"] .line-edit::after { animation: none !important; } }
 [data-theme="tron"] .line-edit-head b { text-shadow: none; animation: none; }
+[data-theme="tron"] .ftip-btn { color: #4fa9bb; }
+[data-theme="tron"] .ftip-btn[aria-expanded="true"] { color: #ffc23a; filter: drop-shadow(0 0 4px rgba(255, 194, 58, .7)); }
+[data-theme="tron"] .ftip-pop { border-radius: 5px; background: #061015; color: #d7eef4; border-color: rgba(63, 214, 245, .4); box-shadow: 0 0 18px -6px rgba(63, 214, 245, .5), 0 12px 28px -12px #000; font-family: inherit; }
+[data-theme="tron"] .tone-pick { border: 0 !important; background: transparent !important; box-shadow: none !important; }
