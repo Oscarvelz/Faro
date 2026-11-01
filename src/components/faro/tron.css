@@ -964,3 +964,23 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
 [data-theme="tron"] .line-edit .form-repeat { border-color: rgba(255, 194, 58, .4); background: rgba(255, 194, 58, .03); }
 [data-theme="tron"] .line-edit :is(.day-field-btn, .theme-select-btn) svg { color: #ffc23a; }
 [data-theme="tron"] .line-edit :is(.field, .theme-select-btn, .day-field-btn):focus-visible { border-color: #ffc23a !important; box-shadow: 0 0 0 1px #ffc23a, 0 0 14px rgba(255, 194, 58, .4) !important; }
+
+/* Living amber in the Tron editor (Oscar, Nov 1 2026): a light that sweeps the top edge, a breathing bottom-right bracket,
+   a slow glow under the amount, and a pulsing focus ring. Teal stays the frame; amber is the signal of the thing being edited. */
+[data-theme="tron"] .line-edit { position: relative; isolation: isolate;
+  background: linear-gradient(#7fe9ff, #7fe9ff) left top / 14px 1.5px no-repeat, linear-gradient(#7fe9ff, #7fe9ff) left top / 1.5px 14px no-repeat, linear-gradient(180deg, rgba(63, 214, 245, .07), rgba(2, 8, 11, .85) 40%); }
+[data-theme="tron"] .line-edit::before { content: ""; position: absolute; left: 10px; right: 10px; top: -1px; height: 1.5px; pointer-events: none; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 194, 58, .95), transparent) no-repeat; background-size: 34% 100%; background-position: -60% 0;
+  filter: drop-shadow(0 0 4px rgba(255, 194, 58, .9)); animation: le-amber-sweep 6.5s cubic-bezier(.45, 0, .2, 1) .4s infinite; }
+[data-theme="tron"] .line-edit::after { content: ""; position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; pointer-events: none;
+  border-right: 1.5px solid #ffc23a; border-bottom: 1.5px solid #ffc23a; filter: drop-shadow(0 0 4px rgba(255, 194, 58, .85)); animation: le-amber-breathe 3.6s ease-in-out infinite; }
+[data-theme="tron"] .line-edit-head b { animation: le-amber-glow 3.6s ease-in-out infinite; }
+[data-theme="tron"] .line-edit .field.num:not(:focus) { animation: le-amber-under 3.6s ease-in-out infinite; }
+[data-theme="tron"] .line-edit :is(.field, .theme-select-btn, .day-field-btn):is(:focus-visible, :focus) { outline: none !important; animation: le-amber-ring 1.8s ease-in-out infinite; }
+@keyframes le-amber-sweep { 0% { background-position: -60% 0; opacity: 0; } 8% { opacity: 1; } 42% { background-position: 160% 0; opacity: 1; } 50%, 100% { background-position: 160% 0; opacity: 0; } }
+@keyframes le-amber-breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes le-amber-glow { 0%, 100% { text-shadow: 0 0 6px rgba(255, 194, 58, .25); } 50% { text-shadow: 0 0 12px rgba(255, 194, 58, .6); } }
+@keyframes le-amber-under { 0%, 100% { box-shadow: inset 0 -2px 0 rgba(255, 194, 58, .35); } 50% { box-shadow: inset 0 -2px 0 rgba(255, 194, 58, .85), 0 4px 12px -6px rgba(255, 194, 58, .6); } }
+@keyframes le-amber-ring { 0%, 100% { box-shadow: 0 0 0 1px #ffc23a, 0 0 8px rgba(255, 194, 58, .3); } 50% { box-shadow: 0 0 0 1px #ffc23a, 0 0 16px rgba(255, 194, 58, .6); } }
+html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { [data-theme="tron"] .line-edit::before, [data-theme="tron"] .line-edit::after, [data-theme="tron"] .line-edit-head b, [data-theme="tron"] .line-edit .field.num, [data-theme="tron"] .line-edit :is(.field, .theme-select-btn, .day-field-btn) { animation: none !important; } }

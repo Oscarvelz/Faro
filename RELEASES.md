@@ -48,3 +48,4 @@
 - 1.3.48 (2026-11-01): working mode: touched within 2 min before leaving → up to 5 min away stays unlocked; otherwise 10s grace. main b96ab8a, source 5eb2240
 - 1.3.49 (2026-11-01): Tron out-book bars #ff6f12 (peak #ff8a2e), separate from amber average #ffc23a. test browser-test/lb3.mjs
 - 1.3.50 (2026-11-01): Tron chart bars teal for every book, no in/out color split (Oscar's choice). Replaces 1.3.49 orange.
+- 1.3.51 (2026-11-01): Explain sheet up to full height, text under icon full width, auto-shrinks (--xp-s, min .66) so no scroll (test xf.mjs FS=21); savings projector (VaultLever) starts folded unless pinned.

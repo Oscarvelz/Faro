@@ -194,7 +194,7 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
 }
 
 function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; onMoney: (value: Currency) => void }) {
-  const { setUi, session, commit } = useFaro();
+  const { setUi, session, commit, t } = useFaro();
   const box = useRef<HTMLDivElement>(null);
   const [glyph, setGlyph] = useState(lineGlyph(line, session?.ledger.structure));
   const [swatch, setSwatch] = useState(line.color || "#97d8b3");
@@ -215,7 +215,9 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
           commit((s) => upsertLine(s, { ...line, color: next }), line.concept || "color");
         }}
       />
-      <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={swatch} dock onClose={() => setUi({ editing: null })} />
+      <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<b>{line.concept}</b></p>
+        <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={swatch} dock onClose={() => setUi({ editing: null })} />
+      </div>
     </div>
   );
 }
@@ -1836,7 +1838,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <button type="button" aria-pressed={line.kind === "subscription"} onClick={() => rekind(line, "subscription")}>{t("tab.subs")}</button>
           </div>
         ) : null}
-        <LineForm key={`${line.id}-${line.kind}`} kind={line.kind} existing={line} onClose={() => setDeskLine(null)} />
+        <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<b>{line.concept}</b></p>
+          <LineForm key={`${line.id}-${line.kind}`} kind={line.kind} existing={line} onClose={() => setDeskLine(null)} />
+        </div>
       </div>
     );
   }
