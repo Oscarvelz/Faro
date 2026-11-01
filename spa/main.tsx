@@ -41,6 +41,7 @@ function Boot() {
   );
 }
 
+let splashOver = false;
 function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
   const [err, setErr] = useState("");
   const tried = useRef(false);
@@ -48,7 +49,14 @@ function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
     setErr("");
     try { if (await unlock(uid)) onOpen(); else setErr(w("lock.failed")); } catch { setErr(w("lock.failed")); }
   };
-  useEffect(() => { if (!tried.current) { tried.current = true; void go(); } });
+  // Ask for the fingerprint only once the launch splash has finished, so it can be enjoyed first (Oscar, Nov 1 2026).
+  useEffect(() => {
+    if (tried.current) return;
+    const fire = () => { if (!tried.current) { tried.current = true; void go(); } };
+    if (splashOver || QUIET_BOOT) { fire(); return; }
+    window.addEventListener("faro-splash-gone", fire, { once: true });
+    return () => window.removeEventListener("faro-splash-gone", fire);
+  });
   return (
     <main className="gate">
       <Night />
@@ -103,7 +111,8 @@ function App() {
     return () => { window.clearTimeout(a); window.clearTimeout(b); };
   }, []);
   const [ready, setReady] = useState(false);
-  const gone = useCallback(() => { document.documentElement.classList.remove("booting"); setSplash(false); }, []);
+  const gone = useCallback(() => { document.documentElement.classList.remove("booting"); setSplash(false); splashOver = true; window.dispatchEvent(new Event("faro-splash-gone")); }, []);
+  useEffect(() => { if (QUIET_BOOT) splashOver = true; }, []);
   useEffect(() => { if (QUIET_BOOT) document.documentElement.classList.remove("booting"); }, []);
   // The dark boot background only has to cover until the splash starts fading. Drop it as the fade
   // begins, so the theme's own page shows through instead of a black frame behind the cards.

@@ -220,12 +220,16 @@
 .book-look { display: grid; gap: 8px; margin-bottom: 10px; justify-items: end; }
 .book-look .look-dock { justify-self: stretch; width: 100%; }
 
-.tone-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(20px, 1fr)); justify-items: center; gap: 6px 4px; width: 100%; max-width: 100%; margin: 0 0 12px; padding: 4px 0; border-radius: 16px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--bg) 28%, var(--surface)); }
-.tone-pick button { width: 20px; height: 20px; min-height: 20px; padding: 0; border: 2px solid transparent; border-radius: 50%; }
-.tone-pick button[aria-pressed="true"] { border-color: var(--fg); box-shadow: 0 0 0 2px color-mix(in oklab, var(--fg) 16%, transparent); }
-.tone-pick input[type="color"] { width: 20px; height: 20px; min-height: 20px; padding: 0; border: 1px dashed color-mix(in oklab, var(--fg) 40%, var(--line)); border-radius: 50%; background: transparent; appearance: none; -webkit-appearance: none; }
-.tone-pick input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-.tone-pick input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+/* Color home in the editor (Oscar, Nov 1): a labelled row with its "?", the custom colour as a ring at the right, and 24 swatches in two even rows. */
+.tone-pick { display: grid; gap: 8px; margin: 0 0 14px; }
+.tone-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .64rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.tone-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 7px 5px; }
+.tone-grid button { position: relative; width: 100%; aspect-ratio: 1; max-width: 26px; min-height: 0; height: auto; justify-self: center; padding: 0; border: 0; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg) 10%, transparent); cursor: pointer; transition: transform .18s cubic-bezier(.22, 1, .36, 1); }
+.tone-grid button:active { transform: scale(.88); }
+.tone-grid button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--c); transform: scale(1.06); }
+.tone-custom { position: relative; width: 26px; height: 26px; flex: none; border-radius: 50%; cursor: pointer; background: conic-gradient(from 0deg, #ff9f9f, #f5c98e, #d4d791, #70d5aa, #4dd4db, #6ec9fe, #a4b9ff, #d2aaf7, #f29fd0, #ff9f9f); }
+.tone-custom::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px var(--surface); }
+.tone-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 
 .filter-menu { display: grid; gap: 2px; max-height: 220px; margin-top: 10px; padding: 6px; overflow-y: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 12px 28px color-mix(in oklab, var(--fg) 12%, transparent); }
 .filter-menu button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: 12px; background: transparent; color: var(--fg); font: inherit; text-align: left; }
@@ -2319,3 +2323,64 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .form-toggle .ftip { margin-left: -4px; }
 @media (prefers-reduced-motion: reduce) { .ftip-pop { animation: none; } }
 .tone-pick { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+/* Never break a toggle's label or push its "?" to a new line (Oscar, Nov 1: words and names belong on one line). */
+.form-toggle { flex-wrap: nowrap !important; white-space: nowrap; min-width: 0; }
+.line-edit .form-toggle { gap: 8px !important; font-size: .86rem; }
+.form-toggle .ftip { margin-left: -2px; }
+.lab-head { white-space: nowrap; }
+.line-edit .form-toggles { display: flex !important; justify-content: space-between; gap: 14px !important; }
+.line-edit .form-toggles { flex-wrap: nowrap !important; }
+.line-edit .form-toggles { flex-wrap: wrap !important; row-gap: 6px !important; column-gap: 10px !important; }
+.line-edit .form-toggle { gap: 7px !important; font-size: .84rem; }
+.line-edit .form-toggle input { width: 30px; height: 18px; }
+.line-edit .form-toggle input::after { width: 14px; height: 14px; }
+.line-edit .form-toggle input:checked::after { transform: translateX(12px); }
+.line-edit, .line-edit .form-block { min-width: 0; max-width: 100%; }
+.line-edit .form-toggles { column-gap: 6px !important; }
+.line-edit .form-toggle .ftip { margin-left: -4px; }
+@media (max-width: 389px) { .line-edit .form-toggle { font-size: .78rem; gap: 6px !important; } .line-edit .form-toggle input { width: 28px; } .line-edit .form-toggle input:checked::after { transform: translateX(10px); } }
+/* Review fixes (Nov 1): fields never push the grid wider; values ellipsize instead. */
+.line-edit .grid-2 > * { min-width: 0; }
+.line-edit :is(.field, .theme-select-btn, .day-field-btn) { min-width: 0; max-width: 100%; }
+.line-edit .theme-select-btn > span:first-child, .line-edit .day-field-btn > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* No panel frame in day themes either: a faint tint sets the editor apart. */
+.line-edit { border-color: transparent !important; box-shadow: none !important; background: color-mix(in oklab, var(--accent) 4%, var(--surface)) !important; }
+.line-edit-head { border-bottom-color: color-mix(in oklab, var(--fg) 6%, transparent); }
+/* Buttons follow the field columns. */
+.line-edit .form-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; gap: 10px !important; }
+/* Toggles sit on the field columns whenever both fit there. */
+.line-edit .form-block { container-type: inline-size; }
+@container (min-width: 290px) { .line-edit .form-toggles { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px !important; } }
+.line-edit .grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+@container (max-width: 289px) { .line-edit .lab-head { letter-spacing: .06em; } }
+@container (max-width: 289px) { .line-edit .lab-head { letter-spacing: .04em; font-size: .6rem; gap: 4px; } }
+.line-edit .label > *, .line-edit .theme-select { min-width: 0; }
+@container (max-width: 300px) {
+  .line-edit .theme-select-btn { padding: 0 7px 0 12px !important; gap: 4px !important; }
+  .line-edit .theme-select-btn .fold-chev { width: 22px !important; height: 22px !important; padding: 3px !important; flex: none; }
+  .line-edit .theme-select-btn > span:first-child { font-size: .9rem; }
+}
+.line-edit .theme-select-btn > span:first-child { line-height: 1.2; }
+/* Round-2 review: toggles always on the field columns (tighter switch + help at narrow widths). */
+.line-edit .form-toggles { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px !important; }
+.line-edit .form-toggle { justify-self: start; white-space: nowrap; }
+@container (max-width: 289px) {
+  .line-edit .form-toggle { font-size: .76rem; gap: 5px !important; }
+  .line-edit .form-toggle input { width: 26px; height: 16px; }
+  .line-edit .form-toggle input::after { width: 12px; height: 12px; }
+  .line-edit .form-toggle input:checked::after { transform: translateX(10px); }
+  .line-edit .form-toggle .ftip { margin-left: -5px; transform: scale(.88); }
+}
+.line-edit .theme-select-btn > span:first-child { padding-top: 2px; }
+[data-theme="tron"] .tone-grid button:nth-child(n+21) { box-shadow: 0 0 0 1px rgb(255 255 255 / .18); }
+.tone-grid button { box-shadow: inset 0 0 0 1px rgb(0 0 0 / .12); }
+[data-theme="tron"] .tone-grid button:nth-child(-n+20) { box-shadow: 0 0 6px -1px color-mix(in oklab, var(--c) 70%, transparent); }
+.tone-grid button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--c) !important; }
+[data-theme="tron"] .tone-grid button[aria-pressed="true"] { box-shadow: 0 0 0 2px #050b0e, 0 0 0 3.5px var(--c), 0 0 12px var(--c) !important; }
+@container (max-width: 289px) {
+  .line-edit .form-toggle { font-size: .74rem; letter-spacing: -.005em; gap: 5px !important; }
+  .line-edit .form-toggle .ftip { margin-left: -7px; transform: scale(.8); }
+}
+@container (max-width: 289px) { .line-edit .form-toggle .ftip { transform: none; margin-left: -6px; } .line-edit .form-toggle .ftip-btn { width: 13px; } .line-edit .form-toggle .ftip-btn svg { width: 11px; height: 11px; } }
+@container (max-width: 289px) { .line-edit .form-toggle { font-size: .72rem; } .line-edit .form-toggle .ftip { margin-left: -2px; } }
+[data-theme="lino"] .line-edit .theme-select-btn > span:first-child { padding-top: 4px; }

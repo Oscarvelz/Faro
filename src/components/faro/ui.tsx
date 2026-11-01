@@ -123,3 +123,45 @@ export function Explain({
     </>
   );
 }
+
+// A small "?" beside a field: tap for one plain sentence about what it asks. One open at a time; tap anywhere to close.
+export function FieldTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const pop = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: Event) => { const n = e.target as Node; if (!ref.current?.contains(n) && !pop.current?.contains(n)) setOpen(false); };
+    const other = (e: Event) => { if ((e as CustomEvent).detail !== ref.current) setOpen(false); };
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("faro-tip", other);
+    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("faro-tip", other); };
+  }, [open]);
+  useLayoutEffect(() => {
+    const el = pop.current;
+    if (!open || !el) return;
+    // Fixed to the viewport so no card edge can clip it; kept 10px inside the screen.
+    const btn = ref.current?.getBoundingClientRect();
+    if (!btn) return;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const left = Math.max(10, Math.min(btn.left - 10, window.innerWidth - 10 - w));
+    const below = btn.bottom + 6;
+    const top = below + h > window.innerHeight - 10 ? Math.max(10, btn.top - 6 - h) : below;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    const shut = () => setOpen(false);
+    window.addEventListener("scroll", shut, { capture: true, passive: true, once: true });
+    return () => window.removeEventListener("scroll", shut, { capture: true } as EventListenerOptions);
+  }, [open]);
+  return (
+    <span className="ftip" ref={ref}>
+      <button type="button" className="ftip-btn" aria-label={text} aria-expanded={open} onClick={(e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (!open) document.dispatchEvent(new CustomEvent("faro-tip", { detail: ref.current }));
+        setOpen((v) => !v);
+      }}><CircleHelp aria-hidden /></button>
+      {open ? createPortal(<span ref={pop} className="ftip-pop" role="tooltip" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}>{text}</span>, document.body) : null}
+    </span>
+  );
+}
+

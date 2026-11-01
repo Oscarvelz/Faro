@@ -987,3 +987,7 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
 [data-theme="tron"] .ftip-btn[aria-expanded="true"] { color: #ffc23a; filter: drop-shadow(0 0 4px rgba(255, 194, 58, .7)); }
 [data-theme="tron"] .ftip-pop { border-radius: 5px; background: #061015; color: #d7eef4; border-color: rgba(63, 214, 245, .4); box-shadow: 0 0 18px -6px rgba(63, 214, 245, .5), 0 12px 28px -12px #000; font-family: inherit; }
 [data-theme="tron"] .tone-pick { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+[data-theme="tron"] .tone-head { color: #7fc9d8; font-family: var(--t-display, inherit); font-weight: 500; letter-spacing: .14em; }
+[data-theme="tron"] .tone-grid button { box-shadow: 0 0 6px -1px color-mix(in oklab, var(--c) 70%, transparent); }
+[data-theme="tron"] .tone-grid button[aria-pressed="true"] { box-shadow: 0 0 0 2px #050b0e, 0 0 0 3.5px var(--c), 0 0 12px var(--c); }
+[data-theme="tron"] .tone-custom::after { box-shadow: 0 0 0 2px #050b0e; }

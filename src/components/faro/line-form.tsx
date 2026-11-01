@@ -1,8 +1,8 @@
-import { createPortal } from "react-dom";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Plus } from "lucide-react";
+import { FieldTip } from "./ui";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
-import { PALETTE, categoryColor } from "@/lib/faro/colors";
+import { PALETTE, categoryColor, themeSwatch } from "@/lib/faro/colors";
 import { monthName } from "@/lib/faro/i18n";
 import { parseAmount, uid } from "@/lib/faro/money";
 import type { Currency, Line, LineKind } from "@/lib/faro/types";
@@ -174,47 +174,6 @@ function clearReportDraft(mode: "in" | "out") {
   localStorage.removeItem(draftKeyFor(mode));
 }
 
-// A small "?" beside a field: tap for one plain sentence about what it asks. One open at a time; tap anywhere to close.
-function FieldTip({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  const pop = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: Event) => { const n = e.target as Node; if (!ref.current?.contains(n) && !pop.current?.contains(n)) setOpen(false); };
-    const other = (e: Event) => { if ((e as CustomEvent).detail !== ref.current) setOpen(false); };
-    document.addEventListener("pointerdown", away, true);
-    document.addEventListener("faro-tip", other);
-    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("faro-tip", other); };
-  }, [open]);
-  useLayoutEffect(() => {
-    const el = pop.current;
-    if (!open || !el) return;
-    // Fixed to the viewport so no card edge can clip it; kept 10px inside the screen.
-    const btn = ref.current?.getBoundingClientRect();
-    if (!btn) return;
-    const w = el.offsetWidth, h = el.offsetHeight;
-    const left = Math.max(10, Math.min(btn.left - 10, window.innerWidth - 10 - w));
-    const below = btn.bottom + 6;
-    const top = below + h > window.innerHeight - 10 ? Math.max(10, btn.top - 6 - h) : below;
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
-    const shut = () => setOpen(false);
-    window.addEventListener("scroll", shut, { capture: true, passive: true, once: true });
-    return () => window.removeEventListener("scroll", shut, { capture: true } as EventListenerOptions);
-  }, [open]);
-  return (
-    <span className="ftip" ref={ref}>
-      <button type="button" className="ftip-btn" aria-label={text} aria-expanded={open} onClick={(e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (!open) document.dispatchEvent(new CustomEvent("faro-tip", { detail: ref.current }));
-        setOpen((v) => !v);
-      }}><CircleHelp aria-hidden /></button>
-      {open ? createPortal(<span ref={pop} className="ftip-pop" role="tooltip" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}>{text}</span>, document.body) : null}
-    </span>
-  );
-}
-
 export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean }) {
   const { t, key, session, commit, confirm, focusAmount, names, lang } = useFaro();
   const settings = session?.ledger.settings;
@@ -338,10 +297,17 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     <div className="form-block">
       {existing && bubbleTone && !dock ? (
         <div className="tone-pick">
-          {PALETTE.map((color) => (
-            <button key={color} type="button" style={{ background: color }} aria-pressed={tone === color} aria-label={color} onClick={() => setTone(color)} />
-          ))}
-          <input type="color" aria-label={tone} value={/^#[0-9a-fA-F]{6}$/.test(tone) ? tone : "#b7d4c4"} onChange={(e) => setTone(e.target.value)} />
+          <div className="tone-head">
+            <span className="lab-head">{t("look.color")}<FieldTip text={t("tip.color")} /></span>
+            <label className="tone-custom" title={t("look.custom")} style={{ ["--c" as string]: themeSwatch(/^#[0-9a-fA-F]{6}$/.test(tone) ? tone : "#b7d4c4") }}>
+              <input type="color" aria-label={t("look.custom")} value={/^#[0-9a-fA-F]{6}$/.test(tone) ? tone : "#b7d4c4"} onChange={(e) => setTone(e.target.value)} />
+            </label>
+          </div>
+          <div className="tone-grid">
+            {PALETTE.map((color) => (
+              <button key={color} type="button" style={{ ["--c" as string]: themeSwatch(color) }} aria-pressed={tone.toLowerCase() === color} aria-label={color} onClick={() => setTone(color)} />
+            ))}
+          </div>
         </div>
       ) : null}
       <div className="grid-2">

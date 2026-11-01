@@ -51,3 +51,4 @@
 - 1.3.51 (2026-11-01): Explain sheet up to full height, text under icon full width, auto-shrinks (--xp-s, min .66) so no scroll (test xf.mjs FS=21); savings projector (VaultLever) starts folded unless pinned.
 - 1.3.52 (2026-11-01): Central (deskWork) and bubble editors wrapped in .line-edit; Tron animated amber (le-amber-* keyframes, reduced-motion off, paused when hidden). test browser-test/de.mjs
 - 1.3.53 (2026-11-01): no frames in .line-edit (Oscar: framed boxes look cheap); Moneda+Nota share a row; Tron: no border/brackets, two amber meteors (13s/19s cycles) replace looping glows; static amber focus.
+- 1.3.54 (2026-11-01): FieldTip ? on every LineForm field + Activo/Recurrente (tip.* keys es/en, portal popover clamped to screen); calc hint line removed (now in tip.amount); .tone-pick 20px swatches auto-fill full width, frameless. test browser-test/ft.mjs
