@@ -46,3 +46,4 @@
 - 1.3.46 (2026-11-01): lock like Journey: asks after leaving the app >10s and on fresh launch; file pickers and update reloads exempt; replaces 12h rule. main 7b03b32, source b92b66a
 - 1.3.47 (2026-11-01): fingerprint lock credential kept through sign-out (wipeDevice skips faro.lock.<uid>).
 - 1.3.48 (2026-11-01): working mode: touched within 2 min before leaving → up to 5 min away stays unlocked; otherwise 10s grace. main b96ab8a, source 5eb2240
+- 1.3.49 (2026-11-01): Tron out-book bars #ff6f12 (peak #ff8a2e), separate from amber average #ffc23a. test browser-test/lb3.mjs
