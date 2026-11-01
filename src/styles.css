@@ -2277,7 +2277,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .line-edit-head svg { width: 13px; height: 13px; }
 .line-edit-head b { margin-left: auto; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); font-size: .9rem; letter-spacing: 0; text-transform: none; font-weight: 650; }
 .line-edit .form-block > .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 10px; }
-.line-edit .form-block > .grid-2:not(.form-repeat) > :first-child, .line-edit .form-block > .grid-2:not(.form-repeat) > label:last-child, .line-edit .form-block > .grid-2:not(.form-repeat) > :not(label) { grid-column: 1 / -1; }
+.line-edit .form-block > .grid-2:not(.form-repeat) > :first-child, .line-edit .form-block > .grid-2:not(.form-repeat) > label:last-child:nth-child(even), .line-edit .form-block > .grid-2:not(.form-repeat) > :not(label) { grid-column: 1 / -1; }
 .line-edit .label { display: grid; gap: 6px; min-width: 0; font-size: .64rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
 .line-edit :is(.field, .theme-select-btn, .day-field-btn) { min-height: 44px; height: 44px; border-radius: 14px; font-size: .95rem; text-transform: none; letter-spacing: 0; }
 .line-edit .field.num { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.05rem; }
@@ -2293,6 +2293,13 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .form-hint::before { content: "="; flex: none; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-weight: 800; color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--surface)); }
 .line-edit .form-actions { display: grid !important; grid-template-columns: 1.4fr 1fr; gap: 10px; margin-top: 14px !important; }
 .line-edit .form-actions .btn { width: 100%; min-height: 46px; height: 46px; border-radius: 14px; }
+/* No frames inside the editor (Oscar, Nov 1): toggles, schedule and hint sit on the surface; spacing does the grouping. */
+.line-edit .form-toggles { display: grid !important; grid-template-columns: 1fr 1fr; margin-top: 8px !important; }
+.line-edit .form-repeat.mt-3 { margin-top: 6px; }
+.line-edit .form-hint { margin-top: 10px !important; }
+.line-edit .form-toggle, .line-edit .form-toggle:has(input:checked) { padding: 6px 0; border-color: transparent; background: transparent; }
+.line-edit .form-repeat { padding: 0; border: 0; background: transparent; }
+.line-edit .form-hint::before { width: auto; height: auto; background: transparent; }
 @keyframes le-in { from { opacity: 0; transform: translateY(-6px); } }
 
 .xp-part.is-line .xp-ico::before { content: ""; width: 1em; border-top: 2px dashed #d9a033; }

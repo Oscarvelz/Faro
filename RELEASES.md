@@ -49,3 +49,4 @@
 - 1.3.49 (2026-11-01): Tron out-book bars #ff6f12 (peak #ff8a2e), separate from amber average #ffc23a. test browser-test/lb3.mjs
 - 1.3.50 (2026-11-01): Tron chart bars teal for every book, no in/out color split (Oscar's choice). Replaces 1.3.49 orange.
 - 1.3.51 (2026-11-01): Explain sheet up to full height, text under icon full width, auto-shrinks (--xp-s, min .66) so no scroll (test xf.mjs FS=21); savings projector (VaultLever) starts folded unless pinned.
+- 1.3.52 (2026-11-01): Central (deskWork) and bubble editors wrapped in .line-edit; Tron animated amber (le-amber-* keyframes, reduced-motion off, paused when hidden). test browser-test/de.mjs
