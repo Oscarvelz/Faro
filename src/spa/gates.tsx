@@ -14,6 +14,8 @@ export function useFaroUser(): FaroUser | null {
 function wipeDevice(uid: string) {
   try {
     for (const k of Object.keys(localStorage)) {
+      // The fingerprint choice survives signing out, so signing back in on this device never asks to set it up again.
+      if (k === `faro.lock.${uid}`) continue;
       if (k.includes(uid) || k.startsWith("faro.pack") || k.startsWith("faro.conflict")) localStorage.removeItem(k);
     }
   } catch { /* ignore */ }
@@ -82,7 +84,6 @@ export function UserButton() {
               setBusy(true);
               wipeDevice(user.id);
               await wipeLocalBackups(user.id);
-              disableLock(user.id);
               await signOutEverywhereLocal();
             })();
           },
