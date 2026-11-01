@@ -545,8 +545,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       ) : null}
       {err ? <p className="bad mt-2 text-sm">{err}</p> : null}
       <div className="row mt-3 form-actions">
-        <button type="button" className="btn" onClick={() => confirm({ title: t("entry.save"), body: concept.trim() || t("amount"), yes: t("entry.save.yes"), run: save })}>{t("save")}</button>
         <button type="button" className="btn secondary" onClick={() => confirm({ title: t("entry.leave"), body: concept.trim() || t("amount"), yes: t("entry.leave.yes"), run: onClose })}>{t("cancel")}</button>
+        <button type="button" className="btn" onClick={() => confirm({ title: t("entry.save"), body: concept.trim() || t("amount"), yes: t("entry.save.yes"), run: save })}>{t("save")}</button>
       </div>
     </div>
   );

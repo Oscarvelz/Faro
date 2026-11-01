@@ -2384,3 +2384,132 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 @container (max-width: 289px) { .line-edit .form-toggle .ftip { transform: none; margin-left: -6px; } .line-edit .form-toggle .ftip-btn { width: 13px; } .line-edit .form-toggle .ftip-btn svg { width: 11px; height: 11px; } }
 @container (max-width: 289px) { .line-edit .form-toggle { font-size: .72rem; } .line-edit .form-toggle .ftip { margin-left: -2px; } }
 [data-theme="lino"] .line-edit .theme-select-btn > span:first-child { padding-top: 4px; }
+
+/* Cobros forms (Nov 1 2026): the line editor's language. Labels with "?", two columns, no inner frames, buttons on the columns. */
+.cobros, .cobro-swap, .cobro-group, .cobro-card { grid-template-columns: minmax(0, 1fr); }
+.cobros { min-width: 0; max-width: 100%; }
+.cobros > *, .cobro-swap > *, .cobro-group > *, .cobro-card > * { min-width: 0; }
+.cobro-form { container-type: inline-size; font-size: 1rem; gap: 14px; min-width: 0; padding: 14px 14px 16px; border: 0 !important; border-radius: 20px; background: color-mix(in oklab, var(--accent) 7%, var(--surface)); box-shadow: none; animation: le-in .32s cubic-bezier(.22, 1, .36, 1) both; }
+.cobro-form.is-bonus { margin-top: 4px; padding: 12px 0 0; border-radius: 0; background: transparent; border-top: 1px solid color-mix(in oklab, var(--fg) 7%, transparent) !important; }
+.cobro-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 10px; }
+.cobro-grid > * { min-width: 0; }
+.cobro-grid > .is-wide { grid-column: 1 / -1; }
+.cobro-form .label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: .64rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.cobro-form .lab-head { white-space: nowrap; min-width: 0; }
+.cobro-form :is(.field, .day-field-btn) { min-width: 0; max-width: 100%; min-height: 44px; height: 44px; border-radius: 14px; font-size: .95rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.cobro-form .field.num { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.05rem; }
+.cobro-form .field::placeholder { color: var(--faint); font-weight: 500; }
+.cobro-form .day-field { min-width: 0; }
+.cobro-form .day-field-btn { gap: 6px; padding: 0 10px 0 12px; }
+.cobro-form .day-field-btn > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cobro-form .day-field-btn svg { flex: none; color: var(--muted); }
+.cobro-form .is-right .day-pop { left: auto; right: 0; }
+.cobro-pct { position: relative; display: block; min-width: 0; }
+.cobro-pct .field { padding-right: 34px; }
+.cobro-pct i { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: .95rem; font-weight: 650; color: var(--muted); letter-spacing: 0; pointer-events: none; }
+/* Choices sit on the field columns: kind and frequency in two columns, quick sites in four. */
+.cobro-form .cobro-kind, .cobro-form .due-cadence { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 10px; }
+.cobro-form .due-sites { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button { min-width: 0; min-height: 40px; padding: 0 6px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 2%, var(--surface)); color: var(--muted); font: inherit; font-size: .84rem; font-weight: 620; letter-spacing: 0; text-transform: none; white-space: nowrap; flex: none; transition: background-color .15s, border-color .15s, color .15s; }
+.cobro-form .due-sites button { min-height: 34px; border-radius: 10px; font-size: .78rem; padding: 0 4px; }
+.cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: var(--fg); font-weight: 720; border-color: color-mix(in oklab, var(--accent) 80%, var(--fg)); background: color-mix(in oklab, var(--accent) 26%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent); }
+.cobro-form .due-sites + .field { margin-top: 2px; }
+.cobro-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 2px; }
+.cobro-actions .btn { width: 100%; min-width: 0; min-height: 46px; height: 46px; padding: 0 10px; border-radius: 14px; white-space: nowrap; }
+.cobro-form.is-bonus .cobro-actions .btn { min-height: 42px; height: 42px; }
+/* Narrow cells (small phones, large text): tighten before anything wraps; one column only when two cannot hold the values. */
+@container (max-width: 18em) {
+  .cobro-form .label { letter-spacing: .05em; }
+  .cobro-form .lab-head { gap: 4px; }
+  .cobro-form :is(.cobro-kind, .due-cadence) button { font-size: .8rem; }
+  .cobro-form .due-sites { gap: 5px; }
+  .cobro-form .due-sites button { font-size: .7rem; font-weight: 600; padding: 0 2px; letter-spacing: -.01em; }
+  .cobro-form .day-field-btn { padding: 0 8px 0 10px; font-size: .9rem; }
+}
+@container (max-width: 17.5em) {
+  .cobro-form .label { font-size: .6rem; letter-spacing: .03em; }
+  .cobro-form .due-sites button { font-size: .66rem; }
+}
+@container (max-width: 15.5em) {
+  .cobro-form .label { letter-spacing: .01em; }
+  .cobro-form .lab-head { gap: 3px; }
+  .cobro-form .day-field-btn { font-size: .86rem; gap: 4px; }
+  .cobro-form .day-field-btn svg { width: 14px; height: 14px; }
+  .cobro-form .due-sites button { font-size: .66rem; }
+}
+@container (max-width: 13.6em) {
+  .cobro-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.cobro-form .due-sites button { text-overflow: clip; }
+/* Save reads clearly on both sides of the panel (white on blue, ink on sand). */
+html:not([data-theme="tron"]) .cobros .cobro-actions .btn:not(.secondary) { color: #f4fafc; background: linear-gradient(180deg, #6a9bbb, #3f6f8f); border-color: transparent; }
+html:not([data-theme="tron"]) .cobros.is-due .cobro-actions .btn:not(.secondary) { color: #1c1408; background: linear-gradient(180deg, #edd197, #c9a066); }
+@media (prefers-reduced-motion: reduce) { .cobro-form { animation: none; } }
+:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"]) .cobro-form :is(.field, .day-field-btn) { box-shadow: none; }
+
+/* Cobros fix round (Nov 1 2026, review 2). */
+/* 1. Numbers in the UI font, not the serif the generic form-block rule gives them. */
+html:not([data-theme="tron"]) .cobro-form .field.num,
+html:not([data-theme="tron"]) .cobro-form .field.num::placeholder { font-family: inherit; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.cobro-form .field::placeholder { font-family: inherit; font-variant-numeric: tabular-nums; }
+/* 2. The payment form sits inside the card: no frame of its own, only spacing and the hairline. */
+.cobro-form.is-bonus { border: 0 !important; border-top: 1px solid color-mix(in oklab, var(--fg) 7%, transparent) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; padding: 14px 0 0; margin-top: 6px; }
+/* 3. The name gets the row; the amount drops under it when both cannot sit side by side. */
+.cobro-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 10px; min-width: 0; }
+.cobro-row .cobro-who { flex: 1 1 auto; min-width: 0; }
+.cobro-row > .num { flex: 0 0 auto; margin-left: auto; white-space: nowrap; font-size: clamp(.95rem, .9rem + .5vw, 1.05rem); }
+.cobro-who strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; white-space: normal; overflow: hidden; overflow-wrap: anywhere; text-overflow: ellipsis; }
+/* 4. The calendar icon keeps its size at any text size. */
+.cobro-form .day-field-btn svg { flex: 0 0 1.25em; width: 1.25em !important; height: 1.25em !important; }
+@container (max-width: 15.5em) { .cobro-form .day-field-btn svg { width: 1.2em !important; height: 1.2em !important; flex-basis: 1.2em; } }
+/* 5. Service shortcuts size to their names; a swipeable row when they do not all fit. */
+.cobro-form .due-sites { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.cobro-form .due-sites::-webkit-scrollbar { display: none; }
+.cobro-form .due-sites button { flex: 1 0 auto; min-width: max-content; padding: 0 12px; font-size: .78rem; font-weight: 640; letter-spacing: 0; text-overflow: clip; }
+@container (max-width: 21em) { .cobro-form .due-sites { gap: 5px; } .cobro-form .due-sites button { padding: 0 7px; font-size: .74rem; } }
+@container (max-width: 17.5em) { .cobro-form .due-sites button { padding: 0 7px; font-size: .72rem; } }
+/* 7. One selected look for every choice, in the theme's own accent (the panel tints --accent per side, so read the page's). */
+html { --cb-acc: var(--accent); }
+.cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: color-mix(in oklab, var(--cb-acc) 70%, var(--fg)); border-color: var(--cb-acc); background: color-mix(in oklab, var(--cb-acc) 12%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cb-acc) 40%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: var(--fg); background: color-mix(in oklab, var(--cb-acc) 18%, var(--surface)); }
+/* 9. Lino: its own warm umber instead of Claro's blue and sand. */
+html[data-theme="lino"] .cobros { --cb-acc: #8a5a3b; border-color: color-mix(in oklab, #b88a62 50%, var(--line)); background: radial-gradient(110% 70% at 0% 0%, color-mix(in oklab, #e3c7a6 34%, transparent), transparent 48%), linear-gradient(165deg, color-mix(in oklab, #8a5a3b 16%, var(--surface)), var(--surface) 70%); }
+html[data-theme="lino"] .cobros .cobro-sides button[aria-pressed="true"] { color: #5e3a22; background: #efe2d3; box-shadow: inset 0 0 0 1px color-mix(in oklab, #8a5a3b 45%, transparent); }
+html[data-theme="lino"] .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: #7a4e31; border-color: #8a5a3b; background: #efe2d3; box-shadow: inset 0 0 0 1px color-mix(in oklab, #8a5a3b 35%, transparent); }
+html[data-theme="lino"] .cobros .cobro-actions .btn:not(.secondary),
+html[data-theme="lino"] .cobros.is-due .cobro-actions .btn:not(.secondary) { color: #fff6ea; background: linear-gradient(180deg, #96603e, #7a4d2f); border-color: transparent; }
+html[data-theme="lino"] .cobros .cobro-plus,
+html[data-theme="lino"] .cobros.is-due .cobro-plus { color: #fff6ea; background: linear-gradient(180deg, #96603e, #7a4d2f); }
+html[data-theme="lino"] .cobro-form .day-pop-grid button.is-on { background: #8a5a3b; color: #fff6ea; }
+html[data-theme="lino"] .cobro-form .day-pop-grid button.is-today { box-shadow: inset 0 0 0 1px #8a5a3b; }
+/* 10. Night themes: input edges you can see. */
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cobro-form :is(.field, .day-field-btn) { border-color: rgba(255, 255, 255, .14); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button:not([aria-pressed="true"]) { border-color: rgba(255, 255, 255, .12); }
+/* 8 (all themes). The calendar opens across both columns of the form, edge to edge with the fields. */
+.cobro-form .is-right .day-pop { left: auto; right: 0; width: calc(200% + 10px); max-width: none; }
+@container (max-width: 13.6em) { .cobro-form .is-right .day-pop { width: 100%; } }
+/* "Prestado en el tiempo" stays on one line. */
+.cobros .span-fold-main span { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cobros > .cobro-swap > .span-cut { container-type: inline-size; }
+.cobros .span-fold-main span { letter-spacing: .02em; font-size: .6rem; }
+.cobros .span-fold-main { gap: 6px; }
+.cobros .span-fold-main strong { padding: 4px 9px; font-size: .92rem; }
+.cobros .span-cut:not(.is-open) .span-fold-bar { padding-left: 12px; gap: 4px; }
+@container (max-width: 20em) { .cobros .span-fold-main span { font-size: .55rem; letter-spacing: .01em; } .cobros .span-fold-main strong { padding: 3px 7px; font-size: .84rem; } }
+/* 6. Field help: stays inside the form, with a small pointer to its "?". */
+.ftip-pop::before { content: ""; position: absolute; left: var(--ftip-x, 16px); width: 9px; height: 9px; margin-left: -5px; background: inherit; border: inherit; border-width: 1px; transform: rotate(45deg); pointer-events: none; }
+.ftip-pop[data-side="below"]::before { top: -5.5px; border-right-color: transparent !important; border-bottom-color: transparent !important; }
+.ftip-pop[data-side="above"]::before { bottom: -5.5px; border-left-color: transparent !important; border-top-color: transparent !important; }
+/* 2 (cont.). Loans inside a group are rows, not cards in a card: no inner frame, hairlines between them. */
+.cobro-group > .cobro-card, .cobro-group > .cobro-card.is-rate { padding: 10px 2px 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.cobro-group > .cobro-card + .cobro-card { border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.cobro-group > .cobro-card:last-child { padding-bottom: 2px; }
+/* 9 (cont.). Lino: the rest of the panel in the same warm family (the panel's inline blue/sand accent is replaced). */
+html[data-theme="lino"] .cobros { --accent: #8a5a3b !important; }
+html[data-theme="lino"] .cobros :is(.cobro-group, .cobro-group.is-rate, .cobro-file) { border-color: color-mix(in oklab, #d4b28c 60%, var(--line)); background: radial-gradient(80% 90% at 0% 0%, color-mix(in oklab, #efdcc4 45%, transparent), transparent 58%), linear-gradient(180deg, color-mix(in oklab, white 30%, var(--surface)), color-mix(in oklab, #6a4528 9%, var(--surface))); }
+html[data-theme="lino"] .cobros .cobro-group h3 i, html[data-theme="lino"] .cobros .cobro-group.is-rate h3 i { background: #b07d55; box-shadow: 0 0 0 3px color-mix(in oklab, #b07d55 22%, transparent); }
+html[data-theme="lino"] .cobros .cobro-group h3 b { border-color: color-mix(in oklab, #b07d55 30%, var(--line)); }
+
+/* Final fix round (Nov 1 2026): the person's name takes all the room it has. No width cap; when the amount drops
+   to its own line the name uses the full row and wraps to two lines before it is ever cut. */
+.cobro-who strong { flex: 1 1 auto; min-width: 0; max-width: none; width: auto; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; word-break: normal; hyphens: manual; line-height: 1.25; }

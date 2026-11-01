@@ -140,15 +140,25 @@ export function FieldTip({ text }: { text: string }) {
   useLayoutEffect(() => {
     const el = pop.current;
     if (!open || !el) return;
-    // Fixed to the viewport so no card edge can clip it; kept 10px inside the screen.
+    // Fixed to the viewport so no card edge can clip it, but kept inside the form (or the screen) it belongs to,
+    // with a small pointer at its "?".
     const btn = ref.current?.getBoundingClientRect();
     if (!btn) return;
+    const host = ref.current?.closest(".cobro-form, .line-edit, .form-block, .card, main") as HTMLElement | null;
+    const hr = host?.getBoundingClientRect();
+    const lo = Math.max(10, hr ? hr.left + 4 : 10);
+    const hi = Math.min(window.innerWidth - 10, hr ? hr.right - 4 : window.innerWidth - 10);
+    el.style.maxWidth = `${Math.max(160, Math.min(250, hi - lo))}px`;
     const w = el.offsetWidth, h = el.offsetHeight;
-    const left = Math.max(10, Math.min(btn.left - 10, window.innerWidth - 10 - w));
-    const below = btn.bottom + 6;
-    const top = below + h > window.innerHeight - 10 ? Math.max(10, btn.top - 6 - h) : below;
+    const mid = btn.left + btn.width / 2;
+    const left = Math.max(lo, Math.min(mid - 18, hi - w));
+    const below = btn.bottom + 8;
+    const up = below + h > window.innerHeight - 10;
+    const top = up ? Math.max(10, btn.top - 8 - h) : below;
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
+    el.style.setProperty("--ftip-x", `${Math.max(12, Math.min(w - 12, mid - left))}px`);
+    el.dataset.side = up ? "above" : "below";
     const shut = () => setOpen(false);
     window.addEventListener("scroll", shut, { capture: true, passive: true, once: true });
     return () => window.removeEventListener("scroll", shut, { capture: true } as EventListenerOptions);

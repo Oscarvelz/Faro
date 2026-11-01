@@ -991,3 +991,55 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
 [data-theme="tron"] .tone-grid button { box-shadow: 0 0 6px -1px color-mix(in oklab, var(--c) 70%, transparent); }
 [data-theme="tron"] .tone-grid button[aria-pressed="true"] { box-shadow: 0 0 0 2px #050b0e, 0 0 0 3.5px var(--c), 0 0 12px var(--c); }
 [data-theme="tron"] .tone-custom::after { box-shadow: 0 0 0 2px #050b0e; }
+
+/* Cobros forms in Tron (Nov 1 2026): the line editor's terminal cell. Teal labels and choices, amber only on the amount. No frames, nothing loops. */
+[data-theme="tron"] .cobro-form { border-radius: 6px; background: linear-gradient(180deg, rgba(63, 214, 245, .06), rgba(2, 8, 11, .55) 55%, rgba(2, 8, 11, .35)) !important; }
+[data-theme="tron"] .cobro-form.is-bonus { background: transparent !important; border-top: 1px solid rgba(63, 214, 245, .18) !important; border-radius: 0; }
+[data-theme="tron"] .cobro-form .label { color: #7fc9d8; font-family: var(--t-display, inherit); font-weight: 500; }
+[data-theme="tron"] .cobro-form .label:has(.field.num) { color: #e0b04a; }
+[data-theme="tron"] .cobro-form .label:has(.cobro-pct .field.num) { color: #7fc9d8; }
+[data-theme="tron"] .cobro-form :is(.field, .day-field-btn) { border-radius: 4px !important; background: #03090c !important; border-color: rgba(120, 225, 250, .24) !important; color: #e6f8fc; box-shadow: none !important; }
+[data-theme="tron"] .cobro-form .field.num { color: #ffd36a !important; border-color: rgba(255, 194, 58, .45) !important; box-shadow: inset 0 -2px 0 rgba(255, 194, 58, .55) !important; }
+[data-theme="tron"] .cobro-form .cobro-pct .field.num { color: #e6f8fc !important; border-color: rgba(120, 225, 250, .24) !important; box-shadow: none !important; }
+[data-theme="tron"] .cobro-form .cobro-pct i { color: #7fc9d8; }
+[data-theme="tron"] .cobro-form .day-field-btn svg { color: #3fd6f5; }
+[data-theme="tron"] .cobro-form :is(.field, .day-field-btn):is(:focus, :focus-visible) { outline: none !important; border-color: #3fd6f5 !important; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important; }
+[data-theme="tron"] .cobro-form .field.num:is(:focus, :focus-visible) { border-color: #ffc23a !important; box-shadow: 0 0 0 1px #ffc23a, 0 0 12px rgba(255, 194, 58, .35) !important; }
+[data-theme="tron"] .cobro-form .cobro-pct .field.num:is(:focus, :focus-visible) { border-color: #3fd6f5 !important; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important; }
+[data-theme="tron"] .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button { border-radius: 4px; border-color: rgba(120, 225, 250, .22); background: rgba(63, 214, 245, .03); color: #7fc9d8; }
+[data-theme="tron"] .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: #f2fdff; border-color: #3fd6f5; background: rgba(63, 214, 245, .12); box-shadow: 0 0 10px -2px rgba(63, 214, 245, .5); }
+[data-theme="tron"] .cobro-form .field::placeholder { color: #3f7684; }
+[data-theme="tron"] .cobro-actions .btn { border-radius: 4px; }
+[data-theme="tron"] .cobro-form .day-pop { border-radius: 6px; background: #061015; border-color: rgba(63, 214, 245, .4); }
+[data-theme="tron"] .cobro-form .day-pop-grid button.is-on { background: #3fd6f5; color: #021014; border-radius: 4px; }
+[data-theme="tron"] .cobro-form .day-pop-grid button.is-today { box-shadow: inset 0 0 0 1px #3fd6f5; border-radius: 4px; }
+
+/* Cobros fix round (Nov 1 2026, review 2): teal is the voice, amber only for the amount. */
+[data-theme="tron"] .cobros, [data-theme="tron"] .cobros.is-due { border-color: rgba(63, 214, 245, .3); background: radial-gradient(110% 70% at 0% 0%, rgba(63, 214, 245, .13), transparent 50%), linear-gradient(165deg, #061a21, #03090c 62%, #010405) !important; box-shadow: inset 0 1px 0 rgba(63, 214, 245, .14), 0 0 24px -12px rgba(63, 214, 245, .35); }
+[data-theme="tron"] .cobros .cobro-sides { border-color: rgba(63, 214, 245, .22); background: rgba(0, 0, 0, .45); }
+[data-theme="tron"] .cobros .cobro-sides button[aria-pressed="true"], [data-theme="tron"] .cobros.is-due .cobro-sides button[aria-pressed="true"] { color: #e8fbff; background: rgba(63, 214, 245, .16); box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .cobros .cobro-plus, [data-theme="tron"] .cobros.is-due .cobro-plus { background: #3fd6f5 !important; color: #001018 !important; box-shadow: 0 0 0 1px rgba(63, 214, 245, .5), 0 0 12px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .cobros .cobro-who b { background: #3fd6f5 !important; color: #001018; box-shadow: 0 0 8px rgba(63, 214, 245, .35); }
+[data-theme="tron"] .cobro-form .label, [data-theme="tron"] .cobro-form .label:has(.field.num) { color: #7fc9d8; }
+[data-theme="tron"] .cobro-form .field.num { border-color: rgba(255, 194, 58, .55) !important; box-shadow: 0 0 10px -3px rgba(255, 194, 58, .3) !important; }
+[data-theme="tron"] .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: #f2fdff; border-color: #3fd6f5; background: rgba(63, 214, 245, .12); box-shadow: 0 0 10px -2px rgba(63, 214, 245, .5); }
+[data-theme="tron"] .cobro-form .day-pop { border-radius: 4px; box-shadow: 0 0 0 1px rgba(63, 214, 245, .15), 0 0 22px -8px rgba(63, 214, 245, .45), 0 18px 34px -12px #000; }
+[data-theme="tron"] .cobro-group > .cobro-card + .cobro-card { border-top-color: rgba(63, 214, 245, .14); }
+
+/* Final fix round (Nov 1 2026): teal is the editor's voice; amber stays only on amount values. Nothing amber loops. */
+[data-theme="tron"] .card:has(> .span-cut) > .row:first-child h2::after { background: #3fd6f5; box-shadow: 0 0 8px rgba(63, 214, 245, .7); }
+[data-theme="tron"] .card:has(> .span-cut) > .row:first-child h2::before { background: #3fd6f5; opacity: .5; }
+[data-theme="tron"] .card > .span-cut .span-fold-bar { border-color: rgba(63, 214, 245, .42) !important; background: linear-gradient(90deg, rgba(63, 214, 245, .08), rgba(2, 8, 11, .6) 45%, rgba(63, 214, 245, .05)) !important; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .4), inset 3px 0 0 #3fd6f5, 0 0 18px -6px rgba(63, 214, 245, .4) !important; }
+[data-theme="tron"] .card > .span-cut .fold-chev { color: #3fd6f5; border-color: rgba(63, 214, 245, .45); }
+[data-theme="tron"] .line-edit-head { border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, rgba(63, 214, 245, .4), rgba(63, 214, 245, .14), transparent) 1; }
+[data-theme="tron"] .line-edit-head b { color: #7fe9ff; text-shadow: 0 0 10px rgba(63, 214, 245, .35); }
+[data-theme="tron"] .line-edit .label, [data-theme="tron"] .line-edit .label:has(.field.num) { color: #7fc9d8; }
+[data-theme="tron"] .ftip-btn[aria-expanded="true"] { color: #3fd6f5; filter: drop-shadow(0 0 4px rgba(63, 214, 245, .7)); }
+[data-theme="tron"] .form-hint::before { color: #3fd6f5; }
+[data-theme="tron"] .line-edit :is(.day-field-btn, .theme-select-btn) svg { color: #3fd6f5; }
+[data-theme="tron"] .line-edit :is(.field, .theme-select-btn, .day-field-btn):is(:focus, :focus-visible) { border-color: #3fd6f5 !important; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important; }
+[data-theme="tron"] .line-edit::before, [data-theme="tron"] .line-edit::after { content: none; animation: none !important; display: none; }
+/* Monto fields (line editor and Cobros): teal frame like every other input; amber only for the typed amount. */
+[data-theme="tron"] :is(.line-edit, .cobro-form) .field.num { border-color: rgba(120, 225, 250, .24) !important; box-shadow: none !important; color: #ffd36a !important; }
+[data-theme="tron"] :is(.line-edit, .cobro-form) .cobro-pct .field.num { color: #e6f8fc !important; }
+[data-theme="tron"] :is(.line-edit, .cobro-form) .field.num:is(:focus, :focus-visible) { border-color: #3fd6f5 !important; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important; }

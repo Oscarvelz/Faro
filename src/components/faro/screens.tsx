@@ -19,7 +19,7 @@ import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from 
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { useFaro } from "./provider";
 import type { BackupInfo } from "@/spa/vault";
-import { Explain, Modal } from "./ui";
+import { Explain, FieldTip, Modal } from "./ui";
 
 const STORE_TINT: Record<string, string> = {
   temu: "#fb7701",
@@ -1088,21 +1088,35 @@ function DueOwe() {
       </div>
       <p className="cobro-aside">{t("cobro.owe.aside")}</p>
       {adding ? (
-        <div className="form-block cobro-form">
-          <div className="due-sites">
-            {["YouTube", "Netflix", "Prime", "Internet"].map((preset) => (
-              <button key={preset} type="button" aria-pressed={name === preset} onClick={() => setName(preset)}>{preset}</button>
-            ))}
+        <div className="form-block cobro-form is-owe">
+          <div className="cobro-grid">
+            <div className="label is-wide">
+              <span className="lab-head">{t("cobro.owe.name")}<FieldTip text={t("tip.cobro.owe.name")} /></span>
+              <div className="due-sites">
+                {["YouTube", "Netflix", "Prime", "Internet"].map((preset) => (
+                  <button key={preset} type="button" aria-pressed={name === preset} onClick={() => setName(preset)}>{preset}</button>
+                ))}
+              </div>
+              <input className="field" aria-label={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
+            </div>
+            <label className="label">
+              <span className="lab-head">{t("cobro.amount")}<FieldTip text={t("tip.cobro.owe.amount")} /></span>
+              <input className="field num" inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => setAmount(event.target.value)} />
+            </label>
+            <div className="label is-right">
+              <span className="lab-head">{t("cobro.owe.next")}<FieldTip text={t("tip.cobro.owe.next")} /></span>
+              <DayField value={due} onChange={setDue} />
+            </div>
+            <div className="label is-wide">
+              <span className="lab-head">{t("cobro.cadence")}<FieldTip text={t("tip.cadence")} /></span>
+              <div className="due-cadence">
+                {(["weekly", "biweekly", "monthly", "yearly"] as const).map((id) => (
+                  <button key={id} type="button" aria-pressed={cadence === id} onClick={() => setCadence(id)}>{t(id)}</button>
+                ))}
+              </div>
+            </div>
           </div>
-          <input className="field" aria-label={t("cobro.owe.name")} placeholder={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
-          <input className="field num" inputMode="decimal" aria-label={t("cobro.amount")} placeholder={t("cobro.amount")} value={amount} onChange={(event) => setAmount(event.target.value)} />
-          <div className="due-cadence">
-            {(["weekly", "biweekly", "monthly", "yearly"] as const).map((id) => (
-              <button key={id} type="button" aria-pressed={cadence === id} onClick={() => setCadence(id)}>{t(id)}</button>
-            ))}
-          </div>
-          <DayField value={due} onChange={setDue} />
-          <div className="row">
+          <div className="cobro-actions">
             <button type="button" className="btn secondary" onClick={() => setAdding(false)}>{t("cancel")}</button>
             <button type="button" className="btn" onClick={addDue}>{t("save")}</button>
           </div>
@@ -1303,7 +1317,7 @@ function Cobros({ onClose }: { onClose: () => void }) {
           const still = leftOf(row);
           return (
             <article key={row.id} className={`cobro-card${row.kind === "interest" ? " is-rate" : ""}`}>
-              <div className="cobro-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div className="cobro-row">
                 <div className="cobro-who">
                   <b style={{ background: tint }}>{row.person.slice(0, 1).toUpperCase()}</b>
                   <strong>{row.person}</strong>
@@ -1322,10 +1336,18 @@ function Cobros({ onClose }: { onClose: () => void }) {
                 </p>
               ) : null}
               {bonusFor === row.id ? (
-                <div className="form-block cobro-form">
-                  <input className="field num" inputMode="decimal" aria-label={t("cobro.amount")} value={bonusAmt} onChange={(e) => setBonusAmt(e.target.value)} />
-                  <DayField value={bonusOn} onChange={setBonusOn} />
-                  <div className="row">
+                <div className="form-block cobro-form is-bonus">
+                  <div className="cobro-grid">
+                    <label className="label">
+                      <span className="lab-head">{t("cobro.amount")}<FieldTip text={t("tip.cobro.bonus.amount")} /></span>
+                      <input className="field num" inputMode="decimal" placeholder="0.00" value={bonusAmt} onChange={(e) => setBonusAmt(e.target.value)} />
+                    </label>
+                    <div className="label is-right">
+                      <span className="lab-head">{t("cobro.bonus.on")}<FieldTip text={t("tip.cobro.bonus.on")} /></span>
+                      <DayField value={bonusOn} onChange={setBonusOn} />
+                    </div>
+                  </div>
+                  <div className="cobro-actions">
                     <button type="button" className="btn secondary" onClick={() => setBonusFor(null)}>{t("cancel")}</button>
                     <button type="button" className="btn" onClick={() => addBonus(row.id)}>{t("save")}</button>
                   </div>
@@ -1388,16 +1410,35 @@ function Cobros({ onClose }: { onClose: () => void }) {
       </div>
       <p className="cobro-aside">{t("cobro.aside")}</p>
       {draft ? (
-        <div className="form-block cobro-form">
-          <div className="cobro-kind">
-            <button type="button" aria-pressed={kind === "plain"} onClick={() => setKind("plain")}>{t("cobro.plain")}</button>
-            <button type="button" aria-pressed={kind === "interest"} onClick={() => setKind("interest")}>{t("cobro.rate")}</button>
+        <div className="form-block cobro-form is-lend">
+          <div className="cobro-grid">
+            <div className="label is-wide">
+              <span className="lab-head">{t("cobro.kind")}<FieldTip text={t("tip.cobro.kind")} /></span>
+              <div className="cobro-kind">
+                <button type="button" aria-pressed={kind === "plain"} onClick={() => setKind("plain")}>{t("cobro.plain")}</button>
+                <button type="button" aria-pressed={kind === "interest"} onClick={() => setKind("interest")}>{t("cobro.rate")}</button>
+              </div>
+            </div>
+            <label className="label is-wide">
+              <span className="lab-head">{t("cobro.person")}<FieldTip text={t("tip.cobro.person")} /></span>
+              <input className="field" value={person} onChange={(e) => setPerson(e.target.value)} />
+            </label>
+            <label className="label">
+              <span className="lab-head">{t("cobro.amount")}<FieldTip text={t("tip.cobro.amount")} /></span>
+              <input className="field num" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </label>
+            <div className="label is-right">
+              <span className="lab-head">{t("cobro.due")}<FieldTip text={t("tip.cobro.due")} /></span>
+              <DayField value={due} onChange={setDue} />
+            </div>
+            {kind === "interest" ? (
+              <label className="label is-wide">
+                <span className="lab-head">{t("cobro.apr")}<FieldTip text={t("tip.cobro.apr")} /></span>
+                <span className="cobro-pct"><input className="field num" inputMode="decimal" placeholder="0" value={apr} onChange={(e) => setApr(e.target.value)} /><i aria-hidden>%</i></span>
+              </label>
+            ) : null}
           </div>
-          <input className="field" aria-label={t("cobro.person")} placeholder={t("cobro.person")} value={person} onChange={(e) => setPerson(e.target.value)} />
-          <input className="field num" inputMode="decimal" aria-label={t("cobro.amount")} placeholder={t("cobro.amount")} value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <DayField value={due} onChange={setDue} />
-          {kind === "interest" ? <input className="field num" inputMode="decimal" aria-label={t("cobro.apr")} placeholder={t("cobro.apr")} value={apr} onChange={(e) => setApr(e.target.value)} /> : null}
-          <div className="row">
+          <div className="cobro-actions">
             <button type="button" className="btn secondary" onClick={() => setDraft(false)}>{t("cancel")}</button>
             <button type="button" className="btn" onClick={saveDraft}>{t("save")}</button>
           </div>
