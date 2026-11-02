@@ -3,6 +3,7 @@ import { askSignInAgain, lastUser, onUser, sessionGone, signOutEverywhereLocal, 
 import { disableLock, enableLock, lockCredential, lockSupported } from "./lock";
 import { w } from "./words";
 import { useFaro } from "@/components/faro/provider";
+import { Hint } from "@/components/faro/hint";
 import { wipeLocalBackups } from "./vault";
 
 export function useFaroUser(): FaroUser | null {
@@ -53,7 +54,7 @@ export function UserButton() {
         </div>
       ) : null}
       <div className="grid gap-1">
-        <span className="text-sm font-medium">{w("lock.on")}</span>
+        <span className="text-sm font-medium lab-head">{w("lock.on")}<Hint topic="huella" /></span>
         <span className="text-sm text-muted">{canLock ? w("lock.onHint") : w("lock.none")}</span>
         {canLock ? (
           <button
@@ -70,27 +71,30 @@ export function UserButton() {
         ) : null}
         {msg ? <span className="text-sm text-bad">{msg}</span> : null}
       </div>
-      <button
-        type="button"
-        className="btn danger"
-        disabled={busy}
-        onClick={() => confirm({
-          title: w("acct.out"),
-          body: w("acct.outWarn"),
-          danger: true,
-          yes: w("acct.out"),
-          run: () => {
-            void (async () => {
-              setBusy(true);
-              wipeDevice(user.id);
-              await wipeLocalBackups(user.id);
-              await signOutEverywhereLocal();
-            })();
-          },
-        })}
-      >
-        {w("acct.out")}
-      </button>
+      <div className="acct-out-row">
+        <button
+          type="button"
+          className="btn danger"
+          disabled={busy}
+          onClick={() => confirm({
+            title: w("acct.out"),
+            body: w("acct.outWarn"),
+            danger: true,
+            yes: w("acct.out"),
+            run: () => {
+              void (async () => {
+                setBusy(true);
+                wipeDevice(user.id);
+                await wipeLocalBackups(user.id);
+                await signOutEverywhereLocal();
+              })();
+            },
+          })}
+        >
+          {w("acct.out")}
+        </button>
+        <Hint topic="cerrar-sesion" />
+      </div>
     </div>
   );
 }

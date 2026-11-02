@@ -206,6 +206,10 @@
 .pano-help-btn::before { content: ""; position: absolute; inset: -9px; } /* 46px touch target */
 .pano-help-btn:active { transform: scale(0.92); }
 .pano-help-btn.is-on { background: var(--fg); color: var(--bg); border-color: transparent; }
+/* The "?" is lucide CircleHelp (no ring around a ring): the button itself is bare. */
+.pano-help-btn:has(svg) { border-color: transparent; background: transparent; }
+.pano-help-btn:has(svg) svg { width: 20px; height: 20px; }
+.pano-help-btn.is-on:has(svg) { background: transparent; color: var(--accent); }
 .pano-help {
   display: grid; gap: 10px; padding: 14px; border-radius: 18px;
   border: 1px solid var(--line); background: color-mix(in oklab, var(--surface-2) 70%, var(--surface));

@@ -54,7 +54,7 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
     <button type="button" aria-pressed={pick[id]} onClick={() => setPick((cur) => ({ ...cur, [id]: !cur[id] }))}>{label}</button>
   );
   return (
-    <div className="export-anchor" id="faro-export">
+    <div className="export-anchor" id="faro-export" data-anchor="top-export">
       <button type="button" className="icon-btn theme-toggle cal-launch" aria-expanded={open} aria-haspopup="dialog" aria-label={t("export.open")} onClick={() => onOpenChange(!open)}>
         <Download className="size-4" />
       </button>

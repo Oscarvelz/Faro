@@ -19,6 +19,9 @@ import { searchLedger, type Hit } from "@/lib/faro/search";
 import { withAugustSample } from "@/lib/faro/sample";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
+import "@/lib/manual/back";
+import { readY, requestFocus, writeY } from "@/lib/manual/nav";
+import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual/places";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; run: () => void };
@@ -37,7 +40,20 @@ type UiState = {
   draft: Line["kind"] | null;
   editing: string | null;
   notice: Notice;
+  /** Manual layer: null closed, "" open at the cover, "<topicId>" open at that entry, "@az" at the A–Z index. */
+  manual: string | null;
+  /** Libros savings tab (Ahorros / Meta / Retiro / Emergencia), a real history step. */
+  vault: VaultTab | null;
+  /** Bumped by an in-page jump, so back returns to the spot it left. */
+  spot: number;
 };
+
+type PlaceKeys = "section" | "year" | "month" | "help" | "instruments" | "draft" | "editing" | "manual" | "vault" | "spot";
+type Place = Pick<UiState, PlaceKeys> & { y?: number };
+const PLACE_KEYS: PlaceKeys[] = ["section", "year", "month", "help", "instruments", "draft", "editing", "manual", "vault", "spot"];
+const samePlace = (a: Place, b: Place) => PLACE_KEYS.every((k) => a[k] === b[k]);
+/** Keys whose change remounts what you see, so back has to bring the scroll back. */
+const SCREEN_KEYS: PlaceKeys[] = ["section", "year", "month", "vault", "spot"];
 
 export type Api = {
   userId: string;
@@ -92,6 +108,16 @@ export type Api = {
   notePlanCopied: () => void;
   dismissFinding: (id: string, reason: string) => void;
   planStale: boolean;
+  /** Number of places on the stack (1 = nothing to go back to). */
+  depth: number;
+  /** Name of the place under the current one ("Central", "Meta"…), for "Volver a …". */
+  backName: () => string;
+  /** Open the manual at the cover ("") or at an entry. Always a new history step. */
+  openManual: (id?: string) => void;
+  /** Jump to where a topic lives (screen, fold, element). `from` = the manual entry being read, so back lands on it. */
+  goTopic: (id: string, go: GoLike, from?: string) => void;
+  /** Make the current spot a step, before an in-page jump. */
+  markSpot: () => void;
 };
 
 const Ctx = createContext<Api | null>(null);
@@ -104,6 +130,13 @@ export function FaroPane({ map, children }: { map: (api: Api) => Api; children: 
   const mapped = useMemo(() => (base ? map(base) : null), [base, map]);
   if (!mapped) return children;
   return <PaneCtx.Provider value={mapped}>{children}</PaneCtx.Provider>;
+}
+
+/** The app-wide api (ignores split/float pane mapping): the manual and "Ir allí" always act on the top pane. */
+export function useFaroRoot(): Api {
+  const v = useContext(Ctx);
+  if (!v) throw new Error("Faro missing");
+  return v;
 }
 
 export function useFaro(): Api {
@@ -203,6 +236,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const wakeTimer = useRef(0);
   const dayRef = useRef("");
   const [confirmState, setConfirm] = useState<ConfirmOpts | null>(null);
+  const [depth, setDepth] = useState(1);
   const [ui, setUiState] = useState<UiState>(() => {
     const d = now();
     return {
@@ -218,6 +252,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       draft: null,
       editing: null,
       notice: "",
+      manual: null,
+      vault: null,
+      spot: 0,
     };
   });
   const amountRef = useRef<((n: number) => void) | null>(null);
@@ -225,11 +262,17 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const syncing = useRef(false);
   sessionRef.current = session;
 
-  const setUi = useCallback((patch: Partial<UiState>) => {
-    setUiState((u) => ({ ...u, ...patch }));
+  const places = useRef<Place[]>([]);
+  /** Before the view changes, write down where the current place is scrolled to. */
+  const snap = useCallback(() => {
+    const top = places.current[places.current.length - 1];
+    if (top) top.y = readY();
   }, []);
+  const setUi = useCallback((patch: Partial<UiState>) => {
+    if (PLACE_KEYS.some((k) => k in patch)) snap();
+    setUiState((u) => ({ ...u, ...patch }));
+  }, [snap]);
 
-  const places = useRef<Array<Pick<UiState, "section" | "year" | "month" | "help" | "instruments" | "draft" | "editing">>>([]);
   const applying = useRef(false);
   const confirmRef = useRef(confirmState);
   const uiRef = useRef(ui);
@@ -237,7 +280,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   uiRef.current = ui;
 
   useEffect(() => {
-    const place = {
+    const place: Place = {
       section: ui.section,
       year: ui.year,
       month: ui.month,
@@ -245,6 +288,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       instruments: ui.instruments,
       draft: ui.draft,
       editing: ui.editing,
+      manual: ui.manual,
+      vault: ui.vault,
+      spot: ui.spot,
     };
     const last = places.current[places.current.length - 1];
     if (applying.current) {
@@ -258,19 +304,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       history.replaceState({ faro: places.current.length }, "");
       return;
     }
-    if (
-      last &&
-      last.section === place.section &&
-      last.year === place.year &&
-      last.month === place.month &&
-      last.help === place.help &&
-      last.instruments === place.instruments &&
-      last.draft === place.draft &&
-      last.editing === place.editing
-    ) return;
+    if (last && samePlace(last, place)) return;
     places.current.push(place);
-    history.pushState({ faro: places.current.length, overlay: place.instruments ? "instruments" : place.help ? "help" : "" }, "");
-  }, [ui.section, ui.year, ui.month, ui.help, ui.instruments, ui.draft, ui.editing]);
+    history.pushState({ faro: places.current.length, overlay: place.instruments ? "instruments" : place.help ? "help" : place.manual !== null ? "manual" : "" }, "");
+    setDepth(places.current.length);
+  }, [ui.section, ui.year, ui.month, ui.help, ui.instruments, ui.draft, ui.editing, ui.manual, ui.vault, ui.spot]);
 
   useEffect(() => {
     const closeOverlay = () => {
@@ -290,11 +328,35 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           instruments: false,
           draft: live.draft,
           editing: live.editing,
+          manual: live.manual,
+          vault: live.vault,
+          spot: live.spot,
         });
       }
-      setUiState((u) => ({ ...u, instruments: false, help: false, calcOpen: false }));
+      // Back to the place under the overlay: it may be another screen or the manual ("Ir allí" → Cambio → back).
+      const under = places.current[places.current.length - 1]!;
+      setUiState((u) => ({ ...u, section: under.section, year: under.year, month: under.month, manual: under.manual, vault: under.vault, spot: under.spot, instruments: false, help: false, calcOpen: false }));
       history.pushState({ faro: places.current.length }, "");
+      setDepth(places.current.length);
     };
+    let restoring = 0;
+    const stopRestore = () => { restoring = 0; };
+    /** Bring a place's scroll back, holding it while late content settles; the user scrolling cancels. */
+    const restore = (y: number) => {
+      const token = ++restoring;
+      const until = Date.now() + 2500;
+      const tick = () => {
+        if (token !== restoring) return;
+        writeY(y);
+        const settled = Math.abs(readY() - y) < 2;
+        if (settled && Date.now() > until - 1900) { restoring = 0; return; }
+        if (Date.now() < until) requestAnimationFrame(tick);
+        else restoring = 0;
+      };
+      requestAnimationFrame(tick);
+    };
+    window.addEventListener("wheel", stopRestore, { passive: true });
+    window.addEventListener("touchstart", stopRestore, { passive: true });
     const onPop = () => {
       const hold = window as Window & { __faroSkipPop?: number };
       if ((hold.__faroSkipPop ?? 0) > 0) {
@@ -322,18 +384,26 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         return;
       }
       if (places.current.length > 1) {
-        places.current.pop();
+        const left = places.current.pop()!;
         const prev = places.current[places.current.length - 1];
         if (prev) {
           applying.current = true;
-          setUiState((u) => ({ ...u, ...prev, query: "", highlight: "" }));
+          const { y, ...fields } = prev;
+          setUiState((u) => ({ ...u, ...fields, query: "", highlight: "" }));
+          const moved = SCREEN_KEYS.some((k) => left[k] !== prev[k]) || (left.manual !== null && prev.manual === null);
+          if (moved && typeof y === "number" && prev.manual === null) restore(y);
         }
+        setDepth(places.current.length);
         return;
       }
       history.pushState({ faro: 1 }, "");
     };
     window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("wheel", stopRestore);
+      window.removeEventListener("touchstart", stopRestore);
+    };
   }, []);
 
   useEffect(() => {
@@ -666,6 +736,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const recordLine = useCallback((line: Line) => formatMoney(line.amountMinor, line.currency, lang), [lang]);
 
   const goSection = useCallback((delta: number) => {
+    snap();
     setUiState((u) => {
       const books = ["income", "fixed", "variable", "shops", "subs"] as const;
       const study = ["stats", "advice"] as const;
@@ -678,20 +749,57 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const next = loop[(i + delta + loop.length) % loop.length] ?? u.section;
       return { ...u, section: next, draft: null, editing: null };
     });
-  }, []);
+  }, [snap]);
   const goMonth = useCallback((delta: number) => {
+    snap();
     setUiState((u) => {
       const n = shiftMonth(u.year, u.month, delta);
       return { ...u, ...n, draft: null, editing: null };
     });
-  }, []);
+  }, [snap]);
   const goToday = useCallback(() => {
+    snap();
     const n = new Date();
     setUiState((u) => ({ ...u, year: n.getFullYear(), month: n.getMonth() + 1, draft: null, editing: null }));
-  }, []);
+  }, [snap]);
   const setMonth = useCallback((year: number, month: number) => {
+    snap();
     setUiState((u) => ({ ...u, year, month, draft: null, editing: null }));
-  }, []);
+  }, [snap]);
+
+  const openManual = useCallback((id = "") => {
+    snap();
+    setUiState((u) => ({ ...u, manual: id, calcOpen: false }));
+  }, [snap]);
+  const markSpot = useCallback(() => {
+    snap();
+    setUiState((u) => ({ ...u, spot: u.spot + 1 }));
+  }, [snap]);
+  const goTopic = useCallback((id: string, go: GoLike, from?: string) => {
+    const live = uiRef.current;
+    const top = places.current[places.current.length - 1];
+    // Reading an entry in the manual: back from the app lands on that entry, not where the manual was opened.
+    if (from && top && live.manual !== null && top.manual !== from) {
+      top.manual = from;
+      setUiState((u) => ({ ...u, manual: from }));
+    }
+    const res = screenPatch(go);
+    // Wide screens show Cambio as a side panel, not the phone sheet.
+    if (go.screen === "tools" && window.innerWidth >= 1100) {
+      delete res.patch.instruments;
+      res.open.unshift("money-aside");
+    }
+    const { patch, open } = res;
+    requestFocus({ topic: id, anchor: go.anchor, fold: open.join(" ") || undefined, lens: go.lens });
+    snap();
+    setUiState((u) => {
+      const next = { ...u, ...patch, draft: null, editing: null, calcOpen: false, query: "", highlight: "" };
+      const same = PLACE_KEYS.every((k) => next[k] === u[k]);
+      // Already there: still make it a step, so back returns to the spot you jumped from.
+      return same ? { ...next, spot: u.spot + 1 } : next;
+    });
+    window.setTimeout(() => window.dispatchEvent(new Event("faro-focus")), 40);
+  }, [snap]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -721,7 +829,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           return;
         }
         if (ui.instruments || ui.help) {
-          setUi({ instruments: false, help: false, calcOpen: false });
+          // Opened by "Ir allí" from the manual: Esc walks back to the manual, the same path as phone back.
+          const under = places.current[places.current.length - 2];
+          const top = places.current[places.current.length - 1];
+          if ((top?.instruments || top?.help) && under && under.manual !== ui.manual) history.back();
+          else setUi({ instruments: false, help: false, calcOpen: false });
           return;
         }
         if (ui.calcOpen) {
@@ -914,6 +1026,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     notePlanCopied,
     dismissFinding,
     planStale,
+    depth,
+    backName: () => {
+      const under = places.current[places.current.length - 2];
+      return under ? placeName(under, lang) : placeName({ section: "settings" }, lang);
+    },
+    openManual,
+    goTopic,
+    markSpot,
   };
 
   // Apply the theme during render, before children paint, so colour maths (isTron, tints) and CSS flip in the same frame.

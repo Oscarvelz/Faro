@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Calculator, CircleHelp, Compass, X } from "lucide-react";
+import { useLayer } from "@/lib/manual/back";
+import { Hint } from "./hint";
 
 export function Modal({
   open,
@@ -41,6 +43,7 @@ export function Modal({
 }
 
 export function Explain({
+  topic,
   title,
   meaning,
   formula,
@@ -48,6 +51,8 @@ export function Explain({
   label,
   legend,
 }: {
+  /** With a topic, the trigger is the standard (?) bubble and this sheet opens from its "Ver el cálculo". */
+  topic?: string;
   title: string;
   meaning: string;
   formula: string;
@@ -63,10 +68,9 @@ export function Explain({
   useEffect(() => {
     if (!open) return;
     closeBtn.current?.focus({ preventScroll: true });
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+  // Esc and phone back close the sheet only (never also step the app back a screen).
+  useLayer(open && !leaving, close);
   // Shrink the text step by step until the whole explanation fits on screen without scrolling.
   const sheet = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -90,9 +94,13 @@ export function Explain({
   ].filter((p) => p.text);
   return (
     <>
-      <button type="button" className="icon-btn" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
-        <CircleHelp className="size-4" aria-hidden />
-      </button>
+      {topic ? (
+        <Hint topic={topic} calc={() => setOpen(true)} />
+      ) : (
+        <button type="button" className="icon-btn" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+          <CircleHelp className="size-4" aria-hidden />
+        </button>
+      )}
       {open
         ? createPortal(
             <div className={`xp-scrim${leaving ? " is-leaving" : ""}`} onPointerDown={(e) => { if (e.target === e.currentTarget) close(); }}>
@@ -124,54 +132,8 @@ export function Explain({
   );
 }
 
-// A small "?" beside a field: tap for one plain sentence about what it asks. One open at a time; tap anywhere to close.
-export function FieldTip({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  const pop = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: Event) => { const n = e.target as Node; if (!ref.current?.contains(n) && !pop.current?.contains(n)) setOpen(false); };
-    const other = (e: Event) => { if ((e as CustomEvent).detail !== ref.current) setOpen(false); };
-    document.addEventListener("pointerdown", away, true);
-    document.addEventListener("faro-tip", other);
-    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("faro-tip", other); };
-  }, [open]);
-  useLayoutEffect(() => {
-    const el = pop.current;
-    if (!open || !el) return;
-    // Fixed to the viewport so no card edge can clip it, but kept inside the form (or the screen) it belongs to,
-    // with a small pointer at its "?".
-    const btn = ref.current?.getBoundingClientRect();
-    if (!btn) return;
-    const host = ref.current?.closest(".cobro-form, .line-edit, .ah-form, .form-block, .card, main") as HTMLElement | null;
-    const hr = host?.getBoundingClientRect();
-    const lo = Math.max(10, hr ? hr.left + 4 : 10);
-    const hi = Math.min(window.innerWidth - 10, hr ? hr.right - 4 : window.innerWidth - 10);
-    el.style.maxWidth = `${Math.max(160, Math.min(250, hi - lo))}px`;
-    const w = el.offsetWidth, h = el.offsetHeight;
-    const mid = btn.left + btn.width / 2;
-    const left = Math.max(lo, Math.min(mid - 18, hi - w));
-    const below = btn.bottom + 8;
-    const up = below + h > window.innerHeight - 10;
-    const top = up ? Math.max(10, btn.top - 8 - h) : below;
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
-    el.style.setProperty("--ftip-x", `${Math.max(12, Math.min(w - 12, mid - left))}px`);
-    el.dataset.side = up ? "above" : "below";
-    const shut = () => setOpen(false);
-    window.addEventListener("scroll", shut, { capture: true, passive: true, once: true });
-    return () => window.removeEventListener("scroll", shut, { capture: true } as EventListenerOptions);
-  }, [open]);
-  return (
-    <span className="ftip" ref={ref}>
-      <button type="button" className="ftip-btn" aria-label={text} aria-expanded={open} onClick={(e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (!open) document.dispatchEvent(new CustomEvent("faro-tip", { detail: ref.current }));
-        setOpen((v) => !v);
-      }}><CircleHelp aria-hidden /></button>
-      {open ? createPortal(<span ref={pop} className="ftip-pop" role="tooltip" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}>{text}</span>, document.body) : null}
-    </span>
-  );
+// A small "?" beside a field: one plain sentence about what it asks, read from the manual topic (same words as
+// the manual's "Qué es"). One open at a time; a tap outside, Esc or phone back closes it.
+export function FieldTip({ topic, alt = false }: { topic: string; alt?: boolean }) {
+  return <Hint topic={topic} alt={alt} className="is-field" />;
 }
-

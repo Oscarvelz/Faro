@@ -742,6 +742,8 @@ html[data-theme="tron"] .lenses .lens.is-debt[aria-pressed="true"] { border-colo
 html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; }
 [data-theme="tron"] .pano-help-btn { border-color: #3fd6f5; color: #3fd6f5; background: rgba(4, 18, 26, .85); box-shadow: 0 0 10px rgba(63, 214, 245, .35); font-family: var(--t-display, inherit); }
 [data-theme="tron"] .pano-help-btn.is-on { background: #3fd6f5; color: #031016; }
+[data-theme="tron"] .pano-help-btn:has(svg) { border-color: transparent; background: transparent; box-shadow: none; }
+[data-theme="tron"] .pano-help-btn.is-on:has(svg) { background: transparent; color: #3fd6f5; filter: drop-shadow(0 0 4px rgba(63, 214, 245, .7)); }
 [data-theme="tron"] .pano-help { border-color: rgba(63, 214, 245, .35); background: rgba(4, 16, 24, .72); }
 [data-theme="tron"] .pano-help-scale b { background: #3fd6f5; color: #031016; }
 [data-theme="tron"] .pano-help-scale b::after { border-top-color: #3fd6f5; }
@@ -934,7 +936,7 @@ html[data-theme="tron"] .lenses .lens[aria-pressed="true"] { overflow: visible; 
     linear-gradient(#ffc23a, #ffc23a) right bottom / 14px 1.5px no-repeat, linear-gradient(#ffc23a, #ffc23a) right bottom / 1.5px 14px no-repeat,
     linear-gradient(180deg, rgba(63, 214, 245, .07), rgba(2, 8, 11, .85) 40%); }
 [data-theme="tron"] .line-edit-head { border-bottom-color: rgba(63, 214, 245, .22); color: #7fc9d8; font-family: var(--t-display, inherit); font-weight: 500; letter-spacing: .16em; }
-[data-theme="tron"] .line-edit-head > span { border-radius: 4px; background: rgba(63, 214, 245, .1); color: #3fd6f5; box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .line-edit-head > span:not(.hint) { border-radius: 4px; background: rgba(63, 214, 245, .1); color: #3fd6f5; box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .45); }
 [data-theme="tron"] .line-edit-head b { color: #f2fdff; font-family: inherit; letter-spacing: .02em; }
 [data-theme="tron"] .line-edit .label { color: #7fc9d8; font-family: var(--t-display, inherit); font-weight: 500; letter-spacing: .14em; }
 [data-theme="tron"] .line-edit :is(.field, .theme-select-btn, .day-field-btn) { border-radius: 4px !important; background: #03090c !important; border-color: rgba(120, 225, 250, .24) !important; }

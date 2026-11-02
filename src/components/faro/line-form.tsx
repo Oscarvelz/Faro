@@ -301,7 +301,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       {existing && bubbleTone && !dock ? (
         <div className="tone-pick">
           <div className="tone-head">
-            <span className="lab-head">{t("look.color")}<FieldTip text={t("tip.color")} /></span>
+            <span className="lab-head">{t("look.color")}<FieldTip topic="f-color" /></span>
             <label className="tone-custom" title={t("look.custom")} style={{ ["--c" as string]: themeSwatch(/^#[0-9a-fA-F]{6}$/.test(tone) ? tone : "#b7d4c4") }}>
               <input type="color" aria-label={t("look.custom")} value={/^#[0-9a-fA-F]{6}$/.test(tone) ? tone : "#b7d4c4"} onChange={(e) => setTone(e.target.value)} />
             </label>
@@ -315,26 +315,26 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       ) : null}
       <div className="grid-2">
         <label className="label">
-          <span className="lab-head">{t("concept")}<FieldTip text={t("tip.concept")} /></span>
+          <span className="lab-head">{t("concept")}<FieldTip topic="f-concepto" /></span>
           <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />
         </label>
         <label className="label">
-          <span className="lab-head">{t("amount")}<FieldTip text={t("tip.amount")} /></span>
+          <span className="lab-head">{t("amount")}<FieldTip topic="f-monto" /></span>
           <input className="field num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} onFocus={() => focusAmount((n) => setAmount(n.toFixed(2)))} />
         </label>
         <label className="label">
-          <span className="lab-head">{t("quick.date")}<FieldTip text={t("tip.day")} /></span>
+          <span className="lab-head">{t("quick.date")}<FieldTip topic="f-dia" /></span>
           <DayField value={bookedOn} onChange={setBookedOn} />
         </label>
         {onMoney ? null : (
           <label className="label">
-            <span className="lab-head">{t("currency")}<FieldTip text={t("tip.currency")} /></span>
+            <span className="lab-head">{t("currency")}<FieldTip topic="f-moneda" /></span>
             <ThemeSelect value={currency} onChange={(value) => setCurrency(value as Currency)} options={[{ value: "NIO", label: "C$" }, { value: "USD", label: "$" }]} />
           </label>
         )}
         {group ? (
           <label className="label">
-            <span className="lab-head">{t("category")}<FieldTip text={t("tip.category")} /></span>
+            <span className="lab-head">{t("category")}<FieldTip topic="f-categoria" /></span>
             <ThemeSelect
               value={categoryId}
               onChange={(value) => { setCategoryId(value); setSubId(""); }}
@@ -344,7 +344,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         ) : null}
         {group && subs.length ? (
           <label className="label">
-            <span className="lab-head">{t("sub")}<FieldTip text={t("tip.sub")} /></span>
+            <span className="lab-head">{t("sub")}<FieldTip topic="f-sub" /></span>
             <ThemeSelect
               value={subId}
               onChange={setSubId}
@@ -437,16 +437,16 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             </div>
             {categoryId === "ia" ? (
               <label className="label">
-                <span className="lab-head">{t("provider")}<FieldTip text={t("tip.provider")} /></span>
+                <span className="lab-head">{t("provider")}<FieldTip topic="f-proveedor" /></span>
                 <ThemeSelect value={providerId} onChange={setProviderId} options={[{ value: "", label: "—" }, ...ais.map((s) => ({ value: s.id, label: displayName(s, lang) }))]} />
               </label>
             ) : null}
             <label className="label">
-              <span className="lab-head">{t("code")}<FieldTip text={t("tip.code")} /></span>
+              <span className="lab-head">{t("code")}<FieldTip topic="f-codigo" /></span>
               <input className="field" value={code} onChange={(e) => setCode(e.target.value)} />
             </label>
             <label className="label">
-              <span className="lab-head">{t("url")}<FieldTip text={t("tip.url")} /></span>
+              <span className="lab-head">{t("url")}<FieldTip topic="f-enlace" /></span>
               <input className="field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
             </label>
           </>
@@ -454,7 +454,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         {kind === "subscription" ? (
           <>
             <label className="label">
-              <span className="lab-head">{t("presets")}<FieldTip text={t("tip.presets")} /></span>
+              <span className="lab-head">{t("presets")}<FieldTip topic="f-lista" /></span>
               <ThemeSelect
                 value={providerId}
                 onChange={(id) => {
@@ -467,7 +467,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
               />
             </label>
             <label className="label">
-              <span className="lab-head">{t("cadence")}<FieldTip text={t("tip.cadence")} /></span>
+              <span className="lab-head">{t("cadence")}<FieldTip topic="f-frecuencia" /></span>
               <ThemeSelect
                 value={cadence}
                 onChange={(value) => setCadence(value as Line["cadence"])}
@@ -480,11 +480,11 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
               />
             </label>
             <label className="label">
-              <span className="lab-head">{t("pot.first")}<FieldTip text={t("tip.first")} /></span>
+              <span className="lab-head">{t("pot.first")}<FieldTip topic="f-primer-pago" /></span>
               <DayField value={startedOn} onChange={setStartedOn} />
             </label>
             <label className="label">
-              <span className="lab-head">{t("due")}<FieldTip text={t("tip.due")} /></span>
+              <span className="lab-head">{t("due")}<FieldTip topic="f-proximo-cobro" /></span>
               <DayField value={nextDue} onChange={setNextDue} />
             </label>
           </>
@@ -492,35 +492,35 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         {role === "debt" ? (
           <>
             <label className="label">
-              <span className="lab-head">{t("apr")}<FieldTip text={t("tip.apr")} /></span>
+              <span className="lab-head">{t("apr")}<FieldTip topic="f-tasa-anual" /></span>
               <input className="field num" inputMode="decimal" value={apr} onChange={(e) => setApr(e.target.value)} />
             </label>
             <label className="label">
-              <span className="lab-head">{t("balance.debt")}<FieldTip text={t("tip.debt")} /></span>
+              <span className="lab-head">{t("balance.debt")}<FieldTip topic="f-saldo-deuda" /></span>
               <input className="field num" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} onFocus={() => focusAmount((n) => setBalance(n.toFixed(2)))} />
             </label>
           </>
         ) : null}
         {role === "savings" ? (
           <label className="label">
-            <span className="lab-head">{t("balance.save")}<FieldTip text={t("tip.save")} /></span>
+            <span className="lab-head">{t("balance.save")}<FieldTip topic="f-saldo-ahorro" /></span>
             <input className="field num" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} onFocus={() => focusAmount((n) => setBalance(n.toFixed(2)))} />
           </label>
         ) : null}
         <label className="label">
-          <span className="lab-head">{t("note")}<FieldTip text={t("tip.note")} /></span>
+          <span className="lab-head">{t("note")}<FieldTip topic="f-nota" /></span>
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
       </div>
       <div className="row mt-3 form-toggles">
         <label className="row text-sm form-toggle">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          {t("active")}<FieldTip text={t("tip.active")} />
+          {t("active")}<FieldTip topic="f-activo" />
         </label>
         {kind !== "subscription" ? (
           <label className="row text-sm form-toggle">
             <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-            {t("recurring")}<FieldTip text={t("tip.recurring")} />
+            {t("recurring")}<FieldTip topic="f-recurrente" />
           </label>
         ) : null}
         {icon ? <Glyph name={icon} /> : null}
@@ -528,11 +528,11 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       {recurring && kind !== "subscription" ? (
         <div className="grid-2 mt-3 form-repeat">
           <label className="label">
-            <span className="lab-head">{t("pot.first")}<FieldTip text={t("tip.first")} /></span>
+            <span className="lab-head">{t("pot.first")}<FieldTip topic="f-primer-pago" /></span>
             <DayField value={startedOn} onChange={setStartedOn} />
           </label>
           <label className="label">
-            <span className="lab-head">{t("cadence")}<FieldTip text={t("tip.cadence")} /></span>
+            <span className="lab-head">{t("cadence")}<FieldTip topic="f-frecuencia" /></span>
             <ThemeSelect
               value={cadence || "monthly"}
               onChange={(value) => setCadence(value as Line["cadence"])}

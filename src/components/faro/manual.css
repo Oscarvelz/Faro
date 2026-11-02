@@ -1,0 +1,306 @@
+/* ================================================================ (?) bubble
+   Built on FieldTip's look (.ftip / .ftip-pop in styles.css): solid surface, 1px accent-tinted border, arrow. */
+.hint .ftip-btn { position: relative; }
+.hint .ftip-btn::before { content: ""; position: absolute; inset: -7px; border-radius: 50%; } /* 32px hit area, icon stays small */
+.hint:not(.is-field) { vertical-align: middle; }
+.hint-pop { pointer-events: auto; }
+.hint-scroll { display: block; overflow-y: auto; overscroll-behavior: contain; }
+.hint-text { display: block; }
+.hint-acts {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 14px;
+  margin-top: 8px; padding-top: 6px;
+  border-top: 1px solid color-mix(in oklab, var(--line) 85%, transparent);
+}
+.hint-more, .hint-act {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0;
+  border: 0; background: none; color: var(--accent); font: inherit; font-size: .78rem; font-weight: 650;
+  white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.hint-more svg, .hint-act svg { width: 13px; height: 13px; flex: none; }
+.hint-act { color: var(--muted); }
+.hint-link {
+  display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; font-weight: 600;
+  color: var(--accent); cursor: pointer; text-align: inherit;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px;
+  text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  -webkit-tap-highlight-color: transparent;
+}
+.faro-name { font-weight: 600; color: inherit; }
+
+/* ===================================================== "Ir allí" calm glow
+   A ring in its own fixed layer that follows the element: no movement, no scale, nothing on the element. */
+.faro-glow-ring {
+  position: fixed; left: 0; top: 0; z-index: 96; pointer-events: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 62%, transparent), 0 0 22px 2px color-mix(in oklab, var(--accent) 30%, transparent);
+  animation: faro-glow 2.8s ease-out both;
+}
+@keyframes faro-glow { 0% { opacity: 0; } 14% { opacity: 1; } 68% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .faro-glow-ring { animation: none; } }
+
+/* ================================================================ Manual */
+html.manual-open { overflow: hidden; }
+.mn-layer {
+  position: fixed; inset: 0; z-index: 80; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--bg); color: var(--fg);
+  padding: 0 0 calc(40px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+.mn-layer > * { max-width: 760px; margin-inline: auto; }
+.mn-top {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
+  max-width: none; padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background: var(--bg); /* solid: content never shows through */
+  border-bottom: 1px solid var(--line);
+}
+.mn-back {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 0; min-height: 44px; padding: 0 10px 0 2px;
+  border: 0; background: none; color: var(--fg); font: inherit; font-size: .95rem; font-weight: 600; cursor: pointer;
+  border-radius: 999px; -webkit-tap-highlight-color: transparent;
+}
+.mn-back svg { width: 20px; height: 20px; flex: none; }
+.mn-back-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mn-esc {
+  display: none; margin-left: 6px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line);
+  color: var(--muted); font: inherit; font-size: .7rem; font-weight: 600; line-height: 1.5;
+}
+@media (hover: hover) and (min-width: 768px) { .mn-esc { display: inline-block; } }
+.mn-find-btn { margin-left: auto; flex: none; }
+.mn-back { flex: 0 1 auto; }
+.mn-find { flex: 1 1 0; min-width: 0; margin-left: auto; max-width: 340px; padding: 0 4px 0 14px; }
+.mn-find > svg { flex: none; }
+.mn-find input { flex: 1 1 0; width: 0; min-width: 0; }
+.mn-find input::-webkit-search-cancel-button { display: none; }
+.mn-find-x {
+  display: grid; place-items: center; width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 50%;
+  background: none; color: var(--muted); cursor: pointer;
+}
+.mn-find-x svg { width: 16px; height: 16px; }
+.mn-body, .mn-results { padding: 0 16px; }
+.mn-body.is-hidden { display: none; }
+
+.mn-num { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; font-size: .78em; margin-right: 8px; letter-spacing: 0; }
+
+/* Cover */
+.mn-cover { padding: 26px 0 20px; }
+.mn-kicker { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: .8rem; font-weight: 650; letter-spacing: .02em; }
+.mn-mark { width: 22px; height: 22px; flex: none; color: var(--accent); }
+.mn-cover-title { margin: 10px 0 6px; font-family: var(--font-serif); font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2rem); font-weight: 560; letter-spacing: -.02em; line-height: 1.15; }
+.mn-cover-sub { margin: 0; color: var(--muted); font-size: .95rem; line-height: 1.5; max-width: 34rem; }
+.mn-cover-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; }
+.mn-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; font-size: .88rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.mn-btn svg { width: 16px; height: 16px; }
+.mn-cover-count { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+
+/* Contents: chapters fold open; entries sit inside the chapter, separated by hairlines (no card in a card). */
+.mn-toc-title { display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; color: var(--muted); font-size: .76rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.mn-toc-title svg { width: 15px; height: 15px; }
+.mn-ch { border-top: 1px solid var(--line); }
+.mn-ch:last-child { border-bottom: 1px solid var(--line); }
+.mn-ch-row {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) auto 20px; align-items: center; gap: 8px; width: 100%;
+  min-height: 54px; padding: 6px 0; border: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer;
+}
+.mn-ch-num { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.mn-ch-name { font-size: 1.02rem; font-weight: 620; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mn-ch-count { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.mn-ch-chev { width: 18px; height: 18px; color: var(--muted); transition: transform .2s cubic-bezier(.22, 1, .36, 1); }
+.mn-ch.is-open .mn-ch-chev { transform: rotate(180deg); }
+.mn-ch-body { padding: 0 0 8px 38px; }
+.mn-ch-intro { margin: 0 0 8px; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+.mn-ch-list { list-style: none; margin: 0 0 6px; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 560px) { .mn-ch-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; } }
+.mn-ch-list button {
+  display: flex; align-items: baseline; width: 100%; min-height: 38px; padding: 8px 0; border: 0; background: none;
+  color: var(--fg); font: inherit; font-size: .9rem; text-align: left; cursor: pointer;
+}
+.mn-ch-list button > span:last-child { min-width: 0; }
+.mn-entry { padding: 18px 0 16px; border-top: 1px solid color-mix(in oklab, var(--line) 75%, transparent); }
+.mn-entry-title { display: flex; align-items: baseline; margin: 0; font-family: var(--font-serif); font-size: 1.2rem; font-weight: 560; letter-spacing: -.01em; line-height: 1.25; }
+.mn-sum { margin: 4px 0 10px; color: var(--muted); font-size: .92rem; line-height: 1.45; }
+.mn-parts { margin: 0; display: grid; gap: 10px; }
+.mn-parts dt { display: flex; align-items: center; gap: 5px; margin: 0 0 2px; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.mn-parts dd { margin: 0; font-size: .95rem; line-height: 1.55; }
+.mn-tip { padding-left: 10px; border-left: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); }
+.mn-tip dt svg { width: 13px; height: 13px; color: var(--accent); }
+.mn-go-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 14px; }
+.mn-go {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0;
+  background: var(--accent); color: var(--accent-fg); font: inherit; font-size: .88rem; font-weight: 650; white-space: nowrap; cursor: pointer;
+}
+.mn-go svg { width: 15px; height: 15px; }
+.mn-where { color: var(--muted); font-size: .82rem; line-height: 1.35; min-width: 0; }
+
+/* Search results */
+.mn-count { margin: 16px 0 4px; color: var(--muted); font-size: .82rem; font-weight: 600; }
+.mn-empty { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--muted); font-size: .92rem; }
+.mn-empty svg { width: 20px; height: 20px; flex: none; }
+.mn-hits { list-style: none; margin: 0; padding: 0; }
+.mn-hit {
+  display: grid; grid-template-columns: minmax(0, 1fr) 18px; align-items: center; gap: 10px; width: 100%; padding: 12px 0;
+  border: 0; border-bottom: 1px solid color-mix(in oklab, var(--line) 80%, transparent); background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer;
+}
+.mn-hit-main { display: grid; gap: 3px; min-width: 0; }
+.mn-hit-title { font-weight: 640; font-size: .98rem; }
+.mn-hit-text { color: var(--muted); font-size: .87rem; line-height: 1.45; }
+.mn-hit-ch { color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .03em; }
+.mn-hit-arrow { width: 16px; height: 16px; color: var(--muted); }
+.mn-layer mark { background: color-mix(in oklab, var(--accent) 24%, transparent); color: var(--fg); border-radius: 3px; padding: 0 1px; }
+
+/* A–Z */
+.mn-az { padding-top: 22px; }
+.mn-az-note { margin: 0 0 8px; color: var(--muted); font-size: .86rem; }
+.mn-az-cols { columns: 1; column-gap: 26px; }
+@media (min-width: 420px) { .mn-az-cols { columns: 2; } }
+.mn-az-group { break-inside: avoid; padding: 6px 0 8px; }
+.mn-az-letter { margin: 6px 0 2px; color: var(--accent); font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; }
+.mn-az-group ul { list-style: none; margin: 0; padding: 0; }
+.mn-az-line {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 0; border: 0; background: none;
+  color: var(--fg); font: inherit; font-size: .88rem; text-align: left; cursor: pointer;
+}
+.mn-az-term { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mn-az-dots { flex: 1 1 12px; min-width: 12px; border-bottom: 1px dotted color-mix(in oklab, var(--muted) 50%, transparent); transform: translateY(3px); }
+.mn-az-nums { display: inline-flex; gap: 2px; flex: none; }
+.mn-az-num { flex: none; padding: 0 2px; min-width: 30px; min-height: 30px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8rem; font-variant-numeric: tabular-nums; cursor: pointer; text-align: right; }
+
+/* Ajustes: the "Manual de uso" row */
+.manual-row {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) 18px; align-items: center; gap: 12px; width: 100%;
+  min-height: 60px; text-align: left; cursor: pointer; font: inherit; color: var(--fg);
+}
+.manual-row > svg:first-child { width: 20px; height: 20px; color: var(--accent); }
+.manual-row-text { display: grid; gap: 2px; min-width: 0; }
+.manual-row-text strong { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.manual-row-text span { color: var(--muted); font-size: .84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.manual-row > svg:last-child { width: 18px; height: 18px; color: var(--muted); }
+
+/* ================================================================ Tron
+   Teal only: links, marks, glow and highlights never use amber (amber is for amounts). */
+[data-theme="tron"] .hint-more, [data-theme="tron"] .hint-link { color: #3fd6f5; text-decoration-color: rgba(63, 214, 245, .45); }
+[data-theme="tron"] .hint-act { color: #9fd9e6; }
+[data-theme="tron"] .hint-acts { border-top-color: rgba(63, 214, 245, .22); }
+[data-theme="tron"] .faro-glow-ring { box-shadow: 0 0 0 1.5px rgba(63, 214, 245, .85), 0 0 22px 2px rgba(63, 214, 245, .38); }
+[data-theme="tron"] .mn-layer { background: #02060c; color: #d7eef4; }
+[data-theme="tron"] .mn-top { background: #02060c; border-bottom-color: rgba(63, 214, 245, .28); }
+[data-theme="tron"] .mn-cover-title, [data-theme="tron"] .mn-entry-title { font-family: var(--t-display, inherit); letter-spacing: .02em; }
+[data-theme="tron"] .mn-entry-title { font-size: 1.05rem; }
+[data-theme="tron"] .mn-ch, [data-theme="tron"] .mn-ch:last-child { border-color: rgba(63, 214, 245, .2); }
+[data-theme="tron"] .mn-entry, [data-theme="tron"] .mn-hit { border-color: rgba(63, 214, 245, .14); }
+[data-theme="tron"] .mn-ch-num, [data-theme="tron"] .mn-az-letter, [data-theme="tron"] .mn-mark, [data-theme="tron"] .mn-tip dt svg { color: #3fd6f5; }
+[data-theme="tron"] .mn-tip { border-left-color: rgba(63, 214, 245, .5); }
+[data-theme="tron"] .mn-go { background: transparent; color: #3fd6f5; border: 1px solid rgba(63, 214, 245, .6); box-shadow: 0 0 12px -4px rgba(63, 214, 245, .6); border-radius: 6px; }
+[data-theme="tron"] .mn-btn { background: #050c0f; border-color: rgba(63, 214, 245, .35); color: #d7eef4; border-radius: 6px; }
+[data-theme="tron"] .mn-layer mark { background: rgba(63, 214, 245, .26); color: #eafcff; }
+[data-theme="tron"] .mn-az-dots { border-bottom-color: rgba(63, 214, 245, .25); }
+[data-theme="tron"] .manual-row > svg:first-child { color: #3fd6f5; }
+
+/* Ajustes fold titles carry their (?) right after the words. */
+.fold-btn .fold-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.fold-btn .fold-title h2 { min-width: 0; }
+.manual-row.fold-btn { display: grid; justify-content: stretch; }
+.hub-line .hub-hint { margin-left: -5px; }
+
+/* Central: lens (?) floats in the lens' top-right corner (the +/− corner is bottom-right), so no layout moves. */
+.lens-wrap > .hint.is-lens { position: absolute; top: 4px; right: 4px; z-index: 3; }
+.lens-wrap > .hint.is-lens .ftip-btn { width: 20px; height: 20px; min-height: 20px; }
+.desk-bar .bar-head { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.desk-bar { position: relative; }
+.desk-bar > span { grid-template-columns: minmax(0, 1fr); } /* a wide label must not widen the amount's track (fit.ts would shrink it) */
+.hint[data-moved] { position: absolute !important; }
+.desk-bar > .desk-rate-hint {
+  position: absolute !important; z-index: 4 !important; display: block !important; width: auto; height: 14px; line-height: 0;
+  padding: 0 !important; margin: 0; border: 0 !important; transform: translateY(-50%); pointer-events: none;
+}
+.desk-bar > .desk-rate-hint::before, .desk-bar > .desk-rate-hint::after { content: none !important; }
+.desk-rate-hint .ftip-btn { pointer-events: auto; }
+.hint.is-bar .ftip-btn { width: 14px; height: 14px; min-height: 14px; }
+.hint.is-bar .ftip-btn svg { width: 11px; height: 11px; }
+.hint.is-inline { margin-left: 4px; vertical-align: -2px; }
+.save-name > .hint { align-self: center; }
+
+/* A (?) that would touch words steps aside (see Hint `avoid`). */
+.hint.is-tight { visibility: hidden; pointer-events: none; }
+
+/* Asesor card heads became div-buttons (so their kicker can carry a (?)): same look as the old <button>. */
+div.advice-head[role="button"] { width: 100%; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+div.advice-head[role="button"] > div { flex: 1; min-width: 0; }
+.study-tools > .hint.is-tools { align-self: center; }
+.unfold-all > .hint { margin-left: -2px; }
+
+/* Remaining (?)s (phase 2 finish) */
+.vault-bar > .hint.is-tabs { flex: none; align-self: center; z-index: 1; margin-inline: 0 2px; }
+.vault-bar > .hint.is-tabs .ftip-btn { width: 18px; height: 18px; min-height: 18px; }
+.line-edit-head > .hint.is-head { margin-left: -4px; }
+.line-edit-head > .hint.is-head .ftip-btn { width: 18px; height: 18px; min-height: 18px; background: none; }
+.cobro-acts > .hint.is-acts { align-self: center; }
+.a2-detail { position: relative; }
+.a2-detail > .hint.is-detail { position: absolute; top: -30px; right: 0; }
+.a2-tower-say em.lab-head { display: block; white-space: normal; } /* plain text flow: wraps exactly as before the (?) */
+.a2-tower-say em.lab-head > .hint { margin-left: 4px; margin-right: -22px; vertical-align: middle; }
+.a2-tower-say .ftip-btn { color: rgba(238,242,246,.72); }
+.acct-out-row { display: flex; align-items: center; gap: 6px; }
+.acct-out-row > .btn { flex: 1; min-width: 0; }
+
+/* Ajustes manual rate: the (?) follows the Save button on its line (was alone on a line above the field). */
+.row > .hint.is-after { align-self: center; flex: none; }
+/* Large text on a narrow phone: the savings tabs give up a little side padding so their (?) still fits inside the bar. */
+@container vaultbar (max-width: 19em) {
+  .vault-bar > button { padding-inline: 3px; gap: 3px; }
+}
+/* Titles that end in a (?): plain text flow, so a long title that wraps keeps its (?) right after the last word (not floating at the far edge). */
+h2.lab-head:has(> .hint) { display: block; white-space: normal; }
+h2.lab-head > .hint { margin-left: 5px; vertical-align: middle; }
+/* Kicker lines keep their height: the (?) button may be a bit taller than the small caps line, so it overhangs instead of growing it. */
+:is(.pano-kicker, .advice-kicker) .hint .ftip-btn { margin-block: -3px; }
+/* A (?) beside a heading never makes its line taller than the text alone would be: it overhangs (pre-manual heights kept). */
+:is(.lab-head, h2, h3, .pano-kicker, .advice-kicker) > .hint:not(.is-field) { margin-block: -9px; }
+/* Cobros "Me deben / Debo" kicker: block-level flex row, so no inline strut is added under it. */
+.cobro-top p.lab-head { display: flex; }
+/* Asesor hero kicker sits in a narrow column beside the gauge: it wraps exactly as before the (?) existed, (?) after the last word. */
+.coach-copy .pano-kicker > .lab-head { display: inline; white-space: normal; }
+.coach-copy .pano-kicker > .lab-head > .hint { margin-left: 5px; margin-right: -23px; vertical-align: middle; } /* takes no line width: the words break exactly as before; it hides if it would touch the dial */
+/* Savings tabs: when the (?) has no room (it steps aside), it leaves the flow so the tabs keep their own layout and nothing overflows. */
+.vault-bar > .hint.is-tabs.is-tight { position: absolute; right: 0; }
+.coach-copy .pano-kicker > svg { flex: none; }
+/* Estudio fold titles reserve 56px for pin + chevron, of which the card's own padding already clears ~17px: the (?) may overhang 14px into that
+   reserve (still clear of the pin), so a title that fit before the (?) existed keeps its line and size. */
+.stat-fold > .card > h2.lab-head > .hint { margin-right: -14px; }
+/* (?) that end a sentence or paragraph take no line width (the words break exactly as before) and hide when they would pass the edge. */
+.pano-lead > .hint.is-inline, .desk-kicker > span > .hint.is-inline { margin-right: -22px; }
+.s2-whatif-q > .lab-head { display: inline; white-space: normal; }
+.s2-whatif-q > .lab-head > .hint { margin-left: 5px; margin-right: -23px; vertical-align: middle; }
+
+/* Tron: the search pill carries the focus ring; the input inside it never draws its own box (no frame in a frame). */
+[data-theme="tron"] .search-pill input:focus-visible { border: 0 !important; box-shadow: none !important; outline: none !important; }
+[data-theme="tron"] .search-pill:focus-within { border-color: #3fd6f5; box-shadow: 0 0 0 1px #3fd6f5, 0 0 14px rgba(63, 214, 245, .35); }
+
+/* Ajustes rules: a long label flows as plain text (as before the (?) existed) and keeps its (?) right after the last word, never past the card edge. */
+label.label[data-anchor^="aj-"] > .lab-head:has(.hint) { display: block; white-space: normal; }
+label.label[data-anchor^="aj-"] > .lab-head .hint { margin-left: 4px; margin-block: -4px; vertical-align: middle; }
+.hint-glue { white-space: nowrap; }
+/* Estudio "Acumulado": its (?) sits in the card's top-right corner, as the old explain button did (the label keeps its own line). */
+.pot-help > .hint { position: absolute; top: 6px; right: 6px; margin: 0; }
+
+/* Savings tabs on a narrow bar (≤ 23em: 360 px phones, large text): the tabs give up their side padding (they still grow to fill the bar),
+   so the screen's (?) always fits inside the bar instead of stepping aside. Even narrower (large text): a slightly smaller label. */
+@container vaultbar (max-width: 23em) {
+  .vault-bar > button { padding-inline: 1px; gap: 3px; }
+  .vault-bar > .hint.is-tabs { margin-inline: -2px 0; }
+}
+@container vaultbar (max-width: 19em) {
+  html:not([data-theme="tron"]) .vault-bar > button { font-size: .62rem; gap: 2px; }
+}
+.vault-bar[data-squeeze] > button > svg { display: none; }
+.vault-bar[data-squeeze="2"] > button { letter-spacing: 0; font-size: .58rem; }
+
+/* Breathing room (owner rule: ≥ 6px between a (?) and its neighbours; the icon's circle sits ~1px inside its box). */
+.hint.is-lens { --hint-gap: 5; }
+.hub-line .hub-hint { --hint-gap: 5; }
+.hub-line .hub-hint .ftip-btn::before { inset: -7px -3px -7px -7px; } /* its tap area stops short of the sun/moon button beside it */
+[data-theme="tron"] .hub-name { margin-right: -.3em; } /* the wide tracking leaves no gap after the last letter: the (?) sits after the visible word */
+[data-theme="tron"] .save-name > .hint { margin-left: -7px; } /* same for AHORROS: the (?) keeps a clear gap from the amount */
+.mn-join { white-space: nowrap; }

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2, X } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2, X } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
@@ -20,6 +20,8 @@ import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { useFaro } from "./provider";
 import type { BackupInfo } from "@/spa/vault";
 import { Explain, FieldTip, Modal } from "./ui";
+import { useLayer } from "@/lib/manual/back";
+import { Hint } from "./hint";
 
 const STORE_TINT: Record<string, string> = {
   temu: "#fb7701",
@@ -231,13 +233,13 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
       )}
       {open ? (
         <div className="look-dock" style={{ ["--seg" as string]: color }} onPointerDown={(event) => event.stopPropagation()}>
-          {bubbles ? <p className="look-label"><span className="lab-head">{t("look.bubble")}<FieldTip text={t("tip.look.bubble")} /></span></p> : null}
+          {bubbles ? <p className="look-label"><span className="lab-head">{t("look.bubble")}<FieldTip topic="icono-color" /></span></p> : null}
           <div className="look-colors">
             {PALETTE.map((swatch) => (
               <button key={swatch} type="button" style={{ background: washForInk(swatch) }} aria-pressed={shown === swatch} aria-label={swatch} onClick={() => onColor(swatch)} />
             ))}
           </div>
-          {bubbles ? <p className="look-label"><span className="lab-head">{t("look.icon")}<FieldTip text={t("tip.look.icon")} /></span></p> : null}
+          {bubbles ? <p className="look-label"><span className="lab-head">{t("look.icon")}<FieldTip topic="icono-color" /></span></p> : null}
           <div className="look-icons" ref={iconsRef} onScroll={(event) => { const el = event.currentTarget; el.toggleAttribute("data-end", el.scrollTop + el.clientHeight >= el.scrollHeight - 2); }}>
             {LOOK_ICONS.map((name) => (
               <button key={name} type="button" aria-pressed={glyph === name} aria-label={name} style={{ ["--ink" as string]: color, background: washForInk(color), color: "#14110e" }} onClick={() => onGlyph(name)}><Glyph name={name} /></button>
@@ -275,7 +277,7 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
           commit((s) => upsertLine(s, { ...line, color: next }), line.concept || "color");
         }}
       />
-      <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<b>{line.concept}</b></p>
+      <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p>
         <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={picked ? swatch : undefined} dock onClose={() => setUi({ editing: null })} />
       </div>
     </div>
@@ -354,6 +356,12 @@ function readLeverOpen(storeId: string) {
   // The projector starts folded on every visit to a savings tab; only the pin keeps it open (Oscar, Nov 1 2026).
   if (pin) return { pin: true, open: true };
   return { pin: false, open: false };
+}
+
+/** A label that ends in a (?): the last word and the (?) never part (the (?) is never alone on a line). */
+function glueHint(text: string, hint: ReactNode) {
+  const cut = text.lastIndexOf(" ");
+  return <>{text.slice(0, cut + 1)}<span className="hint-glue">{text.slice(cut + 1)}{hint}</span></>;
 }
 
 function VaultLever({ base, tone, storeId }: { base: number; tone: string; storeId: string }) {
@@ -496,8 +504,14 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
     if (e.key === "ArrowUp" || e.key === "ArrowRight") keep(usdMinor + 500);
     if (e.key === "ArrowDown" || e.key === "ArrowLeft") keep(usdMinor - 500);
   };
+  // "Ir allí" (Si apartas) unfolds the projector.
+  useEffect(() => {
+    const onOpen = (e: Event) => { if ((e as CustomEvent).detail === "lever") setOpen(true); };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   return (
-    <div className={`vault-lever${open ? " is-open" : ""}`} style={{ ["--seg" as string]: tone, ["--p" as string]: `${(usdMinor / maxUsd) * 100}%` }}>
+    <div data-anchor="lever" className={`vault-lever${open ? " is-open" : ""}`} style={{ ["--seg" as string]: tone, ["--p" as string]: `${(usdMinor / maxUsd) * 100}%` }}>
       {open ? <button type="button" className="fold-pin" aria-label={t("study.pin")} aria-pressed={pinned} onClick={togglePin}><Pin /></button> : null}
       <button type="button" className="fold-chev" aria-label={t("study.fold")} aria-expanded={open} onClick={toggleOpen}><ChevronDown /></button>
       {open ? (
@@ -519,7 +533,7 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
           </div>
           <div className="vault-lever-read">
             <p>
-              <span>{t("lever.if")}</span>
+              <span className="lab-head">{t("lever.if")}<Hint topic="si-apartas" /></span>
               <strong className="num">{fmt(shown)}</strong>
               <em>{t("lever.each")}</em>
             </p>
@@ -570,6 +584,17 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
     try { return localStorage.getItem(`faro-span-pin:${storeKey}`) === "1"; } catch { return false; }
   });
   const [open, setOpen] = useState(pinned);
+  const cutRef = useRef<HTMLDivElement>(null);
+  // "Ir allí" opens the first chart on the screen.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      if ((e as CustomEvent).detail !== "book-span") return;
+      const first = Array.from(document.querySelectorAll(".span-cut")).find((el) => (el as HTMLElement).offsetParent !== null);
+      if (first === cutRef.current) setOpen(true);
+    };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   if (!session) return null;
   const points = spanPoints(session.ledger, ui.year, ui.month, span, lang, kinds, subs);
   const income = kinds.some((kind) => kind.startsWith("income"));
@@ -588,7 +613,7 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
     });
   }
   return (
-    <div className={`span-cut${open ? " is-open" : ""}`} style={tone ? { ["--accent" as string]: tone } : undefined}>
+    <div ref={cutRef} data-anchor="book-span" className={`span-cut${open ? " is-open" : ""}`} style={tone ? { ["--accent" as string]: tone } : undefined}>
       <div className="span-fold-bar">
         {open ? (
           <div className="span-filter" role="tablist" aria-label={t("study.span")}>
@@ -610,6 +635,7 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
           <div className="span-facts">
             <div className="pot-help">
               <Explain
+                topic="acumulado"
                 title={t("pot.total")}
                 meaning={t(saving ? "pot.save.meaning" : income ? "pot.total.meaning.in" : "pot.total.meaning.out")}
                 formula={t(saving ? "pot.save.formula" : income ? "pot.total.formula.in" : "pot.total.formula.out")}
@@ -621,11 +647,11 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
               <strong className="num">{money}</strong>
             </div>
             <div>
-              <em>{t(`study.span.now.${span}`)}</em>
+              <em className="lab-head">{t(`study.span.now.${span}`)}<Hint topic="este-periodo" /></em>
               <strong className="num">{fmt(Math.round(latestValue * 100))}</strong>
             </div>
             <div>
-              <em>{t("pot.avg")}</em>
+              <em className="lab-head">{t("pot.avg")}<Hint topic="promedio" /></em>
               <strong className="num">{fmt(Math.round(average * 100))}</strong>
             </div>
           </div>
@@ -685,7 +711,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
   }
 
   return (
-    <div className="pot">
+    <div className="pot" data-anchor="book-pot">
       <div className="pot-row">
         <button type="button" className="pot-chip" onClick={() => setOpen((v) => !v)}>
           <em>{income ? t("pot.intact") : t("pot.total")}</em>
@@ -702,7 +728,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
       </div>
       {open ? (
         <div className="pot-body">
-          <p className="pot-kicker">{t("pot.when")}</p>
+          <p className="pot-kicker lab-head">{t("pot.when")}<Hint topic="bote" /></p>
           <div className="pot-dates">
             {(seen.length ? seen : dates).map((date) => <span key={date}>{date.slice(8)}/{date.slice(5, 7)}/{date.slice(2, 4)}</span>)}
           </div>
@@ -775,9 +801,9 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
   }, [ui.editing, picked]);
 
   return (
-    <section className="card income-book">
+    <section className="card income-book" data-anchor="book-card">
       <div className="row income-head" style={{ justifyContent: "space-between" }}>
-        <h2 className="serif text-2xl">{title}</h2>
+        <h2 className="serif text-2xl lab-head">{title}<Hint topic="libro-categoria" fitParent /></h2>
         <span className="row">
           {ui.draft === draftKind && !ui.editing ? (
             <button type="button" className="copper-coin" aria-label={money === "USD" ? "USD" : "NIO"} onClick={() => setMoney((cur) => (cur === "USD" ? "NIO" : "USD"))}>
@@ -785,11 +811,11 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
             </button>
           ) : null}
           {(asCloud || asDrift) && present.length > 1 ? (
-            <button type="button" className="icon-btn filter-btn" aria-pressed={filterOpen || chip !== "all"} aria-label={t("filter.button")} onClick={() => setFilterOpen((v) => !v)}>
+            <button type="button" data-anchor="book-filter" className="icon-btn filter-btn" aria-pressed={filterOpen || chip !== "all"} aria-label={t("filter.button")} onClick={() => setFilterOpen((v) => !v)}>
               <Filter className="size-4" />
             </button>
           ) : null}
-          <button type="button" className="plus-mark" aria-label={t("add")} aria-pressed={ui.draft === draftKind} onClick={() => setUi({ draft: ui.draft === draftKind ? null : draftKind, editing: null })}>
+          <button type="button" data-anchor="book-add" className="plus-mark" aria-label={t("add")} aria-pressed={ui.draft === draftKind} onClick={() => setUi({ draft: ui.draft === draftKind ? null : draftKind, editing: null })}>
             <svg viewBox="0 0 32 32" aria-hidden>
               <defs>
                 <radialGradient id={`faro-plus-${draftKind}`} cx="32%" cy="28%" r="72%">
@@ -897,7 +923,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
               {moneyRow(line, `${line.kind.startsWith("income") || line.amountMinor === 0 ? "" : "−"}${viewLine(line)}`, recordLine(line), display)}
               <button type="button" className="icon-btn line-act" aria-label={t("edit")} onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}><Pencil className="size-4" /></button>
               <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${line.concept}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => deleteLine(s, key, line.id), line.concept) })}><Trash2 className="size-4" /></button>
-              {ui.editing === line.id ? <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<b>{line.concept}</b></p><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
+              {ui.editing === line.id ? <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
             </div>
             <PotReport line={line} span={span} />
           </div>
@@ -1100,6 +1126,11 @@ function DueOwe() {
   const [cadence, setCadence] = useState<"weekly" | "biweekly" | "monthly" | "yearly">("monthly");
   const [fileOpen, setFileOpen] = useState(false);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
+  useEffect(() => {
+    const onOpen = (e: Event) => { if ((e as CustomEvent<string>).detail === "cobros-out-file") setFileOpen(true); };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   const [openPeak, setOpenPeak] = useState<string | null>(null);
   const display = session?.ledger.settings.display ?? "USD";
   const active = lines.filter((line) => line.kind === "subscription" && line.active);
@@ -1138,10 +1169,10 @@ function DueOwe() {
     commit((s) => upsertLine(s, { ...line, active: false }), line.concept);
   }
   return (
-    <div className="cobro-swap">
+    <div className="cobro-swap" data-anchor="cobros-out">
       <div className="cobro-top">
         <div>
-          <p>{t("cobro.owe")}</p>
+          <p className="lab-head">{t("cobro.owe")}<Hint topic="debo" /></p>
           <strong className="num">{fmt(sum)}</strong>
         </div>
         <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.owe.add")} onClick={() => setAdding((on) => !on)}><Plus /></button>
@@ -1151,7 +1182,7 @@ function DueOwe() {
         <div className="form-block cobro-form is-owe">
           <div className="cobro-grid">
             <div className="label is-wide">
-              <span className="lab-head">{t("cobro.owe.name")}<FieldTip text={t("tip.cobro.owe.name")} /></span>
+              <span className="lab-head">{t("cobro.owe.name")}<FieldTip topic="f-cuota-nombre" /></span>
               <div className="due-sites">
                 {["YouTube", "Netflix", "Prime", "Internet"].map((preset) => (
                   <button key={preset} type="button" aria-pressed={name === preset} onClick={() => setName(preset)}>{preset}</button>
@@ -1160,15 +1191,15 @@ function DueOwe() {
               <input className="field" aria-label={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
             </div>
             <label className="label">
-              <span className="lab-head">{t("cobro.amount")}<FieldTip text={t("tip.cobro.owe.amount")} /></span>
+              <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-cuota-monto" /></span>
               <input className="field num" inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => setAmount(event.target.value)} />
             </label>
             <div className="label is-right">
-              <span className="lab-head">{t("cobro.owe.next")}<FieldTip text={t("tip.cobro.owe.next")} /></span>
+              <span className="lab-head">{t("cobro.owe.next")}<FieldTip topic="f-cuota-proximo" /></span>
               <DayField value={due} onChange={setDue} />
             </div>
             <div className="label is-wide">
-              <span className="lab-head">{t("cobro.cadence")}<FieldTip text={t("tip.cadence")} /></span>
+              <span className="lab-head">{t("cobro.cadence")}<FieldTip topic="f-frecuencia" /></span>
               <div className="due-cadence">
                 {(["weekly", "biweekly", "monthly", "yearly"] as const).map((id) => (
                   <button key={id} type="button" aria-pressed={cadence === id} onClick={() => setCadence(id)}>{t(id)}</button>
@@ -1196,11 +1227,11 @@ function DueOwe() {
         </article>
       )) : <p className="cobro-empty">{t("cobro.owe.empty")}</p>}
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
-        <button type="button" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)}>
-          <span>{t("cobro.file")}</span>
+        <div role="button" tabIndex={0} data-anchor="cobros-out-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
+          <span className="lab-head">{t("cobro.file")}<Hint topic="archivo-cuotas" /></span>
           <b>{filed.length}</b>
           <ChevronDown className={fileOpen ? "fold-chev is-open" : "fold-chev"} />
-        </button>
+        </div>
         {fileOpen ? (filed.length ? filed.map((row) => (
           <article key={row.id} className="cobro-card is-file">
             <button type="button" className="due-peak" onClick={() => setOpenPeak(openPeak === row.id ? null : row.id)}>
@@ -1229,7 +1260,7 @@ function DueOwe() {
   );
 }
 
-function Cobros({ onClose }: { onClose: () => void }) {
+function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boolean }) {
   const { t, fmt, confirm, session, lang, lines } = useFaro();
   const [rows, setRows] = useState<Cobro[]>(readCobros);
   const [span, setSpan] = useState<"week" | "month" | "year">("month");
@@ -1267,11 +1298,23 @@ function Cobros({ onClose }: { onClose: () => void }) {
         return;
       }
       onClose();
-      e.preventDefault();
+      // Opened by "Ir allí" / a manual link: it was part of the jump, so back walks on to where the jump came from.
+      if (!jumped) e.preventDefault();
     };
     window.addEventListener("faro-back", onBack, true);
     return () => window.removeEventListener("faro-back", onBack, true);
-  }, [draft, bonusFor, onClose]);
+  }, [draft, bonusFor, onClose, jumped]);
+  // "Ir allí" to a side or an archive of Cobros.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id === "cobros-out" || id === "cobros-out-file") { setDir(1); setSide("out"); }
+      else if (id === "cobros-in" || id === "cobros-file") { setDir(-1); setSide("in"); }
+      if (id === "cobros-file") setFileOpen(true);
+    };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
 
   function asDisplay(minor: number, currency: Currency) {
     return convertMinor(minor, currency, display, rate);
@@ -1399,11 +1442,11 @@ function Cobros({ onClose }: { onClose: () => void }) {
                 <div className="form-block cobro-form is-bonus">
                   <div className="cobro-grid">
                     <label className="label">
-                      <span className="lab-head">{t("cobro.amount")}<FieldTip text={t("tip.cobro.bonus.amount")} /></span>
+                      <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-bono-monto" /></span>
                       <input className="field num" inputMode="decimal" placeholder="0.00" value={bonusAmt} onChange={(e) => setBonusAmt(e.target.value)} />
                     </label>
                     <div className="label is-right">
-                      <span className="lab-head">{t("cobro.bonus.on")}<FieldTip text={t("tip.cobro.bonus.on")} /></span>
+                      <span className="lab-head">{t("cobro.bonus.on")}<FieldTip topic="f-bono-fecha" /></span>
                       <DayField value={bonusOn} onChange={setBonusOn} />
                     </div>
                   </div>
@@ -1415,6 +1458,7 @@ function Cobros({ onClose }: { onClose: () => void }) {
               ) : (
                 <div className="cobro-acts">
                   <button type="button" className="btn secondary" onClick={() => { setBonusFor(row.id); setBonusAmt(""); setBonusOn(todayIso()); }}>{t("cobro.bonus")}</button>
+                  <Hint topic="bono" className="is-acts" />
                   <button type="button" className="btn secondary" onClick={() => confirm({
                     title: t("cobro.archive"),
                     body: `${row.person}. ${t("cobro.archive.body")} ${fmt(asDisplay(still, row.currency))}`,
@@ -1432,6 +1476,7 @@ function Cobros({ onClose }: { onClose: () => void }) {
 
   return (
     <section
+      data-anchor="cobros"
       className={`cobros sheet-swap${side === "out" ? " is-due" : ""}`}
       ref={box}
       aria-label={t("cobro.open")}
@@ -1458,10 +1503,10 @@ function Cobros({ onClose }: { onClose: () => void }) {
         <button type="button" aria-pressed={side === "out"} onClick={() => { setDir(1); setSide("out"); }}>{t("cobro.owe")}</button>
       </div>
       {side === "out" ? <DueOwe key="out" /> : (
-      <div key="in" className="cobro-swap" data-dir={dir}>
+      <div key="in" className="cobro-swap" data-dir={dir} data-anchor="cobros-in">
       <div className="cobro-top">
         <div>
-          <p>{t("cobro.owed")}</p>
+          <p className="lab-head">{t("cobro.owed")}<Hint topic="me-deben" /></p>
           <strong className="num">{fmt(left)}</strong>
         </div>
         <button type="button" className="cobro-plus" aria-label={t("cobro.open")} aria-pressed={draft} onClick={() => setDraft((on) => !on)}>
@@ -1473,27 +1518,27 @@ function Cobros({ onClose }: { onClose: () => void }) {
         <div className="form-block cobro-form is-lend">
           <div className="cobro-grid">
             <div className="label is-wide">
-              <span className="lab-head">{t("cobro.kind")}<FieldTip text={t("tip.cobro.kind")} /></span>
+              <span className="lab-head">{t("cobro.kind")}<FieldTip topic="con-interes" /></span>
               <div className="cobro-kind">
                 <button type="button" aria-pressed={kind === "plain"} onClick={() => setKind("plain")}>{t("cobro.plain")}</button>
                 <button type="button" aria-pressed={kind === "interest"} onClick={() => setKind("interest")}>{t("cobro.rate")}</button>
               </div>
             </div>
             <label className="label is-wide">
-              <span className="lab-head">{t("cobro.person")}<FieldTip text={t("tip.cobro.person")} /></span>
+              <span className="lab-head">{t("cobro.person")}<FieldTip topic="f-cobro-persona" /></span>
               <input className="field" value={person} onChange={(e) => setPerson(e.target.value)} />
             </label>
             <label className="label">
-              <span className="lab-head">{t("cobro.amount")}<FieldTip text={t("tip.cobro.amount")} /></span>
+              <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-cobro-monto" /></span>
               <input className="field num" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </label>
             <div className="label is-right">
-              <span className="lab-head">{t("cobro.due")}<FieldTip text={t("tip.cobro.due")} /></span>
+              <span className="lab-head">{t("cobro.due")}<FieldTip topic="f-cobro-fecha" /></span>
               <DayField value={due} onChange={setDue} />
             </div>
             {kind === "interest" ? (
               <label className="label is-wide">
-                <span className="lab-head">{t("cobro.apr")}<FieldTip text={t("tip.cobro.apr")} /></span>
+                <span className="lab-head">{t("cobro.apr")}<FieldTip topic="f-cobro-interes" /></span>
                 <span className="cobro-pct"><input className="field num" inputMode="decimal" placeholder="0" value={apr} onChange={(e) => setApr(e.target.value)} /><i aria-hidden>%</i></span>
               </label>
             ) : null}
@@ -1541,11 +1586,11 @@ function Cobros({ onClose }: { onClose: () => void }) {
       {group("plain")}
       {group("interest")}
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
-        <button type="button" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)}>
-          <span>{t("cobro.file")}</span>
+        <div role="button" tabIndex={0} data-anchor="cobros-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
+          <span className="lab-head">{t("cobro.file")}<Hint topic="archivar" /></span>
           <b>{filed.length}</b>
           <ChevronDown className={fileOpen ? "fold-chev is-open" : "fold-chev"} />
-        </button>
+        </div>
         {fileOpen ? (
           filed.length ? filed.map((row) => (
             <article key={row.id} className="cobro-card is-file">
@@ -1571,6 +1616,7 @@ function Cobros({ onClose }: { onClose: () => void }) {
 
 function SourceNote({ label, title, meaning, formula, implication, children }: { label: string; title: string; meaning: string; formula: string; implication: string; children: ReactNode }) {
   const box = useRef<HTMLDetailsElement>(null);
+  const [shown, setShown] = useState(false);
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
       const el = box.current;
@@ -1580,8 +1626,9 @@ function SourceNote({ label, title, meaning, formula, implication, children }: {
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
   }, []);
+  useLayer(shown, () => { if (box.current) box.current.open = false; });
   return (
-    <details className="save-from" ref={box}>
+    <details className="save-from" ref={box} onToggle={(e) => setShown((e.currentTarget as HTMLDetailsElement).open)}>
       <summary aria-label={label}>{children}</summary>
       <div className="card explain-pop text-sm">
         <p className="font-medium">{title}</p>
@@ -1593,10 +1640,36 @@ function SourceNote({ label, title, meaning, formula, implication, children }: {
   );
 }
 
+/** Tasa (?) placed right after the "Tasa" label of the desk-bar button, measured so it follows any theme/font size. */
+function RateHint() {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const me = ref.current; const bar = me?.parentElement; if (!me || !bar) return;
+    const place = () => {
+      const em = bar.querySelector<HTMLElement>('[data-anchor="desk-rate"] > em'); if (!em) return;
+      const b = bar.getBoundingClientRect(); const r = em.getBoundingClientRect();
+      // Range = the text itself (the em may stretch the cell width).
+      const rg = document.createRange(); rg.selectNodeContents(em); const tr = rg.getBoundingClientRect();
+      const right = tr.width ? tr.right : r.right;
+      me.style.left = `${Math.round(right - b.left + 3)}px`;
+      me.style.top = `${Math.round(r.top - b.top + r.height / 2)}px`;
+      me.style.color = getComputedStyle(em).color; // same tint as the other bar (?)s, which sit inside their label
+      me.style.visibility = "";
+    };
+    place();
+    const ro = new ResizeObserver(place); ro.observe(bar);
+    const em = bar.querySelector('[data-anchor="desk-rate"]'); if (em) ro.observe(em);
+    return () => ro.disconnect();
+  }, []);
+  return <span ref={ref} className="desk-rate-hint" style={{ visibility: "hidden" }}><Hint topic="tasa-rapida" className="is-bar" /></span>;
+}
+
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
   const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang } = useFaro();
   const [lens, setLens] = useState<"all" | "have" | "spend" | "debt">("all");
+  const lensByJump = useRef(false);
   const [cobros, setCobros] = useState(false);
+  const [cobrosJump, setCobrosJump] = useState(false);
   const [lamp, setLamp] = useState<"good" | "warn" | "bad" | null>(null);
   const [flowDir, setFlowDir] = useState(1);
   const [quick, setQuick] = useState<null | "in" | "out">(null);
@@ -1778,24 +1851,27 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         e.preventDefault();
         return;
       }
-      if (openSave) {
+      // On a savings tab the open pocket IS the tab: back walks the tabs (provider history), it does not fold it.
+      if (openSave && !focus) {
         setOpenSave(null);
         setSaveOn(null);
         e.preventDefault();
         return;
       }
-      if (accountsOpen && !accountsPin) {
+      if (accountsOpen && !accountsPin && !focus) {
         setAccountsOpen(false);
         e.preventDefault();
         return;
       }
       if (lens === "all") return;
       setLens("all");
+      // A lens picked by "Ir allí" was part of the jump: back walks on to where the jump came from.
+      if (lensByJump.current) { lensByJump.current = false; return; }
       e.preventDefault();
     };
     window.addEventListener("faro-back", onBack);
     return () => window.removeEventListener("faro-back", onBack);
-  }, [lens, openSave, editId, adding, moving, accountsOpen, accountsPin, deskLine]);
+  }, [lens, openSave, editId, adding, moving, accountsOpen, accountsPin, deskLine, focus]);
   useEffect(() => {
     if (!quick) return;
     quickRef.current?.scrollIntoView({ block: "nearest" });
@@ -1823,6 +1899,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const onLens = (e: Event) => {
       const dir = (e as CustomEvent<number>).detail;
       setFlowDir(dir);
+      lensByJump.current = false;
       setLens((cur) => {
         const i = order.indexOf(cur as (typeof order)[number]);
         const base = i < 0 ? (dir > 0 ? -1 : 0) : i;
@@ -1832,6 +1909,17 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     window.addEventListener("faro-lens", onLens);
     return () => window.removeEventListener("faro-lens", onLens);
   }, []);
+  // "Ir allí" / [[links]]: pick a lens or open Cobros.
+  useEffect(() => {
+    if (focus) return;
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id === "cobros") { setQuick(null); setJump(null); setCobrosJump(true); setCobros(true); }
+      else if (id === "lens-have" || id === "lens-spend" || id === "lens-debt") { lensByJump.current = true; setLens(id.slice(5) as "have" | "spend" | "debt"); }
+    };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, [focus]);
   useEffect(() => {
     if (!focus || !session) return;
     if (focusApplied.current === focus) return;
@@ -1941,7 +2029,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <button type="button" aria-pressed={line.kind === "subscription"} onClick={() => rekind(line, "subscription")}>{t("tab.subs")}</button>
           </div>
         ) : null}
-        <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<b>{line.concept}</b></p>
+        <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p>
           <LineForm key={`${line.id}-${line.kind}`} kind={line.kind} existing={line} onClose={() => setDeskLine(null)} />
         </div>
       </div>
@@ -2266,6 +2354,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }
 
   function focusLens(id: "have" | "spend" | "debt") {
+    lensByJump.current = false;
     const order = ["have", "spend", "debt"] as const;
     if (lens !== "all" && lens !== id) setFlowDir(order.indexOf(id) >= order.indexOf(lens) ? 1 : -1);
     setLens((cur) => (cur === id ? "all" : id));
@@ -2399,47 +2488,53 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       {focus ? null : (
       <>
       <div className="desk-bar" data-over={summary.spentPct !== null && summary.spentPct > 100 ? "" : undefined} style={{ ["--usedf" as string]: String(Math.max(0, Math.min(1, (summary.spentPct ?? 0) / 100))) }}>
-        <span>
-          <em>{t("desk.bar.left")}</em>
+        <span data-anchor="desk-left">
+          <em className="bar-head">{t("desk.bar.left")}<Hint topic="queda" className="is-bar" /></em>
           <strong className={`num ${summary.opportunity < 0 ? "bad" : ""}`}>{fmt(summary.opportunity)}</strong>
         </span>
-        <span>
-          <em>{t("desk.bar.used")}</em>
+        <span data-anchor="desk-used">
+          <em className="bar-head">{t("desk.bar.used")}<Hint topic="usado" alt={summary.spentPct !== null && summary.spentPct > 100} className="is-bar" avoid='.desk-bar @[data-anchor="desk-rate"]' fallback='[data-anchor="desk-used"] > strong|[data-anchor="desk-rate"]' /></em>
           <strong className="num">{spent}</strong>
         </span>
-        <button type="button" onClick={() => setUi({ instruments: true, calcOpen: true })}>
+        <button type="button" data-anchor="desk-rate" onClick={() => setUi({ instruments: true, calcOpen: true })}>
           <em>{t("desk.bar.rate")}</em>
           <strong className="num">C${formatRate(rate.rateE4)}</strong>
         </button>
+        {/* The Tasa (?) cannot live inside the button; it is laid just after the button's own label (measured), so nothing moves. */}
+        <RateHint />
       </div>
       <div className="lenses">
         <div className="lens-wrap">
-          <button type="button" className={`lens is-have${lens === "have" ? " is-picked" : ""}`} data-lens="have" aria-pressed={lens === "have"} onClick={() => focusLens("have")}>
+          <Hint topic="tengo" className="is-lens" avoid=".lens-wrap .lens-kicker > span:last-child" fallback=".lens-note|.lens-corner" />
+          <button type="button" data-anchor="lens-have" className={`lens is-have${lens === "have" ? " is-picked" : ""}`} data-lens="have" aria-pressed={lens === "have"} onClick={() => focusLens("have")}>
             <span className="lens-kicker"><span className="lens-mark"><ArrowDownLeft className="size-3" /></span><span>{t("desk.have")}</span></span>
             <span className="lens-value num">{fmt(summary.income)}</span>
             <span className="lens-note">{t("desk.have.note")}</span>
           </button>
-          <button type="button" className="lens-corner is-plus" aria-label={t("desk.addIn")} aria-pressed={quick === "in"} {...corner("in")}>
+          <button type="button" data-anchor="desk-plus" className="lens-corner is-plus" aria-label={t("desk.addIn")} aria-pressed={quick === "in"} {...corner("in")}>
             <Plus className="size-3.5" />
           </button>
         </div>
         <div className="lens-wrap">
-          <button type="button" className={`lens is-spend${lens === "spend" ? " is-picked" : ""}`} data-lens="spend" aria-pressed={lens === "spend"} onClick={() => focusLens("spend")}>
+          <Hint topic="gastare" className="is-lens" avoid=".lens-wrap .lens-kicker > span:last-child" fallback=".lens-note|.lens-corner" />
+          <button type="button" data-anchor="lens-spend" className={`lens is-spend${lens === "spend" ? " is-picked" : ""}`} data-lens="spend" aria-pressed={lens === "spend"} onClick={() => focusLens("spend")}>
             <span className="lens-kicker"><span className="lens-mark"><ArrowUpRight className="size-3" /></span><span>{t("desk.spend")}</span></span>
             <span className="lens-value num">−{fmt(summary.expense)}</span>
             <span className="lens-note">{t("desk.spend.note")}</span>
           </button>
-          <button type="button" className="lens-corner is-minus" aria-label={t("desk.addOut")} aria-pressed={quick === "out"} {...corner("out")}>
+          <button type="button" data-anchor="desk-minus" className="lens-corner is-minus" aria-label={t("desk.addOut")} aria-pressed={quick === "out"} {...corner("out")}>
             <span aria-hidden>−</span>
           </button>
         </div>
         <div className="lens-wrap">
-          <button type="button" className={`lens is-debt tone-${summary.tone}${lens === "debt" ? " is-picked" : ""}`} data-lens="debt" aria-pressed={lens === "debt"} onClick={() => focusLens("debt")}>
+          <Hint topic="pagos" className="is-lens" avoid=".lens-wrap .lens-kicker > span:last-child" fallback=".lens-note|.lens-corner" />
+          <button type="button" data-anchor="lens-debt" className={`lens is-debt tone-${summary.tone}${lens === "debt" ? " is-picked" : ""}`} data-lens="debt" aria-pressed={lens === "debt"} onClick={() => focusLens("debt")}>
             <span className="lens-kicker"><span className="lens-mark"><CreditCard className="size-3" /></span><span>{t("desk.debt")}</span></span>
             <span className="lens-value num">{fmt(summary.debt)}</span>
             <span className="lens-note">{t("desk.debt.note")}</span>
           </button>
-          <button type="button" className="lens-corner is-cobro" aria-label={t("cobro.open")} aria-pressed={cobros} onClick={() => {
+          <button type="button" data-anchor="desk-cobro" className="lens-corner is-cobro" aria-label={t("cobro.open")} aria-pressed={cobros} onClick={() => {
+            setCobrosJump(false);
             if (quick) {
               setJump(null);
               setQuick(null);
@@ -2462,16 +2557,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={() => { setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
         </div>
       ) : null}
-      {cobros ? <Cobros onClose={() => setCobros(false)} /> : null}
+      {cobros ? <Cobros jumped={cobrosJump} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
       </>
       )}
-      <section className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
-        {focus ? <button type="button" className={`vault-lamp${vaultSort ? " is-on" : ""}`} aria-pressed={vaultSort} aria-label={t("vault.sort")} onClick={() => setVaultSort((on) => !on)} /> : null}
+      <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
+        {focus ? <button type="button" data-anchor="vault-sort" className={`vault-lamp${vaultSort ? " is-on" : ""}`} aria-pressed={vaultSort} aria-label={t("vault.sort")} onClick={() => setVaultSort((on) => !on)} /> : null}
         {focus ? null : (
         <>
         <div className="save-head">
           <div className="save-name">
-            <button type="button" className="icon-btn bank-tap" aria-label={t("save.accounts")} aria-expanded={accountsOpen} onClick={() => setAccountsOpen((v) => !v)}>
+            <button type="button" data-anchor="desk-accounts" className="icon-btn bank-tap" aria-label={t("save.accounts")} aria-expanded={accountsOpen} onClick={() => setAccountsOpen((v) => !v)}>
               <svg viewBox="0 0 32 32" className="bank-mark" aria-hidden>
                 <path d="M16 3.4 3.2 10.4h2.1L16 5.6l10.7 4.8h2.1L16 3.4Z" />
                 <path d="M5.2 11.2h21.6v2.1H5.2z" />
@@ -2489,6 +2584,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 {t("desk.savings")}
               </button>
             </h2>
+            <Hint topic="ahorros-banda" />
           </div>
           <span className="save-tools">
             <SourceNote
@@ -2518,7 +2614,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <i key={s.id} style={{ width: `${(s.minor / saveTotal) * 100}%`, background: saveTints[i % saveTints.length] }} />
           ))}
         </div>
-        <div className="save-segs" style={{ gridTemplateColumns: `repeat(${Math.max(saveSegs.length, 1)}, minmax(0, 1fr))` }}>
+        <div className="save-segs" data-anchor="desk-pockets" style={{ gridTemplateColumns: `repeat(${Math.max(saveSegs.length, 1)}, minmax(0, 1fr))` }}>
           {saveSegs.map((s, i) => {
             const tint = saveTints[i % saveTints.length] ?? "#8fb9a6";
             const on = openSave === s.id;
@@ -2559,9 +2655,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {openSeg ? (
           <div className={focus && focus !== "save" ? "vault-block" : "vault-pass"} style={focus && focus !== "save" ? { order: blockAt("board") } : undefined}>
             {focus && focus !== "save" && vaultSort ? blockArrows("board") : null}
-          <div className={`save-ledger${pocketKind === "retiro" ? " is-retiro" : ""}${focus && focus !== "save" ? " is-manage" : ""}${focus && focus !== "save" && pocketFold ? " is-folded" : ""}`} ref={ledgerRef} style={{ ["--seg" as string]: saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === openSeg.id)) % saveTints.length] }} onClick={() => { if (focus && focus !== "save" && pocketFold) togglePocketFold(); }}>
+          <div data-anchor="vault-ledger" className={`save-ledger${pocketKind === "retiro" ? " is-retiro" : ""}${focus && focus !== "save" ? " is-manage" : ""}${focus && focus !== "save" && pocketFold ? " is-folded" : ""}`} ref={ledgerRef} style={{ ["--seg" as string]: saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === openSeg.id)) % saveTints.length] }} onClick={() => { if (focus && focus !== "save" && pocketFold) togglePocketFold(); }}>
             <div className={`save-ledger-head${focus && focus !== "save" ? " is-tab" : ""}`} onClick={(event) => { if (!focus || focus === "save") return; event.stopPropagation(); togglePocketFold(); }}>
-              <strong>{openSeg.name}</strong>
+              <strong className="lab-head">{openSeg.name}<Hint topic={pocketKind === "retiro" ? "retiro" : pocketKind === "emergencia" ? "emergencia" : "meta"} /></strong>
               <span className="row">
                 <span className="num">{fmt(openSeg.minor)}</span>
                 {focus && focus !== "save" ? (
@@ -2592,11 +2688,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 <BookLook glyph={pocketGlyph} color={pocketColor} onGlyph={setPocketGlyph} onColor={setPocketColor} />
                 <div className="ah-grid">
                   <label className="label is-wide">
-                    <span className="lab-head">{pocketKind === "meta" ? t("save.goal") : t("save.emerg")}<FieldTip text={t(pocketKind === "meta" ? "tip.save.goal" : "tip.save.emerg")} /></span>
+                    <span className="lab-head">{pocketKind === "meta" ? t("save.goal") : t("save.emerg")}<FieldTip topic="f-bolsa-nombre" alt={pocketKind !== "meta"} /></span>
                     <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
                   </label>
                   <label className="label is-wide">
-                    <span className="lab-head">{t("amount")}<FieldTip text={t("tip.save.pocketAmt")} /></span>
+                    <span className="lab-head">{t("amount")}<FieldTip topic="f-bolsa-monto" /></span>
                     <input className="field num" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
                   </label>
                 </div>
@@ -2715,16 +2811,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <div className="ah-form is-retire">
                 <div className="ah-grid">
                   <div className="label">
-                    <span className="lab-head">{t("save.f.first")}<FieldTip text={t("tip.save.first")} /></span>
+                    <span className="lab-head">{t("save.f.first")}<FieldTip topic="f-retiro-primero" /></span>
                     <DayField value={retireStart} onChange={setRetireDate} />
                   </div>
                   <label className="label is-right">
-                    <span className="lab-head">{t("save.f.have")}<FieldTip text={t("tip.save.have")} /></span>
+                    <span className="lab-head">{t("save.f.have")}<FieldTip topic="f-retiro-saldo" /></span>
                     <input className="field num" inputMode="decimal" value={retireNow} placeholder={retireLine?.balanceMinor != null ? fmt(convertMinor(retireLine.balanceMinor, retireLine.balanceCurrency, rate.display, rate.rateE4)) : "0.00"} onChange={(e) => setRetireNow(e.target.value)} />
                   </label>
                 </div>
                 <p className="ah-read">
-                  <span className="lab-head">{t("save.accrued")}<FieldTip text={t("tip.save.accrued")} /></span>
+                  <span className="lab-head">{t("save.accrued")}<FieldTip topic="f-retiro-acumulado" /></span>
                   <strong className="num">{fmt(retireAccrued)}</strong>
                 </p>
                 <div className="ah-actions">
@@ -2785,9 +2881,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {accountsOpen ? (
           <div className={focus === "save" ? "vault-block" : "vault-pass"} style={focus === "save" ? { order: blockAt("accounts") } : undefined}>
             {focus === "save" && vaultSort ? blockArrows("accounts") : null}
-          <div className={`save-more${focus === "save" && banksFold ? " is-folded" : ""}`} onClick={() => { if (focus === "save" && banksFold) toggleBanksFold(); }}>
+          <div data-anchor="vault-accounts" className={`save-more${focus === "save" && banksFold ? " is-folded" : ""}`} onClick={() => { if (focus === "save" && banksFold) toggleBanksFold(); }}>
             <div className={`save-ledger-head${focus === "save" ? " is-tab" : ""}`} onClick={(event) => { if (focus !== "save") return; event.stopPropagation(); toggleBanksFold(); }}>
-              <strong>{focusedAccount ? focusedAccount.name : t("save.accounts.all")}</strong>
+              <strong className="lab-head">{focusedAccount ? focusedAccount.name : t("save.accounts.all")}<Hint topic="cuentas" /></strong>
               <span className="row">
                 <span className="num">{fmt(focusedAccount ? focusedAccount.minor : accountTotal)}</span>
                 {focus === "save" ? (
@@ -2863,7 +2959,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                       <div className="ah-form is-account">
                         <div className="ah-grid">
                           <div className="label is-wide">
-                            <span className="lab-head">{t("save.f.move")}<FieldTip text={t("tip.save.move")} /></span>
+                            <span className="lab-head">{t("save.f.move")}<FieldTip topic="cuenta-movimiento" /></span>
                             <div className="ah-sign" role="group">
                               <button type="button" aria-pressed={accountSign === 1} onClick={() => setAccountSign(1)}><Plus aria-hidden />{t("save.deposit")}</button>
                               <button type="button" aria-pressed={accountSign === -1} onClick={() => setAccountSign(-1)}><Minus aria-hidden />{t("save.withdraw")}</button>
@@ -2871,7 +2967,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                           </div>
                           {accountSign ? (
                             <label className="label is-wide">
-                              <span className="lab-head">{t("amount")}<FieldTip text={t(accountSign > 0 ? "tip.save.deposit" : "tip.save.withdraw")} /></span>
+                              <span className="lab-head">{t("amount")}<FieldTip topic="f-cuenta-monto" alt={accountSign <= 0} /></span>
                               <input className="field num" inputMode="decimal" autoFocus value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
                             </label>
                           ) : null}
@@ -2885,7 +2981,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                       <div className="ah-form is-account">
                         <div className="ah-grid">
                           <label className="label is-wide">
-                            <span className="lab-head">{t("save.opening")}<FieldTip text={t("tip.save.opening")} /></span>
+                            <span className="lab-head">{t("save.opening")}<FieldTip topic="f-cuenta-inicial" /></span>
                             <input className="field num" inputMode="decimal" autoFocus value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
                           </label>
                         </div>
@@ -2912,7 +3008,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <div className="ah-form is-bank">
               <div className="ah-grid">
                 <div className="label is-wide">
-                  <span className="lab-head">{t("save.f.newAccount")}<FieldTip text={t("tip.save.accountName")} /></span>
+                  <span className="lab-head">{t("save.f.newAccount")}<FieldTip topic="f-cuenta-nombre" /></span>
                   <div className="ah-bank-name">
                     <span className="bank-photo-wrap">
                     <label className={`bank-photo-btn${accountIcon ? " is-set" : ""}`} title={t("save.accountIcon")}>
@@ -2930,7 +3026,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   </div>
                 </div>
                 <label className="label">
-                  <span className="lab-head">{t("save.opening")}<FieldTip text={t("tip.save.opening")} /></span>
+                  <span className="lab-head">{t("save.opening")}<FieldTip topic="f-cuenta-inicial" /></span>
                   <input className="field num" inputMode="decimal" value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
                 </label>
                 <div className="label is-right ah-go">
@@ -2948,8 +3044,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <div className="vault-block" style={{ order: blockAt("flow") }}>
             {vaultSort ? blockArrows("flow") : null}
           <div className="save-flow" style={{ ["--save" as string]: colorFor(session.ledger.structure, savingsCats[0]?.id ?? "f-ahorro") }}>
-            <div className="save-ledger-head">
-              <strong>{t("vault.aside")}</strong>
+            <div className="save-ledger-head" data-anchor="desk-aside">
+              <strong className="lab-head">{t("vault.aside")}<Hint topic="apartado-mes" /></strong>
               <span className="num">{fmt(aside)}</span>
             </div>
             <div className="save-flow-meter" aria-hidden>
@@ -2984,9 +3080,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         ) : null}
       </section>
       {focus ? null : (
-      <section key={lens} className="card span-all swipe-pane" data-dir={flowDir < 0 ? "-1" : "1"}>
+      <section key={lens} data-anchor="desk-list" className="card span-all swipe-pane" data-dir={flowDir < 0 ? "-1" : "1"}>
         {lens === "debt" ? (
-          <div className="debt-lamp">
+          <div className="debt-lamp" data-anchor="desk-semaforo">
             {(() => {
               const live = summary.tone === "warn" || summary.tone === "bad" ? summary.tone : "good";
               const shown = lamp ?? live;
@@ -3009,7 +3105,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     ))}
                   </div>
                   <div className="min-w-0">
-                    <h2 className="serif text-xl">{t("sem.title")}</h2>
+                    <h2 className="serif text-xl lab-head">{t("sem.title")}<Hint topic="semaforo" /></h2>
                     <p className="semaphore">{pay}</p>
                     <p className="semaphore">{note}</p>
                   </div>
@@ -3019,14 +3115,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </div>
         ) : null}
         {lens !== "have" && lens !== "debt" ? (
-          <p className="desk-kicker">
-            <span>{t("desk.opportunity")}</span>
+          <p className="desk-kicker" data-anchor="desk-opportunity">
+            <span>{t("desk.opportunity")}<Hint topic="oportunidad" className="is-inline" avoid=".desk-kicker strong" /></span>
             <strong className={`num ${summary.opportunity < 0 ? "bad" : ""}`}>{fmt(summary.opportunity)}</strong>
           </p>
         ) : null}
         {lens === "have" ? <p className="own-kicker">{t("desk.have.note")}</p> : null}
         {lines.length === 0 ? (
-          <span className="row mt-3">
+          <span className="row mt-3" data-anchor="desk-start">
             <button type="button" className="btn" onClick={() => setUi({ section: "income", draft: "income-fixed" })}>{t("desk.first")}</button>
             <button type="button" className="btn ghost" onClick={copyPrev}>{t("desk.copy")}</button>
           </span>
@@ -3152,6 +3248,12 @@ export function Shops() {
   const [catName, setCatName] = useState("");
   const [catColor, setCatColor] = useState(PALETTE[0]);
   const [paint, setPaint] = useState<string | null>(null);
+  const gearJump = useRef(false);
+  useEffect(() => {
+    const onOpen = (e: Event) => { if ((e as CustomEvent).detail === "shops-gear") { gearJump.current = true; setOpen(true); } };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   const stores = session?.ledger.structure.catalog.filter((c) => c.kind === "store") ?? [];
   const cats = session?.ledger.structure.purchases ?? [];
   const readIcon = (file: File) => { shrinkIcon(file).then(setStoreIcon).catch(() => {}); };
@@ -3186,6 +3288,8 @@ export function Shops() {
     const onBack = (e: Event) => {
       if (e.defaultPrevented) return;
       setOpen(false);
+      // Opened by "Ir allí": part of the jump, so back walks on to where it came from.
+      if (gearJump.current) { gearJump.current = false; return; }
       e.preventDefault();
     };
     window.addEventListener("faro-back", onBack);
@@ -3195,7 +3299,7 @@ export function Shops() {
     <div className="grid gap-3">
       <div className="shop-stage">
         <LinesBlock kind="purchase" title={t("nav.shops")} />
-        <button type="button" className="icon-btn shop-gear" aria-expanded={open} aria-label={t("nav.settings")} onClick={() => setOpen((v) => !v)}>
+        <button type="button" data-anchor="shops-gear" className="icon-btn shop-gear" aria-expanded={open} aria-label={t("nav.settings")} onClick={() => { gearJump.current = false; setOpen((v) => !v); }}>
           <Gear className="size-4" />
         </button>
       </div>
@@ -3206,6 +3310,7 @@ export function Shops() {
               <ChevronDown className={storesFold ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
               <strong className="serif">{t("shops.stores")}</strong>
             </button>
+            <Hint topic="tiendas" className="is-strip" />
             <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
               setStoresFold(true);
               if (!storeOpen) {
@@ -3245,7 +3350,7 @@ export function Shops() {
                 <div className="ah-form sc-form is-store">
                   <div className="ah-grid">
                     <div className="label is-wide">
-                      <span className="lab-head">{t("sc.store")}<FieldTip text={t("tip.sc.store")} /></span>
+                      <span className="lab-head">{t("sc.store")}<FieldTip topic="f-tienda" /></span>
                       <div className="ah-bank-name">
                         <span className="bank-photo-wrap">
                           <label className={`bank-photo-btn${storeIcon ? " is-set" : ""}`} title={t("shops.icon")}>
@@ -3271,6 +3376,7 @@ export function Shops() {
               <ChevronDown className={catsFold ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
               <strong className="serif">{t("shops.cats")}</strong>
             </button>
+            <Hint topic="categorias-compra" className="is-strip" />
             <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
               setCatsFold(true);
               if (!catOpen) {
@@ -3326,11 +3432,11 @@ export function Shops() {
                 <div className="ah-form sc-form is-shopcat">
                   <div className="ah-grid">
                     <label className="label is-wide">
-                      <span className="lab-head">{t("sc.cat")}<FieldTip text={t("tip.sc.cat")} /></span>
+                      <span className="lab-head">{t("sc.cat")}<FieldTip topic="f-cat-compra" /></span>
                       <input className="field" value={catName} placeholder={t("sc.cat.ph")} aria-label={t("shops.addCat")} onChange={(e) => setCatName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveCat(); }} />
                     </label>
                     <div className="label is-wide">
-                      <span className="lab-head">{t("sc.color")}<FieldTip text={t("tip.sc.color")} /></span>
+                      <span className="lab-head">{t("sc.color")}<FieldTip topic="f-color-compra" /></span>
                       <div className="sc-colors" role="radiogroup" aria-label={t("sc.color")}>
                         {PALETTE.map((color) => (
                           <button key={color} type="button" role="radio" style={{ background: color }} aria-checked={catColor === color} aria-pressed={catColor === color} aria-label={color} onClick={() => setCatColor(color)} />
@@ -3550,8 +3656,7 @@ export function Study() {
       <StatFold id="owed">
         <section className="card">
           <div className="stat-head">
-            <h2 className="serif text-2xl">{t("study.owed.title")}</h2>
-            <Explain title={t("study.owed.title")} meaning={t("study.owed.help.meaning")} formula={t("study.owed.help.formula")} implication={t("study.owed.help.implication")} label={t("study.owed.help")} />
+            <h2 className="serif text-2xl lab-head">{t("study.owed.title")}<Hint topic="lo-que-me-deben" fitParent /></h2>
           </div>
           <p className="num serif text-3xl">{fmt(owedLeft)}</p>
           <p className="text-sm text-muted">{t("study.owed.still")}</p>
@@ -3589,6 +3694,16 @@ export function Advisor() {
   const [preset, setPreset] = useState<ScenarioId>("plan");
   const [drops, setDrops] = useState<string[]>([]);
   const [applied, setApplied] = useState<string>("");
+  // "Ir allí" / [[links]]: open the plan card (or a horizon card) when asked.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id === "plan" || id === "short" || id === "medium" || id === "long") setOpenCards((cur) => ({ ...cur, [id]: true }));
+      else if (id === "advice-more") setMore(true);
+    };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   if (!budget || !session || !summary) return null;
   const reading = readAdvisor(session.ledger, key, lang, names);
   const tried = projectLeft(reading, preset, drops);
@@ -3635,11 +3750,12 @@ export function Advisor() {
   return (
     <div className="advice-stack">
       <CoachHero />
-      <label className="unfold-all">
+      <label className="unfold-all" data-anchor="advice-unfold">
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />
         <span>{t("study.unfold")}</span>
+        <Hint topic="desplegar-asesor" />
       </label>
-      <section className="advice-hero-2" aria-label={reading.monthTag}>
+      <section className="advice-hero-2" aria-label={reading.monthTag} data-anchor="advice-tower">
         <MonthTower reading={reading} income={summary.income} left={summary.opportunity} openPart={openPart} onPart={(id) => { setSpreadParts(false); setOpenPart((cur) => (cur === id ? null : id)); }} more={more} onMore={() => setMore((on) => !on)}>
           <div className="a2-notes">
             {[
@@ -3659,7 +3775,7 @@ export function Advisor() {
               );
             })}
           </div>
-          <div className="a2-tiles">
+          <div className="a2-tiles" data-anchor="advice-tiles">
             <span><em>{t("advice.in")}</em><strong className="num">{fmt(summary.income)}</strong></span>
             <span><em>{t("advice.out")}</em><strong className="num">{fmt(summary.expense)}</strong></span>
             {reading.realSpend !== summary.expense ? <span><em>{t("advice.real")}</em><strong className="num">{fmt(reading.realSpend)}</strong></span> : null}
@@ -3671,14 +3787,14 @@ export function Advisor() {
       {awakeOn && wake ? wake.findings.map((item) => {
         const open = cardOn(item.id);
         return (
-          <section key={item.id} className="advice-card is-plan">
-            <button type="button" className="advice-head" aria-expanded={open} onClick={() => toggleCard(item.id)}>
+          <section key={item.id} className="advice-card is-plan" data-anchor="advice-findings">
+            <div role="button" tabIndex={0} className="advice-head" aria-expanded={open} onClick={() => toggleCard(item.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard(item.id); } }}>
               <div>
-                <p className="advice-kicker">{t("awake.finding")}</p>
+                <p className="advice-kicker"><span className="lab-head">{t("awake.finding")}<Hint topic="reconciliacion" /></span></p>
                 <h2 className="serif">{item.title}</h2>
               </div>
               <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
-            </button>
+            </div>
             {open ? (
               <>
                 <p className="advice-lead">{item.body}</p>
@@ -3698,16 +3814,16 @@ export function Advisor() {
           return card.horizon === "short" || !point.emphasis;
         });
         return (
-          <article key={card.horizon} className={`advice-card is-${card.horizon} is-${index === 0 ? reading.tone : card.horizon === "medium" ? (summary.tone === "bad" ? "bad" : "good") : "good"}`} style={{ ["--enter" as string]: `${index + 1}` }}>
-            <button type="button" className="advice-head" aria-expanded={open} onClick={() => toggleCard(card.horizon)}>
+          <article key={card.horizon} data-anchor={`advice-${card.horizon}`} className={`advice-card is-${card.horizon} is-${index === 0 ? reading.tone : card.horizon === "medium" ? (summary.tone === "bad" ? "bad" : "good") : "good"}`} style={{ ["--enter" as string]: `${index + 1}` }}>
+            <div role="button" tabIndex={0} className="advice-head" aria-expanded={open} onClick={() => toggleCard(card.horizon)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard(card.horizon); } }}>
               <span className="advice-mark" aria-hidden><Icon className="size-4" /></span>
               <div>
-                <p className="advice-kicker">{t(`advice.horizon.${card.horizon}`)}</p>
+                <p className="advice-kicker"><span className="lab-head">{t(`advice.horizon.${card.horizon}`)}<Hint topic={card.horizon === "short" ? "horizonte-mes" : card.horizon === "medium" ? "horizonte-90" : "horizonte-12"} /></span></p>
                 <h2 className="serif">{card.title}</h2>
                 {!open && teaser ? <p className="advice-teaser"><strong className="num">{teaser.big}</strong><span>{teaser.small}</span></p> : null}
               </div>
               <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
-            </button>
+            </div>
             {awakeOn && wake?.causes[card.horizon] ? <p className="advice-because">{wake.causes[card.horizon]}</p> : null}
             {open ? (
               <>
@@ -3718,16 +3834,16 @@ export function Advisor() {
           </article>
         );
       })}
-      <section className="advice-card is-plan is-start" style={{ ["--enter" as string]: "4" }}>
-        <button type="button" className="advice-head" aria-expanded={cardOn("plan")} onClick={() => toggleCard("plan")}>
+      <section className="advice-card is-plan is-start" data-anchor="advice-plan" style={{ ["--enter" as string]: "4" }}>
+        <div role="button" tabIndex={0} className="advice-head" aria-expanded={cardOn("plan")} onClick={() => toggleCard("plan")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard("plan"); } }}>
           <span className="advice-mark" aria-hidden><ListChecks className="size-4" /></span>
           <div>
-            <p className="advice-kicker">{t("advice.plan.kicker")}</p>
+            <p className="advice-kicker"><span className="lab-head">{t("advice.plan.kicker")}<Hint topic="por-donde-empezar" /></span></p>
             <h2 className="serif">{t("advice.plan")}</h2>
             {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{(reading.plan.match(/^(24 horas|24 hours):\s*(.+?)(?:[.:](?:\s|$))/m)?.[2] ?? "").slice(0, 70)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
           </div>
           <ChevronDown className={cardOn("plan") ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
-        </button>
+        </div>
         {awakeOn && planStale ? <p className="advice-stale">{t("awake.stale")}</p> : null}
         {cardOn("plan") ? (
           <>
@@ -3749,8 +3865,8 @@ export function Advisor() {
                 </>
               );
             })()}
-            <div className="advice-sim">
-              <p className="advice-kicker">{t("advice.sim")}</p>
+            <div className="advice-sim" data-anchor="advice-sim">
+              <p className="advice-kicker"><span className="lab-head">{t("advice.sim")}<Hint topic="que-pasa-si" /></span></p>
               <div className="advice-presets" role="tablist" aria-label={t("advice.sim")}>
                 {reading.scenarios.map((scene) => (
                   <button key={scene.id} type="button" role="tab" className="btn ghost" aria-selected={preset === scene.id} aria-pressed={preset === scene.id} onClick={() => { setPreset(scene.id); setApplied(""); }}>
@@ -3778,6 +3894,7 @@ export function Advisor() {
               {applied ? <p className="advice-aside">{t("advice.applied")} {applied}</p> : null}
             </div>
             <button type="button" className="btn secondary advice-copy" onClick={() => { void navigator.clipboard.writeText(text); setCopied(true); notePlanCopied(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
+            <Hint topic="copiar-plan" alt={planStale} />
           </>
         ) : null}
       </section>
@@ -3797,20 +3914,47 @@ function ThemeSide({ title, open, onToggle, children }: { title: string; open: b
   );
 }
 
-function Fold({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+function Fold({ id, topic, title, open, onToggle, children }: { id: string; topic: string; title: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  // The header is a div-button so the title's (?) can sit right after the title without nesting buttons.
+  // If the (?) alone would push the title onto a second line, the title gives up a few percent of size instead (≤ 10%).
+  const head = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = head.current; const h = el?.querySelector("h2"); if (!el || !h) return;
+    const fit = () => {
+      h.style.fontSize = "";
+      const title = h.parentElement!; const chev = el.querySelector(".fold-chev");
+      const room = el.clientWidth - (chev?.getBoundingClientRect().width ?? 0) - parseFloat(getComputedStyle(el).columnGap || "0")
+        - (title.getBoundingClientRect().width - h.getBoundingClientRect().width);
+      h.style.whiteSpace = "nowrap"; const nat = h.scrollWidth; h.style.whiteSpace = "";
+      if (nat > room && room / nat >= 0.9) h.style.fontSize = `${(parseFloat(getComputedStyle(h).fontSize) * (room / nat) * 0.99).toFixed(2)}px`;
+    };
+    fit();
+    // Next frame, not inside the observer callback (changing the size there loops the observer).
+    let raf = 0;
+    const ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(fit); }); ro.observe(el);
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
+  }, [title]);
   return (
-    <section className="card">
-      <button type="button" className="fold-btn" aria-expanded={open} onClick={onToggle}>
-        <h2 className="serif text-2xl">{title}</h2>
+    <section className="card" data-anchor={`aj-${id === "rate" ? "rules" : id}`} data-fold={id}>
+      <div
+        ref={head}
+        role="button"
+        tabIndex={0}
+        className="fold-btn"
+        aria-expanded={open}
+        onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+      >
+        <span className="fold-title"><h2 className="serif text-2xl">{title}</h2><Hint topic={topic} /></span>
         <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
-      </button>
+      </div>
       {open ? <div className="mt-3">{children}</div> : null}
     </section>
   );
 }
 
 export function Settings() {
-  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup } = useFaro();
+  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
   const [themeSide, setThemeSide] = useState<{ day: boolean; night: boolean } | null>(null);
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
@@ -3879,19 +4023,35 @@ export function Settings() {
       window.removeEventListener("resize", watch);
     };
   }, [openFold]);
+  // "Ir allí" / [[links]] open the right section.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (["lang", "theme", "structure", "rate", "keys", "gestures", "backup", "account"].includes(id)) setOpenFold(id);
+    };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   if (!session) return null;
   const settings = session.ledger.settings;
   function toggle(id: string) { setOpenFold((cur) => (cur === id ? null : id)); }
   return (
     <div ref={boardRef} className="grid gap-3 settings-board">
-      <Fold title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
+      <section className="card manual-card" data-anchor="aj-manual" data-topic-box="manual">
+        <button type="button" className="manual-row fold-btn" onClick={() => openManual("")}>
+          <BookOpen aria-hidden />
+          <span className="manual-row-text"><strong className="serif">{t("manual.title")}</strong><span>{t("manual.row")}</span></span>
+          <ChevronRight aria-hidden />
+        </button>
+      </section>
+      <Fold id="lang" topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
         <div className="row">
           {(["es", "en"] as const).map((id) => (
             <button key={id} type="button" className="btn ghost" aria-pressed={lang === id} onClick={() => { localStorage.setItem("faro-lang", id); commit((s) => ({ ...s, settings: { ...s.settings, lang: id } }), id); }}>{t(`lang.${id}`)}</button>
           ))}
         </div>
       </Fold>
-      <Fold title={t("settings.theme")} open={openFold === "theme"} onToggle={() => toggle("theme")}>
+      <Fold id="theme" topic="temas" title={t("settings.theme")} open={openFold === "theme"} onToggle={() => toggle("theme")}>
         {(() => {
           const night = NIGHT_THEMES.includes(settings.theme);
           const groups = themeSide ?? { day: !night, night };
@@ -3920,7 +4080,7 @@ export function Settings() {
           );
         })()}
       </Fold>
-      <Fold title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
+      <Fold id="structure" topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
         <div className="row">
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
             <button key={id} type="button" className="btn ghost" onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
@@ -3928,28 +4088,29 @@ export function Settings() {
         </div>
         <p className="mt-2 text-sm text-muted">{templateBlurb("familia", lang)}</p>
         <StructureTree />
-        <h2 className="serif mt-4 text-xl">{t("settings.catalog")}</h2>
+        <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-catalog">{t("settings.catalog")}<Hint topic="catalogo" /></h2>
         <CatalogEditor />
       </Fold>
-      <Fold title={t("settings.rate")} open={openFold === "rate"} onToggle={() => toggle("rate")}>
-        <label className="label">{t("settings.goal")}
+      <Fold id="rate" topic="reglas" title={t("settings.rate")} open={openFold === "rate"} onToggle={() => toggle("rate")}>
+        <label className="label" data-anchor="aj-goal"><span className="lab-head">{glueHint(t("settings.goal"), <Hint topic="meta-ahorro" fitParent />)}</span>
           <input className="field num" defaultValue={settings.savingsGoalPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Number(e.target.value) || 0 } }), "goal")} />
         </label>
-        <label className="label mt-2">{t("settings.green")}
+        <label className="label mt-2" data-anchor="aj-green"><span className="lab-head">{glueHint(t("settings.green"), <Hint topic="semaforo-verde" fitParent />)}</span>
           <input className="field num" defaultValue={settings.debtGreenPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtGreenPct: Number(e.target.value) || 0 } }), "green")} />
         </label>
-        <label className="label mt-2">{t("settings.yellow")}
+        <label className="label mt-2" data-anchor="aj-yellow"><span className="lab-head">{glueHint(t("settings.yellow"), <Hint topic="semaforo-amarillo" fitParent />)}</span>
           <input className="field num" defaultValue={settings.debtYellowPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtYellowPct: Number(e.target.value) || 0 } }), "yellow")} />
         </label>
-        <label className="label mt-2">{t("settings.emergency")}
+        <label className="label mt-2" data-anchor="aj-months"><span className="lab-head">{glueHint(t("settings.emergency"), <Hint topic="meses-colchon" fitParent />)}</span>
           <input className="field num" defaultValue={settings.emergencyMonths} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, emergencyMonths: Number(e.target.value) || 0 } }), "months")} />
         </label>
-        <div className="row mt-3">
+        <div className="row mt-3" data-anchor="aj-rate">
           <input className="field num" value={rateText} onChange={(e) => setRateText(e.target.value)} aria-label={t("rate.manual")} />
           <button type="button" className="btn" onClick={() => saveRate(rateText)}>{t("rate.manual")}</button>
+          <Hint topic="tasa-manual" className="is-after" />
         </div>
       </Fold>
-      <Fold title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
+      <Fold id="keys" topic="atajos-teclado" title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
         {SHORTCUT_ACTIONS.map((action) => (
           <div key={action} className="line-row">
             <span>{action}</span>
@@ -3959,7 +4120,7 @@ export function Settings() {
         ))}
         <button type="button" className="btn ghost mt-2" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys")}>{t("settings.resetKeys")}</button>
       </Fold>
-      <Fold title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
+      <Fold id="gestures" topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
         <p className="text-sm text-muted">{t("gesture.help")}</p>
         {([
           ["in.hold", "gesture.inHold"],
@@ -4000,7 +4161,7 @@ export function Settings() {
           );
         })}
       </Fold>
-      <Fold title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
+      <Fold id="backup" topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />
         <div className="vault-more">
           <button type="button" className="btn secondary" onClick={exportJson}>{t("settings.export")}</button>
@@ -4008,10 +4169,10 @@ export function Settings() {
           <button type="button" className="btn ghost" onClick={pickFolder}>{t("settings.folder")}</button>
           {hasConflict ? <button type="button" className="btn" onClick={restoreConflict}>{t("settings.conflict")}</button> : null}
         </div>
-        <h2 className="serif mt-4 text-xl">{t("settings.activity")}</h2>
+        <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-activity">{t("settings.activity")}<Hint topic="actividad" /></h2>
         {session.ledger.audit.slice(0, 8).map((a) => <p key={a.id} className="text-sm text-muted">{a.detail}</p>)}
       </Fold>
-      <Fold title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
+      <Fold id="account" topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />
       </Fold>
     </div>
@@ -4108,7 +4269,7 @@ function StructureTree() {
     rows: categories.filter((cat) => cat.group === group && visible(cat)),
   })).filter((group) => group.rows.length > 0);
   return (
-    <div className="mt-4">
+    <div className="mt-4" data-anchor="aj-tree">
       <div className="search-pill">
         <Search className="size-4" aria-hidden />
         <input value={q} placeholder={t("tree.find")} onChange={(e) => setQ(e.target.value)} aria-label={t("tree.find")} />
@@ -4139,11 +4300,11 @@ function StructureTree() {
       <div className="ah-form sc-form is-treecat">
         <div className="ah-grid">
           <label className="label is-wide">
-            <span className="lab-head">{t("add.cat")}<FieldTip text={t("tip.sc.treeCat")} /></span>
+            <span className="lab-head">{t("add.cat")}<FieldTip topic="f-cat-arbol" /></span>
             <input className="field" value={catName} onChange={(e) => setCatName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addCat(); }} placeholder={t("sc.treeCat.ph")} aria-label={t("add.cat")} />
           </label>
           <div className="label is-wide">
-            <span className="lab-head">{t("sc.group")}<FieldTip text={t("tip.sc.group")} /></span>
+            <span className="lab-head">{t("sc.group")}<FieldTip topic="f-grupo" /></span>
             <div className="ah-sign" role="radiogroup" aria-label={t("sc.group")}>
               {(["fixed", "variable"] as const).map((g) => (
                 <button key={g} type="button" role="radio" aria-checked={catGroup === g} aria-pressed={catGroup === g} onClick={() => setCatGroup(g)}>{t(`sc.${g}`)}</button>
@@ -4222,7 +4383,7 @@ function TreePanel({ cat }: { cat: Category }) {
       <div className="ah-form sc-form is-treesub">
         <div className="ah-grid">
           <label className="label is-wide">
-            <span className="lab-head">{t("sc.sub")}<FieldTip text={t("tip.sc.sub")} /></span>
+            <span className="lab-head">{t("sc.sub")}<FieldTip topic="f-subcat" /></span>
             <input className="field" value={subName} onChange={(e) => setSubName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addSub(); }} placeholder={t("sc.sub.ph")} aria-label={t("add.sub")} />
           </label>
         </div>
@@ -4276,7 +4437,7 @@ function CatalogEditor() {
       <div className="ah-form sc-form is-item">
         <div className="ah-grid">
           <label className="label is-wide">
-            <span className="lab-head">{t("sc.item")}<FieldTip text={t("tip.sc.item")} /></span>
+            <span className="lab-head">{t("sc.item")}<FieldTip topic="f-catalogo" /></span>
             <input className="field" value={itemName} placeholder={t("sc.item.ph")} aria-label={t("add.item")} onChange={(e) => setItemName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addItem(); }} />
           </label>
         </div>

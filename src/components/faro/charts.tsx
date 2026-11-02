@@ -1,6 +1,20 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUpDown, ChevronDown, ChevronUp, Pin } from "lucide-react";
 import type { CashSankey, StudyBoard } from "@/lib/faro/engine";
+import { Hint } from "./hint";
+
+/** Each Estudio card's manual topic: its (?) sits on the card's own title line. */
+const FOLD_TOPIC: Record<string, string> = {
+  pulse: "tu-mes", health: "salud", pace: "ritmo", agenda: "proximos-pagos", waffle: "tus-100", where: "en-que-se-va",
+  sankey: "recorrido", rule: "regla-50-30-20", plan: "dentro-del-tope", movers: "que-se-movio", time: "entra-sale-queda",
+  cushion: "colchon", owed: "lo-que-me-deben", numeros: "numeros-clave",
+};
+const FoldTopicCtx = createContext<string | null>(null);
+/** The topic of the Estudio card this sits in (null outside one). */
+export function useFoldTopic(): string | null {
+  return useContext(FoldTopicCtx);
+}
+const OPEN_KEY = "faro-study-open";
 
 type FoldApi = {
   isOpen: (id: string) => boolean;
@@ -42,9 +56,27 @@ export function StatFoldProvider({
   children: ReactNode;
 }) {
   const ids = items.map((item) => item.id).join("\0");
-  const [spread, setSpread] = useState(false);
-  const [shut, setShut] = useState<Record<string, boolean>>({});
-  const [forced, setForced] = useState<Record<string, boolean>>({});
+  // Open/shut cards survive leaving Estudio (manual → Ir allí → back lands on the same cards, same scroll).
+  const saved = useMemo(() => {
+    try { return JSON.parse(sessionStorage.getItem(OPEN_KEY) || "null") as { spread?: boolean; shut?: Record<string, boolean>; forced?: Record<string, boolean> } | null; } catch { return null; }
+  }, []);
+  const [spread, setSpread] = useState(Boolean(saved?.spread));
+  const [shut, setShut] = useState<Record<string, boolean>>(saved?.shut ?? {});
+  const [forced, setForced] = useState<Record<string, boolean>>(saved?.forced ?? {});
+  useEffect(() => {
+    try { sessionStorage.setItem(OPEN_KEY, JSON.stringify({ spread, shut, forced })); } catch { /* ignore */ }
+  }, [spread, shut, forced]);
+  // "Ir allí" / [[links]] open a card by its id.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!ids.split("\0").includes(id)) return;
+      setShut((s0) => (s0[id] ? { ...s0, [id]: false } : s0));
+      setForced((f) => (f[id] ? f : { ...f, [id]: true }));
+    };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, [ids]);
   const [pinned, setPinned] = useState<Record<string, boolean>>({});
   const [sorting, setSorting] = useState(false);
   const [order, setOrder] = useState<string[]>(() => {
@@ -146,7 +178,7 @@ export function StatFoldProvider({
   };
   return (
     <FoldCtx.Provider value={api}>
-      <div className="study-tools">
+      <div className="study-tools" data-anchor="stats-tools">
         <label className="unfold-all">
           <input
             type="checkbox"
@@ -170,6 +202,7 @@ export function StatFoldProvider({
         <button type="button" className={`study-sort${sorting ? " is-on" : ""}`} aria-pressed={sorting} aria-label={sortLabel} onClick={() => setSorting((on) => !on)}>
           <ArrowUpDown />
         </button>
+        <Hint topic="ordenar-estudio" className="is-tools" />
       </div>
       {sorting ? (
         <div className="study-order" role="list">
@@ -322,6 +355,8 @@ export function StatFold({ id, children }: { id: string; children: ReactNode }) 
   return (
     <div
       className={`stat-fold${open ? " is-open" : " is-shut"}${on ? " is-pinned" : ""}`}
+      data-anchor={id}
+      data-fold={id}
       data-section={ctx.section(id)}
       style={{ order: ctx.order(id) * 2 + 1 }}
       onClick={(e) => {
@@ -343,7 +378,7 @@ export function StatFold({ id, children }: { id: string; children: ReactNode }) 
           <ChevronDown />
         </button>
       </div>
-      {children}
+      <FoldTopicCtx.Provider value={FOLD_TOPIC[id] ?? null}>{children}</FoldTopicCtx.Provider>
     </div>
   );
 }
@@ -660,7 +695,7 @@ function MoneySankey({
   };
   return (
     <section className="card sankey-card">
-      <h2 className="serif text-2xl">{title}</h2>
+      <h2 className="serif text-2xl lab-head">{title}<Hint topic="recorrido" fitParent /></h2>
       <p className="sankey-note">{note}</p>
       <div ref={host}>
         <svg className="sankey-chart" viewBox={`0 -6 ${width} ${laid.height + 12}`} height={laid.height + 12} role="img" aria-label={title} onClick={() => setPicked(null)}>
@@ -952,7 +987,7 @@ export function StudyCharts({
       {sankey.links.length ? <StatFold id="sankey"><MoneySankey model={sankey} title={copy.sankey} note={copy.sankeyNote} empty={copy.empty} money={money} /></StatFold> : null}
       <StatFold id="where">
       <section className="card">
-        <h2 className="serif text-2xl">{whereLabel}</h2>
+        <h2 className="serif text-2xl lab-head">{whereLabel}<Hint topic="en-que-se-va" fitParent /></h2>
         <p className="pano-lead where-hint">{copy.whereHint}</p>
         {slices.length ? (
           <Donut

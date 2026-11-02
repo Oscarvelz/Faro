@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
 import "./float.css";
 import "./tron.css";
@@ -15,6 +15,12 @@ import { Instruments } from "./instruments";
 import { SAVINGS_PURPLE, isTron as vtTron, tronize as vtTronize } from "@/lib/faro/colors";
 const vtint = (c: string) => (vtTron() ? vtTronize(c) : c);
 import { FaroPane, useFaro, type Api } from "./provider";
+import { useLayer } from "@/lib/manual/back";
+import { prefetchManual } from "@/lib/manual/load";
+import { Hint } from "./hint";
+import { FocusHost } from "./focus-host";
+
+const ManualLayer = lazy(() => import("./manual"));
 
 const BOOKS = ["income", "fixed", "variable", "shops", "subs"] as const;
 const VAULT = ["save", "meta", "retiro", "emergencia"] as const;
@@ -68,7 +74,9 @@ export function Shell() {
   const swipe = useRef<{ x: number; y: number } | null>(null);
   const swiped = useRef(false);
   const [slideDir, setSlideDir] = useState(1);
-  const [vault, setVault] = useState<(typeof VAULT)[number] | null>(null);
+  // The savings tab lives in the provider, so each tab is a real history step (back walks the tabs).
+  const vault = ui.vault;
+  const setVault = (next: (typeof VAULT)[number] | null) => { if (next !== ui.vault) setUi({ vault: next }); };
   const [moneyOpen, setMoneyOpen] = useState(false);
   const [recall, setRecall] = useState(false);
   const moneyPanel = useRef<HTMLElement>(null);
@@ -121,11 +129,11 @@ export function Shell() {
   useEffect(() => {
     if (!viewOpen) return;
     const off = (e: PointerEvent) => { if (!viewRef.current?.contains(e.target as Node)) setViewOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setViewOpen(false); };
     document.addEventListener("pointerdown", off);
-    window.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("pointerdown", off); window.removeEventListener("keydown", esc); };
+    return () => { document.removeEventListener("pointerdown", off); };
   }, [viewOpen]);
+  // Esc and phone back close the Vista menu only.
+  useLayer(viewOpen, () => setViewOpen(false));
   const stackRef = useRef<HTMLDivElement>(null);
   const topPaneRef = useRef<HTMLDivElement>(null);
   const wideRef = useRef(wide);
@@ -491,6 +499,39 @@ export function Shell() {
     place();
   }, [ui.section, hub]);
 
+  // Savings tabs + their (?): when the four tabs and the (?) don't fit on one bar (narrow phone, large text, long English labels),
+  // the tabs drop their small icons (data-squeeze) so the screen's (?) always stays visible inside the bar. Never hidden.
+  useLayoutEffect(() => {
+    const bar = vaultRef.current;
+    if (!bar || !bar.querySelector(":scope > .hint")) return;
+    const fit = () => {
+      const was = bar.getAttribute("data-squeeze");
+      const btns = [...bar.querySelectorAll<HTMLElement>(":scope > button")];
+      const cs = getComputedStyle(bar);
+      const room = bar.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+      let level = 0;
+      for (; level < 3; level++) {
+        if (level) bar.setAttribute("data-squeeze", String(level)); else bar.removeAttribute("data-squeeze");
+        btns.forEach((b) => { b.style.flex = "none"; });
+        const gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
+        const need = btns.reduce((sum, b) => sum + b.getBoundingClientRect().width, 0) + gap * btns.length + 18 + 4;
+        btns.forEach((b) => { b.style.flex = ""; });
+        if (need <= room) break;
+      }
+      if (level >= 3) bar.setAttribute("data-squeeze", "2");
+      if (bar.getAttribute("data-squeeze") !== was) {
+        const current = bar.querySelector<HTMLElement>('[aria-current="page"]');
+        const glide = bar.querySelector<HTMLElement>(".vault-glide");
+        if (current && glide) { glide.style.width = `${current.offsetWidth}px`; glide.style.left = `${current.offsetLeft}px`; }
+      }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(bar);
+    void document.fonts?.ready.then(fit);
+    return () => ro.disconnect();
+  }, [hub, lang]);
+
   useEffect(() => {
     const root = vaultRef.current;
     if (!root) return;
@@ -546,6 +587,26 @@ export function Shell() {
     if (ready && session) window.dispatchEvent(new Event("faro:shell-ready"));
   }, [ready, !!session]);
 
+  // The manual's text: warm it when idle. A deep link (#manual or #manual=<topic>) opens it once, after unlock.
+  const linked = useRef(false);
+  useEffect(() => {
+    if (!ready || !session) return;
+    prefetchManual();
+    if (linked.current) return;
+    linked.current = true;
+    const m = /^#manual(?:=([\w-]+))?$/.exec(location.hash);
+    if (!m) return;
+    history.replaceState(history.state, "", location.pathname + location.search);
+    faro.openManual(m[1] ?? "");
+  }, [ready, !!session]);
+
+  // "Ir allí" to Cambio on a wide screen opens the side panel (the sheet is for phones).
+  useEffect(() => {
+    const onOpen = (e: Event) => { if ((e as CustomEvent).detail === "money-aside") setMoneyOpen(true); };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
+
   if (!ready || !session) {
     return (
       <main className="splash">
@@ -583,6 +644,7 @@ export function Shell() {
     setFloatMin((m) => !m);
   };
   return (
+    <>
     <div className={`app-frame${split ? " is-split" : ""}${wide && split && splitAxis === "col" ? " is-cols" : ""}${dragging ? " is-dragging" : ""}${dockClass}`}>
       <nav ref={railRef} className="rail" aria-label={t("nav.desk")}>
         <div className="dock-face">
@@ -617,17 +679,17 @@ export function Shell() {
         <div ref={topPaneRef} className={split ? "split-pane" : "stage-pane"} style={split ? { flex: `0 0 ${draggingRef.current ? liveRatio.current : splitRatio}%` } : undefined}>
         <header className="top-chrome">
           <div className="top-row">
-            <button type="button" className="brand-mini" onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
+            <button type="button" className="brand-mini" data-anchor="top-brand" onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
               <span className="brand-lamp" aria-hidden>
                 <i className="brand-beam" />
                 <i className="brand-glow" />
                 <Mark className="size-7" bold />
               </span>
               <span className="brand-word">Faro</span>
-              <i className={`sync-dot ${sync}`} title={t(SYNC_KEY[sync])} />
+              <i data-anchor="top-sync" className={`sync-dot ${sync}`} title={t(SYNC_KEY[sync])} />
             </button>
             <div className="top-actions">
-              <div className="hist-nav">
+              <div className="hist-nav" data-anchor="top-undo">
                 <button type="button" className="hist-btn" aria-label={t("undo")} disabled={!canUndo} onClick={undo}>
                   <Undo2 />
                 </button>
@@ -637,7 +699,7 @@ export function Shell() {
               </div>
               <div className="desk-grid">
                 <ExportPanel open={exportOpen} onOpenChange={setExportOpen} />
-                <button type="button" className="icon-btn phone-gear" aria-label={t("nav.settings")} aria-current={hub === "settings" ? "page" : undefined} onClick={() => setUi({ section: "settings" })}>
+                <button type="button" data-anchor="top-gear" className="icon-btn phone-gear" aria-label={t("nav.settings")} aria-current={hub === "settings" ? "page" : undefined} onClick={() => setUi({ section: "settings" })}>
                   <Settings className="size-4" />
                 </button>
               </div>
@@ -648,11 +710,13 @@ export function Shell() {
             <div className="hub-line">
               <span className="hub-mark" aria-hidden />
               <span className="hub-name">{hub === "books" ? t("hub.books") : hub === "study" ? t("hub.study") : hub === "settings" ? t("nav.settings") : t("nav.desk")}</span>
+              <Hint topic={hub === "books" ? "libros" : hub === "study" ? (ui.section === "advice" ? "asesor" : "estudio") : hub === "settings" ? "ajustes" : "central"} className="hub-hint" avoid=".icon-desk .icon-desk-tools > *" />
             </div>
             <div className="icon-desk-tools">
               <button
                 type="button"
                 className="icon-btn theme-toggle cal-launch"
+                data-anchor="top-theme"
                 aria-label={NIGHT_THEMES.includes(session.ledger.settings.theme) ? t("theme.day") : t("theme.night")}
                 onClick={() => {
                   const current = session.ledger.settings.theme;
@@ -667,7 +731,7 @@ export function Shell() {
               >
                 {NIGHT_THEMES.includes(session.ledger.settings.theme) ? <Sun className="size-4" /> : <Moon className="size-4" />}
               </button>
-              <div className="cal-anchor view-anchor" ref={viewRef}>
+              <div className="cal-anchor view-anchor" ref={viewRef} data-anchor="top-view">
                 <button
                   type="button"
                   className={`icon-btn theme-toggle cal-launch${split || floatOn ? " is-on" : ""}`}
@@ -705,13 +769,13 @@ export function Shell() {
                   </div>
                 ) : null}
               </div>
-              <div className="cal-anchor search-anchor" ref={searchRef}>
+              <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
                 <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => { setSearchListed(false); setSearchOpen((v) => !v); }}>
                   <Search className="size-4" />
                 </button>
               </div>
               <div className="desk-grid">
-                <div className="cal-anchor" ref={calRef}>
+                <div className="cal-anchor" ref={calRef} data-anchor="top-cal">
                   <button
                     type="button"
                     className="icon-btn theme-toggle cal-launch"
@@ -835,6 +899,7 @@ export function Shell() {
               <button
                 type="button"
                 className="currency-bubble"
+                data-anchor="top-coin"
                 aria-label={t("currency.toggle")}
                 onClick={() => faro.commit((s) => ({ ...s, settings: { ...s.settings, display: s.settings.display === "NIO" ? "USD" : "NIO" } }), "Vista")}
               >
@@ -946,7 +1011,7 @@ export function Shell() {
           >
             {hub === "books" ? (
               <>
-                <div className="seg is-follow" ref={segRef} role="tablist" aria-label={t("hub.books")}>
+                <div className="seg is-follow" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor="books-tabs">
                   <i className="seg-pill" aria-hidden style={vault ? { opacity: 0 } : undefined} />
                   {BOOKS.map((id) => (
                     <button key={id} type="button" role="tab" aria-selected={!vault && ui.section === id} aria-current={!vault && ui.section === id ? "page" : undefined} onClick={() => { setVault(null); setUi({ section: id }); }}>
@@ -955,7 +1020,7 @@ export function Shell() {
                     </button>
                   ))}
                 </div>
-                <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#72b4b2") : vault === "emergencia" ? vtint("#7aa2c4") : vault === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
+                <div className="vault-bar" ref={vaultRef} data-anchor="vault-tabs" style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#72b4b2") : vault === "emergencia" ? vtint("#7aa2c4") : vault === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
                   <i className={`vault-glide${vault ? " is-on" : ""}${vault === "save" ? " is-save" : ""}`} aria-hidden />
                   {VAULT.map((id) => (
                     <button key={id} type="button" role="tab" aria-selected={vault === id} aria-current={vault === id ? "page" : undefined} onClick={() => {
@@ -966,6 +1031,7 @@ export function Shell() {
                       <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
                     </button>
                   ))}
+                  <Hint topic="ahorros-tabs" className="is-tabs" />
                 </div>
                 <div key={vault ?? ui.section} className={`swipe-pane${vault ? " is-vault" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
                 {vault ? <Desk focus={vault} /> : ui.section === "shops" ? <Shops /> : ui.section === "subs" ? <Subs /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
@@ -1056,6 +1122,9 @@ export function Shell() {
       ) : null}
       <Help />
     </div>
+    {ui.manual !== null ? <Suspense fallback={<div className="mn-layer is-loading" />}><ManualLayer /></Suspense> : null}
+    <FocusHost />
+    </>
   );
 }
 
@@ -1085,7 +1154,7 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
   const { t } = useFaro();
   const hub = hubOf(section);
   return (
-    <nav className="dock" style={{ ["--dock" as string]: hub === "books" ? 1 : hub === "study" ? 2 : 0 }} aria-label={t("nav.desk")}>
+    <nav className="dock" data-anchor="nav-dock" style={{ ["--dock" as string]: hub === "books" ? 1 : hub === "study" ? 2 : 0 }} aria-label={t("nav.desk")}>
       <i className="dock-glide" aria-hidden><i key={hub} className="dock-sheen" /></i>
       <button type="button" className="nav-btn" aria-current={hub === "desk" ? "page" : undefined} onClick={() => { if (hub !== "desk") onSection("desk"); }}>
         <SectionIcon id="desk" />

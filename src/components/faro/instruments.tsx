@@ -5,6 +5,8 @@ import { ArrowUpDown, Calculator, Check, RotateCcw, SlidersHorizontal, ChevronDo
 import { convertMinor, evalExpr, formatMoney, formatRate, parseAmount } from "@/lib/faro/money";
 import type { Currency } from "@/lib/faro/types";
 import { useFaro } from "./provider";
+import { useLayer } from "@/lib/manual/back";
+import { Hint } from "./hint";
 
 const SLIPS_KEY = "faro-slips";
 
@@ -38,6 +40,11 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
   const [calcOn, setCalcOn] = useState(false);
   const [slips, setSlips] = useState<Slip[]>(() => readSlips());
   const [fxOpen, setFxOpen] = useState(() => localStorage.getItem("faro-fx-open") !== "0");
+  useEffect(() => {
+    const onOpen = (e: Event) => { if ((e as CustomEvent).detail === "tools-rate") setFxOpen(true); };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   const [editId, setEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const touched = useRef(false);
@@ -114,13 +121,13 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
   };
   return (
     <div className="tool-stack" ref={box}>
-      <section className={`card tool-card rate-plate${fxOpen ? "" : " is-shut"}`}>
+      <section className={`card tool-card rate-plate${fxOpen ? "" : " is-shut"}`} data-anchor="tools-rate">
         <div className="tool-title">
-          <button type="button" className="fx-fold" aria-expanded={fxOpen} onClick={() => setFxOpen((open) => !open)}>
-            <span className="serif text-xl">{t("rate.label")}</span>
+          <div role="button" tabIndex={0} className="fx-fold" aria-expanded={fxOpen} onClick={() => setFxOpen((open) => !open)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFxOpen((open) => !open); } }}>
+            <span className="serif text-xl lab-head">{t("rate.label")}<Hint topic="tasa" /></span>
             {fxOpen ? null : <em className="fx-brief num">C${formatRate(settings.rateE4)}</em>}
             <ChevronDown className={fxOpen ? "fold-chev is-open" : "fold-chev"} />
-          </button>
+          </div>
         </div>
         {fxOpen ? (
           <>
@@ -150,14 +157,14 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           </>
         ) : null}
       </section>
-      <section className="card tool-card tool-convert cv">
+      <section className="card tool-card tool-convert cv" data-anchor="tools-convert">
         <div className="tool-title">
-          <span className="serif text-xl">{t("convert.title")}</span>
+          <span className="serif text-xl lab-head">{t("convert.title")}<Hint topic="convertidor" /></span>
           <span className="cv-tools">
           <button type="button" className={`icon-btn cv-gear${prefsOn ? " is-on" : ""}`} aria-pressed={prefsOn} aria-expanded={prefsOn} aria-label={lang === "en" ? "Exchange settings" : "Ajustes del cambio"} onClick={() => setPrefsOn((v) => !v)}>
             <SlidersHorizontal className="size-4" />
           </button>
-          <button type="button" className={`icon-btn calc-launch${calcOn ? " is-on" : ""}`} aria-pressed={calcOn} aria-label={t("calc.open")} onClick={() => setCalcOn((v) => !v)}>
+          <button type="button" data-anchor="tools-calc" className={`icon-btn calc-launch${calcOn ? " is-on" : ""}`} aria-pressed={calcOn} aria-label={t("calc.open")} onClick={() => setCalcOn((v) => !v)}>
             <Calculator className="size-4" />
           </button>
           </span>
@@ -215,9 +222,9 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           onClose={() => setCalcOn(false)}
         />
       ) : null}
-      <section className="card tool-card">
+      <section className="card tool-card" data-anchor="tools-slips">
         <div className="slip-head">
-          <h2 className="serif text-xl">{t("slips.title")}</h2>
+          <h2 className="serif text-xl lab-head">{t("slips.title")}<Hint topic="guardados" /></h2>
           {slips.length > 0 ? (
             <button
               type="button"
@@ -365,6 +372,7 @@ function readPrefs(): CvPrefs {
 }
 
 function CvSettings({ prefs, lang, onChange, onDone }: { prefs: CvPrefs; lang: string; onChange: (p: CvPrefs) => void; onDone: () => void }) {
+  useLayer(true, onDone);
   const en = lang === "en";
   const [usd, setUsd] = useState(() => [...prefs.usd, ...Array(SLOTS).fill("")].slice(0, SLOTS));
   const [nio, setNio] = useState(() => [...prefs.nio, ...Array(SLOTS).fill("")].slice(0, SLOTS));
@@ -404,7 +412,7 @@ function CvSettings({ prefs, lang, onChange, onDone }: { prefs: CvPrefs; lang: s
   );
   return (
     <div className="cvs" role="group" aria-label={en ? "Exchange settings" : "Ajustes del cambio"}>
-      <p className="cvs-intro">{en ? "Choose the amounts you use most. Leave a box empty to hide it." : "Elige los montos que más usas. Deja una casilla vacía para quitarla."}</p>
+      <p className="cvs-intro">{en ? "Choose the amounts you use most. Leave a box empty to hide it." : "Elige los montos que más usas. Deja una casilla vacía para quitarla."} <Hint topic="cambio-ajustes" className="is-inline" /></p>
       {row("usd", usd, setUsd)}
       {row("nio", nio, setNio)}
       <div className="cvs-group">

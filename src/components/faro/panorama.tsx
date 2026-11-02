@@ -1,10 +1,12 @@
 import "./panorama.css";
-import { useMemo, useState, type ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight, CalendarClock, ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowDownRight, ArrowUpRight, CalendarClock, ChevronDown, ChevronRight, CircleHelp, Sparkles, X } from "lucide-react";
+import { useLayer } from "@/lib/manual/back";
 import { useFaro } from "@/components/faro/provider";
 import { readCoach, SCORE_WEIGHTS, type Coach, type CoachLine, type Pillar, type Tone } from "@/lib/faro/coach";
 import type { LineKind, SectionId } from "@/lib/faro/types";
-import { StatFold } from "@/components/faro/charts";
+import { StatFold, useFoldTopic } from "@/components/faro/charts";
+import { Hint } from "./hint";
 import { isTron } from "@/lib/faro/colors";
 
 function sectionFor(kind: string): SectionId {
@@ -123,11 +125,14 @@ function TronDial({ score, tone, label, size }: { score: number; tone: Tone; lab
   );
 }
 
-export function Head({ kicker, title, children }: { kicker?: string; title: string; children?: ReactNode }) {
+export function Head({ kicker, title, children, topic }: { kicker?: string; title: string; children?: ReactNode; topic?: string }) {
+  // The card's (?) rides on the short kicker line (or after the title when there is none), so titles never re-wrap.
+  const fold = useFoldTopic();
+  const id = topic ?? fold;
   return (
     <div className="pano-head">
-      {kicker ? <p className="pano-kicker">{kicker}</p> : null}
-      <h2 className="serif text-2xl">{title}</h2>
+      {kicker ? <p className="pano-kicker">{id ? <span className="lab-head">{kicker}<Hint topic={id} /></span> : kicker}</p> : null}
+      <h2 className={`serif text-2xl${!kicker && id ? " lab-head is-title" : ""}`}>{title}{!kicker && id ? <Hint topic={id} fitParent /> : null}</h2>
       {children}
     </div>
   );
@@ -488,6 +493,7 @@ function markAt(s: number, bands: { from: number; to: number }[]) {
 /** Behind the "?": what the number means, where it sits on the scale, and how its points add up. */
 function ScoreHelp({ coach, onClose }: { coach: Coach; onClose: () => void }) {
   const { lang } = useFaro();
+  useLayer(true, onClose);
   const en = lang === "en";
   const rows = useMemo(() => {
     const raw = coach.pillars.map((p) => {
@@ -579,13 +585,14 @@ export function HealthCard({ coach }: { coach: Coach }) {
             aria-expanded={help}
             aria-label={en ? `What does ${coach.score} mean?` : `¿Qué significa ${coach.score}?`}
             onClick={() => setHelp((v) => !v)}
-          >?</button>
+          ><CircleHelp aria-hidden /></button>
         </div>
         {help ? <ScoreHelp coach={coach} onClose={() => setHelp(false)} /> : null}
         <p className="pano-lead">
           {lang === "en"
             ? "A 0–100 score from five things: how much you spend, save, owe, how big your cushion is, and how steady your income is."
             : "Una nota de 0 a 100 hecha con cinco cosas: cuánto gastas, ahorras y debes, qué tan grande es tu colchón y qué tan seguro es lo que entra."}
+          <Hint topic="pilares" className="is-inline" avoid=".pano-health" />
         </p>
       </div>
       <div className="pano-pillars">
@@ -627,12 +634,17 @@ export function CoachHero() {
   const { fmt, lang } = useFaro();
   const [open, setOpen] = useState<string | null>(null);
   const [words, setWords] = useState(false);
+  useEffect(() => {
+    const onOpen = (e: Event) => { if ((e as CustomEvent).detail === "coach-words") setWords(true); };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   if (!coach) return null;
   return (
-    <section className={`coach is-${coach.scoreTone}`}>
+    <section className={`coach is-${coach.scoreTone}`} data-anchor="coach">
       <div className="coach-top">
         <div className="coach-copy">
-          <p className="pano-kicker"><Sparkles aria-hidden />{lang === "en" ? "Your month, plainly" : "Tu mes, en claro"}</p>
+          <p className="pano-kicker"><Sparkles aria-hidden /><span className="lab-head">{lang === "en" ? "Your month, plainly" : "Tu mes, en claro"}<Hint topic="tu-mes-en-claro" avoid=".coach-top @.pano-dial" /></span></p>
           <h2 className="serif coach-verdict">{coach.verdict}</h2>
           {coach.verdictSub ? <p className="coach-sub">{coach.verdictSub}</p> : null}
         </div>
@@ -644,8 +656,8 @@ export function CoachHero() {
         </div>
       ) : null}
       {coach.income > 0 ? <p className="coach-line">{coach.per100Line}</p> : null}
-      <h3 className="coach-h3">{lang === "en" ? "What I'd do now" : "Lo que yo haría ahora"}</h3>
-      <ol className="coach-steps">
+      <h3 className="coach-h3 lab-head">{lang === "en" ? "What I'd do now" : "Lo que yo haría ahora"}<Hint topic="lo-que-haria" /></h3>
+      <ol className="coach-steps" data-anchor="coach-steps">
         {coach.steps.map((s, i) => (
           <li key={s.id} className={`is-${s.tone}`}>
             <span className="coach-n">{i + 1}</span>
@@ -657,11 +669,11 @@ export function CoachHero() {
           </li>
         ))}
       </ol>
-      <h3 className="coach-h3">{lang === "en" ? "Five checks" : "Cinco chequeos"}</h3>
-      <div className="pano-pillars">
+      <h3 className="coach-h3 lab-head">{lang === "en" ? "Five checks" : "Cinco chequeos"}<Hint topic="cinco-chequeos" /></h3>
+      <div className="pano-pillars" data-anchor="coach-pillars">
         {coach.pillars.map((p) => <PillarRow key={p.id} pillar={p} open={open === p.id} onToggle={() => setOpen((cur) => (cur === p.id ? null : p.id))} />)}
       </div>
-      <button type="button" className="coach-words" aria-expanded={words} onClick={() => setWords((on) => !on)}>
+      <button type="button" data-anchor="coach-words" className="coach-words" aria-expanded={words} onClick={() => setWords((on) => !on)}>
         <span>{lang === "en" ? "Plain words" : "Palabras claras"}</span>
         <ChevronDown aria-hidden className={words ? "is-open" : ""} />
       </button>

@@ -4,6 +4,7 @@ import { ChevronRight, House, PiggyBank, ShoppingBag, Wallet } from "lucide-reac
 import { useId } from "react";
 import type React from "react";
 import { useFaro } from "@/components/faro/provider";
+import { Hint } from "./hint";
 import type { AdviceCard, SectionId } from "@/lib/faro/types";
 import type { readAdvisor } from "@/lib/faro/advisor";
 import { isTron, tronize } from "@/lib/faro/colors";
@@ -311,7 +312,7 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
           <path d="M14 194 Q36 186 60 189 Q86 186 106 194 L106 206 L14 206 Z" className="a2-rock" />
         </svg>
         <div className="a2-tower-say">
-          <em>{short ? L(lang, "Este mes te faltan", "This month you're short") : L(lang, "Este mes te quedan", "This month you keep")}</em>
+          <em className="lab-head">{short ? L(lang, "Este mes te faltan", "This month you're short") : L(lang, "Este mes te quedan", "This month you keep")}<Hint topic="faro-del-mes" avoid=".a2-tower-say" /></em>
           <strong className={`num serif ${short ? "bad" : ""}`}>{fmt(Math.abs(left))}</strong>
           {!short && income > 0 ? <span className="a2-badge">{L(lang, `${pctLeft} de cada ${hundred}`, `${pctLeft} of every ${hundred}`)}</span> : null}
         </div>
@@ -345,7 +346,7 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
         </div>
       </div>
       <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}><span>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</span><ChevronRight aria-hidden className="a2-more-chev" /></button>
-      {more ? <div className="a2-detail">{children}</div> : null}
+      {more ? <div className="a2-detail"><Hint topic="cifras-asesor" className="is-detail" />{children}</div> : null}
     </div>
   );
 }
