@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
@@ -96,7 +96,7 @@ function lineGlyph(line: Line, structure?: { categories: { id: string; icon: str
   if (line.icon && line.icon !== "Circle") return line.icon;
   const cat = structure?.categories.find((item) => item.id === line.categoryId);
   const sub = cat?.subs.find((item) => item.id === line.subId);
-  if (sub?.icon && sub.icon !== "Circle") return sub.icon;
+  if (sub?.icon && sub.icon !== "Circle") return vaultGlyph(sub.icon) ?? sub.icon;
   if (cat?.icon && cat.icon !== "Circle") return cat.icon;
   const purchase = structure?.purchases.find((item) => item.id === line.categoryId);
   if (purchase?.icon && purchase.icon !== "Circle") return purchase.icon;
@@ -105,10 +105,56 @@ function lineGlyph(line: Line, structure?: { categories: { id: string; icon: str
   return "Circle";
 }
 
+/* Picker display helpers: the palette swatch nearest a stored colour (OKLab), shown as selected until the user picks. */
+function hexLab(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const lin = (v: number) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const r = lin((n >> 16) & 255), g = lin((n >> 8) & 255), b = lin(n & 255);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const mm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const q = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.793617785 * mm - 0.0040720468 * q, 1.9779984951 * l - 2.428592205 * mm + 0.4505937099 * q, 0.0259040371 * l + 0.7827717662 * mm - 0.808675766 * q];
+}
+function nearestSwatch(color: string): string {
+  const hit = PALETTE.find((swatch) => swatch.toLowerCase() === (color || "").toLowerCase());
+  if (hit) return hit;
+  const want = hexLab(color || "");
+  if (!want) return "";
+  let best = "", bestD = Infinity;
+  for (const swatch of PALETTE) {
+    const lab = hexLab(swatch);
+    if (!lab) continue;
+    const d = (lab[0] - want[0]) ** 2 + (lab[1] - want[1]) ** 2 + (lab[2] - want[2]) ** 2;
+    if (d < bestD) { bestD = d; best = swatch; }
+  }
+  return best;
+}
+/* Account (vault) rows keep their "vault:" marker when given a picker glyph: "vault:g:<Glyph>". */
+function vaultGlyph(icon: string): string | null {
+  return icon.startsWith("vault:g:") ? icon.slice(8) : null;
+}
+
 function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, bubbles }: { glyph: string; color: string; onGlyph: (value: string) => void; onColor: (value: string) => void; pinned?: boolean; startOpen?: boolean; onClose?: () => void; bubbles?: boolean }) {
   const { t } = useFaro();
   const [open, setOpen] = useState(!!pinned || !!startOpen);
   const ref = useRef<HTMLDivElement>(null);
+  const iconsRef = useRef<HTMLDivElement>(null);
+  const shown = nearestSwatch(color);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const sc = iconsRef.current;
+    const sel = sc?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!sc || !sel) return;
+    const box = sc.getBoundingClientRect(), hit = sel.getBoundingClientRect();
+    /* Put the selected icon's row third from the top (about the middle of the 4.5 visible rows), snapped to a row
+       boundary so the top row is never cut. */
+    const pad = parseFloat(getComputedStyle(sc).paddingTop) || 0;
+    const step = hit.height + (parseFloat(getComputedStyle(sc).rowGap) || 0);
+    const rowTop = sc.scrollTop + hit.top - box.top - pad;
+    sc.scrollTop = Math.max(0, rowTop - 2 * step);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const hold = window as Window & { __faroLook?: number; __faroSkipPop?: number };
@@ -141,7 +187,7 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
     const down = (event: PointerEvent) => {
       const node = event.target;
       if (!(node instanceof Element)) return;
-      if (ref.current?.contains(node) || node.closest("[data-look-toggle], .form-block, .modal-back, .bubble-tools")) return;
+      if (ref.current?.contains(node) || node.closest("[data-look-toggle], .form-block, .modal-back, .bubble-tools, .ftip-pop")) return;
       shut(false);
     };
     const back = (event: Event) => {
@@ -184,14 +230,14 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
       )}
       {open ? (
         <div className="look-dock" style={{ ["--seg" as string]: color }} onPointerDown={(event) => event.stopPropagation()}>
-          {bubbles ? <p className="look-label">{t("look.bubble")}</p> : null}
+          {bubbles ? <p className="look-label"><span className="lab-head">{t("look.bubble")}<FieldTip text={t("tip.look.bubble")} /></span></p> : null}
           <div className="look-colors">
             {PALETTE.map((swatch) => (
-              <button key={swatch} type="button" style={{ background: washForInk(swatch) }} aria-pressed={color === swatch} aria-label={swatch} onClick={() => onColor(swatch)} />
+              <button key={swatch} type="button" style={{ background: washForInk(swatch) }} aria-pressed={shown === swatch} aria-label={swatch} onClick={() => onColor(swatch)} />
             ))}
           </div>
-          {bubbles ? <p className="look-label">{t("look.icon")}</p> : null}
-          <div className="look-icons">
+          {bubbles ? <p className="look-label"><span className="lab-head">{t("look.icon")}<FieldTip text={t("tip.look.icon")} /></span></p> : null}
+          <div className="look-icons" ref={iconsRef} onScroll={(event) => { const el = event.currentTarget; el.toggleAttribute("data-end", el.scrollTop + el.clientHeight >= el.scrollHeight - 2); }}>
             {LOOK_ICONS.map((name) => (
               <button key={name} type="button" aria-pressed={glyph === name} aria-label={name} style={{ ["--ink" as string]: color, background: washForInk(color), color: "#14110e" }} onClick={() => onGlyph(name)}><Glyph name={name} /></button>
             ))}
@@ -1638,7 +1684,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         subs: [
           ...c.subs.map((sub) => {
             const known = [["paypal", "vault:paypal"], ["chase", "vault:chase"], ["state farm", "vault:statefarm"], ["lafise", "vault:lafise"], ["banpro", "vault:banpro"], ["bac", "vault:bac"]].find(([name]) => (sub.customName || "").trim().toLowerCase() === name);
-            return known && known[1] && (sub.icon === "vault" || sub.icon.startsWith("vault:")) ? { ...sub, icon: known[1] } : sub;
+            return known && known[1] && !vaultGlyph(sub.icon) && (sub.icon === "vault" || sub.icon.startsWith("vault:")) ? { ...sub, icon: known[1] } : sub;
           }),
           ...banks.map(([id, name, icon], i) => ({ id, nameKey: "", customName: name, icon, hidden: false, order: 90 + i })),
         ],
@@ -2127,7 +2173,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     commit((s) => {
       const categories = icon ? s.structure.categories.map((c) => c.id !== row.categoryId ? c : {
         ...c,
-        subs: c.subs.map((sub) => sub.id === row.id ? { ...sub, icon: icon.startsWith("vault:") || icon.startsWith("brand:") ? icon : icon } : sub),
+        subs: c.subs.map((sub) => sub.id === row.id ? { ...sub, icon: icon.startsWith("vault:") ? icon : `vault:g:${icon}` } : sub),
       }) : s.structure.categories;
       const months = { ...s.months };
       for (const [month, bucket] of Object.entries(months)) {
@@ -2778,7 +2824,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                       ) : (
                         <span className="bank-name">
                           <button type="button" className="look-mark" data-look-toggle aria-label={t("look.title")} aria-pressed={lookId === row.id} onClick={(event) => { event.stopPropagation(); setLookId(lookId === row.id ? null : row.id); }}>
-                            {row.icon.startsWith("vault:data:") ? <img src={row.icon.slice(6)} alt="" className="bank-photo" /> : row.icon.startsWith("vault:") || row.icon.startsWith("brand:") ? <BrandMark id={row.icon.slice(row.icon.indexOf(":") + 1)} className="size-4" /> : <Glyph name={row.icon === "vault" ? "Landmark" : row.icon} className="size-4" />}
+                            {vaultGlyph(row.icon) ? <Glyph name={vaultGlyph(row.icon)!} className="size-4" /> : row.icon.startsWith("vault:data:") ? <img src={row.icon.slice(6)} alt="" className="bank-photo" /> : row.icon.startsWith("vault:") || row.icon.startsWith("brand:") ? <BrandMark id={row.icon.slice(row.icon.indexOf(":") + 1)} className="size-4" /> : <Glyph name={row.icon === "vault" ? "Landmark" : row.icon} className="size-4" />}
                           </button>
                           <button type="button" aria-pressed={accountFocus === row.id} onClick={() => {
                             setAccountFocus((cur) => {
@@ -2846,7 +2892,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   {lookId === row.id ? (
                     <BookLook
                       pinned
-                      glyph={row.icon.startsWith("vault:") || row.icon.startsWith("brand:") || row.icon === "vault" ? "Landmark" : row.icon}
+                      glyph={vaultGlyph(row.icon) ?? (row.icon.startsWith("vault:") || row.icon.startsWith("brand:") || row.icon === "vault" ? "Landmark" : row.icon)}
                       color={lines.find((line) => line.subId === row.id)?.color || "#e7c27a"}
                       onGlyph={(glyph) => paintBank(row, glyph)}
                       onColor={(color) => paintBank(row, undefined, color)}
@@ -3094,6 +3140,32 @@ export function Shops() {
   const stores = session?.ledger.structure.catalog.filter((c) => c.kind === "store") ?? [];
   const cats = session?.ledger.structure.purchases ?? [];
   const readIcon = (file: File) => { shrinkIcon(file).then(setStoreIcon).catch(() => {}); };
+  const closeStore = () => { setStoreName(""); setStoreIcon(""); setStoreOpen(false); };
+  const saveStore = () => {
+    const name = storeName.trim();
+    if (!name) return;
+    commit((st) => ({
+      ...st,
+      structure: {
+        ...st.structure,
+        catalog: [...st.structure.catalog, { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: storeIcon || "Circle", hidden: false, order: 99, kind: "store", urlTemplate: "" }],
+      },
+    }), name);
+    closeStore();
+  };
+  const closeCat = () => { setCatName(""); setCatOpen(false); };
+  const saveCat = () => {
+    const name = catName.trim();
+    if (!name) return;
+    commit((st) => ({
+      ...st,
+      structure: {
+        ...st.structure,
+        purchases: [...st.structure.purchases, { id: `p-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, color: catColor }],
+      },
+    }), name);
+    closeCat();
+  };
   useEffect(() => {
     if (!open) return;
     const onBack = (e: Event) => {
@@ -3125,21 +3197,11 @@ export function Shops() {
                 setStoreOpen(true);
                 return;
               }
-              const name = storeName.trim();
-              if (!name) {
+              if (!storeName.trim()) {
                 setStoreOpen(false);
                 return;
               }
-              commit((st) => ({
-                ...st,
-                structure: {
-                  ...st.structure,
-                  catalog: [...st.structure.catalog, { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: storeIcon || "Circle", hidden: false, order: 99, kind: "store", urlTemplate: "" }],
-                },
-              }), name);
-              setStoreName("");
-              setStoreIcon("");
-              setStoreOpen(false);
+              saveStore();
             }}>
               <Plus className="size-4" />
             </button>
@@ -3165,12 +3227,26 @@ export function Shops() {
                 ))}
               </div>
               {storeOpen ? (
-                <div className="shop-add">
-                  <input className="field" value={storeName} placeholder={t("shops.addStore")} aria-label={t("shops.addStore")} onChange={(e) => setStoreName(e.target.value)} />
-                  <label className="shop-photo">
-                    {storeIcon ? <img src={storeIcon} alt="" /> : <ImageIcon className="size-4" />}
-                    <input type="file" accept="image/*" aria-label={t("shops.icon")} onChange={(e) => { const file = e.target.files?.[0]; if (file) readIcon(file); }} />
-                  </label>
+                <div className="ah-form sc-form is-store">
+                  <div className="ah-grid">
+                    <div className="label is-wide">
+                      <span className="lab-head">{t("sc.store")}<FieldTip text={t("tip.sc.store")} /></span>
+                      <div className="ah-bank-name">
+                        <span className="bank-photo-wrap">
+                          <label className={`bank-photo-btn${storeIcon ? " is-set" : ""}`} title={t("shops.icon")}>
+                            {storeIcon ? <img src={storeIcon} alt="" /> : <><ImageIcon className="size-4" /><i className="bank-photo-plus" aria-hidden><Plus /></i></>}
+                            <input type="file" accept="image/*" aria-label={t("shops.icon")} onChange={(e) => { const file = e.target.files?.[0]; e.currentTarget.value = ""; if (file) readIcon(file); }} />
+                          </label>
+                          {storeIcon ? <button type="button" className="bank-photo-clear" aria-label={t("sc.logoClear")} onClick={() => setStoreIcon("")}><X /></button> : null}
+                        </span>
+                        <input className="field" value={storeName} placeholder={t("sc.store.ph")} aria-label={t("shops.addStore")} onChange={(e) => setStoreName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveStore(); }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ah-actions">
+                    <button type="button" className="btn secondary" onClick={closeStore}>{t("cancel")}</button>
+                    <button type="button" className="btn" disabled={!storeName.trim()} onClick={saveStore}>{t("save")}</button>
+                  </div>
                 </div>
               ) : null}
             </>
@@ -3186,20 +3262,11 @@ export function Shops() {
                 setCatOpen(true);
                 return;
               }
-              const name = catName.trim();
-              if (!name) {
+              if (!catName.trim()) {
                 setCatOpen(false);
                 return;
               }
-              commit((st) => ({
-                ...st,
-                structure: {
-                  ...st.structure,
-                  purchases: [...st.structure.purchases, { id: `p-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, color: catColor }],
-                },
-              }), name);
-              setCatName("");
-              setCatOpen(false);
+              saveCat();
             }}>
               <Plus className="size-4" />
             </button>
@@ -3241,13 +3308,25 @@ export function Shops() {
                 ))}
               </div>
               {catOpen ? (
-                <div className="shop-add">
-                  <input className="field" value={catName} placeholder={t("shops.addCat")} aria-label={t("shops.addCat")} onChange={(e) => setCatName(e.target.value)} />
-                  <span className="shop-swatches">
-                    {PALETTE.map((color) => (
-                      <button key={color} type="button" style={{ background: color }} aria-pressed={catColor === color} aria-label={color} onClick={() => setCatColor(color)} />
-                    ))}
-                  </span>
+                <div className="ah-form sc-form is-shopcat">
+                  <div className="ah-grid">
+                    <label className="label is-wide">
+                      <span className="lab-head">{t("sc.cat")}<FieldTip text={t("tip.sc.cat")} /></span>
+                      <input className="field" value={catName} placeholder={t("sc.cat.ph")} aria-label={t("shops.addCat")} onChange={(e) => setCatName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveCat(); }} />
+                    </label>
+                    <div className="label is-wide">
+                      <span className="lab-head">{t("sc.color")}<FieldTip text={t("tip.sc.color")} /></span>
+                      <div className="sc-colors" role="radiogroup" aria-label={t("sc.color")}>
+                        {PALETTE.map((color) => (
+                          <button key={color} type="button" role="radio" style={{ background: color }} aria-checked={catColor === color} aria-pressed={catColor === color} aria-label={color} onClick={() => setCatColor(color)} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ah-actions">
+                    <button type="button" className="btn secondary" onClick={closeCat}>{t("cancel")}</button>
+                    <button type="button" className="btn" disabled={!catName.trim()} onClick={saveCat}>{t("save")}</button>
+                  </div>
                 </div>
               ) : null}
             </>
@@ -3991,6 +4070,17 @@ function StructureTree() {
   const [catName, setCatName] = useState("");
   const [catGroup, setCatGroup] = useState<"fixed" | "variable">("fixed");
   if (!session) return null;
+  const addCat = () => {
+    const name = catName.trim();
+    if (!name) return;
+    commit((s) => {
+      const id = `c-${uid().slice(0, 8)}`;
+      const order = s.structure.categories.filter((c) => c.group === catGroup).length;
+      const cat: Category = { id, nameKey: "", customName: name, icon: "Circle", hidden: false, order, group: catGroup, role: "", subs: [] };
+      return { ...s, structure: { ...s.structure, categories: [...s.structure.categories, cat] } };
+    }, name);
+    setCatName("");
+  };
   const needle = q.trim().toLowerCase();
   const categories = session.ledger.structure.categories.slice().sort((a, b) => a.order - b.order);
   const visible = (cat: Category) => {
@@ -4031,26 +4121,25 @@ function StructureTree() {
           </div>
         </div>
       ))}
-      <div className="row mt-4">
-        <input className="field" value={catName} onChange={(e) => setCatName(e.target.value)} placeholder={t("add.cat")} aria-label={t("add.cat")} />
-        <div className="seg" role="radiogroup">
-          {(["fixed", "variable"] as const).map((g) => (
-            <button key={g} type="button" role="radio" aria-checked={catGroup === g} aria-pressed={catGroup === g} onClick={() => setCatGroup(g)}>{t(`group.${g}`)}</button>
-          ))}
+      <div className="ah-form sc-form is-treecat">
+        <div className="ah-grid">
+          <label className="label is-wide">
+            <span className="lab-head">{t("add.cat")}<FieldTip text={t("tip.sc.treeCat")} /></span>
+            <input className="field" value={catName} onChange={(e) => setCatName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addCat(); }} placeholder={t("sc.treeCat.ph")} aria-label={t("add.cat")} />
+          </label>
+          <div className="label is-wide">
+            <span className="lab-head">{t("sc.group")}<FieldTip text={t("tip.sc.group")} /></span>
+            <div className="ah-sign" role="radiogroup" aria-label={t("sc.group")}>
+              {(["fixed", "variable"] as const).map((g) => (
+                <button key={g} type="button" role="radio" aria-checked={catGroup === g} aria-pressed={catGroup === g} onClick={() => setCatGroup(g)}>{t(`sc.${g}`)}</button>
+              ))}
+            </div>
+          </div>
         </div>
-        <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
-          const name = catName.trim();
-          if (!name) return;
-          commit((s) => {
-            const id = `c-${uid().slice(0, 8)}`;
-            const order = s.structure.categories.filter((c) => c.group === catGroup).length;
-            const cat: Category = { id, nameKey: "", customName: name, icon: "Circle", hidden: false, order, group: catGroup, role: "", subs: [] };
-            return { ...s, structure: { ...s.structure, categories: [...s.structure.categories, cat] } };
-          }, name);
-          setCatName("");
-        }}>
-          <Plus className="size-4" />
-        </button>
+        <div className="ah-actions">
+          <button type="button" className="btn secondary" onClick={() => { setCatName(""); setCatGroup("fixed"); }}>{t("cancel")}</button>
+          <button type="button" className="btn" disabled={!catName.trim()} onClick={addCat}>{t("save")}</button>
+        </div>
       </div>
     </div>
   );
@@ -4062,6 +4151,12 @@ function TreePanel({ cat }: { cat: Category }) {
   const [subName, setSubName] = useState("");
   const [editSub, setEditSub] = useState<string | null>(null);
   const [subEdit, setSubEdit] = useState("");
+  const addSub = () => {
+    const next = subName.trim();
+    if (!next) return;
+    patch((c) => ({ ...c, subs: [...c.subs, { id: `${c.id}.${uid().slice(0, 6)}`, nameKey: "", customName: next, icon: "Circle", hidden: false, order: c.subs.length }] }), next);
+    setSubName("");
+  };
   function patch(run: (cat: Category) => Category, detail: string) {
     commit((s) => ({
       ...s,
@@ -4109,14 +4204,17 @@ function TreePanel({ cat }: { cat: Category }) {
           </span>
         </div>
       ))}
-      <div className="row">
-        <input className="field" value={subName} onChange={(e) => setSubName(e.target.value)} placeholder={t("add.sub")} aria-label={t("add.sub")} />
-        <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
-          const next = subName.trim();
-          if (!next) return;
-          patch((c) => ({ ...c, subs: [...c.subs, { id: `${c.id}.${uid().slice(0, 6)}`, nameKey: "", customName: next, icon: "Circle", hidden: false, order: c.subs.length }] }), next);
-          setSubName("");
-        }}><Plus className="size-4" /></button>
+      <div className="ah-form sc-form is-treesub">
+        <div className="ah-grid">
+          <label className="label is-wide">
+            <span className="lab-head">{t("sc.sub")}<FieldTip text={t("tip.sc.sub")} /></span>
+            <input className="field" value={subName} onChange={(e) => setSubName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addSub(); }} placeholder={t("sc.sub.ph")} aria-label={t("add.sub")} />
+          </label>
+        </div>
+        <div className="ah-actions">
+          <button type="button" className="btn secondary" onClick={() => setSubName("")}>{t("cancel")}</button>
+          <button type="button" className="btn" disabled={!subName.trim()} onClick={addSub}>{t("save")}</button>
+        </div>
       </div>
     </div>
   );
@@ -4127,6 +4225,15 @@ function CatalogEditor() {
   const [itemName, setItemName] = useState("");
   const [iconFor, setIconFor] = useState<string | null>(null);
   const catalog = session?.ledger.structure.catalog ?? [];
+  const addItem = () => {
+    const name = itemName.trim();
+    if (!name) return;
+    commit((s) => ({
+      ...s,
+      structure: { ...s.structure, catalog: [...s.structure.catalog, { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: "store", urlTemplate: "" }] },
+    }), name);
+    setItemName("");
+  };
   return (
     <div className="mt-2">
       {catalog.map((item) => (
@@ -4151,17 +4258,17 @@ function CatalogEditor() {
           ))}
         </div>
       ) : null}
-      <div className="row mt-3">
-        <input className="field" value={itemName} placeholder={t("add.item")} aria-label={t("add.item")} onChange={(e) => setItemName(e.target.value)} />
-        <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
-          const name = itemName.trim();
-          if (!name) return;
-          commit((s) => ({
-            ...s,
-            structure: { ...s.structure, catalog: [...s.structure.catalog, { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: "store", urlTemplate: "" }] },
-          }), name);
-          setItemName("");
-        }}><Plus className="size-4" /></button>
+      <div className="ah-form sc-form is-item">
+        <div className="ah-grid">
+          <label className="label is-wide">
+            <span className="lab-head">{t("sc.item")}<FieldTip text={t("tip.sc.item")} /></span>
+            <input className="field" value={itemName} placeholder={t("sc.item.ph")} aria-label={t("add.item")} onChange={(e) => setItemName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addItem(); }} />
+          </label>
+        </div>
+        <div className="ah-actions">
+          <button type="button" className="btn secondary" onClick={() => setItemName("")}>{t("cancel")}</button>
+          <button type="button" className="btn" disabled={!itemName.trim()} onClick={addItem}>{t("save")}</button>
+        </div>
       </div>
     </div>
   );

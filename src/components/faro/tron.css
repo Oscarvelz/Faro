@@ -1077,3 +1077,16 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
   [data-theme="tron"] .ah-form .label { letter-spacing: .04em; }
   [data-theme="tron"] .ah-form .lab-head { gap: 3px; }
 }
+
+/* ==== shop-cat-pass (Nov 1 2026): store / category forms on the grid. Teal labels, frame and choices (from the .ah-form
+   Tron rules); no amounts here, so no amber. No new motion. ==== */
+[data-theme="tron"] .shop-desk .sc-form { border-radius: 4px; background: linear-gradient(180deg, rgba(63, 214, 245, .06), rgba(2, 8, 11, .5) 60%, rgba(2, 8, 11, .3)); }
+[data-theme="tron"] .sc-form:is(.is-treecat, .is-treesub, .is-item) { border-top-color: rgba(63, 214, 245, .18); }
+/* look-dock-pass (fix round): teal picker frame, teal rims, one selected-icon look at every width: dark fill, teal ring,
+   soft glow. Rings are 2px and sit in the gap. */
+[data-theme="tron"] .look-dock { border-color: rgba(63, 214, 245, .3); }
+[data-theme="tron"] .look-colors button { border-color: transparent; box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .3); }
+[data-theme="tron"] .look-colors button[aria-pressed="true"] { outline: 2px solid #3fd6f5; outline-offset: 2px; box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .3), 0 0 8px rgba(63, 214, 245, .55); }
+[data-theme="tron"] .look-icons button[aria-pressed="true"] { background: #04141b !important; color: #3fd6f5 !important; box-shadow: 0 0 0 2px #3fd6f5, 0 0 8px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .sc-form .sc-colors button { box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .3); }
+[data-theme="tron"] .sc-form .sc-colors button[aria-pressed="true"] { outline-color: #3fd6f5; box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .3), 0 0 10px rgba(63, 214, 245, .55); }

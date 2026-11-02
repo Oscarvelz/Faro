@@ -2751,3 +2751,64 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
   .save-retire-fold > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   html[data-theme="tron"] .save-retire-fold { font-size: .78rem; }
 }
+/* ==== shop-cat-pass (Nov 1 2026): "add a store" (Compras > gear > Tiendas; Ajustes > Estructura > catálogo) and "add a
+   category" (Compras > gear > Categorías; Ajustes > Estructura: categoría nueva, subcategoría nueva) speak the
+   Cobros / Ahorros language: labels with "?", one tint (Compras) or one hairline (Ajustes) and no inner frames,
+   Cancelar | Guardar on the columns. They reuse the .ah-form base; everything new is under .sc-form, which only these
+   forms carry. ==== */
+.sc-form { --ah-acc: var(--accent); --ah-ink: var(--accent-fg); }
+.shop-desk .sc-form { margin-top: 14px; padding: 14px 14px 16px; border-radius: 20px; background: color-mix(in oklab, var(--ah-acc) 8%, var(--surface)); }
+.sc-form:is(.is-treecat, .is-item) { margin-top: 16px; padding: 14px 0 0; border-top: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); }
+.sc-form.is-treesub { margin-top: 2px; padding: 12px 0 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.sc-form .ah-sign button { font-size: .9rem; }
+/* Category colour: 24 swatches, 8 to a row (12 on wide forms), filling the width in equal cells; no half-empty row. */
+.sc-form .sc-colors { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding: 2px 0; }
+.sc-form .sc-colors button { width: 100%; height: auto; min-height: 0; aspect-ratio: 1; padding: 0; border: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%); }
+.sc-form .sc-colors button[aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 2px; }
+@container (min-width: 28rem) { .sc-form .sc-colors { grid-template-columns: repeat(12, minmax(0, 1fr)); } }
+@container (max-width: 16em) { .sc-form .sc-colors { gap: 6px; } }
+/* Lino: the warm umber tint of the Ahorros / Cobros forms (its --ah-acc already comes from the ahorros-pass rule). */
+html[data-theme="lino"] .shop-desk .sc-form { background: color-mix(in oklab, #b88a62 13%, var(--surface)); }
+
+/* ==== look-dock-pass (Nov 1 2026, fix round): the colour/icon picker (BookLook) fills its box on ONE column grid.
+   Colours and icons share --cols and --lk-g (set from the dock's inner width), so every colour sits exactly over an
+   icon: 6 columns under 296px, 8 from 296px, 12 from 420px. 24 colours = 4 / 3 / 2 full rows. Icon rows are as tall as
+   their cells (aspect 1, auto rows, row gap = column gap); the list shows 4.5 rows computed from the column width and
+   fades out at the bottom (no fade once scrolled to the end). Selected rings are 2px and live in the gap. ==== */
+.look-dock { container: lookdock / inline-size; }
+.look-colors, .look-icons { --cols: 6; --lk-g: 6px; --lk-cell: calc((100cqi - (var(--cols) - 1) * var(--lk-g)) / var(--cols)); }
+@container lookdock (min-width: 296px) { .look-colors, .look-icons { --cols: 8; --lk-g: 8px; } }
+@container lookdock (min-width: 420px) { .look-colors, .look-icons { --cols: 12; --lk-g: 8px; } }
+.look-colors { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: auto; gap: var(--lk-g); }
+.look-colors button { width: 100%; height: auto; aspect-ratio: 1; }
+.look-icons { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: auto; align-content: start; row-gap: var(--lk-g); column-gap: var(--lk-g); box-sizing: border-box; max-height: calc(var(--lk-cell) * 4.5 + 4 * var(--lk-g) + 3px); margin: -3px -3px 0; padding: 3px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); }
+.look-icons[data-end] { -webkit-mask-image: none; mask-image: none; }
+.look-icons::-webkit-scrollbar { display: none; }
+.look-icons button { width: 100%; height: auto; min-height: auto; aspect-ratio: 1; }
+.look-icons button[aria-pressed="true"],
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .look-icons button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 2px #14110e; }
+.look-label .lab-head { gap: 5px; }
+/* Night themes: rings in the theme ink, and a faint light rim on every colour so the dark slate swatch reads. */
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .look-colors button { border-color: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 28%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .look-colors button[aria-pressed="true"] { outline-color: var(--fg); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .look-icons button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 2px var(--fg); }
+/* Lino: a fixed warm umber hairline around the picker instead of the bubble colour. */
+html[data-theme="lino"] .look-dock { border-color: color-mix(in srgb, #8a5a3b 35%, transparent); }
+/* "?" grows with the root font (1.125rem = the usual 18px at a 16px root, so normal text is pixel-identical). */
+:is(.look-dock, .sc-form) .ftip-btn { width: 1.125rem; height: 1.125rem; min-height: 1.125rem; }
+:is(.look-dock, .sc-form) .ftip-btn svg { width: .8125rem; height: .8125rem; }
+/* The pinned picker (Ahorros pocket and account rows) used to take its width from its own content; with the dock now
+   sized by its box it takes the row's full line instead. Only present while it is open. */
+.save-account > .book-look { flex: 1 0 100%; min-width: 0; }
+/* shop-cat-pass fix round: dark themes rim the category swatches; the store logo "+" tucks in; day-theme Fijo/Variable
+   dims the unselected choice so the selected one reads stronger. */
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .sc-form .sc-colors button { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 28%, transparent); }
+.sc-form .bank-photo-plus { right: -3px; bottom: -3px; }
+html:not(:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"])) .sc-form .ah-sign button:not([aria-pressed="true"]) { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+/* look-dock final round: chips cap at 40px, centred in their 1fr cells (columns stay shared, slack spreads evenly so the
+   L/R insets match); the row gap grows by the same slack so spacing stays square. Unlabelled docks (pocket, pinned,
+   account rows) get 1.5 gaps of extra air between the colour block and the icon block. */
+.look-colors, .look-icons { --lk-chip: min(var(--lk-cell), 40px); --lk-rg: calc(var(--lk-g) + var(--lk-cell) - var(--lk-chip)); row-gap: var(--lk-rg); }
+.look-colors button, .look-icons button { max-width: 40px; justify-self: center; }
+.look-icons { max-height: calc(var(--lk-chip) * 4.5 + 4 * var(--lk-rg) + 3px); }
+.look-dock:not(:has(.look-label)) .look-icons { margin-top: calc(var(--lk-g) * 1.5 - 3px); }
