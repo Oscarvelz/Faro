@@ -2350,7 +2350,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }
 
   const vaultStore = focus === "meta" || focus === "retiro" || focus === "emergencia" ? focus : focus === "save" ? "save" : pocketKind;
-  const vaultTone0 = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#72b4b2" : vaultStore === "emergencia" ? "#7aa2c4" : "#d5e2ea";
+  const vaultTone0 = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#72b4b2" : vaultStore === "emergencia" ? "#7aa2c4" : vaultStore === "save" ? SAVINGS_PURPLE : "#d5e2ea";
   const vaultTone = isTron() ? tronize(vaultTone0) : vaultTone0;
   const vaultBase = focus === "save" ? accountTotal : (openSeg?.minor ?? 0);
   const spanNode = (
@@ -2465,7 +2465,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       {cobros ? <Cobros onClose={() => setCobros(false)} /> : null}
       </>
       )}
-      <section className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}`} aria-label={t("desk.savings")}>
+      <section className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
         {focus ? <button type="button" className={`vault-lamp${vaultSort ? " is-on" : ""}`} aria-pressed={vaultSort} aria-label={t("vault.sort")} onClick={() => setVaultSort((on) => !on)} /> : null}
         {focus ? null : (
         <>

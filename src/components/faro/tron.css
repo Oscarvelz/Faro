@@ -594,7 +594,6 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
     #061015 !important;
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vt) 55%, transparent), 0 0 14px -2px color-mix(in oklab, var(--vt) 70%, transparent), 0 4px 10px -4px var(--vt) !important;
 }
-[data-theme="tron"] .vault-glide.is-save { --vt: #3fd6f5; }
 [data-theme="tron"] .vault-glide::before, [data-theme="tron"] .vault-glide::after {
   content: ""; position: absolute; width: 6px; height: 6px; pointer-events: none; border-color: var(--vt); border-style: solid; filter: drop-shadow(0 0 2px var(--vt));
 }
@@ -602,9 +601,7 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
 [data-theme="tron"] .vault-glide::after { right: -1px; top: -1px; border-width: 1.5px 1.5px 0 0; }
 [data-theme="tron"] .vault-bar button { font-family: var(--t-display, inherit); text-transform: uppercase; letter-spacing: .06em; font-size: .56rem; font-weight: 600; color: rgba(170, 225, 240, .55); overflow: hidden; border-radius: 3px; }
 [data-theme="tron"] .vault-bar button[aria-current="page"] { color: #f2fdff; text-shadow: 0 0 8px var(--vtint, #3fd6f5); }
-[data-theme="tron"] .vault-bar:has(.vault-glide.is-save) button[aria-current="page"] { text-shadow: 0 0 8px #3fd6f5; }
 [data-theme="tron"] .vault-bar button[aria-current="page"] svg { color: var(--vtint, #3fd6f5); filter: drop-shadow(0 0 4px currentColor); animation: tron-vlock .42s steps(2, end) 1; }
-[data-theme="tron"] .vault-bar:has(.vault-glide.is-save) button[aria-current="page"] svg { color: #3fd6f5; }
 /* scanline sweep on the tab the moment it is chosen */
 [data-theme="tron"] .vault-bar button::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
   background: linear-gradient(90deg, transparent, rgba(220, 250, 255, .55) 48%, #fff 50%, rgba(220, 250, 255, .55) 52%, transparent) 0 0 / 40% 100% no-repeat; }
@@ -1096,3 +1093,64 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
 [data-theme="tron"] .save-flow { border-color: color-mix(in oklab, var(--save, #3fd6f5) 42%, transparent); background: linear-gradient(180deg, color-mix(in oklab, var(--save, #3fd6f5) 9%, var(--surface)), var(--surface) 96px); }
 [data-theme="tron"] .save-flow-meter { background: #02070a; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--save, #3fd6f5) 24%, transparent); overflow: visible; }
 [data-theme="tron"] .save-flow-meter i { background: linear-gradient(90deg, color-mix(in oklab, var(--save, #3fd6f5) 55%, #02070a), var(--save, #3fd6f5)); box-shadow: 0 0 8px color-mix(in oklab, var(--save, #3fd6f5) 65%, transparent), 0 0 2px var(--save, #3fd6f5); }
+
+/* ==== savings-purple pass 3 (Nov 2 2026): the Savings card and Libros > Ahorros run on the savings neon (--sav, set
+   inline from colors.ts). Amber stays on amounts only; Goal / Retirement / Emergency keep their own light. ==== */
+[data-theme="tron"] .save-band.sav-scope {
+  border-color: color-mix(in oklab, var(--sav) 22%, transparent);
+  background:
+    linear-gradient(var(--sav), var(--sav)) left top / 16px 1.5px no-repeat,
+    linear-gradient(var(--sav), var(--sav)) left top / 1.5px 16px no-repeat,
+    linear-gradient(var(--sav), var(--sav)) right bottom / 16px 1.5px no-repeat,
+    linear-gradient(var(--sav), var(--sav)) right bottom / 1.5px 16px no-repeat,
+    linear-gradient(90deg, transparent 6%, color-mix(in oklab, var(--sav) 55%, transparent) 30%, color-mix(in oklab, var(--sav) 55%, transparent) 70%, transparent 94%) center top / 100% 1px no-repeat,
+    radial-gradient(80% 60% at 50% 0%, color-mix(in oklab, var(--sav) 9%, transparent), transparent 70%),
+    var(--t-steel);
+}
+[data-theme="tron"] .sav-scope .save-name :is(h2, h2 button, .save-word) { color: #f6f0ff; text-shadow: 0 0 12px color-mix(in oklab, var(--sav) 60%, transparent); }
+[data-theme="tron"] .sav-scope .save-word.is-gold { color: #f6f0ff; text-shadow: 0 0 14px color-mix(in oklab, var(--sav) 80%, transparent); }
+[data-theme="tron"] .sav-scope .save-tools strong.num { text-shadow: 0 0 10px color-mix(in oklab, var(--sav) 65%, transparent); }
+[data-theme="tron"] .sav-scope .bank-tap {
+  background: radial-gradient(circle, #061014 58%, transparent 60%), conic-gradient(from 210deg, var(--sav), color-mix(in oklab, var(--sav) 15%, transparent) 40%, var(--sav-lite) 62%, color-mix(in oklab, var(--sav-lite) 15%, transparent) 85%, var(--sav)) !important;
+  box-shadow: 0 0 12px color-mix(in oklab, var(--sav) 50%, transparent) !important;
+}
+[data-theme="tron"] .sav-scope .bank-tap::before { background: conic-gradient(from 0deg, transparent 0 8%, var(--sav) 8% 30%, transparent 30% 50%, var(--sav-lite) 50% 72%, transparent 72%); filter: drop-shadow(0 0 4px var(--sav)); }
+[data-theme="tron"] .sav-scope .bank-tap::after { box-shadow: 0 0 0 1.5px #efe6ff, 0 0 14px var(--sav) !important; }
+[data-theme="tron"] .sav-scope .bank-tap .bank-mark { filter: drop-shadow(0 0 2px var(--sav)) drop-shadow(0 0 7px color-mix(in oklab, var(--sav) 80%, transparent)); }
+[data-theme="tron"] .sav-scope .bank-tap .bank-mark :is(path, circle) { fill: #f3ecff !important; }
+/* Open (accounts editor showing): the same lilac glyph, brighter, with a stronger purple glow. No amber: amber is for amounts. */
+[data-theme="tron"] .sav-scope .bank-tap[aria-expanded="true"] .bank-mark { filter: drop-shadow(0 0 3px var(--sav)) drop-shadow(0 0 11px var(--sav)); }
+[data-theme="tron"] .sav-scope .bank-tap[aria-expanded="true"] .bank-mark :is(path, circle) { fill: #fdfaff !important; }
+/* Accounts card and its forms. */
+html[data-theme="tron"] .save-band.sav-scope .save-more { border-color: color-mix(in oklab, var(--sav) 42%, transparent); box-shadow: inset 0 1px 0 color-mix(in oklab, var(--sav) 35%, transparent), 0 0 14px -8px var(--sav); background: linear-gradient(180deg, color-mix(in oklab, var(--sav) 7%, rgba(9, 16, 20, .9)), rgba(5, 10, 13, .9) 84px); }
+html[data-theme="tron"] .save-band.sav-scope :is(.span-cut, .vault-lever) .fold-chev,
+html[data-theme="tron"] .save-band.sav-scope .save-more .save-ledger-head :is(.ledger-fold, .fold-pin),
+html[data-theme="tron"] .save-band.sav-scope .save-more > .vault-corner-pin:not([aria-pressed="true"]) { color: var(--sav); border-color: color-mix(in oklab, var(--sav) 45%, transparent); }
+[data-theme="tron"] .sav-scope .save-accounts > .save-account { border-color: color-mix(in oklab, var(--sav) 24%, transparent); }
+[data-theme="tron"] .sav-scope .save-accounts > .save-account.is-on { border-color: var(--sav); box-shadow: 0 0 0 1px color-mix(in oklab, var(--sav) 28%, transparent); }
+[data-theme="tron"] .sav-scope .save-more .ah-form { --ah-acc: var(--sav); }
+[data-theme="tron"] .sav-scope .save-account .ah-form, [data-theme="tron"] .sav-scope .save-more .ah-form.is-bank { border-top-color: color-mix(in oklab, var(--sav) 20%, transparent); }
+[data-theme="tron"] .sav-scope .save-more .ah-form :is(.label, .ah-read) { color: color-mix(in oklab, var(--sav) 72%, white); }
+[data-theme="tron"] .sav-scope .save-more .ah-form .ftip-btn { color: color-mix(in oklab, var(--sav) 80%, white); }
+[data-theme="tron"] .sav-scope .save-more .ah-form :is(.field, .day-field-btn) { border-color: color-mix(in oklab, var(--sav) 30%, transparent) !important; }
+[data-theme="tron"] .sav-scope .save-more .ah-form .field::placeholder { color: color-mix(in oklab, var(--sav) 75%, #03090c); }
+[data-theme="tron"] .sav-scope .save-more .ah-form :is(.field, .day-field-btn):is(:focus, :focus-visible) { border-color: var(--sav) !important; box-shadow: 0 0 0 1px var(--sav), 0 0 12px color-mix(in oklab, var(--sav) 40%, transparent) !important; }
+[data-theme="tron"] .sav-scope .save-more .ah-form .ah-sign button { border-color: color-mix(in oklab, var(--sav) 26%, transparent); background: color-mix(in oklab, var(--sav) 4%, transparent); color: color-mix(in oklab, var(--sav) 72%, white); }
+[data-theme="tron"] .sav-scope .save-more .ah-form .ah-sign button[aria-pressed="true"] { color: #f6f0ff; border-color: var(--sav); background: color-mix(in oklab, var(--sav) 14%, transparent); box-shadow: 0 0 10px -2px color-mix(in oklab, var(--sav) 55%, transparent); }
+[data-theme="tron"] .sav-scope .save-more .ah-form .ah-sign button svg { color: var(--sav); }
+[data-theme="tron"] .sav-scope .save-more .ah-form :is(.ah-actions .btn:not(.secondary), .ah-go .btn) { color: #13061f; background: linear-gradient(180deg, color-mix(in oklab, white 30%, var(--sav)), var(--sav)); border-color: transparent; box-shadow: 0 0 14px -2px color-mix(in oklab, var(--sav) 70%, transparent); }
+[data-theme="tron"] .sav-scope .save-more .ah-form .ah-actions .btn.secondary { border-color: color-mix(in oklab, var(--sav) 45%, transparent); color: #efe6ff; }
+[data-theme="tron"] .sav-scope .save-more .bank-photo-btn { border-color: color-mix(in oklab, var(--sav) 55%, transparent) !important; color: color-mix(in oklab, var(--sav) 60%, white); background: linear-gradient(color-mix(in oklab, var(--sav) 8%, transparent), transparent), #03090c !important; box-shadow: inset 0 0 12px color-mix(in oklab, var(--sav) 14%, transparent); }
+[data-theme="tron"] .sav-scope .save-more .bank-photo-btn.is-set { border-color: var(--sav) !important; box-shadow: 0 0 10px color-mix(in oklab, var(--sav) 45%, transparent); }
+[data-theme="tron"] .sav-scope .save-more .bank-photo-plus { background: var(--sav); color: #13061f; box-shadow: 0 0 0 2px #061014, 0 0 8px var(--sav); }
+[data-theme="tron"] .sav-scope .save-more .ah-form .ah-go .btn:not(.is-ready) { opacity: 1; color: color-mix(in oklab, var(--sav) 80%, white); background: color-mix(in oklab, var(--sav) 10%, #03090c); border: 1px solid color-mix(in oklab, var(--sav) 50%, transparent); box-shadow: none; }
+html[data-theme="tron"] .save-band.sav-scope .save-more :is(.save-ledger-head .fold-pin, > .vault-corner-pin)[aria-pressed="true"] { color: #13061f; background: var(--sav); border-color: transparent; box-shadow: 0 0 8px var(--sav); }
+/* savings-purple fix round (Nov 2 2026). The ring's second arc is a light purple (was the amber #ff9d2a). */
+[data-theme="tron"] .sav-scope { --sav-lite: color-mix(in oklab, var(--sav) 45%, white); }
+/* The Central card's track: a purple hairline, and the waiting cycle runs purple-white instead of cyan. */
+[data-theme="tron"] .sav-scope .save-track { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sav) 30%, transparent); }
+[data-theme="tron"] .sav-scope .save-track i:only-child:not([style]) { background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--sav) 45%, transparent) 70%, #efe6ff 96%, transparent) no-repeat; background-size: 22% 100%; background-position: -30% 0; }
+/* Libros > Ahorros: "Set aside this month" rows, its read line and the Month amount pill on the savings neon, not teal. */
+[data-theme="tron"] .sav-scope .save-flow-row { border-top-color: color-mix(in oklab, var(--sav) 24%, transparent); }
+[data-theme="tron"] .sav-scope .save-flow-read { color: color-mix(in oklab, var(--sav) 38%, #b9b3c7); }
+[data-theme="tron"] .save-band.sav-scope .span-fold-main strong { color: #f6f0ff; background: color-mix(in oklab, var(--sav) 12%, #050a0d); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sav) 38%, transparent); }
