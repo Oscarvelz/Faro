@@ -1090,3 +1090,9 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
 [data-theme="tron"] .look-icons button[aria-pressed="true"] { background: #04141b !important; color: #3fd6f5 !important; box-shadow: 0 0 0 2px #3fd6f5, 0 0 8px rgba(63, 214, 245, .45); }
 [data-theme="tron"] .sc-form .sc-colors button { box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .3); }
 [data-theme="tron"] .sc-form .sc-colors button[aria-pressed="true"] { outline-color: #3fd6f5; box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .3), 0 0 10px rgba(63, 214, 245, .55); }
+
+/* Apartado del mes on the Grid: the card keeps its own dark frame with a purple hairline; the meter is a dark slot
+   with a purple light line (no amber: amber is for amounts). */
+[data-theme="tron"] .save-flow { border-color: color-mix(in oklab, var(--save, #3fd6f5) 42%, transparent); background: linear-gradient(180deg, color-mix(in oklab, var(--save, #3fd6f5) 9%, var(--surface)), var(--surface) 96px); }
+[data-theme="tron"] .save-flow-meter { background: #02070a; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--save, #3fd6f5) 24%, transparent); overflow: visible; }
+[data-theme="tron"] .save-flow-meter i { background: linear-gradient(90deg, color-mix(in oklab, var(--save, #3fd6f5) 55%, #02070a), var(--save, #3fd6f5)); box-shadow: 0 0 8px color-mix(in oklab, var(--save, #3fd6f5) 65%, transparent), 0 0 2px var(--save, #3fd6f5); }

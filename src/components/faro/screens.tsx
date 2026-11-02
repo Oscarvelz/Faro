@@ -8,7 +8,7 @@ import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
-import { PALETTE, categoryColor, colorFor, isTron, tronize } from "@/lib/faro/colors";
+import { PALETTE, SAVINGS_PURPLE, baseFor, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
 import { shrinkIcon } from "@/lib/faro/icon";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
@@ -141,7 +141,8 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
   const [open, setOpen] = useState(!!pinned || !!startOpen);
   const ref = useRef<HTMLDivElement>(null);
   const iconsRef = useRef<HTMLDivElement>(null);
-  const shown = nearestSwatch(color);
+  // Ahorros' official purple sits outside the grid: ring nothing rather than a neighbouring violet the line never had.
+  const shown = color.trim().toLowerCase() === SAVINGS_PURPLE ? "" : nearestSwatch(color);
   useLayoutEffect(() => {
     if (!open) return;
     const sc = iconsRef.current;
@@ -252,7 +253,10 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
   const { setUi, session, commit, t } = useFaro();
   const box = useRef<HTMLDivElement>(null);
   const [glyph, setGlyph] = useState(lineGlyph(line, session?.ledger.structure));
-  const [swatch, setSwatch] = useState(line.color || "#97d8b3");
+  // Opens on the colour the line shows (its own choice, else its category's: Ahorros' purple). Only a colour the user
+  // picks here is saved; an untouched swatch is never stamped into the line (same rule as LineForm).
+  const [swatch, setSwatch] = useState(() => chosenTone(line.color, line.categoryId) || baseFor(session?.ledger.structure, line.categoryId));
+  const [picked, setPicked] = useState(false);
   useEffect(() => { revealEditor(box.current); }, []);
   return (
     <div ref={box}>
@@ -267,11 +271,12 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
         }}
         onColor={(next) => {
           setSwatch(next);
+          setPicked(true);
           commit((s) => upsertLine(s, { ...line, color: next }), line.concept || "color");
         }}
       />
       <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<b>{line.concept}</b></p>
-        <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={swatch} dock onClose={() => setUi({ editing: null })} />
+        <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={picked ? swatch : undefined} dock onClose={() => setUi({ editing: null })} />
       </div>
     </div>
   );
@@ -848,8 +853,8 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
                   data-hot={ui.highlight === line.id}
                   aria-pressed={picked === line.id}
                   style={{
-                    backgroundColor: washForInk(line.color || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc")),
-                    ["--tone" as string]: line.color || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc"),
+                    backgroundColor: washForInk(chosenTone(line.color, line.categoryId) || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc")),
+                    ["--tone" as string]: chosenTone(line.color, line.categoryId) || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc"),
                     color: "#14110e",
                   }}
                   onPointerDown={rippleAt}
@@ -1637,6 +1642,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [pocketAmt, setPocketAmt] = useState("");
   const [pocketGlyph, setPocketGlyph] = useState("Flag");
   const [pocketColor, setPocketColor] = useState("#8fb9a6");
+  const [pocketPicked, setPocketPicked] = useState(false);
+  useEffect(() => { if (!adding) setPocketPicked(false); }, [adding]);
   const [lookId, setLookId] = useState<string | null>(null);
   const [retireDate, setRetireDate] = useState("");
   const [retireOpen, setRetireOpen] = useState<string | null>(null);
@@ -2600,12 +2607,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               </div>
             ) : adding ? (
               <>
-                <BookLook glyph={pocketGlyph} color={pocketColor} onGlyph={setPocketGlyph} onColor={setPocketColor} />
+                <BookLook glyph={pocketGlyph} color={pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : baseFor(session.ledger.structure, openSeg.categoryId)} onGlyph={setPocketGlyph} onColor={(c) => { setPocketColor(c); setPocketPicked(true); }} />
                 <LineForm
                   kind="expense-fixed"
                   preset={{ categoryId: openSeg.categoryId, subId: openSeg.id === "rest" ? "" : openSeg.id }}
                   glyph={pocketGlyph}
-                  swatch={pocketColor}
+                  swatch={pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : undefined}
                   dock
                   onClose={() => setAdding(false)}
                 />
@@ -2642,7 +2649,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                           />
                         ) : (
                           <span className="bank-name">
-                            <button type="button" className="look-mark" data-look-toggle aria-label={t("look.title")} aria-pressed={lookId === line.id} style={{ background: line.color ? washForInk(line.color) : undefined, color: "#14110e" }} onClick={(event) => { event.stopPropagation(); setLookId(lookId === line.id ? null : line.id); }}>
+                            <button type="button" className="look-mark" data-look-toggle aria-label={t("look.title")} aria-pressed={lookId === line.id} style={{ background: washForInk(chosenTone(line.color, line.categoryId) || baseFor(session.ledger.structure, line.categoryId)), color: "#14110e" }} onClick={(event) => { event.stopPropagation(); setLookId(lookId === line.id ? null : line.id); }}>
                               {line.icon?.startsWith("brand:") ? <BrandMark id={line.icon.slice(6)} className="size-4" /> : <Glyph name={line.icon && line.icon !== "Circle" ? line.icon : "Flag"} className="size-4" />}
                             </button>
                             <span>{label}</span>
@@ -2689,7 +2696,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                       <BookLook
                         pinned
                         glyph={line.icon?.startsWith("brand:") ? "Plane" : (line.icon && line.icon !== "Circle" ? line.icon : "Flag")}
-                        color={line.color || "#8fb9a6"}
+                        color={chosenTone(line.color, line.categoryId) || baseFor(session.ledger.structure, line.categoryId)}
                         onGlyph={(glyph) => paintLine(line, { icon: glyph })}
                         onColor={(color) => paintLine(line, { color })}
                         onClose={() => setLookId(null)}
@@ -2940,7 +2947,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {focus === "save" ? (
           <div className="vault-block" style={{ order: blockAt("flow") }}>
             {vaultSort ? blockArrows("flow") : null}
-          <div className="save-flow">
+          <div className="save-flow" style={{ ["--save" as string]: colorFor(session.ledger.structure, savingsCats[0]?.id ?? "f-ahorro") }}>
             <div className="save-ledger-head">
               <strong>{t("vault.aside")}</strong>
               <span className="num">{fmt(aside)}</span>
@@ -2951,12 +2958,20 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <p className="save-flow-read">
               {fixedSave.length === 0
                 ? t("vault.none")
-                : `${summary.income > 0 ? `${Math.round((aside / summary.income) * 100)}% ${t("vault.ofIn")}` : ""}${summary.savingsGoal > 0 ? `${summary.income > 0 ? " · " : ""}${aside >= summary.savingsGoal ? t("vault.met") : `${t("vault.short")} ${fmt(summary.savingsGoal - aside)}`}` : ""}`}
+                : (
+                  // Two unbreakable halves; when the card is too narrow for one line (large reader text) they stack and the
+                  // dot goes (CSS), so neither "·" nor "Faltan C$…" is ever left dangling.
+                  <>
+                    {summary.income > 0 ? <span>{`${Math.round((aside / summary.income) * 100)}% ${t("vault.ofIn")}`}</span> : null}
+                    {summary.income > 0 && summary.savingsGoal > 0 ? " " : null}
+                    {summary.savingsGoal > 0 ? <span className={summary.income > 0 ? "has-sep" : undefined}>{aside >= summary.savingsGoal ? t("vault.met") : `${t("vault.short")}\u00a0${fmt(summary.savingsGoal - aside)}`}</span> : null}
+                  </>
+                )}
             </p>
             {fixedSave.map((line) => (
               <div key={line.id} className="save-flow-row">
                 <span className="save-flow-name">
-                  <i className="save-flow-ico" style={{ background: line.color || undefined, ["--ico" as string]: line.color || "#8fb9a6" }}>
+                  <i className="save-flow-ico" style={{ background: chosenTone(line.color, line.categoryId) || undefined, ["--ico" as string]: chosenTone(line.color, line.categoryId) || colorFor(session.ledger.structure, line.categoryId) }}>
                     {line.icon?.startsWith("brand:") ? <BrandMark id={line.icon.slice(6)} /> : <Glyph name={line.icon && line.icon !== "Circle" ? line.icon : "PiggyBank"} />}
                   </i>
                   <span>{line.concept || names.sub(line.subId) || names.cat(line.categoryId)}</span>
@@ -3079,7 +3094,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                         return (
                           <div key={line.id}>
                             <button type="button" className={`glass-line${debt && lens === "debt" ? " is-debt" : ""}`} data-line-id={line.id} aria-expanded={deskLine === line.id} onClick={() => setDeskLine((cur) => cur === line.id ? null : line.id)}>
-                              <i className="ridge-pip" style={{ background: line.color || tint }} />
+                              <i className="ridge-pip" style={{ background: chosenTone(line.color, line.categoryId) || tint }} />
                               <span className="min-w-0">
                                 <strong className="block">{keepTail(line.concept || sub || group.title)}</strong>
                                 {sub && line.concept && sub.trim().toLowerCase() !== line.concept.trim().toLowerCase() ? <span className="block text-sm text-muted">{sub}</span> : null}

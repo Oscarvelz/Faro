@@ -1351,6 +1351,10 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
   border-color: color-mix(in oklab, var(--accent) 32%, var(--line));
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 92%), 0 8px 18px color-mix(in oklab, var(--fg) 6%, transparent);
 }
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .save-band.is-records .save-flow {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--save, var(--accent)) 9%, white) 0%, var(--surface) 78px);
+  border-color: color-mix(in oklab, var(--save, var(--accent)) 28%, var(--line));
+}
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .save-band.is-records .save-ledger {
   background: linear-gradient(180deg, color-mix(in oklab, var(--seg, var(--accent)) 24%, white) 0%, color-mix(in oklab, var(--seg, var(--accent)) 8%, var(--surface)) 46%, var(--surface));
   border-color: color-mix(in oklab, var(--seg, var(--accent)) 38%, var(--line));
@@ -1378,14 +1382,28 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
   color: oklch(from var(--seg, #8aa0b0) clamp(0.42, calc(l * 0.62), 0.5) c h);
 }
 @media (prefers-reduced-motion: reduce) { .vault-glide, .swipe-pane.is-vault { transition: none; animation: none; } }
-.save-flow { display: grid; gap: 8px; padding: 14px 14px 16px; border-radius: 24px; border: 1px solid color-mix(in oklab, #8fb9a6 40%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, #8fb9a6 16%, var(--surface)), var(--surface) 96px); box-shadow: inset 0 1px 0 color-mix(in oklab, white 34%, transparent); }
+/* Apartado del mes: framed in the savings category's own colour (--save), as the Home rows are. */
+.save-flow { display: grid; gap: 8px; padding: 14px 14px 16px; border-radius: 24px; border: 1px solid color-mix(in oklab, var(--save, #8fb9a6) 34%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, var(--save, #8fb9a6) 12%, var(--surface)), var(--surface) 96px); box-shadow: inset 0 1px 0 color-mix(in oklab, white 34%, transparent); container: save-flow / inline-size; }
 .save-flow-meter { height: 8px; border-radius: 999px; overflow: hidden; background: color-mix(in oklab, var(--fg) 8%, var(--surface)); }
-.save-flow-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8fb9a6, #e7c27a); }
+/* One hue, deep to light, blended in OKLCH so the middle never greys out (the old purple→gold sRGB blend went mauve-beige,
+   and an OKLCH purple→gold sweeps through pink and coral, which read as other categories). */
+.save-flow-meter i { display: block; height: 100%; border-radius: inherit; background: var(--save, #8fb9a6); background: linear-gradient(90deg in oklch, var(--save, #8fb9a6), oklch(from var(--save, #8fb9a6) calc(l + .22) calc(c * .6) calc(h + 5))); }
+/* Title and amount stay on one line; the title steps down by width (rem breakpoints follow the reader's text size). */
+.save-flow .save-ledger-head { flex-wrap: nowrap; min-width: 0; }
+.save-flow .save-ledger-head strong { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.save-flow .save-ledger-head .num { flex: none; white-space: nowrap; }
+@container save-flow (max-width: 19rem) { .save-ledger-head strong { font-size: 1rem; } }
+@container save-flow (max-width: 17rem) { .save-ledger-head strong { font-size: .92rem; } .save-ledger-head .num { font-size: .95rem; } }
+@container save-flow (max-width: 15rem) { .save-ledger-head strong { font-size: .78rem; } .save-ledger-head .num { font-size: .82rem; } }
 .save-flow-read { margin: 0; color: var(--muted); font-size: 0.82rem; }
+.save-flow-read > span { white-space: nowrap; }
+.save-flow-read > .has-sep::before { content: "\b7\a0"; }
+/* Too narrow for "N% de lo que entra · Faltan C$…" on one line (only with enlarged reader text): one half per line, no dot. */
+@container save-flow (max-width: 16.5rem) { .save-flow-read { display: flex; flex-direction: column; } .save-flow-read > .has-sep::before { content: none; } }
 .save-flow-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, var(--line)); }
 .save-flow-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .save-flow-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.save-flow-ico { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; flex: none; background: color-mix(in oklab, #8fb9a6 24%, var(--surface)); color: var(--fg); }
+.save-flow-ico { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; flex: none; background: color-mix(in oklab, var(--ico, #8fb9a6) 24%, var(--surface)); color: var(--fg); }
 .save-flow-ico svg { width: 14px; height: 14px; }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"]) .save-flow-ico {
   background: color-mix(in oklab, var(--ico, #8fb9a6) 34%, #101614) !important;
@@ -2354,6 +2372,9 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .line-edit .grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
 @container (max-width: 289px) { .line-edit .lab-head { letter-spacing: .06em; } }
 @container (max-width: 289px) { .line-edit .lab-head { letter-spacing: .04em; font-size: .6rem; gap: 4px; } }
+/* Large reader text in the narrowest editor (the Home widget's, at 360 with root 20px; rem breakpoint, so it never fires at
+   normal text size and the Libros editors stay as they were): two-up labels such as SUBCONCEPTO keep their ? in their column. */
+@container (max-width: 13rem) { .line-edit .lab-head { letter-spacing: .02em; font-size: .56rem; gap: 3px; } }
 .line-edit .label > *, .line-edit .theme-select { min-width: 0; }
 @container (max-width: 300px) {
   .line-edit .theme-select-btn { padding: 0 7px 0 12px !important; gap: 4px !important; }

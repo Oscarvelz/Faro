@@ -2,7 +2,7 @@ import { FieldTip } from "./ui";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
-import { PALETTE, categoryColor, themeSwatch } from "@/lib/faro/colors";
+import { PALETTE, categoryBase, categoryColor, chosenTone, themeSwatch } from "@/lib/faro/colors";
 import { monthName } from "@/lib/faro/i18n";
 import { parseAmount, uid } from "@/lib/faro/money";
 import type { Currency, Line, LineKind } from "@/lib/faro/types";
@@ -203,7 +203,9 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [bookedOn, setBookedOn] = useState(existing?.bookedOn ?? seed?.bookedOn ?? "");
   const [startedOn, setStartedOn] = useState(existing?.startedOn ?? seed?.startedOn ?? "");
   const bubbleTone = kind === "expense-fixed" || kind === "expense-variable" || kind === "subscription";
-  const [tone, setTone] = useState(existing?.color || categoryColor(existing?.categoryId || "otros"));
+  // Ahorros starts from its stored day colour so every theme (Tron too) can light the official purple; other categories unchanged.
+  const [toneStart] = useState(() => chosenTone(existing?.color, existing?.categoryId) || (existing?.categoryId === "f-ahorro" ? categoryBase("f-ahorro", structure?.categories.find((c) => c.id === "f-ahorro")?.color) : categoryColor(existing?.categoryId || "otros")));
+  const [tone, setTone] = useState(toneStart);
   const [err, setErr] = useState("");
   const [pickOpen, setPickOpen] = useState(false);
   const [storeName, setStoreName] = useState("");
@@ -286,7 +288,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       history: existing?.history ?? [],
       bookedOn,
       startedOn,
-      color: swatch || (existing && bubbleTone ? tone : existing?.color),
+      // Only a colour the user actually picked is stored; an untouched default stays a default (follows the category).
+      color: swatch || (existing && bubbleTone && tone !== toneStart ? tone : existing?.color),
     };
     commit((s) => upsertLine(s, line), `${existing ? "Editar" : "Agregar"} ${line.concept}`);
     if (draftKey) clearReportDraft(draftKey);

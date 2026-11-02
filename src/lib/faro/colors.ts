@@ -7,12 +7,31 @@ export const PALETTE = [
   "#079ed9", "#8dc2fe", "#6b89f9", "#bab3fe", "#ac72e3", "#e4a3e9", "#d562af", "#fd9cba", "#c3bdb3", "#89939e", "#876b59", "#494d54",
 ];
 
+// Ahorros' official colour (Oscar, Nov 1 2026: "a purple that looks well integrated, a purple that stands out").
+// oklch(.56 .20 300): deeper than the grid's violets so it never reads as one of them (OKLab ΔE ≥ .10 to #ac72e3, the
+// nearest swatch; > .2 to the lilacs of Mascotas/IA), white text on it 5.1:1. Kept outside the 24-colour grid on purpose.
+export const SAVINGS_PURPLE = "#894ed6";
+// Its light on the Grid: oklch(.74 .155 300), the most saturated violet sRGB allows at that lightness. The deep neon
+// violets are already Mascotas (#bf52ff), IA (#9452ff) and the grid's #ac72e3 neon, so Ahorros glows a step lighter
+// (ΔE ≥ .088 to every Tron category light, .2 from Tron teal, 8.6:1 on black).
+const SAVINGS_NEON = "#ba92fd";
+// Former savings defaults. A savings colour equal to one of these was never picked by the user (the editor used to
+// stamp the default into the line on save, in Tron as its neon; the bubble editor stamped its mint #97d8b3), so it shows
+// the official purple instead. None of these is in PALETTE, so a grid pick can never be mistaken for one.
+const SAVINGS_LEGACY = new Set(["#cfe3c8", "#97d8b3", "hsl(104 100% 54%)"]);
+
+/** A stored colour, or "" when it is only an old savings default that the user never chose. */
+export function chosenTone(color: string | undefined, categoryId: string | undefined): string {
+  const c = color?.trim() ?? "";
+  return categoryId === "f-ahorro" && SAVINGS_LEGACY.has(c.toLowerCase()) ? "" : c;
+}
+
 const NAMED: Record<string, string> = {
   "f-casa": "#b7d4c4",
   "f-transporte": "#f0cb8a",
   "f-familia": "#f0b7c4",
   "f-seguros": "#b7c7e8",
-  "f-ahorro": "#cfe3c8",
+  "f-ahorro": SAVINGS_PURPLE,
   "f-remesas": "#f0c2a4",
   "f-creditos": "#e7d3a1",
   "f-alimentos": "#d5dca8",
@@ -46,6 +65,7 @@ export function isTron(): boolean {
 export function tronize(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!m) return hex;
+  if (`#${m[1].toLowerCase()}` === SAVINGS_PURPLE) return SAVINGS_NEON;
   const pi = PALETTE.indexOf(`#${m[1].toLowerCase()}`);
   if (pi >= 0) return paletteNeon(pi);
   const v = parseInt(m[1], 16);
@@ -60,7 +80,12 @@ export function tronize(hex: string): string {
 }
 
 export function categoryColor(id: string, chosen?: string): string {
-  const custom = chosen?.trim();
+  return isTron() ? tronize(categoryBase(id, chosen)) : categoryBase(id, chosen);
+}
+
+/** The category's stored day colour, before any theme lights it. */
+export function categoryBase(id: string, chosen?: string): string {
+  const custom = chosenTone(chosen, id);
   let base: string;
   if (custom) base = custom;
   else if (NAMED[id]) base = NAMED[id];
@@ -69,7 +94,7 @@ export function categoryColor(id: string, chosen?: string): string {
     for (let i = 0; i < id.length; i += 1) n = (n + id.charCodeAt(i) * (i + 1)) % PALETTE.length;
     base = PALETTE[n] ?? PALETTE[0];
   }
-  return isTron() ? tronize(base) : base;
+  return base;
 }
 
 export function colorFor(structure: Structure, categoryId: string): string {
@@ -78,6 +103,15 @@ export function colorFor(structure: Structure, categoryId: string): string {
   const buy = structure.purchases.find((p) => p.id === categoryId);
   if (buy) return categoryColor(buy.id, buy.color);
   return categoryColor(categoryId || "otros");
+}
+
+/** The day colour a line of this category shows (before any theme lights it); what the look pickers start from. */
+export function baseFor(structure: Structure | undefined, categoryId: string): string {
+  const cat = structure?.categories.find((c) => c.id === categoryId);
+  if (cat) return categoryBase(cat.id, cat.color);
+  const buy = structure?.purchases.find((p) => p.id === categoryId);
+  if (buy) return categoryBase(buy.id, buy.color);
+  return categoryBase(categoryId || "otros");
 }
 
 /** A palette swatch as the current theme will actually draw it. */
