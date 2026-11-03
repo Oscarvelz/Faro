@@ -45,7 +45,7 @@ const NAMES: Record<string, Pair> = {
   income: ["Ingresos", "Income"],
   fixed: ["Fijos", "Fixed"],
   variable: ["Variables", "Variable"],
-  shops: ["Compras", "Purchases"],
+  shops: ["Compras", "Shopping"],
   subs: ["Cuotas", "Plans"],
   stats: ["Estudio", "Study"],
   advice: ["Asesor", "Advisor"],

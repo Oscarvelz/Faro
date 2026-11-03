@@ -232,11 +232,8 @@ div.advice-head[role="button"] > div { flex: 1; min-width: 0; }
 .unfold-all > .hint { margin-left: -2px; }
 
 /* Remaining (?)s (phase 2 finish) */
-.vault-bar > .hint.is-tabs { flex: none; align-self: center; z-index: 1; margin-inline: 0 2px; }
-.vault-bar > .hint.is-tabs .ftip-btn { width: 18px; height: 18px; min-height: 18px; }
 .line-edit-head > .hint.is-head { margin-left: -4px; }
 .line-edit-head > .hint.is-head .ftip-btn { width: 18px; height: 18px; min-height: 18px; background: none; }
-.cobro-acts > .hint.is-acts { align-self: center; }
 .a2-detail { position: relative; }
 .a2-detail > .hint.is-detail { position: absolute; top: -30px; right: 0; }
 .a2-tower-say em.lab-head { display: block; white-space: normal; } /* plain text flow: wraps exactly as before the (?) */
@@ -247,10 +244,6 @@ div.advice-head[role="button"] > div { flex: 1; min-width: 0; }
 
 /* Ajustes manual rate: the (?) follows the Save button on its line (was alone on a line above the field). */
 .row > .hint.is-after { align-self: center; flex: none; }
-/* Large text on a narrow phone: the savings tabs give up a little side padding so their (?) still fits inside the bar. */
-@container vaultbar (max-width: 19em) {
-  .vault-bar > button { padding-inline: 3px; gap: 3px; }
-}
 /* Titles that end in a (?): plain text flow, so a long title that wraps keeps its (?) right after the last word (not floating at the far edge). */
 h2.lab-head:has(> .hint) { display: block; white-space: normal; }
 h2.lab-head > .hint { margin-left: 5px; vertical-align: middle; }
@@ -263,8 +256,6 @@ h2.lab-head > .hint { margin-left: 5px; vertical-align: middle; }
 /* Asesor hero kicker sits in a narrow column beside the gauge: it wraps exactly as before the (?) existed, (?) after the last word. */
 .coach-copy .pano-kicker > .lab-head { display: inline; white-space: normal; }
 .coach-copy .pano-kicker > .lab-head > .hint { margin-left: 5px; margin-right: -23px; vertical-align: middle; } /* takes no line width: the words break exactly as before; it hides if it would touch the dial */
-/* Savings tabs: when the (?) has no room (it steps aside), it leaves the flow so the tabs keep their own layout and nothing overflows. */
-.vault-bar > .hint.is-tabs.is-tight { position: absolute; right: 0; }
 .coach-copy .pano-kicker > svg { flex: none; }
 /* Estudio fold titles reserve 56px for pin + chevron, of which the card's own padding already clears ~17px: the (?) may overhang 14px into that
    reserve (still clear of the pin), so a title that fit before the (?) existed keeps its line and size. */
@@ -285,18 +276,6 @@ label.label[data-anchor^="aj-"] > .lab-head .hint { margin-left: 4px; margin-blo
 /* Estudio "Acumulado": its (?) sits in the card's top-right corner, as the old explain button did (the label keeps its own line). */
 .pot-help > .hint { position: absolute; top: 6px; right: 6px; margin: 0; }
 
-/* Savings tabs on a narrow bar (≤ 23em: 360 px phones, large text): the tabs give up their side padding (they still grow to fill the bar),
-   so the screen's (?) always fits inside the bar instead of stepping aside. Even narrower (large text): a slightly smaller label. */
-@container vaultbar (max-width: 23em) {
-  .vault-bar > button { padding-inline: 1px; gap: 3px; }
-  .vault-bar > .hint.is-tabs { margin-inline: -2px 0; }
-}
-@container vaultbar (max-width: 19em) {
-  html:not([data-theme="tron"]) .vault-bar > button { font-size: .62rem; gap: 2px; }
-}
-.vault-bar[data-squeeze] > button > svg { display: none; }
-.vault-bar[data-squeeze="2"] > button { letter-spacing: 0; font-size: .58rem; }
-
 /* Breathing room (owner rule: ≥ 6px between a (?) and its neighbours; the icon's circle sits ~1px inside its box). */
 .hint.is-lens { --hint-gap: 5; }
 .hub-line .hub-hint { --hint-gap: 5; }
@@ -304,3 +283,144 @@ label.label[data-anchor^="aj-"] > .lab-head .hint { margin-left: 4px; margin-blo
 [data-theme="tron"] .hub-name { margin-right: -.3em; } /* the wide tracking leaves no gap after the last letter: the (?) sits after the visible word */
 [data-theme="tron"] .save-name > .hint { margin-left: -7px; } /* same for AHORROS: the (?) keeps a clear gap from the amount */
 .mn-join { white-space: nowrap; }
+
+/* ============================================================ Corner (?)
+   A (?) that would crowd a row of independent buttons sits in its container's bottom-right corner instead: small glyph, a few px inside
+   the edge (clear of the border and its radius curve), no room taken in the row, ≥ 4px from every button box (hint.tsx hides it otherwise).
+   Its 24px tap area grows away from the buttons (down/right), never over them. */
+.hint.is-corner { position: absolute; z-index: 2; margin: 0; line-height: 0; }
+.hint.is-corner .ftip-btn { width: 14px; height: 14px; min-height: 14px; padding: 0; background: none; border: 0; box-shadow: none; }
+.hint.is-corner .ftip-btn svg { width: 14px; height: 14px; }
+.hint.is-corner .ftip-btn::before { inset: -3px -5px -7px -5px; border-radius: 8px; }
+.hint.is-corner[data-clash] { visibility: hidden; pointer-events: none; }
+/* Savings tab bar (owner, Nov 2 2026): the bar keeps its exact original height; a small (?) floats over the last tab's bottom-right
+   corner, 2px inside that tab's edges (7px inside the bar's), taking no layout space. Its tap opens the help, never the tab under it (hint.tsx stops the event);
+   the 20px tap area grows over the tab's empty corner, clear of its label and icon. */
+.vault-bar > .hint.is-corner { right: 6px; bottom: 6px; z-index: 3; } /* 2px inside the last tab's own edges (clear of its lit/selected outline and the bar's corner curve) */
+.vault-bar > .hint.is-corner .ftip-btn { width: 12px; height: 12px; min-height: 12px; overflow: visible; text-transform: none; } /* not a tab: none of the bar's tab styling (Tron clips tabs) */
+.vault-bar > .hint.is-corner .ftip-btn svg { width: 12px; height: 12px; }
+.vault-bar > .hint.is-corner .ftip-btn::before { inset: -6px -2px -2px -6px; border-radius: 4px; } /* 20 × 20 */
+/* The last tab's label and icon stay clear of the (?): that tab keeps a little more room on its right (the bar's height never changes). */
+.vault-bar:has(> .hint.is-corner) > button:last-of-type { padding-right: 17px; }
+/* Savings tabs that would not fit one bar (360 px phones, large text, long English labels): less side padding (they still grow to fill the
+   bar), then a slightly smaller label; shell.tsx drops the icons (data-squeeze) only when even that does not fit. */
+@container vaultbar (max-width: 23em) {
+  .vault-bar > button { padding-inline: 1px; gap: 3px; }
+}
+@container vaultbar (max-width: 19em) {
+  html:not([data-theme="tron"]) .vault-bar > button { font-size: .62rem; gap: 2px; }
+}
+.vault-bar[data-squeeze] > button > svg { display: none; }
+.vault-bar[data-squeeze="2"] > button { letter-spacing: 0; font-size: .58rem; }
+/* Cobros "Bono": the (?) leaves the row of pills and sits at the row's far right, level with it. */
+.cobro-acts { position: relative; }
+.cobro-acts > .hint.is-corner { right: 2px; top: 50%; transform: translateY(-50%); }
+/* Glyph colours: day/night themes muted, Tron teal with a faint glow. */
+.hint.is-corner .ftip-btn { color: color-mix(in oklab, var(--muted) 88%, var(--fg)); }
+[data-theme="tron"] .hint.is-corner .ftip-btn { color: #3fd6f5; filter: drop-shadow(0 0 3px rgba(63, 214, 245, .45)); }
+/* Over the lit, selected last tab the teal would sink into its glow: it takes the selected label's white (≥ 7:1 there). */
+[data-theme="tron"] .vault-bar:has(> button:last-of-type[aria-current="page"]) > .hint.is-corner .ftip-btn { color: #f2fdff; filter: drop-shadow(0 0 3px rgba(122, 162, 196, .6)); }
+
+/* Tron Manual: subtle amber accents (owner exception, Nov 2 2026, scoped to the Manual layer only: elsewhere in Tron amber stays for amounts).
+   Entry numbers, the Tip bulb and its rule, the open chapter's number, the A–Z letters and a short tick under the top bar.
+   Teal keeps links, "Ir allí", search and marks. No animation. #ffb347 on #02060c ≈ 11:1. */
+[data-theme="tron"] .mn-layer :is(.mn-entry-title, .mn-hit-title) .mn-num { color: #ffb347; text-shadow: 0 0 6px rgba(255, 179, 71, .35); } /* entry numbers only; the contents lists stay quiet */
+[data-theme="tron"] .mn-layer .mn-tip { border-left-color: rgba(255, 179, 71, .55); }
+[data-theme="tron"] .mn-layer .mn-tip dt svg { color: #ffb347; filter: drop-shadow(0 0 3px rgba(255, 179, 71, .45)); }
+[data-theme="tron"] .mn-layer .mn-ch.is-open .mn-ch-num { color: #ffb347; text-shadow: 0 0 6px rgba(255, 179, 71, .35); }
+[data-theme="tron"] .mn-layer .mn-az-letter { color: #ffb347; text-shadow: 0 0 6px rgba(255, 179, 71, .3); }
+[data-theme="tron"] .mn-top::after {
+  content: ""; position: absolute; left: 16px; bottom: -1px; width: 44px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, #ffb347, rgba(255, 179, 71, 0)); box-shadow: 0 0 6px rgba(255, 179, 71, .5);
+}
+
+/* ===================================================== Manual layout by screen (Nov 2 2026)
+   Phones: entries use the full width (16px gutters like the rest of the app); the number sits inline with the title.
+   Only the chapter's intro and topic list keep the small indent under the chapter name (they are its contents).
+   Tablets / desktop (≥ 900px): wider page; an open chapter becomes a sticky contents rail on the left and its entries
+   at a reading measure (~68ch) on the right. Search results and the A–Z use the width too. */
+.mn-ch-body { padding: 0 0 8px; }
+.mn-ch-rail { padding-left: 38px; }
+.mn-ch-entries { min-width: 0; }
+@media (min-width: 900px) {
+  .mn-layer > * { max-width: 1180px; }
+  .mn-layer > .mn-top { max-width: none; }
+  .mn-body, .mn-results { padding: 0 32px; }
+  .mn-ch.is-open > .mn-ch-body {
+    display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 68ch); column-gap: 48px; align-items: start; padding-bottom: 16px;
+  }
+  .mn-ch.is-open .mn-ch-rail {
+    position: sticky; top: 84px; padding: 4px 0 8px 38px; max-height: calc(100dvh - 104px); overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .mn-ch.is-open .mn-ch-rail .mn-ch-list { grid-template-columns: minmax(0, 1fr); }
+  .mn-ch.is-open .mn-ch-entries > .mn-entry:first-child { border-top: 0; padding-top: 4px; }
+  .mn-cover-sub { max-width: 44rem; }
+  .mn-hits { max-width: 980px; }
+  .mn-az-cols { columns: 3; }
+}
+@media (min-width: 1280px) { .mn-az-cols { columns: 4; } }
+
+/* ===================================================== Manual fixes (corner3, Nov 2 2026)
+   Phone: chapter titles and A–Z entries wrap instead of ending in "…" (large text).
+   Tablet/desktop: the cover spreads across the page (intro left, A–Z + count right) and the contents list runs in two columns;
+   an open chapter spans both. The open chapter's rail keeps its number + title on top, marks the entry being read (teal text,
+   no frame) and fades at the bottom of its own scroll instead of cutting a line. Reading measure ~65–70 real characters.
+   Search results use two columns. */
+.mn-ch-name { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.3; overflow-wrap: break-word; }
+.mn-ch-row { padding: 8px 0; }
+.mn-ch-railhead { display: none; }
+.mn-ch-list button[aria-current="location"] { color: var(--accent); font-weight: 650; }
+.mn-ch-list button[aria-current="location"] .mn-num { color: var(--accent); }
+[data-theme="tron"] .mn-ch-list button[aria-current="location"], [data-theme="tron"] .mn-ch-list button[aria-current="location"] .mn-num { color: #3fd6f5; text-shadow: 0 0 6px rgba(63, 214, 245, .35); }
+/* A–Z: a long term wraps under itself (hanging indent); the dotted leader and the number sit on its last line. */
+.mn-az-line { align-items: flex-end; padding: 6px 0; min-height: 34px; }
+.mn-az-term { white-space: normal; overflow: visible; text-overflow: clip; padding-left: .9em; text-indent: -.9em; line-height: 1.35; flex: 0 1 auto; }
+.mn-az-dots { align-self: flex-end; margin-bottom: .42em; transform: none; }
+.mn-az-line > .mn-az-num, .mn-az-nums { align-self: flex-end; }
+.mn-az-num { min-height: 0; line-height: 1.35; }
+.mn-az-nums .mn-az-num { position: relative; min-height: 0; }
+.mn-az-nums .mn-az-num::after { content: ""; position: absolute; inset: -8px -1px; } /* 30px+ tap area without making the row taller */
+.mn-ch-list .mn-num { flex: none; min-width: 2.7em; }
+@media (min-width: 900px) {
+  /* Cover: intro on the left, the A–Z button and the counts on the right, level with the intro's last line. */
+  .mn-cover { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 48px; align-items: end; padding: 34px 0 26px; }
+  .mn-cover > :not(.mn-cover-row) { grid-column: 1; }
+  .mn-cover-row { grid-column: 2; grid-row: 1 / span 3; align-self: end; flex-direction: column; align-items: flex-end; gap: 8px; margin: 0; }
+  .mn-cover-title { font-size: 2.3rem; }
+  .mn-cover-sub { font-size: 1.02rem; max-width: 40rem; }
+  /* Contents: two columns of chapters; an open chapter takes the full width. Every row has its own bottom rule. */
+  .mn-toc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; align-items: start; }
+  .mn-toc > .mn-toc-title { grid-column: 1 / -1; margin-bottom: 0; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .mn-toc > .mn-ch, .mn-toc > .mn-ch:last-child { border-top: 0; border-bottom: 1px solid var(--line); }
+  .mn-toc > .mn-ch.is-open { grid-column: 1 / -1; }
+  [data-theme="tron"] .mn-toc > .mn-toc-title { border-bottom-color: rgba(63, 214, 245, .2); }
+  .mn-ch-row { min-height: 60px; }
+  /* Open chapter: rail + reading column, centred together in the page. */
+  .mn-ch.is-open > .mn-ch-body { grid-template-columns: minmax(230px, 300px) minmax(0, 35em); justify-content: center; column-gap: 56px; }
+  .mn-ch.is-open .mn-ch-rail {
+    top: 76px; max-height: calc(100dvh - 92px); padding: 0 6px 28px 0;
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 36px), transparent);
+  }
+  .mn-ch.is-open .mn-ch-railhead {
+    display: flex; align-items: baseline; gap: 10px; position: sticky; top: 0; z-index: 1; margin: 0; padding: 10px 0 10px;
+    background: var(--bg); font-size: 1.08rem; font-weight: 650; line-height: 1.3; border-bottom: 1px solid var(--line);
+  }
+  [data-theme="tron"] .mn-ch.is-open .mn-ch-railhead { background: #02060c; border-bottom-color: rgba(63, 214, 245, .2); }
+  [data-theme="tron"] .mn-layer .mn-ch.is-open .mn-ch-railhead .mn-ch-num { color: #ffb347; text-shadow: 0 0 6px rgba(255, 179, 71, .35); }
+  .mn-ch.is-open .mn-ch-railhead .mn-ch-num { flex: none; min-width: 22px; }
+  .mn-ch.is-open .mn-ch-intro { margin-top: 10px; font-size: .86rem; }
+  .mn-ch.is-open .mn-ch-list button { min-height: 34px; padding: 6px 0; font-size: .88rem; line-height: 1.35; }
+  .mn-ch.is-open .mn-ch-entries .mn-parts dd { font-size: 1rem; line-height: 1.6; }
+  /* Search: results in two columns at the page width. */
+  .mn-hits { max-width: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; }
+  .mn-hit { height: 100%; align-items: start; }
+  .mn-hit-arrow { margin-top: 3px; }
+}
+
+/* Ajustes → Manual de uso row: its title and subtitle wrap at large text instead of ending in "…". */
+.manual-row-text strong, .manual-row-text span { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.3; }
+
+/* corner5 (Nov 3 2026): a topic or chapter scrolled into view stops below the sticky top bar (its measured height + 12px), never under it. */
+.mn-layer { scroll-padding-top: calc(var(--mn-bar, 56px) + 12px); }
+.mn-layer :is(.mn-entry, .mn-ch, [id^="mn-"]) { scroll-margin-top: calc(var(--mn-bar, 56px) + 12px); }

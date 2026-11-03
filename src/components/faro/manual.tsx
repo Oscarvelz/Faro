@@ -80,6 +80,18 @@ function Manual({ data }: { data: ManualData }) {
     };
   }, []);
 
+  // Topic anchors stop below the sticky top bar (bar height + 12px) whenever the browser scrolls one into view.
+  useLayoutEffect(() => {
+    const sc = scroller.current;
+    const top = sc?.querySelector<HTMLElement>(".mn-top");
+    if (!sc || !top) return;
+    const set = () => sc.style.setProperty("--mn-bar", `${top.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(top);
+    return () => ro.disconnect();
+  }, []);
+
   // Arrive at the entry the (?) came from: open its chapter, bring it in, glow it once. Back/forward: no glow.
   useEffect(() => {
     const sc = scroller.current;
@@ -103,6 +115,40 @@ function Manual({ data }: { data: ManualData }) {
   useEffect(() => {
     if (findOn) findRef.current?.focus({ preventScroll: true });
   }, [findOn]);
+
+  // Tablet/desktop: the open chapter's rail marks the entry being read (the last entry whose top passed the reading line).
+  const [spy, setSpy] = useState("");
+  useEffect(() => {
+    const sc = scroller.current;
+    if (!sc || !openCh.length) { setSpy(""); return; }
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      if (!window.matchMedia("(min-width: 900px)").matches) return;
+      const line = sc.getBoundingClientRect().top + (sc.querySelector<HTMLElement>(".mn-top")?.offsetHeight ?? 64) + 24;
+      let here = "";
+      for (const el of sc.querySelectorAll<HTMLElement>(".mn-ch.is-open .mn-entry")) {
+        const r = el.getBoundingClientRect();
+        if (r.top <= line) here = el.id.slice(3);
+        else break;
+      }
+      setSpy((was) => (was === here ? was : here));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(read); };
+    read();
+    sc.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { sc.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, [openCh]);
+  // Keep the marked rail entry in view inside the rail's own scroll.
+  useEffect(() => {
+    if (!spy) return;
+    const btn = scroller.current?.querySelector<HTMLElement>(`.mn-ch-list button[data-to="${spy}"]`);
+    const rail = btn?.closest<HTMLElement>(".mn-ch-rail");
+    if (!btn || !rail || rail.scrollHeight <= rail.clientHeight) return;
+    const b = btn.getBoundingClientRect(), r = rail.getBoundingClientRect();
+    if (b.top < r.top + 40 || b.bottom > r.bottom - 40) rail.scrollTop += b.top - r.top - rail.clientHeight / 2;
+  }, [spy]);
   useEffect(() => {
     if (searching) scroller.current?.scrollTo({ top: 0 });
   }, [searching]);
@@ -226,17 +272,21 @@ function Manual({ data }: { data: ManualData }) {
                 </button>
                 {isOpen ? (
                   <div className="mn-ch-body">
+                    <div className="mn-ch-rail">
+                    <p className="mn-ch-railhead" aria-hidden><span className="mn-ch-num">{ci + 1}</span><span>{say(ch.title)}</span></p>
                     <p className="mn-ch-intro">{say(ch.intro)}</p>
                     <ol className="mn-ch-list">
                       {ch.topics.map((tp, ti) => (
                         <li key={tp.id}>
-                          <button type="button" onClick={() => jump(tp.id)}>
+                          <button type="button" data-to={tp.id} aria-current={spy === tp.id ? "location" : undefined} onClick={() => jump(tp.id)}>
                             <span className="mn-num">{ci + 1}.{ti + 1}</span>
                             <span>{say(tp.title)}</span>
                           </button>
                         </li>
                       ))}
                     </ol>
+                    </div>
+                    <div className="mn-ch-entries">
                     {ch.topics.map((tp0) => {
                       const tp = findTopic(tp0.id)!;
                       return (
@@ -276,6 +326,7 @@ function Manual({ data }: { data: ManualData }) {
                         </article>
                       );
                     })}
+                    </div>
                   </div>
                 ) : null}
               </section>

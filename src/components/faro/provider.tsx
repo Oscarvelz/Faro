@@ -783,6 +783,13 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       top.manual = from;
       setUiState((u) => ({ ...u, manual: from }));
     }
+    // Estudio's "Lo que me deben" card only exists once someone owes you. With nobody yet, land where they are added
+    // (Cobros → Me deben) instead of glowing the Estudio tab as a stand-in.
+    if (go.fold === "owed") {
+      let none = true;
+      try { const rows = JSON.parse(localStorage.getItem("faro-cobros") || "[]"); none = !Array.isArray(rows) || rows.length === 0; } catch { /* none */ }
+      if (none) go = { screen: "cobros", anchor: "cobros-in" };
+    }
     const res = screenPatch(go);
     // Wide screens show Cambio as a side panel, not the phone sheet.
     if (go.screen === "tools" && window.innerWidth >= 1100) {

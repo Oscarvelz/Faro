@@ -437,7 +437,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     const move = niceDown(Math.min(left, goalMinor - saved), display);
     steps.push({
       id: "save",
-      title: L(lang, `Aparta ${money(move)} hoy`, `Set aside ${money(move)} today`),
+      title: L(lang, `Aparta ${money(move)} hoy`, `Save ${money(move)} today`),
       detail: move >= niceDown(goalMinor - saved, display)
         ? L(lang, `Te quedan ${money(left)} sin destino. Si mueves ${money(move)} ahora a tu ahorro, cumples tu meta del ${savingsGoalPct || 10}% y no se van en gastos pequeños.`, `You have ${money(left)} with no job. Move ${money(move)} to savings now and you meet your ${savingsGoalPct || 10}% goal before small spending eats it.`)
         : L(lang, `Es todo lo que queda libre. Tu meta del ${savingsGoalPct || 10}% serían ${money(niceDown(goalMinor, display))}; empezar con lo que sí cabe ya cuenta.`, `It's all that's free. Your ${savingsGoalPct || 10}% goal would be ${money(goalMinor)}; starting with what fits still counts.`),

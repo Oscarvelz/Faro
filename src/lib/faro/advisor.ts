@@ -189,7 +189,7 @@ function lineName(line: Line, names: Namer): string {
 function categoryName(line: Line, names: Namer, lang: Lang = "es"): string {
   const named = names.cat(line.categoryId) || names.purchase(line.categoryId);
   if (named) return named;
-  if (line.kind === "purchase") return L(lang, "Compras", "Purchases");
+  if (line.kind === "purchase") return L(lang, "Compras", "Shopping");
   if (line.kind === "subscription") return L(lang, "Suscripciones", "Subscriptions");
   return line.categoryId || L(lang, "Otros", "Other");
 }

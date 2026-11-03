@@ -61,7 +61,7 @@ export const LINKS: Record<string, string> = {
   Reglas: "reglas", Rules: "reglas",
   "Meta de ahorro": "meta-ahorro", "Savings goal": "meta-ahorro",
   "Meses de colchón": "meses-colchon", "Months of cushion": "meses-colchon",
-  "Atajos de + y −": "atajos-mas-menos", "+ and − shortcuts": "atajos-mas-menos",
+  "Atajos de + y −": "atajos-mas-menos", "+/− shortcuts": "atajos-mas-menos",
   "Copias de seguridad": "copias", Backups: "copias",
   "Manual de uso": "manual", "User manual": "manual",
   Ajustes: "ajustes", Settings: "ajustes",
@@ -75,9 +75,9 @@ export const NAME_TERMS: string[] = [
   "Tengo", "Gastaré", "Queda", "Usado", "Tasa", "Cobros", "Me deben", "Debo", "Bono", "Archivo", "Acumulado", "Promedio",
   "Este periodo", "Desplegar todo", "Ir allí", "Más en el manual", "Poner en el campo", "Aplicar al plan", "Copiar plan",
   "Guardar copia ahora", "Restaurar", "Entendido", "Fijos", "Variables", "Compras",
-  "I have", "I will spend", "Left", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",
+  "Have", "Spending", "Left", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",
   "Average", "This period", "Unfold all", "Go there", "More in the manual", "Put in the field", "Apply to the plan", "Copy plan",
-  "Save a copy now", "Restore", "Got it", "Fixed", "Variable", "Purchases",
+  "Save a copy now", "Restore", "Got it", "Fixed", "Variable", "Shopping",
 ];
 
 const TERMS_LONGEST_FIRST = Object.keys(LINKS).sort((a, b) => b.length - a.length);

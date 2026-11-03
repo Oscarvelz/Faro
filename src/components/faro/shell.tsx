@@ -499,11 +499,11 @@ export function Shell() {
     place();
   }, [ui.section, hub]);
 
-  // Savings tabs + their (?): when the four tabs and the (?) don't fit on one bar (narrow phone, large text, long English labels),
-  // the tabs drop their small icons (data-squeeze) so the screen's (?) always stays visible inside the bar. Never hidden.
+  // Savings tabs: when the four tabs don't fit on one bar (narrow phone, large text, long English labels), they drop their small icons
+  // (data-squeeze 1), then tighten their letters (2), so no tab ever spills past the bar. The (?) floats over the bar and takes no room.
   useLayoutEffect(() => {
     const bar = vaultRef.current;
-    if (!bar || !bar.querySelector(":scope > .hint")) return;
+    if (!bar) return;
     const fit = () => {
       const was = bar.getAttribute("data-squeeze");
       const btns = [...bar.querySelectorAll<HTMLElement>(":scope > button")];
@@ -514,9 +514,9 @@ export function Shell() {
         if (level) bar.setAttribute("data-squeeze", String(level)); else bar.removeAttribute("data-squeeze");
         btns.forEach((b) => { b.style.flex = "none"; });
         const gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
-        const need = btns.reduce((sum, b) => sum + b.getBoundingClientRect().width, 0) + gap * btns.length + 18 + 4;
+        const need = btns.reduce((sum, b) => sum + b.getBoundingClientRect().width, 0) + gap * (btns.length - 1);
         btns.forEach((b) => { b.style.flex = ""; });
-        if (need <= room) break;
+        if (need <= room + 0.5) break;
       }
       if (level >= 3) bar.setAttribute("data-squeeze", "2");
       if (bar.getAttribute("data-squeeze") !== was) {
@@ -1031,7 +1031,7 @@ export function Shell() {
                       <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
                     </button>
                   ))}
-                  <Hint topic="ahorros-tabs" className="is-tabs" />
+                  <Hint topic="ahorros-tabs" className="is-tabs" corner overlay />
                 </div>
                 <div key={vault ?? ui.section} className={`swipe-pane${vault ? " is-vault" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
                 {vault ? <Desk focus={vault} /> : ui.section === "shops" ? <Shops /> : ui.section === "subs" ? <Subs /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}

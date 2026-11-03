@@ -126,7 +126,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
   const done = reach >= 1;
   return (
     <section className="card s2-cushion">
-      <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If nothing came in tomorrow")} />
+      <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If pay stopped tomorrow")} />
       <div className={`s2-voyage${done ? " is-home" : ""}`}>
         <svg viewBox="0 0 320 124" role="img" aria-label={L(lang, `Cubres ${covered.toFixed(1).replace(/\.0$/, "")} de ${target} meses`, `${covered.toFixed(1).replace(/\.0$/, "")} of ${target} months covered`)}>
           <defs>
@@ -217,7 +217,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
 
       {months !== null && missing > 0 ? (
         <div className="s2-whatif">
-          <p className="s2-whatif-q"><span className="lab-head">{L(lang, "¿Y si apartara cada mes…?", "What if I set aside each month…?")}<Hint topic="y-si-apartara" avoid=".s2-whatif" /></span></p>
+          <p className="s2-whatif-q"><span className="lab-head">{L(lang, "¿Y si apartara cada mes…?", "What if I saved each month…?")}<Hint topic="y-si-apartara" avoid=".s2-whatif" /></span></p>
           <div className="s2-whatif-amt num serif">{fmt(per)}</div>
           <input type="range" min={step} max={top} step={step} value={per} onChange={(e) => setPer(Number(e.target.value))} aria-label={L(lang, "Ahorro al mes", "Monthly saving")} style={{ ["--p" as string]: `${((per - step) / Math.max(1, top - step)) * 100}%` }} />
           <div className="s2-whatif-dots" aria-hidden>
@@ -225,7 +225,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
             {runs > 36 ? <b className="num">+{runs - 36}</b> : null}
           </div>
           <p className="s2-whatif-a">
-            {L(lang, "Llegas al faro en ", "You reach the lighthouse in ")}
+            {L(lang, "Llegas al faro en ", "You get there in ")}
             <strong>{runs} {runs === 1 ? L(lang, "mes", "month") : L(lang, "meses", "months")}</strong>
             {L(lang, `, hacia ${mon(land)}.`, `, around ${mon(land)}.`)}
           </p>
@@ -376,7 +376,7 @@ const CAPTION: Record<string, [string, string]> = {
   petty: ["del ingreso, al mes", "of income, monthly"],
   subs: ["del ingreso", "of income"],
   remit: ["del ingreso", "of income"],
-  largest: ["del gasto del mes", "of the month's spending"],
+  largest: ["del gasto del mes", "of monthly spending"],
   flex: ["del ingreso", "of income"],
 };
 

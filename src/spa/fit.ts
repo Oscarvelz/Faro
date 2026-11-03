@@ -46,14 +46,45 @@ function fitOne(el: HTMLElement) {
   }
 }
 
+// English lens kickers ("SPENDING", "PAYMENTS") are longer than the Spanish design's ("GASTARÉ", "PAGOS"): on a narrow lens (large text)
+// they shrink just enough to stay inside the lens instead of widening it (which shrank the amount under them).
+const FIT = '.num, html[lang="en"] .lenses .lens-kicker > span:last-child';
+
+// The three lens kickers are siblings: when one had to shrink, all three take that same size (no HAVE big beside SPENDING small).
+const KICKERS = 'html[lang="en"] .lenses .lens-kicker > span:last-child';
+function groupKickers() {
+  const els = [...document.querySelectorAll<HTMLElement>(KICKERS)].filter((el) => el.getBoundingClientRect().width > 0);
+  if (els.length < 2) return;
+  const sizes = els.map((el) => parseFloat(getComputedStyle(el).fontSize));
+  const min = Math.min(...sizes);
+  if (Math.max(...sizes) - min < 0.05) return;
+  els.forEach((el) => { el.style.fontSize = `${min.toFixed(2)}px`; });
+}
+
+// Libros section tabs (icon over label, five equal columns): when a label would end in "…" (e.g. "Shopping" in Claro EN on a 360 phone),
+// that bar tightens its spacing (1), then its letters (2). Bars whose labels fit keep their exact look.
+function segTabs() {
+  document.querySelectorAll<HTMLElement>(".seg.is-follow:not(.is-pair)").forEach((seg) => {
+    if (!seg.getBoundingClientRect().width) return;
+    const labels = [...seg.querySelectorAll<HTMLElement>(".seg-label")];
+    const cut = () => labels.some((l) => l.scrollWidth > l.clientWidth + 0.5);
+    seg.removeAttribute("data-squeeze");
+    for (let level = 1; level <= 2 && cut(); level++) seg.setAttribute("data-squeeze", String(level));
+  });
+}
+
 let queued = false;
 export function fitAll() {
   if (queued) return;
   queued = true;
   requestAnimationFrame(() => {
     queued = false;
-    document.querySelectorAll<HTMLElement>(".num").forEach(fitOne);
-    setTimeout(() => document.querySelectorAll<HTMLElement>(".num").forEach((el) => { if (overflow(el)) fitOne(el); }), 400);
+    segTabs();
+    document.querySelectorAll<HTMLElement>(FIT).forEach(fitOne);
+    groupKickers();
+    // Tell the (?) marks that avoid these words to check again (sizes changed without their boxes resizing).
+    dispatchEvent(new Event("faro-fit"));
+    setTimeout(() => { segTabs(); document.querySelectorAll<HTMLElement>(FIT).forEach((el) => { if (overflow(el)) fitOne(el); }); groupKickers(); dispatchEvent(new Event("faro-fit")); }, 400);
   });
 }
 

@@ -503,14 +503,14 @@ function budgetSheet(ledger: LedgerState, month: string, lang: Lang, names: Name
   rows.push([{ v: say(lang, "Total de ingresos", "Total income"), s: S.total }, { v: income, s: S.totalNum }]);
   rows.push([]);
   span(rows, merges, say(lang, "GASTOS", "EXPENSES"), S.section);
-  span(rows, merges, say(lang, "Gastos fijos: los que haces necesariamente cada mes", "Fixed expenses: what you necessarily spend each month"), S.head);
+  span(rows, merges, say(lang, "Gastos fijos: los que haces necesariamente cada mes", "Fixed costs: what you necessarily spend each month"), S.head);
   paintColumns(rows, stackBlocks(categoryBlocks(ledger, names, lines, "fixed", "expense-fixed", lang)));
   rows.push([{ v: say(lang, "Total gastos fijos", "Total fixed expenses"), s: S.total }, { v: fixed, s: S.totalNum }]);
   rows.push([]);
-  span(rows, merges, say(lang, "Gastos variables: los que haces de vez en cuando durante el mes", "Variable expenses: what you spend now and then during the month"), S.head);
+  span(rows, merges, say(lang, "Gastos variables: los que haces de vez en cuando durante el mes", "Variable costs: what you spend now and then during the month"), S.head);
   const variableBlocks = [
     ...categoryBlocks(ledger, names, lines, "variable", "expense-variable", lang),
-    ...namedBlocks(purchaseLines, ledger, (line) => names.purchase(line.categoryId), say(lang, "Compras", "Purchases")),
+    ...namedBlocks(purchaseLines, ledger, (line) => names.purchase(line.categoryId), say(lang, "Compras", "Shopping")),
     ...namedBlocks(subLines, ledger, (line) => names.catalog(line.providerId), say(lang, "Cuotas", "Subscriptions")),
   ];
   paintColumns(rows, stackBlocks(variableBlocks));
@@ -595,9 +595,9 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
         [{ v: say(lang, "Lectura del mes", "Reading of the month"), s: S.section }],
         [{ v: say(lang, "Campo", "Field"), s: S.flowHead }, { v: say(lang, "Monto", "Amount"), s: S.flowHead }],
         [{ v: say(lang, "Ingresos", "Income"), s: S.have }, { v: summary.income / 100, s: S.haveNum }],
-        [{ v: say(lang, "Gastos fijos", "Fixed expenses"), s: S.line }, { v: summary.fixed / 100, s: S.lineNum }],
-        [{ v: say(lang, "Gastos variables", "Variable expenses"), s: S.line }, { v: summary.variable / 100, s: S.lineNum }],
-        [{ v: say(lang, "Compras", "Purchases"), s: S.line }, { v: summary.purchases / 100, s: S.lineNum }],
+        [{ v: say(lang, "Gastos fijos", "Fixed costs"), s: S.line }, { v: summary.fixed / 100, s: S.lineNum }],
+        [{ v: say(lang, "Gastos variables", "Variable costs"), s: S.line }, { v: summary.variable / 100, s: S.lineNum }],
+        [{ v: say(lang, "Compras", "Shopping"), s: S.line }, { v: summary.purchases / 100, s: S.lineNum }],
         [{ v: say(lang, "Cuotas", "Subscriptions"), s: S.line }, { v: summary.subscriptions / 100, s: S.lineNum }],
         [{ v: say(lang, "Pagos", "Payments"), s: S.debt }, { v: summary.debt / 100, s: S.spendNum }],
         [{ v: say(lang, "Queda", "Left"), s: summary.opportunity >= 0 ? S.left : S.debt }, { v: summary.opportunity / 100, s: summary.opportunity >= 0 ? S.leftNum : S.leftBad }],
@@ -774,7 +774,7 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
     text(28, y, 10, `${say(lang, "Total de ingresos", "Total income")}    ${shown(income)}`, green);
     y -= 18;
     band(say(lang, "GASTOS", "EXPENSES"));
-    text(28, y, 8, say(lang, "Gastos fijos: los que haces necesariamente cada mes", "Fixed expenses: what you necessarily spend each month"), muted);
+    text(28, y, 8, say(lang, "Gastos fijos: los que haces necesariamente cada mes", "Fixed costs: what you necessarily spend each month"), muted);
     y -= 14;
     const paint = (blocks: Block[]) => {
       const cols = stackBlocks(blocks);
@@ -803,11 +803,11 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
     y -= 2;
     text(28, y, 10, `${say(lang, "Total gastos fijos", "Total fixed expenses")}    ${shown(fixed)}`, gold);
     y -= 16;
-    text(28, y, 8, say(lang, "Gastos variables: los que haces de vez en cuando durante el mes", "Variable expenses: what you spend now and then during the month"), muted);
+    text(28, y, 8, say(lang, "Gastos variables: los que haces de vez en cuando durante el mes", "Variable costs: what you spend now and then during the month"), muted);
     y -= 14;
     paint([
       ...categoryBlocks(ledger, names, lines, "variable", "expense-variable", lang),
-      ...namedBlocks(purchaseLines, ledger, (line) => names.purchase(line.categoryId), say(lang, "Compras", "Purchases")),
+      ...namedBlocks(purchaseLines, ledger, (line) => names.purchase(line.categoryId), say(lang, "Compras", "Shopping")),
       ...namedBlocks(subLines, ledger, (line) => names.catalog(line.providerId), say(lang, "Cuotas", "Subscriptions")),
     ]);
     y -= 2;

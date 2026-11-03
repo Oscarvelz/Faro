@@ -152,7 +152,7 @@ export function PulseCard({ coach }: { coach: Coach }) {
   const over = coach.left < 0;
   return (
     <section className="card pano-card">
-      <Head kicker={lang === "en" ? "This month" : "Este mes"} title={lang === "en" ? "Your month at a glance" : "Tu mes de un vistazo"} />
+      <Head kicker={lang === "en" ? "This month" : "Este mes"} title={lang === "en" ? "Month at a glance" : "Tu mes de un vistazo"} />
       <div className="pano-pulse">
         <svg viewBox="0 0 160 160" className={`pano-ring${pick ? " has-pick" : ""}`} role="img" aria-label={coach.verdict}>
           <circle cx="80" cy="80" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="18" className="pano-ring-base" />
@@ -311,14 +311,14 @@ export function PaceCard({ coach }: { coach: Coach }) {
   const extra = coach.coverDays !== null ? coach.coverDays - coach.daysInMonth : 0;
   return (
     <section className="card pano-card">
-      <Head kicker={lang === "en" ? "Pace" : "Ritmo"} title={lang === "en" ? "How far your money goes" : "Hasta dónde te alcanza"} />
+      <Head kicker={lang === "en" ? "Pace" : "Ritmo"} title={lang === "en" ? "How far it goes" : "Hasta dónde te alcanza"} />
       <div className="pano-pace-top">
         <div>
           <em>{lang === "en" ? "A day, on average" : "Al día, en promedio"}</em>
           <strong className="num serif">{fmt(coach.perDay)}</strong>
         </div>
         <div className={extra >= 0 ? "is-good" : "is-bad"}>
-          <em>{lang === "en" ? "Your income lasts" : "Tu ingreso dura"}</em>
+          <em>{lang === "en" ? "Income lasts" : "Tu ingreso dura"}</em>
           <strong className="num serif">{coach.coverDays === null ? "—" : `${coach.coverDays} ${lang === "en" ? "days" : "días"}`}</strong>
         </div>
       </div>
@@ -342,7 +342,7 @@ export function MoversCard({ coach }: { coach: Coach }) {
   const peak = Math.max(1, ...coach.movers.map((m) => Math.abs(m.delta)));
   return (
     <section className="card pano-card">
-      <Head kicker={lang === "en" ? "Against last month" : "Contra el mes pasado"} title={lang === "en" ? "What moved" : "Qué se movió"} />
+      <Head kicker={lang === "en" ? "Vs. last month" : "Contra el mes pasado"} title={lang === "en" ? "What moved" : "Qué se movió"} />
       <p className="pano-lead">{coach.moversNote}</p>
       {coach.movers.length ? (
         <div className="pano-movers">
@@ -606,7 +606,7 @@ export const PANORAMA_IDS = ["pulse", "waffle", "health", "rule", "pace", "mover
 
 export function panoramaLabels(lang: "es" | "en"): Record<(typeof PANORAMA_IDS)[number], string> {
   return lang === "en"
-    ? { pulse: "Your month at a glance", waffle: "Your 100", health: "Your money's health", rule: "The 50 · 30 · 20 rule", pace: "How far your money goes", movers: "What moved", history: "How each month closed", agenda: "Payments ahead" }
+    ? { pulse: "Month at a glance", waffle: "Your 100", health: "Your money's health", rule: "The 50 · 30 · 20 rule", pace: "How far it goes", movers: "What moved", history: "How each month closed", agenda: "Payments ahead" }
     : { pulse: "Tu mes de un vistazo", waffle: "Tus 100", health: "La salud de tu dinero", rule: "La regla 50 · 30 · 20", pace: "Hasta dónde te alcanza", movers: "Qué se movió", history: "Cómo cerró cada mes", agenda: "Próximos pagos" };
 }
 

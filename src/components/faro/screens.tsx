@@ -8,6 +8,7 @@ import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
+import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
 import { PALETTE, SAVINGS_PURPLE, baseFor, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
 import { shrinkIcon } from "@/lib/faro/icon";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
@@ -504,6 +505,26 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
     if (e.key === "ArrowUp" || e.key === "ArrowRight") keep(usdMinor + 500);
     if (e.key === "ArrowDown" || e.key === "ArrowLeft") keep(usdMinor - 500);
   };
+  // Closed lever: when the years label + amount leave the rail under 72px (narrow phone, large text, long amount),
+  // the rail takes its own line under them, so the amount never runs into the chevron.
+  const flatRef = useRef<HTMLDivElement>(null);
+  const [stack, setStack] = useState(false);
+  useLayoutEffect(() => {
+    const flat = flatRef.current;
+    if (open || !flat) return;
+    const fit = () => {
+      const kids = Array.from(flat.children) as HTMLElement[];
+      const rest = kids.filter((k) => !k.classList.contains("vault-lever-rail"));
+      const gap = parseFloat(getComputedStyle(flat).columnGap) || 0;
+      const need = rest.reduce((sum, k) => sum + k.getBoundingClientRect().width, 0) + gap * rest.length + 72;
+      setStack(need > flat.clientWidth + 0.5);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(flat);
+    for (const k of Array.from(flat.children)) if (!k.classList.contains("vault-lever-rail")) ro.observe(k);
+    return () => ro.disconnect();
+  }, [open, mark, yearDraft]);
   // "Ir allí" (Si apartas) unfolds the projector.
   useEffect(() => {
     const onOpen = (e: Event) => { if ((e as CustomEvent).detail === "lever") setOpen(true); };
@@ -553,7 +574,7 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
           </div>
         </>
       ) : (
-        <div className="vault-lever-flat">
+        <div className={`vault-lever-flat${stack ? " is-stack" : ""}`} ref={flatRef}>
           <div
             className="vault-lever-rail is-flat"
             ref={rail}
@@ -1458,13 +1479,13 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
               ) : (
                 <div className="cobro-acts">
                   <button type="button" className="btn secondary" onClick={() => { setBonusFor(row.id); setBonusAmt(""); setBonusOn(todayIso()); }}>{t("cobro.bonus")}</button>
-                  <Hint topic="bono" className="is-acts" />
                   <button type="button" className="btn secondary" onClick={() => confirm({
                     title: t("cobro.archive"),
                     body: `${row.person}. ${t("cobro.archive.body")} ${fmt(asDisplay(still, row.currency))}`,
                     yes: t("cobro.archive"),
                     run: () => setRows((cur) => cur.map((item) => item.id === row.id ? { ...item, archived: true, archivedOn: todayIso(), unpaidMinor: leftOf(item) } : item)),
                   })}>{t("cobro.archive")}</button>
+                  <Hint topic="bono" className="is-acts" corner />
                 </div>
               )}
             </article>
@@ -2505,7 +2526,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       </div>
       <div className="lenses">
         <div className="lens-wrap">
-          <Hint topic="tengo" className="is-lens" avoid=".lens-wrap .lens-kicker > span:last-child" fallback=".lens-note|.lens-corner" />
+          <Hint topic="tengo" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
           <button type="button" data-anchor="lens-have" className={`lens is-have${lens === "have" ? " is-picked" : ""}`} data-lens="have" aria-pressed={lens === "have"} onClick={() => focusLens("have")}>
             <span className="lens-kicker"><span className="lens-mark"><ArrowDownLeft className="size-3" /></span><span>{t("desk.have")}</span></span>
             <span className="lens-value num">{fmt(summary.income)}</span>
@@ -2516,7 +2537,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </button>
         </div>
         <div className="lens-wrap">
-          <Hint topic="gastare" className="is-lens" avoid=".lens-wrap .lens-kicker > span:last-child" fallback=".lens-note|.lens-corner" />
+          <Hint topic="gastare" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
           <button type="button" data-anchor="lens-spend" className={`lens is-spend${lens === "spend" ? " is-picked" : ""}`} data-lens="spend" aria-pressed={lens === "spend"} onClick={() => focusLens("spend")}>
             <span className="lens-kicker"><span className="lens-mark"><ArrowUpRight className="size-3" /></span><span>{t("desk.spend")}</span></span>
             <span className="lens-value num">−{fmt(summary.expense)}</span>
@@ -2527,7 +2548,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </button>
         </div>
         <div className="lens-wrap">
-          <Hint topic="pagos" className="is-lens" avoid=".lens-wrap .lens-kicker > span:last-child" fallback=".lens-note|.lens-corner" />
+          <Hint topic="pagos" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
           <button type="button" data-anchor="lens-debt" className={`lens is-debt tone-${summary.tone}${lens === "debt" ? " is-picked" : ""}`} data-lens="debt" aria-pressed={lens === "debt"} onClick={() => focusLens("debt")}>
             <span className="lens-kicker"><span className="lens-mark"><CreditCard className="size-3" /></span><span>{t("desk.debt")}</span></span>
             <span className="lens-value num">{fmt(summary.debt)}</span>
@@ -3551,9 +3572,9 @@ export function Study() {
       moveDownLabel={t("study.sort.down")}
       openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "rule", "movers", "time", "cushion", "plan", "owed"]}
       items={[
-        { id: "pulse", label: es ? "Tu mes de un vistazo" : "Your month at a glance", section: "now" },
+        { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
-        { id: "pace", label: es ? "Hasta dónde te alcanza" : "How far your money goes", section: "now" },
+        { id: "pace", label: es ? "Hasta dónde te alcanza" : "How far it goes", section: "now" },
         { id: "agenda", label: es ? "Próximos pagos" : "Payments ahead", section: "now" },
         { id: "waffle", label: es ? "Tus C$100" : "Your 100", section: "spend" },
         { id: "where", label: t("study.where"), section: "spend" },
@@ -3840,7 +3861,7 @@ export function Advisor() {
           <div>
             <p className="advice-kicker"><span className="lab-head">{t("advice.plan.kicker")}<Hint topic="por-donde-empezar" /></span></p>
             <h2 className="serif">{t("advice.plan")}</h2>
-            {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{(reading.plan.match(/^(24 horas|24 hours):\s*(.+?)(?:[.:](?:\s|$))/m)?.[2] ?? "").slice(0, 70)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
+            {!cardOn("plan") ? <p className="advice-teaser"><strong className="num">{clipWords(reading.plan.match(/^(24 horas|24 hours):\s*(.+?)(?:[.:](?:\s|$))/m)?.[2] ?? "", 120)}</strong><span>{lang === "en" ? "first step" : "primer paso"}</span></p> : null}
           </div>
           <ChevronDown className={cardOn("plan") ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
         </div>
@@ -3953,6 +3974,13 @@ function Fold({ id, topic, title, open, onToggle, children }: { id: string; topi
   );
 }
 
+/** Shorten at a word boundary (never mid-word); an ellipsis marks the cut. */
+function clipWords(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.lastIndexOf(" ", max);
+  return `${text.slice(0, cut > 0 ? cut : max).replace(/[\s,;:–—-]+$/, "")}…`;
+}
+
 export function Settings() {
   const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
@@ -4045,9 +4073,9 @@ export function Settings() {
         </button>
       </section>
       <Fold id="lang" topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
-        <div className="row">
+        <div className="aj-seg" role="group" aria-label={t("settings.lang")}>
           {(["es", "en"] as const).map((id) => (
-            <button key={id} type="button" className="btn ghost" aria-pressed={lang === id} onClick={() => { localStorage.setItem("faro-lang", id); commit((s) => ({ ...s, settings: { ...s.settings, lang: id } }), id); }}>{t(`lang.${id}`)}</button>
+            <button key={id} type="button" className="aj-seg-btn" aria-pressed={lang === id} onClick={() => { localStorage.setItem("faro-lang", id); commit((s) => ({ ...s, settings: { ...s.settings, lang: id } }), id); }}>{t(`lang.${id}`)}</button>
           ))}
         </div>
       </Fold>
@@ -4081,9 +4109,9 @@ export function Settings() {
         })()}
       </Fold>
       <Fold id="structure" topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
-        <div className="row">
+        <div className="aj-picks">
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
-            <button key={id} type="button" className="btn ghost" onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
+            <button key={id} type="button" className="btn ghost aj-pick" onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
           ))}
         </div>
         <p className="mt-2 text-sm text-muted">{templateBlurb("familia", lang)}</p>
@@ -4112,10 +4140,10 @@ export function Settings() {
       </Fold>
       <Fold id="keys" topic="atajos-teclado" title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
         {SHORTCUT_ACTIONS.map((action) => (
-          <div key={action} className="line-row">
-            <span>{action}</span>
-            <span className="num">{settings.shortcuts[action] || DEFAULT_SHORTCUTS[action]}</span>
-            <button type="button" className="btn ghost" onClick={() => setUi({ rebind: action })}>{ui.rebind === action ? t("settings.press") : t("settings.rebind")}</button>
+          <div key={action} className={`key-row${ui.rebind === action ? " is-rebinding" : ""}`}>
+            <span className="key-name">{shortcutLabel(lang, action)}</span>
+            <kbd className="key-combo num">{settings.shortcuts[action] || DEFAULT_SHORTCUTS[action]}</kbd>
+            <button type="button" className="btn ghost key-change" onClick={() => setUi({ rebind: action })}>{ui.rebind === action ? t("settings.press") : t("settings.rebind")}</button>
           </div>
         ))}
         <button type="button" className="btn ghost mt-2" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys")}>{t("settings.resetKeys")}</button>
@@ -4170,7 +4198,7 @@ export function Settings() {
           {hasConflict ? <button type="button" className="btn" onClick={restoreConflict}>{t("settings.conflict")}</button> : null}
         </div>
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-activity">{t("settings.activity")}<Hint topic="actividad" /></h2>
-        {session.ledger.audit.slice(0, 8).map((a) => <p key={a.id} className="text-sm text-muted">{a.detail}</p>)}
+        {session.ledger.audit.slice(0, 8).map((a) => <p key={a.id} className="text-sm text-muted">{auditLabel(lang, a.detail)}</p>)}
       </Fold>
       <Fold id="account" topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />
@@ -4184,7 +4212,11 @@ function BackupPanel({ backups, onNow, onRestore }: { backups: BackupInfo[]; onN
   const loc = lang === "en" ? "en-US" : "es-NI";
   const when = (iso: string) => {
     const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(loc, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    if (Number.isNaN(d.getTime())) return "";
+    // The time keeps its "AM"/"a. m." with it (no break inside "11:36 AM"); the date may still wrap between words.
+    const parts = new Intl.DateTimeFormat(loc, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).formatToParts(d);
+    const h = parts.findIndex((x) => x.type === "hour");
+    return parts.map((x, i) => (i > h && h >= 0 ? x.value.replace(/\s/g, "\u00a0") : x.value)).join("");
   };
   const dayLabel = (day: string) => {
     const safety = day.endsWith("·");
@@ -4192,7 +4224,7 @@ function BackupPanel({ backups, onNow, onRestore }: { backups: BackupInfo[]; onN
     const base = d.toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long" });
     return safety ? `${base} · ${t("backup.safety")}` : base;
   };
-  const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`);
+  const kb = (n: number) => (n < 1024 ? `${n}\u00a0B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)}\u00a0KB`);
   const last = (where: "device" | "cloud") => backups.filter((b) => b.where === where).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
   const places: Array<["device" | "cloud", BackupInfo | undefined]> = [["device", last("device")], ["cloud", last("cloud")]];
   return (
@@ -4451,11 +4483,11 @@ function CatalogEditor() {
 }
 
 export function Help() {
-  const { t, ui, setUi } = useFaro();
+  const { t, lang, ui, setUi } = useFaro();
   return (
     <Modal open={ui.help} title={t("help.title")} onClose={() => setUi({ help: false })}>
       {SHORTCUT_ACTIONS.map((action) => (
-        <p key={action} className="text-sm"><span className="num">{DEFAULT_SHORTCUTS[action]}</span> · {action}</p>
+        <p key={action} className="text-sm"><span className="num">{DEFAULT_SHORTCUTS[action]}</span> · {shortcutLabel(lang, action)}</p>
       ))}
     </Modal>
   );

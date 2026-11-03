@@ -25,6 +25,9 @@ export function Hint({
   avoid,
   fallback,
   fitParent = false,
+  corner = false,
+  overlay = false,
+  group,
 }: {
   topic: string;
   alt?: boolean;
@@ -37,6 +40,13 @@ export function Hint({
   fallback?: string;
   /** The (?) ends a title: if the (?) alone would push the title onto another line, the title gives up ≤ 10% of its size instead. */
   fitParent?: boolean;
+  /** Corner placement: the (?) sits in its container's bottom-right corner (CSS `.is-corner` per container), takes no room in the row of
+   *  buttons beside it, and stays hidden if it would ever come within 4px of one of them (never on a button, never in its corner). */
+  corner?: boolean;
+  /** With `corner`: the (?) is meant to float over the controls' own corner (savings tab bar), so it is never hidden for being near them. */
+  overlay?: boolean;
+  /** Sibling (?)s (the three lenses): all show, or all step aside together, so one never shows beside a hidden twin. */
+  group?: string;
 }) {
   const root = useFaroRoot();
   const { t, lang } = root;
@@ -96,14 +106,49 @@ export function Hint({
           }
         }
       }
-      setTight(hit);
+      if (group) { me.dataset.hit = hit ? "1" : "0"; window.dispatchEvent(new CustomEvent("faro-hint-group", { detail: group })); }
+      else setTight(hit);
     };
+    // Grouped: hidden when any sibling of the group has to step aside (decided from the siblings' own checks, not from timing).
+    const regroup = (e?: Event) => {
+      if (!group || (e && (e as CustomEvent).detail !== group)) return;
+      const all = Array.from(document.querySelectorAll<HTMLElement>(`.hint[data-group="${group}"]`)).filter((h) => h.getClientRects().length);
+      setTight(all.some((h) => h.dataset.hit !== "0"));
+    };
+    window.addEventListener("faro-hint-group", regroup);
     check();
     const ro = new ResizeObserver(check);
     ro.observe(box);
     if (target?.parentElement && target.parentElement !== box) ro.observe(target.parentElement); // the target's own box can change size without the container doing so
-    return () => ro.disconnect();
-  }, [avoid, fallback, lang]);
+    // The words it avoids can change width without any box resizing: the web font arriving, or fit.ts shrinking a kicker.
+    // Check again after each, so the (?) settles the same way on every load (it used to depend on which came first).
+    let live = true;
+    void document.fonts?.ready.then(() => { if (live) check(); });
+    window.addEventListener("faro-fit", check);
+    return () => { live = false; ro.disconnect(); window.removeEventListener("faro-fit", check); window.removeEventListener("faro-hint-group", regroup); };
+  }, [avoid, fallback, lang, group]);
+
+  // Corner (?): never within 4px of an independent control in its container.
+  useLayoutEffect(() => {
+    if (!corner || overlay) return;
+    const me = ref.current; const box = me?.parentElement; if (!me || !box) return;
+    const check = () => {
+      const g = btn.current?.querySelector("svg")?.getBoundingClientRect(); if (!g || !g.width) return;
+      const clash = [...box.querySelectorAll<HTMLElement>("button, a[href], [role='tab'], input, select, textarea")].some((c) => {
+        if (me.contains(c)) return false;
+        const q = c.getBoundingClientRect(); if (!q.width) return false;
+        return g.left < q.right + 4 && g.right > q.left - 4 && g.top < q.bottom + 4 && g.bottom > q.top - 4;
+      });
+      if (clash) me.setAttribute("data-clash", ""); else me.removeAttribute("data-clash");
+      setTight(clash);
+    };
+    check();
+    const ro = new ResizeObserver(check); ro.observe(box);
+    let live = true;
+    void document.fonts?.ready.then(() => { if (live) check(); });
+    window.addEventListener("faro-fit", check);
+    return () => { live = false; ro.disconnect(); window.removeEventListener("faro-fit", check); };
+  }, [corner, overlay, lang]);
 
   useLayoutEffect(() => {
     if (!fitParent) return;
@@ -213,7 +258,7 @@ export function Hint({
   };
 
   return (
-    <span className={`ftip hint${className ? ` ${className}` : ""}${tight ? " is-tight" : ""}`} ref={ref} data-topic={topic}>
+    <span className={`ftip hint${corner ? " is-corner" : ""}${className ? ` ${className}` : ""}${tight ? " is-tight" : ""}`} ref={ref} data-topic={topic} data-group={group}>
       <button
         ref={btn}
         type="button"

@@ -325,7 +325,7 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   const flow = [
     { name: L(lang, "Fijos", "Fixed"), minor: s.fixed, tone: "tone-1" },
     { name: L(lang, "Variables", "Variable"), minor: s.variable, tone: "tone-2" },
-    { name: L(lang, "Compras", "Purchases"), minor: s.purchases, tone: "tone-3" },
+    { name: L(lang, "Compras", "Shopping"), minor: s.purchases, tone: "tone-3" },
     { name: L(lang, "Cuotas", "Subscriptions"), minor: s.subscriptions, tone: "tone-4" },
     { name: L(lang, "Queda", "Left"), minor: Math.max(0, s.opportunity), tone: "tone-0" },
   ].filter((b) => b.minor > 0);
@@ -470,7 +470,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     tone: fixedPct === null ? "neutral" : fixedPct > 70 ? "bad" : fixedPct > 50 ? "warn" : "good",
     viz: fixedPct === null ? undefined : { kind: "ring", pct: fixedPct, mark: 50 },
     meaning: L(lang, "Parte del ingreso que se va en gastos fijos. Es lo que no se recorta este mes sin renegociar un contrato, una renta o un crédito.", "Share of income that leaves in fixed expenses. It is what you cannot cut this month without renegotiating rent, a contract, or a credit."),
-    formula: L(lang, "Gastos fijos ÷ ingresos. Las suscripciones de este mes van aparte, en su propia lectura.", "Fixed expenses ÷ income. This month's subscriptions are read separately."),
+    formula: L(lang, "Gastos fijos ÷ ingresos. Las suscripciones de este mes van aparte, en su propia lectura.", "Fixed costs ÷ income. This month's subscriptions are read separately."),
     implication: L(
       lang,
       fixedPct !== null && fixedPct > 70
@@ -585,7 +585,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
   const hasPrev = prev.some((l) => l.active);
   push({
     id: "mom",
-    title: L(lang, "Contra el mes anterior", "Against last month"),
+    title: L(lang, "Contra el mes anterior", "Vs. last month"),
     value: hasPrev ? (s.expense === prevExpense ? "=" : `${s.expense > prevExpense ? "+" : "-"}${money(Math.abs(s.expense - prevExpense))}`) : "—",
     detail: hasPrev && s.expense === prevExpense
       ? L(lang, `Gastaste lo mismo que el mes pasado${s.income !== prevIncome ? `, y entró ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "más" : "menos"}` : ""}.`, `You spent the same as last month${s.income !== prevIncome ? `, and ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "more" : "less"} came in` : ""}.`)
@@ -662,7 +662,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
   const largest = [...lines].filter((l) => !l.kind.startsWith("income")).sort((a, b) => inView(b, display, rateE4) - inView(a, display, rateE4))[0];
   push({
     id: "largest",
-    title: L(lang, "La línea que manda", "The line that dominates"),
+    title: L(lang, "La línea que manda", "The top line"),
     value: largest ? money(inView(largest, display, rateE4)) : "—",
     detail: largest ? largest.concept || names.cat(largest.categoryId) : L(lang, "Sin gastos.", "No spending."),
     tone: "neutral",
@@ -1116,7 +1116,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
   };
   const longCard: AdviceCard = {
     horizon: "long",
-    title: L(lang, "Si cada mes fuera así", "If every month were like this"),
+    title: L(lang, "Si cada mes fuera así", "Every month like this"),
     lead: longLead,
     body: "",
     evidence: L(lang, `Meses con datos: ${keys.length || (lines.length ? 1 : 0)}. Colchón: ${state.settings.emergencyMonths} meses de tus gastos esenciales.`, `Months with data: ${keys.length || (lines.length ? 1 : 0)}. Cushion: ${state.settings.emergencyMonths} months of real essentials.`),

@@ -312,7 +312,7 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
           <path d="M14 194 Q36 186 60 189 Q86 186 106 194 L106 206 L14 206 Z" className="a2-rock" />
         </svg>
         <div className="a2-tower-say">
-          <em className="lab-head">{short ? L(lang, "Este mes te faltan", "This month you're short") : L(lang, "Este mes te quedan", "This month you keep")}<Hint topic="faro-del-mes" avoid=".a2-tower-say" /></em>
+          <em className="lab-head">{short ? L(lang, "Este mes te faltan", "Short this month") : L(lang, "Este mes te quedan", "Left this month")}<Hint topic="faro-del-mes" avoid=".a2-tower-say" /></em>
           <strong className={`num serif ${short ? "bad" : ""}`}>{fmt(Math.abs(left))}</strong>
           {!short && income > 0 ? <span className="a2-badge">{L(lang, `${pctLeft} de cada ${hundred}`, `${pctLeft} of every ${hundred}`)}</span> : null}
         </div>
