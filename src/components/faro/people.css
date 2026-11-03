@@ -136,3 +136,44 @@ html[data-theme="tron"] .pp-all b { color: #ffc23a; text-shadow: 0 0 10px rgb(25
 .slip-apply, html[data-theme="tron"] .slip-apply { margin-top: 12px; padding: 12px 0 2px 12px; border-radius: 0; background: none; border-top: 1px solid var(--line); }
 /* Day themes: unselected toggles in the apply form read at >= 4.5:1. */
 html:not(:is([data-theme="tron"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion"], [data-theme="ion-noche"])) .sc-form.slip-apply .ah-sign button:not([aria-pressed="true"]) { color: #4f6153; }
+
+/* People 2 (Nov 3): lives in Libros → Variables; contact import; occasions; toast. */
+.pp-box { scroll-margin-top: 12px; }
+/* "Escribir a mano": a text link, not a framed button (end of the list, or under the empty-state action). */
+.pp-hand { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--accent); font: inherit; font-size: .92rem; font-weight: 650; }
+.pp-hand svg { flex: none; }
+.pp-hand[aria-pressed="true"] { text-decoration: underline; text-underline-offset: 4px; }
+.pp-hand-row { display: flex; padding-left: 52px; }
+@container (min-width: 900px) { .pp-hand-row { grid-column: 1 / -1; } }
+@container (max-width: 20rem) { .pp-hand-row { padding-left: 0; } }
+/* Occasion row in the person form: kind select + remove on one line, optional custom name, then the day. */
+.pp-form .pp-date-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.pp-date-row > * { grid-column: 1; grid-row: auto; }
+.pp-date-line { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; align-items: center; min-width: 0; }
+.pp-date-name { display: grid; gap: 6px; min-width: 0; }
+.pp-form .pp-date-row .day-field { grid-column: 1; grid-row: auto; }
+/* Person sheet: each date with its day and, once gifts name an occasion, what it took. Plain lines, no boxes. */
+.pp-dates li { align-items: baseline; }
+.pp-dates li > span { display: flex; flex-wrap: wrap; column-gap: 8px; min-width: 0; }
+.pp-dates li i { font-style: normal; color: var(--muted); white-space: nowrap; }
+.pp-dates li > span { color: var(--fg); }
+.pp-dates b.num { font-weight: 700; }
+html[data-theme="tron"] .pp-dates b.num { color: #ffc23a; text-shadow: 0 0 10px rgb(255 194 58 / 35%); }
+html[data-theme="tron"] .pp-hand { color: #3fd6f5; }
+/* Toast: one line of feedback after an import, above the dock. */
+.pp-toast { position: fixed; z-index: 80; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); transform: translateX(-50%); width: max-content; max-width: min(92vw, 30rem); padding: 11px 16px; border-radius: 14px; background: var(--fg); color: var(--bg); font-size: .9rem; font-weight: 600; line-height: 1.3; text-align: center; box-shadow: 0 10px 30px rgb(0 0 0 / 25%); }
+html[data-theme="tron"] .pp-toast { border-radius: 6px; background: #071318; color: #bff3ff; box-shadow: inset 0 0 0 1px rgb(63 214 245 / 60%), 0 0 18px rgb(63 214 245 / 30%); }
+.pp-dates b.num.is-zero, html[data-theme="tron"] .pp-dates b.num.is-zero { color: var(--muted); font-weight: 600; text-shadow: none; }
+
+/* People 3 (Nov 3): past years as plain lines under the all-years total (no chips); compact occasion menu;
+   the row's date line keeps one line when it fits, and the amount drops under the name instead. */
+.pp-detail .pp-all + .pp-years, .pp-years { display: grid; gap: 2px; margin-top: -6px; }
+.pp-year, html[data-theme="tron"] .pp-year { display: block; margin: 0; padding: 0; border-radius: 0; background: none; box-shadow: none; font-size: .92rem; line-height: 1.4; }
+.pp-year em { font-style: normal; color: var(--muted); font-size: inherit; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.pp-year b { font-size: inherit; font-weight: 700; }
+.pp-who small { contain: none; }
+.pp-date-row .theme-select-menu { max-height: none; overflow: visible; gap: 0; padding: 4px; }
+.pp-date-row .theme-select-menu button { min-height: 40px; padding: 0 12px; border-radius: 10px; font-size: .95rem; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1.2; }
+.pp-date-row .theme-select-btn > span { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: 1rem; }
+html[data-theme="tron"] .pp-date-row .theme-select-menu button { border-radius: 4px; }
+html[data-theme="tron"] .pp-date-row .theme-select-menu { border-radius: 6px; }

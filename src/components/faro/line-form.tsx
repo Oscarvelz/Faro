@@ -30,7 +30,7 @@ export function DayField({ value, onChange, min, max }: { value: string; onChang
   }, [open]);
   const locked = !!min && !!max && min.slice(0, 7) === max.slice(0, 7);
   const label = value
-    ? `${Number(value.slice(8, 10))} ${monthName(lang, Number(value.slice(5, 7)), true)} ${value.slice(0, 4)}`
+    ? `${Number(value.slice(8, 10))} ${monthName(lang, Number(value.slice(5, 7)), true)}${value.startsWith("1904-") ? "" : ` ${value.slice(0, 4)}`}` // 1904 = year unknown (imported --MMDD)
     : "—";
   const shift = (dir: number) => {
     if (locked) return;
@@ -292,7 +292,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       startedOn,
       // Only a colour the user actually picked is stored; an untouched default stays a default (follows the category).
       color: swatch || (existing && bubbleTone && tone !== toneStart ? tone : existing?.color),
-      ...(personId ? { personId } : {}),
+      ...(personId ? { personId, ...(existing?.occasionId && existing.personId === personId ? { occasionId: existing.occasionId } : {}) } : {}),
     };
     commit((s) => upsertLine(s, line), `${existing ? "Editar" : "Agregar"} ${line.concept}`);
     if (draftKey) clearReportDraft(draftKey);

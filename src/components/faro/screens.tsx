@@ -3252,7 +3252,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {ui.notice ? <p className="mt-2 text-sm">{ui.notice}</p> : null}
       </section>
       )}
-      {focus ? null : <PeopleBox />}
     </div>
   );
 }
@@ -3268,7 +3267,12 @@ export function Books({ mode }: { mode: "income" | "fixed" | "variable" }) {
     );
   }
   if (mode === "fixed") return <LinesBlock kind="expense-fixed" title={t("group.fixed")} />;
-  return <LinesBlock kind="expense-variable" title={t("group.variable")} />;
+  return (
+    <div className="grid gap-3">
+      <LinesBlock kind="expense-variable" title={t("group.variable")} />
+      <PeopleBox />
+    </div>
+  );
 }
 
 export function Shops() {

@@ -19,6 +19,7 @@ import { useLayer } from "@/lib/manual/back";
 import { prefetchManual } from "@/lib/manual/load";
 import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
+import { PeopleInbox } from "./people";
 
 const ManualLayer = lazy(() => import("./manual"));
 
@@ -645,6 +646,7 @@ export function Shell() {
   };
   return (
     <>
+    <PeopleInbox />
     <div className={`app-frame${split ? " is-split" : ""}${wide && split && splitAxis === "col" ? " is-cols" : ""}${dragging ? " is-dragging" : ""}${dockClass}`}>
       <nav ref={railRef} className="rail" aria-label={t("nav.desk")}>
         <div className="dock-face">

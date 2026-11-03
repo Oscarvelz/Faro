@@ -102,10 +102,14 @@ export type Line = {
   color?: string;
   /** Optional tag: the person this spending was for (a gift). See people.ts. */
   personId?: string;
+  /** Optional: which of that person's occasions the gift was for ("birthday" or a PersonDate id). */
+  occasionId?: string;
 };
 
 /** Someone the user spends on (gifts). Entered by hand; money lives in normal lines tagged with personId. */
-export type PersonDate = { id: string; label: string; date: string };
+export type OccasionKind = "anniversary" | "mother" | "father" | "christmas" | "graduation" | "saint" | "custom";
+/** A yearly date. `kind` names a preset; "custom" uses `label`. Old data has no kind (read as custom or a matching preset). */
+export type PersonDate = { id: string; label: string; date: string; kind?: OccasionKind };
 export type Person = {
   id: string;
   name: string;
@@ -114,6 +118,8 @@ export type Person = {
   dates: PersonDate[];
   note: string;
   color?: string;
+  /** Deleted by the user: hidden from Personas and the pickers, but their lines keep personId and history shows the name. */
+  archived?: boolean;
 };
 
 export type AuditEntry = { id: string; at: string; detail: string };
