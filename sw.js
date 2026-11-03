@@ -1,5 +1,5 @@
 // FARO service worker: the app opens with no internet. Bump VERSION on every release.
-const VERSION = "faro-1.3.65";
+const VERSION = "faro-1.3.66";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./icon-192.png", "./icon-512.png", "./precache.json"];
 
 self.addEventListener("install", (event) => {
@@ -19,8 +19,29 @@ self.addEventListener("activate", (event) => {
   })());
 });
 
+// Contacts shared to Faro (manifest share_target): keep the vCard text and open the app, which adds the people.
+// Cache name has no "faro-" prefix so activate never clears it. Keys must match components/faro/people.tsx.
+const SHARE_CACHE = "share-inbox";
+const SHARE_KEY = "./share-contact-inbox";
+async function takeShare(req) {
+  let text = "";
+  try {
+    const form = await req.formData();
+    for (const f of form.getAll("contacts")) if (f && typeof f.text === "function") text += (await f.text()) + "\n";
+    for (const k of ["text", "title"]) { const v = form.get(k); if (typeof v === "string" && /BEGIN:VCARD/i.test(v)) text += v + "\n"; }
+  } catch { /* nothing readable */ }
+  if (text) {
+    const cache = await caches.open(SHARE_CACHE);
+    const old = await cache.match(SHARE_KEY);
+    const prev = old ? await old.text() : "";
+    await cache.put(SHARE_KEY, new Response(prev + text, { headers: { "content-type": "text/vcard; charset=utf-8" } }));
+  }
+  return Response.redirect(new URL("./?share=contact", self.registration.scope).href, 303);
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+  if (req.method === "POST" && new URL(req.url).pathname.endsWith("/share-contact")) { event.respondWith(takeShare(req)); return; }
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   // Never cache account or sync traffic.
