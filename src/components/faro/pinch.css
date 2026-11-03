@@ -1,0 +1,23 @@
+/* Pinch-to-zoom (pinch.ts): Estudio + Asesor cards only. pan-x pan-y keeps one-finger scroll/swipe and
+   stops the browser's own pinch, so two fingers reach our handler. The rest of the app never page-zooms. */
+html { touch-action: pan-x pan-y; }
+.study-stack .stat-fold,
+.advice-stack > .coach,
+.advice-stack .a2-tower,
+.advice-stack > .advice-card { touch-action: pan-x pan-y; }
+.is-pz { position: relative; z-index: 3; will-change: scale, translate; }
+.is-pz-back { transition: scale .24s cubic-bezier(.2, .8, .2, 1), translate .24s cubic-bezier(.2, .8, .2, 1), clip-path .24s cubic-bezier(.2, .8, .2, 1); }
+.pz-reset {
+  position: fixed; z-index: 80; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid color-mix(in oklab, var(--fg) 16%, transparent);
+  background: color-mix(in oklab, var(--surface) 86%, transparent); color: var(--fg);
+  backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow: 0 10px 28px color-mix(in oklab, black 28%, transparent);
+  font: 600 .86rem/1 var(--font-sans, system-ui); letter-spacing: .01em;
+  animation: pz-in .22s cubic-bezier(.2, .8, .2, 1) both;
+}
+.pz-reset span { font-size: 1rem; }
+[data-theme="tron"] .pz-reset { border-color: color-mix(in oklab, #3fd6f5 55%, transparent); color: #bff4ff; background: rgba(4, 14, 20, .82); box-shadow: 0 0 18px color-mix(in oklab, #3fd6f5 30%, transparent); font-family: "Orbitron", "Exo 2", system-ui; letter-spacing: .06em; text-transform: uppercase; font-size: .72rem; }
+@keyframes pz-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+@media (prefers-reduced-motion: reduce) { .pz-reset { animation: none; } }

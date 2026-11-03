@@ -100,6 +100,20 @@ export type Line = {
   bookedOn?: string;
   startedOn?: string;
   color?: string;
+  /** Optional tag: the person this spending was for (a gift). See people.ts. */
+  personId?: string;
+};
+
+/** Someone the user spends on (gifts). Entered by hand; money lives in normal lines tagged with personId. */
+export type PersonDate = { id: string; label: string; date: string };
+export type Person = {
+  id: string;
+  name: string;
+  /** YYYY-MM-DD (the year may be unknown: then any year is fine). */
+  birthday: string;
+  dates: PersonDate[];
+  note: string;
+  color?: string;
 };
 
 export type AuditEntry = { id: string; at: string; detail: string };
@@ -125,6 +139,8 @@ export type LedgerState = {
   months: Record<string, { lines: Line[] }>;
   settings: Settings;
   audit: AuditEntry[];
+  /** Added Nov 2026; missing in older ledgers and backups (= nobody). */
+  people?: Person[];
   revision: number;
   updatedAt: string;
 };

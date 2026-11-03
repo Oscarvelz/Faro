@@ -244,3 +244,15 @@
 .pano-help-sum li.is-total .num { color: var(--fg); }
 .pano-help-next { color: var(--muted); font-size: 0.85rem !important; }
 @media (prefers-reduced-motion: reduce) { .pano-help { animation: none; } }
+
+/* Checks rows (Nov 3): the label column is as wide as the longest label (subgrid keeps every track aligned),
+   so "Estabilidad" never runs into its bar. With large text in a narrow box the meta line goes under the label. */
+.pano-pillars { container-type: inline-size; grid-template-columns: minmax(86px, max-content) minmax(0, 1fr) 16px; column-gap: 10px; }
+.pano-pillar { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.pano-pillar > button { grid-column: 1 / -1; grid-template-columns: subgrid; }
+.pano-pillar-more { grid-column: 1 / -1; }
+.pano-pillar-name { min-width: 0; }
+@container (max-width: 17em) {
+  .pano-pillar { grid-template-columns: minmax(0, 1fr); }
+  .pano-pillar > button { grid-template-columns: minmax(0, 1fr) 16px; grid-template-areas: "name chev" "track chev" "val chev"; row-gap: 4px; padding: 8px 0; }
+}

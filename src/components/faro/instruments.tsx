@@ -1,12 +1,13 @@
 import "./instruments.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpDown, Calculator, Check, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, Trash2, X } from "lucide-react";
+import { ArrowUpDown, Calculator, Check, ListPlus, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, Trash2, X } from "lucide-react";
 import { convertMinor, evalExpr, formatMoney, formatRate, parseAmount } from "@/lib/faro/money";
 import type { Currency } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
+import { SlipApply } from "./slip-apply";
 
 const SLIPS_KEY = "faro-slips";
 
@@ -46,6 +47,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
     return () => window.removeEventListener("faro-open", onOpen);
   }, []);
   const [editId, setEditId] = useState<string | null>(null);
+  const [applyId, setApplyId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const touched = useRef(false);
   const summed = useRef(false);
@@ -286,7 +288,8 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
                 <span className="slip-btn">{slip.kind === "sum" ? pretty(slip.label) : slip.label}</span>
               </label>
             ) : (
-              <div key={slip.id} className="slip-item">
+              <div key={slip.id} className="slip-item-wrap">
+              <div className="slip-item">
                 {editId === slip.id ? (
                   <input
                     className="slip-edit"
@@ -331,6 +334,15 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
                 </button>
                 <button
                   type="button"
+                  className="slip-mini is-apply"
+                  aria-label={lang === "en" ? "Apply to a category" : "Aplicar a una categoría"}
+                  aria-expanded={applyId === slip.id}
+                  onClick={() => setApplyId((cur) => (cur === slip.id ? null : slip.id))}
+                >
+                  <ListPlus />
+                </button>
+                <button
+                  type="button"
                   className="slip-mini"
                   aria-label={t("delete")}
                   onClick={() => confirm({ title: t("delete"), body: slip.label, danger: true, yes: t("delete"), run: () => writeSlips(slips.filter((item) => item.id !== slip.id)) })}
@@ -338,12 +350,27 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
                   <X />
                 </button>
               </div>
+              {applyId === slip.id ? (() => {
+                const v = slipValue(slip, settings.rateE4, settings.display);
+                return <SlipApply minor={v.minor} currency={v.currency} label={slip.kind === "sum" ? pretty(slip.label) : slip.label} onDone={() => setApplyId(null)} />;
+              })() : null}
+              </div>
             ))}
           </div>
         )}
       </section>
     </div>
   );
+}
+/** What a slip is worth: a conversion gives its result in the target currency; a sum gives its total in the view currency. */
+function slipValue(slip: Slip, rateE4: number, display: Currency): { minor: number; currency: Currency } {
+  if (slip.kind === "fx" && slip.from) {
+    const amount = parseAmount(slip.text) ?? 0;
+    const dest: Currency = slip.from === "USD" ? "NIO" : "USD";
+    return { minor: convertMinor(amount, slip.from, dest, rateE4), currency: dest };
+  }
+  const value = evalExpr(slip.text);
+  return { minor: value === null ? 0 : Math.round(value * 100), currency: display };
 }
 /* ---------- Exchange settings: only for the Cambio box. ---------- */
 

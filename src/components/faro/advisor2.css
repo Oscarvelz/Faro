@@ -213,7 +213,7 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 
 /* Day themes: the same lighthouse, in daylight. Bright sky, a low sun, a calm sea line, ink text. */
 :is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) .a2-tower {
-  --ink: #1d2a36; --ink2: rgba(29, 42, 54, .66); --ink3: rgba(29, 42, 54, .5); --gold: #9a6410; --goldbg: rgba(232, 168, 56, .16);
+  --ink: #1d2a36; --ink2: rgba(29, 42, 54, .74); --ink3: rgba(29, 42, 54, .7); --gold: #845508; --goldbg: rgba(232, 168, 56, .16);
   color: var(--ink);
   border-color: color-mix(in oklab, #7fb3d5 30%, var(--line));
   background:
@@ -277,3 +277,119 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
   & .a2-tiles span.is-short { background: rgba(200, 80, 60, .08); }
   & .a2-tiles span.is-short strong { color: #b4473a; }
 }
+
+/* Wide Asesor (tablet 14.6" / desktop): .is-masonry is set by useMasonry (pinch.ts) only when
+   (min-width: 700px) and (min-height: 521px); phones never get it, so they stay as they were. */
+.advice-stack.is-masonry :is(.advice-card, .a2-tower) .a2-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) .advice-card .a2-tiles {
+  & span { background: color-mix(in oklab, var(--fg) 4%, var(--surface)); border-color: var(--line); }
+  & em { color: var(--muted); }
+  & strong { color: var(--fg); }
+}
+.advice-stack.is-masonry .advice-presets { display: flex; flex-wrap: wrap; }
+.advice-stack.is-masonry .advice-presets .btn { flex: 1 1 auto; padding: 0 12px; font-size: .88rem; white-space: nowrap; }
+/* Narrow masonry columns (tablet portrait, about 365px): win back the few px that made row names wrap. */
+.advice-stack.is-masonry > :is(.coach, .advice-hero-2, .advice-card) { container-type: inline-size; }
+.advice-stack.is-masonry .a2-tower { padding-inline: 14px; }
+.advice-stack.is-masonry .a2-sum-row { padding-inline: 12px; column-gap: 10px; }
+@container (max-width: 400px) {
+  .advice-stack.is-masonry .a2-tower { padding-inline: 10px; }
+  .advice-stack.is-masonry .a2-sum-row { padding-inline: 8px; column-gap: 8px; grid-template-columns: 26px minmax(0, 1fr) auto; }
+  .advice-stack.is-masonry .a2-sum-row .a2-op { width: 26px; height: 26px; }
+  .advice-stack.is-masonry .a2-line { padding-left: 12px; padding-right: 8px; column-gap: 6px; grid-template-columns: minmax(0, 1fr) auto 14px; }
+}
+@container (min-width: 401px) { [data-theme="tron"] .advice-stack.is-masonry .a2-sum-row { padding-inline: 10px; column-gap: 8px; } }
+
+/* Day themes: readable gold and greens (>= 4.5:1) for the plan amount, 7 d/30 d/90 d stops, Colchón goal,
+   year projection and the category words; the night palette (#ffd98a, #9cc3a8) is for dark surfaces only. */
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) {
+  & .a2-plan-sum strong { color: #7a4e08; }
+  & .a2-route li:nth-child(n+2) .a2-stop b { color: #7a4e08; }
+  & .a2-route li:nth-child(n+2) .a2-stop { border-color: color-mix(in oklab, #c9952e 70%, var(--line)); }
+  & .a2-goal { border-top-color: #b8862c; }
+  & .a2-goal span { color: #7a4e08; }
+  & .a2-year strong { color: #2f6b45; }
+  & :is(.a2-line-name em, .a2-foot b) { filter: brightness(.56) saturate(1.25); }
+}
+
+/* Receipt rows in a narrow box (phones, tablet-portrait columns): the label takes the whole line so
+   "Cuentas de cada mes" / "Compras de una vez" stay on one line; the amount sits beside the hint below.
+   Wider boxes (> 420px) keep label and amount side by side, where they fit. */
+.a2-sum { container: a2sum / inline-size; }
+.a2-sum-label { font-weight: inherit; min-width: 0; }
+@container a2sum (max-width: 420px) {
+  .a2-sum-row:has(.a2-sum-label) { grid-template-rows: auto auto; row-gap: 1px; }
+  .a2-sum-row:has(.a2-sum-label) .a2-op { grid-row: 1 / span 2; }
+  .a2-sum-row:has(.a2-sum-label) .a2-sum-name { display: contents; }
+  .a2-sum-row:has(.a2-sum-label) .a2-sum-label { grid-column: 2 / -1; grid-row: 1; }
+  .a2-sum-row:has(.a2-sum-label) .a2-sum-name em { grid-column: 2; grid-row: 2; align-self: center; }
+  .a2-sum-row:has(.a2-sum-label) > strong { grid-column: 3; grid-row: 2; align-self: center; }
+}
+/* Spending lines: a few px back so names like "Despensa y mercado" stay on one line at 412 and in tablet columns. */
+.a2-line { grid-template-columns: minmax(0, 1fr) auto 16px; column-gap: 8px; }
+@container (max-width: 400px) { .advice-stack.is-masonry .a2-line { padding-left: 10px; padding-right: 6px; } }
+
+/* ── Nov 3 review: one frame per card. Inner tiles, the day cost, Plan Faro, notes, spending rows and
+   "Qué hace" lose their own border and fill; spacing and one hairline group them instead. ── */
+.advice-stack { --a2-hair: var(--line); }
+.a2-tower { --a2-hair: rgba(238, 242, 246, .14); }
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) .a2-tower { --a2-hair: rgba(29, 42, 54, .12); }
+[data-theme="tron"] .a2-tower { --a2-hair: rgba(120, 225, 250, .22); }
+.advice-stack :is(.a2-tiles > span, .a2-tiles > div, .a2-note, .a2-day, .a2-plan-sum, .a2-line, .advice-preset-help) {
+  background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important;
+}
+/* Tiles → label over value, rows split by a hairline. */
+.advice-stack .a2-tiles { gap: 0 20px; border-top: 1px solid var(--a2-hair); }
+.advice-stack .a2-tiles > :is(span, div) { padding: 10px 0 8px; }
+.advice-stack .a2-tiles > :is(.is-wide, span:last-child:nth-child(odd)) { border-top: 1px solid var(--a2-hair) !important; }
+.advice-stack .a2-tiles .a2-mini { margin-top: 6px; }
+/* Day cost: the number and its calendar sit in the card. */
+.advice-stack .a2-day { padding: 0; }
+/* Plan Faro: a summary line closed by a hairline. */
+.advice-stack .a2-plan-sum { padding: 0 0 14px; border-bottom: 1px solid var(--a2-hair) !important; }
+/* Notes: hairline rows. */
+.advice-stack .a2-notes { gap: 0; }
+.advice-stack .a2-note { padding: 10px 0; }
+.advice-stack .a2-note + .a2-note { border-top: 1px solid var(--a2-hair) !important; }
+/* "Qué hace": a hairline above, no panel. */
+.advice-stack .advice-preset-help { padding: 10px 0 2px; border-top: 1px solid var(--a2-hair) !important; }
+
+/* Spending rows: hairline rows with the colour stripe. The name keeps one line when it can and never breaks
+   inside a word; when it and the amount do not fit together, the amount drops under it (still on the right). */
+.advice-stack .a2-lines { gap: 0; }
+.advice-stack .a2-line { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 4px; padding: 12px 4px 12px 14px; }
+.advice-stack .a2-line + .a2-line { border-top: 1px solid var(--a2-hair) !important; }
+.advice-stack .a2-line::before { top: 12px; bottom: 12px; }
+.advice-stack .a2-line-name { flex: 1 1 auto; max-width: 100%; overflow-wrap: normal; word-break: normal; text-wrap: balance; }
+.advice-stack .a2-line-amt { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.advice-stack .a2-line-amt svg { flex: none; }
+.advice-stack .a2-line-bar { flex: 1 0 100%; }
+@container (max-width: 400px) { .advice-stack.is-masonry .a2-line { padding-left: 12px; padding-right: 2px; } }
+
+/* Help sits with the label it explains. */
+.a2-more-row { display: flex; align-items: center; gap: 4px; justify-self: start; }
+.a2-more-row > .hint.is-detail { position: static; }
+
+/* "¿Qué pasa si cambio?": three across on wide cards; a one-line radio list in narrow ones. */
+.advice-sim { container: advsim / inline-size; }
+@container advsim (max-width: 420px) {
+  .advice-stack .advice-sim .advice-presets { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .advice-stack .advice-sim .advice-presets .btn { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 44px; padding: 0 12px; white-space: nowrap; text-align: left; font-size: .94rem; }
+  .advice-stack .advice-sim .advice-presets .btn::before { content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 2px currentColor; }
+  .advice-stack .advice-sim .advice-presets .btn[aria-pressed="true"]::before { background: radial-gradient(circle, currentColor 0 3.5px, transparent 4px); }
+}
+
+/* Plan actions: Aplicar and Copiar side by side at equal width, the help right after Copiar.
+   In a narrow card they stack, still the same width. */
+.advice-card.is-plan .advice-sim { padding-bottom: 14px; }
+.advice-acts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 4px; }
+.advice-acts .btn { width: 100%; min-width: 0; margin: 0; padding-inline: 10px; justify-self: stretch; }
+@container advsim (max-width: 21em) {
+  .advice-acts { grid-template-columns: minmax(0, 1fr) auto; }
+  .advice-acts > .btn:first-child { grid-column: 1; grid-row: 1; }
+  .advice-acts > .advice-copy { grid-column: 1; grid-row: 2; }
+  .advice-acts > .hint { grid-column: 2; grid-row: 2; }
+}
+
+/* Day themes: the hero's (?) reads on the cream glow. */
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) .a2-tower .a2-tower-say .ftip-btn { color: var(--ink2); }

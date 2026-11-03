@@ -1,0 +1,138 @@
+/* People box (Central), spending by person (Estudio), people insight (Asesor). Self-contained. */
+.pp-box, .pp-study, .pp-advice { container-type: inline-size; min-width: 0; }
+.pp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.pp-head h2 { margin: 0; min-width: 0; }
+.pp-add { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--line)); background: color-mix(in oklab, var(--accent) 12%, var(--surface)); color: var(--accent); }
+.pp-add[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+
+.pp-pic { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 18px; color: #c2477f; background: radial-gradient(circle at 30% 25%, color-mix(in oklab, #e88ab4 40%, var(--surface)), color-mix(in oklab, #c2477f 14%, var(--surface))); box-shadow: inset 0 0 0 1px color-mix(in oklab, #c2477f 22%, transparent); }
+.pp-pic svg { width: 26px; height: 26px; }
+.pp-empty { display: grid; justify-items: center; gap: 10px; padding: 14px 4px 4px; text-align: center; }
+.pp-empty p { margin: 0; max-width: 30ch; color: var(--muted); font-size: .92rem; line-height: 1.35; }
+.pp-empty .btn { min-height: 44px; border-radius: 14px; }
+
+.pp-hero { display: flex; align-items: center; gap: 14px; margin-top: 12px; min-width: 0; }
+.pp-hero-text { display: grid; gap: 2px; min-width: 0; }
+.pp-hero-text em { font-style: normal; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pp-hero-text strong { font-family: var(--font-serif); font-size: 1.7rem; letter-spacing: -.03em; line-height: 1.05; white-space: nowrap; }
+.pp-hero-text span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .86rem; line-height: 1.3; }
+.pp-cake { flex: none; width: 15px; height: 15px; color: #c2477f; }
+
+.pp-form { margin-top: 14px; max-width: 36rem; }
+.pp-list { display: grid; margin-top: 12px; }
+.pp-item { border-top: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); }
+.pp-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 2px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.pp-face { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; background: color-mix(in oklab, var(--pp) 22%, var(--surface)); color: color-mix(in oklab, var(--pp) 70%, var(--fg)); font-size: .86rem; font-weight: 750; letter-spacing: .02em; box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--pp) 55%, transparent); }
+.pp-who { display: grid; gap: 2px; min-width: 0; }
+.pp-who strong { overflow-wrap: anywhere; line-height: 1.2; }
+.pp-who small { display: flex; flex-wrap: wrap; column-gap: .35em; color: var(--muted); font-size: .8rem; line-height: 1.25; }
+.pp-who small > span { white-space: nowrap; }
+/* Date + age stay together; "en 17 días" follows on the same line or the next. Each part carries its
+   own "·", pulled 1em left, so the dot of a part that starts a line is clipped instead of dangling. */
+.pp-who small:has(.pp-meta) { display: block; overflow: hidden; }
+.pp-meta { display: flex; flex-wrap: wrap; margin-left: -1em; }
+.pp-meta > span { white-space: nowrap; }
+.pp-meta > span::before { content: "·"; display: inline-block; width: 1em; text-align: center; }
+.pp-sum { font-weight: 700; white-space: nowrap; }
+.pp-detail { display: grid; gap: 12px; max-width: 36rem; padding: 2px 0 14px 52px; }
+.pp-years { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.6rem, 1fr)); gap: 8px; }
+.pp-year { display: grid; gap: 1px; min-width: 0; padding: 8px 10px; border-radius: 14px; background: color-mix(in oklab, var(--pp) 10%, var(--surface)); }
+.pp-year em { font-style: normal; color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.pp-year b { font-size: 1.02rem; white-space: nowrap; }
+.pp-dates { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: .88rem; }
+.pp-dates li { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); }
+.pp-dates b { color: var(--fg); font-weight: 650; white-space: nowrap; }
+.pp-note { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.35; }
+.pp-acts { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.pp-acts .btn { min-height: 44px; border-radius: 14px; padding: 0 12px; min-width: 0; }
+.pp-acts .pp-icon { width: 44px; padding: 0; }
+.pp-acts .pp-icon svg { color: var(--bad); }
+.pp-date-row { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; align-items: center; }
+.pp-date-row > .field { grid-column: 1; grid-row: 1; }
+.pp-date-row > .pp-x { grid-column: 2; grid-row: 1; }
+.pp-date-row .day-field { grid-column: 1 / -1; grid-row: 2; }
+.pp-form textarea.field { height: auto; min-height: 66px; padding: 10px 12px; line-height: 1.35; resize: vertical; font: inherit; font-size: 1rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg); }
+.pp-form :is(.is-wide, .pp-date-row) .day-pop { width: 100%; }
+.pp-x, .pp-more { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--surface-2) 40%, var(--surface)); color: var(--fg); font: inherit; font-size: .88rem; font-weight: 650; }
+.pp-x { width: 40px; padding: 0; color: var(--muted); }
+.pp-more { justify-self: start; padding: 0 14px; }
+@container (max-width: 20rem) {
+  .pp-detail { padding-left: 0; }
+  .pp-acts { grid-template-columns: auto minmax(0, 1fr); }
+  .pp-acts .pp-gift { grid-column: 1 / -1; }
+}
+
+/* Estudio */
+.pp-hero.is-study { margin-top: 10px; }
+.pp-bars { display: grid; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none; }
+.pp-bars li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: baseline; }
+.pp-bar-name { overflow-wrap: anywhere; font-weight: 600; }
+.pp-bars b { white-space: nowrap; }
+.pp-bars i { grid-column: 1 / -1; display: block; height: 8px; border-radius: 999px; background: linear-gradient(90deg, var(--pp) calc(var(--w) * 100%), color-mix(in oklab, var(--fg) 8%, transparent) 0); }
+
+/* Asesor */
+.pp-advice { display: flex; gap: 14px; align-items: flex-start; }
+.pp-advice-text { display: grid; gap: 4px; min-width: 0; }
+.pp-advice-text h3 { margin: 0; color: var(--muted); font-size: .7rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.pp-advice-text strong { font-family: var(--font-serif); font-size: 1.2rem; line-height: 1.2; letter-spacing: -.01em; }
+.pp-advice-text p { margin: 0; color: var(--muted); line-height: 1.4; }
+
+/* Night themes */
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .pp-pic { color: #f0a3c6; background: color-mix(in oklab, #c2477f 22%, var(--surface)); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .pp-cake { color: #f0a3c6; }
+
+/* Tron: teal lines, amber only on amounts */
+html[data-theme="tron"] .pp-pic { color: #3fd6f5; background: rgb(63 214 245 / 8%); box-shadow: inset 0 0 0 1px rgb(63 214 245 / 55%), 0 0 14px rgb(63 214 245 / 25%); border-radius: 6px; }
+html[data-theme="tron"] .pp-cake { color: #3fd6f5; }
+html[data-theme="tron"] .pp-hero-text strong, html[data-theme="tron"] .pp-sum, html[data-theme="tron"] .pp-year b, html[data-theme="tron"] .pp-bars b { color: #ffc23a; text-shadow: 0 0 10px rgb(255 194 58 / 35%); }
+html[data-theme="tron"] .pp-face { border-radius: 6px; background: transparent; color: var(--pp); box-shadow: inset 0 0 0 1.5px var(--pp), 0 0 10px color-mix(in oklab, var(--pp) 40%, transparent); }
+html[data-theme="tron"] .pp-item { border-top-color: rgb(63 214 245 / 18%); }
+html[data-theme="tron"] .pp-year { border-radius: 4px; background: rgb(63 214 245 / 6%); box-shadow: inset 0 0 0 1px rgb(63 214 245 / 22%); }
+html[data-theme="tron"] .pp-add { border-radius: 6px; color: #3fd6f5; border-color: rgb(63 214 245 / 60%); background: rgb(63 214 245 / 8%); }
+html[data-theme="tron"] .pp-x, html[data-theme="tron"] .pp-more { border-radius: 4px; border-color: rgb(63 214 245 / 40%); background: transparent; color: #3fd6f5; }
+html[data-theme="tron"] .pp-bars i { background: linear-gradient(90deg, #3fd6f5 calc(var(--w) * 100%), rgb(63 214 245 / 10%) 0); box-shadow: 0 0 8px rgb(63 214 245 / 25%); }
+
+/* Guardados → apply to a category */
+.slip-apply { margin-top: 10px; padding: 12px; border-radius: 16px; background: color-mix(in oklab, var(--accent) 7%, var(--surface)); }
+html[data-theme="tron"] .slip-apply { border-radius: 4px; background: rgb(63 214 245 / 5%); }
+.slip-item-wrap { display: grid; flex: 1 1 100%; min-width: 0; max-width: 100%; width: 100%; }
+.slip-apply .ah-sign button svg { width: 15px; height: 15px; }
+.pp-box, .slip-apply { position: relative; }
+.pp-box:has(.day-field.is-open, .theme-select-menu), .slip-apply:has(.theme-select-menu) { z-index: 6; }
+
+/* Large text (root 20px on a phone): name gets the full width, amount drops under it; forms go one column. */
+
+@container (max-width: 17rem) {
+  .pp-form .ah-grid { grid-template-columns: minmax(0, 1fr); }
+  .pp-form .ah-grid > * { grid-column: 1 / -1; }
+  .pp-form .day-pop { width: 100%; }
+}
+
+/* Rows (Nov 3): a long name keeps one line when it can; the amount drops under it, still on the right.
+   The meta line does not widen the name column (contain: inline-size), so only the name decides. */
+.pp-row { display: flex; flex-wrap: wrap; row-gap: 2px; column-gap: 12px; }
+.pp-face { flex: none; }
+.pp-who { flex: 1 1 auto; max-width: calc(100% - 52px); }
+.pp-who small { contain: inline-size; }
+.pp-sum { margin-left: auto; }
+@container (max-width: 18rem) {
+  .pp-row { display: grid; grid-template-columns: auto minmax(0, 1fr); row-gap: 2px; }
+  .pp-sum { grid-column: 2; margin-left: 0; }
+  .pp-who { max-width: none; }
+}
+.pp-sum.is-zero { color: var(--muted); font-weight: 600; }
+html[data-theme="tron"] .pp-sum.is-zero { color: var(--muted); text-shadow: none; }
+/* The person sheet carries the all-years total; the row shows this year's. */
+.pp-all { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin: 0; }
+.pp-all em { font-style: normal; color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.pp-all b { font-size: 1.1rem; white-space: nowrap; }
+html[data-theme="tron"] .pp-all b { color: #ffc23a; text-shadow: 0 0 10px rgb(255 194 58 / 35%); }
+/* Wide boxes (tablet landscape, desktop): people in columns, each amount at the right of its own cell. */
+@container (min-width: 900px) {
+  .pp-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); column-gap: 32px; align-items: start; }
+}
+
+/* Guardados → apply: no panel of its own inside the card. One hairline and an indent; only the fields keep frames. */
+.slip-apply, html[data-theme="tron"] .slip-apply { margin-top: 12px; padding: 12px 0 2px 12px; border-radius: 0; background: none; border-top: 1px solid var(--line); }
+/* Day themes: unselected toggles in the apply form read at >= 4.5:1. */
+html:not(:is([data-theme="tron"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion"], [data-theme="ion-noche"])) .sc-form.slip-apply .ah-sign button:not([aria-pressed="true"]) { color: #4f6153; }

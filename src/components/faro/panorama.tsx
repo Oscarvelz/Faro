@@ -468,7 +468,7 @@ function PillarRow({ pillar, open, onToggle }: { pillar: Pillar; open: boolean; 
     <div className={`pano-pillar${open ? " is-open" : ""}`}>
       <button type="button" aria-expanded={open} onClick={onToggle}>
         <span className="pano-pillar-name">{pillar.label}</span>
-        <span className="pano-pillar-track"><b style={{ width: `${pillar.score}%`, background: toneVar[pillar.tone] }} /></span>
+        <span className="pano-pillar-track"><b className={`is-${pillar.tone}`} style={{ width: `${pillar.score}%`, background: toneVar[pillar.tone] }} /></span>
         <span className="pano-pillar-val">{pillar.value}</span>
         <ChevronDown aria-hidden />
       </button>

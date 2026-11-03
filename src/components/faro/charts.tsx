@@ -29,6 +29,11 @@ type FoldApi = {
 };
 
 const FoldCtx = createContext<FoldApi | null>(null);
+/** CSS order that places a plain card right after the fold `id` (same order; later in the DOM wins the tie). */
+export function useFoldOrderAfter(id: string): number | undefined {
+  const ctx = useContext(FoldCtx);
+  return ctx ? ctx.order(id) * 2 + 1 : undefined;
+}
 
 export function StatFoldProvider({
   label,

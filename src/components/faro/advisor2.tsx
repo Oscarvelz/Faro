@@ -94,8 +94,7 @@ export function ShortVisual({ reading }: { reading: Reading }) {
             return (
               <button key={r.id} type="button" className="a2-line" style={{ ["--c" as string]: tc(k.c), animationDelay: `${i * 50}ms` }} onClick={() => setUi({ section: sectionFor(kindOf(r.id)), highlight: r.id })}>
                 <span className="a2-line-name">{r.name}<em style={{ color: tc(k.c) }}>{lang === "en" ? k.en : k.es}</em></span>
-                <strong className="num">{fmt(r.minor)}</strong>
-                <ChevronRight aria-hidden />
+                <span className="a2-line-amt"><strong className="num">{fmt(r.minor)}</strong><ChevronRight aria-hidden /></span>
                 <span className="a2-line-bar"><b style={{ width: `${Math.max(4, (r.minor / peak) * 100)}%` }} /></span>
               </button>
             );
@@ -156,7 +155,7 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
           {debts.map((d) => (
             <div key={d.id} className="a2-line is-static" style={{ ["--c" as string]: tc(CLS.credit.c) }}>
               <span className="a2-line-name">{d.name}<em style={{ color: tc(CLS.credit.c) }}>{L(lang, "Cuota del mes", "This month's payment")}</em></span>
-              <strong className="num">{fmt(d.minor)}</strong>
+              <span className="a2-line-amt"><strong className="num">{fmt(d.minor)}</strong></span>
               <span className="a2-line-bar"><b style={{ width: `${n.allowance > 0 ? Math.min(100, (d.minor / n.allowance) * 100) : 0}%` }} /></span>
             </div>
           ))}
@@ -320,13 +319,13 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
       <div className="a2-sum" role="list">
         <div className="a2-sum-row is-in" role="listitem">
           <span className="a2-op"><Wallet aria-hidden /></span>
-          <span className="a2-sum-name">{L(lang, "Entró", "Came in")}<em>{L(lang, "tu punto de partida", "where you start")}</em></span>
+          <span className="a2-sum-name"><b className="a2-sum-label">{L(lang, "Entró", "Came in")}</b><em>{L(lang, "tu punto de partida", "where you start")}</em></span>
           <strong className="num">{fmt(income)}</strong>
         </div>
         {rows.map((r) => (
           <button key={r.id} type="button" role="listitem" className={`a2-sum-row${openPart === r.id ? " is-open" : ""}`} aria-expanded={openPart === r.id} onClick={() => onPart(r.id)}>
             <span className="a2-op"><r.Icon aria-hidden /></span>
-            <span className="a2-sum-name">{r.name}<em>{r.hint}</em></span>
+            <span className="a2-sum-name"><b className="a2-sum-label">{r.name}</b><em>{r.hint}</em></span>
             <strong className="num"><i className="a2-sign">−</i>{fmt(r.minor)}</strong>
             <span className="a2-sum-bar" aria-hidden><b style={{ width: `${Math.max(2, (r.minor / scale) * 100)}%` }} /></span>
             {openPart === r.id ? <p className="a2-sum-rule">{reading.parts[r.id].rule}</p> : null}
@@ -345,8 +344,11 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
           {doRest ? <p className="a2-do-rest">{doRest}</p> : null}
         </div>
       </div>
-      <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}><span>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</span><ChevronRight aria-hidden className="a2-more-chev" /></button>
-      {more ? <div className="a2-detail"><Hint topic="cifras-asesor" className="is-detail" />{children}</div> : null}
+      <div className="a2-more-row">
+        <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}><span>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</span><ChevronRight aria-hidden className="a2-more-chev" /></button>
+        {more ? <Hint topic="cifras-asesor" className="is-detail" /> : null}
+      </div>
+      {more ? <div className="a2-detail">{children}</div> : null}
     </div>
   );
 }

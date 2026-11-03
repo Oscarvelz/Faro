@@ -1,7 +1,10 @@
+import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
+import { peopleOf } from "@/lib/faro/people";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
+import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2, X } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
@@ -44,6 +47,12 @@ function moneyRow(line: Line, view: string, record: string, display: string) {
 
 // A short last token ("Salario 1", "Fase II") never sits alone on its own line: it is glued to the word before it
 // with a no-break space (same width as a space, so labels that fit on one line render exactly as before).
+/** Spending reads "−C$100"; a subtraction (negative spending, e.g. applied from Guardados) reads "+C$100". */
+function outView(line: Line, view: (line: Line) => string): string {
+  if (line.kind.startsWith("income") || line.amountMinor === 0) return view(line);
+  return line.amountMinor < 0 ? `+${view({ ...line, amountMinor: -line.amountMinor })}` : `−${view(line)}`;
+}
+
 function keepTail(label: string, glueShort = false) {
   const tail = label.replace(/ (\S{1,3})$/, "\u00a0$1");
   // Libros rows only: one-letter words ("o", "y") also travel with the word after them ("Bono / o pagos", never
@@ -941,7 +950,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
                 <strong className="block">{keepTail(line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId), true)}</strong>
                 <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).join(" · ")}</span>
               </div>
-              {moneyRow(line, `${line.kind.startsWith("income") || line.amountMinor === 0 ? "" : "−"}${viewLine(line)}`, recordLine(line), display)}
+              {moneyRow(line, outView(line, viewLine), recordLine(line), display)}
               <button type="button" className="icon-btn line-act" aria-label={t("edit")} onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}><Pencil className="size-4" /></button>
               <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${line.concept}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => deleteLine(s, key, line.id), line.concept) })}><Trash2 className="size-4" /></button>
               {ui.editing === line.id ? <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
@@ -1017,7 +1026,7 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
                 {line.storeId ? <BrandMark id={line.storeId} src={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("data:") ? session.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon : undefined} className="buy-mark" /> : <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>}
                 <strong>{line.concept || names.purchase(line.categoryId)}</strong>
               </span>
-              <span className="num">{line.amountMinor === 0 ? "" : "−"}{viewLine(line)}</span>
+              <span className="num">{outView(line, viewLine)}</span>
             </button>
             {picked === line.id ? (
               <BubbleTools
@@ -2517,7 +2526,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <em className="bar-head">{t("desk.bar.used")}<Hint topic="usado" alt={summary.spentPct !== null && summary.spentPct > 100} className="is-bar" avoid='.desk-bar @[data-anchor="desk-rate"]' fallback='[data-anchor="desk-used"] > strong|[data-anchor="desk-rate"]' /></em>
           <strong className="num">{spent}</strong>
         </span>
-        <button type="button" data-anchor="desk-rate" onClick={() => setUi({ instruments: true, calcOpen: true })}>
+        <button type="button" data-anchor="desk-rate" onClick={() => {
+          // Tablet / wide screen: Cambio opens in the side panel that already holds it; phones keep the sheet.
+          if (window.matchMedia("(width >= 1100px)").matches && !document.querySelector(".app-frame.is-split")) window.dispatchEvent(new CustomEvent("faro-open", { detail: "money-aside" }));
+          else setUi({ instruments: true, calcOpen: true });
+        }}>
           <em>{t("desk.bar.rate")}</em>
           <strong className="num">C${formatRate(rate.rateE4)}</strong>
         </button>
@@ -3201,7 +3214,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     <header className="ridge-head">
                       <div className="ridge-head-row">
                         <strong>{group.title}</strong>
-                        <span className={`num ${total === 0 ? "amt-zero" : income ? "amt-in" : "amt-out"}`}>{income || total === 0 ? "" : "−"}{fmt(total)}</span>
+                        <span className={`num ${total === 0 ? "amt-zero" : income ? "amt-in" : "amt-out"}`}>{income || total === 0 ? "" : total < 0 ? "+" : "−"}{fmt(income ? total : Math.abs(total))}</span>
                       </div>
                     </header>
                     <div className="ridge-lines">
@@ -3217,7 +3230,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                                 {sub && line.concept && sub.trim().toLowerCase() !== line.concept.trim().toLowerCase() ? <span className="block text-sm text-muted">{sub}</span> : null}
                                 {lens === "debt" && line.balanceMinor != null && line.balanceMinor > 0 ? <span className="block text-sm text-muted">{fmt(convertMinor(line.balanceMinor, line.balanceCurrency, rate.display, rate.rateE4))}</span> : null}
                               </span>
-                              <span className={`num ${line.amountMinor === 0 ? "amt-zero" : line.kind.startsWith("income") ? "amt-in" : "amt-out"}`}>{line.kind.startsWith("income") || line.amountMinor === 0 ? "" : "−"}{viewLine(line)}</span>
+                              <span className={`num ${line.amountMinor === 0 ? "amt-zero" : line.kind.startsWith("income") ? "amt-in" : "amt-out"}`}>{outView(line, viewLine)}</span>
                             </button>
                             {deskWork(line)}
                           </div>
@@ -3239,6 +3252,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {ui.notice ? <p className="mt-2 text-sm">{ui.notice}</p> : null}
       </section>
       )}
+      {focus ? null : <PeopleBox />}
     </div>
   );
 }
@@ -3487,6 +3501,7 @@ export function Subs() {
 export function Study() {
   const coach = useCoach();
   const { t, insights, slices, session, ui, setUi, lang, summary, fmt, names, lines, viewLine } = useFaro();
+  usePinchZoom(lang);
   const [span, setSpan] = useState<"year" | "month" | "week">("year");
   const [picked, setPicked] = useState<string | null>(null);
   const [storePick, setStorePick] = useState<string | null>(null);
@@ -3559,6 +3574,8 @@ export function Study() {
   if (sankey.links.length) visible.push("sankey");
   if (board?.envelopes.length) visible.push("plan");
   if (owedAny) visible.push("owed");
+  const hasPeople = peopleOf(session?.ledger).length > 0;
+  if (hasPeople) visible.push("people");
   const detailRows = storePick
     ? pickedRows.filter((line) => line.storeId === storePick)
     : pickedRows.filter((line) => line.kind !== "purchase" || !line.storeId);
@@ -3570,7 +3587,7 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "rule", "movers", "time", "cushion", "plan", "owed"]}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "rule", "movers", "time", "cushion", "plan", "owed"]}
       items={[
         { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
@@ -3578,6 +3595,7 @@ export function Study() {
         { id: "agenda", label: es ? "Próximos pagos" : "Payments ahead", section: "now" },
         { id: "waffle", label: es ? "Tus C$100" : "Your 100", section: "spend" },
         { id: "where", label: t("study.where"), section: "spend" },
+        { id: "people", label: es ? "Gasto por persona" : "Spending by person", section: "spend" },
         { id: "sankey", label: t("study.sankey"), section: "spend" },
         { id: "rule", label: es ? "La regla 50 · 30 · 20" : "The 50 · 30 · 20 rule", section: "general" },
         { id: "plan", label: es ? "¿Vas dentro del tope?" : "Within your limits?", section: "general" },
@@ -3700,6 +3718,7 @@ export function Study() {
         </section>
       </StatFold>
       ) : null}
+      {hasPeople ? <StatFold id="people"><PeopleStudy /></StatFold> : null}
     </StudyStack>
     </StatFoldProvider>
   );
@@ -3715,6 +3734,9 @@ export function Advisor() {
   const [preset, setPreset] = useState<ScenarioId>("plan");
   const [drops, setDrops] = useState<string[]>([]);
   const [applied, setApplied] = useState<string>("");
+  const stackRef = useRef<HTMLDivElement>(null);
+  useMasonry(stackRef, !!(budget && session && summary));
+  usePinchZoom(lang);
   // "Ir allí" / [[links]]: open the plan card (or a horizon card) when asked.
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -3769,7 +3791,7 @@ export function Advisor() {
     );
   }
   return (
-    <div className="advice-stack">
+    <div className="advice-stack" ref={stackRef}>
       <CoachHero />
       <label className="unfold-all" data-anchor="advice-unfold">
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />
@@ -3911,14 +3933,17 @@ export function Advisor() {
                 ))}
               </ul>
               <p className="advice-tried"><em>{preset === "base" ? reading.scenarios[0]?.label : preset === "repeat" ? reading.scenarios[1]?.label : reading.scenarios[2]?.label}</em><strong className="num">{fmt(tried)}</strong></p>
-              <button type="button" className="btn secondary" onClick={apply}>{t("advice.apply")}</button>
+              <div className="advice-acts">
+                <button type="button" className="btn secondary" onClick={apply}>{t("advice.apply")}</button>
+                <button type="button" className="btn secondary advice-copy" onClick={() => { void navigator.clipboard.writeText(text); setCopied(true); notePlanCopied(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
+                <Hint topic="copiar-plan" alt={planStale} />
+              </div>
               {applied ? <p className="advice-aside">{t("advice.applied")} {applied}</p> : null}
             </div>
-            <button type="button" className="btn secondary advice-copy" onClick={() => { void navigator.clipboard.writeText(text); setCopied(true); notePlanCopied(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
-            <Hint topic="copiar-plan" alt={planStale} />
           </>
         ) : null}
       </section>
+      <PeopleAdviceCard />
     </div>
   );
 }

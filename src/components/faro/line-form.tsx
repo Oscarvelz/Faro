@@ -9,6 +9,7 @@ import type { Currency, Line, LineKind } from "@/lib/faro/types";
 import { BrandMark, Glyph } from "./icons";
 import { useFaro } from "./provider";
 import { upsertLine } from "@/lib/faro/reducer";
+import { PersonPick } from "./people";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
   const { lang } = useFaro();
@@ -199,6 +200,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [apr, setApr] = useState(existing?.aprBps ? String(existing.aprBps / 100) : seed?.apr ?? "");
   const [balance, setBalance] = useState(existing?.balanceMinor !== null && existing?.balanceMinor !== undefined ? (existing.balanceMinor / 100).toFixed(2) : seed?.balance ?? "");
   const [active, setActive] = useState(existing?.active ?? true);
+  const [personId, setPersonId] = useState(existing?.personId ?? "");
   const [icon, setIcon] = useState(existing?.icon ?? "");
   const [bookedOn, setBookedOn] = useState(existing?.bookedOn ?? seed?.bookedOn ?? "");
   const [startedOn, setStartedOn] = useState(existing?.startedOn ?? seed?.startedOn ?? "");
@@ -290,6 +292,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       startedOn,
       // Only a colour the user actually picked is stored; an untouched default stays a default (follows the category).
       color: swatch || (existing && bubbleTone && tone !== toneStart ? tone : existing?.color),
+      ...(personId ? { personId } : {}),
     };
     commit((s) => upsertLine(s, line), `${existing ? "Editar" : "Agregar"} ${line.concept}`);
     if (draftKey) clearReportDraft(draftKey);
@@ -332,6 +335,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             <ThemeSelect value={currency} onChange={(value) => setCurrency(value as Currency)} options={[{ value: "NIO", label: "C$" }, { value: "USD", label: "$" }]} />
           </label>
         )}
+        {kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase" ? <PersonPick value={personId} onChange={setPersonId} /> : null}
         {group ? (
           <label className="label">
             <span className="lab-head">{t("category")}<FieldTip topic="f-categoria" /></span>

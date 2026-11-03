@@ -64,6 +64,9 @@ export const LINKS: Record<string, string> = {
   "Atajos de + y −": "atajos-mas-menos", "+/− shortcuts": "atajos-mas-menos",
   "Copias de seguridad": "copias", Backups: "copias",
   "Manual de uso": "manual", "User manual": "manual",
+  // Estudio + Asesor gestures and wide layout
+  "Zoom con dos dedos": "zoom-dedos", "Two-finger zoom": "zoom-dedos",
+  "Asesor en pantalla grande": "asesor-ancho", "Advisor on a big screen": "asesor-ancho",
   Ajustes: "ajustes", Settings: "ajustes",
 };
 
