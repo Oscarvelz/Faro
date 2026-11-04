@@ -54,3 +54,13 @@
 .ask > .ask-actions .ask-btn { white-space: nowrap; padding: 0 10px; }
 .fx-note strong { color: var(--fg); font-weight: 650; }
 [data-theme="tron"] .fx-note strong.num { color: #f2c66d; }
+
+/* 1.3.88 Central summary bar at phone widths under 400px (360 layout): the (?) beside USADO and TASA could ride over
+   the end of the word. Give the kickers room: Usado's column grows (0.7fr → 0.85fr, Queda 1.45fr → 1.3fr) and the
+   kicker tracking eases a little. 400px and up stay exactly as they were. */
+@media (max-width: 399px) {
+  .desk-bar { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.85fr) minmax(0, 1fr); }
+  .desk-bar em { letter-spacing: 0.05em; }
+  [data-theme="tron"] .desk-bar em { letter-spacing: 0.1em; }
+  .desk-bar .bar-head { gap: 3px; }
+}

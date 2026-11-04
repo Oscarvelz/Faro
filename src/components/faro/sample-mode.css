@@ -9,6 +9,13 @@
 .smp-acts { display: flex; justify-content: flex-end; margin-top: 4px; }
 .smp-act { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; white-space: nowrap; font-size: .86rem; }
 .smp-act svg { width: 16px; height: 16px; }
+/* Wide cards (tablet / desktop two-column Ajustes): the action shares the row's line instead of
+   adding a second one, so the card keeps its neighbours' height. Phones keep it under the row. */
+.smp-card { container-type: inline-size; }
+@container (min-width: 520px) {
+  .smp-in:has(> .smp-acts) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 14px; }
+  .smp-in > .smp-acts { margin-top: 0; }
+}
 
 .brand-mini em.smp-pill {
   display: inline-block; align-self: center; margin-left: 2px; padding: 3px 7px 2px; border-radius: 999px;

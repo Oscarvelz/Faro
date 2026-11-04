@@ -1621,7 +1621,10 @@ function RateHint() {
     place();
     const ro = new ResizeObserver(place); ro.observe(bar);
     const em = bar.querySelector('[data-anchor="desk-rate"]'); if (em) ro.observe(em);
-    return () => ro.disconnect();
+    // 1.3.88: the label can change width without any box resizing (web font arriving, fit.ts shrinking a kicker); re-place after each.
+    let live = true; void document.fonts?.ready.then(() => { if (live) place(); });
+    window.addEventListener("faro-fit", place);
+    return () => { live = false; ro.disconnect(); window.removeEventListener("faro-fit", place); };
   }, []);
   return <span ref={ref} className="desk-rate-hint" style={{ visibility: "hidden" }}><Hint topic="tasa-rapida" className="is-bar" /></span>;
 }

@@ -40,6 +40,7 @@ export function SampleRow() {
   const flip = () => setSampleMode(!on);
   return (
     <section className="card manual-card aj-card smp-card" data-anchor="aj-ejemplo">
+      <div className="smp-in">
       <div role="switch" tabIndex={0} aria-checked={on} className="manual-row aj-row smp-row" onClick={flip}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } }}>
         <FlaskConical aria-hidden />
@@ -69,6 +70,7 @@ export function SampleRow() {
           })}><Eraser aria-hidden />{L(lang, "Quitar filas de ejemplo", "Remove sample rows")}</button>
         </div>
       ) : null}
+      </div>
     </section>
   );
 }
