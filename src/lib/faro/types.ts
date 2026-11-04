@@ -120,6 +120,8 @@ export type Line = {
   batch?: string;
   /** A payment toward a received loan (Debo → Préstamos). See loans.ts. */
   loanId?: string;
+  /** Removed from a pocket but kept for its money history (1.3.81): inactive and hidden from the pocket list. */
+  archived?: boolean;
 };
 
 /** A loan the user received (Debo → Préstamos). Payments are normal lines with `loanId`; see loans.ts. */
@@ -192,6 +194,8 @@ export type Settings = {
   emergencyMonths: number;
   shortcuts: Record<string, string>;
   gestures?: Record<string, string>;
+  /** One-time seeds already applied (e.g. "remesas"), so a default the user deleted is not added again. */
+  seeds?: string[];
 };
 
 export type SubPreset = { id: string; name?: string; icon?: string };
@@ -212,6 +216,8 @@ export type LedgerState = {
   subPresets?: SubPreset[];
   /** Cuotas frequency chips (1.3.76): cadence tokens in order. Missing in older ledgers (= the four defaults). */
   freqPresets?: string[];
+  /** Default Retiro presets the user removed (1.3.81, e.g. "primerica"). Missing = all offered. See retiro.ts. */
+  retiroOff?: string[];
   revision: number;
   updatedAt: string;
 };

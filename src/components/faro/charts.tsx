@@ -249,7 +249,8 @@ export function StudyStack({ children }: { children: ReactNode }) {
       const splitCols = !!host?.classList.contains("is-split") && !!host.classList.contains("is-cols");
       const wide = window.matchMedia("(min-width: 1100px)").matches;
       const phoneLand = window.matchMedia("(orientation: landscape) and (max-height: 520px) and (min-width: 700px) and (max-width: 1099px)").matches;
-      const pack = (wide || phoneLand) && !splitCols;
+      const floatBody = root.closest<HTMLElement>(".float-body");
+      const pack = (wide || phoneLand) && !splitCols && !(floatBody && floatBody.clientWidth < 620);
       root.classList.toggle("is-packed", pack);
       const items = (node: HTMLElement): HTMLElement[] => [...node.children].flatMap((child) => {
         const el = child as HTMLElement;

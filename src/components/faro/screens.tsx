@@ -1,14 +1,17 @@
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
+import { SampleRow } from "./sample-mode";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
 import { peopleOf } from "@/lib/faro/people";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
+import { RemitCard } from "@/components/faro/remesas";
+import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Trash2, X } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
+import { applyTemplate, displayName, missingDefaults, moveNamed, restoreDefaultCategories, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
@@ -20,6 +23,7 @@ import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
+import { dropPocketLine, isPrimerica, restoreRetiro, seedRetiro } from "@/lib/faro/retiro";
 import type { Category, Currency, Line, LineKind, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@/lib/faro/types";
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
@@ -1707,7 +1711,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const all = Object.values(session.ledger.months).flatMap((bucket) => bucket.lines);
     const pockets = [
       ["Viajes", cat.subs.find((s) => s.id.endsWith(".meta"))?.id, "Plane"],
-      ["Primerica", cat.subs.find((s) => s.id.endsWith(".retiro"))?.id, "brand:primerica"],
       ["Carro", cat.subs.find((s) => s.id.endsWith(".emergencia"))?.id, "Car"],
     ].filter((row): row is [string, string, string] => {
       const subId = row[1];
@@ -1748,6 +1751,15 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       }
       return next;
     }, "presets");
+  }, [session, commit, key]);
+  // 1.3.81: Primerica is offered in Retiro (a $0 preset) in the current month or later (or the ledger's latest month) until the user removes it (ledger.retiroOff).
+  useEffect(() => {
+    if (!session) return;
+    const now = new Date();
+    const latest = Object.keys(session.ledger.months).every((m) => m <= key);
+    if (!latest && key < `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`) return;
+    if (seedRetiro(session.ledger, key) === session.ledger) return;
+    commit((s) => seedRetiro(s, key), "Primerica");
   }, [session, commit, key]);
   useEffect(() => {
     if (!session) return;
@@ -1927,7 +1939,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const openSeg = saveSegs.find((s) => s.id === openSave) ?? null;
   const openLines = openSave
     ? lines.filter((line) => {
-        if (!savingsIds.has(line.categoryId)) return false;
+        if (!savingsIds.has(line.categoryId) || line.archived) return false;
         const id = line.subId && seed.some((s) => s.id === line.subId) ? line.subId : "rest";
         return id === openSave;
       })
@@ -1945,7 +1957,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     : orderedAccounts;
   const focusedAccount = accountRows.find((row) => row.id === accountFocus) ?? null;
   const pocketKind = openSeg?.id.endsWith(".meta") ? "meta" : openSeg?.id.endsWith(".emergencia") ? "emergencia" : openSeg?.id.endsWith(".retiro") ? "retiro" : "";
-  const retireLine = pocketKind === "retiro" ? (openLines.find((line) => line.startedOn || line.balanceMinor != null) ?? openLines[0] ?? null) : null;
+  const retireLine = pocketKind === "retiro" ? (openLines.find((line) => line.active && isPrimerica(line)) ?? openLines.find((line) => line.startedOn || line.balanceMinor != null) ?? openLines[0] ?? null) : null;
   const retireStart = retireDate || retireLine?.startedOn || "";
   const retireHits = retireStart ? payDates(retireStart, "monthly") : [];
   const retireSend = openLines.reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, rate.display, rate.rateE4), 0);
@@ -2075,6 +2087,21 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       }), next),
     });
   }
+  /** Delete from the edit state: a line with money history is archived (history kept), else removed. */
+  function dropPocket(line: (typeof lines)[number], label: string) {
+    setRenameId(null);
+    const kept = line.history.length > 0 || (line.balanceMinor ?? 0) !== 0 || line.amountMinor !== 0;
+    confirm({
+      title: t("delete"),
+      body: kept
+        ? (lang === "en" ? `${label}. It leaves the list; its history stays saved.` : `${label}. Sale de la lista; su historial queda guardado.`)
+        : `${label}. ${t("delete.warn")}`,
+      danger: true,
+      yes: t("yes"),
+      run: () => commit((s) => dropPocketLine(s, key, line.id).state, label),
+    });
+  }
+
   function renamePocket(line: (typeof lines)[number], label: string) {
     if (renameLock.current) return;
     renameLock.current = true;
@@ -2711,7 +2738,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 />
               </>
             ) : null}
-            {pocketKind === "retiro" ? <StmtScan seen={stmtSeen} onSave={applyStatement} /> : null}
+            {pocketKind === "retiro" ? <StmtScan seen={stmtSeen} onSave={applyStatement} tail={
+              <button type="button" className="sub-gear stm-restore" data-test="retiro-restore" aria-label={lang === "en" ? "Restore default accounts" : "Restaurar cuentas de fábrica"} onClick={() => confirm({
+                title: lang === "en" ? "Restore defaults" : "Restaurar de fábrica",
+                body: lang === "en" ? "Primerica comes back to Retiro at $0, or with its saved history. Nothing is deleted." : "Primerica vuelve a Retiro en $0, o con su historial guardado. No se borra nada.",
+                yes: lang === "en" ? "Restore" : "Restaurar", run: () => commit((s) => restoreRetiro(s, key), "Primerica") })}><RotateCcw /></button>
+            } /> : null}
             {openLines.length === 0 && !adding && pocketKind !== "retiro" ? <p className="text-sm text-muted">{t("save.empty")}</p> : null}
             {openLines.map((line) => {
               const label = line.concept || names.sub(line.subId) || openSeg.name;
@@ -2721,9 +2753,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     <span className="bank-tools">
                       <button type="button" className="bank-grip" aria-label={t("save.move")} aria-pressed={moving === line.id} onClick={() => { setMoving(moving === line.id ? null : line.id); setEditId(null); setAdding(false); }}>
                         <GripVertical />
-                      </button>
-                      <button type="button" className="bank-drop" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${label}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => deleteLine(s, key, line.id), label) })}>
-                        <Trash2 />
                       </button>
                     </span>
                     <div className="save-account-hit">
@@ -2741,6 +2770,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                             }}
                             onBlur={() => renamePocket(line, label)}
                           />
+                        ) : null}
+                        {renameId === line.id ? (
+                          <button type="button" className="bank-edit-drop" data-test="pocket-drop" aria-label={t("delete")} onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => dropPocket(line, label)}>
+                            <Trash2 />
+                          </button>
                         ) : (
                           <span className="bank-name">
                             <button type="button" className="look-mark" data-look-toggle aria-label={t("look.title")} aria-pressed={lookId === line.id} style={{ background: washForInk(chosenTone(line.color, line.categoryId) || baseFor(session.ledger.structure, line.categoryId)), color: "#14110e" }} onClick={(event) => { event.stopPropagation(); setLookId(lookId === line.id ? null : line.id); }}>
@@ -2905,7 +2939,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     <button type="button" className="bank-grip" aria-label={t("save.move")} onPointerDown={(event) => startBankDrag(row.id, event)} onPointerMove={moveBankDrag} onPointerUp={endBankDrag} onPointerCancel={endBankDrag}>
                       <GripVertical />
                     </button>
-                    <button type="button" className="bank-drop" aria-label={t("delete")} onClick={() => dropAccount(row)}><Trash2 /></button>
                   </span>
                   <div className="save-account-hit">
                     <span className="save-account-name">
@@ -2922,6 +2955,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                           }}
                           onBlur={() => saveRename(row)}
                         />
+                      ) : null}
+                      {renameId === row.id ? (
+                        <button type="button" className="bank-edit-drop" aria-label={t("delete")} onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => { setRenameId(null); dropAccount(row); }}>
+                          <Trash2 />
+                        </button>
                       ) : (
                         <span className="bank-name">
                           <button type="button" className="look-mark" data-look-toggle aria-label={t("look.title")} aria-pressed={lookId === row.id} onClick={(event) => { event.stopPropagation(); setLookId(lookId === row.id ? null : row.id); }}>
@@ -3550,6 +3588,8 @@ export function Study() {
   if (hasPeople) visible.push("people");
   const showRewards = hasRewards(session?.ledger, key);
   if (showRewards) visible.push("rewards");
+  const remitAny = session ? remitTrend(session.ledger, key, 6).any : false;
+  if (remitAny) visible.push("remesas");
   const detailRows = storePick
     ? pickedRows.filter((line) => line.storeId === storePick)
     : pickedRows.filter((line) => line.kind !== "purchase" || !line.storeId);
@@ -3561,7 +3601,7 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "rewards", "rule", "movers", "time", "cushion", "plan", "owed", "loans"]}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "remesas", "rewards", "rule", "movers", "time", "cushion", "plan", "owed", "loans"]}
       items={[
         { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
@@ -3570,6 +3610,7 @@ export function Study() {
         { id: "waffle", label: es ? "Tus C$100" : "Your 100", section: "spend" },
         { id: "where", label: t("study.where"), section: "spend" },
         { id: "people", label: es ? "Gasto por persona" : "Spending by person", section: "spend" },
+        { id: "remesas", label: es ? "Remesas" : "Remittances", section: "spend" },
         { id: "rewards", label: es ? "Recompensas" : "Rewards", section: "spend" },
         { id: "sankey", label: t("study.sankey"), section: "spend" },
         { id: "rule", label: es ? "La regla 50 · 30 · 20" : "The 50 · 30 · 20 rule", section: "general" },
@@ -3606,6 +3647,7 @@ export function Study() {
           <StatFold id="cushion"><CushionCard coach={coach} pockets={saveBars} goal={saveGoal} /></StatFold>
         </>
       ) : null}
+      {remitAny ? <StatFold id="remesas"><RemitCard monthKey={key} /></StatFold> : null}
       {insights.length === 0 ? <p>{t("stats.need")}</p> : null}
       <StatFold id="time"><TimeCard points={points} span={span} onSpan={setSpan} activeKey={activeKey} /></StatFold>
       {board?.envelopes.length ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
@@ -3783,6 +3825,7 @@ export function Advisor() {
               { id: "month", tone: "calm", Icon: CalendarDays, text: reading.headline },
               { id: "alert", tone: "warn", Icon: ArrowLeftRight, text: reading.alert },
               { id: "credit", tone: "calm", Icon: CreditCard, text: reading.creditBlurb },
+              { id: "remit", tone: "calm", Icon: Send, text: reading.remitNote },
             ].filter((n) => n.text).map((n) => {
               const text = String(n.text);
               const cut = text.search(/[.:](\s|$)/);
@@ -3980,7 +4023,8 @@ export function Settings() {
       const split = !!host?.classList.contains("is-split");
       const land = window.matchMedia("(orientation: landscape) and (max-height: 520px) and (max-width: 1099px)").matches;
       const wide = window.matchMedia("(min-width: 1100px)").matches;
-      const pair = (land || wide) && !split;
+      const floatBody = root.closest<HTMLElement>(".float-body");
+      const pair = (land || wide) && !split && !(floatBody && floatBody.clientWidth < 620);
       const cards = [...root.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains("card"));
       if (!pair) {
         root.style.removeProperty("position");
@@ -4177,6 +4221,7 @@ export function Settings() {
           <ChevronRight aria-hidden />
         </button>
       </section>
+      <SampleRow />
       <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />
         <div className="vault-more">
@@ -4260,7 +4305,7 @@ function BackupPanel({ backups, onNow, onRestore }: { backups: BackupInfo[]; onN
 }
 
 function StructureTree() {
-  const { t, lang, session, commit } = useFaro();
+  const { t, lang, session, commit, confirm } = useFaro();
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [catName, setCatName] = useState("");
@@ -4278,6 +4323,7 @@ function StructureTree() {
     setCatName("");
   };
   const needle = q.trim().toLowerCase();
+  const missing = missingDefaults(session.ledger.structure);
   const categories = session.ledger.structure.categories.slice().sort((a, b) => a.order - b.order);
   const visible = (cat: Category) => {
     if (!needle) return true;
@@ -4295,9 +4341,16 @@ function StructureTree() {
         <input value={q} placeholder={t("tree.find")} onChange={(e) => setQ(e.target.value)} aria-label={t("tree.find")} />
       </div>
       {groups.length === 0 ? <p className="mt-3 text-sm text-muted">{t("tree.empty")}</p> : null}
-      {groups.map(({ group, rows }) => (
+      {groups.map(({ group, rows }, gi) => (
         <div key={group}>
-          <p className="tree-kicker">{t(group === "fixed" ? "group.fixed" : "group.variable")}</p>
+          <p className="tree-kicker tree-kick-row">{t(group === "fixed" ? "group.fixed" : "group.variable")}
+            {gi === 0 && missing.length ? <button type="button" className="sub-gear tree-restore" data-test="cat-restore" aria-label={lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica"} onClick={() => confirm({
+              title: lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica",
+              body: (lang === "en" ? "These come back: " : "Vuelven: ") + missing.map((c) => `${displayName(c, lang)} (${t(c.group === "fixed" ? "group.fixed" : "group.variable").toLowerCase()})`).join(", ") + (lang === "en" ? ". Your own categories and every entry stay as they are." : ". Tus categorías propias y cada movimiento quedan como están."),
+              yes: lang === "en" ? "Restore" : "Restaurar",
+              run: () => commit((s) => restoreDefaultCategories(s), lang === "en" ? "Default categories" : "Categorías de fábrica"),
+            })}><RotateCcw /></button> : null}
+          </p>
           <div className="tree">
             {rows.map((cat) => {
               const open = openId === cat.id;

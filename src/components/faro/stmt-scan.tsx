@@ -3,7 +3,7 @@
  * The OCR code (lib/faro/ocrrun + ./ocr/) loads only when a photo is chosen. Nothing is saved until Guardar,
  * and the photo is never kept: only a small thumbnail lives in memory while the sheet is open.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Camera, ImageUp, X } from "lucide-react";
 import { STMT_KEYS, amountMinor, parseStatement, type StmtKey, type StmtRead } from "@/lib/faro/stmtocr";
 import { useLayer } from "@/lib/manual/back";
@@ -26,7 +26,7 @@ export type StmtSave = StmtRead;
 
 type Draft = { read: StmtRead; text: Record<StmtKey, string>; on: Record<StmtKey, boolean>; thumb: string };
 
-export function StmtScan({ seen, onSave }: { seen: (month: string) => boolean; onSave: (read: StmtSave) => void }) {
+export function StmtScan({ seen, onSave, tail }: { seen: (month: string) => boolean; onSave: (read: StmtSave) => void; tail?: ReactNode }) {
   const { session } = useFaro();
   const lang = session?.ledger.settings.lang ?? "es";
   const [busy, setBusy] = useState<{ stage: "load" | "read"; p: number } | null>(null);
@@ -72,6 +72,7 @@ export function StmtScan({ seen, onSave }: { seen: (month: string) => boolean; o
           <i aria-hidden><b style={{ width: `${Math.round(busy.p * 100)}%` }} /></i>
         </span>
       ) : fail ? <span className="stm-fail">{fail}</span> : null}
+      {tail}
       {draft ? (
         <StmtReview
           draft={draft}

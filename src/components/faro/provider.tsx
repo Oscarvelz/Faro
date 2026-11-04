@@ -10,13 +10,14 @@ import {
 } from "react";
 import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow } from "@/lib/faro/api";
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
-import { applyTemplate, createInitial, isLedger, makeNamer, moveNamed } from "@/lib/faro/defaults";
+import { applyTemplate, createInitial, isLedger, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
 import { blankSession, commit as commitSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
-import { withAugustSample } from "@/lib/faro/sample";
+import { isPureSample, stripSample, withAugustSample } from "@/lib/faro/sample";
+import { sampleOn } from "@/lib/faro/samplemode";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
 import "@/lib/manual/back";
@@ -25,6 +26,15 @@ import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; run: () => void };
+/** Load-time seeds: the August sample, then the one-time Remesas categories (1.3.86). */
+function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean; sample: boolean } {
+  // 1.3.87: the August sample lives only in sample mode (its own store). Personal books that are
+  // still pure, untouched sample start empty; anything the user touched is kept as theirs.
+  const a = sampleOn() ? withAugustSample(ledger) : isPureSample(ledger) ? { ledger: { ...stripSample(ledger), revision: ledger.revision + 1, updatedAt: new Date().toISOString() }, added: true } : { ledger, added: false };
+  const b = withRemesas(a.ledger);
+  return { ledger: b.ledger, added: a.added || b.added, sample: sampleOn() && a.added };
+}
+
 type Notice = string;
 
 type UiState = {
@@ -419,7 +429,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const theme: ThemeId = daySet && known(stored) ? stored : "claro";
       let ledger = saved?.ledger ?? createInitial(lang, theme);
       let dirty = saved?.dirty ?? false;
-      const seeded = withAugustSample(ledger);
+      // Sample mode wears the personal look (theme, language) without ever writing personal books.
+      if (sampleOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}) } };
+      const seeded = seedLedger(ledger);
       ledger = seeded.ledger;
       if (seeded.added) dirty = true;
       if (ledger.settings.theme === "ion") {
@@ -443,7 +455,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const currentEmpty = (ledger.months[currentKey]?.lines.length ?? 0) === 0;
       const hasDemo = (ledger.months["2026-08"]?.lines ?? []).some((line) => line.id.startsWith("demo-ago-"));
-      if (seeded.added || (currentEmpty && hasDemo)) setUi({ year: 2026, month: 8, section: "desk" });
+      if (seeded.sample || (currentEmpty && hasDemo)) setUi({ year: 2026, month: 8, section: "desk" });
       setHasConflict(Boolean(localStorage.getItem(conflictKey(userId))));
     } catch {
       setSession(blankSession(createInitial("es", "claro"), false));
@@ -454,10 +466,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
 
   useEffect(() => {
     if (!session) return;
-    const seeded = withAugustSample(session.ledger);
+    const seeded = seedLedger(session.ledger);
     if (seeded.added) {
       setSession(blankSession(seeded.ledger, true));
-      setUi({ year: 2026, month: 8, section: "desk" });
+      if (seeded.sample) setUi({ year: 2026, month: 8, section: "desk" });
       return;
     }
     localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
@@ -481,7 +493,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     try {
       const parsed = JSON.parse(row.dataJson) as unknown;
       if (!isLedger(parsed)) return false;
-      const seeded = withAugustSample(parsed);
+      const seeded = seedLedger(parsed);
       if (dirtyLocal) {
         localStorage.setItem(conflictKey(userId), JSON.stringify(dirtyLocal));
         setHasConflict(true);
@@ -498,7 +510,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const backingUp = useRef(false);
   const runBackup = useCallback(async (force = false) => {
     const led = sessionRef.current?.ledger;
-    if (!led || backingUp.current) return;
+    if (!led || backingUp.current || sampleOn()) return;
     backingUp.current = true;
     try {
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
@@ -511,7 +523,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const syncNow = useCallback(async () => {
     const current = sessionRef.current;
     if (!current || syncing.current) return;
-    if (!CLOUD_READY) {
+    if (!CLOUD_READY || sampleOn()) {
       setSync("local");
       return;
     }
@@ -574,6 +586,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         void syncNow();
         void runBackup();
         void (async () => {
+          if (sampleOn()) return;
           const handle = await loadHandle();
           const led = sessionRef.current?.ledger;
           if (!handle || !led) return;

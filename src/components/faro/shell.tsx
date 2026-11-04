@@ -1,8 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { SampleEdge, SamplePill } from "./sample-mode";
 import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
 import "./float.css";
 import "./tron.css";
 import "./cal.css";
+import "./tablet.css";
 import { UserButton } from "@/lib/auth/gates";
 import { monthLines } from "@/lib/faro/engine";
 import { monthName } from "@/lib/faro/i18n";
@@ -23,6 +25,7 @@ import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
 import { PeopleInbox } from "./people";
 import { BankDock } from "./bank-dock";
+import { ToTop } from "./to-top";
 
 const ManualLayer = lazy(() => import("./manual"));
 
@@ -83,7 +86,21 @@ export function Shell() {
   const vault = ui.vault;
   const setVault = (next: (typeof VAULT)[number] | null) => { if (next !== ui.vault) setUi({ vault: next }); };
   const [moneyOpen, setMoneyOpen] = useState(false);
-  const [recall, setRecall] = useState(false);
+  // Edge dock recall is DOM-only (data-recall on .app-frame): toggling it never re-renders the app, and the
+  // CSS transition (transform only) reverses mid-flight on rapid taps.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const recallRef = useRef(false);
+  const recallTap = useRef(0);
+  const setRecall = useCallback((next: boolean | ((open: boolean) => boolean)) => {
+    const open = typeof next === "function" ? next(recallRef.current) : next;
+    if (open === recallRef.current) return;
+    recallRef.current = open;
+    const f = frameRef.current;
+    if (!f) return;
+    if (open) f.dataset.recall = "1"; else delete f.dataset.recall;
+    const btn = f.querySelector<HTMLButtonElement>(".dock-recall");
+    if (btn) { btn.classList.toggle("is-open", open); btn.setAttribute("aria-expanded", open ? "true" : "false"); btn.setAttribute("aria-label", btn.dataset[open ? "hide" : "show"] || ""); }
+  }, []);
   const moneyPanel = useRef<HTMLElement>(null);
   const moneyDock = useRef<HTMLButtonElement>(null);
   const railRef = useRef<HTMLElement>(null);
@@ -659,7 +676,7 @@ export function Shell() {
   const weekStart = new Date(2024, 0, 1);
 
   const homeSide = moneyOpen || vault || ui.section === "desk" || ui.section === "settings" ? "left" : "right";
-  const dockClass = !split && !recall ? (homeSide === "left" ? " is-hide-right" : " is-hide-left") : "";
+  const dockClass = !split ? (homeSide === "left" ? " is-hide-right" : " is-hide-left") : "";
 
   const openLower = () => setLower((cur) => (cur === ui.section ? pairedSection(ui.section) : cur));
   const toggleFloat = () => {
@@ -679,7 +696,7 @@ export function Shell() {
     <>
     <PeopleInbox />
     <BankDock />
-    <div className={`app-frame${split ? " is-split" : ""}${wide && split && splitAxis === "col" ? " is-cols" : ""}${dragging ? " is-dragging" : ""}${dockClass}`}>
+    <div ref={frameRef} className={`app-frame${split ? " is-split" : ""}${wide && split && splitAxis === "col" ? " is-cols" : ""}${dragging ? " is-dragging" : ""}${dockClass}`}>
       <nav ref={railRef} className="rail" aria-label={t("nav.desk")}>
         <div className="dock-face">
         <i className="dock-glass" aria-hidden />
@@ -712,6 +729,7 @@ export function Shell() {
       <div className={split ? "split-stack" : "stage"} ref={stackRef}>
         <div ref={topPaneRef} className={split ? "split-pane" : "stage-pane"} style={split ? { flex: `0 0 ${draggingRef.current ? liveRatio.current : splitRatio}%` } : undefined}>
         <header className="top-chrome">
+          <SampleEdge />
           <div className="top-row">
             <button type="button" className="brand-mini" data-anchor="top-brand" onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
               <span className="brand-lamp" aria-hidden>
@@ -720,6 +738,7 @@ export function Shell() {
                 <Mark className="size-7" bold />
               </span>
               <span className="brand-word">Faro</span>
+              <SamplePill />
               <i data-anchor="top-sync" className={`sync-dot ${sync}`} title={t(SYNC_KEY[sync])} />
             </button>
             <div className="top-actions">
@@ -1138,13 +1157,15 @@ export function Shell() {
       {!split ? (
         <button
           type="button"
-          className={`dock-recall is-${homeSide === "left" ? "right" : "left"}${recall ? " is-open" : ""}`}
-          aria-label={lang === "en" ? (recall ? "Hide dock" : "Show dock") : (recall ? "Ocultar barra" : "Mostrar barra")}
-          onClick={() => setRecall((open) => !open)}
+          className={`dock-recall is-${homeSide === "left" ? "right" : "left"}${recallRef.current ? " is-open" : ""}`}
+          data-show={lang === "en" ? "Show dock" : "Mostrar barra"}
+          data-hide={lang === "en" ? "Hide dock" : "Ocultar barra"}
+          aria-expanded={recallRef.current}
+          aria-label={lang === "en" ? (recallRef.current ? "Hide dock" : "Show dock") : (recallRef.current ? "Ocultar barra" : "Mostrar barra")}
+          onPointerDown={(e) => { if (e.pointerType !== "mouse") { e.preventDefault(); setRecall((open) => !open); recallTap.current = performance.now(); } }}
+          onClick={() => { if (performance.now() - recallTap.current < 600) return; setRecall((open) => !open); }}
         >
-          {homeSide === "left"
-            ? (recall ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />)
-            : (recall ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />)}
+          {homeSide === "left" ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
         </button>
       ) : null}
       {floatOn ? (
@@ -1161,6 +1182,7 @@ export function Shell() {
     </div>
     {ui.manual !== null ? <Suspense fallback={<div className="mn-layer is-loading" />}><ManualLayer /></Suspense> : null}
     <FocusHost />
+    <ToTop lang={lang} />
     </>
   );
 }
@@ -1405,11 +1427,14 @@ function floatDefaults(): FloatGeo {
   return { x: vw - w - 14, y: phone ? Math.round(vh * 0.22) : 96, w, h, bx: vw - BUBBLE - 8, by: Math.round(vh * 0.38), alpha: 1 };
 }
 
+function floatMins() {
+  return { minW: Math.min(240, window.innerWidth - 16), minH: Math.min(220, window.innerHeight - 80) };
+}
+
 function clampFloat(g: FloatGeo): FloatGeo {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const minW = Math.min(250, vw - 16);
-  const minH = Math.min(240, vh - 80);
+  const { minW, minH } = floatMins();
   const w = Math.round(Math.min(vw - 16, Math.max(minW, g.w)));
   const h = Math.round(Math.min(vh - 16, Math.max(minH, g.h)));
   return {
@@ -1421,6 +1446,22 @@ function clampFloat(g: FloatGeo): FloatGeo {
     by: Math.round(Math.min(vh - BUBBLE - 90, Math.max(64, g.by))),
     alpha: g.alpha === 0.85 || g.alpha === 0.65 ? g.alpha : 1,
   };
+}
+
+type FloatEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+const FLOAT_EDGES: FloatEdge[] = ["n", "s", "e", "w", "ne", "nw", "sw", "se"];
+
+// Resize from any edge or corner: the opposite edge stays put, size stays within [min, viewport - 8px margins].
+function resizeFloat(g: FloatGeo, edge: FloatEdge, dx: number, dy: number): FloatGeo {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const { minW, minH } = floatMins();
+  let { x, y, w, h } = g;
+  if (edge.includes("e")) w = Math.min(vw - 8 - x, Math.max(minW, g.w + dx));
+  if (edge.includes("w")) { const r = g.x + g.w; x = Math.min(r - minW, Math.max(8, g.x + dx)); w = r - x; }
+  if (edge.includes("s")) h = Math.min(vh - 8 - y, Math.max(minH, g.h + dy));
+  if (edge.includes("n")) { const b = g.y + g.h; y = Math.min(b - minH, Math.max(8, g.y + dy)); h = b - y; }
+  return clampFloat({ ...g, x, y, w, h });
 }
 
 function loadFloat(): FloatGeo {
@@ -1445,7 +1486,6 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
   live.current = geo;
   const winRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLButtonElement>(null);
-  const [moving, setMoving] = useState(false);
 
   useEffect(() => {
     const fit = () => setGeo((g) => clampFloat(g));
@@ -1479,49 +1519,48 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
     }
   };
 
-  const grab = (mode: "move" | "se" | "sw" | "s" | "bubble") => (e: ReactPointerEvent<HTMLElement>) => {
+  // Drag: pointer capture on the handle, geometry computed per move but painted once per frame (rAF), straight to style.
+  // No React state changes until pointerup, so the content never re-renders mid-drag.
+  const grab = (mode: "move" | "bubble" | FloatEdge) => (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     if (mode === "move" && (e.target as HTMLElement).closest("button")) return;
+    if (mode !== "move" && mode !== "bubble") e.stopPropagation();
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     const sx = e.clientX;
     const sy = e.clientY;
     const start = { ...live.current };
+    const shell = mode === "bubble" ? bubbleRef.current : winRef.current;
     let moved = false;
     let last = start;
+    let frame = 0;
     const onMove = (ev: PointerEvent) => {
       const dx = ev.clientX - sx;
       const dy = ev.clientY - sy;
       if (!moved) {
-        if (Math.hypot(dx, dy) < 5) return;
+        if (Math.hypot(dx, dy) < (mode === "move" || mode === "bubble" ? 5 : 2)) return;
         moved = true;
-        setMoving(true);
+        shell?.classList.add("is-moving");
+        if (mode !== "move" && mode !== "bubble") shell?.setAttribute("data-edge", mode);
       }
-      let g = { ...start };
-      if (mode === "move") { g.x = start.x + dx; g.y = start.y + dy; }
-      else if (mode === "se") { g.w = start.w + dx; g.h = start.h + dy; }
-      else if (mode === "s") { g.h = start.h + dy; }
-      else if (mode === "sw") {
-        const w = clampFloat({ ...start, w: start.w - dx }).w;
-        g.w = w;
-        g.x = start.x + (start.w - w);
-        g.h = start.h + dy;
-      } else { g.bx = start.bx + dx; g.by = start.by + dy; }
-      g = clampFloat(g);
-      last = g;
-      paint(g);
+      if (mode === "move") last = clampFloat({ ...start, x: start.x + dx, y: start.y + dy });
+      else if (mode === "bubble") last = clampFloat({ ...start, bx: start.bx + dx, by: start.by + dy });
+      else last = resizeFloat(start, mode, dx, dy);
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; paint(last); });
     };
     const onUp = () => {
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
-      setMoving(false);
+      if (frame) { cancelAnimationFrame(frame); frame = 0; }
+      shell?.classList.remove("is-moving");
+      shell?.removeAttribute("data-edge");
       if (mode === "bubble") {
         if (!moved) { onFold(false); return; }
         const vw = window.innerWidth;
         last = clampFloat({ ...last, bx: last.bx + BUBBLE / 2 < vw / 2 ? 6 : vw - BUBBLE - 6 });
       }
-      if (moved) setGeo(last);
+      if (moved) { paint(last); setGeo(last); }
     };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
@@ -1557,7 +1596,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
       <button
         ref={bubbleRef}
         type="button"
-        className={`float-bubble${moving ? " is-moving" : ""}`}
+        className="float-bubble"
         style={{ left: geo.bx, top: geo.by }}
         aria-label={`${t("float.unfold")}: ${name}`}
         onPointerDown={grab("bubble")}
@@ -1572,7 +1611,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
   return (
     <div
       ref={winRef}
-      className={`float-win${moving ? " is-moving" : ""}`}
+      className="float-win"
       role="dialog"
       aria-modal="false"
       aria-label={`${t("float")}: ${name}`}
@@ -1596,8 +1635,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
           <DockNav section={section} onSection={onSection} />
         </div>
       </FaroPane>
-      <span className="float-size is-sw" aria-hidden onPointerDown={grab("sw")} />
-      <span className="float-size is-s" aria-hidden onPointerDown={grab("s")} />
+      {FLOAT_EDGES.filter((d) => d !== "se").map((d) => <span key={d} className={`float-size is-${d}`} aria-hidden onPointerDown={grab(d)} />)}
       <span className="float-size is-se" role="button" tabIndex={0} aria-label={t("float.size")} onPointerDown={grab("se")} onKeyDown={(e) => nudge(e, "size")}><i /></span>
     </div>
   );

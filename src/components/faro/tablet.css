@@ -1,0 +1,27 @@
+/* 1.3.84 tablet / desktop pass (Galaxy Tab S10 Ultra ~1970x1200, 1478x902, 1280x800, portrait 820/924).
+   Everything here is scoped to min-width queries above the phone range: nothing applies at <= 600px. */
+
+/* Side docks on tall screens: seven buttons no longer stretch over the whole height (170px each at 1200px);
+   they sit as one centred column with an even rhythm. */
+@media (width >= 1100px) and (height >= 820px) {
+  .app-frame:not(.is-split) .dock-face { justify-content: center; }
+  .app-frame:not(.is-split) .rail .nav-btn,
+  .app-frame:not(.is-split) .side-dock .nav-btn { flex: 0 1 104px; min-height: 76px; }
+}
+
+/* Libros on wide screens: two sibling books (Ingresos fijos + variables, Gastos variables + Personas)
+   sit side by side instead of 1800px-wide rows with the amount far away from its name. */
+@media (width >= 1400px) {
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> section.card + section.card) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> section.card + section.card) > section.card { margin-top: 0; }
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> section.card + section.card) > :not(section.card) { grid-column: 1 / -1; }
+}
+
+/* Import sheet on tablets: it fits its content (no tall empty middle) and sits centred, up to 900px. */
+@media (width >= 700px) and (height >= 700px) {
+  body .imp-scrim { align-items: center; padding: 24px; }
+  .imp-scrim > .imp-sheet { height: auto; max-height: min(900px, calc(100dvh - 48px)); }
+}

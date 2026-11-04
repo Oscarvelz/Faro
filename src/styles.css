@@ -550,6 +550,15 @@ html[data-theme="ion-noche"] .bank-sign.is-on:not(.is-save) { background: #3a2c1
 .bank-grip, .bank-drop { width: 18px; height: 28px; min-width: 18px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: color-mix(in oklab, var(--muted) 70%, transparent); display: grid; place-items: center; touch-action: none; }
 .bank-grip svg, .bank-drop svg { width: 13px; height: 13px; }
 .bank-drop { color: color-mix(in oklab, var(--bad, #8d3a32) 72%, var(--muted)); }
+/* 1.3.81: delete lives in the edit state only (after the pencil), framed and red, beside the name field. */
+.bank-edit-drop { flex: none; width: 28px; height: 28px; margin-left: 6px; padding: 0; display: grid; place-items: center; border-radius: 8px; border: 1px solid color-mix(in oklab, var(--bad, #c0453a) 55%, transparent); background: color-mix(in oklab, var(--bad, #c0453a) 8%, transparent); color: var(--bad, #c0453a); cursor: pointer; }
+.bank-edit-drop svg { width: 14px; height: 14px; }
+[data-theme="tron"] .bank-edit-drop { border-radius: 4px; border-color: rgba(255, 107, 107, .45); background: transparent; color: #ff6b6b; }
+.save-account-name:has(.bank-rename) { flex: 1 1 auto; min-width: 0; }
+.save-account-name .bank-rename { flex: 0 1 7.4rem; min-width: 3.4rem; width: 0; }
+:is(.save-ledger, .save-accounts) .bank-pencil { color: color-mix(in oklab, #72b4b2 85%, var(--fg)); }
+[data-theme="tron"] :is(.save-ledger, .save-accounts) .bank-pencil { color: rgba(63, 214, 245, .75); }
+.save-retire .save-inline { width: clamp(4.6rem, 24vw, 7.2rem); }
 .bank-add { grid-template-columns: auto minmax(0, 0.85fr) minmax(7.6rem, 1.05fr) auto; align-items: center; }
 .bank-add .field { font-size: 0.78rem; padding: 0 8px; }
 .bank-add .field::placeholder { font-size: 0.78rem; letter-spacing: 0; }
@@ -614,7 +623,7 @@ html .save-band.is-records .save-ledger.is-manage .save-ledger-head strong,
 .brand-chase .brand-letter { fill: #fff; }
 .brand-statefarm .brand-plate { fill: #e1261c; }
 .brand-statefarm .brand-letter { fill: #fff; }
-.brand-primerica .brand-plate { fill: #c8102e; }
+.brand-primerica .brand-plate { fill: #0b4ea2; }
 .brand-primerica .brand-letter { fill: #fff; }
 .brand-lafise .brand-plate { fill: #004990; }
 .brand-lafise .brand-letter { fill: #fff; }
@@ -1981,6 +1990,49 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
   }
   .app-frame:not(.is-split.is-cols) .study-stack.is-packed > *,
   .app-frame:not(.is-split.is-cols) .study-stack.is-packed > .study-charts > * { width: auto; margin: 0; min-width: 0; }
+}
+/* 1.3.84 edge docks: the away dock is a fixed overlay that slides on transform only (no width/left/right
+   animation, no reflow of the page), reversible mid-flight; recall state lives in data-recall on .app-frame. */
+@media (width >= 1100px), (orientation: landscape) and (height <= 520px) and (width < 1100px) {
+  .app-frame:not(.is-split) > .stage { grid-column: 2; }
+  .app-frame:not(.is-split) > .side-dock { grid-column: 3; }
+  .app-frame:not(.is-split) .rail,
+  .app-frame:not(.is-split) .side-dock { transition: none; }
+  .app-frame.is-hide-right .side-dock,
+  .app-frame.is-hide-left .rail {
+    position: fixed;
+    top: 0;
+    z-index: 33;
+    width: var(--dock-w);
+    height: 100dvh;
+    overflow: hidden;
+    pointer-events: none;
+    contain: layout paint;
+    will-change: transform;
+    transition: transform .2s cubic-bezier(.2, .8, .2, 1);
+  }
+  .app-frame.is-hide-right .side-dock { right: 0; transform: translateX(100%); }
+  .app-frame.is-hide-left .rail { left: 0; transform: translateX(-100%); }
+  .app-frame.is-hide-right[data-recall] .side-dock,
+  .app-frame.is-hide-left[data-recall] .rail { transform: none; pointer-events: auto; }
+  .app-frame.is-hide-right .side-dock .dock-face,
+  .app-frame.is-hide-left .rail .dock-face { opacity: 1; transform: none; transition: none; }
+  .app-frame.is-hide-right .side-dock .dock-face { border-left-color: var(--line); }
+  .app-frame.is-hide-left .rail .dock-face { border-right-color: var(--line); }
+  .app-frame:not(.is-split) .dock-recall { will-change: transform; transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
+  .app-frame:not(.is-split) .dock-recall.is-right,
+  .app-frame:not(.is-split) .dock-recall.is-right.is-open { right: 0; left: auto; }
+  .app-frame:not(.is-split) .dock-recall.is-left,
+  .app-frame:not(.is-split) .dock-recall.is-left.is-open { left: 0; right: auto; }
+  .app-frame[data-recall] .dock-recall.is-right { transform: translate(calc(-1 * var(--dock-w)), -50%); }
+  .app-frame[data-recall] .dock-recall.is-left { transform: translate(var(--dock-w), -50%); }
+  .app-frame .dock-recall svg { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
+  .app-frame[data-recall] .dock-recall svg { transform: rotate(180deg); }
+}
+@media (width >= 1100px) { .app-frame:not(.is-split) { --dock-w: 104px; } }
+@media (orientation: landscape) and (height <= 520px) and (width < 1100px) { .app-frame:not(.is-split) { --dock-w: 62px; } }
+@media (prefers-reduced-motion: reduce) {
+  .app-frame .rail, .app-frame .side-dock, .app-frame .dock-recall, .app-frame .dock-recall svg { transition: none !important; }
 }
 .tree-open { gap: 8px; padding: 8px 0 8px 18px; }
 .color-row { display: flex; flex-wrap: wrap; gap: 6px; }

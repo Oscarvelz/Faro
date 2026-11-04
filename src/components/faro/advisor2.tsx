@@ -145,10 +145,17 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
           <span>{L(lang, "de lo que entra va a cuotas", "of income goes to payments")}</span>
         </div>
       </div>
-      <div className="a2-tiles">
-        <div><em>{L(lang, "Pagas al mes", "You pay")}</em><strong className="num">{fmt(n.debt)}</strong></div>
-        <div><em>{L(lang, "Zona cómoda", "Easy zone")}</em><strong className="num">{fmt(n.allowance)}</strong></div>
-        <div className="is-wide"><em>{L(lang, "Espacio antes de salir de la zona", "Room before leaving the zone")}</em><strong className={`num ${room > 0 ? "good" : "bad"}`}>{fmt(room)}</strong></div>
+      <div className="a2-load">
+        <div className="a2-load-pair">
+          <div><em>{L(lang, "Pagas al mes", "Monthly pay")}</em><strong className="num is-pay">{fmt(n.debt)}</strong></div>
+          <i aria-hidden />
+          <div><em>{L(lang, "Zona cómoda", "Comfort zone")}</em><strong className="num">{fmt(n.allowance)}</strong></div>
+        </div>
+        <div className={`a2-load-room ${room > 0 ? "is-good" : "is-bad"}`}>
+          <em>{L(lang, "Margen en zona", "Room in zone")}</em>
+          <strong className="num">{fmt(room)}</strong>
+          <span className="a2-load-bar" aria-hidden><b style={{ width: `${n.allowance > 0 ? Math.min(100, (n.debt / n.allowance) * 100) : 100}%` }} /></span>
+        </div>
       </div>
       {debts.length ? (
         <div className="a2-lines">

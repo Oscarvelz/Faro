@@ -14,6 +14,8 @@ export const LINKS: Record<string, string> = {
   Central: "central", Desk: "central",
   Libros: "libros", Books: "libros",
   Estudio: "estudio", Study: "estudio",
+  Remesas: "remesas", Remittances: "remesas",
+  "Enviar a": "cambio-enviar", "Send to": "cambio-enviar",
   Asesor: "asesor", Advisor: "asesor",
   Ingresos: "ingresos", Income: "ingresos",
   Cuotas: "cuotas", Plans: "cuotas",

@@ -393,3 +393,23 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 
 /* Day themes: the hero's (?) reads on the cream glow. */
 :is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) .a2-tower .a2-tower-say .ftip-btn { color: var(--ink2); }
+
+/* ── Cómo va mi crédito: the three figures under the gauge as one composition (1.3.82).
+   Pagas | Zona side by side and centred, a hairline between them; the margin reads as Zona minus Pagas,
+   with a thin bar (amount used of the zone) under it. No frames: spacing and hairlines group. ── */
+.a2-load { container-type: inline-size; display: grid; gap: 14px; padding: 14px 4px 2px; border-top: 1px solid var(--a2-hair, var(--line)); --ld-pay: var(--fg); --ld-val: var(--fg); --ld-room: var(--good); --ld-fill: color-mix(in oklab, var(--warn) 80%, transparent); --ld-track: color-mix(in oklab, var(--good) 22%, transparent); }
+.a2-load em { font-style: normal; font-size: .66rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); white-space: nowrap; line-height: 1.2; }
+.a2-load strong { font-size: min(1.08rem, calc((100cqi - 24px) / 14)); font-weight: 650; line-height: 1.15; letter-spacing: -.01em; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; color: var(--ld-val); }
+.a2-load-pair { display: grid; grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr); column-gap: 10px; align-items: stretch; }
+.a2-load-pair > div { display: grid; justify-items: center; gap: 5px; text-align: center; min-width: 0; padding: 2px 0; }
+.a2-load-pair > i { background: var(--a2-hair, var(--line)); }
+.a2-load-pair strong.is-pay { color: var(--ld-pay); }
+.a2-load-room { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 12px; row-gap: 6px; }
+.a2-load-room strong { margin-left: auto; }
+.a2-load-room strong { color: var(--ld-room); }
+.a2-load-room.is-bad { --ld-room: var(--bad); }
+.a2-load-bar { flex: 1 0 100%; margin-top: 2px; height: 4px; border-radius: 99px; background: var(--ld-track); overflow: hidden; }
+.a2-load-bar b { display: block; height: 100%; border-radius: 99px; background: var(--ld-fill); }
+[data-theme="tron"] .a2-load { --ld-pay: #ffcf6e; --ld-val: #7fe9ff; --ld-room: #54e6ff; --ld-fill: rgba(255, 196, 92, .85); --ld-track: rgba(84, 230, 255, .2); }
+[data-theme="tron"] .a2-load-room strong { text-shadow: 0 0 12px rgba(84, 230, 255, .35); }
+[data-theme="tron"] .a2-load em { color: rgba(170, 225, 240, .62); }

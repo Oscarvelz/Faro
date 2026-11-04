@@ -2,6 +2,7 @@ import { buildAdvice, categorySlices, inView, monthLines, roleOf, summarize, yea
 import { monthName } from "./i18n";
 import { formatMoney } from "./money";
 import { loanPays, loanState, loansOf } from "./loans";
+import { remitTrend } from "./remesas";
 import type { Lang, LedgerState, Line, LineKind } from "./types";
 import type { makeNamer } from "./defaults";
 
@@ -651,6 +652,35 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
         ]),
       ],
     });
+  }
+  // Remesas (1.3.86): the last 12 months sent home, US$ and C$ at today's rate, with the change and the share of income.
+  if (pick.charts) {
+    const rt = remitTrend(ledger, key, 12);
+    if (rt.any) {
+      const last = rt.months.length + 2;
+      sheets.push({
+        name: "Remesas",
+        widths: [14, 14, 16, 12, 14],
+        merges: ["A1:E1"],
+        bars: [{ ref: `B3:B${last}`, color: "FFD98A5F" }],
+        rows: [
+          [{ v: say(lang, "Remesas: lo que mandas a casa", "Remittances: what you send home"), s: S.section }],
+          [say(lang, "Mes", "Month"), "US$", "C$", say(lang, "Cambio %", "Change %"), say(lang, "% del ingreso", "% of income")].map((v) => ({ v, s: S.flowHead })),
+          ...rt.months.map((m, i) => {
+            const prev = rt.months[i - 1];
+            const ch = prev && prev.usd > 0 ? Math.round(((m.usd - prev.usd) / prev.usd) * 1000) / 10 : "";
+            return [
+              { v: m.key, s: S.line },
+              { v: m.usd / 100, s: S.spendNum },
+              { v: m.nio / 100, s: S.lineNum },
+              { v: ch, s: S.altNum },
+              { v: m.income > 0 ? Math.round((m.usd / m.income) * 1000) / 10 : "", s: S.altNum },
+            ];
+          }),
+          [{ v: say(lang, "Promedio (meses con envío)", "Average (months with a remittance)"), s: S.ratio }, { v: rt.avgUsd / 100, s: S.ratioNum }],
+        ],
+      });
+    }
   }
   // Loans received (Debo → Préstamos): one row each, in the loan's own currency, interest as of today.
   const loans = loansOf(ledger);

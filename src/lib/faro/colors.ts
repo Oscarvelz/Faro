@@ -45,6 +45,7 @@ const NAMED: Record<string, string> = {
   "v-personales": "#d7b48a",
   "v-familia": "#e3a0b0",
   "v-hormiga": "#c4b48a",
+  "v-remesas": "#ffa289",
   ropa: "#d7b4c4",
   tech: "#9bb0c9",
   gadget: "#b7c4a8",

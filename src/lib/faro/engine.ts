@@ -825,6 +825,13 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       note: reading.trendNote,
     });
   }
+  if (reading.remitNote) {
+    shortPoints.push({
+      label: L(lang, "Remesas", "Remittances"),
+      value: formatMoney(reading.remitUsd, "USD", lang),
+      note: reading.remitNote.replace(/^(Remesas|Remittances):\s*/, ""),
+    });
+  }
   if (reading.splitNote) {
     shortPoints.push({
       label: L(lang, "No es un hábito", "Not a habit"),

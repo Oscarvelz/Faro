@@ -1,7 +1,9 @@
+import "@/lib/faro/sample-boot";
 import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "@/styles.css";
 import { FaroProvider } from "@/components/faro/provider";
+import { useSampleEpoch } from "@/components/faro/sample-mode";
 import { Shell } from "@/components/faro/shell";
 import { Mark } from "@/components/faro/icons";
 import { CLOUD_READY, emitUser, keepSignedIn, lastUser, rememberUser, setSessionGone, supabase } from "@/spa/cloud";
@@ -131,6 +133,7 @@ function App() {
 
 function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   const user = useFaroUser();
+  const epoch = useSampleEpoch();
   const [booted, setBooted] = useState(false);
   const [recovery, setRecovery] = useState(false);
   const [expiredRaw, setExpired] = useState(false);
@@ -224,7 +227,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   if (!CLOUD_READY) {
     // Accounts not connected yet: run on this device only.
     return (
-      <FaroProvider userId="local">
+      <FaroProvider key={epoch} userId="local">
         <Shell />
       </FaroProvider>
     );
@@ -234,7 +237,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   if (!user || expired) return <Login note={expired ? w("acct.relogin") : undefined} />;
   if (!open) return <Locked uid={user.id} onOpen={() => { markSeen(user.id); hiddenAt.current = 0; openRef.current = true; setOpen(true); }} />;
   return (
-    <FaroProvider userId={user.id}>
+    <FaroProvider key={epoch} userId={user.id}>
       <Shell />
     </FaroProvider>
   );

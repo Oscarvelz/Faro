@@ -1,11 +1,12 @@
 import "./instruments.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpDown, Calculator, Check, ListPlus, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, Trash2, X } from "lucide-react";
+import { ArrowUpDown, Calculator, Check, ListPlus, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, Send, Trash2, X } from "lucide-react";
 import { convertMinor, evalExpr, formatMoney, formatRate, parseAmount } from "@/lib/faro/money";
 import type { Currency } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { useLayer } from "@/lib/manual/back";
+import { SendPanel } from "./remesas";
 import { Hint } from "./hint";
 import { SlipApply } from "./slip-apply";
 
@@ -39,6 +40,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
   const [rateText, setRateText] = useState(settings ? formatRate(settings.rateE4) : "36.6243");
   const [expr, setExpr] = useState("");
   const [calcOn, setCalcOn] = useState(false);
+  const [sendOn, setSendOn] = useState(false);
   const [slips, setSlips] = useState<Slip[]>(() => readSlips());
   const [fxOpen, setFxOpen] = useState(() => localStorage.getItem("faro-fx-open") !== "0");
   useEffect(() => {
@@ -205,7 +207,11 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
             </button>
           ))}
         </div>
-        <button type="button" className="btn cv-use" onClick={useConverted} disabled={converted === null}>{t("convert.use")}</button>
+        <div className="cv-actions">
+          <button type="button" className="btn secondary cv-send-open" data-test="cv-send-open" aria-expanded={sendOn} onClick={() => setSendOn((v) => !v)} disabled={converted === null || !minor}><Send aria-hidden className="size-4" />{lang === "en" ? "Send to" : "Enviar a"}</button>
+          <button type="button" className="btn cv-use" onClick={useConverted} disabled={converted === null}>{t("convert.use")}</button>
+        </div>
+        {sendOn && converted !== null && minor ? <SendPanel fromMinor={minor} from={from} toMinor={converted} to={to} onDone={() => setSendOn(false)} /> : null}
       </section>
       {calcOn ? (
         <CalcPanel
@@ -222,6 +228,14 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
             if (!ok) setUi({ notice: t("calc.need") });
           }}
           onClose={() => setCalcOn(false)}
+          onSend={() => {
+            if (result === null || result <= 0) return;
+            touched.current = true;
+            setText(String(Math.round(result * 100) / 100));
+            setCalcOn(false);
+            setSendOn(true);
+            window.setTimeout(() => box.current?.querySelector(".cv-send")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 60);
+          }}
         />
       ) : null}
       <section className="card tool-card" data-anchor="tools-slips">
@@ -505,13 +519,14 @@ function readGeo(): Geo | null {
   }
 }
 
-function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose }: {
+function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose, onSend }: {
   host: HTMLElement | null;
   expr: string;
   setExpr: (next: string) => void;
   onSave: () => void;
   onPut: () => void;
   onClose: () => void;
+  onSend: () => void;
 }) {
   const { t, lang } = useFaro();
   const en = lang === "en";
@@ -647,6 +662,7 @@ function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose }: {
         <i className="calc2-grab" aria-hidden />
         <strong className="serif">{t("calc.title")}</strong>
         <button type="button" className="calc2-chip" onClick={onSave} disabled={result === null || !expr.trim()}>{t("slips.save")}</button>
+        <button type="button" className="calc2-icon" data-test="calc-send" aria-label={en ? "Send to a category" : "Enviar a una categoría"} title={en ? "Send to" : "Enviar a"} onClick={onSend} disabled={result === null || result <= 0}><Send /></button>
         <button type="button" className="calc2-icon" aria-label={big ? (en ? "Make smaller" : "Hacer más pequeña") : (en ? "Fill the screen" : "Llenar la pantalla")} onClick={() => setBig((v) => !v)}>
           {big ? <Minimize2 /> : <Maximize2 />}
         </button>

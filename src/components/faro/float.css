@@ -1,7 +1,7 @@
 /* Floating window (Samsung-style pop-up view) */
 .float-win {
   position: fixed; z-index: 60;
-  display: flex; flex-direction: column; overflow: hidden;
+  display: flex; flex-direction: column; overflow: visible; contain: layout style;
   background: var(--bg); color: var(--fg);
   border-radius: 22px;
   border: 1px solid color-mix(in oklab, var(--fg) 14%, transparent);
@@ -12,14 +12,14 @@
   touch-action: none;
 }
 .float-win:hover, .float-win:focus-within { opacity: max(var(--float-alpha, 1), .92); }
-.float-win.is-moving { opacity: .9; box-shadow: 0 30px 70px rgb(0 0 0 / .45); user-select: none; }
+.float-win.is-moving { opacity: .94; box-shadow: 0 30px 70px rgb(0 0 0 / .45); user-select: none; transition: none; }
 .float-win.is-moving .float-body { pointer-events: none; }
 @keyframes float-in { from { opacity: 0; transform: scale(.94) translateY(10px); } }
 
 .float-bar {
   flex: none; position: relative;
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px;
-  height: 40px; padding: 0 6px 0 4px;
+  height: 40px; padding: 0 6px 0 4px; border-radius: 21px 21px 0 0;
   background: color-mix(in oklab, var(--surface) 82%, var(--fg) 4%);
   border-bottom: 1px solid var(--line);
   cursor: grab; touch-action: none; user-select: none;
@@ -40,7 +40,10 @@
 .float-tools button[aria-pressed="true"] { color: var(--accent); }
 .float-tools button:last-child:hover { background: color-mix(in oklab, var(--bad) 22%, transparent); color: var(--fg); }
 
-.float-body { position: relative; z-index: 1; isolation: isolate; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; touch-action: auto; }
+.float-body {
+  position: relative; z-index: 1; isolation: isolate; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; touch-action: auto;
+  overflow: hidden; border-radius: 0 0 21px 21px; container: floatwin / inline-size;
+}
 .float-body .workspace { flex: 1 1 auto; min-height: 0; overflow: auto; display: block; overscroll-behavior: contain; }
 .float-body .main-pad { padding: 12px 12px 14px; min-height: 100%; }
 .float-body .dock {
@@ -51,15 +54,47 @@
 .float-body .dock .nav-btn svg { width: 14px; height: 14px; }
 .float-body .dock-glide { top: 3px; bottom: 3px; border-radius: 12px; width: calc((100% - 10px) / 3); left: calc(3px + var(--dock, 0) * ((100% - 10px) / 3 + 2px)); }
 
-.float-size { position: absolute; bottom: 0; z-index: 5; touch-action: none; }
-.float-size.is-se { right: 0; width: 30px; height: 30px; cursor: nwse-resize; display: grid; place-items: center; }
-.float-size.is-sw { left: 0; width: 24px; height: 24px; cursor: nesw-resize; }
-.float-size.is-s { left: 30px; right: 30px; height: 8px; cursor: ns-resize; }
+/* Resize handles: every edge and corner. Hit areas reach 10px outside the frame and ~10px inside (finger / S-Pen),
+   corners 40px. Only the bottom-right shows a grip: a short arc that hugs the rounded corner. */
+.float-size { position: absolute; z-index: 5; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.float-size.is-n, .float-size.is-s { left: 26px; right: 26px; height: 18px; cursor: ns-resize; }
+.float-size.is-n { top: -10px; height: 16px; }
+.float-size.is-s { bottom: -10px; }
+.float-size.is-e, .float-size.is-w { top: 26px; bottom: 26px; width: 20px; cursor: ew-resize; }
+.float-size.is-e { right: -10px; }
+.float-size.is-w { left: -10px; }
+.float-size.is-nw, .float-size.is-ne, .float-size.is-sw, .float-size.is-se { width: 38px; height: 38px; }
+.float-size.is-nw { top: -10px; left: -10px; width: 30px; height: 26px; cursor: nwse-resize; }
+.float-size.is-ne { top: -10px; right: -10px; width: 30px; height: 26px; cursor: nesw-resize; }
+.float-size.is-sw { bottom: -10px; left: -10px; cursor: nesw-resize; }
+.float-size.is-se { bottom: -10px; right: -10px; width: 42px; height: 42px; cursor: nwse-resize; outline: none; }
 .float-size.is-se i {
-  width: 12px; height: 12px; margin: 0 4px 4px 0; align-self: end; justify-self: end;
-  border-right: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); border-bottom-right-radius: 6px; opacity: .65;
+  position: absolute; right: 13px; bottom: 13px; width: 24px; height: 24px; pointer-events: none;
+  border-right: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); border-bottom-right-radius: 19px;
+  -webkit-mask: linear-gradient(135deg, transparent 52%, #000 80%); mask: linear-gradient(135deg, transparent 52%, #000 80%);
+  opacity: .55; transition: opacity .15s, border-color .15s;
 }
-.float-size.is-se:hover i, .float-size.is-se:focus-visible i { opacity: 1; border-color: var(--accent); }
+.float-size.is-se:hover i, .float-size.is-se:focus-visible i, .float-win[data-edge] .float-size.is-se i { opacity: 1; border-color: var(--accent); }
+.float-win[data-edge] { box-shadow: 0 30px 70px rgb(0 0 0 / .45), 0 0 0 1.5px color-mix(in oklab, var(--accent) 55%, transparent); }
+html[data-theme="tron"] .float-size.is-se i { border-color: color-mix(in oklab, var(--accent) 70%, transparent); filter: drop-shadow(0 0 4px color-mix(in oklab, var(--accent) 60%, transparent)); }
+
+/* Content re-flow by the window's own width (container queries), not the screen's: viewport media rules for wide screens
+   would otherwise squeeze 2–3 columns into a narrow window. */
+@container floatwin (width < 620px) {
+  .grid-2, .grid-3, .advice-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  .glass-stack.desk-board { display: flex !important; flex-direction: column; }
+  .desk-col { display: contents !important; }
+  .desk-board > .desk-col > .ridge { order: var(--i) !important; }
+  .main-pad { padding: 10px 10px 12px; }
+}
+@container floatwin (620px <= width < 980px) {
+  .grid-3, .advice-stack { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@container floatwin (width < 330px) {
+  .main-pad { padding: 8px 8px 10px; }
+  .float-body .dock .nav-btn { font-size: .58rem; }
+}
 
 .float-bubble {
   position: fixed; z-index: 60; width: 58px; height: 58px; border-radius: 50%;

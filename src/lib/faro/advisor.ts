@@ -1,5 +1,6 @@
 import { convertMinor, formatMoney, formatPct, niceDown, niceUp } from "./money.ts";
 import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
+import { remitTrend } from "./remesas.ts";
 
 type Namer = {
   cat: (id: string) => string;
@@ -103,6 +104,11 @@ export type Reading = {
   levers: Lever[];
   plan: string;
   antNote: string | null;
+  /** Remesas (1.3.86): what was sent, the trend vs last month and its share of income, with one piece of advice. */
+  remitNote: string | null;
+  remitUsd: number;
+  remitPrevUsd: number;
+  remitSharePct: number | null;
   paceNote: string;
   calendarNote: string;
   compareNote: string;
@@ -1027,12 +1033,33 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
         : L(lang, `Para el ${fmtDay(when90)}: arma un colchón de ${money(cushionMinor)} (${months} meses de lo esencial). Empieza con lo que sobre cada mes, aunque sea poco.`, `By ${fmtDay(when90)}: build a ${money(cushionMinor)} cushion (${months} months of essentials). Start with whatever is left each month, even a little.`);
     }
   }
+  const rt = remitTrend(state, key, 6);
+  const usd = (m: number) => formatMoney(m, "USD", lang);
+  const nio = (m: number) => formatMoney(m, "NIO", lang);
+  let remitNote: string | null = null;
+  if (rt.now.usd > 0 || rt.prev.usd > 0) {
+    const share = rt.sharePct;
+    const sharePart = share !== null ? L(lang, `, el ${share.toLocaleString("es-NI")}% de tu ingreso`, `, ${share.toLocaleString("en-US")}% of your income`) : "";
+    const incPrev = rt.prev.income;
+    const incGrowth = incPrev > 0 ? ((rt.now.income - incPrev) / incPrev) * 100 : null;
+    const fixedAmt = niceUp(rt.avgUsd, "USD");
+    if (rt.now.usd === 0) {
+      remitNote = L(lang, `Remesas: este mes no has enviado nada; el mes pasado fueron ${usd(rt.prev.usd)}. Si el envío es de cada mes, apártalo antes de gastar lo demás.`, `Remittances: nothing sent this month yet; last month was ${usd(rt.prev.usd)}. If it goes out every month, set it aside before spending the rest.`);
+    } else if (rt.deltaPct !== null && rt.deltaPct >= 25 && (incGrowth === null || incGrowth < rt.deltaPct / 2)) {
+      remitNote = L(lang, `Remesas subieron ${rt.deltaPct}% vs el mes pasado (${usd(rt.prev.usd)} → ${usd(rt.now.usd)})${sharePart}, más rápido que tu ingreso. Acuerda con tu familia un monto fijo, por ejemplo ${usd(fixedAmt)} al mes, y trata lo extra como excepción.`, `Remittances rose ${rt.deltaPct}% vs last month (${usd(rt.prev.usd)} → ${usd(rt.now.usd)})${sharePart}, faster than your income. Agree a fixed amount with your family, for example ${usd(fixedAmt)} a month, and treat extras as the exception.`);
+    } else if (share !== null && share >= 20) {
+      remitNote = L(lang, `Remesas: enviaste ${usd(rt.now.usd)} (${nio(rt.now.nio)})${sharePart}. Es una parte grande; ponlo como gasto fijo al planear y deja el ahorro aparte primero.`, `Remittances: you sent ${usd(rt.now.usd)} (${nio(rt.now.nio)})${sharePart}. That's a big share; plan it as a fixed bill and set savings aside first.`);
+    } else {
+      remitNote = L(lang, `Remesas: enviaste ${usd(rt.now.usd)} (${nio(rt.now.nio)})${sharePart}${rt.deltaPct !== null ? `, ${rt.deltaPct >= 0 ? "+" : ""}${rt.deltaPct}% vs el mes pasado` : ""}. Un mismo monto y un mismo día cada mes es más fácil de planear; la tasa oficial casi no se mueve, así que compara sobre todo la comisión y la tasa de la remesadora.`, `Remittances: you sent ${usd(rt.now.usd)} (${nio(rt.now.nio)})${sharePart}${rt.deltaPct !== null ? `, ${rt.deltaPct >= 0 ? "+" : ""}${rt.deltaPct}% vs last month` : ""}. The same amount on the same day each month is easier to plan; the official rate barely moves, so compare the sender's fee and rate above all.`);
+    }
+  }
   const plan = [
     L(lang, `Plan Faro — este mes (te queda: ${money(left)})`, `Faro plan — this month (left: ${money(left)})`),
     L(lang, `24 horas: ${day24}`, `24 hours: ${day24}`),
     L(lang, `7 días: ${day7}`, `7 days: ${day7}`),
     L(lang, `30 días: ${day30}`, `30 days: ${day30}`),
     L(lang, `90 días: ${day90}`, `90 days: ${day90}`),
+    ...(remitNote ? [remitNote] : []),
   ].join("\n");
 
   const scenarios = [
@@ -1115,6 +1142,10 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     levers,
     plan,
     antNote,
+    remitNote,
+    remitUsd: rt.now.usd,
+    remitPrevUsd: rt.prev.usd,
+    remitSharePct: rt.sharePct,
     paceNote,
     calendarNote,
     compareNote,

@@ -102,6 +102,8 @@ export const LABELS: Lab = {
   "v.hormiga": { es: "Gastos hormiga", en: "Leak spending" },
   "v.hormiga.cafe": { es: "Cigarros / café", en: "Cigarettes / coffee" },
   "v.hormiga.dulces": { es: "Bebidas / dulces", en: "Drinks / sweets" },
+  "v.remesas": { es: "Remesas", en: "Remittances" },
+  "v.remesas.envios": { es: "Envíos", en: "Transfers" },
   "v.estudio": { es: "Estudio", en: "Study" },
   "v.estudio.matricula": { es: "Matrícula", en: "Tuition" },
   "v.estudio.materiales": { es: "Materiales", en: "Materials" },
@@ -195,6 +197,7 @@ export function defaultStructure(): Structure {
       category("personales", "variable", "personal", "Shirt", 5, ["ropa", "salud", "belleza", "lavanderia", "otros"]),
       category("familia", "variable", "family", "Users", 6, ["libros", "juguetes"]),
       category("hormiga", "variable", "petty", "Coffee", 7, ["cafe", "dulces"]),
+      category("remesas", "variable", "remittance", "Send", 8, ["envios"]),
     ].map((c, i) => ({ ...c, id: `${c.group === "fixed" ? "f" : "v"}-${c.id}`, order: i })),
     purchases: [
       purchase("ropa", "Shirt", 0),
@@ -224,6 +227,34 @@ export function defaultStructure(): Structure {
   };
 }
 
+/** Default categories missing from a ledger (by id), e.g. to put back what the user deleted. */
+export function missingDefaults(structure: Structure): Category[] {
+  const have = new Set(structure.categories.map((c) => c.id));
+  return defaultStructure().categories.filter((c) => !have.has(c.id));
+}
+
+/** Puts every missing default category back (at the end of its book); never touches the user's own ones or any line. */
+export function restoreDefaultCategories(state: LedgerState): LedgerState {
+  const add = missingDefaults(state.structure);
+  if (!add.length) return state;
+  const next = [...state.structure.categories];
+  for (const c of add) next.push({ ...c, order: next.filter((x) => x.group === c.group).length });
+  return { ...state, structure: { ...state.structure, categories: next } };
+}
+
+/** 1.3.86: Remesas (fixed and variable) added once to ledgers made before it existed. The "remesas" seed flag keeps a deleted one deleted. */
+export function withRemesas(state: LedgerState): { ledger: LedgerState; added: boolean } {
+  const seeds = state.settings.seeds ?? [];
+  if (seeds.includes("remesas")) return { ledger: state, added: false };
+  const want = defaultStructure().categories.filter((c) => c.role === "remittance" && !state.structure.categories.some((x) => x.id === c.id));
+  const categories = [...state.structure.categories];
+  for (const c of want) categories.push({ ...c, order: categories.filter((x) => x.group === c.group).length });
+  return {
+    added: true,
+    ledger: { ...state, structure: { ...state.structure, categories }, settings: { ...state.settings, seeds: [...seeds, "remesas"] }, revision: state.revision + 1, updatedAt: new Date().toISOString() },
+  };
+}
+
 export function defaultSettings(lang: Lang, theme: ThemeId): Settings {
   return {
     lang,
@@ -238,6 +269,7 @@ export function defaultSettings(lang: Lang, theme: ThemeId): Settings {
     emergencyMonths: 3,
     shortcuts: { ...DEFAULT_SHORTCUTS },
     gestures: {},
+    seeds: ["remesas"],
   };
 }
 

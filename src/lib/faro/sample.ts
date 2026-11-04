@@ -74,3 +74,30 @@ export function withAugustSample(ledger: LedgerState): { ledger: LedgerState; ad
     },
   };
 }
+
+const isDemo = (l: Line) => l.id.startsWith("demo-ago-");
+
+/** True only when every line in the books is an August sample line still exactly as seeded
+ * (no other line anywhere, nothing edited). Anything else is the user's and is kept. */
+export function isPureSample(ledger: LedgerState): boolean {
+  const all = Object.values(ledger.months).flatMap((m) => m?.lines ?? []);
+  if (!all.length || !all.every(isDemo)) return false;
+  const tpl = new Map(augustSampleLines().map((l) => [l.id, l]));
+  return all.every((l) => {
+    const t = tpl.get(l.id);
+    return !!t && l.monthKey === t.monthKey && l.kind === t.kind && l.concept === t.concept && l.amountMinor === t.amountMinor
+      && l.currency === t.currency && l.active === t.active && l.note === t.note && l.categoryId === t.categoryId
+      && l.subId === t.subId && l.recurring === t.recurring && (l.history?.length ?? 0) === 0 && (l.balanceMinor ?? null) === null;
+  }) && new Set(all.map((l) => l.id)).size === all.length;
+}
+
+export function countSampleRows(ledger: LedgerState): number {
+  return Object.values(ledger.months).reduce((n, m) => n + (m?.lines ?? []).filter(isDemo).length, 0);
+}
+
+/** Remove the August sample lines (demo-ago-*) and nothing else. */
+export function stripSample(ledger: LedgerState): LedgerState {
+  const months: LedgerState["months"] = {};
+  for (const [k, m] of Object.entries(ledger.months)) months[k] = { ...m, lines: (m?.lines ?? []).filter((l) => !isDemo(l)) };
+  return { ...ledger, months };
+}
