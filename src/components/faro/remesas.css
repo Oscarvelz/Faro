@@ -6,7 +6,8 @@
 .cv-send-kick { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .cv-send-amt { font-size: 1.6rem; line-height: 1.1; font-weight: 680; letter-spacing: -.02em; white-space: nowrap; color: var(--fg); }
 .cv-send-sum small { font-size: .8rem; color: var(--muted); white-space: nowrap; }
-.cv-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 10px; }
+.cv-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.cv-actions .cv-send-open { order: 2; justify-content: center; min-height: 44px; gap: 8px; }
 .cv-actions .btn { width: 100%; min-width: 0; white-space: nowrap; }
 .cv-actions .cv-use { margin-top: 0; }
 

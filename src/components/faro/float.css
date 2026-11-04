@@ -1,7 +1,7 @@
 /* Floating window (Samsung-style pop-up view) */
 .float-win {
   position: fixed; z-index: 60;
-  display: flex; flex-direction: column; overflow: visible; contain: layout style;
+  display: flex; flex-direction: column; overflow: visible; container: floatwin / inline-size;
   background: var(--bg); color: var(--fg);
   border-radius: 22px;
   border: 1px solid color-mix(in oklab, var(--fg) 14%, transparent);
@@ -42,9 +42,9 @@
 
 .float-body {
   position: relative; z-index: 1; isolation: isolate; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; touch-action: auto;
-  overflow: hidden; border-radius: 0 0 21px 21px; container: floatwin / inline-size;
+  overflow: hidden; border-radius: 0 0 21px 21px;
 }
-.float-body .workspace { flex: 1 1 auto; min-height: 0; overflow: auto; display: block; overscroll-behavior: contain; }
+.float-body .workspace { flex: 1 1 auto; min-height: 0; overflow: auto; display: block; overscroll-behavior: contain; zoom: var(--fz, 1); }
 .float-body .main-pad { padding: 12px 12px 14px; min-height: 100%; }
 .float-body .dock {
   position: relative; left: auto; right: auto; bottom: auto; display: grid; flex: none;
@@ -55,7 +55,7 @@
 .float-body .dock-glide { top: 3px; bottom: 3px; border-radius: 12px; width: calc((100% - 10px) / 3); left: calc(3px + var(--dock, 0) * ((100% - 10px) / 3 + 2px)); }
 
 /* Resize handles: every edge and corner. Hit areas reach 10px outside the frame and ~10px inside (finger / S-Pen),
-   corners 40px. Only the bottom-right shows a grip: a short arc that hugs the rounded corner. */
+   corners 40px. Only the bottom-right shows a grip: a short arc just outside the frame that hugs the rounded corner. */
 .float-size { position: absolute; z-index: 5; touch-action: none; -webkit-tap-highlight-color: transparent; }
 .float-size.is-n, .float-size.is-s { left: 26px; right: 26px; height: 18px; cursor: ns-resize; }
 .float-size.is-n { top: -10px; height: 16px; }
@@ -69,8 +69,8 @@
 .float-size.is-sw { bottom: -10px; left: -10px; cursor: nesw-resize; }
 .float-size.is-se { bottom: -10px; right: -10px; width: 42px; height: 42px; cursor: nwse-resize; outline: none; }
 .float-size.is-se i {
-  position: absolute; right: 13px; bottom: 13px; width: 24px; height: 24px; pointer-events: none;
-  border-right: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); border-bottom-right-radius: 19px;
+  position: absolute; right: 7px; bottom: 7px; width: 28px; height: 28px; pointer-events: none;
+  border-right: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); border-bottom-right-radius: 26px;
   -webkit-mask: linear-gradient(135deg, transparent 52%, #000 80%); mask: linear-gradient(135deg, transparent 52%, #000 80%);
   opacity: .55; transition: opacity .15s, border-color .15s;
 }
@@ -85,15 +85,17 @@ html[data-theme="tron"] .float-size.is-se i { border-color: color-mix(in oklab, 
   .glass-stack.desk-board { display: flex !important; flex-direction: column; }
   .desk-col { display: contents !important; }
   .desk-board > .desk-col > .ridge { order: var(--i) !important; }
-  .main-pad { padding: 10px 10px 12px; }
+  .float-body .main-pad { padding: 10px 10px 12px; }
 }
 @container floatwin (620px <= width < 980px) {
   .grid-3, .advice-stack { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
-@container floatwin (width < 330px) {
-  .main-pad { padding: 8px 8px 10px; }
-  .float-body .dock .nav-btn { font-size: .58rem; }
+@container floatwin (width < 300px) {
+  .float-tools button[aria-pressed] { display: none; }
+  .float-tools button { width: 30px; }
+  .float-bar { gap: 2px; }
+  .float-handle { width: 28px; }
 }
 
 .float-bubble {

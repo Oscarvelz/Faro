@@ -249,8 +249,10 @@ export function StudyStack({ children }: { children: ReactNode }) {
       const splitCols = !!host?.classList.contains("is-split") && !!host.classList.contains("is-cols");
       const wide = window.matchMedia("(min-width: 1100px)").matches;
       const phoneLand = window.matchMedia("(orientation: landscape) and (max-height: 520px) and (min-width: 700px) and (max-width: 1099px)").matches;
+      // 1.3.84: portrait tablets (Tab S10 Ultra 820–1099 wide) get the two-column pack too.
+      const tabPort = window.matchMedia("(orientation: portrait) and (min-width: 768px) and (max-width: 1099px)").matches;
       const floatBody = root.closest<HTMLElement>(".float-body");
-      const pack = (wide || phoneLand) && !splitCols && !(floatBody && floatBody.clientWidth < 620);
+      const pack = (wide || phoneLand || tabPort) && !splitCols && !(floatBody && floatBody.clientWidth < 620);
       root.classList.toggle("is-packed", pack);
       const items = (node: HTMLElement): HTMLElement[] => [...node.children].flatMap((child) => {
         const el = child as HTMLElement;

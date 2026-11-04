@@ -3115,3 +3115,13 @@ img.sub-mark.is-own { border-radius: 25%; object-fit: cover; }
 .freq-edit-unit button[aria-pressed="true"] { color: var(--fg); border-color: var(--cb-acc, var(--accent)); background: color-mix(in oklab, var(--cb-acc, var(--accent)) 12%, var(--surface)); }
 .freq-edit-own .sub-edit-add { width: 34px; height: 34px; }
 @container (max-width: 18em) { .freq-edit-unit button { font-size: .74rem; padding: 0 1px; } }
+/* Retiro rows (1.3.82): at large text (the block is under 14.5rem wide only when the root font is enlarged) "Acumulado si
+   no se toca" and "Saldo que ya tienes" keep one line: the label takes the full row and its amount / field + check sit under
+   it on the right. Normal text never matches, so its layout is unchanged. */
+.save-retire { container-type: inline-size; }
+@container (max-width: 14.5rem) {
+  .save-retire .save-line:has(> strong, > input) { row-gap: 2px; }
+  .save-retire .save-line:has(> strong, > input) > span { grid-column: 1 / -1; white-space: nowrap; overflow-wrap: normal; }
+  .save-retire .save-line:has(> strong, > input) > span + * { grid-column: 2; }
+  .save-retire .save-line:has(> strong, > input) > span + * + * { grid-column: 3; }
+}

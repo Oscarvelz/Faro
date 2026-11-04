@@ -1448,6 +1448,13 @@ function clampFloat(g: FloatGeo): FloatGeo {
   };
 }
 
+// Below ~360px of content the screens would cut numbers and labels, so the content keeps a 360px layout (the narrowest phone Faro is tuned for) and is scaled
+// to fit (CSS zoom). Above that it re-flows by container queries at 1:1.
+const FLOAT_LAYOUT = 360;
+function floatZoom(w: number) {
+  return Math.round(Math.min(1, (w - 2) / FLOAT_LAYOUT) * 1000) / 1000;
+}
+
 type FloatEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 const FLOAT_EDGES: FloatEdge[] = ["n", "s", "e", "w", "ne", "nw", "sw", "se"];
 
@@ -1511,6 +1518,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
       win.style.top = `${g.y}px`;
       win.style.width = `${g.w}px`;
       win.style.height = `${g.h}px`;
+      win.style.setProperty("--fz", String(floatZoom(g.w)));
     }
     const bub = bubbleRef.current;
     if (bub) {
@@ -1615,7 +1623,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
       role="dialog"
       aria-modal="false"
       aria-label={`${t("float")}: ${name}`}
-      style={{ left: geo.x, top: geo.y, width: geo.w, height: geo.h, ["--float-alpha" as string]: geo.alpha }}
+      style={{ left: geo.x, top: geo.y, width: geo.w, height: geo.h, ["--float-alpha" as string]: geo.alpha, ["--fz" as string]: floatZoom(geo.w) }}
     >
       <div className="float-bar" onPointerDown={grab("move")} onDoubleClick={() => onFold(true)}>
         <span className="float-handle" tabIndex={0} role="button" aria-label={t("float.move")} onKeyDown={(e) => nudge(e, "move")}><i /></span>

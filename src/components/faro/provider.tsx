@@ -913,7 +913,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     const stamp = new Date().toISOString().slice(0, 10);
     void backupBlob(session.ledger).then((bytes) => {
       const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
-      download(`Faro_Backup_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
+      download(`Faro_${sampleOn() ? "Ejemplo" : "Backup"}_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
     });
   }
 

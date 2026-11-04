@@ -1,4 +1,4 @@
-import "@/lib/faro/sample-boot";
+import { installSampleMode } from "@/lib/faro/samplemode";
 import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "@/styles.css";
@@ -243,6 +243,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   );
 }
 
+installSampleMode();
 startFit();
 startStatusBar();
 createRoot(document.getElementById("root")!).render(

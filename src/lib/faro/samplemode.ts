@@ -85,7 +85,7 @@ export async function clearSampleStore() {
 
 /** Switch mode in place: the app tree remounts (no reload, no lock). */
 export function setSampleMode(next: boolean) {
-  if (next === on) return;
+  if (next === on || !raw) return; // never flip without the storage guard in place
   try { raw?.set(SAMPLE_FLAG, next ? "1" : "0"); } catch { /* ignore */ }
   on = next;
   window.dispatchEvent(new Event(SAMPLE_EVENT));
@@ -97,3 +97,6 @@ export async function resetSample() {
   await clearSampleStore();
   window.dispatchEvent(new Event(SAMPLE_EVENT));
 }
+
+// Installed as soon as this module is evaluated (it is imported ahead of every data reader).
+installSampleMode();

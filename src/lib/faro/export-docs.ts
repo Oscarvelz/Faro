@@ -1,3 +1,4 @@
+import { sampleOn } from "./samplemode";
 import { buildAdvice, categorySlices, inView, monthLines, roleOf, summarize, yearPoints } from "./engine";
 import { monthName } from "./i18n";
 import { formatMoney } from "./money";
@@ -1051,13 +1052,13 @@ function save(filename: string, blob: Blob) {
 
 export function exportWorkbook(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick) {
   const stamp = key || new Date().toISOString().slice(0, 10);
-  save(`Faro_${stamp}.xlsx`, xlsx(buildSheets(ledger, key, lang, names, pick)));
+  save(`Faro_${sampleOn() ? "Ejemplo_" : ""}${stamp}.xlsx`, xlsx(buildSheets(ledger, key, lang, names, pick)));
 }
 
 export function exportPdf(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick) {
   const stamp = key || new Date().toISOString().slice(0, 10);
   const pages = buildPdfPages(ledger, key, lang, names, pick);
-  save(`Faro_${stamp}.pdf`, pdfBlob(pages.length ? pages : ["BT /F1 12 Tf 40 740 Td (Faro) Tj ET"], true));
+  save(`Faro_${sampleOn() ? "Ejemplo_" : ""}${stamp}.pdf`, pdfBlob(pages.length ? pages : ["BT /F1 12 Tf 40 740 Td (Faro) Tj ET"], true));
 }
 
 export const EXPORT_KINDS = KINDS;
