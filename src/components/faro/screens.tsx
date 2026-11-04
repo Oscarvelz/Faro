@@ -1141,6 +1141,7 @@ function readDueFile(): DueFile[] {
 function DueOwe() {
   const { t, fmt, lang, lines, session, key, commit, confirm } = useFaro();
   const [adding, setAdding] = useState(false);
+  useLayer(adding, () => setAdding(false));
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState(todayIso());
@@ -1370,7 +1371,7 @@ export function CobroSpan({ title, total, facts, events, out = false, help }: { 
   );
 }
 
-function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boolean }) {
+function Cobros({ onClose, jumped = false, ping = 0 }: { onClose: () => void; jumped?: boolean; ping?: number }) {
   const { t, fmt, confirm, session, lang, lines } = useFaro();
   const [rows, setRows] = useState<Cobro[]>(readCobros);
   const [draft, setDraft] = useState(false);
@@ -1389,28 +1390,28 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
   useEffect(() => {
     box.current?.scrollIntoView({ block: "nearest" });
   }, []);
+  // Opened (or called back on screen) by Central's corner button: it grows out of that button and its frame pulses once.
+  const firstPing = useRef(ping);
   useEffect(() => {
-    const onBack = (e: Event) => {
-      if (e.defaultPrevented) return;
-      if (draft || bonusFor) {
-        setDraft(false);
-        setBonusFor(null);
-        e.preventDefault();
-        return;
-      }
-      // Debo → Préstamos keeps its own forms (add a loan, Abonar): back closes that form first, as in Me deben.
-      if (document.querySelector('[data-anchor="cobros-loans"] .cobro-form')) {
-        window.dispatchEvent(new Event("faro-loans-close"));
-        e.preventDefault();
-        return;
-      }
-      onClose();
-      // Opened by "Ir allí" / a manual link: it was part of the jump, so back walks on to where the jump came from.
-      if (!jumped) e.preventDefault();
-    };
-    window.addEventListener("faro-back", onBack, true);
-    return () => window.removeEventListener("faro-back", onBack, true);
-  }, [draft, bonusFor, onClose, jumped]);
+    const el = box.current;
+    if (!ping || !el) return;
+    const btn = document.querySelector<HTMLElement>('[data-anchor="desk-cobro"]')?.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    if (btn && r.width) el.style.setProperty("--arrive-x", `${Math.round(Math.min(Math.max(btn.left + btn.width / 2 - r.left, 0), r.width))}px`);
+    if (ping !== firstPing.current) el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, [ping]);
+  // Cobros owns a history entry (pushed in the tap that opened it), and so do its forms: phone back closes the form, then
+  // Cobros, then steps to the screen under it, with no re-push from popstate (Chrome marks those entries skippable, which
+  // is what made back leave the installed app). Opened by "Ir allí" / a manual link it was part of that jump: back walks on
+  // to where the jump came from, so it closes with that step instead of owning one.
+  useLayer(!jumped, onClose);
+  useLayer(draft || !!bonusFor, () => { setDraft(false); setBonusFor(null); });
+  useEffect(() => {
+    if (!jumped) return;
+    const onBack = (e: Event) => { if (!e.defaultPrevented) onClose(); };
+    window.addEventListener("faro-back", onBack);
+    return () => window.removeEventListener("faro-back", onBack);
+  }, [onClose, jumped]);
   // "Ir allí" to a side or an archive of Cobros.
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -1484,7 +1485,7 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
   return (
     <section
       data-anchor="cobros"
-      className={`cobros sheet-swap${side === "out" ? " is-due" : ""}`}
+      className={`cobros sheet-swap${side === "out" ? " is-due" : ""}${ping && firstPing.current === ping ? " is-arrive" : ""}`}
       ref={box}
       aria-label={t("cobro.open")}
       style={{ ["--accent" as string]: side === "out" ? "#c6ae86" : "#5d8eae" }}
@@ -1505,7 +1506,9 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
         setSide((current) => (dx < 0 ? (current === "in" ? "out" : "in") : (current === "out" ? "in" : "out")));
       }}
     >
-      <div className="cobro-sides" role="tablist">
+      {ping ? <i key={`p${ping}`} className="cobros-pulse" aria-hidden="true" /> : null}
+      <div className="cobro-sides" role="tablist" data-side={side}>
+        <i key={side} className="cobro-sides-fx" aria-hidden="true" />
         <button type="button" aria-pressed={side === "in"} onClick={() => { setDir(-1); setSide("in"); }}>{t("cobro.owed")}</button>
         <button type="button" aria-pressed={side === "out"} onClick={() => { setDir(1); setSide("out"); }}>{t("cobro.owe")}</button>
       </div>
@@ -1614,6 +1617,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const lensByJump = useRef(false);
   const [cobros, setCobros] = useState(false);
   const [cobrosJump, setCobrosJump] = useState(false);
+  const [cobrosPing, setCobrosPing] = useState(0);
   const [lamp, setLamp] = useState<"good" | "warn" | "bad" | null>(null);
   const [flowDir, setFlowDir] = useState(1);
   const [quick, setQuick] = useState<null | "in" | "out">(null);
@@ -2483,13 +2487,24 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </button>
           <button type="button" data-anchor="desk-cobro" className="lens-corner is-cobro" aria-label={t("cobro.open")} aria-pressed={cobros} onClick={() => {
             setCobrosJump(false);
+            try { localStorage.removeItem("faro-debo-tab"); } catch { /* ignore */ }
             if (quick) {
               setJump(null);
               setQuick(null);
               setCobros(true);
+              setCobrosPing((n) => n + 1);
               return;
             }
-            setCobros((on) => !on);
+            if (cobros) {
+              // Open but scrolled away: bring it back with the same pulse instead of closing what you cannot see.
+              const r = document.querySelector('[data-anchor="cobros"]')?.getBoundingClientRect();
+              const seen = r && r.bottom > 60 && r.top < window.innerHeight - 60;
+              if (!seen) { setCobrosPing((n) => n + 1); return; }
+              setCobros(false);
+              return;
+            }
+            setCobros(true);
+            setCobrosPing((n) => n + 1);
           }}>
             <svg viewBox="0 0 16 16" aria-hidden>
               <circle cx="5.6" cy="4.7" r="1.85" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -2505,7 +2520,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={() => { setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
         </div>
       ) : null}
-      {cobros ? <Cobros jumped={cobrosJump} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
+      {cobros ? <Cobros jumped={cobrosJump} ping={cobrosJump ? 0 : cobrosPing} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
       </>
       )}
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>

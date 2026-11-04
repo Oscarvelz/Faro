@@ -1208,17 +1208,24 @@ html[data-theme="tron"] .save-band.sav-scope .save-more :is(.save-ledger-head .f
 [data-theme="tron"] .cobros.is-due .debo-tabs { border-bottom-color: rgba(255, 194, 58, .2); }
 [data-theme="tron"] .cobros.is-due .debo-tabs button[role="tab"][aria-pressed="true"] { color: #ffe3a3; text-shadow: 0 0 8px rgba(255, 194, 58, .4); }
 [data-theme="tron"] .cobros.is-due .debo-tabs button[role="tab"][aria-pressed="true"]::after { background: #ffc24a; box-shadow: 0 0 8px rgba(255, 194, 58, .7); }
-[data-theme="tron"] .cobros.is-due .cobro-top strong.num { color: #ffc24a; text-shadow: 0 0 12px rgba(255, 194, 58, .35); }
-[data-theme="tron"] .cobros.is-due :is(.cobro-facts, .span-fold-main, .cobro-row, .cobro-meta) .num { color: #ffd36a; }
-[data-theme="tron"] .cobros.is-due .cobro-plus { background: #ffc24a !important; color: #1a0f00 !important; box-shadow: 0 0 0 1px rgba(255, 194, 58, .55), 0 0 12px rgba(255, 194, 58, .45); }
+[data-theme="tron"] .cobros.is-due .cobro-top strong.num { color: #f0b955; text-shadow: 0 0 10px rgba(240, 185, 85, .22); }
+[data-theme="tron"] .cobros.is-due :is(.cobro-facts, .span-fold-main, .cobro-row, .cobro-meta) .num { color: #f0b955; }
+[data-theme="tron"] .cobros.is-due .cobro-plus { background: rgba(240, 185, 85, .08) !important; color: #f0b955 !important; box-shadow: inset 0 0 0 1px rgba(240, 185, 85, .7), 0 0 10px -3px rgba(240, 185, 85, .45); }
 [data-theme="tron"] .cobros.is-due .cobro-form { background: linear-gradient(180deg, rgba(255, 194, 58, .06), rgba(2, 8, 11, .55) 55%, rgba(2, 8, 11, .35)) !important; }
-[data-theme="tron"] .cobros.is-due .cobro-form .label { color: #e0b04a; }
+[data-theme="tron"] .cobros.is-due .cobro-form .label { color: color-mix(in oklab, #f0b955 70%, #7fa9b5); }
 [data-theme="tron"] .cobros.is-due .cobro-form :is(.field, .day-field-btn):is(:focus, :focus-visible),
-[data-theme="tron"] .cobros.is-due .cobro-form .field.num:is(:focus, :focus-visible) { border-color: #ffc24a !important; box-shadow: 0 0 0 1px #ffc24a, 0 0 12px rgba(255, 194, 58, .35) !important; }
-[data-theme="tron"] .cobros.is-due .cobro-form .field.num { color: #ffd36a !important; border-color: rgba(255, 194, 58, .4) !important; }
-[data-theme="tron"] .cobros.is-due .cobro-form .day-field-btn svg { color: #ffc24a; }
-[data-theme="tron"] .cobros.is-due .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button { border-color: rgba(255, 194, 58, .22); background: rgba(255, 194, 58, .03); color: #d6b874; }
-[data-theme="tron"] .cobros.is-due .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: #fff4dc; border-color: #ffc24a; background: rgba(255, 194, 58, .13); box-shadow: 0 0 10px -2px rgba(255, 194, 58, .55); }
-[data-theme="tron"] .cobros.is-due .cobro-form .day-pop-grid button.is-on { background: #ffc24a; color: #1a0f00; }
+[data-theme="tron"] .cobros.is-due .cobro-form .field.num:is(:focus, :focus-visible) { border-color: rgba(240, 185, 85, .8) !important; box-shadow: 0 0 8px -2px rgba(240, 185, 85, .4) !important; }
+[data-theme="tron"] .cobros.is-due .cobro-form .field.num { color: #f0b955 !important; border-color: rgba(240, 185, 85, .32) !important; }
+[data-theme="tron"] .cobros.is-due .cobro-form .day-field-btn svg { color: #f0b955; }
+[data-theme="tron"] .cobros.is-due .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button { border-color: rgba(240, 185, 85, .28); background: transparent; color: #c9d6da; }
+[data-theme="tron"] .cobros.is-due .cobro-form :is(.cobro-kind, .due-cadence, .due-sites) button[aria-pressed="true"] { color: #fff; border-color: rgba(240, 185, 85, .75); background: rgba(240, 185, 85, .1); box-shadow: inset 0 0 8px rgba(240, 185, 85, .12); }
+[data-theme="tron"] .cobros.is-due .cobro-form .day-pop-grid button.is-on { background: rgba(240, 185, 85, .18); color: #fff; box-shadow: inset 0 0 0 1px #f0b955; }
 [data-theme="tron"] .cobros.is-due .cobro-form .day-pop-grid button.is-today { box-shadow: inset 0 0 0 1px #ffc24a; }
-[data-theme="tron"] .cobros.is-due .cobro-actions .btn:not(.secondary):not(.danger) { background: #ffc24a !important; color: #1a0f00 !important; border-color: #ffc24a !important; box-shadow: 0 0 12px -2px rgba(255, 194, 58, .55); }
+[data-theme="tron"] .cobros.is-due .cobro-actions .btn:not(.secondary):not(.danger) { background: rgba(4, 12, 15, .85) !important; color: #f0b955 !important; border: 1px solid rgba(240, 185, 85, .75) !important; box-shadow: 0 0 10px -4px rgba(240, 185, 85, .5); text-shadow: none; }
+
+[data-theme="tron"] .cobro-sides-fx { --fx: #3fd6f5; }
+[data-theme="tron"] .cobro-sides[data-side="out"] .cobro-sides-fx { --fx: #ffc24a; }
+[data-theme="tron"] .cobro-sides-fx::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: repeating-linear-gradient(0deg, color-mix(in oklab, var(--fx) 14%, transparent) 0 1px, transparent 1px 3px); animation: cobro-fx-scan .62s ease-out both; }
+@keyframes cobro-fx-scan { from { opacity: 1; } to { opacity: 0; } }
+[data-theme="tron"] .cobros-pulse { --pulse: #3fd6f5; }
+[data-theme="tron"] .cobros.is-due .cobros-pulse { --pulse: #ffc24a; }

@@ -378,8 +378,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         history.pushState({ faro: places.current.length }, "");
         return;
       }
+      // Stepping off the manual (or between its entries): the back is the manual's. A screen under it (Cobros and its
+      // forms, a lens, a sheet) never sees it, so it stays exactly as it was when the manual opened over it.
+      const onManual = places.current.length > 1 && places.current[places.current.length - 1]!.manual !== null;
       const ev = new CustomEvent("faro-back", { cancelable: true });
-      if (!window.dispatchEvent(ev)) {
+      if (!onManual && !window.dispatchEvent(ev)) {
         history.pushState({ faro: places.current.length }, "");
         return;
       }
@@ -852,7 +855,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           return;
         }
         const back = new CustomEvent("faro-back", { cancelable: true });
-        if (!window.dispatchEvent(back)) return;
+        const onManual = places.current.length > 1 && places.current[places.current.length - 1]!.manual !== null;
+        if (!onManual && !window.dispatchEvent(back)) return;
         if (places.current.length > 1) history.back();
         return;
       }

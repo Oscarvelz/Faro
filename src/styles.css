@@ -2987,3 +2987,26 @@ html[data-theme="lino"] .debo-tabs button[role="tab"][aria-pressed="true"]::afte
 .cobro-row[data-one] .cobro-who strong { display: block; white-space: nowrap; -webkit-line-clamp: unset; line-clamp: none; text-overflow: clip; }
 /* The form date ("4 nov 2026") shrinks to fit (fit.ts) at large text instead of ending in an ellipsis. */
 .cobro-form .day-field-btn > span:first-child { text-overflow: clip; }
+
+/* Me deben | Debo: one-shot futuristic touch on every change (tap or swipe): a scan sweep + ring pulse on the chosen pill. */
+.cobro-sides { position: relative; }
+.cobro-sides button { position: relative; z-index: 1; transition: transform .12s ease, filter .12s ease; }
+.cobro-sides button:active { transform: scale(.97); filter: brightness(1.15); }
+.cobro-sides-fx { position: absolute; z-index: 2; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 6px); border-radius: 999px; pointer-events: none; overflow: hidden; --fx: #7aa2c4; animation: cobro-fx-ring .62s ease-out both; }
+.cobro-sides[data-side="out"] .cobro-sides-fx { left: calc(50% + 2px); --fx: #e7c27a; }
+.cobro-sides-fx::before { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--fx) 55%, transparent), transparent); transform: skewX(-18deg); animation: cobro-fx-sweep .62s ease-out both; }
+@keyframes cobro-fx-sweep { from { left: -40%; opacity: 1; } to { left: 120%; opacity: .2; } }
+@keyframes cobro-fx-ring { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--fx) 70%, transparent), inset 0 0 0 1px color-mix(in oklab, var(--fx) 90%, transparent); } 100% { box-shadow: 0 0 0 7px transparent, inset 0 0 0 1px transparent; } }
+@media (prefers-reduced-motion: reduce) { .cobro-sides-fx, .cobro-sides-fx::before { animation: none; display: none; } }
+
+/* Cobros arriving from Central's corner button (Nov 4): it grows out of the button, then its frame pulses once in the side's colour. */
+.cobros { position: relative; }
+.cobros.is-arrive { transform-origin: var(--arrive-x, 88%) 0; animation: cobros-arrive .36s cubic-bezier(.2, .8, .25, 1) both; }
+@keyframes cobros-arrive { from { opacity: 0; transform: translateY(-14px) scale(.92); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
+.cobros-pulse { position: absolute; inset: -1px; z-index: 0; border-radius: inherit; pointer-events: none; --pulse: var(--accent); animation: cobros-pulse .8s ease-out .16s both; }
+@keyframes cobros-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--pulse) 0%, transparent), inset 0 0 0 1px color-mix(in oklab, var(--pulse) 0%, transparent); }
+  25% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--pulse) 75%, transparent), 0 0 22px 2px color-mix(in oklab, var(--pulse) 50%, transparent), inset 0 0 0 1px var(--pulse); }
+  100% { box-shadow: 0 0 0 10px transparent, 0 0 30px 6px transparent, inset 0 0 0 1px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .cobros.is-arrive { animation: none; } .cobros-pulse { animation: none; display: none; } }

@@ -9,6 +9,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import { useFaro } from "./provider";
 import { FieldTip } from "./ui";
 import { Hint } from "./hint";
+import { useLayer } from "@/lib/manual/back";
 import { DayField } from "./line-form";
 import { CobroSpan } from "./screens";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
@@ -186,6 +187,9 @@ export function DeboSide({ dues }: { dues: ReactNode }) {
       const id = (e as CustomEvent<string>).detail;
       if (id === "cobros-loans" || id === "cobros-loans-file") pick("loans");
       else if (id === "cobros-out" || id === "cobros-out-file") pick("dues");
+      // Debo is already mounted, so the one-shot flag Cobros leaves for a fresh mount is not needed: drop it after
+      // Cobros' own listener (which runs after this one) so the next plain open is on Cuotas again.
+      window.setTimeout(() => { try { localStorage.removeItem(TAB_KEY); } catch { /* ignore */ } }, 0);
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
@@ -250,6 +254,7 @@ export function DueLoans() {
   const [adding, setAdding] = useState(false);
   const [payFor, setPayFor] = useState<string | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
+  useLayer(adding || !!payFor, () => { setAdding(false); setPayFor(null); });
   useEffect(() => {
     const onOpen = (e: Event) => { if ((e as CustomEvent<string>).detail === "cobros-loans-file") setFileOpen(true); };
     const onClose = () => { setAdding(false); setPayFor(null); };
