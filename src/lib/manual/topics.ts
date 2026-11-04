@@ -1116,6 +1116,17 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         keys: ["vault.retiro", "vault.retirements"],
       },
       {
+        id: "leer-estado",
+        depth: "manual",
+        title: ["Leer estado", "Scan statement"],
+        sum: ["Lee tu estado de retiro con la cámara.", "Read your retirement statement by camera."],
+        what: ["Toma una foto del estado de tu cuenta de retiro y Faro lee el periodo, el valor de la cuenta, los aportes, el cambio de valor, los retiros y los cargos. La foto se lee en tu teléfono: no se sube ni se guarda.", "Take a photo of your retirement account statement and Faro reads the period, the account value, contributions, change in value, withdrawals and fees. The photo is read on your phone: it is never uploaded or kept."],
+        how: ["En Retiro toca Leer estado y toma la foto, o toca la imagen para elegir una de tu galería. Revisa cada número, apaga lo que no quieras y toca Guardar. El valor de la cuenta pasa a ser tu saldo. La primera vez Faro descarga el lector; luego funciona sin internet.", "In Retirement tap Scan statement and take the photo, or tap the picture to pick one from your gallery. Check each number, switch off what you don't want and tap Save. The account value becomes your balance. The first time Faro downloads the reader; then it works offline."],
+        tip: ["Pon la hoja plana, con buena luz y la página entera en la foto. Si un mes ya está guardado, Faro te avisa y Guardar lo reemplaza.", "Lay the page flat, in good light, with the whole page in the photo. If a month is already saved, Faro warns you and Save replaces it."],
+        go: { screen: "vault-retiro", where: ["Libros → Retiro", "Books → Retirement"] },
+        terms: [["Estado de cuenta", "Statement"], ["Valor de la cuenta", "Account value"]],
+      },
+      {
         id: "emergencia",
         depth: "manual",
         title: ["Emergencia", "Emergency"],

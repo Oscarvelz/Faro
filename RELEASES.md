@@ -106,3 +106,12 @@
 - Also: "Nada con fecha este día" no longer ends in an ellipsis at 360/r20 (.72rem, clip).
 - Tests: tsc 5 known, npm test 59/59, browser-test/cal-hol.mjs (ES Sept 14/15, tap caption one line, star <10s, EN Nov 11/26, reduced motion none). Shots: faro-review/shots-cal. Self-checked (2 rounds).
 - 1.3.78 (2026-11-04 06:55 EST): calendar footer Entra · Sale · Queda spread left/centre/right, amounts clamp 0.78–0.9rem (cal.css). Self-check shots only.
+
+## 1.3.79 (2026-11-04)
+- Import sheet: "Cómo descargar tu archivo" chips are editable (gear beside the "?", same inline editor as the Cuotas gears): remove, reorder, re-add Chase/Wells Fargo/PayPal, add your own bank or card with a small icon and free-text download steps (shown when the chip is tapped). Stored in the ledger as `imports.guides` (sync + backup); old ledgers show the three defaults.
+- Own chip "%" (Añadir tasas) opens the same AddCard form as Bancos y recompensas; on Guardar the card is created with addAccount (same accounts/rates/bonus rows) and the chip keeps its id in `acct`. No parallel model.
+- Restore icons (RotateCcw, confirm first): in the chip editor (back to the 3 defaults; own cards stay in Bancos) and in Bancos y recompensas → Tus tarjetas y cuentas (brings back archived/hidden factory cards; own archived cards stay archived; nothing deleted).
+- Drop-zone subtitle leads with PDF: "PDF del estado, CSV, QFX, OFX o QIF" / "Statement PDF, CSV, QFX, OFX or QIF", one line at 360r20.
+- Shipped with the pending edits: selected holiday amber ring (cal.css) and PDF-first manual topics imp-descargar/imp-chase/imp-wellsfargo/imp-paypal.
+- Manual: imp-descargar mentions the gear; new tip imp-bancos-editar; imp-tarjetas tip covers restore.
+- Tests: tsc (5 known), npm test 59/59, bankparse.test 28/28 (new chips test), mn-regress, bk-back, new bk-guides.mjs (Tron/Claro × 360/412/360r20 + EN 360r20).

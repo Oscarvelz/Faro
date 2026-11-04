@@ -25,6 +25,7 @@ import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
+import { StmtScan, type StmtSave } from "./stmt-scan";
 import { useFaro } from "./provider";
 import type { BackupInfo } from "@/spa/vault";
 import { Explain, FieldTip, Modal } from "./ui";
@@ -2262,6 +2263,30 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     setRetireNow("");
   }
 
+  /** "Leer estado": the statement's account value becomes the Retiro balance; its movements go in the line's history,
+   *  tagged "estado:YYYY-MM:<field>" (how account deposits are kept), so a month imported again replaces itself. */
+  function stmtSeen(month: string) {
+    return openLines.some((line) => line.history.some((h) => h.note.startsWith(`estado:${month}:`)));
+  }
+  function applyStatement(r: StmtSave) {
+    if (!openSeg) return;
+    const date = r.end || new Date().toISOString().slice(0, 10);
+    const tag = `estado:${r.month || date.slice(0, 7)}:`;
+    const base = retireLine ?? freshLine(openSeg.name, 0, openSeg.id, openSeg.categoryId, { balanceMinor: null, balanceCurrency: r.currency, icon: "brand:primerica" });
+    const history = base.history.filter((h) => !h.note.startsWith(tag));
+    const put = (k: string, minor: number | null, sign: 1 | -1) => {
+      if (minor == null) return;
+      history.push({ id: uid(), date, amountMinor: sign * minor, currency: r.currency, note: `${tag}${k}` });
+    };
+    put("valor", r.value, 1);
+    put("aporte", r.contrib, 1);
+    put("cambio", r.change, 1);
+    put("retiro", r.withdraw, -1);
+    put("cargo", r.fees, -1);
+    const next: Line = { ...base, history, ...(r.value != null ? { balanceMinor: r.value, balanceCurrency: r.currency } : {}) };
+    commit((s) => upsertLine(s, next), openSeg.name);
+  }
+
   function toggleAccountsPin() {
     setAccountsPin((on) => {
       const next = !on;
@@ -2686,6 +2711,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 />
               </>
             ) : null}
+            {pocketKind === "retiro" ? <StmtScan seen={stmtSeen} onSave={applyStatement} /> : null}
             {openLines.length === 0 && !adding && pocketKind !== "retiro" ? <p className="text-sm text-muted">{t("save.empty")}</p> : null}
             {openLines.map((line) => {
               const label = line.concept || names.sub(line.subId) || openSeg.name;

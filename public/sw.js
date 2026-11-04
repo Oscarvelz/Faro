@@ -1,5 +1,5 @@
 // FARO service worker: the app opens with no internet. Bump VERSION on every release.
-const VERSION = "faro-1.3.79";
+const VERSION = "faro-1.3.80";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./icon-192.png", "./icon-512.png", "./precache.json"];
 
 self.addEventListener("install", (event) => {
@@ -70,6 +70,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (url.origin !== self.location.origin) return;
+  // On-device OCR for "Leer estado" (./ocr/: tesseract.js, its WASM core, eng+spa data). Never in precache.json: fetched on
+  // first use and kept in its own cache (no "faro-" prefix, so a release does not throw away ~5 MB the phone already has).
+  if (url.pathname.includes("/ocr/")) {
+    event.respondWith((async () => {
+      const cache = await caches.open("ocr-1");
+      const hit = await cache.match(req, { ignoreSearch: true });
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok) cache.put(req, res.clone());
+      return res;
+    })());
+    return;
+  }
   if (req.mode === "navigate") {
     event.respondWith((async () => {
       try {
