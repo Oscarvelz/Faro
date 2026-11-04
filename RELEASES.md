@@ -92,3 +92,9 @@
 - Marks: src/lib/faro/subs.ts (SUB_POOL, 18 entries: Netflix, YouTube, YouTube Music, Prime Video, Spotify, Disney+, Max, Apple TV+, Apple Music, iCloud, Google One, ChatGPT, Paramount+, Xbox, PlayStation, Internet, Teléfono, Gimnasio) + SubMark in icons.tsx (brand-colour plate with monogram or tiny path; "data:" = own icon). Glyph handles "sub:" names. Saved Cuota gets Line.icon "sub:<id>" or "sub:data:..."; old rows with ↻ whose name matches a preset/pool brand show the mark. Editor: components/faro/sub-presets.tsx. Added weight ≈4.1KB gzip total (marks ~2KB source).
 - Manual: f-cuota-nombre updated, new f-cuota-atajos (ES+EN).
 - Tests: browser-test/sp-presets.mjs (new; SHOTS=1 shoots Tron/Claro 360/412/360r20 to faro-review/shots-1375), bk-cobros, mn-regress, npm test, tsc (5 known). Self-checked, no independent review.
+
+## 1.3.76 (2026-11-04)
+- Cuotas → Frecuencia gets a gear (same look as Sitio o servicio): swap a chip (tap a row, then a choice), remove, reorder, add from the pool (Diario, Semanal, Cada 15 días, Mensual, Cada 2 meses, Trimestral, Semestral, Anual) or a custom "Cada N días/semanas/meses". Chips stored in ledger.freqPresets (optional; default the old four), so they sync and back up.
+- Engine: Line.cadence now also accepts "<n><d|w|m|y>" tokens (src/lib/faro/cadence.ts); old words load unchanged. payDates, monthlyEquivalent, copyRecurring (interval dues only carry into months they fall in) and the cuota card ("Trimestral · 4 ene", next date rolls forward) use it. Line-form selects show a custom value.
+- Compact service chips (31px, 16px icon, .82rem); Frecuencia block +7px; help: f-frecuencia mentions the gear, new tip f-cuota-frecuencias; f-cuota-nombre "Toca un atajo de los de abajo".
+- Tests: tsc 5 known, npm test 59/59, cadence.test.ts 4/4, mn-regress, bk-cobros, sp-presets, fq-freq all pass. Shots: faro-review/shots-1376.
