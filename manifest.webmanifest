@@ -48,6 +48,23 @@
             "text/x-vcard",
             ".vcf"
           ]
+        },
+        {
+          "name": "statements",
+          "accept": [
+            "text/csv",
+            "text/comma-separated-values",
+            "application/csv",
+            "application/vnd.ms-excel",
+            "application/x-ofx",
+            "application/vnd.intu.qfx",
+            "application/qif",
+            "text/plain",
+            ".csv",
+            ".qfx",
+            ".ofx",
+            ".qif"
+          ]
         }
       ]
     }
