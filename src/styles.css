@@ -1314,7 +1314,7 @@ html .save-band.is-records .span-cut { margin-top: 0; }
 .vault-lever > .fold-pin { position: absolute; top: -9px; right: 2px; z-index: 2; width: 16px; height: 16px; min-width: 16px; }
 .vault-lever > .fold-pin svg { width: 9px; height: 9px; }
 .vault-lever .fold-pin[aria-pressed="true"] { background: var(--seg, var(--accent)); color: #1c1408; border-color: transparent; }
-.vault-lever.is-open .vault-lever-read { padding-right: 30px; }
+.vault-lever.is-open .vault-lever-read p { padding-right: 30px; }
 .vault-lever-flat { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .vault-lever-flat > .num { flex: none; font-size: 0.95rem; white-space: nowrap; }
 .vault-lever-flat .vault-year-btn, .vault-lever-flat .vault-year { flex: none; }
@@ -1330,13 +1330,17 @@ html .save-band.is-records .span-cut { margin-top: 0; }
 .vault-lever-rail { position: relative; height: 148px; touch-action: none; cursor: ns-resize; }
 .vault-lever-rail i { position: absolute; left: 50%; top: 8px; bottom: 8px; width: 6px; transform: translateX(-50%); border-radius: 999px; background: color-mix(in oklab, var(--seg, #d5e2ea) 24%, var(--line)); }
 .vault-lever-rail i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); border-radius: inherit; background: linear-gradient(180deg, color-mix(in oklab, white 34%, var(--seg, #d5e2ea)), var(--seg, #d5e2ea)); }
-.vault-lever-rail b { position: absolute; left: 50%; width: 22px; height: 22px; transform: translateX(-50%); border-radius: 999px; background: radial-gradient(circle at 35% 30%, #fff, var(--seg, #d5e2ea) 58%, color-mix(in oklab, var(--seg, #d5e2ea) 55%, black)); box-shadow: 0 3px 10px color-mix(in oklab, var(--seg, #d5e2ea) 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 70%); }
-.vault-lever-read { min-width: 0; display: grid; gap: 8px; }
-.vault-lever-read p { display: flex; align-items: baseline; gap: 8px; margin: 0; min-width: 0; }
+.vault-lever-rail b { position: absolute; left: 50%; width: 17px; height: 17px; transform: translateX(-50%); border-radius: 999px; background: radial-gradient(circle at 35% 30%, #fff, var(--seg, #d5e2ea) 58%, color-mix(in oklab, var(--seg, #d5e2ea) 55%, black)); box-shadow: 0 2px 8px color-mix(in oklab, var(--seg, #d5e2ea) 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 70%); }
+.vault-lever-rail.is-flat::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; }
+.vault-lever-read { min-width: 0; display: grid; gap: 8px; container-type: inline-size; }
+.vault-lever-read p { display: grid; gap: 1px; margin: 0; min-width: 0; container-type: inline-size; }
+.vault-lever-read p .lab-head { justify-self: start; }
+.vault-lever-read .lever-amt { display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; }
+.vault-lever-read .lever-amt > * { flex: none; }
 .vault-lever-read p span, .vault-lever-read small { color: var(--muted); font-size: 0.75rem; }
-.vault-lever-read p strong { font-size: 1.28rem; color: var(--seg, #d5e2ea); }
-.vault-lever-read p em { color: var(--faint); font-style: normal; font-size: 0.72rem; }
-.vault-lever-read > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vault-lever-read p strong { font-size: min(1.28rem, 7.8cqi); line-height: 1.15; color: var(--seg, #d5e2ea); }
+.vault-lever-read p em { color: var(--faint); font-style: normal; font-size: min(0.72rem, 6.2cqi); }
+.vault-lever-read > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .vault-lever-read > div span,
 .vault-lever-read > div .vault-mark { display: grid; gap: 2px; min-width: 0; width: 100%; padding: 8px 10px; border-radius: 14px; background: color-mix(in oklab, var(--seg, #d5e2ea) 12%, var(--surface)); border: 1px solid color-mix(in oklab, var(--seg, #d5e2ea) 30%, var(--line)); text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .vault-lever-read > div .vault-mark.is-on { border-color: var(--seg, #d5e2ea); background: color-mix(in oklab, var(--seg, #d5e2ea) 28%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 70%, transparent); }
@@ -1346,6 +1350,12 @@ html .save-band.is-records .span-cut { margin-top: 0; }
 .vault-lever-read > div strong { font-size: 0.95rem; }
 .vault-lever-read > div .vault-year-btn { border: 0; background: transparent; padding: 0; margin: 0; width: fit-content; font: inherit; font-size: 0.66rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--seg, var(--muted)); text-align: left; cursor: pointer; }
 .vault-lever-read > div .vault-year { width: 4.2rem; height: 18px; min-height: 0; padding: 0 2px; border: 0; border-bottom: 1px solid var(--seg, var(--line)); border-radius: 0; background: transparent; color: var(--fg); font: inherit; font-size: 0.78rem; }
+/* Narrow projector (360 phone with large text): the four tiles stack as one column, label left and amount right, so no amount spills. */
+@container (max-width: 13.5rem) {
+  .vault-lever-read > div { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .vault-lever-read > div .vault-mark { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 10px; }
+  .vault-lever-read > div .vault-mark > * { flex: none; white-space: nowrap; }
+}
 html .save-band.is-records .save-ledger,
 html .save-band.is-records .save-more { margin: 0; border-radius: 24px; border: 1px solid color-mix(in oklab, white 30%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, white 12%, var(--surface)), var(--surface) 84px); box-shadow: inset 0 1px 0 color-mix(in oklab, white 46%, transparent); overflow: hidden; }
 html .save-band.is-records .save-ledger { border-color: color-mix(in oklab, var(--seg, white) 42%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, var(--seg, white) 26%, var(--surface)) 0%, color-mix(in oklab, var(--seg, white) 8%, var(--surface)) 46%, var(--surface) 100%); box-shadow: inset 0 1px 0 color-mix(in oklab, var(--seg, white) 38%, transparent); }
@@ -2168,7 +2178,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 
 /* Projection lever: lit in its pocket's own color (Meta, Retiro, Emergencia). */
 .vault-lever-rail i::after { box-shadow: 0 0 8px color-mix(in oklab, var(--seg, #d5e2ea) 55%, transparent); }
-.vault-lever-rail b { box-shadow: 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 60%, transparent), 0 0 12px color-mix(in oklab, var(--seg, #d5e2ea) 50%, transparent), 0 2px 6px rgb(0 0 0 / 25%); }
+.vault-lever-rail b { box-shadow: 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 60%, transparent), 0 0 9px color-mix(in oklab, var(--seg, #d5e2ea) 50%, transparent), 0 2px 6px rgb(0 0 0 / 25%); }
 
 /* Savings pocket gauge: the colored block now reads something (months covered or % of the month's goal). */
 .save-seg b.save-band { position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in oklab, white 18%, var(--seg)) 0%, var(--seg) 55%, color-mix(in oklab, black 18%, var(--seg)) 100%) !important; box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), inset 0 -2px 0 color-mix(in oklab, black 20%, var(--seg)), 0 2px 6px -2px color-mix(in oklab, var(--seg) 60%, transparent) !important; }

@@ -580,7 +580,7 @@ html[data-theme="tron"] .save-ledger { padding-left: max(16px, var(--pad-l, 0px)
 /* Projection lever: a light column in the pocket's color, knob is a glowing node. */
 [data-theme="tron"] .vault-lever-rail i { background: color-mix(in oklab, var(--seg) 18%, #02070a); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 35%, transparent); }
 [data-theme="tron"] .vault-lever-rail i::after { background: linear-gradient(180deg, color-mix(in oklab, white 40%, var(--seg)), var(--seg)); box-shadow: 0 0 6px var(--seg), 0 0 16px color-mix(in oklab, var(--seg) 60%, transparent); }
-[data-theme="tron"] .vault-lever-rail b { background: radial-gradient(circle at 40% 35%, #fff, color-mix(in oklab, white 45%, var(--seg)) 45%, var(--seg) 80%); box-shadow: 0 0 0 1.5px var(--seg), 0 0 10px var(--seg), 0 0 24px color-mix(in oklab, var(--seg) 55%, transparent); }
+[data-theme="tron"] .vault-lever-rail b { background: radial-gradient(circle at 40% 35%, #fff, color-mix(in oklab, white 45%, var(--seg)) 45%, var(--seg) 80%); box-shadow: 0 0 0 1.2px var(--seg), 0 0 8px var(--seg), 0 0 18px color-mix(in oklab, var(--seg) 55%, transparent); }
 
 /* Savings switcher (Ahorros · Meta · Retiro · Emergencia): a lit bay, not the gold pill.
    Tap: the bay snaps over with a light trail, the chosen tab flashes a scanline and its icon locks on. */

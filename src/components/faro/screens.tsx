@@ -571,13 +571,12 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
             onKeyDown={keys}
           >
             <i />
-            <b style={{ bottom: `calc(8px + (100% - 38px) * ${usdMinor / maxUsd})` }} />
+            <b style={{ bottom: `calc(10.5px + (100% - 38px) * ${usdMinor / maxUsd})` }} />
           </div>
           <div className="vault-lever-read">
             <p>
               <span className="lab-head">{t("lever.if")}<Hint topic="si-apartas" /></span>
-              <strong className="num">{fmt(shown)}</strong>
-              <em>{t("lever.each")}</em>
+              <span className="lever-amt"><strong className="num">{fmt(shown)}</strong><em>{t("lever.each")}</em></span>
             </p>
             <small>{t("lever.lands")}</small>
             <div>

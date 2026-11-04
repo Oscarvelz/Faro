@@ -52,7 +52,18 @@ const FIT = '.num, html[lang="en"] .lenses .lens-kicker > span:last-child, .cobr
 
 // The three lens kickers are siblings: when one had to shrink, all three take that same size (no HAVE big beside SPENDING small).
 const KICKERS = 'html[lang="en"] .lenses .lens-kicker > span:last-child';
+// The four projector tiles (Semana, Mes, Año, N años) share one amount size: when one had to shrink, all take it.
+function groupLever() {
+  document.querySelectorAll<HTMLElement>(".vault-lever-read > div").forEach((grid) => {
+    const els = [...grid.querySelectorAll<HTMLElement>(".vault-mark > .num")].filter((el) => el.getBoundingClientRect().width > 0);
+    if (els.length < 2) return;
+    const min = Math.min(...els.map((el) => parseFloat(getComputedStyle(el).fontSize)));
+    els.forEach((el) => { if (parseFloat(getComputedStyle(el).fontSize) - min > 0.05) el.style.fontSize = `${min.toFixed(2)}px`; });
+  });
+}
+
 function groupKickers() {
+  groupLever();
   const els = [...document.querySelectorAll<HTMLElement>(KICKERS)].filter((el) => el.getBoundingClientRect().width > 0);
   if (els.length < 2) return;
   const sizes = els.map((el) => parseFloat(getComputedStyle(el).fontSize));
