@@ -27,7 +27,7 @@ import type { BackupInfo } from "@/spa/vault";
 import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
-import { DeboSide, LoanCard, LoanForm, LoansStudy } from "./loans";
+import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
 import { loanFigures, loanTotals, todayIso } from "@/lib/faro/loans";
 
 const STORE_TINT: Record<string, string> = {
@@ -1139,7 +1139,7 @@ function readDueFile(): DueFile[] {
 }
 
 function DueOwe() {
-  const { t, fmt, lines, session, key, commit, confirm } = useFaro();
+  const { t, fmt, lang, lines, session, key, commit, confirm } = useFaro();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -1160,6 +1160,7 @@ function DueOwe() {
   const today = todayIso();
   const dayOf = (line: Line) => line.bookedOn || line.nextDue || `${line.monthKey}-01`;
   const paidSum = active.filter((line) => dayOf(line) <= today).reduce((total, line) => total + convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0), 0);
+  const nextDay = active.map(dayOf).filter((day) => day > today).sort()[0] ?? "";
   const charges = Object.values(session?.ledger.months ?? {}).flatMap((month) => month.lines)
     .filter((line) => line.kind === "subscription" && (line.active || filed.some((f) => f.seriesId === (line.seriesId || line.id))))
     .map((line) => ({ date: dayOf(line), value: convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0) }));
@@ -1200,12 +1201,15 @@ function DueOwe() {
     <div className="cobro-swap" data-anchor="cobros-out">
       <div className="cobro-top">
         <div>
-          <p className="lab-head">{t("cobro.owe")}<Hint topic="debo" /></p>
           <strong className="num">{fmt(sum)}</strong>
         </div>
         <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.owe.add")} onClick={() => setAdding((on) => !on)}><Plus /></button>
       </div>
-      <p className="cobro-aside">{t("cobro.owe.aside")}</p>
+      <DeboSum empty={t("debo.sum.dues.empty")} parts={active.length ? [
+        [`${active.length} ${t(active.length === 1 ? "debo.sum.active1" : "debo.sum.activeN")}`],
+        [nextDay ? `${t("debo.sum.next")} ${new Date(`${nextDay}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}` : t("debo.sum.allPaid")],
+        [{ num: fmt(paidSum) }, t("debo.sum.paid")],
+      ] : null} />
       <CobroSpan out help="debo-tiempo" title={t("cobro.owe.span")} total={sum} events={charges}
         facts={[[t("cobro.owe.due"), sum], [t("cobro.owe.paid"), paidSum], [t("cobro.left.owe"), Math.max(0, sum - paidSum)]]} />
       {adding ? (
@@ -1452,6 +1456,8 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
   const lent = active.reduce((sum, row) => sum + asDisplay(row.amountMinor, row.currency), 0);
   const paid = active.reduce((sum, row) => sum + asDisplay(paidOf(row), row.currency), 0);
   const left = active.reduce((sum, row) => sum + asDisplay(leftOf(row), row.currency), 0);
+  const owedInterest = active.reduce((sum, row) => sum + asDisplay(cobroDue(row).interest, row.currency), 0);
+  const nextOwed = active.filter((row) => leftOf(row) > 0 && row.owedOn && row.owedOn >= todayIso()).map((row) => row.owedOn).sort()[0] ?? "";
   const stamp = (iso: string) => iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—";
 
   function group(mode: "plain" | "interest") {
@@ -1507,14 +1513,17 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
       <div key="in" className="cobro-swap" data-dir={dir} data-anchor="cobros-in">
       <div className="cobro-top">
         <div>
-          <p className="lab-head">{t("cobro.owed")}<Hint topic="me-deben" /></p>
           <strong className="num">{fmt(left)}</strong>
         </div>
         <button type="button" className="cobro-plus" aria-label={t("cobro.open")} aria-pressed={draft} onClick={() => setDraft((on) => !on)}>
           <Plus />
         </button>
       </div>
-      <p className="cobro-aside">{t("cobro.aside")}</p>
+      <DeboSum help="me-deben" empty={t("debo.sum.owed.empty")} parts={active.length ? [
+        [`${active.length} ${t(active.length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],
+        ...(owedInterest > 0 ? [[{ num: fmt(owedInterest) }, t("debo.sum.interest")]] : [[{ num: fmt(paid) }, t("debo.sum.got")]]),
+        ...(nextOwed ? [[`${t("debo.sum.nextGet")} ${new Date(`${nextOwed}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}`]] : []),
+      ] : null} />
       {draft ? <LoanForm mode="lend" onCancel={() => setDraft(false)} onSave={saveDraft} /> : null}
       <CobroSpan title={t("cobro.span")} total={lent} events={rows.map((row) => ({ date: row.startedOn, value: asDisplay(row.amountMinor, row.currency) }))}
         facts={[[t("cobro.lent"), lent], [t("cobro.paid"), paid], [t("cobro.left"), left]]} />

@@ -4,7 +4,7 @@
  * - DeboSide holds the Debo sub-tabs (Cuotas | Préstamos); DueLoans is the Préstamos group; LoansStudy is its Estudio card.
  * The money rule lives in lib/faro/loans.ts.
  */
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { useFaro } from "./provider";
 import { FieldTip } from "./ui";
@@ -196,12 +196,51 @@ export function DeboSide({ dues }: { dues: ReactNode }) {
   return (
     <>
       <div className="debo-tabs" role="tablist" data-anchor="cobros-debo-tabs">
-        <button type="button" role="tab" aria-selected={tab === "dues"} aria-pressed={tab === "dues"} onClick={() => pick("dues")}>{t("cobro.tab.dues")}</button>
-        <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => pick("loans")}>{t("cobro.tab.loans")}</button>
-        <span className="debo-tabs-help"><Hint topic="debo-grupos" /></span>
+        <span className="debo-tab" data-on={tab === "dues" || undefined}>
+          <button type="button" role="tab" aria-selected={tab === "dues"} aria-pressed={tab === "dues"} onClick={() => pick("dues")}>{t("cobro.tab.dues")}</button>
+          <Hint topic="debo" />
+        </span>
+        <span className="debo-tab" data-on={tab === "loans" || undefined}>
+          <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => pick("loans")}>{t("cobro.tab.loans")}</button>
+          <Hint topic="prestamos" />
+        </span>
       </div>
       {tab === "loans" ? <DueLoans key="loans" /> : dues}
     </>
+  );
+}
+
+/** The line under a Debo total: short facts that add to the number (count, next date, interest, paid), never a restatement.
+ *  Parts are plain text or amounts (amounts get .num, amber in Tron). Empty → one hint. */
+export function DeboSum({ parts, empty, help }: { parts: Array<Array<string | { num: string }>> | null; empty: string; help?: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const sig = JSON.stringify(parts);
+  // Never wraps, never clips: when the line is wider than its row (narrow phones, large text), the count goes first, then the middle fact.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      const bits = [...el.querySelectorAll<HTMLElement>(".debo-sum-bit")];
+      bits.forEach((b) => { b.hidden = false; });
+      const order = bits.length > 2 ? [bits[0], bits[1]] : bits.length > 1 ? [bits[0]] : [];
+      for (const b of order) { if (el.scrollWidth <= el.clientWidth + 1) break; b.hidden = true; }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [sig]);
+  const tip = help ? <Hint topic={help} /> : null;
+  if (!parts) return <p className="debo-sum is-empty">{empty}{tip}</p>;
+  return (
+    <p className="debo-sum" ref={ref}>
+      {parts.map((group, i) => (
+        <span key={i} className="debo-sum-bit">
+          {group.map((part, j) => <Fragment key={j}>{j ? " " : null}{typeof part === "string" ? part : <b className="num">{part.num}</b>}</Fragment>)}
+        </span>
+      ))}
+      {tip}
+    </p>
   );
 }
 
@@ -235,12 +274,15 @@ export function DueLoans() {
     <div className="cobro-swap" data-anchor="cobros-loans">
       <div className="cobro-top">
         <div>
-          <p className="lab-head">{t("cobro.loan.head")}<Hint topic="prestamos" /></p>
           <strong className="num">{fmt(sums.left)}</strong>
         </div>
         <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.loan.add")} onClick={() => setAdding((on) => !on)}><Plus /></button>
       </div>
-      <p className="cobro-aside">{t("cobro.loan.aside")}</p>
+      <DeboSum empty={t("debo.sum.loans.empty")} parts={sums.count ? [
+        [`${sums.count} ${t(sums.count === 1 ? "debo.sum.loan1" : "debo.sum.loanN")}`],
+        ...(sums.interest > 0 ? [[t("debo.sum.interest"), { num: fmt(sums.interest) }]] : []),
+        [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
+      ] : null} />
       {adding ? <LoanForm mode="borrow" onCancel={() => setAdding(false)} onSave={save} /> : null}
       <CobroSpan out help="prestamos-tiempo" title={t("cobro.loan.span")} total={sums.borrowed}
         events={all.map((l) => ({ date: l.takenOn, value: view(l.amountMinor, l.currency) }))}
