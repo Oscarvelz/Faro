@@ -190,6 +190,8 @@ export type Settings = {
   gestures?: Record<string, string>;
 };
 
+export type SubPreset = { id: string; name?: string; icon?: string };
+
 export type LedgerState = {
   v: 1;
   structure: Structure;
@@ -202,6 +204,8 @@ export type LedgerState = {
   imports?: ImportBook;
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
+  /** Cuotas preset chips (Nov 2026, 1.3.75): pool ids, or own ones with a name and an optional data-URL icon. Missing in older ledgers (= defaults). */
+  subPresets?: SubPreset[];
   revision: number;
   updatedAt: string;
 };

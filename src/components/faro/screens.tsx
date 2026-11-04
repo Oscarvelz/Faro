@@ -15,6 +15,8 @@ import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
 import { PALETTE, SAVINGS_PURPLE, baseFor, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
 import { shrinkIcon } from "@/lib/faro/icon";
+import { iconForName, presetName, subPresetsOf } from "@/lib/faro/subs";
+import { PresetMark, SubPresetEditor } from "./sub-presets";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import type { Category, Currency, Line, LineKind, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
@@ -1147,6 +1149,8 @@ function DueOwe() {
   const [due, setDue] = useState(todayIso());
   const [cadence, setCadence] = useState<"weekly" | "biweekly" | "monthly" | "yearly">("monthly");
   const [fileOpen, setFileOpen] = useState(false);
+  const [editPresets, setEditPresets] = useState(false);
+  const presets = subPresetsOf(session?.ledger);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
   useEffect(() => {
     const onOpen = (e: Event) => { if ((e as CustomEvent<string>).detail === "cobros-out-file") setFileOpen(true); };
@@ -1178,7 +1182,7 @@ function DueOwe() {
       id, seriesId: id, monthKey: key, kind: "subscription", concept, amountMinor: minor, currency: display,
       active: true, note: "", categoryId: "", subId: "", recurring: true, storeId: "", providerId: "",
       productCode: "", productUrl: "", cadence, nextDue: due || todayIso(), aprBps: 0, balanceMinor: null,
-      balanceCurrency: display, icon: "RefreshCw", history: [], bookedOn: due || todayIso(), color: "#e7c27a",
+      balanceCurrency: display, icon: iconForName(concept, presets, lang) || "RefreshCw", history: [], bookedOn: due || todayIso(), color: "#e7c27a",
     };
     commit((s) => upsertLine(s, line), concept);
     setAdding(false);
@@ -1217,13 +1221,14 @@ function DueOwe() {
         <div className="form-block cobro-form is-owe">
           <div className="cobro-grid">
             <div className="label is-wide">
-              <span className="lab-head">{t("cobro.owe.name")}<FieldTip topic="f-cuota-nombre" /></span>
+              <span className="lab-head">{t("cobro.owe.name")}<button type="button" className="sub-gear" aria-pressed={editPresets} aria-label={lang === "en" ? "Edit shortcuts" : "Editar atajos"} onClick={() => setEditPresets((on) => !on)}><Gear /></button><FieldTip topic="f-cuota-nombre" /></span>
               <div className="due-sites">
-                {["YouTube", "Netflix", "Prime", "Internet"].map((preset) => (
-                  <button key={preset} type="button" aria-pressed={name === preset} onClick={() => setName(preset)}>{preset}</button>
+                {presets.map((p) => (
+                  <button key={p.id} type="button" aria-pressed={name === presetName(p, lang)} onClick={() => setName(presetName(p, lang))}><PresetMark p={p} />{presetName(p, lang)}</button>
                 ))}
               </div>
               <input className="field" aria-label={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
+              {editPresets ? <SubPresetEditor lang={lang} presets={presets} onClose={() => setEditPresets(false)} onSave={(next) => commit((s) => ({ ...s, subPresets: next }), lang === "en" ? "Presets" : "Atajos")} /> : null}
             </div>
             <label className="label">
               <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-cuota-monto" /></span>
@@ -1251,7 +1256,7 @@ function DueOwe() {
       {active.length ? active.map((line) => (
         <article key={line.id} className="cobro-card due-card">
           <div className="due-line">
-            <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>
+            <i className="spend-mark" aria-hidden><Glyph name={line.icon === "RefreshCw" || !line.icon ? iconForName(line.concept, presets, lang) || lineGlyph(line, session?.ledger.structure) : lineGlyph(line, session?.ledger.structure)} /></i>
             <div className="min-w-0">
               <strong>{line.concept}</strong>
               <p>{line.cadence ? t(line.cadence) : t("cobro.owe")}</p>

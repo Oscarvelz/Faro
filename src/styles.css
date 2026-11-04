@@ -3010,3 +3010,34 @@ html[data-theme="lino"] .debo-tabs button[role="tab"][aria-pressed="true"]::afte
   100% { box-shadow: 0 0 0 10px transparent, 0 0 30px 6px transparent, inset 0 0 0 1px transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .cobros.is-arrive { animation: none; } .cobros-pulse { animation: none; display: none; } }
+
+/* Cuotas preset chips + inline editor (1.3.75). One row that scrolls sideways; marks left of the name. */
+.cobro-form .due-sites { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; grid-template-columns: none; }
+.cobro-form .due-sites::-webkit-scrollbar { display: none; }
+.cobro-form .due-sites button { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 7px; }
+.sub-chip-mark { width: 18px; height: 18px; flex: none; border-radius: 5px; object-fit: cover; }
+.sub-mark { flex: none; }
+img.sub-mark.is-own { border-radius: 25%; object-fit: cover; }
+.sub-gear { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; background: transparent; color: var(--faint); border-radius: 6px; cursor: pointer; }
+.sub-gear svg { width: 13px; height: 13px; }
+.sub-gear[aria-pressed="true"] { color: var(--fg); }
+.sub-edit { display: grid; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.sub-edit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.sub-edit-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr) 30px 30px 30px; align-items: center; gap: 6px; }
+.sub-edit-list li > :first-child:not(.sub-chip-mark) { grid-column: 1; }
+.sub-edit-list .field { min-height: 34px; padding: 0 10px; font-size: .86rem; grid-column: 2; }
+.sub-edit-list button, .sub-edit-add, .sub-edit-icon { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--muted); }
+.sub-edit-list button svg, .sub-edit-add svg, .sub-edit-icon svg { width: 15px; height: 15px; }
+.sub-edit-list button:disabled, .sub-edit-add:disabled { opacity: .35; }
+.sub-edit-list button.is-drop { color: var(--bad); border-color: color-mix(in oklab, var(--bad) 40%, var(--line)); }
+.sub-edit-list li:not(:has(> .sub-chip-mark)) .field { grid-column: 1 / 3; }
+.sub-edit-pool { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; }
+.sub-edit-pool::-webkit-scrollbar { display: none; }
+.sub-edit-pool button { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px 0 6px; border: 1px dashed var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: .8rem; white-space: nowrap; }
+.sub-edit-own { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; gap: 6px; align-items: center; }
+.sub-edit-own .field { min-height: 34px; padding: 0 10px; font-size: .86rem; }
+.sub-edit-icon, .sub-edit-own .sub-edit-add { width: 34px; height: 34px; }
+.sub-edit-icon img { width: 22px; height: 22px; border-radius: 5px; object-fit: cover; }
+.sub-edit .cobro-actions { margin-top: 2px; }
+.due-card .spend-mark .sub-mark { width: 100%; height: 100%; max-width: 22px; max-height: 22px; border-radius: 6px; }
+.cobro-form .sub-edit .field { height: 36px; min-height: 0; padding-block: 0; font-size: .88rem; }

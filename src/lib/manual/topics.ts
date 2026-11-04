@@ -771,9 +771,21 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Sitio o servicio", "Site or service"],
         sum: ["Qué estás pagando.", "What you are paying for."],
-        what: ["Lo que pagas. Toca uno de arriba para llenarlo rápido.", "What you pay for. Tap one of the names above to fill it quickly."],
+        what: ["Lo que pagas. Toca un atajo de arriba para llenarlo rápido; la cuota guardada lleva su icono. El engranaje los edita.", "What you pay for. Tap a shortcut above to fill it fast; the saved due keeps its icon. The gear edits them."],
         go: { screen: "cobros", anchor: "cobros-out", where: ["Cobros → Debo → +", "Collections → I owe → +"] },
         keys: ["tip.cobro.owe.name"],
+      },
+      {
+        id: "f-cuota-atajos",
+        depth: "tip",
+        title: ["Atajos de servicios", "Service shortcuts"],
+        sum: ["Elige, ordena y crea tus atajos.", "Pick, order and create shortcuts."],
+        what: [
+          "El engranaje junto a Sitio o servicio abre el editor. La lista trae Netflix, YouTube, Spotify, Disney+, Max, Apple, iCloud, Google One, ChatGPT, consolas, Internet, teléfono y gimnasio, cada uno con su icono. Toca uno para añadirlo, usa las flechas para ordenar, la X roja para quitar y escribe sobre un nombre para cambiarlo. Para uno tuyo, toca la imagen, sube un logo (se reduce a unos 2 KB), escribe el nombre y toca +. Se guardan en tu libro: se sincronizan y van en la copia.",
+          "The gear beside Site or service opens the editor. The list has Netflix, YouTube, Spotify, Disney+, Max, Apple, iCloud, Google One, ChatGPT, consoles, Internet, phone and gym, each with its icon. Tap one to add it, use the arrows to reorder, the red X to remove, and type over a name to rename it. For your own, tap the picture, upload a logo (shrunk to about 2 KB), type the name and tap +. They live in your ledger, so they sync and go into backups.",
+        ],
+        go: { screen: "cobros", anchor: "cobros-out", where: ["Cobros → Debo → + → engranaje", "Collections → I owe → + → gear"] },
+        keys: ["tip.cobro.owe.presets"],
       },
       {
         id: "f-cuota-monto",

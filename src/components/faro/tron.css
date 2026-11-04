@@ -1229,3 +1229,12 @@ html[data-theme="tron"] .save-band.sav-scope .save-more :is(.save-ledger-head .f
 @keyframes cobro-fx-scan { from { opacity: 1; } to { opacity: 0; } }
 [data-theme="tron"] .cobros-pulse { --pulse: #3fd6f5; }
 [data-theme="tron"] .cobros.is-due .cobros-pulse { --pulse: #ffc24a; }
+
+/* 1.3.75 Cuotas preset editor: subtle Debo amber, framed buttons, no inner boxes. */
+[data-theme="tron"] .cobros.is-due .sub-gear { color: rgba(240, 185, 85, .55); }
+[data-theme="tron"] .cobros.is-due .sub-gear[aria-pressed="true"] { color: #f0b955; }
+[data-theme="tron"] .cobros.is-due .sub-edit { border-top-color: rgba(240, 185, 85, .18); }
+[data-theme="tron"] .cobros.is-due :is(.sub-edit-list button, .sub-edit-add, .sub-edit-icon) { border-radius: 4px; border-color: rgba(240, 185, 85, .28); color: #c9d6da; background: transparent; }
+[data-theme="tron"] .cobros.is-due .sub-edit-list button.is-drop { color: #ff6b6b; border-color: rgba(255, 107, 107, .4); }
+[data-theme="tron"] .cobros.is-due .sub-edit-pool button { border-radius: 4px; border-color: rgba(240, 185, 85, .25); color: #a9bcc2; }
+[data-theme="tron"] .cobros.is-due .sub-edit .field { border-radius: 4px; }

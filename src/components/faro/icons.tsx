@@ -139,6 +139,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { SUB_POOL } from "@/lib/faro/subs";
 
 const MAP: Record<string, LucideIcon> = {
   ArrowDownLeft,
@@ -323,6 +324,7 @@ export function SectionIcon({ id, className }: { id: string; className?: string 
 }
 
 export function Glyph({ name, className }: { name: string; className?: string }) {
+  if (name.startsWith("sub:")) return <SubMark id={name.slice(4)} className={className ?? "size-4"} />;
   if (name.startsWith("brand:")) return <BrandMark id={name.slice(6)} className={className ?? "size-4"} />;
   const I = MAP[name] ?? Circle;
   return <I className={className ?? "size-4"} strokeWidth={1.75} aria-hidden />;
@@ -389,6 +391,36 @@ export function BrandMark({ id, className, src }: { id: string; className?: stri
       </text>
       {id === "amazon" ? <path className="brand-smile" d="M8 24c5 3 11 3 16 0" /> : null}
       {id === "shein" ? <path className="brand-accent" d="M8 26.5h16" fill="none" strokeWidth="1.7" strokeLinecap="round" /> : null}
+    </svg>
+  );
+}
+
+/* Subscription marks (1.3.75): brand-colour plate with a monogram or a tiny path; "data:" ids are the user's own icon. */
+const SUB_SHAPE: Record<string, string> = {
+  "@play": "M12.5 10.5v11l9-5.5z",
+  "@note": "M13 22.5a2.5 2.5 0 1 1-1-2V10l9-2v11a2.5 2.5 0 1 1-1-2V11.2l-7 1.6z",
+  "@cloud": "M11 22h11a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 11 22z",
+  "@phone": "M11 8.5h3l1.5 4-2 1.3a9 9 0 0 0 4.7 4.7l1.3-2 4 1.5v3c0 1-1 2-2 1.9A14 14 0 0 1 9 10.5c0-1 1-2 2-2z",
+  "@gym": "M7 13.5h2v5H7zM10 11.5h2.5v9H10zM12.5 15h7v2h-7zM19.5 11.5H22v9h-2.5zM23 13.5h2v5h-2z",
+};
+export function SubMark({ id, className }: { id: string; className?: string }) {
+  const cls = className ?? "size-4";
+  if (id.startsWith("data:")) return <img src={id} alt="" className={`sub-mark is-own ${cls}`} />;
+  const row = SUB_POOL.find((item) => item[0] === id);
+  if (!row) return <RefreshCw className={cls} strokeWidth={1.75} aria-hidden />;
+  const [, , , bg, fg, mark] = row;
+  const path = SUB_SHAPE[mark];
+  return (
+    <svg viewBox="0 0 32 32" className={`sub-mark ${cls}`} aria-hidden>
+      <rect width="32" height="32" rx="8" fill={bg} />
+      {path ? <path d={path} fill={fg} /> : null}
+      {mark === "@ring" ? <><circle cx="16" cy="16" r="8" fill="none" stroke={fg} strokeWidth="1.8" /><path d="M14 12.5v7l5.5-3.5z" fill={fg} /></> : null}
+      {mark === "@wave" ? <path d="M9.5 12.5c4.5-1.3 9-1 13 1M10.5 16.3c3.8-1 7.3-.7 10.5.9M11.5 19.8c3-.7 5.6-.5 8 .7" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" /> : null}
+      {mark === "@wifi" ? <path d="M8.5 14a11 11 0 0 1 15 0M11.3 17a7 7 0 0 1 9.4 0M14.2 20a2.6 2.6 0 0 1 3.6 0" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" /> : null}
+      {mark === "prime" ? <path d="M9 20.5c4.5 2.5 9.5 2.5 14 0" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" /> : null}
+      {mark[0] !== "@" ? (
+        <text x="16" y={mark === "prime" ? 18 : 21} textAnchor="middle" fill={fg} fontFamily="Outfit, sans-serif" fontWeight="700" fontSize={mark.length > 3 ? 8.5 : mark.length > 2 ? 10 : mark.length > 1 ? 12 : 16}>{mark}</text>
+      ) : null}
     </svg>
   );
 }
