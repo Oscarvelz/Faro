@@ -2,8 +2,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { describe, it } from "node:test";
-import { applyImport, buildReview, counts, parseDate, parseFile, parseMoney, pickSource, remap, revertImport, type ParsedFile } from "./bankparse.ts";
-import { accounts, ensureAccounts, importBook, merchantKey, rewardsMonth } from "./bankbook.ts";
+import { applyImport, buildReview, counts, fromPdf, parseDate, parseFile, parseMoney, pickSource, remap, revertImport, type ParsedFile } from "./bankparse.ts";
+import { accounts, ensureAccounts, importBook, merchantKey, merchantLabel, rewardsMonth } from "./bankbook.ts";
+import { parsePdfStatement, rowDate, type PdfDoc } from "./pdfstmt.ts";
 import type { Category, LedgerState } from "./types.ts";
 
 const FX = "/workspace/work/browser-test/fixtures/import";
@@ -21,7 +22,7 @@ function ledger(): LedgerState {
         cat("f-ahorro", "fixed", "Ahorro", [["vault-pp", "PayPal Ahorro"]]),
         cat("v-entretenimiento", "variable", "Entretenimiento", [["v.e.restaurantes", "Restaurantes"]]),
         cat("v-personales", "variable", "Personales", [["v.p.salud", "Farmacia"], ["v.p.otros", "Otros"]]),
-      ].map((c) => (c.id === "f-ahorro" ? { ...c, subs: c.subs.map((s) => ({ ...s, icon: "vault" })) } : c)),
+      ].map((c) => (c.id === "f-ahorro" ? { ...c, role: "savings", subs: c.subs.map((s) => ({ ...s, icon: "vault" })) } : c)),
       purchases: [{ id: "otros", nameKey: "", customName: "Otros", icon: "Package", hidden: false, order: 0 }],
       catalog: [],
     },
@@ -61,7 +62,13 @@ describe("readers", () => {
     assert.equal(merchantKey("PUBLIX #1234 MIAMI FL"), "publix");
     assert.equal(merchantKey("CVS/PHARMACY #08123 MIAMI FL"), "cvs pharmacy");
     assert.equal(merchantKey("STARBUCKS STORE 12345"), "starbucks");
-    assert.equal(merchantKey("AMAZON MKTPL*2X3Y4Z1 Amzn.com/bill WA"), "amazon mktpl");
+    assert.equal(merchantKey("AMAZON MKTPL*2X3Y4Z1 Amzn.com/bill WA"), "amazon");
+    assert.equal(merchantKey("KFC Z123456 STREET ANYTOWN FL"), "kfc");
+    assert.equal(merchantKey("MCDONALD'S M7097 OF FL MIAMI FL"), "mcdonald's");
+    assert.equal(merchantKey("365 MARKET N 888 000-0000 TROY MI"), "365 market n");
+    assert.equal(merchantKey("Whaleco Commerce, LLC"), "temu");
+    assert.equal(merchantLabel("Zelle Payment To Sample Landlord Wxyz98Uv76"), "Zelle → Sample Landlord");
+    assert.equal(merchantLabel("Payment Sent 01/04 Rmtly* A1B2C Remitly.Com WA Card 0001"), "Remitly");
     assert.equal(merchantKey("PAYPAL *STEAMGAMES 402-935-7733 WA"), "steamgames");
   });
 });
@@ -100,7 +107,7 @@ describe("review and commit", () => {
     const cvs = rv.rows.find((r) => r.flow === "refund")!;
     assert.equal(cvs.target, "expense-variable|v-personales|v.p.salud");
     const pub = rv.rows.find((r) => r.key === "publix")!;
-    assert.equal(pub.target, "expense-fixed|f-alimentos|f.alimentos.despensa"); assert.equal(pub.how, "seed"); assert.equal(pub.reward?.earned, 193);
+    assert.equal(pub.target, "expense-fixed|f-alimentos|f.alimentos.despensa"); assert.equal(pub.how, "seed"); assert.equal(pub.reward?.earned, 96); // Freedom Unlimited: groceries are 1.5%
   });
   it("commit, re-import adds nothing, learned rule, undo", () => {
     const s0 = ensureAccounts(ledger());
@@ -165,15 +172,35 @@ describe("review and commit", () => {
     const one = st3.months["2026-10"].lines.filter((l) => l.amountMinor === 1999);
     assert.equal(one.length, 1); assert.equal(one[0].sourceId, "acct-chase-card"); assert.equal(one[0].via, "acct-paypal");
   });
-  it("rewards: groceries on State Farm flagged as a miss; monthly summary", () => {
+  it("rewards: real card rates; groceries on Chase flagged for Wells Fargo; monthly summary", () => {
     const s = ensureAccounts(ledger());
-    const files = [read("statefarm.qfx")];
+    const wf = run(s, [read("statefarm.qfx")]);
+    assert.equal(wf.srcs[0], "acct-wf-card", "a file named State Farm goes to the Wells Fargo card");
+    const sed = wf.rv.rows.find((r) => r.key.startsWith("sedano"))!;
+    assert.equal(sed.rc, "grocery"); assert.equal(sed.reward?.rate, 200); assert.equal(sed.reward?.missed, 0);
+    const files = [read("chase-card-oct.csv")];
     const { rv, srcs } = run(s, files);
-    const sed = rv.rows.find((r) => r.key.startsWith("sedano"))!;
-    assert.equal(sed.rc, "grocery"); assert.equal(sed.reward?.best?.id, "acct-chase-card"); assert.equal(sed.reward?.missed, 68);
+    const pub = rv.rows.find((r) => r.key.startsWith("publix"))!;
+    assert.equal(pub.reward?.best?.id, "acct-wf-card"); assert.equal(pub.reward?.missed, 32);
     const st = applyImport(s, rv, files, srcs, "b5").state;
     const m = rewardsMonth(st, "2026-10", "USD", 366243)!;
-    assert.ok(m.missed >= 68); assert.equal(m.top?.best.id, "acct-chase-card"); assert.equal(m.top?.rc, "grocery");
+    assert.ok(m.missed >= 32); assert.equal(m.top?.best.id, "acct-wf-card");
+  });
+  it("old State Farm preset reads as Wells Fargo with its id kept; old factory rates move to the new ones", () => {
+    const base = ledger();
+    const old: LedgerState = { ...base, structure: { ...base.structure, catalog: [{ id: "acct-sf-card", nameKey: "", customName: "State Farm · tarjeta", icon: "CreditCard", hidden: false, order: 52, kind: "acct", urlTemplate: "" }, { id: "acct-chase-card", nameKey: "", customName: "Chase · tarjeta", icon: "CreditCard", hidden: false, order: 51, kind: "acct", urlTemplate: "" }] },
+      imports: { sources: [{ id: "acct-sf-card", bank: "statefarm", kind: "card", rates: { other: 150 } }, { id: "acct-chase-card", bank: "chase", kind: "card", rates: { dining: 400, other: 100 } }], rules: [], maps: {} } };
+    const a = accounts(old);
+    const wf = a.find((x) => x.id === "acct-sf-card")!;
+    assert.equal(wf.name, "Wells Fargo · tarjeta"); assert.equal(wf.rates.other, 200); assert.equal(wf.bank, "wellsfargo");
+    assert.ok(!a.some((x) => x.id === "acct-wf-card"), "no second Wells Fargo account");
+    assert.equal(a.find((x) => x.id === "acct-chase-card")!.rates.dining, 400, "edited rates stay");
+    const e = ensureAccounts(old);
+    assert.equal(e.structure.catalog.filter((c) => /Wells Fargo/.test(c.customName)).length, 1);
+    assert.equal(pickSource(read("statefarm.qfx"), importBook(e), accounts(e)), "acct-sf-card");
+    const fresh = accounts(ledger());
+    assert.deepEqual(fresh.find((x) => x.id === "acct-chase-card")!.rates, { travel: 500, dining: 300, drug: 300, other: 150 });
+    assert.deepEqual(fresh.find((x) => x.id === "acct-pp-card")!.rates, { online: 300, other: 150 });
   });
   it("PayPal balance goes to the linked savings account", () => {
     let s = ensureAccounts(ledger());
@@ -183,5 +210,117 @@ describe("review and commit", () => {
     const st = applyImport(s, rv, files, srcs, "b6").state;
     const acct = st.months["2026-10"].lines.find((l) => l.subId === "vault-pp")!;
     assert.equal(acct.balanceMinor, 25873);
+  });
+});
+
+/* ------------------------------------------------------------------ statement PDFs (synthetic look-alikes, no real data) */
+const PDF = `${FX}/pdf`;
+const doc = (n: string): PdfDoc => JSON.parse(fs.readFileSync(`${PDF}/${n}.json`, "utf8"));
+const st = (n: string) => parsePdfStatement(doc(n))!;
+const pfile = (n: string) => fromPdf(`${n}.pdf`, st(n));
+const recOk = (n: string) => st(n).recon.filter((r) => !r.soft).every((r) => r.want === r.got);
+
+describe("statement PDFs", () => {
+  it("each issuer is found by its header and adds up to its own summary", () => {
+    const want: Record<string, string> = { "chase-checking": "chase-checking", "chase-card": "chase-card", "wf-card": "wf-card", "paypal-card": "paypal-card", "paypal-savings": "paypal-savings", "paypal-account-es": "paypal-account", "paypal-account-en": "paypal-account" };
+    for (const [n, issuer] of Object.entries(want)) { assert.equal(st(n).issuer, issuer, n); assert.ok(recOk(n), `${n} reconciles`); }
+    assert.equal(parsePdfStatement({ pages: [[{ s: "Hello", x: 10, y: 10 }]] }), null);
+  });
+  it("year from the statement period, including the December → January wrap", () => {
+    assert.equal(rowDate("12/28", { from: "2025-12-27", to: "2026-01-26" }), "2025-12-28");
+    assert.equal(rowDate("01/02", { from: "2025-12-27", to: "2026-01-26" }), "2026-01-02");
+    assert.equal(rowDate("12/31", { from: "", to: "2026-01-15" }), "2025-12-31");
+    const c = st("chase-checking");
+    assert.deepEqual([c.rows[0].date, c.rows[4].date], ["2025-12-28", "2026-01-02"]);
+    assert.equal(c.begin, 100000); assert.equal(c.end, 105000);
+  });
+  it("Chase card: sections give the sign; points; interest has no rewards", () => {
+    const c = st("chase-card");
+    assert.equal(c.rows.filter((r) => r.flow === "xfer").length, 1);
+    assert.equal(c.rows.filter((r) => r.flow === "refund").length, 1);
+    assert.equal(c.rewards?.points, 789);
+    const int = c.rows.find((r) => r.cat === "cardint")!; assert.ok(int.noReward); assert.equal(int.amount, -975);
+    assert.equal(c.rows.find((r) => /CHASE TRAVEL/.test(r.desc))!.rc, "travel");
+  });
+  it("Wells Fargo: credits column vs charges column, reference ids, picture page", () => {
+    const w = st("wf-card");
+    assert.deepEqual(w.imagePages, [2]);
+    assert.equal(w.rows.find((r) => r.id === "REF0000000000002B")!.flow, "refund");
+    assert.equal(w.rows.find((r) => r.id === "REF0000000000004D")!.amount, -2000);
+    assert.equal(w.rewards?.balanceCents, 4200);
+  });
+  it("PayPal Mastercard: the store on the next line, PayPal checkout rate, cashback matches the statement", () => {
+    const p = st("paypal-card");
+    const temu = p.rows.filter((r) => r.name === "TEMU");
+    assert.equal(temu.length, 2); assert.ok(temu.every((r) => r.pp && r.rc === "online"));
+    const s0 = ensureAccounts(ledger());
+    const { rv } = run(s0, [pfile("paypal-card")]);
+    const earned = rv.rows.filter((r) => r.reward).reduce((a, r) => a + r.reward!.earned, 0);
+    assert.equal(earned, p.rewards?.cents, "$1.43 like the statement");
+  });
+  it("PayPal account (ES and EN): wrapped dates, funding, ids, rows repeated in the balance statement count once, fee is its own line", () => {
+    for (const n of ["paypal-account-es", "paypal-account-en"]) {
+      const a = st(n);
+      assert.equal(a.rows.filter((r) => r.id && !r.id.endsWith("-fee")).length, 10, n);
+      assert.equal(a.rows[0].date, "2025-12-02"); assert.equal(a.rows[0].flow, "refund"); assert.ok(a.rows[0].pp);
+      assert.equal(a.rows.find((r) => /MARATHON/.test(r.name ?? ""))!.flow, "spend");
+      assert.ok(a.rows.find((r) => /Instant Ink/.test(r.name ?? ""))!.fundedByCard, "card deposit with a reference marks the purchase");
+      assert.equal(a.rows.filter((r) => r.cat === "x-pp-save").length, 1);
+      assert.equal(a.rows.find((r) => r.cat === "fees")!.amount, -100);
+    }
+  });
+  it("review of all statements: pairs, transfers once, refunds, interest income, savings pocket", () => {
+    const s0 = ensureAccounts(ledger());
+    const files = ["chase-checking", "chase-card", "wf-card", "paypal-card", "paypal-savings", "paypal-account-es"].map(pfile);
+    const { rv, srcs, c } = run(s0, files);
+    assert.deepEqual(srcs, ["acct-chase-chk", "acct-chase-card", "acct-wf-card", "acct-pp-card", "acct-pp-save", "acct-paypal"]);
+    const row = (fi: number, re: RegExp) => rv.rows.find((r) => r.file === fi && re.test(r.raw))!;
+    // checking → Chase card payment and → Wells Fargo payment: one transfer each
+    assert.ok(row(0, /Payment To Chase Card/).xpair === row(1, /Payment Thank You/).uid);
+    assert.ok(row(0, /Wells Fargo Card Ccpymt/).xpair === row(2, /ONLINE ACH PAYMENT/).uid);
+    assert.ok(row(0, /Paypal Inst Xfer/).xpair, "PayPal card repayment pairs");
+    // Visa Direct → PayPal is a transfer, paired with PayPal's card deposit of the same amount
+    assert.equal(row(0, /Visa Direct/).flow, "xfer");
+    // a reversal cancels the ATM withdrawal
+    assert.ok(row(0, /^ATM Withdrawal/).voided && row(0, /^Reversal/).voided);
+    // PayPal card statement purchase ↔ PayPal account purchase funded by the PayPal Mastercard: once, PayPal name
+    const ppBuy = rv.rows.find((r) => r.file === 5 && r.amount === -2500 && r.flow === "spend")!;
+    assert.ok(ppBuy.include && ppBuy.pairs); assert.equal(ppBuy.label, "Temu"); assert.equal(ppBuy.sourceId, "acct-pp-card");
+    // Wells Fargo PAYPAL *SAMPLEINK ↔ PayPal HP Instant Ink paid by card
+    const ink = rv.rows.find((r) => r.file === 5 && /Instant Ink/.test(r.label))!;
+    assert.ok(ink.pairs); assert.equal(ink.sourceId, "acct-wf-card");
+    // refund reduces its category, not income
+    assert.equal(rv.rows.find((r) => r.file === 5 && r.flow === "refund")!.target, rv.rows.find((r) => r.file === 5 && r.amount === -2500)!.target);
+    // savings moves are transfers; interest is income
+    assert.ok(rv.rows.filter((r) => r.file === 4).every((r) => r.flow === "xfer" || r.flow === "interest"));
+    assert.equal(rv.rows.find((r) => r.file === 4 && r.flow === "interest")!.target, "income-variable||");
+    assert.equal(row(0, /Payroll/).target, "income-fixed||");
+    // card interest goes to Créditos-like category with no rewards
+    assert.equal(rv.rows.find((r) => r.file === 1 && r.noReward)!.reward, null);
+    // a transfer seen on both sides counts once
+    const xf = rv.rows.filter((r) => r.flow === "xfer");
+    assert.equal(c.xfers, xf.length - xf.filter((r) => r.xpair).length / 2);
+    // pocket offer and commit
+    assert.ok(rv.pocket && rv.pocket.create); assert.equal(rv.pocket!.endCents, 55125); assert.equal(rv.pocket!.apyBps, 350); assert.equal(rv.pocket!.month, "2025-12");
+    const res = applyImport(s0, rv, files, srcs, "pdf1");
+    const pocket = res.state.months["2025-12"].lines.find((l) => l.concept === "PayPal Ahorros")!;
+    assert.equal(pocket.balanceMinor, 55125); assert.equal(pocket.amountMinor, 0); assert.match(pocket.note, /APY 3\.50%/);
+    assert.ok(res.state.structure.categories.find((x) => x.id === "f-ahorro")!.subs.some((x) => x.id === pocket.subId && x.icon === "PiggyBank"));
+    assert.equal(importBook(res.state).sources.find((x) => x.id === "acct-pp-save")!.pocketId, pocket.subId);
+    const back = revertImport(res.state, res.undo);
+    assert.ok(!back.structure.categories.find((x) => x.id === "f-ahorro")!.subs.some((x) => x.id === pocket.subId), "undo removes the new pocket");
+    // re-import: nothing new; pocket off leaves Ahorros alone
+    assert.equal(run(res.state, files).c.fresh, 0);
+    const off = applyImport(s0, rv, files, srcs, "pdf2", false).state;
+    assert.ok(!(off.months["2025-12"]?.lines ?? []).some((l) => l.concept === "PayPal Ahorros"));
+  });
+  it("the synthetic PDFs read by pdf.js give the same words as their JSON", async () => {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    for (const n of ["wf-card", "paypal-account-es"]) {
+      const d = await pdfjs.getDocument({ data: new Uint8Array(fs.readFileSync(`${PDF}/${n}.pdf`)), verbosity: 0 }).promise;
+      const pages: PdfDoc["pages"] = [];
+      for (let i = 1; i <= d.numPages; i++) pages.push((await (await d.getPage(i)).getTextContent()).items.filter((it) => "str" in it && it.str).map((it) => ({ s: (it as { str: string }).str, x: Math.round((it as { transform: number[] }).transform[4] * 10) / 10, y: Math.round((it as { transform: number[] }).transform[5] * 10) / 10 })));
+      assert.deepEqual(parsePdfStatement({ pages }), parsePdfStatement(doc(n)), n);
+    }
   });
 });

@@ -135,10 +135,10 @@ export type Person = {
   archived?: boolean;
 };
 
-export type RewardClass = "dining" | "grocery" | "drug" | "gas" | "online" | "other";
-export type AcctKind = "checking" | "card" | "paypal";
+export type RewardClass = "travel" | "dining" | "grocery" | "drug" | "gas" | "online" | "other";
+export type AcctKind = "checking" | "card" | "paypal" | "savings";
 /** Import settings of one account; its name and icon live in its catalog item (kind "acct"), same id. Rates in basis points. */
-export type BankSource = { id: string; bank: string; kind: AcctKind; rates: Partial<Record<RewardClass, number>>; elig?: number; pocketId?: string };
+export type BankSource = { id: string; bank: string; kind: AcctKind; rates: Partial<Record<RewardClass, number>>; elig?: number; pocketId?: string; apyBps?: number };
 /** Learned filing: merchant key → "<kind>|<categoryId>|<subId>". */
 export type MerchantRule = { key: string; label: string; target: string; rc?: RewardClass; elig?: boolean; n: number; at: string };
 export type ColumnMap = { date: number; desc: number; amount: number; debit: number; credit: number; invert: boolean; dmy: boolean };

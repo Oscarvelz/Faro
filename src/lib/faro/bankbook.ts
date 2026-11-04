@@ -6,15 +6,42 @@
 import { convertMinor } from "./money.ts";
 import type { AcctKind, BankSource, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, Structure } from "./types.ts";
 
-export const REWARD_CLASSES: RewardClass[] = ["dining", "grocery", "drug", "gas", "online", "other"];
+export const REWARD_CLASSES: RewardClass[] = ["travel", "dining", "grocery", "drug", "gas", "online", "other"];
 
-/** Oscar's four accounts. Rates are defaults he can edit in Ajustes (basis points: 300 = 3%). */
-export const DEFAULT_SOURCES: (BankSource & { name: string; icon: string })[] = [
+type DefaultSource = BankSource & { name: string; icon: string; legacy?: string; oldNames?: string[]; oldRates?: BankSource["rates"][] };
+/**
+ * Oscar's accounts. Rates are each card's published rates (Nov 2026), editable in Ajustes (basis points: 300 = 3%).
+ * Chase Freedom Unlimited: 5% Chase Travel, 3% dining and drugstores, 1.5% everything else (groceries are 1.5%).
+ * Wells Fargo Active Cash: 2% on everything. PayPal Cashback Mastercard: 3% paying with PayPal at checkout, 1.5% elsewhere.
+ * The Wells Fargo card was the "State Farm" preset (same card, renamed): old data keeps its id `acct-sf-card`.
+ * `oldRates` are earlier factory defaults: a saved account still on them moves to the new ones; edited rates stay.
+ */
+export const DEFAULT_SOURCES: DefaultSource[] = [
   { id: "acct-chase-chk", name: "Chase · cuenta", icon: "Landmark", bank: "chase", kind: "checking", rates: { other: 0 } },
-  { id: "acct-chase-card", name: "Chase · tarjeta", icon: "CreditCard", bank: "chase", kind: "card", rates: { dining: 300, grocery: 300, drug: 300, other: 100 } },
-  { id: "acct-sf-card", name: "State Farm · tarjeta", icon: "CreditCard", bank: "statefarm", kind: "card", rates: { other: 150 } },
-  { id: "acct-paypal", name: "PayPal", icon: "Wallet", bank: "paypal", kind: "paypal", rates: { online: 300, other: 300 }, elig: 500 },
+  { id: "acct-chase-card", name: "Chase · tarjeta", icon: "CreditCard", bank: "chase", kind: "card", rates: { travel: 500, dining: 300, drug: 300, other: 150 }, oldRates: [{ dining: 300, grocery: 300, drug: 300, other: 100 }] },
+  { id: "acct-wf-card", name: "Wells Fargo · tarjeta", icon: "CreditCard", bank: "wellsfargo", kind: "card", rates: { other: 200 }, legacy: "acct-sf-card", oldNames: ["State Farm · tarjeta"], oldRates: [{ other: 150 }] },
+  { id: "acct-pp-card", name: "PayPal · tarjeta", icon: "CreditCard", bank: "paypal", kind: "card", rates: { online: 300, other: 150 } },
+  { id: "acct-paypal", name: "PayPal", icon: "Wallet", bank: "paypal", kind: "paypal", rates: { other: 0 }, oldRates: [{ online: 300, other: 300 }] },
+  { id: "acct-pp-save", name: "PayPal · ahorros", icon: "PiggyBank", bank: "paypal", kind: "savings", rates: { other: 0 } },
 ];
+
+const sameRates = (a: BankSource["rates"] | undefined, b: BankSource["rates"]) => {
+  const ka = Object.keys(a ?? {}).sort(), kb = Object.keys(b).sort();
+  return ka.join() === kb.join() && ka.every((k) => a![k as RewardClass] === b[k as RewardClass]);
+};
+/** A saved account still on an older factory default (rates, name, bank) reads as today's default. */
+function freshen(d: DefaultSource, src: BankSource | undefined): BankSource | undefined {
+  if (!src) return src;
+  let out = src;
+  if (d.oldRates?.some((r) => sameRates(src.rates, r))) { out = { ...out, rates: { ...d.rates } }; delete out.elig; }
+  if (d.legacy && out.bank === "statefarm") out = { ...out, bank: d.bank };
+  return out;
+}
+/** The id an account really has in this ledger: the legacy id when old data uses it. */
+function idIn(d: DefaultSource, cat: CatalogItem[], sources: BankSource[]): string {
+  if (d.legacy && !cat.some((c) => c.id === d.id) && (cat.some((c) => c.id === d.legacy) || sources.some((s) => s.id === d.legacy))) return d.legacy;
+  return d.id;
+}
 
 export function importBook(state: LedgerState | null | undefined): ImportBook {
   const b = state?.imports;
@@ -28,15 +55,19 @@ export function accounts(state: LedgerState | null | undefined): Acct[] {
   const cat = state?.structure.catalog.filter((c) => c.kind === "acct") ?? [];
   const out: Acct[] = [];
   for (const d of DEFAULT_SOURCES) {
-    const item = cat.find((c) => c.id === d.id);
-    const src = book.sources.find((s) => s.id === d.id);
+    const id = idIn(d, cat, book.sources);
+    const item = cat.find((c) => c.id === id);
+    const src = freshen(d, book.sources.find((s) => s.id === id));
     if (item?.hidden) continue;
-    out.push({ ...d, ...(src ?? {}), name: item ? (item.customName || item.nameKey || d.name) : d.name, icon: item?.icon ?? d.icon, saved: !!(item && src) });
+    const custom = item ? (item.customName || item.nameKey || d.name) : d.name;
+    const name = d.oldNames?.includes(custom) ? d.name : custom;
+    const { legacy: _l, oldNames: _n, oldRates: _r, ...base } = d;
+    out.push({ ...base, ...(src ?? {}), id, name, icon: item?.icon ?? d.icon, saved: !!(item && src) });
   }
   for (const item of cat) {
     if (out.some((a) => a.id === item.id) || item.hidden) continue;
     const src = book.sources.find((s) => s.id === item.id);
-    out.push({ id: item.id, bank: src?.bank ?? "other", kind: src?.kind ?? "card", rates: src?.rates ?? { other: 0 }, elig: src?.elig, pocketId: src?.pocketId, name: item.customName || item.nameKey, icon: item.icon, saved: !!src });
+    out.push({ id: item.id, bank: src?.bank ?? "other", kind: src?.kind ?? "card", rates: src?.rates ?? { other: 0 }, elig: src?.elig, pocketId: src?.pocketId, apyBps: src?.apyBps, name: item.customName || item.nameKey, icon: item.icon, saved: !!src });
   }
   return out;
 }
@@ -45,13 +76,19 @@ export function accounts(state: LedgerState | null | undefined): Acct[] {
 export function ensureAccounts(state: LedgerState): LedgerState {
   const book = importBook(state);
   let catalog = state.structure.catalog;
-  const sources = [...book.sources];
+  let sources = [...book.sources];
   for (const d of DEFAULT_SOURCES) {
-    if (!catalog.some((c) => c.id === d.id)) {
-      const item: CatalogItem = { id: d.id, nameKey: "", customName: d.name, icon: d.icon, hidden: false, order: 50 + DEFAULT_SOURCES.indexOf(d), kind: "acct", urlTemplate: "" };
+    const id = idIn(d, catalog.filter((c) => c.kind === "acct"), sources);
+    const at = catalog.findIndex((c) => c.id === id);
+    if (at < 0) {
+      const item: CatalogItem = { id, nameKey: "", customName: d.name, icon: d.icon, hidden: false, order: 50 + DEFAULT_SOURCES.indexOf(d), kind: "acct", urlTemplate: "" };
       catalog = [...catalog, item];
+    } else if (d.oldNames?.includes(catalog[at].customName)) {
+      catalog = catalog.map((c, i) => (i === at ? { ...c, customName: d.name } : c));
     }
-    if (!sources.some((s) => s.id === d.id)) sources.push({ id: d.id, bank: d.bank, kind: d.kind, rates: { ...d.rates }, ...(d.elig ? { elig: d.elig } : {}) });
+    const si = sources.findIndex((s) => s.id === id);
+    if (si < 0) sources.push({ id, bank: d.bank, kind: d.kind, rates: { ...d.rates } });
+    else sources = sources.map((s, i) => (i === si ? freshen(d, s)! : s));
   }
   const structure: Structure = { ...state.structure, catalog };
   return { ...state, structure, imports: { ...book, sources } };
@@ -69,8 +106,34 @@ const CITIES = new Set(["miami", "kendall", "hialeah", "doral", "homestead", "pi
 const PREFIX = /^(?:paypal\s*\*|pp\s*\*|sq\s*\*|tst\s*\*|sp\s*\*|sp\s+|dd\s*\*|py\s*\*|ckc\s*\*|toast\s*\*|in\s*\*|par\s*\*|clover\s*\*|pos\s+|debit card purchase\s+|purchase\s+|card purchase( with pin)?\s+|recurring( card)? purchase\s+|checkcard\s+|\d{4}\s+)/i;
 
 /** "SQ *CAFE CRUZ #12 MIAMI FL" → "cafe cruz". Store numbers, processor prefixes, city and state go. */
-export function merchantKey(raw: string): string {
+/**
+ * Bank wording around the name (checking statements, PDFs): "Payment Sent 01/04 Rmtly* A1B2C Remitly.Com WA Card 0001",
+ * "Zelle Payment To Ana Ruiz Abcd12Ef34", "10/04 Payment To Chase Card Ending IN 1234". Generic, no names of anyone.
+ */
+export function tidyDesc(raw: string): string {
   let s = ` ${raw ?? ""} `.replace(/\s+/g, " ").trim();
+  s = s.replace(/^\d{2}\/\d{2}\s+(?=\D)/, "");
+  s = s.replace(/^(payment sent|purchase authorized on|recurring payment authorized on|card purchase(?: with pin)?|atm withdrawal authorized on)\s+\d{2}\/\d{2}\s+/i, "");
+  if (/paypal\s*\*.*visa direct/i.test(s)) return "PayPal Visa Direct";
+  const rt = s.match(/^real time transfer.*\bfrom:\s*(\S+)/i);
+  if (rt) return `Real Time Transfer ${rt[1]}`;
+  const z = s.match(/^zelle (?:payment )?(to|from)\s+(.+?)(?:\s+\(\d+\))?(?:\s+(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{8,})?$/i);
+  if (z) return `Zelle ${z[1].toLowerCase()} ${z[2]}`.trim();
+  s = s.replace(/\s+card\s+\d{4}$/i, "").replace(/\s+(?:ref|trn|bref|info):.*$/i, "");
+  return s;
+}
+
+/** Legal names → the store people know (public brands only). */
+const ALIAS: [RegExp, string][] = [
+  [/^whaleco( commerce)?\b/, "temu"],
+  [/^metaplatfor\w*|^meta platforms?\b/, "meta platforms"],
+  [/^rmtly\b.*|^remitly\b.*/, "remitly"],
+  [/^amzn mktp\b.*|^amazon (mktpl|marketplace|mktplace)\b.*|^amazon com\b.*/, "amazon"],
+  [/^hp instant ?ink\b.*|^instantink\b.*/, "hp instant ink"],
+];
+
+export function merchantKey(raw: string): string {
+  let s = tidyDesc(raw);
   for (let i = 0; i < 3; i++) s = s.replace(PREFIX, "").trim();
   s = s.split(/\s+-\s+|\s{2,}/)[0];
   // "AMAZON MKTPL*2X3Y4" → "AMAZON MKTPL"; "UBER *EATS" keeps EATS (no digits after the star).
@@ -80,7 +143,9 @@ export function merchantKey(raw: string): string {
   s = s.replace(/\b(ppd|web|ccd|tel)\s+id:?\s*\S+/gi, " ").replace(/\b(direct debit|direct dep|ach (debit|credit)|pymt|pmt|debit card|recurring|purchase|pos)\b/gi, " ");
   s = s.replace(/\b(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\d{10,})\b/g, " ");
   // A store number ends the name: the city follows it.
-  const num = s.search(/(#\s*\d+|\bstore\s+\d+|\b\d{3,}\b)/i);
+  const lead = s.match(/^\d{1,4}\s+(?=[a-z])/i)?.[0] ?? "";
+  if (lead) s = s.slice(lead.length);
+  const num = s.search(/(#\s*\d+|\bstore\s+\d+|\b\d{3,}\b|\b[a-z]{1,2}\d{3,}[a-z0-9]*\b)/i);
   let cityCut = false;
   if (num > 2) { s = s.slice(0, num); cityCut = true; }
   let words = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9&' ]/g, " ").split(/\s+/).filter(Boolean);
@@ -91,13 +156,17 @@ export function merchantKey(raw: string): string {
     else if (words.length > 1 && CITIES.has(words[words.length - 1])) words.pop();
     else if (words.length > 2) words.pop();
   }
-  words = words.filter((w) => !/^\d+$/.test(w) && w !== "inc" && w !== "llc");
-  return words.slice(0, 4).join(" ").trim();
+  words = words.filter((w) => !/^\d+$/.test(w) && !/^(inc|llc|corp|corporation|co|ltd)$/.test(w));
+  let key = [...(lead ? [lead.trim()] : []), ...words].slice(0, 4).join(" ").trim();
+  for (const [re, to] of ALIAS) if (re.test(key)) { key = to; break; }
+  return key;
 }
 
 export function merchantLabel(raw: string): string {
   const key = merchantKey(raw);
-  if (!key) return (raw ?? "").trim().slice(0, 40);
+  const z = key.match(/^zelle (to|from) (.+)$/);
+  if (z) return `Zelle ${z[1] === "to" ? "→" : "←"} ${merchantLabel(z[2])}`;
+  if (!key) return tidyDesc(raw).slice(0, 40);
   // Short words without vowels are initials (CVS, FPL, BP); everything else is Title Case.
   return key.replace(/\b([a-z])([a-z']*)/g, (w: string, a: string, b: string) => (w.length <= 4 && !/[aeiouy]/.test(w) ? w.toUpperCase() : a.toUpperCase() + b)).replace(/\bAt&t\b/i, "AT&T");
 }
@@ -129,6 +198,7 @@ export const CHASE_CATEGORIES: Record<string, { rc: RewardClass; want: string[];
   shopping: { rc: "other", want: ["otros", "other"], purchase: true },
   entertainment: { rc: "other", want: ["entretenimiento", "eventos", "entertainment", "tv"] },
   travel: { rc: "other", want: ["viajes", "travel", "hotel"] },
+  "chase travel": { rc: "travel", want: ["viajes", "travel", "hotel"] },
   "bills & utilities": { rc: "other", want: ["servicios", "utilities", "internet", "celular"] },
   automotive: { rc: "gas", want: ["mantenimiento", "transporte", "transport"] },
   personal: { rc: "other", want: ["personales", "personal", "belleza"] },
@@ -141,14 +211,48 @@ export const CHASE_CATEGORIES: Record<string, { rc: RewardClass; want: string[];
 
 /** Merchant words that say what a store is, for files without a category column. */
 const WORD_CLASS: [RegExp, RewardClass, string][] = [
+  [/\bchase travel\b/, "travel", "travel"],
   [/\b(cvs|walgreens|pharmacy|farmacia|drug|rite aid)\b/, "drug", "health & wellness"],
   [/\b(publix|winn dixie|aldi|sedano|presidente|bravo|fresco|whole foods|trader joe|costco|sams club|bj'?s|walmart neighborhood|grocery|market|supermarket|navarro)\b/, "grocery", "groceries"],
   [/\b(shell|chevron|exxon|mobil|marathon|sunoco|bp|racetrac|wawa|citgo|speedway|gas station|valero)\b/, "gas", "gas"],
-  [/\b(restaurant|cafe|coffee|starbucks|dunkin|mcdonald|burger|pizza|taco|chipotle|subway|wendy|kfc|chick fil a|carreta|versailles|pollo|grill|bakery|panaderia|doordash|uber eats|grubhub|bar)\b/, "dining", "food & drink"],
+  [/\b(restaurant|cafe|coffee|starbucks|dunkin|mcdonald|burger|pizza|taco|chipotle|subway|wendy|kfc|chick fil a|carreta|versailles|pollo|grill|bakery|panaderia|doordash|uber eats|grubhub|bar)\b|\brestaur\w*/, "dining", "food & drink"],
+];
+/**
+ * Kinds of spending a store name gives away, matched to the user's own category names (public brands and plain words only).
+ * Checked before the reward words above; the reward class stays "other" unless the card pays more for it.
+ */
+export const KIND_SPECS: Record<string, { rc: RewardClass; want: string[]; purchase?: boolean; fixed?: boolean }> = {
+  snacks: { rc: "other", want: ["bebidas / dulces", "dulces", "snacks", "cafe"] },
+  tolls: { rc: "other", want: ["peajes", "tolls", "estacionamiento", "parking", "transporte"] },
+  ai: { rc: "other", want: ["inteligencia artificial", "artificial intelligence", "ia", "ai"], purchase: true },
+  phone: { rc: "other", want: ["celular", "mobile", "telefono"] },
+  internet: { rc: "other", want: ["internet"] },
+  remit: { rc: "other", want: ["envios", "remesas", "remittances"] },
+  life: { rc: "other", want: ["vida", "life"] },
+  retire: { rc: "other", want: ["retiro", "retirement"] },
+  cardint: { rc: "other", want: ["tarjetas", "cards", "creditos"] },
+  fees: { rc: "other", want: ["otros", "other"] },
+  stores: { rc: "other", want: ["otros", "other"], purchase: true },
+  legal: { rc: "other", want: ["otros", "other"] },
+};
+const KIND_WORDS: [RegExp, string][] = [
+  [/^365 market\b|\bvending\b|\bcanteen\b/, "snacks"],
+  [/\b(sunpass|e ?zpass|epass|toll|peaje)\b/, "tolls"],
+  [/\b(grok|openai|chatgpt|anthropic|claude|gemini|midjourney)\b/, "ai"],
+  [/\b(metro by t mobile|t mobile|metropcs|cricket|boost mobile|verizon|at&t|tracfone)\b/, "phone"],
+  [/\b(xfinity|comcast|spectrum|hotwire)\b/, "internet"],
+  [/\b(remitly|western union|moneygram|xoom|ria money|wise)\b/, "remit"],
+  [/\b(life ins|insurance prem|ins prem|primerica life)\b/, "life"],
+  [/\b(primerica|fidelity|vanguard|schwab|roth ira|ira contrib)/, "retire"],
+  [/^(interest charge|purchase interest|intereses de tarjeta|card interest)\b/, "cardint"],
+  [/\b(fee|comision|comisión)\b/, "fees"],
+  [/\b(temu|aliexpress|amazon|shein|ebay|tiktok shop|walmart com|etsy)\b/, "stores"],
+  [/\b(ticketclinic|legalsvcs|law office)\b/, "legal"],
 ];
 export function guessClass(key: string, chaseCategory?: string): { rc: RewardClass; chase?: string } {
   const c = fold(chaseCategory ?? "").trim();
   if (c && CHASE_CATEGORIES[c]) return { rc: CHASE_CATEGORIES[c].rc, chase: c };
+  for (const [re, spec] of KIND_WORDS) if (re.test(key)) return { rc: KIND_SPECS[spec].rc, chase: spec };
   for (const [re, rc, chase] of WORD_CLASS) if (re.test(key)) return { rc, chase };
   return { rc: "other" };
 }
@@ -178,7 +282,7 @@ export function targets(structure: Structure, names: Namer): Target[] {
 
 /** A first suggestion from Chase's category (or the merchant's words), matched to the user's own category names. */
 export function suggestTarget(list: Target[], chase: string | undefined): string {
-  const spec = chase ? CHASE_CATEGORIES[chase] : undefined;
+  const spec = chase ? CHASE_CATEGORIES[chase] ?? KIND_SPECS[chase] : undefined;
   if (!spec) return "";
   const pool = spec.purchase ? list.filter((t) => t.value.startsWith("purchase|")) : list.filter((t) => !t.value.startsWith("purchase|"));
   // Exact names first (all of them, in order), then names that contain a wanted word.
@@ -258,11 +362,12 @@ export function rewardsMonth(state: LedgerState, key: string, display: Currency,
 }
 
 export const RC_LABEL: Record<RewardClass, [string, string]> = {
+  travel: ["Viajes Chase", "Chase Travel"],
   dining: ["comida fuera", "dining"],
   grocery: ["despensa", "groceries"],
   drug: ["farmacia", "drugstore"],
   gas: ["gasolina", "gas"],
-  online: ["en línea", "online"],
+  online: ["pago con PayPal", "PayPal checkout"],
   other: ["lo demás", "everything else"],
 };
 export const rcLabel = (rc: string, lang: string) => (RC_LABEL[rc as RewardClass] ?? RC_LABEL.other)[lang === "en" ? 1 : 0];

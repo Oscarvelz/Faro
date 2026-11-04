@@ -23,7 +23,8 @@ export default function BankSettings() {
   if (!session) return null;
   const state = session.ledger;
   const accts = accounts(state);
-  const cards = accts.filter((a) => a.kind !== "checking");
+  // Only cards earn rewards (the PayPal wallet and savings earn none of their own).
+  const cards = accts.filter((a) => a.kind === "card");
   const book = importBook(state);
   const list = targets(state.structure, names);
   const vaults = state.structure.categories.filter((c) => c.role === "savings").flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))).map((s) => ({ value: s.id, label: s.customName || names.sub(s.id) })));
@@ -42,7 +43,8 @@ export default function BankSettings() {
             {cards.map((a) => {
               const own = a.rates[rc];
               const shown = typeof own === "number" ? own : a.rates.other;
-              const applies = rc !== "online" || a.kind === "paypal";
+              // "Pago con PayPal" is the PayPal card's own category; Chase Travel is Chase's.
+              const applies = rc === "online" ? a.bank === "paypal" : rc === "travel" ? a.bank === "chase" : true;
               return applies ? (
                 <label key={a.id} className={`bk-pct${typeof own === "number" ? "" : " is-inherit"}`}>
                   <input className="field num" inputMode="decimal" defaultValue={pctText(shown)} key={`${a.id}-${rc}-${shown}`} aria-label={`${a.name} · ${rcLabel(rc, lang)}`}
@@ -53,20 +55,8 @@ export default function BankSettings() {
             })}
           </div>
         ))}
-        {paypal ? (
-          <div className="bk-rate-row">
-            <span className="bk-rate-label lab-head">{L(lang, "Elegibles", "Eligible")}<Hint topic="imp-elegible" /></span>
-            {cards.map((a) => a.kind === "paypal" ? (
-              <label key={a.id} className="bk-pct">
-                <input className="field num" inputMode="decimal" defaultValue={pctText(a.elig ?? 0)} key={`${a.id}-elig-${a.elig}`} aria-label={`${a.name} · ${L(lang, "elegibles", "eligible")}`}
-                  onBlur={(e) => { const v = readPct(e.target.value); if (v === null || v === (a.elig ?? 0)) { e.target.value = pctText(a.elig ?? 0); return; } setSource(a.id, (s) => ({ ...s, elig: v }), `PayPal ${v / 100}%`); }} />
-                <i aria-hidden>%</i>
-              </label>
-            ) : <span key={a.id} className="bk-na" aria-hidden>—</span>)}
-          </div>
-        ) : null}
       </div>
-      <button type="button" className="btn secondary bk-reset" onClick={() => confirm({ title: L(lang, "Restaurar tasas", "Restore rates"), body: L(lang, "Vuelve a las tasas de fábrica de cada tarjeta.", "Goes back to each card's factory rates."), yes: L(lang, "Restaurar", "Restore"), run: () => { commit((s) => withBook(s, (b) => ({ ...b, sources: b.sources.map((x) => { const d = DEFAULT_SOURCES.find((y) => y.id === x.id); return d ? { ...x, rates: { ...d.rates }, ...(d.elig ? { elig: d.elig } : {}) } : x; }) })), L(lang, "Tasas de fábrica", "Factory rates")); bump((n) => n + 1); } })}>
+      <button type="button" className="btn secondary bk-reset" onClick={() => confirm({ title: L(lang, "Restaurar tasas", "Restore rates"), body: L(lang, "Vuelve a las tasas de fábrica de cada tarjeta.", "Goes back to each card's factory rates."), yes: L(lang, "Restaurar", "Restore"), run: () => { commit((s) => withBook(s, (b) => ({ ...b, sources: b.sources.map((x) => { const d = DEFAULT_SOURCES.find((y) => y.id === x.id || y.legacy === x.id); if (!d) return x; const n = { ...x, rates: { ...d.rates } }; delete n.elig; return n; }) })), L(lang, "Tasas de fábrica", "Factory rates")); bump((n) => n + 1); } })}>
         <RotateCcw aria-hidden />{L(lang, "Restaurar tasas", "Restore rates")}
       </button>
 
@@ -85,12 +75,6 @@ export default function BankSettings() {
               <span className="bk-rule-name">{r.label}</span>
               <div className="bk-rule-edit">
                 <button type="button" className="imp-chip is-rule bk-rule-chip" onClick={() => setEdit(r.key)}><span>{chipLabel(list.find((t) => t.value === r.target), lang)}</span></button>
-                {paypal ? (
-                  <label className={`bk-elig${r.elig ? " is-on" : ""}`} title={L(lang, "Compra elegible en PayPal", "Eligible PayPal purchase")}>
-                    <input type="checkbox" checked={!!r.elig} onChange={(e) => commit((s) => withBook(s, (b) => ({ ...b, rules: b.rules.map((x) => (x.key === r.key ? { ...x, elig: e.target.checked } : x)) })), r.label)} />
-                    <span>{pctText(paypal.elig ?? 500)}%</span>
-                  </label>
-                ) : null}
                 <button type="button" className="icon-btn line-act is-danger" aria-label={L(lang, `Borrar regla ${r.label}`, `Delete rule ${r.label}`)} onClick={() => confirm({ title: L(lang, "Borrar regla", "Delete rule"), body: r.label, danger: true, yes: L(lang, "Borrar", "Delete"), run: () => commit((s) => withBook(s, (b) => ({ ...b, rules: b.rules.filter((x) => x.key !== r.key) })), r.label) })}><Trash2 className="size-4" /></button>
               </div>
             </li>
