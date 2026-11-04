@@ -1,7 +1,10 @@
 // 1.3.88 "forgotten areas" finish: one shared look for loose notes, empty states and the activity log.
 import "./finish.css";
+import { mountTronFloor } from "./tron-floor";
 import type { ReactNode } from "react";
 import { CalendarClock, Hourglass, Inbox, Lightbulb, PenLine, type LucideIcon } from "lucide-react";
+
+mountTronFloor();
 
 export type NoteKind = "empty" | "tip" | "wait" | "date" | "pen";
 const ICON: Record<NoteKind, LucideIcon> = { empty: Inbox, tip: Lightbulb, wait: Hourglass, date: CalendarClock, pen: PenLine };

@@ -17,7 +17,7 @@ import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, mont
 import { blankSession, commit as commitSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { isPureSample, stripSample, withAugustSample } from "@/lib/faro/sample";
-import { sampleOn } from "@/lib/faro/samplemode";
+import { sampleOn, takeSwitchRemount } from "@/lib/faro/samplemode";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
 import "@/lib/manual/back";
@@ -247,6 +247,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   // Awake log / dismissals belong to the mode this provider mounted in (sample keys are namespaced;
   // this also stops a timer from one mode writing after the switch, before the tree remounts).
   const wakeMode = useRef(sampleOn());
+  const wakeQuiet = useRef<boolean | null>(null); // first wake after a mode switch is not logged
+  if (wakeQuiet.current === null) wakeQuiet.current = takeSwitchRemount();
   const dayRef = useRef("");
   const [confirmState, setConfirm] = useState<ConfirmOpts | null>(null);
   const [depth, setDepth] = useState(1);
@@ -698,7 +700,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         wakeBase.current = { ledger: now.ledger, advice: advicePrints(now.advice), goals, key: now.key };
         setWakeView(result);
         if (result.stalePlan) setPlanStale(true);
-        if (result.log.event !== "sin-cambio") {
+        const quiet = wakeQuiet.current;
+        wakeQuiet.current = false;
+        if (result.log.event !== "sin-cambio" && !quiet) {
           setWakeLog((prev) => {
             const next = [result.log, ...prev].slice(0, 40);
             try { if (sampleOn() === wakeMode.current) localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }

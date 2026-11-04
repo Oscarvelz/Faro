@@ -1,0 +1,26 @@
+/* 1.3.88 Tron Grid floor, compositor-only. The old body::after animated background-position, which repainted
+   the whole masked, perspective layer every frame (~2.5 fps at 1970x1200 headless). Now a static, masked,
+   perspective frame (.tron-floor) holds a pre-rendered, oversized grid (<i>) that only translates. Same look:
+   same 44px grid, same phase (child starts 44px above the frame), same 5s per tile. */
+html[data-theme="tron"] body::after { content: none !important; animation: none !important; }
+.tron-floor { display: none; }
+html[data-theme="tron"] .tron-floor {
+  display: block; position: fixed; left: 0; right: 0; bottom: 0; height: 62vh; z-index: -1; pointer-events: none;
+  overflow: hidden; contain: strict;
+  transform: perspective(320px) rotateX(62deg); transform-origin: 50% 0;
+  -webkit-mask: linear-gradient(180deg, transparent 0%, #000 45%);
+          mask: linear-gradient(180deg, transparent 0%, #000 45%);
+  opacity: .55;
+}
+.tron-floor > i {
+  position: absolute; left: 0; right: 0; top: -44px; bottom: 0; display: block;
+  background-image:
+    linear-gradient(rgba(63, 214, 245, .34) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, rgba(63, 214, 245, .34) 1.5px, transparent 1.5px);
+  background-size: 44px 44px; background-position: center top;
+  will-change: transform; backface-visibility: hidden;
+}
+html[data-theme="tron"] .tron-floor > i { animation: tron-floor-run 5s linear infinite; }
+@keyframes tron-floor-run { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 44px, 0); } }
+html[data-hidden] .tron-floor > i { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) { .tron-floor > i { animation: none !important; } }

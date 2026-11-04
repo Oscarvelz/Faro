@@ -35,6 +35,15 @@ export function sampleOn(): boolean {
   return on;
 }
 
+let remountFromSwitch = false;
+/** True once for the first reader after an in-place mode switch (the remount is not an app open,
+ * so per-mode logs such as faro-awake-log skip that wake instead of recording an "opened" event). */
+export function takeSwitchRemount(): boolean {
+  const v = remountFromSwitch;
+  remountFromSwitch = false;
+  return v;
+}
+
 const mapKey = (k: string) => (on && isDataKey(String(k)) ? SAMPLE_PREFIX + String(k) : String(k));
 
 /** Patch storage, IndexedDB and fetch once, before anything reads data. */
@@ -88,6 +97,7 @@ export function setSampleMode(next: boolean) {
   if (next === on || !raw) return; // never flip without the storage guard in place
   try { raw?.set(SAMPLE_FLAG, next ? "1" : "0"); } catch { /* ignore */ }
   on = next;
+  remountFromSwitch = true;
   window.dispatchEvent(new Event(SAMPLE_EVENT));
 }
 
@@ -95,6 +105,7 @@ export function setSampleMode(next: boolean) {
 export async function resetSample() {
   if (!on) return;
   await clearSampleStore();
+  remountFromSwitch = true;
   window.dispatchEvent(new Event(SAMPLE_EVENT));
 }
 
