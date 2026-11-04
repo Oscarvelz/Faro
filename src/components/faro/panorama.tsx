@@ -182,7 +182,7 @@ export function PulseCard({ coach }: { coach: Coach }) {
           <em>{chosen ? `${Math.round(chosen.pct)}%` : coach.income > 0 ? `${Math.round((Math.abs(coach.left) / coach.income) * 100)}% ${lang === "en" ? "of income" : "del ingreso"}` : ""}</em>
         </div>
       </div>
-      <p className="pano-lead">{coach.verdict} {coach.verdictSub}</p>
+      {coach.income > 0 ? <p className="pano-lead">{coach.verdict} {coach.verdictSub}</p> : <Note kind="pen">{coach.verdict} {coach.verdictSub}</Note>}
       <div className="pano-chips">
         {coach.buckets.map((b) => (
           <button key={b.id} type="button" aria-pressed={pick === b.id} disabled={b.minor <= 0} onClick={() => setPick((cur) => (cur === b.id ? null : b.id))}>
