@@ -85,3 +85,10 @@
 - Me deben | Debo pills: one-shot scan + ring fx on tap and swipe.
 - Tron Debo amber calmer: dark Guardar and + with amber ring, neutral chips with faint amber border, dimmer labels, 1px focus with soft glow, amounts #f0b955.
 - Tests: bk-cobros.mjs (new, 14 checks incl. every push inside a user tap), cb-fx.mjs (new), bk-back, mn-regress, npm test.
+
+## 1.3.75 (2026-11-04)
+- Cuotas add form: "Sitio o servicio" chips now carry small brand marks and a gear beside the label opens a compact inline editor: rename, reorder (↑/↓), remove (red X), add from the pool (dashed chips), or add your own with an optional icon (shrinkIcon, 64px, ~1KB). Cancelar/Guardar equal width. Chips stay one row that scrolls sideways.
+- Persistence: `ledger.subPresets?: SubPreset[]` (types.ts; {id, name?, icon?}); missing = defaults YouTube/Netflix/Prime Video/Internet, so old ledgers load unchanged; syncs and backs up with the ledger.
+- Marks: src/lib/faro/subs.ts (SUB_POOL, 18 entries: Netflix, YouTube, YouTube Music, Prime Video, Spotify, Disney+, Max, Apple TV+, Apple Music, iCloud, Google One, ChatGPT, Paramount+, Xbox, PlayStation, Internet, Teléfono, Gimnasio) + SubMark in icons.tsx (brand-colour plate with monogram or tiny path; "data:" = own icon). Glyph handles "sub:" names. Saved Cuota gets Line.icon "sub:<id>" or "sub:data:..."; old rows with ↻ whose name matches a preset/pool brand show the mark. Editor: components/faro/sub-presets.tsx. Added weight ≈4.1KB gzip total (marks ~2KB source).
+- Manual: f-cuota-nombre updated, new f-cuota-atajos (ES+EN).
+- Tests: browser-test/sp-presets.mjs (new; SHOTS=1 shoots Tron/Claro 360/412/360r20 to faro-review/shots-1375), bk-cobros, mn-regress, npm test, tsc (5 known). Self-checked, no independent review.

@@ -1,4 +1,5 @@
 import type { Currency, Lang } from "./types";
+import { intervalOf, monthlyFactor, stepDate } from "./cadence.ts";
 
 export const BCN_RATE_E4 = 366243;
 export const BCN_AS_OF = "2026-10-12";
@@ -229,7 +230,8 @@ export function monthlyEquivalent(amountMinor: number, cadence: string): number 
   if (cadence === "weekly") return roundHalfAway((amountMinor * 52) / 12);
   if (cadence === "biweekly") return roundHalfAway((amountMinor * 365) / (15 * 12));
   if (cadence === "yearly") return roundHalfAway(amountMinor / 12);
-  return amountMinor;
+  if (!cadence || cadence === "monthly" || !intervalOf(cadence)) return amountMinor;
+  return roundHalfAway(amountMinor * monthlyFactor(cadence));
 }
 
 function isoDate(year: number, month: number, day: number): string {
@@ -256,6 +258,7 @@ export function payDates(start: string, cadence: string, until?: string): string
     dates.push(cursor);
     if (cadence === "weekly") cursor = addDays(cursor, 7);
     else if (cadence === "biweekly") cursor = addDays(cursor, 15);
+    else if (cadence !== "monthly" && cadence !== "yearly" && intervalOf(cadence)) cursor = stepDate(cursor, cadence, anchor);
     else if (cadence === "yearly") cursor = isoDate(Number(cursor.slice(0, 4)) + 1, Number(cursor.slice(5, 7)), anchor);
     else cursor = isoDate(Number(cursor.slice(0, 4)) + (Number(cursor.slice(5, 7)) === 12 ? 1 : 0), Number(cursor.slice(5, 7)) === 12 ? 1 : Number(cursor.slice(5, 7)) + 1, anchor);
   }

@@ -1,4 +1,5 @@
 import { FieldTip } from "./ui";
+import { cadenceLabel } from "@/lib/faro/cadence";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
@@ -480,6 +481,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
                   { value: "biweekly", label: t("biweekly") },
                   { value: "monthly", label: t("monthly") },
                   { value: "yearly", label: t("yearly") },
+                  ...(cadence && !["weekly", "biweekly", "monthly", "yearly"].includes(cadence) ? [{ value: cadence, label: cadenceLabel(cadence, lang) }] : []),
                 ]}
               />
             </label>
@@ -545,6 +547,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
                 { value: "biweekly", label: t("biweekly") },
                 { value: "monthly", label: t("monthly") },
                 { value: "yearly", label: t("yearly") },
+                  ...(cadence && !["weekly", "biweekly", "monthly", "yearly"].includes(cadence) ? [{ value: cadence, label: cadenceLabel(cadence, lang) }] : []),
               ]}
             />
           </label>

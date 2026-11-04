@@ -16,7 +16,8 @@ import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
 import { PALETTE, SAVINGS_PURPLE, baseFor, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
 import { shrinkIcon } from "@/lib/faro/icon";
 import { iconForName, presetName, subPresetsOf } from "@/lib/faro/subs";
-import { PresetMark, SubPresetEditor } from "./sub-presets";
+import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
+import { cadenceLabel, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import type { Category, Currency, Line, LineKind, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
@@ -1147,10 +1148,12 @@ function DueOwe() {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState(todayIso());
-  const [cadence, setCadence] = useState<"weekly" | "biweekly" | "monthly" | "yearly">("monthly");
+  const [cadence, setCadence] = useState<Line["cadence"]>("monthly");
   const [fileOpen, setFileOpen] = useState(false);
   const [editPresets, setEditPresets] = useState(false);
   const presets = subPresetsOf(session?.ledger);
+  const [editFreq, setEditFreq] = useState(false);
+  const freqs = freqPresetsOf(session?.ledger);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
   useEffect(() => {
     const onOpen = (e: Event) => { if ((e as CustomEvent<string>).detail === "cobros-out-file") setFileOpen(true); };
@@ -1238,13 +1241,14 @@ function DueOwe() {
               <span className="lab-head">{t("cobro.owe.next")}<FieldTip topic="f-cuota-proximo" /></span>
               <DayField value={due} onChange={setDue} />
             </div>
-            <div className="label is-wide">
-              <span className="lab-head">{t("cobro.cadence")}<FieldTip topic="f-frecuencia" /></span>
+            <div className="label is-wide due-freq">
+              <span className="lab-head">{t("cobro.cadence")}<button type="button" className="sub-gear is-freq" aria-pressed={editFreq} aria-label={lang === "en" ? "Edit frequencies" : "Editar frecuencias"} onClick={() => setEditFreq((on) => !on)}><Gear /></button><FieldTip topic="f-frecuencia" /></span>
               <div className="due-cadence">
-                {(["weekly", "biweekly", "monthly", "yearly"] as const).map((id) => (
-                  <button key={id} type="button" aria-pressed={cadence === id} onClick={() => setCadence(id)}>{t(id)}</button>
+                {freqs.map((id) => (
+                  <button key={id} type="button" aria-pressed={cadence === id} onClick={() => setCadence(id as Line["cadence"])}>{cadenceLabel(id, lang)}</button>
                 ))}
               </div>
+              {editFreq ? <FreqPresetEditor lang={lang} presets={freqs} onClose={() => setEditFreq(false)} onSave={(next) => { commit((s) => ({ ...s, freqPresets: next }), lang === "en" ? "Frequencies" : "Frecuencias"); if (!next.includes(cadence)) setCadence(next.includes("monthly") ? "monthly" : (next[0] as Line["cadence"])); }} /> : null}
             </div>
           </div>
           <div className="cobro-actions">
@@ -1259,7 +1263,7 @@ function DueOwe() {
             <i className="spend-mark" aria-hidden><Glyph name={line.icon === "RefreshCw" || !line.icon ? iconForName(line.concept, presets, lang) || lineGlyph(line, session?.ledger.structure) : lineGlyph(line, session?.ledger.structure)} /></i>
             <div className="min-w-0">
               <strong>{line.concept}</strong>
-              <p>{line.cadence ? t(line.cadence) : t("cobro.owe")}</p>
+              <p data-test="due-when">{line.cadence ? `${cadenceLabel(line.cadence, lang) || t(line.cadence)}${line.nextDue ? ` · ${new Date(`${nextDueFrom(line.nextDue, line.cadence, today)}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}` : ""}` : t("cobro.owe")}</p>
             </div>
             <strong className="num">{fmt(convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0))}</strong>
             <button type="button" className="due-drop" aria-label={t("cobro.archive")} onClick={() => confirm({ title: t("cobro.archive"), body: t("cobro.owe.file.body"), yes: t("cobro.archive"), run: () => archive(line) })}><Trash2 /></button>

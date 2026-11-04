@@ -11,3 +11,6 @@ See RELEASES.md for per-release notes. Key learnings by version:
 - 1.3.24: health-score "?" (ScoreHelp); Cambio redesign + CalcPanel (instruments.tsx/.css).
 - 1.3.25: Faro brand on Cambio sheet; exchange settings (faro-cv-prefs).
 - 1.3.26: Tron currency coin amber.
+
+## 1.3.65 (Nov 3, 2026)
+Asesor large-screen layout; pinch-zoom only in Estudio and Asesor; Tasa on tablet opens Cambio in the left panel; Guardados slips add or subtract into a category; Personas box (people.ts, people.tsx; ledger people[], line personId; gifts count toward the nearest birthday). Tests: pp-a, pp-b, as-pinch, cb-pinchpp, cb2-probe. Open: Tron amber on the score dial and credit gauge; hero receipt and coach step frames.

@@ -1,4 +1,5 @@
-import { uid } from "./money";
+import { uid } from "./money.ts";
+import { FREQ_DEFAULT, nextDueFrom } from "./cadence.ts";
 import type { LedgerState, Line } from "./types";
 
 export type Session = {
@@ -78,7 +79,14 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
   const additions = src
     .filter((l) => (l.recurring || l.kind === "subscription") && l.active)
     .filter((l) => !have.has(l.seriesId || l.id))
-    .map((l) => ({ ...l, id: uid(), monthKey: to }));
+    .flatMap((l) => {
+      // 1.3.76 intervals ("3m", "1d"…): carry only into a month the rhythm falls in, dated on that payment. Old words keep the old copy.
+      const from0 = l.nextDue || l.bookedOn;
+      if (!l.cadence || FREQ_DEFAULT.includes(l.cadence) || !from0) return [{ ...l, id: uid(), monthKey: to }];
+      const due = nextDueFrom(from0, l.cadence, `${to}-01`);
+      if (due.slice(0, 7) !== to) return [];
+      return [{ ...l, id: uid(), monthKey: to, nextDue: due, bookedOn: due }];
+    });
   if (!additions.length) return { state, count: 0 };
   return {
     count: additions.length,

@@ -9,7 +9,8 @@ export type LineKind =
   | "expense-variable"
   | "purchase"
   | "subscription";
-export type Cadence = "weekly" | "biweekly" | "monthly" | "yearly" | "";
+/** Old words load unchanged; 1.3.76 adds any interval "<n><d|w|m|y>" (see cadence.ts). */
+export type Cadence = "weekly" | "biweekly" | "monthly" | "yearly" | "" | `${number}${"d" | "w" | "m" | "y"}`;
 /** "acct": a bank or card account that statements are imported from (bank-import, Nov 2026). */
 export type CatalogKind = "store" | "ai" | "sub" | "acct";
 export type TemplateId = "soltero" | "familia" | "estudiante" | "negocio";
@@ -206,6 +207,8 @@ export type LedgerState = {
   loans?: Loan[];
   /** Cuotas preset chips (Nov 2026, 1.3.75): pool ids, or own ones with a name and an optional data-URL icon. Missing in older ledgers (= defaults). */
   subPresets?: SubPreset[];
+  /** Cuotas frequency chips (1.3.76): cadence tokens in order. Missing in older ledgers (= the four defaults). */
+  freqPresets?: string[];
   revision: number;
   updatedAt: string;
 };

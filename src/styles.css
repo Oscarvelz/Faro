@@ -3041,3 +3041,25 @@ img.sub-mark.is-own { border-radius: 25%; object-fit: cover; }
 .sub-edit .cobro-actions { margin-top: 2px; }
 .due-card .spend-mark .sub-mark { width: 100%; height: 100%; max-width: 22px; max-height: 22px; border-radius: 6px; }
 .cobro-form .sub-edit .field { height: 36px; min-height: 0; padding-block: 0; font-size: .88rem; }
+
+/* 1.3.76 Cuotas: compact service chips (more at a glance), Frecuencia a touch lower, and its gear editor. */
+.cobro-form.is-owe .due-sites { gap: 4px; }
+.cobro-form.is-owe .due-sites button { min-height: 31px; height: 31px; gap: 4px; padding: 0 7px 0 5px; font-size: .82rem; font-weight: 600; letter-spacing: -.005em; border-radius: 9px; }
+.cobro-form.is-owe .due-sites .sub-chip-mark { width: 16px; height: 16px; border-radius: 4px; }
+.cobro-form.is-owe .due-freq { margin-top: 7px; }
+.cobro-form.is-owe .due-cadence button { font-size: .8rem; padding: 0 4px; letter-spacing: -.005em; }
+@container (max-width: 18em) { .cobro-form.is-owe .due-cadence button { font-size: .74rem; padding: 0 2px; } }
+.freq-edit .sub-edit-list li { grid-template-columns: minmax(0, 1fr) 30px 30px 30px; }
+.freq-edit-name { display: flex !important; width: 100% !important; justify-content: space-between; align-items: center; gap: 6px; padding: 0 10px !important; font: inherit; font-size: .86rem; color: var(--fg) !important; white-space: nowrap; }
+.freq-edit-name svg { width: 14px; height: 14px; opacity: .5; flex: none; }
+.freq-edit-name.is-swap { border-color: var(--cb-acc, var(--accent)) !important; border-style: dashed !important; }
+.freq-edit .sub-edit-pool button { padding: 0 10px; }
+.freq-edit-own { display: grid; grid-template-columns: auto minmax(0, 1fr) 34px; gap: 6px; align-items: center; font-size: .86rem; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.freq-edit-own .field { grid-column: 2 / 4; }
+.freq-edit-own .freq-edit-unit { grid-column: 1 / 3; }
+.cobro-form .freq-edit-own .field { height: 34px; min-height: 0; padding: 0 6px; text-align: center; font-size: .88rem; }
+.freq-edit-unit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; min-width: 0; }
+.freq-edit-unit button { min-width: 0; height: 34px; padding: 0 2px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--muted); font: inherit; font-size: .8rem; white-space: nowrap; }
+.freq-edit-unit button[aria-pressed="true"] { color: var(--fg); border-color: var(--cb-acc, var(--accent)); background: color-mix(in oklab, var(--cb-acc, var(--accent)) 12%, var(--surface)); }
+.freq-edit-own .sub-edit-add { width: 34px; height: 34px; }
+@container (max-width: 18em) { .freq-edit-unit button { font-size: .74rem; padding: 0 1px; } }

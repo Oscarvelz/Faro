@@ -2,9 +2,11 @@ import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
 import "./float.css";
 import "./tron.css";
+import "./cal.css";
 import { UserButton } from "@/lib/auth/gates";
 import { monthLines } from "@/lib/faro/engine";
 import { monthName } from "@/lib/faro/i18n";
+import { holidaysFor } from "@/lib/faro/holidays";
 import { convertMinor } from "@/lib/faro/money";
 import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId } from "@/lib/faro/types";
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
@@ -73,6 +75,7 @@ export function Shell() {
   const [calDay, setCalDay] = useState<number | null>(null);
   const calDrag = useRef({ x: 0, y: 0, moved: false });
   const calBody = useRef<HTMLDivElement>(null);
+  const calSky = useRef<HTMLDivElement>(null);
   const swipe = useRef<{ x: number; y: number } | null>(null);
   const swiped = useRef(false);
   const [slideDir, setSlideDir] = useState(1);
@@ -435,6 +438,32 @@ export function Shell() {
     return () => document.removeEventListener("pointerdown", close);
   }, [calOpen]);
 
+  // Amber shooting stars behind the calendar: one at a time, every ~4–9s, Tron and night themes only.
+  useEffect(() => {
+    if (!calOpen) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    let timer = 0;
+    const fire = () => {
+      timer = window.setTimeout(fire, 4000 + Math.random() * 5000);
+      const sky = calSky.current;
+      const theme = document.documentElement.dataset.theme as ThemeId | undefined;
+      if (!sky || document.hidden || !theme || !NIGHT_THEMES.includes(theme) || sky.firstChild) return;
+      const star = document.createElement("i");
+      star.className = "cal-star";
+      const w = sky.clientWidth, h = sky.clientHeight;
+      const angle = -(8 + Math.random() * 26) * (Math.random() < 0.5 ? 1 : -1);
+      const fromLeft = Math.random() < 0.5;
+      const len = 40 + Math.random() * 30;
+      const dist = w * (0.55 + Math.random() * 0.35);
+      star.style.cssText = `top:${(0.12 + Math.random() * 0.72) * h}px;left:${fromLeft ? -len : w}px;width:${len}px;--a:${fromLeft ? angle : 180 + angle}deg;--d:${dist}px`;
+      star.addEventListener("animationend", () => star.remove());
+      sky.appendChild(star);
+      window.setTimeout(() => star.remove(), 1200);
+    };
+    timer = window.setTimeout(fire, 1500 + Math.random() * 2500);
+    return () => window.clearTimeout(timer);
+  }, [calOpen]);
+
   useEffect(() => {
     if (!ui.highlight) return;
     const timer = window.setTimeout(() => {
@@ -584,6 +613,7 @@ export function Shell() {
   }, [ui.section, vault, moneyOpen, ready]);
 
   const cal = useMemo(() => buildCal(session, calYear, calMonth), [session, calYear, calMonth]);
+  const calHol = useMemo(() => new Map(holidaysFor(lang === "en" ? "en" : "es", calYear, calMonth).map((h) => [h.day, h])), [lang, calYear, calMonth]);
 
   useEffect(() => {
     if (ready && session) window.dispatchEvent(new Event("faro:shell-ready"));
@@ -854,6 +884,7 @@ export function Shell() {
                         });
                       }}
                     >
+                      <div className="cal-sky" ref={calSky} aria-hidden="true" />
                       <div className="cal-slide" ref={calBody}>
                         <button type="button" className={`cal-month${calYear === today.getFullYear() && calMonth === today.getMonth() + 1 ? "" : " is-away"}`} onClick={() => { const n = new Date(); setCalYear(n.getFullYear()); setCalMonth(n.getMonth() + 1); setCalDay(null); }}>
                           {monthName(lang, calMonth)} {calYear}
@@ -864,7 +895,7 @@ export function Shell() {
                         <div className="cal-days">
                           {Array.from({ length: cal.lead }, (_, i) => <span key={`e${i}`} />)}
                           {cal.cells.map((cell) => (
-                            <button key={cell.day} type="button" className={cell.day === calDay ? "is-pick" : cell.today ? "is-today" : undefined} onClick={() => setCalDay(cell.day)}>
+                            <button key={cell.day} type="button" className={[cell.day === calDay ? "is-pick" : cell.today ? "is-today" : "", calHol.get(cell.day) ? `is-hol is-${calHol.get(cell.day)!.kind}` : ""].join(" ").trim() || undefined} title={calHol.get(cell.day)?.name} onClick={() => setCalDay(cell.day)}>
                               <span>{cell.day}</span>
                               <span className="cal-dots">{cell.dots.map((tone) => <i key={tone} className={tone} />)}</span>
                             </button>
@@ -875,6 +906,7 @@ export function Shell() {
                           <span><em>{t("cal.out")}</em><strong className="num bad">{fmt(cal.expense)}</strong></span>
                           <span><em>{t("cal.net")}</em><strong className="num">{fmt(cal.income - cal.expense)}</strong></span>
                         </div>
+                        {calDay && calHol.get(calDay) ? <p className={`cal-hol is-${calHol.get(calDay)!.kind}`}>{calHol.get(calDay)!.name}</p> : null}
                         {calDay ? (
                           <div className="cal-pick">
                             <div className="cal-names">

@@ -1238,3 +1238,8 @@ html[data-theme="tron"] .save-band.sav-scope .save-more :is(.save-ledger-head .f
 [data-theme="tron"] .cobros.is-due .sub-edit-list button.is-drop { color: #ff6b6b; border-color: rgba(255, 107, 107, .4); }
 [data-theme="tron"] .cobros.is-due .sub-edit-pool button { border-radius: 4px; border-color: rgba(240, 185, 85, .25); color: #a9bcc2; }
 [data-theme="tron"] .cobros.is-due .sub-edit .field { border-radius: 4px; }
+/* 1.3.76 Frecuencia editor in Debo amber. */
+[data-theme="tron"] .cobros.is-due :is(.freq-edit-unit button, .freq-edit-name) { border-radius: 4px; border-color: rgba(240, 185, 85, .28); color: #c9d6da; background: transparent; }
+[data-theme="tron"] .cobros.is-due .freq-edit-unit button[aria-pressed="true"] { color: #fff; border-color: rgba(240, 185, 85, .75); background: rgba(240, 185, 85, .1); }
+[data-theme="tron"] .cobros.is-due .freq-edit-name.is-swap { border-color: rgba(240, 185, 85, .8) !important; }
+[data-theme="tron"] .cobros.is-due .cobro-form.is-owe .due-sites button { border-radius: 4px; }
