@@ -1,4 +1,5 @@
 import "./instruments.css";
+import { Note } from "./finish";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpDown, Calculator, Check, ListPlus, RotateCcw, SlidersHorizontal, ChevronDown, Delete, Maximize2, Minimize2, Pencil, Send, Trash2, X } from "lucide-react";
@@ -289,7 +290,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
             </button>
           </div>
         ) : null}
-        {slips.length === 0 ? <p className="mt-2 text-sm text-muted">{t("slips.empty")}</p> : (
+        {slips.length === 0 ? <Note>{t("slips.empty")}</Note> : (
           <div className={`slip-row${picking ? " is-picking" : ""}`}>
             {slips.map((slip) => picking ? (
               <label key={slip.id} className={`slip-item slip-choice${picked.has(slip.id) ? " is-picked" : ""}`}>

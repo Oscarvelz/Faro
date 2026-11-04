@@ -1,5 +1,6 @@
 // Estudio 2: the cards that replaced the overlapping charts (time, cushion, limits, key numbers).
 import "./study2.css";
+import { Note } from "./finish";
 import { useMemo, useState } from "react";
 import { useFaro } from "@/components/faro/provider";
 import { Head } from "@/components/faro/panorama";
@@ -50,15 +51,13 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
             <div><em>{L(lang, "Salió", "Out")}</em><strong className="num s2-out">{fmt(m(sel.expense))}</strong></div>
             <div><em>{L(lang, "Quedó", "Left")}</em><strong className={`num ${sel.net < 0 ? "s2-bad" : "s2-net"}`}>{fmt(m(sel.net))}</strong></div>
           </div>
-          <p className="s2-say">
-            {sel.income <= 0 && sel.expense <= 0
-              ? L(lang, "Nada anotado aquí todavía.", "Nothing recorded here yet.")
-              : sel.income <= 0
+          {sel.income <= 0 && sel.expense <= 0 ? <Note>{L(lang, "Nada anotado aquí todavía.", "Nothing recorded here yet.")}</Note> : <p className="s2-say">
+            {sel.income <= 0
                 ? L(lang, "Salió dinero sin que entrara nada en este periodo.", "Money went out with nothing coming in this period.")
                 : sel.net >= 0
                   ? L(lang, `De cada C$100 que entraron, te quedaron C$${pct}.`, `Of every 100 that came in, ${pct} stayed with you.`)
                   : L(lang, `Gastaste ${fmt(m(-sel.net))} más de lo que entró.`, `You spent ${fmt(m(-sel.net))} more than came in.`)}
-          </p>
+          </p>}
         </div>
       ) : null}
       <div className="s2-chart">
@@ -84,11 +83,11 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
         <span><i className="s2-out" />{L(lang, "Sale", "Out")}</span>
         <span><i className="s2-netkey" />{L(lang, "Queda", "Left")}</span>
       </div>
-      <p className="pano-lead">
+      <Note kind="tip">
         {word}: {L(lang, "entró", "in")} <strong className="num">{fmt(m(tIn))}</strong>, {L(lang, "salió", "out")} <strong className="num">{fmt(m(tOut))}</strong>
         {top && live > 1 ? L(lang, `. El ${unit} de más gasto: ${top.label} (${fmt(m(top.expense))}).`, `. Biggest-spending ${unit}: ${top.label} (${fmt(m(top.expense))}).`) : "."}
         {" "}{L(lang, "Toca una barra para verla.", "Tap a bar to see it.")}
-      </p>
+      </Note>
     </section>
   );
 }

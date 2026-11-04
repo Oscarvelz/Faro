@@ -1,4 +1,5 @@
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
+import { ActivityLog, Note } from "./finish";
 import { SampleRow } from "./sample-mode";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
 import { peopleOf } from "@/lib/faro/people";
@@ -903,7 +904,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
           <LineForm kind={draftKind} money={money} onMoney={setMoney} glyph={lookGlyph} swatch={lookColor} dock onClose={() => setUi({ draft: null })} />
         </div>
       ) : null}
-      {chipRows.length === 0 ? <p className="mt-3 text-muted">{t("empty.lines")}</p> : null}
+      {chipRows.length === 0 ? <Note>{t("empty.lines")}</Note> : null}
       {asBubble ? (
         <>
           <div className="spend-cloud">
@@ -1274,7 +1275,7 @@ function DueOwe() {
             <button type="button" className="due-drop" aria-label={t("cobro.archive")} onClick={() => confirm({ title: t("cobro.archive"), body: t("cobro.owe.file.body"), yes: t("cobro.archive"), run: () => archive(line) })}><Trash2 /></button>
           </div>
         </article>
-      )) : <p className="cobro-empty">{t("cobro.owe.empty")}</p>}
+      )) : <Note>{t("cobro.owe.empty")}</Note>}
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
         <div role="button" tabIndex={0} data-anchor="cobros-out-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
           <span className="lab-head">{t("cobro.file")}<Hint topic="archivo-cuotas" /></span>
@@ -1303,7 +1304,7 @@ function DueOwe() {
               },
             })}>{t("cobro.owe.move")}</button>
           </article>
-        )) : <p className="cobro-empty">{t("cobro.owe.file.empty")}</p>) : null}
+        )) : <Note>{t("cobro.owe.file.empty")}</Note>) : null}
       </div>
     </div>
   );
@@ -1491,7 +1492,7 @@ function Cobros({ onClose, jumped = false, ping = 0 }: { onClose: () => void; ju
             payLabel={t("cobro.bonus")} paying={bonusFor === row.id} onPaying={(on) => setBonusFor(on ? row.id : null)}
             onPay={(minor, date) => addBonus(row.id, minor, date)} archiveBody={t("cobro.archive.body")}
             onArchive={() => setRows((cur) => cur.map((item) => item.id === row.id ? { ...item, archived: true, archivedOn: todayIso(), unpaidMinor: leftOf(item) } : item))} hint="bono" />
-        )) : <p className="cobro-empty">{t("cobro.empty")}</p>}
+        )) : <Note>{t("cobro.empty")}</Note>}
       </div>
     );
   }
@@ -1566,7 +1567,7 @@ function Cobros({ onClose, jumped = false, ping = 0 }: { onClose: () => void; ju
                 {row.archivedOn ? ` · ${stamp(row.archivedOn)}` : ""}
               </p>
             </article>
-          )) : <p className="cobro-empty">{t("cobro.file.empty")}</p>
+          )) : <Note>{t("cobro.file.empty")}</Note>
         ) : null}
       </div>
       </div>
@@ -2744,7 +2745,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 body: lang === "en" ? "Primerica comes back to Retiro at $0, or with its saved history. Nothing is deleted." : "Primerica vuelve a Retiro en $0, o con su historial guardado. No se borra nada.",
                 yes: lang === "en" ? "Restore" : "Restaurar", run: () => commit((s) => restoreRetiro(s, key), "Primerica") })}><RotateCcw /></button>
             } /> : null}
-            {openLines.length === 0 && !adding && pocketKind !== "retiro" ? <p className="text-sm text-muted">{t("save.empty")}</p> : null}
+            {openLines.length === 0 && !adding && pocketKind !== "retiro" ? <Note>{t("save.empty")}</Note> : null}
             {openLines.map((line) => {
               const label = line.concept || names.sub(line.subId) || openSeg.name;
               const minor = convertMinor(line.balanceMinor != null ? line.balanceMinor : line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4);
@@ -3163,7 +3164,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <button type="button" className="btn ghost" onClick={copyPrev}>{t("desk.copy")}</button>
           </span>
         ) : null}
-        {shown.length === 0 ? <p className="mt-3 text-muted">{t("desk.empty")}</p> : null}
+        {shown.length === 0 ? <Note>{t("desk.empty")}</Note> : null}
         {lens === "have" ? (
           <div className="own-stack">
             {shown.map((line) => (
@@ -3371,7 +3372,7 @@ export function Shops() {
           </div>
           {storesFold ? (
             <>
-              <p className="text-sm text-muted">{t("shops.hint")}</p>
+              <Note kind="tip">{t("shops.hint")}</Note>
               <div className="shop-grid">
                 {stores.map((s) => (
                   <button
@@ -3731,7 +3732,7 @@ export function Study() {
               <span className="num">{fmt(row.left)}</span>
               <div className="bar-track"><div className="bar-fill tone-4" style={{ width: `${Math.max(row.left > 0 ? 6 : 0, (row.left / owedPeak) * 100)}%` }} /></div>
             </div>
-          )) : <p className="text-sm text-muted">{t("study.owed.empty")}</p>}
+          )) : <Note>{t("study.owed.empty")}</Note>}
           {owedFile > 0 ? <p className="text-sm text-muted">{t("study.owed.file")}: <strong className="num">{fmt(owedFile)}</strong></p> : null}
         </section>
       </StatFold>
@@ -4135,7 +4136,7 @@ export function Settings() {
             <button key={id} type="button" className="btn ghost aj-pick" onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
           ))}
         </div>
-        <p className="mt-2 text-sm text-muted">{templateBlurb("familia", lang)}</p>
+        <Note kind="tip">{templateBlurb("familia", lang)}</Note>
         <StructureTree />
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-catalog">{t("settings.catalog")}<Hint topic="catalogo" /></h2>
         <CatalogEditor />
@@ -4174,7 +4175,7 @@ export function Settings() {
         <button type="button" className="btn ghost mt-2" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys")}>{t("settings.resetKeys")}</button>
       </Fold>
       <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Long or double tap" : "Toque largo o doble"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
-        <p className="text-sm text-muted">{t("gesture.help")}</p>
+        <Note kind="tip">{t("gesture.help")}</Note>
         {([
           ["in.hold", "gesture.inHold"],
           ["in.double", "gesture.inDouble"],
@@ -4231,7 +4232,7 @@ export function Settings() {
           {hasConflict ? <button type="button" className="btn" onClick={restoreConflict}>{t("settings.conflict")}</button> : null}
         </div>
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-activity">{t("settings.activity")}<Hint topic="actividad" /></h2>
-        {session.ledger.audit.slice(0, 8).map((a) => <p key={a.id} className="text-sm text-muted">{auditLabel(lang, a.detail)}</p>)}
+        <ActivityLog lang={lang} items={session.ledger.audit.slice(0, 8).map((a) => ({ id: a.id, at: a.at, label: auditLabel(lang, a.detail) }))} />
       </Fold>
       <Fold id="account" icon={UserRound} sub={lang === "en" ? "Login, sync, fingerprint" : "Sesión, nube y huella"} topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />
@@ -4340,7 +4341,7 @@ function StructureTree() {
         <Search className="size-4" aria-hidden />
         <input value={q} placeholder={t("tree.find")} onChange={(e) => setQ(e.target.value)} aria-label={t("tree.find")} />
       </div>
-      {groups.length === 0 ? <p className="mt-3 text-sm text-muted">{t("tree.empty")}</p> : null}
+      {groups.length === 0 ? <Note>{t("tree.empty")}</Note> : null}
       {groups.map(({ group, rows }, gi) => (
         <div key={group}>
           <p className="tree-kicker tree-kick-row">{t(group === "fixed" ? "group.fixed" : "group.variable")}

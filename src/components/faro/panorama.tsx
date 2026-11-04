@@ -1,4 +1,5 @@
 import "./panorama.css";
+import { Note } from "./finish";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, CalendarClock, ChevronDown, ChevronRight, CircleHelp, Sparkles, X } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
@@ -28,7 +29,7 @@ const toneVar: Record<Tone, string> = { good: "var(--good)", warn: "var(--warn)"
 export function LineList({ coach, ids, empty }: { coach: Coach; ids: string[]; empty?: string }) {
   const { fmt, setUi, lang } = useFaro();
   const rows = coach.lines.filter((l) => ids.includes(l.id)).sort((a, b) => b.minor - a.minor);
-  if (!rows.length) return empty ? <p className="pano-empty">{empty}</p> : null;
+  if (!rows.length) return empty ? <Note>{empty}</Note> : null;
   const shown = rows.slice(0, 8);
   return (
     <ul className="pano-lines">
@@ -213,7 +214,7 @@ export function WaffleCard({ coach }: { coach: Coach }) {
   return (
     <section className="card pano-card">
       <Head kicker={lang === "en" ? "Simple math" : "Cuentas claras"} title={lang === "en" ? `Your ${unit}` : `Tus ${unit}`} />
-      <p className="pano-lead">{coach.per100Line}</p>
+      {coach.per100.length ? <p className="pano-lead">{coach.per100Line}</p> : <Note>{coach.per100Line}</Note>}
       <div className="pano-waffle" role="img" aria-label={coach.per100Line}>
         {squares.map((sq, i) => (
           <button
@@ -331,7 +332,7 @@ export function PaceCard({ coach }: { coach: Coach }) {
         {extra > 0 ? <span className="pano-days-extra num">+{extra}</span> : null}
       </div>
       <div className="pano-days-scale"><span>1</span><span>{Math.ceil(coach.daysInMonth / 2)}</span><span>{coach.daysInMonth}</span></div>
-      <p className="pano-lead">{coach.paceNote}</p>
+      {coach.coverDays === null ? <Note kind="pen">{coach.paceNote}</Note> : <p className="pano-lead">{coach.paceNote}</p>}
     </section>
   );
 }
@@ -343,7 +344,7 @@ export function MoversCard({ coach }: { coach: Coach }) {
   return (
     <section className="card pano-card">
       <Head kicker={lang === "en" ? "Vs. last month" : "Contra el mes pasado"} title={lang === "en" ? "What moved" : "Qué se movió"} />
-      <p className="pano-lead">{coach.moversNote}</p>
+      {coach.hasPrior ? <p className="pano-lead">{coach.moversNote}</p> : <Note kind="wait">{coach.moversNote}</Note>}
       {coach.movers.length ? (
         <div className="pano-movers">
           <div className="pano-movers-axis"><span>{lang === "en" ? "spent less" : "gastaste menos"}</span><span>{lang === "en" ? "spent more" : "gastaste más"}</span></div>
@@ -453,11 +454,11 @@ export function AgendaCard({ coach }: { coach: Coach }) {
           </ul>
         </>
       ) : (
-        <p className="pano-lead">
+        <Note kind="date">
           {lang === "en"
             ? "No dated payments in the next weeks. Give your fixed bills a due date and they'll show up here before they're due."
             : "No hay pagos con fecha en las próximas semanas. Ponle fecha a tus pagos fijos y aparecerán aquí antes de que venzan."}
-        </p>
+        </Note>
       )}
     </section>
   );

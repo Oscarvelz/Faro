@@ -3,6 +3,7 @@
  * and the merchant rules Faro learned. Everything lives in the ledger (sync, backups, undo).
  */
 import { useState } from "react";
+import { Note } from "./finish";
 import { Archive, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { DEFAULT_SOURCES, ISSUERS, restoreDefaultAccounts, REWARD_CLASSES, accounts, addAccount, archiveAccount, classOfLabel, importBook, newBonus, rcLabel, restoreAccount, rowApplies, targets, withBook, type Target } from "@/lib/faro/bankbook";
 import type { AcctKind, BankSource, BonusRow } from "@/lib/faro/types";
@@ -126,7 +127,7 @@ export default function BankSettings() {
             </li>
           ))}
         </ul>
-      ) : <p className="bk-empty">{L(lang, "Aún no hay reglas. Al importar, cada categoría que eliges queda aquí.", "No rules yet. When you import, each category you pick lands here.")}</p>}
+      ) : <Note>{L(lang, "Aún no hay reglas. Al importar, cada categoría que eliges queda aquí.", "No rules yet. When you import, each category you pick lands here.")}</Note>}
       {edit ? (() => { const r = book.rules.find((x) => x.key === edit); return r ? (
         <TargetPicker fixed lang={lang} targets={list} value={r.target} note={L(lang, `${r.label}: sus próximos movimientos irán aquí.`, `${r.label}: its next entries will go here.`)}
           onPick={(v) => { commit((s) => withBook(s, (b) => ({ ...b, rules: b.rules.map((x) => (x.key === r.key ? { ...x, target: v, n: 1 } : x)) })), r.label); setEdit(null); }} onClose={() => setEdit(null)} />

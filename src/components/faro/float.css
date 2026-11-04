@@ -82,7 +82,7 @@ html[data-theme="tron"] .float-size.is-se i { border-color: color-mix(in oklab, 
    would otherwise squeeze 2–3 columns into a narrow window. */
 @container floatwin (width < 620px) {
   .grid-2, .grid-3, .advice-stack { grid-template-columns: minmax(0, 1fr) !important; }
-  .glass-stack.desk-board { display: flex !important; flex-direction: column; }
+  .glass-stack.desk-board { display: flex !important; flex-direction: column; align-items: stretch !important; }
   .desk-col { display: contents !important; }
   .desk-board > .desk-col > .ridge { order: var(--i) !important; }
   .float-body .main-pad { padding: 10px 10px 12px; }

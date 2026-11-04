@@ -5,6 +5,7 @@
  * The money rule lives in lib/faro/loans.ts.
  */
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Note } from "./finish";
 import { ChevronDown, Plus } from "lucide-react";
 import { useFaro } from "./provider";
 import { FieldTip } from "./ui";
@@ -303,7 +304,7 @@ export function DueLoans() {
             onPay={(minor, date) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line")), loan.lender)}
             archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
         );
-      }) : <p className="cobro-empty">{t("cobro.loan.empty")}</p>}
+      }) : <Note>{t("cobro.loan.empty")}</Note>}
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
         <div role="button" tabIndex={0} data-anchor="cobros-loans-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
           <span className="lab-head">{t("cobro.file")}<Hint topic="prestamo-archivo" /></span>
@@ -327,7 +328,7 @@ export function DueLoans() {
               <button type="button" className="btn secondary" onClick={() => commit((s) => restoreLoan(s, loan.id), loan.lender)}>{t("backup.restore")}</button>
             </div>
           </article>
-        )) : <p className="cobro-empty">{t("cobro.loan.file.empty")}</p>) : null}
+        )) : <Note>{t("cobro.loan.file.empty")}</Note>) : null}
       </div>
     </div>
   );

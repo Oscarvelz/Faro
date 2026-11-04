@@ -135,7 +135,7 @@ export function RemitCard({ monthKey }: { monthKey: string }) {
         {tr.avgUsd > 0 ? <i className="rm-avg" style={{ bottom: `calc(20px + (100% - 20px) * ${(avgPct / 100).toFixed(3)})` }} /> : null}
       </div>
       <p className="pano-lead rm-foot">
-        {L(lang, "Promedio de los meses con envío: ", "Average of months with a remittance: ")}<strong className="num rm-avg-amt">{usd(tr.avgUsd)}</strong>
+        {L(lang, "Promedio mensual: ", "Monthly average: ")}<strong className="num rm-avg-amt">{usd(tr.avgUsd)}</strong>
       </p>
     </section>
   );

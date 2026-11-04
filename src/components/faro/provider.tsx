@@ -244,6 +244,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const dismissedRef = useRef<{ id: string; reason: string }[]>([]);
   const wakeBase = useRef<{ ledger: LedgerState; advice: ReturnType<typeof advicePrints>; goals: ReturnType<typeof readStoredGoals>; key: string } | null>(null);
   const wakeTimer = useRef(0);
+  // Awake log / dismissals belong to the mode this provider mounted in (sample keys are namespaced;
+  // this also stops a timer from one mode writing after the switch, before the tree remounts).
+  const wakeMode = useRef(sampleOn());
   const dayRef = useRef("");
   const [confirmState, setConfirm] = useState<ConfirmOpts | null>(null);
   const [depth, setDepth] = useState(1);
@@ -672,7 +675,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     window.clearTimeout(wakeTimer.current);
     wakeTimer.current = window.setTimeout(() => {
       const now = liveWake.current;
-      if (!now.ledger) return;
+      if (!now.ledger || sampleOn() !== wakeMode.current) return;
       const goals = readStoredGoals(now.ledger.settings.display, now.ledger.settings.rateE4);
       const before = wakeBase.current;
       const opened = !before || dayChanged || before.key !== now.key;
@@ -698,7 +701,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         if (result.log.event !== "sin-cambio") {
           setWakeLog((prev) => {
             const next = [result.log, ...prev].slice(0, 40);
-            try { localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
+            try { if (sampleOn() === wakeMode.current) localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
             return next;
           });
         }
@@ -713,7 +716,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         };
         setWakeLog((prev) => {
           const next = [fail, ...prev].slice(0, 40);
-          try { localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
+          try { if (sampleOn() === wakeMode.current) localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
           return next;
         });
       }
@@ -732,7 +735,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const dismissFinding = useCallback((id: string, reason: string) => {
     const next = [...dismissedRef.current.filter((item) => item.id !== id), { id, reason }];
     dismissedRef.current = next;
-    try { localStorage.setItem("faro-awake-dismiss", JSON.stringify(next)); } catch { /* ignore */ }
+    try { if (sampleOn() === wakeMode.current) localStorage.setItem("faro-awake-dismiss", JSON.stringify(next)); } catch { /* ignore */ }
     setWakeView((cur) => (cur ? { ...cur, findings: cur.findings.filter((item) => !(item.id === id && item.reason === reason)) } : cur));
   }, []);
 

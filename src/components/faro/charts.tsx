@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Note } from "./finish";
 import { ArrowUpDown, ChevronDown, ChevronUp, Pin } from "lucide-react";
 import type { CashSankey, StudyBoard } from "@/lib/faro/engine";
 import { Hint } from "./hint";
@@ -682,7 +683,7 @@ function MoneySankey({
   }, []);
   const laid = useMemo(() => layoutSankey(model, width), [model, width]);
   if (!laid) {
-    return <section className="card sankey-card"><h2 className="serif text-2xl">{title}</h2><p className="text-sm text-muted">{empty}</p></section>;
+    return <section className="card sankey-card"><h2 className="serif text-2xl">{title}</h2><Note>{empty}</Note></section>;
   }
   const total = laid.nodes.filter((node) => node.col === 0).reduce((sum, node) => sum + node.value, 0) || 1;
   const last = Math.max(...laid.nodes.map((node) => node.col));
@@ -789,7 +790,7 @@ function FlowSplit({
   note: string;
   bare: string;
 }) {
-  if (!flow.length) return <section className="card"><h2 className="serif text-2xl">{title}</h2><p className="text-sm text-muted">{empty}</p></section>;
+  if (!flow.length) return <section className="card"><h2 className="serif text-2xl">{title}</h2><Note>{empty}</Note></section>;
   const base = income > 0 ? income : Math.max(flow.reduce((a, b) => a + b.minor, 0), 1);
   return (
     <section className="card flow-split">

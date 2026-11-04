@@ -11,16 +11,17 @@
 .cv-actions .btn { width: 100%; min-width: 0; white-space: nowrap; }
 .cv-actions .cv-use { margin-top: 0; }
 
-.rm-card { display: grid; gap: 12px; --rm: #d98a5f; }
+.rm-card { display: grid; gap: 12px; --rm: #d98a5f; min-width: 0; container-type: inline-size; }
+.rm-card > * { min-width: 0; }
 .rm-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .rm-pair > div { display: grid; gap: 1px; min-width: 0; }
 .rm-pair > div + div { padding-left: 14px; border-left: 1px solid var(--line); }
-.rm-pair em { font-style: normal; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.rm-pair strong { font-size: 1.45rem; line-height: 1.15; font-weight: 680; letter-spacing: -.02em; white-space: nowrap; }
+.rm-pair em { font-style: normal; font-size: clamp(.6rem, 3.4cqi, .72rem); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.rm-pair strong { font-size: clamp(1rem, 7.2cqi, 1.45rem); line-height: 1.15; font-weight: 680; letter-spacing: -.02em; white-space: nowrap; }
 .rm-pair small { font-size: .8rem; color: var(--muted); white-space: nowrap; }
 .rm-now { color: color-mix(in oklab, var(--rm) 60%, var(--fg)); }
 .rm-prev { color: var(--fg); opacity: .8; }
-.rm-delta { margin: 0; font-size: .9rem; font-weight: 650; white-space: nowrap; color: var(--fg); }
+.rm-delta { margin: 0; font-size: clamp(.74rem, 4.2cqi, .9rem); font-weight: 650; white-space: nowrap; color: var(--fg); }
 .rm-delta span { font-weight: 500; color: var(--muted); }
 .rm-delta.is-up { color: color-mix(in oklab, var(--warn) 70%, var(--fg)); }
 .rm-delta.is-down { color: color-mix(in oklab, var(--good) 70%, var(--fg)); }
