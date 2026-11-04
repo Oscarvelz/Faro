@@ -98,3 +98,10 @@
 - Engine: Line.cadence now also accepts "<n><d|w|m|y>" tokens (src/lib/faro/cadence.ts); old words load unchanged. payDates, monthlyEquivalent, copyRecurring (interval dues only carry into months they fall in) and the cuota card ("Trimestral · 4 ene", next date rolls forward) use it. Line-form selects show a custom value.
 - Compact service chips (31px, 16px icon, .82rem); Frecuencia block +7px; help: f-frecuencia mentions the gear, new tip f-cuota-frecuencias; f-cuota-nombre "Toca un atajo de los de abajo".
 - Tests: tsc 5 known, npm test 59/59, cadence.test.ts 4/4, mn-regress, bk-cobros, sp-presets, fq-freq all pass. Shots: faro-review/shots-1376.
+
+## 1.3.77 (2026-11-04)
+- Month calendar popover (shell.tsx cal-sheet; new src/components/faro/cal.css): 1px hairline border, accent at ~30% (Tron: teal rgba(63,214,245,.35) + faint glow); no extra frame.
+- Holidays: src/lib/faro/holidays.ts (pure; easter() + holidaysFor(lang, year, month)), test holidays.test.ts 4/4. ES → Nicaragua (Año Nuevo, Jueves/Viernes Santo from Easter, 1 may, 30 may, 19 jul, 14 sep, 15 sep, 8 dic, 25 dic; festivities: 1 & 10 ago Santo Domingo (Managua), 7 dic La Gritería). EN → US federal (11). Soft amber ring around the number (festivities lighter); tapping the day shows its name in one line under the totals (.cal-hol). Manual: new topic "feriados" (ES+EN).
+- Amber shooting stars behind the calendar (.cal-sky/.cal-star, JS spawned): one at a time, every 4–9s, random angle/position, 700ms, Tron opacity .55, other night themes .32, none in day themes, none with reduced motion, skipped while hidden.
+- Also: "Nada con fecha este día" no longer ends in an ellipsis at 360/r20 (.72rem, clip).
+- Tests: tsc 5 known, npm test 59/59, browser-test/cal-hol.mjs (ES Sept 14/15, tap caption one line, star <10s, EN Nov 11/26, reduced motion none). Shots: faro-review/shots-cal. Self-checked (2 rounds).
