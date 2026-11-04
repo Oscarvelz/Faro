@@ -3,9 +3,10 @@
  * Files are read here, on the device. Nothing is uploaded.
  */
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { ArrowLeftRight, Ban, Check, CopyCheck, FileImage, FileUp, Link2, PiggyBank, RotateCcw, Scale, ShieldCheck, X } from "lucide-react";
+import { ArrowLeftRight, Ban, Settings as Gear, Check, CopyCheck, FileImage, FileUp, Link2, PiggyBank, RotateCcw, Scale, ShieldCheck, X } from "lucide-react";
 import { formatMoney } from "@/lib/faro/money";
-import { accounts, importBook, rcLabel, rowFor } from "@/lib/faro/bankbook";
+import { GUIDE_BUILTIN, accounts, guideName, guidesOf, importBook, rcLabel, resetGuides, rowFor, saveGuides } from "@/lib/faro/bankbook";
+import { GuideEditor, GuideMark } from "./bank-guides";
 import { applyImport, buildReview, counts, fromPdf, lineAmount, parseFile, pickSource, remap, revertImport, rewardFor, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
 import type { ColumnMap, LedgerState, RewardClass } from "@/lib/faro/types";
@@ -51,7 +52,9 @@ async function readOne(f: File, maps: Record<string, ColumnMap>, onPdf: () => vo
 }
 
 export default function BankImport({ initial, onClose }: { initial: File[] | null; onClose: () => void }) {
-  const { session, lang, names, commit, openManual } = useFaro();
+  const { session, lang, names, commit, openManual, confirm } = useFaro();
+  const [gEdit, setGEdit] = useState(false);
+  const [gOpen, setGOpen] = useState<string | null>(null);
   const state = session?.ledger as LedgerState;
   const [files, setFiles] = useState<ParsedFile[]>([]);
   const [sources, setSources] = useState<string[]>([]);
@@ -161,17 +164,25 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                 <input type="file" multiple accept={ACCEPT} hidden onChange={(e) => { void take(e.target.files); e.currentTarget.value = ""; }} />
                 <span className="imp-drop-ico" aria-hidden><FileUp /></span>
                 <strong>{busy ? L(lang, "Leyendo el PDF", "Reading the PDF") : L(lang, "Elige tus archivos", "Choose your files")}</strong>
-                <span>{L(lang, "PDF, CSV, QFX, OFX o QIF; varios a la vez", "PDF, CSV, QFX, OFX or QIF; several at once")}</span>
+                <span>{L(lang, "PDF del estado, CSV, QFX, OFX o QIF", "Statement PDF, CSV, QFX, OFX or QIF")}</span>
               </label>
               <p className="imp-safe"><ShieldCheck aria-hidden /><span>{L(lang, "El archivo no se sube; tus datos sí.", "The file stays here; your data syncs.")}</span><Hint topic="imp-archivo" /></p>
               {bad ? <p className="imp-bad" role="alert">{bad}</p> : null}
               <div className="imp-help">
-                <h4 className="lab-head">{L(lang, "Cómo descargar tu archivo", "How to download your file")}<Hint topic="imp-descargar" /></h4>
-                <div className="imp-banks">
-                  {([["imp-chase", "Chase"], ["imp-wellsfargo", "Wells Fargo"], ["imp-paypal", "PayPal"]] as const).map(([id, name]) => (
-                    <button key={id} type="button" className="imp-bank" onClick={() => openManual(id)}>{name}</button>
-                  ))}
-                </div>
+                <h4 className="lab-head">{L(lang, "Cómo descargar tu archivo", "How to download your file")}<button type="button" className="sub-gear" data-test="guide-gear" aria-pressed={gEdit} aria-label={L(lang, "Editar bancos", "Edit banks")} onClick={() => setGEdit((on) => !on)}><Gear /></button><Hint topic="imp-descargar" />
+                  {gEdit ? <button type="button" className="sub-gear bg-restore" data-test="guide-restore" aria-label={L(lang, "Restaurar bancos", "Restore banks")} onClick={() => confirm({ title: L(lang, "Restaurar bancos", "Restore banks"),
+                    body: L(lang, "Vuelven Chase, Wells Fargo y PayPal. Tus bancos propios salen de esta lista; sus tarjetas y tasas siguen en Bancos y recompensas.", "Chase, Wells Fargo and PayPal come back. Your own banks leave this list; their cards and rates stay in Banks and rewards."),
+                    yes: L(lang, "Restaurar", "Restore"), run: () => { commit((s) => resetGuides(s), L(lang, "Bancos de fábrica", "Factory banks")); setGEdit(false); setGOpen(null); } })}><RotateCcw /></button> : null}</h4>
+                {gEdit ? <GuideEditor lang={lang} state={state} guides={guidesOf(state)} onClose={() => setGEdit(false)} onSave={(next, fresh) => commit((s) => saveGuides(s, next, fresh), L(lang, "Bancos", "Banks"))} /> : (
+                  <>
+                    <div className="imp-banks">
+                      {guidesOf(state).map((g) => (
+                        <button key={g.id} type="button" className="imp-bank" aria-pressed={gOpen === g.id || undefined} onClick={() => { const t = GUIDE_BUILTIN[g.id]?.[0]; if (t) openManual(t); else if (g.steps) setGOpen(gOpen === g.id ? null : g.id); else openManual("imp-descargar"); }}><GuideMark g={g} />{guideName(g)}</button>
+                      ))}
+                    </div>
+                    {(() => { const g = guidesOf(state).find((x) => x.id === gOpen); return g?.steps ? <p className="imp-steps" data-test="guide-steps">{g.steps}</p> : null; })()}
+                  </>
+                )}
               </div>
             </>
           ) : null}

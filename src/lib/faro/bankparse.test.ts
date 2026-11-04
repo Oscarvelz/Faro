@@ -368,3 +368,28 @@ describe("cards of the user's own", () => {
     assert.equal(accounts(old).find((x) => x.id === "acct-chase-card")!.rates.dining, 400);
   });
 });
+
+describe("importer bank chips (1.3.79)", () => {
+  it("defaults, own chip with rates in the same accounts, reset, restore factory cards", async () => {
+    const { guidesOf, saveGuides, resetGuides, restoreDefaultAccounts } = await import("./bankbook.ts");
+    let s = ledger();
+    assert.deepEqual(guidesOf(s).map((g) => g.id), ["chase", "wellsfargo", "paypal"]);
+    s = saveGuides(s, [{ id: "chase" }, { id: "wellsfargo" }, { id: "g-1", name: "Banco Lafise", steps: "Estados → PDF" }], { "g-1": { name: "Lafise · tarjeta", kind: "card", bank: "other", rates: { other: 200, dining: 300 } } });
+    const g = guidesOf(s);
+    assert.deepEqual(g.map((x) => x.id), ["chase", "wellsfargo", "g-1"]);
+    const acct = accounts(s).find((a) => a.id === g[2].acct);
+    assert.equal(acct?.name, "Lafise · tarjeta");
+    assert.equal(acct?.rates.dining, 300);
+    // Survives a JSON round trip (sync/backup) and keeps through other book edits.
+    s = archiveAccount(JSON.parse(JSON.stringify(s)), "acct-wf-card");
+    assert.equal(guidesOf(s).length, 3);
+    s = resetGuides(s);
+    assert.deepEqual(guidesOf(s).map((x) => x.id), ["chase", "wellsfargo", "paypal"]);
+    assert.ok(accounts(s).some((a) => a.id === acct?.id));
+    s = archiveAccount(s, acct!.id);
+    s = restoreDefaultAccounts(s);
+    assert.ok(accounts(s).some((a) => a.id === "acct-wf-card"));
+    assert.ok(!accounts(s).some((a) => a.id === acct?.id));
+    assert.ok(accounts(s, true).some((a) => a.id === acct?.id && a.off));
+  });
+});

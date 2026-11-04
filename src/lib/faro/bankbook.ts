@@ -4,7 +4,7 @@
  * Money stays in normal lines: an imported purchase is a line with `sourceId` (and `importId` for its statement key).
  */
 import { convertMinor } from "./money.ts";
-import type { AcctKind, BankSource, BonusRow, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, Structure } from "./types.ts";
+import type { AcctKind, BankGuide, BankSource, BonusRow, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, Structure } from "./types.ts";
 
 export const REWARD_CLASSES: RewardClass[] = ["travel", "dining", "grocery", "drug", "gas", "online", "other"];
 
@@ -45,7 +45,7 @@ function idIn(d: DefaultSource, cat: CatalogItem[], sources: BankSource[]): stri
 
 export function importBook(state: LedgerState | null | undefined): ImportBook {
   const b = state?.imports;
-  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {}, bonus: Array.isArray(b?.bonus) ? b!.bonus.filter((x) => x && typeof x.id === "string" && typeof x.name === "string") : [] };
+  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {}, bonus: Array.isArray(b?.bonus) ? b!.bonus.filter((x) => x && typeof x.id === "string" && typeof x.name === "string") : [], ...(Array.isArray(b?.guides) ? { guides: b!.guides } : {}) };
 }
 
 /** Accounts as the user sees them: the catalog item (name, icon) joined with its import settings; defaults until first saved. */
@@ -441,3 +441,38 @@ export const rcLabel = (rc: string, lang: string, bonus?: BonusRow[]) => {
 };
 
 export const kindOf = (a: { kind: AcctKind }) => a.kind;
+
+/* ------------------------------------------------------------------ importer "how to download" chips (1.3.79) */
+
+/** The built-in chips: id → [manual topic, name]. Missing `guides` in a ledger (old data) = these three. */
+export const GUIDE_BUILTIN: Record<string, [string, string]> = { chase: ["imp-chase", "Chase"], wellsfargo: ["imp-wellsfargo", "Wells Fargo"], paypal: ["imp-paypal", "PayPal"] };
+export const GUIDE_DEFAULTS: BankGuide[] = Object.keys(GUIDE_BUILTIN).map((id) => ({ id }));
+export function guidesOf(state: LedgerState | null | undefined): BankGuide[] {
+  const g = state?.imports?.guides;
+  if (!Array.isArray(g)) return GUIDE_DEFAULTS;
+  return g.filter((x) => x && typeof x.id === "string" && (GUIDE_BUILTIN[x.id] || (typeof x.name === "string" && x.name.trim())));
+}
+export const guideName = (g: BankGuide) => GUIDE_BUILTIN[g.id]?.[1] ?? g.name ?? "";
+/** Saves the chips; `fresh` are new accounts to create first (the "Añadir tasas" of an own chip), keyed by chip id. */
+export function saveGuides(state: LedgerState, guides: BankGuide[], fresh: Record<string, NewAcct> = {}): LedgerState {
+  let s = state;
+  const out = guides.map((g) => {
+    const n = fresh[g.id];
+    if (!n || g.acct) return g;
+    const r = addAccount(s, n);
+    s = r.state;
+    return { ...g, acct: r.id };
+  });
+  return withBook(s, (b) => ({ ...b, guides: out }));
+}
+/** Back to the three built-in chips (own accounts made from a chip stay in Bancos y recompensas). */
+export function resetGuides(state: LedgerState): LedgerState {
+  return withBook(state, (b) => { const n = { ...b }; delete n.guides; return n; });
+}
+/** Brings back the factory cards and banks the user removed or hid. Own archived cards stay archived; nothing is deleted. */
+export function restoreDefaultAccounts(state: LedgerState): LedgerState {
+  const base = ensureAccounts(state);
+  const ids = new Set(DEFAULT_SOURCES.map((d) => idIn(d, base.structure.catalog.filter((c) => c.kind === "acct"), importBook(base).sources)));
+  const catalog = base.structure.catalog.map((c) => (ids.has(c.id) && c.hidden ? { ...c, hidden: false } : c));
+  return withBook({ ...base, structure: { ...base.structure, catalog } }, (b) => ({ ...b, sources: b.sources.map((x) => { if (!ids.has(x.id) || !x.off) return x; const n = { ...x }; delete n.off; return n; }) }));
+}

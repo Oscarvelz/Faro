@@ -172,7 +172,10 @@ export type BonusRow = { id: string; name: string; target?: string };
 /** Learned filing: merchant key → "<kind>|<categoryId>|<subId>". */
 export type MerchantRule = { key: string; label: string; target: string; rc?: string; elig?: boolean; n: number; at: string };
 export type ColumnMap = { date: number; desc: number; amount: number; debit: number; credit: number; invert: boolean; dmy: boolean };
-export type ImportBook = { sources: BankSource[]; rules: MerchantRule[]; maps: Record<string, ColumnMap>; files?: Record<string, string>; bonus?: BonusRow[] };
+/** A "how to download" chip in the importer (1.3.79). Built-ins are "chase" | "wellsfargo" | "paypal" (manual topic);
+ * own ones ("g-…") carry a name, an optional data-URL icon, free-text steps, and `acct`, the card/bank they made in Bancos y recompensas. */
+export type BankGuide = { id: string; name?: string; icon?: string; steps?: string; acct?: string };
+export type ImportBook = { sources: BankSource[]; rules: MerchantRule[]; maps: Record<string, ColumnMap>; files?: Record<string, string>; bonus?: BonusRow[]; guides?: BankGuide[] };
 
 export type AuditEntry = { id: string; at: string; detail: string };
 

@@ -105,3 +105,4 @@
 - Amber shooting stars behind the calendar (.cal-sky/.cal-star, JS spawned): one at a time, every 4–9s, random angle/position, 700ms, Tron opacity .55, other night themes .32, none in day themes, none with reduced motion, skipped while hidden.
 - Also: "Nada con fecha este día" no longer ends in an ellipsis at 360/r20 (.72rem, clip).
 - Tests: tsc 5 known, npm test 59/59, browser-test/cal-hol.mjs (ES Sept 14/15, tap caption one line, star <10s, EN Nov 11/26, reduced motion none). Shots: faro-review/shots-cal. Self-checked (2 rounds).
+- 1.3.78 (2026-11-04 06:55 EST): calendar footer Entra · Sale · Queda spread left/centre/right, amounts clamp 0.78–0.9rem (cal.css). Self-check shots only.

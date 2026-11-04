@@ -4,7 +4,7 @@
  */
 import { useState } from "react";
 import { Archive, Plus, RotateCcw, Trash2, X } from "lucide-react";
-import { DEFAULT_SOURCES, ISSUERS, REWARD_CLASSES, accounts, addAccount, archiveAccount, classOfLabel, importBook, newBonus, rcLabel, restoreAccount, rowApplies, targets, withBook, type Target } from "@/lib/faro/bankbook";
+import { DEFAULT_SOURCES, ISSUERS, restoreDefaultAccounts, REWARD_CLASSES, accounts, addAccount, archiveAccount, classOfLabel, importBook, newBonus, rcLabel, restoreAccount, rowApplies, targets, withBook, type Target } from "@/lib/faro/bankbook";
 import type { AcctKind, BankSource, BonusRow } from "@/lib/faro/types";
 import { FieldTip } from "./ui";
 import { useFaro } from "./provider";
@@ -77,7 +77,10 @@ export default function BankSettings() {
       </button>
 
 
-      <h3 className="bk-h lab-head" data-anchor="aj-cards">{L(lang, "Tus tarjetas y cuentas", "Your cards and accounts")}<Hint topic="imp-tarjetas" /></h3>
+      <h3 className="bk-h lab-head" data-anchor="aj-cards">{L(lang, "Tus tarjetas y cuentas", "Your cards and accounts")}<Hint topic="imp-tarjetas" />
+        <button type="button" className="sub-gear bk-h-restore" data-test="acct-restore" aria-label={L(lang, "Restaurar tarjetas de fábrica", "Restore factory cards")} onClick={() => confirm({ title: L(lang, "Restaurar tarjetas", "Restore cards"),
+          body: L(lang, "Vuelven las tarjetas y cuentas de fábrica que quitaste. Las tuyas guardadas siguen guardadas y no se borra ningún movimiento.", "The factory cards and accounts you removed come back. Your own saved ones stay saved and no entry is deleted."),
+          yes: L(lang, "Restaurar", "Restore"), run: () => commit((s) => restoreDefaultAccounts(s), L(lang, "Tarjetas de fábrica", "Factory cards")) })}><RotateCcw /></button></h3>
       <ul className="bk-accts">
         {accts.map((a) => (
           <li key={a.id} className="bk-acct">
@@ -135,8 +138,8 @@ export default function BankSettings() {
 type RateRow = { rc: string; pct: string; name?: string; target?: string; isNew?: boolean };
 
 /** New card or bank: name, kind, issuer, a base rate and optional category rates (from the user's own categories). */
-function AddCard({ lang, list, bonus, kindName, onCancel, onSave }: { lang: string; list: Target[]; bonus: BonusRow[]; kindName: (k: AcctKind) => string; onCancel: () => void; onSave: (n: Parameters<typeof addAccount>[1]) => void }) {
-  const [name, setName] = useState("");
+export function AddCard({ lang, list, bonus, kindName, initialName, onCancel, onSave }: { lang: string; list: Target[]; bonus: BonusRow[]; kindName: (k: AcctKind) => string; initialName?: string; onCancel: () => void; onSave: (n: Parameters<typeof addAccount>[1]) => void }) {
+  const [name, setName] = useState(initialName ?? "");
   const [kind, setKind] = useState<AcctKind>("card");
   const [bank, setBank] = useState("other");
   const [base, setBase] = useState("1");
