@@ -12,7 +12,7 @@ import { Hint } from "./hint";
 import { DayField } from "./line-form";
 import { CobroSpan } from "./screens";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
-import { ISO_DAY, addLoan, archiveLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
+import { ISO_DAY, addLoan, archiveLoan, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
 import type { Currency, Group, Loan } from "@/lib/faro/types";
 
 export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group };
@@ -173,7 +173,8 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
 
 const TAB_KEY = "faro-debo-tab";
 function readTab(): "dues" | "loans" {
-  try { return localStorage.getItem(TAB_KEY) === "loans" ? "loans" : "dues"; } catch { return "dues"; }
+  // Always opens on Cuotas (Oscar, Nov 3); only an "Ir allí" to Préstamos leaves a one-shot flag.
+  try { const v = localStorage.getItem(TAB_KEY); localStorage.removeItem(TAB_KEY); return v === "loans" ? "loans" : "dues"; } catch { return "dues"; }
 }
 
 /** Debo: a light underline tab pair (Cuotas | Préstamos) under the big pills; only the chosen group shows. The choice is remembered. */
@@ -191,7 +192,6 @@ export function DeboSide({ dues }: { dues: ReactNode }) {
   }, []);
   function pick(next: "dues" | "loans") {
     setTab(next);
-    try { localStorage.setItem(TAB_KEY, next); } catch { /* ignore */ }
   }
   return (
     <>
@@ -276,6 +276,9 @@ export function DueLoans() {
               {loan.archivedOn ? ` · ${stampOf(loan.archivedOn)}` : ""}
             </p>
             {loanPays(ledger, loan.id).length ? <p className="cobro-meta">{loanPays(ledger, loan.id).map((line) => `${stampOf(line.bookedOn || "")} ${fmt(view(line.amountMinor, line.currency))}`).join(" · ")}</p> : null}
+            <div className="cobro-acts">
+              <button type="button" className="btn secondary" onClick={() => commit((s) => restoreLoan(s, loan.id), loan.lender)}>{t("backup.restore")}</button>
+            </div>
           </article>
         )) : <p className="cobro-empty">{t("cobro.loan.file.empty")}</p>) : null}
       </div>

@@ -129,3 +129,10 @@ export function archiveLoan(state: LedgerState, loanId: string, today = todayIso
     loans: loansOf(state).map((l) => (l.id === loanId ? { ...l, archived: true, archivedOn: today, unpaidMinor: loanState(state, l, today).left } : l)),
   };
 }
+
+export function restoreLoan(state: LedgerState, loanId: string): LedgerState {
+  return {
+    ...state,
+    loans: loansOf(state).map((l) => (l.id === loanId ? { ...l, archived: false, archivedOn: undefined, unpaidMinor: undefined } : l)),
+  };
+}

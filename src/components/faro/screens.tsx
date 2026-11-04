@@ -1372,7 +1372,7 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
   const [draft, setDraft] = useState(false);
   const [bonusFor, setBonusFor] = useState<string | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
-  const [side, setSide] = useState<"in" | "out">("in");
+  const [side, setSide] = useState<"in" | "out">("out");
   const [dir, setDir] = useState(1);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const box = useRef<HTMLElement>(null);

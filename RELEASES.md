@@ -68,7 +68,7 @@
 - 1.3.68 (2026-11-03): PDF statements (pdfstmt.ts/pdftext.ts, lazy pdfjs-dist 6.5.438, not precached), 6 issuers reconciled on real PDFs (faro-private only), real reward defaults (CFU 5/3/3/1.5, WF Active Cash 2%, PayPal MC 3/1.5), State Farm preset→Wells Fargo, PayPal Ahorros pocket, Back history per overlay (manual/back.ts, test bk-back.mjs). Review PASS import2-review-verdict.md.
 - 1.3.69 (2026-11-03): atajos-mas-menos help names + of Tengo / − of Gastaré; import line 'El archivo no sale de aquí; lo guardado se sincroniza' + imp-archivo topic sync note. Text only.
 - 1.3.70 (2026-11-03): cards archive/add + bonus rows; Ajustes icon rows reorder; Debo CobroSpan (CUOTAS/PAGADO/PENDIENTE); Desplegar default+confirm, ⇅ beside ?; oportunidad manual; 9 topic rewrites; glow stays (glow-stay.mjs); import line 'El archivo no se sube; tus datos sí.' Review PASS cards-review-verdict.md.
-## Unreleased (Nov 3, 2026) — Debo → Préstamos (built to faro-review/site-loans, sw.js not bumped, not published)
+## 1.3.71 (2026-11-03, review PASS loans-review-verdict.md) (Nov 3, 2026) — Debo → Préstamos (built to faro-review/site-loans, sw.js not bumped, not published)
 - Debo sub-tabs Cuotas | Préstamos (DeboSide in components/faro/loans.tsx; underline text tabs `.debo-tabs`, choice in localStorage `faro-debo-tab`).
 - Loans received live in `ledger.loans` (types.ts Loan; optional, old ledgers load unchanged). One rule in lib/faro/loans.ts (simpleInterest/loanFigures) used by Me deben and Préstamos; one LoanForm + LoanCard for both sides.
 - Payments (Abonar) are normal expense lines with `loanId` in the loan's book (Fijos → debt category, Variables → first visible variable category); summarize() counts loanId lines as debt in both books.
