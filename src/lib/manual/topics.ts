@@ -1898,7 +1898,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "manual",
         title: ["Atajos de + y −", "+/− shortcuts"],
         sum: ["Lleva el + y el − directo a tu área favorita.", "Send + and − straight to your favourite area."],
-        what: ["Un toque en + o − abre la lista. Mantener un segundo, o dos toques, pueden ir directo al área que más usas.", "One tap on + or − opens the list. Holding for a second, or a double tap, can go straight to the area you use most."],
+        what: ["El + de Tengo anota ingresos y el − de Gastaré anota gastos. Un toque abre su lista; mantener un segundo o dos toques te llevan directo al área que elijas aquí.", "The + on Have adds income and the − on Spending adds expenses. One tap opens its list; holding for a second or a double tap takes you straight to the area you pick here."],
         how: ["Elige un área para cada gesto, o Sin atajo para no usarlo.", "Pick an area for each gesture, or No shortcut to leave it off."],
         go: { screen: "settings", fold: "gestures", anchor: "aj-gestures", where: ["Ajustes → Atajos de + y −", "Settings → +/− shortcuts"] },
         terms: [["Mantener", "Hold"], ["Doble toque", "Double tap"], ["Gestos", "Gestures"]],
@@ -1973,7 +1973,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Archivo del banco", "Bank file"],
         sum: ["El archivo se lee aquí.", "The file is read here."],
-        what: ["Faro lee el archivo en este equipo; no se sube a ningún lado. QFX u OFX es lo más exacto: trae un número único por movimiento. El PDF del estado mensual también sirve.", "Faro reads the file on this device; it is not uploaded anywhere. QFX or OFX is the most exact: it carries a unique number per entry. The monthly statement PDF works too."],
+        what: ["Faro lee el archivo en este equipo; el archivo no se sube. Los movimientos que guardes pasan a tus libros y se sincronizan con tu cuenta, como los que escribes a mano. QFX u OFX es lo más exacto: trae un número único por movimiento. El PDF del estado mensual también sirve.", "Faro reads the file on this device; the file is never uploaded. The entries you save join your books and sync to your account, like the ones you type. QFX or OFX is the most exact: it carries a unique number per entry. The monthly statement PDF works too."],
         go: { screen: "settings", anchor: "aj-import", where: ["Ajustes → Importar movimientos", "Settings → Import transactions"] },
       },
       {

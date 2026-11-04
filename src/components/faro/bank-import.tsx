@@ -173,7 +173,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                 <strong>{busy ? L(lang, "Leyendo el PDF", "Reading the PDF") : L(lang, "Elige tus archivos", "Choose your files")}</strong>
                 <span>{L(lang, "PDF, CSV, QFX, OFX o QIF; varios a la vez", "PDF, CSV, QFX, OFX or QIF; several at once")}</span>
               </label>
-              <p className="imp-safe"><ShieldCheck aria-hidden /><span>{L(lang, "Se leen en este equipo. Nada sale de aquí.", "Read on this device. Nothing leaves it.")}</span><Hint topic="imp-archivo" /></p>
+              <p className="imp-safe"><ShieldCheck aria-hidden /><span>{L(lang, "El archivo no sale de aquí; lo guardado se sincroniza.", "The file stays here; what you save syncs.")}</span><Hint topic="imp-archivo" /></p>
               {bad ? <p className="imp-bad" role="alert">{bad}</p> : null}
               <div className="imp-help">
                 <h4 className="lab-head">{L(lang, "Cómo descargar tu archivo", "How to download your file")}<Hint topic="imp-descargar" /></h4>
