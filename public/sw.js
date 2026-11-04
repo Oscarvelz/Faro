@@ -1,5 +1,5 @@
 // FARO service worker: the app opens with no internet. Bump VERSION on every release.
-const VERSION = "faro-1.3.66";
+const VERSION = "faro-1.3.67";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./icon-192.png", "./icon-512.png", "./precache.json"];
 
 self.addEventListener("install", (event) => {
@@ -23,20 +23,34 @@ self.addEventListener("activate", (event) => {
 // Cache name has no "faro-" prefix so activate never clears it. Keys must match components/faro/people.tsx.
 const SHARE_CACHE = "share-inbox";
 const SHARE_KEY = "./share-contact-inbox";
+// Bank statements shared to Faro (CSV, QFX, OFX, QIF) wait under their own key; components/faro/bank-dock.tsx reads them.
+const STATEMENT_KEY = "./share-statement-inbox";
 async function takeShare(req) {
   let text = "";
+  const statements = [];
   try {
     const form = await req.formData();
-    for (const f of form.getAll("contacts")) if (f && typeof f.text === "function") text += (await f.text()) + "\n";
+    // Sorted by content, not by field: a .vcf is a contact wherever it arrives, anything else is a statement.
+    for (const f of [...form.getAll("contacts"), ...form.getAll("statements")]) {
+      if (!f || typeof f.text !== "function") continue;
+      const body = await f.text();
+      if (/BEGIN:VCARD/i.test(body)) text += body + "\n";
+      else if (body.trim()) statements.push({ name: f.name || "statement.csv", text: body });
+    }
     for (const k of ["text", "title"]) { const v = form.get(k); if (typeof v === "string" && /BEGIN:VCARD/i.test(v)) text += v + "\n"; }
   } catch { /* nothing readable */ }
+  const cache = await caches.open(SHARE_CACHE);
   if (text) {
-    const cache = await caches.open(SHARE_CACHE);
     const old = await cache.match(SHARE_KEY);
     const prev = old ? await old.text() : "";
     await cache.put(SHARE_KEY, new Response(prev + text, { headers: { "content-type": "text/vcard; charset=utf-8" } }));
   }
-  return Response.redirect(new URL("./?share=contact", self.registration.scope).href, 303);
+  if (statements.length) {
+    const old = await cache.match(STATEMENT_KEY);
+    const prev = old ? await old.json().catch(() => []) : [];
+    await cache.put(STATEMENT_KEY, new Response(JSON.stringify([...prev, ...statements]), { headers: { "content-type": "application/json" } }));
+  }
+  return Response.redirect(new URL(statements.length && !text ? "./?share=statement" : "./?share=contact", self.registration.scope).href, 303);
 }
 
 self.addEventListener("fetch", (event) => {

@@ -8,7 +8,7 @@ import { richText } from "./manual-text";
 import "./manual.css";
 
 /** Where a bubble may sit: inside the form or card it belongs to (never clipped by it, never wider than it). */
-const HOST = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-dock, .card, .stat-fold, main, .tool-sheet, .mn-layer";
+const HOST = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-dock, .card, .stat-fold, main, .tool-sheet, .mn-layer, .imp-pick, .imp-sheet";
 
 /**
  * The (?) bubble. Its text is the topic's `what`, word for word (lib/manual/topics.ts), so the bubble and the

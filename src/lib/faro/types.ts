@@ -10,7 +10,8 @@ export type LineKind =
   | "purchase"
   | "subscription";
 export type Cadence = "weekly" | "biweekly" | "monthly" | "yearly" | "";
-export type CatalogKind = "store" | "ai" | "sub";
+/** "acct": a bank or card account that statements are imported from (bank-import, Nov 2026). */
+export type CatalogKind = "store" | "ai" | "sub" | "acct";
 export type TemplateId = "soltero" | "familia" | "estudiante" | "negocio";
 
 export const DAY_THEMES: ThemeId[] = ["claro", "lino", "costa", "marfil", "niebla", "piedra"];
@@ -104,6 +105,18 @@ export type Line = {
   personId?: string;
   /** Optional: which of that person's occasions the gift was for ("birthday" or a PersonDate id). */
   occasionId?: string;
+  /** Bank import (Nov 2026). Exact statement keys ("ofx:<acct>:<FITID>", "pp:<Transaction ID>"), several joined by "|". */
+  importId?: string;
+  /** The account (catalog item of kind "acct") the money moved through. */
+  sourceId?: string;
+  /** Paid through PayPal with sourceId's card: the PayPal account id. */
+  via?: string;
+  /** A transfer between the user's own accounts (card payment, PayPal ↔ bank). Saved inactive: never counts in totals. */
+  xfer?: boolean;
+  /** Rewards class of a card purchase ("dining", "grocery", "drug", "gas", "online", "other"). */
+  rc?: string;
+  /** Import batch id, so one Deshacer removes the whole import. */
+  batch?: string;
 };
 
 /** Someone the user spends on (gifts). Entered by hand; money lives in normal lines tagged with personId. */
@@ -121,6 +134,15 @@ export type Person = {
   /** Deleted by the user: hidden from Personas and the pickers, but their lines keep personId and history shows the name. */
   archived?: boolean;
 };
+
+export type RewardClass = "dining" | "grocery" | "drug" | "gas" | "online" | "other";
+export type AcctKind = "checking" | "card" | "paypal";
+/** Import settings of one account; its name and icon live in its catalog item (kind "acct"), same id. Rates in basis points. */
+export type BankSource = { id: string; bank: string; kind: AcctKind; rates: Partial<Record<RewardClass, number>>; elig?: number; pocketId?: string };
+/** Learned filing: merchant key → "<kind>|<categoryId>|<subId>". */
+export type MerchantRule = { key: string; label: string; target: string; rc?: RewardClass; elig?: boolean; n: number; at: string };
+export type ColumnMap = { date: number; desc: number; amount: number; debit: number; credit: number; invert: boolean; dmy: boolean };
+export type ImportBook = { sources: BankSource[]; rules: MerchantRule[]; maps: Record<string, ColumnMap>; files?: Record<string, string> };
 
 export type AuditEntry = { id: string; at: string; detail: string };
 
@@ -147,6 +169,8 @@ export type LedgerState = {
   audit: AuditEntry[];
   /** Added Nov 2026; missing in older ledgers and backups (= nobody). */
   people?: Person[];
+  /** Bank import settings (Nov 2026): accounts, merchant rules, column maps. Missing in older ledgers and backups. */
+  imports?: ImportBook;
   revision: number;
   updatedAt: string;
 };

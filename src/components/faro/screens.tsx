@@ -1,4 +1,5 @@
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
+import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
 import { peopleOf } from "@/lib/faro/people";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
@@ -3263,14 +3264,16 @@ export function Books({ mode }: { mode: "income" | "fixed" | "variable" }) {
       <div className="grid gap-3">
         <LinesBlock kind="income-fixed" title={t("income.fixed")} />
         <LinesBlock kind="income-variable" title={t("income.variable")} />
+        <ImportDoor />
       </div>
     );
   }
-  if (mode === "fixed") return <LinesBlock kind="expense-fixed" title={t("group.fixed")} />;
+  if (mode === "fixed") return <div className="grid gap-3"><LinesBlock kind="expense-fixed" title={t("group.fixed")} /><ImportDoor /></div>;
   return (
     <div className="grid gap-3">
       <LinesBlock kind="expense-variable" title={t("group.variable")} />
       <PeopleBox />
+      <ImportDoor />
     </div>
   );
 }
@@ -3504,7 +3507,7 @@ export function Subs() {
 
 export function Study() {
   const coach = useCoach();
-  const { t, insights, slices, session, ui, setUi, lang, summary, fmt, names, lines, viewLine } = useFaro();
+  const { t, insights, slices, session, ui, setUi, lang, summary, fmt, names, lines, viewLine, key } = useFaro();
   usePinchZoom(lang);
   const [span, setSpan] = useState<"year" | "month" | "week">("year");
   const [picked, setPicked] = useState<string | null>(null);
@@ -3580,6 +3583,8 @@ export function Study() {
   if (owedAny) visible.push("owed");
   const hasPeople = peopleOf(session?.ledger).length > 0;
   if (hasPeople) visible.push("people");
+  const showRewards = hasRewards(session?.ledger, key);
+  if (showRewards) visible.push("rewards");
   const detailRows = storePick
     ? pickedRows.filter((line) => line.storeId === storePick)
     : pickedRows.filter((line) => line.kind !== "purchase" || !line.storeId);
@@ -3591,7 +3596,7 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "rule", "movers", "time", "cushion", "plan", "owed"]}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "rewards", "rule", "movers", "time", "cushion", "plan", "owed"]}
       items={[
         { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
@@ -3600,6 +3605,7 @@ export function Study() {
         { id: "waffle", label: es ? "Tus C$100" : "Your 100", section: "spend" },
         { id: "where", label: t("study.where"), section: "spend" },
         { id: "people", label: es ? "Gasto por persona" : "Spending by person", section: "spend" },
+        { id: "rewards", label: es ? "Recompensas" : "Rewards", section: "spend" },
         { id: "sankey", label: t("study.sankey"), section: "spend" },
         { id: "rule", label: es ? "La regla 50 · 30 · 20" : "The 50 · 30 · 20 rule", section: "general" },
         { id: "plan", label: es ? "¿Vas dentro del tope?" : "Within your limits?", section: "general" },
@@ -3723,6 +3729,7 @@ export function Study() {
       </StatFold>
       ) : null}
       {hasPeople ? <StatFold id="people"><PeopleStudy /></StatFold> : null}
+      {showRewards ? <StatFold id="rewards"><RewardsStudy /></StatFold> : null}
     </StudyStack>
     </StatFoldProvider>
   );
@@ -3948,6 +3955,7 @@ export function Advisor() {
         ) : null}
       </section>
       <PeopleAdviceCard />
+      <RewardsAdvice />
     </div>
   );
 }
@@ -4084,7 +4092,7 @@ export function Settings() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (["lang", "theme", "structure", "rate", "keys", "gestures", "backup", "account"].includes(id)) setOpenFold(id);
+      if (["lang", "theme", "structure", "rate", "keys", "gestures", "backup", "banks", "account"].includes(id)) setOpenFold(id);
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
@@ -4101,6 +4109,7 @@ export function Settings() {
           <ChevronRight aria-hidden />
         </button>
       </section>
+      <ImportRow />
       <Fold id="lang" topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
         <div className="aj-seg" role="group" aria-label={t("settings.lang")}>
           {(["es", "en"] as const).map((id) => (
@@ -4217,6 +4226,9 @@ export function Settings() {
             </label>
           );
         })}
+      </Fold>
+      <Fold id="banks" topic="bancos" title={lang === "en" ? "Banks and rewards" : "Bancos y recompensas"} open={openFold === "banks"} onToggle={() => toggle("banks")}>
+        <BankSettings />
       </Fold>
       <Fold id="backup" topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />

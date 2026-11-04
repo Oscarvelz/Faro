@@ -20,6 +20,7 @@ import { prefetchManual } from "@/lib/manual/load";
 import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
 import { PeopleInbox } from "./people";
+import { BankDock } from "./bank-dock";
 
 const ManualLayer = lazy(() => import("./manual"));
 
@@ -647,6 +648,7 @@ export function Shell() {
   return (
     <>
     <PeopleInbox />
+    <BankDock />
     <div className={`app-frame${split ? " is-split" : ""}${wide && split && splitAxis === "col" ? " is-cols" : ""}${dragging ? " is-dragging" : ""}${dockClass}`}>
       <nav ref={railRef} className="rail" aria-label={t("nav.desk")}>
         <div className="dock-face">
@@ -964,7 +966,8 @@ export function Shell() {
             onPointerDown={(e) => {
               if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail")) return;
               swipe.current = { x: e.clientX, y: e.clientY };
-              e.currentTarget.setPointerCapture(e.pointerId);
+              // Touch/pen only: capturing a mouse press retargets its click to <main>, so desktop clicks never reach the row.
+              if (e.pointerType !== "mouse") e.currentTarget.setPointerCapture(e.pointerId);
             }}
             onPointerUp={(e) => {
               const start = swipe.current;
@@ -1237,7 +1240,8 @@ function SectionView() {
       onPointerDown={(e) => {
         if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail")) return;
         swipe.current = { x: e.clientX, y: e.clientY };
-        e.currentTarget.setPointerCapture(e.pointerId);
+        // Touch/pen only: capturing a mouse press retargets its click to <main>, so desktop clicks never reach the row.
+        if (e.pointerType !== "mouse") e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerUp={(e) => {
         const start = swipe.current;

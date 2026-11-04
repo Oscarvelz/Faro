@@ -30,6 +30,9 @@ export const LINKS: Record<string, string> = {
   "Moneda de vista": "moneda-vista", "View currency": "moneda-vista",
   "Punto de sincronización": "sync", "Sync dot": "sync",
   Deshacer: "deshacer", Undo: "deshacer",
+  "Importar movimientos": "importar", "Import transactions": "importar",
+  "Bancos y recompensas": "bancos", "Banks and rewards": "bancos",
+  "Reglas de comercios": "imp-reglas", "Merchant rules": "imp-reglas",
   // Books
   "Intacto, usado y queda": "bote", "Untouched, used and left": "bote",
   "Reportar lo usado": "reportar-usado", "Report what you used": "reportar-usado",
