@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { ArrowUpDown, ChevronDown, ChevronUp, Pin } from "lucide-react";
 import type { CashSankey, StudyBoard } from "@/lib/faro/engine";
 import { Hint } from "./hint";
+import { useFaro } from "./provider";
 
 /** Each Estudio card's manual topic: its (?) sits on the card's own title line. */
 const FOLD_TOPIC: Record<string, string> = {
@@ -15,6 +16,9 @@ export function useFoldTopic(): string | null {
   return useContext(FoldTopicCtx);
 }
 const OPEN_KEY = "faro-study-open";
+/** Desplegar's saved choice ("1" on, "0" off). Nothing saved = on: Estudio opens unfolded for everyone (Nov 2026). */
+const UNFOLD_KEY = "faro-study-unfold";
+const unfoldChoice = () => { try { return localStorage.getItem(UNFOLD_KEY) !== "0"; } catch { return true; } };
 
 type FoldApi = {
   isOpen: (id: string) => boolean;
@@ -65,7 +69,8 @@ export function StatFoldProvider({
   const saved = useMemo(() => {
     try { return JSON.parse(sessionStorage.getItem(OPEN_KEY) || "null") as { spread?: boolean; shut?: Record<string, boolean>; forced?: Record<string, boolean> } | null; } catch { return null; }
   }, []);
-  const [spread, setSpread] = useState(Boolean(saved?.spread));
+  const { t, confirm } = useFaro();
+  const [spread, setSpread] = useState(typeof saved?.spread === "boolean" ? saved.spread : unfoldChoice());
   const [shut, setShut] = useState<Record<string, boolean>>(saved?.shut ?? {});
   const [forced, setForced] = useState<Record<string, boolean>>(saved?.forced ?? {});
   useEffect(() => {
@@ -189,25 +194,33 @@ export function StatFoldProvider({
             type="checkbox"
             checked={checked}
             onChange={() => {
+              const save = (on: boolean) => { try { localStorage.setItem(UNFOLD_KEY, on ? "1" : "0"); } catch { /* ignore */ } };
               if (checked) {
-                const all: Record<string, boolean> = {};
-                for (const id of items) all[id.id] = true;
-                setSpread(false);
-                setForced({});
-                setShut(all);
+                // Unticking folds every card: ask first (ticking again needs no question).
+                confirm({ title: t("study.unfold.ask"), body: t("study.unfold.body"), yes: t("study.unfold.yes"), run: () => {
+                  const all: Record<string, boolean> = {};
+                  for (const id of items) all[id.id] = true;
+                  setSpread(false);
+                  setForced({});
+                  setShut(all);
+                  save(false);
+                } });
               } else {
                 setSpread(true);
                 setShut({});
                 setForced({});
+                save(true);
               }
             }}
           />
           <span>{label}</span>
         </label>
-        <button type="button" className={`study-sort${sorting ? " is-on" : ""}`} aria-pressed={sorting} aria-label={sortLabel} onClick={() => setSorting((on) => !on)}>
-          <ArrowUpDown />
-        </button>
-        <Hint topic="ordenar-estudio" className="is-tools" />
+        <span className="study-tools-end">
+          <button type="button" className={`study-sort${sorting ? " is-on" : ""}`} aria-pressed={sorting} aria-label={sortLabel} onClick={() => setSorting((on) => !on)}>
+            <ArrowUpDown />
+          </button>
+          <Hint topic="ordenar-estudio" className="is-tools" />
+        </span>
       </div>
       {sorting ? (
         <div className="study-order" role="list">

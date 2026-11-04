@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { describe, it } from "node:test";
 import { applyImport, buildReview, counts, fromPdf, parseDate, parseFile, parseMoney, pickSource, remap, revertImport, type ParsedFile } from "./bankparse.ts";
-import { accounts, ensureAccounts, importBook, merchantKey, merchantLabel, rewardsMonth } from "./bankbook.ts";
+import { accounts, addAccount, archiveAccount, ensureAccounts, importBook, merchantKey, merchantLabel, newBonus, restoreAccount, rewardsMonth } from "./bankbook.ts";
 import { parsePdfStatement, rowDate, type PdfDoc } from "./pdfstmt.ts";
 import type { Category, LedgerState } from "./types.ts";
 
@@ -322,5 +322,49 @@ describe("statement PDFs", () => {
       for (let i = 1; i <= d.numPages; i++) pages.push((await (await d.getPage(i)).getTextContent()).items.filter((it) => "str" in it && it.str).map((it) => ({ s: (it as { str: string }).str, x: Math.round((it as { transform: number[] }).transform[4] * 10) / 10, y: Math.round((it as { transform: number[] }).transform[5] * 10) / 10 })));
       assert.deepEqual(parsePdfStatement({ pages }), parsePdfStatement(doc(n)), n);
     }
+  });
+});
+
+describe("cards of the user's own", () => {
+  it("add card → set rates → import assigns to it → archive → restore, history preserved", () => {
+    const hogar = newBonus("Farmacia propia", "expense-variable|v-personales|v.p.salud");
+    const added = addAccount(ledger(), { name: "Citi · tarjeta", kind: "card", bank: "citi", rates: { other: 200, grocery: 400, [hogar.id]: 500 }, bonus: [hogar] });
+    let s = added.state; const id = added.id;
+    // presets kept, the new card is in daily use with its rates
+    const a = accounts(s);
+    assert.ok(a.some((x) => x.id === "acct-chase-card") && a.some((x) => x.id === "acct-wf-card") && a.some((x) => x.id === "acct-pp-card"));
+    const citi = a.find((x) => x.id === id)!;
+    assert.equal(citi.name, "Citi · tarjeta"); assert.equal(citi.rates.other, 200); assert.equal(citi.rates.grocery, 400); assert.equal(importBook(s).bonus!.length, 1);
+    // a generic CSV of an unknown bank: no auto pick, the user assigns it to the new card
+    const files = [read("banco-generico.csv")];
+    assert.equal(pickSource(files[0], importBook(s), accounts(s)), "");
+    const rv = buildReview(s, files, [id], names);
+    const spend = rv.rows.filter((r) => r.flow === "spend");
+    assert.ok(spend.length >= 2 && spend.every((r) => r.sourceId === id));
+    const farm = spend.find((r) => r.key.includes("farmacia"))!;
+    farm.target = "expense-variable|v-personales|v.p.salud";
+    const rv2 = buildReview({ ...s, imports: { ...importBook(s), rules: [{ key: farm.key, label: "Farmacia", target: farm.target, n: 1, at: "2026-10-16" }] } }, files, [id], names);
+    const farm2 = rv2.rows.find((r) => r.key === farm.key)!;
+    assert.equal(farm2.rc, hogar.id, "a filing in the linked category lands in the bonus row"); assert.equal(farm2.reward?.rate, 500);
+    s = applyImport(s, rv2, files, [id], "bc1").state;
+    const lines = () => Object.values(s.months).flatMap((m) => m.lines).filter((l) => l.sourceId === id);
+    const before = lines().length; assert.ok(before >= 2);
+    const month = rv2.rows[0].month;
+    const earned = rewardsMonth(s, month, "USD", 366243)!.earned;
+    // archive: out of daily use, history intact
+    s = archiveAccount(s, id, "2026-11-03");
+    assert.ok(!accounts(s).some((x) => x.id === id), "gone from the picker / table");
+    assert.equal(accounts(s, true).find((x) => x.id === id)!.off, "2026-11-03");
+    assert.equal(lines().length, before, "lines stay");
+    assert.equal(rewardsMonth(s, month, "USD", 366243)!.earned, earned, "past rewards stay");
+    assert.ok(!rewardsMonth(s, month, "USD", 366243)!.top || rewardsMonth(s, month, "USD", 366243)!.top!.best.id !== id, "never suggested");
+    assert.ok(importBook(s).rules.length >= 1 && importBook(s).bonus!.length === 1, "rules and bonus rows stay");
+    // restore
+    s = restoreAccount(s, id);
+    assert.equal(accounts(s).find((x) => x.id === id)!.rates.grocery, 400);
+    // an old ledger without the new fields loads fine
+    const old = { ...ledger(), imports: { sources: [{ id: "acct-chase-card", bank: "chase", kind: "card" as const, rates: { dining: 400, other: 100 } }], rules: [], maps: {} } };
+    assert.deepEqual(importBook(old).bonus, []);
+    assert.equal(accounts(old).find((x) => x.id === "acct-chase-card")!.rates.dining, 400);
   });
 });

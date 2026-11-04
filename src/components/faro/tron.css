@@ -1187,3 +1187,10 @@ html[data-theme="tron"] .save-band.sav-scope .save-more :is(.save-ledger-head .f
 [data-theme="tron"] :is(.a2-day strong, .a2-chips strong, .a2-line-amt strong, .a2-kick .num) { color: #ffc23a; text-shadow: 0 0 10px rgba(255, 194, 58, .35); }
 /* Large text on a phone: the hub name's tracking tightens so "ESTUDIO (?)" clears the icon row. */
 @media (max-width: 380px) { [data-theme="tron"] .hub-name { letter-spacing: clamp(.18em, calc(.3em - max(0px, 1rem - 16px) * .45), .3em); } }
+/* Debo over time (Nov 3 2026): my payments are money out → Clu orange bars; amounts stay amber. */
+[data-theme="tron"] .cut-lanes.is-out .cut-lane i { --c: #ff9d2a; filter: drop-shadow(0 0 5px rgba(255, 157, 42, .55)); }
+[data-theme="tron"] .cut-lanes.is-out .cut-lane.is-peak i { --c: #ffb35c; }
+[data-theme="tron"] .cut-lanes.is-out .cut-lane::before { background: repeating-linear-gradient(0deg, rgba(255, 157, 42, .07) 0 5px, transparent 5px 7px); }
+/* Ajustes rows: every fold title reads like the Manual de uso row (bold, sentence case), not the uppercase card heading. */
+[data-theme="tron"] .settings-board .aj-row h2 { font-family: inherit; font-weight: 650; font-size: 1rem; letter-spacing: 0; text-transform: none; line-height: 1.3; }
+[data-theme="tron"] .settings-board .manual-row > svg:first-child { color: #3fd6f5; }

@@ -5,7 +5,7 @@
  * Formats: OFX/QFX (SGML and XML), QIF, CSV (Chase card, Chase checking, PayPal, or any bank with column detection).
  */
 import Papa from "papaparse";
-import { accounts, ensureAccounts, findRule, guessClass, importBook, learnRule, lineReward, merchantKey, merchantLabel, splitTarget, suggestTarget, targets, type Acct, type LineReward, type Target } from "./bankbook.ts";
+import { accounts, bonusFor, ensureAccounts, findRule, guessClass, importBook, learnRule, lineReward, merchantKey, merchantLabel, splitTarget, suggestTarget, targets, type Acct, type LineReward, type Target } from "./bankbook.ts";
 import type { AcctKind, ColumnMap, ImportBook, LedgerState, Line, RewardClass, Structure, Sub } from "./types.ts";
 import type { PdfStatement } from "./pdfstmt.ts";
 
@@ -307,7 +307,9 @@ export function pickSource(file: ParsedFile, book: ImportBook, accts: Acct[]): s
   if (file.bank === "chase") return by("chase", file.kind ?? (file.rows.some((r) => r.category) ? "card" : "checking")) ?? by("chase") ?? "";
   // The Wells Fargo card used to be the "State Farm" preset: files named either way go to it.
   if (file.bank === "wellsfargo" || file.bank === "statefarm") return by("wellsfargo", "card") ?? by("statefarm", "card") ?? "";
-  return "";
+  // Any other issuer the user added (Citi, Amex…): its one account of that bank; otherwise the user picks.
+  const same = file.bank && file.bank !== "other" ? accts.filter((a) => a.bank === file.bank) : [];
+  return same.length === 1 ? same[0].id : "";
 }
 
 /* ------------------------------------------------------------------ review */
@@ -527,6 +529,9 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
 
   for (const r of rows) {
     if (!r.target && !isIncome(r.flow)) r.target = fallback;
+    // A bonus row of the user's own linked to this category is what the card pays for it.
+    const bon = r.flow === "spend" && r.rc !== "online" && r.rc !== "travel" ? bonusFor(book.bonus, r.target) : undefined;
+    if (bon) r.rc = bon.id as RewardClass;
     r.include = !r.dup && !r.paired && (r.flow === "spend" || r.flow === "refund" || isIncome(r.flow));
     r.reward = r.flow === "spend" && !r.noReward ? lineReward({ amountMinor: lineAmount(r), sourceId: r.sourceId, via: r.via && r.via !== "card" ? r.via : undefined, rc: r.rc }, accts, r.elig) : null;
   }

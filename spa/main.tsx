@@ -9,6 +9,7 @@ import { useFaroUser } from "@/spa/gates";
 import { Login } from "@/spa/login";
 import { lockCredential, unlock } from "@/spa/lock";
 import { w } from "@/spa/words";
+import { clearGlow } from "@/lib/manual/nav";
 import { startFit } from "@/spa/fit";
 import { startStatusBar } from "@/spa/statusbar";
 import "@/spa/gate.css";
@@ -44,6 +45,7 @@ function Boot() {
 let splashOver = false;
 function Locked({ uid, onOpen }: { uid: string; onOpen: () => void }) {
   const [err, setErr] = useState("");
+  useEffect(() => { clearGlow(); }, []); // the "Ir allí" ring never shows over the lock
   const tried = useRef(false);
   const go = async () => {
     setErr("");

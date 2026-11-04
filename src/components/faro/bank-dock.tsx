@@ -7,7 +7,7 @@ import "./bank.css";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { ChevronRight, CreditCard, FileUp } from "lucide-react";
 import { formatMoney } from "@/lib/faro/money";
-import { rcLabel, rewardsMonth } from "@/lib/faro/bankbook";
+import { importBook, rcLabel, rewardsMonth } from "@/lib/faro/bankbook";
 import type { LedgerState } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
@@ -81,7 +81,7 @@ export function ImportRow() {
         <FileUp aria-hidden />
         <span className="manual-row-text">
           <div className="imp-row-title"><strong className="serif">{L(lang, "Importar movimientos", "Import transactions")}</strong><Hint topic="importar" /></div>
-          <span>{L(lang, "Chase, State Farm, PayPal o tu banco", "Chase, State Farm, PayPal or your bank")}</span>
+          <span>{L(lang, "Chase, PayPal o tu banco", "Chase, PayPal or your bank")}</span>
         </span>
         <ChevronRight aria-hidden />
       </div>
@@ -148,7 +148,7 @@ export function RewardsStudy() {
       </div>
       <p className={`rw-act${m.top ? " is-miss" : ""}`}>
         {m.top
-          ? L(lang, `Paga ${rcLabel(m.top.rc, lang)} con ${m.top.best.name}: +${money(m.top.missed)} al mes.`, `Pay ${rcLabel(m.top.rc, lang)} with ${m.top.best.name}: +${money(m.top.missed)} a month.`)
+          ? L(lang, `Paga ${rcLabel(m.top.rc, lang, importBook(session.ledger).bonus)} con ${m.top.best.name}: +${money(m.top.missed)} al mes.`, `Pay ${rcLabel(m.top.rc, lang, importBook(session.ledger).bonus)} with ${m.top.best.name}: +${money(m.top.missed)} a month.`)
           : L(lang, "Cada compra fue con la tarjeta que más paga.", "Every purchase used the card that pays most.")}
       </p>
     </section>
@@ -170,7 +170,7 @@ export function RewardsAdvice() {
         <h3 className="lab-head">{L(lang, "Recompensas", "Rewards")}<Hint topic="asesor-recompensas" /></h3>
         <strong>{L(lang, `Tus tarjetas te dieron ${money(m.earned)} este mes.`, `Your cards gave you ${money(m.earned)} this month.`)}</strong>
         <p>{m.top
-          ? L(lang, `Dejaste ${money(m.missed)} sobre la mesa. Lo mayor: ${rcLabel(m.top.rc, lang)}; usa ${m.top.best.name}.`, `You left ${money(m.missed)} on the table. The biggest: ${rcLabel(m.top.rc, lang)}; use ${m.top.best.name}.`)
+          ? L(lang, `Dejaste ${money(m.missed)} sobre la mesa. Lo mayor: ${rcLabel(m.top.rc, lang, importBook(session.ledger).bonus)}; usa ${m.top.best.name}.`, `You left ${money(m.missed)} on the table. The biggest: ${rcLabel(m.top.rc, lang, importBook(session.ledger).bonus)}; use ${m.top.best.name}.`)
           : L(lang, "No dejaste nada sobre la mesa: sigue con esas tarjetas.", "You left nothing on the table: keep those cards.")}</p>
       </div>
     </section>

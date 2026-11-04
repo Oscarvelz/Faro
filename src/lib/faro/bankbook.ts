@@ -4,7 +4,7 @@
  * Money stays in normal lines: an imported purchase is a line with `sourceId` (and `importId` for its statement key).
  */
 import { convertMinor } from "./money.ts";
-import type { AcctKind, BankSource, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, Structure } from "./types.ts";
+import type { AcctKind, BankSource, BonusRow, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, Structure } from "./types.ts";
 
 export const REWARD_CLASSES: RewardClass[] = ["travel", "dining", "grocery", "drug", "gas", "online", "other"];
 
@@ -45,12 +45,13 @@ function idIn(d: DefaultSource, cat: CatalogItem[], sources: BankSource[]): stri
 
 export function importBook(state: LedgerState | null | undefined): ImportBook {
   const b = state?.imports;
-  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {} };
+  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {}, bonus: Array.isArray(b?.bonus) ? b!.bonus.filter((x) => x && typeof x.id === "string" && typeof x.name === "string") : [] };
 }
 
 /** Accounts as the user sees them: the catalog item (name, icon) joined with its import settings; defaults until first saved. */
 export type Acct = BankSource & { name: string; icon: string; saved: boolean };
-export function accounts(state: LedgerState | null | undefined): Acct[] {
+/** Accounts in daily use; `all` also returns archived ones (`off` set), which old lines still point at. */
+export function accounts(state: LedgerState | null | undefined, all = false): Acct[] {
   const book = importBook(state);
   const cat = state?.structure.catalog.filter((c) => c.kind === "acct") ?? [];
   const out: Acct[] = [];
@@ -58,7 +59,7 @@ export function accounts(state: LedgerState | null | undefined): Acct[] {
     const id = idIn(d, cat, book.sources);
     const item = cat.find((c) => c.id === id);
     const src = freshen(d, book.sources.find((s) => s.id === id));
-    if (item?.hidden) continue;
+    if (item?.hidden || (src?.off && !all)) continue;
     const custom = item ? (item.customName || item.nameKey || d.name) : d.name;
     const name = d.oldNames?.includes(custom) ? d.name : custom;
     const { legacy: _l, oldNames: _n, oldRates: _r, ...base } = d;
@@ -67,7 +68,8 @@ export function accounts(state: LedgerState | null | undefined): Acct[] {
   for (const item of cat) {
     if (out.some((a) => a.id === item.id) || item.hidden) continue;
     const src = book.sources.find((s) => s.id === item.id);
-    out.push({ id: item.id, bank: src?.bank ?? "other", kind: src?.kind ?? "card", rates: src?.rates ?? { other: 0 }, elig: src?.elig, pocketId: src?.pocketId, apyBps: src?.apyBps, name: item.customName || item.nameKey, icon: item.icon, saved: !!src });
+    if (src?.off && !all) continue;
+    out.push({ id: item.id, bank: src?.bank ?? "other", kind: src?.kind ?? "card", rates: src?.rates ?? { other: 0 }, elig: src?.elig, pocketId: src?.pocketId, apyBps: src?.apyBps, off: src?.off, mine: src?.mine, name: item.customName || item.nameKey, icon: item.icon, saved: !!src });
   }
   return out;
 }
@@ -97,6 +99,67 @@ export function ensureAccounts(state: LedgerState): LedgerState {
 export function withBook(state: LedgerState, fn: (b: ImportBook) => ImportBook): LedgerState {
   const base = ensureAccounts(state);
   return { ...base, imports: fn(importBook(base)) };
+}
+
+/* ------------------------------------------------------------------ the user's own cards and banks */
+
+/** Issuer presets for a new account (value = `bank`; "other" for any other). Only Chase, Wells Fargo and PayPal have file readers. */
+export const ISSUERS: { value: string; label: string }[] = [
+  { value: "chase", label: "Chase" }, { value: "wellsfargo", label: "Wells Fargo" }, { value: "paypal", label: "PayPal" },
+  { value: "citi", label: "Citi" }, { value: "capitalone", label: "Capital One" }, { value: "amex", label: "Amex" },
+  { value: "discover", label: "Discover" }, { value: "bofa", label: "Bank of America" }, { value: "other", label: "" },
+];
+export const KIND_ICON: Record<AcctKind, string> = { card: "CreditCard", checking: "Landmark", savings: "PiggyBank", paypal: "Wallet" };
+const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const rid = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random()}`).replace(/-/g, "").slice(0, 10);
+
+export type NewAcct = { name: string; kind: AcctKind; bank: string; rates: Record<string, number>; bonus?: BonusRow[] };
+/** Adds an account of the user's own: a catalog item (name, icon) + its import settings, and any new bonus rows. Returns the new id too. */
+export function addAccount(state: LedgerState, a: NewAcct): { state: LedgerState; id: string } {
+  const base = ensureAccounts(state);
+  const id = `acct-u-${rid()}`;
+  const order = 60 + base.structure.catalog.filter((c) => c.kind === "acct").length;
+  const item: CatalogItem = { id, nameKey: "", customName: a.name.trim(), icon: KIND_ICON[a.kind], hidden: false, order, kind: "acct", urlTemplate: "" };
+  const book = importBook(base);
+  const bonus = [...(book.bonus ?? []), ...(a.bonus ?? []).filter((b) => !book.bonus?.some((x) => x.id === b.id))];
+  const rates: Record<string, number> = {};
+  for (const [k, v] of Object.entries(a.rates)) if (Number.isFinite(v) && v >= 0) rates[k] = Math.round(v);
+  if (typeof rates.other !== "number") rates.other = 0;
+  return { id, state: { ...base, structure: { ...base.structure, catalog: [...base.structure.catalog, item] }, imports: { ...book, bonus, sources: [...book.sources, { id, bank: a.bank || "other", kind: a.kind, rates, mine: true }] } } };
+}
+/** Archives (never deletes): lines, merchant rules and past rewards keep pointing at it. */
+export function archiveAccount(state: LedgerState, id: string, day = localDay()): LedgerState {
+  return withBook(state, (b) => ({ ...b, sources: b.sources.map((x) => (x.id === id ? { ...x, off: day } : x)) }));
+}
+export function restoreAccount(state: LedgerState, id: string): LedgerState {
+  return withBook(state, (b) => ({ ...b, sources: b.sources.map((x) => { if (x.id !== id) return x; const n = { ...x }; delete n.off; return n; }) }));
+}
+export function newBonus(name: string, target?: string): BonusRow { return { id: `b-${rid()}`, name: name.trim(), ...(target ? { target } : {}) }; }
+/** The bonus row a filing lands in: one linked to that exact subcategory, else to its whole category. */
+export function bonusFor(bonus: BonusRow[] | undefined, target: string): BonusRow | undefined {
+  if (!target || !bonus?.length) return undefined;
+  const [k, c] = target.split("|");
+  return bonus.find((b) => b.target === target) ?? bonus.find((b) => b.target === `${k}|${c}|`);
+}
+/** The reward row of a filed line: PayPal checkout and Chase Travel keep theirs; a linked bonus row wins over the guess. */
+export function rowFor(bonus: BonusRow[] | undefined, target: string, label: string, rc: string): string {
+  if (rc === "online" || rc === "travel") return rc;
+  return bonusFor(bonus, target)?.id ?? classOfLabel(label, rc as RewardClass);
+}
+/** A category the user picks says what kind of shop it is (for card rewards). */
+export function classOfLabel(label: string, fallback: RewardClass): RewardClass {
+  const s = label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/restaur|comida fuera|comidas|dining|cafe/.test(s)) return "dining";
+  if (/despensa|super|grocer|alimentos|comida/.test(s)) return "grocery";
+  if (/farmac|salud|pharm|medic|health/.test(s)) return "drug";
+  if (/gasolin|fuel|\bgas\b/.test(s)) return "gas";
+  return guessClass(s).rc === "other" ? fallback : guessClass(s).rc;
+}
+/** Does this reward row apply to this card (Chase Travel is Chase's, PayPal checkout is PayPal's, unless the card has its own rate)? */
+export function rowApplies(a: Pick<BankSource, "bank" | "rates">, rc: string): boolean {
+  if (rc === "online") return a.bank === "paypal" || typeof a.rates.online === "number";
+  if (rc === "travel") return a.bank === "chase" || typeof a.rates.travel === "number";
+  return true;
 }
 
 /* ------------------------------------------------------------------ merchant names */
@@ -308,7 +371,7 @@ export function rateOf(src: BankSource | undefined, rc: RewardClass | string | u
   if (!src) return 0;
   if (src.kind === "paypal" && eligible && src.elig) return src.elig;
   const r = src.rates ?? {};
-  const v = r[(rc as RewardClass) ?? "other"];
+  const v = r[rc ?? "other"];
   return typeof v === "number" ? v : (r.other ?? 0);
 }
 
@@ -319,8 +382,9 @@ export function bestFor(accts: Acct[], rc: RewardClass | string | undefined, onl
 
 export type LineReward = { earned: number; missed: number; best?: Acct; rate: number; bestRate: number };
 /** What this purchase earned and what the best card would have earned more (minor units of the line's currency). */
-export function lineReward(line: Pick<Line, "amountMinor" | "sourceId" | "via" | "rc">, accts: Acct[], eligible = false): LineReward | null {
-  const src = accts.find((a) => a.id === line.sourceId);
+export function lineReward(line: Pick<Line, "amountMinor" | "sourceId" | "via" | "rc">, accts: Acct[], eligible = false, all: Acct[] = accts): LineReward | null {
+  // An archived card still earned what it earned; it is just never suggested as the better card.
+  const src = all.find((a) => a.id === line.sourceId);
   if (!src) return null;
   const rate = rateOf(src, line.rc, eligible);
   const online = src.kind === "paypal" || !!line.via;
@@ -337,13 +401,14 @@ export type RewardsMonth = { earned: number; missed: number; possible: number; c
 export function rewardsMonth(state: LedgerState, key: string, display: Currency, rateE4: number): RewardsMonth | null {
   const lines = state.months[key]?.lines ?? [];
   const accts = accounts(state);
+  const every = accounts(state, true);
   const rules = importBook(state).rules;
   let earned = 0, missed = 0, count = 0;
   const byClass = new Map<string, { best: Acct; missed: number }>();
   for (const line of lines) {
     if (!line.active || !line.sourceId || line.xfer || line.kind.startsWith("income")) continue;
     const elig = !!findRule(rules, merchantKey(line.concept))?.elig;
-    const r = lineReward(line, accts, elig);
+    const r = lineReward(line, accts, elig, every);
     if (!r) continue;
     count += 1;
     earned += convertMinor(r.earned, line.currency, display, rateE4);
@@ -370,6 +435,9 @@ export const RC_LABEL: Record<RewardClass, [string, string]> = {
   online: ["pago con PayPal", "PayPal checkout"],
   other: ["lo demás", "everything else"],
 };
-export const rcLabel = (rc: string, lang: string) => (RC_LABEL[rc as RewardClass] ?? RC_LABEL.other)[lang === "en" ? 1 : 0];
+export const rcLabel = (rc: string, lang: string, bonus?: BonusRow[]) => {
+  const b = rc.startsWith("b-") ? bonus?.find((x) => x.id === rc) : undefined;
+  return b ? b.name : (RC_LABEL[rc as RewardClass] ?? RC_LABEL.other)[lang === "en" ? 1 : 0];
+};
 
 export const kindOf = (a: { kind: AcctKind }) => a.kind;

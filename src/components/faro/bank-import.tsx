@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { ArrowLeftRight, Ban, Check, CopyCheck, FileImage, FileUp, Link2, PiggyBank, RotateCcw, Scale, ShieldCheck, X } from "lucide-react";
 import { formatMoney } from "@/lib/faro/money";
-import { accounts, guessClass, importBook, rcLabel } from "@/lib/faro/bankbook";
+import { accounts, importBook, rcLabel, rowFor } from "@/lib/faro/bankbook";
 import { applyImport, buildReview, counts, fromPdf, lineAmount, parseFile, pickSource, remap, revertImport, rewardFor, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
 import type { ColumnMap, LedgerState, RewardClass } from "@/lib/faro/types";
@@ -26,16 +26,6 @@ const FULL: Record<string, string[]> = {
   en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
 };
 const day = (iso: string, lang: string) => `${Number(iso.slice(8, 10))}\u00a0${MONTHS[lang === "en" ? "en" : "es"][Number(iso.slice(5, 7)) - 1]}`;
-
-/** A category the user picks says what kind of shop it is (for card rewards). */
-function rcOfLabel(label: string, fallback: RewardClass): RewardClass {
-  const s = label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (/restaur|comida fuera|comidas|dining|cafe/.test(s)) return "dining";
-  if (/despensa|super|grocer|alimentos|comida/.test(s)) return "grocery";
-  if (/farmac|salud|pharm|medic|health/.test(s)) return "drug";
-  if (/gasolin|fuel|\bgas\b/.test(s)) return "gas";
-  return guessClass(s).rc === "other" ? fallback : guessClass(s).rc;
-}
 
 type Over = { target: Record<string, string>; include: Record<string, boolean> };
 const ACCEPT = ".pdf,.csv,.qfx,.ofx,.qif,.txt,application/pdf,text/csv,application/x-ofx,application/vnd.intu.qfx";
@@ -116,7 +106,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
         r.target = t; r.how = "rule";
         const label = base.targets.find((x) => x.value === t)?.label ?? "";
         // A PayPal checkout or a Chase Travel booking keeps its class: that is what the card pays for.
-        if (r.rc !== "online" && r.rc !== "travel") r.rc = rcOfLabel(label, r.rc);
+        r.rc = rowFor(importBook(state).bonus, t, label, r.rc) as RewardClass;
         r.reward = rewardFor(state, r);
       }
       if (r.uid in over.include) r.include = over.include[r.uid];
@@ -173,7 +163,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                 <strong>{busy ? L(lang, "Leyendo el PDF", "Reading the PDF") : L(lang, "Elige tus archivos", "Choose your files")}</strong>
                 <span>{L(lang, "PDF, CSV, QFX, OFX o QIF; varios a la vez", "PDF, CSV, QFX, OFX or QIF; several at once")}</span>
               </label>
-              <p className="imp-safe"><ShieldCheck aria-hidden /><span>{L(lang, "El archivo no sale de aquí; lo guardado se sincroniza.", "The file stays here; what you save syncs.")}</span><Hint topic="imp-archivo" /></p>
+              <p className="imp-safe"><ShieldCheck aria-hidden /><span>{L(lang, "El archivo no se sube; tus datos sí.", "The file stays here; your data syncs.")}</span><Hint topic="imp-archivo" /></p>
               {bad ? <p className="imp-bad" role="alert">{bad}</p> : null}
               <div className="imp-help">
                 <h4 className="lab-head">{L(lang, "Cómo descargar tu archivo", "How to download your file")}<Hint topic="imp-descargar" /></h4>
@@ -263,7 +253,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                             </div>
                             <div className="imp-amt">
                               <b className="num">{amt}</b>
-                              {r.include && r.reward && r.reward.earned > 0 ? <small className="num" title={rcLabel(r.rc, lang)}>+{money(r.reward.earned)}</small> : null}
+                              {r.include && r.reward && r.reward.earned > 0 ? <small className="num" title={rcLabel(r.rc, lang, importBook(state).bonus)}>+{money(r.reward.earned)}</small> : null}
                             </div>
                           </li>
                         );

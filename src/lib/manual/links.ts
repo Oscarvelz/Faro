@@ -25,6 +25,7 @@ export const LINKS: Record<string, string> = {
   "Semáforo de deuda": "semaforo", "Debt signal": "semaforo",
   "Oportunidad de mejora": "oportunidad", "Room to improve": "oportunidad",
   "Traer recurrentes": "traer-recurrentes", "Bring recurring items": "traer-recurrentes",
+  Queda: "queda", Left: "queda",
   "Si apartas": "si-apartas", "If you set aside": "si-apartas",
   Cuentas: "cuentas", Accounts: "cuentas",
   "Moneda de vista": "moneda-vista", "View currency": "moneda-vista",
@@ -32,6 +33,8 @@ export const LINKS: Record<string, string> = {
   Deshacer: "deshacer", Undo: "deshacer",
   "Importar movimientos": "importar", "Import transactions": "importar",
   "Bancos y recompensas": "bancos", "Banks and rewards": "bancos",
+  "Cuotas en el tiempo": "debo-tiempo", "Dues over time": "debo-tiempo",
+  "Tus tarjetas y cuentas": "imp-tarjetas", "Your cards and accounts": "imp-tarjetas",
   "Reglas de comercios": "imp-reglas", "Merchant rules": "imp-reglas",
   // Books
   "Intacto, usado y queda": "bote", "Untouched, used and left": "bote",
@@ -79,10 +82,10 @@ export const LINKS: Record<string, string> = {
  */
 export const NAME_TERMS: string[] = [
   "Tengo", "Gastaré", "Queda", "Usado", "Tasa", "Cobros", "Me deben", "Debo", "Bono", "Archivo", "Acumulado", "Promedio",
-  "Este periodo", "Desplegar todo", "Ir allí", "Más en el manual", "Poner en el campo", "Aplicar al plan", "Copiar plan",
+  "Este periodo", "Desplegar", "Ir allí", "Más en el manual", "Poner en el campo", "Aplicar al plan", "Copiar plan",
   "Guardar copia ahora", "Restaurar", "Entendido", "Fijos", "Variables", "Compras",
   "Have", "Spending", "Left", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",
-  "Average", "This period", "Unfold all", "Go there", "More in the manual", "Put in the field", "Apply to the plan", "Copy plan",
+  "Average", "This period", "Unfold", "Go there", "More in the manual", "Put in the field", "Apply to the plan", "Copy plan",
   "Save a copy now", "Restore", "Got it", "Fixed", "Variable", "Shopping",
 ];
 

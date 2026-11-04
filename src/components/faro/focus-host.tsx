@@ -70,7 +70,7 @@ export function FocusHost() {
           const y = Math.round(target.getBoundingClientRect().top);
           still = y === last ? still + 1 : 0;
           last = y;
-          if (still >= 3 || Date.now() - t0 > 900) { glow(target, 2800); return; }
+          if (still >= 3 || Date.now() - t0 > 900) { glow(target, 2800, true); return; }
           requestAnimationFrame(settle);
         };
         requestAnimationFrame(settle);

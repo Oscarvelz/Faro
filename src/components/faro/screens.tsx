@@ -6,7 +6,7 @@ import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, Rul
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2, X } from "lucide-react";
+import { Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Settings as Gear, Trash2, X } from "lucide-react";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, moveNamed, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
@@ -1166,6 +1166,13 @@ function DueOwe() {
   const display = session?.ledger.settings.display ?? "USD";
   const active = lines.filter((line) => line.kind === "subscription" && line.active);
   const sum = active.reduce((total, line) => total + convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0), 0);
+  // Debo over time: every due of every month (archived ones too) on its day; this month's tiles split paid (its day came) from pending.
+  const today = todayIso();
+  const dayOf = (line: Line) => line.bookedOn || line.nextDue || `${line.monthKey}-01`;
+  const paidSum = active.filter((line) => dayOf(line) <= today).reduce((total, line) => total + convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0), 0);
+  const charges = Object.values(session?.ledger.months ?? {}).flatMap((month) => month.lines)
+    .filter((line) => line.kind === "subscription" && (line.active || filed.some((f) => f.seriesId === (line.seriesId || line.id))))
+    .map((line) => ({ date: dayOf(line), value: convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0) }));
   function saveFile(next: DueFile[]) {
     setFiled(next);
     try { localStorage.setItem("faro-due-file", JSON.stringify(next)); } catch { /* ignore */ }
@@ -1209,6 +1216,8 @@ function DueOwe() {
         <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.owe.add")} onClick={() => setAdding((on) => !on)}><Plus /></button>
       </div>
       <p className="cobro-aside">{t("cobro.owe.aside")}</p>
+      <CobroSpan out help="debo-tiempo" title={t("cobro.owe.span")} total={sum} events={charges}
+        facts={[[t("cobro.owe.due"), sum], [t("cobro.owe.paid"), paidSum], [t("cobro.left.owe"), Math.max(0, sum - paidSum)]]} />
       {adding ? (
         <div className="form-block cobro-form is-owe">
           <div className="cobro-grid">
@@ -1291,11 +1300,85 @@ function DueOwe() {
   );
 }
 
+/**
+ * Cobros: the over-time fold shared by Me deben and Debo (same switch, tiles and bars; only the data differ).
+ * `events` are dated amounts already in the view currency; `out` paints the bars as money out (Clu orange in Tron).
+ */
+function CobroSpan({ title, total, facts, events, out = false, help }: { title: string; total: number; facts: [string, number][]; events: { date: string; value: number }[]; out?: boolean; help?: string }) {
+  const { t, fmt, lang } = useFaro();
+  const [span, setSpan] = useState<"week" | "month" | "year">("month");
+  const [openStats, setOpenStats] = useState(false);
+  const now = new Date();
+  const count = span === "week" ? 8 : span === "month" ? 6 : 5;
+  const points = Array.from({ length: count }, (_, index) => {
+    const i = count - 1 - index;
+    let start = "";
+    let end = "";
+    let label = "";
+    if (span === "week") {
+      const day = new Date(now);
+      day.setDate(day.getDate() - ((day.getDay() + 6) % 7) - i * 7);
+      const stop = new Date(day);
+      stop.setDate(day.getDate() + 7);
+      start = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+      end = `${stop.getFullYear()}-${String(stop.getMonth() + 1).padStart(2, "0")}-${String(stop.getDate()).padStart(2, "0")}`;
+      label = String(day.getDate());
+    } else if (span === "month") {
+      const day = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const stop = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      start = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-01`;
+      end = `${stop.getFullYear()}-${String(stop.getMonth() + 1).padStart(2, "0")}-01`;
+      label = day.toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { month: "short" }).replace(".", "");
+    } else {
+      const year = now.getFullYear() - i;
+      start = `${year}-01-01`;
+      end = `${year + 1}-01-01`;
+      label = String(year).slice(2);
+    }
+    const value = events.filter((ev) => ev.date >= start && ev.date < end).reduce((sum, ev) => sum + ev.value, 0);
+    return { label, value };
+  });
+  const peak = Math.max(...points.map((point) => point.value), 1);
+  return (
+    <div className={`span-cut${openStats ? " is-open" : ""}${out ? " is-out" : ""}`}>
+      <div className="span-fold-bar">
+        {openStats ? (
+          <div className="span-filter" role="tablist" aria-label={title}>
+            {(["week", "month", "year"] as const).map((id) => (
+              <button key={id} type="button" aria-pressed={span === id} onClick={() => setSpan(id)}>{t(`study.span.${id}`)}</button>
+            ))}
+          </div>
+        ) : (
+          <button type="button" className="span-fold-main" onClick={() => setOpenStats(true)}>
+            <span>{title}</span>
+            <strong className="num">{fmt(total)}</strong>
+          </button>
+        )}
+        {help && openStats ? <Hint topic={help} /> : null}
+        <button type="button" className="fold-chev" aria-expanded={openStats} onClick={() => setOpenStats((on) => !on)}><ChevronDown /></button>
+      </div>
+      {openStats ? (
+        <>
+          <div className="cobro-facts">
+            {facts.map(([label, value]) => <span key={label}><em>{label}</em><strong className="num">{fmt(value)}</strong></span>)}
+          </div>
+          <div className={`cut-lanes${out ? " is-out" : ""}`}>
+            {points.map((point) => (
+              <span key={`${span}-${point.label}`} className="cut-lane">
+                <i style={{ height: `${Math.max(point.value > 0 ? 14 : 4, (point.value / peak) * 100)}%` }} />
+                <b>{point.label}</b>
+              </span>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boolean }) {
   const { t, fmt, confirm, session, lang, lines } = useFaro();
   const [rows, setRows] = useState<Cobro[]>(readCobros);
-  const [span, setSpan] = useState<"week" | "month" | "year">("month");
-  const [openStats, setOpenStats] = useState(false);
   const [draft, setDraft] = useState(false);
   const [kind, setKind] = useState<"plain" | "interest">("plain");
   const [person, setPerson] = useState("");
@@ -1402,39 +1485,6 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
   const lent = active.reduce((sum, row) => sum + asDisplay(row.amountMinor, row.currency), 0);
   const paid = active.reduce((sum, row) => sum + asDisplay(paidOf(row), row.currency), 0);
   const left = active.reduce((sum, row) => sum + asDisplay(leftOf(row), row.currency), 0);
-  const now = new Date();
-  const count = span === "week" ? 8 : span === "month" ? 6 : 5;
-  const points = Array.from({ length: count }, (_, index) => {
-    const i = count - 1 - index;
-    let start = "";
-    let end = "";
-    let label = "";
-    if (span === "week") {
-      const day = new Date(now);
-      day.setDate(day.getDate() - ((day.getDay() + 6) % 7) - i * 7);
-      const stop = new Date(day);
-      stop.setDate(day.getDate() + 7);
-      start = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-      end = `${stop.getFullYear()}-${String(stop.getMonth() + 1).padStart(2, "0")}-${String(stop.getDate()).padStart(2, "0")}`;
-      label = String(day.getDate());
-    } else if (span === "month") {
-      const day = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const stop = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-      start = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-01`;
-      end = `${stop.getFullYear()}-${String(stop.getMonth() + 1).padStart(2, "0")}-01`;
-      label = day.toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { month: "short" }).replace(".", "");
-    } else {
-      const year = now.getFullYear() - i;
-      start = `${year}-01-01`;
-      end = `${year + 1}-01-01`;
-      label = String(year).slice(2);
-    }
-    const value = rows
-      .filter((row) => row.startedOn >= start && row.startedOn < end)
-      .reduce((sum, row) => sum + asDisplay(row.amountMinor, row.currency), 0);
-    return { label, value };
-  });
-  const peak = Math.max(...points.map((point) => point.value), 1);
   const stamp = (iso: string) => iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—";
 
   function group(mode: "plain" | "interest") {
@@ -1580,40 +1630,8 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
           </div>
         </div>
       ) : null}
-      <div className={`span-cut${openStats ? " is-open" : ""}`}>
-        <div className="span-fold-bar">
-          {openStats ? (
-            <div className="span-filter" role="tablist" aria-label={t("cobro.span")}>
-              {(["week", "month", "year"] as const).map((id) => (
-                <button key={id} type="button" aria-pressed={span === id} onClick={() => setSpan(id)}>{t(`study.span.${id}`)}</button>
-              ))}
-            </div>
-          ) : (
-            <button type="button" className="span-fold-main" onClick={() => setOpenStats(true)}>
-              <span>{t("cobro.span")}</span>
-              <strong className="num">{fmt(lent)}</strong>
-            </button>
-          )}
-          <button type="button" className="fold-chev" aria-expanded={openStats} onClick={() => setOpenStats((on) => !on)}><ChevronDown /></button>
-        </div>
-        {openStats ? (
-          <>
-            <div className="cobro-facts">
-              <span><em>{t("cobro.lent")}</em><strong className="num">{fmt(lent)}</strong></span>
-              <span><em>{t("cobro.paid")}</em><strong className="num">{fmt(paid)}</strong></span>
-              <span><em>{t("cobro.left")}</em><strong className="num">{fmt(left)}</strong></span>
-            </div>
-            <div className="cut-lanes">
-              {points.map((point) => (
-                <span key={`${span}-${point.label}`} className="cut-lane">
-                  <i style={{ height: `${Math.max(point.value > 0 ? 14 : 4, (point.value / peak) * 100)}%` }} />
-                  <b>{point.label}</b>
-                </span>
-              ))}
-            </div>
-          </>
-        ) : null}
-      </div>
+      <CobroSpan title={t("cobro.span")} total={lent} events={rows.map((row) => ({ date: row.startedOn, value: asDisplay(row.amountMinor, row.currency) }))}
+        facts={[[t("cobro.lent"), lent], [t("cobro.paid"), paid], [t("cobro.left"), left]]} />
       {group("plain")}
       {group("interest")}
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
@@ -3972,39 +3990,19 @@ function ThemeSide({ title, open, onToggle, children }: { title: string; open: b
   );
 }
 
-function Fold({ id, topic, title, open, onToggle, children }: { id: string; topic: string; title: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+function Fold({ id, topic, title, sub, icon: Icon, open, onToggle, children }: { id: string; topic: string; title: string; sub: string; icon: typeof Gear; open: boolean; onToggle: () => void; children: ReactNode }) {
+  // Same row as Manual de uso / Importar movimientos: icon, bold title + (?), one-line subtitle, chevron.
   // The header is a div-button so the title's (?) can sit right after the title without nesting buttons.
-  // If the (?) alone would push the title onto a second line, the title gives up a few percent of size instead (≤ 10%).
-  const head = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const el = head.current; const h = el?.querySelector("h2"); if (!el || !h) return;
-    const fit = () => {
-      h.style.fontSize = "";
-      const title = h.parentElement!; const chev = el.querySelector(".fold-chev");
-      const room = el.clientWidth - (chev?.getBoundingClientRect().width ?? 0) - parseFloat(getComputedStyle(el).columnGap || "0")
-        - (title.getBoundingClientRect().width - h.getBoundingClientRect().width);
-      h.style.whiteSpace = "nowrap"; const nat = h.scrollWidth; h.style.whiteSpace = "";
-      if (nat > room && room / nat >= 0.9) h.style.fontSize = `${(parseFloat(getComputedStyle(h).fontSize) * (room / nat) * 0.99).toFixed(2)}px`;
-    };
-    fit();
-    // Next frame, not inside the observer callback (changing the size there loops the observer).
-    let raf = 0;
-    const ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(fit); }); ro.observe(el);
-    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
-  }, [title]);
   return (
-    <section className="card" data-anchor={`aj-${id === "rate" ? "rules" : id}`} data-fold={id}>
-      <div
-        ref={head}
-        role="button"
-        tabIndex={0}
-        className="fold-btn"
-        aria-expanded={open}
-        onClick={onToggle}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
-      >
-        <span className="fold-title"><h2 className="serif text-2xl">{title}</h2><Hint topic={topic} /></span>
-        <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+    <section className="card manual-card aj-card" data-anchor={`aj-${id === "rate" ? "rules" : id}`} data-fold={id}>
+      <div role="button" tabIndex={0} className="manual-row fold-btn aj-row" aria-expanded={open} onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}>
+        <Icon aria-hidden />
+        <span className="manual-row-text">
+          <div className="fold-title aj-title"><h2 className="serif">{title}</h2><Hint topic={topic} /></div>
+          <span className="aj-sub">{sub}</span>
+        </span>
+        <ChevronDown className={open ? "fold-chev is-open" : "fold-chev"} />
       </div>
       {open ? <div className="mt-3">{children}</div> : null}
     </section>
@@ -4102,22 +4100,14 @@ export function Settings() {
   function toggle(id: string) { setOpenFold((cur) => (cur === id ? null : id)); }
   return (
     <div ref={boardRef} className="grid gap-3 settings-board">
-      <section className="card manual-card" data-anchor="aj-manual" data-topic-box="manual">
-        <button type="button" className="manual-row fold-btn" onClick={() => openManual("")}>
-          <BookOpen aria-hidden />
-          <span className="manual-row-text"><strong className="serif">{t("manual.title")}</strong><span>{t("manual.row")}</span></span>
-          <ChevronRight aria-hidden />
-        </button>
-      </section>
-      <ImportRow />
-      <Fold id="lang" topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
+      <Fold id="lang" icon={Languages} sub={lang === "en" ? "Spanish or English" : "Español o inglés"} topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
         <div className="aj-seg" role="group" aria-label={t("settings.lang")}>
           {(["es", "en"] as const).map((id) => (
             <button key={id} type="button" className="aj-seg-btn" aria-pressed={lang === id} onClick={() => { localStorage.setItem("faro-lang", id); commit((s) => ({ ...s, settings: { ...s.settings, lang: id } }), id); }}>{t(`lang.${id}`)}</button>
           ))}
         </div>
       </Fold>
-      <Fold id="theme" topic="temas" title={t("settings.theme")} open={openFold === "theme"} onToggle={() => toggle("theme")}>
+      <Fold id="theme" icon={Palette} sub={lang === "en" ? "Day and night colors" : "Colores de día y noche"} topic="temas" title={t("settings.theme")} open={openFold === "theme"} onToggle={() => toggle("theme")}>
         {(() => {
           const night = NIGHT_THEMES.includes(settings.theme);
           const groups = themeSide ?? { day: !night, night };
@@ -4146,7 +4136,7 @@ export function Settings() {
           );
         })()}
       </Fold>
-      <Fold id="structure" topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
+      <Fold id="structure" icon={FolderTree} sub={lang === "en" ? "Categories and stores" : "Categorías y tiendas"} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
         <div className="aj-picks">
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
             <button key={id} type="button" className="btn ghost aj-pick" onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
@@ -4157,7 +4147,11 @@ export function Settings() {
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-catalog">{t("settings.catalog")}<Hint topic="catalogo" /></h2>
         <CatalogEditor />
       </Fold>
-      <Fold id="rate" topic="reglas" title={t("settings.rate")} open={openFold === "rate"} onToggle={() => toggle("rate")}>
+      <Fold id="banks" icon={CreditCard} sub={lang === "en" ? "Cards, rates and bonuses" : "Tarjetas, tasas y bonos"} topic="bancos" title={lang === "en" ? "Banks and rewards" : "Bancos y recompensas"} open={openFold === "banks"} onToggle={() => toggle("banks")}>
+        <BankSettings />
+      </Fold>
+      <ImportRow />
+      <Fold id="rate" icon={SlidersHorizontal} sub={lang === "en" ? "Goals, signal and rate" : "Metas, semáforo y tasa"} topic="reglas" title={t("settings.rate")} open={openFold === "rate"} onToggle={() => toggle("rate")}>
         <label className="label" data-anchor="aj-goal"><span className="lab-head">{glueHint(t("settings.goal"), <Hint topic="meta-ahorro" fitParent />)}</span>
           <input className="field num" defaultValue={settings.savingsGoalPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Number(e.target.value) || 0 } }), "goal")} />
         </label>
@@ -4176,7 +4170,7 @@ export function Settings() {
           <Hint topic="tasa-manual" className="is-after" />
         </div>
       </Fold>
-      <Fold id="keys" topic="atajos-teclado" title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
+      <Fold id="keys" icon={Keyboard} sub={lang === "en" ? "One key per action" : "Una tecla por acción"} topic="atajos-teclado" title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
         {SHORTCUT_ACTIONS.map((action) => (
           <div key={action} className={`key-row${ui.rebind === action ? " is-rebinding" : ""}`}>
             <span className="key-name">{shortcutLabel(lang, action)}</span>
@@ -4186,7 +4180,7 @@ export function Settings() {
         ))}
         <button type="button" className="btn ghost mt-2" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys")}>{t("settings.resetKeys")}</button>
       </Fold>
-      <Fold id="gestures" topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
+      <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Long or double tap" : "Toque largo o doble"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
         <p className="text-sm text-muted">{t("gesture.help")}</p>
         {([
           ["in.hold", "gesture.inHold"],
@@ -4227,10 +4221,14 @@ export function Settings() {
           );
         })}
       </Fold>
-      <Fold id="banks" topic="bancos" title={lang === "en" ? "Banks and rewards" : "Bancos y recompensas"} open={openFold === "banks"} onToggle={() => toggle("banks")}>
-        <BankSettings />
-      </Fold>
-      <Fold id="backup" topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
+      <section className="card manual-card" data-anchor="aj-manual" data-topic-box="manual">
+        <button type="button" className="manual-row fold-btn" onClick={() => openManual("")}>
+          <BookOpen aria-hidden />
+          <span className="manual-row-text"><strong className="serif">{t("manual.title")}</strong><span>{t("manual.row")}</span></span>
+          <ChevronRight aria-hidden />
+        </button>
+      </section>
+      <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />
         <div className="vault-more">
           <button type="button" className="btn secondary" onClick={exportJson}>{t("settings.export")}</button>
@@ -4241,7 +4239,7 @@ export function Settings() {
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-activity">{t("settings.activity")}<Hint topic="actividad" /></h2>
         {session.ledger.audit.slice(0, 8).map((a) => <p key={a.id} className="text-sm text-muted">{auditLabel(lang, a.detail)}</p>)}
       </Fold>
-      <Fold id="account" topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
+      <Fold id="account" icon={UserRound} sub={lang === "en" ? "Login, sync, fingerprint" : "Sesión, nube y huella"} topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />
       </Fold>
     </div>

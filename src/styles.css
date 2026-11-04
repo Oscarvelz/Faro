@@ -2514,6 +2514,10 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .cobros .span-fold-main { gap: 6px; }
 .cobros .span-fold-main strong { padding: 4px 9px; font-size: .92rem; }
 .cobros .span-cut:not(.is-open) .span-fold-bar { padding-left: 12px; gap: 4px; }
+/* Debo/Me deben open bar: Semana/Mes/Año, "?" and the chevron always fit (360 at 20px type). */
+.cobros .span-cut.is-open .span-filter { min-width: 0; gap: 2px; }
+.cobros .span-cut.is-open .span-filter button { flex: 1 1 auto; min-width: max-content; padding: 0 6px; white-space: nowrap; }
+.cobros .span-cut.is-open .span-fold-bar > :not(.span-filter) { flex: none; }
 @container (max-width: 20em) { .cobros .span-fold-main span { font-size: .55rem; letter-spacing: .01em; } .cobros .span-fold-main strong { padding: 3px 7px; font-size: .84rem; } }
 /* 6. Field help: stays inside the form, with a small pointer to its "?". */
 .ftip-pop::before { content: ""; position: absolute; left: var(--ftip-x, 16px); width: 9px; height: 9px; margin-left: -5px; background: inherit; border: inherit; border-width: 1px; transform: rotate(45deg); pointer-events: none; }

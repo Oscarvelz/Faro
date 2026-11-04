@@ -138,11 +138,17 @@ export type Person = {
 export type RewardClass = "travel" | "dining" | "grocery" | "drug" | "gas" | "online" | "other";
 export type AcctKind = "checking" | "card" | "paypal" | "savings";
 /** Import settings of one account; its name and icon live in its catalog item (kind "acct"), same id. Rates in basis points. */
-export type BankSource = { id: string; bank: string; kind: AcctKind; rates: Partial<Record<RewardClass, number>>; elig?: number; pocketId?: string; apyBps?: number };
+/**
+ * `rates` keys are reward rows: a RewardClass or a bonus row id ("b-…"). `off` (ISO day) = archived: out of daily use
+ * (rewards table, import picker, Estudio/Asesor advice) but its lines, rules and past rewards stay. `mine` = added by the user.
+ */
+export type BankSource = { id: string; bank: string; kind: AcctKind; rates: Partial<Record<string, number>>; elig?: number; pocketId?: string; apyBps?: number; off?: string; mine?: boolean };
+/** A named reward row of the user's own ("Hogar", "Viajes Chase"); `target` links it to one of their categories (a "<kind>|<cat>|<sub>" value, sub may be empty = the whole category). */
+export type BonusRow = { id: string; name: string; target?: string };
 /** Learned filing: merchant key → "<kind>|<categoryId>|<subId>". */
-export type MerchantRule = { key: string; label: string; target: string; rc?: RewardClass; elig?: boolean; n: number; at: string };
+export type MerchantRule = { key: string; label: string; target: string; rc?: string; elig?: boolean; n: number; at: string };
 export type ColumnMap = { date: number; desc: number; amount: number; debit: number; credit: number; invert: boolean; dmy: boolean };
-export type ImportBook = { sources: BankSource[]; rules: MerchantRule[]; maps: Record<string, ColumnMap>; files?: Record<string, string> };
+export type ImportBook = { sources: BankSource[]; rules: MerchantRule[]; maps: Record<string, ColumnMap>; files?: Record<string, string>; bonus?: BonusRow[] };
 
 export type AuditEntry = { id: string; at: string; detail: string };
 
