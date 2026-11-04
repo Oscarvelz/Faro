@@ -1,6 +1,7 @@
 import { buildAdvice, categorySlices, inView, monthLines, roleOf, summarize, yearPoints } from "./engine";
 import { monthName } from "./i18n";
 import { formatMoney } from "./money";
+import { loanPays, loanState, loansOf } from "./loans";
 import type { Lang, LedgerState, Line, LineKind } from "./types";
 import type { makeNamer } from "./defaults";
 
@@ -648,6 +649,36 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
           { v: slice.minor / 100, s: S.lineNum },
           { v: total > 0 ? Math.round((slice.minor / total) * 1000) / 10 : 0, s: S.altNum },
         ]),
+      ],
+    });
+  }
+  // Loans received (Debo → Préstamos): one row each, in the loan's own currency, interest as of today.
+  const loans = loansOf(ledger);
+  if (loans.length && Object.values(pick).some(Boolean)) {
+    const head = [say(lang, "Quién prestó", "Lender"), say(lang, "Libro", "Book"), say(lang, "Moneda", "Currency"), say(lang, "Recibido", "Received"), say(lang, "Fecha", "Date"), say(lang, "Tasa %", "Rate %"), say(lang, "Interés", "Interest"), say(lang, "Pagado", "Paid"), say(lang, "Pendiente", "Pending"), say(lang, "Pagos", "Payments"), say(lang, "Estado", "Status")];
+    sheets.push({
+      name: say(lang, "Prestamos", "Loans"),
+      widths: [24, 12, 10, 14, 12, 10, 14, 14, 14, 10, 14],
+      merges: ["A1:K1"],
+      rows: [
+        [{ v: say(lang, "Préstamos recibidos", "Loans received"), s: S.section }],
+        head.map((v) => ({ v, s: S.flowHead })),
+        ...loans.map((loan) => {
+          const f = loanState(ledger, loan);
+          return [
+            { v: loan.lender, s: S.line },
+            { v: loan.book === "variable" ? say(lang, "Variables", "Variable") : say(lang, "Fijos", "Fixed"), s: S.line },
+            { v: loan.currency, s: S.line },
+            { v: loan.amountMinor / 100, s: S.lineNum },
+            { v: loan.takenOn, s: S.line },
+            { v: loan.aprBps / 100, s: S.altNum },
+            { v: f.interest / 100, s: S.lineNum },
+            { v: f.paid / 100, s: S.lineNum },
+            { v: (loan.archived ? loan.unpaidMinor ?? f.left : f.left) / 100, s: S.lineNum },
+            { v: loanPays(ledger, loan.id).length, s: S.altNum },
+            { v: loan.archived ? say(lang, "Archivado", "Archived") : say(lang, "Activo", "Active"), s: S.line },
+          ];
+        }),
       ],
     });
   }

@@ -1,6 +1,7 @@
 import { readAdvisor } from "./advisor";
 import { colorFor } from "./colors";
 import { displayName } from "./defaults";
+import { loanTotals } from "./loans";
 import { convertMinor, formatMoney, formatPct, monthlyEquivalent, roundHalfAway } from "./money";
 import type {
   AdviceCard,
@@ -57,7 +58,8 @@ export function summarize(state: LedgerState, key: string, lang: Lang): Summary 
   const expense = fixed + variable + purchases + subscriptions;
   const opportunity = income - expense;
   const spentPct = income > 0 ? (expense / income) * 100 : null;
-  const debt = sum(lines, display, rateE4, (l) => l.kind === "expense-fixed" && roleOf(structure, l.categoryId) === "debt");
+  // Loan payments (Debo → Préstamos) count as debt in either book; a fixed one already sits in the debt category.
+  const debt = sum(lines, display, rateE4, (l) => (l.kind === "expense-fixed" && roleOf(structure, l.categoryId) === "debt") || (!!l.loanId && (l.kind === "expense-fixed" || l.kind === "expense-variable")));
   const debtPct = income > 0 ? (debt / income) * 100 : null;
   const debtAllowance = roundHalfAway((income * settings.debtGreenPct) / 100);
   const savingsFlow = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "savings");
@@ -1104,14 +1106,24 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     points: shortPoints,
     meter: reading.outTotal > 0 ? { pct: Math.max(0, Math.min(100, (reading.uniqueMinor / reading.outTotal) * 100)), caption: spentCaption } : null,
   };
+  // Loans received: what is still pending (with interest so far) is debt load the month's payments do not show.
+  const lt = loanTotals(state);
+  if (lt.count) {
+    mediumBits.push({
+      label: L(lang, "Préstamos recibidos", "Loans received"),
+      value: money(lt.left),
+      note: L(lang, `Pendiente con interés. Recibiste ${money(lt.borrowed)}, has pagado ${money(lt.paid)} y el interés acumulado va en ${money(lt.interest)}.${s.income > 0 ? ` Equivale a ${pct((lt.left / s.income) * 100)} de un mes de ingreso.` : ""}`,
+        `Pending with interest. You received ${money(lt.borrowed)}, have paid ${money(lt.paid)} and interest so far is ${money(lt.interest)}.${s.income > 0 ? ` That is ${pct((lt.left / s.income) * 100)} of a month's income.` : ""}`),
+    });
+  }
   const mediumCard: AdviceCard = {
     horizon: "medium",
     title: L(lang, "Cómo va mi crédito", "How is my credit"),
     lead: mediumLead,
     body: "",
-    evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}`),
+    evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}${lt.count ? ` · Préstamos ${money(lt.left)}` : ""}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}${lt.count ? ` · Loans ${money(lt.left)}` : ""}`),
     points: mediumBits,
-    nums: { debt: s.debt, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income },
+    nums: { debt: s.debt, loanLeft: lt.left, loanInterest: lt.interest, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income },
     meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,
   };
   const longCard: AdviceCard = {

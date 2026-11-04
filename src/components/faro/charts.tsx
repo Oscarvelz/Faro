@@ -8,7 +8,7 @@ import { useFaro } from "./provider";
 const FOLD_TOPIC: Record<string, string> = {
   pulse: "tu-mes", health: "salud", pace: "ritmo", agenda: "proximos-pagos", waffle: "tus-100", where: "en-que-se-va",
   sankey: "recorrido", rule: "regla-50-30-20", plan: "dentro-del-tope", movers: "que-se-movio", time: "entra-sale-queda",
-  cushion: "colchon", owed: "lo-que-me-deben", numeros: "numeros-clave",
+  cushion: "colchon", owed: "lo-que-me-deben", loans: "estudio-prestamos", numeros: "numeros-clave",
 };
 const FoldTopicCtx = createContext<string | null>(null);
 /** The topic of the Estudio card this sits in (null outside one). */

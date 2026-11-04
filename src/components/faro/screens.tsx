@@ -27,6 +27,8 @@ import type { BackupInfo } from "@/spa/vault";
 import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
+import { DeboSide, LoanCard, LoanForm, LoansStudy } from "./loans";
+import { loanFigures, loanTotals, todayIso } from "@/lib/faro/loans";
 
 const STORE_TINT: Record<string, string> = {
   temu: "#fb7701",
@@ -1088,17 +1090,6 @@ type Cobro = {
   unpaidMinor?: number;
 };
 
-function todayIso() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function dayGap(from: string, to: string) {
-  const a = new Date(`${from.slice(0, 10)}T12:00:00`);
-  const b = new Date(`${to.slice(0, 10)}T12:00:00`);
-  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
-  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000));
-}
 
 function readCobros(): Cobro[] {
   try {
@@ -1130,11 +1121,10 @@ function readCobros(): Cobro[] {
   }
 }
 
+/** Me deben uses the same loan rule as Préstamos (lib/faro/loans.ts): interest from the day it was recorded. */
 function cobroDue(row: Cobro) {
-  const days = dayGap(row.startedOn || row.owedOn || todayIso(), todayIso());
-  const interest = row.kind === "interest" && row.aprBps > 0 ? Math.round((row.amountMinor * row.aprBps * days) / (10000 * 365)) : 0;
   const paid = row.bonuses.reduce((sum, bonus) => sum + bonus.amountMinor, 0);
-  return { paid, left: Math.max(0, row.amountMinor + interest - paid) };
+  return loanFigures(row.amountMinor, row.kind, row.aprBps, row.startedOn || row.owedOn || todayIso(), paid);
 }
 
 type DueFile = { id: string; seriesId: string; name: string; maxMinor: number; currency: Currency; archivedOn: string; pays: { date: string; amountMinor: number }[] };
@@ -1304,7 +1294,7 @@ function DueOwe() {
  * Cobros: the over-time fold shared by Me deben and Debo (same switch, tiles and bars; only the data differ).
  * `events` are dated amounts already in the view currency; `out` paints the bars as money out (Clu orange in Tron).
  */
-function CobroSpan({ title, total, facts, events, out = false, help }: { title: string; total: number; facts: [string, number][]; events: { date: string; value: number }[]; out?: boolean; help?: string }) {
+export function CobroSpan({ title, total, facts, events, out = false, help }: { title: string; total: number; facts: [string, number][]; events: { date: string; value: number }[]; out?: boolean; help?: string }) {
   const { t, fmt, lang } = useFaro();
   const [span, setSpan] = useState<"week" | "month" | "year">("month");
   const [openStats, setOpenStats] = useState(false);
@@ -1380,14 +1370,7 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
   const { t, fmt, confirm, session, lang, lines } = useFaro();
   const [rows, setRows] = useState<Cobro[]>(readCobros);
   const [draft, setDraft] = useState(false);
-  const [kind, setKind] = useState<"plain" | "interest">("plain");
-  const [person, setPerson] = useState("");
-  const [amount, setAmount] = useState("");
-  const [due, setDue] = useState("");
-  const [apr, setApr] = useState("");
   const [bonusFor, setBonusFor] = useState<string | null>(null);
-  const [bonusAmt, setBonusAmt] = useState("");
-  const [bonusOn, setBonusOn] = useState("");
   const [fileOpen, setFileOpen] = useState(false);
   const [side, setSide] = useState<"in" | "out">("in");
   const [dir, setDir] = useState(1);
@@ -1411,6 +1394,12 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
         e.preventDefault();
         return;
       }
+      // Debo → Préstamos keeps its own forms (add a loan, Abonar): back closes that form first, as in Me deben.
+      if (document.querySelector('[data-anchor="cobros-loans"] .cobro-form')) {
+        window.dispatchEvent(new Event("faro-loans-close"));
+        e.preventDefault();
+        return;
+      }
       onClose();
       // Opened by "Ir allí" / a manual link: it was part of the jump, so back walks on to where the jump came from.
       if (!jumped) e.preventDefault();
@@ -1423,6 +1412,11 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
       if (id === "cobros-out" || id === "cobros-out-file") { setDir(1); setSide("out"); }
+      else if (id === "cobros-loans" || id === "cobros-loans-file" || id === "cobros-debo-tabs") {
+        // Debo → Préstamos: pick the sub-tab before the Debo side mounts (it reads the remembered choice).
+        if (id !== "cobros-debo-tabs") { try { localStorage.setItem("faro-debo-tab", "loans"); } catch { /* ignore */ } }
+        setDir(1); setSide("out");
+      }
       else if (id === "cobros-in" || id === "cobros-file") { setDir(-1); setSide("in"); }
       if (id === "cobros-file") setFileOpen(true);
     };
@@ -1433,52 +1427,25 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
   function asDisplay(minor: number, currency: Currency) {
     return convertMinor(minor, currency, display, rate);
   }
-  function interestOf(row: Cobro) {
-    if (row.kind !== "interest" || row.aprBps <= 0) return 0;
-    const days = dayGap(row.startedOn || row.owedOn || todayIso(), todayIso());
-    return Math.round((row.amountMinor * row.aprBps * days) / (10000 * 365));
-  }
   function paidOf(row: Cobro) {
     return row.bonuses.reduce((sum, bonus) => sum + bonus.amountMinor, 0);
   }
   function leftOf(row: Cobro) {
-    return Math.max(0, row.amountMinor + interestOf(row) - paidOf(row));
+    return cobroDue(row).left;
   }
-  function saveDraft() {
-    const minor = parseAmount(amount);
-    const name = person.trim();
-    if (!name || minor === null || minor <= 0) return;
-    const pct = Number(apr.trim().replace(",", "."));
+  function saveDraft(d: { name: string; kind: "plain" | "interest"; amountMinor: number; aprBps: number; date: string }) {
     const next: Cobro = {
-      id: uid(),
-      person: name,
-      kind,
-      amountMinor: minor,
-      currency: display,
-      aprBps: kind === "interest" && Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0,
-      owedOn: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : todayIso(),
-      startedOn: todayIso(),
-      note: "",
-      bonuses: [],
+      id: uid(), person: d.name, kind: d.kind, amountMinor: d.amountMinor, currency: display, aprBps: d.aprBps,
+      owedOn: d.date, startedOn: todayIso(), note: "", bonuses: [],
     };
     setRows((cur) => [next, ...cur]);
     setDraft(false);
-    setPerson("");
-    setAmount("");
-    setDue("");
-    setApr("");
-    setKind("plain");
   }
-  function addBonus(id: string) {
-    const minor = parseAmount(bonusAmt);
+  function addBonus(id: string, minor: number, date: string) {
     const row = rows.find((item) => item.id === id);
-    if (!row || minor === null || minor <= 0) return;
-    const stored = convertMinor(minor, display, row.currency, rate);
-    const bonus: CobroBonus = { id: uid(), date: /^\d{4}-\d{2}-\d{2}$/.test(bonusOn) ? bonusOn : todayIso(), amountMinor: stored, note: "" };
+    if (!row) return;
+    const bonus: CobroBonus = { id: uid(), date, amountMinor: convertMinor(minor, display, row.currency, rate), note: "" };
     setRows((cur) => cur.map((item) => (item.id === id ? { ...item, bonuses: [...item.bonuses, bonus] } : item)));
-    setBonusFor(null);
-    setBonusAmt("");
-    setBonusOn("");
   }
   const active = rows.filter((row) => !row.archived);
   const filed = rows.filter((row) => row.archived);
@@ -1496,61 +1463,14 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
           <span>{t(mode === "interest" ? "cobro.rate" : "cobro.plain")}</span>
           <b>{list.length}</b>
         </h3>
-        {list.length ? list.map((row) => {
-          const tint = ["#7aa2c4", "#8fb9a6", "#e7c27a", "#d7a08a", "#a9b4de"][row.person.charCodeAt(0) % 5];
-          const still = leftOf(row);
-          return (
-            <article key={row.id} className={`cobro-card${row.kind === "interest" ? " is-rate" : ""}`}>
-              <div className="cobro-row">
-                <div className="cobro-who">
-                  <b style={{ background: tint }}>{row.person.slice(0, 1).toUpperCase()}</b>
-                  <strong>{row.person}</strong>
-                </div>
-                <strong className="num">{fmt(asDisplay(still, row.currency))}</strong>
-              </div>
-              <p className="cobro-meta">
-                {t("cobro.lent")} {fmt(asDisplay(row.amountMinor, row.currency))}
-                {" · "}
-                {stamp(row.owedOn)}
-                {row.kind === "interest" && row.aprBps > 0 ? ` · ${(row.aprBps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%` : ""}
-              </p>
-              {row.bonuses.length ? (
-                <p className="cobro-meta">
-                  {row.bonuses.map((bonus) => `${stamp(bonus.date)} ${fmt(asDisplay(bonus.amountMinor, row.currency))}`).join(" · ")}
-                </p>
-              ) : null}
-              {bonusFor === row.id ? (
-                <div className="form-block cobro-form is-bonus">
-                  <div className="cobro-grid">
-                    <label className="label">
-                      <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-bono-monto" /></span>
-                      <input className="field num" inputMode="decimal" placeholder="0.00" value={bonusAmt} onChange={(e) => setBonusAmt(e.target.value)} />
-                    </label>
-                    <div className="label is-right">
-                      <span className="lab-head">{t("cobro.bonus.on")}<FieldTip topic="f-bono-fecha" /></span>
-                      <DayField value={bonusOn} onChange={setBonusOn} />
-                    </div>
-                  </div>
-                  <div className="cobro-actions">
-                    <button type="button" className="btn secondary" onClick={() => setBonusFor(null)}>{t("cancel")}</button>
-                    <button type="button" className="btn" onClick={() => addBonus(row.id)}>{t("save")}</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="cobro-acts">
-                  <button type="button" className="btn secondary" onClick={() => { setBonusFor(row.id); setBonusAmt(""); setBonusOn(todayIso()); }}>{t("cobro.bonus")}</button>
-                  <button type="button" className="btn secondary" onClick={() => confirm({
-                    title: t("cobro.archive"),
-                    body: `${row.person}. ${t("cobro.archive.body")} ${fmt(asDisplay(still, row.currency))}`,
-                    yes: t("cobro.archive"),
-                    run: () => setRows((cur) => cur.map((item) => item.id === row.id ? { ...item, archived: true, archivedOn: todayIso(), unpaidMinor: leftOf(item) } : item)),
-                  })}>{t("cobro.archive")}</button>
-                  <Hint topic="bono" className="is-acts" corner />
-                </div>
-              )}
-            </article>
-          );
-        }) : <p className="cobro-empty">{t("cobro.empty")}</p>}
+        {list.length ? list.map((row) => (
+          <LoanCard key={row.id} name={row.person} rate={row.kind === "interest"} leftView={asDisplay(leftOf(row), row.currency)}
+            amountView={asDisplay(row.amountMinor, row.currency)} amountLabel={t("cobro.lent")} dateIso={row.owedOn} aprBps={row.aprBps}
+            pays={row.bonuses.map((bonus) => ({ date: bonus.date, view: asDisplay(bonus.amountMinor, row.currency) }))}
+            payLabel={t("cobro.bonus")} paying={bonusFor === row.id} onPaying={(on) => setBonusFor(on ? row.id : null)}
+            onPay={(minor, date) => addBonus(row.id, minor, date)} archiveBody={t("cobro.archive.body")}
+            onArchive={() => setRows((cur) => cur.map((item) => item.id === row.id ? { ...item, archived: true, archivedOn: todayIso(), unpaidMinor: leftOf(item) } : item))} hint="bono" />
+        )) : <p className="cobro-empty">{t("cobro.empty")}</p>}
       </div>
     );
   }
@@ -1583,7 +1503,7 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
         <button type="button" aria-pressed={side === "in"} onClick={() => { setDir(-1); setSide("in"); }}>{t("cobro.owed")}</button>
         <button type="button" aria-pressed={side === "out"} onClick={() => { setDir(1); setSide("out"); }}>{t("cobro.owe")}</button>
       </div>
-      {side === "out" ? <DueOwe key="out" /> : (
+      {side === "out" ? <DeboSide dues={<DueOwe key="out" />} /> : (
       <div key="in" className="cobro-swap" data-dir={dir} data-anchor="cobros-in">
       <div className="cobro-top">
         <div>
@@ -1595,41 +1515,7 @@ function Cobros({ onClose, jumped = false }: { onClose: () => void; jumped?: boo
         </button>
       </div>
       <p className="cobro-aside">{t("cobro.aside")}</p>
-      {draft ? (
-        <div className="form-block cobro-form is-lend">
-          <div className="cobro-grid">
-            <div className="label is-wide">
-              <span className="lab-head">{t("cobro.kind")}<FieldTip topic="con-interes" /></span>
-              <div className="cobro-kind">
-                <button type="button" aria-pressed={kind === "plain"} onClick={() => setKind("plain")}>{t("cobro.plain")}</button>
-                <button type="button" aria-pressed={kind === "interest"} onClick={() => setKind("interest")}>{t("cobro.rate")}</button>
-              </div>
-            </div>
-            <label className="label is-wide">
-              <span className="lab-head">{t("cobro.person")}<FieldTip topic="f-cobro-persona" /></span>
-              <input className="field" value={person} onChange={(e) => setPerson(e.target.value)} />
-            </label>
-            <label className="label">
-              <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-cobro-monto" /></span>
-              <input className="field num" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </label>
-            <div className="label is-right">
-              <span className="lab-head">{t("cobro.due")}<FieldTip topic="f-cobro-fecha" /></span>
-              <DayField value={due} onChange={setDue} />
-            </div>
-            {kind === "interest" ? (
-              <label className="label is-wide">
-                <span className="lab-head">{t("cobro.apr")}<FieldTip topic="f-cobro-interes" /></span>
-                <span className="cobro-pct"><input className="field num" inputMode="decimal" placeholder="0" value={apr} onChange={(e) => setApr(e.target.value)} /><i aria-hidden>%</i></span>
-              </label>
-            ) : null}
-          </div>
-          <div className="cobro-actions">
-            <button type="button" className="btn secondary" onClick={() => setDraft(false)}>{t("cancel")}</button>
-            <button type="button" className="btn" onClick={saveDraft}>{t("save")}</button>
-          </div>
-        </div>
-      ) : null}
+      {draft ? <LoanForm mode="lend" onCancel={() => setDraft(false)} onSave={saveDraft} /> : null}
       <CobroSpan title={t("cobro.span")} total={lent} events={rows.map((row) => ({ date: row.startedOn, value: asDisplay(row.amountMinor, row.currency) }))}
         facts={[[t("cobro.lent"), lent], [t("cobro.paid"), paid], [t("cobro.left"), left]]} />
       {group("plain")}
@@ -3599,6 +3485,8 @@ export function Study() {
   if (sankey.links.length) visible.push("sankey");
   if (board?.envelopes.length) visible.push("plan");
   if (owedAny) visible.push("owed");
+  const loansAny = loanTotals(session?.ledger).count > 0;
+  if (loansAny) visible.push("loans");
   const hasPeople = peopleOf(session?.ledger).length > 0;
   if (hasPeople) visible.push("people");
   const showRewards = hasRewards(session?.ledger, key);
@@ -3614,7 +3502,7 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "rewards", "rule", "movers", "time", "cushion", "plan", "owed"]}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "rewards", "rule", "movers", "time", "cushion", "plan", "owed", "loans"]}
       items={[
         { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
@@ -3631,6 +3519,7 @@ export function Study() {
         { id: "time", label: es ? "Entra, sale y queda" : "In, out and left", section: "time" },
         { id: "cushion", label: es ? "Ahorro y colchón" : "Savings and cushion", section: "save" },
         { id: "owed", label: t("study.owed.title"), section: "owed" },
+        { id: "loans", label: t("study.loans.title"), section: "owed" },
         { id: "numeros", label: es ? "Números clave" : "Key numbers", section: "keys" },
       ]}
       sections={[
@@ -3746,6 +3635,7 @@ export function Study() {
         </section>
       </StatFold>
       ) : null}
+      {loansAny ? <StatFold id="loans"><LoansStudy /></StatFold> : null}
       {hasPeople ? <StatFold id="people"><PeopleStudy /></StatFold> : null}
       {showRewards ? <StatFold id="rewards"><RewardsStudy /></StatFold> : null}
     </StudyStack>

@@ -117,6 +117,29 @@ export type Line = {
   rc?: string;
   /** Import batch id, so one Deshacer removes the whole import. */
   batch?: string;
+  /** A payment toward a received loan (Debo → Préstamos). See loans.ts. */
+  loanId?: string;
+};
+
+/** A loan the user received (Debo → Préstamos). Payments are normal lines with `loanId`; see loans.ts. */
+export type Loan = {
+  id: string;
+  lender: string;
+  who: "person" | "entity";
+  kind: "plain" | "interest";
+  amountMinor: number;
+  currency: Currency;
+  /** Yearly rate in basis points (simple, by the day). 0 = no interest. */
+  aprBps: number;
+  /** Day the money was received; interest counts from here. */
+  takenOn: string;
+  /** Book the payments go to. */
+  book: Group;
+  note: string;
+  archived?: boolean;
+  archivedOn?: string;
+  /** Pending when archived. */
+  unpaidMinor?: number;
 };
 
 /** Someone the user spends on (gifts). Entered by hand; money lives in normal lines tagged with personId. */
@@ -177,6 +200,8 @@ export type LedgerState = {
   people?: Person[];
   /** Bank import settings (Nov 2026): accounts, merchant rules, column maps. Missing in older ledgers and backups. */
   imports?: ImportBook;
+  /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
+  loans?: Loan[];
   revision: number;
   updatedAt: string;
 };

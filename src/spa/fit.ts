@@ -48,7 +48,7 @@ function fitOne(el: HTMLElement) {
 
 // English lens kickers ("SPENDING", "PAYMENTS") are longer than the Spanish design's ("GASTARÉ", "PAGOS"): on a narrow lens (large text)
 // they shrink just enough to stay inside the lens instead of widening it (which shrank the amount under them).
-const FIT = '.num, html[lang="en"] .lenses .lens-kicker > span:last-child';
+const FIT = '.num, html[lang="en"] .lenses .lens-kicker > span:last-child, .cobro-form .day-field-btn > span:first-child';
 
 // The three lens kickers are siblings: when one had to shrink, all three take that same size (no HAVE big beside SPENDING small).
 const KICKERS = 'html[lang="en"] .lenses .lens-kicker > span:last-child';
@@ -73,6 +73,45 @@ function segTabs() {
   });
 }
 
+// Cobro cards (Me deben, Debo → Préstamos): when a name and its pending amount cannot share the row (e.g. "Cooperativa Demo" at 360 Tron),
+// the name shrinks just enough (never below 78%) to keep both on one line. Only if it still cannot fit does the row keep its old two-line layout.
+const NAME_MIN = 0.78;
+// The cards of one list stay alike: every name in the list takes the smallest size any of them needed, and if one name cannot
+// fit even at that floor, the whole list keeps the old layout (amount on its own line) so no card looks different from its neighbours.
+function cobroNames() {
+  const lists = new Map<Element, HTMLElement[]>();
+  document.querySelectorAll<HTMLElement>(".cobro-row").forEach((row) => {
+    if (!row.getBoundingClientRect().width) return;
+    const key = row.closest(".cobro-swap, .cobro-group, .cobros") ?? document.body;
+    lists.set(key, [...(lists.get(key) ?? []), row]);
+  });
+  lists.forEach((rows) => {
+    const parts = rows.map((row) => ({ row, name: row.querySelector<HTMLElement>(".cobro-who strong"), amt: row.querySelector<HTMLElement>(":scope > .num") }))
+      .filter((x): x is { row: HTMLElement; name: HTMLElement; amt: HTMLElement } => !!x.name && !!x.amt);
+    parts.forEach(({ row, name }) => { row.removeAttribute("data-one"); name.style.fontSize = ""; });
+    const split = parts.filter(({ name, amt }) => amt.getBoundingClientRect().top >= name.getBoundingClientRect().bottom - 2);
+    if (!split.length) return;
+    parts.forEach(({ row }) => row.setAttribute("data-one", ""));
+    let scale = 1;
+    for (const { name } of parts) {
+      const base = parseFloat(getComputedStyle(name).fontSize);
+      let own = 1;
+      for (let i = 0; i < 5 && name.scrollWidth > name.clientWidth + 0.5; i++) {
+        own = Math.max(NAME_MIN, own * (name.clientWidth / name.scrollWidth) * 0.98);
+        name.style.fontSize = `${(base * own).toFixed(2)}px`;
+        if (own === NAME_MIN) break;
+      }
+      if (name.scrollWidth > name.clientWidth + 0.5) { scale = 0; break; }
+      scale = Math.min(scale, own);
+    }
+    parts.forEach(({ row, name }) => {
+      name.style.fontSize = "";
+      if (!scale) { row.removeAttribute("data-one"); return; }
+      name.style.fontSize = `${(parseFloat(getComputedStyle(name).fontSize) * scale).toFixed(2)}px`;
+    });
+  });
+}
+
 let queued = false;
 export function fitAll() {
   if (queued) return;
@@ -80,11 +119,12 @@ export function fitAll() {
   requestAnimationFrame(() => {
     queued = false;
     segTabs();
+    cobroNames();
     document.querySelectorAll<HTMLElement>(FIT).forEach(fitOne);
     groupKickers();
     // Tell the (?) marks that avoid these words to check again (sizes changed without their boxes resizing).
     dispatchEvent(new Event("faro-fit"));
-    setTimeout(() => { segTabs(); document.querySelectorAll<HTMLElement>(FIT).forEach((el) => { if (overflow(el)) fitOne(el); }); groupKickers(); dispatchEvent(new Event("faro-fit")); }, 400);
+    setTimeout(() => { segTabs(); cobroNames(); document.querySelectorAll<HTMLElement>(FIT).forEach((el) => { if (overflow(el)) fitOne(el); }); groupKickers(); dispatchEvent(new Event("faro-fit")); }, 400);
   });
 }
 
