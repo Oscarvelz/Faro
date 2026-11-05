@@ -3,14 +3,16 @@ import { cadenceLabel } from "@/lib/faro/cadence";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
-import { PALETTE, categoryBase, categoryColor, chosenTone, themeSwatch } from "@/lib/faro/colors";
+import { categoryBase, categoryColor, chosenTone } from "@/lib/faro/colors";
+import { ColorPick } from "./color-pick";
 import { monthName } from "@/lib/faro/i18n";
 import { parseAmount, uid } from "@/lib/faro/money";
 import type { Currency, Line, LineKind } from "@/lib/faro/types";
-import { BrandMark, Glyph } from "./icons";
 import { useFaro } from "./provider";
 import { upsertLine } from "@/lib/faro/reducer";
 import { PersonPick } from "./people";
+import { BrandIconPick, PurchaseCatPick, StorePick } from "./fit-pick";
+import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
   const { lang } = useFaro();
@@ -203,6 +205,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [active, setActive] = useState(existing?.active ?? true);
   const [personId, setPersonId] = useState(existing?.personId ?? "");
   const [icon, setIcon] = useState(existing?.icon ?? "");
+  const [brandTouched, setBrandTouched] = useState(false);
   const [bookedOn, setBookedOn] = useState(existing?.bookedOn ?? seed?.bookedOn ?? "");
   const [startedOn, setStartedOn] = useState(existing?.startedOn ?? seed?.startedOn ?? "");
   const bubbleTone = kind === "expense-fixed" || kind === "expense-variable" || kind === "subscription";
@@ -210,9 +213,6 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [toneStart] = useState(() => chosenTone(existing?.color, existing?.categoryId) || (existing?.categoryId === "f-ahorro" ? categoryBase("f-ahorro", structure?.categories.find((c) => c.id === "f-ahorro")?.color) : categoryColor(existing?.categoryId || "otros")));
   const [tone, setTone] = useState(toneStart);
   const [err, setErr] = useState("");
-  const [pickOpen, setPickOpen] = useState(false);
-  const [storeName, setStoreName] = useState("");
-  const [catName, setCatName] = useState("");
 
   useEffect(() => {
     focusAmount((n) => setAmount(n.toFixed(2)));
@@ -252,10 +252,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const cat = cats.find((c) => c.id === categoryId);
   const subs = (cat?.subs ?? []).filter((s) => !s.hidden).sort((a, b) => a.order - b.order);
   const role = cat?.role ?? "";
-  const stores = structure.catalog.filter((c) => c.kind === "store" && !c.hidden);
   const ais = structure.catalog.filter((c) => c.kind === "ai" && !c.hidden);
-  const subPresets = structure.catalog.filter((c) => c.kind === "sub" && !c.hidden);
-  const purchases = structure.purchases.filter((p) => !p.hidden);
 
   function save() {
     const minor = parseAmount(amount);
@@ -287,7 +284,11 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       aprBps: Number.isFinite(aprBps) ? aprBps : 0,
       balanceMinor: bal,
       balanceCurrency: currency,
-      icon: glyph || icon,
+      // Cuotas: a library icon the user picked here wins; else the look pill's glyph, the line's own icon, or the brand the name suggests.
+      // ("Circle" is the look pill's untouched default, so a brand suggestion still wins over it.)
+      icon: kind === "subscription"
+        ? brandTouched ? icon : (glyph && glyph !== "Circle" ? glyph : (!icon || icon === "RefreshCw" ? iconForName(concept, [], lang, libraryOff(session?.ledger)) || glyph || icon : icon))
+        : glyph || icon,
       history: existing?.history ?? [],
       bookedOn,
       startedOn,
@@ -300,264 +301,178 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     onClose();
   }
 
+  const off = libraryOff(session?.ledger);
+  // Cuotas: a typed brand ("Netflix", "HBO", "Office 365") suggests its library icon until the user picks one.
+  const plainIcon = !icon || icon === "RefreshCw";
+  const suggest = kind === "subscription" && plainIcon ? iconForName(concept, [], lang, off) : "";
+  const cadenceOptions = [
+    { value: "weekly", label: t("weekly") },
+    { value: "biweekly", label: t("biweekly") },
+    { value: "monthly", label: t("monthly") },
+    { value: "yearly", label: t("yearly") },
+    ...(cadence && !["weekly", "biweekly", "monthly", "yearly"].includes(cadence) ? [{ value: cadence, label: cadenceLabel(cadence, lang) }] : []),
+  ];
+  const head = (label: string, topic: string) => <span className="lab-head">{label}<FieldTip topic={topic} /></span>;
+  // A chosen name too long for half a row takes the whole row (never cut, never "…").
+  const long = (name: string | undefined) => ((name ?? "").length > 12 ? " is-long" : "");
+  const nameOf = (list: { id: string; nameKey: string; customName: string }[], id: string) => { const hit = list.find((x) => x.id === id); return hit ? displayName(hit, lang) : ""; };
+
   return (
-    <div className="form-block">
+    <div className="fit-host">
+    <div className="form-block is-fit" data-kind={kind}>
       {existing && bubbleTone && !dock ? (
         <div className="tone-pick">
           <div className="tone-head">
             <span className="lab-head">{t("look.color")}<FieldTip topic="f-color" /></span>
-            <label className="tone-custom" title={t("look.custom")} style={{ ["--c" as string]: themeSwatch(/^#[0-9a-fA-F]{6}$/.test(tone) ? tone : "#b7d4c4") }}>
-              <input type="color" aria-label={t("look.custom")} value={/^#[0-9a-fA-F]{6}$/.test(tone) ? tone : "#b7d4c4"} onChange={(e) => setTone(e.target.value)} />
-            </label>
           </div>
-          <div className="tone-grid">
-            {PALETTE.map((color) => (
-              <button key={color} type="button" style={{ ["--c" as string]: themeSwatch(color) }} aria-pressed={tone.toLowerCase() === color} aria-label={color} onClick={() => setTone(color)} />
-            ))}
-          </div>
+          <ColorPick face="bubble" value={tone} glyph={glyph || icon} label={t("look.color")} onPick={setTone} />
         </div>
       ) : null}
-      <div className="grid-2">
-        <label className="label">
-          <span className="lab-head">{t("concept")}<FieldTip topic="f-concepto" /></span>
+      <div className="fit-fields">
+        <label className="label fit-f is-wide" data-f="concept">
+          {head(t("concept"), "f-concepto")}
           <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />
         </label>
-        <label className="label">
-          <span className="lab-head">{t("amount")}<FieldTip topic="f-monto" /></span>
+        <label className="label fit-f is-num" data-f="amount">
+          {head(t("amount"), "f-monto")}
           <input className="field num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} onFocus={() => focusAmount((n) => setAmount(n.toFixed(2)))} />
         </label>
-        <label className="label">
-          <span className="lab-head">{t("quick.date")}<FieldTip topic="f-dia" /></span>
+        <div className="label fit-f is-day" data-f="day">
+          {head(t("quick.date"), "f-dia")}
           <DayField value={bookedOn} onChange={setBookedOn} />
-        </label>
+        </div>
         {onMoney ? null : (
-          <label className="label">
-            <span className="lab-head">{t("currency")}<FieldTip topic="f-moneda" /></span>
+          <div className="label fit-f is-small" data-f="currency">
+            {head(t("currency"), "f-moneda")}
             <ThemeSelect value={currency} onChange={(value) => setCurrency(value as Currency)} options={[{ value: "NIO", label: "C$" }, { value: "USD", label: "$" }]} />
-          </label>
+          </div>
         )}
         {kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase" ? <PersonPick value={personId} onChange={setPersonId} /> : null}
         {group ? (
-          <label className="label">
-            <span className="lab-head">{t("category")}<FieldTip topic="f-categoria" /></span>
+          <div className={`label fit-f${long(nameOf(cats, categoryId))}`} data-f="category">
+            {head(t("category"), "f-categoria")}
             <ThemeSelect
               value={categoryId}
               onChange={(value) => { setCategoryId(value); setSubId(""); }}
               options={[{ value: "", label: "—" }, ...cats.map((c) => ({ value: c.id, label: displayName(c, lang) }))]}
             />
-          </label>
+          </div>
         ) : null}
         {group && subs.length ? (
-          <label className="label">
-            <span className="lab-head">{t("sub")}<FieldTip topic="f-sub" /></span>
+          <div className={`label fit-f${long(nameOf(subs, subId))}`} data-f="sub">
+            {head(t("sub"), "f-sub")}
             <ThemeSelect
               value={subId}
               onChange={setSubId}
               options={[{ value: "", label: "—" }, ...subs.map((s) => ({ value: s.id, label: displayName(s, lang) }))]}
             />
-          </label>
+          </div>
         ) : null}
         {kind === "purchase" ? (
           <>
-            <div className="label span-all">
-              <button type="button" className="fold-btn pick-fold" aria-expanded={pickOpen} onClick={() => setPickOpen((v) => !v)}>
-                <span className="min-w-0">
-                  <strong>{t("store")} · {t("category")}</strong>
-                  <span className="block text-sm text-muted">
-                    {[
-                      stores.find((s) => s.id === storeId) ? displayName(stores.find((s) => s.id === storeId)!, lang) : "",
-                      purchases.find((p) => p.id === categoryId) ? displayName(purchases.find((p) => p.id === categoryId)!, lang) : "",
-                    ].filter(Boolean).join(" · ") || "—"}
-                  </span>
-                </span>
-                <ChevronDown className={pickOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
-              </button>
-              {pickOpen ? (
-                <div className="fold-body pick-body">
-                  <p className="pick-kicker">{t("store")}</p>
-                  <div className="shop-grid">
-                    {stores.map((s) => (
-                      <button key={s.id} type="button" className={`shop-card brand-${s.id}`} aria-pressed={storeId === s.id} onClick={() => setStoreId(storeId === s.id ? "" : s.id)}>
-                        <BrandMark id={s.id} src={s.icon.startsWith("data:") ? s.icon : undefined} className="size-8" />
-                        <span>{displayName(s, lang)}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pick-add">
-                    <input className="field" value={storeName} placeholder={t("shops.addStore")} aria-label={t("shops.addStore")} onChange={(e) => setStoreName(e.target.value)} />
-                    <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
-                      const name = storeName.trim();
-                      if (!name) return;
-                      const id = `c-${uid().slice(0, 8)}`;
-                      commit((st) => ({
-                        ...st,
-                        structure: {
-                          ...st.structure,
-                          catalog: [...st.structure.catalog, { id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: "store", urlTemplate: "" }],
-                        },
-                      }), name);
-                      setStoreId(id);
-                      setStoreName("");
-                    }}>
-                      <Plus className="size-4" />
-                    </button>
-                  </div>
-                  <p className="pick-kicker">{t("category")}</p>
-                  <div className="shop-cats">
-                    {purchases.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="shop-cat"
-                        style={{ ["--cat" as string]: categoryColor(p.id, p.color) }}
-                        aria-pressed={categoryId === p.id}
-                        onClick={() => setCategoryId(categoryId === p.id ? "" : p.id)}
-                      >
-                        <i />
-                        {displayName(p, lang)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pick-add">
-                    <input className="field" value={catName} placeholder={t("shops.addCat")} aria-label={t("shops.addCat")} onChange={(e) => setCatName(e.target.value)} />
-                    <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => {
-                      const name = catName.trim();
-                      if (!name) return;
-                      const id = `p-${uid().slice(0, 8)}`;
-                      commit((st) => ({
-                        ...st,
-                        structure: {
-                          ...st.structure,
-                          purchases: [...st.structure.purchases, { id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99 }],
-                        },
-                      }), name);
-                      setCategoryId(id);
-                      setCatName("");
-                    }}>
-                      <Plus className="size-4" />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+            <div className={`label fit-f${long(nameOf(structure.catalog, storeId))}`} data-f="store">
+              {head(t("store"), "f-tienda-elegir")}
+              <StorePick value={storeId} onChange={setStoreId} />
+            </div>
+            <div className={`label fit-f${long(nameOf(structure.purchases, categoryId))}`} data-f="pcat">
+              {head(t("category"), "f-cat-elegir")}
+              <PurchaseCatPick value={categoryId} onChange={setCategoryId} />
             </div>
             {categoryId === "ia" ? (
-              <label className="label">
-                <span className="lab-head">{t("provider")}<FieldTip topic="f-proveedor" /></span>
+              <div className={`label fit-f${long(nameOf(ais, providerId))}`} data-f="provider">
+                {head(t("provider"), "f-proveedor")}
                 <ThemeSelect value={providerId} onChange={setProviderId} options={[{ value: "", label: "—" }, ...ais.map((s) => ({ value: s.id, label: displayName(s, lang) }))]} />
-              </label>
+              </div>
             ) : null}
-            <label className="label">
-              <span className="lab-head">{t("code")}<FieldTip topic="f-codigo" /></span>
+            <label className="label fit-f" data-f="code">
+              {head(t("code"), "f-codigo")}
               <input className="field" value={code} onChange={(e) => setCode(e.target.value)} />
             </label>
-            <label className="label">
-              <span className="lab-head">{t("url")}<FieldTip topic="f-enlace" /></span>
+            <label className="label fit-f" data-f="url">
+              {head(t("url"), "f-enlace")}
               <input className="field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
             </label>
           </>
         ) : null}
         {kind === "subscription" ? (
           <>
-            <label className="label">
-              <span className="lab-head">{t("presets")}<FieldTip topic="f-lista" /></span>
-              <ThemeSelect
-                value={providerId}
-                onChange={(id) => {
-                  setProviderId(id);
-                  const preset = subPresets.find((p) => p.id === id);
-                  if (preset && !concept.trim()) setConcept(displayName(preset, lang));
-                  if (preset) setIcon(preset.icon);
-                }}
-                options={[{ value: "", label: "—" }, ...subPresets.map((s) => ({ value: s.id, label: displayName(s, lang) }))]}
-              />
-            </label>
-            <label className="label">
-              <span className="lab-head">{t("cadence")}<FieldTip topic="f-frecuencia" /></span>
-              <ThemeSelect
-                value={cadence}
-                onChange={(value) => setCadence(value as Line["cadence"])}
-                options={[
-                  { value: "weekly", label: t("weekly") },
-                  { value: "biweekly", label: t("biweekly") },
-                  { value: "monthly", label: t("monthly") },
-                  { value: "yearly", label: t("yearly") },
-                  ...(cadence && !["weekly", "biweekly", "monthly", "yearly"].includes(cadence) ? [{ value: cadence, label: cadenceLabel(cadence, lang) }] : []),
-                ]}
-              />
-            </label>
-            <label className="label">
-              <span className="lab-head">{t("pot.first")}<FieldTip topic="f-primer-pago" /></span>
+            <div className={`label fit-f${long(poolName((icon || suggest).replace(/^sub:/, ""), lang))}`} data-f="brand">
+              {head(lang === "en" ? "Brand" : "Marca", "f-icono-cuota")}
+              <BrandIconPick value={icon} suggest={suggest} onChange={(next, name) => { setIcon(next); setBrandTouched(true); if (next && name && !concept.trim()) setConcept(name); }} />
+            </div>
+            <div className="label fit-f" data-f="cadence">
+              {head(t("cadence"), "f-frecuencia")}
+              <ThemeSelect value={cadence} onChange={(value) => setCadence(value as Line["cadence"])} options={cadenceOptions} />
+            </div>
+            <div className="label fit-f is-day" data-f="first">
+              {head(t("pot.first"), "f-primer-pago")}
               <DayField value={startedOn} onChange={setStartedOn} />
-            </label>
-            <label className="label">
-              <span className="lab-head">{t("due")}<FieldTip topic="f-proximo-cobro" /></span>
+            </div>
+            <div className="label fit-f is-day" data-f="due">
+              {head(t("due"), "f-proximo-cobro")}
               <DayField value={nextDue} onChange={setNextDue} />
-            </label>
+            </div>
           </>
         ) : null}
         {role === "debt" ? (
           <>
-            <label className="label">
-              <span className="lab-head">{t("apr")}<FieldTip topic="f-tasa-anual" /></span>
+            <label className="label fit-f is-num" data-f="apr">
+              {head(t("apr"), "f-tasa-anual")}
               <input className="field num" inputMode="decimal" value={apr} onChange={(e) => setApr(e.target.value)} />
             </label>
-            <label className="label">
-              <span className="lab-head">{t("balance.debt")}<FieldTip topic="f-saldo-deuda" /></span>
+            <label className="label fit-f is-num" data-f="balance">
+              {head(t("balance.debt"), "f-saldo-deuda")}
               <input className="field num" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} onFocus={() => focusAmount((n) => setBalance(n.toFixed(2)))} />
             </label>
           </>
         ) : null}
         {role === "savings" ? (
-          <label className="label">
-            <span className="lab-head">{t("balance.save")}<FieldTip topic="f-saldo-ahorro" /></span>
+          <label className="label fit-f is-num" data-f="balance">
+            {head(t("balance.save"), "f-saldo-ahorro")}
             <input className="field num" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} onFocus={() => focusAmount((n) => setBalance(n.toFixed(2)))} />
           </label>
         ) : null}
-        <label className="label">
-          <span className="lab-head">{t("note")}<FieldTip topic="f-nota" /></span>
+        <label className={`label fit-f${kind === "subscription" ? "" : " is-note"}`} data-f="note">
+          {head(t("note"), "f-nota")}
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
-      </div>
-      <div className="row mt-3 form-toggles">
-        <label className="row text-sm form-toggle">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          {t("active")}<FieldTip topic="f-activo" />
-        </label>
-        {kind !== "subscription" ? (
-          <label className="row text-sm form-toggle">
-            <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-            {t("recurring")}<FieldTip topic="f-recurrente" />
+        {kind === "subscription" ? (
+          <label className="form-toggle fit-chip is-inline">
+            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            <span>{t("active")}</span><FieldTip topic="f-activo" />
           </label>
         ) : null}
-        {icon ? <Glyph name={icon} /> : null}
       </div>
-      {recurring && kind !== "subscription" ? (
-        <div className="grid-2 mt-3 form-repeat">
-          <label className="label">
-            <span className="lab-head">{t("pot.first")}<FieldTip topic="f-primer-pago" /></span>
-            <DayField value={startedOn} onChange={setStartedOn} />
+      {kind !== "subscription" ? (
+        <div className="fit-toggles">
+          <label className="form-toggle fit-chip">
+            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            <span>{t("active")}</span><FieldTip topic="f-activo" />
           </label>
-          <label className="label">
-            <span className="lab-head">{t("cadence")}<FieldTip topic="f-frecuencia" /></span>
-            <ThemeSelect
-              value={cadence || "monthly"}
-              onChange={(value) => setCadence(value as Line["cadence"])}
-              options={[
-                { value: "weekly", label: t("weekly") },
-                { value: "biweekly", label: t("biweekly") },
-                { value: "monthly", label: t("monthly") },
-                { value: "yearly", label: t("yearly") },
-                  ...(cadence && !["weekly", "biweekly", "monthly", "yearly"].includes(cadence) ? [{ value: cadence, label: cadenceLabel(cadence, lang) }] : []),
-              ]}
-            />
+          <label className="form-toggle fit-chip">
+            <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
+            <span>{t("recurring")}</span><FieldTip topic="f-recurrente" />
           </label>
         </div>
       ) : null}
-      {err ? <p className="bad mt-2 text-sm">{err}</p> : null}
-      <div className="row mt-3 form-actions">
+      {recurring && kind !== "subscription" ? (
+        <div className="fit-fields fit-repeat">
+          <div className="label fit-f is-day" data-f="first">
+            {head(t("pot.first"), "f-primer-pago")}
+            <DayField value={startedOn} onChange={setStartedOn} />
+          </div>
+          <div className="label fit-f" data-f="cadence">
+            {head(t("cadence"), "f-frecuencia")}
+            <ThemeSelect value={cadence || "monthly"} onChange={(value) => setCadence(value as Line["cadence"])} options={cadenceOptions} />
+          </div>
+        </div>
+      ) : null}
+      {err ? <p className="bad text-sm fit-err">{err}</p> : null}
+      <div className="fit-actions">
         <button type="button" className="btn secondary" onClick={() => confirm({ title: t("entry.leave"), body: concept.trim() || t("amount"), yes: t("entry.leave.yes"), run: onClose })}>{t("cancel")}</button>
         <button type="button" className="btn" onClick={() => confirm({ title: t("entry.save"), body: concept.trim() || t("amount"), yes: t("entry.save.yes"), run: save })}>{t("save")}</button>
       </div>
+    </div>
     </div>
   );
 }

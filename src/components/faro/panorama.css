@@ -256,3 +256,4 @@
   .pano-pillar { grid-template-columns: minmax(0, 1fr); }
   .pano-pillar > button { grid-template-columns: minmax(0, 1fr) 16px; grid-template-areas: "name chev" "track chev" "val chev"; row-gap: 4px; padding: 8px 0; }
 }
+.pano-due-list li svg.pano-due-mark { width: 18px; height: 18px; border-radius: 5px; color: inherit; }

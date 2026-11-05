@@ -1,0 +1,162 @@
+/* 1.3.100 — compact, adaptive line editors (Ingresos, Fijos, Variables, Compras, Cuotas, savings pockets) and the
+ * picker sheet (store, purchase category, Cuotas icon library). Fields are 40px, paired on one row when they fit and
+ * spread to 4 / 6 per row on wider containers; flex-grow fills every row, so a lone field never leaves a hole. */
+
+.fit-host { container-type: inline-size; min-width: 0; max-width: 100%; }
+.form-block.is-fit { display: grid; gap: 12px; min-width: 0; max-width: 100%; }
+.form-block.is-fit .fit-fields { display: flex; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.form-block.is-fit .fit-fields > * { flex: 1 1 calc(50% - 5px); min-width: 0; grid-column: auto; }
+.form-block.is-fit .fit-fields > :is(.is-wide, .is-note) { flex-basis: 100%; }
+@container (max-width: 320px) {
+  .form-block.is-fit .fit-fields > :is([data-f="code"], [data-f="url"]) { flex-basis: 100%; }
+}
+@container (min-width: 560px) {
+  .form-block.is-fit .fit-fields > * { flex-basis: calc(25% - 7.5px); }
+  .form-block.is-fit .fit-fields > :is(.is-wide, .is-note) { flex-basis: calc(50% - 5px); }
+}
+@container (min-width: 900px) {
+  .form-block.is-fit .fit-fields > * { flex-basis: calc(16.66% - 8.5px); }
+  .form-block.is-fit .fit-fields > :is(.is-wide, .is-note) { flex-basis: calc(33.33% - 6.7px); }
+}
+
+/* Labels: one compact line above the field, (?) small beside the words. */
+.form-block.is-fit .label { display: grid; gap: 4px; align-content: start; min-width: 0; font-size: .7rem; line-height: 1.15; }
+.form-block.is-fit .lab-head { white-space: nowrap; gap: 4px; min-width: 0; }
+.form-block.is-fit .lab-head .ftip-btn { width: 15px; height: 15px; min-height: 15px; }
+.form-block.is-fit .lab-head .ftip-btn svg { width: 12px; height: 12px; }
+
+/* Fields: 40px, one radius, same frame for inputs, menus, days and pickers. */
+.form-block.is-fit :is(.field, .theme-select-btn, .day-field-btn) { min-height: 40px; height: 40px; border-radius: 12px; font-size: .95rem; padding: 0 12px; min-width: 0; max-width: 100%; text-transform: none; letter-spacing: 0; }
+.form-block.is-fit .field.num { font-size: 1.05rem; }
+.form-block.is-fit .theme-select-btn { padding: 0 8px 0 12px; gap: 6px; }
+.form-block.is-fit :is(.theme-select-btn, .day-field-btn) > span:first-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: clip; line-height: 1.2; }
+.form-block.is-fit :is(.theme-select-btn, .day-field-btn) svg { flex: none; width: 16px; height: 16px; }
+.form-block.is-fit .theme-select-btn .fold-chev { width: 16px !important; height: 16px !important; padding: 0 !important; }
+
+/* Picker field: the chosen chip (mark + name) or a clear placeholder. */
+.fit-pick-btn { display: flex; align-items: center; gap: 8px; width: 100%; color: var(--fg); text-align: left; cursor: pointer; font: inherit; }
+.form-block.is-fit .fit-pick-btn { padding: 0 8px 0 7px; }
+.fit-pick-mark { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; color: var(--muted); }
+.fit-pick-mark > svg:not(.fit-brand) { width: 17px; height: 17px; }
+.fit-pick-btn:not(.is-set) .fit-pick-mark { background: color-mix(in oklab, var(--fg) 7%, transparent); }
+.fit-pick-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; font-weight: 560; }
+.fit-pick-btn:not(.is-set) .fit-pick-text { color: var(--muted); font-weight: 500; }
+.fit-pick-chev { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.fit-brand { width: 24px; height: 24px; border-radius: 7px; display: block; }
+.fit-dot { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 3px color-mix(in oklab, var(--dot) 22%, transparent); }
+
+/* Toggles: one tidy row of equal chips. */
+.form-block.is-fit .fit-toggles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin: 0 !important; }
+.form-block.is-fit .fit-chip, .form-block.is-fit .fit-chip:has(input:checked) { display: flex; align-items: center; gap: 8px !important; min-width: 0; height: 40px; padding: 0 8px 0 10px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); font-size: .86rem; font-weight: 620; white-space: nowrap; justify-self: stretch; }
+.form-block.is-fit .fit-chip:has(input:checked) { border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); background: color-mix(in oklab, var(--accent) 8%, var(--surface)); }
+.form-block.is-fit .fit-chip > span { min-width: 0; }
+.form-block.is-fit .fit-chip .ftip { margin-left: auto !important; transform: none !important; }
+.form-block.is-fit .fit-chip input { width: 30px; height: 18px; }
+.form-block.is-fit .fit-chip input::after { width: 14px; height: 14px; }
+.form-block.is-fit .fit-chip input:checked::after { transform: translateX(12px); }
+
+.form-block.is-fit .fit-err { margin: -4px 0 0; }
+
+/* Cancelar | Guardar: equal halves filling the row. */
+.form-block.is-fit .fit-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin: 2px 0 0; }
+.form-block.is-fit .fit-actions .btn { width: 100%; min-width: 0; flex: none; min-height: 44px; height: 44px; padding: 0 10px; border-radius: 12px; font-size: .95rem; white-space: nowrap; }
+
+/* Other editors (Cobros, loans, savings pockets): same 40px fields. */
+:is(.cobro-form, .ah-form) :is(.field, .day-field-btn) { min-height: 40px; height: 40px; }
+:is(.cobro-form, .ah-form) .label { gap: 4px; }
+
+/* ---------- Picker sheet ---------- */
+.fit-scrim { position: fixed; inset: 0; z-index: 80; display: grid; place-items: end center; padding: 12px 10px calc(10px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #04070a 52%, transparent); animation: fit-fade .18s ease-out both; }
+@media (width >= 700px) { .fit-scrim { place-items: center; } }
+.fit-sheet { display: flex; flex-direction: column; gap: 10px; width: min(560px, 100%); max-height: min(78dvh, 640px); padding: 12px 12px 12px; border-radius: 22px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px -18px rgb(0 0 0 / 55%); animation: fit-rise .24s cubic-bezier(.22, 1, .36, 1) both; overflow: hidden; }
+.fit-sheet-head { display: flex; align-items: center; gap: 6px; min-height: 36px; }
+.fit-sheet-head strong { flex: 1; min-width: 0; padding-left: 4px; font-size: 1.02rem; font-weight: 700; white-space: nowrap; overflow: hidden; }
+.fit-sheet-tool { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); color: var(--fg); cursor: pointer; }
+.fit-sheet-tool svg { width: 17px; height: 17px; }
+.fit-sheet-tool[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 14%, var(--surface)); }
+.fit-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); }
+.fit-search svg { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.fit-search input { flex: 1; min-width: 0; height: 38px; border: 0; outline: none; background: transparent; color: var(--fg); font: inherit; font-size: 16px; }
+.fit-sheet-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 10px; align-content: start; padding: 2px; }
+.fit-group { display: grid; gap: 6px; }
+.fit-kicker { margin: 0; padding-left: 4px; color: var(--muted); font-size: .68rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.fit-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.fit-grid > .fit-opt { flex: 1 1 10.5rem; }
+.fit-opt { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; height: 44px; padding: 0 6px 0 7px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 9%, var(--line)); background: color-mix(in oklab, var(--fg) 2%, var(--surface)); color: var(--fg); font: inherit; font-size: .8rem; font-weight: 580; letter-spacing: -.01em; text-align: left; cursor: pointer; }
+.fit-opt > span:last-of-type { min-width: 0; white-space: nowrap; overflow: hidden; }
+.fit-opt-mark { flex: none; display: grid; place-items: center; width: 26px; height: 26px; }
+.fit-opt-mark .fit-brand { width: 26px; height: 26px; border-radius: 7px; }
+.fit-opt.is-none .fit-opt-mark { border-radius: 8px; background: color-mix(in oklab, var(--fg) 7%, transparent); color: var(--muted); }
+.fit-opt.is-none .fit-opt-mark svg { width: 15px; height: 15px; }
+.fit-opt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 14%, var(--surface)); box-shadow: inset 0 0 0 1px var(--accent); }
+.fit-sheet.is-editing .fit-opt { border-style: dashed; }
+.fit-opt-x { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--bad); color: #fff; }
+.fit-opt-x svg { width: 11px; height: 11px; }
+.fit-empty { margin: 4px; color: var(--muted); font-size: .9rem; }
+.fit-add { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; }
+.fit-add .field { min-height: 40px; height: 40px; border-radius: 12px; font-size: 16px; }
+.fit-add-btn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+.fit-add-btn:disabled { opacity: .45; }
+.fit-add-btn svg { width: 18px; height: 18px; }
+@keyframes fit-fade { from { opacity: 0; } }
+@keyframes fit-rise { from { opacity: .4; transform: translateY(18px); } }
+@media (prefers-reduced-motion: reduce) { .fit-scrim, .fit-sheet { animation: none; } }
+
+/* ---------- Tron ---------- */
+[data-theme="tron"] .form-block.is-fit :is(.field, .theme-select-btn, .day-field-btn) { border-radius: 4px !important; background: #03090c !important; border-color: rgba(120, 225, 250, .24) !important; color: #e6f8fc; box-shadow: none !important; }
+[data-theme="tron"] .form-block.is-fit .field.num { color: #ffd36a !important; }
+[data-theme="tron"] .form-block.is-fit :is(.field, .theme-select-btn, .day-field-btn):is(:focus, :focus-visible) { outline: none !important; border-color: #3fd6f5 !important; box-shadow: 0 0 0 1px #3fd6f5, 0 0 12px rgba(63, 214, 245, .35) !important; }
+[data-theme="tron"] .form-block.is-fit :is(.theme-select-btn, .day-field-btn) svg, [data-theme="tron"] .fit-pick-chev { color: #3fd6f5; }
+[data-theme="tron"] .form-block.is-fit .label { color: #7fc9d8; }
+[data-theme="tron"] .fit-pick-btn:not(.is-set) .fit-pick-mark { background: rgba(63, 214, 245, .08); color: #3fd6f5; }
+[data-theme="tron"] .fit-pick-btn:not(.is-set) .fit-pick-text { color: #6fa9b6; }
+[data-theme="tron"] .form-block.is-fit .fit-chip, [data-theme="tron"] .form-block.is-fit .fit-chip:has(input:checked) { border-radius: 4px; border-color: rgba(120, 225, 250, .22); background: rgba(63, 214, 245, .03); color: #cfeaf1; }
+[data-theme="tron"] .form-block.is-fit .fit-chip:has(input:checked) { border-color: rgba(63, 214, 245, .5); background: rgba(63, 214, 245, .07); color: #f2fdff; }
+[data-theme="tron"] .form-block.is-fit .fit-actions .btn { border-radius: 4px; }
+[data-theme="tron"] .fit-sheet { border-radius: 6px; background: #060f13; border-color: rgba(120, 225, 250, .3); box-shadow: 0 0 0 1px rgba(63, 214, 245, .08), 0 24px 60px -18px rgba(0, 0, 0, .8), 0 0 28px -8px rgba(63, 214, 245, .3); }
+[data-theme="tron"] .fit-sheet-head strong { color: #e6f8fc; letter-spacing: .04em; }
+[data-theme="tron"] :is(.fit-sheet-tool, .fit-search, .fit-opt, .fit-add .field) { border-radius: 4px; background: #03090c; border-color: rgba(120, 225, 250, .22); color: #dff6fb; }
+[data-theme="tron"] .fit-sheet-tool svg, [data-theme="tron"] .fit-search svg { color: #3fd6f5; }
+[data-theme="tron"] .fit-kicker { color: #7fc9d8; }
+[data-theme="tron"] .fit-opt[aria-pressed="true"], [data-theme="tron"] .fit-sheet-tool[aria-pressed="true"] { border-color: #3fd6f5; background: rgba(63, 214, 245, .1); box-shadow: inset 0 0 0 1px #3fd6f5, 0 0 12px -2px rgba(63, 214, 245, .45); }
+[data-theme="tron"] .fit-add-btn { border-radius: 4px; background: rgba(63, 214, 245, .18); color: #3fd6f5; box-shadow: inset 0 0 0 1px #3fd6f5; }
+[data-theme="tron"] .fit-opt.is-none .fit-opt-mark { background: rgba(63, 214, 245, .08); color: #6fa9b6; }
+
+/* Debo → Cuotas: the library icon sits inline before the name. */
+.due-name-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; min-width: 0; }
+.fit-pick-btn.is-compact { width: auto; gap: 2px; padding: 0 6px 0 7px; }
+.cobro-form .fit-pick-btn.is-compact { height: 40px; min-height: 40px; border-radius: 12px; }
+[data-theme="tron"] .cobro-form .fit-pick-btn.is-compact { border-radius: 4px !important; background: #03090c !important; border-color: rgba(120, 225, 250, .24) !important; }
+
+/* Long choices (e.g. "Inteligencia artificial") take the whole row instead of being cut. */
+.form-block.is-fit .fit-fields > .is-long { flex-basis: 100%; }
+@container (min-width: 560px) { .form-block.is-fit .fit-fields > .is-long { flex-basis: calc(50% - 5px); } }
+@container (min-width: 900px) { .form-block.is-fit .fit-fields > .is-long { flex-basis: calc(33.33% - 6.7px); } }
+
+/* Narrow (360px at large text): pickers full width, chips tighter so both labels stay whole on one line. */
+@container (max-width: 330px) {
+  .form-block.is-fit .fit-fields > :is([data-f="store"], [data-f="pcat"], [data-f="brand"], [data-f="provider"]) { flex-basis: 100%; }
+  .form-block.is-fit .fit-chip, .form-block.is-fit .fit-chip:has(input:checked) { gap: 4px !important; padding: 0 4px 0 6px; font-size: .7rem; letter-spacing: -.005em; }
+  .form-block.is-fit .fit-chip input { width: 24px; height: 15px; }
+  .form-block.is-fit .fit-chip input::after { width: 11px; height: 11px; }
+  .form-block.is-fit .fit-chip input:checked::after { transform: translateX(9px); }
+  .form-block.is-fit .fit-chip .ftip-btn { width: 14px; height: 14px; min-height: 14px; }
+  .form-block.is-fit .fit-chip .ftip-btn svg { width: 11px; height: 11px; }
+}
+
+/* Wide: toggles and Cancelar | Guardar share one row. */
+@container (min-width: 900px) {
+  .form-block.is-fit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-flow: row dense; }
+  .form-block.is-fit > * { grid-column: 1 / -1; }
+  .form-block.is-fit > .fit-repeat { order: 5; }
+  .form-block.is-fit > .fit-err { order: 8; }
+  .form-block.is-fit > .fit-toggles { order: 10; grid-column: 1; }
+  .form-block.is-fit > .fit-actions { order: 11; grid-column: 2; margin: 0; }
+}
+
+/* Menus read like the other fields: same weight and size, a bare chevron. */
+.form-block.is-fit .theme-select-btn > span:first-child { font-size: .95rem; font-weight: 560; }
+.form-block.is-fit .theme-select-btn .fold-chev { border: 0 !important; background: none !important; box-shadow: none !important; border-radius: 0 !important; }
+/* Cuotas: the one toggle sits beside Nota, bottom-aligned with its field. */
+.form-block.is-fit .fit-fields > .fit-chip.is-inline { align-self: flex-end; flex: 1 1 calc(50% - 5px); }
+@container (min-width: 560px) { .form-block.is-fit .fit-fields > .fit-chip.is-inline { flex-basis: calc(25% - 7.5px); } }

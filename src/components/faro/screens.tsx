@@ -17,9 +17,12 @@ import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/eng
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
-import { PALETTE, SAVINGS_PURPLE, baseFor, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
+import { SAVINGS_PURPLE, baseFor, categoryBase, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
 import { shrinkIcon } from "@/lib/faro/icon";
-import { iconForName, presetName, subPresetsOf } from "@/lib/faro/subs";
+import { inkOn, washForInk } from "@/lib/faro/palette";
+import { ColorPick, LookGem, QUICK } from "./color-pick";
+import { iconForName, libraryOff, presetName, subPresetsOf } from "@/lib/faro/subs";
+import { BrandIconPick } from "./fit-pick";
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
@@ -83,20 +86,6 @@ function sectionFor(kind: LineKind): SectionId {
   return "subs";
 }
 
-function washForInk(hex?: string) {
-  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return "#d7e6dc";
-  let r = parseInt(hex.slice(1, 3), 16);
-  let g = parseInt(hex.slice(3, 5), 16);
-  let b = parseInt(hex.slice(5, 7), 16);
-  for (let step = 0; step < 8; step += 1) {
-    if ((r * 299 + g * 587 + b * 114) / 1000 >= 186) break;
-    r = Math.round(r + (255 - r) * 0.2);
-    g = Math.round(g + (255 - g) * 0.2);
-    b = Math.round(b + (255 - b) * 0.2);
-  }
-  const h = (n: number) => n.toString(16).padStart(2, "0");
-  return `#${h(r)}${h(g)}${h(b)}`;
-}
 
 function revealEditor(node: HTMLElement | null) {
   if (!node) return;
@@ -120,6 +109,8 @@ function revealEditor(node: HTMLElement | null) {
 }
 
 function lineGlyph(line: Line, structure?: { categories: { id: string; icon: string; subs: { id: string; icon: string }[] }[]; purchases: { id: string; icon: string }[] }) {
+  // A Cuota saved with the generic ↻ shows the brand its name points at (display only; the line is not changed).
+  if (line.kind === "subscription" && line.icon === "RefreshCw") return iconForName(line.concept, [], "es") || "RefreshCw";
   if (line.icon && line.icon !== "Circle") return line.icon;
   const cat = structure?.categories.find((item) => item.id === line.categoryId);
   const sub = cat?.subs.find((item) => item.id === line.subId);
@@ -128,36 +119,10 @@ function lineGlyph(line: Line, structure?: { categories: { id: string; icon: str
   const purchase = structure?.purchases.find((item) => item.id === line.categoryId);
   if (purchase?.icon && purchase.icon !== "Circle") return purchase.icon;
   if (line.kind === "purchase") return "ShoppingBag";
-  if (line.kind === "subscription") return "RefreshCw";
+  if (line.kind === "subscription") return iconForName(line.concept, [], "es") || "RefreshCw";
   return "Circle";
 }
 
-/* Picker display helpers: the palette swatch nearest a stored colour (OKLab), shown as selected until the user picks. */
-function hexLab(hex: string): [number, number, number] | null {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
-  const n = parseInt(m[1], 16);
-  const lin = (v: number) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-  const r = lin((n >> 16) & 255), g = lin((n >> 8) & 255), b = lin(n & 255);
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const mm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const q = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  return [0.2104542553 * l + 0.793617785 * mm - 0.0040720468 * q, 1.9779984951 * l - 2.428592205 * mm + 0.4505937099 * q, 0.0259040371 * l + 0.7827717662 * mm - 0.808675766 * q];
-}
-function nearestSwatch(color: string): string {
-  const hit = PALETTE.find((swatch) => swatch.toLowerCase() === (color || "").toLowerCase());
-  if (hit) return hit;
-  const want = hexLab(color || "");
-  if (!want) return "";
-  let best = "", bestD = Infinity;
-  for (const swatch of PALETTE) {
-    const lab = hexLab(swatch);
-    if (!lab) continue;
-    const d = (lab[0] - want[0]) ** 2 + (lab[1] - want[1]) ** 2 + (lab[2] - want[2]) ** 2;
-    if (d < bestD) { bestD = d; best = swatch; }
-  }
-  return best;
-}
 /* Account (vault) rows keep their "vault:" marker when given a picker glyph: "vault:g:<Glyph>". */
 function vaultGlyph(icon: string): string | null {
   return icon.startsWith("vault:g:") ? icon.slice(8) : null;
@@ -168,8 +133,8 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
   const [open, setOpen] = useState(!!pinned || !!startOpen);
   const ref = useRef<HTMLDivElement>(null);
   const iconsRef = useRef<HTMLDivElement>(null);
-  // Ahorros' official purple sits outside the grid: ring nothing rather than a neighbouring violet the line never had.
-  const shown = color.trim().toLowerCase() === SAVINGS_PURPLE ? "" : nearestSwatch(color);
+  // Live colour while the custom spectrum is open (previewed on the trigger and the icon chips).
+  const [draft, setDraft] = useState<string | null>(null);
   useLayoutEffect(() => {
     if (!open) return;
     const sc = iconsRef.current;
@@ -215,7 +180,7 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
     const down = (event: PointerEvent) => {
       const node = event.target;
       if (!(node instanceof Element)) return;
-      if (ref.current?.contains(node) || node.closest("[data-look-toggle], .form-block, .modal-back, .bubble-tools, .ftip-pop")) return;
+      if (ref.current?.contains(node) || node.closest("[data-look-toggle], .form-block, .fit-scrim, .modal-back, .bubble-tools, .ftip-pop")) return;
       shut(false);
     };
     const back = (event: Event) => {
@@ -252,22 +217,18 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
     <div className="book-look" ref={ref}>
       {pinned ? null : (
         <button type="button" className="look-open" aria-expanded={open} onPointerDown={(event) => event.stopPropagation()} onClick={toggle}>
-          <i style={{ background: washForInk(color), color: "#14110e" }}><Glyph name={glyph || "Circle"} /></i>
+          <LookGem color={draft ?? color} glyph={glyph} />
           {t("look.title")}
         </button>
       )}
       {open ? (
         <div className="look-dock" style={{ ["--seg" as string]: color }} onPointerDown={(event) => event.stopPropagation()}>
           {bubbles ? <p className="look-label"><span className="lab-head">{t("look.bubble")}<FieldTip topic="icono-color" /></span></p> : null}
-          <div className="look-colors">
-            {PALETTE.map((swatch) => (
-              <button key={swatch} type="button" style={{ background: washForInk(swatch) }} aria-pressed={shown === swatch} aria-label={swatch} onClick={() => onColor(swatch)} />
-            ))}
-          </div>
+          <ColorPick value={color} glyph={glyph} onPick={onColor} onDraft={setDraft} label={t("look.bubble")} />
           {bubbles ? <p className="look-label"><span className="lab-head">{t("look.icon")}<FieldTip topic="icono-color" /></span></p> : null}
           <div className="look-icons" ref={iconsRef} onScroll={(event) => { const el = event.currentTarget; el.toggleAttribute("data-end", el.scrollTop + el.clientHeight >= el.scrollHeight - 2); }}>
             {LOOK_ICONS.map((name) => (
-              <button key={name} type="button" aria-pressed={glyph === name} aria-label={name} style={{ ["--ink" as string]: color, background: washForInk(color), color: "#14110e" }} onClick={() => onGlyph(name)}><Glyph name={name} /></button>
+              <button key={name} type="button" aria-pressed={glyph === name} aria-label={name} style={{ ["--ink" as string]: draft ?? color, background: washForInk(draft ?? color), color: inkOn(washForInk(draft ?? color)) }} onClick={() => onGlyph(name)}><Glyph name={name} /></button>
             ))}
           </div>
         </div>
@@ -1105,6 +1066,8 @@ function DueOwe() {
   const [fileOpen, setFileOpen] = useState(false);
   const [editPresets, setEditPresets] = useState(false);
   const presets = subPresetsOf(session?.ledger);
+  const [dueIcon, setDueIcon] = useState("");
+  const libOff = libraryOff(session?.ledger);
   const [editFreq, setEditFreq] = useState(false);
   const freqs = freqPresetsOf(session?.ledger);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
@@ -1138,12 +1101,13 @@ function DueOwe() {
       id, seriesId: id, monthKey: key, kind: "subscription", concept, amountMinor: minor, currency: display,
       active: true, note: "", categoryId: "", subId: "", recurring: true, storeId: "", providerId: "",
       productCode: "", productUrl: "", cadence, nextDue: due || todayIso(), aprBps: 0, balanceMinor: null,
-      balanceCurrency: display, icon: iconForName(concept, presets, lang) || "RefreshCw", history: [], bookedOn: due || todayIso(), color: "#e7c27a",
+      balanceCurrency: display, icon: dueIcon || iconForName(concept, presets, lang, libOff) || "RefreshCw", history: [], bookedOn: due || todayIso(), color: "#e7c27a",
     };
     commit((s) => upsertLine(s, line), concept);
     setAdding(false);
     setName("");
     setAmount("");
+    setDueIcon("");
   }
   function archive(line: Line) {
     let maxMinor = line.amountMinor;
@@ -1183,7 +1147,10 @@ function DueOwe() {
                   <button key={p.id} type="button" aria-pressed={name === presetName(p, lang)} onClick={() => setName(presetName(p, lang))}><PresetMark p={p} />{presetName(p, lang)}</button>
                 ))}
               </div>
-              <input className="field" aria-label={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
+              <div className="due-name-row">
+                <BrandIconPick compact value={dueIcon} suggest={dueIcon ? "" : iconForName(name, presets, lang, libOff)} onChange={(next, label) => { setDueIcon(next); if (next && label && !name.trim()) setName(label); }} />
+                <input className="field" aria-label={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
+              </div>
               {editPresets ? <SubPresetEditor lang={lang} presets={presets} onClose={() => setEditPresets(false)} onSave={(next) => commit((s) => ({ ...s, subPresets: next }), lang === "en" ? "Presets" : "Atajos")} /> : null}
             </div>
             <label className="label">
@@ -3176,7 +3143,7 @@ export function Shops() {
   const [storeName, setStoreName] = useState("");
   const [storeIcon, setStoreIcon] = useState("");
   const [catName, setCatName] = useState("");
-  const [catColor, setCatColor] = useState(PALETTE[0]);
+  const [catColor, setCatColor] = useState(QUICK[0]);
   const [paint, setPaint] = useState<string | null>(null);
   const gearJump = useRef(false);
   useEffect(() => {
@@ -3346,13 +3313,11 @@ export function Shops() {
                       {displayName(c, lang)}
                     </button>
                     {paint === c.id ? (
-                      <span className="shop-swatches">
-                        {PALETTE.map((color) => (
-                          <button key={color} type="button" style={{ background: color }} aria-pressed={categoryColor(c.id, c.color) === color} aria-label={color} onClick={() => commit((st) => ({
-                            ...st,
-                            structure: { ...st.structure, purchases: st.structure.purchases.map((p) => p.id === c.id ? { ...p, color } : p) },
-                          }), color)} />
-                        ))}
+                      <span className="shop-paint">
+                        <ColorPick face="solid" value={categoryBase(c.id, c.color)} label={t("sc.color")} onPick={(color) => commit((st) => ({
+                          ...st,
+                          structure: { ...st.structure, purchases: st.structure.purchases.map((p) => p.id === c.id ? { ...p, color } : p) },
+                        }), color)} />
                       </span>
                     ) : null}
                   </span>
@@ -3367,11 +3332,7 @@ export function Shops() {
                     </label>
                     <div className="label is-wide">
                       <span className="lab-head">{t("sc.color")}<FieldTip topic="f-color-compra" /></span>
-                      <div className="sc-colors" role="radiogroup" aria-label={t("sc.color")}>
-                        {PALETTE.map((color) => (
-                          <button key={color} type="button" role="radio" style={{ background: color }} aria-checked={catColor === color} aria-pressed={catColor === color} aria-label={color} onClick={() => setCatColor(color)} />
-                        ))}
-                      </div>
+                      <ColorPick face="solid" value={catColor} label={t("sc.color")} onPick={setCatColor} />
                     </div>
                   </div>
                   <div className="ah-actions">
@@ -3631,13 +3592,40 @@ export function Study() {
   );
 }
 
+/** 1.3.98: Desplegar says "I'm here" once when the Asesor opens (a soft glint on the box), and once more after a long idle. Never loops; nothing under reduced motion. */
+function useUnfoldHello() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const timers: number[] = [];
+    const play = (v: number) => { setN(v); timers.push(window.setTimeout(() => setN(0), 1300)); };
+    timers.push(window.setTimeout(() => play(1), 650));
+    let last = Date.now();
+    let again = false;
+    const touch = () => { last = Date.now(); };
+    const evs = ["pointerdown", "keydown", "wheel", "scroll"] as const;
+    for (const ev of evs) window.addEventListener(ev, touch, { passive: true, capture: true });
+    const tick = window.setInterval(() => {
+      if (again || document.visibilityState !== "visible" || Date.now() - last < 45000) return;
+      again = true;
+      play(2);
+    }, 5000);
+    return () => { timers.forEach(clearTimeout); clearInterval(tick); for (const ev of evs) window.removeEventListener(ev, touch, { capture: true }); };
+  }, []);
+  return n;
+}
+/** 1.3.98: Asesor's Desplegar starts ticked. Unticking it lasts only until Faro is opened again (kept in memory, never saved). */
+let advisorFolded = false;
 export function Advisor() {
-  const { t, advice, budget, fmt, summary, session, lang, names, key, ui, awakeOn, wake, notePlanCopied, dismissFinding, planStale } = useFaro();
+  const { t, advice, budget, fmt, summary, session, lang, names, key, ui, awakeOn, wake, notePlanCopied, dismissFinding, planStale, confirm } = useFaro();
   const [copied, setCopied] = useState(false);
   const [openPart, setOpenPart] = useState<string | null>(null);
-  const [spreadParts, setSpreadParts] = useState(false);
+  const [spreadParts, setSpreadParts] = useState(!advisorFolded);
+  // Explicit per-card choices; a card with no choice follows Desplegar (so findings that arrive later open too).
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
-  const [more, setMore] = useState(false);
+  const [unfold, setUnfold] = useState(!advisorFolded);
+  const [more, setMore] = useState(!advisorFolded);
+  const hello = useUnfoldHello();
   const [preset, setPreset] = useState<ScenarioId>("plan");
   const [drops, setDrops] = useState<string[]>([]);
   const [applied, setApplied] = useState<string>("");
@@ -3660,28 +3648,35 @@ export function Advisor() {
   const text = [reading.plan, applied].filter(Boolean).join("\n\n");
   const mark = { short: CalendarDays, medium: CreditCard, long: Landmark } as const;
   const toneOf = (id: string) => (id === "base" ? "good" : id === "unique" ? "warn" : "gold");
-  const cardOn = (id: string) => openCards[id] === true;
+  const cardOn = (id: string) => openCards[id] ?? unfold;
   const foldIds = [
     ...(awakeOn && wake ? wake.findings.map((item) => item.id) : []),
     ...advice.map((card) => card.horizon),
     "plan",
   ];
-  const allOpen = spreadParts && more && foldIds.every((id) => openCards[id] === true);
+  const allOpen = spreadParts && more && foldIds.every(cardOn);
   function toggleAll() {
-    const next = !allOpen;
-    setSpreadParts(next);
-    setMore(next);
-    setOpenPart(null);
-    if (!next) {
+    if (!allOpen) {
+      advisorFolded = false;
+      setUnfold(true);
+      setSpreadParts(true);
+      setMore(true);
+      setOpenPart(null);
       setOpenCards({});
       return;
     }
-    const cards: Record<string, boolean> = {};
-    for (const id of foldIds) cards[id] = true;
-    setOpenCards(cards);
+    // Unticking: ask first. Folded lasts until Faro opens again, then Desplegar is ticked by itself.
+    confirm({ title: t("advice.unfold.ask"), body: t("advice.unfold.body"), yes: t("advice.unfold.yes"), run: () => {
+      advisorFolded = true;
+      setUnfold(false);
+      setSpreadParts(false);
+      setMore(false);
+      setOpenPart(null);
+      setOpenCards({});
+    } });
   }
   function toggleCard(id: string) {
-    setOpenCards((cur) => ({ ...cur, [id]: !cur[id] }));
+    setOpenCards((cur) => ({ ...cur, [id]: !(cur[id] ?? unfold) }));
   }
   function toggleDrop(id: string) {
     setDrops((cur) => (cur.includes(id) ? cur.filter((item) => item !== id) : [...cur, id]));
@@ -3700,13 +3695,13 @@ export function Advisor() {
   return (
     <div className="advice-stack" ref={stackRef}>
       <CoachHero />
-      <label className="unfold-all" data-anchor="advice-unfold">
+      <label className="unfold-all is-advice" data-anchor="advice-unfold" data-hello={hello || undefined}>
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />
         <span>{t("study.unfold")}</span>
         <Hint topic="desplegar-asesor" />
       </label>
       <section className="advice-hero-2" aria-label={reading.monthTag} data-anchor="advice-tower">
-        <MonthTower reading={reading} income={summary.income} left={summary.opportunity} openPart={openPart} onPart={(id) => { setSpreadParts(false); setOpenPart((cur) => (cur === id ? null : id)); }} more={more} onMore={() => setMore((on) => !on)}>
+        <MonthTower reading={reading} income={summary.income} left={summary.opportunity} openPart={openPart} onPart={(id) => setOpenPart((cur) => (cur === id ? null : id))} more={more} onMore={() => setMore((on) => !on)}>
           <div className="a2-notes">
             {[
               { id: "month", tone: "calm", Icon: CalendarDays, text: reading.headline },
@@ -4309,11 +4304,7 @@ function TreePanel({ cat }: { cat: Category }) {
           patch((c) => ({ ...c, customName: next }), next);
         }}><Check className="size-4" /></button>
       </div>
-      <div className="color-row" role="listbox" aria-label={t("color")}>
-        {PALETTE.map((hex) => (
-          <button key={hex} type="button" className="color-dot" style={{ background: hex }} aria-pressed={categoryColor(cat.id, cat.color) === hex} onClick={() => patch((c) => ({ ...c, color: hex }), "color")} />
-        ))}
-      </div>
+      <ColorPick face="solid" value={categoryBase(cat.id, cat.color)} label={t("color")} onPick={(hex) => patch((c) => ({ ...c, color: hex }), "color")} />
       <div className="tree-tools">
         <button type="button" className="icon-btn" aria-label={t("up")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, -1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "up")}><ChevronUp className="size-4" /></button>
         <button type="button" className="icon-btn" aria-label={t("down")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, 1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "down")}><ChevronDown className="size-4" /></button>

@@ -413,6 +413,13 @@ export function OweBook() {
   // The sub-tab survives leaving Debo (a name link, Back, the ring swipe): Debo opens on the one you last read.
   const [tab, setTabState] = useState<"dues" | "loans">(() => { const v = nextOweTab ?? oweTabMem; nextOweTab = null; return v; });
   const setTab = (v: "dues" | "loans") => { oweTabMem = v; setTabState(v); };
+  // 1.3.98: a tap on the other sub-tab (never load, Back or a link) glides the content in from the side of travel and lights the bar.
+  const [flip, setFlip] = useState<{ n: number; dir: number } | null>(null);
+  const pick = (v: "dues" | "loans") => {
+    if (v === tab) return;
+    setFlip((cur) => ({ n: (cur?.n ?? 0) + 1, dir: v === "loans" ? 1 : -1 }));
+    setTab(v);
+  };
   const tabsRef = useRef<HTMLDivElement>(null);
   // The amber hairline slides under the chosen tab's name (measured, so it fits each language and text size).
   useLayoutEffect(() => {
@@ -435,8 +442,8 @@ export function OweBook() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (id === "debt-loans" || id === "debt-plan" || id === "cobros-loans-file") setTab("loans");
-      else if (id === "debt-dues") setTab("dues");
+      if (id === "debt-loans" || id === "debt-plan" || id === "cobros-loans-file") { setFlip(null); setTab("loans"); }
+      else if (id === "debt-dues") { setFlip(null); setTab("dues"); }
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
@@ -457,25 +464,25 @@ export function OweBook() {
   };
   return (
     <>
-      <div className="debo-tabs is-lux" role="tablist" data-anchor="debt-owe-tabs" data-on={tab} ref={tabsRef}>
+      <div className="debo-tabs is-lux" role="tablist" data-anchor="debt-owe-tabs" data-on={tab} data-lit={flip ? (flip.n % 2 ? "a" : "b") : undefined} ref={tabsRef}>
         <i className="debo-ink" aria-hidden />
         <span className="debo-tab" data-on={tab === "dues" || undefined}>
-          <button type="button" role="tab" aria-selected={tab === "dues"} aria-pressed={tab === "dues"} onClick={() => setTab("dues")}>
+          <button type="button" role="tab" aria-selected={tab === "dues"} aria-pressed={tab === "dues"} onClick={() => pick("dues")}>
             <span className="dt-name">{L("Cuotas", "Dues")}</span>
             <em className="dt-sub num" aria-hidden>{fmt(summary?.subscriptions ?? 0)}</em>
           </button>
           <Hint topic="debo" />
         </span>
         <span className="debo-tab" data-on={tab === "loans" || undefined}>
-          <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => setTab("loans")}>
+          <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => pick("loans")}>
             <span className="dt-name">{L("Préstamos", "Loans")}</span>
             <em className="dt-sub num" aria-hidden>{fmt(owe)}</em>
           </button>
           <Hint topic="prestamos" />
         </span>
       </div>
-      {tab === "dues" ? <div className="debt-dues" data-anchor="debt-dues"><Subs /></div> : (
-        <div className="debt-loans" data-anchor="debt-loans">
+      {tab === "dues" ? <div className={`debt-dues${flip ? " is-flip" : ""}`} data-anchor="debt-dues" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}><Subs /></div> : (
+        <div className={`debt-loans${flip ? " is-flip" : ""}`} data-anchor="debt-loans" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}>
           <DueLoans libros onWho={openFor} facts={loanFacts} between={<><PayoffPlan /><DebtChart /></>} />
         </div>
       )}

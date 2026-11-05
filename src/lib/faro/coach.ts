@@ -23,7 +23,7 @@ export const SCORE_WEIGHTS: Record<string, number> = { spend: 0.3, save: 0.2, de
 export type Pillar = { id: string; label: string; score: number; value: string; note: string; tip: string; tone: Tone };
 export type Mover = { id: string; name: string; now: number; before: number; delta: number; color: string };
 export type Step = { id: string; title: string; detail: string; impactMinor: number; tone: Tone };
-export type Due = { id: string; name: string; minor: number; day: string; inDays: number };
+export type Due = { id: string; name: string; minor: number; day: string; inDays: number; /** 1.3.100: a Cuota's library mark ("sub:<id>"), when it has one. */ icon?: string };
 export type MonthNet = { key: string; label: string; income: number; expense: number; net: number; rate: number | null; current: boolean };
 export type CoachLine = { id: string; name: string; minor: number; category: string; kind: string };
 
@@ -388,7 +388,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       const inDays = Math.round((day.getTime() - start.getTime()) / 86400000);
       if (inDays < 0 || inDays > 35) continue;
       seen.add(sig);
-      dues.push({ id: line.id, name: line.concept || catName(line.categoryId), minor: viewOf(line, display, rateE4), day: when, inDays });
+      dues.push({ id: line.id, name: line.concept || catName(line.categoryId), minor: viewOf(line, display, rateE4), day: when, inDays, ...(line.kind === "subscription" && line.icon?.startsWith("sub:") ? { icon: line.icon } : {}) });
     }
   }
   dues.sort((a, b) => a.inDays - b.inDays);

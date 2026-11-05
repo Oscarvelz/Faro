@@ -8,6 +8,7 @@ import { readCoach, SCORE_WEIGHTS, type Coach, type CoachLine, type Pillar, type
 import type { LineKind, SectionId } from "@/lib/faro/types";
 import { StatFold, useFoldTopic } from "@/components/faro/charts";
 import { Hint } from "./hint";
+import { SubMark } from "./icons";
 import { isTron } from "@/lib/faro/colors";
 
 function sectionFor(kind: string): SectionId {
@@ -446,7 +447,7 @@ export function AgendaCard({ coach }: { coach: Coach }) {
           <ul className="pano-due-list">
             {coach.dues.slice(0, 6).map((d) => (
               <li key={`${d.id}-${d.day}`}>
-                <CalendarClock aria-hidden />
+                {d.icon ? <SubMark id={d.icon.slice(4)} className="pano-due-mark" /> : <CalendarClock aria-hidden />}
                 <span>{d.name}<em>{day(d.day)}{d.inDays <= 3 ? (lang === "en" ? " · soon" : " · pronto") : ""}</em></span>
                 <strong className="num">{fmt(d.minor)}</strong>
               </li>

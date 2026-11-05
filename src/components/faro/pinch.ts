@@ -246,7 +246,7 @@ export function useMasonry(ref: RefObject<HTMLElement | null>, ready = true) {
       el.classList.remove("is-masonry");
       for (const p of ["gridTemplateColumns", "gridAutoRows", "gridAutoFlow", "rowGap", "alignItems"] as const) el.style[p] = "";
       el.style.removeProperty("--a2-cols");
-      for (const k of kids()) { k.style.gridRowEnd = ""; k.style.gridColumn = ""; k.style.alignSelf = ""; k.style.order = ""; }
+      for (const k of kids()) { k.style.gridRowEnd = ""; k.style.gridColumn = ""; k.style.alignSelf = ""; k.style.order = ""; k.style.marginTop = ""; k.style.marginBottom = ""; }
     };
     const lay = () => {
       raf = 0;
@@ -267,8 +267,21 @@ export function useMasonry(ref: RefObject<HTMLElement | null>, ready = true) {
         const full = k.classList.contains("unfold-all") || (cols === 2 && w < 900 && k.classList.contains("coach"));
         k.style.gridColumn = full ? "1 / -1" : "auto";
         k.style.alignSelf = "start";
-        if (k.classList.contains("unfold-all")) k.style.order = "-1";
-        const h = k.offsetHeight;
+        let h = k.offsetHeight;
+        if (k.classList.contains("unfold-all")) {
+          k.style.order = "-1";
+          // 1.3.98: the Desplegar row sits first; the space under it matches the space above it (to the tabs or the top bar).
+          k.style.marginTop = "0px";
+          const top = el.getBoundingClientRect().top;
+          const prev = el.previousElementSibling as HTMLElement | null;
+          const seg = prev?.classList.contains("seg") ? prev : null;
+          const segR = seg && seg.getBoundingClientRect().height > 0 ? seg.getBoundingClientRect() : null;
+          const main = el.closest("main");
+          const above = segR ? top - segR.bottom : main ? top - main.getBoundingClientRect().top : gap;
+          const extra = Math.max(0, Math.round(above - gap));
+          k.style.marginBottom = `${extra}px`;
+          h += extra;
+        }
         k.style.gridRowEnd = `span ${Math.max(1, Math.ceil((h + (h ? gap : 0)) / ROW))}`;
       }
     };

@@ -242,8 +242,12 @@ export type LedgerState = {
   debtPlan?: DebtPlan;
   /** Cuotas preset chips (Nov 2026, 1.3.75): pool ids, or own ones with a name and an optional data-URL icon. Missing in older ledgers (= defaults). */
   subPresets?: SubPreset[];
+  /** 1.3.100: Cuotas icon-library presets the user deleted (ids from SUB_POOL). Absent = the whole library. */
+  subIconsOff?: string[];
   /** Cuotas frequency chips (1.3.76): cadence tokens in order. Missing in older ledgers (= the four defaults). */
   freqPresets?: string[];
+  /** Custom colours the user saved in the colour picker (1.3.99), newest first, at most 6. Missing in older ledgers (= none). */
+  myColors?: string[];
   /** Default Retiro presets the user removed (1.3.81, e.g. "primerica"). Missing = all offered. See retiro.ts. */
   retiroOff?: string[];
   revision: number;

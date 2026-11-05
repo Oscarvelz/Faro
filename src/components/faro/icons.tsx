@@ -140,6 +140,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SUB_POOL } from "@/lib/faro/subs";
+import { useEffect, useState } from "react";
 
 const MAP: Record<string, LucideIcon> = {
   ArrowDownLeft,
@@ -395,31 +396,56 @@ export function BrandMark({ id, className, src }: { id: string; className?: stri
   );
 }
 
-/* Subscription marks (1.3.75): brand-colour plate with a monogram or a tiny path; "data:" ids are the user's own icon. */
+/* Subscription marks (1.3.75; 1.3.100 icon library): brand-colour plate with a Simple Icons path (CC0, lazy chunk), a
+ * monogram or a tiny path; "data:" ids are the user's own icon. */
 const SUB_SHAPE: Record<string, string> = {
   "@play": "M12.5 10.5v11l9-5.5z",
   "@note": "M13 22.5a2.5 2.5 0 1 1-1-2V10l9-2v11a2.5 2.5 0 1 1-1-2V11.2l-7 1.6z",
   "@cloud": "M11 22h11a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 11 22z",
   "@phone": "M11 8.5h3l1.5 4-2 1.3a9 9 0 0 0 4.7 4.7l1.3-2 4 1.5v3c0 1-1 2-2 1.9A14 14 0 0 1 9 10.5c0-1 1-2 2-2z",
   "@gym": "M7 13.5h2v5H7zM10 11.5h2.5v9H10zM12.5 15h7v2h-7zM19.5 11.5H22v9h-2.5zM23 13.5h2v5h-2z",
+  "@game": "M11.5 11h9a4.5 4.5 0 0 1 4.4 5.4l-.7 3.6a2.3 2.3 0 0 1-4 1L18.6 19h-5.2l-1.6 2a2.3 2.3 0 0 1-4-1l-.7-3.6A4.5 4.5 0 0 1 11.5 11zm-.3 3v1.4H9.8v1.4h1.4v1.4h1.4v-1.4H14v-1.4h-1.4V14zm8.6.2a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm2.2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z",
+  "@book": "M9 9.5c2.6-.6 5-.3 6.3 1v12c-1.3-1.1-3.7-1.4-6.3-.9zM23 9.5c-2.6-.6-5-.3-6.3 1v12c1.3-1.1 3.7-1.4 6.3-.9z",
+  "@app": "M9 9h5.5v5.5H9zM17.5 9H23v5.5h-5.5zM9 17.5h5.5V23H9zM17.5 17.5H23V23h-5.5z",
+  "@bolt": "M17.5 7.5 10 17.5h5l-1.5 7 8-10.5h-5z",
 };
+let siPaths: Record<string, string> | null = null;
+let siLoading: Promise<Record<string, string>> | null = null;
+/** Loads the brand paths chunk once (on first need); every SubMark re-renders with the real mark when it lands. */
+function useSiPaths(need: boolean) {
+  const [paths, setPaths] = useState(siPaths);
+  useEffect(() => {
+    if (!need || paths) return;
+    let live = true;
+    siLoading ??= import("@/lib/faro/brand-paths").then((m) => (siPaths = m.SI_PATHS));
+    siLoading.then((p) => { if (live) setPaths(p); }).catch(() => { siLoading = null; });
+    return () => { live = false; };
+  }, [need, paths]);
+  return paths;
+}
 export function SubMark({ id, className }: { id: string; className?: string }) {
   const cls = className ?? "size-4";
+  const row = id.startsWith("data:") ? undefined : SUB_POOL.find((item) => item[0] === id);
+  const mark = row?.[5] ?? "";
+  const paths = useSiPaths(mark.startsWith("si:"));
   if (id.startsWith("data:")) return <img src={id} alt="" className={`sub-mark is-own ${cls}`} />;
-  const row = SUB_POOL.find((item) => item[0] === id);
   if (!row) return <RefreshCw className={cls} strokeWidth={1.75} aria-hidden />;
-  const [, , , bg, fg, mark] = row;
+  const [, name, , bg, fg] = row;
+  const si = mark.startsWith("si:") ? paths?.[mark.slice(3)] : undefined;
+  // Until the chunk lands (first use only) a brand shows its initial on the same plate, so nothing jumps.
+  const text = mark.startsWith("si:") ? (si ? "" : name.slice(0, 1)) : mark[0] === "@" ? "" : mark;
   const path = SUB_SHAPE[mark];
   return (
-    <svg viewBox="0 0 32 32" className={`sub-mark ${cls}`} aria-hidden>
+    <svg viewBox="0 0 32 32" className={`sub-mark ${cls}`} data-mark={id} aria-hidden>
       <rect width="32" height="32" rx="8" fill={bg} />
+      {si ? <path d={si} fill={fg} transform="translate(7.5 7.5) scale(.7083)" /> : null}
       {path ? <path d={path} fill={fg} /> : null}
       {mark === "@ring" ? <><circle cx="16" cy="16" r="8" fill="none" stroke={fg} strokeWidth="1.8" /><path d="M14 12.5v7l5.5-3.5z" fill={fg} /></> : null}
       {mark === "@wave" ? <path d="M9.5 12.5c4.5-1.3 9-1 13 1M10.5 16.3c3.8-1 7.3-.7 10.5.9M11.5 19.8c3-.7 5.6-.5 8 .7" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" /> : null}
       {mark === "@wifi" ? <path d="M8.5 14a11 11 0 0 1 15 0M11.3 17a7 7 0 0 1 9.4 0M14.2 20a2.6 2.6 0 0 1 3.6 0" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" /> : null}
-      {mark === "prime" ? <path d="M9 20.5c4.5 2.5 9.5 2.5 14 0" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" /> : null}
-      {mark[0] !== "@" ? (
-        <text x="16" y={mark === "prime" ? 18 : 21} textAnchor="middle" fill={fg} fontFamily="Outfit, sans-serif" fontWeight="700" fontSize={mark.length > 3 ? 8.5 : mark.length > 2 ? 10 : mark.length > 1 ? 12 : 16}>{mark}</text>
+      {mark === "prime" ? <path d="M9 20.5c4.5 2.5 9.5 2.5 14 0" fill="none" stroke={id === "amazonprime" ? "#ff9900" : "#fff"} strokeWidth="1.8" strokeLinecap="round" /> : null}
+      {text ? (
+        <text x="16" y={mark === "prime" ? 18 : 21} textAnchor="middle" fill={fg} fontFamily="Outfit, sans-serif" fontWeight="700" fontSize={text.length > 3 ? 8.5 : text.length > 2 ? 10 : text.length > 1 ? 12 : 16}>{text}</text>
       ) : null}
     </svg>
   );

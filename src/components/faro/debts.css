@@ -437,3 +437,45 @@ html:not([data-theme="tron"]) .vb-fill { background: linear-gradient(90deg, colo
 .swipe-pane.is-swap:not(.is-ring) :is(.fx-note, .cobro-swap) { animation: none; }
 .swipe-pane.is-swap.is-ring .cobro-swap { animation: none; }
 [data-theme="tron"] .swipe-pane.is-swap :is(.card, .ridge), [data-theme="tron"] .swipe-pane.is-vault :is(.card, .ridge), [data-theme="tron"] .swipe-pane.is-ring :is(.card, .ridge) { animation: none; }
+
+/* 1.3.98 Debo → Cuotas · Préstamos, on a tap only (`.is-flip`, never load/Back/link): the content glides 14px in from the side of
+   travel and lights in from .88 (never invisible, no vertical move, 220ms); the amber bar sends a soft light up under the name (~350ms). */
+.debt-book .is-flip[data-flip="a"] { animation: debo-flip-a .22s cubic-bezier(.2, .8, .25, 1) both; }
+.debt-book .is-flip[data-flip="b"] { animation: debo-flip-b .22s cubic-bezier(.2, .8, .25, 1) both; }
+@keyframes debo-flip-a { from { transform: translateX(var(--flip-x, 14px)); opacity: .88; } to { transform: none; opacity: 1; } }
+@keyframes debo-flip-b { from { transform: translateX(var(--flip-x, 14px)); opacity: .88; } to { transform: none; opacity: 1; } }
+.debt-book .is-flip :is(.fx-note, .cobro-swap, .card, .ridge) { animation: none; }
+.debo-ink::after {
+  content: ""; position: absolute; left: -18%; right: -18%; bottom: 1px; height: 30px; pointer-events: none; opacity: 0;
+  transform-origin: 50% 100%;
+  background: radial-gradient(50% 100% at 50% 100%, color-mix(in oklab, var(--tone) 34%, transparent), color-mix(in oklab, var(--tone) 10%, transparent) 55%, transparent 78%);
+}
+.debo-tabs[data-lit="a"] .debo-ink::after { animation: debo-lit-a .36s cubic-bezier(.25, .8, .3, 1) .06s 1 both; }
+.debo-tabs[data-lit="b"] .debo-ink::after { animation: debo-lit-b .36s cubic-bezier(.25, .8, .3, 1) .06s 1 both; }
+@keyframes debo-lit-a { 0% { opacity: 0; transform: scaleY(.1); } 40% { opacity: 1; transform: scaleY(1); } 100% { opacity: 0; transform: translateY(-5px) scaleY(1.05); } }
+@keyframes debo-lit-b { 0% { opacity: 0; transform: scaleY(.1); } 40% { opacity: 1; transform: scaleY(1); } 100% { opacity: 0; transform: translateY(-5px) scaleY(1.05); } }
+[data-theme="tron"] .debo-ink::after { background: radial-gradient(50% 100% at 50% 100%, rgba(255, 200, 120, .42), rgba(232, 165, 74, .13) 55%, transparent 78%); }
+@media (prefers-reduced-motion: reduce) {
+  .debt-book .is-flip[data-flip] { animation-name: debo-fade; }
+  .debo-tabs[data-lit] .debo-ink::after { animation-name: debo-lit-fade; }
+}
+@keyframes debo-fade { from { opacity: .88; } to { opacity: 1; } }
+@keyframes debo-lit-fade { 0% { opacity: 0; transform: none; } 40% { opacity: .7; transform: none; } 100% { opacity: 0; transform: none; } }
+
+/* 1.3.98 screen entrance (entrance.ts marks the first visible panels of a screen that opens; never inside .is-swap/.is-ring).
+   Tron: staggered rez — the panel powers on top → bottom while its four corner brackets draw out from the corners and flash once.
+   Other themes: a soft rise-fade from .45 (never blank). 65/55 ms apart, first one at 40/30 ms, so nothing waits long; transform/opacity/clip only. */
+html[data-theme="tron"] main [data-enter="rez"]:is(.card, .ridge, .coach, .advice-hero-2) {
+  animation: tron-rez-in .52s cubic-bezier(.25, .8, .25, 1) calc(40ms + var(--enter-i, 0) * 65ms) both, tron-brackets .7s cubic-bezier(.3, .7, .2, 1) calc(120ms + var(--enter-i, 0) * 65ms) both;
+}
+html[data-theme="tron"] main [data-enter="rez"]:is(.ridge, .advice-hero-2) { animation: tron-rez-in .52s cubic-bezier(.25, .8, .25, 1) calc(40ms + var(--enter-i, 0) * 65ms) both; }
+/* Starts as a faint ghost (top part, 40%), never a blank frame, then powers on top → bottom with a brief brightness. */
+@keyframes tron-rez-in { 0% { opacity: .4; filter: brightness(1.6); clip-path: inset(0 0 58% 0); } 70% { opacity: 1; clip-path: inset(0); filter: brightness(1.2); } 100% { opacity: 1; clip-path: none; filter: none; } }
+@keyframes tron-brackets {
+  0% { background-size: 0 1.5px, 1.5px 0, 0 1.5px, 1.5px 0, 0 1px, auto; }
+  55% { background-size: 22px 1.5px, 1.5px 22px, 22px 1.5px, 1.5px 22px, 100% 1px, auto; }
+  100% { background-size: 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 100% 1px, auto; }
+}
+html:not([data-theme="tron"]) main [data-enter="rise"] { animation: screen-rise .42s cubic-bezier(.2, .8, .2, 1) calc(30ms + var(--enter-i, 0) * 55ms) both; }
+@keyframes screen-rise { from { opacity: .45; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { main [data-enter] { animation: none !important; } }

@@ -1,3 +1,4 @@
+import { useScreenEntrance } from "./entrance";
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { SampleEdge, SamplePill } from "./sample-mode";
 import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
@@ -117,6 +118,7 @@ export function Shell() {
   const segRef = useRef<HTMLDivElement>(null);
   const vaultRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  useScreenEntrance(mainRef, `${ui.section}`);
   const [calOpen, setCalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchListed, setSearchListed] = useState(false);

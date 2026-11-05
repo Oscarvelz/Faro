@@ -413,3 +413,18 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 [data-theme="tron"] .a2-load { --ld-pay: #ffcf6e; --ld-val: #7fe9ff; --ld-room: #54e6ff; --ld-fill: rgba(255, 196, 92, .85); --ld-track: rgba(84, 230, 255, .2); }
 [data-theme="tron"] .a2-load-room strong { text-shadow: 0 0 12px rgba(84, 230, 255, .35); }
 [data-theme="tron"] .a2-load em { color: rgba(170, 225, 240, .62); }
+
+/* 1.3.98 Asesor Desplegar: the same space above and below the row (masonry sets its own, see pinch.ts), and one soft glint on open. */
+.advice-stack > .unfold-all.is-advice { margin-block: 2px; }
+.advice-stack.is-masonry > .unfold-all.is-advice { margin-top: 0; }
+.unfold-all.is-advice input { --glint: color-mix(in oklab, var(--accent) 34%, transparent); }
+.unfold-all.is-advice[data-hello="1"] input { animation: unfold-glint-a 1.15s cubic-bezier(.22, .9, .3, 1) 1; }
+.unfold-all.is-advice[data-hello="2"] input { animation: unfold-glint-b 1.15s cubic-bezier(.22, .9, .3, 1) 1; }
+@keyframes unfold-glint-a { 0% { box-shadow: 0 0 0 0 transparent; } 30% { box-shadow: 0 0 0 4px var(--glint); } 100% { box-shadow: 0 0 0 9px transparent; } }
+@keyframes unfold-glint-b { 0% { box-shadow: 0 0 0 0 transparent; } 30% { box-shadow: 0 0 0 4px var(--glint); } 100% { box-shadow: 0 0 0 9px transparent; } }
+[data-theme="tron"] .unfold-all.is-advice input { --glint: rgba(63, 214, 245, .55); }
+[data-theme="tron"] .unfold-all.is-advice[data-hello="1"] input { animation-name: unfold-glow-a; }
+[data-theme="tron"] .unfold-all.is-advice[data-hello="2"] input { animation-name: unfold-glow-b; }
+@keyframes unfold-glow-a { 0% { box-shadow: 0 0 0 0 transparent; filter: none; } 28% { box-shadow: 0 0 14px 2px var(--glint), 0 0 0 3px rgba(63, 214, 245, .28); filter: brightness(1.25); } 100% { box-shadow: 0 0 18px 4px transparent, 0 0 0 8px transparent; filter: none; } }
+@keyframes unfold-glow-b { 0% { box-shadow: 0 0 0 0 transparent; filter: none; } 28% { box-shadow: 0 0 14px 2px var(--glint), 0 0 0 3px rgba(63, 214, 245, .28); filter: brightness(1.25); } 100% { box-shadow: 0 0 18px 4px transparent, 0 0 0 8px transparent; filter: none; } }
+@media (prefers-reduced-motion: reduce) { .unfold-all.is-advice[data-hello] input { animation: none !important; } }
