@@ -160,3 +160,8 @@
 /* Cuotas: the one toggle sits beside Nota, bottom-aligned with its field. */
 .form-block.is-fit .fit-fields > .fit-chip.is-inline { align-self: flex-end; flex: 1 1 calc(50% - 5px); }
 @container (min-width: 560px) { .form-block.is-fit .fit-fields > .fit-chip.is-inline { flex-basis: calc(25% - 7.5px); } }
+/* Field text is regular weight (labels carry the bold); amounts a touch heavier. */
+.form-block.is-fit :is(.field, .theme-select-btn, .day-field-btn) { font-weight: 500; }
+.form-block.is-fit .theme-select-btn > span:first-child { font-weight: 500; }
+.form-block.is-fit .field.num { font-weight: 620; }
+.form-block.is-fit .fit-pick-btn.is-set .fit-pick-text { font-weight: 540; }
