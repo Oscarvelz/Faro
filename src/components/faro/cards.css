@@ -152,3 +152,74 @@ html:is([data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [d
 .card-advice { container-type: inline-size; }
 @container (max-width: 21rem) { .card-group > h3 > b { display: none; } }
 .card-group .cg-total { padding-left: 8px; }
+
+/* 1.3.109 card rewards (cash back): money in = teal. Chip on the card row, block in the card sheet, row in the screenshot
+   preview, the "Recompensas de tarjetas" group under Me deben and the Canjear sheet. */
+:root { --rw: #2f8f86; --rw-ink: color-mix(in oklab, #2f8f86 80%, var(--fg)); }
+html:is([data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="ion"]) { --rw: #4cc2b4; --rw-ink: #6fd3c6; }
+[data-theme="tron"] { --rw: #3fd6f5; --rw-ink: #3fd6f5; }
+.cr-rw { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px 0 5px; border-radius: 99px; flex: none; white-space: nowrap; font-size: min(.7rem, 3.3cqi); font-weight: 650; color: var(--rw-ink); background: color-mix(in oklab, var(--rw) 14%, transparent); }
+.cr-rw svg { width: 11px; height: 11px; flex: none; }
+.cr-meta .cr-rw b, .cr-rw b { color: var(--rw-ink); font-weight: 700; }
+[data-theme="tron"] .cr-rw { background: rgba(63, 214, 245, .1); box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .22); }
+.cd-rw { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: color-mix(in oklab, var(--rw) 9%, transparent); border: 1px solid color-mix(in oklab, var(--rw) 28%, transparent); }
+[data-theme="tron"] .cd-rw { border-radius: 9px; background: rgba(63, 214, 245, .06); border-color: rgba(63, 214, 245, .3); box-shadow: 0 0 12px -6px rgba(63, 214, 245, .6); }
+.cd-rw > svg { width: 18px; height: 18px; color: var(--rw-ink); }
+.cd-rw-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; }
+.cd-rw-text em { display: inline-flex; align-items: center; font-style: normal; font-size: min(.74rem, 3.5cqi); color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.cd-rw-text b { font-size: min(1.1rem, 5.2cqi); font-weight: 700; color: var(--rw-ink); }
+.cd-rw-text small { font-size: min(.72rem, 3.4cqi); color: var(--muted); }
+.cd-rw-go { height: 32px; min-height: 32px; padding: 0 12px; white-space: nowrap; color: var(--rw-ink); border-color: color-mix(in oklab, var(--rw) 45%, var(--line)); }
+.cd-hist li[data-k="rw"] b { color: var(--rw-ink); }
+.cd-hist li[data-k="redeem"] b { color: var(--rw-ink); opacity: .85; }
+.card-scrim[data-tone="in"] { --scn: var(--rw); }
+.rw-have { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0 0 8px; white-space: nowrap; font-size: min(.88rem, 4.2cqi); }
+.rw-have svg { width: 16px; height: 16px; color: var(--rw-ink); }
+.rw-have span { min-width: 0; overflow: hidden; }
+.rw-have b { color: var(--rw-ink); font-weight: 700; }
+.rw-how { display: grid !important; grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
+.rw-how button { white-space: nowrap; font-size: min(.82rem, 3.9cqi); }
+.cs-rw .cs-rw-lab { display: inline-flex; align-items: center; gap: 4px; color: var(--rw-ink); font-size: min(.78rem, 3.7cqi); font-weight: 650; }
+.cs-rw .cs-rw-lab svg { width: 13px; height: 13px; }
+.cs-rw .cs-amt .field { color: var(--rw-ink); }
+.cs-rw .scn-switch[aria-checked="true"] { background: color-mix(in oklab, var(--rw) 40%, transparent); border-color: var(--rw); }
+.cs-rw .scn-switch[aria-checked="true"] i { background: var(--rw); }
+.cs-rw.is-off .cs-amt, .cs-rw.is-off .cs-old { opacity: .5; }
+.cs-rw .cr-trend.is-down { color: var(--rw-ink); background: color-mix(in oklab, var(--rw) 14%, transparent); }
+/* The group lives on the Me deben side: teal, not the cards' amber. */
+.rw-group { --amb: var(--rw); --amb-ink: var(--rw-ink); }
+.rw-group .rw-bal, .rw-group .rw-total { color: var(--rw-ink); }
+.rw-group .rw-go { color: var(--rw-ink); opacity: .85; }
+.rw-group > h3 > span:first-of-type { min-width: 0; }
+@container (max-width: 21rem) { .rw-group > h3 > span:first-of-type { font-size: .92em; } }
+/* 1.3.109 preview: every number is an editable row; × removes it, Otros datos can be kept as a note. */
+.cs-f em { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.cs-x { width: 22px; height: 22px; flex: none; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: color-mix(in oklab, var(--fg) 7%, transparent); color: var(--muted); cursor: pointer; }
+.cs-x svg { width: 12px; height: 12px; }
+.cs-f em .cs-x { width: 18px; height: 18px; }
+.cs-rw .cs-x, .cs-extra .cs-x { margin-left: auto; }
+.cs-earned .cs-rw-lab { color: var(--muted); }
+.cs-earned .cs-amt .field { color: color-mix(in oklab, var(--fg) 80%, var(--muted)); font-weight: 600; }
+.cs-tag { font-size: min(.66rem, 3.1cqi); color: var(--muted); white-space: nowrap; }
+.cs-extras { display: grid; gap: 6px; }
+.cs-extras-h { font-style: normal; font-size: min(.7rem, 3.4cqi); color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.cs-extra { display: grid; grid-template-columns: auto minmax(0, 1fr) 6.4em auto; align-items: center; gap: 6px; }
+.cs-extra .field { height: 32px; min-width: 0; font-size: min(.82rem, 3.9cqi); }
+.cs-extra.is-off .field { opacity: .55; }
+.cd-note em { white-space: nowrap; }
+/* Rewards row inside the general scan sheet (receipt-scan): same card look, its own row. */
+.scn-rw { container-type: inline-size; }
+.scn-rw .cs-delta { flex-wrap: nowrap; }
+.scn-rw .cs-info { white-space: normal; }
+/* Otros datos: the whole label is shown (it wraps inside its box rather than being cut). */
+.cs-extra { grid-template-columns: auto minmax(0, 1fr) 6.6em auto; align-items: start; }
+.cs-extra .cs-xlab { height: auto; min-height: 32px; padding-block: 6px; resize: none; field-sizing: content; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.25; }
+.cs-extra > .scn-switch, .cs-extra > .cs-x { margin-top: 5px; }
+.cs-delta .scn-switch, .cs-extra .scn-switch { flex: none; }
+.cs-rw .cs-rw-lab { flex: none; }
+/* Rewards rows: the amount box keeps room for its full value at 360r20. */
+.cs-rw .cs-amt { flex: 0 0 auto; width: 6.6em; min-width: 6.6em; max-width: none; }
+.cs-rw .cs-rw-lab { margin-right: auto; }
+.cs-extra { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "sw lab x" ". val ."; }
+.cs-extra > .scn-switch { grid-area: sw; } .cs-extra > .cs-xlab { grid-area: lab; } .cs-extra > .field.num { grid-area: val; justify-self: start; width: 8em; } .cs-extra > .cs-x { grid-area: x; }
+.ea-study .pano-head h2 { font-size: min(1.5rem, 6.4cqi); white-space: nowrap; }

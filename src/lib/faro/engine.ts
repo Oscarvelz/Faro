@@ -3,7 +3,7 @@ import { colorFor } from "./colors";
 import { displayName } from "./defaults";
 import { loanTotals } from "./loans";
 import { lentTotals, payoffPlan } from "./debts";
-import { cardFigures, cardMonthlyInterest, cardTotals, cardsOf, toThirty } from "./cards";
+import { cardFigures, cardMonthlyInterest, cardTotals, cardsOf, rewardsTotals, toThirty } from "./cards";
 import { cadenceLabel } from "./cadence";
 import { convertMinor, formatMoney, formatPct, monthlyEquivalent, roundHalfAway } from "./money";
 import type {
@@ -1165,13 +1165,27 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
           `Pay ${plan.first?.name ?? ""} first (${order})${plan.first && plan.perPayOf[plan.first.id] ? `: ${money(plan.perPayOf[plan.first.id])} of each ${money(plan.perPay)} payment, ${cadenceLabel(plan.cadence, "en").toLowerCase()}` : ""}.${plan.debts.some((d) => d.aprGuess) ? " This is an estimate: add each card's rate." : ""} With ${money(plan.budget)} a month you are debt-free in ${ch.months} ${ch.months === 1 ? "month" : "months"} and pay ${money(ch.interest)} in interest.${plan.saveInterest > 0 ? ` That saves ${money(plan.saveInterest)} versus ${other}.` : plan.saveInterest < 0 ? ` ${other} would save ${money(-plan.saveInterest)}.` : ""}`),
     });
   }
+  // 1.3.109: card rewards are money the user has (an asset, not a smaller debt): say how much and where to use it.
+  const rwt = rewardsTotals(state);
+  if (rwt.total > 0) {
+    const costly = cardsOf(state).map((c) => ({ c, f: cardFigures(state, c) })).filter((x) => x.f.known && x.f.balance > 0)
+      .sort((a, b) => (b.c.aprBps || 2400) - (a.c.aprBps || 2400))[0];
+    const per = rwt.rows.filter((r) => r.minor > 0).map((r) => `${r.card.name} ${money(r.view)}`).join(", ");
+    mediumBits.push({
+      label: L(lang, "Recompensas de tarjetas", "Card rewards"),
+      value: money(rwt.total),
+      note: costly
+        ? L(lang, `Tienes ${money(rwt.total)} en recompensas (${per}). Canjéalas como crédito a ${costly.c.name}${costly.c.aprBps ? ", la de tasa más alta" : ""}: bajan una deuda que cobra interés.`, `You have ${money(rwt.total)} in rewards (${per}). Redeem them as a statement credit on ${costly.c.name}${costly.c.aprBps ? ", the highest rate" : ""}: they lower a debt that charges interest.`)
+        : L(lang, `Tienes ${money(rwt.total)} en recompensas (${per}). Puedes depositarlas a tu banco: entran como ingreso.`, `You have ${money(rwt.total)} in rewards (${per}). You can deposit them to your bank: they come in as income.`),
+    });
+  }
   const owedNow = lentTotals(state);
-  if (owedNow.count) {
-    const net = owedNow.left - lt.left - ct.balance;
+  if (owedNow.count || rwt.total > 0) {
+    const net = owedNow.left + rwt.total - lt.left - ct.balance;
     mediumBits.push({
       label: L(lang, "Balance neto", "Net balance"),
       value: `${net < 0 ? "−" : net > 0 ? "+" : ""}${money(Math.abs(net))}`,
-      note: L(lang, `Te deben ${money(owedNow.left)}${lt.count ? ` y debes ${money(lt.left)} en préstamos` : ""}. Lo que te deben no es dinero hasta que llega: no lo cuentes para pagar.`, `You are owed ${money(owedNow.left)}${lt.count ? ` and owe ${money(lt.left)} in loans` : ""}. Money owed to you is not money until it arrives: do not count on it to pay.`),
+      note: L(lang, `Te deben ${money(owedNow.left)}${rwt.total > 0 ? `, tus tarjetas guardan ${money(rwt.total)} en recompensas` : ""}${lt.count ? ` y debes ${money(lt.left)} en préstamos` : ""}${ct.known ? ` y ${money(ct.balance)} en tarjetas` : ""}. Lo que te deben no es dinero hasta que llega: no lo cuentes para pagar.`, `You are owed ${money(owedNow.left)}${rwt.total > 0 ? `, your cards hold ${money(rwt.total)} in rewards` : ""}${lt.count ? ` and owe ${money(lt.left)} in loans` : ""}${ct.known ? ` and ${money(ct.balance)} on cards` : ""}. Money owed to you is not money until it arrives: do not count on it to pay.`),
     });
   }
   const mediumCard: AdviceCard = {

@@ -4,11 +4,13 @@
  * - CardSheet: one card (art, figures, sparkline, readings and payments, Actualizar, Abonar, Editar, Eliminar).
  * - CardForm: add (manual or from a screenshot), edit, or a manual update.
  * - CardScan: one or many screenshots of bank apps read on the device, matched to cards, previewed, saved at once.
+ * - 1.3.109 rewards (cash back): chip on the row, block + Canjear in the sheet, field in the forms, row in the preview,
+ *   RewardsGroup (Me deben → "Recompensas de tarjetas") and RedeemSheet (statement credit or deposit, never counted twice).
  * Money rules live in lib/faro/cards.ts; the reader in lib/faro/cardparse.ts. Pictures are never stored or sent.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Aperture, Camera, Check, ChevronDown, CreditCard as CardIcon, Images, Pencil, Plus, RotateCcw, SquarePen, Trash2, X } from "lucide-react";
+import { Aperture, Camera, Check, ChevronDown, CreditCard as CardIcon, Images, Pencil, Plus, RotateCcw, SquarePen, Star, Trash2, X } from "lucide-react";
 import "./cards.css";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
@@ -19,8 +21,8 @@ import { CardArt } from "./card-art";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
 import {
-  ART_STYLES, CARD_PRESETS, addReading, artOf, cardFigures, cardMonthlyInterest, cardPays, cardTotals, cardsOf, dropCard, dropPresets,
-  issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, restorePresets, storedCards, toThirty, utilLevel, type CardUpdate,
+  ART_STYLES, CARD_PRESETS, addReading, addRewards, artOf, cardFigures, cardMonthlyInterest, cardPays, cardTotals, cardsOf, dropCard, dropPresets,
+  issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardUpdate,
 } from "@/lib/faro/cards";
 import { matchCard, parseCardShot, readLimit, type CardField, type CardRead } from "@/lib/faro/cardparse";
 import type { CreditCard, Currency, LedgerState } from "@/lib/faro/types";
@@ -70,7 +72,7 @@ export function CardsGroup({ libros = false }: { libros?: boolean }) {
   });
   const restore = () => commit((s) => restorePresets(s), L("Restaurar tarjetas", "Restore cards"));
   const box = useRef<HTMLDivElement>(null);
-  useFitNames(box, cards.map((c) => `${c.name}|${c.last4}|${c.snaps.length}`).join("/") + (edit ? "e" : "") + (ledger?.updatedAt ?? "") + lang);
+  useFitNames(box, cards.map((c) => `${c.name}|${c.last4}|${c.snaps.length}|${c.rw?.length ?? 0}`).join("/") + (edit ? "e" : "") + (ledger?.updatedAt ?? "") + lang);
   return (
     <div ref={box} className={`cobro-group card-group${edit ? " is-edit" : ""}`} data-anchor={libros ? "debt-cards" : "cobros-cards"}>
       <h3>
@@ -169,6 +171,9 @@ function CardRow({ card, edit, onOpen, onDelete, onUpdate }: { card: CreditCard;
   const f = session ? cardFigures(session.ledger, card) : null;
   const known = !!f?.known;
   const trend = f && f.delta != null && f.delta !== 0 ? f.delta : null;
+  const rw = rewardsOf(card);
+  // 1.3.109: rewards are money in (teal). The word steps aside before the amount on narrow rows; the star and amount stay.
+  const rwChip = rw.amount > 0 ? <span className="cr-rw" data-anchor="card-rw-chip"><Star aria-hidden /><span data-drop="2.5">{L("Recompensas", "Rewards")}&nbsp;</span><b className="num">{fmt(view(rw.amount, card.currency))}</b></span> : null;
   return (
     <article className={`card-row${known ? "" : " is-new"}`} data-card={card.preset ?? card.id}>
       <button type="button" className="cr-main" onClick={onOpen} aria-label={card.name}>
@@ -181,8 +186,9 @@ function CardRow({ card, edit, onOpen, onDelete, onUpdate }: { card: CreditCard;
               {f.min != null && f.min > 0 ? <span data-drop="2">{L("mín", "min")} <b className="num">{fmt(view(f.min, card.currency))}</b></span> : null}
               {f.dueOn ? <span data-drop="1">{dayLabel(f.dueOn, lang)}</span> : null}
               {trend != null ? <span className={`cr-trend ${trend > 0 ? "is-up" : "is-down"}`}>{trend > 0 ? "+" : "−"}{fmt(view(Math.abs(trend), card.currency))}&nbsp;<span data-drop="3">{L("desde el", "since")}&nbsp;</span>{dayLabel(f.since, lang)}</span> : null}
+              {rwChip}
             </span>
-          ) : <span className="cr-meta is-quiet">{card.manualOnly ? L("Se actualiza a mano", "Updated by hand") : L("Sin datos todavía", "No data yet")}</span>}
+          ) : rwChip ? <span className="cr-meta">{rwChip}</span> : <span className="cr-meta is-quiet">{card.manualOnly ? L("Se actualiza a mano", "Updated by hand") : L("Sin datos todavía", "No data yet")}</span>}
         </span>
       </button>
       {edit ? (
@@ -296,16 +302,22 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
   const [paying, setPaying] = useState(false);
   const [amt, setAmt] = useState("");
   const [on, setOn] = useState(todayIso());
+  const [redeem, setRedeem] = useState(false);
   if (!session) return null;
   const ledger = session.ledger;
   const f = cardFigures(ledger, card);
+  const rw = rewardsOf(card);
   const monthly = cardMonthlyInterest(card, f.balance);
   const promo = promoMonths(card.promoUntil);
   const pays = cardPays(ledger, card.id);
+  // 1.3.109: rewards readings (teal) and redemptions join the history; a statement credit shows once, as "Canje".
   const events = [
-    ...card.snaps.map((s) => ({ on: s.on, k: "snap" as const, v: s.balanceMinor, src: s.src })),
-    ...pays.map((p) => ({ on: p.bookedOn || `${p.monthKey}-01`, k: "pay" as const, v: p.amountMinor, src: "pay" })),
-  ].sort((a, b) => b.on.localeCompare(a.on)).slice(0, 12);
+    ...card.snaps.map((s) => ({ on: s.on, k: "snap" as const, v: s.balanceMinor, src: s.src as string })),
+    ...pays.filter((p) => !p.rwCard).map((p) => ({ on: p.bookedOn || `${p.monthKey}-01`, k: "pay" as const, v: p.amountMinor, src: "pay" })),
+    ...(card.rw ?? []).filter((s) => s.amountMinor !== undefined || s.src === "redeem").map((s) => s.src === "redeem"
+      ? { on: s.on, k: "redeem" as const, v: s.redeemed ?? 0, src: s.how ?? "credit" }
+      : { on: s.on, k: "rw" as const, v: s.amountMinor ?? 0, src: s.src as string }),
+  ].sort((a, b) => b.on.localeCompare(a.on)).slice(0, 14);
   const pay = () => {
     const m = parseAmount(amt);
     if (m == null || m <= 0) return;
@@ -336,8 +348,18 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
         <span><em>{L("Tasa anual", "APR")}</em><b className="num">{card.aprBps ? pctText(card.aprBps, lang) : "—"}{promo ? ` · 0% ${dayLabel(card.promoUntil!, lang)}` : ""}</b></span>
         <span><em>{L("Interés al mes", "Interest a month")}</em><b className="num">{f.known ? `${card.aprBps || promo ? "" : "≈ "}${v(monthly)}` : "—"}</b></span>
         <span><em>{L("Pago automático", "Autopay")}</em><b>{card.autopay == null ? "—" : card.autopay ? L("Sí", "On") : L("No", "Off")}</b></span>
-        {card.rewards ? <span><em>{L("Recompensas", "Rewards")}</em><b>{card.rewards}</b></span> : null}
+        {f.last?.lastPayMinor != null ? <span><em>{L("Último pago", "Last payment")}</em><b className="num">{v(f.last.lastPayMinor)}{f.last.lastPayOn ? ` · ${dayLabel(f.last.lastPayOn, lang)}` : ""}</b></span> : null}
+        {f.last?.statementMinor != null ? <span><em>{L("Saldo al corte", "Statement")}</em><b className="num">{v(f.last.statementMinor)}</b></span> : null}
+        {(f.last?.notes ?? []).map((n, i) => <span key={`n${i}`} className="cd-note"><em>{n.label}</em><b className="num">{n.text}</b></span>)}
+        {card.rewards ? <span><em>{L("Recompensas (nota)", "Rewards (note)")}</em><b>{card.rewards}</b></span> : null}
       </div>
+      {rw.known || rw.points != null ? (
+        <div className="cd-rw" data-anchor="card-rw">
+          <Star aria-hidden />
+          <span className="cd-rw-text"><em>{L("Recompensas", "Rewards")}<Hint topic="recompensas-tarjetas" /></em><b className="num">{v(rw.amount)}</b>{rw.points != null ? <small className="num">{rw.points.toLocaleString(lang === "en" ? "en-US" : "es-NI")} {L("puntos", "points")}</small> : rw.on ? <small>{dayLabel(rw.on, lang)}</small> : null}</span>
+          {rw.amount > 0 ? <button type="button" className="btn secondary cd-rw-go" data-anchor="card-redeem" onClick={() => setRedeem(true)}>{L("Canjear", "Redeem")}</button> : null}
+        </div>
+      ) : null}
       {!card.aprBps ? <button type="button" className="cd-ask" data-anchor="card-ask-apr" onClick={onEdit}>{L("Añade la tasa para un mejor consejo", "Add the rate for better advice")}</button> : null}
       {paying ? (
         <div className="form-block cobro-form is-bonus">
@@ -351,7 +373,7 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
       {events.length ? (
         <ol className="cd-hist">
           {events.map((e, i) => (
-            <li key={i} data-k={e.k}><span className="num">{dayLabel(e.on, lang)}</span><span>{e.k === "pay" ? L("Abono", "Payment") : e.src === "shot" ? L("Captura", "Screenshot") : L("Manual", "Manual")}</span><b className="num">{e.k === "pay" ? "−" : ""}{v(e.v)}</b></li>
+            <li key={i} data-k={e.k}><span className="num">{dayLabel(e.on, lang)}</span><span>{e.k === "pay" ? L("Abono", "Payment") : e.k === "redeem" ? (e.src === "deposit" ? L("Canje · depósito", "Redeemed · deposit") : L("Canje · crédito", "Redeemed · credit")) : e.k === "rw" ? `${L("Recompensas", "Rewards")} · ${e.src === "shot" ? L("captura", "screenshot") : L("manual", "manual")}` : e.src === "shot" ? L("Captura", "Screenshot") : L("Manual", "Manual")}</span><b className="num">{e.k === "pay" || e.k === "redeem" ? "−" : ""}{v(e.v)}</b></li>
           ))}
         </ol>
       ) : null}
@@ -359,13 +381,87 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
         <button type="button" className="btn secondary" data-anchor="card-edit" onClick={onEdit}><Pencil aria-hidden />{L("Editar", "Edit")}</button>
         <button type="button" className="btn secondary" onClick={onDelete}><Trash2 aria-hidden />{L("Eliminar", "Delete")}</button>
       </div>
+      {redeem ? <RedeemSheet card={card} onClose={() => setRedeem(false)} /> : null}
     </Sheet>
+  );
+}
+
+/* ---------- rewards (1.3.109) ---------- */
+
+/**
+ * Canjear: a statement credit (lowers the card balance through a transfer line; the purchases were already spending, so it
+ * is not income) or a deposit to the bank (an income line, source "Recompensas de tarjetas"). The rewards reading drops by
+ * the same amount either way, so the money is never counted twice.
+ */
+export function RedeemSheet({ card, onClose }: { card: CreditCard; onClose: () => void }) {
+  const { commit, fmt, lang } = useFaro();
+  const L = useL();
+  const { view } = useView();
+  const have = rewardsOf(card).amount;
+  const [how, setHow] = useState<"credit" | "deposit">("credit");
+  const [amt, setAmt] = useState(money(have));
+  const [on, setOn] = useState(todayIso());
+  const m = parseAmount(amt);
+  const ok = m != null && m > 0 && m <= have;
+  const save = () => {
+    if (!ok) return;
+    commit((s) => redeemRewards(s, card.id, how, m!, on, uid(), how === "credit" ? L("Canje de recompensas", "Rewards redeemed") : L("Recompensas de tarjetas", "Card rewards")), card.name);
+    onClose();
+  };
+  return (
+    <Sheet anchor="card-redeem-sheet" tone="in" onClose={onClose} art={<CardArt card={card} big />} title={<span className="cd-title">{L("Canjear recompensas", "Redeem rewards")}</span>}
+      foot={<><button type="button" className="btn secondary" onClick={onClose}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-redeem-save" disabled={!ok} onClick={save}>{L("Guardar", "Save")}</button></>}>
+      <div className="form-block cobro-form is-bonus card-form rw-form">
+        <p className="rw-have"><Star aria-hidden /><span>{card.name}</span><b className="num">{fmt(view(have, card.currency))}</b></p>
+        <div className="cobro-kind rw-how" role="radiogroup" aria-label={L("Cómo", "How")}>
+          <button type="button" role="radio" aria-checked={how === "credit"} data-anchor="redeem-credit" onClick={() => setHow("credit")}>{L("Crédito al saldo", "Statement credit")}</button>
+          <button type="button" role="radio" aria-checked={how === "deposit"} data-anchor="redeem-deposit" onClick={() => setHow("deposit")}>{L("Depósito al banco", "Bank deposit")}</button>
+        </div>
+        <div className="cobro-grid">
+          <label className="label"><span className="lab-head">{L("Monto", "Amount")} ({card.currency === "USD" ? "US$" : "C$"})</span><input className="field num" inputMode="decimal" placeholder="0.00" value={amt} data-anchor="redeem-amount" onChange={(e) => setAmt(e.target.value)} /></label>
+          <div className="label is-right"><span className="lab-head">{L("Fecha", "Date")}</span><DayField value={on} onChange={setOn} /></div>
+        </div>
+        <p className="cd-soft">{how === "credit"
+          ? L("Baja el saldo de la tarjeta y deja las recompensas en cero. No es gasto ni ingreso: tu balance neto no cambia.", "Lowers the card balance and sets the rewards to zero. It is neither spending nor income: your net balance stays the same.")
+          : L("Entra como ingreso de este mes (Recompensas de tarjetas) y deja las recompensas en cero. No se cuenta dos veces.", "Comes in as this month's income (Card rewards) and sets the rewards to zero. It is never counted twice.")}</p>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Me deben → "Recompensas de tarjetas": the cash back each card holds (money the user has), with Canjear. */
+export function RewardsGroup() {
+  const { session, fmt, lang } = useFaro();
+  const L = useL();
+  const sums = rewardsTotals(session?.ledger);
+  const [open, setOpen] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  useFitNames(box, sums.rows.map((r) => `${r.card.id}|${r.minor}`).join("/") + lang);
+  if (!sums.rows.length) return null;
+  const card = open ? sums.rows.find((r) => r.card.id === open)?.card ?? null : null;
+  return (
+    <div ref={box} className="cobro-group card-group rw-group" data-anchor="rewards-group">
+      <h3><i /><span>{L("Recompensas de tarjetas", "Card rewards")}</span><b>{sums.count}</b><strong className="num cg-total rw-total" data-anchor="rewards-total">{fmt(sums.total)}</strong><span className="cg-tools"><Hint topic="recompensas-tarjetas" /></span></h3>
+      {sums.rows.map((r) => (
+        <article key={r.card.id} className="card-row rw-row" data-card={r.card.preset ?? r.card.id}>
+          <button type="button" className="cr-main" onClick={() => (r.minor > 0 ? setOpen(r.card.id) : null)} aria-label={`${L("Canjear", "Redeem")} ${r.card.name}`}>
+            <CardArt card={r.card} />
+            <span className="cr-text">
+              <span className="cr-name"><strong data-full={r.card.name} data-short={shortName(r.card.name)}>{r.card.name}</strong>{r.card.last4 ? <em className="num">···{r.card.last4}</em> : null}</span>
+              <span className="cr-meta">{r.points != null ? <span>{r.points.toLocaleString(lang === "en" ? "en-US" : "es-NI")} {L("puntos", "points")}</span> : null}{r.on ? <span data-drop="1">{L("al", "as of")} {dayLabel(r.on, lang)}</span> : null}{r.minor > 0 ? <span className="rw-go" data-drop="2">{L("Toca para canjear", "Tap to redeem")}</span> : null}</span>
+            </span>
+          </button>
+          <strong className="num cr-bal rw-bal">{fmt(r.view)}</strong>
+        </article>
+      ))}
+      {card ? <RedeemSheet card={card} onClose={() => setOpen(null)} /> : null}
+    </div>
   );
 }
 
 /* ---------- add / edit / manual update ---------- */
 
-type Draft = { name: string; last4: string; apr: string; promo: string; limit: string; dueDay: string; autopay: "" | "on" | "off"; rewards: string; art: string; color: string; balance: string; avail: string; min: string; dueOn: string; mark: string; issuer: string; network: string };
+type Draft = { name: string; last4: string; apr: string; promo: string; limit: string; dueDay: string; autopay: "" | "on" | "off"; rewards: string; art: string; color: string; balance: string; avail: string; min: string; dueOn: string; mark: string; issuer: string; network: string; rw: string };
 
 function draftOf(c: CreditCard | null, seed?: Partial<CreditCard> & { read?: CardRead }): Draft {
   const r = seed?.read;
@@ -376,6 +472,7 @@ function draftOf(c: CreditCard | null, seed?: Partial<CreditCard> & { read?: Car
     autopay: base?.autopay === true || r?.autopay === true ? "on" : base?.autopay === false || r?.autopay === false ? "off" : "", rewards: base?.rewards ?? "",
     art: base?.art ?? "", color: base?.color ?? "#079ed9", balance: r?.balanceMinor != null ? money(r.balanceMinor) : "", avail: r?.availMinor != null ? money(r.availMinor) : "",
     min: r?.minMinor != null ? money(r.minMinor) : "", dueOn: r?.dueOn ?? "", mark: base?.mark ?? r?.issuer ?? "", issuer: base?.issuer ?? (r?.issuer ? issuerOf(r.issuer)?.name ?? "" : ""), network: base?.network ?? "",
+    rw: r?.rewardsMinor != null ? money(r.rewardsMinor) : "",
   };
 }
 
@@ -394,10 +491,12 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
   const save = () => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
+    const rwm = amount(d.rw);
     if (upd) {
-      if (!card || bal == null) return;
-      const u: CardUpdate = { balanceMinor: bal, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, src: "manual" };
-      commit((s) => addReading(s, card.id, u), card.name);
+      // 1.3.109: a manual update can carry only the rewards (balance left blank = unchanged).
+      if (!card || (bal == null && rwm == null)) return;
+      const u: CardUpdate = { balanceMinor: bal ?? 0, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, src: "manual" };
+      commit((s) => { let st = bal != null ? addReading(s, card.id, u) : s; if (rwm != null) st = addRewards(st, card.id, { amountMinor: rwm, src: "manual" }); return st; }, card.name);
       onClose();
       return;
     }
@@ -415,6 +514,7 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
     commit((s) => {
       let st = putCard(s, next);
       if (isAdd && bal != null) st = addReading(st, next.id, { balanceMinor: bal, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, limitMinor: seed?.read ? readLimit(seed.read) : null, aprBps: seed?.read?.aprBps ?? null, src: seed?.read ? "shot" : "manual" });
+      if (isAdd && rwm != null) st = addRewards(st, next.id, { amountMinor: rwm, src: seed?.read ? "shot" : "manual" });
       return st;
     }, name);
     onClose();
@@ -453,6 +553,7 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
               {money4(L("Disponible", "Available"), "avail")}
               {money4(L("Pago mínimo", "Minimum"), "min")}
               <div className="label is-right"><span className="lab-head">{L("Fecha de pago", "Due date")}</span><DayField value={d.dueOn} onChange={(v) => set({ dueOn: v })} /></div>
+              <label className="label is-wide cf-rw"><span className="lab-head">{L("Recompensas ($)", "Rewards ($)")}<Hint topic="recompensas-tarjetas" /></span><input className="field num" inputMode="decimal" data-anchor="card-rw-input" placeholder={card && rewardsOf(card).known ? money(rewardsOf(card).amount) : "0.00"} value={d.rw} onChange={(e) => set({ rw: e.target.value })} /></label>
             </>
           ) : null}
           {upd ? null : (
@@ -486,7 +587,12 @@ const ISS = (name: string) => issuerIn(name);
 /* ---------- screenshots → preview → save ---------- */
 
 type Item = { name: string; stage: "wait" | "load" | "read" | "done" | "fail"; p: number; found: number };
-type Pick = { key: string; src: number; on: boolean; read: CardRead; target: string; sure: boolean; options: string[]; thumb: string; bal: string; avail: string; limit: string; min: string; due: string; unsure: CardField[]; newName: string };
+type Pick = { key: string; src: number; on: boolean; read: CardRead; target: string; sure: boolean; options: string[]; thumb: string; bal: string; avail: string; limit: string; min: string; due: string; unsure: CardField[]; newName: string; rw: string; rwOn: boolean;
+  /** 1.3.109: every number the reader found is a row: statement, APR, last payment, rewards earned (info), Otros datos. */
+  stmt: string; apr: string; lastPay: string; lastPayOn: string; earned: string; extras: { label: string; text: string; on: boolean }[]; gone: string[] };
+
+/** 1.3.109: a reading with only rewards and no card name (a cropped screenshot) has no card to match by. */
+const rwOnly = (r: CardRead) => r.balanceMinor == null && r.availMinor == null && (r.rewardsMinor != null || r.rewardsPoints != null);
 
 export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose: () => void; onAddFrom?: (read: CardRead) => void }) {
   const { session, commit, fmt, lang } = useFaro();
@@ -514,13 +620,19 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
           const img = await scanner.read(files[i], (stage, p) => { if (live) setItems((l) => l.map((x, j) => (j === i ? { ...x, stage, p } : x))); });
           const reads = parseCardShot(img.lines, today);
           const next: Pick[] = reads.map((r) => {
-            const m = matchCard(r, cards.filter((c) => !taken.has(c.id)));
+            const only = rwOnly(r) && !r.title && !r.issuer && !r.last4;
+            const m = only ? { id: "", sure: false, options: [] as string[] } : matchCard(r, cards.filter((c) => !taken.has(c.id)));
             if (m.id && m.sure) taken.add(m.id);
             const lim = readLimit(r);
+            // Rewards-only, no name: the card that already has rewards readings, else the first one, painted amber (ask).
+            const guess = only ? (cards.find((c) => r.rwHint && c.mark === r.rwHint) ?? cards.find((c) => (c.rw?.length ?? 0) > 0) ?? cards[0])?.id ?? "new" : "";
             return {
-              key: uid(), src: i, on: true, read: r, target: m.id || "new", sure: m.sure || (!m.id && !m.options.length), options: m.options, thumb: run.cropThumb(img.canvas, null),
+              key: uid(), src: i, on: true, read: r, target: m.id || guess || "new", sure: only ? false : m.sure || (!m.id && !m.options.length), options: m.options, thumb: run.cropThumb(img.canvas, null),
               bal: money(r.balanceMinor), avail: money(r.availMinor), limit: money(lim), min: money(r.minMinor), due: r.dueOn, unsure: [...r.unsure, ...(r.limitMinor == null && lim != null ? ["limit" as CardField] : [])],
               newName: r.title ? titleCase(r.title) : r.issuer ? issuerOf(r.issuer)?.name ?? "" : "",
+              rw: money(r.rewardsMinor), rwOn: r.rewardsMinor != null,
+              stmt: money(r.statementMinor), apr: r.aprBps ? String(r.aprBps / 100) : "", lastPay: money(r.lastPayMinor), lastPayOn: r.lastPayOn, earned: money(r.earnedMinor),
+              extras: r.extras.map((x) => ({ label: x.label, text: x.text, on: !x.ad })), gone: [],
             };
           });
           if (!live) return;
@@ -532,6 +644,8 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
         }
       }
       scanner.stop();
+      // 1.3.109: a rewards-only crop of a card already read in this batch (same amount) is the same reading: drop it.
+      if (live) setPicks((l) => l.filter((p) => !(rwOnly(p.read) && !p.read.title && l.some((o) => o !== p && !rwOnly(o.read) && o.read.rewardsMinor != null && o.read.rewardsMinor === p.read.rewardsMinor))));
       if (live) setDone(true);
     })();
     return () => { live = false; stopRef.current(); };
@@ -551,7 +665,7 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
     if (k < 1) (root as HTMLElement).style.setProperty("--cs-k", k.toFixed(3)); else (root as HTMLElement).style.removeProperty("--cs-k");
   });
   const set = (key: string, p: Partial<Pick>, field?: CardField) => setPicks((l) => l.map((x) => (x.key === key ? { ...x, ...p, unsure: field ? x.unsure.filter((u) => u !== field) : x.unsure } : x)));
-  const ready = picks.filter((p) => p.on && parseAmount(p.bal) != null && (p.target !== "new" || p.newName.trim()));
+  const ready = picks.filter((p) => p.on && (parseAmount(p.bal) != null ? (p.target !== "new" || p.newName.trim()) : p.target !== "new" && ((p.rwOn && parseAmount(p.rw) != null) || parseAmount(p.earned) != null)));
   const busy = !done;
   function save() {
     if (!ledger || !ready.length) return;
@@ -566,7 +680,14 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
         id = card.id;
       }
       const lim = amount(p.limit);
-      return addReading(st, id, { balanceMinor: amount(p.bal)!, availMinor: amount(p.avail), limitMinor: p.read.limitMinor != null || (lim != null && lim !== readLimit(p.read)) ? lim : null, minMinor: amount(p.min), dueOn: p.due, last4: p.read.last4, autopay: p.read.autopay, aprBps: p.read.aprBps, src: "shot" });
+      const bal = amount(p.bal);
+      const pct = Number(p.apr.trim().replace(",", ".").replace("%", ""));
+      const notes = p.extras.filter((x) => x.on && x.label.trim() && x.text.trim()).map((x) => ({ label: x.label.trim(), text: x.text.trim() }));
+      if (bal != null) st = addReading(st, id, { balanceMinor: bal, availMinor: amount(p.avail), limitMinor: p.read.limitMinor != null || (lim != null && lim !== readLimit(p.read)) ? lim : null, minMinor: amount(p.min), dueOn: p.due, statementMinor: amount(p.stmt), lastPayMinor: amount(p.lastPay), lastPayOn: p.lastPayOn, notes, last4: p.read.last4, autopay: p.read.autopay, aprBps: Number.isFinite(pct) && pct > 0 && pct < 60 ? Math.round(pct * 100) : null, src: "shot" });
+      const rw = p.rwOn ? amount(p.rw) : null;
+      const earned = amount(p.earned);
+      if (rw != null || earned != null || (p.rwOn && p.read.rewardsPoints != null)) st = addRewards(st, id, { amountMinor: rw, points: p.rwOn ? p.read.rewardsPoints : null, earnedMinor: earned, earnedSpan: p.read.earnedSpan, src: "shot" });
+      return st;
     }, s), L(`Tarjetas ${ready.length}`, `Cards ${ready.length}`));
     onClose();
   }
@@ -622,12 +743,54 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
               {delta != null && delta !== 0 ? <span className={`cr-trend ${delta > 0 ? "is-up" : "is-down"}`}>{delta > 0 ? "+" : "−"}{fmt(view(Math.abs(delta), card!.currency))}</span> : null}
             </div>
             <div className="cs-grid">
-              <label className={`cs-f${un("avail")}`}><em>{L("Disponible", "Available")}</em><input className="field num" inputMode="decimal" value={p.avail} placeholder="—" onChange={(e) => set(p.key, { avail: e.target.value }, "avail")} /></label>
-              <label className={`cs-f${un("limit")}`}><em>{L("Límite", "Limit")}</em><input className="field num" inputMode="decimal" value={p.limit} placeholder="—" onChange={(e) => set(p.key, { limit: e.target.value }, "limit")} /></label>
-              <label className={`cs-f${un("min")}`}><em>{L("Mínimo", "Minimum")}</em><input className="field num" inputMode="decimal" value={p.min} placeholder="—" onChange={(e) => set(p.key, { min: e.target.value }, "min")} /></label>
+              {([["avail", L("Disponible", "Available")], ["limit", L("Límite", "Limit")], ["min", L("Mínimo", "Minimum")], ["stmt", L("Saldo al corte", "Statement")], ["apr", L("Tasa %", "APR %")], ["lastPay", L("Último pago", "Last payment")]] as const)
+                .filter(([k]) => !p.gone.includes(k) && (k === "avail" || k === "limit" || k === "min" || p[k] !== ""))
+                .map(([k, label]) => (
+                  <span key={k} className={`cs-f${un(k === "stmt" ? "statement" : k === "lastPay" ? "lastPay" : k)}`} data-f={k}>
+                    <em>{label}{p[k] ? <button type="button" className="cs-x" aria-label={`${L("Quitar", "Remove")} ${label}`} onClick={() => set(p.key, { [k]: "", gone: [...p.gone, k] } as Partial<Pick>)}><X aria-hidden /></button> : null}</em>
+                    <input className="field num" inputMode="decimal" value={p[k]} placeholder="—" aria-label={label} onChange={(e) => set(p.key, { [k]: e.target.value } as Partial<Pick>, (k === "stmt" ? "statement" : k) as CardField)} />
+                  </span>
+                ))}
               <span className={`cs-f${un("due")}`}><em>{L("Fecha de pago", "Due date")}</em><DayField value={p.due} onChange={(v) => set(p.key, { due: v }, "due")} /></span>
             </div>
-            {p.read.aprBps || p.read.fico ? <p className="cs-info">{p.read.aprBps ? `${L("Tasa", "APR")} ${pctText(p.read.aprBps, lang)}` : ""}{p.read.aprBps && p.read.fico ? " · " : ""}{p.read.fico ? `FICO ${p.read.fico} (${L("solo informativo, no se guarda", "info only, not saved")})` : ""}</p> : null}
+            {p.read.rewardsMinor != null && !p.gone.includes("rw") ? (() => {
+              const old = card ? rewardsOf(card) : null;
+              const nr = parseAmount(p.rw);
+              const d = old?.known && nr != null ? nr - old.amount : null;
+              return (
+                <div className={`cs-delta cs-rw${p.rwOn ? "" : " is-off"}`} data-anchor="card-scan-rw">
+                  <button type="button" role="switch" className="scn-switch" aria-checked={p.rwOn} aria-label={L("Incluir recompensas", "Include rewards")} onClick={() => set(p.key, { rwOn: !p.rwOn })}><i /></button>
+                  <span className="cs-rw-lab"><Star aria-hidden />{L("Recompensas", "Rewards")}</span>
+                  {old?.known ? <><span className="num cs-old">{fmt(view(old.amount, card!.currency))}</span><span aria-hidden>→</span></> : null}
+                  <label className={`cs-amt${un("rewards")}`}><span>$</span><input className="field num" inputMode="decimal" value={p.rw} aria-label={L("Recompensas nuevas", "New rewards")} onChange={(e) => set(p.key, { rw: e.target.value }, "rewards")} /></label>
+                  {d != null && d !== 0 ? <span className={`cr-trend ${d > 0 ? "is-down" : "is-up"}`}>{d > 0 ? "+" : "−"}{fmt(view(Math.abs(d), card!.currency))}</span> : null}
+                  <button type="button" className="cs-x" data-anchor="card-scan-rw-x" aria-label={L("Quitar recompensas", "Remove rewards")} onClick={() => set(p.key, { rwOn: false, rw: "", gone: [...p.gone, "rw"] })}><X aria-hidden /></button>
+                </div>
+              );
+            })() : null}
+            {p.read.earnedMinor != null && !p.gone.includes("earned") ? (
+              <div className="cs-delta cs-rw cs-earned" data-anchor="card-scan-earned">
+                <span className="cs-rw-lab">{p.read.earnedSpan === "life" ? L("Ganado en total", "Earned, lifetime") : L("Ganado en el año", "Earned this year")}</span>
+                <label className="cs-amt"><span>$</span><input className="field num" inputMode="decimal" value={p.earned} aria-label={L("Ganado", "Earned")} onChange={(e) => set(p.key, { earned: e.target.value }, "earned")} /></label>
+                <span className="cs-tag">{L("info", "info")}</span>
+                <button type="button" className="cs-x" aria-label={L("Quitar", "Remove")} onClick={() => set(p.key, { earned: "", gone: [...p.gone, "earned"] })}><X aria-hidden /></button>
+              </div>
+            ) : null}
+            {p.extras.length ? (
+              <div className="cs-extras" data-anchor="card-scan-extras">
+                <em className="cs-extras-h">{L("Otros datos", "Other figures")}</em>
+                {p.extras.map((x, j) => (
+                  <div key={j} className={`cs-extra${x.on ? "" : " is-off"}`}>
+                    <button type="button" role="switch" className="scn-switch" aria-checked={x.on} aria-label={L("Guardar como nota", "Keep as a note")} onClick={() => set(p.key, { extras: p.extras.map((y, i) => (i === j ? { ...y, on: !y.on } : y)) })}><i /></button>
+                    <textarea className="field cs-xlab" rows={1} value={x.label} aria-label={L("Dato", "Figure")} onChange={(e) => set(p.key, { extras: p.extras.map((y, i) => (i === j ? { ...y, label: e.target.value } : y)) })} />
+                    <input className="field num" value={x.text} aria-label={L("Valor", "Value")} onChange={(e) => set(p.key, { extras: p.extras.map((y, i) => (i === j ? { ...y, text: e.target.value } : y)) })} />
+                    <button type="button" className="cs-x" aria-label={L("Quitar", "Remove")} onClick={() => set(p.key, { extras: p.extras.filter((_, i) => i !== j) })}><X aria-hidden /></button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {p.read.rewardsPoints != null ? <p className="cs-info">{L(`${p.read.rewardsPoints.toLocaleString("es-NI")} puntos (nota: los puntos no cuentan como dinero)`, `${p.read.rewardsPoints.toLocaleString("en-US")} points (note: points do not count as money)`)}</p> : null}
+            {p.read.fico ? <p className="cs-info">{`FICO ${p.read.fico} (${L("solo informativo, no se guarda", "info only, not saved")})`}</p> : null}
           </div>
         );
       })}
@@ -650,6 +813,8 @@ export function CardsAdvisor({ plan }: { plan: ReturnType<typeof import("@/lib/f
   const { display, rateE4 } = ledger.settings;
   const rows = cardsOf(ledger).map((c) => { const f = cardFigures(ledger, c); return { c, f, cost: convertMinor(cardMonthlyInterest(c, f.balance), c.currency, display, rateE4) }; }).filter((x) => x.f.known && x.f.balance > 0);
   const costly = [...rows].sort((a, b) => b.cost - a.cost)[0];
+  const rwt = rewardsTotals(ledger);
+  const top = [...rows].sort((a, b) => (b.c.aprBps || 2400) - (a.c.aprBps || 2400))[0];
   const ch = plan.chosen;
   const first = plan.first;
   const firstCard = first ? rows.find((r) => r.c.id === first.id) : undefined;
@@ -682,8 +847,70 @@ export function CardsAdvisor({ plan }: { plan: ReturnType<typeof import("@/lib/f
             : L(`Tu uso pasa de 30%: paga ${fmt(cut)} para bajarlo.`, `Your use is over 30%: pay ${fmt(cut)} to bring it down.`)}
         {costly && costly.cost > 0 ? <> {L(`${costly.c.name} te cuesta ${fmt(costly.cost)} al mes en intereses${costly.c.aprBps ? "" : " (estimado)"}.`, `${costly.c.name} costs you ${fmt(costly.cost)} a month in interest${costly.c.aprBps ? "" : " (estimated)"}.`)}</> : null}
         {rows.some((r) => !r.c.aprBps) ? <> {L("Añade la tasa de cada tarjeta para un mejor consejo.", "Add each card's rate for better advice.")}</> : null}
+        {rwt.total > 0 ? <> {L(`Tienes ${fmt(rwt.total)} en recompensas: canjéalas como crédito a ${top?.c.name ?? "la tarjeta de tasa más alta"}.`, `You have ${fmt(rwt.total)} in rewards: redeem them as a credit on ${top?.c.name ?? "the highest-rate card"}.`)}</> : null}
       </p>
       <button type="button" className="btn ghost advice-copy" data-anchor="advice-cards-go" onClick={goPlan}>{L("Ver el plan", "See the plan")}</button>
     </article>
+  );
+}
+
+/* ---------- rewards found by the general "Foto o captura" scan (1.3.109) ---------- */
+
+/** A rewards figure found in any screenshot: assumed to be credit card rewards, matched to a card or a best guess. */
+export type ScanRw = { id: string; target: string; sure: boolean; amount: string; earned: string; span: "year" | "life" | null; points: number | null; on: boolean };
+
+/** Rewards in the OCR lines of any picture (receipts, bank screens): one item per card block that shows them. */
+export function scanRewards(lines: Parameters<typeof parseCardShot>[0], day: string, ledger: LedgerState | null | undefined): ScanRw[] {
+  const cards = cardsOf(ledger);
+  if (!cards.length) return [];
+  return parseCardShot(lines, day).filter((r) => r.rewardsMinor != null || r.earnedMinor != null).map((r) => {
+    const m = r.title || r.issuer || r.last4 ? matchCard(r, cards) : { id: "", sure: false, options: [] as string[] };
+    const guess = m.id || (cards.find((c) => r.rwHint && c.mark === r.rwHint) ?? cards.find((c) => (c.rw?.length ?? 0) > 0) ?? cards[0]).id;
+    return { id: uid(), target: guess, sure: !!m.id && m.sure, amount: money(r.rewardsMinor), earned: money(r.earnedMinor), span: r.earnedSpan, points: r.rewardsPoints, on: true };
+  });
+}
+
+/** Writes the kept rewards items (one reading per card). */
+export function saveScanRewards(state: LedgerState, items: ScanRw[]): LedgerState {
+  return items.filter((x) => x.on && x.target).reduce((st, x) => {
+    const a = x.amount.trim() ? parseAmount(x.amount) : null;
+    const e = x.earned.trim() ? parseAmount(x.earned) : null;
+    return a == null && e == null ? st : addRewards(st, x.target, { amountMinor: a, earnedMinor: e, earnedSpan: x.span, src: "shot" });
+  }, state);
+}
+
+/** The review row: card picker (amber when guessed), rewards editable, earned (info) editable, include switch, remove. */
+export function ScanRewardsRow({ item, onSet, onDrop }: { item: ScanRw; onSet: (p: Partial<ScanRw>) => void; onDrop: () => void }) {
+  const { session } = useFaro();
+  const L = useL();
+  const cards = cardsOf(session?.ledger);
+  const card = cards.find((c) => c.id === item.target) ?? null;
+  return (
+    <div className={`cs-card scn-rw${item.on ? "" : " is-off"}`} data-anchor="scan-rewards">
+      <div className="cs-r1">
+        {card ? <CardArt card={card} /> : <span />}
+        <span className={`field cs-target${item.sure ? "" : " is-unsure"}`}>
+          <b className="cs-tname">{card ? card.name : L("Elige la tarjeta", "Pick the card")}</b>
+          <ChevronDown aria-hidden />
+          <select value={item.target} aria-label={L("Tarjeta", "Card")} onChange={(e) => onSet({ target: e.target.value, sure: true })}>
+            {cards.map((c) => <option key={c.id} value={c.id}>{c.name}{c.last4 ? ` ···${c.last4}` : ""}</option>)}
+          </select>
+        </span>
+      </div>
+      <div className="cs-delta cs-rw">
+        <button type="button" role="switch" className="scn-switch" aria-checked={item.on} aria-label={L("Incluir recompensas", "Include rewards")} onClick={() => onSet({ on: !item.on })}><i /></button>
+        <span className="cs-rw-lab"><Star aria-hidden />{L("Recompensas", "Rewards")}</span>
+        <label className="cs-amt"><span>$</span><input className="field num" inputMode="decimal" placeholder="—" value={item.amount} aria-label={L("Recompensas", "Rewards")} onChange={(e) => onSet({ amount: e.target.value })} /></label>
+        <button type="button" className="cs-x" data-anchor="scan-rewards-x" aria-label={L("Quitar", "Remove")} onClick={onDrop}><X aria-hidden /></button>
+      </div>
+      {item.earned ? (
+        <div className="cs-delta cs-rw cs-earned">
+          <span className="cs-rw-lab">{item.span === "life" ? L("Ganado en total", "Earned, lifetime") : L("Ganado en el año", "Earned this year")}</span>
+          <label className="cs-amt"><span>$</span><input className="field num" inputMode="decimal" value={item.earned} aria-label={L("Ganado", "Earned")} onChange={(e) => onSet({ earned: e.target.value })} /></label>
+          <span className="cs-tag">{L("info", "info")}</span>
+        </div>
+      ) : null}
+      <p className="cs-info">{L("Recompensas de tarjeta: cuentan en Me deben y el balance neto.", "Card rewards: they count in Owed to me and the net balance.")}</p>
+    </div>
   );
 }

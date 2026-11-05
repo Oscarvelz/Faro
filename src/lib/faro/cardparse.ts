@@ -2,14 +2,18 @@
  * Credit card screenshots (1.3.107): turns the OCR lines of a bank app's credit account screen into card readings.
  * Pure (no DOM, no OCR). EN and ES wording, light or dark screenshots (scanrun inverts dark ones before reading).
  * Reads: card title / issuer / last 4, current (or outstanding) balance, available credit, credit limit, minimum payment,
- * payment due date, statement balance, APR, autopay. Ignores rewards, cash back, offers and ads. A FICO score, when shown,
- * is returned as an info note only (never money). One screenshot can hold several cards (a bank's home screen).
+ * payment due date, statement balance, APR, autopay. 1.3.109: also the rewards balance ("$58.20 cash rewards", "Rewards
+ * balance", "Cash back", "Recompensas", "Reembolso en efectivo"): money only when it carries a currency sign; points are a
+ * note. Earned-this-year figures, rates ("1.5% en todo"), offers and ads are ignored. A FICO score, when shown, is returned
+ * as an info note only (never money). One screenshot can hold several cards (a bank's home screen).
  * Amounts in minor units. Fields the reader had to guess are listed in `unsure` (the preview paints them amber).
  */
 import { amountsIn, datesLoose, type OcrLine } from "./receiptparse";
 import { issuerIn } from "./cards";
 
-export type CardField = "balance" | "avail" | "limit" | "min" | "due" | "statement" | "apr" | "name";
+export type CardField = "balance" | "avail" | "limit" | "min" | "due" | "statement" | "apr" | "name" | "rewards" | "earned" | "lastPay";
+/** 1.3.109: a labelled number the reader found but has no field for ("Otros datos"): shown, kept as a note only if ticked. */
+export type CardExtra = { label: string; text: string; ad: boolean };
 export type CardRead = {
   title: string;
   issuer: string;
@@ -23,6 +27,19 @@ export type CardRead = {
   aprBps: number | null;
   autopay: boolean | null;
   fico: number | null;
+  /** 1.3.109: rewards balance (cash back, money) and points (a note, never money). */
+  rewardsMinor: number | null;
+  rewardsPoints: number | null;
+  /** 1.3.109: rewards EARNED (year to date or lifetime): info for Estudio, never money the user has. */
+  earnedMinor: number | null;
+  earnedSpan: "year" | "life" | null;
+  /** Last payment the bank shows (amount, day). */
+  lastPayMinor: number | null;
+  lastPayOn: string;
+  /** Every other labelled number on the screen. */
+  extras: CardExtra[];
+  /** Issuer the rewards wording points to when the screen shows no card name ("cash rewards" = Wells Fargo): a guess. */
+  rwHint: string;
   currency: "USD" | "NIO";
   unsure: CardField[];
 };
@@ -39,6 +56,14 @@ const L_DUE = /\b(payment due date|due date|due on|due by|fecha (de|limite de) p
 const L_APR = /\b(purchase apr|apr|tasa de interes( anual)?|tasa anual|tasa de compras|interest rate)\b/;
 const L_AUTO = /\b(autopay|auto ?pay|pago automatico|pagos automaticos)\b/;
 const NOISE = /\b(reward|rewards|cash ?back|recompensa|puntos|points|miles|millas|offer|offers|oferta|ofertas|enjoy|bonus|bono de|earn|gana|explore|year to date|ytd|en el ano|redeem|canjear|credit score|fico|puntaje)\b/;
+// 1.3.109: rewards balance labels (EN/ES). Lines about what was earned this year, offers or rates are not a balance.
+const L_RWD = /\b(cash rewards?|rewards? balance|rewards? available|available rewards?|rewards?|reward dollars|cash[ -]?back( balance| bonus)?|recompensas?( disponibles?| en efectivo)?|reembolsos?( en efectivo)?|saldo de recompensas|bonificacion(es)?|points|puntos)\b/;
+// Earned-total wording (year to date, lifetime): info, not a balance.
+const L_EARNED = /\b(year to date|ytd|this year|earned( this year| to date)?|lifetime|all time|total earned|este ano|en el ano|ganad[oa]s?( este ano| en el ano)?|acumulad[oa]s? (este|en el) ano|de por vida|historico)\b/;
+const L_CURRENT = /\b(current|available|disponibles?|actual|balance|saldo|to redeem|para canjear|redeemable)\b/;
+const L_LASTPAY = /\b(last payment|last payment amount|payment received|ultimo pago|pago recibido)\b/;
+const RWD_NOT = /\b(earn up to|gana hasta|offers?|ofertas?|enjoy|explore|learn|terms|protect)\b|%/;
+const PTS = /(\d{1,3}(?:[,.\s]\d{3})+|\d{2,7})\s*(points|pts|puntos|ptos)\b/i;
 const CARD_WORD = /\b(visa|mastercard|master card|amex|discover|card|tarjeta|credit|credito|signature|world)\b/;
 const LAST4 = /(?:\.{2,}|…|•+|\*{2,}|x{2,}|ending in|termina(?:da)? en|terminacion)\s*(\d{4})\b/i;
 
@@ -50,19 +75,24 @@ function amountOn(text: string): { v: number; cur: "USD" | "NIO" } | null {
 
 const amountOnly = (text: string) => !!amountOn(text) && fold(text).replace(/[^a-z]/g, "").length <= 3;
 
-type Hit = { v: number; cur: "USD" | "NIO"; near: boolean };
+type Hit = { v: number; cur: "USD" | "NIO"; near: boolean; at: number };
 
 /** Value for a label: on its own line, else the amount-only line just below, else just above (Wells Fargo puts it above). */
+/** Lines whose amount a field already took (per block). */
+let taken = new Set<number>();
 function valueFor(lines: string[], i: number): Hit | null {
   const own = amountOn(lines[i]);
-  if (own) return { ...own, near: false };
+  if (own) return { ...own, near: false, at: i };
   const next = lines[i + 1];
-  if (next !== undefined && amountOnly(next)) return { ...amountOn(next)!, near: true };
+  if (next !== undefined && amountOnly(next) && !taken.has(i + 1)) return { ...amountOn(next)!, near: true, at: i + 1 };
   const prev = lines[i - 1];
-  if (prev !== undefined && amountOnly(prev)) return { ...amountOn(prev)!, near: true };
-  if (next !== undefined && amountOn(next) && !hasLabel(next)) return { ...amountOn(next)!, near: true };
+  if (prev !== undefined && amountOnly(prev) && !taken.has(i - 1)) return { ...amountOn(prev)!, near: true, at: i - 1 };
+  if (next !== undefined && amountOn(next) && !hasLabel(next) && !isRewards(next) && !taken.has(i + 1)) return { ...amountOn(next)!, near: true, at: i + 1 };
   return null;
 }
+
+/** A line that names a rewards balance (not a card title, not an "earned this year"/offer/rate line). */
+const isRewards = (t: string) => { const f = fold(t); return (L_RWD.test(f) || (L_EARNED.test(f) && /\b(cash|back|reward|recompens|reembols)/.test(f))) && !RWD_NOT.test(f) && !isTitle(t); };
 
 const hasLabel = (t: string) => {
   const f = fold(t);
@@ -127,7 +157,7 @@ export function parseCardShot(input: OcrLine[] | string, today: string): CardRea
   const reads: CardRead[] = [];
   for (const [a, b] of blocks) {
     const r = readBlock(lines.slice(a, b), today);
-    if (r && (r.balanceMinor != null || r.availMinor != null)) reads.push(r);
+    if (r && (r.balanceMinor != null || r.availMinor != null || r.rewardsMinor != null || r.rewardsPoints != null || r.earnedMinor != null)) reads.push(r);
   }
   return reads;
 }
@@ -139,8 +169,10 @@ function readBlock(lines: string[], today: string): CardRead | null {
   const out: CardRead = {
     title: cleanTitle(titleLine), issuer: issuerIn(lines.join(" ")), last4: lastLine?.match(LAST4)?.[1] ?? "",
     balanceMinor: null, availMinor: null, limitMinor: null, minMinor: null, dueOn: "", statementMinor: null, aprBps: null,
-    autopay: null, fico: null, currency: "USD", unsure,
+    autopay: null, fico: null, rewardsMinor: null, rewardsPoints: null, earnedMinor: null, earnedSpan: null, lastPayMinor: null, lastPayOn: "", extras: [], rwHint: "", currency: "USD", unsure,
   };
+  taken = new Set<number>();
+  const mark = (h: Hit | null) => { if (h) taken.add(h.at); return h; };
   let loose: Hit | null = null;
   const used = new Set<number>();
   lines.forEach((t, i) => {
@@ -149,15 +181,18 @@ function readBlock(lines: string[], today: string): CardRead | null {
       const near = [t, lines[i + 1] ?? "", lines[i - 1] ?? ""].join(" ").replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, " ");
       const m = near.match(/(?<![\d$.,])([3-8]\d{2})\d?(?![\d.,])/);
       if (m) { const n = Number(m[1]); if (n >= 300 && n <= 850) out.fico = n; }
+      taken.add(i); if (amountOnly(lines[i + 1] ?? "")) taken.add(i + 1);
       return;
     }
+    if (isRewards(t) && !hasLabel(t)) { readRewards(lines, i, out, today); return; }
+    if (L_LASTPAY.test(f)) { const h = mark(valueFor(lines, i)); if (h && out.lastPayMinor == null) out.lastPayMinor = h.v; const d = datesLoose(`${t} ${lines[i + 1] ?? ""}`, today)[0]; if (d) out.lastPayOn = d; return; }
     if (NOISE.test(f) && !hasLabel(t)) return;
     const take = (re: RegExp) => re.test(f);
-    if (take(L_STMT)) { const h = valueFor(lines, i); if (h && out.statementMinor == null) out.statementMinor = h.v; return; }
-    if (take(L_BAL)) { const h = valueFor(lines, i); if (h && out.balanceMinor == null) { out.balanceMinor = h.v; out.currency = h.cur; } return; }
-    if (take(L_AVAIL) && !take(L_LIMIT)) { const h = valueFor(lines, i); if (h && out.availMinor == null) out.availMinor = h.v; return; }
-    if (take(L_LIMIT)) { const h = valueFor(lines, i); if (h && out.limitMinor == null) out.limitMinor = h.v; return; }
-    if (take(L_MIN)) { const h = valueFor(lines, i); if (h && out.minMinor == null) out.minMinor = h.v; const d = datesLoose(t, today)[0]; if (d && !out.dueOn) out.dueOn = d; return; }
+    if (take(L_STMT)) { const h = mark(valueFor(lines, i)); if (h && out.statementMinor == null) out.statementMinor = h.v; return; }
+    if (take(L_BAL)) { const h = mark(valueFor(lines, i)); if (h && out.balanceMinor == null) { out.balanceMinor = h.v; out.currency = h.cur; } return; }
+    if (take(L_AVAIL) && !take(L_LIMIT)) { const h = mark(valueFor(lines, i)); if (h && out.availMinor == null) out.availMinor = h.v; return; }
+    if (take(L_LIMIT)) { const h = mark(valueFor(lines, i)); if (h && out.limitMinor == null) out.limitMinor = h.v; return; }
+    if (take(L_MIN)) { const h = mark(valueFor(lines, i)); if (h && out.minMinor == null) out.minMinor = h.v; const d = datesLoose(t, today)[0]; if (d && !out.dueOn) out.dueOn = d; return; }
     if (take(L_DUE)) {
       const d = datesLoose(t, today)[0] ?? datesLoose(lines[i + 1] ?? "", today)[0] ?? "";
       if (d && !out.dueOn) { out.dueOn = d; if (!/\b20\d{2}\b/.test(`${t} ${lines[i + 1] ?? ""}`)) unsure.push("due"); }
@@ -165,7 +200,7 @@ function readBlock(lines: string[], today: string): CardRead | null {
     }
     if (take(L_APR)) {
       const m = `${t} ${lines[i + 1] ?? ""}`.match(/(\d{1,2}(?:[.,]\d{1,3})?)\s?%/);
-      if (m && out.aprBps == null) { const v = Math.round(Number(m[1].replace(",", ".")) * 100); if (v > 0 && v < 6000) out.aprBps = v; }
+      if (m && out.aprBps == null) { const v = Math.round(Number(m[1].replace(",", ".")) * 100); if (v > 0 && v < 6000) out.aprBps = v; taken.add(i); }
       return;
     }
     if (take(L_AUTO)) {
@@ -173,18 +208,92 @@ function readBlock(lines: string[], today: string): CardRead | null {
       out.autopay = /\b(off|desactivad[oa]|apagado|inactivo|no)\b/.test(s) ? false : /\b(on|activad[oa]|encendido|activo|enrolled|inscrito)\b/.test(s) ? true : null;
       return;
     }
-    if (!loose && L_BAL_LOOSE.test(f)) { const h = valueFor(lines, i); if (h) loose = h; }
+    if (!loose && L_BAL_LOOSE.test(f)) { const h = mark(valueFor(lines, i)); if (h) loose = h; }
     used.add(i);
   });
-  if (out.balanceMinor == null && loose) { out.balanceMinor = (loose as Hit).v; unsure.push("balance"); }
+  if (out.balanceMinor == null && loose) { out.balanceMinor = (loose as Hit).v; taken.add((loose as Hit).at); unsure.push("balance"); }
   // A big amount alone right under the title, with no label (some apps): the balance, flagged.
   if (out.balanceMinor == null) {
     const at = lines.findIndex(isTitle);
     const cand = lines.slice(at + 1, at + 3).find(amountOnly);
-    if (cand) { out.balanceMinor = amountOn(cand)!.v; unsure.push("balance"); }
+    if (cand) { out.balanceMinor = amountOn(cand)!.v; taken.add(lines.indexOf(cand)); unsure.push("balance"); }
   }
+  // 1.3.109: never silently drop a recognised number: every other labelled amount becomes an "Otros datos" row.
+  lines.forEach((t, i) => {
+    if (taken.has(i) || isTitle(t)) return;
+    const whole = t.match(/(?:US)?\$\s?(\d{1,3}(?:,\d{3})*|\d+)(?![\d.,]\d)/);
+    const a = amountsIn(t).find((x) => x.signed) ?? (whole ? { v: Number(whole[1].replace(/,/g, "")) * 100 } : null);
+    if (!a) return;
+    let label = t.replace(/[-−]?\s?(US)?\s?(C\$|\$|USD|NIO)\s?[\d.,\s]+|[\d.,]+\s?(USD|NIO)\b/gi, " ").replace(/[<>»›|]/g, " ").replace(/\s{2,}/g, " ").trim();
+    if (fold(label).replace(/[^a-z]/g, "").length < 3) {
+      const cap = lines[i + 1];
+      if (cap && !amountOn(cap) && !hasLabel(cap) && cap.length <= 32) label = cap; else return;
+    }
+    out.extras.push({ label, text: `$${(a.v / 100).toFixed(2)}`, ad: /\b(offer|oferta|enjoy|bonus|bono|earn|gana|open|abre|new|nueva?)\b/.test(fold(t)) });
+  });
   if (!out.title) { out.title = out.issuer ? "" : ""; unsure.push("name"); }
   return out;
+}
+
+/** A signed (currency) amount on a line, the first one (a "Current | Year to date" pair gives the current). */
+function signedOn(text: string): number | null {
+  if (/%/.test(text) && !/[$]/.test(text)) return null;
+  const a = amountsIn(text).find((x) => x.signed);
+  return a ? a.v : null;
+}
+
+/** Which column a caption names: the redeemable balance or the earned total. */
+const capKind = (t: string): "cur" | "earned" | null => { const f = fold(t); return L_EARNED.test(f) ? (L_CURRENT.test(f.replace(L_EARNED, "")) ? null : "earned") : L_CURRENT.test(f) ? "cur" : null; };
+const spanOf = (t: string): "year" | "life" => (/\b(lifetime|all time|total earned|de por vida|historico)\b/.test(fold(t)) ? "life" : "year");
+
+/**
+ * Rewards from a label line ("Cash back", "Rewards", "$58.20 cash rewards", "Recompensas", "Reembolso en efectivo").
+ * - A $ amount on the label itself: a balance, unless the line says it was earned (year to date, lifetime) → earned.
+ * - Values under the label, side by side ("$12.34 $98.76" / "Current Year to Date") or stacked, each with its caption
+ *   under it ("$12.34" / "Current" / "$98.76" / "Year to Date"): Current / available / disponible = balance;
+ *   Year to date / YTD / en el año / lifetime = earned (info). No caption: the first value is the balance (flagged).
+ * - Points ("12,345 points"): a note, never money.
+ */
+function readRewards(lines: string[], i: number, out: CardRead, _today: string) {
+  const t = lines[i];
+  const f = fold(t);
+  if (!out.rwHint) out.rwHint = /\bcash rewards\b/.test(f) ? "wellsfargo" : /\bultimate rewards\b/.test(f) ? "chase" : /\bcashback bonus\b/.test(f) ? "discover" : /\bcash ?back\b/.test(f) ? "paypal" : "";
+  const own = signedOn(t);
+  if (own != null) {
+    taken.add(i);
+    if (L_EARNED.test(f)) { if (out.earnedMinor == null) { out.earnedMinor = own; out.earnedSpan = spanOf(t); } }
+    else if (out.rewardsMinor == null) out.rewardsMinor = own;
+    return;
+  }
+  const vals: { v: number; kind: "cur" | "earned" | null; span: "year" | "life"; at: number }[] = [];
+  for (let k = i + 1; k <= Math.min(lines.length - 1, i + 6); k++) {
+    const line = lines[k];
+    if (taken.has(k)) continue;
+    if (hasLabel(line) || (isRewards(line) && signedOn(line) == null && !capKind(line))) break;
+    if (!amountOnly(line)) { if (!capKind(line)) break; continue; }
+    const amounts = amountsIn(line).filter((x) => x.signed).map((x) => x.v);
+    if (!amounts.length) break;
+    const cap = lines[k + 1] ?? "";
+    const capF = fold(cap);
+    // Captions in the order they appear on the caption line ("Current Year to Date" → cur, earned).
+    const kinds: { kind: "cur" | "earned"; at: number }[] = [];
+    const e = capF.search(L_EARNED), c = capF.replace(L_EARNED, (m) => " ".repeat(m.length)).search(L_CURRENT);
+    if (c >= 0) kinds.push({ kind: "cur", at: c });
+    if (e >= 0) kinds.push({ kind: "earned", at: e });
+    kinds.sort((a, b) => a.at - b.at);
+    amounts.forEach((v, j) => vals.push({ v, kind: kinds[j]?.kind ?? null, span: spanOf(cap), at: k }));
+    taken.add(k);
+    if (kinds.length) k++;
+  }
+  for (const x of vals) {
+    if (x.kind === "earned") { if (out.earnedMinor == null) { out.earnedMinor = x.v; out.earnedSpan = x.span; } }
+    else if (x.kind === "cur" || (x.kind == null && out.rewardsMinor == null && vals.indexOf(x) === 0)) {
+      if (out.rewardsMinor == null) { out.rewardsMinor = x.v; if (x.kind == null && L_EARNED.test(f) === false && vals.length > 1) out.unsure.push("rewards"); }
+    }
+  }
+  if (L_EARNED.test(f) && out.rewardsMinor != null && vals.length === 1 && vals[0].kind == null) { out.earnedMinor = out.rewardsMinor; out.earnedSpan = spanOf(t); out.rewardsMinor = null; }
+  const pts = `${t} ${lines[i + 1] ?? ""}`.match(PTS);
+  if (pts && out.rewardsPoints == null) { out.rewardsPoints = Number(pts[1].replace(/[,.\s]/g, "")); taken.add(i + 1); }
 }
 
 /** The limit a reading implies: the one it shows, else balance + available. */

@@ -2,9 +2,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createInitial } from "./defaults.ts";
-import { addReading, cardFigures, cardTotals, cardsOf, dropCard, dropPresets, payCard, presetsOff, putCard, restorePresets, storedCards, utilLevel, toThirty } from "./cards.ts";
+import { addReading, addRewards, redeemRewards, rewardsEarned, rewardsOf, rewardsTotals, cardFigures, cardTotals, cardsOf, dropCard, dropPresets, payCard, presetsOff, putCard, restorePresets, storedCards, utilLevel, toThirty } from "./cards.ts";
 import { debtSeries, netBalance, payoffPlan } from "./debts.ts";
 import { summarize } from "./engine.ts";
+import { earningsBySource } from "./earnings.ts";
 import type { LedgerState } from "./types.ts";
 
 const base = (): LedgerState => ({ ...createInitial("es", "claro"), settings: { ...createInitial("es", "claro").settings, display: "USD" } });
@@ -84,5 +85,53 @@ describe("credit cards", () => {
     // Every two weeks: same amount per payment, more per month → sooner.
     const bi = payoffPlan({ ...s, debtPlan: { order: "avalanche", monthlyMinor: 30000, currency: "USD", cadence: "biweekly" } }, "2026-11-05");
     assert.ok(bi.chosen!.months < plan.chosen!.months);
+  });
+  // 1.3.109: rewards (cash back) — synthetic numbers only.
+  it("rewards are dated readings, an asset on the Me deben side, never subtracted from the card debt", () => {
+    let s = addReading(base(), "card-wellsfargo", { balanceMinor: 80000, src: "shot", on: "2026-10-01" }, "2026-10-01");
+    s = addRewards(s, "card-wellsfargo", { amountMinor: 2000, src: "shot", on: "2026-10-01" }, "2026-10-01");
+    s = addRewards(s, "card-wellsfargo", { amountMinor: 2000, src: "shot", on: "2026-10-01" }, "2026-10-01");
+    s = addRewards(s, "card-wellsfargo", { amountMinor: 3500, src: "manual", on: "2026-11-03" }, "2026-11-03");
+    const c = cardsOf(s).find((x) => x.id === "card-wellsfargo")!;
+    assert.equal(c.rw!.length, 2, "the same reading twice on one day is kept once");
+    assert.equal(rewardsOf(c).amount, 3500);
+    assert.equal(cardFigures(s, c, "2026-11-05").balance, 80000, "the debt is untouched");
+    const n = netBalance(s, "2026-11-05");
+    assert.equal(n.rewards, 3500); assert.equal(n.owed, 3500); assert.equal(n.owe, 80000); assert.equal(n.net, 3500 - 80000);
+    assert.equal(rewardsTotals(s).total, 3500);
+    assert.deepEqual(rewardsEarned(c), [{ on: "2026-10-01", minor: 2000 }, { on: "2026-11-03", minor: 1500 }]);
+    const pts = addRewards(s, "card-paypal", { points: 12000, src: "shot" }, "2026-11-05");
+    assert.equal(rewardsTotals(pts).total, 3500, "points never count as money");
+    assert.equal(debtSeries(s, "2026-11-05", 2).at(-1)!.owed, 3500);
+  });
+  it("Canjear as statement credit: card balance and rewards fall together, no spending, no income, net unchanged", () => {
+    let s = addReading(base(), "card-wellsfargo", { balanceMinor: 80000, src: "shot", on: "2026-11-01" }, "2026-11-01");
+    s = addRewards(s, "card-wellsfargo", { amountMinor: 3500, src: "shot", on: "2026-11-01" }, "2026-11-01");
+    const before = netBalance(s, "2026-11-05");
+    s = redeemRewards(s, "card-wellsfargo", "credit", 3500, "2026-11-04", "rd1", "Canje");
+    const c = cardsOf(s).find((x) => x.id === "card-wellsfargo")!;
+    assert.equal(rewardsOf(c).amount, 0);
+    assert.equal(cardFigures(s, c, "2026-11-05").balance, 76500);
+    assert.equal(netBalance(s, "2026-11-05").net, before.net);
+    const sum = summarize(s, "2026-11", "es");
+    assert.equal(sum.income, 0); assert.equal(sum.expense, 0);
+    assert.deepEqual(rewardsEarned(c), [{ on: "2026-11-01", minor: 3500 }], "a redemption is not a new earning");
+    assert.equal(redeemRewards(s, "card-wellsfargo", "credit", 100, "2026-11-04", "rd2", "Canje"), s, "nothing left to redeem");
+  });
+  it("Canjear as deposit: income line, rewards to zero, Estudio counts the rewards once", () => {
+    let s = addReading(base(), "card-paypal", { balanceMinor: 10000, src: "shot", on: "2026-11-01" }, "2026-11-01");
+    s = addRewards(s, "card-paypal", { amountMinor: 1200, src: "shot", on: "2026-11-01" }, "2026-11-01");
+    s = redeemRewards(s, "card-paypal", "deposit", 1200, "2026-11-04", "rd3", "Recompensas de tarjetas");
+    const c = cardsOf(s).find((x) => x.id === "card-paypal")!;
+    assert.equal(rewardsOf(c).amount, 0);
+    assert.equal(cardFigures(s, c, "2026-11-05").balance, 10000, "a deposit does not touch the card");
+    assert.equal(summarize(s, "2026-11", "es").income, 1200);
+    const line = s.months["2026-11"].lines.find((l) => l.id === "rd3")!;
+    assert.equal(line.rwCard, "card-paypal"); assert.equal(line.cardId, undefined); assert.equal(line.active, true);
+    const e = earningsBySource(s, 2026, "es");
+    assert.equal(e.total, 1200, "the deposit is the same money as the earned rewards: counted once");
+    assert.equal(e.rewards.minor, 1200);
+    assert.equal(e.rewards.months[10], 1200);
+    assert.equal(e.sources.find((x) => x.rewards)!.name, "Recompensas de tarjetas");
   });
 });

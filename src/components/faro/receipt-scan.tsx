@@ -21,6 +21,7 @@ import { SubMark } from "./icons";
 import { DayField, ThemeSelect } from "./line-form";
 import { FreqPick } from "./fit-pick";
 import "./scan.css";
+import { ScanRewardsRow, saveScanRewards, scanRewards, type ScanRw } from "./cards";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
 const BOOKS: ScanBook[] = ["subscription", "purchase", "expense-variable"];
@@ -113,6 +114,8 @@ function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; on
   const ledger = session?.ledger;
   const [items, setItems] = useState<Item[]>(() => files.map((f) => ({ name: f.name, stage: "wait", p: 0, found: 0 })));
   const [cards, setCards] = useState<Card[]>([]);
+  // 1.3.109: a rewards line in any picture is assumed to be credit card rewards (matched, or a best guess to confirm).
+  const [rws, setRws] = useState<ScanRw[]>([]);
   const [done, setDone] = useState(false);
   const stopRef = useRef<() => void>(() => {});
   const close = () => { stopRef.current(); onClose(); };
@@ -136,7 +139,12 @@ function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; on
         setItems((l) => l.map((x, j) => (j === i ? { ...x, stage: "load", p: 0 } : x)));
         try {
           const img = await scanner.read(files[i], (stage, p) => { if (live) setItems((l) => l.map((x, j) => (j === i ? { ...x, stage, p } : x))); });
-          const drafts = parseScan(img.lines, day);
+          const found = scanRewards(img.lines, day, ledger);
+          const rwAmounts = new Set(found.flatMap((x) => [parseAmount(x.amount), parseAmount(x.earned)]).filter((v): v is number => v != null));
+          // The rewards figure itself is not a purchase: drop a draft that is only that line.
+          // The rewards figure (and the card screen around it) is not a purchase: drop drafts that are only those lines.
+          const drafts = parseScan(img.lines, day).filter((d) => !(found.length && (d.amountMinor == null || d.amountMinor === 0 || rwAmounts.has(d.amountMinor)) && /reward|recompens|cash ?back|reembols|year to date|current|outstanding|balance|saldo/i.test(`${d.concept} ${d.note}`)));
+          if (found.length && live) setRws((l) => [...l, ...found]);
           const next: Card[] = [];
           for (const d of drafts) {
             const crop = d.type === "subscription" && !d.brand ? await run.cropIcon(img.canvas, d.box) : "";
@@ -160,10 +168,11 @@ function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; on
 
   const set = (id: string, patch: Partial<Card>) => setCards((l) => l.map((c) => (c.id === id ? { ...c, ...patch, unsure: c.unsure.filter((u) => !(u in fieldsOf(patch))) } : c)));
   const ready = cards.filter((c) => c.on && c.concept.trim() && parseAmount(c.amount) != null);
+  const rwReady = rws.filter((x) => x.on && x.target && (parseAmount(x.amount) != null || parseAmount(x.earned) != null));
   const busy = !done;
 
   function save() {
-    if (!ledger || !ready.length) return;
+    if (!ledger || !(ready.length + rwReady.length)) return;
     const st = ledger.structure;
     const off = libraryOff(ledger);
     const lines: Line[] = ready.map((c) => {
@@ -181,7 +190,7 @@ function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; on
         bookedOn: sub ? "" : c.date, startedOn: "",
       };
     });
-    commit((s) => lines.reduce((acc, line) => upsertLine(acc, line), s), L(lang, `Escanear ${lines.length}`, `Scan ${lines.length}`));
+    commit((s) => saveScanRewards(lines.reduce((acc, line) => upsertLine(acc, line), s), rwReady), L(lang, `Escanear ${lines.length + rwReady.length}`, `Scan ${lines.length + rwReady.length}`));
     onClose();
   }
 
@@ -216,16 +225,17 @@ function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; on
               ))}
             </div>
           ) : null}
+          {rws.map((x) => <ScanRewardsRow key={x.id} item={x} onSet={(p) => setRws((l) => l.map((y) => (y.id === x.id ? { ...y, ...p } : y)))} onDrop={() => setRws((l) => l.filter((y) => y.id !== x.id))} />)}
           {cards.map((c) => (
             <DraftCard key={c.id} c={c} lang={lang} bookOpts={bookOpts} presets={presets} onSet={(p) => set(c.id, p)} onDrop={() => setCards((l) => l.filter((x) => x.id !== c.id))} />
           ))}
-          {done && !cards.length ? <p className="scn-empty">{L(lang, "No encontré montos. Prueba otra foto.", "No amounts found. Try another photo.")}</p> : null}
-          {done && cards.length ? <p className="scn-note">{L(lang, "Las fotos no se guardan ni salen del teléfono.", "Photos are never kept or sent anywhere.")}</p> : null}
+          {done && !cards.length && !rws.length ? <p className="scn-empty">{L(lang, "No encontré montos. Prueba otra foto.", "No amounts found. Try another photo.")}</p> : null}
+          {done && (cards.length || rws.length) ? <p className="scn-note">{L(lang, "Las fotos no se guardan ni salen del teléfono.", "Photos are never kept or sent anywhere.")}</p> : null}
         </div>
         <div className="scn-foot">
           <button type="button" className="btn secondary" onClick={close}>{L(lang, "Cancelar", "Cancel")}</button>
-          <button type="button" className="btn" disabled={busy || !ready.length} onClick={save}>
-            {busy ? `${doneN}/${total}` : L(lang, `Guardar ${ready.length}`, `Save ${ready.length}`)}
+          <button type="button" className="btn" disabled={busy || !(ready.length + rwReady.length)} onClick={save}>
+            {busy ? `${doneN}/${total}` : L(lang, `Guardar ${ready.length + rwReady.length}`, `Save ${ready.length + rwReady.length}`)}
           </button>
         </div>
       </div>

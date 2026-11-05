@@ -2,7 +2,7 @@ import { lineLabel } from "./engine";
 import { formatMoney } from "./money";
 import { lentOf } from "./debts";
 import { loansOf } from "./loans";
-import { cardsOf, storedCards } from "./cards";
+import { cardsOf, rewardsOf, storedCards } from "./cards";
 import type { Lang, LedgerState, SectionId } from "./types";
 
 const SYN: Record<string, string[]> = {
@@ -90,14 +90,16 @@ export function searchLedger(state: LedgerState, query: string, lang: Lang, name
   }
   // People in Deudas: who owes you (Me deben) and who lent you (Préstamos).
   const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-  const people: { id: string; name: string; amountMinor: number; currency: "NIO" | "USD"; date: string; vault: "owed" | "owe"; archived?: boolean; card?: string }[] = [
+  const people: { id: string; name: string; amountMinor: number; currency: "NIO" | "USD"; date: string; vault: "owed" | "owe"; archived?: boolean; card?: string; rw?: boolean }[] = [
     ...lentOf(state).map((l) => ({ id: l.id, name: l.person, amountMinor: l.amountMinor, currency: l.currency, date: l.startedOn || l.dueOn, vault: "owed" as const, archived: l.archived })),
     ...loansOf(state).map((l) => ({ id: l.id, name: l.lender, amountMinor: l.amountMinor, currency: l.currency, date: l.takenOn, vault: "owe" as const, archived: l.archived })),
     // 1.3.107: credit cards (name, issuer, last 4), with their latest balance.
     ...[...cardsOf(state), ...storedCards(state).filter((c) => c.archived)].map((c) => ({ id: c.id, name: `${c.name}${c.last4 ? ` ···${c.last4}` : ""}`, amountMinor: c.snaps[c.snaps.length - 1]?.balanceMinor ?? 0, currency: c.currency, date: c.snaps[c.snaps.length - 1]?.on ?? "", vault: "owe" as const, archived: c.archived, card: `${c.issuer} ${c.last4}` })),
+    // 1.3.109: card rewards (cash back) live on the Me deben side.
+    ...cardsOf(state).filter((c) => rewardsOf(c).amount > 0).map((c) => ({ id: `rw-${c.id}`, name: `${lang === "en" ? "Rewards" : "Recompensas"} · ${c.name}`, amountMinor: rewardsOf(c).amount, currency: c.currency, date: rewardsOf(c).on, vault: "owed" as const, rw: true })),
   ];
   for (const p of people) {
-    const word = p.card !== undefined ? `${p.card} ${lang === "en" ? "credit card i owe debt" : "tarjeta de credito debo deuda prestamo"}` : p.vault === "owed" ? (lang === "en" ? "owed to me loan" : "me deben prestamo cobro") : (lang === "en" ? "i owe loan debt" : "debo prestamo deuda");
+    const word = p.rw ? (lang === "en" ? "card rewards cash back cashback redeem owed to me" : "recompensas de tarjetas cashback reembolso en efectivo canjear me deben") : p.card !== undefined ? `${p.card} ${lang === "en" ? "credit card i owe debt" : "tarjeta de credito debo deuda prestamo"}` : p.vault === "owed" ? (lang === "en" ? "owed to me loan" : "me deben prestamo cobro") : (lang === "en" ? "i owe loan debt" : "debo prestamo deuda");
     const hay = norm(`${p.name} ${word} ${formatMoney(p.amountMinor, p.currency, lang)}`);
     const numberHit = digits.length >= 2 && String(p.amountMinor).includes(digits);
     if (!tokens.some((t) => hay.includes(t)) && !numberHit) continue;

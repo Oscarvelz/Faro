@@ -44,7 +44,8 @@ import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
 import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
 import { CardsAdvisor } from "./cards";
-import { cardTotals } from "@/lib/faro/cards";
+import { cardTotals, rewardsTotals } from "@/lib/faro/cards";
+import { EarningsStudy, hasEarnings } from "./earnings";
 import { payoffPlan } from "@/lib/faro/debts";
 import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
@@ -3534,6 +3535,10 @@ export function Study() {
   if (showRewards) visible.push("rewards");
   const remitAny = session ? remitTrend(session.ledger, key, 6).any : false;
   if (remitAny) visible.push("remesas");
+  // 1.3.109: earnings by source (card rewards as their own source).
+  const earnAny = hasEarnings(session?.ledger, ui.year);
+  if (earnAny) visible.push("earnings");
+  const rwHave = rewardsTotals(session?.ledger).total;
   const detailRows = storePick
     ? pickedRows.filter((line) => line.storeId === storePick)
     : pickedRows.filter((line) => line.kind !== "purchase" || !line.storeId);
@@ -3545,7 +3550,7 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "remesas", "rewards", "rule", "movers", "time", "cushion", "plan", "owed", "loans"]}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "remesas", "rewards", "rule", "movers", "time", "earnings", "cushion", "plan", "owed", "loans"]}
       items={[
         { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
@@ -3561,6 +3566,7 @@ export function Study() {
         { id: "plan", label: es ? "¿Vas dentro del tope?" : "Within your limits?", section: "general" },
         { id: "movers", label: es ? "Qué se movió" : "What moved", section: "general" },
         { id: "time", label: es ? "Entra, sale y queda" : "In, out and left", section: "time" },
+        { id: "earnings", label: es ? "De dónde viene tu dinero" : "Where your money comes from", section: "time" },
         { id: "cushion", label: es ? "Ahorro y colchón" : "Savings and cushion", section: "save" },
         { id: "owed", label: t("study.owed.title"), section: "owed" },
         { id: "loans", label: t("study.loans.title"), section: "owed" },
@@ -3594,6 +3600,7 @@ export function Study() {
       {remitAny ? <StatFold id="remesas"><RemitCard monthKey={key} /></StatFold> : null}
       {insights.length === 0 ? <p>{t("stats.need")}</p> : null}
       <StatFold id="time"><TimeCard points={points} span={span} onSpan={setSpan} activeKey={activeKey} /></StatFold>
+      {earnAny ? <StatFold id="earnings"><EarningsStudy /></StatFold> : null}
       {board?.envelopes.length ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
       <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold>
       <StudyCharts
@@ -3677,6 +3684,7 @@ export function Study() {
             </div>
           )) : <Note>{t("study.owed.empty")}</Note>}
           {owedFile > 0 ? <p className="text-sm text-muted">{t("study.owed.file")}: <strong className="num">{fmt(owedFile)}</strong></p> : null}
+          {rwHave > 0 ? <p className="text-sm text-muted" data-anchor="study-owed-rewards">{es ? "Recompensas de tarjetas" : "Card rewards"}: <strong className="num">{fmt(rwHave)}</strong></p> : null}
         </section>
       </StatFold>
       ) : null}

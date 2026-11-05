@@ -12,7 +12,7 @@
  */
 import { convertMinor } from "./money";
 import { ISO_DAY, todayIso } from "./loans";
-import type { CardSnap, CreditCard, Currency, LedgerState, Line } from "./types";
+import type { CardSnap, CreditCard, Currency, LedgerState, Line, RewardSnap } from "./types";
 
 export const CARD_PRESETS: { id: string; name: string; issuer: string; mark: string; color: string; network: string; manualOnly?: boolean }[] = [
   { id: "chase", name: "Chase Freedom Unlimited", issuer: "Chase", mark: "chase", color: "#117aca", network: "visa", manualOnly: true },
@@ -65,11 +65,33 @@ function normalizeSnap(s: CardSnap): CardSnap | null {
     ...(typeof s.dueOn === "string" && ISO_DAY.test(s.dueOn) ? { dueOn: s.dueOn } : {}),
     ...(num(s.aprBps) ? { aprBps: num(s.aprBps) } : {}),
     src: s.src === "shot" ? "shot" : "manual",
+    ...(num(s.lastPayMinor) !== undefined ? { lastPayMinor: num(s.lastPayMinor) } : {}),
+    ...(typeof s.lastPayOn === "string" && ISO_DAY.test(s.lastPayOn) ? { lastPayOn: s.lastPayOn } : {}),
+    ...(Array.isArray(s.notes) && s.notes.length ? { notes: s.notes.filter((n) => n && typeof n.label === "string" && typeof n.text === "string").map((n) => ({ label: n.label.slice(0, 60), text: n.text.slice(0, 40) })) } : {}),
     ...(Array.isArray(s.seen) && s.seen.length ? { seen: s.seen.filter((x) => typeof x === "string") } : {}),
   };
 }
 
+function normalizeRw(s: RewardSnap): RewardSnap | null {
+  if (!s || typeof s.on !== "string" || !ISO_DAY.test(s.on)) return null;
+  const amount = num(s.amountMinor);
+  const points = num(s.points);
+  const earned = num(s.earnedMinor);
+  if (amount === undefined && points === undefined && earned === undefined && s.src !== "redeem") return null;
+  return {
+    on: s.on, at: typeof s.at === "string" ? s.at : `${s.on}T12:00:00.000Z`,
+    ...(amount !== undefined ? { amountMinor: Math.max(0, amount) } : {}),
+    ...(points !== undefined ? { points: Math.max(0, points) } : {}),
+    ...(earned !== undefined ? { earnedMinor: Math.max(0, earned), earnedSpan: s.earnedSpan === "life" ? "life" : "year" } : {}),
+    src: s.src === "shot" ? "shot" : s.src === "redeem" ? "redeem" : "manual",
+    ...(s.src === "redeem" && num(s.redeemed) ? { redeemed: num(s.redeemed) } : {}),
+    ...(s.src === "redeem" && (s.how === "credit" || s.how === "deposit") ? { how: s.how } : {}),
+    ...(typeof s.lineId === "string" && s.lineId ? { lineId: s.lineId } : {}),
+  };
+}
+
 export function normalizeCard(c: CreditCard): CreditCard {
+  const rw = (Array.isArray(c.rw) ? c.rw : []).map(normalizeRw).filter((s): s is RewardSnap => !!s).sort((a, b) => a.on.localeCompare(b.on) || a.at.localeCompare(b.at));
   return {
     id: String(c.id),
     name: typeof c.name === "string" ? c.name : "",
@@ -88,6 +110,7 @@ export function normalizeCard(c: CreditCard): CreditCard {
     rewards: typeof c.rewards === "string" ? c.rewards : "",
     ...(c.manualOnly ? { manualOnly: true } : {}),
     snaps: (Array.isArray(c.snaps) ? c.snaps : []).map(normalizeSnap).filter((s): s is CardSnap => !!s).sort((a, b) => a.on.localeCompare(b.on) || a.at.localeCompare(b.at)),
+    ...(rw.length ? { rw } : {}),
     ...(c.preset ? { preset: String(c.preset) } : {}),
     ...(c.archived ? { archived: true, archivedOn: c.archivedOn ?? "" } : {}),
   };
@@ -150,7 +173,7 @@ export function cardPays(state: LedgerState, id: string): Line[] {
 export function dropCard(state: LedgerState, id: string, today = todayIso()): LedgerState {
   const card = cardsOf(state).find((c) => c.id === id) ?? storedCards(state).find((c) => c.id === id);
   if (!card) return state;
-  const keep = card.snaps.length > 0 || cardPays(state, id).length > 0;
+  const keep = card.snaps.length > 0 || (card.rw?.length ?? 0) > 0 || cardPays(state, id).length > 0;
   const stored = storedCards(state);
   const cards = keep
     ? (stored.some((c) => c.id === id) ? stored.map((c) => (c.id === id ? { ...c, archived: true, archivedOn: today } : c)) : [...stored, { ...card, archived: true, archivedOn: today }])
@@ -262,7 +285,7 @@ export function cardTotals(state: LedgerState | null | undefined, today = todayI
 
 /* ---------- writing ---------- */
 
-export type CardUpdate = { aprBps?: number | null; balanceMinor: number; availMinor?: number | null; limitMinor?: number | null; minMinor?: number | null; dueOn?: string; statementMinor?: number | null; last4?: string; autopay?: boolean | null; on?: string; src: "shot" | "manual" };
+export type CardUpdate = { lastPayMinor?: number | null; lastPayOn?: string; notes?: { label: string; text: string }[]; aprBps?: number | null; balanceMinor: number; availMinor?: number | null; limitMinor?: number | null; minMinor?: number | null; dueOn?: string; statementMinor?: number | null; last4?: string; autopay?: boolean | null; on?: string; src: "shot" | "manual" };
 
 /** Stores one reading (never replaces an older one; an identical repeat on the same day is skipped). */
 export function addReading(state: LedgerState, cardId: string, u: CardUpdate, today = todayIso(), now = new Date().toISOString()): LedgerState {
@@ -277,6 +300,9 @@ export function addReading(state: LedgerState, cardId: string, u: CardUpdate, to
     ...(u.statementMinor != null ? { statementMinor: u.statementMinor } : {}),
     ...(u.dueOn ? { dueOn: u.dueOn } : {}),
     ...(u.aprBps ? { aprBps: u.aprBps } : {}),
+    ...(u.lastPayMinor != null ? { lastPayMinor: u.lastPayMinor } : {}),
+    ...(u.lastPayOn ? { lastPayOn: u.lastPayOn } : {}),
+    ...(u.notes?.length ? { notes: u.notes } : {}),
     seen: cardPays(state, card.id).map((l) => l.id),
   })!;
   const last = card.snaps[card.snaps.length - 1];
@@ -355,4 +381,107 @@ export function utilLevel(util: number | null): "none" | "great" | "ok" | "high"
 /** What would bring utilization under 30% (view currency), 0 when already under. */
 export function toThirty(balance: number, limit: number): number {
   return limit > 0 ? Math.max(0, balance - Math.floor(limit * 0.3)) : 0;
+}
+
+/* ---------- rewards (1.3.109) ---------- */
+/*
+ * A card's rewards (cash back) are money the bank holds for the user: an ASSET, counted on the "Me deben" side and in the
+ * Balance neto, never subtracted from the card debt. Every update is a dated reading (`rw`), like the balance readings.
+ * Canjear (redeem) never counts twice:
+ * - statement credit: a transfer line toward the card (xfer, inactive, cardId + rwCard) lowers the card balance, and the
+ *   rewards reading drops by the same amount. Asset and debt fall together; nothing is spending or income.
+ * - deposit to the bank: an income line (rwCard) and the rewards reading drops by the same amount. The money moves from
+ *   "rewards" to "income"; Estudio counts rewards when they are EARNED (reading increases), so it skips these lines.
+ */
+
+export type RewardsNow = { known: boolean; amount: number; points: number | null; on: string; last: RewardSnap | null };
+
+/** The card's rewards today (card currency): the latest money reading (a redemption counts), points as a note. */
+export function rewardsOf(card: Pick<CreditCard, "rw">): RewardsNow {
+  const rw = card.rw ?? [];
+  const money = [...rw].reverse().find((s) => s.amountMinor !== undefined) ?? null;
+  const pts = [...rw].reverse().find((s) => s.points !== undefined) ?? null;
+  return { known: !!money, amount: money?.amountMinor ?? 0, points: pts?.points ?? null, on: money?.on ?? pts?.on ?? "", last: money };
+}
+
+/** Rewards on/before a day (card currency), 0 before the first reading or after the card was archived. */
+export function rewardsAt(card: CreditCard, day: string): number {
+  if (card.archived && card.archivedOn && card.archivedOn <= day) return 0;
+  const s = [...(card.rw ?? [])].reverse().find((x) => x.on <= day && x.amountMinor !== undefined);
+  return s?.amountMinor ?? 0;
+}
+
+/** Rewards of the cards on screen, in the view currency, biggest first. Archived cards drop out (their history stays). */
+export function rewardsTotals(state: LedgerState | null | undefined) {
+  if (!state) return { total: 0, count: 0, rows: [] as { card: CreditCard; minor: number; view: number; points: number | null; on: string }[] };
+  const { display, rateE4 } = state.settings;
+  const rows = cardsOf(state).map((card) => {
+    const r = rewardsOf(card);
+    return { card, minor: r.amount, view: convertMinor(r.amount, card.currency, display, rateE4), points: r.points, on: r.on };
+  }).filter((r) => r.minor > 0 || (r.points ?? 0) > 0).sort((a, b) => b.view - a.view);
+  return { total: rows.reduce((s, r) => s + r.view, 0), count: rows.filter((r) => r.minor > 0).length, rows };
+}
+
+/**
+ * What each reading added (card currency): increases since the previous money reading; after a redemption the count
+ * starts again from what was left. A drop without a redemption in Faro (redeemed at the bank) just resets the base.
+ */
+export function rewardsEarned(card: Pick<CreditCard, "rw">): { on: string; minor: number }[] {
+  const out: { on: string; minor: number }[] = [];
+  let prev = 0;
+  for (const s of card.rw ?? []) {
+    if (s.amountMinor === undefined) continue;
+    if (s.src !== "redeem" && s.amountMinor > prev) out.push({ on: s.on, minor: s.amountMinor - prev });
+    prev = s.amountMinor;
+  }
+  return out;
+}
+
+export type RewardsUpdate = { amountMinor?: number | null; points?: number | null; earnedMinor?: number | null; earnedSpan?: "year" | "life" | null; src: "shot" | "manual"; on?: string };
+
+/** Stores one rewards reading (never replaces an older one; the same values again on the same day are skipped). */
+export function addRewards(state: LedgerState, cardId: string, u: RewardsUpdate, today = todayIso(), now = new Date().toISOString()): LedgerState {
+  const card = cardsOf(state).find((c) => c.id === cardId) ?? storedCards(state).find((c) => c.id === cardId);
+  const amount = u.amountMinor != null && Number.isFinite(u.amountMinor) && u.amountMinor >= 0 ? Math.round(u.amountMinor) : undefined;
+  const points = u.points != null && Number.isFinite(u.points) && u.points >= 0 ? Math.round(u.points) : undefined;
+  const earned = u.earnedMinor != null && Number.isFinite(u.earnedMinor) && u.earnedMinor >= 0 ? Math.round(u.earnedMinor) : undefined;
+  if (!card || (amount === undefined && points === undefined && earned === undefined)) return state;
+  const on = u.on && ISO_DAY.test(u.on) ? u.on : today;
+  const rw = card.rw ?? [];
+  const last = rw[rw.length - 1];
+  if (last && last.on === on && last.amountMinor === amount && last.points === points && last.earnedMinor === earned) return state;
+  const snap = normalizeRw({ on, at: now, src: u.src, ...(amount !== undefined ? { amountMinor: amount } : {}), ...(points !== undefined ? { points } : {}), ...(earned !== undefined ? { earnedMinor: earned, earnedSpan: u.earnedSpan === "life" ? "life" : "year" } : {}) })!;
+  return putCard(state, { ...card, rw: [...rw, snap], archived: undefined, archivedOn: undefined });
+}
+
+/**
+ * Canjear: uses `amountMinor` (card currency, at most what is there) of the card's rewards.
+ * "credit" → a transfer toward the card (lowers its balance; never spending or income).
+ * "deposit" → an income line "Recompensas de tarjetas" with the card as its source.
+ * Either way the rewards reading drops by the same amount, so the money is never counted twice.
+ */
+export function redeemRewards(state: LedgerState, cardId: string, how: "credit" | "deposit", amountMinor: number, date: string, id: string, label: string, now = new Date().toISOString()): LedgerState {
+  const card = cardsOf(state).find((c) => c.id === cardId) ?? storedCards(state).find((c) => c.id === cardId);
+  if (!card) return state;
+  const have = rewardsOf(card).amount;
+  const use = Math.min(have, Math.round(amountMinor));
+  if (!(use > 0)) return state;
+  const day = ISO_DAY.test(date) ? date : todayIso();
+  const base: Line = {
+    id, seriesId: id, monthKey: day.slice(0, 7), kind: how === "credit" ? "expense-variable" : "income-variable", concept: `${label} · ${card.name}`, amountMinor: use, currency: card.currency,
+    active: how === "deposit", note: "", categoryId: "", subId: "", recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "",
+    cadence: "", nextDue: "", aprBps: 0, balanceMinor: null, balanceCurrency: card.currency, icon: "BadgePercent", history: [], bookedOn: day, rwCard: card.id,
+    ...(how === "credit" ? { xfer: true, cardId: card.id } : {}),
+  };
+  const bucket = state.months[base.monthKey] ?? { lines: [] };
+  const withLine = { ...state, months: { ...state.months, [base.monthKey]: { lines: [...bucket.lines, base] } } };
+  const snap = normalizeRw({ on: day, at: now, amountMinor: have - use, src: "redeem", redeemed: use, how, lineId: id })!;
+  return putCard(withLine, { ...card, rw: [...(card.rw ?? []), snap] });
+}
+
+/** Redemption lines of a card (statement credits and deposits), oldest first. */
+export function rewardLines(state: LedgerState, id: string): Line[] {
+  const out: Line[] = [];
+  for (const bucket of Object.values(state.months)) for (const line of bucket.lines) if (line.rwCard === id) out.push(line);
+  return out.sort((a, b) => (a.bookedOn || a.monthKey).localeCompare(b.bookedOn || b.monthKey));
 }

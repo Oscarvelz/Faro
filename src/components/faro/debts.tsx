@@ -18,6 +18,8 @@ import { CobroSpan, Subs } from "./screens";
 import { FreqPick } from "./fit-pick";
 import { freqPresetsOf, cadenceLabel } from "@/lib/faro/cadence";
 import { DeboSum, DueLoans, LoanCard, LoanForm, deboTabNow, type LoanDraft } from "./loans";
+import { RewardsGroup } from "./cards";
+import { rewardsTotals } from "@/lib/faro/cards";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
 import { addLent, archiveLent, debtSeries, lentOf, lentPays, lentState, lentTotals, monthAhead, netBalance, payLent, payoffPlan, peopleOf, personKey, restoreLent, type Person } from "@/lib/faro/debts";
@@ -254,6 +256,8 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
   const active = all.filter((r) => !r.archived);
   const filed = all.filter((r) => r.archived);
   const sums = lentTotals(ledger);
+  // 1.3.109: card rewards are money owed to the user (by the bank): the top figure is people + rewards, split below.
+  const rwSum = rewardsTotals(ledger);
   const today = todayIso();
   const nextOwed = ledger ? active.filter((r) => lentState(ledger, r).left > 0 && r.dueOn && r.dueOn >= today).map((r) => r.dueOn).sort()[0] ?? "" : "";
   function save(d: LoanDraft) {
@@ -288,13 +292,20 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
   return (
     <div className="cobro-swap" data-dir={dir} data-anchor={libros ? "debt-owed" : "cobros-in"}>
       <div className="cobro-top">
-        <div><strong className="num">{fmt(sums.left)}</strong></div>
+        <div><strong className="num" data-anchor="owed-total">{fmt(sums.left + rwSum.total)}</strong></div>
         <button type="button" className="cobro-plus" aria-label={t("cobro.open")} aria-pressed={draft} onClick={() => setDraft((on) => !on)}><Plus /></button>
       </div>
-      <DeboSum help="me-deben" empty={t("debo.sum.owed.empty")} parts={active.length ? [
+      <DeboSum help="me-deben" empty={t("debo.sum.owed.empty")} parts={active.length && rwSum.total > 0 ? [
+        [`${people.filter((p) => p.active).length} ${t(people.filter((p) => p.active).length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],
+        [lang === "en" ? "People" : "Personas", { num: fmt(sums.left) }],
+        [lang === "en" ? "Rewards" : "Recompensas", { num: fmt(rwSum.total) }],
+      ] : active.length ? [
         [`${people.filter((p) => p.active).length} ${t(people.filter((p) => p.active).length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],
         ...(sums.interest > 0 ? [[{ num: fmt(sums.interest) }, t("debo.sum.interest")]] : [[{ num: fmt(sums.paid) }, t("debo.sum.got")]]),
         ...(nextOwed ? [[`${t("debo.sum.nextGet")} ${new Date(`${nextOwed}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}`]] : []),
+      ] : rwSum.total > 0 ? [
+        [`${rwSum.count} ${lang === "en" ? (rwSum.count === 1 ? "card" : "cards") : (rwSum.count === 1 ? "tarjeta" : "tarjetas")}`],
+        [{ num: fmt(rwSum.total) }, lang === "en" ? "in card rewards" : "en recompensas"],
       ] : null} />
       {draft ? <LoanForm mode="lend" onCancel={() => setDraft(false)} onSave={save} /> : null}
       {libros ? <DebtChart /> : (
@@ -303,6 +314,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
       )}
       {group("plain")}
       {group("interest")}
+      <RewardsGroup />
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
         <div role="button" tabIndex={0} data-anchor={libros ? "debt-owed-file" : "cobros-file"} className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
           <span className="lab-head">{t("cobro.file")}<Hint topic="archivar" /></span>

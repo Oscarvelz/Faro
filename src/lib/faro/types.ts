@@ -127,6 +127,9 @@ export type Line = {
   /** 1.3.107: a payment toward a credit card (Debo → Préstamos → Tarjetas). Always a transfer (xfer, inactive): the
    *  purchases were already spending, so paying the card lowers its balance without counting twice. See cards.ts. */
   cardId?: string;
+  /** 1.3.109: a card rewards redemption (Canjear). With cardId + xfer = a statement credit (lowers the card balance, not
+   *  spending, not income); alone on an income line = a deposit to the bank (income, source "Recompensas de tarjetas"). */
+  rwCard?: string;
 };
 
 /** Money the user lent to someone (Me deben). Interest follows the same rule as Loan (simple, by the day, from startedOn). */
@@ -187,8 +190,31 @@ export type CardSnap = {
   /** APR the bank showed in this reading (bps). */
   aprBps?: number;
   src: "shot" | "manual";
+  /** 1.3.109: last payment the bank showed, and other labelled numbers kept as notes ("Otros datos"). */
+  lastPayMinor?: number;
+  lastPayOn?: string;
+  notes?: { label: string; text: string }[];
   /** Card payment lines already in the ledger when this reading was saved (the bank balance already reflects them). */
   seen?: string[];
+};
+
+/**
+ * 1.3.109: a card's rewards balance (cash back) at a date. Money the bank holds for the user: an asset, never subtracted
+ * from the card debt. `amountMinor` in the card currency; `points` is a note only (points are not money). A redemption
+ * ("Canjear") stores a reading with the amount left (src "redeem"), how it was used and the line it wrote.
+ */
+export type RewardSnap = {
+  on: string;
+  at: string;
+  amountMinor?: number;
+  points?: number;
+  /** Rewards EARNED as the bank shows them (year to date or lifetime): info for Estudio, never money the user has. */
+  earnedMinor?: number;
+  earnedSpan?: "year" | "life";
+  src: "shot" | "manual" | "redeem";
+  redeemed?: number;
+  how?: "credit" | "deposit";
+  lineId?: string;
 };
 
 /** 1.3.107: a credit card, a revolving loan under Debo → Préstamos. Presets (Chase/Wells Fargo/PayPal) carry no numbers. */
@@ -218,6 +244,8 @@ export type CreditCard = {
   /** "manual": the bank blocks screenshots (Chase), so the card is updated by hand. */
   manualOnly?: boolean;
   snaps: CardSnap[];
+  /** 1.3.109: rewards readings (cash back balance), oldest first. */
+  rw?: RewardSnap[];
   /** Preset id when it came from the defaults. */
   preset?: string;
   archived?: boolean;

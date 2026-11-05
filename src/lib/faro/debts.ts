@@ -8,7 +8,7 @@
  * Interest rule is the one in loans.ts (simple, by the day, on the amount lent; payments never reduce it).
  */
 import { convertMinor, monthlyEquivalent } from "./money";
-import { cardBalanceAt, cardPays, cardPlanDebts, cardTotals, cardsOf, storedCards } from "./cards";
+import { cardBalanceAt, cardPays, cardPlanDebts, cardTotals, cardsOf, rewardsAt, rewardsTotals, storedCards } from "./cards";
 import { ISO_DAY, dayGap, loanFigures, loanPays, loanState, loansOf, simpleInterest, todayIso } from "./loans";
 import type { Currency, DebtPlan, LedgerState, Lent, Line, Loan } from "./types";
 
@@ -138,13 +138,19 @@ export function moveCobros(state: LedgerState, raw: unknown, label = "Abono"): {
 
 /* ---------- net, people, series ---------- */
 
-/** Me deben − Debo (Préstamos pending + credit card balances, 1.3.107), in the view currency. */
+/**
+ * Me deben − Debo (Préstamos pending + credit card balances, 1.3.107), in the view currency.
+ * 1.3.109: card rewards (cash back the bank holds for the user) are money owed TO the user: they join Me deben as their
+ * own part (`rewards`, `lent` = people), never subtracted from the card debt.
+ */
 export function netBalance(state: LedgerState | null | undefined, today = todayIso()) {
-  const owed = lentTotals(state, today).left;
+  const lent = lentTotals(state, today).left;
+  const rewards = rewardsTotals(state).total;
+  const owed = lent + rewards;
   const loans = loansLeft(state, today);
   const cards = cardTotals(state, today).balance;
   const owe = loans + cards;
-  return { owed, owe, net: owed - owe, loans, cards };
+  return { owed, owe, net: owed - owe, loans, cards, lent, rewards };
 }
 
 function loansLeft(state: LedgerState | null | undefined, today: string) {
@@ -218,7 +224,8 @@ export function debtSeries(state: LedgerState | null | undefined, today = todayI
     };
     const cardOwe = cards.reduce((s, c) => s + view(cardBalanceAt(state, c, end), c.currency), 0);
     const owe = cardOwe + loans.reduce((s, l) => s + leftAt(l.amountMinor, l.kind, l.aprBps, l.takenOn, l.currency, loanPaid.get(l.id) ?? [], l.archived ? l.archivedOn : undefined), 0);
-    const owed = lent.reduce((s, l) => s + leftAt(l.amountMinor, l.kind, l.aprBps, l.startedOn || l.dueOn, l.currency, lentPaid.get(l.id) ?? [], l.archived ? l.archivedOn : undefined), 0);
+    // 1.3.109: card rewards from their readings join the owed line (money the bank holds for the user).
+    const owed = cards.reduce((s, c) => s + view(rewardsAt(c, end), c.currency), 0) + lent.reduce((s, l) => s + leftAt(l.amountMinor, l.kind, l.aprBps, l.startedOn || l.dueOn, l.currency, lentPaid.get(l.id) ?? [], l.archived ? l.archivedOn : undefined), 0);
     out.push({ key: `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}`, owe, owed });
   }
   return out;
