@@ -110,3 +110,65 @@ export function freqPresetsOf(state: LedgerState | null | undefined): string[] {
   const seen = new Set<string>();
   return raw.filter((c) => isCadence(c) && !seen.has(c) && seen.add(c)).slice(0, 12);
 }
+
+/* ---------- "Otro…" frequencies (1.3.100) ---------- */
+
+/** Bounds of the "Cada N …" setter per unit (days up to a year, weeks up to a year, months up to 5 years, years up to 10). */
+export const FREQ_BOUNDS: Record<FreqUnit, number> = { d: 365, w: 52, m: 60, y: 10 };
+export const FREQ_KEEP = 4;
+
+/** The same rhythm written two ways ("7d" = "weekly", "12m" = "yearly", "2w" = "14d") compares equal. */
+export function sameCadence(a: string, b: string): boolean {
+  if (a === b) return true;
+  const x = intervalOf(a);
+  const y = intervalOf(b);
+  if (!x || !y) return false;
+  const months = (iv: Interval) => (iv.unit === "y" ? iv.every * 12 : iv.unit === "m" ? iv.every : null);
+  if (x.unit === "d" && y.unit === "d") return x.every === y.every;
+  const mx = months(x);
+  const my = months(y);
+  return mx !== null && mx === my;
+}
+
+/** The canonical token for "Cada N unit", within bounds; "" when N is out of range. Weeks stay weeks ("3w"). */
+export function customToken(every: number, unit: FreqUnit): string {
+  if (!Number.isInteger(every) || every < 1 || every > FREQ_BOUNDS[unit]) return "";
+  if (unit === "m" && every % 12 === 0) return cadenceToken(every / 12, "y");
+  return cadenceToken(every, unit);
+}
+
+/** The user's saved frequencies, newest first (sanitised, de-duplicated). */
+export function customFreqsOf(state: LedgerState | null | undefined): string[] {
+  const raw = state?.freqCustom;
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const c of raw) if (isCadence(c) && !out.some((o) => sameCadence(o, c))) out.push(c);
+  return out.slice(0, FREQ_KEEP);
+}
+
+/** The saved ones that are not already among `shown` (the presets of that picker). */
+export function customFreqsFor(state: LedgerState | null | undefined, shown: string[]): string[] {
+  return customFreqsOf(state).filter((c) => !shown.some((s) => sameCadence(s, c)));
+}
+
+/** Remember a frequency set with "Otro…": newest first, keeps the last 4. A preset rhythm is not stored twice. */
+export function rememberFreq(state: LedgerState, token: string): LedgerState {
+  if (!isCadence(token) || FREQ_POOL.some((p) => sameCadence(p, token))) return state;
+  const now = customFreqsOf(state);
+  const had = now.find((c) => sameCadence(c, token));
+  const next = [had ?? token, ...now.filter((c) => !sameCadence(c, token))].slice(0, FREQ_KEEP);
+  if (next.length === now.length && next.every((c, i) => c === now[i])) return state;
+  return { ...state, freqCustom: next };
+}
+
+/** Forget one saved frequency. Lines already using it keep it. */
+export function dropFreq(state: LedgerState, token: string): LedgerState {
+  const now = customFreqsOf(state);
+  const next = now.filter((c) => !sameCadence(c, token));
+  if (next.length === now.length) return state;
+  if (!next.length) {
+    const { freqCustom: _drop, ...rest } = state;
+    return rest as LedgerState;
+  }
+  return { ...state, freqCustom: next };
+}

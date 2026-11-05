@@ -9,7 +9,7 @@
  * - Mis colores: the last 6 custom colours, in the ledger (`myColors`), so they sync and back up; sample mode writes
  *   to its own ledger, so it stays isolated.
  */
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Check } from "lucide-react";
 import "./color-pick.css";
 import { useFaro } from "./provider";
@@ -80,8 +80,12 @@ function useLayer(open: boolean, close: () => void) {
   }, [open]);
 }
 
-export function ColorPick({ value, onPick, onDraft, glyph, face = "bubble", label }: {
+export function ColorPick({ value, onPick, onDraft, onConfirm, glyph, face = "bubble", label, head }: {
   value: string;
+  /** The colour section's title (label + "?"); the current colour, when outside the quick set, sits at its right end. */
+  head?: ReactNode;
+  /** A second tap on the selected swatch (or a tap on the spectrum's preview bubble) confirms and closes the colour view. */
+  onConfirm?: () => void;
   onPick: (hex: string) => void;
   /** Live colour while the spectrum is open (null when it closes), for a preview outside the picker. */
   onDraft?: (hex: string | null) => void;
@@ -93,25 +97,43 @@ export function ColorPick({ value, onPick, onDraft, glyph, face = "bubble", labe
   const current = parseHex(value) ?? "";
   const recent = session?.ledger.myColors ?? [];
   const [open, setOpen] = useState(false);
+  // A current colour outside the quick set (a category default, an old swatch, a custom one) shows on the header line.
+  // One already in Mis colores stays there (selected), so a tap never makes a chip jump rows.
+  const saved = recent.map((c) => parseHex(c)).filter((c): c is string => !!c && !QUICK.includes(c));
+  const outside = current && !QUICK.includes(current) && !saved.slice(0, 6).includes(current) ? current : "";
   const mine = useMemo(() => {
     const out: string[] = [];
-    if (current && !QUICK.includes(current)) out.push(current);
     for (const c of recent) {
       const h = parseHex(c);
-      if (h && !QUICK.includes(h) && !out.includes(h)) out.push(h);
+      if (h && !QUICK.includes(h) && h !== outside && !out.includes(h)) out.push(h);
     }
     return out.slice(0, 6);
-  }, [current, recent.join(",")]);
-  // With no saved colours yet, a current colour outside the quick set (a category default, an old swatch) is "Actual".
-  const hasMine = recent.some((c) => { const h = parseHex(c); return !!h && !QUICK.includes(h); });
+  }, [outside, recent.join(",")]);
+  // First tap selects and previews; a tap on the swatch that is already selected confirms (Oscar, 1.4.0).
+  const tap = (c: string) => {
+    setOpen(false);
+    if (c === current && onConfirm) { onConfirm(); return; }
+    onPick(c);
+  };
   const keep = (hex: string) => {
     commit((s) => ({ ...s, myColors: pushRecent(s.myColors, hex) }), "color");
   };
   return (
     <div className="cp">
+      {head !== undefined || outside ? (
+        <div className="cp-head">
+          {head ?? <span className="lab-head">{label ?? t("look.color")}</span>}
+          {outside ? (
+            <button type="button" className="cp-now" aria-pressed="true" aria-label={outside} title={t("cp.now")} onClick={() => tap(outside)}>
+              <i style={{ ["--sw" as string]: faceOf(outside, face) }} aria-hidden />
+              <span className="cp-now-t">{t("cp.now")}</span>
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="cp-quick" role="radiogroup" aria-label={label ?? t("look.color")}>
         {QUICK.map((c) => (
-          <button key={c} type="button" role="radio" className="cp-sw" style={{ ["--sw" as string]: faceOf(c, face), ["--ink" as string]: inkOn(faceOf(c, face)) }} aria-checked={current === c} aria-pressed={current === c} aria-label={c} onClick={() => { setOpen(false); onPick(c); }}>
+          <button key={c} type="button" role="radio" className="cp-sw" style={{ ["--sw" as string]: faceOf(c, face), ["--ink" as string]: inkOn(faceOf(c, face)) }} aria-checked={current === c} aria-pressed={current === c} aria-label={c} onClick={() => tap(c)}>
             {current === c ? <Check aria-hidden /> : null}
           </button>
         ))}
@@ -121,10 +143,10 @@ export function ColorPick({ value, onPick, onDraft, glyph, face = "bubble", labe
       </div>
       {mine.length ? (
         <div className="cp-mine">
-          <span className="cp-lab">{hasMine ? t("cp.mine") : t("cp.now")}</span>
-          <div className="cp-mine-row" role="radiogroup" aria-label={hasMine ? t("cp.mine") : t("cp.now")}>
+          <span className="cp-lab">{t("cp.mine")}</span>
+          <div className="cp-mine-row" role="radiogroup" aria-label={t("cp.mine")}>
             {mine.map((c) => (
-              <button key={c} type="button" role="radio" className="cp-sw" style={{ ["--sw" as string]: faceOf(c, face), ["--ink" as string]: inkOn(faceOf(c, face)) }} aria-checked={current === c} aria-pressed={current === c} aria-label={c} onClick={() => { setOpen(false); onPick(c); }}>
+              <button key={c} type="button" role="radio" className="cp-sw" style={{ ["--sw" as string]: faceOf(c, face), ["--ink" as string]: inkOn(faceOf(c, face)) }} aria-checked={current === c} aria-pressed={current === c} aria-label={c} onClick={() => tap(c)}>
                 {current === c ? <Check aria-hidden /> : null}
               </button>
             ))}
@@ -139,13 +161,18 @@ export function ColorPick({ value, onPick, onDraft, glyph, face = "bubble", labe
           onDraft={onDraft}
           onCancel={() => setOpen(false)}
           onSave={(hex) => { setOpen(false); keep(hex); onPick(hex); }}
+          onConfirm={onConfirm ? (hex) => {
+            setOpen(false); keep(hex); onPick(hex);
+            // Let the spectrum step back over its own history entry first, then close the host's view.
+            window.setTimeout(onConfirm, 120);
+          } : undefined}
         />
       ) : null}
     </div>
   );
 }
 
-function Spectrum({ start, glyph, face, onDraft, onCancel, onSave }: { start: string; glyph?: string; face: Face; onDraft?: (hex: string | null) => void; onCancel: () => void; onSave: (hex: string) => void }) {
+function Spectrum({ start, glyph, face, onDraft, onCancel, onSave, onConfirm }: { start: string; glyph?: string; face: Face; onDraft?: (hex: string | null) => void; onCancel: () => void; onSave: (hex: string) => void; onConfirm?: (hex: string) => void }) {
   const { t } = useFaro();
   const [hsv, setHsv] = useState<[number, number, number]>(() => hexToHsv(start) ?? [220, 0.5, 0.9]);
   const hex = hsvToHex(hsv[0], hsv[1], hsv[2]);
@@ -199,9 +226,9 @@ function Spectrum({ start, glyph, face, onDraft, onCancel, onSave }: { start: st
         <i className="cp-thumb" style={{ left: `calc(13px + (100% - 26px) * ${(hsv[0] / 360).toFixed(4)})`, background: `hsl(${Math.round(hsv[0])} 100% 50%)` }} />
       </div>
       <div className="cp-row">
-        <span className="cp-prev" style={{ ["--sw" as string]: shown, ["--tone" as string]: isTron() ? shown : hex, color: isTron() ? shown : inkOn(shown) }} aria-hidden>
+        <button type="button" className="cp-prev" style={{ ["--sw" as string]: shown, ["--tone" as string]: isTron() ? shown : hex, color: isTron() ? shown : inkOn(shown) }} aria-label={t("cp.use")} title={t("cp.use")} onClick={() => (onConfirm ? onConfirm(hex) : onSave(hex))}>
           <Glyph name={glyph && glyph !== "Circle" ? glyph : "Palette"} />
-        </span>
+        </button>
         <label className="cp-hex">
           <span aria-hidden>#</span>
           <input

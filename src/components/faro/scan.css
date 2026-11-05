@@ -1,0 +1,116 @@
+/* Escanear (1.3.101): the editor-row entry, the batch progress and the review sheet. Amber marks a field Faro guessed. */
+.scn-entry { --scn: #72b4b2; display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: none; }
+.scn-btn {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px 0 9px; border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--scn) 55%, var(--line)); color: var(--fg); background: color-mix(in oklab, var(--scn) 10%, transparent);
+  font-size: min(.8rem, 15px); font-weight: 560; white-space: nowrap; cursor: pointer; flex: none; transition: transform .12s, background-color .15s;
+}
+.scn-btn.is-icon { width: 32px; padding: 0; justify-content: center; }
+.scn-btn svg { width: 15px; height: 15px; color: var(--scn); flex: none; }
+.scn-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; clip-path: inset(50%); }
+.scn-btn:active { transform: scale(.96); background: color-mix(in oklab, var(--scn) 22%, transparent); }
+.scn-btn:focus-visible { outline: 2px solid var(--scn); outline-offset: 2px; }
+/* In the editor: at the right end of the Concepto head row (the label's own line), so it adds no row. */
+.fit-f[data-f="concept"]:has(> .scn-entry) { position: relative; }
+.fit-f > .scn-entry { position: absolute; right: 0; top: -3px; height: 1.3em; align-items: center; overflow: visible; gap: 5px; }
+.fit-f > .scn-entry .scn-btn { height: 26px; font-size: min(.76rem, 14px); padding: 0 10px 0 8px; }
+.fit-f > .scn-entry .scn-btn.is-icon { width: 26px; padding: 0; }
+.fit-f > .scn-entry .scn-btn svg { width: 14px; height: 14px; }
+
+.scn-scrim {
+  --scn: #72b4b2; --amb: #e3a63a; position: fixed; inset: 0; z-index: 70; display: grid; align-items: end; justify-items: center;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #05080c 46%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: scn-fade .2s ease both;
+}
+.scn-sheet {
+  display: flex; flex-direction: column; width: min(560px, 100%); max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  border-radius: 26px; color: var(--fg); background: var(--surface); border: 1px solid color-mix(in oklab, var(--scn) 40%, var(--line));
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .55); overflow: hidden; animation: scn-up .3s cubic-bezier(.22, 1, .36, 1) both; container-type: inline-size;
+}
+@keyframes scn-fade { from { opacity: 0; } }
+@keyframes scn-up { from { transform: translateY(20px); opacity: 0; } }
+.scn-head { flex: none; display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; gap: 10px; align-items: center; padding: 12px 14px 10px; border-bottom: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.scn-badge { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: color-mix(in oklab, var(--scn) 18%, var(--surface)); color: var(--scn); }
+.scn-badge svg { width: 17px; height: 17px; }
+.scn-head h3 { margin: 0; font-family: var(--font-serif); font-size: min(1.18rem, 5.6cqi); font-weight: 600; letter-spacing: -.02em; white-space: nowrap; min-width: 0; }
+.scn-x { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.scn-x svg { width: 16px; height: 16px; }
+.scn-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 12px 12px; display: grid; gap: 10px; align-content: start; }
+
+.scn-prog { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; align-items: center; gap: 9px 10px; font-size: min(.82rem, 3.9cqi); white-space: nowrap; }
+.scn-pi { display: contents; }
+.scn-ps { text-align: right; }
+.scn-pn { font-weight: 560; }
+.scn-ps { color: var(--muted); }
+.scn-pi i { height: 5px; border-radius: 5px; background: color-mix(in oklab, var(--scn) 16%, transparent); overflow: hidden; }
+.scn-pi b { display: block; height: 100%; border-radius: inherit; background: var(--scn); transition: width .25s ease; }
+.scn-pi.is-done .scn-ps { color: var(--scn); }
+.scn-pi.is-fail .scn-ps { color: var(--bad); }
+
+/* One 12-column grid per draft: name row, then amount · day (· frequency), then source thumbnail · book · note.
+   A narrow sheet moves the frequency next to the book and the note next to the thumbnail (never squeezed or cut). */
+.scn-card {
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; align-items: center; padding: 10px; border-radius: 16px;
+  background: color-mix(in oklab, var(--fg) 4%, var(--surface)); border: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); transition: opacity .18s;
+}
+.scn-card.is-off { opacity: .55; }
+.scn-r1 { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.scn-r1 .scn-concept { flex: 1 1 auto; }
+.scn-card > .scn-amt { grid-column: span 6; }
+.scn-card > .scn-day { grid-column: span 6; }
+.scn-card.has-freq > .scn-amt, .scn-card.has-freq > .scn-day, .scn-card > .scn-freq { grid-column: span 4; }
+.scn-card > .scn-thumb { grid-column: span 2; }
+.scn-card > .scn-book { grid-column: span 4; }
+.scn-card > .scn-notef { grid-column: span 6; }
+.scn-card > .scn-dup { grid-column: 1 / -1; }
+@container (max-width: 400px) {
+  .scn-card.has-freq > .scn-amt { grid-column: span 5; }
+  .scn-card.has-freq > .scn-day { grid-column: span 7; }
+  .scn-card.has-freq > .scn-book { grid-column: span 5; order: 1; }
+  .scn-card.has-freq > .scn-freq { grid-column: span 7; order: 2; }
+  .scn-card.has-freq > .scn-thumb { order: 3; }
+  .scn-card.has-freq > .scn-notef { grid-column: span 10; order: 4; }
+  .scn-card.has-freq > .scn-dup { order: 5; }
+}
+.scn-thumb { width: 100%; max-width: 64px; height: 38px; object-fit: cover; object-position: left top; border-radius: 8px; border: 1px solid var(--line); }
+.scn-card .field { min-height: 40px; height: 40px; min-width: 0; padding: 0 10px; font-size: min(16px, 4.3cqi); }
+.scn-concept { width: 100%; font-weight: 600; }
+.scn-del { flex: none; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.scn-del svg { width: 16px; height: 16px; }
+.scn-del:active { color: var(--bad); }
+.scn-switch { width: 40px; height: 24px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in oklab, var(--fg) 8%, transparent); padding: 0; position: relative; cursor: pointer; }
+.scn-switch i { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform .18s, background-color .18s; }
+.scn-switch[aria-checked="true"] { background: color-mix(in oklab, var(--scn) 40%, transparent); border-color: var(--scn); }
+.scn-switch[aria-checked="true"] i { transform: translateX(16px); background: var(--scn); }
+
+.scn-mark { position: relative; flex: none; width: 40px; height: 40px; display: grid; place-items: center; }
+.scn-mk { width: 34px; height: 34px; border-radius: 9px; }
+.scn-mk.is-none { display: block; border: 1px dashed var(--line); }
+img.scn-mk { object-fit: cover; }
+.scn-unmark { position: absolute; top: -3px; right: -3px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.scn-unmark svg { width: 10px; height: 10px; }
+.scn-unmark.is-back { color: var(--scn); }
+.scn-amt { position: relative; display: block; min-width: 0; }
+.scn-amt .field { width: 100%; text-align: right; padding: 0 8px 0 30px; font-variant-numeric: tabular-nums; }
+.scn-amt .field.is-nio { padding-left: 38px; }
+.scn-cur { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); z-index: 1; min-width: 24px; height: 28px; border-radius: 8px; padding: 0 4px; border: 0; background: transparent; color: var(--muted); font-size: min(.85rem, 3.8cqi); font-weight: 600; cursor: pointer; }
+.scn-day { min-width: 0; }
+.scn-day .day-field { width: 100%; }
+.scn-day .day-field-btn { width: 100%; min-height: 40px; height: 40px; white-space: nowrap; gap: 4px; padding: 0 8px 0 10px; font-size: min(15px, 3.9cqi); }
+.scn-day .day-field-btn svg { flex: none; }
+.scn-book, .scn-freq { min-width: 0; }
+.scn-card .theme-select-btn { width: 100%; min-height: 40px; white-space: nowrap; font-size: min(15px, 3.9cqi); }
+.scn-book .theme-select, .scn-freq .theme-select { width: 100%; }
+.scn-notef { color: var(--muted); font-size: min(15px, 3.8cqi) !important; }
+.scn-card .theme-select-btn { padding-inline: 10px 6px; gap: 6px; }
+/* Fields Faro guessed: amber edge until they are touched. */
+.scn-card .is-unsure.field, .scn-card .is-unsure .field, .scn-card .is-unsure .day-field-btn, .scn-card .is-unsure .theme-select-btn {
+  border-color: var(--amb) !important; box-shadow: 0 0 0 1px color-mix(in oklab, var(--amb) 45%, transparent);
+}
+.scn-dup { margin: 0; font-size: min(.78rem, 3.7cqi); color: var(--amb); white-space: nowrap; }
+.scn-empty, .scn-note { margin: 0; font-size: min(.8rem, 3.7cqi); color: var(--muted); white-space: nowrap; text-align: center; }
+.scn-foot { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 14px calc(12px + env(safe-area-inset-bottom) * .3); border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.scn-foot .btn { width: 100%; border-radius: 14px; min-height: 48px; white-space: nowrap; }
+[data-theme="tron"] .scn-sheet .scn-amt input.field.num { color: #ffc23a; text-shadow: 0 0 8px rgba(255, 194, 58, .3); }
+[data-theme="tron"] .scn-card { background: color-mix(in oklab, #1c2328 70%, var(--surface)); border-color: color-mix(in oklab, var(--scn) 22%, transparent); }
+@media (prefers-reduced-motion: reduce) { .scn-scrim, .scn-sheet { animation: none; } .scn-switch i, .scn-pi b, .scn-btn { transition: none; } }

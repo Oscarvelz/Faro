@@ -22,9 +22,9 @@ import { shrinkIcon } from "@/lib/faro/icon";
 import { inkOn, washForInk } from "@/lib/faro/palette";
 import { ColorPick, LookGem, QUICK } from "./color-pick";
 import { iconForName, libraryOff, presetName, subPresetsOf } from "@/lib/faro/subs";
-import { BrandIconPick } from "./fit-pick";
+import { BrandIconPick, FreqSheet, LookPick } from "./fit-pick";
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
-import { cadenceLabel, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
+import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, seedRetiro } from "@/lib/faro/retiro";
@@ -33,6 +33,9 @@ import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
+import { ScanEntry } from "./receipt-scan";
+/** Books whose + editor offers Escanear (1.3.101). */
+const SCAN_KINDS: LineKind[] = ["subscription", "purchase", "expense-variable", "expense-fixed"];
 import { StmtScan, type StmtSave } from "./stmt-scan";
 import { useFaro } from "./provider";
 import type { BackupInfo } from "@/spa/vault";
@@ -223,8 +226,7 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
       )}
       {open ? (
         <div className="look-dock" style={{ ["--seg" as string]: color }} onPointerDown={(event) => event.stopPropagation()}>
-          {bubbles ? <p className="look-label"><span className="lab-head">{t("look.bubble")}<FieldTip topic="icono-color" /></span></p> : null}
-          <ColorPick value={color} glyph={glyph} onPick={onColor} onDraft={setDraft} label={t("look.bubble")} />
+          <ColorPick head={bubbles ? <span className="lab-head">{t("look.bubble")}<FieldTip topic="icono-color" /></span> : undefined} value={color} glyph={glyph} onPick={onColor} onDraft={setDraft} onConfirm={() => { setDraft(null); setOpen(false); onClose?.(); }} label={t("look.bubble")} />
           {bubbles ? <p className="look-label"><span className="lab-head">{t("look.icon")}<FieldTip topic="icono-color" /></span></p> : null}
           <div className="look-icons" ref={iconsRef} onScroll={(event) => { const el = event.currentTarget; el.toggleAttribute("data-end", el.scrollTop + el.clientHeight >= el.scrollHeight - 2); }}>
             {LOOK_ICONS.map((name) => (
@@ -248,23 +250,13 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
   useEffect(() => { revealEditor(box.current); }, []);
   return (
     <div ref={box}>
-      <BookLook
-        bubbles
-        glyph={glyph}
-        color={swatch}
-        startOpen={false}
-        onGlyph={(name) => {
-          setGlyph(name);
-          commit((s) => upsertLine(s, { ...line, icon: name }), line.concept || "icon");
-        }}
-        onColor={(next) => {
-          setSwatch(next);
-          setPicked(true);
-          commit((s) => upsertLine(s, { ...line, color: next }), line.concept || "color");
-        }}
-      />
       <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p>
-        <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={picked ? swatch : undefined} dock onClose={() => setUi({ editing: null })} />
+        <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={picked ? swatch : undefined} dock look={{
+          glyph,
+          color: swatch,
+          onGlyph: (name) => { setGlyph(name); commit((s) => upsertLine(s, { ...line, icon: name }), line.concept || "icon"); },
+          onColor: (next) => { setSwatch(next); setPicked(true); commit((s) => upsertLine(s, { ...line, color: next }), line.concept || "color"); },
+        }} onClose={() => setUi({ editing: null })} />
       </div>
     </div>
   );
@@ -862,8 +854,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
       ) : null}
       {ui.draft === draftKind && !ui.editing ? (
         <div className="mt-3" ref={draftRef}>
-          <BookLook bubbles glyph={lookGlyph} color={lookColor} onGlyph={setLookGlyph} onColor={setLookColor} />
-          <LineForm kind={draftKind} money={money} onMoney={setMoney} glyph={lookGlyph} swatch={lookColor} dock onClose={() => setUi({ draft: null })} />
+          <LineForm kind={draftKind} money={money} onMoney={setMoney} glyph={lookGlyph} swatch={lookColor} dock look={{ glyph: lookGlyph, color: lookColor, onGlyph: setLookGlyph, onColor: setLookColor }} scan={SCAN_KINDS.includes(draftKind) ? <ScanEntry from={draftKind} /> : undefined} onClose={() => setUi({ draft: null })} />
         </div>
       ) : null}
       {chipRows.length === 0 ? <Note>{t("empty.lines")}</Note> : null}
@@ -1067,8 +1058,10 @@ function DueOwe() {
   const [editPresets, setEditPresets] = useState(false);
   const presets = subPresetsOf(session?.ledger);
   const [dueIcon, setDueIcon] = useState("");
+  const [dueColor, setDueColor] = useState("#e7c27a");
   const libOff = libraryOff(session?.ledger);
   const [editFreq, setEditFreq] = useState(false);
+  const [otherFreq, setOtherFreq] = useState(false);
   const freqs = freqPresetsOf(session?.ledger);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
   useEffect(() => {
@@ -1101,13 +1094,14 @@ function DueOwe() {
       id, seriesId: id, monthKey: key, kind: "subscription", concept, amountMinor: minor, currency: display,
       active: true, note: "", categoryId: "", subId: "", recurring: true, storeId: "", providerId: "",
       productCode: "", productUrl: "", cadence, nextDue: due || todayIso(), aprBps: 0, balanceMinor: null,
-      balanceCurrency: display, icon: dueIcon || iconForName(concept, presets, lang, libOff) || "RefreshCw", history: [], bookedOn: due || todayIso(), color: "#e7c27a",
+      balanceCurrency: display, icon: dueIcon || iconForName(concept, presets, lang, libOff) || "RefreshCw", history: [], bookedOn: due || todayIso(), color: dueColor,
     };
     commit((s) => upsertLine(s, line), concept);
     setAdding(false);
     setName("");
     setAmount("");
     setDueIcon("");
+    setDueColor("#e7c27a");
   }
   function archive(line: Line) {
     let maxMinor = line.amountMinor;
@@ -1148,7 +1142,7 @@ function DueOwe() {
                 ))}
               </div>
               <div className="due-name-row">
-                <BrandIconPick compact value={dueIcon} suggest={dueIcon ? "" : iconForName(name, presets, lang, libOff)} onChange={(next, label) => { setDueIcon(next); if (next && label && !name.trim()) setName(label); }} />
+                <BrandIconPick compact value={dueIcon} look={{ glyph: dueIcon && !dueIcon.startsWith("sub:") ? dueIcon : "", color: dueColor, onGlyph: setDueIcon, onColor: setDueColor }} suggest={dueIcon ? "" : iconForName(name, presets, lang, libOff)} onChange={(next, label) => { setDueIcon(next); if (next && label && !name.trim()) setName(label); }} />
                 <input className="field" aria-label={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
               </div>
               {editPresets ? <SubPresetEditor lang={lang} presets={presets} onClose={() => setEditPresets(false)} onSave={(next) => commit((s) => ({ ...s, subPresets: next }), lang === "en" ? "Presets" : "Atajos")} /> : null}
@@ -1164,10 +1158,12 @@ function DueOwe() {
             <div className="label is-wide due-freq">
               <span className="lab-head">{t("cobro.cadence")}<button type="button" className="sub-gear is-freq" aria-pressed={editFreq} aria-label={lang === "en" ? "Edit frequencies" : "Editar frecuencias"} onClick={() => setEditFreq((on) => !on)}><Gear /></button><FieldTip topic="f-frecuencia" /></span>
               <div className="due-cadence">
-                {freqs.map((id) => (
+                {[...freqs, ...customFreqsFor(session?.ledger, freqs), ...(cadence && ![...freqs, ...customFreqsFor(session?.ledger, freqs)].includes(cadence) ? [cadence] : [])].map((id) => (
                   <button key={id} type="button" aria-pressed={cadence === id} onClick={() => setCadence(id as Line["cadence"])}>{cadenceLabel(id, lang)}</button>
                 ))}
+                <button type="button" className="due-other" data-test="due-freq-other" aria-pressed={otherFreq} onClick={() => setOtherFreq(true)}><Plus />{lang === "en" ? "Other…" : "Otro…"}</button>
               </div>
+              {otherFreq ? <FreqSheet startSetter value={cadence} presets={freqs} onClose={() => setOtherFreq(false)} onPick={(c) => { setCadence(c as Line["cadence"]); setOtherFreq(false); }} /> : null}
               {editFreq ? <FreqPresetEditor lang={lang} presets={freqs} onClose={() => setEditFreq(false)} onSave={(next) => { commit((s) => ({ ...s, freqPresets: next }), lang === "en" ? "Frequencies" : "Frecuencias"); if (!next.includes(cadence)) setCadence(next.includes("monthly") ? "monthly" : (next[0] as Line["cadence"])); }} /> : null}
             </div>
           </div>
@@ -2563,11 +2559,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <>
             {adding && (pocketKind === "meta" || pocketKind === "emergencia") ? (
               <div className="ah-form is-pocket">
-                <BookLook glyph={pocketGlyph} color={pocketColor} onGlyph={setPocketGlyph} onColor={setPocketColor} />
                 <div className="ah-grid">
                   <label className="label is-wide">
                     <span className="lab-head">{pocketKind === "meta" ? t("save.goal") : t("save.emerg")}<FieldTip topic="f-bolsa-nombre" alt={pocketKind !== "meta"} /></span>
-                    <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
+                    <span className="fit-concept-row" onClick={(e) => { if ((e.target as Element).closest(".fit-pick-btn")) e.preventDefault(); }}>
+                      <LookPick look={{ glyph: pocketGlyph, color: pocketColor, onGlyph: setPocketGlyph, onColor: setPocketColor }} />
+                      <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
+                    </span>
                   </label>
                   <label className="label is-wide">
                     <span className="lab-head">{t("amount")}<FieldTip topic="f-bolsa-monto" /></span>
@@ -2581,13 +2579,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               </div>
             ) : adding ? (
               <>
-                <BookLook glyph={pocketGlyph} color={pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : baseFor(session.ledger.structure, openSeg.categoryId)} onGlyph={setPocketGlyph} onColor={(c) => { setPocketColor(c); setPocketPicked(true); }} />
                 <LineForm
                   kind="expense-fixed"
                   preset={{ categoryId: openSeg.categoryId, subId: openSeg.id === "rest" ? "" : openSeg.id }}
                   glyph={pocketGlyph}
                   swatch={pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : undefined}
                   dock
+                  look={{ glyph: pocketGlyph, color: pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : baseFor(session.ledger.structure, openSeg.categoryId), onGlyph: setPocketGlyph, onColor: (c) => { setPocketColor(c); setPocketPicked(true); } }}
                   onClose={() => setAdding(false)}
                 />
               </>
@@ -3314,7 +3312,7 @@ export function Shops() {
                     </button>
                     {paint === c.id ? (
                       <span className="shop-paint">
-                        <ColorPick face="solid" value={categoryBase(c.id, c.color)} label={t("sc.color")} onPick={(color) => commit((st) => ({
+                        <ColorPick face="solid" value={categoryBase(c.id, c.color)} label={t("sc.color")} onConfirm={() => setPaint(null)} onPick={(color) => commit((st) => ({
                           ...st,
                           structure: { ...st.structure, purchases: st.structure.purchases.map((p) => p.id === c.id ? { ...p, color } : p) },
                         }), color)} />

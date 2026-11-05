@@ -1,17 +1,16 @@
 import { FieldTip } from "./ui";
-import { cadenceLabel } from "@/lib/faro/cadence";
+import { cadenceLabel, freqPresetsOf } from "@/lib/faro/cadence";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
 import { categoryBase, categoryColor, chosenTone } from "@/lib/faro/colors";
-import { ColorPick } from "./color-pick";
 import { monthName } from "@/lib/faro/i18n";
 import { parseAmount, uid } from "@/lib/faro/money";
 import type { Currency, Line, LineKind } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { upsertLine } from "@/lib/faro/reducer";
 import { PersonPick } from "./people";
-import { BrandIconPick, PurchaseCatPick, StorePick } from "./fit-pick";
+import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, StorePick, SubPick, type Look } from "./fit-pick";
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
@@ -178,7 +177,7 @@ function clearReportDraft(mode: "in" | "out") {
   localStorage.removeItem(draftKeyFor(mode));
 }
 
-export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean }) {
+export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look }) {
   const { t, key, session, commit, confirm, focusAmount, names, lang } = useFaro();
   const settings = session?.ledger.settings;
   const structure = session?.ledger.structure;
@@ -293,7 +292,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       bookedOn,
       startedOn,
       // Only a colour the user actually picked is stored; an untouched default stays a default (follows the category).
-      color: swatch || (existing && bubbleTone && tone !== toneStart ? tone : existing?.color),
+      color: swatch || ((bubbleTone || kind === "purchase") && tone !== toneStart ? tone : existing?.color),
       ...(personId ? { personId, ...(existing?.occasionId && existing.personId === personId ? { occasionId: existing.occasionId } : {}) } : {}),
     };
     commit((s) => upsertLine(s, line), `${existing ? "Editar" : "Agregar"} ${line.concept}`);
@@ -305,13 +304,9 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   // Cuotas: a typed brand ("Netflix", "HBO", "Office 365") suggests its library icon until the user picks one.
   const plainIcon = !icon || icon === "RefreshCw";
   const suggest = kind === "subscription" && plainIcon ? iconForName(concept, [], lang, off) : "";
-  const cadenceOptions = [
-    { value: "weekly", label: t("weekly") },
-    { value: "biweekly", label: t("biweekly") },
-    { value: "monthly", label: t("monthly") },
-    { value: "yearly", label: t("yearly") },
-    ...(cadence && !["weekly", "biweekly", "monthly", "yearly"].includes(cadence) ? [{ value: cadence, label: cadenceLabel(cadence, lang) }] : []),
-  ];
+  // The line's look lives in its identifying field (no floating pill): the editor's own look when handed one, else this
+  // form's icon + colour (Fijos, Variables, Compras, Cuotas; Ingresos have no bubble colour).
+  const lookHere: Look | null = look ?? (bubbleTone || kind === "purchase" ? { glyph: icon || "Circle", color: tone, onGlyph: (n) => { setIcon(n); if (kind === "subscription") setBrandTouched(true); }, onColor: (hex) => setTone(hex) } : null);
   const head = (label: string, topic: string) => <span className="lab-head">{label}<FieldTip topic={topic} /></span>;
   // A chosen name too long for half a row takes the whole row (never cut, never "…").
   const long = (name: string | undefined) => ((name ?? "").length > 12 ? " is-long" : "");
@@ -320,18 +315,15 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   return (
     <div className="fit-host">
     <div className="form-block is-fit" data-kind={kind}>
-      {existing && bubbleTone && !dock ? (
-        <div className="tone-pick">
-          <div className="tone-head">
-            <span className="lab-head">{t("look.color")}<FieldTip topic="f-color" /></span>
-          </div>
-          <ColorPick face="bubble" value={tone} glyph={glyph || icon} label={t("look.color")} onPick={setTone} />
-        </div>
-      ) : null}
       <div className="fit-fields">
         <label className="label fit-f is-wide" data-f="concept">
           {head(t("concept"), "f-concepto")}
-          <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />
+          {lookHere && kind !== "subscription" && kind !== "purchase" ? (
+            <span className="fit-concept-row" onClick={(e) => { if ((e.target as Element).closest(".fit-pick-btn")) e.preventDefault(); }}>
+              <LookPick look={lookHere} />
+              <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />
+            </span>
+          ) : <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />}
         </label>
         <label className="label fit-f is-num" data-f="amount">
           {head(t("amount"), "f-monto")}
@@ -349,30 +341,22 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         )}
         {kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase" ? <PersonPick value={personId} onChange={setPersonId} /> : null}
         {group ? (
-          <div className={`label fit-f${long(nameOf(cats, categoryId))}`} data-f="category">
+          <div className={`label fit-f${long(nameOf(structure.categories, categoryId))}`} data-f="category">
             {head(t("category"), "f-categoria")}
-            <ThemeSelect
-              value={categoryId}
-              onChange={(value) => { setCategoryId(value); setSubId(""); }}
-              options={[{ value: "", label: "—" }, ...cats.map((c) => ({ value: c.id, label: displayName(c, lang) }))]}
-            />
+            <CategoryPick group={group} value={categoryId} onChange={(value) => { setCategoryId(value); setSubId(""); }} />
           </div>
         ) : null}
-        {group && subs.length ? (
-          <div className={`label fit-f${long(nameOf(subs, subId))}`} data-f="sub">
+        {group && cat && (subs.length || subId) ? (
+          <div className={`label fit-f${long(nameOf(cat.subs, subId))}`} data-f="sub">
             {head(t("sub"), "f-sub")}
-            <ThemeSelect
-              value={subId}
-              onChange={setSubId}
-              options={[{ value: "", label: "—" }, ...subs.map((s) => ({ value: s.id, label: displayName(s, lang) }))]}
-            />
+            <SubPick categoryId={cat.id} value={subId} onChange={setSubId} />
           </div>
         ) : null}
         {kind === "purchase" ? (
           <>
             <div className={`label fit-f${long(nameOf(structure.catalog, storeId))}`} data-f="store">
               {head(t("store"), "f-tienda-elegir")}
-              <StorePick value={storeId} onChange={setStoreId} />
+              <StorePick value={storeId} onChange={setStoreId} look={lookHere ?? undefined} />
             </div>
             <div className={`label fit-f${long(nameOf(structure.purchases, categoryId))}`} data-f="pcat">
               {head(t("category"), "f-cat-elegir")}
@@ -397,12 +381,12 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         {kind === "subscription" ? (
           <>
             <div className={`label fit-f${long(poolName((icon || suggest).replace(/^sub:/, ""), lang))}`} data-f="brand">
-              {head(lang === "en" ? "Brand" : "Marca", "f-icono-cuota")}
-              <BrandIconPick value={icon} suggest={suggest} onChange={(next, name) => { setIcon(next); setBrandTouched(true); if (next && name && !concept.trim()) setConcept(name); }} />
+              {head(lookHere ? (lang === "en" ? "Icon, colour" : "Ícono y color") : lang === "en" ? "Brand" : "Marca", "f-icono-cuota")}
+              <BrandIconPick value={icon} suggest={suggest} look={lookHere ?? undefined} onChange={(next, name) => { setIcon(next); setBrandTouched(true); if (next && name && !concept.trim()) setConcept(name); }} />
             </div>
-            <div className="label fit-f" data-f="cadence">
+            <div className={`label fit-f${long(cadenceLabel(cadence || "monthly", lang))}`} data-f="cadence">
               {head(t("cadence"), "f-frecuencia")}
-              <ThemeSelect value={cadence} onChange={(value) => setCadence(value as Line["cadence"])} options={cadenceOptions} />
+              <FreqPick value={cadence || "monthly"} presets={freqPresetsOf(session?.ledger)} onChange={(value) => setCadence(value as Line["cadence"])} />
             </div>
             <div className="label fit-f is-day" data-f="first">
               {head(t("pot.first"), "f-primer-pago")}
@@ -461,9 +445,9 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             {head(t("pot.first"), "f-primer-pago")}
             <DayField value={startedOn} onChange={setStartedOn} />
           </div>
-          <div className="label fit-f" data-f="cadence">
+          <div className={`label fit-f${long(cadenceLabel(cadence || "monthly", lang))}`} data-f="cadence">
             {head(t("cadence"), "f-frecuencia")}
-            <ThemeSelect value={cadence || "monthly"} onChange={(value) => setCadence(value as Line["cadence"])} options={cadenceOptions} />
+            <FreqPick value={cadence || "monthly"} presets={freqPresetsOf(session?.ledger)} onChange={(value) => setCadence(value as Line["cadence"])} />
           </div>
         </div>
       ) : null}

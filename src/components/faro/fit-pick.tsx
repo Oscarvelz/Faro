@@ -1,26 +1,36 @@
 /* 1.3.100: compact picker fields for the line editors. A field shows the choice as a chip (its mark + name) or a clear
  * placeholder; tapping it opens one sheet (its own Back layer) with the options grouped, a search when the list is long,
- * and an inline "add". The Cuotas icon library adds an edit state (delete a preset, with confirmation) and a restore. */
+ * and an inline "add". The field that identifies a line (Cuotas → Ícono y color, Compras → Tienda, the other books → the
+ * mark beside Concepto) also carries the line's icon and colour: its sheet adds the colour section (ColorPick, shared) and
+ * the Faro icons, so the floating "Ícono y color" pill is gone from the editors.
+ * The pencil beside the X turns on a manage state: checkboxes and one confirmation for many deletions; categories and
+ * stores also rename inline and categories change colour, with the same data and rules as Compras → engranaje
+ * (deleting = hiding, exactly like that switch: lines keep their category and money history). */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Pencil, Plus, RotateCcw, Search, Sparkles, Store, Tag, X } from "lucide-react";
+import { Check, ChevronDown, Pencil, Plus, Repeat2, RotateCcw, Search, Sparkles, Store, Tag, Trash2, X } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
 import { displayName } from "@/lib/faro/defaults";
 import { categoryColor } from "@/lib/faro/colors";
 import { uid } from "@/lib/faro/money";
-import { SUB_GROUPS, dropLibraryIcon, groupOf, libraryOf, libraryOff, normName, poolName, restoreLibrary } from "@/lib/faro/subs";
-import { BrandMark, Glyph, SubMark } from "./icons";
+import { inkOn, washForInk } from "@/lib/faro/palette";
+import { SUB_GROUPS, groupOf, libraryOf, libraryOff, normName, poolName, restoreLibrary } from "@/lib/faro/subs";
+import { FREQ_BOUNDS, cadenceLabel, customFreqsFor, customToken, dropFreq, intervalOf, rememberFreq, sameCadence, type FreqUnit } from "@/lib/faro/cadence";
+import { BrandMark, Glyph, LOOK_ICONS, SubMark } from "./icons";
+import { ColorPick, LookGem } from "./color-pick";
 import { useFaro } from "./provider";
 import "./fit-form.css";
 
-export type PickItem = { id: string; label: string; mark: ReactNode; group?: string };
+export type PickItem = { id: string; label: string; mark: ReactNode; group?: string; color?: string };
+/** The line's look (Faro icon + colour), shown in and edited from the identifying field. */
+export type Look = { glyph: string; color: string; onGlyph: (name: string) => void; onColor: (hex: string) => void };
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
 
 /** The trigger: looks like a field of the editor, holds the chosen chip or a placeholder. */
-export function PickButton({ mark, text, placeholder, open, onOpen, test, compact }: { mark: ReactNode; text: string; placeholder: string; open: boolean; onOpen: () => void; test?: string; compact?: boolean }) {
+export function PickButton({ mark, text, placeholder, open, onOpen, test, compact, label }: { mark: ReactNode; text: string; placeholder: string; open: boolean; onOpen: () => void; test?: string; compact?: boolean; label?: string }) {
   return (
-    <button type="button" className={`field fit-pick-btn${text ? " is-set" : ""}${compact ? " is-compact" : ""}`} aria-expanded={open} aria-haspopup="dialog" aria-label={compact ? text || placeholder : undefined} data-test={test} onClick={onOpen}>
+    <button type="button" className={`field fit-pick-btn${text ? " is-set" : ""}${compact ? " is-compact" : ""}`} aria-expanded={open} aria-haspopup="dialog" aria-label={compact ? label || text || placeholder : undefined} data-test={test} onClick={onOpen}>
       <span className="fit-pick-mark" aria-hidden>{mark}</span>
       {compact ? null : <span className="fit-pick-text">{text || placeholder}</span>}
       <ChevronDown className="fit-pick-chev" aria-hidden />
@@ -28,7 +38,45 @@ export function PickButton({ mark, text, placeholder, open, onOpen, test, compac
   );
 }
 
-export function PickSheet({ title, items, groups, value, onPick, onClose, add, edit, none, test }: {
+/** Colour section + Faro icons, for the identifying field's sheet. */
+function LookParts({ look, lang, onDone }: { look: Look; lang: string; onDone?: () => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const ink = draft ?? look.color;
+  // Colour, then the Faro icons, after the list the field is about (stores, brands): one sheet, no duplicate titles.
+  return {
+    top: null,
+    tail: (
+      <>
+      <section className="fit-look" data-test="look-color">
+        <ColorPick value={look.color} glyph={look.glyph} onPick={look.onColor} onDraft={setDraft} onConfirm={onDone} label={L(lang, "Color", "Colour")} />
+      </section>
+      <section className="fit-group" data-test="look-icons">
+        <p className="fit-kicker">{L(lang, "Íconos de Faro", "Faro icons")}</p>
+        <div className="look-icons fit-look-icons">
+          {LOOK_ICONS.map((name) => (
+            <button key={name} type="button" aria-pressed={look.glyph === name} aria-label={name} style={{ ["--ink" as string]: ink, background: washForInk(ink), color: inkOn(washForInk(ink)) }} onClick={() => look.onGlyph(name)}><Glyph name={name} /></button>
+          ))}
+        </div>
+      </section>
+      </>
+    ),
+  };
+}
+function useLookParts(look: Look | undefined, lang: string, onDone?: () => void) {
+  const parts = LookParts({ look: look ?? { glyph: "", color: "#888", onGlyph: () => {}, onColor: () => {} }, lang, onDone });
+  return look ? parts : { top: null, tail: null };
+}
+
+type Manage = {
+  /** Many deletions, one confirmation. `word` names the things ("íconos", "categorías"). */
+  onDropMany: (ids: string[]) => void;
+  word: [string, string, string, string];
+  onRename?: (id: string, name: string) => void;
+  onColor?: (id: string, hex: string) => void;
+  onRestore?: () => void;
+};
+
+export function PickSheet({ title, items, groups, value, onPick, onClose, add, manage, none, test, top, tail }: {
   title: string;
   items: PickItem[];
   groups?: { id: string; label: string }[];
@@ -36,20 +84,25 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, e
   onPick: (id: string) => void;
   onClose: () => void;
   add?: { placeholder: string; onAdd: (name: string) => void };
-  edit?: { onDrop: (item: PickItem) => void; onRestore?: () => void };
+  manage?: Manage;
   none?: string;
   test?: string;
+  top?: ReactNode;
+  tail?: ReactNode;
 }) {
-  const { lang } = useFaro();
+  const { lang, confirm } = useFaro();
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [paint, setPaint] = useState<string | null>(null);
   const [name, setName] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   useLayer(true, onClose);
+  // The manage state is its own Back step: Back leaves it first, then closes the sheet.
+  useLayer(editing, () => { setEditing(false); setSel(new Set()); setPaint(null); });
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // The chosen option starts in view.
     requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>("[aria-pressed='true']")?.scrollIntoView({ block: "nearest" }));
     return () => { document.body.style.overflow = prev; };
   }, []);
@@ -58,22 +111,36 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, e
   const sections = groups?.length
     ? groups.map((g) => ({ ...g, rows: shown.filter((it) => (it.group ?? "") === g.id) })).filter((g) => g.rows.length)
     : [{ id: "", label: "", rows: shown }];
+  const visibleIds = sections.flatMap((g) => g.rows.map((r) => r.id));
+  const allOn = visibleIds.length > 0 && visibleIds.every((id) => sel.has(id));
+  const toggle = (id: string) => setSel((cur) => { const next = new Set(cur); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const commitAdd = () => {
     const n = name.trim();
     if (!n || !add) return;
     add.onAdd(n.slice(0, 40));
     setName("");
   };
+  const dropSelected = () => {
+    if (!manage || !sel.size) return;
+    const ids = [...sel];
+    const [one, many] = lang === "en" ? [manage.word[2], manage.word[3]] : [manage.word[0], manage.word[1]];
+    confirm({
+      title: L(lang, `¿Borrar ${ids.length} ${ids.length === 1 ? one : many}?`, `Delete ${ids.length} ${ids.length === 1 ? one : many}?`),
+      body: L(lang, "Las líneas que ya los usan los conservan, con todo su historial.", "Lines already using them keep them, with all their history."),
+      yes: L(lang, "Borrar", "Delete"),
+      run: () => { manage.onDropMany(ids); setSel(new Set()); },
+    });
+  };
   const body = (
     <div className="fit-scrim" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={`fit-sheet${editing ? " is-editing" : ""}`} role="dialog" aria-modal="true" aria-label={title} data-test={test} onPointerDown={(e) => e.stopPropagation()}>
         <div className="fit-sheet-head">
           <strong>{title}</strong>
-          {edit?.onRestore ? (
-            <button type="button" className="fit-sheet-tool" data-test="lib-restore" aria-label={L(lang, "Restaurar de fábrica", "Restore defaults")} onClick={edit.onRestore}><RotateCcw /></button>
+          {manage?.onRestore ? (
+            <button type="button" className="fit-sheet-tool" data-test="lib-restore" aria-label={L(lang, "Restaurar de fábrica", "Restore defaults")} onClick={manage.onRestore}><RotateCcw /></button>
           ) : null}
-          {edit ? (
-            <button type="button" className="fit-sheet-tool" data-test="lib-edit" aria-pressed={editing} aria-label={editing ? L(lang, "Listo", "Done") : L(lang, "Editar lista", "Edit list")} onClick={() => setEditing((v) => !v)}>{editing ? <Check /> : <Pencil />}</button>
+          {manage ? (
+            <button type="button" className="fit-sheet-tool is-pen" data-test="lib-edit" aria-pressed={editing} aria-label={editing ? L(lang, "Listo", "Done") : L(lang, "Administrar", "Manage")} onClick={() => { setEditing((v) => !v); setSel(new Set()); setPaint(null); }}>{editing ? <Check /> : <Pencil />}</button>
           ) : null}
           <button type="button" className="fit-sheet-tool" aria-label={L(lang, "Cerrar", "Close")} onClick={onClose}><X /></button>
         </div>
@@ -84,6 +151,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, e
           </label>
         ) : null}
         <div className="fit-sheet-list" ref={listRef}>
+          {editing ? null : top}
           {none && !needle && !editing ? (
             <div className="fit-grid">
               <button type="button" className="fit-opt is-none" aria-pressed={!value} onClick={() => onPick("")}><span className="fit-opt-mark" aria-hidden><X /></span><span>{none}</span></button>
@@ -93,27 +161,46 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, e
             <section key={g.id || "all"} className="fit-group">
               {g.label ? <p className="fit-kicker">{g.label}</p> : null}
               <div className="fit-grid">
-                {g.rows.map((it) => (
+                {g.rows.map((it) => editing ? (
+                  <div key={it.id} className={`fit-opt is-manage${sel.has(it.id) ? " is-sel" : ""}`} data-id={it.id}>
+                    <input type="checkbox" className="fit-check" aria-label={`${L(lang, "Elegir", "Select")} ${it.label}`} checked={sel.has(it.id)} onChange={() => toggle(it.id)} />
+                    {manage?.onColor ? (
+                      <button type="button" className="fit-opt-mark is-paint" aria-label={L(lang, "Color", "Colour")} aria-pressed={paint === it.id} onClick={() => setPaint(paint === it.id ? null : it.id)}>{it.mark}</button>
+                    ) : <span className="fit-opt-mark" aria-hidden>{it.mark}</span>}
+                    {manage?.onRename ? (
+                      <input className="fit-rename" defaultValue={it.label} aria-label={L(lang, "Nombre", "Name")} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== it.label) manage.onRename!(it.id, v.slice(0, 40)); }} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                    ) : <span className="fit-opt-name" onClick={() => toggle(it.id)}>{it.label}</span>}
+                  </div>
+                ) : (
                   <button
                     key={it.id}
                     type="button"
-                    className="fit-opt"
+                    className={`fit-opt${it.label.length > 16 ? " is-long" : ""}`}
                     data-id={it.id}
-                    aria-pressed={!editing && value === it.id}
-                    aria-label={editing ? `${L(lang, "Borrar", "Delete")} ${it.label}` : undefined}
-                    onClick={() => (editing && edit ? edit.onDrop(it) : onPick(it.id))}
+                    aria-pressed={value === it.id}
+                    onClick={() => onPick(it.id)}
                   >
                     <span className="fit-opt-mark" aria-hidden>{it.mark}</span>
                     <span>{it.label}</span>
-                    {editing ? <i className="fit-opt-x" aria-hidden><X /></i> : null}
                   </button>
                 ))}
               </div>
+              {editing && paint && manage?.onColor && g.rows.some((r) => r.id === paint) ? (
+                <div className="fit-paint" data-test="manage-color">
+                  <ColorPick value={g.rows.find((r) => r.id === paint)?.color ?? "#888"} onPick={(hex) => manage.onColor!(paint, hex)} label={L(lang, "Color", "Colour")} />
+                </div>
+              ) : null}
             </section>
           ))}
           {!sections.some((g) => g.rows.length) ? <p className="fit-empty">{L(lang, "Nada coincide", "No matches")}</p> : null}
+          {editing ? null : tail}
         </div>
-        {add && !editing ? (
+        {editing && manage ? (
+          <div className="fit-manage-bar">
+            <label className="fit-all"><input type="checkbox" className="fit-check" data-test="manage-all" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(visibleIds))} /><span>{L(lang, "Seleccionar todo", "Select all")}</span></label>
+            <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}><Trash2 />{L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
+          </div>
+        ) : add ? (
           <div className="fit-add">
             <input className="field" value={name} placeholder={add.placeholder} aria-label={add.placeholder} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitAdd(); } }} />
             <button type="button" className="fit-add-btn" aria-label={L(lang, "Añadir", "Add")} disabled={!name.trim()} onClick={commitAdd}><Plus /></button>
@@ -125,25 +212,35 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, e
   return createPortal(body, document.body);
 }
 
-/** Compras: the store, as a chip with its brand mark; picker lists every store with an inline "add". */
-export function StorePick({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+/** Compras: the store, as a chip with its brand mark (or the line's icon in its colour); the sheet lists every store with
+ * an inline "add", a manage state, and — when the editor hands its look — the colour and Faro icons of the line. */
+export function StorePick({ value, onChange, look }: { value: string; onChange: (id: string) => void; look?: Look }) {
   const { t, session, commit, lang } = useFaro();
   const [open, setOpen] = useState(false);
+  const parts = useLookParts(look, lang, () => setOpen(false));
   const stores = (session?.ledger.structure.catalog ?? []).filter((c) => c.kind === "store" && (!c.hidden || c.id === value)).sort((a, b) => a.order - b.order);
   const cur = stores.find((s) => s.id === value);
   const markOf = (s: (typeof stores)[number]) => <BrandMark id={s.id} src={s.icon.startsWith("data:") ? s.icon : undefined} className="fit-brand" />;
+  const empty = look && look.glyph && look.glyph !== "Circle" ? <LookGem color={look.color} glyph={look.glyph} /> : look ? <LookGem color={look.color} glyph="Store" /> : <Store />;
   return (
     <>
-      <PickButton test="store-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? markOf(cur) : <Store />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir tienda", "Pick a store")} />
+      <PickButton test="store-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? markOf(cur) : empty} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
       {open ? (
         <PickSheet
           test="store-sheet"
-          title={t("store")}
+          title={look ? L(lang, "Tienda, ícono y color", "Store, icon, colour") : t("store")}
           value={value}
           none={L(lang, "Sin tienda", "No store")}
-          items={stores.map((s) => ({ id: s.id, label: displayName(s, lang), mark: markOf(s) }))}
+          items={stores.filter((s) => !s.hidden).map((s) => ({ id: s.id, label: displayName(s, lang), mark: markOf(s) }))}
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
+          top={parts.top}
+          tail={parts.tail}
+          manage={{
+            word: ["tienda", "tiendas", "store", "stores"],
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) } }), L(lang, "Tiendas", "Stores")); },
+            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } }), name),
+          }}
           add={{
             placeholder: t("shops.addStore"),
             onAdd: (name) => {
@@ -159,7 +256,7 @@ export function StorePick({ value, onChange }: { value: string; onChange: (id: s
   );
 }
 
-/** Compras: the purchase category, as a chip with its colour; picker lists them with an inline "add". */
+/** Compras: the purchase category, as a chip with its colour; picker lists them with an inline "add" and a manage state. */
 export function PurchaseCatPick({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const { t, session, commit, lang } = useFaro();
   const [open, setOpen] = useState(false);
@@ -168,16 +265,22 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
   const dot = (id: string, color?: string) => <i className="fit-dot" style={{ ["--dot" as string]: categoryColor(id, color) }} />;
   return (
     <>
-      <PickButton test="cat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur.id, cur.color) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir rubro", "Pick a group")} />
+      <PickButton test="cat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur.id, cur.color) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
       {open ? (
         <PickSheet
           test="cat-sheet"
           title={t("category")}
           value={value}
           none={L(lang, "Ninguna", "None")}
-          items={cats.map((p) => ({ id: p.id, label: displayName(p, lang), mark: dot(p.id, p.color) }))}
+          items={cats.filter((p) => !p.hidden).map((p) => ({ id: p.id, label: displayName(p, lang), mark: dot(p.id, p.color), color: categoryColor(p.id, p.color) }))}
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
+          manage={{
+            word: ["categoría", "categorías", "category", "categories"],
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (ids.includes(p.id) ? { ...p, hidden: true } : p)) } }), L(lang, "Categorías", "Categories")); },
+            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } }), name),
+            onColor: (id, hex) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, color: hex } : p)) } }), hex),
+          }}
           add={{
             placeholder: t("shops.addCat"),
             onAdd: (name) => {
@@ -193,39 +296,122 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
   );
 }
 
-/** Cuotas: the brand icon from the library (`sub:<id>` in Line.icon). `suggest` is the icon the typed Concepto points at. */
-export function BrandIconPick({ value, suggest, onChange, compact }: { value: string; suggest: string; onChange: (icon: string, label: string) => void; compact?: boolean }) {
-  const { session, commit, confirm, lang } = useFaro();
+/** Fijos / Variables: the category (with its colour) and its subcategory, as chips; same sheet, inline add and manage
+ * state as Compras. Deleting hides, exactly like the eye in Ajustes → Estructura: lines keep their category and history. */
+export function CategoryPick({ group, value, onChange }: { group: "fixed" | "variable"; value: string; onChange: (id: string) => void }) {
+  const { t, session, commit, lang } = useFaro();
   const [open, setOpen] = useState(false);
-  const off = libraryOff(session?.ledger);
-  const lib = useMemo(() => libraryOf(session?.ledger), [session?.ledger]);
-  const own = value === "RefreshCw" ? "" : value;
-  const shown = own || suggest;
-  const id = shown.startsWith("sub:") ? shown.slice(4) : "";
-  // A line whose icon is not from the library (an older Lucide icon) keeps showing it until the user picks another.
-  const other = !id && own ? own : "";
-  const items: PickItem[] = lib.map((row) => ({ id: row[0], label: poolName(row[0], lang), mark: <SubMark id={row[0]} className="fit-brand" />, group: groupOf(row[0]) }));
-  const label = id ? (id.startsWith("data:") ? L(lang, "Ícono propio", "Own icon") : poolName(id, lang)) : other ? L(lang, "Ícono actual", "Current icon") : "";
+  const all = (session?.ledger.structure.categories ?? []).filter((c) => c.group === group).sort((a, b) => a.order - b.order);
+  const cur = all.find((c) => c.id === value);
+  const dot = (id: string, color?: string) => <i className="fit-dot" style={{ ["--dot" as string]: categoryColor(id, color) }} />;
+  const patch = (ids: string[], fn: (c: (typeof all)[number]) => (typeof all)[number], label: string) =>
+    commit((st) => ({ ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (ids.includes(c.id) ? fn(c) : c)) } }), label);
   return (
     <>
-      <PickButton test="brand-pick" compact={compact} open={open} onOpen={() => setOpen(true)} mark={id ? <SubMark id={id} className="fit-brand" /> : other ? <Glyph name={other} /> : <Sparkles />} text={label} placeholder={L(lang, "Elegir marca", "Pick a brand")} />
+      <PickButton test="fcat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur.id, cur.color) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
+      {open ? (
+        <PickSheet
+          test="fcat-sheet"
+          title={t("category")}
+          value={value}
+          none={L(lang, "Ninguna", "None")}
+          items={all.filter((c) => !c.hidden).map((c) => ({ id: c.id, label: displayName(c, lang), mark: dot(c.id, c.color), color: categoryColor(c.id, c.color) }))}
+          onClose={() => setOpen(false)}
+          onPick={(id) => { onChange(id); setOpen(false); }}
+          manage={{
+            word: ["categoría", "categorías", "category", "categories"],
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); patch(ids, (c) => ({ ...c, hidden: true }), L(lang, "Categorías", "Categories")); },
+            onRename: (id, name) => patch([id], (c) => ({ ...c, customName: name }), name),
+            onColor: (id, hex) => patch([id], (c) => ({ ...c, color: hex }), hex),
+          }}
+          add={{
+            placeholder: L(lang, "Nueva categoría", "New category"),
+            onAdd: (name) => {
+              const id = `c-${uid().slice(0, 8)}`;
+              commit((st) => ({ ...st, structure: { ...st.structure, categories: [...st.structure.categories, { id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, group, role: "", subs: [] }] } }), name);
+              onChange(id);
+              setOpen(false);
+            },
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export function SubPick({ categoryId, value, onChange }: { categoryId: string; value: string; onChange: (id: string) => void }) {
+  const { t, session, commit, lang } = useFaro();
+  const [open, setOpen] = useState(false);
+  const cat = session?.ledger.structure.categories.find((c) => c.id === categoryId);
+  const subs = (cat?.subs ?? []).slice().sort((a, b) => a.order - b.order);
+  const cur = subs.find((x) => x.id === value);
+  const patchSubs = (fn: (list: typeof subs) => typeof subs, label: string) =>
+    commit((st) => ({ ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (c.id === categoryId ? { ...c, subs: fn(c.subs) } : c)) } }), label);
+  return (
+    <>
+      <PickButton test="sub-pick" open={open} onOpen={() => setOpen(true)} mark={<Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
+      {open ? (
+        <PickSheet
+          test="sub-sheet"
+          title={t("sub")}
+          value={value}
+          none={L(lang, "Ninguna", "None")}
+          items={subs.filter((x) => !x.hidden).map((x) => ({ id: x.id, label: displayName(x, lang), mark: <Tag /> }))}
+          onClose={() => setOpen(false)}
+          onPick={(id) => { onChange(id); setOpen(false); }}
+          manage={{
+            word: ["subcategoría", "subcategorías", "subcategory", "subcategories"],
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); patchSubs((list) => list.map((x) => (ids.includes(x.id) ? { ...x, hidden: true } : x)), t("sub")); },
+            onRename: (id, name) => patchSubs((list) => list.map((x) => (x.id === id ? { ...x, customName: name } : x)), name),
+          }}
+          add={{
+            placeholder: L(lang, "Nueva subcategoría", "New subcategory"),
+            onAdd: (name) => {
+              const id = `s-${uid().slice(0, 8)}`;
+              patchSubs((list) => [...list, { id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99 }], name);
+              onChange(id);
+              setOpen(false);
+            },
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** Cuotas: "Ícono y color" — a brand from the library (`sub:<id>`) or a Faro icon, plus the line's colour. */
+export function BrandIconPick({ value, suggest, onChange, compact, look }: { value: string; suggest: string; onChange: (icon: string, label: string) => void; compact?: boolean; look?: Look }) {
+  const { session, commit, confirm, lang } = useFaro();
+  const [open, setOpen] = useState(false);
+  const parts = useLookParts(look ? { ...look, onGlyph: (name) => { look.onGlyph(name); onChange(name, ""); } } : undefined, lang, () => setOpen(false));
+  const off = libraryOff(session?.ledger);
+  const lib = useMemo(() => libraryOf(session?.ledger), [session?.ledger]);
+  const own = value === "RefreshCw" || value === "Circle" ? "" : value;
+  const shown = own || suggest;
+  const id = shown.startsWith("sub:") ? shown.slice(4) : "";
+  // A Faro icon (or an older Lucide icon) shows in the line's colour.
+  const other = !id && own ? own : "";
+  const items: PickItem[] = lib.map((row) => ({ id: row[0], label: poolName(row[0], lang), mark: <SubMark id={row[0]} className="fit-brand" />, group: groupOf(row[0]) }));
+  const label = id ? (id.startsWith("data:") ? L(lang, "Ícono propio", "Own icon") : poolName(id, lang)) : other ? L(lang, "Ícono de Faro", "Faro icon") : "";
+  const mark = id ? <SubMark id={id} className="fit-brand" /> : other ? (look ? <LookGem color={look.color} glyph={other} /> : <Glyph name={other} />) : look ? <LookGem color={look.color} glyph="Sparkles" /> : <Sparkles />;
+  return (
+    <>
+      <PickButton test="brand-pick" compact={compact} label={L(lang, "Ícono y color", "Icon and colour")} open={open} onOpen={() => setOpen(true)} mark={mark} text={label} placeholder={L(lang, "Elegir", "Choose")} />
       {open ? (
         <PickSheet
           test="brand-sheet"
-          title={L(lang, "Marca de la cuota", "Payment brand")}
+          title={look ? L(lang, "Ícono y color", "Icon and colour") : L(lang, "Marca de la cuota", "Payment brand")}
           value={id}
-          none={L(lang, "Sin ícono", "No icon")}
+          none={L(lang, "Sin marca", "No brand")}
           items={items}
           groups={SUB_GROUPS.map(([g, es, en]) => ({ id: g, label: L(lang, es, en) }))}
           onClose={() => setOpen(false)}
           onPick={(pick) => { onChange(pick ? `sub:${pick}` : "", pick ? poolName(pick, lang) : ""); setOpen(false); }}
-          edit={{
-            onDrop: (it) => confirm({
-              title: L(lang, "Borrar de la lista", "Delete from the list"),
-              body: L(lang, `${it.label} sale de la biblioteca. Las cuotas que ya lo usan lo conservan.`, `${it.label} leaves the library. Payments already using it keep it.`),
-              yes: L(lang, "Borrar", "Delete"),
-              run: () => commit((s) => dropLibraryIcon(s, it.id), it.label),
-            }),
+          top={parts.top}
+          tail={parts.tail}
+          manage={{
+            word: ["ícono", "íconos", "icon", "icons"],
+            onDropMany: (ids) => commit((s) => ({ ...s, subIconsOff: [...new Set([...(s.subIconsOff ?? []), ...ids.filter((x) => lib.some((r) => r[0] === x))])] }), L(lang, "Íconos", "Icons")),
             onRestore: off.size ? () => confirm({
               title: L(lang, "Restaurar de fábrica", "Restore defaults"),
               body: L(lang, "Vuelven todos los íconos borrados. No se cambia ninguna cuota.", "Every deleted icon comes back. No payment is changed."),
@@ -235,6 +421,127 @@ export function BrandIconPick({ value, suggest, onChange, compact }: { value: st
           }}
         />
       ) : null}
+    </>
+  );
+}
+
+/** The other books: the line's icon and colour as a compact mark beside Concepto; the sheet is colour + Faro icons. */
+export function LookPick({ look }: { look: Look }) {
+  const { lang } = useFaro();
+  const [open, setOpen] = useState(false);
+  const parts = useLookParts(look, lang, () => setOpen(false));
+  return (
+    <>
+      <PickButton test="look-pick" compact label={L(lang, "Ícono y color", "Icon and colour")} open={open} onOpen={() => setOpen(true)} mark={<LookGem color={look.color} glyph={look.glyph && look.glyph !== "Circle" ? look.glyph : undefined} />} text="" placeholder="" />
+      {open ? <PickSheet test="look-sheet" title={L(lang, "Ícono y color", "Icon and colour")} value="" items={[]} onPick={() => {}} onClose={() => setOpen(false)} top={parts.top} tail={parts.tail} /> : null}
+    </>
+  );
+}
+
+/* ---------- Frecuencia with "Otro…" (1.3.100) ---------- */
+const UNITS: [FreqUnit, string, string][] = [["d", "días", "days"], ["w", "semanas", "weeks"], ["m", "meses", "months"], ["y", "años", "years"]];
+
+/** The frequency sheet: presets, the user's saved ones (removable in edit state) and "Otro…" with a "Cada N …" setter. */
+export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { value: string; presets: string[]; onPick: (token: string) => void; onClose: () => void; startSetter?: boolean }) {
+  const { lang, session, commit, confirm } = useFaro();
+  const [setter, setSetter] = useState(!!startSetter);
+  const [editing, setEditing] = useState(false);
+  const iv = intervalOf(value);
+  const [n, setN] = useState(() => (iv ? String(iv.unit === "d" && iv.every % 7 === 0 && value.endsWith("w") ? iv.every / 7 : iv.every) : "2"));
+  const [unit, setUnit] = useState<FreqUnit>(() => (value.endsWith("w") ? "w" : iv?.unit ?? "w"));
+  const [err, setErr] = useState(false);
+  useLayer(true, onClose);
+  // From the list, the setter is its own Back step; opened straight on "Otro…" it shares the sheet's.
+  useLayer(setter && !startSetter, () => setSetter(false));
+  // The edit state is its own Back step too (same as the pencil in the other sheets).
+  useLayer(editing, () => setEditing(false));
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+  const mine = customFreqsFor(session?.ledger, presets);
+  const extra = value && intervalOf(value) && ![...presets, ...mine].some((c) => sameCadence(c, value)) ? [value] : [];
+  const save = () => {
+    const token = customToken(Number(n), unit);
+    if (!token) { setErr(true); return; }
+    if (!presets.some((c) => sameCadence(c, token))) commit((s) => rememberFreq(s, token), cadenceLabel(token, lang));
+    onPick(presets.find((c) => sameCadence(c, token)) ?? token);
+  };
+  const opt = (c: string, own = false) => (
+    <button key={c} type="button" className={`fit-opt is-freq${own ? " is-own" : ""}`} data-id={c} aria-pressed={!editing && sameCadence(value, c)}
+      aria-label={editing && own ? `${L(lang, "Borrar", "Delete")} ${cadenceLabel(c, lang)}` : undefined}
+      onClick={() => {
+        if (!editing) { onPick(c); return; }
+        if (!own) return;
+        confirm({
+          title: L(lang, "Borrar frecuencia", "Delete frequency"),
+          body: L(lang, `${cadenceLabel(c, lang)} sale de la lista. Las líneas que ya la usan la conservan.`, `${cadenceLabel(c, lang)} leaves the list. Lines already using it keep it.`),
+          yes: L(lang, "Borrar", "Delete"),
+          run: () => commit((s) => dropFreq(s, c), cadenceLabel(c, lang)),
+        });
+      }}>
+      <span>{cadenceLabel(c, lang)}</span>
+      {editing && own ? <i className="fit-opt-x" aria-hidden><X /></i> : null}
+    </button>
+  );
+  const body = (
+    <div className="fit-scrim" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={`fit-sheet is-freq${editing ? " is-editing" : ""}`} role="dialog" aria-modal="true" aria-label={L(lang, "Frecuencia", "Frequency")} data-test="freq-sheet" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="fit-sheet-head">
+          <strong>{setter ? L(lang, "Otra frecuencia", "Other frequency") : L(lang, "Frecuencia", "Frequency")}</strong>
+          {!setter && mine.length ? (
+            <button type="button" className="fit-sheet-tool" data-test="freq-edit" aria-pressed={editing} aria-label={editing ? L(lang, "Listo", "Done") : L(lang, "Editar lista", "Edit list")} onClick={() => setEditing((v) => !v)}>{editing ? <Check /> : <Pencil />}</button>
+          ) : null}
+          <button type="button" className="fit-sheet-tool" aria-label={L(lang, "Cerrar", "Close")} onClick={onClose}><X /></button>
+        </div>
+        {setter ? (
+          <div className="freq-set" data-test="freq-set">
+            <div className="freq-set-row">
+              <span>{L(lang, "Cada", "Every")}</span>
+              <input className="field num" inputMode="numeric" aria-label={L(lang, "Cuántos", "How many")} value={n} autoFocus onChange={(e) => { setN(e.target.value.replace(/\D/g, "").slice(0, 3)); setErr(false); }} />
+              <em>1–{FREQ_BOUNDS[unit]}</em>
+              <p className={`freq-set-read${err ? " bad" : ""}`}>{err ? L(lang, "Fuera de rango", "Out of range") : customToken(Number(n), unit) ? cadenceLabel(customToken(Number(n), unit), lang) : "—"}</p>
+            </div>
+            <div className="freq-set-units" role="group" aria-label={L(lang, "Unidad", "Unit")}>
+              {UNITS.map(([u, es, en]) => <button key={u} type="button" data-unit={u} aria-pressed={unit === u} onClick={() => { setUnit(u); setErr(false); }}>{L(lang, es, en)}</button>)}
+            </div>
+            
+            <div className="fit-actions freq-set-actions">
+              <button type="button" className="btn secondary" onClick={() => (startSetter ? onClose() : setSetter(false))}>{L(lang, "Cancelar", "Cancel")}</button>
+              <button type="button" className="btn" data-test="freq-save" onClick={save}>{L(lang, "Guardar", "Save")}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="fit-sheet-list">
+            <div className="fit-grid">{[...presets, ...extra].map((c) => opt(c))}</div>
+            {mine.length ? (
+              <section className="fit-group">
+                <p className="fit-kicker">{L(lang, "Tus frecuencias", "Your frequencies")}</p>
+                <div className="fit-grid">{mine.map((c) => opt(c, true))}</div>
+              </section>
+            ) : null}
+            {editing ? null : (
+              <div className="fit-grid">
+                <button type="button" className="fit-opt is-other" data-test="freq-other" onClick={() => setSetter(true)}><span className="fit-opt-mark" aria-hidden><Plus /></span><span>{L(lang, "Otro…", "Other…")}</span></button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  return createPortal(body, document.body);
+}
+
+/** The Frecuencia field of the line editors: a field-like button with the chosen rhythm; opens FreqSheet. */
+export function FreqPick({ value, presets, onChange }: { value: string; presets: string[]; onChange: (token: string) => void }) {
+  const { lang } = useFaro();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <PickButton test="freq-pick" open={open} onOpen={() => setOpen(true)} mark={<Repeat2 />} text={cadenceLabel(value, lang)} placeholder={L(lang, "Elegir", "Choose")} />
+      {open ? <FreqSheet value={value} presets={presets} onClose={() => setOpen(false)} onPick={(c) => { onChange(c); setOpen(false); }} /> : null}
     </>
   );
 }

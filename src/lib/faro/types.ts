@@ -246,6 +246,8 @@ export type LedgerState = {
   subIconsOff?: string[];
   /** Cuotas frequency chips (1.3.76): cadence tokens in order. Missing in older ledgers (= the four defaults). */
   freqPresets?: string[];
+  /** 1.3.100: frequencies the user set with "Otro…" ("3w", "10d"…), newest first, at most 4. Absent = none. */
+  freqCustom?: string[];
   /** Custom colours the user saved in the colour picker (1.3.99), newest first, at most 6. Missing in older ledgers (= none). */
   myColors?: string[];
   /** Default Retiro presets the user removed (1.3.81, e.g. "primerica"). Missing = all offered. See retiro.ts. */
