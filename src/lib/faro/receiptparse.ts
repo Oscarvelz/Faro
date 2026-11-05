@@ -134,7 +134,7 @@ function cadenceOf(text: string): "" | "weekly" | "monthly" | "yearly" {
 
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 864e5);
 
-/** "Acloset - AI Fashion Assistant" → "Acloset"; "ElevenReader: Read Books Aloud" → "ElevenReader". */
+/** "Notefold - AI Notes Assistant" → "Notefold"; "Readwise Lite: Books Aloud" → "Readwise Lite". */
 export function cleanAppName(name: string): string {
   let s = cleanOcr(name).replace(/^[•·*\-–\s]+/, "");
   const cut = s.split(/\s+[-–—|]\s+|:\s+|\s+\(/)[0].trim();

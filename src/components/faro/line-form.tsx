@@ -1,6 +1,6 @@
 import { FieldTip } from "./ui";
 import { cadenceLabel, freqPresetsOf } from "@/lib/faro/cadence";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
 import { categoryBase, categoryColor, chosenTone } from "@/lib/faro/colors";
@@ -177,7 +177,7 @@ function clearReportDraft(mode: "in" | "out") {
   localStorage.removeItem(draftKeyFor(mode));
 }
 
-export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look }) {
+export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look, scan }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look; scan?: ReactNode }) {
   const { t, key, session, commit, confirm, focusAmount, names, lang } = useFaro();
   const settings = session?.ledger.settings;
   const structure = session?.ledger.structure;
@@ -324,6 +324,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
               <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />
             </span>
           ) : <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />}
+          {scan}
         </label>
         <label className="label fit-f is-num" data-f="amount">
           {head(t("amount"), "f-monto")}

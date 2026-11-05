@@ -100,11 +100,12 @@ img.scn-mk { object-fit: cover; }
 .scn-day .day-field-btn svg { flex: none; }
 .scn-book, .scn-freq { min-width: 0; }
 .scn-card .theme-select-btn { width: 100%; min-height: 40px; white-space: nowrap; font-size: min(15px, 3.9cqi); }
-.scn-book .theme-select, .scn-freq .theme-select { width: 100%; }
+.scn-book .theme-select { width: 100%; }
+.scn-freq .fit-pick-btn { width: 100%; min-height: 40px; height: 40px; white-space: nowrap; font-size: min(15px, 3.9cqi); }
 .scn-notef { color: var(--muted); font-size: min(15px, 3.8cqi) !important; }
 .scn-card .theme-select-btn { padding-inline: 10px 6px; gap: 6px; }
 /* Fields Faro guessed: amber edge until they are touched. */
-.scn-card .is-unsure.field, .scn-card .is-unsure .field, .scn-card .is-unsure .day-field-btn, .scn-card .is-unsure .theme-select-btn {
+.scn-card .is-unsure.field, .scn-card .is-unsure .field, .scn-card .is-unsure .day-field-btn, .scn-card .is-unsure .theme-select-btn, .scn-card .is-unsure .fit-pick-btn {
   border-color: var(--amb) !important; box-shadow: 0 0 0 1px color-mix(in oklab, var(--amb) 45%, transparent);
 }
 .scn-dup { margin: 0; font-size: min(.78rem, 3.7cqi); color: var(--amb); white-space: nowrap; }

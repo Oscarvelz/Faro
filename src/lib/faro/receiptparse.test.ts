@@ -101,8 +101,8 @@ describe("readers", () => {
     assert.deepEqual(datesLoose("Próximo pago: US$49.99 el 18 ene 2027", TODAY), ["2027-01-18"]);
   });
   it("cleans app names", () => {
-    assert.equal(cleanAppName("Acloset - AI Fashion Assistant"), "Acloset");
-    assert.equal(cleanAppName("ElevenReader: Read Books Aloud"), "ElevenReader");
+    assert.equal(cleanAppName("Notefold - AI Notes Assistant"), "Notefold");
+    assert.equal(cleanAppName("Readwise Lite: Books Aloud"), "Readwise Lite");
     assert.equal(cleanAppName("Google One"), "Google One");
   });
   it("tells a subscriptions screen from a receipt", () => {

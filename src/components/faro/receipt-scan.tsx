@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type MouseEvent, type RefObject } from "re
 import { createPortal } from "react-dom";
 import { Aperture, Camera, Check, Trash2, X } from "lucide-react";
 import { isDuplicate, parseScan, type ScanBook, type ScanDraft, type ScanField } from "@/lib/faro/receiptparse";
-import { cadenceLabel, freqPresetsOf } from "@/lib/faro/cadence";
+import { freqPresetsOf } from "@/lib/faro/cadence";
 import { parseAmount, uid } from "@/lib/faro/money";
 import { upsertLine } from "@/lib/faro/reducer";
 import { displayName } from "@/lib/faro/defaults";
@@ -19,6 +19,7 @@ import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { SubMark } from "./icons";
 import { DayField, ThemeSelect } from "./line-form";
+import { FreqPick } from "./fit-pick";
 import "./scan.css";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
@@ -146,8 +147,8 @@ function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; on
     { value: "expense-variable", label: t("nav.variable") },
     { value: "expense-fixed", label: t("nav.fixed") },
   ];
+  // The editor's own frequency sheet: the user's chips plus "Otro…" (its custom rhythms are remembered like in the editor).
   const presets = freqPresetsOf(ledger);
-  const freqOpts = [...new Set(["monthly", "yearly", "weekly", ...presets])].map((v) => ({ value: v, label: cadenceLabel(v, lang) }));
 
   return (
     <div className="scn-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) close(); }}>
@@ -170,7 +171,7 @@ function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; on
             </div>
           ) : null}
           {cards.map((c) => (
-            <DraftCard key={c.id} c={c} lang={lang} bookOpts={bookOpts} freqOpts={freqOpts} onSet={(p) => set(c.id, p)} onDrop={() => setCards((l) => l.filter((x) => x.id !== c.id))} />
+            <DraftCard key={c.id} c={c} lang={lang} bookOpts={bookOpts} presets={presets} onSet={(p) => set(c.id, p)} onDrop={() => setCards((l) => l.filter((x) => x.id !== c.id))} />
           ))}
           {done && !cards.length ? <p className="scn-empty">{L(lang, "No encontré montos. Prueba otra foto.", "No amounts found. Try another photo.")}</p> : null}
           {done && cards.length ? <p className="scn-note">{L(lang, "Las fotos no se guardan ni salen del teléfono.", "Photos are never kept or sent anywhere.")}</p> : null}
@@ -209,8 +210,8 @@ function toCard(d: ScanDraft, src: number, thumb: string, crop: string, from: Li
   };
 }
 
-function DraftCard({ c, lang, bookOpts, freqOpts, onSet, onDrop }: {
-  c: Card; lang: string; bookOpts: { value: string; label: string }[]; freqOpts: { value: string; label: string }[];
+function DraftCard({ c, lang, bookOpts, presets, onSet, onDrop }: {
+  c: Card; lang: string; bookOpts: { value: string; label: string }[]; presets: string[];
   onSet: (p: Partial<Card>) => void; onDrop: () => void;
 }) {
   const un = (f: ScanField) => (c.unsure.includes(f) ? " is-unsure" : "");
@@ -236,7 +237,7 @@ function DraftCard({ c, lang, bookOpts, freqOpts, onSet, onDrop }: {
           <input className={`field num${c.currency === "NIO" ? " is-nio" : ""}`} inputMode="decimal" value={c.amount} placeholder="0.00" aria-label={L(lang, "Monto", "Amount")} onChange={(e) => onSet({ amount: e.target.value })} />
         </span>
         <span className={`scn-day${un("date")}`} aria-label={sub ? L(lang, "Próximo cobro", "Next charge") : L(lang, "Día", "Day")}><DayField value={c.date} onChange={(v) => onSet({ date: v })} /></span>
-        {recur ? <span className={`scn-freq${un("cadence")}`}><ThemeSelect value={c.cadence || "monthly"} options={freqOpts} onChange={(v) => onSet({ cadence: v })} /></span> : null}
+        {recur ? <span className={`scn-freq${un("cadence")}`}><FreqPick value={c.cadence || "monthly"} presets={presets} onChange={(v) => onSet({ cadence: v })} /></span> : null}
         {c.thumb ? <img className="scn-thumb" src={c.thumb} alt="" /> : null}
         <span className="scn-book"><ThemeSelect value={c.book} options={bookOpts} onChange={(v) => onSet({ book: v as Card["book"], cadence: c.cadence || (v === "subscription" || v === "expense-fixed" ? "monthly" : "") })} /></span>
         <input className="field scn-notef" value={c.note} placeholder={L(lang, "Nota", "Note")} aria-label={L(lang, "Nota", "Note")} onChange={(e) => onSet({ note: e.target.value })} />
