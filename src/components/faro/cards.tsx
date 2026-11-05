@@ -14,6 +14,7 @@ import { Aperture, Camera, Check, ChevronDown, CreditCard as CardIcon, Images, P
 import "./cards.css";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
+import { FieldTip } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { DayField } from "./line-form";
 import { ColorPick } from "./color-pick";
@@ -160,6 +161,7 @@ function UtilLine({ util, balance, limit }: { util: number; balance: number; lim
     <p className="cg-util" data-lvl={lvl}>
       <i aria-hidden><b style={{ width: `${Math.min(100, util * 100).toFixed(1)}%` }} /><s aria-hidden /></i>
       <span>{L("Uso", "Use")} <b className="num">{Math.round(util * 100)}%</b>{cut > 0 ? <> · {L("baja", "pay")} <b className="num">{fmt(cut)}</b> {L("para 30%", "to reach 30%")}</> : <> · {L("bajo 30%", "under 30%")}</>}</span>
+      <Hint topic="tc-uso" />
     </p>
   );
 }
@@ -256,6 +258,23 @@ function Chooser({ at, onCamera, onImages, onManual, onClose, L }: { at: DOMRect
 function Sheet({ title, art, children, foot, onClose, anchor, tone = "owe" }: { title: ReactNode; art?: ReactNode; children: ReactNode; foot?: ReactNode; onClose: () => void; anchor: string; tone?: string }) {
   const L = useL();
   useLayer(true, onClose);
+  const sheet = useRef<HTMLDivElement>(null);
+  // 1.3.110: a card name in the title never runs under the X: full name, else ≥ 82% of its size, else its short name.
+  useLayoutEffect(() => {
+    const t = sheet.current?.querySelector<HTMLElement>(".cd-title");
+    if (!t || !t.parentElement) return;
+    const fit = () => {
+      t.style.removeProperty("font-size");
+      if (t.dataset.full) t.textContent = t.dataset.full;
+      const room = t.parentElement!.clientWidth;
+      let k = room / Math.max(1, t.scrollWidth);
+      if (k >= 1) return;
+      if (k < 0.82 && t.dataset.short) { t.textContent = t.dataset.short; k = Math.min(1, room / Math.max(1, t.scrollWidth)); }
+      if (k < 1) t.style.fontSize = `${(parseFloat(getComputedStyle(t).fontSize) * Math.max(0.82, k)).toFixed(2)}px`;
+    };
+    fit();
+    void document.fonts?.ready.then(fit);
+  });
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
@@ -263,7 +282,7 @@ function Sheet({ title, art, children, foot, onClose, anchor, tone = "owe" }: { 
   });
   return createPortal(
     <div className="scn-scrim card-scrim" data-tone={tone} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="scn-sheet card-sheet" role="dialog" aria-modal="true" data-anchor={anchor}>
+      <div ref={sheet} className="scn-sheet card-sheet" role="dialog" aria-modal="true" data-anchor={anchor}>
         <div className="scn-head card-head">
           {art ?? <span className="scn-badge" aria-hidden><CardIcon /></span>}
           <h3 className="lab-head">{title}</h3>
@@ -327,7 +346,7 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
   };
   const v = (m: number) => fmt(view(m, card.currency));
   return (
-    <Sheet anchor="card-sheet" onClose={onClose} art={<CardArt card={card} big />} title={<span className="cd-title">{card.name}</span>}
+    <Sheet anchor="card-sheet" onClose={onClose} art={<CardArt card={card} big />} title={<span className="cd-title" data-full={card.name} data-short={shortName(card.name)}>{card.name}</span>}
       foot={paying ? (
         <><button type="button" className="btn secondary" onClick={() => setPaying(false)}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-pay-save" onClick={pay}>{L("Guardar", "Save")}</button></>
       ) : (
@@ -335,22 +354,22 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
           <ShotButton full label={L("Actualizar", "Update")} onFiles={(fl) => { onClose(); onShots(fl); }} onManual={() => { onClose(); onManual(); }} /></>
       )}>
       <div className="cd-hero">
-        <div><em>{L("Saldo", "Balance")}</em><strong className="num cd-bal">{f.known ? v(f.balance) : "—"}</strong></div>
+        <div><em className="lab-head">{L("Saldo", "Balance")}<Hint topic="tc-saldo" /></em><strong className="num cd-bal">{f.known ? v(f.balance) : "—"}</strong></div>
         {f.delta != null && f.delta !== 0 ? <span className={`cr-trend ${f.delta > 0 ? "is-up" : "is-down"}`}>{f.delta > 0 ? L("creciendo", "growing") : L("bajando", "going down")} {f.delta > 0 ? "+" : "−"}{v(Math.abs(f.delta))}</span> : null}
       </div>
       {f.known ? <Spark card={card} ledger={ledger} /> : <p className="cd-soft">{card.manualOnly ? L("Este banco no deja tomar capturas: actualízala con Manual.", "This bank blocks screenshots: update it with Manual.") : L("Toca Actualizar y elige una captura de tu banco o escribe los datos.", "Tap Update and pick a screenshot from your bank or type the figures.")}</p>}
-      {f.util != null ? <p className="cg-util" data-lvl={utilLevel(f.util)}><i aria-hidden><b style={{ width: `${Math.min(100, f.util * 100).toFixed(1)}%` }} /><s aria-hidden /></i><span>{L("Uso", "Use")} <b className="num">{Math.round(f.util * 100)}%</b>{toThirty(f.balance, f.limit ?? 0) > 0 ? <> · {L("baja", "pay")} <b className="num">{v(toThirty(f.balance, f.limit ?? 0))}</b> {L("para 30%", "to reach 30%")}</> : null}</span></p> : null}
+      {f.util != null ? <p className="cg-util" data-lvl={utilLevel(f.util)}><i aria-hidden><b style={{ width: `${Math.min(100, f.util * 100).toFixed(1)}%` }} /><s aria-hidden /></i><span>{L("Uso", "Use")} <b className="num">{Math.round(f.util * 100)}%</b>{toThirty(f.balance, f.limit ?? 0) > 0 ? <> · {L("baja", "pay")} <b className="num">{v(toThirty(f.balance, f.limit ?? 0))}</b> {L("para 30%", "to reach 30%")}</> : null}</span><Hint topic="tc-uso" /></p> : null}
       <div className="cd-facts">
-        <span><em>{L("Límite", "Limit")}</em><b className="num">{f.limit != null ? v(f.limit) : "—"}</b></span>
-        <span><em>{L("Disponible", "Available")}</em><b className="num">{f.avail != null ? v(f.avail) : "—"}</b></span>
-        <span><em>{L("Pago mínimo", "Minimum")}</em><b className="num">{f.min != null ? v(f.min) : "—"}</b></span>
-        <span><em>{L("Fecha de pago", "Due date")}</em><b>{f.dueOn ? dayLabel(f.dueOn, lang) : "—"}</b></span>
-        <span><em>{L("Tasa anual", "APR")}</em><b className="num">{card.aprBps ? pctText(card.aprBps, lang) : "—"}{promo ? ` · 0% ${dayLabel(card.promoUntil!, lang)}` : ""}</b></span>
-        <span><em>{L("Interés al mes", "Interest a month")}</em><b className="num">{f.known ? `${card.aprBps || promo ? "" : "≈ "}${v(monthly)}` : "—"}</b></span>
+        <span><em>{L("Límite", "Limit")}<Hint topic="tc-limite" /></em><b className="num">{f.limit != null ? v(f.limit) : "—"}</b></span>
+        <span><em>{L("Disponible", "Available")}<Hint topic="tc-disponible" /></em><b className="num">{f.avail != null ? v(f.avail) : "—"}</b></span>
+        <span><em>{L("Pago mínimo", "Minimum")}<Hint topic="tc-minimo" /></em><b className="num">{f.min != null ? v(f.min) : "—"}</b></span>
+        <span><em>{L("Fecha de pago", "Due date")}<Hint topic="tc-fecha" /></em><b>{f.dueOn ? dayLabel(f.dueOn, lang) : "—"}</b></span>
+        <span><em>{L("Tasa anual", "APR")}<Hint topic="tc-tasa" /></em><b className="num">{card.aprBps ? pctText(card.aprBps, lang) : "—"}{promo ? ` · 0% ${dayLabel(card.promoUntil!, lang)}` : ""}</b></span>
+        <span><em>{L("Interés al mes", "Interest a month")}<Hint topic="tc-interes" /></em><b className="num">{f.known ? `${card.aprBps || promo ? "" : "≈ "}${v(monthly)}` : "—"}</b></span>
         <span><em>{L("Pago automático", "Autopay")}</em><b>{card.autopay == null ? "—" : card.autopay ? L("Sí", "On") : L("No", "Off")}</b></span>
-        {f.last?.lastPayMinor != null ? <span><em>{L("Último pago", "Last payment")}</em><b className="num">{v(f.last.lastPayMinor)}{f.last.lastPayOn ? ` · ${dayLabel(f.last.lastPayOn, lang)}` : ""}</b></span> : null}
-        {f.last?.statementMinor != null ? <span><em>{L("Saldo al corte", "Statement")}</em><b className="num">{v(f.last.statementMinor)}</b></span> : null}
-        {(f.last?.notes ?? []).map((n, i) => <span key={`n${i}`} className="cd-note"><em>{n.label}</em><b className="num">{n.text}</b></span>)}
+        {f.last?.lastPayMinor != null ? <span><em>{L("Último pago", "Last payment")}<Hint topic="tc-ultimo-pago" /></em><b className="num">{v(f.last.lastPayMinor)}{f.last.lastPayOn ? ` · ${dayLabel(f.last.lastPayOn, lang)}` : ""}</b></span> : null}
+        {f.last?.statementMinor != null ? <span><em>{L("Saldo al corte", "Statement")}<Hint topic="tc-corte" /></em><b className="num">{v(f.last.statementMinor)}</b></span> : null}
+        {(f.last?.notes ?? []).map((n, i) => <span key={`n${i}`} className="cd-note"><em>{n.label}{i === 0 ? <Hint topic="tc-otros" /> : null}</em><b className="num">{n.text}</b></span>)}
         {card.rewards ? <span><em>{L("Recompensas (nota)", "Rewards (note)")}</em><b>{card.rewards}</b></span> : null}
       </div>
       {rw.known || rw.points != null ? (
@@ -412,7 +431,7 @@ export function RedeemSheet({ card, onClose }: { card: CreditCard; onClose: () =
     <Sheet anchor="card-redeem-sheet" tone="in" onClose={onClose} art={<CardArt card={card} big />} title={<span className="cd-title">{L("Canjear recompensas", "Redeem rewards")}</span>}
       foot={<><button type="button" className="btn secondary" onClick={onClose}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-redeem-save" disabled={!ok} onClick={save}>{L("Guardar", "Save")}</button></>}>
       <div className="form-block cobro-form is-bonus card-form rw-form">
-        <p className="rw-have"><Star aria-hidden /><span>{card.name}</span><b className="num">{fmt(view(have, card.currency))}</b></p>
+        <p className="rw-have"><Star aria-hidden /><span>{card.name}</span><b className="num">{fmt(view(have, card.currency))}</b><Hint topic="rw-canjear" /></p>
         <div className="cobro-kind rw-how" role="radiogroup" aria-label={L("Cómo", "How")}>
           <button type="button" role="radio" aria-checked={how === "credit"} data-anchor="redeem-credit" onClick={() => setHow("credit")}>{L("Crédito al saldo", "Statement credit")}</button>
           <button type="button" role="radio" aria-checked={how === "deposit"} data-anchor="redeem-deposit" onClick={() => setHow("deposit")}>{L("Depósito al banco", "Bank deposit")}</button>
@@ -520,8 +539,8 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
     onClose();
   };
   const title = upd ? L("Actualizar a mano", "Update by hand") : isAdd ? L("Añadir tarjeta", "Add card") : L("Editar tarjeta", "Edit card");
-  const money4 = (label: string, k: "balance" | "avail" | "min" | "limit", anchor?: string) => (
-    <label className="label"><span className="lab-head">{label}</span><input className="field num" inputMode="decimal" placeholder="0.00" value={d[k]} data-anchor={anchor} onChange={(e) => set({ [k]: e.target.value } as Partial<Draft>)} /></label>
+  const money4 = (label: string, k: "balance" | "avail" | "min" | "limit", anchor?: string, tip?: string) => (
+    <label className="label"><span className="lab-head">{label}{tip ? <FieldTip topic={tip} /> : null}</span><input className="field num" inputMode="decimal" placeholder="0.00" value={d[k]} data-anchor={anchor} onChange={(e) => set({ [k]: e.target.value } as Partial<Draft>)} /></label>
   );
   return (
     <Sheet anchor="card-form" onClose={onClose} art={<CardArt card={{ ...live, art: d.art || (nameMark ? undefined : d.art || "wave") }} big />} title={title}
@@ -539,21 +558,21 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
             <>
               <label className="label is-wide"><span className="lab-head">{L("Nombre", "Name")}<Hint topic="tarjetas" /></span>
                 <input className="field" data-anchor="card-name" value={d.name} placeholder={L("Ej. Visa del banco", "E.g. Bank Visa")} onChange={(e) => { const name = e.target.value; const m = isAdd && !card ? (issuerOf(d.mark) ? d.mark : "") : d.mark; const guess = (m || (isAdd ? ISS(name) : "")); set({ name, ...(isAdd ? { mark: guess, issuer: issuerOf(guess)?.name ?? d.issuer } : {}) }); }} /></label>
-              <label className="label is-wide cf-apr"><span className="lab-head">{L("Tasa anual (APR %)", "Yearly rate (APR %)")}</span>
+              <label className="label is-wide cf-apr"><span className="lab-head">{L("Tasa anual (APR %)", "Yearly rate (APR %)")}<FieldTip topic="tc-tasa" /></span>
                 <span className="cobro-pct"><input className="field num" data-anchor="card-apr" inputMode="decimal" placeholder="0" value={d.apr} onChange={(e) => set({ apr: e.target.value })} /><i aria-hidden>%</i></span></label>
-              <div className="label"><span className="lab-head">{L("0% hasta", "0% until")}</span><DayField value={d.promo} onChange={(v) => set({ promo: v })} /></div>
+              <div className="label"><span className="lab-head">{L("0% hasta", "0% until")}<FieldTip topic="tc-promo" /></span><DayField value={d.promo} onChange={(v) => set({ promo: v })} /></div>
               <label className="label is-right"><span className="lab-head">{L("Últimos 4", "Last 4")}</span><input className="field num" inputMode="numeric" maxLength={4} placeholder="····" value={d.last4} onChange={(e) => set({ last4: e.target.value.replace(/\D/g, "").slice(0, 4) })} /></label>
-              {money4(L("Límite", "Limit"), "limit")}
-              <label className="label is-right"><span className="lab-head">{L("Día de pago", "Due day")}</span><input className="field num" inputMode="numeric" placeholder="1–31" value={d.dueDay} onChange={(e) => set({ dueDay: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></label>
+              {money4(L("Límite", "Limit"), "limit", undefined, "tc-limite")}
+              <label className="label is-right"><span className="lab-head">{L("Día de pago", "Due day")}<FieldTip topic="tc-fecha" /></span><input className="field num" inputMode="numeric" placeholder="1–31" value={d.dueDay} onChange={(e) => set({ dueDay: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></label>
             </>
           )}
           {upd || isAdd ? (
             <>
-              {money4(L("Saldo actual", "Current balance"), "balance", "card-balance")}
-              {money4(L("Disponible", "Available"), "avail")}
-              {money4(L("Pago mínimo", "Minimum"), "min")}
-              <div className="label is-right"><span className="lab-head">{L("Fecha de pago", "Due date")}</span><DayField value={d.dueOn} onChange={(v) => set({ dueOn: v })} /></div>
-              <label className="label is-wide cf-rw"><span className="lab-head">{L("Recompensas ($)", "Rewards ($)")}<Hint topic="recompensas-tarjetas" /></span><input className="field num" inputMode="decimal" data-anchor="card-rw-input" placeholder={card && rewardsOf(card).known ? money(rewardsOf(card).amount) : "0.00"} value={d.rw} onChange={(e) => set({ rw: e.target.value })} /></label>
+              {money4(L("Saldo actual", "Current balance"), "balance", "card-balance", "tc-saldo")}
+              {money4(L("Disponible", "Available"), "avail", undefined, "tc-disponible")}
+              {money4(L("Pago mínimo", "Minimum"), "min", undefined, "tc-minimo")}
+              <div className="label is-right"><span className="lab-head">{L("Fecha de pago", "Due date")}<FieldTip topic="tc-fecha" /></span><DayField value={d.dueOn} onChange={(v) => set({ dueOn: v })} /></div>
+              <label className="label is-wide cf-rw"><span className="lab-head">{L("Recompensas ($)", "Rewards ($)")}<FieldTip topic="tc-recompensas" /></span><input className="field num" inputMode="decimal" data-anchor="card-rw-input" placeholder={card && rewardsOf(card).known ? money(rewardsOf(card).amount) : "0.00"} value={d.rw} onChange={(e) => set({ rw: e.target.value })} /></label>
             </>
           ) : null}
           {upd ? null : (
@@ -658,11 +677,15 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
     if (!root) return;
     const names = [...root.querySelectorAll<HTMLElement>(".cs-tname")];
     root.querySelectorAll<HTMLElement>(".cs-r1").forEach((r) => r.style.removeProperty("--cs-k"));
+    delete (root as HTMLElement).dataset.csWrap;
+    (root as HTMLElement).style.removeProperty("--cs-k");
     for (const n of names) n.textContent = n.dataset.full ?? "";
     const need = (n: HTMLElement) => Math.min(1, n.clientWidth / Math.max(1, n.scrollWidth));
     for (const n of names) if (need(n) < 0.92 && n.dataset.short) n.textContent = n.dataset.short;
     const k = Math.max(0.8, Math.min(1, ...names.map(need)));
     if (k < 1) (root as HTMLElement).style.setProperty("--cs-k", k.toFixed(3)); else (root as HTMLElement).style.removeProperty("--cs-k");
+    // 1.3.110: still too long at 80% (narrow phone, large text): the name takes a second line at the same size, never cut.
+    if (names.some((n) => n.scrollWidth > n.clientWidth + 1)) (root as HTMLElement).dataset.csWrap = "1";
   });
   const set = (key: string, p: Partial<Pick>, field?: CardField) => setPicks((l) => l.map((x) => (x.key === key ? { ...x, ...p, unsure: field ? x.unsure.filter((u) => u !== field) : x.unsure } : x)));
   const ready = picks.filter((p) => p.on && (parseAmount(p.bal) != null ? (p.target !== "new" || p.newName.trim()) : p.target !== "new" && ((p.rwOn && parseAmount(p.rw) != null) || parseAmount(p.earned) != null)));
@@ -737,21 +760,24 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
             ) : null}
             <div className="cs-delta">
               <button type="button" role="switch" className="scn-switch" aria-checked={p.on} aria-label={L("Incluir", "Include")} onClick={() => set(p.key, { on: !p.on })}><i /></button>
-              <span className="num cs-old">{f?.known ? fmt(view(f.balance, card!.currency)) : "—"}</span>
-              <span aria-hidden>→</span>
-              <label className={`cs-amt${un("balance")}`}><span>$</span><input className="field num" inputMode="decimal" value={p.bal} aria-label={L("Saldo nuevo", "New balance")} onChange={(e) => set(p.key, { bal: e.target.value }, "balance")} /></label>
-              {delta != null && delta !== 0 ? <span className={`cr-trend ${delta > 0 ? "is-up" : "is-down"}`}>{delta > 0 ? "+" : "−"}{fmt(view(Math.abs(delta), card!.currency))}</span> : null}
+              <span className="cs-lab">{L("Saldo", "Balance")}<Hint topic="tc-saldo" /></span>
+              <span className="cs-vals">
+                {f?.known ? <span className="num cs-old">{fmt(view(f.balance, card!.currency))}</span> : null}
+                {f?.known ? <span aria-hidden>→</span> : null}
+                <label className={`cs-amt${un("balance")}`}><span>$</span><input className="field num" inputMode="decimal" value={p.bal} aria-label={L("Saldo nuevo", "New balance")} onChange={(e) => set(p.key, { bal: e.target.value }, "balance")} /></label>
+                {delta != null && delta !== 0 ? <span className={`cr-trend ${delta > 0 ? "is-up" : "is-down"}`}>{delta > 0 ? "+" : "−"}{fmt(view(Math.abs(delta), card!.currency))}</span> : null}
+              </span>
             </div>
             <div className="cs-grid">
-              {([["avail", L("Disponible", "Available")], ["limit", L("Límite", "Limit")], ["min", L("Mínimo", "Minimum")], ["stmt", L("Saldo al corte", "Statement")], ["apr", L("Tasa %", "APR %")], ["lastPay", L("Último pago", "Last payment")]] as const)
+              {([["avail", L("Disponible", "Available"), "tc-disponible"], ["limit", L("Límite", "Limit"), "tc-limite"], ["min", L("Mínimo", "Minimum"), "tc-minimo"], ["stmt", L("Saldo al corte", "Statement"), "tc-corte"], ["apr", L("Tasa %", "APR %"), "tc-tasa"], ["lastPay", L("Último pago", "Last payment"), "tc-ultimo-pago"]] as const)
                 .filter(([k]) => !p.gone.includes(k) && (k === "avail" || k === "limit" || k === "min" || p[k] !== ""))
-                .map(([k, label]) => (
+                .map(([k, label, tip]) => (
                   <span key={k} className={`cs-f${un(k === "stmt" ? "statement" : k === "lastPay" ? "lastPay" : k)}`} data-f={k}>
-                    <em>{label}{p[k] ? <button type="button" className="cs-x" aria-label={`${L("Quitar", "Remove")} ${label}`} onClick={() => set(p.key, { [k]: "", gone: [...p.gone, k] } as Partial<Pick>)}><X aria-hidden /></button> : null}</em>
+                    <em><span className="cs-lab">{label}<Hint topic={tip} /></span>{p[k] ? <button type="button" className="cs-x" aria-label={`${L("Quitar", "Remove")} ${label}`} onClick={() => set(p.key, { [k]: "", gone: [...p.gone, k] } as Partial<Pick>)}><X aria-hidden /></button> : null}</em>
                     <input className="field num" inputMode="decimal" value={p[k]} placeholder="—" aria-label={label} onChange={(e) => set(p.key, { [k]: e.target.value } as Partial<Pick>, (k === "stmt" ? "statement" : k) as CardField)} />
                   </span>
                 ))}
-              <span className={`cs-f${un("due")}`}><em>{L("Fecha de pago", "Due date")}</em><DayField value={p.due} onChange={(v) => set(p.key, { due: v }, "due")} /></span>
+              <span className={`cs-f${un("due")}`}><em><span className="cs-lab">{L("Fecha de pago", "Due date")}<Hint topic="tc-fecha" /></span></em><DayField value={p.due} onChange={(v) => set(p.key, { due: v }, "due")} /></span>
             </div>
             {p.read.rewardsMinor != null && !p.gone.includes("rw") ? (() => {
               const old = card ? rewardsOf(card) : null;
@@ -760,25 +786,26 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
               return (
                 <div className={`cs-delta cs-rw${p.rwOn ? "" : " is-off"}`} data-anchor="card-scan-rw">
                   <button type="button" role="switch" className="scn-switch" aria-checked={p.rwOn} aria-label={L("Incluir recompensas", "Include rewards")} onClick={() => set(p.key, { rwOn: !p.rwOn })}><i /></button>
-                  <span className="cs-rw-lab"><Star aria-hidden />{L("Recompensas", "Rewards")}</span>
-                  {old?.known ? <><span className="num cs-old">{fmt(view(old.amount, card!.currency))}</span><span aria-hidden>→</span></> : null}
-                  <label className={`cs-amt${un("rewards")}`}><span>$</span><input className="field num" inputMode="decimal" value={p.rw} aria-label={L("Recompensas nuevas", "New rewards")} onChange={(e) => set(p.key, { rw: e.target.value }, "rewards")} /></label>
-                  {d != null && d !== 0 ? <span className={`cr-trend ${d > 0 ? "is-down" : "is-up"}`}>{d > 0 ? "+" : "−"}{fmt(view(Math.abs(d), card!.currency))}</span> : null}
+                  <span className="cs-rw-lab"><Star aria-hidden />{L("Recompensas", "Rewards")}<Hint topic="tc-recompensas" /></span>
+                  <span className="cs-vals">
+                    {old?.known ? <><span className="num cs-old">{fmt(view(old.amount, card!.currency))}</span><span aria-hidden>→</span></> : null}
+                    <label className={`cs-amt${un("rewards")}`}><span>$</span><input className="field num" inputMode="decimal" value={p.rw} aria-label={L("Recompensas nuevas", "New rewards")} onChange={(e) => set(p.key, { rw: e.target.value }, "rewards")} /></label>
+                    {d != null && d !== 0 ? <span className={`cr-trend ${d > 0 ? "is-down" : "is-up"}`}>{d > 0 ? "+" : "−"}{fmt(view(Math.abs(d), card!.currency))}</span> : null}
+                  </span>
                   <button type="button" className="cs-x" data-anchor="card-scan-rw-x" aria-label={L("Quitar recompensas", "Remove rewards")} onClick={() => set(p.key, { rwOn: false, rw: "", gone: [...p.gone, "rw"] })}><X aria-hidden /></button>
                 </div>
               );
             })() : null}
             {p.read.earnedMinor != null && !p.gone.includes("earned") ? (
               <div className="cs-delta cs-rw cs-earned" data-anchor="card-scan-earned">
-                <span className="cs-rw-lab">{p.read.earnedSpan === "life" ? L("Ganado en total", "Earned, lifetime") : L("Ganado en el año", "Earned this year")}</span>
+                <span className="cs-rw-lab">{p.read.earnedSpan === "life" ? L("Ganado en total", "Earned, lifetime") : L("Ganado en el año", "Earned this year")}<Hint topic="tc-ganado" /></span>
                 <label className="cs-amt"><span>$</span><input className="field num" inputMode="decimal" value={p.earned} aria-label={L("Ganado", "Earned")} onChange={(e) => set(p.key, { earned: e.target.value }, "earned")} /></label>
-                <span className="cs-tag">{L("info", "info")}</span>
                 <button type="button" className="cs-x" aria-label={L("Quitar", "Remove")} onClick={() => set(p.key, { earned: "", gone: [...p.gone, "earned"] })}><X aria-hidden /></button>
               </div>
             ) : null}
             {p.extras.length ? (
               <div className="cs-extras" data-anchor="card-scan-extras">
-                <em className="cs-extras-h">{L("Otros datos", "Other figures")}</em>
+                <em className="cs-extras-h lab-head">{L("Otros datos", "Other figures")}<Hint topic="tc-otros" /></em>
                 {p.extras.map((x, j) => (
                   <div key={j} className={`cs-extra${x.on ? "" : " is-off"}`}>
                     <button type="button" role="switch" className="scn-switch" aria-checked={x.on} aria-label={L("Guardar como nota", "Keep as a note")} onClick={() => set(p.key, { extras: p.extras.map((y, i) => (i === j ? { ...y, on: !y.on } : y)) })}><i /></button>
@@ -832,9 +859,9 @@ export function CardsAdvisor({ plan }: { plan: ReturnType<typeof import("@/lib/f
         </div>
       </div>
       <div className="ca-facts">
-        <span><em>{L("Debes en tarjetas", "Owed on cards")}</em><strong className="num">{fmt(sums.balance)}</strong></span>
-        <span><em>{L("Uso", "Use")}</em><strong className="num" data-lvl={lvl}>{sums.util != null ? `${Math.round(sums.util * 100)}%` : "—"}</strong></span>
-        <span><em>{L("Libre en", "Debt-free")}</em><strong>{ch && ch.months ? when(ch.months) : "—"}</strong></span>
+        <span><em>{L("Debes en tarjetas", "Owed on cards")}<Hint topic="tc-total" /></em><strong className="num">{fmt(sums.balance)}</strong></span>
+        <span><em>{L("Uso", "Use")}<Hint topic="tc-uso" /></em><strong className="num" data-lvl={lvl}>{sums.util != null ? `${Math.round(sums.util * 100)}%` : "—"}</strong></span>
+        <span><em>{L("Libre en", "Debt-free")}<Hint topic="plan-libre" /></em><strong>{ch && ch.months ? when(ch.months) : "—"}</strong></span>
       </div>
       {first && ch ? (
         <p className="advice-lead">{L("Paga primero", "Pay first")} <b>{first.name}</b>{plan.perPayOf[first.id] ? <>: <b className="num">{fmt(plan.perPayOf[first.id])}</b> {L(`de cada pago de ${fmt(plan.perPay)}`, `of each ${fmt(plan.perPay)} payment`)}</> : null}. {plan.order === "avalanche" ? L("Es la de tasa más alta.", "It has the highest rate.") : L("Es el saldo más chico.", "It is the smallest balance.")}</p>
@@ -899,15 +926,14 @@ export function ScanRewardsRow({ item, onSet, onDrop }: { item: ScanRw; onSet: (
       </div>
       <div className="cs-delta cs-rw">
         <button type="button" role="switch" className="scn-switch" aria-checked={item.on} aria-label={L("Incluir recompensas", "Include rewards")} onClick={() => onSet({ on: !item.on })}><i /></button>
-        <span className="cs-rw-lab"><Star aria-hidden />{L("Recompensas", "Rewards")}</span>
+        <span className="cs-rw-lab"><Star aria-hidden />{L("Recompensas", "Rewards")}<Hint topic="tc-recompensas" /></span>
         <label className="cs-amt"><span>$</span><input className="field num" inputMode="decimal" placeholder="—" value={item.amount} aria-label={L("Recompensas", "Rewards")} onChange={(e) => onSet({ amount: e.target.value })} /></label>
         <button type="button" className="cs-x" data-anchor="scan-rewards-x" aria-label={L("Quitar", "Remove")} onClick={onDrop}><X aria-hidden /></button>
       </div>
       {item.earned ? (
         <div className="cs-delta cs-rw cs-earned">
-          <span className="cs-rw-lab">{item.span === "life" ? L("Ganado en total", "Earned, lifetime") : L("Ganado en el año", "Earned this year")}</span>
+          <span className="cs-rw-lab">{item.span === "life" ? L("Ganado en total", "Earned, lifetime") : L("Ganado en el año", "Earned this year")}<Hint topic="tc-ganado" /></span>
           <label className="cs-amt"><span>$</span><input className="field num" inputMode="decimal" value={item.earned} aria-label={L("Ganado", "Earned")} onChange={(e) => onSet({ earned: e.target.value })} /></label>
-          <span className="cs-tag">{L("info", "info")}</span>
         </div>
       ) : null}
       <p className="cs-info">{L("Recompensas de tarjeta: cuentan en Me deben y el balance neto.", "Card rewards: they count in Owed to me and the net balance.")}</p>

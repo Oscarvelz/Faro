@@ -223,3 +223,42 @@ html:is([data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [d
 .cs-extra { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "sw lab x" ". val ."; }
 .cs-extra > .scn-switch { grid-area: sw; } .cs-extra > .cs-xlab { grid-area: lab; } .cs-extra > .field.num { grid-area: val; justify-self: start; width: 8em; } .cs-extra > .cs-x { grid-area: x; }
 .ea-study .pano-head h2 { font-size: min(1.5rem, 6.4cqi); white-space: nowrap; }
+
+/* 1.3.110: every number speaks the app's language — the (?) right after its label. */
+.cs-lab { display: inline-flex; align-items: center; gap: 1px; white-space: nowrap; min-width: 0; }
+.cs-delta > .cs-lab { flex: none; color: var(--muted); font-size: min(.78rem, 3.7cqi); font-weight: 650; }
+.cs-f em .cs-lab { margin-right: auto; }
+.cs-rw .cs-rw-lab .ftip svg, .cs-lab .ftip svg { width: 13px; height: 13px; }
+.cs-extras-h { display: inline-flex; align-items: center; gap: 2px; }
+.cd-facts em, .ca-facts em, .plan-facts em, .a2-cards-facts em { display: flex; align-items: center; gap: 1px; }
+.cd-hero em.lab-head { display: flex; align-items: center; gap: 2px; }
+.cg-util > .ftip { margin-left: -5px; overflow: visible; flex: none; }
+.rw-have { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.rw-have .ftip { margin-left: -4px; }
+.rw-have .ftip svg { width: 13px; height: 13px; color: inherit; }
+.ea-rw-head .ftip-btn svg { width: 13px; height: 13px; color: inherit; }
+.ea-rw-head .lab-head { display: inline-flex; align-items: center; gap: 2px; }
+.plan-why .ftip { vertical-align: -4px; }
+.ca-facts em .ftip, .cd-facts em .ftip, .plan-facts em .ftip, .a2-cards-facts em .ftip { margin-block: -3px; }
+.ca-facts { grid-template-columns: minmax(0, 1.45fr) minmax(0, .8fr) minmax(0, 1fr); }
+/* Label + (?) first; the values (old → new, change) stay on the same line when they fit, else move together to a second line. */
+.scn-sheet .cs-card, .cs-delta, .cs-grid, .cs-f { min-width: 0; }
+.cs-delta { flex-wrap: wrap; row-gap: 6px; }
+.cs-vals { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+.cs-delta > .cs-vals .cs-amt { flex: 1 1 auto; }
+.cs-rw > .cs-vals .cs-amt { flex: 0 1 6.6em; width: auto; min-width: 4.6em; }
+.cs-rw > .cs-vals + .cs-x { margin-left: auto; }
+.cs-rw .cs-rw-lab { margin-right: 0; }
+.cs-vals .cs-amt { flex: 0 1 auto; max-width: none; }
+.cs-vals .cs-amt .field { width: 6.4em; flex: 0 1 6.4em; min-width: 3.6em; }
+.cs-rw > .cs-vals { flex: 0 1 auto; }
+.cs-rw > .cs-vals .cs-amt { flex: 0 1 auto; width: auto; min-width: 0; }
+/* 1.3.110 card sheet on narrow screens / large text: nothing runs past the sheet. */
+.cd-hero { flex-wrap: wrap; row-gap: 6px; }
+.cd-facts .cd-note { grid-column: 1 / -1; }
+.cd-facts .cd-note em { white-space: normal; }
+@container (max-width: 21rem) {
+  .cd-rw-text { display: grid; gap: 0; }
+}
+.scn-sheet[data-cs-wrap] .cs-target { height: auto; min-height: 38px; padding-block: 5px; }
+.scn-sheet[data-cs-wrap] .cs-tname { white-space: normal; overflow: visible; line-height: 1.2; overflow-wrap: normal; }

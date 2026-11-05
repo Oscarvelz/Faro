@@ -8,6 +8,7 @@ import { Hint } from "./hint";
 import type { AdviceCard, SectionId } from "@/lib/faro/types";
 import type { readAdvisor } from "@/lib/faro/advisor";
 import { isTron, tronize } from "@/lib/faro/colors";
+import { cardFigures, cardTotals, cardsOf, utilLevel } from "@/lib/faro/cards";
 const tc = (c: string) => (isTron() ? tronize(c) : c);
 
 type Reading = ReturnType<typeof readAdvisor>;
@@ -37,6 +38,9 @@ export function adviceTeaser(card: AdviceCard, reading: Reading, fmt: (n: number
   if (card.horizon === "short") return { big: fmt(Math.round(reading.recurrentMinor / days)), small: L(lang, "al día en lo de cada mes", "a day on the usual") };
   if (card.horizon === "medium") {
     const n = card.nums;
+    if (n && n.debt <= 0 && (n.cardBal ?? 0) > 0) return (n.cardUtil ?? -1) >= 0
+      ? { big: `${Math.round((n.cardUtil ?? 0) * 100)}%`, small: L(lang, "de uso en tarjetas", "card use") }
+      : { big: fmt(n.cardBal ?? 0), small: L(lang, "en tarjetas", "on cards") };
     if (!n || n.debt <= 0) return { big: L(lang, "Sin cuotas", "No payments"), small: L(lang, "este mes", "this month") };
     return { big: `${n.pct.toFixed(1)}%`, small: L(lang, `de lo que entra · cómodo hasta ${n.green}%`, `of income · easy up to ${n.green}%`) };
   }
@@ -125,9 +129,15 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
   const zone = n.pct <= n.green ? "good" : n.pct <= n.yellow ? "warn" : "bad";
   const room = Math.max(0, n.allowance - n.debt);
   const debts = reading.lines.filter((l) => l.cls === "credit").sort((a, b) => b.minor - a.minor);
-  if (n.debt <= 0) return <p className="a2-empty">{L(lang, "Este mes no hay cuotas de crédito. Buena noticia: todo lo que entra trabaja para ti.", "No credit payments this month. Everything that comes in works for you.")}</p>;
+  const cards = <CardsCredit />;
+  if (n.debt <= 0) return (
+    <div className="a2">
+      {(n.cardBal ?? 0) > 0 ? cards : <p className="a2-empty">{L(lang, "Este mes no hay cuotas de crédito. Buena noticia: todo lo que entra trabaja para ti.", "No credit payments this month. Everything that comes in works for you.")}</p>}
+    </div>
+  );
   return (
     <div className="a2">
+      {cards}
       <div className={`a2-gauge is-${zone}`}>
         <svg viewBox="0 0 200 116" role="img" aria-label={`${n.pct.toFixed(1)}%`}>
           <path d={arc(0, n.green, 80)} className="z-good" />
@@ -173,6 +183,28 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
   );
 }
 
+/* 1.3.110: the cards (1.3.107) in "Cómo va mi crédito": owed, use of the limit, minimums and the next due date. */
+function CardsCredit() {
+  const { session, fmt, lang } = useFaro();
+  const ledger = session?.ledger;
+  const ct = cardTotals(ledger);
+  if (!ledger || !ct.known || ct.balance <= 0) return null;
+  const due = cardsOf(ledger).map((c) => cardFigures(ledger, c)).filter((f) => f.known && f.balance > 0 && f.dueOn).map((f) => f.dueOn).sort()[0] ?? "";
+  const lvl = utilLevel(ct.util);
+  const dueTxt = due ? new Date(`${due}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "") : "—";
+  return (
+    <div className="a2-cards" data-anchor="advice-medium-cards">
+      <p className="a2-cards-say">{L(lang, `Tus tarjetas deben ${fmt(ct.balance)}${ct.min > 0 ? `; el pago mínimo suma ${fmt(ct.min)}` : ""}${due ? ` y el próximo vence el ${dueTxt}` : ""}.`, `Your cards owe ${fmt(ct.balance)}${ct.min > 0 ? `; minimums add up to ${fmt(ct.min)}` : ""}${due ? ` and the next is due ${dueTxt}` : ""}.`)}</p>
+      <div className="a2-cards-facts">
+        <span><em>{L(lang, "Tarjetas", "Cards")}<Hint topic="tc-total" /></em><strong className="num">{fmt(ct.balance)}</strong></span>
+        <span><em>{L(lang, "Uso", "Use")}<Hint topic="tc-uso" /></em><strong className="num" data-lvl={lvl}>{ct.util != null ? `${Math.round(ct.util * 100)}%` : "—"}</strong></span>
+        <span><em>{L(lang, "Mínimos", "Minimums")}<Hint topic="tc-minimo" /></em><strong className="num">{ct.min > 0 ? fmt(ct.min) : "—"}</strong></span>
+        <span><em>{L(lang, "Vence", "Due")}<Hint topic="tc-fecha" /></em><strong className="num">{dueTxt}</strong></span>
+      </div>
+    </div>
+  );
+}
+
 /* ── Si cada mes fuera así ──────────────────────────────────────────── */
 export function LongVisual({ card }: { card: AdviceCard }) {
   const { fmt, lang } = useFaro();
@@ -212,7 +244,7 @@ export function LongVisual({ card }: { card: AdviceCard }) {
       </p>
       <div className="a2-tiles">
         <div><em>{L(lang, "Meta de colchón", "Cushion goal")}</em><strong className="num">{n.target > 0 ? fmt(n.target) : "—"}</strong></div>
-        <div><em>{L(lang, "Ya tienes", "You have")}</em><strong className="num">{n.stock > 0 ? fmt(n.stock) : L(lang, "Nada anotado", "Nothing yet")}</strong></div>
+        <div><em>{L(lang, "Ya tienes", "You have")}</em><strong className="num">{n.stock > 0 ? fmt(n.stock) : L(lang, "Nada aún", "Nothing yet")}</strong></div>
         <div className="is-wide">
           <em>{L(lang, "Te falta", "To go")}</em>
           <strong className="num">{n.gap > 0 ? fmt(n.gap) : L(lang, "Listo", "Done")}</strong>

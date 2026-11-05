@@ -12,7 +12,7 @@ import "./manual.css";
 const HOST = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-dock, .card, .stat-fold, main, .tool-sheet, .mn-layer, .imp-pick, .imp-sheet";
 
 /** Forms and sheets where leaving would drop what is being typed or reviewed. */
-const STILL = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-dock, .imp-sheet, .imp-pick, .stm-sheet";
+const STILL = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-dock, .imp-sheet, .imp-pick, .stm-sheet, [data-anchor=\"card-scan\"], [data-anchor=\"card-form\"], [data-anchor=\"card-redeem-sheet\"]";
 
 /**
  * The (?) bubble. Its text is the topic's `what`, word for word (lib/manual/topics.ts), so the bubble and the

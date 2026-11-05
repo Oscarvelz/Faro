@@ -394,9 +394,9 @@ export function PayoffPlan() {
             : (
               <>
                 <div className="plan-facts">
-                  <span><em>{L("Libre en", "Debt-free")}</em><strong>{monthName(monthAhead(ch.months), lang)}</strong></span>
-                  <span><em>{L("Interés por pagar", "Interest to pay")}</em><strong className="num">{fmt(ch.interest)}</strong></span>
-                  <span><em>{L("Meses", "Months")}</em><strong className="num">{ch.months}</strong></span>
+                  <span><em>{L("Libre en", "Debt-free")}<Hint topic="plan-libre" /></em><strong>{monthName(monthAhead(ch.months), lang)}</strong></span>
+                  <span><em>{L("Interés por pagar", "Interest to pay")}<Hint topic="plan-interes" /></em><strong className="num">{fmt(ch.interest)}</strong></span>
+                  <span><em>{L("Meses", "Months")}<Hint topic="plan-meses" /></em><strong className="num">{ch.months}</strong></span>
                 </div>
                 <p className="plan-say">
                   {plan.saveInterest > 0 || plan.saveMonths > 0
@@ -408,8 +408,8 @@ export function PayoffPlan() {
                 </p>
                 {plan.first ? <p className="plan-why" data-anchor="plan-why">{plan.order === "avalanche"
                   ? L(`Primero ${plan.first.name}: ${plan.first.aprBps > 0 ? `es la tasa más alta (${(plan.first.aprBps / 100).toLocaleString("es-NI", { maximumFractionDigits: 2 })}%)` : "es la que más interés suma"}. Cada pago cubre los mínimos y el resto va a ella.`, `First ${plan.first.name}: ${plan.first.aprBps > 0 ? `it has the highest rate (${(plan.first.aprBps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}%)` : "it adds the most interest"}. Each payment covers the minimums and the rest goes to it.`)
-                  : L(`Primero ${plan.first.name}: es el saldo más chico, la cierras antes. Cada pago cubre los mínimos y el resto va a ella.`, `First ${plan.first.name}: it is the smallest balance, so it closes first. Each payment covers the minimums and the rest goes to it.`)}
-                  {plan.debts.some((d) => d.aprGuess) ? <> {L("Algunas tarjetas no tienen tasa: estimo 24% al año. Añade la tasa para un plan exacto.", "Some cards have no rate: I estimate 24% a year. Add the rate for an exact plan.")}</> : null}</p> : null}
+                  : L(`Primero ${plan.first.name}: es el saldo más chico, la cierras antes. Cada pago cubre los mínimos y el resto va a ella.`, `First ${plan.first.name}: it is the smallest balance, so it closes first. Each payment covers the minimums and the rest goes to it.`)}<Hint topic="plan-orden" />
+                  {plan.debts.some((d) => d.aprGuess) ? <> {L("Algunas tarjetas no tienen tasa: estimo 24% al año. Añade la tasa para un plan exacto.", "Some cards have no rate: I estimate 24% a year. Add the rate for an exact plan.")}<Hint topic="plan-tasa-estimada" /></> : null}</p> : null}
                 <ol className="plan-list">
                   {ch.order.map((id, i) => {
                     const d = plan.debts.find((x) => x.id === id)!;

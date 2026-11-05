@@ -2,6 +2,7 @@
  * Estudio → "De dónde viene tu dinero" (1.3.109): the year's earnings by source, with card rewards (cash back) as their
  * own source, per card and month by month from the rewards readings. Money in is teal. Numbers live in lib/faro/earnings.ts.
  */
+import { Hint } from "./hint";
 import "./earnings.css";
 import { useLayoutEffect, useRef } from "react";
 import { HandCoins, Star } from "lucide-react";
@@ -62,7 +63,7 @@ export function EarningsStudy() {
       </ul>
       {e.rewards.minor > 0 ? (
         <div className="ea-rw" data-anchor="study-earnings-rewards">
-          <p className="ea-rw-head"><Star aria-hidden /><span>{L(lang, "Recompensas de tarjetas", "Card rewards")}</span><b className="num">{fmt(e.rewards.minor)}</b></p>
+          <p className="ea-rw-head"><Star aria-hidden /><span className="lab-head">{L(lang, "Recompensas de tarjetas", "Card rewards")}<Hint topic="recompensas-tarjetas" /></span><b className="num">{fmt(e.rewards.minor)}</b></p>
           {e.rewards.cards.map((c) => (
             <p key={c.id} className="ea-rw-card"><CardArt card={c.card} /><span data-full={c.name} data-short={shortName(c.name)}>{c.name}</span><b className="num">{fmt(c.minor)}</b></p>
           ))}

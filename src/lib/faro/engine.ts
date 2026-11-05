@@ -978,7 +978,14 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     });
   }
 
+  // 1.3.110: card balances (1.3.107) are credit too: the 90-day card reflects them instead of saying "no credit payments".
+  const ct = cardTotals(state);
   const mediumLead = (() => {
+    if ((!debts.length || s.debt <= 0) && ct.known && ct.balance > 0) {
+      const use = ct.util != null ? L(lang, `, el ${Math.round(ct.util * 100)}% de tu límite`, `, ${Math.round(ct.util * 100)}% of your limit`) : "";
+      const mins = ct.min > 0 ? L(lang, ` Su pago mínimo suma ${money(ct.min)}.`, ` Their minimums add up to ${money(ct.min)}.`) : "";
+      return L(lang, `Sin cuotas de préstamos este mes, pero tus tarjetas deben ${money(ct.balance)}${use}.${mins}`, `No loan payments this month, but your cards owe ${money(ct.balance)}${use}.${mins}`);
+    }
     if (!debts.length || s.debt <= 0) {
       return L(lang, "Este mes no hay pagos de crédito.", "No credit payments this month.");
     }
@@ -1127,7 +1134,6 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     });
   }
   // 1.3.107: credit cards are revolving loans: balance, utilization (keep it under 30%) and what interest costs a month.
-  const ct = cardTotals(state);
   if (ct.known) {
     const costly = cardsOf(state).map((c) => { const f = cardFigures(state, c); return { c, f, cost: convertMinor(cardMonthlyInterest(c, f.balance), c.currency, state.settings.display, state.settings.rateE4) }; })
       .filter((x) => x.f.known && x.f.balance > 0).sort((a, b) => b.cost - a.cost)[0];
@@ -1195,7 +1201,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     body: "",
     evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}${lt.count ? ` · Préstamos ${money(lt.left)}` : ""}${ct.known ? ` · Tarjetas ${money(ct.balance)}` : ""}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}${lt.count ? ` · Loans ${money(lt.left)}` : ""}${ct.known ? ` · Cards ${money(ct.balance)}` : ""}`),
     points: mediumBits,
-    nums: { debt: s.debt, loanLeft: lt.left, loanInterest: lt.interest, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income },
+    nums: { debt: s.debt, loanLeft: lt.left, loanInterest: lt.interest, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income, cardBal: ct.known ? ct.balance : 0, cardUtil: ct.util ?? -1, cardMin: ct.min },
     meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,
   };
   const longCard: AdviceCard = {

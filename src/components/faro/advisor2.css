@@ -428,3 +428,22 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 @keyframes unfold-glow-a { 0% { box-shadow: 0 0 0 0 transparent; filter: none; } 28% { box-shadow: 0 0 14px 2px var(--glint), 0 0 0 3px rgba(63, 214, 245, .28); filter: brightness(1.25); } 100% { box-shadow: 0 0 18px 4px transparent, 0 0 0 8px transparent; filter: none; } }
 @keyframes unfold-glow-b { 0% { box-shadow: 0 0 0 0 transparent; filter: none; } 28% { box-shadow: 0 0 14px 2px var(--glint), 0 0 0 3px rgba(63, 214, 245, .28); filter: brightness(1.25); } 100% { box-shadow: 0 0 18px 4px transparent, 0 0 0 8px transparent; filter: none; } }
 @media (prefers-reduced-motion: reduce) { .unfold-all.is-advice[data-hello] input { animation: none !important; } }
+
+/* 1.3.110: card balances in "Cómo va mi crédito". Every body child keeps the card's inner padding (the .a2 margin). */
+.a2-cards { display: grid; gap: 10px; }
+.a2-cards-say { margin: 0; font-size: .95rem; line-height: 1.45; }
+.a2-cards-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.a2-cards-facts span { display: grid; gap: 2px; min-width: 0; }
+.a2-cards-facts em { font-style: normal; font-size: min(.7rem, 3.2cqi); color: var(--muted); white-space: nowrap; }
+.a2-cards-facts strong { font-size: min(1rem, 4.4cqi); white-space: nowrap; }
+.a2-cards-facts strong[data-lvl="high"], .a2-cards-facts strong[data-lvl="max"] { color: #d4874e; }
+[data-theme="tron"] .a2-cards-facts em { color: rgba(170, 225, 240, .62); }
+[data-theme="tron"] .a2-cards-facts strong { color: #3fd6f5; }
+[data-theme="tron"] .a2-cards-facts strong[data-lvl="high"], [data-theme="tron"] .a2-cards-facts strong[data-lvl="max"] { color: #ff9d2a; }
+.a2-empty { margin: 0; }
+/* A text paragraph that ends a card keeps the card's bottom padding (its last line never touches the rounded corner). */
+.advice-card > :is(.advice-aside, .advice-lead, .advice-because, .advice-stale):last-child { padding-bottom: 14px; }
+.a2-cards { container-type: inline-size; }
+@container (max-width: 20rem) { .a2-cards-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; } }
+.a2-cards-facts { grid-template-columns: repeat(4, auto); justify-content: space-between; column-gap: 12px; }
+@container (max-width: 20rem) { .a2-cards-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; } }
