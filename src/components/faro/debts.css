@@ -377,39 +377,55 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
   .lens.ring-lit, .save-seg.ring-lit { animation: none; }
 }
 
-/* ---------- 1.3.95 savings row (Ahorros · Meta · Retiro · Emergencia): alive on a tap, each in its own colour ----------
-   Overlays and `scale` only: the selection look (corner brackets, purple scope) and the layout never change. */
+/* ---------- 1.3.96 savings row (Ahorros · Meta · Retiro · Emergencia): its own quiet "deposit" on a tap, each in its own colour ----------
+   Not the scale's bloom/"here I am": the icon lifts 1.5px and settles, a thin line fills the button's bottom edge left → right like a
+   deposit, then one faint diagonal sheen crosses the pocket's first card and the next blocks fill with a faint light from the bottom.
+   Overlays and `translate` only: the selection look (corner brackets, purple scope) and the layout never change. */
 .vault-bar > button > .vb-fx { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
 .vault-bar > button > :not(.vb-fx) { position: relative; z-index: 1; }
-.vb-bloom {
-  position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, color-mix(in oklab, var(--vtone) 48%, transparent) 0%, color-mix(in oklab, var(--vtone) 16%, transparent) 48%, transparent 70%);
-  animation: ds-bloom .56s cubic-bezier(.2, .7, .2, 1) forwards;
+.vb-fill {
+  position: absolute; left: 16%; right: 16%; bottom: 2px; height: 1.5px; border-radius: 1px; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--vtone) 25%, transparent), color-mix(in oklab, var(--vtone) 85%, transparent));
+  transform-origin: 0 50%; transform: scaleX(0);
+  animation: vb-fill .62s cubic-bezier(.4, .1, .2, 1) forwards;
 }
-[data-theme="tron"] .vb-bloom { background: radial-gradient(circle, color-mix(in oklab, var(--vtone) 64%, transparent) 0%, color-mix(in oklab, var(--vtone) 24%, transparent) 46%, transparent 70%); }
-.vault-bar > button[data-pulse="0"] > svg { animation: vb-pulse-a .5s cubic-bezier(.3, .7, .3, 1); }
-.vault-bar > button[data-pulse="1"] > svg { animation: vb-pulse-b .5s cubic-bezier(.3, .7, .3, 1); }
-/* Tron's own lock-on stays first in the list, so it is not restarted by the pulse. */
-[data-theme="tron"] .vault-bar > button[aria-current="page"][data-pulse="0"] > svg { animation: tron-vlock .42s steps(2, end) 1, vb-pulse-a .5s cubic-bezier(.3, .7, .3, 1); }
-[data-theme="tron"] .vault-bar > button[aria-current="page"][data-pulse="1"] > svg { animation: tron-vlock .42s steps(2, end) 1, vb-pulse-b .5s cubic-bezier(.3, .7, .3, 1); }
-@keyframes vb-pulse-a { 0% { scale: 1; } 32% { scale: 1.32; color: var(--vtone); } 100% { scale: 1; } }
-@keyframes vb-pulse-b { 0% { scale: 1; } 32% { scale: 1.32; color: var(--vtone); } 100% { scale: 1; } }
-/* What opened below says "here I am" once, in the tab's colour (same sweep as Debo / Me deben). */
-.vault-block.is-vhello::after {
+/* Day and dark themes: the tone leans a little toward the text colour so the hairline reads on a pale or charcoal pill. */
+html:not([data-theme="tron"]) .vb-fill { background: linear-gradient(90deg, color-mix(in oklab, color-mix(in oklab, var(--vtone) 70%, var(--fg)) 30%, transparent), color-mix(in oklab, var(--vtone) 70%, var(--fg))); }
+/* Tron: 2px above the lit frame (so it doesn't melt into it), a white-hot head on the tone. */
+[data-theme="tron"] .vb-fill { bottom: 4px; background: linear-gradient(90deg, color-mix(in oklab, var(--vtone) 30%, transparent), var(--vtone) 82%, color-mix(in oklab, var(--vtone) 40%, #fff)); box-shadow: 0 0 5px color-mix(in oklab, var(--vtone) 70%, transparent); }
+@keyframes vb-fill { 0% { transform: scaleX(0); opacity: 1; } 56% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+.vault-bar > button[data-rise="0"] > svg { animation: vb-rise-a .42s cubic-bezier(.3, .7, .3, 1); }
+.vault-bar > button[data-rise="1"] > svg { animation: vb-rise-b .42s cubic-bezier(.3, .7, .3, 1); }
+/* Tron's own lock-on stays first in the list (it animates `transform`, the rise animates `translate`), so both play. */
+[data-theme="tron"] .vault-bar > button[aria-current="page"][data-rise="0"] > svg { animation: tron-vlock .42s steps(2, end) 1, vb-rise-a .42s cubic-bezier(.3, .7, .3, 1); }
+[data-theme="tron"] .vault-bar > button[aria-current="page"][data-rise="1"] > svg { animation: tron-vlock .42s steps(2, end) 1, vb-rise-b .42s cubic-bezier(.3, .7, .3, 1); }
+@keyframes vb-rise-a { 0% { translate: 0 0; } 38% { translate: 0 -1.5px; } 100% { translate: 0 0; } }
+@keyframes vb-rise-b { 0% { translate: 0 0; } 38% { translate: 0 -1.5px; } 100% { translate: 0 0; } }
+/* The pocket's first card: one faint diagonal sheen, once. No outline, no glow. */
+.vault-block.is-vsheen::after {
   content: ""; position: absolute; z-index: 3; inset: 0; border-radius: var(--vhello-r, 18px); pointer-events: none; opacity: 0;
-  background: linear-gradient(100deg, transparent 22%, color-mix(in oklab, var(--vhello-tone) 22%, transparent) 50%, transparent 78%) no-repeat;
-  background-size: 260% 100%;
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vhello-tone) 30%, transparent);
-  animation: debt-hello .78s cubic-bezier(.3, .7, .3, 1) var(--hello-d, 0ms) both;
+  background: linear-gradient(115deg, transparent 42%, color-mix(in oklab, var(--vhello-tone) 100%, transparent) 50%, transparent 58%) no-repeat;
+  background-size: 300% 100%;
+  --vsheen-a: .08;
+  animation: vb-sheen .5s cubic-bezier(.45, .05, .55, .95) var(--hello-d, 0ms) both;
 }
-[data-theme="tron"] .vault-block.is-vhello::after {
-  background-image: linear-gradient(100deg, transparent 22%, color-mix(in oklab, var(--vhello-tone) 30%, transparent) 50%, transparent 78%);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vhello-tone) 42%, transparent), 0 0 18px -6px color-mix(in oklab, var(--vhello-tone) 70%, transparent);
+[data-theme="tron"] .vault-block.is-vsheen::after { --vsheen-a: .15; }
+@keyframes vb-sheen { 0% { opacity: 0; background-position: 85% 0; } 18% { opacity: var(--vsheen-a); } 82% { opacity: var(--vsheen-a); } 100% { opacity: 0; background-position: 15% 0; } }
+/* The next one or two blocks: a very faint light rising from the bottom edge, like the level filling. */
+.vault-block.is-vrise::after {
+  content: ""; position: absolute; z-index: 3; inset: 0; border-radius: var(--vhello-r, 18px); pointer-events: none; opacity: 0;
+  background: linear-gradient(0deg, color-mix(in oklab, var(--vhello-tone) 100%, transparent), transparent) no-repeat 0 100% / 100% 0%;
+  --vrise-a: .07;
+  animation: vb-rise-fill .56s cubic-bezier(.3, .6, .3, 1) var(--hello-d, 0ms) both;
 }
+[data-theme="tron"] .vault-block.is-vrise::after { --vrise-a: .12; }
+@keyframes vb-rise-fill { 0% { opacity: var(--vrise-a); background-size: 100% 0%; } 60% { opacity: var(--vrise-a); background-size: 100% 38%; } 100% { opacity: 0; background-size: 100% 46%; } }
 @media (prefers-reduced-motion: reduce) {
-  .vb-bloom { animation: ds-tint .45s ease-out forwards; inset: 0; width: auto; height: auto; margin: 0; border-radius: inherit; transform: none; left: 0 !important; top: 0 !important; background: color-mix(in oklab, var(--vtone) 18%, transparent); }
-  .vault-bar > button[data-pulse] > svg, [data-theme="tron"] .vault-bar > button[aria-current="page"][data-pulse] > svg { animation: none; }
-  .vault-block.is-vhello::after { animation: debt-hello-fade .5s ease-out var(--hello-d, 0ms) both; background: color-mix(in oklab, var(--vhello-tone) 14%, transparent); }
+  .vb-fill { animation: ds-tint .45s ease-out forwards; transform: none; }
+  .vault-bar > button[data-rise] > svg, [data-theme="tron"] .vault-bar > button[aria-current="page"][data-rise] > svg { animation: none; }
+  .vault-block.is-vsheen::after, .vault-block.is-vrise::after { animation: vb-soft-fade .45s ease-out var(--hello-d, 0ms) both; background: color-mix(in oklab, var(--vhello-tone) 6%, transparent); }
+  [data-theme="tron"] :is(.vb-fill, .vault-block.is-vsheen::after, .vault-block.is-vrise::after) { animation: none; opacity: 0; }
 }
+@keyframes vb-soft-fade { 0% { opacity: 1; } 100% { opacity: 0; } }
 /* 1.3.95: inside a Libros book that is arriving (tap or ring swipe) a note fades in where it rests, it does not rise 4px. */
 .swipe-pane .fx-note { animation-name: ring-fade; }

@@ -1319,9 +1319,9 @@ function SplitLower({ section, onSection, showTools, onClaim }: { section: Secti
   );
 }
 
-/* 1.3.95 — the savings row answers a person the way the scale does, each tab in its own colour: a soft bloom from the tap point,
-   the icon pulses, then the blocks that open below light up once (80 ms apart). Only on a tap or a ring landing, never on load or
-   Back. Everything is an overlay or a `scale`, so nothing below moves. */
+/* 1.3.96 — the savings row has its own quiet "deposit": the icon lifts 1.5px and settles, a thin line in the tab's colour fills the
+   button's bottom edge, then one faint sheen crosses the pocket's first card and the next blocks fill with a faint light from the
+   bottom (70 ms apart). Only on a tap or a ring landing, never on load or Back. Overlays and `translate` only: nothing below moves. */
 const VAULT_TONE: Record<(typeof VAULT)[number], string> = { save: SAVINGS_PURPLE, meta: "#8fb9a6", retiro: "#72b4b2", emergencia: "#7aa2c4" };
 function useVaultHello(vaultRef: React.RefObject<HTMLDivElement | null>) {
   const [tap, setTap] = useState<{ id: string; x: number; y: number; n: number } | null>(null);
@@ -1341,17 +1341,18 @@ function useVaultHello(vaultRef: React.RefObject<HTMLDivElement | null>) {
       const els = [...(pane?.querySelectorAll<HTMLElement>(".vault-block") ?? [])]
         .filter((el) => el.getBoundingClientRect().height > 0)
         .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).slice(0, 3);
+      const fx = (i: number) => (i === 0 ? "is-vsheen" : "is-vrise");
       els.forEach((el, i) => {
         // The visible card can sit a level or two down (MES: .span-cut → .span-fold-bar): take the first rounded one.
         let card = el.firstElementChild as HTMLElement | null;
         for (let k = 0; k < 3 && card && parseFloat(getComputedStyle(card).borderTopLeftRadius) === 0; k++) card = card.firstElementChild as HTMLElement | null;
-        el.classList.remove("is-vhello");
+        el.classList.remove("is-vsheen", "is-vrise");
         void el.offsetWidth;
         el.style.setProperty("--vhello-tone", tone);
         el.style.setProperty("--vhello-r", card && parseFloat(getComputedStyle(card).borderTopLeftRadius) > 0 ? getComputedStyle(card).borderRadius : "18px");
-        el.style.setProperty("--hello-d", `${i * 80}ms`);
-        el.classList.add("is-vhello");
-        timers.current.push(window.setTimeout(() => el.classList.remove("is-vhello"), 900 + i * 80));
+        el.style.setProperty("--hello-d", `${i * 70}ms`);
+        el.classList.add(fx(i));
+        timers.current.push(window.setTimeout(() => el.classList.remove(fx(i)), 700 + i * 70));
       });
     }, 120));
   }, [vaultRef]);
@@ -1397,12 +1398,12 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
       <div className="vault-bar" ref={vaultRef} data-anchor={anchors ? "vault-tabs" : undefined} style={{ ["--vault" as string]: save ? VAULT.indexOf(save) : 0, ["--vtint" as string]: save === "meta" ? vtint("#8fb9a6") : save === "retiro" ? vtint("#72b4b2") : save === "emergencia" ? vtint("#7aa2c4") : save === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
         <i className={`vault-glide${save ? " is-on" : ""}${save === "save" ? " is-save" : ""}`} aria-hidden />
         {VAULT.map((id) => (
-          <button key={id} type="button" role="tab" data-vault={id} data-pulse={vtap?.id === id ? vtap.n % 2 : undefined} style={{ ["--vtone" as string]: vtint(VAULT_TONE[id]) }} aria-selected={save === id} aria-current={save === id ? "page" : undefined} onClick={(e) => {
+          <button key={id} type="button" role="tab" data-vault={id} data-rise={vtap?.id === id ? vtap.n % 2 : undefined} style={{ ["--vtone" as string]: vtint(VAULT_TONE[id]) }} aria-selected={save === id} aria-current={save === id ? "page" : undefined} onClick={(e) => {
             if (save && save !== id) onSlide(VAULT.indexOf(id) > VAULT.indexOf(save) ? 1 : -1);
             onVault(id);
             vaultHello(id, e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined);
           }}>
-            <i className="vb-fx" aria-hidden>{vtap?.id === id ? <i key={vtap.n} className="vb-bloom" style={{ left: vtap.x, top: vtap.y }} /> : null}</i>
+            <i className="vb-fx" aria-hidden>{vtap?.id === id ? <i key={vtap.n} className="vb-fill" /> : null}</i>
             {id === "save" ? <Landmark className="size-3.5" /> : id === "meta" ? <Flag className="size-3.5" /> : id === "retiro" ? <Hourglass className="size-3.5" /> : <Shield className="size-3.5" />}
             <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
           </button>
