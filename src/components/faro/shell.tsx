@@ -13,7 +13,8 @@ import { convertMinor } from "@/lib/faro/money";
 import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId } from "@/lib/faro/types";
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
-import { DebtBook, DebtScale, preferOweTab, type DebtSide } from "./debts";
+import { DebtBook, DebtScale, debtHello, preferOweTab, type DebtSide } from "./debts";
+import { markRing, ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import type { VaultTab } from "@/lib/manual/places";
 import { ExportPanel } from "./export-panel";
@@ -36,6 +37,47 @@ const BOOKS = ["income", "fixed", "variable", "shops", "subs"] as const;
 /** Libros' top row (1.3.92): Cuotas moved into Debo, in the middle row. */
 const TOP_BOOKS = ["income", "fixed", "variable", "shops"] as const;
 const VAULT = ["save", "meta", "retiro", "emergencia"] as const;
+
+/* Libros as one ring (1.3.94): a finger swipe on the content walks all ten books in order and wraps around. */
+const RING = ["income", "fixed", "variable", "shops", "owed", "owe", "save", "meta", "retiro", "emergencia"] as const;
+type RingStop = (typeof RING)[number];
+type Swipe = { x: number; y: number; type: string; axis: "x" | "y" | null; el: HTMLElement | null };
+function ringNext(section: SectionId, vault: VaultTab | null, dir: number): RingStop {
+  const here = vault ?? (section === "subs" ? "owe" : section);
+  const i = Math.max(0, RING.indexOf(here as RingStop));
+  return RING[(i + dir + RING.length) % RING.length]!;
+}
+/** The swiped content follows the finger with resistance (never more than ~150px), a little fainter the further it goes. */
+function dragPane(pane: HTMLElement | null, dx: number | null) {
+  if (!pane || !pane.isConnected) return;
+  if (dx === null) {
+    pane.style.transition = "transform .22s cubic-bezier(.22, 1, .36, 1), opacity .22s ease";
+    pane.style.transform = "";
+    pane.style.opacity = "";
+    return;
+  }
+  pane.style.transition = "none";
+  pane.style.transform = `translate3d(${(150 * Math.tanh(dx / 340)).toFixed(1)}px, 0, 0)`;
+  pane.style.opacity = String(1 - Math.min(0.22, Math.abs(dx) / 1000));
+}
+/** What a finger drags: Libros' pane; in Central the panel under the finger (the lens list or the open pocket). */
+function dragTarget(main: HTMLElement, target: HTMLElement, hub: string): HTMLElement | null {
+  if (hub === "books") return main.querySelector<HTMLElement>(":scope > .swipe-pane");
+  if (hub === "desk") return target.closest<HTMLElement>('[data-anchor="desk-list"], .save-ledger');
+  return null;
+}
+/** After a ring step: the row that holds the new book lights its choice, and comes into view if it is off screen. */
+function ringLand(main: HTMLElement, stop: RingStop) {
+  if (stop === "owed" || stop === "owe") debtHello(stop);
+  window.setTimeout(() => {
+    const row = stop === "owed" || stop === "owe"
+      ? main.querySelector<HTMLElement>(":scope > .debt-scale")
+      : main.querySelector<HTMLElement>(VAULT.includes(stop as never) ? ":scope > .vault-bar" : ":scope > .seg");
+    if (!row) return;
+    if (stop !== "owed" && stop !== "owe") ringLit(row.querySelector('[aria-current="page"]'));
+    ringShow(row);
+  }, 60);
+}
 const STUDY = ["stats", "advice"] as const;
 type DockStop =
   | { kind: "section"; id: SectionId }
@@ -84,7 +126,7 @@ export function Shell() {
   const calDrag = useRef({ x: 0, y: 0, moved: false });
   const calBody = useRef<HTMLDivElement>(null);
   const calSky = useRef<HTMLDivElement>(null);
-  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const swipe = useRef<Swipe | null>(null);
   const swiped = useRef(false);
   const [slideDir, setSlideDir] = useState(1);
   // The savings tab lives in the provider, so each tab is a real history step (back walks the tabs).
@@ -1023,17 +1065,53 @@ export function Shell() {
             className="main-pad"
             data-swipe="loop"
             onPointerDown={(e) => {
-              if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail")) return;
-              swipe.current = { x: e.clientX, y: e.clientY };
+              swiped.current = false; // a swipe that produced no click must not swallow the next real tap
+if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail, svg:not(.lucide), canvas, [data-noswipe]")) return;
+              swipe.current = { x: e.clientX, y: e.clientY, type: e.pointerType, axis: null, el: e.pointerType === "mouse" ? null : dragTarget(e.currentTarget, e.target as HTMLElement, hub) };
               // Touch/pen only: capturing a mouse press retargets its click to <main>, so desktop clicks never reach the row.
               if (e.pointerType !== "mouse") e.currentTarget.setPointerCapture(e.pointerId);
             }}
+            onPointerMove={(e) => {
+              const st = swipe.current;
+              if (!st || st.type === "mouse" || (hub !== "books" && hub !== "desk")) return;
+              const dx = e.clientX - st.x, dy = e.clientY - st.y;
+              if (!st.axis) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; st.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y"; }
+              if (st.axis === "x") dragPane(st.el, dx);
+            }}
+            onPointerCancel={() => { if (swipe.current?.axis === "x") dragPane(swipe.current.el, null); swipe.current = null; }}
             onPointerUp={(e) => {
               const start = swipe.current;
               swipe.current = null;
               if (!start) return;
               const dx = e.clientX - start.x;
               const dy = e.clientY - start.y;
+              if (hub === "desk" && start.type !== "mouse") {
+                // Touch on Central: one ring through Tengo · Gastaré · Pagos · Meta · Retiro · Emergencia (Desk does the step).
+                if (start.axis !== "x" || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) { if (start.axis === "x") dragPane(start.el, null); return; }
+                swiped.current = true;
+                const dir = dx < 0 ? 1 : -1;
+                markRing();
+                setSlideDir(dir);
+                const el = start.el;
+                window.dispatchEvent(new CustomEvent("faro-lens", { detail: { dir, ring: true } }));
+                window.setTimeout(() => dragPane(el, null), 0); // the panel that stays (same pocket kept) springs back
+                return;
+              }
+              if (hub === "books" && start.type !== "mouse") {
+                // Touch: one ring through all ten books. Clearly horizontal and past 40px, or the pane springs back.
+                if (start.axis !== "x" || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) { if (start.axis === "x") dragPane(start.el, null); return; }
+                swiped.current = true;
+                const dir = dx < 0 ? 1 : -1;
+                const next = ringNext(ui.section, vault, dir);
+                markRing();
+                setSlideDir(dir);
+                setRecall(false);
+                setMoneyOpen(false);
+                if ((TOP_BOOKS as readonly string[]).includes(next)) setUi({ section: next as SectionId, vault: null });
+                else setUi({ ...(hub === "books" && ui.section !== "subs" ? {} : { section: "income" as SectionId }), vault: next as VaultTab });
+                ringLand(e.currentTarget, next);
+                return;
+              }
               if (Math.abs(dx) < 36 || Math.abs(dx) < Math.abs(dy)) return;
               swiped.current = true;
               const dir = dx < 0 ? 1 : -1;
@@ -1279,7 +1357,7 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
         ))}
         {anchors ? <Hint topic="ahorros-tabs" className="is-tabs" corner overlay /> : null}
       </div>
-      <div key={debt ?? save ?? ui.section} className={`swipe-pane${save || debt ? " is-vault" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
+      <div key={debt ?? save ?? ui.section} className={`swipe-pane${save || debt ? " is-vault" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
         {debt ? <DebtBook side={debt} /> : save ? <Desk focus={save} /> : ui.section === "shops" ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
       </div>
     </>
@@ -1293,7 +1371,7 @@ function SectionView() {
   const [slideDir, setSlideDir] = useState(1);
   const segRef = useRef<HTMLDivElement>(null);
   const vaultRef = useRef<HTMLDivElement>(null);
-  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const swipe = useRef<Swipe | null>(null);
   const swiped = useRef(false);
   useEffect(() => {
     const root = segRef.current;
@@ -1321,17 +1399,50 @@ function SectionView() {
       className="main-pad"
       data-swipe="loop"
       onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail")) return;
-        swipe.current = { x: e.clientX, y: e.clientY };
+        swiped.current = false; // a swipe that produced no click must not swallow the next real tap
+if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail, svg:not(.lucide), canvas, [data-noswipe]")) return;
+        swipe.current = { x: e.clientX, y: e.clientY, type: e.pointerType, axis: null, el: e.pointerType === "mouse" ? null : dragTarget(e.currentTarget, e.target as HTMLElement, hub) };
         // Touch/pen only: capturing a mouse press retargets its click to <main>, so desktop clicks never reach the row.
         if (e.pointerType !== "mouse") e.currentTarget.setPointerCapture(e.pointerId);
       }}
+      onPointerMove={(e) => {
+        const st = swipe.current;
+        if (!st || st.type === "mouse" || (hub !== "books" && hub !== "desk")) return;
+        const dx = e.clientX - st.x, dy = e.clientY - st.y;
+        if (!st.axis) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; st.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y"; }
+        if (st.axis === "x") dragPane(st.el, dx);
+      }}
+      onPointerCancel={() => { if (swipe.current?.axis === "x") dragPane(swipe.current.el, null); swipe.current = null; }}
       onPointerUp={(e) => {
         const start = swipe.current;
         swipe.current = null;
         if (!start) return;
         const dx = e.clientX - start.x;
         const dy = e.clientY - start.y;
+        if (hub === "desk" && start.type !== "mouse") {
+          // Touch on Central: one ring through Tengo · Gastaré · Pagos · Meta · Retiro · Emergencia (Desk does the step).
+          if (start.axis !== "x" || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) { if (start.axis === "x") dragPane(start.el, null); return; }
+          swiped.current = true;
+          const dir = dx < 0 ? 1 : -1;
+          markRing();
+          setSlideDir(dir);
+          const el = start.el;
+          window.dispatchEvent(new CustomEvent("faro-lens", { detail: { dir, ring: true } }));
+          window.setTimeout(() => dragPane(el, null), 0); // the panel that stays (same pocket kept) springs back
+          return;
+        }
+        if (hub === "books" && start.type !== "mouse") {
+          if (start.axis !== "x" || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) { if (start.axis === "x") dragPane(start.el, null); return; }
+          swiped.current = true;
+          const dir = dx < 0 ? 1 : -1;
+          const next = ringNext(ui.section, vault, dir);
+          markRing();
+          setSlideDir(dir);
+          if ((TOP_BOOKS as readonly string[]).includes(next)) { setVault(null); setUi({ section: next as SectionId }); }
+          else { if (ui.section === "subs") setUi({ section: "income" }); setVault(next as VaultTab); }
+          ringLand(e.currentTarget, next);
+          return;
+        }
         if (Math.abs(dx) < 36 || Math.abs(dx) < Math.abs(dy)) return;
         swiped.current = true;
         const dir = dx < 0 ? 1 : -1;

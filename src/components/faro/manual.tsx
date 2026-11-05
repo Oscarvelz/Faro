@@ -173,10 +173,9 @@ function Manual({ data }: { data: ManualData }) {
     root.goTopic(tp.id, tp.go, tp.id);
   };
   const linkFrom = (entryId: string) => (term: string) => {
-    const id = data.LINKS[term];
-    const dest = id ? findTopic(id) : null;
-    if (!dest?.go) return;
-    root.goTopic(dest.id, dest.go, entryId);
+    const dest = data.linkDest(term);
+    if (!dest) return;
+    root.goTopic(dest.topic, dest.go, entryId);
   };
 
   const backLabel = (root.depth > 1 ? t("manual.back").replace("{screen}", root.backName()) : t("manual.home")).replace(/\ba el\b/, "al");
@@ -297,20 +296,22 @@ function Manual({ data }: { data: ManualData }) {
                             <div>
                               <dt>{t("manual.what")}</dt>
                               <dd>
-                                {richText(say(tp.what), data, linkFrom(tp.id))}
-                                {tp.whatAlt ? <>{" "}{richText(say(tp.whatAlt), data, linkFrom(tp.id))}</> : null}
+                                {(() => { const seen = new Set<string>(); return <>
+                                  {richText(say(tp.what), data, linkFrom(tp.id), { self: tp.id, seen })}
+                                  {tp.whatAlt ? <>{" "}{richText(say(tp.whatAlt), data, linkFrom(tp.id), { self: tp.id, seen })}</> : null}
+                                </>; })()}
                               </dd>
                             </div>
                             {tp.how ? (
                               <div>
                                 <dt>{t("manual.how")}</dt>
-                                <dd>{richText(say(tp.how), data, linkFrom(tp.id))}</dd>
+                                <dd>{richText(say(tp.how), data, linkFrom(tp.id), { self: tp.id })}</dd>
                               </div>
                             ) : null}
                             {tp.tip ? (
                               <div className="mn-tip">
                                 <dt><Lightbulb aria-hidden /><span>{t("manual.tip")}</span></dt>
-                                <dd>{richText(say(tp.tip), data, linkFrom(tp.id))}</dd>
+                                <dd>{richText(say(tp.tip), data, linkFrom(tp.id), { self: tp.id })}</dd>
                               </div>
                             ) : null}
                           </dl>

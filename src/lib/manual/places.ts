@@ -73,3 +73,22 @@ export function placeName(place: { section: SectionId; vault?: VaultTab | null; 
   const pair = NAMES[key] ?? NAMES.desk!;
   return lang === "en" ? pair[1] : pair[0];
 }
+
+const BOOKS = ["income", "fixed", "variable", "shops", "subs"];
+/** Anchors that only mark a screen (its tabs or selector), not a spot on it. */
+const SCREEN_ANCHORS = new Set(["books-tabs", "debt-scale", "vault-tabs"]);
+
+/**
+ * Is `go` the place on screen right now? Then a name of it is not linked (you are already there).
+ * Only whole screens count: a link to a fold or a spot on this same screen still scrolls and glows it.
+ */
+export function isHere(go: GoLike, ui: { section: SectionId; vault?: VaultTab | null; instruments?: boolean; manual?: string | null }): boolean {
+  if (ui.manual !== null && ui.manual !== undefined) return false;
+  if (go.fold || go.lens || (go.anchor && !SCREEN_ANCHORS.has(go.anchor))) return false;
+  const s = go.screen;
+  if (s === "tools") return !!ui.instruments;
+  if (ui.instruments || s === "top" || s === "cobros") return false;
+  if (s.startsWith("vault-")) return BOOKS.includes(ui.section) && ui.vault === s.slice(6);
+  if (BOOKS.includes(s)) return ui.section === s && !ui.vault;
+  return ui.section === s;
+}

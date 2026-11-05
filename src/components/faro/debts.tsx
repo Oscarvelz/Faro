@@ -6,7 +6,7 @@
  * - PersonSheet: one person's full history; NetLine; DebtChart; PayoffPlan.
  * The money rules live in lib/faro/debts.ts and lib/faro/loans.ts.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Plus, Scale, X } from "lucide-react";
 import "./debts.css";
@@ -38,6 +38,7 @@ function monthName(key: string, lang: string, year = true) {
 
 let cobrosReturn: { depth: number; side: "in" | "out"; tab: "dues" | "loans" } | null = null;
 let nextOweTab: "dues" | "loans" | null = null;
+let oweTabMem: "dues" | "loans" = "dues";
 /** "Ver todo" in Central's Cobros: remember where Back should bring the user (that depth, that side, that tab). */
 export function markCobrosReturn(depth: number, side: "in" | "out", tab: "dues" | "loans") {
   cobrosReturn = { depth, side, tab };
@@ -59,22 +60,63 @@ export function takeCobrosReturn(depth: number) {
 
 /* ---------- the middle selector ---------- */
 
+/* A side picked by a person (a tap, or a swipe that lands on it): the scale answers in that side's colour (a bloom from
+   the tap point, the dot pulses, the beam settles), then what opens below says "here I am" once. Never on load or Back. */
+let helloSide: DebtSide | null = null;
+let helloAt = 0;
+export function debtHello(side: DebtSide, point?: { x: number; y: number }) {
+  helloSide = side;
+  helloAt = Date.now();
+  window.dispatchEvent(new CustomEvent("faro-debt-tap", { detail: { side, point } }));
+}
+function takeHello(side: DebtSide): boolean {
+  if (helloSide !== side || Date.now() - helloAt > 900) return false;
+  helloSide = null;
+  return true;
+}
+const HELLO: Record<DebtSide, string> = { owe: ".debo-tab", owed: ".debt-book > .cobro-swap > .cobro-top, .debt-book .cobro-group" };
+
 export function DebtScale({ value, onPick }: { value: DebtSide | null; onPick: (side: DebtSide) => void }) {
   const { session, fmt } = useFaro();
   const L = useL();
   const n = netBalance(session?.ledger);
+  const root = useRef<HTMLDivElement>(null);
+  const [tap, setTap] = useState<{ side: DebtSide; x: number; y: number; n: number } | null>(null);
+  useEffect(() => {
+    let clear = 0;
+    const on = (e: Event) => {
+      const { side, point } = (e as CustomEvent<{ side: DebtSide; point?: { x: number; y: number } }>).detail;
+      const btn = root.current?.querySelector<HTMLElement>(`button[data-side="${side}"]`);
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const x = point ? point.x - r.left : r.width / 2;
+      const y = point ? point.y - r.top : r.height / 2;
+      setTap((t) => ({ side, x, y, n: (t?.n ?? 0) + 1 }));
+      window.clearTimeout(clear);
+      clear = window.setTimeout(() => setTap(null), 760);
+    };
+    window.addEventListener("faro-debt-tap", on);
+    return () => { window.removeEventListener("faro-debt-tap", on); window.clearTimeout(clear); };
+  }, []);
   // The pivot leans toward the heavier side (at most 7°), like a real scale.
   const sum = n.owed + n.owe;
   const lean = sum > 0 ? Math.max(-7, Math.min(7, ((n.owe - n.owed) / sum) * 7)) : 0;
+  const pick = (side: DebtSide) => (e: React.MouseEvent) => {
+    debtHello(side, e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined);
+    onPick(side);
+  };
+  const bloom = (side: DebtSide) => (tap?.side === side ? <span key={tap.n} className="ds-bloom" aria-hidden style={{ left: tap.x, top: tap.y }} /> : null);
   return (
-    <div className="debt-scale" data-on={value ?? undefined} role="tablist" aria-label={L("Deudas", "Debts")} data-anchor="debt-scale" style={{ ["--lean" as string]: `${lean.toFixed(2)}deg` }}>
+    <div ref={root} className="debt-scale" data-on={value ?? undefined} data-tap={tap?.side} data-tapn={tap ? tap.n % 2 : undefined} role="tablist" aria-label={L("Deudas", "Debts")} data-anchor="debt-scale" style={{ ["--lean" as string]: `${lean.toFixed(2)}deg` }}>
       <i className="debt-plate" aria-hidden />
-      <button type="button" role="tab" data-side="owed" aria-selected={value === "owed"} aria-current={value === "owed" ? "page" : undefined} onClick={() => onPick("owed")}>
+      <button type="button" role="tab" data-side="owed" aria-selected={value === "owed"} aria-current={value === "owed" ? "page" : undefined} onClick={pick("owed")}>
+        {bloom("owed")}
         <span className="ds-lab">{L("Me deben", "Owed to me")}</span>
         <b className="num">{fmt(n.owed)}</b>
       </button>
       <span className="debt-pivot" aria-hidden><Scale /></span>
-      <button type="button" role="tab" data-side="owe" aria-selected={value === "owe"} aria-current={value === "owe" ? "page" : undefined} onClick={() => onPick("owe")}>
+      <button type="button" role="tab" data-side="owe" aria-selected={value === "owe"} aria-current={value === "owe" ? "page" : undefined} onClick={pick("owe")}>
+        {bloom("owe")}
         <span className="ds-lab">{L("Debo", "I owe")}</span>
         <b className="num">{fmt(n.owe)}</b>
       </button>
@@ -365,9 +407,31 @@ export function PayoffPlan() {
 /* ---------- Debo in Libros ---------- */
 
 export function OweBook() {
-  const { session, fmt, lang } = useFaro();
+  const { session, fmt, lang, summary } = useFaro();
   const L = useL();
-  const [tab, setTab] = useState<"dues" | "loans">(() => { const v = nextOweTab ?? "dues"; nextOweTab = null; return v; });
+  const owe = netBalance(session?.ledger).owe;
+  // The sub-tab survives leaving Debo (a name link, Back, the ring swipe): Debo opens on the one you last read.
+  const [tab, setTabState] = useState<"dues" | "loans">(() => { const v = nextOweTab ?? oweTabMem; nextOweTab = null; return v; });
+  const setTab = (v: "dues" | "loans") => { oweTabMem = v; setTabState(v); };
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // The amber hairline slides under the chosen tab's name (measured, so it fits each language and text size).
+  useLayoutEffect(() => {
+    const row = tabsRef.current;
+    if (!row) return;
+    const place = () => {
+      const name = row.querySelector<HTMLElement>(`.debo-tab[data-on] .dt-name`);
+      const ink = row.querySelector<HTMLElement>(".debo-ink");
+      if (!name || !ink) return;
+      const a = row.getBoundingClientRect(), b = name.getBoundingClientRect();
+      ink.style.width = `${Math.round(b.width)}px`;
+      ink.style.transform = `translateX(${Math.round(b.left - a.left)}px)`;
+      requestAnimationFrame(() => row.setAttribute("data-ready", ""));
+    };
+    place();
+    const ro = new ResizeObserver(place); ro.observe(row);
+    void document.fonts?.ready.then(place);
+    return () => ro.disconnect();
+  }, [tab, lang]);
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
@@ -393,13 +457,20 @@ export function OweBook() {
   };
   return (
     <>
-      <div className="debo-tabs" role="tablist" data-anchor="debt-owe-tabs">
+      <div className="debo-tabs is-lux" role="tablist" data-anchor="debt-owe-tabs" data-on={tab} ref={tabsRef}>
+        <i className="debo-ink" aria-hidden />
         <span className="debo-tab" data-on={tab === "dues" || undefined}>
-          <button type="button" role="tab" aria-selected={tab === "dues"} aria-pressed={tab === "dues"} onClick={() => setTab("dues")}>{L("Cuotas", "Dues")}</button>
+          <button type="button" role="tab" aria-selected={tab === "dues"} aria-pressed={tab === "dues"} onClick={() => setTab("dues")}>
+            <span className="dt-name">{L("Cuotas", "Dues")}</span>
+            <em className="dt-sub num" aria-hidden>{fmt(summary?.subscriptions ?? 0)}</em>
+          </button>
           <Hint topic="debo" />
         </span>
         <span className="debo-tab" data-on={tab === "loans" || undefined}>
-          <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => setTab("loans")}>{L("Préstamos", "Loans")}</button>
+          <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => setTab("loans")}>
+            <span className="dt-name">{L("Préstamos", "Loans")}</span>
+            <em className="dt-sub num" aria-hidden>{fmt(owe)}</em>
+          </button>
           <Hint topic="prestamos" />
         </span>
       </div>
@@ -415,8 +486,29 @@ export function OweBook() {
 
 /** What Libros shows for the middle row. */
 export function DebtBook({ side }: { side: DebtSide }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const timers: number[] = [];
+    const run = () => {
+      if (!takeHello(side)) return;
+      // After the pane's own entrance has started, so the light lands on what is really there.
+      timers.push(window.setTimeout(() => {
+        const els = [...(box.current?.querySelectorAll<HTMLElement>(HELLO[side]) ?? [])].slice(0, 3);
+        els.forEach((el, i) => {
+          el.classList.remove("is-hello");
+          void el.offsetWidth;
+          el.style.setProperty("--hello-d", `${i * 80}ms`);
+          el.classList.add("is-hello");
+          timers.push(window.setTimeout(() => el.classList.remove("is-hello"), 1000 + i * 80));
+        });
+      }, 140));
+    };
+    run();
+    window.addEventListener("faro-debt-tap", run);
+    return () => { window.removeEventListener("faro-debt-tap", run); timers.forEach((t) => window.clearTimeout(t)); };
+  }, [side]);
   return (
-    <div className="debt-book" data-side={side}>
+    <div className="debt-book" data-side={side} ref={box}>
       <NetLine />
       {side === "owed" ? <OwedSide libros /> : <OweBook />}
     </div>

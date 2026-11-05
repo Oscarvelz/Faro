@@ -18,13 +18,21 @@
 }
 .hint-more svg, .hint-act svg { width: 13px; height: 13px; flex: none; }
 .hint-act { color: var(--muted); }
-.hint-link {
-  display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; font-weight: 600;
-  color: var(--accent); cursor: pointer; text-align: inherit;
-  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px;
-  text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
+/* Proper names in help text (1.3.94): a name of something in Faro reads as a name, not as ordinary words.
+   Same colour and weight as the sentence; only a thin dotted underline, a little stronger on hover/focus. */
+.term-link {
+  display: inline; padding: 0; margin: 0; border: 0; border-radius: 2px; background: none;
+  font: inherit; color: inherit; letter-spacing: inherit; text-align: inherit; cursor: pointer;
+  text-decoration-line: underline; text-decoration-style: dotted; text-decoration-thickness: 1px;
+  text-underline-offset: 3px; text-decoration-skip-ink: auto;
+  text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
   -webkit-tap-highlight-color: transparent;
+  transition: text-decoration-color .15s ease;
 }
+.term-link:hover, .term-link:focus-visible { text-decoration-color: color-mix(in oklab, currentColor 80%, transparent); }
+.term-link:focus-visible { outline: 1.5px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: 2px; }
+.term-link.is-still { cursor: inherit; }
+.term-link.is-still:hover { text-decoration-color: color-mix(in oklab, currentColor 45%, transparent); }
 .faro-name { font-weight: 600; color: inherit; }
 
 /* ===================================================== "Ir allí" calm glow
@@ -183,7 +191,8 @@ html.manual-open { overflow: hidden; }
 
 /* ================================================================ Tron
    Teal only: links, marks, glow and highlights never use amber (amber is for amounts). */
-[data-theme="tron"] .hint-more, [data-theme="tron"] .hint-link { color: #3fd6f5; text-decoration-color: rgba(63, 214, 245, .45); }
+[data-theme="tron"] .hint-more { color: #3fd6f5; }
+[data-theme="tron"] .term-link:focus-visible { outline-color: rgba(63, 214, 245, .7); }
 [data-theme="tron"] .hint-act { color: #9fd9e6; }
 [data-theme="tron"] .hint-acts { border-top-color: rgba(63, 214, 245, .22); }
 [data-theme="tron"] .faro-glow-ring { box-shadow: 0 0 0 1.5px rgba(63, 214, 245, .85), 0 0 22px 2px rgba(63, 214, 245, .38); }

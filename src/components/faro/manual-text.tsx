@@ -1,37 +1,63 @@
 import { Fragment, type ReactNode } from "react";
 import type { ManualData } from "@/lib/manual/load";
+import type { Go } from "@/lib/manual/topics";
 
 /**
- * Bubble and manual text. `[[Term]]` is a link that jumps straight to that place in the app; known feature
- * names that are not links get a gentle emphasis (same colour, a little weight, no underline).
+ * How names render in one bubble or one manual paragraph.
+ * `self`: the topic this text explains (a name of that very thing is not linked). `here`: true when a place is the
+ * one on screen (no link to where you already are). `seen`: share one Set across the texts of one paragraph, so a
+ * name is linked once. `still`: the bubble sits in a form or sheet with typing in progress; names keep the dotted
+ * mark (they still read as names) but are not links, so a tap can never throw that typing away.
  */
-export function richText(text: string, data: ManualData, onLink: (term: string) => void): ReactNode {
+export type TermCtx = { self?: string; here?: (go: Go) => boolean; seen?: Set<string>; still?: boolean };
+
+/**
+ * Bubble and manual text. `[[Term]]` is a proper name of something in Faro (a screen, a book, a side, a button):
+ * it reads as a name (thin dotted underline, same colour and weight as the text) and is a link that jumps there.
+ * Known feature names with no place to go keep a gentle emphasis (same colour, a little weight, no underline).
+ */
+export function richText(text: string, data: ManualData, onLink: (term: string) => void, ctx: TermCtx = {}): ReactNode {
   const parts = text.split(/(\[\[[^\]]+\]\])/g);
   const out: ReactNode[] = [];
+  const seen = ctx.seen ?? new Set<string>();
+  const selfTitle = ctx.self ? data.findTopic(ctx.self)?.title : undefined;
   for (let i = 0; i < parts.length; i += 1) {
     const part = parts[i]!;
     if (part.startsWith("[[") && part.endsWith("]]")) {
       const term = part.slice(2, -2);
       const dest = data.linkDest(term);
-      const node = !dest ? <b className="faro-name">{term}</b> : (
-        <button
-          type="button"
-          className="hint-link"
-          data-link={term}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onLink(term);
-          }}
-        >
-          {term}
-        </button>
-      );
+      const key = dest ? `${dest.go.screen}|${dest.go.fold ?? ""}|${dest.go.anchor ?? dest.topic}` : term;
+      const plain = !dest
+        || dest.topic === ctx.self
+        || (selfTitle && (selfTitle[0] === term || selfTitle[1] === term))
+        || seen.has(key)
+        || !!ctx.here?.(dest.go);
+      let node: ReactNode;
+      if (!dest) node = <b className="faro-name">{term}</b>;
+      else if (plain) node = term;
+      else if (ctx.still) { seen.add(key); node = <span className="term-link is-still">{term}</span>; }
+      else {
+        seen.add(key);
+        node = (
+          <button
+            type="button"
+            className="term-link hint-link"
+            data-link={term}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onLink(term);
+            }}
+          >
+            {term}
+          </button>
+        );
+      }
       // A full stop or comma right after a link never wraps onto a line of its own: the link and its punctuation stay together.
       const next = parts[i + 1] ?? "";
       const punct = /^[.,;:!?)»”]+/.exec(next)?.[0] ?? "";
-      if (punct) {
+      if (punct && typeof node !== "string") {
         out.push(<span key={i} className="mn-join">{node}{punct}</span>);
         parts[i + 1] = next.slice(punct.length);
       } else out.push(<Fragment key={i}>{node}</Fragment>);

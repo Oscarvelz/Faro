@@ -79,6 +79,34 @@ export const LINKS: Record<string, string> = {
   "Zoom con dos dedos": "zoom-dedos", "Two-finger zoom": "zoom-dedos",
   "Asesor en pantalla grande": "asesor-ancho", "Advisor on a big screen": "asesor-ancho",
   Ajustes: "ajustes", Settings: "ajustes",
+  // 1.3.94: proper names of screens, books, sides and buttons (dotted links in bubbles and the manual)
+  Fijos: "fijos", Fixed: "fijos",
+  Variables: "variables", Variable: "variables",
+  Compras: "compras", Shopping: "compras",
+  Subscriptions: "cuotas",
+  "Me deben": "deudas", "Owed to me": "deudas",
+  Debo: "debo", "I owe": "debo",
+  "Préstamos": "prestamos", Loans: "prestamos",
+  Abonar: "bono", Payment: "bono",
+  Cobros: "cobros", Collections: "cobros",
+  Cambio: "mesa-cambio", Exchange: "mesa-cambio",
+  Tengo: "tengo", Have: "tengo",
+  "Gastaré": "gastare", Spending: "gastare",
+  Usado: "usado", Used: "usado",
+  Tasa: "tasa-rapida", Rate: "tasa-rapida",
+};
+
+/**
+ * Where a name goes when that differs from its topic's own `go` (the topic explains the Central shortcut, the name
+ * means the place in Libros). The topic id still names the (?) the landing glows when no anchor is on screen.
+ */
+export const LINK_GO: Record<string, Go> = {
+  Debo: { screen: "vault-owe", anchor: "debt-scale", where: ["Libros → Debo", "Books → I owe"] },
+  "I owe": { screen: "vault-owe", anchor: "debt-scale", where: ["Libros → Debo", "Books → I owe"] },
+  "Préstamos": { screen: "vault-owe", fold: "debt-loans", anchor: "debt-loans", where: ["Libros → Debo → Préstamos", "Books → I owe → Loans"] },
+  Loans: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-loans", where: ["Libros → Debo → Préstamos", "Books → I owe → Loans"] },
+  Abonar: { screen: "vault-owed", anchor: "debt-owed", where: ["Libros → Me deben", "Books → Owed to me"] },
+  Payment: { screen: "vault-owed", anchor: "debt-owed", where: ["Libros → Me deben", "Books → Owed to me"] },
 };
 
 /**
@@ -86,10 +114,10 @@ export const LINKS: Record<string, string> = {
  * weight 600, no underline). Matched as whole words in bubble and manual text.
  */
 export const NAME_TERMS: string[] = [
-  "Tengo", "Gastaré", "Queda", "Usado", "Tasa", "Cobros", "Me deben", "Debo", "Bono", "Archivo", "Acumulado", "Promedio",
+  "Tengo", "Gastaré", "Usado", "Tasa", "Cobros", "Me deben", "Debo", "Bono", "Archivo", "Acumulado", "Promedio",
   "Este periodo", "Desplegar", "Ir allí", "Más en el manual", "Poner en el campo", "Aplicar al plan", "Copiar plan",
   "Guardar copia ahora", "Restaurar", "Entendido", "Fijos", "Variables", "Compras",
-  "Have", "Spending", "Left", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",
+  "Have", "Spending", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",
   "Average", "This period", "Unfold", "Go there", "More in the manual", "Put in the field", "Apply to the plan", "Copy plan",
   "Save a copy now", "Restore", "Got it", "Fixed", "Variable", "Shopping",
 ];
@@ -99,11 +127,12 @@ export function linkTerms(): readonly string[] {
   return TERMS_LONGEST_FIRST;
 }
 
-/** Where a [[Term]] goes: the `go` of the topic it names. */
+/** Where a [[Term]] goes: its own place (LINK_GO) or the `go` of the topic it names. */
 export function linkDest(term: string): { topic: string; go: Go } | null {
   const id = LINKS[term];
   const topic = id ? findTopic(id) : null;
-  return topic?.go ? { topic: topic.id, go: topic.go } : null;
+  const go = LINK_GO[term] ?? topic?.go;
+  return topic && go ? { topic: topic.id, go } : null;
 }
 
 /**

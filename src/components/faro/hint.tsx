@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, Calculator, CircleHelp } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
+import { isHere } from "@/lib/manual/places";
 import { loadManual, manualNow, type ManualData } from "@/lib/manual/load";
 import { useFaroRoot } from "./provider";
 import { richText } from "./manual-text";
@@ -9,6 +10,9 @@ import "./manual.css";
 
 /** Where a bubble may sit: inside the form or card it belongs to (never clipped by it, never wider than it). */
 const HOST = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-dock, .card, .stat-fold, main, .tool-sheet, .mn-layer, .imp-pick, .imp-sheet";
+
+/** Forms and sheets where leaving would drop what is being typed or reviewed. */
+const STILL = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-dock, .imp-sheet, .imp-pick, .stm-sheet";
 
 /**
  * The (?) bubble. Its text is the topic's `what`, word for word (lib/manual/topics.ts), so the bubble and the
@@ -249,13 +253,13 @@ export function Hint({
 
   const entry = data?.findTopic(topic) ?? null;
   const onLink = (term: string) => {
-    if (!data) return;
-    const id = data.LINKS[term];
-    const dest = id ? data.findTopic(id) : null;
-    if (!dest?.go) return;
+    const dest = data?.linkDest(term);
+    if (!dest) return;
     setOpen(false);
-    root.goTopic(dest.id, dest.go);
+    root.goTopic(dest.topic, dest.go);
   };
+  // A bubble inside a form or sheet with typing in progress: names keep their dotted mark but do not navigate.
+  const still = open && !!ref.current?.closest(STILL);
 
   return (
     <span className={`ftip hint${corner ? " is-corner" : ""}${className ? ` ${className}` : ""}${tight ? " is-tight" : ""}`} ref={ref} data-topic={topic} data-group={group}>
@@ -282,7 +286,7 @@ export function Hint({
         ? createPortal(
             <span ref={pop} className="ftip-pop hint-pop" role="dialog" aria-label={data.pick(lang, entry.title)} data-hint={topic} onPointerDown={(e) => e.stopPropagation()}>
               <span className="hint-scroll">
-              <span className="hint-text">{richText(data.bubbleText(entry, lang, alt), data, onLink)}</span>
+              <span className="hint-text">{richText(data.bubbleText(entry, lang, alt), data, onLink, { self: entry.id, here: (go) => isHere(go, root.ui), still })}</span>
               {calc || entry.depth === "manual" ? (
                 <span className="hint-acts">
                   {calc ? (

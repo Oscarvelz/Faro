@@ -40,6 +40,7 @@ import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
 import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import { OwedSide, SeeAll, takeCobrosReturn } from "./debts";
+import { ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 
 const STORE_TINT: Record<string, string> = {
   temu: "#fb7701",
@@ -1710,21 +1711,54 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       window.removeEventListener("faro-back", onBack, true);
     };
   }, [quick]);
+  // Central's ring (1.3.94): the choice picked last, a lens or a savings pocket, is where a finger swipe steps from.
+  const ringAt = useRef<string | null>(null);
+  useEffect(() => { if (lens !== "all") ringAt.current = lens; }, [lens]);
+  useEffect(() => {
+    const kind = openSave?.endsWith(".meta") ? "meta" : openSave?.endsWith(".retiro") ? "retiro" : openSave?.endsWith(".emergencia") ? "emergencia" : null;
+    if (kind) ringAt.current = kind;
+  }, [openSave]);
+  const ringLive = useRef({ lens, openSave, ids: [] as string[] });
   useEffect(() => {
     const order = ["have", "spend", "debt"] as const;
     const onLens = (e: Event) => {
-      const dir = (e as CustomEvent<number>).detail;
+      if (focus) return;
+      const detail = (e as CustomEvent<number | { dir: number; ring: true }>).detail;
+      const dir = typeof detail === "number" ? detail : detail.dir;
       setFlowDir(dir);
       lensByJump.current = false;
-      setLens((cur) => {
-        const i = order.indexOf(cur as (typeof order)[number]);
-        const base = i < 0 ? (dir > 0 ? -1 : 0) : i;
-        return order[(base + dir + order.length) % order.length];
-      });
+      if (typeof detail === "number") {
+        // Mouse drag: the three lenses, as before.
+        setLens((cur) => {
+          const i = order.indexOf(cur as (typeof order)[number]);
+          const base = i < 0 ? (dir > 0 ? -1 : 0) : i;
+          return order[(base + dir + order.length) % order.length];
+        });
+        return;
+      }
+      // Touch: Tengo · Gastaré · Pagos · Meta · Retiro · Emergencia as one loop (a pocket that does not exist is skipped).
+      const live = ringLive.current;
+      const pocketOf = (k: string) => live.ids.find((id) => id.endsWith(`.${k}`)) ?? null;
+      const ring = ["have", "spend", "debt", "meta", "retiro", "emergencia"].filter((k) => order.includes(k as never) || !!pocketOf(k));
+      const here = ringAt.current && ring.includes(ringAt.current) && (order.includes(ringAt.current as never) ? live.lens === ringAt.current : live.openSave === pocketOf(ringAt.current)) ? ringAt.current : null;
+      const i = here ? ring.indexOf(here) : (dir > 0 ? -1 : 0);
+      const next = ring[(i + dir + ring.length) % ring.length]!;
+      ringAt.current = next;
+      if (order.includes(next as never)) {
+        setOpenSave(null);
+        setLens(next as (typeof order)[number]);
+        window.setTimeout(() => { ringLit(document.querySelector(`.lens.is-${next}`)); ringShow(document.querySelector<HTMLElement>('[data-anchor="desk-list"]')); }, 60);
+      } else {
+        const id = pocketOf(next)!;
+        setLens("all");
+        setSaveOn(id); setEditId(null); setAdding(false); setMoving(null);
+        setOpenSave(id);
+        window.setTimeout(() => { ringLit(document.querySelector(".save-seg.is-on")); ringShow(ledgerRef.current); }, 60);
+      }
     };
     window.addEventListener("faro-lens", onLens);
     return () => window.removeEventListener("faro-lens", onLens);
-  }, []);
+  }, [focus]);
   // "Ir allí" / [[links]]: pick a lens or open Cobros.
   useEffect(() => {
     if (focus) return;
@@ -1779,6 +1813,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const saveSegs = (seed.length ? seed : [{ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "" }]).map((s) => ({ ...s, minor: buckets.get(s.id) ?? 0 }));
   const rest = buckets.get("rest") ?? 0;
   if (rest > 0 && seed.length) saveSegs.push({ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "", minor: rest });
+  ringLive.current = { lens, openSave, ids: saveSegs.map((s) => s.id) };
   const saveTotal = saveSegs.reduce((acc, s) => acc + s.minor, 0);
   const savePeak = Math.max(...saveSegs.map((s) => s.minor), 1);
   const saveTints = ["#8fb9a6", "#72b4b2", "#7aa2c4", "#e07a5f", "#c9a6d4", "#d7b48a"].map((c) => (isTron() ? tronize(c) : c));
@@ -2525,7 +2560,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {openSeg ? (
           <div className={focus && focus !== "save" ? "vault-block" : "vault-pass"} style={focus && focus !== "save" ? { order: blockAt("board") } : undefined}>
             {focus && focus !== "save" && vaultSort ? blockArrows("board") : null}
-          <div data-anchor="vault-ledger" className={`save-ledger${pocketKind === "retiro" ? " is-retiro" : ""}${focus && focus !== "save" ? " is-manage" : ""}${focus && focus !== "save" && pocketFold ? " is-folded" : ""}`} ref={ledgerRef} style={{ ["--seg" as string]: saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === openSeg.id)) % saveTints.length] }} onClick={() => { if (focus && focus !== "save" && pocketFold) togglePocketFold(); }}>
+          <div key={focus ? "ledger" : openSeg.id} data-dir={flowDir < 0 ? "-1" : "1"} data-anchor="vault-ledger" className={`save-ledger${!focus && ringFresh() ? " is-ring" : ""}${pocketKind === "retiro" ? " is-retiro" : ""}${focus && focus !== "save" ? " is-manage" : ""}${focus && focus !== "save" && pocketFold ? " is-folded" : ""}`} ref={ledgerRef} style={{ ["--seg" as string]: saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === openSeg.id)) % saveTints.length] }} onClick={() => { if (focus && focus !== "save" && pocketFold) togglePocketFold(); }}>
             <div className={`save-ledger-head${focus && focus !== "save" ? " is-tab" : ""}`} onClick={(event) => { if (!focus || focus === "save") return; event.stopPropagation(); togglePocketFold(); }}>
               <strong className="lab-head">{openSeg.name}<Hint topic={pocketKind === "retiro" ? "retiro" : pocketKind === "emergencia" ? "emergencia" : "meta"} /></strong>
               <span className="row">
@@ -2962,7 +2997,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         ) : null}
       </section>
       {focus ? null : (
-      <section key={lens} data-anchor="desk-list" className="card span-all swipe-pane" data-dir={flowDir < 0 ? "-1" : "1"}>
+      <section key={lens} data-anchor="desk-list" className={`card span-all swipe-pane${ringFresh() ? " is-ring" : ""}`} data-dir={flowDir < 0 ? "-1" : "1"}>
         {lens === "debt" ? (
           <div className="debt-lamp" data-anchor="desk-semaforo">
             {(() => {
