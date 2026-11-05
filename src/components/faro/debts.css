@@ -511,7 +511,7 @@ html body .cobros .cobro-swap .cobro-file::before { background: linear-gradient(
 html body .cobros .cobro-swap > .span-cut { margin-top: 0; }
 html body .cobros .cobro-swap > .span-cut > .span-fold-bar { min-height: 58px; padding: 8px 8px 8px 14px; gap: 6px; }
 html body .cobros .cobro-swap > .span-cut.is-open > .span-fold-bar { padding-left: 8px; }
-html body .cobros .cobro-swap .cobro-group { gap: 4px; padding: 8px 8px 10px 14px; }
+html body .cobros .cobro-swap .cobro-group { gap: 4px; padding: 8px 8px 10px 14px; align-content: start; }
 html body .cobros .cobro-swap .cobro-group > h3 { min-height: 40px; gap: 8px; }
 html body .cobros .cobro-swap .cobro-file { gap: 4px; padding: 8px; }
 html body .cobros .cobro-swap .cobro-file-head { min-height: 40px; padding: 0 0 0 6px; gap: 8px; }
@@ -618,3 +618,15 @@ html[data-theme="tron"] body .cobros .cobro-all {
   font-family: "Exo 2", var(--font-sans); letter-spacing: .04em; text-shadow: 0 0 8px color-mix(in oklab, var(--tone) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) { html body .cobros .cobro-all, html body .cobros .cobro-all > svg { transition: none; } }
+/* night themes: the Debo panel itself was a brown wash; graphite with a faint amber light instead */
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros.is-due {
+  border-color: color-mix(in oklab, var(--owe) 30%, var(--line));
+  background: radial-gradient(110% 70% at 0% 0%, color-mix(in oklab, var(--owe) 11%, transparent), transparent 48%), linear-gradient(165deg, color-mix(in oklab, #2a2e33 45%, var(--surface)), var(--surface) 70%);
+}
+/* wide docks (tablet): Sin interés | Con interés side by side, everything else across */
+.cobros { container: cobros / inline-size; }
+@container cobros (min-width: 40rem) {
+  html body .cobros .cobro-swap:has(> .cobro-group) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  html body .cobros .cobro-swap:has(> .cobro-group) > * { grid-column: 1 / -1; }
+  html body .cobros .cobro-swap:has(> .cobro-group) > .cobro-group { grid-column: auto; }
+}
