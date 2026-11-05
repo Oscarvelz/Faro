@@ -1,4 +1,9 @@
 /* Floating window (Samsung-style pop-up view) */
+/* 1.3.105: the window lives in a full-screen, fully contained layer, so a frame resize lays out only this layer (measured:
+   resizing the fixed window directly re-walked the whole document, 30–56 ms per frame at 4× CPU on the tablet). Fixed
+   descendants resolve against this layer, which is the viewport, so nothing moves. */
+.float-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; contain: strict; }
+.float-layer > .float-win { pointer-events: auto; }
 .float-win {
   position: fixed; z-index: 60;
   display: flex; flex-direction: column; overflow: visible; container: floatwin / inline-size;
@@ -12,8 +17,9 @@
   touch-action: none;
 }
 .float-win:hover, .float-win:focus-within { opacity: max(var(--float-alpha, 1), .92); }
-.float-win.is-moving { opacity: .94; box-shadow: 0 30px 70px rgb(0 0 0 / .45); user-select: none; transition: none; }
-.float-win.is-moving .float-body { pointer-events: none; }
+/* 1.3.105: drag state is an attribute (not a class: spa/fit.ts re-fits the whole document on class changes) and touches only
+   the frame itself — no inherited property changes, so starting/ending a drag never restyles the content. */
+.float-win[data-moving] { opacity: .94; box-shadow: 0 30px 70px rgb(0 0 0 / .45); transition: none; }
 @keyframes float-in { from { opacity: 0; transform: scale(.94) translateY(10px); } }
 
 .float-bar {
@@ -24,7 +30,11 @@
   border-bottom: 1px solid var(--line);
   cursor: grab; touch-action: none; user-select: none;
 }
-.float-win.is-moving .float-bar { cursor: grabbing; }
+.float-win[data-moving] .float-bar { cursor: grabbing; }
+/* Resize: the drag shadow moves to .float-shade, a box the size of the frame at touch-down, scaled with it on the compositor;
+   the frame keeps only the thin accent ring (no blur), so a frame resize re-rasters a flat box, not a 70px blur. */
+.float-shade { display: none; position: absolute; left: 0; top: 0; z-index: -1; border-radius: 22px; pointer-events: none; transform-origin: 0 0; box-shadow: 0 30px 70px rgb(0 0 0 / .45); will-change: transform; }
+.float-win[data-edge] > .float-shade { display: block; }
 .float-handle { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; }
 .float-handle i { width: 18px; height: 4px; border-radius: 99px; background: var(--muted); box-shadow: 0 6px 0 var(--muted); transform: translateY(-3px); opacity: .7; }
 .float-handle:focus-visible { outline: 2px solid var(--accent); }
@@ -40,7 +50,11 @@
 .float-tools button[aria-pressed="true"] { color: var(--accent); }
 .float-tools button:last-child:hover { background: color-mix(in oklab, var(--bad) 22%, transparent); color: var(--fg); }
 
+/* The content's clip: during a resize the content keeps its width (frozen px) while the frame follows the finger, so the
+   frame is the only thing laid out per frame. Content container queries resolve against .float-body (same width at rest). */
+.float-clip { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 0 0 21px 21px; }
 .float-body {
+  container: floatwin / inline-size;
   position: relative; z-index: 1; isolation: isolate; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; touch-action: auto;
   overflow: hidden; border-radius: 0 0 21px 21px;
 }
@@ -74,8 +88,23 @@
   -webkit-mask: linear-gradient(135deg, transparent 52%, #000 80%); mask: linear-gradient(135deg, transparent 52%, #000 80%);
   opacity: .55; transition: opacity .15s, border-color .15s;
 }
-.float-size.is-se:hover i, .float-size.is-se:focus-visible i, .float-win[data-edge] .float-size.is-se i { opacity: 1; border-color: var(--accent); }
-.float-win[data-edge] { box-shadow: 0 30px 70px rgb(0 0 0 / .45), 0 0 0 1.5px color-mix(in oklab, var(--accent) 55%, transparent); }
+/* Touch (finger): at least 32px across every edge, 44px corners; the extra reach is outside the frame. */
+@media (any-pointer: coarse) {
+  .float-size.is-n, .float-size.is-s { left: 30px; right: 30px; height: 32px; }
+  .float-size.is-n { top: -20px; height: 30px; }
+  .float-size.is-s { bottom: -20px; }
+  .float-size.is-e, .float-size.is-w { top: 30px; bottom: 30px; width: 32px; }
+  .float-size.is-e { right: -20px; }
+  .float-size.is-w { left: -20px; }
+  .float-size.is-nw, .float-size.is-ne { top: -20px; width: 44px; height: 32px; }
+  .float-size.is-nw { left: -20px; }
+  .float-size.is-ne { right: -20px; }
+  .float-size.is-sw { bottom: -20px; left: -20px; width: 46px; height: 46px; }
+  .float-size.is-se { bottom: -20px; right: -20px; width: 52px; height: 52px; }
+  .float-size.is-se i { right: 17px; bottom: 17px; }
+}
+.float-size.is-se:hover i, .float-size.is-se:focus-visible i, .float-win[data-edge] .float-size.is-se .float-grip { opacity: 1; border-color: var(--accent); }
+.float-win[data-edge] { box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--accent) 55%, transparent); }
 html[data-theme="tron"] .float-size.is-se i { border-color: color-mix(in oklab, var(--accent) 70%, transparent); filter: drop-shadow(0 0 4px color-mix(in oklab, var(--accent) 60%, transparent)); }
 
 /* Content re-flow by the window's own width (container queries), not the screen's: viewport media rules for wide screens
@@ -108,7 +137,7 @@ html[data-theme="tron"] .float-size.is-se i { border-color: color-mix(in oklab, 
   transition: left .28s cubic-bezier(.22, 1, .36, 1), top .28s cubic-bezier(.22, 1, .36, 1), transform .15s;
   animation: float-pop .3s cubic-bezier(.22, 1, .36, 1);
 }
-.float-bubble.is-moving { transition: none; transform: scale(1.08); }
+.float-bubble[data-moving] { transition: none; transform: scale(1.08); }
 .float-bubble:active { transform: scale(.95); }
 .float-bubble:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .float-bubble svg { position: relative; color: var(--accent); }

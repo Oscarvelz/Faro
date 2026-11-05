@@ -1605,6 +1605,11 @@ function buildCal(session: ReturnType<typeof useFaro>["session"], year: number, 
 type FloatGeo = { x: number; y: number; w: number; h: number; bx: number; by: number; alpha: number };
 const FLOAT_KEY = "faro-float-geo";
 const BUBBLE = 58;
+const vwNow = () => window.innerWidth;
+// How long the last content re-flow after a resize took (ms); starts pessimistic.
+let settleCost = 999;
+// Per CSS animation name: does it animate anything the compositor cannot (so it costs main-thread frames)?
+const heavyAnim = new Map<string, boolean>();
 
 function floatDefaults(): FloatGeo {
   const vw = window.innerWidth;
@@ -1699,14 +1704,16 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [folded, onFold]);
 
-  const paint = (g: FloatGeo) => {
+  // `content` false while dragging: --fz is inherited by the whole content, so changing it per frame would restyle and re-lay
+  // out every node inside (measured: 1.5 s frames at 4× CPU); the frozen content carries its own --fz until it re-flows.
+  const paint = (g: FloatGeo, content = true) => {
     const win = winRef.current;
     if (win) {
       win.style.left = `${g.x}px`;
       win.style.top = `${g.y}px`;
       win.style.width = `${g.w}px`;
       win.style.height = `${g.h}px`;
-      win.style.setProperty("--fz", String(floatZoom(g.w)));
+      if (content) win.style.setProperty("--fz", String(floatZoom(g.w)));
     }
     const bub = bubbleRef.current;
     if (bub) {
@@ -1715,52 +1722,199 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
     }
   };
 
-  // Drag: pointer capture on the handle, geometry computed per move but painted once per frame (rAF), straight to style.
-  // No React state changes until pointerup, so the content never re-renders mid-drag.
+  // 1.3.105 drag engine. Pointer capture on the handle; the finger's newest position (coalesced events, plus at most one
+  // frame of velocity look-ahead while it is moving fast) is painted once per frame straight to style. No React state and no
+  // class changes until pointerup (classes would wake spa/fit.ts's observer for a whole-document fit pass).
+  // Move = a compositor-only transform. Resize = the frame follows the finger every frame while the content inside keeps its
+  // width (frozen px, clipped by .float-clip) and re-flows only when that is cheap (≤ ~100 ms cadence, adaptive), when the
+  // finger pauses, and on release. Height follows every frame (it only resizes the scroller). Main-thread animations inside
+  // the window and non-composited ones behind it are paused for the drag and resumed after.
   const grab = (mode: "move" | "bubble" | FloatEdge) => (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     if (mode === "move" && (e.target as HTMLElement).closest("button")) return;
     if (mode !== "move" && mode !== "bubble") e.stopPropagation();
+    if (e.pointerType === "mouse" && mode !== "bubble") e.preventDefault();
     const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
+    try { el.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+    const pid = e.pointerId;
     const sx = e.clientX;
     const sy = e.clientY;
     const start = { ...live.current };
     const shell = mode === "bubble" ? bubbleRef.current : winRef.current;
+    const resize = mode !== "move" && mode !== "bubble";
+    const body = resize ? winRef.current?.querySelector<HTMLElement>(".float-body") ?? null : null;
     let moved = false;
     let last = start;
     let frame = 0;
-    const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - sx;
-      const dy = ev.clientY - sy;
-      if (!moved) {
-        if (Math.hypot(dx, dy) < (mode === "move" || mode === "bubble" ? 5 : 2)) return;
-        moved = true;
-        shell?.classList.add("is-moving");
-        if (mode !== "move" && mode !== "bubble") shell?.setAttribute("data-edge", mode);
-      }
-      if (mode === "move") last = clampFloat({ ...start, x: start.x + dx, y: start.y + dy });
-      else if (mode === "bubble") last = clampFloat({ ...start, bx: start.bx + dx, by: start.by + dy });
-      else last = resizeFloat(start, mode, dx, dy);
-      if (!frame) frame = requestAnimationFrame(() => { frame = 0; paint(last); });
+    let fx = sx;
+    let fy = sy;
+    let ft = e.timeStamp;
+    const trail: [number, number, number][] = [[e.timeStamp, sx, sy]];
+    let pred: [number, number] | null = null;
+    let paused: Animation[] = [];
+    let flowW = 0;
+    let flowAt = 0;
+    let flowSlow = false;
+    // Measured (1.3.105, Tron Asesor/Central at 4× CPU): one content re-flow costs 250–1000 ms, so mid-stroke re-flows are
+    // only allowed where the last settle of this window was fast (≤ 24 ms, a fast desktop); otherwise on pause and release.
+    const flowFast = settleCost <= 24;
+    let flowCheck = 0;
+    let idle = 0;
+    const geoFor = (x: number, y: number): FloatGeo => {
+      const dx = x - sx;
+      const dy = y - sy;
+      if (mode === "move") return clampFloat({ ...start, x: start.x + dx, y: start.y + dy });
+      if (mode === "bubble") return clampFloat({ ...start, bx: start.bx + dx, by: start.by + dy });
+      return resizeFloat(start, mode, dx, dy);
     };
-    const onUp = () => {
+    const pauseAnims = () => {
+      if (!shell || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      try {
+        paused = document.getAnimations().filter((a) => {
+          if (a.playState !== "running") return false;
+          const t = (a.effect as KeyframeEffect | null)?.target as Element | null;
+          if (!t) return false;
+          if (shell.contains(t) || t instanceof SVGElement) return true;
+          const key = (a as CSSAnimation).animationName;
+          const known = key ? heavyAnim.get(key) : undefined;
+          if (known !== undefined) return known;
+          const kf = (a.effect as KeyframeEffect).getKeyframes();
+          const heavy = kf.some((k) => Object.keys(k).some((p) => !["offset", "easing", "composite", "computedOffset", "transform", "opacity", "translate", "scale", "rotate"].includes(p)));
+          if (key) heavyAnim.set(key, heavy);
+          return heavy;
+        });
+        for (const a of paused) a.pause();
+      } catch { paused = []; }
+    };
+    const resumeAnims = () => {
+      for (const a of paused) {
+        const t = (a.effect as KeyframeEffect | null)?.target as Element | null;
+        if (a.playState === "paused" && t?.isConnected) { try { a.play(); } catch { /* gone */ } }
+      }
+      paused = [];
+    };
+    // Re-flow the content to the frame's width (resize only). Adaptive: if the last re-flow made the next frame late,
+    // wait for a pause or the release instead of re-flowing mid-stroke.
+    const flow = (g: FloatGeo, now: number) => {
+      if (!body) return;
+      const w = g.w - 2;
+      if (w === flowW) return;
+      flowW = w;
+      flowAt = now;
+      body.style.width = `${w}px`;
+      body.style.setProperty("--fz", String(floatZoom(g.w)));
+      const t0 = performance.now();
+      cancelAnimationFrame(flowCheck);
+      flowCheck = requestAnimationFrame(() => { flowSlow = performance.now() - t0 > 34; });
+    };
+    let calmed = false;
+    let ended = false;
+    const draw = (now: number) => {
+      frame = 0;
+      // Pause the animations right after the stroke's first frame is out (getAnimations flushes style: never before it).
+      if (!calmed && mode !== "bubble") { calmed = true; setTimeout(() => { if (!ended) pauseAnims(); }, 0); }
+      let x = fx;
+      let y = fy;
+      // Look-ahead: the browser's own pointer prediction (getPredictedEvents, Chrome's filter), at most ~12 ms past the newest
+      // real sample and only while samples are fresh, so a stopped finger is never overshot. Release always lands exact.
+      if (pred && now - ft < 40) { x = pred[0]; y = pred[1]; }
+      last = geoFor(x, y);
+      if (mode === "move") {
+        const win = winRef.current;
+        if (win) win.style.transform = `translate3d(${last.x - start.x}px, ${last.y - start.y}px, 0)`;
+      } else {
+        paint(last, !resize);
+        // The big soft drag shadow is a separate layer scaled with the frame (no blur re-raster per frame).
+        if (shade) shade.style.transform = `scale(${last.w / start.w}, ${last.h / start.h})`;
+      }
+      if (resize && flowFast && !flowSlow && now - flowAt >= 100) flow(last, now);
+    };
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return;
+      const list = ev.getCoalescedEvents?.() ?? [];
+      for (const c of list.length ? list : [ev]) trail.push([c.timeStamp, c.clientX, c.clientY]);
+      while (trail.length > 2 && ev.timeStamp - trail[0][0] > 120) trail.shift();
+      fx = ev.clientX;
+      fy = ev.clientY;
+      ft = ev.timeStamp;
+      pred = null;
+      for (const p of ev.getPredictedEvents?.() ?? []) if (p.timeStamp - ft <= 12) pred = [p.clientX, p.clientY];
+      if (!moved) {
+        if (Math.hypot(fx - sx, fy - sy) < (mode === "move" || mode === "bubble" ? 5 : 2)) return;
+        moved = true;
+        shell?.setAttribute("data-moving", "");
+        if (resize) shell?.setAttribute("data-edge", mode);
+        if (mode === "move" && shell) shell.style.willChange = "transform";
+      }
+      if (resize) {
+        clearTimeout(idle);
+        // Pause = the finger was already slowing to a stop (path length of its last ~80 ms of samples is short), not a busy
+        // pipeline holding the next events back (then input is pending, or the samples still show a fast stroke/turnaround).
+        idle = window.setTimeout(() => {
+          if (frame) return;
+          const nav = navigator as Navigator & { scheduling?: { isInputPending?: () => boolean } };
+          if (nav.scheduling?.isInputPending?.()) return;
+          const recent = trail.filter((p) => ft - p[0] <= 80);
+          let path = 0;
+          for (let i = 1; i < recent.length; i++) path += Math.hypot(recent[i][1] - recent[i - 1][1], recent[i][2] - recent[i - 1][2]);
+          if (path > 12) return;
+          last = geoFor(fx, fy);
+          paint(last, false);
+          if (shade) shade.style.transform = `scale(${last.w / start.w}, ${last.h / start.h})`;
+          flow(last, performance.now());
+        }, 200);
+      }
+      if (!frame) frame = requestAnimationFrame(draw);
+    };
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return;
+      ended = true;
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("lostpointercapture", onUp);
       if (frame) { cancelAnimationFrame(frame); frame = 0; }
-      shell?.classList.remove("is-moving");
+      cancelAnimationFrame(flowCheck);
+      clearTimeout(idle);
+      shell?.removeAttribute("data-moving");
       shell?.removeAttribute("data-edge");
       if (mode === "bubble") {
         if (!moved) { onFold(false); return; }
-        const vw = window.innerWidth;
-        last = clampFloat({ ...last, bx: last.bx + BUBBLE / 2 < vw / 2 ? 6 : vw - BUBBLE - 6 });
+        last = clampFloat({ ...last, bx: last.bx + BUBBLE / 2 < vwNow() / 2 ? 6 : vwNow() - BUBBLE - 6 });
       }
-      if (moved) { paint(last); setGeo(last); }
+      if (!moved) {
+        if (body) { body.style.width = ""; body.style.removeProperty("--fz"); body.style.willChange = ""; }
+        resumeAnims();
+        return;
+      }
+      // Settle on the finger's true last position (no look-ahead), in one frame: frame, content width and zoom together.
+      if (ev.type === "pointerup") last = mode === "bubble" ? last : geoFor(ev.clientX, ev.clientY);
+      paint(last);
+      if (mode === "move" && shell) { shell.style.transform = ""; shell.style.willChange = ""; }
+      if (body) {
+        const same = flowW === last.w - 2;
+        body.style.width = "";
+        body.style.removeProperty("--fz");
+        body.style.willChange = "";
+        if (!same) { const t0 = performance.now(); requestAnimationFrame(() => { settleCost = performance.now() - t0; }); }
+      }
+      resumeAnims();
+      setGeo(last);
     };
+    // Prepare on touch-down without forcing style or layout (no visible change). The content keeps its width (frame - 2px border).
+    const shade = resize ? winRef.current?.querySelector<HTMLElement>(".float-shade") ?? null : null;
+    if (shade) { shade.style.width = `${start.w}px`; shade.style.height = `${start.h}px`; shade.style.transform = ""; }
+    if (body) {
+      flowW = start.w - 2;
+      body.style.width = `${flowW}px`;
+      body.style.setProperty("--fz", String(floatZoom(start.w)));
+      body.style.willChange = "transform";
+      flowAt = performance.now();
+    }
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
+    el.addEventListener("lostpointercapture", onUp);
   };
 
   const nudge = (e: ReactKeyboardEvent<HTMLElement>, kind: "move" | "size") => {
@@ -1787,6 +1941,18 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
     ? t(section === "subs" ? "tab.subs" : `nav.${section}`)
     : t("nav.desk");
 
+  // The content subtree does not depend on the geometry: memoized so committing a drag (setGeo) re-renders only the frame.
+  const pane = useMemo(() => (
+    <FaroPane map={map}>
+      <div className="float-body">
+        <div className="workspace">
+          <SectionView />
+        </div>
+        <DockNav section={section} onSection={onSection} />
+      </div>
+    </FaroPane>
+  ), [map, section, onSection]);
+
   if (folded) {
     return (
       <button
@@ -1805,6 +1971,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
   }
 
   return (
+    <div className="float-layer">
     <div
       ref={winRef}
       className="float-win"
@@ -1813,6 +1980,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
       aria-label={`${t("float")}: ${name}`}
       style={{ left: geo.x, top: geo.y, width: geo.w, height: geo.h, ["--float-alpha" as string]: geo.alpha, ["--fz" as string]: floatZoom(geo.w) }}
     >
+      <i className="float-shade" aria-hidden />
       <div className="float-bar" onPointerDown={grab("move")} onDoubleClick={() => onFold(true)}>
         <span className="float-handle" tabIndex={0} role="button" aria-label={t("float.move")} onKeyDown={(e) => nudge(e, "move")}><i /></span>
         <span className="float-title"><SectionIcon id={section} className="size-3.5" />{name}</span>
@@ -1823,16 +1991,10 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
           <button type="button" aria-label={t("float.close")} onClick={onClose}><X /></button>
         </span>
       </div>
-      <FaroPane map={map}>
-        <div className="float-body">
-          <div className="workspace">
-            <SectionView />
-          </div>
-          <DockNav section={section} onSection={onSection} />
-        </div>
-      </FaroPane>
+      <div className="float-clip">{pane}</div>
       {FLOAT_EDGES.filter((d) => d !== "se").map((d) => <span key={d} className={`float-size is-${d}`} aria-hidden onPointerDown={grab(d)} />)}
-      <span className="float-size is-se" role="button" tabIndex={0} aria-label={t("float.size")} onPointerDown={grab("se")} onKeyDown={(e) => nudge(e, "size")}><i /></span>
+      <span className="float-size is-se" role="button" tabIndex={0} aria-label={t("float.size")} onPointerDown={grab("se")} onKeyDown={(e) => nudge(e, "size")}><i className="float-grip" /></span>
+    </div>
     </div>
   );
 }
