@@ -23,6 +23,7 @@ import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/
 import "@/lib/manual/back";
 import { readY, requestFocus, writeY } from "@/lib/manual/nav";
 import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual/places";
+import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; run: () => void };
@@ -32,7 +33,20 @@ function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean;
   // still pure, untouched sample start empty; anything the user touched is kept as theirs.
   const a = sampleOn() ? withAugustSample(ledger) : isPureSample(ledger) ? { ledger: { ...stripSample(ledger), revision: ledger.revision + 1, updatedAt: new Date().toISOString() }, added: true } : { ledger, added: false };
   const b = withRemesas(a.ledger);
-  return { ledger: b.ledger, added: a.added || b.added, sample: sampleOn() && a.added };
+  const c = withDeviceCobros(b.ledger);
+  return { ledger: c.ledger, added: a.added || b.added || c.moved > 0, sample: sampleOn() && a.added };
+}
+
+/** 1.3.92: Me deben moves from this device into the ledger once (idempotent by id); the device copy stays, plus a backup key. */
+function withDeviceCobros(ledger: LedgerState): { ledger: LedgerState; moved: number } {
+  let raw: unknown = null;
+  try {
+    const text = localStorage.getItem("faro-cobros");
+    if (!text) return { ledger, moved: 0 };
+    raw = JSON.parse(text);
+    if (localStorage.getItem("faro-cobros-backup") === null) localStorage.setItem("faro-cobros-backup", text);
+  } catch { return { ledger, moved: 0 }; }
+  return moveCobros(ledger, raw, ledger.settings.lang === "en" ? "Payment" : "Abono");
 }
 
 type Notice = string;
@@ -810,7 +824,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // (Cobros → Me deben) instead of glowing the Estudio tab as a stand-in.
     if (go.fold === "owed") {
       let none = true;
-      try { const rows = JSON.parse(localStorage.getItem("faro-cobros") || "[]"); none = !Array.isArray(rows) || rows.length === 0; } catch { /* none */ }
+      none = lentOf(sessionRef.current?.ledger).length === 0;
       if (none) go = { screen: "cobros", anchor: "cobros-in" };
     }
     const res = screenPatch(go);

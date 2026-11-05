@@ -2,6 +2,7 @@ import { readAdvisor } from "./advisor";
 import { colorFor } from "./colors";
 import { displayName } from "./defaults";
 import { loanTotals } from "./loans";
+import { lentTotals, payoffPlan } from "./debts";
 import { convertMinor, formatMoney, formatPct, monthlyEquivalent, roundHalfAway } from "./money";
 import type {
   AdviceCard,
@@ -1121,6 +1122,32 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       value: money(lt.left),
       note: L(lang, `Pendiente con interés. Recibiste ${money(lt.borrowed)}, has pagado ${money(lt.paid)} y el interés acumulado va en ${money(lt.interest)}.${s.income > 0 ? ` Equivale a ${pct((lt.left / s.income) * 100)} de un mes de ingreso.` : ""}`,
         `Pending with interest. You received ${money(lt.borrowed)}, have paid ${money(lt.paid)} and interest so far is ${money(lt.interest)}.${s.income > 0 ? ` That is ${pct((lt.left / s.income) * 100)} of a month's income.` : ""}`),
+    });
+  }
+  // 1.3.92: the payoff plan (Libros → Debo → Préstamos) says which loan to pay first and what the order saves.
+  const plan = payoffPlan(state);
+  if (plan.debts.length > 1 || (plan.debts.length === 1 && plan.chosen)) {
+    const ch = plan.chosen;
+    const order = plan.order === "avalanche" ? L(lang, "avalancha", "avalanche") : L(lang, "bola de nieve", "snowball");
+    const other = plan.order === "avalanche" ? L(lang, "bola de nieve", "snowball") : L(lang, "avalancha", "avalanche");
+    mediumBits.push({
+      label: L(lang, "Plan de pago", "Payoff plan"),
+      value: plan.first ? plan.first.name : "—",
+      note: !ch
+        ? (plan.budget > 0
+          ? L(lang, `Con ${money(plan.budget)} al mes el interés (${money(plan.minBudget)} al mes) va más rápido que tus pagos: sube el abono o pide bajar la tasa.`, `With ${money(plan.budget)} a month, interest (${money(plan.minBudget)} a month) outruns your payments: pay more or ask for a lower rate.`)
+          : L(lang, "Pon en Libros → Debo → Préstamos cuánto puedes pagar al mes y verás qué préstamo pagar primero.", "Set in Books → I owe → Loans what you can pay a month to see which loan to pay first."))
+        : L(lang, `Paga primero ${plan.first?.name ?? ""} (${order}). Con ${money(plan.budget)} al mes quedas libre en ${ch.months} ${ch.months === 1 ? "mes" : "meses"} y pagas ${money(ch.interest)} de interés.${plan.saveInterest > 0 ? ` Eso ahorra ${money(plan.saveInterest)} frente a ${other}.` : plan.saveInterest < 0 ? ` La ${other} ahorraría ${money(-plan.saveInterest)}.` : ""}`,
+          `Pay ${plan.first?.name ?? ""} first (${order}). With ${money(plan.budget)} a month you are debt-free in ${ch.months} ${ch.months === 1 ? "month" : "months"} and pay ${money(ch.interest)} in interest.${plan.saveInterest > 0 ? ` That saves ${money(plan.saveInterest)} versus ${other}.` : plan.saveInterest < 0 ? ` ${other} would save ${money(-plan.saveInterest)}.` : ""}`),
+    });
+  }
+  const owedNow = lentTotals(state);
+  if (owedNow.count) {
+    const net = owedNow.left - lt.left;
+    mediumBits.push({
+      label: L(lang, "Balance neto", "Net balance"),
+      value: `${net < 0 ? "−" : net > 0 ? "+" : ""}${money(Math.abs(net))}`,
+      note: L(lang, `Te deben ${money(owedNow.left)}${lt.count ? ` y debes ${money(lt.left)} en préstamos` : ""}. Lo que te deben no es dinero hasta que llega: no lo cuentes para pagar.`, `You are owed ${money(owedNow.left)}${lt.count ? ` and owe ${money(lt.left)} in loans` : ""}. Money owed to you is not money until it arrives: do not count on it to pay.`),
     });
   }
   const mediumCard: AdviceCard = {

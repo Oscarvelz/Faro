@@ -12,7 +12,10 @@ import { holidaysFor } from "@/lib/faro/holidays";
 import { convertMinor } from "@/lib/faro/money";
 import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId } from "@/lib/faro/types";
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
-import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study, Subs } from "./screens";
+import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
+import { DebtBook, DebtScale, preferOweTab, type DebtSide } from "./debts";
+import { lentOf, lentState } from "@/lib/faro/debts";
+import type { VaultTab } from "@/lib/manual/places";
 import { ExportPanel } from "./export-panel";
 import { Mark, SectionIcon } from "./icons";
 import { Instruments } from "./instruments";
@@ -30,6 +33,8 @@ import { ToTop } from "./to-top";
 const ManualLayer = lazy(() => import("./manual"));
 
 const BOOKS = ["income", "fixed", "variable", "shops", "subs"] as const;
+/** Libros' top row (1.3.92): Cuotas moved into Debo, in the middle row. */
+const TOP_BOOKS = ["income", "fixed", "variable", "shops"] as const;
 const VAULT = ["save", "meta", "retiro", "emergencia"] as const;
 const STUDY = ["stats", "advice"] as const;
 type DockStop =
@@ -84,7 +89,7 @@ export function Shell() {
   const [slideDir, setSlideDir] = useState(1);
   // The savings tab lives in the provider, so each tab is a real history step (back walks the tabs).
   const vault = ui.vault;
-  const setVault = (next: (typeof VAULT)[number] | null) => { if (next !== ui.vault) setUi({ vault: next }); };
+  const setVault = (next: VaultTab | null) => { if (next !== ui.vault) setUi({ vault: next }); };
   const [moneyOpen, setMoneyOpen] = useState(false);
   // Edge dock recall is DOM-only (data-recall on .app-frame): toggling it never re-renders the app, and the
   // CSS transition (transform only) reverses mid-flight on rapid taps.
@@ -709,7 +714,7 @@ export function Shell() {
             setRecall(false);
             setMoneyOpen(false);
             if (hub !== "books") setUi({ section: "income" });
-            if (vault && vault !== id) setSlideDir(VAULT.indexOf(id) > VAULT.indexOf(vault) ? 1 : -1);
+            if (vault && vault !== id) setSlideDir(VAULT.indexOf(id) > VAULT.indexOf(vault as (typeof VAULT)[number]) ? 1 : -1);
             setVault(id);
           }}>
             {id === "save" ? <Landmark className="size-4" /> : id === "meta" ? <Flag className="size-4" /> : id === "retiro" ? <Hourglass className="size-4" /> : <Shield className="size-4" />}
@@ -934,7 +939,8 @@ export function Shell() {
                                   key={item.id}
                                   type="button"
                                   onClick={() => {
-                                    setUi({ section: placeFor(item.kind), year: calYear, month: calMonth, highlight: item.id });
+                                    if (item.vault) setUi({ section: "income", vault: item.vault, year: calYear, month: calMonth });
+                                    else setUi({ section: placeFor(item.kind), year: calYear, month: calMonth, highlight: item.id });
                                     setCalOpen(false);
                                   }}
                                 >
@@ -996,7 +1002,9 @@ export function Shell() {
                         const [y, m] = hit.monthKey.split("-").map(Number);
                         setSearchOpen(false);
                         setSearchListed(false);
-                        setUi({ section: hit.section, year: y ?? ui.year, month: m ?? ui.month, highlight: hit.lineId, query: "" });
+                        if (hit.vault === "owe") preferOweTab("loans");
+                        if (hit.vault) setUi({ section: "income", vault: hit.vault, query: "" });
+                        else setUi({ section: hit.section, year: y ?? ui.year, month: m ?? ui.month, highlight: hit.lineId, query: "" });
                       }}>
                         <strong>{hit.title}</strong>
                         <span className="block text-sm text-muted">{hit.subtitle}</span>
@@ -1053,8 +1061,9 @@ export function Shell() {
                   setUi({ section: next.id });
                 }
               } else if (hub === "desk") window.dispatchEvent(new CustomEvent("faro-lens", { detail: dir }));
+              else if (hub === "books" && (vault === "owed" || vault === "owe")) setVault(vault === "owed" ? "owe" : "owed");
               else if (hub === "books" && vault) {
-                const i = VAULT.indexOf(vault);
+                const i = VAULT.indexOf(vault as (typeof VAULT)[number]);
                 setVault(VAULT[(i + dir + VAULT.length) % VAULT.length]);
               } else goSection(dir);
             }}
@@ -1066,33 +1075,7 @@ export function Shell() {
             }}
           >
             {hub === "books" ? (
-              <>
-                <div className="seg is-follow" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor="books-tabs">
-                  <i className="seg-pill" aria-hidden style={vault ? { opacity: 0 } : undefined} />
-                  {BOOKS.map((id) => (
-                    <button key={id} type="button" role="tab" aria-selected={!vault && ui.section === id} aria-current={!vault && ui.section === id ? "page" : undefined} onClick={() => { setVault(null); setUi({ section: id }); }}>
-                      <span className="seg-ico" aria-hidden><SectionIcon id={id} className="size-3.5" /></span>
-                      <span className="seg-label">{id === "subs" ? t("tab.subs") : t(`nav.${id}`)}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="vault-bar" ref={vaultRef} data-anchor="vault-tabs" style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#72b4b2") : vault === "emergencia" ? vtint("#7aa2c4") : vault === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
-                  <i className={`vault-glide${vault ? " is-on" : ""}${vault === "save" ? " is-save" : ""}`} aria-hidden />
-                  {VAULT.map((id) => (
-                    <button key={id} type="button" role="tab" aria-selected={vault === id} aria-current={vault === id ? "page" : undefined} onClick={() => {
-                      if (vault && vault !== id) setSlideDir(VAULT.indexOf(id) > VAULT.indexOf(vault) ? 1 : -1);
-                      setVault(id);
-                    }}>
-                      {id === "save" ? <Landmark className="size-3.5" /> : id === "meta" ? <Flag className="size-3.5" /> : id === "retiro" ? <Hourglass className="size-3.5" /> : <Shield className="size-3.5" />}
-                      <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
-                    </button>
-                  ))}
-                  <Hint topic="ahorros-tabs" className="is-tabs" corner overlay />
-                </div>
-                <div key={vault ?? ui.section} className={`swipe-pane${vault ? " is-vault" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
-                {vault ? <Desk focus={vault} /> : ui.section === "shops" ? <Shops /> : ui.section === "subs" ? <Subs /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
-                </div>
-              </>
+              <BooksHub vault={vault} onVault={setVault} segRef={segRef} vaultRef={vaultRef} slideDir={slideDir} onSlide={setSlideDir} anchors />
             ) : null}
             {hub === "study" ? (
               <div className="pane">
@@ -1257,10 +1240,56 @@ function SplitLower({ section, onSection, showTools, onClaim }: { section: Secti
   );
 }
 
+/** Libros: top row (four books), middle row (Me deben · Debo), bottom row (savings), then the chosen pane. Shared by the
+ *  main view and the split/float panes. `vault` holds the lower rows' choice (savings tab or debt side). */
+function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors = false }: {
+  vault: VaultTab | null; onVault: (next: VaultTab | null) => void; segRef: React.RefObject<HTMLDivElement | null>; vaultRef: React.RefObject<HTMLDivElement | null>;
+  slideDir: number; onSlide: (dir: number) => void; anchors?: boolean;
+}) {
+  const { t, ui, setUi } = useFaro();
+  const debt: DebtSide | null = vault === "owed" || vault === "owe" ? vault : !vault && ui.section === "subs" ? "owe" : null;
+  const save = vault && vault !== "owed" && vault !== "owe" ? vault : null;
+  const off = !!vault || ui.section === "subs";
+  return (
+    <>
+      <div className="seg is-follow is-four" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor={anchors ? "books-tabs" : undefined}>
+        <i className="seg-pill" aria-hidden style={off ? { opacity: 0 } : undefined} />
+        {TOP_BOOKS.map((id) => (
+          <button key={id} type="button" role="tab" aria-selected={!off && ui.section === id} aria-current={!off && ui.section === id ? "page" : undefined} onClick={() => { onVault(null); setUi({ section: id }); }}>
+            <span className="seg-ico" aria-hidden><SectionIcon id={id} className="size-3.5" /></span>
+            <span className="seg-label">{t(`nav.${id}`)}</span>
+          </button>
+        ))}
+      </div>
+      <DebtScale value={debt} onPick={(side) => {
+        if (debt && debt !== side) onSlide(side === "owe" ? 1 : -1);
+        if (side === "owe" && ui.section === "subs" && !vault) return;
+        onVault(side);
+      }} />
+      <div className="vault-bar" ref={vaultRef} data-anchor={anchors ? "vault-tabs" : undefined} style={{ ["--vault" as string]: save ? VAULT.indexOf(save) : 0, ["--vtint" as string]: save === "meta" ? vtint("#8fb9a6") : save === "retiro" ? vtint("#72b4b2") : save === "emergencia" ? vtint("#7aa2c4") : save === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
+        <i className={`vault-glide${save ? " is-on" : ""}${save === "save" ? " is-save" : ""}`} aria-hidden />
+        {VAULT.map((id) => (
+          <button key={id} type="button" role="tab" aria-selected={save === id} aria-current={save === id ? "page" : undefined} onClick={() => {
+            if (save && save !== id) onSlide(VAULT.indexOf(id) > VAULT.indexOf(save) ? 1 : -1);
+            onVault(id);
+          }}>
+            {id === "save" ? <Landmark className="size-3.5" /> : id === "meta" ? <Flag className="size-3.5" /> : id === "retiro" ? <Hourglass className="size-3.5" /> : <Shield className="size-3.5" />}
+            <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
+          </button>
+        ))}
+        {anchors ? <Hint topic="ahorros-tabs" className="is-tabs" corner overlay /> : null}
+      </div>
+      <div key={debt ?? save ?? ui.section} className={`swipe-pane${save || debt ? " is-vault" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
+        {debt ? <DebtBook side={debt} /> : save ? <Desk focus={save} /> : ui.section === "shops" ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
+      </div>
+    </>
+  );
+}
+
 function SectionView() {
   const { t, ui, setUi, goSection } = useFaro();
   const hub = hubOf(ui.section);
-  const [vault, setVault] = useState<(typeof VAULT)[number] | null>(null);
+  const [vault, setVault] = useState<VaultTab | null>(null);
   const [slideDir, setSlideDir] = useState(1);
   const segRef = useRef<HTMLDivElement>(null);
   const vaultRef = useRef<HTMLDivElement>(null);
@@ -1308,8 +1337,9 @@ function SectionView() {
         const dir = dx < 0 ? 1 : -1;
         setSlideDir(dir);
         if (hub === "desk") window.dispatchEvent(new CustomEvent("faro-lens", { detail: dir }));
+        else if (hub === "books" && (vault === "owed" || vault === "owe")) setVault(vault === "owed" ? "owe" : "owed");
         else if (hub === "books" && vault) {
-          const i = VAULT.indexOf(vault);
+          const i = VAULT.indexOf(vault as (typeof VAULT)[number]);
           setVault(VAULT[(i + dir + VAULT.length) % VAULT.length]);
         } else goSection(dir);
       }}
@@ -1321,32 +1351,7 @@ function SectionView() {
       }}
     >
       {hub === "books" ? (
-        <>
-          <div className="seg is-follow" ref={segRef} role="tablist" aria-label={t("hub.books")}>
-            <i className="seg-pill" aria-hidden style={vault ? { opacity: 0 } : undefined} />
-            {BOOKS.map((id) => (
-              <button key={id} type="button" role="tab" aria-selected={!vault && ui.section === id} aria-current={!vault && ui.section === id ? "page" : undefined} onClick={() => { setVault(null); setUi({ section: id }); }}>
-                <span className="seg-ico" aria-hidden><SectionIcon id={id} className="size-3.5" /></span>
-                <span className="seg-label">{id === "subs" ? t("tab.subs") : t(`nav.${id}`)}</span>
-              </button>
-            ))}
-          </div>
-          <div className="vault-bar" ref={vaultRef} style={{ ["--vault" as string]: vault ? VAULT.indexOf(vault) : 0, ["--vtint" as string]: vault === "meta" ? vtint("#8fb9a6") : vault === "retiro" ? vtint("#72b4b2") : vault === "emergencia" ? vtint("#7aa2c4") : vault === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
-            <i className={`vault-glide${vault ? " is-on" : ""}${vault === "save" ? " is-save" : ""}`} aria-hidden />
-            {VAULT.map((id) => (
-              <button key={id} type="button" role="tab" aria-selected={vault === id} aria-current={vault === id ? "page" : undefined} onClick={() => {
-                if (vault && vault !== id) setSlideDir(VAULT.indexOf(id) > VAULT.indexOf(vault) ? 1 : -1);
-                setVault(id);
-              }}>
-                {id === "save" ? <Landmark className="size-3.5" /> : id === "meta" ? <Flag className="size-3.5" /> : id === "retiro" ? <Hourglass className="size-3.5" /> : <Shield className="size-3.5" />}
-                <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
-              </button>
-            ))}
-          </div>
-          <div key={vault ?? ui.section} className={`swipe-pane${vault ? " is-vault" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
-            {vault ? <Desk focus={vault} /> : ui.section === "shops" ? <Shops /> : ui.section === "subs" ? <Subs /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
-          </div>
-        </>
+        <BooksHub vault={vault} onVault={setVault} segRef={segRef} vaultRef={vaultRef} slideDir={slideDir} onSlide={setSlideDir} />
       ) : null}
       {hub === "study" ? (
         <div className="pane">
@@ -1382,7 +1387,7 @@ function buildCal(session: ReturnType<typeof useFaro>["session"], year: number, 
   const settings = session?.ledger.settings;
   const lead = (new Date(year, month - 1, 1).getDay() + 6) % 7;
   const count = new Date(year, month, 0).getDate();
-  const days = new Map<number, { items: { id: string; name: string; kind: LineKind }[]; dots: Array<"good" | "bad"> }>();
+  const days = new Map<number, { items: { id: string; name: string; kind: LineKind; vault?: VaultTab }[]; dots: Array<"good" | "bad"> }>();
   let income = 0;
   let expense = 0;
   let undated = 0;
@@ -1402,6 +1407,17 @@ function buildCal(session: ReturnType<typeof useFaro>["session"], year: number, 
     const tone = incoming ? "good" : "bad";
     if (!slot.dots.includes(tone)) slot.dots.push(tone);
     days.set(dated, slot);
+  }
+  // 1.3.92: the day each Me deben amount is due to come back (only while something is still owed). Not money yet: no totals.
+  if (session) {
+    for (const row of lentOf(session.ledger)) {
+      if (row.archived || !row.dueOn.startsWith(key) || lentState(session.ledger, row).left <= 0) continue;
+      const day = Number(row.dueOn.slice(8, 10));
+      const slot = days.get(day) ?? { items: [], dots: [] };
+      slot.items.push({ id: `due-${row.id}`, name: `${settings?.lang === "en" ? "Collect" : "Cobrar"} · ${row.person}`, kind: "income-variable", vault: "owed" });
+      if (!slot.dots.includes("good")) slot.dots.push("good");
+      days.set(day, slot);
+    }
   }
   const cells = Array.from({ length: count }, (_, i) => {
     const day = i + 1;

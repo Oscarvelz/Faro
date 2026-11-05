@@ -37,7 +37,9 @@ import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
 import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
-import { loanFigures, loanTotals, todayIso } from "@/lib/faro/loans";
+import { loanTotals, todayIso } from "@/lib/faro/loans";
+import { lentOf, lentState } from "@/lib/faro/debts";
+import { OwedSide, SeeAll, takeCobrosReturn } from "./debts";
 
 const STORE_TINT: Record<string, string> = {
   temu: "#fb7701",
@@ -1080,60 +1082,6 @@ function readVaultBlocks(id: string) {
   }
 }
 
-type CobroBonus = { id: string; date: string; amountMinor: number; note: string };
-type Cobro = {
-  id: string;
-  person: string;
-  kind: "plain" | "interest";
-  amountMinor: number;
-  currency: Currency;
-  aprBps: number;
-  owedOn: string;
-  startedOn: string;
-  note: string;
-  bonuses: CobroBonus[];
-  archived?: boolean;
-  archivedOn?: string;
-  unpaidMinor?: number;
-};
-
-
-function readCobros(): Cobro[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem("faro-cobros") || "[]");
-    if (!Array.isArray(raw)) return [];
-    return raw.flatMap((row) => {
-      if (!row || typeof row.id !== "string" || typeof row.person !== "string" || typeof row.amountMinor !== "number") return [];
-      const bonuses = Array.isArray(row.bonuses)
-        ? row.bonuses.filter((b: CobroBonus) => b && typeof b.amountMinor === "number" && typeof b.date === "string")
-        : [];
-      return [{
-        id: row.id,
-        person: row.person,
-        kind: row.kind === "interest" ? "interest" : "plain",
-        amountMinor: row.amountMinor,
-        currency: row.currency === "NIO" ? "NIO" : "USD",
-        aprBps: typeof row.aprBps === "number" ? row.aprBps : 0,
-        owedOn: typeof row.owedOn === "string" ? row.owedOn : "",
-        startedOn: typeof row.startedOn === "string" ? row.startedOn : "",
-        note: typeof row.note === "string" ? row.note : "",
-        bonuses,
-        archived: row.archived === true,
-        archivedOn: typeof row.archivedOn === "string" ? row.archivedOn : "",
-        unpaidMinor: typeof row.unpaidMinor === "number" ? row.unpaidMinor : 0,
-      } satisfies Cobro];
-    });
-  } catch {
-    return [];
-  }
-}
-
-/** Me deben uses the same loan rule as Préstamos (lib/faro/loans.ts): interest from the day it was recorded. */
-function cobroDue(row: Cobro) {
-  const paid = row.bonuses.reduce((sum, bonus) => sum + bonus.amountMinor, 0);
-  return loanFigures(row.amountMinor, row.kind, row.aprBps, row.startedOn || row.owedOn || todayIso(), paid);
-}
-
 type DueFile = { id: string; seriesId: string; name: string; maxMinor: number; currency: Currency; archivedOn: string; pays: { date: string; amountMinor: number }[] };
 
 function readDueFile(): DueFile[] {
@@ -1384,22 +1332,13 @@ export function CobroSpan({ title, total, facts, events, out = false, help }: { 
   );
 }
 
-function Cobros({ onClose, jumped = false, ping = 0 }: { onClose: () => void; jumped?: boolean; ping?: number }) {
-  const { t, fmt, confirm, session, lang, lines } = useFaro();
-  const [rows, setRows] = useState<Cobro[]>(readCobros);
-  const [draft, setDraft] = useState(false);
-  const [bonusFor, setBonusFor] = useState<string | null>(null);
-  const [fileOpen, setFileOpen] = useState(false);
-  const [side, setSide] = useState<"in" | "out">("out");
+function Cobros({ onClose, jumped = false, ping = 0, startSide = "out" }: { onClose: () => void; jumped?: boolean; ping?: number; startSide?: "in" | "out" }) {
+  const { t } = useFaro();
+  const [side, setSide] = useState<"in" | "out">(startSide);
   const [dir, setDir] = useState(1);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const box = useRef<HTMLElement>(null);
-  const display = session?.ledger.settings.display ?? "USD";
-  const rate = session?.ledger.settings.rateE4 ?? 0;
 
-  useEffect(() => {
-    try { localStorage.setItem("faro-cobros", JSON.stringify(rows)); } catch { /* ignore */ }
-  }, [rows]);
   useEffect(() => {
     box.current?.scrollIntoView({ block: "nearest" });
   }, []);
@@ -1418,7 +1357,6 @@ function Cobros({ onClose, jumped = false, ping = 0 }: { onClose: () => void; ju
   // is what made back leave the installed app). Opened by "Ir allí" / a manual link it was part of that jump: back walks on
   // to where the jump came from, so it closes with that step instead of owning one.
   useLayer(!jumped, onClose);
-  useLayer(draft || !!bonusFor, () => { setDraft(false); setBonusFor(null); });
   useEffect(() => {
     if (!jumped) return;
     const onBack = (e: Event) => { if (!e.defaultPrevented) onClose(); };
@@ -1436,64 +1374,10 @@ function Cobros({ onClose, jumped = false, ping = 0 }: { onClose: () => void; ju
         setDir(1); setSide("out");
       }
       else if (id === "cobros-in" || id === "cobros-file") { setDir(-1); setSide("in"); }
-      if (id === "cobros-file") setFileOpen(true);
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
   }, []);
-
-  function asDisplay(minor: number, currency: Currency) {
-    return convertMinor(minor, currency, display, rate);
-  }
-  function paidOf(row: Cobro) {
-    return row.bonuses.reduce((sum, bonus) => sum + bonus.amountMinor, 0);
-  }
-  function leftOf(row: Cobro) {
-    return cobroDue(row).left;
-  }
-  function saveDraft(d: { name: string; kind: "plain" | "interest"; amountMinor: number; aprBps: number; date: string }) {
-    const next: Cobro = {
-      id: uid(), person: d.name, kind: d.kind, amountMinor: d.amountMinor, currency: display, aprBps: d.aprBps,
-      owedOn: d.date, startedOn: todayIso(), note: "", bonuses: [],
-    };
-    setRows((cur) => [next, ...cur]);
-    setDraft(false);
-  }
-  function addBonus(id: string, minor: number, date: string) {
-    const row = rows.find((item) => item.id === id);
-    if (!row) return;
-    const bonus: CobroBonus = { id: uid(), date, amountMinor: convertMinor(minor, display, row.currency, rate), note: "" };
-    setRows((cur) => cur.map((item) => (item.id === id ? { ...item, bonuses: [...item.bonuses, bonus] } : item)));
-  }
-  const active = rows.filter((row) => !row.archived);
-  const filed = rows.filter((row) => row.archived);
-  const lent = active.reduce((sum, row) => sum + asDisplay(row.amountMinor, row.currency), 0);
-  const paid = active.reduce((sum, row) => sum + asDisplay(paidOf(row), row.currency), 0);
-  const left = active.reduce((sum, row) => sum + asDisplay(leftOf(row), row.currency), 0);
-  const owedInterest = active.reduce((sum, row) => sum + asDisplay(cobroDue(row).interest, row.currency), 0);
-  const nextOwed = active.filter((row) => leftOf(row) > 0 && row.owedOn && row.owedOn >= todayIso()).map((row) => row.owedOn).sort()[0] ?? "";
-  const stamp = (iso: string) => iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—";
-
-  function group(mode: "plain" | "interest") {
-    const list = active.filter((row) => (mode === "interest" ? row.kind === "interest" : row.kind !== "interest"));
-    return (
-      <div className={`cobro-group${mode === "interest" ? " is-rate" : ""}`}>
-        <h3>
-          <i />
-          <span>{t(mode === "interest" ? "cobro.rate" : "cobro.plain")}</span>
-          <b>{list.length}</b>
-        </h3>
-        {list.length ? list.map((row) => (
-          <LoanCard key={row.id} name={row.person} rate={row.kind === "interest"} leftView={asDisplay(leftOf(row), row.currency)}
-            amountView={asDisplay(row.amountMinor, row.currency)} amountLabel={t("cobro.lent")} dateIso={row.owedOn} aprBps={row.aprBps}
-            pays={row.bonuses.map((bonus) => ({ date: bonus.date, view: asDisplay(bonus.amountMinor, row.currency) }))}
-            payLabel={t("cobro.bonus")} paying={bonusFor === row.id} onPaying={(on) => setBonusFor(on ? row.id : null)}
-            onPay={(minor, date) => addBonus(row.id, minor, date)} archiveBody={t("cobro.archive.body")}
-            onArchive={() => setRows((cur) => cur.map((item) => item.id === row.id ? { ...item, archived: true, archivedOn: todayIso(), unpaidMinor: leftOf(item) } : item))} hint="bono" />
-        )) : <Note>{t("cobro.empty")}</Note>}
-      </div>
-    );
-  }
 
   return (
     <section
@@ -1525,51 +1409,8 @@ function Cobros({ onClose, jumped = false, ping = 0 }: { onClose: () => void; ju
         <button type="button" aria-pressed={side === "in"} onClick={() => { setDir(-1); setSide("in"); }}>{t("cobro.owed")}</button>
         <button type="button" aria-pressed={side === "out"} onClick={() => { setDir(1); setSide("out"); }}>{t("cobro.owe")}</button>
       </div>
-      {side === "out" ? <DeboSide dues={<DueOwe key="out" />} /> : (
-      <div key="in" className="cobro-swap" data-dir={dir} data-anchor="cobros-in">
-      <div className="cobro-top">
-        <div>
-          <strong className="num">{fmt(left)}</strong>
-        </div>
-        <button type="button" className="cobro-plus" aria-label={t("cobro.open")} aria-pressed={draft} onClick={() => setDraft((on) => !on)}>
-          <Plus />
-        </button>
-      </div>
-      <DeboSum help="me-deben" empty={t("debo.sum.owed.empty")} parts={active.length ? [
-        [`${active.length} ${t(active.length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],
-        ...(owedInterest > 0 ? [[{ num: fmt(owedInterest) }, t("debo.sum.interest")]] : [[{ num: fmt(paid) }, t("debo.sum.got")]]),
-        ...(nextOwed ? [[`${t("debo.sum.nextGet")} ${new Date(`${nextOwed}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}`]] : []),
-      ] : null} />
-      {draft ? <LoanForm mode="lend" onCancel={() => setDraft(false)} onSave={saveDraft} /> : null}
-      <CobroSpan title={t("cobro.span")} total={lent} events={rows.map((row) => ({ date: row.startedOn, value: asDisplay(row.amountMinor, row.currency) }))}
-        facts={[[t("cobro.lent"), lent], [t("cobro.paid"), paid], [t("cobro.left"), left]]} />
-      {group("plain")}
-      {group("interest")}
-      <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
-        <div role="button" tabIndex={0} data-anchor="cobros-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
-          <span className="lab-head">{t("cobro.file")}<Hint topic="archivar" /></span>
-          <b>{filed.length}</b>
-          <ChevronDown className={fileOpen ? "fold-chev is-open" : "fold-chev"} />
-        </div>
-        {fileOpen ? (
-          filed.length ? filed.map((row) => (
-            <article key={row.id} className="cobro-card is-file">
-              <div className="cobro-who">
-                <b>{row.person.slice(0, 1).toUpperCase()}</b>
-                <strong>{row.person}</strong>
-              </div>
-              <p className="cobro-meta">
-                {t("cobro.unpaid")} {fmt(asDisplay(row.unpaidMinor || leftOf(row), row.currency))}
-                {" · "}
-                {t("cobro.lent")} {fmt(asDisplay(row.amountMinor, row.currency))}
-                {row.archivedOn ? ` · ${stamp(row.archivedOn)}` : ""}
-              </p>
-            </article>
-          )) : <Note>{t("cobro.file.empty")}</Note>
-        ) : null}
-      </div>
-      </div>
-      )}
+      {side === "out" ? <DeboSide dues={<DueOwe key="out" />} /> : <OwedSide key="in" dir={dir} />}
+      <SeeAll side={side} onGo={onClose} />
     </section>
   );
 }
@@ -1631,8 +1472,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang } = useFaro();
   const [lens, setLens] = useState<"all" | "have" | "spend" | "debt">("all");
   const lensByJump = useRef(false);
-  const [cobros, setCobros] = useState(false);
-  const [cobrosJump, setCobrosJump] = useState(false);
+  const { depth } = useFaro();
+  // Back from Libros after Cobros' "Ver todo": Cobros comes back open on the side (and Debo tab) it was on.
+  const [cobrosBack] = useState(() => (focus ? null : takeCobrosReturn(depth)));
+  const [cobros, setCobros] = useState(!!cobrosBack);
+  const [cobrosJump, setCobrosJump] = useState(!!cobrosBack);
   const [cobrosPing, setCobrosPing] = useState(0);
   const [lamp, setLamp] = useState<"good" | "warn" | "bad" | null>(null);
   const [flowDir, setFlowDir] = useState(1);
@@ -2583,7 +2427,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={() => { setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
         </div>
       ) : null}
-      {cobros ? <Cobros jumped={cobrosJump} ping={cobrosJump ? 0 : cobrosPing} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
+      {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? "out"} ping={cobrosJump ? 0 : cobrosPing} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
       </>
       )}
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
@@ -3565,9 +3409,9 @@ export function Study() {
   const saveGoal = summary?.savingsGoal ?? 0;
   const saveFlow = summary?.savingsFlow ?? 0;
   const saveMonth = saveGoal > 0 ? Math.max(0, Math.min(100, (saveFlow / saveGoal) * 100)) : 0;
-  const owedRows = readCobros();
+  const owedRows = lentOf(session?.ledger);
   const owedActive = owedRows.filter((row) => !row.archived).map((row) => {
-    const due = cobroDue(row);
+    const due = lentState(session!.ledger, row);
     return { id: row.id, person: row.person, kind: row.kind, left: convertMinor(due.left, row.currency, display, rate), paid: convertMinor(due.paid, row.currency, display, rate) };
   });
   const owedLeft = owedActive.reduce((sum, row) => sum + row.left, 0);
@@ -3575,7 +3419,7 @@ export function Study() {
   const owedWhole = Math.max(owedLeft + owedPaid, 1);
   const owedPlain = owedActive.filter((row) => row.kind !== "interest").reduce((sum, row) => sum + row.left, 0);
   const owedRateSum = owedActive.filter((row) => row.kind === "interest").reduce((sum, row) => sum + row.left, 0);
-  const owedFile = owedRows.filter((row) => row.archived).reduce((sum, row) => sum + convertMinor(row.unpaidMinor || cobroDue(row).left, row.currency, display, rate), 0);
+  const owedFile = owedRows.filter((row) => row.archived).reduce((sum, row) => sum + convertMinor(row.unpaidMinor ?? 0, row.currency, display, rate), 0);
   const owedPeople = [...owedActive].sort((a, b) => b.left - a.left).slice(0, 5);
   const owedPeak = Math.max(...owedPeople.map((row) => row.left), 1);
   const es = lang !== "en";

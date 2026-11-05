@@ -120,9 +120,31 @@ export type Line = {
   batch?: string;
   /** A payment toward a received loan (Debo → Préstamos). See loans.ts. */
   loanId?: string;
+  /** A payment received toward money the user lent (Libros → Me deben, 1.3.92). An income line. See debts.ts. */
+  lentId?: string;
   /** Removed from a pocket but kept for its money history (1.3.81): inactive and hidden from the pocket list. */
   archived?: boolean;
 };
+
+/** Money the user lent to someone (Me deben). Interest follows the same rule as Loan (simple, by the day, from startedOn). */
+export type Lent = {
+  id: string;
+  person: string;
+  kind: "plain" | "interest";
+  amountMinor: number;
+  currency: Currency;
+  aprBps: number;
+  /** Interest counts from here (the day it was recorded). */
+  startedOn: string;
+  /** The day the user expects to collect (calendar). */
+  dueOn: string;
+  note: string;
+  archived?: boolean;
+  archivedOn?: string;
+  unpaidMinor?: number;
+};
+
+export type DebtPlan = { order: "avalanche" | "snowball"; monthlyMinor: number; currency: Currency };
 
 /** A loan the user received (Debo → Préstamos). Payments are normal lines with `loanId`; see loans.ts. */
 export type Loan = {
@@ -212,6 +234,12 @@ export type LedgerState = {
   imports?: ImportBook;
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
+  /** Money the user lent (Me deben, 1.3.92; device-only before). Abonos are income lines with `lentId`. See debts.ts. */
+  lent?: Lent[];
+  /** Old device Me deben ids already moved into the ledger, so the one-time move never runs twice (even after an archive). */
+  lentMoved?: string[];
+  /** Debt payoff plan (1.3.92): order and what the user can pay a month toward Préstamos. */
+  debtPlan?: DebtPlan;
   /** Cuotas preset chips (Nov 2026, 1.3.75): pool ids, or own ones with a name and an optional data-URL icon. Missing in older ledgers (= defaults). */
   subPresets?: SubPreset[];
   /** Cuotas frequency chips (1.3.76): cadence tokens in order. Missing in older ledgers (= the four defaults). */

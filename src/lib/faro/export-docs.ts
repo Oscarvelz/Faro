@@ -3,6 +3,7 @@ import { buildAdvice, categorySlices, inView, monthLines, roleOf, summarize, yea
 import { monthName } from "./i18n";
 import { formatMoney } from "./money";
 import { loanPays, loanState, loansOf } from "./loans";
+import { lentOf, lentPays, lentState, monthAhead, netBalance, payoffPlan } from "./debts";
 import { remitTrend } from "./remesas";
 import type { Lang, LedgerState, Line, LineKind } from "./types";
 import type { makeNamer } from "./defaults";
@@ -709,6 +710,49 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
             { v: loanPays(ledger, loan.id).length, s: S.altNum },
             { v: loan.archived ? say(lang, "Archivado", "Archived") : say(lang, "Activo", "Active"), s: S.line },
           ];
+        }),
+      ],
+    });
+  }
+  // 1.3.92: Me deben (money lent, abonos are income lines) and the payoff plan for Préstamos.
+  const lentRows = lentOf(ledger);
+  if (lentRows.length && Object.values(pick).some(Boolean)) {
+    const head = [say(lang, "Persona", "Person"), say(lang, "Moneda", "Currency"), say(lang, "Prestado", "Lent"), say(lang, "Desde", "Since"), say(lang, "Cobrar el", "Due"), say(lang, "Tasa %", "Rate %"), say(lang, "Interés", "Interest"), say(lang, "Abonado", "Paid"), say(lang, "Pendiente", "Pending"), say(lang, "Abonos", "Payments"), say(lang, "Estado", "Status")];
+    sheets.push({
+      name: say(lang, "Me deben", "Owed to me"),
+      widths: [24, 10, 14, 12, 12, 10, 14, 14, 14, 10, 14],
+      merges: ["A1:K1"],
+      rows: [
+        [{ v: say(lang, "Me deben", "Owed to me"), s: S.section }],
+        head.map((v) => ({ v, s: S.flowHead })),
+        ...lentRows.map((l) => {
+          const f = lentState(ledger, l);
+          return [
+            { v: l.person, s: S.line }, { v: l.currency, s: S.line }, { v: l.amountMinor / 100, s: S.lineNum }, { v: l.startedOn, s: S.line }, { v: l.dueOn, s: S.line },
+            { v: l.aprBps / 100, s: S.altNum }, { v: f.interest / 100, s: S.lineNum }, { v: f.paid / 100, s: S.lineNum },
+            { v: (l.archived ? l.unpaidMinor ?? f.left : f.left) / 100, s: S.lineNum }, { v: lentPays(ledger, l.id).length, s: S.altNum },
+            { v: l.archived ? say(lang, "Archivado", "Archived") : say(lang, "Activo", "Active"), s: S.line },
+          ];
+        }),
+      ],
+    });
+  }
+  const plan = payoffPlan(ledger);
+  if (plan.debts.length && plan.chosen && Object.values(pick).some(Boolean)) {
+    const ch = plan.chosen;
+    const name = (o: string) => (o === "avalanche" ? say(lang, "Avalancha", "Avalanche") : say(lang, "Bola de nieve", "Snowball"));
+    const net = netBalance(ledger);
+    sheets.push({
+      name: say(lang, "Plan de pago", "Payoff plan"),
+      widths: [8, 26, 12, 16, 16, 18],
+      merges: ["A1:F1", "A2:F2"],
+      rows: [
+        [{ v: say(lang, "Plan de pago de préstamos", "Loan payoff plan"), s: S.section }],
+        [{ v: say(lang, `${name(plan.order)} · ${ledger.settings.display} ${(plan.budget / 100).toFixed(2)} al mes · ${ch.months} meses · interés por pagar ${(ch.interest / 100).toFixed(2)} · balance neto ${(net.net / 100).toFixed(2)}`, `${name(plan.order)} · ${ledger.settings.display} ${(plan.budget / 100).toFixed(2)} a month · ${ch.months} months · interest to pay ${(ch.interest / 100).toFixed(2)} · net balance ${(net.net / 100).toFixed(2)}`), s: S.noteBox }],
+        [say(lang, "Orden", "Order"), say(lang, "Quién prestó", "Lender"), say(lang, "Tasa %", "Rate %"), say(lang, "Pendiente", "Pending"), say(lang, "Libre en (mes)", "Paid off (month)"), say(lang, "Interés por pagar", "Interest to pay")].map((v) => ({ v, s: S.flowHead })),
+        ...ch.order.map((id, i) => {
+          const d = plan.debts.find((x) => x.id === id)!;
+          return [{ v: i + 1, s: S.altNum }, { v: d.name, s: S.line }, { v: d.aprBps / 100, s: S.altNum }, { v: d.left / 100, s: S.lineNum }, { v: monthAhead(ch.finish[id] ?? ch.months), s: S.line }, { v: (ch.interestOf[id] ?? 0) / 100, s: S.lineNum }];
         }),
       ],
     });

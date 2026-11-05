@@ -1,5 +1,7 @@
 import { lineLabel } from "./engine";
 import { formatMoney } from "./money";
+import { lentOf } from "./debts";
+import { loansOf } from "./loans";
 import type { Lang, LedgerState, SectionId } from "./types";
 
 const SYN: Record<string, string[]> = {
@@ -32,6 +34,8 @@ export type Hit = {
   subtitle: string;
   monthKey: string;
   lineId: string;
+  /** 1.3.92: a person in Libros → Me deben / Debo (a lent amount or a loan received), not a line. */
+  vault?: "owed" | "owe";
 };
 
 function expand(q: string): string[] {
@@ -82,6 +86,23 @@ export function searchLedger(state: LedgerState, query: string, lang: Lang, name
         lineId: line.id,
       });
     }
+  }
+  // People in Deudas: who owes you (Me deben) and who lent you (Préstamos).
+  const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  const people: { id: string; name: string; amountMinor: number; currency: "NIO" | "USD"; date: string; vault: "owed" | "owe"; archived?: boolean }[] = [
+    ...lentOf(state).map((l) => ({ id: l.id, name: l.person, amountMinor: l.amountMinor, currency: l.currency, date: l.startedOn || l.dueOn, vault: "owed" as const, archived: l.archived })),
+    ...loansOf(state).map((l) => ({ id: l.id, name: l.lender, amountMinor: l.amountMinor, currency: l.currency, date: l.takenOn, vault: "owe" as const, archived: l.archived })),
+  ];
+  for (const p of people) {
+    const word = p.vault === "owed" ? (lang === "en" ? "owed to me loan" : "me deben prestamo cobro") : (lang === "en" ? "i owe loan debt" : "debo prestamo deuda");
+    const hay = norm(`${p.name} ${word} ${formatMoney(p.amountMinor, p.currency, lang)}`);
+    const numberHit = digits.length >= 2 && String(p.amountMinor).includes(digits);
+    if (!tokens.some((t) => hay.includes(t)) && !numberHit) continue;
+    hits.push({
+      id: `${p.vault}:${p.id}`, section: "income", vault: p.vault, monthKey: (p.date || "").slice(0, 7), lineId: "",
+      title: p.name,
+      subtitle: `${p.vault === "owed" ? (lang === "en" ? "Owed to me" : "Me deben") : (lang === "en" ? "I owe" : "Debo")} · ${formatMoney(p.amountMinor, p.currency, lang)}${p.archived ? (lang === "en" ? " · archived" : " · archivado") : ""}`,
+    });
   }
   return hits;
 }

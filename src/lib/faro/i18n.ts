@@ -101,7 +101,7 @@ const es: Record<string, string> = {
   "cobro.amount": "Monto",
   "cobro.due": "Fecha que debe",
   "cobro.apr": "Interés al año",
-  "cobro.bonus": "Bono",
+  "cobro.bonus": "Abonar",
   "cobro.empty": "Todavía no hay nadie en esta lista.",
   "cobro.span": "Prestado en el tiempo",
   "cobro.file": "Archivo",

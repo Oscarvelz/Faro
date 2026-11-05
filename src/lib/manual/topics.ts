@@ -26,6 +26,8 @@ export type Screen =
   | "vault-meta" // Libros → Meta
   | "vault-retiro"
   | "vault-emergencia"
+  | "vault-owed" // Libros → Me deben (Deudas row)
+  | "vault-owe" //  Libros → Debo (Cuotas · Préstamos)
   | "stats" //      Estudio → Estudio
   | "advice" //     Estudio → Asesor
   | "tools" //      Mesa de cambio (sheet on phone, aside on wide screens)
@@ -536,8 +538,8 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Me deben", "Owed to me"],
         sum: ["Quién te debe y cuánto falta.", "Who owes you and how much is left."],
         what: ["Me deben lista a cada persona con lo prestado, la fecha y lo pendiente. Con interés, Faro suma el interés por días.", "Owed to me lists each person with the amount lent, the date and what is still pending. With interest, Faro adds interest by the day."],
-        how: ["Toca + para agregar una persona. Cuando te paguen, toca Bono en su tarjeta. Bajo el total ves cuántas personas te deben, el interés acumulado o lo ya cobrado, y la fecha del próximo cobro. Abajo, Prestado en el tiempo muestra el total por semana, mes o año.", "Tap + to add a person. When they pay, tap Payment on their card. Under the total you see how many people owe you, the interest so far or what you already collected, and the next due date. Below, Lent over time shows the total by week, month or year."],
-        tip: ["Estos datos se guardan en este dispositivo.", "This data is kept on this device."],
+        how: ["Toca + para agregar una persona. Cuando te paguen, toca Abonar en su tarjeta y pon la fecha: el abono entra como ingreso y baja lo pendiente. Bajo el total ves cuántas personas te deben, el interés acumulado o lo ya cobrado, y la fecha del próximo cobro. Abajo, Prestado en el tiempo muestra el total por semana, mes o año.", "Tap + to add a person. When they pay, tap Payment on their card and set the date: the payment goes in as income and lowers what is pending. Under the total you see how many people owe you, the interest so far or what you already collected, and the next due date. Below, Lent over time shows the total by week, month or year."],
+        tip: ["Se guarda en tu cuenta y en tus copias, como tus libros. En [[Libros → Me deben]] ves la historia de cada persona.", "It is saved in your account and backups, like your books. In [[Books → Owed to me]] you see each person's history."],
         go: { screen: "cobros", anchor: "cobros-in", where: ["Cobros → Me deben", "Collections → Owed to me"] },
         terms: [["Prestado", "Lent"], ["Pendiente", "Pending"], ["Cobrado", "Collected"], ["Prestado en el tiempo", "Lent over time"]],
         keys: ["cobro.owed", "debo.sum.owed.empty", "debo.sum.nextGet", "cobro.lent", "cobro.paid", "cobro.left", "cobro.span"],
@@ -556,9 +558,9 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       {
         id: "bono",
         depth: "tip",
-        title: ["Bono", "Payment"],
+        title: ["Abonar", "Payment"],
         sum: ["Anota un pago que te hicieron.", "Record a payment someone made you."],
-        what: ["Bono anota lo que una persona te pagó esta vez. Se resta de lo pendiente y queda con su fecha en la tarjeta.", "Payment records what someone paid you this time. It comes off what is pending and stays on the card with its date."],
+        what: ["Abonar anota lo que una persona te pagó, con su fecha. Baja lo pendiente y entra en Ingresos como una línea normal.", "Payment records what someone paid you, with its date. It lowers what is pending and goes into Income as a normal line."],
         go: { screen: "cobros", anchor: "cobros-in", where: ["Cobros → tarjeta de la persona", "Collections → person's card"] },
         terms: [["Abono", "Partial payment"], ["Pago recibido", "Payment"]],
         keys: ["cobro.bonus"],
@@ -767,7 +769,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Monto del bono", "Payment amount"],
         sum: ["Lo que te pagaron esta vez.", "What they paid this time."],
         what: ["Lo que te pagó esta vez. Se resta de lo pendiente.", "What they paid you this time. It comes off what is pending."],
-        go: { screen: "cobros", anchor: "cobros-in", where: ["Cobros → Bono", "Collections → Payment"] },
+        go: { screen: "cobros", anchor: "cobros-in", where: ["Cobros → Abonar", "Collections → Payment"] },
         keys: ["tip.cobro.bonus.amount"],
       },
       {
@@ -776,7 +778,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Fecha del pago", "Payment date"],
         sum: ["Cuándo te pagaron.", "When they paid you."],
         what: ["El día en que te pagó. Queda anotado en la tarjeta.", "The day they paid you. It stays on the card."],
-        go: { screen: "cobros", anchor: "cobros-in", where: ["Cobros → Bono", "Collections → Payment"] },
+        go: { screen: "cobros", anchor: "cobros-in", where: ["Cobros → Abonar", "Collections → Payment"] },
         keys: ["tip.cobro.bonus.on"],
       },
       {
@@ -887,13 +889,51 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         terms: [["Tienda", "Store"], ["Pedido", "Order"]],
       },
       {
+        id: "deudas",
+        depth: "manual",
+        title: ["Deudas en Libros", "Debts in Books"],
+        sum: ["Me deben y Debo, con su propia fila.", "Owed to me and I owe, in their own row."],
+        what: ["La fila del medio es una balanza: Me deben a la izquierda, Debo a la derecha, cada uno con su total. El fiel se inclina hacia el lado que pesa más.", "The middle row is a scale: Owed to me on the left, I owe on the right, each with its total. The pivot leans toward the heavier side."],
+        how: ["Toca un lado para abrirlo. Me deben lista a cada persona; toca su nombre para ver toda su historia. Debo tiene Cuotas y Préstamos; en Préstamos está el [[Plan de pago]]. Arriba de los dos ves el [[Balance neto]].", "Tap a side to open it. Owed to me lists each person; tap a name to see their whole history. I owe has Plans and Loans; Loans holds the [[Payoff plan]]. Above both you see the [[Net balance]]."],
+        tip: ["El panel Cobros de Central sigue ahí como atajo: Ver todo te trae aquí y Atrás te devuelve.", "The Collections panel on Desk is still there as a shortcut: See all brings you here and Back returns you."],
+        go: { screen: "vault-owed", anchor: "debt-scale", where: ["Libros → fila del medio", "Books → middle row"] },
+        terms: [["Balanza", "Scale"], ["Me deben", "Owed to me"], ["Debo", "I owe"]],
+      },
+      {
+        id: "balance-neto",
+        depth: "tip",
+        title: ["Balance neto", "Net balance"],
+        sum: ["Lo que te deben menos lo que debes.", "What you are owed minus what you owe."],
+        what: ["Me deben menos lo pendiente de tus préstamos, en una cifra. En azul verde te deben más de lo que debes; en naranja debes más.", "Owed to me minus what is pending on your loans, in one figure. Teal means you are owed more than you owe; orange means you owe more."],
+        go: { screen: "vault-owed", anchor: "debt-net", where: ["Libros → Me deben o Debo, arriba", "Books → Owed to me or I owe, top"] },
+      },
+      {
+        id: "deudas-grafica",
+        depth: "tip",
+        title: ["Últimos 6 meses", "Last 6 months"],
+        sum: ["Cómo baja tu deuda mes a mes.", "How your debt goes down month by month."],
+        what: ["La línea naranja es lo que debías en préstamos al cierre de cada mes; la punteada, lo que te debían. Las dos cuentan el interés y los abonos de cada fecha.", "The orange line is what you owed on loans at the end of each month; the dotted one, what you were owed. Both count interest and payments on each date."],
+        go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-chart", where: ["Libros → Debo → Préstamos", "Books → I owe → Loans"] },
+      },
+      {
+        id: "plan-pago",
+        depth: "manual",
+        title: ["Plan de pago", "Payoff plan"],
+        sum: ["Qué préstamo pagar primero y cuánto ahorras.", "Which loan to pay first and how much you save."],
+        what: ["Avalancha paga primero el préstamo más caro (la tasa más alta); bola de nieve, el más chico. Faro te dice cuándo quedas libre, cuánto interés pagarás y cuánto ahorra un orden frente al otro.", "Avalanche pays the most costly loan first (highest rate); snowball, the smallest. Faro tells you when you are debt-free, how much interest you will pay and what one order saves over the other."],
+        how: ["Pon cuánto puedes pagar al mes; si lo dejas vacío, Faro usa lo que pagaste los últimos 3 meses. Cada mes todo va al primero de la lista; cuando lo terminas, pasa al siguiente. Cada tarjeta muestra su mes de salida y su interés total.", "Set what you can pay a month; if you leave it empty, Faro uses what you paid over the last 3 months. Each month everything goes to the first on the list; when it is done, it moves to the next. Each card shows its payoff month and total interest."],
+        tip: ["Avalancha casi siempre ahorra más. Bola de nieve cierra antes una deuda, y eso a veces ayuda a seguir.", "Avalanche almost always saves more. Snowball closes a debt sooner, and that sometimes helps you keep going."],
+        go: { screen: "vault-owe", fold: "debt-plan", anchor: "debt-plan", where: ["Libros → Debo → Préstamos", "Books → I owe → Loans"] },
+        terms: [["Avalancha", "Avalanche"], ["Bola de nieve", "Snowball"], ["Libre de deudas", "Debt-free"]],
+      },
+      {
         id: "cuotas",
         depth: "manual",
         title: ["Cuotas", "Subscriptions"],
         sum: ["Pagos que se repiten: plataformas, servicios, planes.", "Repeating payments: platforms, services, plans."],
         what: ["Cuotas guarda lo que pagas cada cierto tiempo, con su frecuencia y la fecha del próximo cobro.", "Subscriptions keeps what you pay every so often, with how often and the date of the next charge."],
         how: ["Usa [[Agregar de la lista]] para elegir un servicio conocido. Una anual se reparte en doce para tus lecturas.", "Use [[Add from the list]] to pick a known service. A yearly one is spread over twelve for your readings."],
-        go: { screen: "subs", where: ["Libros → Cuotas", "Books → Plans"] },
+        go: { screen: "subs", where: ["Libros → Debo → Cuotas", "Books → I owe → Plans"] },
         terms: [["Suscripciones", "Subscriptions"], ["Plataformas", "Platforms"], ["Servicios", "Services"]],
       },
       {
@@ -2657,7 +2697,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Primer pago", "First payment"],
         sum: ["Desde cuándo se cuentan los pagos.", "When the payments start counting."],
         what: ["La fecha del primer pago. Desde ahí se cuentan los siguientes según la frecuencia.", "The date of the first payment. The next ones count from there by the frequency."],
-        go: { screen: "subs", anchor: "book-add", where: ["Libros → Cuotas → + → editor", "Books → Plans → + → editor"] },
+        go: { screen: "subs", anchor: "book-add", where: ["Libros → Debo → Cuotas → +", "Books → I owe → Plans → +"] },
         keys: ["tip.first", "pot.first"],
       },
       {
@@ -2666,7 +2706,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Frecuencia", "Frequency"],
         sum: ["Cada cuánto se repite.", "How often it repeats."],
         what: ["Cada cuánto se repite: semanal, cada 15 días, mensual, anual u otra. En Cuotas, el engranaje junto a Frecuencia cambia, quita, ordena o añade opciones.", "How often it repeats: weekly, every 15 days, monthly, yearly or another. In dues, the gear beside Frequency swaps, removes, orders or adds choices."],
-        go: { screen: "subs", anchor: "book-add", where: ["Libros → Cuotas → + → editor", "Books → Plans → + → editor"] },
+        go: { screen: "subs", anchor: "book-add", where: ["Libros → Debo → Cuotas → +", "Books → I owe → Plans → +"] },
         terms: [["Semanal", "Weekly"], ["Cada 15 días", "Every 15 days"], ["Trimestral", "Quarterly"], ["Anual", "Yearly"]],
         keys: ["tip.cadence", "cadence", "cobro.cadence"],
       },
@@ -2676,7 +2716,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Próximo cobro", "Next charge"],
         sum: ["Cuándo te vuelven a cobrar.", "When you will be charged next."],
         what: ["La fecha del próximo cobro. Con ella, sale en [[Próximos pagos]] antes de vencer.", "The date of the next charge. With it, it shows in [[Payments ahead]] before it is due."],
-        go: { screen: "subs", anchor: "book-add", where: ["Libros → Cuotas → + → editor", "Books → Plans → + → editor"] },
+        go: { screen: "subs", anchor: "book-add", where: ["Libros → Debo → Cuotas → +", "Books → I owe → Plans → +"] },
         keys: ["tip.due", "due"],
       },
       {
@@ -2685,7 +2725,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Agregar de la lista", "Add from the list"],
         sum: ["Elige un servicio conocido.", "Pick a known service."],
         what: ["Elige un servicio conocido y Faro pone el nombre y el ícono.", "Pick a known service and Faro fills in the name and icon."],
-        go: { screen: "subs", anchor: "book-add", where: ["Libros → Cuotas → + → editor", "Books → Plans → + → editor"] },
+        go: { screen: "subs", anchor: "book-add", where: ["Libros → Debo → Cuotas → +", "Books → I owe → Plans → +"] },
         keys: ["tip.presets", "presets"],
       },
       {
@@ -2694,7 +2734,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Proveedor", "Provider"],
         sum: ["La empresa a la que pagas.", "The company you pay."],
         what: ["La empresa de IA a la que le pagas.", "The AI company you pay."],
-        go: { screen: "subs", anchor: "book-add", where: ["Libros → Cuotas → + → editor", "Books → Plans → + → editor"] },
+        go: { screen: "subs", anchor: "book-add", where: ["Libros → Debo → Cuotas → +", "Books → I owe → Plans → +"] },
         keys: ["tip.provider", "provider"],
       },
       {

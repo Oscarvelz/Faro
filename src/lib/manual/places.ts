@@ -4,7 +4,8 @@
  */
 import type { SectionId } from "@/lib/faro/types";
 
-export type VaultTab = "save" | "meta" | "retiro" | "emergencia";
+/** Libros' lower rows: the savings row and (1.3.92) the Deudas row (owed = Me deben, owe = Debo). */
+export type VaultTab = "save" | "meta" | "retiro" | "emergencia" | "owed" | "owe";
 
 export type GoLike = {
   screen: string;
@@ -54,6 +55,8 @@ const NAMES: Record<string, Pair> = {
   meta: ["Meta", "Goal"],
   retiro: ["Retiro", "Retirement"],
   emergencia: ["Emergencia", "Emergency"],
+  owed: ["Me deben", "Owed to me"],
+  owe: ["Debo", "I owe"],
   tools: ["Cambio", "Exchange"],
   manual: ["el manual", "the manual"],
 };

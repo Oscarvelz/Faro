@@ -1,0 +1,204 @@
+/* Deudas in Libros (1.3.92). The middle row is a balance scale: two pans, a pivot that leans to the heavier side, a
+   sliding plate under the chosen pan. Teal = money in (Me deben), subtle amber = Debo. Unlike the top row (icon over
+   label, pill) and the savings row (icon + label, purple, Tron brackets). */
+.debt-scale {
+  --in: #2f8f86; --owe: #b8893c; --lean: 0deg;
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); align-items: stretch;
+  margin: 0; padding: 3px; min-height: 50px; border-radius: 18px; isolation: isolate;
+  background: color-mix(in oklab, var(--surface) 86%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--fg) 9%, var(--line));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 14%, transparent);
+}
+/* The beam: a hairline that tips with the pivot. */
+.debt-scale::before {
+  content: ""; position: absolute; z-index: 1; left: calc(50% - 50px); right: calc(50% - 50px); top: calc(50% - .5px); height: 1px; border-radius: 1px; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--in) 55%, transparent), color-mix(in oklab, var(--fg) 22%, transparent) 50%, color-mix(in oklab, var(--owe) 55%, transparent));
+  transform: rotate(var(--lean)); transform-origin: 50% 50%; opacity: .55; transition: transform .7s cubic-bezier(.34, 1.4, .5, 1);
+}
+.debt-plate {
+  position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px - 34px) / 2); border-radius: 15px; pointer-events: none; opacity: 0;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--tone, var(--in)) 26%, var(--surface)), color-mix(in oklab, var(--tone, var(--in)) 10%, var(--surface)));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone, var(--in)) 36%, transparent), inset 0 1px 0 color-mix(in oklab, white 30%, transparent);
+  transition: transform .44s cubic-bezier(.22, 1.2, .36, 1), opacity .26s ease, background .3s ease, box-shadow .3s ease;
+}
+.debt-scale[data-on] .debt-plate { opacity: 1; }
+.debt-scale[data-on="owed"] .debt-plate { --tone: var(--in); transform: translateX(0); }
+.debt-scale[data-on="owe"] .debt-plate { --tone: var(--owe); transform: translateX(calc(100% + 34px)); }
+.debt-scale > button {
+  position: relative; z-index: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  padding: 4px 6px; border: 0; border-radius: 15px; background: transparent; color: var(--muted); font: inherit; cursor: pointer;
+  transition: color .3s ease, transform .18s ease;
+}
+.debt-scale > button:active { transform: scale(.97); }
+/* Outer edge keeps room for the corner (?) so it never sits on an amount; both pans stay symmetric. */
+.debt-scale > button[data-side="owed"] { padding-inline: 16px 4px; }
+.debt-scale > button[data-side="owe"] { padding-inline: 4px 16px; }
+.debt-scale > button:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: -2px; }
+.debt-scale .ds-lab { font-size: .8rem; font-weight: 680; letter-spacing: -.01em; white-space: nowrap; line-height: 1.15; }
+.debt-scale > button b { font-size: .68rem; font-weight: 600; white-space: nowrap; line-height: 1.15; color: var(--faint); transition: color .3s ease; }
+.debt-scale > button[data-side="owed"] .ds-lab::before, .debt-scale > button[data-side="owe"] .ds-lab::after {
+  content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; vertical-align: .12em; background: var(--in);
+}
+.debt-scale > button[data-side="owed"] .ds-lab::before { margin-right: 5px; }
+.debt-scale > button[data-side="owe"] .ds-lab::after { margin-left: 5px; background: var(--owe); }
+.debt-scale > button[aria-selected="true"] { color: var(--fg); }
+.debt-scale > button[data-side="owed"][aria-selected="true"] b { color: color-mix(in oklab, var(--in) 85%, var(--fg)); }
+.debt-scale > button[data-side="owe"][aria-selected="true"] b { color: color-mix(in oklab, var(--owe) 85%, var(--fg)); }
+.debt-pivot {
+  position: relative; z-index: 1; align-self: center; justify-self: center; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%;
+  color: var(--muted); background: color-mix(in oklab, var(--surface) 70%, var(--bg)); border: 1px solid color-mix(in oklab, var(--fg) 12%, var(--line));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+.debt-pivot svg { width: 15px; height: 15px; transform: rotate(var(--lean)); transition: transform .7s cubic-bezier(.34, 1.4, .5, 1); }
+.debt-scale[data-on="owed"] .debt-pivot { color: color-mix(in oklab, var(--in) 80%, var(--fg)); }
+.debt-scale[data-on="owe"] .debt-pivot { color: color-mix(in oklab, var(--owe) 80%, var(--fg)); }
+/* The divider through the pivot. */
+.debt-pivot::before, .debt-pivot::after { content: ""; position: absolute; left: 50%; width: 1px; height: 7px; background: color-mix(in oklab, var(--fg) 14%, transparent); }
+.debt-pivot::before { bottom: 100%; }
+.debt-pivot::after { top: 100%; }
+.debt-scale > .hint.is-corner { right: 10px; bottom: 8px; z-index: 3; }
+.debt-scale > .hint.is-corner .ftip-btn { width: 12px; height: 12px; min-height: 12px; overflow: visible; }
+.debt-scale > .hint.is-corner .ftip-btn svg { width: 12px; height: 12px; }
+.debt-scale > .hint.is-corner .ftip-btn::before { inset: -6px -2px -2px -6px; border-radius: 4px; }
+.debt-scale + .vault-bar { margin-top: 10px; }
+.seg.is-follow + .debt-scale { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { .debt-plate, .debt-pivot svg, .debt-scale::before { transition: none; } }
+
+/* Day themes: their own teal and amber, quieter. */
+html[data-theme="lino"] .debt-scale { --in: #2f7f74; --owe: #a26a2c; }
+html[data-theme="costa"] .debt-scale { --in: #1f8b93; --owe: #b07a32; }
+html[data-theme="marfil"] .debt-scale { --in: #3a8a7e; --owe: #a8792f; }
+html[data-theme="niebla"] .debt-scale { --in: #3e8790; --owe: #a7844a; }
+html[data-theme="piedra"] .debt-scale { --in: #3d8278; --owe: #9d7a44; }
+/* Night (Ion and the rest): brighter pans on charcoal. */
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .debt-scale { --in: #3cc7b6; --owe: #d7a65a; background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
+/* Tron: a lit steel beam; teal pan, amber pan, the pivot a glowing node. No corner brackets (those belong to the savings row). */
+[data-theme="tron"] .debt-scale { --in: #3fd6f5; --owe: #e8a54a; border-radius: 10px; background: rgba(0, 0, 0, .45); border-color: rgba(120, 225, 250, .18); box-shadow: inset 0 0 0 1px rgba(120, 225, 250, .06); }
+[data-theme="tron"] .debt-scale::before { opacity: .9; box-shadow: 0 0 6px rgba(63, 214, 245, .35); }
+[data-theme="tron"] .debt-plate { border-radius: 7px; background: linear-gradient(180deg, color-mix(in oklab, var(--tone) 22%, #071015), color-mix(in oklab, var(--tone) 7%, #050b0e)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 55%, transparent), 0 0 14px -4px color-mix(in oklab, var(--tone) 70%, transparent); }
+[data-theme="tron"] .debt-scale > button { border-radius: 7px; color: #8fb1bb; }
+[data-theme="tron"] .debt-scale .ds-lab { font-family: var(--t-display); font-weight: 500; font-size: .66rem; letter-spacing: .05em; }
+[data-theme="tron"] .debt-scale > button[aria-selected="true"] { color: #eafbff; }
+[data-theme="tron"] .debt-scale > button[data-side="owed"][aria-selected="true"] .ds-lab { text-shadow: 0 0 8px rgba(63, 214, 245, .7); }
+[data-theme="tron"] .debt-scale > button[data-side="owe"][aria-selected="true"] .ds-lab { text-shadow: 0 0 8px rgba(232, 165, 74, .55); }
+[data-theme="tron"] .debt-scale .ds-lab::before, [data-theme="tron"] .debt-scale .ds-lab::after { box-shadow: 0 0 6px currentColor; }
+[data-theme="tron"] .debt-pivot { border-radius: 50%; background: #050c10; border-color: rgba(120, 225, 250, .45); color: #9fe6f6; box-shadow: 0 0 10px -2px rgba(63, 214, 245, .6); }
+[data-theme="tron"] .debt-pivot::before, [data-theme="tron"] .debt-pivot::after { background: rgba(120, 225, 250, .35); }
+
+/* ---------- inside the Deudas pane ---------- */
+.debt-book { display: grid; gap: 12px; }
+.debt-book > .cobro-swap, .debt-loans, .debt-dues { display: grid; gap: 12px; }
+.debt-net { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 8px; padding: 2px 2px 8px; border-bottom: 1px solid color-mix(in oklab, var(--fg) 10%, transparent); }
+.debt-net .lab-head { font-size: .78rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.debt-net em { font-style: normal; font-size: .7rem; color: var(--faint); white-space: nowrap; overflow: hidden; }
+.debt-net strong { font-size: 1.05rem; white-space: nowrap; }
+.debt-net[data-tone="in"] strong { color: color-mix(in oklab, #2f8f86 80%, var(--fg)); }
+.debt-net[data-tone="out"] strong { color: color-mix(in oklab, #c8742a 80%, var(--fg)); }
+[data-theme="tron"] .debt-net[data-tone="in"] strong { color: #3fd6f5; text-shadow: 0 0 8px rgba(63, 214, 245, .5); }
+[data-theme="tron"] .debt-net[data-tone="out"] strong { color: #ff9d2a; text-shadow: 0 0 8px rgba(255, 157, 42, .45); }
+
+.debt-chart, .debt-plan { display: grid; gap: 8px; padding: 12px; border-radius: 16px; border: 1px solid color-mix(in oklab, var(--fg) 9%, var(--line)); background: color-mix(in oklab, var(--surface) 92%, var(--bg)); }
+.debt-chart-head, .plan-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.debt-chart-head .lab-head, .plan-head .lab-head { font-size: .82rem; font-weight: 700; white-space: nowrap; }
+.debt-legend { display: inline-flex; align-items: center; gap: 5px; font-size: .7rem; color: var(--muted); white-space: nowrap; }
+.debt-legend i { width: 10px; height: 3px; border-radius: 2px; background: #c8742a; }
+.debt-legend i[data-k="owed"] { margin-left: 6px; background: #2f8f86; }
+.debt-chart > svg { width: 100%; height: 96px; display: block; overflow: visible; }
+.dc-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.dc-line.is-owe { stroke: #c8742a; }
+.dc-line.is-owed { stroke: #2f8f86; stroke-dasharray: 4 3; }
+.dc-area.is-owe { fill: color-mix(in oklab, #c8742a 16%, transparent); }
+.dc-area.is-owed { fill: color-mix(in oklab, #2f8f86 10%, transparent); }
+.debt-chart-months { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); font-size: .66rem; color: var(--faint); text-transform: capitalize; }
+.debt-chart-months span { text-align: center; white-space: nowrap; }
+.debt-chart-months span:first-child { text-align: left; }
+.debt-chart-months span:last-child { text-align: right; }
+.debt-chart-say, .plan-say { margin: 0; font-size: .8rem; line-height: 1.4; color: var(--muted); }
+.debt-chart-say b, .plan-say b { color: var(--fg); }
+b.num.is-in { color: color-mix(in oklab, #2f8f86 85%, var(--fg)); }
+b.num.is-out { color: color-mix(in oklab, #c8742a 85%, var(--fg)); }
+[data-theme="tron"] .dc-line.is-owe { stroke: #ff9d2a; filter: drop-shadow(0 0 3px rgba(255, 157, 42, .6)); }
+[data-theme="tron"] .dc-line.is-owed { stroke: #3fd6f5; filter: drop-shadow(0 0 3px rgba(63, 214, 245, .6)); }
+[data-theme="tron"] .dc-area.is-owe { fill: rgba(255, 157, 42, .1); }
+[data-theme="tron"] .dc-area.is-owed { fill: rgba(63, 214, 245, .08); }
+[data-theme="tron"] .debt-legend i { background: #ff9d2a; box-shadow: 0 0 5px rgba(255, 157, 42, .6); }
+[data-theme="tron"] .debt-legend i[data-k="owed"] { background: #3fd6f5; box-shadow: 0 0 5px rgba(63, 214, 245, .6); }
+[data-theme="tron"] b.num.is-in { color: #3fd6f5; }
+[data-theme="tron"] b.num.is-out { color: #ff9d2a; }
+[data-theme="tron"] :is(.debt-chart, .debt-plan) { border-radius: 8px; background: rgba(4, 12, 16, .72); border-color: rgba(120, 225, 250, .18); }
+
+/* Payoff order: a two-way switch with a sliding light. */
+.plan-order { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 12px; background: color-mix(in oklab, var(--fg) 5%, var(--bg)); border: 1px solid color-mix(in oklab, var(--fg) 8%, var(--line)); }
+.plan-order > i { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 9px; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .12), inset 0 0 0 1px color-mix(in oklab, #b8893c 30%, transparent); transition: transform .38s cubic-bezier(.22, 1.2, .36, 1); }
+.plan-order[data-on="snowball"] > i { transform: translateX(100%); }
+.plan-order button { position: relative; z-index: 1; display: grid; justify-items: center; gap: 0; min-height: 42px; padding: 3px 4px; border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
+.plan-order button span { font-size: .8rem; font-weight: 680; white-space: nowrap; }
+.plan-order button em { font-style: normal; font-size: .66rem; color: var(--faint); white-space: nowrap; }
+.plan-order button[aria-selected="true"] { color: var(--fg); }
+[data-theme="tron"] .plan-order { border-radius: 8px; background: rgba(0, 0, 0, .45); border-color: rgba(120, 225, 250, .2); }
+[data-theme="tron"] .plan-order > i { border-radius: 6px; background: rgba(232, 165, 74, .1); box-shadow: inset 0 0 0 1px rgba(232, 165, 74, .55), 0 0 12px -4px rgba(232, 165, 74, .6); }
+[data-theme="tron"] .plan-order button[aria-selected="true"] span { color: #ffe2b0; text-shadow: 0 0 8px rgba(232, 165, 74, .5); }
+.plan-budget { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .8rem; color: var(--muted); }
+.plan-budget > span:first-child { white-space: nowrap; font-weight: 640; }
+.plan-input { flex: 0 1 140px; min-width: 96px; }
+.plan-input .field { width: 100%; text-align: right; min-height: 38px; }
+.plan-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 6px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); border-bottom: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.plan-facts span { display: grid; gap: 1px; min-width: 0; }
+.plan-facts span:nth-child(2) { text-align: center; }
+.plan-facts span:last-child { text-align: right; }
+.plan-facts em { font-style: normal; font-size: .66rem; color: var(--faint); white-space: nowrap; }
+.plan-facts strong { font-size: .92rem; white-space: nowrap; text-transform: capitalize; }
+.plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.plan-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "n name amt" "n meta amt"; align-items: center; column-gap: 8px; padding: 7px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 7%, transparent); }
+.plan-list li:first-child { border-top: 0; }
+.plan-list li > b { grid-area: n; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .7rem; color: var(--fg); background: color-mix(in oklab, #b8893c 18%, var(--surface)); }
+.plan-list li:first-child > b { background: color-mix(in oklab, #b8893c 40%, var(--surface)); }
+.plan-list li > span { grid-area: name; font-size: .84rem; font-weight: 640; overflow-wrap: anywhere; }
+.plan-list li > em { grid-area: meta; font-style: normal; font-size: .7rem; color: var(--faint); text-transform: none; }
+.plan-list li > strong { grid-area: amt; font-size: .86rem; white-space: nowrap; }
+[data-theme="tron"] .plan-list li > b { border-radius: 4px; background: rgba(232, 165, 74, .12); color: #ffe2b0; box-shadow: inset 0 0 0 1px rgba(232, 165, 74, .4); }
+
+/* Person name opens their history. */
+.cobro-who.is-link { border: 0; background: transparent; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; border-radius: 10px; }
+.cobro-who.is-link strong { text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--fg) 25%, transparent); text-underline-offset: 3px; }
+.cobro-who.is-link .who-chev { width: 14px; height: 14px; flex: none; color: var(--faint); transform: rotate(-90deg); }
+.cobro-who.is-link:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: 2px; }
+.debt-since { color: var(--muted); }
+.cobro-meta.debt-since b { font-weight: 650; }
+.cobro-meta.debt-since .num { font-size: inherit !important; line-height: inherit; letter-spacing: 0; }
+.cobro-row .cobro-who.is-link { flex: 0 1 auto; margin-right: auto; }
+.cobro-all { justify-self: stretch; width: 100%; margin-top: 4px; white-space: nowrap; }
+
+/* One person's history sheet. */
+.debt-person-back { z-index: 95; }
+.debt-person { --tone: #2f8f86; position: relative; width: min(440px, 100%); max-height: min(78vh, 640px); display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 10px; padding: 16px 16px 12px; border-radius: 24px; color: var(--fg); background: var(--surface); border: 1px solid color-mix(in oklab, var(--line) 70%, var(--tone)); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .55); animation: ask-rise .34s cubic-bezier(.22, 1, .36, 1) both; }
+.debt-person.is-owe { --tone: #b8893c; }
+.dp-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dp-face { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: .9rem; color: var(--fg); background: color-mix(in oklab, var(--tone) 30%, var(--surface)); }
+.dp-head strong { flex: 1 1 auto; min-width: 0; font-size: 1.1rem; font-weight: 680; overflow-wrap: anywhere; }
+.dp-close { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 4%, var(--surface)); color: var(--muted); cursor: pointer; }
+.dp-close svg { width: 16px; height: 16px; }
+.dp-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); border-bottom: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.dp-facts span { display: grid; gap: 1px; min-width: 0; }
+.dp-facts span:nth-child(2) { text-align: center; }
+.dp-facts span:last-child { text-align: right; }
+.dp-facts em { font-style: normal; font-size: .66rem; color: var(--faint); white-space: nowrap; }
+.dp-facts strong { font-size: .95rem; white-space: nowrap; }
+.dp-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
+.dp-list li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 7px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 6%, transparent); font-size: .84rem; }
+.dp-list li:first-child { border-top: 0; }
+.dp-list li > span:first-child { color: var(--faint); font-size: .76rem; }
+.dp-list li[data-kind="pay"] strong { color: color-mix(in oklab, var(--tone) 80%, var(--fg)); }
+.debt-person.is-owed .dp-list li[data-kind="pay"] strong { color: color-mix(in oklab, #2f8f86 85%, var(--fg)); }
+[data-theme="tron"] .debt-person { border-radius: 10px; background: #061015; border-color: rgba(120, 225, 250, .35); box-shadow: 0 0 30px -8px rgba(63, 214, 245, .35), 0 30px 80px -20px rgba(0, 0, 0, .8); }
+[data-theme="tron"] .debt-person.is-owe { border-color: rgba(232, 165, 74, .4); }
+[data-theme="tron"] .dp-close { border-radius: 6px; background: rgba(0, 0, 0, .4); border-color: rgba(120, 225, 250, .3); color: #9fe6f6; }
+[data-theme="tron"] .debt-person.is-owed .dp-list li[data-kind="pay"] strong { color: #3fd6f5; }
+[data-theme="tron"] .debt-person.is-owe .dp-list li[data-kind="pay"] strong { color: #ff9d2a; }
+
+/* Libros top row: four books now. */
+.seg.is-follow.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* Wide screens: the top and savings rows live in the side docks, so the scale stands alone; it keeps a phone-like width, centred. */
+@media (width >= 1100px) {
+  .app-frame:not(.is-split) .workspace .debt-scale { width: min(520px, 100%); margin: 0 auto 6px; }
+}

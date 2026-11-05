@@ -187,3 +187,8 @@
 - Ahorros period card (SpanCut saving → .is-saving): "ACUMULADO" no longer alone over an empty half: label + (?) left, amount right on one row (min-height 50).
 - Theme selectors `.vault-lever-read p strong` → `.lever-line strong`.
 - Tests: tsc 5 known; npm test 59/59; cq-mnA + cq-mnB ALL PASS; browser-test/lv90.mjs (current, C$1,234,567.89, US$1,234,567.89) 0 fails: 8 themes × 412 ES / 360 EN / 360r20; tron/claro/niebla 1970 ES+EN; tron/ion/piedra 1440 ES+EN. Shots browser-test/lv90/, ah90/, before|after lv90/ba/.
+## 1.3.91 (2026-11-04) main 5195c0c, source a1268c9 — Open lever header: two lines
+- 1.3.90's one-sentence header was a misunderstanding. Back to the 1.3.89 layout (header in the tiles column beside the vertical slider, 30px chevron gap, rail 148px) with two lines: "Si apartas (?)" / amount (1.3.89 size, colour, weight) + "al mes, así quedaría:" (muted em) on one baseline. The separate "Así quedaría" line is gone. EN "If you set aside (?)" / "C$X a month, you'd have:".
+- fit.ts leverAmt(): line 2 never wraps or clips; tail shrinks first (to 78%), then amount+tail together (floor 60%). `.lever-amt > .num` excluded from the generic .num fitter (it was resetting the amount). leverLine() removed. Theme selectors back to `.vault-lever-read p strong`.
+- Kept: 1.3.90 Acumulado row, 1.3.89 17px thumb.
+- Tests: tsc 5 known; npm test 59/59; cq-mnA + cq-mnB ALL PASS; browser-test/lv91.mjs (current + real slider max C$18,312.15) 0 fails: 8 themes 412 ES, Tron/Claro 360/360r20 ES+EN (all pockets), Tron/Claro 412 + 1970 ES+EN. Shots browser-test/lv91/ (sheet412.png), lv91out/.

@@ -113,7 +113,8 @@ export function LoanForm({ mode, onCancel, onSave }: { mode: "lend" | "borrow"; 
 }
 
 /** One loan's card: who, pending, amount · date · rate, its payments, then Pay/Bono and Archive. Amounts arrive in the view currency. */
-export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIso, aprBps, pays, payLabel, paying, onPaying, onPay, archiveBody, onArchive, hint, extra }: {
+export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIso, aprBps, pays, payLabel, paying, onPaying, onPay, archiveBody, onArchive, hint, extra, onWho }: {
+  onWho?: () => void;
   name: string; rate: boolean; leftView: number; amountView: number; amountLabel: string; dateIso: string; aprBps: number;
   pays: { date: string; view: number }[]; payLabel: string; paying: boolean; onPaying: (on: boolean) => void;
   onPay: (displayMinor: number, date: string) => void; archiveBody: string; onArchive: () => void; hint: string; extra?: ReactNode;
@@ -126,10 +127,18 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
   return (
     <article className={`cobro-card${rate ? " is-rate" : ""}`}>
       <div className="cobro-row">
-        <div className="cobro-who">
-          <b style={{ background: tint }}>{name.slice(0, 1).toUpperCase()}</b>
-          <strong>{name}</strong>
-        </div>
+        {onWho ? (
+          <button type="button" className="cobro-who is-link" onClick={onWho} aria-label={`${name} · ${lang === "en" ? "history" : "historial"}`}>
+            <b style={{ background: tint }}>{name.slice(0, 1).toUpperCase()}</b>
+            <strong>{name}</strong>
+            <ChevronDown className="who-chev" aria-hidden />
+          </button>
+        ) : (
+          <div className="cobro-who">
+            <b style={{ background: tint }}>{name.slice(0, 1).toUpperCase()}</b>
+            <strong>{name}</strong>
+          </div>
+        )}
         <strong className="num">{fmt(leftView)}</strong>
       </div>
       <p className="cobro-meta">
@@ -174,6 +183,8 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
 }
 
 const TAB_KEY = "faro-debo-tab";
+/** The Debo sub-tab on screen in Central's Cobros (read by "Ver todo" so Libros opens on the same one). */
+export let deboTabNow: "dues" | "loans" = "dues";
 function readTab(): "dues" | "loans" {
   // Always opens on Cuotas (Oscar, Nov 3); only an "Ir allí" to Préstamos leaves a one-shot flag.
   try { const v = localStorage.getItem(TAB_KEY); localStorage.removeItem(TAB_KEY); return v === "loans" ? "loans" : "dues"; } catch { return "dues"; }
@@ -198,6 +209,7 @@ export function DeboSide({ dues }: { dues: ReactNode }) {
   function pick(next: "dues" | "loans") {
     setTab(next);
   }
+  deboTabNow = tab;
   return (
     <>
       <div className="debo-tabs" role="tablist" data-anchor="cobros-debo-tabs">
@@ -250,7 +262,7 @@ export function DeboSum({ parts, empty, help }: { parts: Array<Array<string | { 
 }
 
 /** Debo → Préstamos: loans received, kept in the ledger. Payments become normal lines in the loan's book. */
-export function DueLoans() {
+export function DueLoans({ libros = false, onWho, facts, between }: { libros?: boolean; onWho?: (name: string) => void; facts?: (id: string, interestView: number) => ReactNode; between?: ReactNode } = {}) {
   const { t, fmt, session, commit } = useFaro();
   const [adding, setAdding] = useState(false);
   const [payFor, setPayFor] = useState<string | null>(null);
@@ -277,7 +289,7 @@ export function DueLoans() {
     setAdding(false);
   }
   return (
-    <div className="cobro-swap" data-anchor="cobros-loans">
+    <div className="cobro-swap" data-anchor={libros ? "debt-loans-list" : "cobros-loans"}>
       <div className="cobro-top">
         <div>
           <strong className="num">{fmt(sums.left)}</strong>
@@ -290,16 +302,18 @@ export function DueLoans() {
         [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
       ] : null} />
       {adding ? <LoanForm mode="borrow" onCancel={() => setAdding(false)} onSave={save} /> : null}
-      <CobroSpan out help="prestamos-tiempo" title={t("cobro.loan.span")} total={sums.borrowed}
+      {between}
+      {libros ? null : <CobroSpan out help="prestamos-tiempo" title={t("cobro.loan.span")} total={sums.borrowed}
         events={all.map((l) => ({ date: l.takenOn, value: view(l.amountMinor, l.currency) }))}
-        facts={[[t("cobro.loan.got"), sums.borrowed], [t("cobro.loan.paid"), sums.paid], [t("cobro.loan.left"), sums.left]]} />
+        facts={[[t("cobro.loan.got"), sums.borrowed], [t("cobro.loan.paid"), sums.paid], [t("cobro.loan.left"), sums.left]]} />}
       {ledger && active.length ? active.map((loan) => {
         const f = loanState(ledger, loan);
         return (
           <LoanCard key={loan.id} name={loan.lender} rate={loan.kind === "interest"} leftView={view(f.left, loan.currency)}
             amountView={view(loan.amountMinor, loan.currency)} amountLabel={t("cobro.loan.got")} dateIso={loan.takenOn} aprBps={loan.aprBps}
             pays={loanPays(ledger, loan.id).map((line) => ({ date: line.bookedOn || `${line.monthKey}-01`, view: view(line.amountMinor, line.currency) }))}
-            extra={<p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}</p>}
+            extra={<><p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}</p>{facts ? facts(loan.id, view(f.interest, loan.currency)) : null}</>}
+            onWho={onWho ? () => onWho(loan.lender) : undefined}
             payLabel={t("cobro.loan.pay")} paying={payFor === loan.id} onPaying={(on) => setPayFor(on ? loan.id : null)}
             onPay={(minor, date) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line")), loan.lender)}
             archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
