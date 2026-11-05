@@ -1474,6 +1474,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [cobros, setCobros] = useState(!!cobrosBack);
   const [cobrosJump, setCobrosJump] = useState(!!cobrosBack);
   const [cobrosPing, setCobrosPing] = useState(0);
+  // 1.3.106: whether the open Cobros panel is the one active thing (its corner button lit). A card picked while it stays open takes the focus.
+  const [cobrosLit, setCobrosLit] = useState(true);
+  const quickClosedByLens = useRef(false);
   const [lamp, setLamp] = useState<"good" | "warn" | "bad" | null>(null);
   const [flowDir, setFlowDir] = useState(1);
   const [quick, setQuick] = useState<null | "in" | "out">(null);
@@ -1651,6 +1654,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         return;
       }
       if (e.defaultPrevented) return;
+      // 1.3.106: an open + / − flow owns this back (QuickAdd closes itself); the picked card must stay picked under it.
+      if (quickRef.current) return;
       if (deskLine) {
         setDeskLine(null);
         e.preventDefault();
@@ -1691,6 +1696,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       const target = e.target;
       if (target instanceof Element && (quickRef.current?.contains(target) || target.closest(".lens-corner"))) return;
       if (quickRef.current?.querySelector("[data-reporting]")) return;
+      // 1.3.106: a card tapped to leave the flow becomes the active card (no toggle off).
+      if (target instanceof Element && target.closest(".lenses .lens")) quickClosedByLens.current = true;
       setQuick(null);
     };
     const onBack = (e: Event) => {
@@ -1726,6 +1733,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       const dir = typeof detail === "number" ? detail : detail.dir;
       setFlowDir(dir);
       lensByJump.current = false;
+      setCobrosLit(false);
       if (typeof detail === "number") {
         // Mouse drag: the three lenses, as before.
         setLens((cur) => {
@@ -1763,7 +1771,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     if (focus) return;
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (id === "cobros") { setQuick(null); setJump(null); setCobrosJump(true); setCobros(true); }
+      if (id === "cobros") { setQuick(null); setJump(null); setCobrosJump(true); setCobros(true); setCobrosLit(true); }
       else if (id === "lens-have" || id === "lens-spend" || id === "lens-debt") { lensByJump.current = true; setLens(id.slice(5) as "have" | "spend" | "debt"); }
     };
     window.addEventListener("faro-open", onOpen);
@@ -2248,7 +2256,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     lensByJump.current = false;
     const order = ["have", "spend", "debt"] as const;
     if (lens !== "all" && lens !== id) setFlowDir(order.indexOf(id) >= order.indexOf(lens) ? 1 : -1);
-    setLens((cur) => (cur === id ? "all" : id));
+    const fromFlow = quickClosedByLens.current || (cobros && cobrosLit);
+    quickClosedByLens.current = false;
+    setCobrosLit(false);
+    // Leaving a corner flow by tapping a card lights that card; otherwise a second tap on the lit card lets go.
+    setLens((cur) => (cur === id && !fromFlow ? "all" : id));
   }
 
   function gestureOf(slot: string) {
@@ -2374,6 +2386,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     );
   }
 
+  // 1.3.106: one active thing among the three cards and their corner buttons. An open corner flow wins; else the picked card
+  // (with its own button). Everything else goes low-profile (cards via aria-pressed=false, buttons via .is-low).
+  const btnOn: null | "plus" | "minus" | "cobro" = quick === "in" ? "plus" : quick === "out" ? "minus" : cobros && cobrosLit ? "cobro" : null;
+  const cardOn = btnOn ? null : lens === "all" ? null : lens;
+  const lowCorner = (btn: "plus" | "minus" | "cobro", card: "have" | "spend" | "debt") => (btnOn ? btnOn !== btn : cardOn ? cardOn !== card : false);
   return (
     <div className={focus ? "vault-pane" : "desk-layout"}>
       {focus ? null : (
@@ -2398,43 +2415,50 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {/* The Tasa (?) cannot live inside the button; it is laid just after the button's own label (measured), so nothing moves. */}
         <RateHint />
       </div>
-      <div className="lenses">
+      <div className="lenses" data-focus={btnOn ?? cardOn ?? undefined}>
         <div className="lens-wrap">
           <Hint topic="tengo" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
-          <button type="button" data-anchor="lens-have" className={`lens is-have${lens === "have" ? " is-picked" : ""}`} data-lens="have" aria-pressed={lens === "have"} onClick={() => focusLens("have")}>
+          <button type="button" data-anchor="lens-have" className={`lens is-have${lens === "have" ? " is-picked" : ""}`} data-lens="have" aria-pressed={cardOn === "have"} onClick={() => focusLens("have")}>
             <span className="lens-kicker"><span className="lens-mark"><ArrowDownLeft className="size-3" /></span><span>{t("desk.have")}</span></span>
             <span className="lens-value num">{fmt(summary.income)}</span>
             <span className="lens-note">{t("desk.have.note")}</span>
           </button>
-          <button type="button" data-anchor="desk-plus" className="lens-corner is-plus" aria-label={t("desk.addIn")} aria-pressed={quick === "in"} {...corner("in")}>
+          <button type="button" data-anchor="desk-plus" className={`lens-corner is-plus${lowCorner("plus", "have") ? " is-low" : ""}`} aria-label={t("desk.addIn")} aria-pressed={quick === "in"} {...corner("in")}>
             <Plus className="size-3.5" />
           </button>
         </div>
         <div className="lens-wrap">
           <Hint topic="gastare" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
-          <button type="button" data-anchor="lens-spend" className={`lens is-spend${lens === "spend" ? " is-picked" : ""}`} data-lens="spend" aria-pressed={lens === "spend"} onClick={() => focusLens("spend")}>
+          <button type="button" data-anchor="lens-spend" className={`lens is-spend${lens === "spend" ? " is-picked" : ""}`} data-lens="spend" aria-pressed={cardOn === "spend"} onClick={() => focusLens("spend")}>
             <span className="lens-kicker"><span className="lens-mark"><ArrowUpRight className="size-3" /></span><span>{t("desk.spend")}</span></span>
             <span className="lens-value num">−{fmt(summary.expense)}</span>
             <span className="lens-note">{t("desk.spend.note")}</span>
           </button>
-          <button type="button" data-anchor="desk-minus" className="lens-corner is-minus" aria-label={t("desk.addOut")} aria-pressed={quick === "out"} {...corner("out")}>
+          <button type="button" data-anchor="desk-minus" className={`lens-corner is-minus${lowCorner("minus", "spend") ? " is-low" : ""}`} aria-label={t("desk.addOut")} aria-pressed={quick === "out"} {...corner("out")}>
             <span aria-hidden>−</span>
           </button>
         </div>
         <div className="lens-wrap">
           <Hint topic="pagos" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
-          <button type="button" data-anchor="lens-debt" className={`lens is-debt tone-${summary.tone}${lens === "debt" ? " is-picked" : ""}`} data-lens="debt" aria-pressed={lens === "debt"} onClick={() => focusLens("debt")}>
+          <button type="button" data-anchor="lens-debt" className={`lens is-debt tone-${summary.tone}${lens === "debt" ? " is-picked" : ""}`} data-lens="debt" aria-pressed={cardOn === "debt"} onClick={() => focusLens("debt")}>
             <span className="lens-kicker"><span className="lens-mark"><CreditCard className="size-3" /></span><span>{t("desk.debt")}</span></span>
             <span className="lens-value num">{fmt(summary.debt)}</span>
             <span className="lens-note">{t("desk.debt.note")}</span>
           </button>
-          <button type="button" data-anchor="desk-cobro" className="lens-corner is-cobro" aria-label={t("cobro.open")} aria-pressed={cobros} onClick={() => {
+          <button type="button" data-anchor="desk-cobro" className={`lens-corner is-cobro${lowCorner("cobro", "debt") ? " is-low" : ""}`} aria-label={t("cobro.open")} aria-pressed={btnOn === "cobro"} onClick={() => {
             setCobrosJump(false);
             try { localStorage.removeItem("faro-debo-tab"); } catch { /* ignore */ }
             if (quick) {
               setJump(null);
               setQuick(null);
               setCobros(true);
+              setCobrosLit(true);
+              setCobrosPing((n) => n + 1);
+              return;
+            }
+            if (cobros && !cobrosLit) {
+              // 1.3.106: open behind a picked card: the button takes the focus back (and calls the panel back) instead of closing it.
+              setCobrosLit(true);
               setCobrosPing((n) => n + 1);
               return;
             }
@@ -2447,6 +2471,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               return;
             }
             setCobros(true);
+            setCobrosLit(true);
             setCobrosPing((n) => n + 1);
           }}>
             <svg viewBox="0 0 16 16" aria-hidden>
@@ -2460,7 +2485,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       </div>
       {quick ? (
         <div ref={quickRef} className="sheet-swap">
-          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={() => { setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
+          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={() => { if (lens === "all") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
         </div>
       ) : null}
       {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? "out"} ping={cobrosJump ? 0 : cobrosPing} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}

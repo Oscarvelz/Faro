@@ -295,7 +295,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Tengo", "Have"],
         sum: ["Todo lo que entra este mes.", "Everything that comes in this month."],
-        what: ["Tengo suma tus ingresos de este mes, fijos y variables. Tócalo para ver solo esas líneas abajo.", "The Have lens adds up this month's income, fixed and variable. Tap it to see only those lines below."],
+        what: ["Tengo suma tus ingresos de este mes, fijos y variables. Tócalo para ver solo esas líneas abajo. Lo activo brilla y lo demás se atenúa: la tarjeta elegida con su botón, o solo el botón que abriste.", "The Have lens adds up this month's income, fixed and variable. Tap it to see only those lines below. What is active glows and the rest dims: the picked card with its button, or only the button you opened."],
         go: { screen: "desk", lens: "have", anchor: "lens-have", where: ["Central, primer lente", "Desk, first lens"] },
         terms: [["Ingreso", "Income"], ["Entra este mes", "Month in"]],
       },
