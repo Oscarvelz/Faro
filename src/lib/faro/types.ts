@@ -124,6 +124,9 @@ export type Line = {
   lentId?: string;
   /** Removed from a pocket but kept for its money history (1.3.81): inactive and hidden from the pocket list. */
   archived?: boolean;
+  /** 1.3.107: a payment toward a credit card (Debo → Préstamos → Tarjetas). Always a transfer (xfer, inactive): the
+   *  purchases were already spending, so paying the card lowers its balance without counting twice. See cards.ts. */
+  cardId?: string;
 };
 
 /** Money the user lent to someone (Me deben). Interest follows the same rule as Loan (simple, by the day, from startedOn). */
@@ -144,7 +147,8 @@ export type Lent = {
   unpaidMinor?: number;
 };
 
-export type DebtPlan = { order: "avalanche" | "snowball"; monthlyMinor: number; currency: Currency };
+/** `monthlyMinor` is the amount per payment (name kept for old data); `cadence` (1.3.107) is how often; absent = monthly. */
+export type DebtPlan = { order: "avalanche" | "snowball"; monthlyMinor: number; currency: Currency; cadence?: string };
 
 /** A loan the user received (Debo → Préstamos). Payments are normal lines with `loanId`; see loans.ts. */
 export type Loan = {
@@ -165,6 +169,59 @@ export type Loan = {
   archivedOn?: string;
   /** Pending when archived. */
   unpaidMinor?: number;
+};
+
+/** 1.3.107: one reading of a credit card's balance (a screenshot, a manual update or a payment's effect is NOT one).
+ *  Kept forever, oldest first, so the trend and the sparkline are real. Amounts in the card's currency. */
+export type CardSnap = {
+  /** Day the reading is for (YYYY-MM-DD) and when it was saved (ISO). */
+  on: string;
+  at: string;
+  balanceMinor: number;
+  availMinor?: number;
+  limitMinor?: number;
+  minMinor?: number;
+  /** Payment due date shown by the bank (YYYY-MM-DD). */
+  dueOn?: string;
+  statementMinor?: number;
+  /** APR the bank showed in this reading (bps). */
+  aprBps?: number;
+  src: "shot" | "manual";
+  /** Card payment lines already in the ledger when this reading was saved (the bank balance already reflects them). */
+  seen?: string[];
+};
+
+/** 1.3.107: a credit card, a revolving loan under Debo → Préstamos. Presets (Chase/Wells Fargo/PayPal) carry no numbers. */
+export type CreditCard = {
+  id: string;
+  name: string;
+  issuer: string;
+  /** Mark id ("chase", "wellsfargo", "paypal", "capitalone", "discover", "amex", "citi", "bofa", "") and plate colour. */
+  mark: string;
+  color: string;
+  /** Card art style: an issuer's ("chase", "wellsfargo", "paypal") or a generic one ("wave", "band", "glow", "plain"). */
+  art?: string;
+  /** "visa" | "mastercard" | "amex" | "discover" | "". */
+  network?: string;
+  last4: string;
+  currency: Currency;
+  /** Credit limit typed by the user (else the latest reading's limit, else balance + available). */
+  limitMinor: number | null;
+  /** Day of the month the payment is due (1–31, 0 unknown). */
+  dueDay: number;
+  /** Yearly rate in basis points (payoff plan). 0 unknown. */
+  aprBps: number;
+  /** Promotional 0% APR until this day (YYYY-MM-DD); "" none. */
+  promoUntil?: string;
+  autopay: boolean | null;
+  rewards: string;
+  /** "manual": the bank blocks screenshots (Chase), so the card is updated by hand. */
+  manualOnly?: boolean;
+  snaps: CardSnap[];
+  /** Preset id when it came from the defaults. */
+  preset?: string;
+  archived?: boolean;
+  archivedOn?: string;
 };
 
 /** Someone the user spends on (gifts). Entered by hand; money lives in normal lines tagged with personId. */
@@ -252,6 +309,10 @@ export type LedgerState = {
   myColors?: string[];
   /** Default Retiro presets the user removed (1.3.81, e.g. "primerica"). Missing = all offered. See retiro.ts. */
   retiroOff?: string[];
+  /** 1.3.107: credit cards (Debo → Préstamos → Tarjetas). Missing in older ledgers (= only the presets, empty). */
+  cards?: CreditCard[];
+  /** 1.3.107: preset cards the user removed ("chase", "wellsfargo", "paypal"). Missing = all offered. */
+  cardsOff?: string[];
   revision: number;
   updatedAt: string;
 };

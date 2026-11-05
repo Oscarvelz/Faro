@@ -15,6 +15,8 @@ import { Hint } from "./hint";
 import { Note } from "./finish";
 import { useLayer } from "@/lib/manual/back";
 import { CobroSpan, Subs } from "./screens";
+import { FreqPick } from "./fit-pick";
+import { freqPresetsOf, cadenceLabel } from "@/lib/faro/cadence";
 import { DeboSum, DueLoans, LoanCard, LoanForm, deboTabNow, type LoanDraft } from "./loans";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
@@ -334,14 +336,16 @@ export function PayoffPlan() {
   const display = ledger?.settings.display ?? "USD";
   const [text, setText] = useState("");
   const [editing, setEditing] = useState(false);
-  useEffect(() => { if (!editing) setText(plan.fromUser ? (plan.budget / 100).toFixed(2) : ""); }, [plan.budget, plan.fromUser, editing]);
-  const setOrder = (order: "avalanche" | "snowball") => commit((s) => ({ ...s, debtPlan: { order, monthlyMinor: s.debtPlan?.monthlyMinor ?? 0, currency: s.debtPlan?.currency ?? display } }), L("Plan de pago", "Payoff plan"));
+  useEffect(() => { if (!editing) setText(plan.fromUser ? (plan.perPay / 100).toFixed(2) : ""); }, [plan.perPay, plan.fromUser, editing]);
+  const setOrder = (order: "avalanche" | "snowball") => commit((s) => ({ ...s, debtPlan: { ...s.debtPlan, order, monthlyMinor: s.debtPlan?.monthlyMinor ?? 0, currency: s.debtPlan?.currency ?? display } }), L("Plan de pago", "Payoff plan"));
+  // 1.3.107: how often the user pays (the editor's frequency sheet, "Otro…" and remembered custom rhythms included).
+  const setCadence = (cadence: string) => commit((s) => ({ ...s, debtPlan: { order: s.debtPlan?.order ?? "avalanche", monthlyMinor: s.debtPlan?.monthlyMinor ?? 0, currency: s.debtPlan?.currency ?? display, cadence } }), L("Plan de pago", "Payoff plan"));
   const saveBudget = () => {
     setEditing(false);
     const minor = text.trim() ? parseAmount(text) : 0;
     if (minor === null || minor < 0) return;
-    if (minor === (plan.fromUser ? plan.budget : 0)) return;
-    commit((s) => ({ ...s, debtPlan: { order: s.debtPlan?.order ?? "avalanche", monthlyMinor: minor, currency: display } }), L("Plan de pago", "Payoff plan"));
+    if (minor === (plan.fromUser ? plan.perPay : 0)) return;
+    commit((s) => ({ ...s, debtPlan: { ...s.debtPlan, order: s.debtPlan?.order ?? "avalanche", monthlyMinor: minor, currency: display } }), L("Plan de pago", "Payoff plan"));
   };
   const name = (o: "avalanche" | "snowball") => (o === "avalanche" ? L("Avalancha", "Avalanche") : L("Bola de nieve", "Snowball"));
   const other = plan.order === "avalanche" ? "snowball" : "avalanche";
@@ -350,6 +354,7 @@ export function PayoffPlan() {
     <section className="debt-plan" data-anchor="debt-plan">
       <div className="plan-head">
         <span className="lab-head">{L("Plan de pago", "Payoff plan")}<Hint topic="plan-pago" /></span>
+        <em className="plan-q">{L("¿Cuál pago primero?", "Which first?")}</em>
       </div>
       <div className="plan-order" role="tablist" data-on={plan.order}>
         <i aria-hidden />
@@ -361,13 +366,17 @@ export function PayoffPlan() {
         ))}
       </div>
       <label className="plan-budget">
-        <span>{L("Puedo pagar al mes", "I can pay a month")}</span>
+        <span>{L("Puedo pagar", "I can pay")}</span>
         <span className="plan-input">
-          <input className="field num" inputMode="decimal" placeholder={plan.pace > 0 ? (plan.pace / 100).toFixed(2) : "0.00"} value={text}
+          <input className="field num" data-anchor="plan-amount" inputMode="decimal" placeholder={plan.pace > 0 ? (plan.pace / 100).toFixed(2) : "0.00"} value={text}
             onFocus={() => setEditing(true)} onChange={(e) => setText(e.target.value)} onBlur={saveBudget} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
         </span>
       </label>
-      {!plan.debts.length ? <Note>{L("No hay préstamos con saldo: nada que planear.", "No loans with a balance: nothing to plan.")}</Note>
+      <div className="plan-budget plan-freq-row" data-anchor="plan-freq">
+        <span>{L("Cada cuánto", "How often")}</span>
+        <span className="plan-freq"><FreqPick value={plan.cadence} presets={freqPresetsOf(ledger)} onChange={setCadence} /></span>
+      </div>
+      {!plan.debts.length ? <Note>{L("No hay préstamos ni tarjetas con saldo: nada que planear.", "No loans or cards with a balance: nothing to plan.")}</Note>
         : plan.budget <= 0 ? <Note kind="tip">{L("Pon cuánto puedes pagar al mes y verás qué pagar primero.", "Set what you can pay a month to see what to pay first.")}</Note>
           : !ch ? <Note kind="wait">{L(`Con ${fmt(plan.budget)} al mes no alcanza: el interés suma ${fmt(plan.minBudget)} al mes.`, `${fmt(plan.budget)} a month is not enough: interest adds ${fmt(plan.minBudget)} a month.`)}</Note>
             : (
@@ -385,14 +394,18 @@ export function PayoffPlan() {
                       : L("Aquí los dos órdenes cuestan lo mismo.", "Here both orders cost the same.")}
                   {!plan.fromUser ? <> {L("Uso tu ritmo de los últimos 3 meses.", "Using your pace of the last 3 months.")}</> : null}
                 </p>
+                {plan.first ? <p className="plan-why" data-anchor="plan-why">{plan.order === "avalanche"
+                  ? L(`Primero ${plan.first.name}: ${plan.first.aprBps > 0 ? `es la tasa más alta (${(plan.first.aprBps / 100).toLocaleString("es-NI", { maximumFractionDigits: 2 })}%)` : "es la que más interés suma"}. Cada pago cubre los mínimos y el resto va a ella.`, `First ${plan.first.name}: ${plan.first.aprBps > 0 ? `it has the highest rate (${(plan.first.aprBps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}%)` : "it adds the most interest"}. Each payment covers the minimums and the rest goes to it.`)
+                  : L(`Primero ${plan.first.name}: es el saldo más chico, la cierras antes. Cada pago cubre los mínimos y el resto va a ella.`, `First ${plan.first.name}: it is the smallest balance, so it closes first. Each payment covers the minimums and the rest goes to it.`)}
+                  {plan.debts.some((d) => d.aprGuess) ? <> {L("Algunas tarjetas no tienen tasa: estimo 24% al año. Añade la tasa para un plan exacto.", "Some cards have no rate: I estimate 24% a year. Add the rate for an exact plan.")}</> : null}</p> : null}
                 <ol className="plan-list">
                   {ch.order.map((id, i) => {
                     const d = plan.debts.find((x) => x.id === id)!;
                     return (
-                      <li key={id}>
+                      <li key={id} data-card={d.card ? "1" : undefined}>
                         <b className="num">{i + 1}</b>
                         <span>{d.name}</span>
-                        <em>{d.aprBps > 0 ? `${(d.aprBps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%` : L("sin interés", "no interest")} · {monthName(monthAhead(ch.finish[id] ?? ch.months), lang)}</em>
+                        <em>{d.freeMonths ? "0%" : d.aprBps > 0 ? `${d.aprGuess ? "≈" : ""}${(d.aprBps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%` : L("sin interés", "no interest")} · {monthName(monthAhead(ch.finish[id] ?? ch.months), lang)}{plan.perPayOf[id] ? <> · <span className="pl-pay">{fmt(plan.perPayOf[id])} {L("por pago", "a payment")}</span></> : null}</em>
                         <strong className="num">{fmt(d.left)}</strong>
                       </li>
                     );

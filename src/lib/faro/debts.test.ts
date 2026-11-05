@@ -107,7 +107,7 @@ describe("payoff plan math", () => {
   it("returns null when the budget cannot beat the interest, empty plan when nothing is owed", () => {
     assert.equal(simulatePlan(debts, 2_000, "avalanche"), null);
     assert.equal(simulatePlan(debts, 0, "snowball"), null);
-    assert.deepEqual(simulatePlan([], 100, "avalanche"), { months: 0, interest: 0, order: [], finish: {}, interestOf: {} });
+    assert.deepEqual(simulatePlan([], 100, "avalanche"), { months: 0, interest: 0, order: [], finish: {}, interestOf: {}, first: {} });
   });
   it("reads the saved plan from the ledger", () => {
     let s = addLoan(base(), { id: "L1", lender: "Banco", who: "entity", kind: "interest", amountMinor: 1_200_000, currency: "NIO", aprBps: 2400, takenOn: "2026-10-01", book: "fixed", note: "" });

@@ -17,6 +17,7 @@ import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } 
 import { DebtBook, DebtScale, debtHello, preferOweTab, type DebtSide } from "./debts";
 import { markRing, ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 import { lentOf, lentState } from "@/lib/faro/debts";
+import { cardFigures, cardsOf } from "@/lib/faro/cards";
 import type { VaultTab } from "@/lib/manual/places";
 import { ExportPanel } from "./export-panel";
 import { Mark, SectionIcon } from "./icons";
@@ -1588,6 +1589,18 @@ function buildCal(session: ReturnType<typeof useFaro>["session"], year: number, 
       const slot = days.get(day) ?? { items: [], dots: [] };
       slot.items.push({ id: `due-${row.id}`, name: `${settings?.lang === "en" ? "Collect" : "Cobrar"} · ${row.person}`, kind: "income-variable", vault: "owed" });
       if (!slot.dots.includes("good")) slot.dots.push("good");
+      days.set(day, slot);
+    }
+  }
+  // 1.3.107: credit card payment due dates (while the card has a balance). Not money moved: no totals.
+  if (session) {
+    for (const card of cardsOf(session.ledger)) {
+      const f = cardFigures(session.ledger, card);
+      if (!f.known || f.balance <= 0 || !f.dueOn.startsWith(key)) continue;
+      const day = Number(f.dueOn.slice(8, 10));
+      const slot = days.get(day) ?? { items: [], dots: [] };
+      slot.items.push({ id: `card-${card.id}`, name: `${settings?.lang === "en" ? "Card due" : "Pagar tarjeta"} · ${card.name}`, kind: "expense-variable", vault: "owe" });
+      if (!slot.dots.includes("bad")) slot.dots.push("bad");
       days.set(day, slot);
     }
   }

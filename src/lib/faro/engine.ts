@@ -3,6 +3,8 @@ import { colorFor } from "./colors";
 import { displayName } from "./defaults";
 import { loanTotals } from "./loans";
 import { lentTotals, payoffPlan } from "./debts";
+import { cardFigures, cardMonthlyInterest, cardTotals, cardsOf, toThirty } from "./cards";
+import { cadenceLabel } from "./cadence";
 import { convertMinor, formatMoney, formatPct, monthlyEquivalent, roundHalfAway } from "./money";
 import type {
   AdviceCard,
@@ -1124,6 +1126,28 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
         `Pending with interest. You received ${money(lt.borrowed)}, have paid ${money(lt.paid)} and interest so far is ${money(lt.interest)}.${s.income > 0 ? ` That is ${pct((lt.left / s.income) * 100)} of a month's income.` : ""}`),
     });
   }
+  // 1.3.107: credit cards are revolving loans: balance, utilization (keep it under 30%) and what interest costs a month.
+  const ct = cardTotals(state);
+  if (ct.known) {
+    const costly = cardsOf(state).map((c) => { const f = cardFigures(state, c); return { c, f, cost: convertMinor(cardMonthlyInterest(c, f.balance), c.currency, state.settings.display, state.settings.rateE4) }; })
+      .filter((x) => x.f.known && x.f.balance > 0).sort((a, b) => b.cost - a.cost)[0];
+    const util = ct.util;
+    const cut = util != null ? toThirty(ct.limited, ct.limit) : 0;
+    const utilNote = util == null
+      ? L(lang, "Añade el límite de cada tarjeta para ver qué parte de tu crédito usas.", "Add each card's limit to see how much of your credit you use.")
+      : util < 0.1 ? L(lang, `Usas el ${pct(util * 100)} de tu crédito: excelente para tu puntaje.`, `You use ${pct(util * 100)} of your credit: excellent for your score.`)
+        : util < 0.3 ? L(lang, `Usas el ${pct(util * 100)} de tu crédito: bien, mantenlo bajo 30%.`, `You use ${pct(util * 100)} of your credit: good, keep it under 30%.`)
+          : L(lang, `Usas el ${pct(util * 100)} de tu crédito: paga ${money(cut)} para bajar a 30% y cuidar tu puntaje.`, `You use ${pct(util * 100)} of your credit: pay ${money(cut)} to get under 30% and protect your score.`);
+    const costNote = costly && costly.cost > 0
+      ? L(lang, ` ${costly.c.name} te cuesta ${money(costly.cost)} al mes en intereses${costly.c.aprBps ? "" : " (estimado, sin tasa)"}; págala primero.`, ` ${costly.c.name} costs you ${money(costly.cost)} a month in interest${costly.c.aprBps ? "" : " (estimated, no rate)"}; pay it first.`)
+      : "";
+    mediumBits.push({
+      label: L(lang, "Tarjetas de crédito", "Credit cards"),
+      value: money(ct.balance),
+      note: `${utilNote}${costNote}${ct.min > 0 ? L(lang, ` Mínimos del mes: ${money(ct.min)}.`, ` This month's minimums: ${money(ct.min)}.`) : ""}`,
+      emphasis: util != null && util >= 0.3,
+    });
+  }
   // 1.3.92: the payoff plan (Libros → Debo → Préstamos) says which loan to pay first and what the order saves.
   const plan = payoffPlan(state);
   if (plan.debts.length > 1 || (plan.debts.length === 1 && plan.chosen)) {
@@ -1137,13 +1161,13 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
         ? (plan.budget > 0
           ? L(lang, `Con ${money(plan.budget)} al mes el interés (${money(plan.minBudget)} al mes) va más rápido que tus pagos: sube el abono o pide bajar la tasa.`, `With ${money(plan.budget)} a month, interest (${money(plan.minBudget)} a month) outruns your payments: pay more or ask for a lower rate.`)
           : L(lang, "Pon en Libros → Debo → Préstamos cuánto puedes pagar al mes y verás qué préstamo pagar primero.", "Set in Books → I owe → Loans what you can pay a month to see which loan to pay first."))
-        : L(lang, `Paga primero ${plan.first?.name ?? ""} (${order}). Con ${money(plan.budget)} al mes quedas libre en ${ch.months} ${ch.months === 1 ? "mes" : "meses"} y pagas ${money(ch.interest)} de interés.${plan.saveInterest > 0 ? ` Eso ahorra ${money(plan.saveInterest)} frente a ${other}.` : plan.saveInterest < 0 ? ` La ${other} ahorraría ${money(-plan.saveInterest)}.` : ""}`,
-          `Pay ${plan.first?.name ?? ""} first (${order}). With ${money(plan.budget)} a month you are debt-free in ${ch.months} ${ch.months === 1 ? "month" : "months"} and pay ${money(ch.interest)} in interest.${plan.saveInterest > 0 ? ` That saves ${money(plan.saveInterest)} versus ${other}.` : plan.saveInterest < 0 ? ` ${other} would save ${money(-plan.saveInterest)}.` : ""}`),
+        : L(lang, `Paga primero ${plan.first?.name ?? ""} (${order})${plan.first && plan.perPayOf[plan.first.id] ? `: ${money(plan.perPayOf[plan.first.id])} de cada pago de ${money(plan.perPay)} ${cadenceLabel(plan.cadence, "es").toLowerCase()}` : ""}. Con ${money(plan.budget)} al mes quedas libre en ${ch.months} ${ch.months === 1 ? "mes" : "meses"} y pagas ${money(ch.interest)} de interés.${plan.debts.some((d) => d.aprGuess) ? " Es un estimado: añade la tasa de cada tarjeta." : ""}${plan.saveInterest > 0 ? ` Eso ahorra ${money(plan.saveInterest)} frente a ${other}.` : plan.saveInterest < 0 ? ` La ${other} ahorraría ${money(-plan.saveInterest)}.` : ""}`,
+          `Pay ${plan.first?.name ?? ""} first (${order})${plan.first && plan.perPayOf[plan.first.id] ? `: ${money(plan.perPayOf[plan.first.id])} of each ${money(plan.perPay)} payment, ${cadenceLabel(plan.cadence, "en").toLowerCase()}` : ""}.${plan.debts.some((d) => d.aprGuess) ? " This is an estimate: add each card's rate." : ""} With ${money(plan.budget)} a month you are debt-free in ${ch.months} ${ch.months === 1 ? "month" : "months"} and pay ${money(ch.interest)} in interest.${plan.saveInterest > 0 ? ` That saves ${money(plan.saveInterest)} versus ${other}.` : plan.saveInterest < 0 ? ` ${other} would save ${money(-plan.saveInterest)}.` : ""}`),
     });
   }
   const owedNow = lentTotals(state);
   if (owedNow.count) {
-    const net = owedNow.left - lt.left;
+    const net = owedNow.left - lt.left - ct.balance;
     mediumBits.push({
       label: L(lang, "Balance neto", "Net balance"),
       value: `${net < 0 ? "−" : net > 0 ? "+" : ""}${money(Math.abs(net))}`,
@@ -1155,7 +1179,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     title: L(lang, "Cómo va mi crédito", "How is my credit"),
     lead: mediumLead,
     body: "",
-    evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}${lt.count ? ` · Préstamos ${money(lt.left)}` : ""}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}${lt.count ? ` · Loans ${money(lt.left)}` : ""}`),
+    evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}${lt.count ? ` · Préstamos ${money(lt.left)}` : ""}${ct.known ? ` · Tarjetas ${money(ct.balance)}` : ""}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}${lt.count ? ` · Loans ${money(lt.left)}` : ""}${ct.known ? ` · Cards ${money(ct.balance)}` : ""}`),
     points: mediumBits,
     nums: { debt: s.debt, loanLeft: lt.left, loanInterest: lt.interest, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income },
     meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,

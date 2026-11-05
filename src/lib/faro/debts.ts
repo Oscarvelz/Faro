@@ -7,7 +7,8 @@
  * - Payoff plan for Préstamos (avalanche / snowball), net balance, per-person history and a 6-month balance series.
  * Interest rule is the one in loans.ts (simple, by the day, on the amount lent; payments never reduce it).
  */
-import { convertMinor } from "./money";
+import { convertMinor, monthlyEquivalent } from "./money";
+import { cardBalanceAt, cardPays, cardPlanDebts, cardTotals, cardsOf, storedCards } from "./cards";
 import { ISO_DAY, dayGap, loanFigures, loanPays, loanState, loansOf, simpleInterest, todayIso } from "./loans";
 import type { Currency, DebtPlan, LedgerState, Lent, Line, Loan } from "./types";
 
@@ -137,11 +138,13 @@ export function moveCobros(state: LedgerState, raw: unknown, label = "Abono"): {
 
 /* ---------- net, people, series ---------- */
 
-/** Me deben − Debo (Préstamos pending), in the view currency. */
+/** Me deben − Debo (Préstamos pending + credit card balances, 1.3.107), in the view currency. */
 export function netBalance(state: LedgerState | null | undefined, today = todayIso()) {
   const owed = lentTotals(state, today).left;
-  const owe = loansLeft(state, today);
-  return { owed, owe, net: owed - owe };
+  const loans = loansLeft(state, today);
+  const cards = cardTotals(state, today).balance;
+  const owe = loans + cards;
+  return { owed, owe, net: owed - owe, loans, cards };
 }
 
 function loansLeft(state: LedgerState | null | undefined, today: string) {
@@ -199,6 +202,8 @@ export function debtSeries(state: LedgerState | null | undefined, today = todayI
   const out: { key: string; owe: number; owed: number }[] = [];
   const loans = loansOf(state);
   const lent = lentOf(state);
+  // 1.3.107: cards count from their readings (archived ones up to their archive day), so the line is cards + loans.
+  const cards = [...cardsOf(state), ...storedCards(state).filter((c) => c.archived)];
   const loanPaid = new Map(loans.map((l) => [l.id, loanPays(state, l.id)]));
   const lentPaid = new Map(lent.map((l) => [l.id, lentPays(state, l.id)]));
   for (let i = n - 1; i >= 0; i--) {
@@ -211,7 +216,8 @@ export function debtSeries(state: LedgerState | null | undefined, today = todayI
       const interest = kind === "interest" ? simpleInterest(amount, apr, from, end) : 0;
       return view(Math.max(0, amount + interest - paid), currency);
     };
-    const owe = loans.reduce((s, l) => s + leftAt(l.amountMinor, l.kind, l.aprBps, l.takenOn, l.currency, loanPaid.get(l.id) ?? [], l.archived ? l.archivedOn : undefined), 0);
+    const cardOwe = cards.reduce((s, c) => s + view(cardBalanceAt(state, c, end), c.currency), 0);
+    const owe = cardOwe + loans.reduce((s, l) => s + leftAt(l.amountMinor, l.kind, l.aprBps, l.takenOn, l.currency, loanPaid.get(l.id) ?? [], l.archived ? l.archivedOn : undefined), 0);
     const owed = lent.reduce((s, l) => s + leftAt(l.amountMinor, l.kind, l.aprBps, l.startedOn || l.dueOn, l.currency, lentPaid.get(l.id) ?? [], l.archived ? l.archivedOn : undefined), 0);
     out.push({ key: `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}`, owe, owed });
   }
@@ -220,14 +226,16 @@ export function debtSeries(state: LedgerState | null | undefined, today = todayI
 
 /* ---------- payoff plan ---------- */
 
-export type PlanDebt = { id: string; name: string; left: number; monthlyInterest: number; aprBps: number };
-export type PlanRun = { months: number; interest: number; order: string[]; finish: Record<string, number>; interestOf: Record<string, number> } | null;
+/** `revolving` (a card): interest each month on what is left (APR / 12), not a fixed amount. `min`: paid every month first. */
+export type PlanDebt = { id: string; name: string; left: number; monthlyInterest: number; aprBps: number; revolving?: boolean; min?: number; card?: boolean; minGuess?: boolean; aprGuess?: boolean; freeMonths?: number };
+/** `first`: what each debt gets in the first month (minimums first, the rest to the target). */
+export type PlanRun = { months: number; interest: number; order: string[]; finish: Record<string, number>; interestOf: Record<string, number>; first: Record<string, number> } | null;
 
 /** Order of attack: avalanche = most expensive first (highest rate, then most interest a month); snowball = smallest balance first. */
 export function planOrder(debts: PlanDebt[], order: DebtPlan["order"]): PlanDebt[] {
   const list = debts.filter((d) => d.left > 0);
   return order === "avalanche"
-    ? list.sort((a, b) => b.aprBps - a.aprBps || b.monthlyInterest - a.monthlyInterest || a.left - b.left || a.name.localeCompare(b.name))
+    ? list.sort((a, b) => (b.freeMonths ? 0 : b.aprBps) - (a.freeMonths ? 0 : a.aprBps) || b.monthlyInterest - a.monthlyInterest || a.left - b.left || a.name.localeCompare(b.name))
     : list.sort((a, b) => a.left - b.left || b.aprBps - a.aprBps || a.name.localeCompare(b.name));
 }
 
@@ -237,38 +245,47 @@ export function planOrder(debts: PlanDebt[], order: DebtPlan["order"]): PlanDebt
  */
 export function simulatePlan(debts: PlanDebt[], budget: number, order: DebtPlan["order"], cap = 600): PlanRun {
   const list = planOrder(debts.map((d) => ({ ...d })), order);
-  if (!list.length) return { months: 0, interest: 0, order: [], finish: {}, interestOf: {} };
+  if (!list.length) return { months: 0, interest: 0, order: [], finish: {}, interestOf: {}, first: {} };
   if (budget <= 0) return null;
   const left = new Map(list.map((d) => [d.id, d.left]));
   const finish: Record<string, number> = {};
   const interestOf: Record<string, number> = Object.fromEntries(list.map((d) => [d.id, 0]));
+  const first: Record<string, number> = Object.fromEntries(list.map((d) => [d.id, 0]));
   let interest = 0;
   for (let m = 1; m <= cap; m++) {
     for (const d of list) {
       const l = left.get(d.id)!;
       if (l <= 0) continue;
-      left.set(d.id, l + d.monthlyInterest);
-      interest += d.monthlyInterest;
-      interestOf[d.id] += d.monthlyInterest;
+      const add = d.revolving ? (m <= (d.freeMonths ?? 0) ? 0 : Math.round((l * d.aprBps) / (10000 * 12))) : d.monthlyInterest;
+      left.set(d.id, l + add);
+      interest += add;
+      interestOf[d.id] += add;
     }
     let cash = budget;
-    for (const d of list) {
-      if (cash <= 0) break;
+    const pay = (d: PlanDebt, want: number) => {
       const l = left.get(d.id)!;
-      if (l <= 0) continue;
-      const pay = Math.min(cash, l);
-      left.set(d.id, l - pay);
-      cash -= pay;
-      if (l - pay <= 0) finish[d.id] = m;
-    }
-    if (list.every((d) => left.get(d.id)! <= 0)) return { months: m, interest, order: list.map((d) => d.id), finish, interestOf };
+      const p = Math.min(cash, l, want);
+      if (p <= 0) return;
+      left.set(d.id, l - p);
+      cash -= p;
+      if (m === 1) first[d.id] += p;
+      if (l - p <= 0) finish[d.id] = m;
+    };
+    // Minimums first (cards), so no card goes late; then everything left to the first debt in order, and on.
+    for (const d of list) if (d.min && d.min > 0) pay(d, d.min);
+    for (const d of list) { if (cash <= 0) break; pay(d, Infinity); }
+    if (list.every((d) => left.get(d.id)! <= 0)) return { months: m, interest, order: list.map((d) => d.id), finish, interestOf, first };
   }
   return null;
 }
 
-/** Préstamos as plan debts, in the view currency (archived and paid-off ones left out). */
+/** Préstamos and credit cards as plan debts, in the view currency (archived and paid-off ones left out). */
 export function planDebts(state: LedgerState | null | undefined, today = todayIso()): PlanDebt[] {
   if (!state) return [];
+  return [...loanPlanDebts(state, today), ...cardPlanDebts(state, today)];
+}
+
+function loanPlanDebts(state: LedgerState, today: string): PlanDebt[] {
   const { display, rateE4 } = state.settings;
   return loansOf(state).filter((l) => !l.archived).map((l: Loan) => {
     const f = loanState(state, l, today);
@@ -285,7 +302,8 @@ export function recentPace(state: LedgerState | null | undefined, today = todayI
   from.setDate(from.getDate() - 90);
   const start = todayIso(from);
   let sum = 0;
-  for (const l of loansOf(state)) for (const line of loanPays(state, l.id)) {
+  const pays = [...loansOf(state).flatMap((l) => loanPays(state, l.id)), ...storedCards(state).flatMap((c) => cardPays(state, c.id))];
+  for (const line of pays) {
     const d = line.bookedOn || `${line.monthKey}-01`;
     if (d > start && d <= today) sum += convertMinor(line.amountMinor, line.currency, display, rateE4);
   }
@@ -295,7 +313,10 @@ export function recentPace(state: LedgerState | null | undefined, today = todayI
 export function planOf(state: LedgerState | null | undefined): DebtPlan | null {
   const p = state?.debtPlan;
   if (!p || typeof p !== "object") return null;
-  return { order: p.order === "snowball" ? "snowball" : "avalanche", monthlyMinor: typeof p.monthlyMinor === "number" && p.monthlyMinor > 0 ? p.monthlyMinor : 0, currency: p.currency === "NIO" ? "NIO" : "USD" };
+  return {
+    order: p.order === "snowball" ? "snowball" : "avalanche", monthlyMinor: typeof p.monthlyMinor === "number" && p.monthlyMinor > 0 ? p.monthlyMinor : 0, currency: p.currency === "NIO" ? "NIO" : "USD",
+    ...(typeof p.cadence === "string" && p.cadence && p.cadence !== "monthly" ? { cadence: p.cadence } : {}),
+  };
 }
 
 /** The whole plan as the app shows it: budget used, both runs, what avalanche saves over snowball. */
@@ -305,15 +326,22 @@ export function payoffPlan(state: LedgerState | null | undefined, today = todayI
   const display = state?.settings.display ?? "USD";
   const rate = state?.settings.rateE4 ?? 0;
   const pace = recentPace(state, today);
-  const budget = saved && saved.monthlyMinor > 0 ? convertMinor(saved.monthlyMinor, saved.currency, display, rate) : pace;
+  // 1.3.107: the user's amount is per payment, at their rhythm (cadence); the plan runs month by month on its monthly equivalent.
+  const cadence = saved?.cadence || "monthly";
+  const perPay = saved && saved.monthlyMinor > 0 ? convertMinor(saved.monthlyMinor, saved.currency, display, rate) : pace;
+  const budget = saved && saved.monthlyMinor > 0 ? monthlyEquivalent(perPay, cadence) : pace;
   const order = saved?.order ?? "avalanche";
   const avalanche = simulatePlan(debts, budget, "avalanche");
   const snowball = simulatePlan(debts, budget, "snowball");
   const chosen = order === "avalanche" ? avalanche : snowball;
   const other = order === "avalanche" ? snowball : avalanche;
   const minBudget = debts.reduce((s, d) => s + d.monthlyInterest, 0);
+  const minimums = debts.reduce((s, d) => s + (d.min ?? 0), 0);
+  // What each debt gets per payment: the first month's split scaled to one payment at the user's rhythm.
+  const scale = budget > 0 ? perPay / budget : 1;
+  const perPayOf: Record<string, number> = chosen ? Object.fromEntries(Object.entries(chosen.first).map(([id, v]) => [id, Math.round(v * scale)])) : {};
   return {
-    debts, budget, pace, order, fromUser: !!(saved && saved.monthlyMinor > 0), avalanche, snowball, chosen, minBudget,
+    debts, budget, pace, order, cadence, perPay: saved && saved.monthlyMinor > 0 ? perPay : pace, perPayOf, minimums, fromUser: !!(saved && saved.monthlyMinor > 0), avalanche, snowball, chosen, minBudget,
     /** Positive = the chosen order saves this much interest / these months versus the other. */
     saveInterest: chosen && other ? other.interest - chosen.interest : 0,
     saveMonths: chosen && other ? other.months - chosen.months : 0,

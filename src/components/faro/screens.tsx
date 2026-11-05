@@ -43,6 +43,9 @@ import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
 import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
+import { CardsAdvisor } from "./cards";
+import { cardTotals } from "@/lib/faro/cards";
+import { payoffPlan } from "@/lib/faro/debts";
 import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import { OwedSide, SeeAll, takeCobrosReturn } from "./debts";
@@ -3485,7 +3488,7 @@ export function Study() {
   if (sankey.links.length) visible.push("sankey");
   if (board?.envelopes.length) visible.push("plan");
   if (owedAny) visible.push("owed");
-  const loansAny = loanTotals(session?.ledger).count > 0;
+  const loansAny = loanTotals(session?.ledger).count > 0 || cardTotals(session?.ledger).known > 0;
   if (loansAny) visible.push("loans");
   const hasPeople = peopleOf(session?.ledger).length > 0;
   if (hasPeople) visible.push("people");
@@ -3835,6 +3838,7 @@ export function Advisor() {
           </article>
         );
       })}
+      {session ? <CardsAdvisor plan={payoffPlan(session.ledger)} /> : null}
       <section className="advice-card is-plan is-start" data-anchor="advice-plan" style={{ ["--enter" as string]: "4" }}>
         <div role="button" tabIndex={0} className="advice-head" aria-expanded={cardOn("plan")} onClick={() => toggleCard("plan")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard("plan"); } }}>
           <span className="advice-mark" aria-hidden><ListChecks className="size-4" /></span>

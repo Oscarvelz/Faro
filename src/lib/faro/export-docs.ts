@@ -3,6 +3,7 @@ import { buildAdvice, categorySlices, inView, monthLines, roleOf, summarize, yea
 import { monthName } from "./i18n";
 import { formatMoney } from "./money";
 import { loanPays, loanState, loansOf } from "./loans";
+import { cardFigures, cardMonthlyInterest, cardPays, cardsOf, storedCards } from "./cards";
 import { lentOf, lentPays, lentState, monthAhead, netBalance, payoffPlan } from "./debts";
 import { remitTrend } from "./remesas";
 import type { Lang, LedgerState, Line, LineKind } from "./types";
@@ -711,6 +712,38 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
             { v: loan.archived ? say(lang, "Archivado", "Archived") : say(lang, "Activo", "Active"), s: S.line },
           ];
         }),
+      ],
+    });
+  }
+  // 1.3.107: credit cards (Debo → Préstamos → Tarjetas): today's figures, then every balance reading and payment.
+  const cardRows = [...cardsOf(ledger), ...storedCards(ledger).filter((c) => c.archived)].filter((c) => c.snaps.length || cardPays(ledger, c.id).length);
+  if (cardRows.length && Object.values(pick).some(Boolean)) {
+    const head = [say(lang, "Tarjeta", "Card"), say(lang, "Emisor", "Issuer"), say(lang, "Moneda", "Currency"), say(lang, "Saldo", "Balance"), say(lang, "Límite", "Limit"), say(lang, "Disponible", "Available"), say(lang, "Uso %", "Use %"), say(lang, "Pago mínimo", "Minimum"), say(lang, "Fecha de pago", "Due date"), say(lang, "Tasa %", "APR %"), say(lang, "Interés al mes", "Interest a month"), say(lang, "Estado", "Status")];
+    const hist: { k: string; row: Cell[] }[] = [];
+    for (const c of cardRows) {
+      for (const r of c.snaps) hist.push({ k: `${c.name}|${r.on}`, row: [{ v: c.name, s: S.line }, { v: r.on, s: S.line }, { v: r.src === "shot" ? say(lang, "Captura", "Screenshot") : say(lang, "Manual", "Manual"), s: S.line }, { v: r.balanceMinor / 100, s: S.lineNum }] });
+      for (const l of cardPays(ledger, c.id)) hist.push({ k: `${c.name}|${l.bookedOn || l.monthKey}`, row: [{ v: c.name, s: S.line }, { v: l.bookedOn || l.monthKey, s: S.line }, { v: say(lang, "Abono (transferencia)", "Payment (transfer)"), s: S.line }, { v: -l.amountMinor / 100, s: S.lineNum }] });
+    }
+    hist.sort((a, b) => a.k.localeCompare(b.k));
+    sheets.push({
+      name: say(lang, "Tarjetas", "Cards"),
+      widths: [30, 16, 10, 14, 14, 14, 10, 14, 14, 10, 14, 12],
+      merges: ["A1:L1"],
+      rows: [
+        [{ v: say(lang, "Tarjetas de crédito", "Credit cards"), s: S.section }],
+        head.map((v) => ({ v, s: S.flowHead })),
+        ...cardRows.map((c) => {
+          const f = cardFigures(ledger, c);
+          return [
+            { v: `${c.name}${c.last4 ? ` ···${c.last4}` : ""}`, s: S.line }, { v: c.issuer, s: S.line }, { v: c.currency, s: S.line }, { v: f.balance / 100, s: S.lineNum },
+            { v: f.limit != null ? f.limit / 100 : "", s: S.lineNum }, { v: f.avail != null ? f.avail / 100 : "", s: S.lineNum }, { v: f.util != null ? Math.round(f.util * 1000) / 10 : "", s: S.altNum },
+            { v: f.min != null ? f.min / 100 : "", s: S.lineNum }, { v: f.dueOn, s: S.line }, { v: c.aprBps / 100, s: S.altNum }, { v: cardMonthlyInterest(c, f.balance) / 100, s: S.lineNum },
+            { v: c.archived ? say(lang, "Archivada", "Archived") : say(lang, "Activa", "Active"), s: S.line },
+          ];
+        }),
+        [],
+        [say(lang, "Tarjeta", "Card"), say(lang, "Fecha", "Date"), say(lang, "Origen", "Source"), say(lang, "Saldo / abono", "Balance / payment")].map((v) => ({ v, s: S.flowHead })),
+        ...hist.map((h) => h.row),
       ],
     });
   }

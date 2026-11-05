@@ -16,6 +16,8 @@ import { CobroSpan } from "./screens";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { ISO_DAY, addLoan, archiveLoan, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
 import type { Currency, Group, Loan } from "@/lib/faro/types";
+import { CardsGroup } from "./cards";
+import { cardFigures, cardTotals, cardsOf } from "@/lib/faro/cards";
 
 export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group };
 
@@ -263,7 +265,7 @@ export function DeboSum({ parts, empty, help }: { parts: Array<Array<string | { 
 
 /** Debo → Préstamos: loans received, kept in the ledger. Payments become normal lines in the loan's book. */
 export function DueLoans({ libros = false, onWho, facts, between }: { libros?: boolean; onWho?: (name: string) => void; facts?: (id: string, interestView: number) => ReactNode; between?: ReactNode } = {}) {
-  const { t, fmt, session, commit } = useFaro();
+  const { t, fmt, session, commit, lang } = useFaro();
   const [adding, setAdding] = useState(false);
   const [payFor, setPayFor] = useState<string | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
@@ -283,6 +285,8 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
   const active = all.filter((l) => !l.archived);
   const filed = all.filter((l) => l.archived);
   const sums = loanTotals(ledger);
+  // 1.3.107: the top figure is everything owed here, loans + credit cards; the line under it splits it.
+  const cardSum = cardTotals(ledger);
   function save(d: LoanDraft) {
     const loan: Loan = { id: uid(), lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, note: "" };
     commit((s) => addLoan(s, loan), d.name);
@@ -292,11 +296,19 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
     <div className="cobro-swap" data-anchor={libros ? "debt-loans-list" : "cobros-loans"}>
       <div className="cobro-top">
         <div>
-          <strong className="num">{fmt(sums.left)}</strong>
+          <strong className="num" data-anchor="loans-total">{fmt(sums.left + cardSum.balance)}</strong>
         </div>
         <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.loan.add")} onClick={() => setAdding((on) => !on)}><Plus /></button>
       </div>
-      <DeboSum empty={t("debo.sum.loans.empty")} parts={sums.count ? [
+      <DeboSum empty={t("debo.sum.loans.empty")} parts={sums.count && cardSum.known ? [
+        [`${sums.count} ${t(sums.count === 1 ? "debo.sum.loan1" : "debo.sum.loanN")}`],
+        [t("cobro.tab.loans"), { num: fmt(sums.left) }],
+        [lang === "en" ? "Cards" : "Tarjetas", { num: fmt(cardSum.balance) }],
+      ] : cardSum.known ? [
+        [`${cardSum.known} ${lang === "en" ? (cardSum.known === 1 ? "card" : "cards") : (cardSum.known === 1 ? "tarjeta" : "tarjetas")}`],
+        ...(cardSum.min > 0 ? [[lang === "en" ? "minimums" : "mínimos", { num: fmt(cardSum.min) }]] : []),
+        ...(cardSum.util != null ? [[lang === "en" ? "use" : "uso", `${Math.round(cardSum.util * 100)}%`]] : []),
+      ] : sums.count ? [
         [`${sums.count} ${t(sums.count === 1 ? "debo.sum.loan1" : "debo.sum.loanN")}`],
         ...(sums.interest > 0 ? [[t("debo.sum.interest"), { num: fmt(sums.interest) }]] : []),
         [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
@@ -318,7 +330,8 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
             onPay={(minor, date) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line")), loan.lender)}
             archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
         );
-      }) : <Note>{t("cobro.loan.empty")}</Note>}
+      }) : cardSum.count ? null : <Note>{t("cobro.loan.empty")}</Note>}
+      <CardsGroup libros={libros} />
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
         <div role="button" tabIndex={0} data-anchor="cobros-loans-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
           <span className="lab-head">{t("cobro.file")}<Hint topic="prestamo-archivo" /></span>
@@ -350,12 +363,17 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
 
 /** Estudio card: loans received, pending with today's interest. */
 export function LoansStudy() {
-  const { t, fmt, session } = useFaro();
+  const { t, fmt, session, lang } = useFaro();
   const ledger = session?.ledger;
   const sums = loanTotals(ledger);
   const display = ledger?.settings.display ?? "USD";
   const rate = ledger?.settings.rateE4 ?? 0;
-  const rows = ledger ? loansOf(ledger).filter((l) => !l.archived).map((l) => ({ id: l.id, name: l.lender, left: convertMinor(loanState(ledger, l).left, l.currency, display, rate) })).sort((a, b) => b.left - a.left).slice(0, 5) : [];
+  const cardSum = cardTotals(ledger);
+  // 1.3.107: cards are loans too: they join the rows and the pending total.
+  const rows = ledger ? [
+    ...loansOf(ledger).filter((l) => !l.archived).map((l) => ({ id: l.id, name: l.lender, left: convertMinor(loanState(ledger, l).left, l.currency, display, rate) })),
+    ...cardsOf(ledger).map((c) => ({ id: c.id, name: c.name, left: convertMinor(cardFigures(ledger, c).balance, c.currency, display, rate) })).filter((r) => r.left > 0),
+  ].sort((a, b) => b.left - a.left).slice(0, 6) : [];
   const peak = Math.max(...rows.map((r) => r.left), 1);
   const whole = Math.max(sums.paid + sums.left, 1);
   return (
@@ -363,8 +381,8 @@ export function LoansStudy() {
       <div className="stat-head">
         <h2 className="serif text-2xl lab-head">{t("study.loans.title")}<Hint topic="estudio-prestamos" fitParent /></h2>
       </div>
-      <p className="num serif text-3xl">{fmt(sums.left)}</p>
-      <p className="text-sm text-muted">{t("study.loans.still")}</p>
+      <p className="num serif text-3xl">{fmt(sums.left + cardSum.balance)}</p>
+      <p className="text-sm text-muted">{t("study.loans.still")}{cardSum.known ? ` ${lang === "en" ? `Cards ${fmt(cardSum.balance)}${cardSum.util != null ? `, ${Math.round(cardSum.util * 100)}% of the limit` : ""}.` : `Tarjetas ${fmt(cardSum.balance)}${cardSum.util != null ? `, ${Math.round(cardSum.util * 100)}% del límite` : ""}.`}` : ""}</p>
       <div className="bar-track owed-track" aria-hidden><div className="bar-fill" style={{ width: `${(sums.paid / whole) * 100}%` }} /></div>
       <div className="span-facts">
         <div><em>{t("cobro.loan.got")}</em><strong className="num">{fmt(sums.borrowed)}</strong></div>
