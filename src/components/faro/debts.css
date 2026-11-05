@@ -31,8 +31,8 @@
 }
 .debt-scale > button:active { transform: scale(.97); }
 /* Outer edge keeps room for the corner (?) so it never sits on an amount; both pans stay symmetric. */
-.debt-scale > button[data-side="owed"] { padding-inline: 16px 4px; }
-.debt-scale > button[data-side="owe"] { padding-inline: 4px 16px; }
+/* 1.3.93: each label sits in the true centre of its pan; an invisible twin of the dot balances the visible one. */
+.debt-scale > button { padding-inline: 6px; }
 .debt-scale > button:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: -2px; }
 .debt-scale .ds-lab { font-size: .8rem; font-weight: 680; letter-spacing: -.01em; white-space: nowrap; line-height: 1.15; }
 .debt-scale > button b { font-size: .68rem; font-weight: 600; white-space: nowrap; line-height: 1.15; color: var(--faint); transition: color .3s ease; }
@@ -41,6 +41,9 @@
 }
 .debt-scale > button[data-side="owed"] .ds-lab::before { margin-right: 5px; }
 .debt-scale > button[data-side="owe"] .ds-lab::after { margin-left: 5px; background: var(--owe); }
+.debt-scale > button[data-side="owed"] .ds-lab::after, .debt-scale > button[data-side="owe"] .ds-lab::before { content: ""; display: inline-block; width: 6px; height: 6px; visibility: hidden; }
+.debt-scale > button[data-side="owed"] .ds-lab::after { margin-left: 5px; }
+.debt-scale > button[data-side="owe"] .ds-lab::before { margin-right: 5px; }
 .debt-scale > button[aria-selected="true"] { color: var(--fg); }
 .debt-scale > button[data-side="owed"][aria-selected="true"] b { color: color-mix(in oklab, var(--in) 85%, var(--fg)); }
 .debt-scale > button[data-side="owe"][aria-selected="true"] b { color: color-mix(in oklab, var(--owe) 85%, var(--fg)); }
