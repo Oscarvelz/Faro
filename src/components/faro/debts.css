@@ -355,25 +355,27 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
 /* ---------- Libros ring swipe: the new book slides in from the side the finger went (~260 ms), wrap-around included ---------- */
 .swipe-pane.is-ring, .swipe-pane.is-vault.is-ring { animation: ring-in .26s cubic-bezier(.22, 1, .36, 1) both; }
 .swipe-pane.is-ring[data-dir="-1"], .swipe-pane.is-vault.is-ring[data-dir="-1"] { animation-name: ring-in-back; }
-@keyframes ring-in { from { transform: translate3d(56px, 0, 0); opacity: .35; } to { transform: none; opacity: 1; } }
-@keyframes ring-in-back { from { transform: translate3d(-56px, 0, 0); opacity: .35; } to { transform: none; opacity: 1; } }
+@keyframes ring-in { from { transform: translate3d(56px, 0, 0); opacity: .72; } to { transform: none; opacity: 1; } }
+@keyframes ring-in-back { from { transform: translate3d(-56px, 0, 0); opacity: .72; } to { transform: none; opacity: 1; } }
 /* The row's own choice answers once in its own style (top row pill, savings glide): a short lift of light. */
 .seg > button.ring-lit, .vault-bar > button.ring-lit { animation: ring-lit .72s ease-out; }
 @keyframes ring-lit { 0% { filter: brightness(1); } 30% { filter: brightness(1.28) saturate(1.15); } 100% { filter: brightness(1); } }
 [data-theme="tron"] .seg > button.ring-lit, [data-theme="tron"] .vault-bar > button.ring-lit { animation-name: ring-lit-tron; }
 @keyframes ring-lit-tron { 0% { text-shadow: none; } 30% { text-shadow: 0 0 10px currentColor; filter: brightness(1.3); } 100% { text-shadow: none; filter: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .swipe-pane.is-ring, .swipe-pane.is-vault.is-ring, .swipe-pane.is-ring[data-dir="-1"], .swipe-pane.is-vault.is-ring[data-dir="-1"] { animation: ring-fade .16s ease-out both; }
+  .swipe-pane.is-ring, .swipe-pane.is-vault.is-ring, .swipe-pane.is-ring[data-dir="-1"], .swipe-pane.is-vault.is-ring[data-dir="-1"] { animation: ring-soft .16s ease-out both; }
   .seg > button.ring-lit, .vault-bar > button.ring-lit { animation: none; }
 }
 @keyframes ring-fade { from { opacity: 0; } to { opacity: 1; } }
+/* 1.3.97: a landing book is never blank: reduced motion dims it a little, it never starts from nothing. */
+@keyframes ring-soft { from { opacity: .6; } to { opacity: 1; } }
 /* Central ring: the lens list or the open pocket slides in the same way; the lens or tile answers once. */
 .save-ledger.is-ring { animation: ring-in .26s cubic-bezier(.22, 1, .36, 1) both; }
 .save-ledger.is-ring[data-dir="-1"] { animation-name: ring-in-back; }
 .lens.ring-lit, .save-seg.ring-lit { animation: ring-lit .72s ease-out; }
 [data-theme="tron"] :is(.lens, .save-seg).ring-lit { animation-name: ring-lit-tron; }
 @media (prefers-reduced-motion: reduce) {
-  .save-ledger.is-ring, .save-ledger.is-ring[data-dir="-1"] { animation: ring-fade .16s ease-out both; }
+  .save-ledger.is-ring, .save-ledger.is-ring[data-dir="-1"] { animation: ring-soft .16s ease-out both; }
   .lens.ring-lit, .save-seg.ring-lit { animation: none; }
 }
 
@@ -428,4 +430,10 @@ html:not([data-theme="tron"]) .vb-fill { background: linear-gradient(90deg, colo
 }
 @keyframes vb-soft-fade { 0% { opacity: 1; } 100% { opacity: 0; } }
 /* 1.3.95: inside a Libros book that is arriving (tap or ring swipe) a note fades in where it rests, it does not rise 4px. */
-.swipe-pane .fx-note { animation-name: ring-fade; }
+.swipe-pane .fx-note { animation-name: ring-soft; }
+/* 1.3.97: a book swapped in by a tap or a ring step (`is-swap`: not the hub's first pane) shows its content at once, every frame:
+   no note or cobro fade on a tap, and no Tron "rez" on its cards (that rez starts at opacity 0 with the card clipped away, which made
+   the pocket blink empty). A ring landing keeps only its slide (from .72 opacity). Central's list (also `.swipe-pane`) likewise. */
+.swipe-pane.is-swap:not(.is-ring) :is(.fx-note, .cobro-swap) { animation: none; }
+.swipe-pane.is-swap.is-ring .cobro-swap { animation: none; }
+[data-theme="tron"] .swipe-pane.is-swap :is(.card, .ridge), [data-theme="tron"] .swipe-pane.is-vault :is(.card, .ridge), [data-theme="tron"] .swipe-pane.is-ring :is(.card, .ridge) { animation: none; }

@@ -1379,6 +1379,12 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   const save = vault && vault !== "owed" && vault !== "owe" ? vault : null;
   const off = !!vault || ui.section === "subs";
   const { tap: vtap, hello: vaultHello } = useVaultHello(vaultRef);
+  // 1.3.97: once the pane has been swapped by a tap or a ring step (not the hub's first pane), its content must be there in the very
+  // first frame: `is-swap` turns off the arrival fades inside it (Tron's card "rez", note and cobro fades all started at opacity 0).
+  const paneKey = debt ?? save ?? ui.section;
+  const lastPane = useRef(paneKey);
+  const swapped = useRef(false);
+  if (lastPane.current !== paneKey) { lastPane.current = paneKey; swapped.current = true; }
   return (
     <>
       <div className="seg is-follow is-four" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor={anchors ? "books-tabs" : undefined}>
@@ -1410,7 +1416,7 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
         ))}
         {anchors ? <Hint topic="ahorros-tabs" className="is-tabs" corner overlay /> : null}
       </div>
-      <div key={debt ?? save ?? ui.section} className={`swipe-pane${save || debt ? " is-vault" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
+      <div key={paneKey} className={`swipe-pane${save || debt ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
         {debt ? <DebtBook side={debt} /> : save ? <Desk focus={save} /> : ui.section === "shops" ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
       </div>
     </>

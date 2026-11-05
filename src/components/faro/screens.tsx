@@ -1712,6 +1712,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     };
   }, [quick]);
   // Central's ring (1.3.94): the choice picked last, a lens or a savings pocket, is where a finger swipe steps from.
+  // 1.3.97: the lens list swapped by a tap or a ring step gets `is-swap` (no arrival fades inside, see debts.css); the first one keeps Tron's rez.
+  const lastLens = useRef(lens);
+  const lensSwapped = useRef(false);
+  if (lastLens.current !== lens) { lastLens.current = lens; lensSwapped.current = true; }
   const ringAt = useRef<string | null>(null);
   useEffect(() => { if (lens !== "all") ringAt.current = lens; }, [lens]);
   useEffect(() => {
@@ -2999,7 +3003,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         ) : null}
       </section>
       {focus ? null : (
-      <section key={lens} data-anchor="desk-list" className={`card span-all swipe-pane${ringFresh() ? " is-ring" : ""}`} data-dir={flowDir < 0 ? "-1" : "1"}>
+      <section key={lens} data-anchor="desk-list" className={`card span-all swipe-pane${lensSwapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={flowDir < 0 ? "-1" : "1"}>
         {lens === "debt" ? (
           <div className="debt-lamp" data-anchor="desk-semaforo">
             {(() => {

@@ -664,8 +664,9 @@ html .save-band.is-records .save-ledger.is-manage .save-ledger-head strong,
 @keyframes study-in-back { from { opacity: .65; transform: translate3d(-12px, 0, 0); } to { opacity: 1; transform: none; } }
 .swipe-pane { animation: study-in .2s cubic-bezier(.22, 1, .36, 1); }
 .swipe-pane[data-dir="-1"] { animation-name: study-in-back; }
-.swipe-pane.is-vault { animation: vault-in .36s ease; }
-.swipe-pane.is-vault[data-dir="-1"] { animation-name: vault-in-back; }
+/* 1.3.97: a tapped savings tab / debt side swaps in place in one frame. No fade: the old 0 → 1 opacity sat at 0 while the new
+   pocket mounted (Android: 1–3 frames, ~0.3 s), so everything under the rows blinked empty. Only the row's own lights animate. */
+.swipe-pane.is-vault { animation: none; }
 @keyframes vault-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vault-in-back { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .study-swap { animation: none; } }
