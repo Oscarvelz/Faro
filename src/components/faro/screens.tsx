@@ -1259,9 +1259,41 @@ export function CobroSpan({ title, total, facts, events, out = false, help }: { 
     return { label, value };
   });
   const peak = Math.max(...points.map((point) => point.value), 1);
+  // 1.3.104: the closed bar never wraps or clips its title. When title + amount + chevron are wider than the row (360 at
+  // large text, a wide display face), the row tightens (data-tight: less padding/tracking) and then the title eases down.
+  const barRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar || openStats || !bar.closest(".cobros")) return;
+    const fit = () => {
+      const main = bar.querySelector<HTMLElement>(".span-fold-main");
+      const lab = main?.querySelector<HTMLElement>(":scope > span");
+      if (!main || !lab) return;
+      lab.style.fontSize = "";
+      if (bar.hasAttribute("data-tight")) bar.removeAttribute("data-tight");
+      const over = () => main.scrollWidth > main.clientWidth + 0.5;
+      if (!over()) return;
+      bar.setAttribute("data-tight", "");
+      if (!over()) return;
+      // Title down to 82%, then the amount down to 80% (spa/fit.ts resets it on its own pass, then fires faro-fit → this runs again), then the title to 70%.
+      const amt = main.querySelector<HTMLElement>(":scope > strong");
+      if (amt) amt.style.fontSize = "";
+      const f0 = parseFloat(getComputedStyle(lab).fontSize);
+      const a0 = amt ? parseFloat(getComputedStyle(amt).fontSize) : 0;
+      for (let k = 0.97; k >= 0.82 && over(); k -= 0.03) lab.style.fontSize = `${(f0 * k).toFixed(2)}px`;
+      if (amt) for (let k = 0.97; k >= 0.8 && over(); k -= 0.03) amt.style.fontSize = `${(a0 * k).toFixed(2)}px`;
+      for (let k = 0.8; k >= 0.7 && over(); k -= 0.02) lab.style.fontSize = `${(f0 * k).toFixed(2)}px`;
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(bar);
+    addEventListener("faro-fit", fit);
+    document.fonts?.ready.then(fit).catch(() => {});
+    return () => { ro.disconnect(); removeEventListener("faro-fit", fit); };
+  }, [openStats, total, title]);
   return (
     <div className={`span-cut${openStats ? " is-open" : ""}${out ? " is-out" : ""}`}>
-      <div className="span-fold-bar">
+      <div className="span-fold-bar" ref={barRef}>
         {openStats ? (
           <div className="span-filter" role="tablist" aria-label={title}>
             {(["week", "month", "year"] as const).map((id) => (

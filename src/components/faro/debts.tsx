@@ -8,7 +8,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Plus, Scale, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Plus, Scale, X } from "lucide-react";
 import "./debts.css";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
@@ -531,6 +531,6 @@ export function SeeAll({ side, onGo }: { side: "in" | "out"; onGo: () => void })
       markCobrosReturn(depth, side, deboTabNow);
       onGo();
       setUi({ section: "income", vault: side === "in" ? "owed" : "owe" });
-    }}>{L("Ver todo en Libros", "See all in Books")}</button>
+    }}><span>{L("Ver todo en Libros", "See all in Books")}</span><ArrowRight aria-hidden /></button>
   );
 }

@@ -6,7 +6,7 @@
  */
 import { useEffect, useRef, useState, type MouseEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Aperture, Camera, Check, Trash2, X } from "lucide-react";
+import { Aperture, Camera, Check, Images, Trash2, X } from "lucide-react";
 import { isDuplicate, parseScan, type ScanBook, type ScanDraft, type ScanField } from "@/lib/faro/receiptparse";
 import { freqPresetsOf } from "@/lib/faro/cadence";
 import { parseAmount, uid } from "@/lib/faro/money";
@@ -35,30 +35,76 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const money = (minor: number | null) => (minor == null ? "" : (minor / 100).toFixed(2));
 
 /**
- * The compact entry at the right of the editor's Concepto head: "Foto o captura" (one or many pictures; the system
- * chooser also offers the camera) and a camera-only square. Buttons + hidden inputs, so it can sit inside the field's
- * <label> after its input without taking the label's clicks; the sheet is portalled to <body> for the same reason.
+ * The compact entry at the right of the editor's Concepto head (1.3.103): one "Foto o captura" pill with the aperture
+ * inside, on the right. Tapping it opens a small anchored chooser with two equal options, Cámara (capture) and Imágenes
+ * (one or many, the gallery where screenshots live). A desktop with a fine pointer and no camera skips the chooser and
+ * opens the file picker at once. Buttons + hidden inputs, so it can sit inside the field's <label> after its input
+ * without taking the label's clicks; the chooser and the sheet are portalled to <body> for the same reason.
  */
 export function ScanEntry({ from }: { from: LineKind }) {
   const { lang } = useFaro();
   const [files, setFiles] = useState<File[] | null>(null);
+  const [menu, setMenu] = useState<DOMRect | null>(null);
+  const [hasCam, setHasCam] = useState(true);
+  const btn = useRef<HTMLButtonElement>(null);
   const many = useRef<HTMLInputElement>(null);
   const cam = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    // Phones and tablets always offer the camera; a mouse-only device offers it only when it has one.
+    const fine = typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches && !matchMedia("(any-pointer: coarse)").matches;
+    if (!fine) return;
+    const md = navigator.mediaDevices;
+    if (!md?.enumerateDevices) { setHasCam(false); return; }
+    md.enumerateDevices().then((d) => setHasCam(d.some((x) => x.kind === "videoinput"))).catch(() => setHasCam(false));
+  }, []);
   const pick = (list: FileList | null) => { const f = [...(list ?? [])].filter((x) => x.type.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/i.test(x.name)); if (f.length) setFiles(f.slice(0, 12)); };
-  const open = (e: MouseEvent, r: RefObject<HTMLInputElement | null>) => { e.preventDefault(); e.stopPropagation(); r.current?.click(); };
+  const tap = (e: MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!hasCam) { many.current?.click(); return; }
+    setMenu((m) => (m ? null : btn.current?.getBoundingClientRect() ?? null));
+  };
+  const choose = (r: RefObject<HTMLInputElement | null>) => { setMenu(null); r.current?.click(); };
   return (
     <span className="scn-entry" onClick={(e) => e.stopPropagation()}>
-      <button type="button" className="scn-btn" data-anchor="scan-add" onClick={(e) => open(e, many)}>
-        <Camera aria-hidden />
+      <button ref={btn} type="button" className="scn-btn" data-anchor="scan-add" aria-haspopup={hasCam ? "menu" : undefined} aria-expanded={hasCam ? !!menu : undefined} onClick={tap}>
         <span>{L(lang, "Foto o captura", "Photo or screen")}</span>
-      </button>
-      <button type="button" className="scn-btn is-icon" aria-label={L(lang, "Tomar foto", "Take a photo")} onClick={(e) => open(e, cam)}>
         <Aperture aria-hidden />
       </button>
       <input ref={many} className="scn-file" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
       <input ref={cam} className="scn-file is-cam" type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
+      {menu ? createPortal(<ScanChooser at={menu} onCamera={() => choose(cam)} onImages={() => choose(many)} onClose={() => setMenu(null)} />, document.body) : null}
       {files ? createPortal(<ScanSheet files={files} from={from} onClose={() => setFiles(null)} />, document.body) : null}
     </span>
+  );
+}
+
+/** The two-option chooser under (or, near the bottom of the screen, above) the pill. Owns a Back step; outside tap and Escape close it. */
+function ScanChooser({ at, onCamera, onImages, onClose }: { at: DOMRect; onCamera: () => void; onImages: () => void; onClose: () => void }) {
+  const { lang } = useFaro();
+  const first = useRef<HTMLButtonElement>(null);
+  useLayer(true, onClose);
+  useEffect(() => {
+    first.current?.focus({ preventScroll: true });
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
+    window.addEventListener("keydown", k, true);
+    return () => window.removeEventListener("keydown", k, true);
+  });
+  const W = Math.min(240, innerWidth - 16);
+  const left = Math.max(8, Math.min(at.right - W, innerWidth - 8 - W));
+  const below = at.bottom + 8 + 64 <= innerHeight - 8;
+  const pos = below ? { top: at.bottom + 8 } : { bottom: innerHeight - at.top + 8 };
+  const stop = (e: MouseEvent) => e.stopPropagation();
+  return (
+    <div className="scn-pop-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }} onClick={stop}>
+      <div className={`scn-pop${below ? "" : " is-up"}`} role="menu" aria-label={L(lang, "Foto o captura", "Photo or screen")} style={{ left, width: W, ...pos }}>
+        <button ref={first} type="button" role="menuitem" className="scn-opt" data-opt="camera" onClick={(e) => { stop(e); onCamera(); }}>
+          <Camera aria-hidden /><span>{L(lang, "Cámara", "Camera")}</span>
+        </button>
+        <button type="button" role="menuitem" className="scn-opt" data-opt="images" onClick={(e) => { stop(e); onImages(); }}>
+          <Images aria-hidden /><span>{L(lang, "Imágenes", "Images")}</span>
+        </button>
+      </div>
+    </div>
   );
 }
 

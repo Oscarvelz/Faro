@@ -47,6 +47,7 @@ export const LINKS: Record<string, string> = {
   Tiendas: "tiendas", Stores: "tiendas",
   "Categorías de compra": "categorias-compra", "Purchase categories": "categorias-compra",
   "Ícono y color": "icono-color", "Icon and colour": "icono-color",
+  "Botón de paleta": "icono-color", "Palette button": "icono-color",
   "Color personalizado": "color-propio", "Custom colour": "color-propio",
   "Editor de líneas": "editor", "Line editor": "editor",
   "Foto o captura": "escanear", "Photo or screen": "escanear",

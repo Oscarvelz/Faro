@@ -6,9 +6,9 @@
  * The pencil beside the X turns on a manage state: checkboxes and one confirmation for many deletions; categories and
  * stores also rename inline and categories change colour, with the same data and rules as Compras → engranaje
  * (deleting = hiding, exactly like that switch: lines keep their category and money history). */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Pencil, Plus, Repeat2, RotateCcw, Search, Sparkles, Store, Tag, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Palette, Pencil, Plus, Repeat2, RotateCcw, Search, Sparkles, Store, Tag, Trash2, X } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
 import { displayName } from "@/lib/faro/defaults";
 import { categoryColor } from "@/lib/faro/colors";
@@ -38,33 +38,60 @@ export function PickButton({ mark, text, placeholder, open, onOpen, test, compac
   );
 }
 
-/** Colour section + Faro icons, for the identifying field's sheet. */
-function LookParts({ look, lang, onDone }: { look: Look; lang: string; onDone?: () => void }) {
+/* 1.3.102: the colour and the Faro icons live behind the palette button in the sheet's header ("Color e íconos"), at the
+ * top of the sheet instead of after the whole list. Faro icon names, so the search can find them in both languages. */
+const ICON_WORDS: Record<string, [string, string]> = {
+  PiggyBank: ["Alcancía ahorro", "Piggy bank savings"], Wallet: ["Billetera", "Wallet"], Banknote: ["Billete efectivo", "Banknote cash"], HandCoins: ["Mano monedas pago", "Hand coins pay"], Gem: ["Gema joya", "Gem jewel"], Trophy: ["Trofeo", "Trophy"], Star: ["Estrella", "Star"], Flag: ["Bandera meta", "Flag goal"], Hourglass: ["Reloj de arena retiro", "Hourglass retirement"],
+  Home: ["Casa hogar renta", "Home house rent"], Key: ["Llave", "Key"], Sofa: ["Sofá muebles", "Sofa furniture"], Building2: ["Edificio apartamento", "Building apartment"],
+  Car: ["Carro auto", "Car"], Plane: ["Avión viaje vuelo", "Plane travel flight"], Bus: ["Bus autobús", "Bus"], Bike: ["Bicicleta", "Bike bicycle"], Fuel: ["Gasolina combustible", "Fuel gas"], Ship: ["Barco", "Ship"],
+  Heart: ["Corazón amor", "Heart love"], Baby: ["Bebé", "Baby"], Stethoscope: ["Médico doctor salud", "Doctor health"], Pill: ["Pastilla medicina farmacia", "Pill medicine pharmacy"], Dumbbell: ["Pesas gimnasio", "Dumbbell gym"],
+  GraduationCap: ["Graduación estudios universidad", "Graduation school college"], BookOpen: ["Libro lectura", "Book reading"], Briefcase: ["Maletín trabajo", "Briefcase work"], Laptop: ["Computadora laptop", "Laptop computer"],
+  Utensils: ["Cubiertos comida restaurante", "Utensils food restaurant"], Coffee: ["Café", "Coffee"], Gift: ["Regalo", "Gift"], Shirt: ["Camisa ropa", "Shirt clothes"], ShoppingBag: ["Bolsa compras", "Shopping bag"],
+  Palmtree: ["Palmera playa vacaciones", "Palm tree beach holiday"], Tent: ["Carpa camping", "Tent camping"], Mountain: ["Montaña", "Mountain"], Camera: ["Cámara foto", "Camera photo"],
+  Dog: ["Perro mascota", "Dog pet"], Cat: ["Gato mascota", "Cat pet"], PawPrint: ["Huella mascota", "Paw print pet"],
+  Music: ["Música", "Music"], Headphones: ["Audífonos", "Headphones"], Tv: ["Televisión tele", "TV television"], Gamepad2: ["Juegos videojuego", "Games gamepad"],
+  Shield: ["Escudo seguro emergencia", "Shield insurance emergency"], Umbrella: ["Paraguas seguro", "Umbrella insurance"], TreePine: ["Pino árbol", "Pine tree"], Sun: ["Sol", "Sun"],
+  Watch: ["Reloj", "Watch"], Glasses: ["Lentes gafas", "Glasses"], Backpack: ["Mochila", "Backpack"], Landmark: ["Banco", "Bank landmark"], Flower2: ["Flor", "Flower"], Leaf: ["Hoja", "Leaf"],
+  Apple: ["Manzana fruta", "Apple fruit"], Cake: ["Pastel cumpleaños", "Cake birthday"], Pizza: ["Pizza", "Pizza"], Fish: ["Pez pescado", "Fish"], Anchor: ["Ancla", "Anchor"], Bed: ["Cama", "Bed"], Lamp: ["Lámpara", "Lamp"], Moon: ["Luna", "Moon"], Wifi: ["Wifi internet", "Wifi internet"], Wrench: ["Llave inglesa reparación", "Wrench repair"],
+  Crown: ["Corona", "Crown"], Coins: ["Monedas", "Coins"], Sparkles: ["Brillos", "Sparkles"], Medal: ["Medalla", "Medal"], Rocket: ["Cohete", "Rocket"], Store: ["Tienda", "Store"], ShoppingCart: ["Carrito supermercado", "Shopping cart groceries"], Receipt: ["Recibo factura", "Receipt bill"],
+  TrainFront: ["Tren metro", "Train metro"], Truck: ["Camión mudanza", "Truck moving"], Sailboat: ["Velero", "Sailboat"], Luggage: ["Maleta equipaje", "Luggage"], Map: ["Mapa", "Map"], Ticket: ["Boleto entrada", "Ticket"], Hotel: ["Hotel", "Hotel"],
+  Wine: ["Vino", "Wine"], Croissant: ["Croissant pan", "Croissant bread"], Soup: ["Sopa", "Soup"], IceCreamCone: ["Helado", "Ice cream"], Carrot: ["Zanahoria verdura", "Carrot vegetable"],
+  Flame: ["Llama fuego gas", "Flame fire gas"], Zap: ["Rayo luz electricidad", "Bolt power electricity"], Lightbulb: ["Bombillo idea luz", "Light bulb idea"], Target: ["Objetivo diana", "Target"], Ribbon: ["Lazo", "Ribbon"],
+  HandHeart: ["Donación caridad", "Donation charity"], HeartPulse: ["Pulso salud", "Heart pulse health"], Hospital: ["Hospital", "Hospital"], School: ["Escuela colegio", "School"], Church: ["Iglesia diezmo", "Church tithe"], Library: ["Biblioteca", "Library"],
+  Hammer: ["Martillo", "Hammer"], Scissors: ["Tijeras peluquería", "Scissors haircut"], Factory: ["Fábrica", "Factory"], WashingMachine: ["Lavadora lavandería", "Washing machine laundry"], Phone: ["Teléfono celular", "Phone"],
+  Sprout: ["Brote planta", "Sprout plant"], TreeDeciduous: ["Árbol", "Tree"], Bird: ["Pájaro ave", "Bird"], Bone: ["Hueso", "Bone"], Footprints: ["Huellas pasos", "Footprints"], Guitar: ["Guitarra", "Guitar"], Drum: ["Tambor batería", "Drum"], Snowflake: ["Copo nieve", "Snowflake"],
+};
+const iconWords = (name: string, lang: string) => {
+  const w = ICON_WORDS[name];
+  return w ? `${w[lang === "en" ? 1 : 0]} ${w[lang === "en" ? 0 : 1]} ${name}` : name.replace(/([a-z])([A-Z0-9])/g, "$1 $2");
+};
+const iconLabel = (name: string, lang: string) => (ICON_WORDS[name]?.[lang === "en" ? 1 : 0] ?? name).split(" ")[0]!;
+
+/** "Color e íconos": the colour (quick set, Personalizado, Mis colores, ● ACTUAL on its header line) and the Faro icons. */
+function LookView({ look, lang, q, onDone, onInk }: { look: Look; lang: string; q: string; onDone?: () => void; onInk: (hex: string | null) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const ink = draft ?? look.color;
-  // Colour, then the Faro icons, after the list the field is about (stores, brands): one sheet, no duplicate titles.
-  return {
-    top: null,
-    tail: (
-      <>
-      <section className="fit-look" data-test="look-color">
-        <ColorPick value={look.color} glyph={look.glyph} onPick={look.onColor} onDraft={setDraft} onConfirm={onDone} label={L(lang, "Color", "Colour")} />
-      </section>
+  const needle = normName(q);
+  const icons = needle ? LOOK_ICONS.filter((name) => normName(iconWords(name, lang)).includes(needle)) : LOOK_ICONS;
+  return (
+    <>
+      {needle ? null : (
+        <section className="fit-look" data-test="look-color">
+          <ColorPick value={look.color} glyph={look.glyph} onPick={look.onColor} onDraft={(c) => { setDraft(c); onInk(c); }} onConfirm={onDone} label={L(lang, "Color", "Colour")} />
+        </section>
+      )}
       <section className="fit-group" data-test="look-icons">
         <p className="fit-kicker">{L(lang, "Íconos de Faro", "Faro icons")}</p>
-        <div className="look-icons fit-look-icons">
-          {LOOK_ICONS.map((name) => (
-            <button key={name} type="button" aria-pressed={look.glyph === name} aria-label={name} style={{ ["--ink" as string]: ink, background: washForInk(ink), color: inkOn(washForInk(ink)) }} onClick={() => look.onGlyph(name)}><Glyph name={name} /></button>
-          ))}
-        </div>
+        {icons.length ? (
+          <div className="look-icons fit-look-icons">
+            {icons.map((name) => (
+              <button key={name} type="button" data-icon={name} aria-pressed={look.glyph === name} aria-label={iconLabel(name, lang)} title={iconLabel(name, lang)} style={{ ["--ink" as string]: ink, background: washForInk(ink), color: inkOn(washForInk(ink)) }} onClick={() => { look.onGlyph(name); onDone?.(); }}><Glyph name={name} /></button>
+            ))}
+          </div>
+        ) : <p className="fit-empty">{L(lang, "Nada coincide", "No matches")}</p>}
       </section>
-      </>
-    ),
-  };
-}
-function useLookParts(look: Look | undefined, lang: string, onDone?: () => void) {
-  const parts = LookParts({ look: look ?? { glyph: "", color: "#888", onGlyph: () => {}, onColor: () => {} }, lang, onDone });
-  return look ? parts : { top: null, tail: null };
+    </>
+  );
 }
 
 type Manage = {
@@ -76,7 +103,7 @@ type Manage = {
   onRestore?: () => void;
 };
 
-export function PickSheet({ title, items, groups, value, onPick, onClose, add, manage, none, test, top, tail }: {
+export function PickSheet({ title, items, groups, value, onPick, onClose, add, manage, none, test, look, onLookDone }: {
   title: string;
   items: PickItem[];
   groups?: { id: string; label: string }[];
@@ -87,8 +114,10 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
   manage?: Manage;
   none?: string;
   test?: string;
-  top?: ReactNode;
-  tail?: ReactNode;
+  /** The line's colour + Faro icons: behind the palette button ("Color e íconos"), or the whole sheet when there is no list. */
+  look?: Look;
+  /** A confirmed colour or a picked Faro icon returns to the trigger. */
+  onLookDone?: () => void;
 }) {
   const { lang, confirm } = useFaro();
   const [q, setQ] = useState("");
@@ -96,16 +125,55 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [paint, setPaint] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [lookOn, setLookOn] = useState(false);
+  const [ink, setInk] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const listY = useRef(0);
+  const [scrolled, setScrolled] = useState(false);
+  // A sheet that is only the look (no list to choose from) shows it straight away, with no palette button.
+  const lookOnly = !!look && items.length === 0 && !add;
+  const lookView = !!look && (lookOnly || lookOn);
   useLayer(true, onClose);
+  // "Color e íconos" is its own Back step: Back (or the palette again) returns to the list, the next Back closes the sheet.
+  useLayer(lookOn && !lookOnly, () => setLookOn(false));
   // The manage state is its own Back step: Back leaves it first, then closes the sheet.
   useLayer(editing, () => { setEditing(false); setSel(new Set()); setPaint(null); });
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>("[aria-pressed='true']")?.scrollIntoView({ block: "nearest" }));
+    requestAnimationFrame(() => {
+      const list = listRef.current;
+      const on = list?.querySelector<HTMLElement>("[aria-pressed='true']");
+      if (!list || !on) return;
+      // Bring the chosen row into view with a little air above it, never under the list's top edge.
+      const top = on.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop - 8;
+      const bottom = top + on.offsetHeight + 16;
+      if (top < list.scrollTop) list.scrollTop = Math.max(0, top);
+      else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+      setScrolled(list.scrollTop > 2);
+    });
     return () => { document.body.style.overflow = prev; };
   }, []);
+  // Switching views: the sheet never shrinks (no jump), the list keeps its scroll, the look view starts at the top.
+  const swap = (on: boolean) => {
+    const sheet = sheetRef.current;
+    const list = listRef.current;
+    if (sheet) sheet.style.minHeight = `${sheet.getBoundingClientRect().height}px`;
+    if (list && !lookView) listY.current = list.scrollTop;
+    setQ("");
+    setLookOn(on);
+  };
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    list.scrollTop = lookView ? 0 : listY.current;
+    setScrolled(list.scrollTop > 2);
+  }, [lookView]);
+  const toggleLook = () => {
+    if (editing) { setEditing(false); setSel(new Set()); setPaint(null); }
+    swap(!lookOn);
+  };
   const needle = normName(q);
   const shown = needle ? items.filter((it) => normName(it.label).includes(needle)) : items;
   const sections = groups?.length
@@ -133,25 +201,34 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
   };
   const body = (
     <div className="fit-scrim" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`fit-sheet${editing ? " is-editing" : ""}`} role="dialog" aria-modal="true" aria-label={title} data-test={test} onPointerDown={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} className={`fit-sheet${editing ? " is-editing" : ""}${lookView ? " is-look" : ""}`} role="dialog" aria-modal="true" aria-label={title} data-test={test} onPointerDown={(e) => e.stopPropagation()}>
         <div className="fit-sheet-head">
           <strong>{title}</strong>
-          {manage?.onRestore ? (
+          {look && !lookOnly ? (
+            <button type="button" className="fit-sheet-tool is-pal" data-test="look-pal" aria-pressed={lookOn} aria-label={L(lang, "Color e íconos", "Colour and icons")} title={L(lang, "Color e íconos", "Colour and icons")} onClick={toggleLook}>
+              <Palette aria-hidden />
+              <i className="fit-pal-dot" aria-hidden style={{ ["--sw" as string]: ink ?? look.color }} />
+            </button>
+          ) : null}
+          {manage?.onRestore && !lookView ? (
             <button type="button" className="fit-sheet-tool" data-test="lib-restore" aria-label={L(lang, "Restaurar de fábrica", "Restore defaults")} onClick={manage.onRestore}><RotateCcw /></button>
           ) : null}
           {manage ? (
-            <button type="button" className="fit-sheet-tool is-pen" data-test="lib-edit" aria-pressed={editing} aria-label={editing ? L(lang, "Listo", "Done") : L(lang, "Administrar", "Manage")} onClick={() => { setEditing((v) => !v); setSel(new Set()); setPaint(null); }}>{editing ? <Check /> : <Pencil />}</button>
+            <button type="button" className="fit-sheet-tool is-pen" data-test="lib-edit" aria-pressed={editing} aria-label={editing ? L(lang, "Listo", "Done") : L(lang, "Administrar", "Manage")} onClick={() => { if (lookOn && !editing) swap(false); setEditing((v) => !v); setSel(new Set()); setPaint(null); }}>{editing ? <Check /> : <Pencil />}</button>
           ) : null}
           <button type="button" className="fit-sheet-tool" aria-label={L(lang, "Cerrar", "Close")} onClick={onClose}><X /></button>
         </div>
-        {items.length > 8 ? (
+        {lookView || items.length > 8 ? (
           <label className="fit-search">
             <Search aria-hidden />
-            <input value={q} placeholder={L(lang, "Buscar", "Search")} aria-label={L(lang, "Buscar", "Search")} onChange={(e) => setQ(e.target.value)} />
+            <input value={q} data-test="pick-search" placeholder={lookView ? L(lang, "Buscar ícono", "Search icon") : L(lang, "Buscar", "Search")} aria-label={L(lang, "Buscar", "Search")} onChange={(e) => setQ(e.target.value)} />
           </label>
         ) : null}
-        <div className="fit-sheet-list" ref={listRef}>
-          {editing ? null : top}
+        <div className={`fit-sheet-list${scrolled ? " is-scrolled" : ""}`} ref={listRef} data-view={lookView ? "look" : "list"} onScroll={(e) => { const v = e.currentTarget.scrollTop > 2; if (v !== scrolled) setScrolled(v); }}>
+          {lookView && look ? (
+            <div className="fit-view" key="look"><LookView look={look} lang={lang} q={q} onDone={onLookDone} onInk={setInk} /></div>
+          ) : (
+          <div className="fit-view" key="list">
           {none && !needle && !editing ? (
             <div className="fit-grid">
               <button type="button" className="fit-opt is-none" aria-pressed={!value} onClick={() => onPick("")}><span className="fit-opt-mark" aria-hidden><X /></span><span>{none}</span></button>
@@ -193,14 +270,15 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
             </section>
           ))}
           {!sections.some((g) => g.rows.length) ? <p className="fit-empty">{L(lang, "Nada coincide", "No matches")}</p> : null}
-          {editing ? null : tail}
+          </div>
+          )}
         </div>
         {editing && manage ? (
           <div className="fit-manage-bar">
             <label className="fit-all"><input type="checkbox" className="fit-check" data-test="manage-all" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(visibleIds))} /><span>{L(lang, "Seleccionar todo", "Select all")}</span></label>
             <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}><Trash2 />{L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
           </div>
-        ) : add ? (
+        ) : add && !lookView ? (
           <div className="fit-add">
             <input className="field" value={name} placeholder={add.placeholder} aria-label={add.placeholder} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitAdd(); } }} />
             <button type="button" className="fit-add-btn" aria-label={L(lang, "Añadir", "Add")} disabled={!name.trim()} onClick={commitAdd}><Plus /></button>
@@ -217,7 +295,6 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
 export function StorePick({ value, onChange, look }: { value: string; onChange: (id: string) => void; look?: Look }) {
   const { t, session, commit, lang } = useFaro();
   const [open, setOpen] = useState(false);
-  const parts = useLookParts(look, lang, () => setOpen(false));
   const stores = (session?.ledger.structure.catalog ?? []).filter((c) => c.kind === "store" && (!c.hidden || c.id === value)).sort((a, b) => a.order - b.order);
   const cur = stores.find((s) => s.id === value);
   const markOf = (s: (typeof stores)[number]) => <BrandMark id={s.id} src={s.icon.startsWith("data:") ? s.icon : undefined} className="fit-brand" />;
@@ -234,8 +311,8 @@ export function StorePick({ value, onChange, look }: { value: string; onChange: 
           items={stores.filter((s) => !s.hidden).map((s) => ({ id: s.id, label: displayName(s, lang), mark: markOf(s) }))}
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
-          top={parts.top}
-          tail={parts.tail}
+          look={look}
+          onLookDone={() => setOpen(false)}
           manage={{
             word: ["tienda", "tiendas", "store", "stores"],
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) } }), L(lang, "Tiendas", "Stores")); },
@@ -383,7 +460,7 @@ export function SubPick({ categoryId, value, onChange }: { categoryId: string; v
 export function BrandIconPick({ value, suggest, onChange, compact, look }: { value: string; suggest: string; onChange: (icon: string, label: string) => void; compact?: boolean; look?: Look }) {
   const { session, commit, confirm, lang } = useFaro();
   const [open, setOpen] = useState(false);
-  const parts = useLookParts(look ? { ...look, onGlyph: (name) => { look.onGlyph(name); onChange(name, ""); } } : undefined, lang, () => setOpen(false));
+  const lookHere: Look | undefined = look ? { ...look, onGlyph: (name) => { look.onGlyph(name); onChange(name, ""); } } : undefined;
   const off = libraryOff(session?.ledger);
   const lib = useMemo(() => libraryOf(session?.ledger), [session?.ledger]);
   const own = value === "RefreshCw" || value === "Circle" ? "" : value;
@@ -407,8 +484,8 @@ export function BrandIconPick({ value, suggest, onChange, compact, look }: { val
           groups={SUB_GROUPS.map(([g, es, en]) => ({ id: g, label: L(lang, es, en) }))}
           onClose={() => setOpen(false)}
           onPick={(pick) => { onChange(pick ? `sub:${pick}` : "", pick ? poolName(pick, lang) : ""); setOpen(false); }}
-          top={parts.top}
-          tail={parts.tail}
+          look={lookHere}
+          onLookDone={() => setOpen(false)}
           manage={{
             word: ["ícono", "íconos", "icon", "icons"],
             onDropMany: (ids) => commit((s) => ({ ...s, subIconsOff: [...new Set([...(s.subIconsOff ?? []), ...ids.filter((x) => lib.some((r) => r[0] === x))])] }), L(lang, "Íconos", "Icons")),
@@ -429,11 +506,10 @@ export function BrandIconPick({ value, suggest, onChange, compact, look }: { val
 export function LookPick({ look }: { look: Look }) {
   const { lang } = useFaro();
   const [open, setOpen] = useState(false);
-  const parts = useLookParts(look, lang, () => setOpen(false));
   return (
     <>
       <PickButton test="look-pick" compact label={L(lang, "Ícono y color", "Icon and colour")} open={open} onOpen={() => setOpen(true)} mark={<LookGem color={look.color} glyph={look.glyph && look.glyph !== "Circle" ? look.glyph : undefined} />} text="" placeholder="" />
-      {open ? <PickSheet test="look-sheet" title={L(lang, "Ícono y color", "Icon and colour")} value="" items={[]} onPick={() => {}} onClose={() => setOpen(false)} top={parts.top} tail={parts.tail} /> : null}
+      {open ? <PickSheet test="look-sheet" title={L(lang, "Ícono y color", "Icon and colour")} value="" items={[]} onPick={() => {}} onClose={() => setOpen(false)} look={look} onLookDone={() => setOpen(false)} /> : null}
     </>
   );
 }

@@ -227,3 +227,26 @@
 /* "Otro…": the reading sits at the end of the "Cada N" line (no extra line). */
 .freq-set-row { grid-template-columns: auto 5.5rem auto minmax(0, 1fr); justify-content: stretch; }
 .freq-set-row .freq-set-read { justify-self: end; text-align: right; white-space: nowrap; font-weight: 600; }
+
+/* ---------- 1.3.102: palette button → "Color e íconos" at the top of the sheet ---------- */
+.fit-sheet-tool.is-pal { position: relative; color: var(--accent); }
+.fit-sheet-tool.is-pal > svg { width: 18px; height: 18px; }
+/* The current colour, as a small dab on the palette (subtle: 7px, under a thin ring of the button's own surface). */
+.fit-pal-dot { position: absolute; right: 7px; bottom: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--sw); box-shadow: 0 0 0 1.5px var(--surface); pointer-events: none; }
+.fit-sheet-tool.is-pal[aria-pressed="true"] { color: var(--accent); }
+[data-theme="tron"] .fit-sheet-tool.is-pal svg { color: #3fd6f5; }
+[data-theme="tron"] .fit-pal-dot { box-shadow: 0 0 0 1.5px #03090c, 0 0 5px var(--sw); }
+[data-theme="tron"] .fit-sheet-tool.is-pal[aria-pressed="true"] .fit-pal-dot { box-shadow: 0 0 0 1.5px #0a1d24, 0 0 6px var(--sw); }
+/* Header: the title keeps its words; the buttons sit closer before anything is squeezed. */
+@container (max-width: 350px) {
+  .fit-sheet-head { gap: 3px; }
+  .fit-sheet-tool { width: 34px; height: 34px; }
+  .fit-sheet-head strong, [data-theme="tron"] .fit-sheet-head strong { letter-spacing: 0; padding-left: 1px; }
+}
+@media (width < 380px) { .fit-sheet { padding-inline: 10px; } }
+/* The list scrolls under a soft edge instead of a hard cut, and its first row has room for its ring/glow. */
+.fit-sheet-list { padding: 4px 3px 3px; scroll-padding-top: 8px; }
+.fit-sheet-list.is-scrolled { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px); mask-image: linear-gradient(to bottom, transparent 0, #000 16px); }
+.fit-view { display: grid; gap: 10px; align-content: start; min-width: 0; animation: fit-view-in .16s ease-out both; }
+@keyframes fit-view-in { from { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .fit-view { animation: fit-view-in .16s linear both; } }
