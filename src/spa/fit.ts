@@ -48,7 +48,7 @@ function fitOne(el: HTMLElement) {
 
 // English lens kickers ("SPENDING", "PAYMENTS") are longer than the Spanish design's ("GASTARÉ", "PAGOS"): on a narrow lens (large text)
 // they shrink just enough to stay inside the lens instead of widening it (which shrank the amount under them).
-const FIT = '.num, html[lang="en"] .lenses .lens-kicker > span:last-child, .cobro-form .day-field-btn > span:first-child';
+const FIT = '.num:not(.lever-amt > .num), html[lang="en"] .lenses .lens-kicker > span:last-child, .cobro-form .day-field-btn > span:first-child';
 
 // The three lens kickers are siblings: when one had to shrink, all three take that same size (no HAVE big beside SPENDING small).
 const KICKERS = 'html[lang="en"] .lenses .lens-kicker > span:last-child';
@@ -123,17 +123,23 @@ function cobroNames() {
   });
 }
 
-// Open projector sentence ("Si apartas C$1,831.22 al mes, así quedaría:"): one line, never wrapped or cut. When the words would not fit
-// (narrow phone, large text, long amounts) the whole sentence shrinks together (never below 42%; the real lever tops out at US$500 ≈ C$18,400, so this floor only meets stress values); the (?) keeps its size at the end.
-function leverLine() {
-  document.querySelectorAll<HTMLElement>(".lever-line > .lever-say").forEach((say) => {
-    say.style.fontSize = "";
-    if (!say.getBoundingClientRect().width) return;
-    const base = parseFloat(getComputedStyle(say).fontSize);
-    let scale = 1;
-    for (let i = 0; i < 5 && say.scrollWidth > say.clientWidth + 0.5 && scale > 0.42; i++) {
-      scale = Math.max(0.42, scale * (say.clientWidth / say.scrollWidth) * 0.99);
-      say.style.fontSize = `${(base * scale).toFixed(2)}px`;
+// Open projector line 2 ("C$1,831.22 al mes, así quedaría:"): one line, never wrapped or cut. When it would not fit (narrow phone,
+// large text, long amounts) the muted tail shrinks first (to 78%), then amount and tail together (floor 60%), so the amount stays dominant.
+function leverAmt() {
+  document.querySelectorAll<HTMLElement>(".vault-lever-read .lever-amt").forEach((row) => {
+    const amt = row.querySelector<HTMLElement>("strong");
+    const tail = row.querySelector<HTMLElement>("em");
+    if (!amt || !tail) return;
+    amt.style.fontSize = ""; tail.style.fontSize = "";
+    if (!row.getBoundingClientRect().width) return;
+    const over = () => tail.getBoundingClientRect().right > row.getBoundingClientRect().right - 0.25 || row.scrollWidth > row.clientWidth;
+    if (!over()) return;
+    const a0 = parseFloat(getComputedStyle(amt).fontSize), t0 = parseFloat(getComputedStyle(tail).fontSize);
+    for (let k = 0.97; k >= 0.78 && over(); k -= 0.03) tail.style.fontSize = `${(t0 * k).toFixed(2)}px`;
+    const t1 = parseFloat(tail.style.fontSize || String(t0));
+    for (let k = 0.97; k >= 0.6 && over(); k -= 0.03) {
+      amt.style.fontSize = `${(a0 * k).toFixed(2)}px`;
+      tail.style.fontSize = `${(t1 * k).toFixed(2)}px`;
     }
   });
 }
@@ -146,12 +152,12 @@ export function fitAll() {
     queued = false;
     segTabs();
     cobroNames();
-    leverLine();
+    leverAmt();
     document.querySelectorAll<HTMLElement>(FIT).forEach(fitOne);
     groupKickers();
     // Tell the (?) marks that avoid these words to check again (sizes changed without their boxes resizing).
     dispatchEvent(new Event("faro-fit"));
-    setTimeout(() => { segTabs(); cobroNames(); leverLine(); document.querySelectorAll<HTMLElement>(FIT).forEach((el) => { if (overflow(el)) fitOne(el); }); groupKickers(); dispatchEvent(new Event("faro-fit")); }, 400);
+    setTimeout(() => { segTabs(); cobroNames(); leverAmt(); document.querySelectorAll<HTMLElement>(FIT).forEach((el) => { if (overflow(el)) fitOne(el); }); groupKickers(); dispatchEvent(new Event("faro-fit")); }, 400);
   });
 }
 

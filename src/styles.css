@@ -1314,13 +1314,7 @@ html .save-band.is-records .span-cut { margin-top: 0; }
 .vault-lever > .fold-pin { position: absolute; top: -9px; right: 2px; z-index: 2; width: 16px; height: 16px; min-width: 16px; }
 .vault-lever > .fold-pin svg { width: 9px; height: 9px; }
 .vault-lever .fold-pin[aria-pressed="true"] { background: var(--seg, var(--accent)); color: #1c1408; border-color: transparent; }
-.vault-lever.is-open { row-gap: 8px; align-items: stretch; }
-/* One sentence across the whole card: "Si apartas C$1,831.22 al mes, así quedaría: (?)". Never wraps; fit.ts shrinks the words if it would not fit. */
-.lever-line { grid-column: 1 / -1; display: flex; align-items: center; gap: 3px; margin: 0; min-width: 0; min-height: 30px; padding: 0 24px 0 6px; white-space: nowrap; color: var(--muted); font-size: 0.9rem; line-height: 1.2; }
-.lever-say { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
-.lever-line strong { font-size: 1.24em; font-weight: 700; letter-spacing: -0.01em; color: var(--seg, #d5e2ea); }
-.lever-line > .ftip { align-self: center; }
-.vault-lever.is-open .vault-lever-rail { height: auto; min-height: 112px; }
+.vault-lever.is-open .vault-lever-read p { padding-right: 30px; }
 .vault-lever-flat { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .vault-lever-flat > .num { flex: none; font-size: 0.95rem; white-space: nowrap; }
 .vault-lever-flat .vault-year-btn, .vault-lever-flat .vault-year { flex: none; }
@@ -1339,6 +1333,14 @@ html .save-band.is-records .span-cut { margin-top: 0; }
 .vault-lever-rail b { position: absolute; left: 50%; width: 17px; height: 17px; transform: translateX(-50%); border-radius: 999px; background: radial-gradient(circle at 35% 30%, #fff, var(--seg, #d5e2ea) 58%, color-mix(in oklab, var(--seg, #d5e2ea) 55%, black)); box-shadow: 0 2px 8px color-mix(in oklab, var(--seg, #d5e2ea) 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 70%); }
 .vault-lever-rail.is-flat::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; }
 .vault-lever-read { min-width: 0; display: grid; gap: 8px; container-type: inline-size; }
+.vault-lever-read p { display: grid; gap: 1px; margin: 0; min-width: 0; container-type: inline-size; }
+.vault-lever-read p .lab-head { justify-self: start; }
+/* Line 2: "C$1,831.22 al mes, así quedaría:" on one baseline, never wrapped or cut; fit.ts shrinks the tail, then the amount, if needed. */
+.vault-lever-read .lever-amt { display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; }
+.vault-lever-read .lever-amt > * { flex: none; }
+.vault-lever-read p span, .vault-lever-read small { color: var(--muted); font-size: 0.75rem; }
+.vault-lever-read p strong { font-size: min(1.28rem, 7.8cqi); line-height: 1.15; color: var(--seg, #d5e2ea); }
+.vault-lever-read p em { color: var(--faint); font-style: normal; font-size: min(0.72rem, 6.2cqi); }
 .vault-lever-read > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .vault-lever-read > div span,
 .vault-lever-read > div .vault-mark { display: grid; gap: 2px; min-width: 0; width: 100%; padding: 8px 10px; border-radius: 14px; background: color-mix(in oklab, var(--seg, #d5e2ea) 12%, var(--surface)); border: 1px solid color-mix(in oklab, var(--seg, #d5e2ea) 30%, var(--line)); text-align: left; font: inherit; color: inherit; cursor: pointer; }
@@ -1403,7 +1405,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .save-band.is-records .span-fold-main span {
   color: oklch(from var(--accent) clamp(0.42, calc(l * 0.62), 0.5) c h);
 }
-html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .save-band.is-records.is-save .lever-line strong {
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .save-band.is-records.is-save .vault-lever-read p strong {
   color: oklch(from var(--seg, #8aa0b0) clamp(0.42, calc(l * 0.62), 0.5) c h);
 }
 @media (prefers-reduced-motion: reduce) { .vault-glide, .swipe-pane.is-vault { transition: none; animation: none; } }
@@ -2156,7 +2158,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .spend-bubble .num { font-size: min(1.02rem, 13.5cqi); }
 .spend-bubble strong { font-size: min(0.8rem, 11.5cqi); }
 .spend-bubble { padding-inline: max(14px, 9cqi); }
-:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .lever-line strong { color: color-mix(in oklab, var(--seg, #d5e2ea) 50%, var(--fg)); }
+:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .vault-lever-read p strong { color: color-mix(in oklab, var(--seg, #d5e2ea) 50%, var(--fg)); }
 :is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .vault-lever-read > div .vault-mark.is-on em { color: color-mix(in oklab, var(--seg, var(--fg)) 50%, var(--fg)); }
 
 /* New-account row: photo tile with a + badge, live preview, clear, and an add button that wakes when the row is complete. */
@@ -2963,7 +2965,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .save-band.sav-scope .save-more > .vault-corner-pin:not([aria-pressed="true"]) { color: var(--sav-deep); border-color: color-mix(in oklab, var(--sav) 34%, var(--line)); }
 /* Night themes: the purple labels on the Savings blocks (Month, years, the chosen horizon) use the light purple ink, so
    they read at text contrast on the dark card (#894ed6 itself is a mark colour there, not a text colour). */
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .save-band.sav-scope :is(.span-fold-main span, .vault-year-btn, .vault-mark.is-on em, .lever-line strong) { color: var(--sav-deep); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .save-band.sav-scope :is(.span-fold-main span, .vault-year-btn, .vault-mark.is-on em, .vault-lever-read p strong) { color: var(--sav-deep); }
 /* "Add" before the new account is complete: a lilac outline that still reads (a faded solid purple fell to ~2.7:1). */
 html:not([data-theme="tron"]) .sav-scope .save-more .ah-form .ah-go .btn:not(.is-ready) { opacity: 1; color: var(--sav-deep); background: color-mix(in oklab, var(--sav) 12%, var(--surface)); border: 1px solid color-mix(in oklab, var(--sav) 38%, var(--line)); box-shadow: none; }
 .save-band.sav-scope .save-more :is(.save-ledger-head .fold-pin, > .vault-corner-pin)[aria-pressed="true"] { color: var(--sav-ink); background: var(--sav); border-color: transparent; }

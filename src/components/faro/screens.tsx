@@ -558,10 +558,6 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
       <button type="button" className="fold-chev" aria-label={t("study.fold")} aria-expanded={open} onClick={toggleOpen}><ChevronDown /></button>
       {open ? (
         <>
-          <p className="lever-line">
-            <span className="lever-say">{t("lever.if")} <strong className="num">{fmt(shown)}</strong> {t("lever.each")}</span>
-            <Hint topic="si-apartas" />
-          </p>
           <div
             className="vault-lever-rail"
             ref={rail}
@@ -578,6 +574,10 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
             <b style={{ bottom: `calc(10.5px + (100% - 38px) * ${usdMinor / maxUsd})` }} />
           </div>
           <div className="vault-lever-read">
+            <p>
+              <span className="lab-head">{t("lever.if")}<Hint topic="si-apartas" /></span>
+              <span className="lever-amt"><strong className="num">{fmt(shown)}</strong><em>{t("lever.each")}</em></span>
+            </p>
             <div>
               {cards.filter((card) => card.id !== "far").map((card) => (
                 <button key={card.id} type="button" className={`vault-mark${mark === card.id ? " is-on" : ""}`} aria-pressed={mark === card.id} onClick={() => pick(card.id)}>
