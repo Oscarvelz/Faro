@@ -563,8 +563,6 @@ html body .cobros .cobro-swap > .fx-note {
 html body .cobros .cobro-swap :is(.cobro-group, .cobro-file) > .fx-note > svg, html body .cobros .cobro-swap > .fx-note > svg { width: 14px; height: 14px; margin-top: 0; color: color-mix(in oklab, var(--tone) 80%, var(--muted)); }
 html body .cobros .cobro-swap .cobro-file > .fx-note > svg { color: var(--faint); }
 
-/* item cards in a bare list (Cuotas, Préstamos): the same charcoal, the side's avatar */
-html body .cobros .cobro-swap .cobro-who b { background: var(--tone); color: color-mix(in oklab, var(--tone) 14%, #071014); }
 
 /* "Ver todo en Libros": a real button of the side, with where it goes */
 html body .cobros .cobro-all {
