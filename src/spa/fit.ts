@@ -12,12 +12,28 @@ function boxOf(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
+// 1.3.95: a pane that is sliding in (ring swipe, finger drag, tab slide) is translated sideways for a moment. Its amounts must be
+// measured where they will rest, not where the slide shows them, or they shrink for a few frames (a shorter line → the content
+// below drops by ~6px and comes back). Sum the sideways translation of every transformed ancestor and measure without it.
+function slideX(el: Element): number {
+  let x = 0;
+  for (let a: Element | null = el; a && a !== document.body; a = a.parentElement) {
+    const t = getComputedStyle(a).transform;
+    if (t && t !== "none") { try { x += new DOMMatrixReadOnly(t).m41; } catch { /* ignore */ } }
+  }
+  return x;
+}
+
 function overflow(el: HTMLElement): number {
   let over = Math.max(0, el.scrollWidth - el.clientWidth);
-  const r = el.getBoundingClientRect();
+  const raw = el.getBoundingClientRect();
+  const dx = slideX(el);
+  const r = { left: raw.left - dx, right: raw.right - dx };
   const box = boxOf(el);
   if (box) {
-    const b = box.getBoundingClientRect();
+    const braw = box.getBoundingClientRect();
+    const bdx = slideX(box);
+    const b = { left: braw.left - bdx, right: braw.right - bdx };
     const s = getComputedStyle(box);
     const right = b.right - parseFloat(s.borderRightWidth) - Math.min(parseFloat(s.paddingRight), 8);
     const left = b.left + parseFloat(s.borderLeftWidth) + Math.min(parseFloat(s.paddingLeft), 8);

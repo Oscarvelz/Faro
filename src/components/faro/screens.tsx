@@ -1770,7 +1770,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
   }, [focus]);
-  useEffect(() => {
+  // 1.3.95: a layout effect, so the pocket's own blocks (Todas / the pocket ledger) are there in the very first painted frame
+  // of a savings tab. As a plain effect they arrived one frame late and everything under them jumped 55–78px.
+  useLayoutEffect(() => {
     if (!focus || !session) return;
     if (focusApplied.current === focus) return;
     focusApplied.current = focus;

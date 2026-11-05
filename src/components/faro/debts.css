@@ -376,3 +376,40 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
   .save-ledger.is-ring, .save-ledger.is-ring[data-dir="-1"] { animation: ring-fade .16s ease-out both; }
   .lens.ring-lit, .save-seg.ring-lit { animation: none; }
 }
+
+/* ---------- 1.3.95 savings row (Ahorros · Meta · Retiro · Emergencia): alive on a tap, each in its own colour ----------
+   Overlays and `scale` only: the selection look (corner brackets, purple scope) and the layout never change. */
+.vault-bar > button > .vb-fx { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.vault-bar > button > :not(.vb-fx) { position: relative; z-index: 1; }
+.vb-bloom {
+  position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in oklab, var(--vtone) 48%, transparent) 0%, color-mix(in oklab, var(--vtone) 16%, transparent) 48%, transparent 70%);
+  animation: ds-bloom .56s cubic-bezier(.2, .7, .2, 1) forwards;
+}
+[data-theme="tron"] .vb-bloom { background: radial-gradient(circle, color-mix(in oklab, var(--vtone) 64%, transparent) 0%, color-mix(in oklab, var(--vtone) 24%, transparent) 46%, transparent 70%); }
+.vault-bar > button[data-pulse="0"] > svg { animation: vb-pulse-a .5s cubic-bezier(.3, .7, .3, 1); }
+.vault-bar > button[data-pulse="1"] > svg { animation: vb-pulse-b .5s cubic-bezier(.3, .7, .3, 1); }
+/* Tron's own lock-on stays first in the list, so it is not restarted by the pulse. */
+[data-theme="tron"] .vault-bar > button[aria-current="page"][data-pulse="0"] > svg { animation: tron-vlock .42s steps(2, end) 1, vb-pulse-a .5s cubic-bezier(.3, .7, .3, 1); }
+[data-theme="tron"] .vault-bar > button[aria-current="page"][data-pulse="1"] > svg { animation: tron-vlock .42s steps(2, end) 1, vb-pulse-b .5s cubic-bezier(.3, .7, .3, 1); }
+@keyframes vb-pulse-a { 0% { scale: 1; } 32% { scale: 1.32; color: var(--vtone); } 100% { scale: 1; } }
+@keyframes vb-pulse-b { 0% { scale: 1; } 32% { scale: 1.32; color: var(--vtone); } 100% { scale: 1; } }
+/* What opened below says "here I am" once, in the tab's colour (same sweep as Debo / Me deben). */
+.vault-block.is-vhello::after {
+  content: ""; position: absolute; z-index: 3; inset: 0; border-radius: var(--vhello-r, 18px); pointer-events: none; opacity: 0;
+  background: linear-gradient(100deg, transparent 22%, color-mix(in oklab, var(--vhello-tone) 22%, transparent) 50%, transparent 78%) no-repeat;
+  background-size: 260% 100%;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vhello-tone) 30%, transparent);
+  animation: debt-hello .78s cubic-bezier(.3, .7, .3, 1) var(--hello-d, 0ms) both;
+}
+[data-theme="tron"] .vault-block.is-vhello::after {
+  background-image: linear-gradient(100deg, transparent 22%, color-mix(in oklab, var(--vhello-tone) 30%, transparent) 50%, transparent 78%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vhello-tone) 42%, transparent), 0 0 18px -6px color-mix(in oklab, var(--vhello-tone) 70%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vb-bloom { animation: ds-tint .45s ease-out forwards; inset: 0; width: auto; height: auto; margin: 0; border-radius: inherit; transform: none; left: 0 !important; top: 0 !important; background: color-mix(in oklab, var(--vtone) 18%, transparent); }
+  .vault-bar > button[data-pulse] > svg, [data-theme="tron"] .vault-bar > button[aria-current="page"][data-pulse] > svg { animation: none; }
+  .vault-block.is-vhello::after { animation: debt-hello-fade .5s ease-out var(--hello-d, 0ms) both; background: color-mix(in oklab, var(--vhello-tone) 14%, transparent); }
+}
+/* 1.3.95: inside a Libros book that is arriving (tap or ring swipe) a note fades in where it rests, it does not rise 4px. */
+.swipe-pane .fx-note { animation-name: ring-fade; }

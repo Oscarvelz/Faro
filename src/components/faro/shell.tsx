@@ -69,12 +69,13 @@ function dragTarget(main: HTMLElement, target: HTMLElement, hub: string): HTMLEl
 /** After a ring step: the row that holds the new book lights its choice, and comes into view if it is off screen. */
 function ringLand(main: HTMLElement, stop: RingStop) {
   if (stop === "owed" || stop === "owe") debtHello(stop);
+  else if (VAULT.includes(stop as never)) window.dispatchEvent(new CustomEvent("faro-vault-tap", { detail: { id: stop, root: main } }));
   window.setTimeout(() => {
     const row = stop === "owed" || stop === "owe"
       ? main.querySelector<HTMLElement>(":scope > .debt-scale")
       : main.querySelector<HTMLElement>(VAULT.includes(stop as never) ? ":scope > .vault-bar" : ":scope > .seg");
     if (!row) return;
-    if (stop !== "owed" && stop !== "owe") ringLit(row.querySelector('[aria-current="page"]'));
+    if (stop !== "owed" && stop !== "owe" && !VAULT.includes(stop as never)) ringLit(row.querySelector('[aria-current="page"]'));
     ringShow(row);
   }, 60);
 }
@@ -1318,6 +1319,54 @@ function SplitLower({ section, onSection, showTools, onClaim }: { section: Secti
   );
 }
 
+/* 1.3.95 — the savings row answers a person the way the scale does, each tab in its own colour: a soft bloom from the tap point,
+   the icon pulses, then the blocks that open below light up once (80 ms apart). Only on a tap or a ring landing, never on load or
+   Back. Everything is an overlay or a `scale`, so nothing below moves. */
+const VAULT_TONE: Record<(typeof VAULT)[number], string> = { save: SAVINGS_PURPLE, meta: "#8fb9a6", retiro: "#72b4b2", emergencia: "#7aa2c4" };
+function useVaultHello(vaultRef: React.RefObject<HTMLDivElement | null>) {
+  const [tap, setTap] = useState<{ id: string; x: number; y: number; n: number } | null>(null);
+  const timers = useRef<number[]>([]);
+  const hello = useCallback((id: string, point?: { x: number; y: number }) => {
+    const bar = vaultRef.current;
+    const btn = bar?.querySelector<HTMLElement>(`button[data-vault="${id}"]`);
+    if (!bar || !btn) return;
+    const r = btn.getBoundingClientRect();
+    setTap((t) => ({ id, x: point ? point.x - r.left : r.width / 2, y: point ? point.y - r.top : r.height / 2, n: (t?.n ?? 0) + 1 }));
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [window.setTimeout(() => setTap(null), 680)];
+    // After the new pane has mounted and its slide has begun, so the light lands on what is really there.
+    timers.current.push(window.setTimeout(() => {
+      const pane = bar.parentElement?.querySelector<HTMLElement>(":scope > .swipe-pane");
+      const tone = btn.style.getPropertyValue("--vtone");
+      const els = [...(pane?.querySelectorAll<HTMLElement>(".vault-block") ?? [])]
+        .filter((el) => el.getBoundingClientRect().height > 0)
+        .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).slice(0, 3);
+      els.forEach((el, i) => {
+        // The visible card can sit a level or two down (MES: .span-cut → .span-fold-bar): take the first rounded one.
+        let card = el.firstElementChild as HTMLElement | null;
+        for (let k = 0; k < 3 && card && parseFloat(getComputedStyle(card).borderTopLeftRadius) === 0; k++) card = card.firstElementChild as HTMLElement | null;
+        el.classList.remove("is-vhello");
+        void el.offsetWidth;
+        el.style.setProperty("--vhello-tone", tone);
+        el.style.setProperty("--vhello-r", card && parseFloat(getComputedStyle(card).borderTopLeftRadius) > 0 ? getComputedStyle(card).borderRadius : "18px");
+        el.style.setProperty("--hello-d", `${i * 80}ms`);
+        el.classList.add("is-vhello");
+        timers.current.push(window.setTimeout(() => el.classList.remove("is-vhello"), 900 + i * 80));
+      });
+    }, 120));
+  }, [vaultRef]);
+  useEffect(() => {
+    const on = (e: Event) => {
+      const { id, root } = (e as CustomEvent<{ id: string; root?: Element }>).detail;
+      if (root && vaultRef.current && !root.contains(vaultRef.current)) return;
+      hello(id);
+    };
+    window.addEventListener("faro-vault-tap", on);
+    return () => { window.removeEventListener("faro-vault-tap", on); timers.current.forEach((t) => window.clearTimeout(t)); };
+  }, [hello, vaultRef]);
+  return { tap, hello };
+}
+
 /** Libros: top row (four books), middle row (Me deben · Debo), bottom row (savings), then the chosen pane. Shared by the
  *  main view and the split/float panes. `vault` holds the lower rows' choice (savings tab or debt side). */
 function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors = false }: {
@@ -1328,6 +1377,7 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   const debt: DebtSide | null = vault === "owed" || vault === "owe" ? vault : !vault && ui.section === "subs" ? "owe" : null;
   const save = vault && vault !== "owed" && vault !== "owe" ? vault : null;
   const off = !!vault || ui.section === "subs";
+  const { tap: vtap, hello: vaultHello } = useVaultHello(vaultRef);
   return (
     <>
       <div className="seg is-follow is-four" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor={anchors ? "books-tabs" : undefined}>
@@ -1347,10 +1397,12 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
       <div className="vault-bar" ref={vaultRef} data-anchor={anchors ? "vault-tabs" : undefined} style={{ ["--vault" as string]: save ? VAULT.indexOf(save) : 0, ["--vtint" as string]: save === "meta" ? vtint("#8fb9a6") : save === "retiro" ? vtint("#72b4b2") : save === "emergencia" ? vtint("#7aa2c4") : save === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
         <i className={`vault-glide${save ? " is-on" : ""}${save === "save" ? " is-save" : ""}`} aria-hidden />
         {VAULT.map((id) => (
-          <button key={id} type="button" role="tab" aria-selected={save === id} aria-current={save === id ? "page" : undefined} onClick={() => {
+          <button key={id} type="button" role="tab" data-vault={id} data-pulse={vtap?.id === id ? vtap.n % 2 : undefined} style={{ ["--vtone" as string]: vtint(VAULT_TONE[id]) }} aria-selected={save === id} aria-current={save === id ? "page" : undefined} onClick={(e) => {
             if (save && save !== id) onSlide(VAULT.indexOf(id) > VAULT.indexOf(save) ? 1 : -1);
             onVault(id);
+            vaultHello(id, e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined);
           }}>
+            <i className="vb-fx" aria-hidden>{vtap?.id === id ? <i key={vtap.n} className="vb-bloom" style={{ left: vtap.x, top: vtap.y }} /> : null}</i>
             {id === "save" ? <Landmark className="size-3.5" /> : id === "meta" ? <Flag className="size-3.5" /> : id === "retiro" ? <Hourglass className="size-3.5" /> : <Shield className="size-3.5" />}
             <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
           </button>
