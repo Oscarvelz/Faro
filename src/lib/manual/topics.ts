@@ -449,7 +449,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         how: ["Desliza el control para elegir el monto. Toca los años para cambiarlos. Es solo una prueba: no anota nada.", "Slide the control to pick the amount. Tap the years to change them. It is only a test: nothing is recorded."],
         tip: ["Empieza plegado. Fíjalo con el alfiler si lo quieres siempre abierto.", "It starts folded. Pin it if you want it always open."],
         go: { screen: "vault-save", anchor: "lever", fold: "lever", where: ["Libros → Ahorros (y en Central al abrir una bolsa)", "Books → Savings (and on Desk when you open a pocket)"] },
-        terms: [["Proyección", "Projection"], ["10 años", "10 years"], ["Así quedaría", "This is how it would look"]],
+        terms: [["Proyección", "Projection"], ["10 años", "10 years"], ["Así quedaría", "You'd have"]],
         keys: ["lever.if", "lever.each", "lever.lands"],
       },
       {

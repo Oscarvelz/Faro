@@ -123,6 +123,21 @@ function cobroNames() {
   });
 }
 
+// Open projector sentence ("Si apartas C$1,831.22 al mes, así quedaría:"): one line, never wrapped or cut. When the words would not fit
+// (narrow phone, large text, long amounts) the whole sentence shrinks together (never below 42%; the real lever tops out at US$500 ≈ C$18,400, so this floor only meets stress values); the (?) keeps its size at the end.
+function leverLine() {
+  document.querySelectorAll<HTMLElement>(".lever-line > .lever-say").forEach((say) => {
+    say.style.fontSize = "";
+    if (!say.getBoundingClientRect().width) return;
+    const base = parseFloat(getComputedStyle(say).fontSize);
+    let scale = 1;
+    for (let i = 0; i < 5 && say.scrollWidth > say.clientWidth + 0.5 && scale > 0.42; i++) {
+      scale = Math.max(0.42, scale * (say.clientWidth / say.scrollWidth) * 0.99);
+      say.style.fontSize = `${(base * scale).toFixed(2)}px`;
+    }
+  });
+}
+
 let queued = false;
 export function fitAll() {
   if (queued) return;
@@ -131,11 +146,12 @@ export function fitAll() {
     queued = false;
     segTabs();
     cobroNames();
+    leverLine();
     document.querySelectorAll<HTMLElement>(FIT).forEach(fitOne);
     groupKickers();
     // Tell the (?) marks that avoid these words to check again (sizes changed without their boxes resizing).
     dispatchEvent(new Event("faro-fit"));
-    setTimeout(() => { segTabs(); cobroNames(); document.querySelectorAll<HTMLElement>(FIT).forEach((el) => { if (overflow(el)) fitOne(el); }); groupKickers(); dispatchEvent(new Event("faro-fit")); }, 400);
+    setTimeout(() => { segTabs(); cobroNames(); leverLine(); document.querySelectorAll<HTMLElement>(FIT).forEach((el) => { if (overflow(el)) fitOne(el); }); groupKickers(); dispatchEvent(new Event("faro-fit")); }, 400);
   });
 }
 
