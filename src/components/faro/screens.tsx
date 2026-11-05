@@ -1331,7 +1331,29 @@ export function CobroSpan({ title, total, facts, events, out = false, help }: { 
   );
 }
 
-function Cobros({ onClose, jumped = false, ping = 0, startSide = "out" }: { onClose: () => void; jumped?: boolean; ping?: number; startSide?: "in" | "out" }) {
+// 1.3.108: Central's + / − panel arrival light: a hairline of its colour runs out along the top edge from the corner button
+// that opened it, over a soft wash that fades. transform + opacity only, no layout; reduced motion = the wash fade alone.
+function QuickHello({ mode }: { mode: "in" | "out" }) {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const box = el?.parentElement?.firstElementChild;
+    if (!el || !(box instanceof HTMLElement)) return;
+    const btn = document.querySelector<HTMLElement>(`[data-anchor="${mode === "in" ? "desk-plus" : "desk-minus"}"]`)?.getBoundingClientRect();
+    const r = box.getBoundingClientRect();
+    if (!r.width) return;
+    el.style.setProperty("--qx", `${Math.round(Math.min(Math.max(((btn ? btn.left + btn.width / 2 : r.left + r.width / 2) - r.left) / r.width, 0), 1) * 100)}%`);
+    el.style.setProperty("--qr", getComputedStyle(box).borderTopLeftRadius);
+    el.style.top = `${box.offsetTop}px`;
+    el.style.left = `${box.offsetLeft}px`;
+    el.style.width = `${box.offsetWidth}px`;
+    el.style.height = `${box.offsetHeight}px`;
+    el.dataset.on = "";
+  }, [mode]);
+  return <i ref={ref} className="quick-hello" aria-hidden="true" />;
+}
+
+function Cobros({ onClose, jumped = false, ping = 0, startSide = "out", wait = false }: { onClose: () => void; jumped?: boolean; ping?: number; startSide?: "in" | "out"; wait?: boolean }) {
   const { t } = useFaro();
   const [side, setSide] = useState<"in" | "out">(startSide);
   const [dir, setDir] = useState(1);
@@ -1355,7 +1377,9 @@ function Cobros({ onClose, jumped = false, ping = 0, startSide = "out" }: { onCl
   // Cobros, then steps to the screen under it, with no re-push from popstate (Chrome marks those entries skippable, which
   // is what made back leave the installed app). Opened by "Ir allí" / a manual link it was part of that jump: back walks on
   // to where the jump came from, so it closes with that step instead of owning one.
-  useLayer(!jumped, onClose);
+  // 1.3.107: opened straight from an open + / − flow, it takes its history entry only after that flow has given its own back
+  // (`wait`), so the flow's history.go(-n) can never land as a back on Cobros and close it.
+  useLayer(!jumped && !wait, onClose);
   useEffect(() => {
     if (!jumped) return;
     const onBack = (e: Event) => { if (!e.defaultPrevented) onClose(); };
@@ -1479,6 +1503,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [cobrosPing, setCobrosPing] = useState(0);
   // 1.3.106: whether the open Cobros panel is the one active thing (its corner button lit). A card picked while it stays open takes the focus.
   const [cobrosLit, setCobrosLit] = useState(true);
+  // 1.3.107: Cobros opened from an open + / − flow waits for that flow's history step-back before owning its entry.
+  const [cobrosWait, setCobrosWait] = useState(false);
+  useEffect(() => {
+    if (!cobrosWait) return;
+    let done = false;
+    const go = () => { if (done) return; done = true; window.setTimeout(() => setCobrosWait(false), 0); };
+    window.addEventListener("popstate", go, { once: true });
+    const timer = window.setTimeout(go, 600);
+    return () => { done = true; window.removeEventListener("popstate", go); window.clearTimeout(timer); };
+  }, [cobrosWait]);
   const quickClosedByLens = useRef(false);
   const [lamp, setLamp] = useState<"good" | "warn" | "bad" | null>(null);
   const [flowDir, setFlowDir] = useState(1);
@@ -2454,6 +2488,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             if (quick) {
               setJump(null);
               setQuick(null);
+              setCobrosWait(true);
               setCobros(true);
               setCobrosLit(true);
               setCobrosPing((n) => n + 1);
@@ -2487,11 +2522,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         </div>
       </div>
       {quick ? (
-        <div ref={quickRef} className="sheet-swap">
-          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={() => { if (lens === "all") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
+        <div ref={quickRef} className="sheet-swap" data-mode={quick}>
+          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={(how) => { if (lens === "all" && how !== "back") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
+          {/* 1.3.108: phone Back restores the card that was active before (none stays none); only a finished entry still lights its card. */}
+          {/* 1.3.108: the panel says hello in its own colour (teal +, orange −), once per opening; see styles.css "quick-hello". */}
+          <QuickHello key={`qh-${quick}`} mode={quick} />
         </div>
       ) : null}
-      {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? "out"} ping={cobrosJump ? 0 : cobrosPing} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
+      {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? "out"} ping={cobrosJump ? 0 : cobrosPing} wait={cobrosWait} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
       </>
       )}
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>

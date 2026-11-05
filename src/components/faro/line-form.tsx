@@ -462,7 +462,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   );
 }
 
-export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose: () => void; jump?: { kind: LineKind; categoryId: string; title: string } | null }) {
+export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose: (how?: "back") => void; jump?: { kind: LineKind; categoryId: string; title: string } | null }) {
   const { t, session, lang, confirm } = useFaro();
   const structure = session?.ledger.structure;
   const [open, setOpen] = useState<string | null>(null);
@@ -505,7 +505,7 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
         setPick(null);
         return;
       }
-      closeRef.current();
+      closeRef.current("back");
     };
     window.addEventListener("popstate", onPop, true);
     return () => {
