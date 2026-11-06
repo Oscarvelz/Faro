@@ -4042,23 +4042,22 @@ export function Settings() {
         return;
       }
       const gap = 10;
-      const colW = Math.max(0, (root.clientWidth - gap) / 2);
-      let yL = 0;
-      let yR = 0;
+      // 1.3.114: a wide tablet board (>= 1500px, e.g. Tab S10 Ultra landscape) takes three columns; else two.
+      const cols = wide && root.clientWidth >= 1500 ? 3 : 2;
+      const colW = Math.max(0, (root.clientWidth - gap * (cols - 1)) / cols);
+      const ys = new Array<number>(cols).fill(0);
       cards.forEach((el, index) => {
-        const left = index % 2 === 0;
-        const y = left ? yL : yR;
+        const c = index % cols;
+        const y = ys[c]!;
         el.style.position = "absolute";
         el.style.top = `${y}px`;
-        el.style.left = left ? "0px" : `${colW + gap}px`;
+        el.style.left = `${c * (colW + gap)}px`;
         el.style.width = `${colW}px`;
         el.style.margin = "0";
-        const next = y + el.offsetHeight + gap;
-        if (left) yL = next;
-        else yR = next;
+        ys[c] = y + el.offsetHeight + gap;
       });
       root.style.position = "relative";
-      const next = `${Math.ceil(Math.max(yL, yR))}px`;
+      const next = `${Math.ceil(Math.max(...ys))}px`;
       if (root.style.height !== next) root.style.height = next;
     };
     const watch = () => {

@@ -1,13 +1,8 @@
 /* 1.3.84 tablet / desktop pass (Galaxy Tab S10 Ultra ~1970x1200, 1478x902, 1280x800, portrait 820/924).
    Everything here is scoped to min-width queries above the phone range: nothing applies at <= 600px. */
 
-/* Side docks on tall screens: seven buttons no longer stretch over the whole height (170px each at 1200px);
-   they sit as one centred column with an even rhythm. */
-@media (width >= 1100px) and (height >= 820px) {
-  .app-frame:not(.is-split) .dock-face { justify-content: center; }
-  .app-frame:not(.is-split) .rail .nav-btn,
-  .app-frame:not(.is-split) .side-dock .nav-btn { flex: 0 1 104px; min-height: 76px; }
-}
+/* Side docks (1.3.114, Oscar): back to the earlier style, the buttons share the dock's whole height again
+   (1.3.84 had centred them as 104px tiles). Nothing to add: the base rule (.nav-btn flex 1 1 0) does it. */
 
 /* Libros on wide screens: two sibling books (Ingresos fijos + variables, Gastos variables + Personas)
    sit side by side instead of 1800px-wide rows with the amount far away from its name. */
@@ -41,4 +36,163 @@
   .app-frame:not(.is-split) .study-stack.is-packed { display: block; position: relative; }
   .app-frame:not(.is-split) .study-stack.is-packed > *,
   .app-frame:not(.is-split) .study-stack.is-packed > .study-charts > * { width: auto; margin: 0; min-width: 0; }
+}
+
+/* ---------- 1.3.114 tablet pass (>= 1100 wide, one pane; phones and split panes untouched) ---------- */
+
+/* Edge drawers: an away dock slides in over the page, so its face must be painted. The rail's face had no
+   background at >= 1100 (only the right dock had one), so the left drawer opened see-through: cards and text
+   showed under it and taps between its buttons landed on the empty, transparent drawer. */
+@media (width >= 1100px) {
+  .app-frame.is-hide-left .rail .dock-face,
+  .app-frame.is-hide-right .side-dock .dock-face { background: var(--bg); }
+  .app-frame.is-hide-left[data-recall] .rail,
+  .app-frame.is-hide-right[data-recall] .side-dock { box-shadow: 0 0 36px color-mix(in oklab, black 34%, transparent); }
+  .app-frame.is-hide-left .rail,
+  .app-frame.is-hide-right .side-dock { contain: layout; }
+  /* The real cause of "sometimes it stays see-through / taps don't respond": the drawer slid on a transform transition,
+     which Chrome runs on the compositor. Starting from fully off-screen, that transition can sit "pending" (no start time
+     from the compositor) for as long as nothing else repaints: data-recall says open, the drawer stays off-screen or half
+     drawn, and the pull tab stays where it was. Here the drawer and its tab slide on left/right instead (main thread,
+     always ticks; they are fixed, so nothing else re-flows), and shell.tsx finishes any transition still pending. */
+  .app-frame:not(.is-split).is-hide-left .rail { transform: none; left: calc(-1 * var(--dock-w)); transition: left .2s cubic-bezier(.2, .8, .2, 1); will-change: auto; }
+  .app-frame:not(.is-split).is-hide-right .side-dock { transform: none; right: calc(-1 * var(--dock-w)); left: auto; transition: right .2s cubic-bezier(.2, .8, .2, 1); will-change: auto; }
+  /* Opening is instant (in place on the first frame after the tap, even while the page is busy); closing slides out. */
+  .app-frame:not(.is-split).is-hide-left[data-recall] .rail { left: 0; transition: none; }
+  .app-frame:not(.is-split).is-hide-right[data-recall] .side-dock { right: 0; transition: none; }
+  .app-frame:not(.is-split)[data-recall] .dock-recall.is-open { transition: none; }
+  .app-frame:not(.is-split) .dock-recall.is-right,
+  .app-frame:not(.is-split)[data-recall] .dock-recall.is-right { transform: translateY(-50%); will-change: auto; transition: right .2s cubic-bezier(.2, .8, .2, 1); }
+  .app-frame:not(.is-split) .dock-recall.is-left,
+  .app-frame:not(.is-split)[data-recall] .dock-recall.is-left { transform: translateY(-50%); will-change: auto; transition: left .2s cubic-bezier(.2, .8, .2, 1); }
+  .app-frame:not(.is-split)[data-recall] .dock-recall.is-right.is-open { right: var(--dock-w); transition: none; }
+  .app-frame:not(.is-split)[data-recall] .dock-recall.is-left.is-open { left: var(--dock-w); transition: none; }
+}
+@media (width >= 1100px) and (prefers-reduced-motion: reduce) {
+  .app-frame:not(.is-split) :is(.rail, .side-dock, .dock-recall) { transition: none !important; }
+}
+
+/* The Me deben · Debo scale sits centred in the top bar (shell.tsx portals it into .top-scale). */
+.top-scale { display: none; }
+@media (width >= 1100px) and (height >= 600px) {
+  .app-frame:not(.is-split) .top-chrome > .top-scale:not(:empty) {
+    display: block;
+    position: absolute;
+    z-index: 3;
+    left: 0;
+    right: 0;
+    top: 50%;
+    width: min(460px, 34vw);
+    margin: -27px auto 0;
+  }
+  .app-frame:not(.is-split) .top-chrome > .top-scale > .debt-scale { margin: 0; }
+}
+
+@media (width >= 1100px) {
+  /* Book cards: rows flow in columns instead of one 1800px line with the amount far from its name. */
+  .app-frame:not(.is-split) .swipe-pane section.card.income-book:has(> .line-stack) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+    column-gap: 32px;
+    align-items: start;
+  }
+  .app-frame:not(.is-split) .swipe-pane section.card.income-book:has(> .line-stack) > :not(.line-stack) { grid-column: 1 / -1; }
+  .app-frame:not(.is-split) .swipe-pane section.card.income-book > .line-stack:has(.line-edit) { grid-column: 1 / -1; }
+
+  /* Bubble books (Fijos, Variables) in a full-width card: twice the columns, so each bubble is half as wide. */
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:not(:has(> section.card + section.card)) .spend-cloud { grid-template-columns: repeat(24, minmax(0, 1fr)); }
+
+  /* Savings books (Ahorros, Meta, Retiro, Emergencia): controls on the left, the list on the right. */
+  .app-frame:not(.is-split) .swipe-pane .save-band.is-records {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 16px;
+    align-items: start;
+  }
+  .app-frame:not(.is-split) .swipe-pane .save-band.is-records > .vault-block { grid-column: 1; }
+  .app-frame:not(.is-split) .swipe-pane .save-band.is-records > .vault-block:has(> .save-flow, > .save-view) { grid-column: 2; grid-row: 1 / span 3; }
+}
+
+@media (width >= 1100px) {
+  /* Me deben · Debo on the wide screen: the net balance sits next to its label; the Cuotas · Préstamos tabs stay
+     together in the middle; the book flows in two balanced columns (lists, archive, plan, chart) under its header. */
+  .app-frame:not(.is-split) .swipe-pane .debt-book > .debt-net { grid-template-columns: auto auto; justify-content: start; column-gap: 18px; }
+  .app-frame:not(.is-split) .swipe-pane .debt-book > .debo-tabs { width: min(100%, 760px); margin-inline: auto; }
+  .app-frame:not(.is-split) .swipe-pane .debt-book .cobro-swap { display: block; columns: 2; column-gap: 20px; }
+  .app-frame:not(.is-split) .swipe-pane .debt-book .cobro-swap > * { break-inside: avoid; margin: 0 0 12px; }
+  .app-frame:not(.is-split) .swipe-pane .debt-book .cobro-swap > :is(.cobro-top, .debo-sum) { column-span: all; }
+
+  /* Pen and mouse: rows answer the hover, so the S-Pen shows which row a tap will open. */
+  @media (any-hover: hover) {
+    .app-frame:not(.is-split) .swipe-pane :is(.line-row, .save-flow-row, .save-view-row, .board-line):hover { background: color-mix(in oklab, var(--fg) 5%, transparent); border-radius: 8px; }
+  }
+}
+
+/* Landscape tablets 1600+ wide: both edge docks stay open as side panels (no drawer to pull); the 104px each
+   still leaves 1760px for the page. Below 1600 (portrait, smaller tablets) the away dock is the drawer again. */
+@media (width >= 1600px) and (height >= 600px) {
+  .app-frame:not(.is-split).is-hide-left .rail,
+  .app-frame:not(.is-split).is-hide-right .side-dock {
+    position: sticky;
+    top: 0;
+    transform: none;
+    pointer-events: auto;
+    width: var(--dock-w);
+    height: 100dvh;
+    contain: none;
+    will-change: auto;
+    box-shadow: none;
+    left: auto;
+    right: auto;
+    transition: none;
+  }
+  .app-frame:not(.is-split) > .rail { grid-column: 1; }
+  .app-frame:not(.is-split) .dock-recall { display: none; }
+}
+
+/* ---------- 1.3.114: nothing runs edge to edge on a tablet ---------- */
+@media (width >= 1100px) and (height >= 600px) {
+  /* Central: the money strips and Ahorros on the left, the month board on the right. */
+  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane) { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; column-gap: 16px; }
+  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane) > :not(.swipe-pane) { grid-column: 1; }
+  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane) > section.swipe-pane.span-all { grid-column: 2; grid-row: 1 / span 6; margin-top: 0; }
+  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane) .lenses { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  /* A book with its comparison pane (book-side.tsx): the book, and beside it this month against last month. */
+  .app-frame:not(.is-split) .swipe-pane.has-side { display: grid; grid-template-columns: minmax(0, 13fr) minmax(300px, 9fr); column-gap: 16px; align-items: start; }
+  .app-frame:not(.is-split) .swipe-pane.has-side > :first-child { min-width: 0; }
+  .book-side { position: sticky; top: 140px; display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); min-width: 0; }
+  .book-side .bs-head { display: grid; gap: 2px; }
+  .book-side .bs-kick { font-size: .72rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .book-side .bs-total { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .book-side .bs-total strong { font-size: 1.5rem; font-weight: 650; letter-spacing: -.02em; }
+  .book-side .bs-total em { font-style: normal; font-weight: 650; font-size: .95rem; }
+  .book-side .bs-was { font-size: .82rem; color: var(--muted); }
+  .book-side .bs-was b { color: var(--fg); font-weight: 600; }
+  .book-side [data-tone="good"] { color: var(--good); }
+  .book-side [data-tone="bad"] { color: var(--bad); }
+  .book-side [data-tone="zero"] { color: var(--muted); }
+  .book-side .bs-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+  .book-side .bs-rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 4px 14px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .book-side .bs-name { font-weight: 600; overflow-wrap: anywhere; }
+  .book-side .bs-tag { margin-left: 6px; padding: 0 6px; border-radius: 999px; font-style: normal; font-size: .68rem; font-weight: 650; color: var(--muted); border: 1px solid var(--line); }
+  .book-side .bs-pair { font-size: .82rem; color: var(--muted); white-space: nowrap; }
+  .book-side .bs-rows b { font-weight: 650; white-space: nowrap; }
+  .book-side .bs-foot { margin: 0; font-size: .82rem; color: var(--muted); }
+  [data-theme="tron"] .book-side { border-radius: 10px; background: rgba(0, 0, 0, .45); border-color: rgba(120, 225, 250, .18); }
+  [data-theme="tron"] .book-side .bs-kick { font-family: var(--t-display); color: #7fa6b0; }
+  [data-theme="tron"] .book-side [data-tone="good"] { color: #3fd6f5; }
+  [data-theme="tron"] .book-side [data-tone="bad"] { color: #e8a54a; }
+}
+@media (width >= 1100px) and (height >= 600px) {
+  /* Debo → Cuotas: the list and, beside it, what is due next (DueSide). */
+  .app-frame:not(.is-split) .swipe-pane .debt-dues:has(> .due-side) { display: grid; grid-template-columns: minmax(0, 13fr) minmax(300px, 9fr); column-gap: 16px; align-items: start; }
+  .book-side [data-tone="warn"] { color: var(--warn); }
+  /* Sibling books (Ingresos fijos + variables, Gastos variables + Personas) side by side from 1100 (portrait too). */
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> section.card + section.card) { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> section.card + section.card) > section.card { margin-top: 0; }
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> section.card + section.card) > :not(section.card) { grid-column: 1 / -1; }
+}
+@media (width >= 1100px) and (height >= 600px) and (orientation: portrait) {
+  /* Portrait (1200 wide): the pane goes under the book's head row instead of squeezing the book. */
+  .app-frame:not(.is-split) .swipe-pane.has-side { grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr); }
 }

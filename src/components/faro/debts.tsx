@@ -15,6 +15,7 @@ import { Hint } from "./hint";
 import { Note } from "./finish";
 import { useLayer } from "@/lib/manual/back";
 import { CobroSpan, Subs } from "./screens";
+import { DueSide, useTabletOne } from "./book-side";
 import { FreqPick } from "./fit-pick";
 import { freqPresetsOf, cadenceLabel } from "@/lib/faro/cadence";
 import { DeboSum, DueLoans, LoanCard, LoanForm, deboTabNow, type LoanDraft } from "./loans";
@@ -432,6 +433,7 @@ export function PayoffPlan() {
 /* ---------- Debo in Libros ---------- */
 
 export function OweBook() {
+  const tabletOne = useTabletOne();
   const { session, fmt, lang, summary } = useFaro();
   const L = useL();
   const owe = netBalance(session?.ledger).owe;
@@ -506,7 +508,7 @@ export function OweBook() {
           <Hint topic="prestamos" />
         </span>
       </div>
-      {tab === "dues" ? <div className={`debt-dues${flip ? " is-flip" : ""}`} data-anchor="debt-dues" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}><Subs /></div> : (
+      {tab === "dues" ? <div className={`debt-dues${flip ? " is-flip" : ""}`} data-anchor="debt-dues" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}><Subs />{tabletOne ? <DueSide /> : null}</div> : (
         <div className={`debt-loans${flip ? " is-flip" : ""}`} data-anchor="debt-loans" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}>
           <DueLoans libros onWho={openFor} facts={loanFacts} between={<><PayoffPlan /><DebtChart /></>} />
         </div>

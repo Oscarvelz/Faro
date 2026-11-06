@@ -1,4 +1,5 @@
 import { useScreenEntrance } from "./entrance";
+import { createPortal } from "react-dom";
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { SampleEdge, SamplePill } from "./sample-mode";
 import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
@@ -14,6 +15,7 @@ import { convertMinor } from "@/lib/faro/money";
 import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId } from "@/lib/faro/types";
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
+import { BookSide, useTabletOne, type SideBook } from "./book-side";
 import { DebtBook, DebtScale, debtHello, preferOweTab, type DebtSide } from "./debts";
 import { markRing, ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 import { lentOf, lentState } from "@/lib/faro/debts";
@@ -154,7 +156,13 @@ export function Shell() {
     if (open) f.dataset.recall = "1"; else delete f.dataset.recall;
     const btn = f.querySelector<HTMLButtonElement>(".dock-recall");
     if (btn) { btn.classList.toggle("is-open", open); btn.setAttribute("aria-expanded", open ? "true" : "false"); btn.setAttribute("aria-label", btn.dataset[open ? "hide" : "show"] || ""); }
+    // 1.3.114: a slide that never got going (still pending a start time) is finished, so the drawer is always where data-recall says.
+    window.clearTimeout(recallKick.current);
+    recallKick.current = window.setTimeout(() => {
+      for (const el of f.querySelectorAll<HTMLElement>(".rail, .side-dock, .dock-recall")) for (const a of el.getAnimations()) if (a.pending || a.currentTime === 0) a.finish();
+    }, 260);
   }, []);
+  const recallKick = useRef(0);
   const moneyPanel = useRef<HTMLElement>(null);
   const moneyDock = useRef<HTMLButtonElement>(null);
   const railRef = useRef<HTMLElement>(null);
@@ -784,6 +792,7 @@ export function Shell() {
         <div ref={topPaneRef} className={split ? "split-pane" : "stage-pane"} style={split ? { flex: `0 0 ${draggingRef.current ? liveRatio.current : splitRatio}%` } : undefined}>
         <header className="top-chrome">
           <SampleEdge />
+          <div className="top-scale" />
           <div className="top-row">
             <button type="button" className="brand-mini" data-anchor="top-brand" onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
               <span className="brand-lamp" aria-hidden>
@@ -1377,6 +1386,23 @@ function useVaultHello(vaultRef: React.RefObject<HTMLDivElement | null>) {
 
 /** Libros: top row (four books), middle row (Me deben · Debo), bottom row (savings), then the chosen pane. Shared by the
  *  main view and the split/float panes. `vault` holds the lower rows' choice (savings tab or debt side). */
+const TOP_SCALE_MQ = "(min-width: 1100px) and (min-height: 600px)";
+function useTopScaleSlot(): HTMLElement | null {
+  const find = () => (typeof window !== "undefined" && window.matchMedia(TOP_SCALE_MQ).matches ? document.querySelector<HTMLElement>(".app-frame:not(.is-split) .top-chrome > .top-scale") : null);
+  const [slot, setSlot] = useState<HTMLElement | null>(find);
+  useLayoutEffect(() => {
+    const mq = window.matchMedia(TOP_SCALE_MQ);
+    const pick = () => setSlot(find());
+    pick();
+    mq.addEventListener("change", pick);
+    const f = document.querySelector(".app-frame");
+    const mo = f ? new MutationObserver(pick) : null;
+    if (f && mo) mo.observe(f, { attributes: true, attributeFilter: ["class"], childList: true, subtree: false });
+    return () => { mq.removeEventListener("change", pick); mo?.disconnect(); };
+  }, []);
+  return slot && slot.isConnected ? slot : null;
+}
+
 function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors = false }: {
   vault: VaultTab | null; onVault: (next: VaultTab | null) => void; segRef: React.RefObject<HTMLDivElement | null>; vaultRef: React.RefObject<HTMLDivElement | null>;
   slideDir: number; onSlide: (dir: number) => void; anchors?: boolean;
@@ -1392,6 +1418,17 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   const lastPane = useRef(paneKey);
   const swapped = useRef(false);
   if (lastPane.current !== paneKey) { lastPane.current = paneKey; swapped.current = true; }
+  // 1.3.114: on a tablet (one pane, >= 1100 wide) the scale lives centred in the top bar; below it stays above the books.
+  const topScale = useTopScaleSlot();
+  const tabletOne = useTabletOne();
+  const sideBook: SideBook | null = !tabletOne || debt ? null : save ? "save" : ui.section === "fixed" ? "fixed" : ui.section === "shops" ? "shops" : null;
+  const scale = (
+    <DebtScale value={debt} onPick={(side) => {
+      if (debt && debt !== side) onSlide(side === "owe" ? 1 : -1);
+      if (side === "owe" && ui.section === "subs" && !vault) return;
+      onVault(side);
+    }} />
+  );
   return (
     <>
       <div className="seg is-follow is-four" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor={anchors ? "books-tabs" : undefined}>
@@ -1403,11 +1440,7 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
           </button>
         ))}
       </div>
-      <DebtScale value={debt} onPick={(side) => {
-        if (debt && debt !== side) onSlide(side === "owe" ? 1 : -1);
-        if (side === "owe" && ui.section === "subs" && !vault) return;
-        onVault(side);
-      }} />
+      {topScale ? createPortal(scale, topScale) : scale}
       <div className="vault-bar" ref={vaultRef} data-anchor={anchors ? "vault-tabs" : undefined} style={{ ["--vault" as string]: save ? VAULT.indexOf(save) : 0, ["--vtint" as string]: save === "meta" ? vtint("#8fb9a6") : save === "retiro" ? vtint("#72b4b2") : save === "emergencia" ? vtint("#7aa2c4") : save === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
         <i className={`vault-glide${save ? " is-on" : ""}${save === "save" ? " is-save" : ""}`} aria-hidden />
         {VAULT.map((id) => (
@@ -1423,8 +1456,9 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
         ))}
         {anchors ? <Hint topic="ahorros-tabs" className="is-tabs" corner overlay /> : null}
       </div>
-      <div key={paneKey} className={`swipe-pane${save || debt ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
+      <div key={paneKey} className={`swipe-pane${save || debt ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}${sideBook ? " has-side" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
         {debt ? <DebtBook side={debt} /> : save ? <Desk focus={save} /> : ui.section === "shops" ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
+        {sideBook ? <BookSide book={sideBook} /> : null}
       </div>
     </>
   );
