@@ -183,6 +183,19 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
     if (editing) { setEditing(false); setSel(new Set()); setPaint(null); }
     swap(!lookOn);
   };
+  // 1.3.116: the palette with nothing ticked says what to do (a short note above the sheet) and nudges the checkboxes.
+  const [hint, setHint] = useState<{ top?: number; bottom?: number } | null>(null);
+  const [nudge, setNudge] = useState(0);
+  const hintTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(hintTimer.current), []);
+  const nudgeTicks = () => {
+    const r = sheetRef.current?.getBoundingClientRect();
+    // Its bottom 8 px above the sheet when there is room (two lines at large text too), else just under the sheet's head.
+    setHint(!r ? { top: 16 } : r.top >= 110 ? { bottom: Math.round(innerHeight - r.top + 8) } : { top: Math.round(r.top + 56) });
+    setNudge((n) => n + 1);
+    window.clearTimeout(hintTimer.current);
+    hintTimer.current = window.setTimeout(() => setHint(null), 2600);
+  };
   const needle = normName(q);
   const shown = needle ? items.filter((it) => normName(it.label).includes(needle)) : items;
   const sections = groups?.length
@@ -213,7 +226,8 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
   };
   const body = (
     <div className="fit-scrim" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div ref={sheetRef} className={`fit-sheet${editing ? " is-editing" : ""}${lookView ? " is-look" : ""}`} role="dialog" aria-modal="true" aria-label={title} data-test={test} onPointerDown={(e) => e.stopPropagation()}>
+      {hint ? <div className="pp-toast fit-toast" role="status" data-test="kit-tick-hint" style={hint.bottom != null ? { bottom: hint.bottom } : { top: hint.top }}>{L(lang, "Marca primero lo que quieres cambiar", "Tick what you want to change first")}</div> : null}
+      <div ref={sheetRef} className={`fit-sheet${editing ? " is-editing" : ""}${lookView ? " is-look" : ""}${hint ? " is-nudge" : ""}`} data-nudge={nudge % 2} role="dialog" aria-modal="true" aria-label={title} data-test={test} onPointerDown={(e) => e.stopPropagation()}>
         <div className="fit-sheet-head">
           <strong>{title}</strong>
           {look && !lookOnly ? (
@@ -223,7 +237,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
             </button>
           ) : null}
           {onPalette && editing ? (
-            <button type="button" className="fit-sheet-tool is-pal" data-test="kit-sheet-pal" disabled={!sel.size} aria-label={L(lang, "Color e íconos", "Colour and icons")} title={L(lang, "Color e íconos", "Colour and icons")} onClick={() => onPalette([...sel])}>
+            <button type="button" className="fit-sheet-tool is-pal is-kit-pal" data-test="kit-sheet-pal" aria-label={L(lang, "Color e íconos", "Colour and icons")} title={L(lang, "Color e íconos", "Colour and icons")} onClick={() => (sel.size ? onPalette([...sel]) : nudgeTicks())}>
               <Palette aria-hidden />
             </button>
           ) : null}
