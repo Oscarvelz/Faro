@@ -415,3 +415,12 @@
 - Files: src/components/faro/fit-pick.tsx, fit-form.css, src/lib/manual/topics.ts, public/sw.js. Published from a clean clone of `source` (1.3.115).
 - Tests: tsc 5 known; npm test 59/59 + test:faro 53/53; t115 + new case (pencil → nothing ticked → palette: button not disabled, note visible on screen, clear of the sheet, no wrap clip, checkbox nudge animation applied, no colour sheet, rows 0 px shift) ALL PASS Tron 412 (11 books), Claro 360r20 (11 books), tablet Tron 1850×1155 (11 books), run in parts; bk-back ALL PASS. drop95c not completed: the shared box was at load 30 and it hit the 118 s cap twice (change does not touch Libros swipes/layout). Shots browser-test/t115/nudge-*.png. Seen (not touched, phone frozen): at Claro 360r20 "Seleccionar todo" runs into the Borrar button in the pencil sheet (1.3.115). Self-review only.
 - 1.3.116 hashes: main 643e41e, source bedb525.
+
+## 1.3.117 (2026-11-06) main fd775d6 — Asesor rules: small exact checks on his own books
+- New src/lib/faro/rules.ts (+ rules.test.ts, advisor.test.ts in test:faro): 7 read-only rules (category, outlier, recurring, due, cushion, goal, pace), each with one backing number (integer minor units), its help topic and one place to go. A rule with too little history says nothing.
+- Asesor RulesCard (advisor2.tsx/.css, anchor advice-rules): one row per rule (title, kicker, number + (?)), tap → its line/book/place, Back returns to the Asesor; closed card shows a one-line teaser. i18n advice.rule.go.
+- Manual topics numeros-asesor + regla-categoria/atipico/cargos/pagos/colchon/meta/ritmo (ES+EN); links anchor advice-rules.
+- advisor/coach/engine/cadence fixes; provider lazy + memo; readAdvisor cache (browser only).
+- Files: rules.ts, rules.test.ts, advisor.ts, coach.ts, engine.ts, cadence.ts, i18n.ts, advisor2.tsx, advisor2.css, provider.tsx, screens.tsx, manual/topics.ts, manual/links.ts, package.json, public/sw.js. Published from a clean clone of `source` (1.3.116, e118bbc; source had not moved).
+- Tests on the final build: tsc 5 known; npm test 94/94 + test:faro 94/94; a117 ALL PASS Tron 412 (A+B), Claro 360r20 (A+B, + EN A), Tron 1970×1200 (A); t110 Tron 412 A + C ALL PASS, B six checks PASS (B1–B6; run cut by the time limit, last lines not seen); bk-back ALL PASS. Self-checked only, no independent review.
+- 1.3.117 hashes: main fd775d6, source 76a7ec9.
