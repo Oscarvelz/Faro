@@ -99,6 +99,17 @@ const LEFT_DOCK: DockStop[] = [
   { kind: "section", id: "settings" },
 ];
 const RIGHT_DOCK: DockStop[] = [...BOOKS, ...STUDY].map((id) => ({ kind: "section" as const, id }));
+/** 1.3.119: both bands as one swipe loop on a tablet/desktop (left band, then right band, wrapping). */
+const DOCK_RING: DockStop[] = [...LEFT_DOCK, ...RIGHT_DOCK];
+const TABLET_RING_MQ = "(min-width: 1100px)";
+function dockRingIndex(moneyOpen: boolean, vault: VaultTab | null, section: SectionId): number {
+  // Me deben / Debo are not dock buttons: they sit with Cuotas (right band), so the loop goes on from there.
+  const i = DOCK_RING.findIndex((stop) => moneyOpen ? stop.kind === "money"
+    : vault === "owed" || vault === "owe" ? stop.kind === "section" && stop.id === "subs"
+    : vault ? stop.kind === "vault" && stop.id === vault
+    : stop.kind === "section" && stop.id === section);
+  return Math.max(0, i);
+}
 const SYNC_KEY = {
   offline: "sync.offline",
   syncing: "sync.syncing",
@@ -1104,6 +1115,26 @@ if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .sea
               if (!start) return;
               const dx = e.clientX - start.x;
               const dy = e.clientY - start.y;
+              if (!split && window.matchMedia(TABLET_RING_MQ).matches) {
+                // 1.3.119 tablet/desktop (one pane, >= 1100 wide): a swipe walks every option of both bands as one loop
+                // (left band top to bottom, then the right band, then back to the left). The band of the screen shown is the
+                // docked one (homeSide), so crossing the end of one band opens the other and puts the first behind its tab.
+                // (Estudio, Asesor and Ajustes never set an axis on move, so the release itself decides there.)
+                const flat = start.type === "mouse" ? Math.abs(dx) >= 36 && Math.abs(dx) >= Math.abs(dy) : start.axis !== "y" && Math.abs(dx) >= 40 && Math.abs(dx) >= Math.abs(dy) * 1.3;
+                if (!flat) { if (start.axis === "x") dragPane(start.el, null); return; }
+                swiped.current = true;
+                const dir = dx < 0 ? 1 : -1;
+                const at = dockRingIndex(moneyOpen, vault, ui.section);
+                const next = DOCK_RING[(at + dir + DOCK_RING.length) % DOCK_RING.length]!;
+                const el = start.el;
+                setSlideDir(dir);
+                setRecall(false);
+                if (next.kind === "money") setMoneyOpen(true);
+                else if (next.kind === "vault") { setMoneyOpen(false); setUi({ ...(hub === "books" && ui.section !== "subs" ? {} : { section: "income" as SectionId }), vault: next.id }); }
+                else { setMoneyOpen(false); setUi({ section: next.id, vault: null }); }
+                window.setTimeout(() => dragPane(el, null), 0); // a panel that stays (same node kept) springs back
+                return;
+              }
               if (hub === "desk" && start.type !== "mouse") {
                 // Touch on Central: one ring through Tengo · Gastaré · Pagos · Meta · Retiro · Emergencia (Desk does the step).
                 if (start.axis !== "x" || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) { if (start.axis === "x") dragPane(start.el, null); return; }
