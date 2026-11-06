@@ -10,6 +10,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, ChevronDown, Plus, Scale, X } from "lucide-react";
 import "./debts.css";
+import "./top-scale.css";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { Note } from "./finish";
@@ -82,12 +83,46 @@ function takeHello(side: DebtSide): boolean {
 }
 const HELLO: Record<DebtSide, string> = { owe: ".debo-tab", owed: ".debt-book > .cobro-swap > .cobro-top, .debt-book .cobro-group" };
 
-export function DebtScale({ value, onPick }: { value: DebtSide | null; onPick: (side: DebtSide) => void }) {
+export function DebtScale({ value, onPick, top = false }: { value: DebtSide | null; onPick: (side: DebtSide) => void; top?: boolean }) {
   const { session, fmt } = useFaro();
   const L = useL();
   const n = netBalance(session?.ledger);
   const root = useRef<HTMLDivElement>(null);
   const [tap, setTap] = useState<{ side: DebtSide; x: number; y: number; n: number } | null>(null);
+  // 1.3.120 (tablet/desktop top bar): at rest only the scale emblem shows; a tap slides Me deben · Debo out from behind it.
+  // Open is its own layer (one Back entry); the emblem again, Back or a tap outside folds them back in.
+  const [open, setOpen] = useState(false);
+  const [poke, setPoke] = useState(0);
+  useLayer(top && open, () => setOpen(false));
+  // A compositor transition that never got a start time (Chrome, nothing else repainting) would leave the halves at their
+  // start (1.3.114 drawer lesson): anything still pending shortly after the tap is finished, so they are always where the state says.
+  const firstFold = useRef(true);
+  useEffect(() => {
+    if (!top) return;
+    if (firstFold.current) { firstFold.current = false; return; }
+    // A second look after the longest transition (.5s + .04s delay) finishes any that a busy main thread left behind.
+    const settle = (all: boolean) => () => {
+      const el = root.current;
+      if (!el) return;
+      for (const a of el.getAnimations({ subtree: true })) {
+        if (!(a instanceof CSSTransition)) continue;
+        if (all || a.pending || a.currentTime === 0 || a.currentTime === null) a.finish();
+      }
+    };
+    const id = window.setTimeout(settle(false), 140);
+    const late = window.setTimeout(settle(true), 720);
+    return () => { window.clearTimeout(id); window.clearTimeout(late); };
+  }, [top, open]);
+  useEffect(() => {
+    if (!top || !open) return;
+    const away = (e: Event) => {
+      const t = e.target as Element | null;
+      if (!t || !t.isConnected || root.current?.contains(t) || t.closest('[role="dialog"], .ftip-pop, .ask-back')) return;
+      setOpen(false);
+    };
+    document.addEventListener("click", away, true);
+    return () => document.removeEventListener("click", away, true);
+  }, [top, open]);
   useEffect(() => {
     let clear = 0;
     const on = (e: Event) => {
@@ -112,22 +147,62 @@ export function DebtScale({ value, onPick }: { value: DebtSide | null; onPick: (
     onPick(side);
   };
   const bloom = (side: DebtSide) => (tap?.side === side ? <span key={tap.n} className="ds-bloom" aria-hidden style={{ left: tap.x, top: tap.y }} /> : null);
+  const shut = top && !open;
+  const hide = shut ? { tabIndex: -1, "aria-hidden": true as const } : {};
   return (
-    <div ref={root} className="debt-scale" data-on={value ?? undefined} data-tap={tap?.side} data-tapn={tap ? tap.n % 2 : undefined} role="tablist" aria-label={L("Deudas", "Debts")} data-anchor="debt-scale" style={{ ["--lean" as string]: `${lean.toFixed(2)}deg` }}>
+    <div ref={root} className={`debt-scale${top ? " is-top" : ""}`} data-on={value ?? undefined} data-tap={tap?.side} data-tapn={tap ? tap.n % 2 : undefined} data-fold={top ? (open ? "open" : "shut") : undefined} data-has-in={top && n.owed > 0 ? "" : undefined} data-has-owe={top && n.owe > 0 ? "" : undefined} role="tablist" aria-label={L("Deudas", "Debts")} data-anchor="debt-scale" style={{ ["--lean" as string]: `${lean.toFixed(2)}deg` }}>
+      {top ? <><i className="ds-shell is-l" aria-hidden /><i className="ds-shell is-r" aria-hidden /></> : null}
       <i className="debt-plate" aria-hidden />
-      <button type="button" role="tab" data-side="owed" aria-selected={value === "owed"} aria-current={value === "owed" ? "page" : undefined} onClick={pick("owed")}>
+      <button type="button" role="tab" data-side="owed" aria-selected={value === "owed"} aria-current={value === "owed" ? "page" : undefined} onClick={pick("owed")} {...hide}>
         {bloom("owed")}
         <span className="ds-lab">{L("Me deben", "Owed to me")}</span>
         <b className="num">{fmt(n.owed)}</b>
       </button>
-      <span className="debt-pivot" aria-hidden><Scale /></span>
-      <button type="button" role="tab" data-side="owe" aria-selected={value === "owe"} aria-current={value === "owe" ? "page" : undefined} onClick={pick("owe")}>
+      {top ? (
+        <button type="button" className="ds-emblem" data-poke={poke ? poke % 2 : undefined} aria-expanded={open} aria-label={`${L("Deudas", "Debts")}: ${L("Me deben", "Owed to me")} ${fmt(n.owed)} · ${L("Debo", "I owe")} ${fmt(n.owe)}`} onClick={() => { setPoke((k) => k + 1); setOpen((o) => !o); }}>
+          <i className="ts-aura is-in" aria-hidden />
+          <i className="ts-aura is-owe" aria-hidden />
+          {poke ? <i key={poke} className="ts-ring" aria-hidden /> : null}
+          <ScaleEmblem lean={lean} />
+        </button>
+      ) : <span className="debt-pivot" aria-hidden><Scale /></span>}
+      <button type="button" role="tab" data-side="owe" aria-selected={value === "owe"} aria-current={value === "owe" ? "page" : undefined} onClick={pick("owe")} {...hide}>
         {bloom("owe")}
         <span className="ds-lab">{L("Debo", "I owe")}</span>
         <b className="num">{fmt(n.owe)}</b>
       </button>
       <Hint topic="deudas" className="is-scale" corner overlay />
     </div>
+  );
+}
+
+/** The top-bar emblem (1.3.120): a drawn balance scale, one stroke weight, both pans hanging straight down from the beam
+ *  ends as the beam leans toward the heavier side. Teal pan = Me deben, amber pan = Debo. 40-unit grid, crisp at any size. */
+function ScaleEmblem({ lean }: { lean: number }) {
+  const a = (lean * Math.PI) / 180, arm = 13;
+  const dx = arm - arm * Math.cos(a), dy = arm * Math.sin(a);
+  const pan = (x: number) => `M${x - 4.6} 23.2 H${x + 4.6} A4.6 3.4 0 0 1 ${x - 4.6} 23.2 Z`;
+  return (
+    <svg className="ts-scale" viewBox="0 0 40 40" aria-hidden focusable="false">
+      <g className="ts-frame">
+        <path d="M20 7.9 V32.4" />
+        <path d="M15.6 32.4 H24.4" />
+        <path d="M12.6 35.2 H27.4" />
+      </g>
+      <g className="ts-pan is-in" style={{ transform: `translate(${dx.toFixed(3)}px, ${(-dy).toFixed(3)}px)` }}>
+        <path className="ts-cord" d="M7 10.6 L2.4 23.2 M7 10.6 L11.6 23.2" />
+        <path className="ts-bowl" d={pan(7)} />
+      </g>
+      <g className="ts-pan is-owe" style={{ transform: `translate(${(-dx).toFixed(3)}px, ${dy.toFixed(3)}px)` }}>
+        <path className="ts-cord" d="M33 10.6 L28.4 23.2 M33 10.6 L37.6 23.2" />
+        <path className="ts-bowl" d={pan(33)} />
+      </g>
+      <g className="ts-beam">
+        <path d="M6.2 10.6 H33.8" />
+        <circle className="ts-pin" cx="20" cy="10.6" r="1.55" />
+      </g>
+      <circle className="ts-finial" cx="20" cy="6.2" r="1.7" />
+    </svg>
   );
 }
 

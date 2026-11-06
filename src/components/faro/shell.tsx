@@ -192,6 +192,22 @@ export function Shell() {
   const [splitAxis, setSplitAxis] = useState<"row" | "col">(() => {
     try { return localStorage.getItem("faro-split-axis") === "col" ? "col" : "row"; } catch { return "row"; }
   });
+  // 1.3.120: on a tablet/desktop (one pane, >= 1100 wide) the scale lives in the top bar on every screen (Central included).
+  // In Libros it opens Me deben / Debo below as before; elsewhere it takes you to that side in Libros.
+  const topScaleOn = useTopScaleOn(split);
+  const hubNow = hubOf(ui.section);
+  const topDebt: DebtSide | null = hubNow !== "books" ? null : vault === "owed" || vault === "owe" ? vault : !vault && ui.section === "subs" ? "owe" : null;
+  const pickTopDebt = (side: DebtSide) => {
+    if (hubNow === "books") {
+      if (topDebt && topDebt !== side) setSlideDir(side === "owe" ? 1 : -1);
+      if (side === "owe" && ui.section === "subs" && !vault) return;
+      setVault(side);
+      return;
+    }
+    setRecall(false);
+    setMoneyOpen(false);
+    setUi({ section: "income", vault: side });
+  };
   const [wide, setWide] = useState(() => window.matchMedia("(min-width: 768px) and (min-height: 500px)").matches);
   const [lower, setLower] = useState<SectionId>(() => {
     try {
@@ -806,7 +822,7 @@ export function Shell() {
         <div ref={topPaneRef} className={split ? "split-pane" : "stage-pane"} style={split ? { flex: `0 0 ${draggingRef.current ? liveRatio.current : splitRatio}%` } : undefined}>
         <header className="top-chrome">
           <SampleEdge />
-          <div className="top-scale" />
+          <div className="top-scale">{topScaleOn ? <DebtScale top value={topDebt} onPick={pickTopDebt} /> : null}</div>
           <div className="top-row">
             <button type="button" className="brand-mini" data-anchor="top-brand" onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
               <span className="brand-lamp" aria-hidden>
@@ -1203,7 +1219,7 @@ if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .sea
             }}
           >
             {hub === "books" ? (
-              <BooksHub vault={vault} onVault={setVault} segRef={segRef} vaultRef={vaultRef} slideDir={slideDir} onSlide={setSlideDir} anchors />
+              <BooksHub vault={vault} onVault={setVault} segRef={segRef} vaultRef={vaultRef} slideDir={slideDir} onSlide={setSlideDir} anchors bar />
             ) : null}
             {hub === "study" ? (
               <div className="pane">
@@ -1421,6 +1437,17 @@ function useVaultHello(vaultRef: React.RefObject<HTMLDivElement | null>) {
 /** Libros: top row (four books), middle row (Me deben · Debo), bottom row (savings), then the chosen pane. Shared by the
  *  main view and the split/float panes. `vault` holds the lower rows' choice (savings tab or debt side). */
 const TOP_SCALE_MQ = "(min-width: 1100px) and (min-height: 600px)";
+function useTopScaleOn(split: boolean): boolean {
+  const [on, setOn] = useState(() => typeof window !== "undefined" && window.matchMedia(TOP_SCALE_MQ).matches);
+  useLayoutEffect(() => {
+    const mq = window.matchMedia(TOP_SCALE_MQ);
+    const pick = () => setOn(mq.matches);
+    pick();
+    mq.addEventListener("change", pick);
+    return () => mq.removeEventListener("change", pick);
+  }, []);
+  return on && !split;
+}
 function useTopScaleSlot(): HTMLElement | null {
   const find = () => (typeof window !== "undefined" && window.matchMedia(TOP_SCALE_MQ).matches ? document.querySelector<HTMLElement>(".app-frame:not(.is-split) .top-chrome > .top-scale") : null);
   const [slot, setSlot] = useState<HTMLElement | null>(find);
@@ -1437,9 +1464,9 @@ function useTopScaleSlot(): HTMLElement | null {
   return slot && slot.isConnected ? slot : null;
 }
 
-function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors = false }: {
+function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors = false, bar = false }: {
   vault: VaultTab | null; onVault: (next: VaultTab | null) => void; segRef: React.RefObject<HTMLDivElement | null>; vaultRef: React.RefObject<HTMLDivElement | null>;
-  slideDir: number; onSlide: (dir: number) => void; anchors?: boolean;
+  slideDir: number; onSlide: (dir: number) => void; anchors?: boolean; bar?: boolean;
 }) {
   const { t, ui, setUi } = useFaro();
   const debt: DebtSide | null = vault === "owed" || vault === "owe" ? vault : !vault && ui.section === "subs" ? "owe" : null;
@@ -1453,6 +1480,7 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   const swapped = useRef(false);
   if (lastPane.current !== paneKey) { lastPane.current = paneKey; swapped.current = true; }
   // 1.3.114: on a tablet (one pane, >= 1100 wide) the scale lives centred in the top bar; below it stays above the books.
+  // 1.3.120: the Shell draws it there itself (on every screen), so the main view's hub leaves it out; split/float panes keep theirs.
   const topScale = useTopScaleSlot();
   const tabletOne = useTabletOne();
   const sideBook: SideBook | null = !tabletOne || debt ? null : save ? "save" : ui.section === "fixed" ? "fixed" : ui.section === "shops" ? "shops" : null;
@@ -1474,7 +1502,7 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
           </button>
         ))}
       </div>
-      {topScale ? createPortal(scale, topScale) : scale}
+      {bar && topScale ? null : scale}
       <div className="vault-bar" ref={vaultRef} data-anchor={anchors ? "vault-tabs" : undefined} style={{ ["--vault" as string]: save ? VAULT.indexOf(save) : 0, ["--vtint" as string]: save === "meta" ? vtint("#8fb9a6") : save === "retiro" ? vtint("#72b4b2") : save === "emergencia" ? vtint("#7aa2c4") : save === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
         <i className={`vault-glide${save ? " is-on" : ""}${save === "save" ? " is-save" : ""}`} aria-hidden />
         {VAULT.map((id) => (

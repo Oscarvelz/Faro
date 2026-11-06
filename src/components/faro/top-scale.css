@@ -1,0 +1,154 @@
+/* 1.3.120 — the scale in the tablet/desktop top bar (DebtScale top). At rest only the emblem shows, a little larger than the
+   pivot, breathing a soft glow in its own colours (teal side = Me deben, amber side = Debo; a side with amounts glows more).
+   A tap on it slides the two halves of the original scale out from behind it, each with one light sweep in its colour.
+   Only opacity and transform move (compositor); the bar never changes size. Phones never mount it (shell.tsx). */
+.debt-scale.is-top {
+  --ts-slide: 56px;
+  --ts-disc: 46px;
+  --ts-ink: color-mix(in oklab, var(--fg) 78%, var(--surface));
+  grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
+  min-height: 54px;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+/* The two halves of the pill: the old background, split at the emblem so each can slide out on its own. */
+.ds-shell {
+  position: absolute; z-index: 0; top: 0; bottom: 0; pointer-events: none; overflow: hidden;
+  background: color-mix(in oklab, var(--surface) 86%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--fg) 9%, var(--line));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 14%, transparent);
+  transition: transform .5s cubic-bezier(.2, .9, .25, 1), opacity .32s ease;
+}
+.ds-shell.is-l { left: 0; right: 50%; border-right: 0; border-radius: 18px 0 0 18px; }
+.ds-shell.is-r { left: 50%; right: 0; border-left: 0; border-radius: 0 18px 18px 0; }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .ds-shell { background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
+[data-theme="tron"] .ds-shell { background: rgba(0, 0, 0, .45); border-color: rgba(120, 225, 250, .18); box-shadow: inset 0 0 0 1px rgba(120, 225, 250, .06); }
+[data-theme="tron"] .ds-shell.is-l { border-radius: 10px 0 0 10px; }
+[data-theme="tron"] .ds-shell.is-r { border-radius: 0 10px 10px 0; }
+/* The light sweep: one pass from the emblem outward, in the side's colour, each time the halves come out. */
+.ds-shell::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 46%; opacity: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--tone) 34%, transparent) 50%, transparent);
+}
+.ds-shell.is-l { --tone: var(--in); }
+.ds-shell.is-r { --tone: var(--owe); }
+.ds-shell.is-l::after { right: 0; }
+.ds-shell.is-r::after { left: 0; }
+.debt-scale.is-top[data-fold="open"] .ds-shell.is-l::after { animation: ts-sweep-l .9s cubic-bezier(.3, .6, .3, 1) .08s both; }
+.debt-scale.is-top[data-fold="open"] .ds-shell.is-r::after { animation: ts-sweep-r .9s cubic-bezier(.3, .6, .3, 1) .08s both; }
+@keyframes ts-sweep-l { 0% { transform: translateX(10%); opacity: 0; } 18% { opacity: 1; } 100% { transform: translateX(-230%); opacity: 0; } }
+@keyframes ts-sweep-r { 0% { transform: translateX(-10%); opacity: 0; } 18% { opacity: 1; } 100% { transform: translateX(230%); opacity: 0; } }
+[data-theme="tron"] .ds-shell::after { background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--tone) 55%, transparent) 50%, transparent); }
+
+/* Folded: the halves wait behind the emblem (faded, drawn in toward it), and take no taps. */
+.debt-scale.is-top[data-fold="shut"] { pointer-events: none; }
+.debt-scale.is-top[data-fold="shut"] > .ds-emblem { pointer-events: auto; }
+.debt-scale.is-top > button[data-side] { transition: transform .5s cubic-bezier(.2, .9, .25, 1), opacity .32s ease, color .3s ease; }
+.debt-scale.is-top[data-fold="shut"] .ds-shell.is-l,
+.debt-scale.is-top[data-fold="shut"] > button[data-side="owed"] { opacity: 0; transform: translateX(var(--ts-slide)) scale(.94); }
+.debt-scale.is-top[data-fold="shut"] .ds-shell.is-r,
+.debt-scale.is-top[data-fold="shut"] > button[data-side="owe"] { opacity: 0; transform: translateX(calc(var(--ts-slide) * -1)) scale(.94); }
+.debt-scale.is-top[data-fold="shut"] > .debt-plate,
+.debt-scale.is-top[data-fold="shut"]::before,
+.debt-scale.is-top[data-fold="shut"] > .hint { opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility 0s .2s; }
+.debt-scale.is-top[data-fold="open"] > .hint { transition: opacity .3s ease .25s; }
+.debt-scale.is-top[data-fold="open"] > button[data-side] { opacity: 1; transform: none; }
+.debt-scale.is-top[data-fold="open"] > button[data-side]:active { transform: scale(.97); transition-duration: .18s; }
+/* Opening: the halves come out a beat after the emblem answers; closing: they go straight back in. */
+.debt-scale.is-top[data-fold="open"] .ds-shell,
+.debt-scale.is-top[data-fold="open"] > button[data-side] { transition-delay: .04s; }
+/* Plate and beam for the wider middle (54px instead of 34px). */
+.debt-scale.is-top .debt-plate { width: calc((100% - 6px - 54px) / 2); }
+.debt-scale.is-top[data-on="owe"] .debt-plate { transform: translateX(calc(100% + 54px)); }
+.debt-scale.is-top::before { left: calc(50% - 64px); right: calc(50% - 64px); }
+
+/* ---------- the emblem ---------- */
+.debt-scale.is-top > .ds-emblem {
+  position: relative; z-index: 2; align-self: center; justify-self: center; overflow: visible; isolation: isolate;
+  width: var(--ts-disc); height: var(--ts-disc); min-width: 0; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; cursor: pointer;
+  color: var(--ts-ink); background: transparent; font: inherit; -webkit-tap-highlight-color: transparent; transition: none;
+}
+.debt-scale.is-top > .ds-emblem:active { transform: none; }
+/* The disc itself (a layer of its own so the glow can sit behind it). */
+.debt-scale.is-top > .ds-emblem::before {
+  content: ""; position: absolute; z-index: 0; inset: 0; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(120% 120% at 50% 0%, color-mix(in oklab, var(--surface) 94%, white), color-mix(in oklab, var(--surface) 82%, var(--bg)));
+  border: 1px solid color-mix(in oklab, var(--fg) 13%, var(--line));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .1), 0 4px 14px -6px rgba(0, 0, 0, .22), inset 0 1px 0 color-mix(in oklab, white 30%, transparent);
+  transition: border-color .3s ease, box-shadow .3s ease;
+}
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .debt-scale.is-top > .ds-emblem::before {
+  background: radial-gradient(120% 120% at 50% 0%, color-mix(in oklab, #2a3036 70%, var(--surface)), color-mix(in oklab, #15191d 80%, var(--surface)));
+  box-shadow: 0 2px 10px -4px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.ds-emblem:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: 2px; }
+.debt-scale.is-top > button.ds-emblem > .ts-scale { position: relative; z-index: 1; width: 34px; height: 34px; overflow: visible; shape-rendering: geometricPrecision; }
+.ts-scale path, .ts-scale circle { vector-effect: none; }
+.ts-frame path, .ts-beam path, .ts-cord { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ts-pin, .ts-finial { fill: currentColor; stroke: none; }
+.ts-pan.is-in { --tone: var(--in); }
+.ts-pan.is-owe { --tone: var(--owe); }
+.ts-cord { stroke: color-mix(in oklab, var(--tone) 55%, currentColor); stroke-width: 1.15; }
+.ts-bowl { fill: color-mix(in oklab, var(--tone) 22%, transparent); stroke: var(--tone); stroke-width: 1.6; stroke-linejoin: round; }
+.ts-beam { transform-box: view-box; transform-origin: 20px 10.6px; transform: rotate(var(--lean)); }
+.ts-beam, .ts-pan { transition: transform .7s cubic-bezier(.34, 1.4, .5, 1); }
+.ts-frame { opacity: .92; }
+/* The side that is open below gets its pan filled a little more and the ring in its colour. */
+.debt-scale.is-top[data-on="owed"] .ts-pan.is-in .ts-bowl,
+.debt-scale.is-top[data-on="owe"] .ts-pan.is-owe .ts-bowl { fill: color-mix(in oklab, var(--tone) 48%, transparent); }
+.debt-scale.is-top[data-on="owed"] > .ds-emblem::before { border-color: color-mix(in oklab, var(--in) 45%, var(--line)); }
+.debt-scale.is-top[data-on="owe"] > .ds-emblem::before { border-color: color-mix(in oklab, var(--owe) 45%, var(--line)); }
+
+/* The breathing glow: two soft lights behind the disc, teal to the left, amber to the right, slow and out of step. A side
+   with amounts glows clearly; an empty side only whispers. Opacity and transform only. */
+.debt-scale.is-top > button.ds-emblem > .ts-aura {
+  position: absolute; z-index: -1; top: 50%; left: 50%; width: 108px; height: 108px; margin: -54px 0 0 -54px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in oklab, var(--tone) 42%, transparent) 0%, color-mix(in oklab, var(--tone) 14%, transparent) 42%, transparent 68%);
+  --lo: .36; --hi: .64;
+  opacity: var(--lo); will-change: opacity, transform;
+  animation: ts-breathe 6.4s ease-in-out infinite alternate;
+}
+.ts-aura.is-in { --tone: var(--in); transform: translateX(-12px); --x: -12px; }
+.ts-aura.is-owe { --tone: var(--owe); transform: translateX(12px); --x: 12px; }
+.debt-scale.is-top > button.ds-emblem > .ts-aura.is-owe { animation-delay: -3.2s; }
+.debt-scale.is-top[data-has-in] .ts-aura.is-in,
+.debt-scale.is-top[data-has-owe] .ts-aura.is-owe { --lo: .55; --hi: 1; }
+@keyframes ts-breathe { 0% { opacity: var(--lo); transform: translateX(var(--x)) scale(.9); } 100% { opacity: var(--hi); transform: translateX(var(--x)) scale(1.06); } }
+/* Day themes: the same light, a touch quieter on paper. */
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"]) .debt-scale.is-top > button.ds-emblem > .ts-aura,
+html:not([data-theme]) .debt-scale.is-top > button.ds-emblem > .ts-aura { background: radial-gradient(circle, color-mix(in oklab, var(--tone) 46%, transparent) 0%, color-mix(in oklab, var(--tone) 16%, transparent) 46%, transparent 70%); }
+
+/* The tap: the disc answers (a small bloom and tilt) and a ring of light leaves it. */
+.ds-emblem[data-poke="0"] .ts-scale { animation: ts-tilt-a .66s cubic-bezier(.3, .6, .3, 1); }
+.ds-emblem[data-poke="1"] .ts-scale { animation: ts-tilt-b .66s cubic-bezier(.3, .6, .3, 1); }
+@keyframes ts-tilt-a { 0% { transform: none; } 24% { transform: rotate(-6deg) scale(1.08); } 52% { transform: rotate(3deg) scale(1.02); } 78% { transform: rotate(-1deg); } 100% { transform: none; } }
+@keyframes ts-tilt-b { 0% { transform: none; } 24% { transform: rotate(-6deg) scale(1.08); } 52% { transform: rotate(3deg) scale(1.02); } 78% { transform: rotate(-1deg); } 100% { transform: none; } }
+.ts-scale { transform-origin: 50% 62%; }
+.debt-scale.is-top > button.ds-emblem > .ts-ring {
+  position: absolute; z-index: 0; inset: -1px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--in) 60%, transparent), 0 0 14px 2px color-mix(in oklab, var(--owe) 34%, transparent);
+  animation: ts-ring .7s cubic-bezier(.2, .7, .2, 1) forwards;
+}
+@keyframes ts-ring { 0% { opacity: .9; transform: scale(.92); } 100% { opacity: 0; transform: scale(1.75); } }
+
+/* Tron: the disc is a dark lens with a cyan rim, the frame light cyan, the pans in neon teal and Clu amber. */
+[data-theme="tron"] .debt-scale.is-top { --ts-ink: #a9ecf8; }
+[data-theme="tron"] .debt-scale.is-top > .ds-emblem::before {
+  background: radial-gradient(120% 120% at 50% 0%, #0a1a21, #03090c);
+  border-color: rgba(120, 225, 250, .5);
+  box-shadow: 0 0 12px -2px rgba(63, 214, 245, .55), inset 0 0 10px -4px rgba(63, 214, 245, .5);
+}
+[data-theme="tron"] .ts-frame, [data-theme="tron"] .ts-beam { filter: drop-shadow(0 0 1.6px rgba(63, 214, 245, .75)); }
+[data-theme="tron"] .ts-bowl { fill: color-mix(in oklab, var(--tone) 26%, transparent); }
+[data-theme="tron"] .debt-scale.is-top > button.ds-emblem > .ts-aura { background: radial-gradient(circle, color-mix(in oklab, var(--tone) 55%, transparent) 0%, color-mix(in oklab, var(--tone) 18%, transparent) 40%, transparent 68%); }
+[data-theme="tron"] .debt-scale.is-top[data-on="owed"] > .ds-emblem::before { border-color: rgba(63, 214, 245, .85); }
+[data-theme="tron"] .debt-scale.is-top[data-on="owe"] > .ds-emblem::before { border-color: rgba(232, 165, 74, .8); box-shadow: 0 0 12px -2px rgba(232, 165, 74, .5), inset 0 0 10px -4px rgba(232, 165, 74, .45); }
+
+/* Reduced motion: a still, soft glow; the halves appear and leave in place, no sweep, no tilt. */
+@media (prefers-reduced-motion: reduce) {
+  .debt-scale.is-top > button.ds-emblem > .ts-aura { animation: none !important; opacity: calc((var(--lo) + var(--hi)) / 2); transform: translateX(var(--x)); }
+  .ds-shell, .debt-scale.is-top > button[data-side], .ts-beam, .ts-pan { transition: none !important; }
+  .ds-shell::after, .ds-emblem .ts-scale, .ts-ring { animation: none !important; }
+  .ts-ring { display: none; }
+}
