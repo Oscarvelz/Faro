@@ -3,6 +3,7 @@ import { formatMoney } from "./money";
 import { lentOf } from "./debts";
 import { loansOf } from "./loans";
 import { cardsOf, rewardsOf, storedCards } from "./cards";
+import { recipientName } from "./remit-people";
 import type { Lang, LedgerState, SectionId } from "./types";
 
 const SYN: Record<string, string[]> = {
@@ -70,7 +71,9 @@ export function searchLedger(state: LedgerState, query: string, lang: Lang, name
   const hits: Hit[] = [];
   for (const [monthKey, bucket] of Object.entries(state.months)) {
     for (const line of bucket.lines) {
-      const hay = `${lineLabel(line, names, lang)} ${formatMoney(line.amountMinor, line.currency, lang)} ${line.kind}`
+      // 1.3.118: a Remesas line also answers to its recipient's name.
+      const to = recipientName(state, line);
+      const hay = `${lineLabel(line, names, lang)} ${formatMoney(line.amountMinor, line.currency, lang)} ${line.kind} ${to}`
         .toLowerCase()
         .normalize("NFD")
         .replace(/\p{Diacritic}/gu, "");
@@ -82,7 +85,7 @@ export function searchLedger(state: LedgerState, query: string, lang: Lang, name
         id: `${monthKey}:${line.id}`,
         section: sectionFor(line.kind),
         title: line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId) || line.kind,
-        subtitle: `${monthKey} · ${formatMoney(line.amountMinor, line.currency, lang)}`,
+        subtitle: `${monthKey} · ${formatMoney(line.amountMinor, line.currency, lang)}${to ? ` · ${lang === "en" ? "To" : "Para"} ${to}` : ""}`,
         monthKey,
         lineId: line.id,
       });

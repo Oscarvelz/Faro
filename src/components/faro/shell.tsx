@@ -16,6 +16,7 @@ import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId }
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
 import { BookSide, useTabletOne, type SideBook } from "./book-side";
+import { recipientName } from "@/lib/faro/remit-people";
 import { DebtBook, DebtScale, debtHello, preferOweTab, type DebtSide } from "./debts";
 import { markRing, ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 import { lentOf, lentState } from "@/lib/faro/debts";
@@ -299,6 +300,8 @@ export function Shell() {
     const close = (event: PointerEvent) => {
       const node = event.target as Node;
       if (moneyPanel.current?.contains(node) || moneyDock.current?.contains(node)) return;
+      // 1.3.118: a sheet or dialog opened from inside the Cambio panel (Para quién, confirmations) is portaled to <body>; a tap there is not "outside".
+      if ((node as Element)?.closest?.('.fit-scrim, [role="dialog"], [role="alertdialog"]')) return;
       if (swiped.current) return;
       setMoneyOpen(false);
     };
@@ -1614,7 +1617,9 @@ function buildCal(session: ReturnType<typeof useFaro>["session"], year: number, 
       continue;
     }
     const slot = days.get(dated) ?? { items: [], dots: [] };
-    if (line.concept) slot.items.push({ id: line.id, name: line.concept, kind: line.kind });
+    // 1.3.118: a Remesas line names its recipient ("Remesas · <persona>").
+    const to = session ? recipientName(session.ledger, line) : "";
+    if (line.concept) slot.items.push({ id: line.id, name: to ? `${line.concept} · ${to}` : line.concept, kind: line.kind });
     const tone = incoming ? "good" : "bad";
     if (!slot.dots.includes(tone)) slot.dots.push(tone);
     days.set(dated, slot);

@@ -306,7 +306,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
         </div>
         {editing && manage ? (
           <div className="fit-manage-bar">
-            <label className="fit-all"><input type="checkbox" className="fit-check" data-test="manage-all" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(visibleIds))} /><span>{L(lang, "Seleccionar todo", "Select all")}</span></label>
+            <label className="fit-all"><input type="checkbox" className="fit-check" data-test="manage-all" aria-label={L(lang, "Seleccionar todo", "Select all")} checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(visibleIds))} /><span className="fit-all-long">{L(lang, "Seleccionar todo", "Select all")}</span><span className="fit-all-short" aria-hidden>{L(lang, "Todo", "All")}</span></label>
             <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}><Trash2 />{manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
           </div>
         ) : add && !lookView ? (

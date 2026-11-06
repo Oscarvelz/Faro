@@ -10,6 +10,8 @@ import type { Currency, Line, LineKind } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { upsertLine } from "@/lib/faro/reducer";
 import { PersonPick } from "./people";
+import { RemitToField } from "./remit-people";
+import { isRemitCat } from "@/lib/faro/remit-people";
 import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, StorePick, SubPick, type Look } from "./fit-pick";
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 
@@ -203,6 +205,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [balance, setBalance] = useState(existing?.balanceMinor !== null && existing?.balanceMinor !== undefined ? (existing.balanceMinor / 100).toFixed(2) : seed?.balance ?? "");
   const [active, setActive] = useState(existing?.active ?? true);
   const [personId, setPersonId] = useState(existing?.personId ?? "");
+  // 1.3.118: a Remesas line's recipient ("Para"). Kept only while the category is a Remesas one.
+  const [to, setTo] = useState(existing?.to ?? "");
   const [icon, setIcon] = useState(existing?.icon ?? "");
   const [brandTouched, setBrandTouched] = useState(false);
   const [bookedOn, setBookedOn] = useState(existing?.bookedOn ?? seed?.bookedOn ?? "");
@@ -294,6 +298,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       // Only a colour the user actually picked is stored; an untouched default stays a default (follows the category).
       color: swatch || ((bubbleTone || kind === "purchase") && tone !== toneStart ? tone : existing?.color),
       ...(personId ? { personId, ...(existing?.occasionId && existing.personId === personId ? { occasionId: existing.occasionId } : {}) } : {}),
+      ...(to && group && session && isRemitCat(session.ledger, categoryId) ? { to } : {}),
     };
     commit((s) => upsertLine(s, line), `${existing ? "Editar" : "Agregar"} ${line.concept}`);
     if (draftKey) clearReportDraft(draftKey);
@@ -353,6 +358,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             <SubPick categoryId={cat.id} value={subId} onChange={setSubId} />
           </div>
         ) : null}
+        {group && session && categoryId && isRemitCat(session.ledger, categoryId) ? <RemitToField value={to} onChange={setTo} className={`label fit-f${to ? long(session.ledger.remitPeople?.find((p) => p.id === to)?.name) : ""}`} /> : null}
         {kind === "purchase" ? (
           <>
             <div className={`label fit-f${long(nameOf(structure.catalog, storeId))}`} data-f="store">

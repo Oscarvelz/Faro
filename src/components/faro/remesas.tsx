@@ -11,6 +11,8 @@ import { useLayer } from "@/lib/manual/back";
 import { convertMinor, formatMoney, formatRate } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { remitTrend } from "@/lib/faro/remesas";
+import { isRemitCat, remitPeopleOf } from "@/lib/faro/remit-people";
+import { RemitPeople, RemitToField } from "./remit-people";
 import type { Currency, Group } from "@/lib/faro/types";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
@@ -33,6 +35,10 @@ export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor:
     return (list.find((c) => c.id === saved) ?? list.find((c) => c.role === "remittance") ?? list[0])?.id ?? "";
   };
   const [cat, setCat] = useState(() => pick(group));
+  // 1.3.118: Remesas → Para: who the money goes to (optional). Starts on the last person used here, if they still exist.
+  const [toWho, setToWho] = useState(() => { const last = localStorage.getItem("faro-send-to") ?? ""; return remitPeopleOf(state).some((p) => p.id === last) ? last : ""; });
+  const remit = !!cat && isRemitCat(state, cat);
+  const toName = remit && toWho ? remitPeopleOf(state).find((p) => p.id === toWho)?.name ?? "" : "";
   const amount = money === from ? fromMinor : toMinor;
   const other = money === from ? toMinor : fromMinor;
   const otherCur: Currency = money === "USD" ? "NIO" : "USD";
@@ -42,13 +48,15 @@ export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor:
     const monthKey = todayKey();
     localStorage.setItem("faro-send-group", group);
     localStorage.setItem(`faro-send-cat-${group}`, cat);
+    if (remit) localStorage.setItem("faro-send-to", toName ? toWho : "");
     const usd = money === "USD" ? amount : convertMinor(amount, "NIO", "USD", rate);
     const nio = money === "NIO" ? amount : convertMinor(amount, "USD", "NIO", rate);
     const note = L(lang, `Desde Cambio: ${formatMoney(usd, "USD", lang)} = ${formatMoney(nio, "NIO", lang)} a C$${formatRate(rate)} por US$`, `From Exchange: ${formatMoney(usd, "USD", lang)} = ${formatMoney(nio, "NIO", lang)} at C$${formatRate(rate)} per US$`);
     const line = plainLine({ kind: group === "fixed" ? "expense-fixed" : "expense-variable", categoryId: cat, concept: names.cat(cat), amountMinor: amount, currency: money, monthKey, bookedOn: todayIso(), note });
-    commit((s) => upsertLine(s, line), L(lang, `Enviar a ${names.cat(cat)}`, `Send to ${names.cat(cat)}`));
+    const sent = toName ? { ...line, to: toWho } : line;
+    commit((s) => upsertLine(s, sent), L(lang, `Enviar a ${names.cat(cat)}`, `Send to ${names.cat(cat)}`));
     const book = group === "fixed" ? L(lang, "Fijos", "Fixed") : L(lang, "Variables", "Variable");
-    importToast({ text: L(lang, `Guardado en ${names.cat(cat)} · ${book}`, `Saved to ${names.cat(cat)} · ${book}`), undo: () => commit((s) => deleteLine(s, monthKey, line.id), L(lang, "Deshacer envío", "Undo send")) });
+    importToast({ text: toName ? L(lang, `Guardado en ${names.cat(cat)} · ${toName}`, `Saved to ${names.cat(cat)} · ${toName}`) : L(lang, `Guardado en ${names.cat(cat)} · ${book}`, `Saved to ${names.cat(cat)} · ${book}`), undo: () => commit((s) => deleteLine(s, monthKey, line.id), L(lang, "Deshacer envío", "Undo send")) });
     onDone();
   };
   return (
@@ -71,6 +79,7 @@ export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor:
           <span className="lab-head">{L(lang, "Categoría", "Category")}</span>
           <ThemeSelect value={cat} onChange={setCat} options={options} />
         </div>
+        {remit ? <RemitToField value={toWho} onChange={setToWho} /> : null}
         <div className="label is-wide">
           <span className="lab-head">{L(lang, "Moneda", "Currency")}</span>
           <div className="ah-sign" role="radiogroup" aria-label={L(lang, "Moneda", "Currency")}>
@@ -137,6 +146,7 @@ export function RemitCard({ monthKey }: { monthKey: string }) {
       <p className="pano-lead rm-foot">
         {L(lang, "Promedio mensual: ", "Monthly average: ")}<strong className="num rm-avg-amt">{usd(tr.avgUsd)}</strong>
       </p>
+      {session && remitPeopleOf(session.ledger).length ? <RemitPeople monthKey={monthKey} where="study" /> : null}
     </section>
   );
 }

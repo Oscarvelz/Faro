@@ -262,3 +262,11 @@ html:is([data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [d
 }
 .scn-sheet[data-cs-wrap] .cs-target { height: auto; min-height: 38px; padding-block: 5px; }
 .scn-sheet[data-cs-wrap] .cs-tname { white-space: normal; overflow: visible; line-height: 1.2; overflow-wrap: normal; }
+
+/* 1.3.118 (t107 E2): Tarjetas header at 360r20 / 360: title, total and three tools on one line inside the card. */
+@container (max-width: 21rem) {
+  .card-group .cg-tools { gap: 2px; margin-left: 4px; }
+  .card-group .cg-tool { width: 28px; height: 28px; border-radius: 9px; }
+  .card-group .cg-tool svg { width: 14px; height: 14px; }
+  .card-group .cg-total { padding-left: 6px; font-size: min(.98rem, 4.2cqi); }
+}

@@ -6,6 +6,7 @@ import { loanPays, loanState, loansOf } from "./loans";
 import { cardFigures, cardMonthlyInterest, cardPays, cardsOf, rewardsEarned, rewardsOf, storedCards } from "./cards";
 import { lentOf, lentPays, lentState, monthAhead, netBalance, payoffPlan } from "./debts";
 import { remitTrend } from "./remesas";
+import { recipientName, remitByPerson } from "./remit-people";
 import type { Lang, LedgerState, Line, LineKind } from "./types";
 import type { makeNamer } from "./defaults";
 
@@ -575,7 +576,7 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
     sheets.push({
       name: "Movimientos",
       rows: [
-        ["Mes", "Tipo", "Concepto", "Monto", "Moneda", "Categoria", "Nota", "Activo"],
+        ["Mes", "Tipo", "Concepto", "Monto", "Moneda", "Categoria", "Nota", "Activo", say(lang, "Para", "To")],
         ...lines.map((line) => [
           line.monthKey,
           line.kind,
@@ -585,6 +586,7 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
           names.cat(line.categoryId) || names.purchase(line.categoryId),
           line.note,
           line.active ? 1 : 0,
+          recipientName(ledger, line),
         ]),
       ],
     });
@@ -681,6 +683,18 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
             ];
           }),
           [{ v: say(lang, "Promedio (meses con envío)", "Average (months with a remittance)"), s: S.ratio }, { v: rt.avgUsd / 100, s: S.ratioNum }],
+          // 1.3.118: per person (this month, this year, all time), US$ and C$ at today's rate.
+          ...(() => {
+            const pp = remitByPerson(ledger, key);
+            if (!pp.rows.some((r) => r.person)) return [];
+            const who = (r: (typeof pp.rows)[number]) => r.person?.name ?? say(lang, "Sin persona", "No person");
+            return [
+              [""],
+              [{ v: say(lang, "Por persona", "By person"), s: S.section }],
+              [say(lang, "Para", "To"), say(lang, "Mes US$", "Month US$"), say(lang, "Año US$", "Year US$"), "Total US$", "Total C$"].map((v) => ({ v, s: S.flowHead })),
+              ...pp.rows.map((r) => [{ v: who(r), s: S.line }, { v: r.month.usd / 100, s: S.lineNum }, { v: r.year.usd / 100, s: S.lineNum }, { v: r.all.usd / 100, s: S.spendNum }, { v: r.all.nio / 100, s: S.lineNum }]),
+            ];
+          })(),
         ],
       });
     }

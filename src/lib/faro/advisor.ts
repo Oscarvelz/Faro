@@ -3,6 +3,7 @@ import { cardTotals } from "./cards.ts";
 import { perYear } from "./cadence.ts";
 import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
 import { remitTrend } from "./remesas.ts";
+import { remitByPerson } from "./remit-people.ts";
 
 type Namer = {
   cat: (id: string) => string;
@@ -1080,6 +1081,11 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     } else {
       remitNote = L(lang, `Remesas: enviaste ${usd(rt.now.usd)} (${nio(rt.now.nio)})${sharePart}${rt.deltaPct !== null ? `, ${rt.deltaPct >= 0 ? "+" : ""}${rt.deltaPct}% vs el mes pasado` : ""}. Un mismo monto y un mismo día cada mes es más fácil de planear; la tasa oficial casi no se mueve, así que compara sobre todo la comisión y la tasa de la remesadora.`, `Remittances: you sent ${usd(rt.now.usd)} (${nio(rt.now.nio)})${sharePart}${rt.deltaPct !== null ? `, ${rt.deltaPct >= 0 ? "+" : ""}${rt.deltaPct}% vs last month` : ""}. The same amount on the same day each month is easier to plan; the official rate barely moves, so compare the sender's fee and rate above all.`);
     }
+  }
+  // 1.3.118: who it went to this month, when the money is split between two or more people (Remesas → Para).
+  if (remitNote && rt.now.usd > 0) {
+    const by = remitByPerson(state, key).rows.filter((r) => r.person && r.month.usd > 0);
+    if (by.length >= 2) remitNote += L(lang, ` Este mes: ${by.slice(0, 3).map((r) => `${r.person!.name} ${usd(r.month.usd)}`).join(" · ")}.`, ` This month: ${by.slice(0, 3).map((r) => `${r.person!.name} ${usd(r.month.usd)}`).join(" · ")}.`);
   }
   const plan = [
     L(lang, `Plan Faro — este mes (te queda: ${money(left)})`, `Faro plan — this month (left: ${money(left)})`),

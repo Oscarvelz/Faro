@@ -1,0 +1,102 @@
+/* 1.3.118 Remesas → Para quién: the field's face, the per-person totals and a person's history. Same family as Personas
+   (pp-head, pp-hero, pp-face): no boxes inside the card, hairlines only, amounts in the theme's amount colour. */
+.rp-wrap { container: rp / inline-size; display: grid; min-width: 0; --rm: #d98a5f; }
+.rp-wrap > * { min-width: 0; }
+.rp-head { gap: 8px; }
+.rp-head h2 { white-space: nowrap; }
+.rp-tools { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.rp-pic { color: #c0703f; background: radial-gradient(circle at 30% 25%, color-mix(in oklab, #f0b08c 45%, var(--surface)), color-mix(in oklab, var(--rm) 16%, var(--surface))); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--rm) 26%, transparent); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .rp-pic { color: #f2b08a; background: color-mix(in oklab, var(--rm) 20%, var(--surface)); }
+.rp-hero .pp-hero-text em { display: inline-flex; align-items: center; gap: 4px; }
+.rp-hero .pp-hero-text > span { font-size: .84rem; }
+
+/* Faces: initials (or the person's Faro icon) in their colour; "Sin persona" is a quiet outline. */
+.rp-face { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; background: color-mix(in oklab, var(--pp) 22%, var(--surface)); color: color-mix(in oklab, var(--pp) 70%, var(--fg)); font-size: .78rem; font-weight: 750; letter-spacing: .02em; box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--pp) 55%, transparent); }
+.rp-face svg { width: 17px; height: 17px; }
+.rp-face.is-sm { width: 24px; height: 24px; font-size: .6rem; }
+.rp-face.is-sm svg { width: 13px; height: 13px; }
+.rp-face.is-none { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--fg) 18%, transparent); }
+
+/* The list: one name line, then this month · this year · all time under the three column labels. */
+.rp-split { display: grid; margin-top: 12px; }
+.rp-list { display: grid; align-content: start; }
+.rp-cols, .rp-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 8px; }
+.rp-cols { padding: 0 2px 6px; }
+.rp-col { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; white-space: nowrap; color: var(--muted); font-size: clamp(.58rem, 3cqi, .7rem); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.rp-row { row-gap: 6px; width: 100%; padding: 10px 2px; border: 0; border-top: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rp-who { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rp-who strong { min-width: 0; font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
+.rp-row.is-none .rp-who strong { color: var(--muted); font-weight: 600; }
+.rp-cell { display: grid; justify-items: end; min-width: 0; }
+.rp-cell b { font-size: clamp(.62rem, 3.9cqi, .98rem); font-weight: 700; white-space: nowrap; }
+.rp-cell small { font-size: clamp(.56rem, 3.1cqi, .76rem); color: var(--muted); white-space: nowrap; }
+.rp-cell.is-zero b { color: var(--muted); font-weight: 600; }
+.rp-note { margin: 10px 0 0; color: var(--muted); font-size: .86rem; line-height: 1.35; }
+
+/* A person: back, face and name on one line; three totals; the dated history. */
+.rp-detail { display: grid; gap: 12px; align-content: start; }
+.rp-dhead { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rp-back { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); color: var(--accent); }
+.rp-back svg { width: 18px; height: 18px; }
+.rp-dname { min-width: 0; font-family: var(--font-serif); font-size: 1.3rem; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; overflow-wrap: anywhere; }
+.rp-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rp-tile { display: grid; gap: 1px; justify-items: start; min-width: 0; padding: 2px 0 2px 10px; border-left: 1px solid color-mix(in oklab, var(--fg) 10%, transparent); }
+.rp-tile:first-child { padding-left: 0; border-left: 0; }
+.rp-tile em { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; font-style: normal; color: var(--muted); font-size: clamp(.58rem, 3cqi, .7rem); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.rp-tile b { font-size: clamp(.66rem, 4.2cqi, 1.15rem); font-weight: 700; white-space: nowrap; letter-spacing: -.01em; }
+.rp-tile small { font-size: clamp(.56rem, 3.1cqi, .78rem); color: var(--muted); white-space: nowrap; }
+.rp-kick { display: flex; align-items: center; gap: 4px; margin: 2px 0 0; color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.rp-kick > .num { margin-left: auto; letter-spacing: 0; }
+.rp-hist { display: grid; margin: 0; padding: 0; list-style: none; }
+.rp-hist li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); }
+.rp-hwhen, .rp-hamt { display: grid; gap: 1px; min-width: 0; }
+.rp-hamt { justify-items: end; }
+.rp-hwhen b { font-weight: 650; white-space: nowrap; }
+.rp-hwhen small { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+.rp-hamt b { font-weight: 700; white-space: nowrap; }
+.rp-hamt small { color: var(--muted); font-size: .76rem; white-space: nowrap; }
+
+/* Narrow: the list, or the person in its place (its own Back step). */
+.rp-wrap[data-open] .rp-split > .rp-list { display: none; }
+.rp-wrap:not([data-open]) .rp-split > .rp-detail { display: none; }
+
+/* Wide (tablet, a wide Estudio column): the list and the selected person side by side; no back button needed. */
+@container rp (min-width: 620px) {
+  .rp-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  .rp-wrap .rp-split > .rp-list, .rp-wrap[data-open] .rp-split > .rp-list, .rp-wrap .rp-split > .rp-detail, .rp-wrap:not([data-open]) .rp-split > .rp-detail { display: grid; }
+  .rp-detail { padding-left: 24px; border-left: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); }
+  .rp-back { display: none; }
+  .rp-row { border-radius: 10px; padding-inline: 8px; }
+  .rp-row.is-sel { background: color-mix(in oklab, var(--pp) 9%, transparent); border-top-color: transparent; }
+  .rp-row.is-sel + .rp-row { border-top-color: transparent; }
+  .rp-cols { padding-inline: 8px; }
+  .rp-cell b { font-size: clamp(.7rem, 2.3cqi, .98rem); }
+  .rp-cell small { font-size: clamp(.6rem, 1.8cqi, .76rem); }
+  .rp-tile b { font-size: clamp(.8rem, 2.6cqi, 1.2rem); }
+  .rp-col, .rp-tile em { font-size: .68rem; }
+  html[data-theme="tron"] .rp-row.is-sel { background: rgb(63 214 245 / 7%); box-shadow: inset 2px 0 0 #3fd6f5; border-radius: 4px; }
+}
+
+/* Estudio: a section of the Remesas card, under its chart. */
+.rp-wrap.is-study { padding-top: 12px; border-top: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); }
+.rp-wrap.is-study .rp-head h2 { font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.rp-wrap.is-study .rp-split { margin-top: 8px; }
+
+/* Tron: graphite, teal hairlines, amber only on amounts. */
+html[data-theme="tron"] .rp-face { border-radius: 6px; background: transparent; color: var(--pp); box-shadow: inset 0 0 0 1.5px var(--pp), 0 0 10px color-mix(in oklab, var(--pp) 40%, transparent); }
+html[data-theme="tron"] .rp-face.is-none { color: #6fa9b6; box-shadow: inset 0 0 0 1px rgb(63 214 245 / 30%); }
+html[data-theme="tron"] .rp-row, html[data-theme="tron"] .rp-hist li { border-top-color: rgb(63 214 245 / 18%); }
+html[data-theme="tron"] .rp-tile, html[data-theme="tron"] .rp-detail { border-left-color: rgb(63 214 245 / 18%); }
+html[data-theme="tron"] .rp-tile:first-child { border-left: 0; }
+html[data-theme="tron"] .rp-cell b, html[data-theme="tron"] .rp-tile b, html[data-theme="tron"] .rp-hamt b, html[data-theme="tron"] .rp-hero .pp-hero-text strong { color: #ffc23a; text-shadow: 0 0 10px rgb(255 194 58 / 35%); }
+html[data-theme="tron"] .rp-cell.is-zero b { color: var(--muted); text-shadow: none; }
+html[data-theme="tron"] .rp-col, html[data-theme="tron"] .rp-tile em, html[data-theme="tron"] .rp-kick { font-family: var(--t-display); color: #7fa6b0; letter-spacing: .08em; }
+html[data-theme="tron"] .rp-back { border-radius: 5px; color: #3fd6f5; border-color: rgba(63, 214, 245, .42); background: rgba(63, 214, 245, .05); }
+html[data-theme="tron"] .rp-wrap.is-study, html[data-theme="tron"] .rp-wrap.is-study .rp-detail { border-color: rgb(63 214 245 / 18%); }
+
+/* Tablet (one pane >= 1100): Variables keeps its two columns; Remesas sits under Personas and the book spans both rows,
+   so no gap opens under Personas. Phones never match. */
+@media (width >= 1100px) and (height >= 600px) {
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> .rp-box) > section.card.income-book { grid-row: span 2; }
+  .app-frame:not(.is-split) .swipe-pane > .grid.gap-3:has(> .rp-box) > .rp-box { grid-column: 2; }
+}

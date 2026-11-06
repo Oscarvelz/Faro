@@ -267,3 +267,12 @@
 @keyframes fit-nudge-b { 0%, 100% { transform: none; outline: 2px solid transparent; outline-offset: 2px; } 40% { transform: scale(1.14); outline: 2px solid var(--accent); outline-offset: 2px; } }
 [data-theme="tron"] .fit-sheet.is-nudge .fit-check { outline-color: #3fd6f5; }
 @media (prefers-reduced-motion: reduce) { .fit-scrim > .fit-toast, .fit-sheet.is-nudge .fit-check { animation: none; } .fit-sheet.is-nudge .fit-check { outline: 2px solid var(--accent); outline-offset: 2px; } .fit-sheet-tool.is-kit-pal:active { transform: none; } }
+
+/* 1.3.118: the manage bar never collides at narrow sheets or large text (360, 360r20): two equal halves, the select-all
+   label shortens to "Todo"/"All" (the checkbox keeps the full name), Borrar stays on the right; no wrap, no ellipsis. */
+.fit-all > span { min-width: 0; white-space: nowrap; }
+.fit-all-short { display: none; }
+@container (max-width: 24rem) {
+  .fit-all-long { display: none; }
+  .fit-all-short { display: inline; }
+}

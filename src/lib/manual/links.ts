@@ -16,6 +16,7 @@ export const LINKS: Record<string, string> = {
   Estudio: "estudio", Study: "estudio",
   Remesas: "remesas", Remittances: "remesas",
   "Enviar a": "cambio-enviar", "Send to": "cambio-enviar",
+  "Remesas por persona": "remesas-personas", "Remittances by person": "remesas-personas",
   Asesor: "asesor", Advisor: "asesor",
   Ingresos: "ingresos", Income: "ingresos",
   Cuotas: "cuotas", Plans: "cuotas",

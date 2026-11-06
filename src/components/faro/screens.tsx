@@ -7,6 +7,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { RemitCard } from "@/components/faro/remesas";
+import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
@@ -3293,6 +3294,7 @@ export function Books({ mode }: { mode: "income" | "fixed" | "variable" }) {
     <div className="grid gap-3">
       <LinesBlock kind="expense-variable" title={t("group.variable")} />
       <PeopleBox />
+      <RemitPeopleBox />
       <ImportDoor />
     </div>
   );

@@ -130,6 +130,8 @@ export type Line = {
   /** 1.3.109: a card rewards redemption (Canjear). With cardId + xfer = a statement credit (lowers the card balance, not
    *  spending, not income); alone on an income line = a deposit to the bank (income, source "Recompensas de tarjetas"). */
   rwCard?: string;
+  /** 1.3.118: a remittance line's recipient (RemitPerson id in ledger.remitPeople). Missing = "Sin persona". See remit-people.ts. */
+  to?: string;
 };
 
 /** Money the user lent to someone (Me deben). Interest follows the same rule as Loan (simple, by the day, from startedOn). */
@@ -305,6 +307,9 @@ export type Settings = {
   seeds?: string[];
 };
 
+/** 1.3.118: a remittance recipient: a name, an optional colour and Faro icon. The money stays in normal lines (`line.to`). */
+export type RemitPerson = { id: string; name: string; color?: string; icon?: string };
+
 export type SubPreset = { id: string; name?: string; icon?: string };
 
 export type LedgerState = {
@@ -341,6 +346,8 @@ export type LedgerState = {
   cards?: CreditCard[];
   /** 1.3.107: preset cards the user removed ("chase", "wellsfargo", "paypal"). Missing = all offered. */
   cardsOff?: string[];
+  /** 1.3.118: the people the user sends remittances to (Remesas → Para). Missing in older ledgers (= none). */
+  remitPeople?: RemitPerson[];
   revision: number;
   updatedAt: string;
 };

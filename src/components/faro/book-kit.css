@@ -29,4 +29,5 @@
 /* Large reader text on a narrow phone: the Libros pocket view drops its total beside the tools (the pocket card right
    above shows the same total), so "Proyectos / Cuentas / Fondos" keep one whole line. */
 .save-view:has(.kit-row) { container-type: inline-size; }
-@container (max-width: 16em) { .save-view .kit-row > .num { display: none; } }
+/* 1.3.118: also at 360 (Tron 360 clipped "Proyectos" by 5 px): below 21em the view head drops its total (the same total sits on the pocket card above). */
+@container (max-width: 21em) { .save-view .kit-row > .num { display: none; } }
