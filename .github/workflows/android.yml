@@ -2,8 +2,9 @@
 # (or by hand); it never touches `main` or GitHub Pages.
 # The signing key is NOT in this public repo. If the repository secrets FARO_KS_B64 (base64 of the PKCS12 keystore)
 # and FARO_KS_PASS exist, the APK is signed here and published as release android-<run number> with Faro.apk.
-# Without them the job uploads an unsigned APK artifact, which is signed privately with the same key and published
-# under the same android-<run number> tag. Every update must be signed with that one key or Android refuses it.
+# Without them the job uploads an unsigned APK artifact (faro-unsigned-N); it is signed privately with the same key and
+# pushed to the orphan branch `android-signed` (Faro.apk + VERSION=N), whose own workflow publishes release android-N.
+# Every update must be signed with that one key or Android refuses it.
 name: Faro for Android
 on:
   push:

@@ -429,9 +429,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         return;
       }
       history.pushState({ faro: 1 }, "");
+      // Faro for Android (1.3.111): nothing was left to close, so the app's Back may offer to leave. Browser: no listener.
+      if ((window as Window & { FaroNative?: unknown }).FaroNative) window.dispatchEvent(new Event("faro-back-at-root"));
     };
     window.addEventListener("popstate", onPop);
+    const live = window as Window & { __faroProviderLive?: number };
+    live.__faroProviderLive = (live.__faroProviderLive ?? 0) + 1;
     return () => {
+      live.__faroProviderLive = Math.max(0, (live.__faroProviderLive ?? 1) - 1);
       window.removeEventListener("popstate", onPop);
       window.removeEventListener("wheel", stopRestore);
       window.removeEventListener("touchstart", stopRestore);

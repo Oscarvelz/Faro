@@ -32,6 +32,9 @@ import { FocusHost } from "./focus-host";
 import { PeopleInbox } from "./people";
 import { BankDock } from "./bank-dock";
 import { ToTop } from "./to-top";
+import { inAndroidApp } from "@/spa/native";
+// Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
+const ShareInbox = lazy(() => import("./share-inbox"));
 
 const ManualLayer = lazy(() => import("./manual"));
 
@@ -1248,6 +1251,7 @@ if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .sea
     {ui.manual !== null ? <Suspense fallback={<div className="mn-layer is-loading" />}><ManualLayer /></Suspense> : null}
     <FocusHost />
     <ToTop lang={lang} />
+    {inAndroidApp() ? <Suspense fallback={null}><ShareInbox /></Suspense> : null}
     </>
   );
 }

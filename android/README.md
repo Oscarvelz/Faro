@@ -8,6 +8,8 @@ Web releases arrive on their own (the page is loaded live; the service worker ke
   pictures shared from other apps (scan preview), update offer from GitHub releases `android-N` (asset `Faro.apk`).
 - Build: `.github/workflows/android.yml` on the `source` branch (only when `android/` changes). versionCode = run number.
 - Signing: the key is private and never committed. With repo secrets `FARO_KS_B64` + `FARO_KS_PASS` CI signs and
-  publishes; without them CI uploads `faro-unsigned-N` and the APK is signed privately (apksigner, alias `faro`) and
-  attached to release `android-N` as `Faro.apk`. All updates must use the same key.
+  publishes; without them CI uploads `faro-unsigned-N`, the APK is signed privately (apksigner, alias `faro`) and pushed
+  to the orphan branch `android-signed` (`Faro.apk`, `VERSION`=N, `NOTES.md`), whose workflow publishes release
+  `android-N`. All updates must use the same key (certificate SHA-256 8f:e1:ad:7c:…:63:4b:98).
+- Download: https://github.com/Oscarvelz/Faro/releases/latest/download/Faro.apk
 - Storage is separate from Chrome: sign in once (sync) or import a backup.

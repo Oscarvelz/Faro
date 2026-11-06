@@ -3135,6 +3135,16 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         terms: [["Bloquear", "Lock"], ["Volver", "Come back"]],
       },
       {
+        id: "app-android",
+        depth: "manual",
+        title: ["App de Faro para Android", "Faro app for Android"],
+        sum: ["Faro como app propia en tu teléfono o tableta Android.", "Faro as its own app on your Android phone or tablet."],
+        what: ["Es el mismo Faro, siempre al día, dentro de una app con su ícono. Guarda sus datos aparte del navegador, así que borrar los datos de Chrome ya no la toca. Funciona sin internet después de abrirla una vez.", "It is the same Faro, always up to date, inside an app with its own icon. It keeps its data apart from the browser, so clearing Chrome's data no longer touches it. It works offline after you open it once."],
+        how: ["En Android, abre [[Ajustes]] → Instalar app Android y descarga Faro.apk. Ábrelo e instala; Android puede pedirte permitir instalar apps de Chrome. Luego entra con tu cuenta: tus libros vuelven solos con la sincronización.", "On Android, open [[Settings]] → Install the Android app and download Faro.apk. Open it and install; Android may ask you to allow installing apps from Chrome. Then sign in: your books come back by themselves through sync."],
+        tip: ["La app empieza vacía porque no comparte datos con el navegador. Antes de cambiarte, revisa que el [[Punto de sincronización]] diga En la cuenta. La huella se activa otra vez dentro de la app. Lo que exportes (Excel, PDF, copias) va a Descargas › Faro. Cuando hay una versión nueva de la app, ella misma te ofrece instalarla.", "The app starts empty because it does not share data with the browser. Before switching, check that the [[Sync dot]] says In your account. Turn fingerprint unlock on again inside the app. What you export (Excel, PDF, backups) goes to Downloads › Faro. When a new version of the app is ready, the app offers to install it."],
+        terms: [["APK", "APK"], ["Instalar", "Install"], ["Teléfono", "Phone"], ["Tableta", "Tablet"]],
+      },
+      {
         id: "cerrar-sesion",
         depth: "manual",
         title: ["Cerrar sesión", "Sign out"],

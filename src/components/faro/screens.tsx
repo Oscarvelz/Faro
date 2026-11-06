@@ -10,7 +10,8 @@ import { RemitCard } from "@/components/faro/remesas";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
+import { APK_URL, androidBrowser } from "@/spa/native";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, missingDefaults, moveNamed, restoreDefaultCategories, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
@@ -4208,6 +4209,22 @@ export function Settings() {
           <ChevronRight aria-hidden />
         </button>
       </section>
+      {androidBrowser() ? (
+        <section className="card manual-card" data-anchor="aj-android" data-topic-box="app-android">
+          <button type="button" className="manual-row fold-btn" onClick={() => confirm({
+            title: lang === "en" ? "Install the Android app" : "Instalar app Android",
+            body: lang === "en"
+              ? "Faro.apk downloads now. Open it and install (Android may ask you to allow apps from Chrome). The app keeps its own data: sign in once and your books come back through sync. Check first that the sync dot says In your account."
+              : "Faro.apk se descarga ahora. Ábrelo e instala (Android puede pedirte permitir apps de Chrome). La app guarda sus datos aparte: entra una vez con tu cuenta y tus libros vuelven con la sincronización. Antes revisa que el punto de sincronización diga En la cuenta.",
+            yes: lang === "en" ? "Download" : "Descargar",
+            run: () => { location.href = APK_URL; },
+          })}>
+            <Smartphone aria-hidden />
+            <span className="manual-row-text"><strong className="serif">{lang === "en" ? "Install the Android app" : "Instalar app Android"}</strong><span>{lang === "en" ? "Faro as its own app on this phone" : "Faro como app en este teléfono"}</span></span>
+            <ChevronRight aria-hidden />
+          </button>
+        </section>
+      ) : null}
       <SampleRow />
       <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />

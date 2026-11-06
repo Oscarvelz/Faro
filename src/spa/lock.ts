@@ -1,5 +1,10 @@
 // Fingerprint / face unlock using the phone's own biometrics (WebAuthn platform authenticator).
 // Works offline: the check happens on the device, nothing is sent anywhere.
+// Inside the Faro Android app (1.3.111) WebAuthn is not available in the WebView, so the same lock asks the phone's
+// BiometricPrompt through window.FaroNative instead (fingerprint/face, or the phone's PIN/pattern/password). The browser
+// and the installed PWA keep the WebAuthn path below unchanged.
+import { inAndroidApp, nativeAuth, nativeCanAuth } from "./native";
+const NATIVE = "native";
 const KEY = (uid: string) => `faro.lock.${uid}`;
 
 function b64(buf: ArrayBuffer) {
@@ -16,6 +21,7 @@ function rand(n: number) {
 }
 
 export async function lockSupported(): Promise<boolean> {
+  if (inAndroidApp()) return nativeCanAuth();
   try {
     if (!window.PublicKeyCredential || !window.isSecureContext) return false;
     return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
@@ -29,6 +35,11 @@ export function lockCredential(uid: string): string | null {
 }
 
 export async function enableLock(uid: string, email: string): Promise<boolean> {
+  if (inAndroidApp()) {
+    if (!(await nativeAuth())) return false;
+    localStorage.setItem(KEY(uid), NATIVE);
+    return true;
+  }
   const cred = (await navigator.credentials.create({
     publicKey: {
       challenge: rand(32),
@@ -52,6 +63,9 @@ export function disableLock(uid: string) {
 export async function unlock(uid: string): Promise<boolean> {
   const id = lockCredential(uid);
   if (!id) return true;
+  // In the app any lock (even one carried over) is confirmed by the phone itself; a browser never sees "native".
+  if (inAndroidApp()) return nativeAuth();
+  if (id === NATIVE) return false;
   const got = await navigator.credentials.get({
     publicKey: {
       challenge: rand(32),

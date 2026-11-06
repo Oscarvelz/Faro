@@ -14,6 +14,7 @@ import { w } from "@/spa/words";
 import { clearGlow } from "@/lib/manual/nav";
 import { startFit } from "@/spa/fit";
 import { startStatusBar } from "@/spa/statusbar";
+import { startNative } from "@/spa/native";
 import "@/spa/gate.css";
 import { Splash, SPLASH_MIN_MS } from "@/spa/splash";
 
@@ -246,6 +247,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
 installSampleMode();
 startFit();
 startStatusBar();
+startNative(); // Faro for Android only; a no-op in the browser and the PWA
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

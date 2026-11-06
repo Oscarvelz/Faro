@@ -109,7 +109,7 @@ function ScanChooser({ at, onCamera, onImages, onClose }: { at: DOMRect; onCamer
   );
 }
 
-function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; onClose: () => void }) {
+export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; onClose: () => void }) {
   const { session, commit, key, lang, t } = useFaro();
   const ledger = session?.ledger;
   const [items, setItems] = useState<Item[]>(() => files.map((f) => ({ name: f.name, stage: "wait", p: 0, found: 0 })));

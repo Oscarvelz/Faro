@@ -236,4 +236,5 @@ export const ANCHORS: Record<string, { screen: string; where: string }> = {
   "aj-rules|aj-goal|aj-green|aj-yellow|aj-months|aj-rate": { screen: "settings", where: "screens.tsx Fold 'rate' and each label" },
   "aj-activity": { screen: "settings", where: "screens.tsx h2 Actividad" },
   "aj-lock": { screen: "settings", where: "gates.tsx UserButton lock block" },
+  "aj-android": { screen: "settings", where: "screens.tsx Settings row 'Instalar app Android' (Android browsers only, never inside the app)" },
 };
