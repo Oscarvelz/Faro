@@ -314,7 +314,8 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
       ] : null} />
       {adding ? <LoanForm mode="borrow" onCancel={() => setAdding(false)} onSave={save} /> : null}
-      {between}
+      {/* 1.3.113 (Oscar): Tarjetas first, then the loans and their Archivo; Libros puts Plan de pago + Deudas below them. */}
+      <CardsGroup libros={libros} />
       {libros ? null : <CobroSpan out help="prestamos-tiempo" title={t("cobro.loan.span")} total={sums.borrowed}
         events={all.map((l) => ({ date: l.takenOn, value: view(l.amountMinor, l.currency) }))}
         facts={[[t("cobro.loan.got"), sums.borrowed], [t("cobro.loan.paid"), sums.paid], [t("cobro.loan.left"), sums.left]]} />}
@@ -331,7 +332,6 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
             archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
         );
       }) : cardSum.count ? null : <Note>{t("cobro.loan.empty")}</Note>}
-      <CardsGroup libros={libros} />
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
         <div role="button" tabIndex={0} data-anchor="cobros-loans-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
           <span className="lab-head">{t("cobro.file")}<Hint topic="prestamo-archivo" /></span>
@@ -357,6 +357,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
           </article>
         )) : <Note>{t("cobro.loan.file.empty")}</Note>) : null}
       </div>
+      {between}
     </div>
   );
 }

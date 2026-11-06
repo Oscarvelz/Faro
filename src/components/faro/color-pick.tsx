@@ -10,7 +10,7 @@
  *   to its own ledger, so it stays isolated.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { Check } from "lucide-react";
+import { Check, Pipette } from "lucide-react";
 import "./color-pick.css";
 import { useFaro } from "./provider";
 import { FieldTip } from "./ui";
@@ -138,7 +138,7 @@ export function ColorPick({ value, onPick, onDraft, onConfirm, glyph, face = "bu
           </button>
         ))}
         <button type="button" className="cp-sw is-spectrum" aria-expanded={open} aria-label={t("cp.custom")} title={t("cp.custom")} onClick={() => setOpen((v) => !v)}>
-          <i aria-hidden style={{ ["--sw" as string]: current ? faceOf(current, face) : "transparent" }} />
+          <Pipette aria-hidden />
         </button>
       </div>
       {mine.length ? (
@@ -261,13 +261,16 @@ function Spectrum({ start, glyph, face, onDraft, onCancel, onSave, onConfirm }: 
   );
 }
 
-/** The "Ícono y color" trigger's mark: the chosen colour as a glossy gem with the chosen icon inside, ringed by a thin
- *  spectrum so it reads as "colour" at a glance. Tron draws it as its own bubble (dark core, neon rim, neon icon). */
+/** The "Ícono y color" trigger's mark (1.3.113): the icon in a quiet neutral well (graphite at night, light grey by day)
+ *  with a hairline; a brand tile (sub:/brand:) stands on its own, with no well around it. The chosen colour is only a
+ *  small dot on the well's corner: no fill, no gradient, no spectrum ring. */
 export function LookGem({ color, glyph }: { color: string; glyph?: string }) {
-  const fill = faceOf(parseHex(color) ?? color, "bubble");
+  const name = glyph && glyph !== "Circle" ? glyph : "Palette";
+  const brand = name.startsWith("sub:") || name.startsWith("brand:");
   return (
-    <i className="look-gem" aria-hidden style={{ ["--sw" as string]: fill, color: isTron() ? fill : inkOn(fill) }}>
-      <Glyph name={glyph && glyph !== "Circle" ? glyph : "Palette"} />
+    <i className={`look-gem${brand ? " is-brand" : ""}`} aria-hidden style={{ ["--sw" as string]: faceOf(parseHex(color) ?? color, "solid") }}>
+      <Glyph name={name} />
+      <b className="look-dot" />
     </i>
   );
 }

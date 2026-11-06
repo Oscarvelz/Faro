@@ -3157,6 +3157,19 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 const cat = session.ledger.structure.categories.find((c) => c.id === group.id);
                 return cat?.order ?? group.order;
               };
+              // 1.3.113: savings and Remesas rows show their icon beside the name, like the books' bubbles and Cuotas: the line's
+              // own icon or preset brand tile (Primerica), else its pocket's or category's preset icon; bank accounts show the bank.
+              // The colour bar stays. A group with any mark keeps the slot on every row, so the names stay aligned. Other groups
+              // are unchanged (an icon there would cost long names a second line on phones).
+              const markRoles = new Set(["savings", "remittance"]);
+              const rowMark = (line: (typeof shown)[number]) => {
+                const cat = session.ledger.structure.categories.find((c) => c.id === line.categoryId);
+                if (!cat || !markRoles.has(cat.role)) return "";
+                if (isPrimerica(line) && (!line.icon || line.icon === "Circle" || line.icon === "brand:primerica")) return "brand:primerica";
+                const g = lineGlyph(line, session.ledger.structure);
+                return g === "vault" || g.startsWith("vault:") ? "Landmark" : g === "Circle" ? "" : g;
+              };
+              const groupMarks = new Set([...groups.values()].filter((group) => group.lines.some((line) => rowMark(line))).map((group) => group.id));
               const cards = [...groups.values()].sort((a, b) => laneOf(a.lines[0]?.kind ?? "") - laneOf(b.lines[0]?.kind ?? "") || within(a) - within(b)).map((group, index) => {
                 const income = group.lines.every((line) => line.kind.startsWith("income"));
                 const total = group.lines.reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, rate.display, rate.rateE4), 0);
@@ -3175,10 +3188,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                       {group.lines.map((line) => {
                         const debt = debtIds.has(line.categoryId);
                         const sub = names.sub(line.subId);
+                        const mark = rowMark(line);
                         return (
                           <div key={line.id}>
                             <button type="button" className={`glass-line${debt && lens === "debt" ? " is-debt" : ""}`} data-line-id={line.id} aria-expanded={deskLine === line.id} onClick={() => setDeskLine((cur) => cur === line.id ? null : line.id)}>
                               <i className="ridge-pip" style={{ background: chosenTone(line.color, line.categoryId) || tint }} />
+                              {groupMarks.has(group.id) ? <i className={`ridge-mark${mark ? "" : " is-blank"}`} aria-hidden>{mark ? <Glyph name={mark} className={mark.startsWith("brand:") || mark.startsWith("sub:") ? "ridge-brand" : "ridge-glyph"} /> : null}</i> : null}
                               <span className="min-w-0">
                                 <strong className="block">{keepTail(line.concept || sub || group.title)}</strong>
                                 {sub && line.concept && sub.trim().toLowerCase() !== line.concept.trim().toLowerCase() ? <span className="block text-sm text-muted">{sub}</span> : null}

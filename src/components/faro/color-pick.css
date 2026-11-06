@@ -13,9 +13,6 @@
 .cp-sw:active { transform: scale(.9); }
 .cp-sw svg { width: 52%; height: 52%; stroke-width: 3; }
 .cp-sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg), inset 0 -3px 6px rgb(0 0 0 / .1); }
-.cp-sw.is-spectrum { background: conic-gradient(from 0deg, #ff4d5e, #ffb02e, #f4ec3a, #5fe07a, #2fd6e6, #4f7dff, #b65cff, #ff4dbd, #ff4d5e); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .12), 0 1px 2px rgb(0 0 0 / .14); }
-.cp-sw.is-spectrum i { width: 46%; height: 46%; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 2px var(--surface); background-image: radial-gradient(circle, var(--sw) 0 54%, transparent 56%); }
-.cp-sw.is-spectrum[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg); }
 /* Section labels: exactly the dock's own label style (same as ÍCONO), in every theme. */
 .cp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 22px; margin: 2px 2px 0; }
 .cp-head, .cp-lab, .cp-now { color: var(--muted); font-size: 0.68rem; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
@@ -40,8 +37,7 @@
 .cp-hue .cp-thumb { top: 50%; }
 .cp-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .cp-prev { display: grid; place-items: center; flex: none; padding: 0; border: 0; min-height: 0; cursor: pointer; transition: transform .16s cubic-bezier(.22, 1, .36, 1); width: 46px; height: 46px; border-radius: 50%;
-  background: radial-gradient(130% 90% at 18% 0%, rgb(255 255 255 / .72), transparent 42%), linear-gradient(180deg, rgb(255 255 255 / .22), transparent 46%), var(--sw);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .88), inset 0 0 0 1px color-mix(in oklab, white 42%, transparent), inset 0 -10px 14px color-mix(in oklab, var(--tone) 20%, transparent), 0 6px 14px color-mix(in oklab, var(--fg) 10%, transparent); }
+  background: var(--sw); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .14); }
 .cp-prev:active { transform: scale(.92); }
 .cp-prev svg { width: 20px; height: 20px; }
 .cp-hex { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; }
@@ -52,15 +48,25 @@
 .cp-spec .cp-actions .btn.secondary { background: color-mix(in oklab, var(--fg) 5%, var(--surface)); border: 1px solid color-mix(in oklab, var(--fg) 22%, var(--line)); box-shadow: inset 0 1px 0 color-mix(in oklab, white 30%, transparent); }
 [data-theme="tron"] .cp-spec .cp-actions .btn.secondary { background: linear-gradient(180deg, rgba(22, 36, 42, .94), rgba(5, 10, 13, .97)); border: 1px solid rgba(63, 214, 245, .45); box-shadow: inset 0 1px 0 rgba(201, 246, 255, .12), 0 0 8px rgba(63, 214, 245, .12); color: #c9f6ff; }
 
-/* The trigger's mark: a glossy gem of the chosen colour with its icon, ringed by a thin spectrum. */
+/* 1.3.113: the trigger's mark is a quiet control. The icon sits in a neutral well (light grey by day, graphite at night,
+   never the chosen colour) with a hairline; a brand tile stands alone (no well around it, no stacked frames). The colour is
+   only a 7px dot on the corner, under a ring of the field's own surface. No fill, no gloss, no gradient, no spectrum ring. */
 .look-open { padding-left: 8px; }
-.look-open i.look-gem, i.look-gem { position: relative; width: 26px; height: 26px; min-width: 26px; border-radius: 50%; display: grid; place-items: center; margin: 3px 2px 3px 0;
-  background: radial-gradient(circle at 32% 24%, rgb(255 255 255 / .7), transparent 46%), var(--sw);
-  box-shadow: inset 0 -4px 7px rgb(0 0 0 / .12), 0 0 0 1.5px var(--surface); }
-i.look-gem::before { content: ""; position: absolute; inset: -3.5px; border-radius: 50%; pointer-events: none;
-  background: conic-gradient(from 210deg, #ff4d5e, #ffb02e, #f4ec3a, #5fe07a, #2fd6e6, #4f7dff, #b65cff, #ff4dbd, #ff4d5e);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.75px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 1.75px), #000 calc(100% - 1.5px)); }
-i.look-gem svg { width: 14px; height: 14px; }
+.look-open i.look-gem, i.look-gem { position: relative; width: 26px; height: 26px; min-width: 26px; border-radius: 7px; display: grid; place-items: center; margin: 3px 2px 3px 0;
+  background: #eef0f2; box-shadow: inset 0 0 0 1px rgb(24 28 33 / .13); color: #3a3f45; --look-ring: var(--surface); }
+i.look-gem > svg { width: 15px; height: 15px; }
+.look-open i.look-gem.is-brand, i.look-gem.is-brand { background: none; box-shadow: none; }
+i.look-gem.is-brand > svg { width: 24px; height: 24px; }
+i.look-gem > .look-dot { position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--sw); box-shadow: 0 0 0 1.5px var(--look-ring); pointer-events: none; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) :is(.look-open i.look-gem, i.look-gem):not(.is-brand) { background: #1c1f23; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .09); color: #d4d8dd; }
+[data-theme="tron"] :is(.look-open i.look-gem, i.look-gem):not(.is-brand) { background: #15191c; box-shadow: inset 0 0 0 1px rgb(205 232 240 / .13); color: #cfdde2; border-radius: 4px; }
+[data-theme="tron"] i.look-gem { --look-ring: #03090c; }
+[data-theme="tron"] .look-open i.look-gem { --look-ring: var(--bg); }
+/* Personalizado: a neutral well with a pipette (the spectrum lives inside, on the hue bar), not a rainbow disc. */
+.cp-sw.is-spectrum { background: #eef0f2; color: #3a3f45; box-shadow: inset 0 0 0 1px rgb(24 28 33 / .16); }
+.cp-sw.is-spectrum svg { width: 46%; height: 46%; stroke-width: 2; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cp-sw.is-spectrum, [data-theme="tron"] .cp-sw.is-spectrum { background: #1c1f23; color: #d4d8dd; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
+.cp-sw.is-spectrum[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg); }
 
 /* Night themes: rings in the theme's ink. */
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cp-sw { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 22%, transparent), inset 0 -3px 6px rgb(0 0 0 / .14); }
@@ -69,12 +75,9 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 /* Tron: swatches are the lights the Grid draws; the selected one locks in with a teal ring; the preview is a Tron bubble. */
 [data-theme="tron"] .cp-sw:not(.is-spectrum) { background: radial-gradient(circle at 32% 26%, rgb(255 255 255 / .42), transparent 46%), var(--sw); box-shadow: 0 0 7px -1px color-mix(in oklab, var(--sw) 75%, transparent), inset 0 0 0 1px rgb(0 0 0 / .25); }
 [data-theme="tron"] .cp-sw[aria-pressed="true"], [data-theme="tron"] .cp-sw.is-spectrum[aria-expanded="true"] { box-shadow: 0 0 0 2px #050b0e, 0 0 0 3.5px #3fd6f5, 0 0 12px rgba(63, 214, 245, .6); }
-[data-theme="tron"] .cp-sw.is-spectrum i { background-color: #0a1317; box-shadow: 0 0 0 2px #0a1317; }
 [data-theme="tron"] .cp-now i { box-shadow: 0 0 0 2px #050b0e, 0 0 0 3.5px #3fd6f5, 0 0 10px rgba(63, 214, 245, .55); }
 [data-theme="tron"] .cp-sv, [data-theme="tron"] .cp-hue { box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .35), 0 0 10px rgba(63, 214, 245, .12); }
-[data-theme="tron"] .cp-prev { background: radial-gradient(110% 80% at 30% 0%, color-mix(in oklab, var(--sw) 30%, transparent), transparent 62%), #071014; box-shadow: inset 0 0 0 1.5px var(--sw), 0 0 12px color-mix(in oklab, var(--sw) 50%, transparent); }
-[data-theme="tron"] i.look-gem { background: radial-gradient(110% 80% at 30% 0%, color-mix(in oklab, var(--sw) 34%, transparent), transparent 62%), #071014; box-shadow: inset 0 0 0 1.5px var(--sw), 0 0 8px color-mix(in oklab, var(--sw) 55%, transparent); }
-[data-theme="tron"] i.look-gem::before { opacity: .55; }
+[data-theme="tron"] .cp-prev { background: #15191c; box-shadow: inset 0 0 0 1.5px var(--sw); }
 
 /* Hosts */
 .shop-cat-wrap:has(> .shop-paint) { flex-basis: 100%; display: grid; gap: 10px; justify-items: start; }
