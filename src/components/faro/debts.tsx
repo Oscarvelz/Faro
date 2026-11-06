@@ -20,6 +20,7 @@ import { FreqPick } from "./fit-pick";
 import { freqPresetsOf, cadenceLabel } from "@/lib/faro/cadence";
 import { DeboSum, DueLoans, LoanCard, LoanForm, deboTabNow, type LoanDraft } from "./loans";
 import { RewardsGroup } from "./cards";
+import { BookKit } from "./book-kit";
 import { rewardsTotals } from "@/lib/faro/cards";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
@@ -242,7 +243,9 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
   const [draft, setDraft] = useState(false);
   const [bonusFor, setBonusFor] = useState<string | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
+  const [editFor, setEditFor] = useState<string | null>(null);
   useLayer(draft || !!bonusFor, () => { setDraft(false); setBonusFor(null); });
+  useLayer(!!editFor, () => setEditFor(null));
   useEffect(() => {
     const onOpen = (e: Event) => { const id = (e as CustomEvent<string>).detail; if (id === "cobros-file" || id === "debt-owed-file") setFileOpen(true); };
     window.addEventListener("faro-open", onOpen);
@@ -294,7 +297,17 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
     <div className="cobro-swap" data-dir={dir} data-anchor={libros ? "debt-owed" : "cobros-in"}>
       <div className="cobro-top">
         <div><strong className="num" data-anchor="owed-total">{fmt(sums.left + rwSum.total)}</strong></div>
-        <button type="button" className="cobro-plus" aria-label={t("cobro.open")} aria-pressed={draft} onClick={() => setDraft((on) => !on)}><Plus /></button>
+        {libros ? (
+          <span className="cobro-kit">
+            <BookKit title={lang === "en" ? "Owed to me" : "Me deben"} test="owed-kit" word={["persona", "personas", "person", "people"]} verb={["Archivar", "Archive"]}
+              body={lang === "en" ? "They move to the Archive with their payments and what was left. Restore brings them back." : "Pasan al Archivo con sus abonos y lo que faltaba. Restaurar los devuelve."}
+              rows={active.map((r) => ({ id: r.id, label: r.person }))}
+              onEdit={(id) => { setDraft(false); setEditFor(id); }}
+              onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => archiveLent(acc, id), s0), ids.length === 1 ? (active.find((r) => r.id === ids[0])?.person ?? "") : `${ids.length}`)}
+              onRename={(id, name) => commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => (r.id === id ? { ...r, person: name } : r)) }), name)} />
+          </span>
+        ) : null}
+        <button type="button" className="cobro-plus" aria-label={t("cobro.open")} aria-pressed={draft} onClick={() => { setEditFor(null); setDraft((on) => !on); }}><Plus /></button>
       </div>
       <DeboSum help="me-deben" empty={t("debo.sum.owed.empty")} parts={active.length && rwSum.total > 0 ? [
         [`${people.filter((p) => p.active).length} ${t(people.filter((p) => p.active).length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],
@@ -309,6 +322,13 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
         [{ num: fmt(rwSum.total) }, lang === "en" ? "in card rewards" : "en recompensas"],
       ] : null} />
       {draft ? <LoanForm mode="lend" onCancel={() => setDraft(false)} onSave={save} /> : null}
+      {(() => {
+        const row = editFor ? active.find((r) => r.id === editFor) : null;
+        if (!row) return null;
+        return <LoanForm key={row.id} mode="lend" initial={{ name: row.person, who: "person", kind: row.kind === "interest" ? "interest" : "plain", amountMinor: row.amountMinor, currency: row.currency, aprBps: row.aprBps, date: row.dueOn || "", book: "fixed" }}
+          onCancel={() => setEditFor(null)}
+          onSave={(d) => { commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => (r.id === row.id ? { ...r, person: d.name, kind: d.kind, amountMinor: d.amountMinor, aprBps: d.aprBps, dueOn: d.date } : r)) }), d.name); setEditFor(null); }} />;
+      })()}
       {libros ? <DebtChart /> : (
         <CobroSpan title={t("cobro.span")} total={sums.lent} events={all.map((r) => ({ date: r.startedOn, value: view(r.amountMinor, r.currency) }))}
           facts={[[t("cobro.lent"), sums.lent], [t("cobro.paid"), sums.paid], [t("cobro.left"), sums.left]]} />

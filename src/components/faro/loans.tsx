@@ -17,6 +17,7 @@ import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { ISO_DAY, addLoan, archiveLoan, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
 import type { Currency, Group, Loan } from "@/lib/faro/types";
 import { CardsGroup } from "./cards";
+import { BookKit } from "./book-kit";
 import { cardFigures, cardTotals, cardsOf } from "@/lib/faro/cards";
 
 export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group };
@@ -25,25 +26,26 @@ const stampOf = (iso: string) => (iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.
 const TINTS = ["#7aa2c4", "#8fb9a6", "#e7c27a", "#d7a08a", "#a9b4de"];
 
 /** The loan form. mode "lend" = Me deben (as it always was); "borrow" = Préstamos (lender kind, currency, book). */
-export function LoanForm({ mode, onCancel, onSave }: { mode: "lend" | "borrow"; onCancel: () => void; onSave: (draft: LoanDraft) => void }) {
+export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "borrow"; onCancel: () => void; onSave: (draft: LoanDraft) => void; initial?: LoanDraft }) {
   const { t, session } = useFaro();
   const display = session?.ledger.settings.display ?? "USD";
   const borrow = mode === "borrow";
-  const [kind, setKind] = useState<"plain" | "interest">("plain");
-  const [who, setWho] = useState<"person" | "entity">("person");
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<Currency>(display);
-  const [date, setDate] = useState(borrow ? todayIso() : "");
-  const [apr, setApr] = useState("");
-  const [book, setBook] = useState<Group>("fixed");
+  // 1.3.115: the same form edits a record from Libros (Me deben / Préstamos → lápiz → tap a name).
+  const [kind, setKind] = useState<"plain" | "interest">(initial?.kind ?? "plain");
+  const [who, setWho] = useState<"person" | "entity">(initial?.who ?? "person");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [amount, setAmount] = useState(initial ? (initial.amountMinor / 100).toFixed(2) : "");
+  const [currency, setCurrency] = useState<Currency>(initial?.currency ?? display);
+  const [date, setDate] = useState(initial?.date ?? (borrow ? todayIso() : ""));
+  const [apr, setApr] = useState(initial && initial.aprBps ? String(initial.aprBps / 100) : "");
+  const [book, setBook] = useState<Group>(initial?.book ?? "fixed");
   function save() {
     const minor = parseAmount(amount);
     const clean = name.trim();
     if (!clean || minor === null || minor <= 0) return;
     const pct = Number(apr.trim().replace(",", "."));
     onSave({
-      name: clean, who, kind, amountMinor: minor, currency: borrow ? currency : display,
+      name: clean, who, kind, amountMinor: minor, currency: borrow || initial ? currency : display,
       aprBps: kind === "interest" && Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0,
       date: ISO_DAY.test(date) ? date : todayIso(), book,
     });
@@ -269,7 +271,9 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
   const [adding, setAdding] = useState(false);
   const [payFor, setPayFor] = useState<string | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
+  const [editFor, setEditFor] = useState<string | null>(null);
   useLayer(adding || !!payFor, () => { setAdding(false); setPayFor(null); });
+  useLayer(!!editFor, () => setEditFor(null));
   useEffect(() => {
     const onOpen = (e: Event) => { if ((e as CustomEvent<string>).detail === "cobros-loans-file") setFileOpen(true); };
     const onClose = () => { setAdding(false); setPayFor(null); };
@@ -298,7 +302,17 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         <div>
           <strong className="num" data-anchor="loans-total">{fmt(sums.left + cardSum.balance)}</strong>
         </div>
-        <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.loan.add")} onClick={() => setAdding((on) => !on)}><Plus /></button>
+        {libros ? (
+          <span className="cobro-kit">
+            <BookKit title={t("cobro.tab.loans")} test="loan-kit" word={["préstamo", "préstamos", "loan", "loans"]} verb={["Archivar", "Archive"]}
+              body={lang === "en" ? "They move to the Archive with their payments and what was left. Restore brings them back." : "Pasan al Archivo con sus pagos y lo que faltaba. Restaurar los devuelve."}
+              rows={active.map((l) => ({ id: l.id, label: l.lender }))}
+              onEdit={(id) => { setAdding(false); setEditFor(id); }}
+              onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => archiveLoan(acc, id), s0), ids.length === 1 ? (active.find((l) => l.id === ids[0])?.lender ?? "") : `${ids.length}`)}
+              onRename={(id, name) => commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => (l.id === id ? { ...l, lender: name } : l)) }), name)} />
+          </span>
+        ) : null}
+        <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.loan.add")} onClick={() => { setEditFor(null); setAdding((on) => !on); }}><Plus /></button>
       </div>
       <DeboSum empty={t("debo.sum.loans.empty")} parts={sums.count && cardSum.known ? [
         [`${sums.count} ${t(sums.count === 1 ? "debo.sum.loan1" : "debo.sum.loanN")}`],
@@ -314,6 +328,13 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
       ] : null} />
       {adding ? <LoanForm mode="borrow" onCancel={() => setAdding(false)} onSave={save} /> : null}
+      {(() => {
+        const loan = editFor ? active.find((l) => l.id === editFor) : null;
+        if (!loan) return null;
+        return <LoanForm key={loan.id} mode="borrow" initial={{ name: loan.lender, who: loan.who, kind: loan.kind, amountMinor: loan.amountMinor, currency: loan.currency, aprBps: loan.aprBps, date: loan.takenOn, book: loan.book }}
+          onCancel={() => setEditFor(null)}
+          onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => (l.id === loan.id ? { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book } : l)) }), d.name); setEditFor(null); }} />;
+      })()}
       {/* 1.3.113 (Oscar): Tarjetas first, then the loans and their Archivo; Libros puts Plan de pago + Deudas below them. */}
       <CardsGroup libros={libros} />
       {libros ? null : <CobroSpan out help="prestamos-tiempo" title={t("cobro.loan.span")} total={sums.borrowed}

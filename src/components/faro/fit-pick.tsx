@@ -94,16 +94,19 @@ function LookView({ look, lang, q, onDone, onInk }: { look: Look; lang: string; 
   );
 }
 
-type Manage = {
+export type Manage = {
   /** Many deletions, one confirmation. `word` names the things ("íconos", "categorías"). */
   onDropMany: (ids: string[]) => void;
   word: [string, string, string, string];
   onRename?: (id: string, name: string) => void;
   onColor?: (id: string, hex: string) => void;
   onRestore?: () => void;
+  /** 1.3.115 (Libros books): the verb of the red button and its confirmation ("Archivar"), and the confirmation's body. */
+  verb?: [string, string];
+  body?: string;
 };
 
-export function PickSheet({ title, items, groups, value, onPick, onClose, add, manage, none, test, look, onLookDone }: {
+export function PickSheet({ title, items, groups, value, onPick, onClose, add, manage, none, test, look, onLookDone, startEditing, onPalette }: {
   title: string;
   items: PickItem[];
   groups?: { id: string; label: string }[];
@@ -118,10 +121,14 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
   look?: Look;
   /** A confirmed colour or a picked Faro icon returns to the trigger. */
   onLookDone?: () => void;
+  /** 1.3.115: a book's pencil opens its sheet straight in the manage state (✓ then leaves it for the list). */
+  startEditing?: boolean;
+  /** 1.3.115: a book's sheet — the palette in the head gives the ticked rows one colour and icon. */
+  onPalette?: (ids: string[]) => void;
 }) {
   const { lang, confirm } = useFaro();
   const [q, setQ] = useState("");
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!!startEditing);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [paint, setPaint] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -138,7 +145,9 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
   // "Color e íconos" is its own Back step: Back (or the palette again) returns to the list, the next Back closes the sheet.
   useLayer(lookOn && !lookOnly, () => setLookOn(false));
   // The manage state is its own Back step: Back leaves it first, then closes the sheet.
-  useLayer(editing, () => { setEditing(false); setSel(new Set()); setPaint(null); });
+  // 1.3.115: a sheet that opened in its manage state (a book's pencil) has one Back step: Back closes it.
+  const [manageBase] = useState(!!startEditing);
+  useLayer(editing && !manageBase, () => { setEditing(false); setSel(new Set()); setPaint(null); });
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -192,10 +201,13 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
     if (!manage || !sel.size) return;
     const ids = [...sel];
     const [one, many] = lang === "en" ? [manage.word[2], manage.word[3]] : [manage.word[0], manage.word[1]];
+    const verb = manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : L(lang, "Borrar", "Delete");
     confirm({
-      title: L(lang, `¿Borrar ${ids.length} ${ids.length === 1 ? one : many}?`, `Delete ${ids.length} ${ids.length === 1 ? one : many}?`),
-      body: L(lang, "Las líneas que ya los usan los conservan, con todo su historial.", "Lines already using them keep them, with all their history."),
-      yes: L(lang, "Borrar", "Delete"),
+      title: L(lang, `¿${verb} ${ids.length} ${ids.length === 1 ? one : many}?`, `${verb} ${ids.length} ${ids.length === 1 ? one : many}?`),
+      body: manage.body ?? L(lang, "Las líneas que ya los usan los conservan, con todo su historial.", "Lines already using them keep them, with all their history."),
+      // Only the books' sheets (1.3.115) ask in red; the editors' pickers keep their confirmation as it was.
+      danger: manage.verb || manage.body ? true : undefined,
+      yes: verb,
       run: () => { manage.onDropMany(ids); setSel(new Set()); },
     });
   };
@@ -208,6 +220,11 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
             <button type="button" className="fit-sheet-tool is-pal" data-test="look-pal" aria-pressed={lookOn} aria-label={L(lang, "Color e íconos", "Colour and icons")} title={L(lang, "Color e íconos", "Colour and icons")} onClick={toggleLook}>
               <Palette aria-hidden />
               <i className="fit-pal-dot" aria-hidden style={{ ["--sw" as string]: ink ?? look.color }} />
+            </button>
+          ) : null}
+          {onPalette && editing ? (
+            <button type="button" className="fit-sheet-tool is-pal" data-test="kit-sheet-pal" disabled={!sel.size} aria-label={L(lang, "Color e íconos", "Colour and icons")} title={L(lang, "Color e íconos", "Colour and icons")} onClick={() => onPalette([...sel])}>
+              <Palette aria-hidden />
             </button>
           ) : null}
           {manage?.onRestore && !lookView ? (
@@ -276,7 +293,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
         {editing && manage ? (
           <div className="fit-manage-bar">
             <label className="fit-all"><input type="checkbox" className="fit-check" data-test="manage-all" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(visibleIds))} /><span>{L(lang, "Seleccionar todo", "Select all")}</span></label>
-            <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}><Trash2 />{L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
+            <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}><Trash2 />{manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
           </div>
         ) : add && !lookView ? (
           <div className="fit-add">

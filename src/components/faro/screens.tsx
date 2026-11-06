@@ -35,6 +35,7 @@ import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { ScanEntry } from "./receipt-scan";
+import { BookKit, type KitRow } from "./book-kit";
 /** Books whose + editor offers Escanear (1.3.101). */
 const SCAN_KINDS: LineKind[] = ["subscription", "purchase", "expense-variable", "expense-fixed"];
 import { StmtScan, type StmtSave } from "./stmt-scan";
@@ -265,6 +266,12 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
       </div>
     </div>
   );
+}
+
+/** 1.3.115: a savings line's editor in Libros (Ahorros, Meta, Retiro, Emergencia): the books' own editor, its own currency. */
+function SavEdit({ line }: { line: Line }) {
+  const [money, setMoney] = useState<Currency>(line.currency);
+  return <div className="kit-edit" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}><BubbleEditor line={line} money={money} onMoney={setMoney} /></div>;
 }
 
 function BubbleTools({ onErase, onEdit, onArm }: { onErase: () => void; onEdit: () => void; onArm?: () => void }) {
@@ -754,7 +761,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
 }
 
 export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKind | LineKind[]; title: string; categoryId?: string; storeId?: string }) {
-  const { lines, t, ui, setUi, viewLine, recordLine, session, confirm, commit, key, names, fmt } = useFaro();
+  const { lines, t, ui, setUi, viewLine, recordLine, session, confirm, commit, key, names, fmt, lang } = useFaro();
   const kinds = Array.isArray(kind) ? kind : [kind];
   const draftKind = kinds[0] ?? "income-fixed";
   const group = draftKind === "expense-fixed" ? "fixed" : draftKind === "expense-variable" ? "variable" : null;
@@ -778,7 +785,10 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
   const asDue = draftKind === "subscription";
   const asBubble = asCloud || asDrift || asDue;
   const present = chipSource.filter((c) => rows.some((l) => l.categoryId === c.id));
-  const pickedLine = chipRows.find((l) => l.id === picked) ?? null;
+  // 1.3.115: a tap opens the editor straight away; the open bubble is the one being edited (one state, one Back step).
+  const pickedLine = chipRows.find((l) => l.id === ui.editing) ?? null;
+  const kitRows: KitRow[] = chipRows.map((l) => ({ id: l.id, label: l.concept || names.cat(l.categoryId) || names.purchase(l.categoryId) || "—", glyph: lineGlyph(l, session?.ledger.structure), color: chosenTone(l.color, l.categoryId) || (session ? colorFor(session.ledger.structure, l.categoryId) : undefined) }));
+  const kitLine = (id: string) => chipRows.find((l) => l.id === id);
   const display = session?.ledger.settings.display ?? "NIO";
   const [money, setMoney] = useState<Currency>(display);
   const [span, setSpan] = useState<"week" | "month" | "year">("month");
@@ -798,8 +808,8 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
     if (ui.draft === draftKind && !ui.editing) revealEditor(draftRef.current);
   }, [ui.draft, ui.editing, draftKind]);
   useEffect(() => {
-    if (ui.editing && picked === ui.editing) revealEditor(editRef.current);
-  }, [ui.editing, picked]);
+    if (ui.editing && asBubble && chipRows.some((l) => l.id === ui.editing)) revealEditor(editRef.current);
+  }, [ui.editing]);
 
   return (
     <section className="card income-book" data-anchor="book-card">
@@ -816,6 +826,13 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
               <Filter className="size-4" />
             </button>
           ) : null}
+          <BookKit title={title} rows={kitRows} word={["línea", "líneas", "line", "lines"]} test="book-kit"
+            body={lang === "en" ? "They leave this month. Earlier months keep theirs, with all their history." : "Salen de este mes. Los meses anteriores conservan las suyas, con todo su historial."}
+            onEdit={(id) => setUi({ editing: id, draft: null })}
+            onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`)}
+            onRename={(id, name) => { const l = kitLine(id); if (l) commit((s0) => upsertLine(s0, { ...l, concept: name }), name); }}
+            onColor={(id, hex) => { const l = kitLine(id); if (l) commit((s0) => upsertLine(s0, { ...l, color: hex }), l.concept || "color"); }}
+            onIcon={(id, glyph) => { const l = kitLine(id); if (l) commit((s0) => upsertLine(s0, { ...l, icon: glyph }), l.concept || "icon"); }} />
           <button type="button" data-anchor="book-add" className="plus-mark" aria-label={t("add")} aria-pressed={ui.draft === draftKind} onClick={() => setUi({ draft: ui.draft === draftKind ? null : draftKind, editing: null })}>
             <svg viewBox="0 0 32 32" aria-hidden>
               <defs>
@@ -877,35 +894,26 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
                   className="spend-bubble"
                   data-line-id={line.id}
                   data-hot={ui.highlight === line.id}
-                  aria-pressed={picked === line.id}
+                  aria-pressed={ui.editing === line.id}
                   style={{
                     backgroundColor: washForInk(chosenTone(line.color, line.categoryId) || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc")),
                     ["--tone" as string]: chosenTone(line.color, line.categoryId) || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc"),
                     color: "#14110e",
                   }}
                   onPointerDown={rippleAt}
-                  onClick={() => {
-                    setPicked(picked === line.id ? null : line.id);
-                    if (ui.editing) setUi({ editing: null });
-                  }}
+                  onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}
                 >
                   <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>
                   <strong>{line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId)}</strong>
                   <span className="num">{draftKind.startsWith("income") ? "" : "−"}{viewLine(line)}</span>
                 </button>
-                {picked === line.id ? (
-                  <BubbleTools
-                    onErase={() => confirm({ title: t("delete"), body: `${line.concept}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => { commit((s) => deleteLine(s, key, line.id), line.concept); setPicked(null); } })}
-                    onEdit={() => { setPicked(line.id); setUi({ editing: line.id, draft: null }); }}
-                  />
-                ) : null}
                 </div>
               );
             })}
           </div>
           {pickedLine ? (
             <div className="mt-3" ref={editRef}>
-              {ui.editing === pickedLine.id ? <BubbleEditor line={pickedLine} money={money} onMoney={setMoney} /> : null}
+              <BubbleEditor key={pickedLine.id} line={pickedLine} money={money} onMoney={setMoney} />
               <PotReport line={pickedLine} span={span} />
             </div>
           ) : null}
@@ -915,14 +923,14 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
       ) : (
         chipRows.map((line) => (
           <div key={line.id} className="line-stack">
-            <div className="line-row" data-line-id={line.id} data-hot={ui.highlight === line.id}>
+            <div className={`line-row is-tap${ui.editing === line.id ? " is-open" : ""}`} data-line-id={line.id} data-hot={ui.highlight === line.id} role="button" tabIndex={0} aria-expanded={ui.editing === line.id}
+              onClick={(e) => { if ((e.target as Element).closest(".line-edit")) return; setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }); }}
+              onKeyDown={(e) => { if ((e.target as Element).closest(".line-edit") || (e.key !== "Enter" && e.key !== " ")) return; e.preventDefault(); setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }); }}>
               <div className="min-w-0">
                 <strong className="block">{keepTail(line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId), true)}</strong>
                 <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).join(" · ")}</span>
               </div>
               {moneyRow(line, outView(line, viewLine), recordLine(line), display)}
-              <button type="button" className="icon-btn line-act" aria-label={t("edit")} onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}><Pencil className="size-4" /></button>
-              <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${line.concept}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => deleteLine(s, key, line.id), line.concept) })}><Trash2 className="size-4" /></button>
               {ui.editing === line.id ? <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
             </div>
             <PotReport line={line} span={span} />
@@ -942,11 +950,11 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
   const editRef = useRef<HTMLDivElement>(null);
   const minorOf = (line: Line) => convertMinor(line.amountMinor, line.currency, display, rate);
   const total = Math.max(rows.reduce((sum, line) => sum + minorOf(line), 0), 1);
-  const pickedLine = rows.find((line) => line.id === picked) ?? null;
-  const arm = useRef(false);
+  // 1.3.115: a tap opens the editor straight away (delete lives in the book's pencil state, never beside the row).
+  const pickedLine = rows.find((line) => line.id === ui.editing) ?? null;
   useEffect(() => {
-    if (ui.editing && picked === ui.editing) revealEditor(editRef.current);
-  }, [ui.editing, picked]);
+    if (pickedLine) revealEditor(editRef.current);
+  }, [ui.editing]);
   const storeTotals = new Map<string, number>();
   const window = spanBounds(span, ui.year, ui.month);
   if (session) {
@@ -983,14 +991,9 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
               className={`buy-glass${line.storeId ? ` brand-${line.storeId}` : ""}`}
               data-line-id={line.id}
               data-hot={ui.highlight === line.id}
-              aria-pressed={picked === line.id}
+              aria-pressed={ui.editing === line.id}
               onPointerDown={rippleAt}
-              onClick={() => {
-                if (arm.current) { arm.current = false; return; }
-                const next = picked === line.id ? null : line.id;
-                setPicked(next);
-                if (!next) setUi({ editing: null });
-              }}
+              onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}
             >
               <span className="buy-id">
                 {line.storeId ? <BrandMark id={line.storeId} src={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("data:") ? session.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon : undefined} className="buy-mark" /> : <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>}
@@ -998,20 +1001,13 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
               </span>
               <span className="num">{outView(line, viewLine)}</span>
             </button>
-            {picked === line.id ? (
-              <BubbleTools
-                onArm={() => { arm.current = true; setTimeout(() => { arm.current = false; }, 450); }}
-                onErase={() => confirm({ title: t("delete"), body: `${line.concept}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => { commit((s) => deleteLine(s, key, line.id), line.concept); setPicked(null); } })}
-                onEdit={() => { arm.current = true; setPicked(line.id); setUi({ editing: line.id, draft: null }); }}
-              />
-            ) : null}
             </div>
           );
         })}
       </div>
       {pickedLine ? (
         <div className="mt-3" ref={editRef}>
-          {ui.editing === pickedLine.id ? <BubbleEditor line={pickedLine} money={money} onMoney={onMoney} /> : null}
+          <BubbleEditor key={pickedLine.id} line={pickedLine} money={money} onMoney={onMoney} />
           <PotReport line={pickedLine} span={span} />
         </div>
       ) : null}
@@ -1528,8 +1524,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [openSave, setOpenSave] = useState<string | null>(null);
   const [deskLine, setDeskLine] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  // 1.3.115: Libros savings books carry their own + (Apartado del mes) as a Back step.
+  const [asideAdd, setAsideAdd] = useState(false);
+  const [asideGlyph, setAsideGlyph] = useState("PiggyBank");
+  const [asideColor, setAsideColor] = useState(SAVINGS_PURPLE);
+  useLayer(asideAdd, () => setAsideAdd(false));
   const [adding, setAdding] = useState(false);
   const [moving, setMoving] = useState<string | null>(null);
+  const [addFromView, setAddFromView] = useState(false);
+  // A pocket's + in Libros (Meta, Retiro, Emergencia) is a Back step too.
+  useLayer(!!focus && adding, () => setAdding(false));
   const [accountsOpen, setAccountsOpen] = useState(() => {
     try { return localStorage.getItem("faro-save-accounts") === "1"; } catch { return false; }
   });
@@ -1891,6 +1895,63 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const retireHits = retireStart ? payDates(retireStart, "monthly") : [];
   const retireSend = openLines.reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, rate.display, rate.rateE4), 0);
   const retireAccrued = retireHits.length * retireSend;
+  // 1.3.115: the savings books' tools (palette + pencil), on the same lines and with the pockets' own delete rule
+  // (archive when the line carries money history, so nothing is lost).
+  const savKit = (rows: Line[], title: string, restore?: () => void) => (
+    <BookKit title={title} test="sav-kit" word={["línea", "líneas", "line", "lines"]}
+      rows={rows.map((l) => ({ id: l.id, label: l.concept || names.sub(l.subId) || names.cat(l.categoryId) || "—", glyph: isPrimerica(l) && (!l.icon || l.icon === "Circle") ? "brand:primerica" : (l.icon && l.icon !== "Circle" ? l.icon : "PiggyBank"), color: chosenTone(l.color, l.categoryId) || colorFor(session.ledger.structure, l.categoryId) }))}
+      body={lang === "en" ? "Lines with money or history go to the archive, with all of it saved. Empty ones are removed." : "Las que tienen dinero o historial pasan al archivo, con todo guardado. Las vacías se quitan."}
+      onEdit={(id) => setUi({ editing: id, draft: null })}
+      onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => dropPocketLine(acc, key, id).state, s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || title) : `${ids.length}`)}
+      onRename={(id, name) => { const l = rows.find((x) => x.id === id); if (l) commit((s0) => upsertLine(s0, { ...l, concept: name }), name); }}
+      onColor={(id, hex) => { const l = rows.find((x) => x.id === id); if (l) paintLine(l, { color: hex }); }}
+      onIcon={(id, glyph) => { const l = rows.find((x) => x.id === id); if (l) paintLine(l, { icon: glyph }); }}
+      onRestore={restore} />
+  );
+  const restoreRetiroAsk = () => confirm({
+    title: lang === "en" ? "Restore defaults" : "Restaurar de fábrica",
+    body: lang === "en" ? "Primerica comes back to Retiro at $0, or with its saved history. Nothing is deleted." : "Primerica vuelve a Retiro en $0, o con su historial guardado. No se borra nada.",
+    yes: lang === "en" ? "Restore" : "Restaurar", run: () => commit((s0) => restoreRetiro(s0, key), "Primerica") });
+  // 1.3.115: the pocket's add form, under whichever + opened it (the board's, or the Libros view's): nothing above moves.
+  const pocketAdd = !openSeg ? null : (adding && (pocketKind === "meta" || pocketKind === "emergencia") ? (
+              <div className="ah-form is-pocket">
+                <div className="ah-grid">
+                  <label className="label is-wide">
+                    <span className="lab-head">{pocketKind === "meta" ? t("save.goal") : t("save.emerg")}<FieldTip topic="f-bolsa-nombre" alt={pocketKind !== "meta"} /></span>
+                    <span className="fit-concept-row" onClick={(e) => { if ((e.target as Element).closest(".fit-pick-btn")) e.preventDefault(); }}>
+                      <LookPick look={{ glyph: pocketGlyph, color: pocketColor, onGlyph: setPocketGlyph, onColor: setPocketColor }} />
+                      <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
+                    </span>
+                  </label>
+                  <label className="label is-wide">
+                    <span className="lab-head">{t("amount")}<FieldTip topic="f-bolsa-monto" /></span>
+                    <input className="field num" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
+                  </label>
+                </div>
+                <div className="ah-actions">
+                  <button type="button" className="btn secondary" onClick={() => { setAdding(false); setPocketName(""); setPocketAmt(""); }}>{t("cancel")}</button>
+                  <button type="button" className="btn" onClick={addPocket}>{t("save.keep")}</button>
+                </div>
+              </div>
+            ) : adding ? (
+              <>
+                <LineForm
+                  kind="expense-fixed"
+                  preset={{ categoryId: openSeg.categoryId, subId: openSeg.id === "rest" ? "" : openSeg.id }}
+                  glyph={pocketGlyph}
+                  swatch={pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : undefined}
+                  dock
+                  look={{ glyph: pocketGlyph, color: pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : baseFor(session.ledger.structure, openSeg.categoryId), onGlyph: setPocketGlyph, onColor: (c) => { setPocketColor(c); setPocketPicked(true); } }}
+                  onClose={() => setAdding(false)}
+                />
+              </>
+            ) : null);
+  const savEdit = (line: Line) => (ui.editing === line.id ? <SavEdit key={line.id} line={line} /> : null);
+  const savTap = (line: Line) => ({
+    role: "button" as const, tabIndex: 0, "aria-expanded": ui.editing === line.id,
+    onClick: () => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }),
+    onKeyDown: (e: { key: string; preventDefault: () => void }) => { if (e.key !== "Enter" && e.key !== " ") return; e.preventDefault(); setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }); },
+  });
 
   function pickSeg(id: string) {
     const now = performance.now();
@@ -2637,7 +2698,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 {focus && focus !== "save" ? (
                   <>
                     {!pocketFold ? (
-                      <button type="button" className="icon-btn" aria-label={t("add")} onClick={(event) => { event.stopPropagation(); setAdding((v) => !v); setEditId(null); setMoving(null); }}>
+                      <button type="button" className="icon-btn" aria-label={t("add")} onClick={(event) => { event.stopPropagation(); setAddFromView(false); setAdding((v) => !v); setEditId(null); setMoving(null); }}>
                         <Plus className="size-4" />
                       </button>
                     ) : null}
@@ -2646,7 +2707,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     </button>
                   </>
                 ) : (
-                  <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => { setAdding((v) => !v); setEditId(null); setMoving(null); }}>
+                  <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => { setAddFromView(false); setAdding((v) => !v); setEditId(null); setMoving(null); }}>
                     <Plus className="size-4" />
                   </button>
                 )}
@@ -2657,39 +2718,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             ) : null}
             {focus && focus !== "save" && pocketFold ? null : (
             <>
-            {adding && (pocketKind === "meta" || pocketKind === "emergencia") ? (
-              <div className="ah-form is-pocket">
-                <div className="ah-grid">
-                  <label className="label is-wide">
-                    <span className="lab-head">{pocketKind === "meta" ? t("save.goal") : t("save.emerg")}<FieldTip topic="f-bolsa-nombre" alt={pocketKind !== "meta"} /></span>
-                    <span className="fit-concept-row" onClick={(e) => { if ((e.target as Element).closest(".fit-pick-btn")) e.preventDefault(); }}>
-                      <LookPick look={{ glyph: pocketGlyph, color: pocketColor, onGlyph: setPocketGlyph, onColor: setPocketColor }} />
-                      <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
-                    </span>
-                  </label>
-                  <label className="label is-wide">
-                    <span className="lab-head">{t("amount")}<FieldTip topic="f-bolsa-monto" /></span>
-                    <input className="field num" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
-                  </label>
-                </div>
-                <div className="ah-actions">
-                  <button type="button" className="btn secondary" onClick={() => { setAdding(false); setPocketName(""); setPocketAmt(""); }}>{t("cancel")}</button>
-                  <button type="button" className="btn" onClick={addPocket}>{t("save.keep")}</button>
-                </div>
-              </div>
-            ) : adding ? (
-              <>
-                <LineForm
-                  kind="expense-fixed"
-                  preset={{ categoryId: openSeg.categoryId, subId: openSeg.id === "rest" ? "" : openSeg.id }}
-                  glyph={pocketGlyph}
-                  swatch={pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : undefined}
-                  dock
-                  look={{ glyph: pocketGlyph, color: pocketPicked || openSeg.categoryId !== "f-ahorro" || pocketKind ? pocketColor : baseFor(session.ledger.structure, openSeg.categoryId), onGlyph: setPocketGlyph, onColor: (c) => { setPocketColor(c); setPocketPicked(true); } }}
-                  onClose={() => setAdding(false)}
-                />
-              </>
-            ) : null}
+            {addFromView ? null : pocketAdd}
             {pocketKind === "retiro" ? <StmtScan seen={stmtSeen} onSave={applyStatement} tail={
               <button type="button" className="sub-gear stm-restore" data-test="retiro-restore" aria-label={lang === "en" ? "Restore default accounts" : "Restaurar cuentas de fábrica"} onClick={() => confirm({
                 title: lang === "en" ? "Restore defaults" : "Restaurar de fábrica",
@@ -2836,18 +2865,24 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <div className="save-view" style={{ ["--seg" as string]: saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === openSeg.id)) % saveTints.length] }}>
             <div className="save-ledger-head">
               <strong>{pocketKind === "meta" ? t("vault.projects") : pocketKind === "retiro" ? t("vault.retirements") : t("vault.emergencies")}</strong>
-              <span className="num">{fmt(openSeg.minor)}</span>
+              <span className="row kit-row">
+                <span className="num">{fmt(openSeg.minor)}</span>
+                {savKit(openLines, openSeg.name, pocketKind === "retiro" ? restoreRetiroAsk : undefined)}
+                <button type="button" className="icon-btn kit-btn is-add" data-test="sav-add" aria-label={t("add")} aria-pressed={adding} onClick={() => { setAddFromView(true); setAdding((v) => !(v && addFromView)); setEditId(null); setMoving(null); }}><Plus /></button>
+              </span>
             </div>
+            {addFromView && adding ? <div className="kit-add">{pocketAdd}</div> : null}
             {openLines.length === 0 ? <p className="save-flow-read">{t("vault.viewNone")}</p> : openLines.map((line) => {
               const minor = convertMinor(line.balanceMinor != null ? line.balanceMinor : line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4);
               return (
-                <div key={line.id} className="save-view-row">
-                  <span className="save-view-name">
+                <div key={line.id} className={`save-view-row is-tap${ui.editing === line.id ? " is-open" : ""}`}>
+                  <span className="save-view-name" {...savTap(line)}>
                     {line.icon?.startsWith("brand:") ? <BrandMark id={line.icon.slice(6)} className="size-5" /> : line.icon ? <Glyph name={line.icon} className="size-4" /> : null}
                     <span>{line.concept || names.sub(line.subId) || openSeg.name}</span>
                     <strong className="num">{fmt(minor)}</strong>
                   </span>
                   <i aria-hidden><b style={{ width: `${openSeg.minor > 0 ? Math.max(8, Math.round((minor / openSeg.minor) * 100)) : 0}%` }} /></i>
+                  {savEdit(line)}
                 </div>
               );
             })}
@@ -3036,9 +3071,23 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <strong className="lab-head">{t("vault.aside")}<Hint topic="apartado-mes" /></strong>
               <span className="num">{fmt(aside)}</span>
             </div>
+            <div className={focus === "save" ? "kit-meter-row" : undefined}>
             <div className="save-flow-meter" aria-hidden>
               <i style={{ width: `${summary.savingsGoal > 0 ? Math.min(100, Math.round((aside / summary.savingsGoal) * 100)) : aside > 0 ? 100 : 0}%` }} />
             </div>
+            {focus === "save" ? (
+              <span className="row kit-row">
+                {savKit(fixedSave, t("vault.aside"))}
+                <button type="button" className="icon-btn kit-btn is-add" data-test="sav-add" aria-label={t("add")} aria-pressed={asideAdd} onClick={() => setAsideAdd((v) => !v)}><Plus /></button>
+              </span>
+            ) : null}
+            </div>
+            {focus === "save" && asideAdd ? (
+              <div className="kit-add">
+                <LineForm kind="expense-fixed" preset={{ categoryId: savingsCats[0]?.id ?? "f-ahorro" }} glyph={asideGlyph} swatch={asideColor} dock
+                  look={{ glyph: asideGlyph, color: asideColor, onGlyph: setAsideGlyph, onColor: setAsideColor }} onClose={() => setAsideAdd(false)} />
+              </div>
+            ) : null}
             <p className="save-flow-read">
               {fixedSave.length === 0
                 ? t("vault.none")
@@ -3053,7 +3102,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 )}
             </p>
             {fixedSave.map((line) => (
-              <div key={line.id} className="save-flow-row">
+              <div key={line.id} className="save-flow-slot">
+              <div className={`save-flow-row is-tap${ui.editing === line.id ? " is-open" : ""}`} {...savTap(line)}>
                 <span className="save-flow-name">
                   <i className="save-flow-ico" style={{ background: chosenTone(line.color, line.categoryId) || undefined, ["--ico" as string]: chosenTone(line.color, line.categoryId) || colorFor(session.ledger.structure, line.categoryId) }}>
                     {line.icon?.startsWith("brand:") ? <BrandMark id={line.icon.slice(6)} /> : <Glyph name={line.icon && line.icon !== "Circle" ? line.icon : "PiggyBank"} />}
@@ -3061,6 +3111,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   <span>{line.concept || names.sub(line.subId) || names.cat(line.categoryId)}</span>
                 </span>
                 <strong className="num">{fmt(convertMinor(line.amountMinor, line.currency, rate.display, rate.rateE4))}</strong>
+              </div>
+              {savEdit(line)}
               </div>
             ))}
           </div>

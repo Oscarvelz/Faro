@@ -38,6 +38,7 @@ export const LINKS: Record<string, string> = {
   Queda: "queda", Left: "queda",
   "Si apartas": "si-apartas", "If you set aside": "si-apartas",
   Cuentas: "cuentas", Accounts: "cuentas",
+  "Herramientas del libro": "libro-herramientas", "Book tools": "libro-herramientas",
   "Moneda de vista": "moneda-vista", "View currency": "moneda-vista",
   "Punto de sincronización": "sync", "Sync dot": "sync",
   Deshacer: "deshacer", Undo: "deshacer",
