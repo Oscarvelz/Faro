@@ -1,3 +1,6 @@
+import { AreaAdvisor } from "./area-advisor";
+import { useTabletOne as useTabletOneAA } from "./book-side";
+import type { AreaId } from "@/lib/faro/area-advice";
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
 import { ActivityLog, Note } from "./finish";
 import { SampleRow } from "./sample-mode";
@@ -1491,11 +1494,23 @@ function RateHint() {
   return <span ref={ref} className="desk-rate-hint" style={{ visibility: "hidden" }}><Hint topic="tasa-rapida" className="is-bar" /></span>;
 }
 
+/* 1.3.122: Back from an Asesor action taken on a Central lens lands on that lens again (only at the depth it left from, once). */
+let lensReturn: { depth: number; lens: "have" | "spend" | "debt" } | null = null;
+function takeLensReturn(depth: number) {
+  const r = lensReturn;
+  if (!r) return null;
+  if (depth !== r.depth) { if (depth < r.depth) lensReturn = null; return null; }
+  lensReturn = null;
+  return r.lens;
+}
+
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
   const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang } = useFaro();
-  const [lens, setLens] = useState<"all" | "have" | "spend" | "debt">("all");
-  const lensByJump = useRef(false);
   const { depth } = useFaro();
+  const [lens, setLens] = useState<"all" | "have" | "spend" | "debt">(() => (focus ? "all" : takeLensReturn(depth) ?? "all"));
+  const lensByJump = useRef(false);
+  // An Asesor step that stayed on Central (no remount) leaves nothing to bring back.
+  useEffect(() => { if (!focus) lensReturn = null; }, [depth, focus]);
   // Back from Libros after Cobros' "Ver todo": Cobros comes back open on the side (and Debo tab) it was on.
   const [cobrosBack] = useState(() => (focus ? null : takeCobrosReturn(depth)));
   const [cobros, setCobros] = useState(!!cobrosBack);
@@ -1769,6 +1784,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const kind = openSave?.endsWith(".meta") ? "meta" : openSave?.endsWith(".retiro") ? "retiro" : openSave?.endsWith(".emergencia") ? "emergencia" : null;
     if (kind) ringAt.current = kind;
   }, [openSave]);
+  const tabletOneAA = useTabletOneAA();
+  const deskPocket = openSave?.endsWith(".meta") ? "meta" : openSave?.endsWith(".retiro") ? "retiro" : openSave?.endsWith(".emergencia") ? "emergencia" : null;
+  const deskArea: AreaId = deskPocket ?? (lens === "have" ? "income" : lens === "spend" ? "spend" : lens === "debt" ? "subs" : "central");
   const ringLive = useRef({ lens, openSave, ids: [] as string[] });
   useEffect(() => {
     const order = ["have", "spend", "debt"] as const;
@@ -3121,6 +3139,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </div>
         ) : null}
       </section>
+      {/* 1.3.122 tablet: the Asesor for whatever Central has picked (a card, an open pocket), else the month. */}
+      {!focus && tabletOneAA ? <AreaAdvisor area={deskArea} label={deskArea === "subs" ? (lang === "en" ? "Payments" : "Pagos") : undefined} onLeave={() => { lensReturn = lens === "all" ? null : { depth, lens }; }} /> : null}
       {focus ? null : (
       <section key={lens} data-anchor="desk-list" className={`card span-all swipe-pane${lensSwapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={flowDir < 0 ? "-1" : "1"}>
         {lens === "debt" ? (

@@ -250,7 +250,7 @@ export function planOrder(debts: PlanDebt[], order: DebtPlan["order"]): PlanDebt
  * Month-by-month: every unpaid debt gains its monthly interest, then the whole budget goes to the first debt in order,
  * the rest rolls to the next. Returns null when the budget cannot outrun the interest (or nothing to pay with).
  */
-export function simulatePlan(debts: PlanDebt[], budget: number, order: DebtPlan["order"], cap = 600): PlanRun {
+export function simulatePlan(debts: PlanDebt[], budget: number, order: DebtPlan["order"], cap = 600, trace?: number[]): PlanRun {
   const list = planOrder(debts.map((d) => ({ ...d })), order);
   if (!list.length) return { months: 0, interest: 0, order: [], finish: {}, interestOf: {}, first: {} };
   if (budget <= 0) return null;
@@ -281,6 +281,8 @@ export function simulatePlan(debts: PlanDebt[], budget: number, order: DebtPlan[
     // Minimums first (cards), so no card goes late; then everything left to the first debt in order, and on.
     for (const d of list) if (d.min && d.min > 0) pay(d, d.min);
     for (const d of list) { if (cash <= 0) break; pay(d, Infinity); }
+    // 1.3.122: optional month-end total left (the Asesor de esta área path ahead); no effect on the result.
+    if (trace) trace.push(list.reduce((s, d) => s + Math.max(0, left.get(d.id)!), 0));
     if (list.every((d) => left.get(d.id)! <= 0)) return { months: m, interest, order: list.map((d) => d.id), finish, interestOf, first };
   }
   return null;

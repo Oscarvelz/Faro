@@ -17,6 +17,7 @@ import { Note } from "./finish";
 import { useLayer } from "@/lib/manual/back";
 import { CobroSpan, Subs } from "./screens";
 import { DueSide, useTabletOne } from "./book-side";
+import { AreaAdvisor, SideCol } from "./area-advisor";
 import { FreqPick } from "./fit-pick";
 import { freqPresetsOf, cadenceLabel } from "@/lib/faro/cadence";
 import { DeboSum, DueLoans, LoanCard, LoanForm, deboTabNow, type LoanDraft } from "./loans";
@@ -313,6 +314,7 @@ function sinceText(days: number | null, L: (es: string, en: string) => string) {
 
 /** Me deben, from the ledger. `libros` adds the person sheets, days since the last abono and the 6-month chart. */
 export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: number }) {
+  const tabletOne = useTabletOne();
   const { t, fmt, session, commit, lang } = useFaro();
   const L = useL();
   const [draft, setDraft] = useState(false);
@@ -429,6 +431,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
           </article>
         )) : <Note>{t("cobro.file.empty")}</Note>) : null}
       </div>
+      {libros && tabletOne ? <AreaAdvisor area="owed" /> : null}
       {sheet}
     </div>
   );
@@ -603,9 +606,9 @@ export function OweBook() {
           <Hint topic="prestamos" />
         </span>
       </div>
-      {tab === "dues" ? <div className={`debt-dues${flip ? " is-flip" : ""}`} data-anchor="debt-dues" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}><Subs />{tabletOne ? <DueSide /> : null}</div> : (
+      {tab === "dues" ? <div className={`debt-dues${flip ? " is-flip" : ""}`} data-anchor="debt-dues" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}><Subs />{tabletOne ? <SideCol><DueSide /><AreaAdvisor area="subs" /></SideCol> : null}</div> : (
         <div className={`debt-loans${flip ? " is-flip" : ""}`} data-anchor="debt-loans" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}>
-          <DueLoans libros onWho={openFor} facts={loanFacts} between={<><PayoffPlan /><DebtChart /></>} />
+          <DueLoans libros onWho={openFor} facts={loanFacts} between={<><PayoffPlan /><DebtChart />{tabletOne ? <AreaAdvisor area="loans" /> : null}</>} />
         </div>
       )}
       {sheet}

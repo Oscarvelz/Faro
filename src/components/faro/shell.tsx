@@ -16,6 +16,8 @@ import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId }
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
 import { BookSide, useTabletOne, type SideBook } from "./book-side";
+import { AreaAdvisor, SideCol } from "./area-advisor";
+import type { AreaId } from "@/lib/faro/area-advice";
 import { recipientName } from "@/lib/faro/remit-people";
 import { DebtBook, DebtScale, debtHello, preferOweTab, type DebtSide } from "./debts";
 import { markRing, ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
@@ -1486,6 +1488,8 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   const topScale = useTopScaleSlot();
   const tabletOne = useTabletOne();
   const sideBook: SideBook | null = !tabletOne || debt ? null : save ? "save" : ui.section === "fixed" ? "fixed" : ui.section === "shops" ? "shops" : null;
+  // 1.3.122: every book gets its own Asesor in the right column (under the comparison pane when there is one).
+  const sideArea: AreaId | null = !tabletOne || debt ? null : save ? save : ui.section === "income" || ui.section === "fixed" || ui.section === "variable" || ui.section === "shops" ? ui.section : null;
   const scale = (
     <DebtScale value={debt} onPick={(side) => {
       if (debt && debt !== side) onSlide(side === "owe" ? 1 : -1);
@@ -1520,9 +1524,9 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
         ))}
         {anchors ? <Hint topic="ahorros-tabs" className="is-tabs" corner overlay /> : null}
       </div>
-      <div key={paneKey} className={`swipe-pane${save || debt ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}${sideBook ? " has-side" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
+      <div key={paneKey} className={`swipe-pane${save || debt ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}${sideBook || sideArea ? " has-side" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
         {debt ? <DebtBook side={debt} /> : save ? <Desk focus={save} /> : ui.section === "shops" ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
-        {sideBook ? <BookSide book={sideBook} /> : null}
+        {sideArea ? <SideCol>{sideBook ? <BookSide book={sideBook} /> : null}<AreaAdvisor area={sideArea} /></SideCol> : sideBook ? <BookSide book={sideBook} /> : null}
       </div>
     </>
   );

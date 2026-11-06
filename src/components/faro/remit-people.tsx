@@ -7,6 +7,8 @@ import "./remit-people.css";
 import { useMemo, useState } from "react";
 import { ChevronLeft, Plus, Send, UserRound } from "lucide-react";
 import { useFaro } from "./provider";
+import { AreaAdvisor } from "./area-advisor";
+import { useTabletOne } from "./book-side";
 import { Hint } from "./hint";
 import { FieldTip } from "./ui";
 import { Glyph } from "./icons";
@@ -213,11 +215,16 @@ export function RemitPeople({ monthKey, where }: { monthKey: string; where: "boo
  *  without remittances keeps its Variables book exactly as it was. */
 export function RemitPeopleBox() {
   const { session, key } = useFaro();
+  const tabletOne = useTabletOne();
   if (!session) return null;
   if (!remitByPerson(session.ledger, key).rows.length) return null;
   return (
+    <>
     <section className="card pp-box rp-box" data-anchor="book-remit" data-test="rp-box">
       <RemitPeople monthKey={key} where="book" />
     </section>
+    {/* 1.3.122 tablet: the Asesor for Remesas, under its card (phones never mount it). */}
+    {tabletOne ? <AreaAdvisor area="remit" /> : null}
+    </>
   );
 }
