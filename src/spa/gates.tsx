@@ -62,8 +62,10 @@ export function UserButton() {
             className="btn secondary"
             onClick={async () => {
               setMsg("");
-              if (locked) { disableLock(user.id); setLocked(false); return; }
+              // 1.3.121: the Android widget hides amounts by default while the lock is on (until its own switch is used).
+              if (locked) { disableLock(user.id); setLocked(false); window.dispatchEvent(new Event("faro-widget-refresh")); return; }
               try { setLocked(await enableLock(user.id, user.email)); } catch { setMsg(w("lock.failed")); }
+              window.dispatchEvent(new Event("faro-widget-refresh"));
             }}
           >
             {locked ? w("lock.disable") : w("lock.enable")}

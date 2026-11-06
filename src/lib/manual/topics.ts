@@ -3275,6 +3275,17 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         terms: [["APK", "APK"], ["Instalar", "Install"], ["Teléfono", "Phone"], ["Tableta", "Tablet"]],
       },
       {
+        id: "widget-android",
+        depth: "manual",
+        title: ["Widgets de Faro", "Faro widgets"],
+        sum: ["Lo más importante del mes en la pantalla de inicio del teléfono o la tableta.", "The month's key numbers on your phone or tablet home screen."],
+        what: ["La app de Android trae dos widgets. En el teléfono: lo que queda del mes, Tengo y Gastaré, el próximo pago con los días que faltan, Me deben · Debo y el ahorro del mes, con + y − para anotar. En la tableta, un panel: entradas y salidas de seis meses, gastos por categoría, lo que vence en 14 días, la balanza, tus ahorros y la tasa. Cada parte abre su lugar en Faro.", "The Android app has two widgets. On the phone: what is left this month, Have and Spending, the next payment with the days left, Owed to me · I owe and the month's savings, with + and − to add. On the tablet, a dashboard: six months in and out, spending by category, what is due in 14 days, the scale, your savings and the rate. Each part opens its place in Faro."],
+        how: ["Mantén el dedo sobre un espacio vacío de la pantalla de inicio → Widgets → Faro, y arrastra el que quieras. Abre Faro una vez para que se llene; después se actualiza cada vez que cambian tus libros.", "Press and hold an empty spot on the home screen → Widgets → Faro, and drag the one you want. Open Faro once so it fills; after that it updates whenever your books change."],
+        tip: ["Si usas la huella, el widget oculta los montos con puntos y un toque abre Faro, que pide la huella. Puedes cambiarlo en [[Ajustes]] → Widget: ocultar montos. El widget no usa internet: muestra lo último que Faro guardó en este teléfono.", "If you use the fingerprint lock, the widget hides amounts behind dots and a tap opens Faro, which asks for it. Change it in [[Settings]] → Widget: hide amounts. The widget uses no internet: it shows what Faro last saved on this phone."],
+        go: { screen: "settings", anchor: "aj-widget", where: ["Ajustes → Widget: ocultar montos", "Settings → Widget: hide amounts"] },
+        terms: [["Widget", "Widget"], ["Ocultar montos", "Hide amounts"], ["Pantalla de inicio", "Home screen"]],
+      },
+      {
         id: "cerrar-sesion",
         depth: "manual",
         title: ["Cerrar sesión", "Sign out"],

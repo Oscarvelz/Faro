@@ -12,7 +12,8 @@ import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
-import { APK_URL, androidBrowser } from "@/spa/native";
+import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
+import { WidgetRow } from "./widget-host";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, missingDefaults, moveNamed, restoreDefaultCategories, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
@@ -4296,6 +4297,7 @@ export function Settings() {
           </button>
         </section>
       ) : null}
+      {inAndroidApp() ? <WidgetRow /> : null}
       <SampleRow />
       <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />

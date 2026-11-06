@@ -27,6 +27,9 @@ export type FaroNativeBridge = {
   sharedInfo?(i: number): string;
   sharedChunk?(i: number, offset: number, length: number): string;
   sharedClear?(): void;
+  /** 1.3.121 home-screen widgets: the snapshot (lib/faro/widget.ts) as JSON ("" clears it); the target of a widget tap. */
+  setWidgetData?(json: string): void;
+  takeOpen?(): string;
 };
 
 type W = Window & { FaroNative?: FaroNativeBridge; FaroBack?: () => string; __faroProviderLive?: number; __faroNativeOn?: boolean };

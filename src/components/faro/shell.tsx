@@ -32,6 +32,7 @@ import { useLayer } from "@/lib/manual/back";
 import { prefetchManual } from "@/lib/manual/load";
 import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
+import WidgetHost from "./widget-host";
 import { PeopleInbox } from "./people";
 import { BankDock } from "./bank-dock";
 import { ToTop } from "./to-top";
@@ -1311,6 +1312,7 @@ if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .sea
     <FocusHost />
     <ToTop lang={lang} />
     {inAndroidApp() ? <Suspense fallback={null}><ShareInbox /></Suspense> : null}
+    {inAndroidApp() ? <WidgetHost /> : null}
     </>
   );
 }
