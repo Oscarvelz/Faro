@@ -304,7 +304,9 @@ class MainActivity : Activity() {
     /* ---------- the bridge ---------- */
 
     inner class Bridge {
-        @JavascriptInterface fun version(): String = BuildConfig.VERSION_NAME
+        // Every method below answers only the Faro page (trusted = the main frame is oscarvelz.github.io/Faro, or its own
+        // blob:/data:); any other page gets the same neutral answer as "nothing here" (no exception, nothing visible).
+        @JavascriptInterface fun version(): String = if (trusted) BuildConfig.VERSION_NAME else ""
 
         @JavascriptInterface fun setBars(top: String, bottom: String, darkTop: Boolean, darkBottom: Boolean) {
             if (!trusted) return
@@ -318,10 +320,12 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface fun atRoot(msg: String) {
+            if (!trusted) return
             runOnUiThread { leaveOnSecondBack(msg.ifBlank { "Pulsa atrás otra vez para salir" }) }
         }
 
         @JavascriptInterface fun canAuth(): String {
+            if (!trusted) return "no"
             val bm = getSystemService(BiometricManager::class.java) ?: return "no"
             return if (bm.canAuthenticate(AUTH) == BiometricManager.BIOMETRIC_SUCCESS) "yes" else "no"
         }
@@ -365,12 +369,14 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface fun saveChunk(id: String, b64: String): String {
+            if (!trusted) return "error"
             val s = saves[id] ?: return "error"
             return try { s.out.write(Base64.decode(b64, Base64.DEFAULT)); "ok" }
             catch (e: Exception) { drop(id); "error" }
         }
 
         @JavascriptInterface fun saveEnd(id: String, template: String): String {
+            if (!trusted) return "error"
             val s = saves.remove(id) ?: return "error"
             return try {
                 s.out.close()
@@ -384,6 +390,7 @@ class MainActivity : Activity() {
         @JavascriptInterface fun sharedCount(): Int = if (trusted) shared.size else 0
 
         @JavascriptInterface fun sharedInfo(i: Int): String {
+            if (!trusted) return "{}"
             val p = synchronized(shared) { shared.getOrNull(i) } ?: return "{}"
             return JSONObject().put("name", p.name).put("type", p.mime).put("size", p.file.length()).toString()
         }
@@ -416,6 +423,7 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface fun sharedClear() {
+            if (!trusted) return
             synchronized(shared) { shared.forEach { it.file.delete() }; shared.clear() }
         }
     }
