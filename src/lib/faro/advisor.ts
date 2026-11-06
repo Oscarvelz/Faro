@@ -1,4 +1,6 @@
 import { convertMinor, formatMoney, formatPct, niceDown, niceUp } from "./money.ts";
+import { cardTotals } from "./cards.ts";
+import { perYear } from "./cadence.ts";
 import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
 import { remitTrend } from "./remesas.ts";
 
@@ -248,7 +250,22 @@ function isVague(name: string): boolean {
 
 export type AdvisorOptions = { today?: Date };
 
+/* 1.3.117: in the app the same month is read by the coach, the advice cards, the rules and the Asesor screen in one render;
+ * a ledger never changes in place (every commit makes a new one), so each reading is kept per ledger object. Tests (no
+ * window) and calls with a fixed `today` always read fresh. */
+const readCache = new WeakMap<LedgerState, Map<string, Reading>>();
 export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: Namer, options: AdvisorOptions = {}): Reading {
+  if (typeof window === "undefined" || options.today) return readAdvisorFresh(state, key, lang, names, options);
+  const now = new Date();
+  const id = `${key}|${lang}|${state.revision}|${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+  let byKey = readCache.get(state);
+  if (!byKey) { byKey = new Map(); readCache.set(state, byKey); }
+  let hit = byKey.get(id);
+  if (!hit) { hit = readAdvisorFresh(state, key, lang, names, options); byKey.set(id, hit); }
+  return hit;
+}
+
+function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Namer, options: AdvisorOptions = {}): Reading {
   const today = options.today ?? new Date();
   const { display, rateE4 } = state.settings;
   const money = (n: number) => formatMoney(n, display, lang);
@@ -321,7 +338,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       ? L(
           lang,
           `Mandaste ${money(savingsFlow)} a una cuenta de ahorro, pero tus metas (Meta, Retiro, Emergencia) siguen en ${money(0)}. Decide a cuál meta va ese dinero para que el avance se vea.`,
-          `This month's set-aside shows ${money(0)} and Savings shows ${money(savingsFlow)}. The pockets have to be reconciled: moving money to an account is not the same as funding the goal.`,
+          `You sent ${money(savingsFlow)} to a savings account, but your goals (Goal, Retirement, Emergency) are still at ${money(0)}. Choose which goal that money is for so the progress shows.`,
         )
       : null;
 
@@ -334,7 +351,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     ? L(
         lang,
         "Por ahora solo veo la cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.",
-        "On the credit I can only judge this month's load. Enter the balance, the annual rate, and the minimum payment: without those three there is no payoff date.",
+        "For now I only see this month's payment. Enter what you owe, the annual rate and the minimum payment, and I'll tell you in how many months you finish.",
       )
     : null;
 
@@ -388,7 +405,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     ? L(
         lang,
         `«${vague.name}» son ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} de lo que entra)` : ""}, pero el nombre no dice qué es. Ponle un nombre claro y te digo si conviene moverlo.`,
-        `${vague.name} is ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} of what comes in)` : ""} and the name does not say what it is. What is ${vague.name}, before any advice on that line?`,
+        `“${vague.name}” is ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} of what comes in)` : ""}, but the name doesn't say what it is. Give it a clear name and I'll tell you if it's worth moving.`,
       )
     : null;
 
@@ -398,7 +415,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       ? L(
           lang,
           "Es tu primer mes con datos, así que todavía no hay promedios para comparar. Las compras de una vez no cuentan como hábito.",
-          "This is the first month with data. There is no 3-month or 6-month average. One-off purchases stay events and do not enter an average.",
+          "It's your first month with data, so there are no averages to compare yet. One-time buys don't count as habits.",
         )
       : L(
           lang,
@@ -429,12 +446,12 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
       ? L(
           lang,
           `El ${crossed.day}, con ${crossed.name}, lo que sale pasa a ser más de lo que entra. Ese es el día que hay que cuidar.`,
-          `The day the month stops covering is ${crossed.day}, when ${crossed.name} lands. That is not a blind average: it is that outflow.`,
+          `On ${crossed.day}, with ${crossed.name}, what goes out becomes more than what comes in. That's the day to watch.`,
         )
       : L(
           lang,
           `Con las fechas anotadas, ningún pago deja el mes en rojo. Lo que se repite te cuesta ${money(perDay)} al día.`,
-          `With the dates on file, no single outflow crosses income by itself. Repeating spending is ${money(perDay)} a day.`,
+          `With the dates on file, no payment puts the month in the red. What repeats costs you ${money(perDay)} a day.`,
         );
   } else if (uniqueMinor > 0 && left < 0) {
     paceNote = L(
@@ -461,29 +478,35 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
           ? `En los próximos 30 días tienes ${upcoming.length} pagos con fecha. Los más grandes (más de ${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
           : `En los próximos 30 días tienes ${upcoming.length} pagos con fecha, ninguno mayor de ${money(warnAt)}.`,
         loud.length
-          ? `The next 30 days have ${upcoming.length} dated outflows. ${loud.length} cross the warning (${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
-          : `The next 30 days have ${upcoming.length} dated outflows. None cross the ${money(warnAt)} warning.`,
+          ? `In the next 30 days you have ${upcoming.length} dated payments. The biggest (over ${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
+          : `In the next 30 days you have ${upcoming.length} dated payments, none over ${money(warnAt)}.`,
       )
     : L(
         lang,
         "No hay pagos con fecha en los próximos 30 días. Ponles fecha a tus pagos fijos y te aviso antes de que venzan.",
-        "No outflows are dated in the next 30 days. With no date I will not warn about a due day.",
+        "No dated payments in the next 30 days. Add dates to your fixed bills and I'll warn you before they're due.",
       );
 
-  const subsRead = read.filter((line) => lines.find((raw) => raw.id === line.id)?.kind === "subscription").sort((a, b) => b.minor - a.minor);
-  const subsSum = subsRead.reduce((acc, line) => acc + line.minor, 0);
+  // 1.3.117: a Cuota's cost per month and per year follows its cadence (a yearly charge is not ×12); loan installments are debt, not subscriptions.
+  const rawOf = new Map(lines.map((raw) => [raw.id, raw]));
+  const yearOfSub = (line: ReadLine) => { const [n, d] = perYear(rawOf.get(line.id)?.cadence || "monthly"); return Math.round((line.minor * n) / d); };
+  const subsRead = read.filter((line) => rawOf.get(line.id)?.kind === "subscription" && line.cls !== "credit")
+    .map((line) => ({ ...line, year: yearOfSub(line), month: Math.round(yearOfSub(line) / 12) }))
+    .sort((a, b) => b.month - a.month);
+  const subsYear = subsRead.reduce((acc, line) => acc + line.year, 0);
+  const subsSum = Math.round(subsYear / 12);
   const subsShare = incomeAll > 0 ? (subsSum / incomeAll) * 100 : null;
   const antNote = subsRead.length
     ? subsRead.length === 1
       ? L(
           lang,
-          `${subsRead[0]!.name}: ${money(subsRead[0]!.minor)} al mes son ${money(subsRead[0]!.minor * 12)} al año. Si la usas, déjala; si no, es dinero fácil de recuperar.`,
-          `${subsRead[0]!.name}: ${money(subsRead[0]!.minor)} a month is ${money(subsRead[0]!.minor * 12)} a year. Keep it if you use it; if not, it's easy money back.`,
+          `${subsRead[0]!.name}: ${money(subsRead[0]!.month)} al mes son ${money(subsRead[0]!.year)} al año. Si la usas, déjala; si no, es dinero fácil de recuperar.`,
+          `${subsRead[0]!.name}: ${money(subsRead[0]!.month)} a month is ${money(subsRead[0]!.year)} a year. Keep it if you use it; if not, it's easy money back.`,
         )
       : L(
           lang,
-          `Tus ${subsRead.length} suscripciones suman ${money(subsSum)} al mes, ${money(subsSum * 12)} al año${subsShare !== null ? ` (${pct(subsShare)} de lo que entra)` : ""}. Las más caras: ${subsRead.slice(0, 3).map((line) => `${line.name} ${money(line.minor)}`).join(", ")}. ${subsShare !== null && subsShare >= 5 ? "No es poca cosa: quita las que no usaste este mes." : "Revisa si usas todas."}`,
-          `Your ${subsRead.length} subscriptions add up to ${money(subsSum)} a month, ${money(subsSum * 12)} a year${subsShare !== null ? ` (${pct(subsShare)} of what comes in)` : ""}. Most expensive: ${subsRead.slice(0, 3).map((line) => `${line.name} ${money(line.minor)}`).join(", ")}. ${subsShare !== null && subsShare >= 5 ? "That's real money: drop the ones you didn't use this month." : "Check that you use them all."}`,
+          `Tus ${subsRead.length} suscripciones suman ${money(subsSum)} al mes, ${money(subsYear)} al año${subsShare !== null ? ` (${pct(subsShare)} de lo que entra)` : ""}. Las más caras: ${subsRead.slice(0, 3).map((line) => `${line.name} ${money(line.month)}`).join(", ")}. ${subsShare !== null && subsShare >= 5 ? "No es poca cosa: quita las que no usaste este mes." : "Revisa si usas todas."}`,
+          `Your ${subsRead.length} subscriptions add up to ${money(subsSum)} a month, ${money(subsYear)} a year${subsShare !== null ? ` (${pct(subsShare)} of what comes in)` : ""}. Most expensive: ${subsRead.slice(0, 3).map((line) => `${line.name} ${money(line.month)}`).join(", ")}. ${subsShare !== null && subsShare >= 5 ? "That's real money: drop the ones you didn't use this month." : "Check that you use them all."}`,
         )
     : null;
 
@@ -590,8 +613,8 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
   const habitBuys = read.filter((line) => line.cls === "discretionary" && lines.find((raw) => raw.id === line.id)?.kind === "purchase");
   const habitSum = habitBuys.reduce((acc, line) => acc + line.minor, 0);
   const buyHabit = habitBuys.length >= 3 && income > 0 && habitSum >= income * 0.05;
-  const subLines = read.filter((line) => lines.find((raw) => raw.id === line.id)?.kind === "subscription").sort((a, b) => b.minor - a.minor);
-  const subsTotal = subLines.reduce((acc, line) => acc + line.minor, 0);
+  const subLines = subsRead;
+  const subsTotal = subsSum;
   const subsHeavy = subLines.length > 0 && income > 0 && (subsTotal >= income * 0.05 || (left > 0 && subsTotal >= left * 0.5) || subLines.length >= 5);
   const goalGap = Math.max(0, goalMinorOf(income, state.settings.savingsGoalPct) - transferMinor);
   // How fast the cushion can grow: what is left free plus what already goes to Emergency
@@ -776,7 +799,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     alert = L(
       lang,
       `Tu ingreso fijo (${money(incomeFixed)}) no alcanza para lo de cada mes (${money(recurrentMinor)}): ${money(recurrentMinor - incomeFixed)} dependen de ${topSourceName || "lo variable"}.${priorTotals.length >= 2 ? " Hasta ahora ha llegado, pero si un mes falla, ahí está el hueco: ese es el primer colchón que conviene juntar." : " Si un mes no llega, ahí está el hueco."}`,
-      `Your fixed income (${money(incomeFixed)}) doesn't cover your monthly bills (${money(recurrentMinor)}): ${money(recurrentMinor - incomeFixed)} depends on ${topSourceName || "variable income"}. If it doesn't arrive one month, that's the gap.`,
+      `Your fixed income (${money(incomeFixed)}) doesn't cover your monthly bills (${money(recurrentMinor)}): ${money(recurrentMinor - incomeFixed)} depends on ${topSourceName || "variable income"}.${priorTotals.length >= 2 ? " It has arrived so far, but if one month it fails, that's the gap: the first cushion worth building." : " If one month it doesn't arrive, that's the gap."}`,
     );
   } else if (incomeFixed > 0) {
     alert = L(
@@ -792,9 +815,14 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     );
   }
 
+  // 1.3.117: card balances are credit too; "no credit payments" while cards carry a balance was misleading.
+  const ct = cardTotals(state, iso(today));
+  const cardBit = ct.known && ct.balance > 0
+    ? L(lang, ` Tus tarjetas deben ${money(ct.balance)}${ct.util != null ? ` (${Math.round(ct.util * 100)}% del límite)` : ""}.`, ` Your cards owe ${money(ct.balance)}${ct.util != null ? ` (${Math.round(ct.util * 100)}% of the limit)` : ""}.`)
+    : "";
   const creditBlurb =
     debtMinor <= 0
-      ? L(lang, "Este mes no hay pagos de crédito.", "No credit payments this month.")
+      ? cardBit ? L(lang, `Sin cuotas de préstamos este mes.${cardBit}`, `No loan payments this month.${cardBit}`) : L(lang, "Este mes no hay pagos de crédito.", "No credit payments this month.")
       : debtPct !== null && debtPct < state.settings.debtGreenPct
         ? L(
             lang,
@@ -980,7 +1008,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
     else if (red) day24 = movable.length
       ? L(lang, `Elige hoy qué bajas: ${listNames(movable)}. ${movableSum >= -left ? `Con eso puedes cerrar los ${money(-left)}.` : `Eso solo cubre ${money(movableSum)} de ${money(-left)}; también hace falta tocar un gasto grande.`}`, `Choose today what to trim: ${listNames(movable)}. ${movableSum >= -left ? `That can close the ${money(-left)}.` : `That only covers ${money(movableSum)} of ${money(-left)}; a big bill has to move too.`}`)
       : L(lang, `Revisa tus dos gastos más grandes${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}: ahí está el cambio que se nota.`, `Review your two biggest bills${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}: that's where change shows.`);
-    else if (subsHeavy) day24 = L(lang, `Cancela hoy las suscripciones que no usaste este mes. Empieza por ${subsRead.slice(0, 2).map((line) => `${line.name} (${money(line.minor)})`).join(" y ")}.`, `Cancel today the subscriptions you didn't use this month. Start with ${subsRead.slice(0, 2).map((line) => `${line.name} (${money(line.minor)})`).join(" and ")}.`);
+    else if (subsHeavy) day24 = L(lang, `Cancela hoy las suscripciones que no usaste este mes. Empieza por ${subsRead.slice(0, 2).map((line) => `${line.name} (${money(line.month)})`).join(" y ")}.`, `Cancel today the subscriptions you didn't use this month. Start with ${subsRead.slice(0, 2).map((line) => `${line.name} (${money(line.month)})`).join(" and ")}.`);
     else if (left > 0 && goalGap > 0) day24 = L(lang, `Mueve hoy ${money(niceDown(Math.min(left, goalGap), display))} a tu ${cushionGap > 0 ? "colchón" : "ahorro"}, antes de que se vaya en gastos pequeños.`, `Move ${money(niceDown(Math.min(left, goalGap), display))} to your ${cushionGap > 0 ? "cushion" : "savings"} today, before small spending eats it.`);
     else day24 = L(lang, `No hace falta recortar nada: el mes cierra con ${money(left)} a favor.`, `No cut needed: the month closes ${money(left)} ahead.`);
 

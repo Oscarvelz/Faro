@@ -8,7 +8,7 @@ import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, Rul
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { RemitCard } from "@/components/faro/remesas";
 import { remitTrend } from "@/lib/faro/remesas";
-import { LongVisual, MediumVisual, MonthTower, PlanRoute, ShortVisual, adviceTeaser } from "@/components/faro/advisor2";
+import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser } from "@/spa/native";
@@ -3804,11 +3804,12 @@ export function Advisor() {
   const stackRef = useRef<HTMLDivElement>(null);
   useMasonry(stackRef, !!(budget && session && summary));
   usePinchZoom(lang);
+  const rules = useRules();
   // "Ir allí" / [[links]]: open the plan card (or a horizon card) when asked.
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (id === "plan" || id === "short" || id === "medium" || id === "long") setOpenCards((cur) => ({ ...cur, [id]: true }));
+      if (id === "plan" || id === "short" || id === "medium" || id === "long" || id === "rules") setOpenCards((cur) => ({ ...cur, [id]: true }));
       else if (id === "advice-more") setMore(true);
     };
     window.addEventListener("faro-open", onOpen);
@@ -3824,6 +3825,7 @@ export function Advisor() {
   const foldIds = [
     ...(awakeOn && wake ? wake.findings.map((item) => item.id) : []),
     ...advice.map((card) => card.horizon),
+    ...(rules.length ? ["rules"] : []),
     "plan",
   ];
   const allOpen = spreadParts && more && foldIds.every(cardOn);
@@ -3952,6 +3954,7 @@ export function Advisor() {
           </article>
         );
       })}
+      <RulesCard rules={rules} open={cardOn("rules")} onToggle={() => toggleCard("rules")} enter={4} />
       {session ? <CardsAdvisor plan={payoffPlan(session.ledger)} /> : null}
       <section className="advice-card is-plan is-start" data-anchor="advice-plan" style={{ ["--enter" as string]: "4" }}>
         <div role="button" tabIndex={0} className="advice-head" aria-expanded={cardOn("plan")} onClick={() => toggleCard("plan")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard("plan"); } }}>

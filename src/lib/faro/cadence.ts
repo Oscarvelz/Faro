@@ -172,3 +172,15 @@ export function dropFreq(state: LedgerState, token: string): LedgerState {
   }
   return { ...state, freqCustom: next };
 }
+
+/** 1.3.117: one payment's count per year as an exact fraction [num, den] (monthly 12/1, biweekly 365/15, "3m" 12/3, "2y" 1/2). */
+export function perYear(cadence: string): [number, number] {
+  if (!cadence || cadence === "monthly") return [12, 1];
+  if (cadence === "weekly") return [52, 1];
+  if (cadence === "biweekly") return [365, 15];
+  if (cadence === "yearly") return [1, 1];
+  const m = /^(\d{1,3})([dwmy])$/.exec(cadence);
+  if (!m || Number(m[1]) < 1) return [12, 1];
+  const n = Number(m[1]);
+  return m[2] === "d" ? [365, n] : m[2] === "w" ? [52, n] : m[2] === "m" ? [12, n] : [1, n];
+}

@@ -1,7 +1,7 @@
 // Asesor 2: each advice card leads with a picture; words come second.
 import "./advisor2.css";
-import { ChevronRight, House, PiggyBank, ShoppingBag, Wallet } from "lucide-react";
-import { useId } from "react";
+import { Calculator, ChevronDown, ChevronRight, House, PiggyBank, ShoppingBag, Wallet } from "lucide-react";
+import { useId, useMemo } from "react";
 import type React from "react";
 import { useFaro } from "@/components/faro/provider";
 import { Hint } from "./hint";
@@ -9,6 +9,8 @@ import type { AdviceCard, SectionId } from "@/lib/faro/types";
 import type { readAdvisor } from "@/lib/faro/advisor";
 import { isTron, tronize } from "@/lib/faro/colors";
 import { cardFigures, cardTotals, cardsOf, utilLevel } from "@/lib/faro/cards";
+import { adviceRules, rateLine, type Rule, type RuleTone } from "@/lib/faro/rules";
+import { readStoredGoals } from "@/lib/faro/awake";
 const tc = (c: string) => (isTron() ? tronize(c) : c);
 
 type Reading = ReturnType<typeof readAdvisor>;
@@ -42,6 +44,7 @@ export function adviceTeaser(card: AdviceCard, reading: Reading, fmt: (n: number
       ? { big: `${Math.round((n.cardUtil ?? 0) * 100)}%`, small: L(lang, "de uso en tarjetas", "card use") }
       : { big: fmt(n.cardBal ?? 0), small: L(lang, "en tarjetas", "on cards") };
     if (!n || n.debt <= 0) return { big: L(lang, "Sin cuotas", "No payments"), small: L(lang, "este mes", "this month") };
+    if (n.income <= 0) return { big: fmt(n.debt), small: L(lang, "en cuotas este mes", "in payments this month") };
     return { big: `${n.pct.toFixed(1)}%`, small: L(lang, `de lo que entra · cómodo hasta ${n.green}%`, `of income · easy up to ${n.green}%`) };
   }
   const n = card.nums;
@@ -178,7 +181,7 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
           ))}
         </div>
       ) : null}
-      <p className="a2-foot">{L(lang, "Anota cuánto debes, la tasa y el pago mínimo, y te digo en cuántos meses terminas.", "Add the balance, rate and minimum payment and I'll tell you when you finish.")}</p>
+      {!reading.debtTermKnown ? <p className="a2-foot">{L(lang, "Anota cuánto debes, la tasa y el pago mínimo, y te digo en cuántos meses terminas.", "Add what you owe, the rate and the minimum payment and I'll tell you when you finish.")}</p> : null}
     </div>
   );
 }
@@ -389,5 +392,62 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
       </div>
       {more ? <div className="a2-detail">{children}</div> : null}
     </div>
+  );
+}
+
+/* ── Lo que dicen tus números (1.3.117) ──────────────────────────────────
+ * Exact rules on the user's own books, in the Asesor's own row style (a2-line): the number that backs each one with
+ * its (?), one sentence with the figures (money also in the other currency, at Cambio's rate) and one tap to the exact
+ * place to act. Computed only when the Asesor shows, memoized per ledger/month/language. */
+const RULE_C: Record<RuleTone, string> = { good: "#7fb2a0", calm: "#7fa6cf", warn: "#e0a35c", bad: "#d0837a" };
+export function useRules(): Rule[] {
+  const { session, key, lang, names } = useFaro();
+  const ledger = session?.ledger;
+  return useMemo(() => {
+    if (!ledger) return [];
+    const g = readStoredGoals(ledger.settings.display, ledger.settings.rateE4).find((x) => x.id === "meta");
+    const goal = g && g.totalMinor > 0 ? { totalMinor: g.totalMinor, years: g.years, monthlyMinor: Math.round(g.totalMinor / (12 * g.years)) } : null;
+    return adviceRules(ledger, key, lang, names, { goal });
+  }, [ledger, key, lang, names]);
+}
+export function RulesCard({ rules, open, onToggle, enter }: { rules: Rule[]; open: boolean; onToggle: () => void; enter: number }) {
+  const { session, lang, setUi, goTopic, t } = useFaro();
+  if (!rules.length || !session) return null;
+  const go = (r: Rule) => {
+    const g = r.go;
+    if (g.kind === "line") setUi({ section: g.section, vault: null, highlight: g.lineId });
+    else if (g.kind === "book") setUi({ section: g.section, vault: null });
+    else goTopic(g.topic, { screen: g.screen, anchor: g.anchor, fold: g.fold });
+  };
+  const first = rules[0]!;
+  const worst = rules.some((r) => r.tone === "bad") ? "bad" : rules.some((r) => r.tone === "warn") ? "warn" : "good";
+  return (
+    <article data-anchor="advice-rules" className={`advice-card is-rules is-${worst}`} style={{ ["--enter" as string]: `${enter}` }}>
+      <div role="button" tabIndex={0} className="advice-head" aria-expanded={open} onClick={onToggle} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}>
+        <span className="advice-mark" aria-hidden><Calculator className="size-4" /></span>
+        <div>
+          <p className="advice-kicker"><span className="lab-head">{L(lang, "Tus números", "Your numbers")}<Hint topic="numeros-asesor" /></span></p>
+          <h2 className="serif">{L(lang, "Lo que dicen tus números", "What your numbers say")}</h2>
+          {!open ? <p className="advice-teaser"><strong className="num">{first.num}</strong><span>{first.title}</span></p> : null}
+        </div>
+        <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+      </div>
+      {open ? (
+        <div className="a2">
+          <div className="a2-lines">
+            {rules.map((r, i) => (
+              <div key={r.id} role="button" tabIndex={0} data-rule={r.id} className="a2-line a2-rule" style={{ ["--c" as string]: tc(RULE_C[r.tone]), animationDelay: `${i * 50}ms` }} aria-label={`${r.title}: ${r.num}. ${t("advice.rule.go")}`}
+                onClick={() => go(r)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(r); } }}>
+                <span className="a2-line-name">{r.title}<em style={{ color: tc(RULE_C[r.tone]) }}>{r.kicker}</em></span>
+                <span className="a2-line-amt"><strong className="num">{r.num}</strong><Hint topic={r.topic} /><ChevronRight aria-hidden /></span>
+                <span className="a2-line-bar" aria-hidden><b style={{ width: `${Math.max(4, Math.round(r.fill * 100))}%` }} /></span>
+                <p className="a2-rule-say">{r.say}</p>
+              </div>
+            ))}
+          </div>
+          <p className="a2-foot">{rateLine(session.ledger, lang)}<Hint topic="tasa" /></p>
+        </div>
+      ) : null}
+    </article>
   );
 }

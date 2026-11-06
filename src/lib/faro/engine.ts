@@ -898,7 +898,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
   const spentCaption = L(
     lang,
     `Gastaste ${money(reading.realSpend)} (sin contar ahorro). ${reading.toneLabel}`,
-    `Real spend ${money(reading.realSpend)}. Total outflow ${money(reading.outTotal)}. ${reading.toneLabel}`,
+    `You spent ${money(reading.realSpend)} (savings not counted). ${reading.toneLabel}`,
   );
 
   const mediumBits: AdviceCard["points"] = [];
@@ -909,7 +909,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       mediumBits.push({
         label: name,
         value: money(pay),
-        note: L(lang, "Cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.", "This month's payment. Enter the balance, the annual rate, and the minimum payment, and I will say how many months are left. Without those three there is no payoff date."),
+        note: L(lang, "Cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.", "This month's payment. Enter what you owe, the annual rate and the minimum payment, and I'll tell you in how many months you finish."),
       });
       continue;
     }
@@ -996,28 +996,35 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       return L(
         lang,
         `Pagas ${money(s.debt)}${load} Ya pasaste el límite de ${state.settings.debtYellowPct}% que te pusiste: evita deudas nuevas.`,
-        `You pay ${money(s.debt)}${load} That is past the ${state.settings.debtYellowPct}% ceiling you set.`,
+        `You pay ${money(s.debt)}${load} You are past the ${state.settings.debtYellowPct}% ceiling you set: avoid new debt.`,
       );
     }
     if (s.tone === "warn") {
       return L(
         lang,
         `Pagas ${money(s.debt)}${load} Ya pasaste la zona cómoda (${state.settings.debtGreenPct}%), pero sigues bajo tu límite (${state.settings.debtYellowPct}%).`,
-        `You pay ${money(s.debt)}${load} You are between the easy cap (${state.settings.debtGreenPct}%) and the ceiling (${state.settings.debtYellowPct}%).`,
+        `You pay ${money(s.debt)}${load} You are past the easy zone (${state.settings.debtGreenPct}%), but still under your ceiling (${state.settings.debtYellowPct}%).`,
       );
     }
     const missing = debts.some((d) => d.balanceMinor === null);
     return L(
       lang,
       `Pagas ${money(s.debt)}${load} Tu zona cómoda llega a ${money(s.debtAllowance)}. El pago está bien.${missing ? " Anota cuánto debes, la tasa y el pago mínimo para saber cuándo terminas." : ""}`,
-      `You pay ${money(s.debt)}${load} Your easy zone goes up to ${money(s.debtAllowance)}. The payment is fine.${missing ? " The balance, the annual rate, and the minimum payment are missing, so the payoff date is too." : ""}`,
+      `You pay ${money(s.debt)}${load} Your easy zone goes up to ${money(s.debtAllowance)}. The payment is fine.${missing ? " Enter what you owe, the rate and the minimum payment to see when you finish." : ""}`,
     );
   })();
 
   const keys = Object.keys(state.months).filter((k) => (state.months[k]?.lines.length ?? 0) > 0).sort();
   // Months with no income recorded (one still waiting for its paycheck) would drag the average into a fake hole.
-  const paidKeys = keys.filter((k) => readAdvisor(state, k, lang, names).income > 0);
-  const baseSeries = (paidKeys.length ? paidKeys : keys.length ? keys : [key]).map((k) => readAdvisor(state, k, lang, names).baseSurplus);
+  // 1.3.117: each month is read once (it was read twice, and every read walks every month for the savings stock).
+  const perKey = new Map<string, { income: number; baseSurplus: number }>();
+  const readKey = (k: string) => {
+    let r = perKey.get(k);
+    if (!r) { const x = k === key ? reading : readAdvisor(state, k, lang, names); r = { income: x.income, baseSurplus: x.baseSurplus }; perKey.set(k, r); }
+    return r;
+  };
+  const paidKeys = keys.filter((k) => readKey(k).income > 0);
+  const baseSeries = (paidKeys.length ? paidKeys : keys.length ? keys : [key]).map((k) => readKey(k).baseSurplus);
   const avgBase = baseSeries.length ? Math.round(baseSeries.reduce((a, b) => a + b, 0) / baseSeries.length) : reading.baseSurplus;
   const oneMonth = (paidKeys.length || keys.length) < 2;
   // When spending is climbing, the average is too kind: use this month instead.
@@ -1040,7 +1047,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     : yearFigure < 0
       ? L(lang, `En ${keys.length} meses, lo de cada mes cierra en rojo en promedio. Doce meses así dejan un hueco. No es una predicción: es la cuenta si nada cambia.`, `Across ${keys.length} months, what repeats closes in the red on average. Twelve months like that leave a hole. Not a forecast: just the math if nothing changes.`)
       : worsening
-        ? L(lang, `Este mes te sobra menos que tu promedio de ${baseSeries.length} meses, así que hago la cuenta con este mes. No es una predicción: es la cuenta si nada cambia.`, `This month leaves less than your ${keys.length}-month average, so I use this month. That is not a forecast. It is the arithmetic if nothing changes.`)
+        ? L(lang, `Este mes te sobra menos que tu promedio de ${baseSeries.length} meses, así que hago la cuenta con este mes. No es una predicción: es la cuenta si nada cambia.`, `This month leaves less than your ${baseSeries.length}-month average, so I use this month. Not a forecast: just the math if nothing changes.`)
         : L(lang, `Tu promedio de ${baseSeries.length} meses, llevado a un año. Sin compras de una vez. No es una predicción: es la cuenta si nada cambia.`, `Your ${baseSeries.length}-month average, carried to a year. Without one-time buys. Not a forecast: just the math if nothing changes.`);
 
   const nothingYet = lines.length === 0;
@@ -1106,7 +1113,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       label: L(lang, "Ahorro del mes", "Saved this month"),
       value: money(s.savingsFlow),
       note: s.opportunity < 0
-        ? L(lang, "El mes cerró en rojo, así que este ahorro en realidad salió de otro lado. Vale la pena revisar si era el momento de ahorrarlo.", "The month is in the red. This transfer is a decision to review, not a win. Moving money does not count as a savings rate (of each $100 that comes in, how many are left) if spending was higher than income.")
+        ? L(lang, "El mes cerró en rojo, así que este ahorro en realidad salió de otro lado. Vale la pena revisar si era el momento de ahorrarlo.", "The month closed in the red, so this saving really came from somewhere else. Worth checking whether it was the right time to save it.")
         : L(lang, "Lo que ya moviste a una categoría de ahorro. No es lo mismo que lo que queda.", "What you already moved to a savings category. It is not the same as what is left."),
     });
   }
@@ -1202,14 +1209,14 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}${lt.count ? ` · Préstamos ${money(lt.left)}` : ""}${ct.known ? ` · Tarjetas ${money(ct.balance)}` : ""}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}${lt.count ? ` · Loans ${money(lt.left)}` : ""}${ct.known ? ` · Cards ${money(ct.balance)}` : ""}`),
     points: mediumBits,
     nums: { debt: s.debt, loanLeft: lt.left, loanInterest: lt.interest, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income, cardBal: ct.known ? ct.balance : 0, cardUtil: ct.util ?? -1, cardMin: ct.min },
-    meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `The payment uses ${pct(s.debtPct)} of income. The easy cap is ${state.settings.debtGreenPct}%.`) } : null,
+    meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `Your payments use ${pct(s.debtPct)} of income. The easy zone goes up to ${state.settings.debtGreenPct}%.`) } : null,
   };
   const longCard: AdviceCard = {
     horizon: "long",
     title: L(lang, "Si cada mes fuera así", "Every month like this"),
     lead: longLead,
     body: "",
-    evidence: L(lang, `Meses con datos: ${keys.length || (lines.length ? 1 : 0)}. Colchón: ${state.settings.emergencyMonths} meses de tus gastos esenciales.`, `Months with data: ${keys.length || (lines.length ? 1 : 0)}. Cushion: ${state.settings.emergencyMonths} months of real essentials.`),
+    evidence: L(lang, `Meses con datos: ${keys.length || (lines.length ? 1 : 0)}. Colchón: ${state.settings.emergencyMonths} meses de tus gastos esenciales.`, `Months with data: ${keys.length || (lines.length ? 1 : 0)}. Cushion: ${state.settings.emergencyMonths} months of your essentials.`),
     points: longPoints,
     nums: { monthly: perMonth, year: yearFigure, target: emergencyTarget, stock, gap: gapFund, months: monthsToFund ?? -1, seen: keys.length || 1, pace },
     meter: emergencyTarget > 0 ? { pct: fundMeterPct, caption: stock >= emergencyTarget ? L(lang, "El fondo anotado ya cubre el colchón.", "The recorded fund already covers the cushion.") : L(lang, `Llevas el ${pct(fundMeterPct)} del colchón.`, `You have ${pct(fundMeterPct)} of the cushion.`) } : null,

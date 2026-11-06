@@ -661,14 +661,26 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const key = toKey(ui.year, ui.month);
   const names = useMemo(() => (session ? makeNamer(session.ledger.structure, lang) : makeNamer(createInitial().structure, lang)), [session, lang]);
   const lines = session ? monthLines(session.ledger, key) : [];
-  const summary = session ? summarize(session.ledger, key, lang) : null;
-  const insights = session ? buildInsights(session.ledger, key, lang, names) : [];
-  const advice = session ? buildAdvice(session.ledger, key, lang, names) : [];
-  const budget = session ? buildBudget(session.ledger, key, lang, names) : null;
-  const slices = session ? categorySlices(session.ledger, key, names) : [];
+  // 1.3.117: the month's figures are computed once per ledger/month/language (not on every tap), and the heavy readings
+  // (Estudio's numbers, the Asesor's advice and budget, the category slices) only when a screen asks for them, so
+  // opening Faro and its cards never waits on them.
+  const ledgerNow = session?.ledger ?? null;
+  const summary = useMemo(() => (ledgerNow ? summarize(ledgerNow, key, lang) : null), [ledgerNow, key, lang]);
+  const lazy = useMemo(() => {
+    let i: ReturnType<typeof buildInsights> | null = null;
+    let a: ReturnType<typeof buildAdvice> | null = null;
+    let b: ReturnType<typeof buildBudget> | null | undefined;
+    let sl: ReturnType<typeof categorySlices> | null = null;
+    return {
+      insights: () => (i ??= ledgerNow ? buildInsights(ledgerNow, key, lang, names) : []),
+      advice: () => (a ??= ledgerNow ? buildAdvice(ledgerNow, key, lang, names) : []),
+      budget: () => (b === undefined ? (b = ledgerNow ? buildBudget(ledgerNow, key, lang, names) : null) : b),
+      slices: () => (sl ??= ledgerNow ? categorySlices(ledgerNow, key, names) : []),
+    };
+  }, [ledgerNow, key, lang, names]);
   const hits = session && ui.query.trim().length >= 2 ? searchLedger(session.ledger, ui.query, lang, names) : [];
-  const liveWake = useRef({ ledger: session?.ledger ?? null, advice, key, lang, names, awakeOn });
-  liveWake.current = { ledger: session?.ledger ?? null, advice, key, lang, names, awakeOn };
+  const liveWake = useRef({ ledger: session?.ledger ?? null, advice: lazy.advice, key, lang, names, awakeOn });
+  liveWake.current = { ledger: session?.ledger ?? null, advice: lazy.advice, key, lang, names, awakeOn };
 
   useEffect(() => {
     try {
@@ -710,13 +722,13 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           goalsBefore: before?.goals ?? goals,
           goalsAfter: goals,
           adviceBefore: before?.advice ?? [],
-          adviceAfter: advicePrints(now.advice),
+          adviceAfter: advicePrints(now.advice()),
           planCopied: planCopied.current,
           dismissed: dismissedRef.current,
           enabled: true,
           opened,
         });
-        wakeBase.current = { ledger: now.ledger, advice: advicePrints(now.advice), goals, key: now.key };
+        wakeBase.current = { ledger: now.ledger, advice: advicePrints(now.advice()), goals, key: now.key };
         setWakeView(result);
         if (result.stalePlan) setPlanStale(true);
         const quiet = wakeQuiet.current;
@@ -979,10 +991,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     lines,
     names,
     summary,
-    insights,
-    advice,
-    budget,
-    slices,
+    get insights() { return lazy.insights(); },
+    get advice() { return lazy.advice(); },
+    get budget() { return lazy.budget(); },
+    get slices() { return lazy.slices(); },
     hits,
     fmt,
     viewLine,

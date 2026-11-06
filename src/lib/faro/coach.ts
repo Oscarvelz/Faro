@@ -4,6 +4,8 @@ import { readAdvisor, type ReadLine } from "./advisor";
 import { savingsPicture } from "./awake";
 import { colorFor } from "./colors";
 import { convertMinor, formatMoney, formatPct, niceDown } from "./money";
+import { cardTotals } from "./cards";
+import { perYear } from "./cadence";
 import type { Currency, Lang, LedgerState, Line } from "./types";
 
 type Namer = {
@@ -185,7 +187,9 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   void savingsPicture;
   const needsMonthly = reading.essentialsMonthly;
   const cushionStock = reading.cushionStock;
-  const cushionMonths = needsMonthly > 0 ? cushionStock / needsMonthly : null;
+  // 1.3.117: tenths rounded DOWN, so 2.96 months never reads "3 de 3" (the goal) when it is not there yet.
+  const cushionMonths = needsMonthly > 0 ? Math.floor((cushionStock * 10) / needsMonthly) / 10 : null;
+  const tenths = (n: number) => new Intl.NumberFormat(lang === "en" ? "en-US" : "es-NI", { minimumFractionDigits: n % 1 ? 1 : 0, maximumFractionDigits: 1 }).format(n);
   const cushionTarget = emergencyMonths || 3;
 
   // Pillars, each 0-100.
@@ -232,7 +236,13 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     });
   }
   {
+    // 1.3.117: with no loan payments, card balances still are debt: their use of the limit scores the pillar (≤30% is healthy).
+    const ct = cardTotals(state, `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+    const cardsOnly = debt <= 0 && ct.known > 0 && ct.balance > 0;
     let s = 100;
+    if (cardsOnly && ct.util != null && ct.util > 0.3) s = clamp(85 - (ct.util - 0.3) * 100, 25);
+    else if (cardsOnly && ct.util != null) s = Math.round(100 - ct.util * 50);
+    else if (cardsOnly) s = 80;
     if (debtPct !== null && debtPct > debtGreenPct) {
       s = debtPct <= debtYellowPct
         ? 100 - ((debtPct - debtGreenPct) / Math.max(1, debtYellowPct - debtGreenPct)) * 50
@@ -242,8 +252,14 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       id: "debt",
       label: L(lang, "Deudas", "Debt"),
       score: Math.round(s),
-      value: debt <= 0 ? L(lang, "Sin cuotas", "No payments") : L(lang, `${pct(debtPct)} del ingreso`, `${pct(debtPct)} of income`),
-      note: debt <= 0
+      value: cardsOnly
+        ? L(lang, `Tarjetas ${money(ct.balance)}`, `Cards ${money(ct.balance)}`)
+        : debt <= 0 ? L(lang, "Sin cuotas", "No payments") : L(lang, `${pct(debtPct)} del ingreso`, `${pct(debtPct)} of income`),
+      note: cardsOnly
+        ? ct.util != null
+          ? L(lang, `Sin cuotas de préstamos, pero tus tarjetas usan el ${Math.round(ct.util * 100)}% del límite. ${ct.util > 0.3 ? "Bájalo a 30% o menos." : "Bajo 30% está bien."}`, `No loan payments, but your cards use ${Math.round(ct.util * 100)}% of the limit. ${ct.util > 0.3 ? "Bring it to 30% or less." : "Under 30% is fine."}`)
+          : L(lang, `Sin cuotas de préstamos, pero tus tarjetas deben ${money(ct.balance)}. Añade su límite para medir el uso.`, `No loan payments, but your cards owe ${money(ct.balance)}. Add their limit to measure use.`)
+        : debt <= 0
         ? L(lang, "No tienes pagos de crédito anotados este mes.", "No credit payments recorded this month.")
         : (debtPct ?? 0) <= debtGreenPct
           ? L(lang, "Tus cuotas están en zona cómoda.", "Your payments are in the comfortable zone.")
@@ -251,7 +267,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
             ? L(lang, "Las cuotas ya aprietan. Evita sumar deudas nuevas.", "Payments are getting tight. Avoid adding new debt.")
             : L(lang, "Las deudas se llevan demasiado. Ataca primero la de tasa más alta.", "Debt takes too much. Attack the highest-rate one first."),
       tip: L(lang, `Zona cómoda: hasta ${debtGreenPct}% de lo que entra.`, `Comfortable zone: up to ${debtGreenPct}% of what comes in.`),
-      tone: debt <= 0 || (debtPct ?? 0) <= debtGreenPct ? "good" : (debtPct ?? 0) <= debtYellowPct ? "warn" : "bad",
+      tone: cardsOnly ? tone(s) : debt <= 0 || (debtPct ?? 0) <= debtGreenPct ? "good" : (debtPct ?? 0) <= debtYellowPct ? "warn" : "bad",
     });
   }
   {
@@ -260,7 +276,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       id: "cushion",
       label: L(lang, "Colchón", "Cushion"),
       score: Math.round(s),
-      value: cushionMonths === null ? "—" : L(lang, `${cushionMonths.toFixed(1).replace(/\.0$/, "")} de ${cushionTarget} meses`, `${cushionMonths.toFixed(1).replace(/\.0$/, "")} of ${cushionTarget} months`),
+      value: cushionMonths === null ? "—" : L(lang, `${tenths(cushionMonths)} de ${cushionTarget} meses`, `${tenths(cushionMonths)} of ${cushionTarget} months`),
       note: cushionMonths === null
         ? L(lang, "Anota tus gastos para saber cuánto colchón necesitas.", "Record your bills to know how big a cushion you need.")
         : cushionMonths < 0.25
@@ -268,7 +284,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
           : cushionMonths < 1
             ? L(lang, `Si mañana dejara de entrar dinero, aguantarías unas ${Math.max(1, Math.round(cushionMonths * 4.3))} semanas.`, `If money stopped coming in tomorrow, you'd last about ${Math.max(1, Math.round(cushionMonths * 4.3))} weeks.`)
           : cushionMonths < cushionTarget
-            ? L(lang, `Aguantarías unos ${cushionMonths.toFixed(1)} meses sin ingresos.`, `You could last about ${cushionMonths.toFixed(1)} months without income.`)
+            ? L(lang, `Aguantarías unos ${tenths(cushionMonths)} meses sin ingresos.`, `You could last about ${tenths(cushionMonths)} months without income.`)
             : L(lang, "Tu colchón ya cubre la meta. Lo que ahorres de más puede ir a metas.", "Your cushion covers the goal. Extra savings can go to goals."),
       tip: needsMonthly > 0
         ? L(lang, `El colchón es dinero para un golpe: ${cushionTarget} meses de lo esencial (${money(reading.cushionMinor)}).`, `A cushion is money for a shock: ${cushionTarget} months of essentials (${money(reading.cushionMinor)}).`)
@@ -440,7 +456,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       title: L(lang, `Aparta ${money(move)} hoy`, `Save ${money(move)} today`),
       detail: move >= niceDown(goalMinor - saved, display)
         ? L(lang, `Te quedan ${money(left)} sin destino. Si mueves ${money(move)} ahora a tu ahorro, cumples tu meta del ${savingsGoalPct || 10}% y no se van en gastos pequeños.`, `You have ${money(left)} with no job. Move ${money(move)} to savings now and you meet your ${savingsGoalPct || 10}% goal before small spending eats it.`)
-        : L(lang, `Es todo lo que queda libre. Tu meta del ${savingsGoalPct || 10}% serían ${money(niceDown(goalMinor, display))}; empezar con lo que sí cabe ya cuenta.`, `It's all that's free. Your ${savingsGoalPct || 10}% goal would be ${money(goalMinor)}; starting with what fits still counts.`),
+        : L(lang, `Es todo lo que queda libre. Tu meta del ${savingsGoalPct || 10}% serían ${money(niceDown(goalMinor, display))}; empezar con lo que sí cabe ya cuenta.`, `It's all that's free. Your ${savingsGoalPct || 10}% goal would be ${money(niceDown(goalMinor, display))}; starting with what fits still counts.`),
       impactMinor: move,
       tone: "good",
     });
@@ -475,17 +491,19 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       id: "debt",
       title: L(lang, "Afloja las deudas", "Ease your debt"),
       detail: L(lang, `Las cuotas se llevan ${pct(debtPct)} de lo que entra. No abras crédito nuevo y paga extra a la de tasa más alta.`, `Payments take ${pct(debtPct)} of income. Open no new credit and pay extra on the highest-rate one.`),
-      impactMinor: debt,
+      impactMinor: Math.max(0, debt - Math.round((income * debtGreenPct) / 100)),
       tone: "warn",
     });
   }
-  const subs = (state.months[key]?.lines ?? []).filter((l) => l.active && l.kind === "subscription");
-  const subsMinor = subs.reduce((a, l) => a + viewOf(l, display, rateE4), 0);
+  // 1.3.117: per month and per year by each Cuota's cadence (a yearly charge is not ×12); loan installments are debt.
+  const subs = (state.months[key]?.lines ?? []).filter((l) => l.active && l.kind === "subscription" && roleOf(state, l.categoryId) !== "debt");
+  const subsYear = subs.reduce((a, l) => { const [n, d] = perYear(l.cadence || "monthly"); return a + Math.round((viewOf(l, display, rateE4) * n) / d); }, 0);
+  const subsMinor = Math.round(subsYear / 12);
   if (subsMinor > 0 && (subs.length >= 3 || (income > 0 && subsMinor >= income * 0.03))) {
     steps.push({
       id: "subs",
       title: L(lang, "Revisa tus suscripciones", "Review subscriptions"),
-      detail: L(lang, `Tus ${subs.length} suscripci${subs.length === 1 ? "ón" : "ones"} suman ${money(subsMinor)} al mes, ${money(subsMinor * 12)} al año. Cancela la que no usaste este mes.`, `Your ${subs.length} subscription${subs.length === 1 ? "" : "s"} add up to ${money(subsMinor)} a month, ${money(subsMinor * 12)} a year. Cancel the one you didn't use this month.`),
+      detail: L(lang, `Tus ${subs.length} suscripci${subs.length === 1 ? "ón" : "ones"} suman ${money(subsMinor)} al mes, ${money(subsYear)} al año. Cancela la que no usaste este mes.`, `Your ${subs.length} subscription${subs.length === 1 ? "" : "s"} add up to ${money(subsMinor)} a month, ${money(subsYear)} a year. Cancel the one you didn't use this month.`),
       impactMinor: subsMinor,
       tone: "neutral",
     });

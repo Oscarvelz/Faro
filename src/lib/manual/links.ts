@@ -223,6 +223,7 @@ export const ANCHORS: Record<string, { screen: string; where: string }> = {
   "advice-long": { screen: "advice", where: "screens.tsx article.advice-card.is-long (+ faro-open)" },
   "advice-plan": { screen: "advice", where: "screens.tsx section.advice-card.is-start (+ faro-open 'plan')" },
   "advice-sim": { screen: "advice", where: "screens.tsx .advice-sim" },
+  "advice-rules": { screen: "advice", where: "advisor2.tsx RulesCard article.advice-card.is-rules (+ faro-open 'rules'); only when a rule has something to say" },
   "tools-rate": { screen: "tools", where: "instruments.tsx section.rate-plate (+ faro-open)" },
   "tools-convert": { screen: "tools", where: "instruments.tsx converter card" },
   "tools-calc": { screen: "tools", where: "instruments.tsx .calc-launch" },
