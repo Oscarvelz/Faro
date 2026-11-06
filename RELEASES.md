@@ -422,5 +422,5 @@
 - Manual topics numeros-asesor + regla-categoria/atipico/cargos/pagos/colchon/meta/ritmo (ES+EN); links anchor advice-rules.
 - advisor/coach/engine/cadence fixes; provider lazy + memo; readAdvisor cache (browser only).
 - Files: rules.ts, rules.test.ts, advisor.ts, coach.ts, engine.ts, cadence.ts, i18n.ts, advisor2.tsx, advisor2.css, provider.tsx, screens.tsx, manual/topics.ts, manual/links.ts, package.json, public/sw.js. Published from a clean clone of `source` (1.3.116, e118bbc; source had not moved).
-- Tests on the final build: tsc 5 known; npm test 94/94 + test:faro 94/94; a117 ALL PASS Tron 412 (A+B), Claro 360r20 (A+B, + EN A), Tron 1970×1200 (A); t110 Tron 412 A + C ALL PASS, B six checks PASS (B1–B6; run cut by the time limit, last lines not seen); bk-back ALL PASS. Self-checked only, no independent review.
+- Tests on the final build: tsc 5 known; npm test 59/59 + test:faro 94/94; a117 ALL PASS Tron 412 (A+B), Claro 360r20 (A+B, + EN A), Tron 1970×1200 (A); t110 Tron 412 A + C ALL PASS, B six checks PASS (B1–B6; run cut by the time limit, last lines not seen); bk-back ALL PASS. Self-checked only, no independent review.
 - 1.3.117 hashes: main fd775d6, source 76a7ec9.
