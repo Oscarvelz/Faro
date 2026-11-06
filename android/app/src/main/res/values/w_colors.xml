@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widgets, day (Claro-like paper). values-night holds the Tron night. Teal = money in, orange = money out,
+     amber = what is owed / due soon (subtle), purple = savings only. -->
+<resources>
+    <color name="w_bg">#F7F6F3</color>
+    <color name="w_ink">#1C2229</color>
+    <color name="w_muted">#69717B</color>
+    <color name="w_line">#1A1C2229</color>
+    <color name="w_track">#141C2229</color>
+    <color name="w_teal">#0B8BAD</color>
+    <color name="w_teal_soft">#290B8BAD</color>
+    <color name="w_teal_track">#8C0B8BAD</color>
+    <color name="w_orange">#D46A00</color>
+    <color name="w_orange_soft">#38D46A00</color>
+    <color name="w_amber">#BD8200</color>
+    <color name="w_amber_soft">#2EBD8200</color>
+    <color name="w_purple">#894ED6</color>
+    <color name="w_purple_soft">#33894ED6</color>
+    <color name="w_bad">#C2463A</color>
+    <color name="w_prev">#381C2229</color>
+    <color name="w_press">#141C2229</color>
+</resources>

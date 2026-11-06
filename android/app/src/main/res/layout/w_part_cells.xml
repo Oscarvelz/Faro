@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Three quiet columns divided by hairlines (no boxes): next payment, the scale, the month's savings. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="52dp" android:orientation="horizontal">
+    <LinearLayout android:id="@+id/w_c_pay" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical"
+        android:gravity="center_vertical" android:background="@drawable/w_press" android:paddingEnd="8dp">
+        <TextView android:id="@+id/w_pay_k" style="@style/W.Kick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/w_next" />
+        <TextView android:id="@+id/w_pay_name" style="@style/W.Fit" android:layout_width="match_parent" android:layout_height="17dp" android:layout_marginTop="4dp"
+            android:fontFamily="sans-serif" android:autoSizeMaxTextSize="13.5dp" android:textSize="13.5dp" android:text="Netflix" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="3dp">
+            <TextView android:id="@+id/w_pay_days" style="@style/W.Num" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11.5dp" android:textColor="@color/w_amber" android:text="en 3 d" />
+            <TextView android:id="@+id/w_pay_amt" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="15dp" android:layout_marginStart="6dp"
+                android:autoSizeMaxTextSize="11.5dp" android:textSize="11.5dp" android:textColor="@color/w_muted" android:text="$15.99" />
+        </LinearLayout>
+    </LinearLayout>
+    <FrameLayout android:layout_width="1dp" android:layout_height="match_parent" android:layout_marginTop="4dp" android:layout_marginBottom="4dp" android:background="@color/w_line" />
+    <LinearLayout android:id="@+id/w_c_debt" android:layout_width="0dp" android:layout_weight="1.15" android:layout_height="match_parent" android:orientation="vertical"
+        android:gravity="center_vertical" android:background="@drawable/w_press" android:paddingStart="10dp" android:paddingEnd="8dp">
+        <TextView android:id="@+id/w_scale_k" style="@style/W.Fit" android:layout_width="match_parent" android:layout_height="14dp" android:fontFamily="sans-serif"
+            android:textColor="@color/w_muted" android:autoSizeMaxTextSize="11dp" android:textSize="11dp" android:text="@string/w_scale" />
+        <FrameLayout android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="7dp">
+            <ProgressBar android:id="@+id/w_scale" style="@style/W.Bar" android:layout_width="match_parent" android:layout_height="5dp" android:progressDrawable="@drawable/w_bar_scale" android:progress="242" />
+            <FrameLayout android:id="@+id/w_scale_zero" android:layout_width="match_parent" android:layout_height="5dp" android:background="@drawable/w_fill_track" android:visibility="gone" />
+        </FrameLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="6dp">
+            <TextView android:id="@+id/w_owed" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="15dp" android:autoSizeMaxTextSize="11.5dp" android:textSize="11.5dp" android:textColor="@color/w_teal" android:text="$612.40" />
+            <TextView android:id="@+id/w_owe" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="15dp" android:gravity="end" android:autoSizeMaxTextSize="11.5dp" android:textSize="11.5dp" android:textColor="@color/w_amber" android:text="$1,920.00" />
+        </LinearLayout>
+    </LinearLayout>
+    <FrameLayout android:layout_width="1dp" android:layout_height="match_parent" android:layout_marginTop="4dp" android:layout_marginBottom="4dp" android:background="@color/w_line" />
+    <LinearLayout android:id="@+id/w_c_save" android:layout_width="0dp" android:layout_weight="0.95" android:layout_height="match_parent" android:orientation="horizontal"
+        android:gravity="center_vertical" android:background="@drawable/w_press" android:paddingStart="10dp">
+        <FrameLayout android:layout_width="36dp" android:layout_height="36dp">
+            <ProgressBar android:id="@+id/w_ring" style="@style/W.Bar" android:layout_width="36dp" android:layout_height="36dp" android:progressDrawable="@drawable/w_ring_sav" android:progress="860" />
+            <TextView android:id="@+id/w_save_pct" style="@style/W.Num" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center"
+                android:textSize="9.5dp" android:text="86%" />
+        </FrameLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="8dp">
+            <TextView android:id="@+id/w_save_k" style="@style/W.Fit" android:layout_width="match_parent" android:layout_height="14dp" android:fontFamily="sans-serif"
+                android:textColor="@color/w_muted" android:autoSizeMaxTextSize="11dp" android:textSize="11dp" android:text="@string/w_save" />
+            <TextView android:id="@+id/w_save_amt" style="@style/W.Fit" android:layout_width="match_parent" android:layout_height="17dp" android:layout_marginTop="4dp"
+                android:autoSizeMaxTextSize="13.5dp" android:textSize="13.5dp" android:textColor="@color/w_purple" android:text="$300.00" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

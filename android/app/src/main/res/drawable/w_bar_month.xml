@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The month in one picture: the whole bar is Tengo (teal); the orange part is what Gastaré takes; the teal left over is Queda. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background" android:drawable="@drawable/w_fill_teal_track" />
+    <item android:id="@android:id/progress"><scale android:scaleWidth="100%" android:drawable="@drawable/w_fill_orange" /></item>
+</layer-list>

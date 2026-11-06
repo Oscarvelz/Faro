@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/w_bg" android:clipToOutline="true">
+    <LinearLayout android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingStart="14dp" android:paddingEnd="10dp">
+        <ImageView android:id="@+id/w_lamp" android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_lamp" android:importantForAccessibility="no" />
+        <LinearLayout android:id="@+id/w_hero_box" android:layout_width="0dp" android:layout_weight="1.25" android:layout_height="match_parent" android:orientation="vertical"
+            android:gravity="center_vertical" android:layout_marginStart="10dp" android:background="@drawable/w_press">
+            <TextView android:id="@+id/w_month" style="@style/W.Kick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/w_month_sample" />
+            <TextView android:id="@+id/w_left" style="@style/W.Fit" android:layout_width="match_parent" android:layout_height="26dp" android:layout_marginTop="2dp"
+                android:autoSizeMinTextSize="14dp" android:autoSizeMaxTextSize="22dp" android:textSize="22dp" android:text="$1,585.56" />
+        </LinearLayout>
+        <FrameLayout android:layout_width="1dp" android:layout_height="28dp" android:layout_marginStart="8dp" android:background="@color/w_line" />
+        <LinearLayout android:id="@+id/w_c_pay" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical"
+            android:gravity="center_vertical" android:paddingStart="10dp" android:paddingEnd="6dp" android:background="@drawable/w_press">
+            <TextView android:id="@+id/w_pay_k" style="@style/W.Kick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/w_next" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="3dp" android:gravity="center_vertical">
+                <TextView android:id="@+id/w_pay_name" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="16dp" android:fontFamily="sans-serif"
+                    android:autoSizeMaxTextSize="13dp" android:textSize="13dp" android:text="Netflix" />
+                <TextView android:id="@+id/w_pay_days" style="@style/W.Num" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp"
+                    android:textSize="12dp" android:textColor="@color/w_amber" android:text="en 3 d" />
+            </LinearLayout>
+        </LinearLayout>
+        <ImageView android:id="@+id/w_add_out" android:layout_width="32dp" android:layout_height="32dp" android:layout_marginStart="4dp" android:background="@drawable/w_btn_out" android:src="@drawable/w_ic_minus" android:padding="8dp" android:contentDescription="@string/w_add_out" />
+    </LinearLayout>
+</FrameLayout>

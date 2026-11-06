@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tron night: near-neutral charcoal with a faint cool lean (no violet, no brown, not pure black). -->
+<resources>
+    <color name="w_bg">#121316</color>
+    <color name="w_ink">#E8EAED</color>
+    <color name="w_muted">#8C929A</color>
+    <color name="w_line">#1CFFFFFF</color>
+    <color name="w_track">#1AFFFFFF</color>
+    <color name="w_teal">#3FD6F5</color>
+    <color name="w_teal_soft">#263FD6F5</color>
+    <color name="w_teal_track">#803FD6F5</color>
+    <color name="w_orange">#FF9D2A</color>
+    <color name="w_orange_soft">#33FF9D2A</color>
+    <color name="w_amber">#FFC23A</color>
+    <color name="w_amber_soft">#29FFC23A</color>
+    <color name="w_purple">#BA92FD</color>
+    <color name="w_purple_soft">#2EBA92FD</color>
+    <color name="w_bad">#FF6A5A</color>
+    <color name="w_prev">#3DFFFFFF</color>
+    <color name="w_press">#1FFFFFFF</color>
+</resources>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The one number (Queda) and the one picture (the month bar), with Tengo · Gastaré · Usado under it. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_hero_box" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+    android:background="@drawable/w_press">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="bottom" android:layout_marginTop="2dp">
+        <TextView android:id="@+id/w_left" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="40dp"
+            android:gravity="bottom|start" android:autoSizeMinTextSize="18dp" android:autoSizeMaxTextSize="34dp" android:textSize="34dp" android:letterSpacing="-0.01" android:text="$1,585.56" />
+        <TextView android:id="@+id/w_left_hid" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="40dp" android:visibility="gone"
+            android:gravity="bottom|start" android:paddingBottom="5dp" android:fontFamily="sans-serif" android:textColor="@color/w_muted" android:autoSizeMaxTextSize="16dp" android:textSize="16dp" android:text="@string/w_hidden" />
+        <TextView android:id="@+id/w_left_lab" style="@style/W.Text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" android:paddingBottom="5dp" android:textSize="13dp" android:textColor="@color/w_muted" android:text="@string/w_left" />
+    </LinearLayout>
+    <ProgressBar android:id="@+id/w_bar" style="@style/W.Bar" android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="8dp"
+        android:progressDrawable="@drawable/w_bar_month" android:progress="543" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="8dp">
+        <TextView android:id="@+id/w_have_lab" style="@style/W.Kick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11.5dp" android:text="@string/w_have" />
+        <TextView android:id="@+id/w_have" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="16dp" android:layout_marginStart="5dp"
+            android:autoSizeMaxTextSize="12.5dp" android:textSize="12.5dp" android:textColor="@color/w_teal" android:text="$3,473.04" />
+        <TextView android:id="@+id/w_spend_lab" style="@style/W.Kick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:textSize="11.5dp" android:text="@string/w_spend" />
+        <TextView android:id="@+id/w_spend" style="@style/W.Fit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="16dp" android:layout_marginStart="5dp"
+            android:autoSizeMaxTextSize="12.5dp" android:textSize="12.5dp" android:textColor="@color/w_orange" android:text="$1,887.48" />
+        <TextView android:id="@+id/w_used" style="@style/W.Num" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp"
+            android:textSize="12dp" android:textColor="@color/w_muted" android:text="54%" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/w_bg" android:clipToOutline="true">
+    <LinearLayout android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+        android:paddingStart="16dp" android:paddingEnd="12dp" android:paddingTop="11dp" android:paddingBottom="12dp">
+        <include layout="@layout/w_part_head" />
+        <include layout="@layout/w_part_hero" />
+        <FrameLayout android:layout_width="match_parent" android:layout_height="12dp" />
+        <include layout="@layout/w_part_cells" />
+        <FrameLayout android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="10dp" android:layout_marginBottom="4dp" android:background="@color/w_line" />
+        <include layout="@layout/w_part_dues" />
+    </LinearLayout>
+</FrameLayout>

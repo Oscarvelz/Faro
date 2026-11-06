@@ -43,7 +43,8 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * The page talks to the app through window.FaroNative (src/spa/native.ts in the web source, feature-detected there):
  * Back (FaroBack / atRoot), bar colours, downloads into Downloads/Faro, the phone's BiometricPrompt for the fingerprint
- * lock, and pictures shared from other apps. Nothing in the web app changes when FaroNative is absent.
+ * lock, pictures shared from other apps, and (1.3.121) the home-screen widgets' snapshot and taps (FaroWidgets.kt).
+ * Nothing in the web app changes when FaroNative is absent.
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -61,6 +62,8 @@ class MainActivity : Activity() {
     @Volatile private var trusted = false
     @Volatile private var pageReady = false
     private var lastBack = 0L
+    /** 1.3.121: where a widget tap wants to land ("desk", "pagos", "add-out"…); the page takes it with takeOpen(). */
+    @Volatile private var widgetGo: String? = null
     private val saves = ConcurrentHashMap<String, Save>()
     private val shared = java.util.Collections.synchronizedList(ArrayList<SharedPic>())
 
@@ -127,6 +130,7 @@ class MainActivity : Activity() {
             override fun onPageFinished(v: WebView, url: String?) {
                 trusted = url != null && isFaro(Uri.parse(url)); pageReady = trusted
                 if (pageReady && shared.isNotEmpty()) dispatch("dispatchEvent(new Event('faronative-share'))")
+                if (pageReady && widgetGo != null) dispatch("dispatchEvent(new Event('faronative-open'))")
             }
             override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                 if (!r.isForMainFrame) return
@@ -167,6 +171,7 @@ class MainActivity : Activity() {
             if (url.startsWith("http")) openOutside(Uri.parse(url))
         }
         takeShare(intent)
+        takeWidget(intent)
         if (state != null) web.restoreState(state) else web.loadUrl(home)
         checkUpdate()
     }
@@ -396,6 +401,20 @@ class MainActivity : Activity() {
             }.getOrDefault("")
         }
 
+        /** 1.3.121: the widgets' snapshot (JSON from src/lib/faro/widget.ts; "" = signed out). Kept app-private. */
+        @JavascriptInterface fun setWidgetData(json: String) {
+            if (!trusted) return
+            runCatching { FaroWidgets.save(applicationContext, json) }
+        }
+
+        /** 1.3.121: the target of the last widget tap, once ("" when none). */
+        @JavascriptInterface fun takeOpen(): String {
+            if (!trusted) return ""
+            val g = widgetGo ?: return ""
+            widgetGo = null
+            return g
+        }
+
         @JavascriptInterface fun sharedClear() {
             synchronized(shared) { shared.forEach { it.file.delete() }; shared.clear() }
         }
@@ -493,6 +512,15 @@ class MainActivity : Activity() {
             return
         }
         takeShare(intent)
+        if (takeWidget(intent) && pageReady) dispatch("dispatchEvent(new Event('faronative-open'))")
+    }
+
+    /** A tap on a home-screen widget: remember where it goes until the page asks (after the lock, if any). */
+    private fun takeWidget(i: Intent?): Boolean {
+        if (i?.action != FaroWidgets.ACTION_OPEN) return false
+        val go = i.getStringExtra(FaroWidgets.EXTRA_GO)?.takeIf { Regex("^[a-z-]{2,24}$").matches(it) } ?: return false
+        widgetGo = go
+        return true
     }
 
     override fun onPause() {

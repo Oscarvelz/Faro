@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Me deben (teal, from the left) against Debo (amber, the rest). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background" android:drawable="@drawable/w_fill_amber" />
+    <item android:id="@android:id/progress"><scale android:scaleWidth="100%" android:drawable="@drawable/w_fill_teal" /></item>
+</layer-list>

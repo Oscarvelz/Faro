@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="w_phone_label">Faro · Month</string>
+    <string name="w_phone_desc">What is left this month, the next payment, owed · owe and your savings.</string>
+    <string name="w_panel_label">Faro · Dashboard</string>
+    <string name="w_panel_desc">Tablet dashboard: six months, categories, dues, the scale, savings and the rate.</string>
+    <string name="w_left">left</string>
+    <string name="w_have">Have</string>
+    <string name="w_spend">Spending</string>
+    <string name="w_pay">Payments</string>
+    <string name="w_next">Next payment</string>
+    <string name="w_scale">Owed to me · I owe</string>
+    <string name="w_save">Saved</string>
+    <string name="w_six">Six months</string>
+    <string name="w_cats">Spending by category</string>
+    <string name="w_cats_vs">grey: last month</string>
+    <string name="w_due14">Due in 14 days</string>
+    <string name="w_savings">Savings</string>
+    <string name="w_rate">Rate</string>
+    <string name="w_month_sample">November</string>
+    <string name="w_empty">Open Faro once</string>
+    <string name="w_empty_sub">Your month’s numbers show up here.</string>
+    <string name="w_add_in">Add income</string>
+    <string name="w_add_out">Add expense</string>
+    <string name="w_hidden">Amounts hidden · tap to open</string>
+    <string name="w_rate_sub">BCN · Nov 6</string>
+</resources>

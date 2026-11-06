@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="w_phone_label">Faro · Mes</string>
+    <string name="w_phone_desc">Lo que queda del mes, el próximo pago, Me deben · Debo y tu ahorro.</string>
+    <string name="w_panel_label">Faro · Panel</string>
+    <string name="w_panel_desc">Tablero para la tableta: seis meses, categorías, vencimientos, balanza, ahorros y tasa.</string>
+    <string name="w_left">queda</string>
+    <string name="w_have">Tengo</string>
+    <string name="w_spend">Gastaré</string>
+    <string name="w_pay">Pagos</string>
+    <string name="w_next">Próximo pago</string>
+    <string name="w_scale">Me deben · Debo</string>
+    <string name="w_save">Ahorro</string>
+    <string name="w_six">Seis meses</string>
+    <string name="w_cats">Gastos por categoría</string>
+    <string name="w_cats_vs">gris: mes pasado</string>
+    <string name="w_due14">Vence en 14 días</string>
+    <string name="w_savings">Ahorros</string>
+    <string name="w_rate">Tasa</string>
+    <string name="w_month_sample">Noviembre</string>
+    <string name="w_empty">Abre Faro una vez</string>
+    <string name="w_empty_sub">Tus números del mes aparecen aquí.</string>
+    <string name="w_add_in">Sumar ingreso</string>
+    <string name="w_add_out">Anotar gasto</string>
+    <string name="w_hidden">Montos ocultos · toca para abrir</string>
+    <string name="w_rate_sub">BCN · 6 nov</string>
+</resources>

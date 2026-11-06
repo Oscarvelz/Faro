@@ -41,6 +41,22 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
+        <!-- 1.3.121 home-screen widgets: "Faro · Mes" (phone) and "Faro · Panel" (tablet). See FaroWidgets.kt. -->
+        <receiver android:name=".PhoneWidget" android:exported="false" android:label="@string/w_phone_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_phone_info" />
+        </receiver>
+        <receiver android:name=".PanelWidget" android:exported="false" android:label="@string/w_panel_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_panel_info" />
+        </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.oscarvelz.faro.files"

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/w_bg" android:clipToOutline="true">
+    <LinearLayout android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingStart="18dp" android:paddingEnd="18dp">
+        <ImageView android:layout_width="34dp" android:layout_height="34dp" android:src="@drawable/w_lamp" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="14dp">
+            <TextView android:id="@+id/w_empty_t" style="@style/W.Fit" android:layout_width="match_parent" android:layout_height="22dp" android:autoSizeMaxTextSize="17dp" android:textSize="17dp" android:text="@string/w_empty" />
+            <TextView android:id="@+id/w_empty_s" style="@style/W.Fit" android:layout_width="match_parent" android:layout_height="17dp" android:layout_marginTop="4dp" android:fontFamily="sans-serif"
+                android:textColor="@color/w_muted" android:autoSizeMaxTextSize="13dp" android:textSize="13dp" android:text="@string/w_empty_sub" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>
