@@ -245,7 +245,19 @@ export function StudyStack({ children }: { children: ReactNode }) {
     const root = ref.current;
     if (!root) return;
     let frame = 0;
-    const apply = () => {
+    // 1.3.126 tablet balance (>= 1100 wide): the cards are shared between the two columns so both end at about the
+    // same height. After a tap (a fold, Desplegar, a tab inside a card) the columns only restack in place until nothing
+    // has resized for SETTLE ms, so nothing jumps sideways during the tap's own animation; then the cards that should
+    // change column glide there. Without a recent tap (first paint, data arriving, rotation) the balance is live.
+    const SETTLE = 360;
+    let settleTimer = 0;
+    let side = new WeakMap<HTMLElement, 0 | 1>();
+    let balanced = false;
+    let frozen = false;
+    let frozenAt = 0;
+    const FREEZE_MAX_MS = 1600;
+    let lastW = 0;
+    const apply = (full: boolean, glide = false) => {
       const host = root.closest(".app-frame");
       const splitCols = !!host?.classList.contains("is-split") && !!host.classList.contains("is-cols");
       const wide = window.matchMedia("(min-width: 1100px)").matches;
@@ -264,11 +276,16 @@ export function StudyStack({ children }: { children: ReactNode }) {
         return named || el.dataset.section || "";
       };
       const band = (section: string) => section === "income" ? 2 : section === "spend" ? 3 : section === "save" ? 4 : section === "owed" ? 5 : 0;
+      const unghost = () => {
+        for (const el of items(root)) if (el.dataset.ghost === "1") { delete el.dataset.ghost; el.style.removeProperty("visibility"); }
+      };
       const kids = items(root).filter((el) => !el.classList.contains("pack-fill") && el.getBoundingClientRect().height > 0);
       for (const el of kids) {
         if (el.style.getPropertyPriority("order") !== "important") el.dataset.ord = el.style.order || getComputedStyle(el).order || "0";
       }
       if (!pack) {
+        balanced = false;
+        unghost();
         root.classList.remove("is-land-pack");
         root.style.removeProperty("--pack-h");
         for (const el of kids) {
@@ -292,15 +309,10 @@ export function StudyStack({ children }: { children: ReactNode }) {
           el.style.setProperty("order", next, "important");
         }
       }
-      const ranked = [...kids].sort((a, b) => Number(a.style.getPropertyValue("order")) - Number(b.style.getPropertyValue("order")));
-      const left = ranked.filter((el) => band(sectionOf(el)) < 2);
-      const right = ranked.filter((el) => band(sectionOf(el)) >= 2);
       root.classList.toggle("is-land-pack", phoneLand);
       root.querySelector(":scope > .pack-fill")?.remove();
       const gap = 12;
       const colW = Math.max(0, (root.clientWidth - gap) / 2);
-      let yL = 0;
-      let yR = 0;
       const pin = (el: HTMLElement, y: number, x: number) => {
         el.style.position = "absolute";
         el.style.top = `${y}px`;
@@ -310,38 +322,151 @@ export function StudyStack({ children }: { children: ReactNode }) {
         el.style.removeProperty("grid-column");
         el.style.removeProperty("grid-row");
       };
-      for (const el of left) {
-        pin(el, yL, 0);
-        yL += el.offsetHeight + gap;
-      }
-      for (const el of right) {
-        pin(el, yR, colW + gap);
-        yR += el.offsetHeight + gap;
+      let yL = 0;
+      let yR = 0;
+      if (!wide || phoneLand) {
+        // Portrait tablets and phone landscape keep their section split (left: this month / general, right: the rest).
+        balanced = false;
+        unghost();
+        const ranked = [...kids].sort((a, b) => Number(a.style.getPropertyValue("order")) - Number(b.style.getPropertyValue("order")));
+        for (const el of ranked.filter((e) => band(sectionOf(e)) < 2)) { pin(el, yL, 0); yL += el.offsetHeight + gap; }
+        for (const el of ranked.filter((e) => band(sectionOf(e)) >= 2)) { pin(el, yR, colW + gap); yR += el.offsetHeight + gap; }
+      } else {
+        // Reading order = the user's Estudio order (the same as on the phone); DOM order breaks ties.
+        const dom = new Map(kids.map((el, i) => [el, i] as const));
+        const ranked = [...kids].sort((a, b) => (Number(a.dataset.ord || 0) - Number(b.dataset.ord || 0)) || (dom.get(a)! - dom.get(b)!));
+        // A section label travels with the card right under it. A label with no card of its own (its only card is
+        // empty, e.g. Números clave with no data) and an empty card (only its pin/fold buttons) are hidden, so no
+        // stray buttons float over the other column.
+        const units: HTMLElement[][] = [];
+        const ghosts = new Set<HTMLElement>(items(root).filter((el) => el.offsetHeight === 0 && el.classList.contains("stat-fold")));
+        for (let i = 0; i < ranked.length; i++) {
+          const el = ranked[i]!;
+          const next = ranked[i + 1];
+          if (el.classList.contains("stat-break")) {
+            const sec = [...el.classList].find((c) => c.startsWith("is-"))?.slice(3) ?? "";
+            if (next && !next.classList.contains("stat-break") && (!sec || sectionOf(next) === sec || next.dataset.section === sec)) { units.push([el, next]); i++; }
+            else ghosts.add(el);
+          } else units.push([el]);
+        }
+        for (const el of items(root)) {
+          const hide = ghosts.has(el);
+          if (hide && el.dataset.ghost !== "1") { el.dataset.ghost = "1"; el.style.visibility = "hidden"; }
+          else if (!hide && el.dataset.ghost === "1") { delete el.dataset.ghost; el.style.removeProperty("visibility"); }
+        }
+        const height = (u: HTMLElement[]) => u.reduce((sum, el) => sum + el.offsetHeight + gap, 0);
+        const labelled = (u: HTMLElement[] | undefined) => !!u && u.length > 1;
+        const rStart = (firstRight: HTMLElement[]) => labelled(firstRight) || !labelled(units[0]) ? 0 : units[0]![0]!.offsetHeight + gap;
+        const place = () => {
+          const firstR = units.find((u) => side.get(u[0]!) === 1);
+          yR = firstR ? rStart(firstR) : 0;
+          for (const u of units) for (const el of u) {
+            if (side.get(el)) { pin(el, yR, colW + gap); yR += el.offsetHeight + gap; } else { pin(el, yL, 0); yL += el.offsetHeight + gap; }
+          }
+        };
+        const decide = full || !frozen || !balanced || units.some((u) => !side.has(u[0]!));
+        if (decide) {
+          // Heights are read at the column width (a card that was full width is taller or shorter once in a column).
+          for (const u of units) for (const el of u) {
+            if (el.style.position !== "absolute" || el.style.width !== `${colW}px`) pin(el, Number.parseFloat(el.style.top) || 0, Number.parseFloat(el.style.left) || 0);
+          }
+          // Greedy: each card (in order) goes to the column that ends higher. A card's column depends only on the cards
+          // before it, so folding a card never moves that card; only the ones after it may change sides.
+          const fresh = new WeakMap<HTMLElement, 0 | 1>();
+          let hL = 0;
+          let hR = 0;
+          let rOpen = false;
+          for (const u of units) {
+            // The right column starts level with the left one's first card when its own first card has no label.
+            const r = rOpen ? hR : rStart(u);
+            const s: 0 | 1 = r < hL - 0.5 ? 1 : 0;
+            for (const el of u) fresh.set(el, s);
+            if (s) { hR = r + height(u); rOpen = true; } else hL += height(u);
+          }
+          const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const moved: { el: HTMLElement; x: number; y: number }[] = [];
+          if (glide && balanced && !reduce) {
+            for (const u of units) for (const el of u) {
+              if (side.has(el) && side.get(el) !== fresh.get(el)) moved.push({ el, x: el.offsetLeft, y: el.offsetTop });
+            }
+          }
+          side = fresh;
+          balanced = true;
+          place();
+          // Cards that changed column glide there (after the stack has settled, never during a tap's own animation).
+          for (const m of moved) {
+            const dx = m.x - m.el.offsetLeft;
+            const dy = m.y - m.el.offsetTop;
+            if (dx || dy) m.el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(.2, .8, .2, 1)" });
+          }
+        } else place();
       }
       root.style.position = "relative";
       const next = `${Math.ceil(Math.max(yL, yR))}px`;
       if (root.style.height !== next) root.style.height = next;
     };
-    const watch = () => {
+    // restack: sizes changed (RO) or cards came/went (MO); the column choice waits until nothing has resized for SETTLE ms.
+    let wantFull = false;
+    let wantGlide = false;
+    const run = () => { const full = wantFull; const glide = wantGlide; wantFull = false; wantGlide = false; apply(full, glide); };
+    const restack = (settle: boolean, now = false) => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(apply);
+      const w = window.innerWidth;
+      wantFull = wantFull || !balanced || w !== lastW;
+      lastW = w;
+      // From the ResizeObserver (after layout, before paint) the new places land in the same frame: no stale frame.
+      if (now) run(); else frame = requestAnimationFrame(run);
+      if (!settle) return;
+      if (frozen && performance.now() - frozenAt > FREEZE_MAX_MS) return;
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(() => {
+        // Still again: decide the columns afresh (cards glide only when a tap had frozen them).
+        wantGlide = frozen;
+        frozen = false;
+        wantFull = true;
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(run);
+      }, SETTLE);
     };
-    const ro = new ResizeObserver(watch);
+    // A tap anywhere (a fold, Desplegar and its question, a tab inside a card) freezes the column choice until the
+    // stack is still again (at most FREEZE_MAX_MS, in case something inside a card keeps resizing).
+    const onTap = () => {
+      if (!balanced || !root.isConnected || root.offsetHeight === 0) return;
+      frozen = true;
+      frozenAt = performance.now();
+      window.clearTimeout(settleTimer);
+      restack(true);
+    };
+    document.addEventListener("pointerdown", onTap, true);
+    document.addEventListener("keydown", onTap, true);
+    const watch = () => restack(true);
+    const ro = new ResizeObserver(() => restack(true, true));
+    let seen = new Set<HTMLElement>();
     const arm = () => {
-      ro.disconnect();
       const items = (node: HTMLElement): HTMLElement[] => [...node.children].flatMap((child) => {
         const el = child as HTMLElement;
         return getComputedStyle(el).display === "contents" ? items(el) : [el];
       });
-      for (const el of items(root)) ro.observe(el);
-      watch();
+      // Observe only cards that are new (re-observing all of them would report every size again and keep the stack
+      // from ever counting as still).
+      const now = new Set(items(root));
+      for (const el of now) if (!seen.has(el)) ro.observe(el);
+      for (const el of seen) if (!now.has(el)) ro.unobserve(el);
+      seen = now;
+      restack(false);
     };
     const mo = new MutationObserver(arm);
     mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
     window.addEventListener("resize", watch);
     arm();
+    // Late content (charts sizing themselves) is checked once more shortly after Estudio opens.
+    const late = [700, 1600].map((ms) => window.setTimeout(() => { if (!frozen) { wantFull = true; cancelAnimationFrame(frame); frame = requestAnimationFrame(run); } }, ms));
     return () => {
+      for (const id of late) window.clearTimeout(id);
       cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+      document.removeEventListener("pointerdown", onTap, true);
+      document.removeEventListener("keydown", onTap, true);
       ro.disconnect();
       mo.disconnect();
       window.removeEventListener("resize", watch);
