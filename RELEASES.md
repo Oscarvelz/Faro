@@ -510,3 +510,4 @@
 - Files: src/components/faro/debts.tsx (icons, tablet measuring), src/components/faro/debts.css (`.dt-ico` hidden by default; tablet block). No text changes (Manual unchanged).
 - Tests (publish build): tsc 5 known; npm test 59 + test:faro 122 PASS; ph114 Tron 412 + Claro 360r20 8/8 AE 0 vs live 1.3.124 (and vs 5b91754); tb114 B/C/D Tron + Claro at 1970×1200 and 1200×1970 ALL PASS; sc120 Tron ABC+D, Claro ABC PASS; bk-back ALL PASS. Shots: /workspace/work/notch125/shots/126-{tron,claro}-1970x1200-{bar-closed,bar-open,debo-prestamos,debo-cuotas}.png. Self-review only.
 - Published from a clean clone of `source` (5b91754, foreign 1.3.125) + only these changes; version 1.3.126 because 1.3.125 was taken by that commit.
+- 1.3.126 hashes: main e3f5094, source f4fcd6f. Android unchanged (android-4).
