@@ -8,7 +8,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, ChevronDown, Plus, Scale, X } from "lucide-react";
+import { ArrowRight, ChevronDown, HandCoins, Plus, RefreshCw, Scale, X } from "lucide-react";
 import "./debts.css";
 import "./top-scale.css";
 import { useFaro } from "./provider";
@@ -16,7 +16,7 @@ import { Hint } from "./hint";
 import { Note } from "./finish";
 import { useLayer } from "@/lib/manual/back";
 import { CobroSpan, Subs } from "./screens";
-import { DueSide, useTabletOne } from "./book-side";
+import { DueSide, TABLET_ONE_MQ, useTabletOne } from "./book-side";
 import { AreaAdvisor, SideCol } from "./area-advisor";
 import { FreqPick } from "./fit-pick";
 import { freqPresetsOf, cadenceLabel } from "@/lib/faro/cadence";
@@ -551,12 +551,14 @@ export function OweBook() {
     const row = tabsRef.current;
     if (!row) return;
     const place = () => {
-      const name = row.querySelector<HTMLElement>(`.debo-tab[data-on] .dt-name`);
+      // 1.3.126 tablet/desktop: the tabs are two segments and the amber light is the lit segment itself (measured the same way).
+      const seg = !!row.closest(".swipe-pane") && !row.closest(".app-frame.is-split") && window.matchMedia(TABLET_ONE_MQ).matches;
+      const name = row.querySelector<HTMLElement>(seg ? `.debo-tab[data-on]` : `.debo-tab[data-on] .dt-name`);
       const ink = row.querySelector<HTMLElement>(".debo-ink");
       if (!name || !ink) return;
       const a = row.getBoundingClientRect(), b = name.getBoundingClientRect();
       ink.style.width = `${Math.round(b.width)}px`;
-      ink.style.transform = `translateX(${Math.round(b.left - a.left)}px)`;
+      ink.style.transform = `translateX(${Math.round(b.left - a.left - (seg ? row.clientLeft : 0))}px)`;
       requestAnimationFrame(() => row.setAttribute("data-ready", ""));
     };
     place();
@@ -593,6 +595,7 @@ export function OweBook() {
         <i className="debo-ink" aria-hidden />
         <span className="debo-tab" data-on={tab === "dues" || undefined}>
           <button type="button" role="tab" aria-selected={tab === "dues"} aria-pressed={tab === "dues"} onClick={() => pick("dues")}>
+            <RefreshCw className="dt-ico" strokeWidth={1.9} aria-hidden />
             <span className="dt-name">{L("Cuotas", "Dues")}</span>
             <em className="dt-sub num" aria-hidden>{fmt(summary?.subscriptions ?? 0)}</em>
           </button>
@@ -600,6 +603,7 @@ export function OweBook() {
         </span>
         <span className="debo-tab" data-on={tab === "loans" || undefined}>
           <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => pick("loans")}>
+            <HandCoins className="dt-ico" strokeWidth={1.9} aria-hidden />
             <span className="dt-name">{L("Préstamos", "Loans")}</span>
             <em className="dt-sub num" aria-hidden>{fmt(owe)}</em>
           </button>
