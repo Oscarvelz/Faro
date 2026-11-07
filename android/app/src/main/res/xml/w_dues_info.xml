@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dues on their own: 4×2 by default, resizable; the same rhythm as the phone widget (3 h refresh + a midnight tick,
+     plus Faro's pushes). Options (android:configure): amounts follow the app, or always show / always hide here.
+     No previewImage: there is no dues preview artwork yet, launchers fall back to the preview layout. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp" android:minHeight="100dp"
+    android:minResizeWidth="180dp" android:minResizeHeight="60dp"
+    android:targetCellWidth="4" android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="10800000"
+    android:initialLayout="@layout/w_empty"
+    android:previewLayout="@layout/w_dues"
+    android:description="@string/w_dues_desc"
+    android:configure="com.oscarvelz.faro.WidgetConfigActivity" />

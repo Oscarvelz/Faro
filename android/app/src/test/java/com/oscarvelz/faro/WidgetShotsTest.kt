@@ -83,6 +83,16 @@ class WidgetShotsTest {
         shot("tablet-6x4-en-day", 1220, 760, false, "hdpi") { Render.panelV(it, snap("en"), R.layout.w_panel_xl) }
     }
 
+    @Test fun duesWidget() {
+        for (night in listOf(true, false)) {
+            val t = if (night) "night" else "day"
+            shot("dues-4x2-$t", 360, 190, night, "xxhdpi") { Render.duesV(it, snap("es"), 4) }
+            shot("dues-4x1-$t", 360, 84, night, "xxhdpi") { Render.duesV(it, snap("es"), 1) }
+        }
+        shot("dues-4x2-en-day", 360, 190, false, "xxhdpi") { Render.duesV(it, snap("en"), 4) }
+        shot("dues-4x2-hidden-night", 360, 190, true, "xxhdpi") { Render.duesV(it, snap("es", hide = true), 4) }
+    }
+
     @Test fun format() {
         assertEquals("$1,585.56", Fmt.money(158556, "USD"))
         assertEquals("C$12,480.50", Fmt.money(1248050, "NIO"))

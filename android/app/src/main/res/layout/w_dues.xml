@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Faro · Vencimientos": the dues on their own. The header (title + when the next one lands) opens the desk; below
+     it, the shared dues rows (w_part_dues). Render.duesV fills it and decides how many rows the height affords. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/w_bg" android:clipToOutline="true">
+    <LinearLayout android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+        android:paddingStart="16dp" android:paddingEnd="12dp" android:paddingTop="11dp" android:paddingBottom="12dp">
+        <LinearLayout android:id="@+id/w_dues_head" android:layout_width="match_parent" android:layout_height="24dp" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/w_press">
+            <TextView android:id="@+id/w_dues_title" style="@style/W.Text" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:textSize="13dp" android:textColor="@color/w_muted" android:fontFamily="sans-serif-medium" android:text="Vencimientos" />
+            <TextView android:id="@+id/w_dues_sum" style="@style/W.Num" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="12dp" android:textColor="@color/w_muted" android:text="" />
+        </LinearLayout>
+        <include layout="@layout/w_part_dues" />
+    </LinearLayout>
+</FrameLayout>

@@ -21,7 +21,10 @@ import java.util.Calendar
 import java.util.Locale
 
 /**
- * Faro's home-screen widgets (1.3.121): "Faro · Mes" for the phone and "Faro · Panel" for the tablet.
+ * Faro's home-screen widgets (1.3.121): "Faro · Mes" for the phone, "Faro · Panel" for the tablet and
+ * "Faro · Vencimientos" (the dues on their own, phone-sized). Every widget can override whether it shows amounts:
+ * the configure screen (WidgetConfigActivity) stores the choice in WidgetCfg and the renderers copy the snapshot
+ * with the effective hide before drawing (see Snap.withHide).
  *
  * Data: the web app hands a privacy-safe snapshot to FaroNative.setWidgetData (src/lib/faro/widget.ts on `source`):
  * amounts are integer minor units already in the view currency; dates are ISO days. It is kept here in the app's own
@@ -61,9 +64,23 @@ object FaroWidgets {
         val m = AppWidgetManager.getInstance(ctx)
         val phone = m.getAppWidgetIds(ComponentName(ctx, PhoneWidget::class.java))
         val panel = m.getAppWidgetIds(ComponentName(ctx, PanelWidget::class.java))
+        val dues = m.getAppWidgetIds(ComponentName(ctx, DuesWidget::class.java))
         for (id in phone) m.updateAppWidget(id, Render.phone(ctx, m, id))
         for (id in panel) m.updateAppWidget(id, Render.panel(ctx, m, id))
-        if (phone.isNotEmpty() || panel.isNotEmpty()) scheduleMidnight(ctx)
+        for (id in dues) m.updateAppWidget(id, Render.duesWidget(ctx, m, id))
+        if (phone.isNotEmpty() || panel.isNotEmpty() || dues.isNotEmpty()) scheduleMidnight(ctx)
+    }
+
+    /** Redraws one widget instance (the configure screen saves and refreshes just that one). */
+    fun refreshOne(ctx: Context, id: Int) {
+        val m = AppWidgetManager.getInstance(ctx)
+        val v = when (m.getAppWidgetInfo(id)?.provider?.className) {
+            PhoneWidget::class.java.name -> Render.phone(ctx, m, id)
+            PanelWidget::class.java.name -> Render.panel(ctx, m, id)
+            DuesWidget::class.java.name -> Render.duesWidget(ctx, m, id)
+            else -> return
+        }
+        m.updateAppWidget(id, v)
     }
 
     /** Days left change at midnight: one inexact alarm just after it (no exact-alarm permission needed). */
@@ -85,6 +102,41 @@ object FaroWidgets {
     }
 }
 
+/* ---------- per-widget options ---------- */
+
+/**
+ * One option per widget instance, chosen on the configure screen (WidgetConfigActivity): whether THIS widget shows
+ * amounts. FOLLOW (the default) defers to the snapshot's own hide; SHOW / HIDE win over it. Kept per appWidgetId in
+ * its own prefs; the render entry points apply it by copying the snapshot with the effective hide (Snap.withHide).
+ */
+object WidgetCfg {
+    private const val PREFS = "faro-widget-cfg"
+    const val FOLLOW = 0
+    const val SHOW = 1
+    const val HIDE = 2
+
+    fun mode(ctx: Context, id: Int): Int =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("hide_$id", FOLLOW)
+
+    fun setMode(ctx: Context, id: Int, mode: Int) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("hide_$id", mode).apply()
+    }
+
+    /** Widget ids get recycled by the launcher: a removed widget must not leave its choice behind for the next one. */
+    fun forget(ctx: Context, ids: IntArray) {
+        val e = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        for (id in ids) e.remove("hide_$id")
+        e.apply()
+    }
+
+    /** The snapshot as one widget instance should see it: the per-widget choice overrides its hide when set. */
+    fun apply(ctx: Context, id: Int, s: Snap): Snap = when (mode(ctx, id)) {
+        SHOW -> s.withHide(false)
+        HIDE -> s.withHide(true)
+        else -> s
+    }
+}
+
 /* ---------- the snapshot ---------- */
 
 class Due(val name: String, val kind: String, val on: String, val amt: Long?, val go: String)
@@ -99,6 +151,14 @@ class Snap(
     val owed: Long, val owe: Long, val dues: List<Due>, val cats: List<Cat>, val flow: List<Flow>,
 ) {
     val en get() = lang == "en"
+
+    /** A copy with another amounts-hidden flag (the per-widget option; see WidgetCfg). All other fields as-is. */
+    fun withHide(h: Boolean): Snap = Snap(
+        at = at, lang = lang, cur = cur, rateE4 = rateE4, rateSrc = rateSrc, rateAsOf = rateAsOf, month = month, monthLabel = monthLabel,
+        hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
+        saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
+        owed = owed, owe = owe, dues = dues, cats = cats, flow = flow,
+    )
 
     companion object {
         private fun arr(o: JSONObject, k: String): List<JSONObject> {
@@ -189,7 +249,7 @@ object Render {
     private val PANEL_XL = SizeF(1000f, 520f)
 
     fun phone(ctx: Context, m: AppWidgetManager, id: Int): RemoteViews {
-        val s = FaroWidgets.load(ctx) ?: return empty(ctx)
+        val s = FaroWidgets.load(ctx)?.let { WidgetCfg.apply(ctx, id, it) } ?: return empty(ctx)
         if (Build.VERSION.SDK_INT >= 31) {
             return RemoteViews(mapOf(
                 PHONE_S to phoneS(ctx, s), PHONE_M to phoneM(ctx, s, R.layout.w_phone_m),
@@ -206,7 +266,7 @@ object Render {
     }
 
     fun panel(ctx: Context, m: AppWidgetManager, id: Int): RemoteViews {
-        val s = FaroWidgets.load(ctx) ?: return empty(ctx)
+        val s = FaroWidgets.load(ctx)?.let { WidgetCfg.apply(ctx, id, it) } ?: return empty(ctx)
         if (Build.VERSION.SDK_INT >= 31) {
             return RemoteViews(mapOf(
                 PANEL_M to panelV(ctx, s, R.layout.w_panel_m), PANEL_L to panelV(ctx, s, R.layout.w_panel_l),
@@ -215,6 +275,37 @@ object Render {
         }
         val (w, h) = size(ctx, m.getAppWidgetOptions(id))
         return panelV(ctx, s, if (w >= 1000 && h >= 520) R.layout.w_panel_xl else if (w >= 700) R.layout.w_panel_l else R.layout.w_panel_m)
+    }
+
+    private val DUES_1 = SizeF(250f, 73f)
+    private val DUES_2 = SizeF(250f, 99f)
+    private val DUES_4 = SizeF(250f, 151f)
+
+    /** "Faro · Vencimientos": the dues alone. One layout (w_dues); how many rows show follows the widget's height. */
+    fun duesWidget(ctx: Context, m: AppWidgetManager, id: Int): RemoteViews {
+        val s = FaroWidgets.load(ctx)?.let { WidgetCfg.apply(ctx, id, it) } ?: return empty(ctx)
+        if (Build.VERSION.SDK_INT >= 31) {
+            return RemoteViews(mapOf(
+                DUES_1 to duesV(ctx, s, 1), DUES_2 to duesV(ctx, s, 2), DUES_4 to duesV(ctx, s, 4),
+            ))
+        }
+        val (_, h) = size(ctx, m.getAppWidgetOptions(id))
+        return duesV(ctx, s, if (h < 99) 1 else if (h < 151) 2 else 4)
+    }
+
+    internal fun duesV(ctx: Context, s: Snap, rows: Int): RemoteViews {
+        val v = RemoteViews(ctx.packageName, R.layout.w_dues)
+        val list = s.dues.mapNotNull { d -> Fmt.daysLeft(d.on)?.let { d to it } }.filter { it.second <= 31 }.sortedBy { it.second }
+        v.setTextViewText(R.id.w_dues_title, L(s, "Vencimientos", "Due dates"))
+        val first = list.firstOrNull()
+        v.setTextViewText(R.id.w_dues_sum, first?.let { Fmt.daysWord(it.second, s.en) } ?: "")
+        v.setTextColor(R.id.w_dues_sum, ctx.getColor(if (first == null) R.color.w_muted else if (first.second < 0) R.color.w_bad else if (first.second <= 3) R.color.w_amber else R.color.w_muted))
+        v.setOnClickPendingIntent(R.id.w_dues_head, FaroWidgets.openIntent(ctx, "desk"))
+        v.setOnClickPendingIntent(R.id.w_root, FaroWidgets.openIntent(ctx, "desk"))
+        dues(ctx, v, s, rows, 31, long = true)
+        // This widget's own empty line (dues() words it for a section of a bigger widget).
+        if (list.isEmpty()) v.setTextViewText(R.id.w_dues_none, L(s, "Sin vencimientos próximos", "No upcoming dues"))
+        return v
     }
 
     /** Width and height in dp for the current orientation (Android 11 path). */
@@ -458,11 +549,15 @@ object Render {
     }
 }
 
-/* ---------- the two providers ---------- */
+/* ---------- the three providers ---------- */
 
 open class FaroWidgetBase : AppWidgetProvider() {
     override fun onUpdate(ctx: Context, m: AppWidgetManager, ids: IntArray) {
         FaroWidgets.refreshAll(ctx)
+    }
+
+    override fun onDeleted(ctx: Context, ids: IntArray) {
+        WidgetCfg.forget(ctx, ids)
     }
 
     override fun onAppWidgetOptionsChanged(ctx: Context, m: AppWidgetManager, id: Int, options: Bundle) {
@@ -483,3 +578,6 @@ class PhoneWidget : FaroWidgetBase()
 
 /** "Faro · Panel": the tablet dashboard (6×4 and up). */
 class PanelWidget : FaroWidgetBase()
+
+/** "Faro · Vencimientos": the dues on their own (4×2 by default, resizable). */
+class DuesWidget : FaroWidgetBase()

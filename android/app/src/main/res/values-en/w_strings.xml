@@ -4,6 +4,9 @@
     <string name="w_phone_desc">What is left this month, the next payment, owed · owe and your savings.</string>
     <string name="w_panel_label">Faro · Dashboard</string>
     <string name="w_panel_desc">Tablet dashboard: six months, categories, dues, the scale, savings and the rate.</string>
+    <string name="w_dues_label">Faro · Due dates</string>
+    <string name="w_dues_desc">Your dues at a glance: what is due, when and how much.</string>
+    <string name="w_cfg_label">Widget options</string>
     <string name="w_left">left</string>
     <string name="w_have">Have</string>
     <string name="w_spend">Spending</string>

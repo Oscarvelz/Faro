@@ -11,4 +11,5 @@
     android:initialLayout="@layout/w_empty"
     android:previewLayout="@layout/w_phone_l"
     android:previewImage="@drawable/w_preview_phone"
-    android:description="@string/w_phone_desc" />
+    android:description="@string/w_phone_desc"
+    android:configure="com.oscarvelz.faro.WidgetConfigActivity" />

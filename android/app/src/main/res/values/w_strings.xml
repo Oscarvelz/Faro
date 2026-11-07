@@ -4,6 +4,9 @@
     <string name="w_phone_desc">Lo que queda del mes, el próximo pago, Me deben · Debo y tu ahorro.</string>
     <string name="w_panel_label">Faro · Panel</string>
     <string name="w_panel_desc">Tablero para la tableta: seis meses, categorías, vencimientos, balanza, ahorros y tasa.</string>
+    <string name="w_dues_label">Faro · Vencimientos</string>
+    <string name="w_dues_desc">Tus vencimientos de un vistazo: qué vence, cuándo y cuánto.</string>
+    <string name="w_cfg_label">Opciones del widget</string>
     <string name="w_left">queda</string>
     <string name="w_have">Tengo</string>
     <string name="w_spend">Gastaré</string>
