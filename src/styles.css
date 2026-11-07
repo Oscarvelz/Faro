@@ -397,6 +397,9 @@ button.advice-head > div { flex: 1; min-width: 0; }
 @media (width >= 1280px) {
   .app-frame:not(.is-split) .advice-stack { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@media (width >= 1600px) {
+  .app-frame:not(.is-split) .advice-stack { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 .advice-tip { margin: 0; color: var(--fg); font-size: 0.92rem; line-height: 1.45; }
 .advice-steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 8px 10px; border-radius: 14px; background: color-mix(in oklab, var(--fg) 5%, var(--surface)); }
 .advice-steps i { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; font-style: normal; font-size: 0.82rem; background: var(--fg); color: var(--bg); }

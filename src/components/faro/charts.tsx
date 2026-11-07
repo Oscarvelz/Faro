@@ -251,7 +251,7 @@ export function StudyStack({ children }: { children: ReactNode }) {
     // change column glide there. Without a recent tap (first paint, data arriving, rotation) the balance is live.
     const SETTLE = 360;
     let settleTimer = 0;
-    let side = new WeakMap<HTMLElement, 0 | 1>();
+    let side = new WeakMap<HTMLElement, number>();
     let balanced = false;
     let frozen = false;
     let frozenAt = 0;
@@ -313,17 +313,18 @@ export function StudyStack({ children }: { children: ReactNode }) {
       root.querySelector(":scope > .pack-fill")?.remove();
       const gap = 12;
       const colW = Math.max(0, (root.clientWidth - gap) / 2);
-      const pin = (el: HTMLElement, y: number, x: number) => {
+      const pin = (el: HTMLElement, y: number, x: number, w: number = colW) => {
         el.style.position = "absolute";
         el.style.top = `${y}px`;
         el.style.left = `${x}px`;
-        el.style.width = `${colW}px`;
+        el.style.width = `${w}px`;
         el.style.margin = "0";
         el.style.removeProperty("grid-column");
         el.style.removeProperty("grid-row");
       };
       let yL = 0;
       let yR = 0;
+      let wideH = 0;
       if (!wide || phoneLand) {
         // Portrait tablets and phone landscape keep their section split (left: this month / general, right: the rest).
         balanced = false;
@@ -357,31 +358,45 @@ export function StudyStack({ children }: { children: ReactNode }) {
         const height = (u: HTMLElement[]) => u.reduce((sum, el) => sum + el.offsetHeight + gap, 0);
         const labelled = (u: HTMLElement[] | undefined) => !!u && u.length > 1;
         const rStart = (firstRight: HTMLElement[]) => labelled(firstRight) || !labelled(units[0]) ? 0 : units[0]![0]!.offsetHeight + gap;
+        // 1.3.128: on wide monitors (>= 1600) the pack gains a third column; below that it stays the two
+        // columns of 1.3.126/1.3.127. The greedy rule below is the same, column by column.
+        const cols = window.matchMedia("(min-width: 1600px)").matches ? 3 : 2;
+        const colWc = Math.max(0, (root.clientWidth - gap * (cols - 1)) / cols);
+        const ys = new Array<number>(cols).fill(0);
         const place = () => {
-          const firstR = units.find((u) => side.get(u[0]!) === 1);
-          yR = firstR ? rStart(firstR) : 0;
+          const opened = new Array<boolean>(cols).fill(false);
+          ys.fill(0);
           for (const u of units) for (const el of u) {
-            if (side.get(el)) { pin(el, yR, colW + gap); yR += el.offsetHeight + gap; } else { pin(el, yL, 0); yL += el.offsetHeight + gap; }
+            const c = side.get(el) ?? 0;
+            if (c > 0 && !opened[c]) { ys[c] = rStart(u); opened[c] = true; }
+            pin(el, ys[c]!, c * (colWc + gap), colWc);
+            ys[c]! += el.offsetHeight + gap;
           }
+          wideH = Math.max(...ys);
         };
         const decide = full || !frozen || !balanced || units.some((u) => !side.has(u[0]!));
         if (decide) {
           // Heights are read at the column width (a card that was full width is taller or shorter once in a column).
           for (const u of units) for (const el of u) {
-            if (el.style.position !== "absolute" || el.style.width !== `${colW}px`) pin(el, Number.parseFloat(el.style.top) || 0, Number.parseFloat(el.style.left) || 0);
+            if (el.style.position !== "absolute" || el.style.width !== `${colWc}px`) pin(el, Number.parseFloat(el.style.top) || 0, Number.parseFloat(el.style.left) || 0, colWc);
           }
           // Greedy: each card (in order) goes to the column that ends higher. A card's column depends only on the cards
           // before it, so folding a card never moves that card; only the ones after it may change sides.
-          const fresh = new WeakMap<HTMLElement, 0 | 1>();
-          let hL = 0;
-          let hR = 0;
-          let rOpen = false;
+          const fresh = new WeakMap<HTMLElement, number>();
+          const hs = new Array<number>(cols).fill(0);
+          const openedH = new Array<boolean>(cols).fill(false);
           for (const u of units) {
-            // The right column starts level with the left one's first card when its own first card has no label.
-            const r = rOpen ? hR : rStart(u);
-            const s: 0 | 1 = r < hL - 0.5 ? 1 : 0;
-            for (const el of u) fresh.set(el, s);
-            if (s) { hR = r + height(u); rOpen = true; } else hL += height(u);
+            // Each card goes to the column that ends higher. A column beyond the first starts level with
+            // the first column's first card when its own first card has no label (rStart), and only opens
+            // once that start sits below the best column's current end; the +0.5 is the two-column rule
+            // of 1.3.126 kept exact (with two columns this picks the same side it always did).
+            let best = 0;
+            for (let c = 1; c < cols; c++) {
+              const cand = (openedH[c] ? hs[c]! : rStart(u)) + 0.5;
+              if (cand < hs[best]!) best = c;
+            }
+            for (const el of u) fresh.set(el, best);
+            if (best > 0 && !openedH[best]) { hs[best] = rStart(u) + height(u); openedH[best] = true; } else hs[best]! += height(u);
           }
           const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           const moved: { el: HTMLElement; x: number; y: number }[] = [];
@@ -402,7 +417,7 @@ export function StudyStack({ children }: { children: ReactNode }) {
         } else place();
       }
       root.style.position = "relative";
-      const next = `${Math.ceil(Math.max(yL, yR))}px`;
+      const next = `${Math.ceil(Math.max(yL, yR, wideH))}px`;
       if (root.style.height !== next) root.style.height = next;
     };
     // restack: sizes changed (RO) or cards came/went (MO); the column choice waits until nothing has resized for SETTLE ms.
