@@ -71,6 +71,20 @@ function dragPane(pane: HTMLElement | null, dx: number | null) {
   pane.style.transform = `translate3d(${(150 * Math.tanh(dx / 340)).toFixed(1)}px, 0, 0)`;
   pane.style.opacity = String(1 - Math.min(0.22, Math.abs(dx) / 1000));
 }
+/** 1.3.124: a swipe starts anywhere on the screen (cards, charts, lists, (?) buttons); the only places that keep the finger
+ *  are the ones whose own sideways drag does something: fields, sliders/levers, the colour picker, the Cobros sheet, anything
+ *  marked touch-action: none or [data-noswipe], a sideways scroller that really overflows, and sheets/bubbles portaled out of main. */
+const NO_SWIPE = "input, textarea, select, [contenteditable]:not([contenteditable='false']), .cal-sheet, .search-pop, .cobros, .vault-lever-rail, .cp-sv, .cp-hue, [role='slider'], [data-noswipe]";
+function swipeBlocked(main: HTMLElement, target: Element | null): boolean {
+  if (!target || !main.contains(target)) return true;
+  if (target.closest(NO_SWIPE)) return true;
+  for (let el: Element | null = target; el && el !== main; el = el.parentElement) {
+    const cs = getComputedStyle(el);
+    if (cs.touchAction === "none") return true;
+    if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && el.scrollWidth > el.clientWidth + 1) return true;
+  }
+  return false;
+}
 /** What a finger drags: Libros' pane; in Central the panel under the finger (the lens list or the open pocket). */
 function dragTarget(main: HTMLElement, target: HTMLElement, hub: string): HTMLElement | null {
   if (hub === "books") return main.querySelector<HTMLElement>(":scope > .swipe-pane");
@@ -1113,9 +1127,9 @@ export function Shell() {
             ref={mainRef}
             className="main-pad"
             data-swipe="loop"
-            onPointerDown={(e) => {
+            onPointerDownCapture={(e) => {
               swiped.current = false; // a swipe that produced no click must not swallow the next real tap
-if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail, svg:not(.lucide), canvas, [data-noswipe]")) return;
+if (swipeBlocked(e.currentTarget, e.target as Element)) return;
               swipe.current = { x: e.clientX, y: e.clientY, type: e.pointerType, axis: null, el: e.pointerType === "mouse" ? null : dragTarget(e.currentTarget, e.target as HTMLElement, hub) };
               // Touch/pen only: capturing a mouse press retargets its click to <main>, so desktop clicks never reach the row.
               if (e.pointerType !== "mouse") e.currentTarget.setPointerCapture(e.pointerId);
@@ -1124,7 +1138,7 @@ if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .sea
               const st = swipe.current;
               if (!st || st.type === "mouse" || (hub !== "books" && hub !== "desk")) return;
               const dx = e.clientX - st.x, dy = e.clientY - st.y;
-              if (!st.axis) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; st.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y"; }
+              if (st.axis !== "x") { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; st.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y"; }
               if (st.axis === "x") dragPane(st.el, dx);
             }}
             onPointerCancel={() => { if (swipe.current?.axis === "x") dragPane(swipe.current.el, null); swipe.current = null; }}
@@ -1566,9 +1580,9 @@ function SectionView() {
     <main
       className="main-pad"
       data-swipe="loop"
-      onPointerDown={(e) => {
+      onPointerDownCapture={(e) => {
         swiped.current = false; // a swipe that produced no click must not swallow the next real tap
-if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .search-pop, .cobros, .vault-lever-rail, svg:not(.lucide), canvas, [data-noswipe]")) return;
+if (swipeBlocked(e.currentTarget, e.target as Element)) return;
         swipe.current = { x: e.clientX, y: e.clientY, type: e.pointerType, axis: null, el: e.pointerType === "mouse" ? null : dragTarget(e.currentTarget, e.target as HTMLElement, hub) };
         // Touch/pen only: capturing a mouse press retargets its click to <main>, so desktop clicks never reach the row.
         if (e.pointerType !== "mouse") e.currentTarget.setPointerCapture(e.pointerId);
@@ -1577,7 +1591,7 @@ if ((e.target as HTMLElement).closest("input, textarea, select, .cal-sheet, .sea
         const st = swipe.current;
         if (!st || st.type === "mouse" || (hub !== "books" && hub !== "desk")) return;
         const dx = e.clientX - st.x, dy = e.clientY - st.y;
-        if (!st.axis) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; st.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y"; }
+        if (st.axis !== "x") { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; st.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y"; }
         if (st.axis === "x") dragPane(st.el, dx);
       }}
       onPointerCancel={() => { if (swipe.current?.axis === "x") dragPane(swipe.current.el, null); swipe.current = null; }}
