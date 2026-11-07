@@ -6,6 +6,11 @@ Web releases arrive on their own (the page is loaded live; the service worker ke
 - Bridge: `window.FaroNative` (see `src/spa/native.ts`, feature-detected; the browser/PWA never see it):
   Back (`FaroBack` → `atRoot`), bar colours, downloads into Downloads/Faro, BiometricPrompt for the fingerprint lock,
   pictures shared from other apps (scan preview), update offer from GitHub releases `android-N` (asset `Faro.apk`).
+- Notifications (2026-11-07, `FaroNotify.kt`): due payments (overdue or <= 2 days away, once per due), spending pace
+  (projected to pass the month's income, at most once a week) and the month-close report, all computed locally from the
+  same widget snapshot (amounts hidden when the snapshot hides them) and posted on the `faro-avisos` channel. Checked on
+  each new snapshot and at the widgets' midnight tick; taps take the widgets' `faro.WIDGET` route. Android 13+ asks
+  POST_NOTIFICATIONS once (MainActivity); everything is gated on notifications being enabled.
 - Home-screen widgets (1.3.121, `FaroWidgets.kt`): "Faro · Mes" (phone, 4×1 to 4×4) and "Faro · Panel" (tablet, 6×4 and up).
   The page sends a privacy-safe snapshot with `FaroNative.setWidgetData(json)` (`src/lib/faro/widget.ts`: amounts in minor
   units, no card digits, no people, no notes); it lives only in the app's private SharedPreferences `faro-widget`. No network.

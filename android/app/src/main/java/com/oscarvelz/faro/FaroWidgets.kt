@@ -48,6 +48,7 @@ object FaroWidgets {
         if (!ok) return
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, clean).apply()
         refreshAll(ctx)
+        FaroNotify.onSnapshot(ctx)
     }
 
     fun load(ctx: Context): Snap? {
@@ -88,7 +89,7 @@ object FaroWidgets {
 
 class Due(val name: String, val kind: String, val on: String, val amt: Long?, val go: String)
 class Cat(val name: String, val amt: Long, val prev: Long, val save: Boolean, val go: String)
-class Flow(val label: String, val inn: Long, val out: Long)
+class Flow(val label: String, val inn: Long, val out: Long, val key: String = "")
 class Pocket(val name: String, val amt: Long, val go: String)
 
 class Snap(
@@ -116,7 +117,7 @@ class Snap(
             owed = o.optLong("owed"), owe = o.optLong("owe"),
             dues = arr(o, "dues").map { Due(it.optString("name"), it.optString("kind"), it.optString("on"), if (it.isNull("amt")) null else it.optLong("amt"), it.optString("go", "pagos")) },
             cats = arr(o, "cats").map { Cat(it.optString("name"), it.optLong("amt"), it.optLong("prev"), it.optBoolean("save"), it.optString("go", "desk")) },
-            flow = arr(o, "flow").map { Flow(it.optString("label"), it.optLong("inn"), it.optLong("out")) },
+            flow = arr(o, "flow").map { Flow(it.optString("label"), it.optLong("inn"), it.optLong("out"), it.optString("key")) },
         )
     }
 }
@@ -470,7 +471,8 @@ open class FaroWidgetBase : AppWidgetProvider() {
 
     override fun onReceive(ctx: Context, intent: Intent) {
         when (intent.action) {
-            FaroWidgets.ACTION_TICK, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_LOCALE_CHANGED -> FaroWidgets.refreshAll(ctx)
+            FaroWidgets.ACTION_TICK -> { FaroWidgets.refreshAll(ctx); FaroNotify.onTick(ctx) }
+            Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_LOCALE_CHANGED -> FaroWidgets.refreshAll(ctx)
             else -> super.onReceive(ctx, intent)
         }
     }

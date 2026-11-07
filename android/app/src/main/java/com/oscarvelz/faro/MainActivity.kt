@@ -7,6 +7,7 @@ import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
@@ -172,6 +173,12 @@ class MainActivity : Activity() {
         }
         takeShare(intent)
         takeWidget(intent)
+        // Faro's notifications (FaroNotify.kt) need the Android 13+ permission: ask once, never nag.
+        if (Build.VERSION.SDK_INT >= 33 && !prefs.getBoolean("notifyAsked", false)
+            && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            prefs.edit().putBoolean("notifyAsked", true).apply()
+            runCatching { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 11) }
+        }
         if (state != null) web.restoreState(state) else web.loadUrl(home)
         checkUpdate()
     }
