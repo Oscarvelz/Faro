@@ -241,9 +241,9 @@ object Fmt {
 
 object Render {
     private val PHONE_S = SizeF(180f, 40f)
-    private val PHONE_M = SizeF(250f, 100f)
-    private val PHONE_L = SizeF(250f, 165f)
-    private val PHONE_XL = SizeF(250f, 270f)
+    private val PHONE_M = SizeF(250f, 140f)
+    private val PHONE_L = SizeF(250f, 200f)
+    private val PHONE_XL = SizeF(250f, 280f)
     private val PANEL_M = SizeF(440f, 260f)
     private val PANEL_L = SizeF(700f, 330f)
     private val PANEL_XL = SizeF(1000f, 520f)
@@ -259,8 +259,8 @@ object Render {
         val (_, h) = size(ctx, m.getAppWidgetOptions(id))
         return when {
             h < 100 -> phoneS(ctx, s)
-            h < 165 -> phoneM(ctx, s, R.layout.w_phone_m)
-            h < 270 -> phoneM(ctx, s, R.layout.w_phone_l)
+            h < 170 -> phoneM(ctx, s, R.layout.w_phone_m)
+            h < 255 -> phoneM(ctx, s, R.layout.w_phone_l)
             else -> phoneM(ctx, s, R.layout.w_phone_xl)
         }
     }
@@ -448,11 +448,12 @@ object Render {
     internal fun phoneM(ctx: Context, s: Snap, layout: Int): RemoteViews {
         val v = RemoteViews(ctx.packageName, layout)
         hero(ctx, v, s)
-        if (layout != R.layout.w_phone_m) {
-            pay(ctx, v, s, withAmount = true)
-            scale(ctx, v, s)
-            savings(ctx, v, s, panel = false)
-        }
+        // Every size from M up carries the cells row (next payment · the scale · savings): at Oscar's word
+        // (2026-11-07) the medium widget showed only the hero and looked poor next to the tablet dashboard.
+        // M is the compact take (cells under the hero), L spreads them with a flexible spacer, XL adds the dues.
+        pay(ctx, v, s, withAmount = true)
+        scale(ctx, v, s)
+        savings(ctx, v, s, panel = false)
         if (layout == R.layout.w_phone_xl) dues(ctx, v, s, 3, 31, long = true)
         return v
     }

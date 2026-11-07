@@ -6,6 +6,7 @@
         android:paddingStart="16dp" android:paddingEnd="12dp" android:paddingTop="11dp" android:paddingBottom="12dp">
         <include layout="@layout/w_part_head" />
         <include layout="@layout/w_part_hero" />
-
+        <FrameLayout android:layout_width="match_parent" android:layout_height="10dp" />
+        <include layout="@layout/w_part_cells" />
     </LinearLayout>
 </FrameLayout>
