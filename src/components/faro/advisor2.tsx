@@ -66,6 +66,8 @@ export function ShortVisual({ reading }: { reading: Reading }) {
     { id: "transfer", name: L(lang, "Al ahorro", "To savings"), minor: reading.transferMinor, c: "#7fa6cf" },
   ].filter((p) => p.minor > 0);
   const rows = [...reading.lines].sort((a, b) => b.minor - a.minor).slice(0, 7);
+  // 1.3.125: the biggest one-time line is still unconfirmed — invite marking it fixed if it repeats.
+  const bigUniqueUnconfirmed = [...reading.lines].filter((l) => l.cls === "unique").sort((a, b) => b.minor - a.minor)[0]?.unconfirmed ?? false;
   const peak = Math.max(...rows.map((r) => r.minor), 1);
   const kindOf = (id: string) => session?.ledger.months[`${ui.year}-${String(ui.month).padStart(2, "0")}`]?.lines.find((l) => l.id === id)?.kind ?? "expense-variable";
   const now = new Date();
@@ -108,6 +110,7 @@ export function ShortVisual({ reading }: { reading: Reading }) {
           })}
           <p className="a2-foot">
             <b style={{ color: tc(CLS.unique.c) }}>{L(lang, "Una vez", "One-time")}</b>{L(lang, ": ya salió; se puede devolver, vender o compensar. ", ": already gone; return, sell or offset it. ")}
+            {bigUniqueUnconfirmed ? <>{L(lang, "Si alguna se repite cada mes, márcala fija y la cuento como de cada mes. ", "If one of these actually repeats every month, mark it fixed and I will count it as monthly. ")}</> : null}
             <b style={{ color: tc(CLS["essential-fixed"].c) }}>{L(lang, "Cada mes", "Monthly")}</b>{L(lang, ": aquí está el ahorro que dura.", ": this is where lasting savings live.")}
           </p>
         </div>

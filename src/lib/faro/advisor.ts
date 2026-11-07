@@ -81,6 +81,7 @@ export type Reading = {
   essentialsMonthly: number;
   incomeFloor: number;
   trendNote: string | null;
+  rateNote: string | null;
   subsTotal: number;
   subsCount: number;
   variablePct: number | null;
@@ -217,7 +218,7 @@ function isEssential(line: Line, role: string): boolean {
   return ESSENTIAL_SUBS.has(line.subId) || ESSENTIAL_RE.test(line.concept || "");
 }
 
-function classify(line: Line, state: LedgerState, key: string, income = 0, minor = 0): { cls: OutClass; recurrent: boolean; unconfirmed: boolean } {
+function classify(line: Line, state: LedgerState, key: string, income = 0, minor = 0, floorMinor = 0): { cls: OutClass; recurrent: boolean; unconfirmed: boolean } {
   const role = roleOf(state.structure, line.categoryId);
   if (role === "savings") return { cls: "transfer", recurrent: false, unconfirmed: false };
   const hits = seenIn(state, line, key);
@@ -230,7 +231,9 @@ function classify(line: Line, state: LedgerState, key: string, income = 0, minor
     const everyday = line.kind !== "purchase" && (EVERYDAY_RE.test(line.concept || "") || ESSENTIAL_SUBS.has(line.subId) || (EVERYDAY_ROLES.has(role) && !ONEOFF_SUBS.has(line.subId)));
     const big = income > 0 ? minor >= income * 0.15 : true;
     const oneoff = line.kind === "purchase" || role === "travel" || ONEOFF_SUBS.has(line.subId);
-    if (oneoff || (!everyday && big) || (everyday && !essential && big && hits <= 1 && income > 0 && minor >= income * 0.3)) {
+    // 1.3.125: the everyday-over-30% branch also needs the absolute floor (floorMinor, $50 in the
+    // view currency): on a small income any ordinary treat crosses 30% and is not a one-time buy.
+    if (oneoff || (!everyday && big) || (everyday && !essential && big && hits <= 1 && income > 0 && minor >= income * 0.3 && minor >= floorMinor)) {
       return { cls: "unique", recurrent: false, unconfirmed: true };
     }
     return { cls: essential ? "essential-variable" : "discretionary", recurrent: true, unconfirmed: false };
@@ -273,12 +276,24 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const pct = (n: number | null) => formatPct(n, lang);
   const lines = (state.months[key]?.lines ?? []).filter((line) => line.active);
   const incomeAll = lines.filter((line) => line.kind.startsWith("income")).reduce((acc, line) => acc + inView(line, display, rateE4), 0);
+  // 1.3.125: the $50 floor for the first-month one-time rule, in the view currency's minor units.
+  const uniqueFloorMinor = display === "USD" ? 5000 : Number.isFinite(rateE4) && rateE4 > 0 ? Math.round((5000 * rateE4) / 10000) : 0;
+  // 1.3.125: a broken saved rate silently zeroes every line in the other currency; say so
+  // instead of letting the reading conclude there is no income.
+  const rateNote =
+    (!Number.isFinite(rateE4) || rateE4 <= 0) && lines.some((line) => line.currency !== display)
+      ? L(
+          lang,
+          `Hay líneas en la otra moneda y la tasa de cambio guardada no es válida: en esta lectura cuentan como ${money(0)}. Revisa la tasa en Ajustes.`,
+          `Some lines are in the other currency and the saved exchange rate is not valid: in this reading they count as ${money(0)}. Check the rate in Settings.`,
+        )
+      : null;
   const read: ReadLine[] = [];
   for (const line of lines) {
     if (line.kind.startsWith("income")) continue;
     const minor = inView(line, display, rateE4);
     if (!minor) continue;
-    const cls = classify(line, state, key, incomeAll, minor);
+    const cls = classify(line, state, key, incomeAll, minor, uniqueFloorMinor);
     const name = lineName(line, names);
     read.push({
       id: line.id,
@@ -326,14 +341,17 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
       : null;
 
   const savingsFlow = transferMinor;
+  // 1.3.125: money that reached a goal pocket counts whether it was filed fixed or variable.
+  // Only savings parked in an account (a vault sub) or filed with no pocket stay "unassigned".
   const pocketAside = lines
     .filter(
       (line) =>
-        line.kind === "expense-fixed" &&
         roleOf(state.structure, line.categoryId) === "savings" &&
+        line.subId !== "" &&
         !isVaultSub(state.structure, line.subId),
     )
     .reduce((acc, line) => acc + inView(line, display, rateE4), 0);
+  const unassignedSavings = Math.max(0, savingsFlow - pocketAside);
   const contradiction =
     pocketAside === 0 && savingsFlow > 0
       ? L(
@@ -341,7 +359,13 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
           `Mandaste ${money(savingsFlow)} a una cuenta de ahorro, pero tus metas (Meta, Retiro, Emergencia) siguen en ${money(0)}. Decide a cuál meta va ese dinero para que el avance se vea.`,
           `You sent ${money(savingsFlow)} to a savings account, but your goals (Goal, Retirement, Emergency) are still at ${money(0)}. Choose which goal that money is for so the progress shows.`,
         )
-      : null;
+      : unassignedSavings > 0
+        ? L(
+            lang,
+            `Mandaste ${money(savingsFlow)} a ahorro y ${money(pocketAside)} ya están en tus metas, pero ${money(unassignedSavings)} quedaron sin meta asignada. Decide a cuál meta va ese dinero para que el avance se vea.`,
+            `You sent ${money(savingsFlow)} to savings and ${money(pocketAside)} is already in your goals, but ${money(unassignedSavings)} has no goal assigned. Choose which goal that money is for so the progress shows.`,
+          )
+        : null;
 
   const debtLines = read.filter((line) => line.cls === "credit");
   const debtMinor = debtLines.reduce((acc, line) => acc + line.minor, 0);
@@ -366,6 +390,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const uniqueLines = read.filter((line) => line.cls === "unique").sort((a, b) => b.minor - a.minor);
   const uniqueCount = uniqueLines.length;
   const biggestUnique = uniqueLines[0];
+  // 1.3.125: "return or sell" only makes sense for a purchase; a service can be cancelled or partly recovered.
+  const biggestUniqueIsPurchase = biggestUnique ? lines.find((raw) => raw.id === biggestUnique.id)?.kind === "purchase" : false;
   const byCategory = new Map<string, ReadLine[]>();
   for (const line of read.filter((item) => item.cls !== "transfer")) {
     const bucket = byCategory.get(line.categoryId) ?? [];
@@ -585,13 +611,22 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   // Spending that keeps climbing: compare what repeats now with the earlier months.
   const priorSpend = lastKeys(key, 4)
     .filter((month) => month !== key)
-    .map((month) => (state.months[month]?.lines ?? []).filter((item) => item.active && !item.kind.startsWith("income") && item.kind !== "purchase" && roleOf(state.structure, item.categoryId) !== "savings"))
-    .filter((bucket) => bucket.length > 0);
+    .map((month) => ({ month, bucket: (state.months[month]?.lines ?? []).filter((item) => item.active && !item.kind.startsWith("income")) }))
+    .filter((entry) => entry.bucket.length > 0);
   let trendNote: string | null = null;
   let trendLine: { name: string; delta: number } | null = null;
   if (priorSpend.length >= 2 && income > 0) {
-    const oldest = priorSpend[0]!;
-    const oldTotal = oldest.reduce((acc, item) => acc + inView(item, display, rateE4), 0);
+    const oldestEntry = priorSpend[0]!;
+    const oldest = oldestEntry.bucket;
+    // 1.3.125: measure the old month with the same classification as this one (recurrent only),
+    // so one-time lines filed back then do not inflate the "before" of the trend.
+    const oldIncome = (state.months[oldestEntry.month]?.lines ?? []).filter((item) => item.active && item.kind.startsWith("income")).reduce((acc, item) => acc + inView(item, display, rateE4), 0);
+    const oldTotal = oldest.reduce((acc, item) => {
+      const minor = inView(item, display, rateE4);
+      if (!minor) return acc;
+      const cls = classify(item, state, oldestEntry.month, oldIncome, minor, uniqueFloorMinor);
+      return cls.cls !== "unique" && cls.cls !== "transfer" ? acc + minor : acc;
+    }, 0);
     const nowTotal = recurrentMinor;
     if (oldTotal > 0 && nowTotal - oldTotal >= oldTotal * 0.15 && nowTotal - oldTotal >= income * 0.05) {
       const keyOf = (item: Line) => item.seriesId || `${norm(item.concept)}|${item.categoryId}`;
@@ -708,11 +743,17 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
       `Your everyday spending is fine. ${uniqueCount} large ${plural(uniqueCount, "purchase", "purchases")} tipped the month. Without ${plural(uniqueCount, "it", "them")}, ${money(baseSurplus)} would be left.`,
     );
     action = biggestUnique
-      ? L(
-          lang,
-          `Qué hacer: mira si ${biggestUnique.name} (${money(biggestUnique.minor)}) se puede devolver o vender. Ya se gastó, así que recortar el día a día no lo arregla.`,
-          `What to do: check whether ${biggestUnique.name} (${money(biggestUnique.minor)}) can be returned or sold. It's already spent, so trimming everyday spending won't fix it.`,
-        )
+      ? biggestUniqueIsPurchase
+        ? L(
+            lang,
+            `Qué hacer: mira si ${biggestUnique.name} (${money(biggestUnique.minor)}) se puede devolver o vender. Ya se gastó, así que recortar el día a día no lo arregla.`,
+            `What to do: check whether ${biggestUnique.name} (${money(biggestUnique.minor)}) can be returned or sold. It's already spent, so trimming everyday spending won't fix it.`,
+          )
+        : L(
+            lang,
+            `Qué hacer: revisa si ${biggestUnique.name} (${money(biggestUnique.minor)}) se puede cancelar o recuperar en parte. Ya se gastó, así que recortar el día a día no lo arregla.`,
+            `What to do: check whether ${biggestUnique.name} (${money(biggestUnique.minor)}) can be cancelled or partly recovered. It's already spent, so trimming everyday spending won't fix it.`,
+          )
       : L(lang, "Qué hacer: marca qué compra fue de una vez y cuál se repite.", "What to do: mark which purchase was one-time and which repeats.");
   } else if (!red) {
     headline = transferMinor > 0
@@ -917,7 +958,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
       ),
     });
   }
-  if (biggestUnique && red) {
+  if (biggestUnique && red && biggestUniqueIsPurchase) {
     const after = left + biggestUnique.minor;
     levers.push({
       id: "return",
@@ -1150,6 +1191,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     essentialsMonthly,
     incomeFloor,
     trendNote,
+    rateNote,
     subsTotal: subsSum,
     subsCount: subsRead.length,
     variablePct,

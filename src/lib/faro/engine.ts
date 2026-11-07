@@ -849,6 +849,13 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       note: reading.classificationError,
     });
   }
+  if (reading.rateNote) {
+    shortPoints.push({
+      label: L(lang, "Tasa de cambio", "Exchange rate"),
+      value: L(lang, "Sin tasa", "No rate"),
+      note: reading.rateNote,
+    });
+  }
   if (reading.realSpend !== reading.outTotal) {
     shortPoints.push({
       label: L(lang, "Gasto real", "Real spend"),
