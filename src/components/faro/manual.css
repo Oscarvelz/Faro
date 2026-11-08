@@ -35,17 +35,40 @@
 .term-link.is-still:hover { text-decoration-color: color-mix(in oklab, currentColor 45%, transparent); }
 .faro-name { font-weight: 600; color: inherit; }
 
-/* ===================================================== "Ir allí" calm glow
-   A ring in its own fixed layer that follows the element: no movement, no scale, nothing on the element. */
+/* ===================================================== "Ir allí" glow
+   A ring in its own fixed layer that follows the element: no movement, no scale, nothing on the element.
+   On arrival the halo pulses for a few seconds (three swells) so the eye finds the spot at a glance —
+   Oscar, 2026-11-07: the animation shows where the function lives, briefly. The ring colours are
+   variables, so every theme — Tron included — pulses in its own colour. */
 .faro-glow-ring {
   position: fixed; left: 0; top: 0; z-index: 96; pointer-events: none;
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 62%, transparent), 0 0 22px 2px color-mix(in oklab, var(--accent) 30%, transparent);
+  --ring-line: color-mix(in oklab, var(--accent) 62%, transparent);
+  --ring-halo: color-mix(in oklab, var(--accent) 30%, transparent);
+  --ring-halo-hot: color-mix(in oklab, var(--accent) 58%, transparent);
+  box-shadow: 0 0 0 2px var(--ring-line), 0 0 22px 2px var(--ring-halo);
   animation: faro-glow 2.8s ease-out both;
 }
-@keyframes faro-glow { 0% { opacity: 0; } 14% { opacity: 1; } 68% { opacity: 1; } 100% { opacity: 0; } }
-/* "Ir allí": a gentle entrance, then a steady ring (no breathing loop) until the user moves on. */
-.faro-glow-ring.is-stay { animation: faro-glow-in .5s ease-out both; }
-@keyframes faro-glow-in { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes faro-glow {
+  0% { opacity: 0; box-shadow: 0 0 0 2px var(--ring-line), 0 0 10px 0 var(--ring-halo); }
+  14% { opacity: 1; box-shadow: 0 0 0 2px var(--ring-line), 0 0 32px 6px var(--ring-halo-hot); }
+  30% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 15px 1px var(--ring-halo); }
+  44% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 32px 6px var(--ring-halo-hot); }
+  60% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 15px 1px var(--ring-halo); }
+  74% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 32px 6px var(--ring-halo-hot); }
+  86% { opacity: 1; box-shadow: 0 0 0 2px var(--ring-line), 0 0 22px 2px var(--ring-halo); }
+  100% { opacity: 0; box-shadow: 0 0 0 2px var(--ring-line), 0 0 22px 2px var(--ring-halo); }
+}
+/* "Ir allí": the same three pulses over ~2.4 s, then the ring stays steady until the user moves on. */
+.faro-glow-ring.is-stay { animation: faro-glow-in 2.4s ease-out both; }
+@keyframes faro-glow-in {
+  0% { opacity: 0; box-shadow: 0 0 0 2px var(--ring-line), 0 0 10px 0 var(--ring-halo); }
+  13% { opacity: 1; box-shadow: 0 0 0 2px var(--ring-line), 0 0 32px 6px var(--ring-halo-hot); }
+  29% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 15px 1px var(--ring-halo); }
+  45% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 32px 6px var(--ring-halo-hot); }
+  62% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 15px 1px var(--ring-halo); }
+  78% { box-shadow: 0 0 0 2px var(--ring-line), 0 0 32px 6px var(--ring-halo-hot); }
+  100% { opacity: 1; box-shadow: 0 0 0 2px var(--ring-line), 0 0 22px 2px var(--ring-halo); }
+}
 @media (prefers-reduced-motion: reduce) { .faro-glow-ring, .faro-glow-ring.is-stay { animation: none; } }
 
 /* ================================================================ Manual */
@@ -195,7 +218,7 @@ html.manual-open { overflow: hidden; }
 [data-theme="tron"] .term-link:focus-visible { outline-color: rgba(63, 214, 245, .7); }
 [data-theme="tron"] .hint-act { color: #9fd9e6; }
 [data-theme="tron"] .hint-acts { border-top-color: rgba(63, 214, 245, .22); }
-[data-theme="tron"] .faro-glow-ring { box-shadow: 0 0 0 1.5px rgba(63, 214, 245, .85), 0 0 22px 2px rgba(63, 214, 245, .38); }
+[data-theme="tron"] .faro-glow-ring { --ring-line: rgba(63, 214, 245, .85); --ring-halo: rgba(63, 214, 245, .38); --ring-halo-hot: rgba(63, 214, 245, .62); box-shadow: 0 0 0 1.5px var(--ring-line), 0 0 22px 2px var(--ring-halo); }
 [data-theme="tron"] .mn-layer { background: #02060c; color: #d7eef4; }
 [data-theme="tron"] .mn-top { background: #02060c; border-bottom-color: rgba(63, 214, 245, .28); }
 [data-theme="tron"] .mn-cover-title, [data-theme="tron"] .mn-entry-title { font-family: var(--t-display, inherit); letter-spacing: .02em; }
