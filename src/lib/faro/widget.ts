@@ -87,18 +87,22 @@ function dayDiff(from: string, to: string): number {
 const ISO = /^\d{4}-\d{2}-\d{2}/;
 const isVault = (icon: string) => icon === "vault" || icon.startsWith("vault:");
 
-/** Savings exactly as Central's Ahorros band adds them: pockets (Meta, Retiro, Emergencia, own ones, rest) + accounts. */
+/** Savings exactly as Central's Ahorros band adds them: pockets (Meta, Retiro, Emergencia, own ones, rest) + accounts.
+ * Contrato, regla 3 (R-4): el total es siempre la cifra del motor para las mismas líneas. Solo los bolsillos
+ * CON NOMBRE siguen la visibilidad; el dinero de categorías/subconceptos ocultos suma como resto genérico —
+ * incluso si la categoría de ahorro entera está oculta, su dinero no desaparece del total. */
 export function savingsOf(state: LedgerState, key: string, lang: Lang) {
   const { display, rateE4 } = state.settings;
   const names = makeNamer(state.structure, lang);
   const lines = monthLines(state, key);
-  const cats = state.structure.categories.filter((c) => c.role === SAVINGS && !c.hidden);
-  const savingsIds = new Set(cats.map((c) => c.id));
-  const vaultIds = new Set(cats.flatMap((c) => c.subs.filter((s) => isVault(s.icon)).map((s) => s.id)));
-  const seed = cats.flatMap((c) => c.subs.filter((s) => !s.hidden && !isVault(s.icon)).map((s) => ({ id: s.id, name: names.sub(s.id) })));
+  const allCats = state.structure.categories.filter((c) => c.role === SAVINGS);
+  const savingsIds = new Set(allCats.map((c) => c.id));
+  const visibleCats = allCats.filter((c) => !c.hidden);
+  const namedVaultIds = new Set(visibleCats.flatMap((c) => c.subs.filter((s) => !s.hidden && isVault(s.icon)).map((s) => s.id)));
+  const seed = visibleCats.flatMap((c) => c.subs.filter((s) => !s.hidden && !isVault(s.icon)).map((s) => ({ id: s.id, name: names.sub(s.id) })));
   const buckets = new Map<string, number>();
   for (const line of lines) {
-    if (!line.active || !savingsIds.has(line.categoryId) || vaultIds.has(line.subId)) continue;
+    if (!line.active || !savingsIds.has(line.categoryId) || namedVaultIds.has(line.subId)) continue;
     const id = line.subId && seed.some((s) => s.id === line.subId) ? line.subId : "rest";
     const minor = line.balanceMinor != null ? line.balanceMinor : line.amountMinor;
     const cur = line.balanceMinor != null ? line.balanceCurrency : line.currency;
@@ -106,9 +110,9 @@ export function savingsOf(state: LedgerState, key: string, lang: Lang) {
   }
   const rest = buckets.get("rest") ?? 0;
   const pockets = seed.map((s) => ({ id: s.id, name: s.name, amt: buckets.get(s.id) ?? 0 }));
-  if (rest > 0 && seed.length) pockets.push({ id: "rest", name: lang === "en" ? "Savings" : "Ahorros", amt: rest });
-  const pocketTotal = seed.length ? pockets.reduce((a, p) => a + p.amt, 0) : rest;
-  const accounts = cats.flatMap((c) => c.subs.filter((s) => !s.hidden && isVault(s.icon))).reduce((sum, s) => sum + lines
+  if (rest !== 0) pockets.push({ id: "rest", name: lang === "en" ? "Savings" : "Ahorros", amt: rest });
+  const pocketTotal = pockets.reduce((a, p) => a + p.amt, 0);
+  const accounts = visibleCats.flatMap((c) => c.subs.filter((s) => !s.hidden && isVault(s.icon))).reduce((sum, s) => sum + lines
     .filter((line) => line.active && line.subId === s.id)
     .reduce((a, line) => a + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, display, rateE4), 0), 0);
   return { pockets, pocketTotal, accounts, total: pocketTotal + accounts };

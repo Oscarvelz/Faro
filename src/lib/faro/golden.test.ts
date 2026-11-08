@@ -175,14 +175,21 @@ describe("batería dorada de Estructura — el contrato", () => {
     }
   });
 
-  // R-4 (asesoría §2): hoy savingsOf filtra las categorías de ahorro por !hidden — si la mano oculta
-  // la categoría Ahorro entera (o el sub tipo bóveda), su dinero desaparece del total mostrado aunque
-  // el motor lo sigue contando. Conocido y aceptado como deuda: lo cierra el paso 5 de la reforma
-  // (la banda nunca contradice al motor). Al cerrarlo, esta prueba pasa de «todo» a permanente.
-  it("savingsOf no pierde el dinero cuando la mano oculta Ahorro entero", { todo: "R-4: lo cierra el paso 5 (banda de Ahorros reconciliada)" }, () => {
+  // R-4 CERRADO en el paso 5 (1.3.138): savingsOf filtraba las categorías de ahorro por !hidden y el
+  // dinero oculto desaparecía del total mostrado (0 contra 679900 del motor). Desde el paso 5 solo
+  // los bolsillos con nombre siguen la visibilidad y lo oculto suma como resto genérico: el total es
+  // idéntico en los SEIS estados, incluido el que oculta Ahorro entero a mano.
+  it("savingsOf: el total es idéntico en los seis estados, incluso con Ahorro oculto a mano (R-4)", () => {
     const want = savingsOf(states[0]!.ledger, KEY, "es").total;
-    const got = savingsOf(states[5]!.ledger, KEY, "es").total;
-    assert.equal(got, want);
+    assert.equal(want, 679900);
+    for (const s of states.slice(1)) {
+      assert.equal(savingsOf(s.ledger, KEY, "es").total, want, `savingsOf.total difiere en estado ${s.name}`);
+    }
+    // En el estado a mano, todo el ahorro vive en el resto genérico: ningún bolsillo con nombre.
+    const hand = savingsOf(states[5]!.ledger, KEY, "es");
+    assert.equal(hand.accounts, 0);
+    assert.deepEqual(hand.pockets.map((p) => p.id), ["rest"]);
+    assert.equal(hand.pocketTotal, 679900);
   });
 
   it("la base se registra: el nacimiento es «completa» y aplicar una plantilla la escribe con su parche", () => {

@@ -1871,20 +1871,25 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   });
   const rate = session.ledger.settings;
   const spent = summary.spentPct === null ? "—" : `${Math.round(summary.spentPct)}%`;
-  const savingsCats = session.ledger.structure.categories.filter((c) => c.role === "savings" && !c.hidden);
+  // Contrato, regla 3 (R-4): la banda nunca contradice al motor. savingsIds cubre TODAS las categorías
+  // de ahorro (ocultas o no); solo los bolsillos y cuentas CON NOMBRE siguen la visibilidad (seed y
+  // accountRows salen de las visibles), y el dinero oculto suma en el segmento genérico «rest».
+  const savingsCats = session.ledger.structure.categories.filter((c) => c.role === "savings");
+  const visibleSavingsCats = savingsCats.filter((c) => !c.hidden);
   const savingsIds = new Set(savingsCats.map((c) => c.id));
   const vaultIds = new Set(savingsCats.flatMap((c) => c.subs.filter((s) => s.icon === "vault" || s.icon.startsWith("vault:")).map((s) => s.id)));
-  const seed = savingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && s.icon !== "vault" && !s.icon.startsWith("vault:")).map((s) => ({ id: s.id, name: names.sub(s.id), categoryId: c.id })));
+  const namedVaultIds = new Set(visibleSavingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))).map((s) => s.id)));
+  const seed = visibleSavingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && s.icon !== "vault" && !s.icon.startsWith("vault:")).map((s) => ({ id: s.id, name: names.sub(s.id), categoryId: c.id })));
   const subCat = new Map(seed.map((s) => [s.id, s.categoryId]));
   const buckets = new Map<string, number>();
   for (const line of lines) {
-    if (!line.active || !savingsIds.has(line.categoryId) || vaultIds.has(line.subId)) continue;
+    if (!line.active || !savingsIds.has(line.categoryId) || namedVaultIds.has(line.subId)) continue;
     const id = line.subId && seed.some((s) => s.id === line.subId) ? line.subId : "rest";
     buckets.set(id, (buckets.get(id) ?? 0) + convertMinor(line.balanceMinor != null ? line.balanceMinor : line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4));
   }
   const saveSegs = (seed.length ? seed : [{ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "" }]).map((s) => ({ ...s, minor: buckets.get(s.id) ?? 0 }));
   const rest = buckets.get("rest") ?? 0;
-  if (rest > 0 && seed.length) saveSegs.push({ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "", minor: rest });
+  if (rest !== 0 && seed.length) saveSegs.push({ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "", minor: rest });
   ringLive.current = { lens, openSave, ids: saveSegs.map((s) => s.id) };
   const saveTotal = saveSegs.reduce((acc, s) => acc + s.minor, 0);
   const savePeak = Math.max(...saveSegs.map((s) => s.minor), 1);
@@ -1897,7 +1902,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         return id === openSave;
       })
     : [];
-  const accountRows = savingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))).map((s) => {
+  const accountRows = visibleSavingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))).map((s) => {
     const minor = lines.filter((line) => line.active && line.subId === s.id).reduce((sum, line) => sum + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4), 0);
     return { id: s.id, name: s.customName || names.sub(s.id), categoryId: c.id, minor, icon: s.icon, order: s.order };
   }));
