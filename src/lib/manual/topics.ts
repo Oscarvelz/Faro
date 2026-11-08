@@ -2880,7 +2880,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         what: ["El porcentaje que te devuelve cada tarjeta por tipo de compra. Faro suma lo que ganas y avisa cuando otra tarjeta pagaba más.", "The percent each card gives back by kind of purchase. Faro adds up what you earn and tells you when another card paid more."],
         how: ["Toca un porcentaje y escríbelo. En gris usa el de Lo demás; una raya es que esa tarjeta no paga aparte. La flecha circular del título vuelve a las tasas de fábrica.", "Tap a percent and type it. In grey it uses Everything else; a dash means that card pays nothing extra. The circular arrow by the title goes back to factory rates."],
         tip: ["De fábrica: Chase Freedom Unlimited 5 % en Viajes Chase, 3 % comida fuera y farmacia, 1,5 % lo demás. Wells Fargo Active Cash 2 % en todo. PayPal Mastercard 3 % pagando con PayPal, 1,5 % lo demás.", "Factory values: Chase Freedom Unlimited 5% on Chase Travel, 3% dining and drugstores, 1.5% everything else. Wells Fargo Active Cash 2% on everything. PayPal Mastercard 3% paying with PayPal, 1.5% everything else."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tasa-travel",
@@ -2888,7 +2888,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Viajes Chase", "Chase Travel"],
         sum: ["Reservas en Chase Travel.", "Bookings on Chase Travel."],
         what: ["Lo que paga la tarjeta Chase en viajes reservados por Chase Travel. Otras tarjetas no tienen esta categoría.", "What the Chase card pays on trips booked through Chase Travel. Other cards have no such category."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tasa-dining",
@@ -2896,7 +2896,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Comida fuera", "Dining"],
         sum: ["Restaurantes y cafés.", "Restaurants and cafés."],
         what: ["Lo que paga cada tarjeta en restaurantes, cafés y comida a domicilio.", "What each card pays at restaurants, cafés and food delivery."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tasa-grocery",
@@ -2904,7 +2904,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Despensa", "Groceries"],
         sum: ["Supermercados.", "Supermarkets."],
         what: ["Lo que paga cada tarjeta en supermercados y despensa.", "What each card pays at supermarkets and groceries."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tasa-drug",
@@ -2912,7 +2912,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Farmacia", "Drugstore"],
         sum: ["Farmacias.", "Drugstores."],
         what: ["Lo que paga cada tarjeta en farmacias, como CVS o Walgreens.", "What each card pays at drugstores, like CVS or Walgreens."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tasa-gas",
@@ -2920,7 +2920,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Gasolina", "Gas"],
         sum: ["Gasolineras.", "Gas stations."],
         what: ["Lo que paga cada tarjeta en gasolineras.", "What each card pays at gas stations."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tasa-online",
@@ -2928,7 +2928,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Pago con PayPal", "PayPal checkout"],
         sum: ["Compras pagadas con PayPal.", "Purchases paid with PayPal."],
         what: ["Lo que paga la PayPal Mastercard cuando eliges PayPal al pagar en línea. En otros lugares paga Lo demás.", "What the PayPal Mastercard pays when you choose PayPal at online checkout. Elsewhere it pays Everything else."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tasa-other",
@@ -2936,7 +2936,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Lo demás", "Everything else"],
         sum: ["Todo lo demás.", "Everything else."],
         what: ["Lo que paga cada tarjeta en todo lo demás. Una casilla en gris toma este valor.", "What each card pays on everything else. A grey box takes this value."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-rewards", anchor: "aj-rewards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-pdf",
@@ -2963,7 +2963,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Saldo de PayPal", "PayPal balance"],
         sum: ["Tu saldo de PayPal en Ahorros.", "Your PayPal balance in Savings."],
         what: ["Elige una de tus [[Cuentas]]: al importar PayPal, su saldo final queda como el saldo de esa cuenta.", "Pick one of your [[Accounts]]: when you import PayPal, its closing balance becomes that account's balance."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-paypal-pocket", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-paypal-pocket", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tarjetas",
@@ -2973,7 +2973,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         what: ["Tus bancos con sus tarjetas y cuentas, cada uno con su marca. Añade el tuyo con su banco, color y porcentajes; aparece en la tabla y al importar.", "Your banks with their cards and accounts, each with its mark. Add yours with its bank, colour and percents; it shows in the table and on import."],
         how: ["El lápiz abre la edición: renombra o cambia el color, o quita una tarjeta o un banco entero tras confirmar. Sus movimientos, reglas e historial se quedan.", "The pencil opens editing: rename or recolour, or remove a card or a whole bank after you confirm. Its entries, rules and history stay."],
         tip: ["Lo que quitas deja una flecha circular en su mismo lugar, en la lista y en la tabla: tócala y vuelve con todo su historial. La flecha del título trae todas las de fábrica.", "What you remove leaves a circular arrow in its own place, in the list and in the table: tap it and it returns with all its history. The title arrow brings back every factory one."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-guardadas",
@@ -2981,7 +2981,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Tarjetas quitadas", "Removed cards"],
         sum: ["Las que quitaste, listas para volver.", "The ones you removed, ready to return."],
         what: ["Una tarjeta o banco quitado no sale en la tabla, el importador ni los consejos. Su historial sigue entero; la flecha en su lugar lo devuelve.", "A removed card or bank is left out of the table, the importer and the advice. Its history stays whole; the arrow in its place brings it back."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-fila-propia",
@@ -2989,7 +2989,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Fila propia", "Own row"],
         sum: ["Una categoría de recompensa tuya.", "A reward category of your own."],
         what: ["Una fila con nombre propio, como Viajes Chase u Hogar. Si viene de una categoría tuya, lo que archives ahí gana ese porcentaje.", "A row with its own name, like Chase Travel or Home. If it comes from one of your categories, what you file there earns that percent."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tarjeta-nombre",
@@ -2997,7 +2997,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Nombre de la tarjeta", "Card name"],
         sum: ["Cómo la verás en Faro.", "How you will see it in Faro."],
         what: ["El nombre que verás en la tabla y en el importador, por ejemplo Citi · tarjeta.", "The name you will see in the table and in the importer, for example Citi · card."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tarjeta-color",
@@ -3005,7 +3005,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Color de la marca", "Colour of the mark"],
         sum: ["El color de su marca.", "The colour of its mark."],
         what: ["El color de la marca de la tarjeta en la tabla y en la lista. Si no eliges uno, usa el de su banco.", "The colour of the card's mark in the table and in the list. If you pick none, it uses its bank's own."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tarjeta-tipo",
@@ -3013,7 +3013,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Tipo de cuenta", "Kind of account"],
         sum: ["Crédito, débito o ahorros.", "Credit, debit or savings."],
         what: ["Solo las tarjetas de crédito ganan recompensas y salen en la tabla. Débito y ahorros se importan sin porcentaje.", "Only credit cards earn rewards and show in the table. Debit and savings import with no percent at all."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tarjeta-banco",
@@ -3021,7 +3021,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Banco", "Bank"],
         sum: ["Quién emite la tarjeta.", "Who issues the card."],
         what: ["Ayuda a Faro a elegir esta tarjeta al importar un archivo de ese banco. Si no está en la lista, elige Otro.", "Helps Faro pick this card when you import a file from that bank. If it is not on the list, choose Other."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tarjeta-base",
@@ -3029,7 +3029,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Todo lo demás", "Everything else"],
         sum: ["Lo que paga en todo.", "What it pays on everything."],
         what: ["El porcentaje que paga la tarjeta en cualquier compra sin categoría propia. Una tarjeta de 2 % en todo solo necesita este.", "The percent the card pays on any purchase without its own category. A card paying 2% on everything needs only this."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-tarjeta-cat",
@@ -3037,7 +3037,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Tasa por categoría", "Rate by category"],
         sum: ["Lo que paga en una categoría.", "What it pays in one category."],
         what: ["El porcentaje en una de tus categorías. Vacío usa Todo lo demás. Puedes cambiarlo luego en la tabla.", "The percent in one of your categories. Empty uses Everything else. You can change it later in the table."],
-        go: { screen: "settings", fold: "banks", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
+        go: { screen: "settings", fold: "banks bk-cards", anchor: "aj-cards", where: ["Ajustes → Bancos y recompensas", "Settings → Banks and rewards"] },
       },
       {
         id: "imp-reglas",

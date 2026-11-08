@@ -172,6 +172,14 @@
 /* ---------------------------------------------------------------- Ajustes editor */
 .bk-set { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; container-type: inline-size; min-width: 0; }
 .bk-h { display: flex; align-items: center; }
+/* 1.3.152: Recompensas and Tus tarjetas are sibling fold cards (Oscar: each unfolds on purpose, born folded).
+   Only the container is new — the headings keep their tools, the bodies keep Hark's design. */
+.bk-fold { border: 1px solid var(--line); border-radius: 14px; background: color-mix(in oklab, var(--fg) 2%, var(--surface)); padding: 10px 12px 12px; min-width: 0; }
+.bk-fold-btn { display: flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; }
+.bk-fold-btn .bk-h { flex: 1 1 auto; min-width: 0; }
+.bk-fold-btn .fold-chev { flex: none; }
+.bk-fold-body { display: grid; gap: 12px; margin-top: 10px; min-width: 0; }
+[data-theme="tron"] .bk-fold { border-radius: 6px; border-color: rgba(63, 214, 245, .35); background: #050c0f; }
 /* 1.3.151: the rewards table is a designed grid — bank marks over each column, one line per kind where it fits,
  * 36px paired cells with the % inside, a quiet dash cell where a card has no such category. Columns come from --bk-tpl. */
 .bk-rates { --bk-lab: minmax(max-content, 1fr); --bk-cell: minmax(2.8rem, 4.6rem); --bk-ghost: 2rem; display: grid; grid-template-columns: var(--bk-lab) var(--bk-tpl, repeat(var(--cols), var(--bk-cell))); gap: 6px 4px; align-items: center; }

@@ -2,7 +2,7 @@
  * Ajustes → Bancos y recompensas (lazy): which savings account holds the PayPal balance, the card rewards profile,
  * and the merchant rules Faro learned. Everything lives in the ledger (sync, backups, undo).
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Note } from "./finish";
 import { Archive, Check, ChevronDown, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { DEFAULT_SOURCES, ISSUERS, acctColor, archiveBank, bankGroups, editAccount, isDefaultAcct, restoreBank, type Acct, type BankGroup, restoreDefaultAccounts, REWARD_CLASSES, accounts, addAccount, archiveAccount, classOfLabel, importBook, newBonus, rcLabel, restoreAccount, rowApplies, targets, withBook, type Target } from "@/lib/faro/bankbook";
@@ -35,6 +35,26 @@ export function BankMark({ a, className }: { a: { bank: string; color?: string; 
   );
 }
 
+/**
+ * 1.3.152 (Oscar): a part of Bancos y recompensas as its own little fold card — Recompensas folded beside
+ * Tus tarjetas y cuentas, each one unfolded on purpose instead of everything read at a glance. The header is
+ * a div-button like Ajustes' own folds, so the heading's (?) and its tools stay real buttons inside it; the
+ * tools stop their click (below) so they never toggle the fold. Hark's headings and bodies pass through
+ * untouched — only the container is new.
+ */
+function BkFold({ id, head, open, onToggle, children }: { id: string; head: ReactNode; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <div className={`bk-fold${open ? " is-open" : ""}`} data-fold={id}>
+      <div role="button" tabIndex={0} className="bk-fold-btn" aria-expanded={open} onClick={onToggle}
+        onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onToggle(); } }}>
+        {head}
+        <ChevronDown className={open ? "fold-chev is-open" : "fold-chev"} aria-hidden />
+      </div>
+      {open ? <div className="bk-fold-body">{children}</div> : null}
+    </div>
+  );
+}
+
 export default function BankSettings() {
   const { session, lang, commit, names, confirm } = useFaro();
   const [, bump] = useState(0);
@@ -43,6 +63,18 @@ export default function BankSettings() {
   // 1.3.151: remove/rename live in the pencil state (one switch for the table and the list), never beside a row at rest.
   const [manage, setManage] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  // 1.3.152: the two fold cards are born folded and open independently (Oscar picks which to unfold first);
+  // a manual or search jump names its fold (faro-open "bk-rewards" / "bk-cards") and that one opens.
+  const [bkOpen, setBkOpen] = useState({ rewards: false, cards: false });
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id === "bk-rewards") setBkOpen((f) => (f.rewards ? f : { ...f, rewards: true }));
+      else if (id === "bk-cards") setBkOpen((f) => (f.cards ? f : { ...f, cards: true }));
+    };
+    window.addEventListener("faro-open", onOpen);
+    return () => window.removeEventListener("faro-open", onOpen);
+  }, []);
   if (!session) return null;
   const state = session.ledger;
   const accts = accounts(state);
@@ -96,12 +128,14 @@ export default function BankSettings() {
   ) : null;
   return (
     <div className={`bk-set${manage ? " is-manage" : ""}`}>
+      <BkFold id="bk-rewards" open={bkOpen.rewards} onToggle={() => setBkOpen((f) => ({ ...f, rewards: !f.rewards }))} head={(
       <h3 className="bk-h lab-head" data-anchor="aj-rewards">{L(lang, "Recompensas por tarjeta", "Rewards by card")}<Hint topic="imp-recompensas" />
-        <span className="bk-h-tools">
+        <span className="bk-h-tools" onClick={(e) => e.stopPropagation()}>
           <button type="button" className="sub-gear bk-reset" data-test="rates-reset" aria-label={L(lang, "Restaurar tasas", "Restore rates")} onClick={() => confirm({ title: L(lang, "Restaurar tasas", "Restore rates"), body: L(lang, "Vuelve a las tasas de fábrica de cada tarjeta.", "Goes back to each card's factory rates."), yes: L(lang, "Restaurar", "Restore"), run: () => { commit((s) => withBook(s, (b) => ({ ...b, sources: b.sources.map((x) => { const d = DEFAULT_SOURCES.find((y) => y.id === x.id || y.legacy === x.id); if (!d) return x; const n = { ...x, rates: { ...d.rates } }; delete n.elig; return n; }) })), L(lang, "Tasas de fábrica", "Factory rates")); bump((n) => n + 1); } })}><RotateCcw /></button>
           {pen}
         </span>
       </h3>
+      )}>
       <div className="bk-scroll" data-many={cards.length > 3 ? "" : undefined} onScroll={(e) => { const el = e.currentTarget; if ((el.scrollLeft > 2) !== el.hasAttribute("data-scrolled")) el.toggleAttribute("data-scrolled", el.scrollLeft > 2); }}>
       <div className="bk-rates" style={{ ["--cols" as string]: String(Math.max(1, cards.length)), ["--bk-tpl" as string]: cols.map((a) => (a.off ? "var(--bk-ghost)" : "var(--bk-cell)")).join(" ") || "var(--bk-cell)" }}>
         <span className="bk-corner" aria-hidden />
@@ -139,15 +173,18 @@ export default function BankSettings() {
         ))}
       </div>
       </div>
+      </BkFold>
 
+      <BkFold id="bk-cards" open={bkOpen.cards} onToggle={() => setBkOpen((f) => ({ ...f, cards: !f.cards }))} head={(
       <h3 className="bk-h lab-head" data-anchor="aj-cards">{L(lang, "Tus tarjetas y cuentas", "Your cards and accounts")}<Hint topic="imp-tarjetas" />
-        <span className="bk-h-tools">
+        <span className="bk-h-tools" onClick={(e) => e.stopPropagation()}>
           <button type="button" className="sub-gear bk-h-restore" data-test="acct-restore" aria-label={L(lang, "Restaurar tarjetas de fábrica", "Restore factory cards")} onClick={() => confirm({ title: L(lang, "Restaurar tarjetas", "Restore cards"),
             body: L(lang, "Vuelven las tarjetas y cuentas de fábrica que quitaste. Las tuyas guardadas siguen guardadas y no se borra ningún movimiento.", "The factory cards and accounts you removed come back. Your own saved ones stay saved and no entry is deleted."),
             yes: L(lang, "Restaurar", "Restore"), run: () => commit((s) => restoreDefaultAccounts(s), L(lang, "Tarjetas de fábrica", "Factory cards")) })}><RotateCcw /></button>
           {pen}
         </span>
       </h3>
+      )}>
       <ul className="bk-accts" data-anchor="aj-cards-off">
         {groups.map((g) => {
           const lead = g.accts[0];
@@ -188,6 +225,7 @@ export default function BankSettings() {
           <ThemeSelect value={paypal.pocketId ?? ""} onChange={(v) => setSource(paypal.id, (s) => { const n = { ...s }; if (v) n.pocketId = v; else delete n.pocketId; return n; }, L(lang, "Saldo de PayPal", "PayPal balance"))} options={[{ value: "", label: L(lang, "No llevarlo", "Don't track it") }, ...vaults]} />
         </label>
       ) : null}
+      </BkFold>
 
       <h3 className="bk-h lab-head" data-anchor="aj-rules-bank">{L(lang, "Reglas de comercios", "Merchant rules")}<Hint topic="imp-reglas" /></h3>
       {book.rules.length ? (
