@@ -640,3 +640,12 @@
 - La burbuja (?) de Estructura NO cambia: su texto («Tus categorías, subconceptos y catálogo. Tú decides qué se muestra y qué se esconde.») sigue siendo verdad con el comportamiento final, y la regla de la casa manda burbuja corta y separada del manual. Anclas, ids y numeración intactos; ES/EN en espejo.
 - Con este paso la reforma aprobada el 2026-11-07 queda completa: pasos 0–7 en las versiones 1.3.133–1.3.140, cada una con su etiqueta de rollback previa (rollback-pre-estructura-step0…step7) y su verificación en vivo.
 - Tests: 59/59 + 134/134 en test:faro, sin pendientes.
+
+## Web 1.3.141 (2026-11-07, Muse) — Ajustes › Estructura: el ejemplo de cada plantilla vive dentro de su pastilla
+- Defecto (captura de Oscar en su teléfono, ~390px): el texto de ejemplo de las cuatro pastillas (Soltero, Familia, Estudiante, Negocio) corría en una sola línea sin envolver, se salía de su pastilla, cruzaba la tarjeta y se encimaba con el nombre y con el ejemplo vecino — ilegible.
+- Causa, en `src/styles.css`: la pastilla es un `.btn` (flex en fila), así que el ejemplo quedaba como elemento en fila junto al nombre; y la regla `.aj-picks > .btn { … white-space: nowrap }` — misma especificidad que el `white-space: normal` de `.aj-pick` pero posterior en la cascada — ganaba y se heredaba a los dos spans (nombre y ejemplo, bloques que nunca fijan su propio white-space): la línea no podía envolverse jamás y el desborde era visible.
+- Arreglo, solo CSS: la pastilla pasa a columna (nombre arriba, ejemplo debajo en su tipo pequeño y atenuado, como ya lo pintaba `.aj-pick-ex`), con `align-items: stretch` para que ambos ocupen el ancho de la pastilla; y se retira el `white-space: nowrap` de la regla `.aj-picks > .btn`. El ejemplo se envuelve entero dentro de su caja (la pastilla crece a lo alto que necesite); sin truncar, sin reducir el tipo. Rejilla de dos columnas intacta.
+- Cero cambios de comportamiento: selector y `aria-pressed`, línea de estado, vista previa calculada, flujo de aplicación, `userVis` y `base` intactos — solo la presentación de las pastillas.
+- Verificado con captura renderizada a 390px del build local con el fold de Estructura abierto: las cuatro pastillas contienen su ejemplo completo, envuelto, sin salirse ni encimarse (ES; la cadena más larga es la de Estudiante en EN y también cabe envuelta).
+- Etiqueta de rollback previa: `rollback-pre-estructura-pills-2026-11-07` sobre el head de source de la 1.3.140.
+- Tests: 59/59 + 134/134 en test:faro; typecheck con solo los 3 errores preexistentes.
