@@ -295,8 +295,9 @@ export type AcctKind = "checking" | "card" | "paypal" | "savings";
 /**
  * `rates` keys are reward rows: a RewardClass or a bonus row id ("b-…"). `off` (ISO day) = archived: out of daily use
  * (rewards table, import picker, Estudio/Asesor advice) but its lines, rules and past rewards stay. `mine` = added by the user.
+ * `color` (1.3.151, optional hex) = the mark colour the user picked; missing = the bank's own colour.
  */
-export type BankSource = { id: string; bank: string; kind: AcctKind; rates: Partial<Record<string, number>>; elig?: number; pocketId?: string; apyBps?: number; off?: string; mine?: boolean };
+export type BankSource = { id: string; bank: string; kind: AcctKind; rates: Partial<Record<string, number>>; elig?: number; pocketId?: string; apyBps?: number; off?: string; mine?: boolean; color?: string };
 /** A named reward row of the user's own ("Hogar", "Viajes Chase"); `target` links it to one of their categories (a "<kind>|<cat>|<sub>" value, sub may be empty = the whole category). */
 export type BonusRow = { id: string; name: string; target?: string };
 /** Learned filing: merchant key → "<kind>|<categoryId>|<subId>". */

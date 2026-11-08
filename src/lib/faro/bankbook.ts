@@ -69,7 +69,7 @@ export function accounts(state: LedgerState | null | undefined, all = false): Ac
     if (out.some((a) => a.id === item.id) || item.hidden) continue;
     const src = book.sources.find((s) => s.id === item.id);
     if (src?.off && !all) continue;
-    out.push({ id: item.id, bank: src?.bank ?? "other", kind: src?.kind ?? "card", rates: src?.rates ?? { other: 0 }, elig: src?.elig, pocketId: src?.pocketId, apyBps: src?.apyBps, off: src?.off, mine: src?.mine, name: item.customName || item.nameKey, icon: item.icon, saved: !!src });
+    out.push({ id: item.id, bank: src?.bank ?? "other", kind: src?.kind ?? "card", rates: src?.rates ?? { other: 0 }, elig: src?.elig, pocketId: src?.pocketId, apyBps: src?.apyBps, off: src?.off, mine: src?.mine, color: src?.color, name: item.customName || item.nameKey, icon: item.icon, saved: !!src });
   }
   return out;
 }
@@ -113,7 +113,7 @@ export const KIND_ICON: Record<AcctKind, string> = { card: "CreditCard", checkin
 const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const rid = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random()}`).replace(/-/g, "").slice(0, 10);
 
-export type NewAcct = { name: string; kind: AcctKind; bank: string; rates: Record<string, number>; bonus?: BonusRow[] };
+export type NewAcct = { name: string; kind: AcctKind; bank: string; rates: Record<string, number>; bonus?: BonusRow[]; color?: string };
 /** Adds an account of the user's own: a catalog item (name, icon) + its import settings, and any new bonus rows. Returns the new id too. */
 export function addAccount(state: LedgerState, a: NewAcct): { state: LedgerState; id: string } {
   const base = ensureAccounts(state);
@@ -125,7 +125,7 @@ export function addAccount(state: LedgerState, a: NewAcct): { state: LedgerState
   const rates: Record<string, number> = {};
   for (const [k, v] of Object.entries(a.rates)) if (Number.isFinite(v) && v >= 0) rates[k] = Math.round(v);
   if (typeof rates.other !== "number") rates.other = 0;
-  return { id, state: { ...base, structure: { ...base.structure, catalog: [...base.structure.catalog, item] }, imports: { ...book, bonus, sources: [...book.sources, { id, bank: a.bank || "other", kind: a.kind, rates, mine: true }] } } };
+  return { id, state: { ...base, structure: { ...base.structure, catalog: [...base.structure.catalog, item] }, imports: { ...book, bonus, sources: [...book.sources, { id, bank: a.bank || "other", kind: a.kind, rates, mine: true, ...(okHex(a.color) ? { color: a.color!.toLowerCase() } : {}) }] } } };
 }
 /** Archives (never deletes): lines, merchant rules and past rewards keep pointing at it. */
 export function archiveAccount(state: LedgerState, id: string, day = localDay()): LedgerState {
@@ -133,6 +133,56 @@ export function archiveAccount(state: LedgerState, id: string, day = localDay())
 }
 export function restoreAccount(state: LedgerState, id: string): LedgerState {
   return withBook(state, (b) => ({ ...b, sources: b.sources.map((x) => { if (x.id !== id) return x; const n = { ...x }; delete n.off; return n; }) }));
+}
+/* ------------------------------------------------------------------ banks as groups (1.3.151) */
+
+/** Each issuer's own colour (the mark's plate); a card of the user's own may pick another (`color`). */
+export const BANK_COLOR: Record<string, string> = { chase: "#117aca", wellsfargo: "#d71e28", paypal: "#003087", citi: "#056dae", capitalone: "#004977", amex: "#2e77bc", discover: "#ff6000", bofa: "#012169", statefarm: "#e1261c" };
+const okHex = (c: string | undefined) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
+/** The colour of an account's mark: the user's pick, else its bank's, else a calm slate. */
+export const acctColor = (a: { color?: string; bank: string }) => (okHex(a.color) ? a.color! : BANK_COLOR[a.bank] ?? "#5b6b7f");
+/** The three banks Faro ships with; removing one leaves its restore at its place. */
+export const DEFAULT_BANKS = ["chase", "wellsfargo", "paypal"] as const;
+export const isDefaultAcct = (id: string) => DEFAULT_SOURCES.some((d) => d.id === id || d.legacy === id);
+/** The group an account belongs to: its issuer when it is one Faro knows, else the account itself. */
+export const groupOf = (a: { id: string; bank: string }) => (a.bank && a.bank !== "other" ? a.bank : a.id);
+export type BankGroup = { key: string; bank: string; name: string; accts: Acct[]; live: Acct[]; isDefault: boolean };
+/** Accounts in their usual order (defaults first, then the user's own), grouped by bank. Archived ones stay at their place. */
+export function bankGroups(state: LedgerState | null | undefined): BankGroup[] {
+  const out: BankGroup[] = [];
+  for (const a of accounts(state, true)) {
+    const key = groupOf(a);
+    let g = out.find((x) => x.key === key);
+    if (!g) { g = { key, bank: a.bank, name: ISSUERS.find((x) => x.value === a.bank && x.label)?.label ?? a.name, accts: [], live: [], isDefault: (DEFAULT_BANKS as readonly string[]).includes(key) }; out.push(g); }
+    g.accts.push(a);
+    if (!a.off) g.live.push(a);
+  }
+  return out;
+}
+/** Removes a whole bank in one go: every account of the group is archived (never deleted). */
+export function archiveBank(state: LedgerState, key: string, day = localDay()): LedgerState {
+  const ids = new Set(accounts(state).filter((a) => groupOf(a) === key).map((a) => a.id));
+  return withBook(state, (b) => ({ ...b, sources: b.sources.map((x) => (ids.has(x.id) ? { ...x, off: day } : x)) }));
+}
+/** Brings a removed bank back: its archived accounts return to their place, with all their history. */
+export function restoreBank(state: LedgerState, key: string): LedgerState {
+  const ids = new Set(accounts(state, true).filter((a) => a.off && groupOf(a) === key).map((a) => a.id));
+  return withBook(state, (b) => ({ ...b, sources: b.sources.map((x) => { if (!ids.has(x.id)) return x; const n = { ...x }; delete n.off; return n; }) }));
+}
+/** Renames or recolours an account (any, factory ones too); an own account may also change its bank. Empty name = unchanged. */
+export function editAccount(state: LedgerState, id: string, p: { name?: string; color?: string | null; bank?: string }): LedgerState {
+  const base = ensureAccounts(state);
+  const name = p.name?.trim();
+  const catalog = name ? base.structure.catalog.map((c) => (c.kind === "acct" && c.id === id ? { ...c, customName: name.slice(0, 40) } : c)) : base.structure.catalog;
+  const book = importBook(base);
+  const sources = book.sources.map((x) => {
+    if (x.id !== id) return x;
+    const n = { ...x };
+    if (p.color === null) delete n.color; else if (okHex(p.color ?? undefined)) n.color = p.color!.toLowerCase();
+    if (p.bank && x.mine) n.bank = p.bank;
+    return n;
+  });
+  return { ...base, structure: { ...base.structure, catalog }, imports: { ...book, sources } };
 }
 export function newBonus(name: string, target?: string): BonusRow { return { id: `b-${rid()}`, name: name.trim(), ...(target ? { target } : {}) }; }
 /** The bonus row a filing lands in: one linked to that exact subcategory, else to its whole category. */
