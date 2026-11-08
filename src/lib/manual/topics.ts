@@ -124,7 +124,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Deshacer y rehacer", "Undo and redo"],
         sum: ["Las flechas curvas quitan o devuelven tu último cambio.", "The curved arrows take back or bring back your last change."],
         what: ["La flecha hacia atrás deshace tu último cambio; la de adelante lo vuelve a poner.", "The back arrow undoes your last change; the forward arrow puts it back."],
-        how: ["Toca «Deshacer» o «Rehacer» arriba, junto al logo. En teclado: Ctrl+Z deshace y Ctrl+Y rehace.", "Tap “Undo” or “Redo” at the top, next to the logo. On a keyboard: Ctrl+Z undoes and Ctrl+Y redoes."],
+        how: ["Toca las flechas arriba. En teclado: Ctrl+Z deshace y Ctrl+Y rehace.", "Tap the arrows at the top. On a keyboard: Ctrl+Z undoes and Ctrl+Y redoes."],
         tip: ["¿Borraste algo sin querer? Deshacer lo trae de vuelta.", "Deleted something by mistake? Undo brings it back."],
         go: { screen: "top", anchor: "top-undo", where: ["Arriba a la derecha", "Top right"] },
         terms: [["Ctrl+Z", "Ctrl+Z"], ["Error", "Mistake"]],

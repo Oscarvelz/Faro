@@ -890,10 +890,10 @@ export function Shell() {
             <div className="top-actions">
               <div className="hist-nav" data-anchor="top-undo">
                 <button type="button" className="hist-btn" aria-label={t("undo")} disabled={!canUndo} onClick={undo}>
-                  <Undo2 /><span className="hist-word">{t("undo")}</span>
+                  <Undo2 />
                 </button>
                 <button type="button" className="hist-btn" aria-label={t("redo")} disabled={!canRedo} onClick={redo}>
-                  <Redo2 /><span className="hist-word">{t("redo")}</span>
+                  <Redo2 />
                 </button>
               </div>
               <div className="desk-grid">
