@@ -13,6 +13,7 @@ import { Hint } from "./hint";
 import { ThemeSelect } from "./line-form";
 import { TargetPicker, chipLabel } from "./bank-pick";
 import { ColorPick } from "./color-pick";
+import { RewardRealSettings } from "./rewards-real";
 import { BANK_PATHS } from "@/lib/faro/bank-paths";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
@@ -173,6 +174,7 @@ export default function BankSettings() {
         ))}
       </div>
       </div>
+      <RewardRealSettings />
       </BkFold>
 
       <BkFold id="bk-cards" open={bkOpen.cards} onToggle={() => setBkOpen((f) => ({ ...f, cards: !f.cards }))} head={(

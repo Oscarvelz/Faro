@@ -12,6 +12,7 @@ import type { LedgerState } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { Head } from "./panorama";
+import { RewardRealBlock } from "./rewards-real";
 
 const BankImport = lazy(() => import("./bank-import"));
 const BankSettingsLazy = lazy(() => import("./bank-settings"));
@@ -151,6 +152,7 @@ export function RewardsStudy() {
           ? L(lang, `Paga ${rcLabel(m.top.rc, lang, importBook(session.ledger).bonus)} con ${m.top.best.name}: +${money(m.top.missed)} al mes.`, `Pay ${rcLabel(m.top.rc, lang, importBook(session.ledger).bonus)} with ${m.top.best.name}: +${money(m.top.missed)} a month.`)
           : L(lang, "Cada compra fue con la tarjeta que más paga.", "Every purchase used the card that pays most.")}
       </p>
+      <RewardRealBlock />
     </section>
   );
 }

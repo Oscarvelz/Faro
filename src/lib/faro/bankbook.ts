@@ -4,7 +4,7 @@
  * Money stays in normal lines: an imported purchase is a line with `sourceId` (and `importId` for its statement key).
  */
 import { convertMinor } from "./money.ts";
-import type { AcctKind, BankGuide, BankSource, BonusRow, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, Structure } from "./types.ts";
+import type { AcctKind, BankGuide, BankSource, BonusRow, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, RewardRealFig, Structure } from "./types.ts";
 
 export const REWARD_CLASSES: RewardClass[] = ["travel", "dining", "grocery", "drug", "gas", "online", "other"];
 
@@ -43,9 +43,29 @@ function idIn(d: DefaultSource, cat: CatalogItem[], sources: BankSource[]): stri
   return d.id;
 }
 
+const REWARD_REAL_DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** Keeps only well-formed real-rewards figures (1.3.155): his notes must survive sync/backup round-trips; junk never enters. */
+function cleanRewardReal(raw: unknown): Record<string, RewardRealFig> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, RewardRealFig> = {};
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+    const f = v as Partial<RewardRealFig> | null;
+    if (f && typeof f === "object" && typeof f.amountMinor === "number" && Number.isFinite(f.amountMinor) && typeof f.asOf === "string" && REWARD_REAL_DAY.test(f.asOf) && (f.currency === "USD" || f.currency === "NIO"))
+      out[id] = { amountMinor: Math.trunc(f.amountMinor), asOf: f.asOf, currency: f.currency };
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function importBook(state: LedgerState | null | undefined): ImportBook {
   const b = state?.imports;
-  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {}, bonus: Array.isArray(b?.bonus) ? b!.bonus.filter((x) => x && typeof x.id === "string" && typeof x.name === "string") : [], ...(Array.isArray(b?.guides) ? { guides: b!.guides } : {}), ...(b?.payHints && typeof b.payHints === "object" ? { payHints: b.payHints } : {}) };
+  const rewardReal = cleanRewardReal(b?.rewardReal);
+  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {}, bonus: Array.isArray(b?.bonus) ? b!.bonus.filter((x) => x && typeof x.id === "string" && typeof x.name === "string") : [], ...(Array.isArray(b?.guides) ? { guides: b!.guides } : {}), ...(b?.payHints && typeof b.payHints === "object" ? { payHints: b.payHints } : {}), ...(rewardReal ? { rewardReal } : {}) };
+}
+
+/** Notes the real rewards balance of one account (his figure, from his bank app); the latest note replaces the previous. */
+export function setRewardReal(book: ImportBook, accountId: string, fig: RewardRealFig): ImportBook {
+  if (!accountId) return book;
+  return { ...book, rewardReal: { ...(book.rewardReal ?? {}), [accountId]: fig } };
 }
 
 /** The payment source of money that never touches an account: a Line.sourceId that matches no statement, ever (1.3.153). */
@@ -494,6 +514,46 @@ export function rewardsMonth(state: LedgerState, key: string, display: Currency,
   let top: RewardsMonth["top"] = null;
   for (const [k, v] of byClass) if (!top || v.missed > top.missed) top = { rc: k.split("|")[0], best: v.best, missed: v.missed };
   return { earned, missed, possible: earned + missed, count, top };
+}
+
+export type CardEarned = { acct: Acct; earned: number };
+/** The same line filter and arithmetic as rewardsMonth, kept per account (1.3.155): each account's estimated take of the month, in the view currency. rewardsMonth itself is untouched. */
+export function rewardsByCard(state: LedgerState, key: string, display: Currency, rateE4: number): CardEarned[] {
+  const lines = state.months[key]?.lines ?? [];
+  const accts = accounts(state);
+  const every = accounts(state, true);
+  const rules = importBook(state).rules;
+  const sums = new Map<string, number>();
+  for (const line of lines) {
+    if (!line.active || !line.sourceId || line.xfer || line.kind.startsWith("income")) continue;
+    const elig = !!findRule(rules, merchantKey(line.concept))?.elig;
+    const r = lineReward(line, accts, elig, every);
+    if (!r) continue;
+    sums.set(line.sourceId, (sums.get(line.sourceId) ?? 0) + convertMinor(r.earned, line.currency, display, rateE4));
+  }
+  return every.filter((a) => (sums.get(a.id) ?? 0) !== 0).map((a) => ({ acct: a, earned: sums.get(a.id)! }));
+}
+
+export type RewardRealRow = { acct: Acct; estimated: number; real: { amountMinor: number; asOf: string } | null; diff: number | null };
+/** Estudio's comparison rows (1.3.155): accounts that earned this month or carry a noted real figure, in account order.
+ * `estimated` and `real.amountMinor` are in the view currency; diff = real − estimated, a reference, never an alarm. */
+export function rewardRealRows(state: LedgerState, key: string, display: Currency, rateE4: number): RewardRealRow[] {
+  const figs = importBook(state).rewardReal ?? {};
+  const earned = new Map(rewardsByCard(state, key, display, rateE4).map((r) => [r.acct.id, r.earned]));
+  return accounts(state, true)
+    .filter((a) => earned.has(a.id) || !!figs[a.id])
+    .map((a) => {
+      const fig = figs[a.id];
+      const estimated = earned.get(a.id) ?? 0;
+      const real = fig ? { amountMinor: convertMinor(fig.amountMinor, fig.currency, display, rateE4), asOf: fig.asOf } : null;
+      return { acct: a, estimated, real, diff: real ? real.amountMinor - estimated : null };
+    });
+}
+
+/** Every card account with its noted real figure, if any (Ajustes' door: always reachable, no month involved). */
+export function rewardRealCards(state: LedgerState): { acct: Acct; fig: RewardRealFig | null }[] {
+  const figs = importBook(state).rewardReal ?? {};
+  return accounts(state).filter((a) => a.kind === "card").map((acct) => ({ acct, fig: figs[acct.id] ?? null }));
 }
 
 export const RC_LABEL: Record<RewardClass, [string, string]> = {

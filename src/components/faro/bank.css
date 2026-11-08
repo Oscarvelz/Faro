@@ -180,6 +180,35 @@
 .rw-act { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); font-weight: 620; line-height: 1.35; }
 .rw-act.is-miss { color: var(--fg); }
 .rw-pic { color: var(--good); background: color-mix(in oklab, var(--good) 14%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--good) 24%, transparent); }
+/* 1.3.155: estimado vs real — quiet per-card rows; the difference is a neutral reference, never an alarm colour. */
+.rw-real { margin-top: 12px; padding-top: 10px; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); display: grid; gap: 8px; }
+.rw-real-row { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.rw-real-name { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rw-real-est { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.rw-real-add { border: 0; background: none; font: inherit; font-size: .85rem; font-weight: 650; color: var(--good); cursor: pointer; padding: 4px 2px; white-space: nowrap; }
+/* The three figures rarely fit beside the name at phone width: they take their own line, spread out — the name always prevails. */
+.rw-real-figs { flex: 1 1 auto; margin-left: auto; display: flex; gap: 14px; justify-content: space-between; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; padding: 2px; text-align: left; }
+.rw-real-figs span:last-child { text-align: right; }
+.rw-real-figs span { display: grid; gap: 1px; }
+.rw-real-figs em { font-style: normal; color: var(--muted); font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.rw-real-figs b { font-size: .95rem; white-space: nowrap; }
+.rw-real-one { margin-left: auto; display: flex; align-items: center; gap: 8px; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; padding: 4px 2px; }
+.rw-real-one small { color: var(--muted); white-space: nowrap; }
+.rw-real-one svg { width: 14px; height: 14px; color: var(--muted); flex: none; }
+.rw-real-note { margin: 2px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.35; }
+.rw-real-form { display: grid; gap: 10px; padding: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, transparent); border-radius: 12px; background: color-mix(in oklab, var(--fg) 2%, var(--surface)); }
+.rw-real-frow { display: grid; gap: 4px; }
+.rw-real-amt { display: flex; align-items: center; gap: 6px; }
+.rw-real-amt > span { color: var(--muted); font-weight: 700; }
+.rw-real-amt .field { flex: 1 1 auto; min-width: 0; }
+.rw-real-img { justify-self: start; display: inline-flex; align-items: center; gap: 8px; }
+.rw-real-img svg { width: 16px; height: 16px; }
+.rw-real-file { display: none; }
+.rw-real-cands { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .85rem; color: var(--muted); }
+.rw-real-miss { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.35; }
+.bk-real { display: grid; gap: 8px; }
+.bk-real .bk-h { font-size: .95rem; }
+[data-theme="tron"] :is(.rw-real, .rw-real-form) { border-color: rgba(63, 214, 245, .16); }
 
 /* ---------------------------------------------------------------- Ajustes editor */
 .bk-set { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; container-type: inline-size; min-width: 0; }
