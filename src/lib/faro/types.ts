@@ -61,10 +61,19 @@ export type CatalogItem = Named & {
   urlTemplate: string;
 };
 
+/** The registered starting point of a structure: the last template applied, or "completa"
+ * for a book born with everything visible. «Personalizada» is never stored: it is the reading
+ * of a base plus the user's own hand (userVis). */
+export type StructureBase = TemplateId | "completa";
+
 export type Structure = {
   categories: Category[];
   purchases: PurchaseCat[];
   catalog: CatalogItem[];
+  /** The last template applied, written by applyTemplate in the same commit as its patch, so
+   * undoing restores base and patch together. Birth = "completa". Missing in older ledgers
+   * and backups (= no base registered; the UI says so, it never guesses one backwards). */
+  base?: StructureBase;
   /** Visibility the user set by hand (the eyes in Estructura, the pickers' hide), by category/sub id.
    * Templates set only a baseline and never override it: the user's word wins.
    * Missing in older ledgers and backups (= no hand-set choices yet). */

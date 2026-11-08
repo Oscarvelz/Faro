@@ -180,6 +180,17 @@ describe("batería dorada de Estructura — el contrato", () => {
     assert.equal(got, want);
   });
 
+  it("la base se registra: el nacimiento es «completa» y aplicar una plantilla la escribe con su parche", () => {
+    const ledger = goldenLedger();
+    assert.equal(ledger.structure.base, "completa");
+    for (const id of ["soltero", "familia", "estudiante", "negocio"] as const) {
+      assert.equal(applyTemplate(ledger.structure, id).base, id, `applyTemplate(${id}) debe registrar su base`);
+    }
+    // Un libro viejo (sin el campo) sigue sin base: jamás se adivina hacia atrás.
+    const { base: _drop, ...sinBase } = ledger.structure;
+    assert.equal((sinBase as Structure).base, undefined);
+  });
+
   it("el respaldo guarda TODO: estructura (con la mano) y ajustes sobreviven la ida y vuelta", () => {
     // El sobre del respaldo es el de src/spa/vault.ts (payload): el libro entero, tal cual.
     const ledger = states[5]!.ledger;

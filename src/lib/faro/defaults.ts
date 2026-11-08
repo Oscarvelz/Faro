@@ -179,6 +179,7 @@ function item(
 
 export function defaultStructure(): Structure {
   return {
+    base: "completa",
     categories: [
       category("casa", "fixed", "housing", "Home", 0, ["renta", "hipoteca", "servicios", "gas", "youtube", "celular", "telefono", "agua", "predial", "internet", "otros"]),
       category("transporte", "fixed", "transport", "Car", 1, ["gasolina", "publico", "electrico"]),
@@ -357,7 +358,9 @@ export function applyTemplate(structure: Structure, id: TemplateId): Structure {
     const cat = category("negocio", "fixed", "business", "Briefcase", next.categories.length, ["local", "inventario", "impuestos", "nomina"]);
     next = { ...next, categories: [...next.categories, { ...cat, id: "f-negocio" }] };
   }
-  return next;
+  // The base is recorded in the same returned structure as the patch itself: one commit,
+  // one undo — Deshacer restores the flags and the base together (asesoría §3.1).
+  return { ...next, base: id };
 }
 
 export function templateBlurb(id: TemplateId, lang: Lang): string {

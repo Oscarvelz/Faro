@@ -589,3 +589,10 @@
 - La garantía del respaldo queda como prueba: el sobre del respaldo (el libro entero, como serializa `vault.ts`) restaurado devuelve estructura — con el registro de la mano — y ajustes idénticos.
 - La batería expone desde el primer día la deuda conocida R-4: con la categoría Ahorro oculta a mano, `savingsOf` devuelve 0 donde el motor cuenta 679900. Queda registrada como aserción «todo» con su causa (la cierra el paso 5, banda reconciliada), no escondida.
 - Sin cambios de comportamiento ni de textos: solo pruebas y la entrada de `golden.test.ts` en el script `test:faro`. Tests: 59/59 + 127 en test:faro (126 pasan, 1 todo = R-4).
+
+## Web 1.3.134 (2026-11-07, Muse) — Reforma de Estructura, paso 1: la base queda registrada
+- `Structure` gana `base` (opcional, aditivo): la última plantilla aplicada o «completa». Un libro nuevo nace con base «completa» — la verdad del dato: nace con todo visible, y es la regla de Oscar (la predeterminada es la más completa).
+- `applyTemplate` escribe la base en la misma estructura que devuelve con su parche: un solo commit, un solo Deshacer — deshacer restaura banderas y base juntas.
+- Los libros viejos no traen el campo: eso significa «sin base registrada» y jamás se adivina una hacia atrás. «Personalizada» no se guarda: es la lectura de una base más la mano del usuario (`userVis`), que sigue viviendo aparte desde la 1.3.131.
+- Sin migración y sin cambios de efectos: las plantillas hacen exactamente lo mismo que en la 1.3.132; solo que ahora queda registrado cuál se aplicó. La batería dorada gana la aserción de la base (nacimiento completa, registro al aplicar, libro viejo sin base).
+- Tests: 59/59 + 128 en test:faro (127 pasan, 1 todo = R-4, lo cierra el paso 5).
