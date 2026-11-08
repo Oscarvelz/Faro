@@ -4416,6 +4416,17 @@ function StructureTree() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [catName, setCatName] = useState("");
   const [catGroup, setCatGroup] = useState<"fixed" | "variable">("fixed");
+  // 1.3.143: the two groups fold by their title, so the tree can shrink to two lines (Oscar: the long
+  // list made him lose focus). UI-only state, kept on this device; searching always shows its matches.
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("faro.tree.folded") ?? "[]") as string[]); } catch { return new Set<string>(); }
+  });
+  const foldGroup = (group: string) => setFolded((prev) => {
+    const next = new Set(prev);
+    if (next.has(group)) next.delete(group); else next.add(group);
+    try { localStorage.setItem("faro.tree.folded", JSON.stringify([...next])); } catch { /* ignore */ }
+    return next;
+  });
   if (!session) return null;
   const addCat = () => {
     const name = catName.trim();
@@ -4447,16 +4458,24 @@ function StructureTree() {
         <input value={q} placeholder={t("tree.find")} onChange={(e) => setQ(e.target.value)} aria-label={t("tree.find")} />
       </div>
       {groups.length === 0 ? <Note>{t("tree.empty")}</Note> : null}
-      {groups.map(({ group, rows }, gi) => (
+      {groups.map(({ group, rows }, gi) => {
+        const groupOpen = needle.length > 0 || !folded.has(group);
+        return (
         <div key={group}>
-          <p className="tree-kicker tree-kick-row">{t(group === "fixed" ? "group.fixed" : "group.variable")}
+          <div className="tree-kicker tree-kick-row">
+            <button type="button" className="tree-group-btn" aria-expanded={groupOpen} onClick={() => foldGroup(group)}>
+              <ChevronDown className={groupOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+              <span>{t(group === "fixed" ? "group.fixed" : "group.variable")}</span>
+              <span className="tree-group-count num">{rows.length}</span>
+            </button>
             {gi === 0 && missing.length ? <button type="button" className="sub-gear tree-restore" data-test="cat-restore" aria-label={lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica"} onClick={() => confirm({
               title: lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica",
               body: (lang === "en" ? "These come back: " : "Vuelven: ") + missing.map((c) => `${displayName(c, lang)} (${t(c.group === "fixed" ? "group.fixed" : "group.variable").toLowerCase()})`).join(", ") + (lang === "en" ? ". Your own categories and every entry stay as they are." : ". Tus categorías propias y cada movimiento quedan como están."),
               yes: lang === "en" ? "Restore" : "Restaurar",
               run: () => commit((s) => restoreDefaultCategories(s), lang === "en" ? "Default categories" : "Categorías de fábrica"),
             })}><RotateCcw /></button> : null}
-          </p>
+          </div>
+          {groupOpen ? (
           <div className="tree">
             {rows.map((cat) => {
               const open = openId === cat.id;
@@ -4474,8 +4493,10 @@ function StructureTree() {
               );
             })}
           </div>
+          ) : null}
         </div>
-      ))}
+        );
+      })}
       <div className="ah-form sc-form is-treecat">
         <div className="ah-grid">
           <label className="label is-wide">
@@ -4506,6 +4527,9 @@ function TreePanel({ cat }: { cat: Category }) {
   const [subName, setSubName] = useState("");
   const [editSub, setEditSub] = useState<string | null>(null);
   const [subEdit, setSubEdit] = useState("");
+  // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
+  // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
+  const [colorOpen, setColorOpen] = useState(false);
   const addSub = () => {
     const next = subName.trim();
     if (!next) return;
@@ -4528,7 +4552,15 @@ function TreePanel({ cat }: { cat: Category }) {
           patch((c) => ({ ...c, customName: next }), next);
         }}><Check className="size-4" /></button>
       </div>
-      <ColorPick face="solid" value={categoryBase(cat.id, cat.color)} label={t("color")} onPick={(hex) => patch((c) => ({ ...c, color: hex }), "color")} />
+      <div className="tree-color">
+        <button type="button" className="tree-color-point" aria-expanded={colorOpen} onClick={() => setColorOpen((v) => !v)}>
+          <i className="tree-color-ball" style={{ ["--ball" as string]: categoryColor(cat.id, cat.color) }} aria-hidden />
+          <span className="tree-color-lab">{t("color")}</span>
+          <span className="tree-color-hex num">{categoryBase(cat.id, cat.color).toUpperCase()}</span>
+          <ChevronDown className={colorOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+        </button>
+        {colorOpen ? <ColorPick face="solid" value={categoryBase(cat.id, cat.color)} label={t("color")} onPick={(hex) => { patch((c) => ({ ...c, color: hex }), "color"); setColorOpen(false); }} /> : null}
+      </div>
       <div className="tree-tools">
         <button type="button" className="icon-btn" aria-label={t("up")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, -1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "up")}><ChevronUp className="size-4" /></button>
         <button type="button" className="icon-btn" aria-label={t("down")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, 1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "down")}><ChevronDown className="size-4" /></button>
