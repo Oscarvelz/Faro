@@ -18,7 +18,7 @@ import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Sh
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, markUserVis, missingDefaults, moveNamed, restoreDefaultCategories, templateBlurb } from "@/lib/faro/defaults";
+import { applyTemplate, displayName, markUserVis, missingDefaults, moveNamed, restoreDefaultCategories, structureStatusLine, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
@@ -4210,12 +4210,12 @@ export function Settings() {
         })()}
       </Fold>
       <Fold id="structure" icon={FolderTree} sub={lang === "en" ? "Categories and stores" : "Categorías y tiendas"} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
-        <div className="aj-picks">
+        <div className="aj-picks" role="group" aria-label={t("settings.structure")}>
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
-            <button key={id} type="button" className="btn ghost aj-pick" onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
+            <button key={id} type="button" className="btn ghost aj-pick" aria-pressed={session.ledger.structure.base === id} onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
           ))}
         </div>
-        <Note kind="tip">{templateBlurb("familia", lang)}</Note>
+        <Note kind="tip">{structureStatusLine(session.ledger.structure, lang)}</Note>
         <StructureTree />
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-catalog">{t("settings.catalog")}<Hint topic="catalogo" /></h2>
         <CatalogEditor />

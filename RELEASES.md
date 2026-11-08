@@ -596,3 +596,10 @@
 - Los libros viejos no traen el campo: eso significa «sin base registrada» y jamás se adivina una hacia atrás. «Personalizada» no se guarda: es la lectura de una base más la mano del usuario (`userVis`), que sigue viviendo aparte desde la 1.3.131.
 - Sin migración y sin cambios de efectos: las plantillas hacen exactamente lo mismo que en la 1.3.132; solo que ahora queda registrado cuál se aplicó. La batería dorada gana la aserción de la base (nacimiento completa, registro al aplicar, libro viejo sin base).
 - Tests: 59/59 + 128 en test:faro (127 pasan, 1 todo = R-4, lo cierra el paso 5).
+
+## Web 1.3.135 (2026-11-07, Muse) — Reforma de Estructura, paso 2: selector con estado y línea de estado veraz
+- Las cuatro pastillas de plantilla son ahora un selector de verdad: la base vigente se ve seleccionada (relleno de acento, mismo patrón `aria-pressed` del selector de idioma del mismo Ajustes, con su regla CSS `.aj-pick[aria-pressed="true"]`). Tocar la pastilla ya seleccionada reabre su confirmación, como antes.
+- Muere la nota fija que siempre citaba el texto de Familia (la fuente exacta de la confusión): en su lugar, una línea de estado calculada (`structureStatusLine`) que dice la verdad del momento — «Base: Completa — todo visible», «Base: Familia», «Sin base registrada: ninguna plantilla se ha aplicado a este libro» — y, cuando la mano del usuario ha fijado visibilidad, lo dice con su conteo: «Base: Familia · con tus ajustes a mano (3 ajustes a mano): tu mano manda». ES/EN.
+- La batería dorada gana la aserción de la línea de estado en sus lecturas (base, sin base, con mano, ambos idiomas).
+- Sin cambios en los efectos de las plantillas ni en la confirmación (su vista previa calculada llega en el paso 3).
+- Tests: 59/59 + 129 en test:faro (128 pasan, 1 todo = R-4).

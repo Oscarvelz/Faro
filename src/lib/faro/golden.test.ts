@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readAdvisor } from "./advisor.ts";
-import { applyTemplate, createInitial, makeNamer, markUserVis } from "./defaults.ts";
+import { applyTemplate, createInitial, makeNamer, markUserVis, structureStatusLine } from "./defaults.ts";
 import { buildAdvice, buildInsights, categorySlices, studyBoard, summarize } from "./engine.ts";
 import { savingsOf } from "./widget.ts";
 import type { LedgerState, Line, LineKind, Structure } from "./types.ts";
@@ -189,6 +189,20 @@ describe("batería dorada de Estructura — el contrato", () => {
     // Un libro viejo (sin el campo) sigue sin base: jamás se adivina hacia atrás.
     const { base: _drop, ...sinBase } = ledger.structure;
     assert.equal((sinBase as Structure).base, undefined);
+  });
+
+  it("la línea de estado dice la verdad en cada lectura (base, sin base, con mano)", () => {
+    const ledger = goldenLedger();
+    assert.equal(structureStatusLine(ledger.structure, "es"), "Base: Completa — todo visible.");
+    assert.equal(structureStatusLine(ledger.structure, "en"), "Base: Complete — everything visible.");
+    const { base: _drop, ...sinBase } = ledger.structure;
+    assert.match(structureStatusLine(sinBase as Structure, "es"), /^Sin base registrada/);
+    assert.match(structureStatusLine(sinBase as Structure, "en"), /^No base registered/);
+    const conBase = applyTemplate(ledger.structure, "familia");
+    assert.equal(structureStatusLine(conBase, "es"), "Base: Familia.");
+    const conMano = eyeCat(conBase, "f-casa", true);
+    assert.match(structureStatusLine(conMano, "es"), /^Base: Familia · con tus ajustes a mano \(1 ajuste a mano\)/);
+    assert.match(structureStatusLine(conMano, "en"), /^Base: Family · with your hand adjustments \(1 hand adjustment\)/);
   });
 
   it("el respaldo guarda TODO: estructura (con la mano) y ajustes sobreviven la ida y vuelta", () => {
