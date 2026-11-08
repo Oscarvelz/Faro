@@ -603,3 +603,10 @@
 - La batería dorada gana la aserción de la línea de estado en sus lecturas (base, sin base, con mano, ambos idiomas).
 - Sin cambios en los efectos de las plantillas ni en la confirmación (su vista previa calculada llega en el paso 3).
 - Tests: 59/59 + 129 en test:faro (128 pasan, 1 todo = R-4).
+
+## Web 1.3.136 (2026-11-07, Muse) — Reforma de Estructura, paso 3: vista previa calculada y ejemplos
+- La confirmación de una plantilla ya no muestra el folleto genérico (`templateBlurb` deja de usarse en la pantalla): muestra la diferencia REAL calculada sobre este libro (`templatePreview`) — qué se oculta, qué se muestra, qué se agrega y qué queda protegido por la mano del usuario — y, por cada categoría con movimientos bajo lo que se va a ocultar, el conteo dicho en claro: «Tienes 4 movimientos en Familia: seguirán contando y reaparecerán cuando vuelvas a mostrar la rama» (enmienda 4 de Oscar: cambiar de plantilla nunca mueve datos, y la confirmación ahora lo demuestra con los números del propio libro).
+- Si la diferencia es vacía, la confirmación lo dice — «No cambiaría nada en tu estructura» — y su botón es «Entendido»: no hay nada que aplicar ni que deshacer.
+- Ejemplos en vez de lemas (enmienda 1): cada pastilla del selector lleva su ejemplo cortito y concreto en una segunda línea («Sin hijos en casa: esconde colegiaturas, hijos, formativas y funeraria», «Vuelve a mostrar toda la rama de familia: colegiaturas, hijos, libros y juguetes»…), y el mismo ejemplo abre la confirmación. El lema abstracto prohibido por Oscar no aparece en ningún texto; la batería lo vigila como aserción permanente.
+- La batería dorada gana las aserciones de la vista previa (diff de Soltero/Estudiante/Negocio, conteo de movimientos, mano protegida, caso vacío) y de los ejemplos.
+- Tests: 59/59 + 131 en test:faro (130 pasan, 1 todo = R-4).

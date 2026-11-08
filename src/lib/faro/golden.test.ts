@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readAdvisor } from "./advisor.ts";
-import { applyTemplate, createInitial, makeNamer, markUserVis, structureStatusLine } from "./defaults.ts";
+import { applyTemplate, createInitial, makeNamer, markUserVis, structureStatusLine, templateExample, templatePreview } from "./defaults.ts";
 import { buildAdvice, buildInsights, categorySlices, studyBoard, summarize } from "./engine.ts";
 import { savingsOf } from "./widget.ts";
 import type { LedgerState, Line, LineKind, Structure } from "./types.ts";
@@ -203,6 +203,41 @@ describe("batería dorada de Estructura — el contrato", () => {
     const conMano = eyeCat(conBase, "f-casa", true);
     assert.match(structureStatusLine(conMano, "es"), /^Base: Familia · con tus ajustes a mano \(1 ajuste a mano\)/);
     assert.match(structureStatusLine(conMano, "en"), /^Base: Family · with your hand adjustments \(1 hand adjustment\)/);
+  });
+
+  it("la vista previa es calculada: diff real, conteo de movimientos y mano protegida", () => {
+    const ledger = goldenLedger();
+    const soltero = templatePreview(ledger, "soltero", "es");
+    assert.equal(soltero.empty, false);
+    assert.match(soltero.body, /Se oculta: Colegiaturas, Hijo 1, Hijo 2, Formativas, Funeraria\./);
+    // KEY: colegiaturas + hijo1 + funeraria; PREV: colegiaturas — 4 movimientos bajo lo que se esconde.
+    assert.match(soltero.body, /Tienes 4 movimientos en Familia: seguirán contando y reaparecerán cuando vuelvas a mostrar la rama\./);
+    const familia = templatePreview(ledger, "familia", "es");
+    assert.equal(familia.empty, true);
+    assert.equal(familia.body, "No cambiaría nada en tu estructura.");
+    const estudiante = templatePreview(ledger, "estudiante", "es");
+    assert.match(estudiante.body, /Se oculta: Hipoteca, Predial, Vida\./);
+    assert.match(estudiante.body, /Se agrega: Estudio\./);
+    assert.match(estudiante.body, /Tienes 1 movimiento en Casa: seguirán contando/);
+    const negocio = templatePreview(ledger, "negocio", "es");
+    assert.match(negocio.body, /Se agrega: Negocio\./);
+    assert.equal(/Se oculta/.test(negocio.body), false);
+    // La mano protege: hipoteca mostrada a mano no se oculta ni se promete — se declara protegida.
+    const conMano: LedgerState = { ...ledger, structure: eyeSub(ledger.structure, "f-casa", "f.casa.hipoteca", false) };
+    const protegido = templatePreview(conMano, "estudiante", "es");
+    assert.match(protegido.body, /Protegido por tu mano \(no cambia\): Hipoteca\./);
+    assert.equal(/Se oculta: [^\n]*Hipoteca/.test(protegido.body), false);
+  });
+
+  it("los ejemplos son concretos y jamás el lema prohibido", () => {
+    for (const id of ["soltero", "familia", "estudiante", "negocio"] as const) {
+      for (const lang of ["es", "en"] as const) {
+        const ex = templateExample(id, lang);
+        assert.ok(ex.length > 10 && ex.length < 140, `ejemplo ${id}/${lang} debe ser una línea corta`);
+        assert.equal(/lo que ves|lo que cuenta|what you see|what counts/i.test(ex), false, `ejemplo ${id}/${lang} sin lemas abstractos`);
+      }
+    }
+    assert.match(templateExample("familia", "es"), /Vuelve a mostrar toda la rama de familia/);
   });
 
   it("el respaldo guarda TODO: estructura (con la mano) y ajustes sobreviven la ida y vuelta", () => {

@@ -417,6 +417,113 @@ export function templateBlurb(id: TemplateId, lang: Lang): string {
   return copy[id][lang];
 }
 
+/**
+ * One-line concrete example per starting point (Oscar's amendment, 2026-11-07): where a structure
+ * is chosen, each option says in plain words what it actually does — never an abstract slogan.
+ */
+export function templateExample(id: TemplateId, lang: Lang): string {
+  const copy: Record<TemplateId, { es: string; en: string }> = {
+    soltero: {
+      es: "Sin hijos en casa: esconde colegiaturas, hijos, formativas y funeraria.",
+      en: "No kids at home: it hides tuition, children, activities and funeral.",
+    },
+    familia: {
+      es: "Vuelve a mostrar toda la rama de familia: colegiaturas, hijos, libros y juguetes.",
+      en: "It shows the whole family branch again: tuition, children, books and toys.",
+    },
+    estudiante: {
+      es: "Estudias y no tienes casa propia: agrega Estudio y esconde hipoteca, predial y seguro de vida.",
+      en: "You're studying and don't own a home: it adds Study and hides mortgage, property tax and life insurance.",
+    },
+    negocio: {
+      es: "Vendes por tu cuenta: agrega Negocio con local, inventario, impuestos y nómina.",
+      en: "You sell on your own: it adds Business with shop rent, inventory, taxes and payroll.",
+    },
+  };
+  return copy[id][lang];
+}
+
+/**
+ * The computed preview of applying a template to THIS ledger (asesoría §3.3, D-5): the real diff —
+ * what will hide, what will show, what will be added, what the user's hand protects — with the
+ * recorded-line count spoken plainly for anything about to hide. No generic blurb: if the diff is
+ * empty, the preview says so and there is nothing to confirm.
+ */
+export function templatePreview(state: LedgerState, id: TemplateId, lang: Lang): { body: string; empty: boolean } {
+  const cur = state.structure;
+  const real = applyTemplate(cur, id);
+  const raw = applyTemplate({ ...cur, userVis: {} }, id);
+  const byId = (s: Structure) => new Map(s.categories.map((c) => [c.id, c]));
+  const curCats = byId(cur);
+  const realCats = byId(real);
+  const rawCats = byId(raw);
+  const hide: string[] = [];
+  const show: string[] = [];
+  const add: string[] = [];
+  const kept: string[] = [];
+  const hidingSubs = new Map<string, Set<string>>(); // catId -> subIds about to hide
+  const hidingCats = new Set<string>();
+  for (const rc of real.categories) {
+    const cc = curCats.get(rc.id);
+    if (!cc) {
+      add.push(displayName(rc, lang));
+      continue;
+    }
+    const rawC = rawCats.get(rc.id);
+    if (cc.hidden !== rc.hidden) (rc.hidden ? hide : show).push(displayName(rc, lang));
+    else if (rawC && rawC.hidden !== cc.hidden) kept.push(displayName(rc, lang));
+    if (!cc.hidden && rc.hidden) hidingCats.add(rc.id);
+    for (const rs of rc.subs) {
+      const cs = cc.subs.find((s) => s.id === rs.id);
+      if (!cs) continue;
+      const rawS = rawC?.subs.find((s) => s.id === rs.id);
+      if (cs.hidden !== rs.hidden) {
+        (rs.hidden ? hide : show).push(displayName(rs, lang));
+        if (rs.hidden) {
+          const set = hidingSubs.get(rc.id) ?? new Set<string>();
+          set.add(rs.id);
+          hidingSubs.set(rc.id, set);
+        }
+      } else if (rawS && rawS.hidden !== cs.hidden) kept.push(displayName(rs, lang));
+    }
+  }
+  const empty = !hide.length && !show.length && !add.length;
+  const lines: string[] = [];
+  if (empty) lines.push(lang === "es" ? "No cambiaría nada en tu estructura." : "It would change nothing in your structure.");
+  if (hide.length) lines.push(lang === "es" ? `Se oculta: ${hide.join(", ")}.` : `Hides: ${hide.join(", ")}.`);
+  if (show.length) lines.push(lang === "es" ? `Se muestra: ${show.join(", ")}.` : `Shows: ${show.join(", ")}.`);
+  if (add.length) lines.push(lang === "es" ? `Se agrega: ${add.join(", ")}.` : `Adds: ${add.join(", ")}.`);
+  // What is about to hide and holds recorded lines: the count, spoken plainly (amendment 4 —
+  // changing templates never moves data; hidden lines keep counting and come back on show).
+  const allLines = Object.values(state.months).flatMap((m) => m.lines);
+  for (const [catId, subIds] of hidingSubs) {
+    const cat = curCats.get(catId);
+    if (!cat) continue;
+    const n = allLines.filter((l) => subIds.has(l.subId)).length;
+    if (!n) continue;
+    const name = displayName(cat, lang);
+    lines.push(
+      lang === "es"
+        ? `Tienes ${n} ${n === 1 ? "movimiento" : "movimientos"} en ${name}: seguirán contando y reaparecerán cuando vuelvas a mostrar la rama.`
+        : `You have ${n} ${n === 1 ? "entry" : "entries"} in ${name}: they will keep counting and will reappear when you show the branch again.`,
+    );
+  }
+  for (const catId of hidingCats) {
+    const cat = curCats.get(catId);
+    if (!cat || hidingSubs.has(catId)) continue;
+    const n = allLines.filter((l) => l.categoryId === catId).length;
+    if (!n) continue;
+    const name = displayName(cat, lang);
+    lines.push(
+      lang === "es"
+        ? `Tienes ${n} ${n === 1 ? "movimiento" : "movimientos"} en ${name}: seguirán contando y reaparecerán cuando vuelvas a mostrar la rama.`
+        : `You have ${n} ${n === 1 ? "entry" : "entries"} in ${name}: they will keep counting and will reappear when you show the branch again.`,
+    );
+  }
+  if (kept.length) lines.push(lang === "es" ? `Protegido por tu mano (no cambia): ${kept.join(", ")}.` : `Protected by your hand (unchanged): ${kept.join(", ")}.`);
+  return { body: lines.join("\n"), empty };
+}
+
 export function moveNamed<T extends Named>(items: T[], id: string, dir: -1 | 1): T[] {
   const sorted = [...items].sort((a, b) => a.order - b.order);
   const i = sorted.findIndex((x) => x.id === id);

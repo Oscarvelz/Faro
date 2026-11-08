@@ -18,7 +18,7 @@ import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Sh
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, markUserVis, missingDefaults, moveNamed, restoreDefaultCategories, structureStatusLine, templateBlurb } from "@/lib/faro/defaults";
+import { applyTemplate, displayName, markUserVis, missingDefaults, moveNamed, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
@@ -4212,7 +4212,10 @@ export function Settings() {
       <Fold id="structure" icon={FolderTree} sub={lang === "en" ? "Categories and stores" : "Categorías y tiendas"} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
         <div className="aj-picks" role="group" aria-label={t("settings.structure")}>
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
-            <button key={id} type="button" className="btn ghost aj-pick" aria-pressed={session.ledger.structure.base === id} onClick={() => confirm({ title: t(`tpl.${id}`), body: templateBlurb(id, lang), yes: t("yes"), run: () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) })}>{t(`tpl.${id}`)}</button>
+            <button key={id} type="button" className="btn ghost aj-pick" aria-pressed={session.ledger.structure.base === id} onClick={() => { const pv = templatePreview(session.ledger, id, lang); confirm({ title: t(`tpl.${id}`), body: `${templateExample(id, lang)}\n\n${pv.body}`, yes: pv.empty ? (lang === "en" ? "Got it" : "Entendido") : t("yes"), run: pv.empty ? () => {} : () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) }); }}>
+              <span className="aj-pick-name">{t(`tpl.${id}`)}</span>
+              <span className="aj-pick-ex">{templateExample(id, lang)}</span>
+            </button>
           ))}
         </div>
         <Note kind="tip">{structureStatusLine(session.ledger.structure, lang)}</Note>
