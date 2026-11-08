@@ -12,6 +12,7 @@
  *   spending by category is Estudio's categorySlices().
  */
 import { categorySlices, monthLines, summarize } from "./engine";
+import { savingsStock } from "./savings";
 import { makeNamer } from "./defaults";
 import { convertMinor, monthKey } from "./money";
 import { netBalance } from "./debts";
@@ -90,31 +91,29 @@ const isVault = (icon: string) => icon === "vault" || icon.startsWith("vault:");
 /** Savings exactly as Central's Ahorros band adds them: pockets (Meta, Retiro, Emergencia, own ones, rest) + accounts.
  * Contrato, regla 3 (R-4): el total es siempre la cifra del motor para las mismas líneas. Solo los bolsillos
  * CON NOMBRE siguen la visibilidad; el dinero de categorías/subconceptos ocultos suma como resto genérico —
- * incluso si la categoría de ahorro entera está oculta, su dinero no desaparece del total. */
+ * incluso si la categoría de ahorro entera está oculta, su dinero no desaparece del total.
+ * 1.3.147: los montos salen del stock único (savings.ts) — la misma cifra que el colchón del Asesor
+ * y la pista de Estudio — atribuidos a bolsillos por la línea que determina cada serie (su saldo,
+ * o su depósito más reciente). Antes esto leía solo las líneas del mes en curso, sin deduplicar
+ * series: ahorrar en septiembre y abrir octubre sin líneas daba $0. */
 export function savingsOf(state: LedgerState, key: string, lang: Lang) {
-  const { display, rateE4 } = state.settings;
   const names = makeNamer(state.structure, lang);
-  const lines = monthLines(state, key);
   const allCats = state.structure.categories.filter((c) => c.role === SAVINGS);
-  const savingsIds = new Set(allCats.map((c) => c.id));
   const visibleCats = allCats.filter((c) => !c.hidden);
   const namedVaultIds = new Set(visibleCats.flatMap((c) => c.subs.filter((s) => !s.hidden && isVault(s.icon)).map((s) => s.id)));
   const seed = visibleCats.flatMap((c) => c.subs.filter((s) => !s.hidden && !isVault(s.icon)).map((s) => ({ id: s.id, name: names.sub(s.id) })));
+  const stock = savingsStock(state, key);
   const buckets = new Map<string, number>();
-  for (const line of lines) {
-    if (!line.active || !savingsIds.has(line.categoryId) || namedVaultIds.has(line.subId)) continue;
-    const id = line.subId && seed.some((s) => s.id === line.subId) ? line.subId : "rest";
-    const minor = line.balanceMinor != null ? line.balanceMinor : line.amountMinor;
-    const cur = line.balanceMinor != null ? line.balanceCurrency : line.currency;
-    buckets.set(id, (buckets.get(id) ?? 0) + convertMinor(minor, cur, display, rateE4));
+  let accounts = 0;
+  for (const s of stock.series.values()) {
+    if (namedVaultIds.has(s.subId)) { accounts += s.minor; continue; }
+    const id = s.subId && seed.some((x) => x.id === s.subId) ? s.subId : "rest";
+    buckets.set(id, (buckets.get(id) ?? 0) + s.minor);
   }
   const rest = buckets.get("rest") ?? 0;
   const pockets = seed.map((s) => ({ id: s.id, name: s.name, amt: buckets.get(s.id) ?? 0 }));
   if (rest !== 0) pockets.push({ id: "rest", name: lang === "en" ? "Savings" : "Ahorros", amt: rest });
   const pocketTotal = pockets.reduce((a, p) => a + p.amt, 0);
-  const accounts = visibleCats.flatMap((c) => c.subs.filter((s) => !s.hidden && isVault(s.icon))).reduce((sum, s) => sum + lines
-    .filter((line) => line.active && line.subId === s.id)
-    .reduce((a, line) => a + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, display, rateE4), 0), 0);
   return { pockets, pocketTotal, accounts, total: pocketTotal + accounts };
 }
 

@@ -4,6 +4,7 @@ import { perYear } from "./cadence.ts";
 import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
 import { remitTrend } from "./remesas.ts";
 import { remitByPerson } from "./remit-people.ts";
+import { savingsStock } from "./savings.ts";
 import { visibleNamer } from "./defaults.ts";
 
 type Namer = {
@@ -230,7 +231,10 @@ function classify(line: Line, state: LedgerState, key: string, income = 0, minor
     // A purchase is one-time by definition. A first-month grocery run, bus fare or coffee is not:
     // it is the day-to-day, even before there is history to prove it.
     const everyday = line.kind !== "purchase" && (EVERYDAY_RE.test(line.concept || "") || ESSENTIAL_SUBS.has(line.subId) || (EVERYDAY_ROLES.has(role) && !ONEOFF_SUBS.has(line.subId)));
-    const big = income > 0 ? minor >= income * 0.15 : true;
+    // 1.3.147: with no income recorded there is no yardstick for "big" — a first-seen expense is
+    // classified by cross-month recurrence evidence alone, never as one-time solely for lack of
+    // income (that made the Asesor's recurrent base disagree with Central's spent total).
+    const big = income > 0 ? minor >= income * 0.15 : false;
     const oneoff = line.kind === "purchase" || role === "travel" || ONEOFF_SUBS.has(line.subId);
     // 1.3.125: the everyday-over-30% branch also needs the absolute floor (floorMinor, $50 in the
     // view currency): on a small income any ordinary treat crosses 30% and is not a one-time buy.
@@ -556,30 +560,12 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   };
   const essentialsMonthly = sumCls((line) => line.cls === "essential-fixed" || line.cls === "essential-variable" || line.cls === "credit");
   const wantsRecurring = read.filter((line) => line.cls === "discretionary").sort((a, b) => b.minor - a.minor);
-  // Savings already kept (all months), the same way the savings card reads it.
-  let stockEm = 0;
-  let stockRet = 0;
-  let stockAll = 0;
-  // A balance is a snapshot (keep the latest per series); a plain amount is a deposit (add them up).
-  const snapshots = new Map<string, { month: string; line: Line }>();
-  const addStock = (item: Line, v: number) => {
-    stockAll += v;
-    if (item.subId.endsWith(".emergencia")) stockEm += v;
-    else if (item.subId.endsWith(".retiro")) stockRet += v;
-  };
-  for (const [monthKey, month] of Object.entries(state.months)) {
-    if (monthKey > key) continue;
-    for (const item of month.lines) {
-      if (!item.active || roleOf(state.structure, item.categoryId) !== "savings") continue;
-      if (item.balanceMinor !== null && item.balanceMinor !== undefined) {
-        const sid = item.seriesId || item.id;
-        const prev = snapshots.get(sid);
-        if (!prev || prev.month < monthKey) snapshots.set(sid, { month: monthKey, line: item });
-      } else addStock(item, inView(item, display, rateE4));
-    }
-  }
-  for (const { line: item } of snapshots.values()) addStock(item, convertMinor(item.balanceMinor as number, item.balanceCurrency || item.currency, display, rateE4));
-  const cushionStock = stockEm > 0 ? stockEm : Math.max(0, stockAll - stockRet);
+  // Savings already kept (all months): the ONE stock (savings.ts, 1.3.147) — latest snapshot per
+  // series plus only the deposits booked after it, so a deposit a snapshot already includes is
+  // never counted twice. Estudio's runway and the widget read this same walk.
+  const stock = savingsStock(state, key);
+  const stockEm = stock.emergency;
+  const cushionStock = stockEm > 0 ? stockEm : Math.max(0, stock.total - stock.retirement);
   if (!dated.length && cushionStock > 0 && perDay > 0 && !(uniqueMinor > 0 && left < 0)) {
     const essentialPerDay = Math.max(1, Math.round(essentialsMonthly / days));
     const lastDays = Math.floor(cushionStock / essentialPerDay);

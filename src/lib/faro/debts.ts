@@ -7,21 +7,22 @@
  * - Payoff plan for Préstamos (avalanche / snowball), net balance, per-person history and a 6-month balance series.
  * Interest rule is the one in loans.ts (simple, by the day, on the amount lent; payments never reduce it).
  */
-import { convertMinor, monthlyEquivalent } from "./money";
+import { convertMinor, monthlyEquivalent, normCurrency } from "./money";
 import { cardBalanceAt, cardPays, cardPlanDebts, cardTotals, cardsOf, rewardsAt, rewardsTotals, storedCards } from "./cards";
 import { ISO_DAY, dayGap, loanFigures, loanPays, loanState, loansOf, simpleInterest, todayIso } from "./loans";
 import type { Currency, DebtPlan, LedgerState, Lent, Line, Loan } from "./types";
 
 /* ---------- Me deben (lent) ---------- */
 
-export function normalizeLent(l: Lent): Lent {
+export function normalizeLent(l: Lent, fallback: Currency = "USD"): Lent {
   const started = typeof l.startedOn === "string" && ISO_DAY.test(l.startedOn) ? l.startedOn : "";
   return {
     id: String(l.id),
     person: typeof l.person === "string" ? l.person : "",
     kind: l.kind === "interest" ? "interest" : "plain",
     amountMinor: typeof l.amountMinor === "number" ? l.amountMinor : 0,
-    currency: l.currency === "NIO" ? "NIO" : "USD",
+    // 1.3.147: the shared normalizer (exact USD/NIO win; anything else takes the caller's fallback).
+    currency: normCurrency(l.currency, fallback),
     aprBps: typeof l.aprBps === "number" && l.aprBps > 0 ? l.aprBps : 0,
     startedOn: started,
     dueOn: typeof l.dueOn === "string" && ISO_DAY.test(l.dueOn) ? l.dueOn : "",
@@ -31,7 +32,7 @@ export function normalizeLent(l: Lent): Lent {
 }
 
 export function lentOf(state: LedgerState | null | undefined): Lent[] {
-  return Array.isArray(state?.lent) ? state!.lent!.filter((l) => l && typeof l.id === "string").map(normalizeLent) : [];
+  return Array.isArray(state?.lent) ? state!.lent!.filter((l) => l && typeof l.id === "string").map((l) => normalizeLent(l, state!.settings.display)) : [];
 }
 
 /** Abono lines of one lent amount, oldest first. */
@@ -42,7 +43,10 @@ export function lentPays(state: LedgerState, id: string): Line[] {
 }
 
 export function lentState(state: LedgerState, l: Lent, today = todayIso()) {
-  const paid = lentPays(state, l.id).reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, l.currency, state.settings.rateE4), 0);
+  // 1.3.147: same date bound as loanState — an abono dated next month does not lower today's figure.
+  const paid = lentPays(state, l.id)
+    .filter((line) => (line.bookedOn || `${line.monthKey}-01`) <= today)
+    .reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, l.currency, state.settings.rateE4), 0);
   return loanFigures(l.amountMinor, l.kind, l.aprBps, l.startedOn || l.dueOn || today, paid, today);
 }
 
@@ -59,7 +63,7 @@ export function lentTotals(state: LedgerState | null | undefined, today = todayI
 }
 
 export function addLent(state: LedgerState, l: Lent): LedgerState {
-  return { ...state, lent: [normalizeLent(l), ...lentOf(state)] };
+  return { ...state, lent: [normalizeLent(l, state.settings.display), ...lentOf(state)] };
 }
 
 function abonoLine(id: string, lentId: string, person: string, amountMinor: number, currency: Currency, day: string, label: string): Line {
@@ -108,7 +112,7 @@ export function moveCobros(state: LedgerState, raw: unknown, label = "Abono"): {
   for (const row of raw as OldCobro[]) {
     if (!row || typeof row.id !== "string" || typeof row.person !== "string" || typeof row.amountMinor !== "number") continue;
     if (done.has(row.id) || movedIds.includes(row.id)) continue;
-    const currency: Currency = row.currency === "NIO" ? "NIO" : "USD";
+    const currency: Currency = normCurrency(row.currency, state.settings.display);
     const owed = typeof row.owedOn === "string" && ISO_DAY.test(row.owedOn) ? row.owedOn : "";
     const started = typeof row.startedOn === "string" && ISO_DAY.test(row.startedOn) ? row.startedOn : owed;
     added.push(normalizeLent({
@@ -136,12 +140,61 @@ export function moveCobros(state: LedgerState, raw: unknown, label = "Abono"): {
   };
 }
 
+/* ---------- the third debt store: balances written on debt-category lines ---------- */
+
+function debtRoleOf(state: LedgerState, categoryId: string): boolean {
+  return state.structure.categories.find((c) => c.id === categoryId)?.role === "debt";
+}
+
+/**
+ * The latest balance reading of every debt-line series (1.3.147): active lines in a debt-role
+ * category that carry a balanceMinor, booked in months up to `today`'s month. Loan payment lines
+ * are not a balance store (their balance lives on the Loan), so loanId lines never join here.
+ * Latest per series by (month, booked day, id) — the same reading rule as the savings stock.
+ */
+export function lineDebtLines(state: LedgerState | null | undefined, today = todayIso()): Line[] {
+  if (!state) return [];
+  const upto = today.slice(0, 7);
+  const latest = new Map<string, { line: Line; month: string }>();
+  for (const [monthKey, bucket] of Object.entries(state.months)) {
+    if (monthKey > upto) continue;
+    for (const line of bucket.lines) {
+      if (!line.active || line.balanceMinor == null || line.loanId) continue;
+      if (!debtRoleOf(state, line.categoryId)) continue;
+      const sid = line.seriesId || line.id;
+      const day = line.bookedOn && line.bookedOn.startsWith(monthKey) ? line.bookedOn : "";
+      const prev = latest.get(sid);
+      const prevDay = prev && prev.line.bookedOn && prev.line.bookedOn.startsWith(prev.month) ? prev.line.bookedOn : "";
+      if (!prev || `${monthKey}|${day}|${line.id}` > `${prev.month}|${prevDay}|${prev.line.id}`) latest.set(sid, { line, month: monthKey });
+    }
+  }
+  return [...latest.values()].map((x) => x.line);
+}
+
+/** Balances recorded on debt-category lines, in the view currency — the debt store netBalance used to miss. */
+export function lineDebtTotal(state: LedgerState | null | undefined, today = todayIso()): number {
+  if (!state) return 0;
+  const { display, rateE4 } = state.settings;
+  return lineDebtLines(state, today).reduce((s, line) => s + convertMinor(line.balanceMinor as number, line.balanceCurrency || line.currency, display, rateE4), 0);
+}
+
+/**
+ * The ONE total debt (1.3.147): received loans pending + credit card balances + balances written
+ * on debt-category lines, in the view currency. netBalance, the Debo headers and the payoff plan
+ * all read this (through their parts), so no surface can show a smaller "Debo" than another.
+ */
+export function totalDebt(state: LedgerState | null | undefined, today = todayIso()): number {
+  if (!state) return 0;
+  return loansLeft(state, today) + cardTotals(state, today).balance + lineDebtTotal(state, today);
+}
+
 /* ---------- net, people, series ---------- */
 
 /**
  * Me deben − Debo (Préstamos pending + credit card balances, 1.3.107), in the view currency.
  * 1.3.109: card rewards (cash back the bank holds for the user) are money owed TO the user: they join Me deben as their
  * own part (`rewards`, `lent` = people), never subtracted from the card debt.
+ * 1.3.147: `owe` is totalDebt() — balances written on debt-category lines count too, as their own part (`lines`).
  */
 export function netBalance(state: LedgerState | null | undefined, today = todayIso()) {
   const lent = lentTotals(state, today).left;
@@ -149,8 +202,9 @@ export function netBalance(state: LedgerState | null | undefined, today = todayI
   const owed = lent + rewards;
   const loans = loansLeft(state, today);
   const cards = cardTotals(state, today).balance;
-  const owe = loans + cards;
-  return { owed, owe, net: owed - owe, loans, cards, lent, rewards };
+  const lines = lineDebtTotal(state, today);
+  const owe = loans + cards + lines;
+  return { owed, owe, net: owed - owe, loans, cards, lines, lent, rewards };
 }
 
 function loansLeft(state: LedgerState | null | undefined, today: string) {
@@ -291,7 +345,25 @@ export function simulatePlan(debts: PlanDebt[], budget: number, order: DebtPlan[
 /** Préstamos and credit cards as plan debts, in the view currency (archived and paid-off ones left out). */
 export function planDebts(state: LedgerState | null | undefined, today = todayIso()): PlanDebt[] {
   if (!state) return [];
-  return [...loanPlanDebts(state, today), ...cardPlanDebts(state, today)];
+  return [...loanPlanDebts(state, today), ...cardPlanDebts(state, today), ...linePlanDebts(state, today)];
+}
+
+/** Balances written on debt-category lines as plan debts (1.3.147): the debt-free date now counts them too. */
+function linePlanDebts(state: LedgerState, today: string): PlanDebt[] {
+  const { display, rateE4 } = state.settings;
+  return lineDebtLines(state, today)
+    .map((line) => {
+      const balCur = line.balanceCurrency || line.currency;
+      const monthly = Math.round(((line.balanceMinor as number) * line.aprBps) / (10000 * 12));
+      return {
+        id: line.id,
+        name: line.concept || state.structure.categories.find((c) => c.id === line.categoryId)?.customName || "Créditos",
+        left: convertMinor(line.balanceMinor as number, balCur, display, rateE4),
+        monthlyInterest: convertMinor(monthly, balCur, display, rateE4),
+        aprBps: line.aprBps,
+      };
+    })
+    .filter((d) => d.left > 0);
 }
 
 function loanPlanDebts(state: LedgerState, today: string): PlanDebt[] {
@@ -323,7 +395,7 @@ export function planOf(state: LedgerState | null | undefined): DebtPlan | null {
   const p = state?.debtPlan;
   if (!p || typeof p !== "object") return null;
   return {
-    order: p.order === "snowball" ? "snowball" : "avalanche", monthlyMinor: typeof p.monthlyMinor === "number" && p.monthlyMinor > 0 ? p.monthlyMinor : 0, currency: p.currency === "NIO" ? "NIO" : "USD",
+    order: p.order === "snowball" ? "snowball" : "avalanche", monthlyMinor: typeof p.monthlyMinor === "number" && p.monthlyMinor > 0 ? p.monthlyMinor : 0, currency: normCurrency(p.currency, state?.settings.display ?? "USD"),
     ...(typeof p.cadence === "string" && p.cadence && p.cadence !== "monthly" ? { cadence: p.cadence } : {}),
   };
 }

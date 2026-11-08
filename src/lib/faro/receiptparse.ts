@@ -7,6 +7,7 @@
  */
 import { amountMinor, datesIn } from "./stmtocr";
 import { matchBrand } from "./subs";
+import { normCurrency } from "./money";
 
 export type OcrBox = { x0: number; y0: number; x1: number; y1: number };
 export type OcrLine = { text: string; box?: OcrBox };
@@ -231,7 +232,7 @@ function parseSubs(lines: OcrLine[], today: string): ScanDraft[] {
     const hit = matchBrand(concept) || matchBrand(name) || "";
     const brand = hit.startsWith("g-") ? "" : hit;
     out.push({
-      type: "subscription", concept, note, amountMinor: a.amt, currency: a.cur === "NIO" ? "NIO" : "USD", date, cadence, brand, generic: brand ? "" : hit,
+      type: "subscription", concept, note, amountMinor: a.amt, currency: normCurrency(a.cur, "USD"), date, cadence, brand, generic: brand ? "" : hit,
       book: "subscription", category: "", sub: "", unsure, box: boxOf([...block, end].map((j) => lines[j])),
     });
   });

@@ -4,8 +4,13 @@ import type { LedgerState, Line } from "./types";
 
 export const REMIT_IDS = new Set(["f-remesas", "v-remesas"]);
 
-/** A line counts as a remittance when its category has the remittance role (or is a default Remesas id, even after the category was deleted). */
-export function isRemit(state: LedgerState, line: Line): boolean {
+/**
+ * The ONE remittance predicate (1.3.147): a line counts as a remittance when it is active, is an
+ * expense (fixed or variable), and its category has the remittance role (or is a default Remesas
+ * id, even after the category was deleted). summarize() used to count ANY line — income included —
+ * in a remittance-role category, so Central and the Remesas screen could disagree on the same money.
+ */
+export function isRemitLine(state: LedgerState, line: Line): boolean {
   if (!line.active || (line.kind !== "expense-fixed" && line.kind !== "expense-variable")) return false;
   if (REMIT_IDS.has(line.categoryId)) return true;
   return state.structure.categories.find((c) => c.id === line.categoryId)?.role === "remittance";
@@ -41,7 +46,7 @@ export function remitTrend(state: LedgerState, key: string, n = 6): RemitTrend {
     let usd = 0, count = 0, income = 0;
     for (const l of lines) {
       if (l.active && (l.kind === "income-fixed" || l.kind === "income-variable")) income += convertMinor(l.amountMinor, l.currency, "USD", rate);
-      if (!isRemit(state, l)) continue;
+      if (!isRemitLine(state, l)) continue;
       usd += convertMinor(l.amountMinor, l.currency, "USD", rate);
       count++;
     }

@@ -10,6 +10,7 @@
  */
 import { amountsIn, datesLoose, type OcrLine } from "./receiptparse";
 import { issuerIn } from "./cards";
+import { normCurrency } from "./money";
 
 export type CardField = "balance" | "avail" | "limit" | "min" | "due" | "statement" | "apr" | "name" | "rewards" | "earned" | "lastPay";
 /** 1.3.109: a labelled number the reader found but has no field for ("Otros datos"): shown, kept as a note only if ticked. */
@@ -70,7 +71,7 @@ const LAST4 = /(?:\.{2,}|…|•+|\*{2,}|x{2,}|ending in|termina(?:da)? en|termi
 /** Amount on a line, ignoring numbers that look like a year, a day or a FICO score. */
 function amountOn(text: string): { v: number; cur: "USD" | "NIO" } | null {
   const a = amountsIn(text).find((x) => x.signed) ?? amountsIn(text)[0];
-  return a ? { v: a.v, cur: a.cur === "NIO" ? "NIO" : "USD" } : null;
+  return a ? { v: a.v, cur: normCurrency(a.cur, "USD") } : null;
 }
 
 const amountOnly = (text: string) => !!amountOn(text) && fold(text).replace(/[^a-z]/g, "").length <= 3;

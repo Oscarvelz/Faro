@@ -19,6 +19,7 @@ import type { Currency, Group, Loan } from "@/lib/faro/types";
 import { CardsGroup } from "./cards";
 import { BookKit } from "./book-kit";
 import { cardFigures, cardTotals, cardsOf } from "@/lib/faro/cards";
+import { lineDebtTotal, totalDebt } from "@/lib/faro/debts";
 
 export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group };
 
@@ -290,7 +291,12 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
   const filed = all.filter((l) => l.archived);
   const sums = loanTotals(ledger);
   // 1.3.107: the top figure is everything owed here, loans + credit cards; the line under it splits it.
+  // 1.3.147: the figure is the ONE total debt (debts.ts) — balances on debt-category lines count too,
+  // and the split under it names them when there are any.
   const cardSum = cardTotals(ledger);
+  const owedTotal = totalDebt(ledger);
+  const lineDebt = lineDebtTotal(ledger);
+  const lineDebtPart: Array<string | { num: string }> = [lang === "en" ? "Credit" : "Créditos", { num: fmt(lineDebt) }];
   function save(d: LoanDraft) {
     const loan: Loan = { id: uid(), lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, note: "" };
     commit((s) => addLoan(s, loan), d.name);
@@ -300,7 +306,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
     <div className="cobro-swap" data-anchor={libros ? "debt-loans-list" : "cobros-loans"}>
       <div className="cobro-top">
         <div>
-          <strong className="num" data-anchor="loans-total">{fmt(sums.left + cardSum.balance)}</strong>
+          <strong className="num" data-anchor="loans-total">{fmt(owedTotal)}</strong>
         </div>
         {libros ? (
           <span className="cobro-kit">
@@ -318,15 +324,18 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         [`${sums.count} ${t(sums.count === 1 ? "debo.sum.loan1" : "debo.sum.loanN")}`],
         [t("cobro.tab.loans"), { num: fmt(sums.left) }],
         [lang === "en" ? "Cards" : "Tarjetas", { num: fmt(cardSum.balance) }],
+        ...(lineDebt > 0 ? [lineDebtPart] : []),
       ] : cardSum.known ? [
         [`${cardSum.known} ${lang === "en" ? (cardSum.known === 1 ? "card" : "cards") : (cardSum.known === 1 ? "tarjeta" : "tarjetas")}`],
         ...(cardSum.min > 0 ? [[lang === "en" ? "minimums" : "mínimos", { num: fmt(cardSum.min) }]] : []),
         ...(cardSum.util != null ? [[lang === "en" ? "use" : "uso", `${Math.round(cardSum.util * 100)}%`]] : []),
+        ...(lineDebt > 0 ? [lineDebtPart] : []),
       ] : sums.count ? [
         [`${sums.count} ${t(sums.count === 1 ? "debo.sum.loan1" : "debo.sum.loanN")}`],
         ...(sums.interest > 0 ? [[t("debo.sum.interest"), { num: fmt(sums.interest) }]] : []),
         [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
-      ] : null} />
+        ...(lineDebt > 0 ? [lineDebtPart] : []),
+      ] : lineDebt > 0 ? [lineDebtPart] : null} />
       {adding ? <LoanForm mode="borrow" onCancel={() => setAdding(false)} onSave={save} /> : null}
       {(() => {
         const loan = editFor ? active.find((l) => l.id === editFor) : null;
@@ -403,7 +412,7 @@ export function LoansStudy() {
       <div className="stat-head">
         <h2 className="serif text-2xl lab-head">{t("study.loans.title")}<Hint topic="estudio-prestamos" fitParent /></h2>
       </div>
-      <p className="num serif text-3xl">{fmt(sums.left + cardSum.balance)}</p>
+      <p className="num serif text-3xl">{fmt(totalDebt(ledger))}</p>
       <p className="text-sm text-muted">{t("study.loans.still")}{cardSum.known ? ` ${lang === "en" ? `Cards ${fmt(cardSum.balance)}${cardSum.util != null ? `, ${Math.round(cardSum.util * 100)}% of the limit` : ""}.` : `Tarjetas ${fmt(cardSum.balance)}${cardSum.util != null ? `, ${Math.round(cardSum.util * 100)}% del límite` : ""}.`}` : ""}</p>
       <div className="bar-track owed-track" aria-hidden><div className="bar-fill" style={{ width: `${(sums.paid / whole) * 100}%` }} /></div>
       <div className="span-facts">

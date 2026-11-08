@@ -6,7 +6,7 @@
  * There is no second money system: a payment toward a received loan is a normal expense line with `loanId`,
  * in the Fijos or Variables book the loan names. Paid = the sum of those lines. Delete the line, the payment is gone.
  */
-import { convertMinor } from "./money";
+import { convertMinor, normCurrency } from "./money";
 import type { Category, Currency, LedgerState, Line, Loan } from "./types";
 
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,14 +36,16 @@ export function loanFigures(amountMinor: number, kind: "plain" | "interest", apr
 
 /* ---------- received loans (ledger) ---------- */
 
-export function normalizeLoan(l: Loan): Loan {
+export function normalizeLoan(l: Loan, fallback: Currency = "NIO"): Loan {
   return {
     id: String(l.id),
     lender: typeof l.lender === "string" ? l.lender : "",
     who: l.who === "entity" ? "entity" : "person",
     kind: l.kind === "interest" ? "interest" : "plain",
     amountMinor: typeof l.amountMinor === "number" ? l.amountMinor : 0,
-    currency: l.currency === "USD" ? "USD" : "NIO",
+    // 1.3.147: the shared normalizer — a garbled currency falls back to the caller's currency
+    // (the ledger's display where known), never silently to córdobas.
+    currency: normCurrency(l.currency, fallback),
     aprBps: typeof l.aprBps === "number" && l.aprBps > 0 ? l.aprBps : 0,
     takenOn: typeof l.takenOn === "string" && ISO_DAY.test(l.takenOn) ? l.takenOn : "",
     book: l.book === "variable" ? "variable" : "fixed",
@@ -54,7 +56,7 @@ export function normalizeLoan(l: Loan): Loan {
 
 /** Every received loan, archived ones too. Old ledgers have none. */
 export function loansOf(state: LedgerState | null | undefined): Loan[] {
-  return Array.isArray(state?.loans) ? state!.loans!.filter((l) => l && typeof l.id === "string").map(normalizeLoan) : [];
+  return Array.isArray(state?.loans) ? state!.loans!.filter((l) => l && typeof l.id === "string").map((l) => normalizeLoan(l, state!.settings.display)) : [];
 }
 
 /** Payment lines of one loan, oldest first. */
@@ -66,7 +68,12 @@ export function loanPays(state: LedgerState, id: string): Line[] {
 
 /** Figures of a received loan in its own currency. */
 export function loanState(state: LedgerState, loan: Loan, today = todayIso()) {
-  const paid = loanPays(state, loan.id).reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, loan.currency, state.settings.rateE4), 0);
+  // 1.3.147: only payments booked on or before `today` count — a payment dated next month used to
+  // reduce today's debt here while the trend chart (debtSeries.leftAt, which bounds by date) said
+  // otherwise. The bound is the same one leftAt uses: bookedOn, else the 1st of the line's month.
+  const paid = loanPays(state, loan.id)
+    .filter((line) => (line.bookedOn || `${line.monthKey}-01`) <= today)
+    .reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, loan.currency, state.settings.rateE4), 0);
   return loanFigures(loan.amountMinor, loan.kind, loan.aprBps, loan.takenOn, paid, today);
 }
 
@@ -91,7 +98,7 @@ export function loanTotals(state: LedgerState | null | undefined, today = todayI
 }
 
 export function addLoan(state: LedgerState, loan: Loan): LedgerState {
-  return { ...state, loans: [normalizeLoan(loan), ...loansOf(state)] };
+  return { ...state, loans: [normalizeLoan(loan, state.settings.display), ...loansOf(state)] };
 }
 
 /** Where a payment lands: the debt category of that book, else its first visible category. */

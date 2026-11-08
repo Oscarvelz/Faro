@@ -1,6 +1,8 @@
 import { readAdvisor } from "./advisor";
 import { colorFor } from "./colors";
 import { displayName, visibleNamer } from "./defaults";
+import { isRemitLine } from "./remesas";
+import { savingsStock } from "./savings";
 import { loanTotals } from "./loans";
 import { lentTotals, payoffPlan } from "./debts";
 import { cardFigures, cardMonthlyInterest, cardTotals, cardsOf, rewardsTotals, toThirty } from "./cards";
@@ -68,7 +70,9 @@ export function summarize(state: LedgerState, key: string, lang: Lang): Summary 
   const savingsFlow = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "savings");
   const savingsGoal = roundHalfAway((income * settings.savingsGoalPct) / 100);
   const petty = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "petty");
-  const remittance = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "remittance");
+  // 1.3.147: the ONE remittance predicate (remesas.ts) — expenses in a remittance category only;
+  // an income line filed there is income, not a remittance, on every surface.
+  const remittance = sum(lines, display, rateE4, (l) => isRemitLine(state, l));
   const housing = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "housing");
   const money = (n: number) => formatMoney(n, display, lang);
   let tone: Tone = "neutral";
@@ -302,12 +306,18 @@ export type StudyBoard = {
 };
 
 export function studyBoard(state: LedgerState, key: string, lang: Lang, names: Namer): StudyBoard {
+  names = visibleNamer(state.structure, names); // Contrato, regla 2: las etiquetas no nombran lo oculto.
   const s = summarize(state, key, lang);
   const { display, rateE4 } = state.settings;
   const [yStr, mStr] = key.split("-");
   const y = Number(yStr) || 2026;
   const days = new Date(y, Number(mStr) || 1, 0).getDate() || 30;
-  const burn = days > 0 ? Math.round(s.expense / days) : 0;
+  // 1.3.147: the current month's daily burn divides by the days ELAPSED, not the whole month
+  // (on the 5th it read ~6× too low next to the previous month's complete-month figure).
+  const nowD = new Date();
+  const isCurrentMonth = key === `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}`;
+  const burnDays = isCurrentMonth ? Math.max(1, nowD.getDate()) : days;
+  const burn = burnDays > 0 ? Math.round(s.expense / burnDays) : 0;
   const prev = previousKey(key);
   const prevLines = monthLines(state, prev);
   const hasPrev = prevLines.some((l) => l.active);
@@ -335,9 +345,9 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
     { name: L(lang, "Casa", "Home"), budget: s.income > 0 ? roundHalfAway((s.income * 35) / 100) : 0, actual: s.housing },
   ].filter((row) => row.budget > 0 || row.actual > 0);
   const lines = monthLines(state, key).filter((l) => l.active);
-  const runwayHave = lines
-    .filter((l) => roleOf(state.structure, l.categoryId) === "savings" && l.balanceMinor !== null)
-    .reduce((acc, l) => acc + convertMinor(l.balanceMinor || 0, l.balanceCurrency, display, rateE4), 0);
+  // 1.3.147: the runway numerator is the ONE savings stock (savings.ts) — the same figure the
+  // Asesor's cushion and the widget read — not just the balances sitting in this month's bucket.
+  const runwayHave = savingsStock(state, key).total;
   const runwayMonths = s.fixed > 0 ? runwayHave / s.fixed : null;
   const top = lines
     .filter((l) => !l.kind.startsWith("income"))
@@ -355,7 +365,9 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
     { name: L(lang, "Cuotas", "Subscriptions"), minor: s.subscriptions, tone: "tone-4" },
     { name: L(lang, "Queda", "Left"), minor: Math.max(0, s.opportunity), tone: "tone-0" },
   ].filter((b) => b.minor > 0);
-  const raw = slicesFor(lines, state.structure, display, rateE4, names);
+  // 1.3.147: the donut reads categorySlices (hidden money folds into «Otros», the contract's rule),
+  // not the raw slicesFor that printed hidden categories under their own names.
+  const raw = categorySlices(state, key, names, lang);
   const head = raw.slice(0, 6);
   const tail = raw.slice(6).reduce((acc, sl) => acc + sl.minor, 0);
   const donut = tail > 0
@@ -383,9 +395,14 @@ export type CashSankey = { nodes: SankeyNode[]; links: SankeyLink[] };
 
 /** Income → categories → the biggest pieces inside them. Real month lines only. */
 export function cashSankey(state: LedgerState, key: string, lang: Lang, names: Namer): CashSankey {
+  names = visibleNamer(state.structure, names); // Contrato, regla 2: las etiquetas no nombran lo oculto.
   const { display, rateE4 } = state.settings;
   const lines = monthLines(state, key).filter((line) => line.active);
   const income = lines.filter((line) => line.kind.startsWith("income")).reduce((sum, line) => sum + inView(line, display, rateE4), 0);
+  // 1.3.147: hidden categories fold into the «Otras» bucket from the start (their money still
+  // counts; their names and their subs never print), like categorySlices does for Estudio.
+  const hiddenCats = new Set(state.structure.categories.filter((c) => c.hidden).map((c) => c.id));
+  const hiddenSubs = new Set(state.structure.categories.flatMap((c) => c.subs.filter((s) => s.hidden || c.hidden).map((s) => s.id)));
   type Sub = { id: string; name: string; minor: number };
   type Bucket = { id: string; name: string; minor: number; color: string; subs: Map<string, Sub> };
   const cats = new Map<string, Bucket>();
@@ -394,16 +411,17 @@ export function cashSankey(state: LedgerState, key: string, lang: Lang, names: N
     if (!line.kind.startsWith("expense") && line.kind !== "purchase" && line.kind !== "subscription") continue;
     const minor = inView(line, display, rateE4);
     if (minor <= 0) continue;
-    const id = line.categoryId || line.kind;
+    const hiddenLine = !!line.categoryId && hiddenCats.has(line.categoryId);
+    const id = hiddenLine ? "otras" : line.categoryId || line.kind;
     const bucket = cats.get(id) ?? {
       id,
-      name: names.cat(id) || names.purchase(id) || line.concept || id,
+      name: hiddenLine ? L(lang, "Otras", "Other") : names.cat(id) || names.purchase(id) || line.concept || id,
       minor: 0,
-      color: colorFor(state.structure, id),
+      color: hiddenLine ? "#c5c1b8" : colorFor(state.structure, id),
       subs: new Map<string, Sub>(),
     };
     bucket.minor += minor;
-    if (line.subId) {
+    if (line.subId && !hiddenLine && !hiddenSubs.has(line.subId)) {
       const sub = bucket.subs.get(line.subId) ?? { id: line.subId, name: names.sub(line.subId) || line.concept || line.subId, minor: 0 };
       sub.minor += minor;
       if (!sub.name) sub.name = line.concept || sub.id;
@@ -415,7 +433,9 @@ export function cashSankey(state: LedgerState, key: string, lang: Lang, names: N
   const head = ranked.slice(0, 5);
   const restMinor = ranked.slice(5).reduce((sum, cat) => sum + cat.minor, 0);
   if (restMinor > 0) {
-    head.push({ id: "otras", name: L(lang, "Otras", "Other"), minor: restMinor, color: "#c5c1b8", subs: new Map() });
+    const otras = head.find((cat) => cat.id === "otras");
+    if (otras) otras.minor += restMinor;
+    else head.push({ id: "otras", name: L(lang, "Otras", "Other"), minor: restMinor, color: "#c5c1b8", subs: new Map() });
   }
   if (!head.length && income <= 0) return { nodes: [], links: [] };
   const nodes: SankeyNode[] = [];
@@ -734,6 +754,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
 }
 
 export function buildBudget(state: LedgerState, key: string, lang: Lang, names: Namer): BudgetPlan {
+  names = visibleNamer(state.structure, names); // Contrato, regla 2: las etiquetas no nombran lo oculto.
   const s = summarize(state, key, lang);
   const lines = monthLines(state, key).filter((l) => l.active);
   const savingsFixed = sum(lines, state.settings.display, state.settings.rateE4, (l) => l.kind === "expense-fixed" && roleOf(state.structure, l.categoryId) === "savings");

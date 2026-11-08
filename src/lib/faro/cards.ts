@@ -10,7 +10,7 @@
  *   remembered in `cardsOff` (synced, backed up, sample mode has its own ledger). Restore brings them back.
  * Pure: no DOM. Amounts in minor units of the card's currency.
  */
-import { convertMinor } from "./money";
+import { convertMinor, normCurrency } from "./money";
 import { ISO_DAY, todayIso } from "./loans";
 import type { CardSnap, CreditCard, Currency, LedgerState, Line, RewardSnap } from "./types";
 
@@ -101,7 +101,7 @@ export function normalizeCard(c: CreditCard): CreditCard {
     ...(typeof c.art === "string" && c.art ? { art: c.art } : {}),
     ...(typeof c.network === "string" && c.network ? { network: c.network } : {}),
     last4: typeof c.last4 === "string" ? c.last4.replace(/\D/g, "").slice(-4) : "",
-    currency: c.currency === "NIO" ? "NIO" : "USD",
+    currency: normCurrency(c.currency, "USD"),
     limitMinor: typeof c.limitMinor === "number" && c.limitMinor > 0 ? Math.round(c.limitMinor) : null,
     dueDay: typeof c.dueDay === "number" && c.dueDay >= 1 && c.dueDay <= 31 ? Math.round(c.dueDay) : 0,
     aprBps: typeof c.aprBps === "number" && c.aprBps > 0 ? Math.round(c.aprBps) : 0,
@@ -239,18 +239,43 @@ export function nextDue(card: CreditCard, last: CardSnap | null, today = todayIs
   return "";
 }
 
+/**
+ * The due date that has already passed for the current cycle, when it has (1.3.147): the bank's own
+ * date from the latest reading wins; only when the reading carries none does the card's due day
+ * (this month's, already past) speak. Empty when nothing is past due.
+ */
+function pastDueOn(card: CreditCard, last: CardSnap | null, today: string): string {
+  if (last?.dueOn) return last.dueOn < today ? last.dueOn : "";
+  if (!card.dueDay) return "";
+  const t = new Date(`${today}T12:00:00`);
+  const lastDay = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+  const d = todayIso(new Date(t.getFullYear(), t.getMonth(), Math.min(card.dueDay, lastDay), 12));
+  return d < today ? d : "";
+}
+
 export function cardFigures(state: LedgerState, card: CreditCard, today = todayIso()): CardFigures {
   const last = card.snaps[card.snaps.length - 1] ?? null;
-  const paid = last ? paidSince(state, card, last) : 0;
+  // 1.3.147: payments count up to today — a payment dated next month no longer lowers today's balance.
+  const paid = last ? paidSince(state, card, last, today) : 0;
   const balance = last ? Math.max(0, last.balanceMinor - paid) : 0;
   const limit = card.limitMinor ?? last?.limitMinor ?? (last && last.availMinor != null ? last.balanceMinor + last.availMinor : null);
   const avail = limit != null ? Math.max(0, limit - balance) : null;
   const prev = last ? [...card.snaps].reverse().find((s) => s.on < last.on) ?? null : null;
+  // 1.3.147 (closes the 1.3.146 caveat): an unpaid card past its due date surfaces that PAST date as
+  // dueOn instead of rolling forward to the next cycle, so the widget and the notifications can call
+  // it overdue. A payment since the reading that covers the bank's minimum covers the cycle and the
+  // forward behavior returns; a paid-off card is never overdue.
+  let dueOn = nextDue(card, last, today);
+  if (last && balance > 0) {
+    const past = pastDueOn(card, last, today);
+    const covered = last.minMinor != null && paid >= last.minMinor;
+    if (past && !covered) dueOn = past;
+  }
   return {
     known: !!last, balance, limit, avail,
     util: limit && limit > 0 ? balance / limit : null,
     min: last?.minMinor ?? null,
-    dueOn: nextDue(card, last, today),
+    dueOn,
     last, paid,
     delta: last && prev ? last.balanceMinor - prev.balanceMinor : null,
     since: prev?.on ?? "",

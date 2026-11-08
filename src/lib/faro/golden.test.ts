@@ -134,12 +134,19 @@ function capture(ledger: LedgerState) {
   // cambia esa capa al plegar lo oculto en «Otros». Su dinero se afirma aparte (prueba de nombres):
   // la fracción de «Otros» es exactamente la del dinero plegado, y la suma de rebanadas no se mueve.
   const insights = buildInsights(ledger, KEY, "es", names).filter((i) => i.id !== "pareto");
+  // 1.3.147 (Oleada 2, arreglo 4): el donut de studyBoard lee ahora categorySlices — lo oculto se
+  // pliega en «Otros» como manda la regla 2 — así que su AGRUPACIÓN es capa de nombres, igual que
+  // el pareto: entra a la identidad solo su SUMA (el dinero no se mueve un centavo al plegar).
+  // Antes el donut usaba slicesFor crudo y la identidad de cifras fijaba sin querer la fuga: las
+  // categorías ocultas conservaban rebanada propia con su monto en cada estado.
+  const boardRaw = studyBoard(ledger, KEY, "es", names);
+  const board = { ...boardRaw, donut: boardRaw.donut.reduce((a, d) => a + d.minor, 0) };
   return {
     summary: figures(summarize(ledger, KEY, "es")),
     advisor: figures(readAdvisor(ledger, KEY, "es", names, { today: TODAY })),
     advice: figures(buildAdvice(ledger, KEY, "es", names)),
     insights: figures(insights),
-    board: figures(studyBoard(ledger, KEY, "es", names)),
+    board: figures(board),
   };
 }
 
@@ -180,9 +187,13 @@ describe("batería dorada de Estructura — el contrato", () => {
   // dinero oculto desaparecía del total mostrado (0 contra 679900 del motor). Desde el paso 5 solo
   // los bolsillos con nombre siguen la visibilidad y lo oculto suma como resto genérico: el total es
   // idéntico en los SEIS estados, incluido el que oculta Ahorro entero a mano.
+  // 1.3.147 (Oleada 2, arreglo 1): el total ya no lee solo el mes en curso — es el stock único
+  // (savings.ts): al 679900 de octubre se suman los 30000 que la serie «meta9» depositó en
+  // septiembre y que siguen ahorrados en octubre. 679900 → 709900; la identidad entre los seis
+  // estados — el contrato de esta batería — no se mueve.
   it("savingsOf: el total es idéntico en los seis estados, incluso con Ahorro oculto a mano (R-4)", () => {
     const want = savingsOf(states[0]!.ledger, KEY, "es").total;
-    assert.equal(want, 679900);
+    assert.equal(want, 709900);
     for (const s of states.slice(1)) {
       assert.equal(savingsOf(s.ledger, KEY, "es").total, want, `savingsOf.total difiere en estado ${s.name}`);
     }
@@ -190,7 +201,7 @@ describe("batería dorada de Estructura — el contrato", () => {
     const hand = savingsOf(states[5]!.ledger, KEY, "es");
     assert.equal(hand.accounts, 0);
     assert.deepEqual(hand.pockets.map((p) => p.id), ["rest"]);
-    assert.equal(hand.pocketTotal, 679900);
+    assert.equal(hand.pocketTotal, 709900);
   });
 
   it("la base se registra: el nacimiento es «completa» y aplicar una plantilla la escribe con su parche", () => {

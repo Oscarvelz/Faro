@@ -18,6 +18,16 @@ function divRound(n: number, d: number): number {
   return neg ? -q : q;
 }
 
+/**
+ * The ONE currency normalizer (1.3.147): an exact "USD" is USD, an exact "NIO" is NIO, and anything
+ * else (missing, garbled, legacy) resolves to the caller's fallback — never to a hardcoded opposite.
+ * Before this, loans read "not USD" as NIO while lent read "not NIO" as USD, so one garbled value
+ * could silently turn dollars into córdobas (~36×) on one side of Cobros and not the other.
+ */
+export function normCurrency(c: unknown, fallback: Currency): Currency {
+  return c === "USD" ? "USD" : c === "NIO" ? "NIO" : fallback;
+}
+
 /** Convert integer minor units using an integer rate (córdobas per dollar × 10_000). */
 export function convertMinor(minor: number, from: Currency, to: Currency, rateE4: number): number {
   if (!Number.isFinite(minor)) return 0;
