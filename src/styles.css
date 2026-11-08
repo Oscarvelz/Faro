@@ -3229,3 +3229,6 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
    headers line their chevrons up with the rows'. */
 .tree-row { grid-template-columns: 22px minmax(0, 1fr); padding: 8px 6px; }
 .tree-group-btn { margin: -3px 0; padding: 3px 10px 3px 6px; }
+
+/* 1.3.146: persist-failure banner — a save to this phone failed; the banner stays until a write lands. */
+.persist-banner { margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--bad); border-radius: 14px; background: color-mix(in oklab, var(--bad) 12%, var(--surface)); color: var(--bad); font-weight: 600; font-size: .92rem; line-height: 1.35; }

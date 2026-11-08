@@ -148,7 +148,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     const f = cardFigures(state, c, today);
     if (!f.known || !f.dueOn || f.balance <= 0) continue;
     const d = dayDiff(today, f.dueOn);
-    if (d < 0 || d > 31) continue;
+    if (d > 31) continue;
     const amt = f.min != null ? convertMinor(f.min, c.currency, display, rateE4) : null;
     dues.push({ name: ((c.issuer && issuers.get(c.issuer) === 1 ? c.issuer : c.name) || c.issuer || "").trim() || (lang === "en" ? "Card" : "Tarjeta"), kind: "card", on: f.dueOn, amt, go: "vault-loans" });
   }

@@ -6,7 +6,7 @@
  */
 import Papa from "papaparse";
 import { accounts, bonusFor, ensureAccounts, findRule, guessClass, importBook, learnRule, lineReward, merchantKey, merchantLabel, splitTarget, suggestTarget, targets, type Acct, type LineReward, type Target } from "./bankbook.ts";
-import type { AcctKind, ColumnMap, ImportBook, LedgerState, Line, RewardClass, Structure, Sub } from "./types.ts";
+import type { AcctKind, ColumnMap, Currency, ImportBook, LedgerState, Line, RewardClass, Structure, Sub } from "./types.ts";
 import type { PdfStatement } from "./pdfstmt.ts";
 
 export type RawTx = {
@@ -122,6 +122,9 @@ export function parseOfx(text: string, name = "file.qfx"): ParsedFile {
     rows.push({ date, amount, desc: nm || memo, memo: nm ? memo : "", id: tag(b, "FITID") || undefined, type: tag(b, "TRNTYPE").toUpperCase() });
   }
   const kind: AcctKind = bank === "paypal" ? "paypal" : card ? "card" : "checking";
+  // The statement's own declared currency (CURDEF), when it is one Faro keeps: the review's default for this file.
+  const curdef = tag(body, "CURDEF").toUpperCase();
+  if (curdef === "USD" || curdef === "NIO") for (const r of rows) r.currency = curdef;
   return { name, format: "ofx", bank, kind, tail: acctId.slice(-4), sig: `ofx:${bank}:${kind}:${acctId.slice(-4)}`, rows };
 }
 
@@ -340,6 +343,8 @@ export type Row = {
   /** This PayPal row took in the card's copy (keeps the PayPal name). */
   pairs: string;
   include: boolean;
+  /** The currency this row's amounts are in: chosen per file in the review (the file's own word, else the book's display currency). */
+  currency: Currency;
   reward: LineReward | null;
   balance?: number;
   /** Went through PayPal (pairs with the PayPal side). */
@@ -353,8 +358,9 @@ export type Row = {
 };
 
 /** A savings statement's ending balance, offered as a pocket in Ahorros (created on import when missing). */
-export type PocketOffer = { file: number; sourceId: string; name: string; endCents: number; month: string; date: string; apyBps?: number; subId: string; create: boolean };
-export type Review = { rows: Row[]; targets: Target[]; mods: Line[]; fallback: string; pocket?: PocketOffer };
+export type PocketOffer = { file: number; sourceId: string; name: string; endCents: number; month: string; date: string; apyBps?: number; subId: string; create: boolean; currency: Currency };
+/** `dateless`: rows dropped because their date could not be read — they never reach a month (not even ""). */
+export type Review = { rows: Row[]; targets: Target[]; mods: Line[]; fallback: string; pocket?: PocketOffer; dateless: number };
 
 const DAY = 86400000;
 const dayGap = (a: string, b: string) => Math.abs(new Date(`${a}T12:00:00Z`).getTime() - new Date(`${b}T12:00:00Z`).getTime()) / DAY;
@@ -421,17 +427,32 @@ export function bankHint(raw: string): string {
   return "";
 }
 
-export function buildReview(state: LedgerState, files: ParsedFile[], sources: string[], names: Namer, lang = "es"): Review {
+/** The currency a file's own data declares, when it declares one Faro keeps (OFX CURDEF, a CSV currency column): the majority of its rows. "" when the file says nothing. */
+export function detectedCurrency(file: ParsedFile): Currency | "" {
+  const tally = new Map<Currency, number>();
+  for (const r of file.rows) if (r.currency === "USD" || r.currency === "NIO") tally.set(r.currency, (tally.get(r.currency) ?? 0) + 1);
+  let best: Currency | "" = "", n = 0;
+  for (const [c, k] of tally) if (k > n) { best = c; n = k; }
+  return best;
+}
+
+export function buildReview(state: LedgerState, files: ParsedFile[], sources: string[], names: Namer, lang = "es", currencies?: (Currency | "")[]): Review {
   const book = importBook(state);
   const accts = accounts(state);
   const list = targets(state.structure, names);
   const fallback = list.find((t) => /personales|personal/i.test(t.label) && t.sub && /otros|other/i.test(t.sub))?.value ?? list.find((t) => t.value.startsWith("expense-variable"))?.value ?? list[0]?.value ?? "expense-variable||";
   const rows: Row[] = [];
   let n = 0;
+  let dateless = 0;
   files.forEach((f, fi) => {
     const src = accts.find((a) => a.id === sources[fi]);
     const kind = src?.kind ?? f.kind;
-    for (const r of f.rows) {
+    // Per-file currency: the review's choice, else what the file itself declares, else the book's display currency — never a silent constant.
+    const fileCur: Currency = currencies?.[fi] || detectedCurrency(f) || state.settings.display;
+    // Rows with no readable date belong to no month: they are counted and dropped here, never imported into a phantom month.
+    const dated = f.rows.filter((r) => r.date);
+    dateless += f.rows.length - dated.length;
+    for (const r of dated) {
       const flow = classify(r, kind);
       const raw = r.name || r.desc;
       const en = lang === "en";
@@ -460,12 +481,12 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
       const fundCard = kind === "paypal" && r.pp && /mastercard/i.test(r.fund ?? "") ? accts.find((a) => a.kind === "card" && a.bank === "paypal") : undefined;
       rows.push({
         uid: `r${n++}`, file: fi, date: r.date, month: r.date.slice(0, 7), raw, label: flow === "interest" ? (en ? "Interest" : "Intereses") : ppName || merchantLabel(raw), key, amount: r.amount, flow, target, how,
-        rc: (r.rc ?? rule?.rc ?? (kind === "paypal" && (f.format !== "pdf" || r.pp) ? "online" : guess.rc)) as RewardClass, elig: !!rule?.elig, id, sourceId: fundCard?.id ?? src?.id ?? "", via: fundCard && src ? src.id : "", dup: "", paired: "", pairs: "", include: false, reward: null, balance: r.balance,
+        rc: (r.rc ?? rule?.rc ?? (kind === "paypal" && (f.format !== "pdf" || r.pp) ? "online" : guess.rc)) as RewardClass, elig: !!rule?.elig, id, sourceId: fundCard?.id ?? src?.id ?? "", via: fundCard && src ? src.id : "", dup: "", paired: "", pairs: "", include: false, currency: fileCur, reward: null, balance: r.balance,
         pp: !!r.pp, noReward: !!r.noReward, xpair: "", voided: false,
       });
     }
     // PayPal funding rows ("General Card Deposit") are transfers; the purchase they paid stays.
-    if (f.bank === "paypal" && f.kind === "paypal") for (const [i, r] of f.rows.entries()) if (r.fundedByCard) { const row = rows[rows.length - f.rows.length + i]; if (row && !row.via) row.via = "card"; }
+    if (f.bank === "paypal" && f.kind === "paypal") for (const [i, r] of dated.entries()) if (r.fundedByCard) { const row = rows[rows.length - dated.length + i]; if (row && !row.via) row.via = "card"; }
   });
 
   // 1. Exact keys already in the books.
@@ -484,12 +505,12 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
     const pp = ppBuys.filter((p) => !p.pairs && p.flow === card.flow && p.amount === card.amount && dayGap(p.date, card.date) <= 4).sort((a, b) => dayGap(a.date, card.date) - dayGap(b.date, card.date))[0];
     if (pp) { card.paired = pp.uid; pp.pairs = card.uid; pp.sourceId = card.sourceId; pp.via = accts.find((a) => a.kind === "paypal")?.id ?? "paypal"; pp.rc = card.rc === "other" ? pp.rc : card.rc; pp.id = [pp.id, card.id].filter(Boolean).join("|"); continue; }
     // Already in the books from an earlier PayPal file.
-    const line = all.find((l) => l.active && l.sourceId && accts.find((a) => a.id === l.sourceId)?.kind === "paypal" && !l.via && l.currency === "USD" && l.amountMinor === Math.abs(card.amount) && dayGap(lineDay(l), card.date) <= 4 && !mods.has(l.id));
+    const line = all.find((l) => l.active && l.sourceId && accts.find((a) => a.id === l.sourceId)?.kind === "paypal" && !l.via && l.currency === card.currency && l.amountMinor === Math.abs(card.amount) && dayGap(lineDay(l), card.date) <= 4 && !mods.has(l.id));
     if (line) { card.paired = line.id; mods.set(line.id, { ...line, via: line.sourceId, sourceId: card.sourceId, rc: card.rc !== "other" ? card.rc : line.rc, importId: [line.importId, card.id].filter(Boolean).join("|") }); }
   }
   for (const pp of ppBuys.filter((p) => !p.pairs && p.flow === "spend")) {
     // The card's copy is already in the books: keep one line, renamed to the PayPal merchant.
-    const line = all.find((l) => l.active && l.sourceId && accts.find((a) => a.id === l.sourceId)?.kind !== "paypal" && /paypal|^pp\s*\*/i.test(`${l.concept} ${l.note}`) && l.currency === "USD" && l.amountMinor === Math.abs(pp.amount) && dayGap(lineDay(l), pp.date) <= 4 && !mods.has(l.id));
+    const line = all.find((l) => l.active && l.sourceId && accts.find((a) => a.id === l.sourceId)?.kind !== "paypal" && /paypal|^pp\s*\*/i.test(`${l.concept} ${l.note}`) && l.currency === pp.currency && l.amountMinor === Math.abs(pp.amount) && dayGap(lineDay(l), pp.date) <= 4 && !mods.has(l.id));
     if (line) { pp.paired = line.id; mods.set(line.id, { ...line, concept: pp.label, via: pp.sourceId, importId: [line.importId, pp.id].filter(Boolean).join("|") }); }
   }
   // A PayPal purchase paid by card with no card file yet keeps PayPal as its account; it pairs when the card file comes.
@@ -515,7 +536,7 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
     if (r.dup || r.paired || r.flow === "skip") continue;
     const amt = lineAmount(r);
     const sch = r.id ? scheme(r.id) : "";
-    const hit = all.find((l) => !used.has(l.id) && l.currency === "USD" && l.amountMinor === amt && (l.kind.startsWith("income") === isIncome(r.flow)) && dayGap(lineDay(l), r.date) <= 2
+    const hit = all.find((l) => !used.has(l.id) && l.currency === r.currency && l.amountMinor === amt && (l.kind.startsWith("income") === isIncome(r.flow)) && dayGap(lineDay(l), r.date) <= 2
       && (similar(merchantKey(l.concept), r.key) || l.concept === r.label)
       && !(sch && (l.importId ?? "").split("|").some((k) => scheme(k) === sch)));
     if (hit) { r.dup = "fuzzy"; used.add(hit.id); }
@@ -535,11 +556,11 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
     r.include = !r.dup && !r.paired && (r.flow === "spend" || r.flow === "refund" || isIncome(r.flow));
     r.reward = r.flow === "spend" && !r.noReward ? lineReward({ amountMinor: lineAmount(r), sourceId: r.sourceId, via: r.via && r.via !== "card" ? r.via : undefined, rc: r.rc }, accts, r.elig) : null;
   }
-  return { rows, targets: list, mods: [...mods.values()], fallback, pocket: pocketOffer(state, files, sources, accts, lang) };
+  return { rows, targets: list, mods: [...mods.values()], fallback, pocket: pocketOffer(state, files, sources, accts, lang, currencies), dateless };
 }
 
 /** The savings account's pocket in Ahorros: the one linked before, else one with the same name, else a new purple one. */
-function pocketOffer(state: LedgerState, files: ParsedFile[], sources: string[], accts: Acct[], lang: string): PocketOffer | undefined {
+function pocketOffer(state: LedgerState, files: ParsedFile[], sources: string[], accts: Acct[], lang: string, currencies?: (Currency | "")[]): PocketOffer | undefined {
   const fi = files.findIndex((f, i) => (accts.find((a) => a.id === sources[i])?.kind ?? f.kind) === "savings" && typeof f.pdf?.end === "number");
   if (fi < 0) return undefined;
   const f = files[fi], acct = accts.find((a) => a.id === sources[fi]);
@@ -549,7 +570,8 @@ function pocketOffer(state: LedgerState, files: ParsedFile[], sources: string[],
   const fold2 = (x: string) => fold(x);
   const sub = subs.find((s) => s.id === acct?.pocketId) ?? subs.find((s) => [fold2("PayPal Ahorros"), fold2("PayPal Savings"), fold2(name)].includes(fold2(s.customName || "")));
   const date = f.pdf!.period.to || f.rows.map((r) => r.date).sort().pop() || "";
-  return { file: fi, sourceId: acct?.id ?? "", name: sub?.customName || name, endCents: f.pdf!.end!, month: date.slice(0, 7), date, apyBps: f.pdf!.apyBps, subId: sub?.id ?? "", create: !sub };
+  const currency: Currency = currencies?.[fi] || detectedCurrency(f) || state.settings.display;
+  return { file: fi, sourceId: acct?.id ?? "", name: sub?.customName || name, endCents: f.pdf!.end!, month: date.slice(0, 7), date, apyBps: f.pdf!.apyBps, subId: sub?.id ?? "", create: !sub, currency };
 }
 
 /** Recomputes rewards after the user changes a row's account or category. */
@@ -574,9 +596,9 @@ function newLine(r: Row, batch: string): Line {
   const t = r.flow === "xfer" ? splitTarget("expense-variable||") : splitTarget(r.target);
   const id = crypto.randomUUID();
   return {
-    id, seriesId: id, monthKey: r.month, kind: t.kind, concept: r.label, amountMinor: lineAmount(r), currency: "USD",
+    id, seriesId: id, monthKey: r.month, kind: t.kind, concept: r.label, amountMinor: lineAmount(r), currency: r.currency,
     active: r.flow !== "xfer", note: r.raw !== r.label ? r.raw.slice(0, 80) : "", categoryId: t.categoryId, subId: t.subId, recurring: false, storeId: "", providerId: "",
-    productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: null, balanceCurrency: "USD", icon: "", history: [], bookedOn: r.date, startedOn: "",
+    productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: null, balanceCurrency: r.currency, icon: "", history: [], bookedOn: r.date, startedOn: "",
     ...(r.id ? { importId: r.id } : {}), ...(r.sourceId ? { sourceId: r.sourceId } : {}), ...(r.via && r.via !== "card" ? { via: r.via } : {}),
     ...(r.flow === "xfer" ? { xfer: true } : {}), ...((r.flow === "spend" || r.flow === "refund") && !r.noReward ? { rc: r.rc } : {}), batch,
   };
@@ -595,6 +617,7 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
   const before: Line[] = [];
   const months = { ...s.months };
   const put = (line: Line) => {
+    if (!line.monthKey) return; // Never write a phantom month: a line with no month belongs nowhere.
     const bucket = months[line.monthKey]?.lines ?? [];
     const i = bucket.findIndex((l) => l.id === line.id);
     months[line.monthKey] = { lines: i >= 0 ? bucket.map((l) => (l.id === line.id ? line : l)) : [...bucket, line] };
@@ -605,7 +628,7 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
     if (old) { before.push(old); put(m); }
   }
   let added = 0;
-  for (const r of rv.rows) if (r.include) { put(newLine(r, batch)); added++; }
+  for (const r of rv.rows) if (r.include && r.month) { put(newLine(r, batch)); added++; }
   let book = importBook(s);
   for (const r of rv.rows) if (r.include && (r.flow === "spend" || r.flow === "refund") && r.key && r.target) book = { ...book, rules: learnRule(book.rules, r.key, r.label, r.target, r.rc) };
   const filesMap = { ...(book.files ?? {}) };
@@ -626,8 +649,8 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
     const name = cat.subs.find((x) => x.id === acct.pocketId)?.customName || "PayPal";
     const id = crypto.randomUUID();
     const line: Line = old
-      ? { ...old, amountMinor: last.balance, balanceMinor: last.balance, currency: "USD", balanceCurrency: "USD", startedOn: old.startedOn || last.date }
-      : { id, seriesId: acct.pocketId, monthKey: key, kind: "expense-fixed", concept: name, amountMinor: last.balance, currency: "USD", active: true, note: "", categoryId: cat.id, subId: acct.pocketId, recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: last.balance, balanceCurrency: "USD", icon: "vault", history: [], bookedOn: "", startedOn: last.date, batch };
+      ? { ...old, amountMinor: last.balance, balanceMinor: last.balance, currency: last.currency, balanceCurrency: last.currency, startedOn: old.startedOn || last.date }
+      : { id, seriesId: acct.pocketId, monthKey: key, kind: "expense-fixed", concept: name, amountMinor: last.balance, currency: last.currency, active: true, note: "", categoryId: cat.id, subId: acct.pocketId, recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: last.balance, balanceCurrency: last.currency, icon: "vault", history: [], bookedOn: "", startedOn: last.date, batch };
     if (old) before.push(old);
     put(line);
   });
@@ -650,8 +673,8 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
     const note = po.apyBps ? `APY ${(po.apyBps / 100).toFixed(2)}%` : old?.note ?? "";
     const id = crypto.randomUUID();
     const line: Line = old
-      ? { ...old, balanceMinor: po.endCents, balanceCurrency: "USD", note, startedOn: old.startedOn || po.date }
-      : { id, seriesId: id, monthKey: po.month, kind: "expense-fixed", concept: po.name, amountMinor: 0, currency: "USD", active: true, note, categoryId: cat.id, subId, recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: po.endCents, balanceCurrency: "USD", icon: "", history: [], bookedOn: po.date, startedOn: po.date, batch };
+      ? { ...old, balanceMinor: po.endCents, balanceCurrency: po.currency, note, startedOn: old.startedOn || po.date }
+      : { id, seriesId: id, monthKey: po.month, kind: "expense-fixed", concept: po.name, amountMinor: 0, currency: po.currency, active: true, note, categoryId: cat.id, subId, recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: po.endCents, balanceCurrency: po.currency, icon: "", history: [], bookedOn: po.date, startedOn: po.date, batch };
     if (old) before.push(old);
     put(line);
     if (po.sourceId) book = { ...book, sources: book.sources.map((x) => (x.id === po.sourceId ? { ...x, pocketId: subId, ...(po.apyBps ? { apyBps: po.apyBps } : {}) } : x)) };

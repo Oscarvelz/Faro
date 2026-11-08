@@ -132,6 +132,8 @@ export type Api = {
   notePlanCopied: () => void;
   dismissFinding: (id: string, reason: string) => void;
   planStale: boolean;
+  /** True while the last save to this device failed (storage full/blocked); the shell shows a banner until a write lands. */
+  persistFailed: boolean;
   /** Number of places on the stack (1 = nothing to go back to). */
   depth: number;
   /** Name of the place under the current one ("Central", "Meta"…), for "Volver a …". */
@@ -187,6 +189,28 @@ function readPack(userId: string): { ledger: LedgerState; dirty: boolean } | nul
     return { ledger: parsed.ledger, dirty: Boolean(parsed.dirty) };
   } catch {
     return null;
+  }
+}
+
+/**
+ * 1.3.146: a pack that exists but cannot be read (damaged JSON, an old shape) is set aside raw — newest 3 kept —
+ * before the fresh book overwrites the pack key, so booting empty never silently destroys the only local copy.
+ * Returns true when a copy was set aside. A genuine first run (no pack at all) never quarantines.
+ */
+function quarantineCorruptPack(userId: string): boolean {
+  try {
+    const raw = localStorage.getItem(packKey(userId));
+    if (!raw) return false;
+    let valid = false;
+    try { valid = isLedger((JSON.parse(raw) as { ledger?: unknown }).ledger); } catch { valid = false; }
+    if (valid) return false;
+    const prefix = `faro.pack.corrupt.${userId}.`;
+    localStorage.setItem(`${prefix}${Date.now()}`, raw);
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(prefix)).sort();
+    for (const k of keys.slice(0, Math.max(0, keys.length - 3))) localStorage.removeItem(k);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -254,6 +278,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const [wakeLog, setWakeLog] = useState<WakeLog[]>([]);
   const [goalTick, setGoalTick] = useState(0);
   const [planStale, setPlanStale] = useState(false);
+  const [persistFailed, setPersistFailed] = useState(false);
+  const persistFailedRef = useRef(false);
   const planCopied = useRef(false);
   const dismissedRef = useRef<{ id: string; reason: string }[]>([]);
   const wakeBase = useRef<{ ledger: LedgerState; advice: ReturnType<typeof advicePrints>; goals: ReturnType<typeof readStoredGoals>; key: string } | null>(null);
@@ -444,9 +470,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   }, []);
 
   useEffect(() => {
+    let bootLang: Lang = "es";
     try {
       const saved = readPack(userId);
+      const corruptAside = saved ? false : quarantineCorruptPack(userId);
       const lang = localStorage.getItem("faro-lang") === "en" ? "en" : "es";
+      bootLang = lang;
       const stored = localStorage.getItem("faro-theme");
       const daySet = localStorage.getItem("faro-day") === "1";
       const known = (value: string | null): value is ThemeId => !!value && THEME_IDS.includes(value as ThemeId);
@@ -475,6 +504,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         }
       }
       setSession(blankSession(ledger, dirty));
+      if (corruptAside) setUi({ notice: translate(lang, "pack.corrupt") });
       const now = new Date();
       const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const currentEmpty = (ledger.months[currentKey]?.lines.length ?? 0) === 0;
@@ -482,6 +512,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       if (seeded.sample || (currentEmpty && hasDemo)) setUi({ year: 2026, month: 8, section: "desk" });
       setHasConflict(Boolean(localStorage.getItem(conflictKey(userId))));
     } catch {
+      if (quarantineCorruptPack(userId)) setUi({ notice: translate(bootLang, "pack.corrupt") });
       setSession(blankSession(createInitial("es", "claro"), false));
     } finally {
       setReady(true);
@@ -496,7 +527,13 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       if (seeded.sample) setUi({ year: 2026, month: 8, section: "desk" });
       return;
     }
-    localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
+    // 1.3.146: a failed write (full storage) must not pass as saved — the shell shows a banner until a write lands.
+    try {
+      localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
+      if (persistFailedRef.current) { persistFailedRef.current = false; setPersistFailed(false); }
+    } catch {
+      if (!persistFailedRef.current) { persistFailedRef.current = true; setPersistFailed(true); }
+    }
     const shown = session.ledger.settings.theme === "ion" ? "ion-noche" : session.ledger.settings.theme;
     document.documentElement.dataset.theme = shown;
     if (shown === "tron" && !document.getElementById("tron-fonts")) {
@@ -540,7 +577,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
       const done = await autoBackup(userId, led, { online, force });
       if (done.device || done.cloud || force || backups.length === 0) setBackups(await listBackups(userId));
-      if (force) setUi({ notice: done.cloud ? translate(sessionRef.current?.ledger.settings.lang ?? "es", "backup.done.both") : translate(sessionRef.current?.ledger.settings.lang ?? "es", "backup.done.device") });
+      if (force) {
+        // The notice names what actually landed, from the real flags — never "saved here" when the device write failed.
+        const key = done.device && done.cloud ? "backup.done.both" : done.device ? "backup.done.device" : done.cloud ? "backup.done.cloud" : "backup.done.fail";
+        setUi({ notice: translate(sessionRef.current?.ledger.settings.lang ?? "es", key) });
+      }
     } catch { /* keep going */ } finally { backingUp.current = false; }
   }, [userId, backups.length, setUi]);
 
@@ -1088,6 +1129,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     notePlanCopied,
     dismissFinding,
     planStale,
+    persistFailed,
     depth,
     backName: () => {
       const under = places.current[places.current.length - 2];

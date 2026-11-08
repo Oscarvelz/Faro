@@ -87,6 +87,18 @@ describe("widget snapshot", () => {
     ]);
   });
 
+  it("dues: a card past its bank due date still shows, with its minimum", () => {
+    const init = createInitial("es", "tron");
+    let s2: LedgerState = { ...init, settings: { ...init.settings, display: "USD", rateE4: 366243 } };
+    // The bank said "due Nov 1"; on Nov 6 the balance is still unpaid — the widget must not lose the card.
+    s2 = addReading(s2, "card-paypal", { balanceMinor: 42000, availMinor: 158000, minMinor: 3500, dueOn: "2026-11-01", src: "shot", on: "2026-10-28" }, "2026-10-28");
+    const snap2 = buildWidgetSnapshot(s2, "es", { today: TODAY, hide: false, lock: false });
+    const card = snap2.dues.find((d) => d.kind === "card");
+    assert.ok(card);
+    assert.equal(card.amt, 3500);
+    assert.equal(card.go, "vault-loans");
+  });
+
   it("categories match Estudio, with last month beside each", () => {
     const names = makeNamer(s.structure, "es");
     const now = categorySlices(s, "2026-11", names, "es");

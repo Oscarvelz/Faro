@@ -31,7 +31,7 @@ import { iconForName, libraryOff, presetName, subPresetsOf } from "@/lib/faro/su
 import { BrandIconPick, FreqSheet, LookPick } from "./fit-pick";
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
-import { formatRate, convertMinor, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
+import { formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
 import type { Category, Currency, Line, LineKind, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
@@ -4251,6 +4251,7 @@ export function Settings() {
           <button type="button" className="btn" onClick={() => saveRate(rateText)}>{t("rate.manual")}</button>
           <Hint topic="tasa-manual" className="is-after" />
         </div>
+        {session && fxRateBroken(session.ledger) ? <Note kind="tip">{t("rate.broken")}</Note> : null}
       </Fold>
       <Fold id="keys" icon={Keyboard} sub={lang === "en" ? "One key per action" : "Una tecla por acción"} topic="atajos-teclado" title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
         {SHORTCUT_ACTIONS.map((action) => (

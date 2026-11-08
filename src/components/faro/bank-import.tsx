@@ -7,9 +7,10 @@ import { ArrowLeftRight, Ban, Settings as Gear, Check, CopyCheck, FileImage, Fil
 import { formatMoney } from "@/lib/faro/money";
 import { GUIDE_BUILTIN, accounts, guideName, guidesOf, importBook, rcLabel, resetGuides, rowFor, saveGuides } from "@/lib/faro/bankbook";
 import { GuideEditor, GuideMark } from "./bank-guides";
-import { applyImport, buildReview, counts, fromPdf, lineAmount, parseFile, pickSource, remap, revertImport, rewardFor, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
+import { applyImport, buildReview, counts, detectedCurrency, fromPdf, lineAmount, parseFile, pickSource, remap, revertImport, rewardFor, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
-import type { ColumnMap, LedgerState, RewardClass } from "@/lib/faro/types";
+import { translate } from "@/lib/faro/i18n";
+import type { ColumnMap, Currency, LedgerState, RewardClass } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
@@ -58,6 +59,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
   const state = session?.ledger as LedgerState;
   const [files, setFiles] = useState<ParsedFile[]>([]);
   const [sources, setSources] = useState<string[]>([]);
+  const [currs, setCurrs] = useState<string[]>([]);
   const [mapAt, setMapAt] = useState(-1);
   const [over, setOver] = useState<Over>({ target: {}, include: {} });
   const [pick, setPick] = useState<string | null>(null);
@@ -95,6 +97,8 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
     const all = [...files, ...ok];
     setFiles(all);
     setSources([...sources, ...ok.map((f) => pickSource(f, book, accts))]);
+    // Each file's currency starts from its own word (CURDEF, a currency column), else the book's display currency; the review lets the user change it per file.
+    setCurrs([...currs, ...ok.map((f) => detectedCurrency(f) || state.settings.display)]);
     const need = all.findIndex((f) => f.csv && !f.csv.auto);
     setMapAt(need);
   }
@@ -102,7 +106,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
 
   const rv: Review | null = useMemo(() => {
     if (!state || !files.length || mapAt >= 0) return null;
-    const base = buildReview(state, files, sources, names, lang);
+    const base = buildReview(state, files, sources, names, lang, currs.map((c): Currency => (c === "NIO" ? "NIO" : "USD")));
     for (const r of base.rows) {
       const t = over.target[r.key];
       if (t && (r.flow === "spend" || r.flow === "refund")) {
@@ -115,7 +119,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
       if (r.uid in over.include) r.include = over.include[r.uid];
     }
     return base;
-  }, [state, files, sources, mapAt, over, names, lang]);
+  }, [state, files, sources, mapAt, over, names, lang, currs]);
 
   if (!state) return null;
   const c = rv ? counts(rv.rows) : null;
@@ -188,7 +192,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
           ) : null}
 
           {mapAt >= 0 && files[mapAt]?.csv ? (
-            <MapForm lang={lang} file={files[mapAt]} onCancel={() => { const rest = files.filter((_, i) => i !== mapAt); setFiles(rest); setSources(sources.filter((_, i) => i !== mapAt)); setMapAt(rest.findIndex((f) => f.csv && !f.csv.auto)); }}
+            <MapForm lang={lang} file={files[mapAt]} onCancel={() => { const rest = files.filter((_, i) => i !== mapAt); setFiles(rest); setSources(sources.filter((_, i) => i !== mapAt)); setCurrs(currs.filter((_, i) => i !== mapAt)); setMapAt(rest.findIndex((f) => f.csv && !f.csv.auto)); }}
               onDone={(map) => { const f = remap(files[mapAt], map); maps.current[f.sig] = map; const all = files.map((x, i) => (i === mapAt ? f : x)); setFiles(all); setMapAt(all.findIndex((x) => x.csv && !x.csv.auto)); }} />
           ) : null}
 
@@ -200,6 +204,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                     <span className="imp-file-name">{f.name}</span>
                     <div className="imp-file-acct">
                       <ThemeSelect value={sources[i] ?? ""} onChange={(v) => setSources(sources.map((s, j) => (j === i ? v : s)))} options={acctOptions} />
+                      <ThemeSelect value={currs[i] ?? state.settings.display} onChange={(v) => setCurrs(currs.map((c, j) => (j === i ? v : c)))} options={[{ value: "USD", label: "USD" }, { value: "NIO", label: "NIO" }]} />
                       <Hint topic="imp-cuenta" />
                     </div>
                     {f.pdf ? <PdfNotes lang={lang} file={f} money={money} /> : null}
@@ -228,6 +233,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                 <div><strong className="num">{c.xfers}</strong><span>{L(lang, "Transferencias", "Transfers")}</span></div>
                 <Hint topic="imp-resumen" className="imp-tally-hint" />
               </div>
+              {rv.dateless ? <p className="imp-dateless" role="note">{rv.dateless === 1 ? translate(lang, "import.dateless.one") : translate(lang, "import.dateless").replace("{n}", String(rv.dateless))}</p> : null}
               {months.map((mk) => {
                 const list = rv.rows.filter((r) => r.month === mk).sort((a, b) => b.date.localeCompare(a.date));
                 const spent = list.filter((r) => r.include && (r.flow === "spend" || r.flow === "refund")).reduce((s, r) => s + lineAmount(r), 0);

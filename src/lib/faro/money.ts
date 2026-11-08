@@ -1,4 +1,4 @@
-import type { Currency, Lang } from "./types";
+import type { Currency, Lang, LedgerState } from "./types";
 import { intervalOf, monthlyFactor, stepDate } from "./cadence.ts";
 
 export const BCN_RATE_E4 = 366243;
@@ -31,6 +31,17 @@ export function convertMinor(minor: number, from: Currency, to: Currency, rateE4
   const prod = minor * 10000;
   if (!Number.isSafeInteger(prod)) return roundHalfAway((minor / 100) / (rateE4 / 10000) * 100);
   return divRound(prod, rateE4);
+}
+
+/**
+ * True when the stored rate cannot convert (≤ 0 or non-finite — convertMinor then returns 0) and the book
+ * holds money in a currency other than the display one: those amounts silently total zero until the rate
+ * is fixed, so Ajustes says so next to the rate field. A healthy rate, or a one-currency book, is quiet.
+ */
+export function fxRateBroken(state: LedgerState): boolean {
+  const { display, rateE4 } = state.settings;
+  if (Number.isFinite(rateE4) && rateE4 > 0) return false;
+  return Object.values(state.months).some((b) => b.lines.some((l) => l.currency !== display || (l.balanceMinor != null && l.balanceCurrency !== display)));
 }
 
 export function formatRate(rateE4: number): string {
