@@ -184,6 +184,8 @@
 .rw-real { margin-top: 12px; padding-top: 10px; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); display: grid; gap: 8px; }
 .rw-real-row { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
 .rw-real-name { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 1.3.157: each comparison row wears its card's mark (Hark's plates), left of the name. */
+.rw-real-face { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .rw-real-est { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .rw-real-add { border: 0; background: none; font: inherit; font-size: .85rem; font-weight: 650; color: var(--good); cursor: pointer; padding: 4px 2px; white-space: nowrap; }
 /* The three figures rarely fit beside the name at phone width: they take their own line, spread out — the name always prevails. */

@@ -15,6 +15,7 @@ import type { Currency } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { DayField, ThemeSelect } from "./line-form";
+import { BankMark } from "./bank-mark";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
 const MONTHS: [string[], string[]] = [["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"], ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]];
@@ -134,7 +135,7 @@ export function RewardRealBlock() {
     <div className="rw-real" data-anchor="rewards-real">
       {rows.map((r) => (
         <div key={r.acct.id} className="rw-real-row">
-          <span className="rw-real-name">{short(r.acct.name)}</span>
+          <span className="rw-real-face"><BankMark a={r.acct} /><span className="rw-real-name">{short(r.acct.name)}</span></span>
           {r.real ? (
             <button type="button" className="rw-real-figs" data-acct={r.acct.id} onClick={() => setEdit(r.acct.id)}
               aria-label={L(lang, `Editar el saldo real de ${r.acct.name}`, `Edit ${r.acct.name}'s real balance`)}>
@@ -178,7 +179,7 @@ export function RewardRealSettings() {
       <h4 className="bk-h lab-head">{L(lang, "Saldo real según tu banco", "Real balance at your bank")}<Hint topic="imp-recompensas" /></h4>
       {rows.map(({ acct, fig }) => (
         <div key={acct.id} className="rw-real-row">
-          <span className="rw-real-name">{short(acct.name)}</span>
+          <span className="rw-real-face"><BankMark a={acct} /><span className="rw-real-name">{short(acct.name)}</span></span>
           {fig ? (
             <button type="button" className="rw-real-one" data-acct={acct.id} onClick={() => setEdit(acct.id)}
               aria-label={L(lang, `Editar el saldo real de ${acct.name}`, `Edit ${acct.name}'s real balance`)}>
