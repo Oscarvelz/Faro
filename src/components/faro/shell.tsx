@@ -157,22 +157,44 @@ export function Shell() {
   useScreenEntrance(mainRef, `${ui.section}`);
   const [calOpen, setCalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchListed, setSearchListed] = useState(false);
   // 1.3.142: while in Ajustes the top search also finds settings (Oscar: the bar hangs over Ajustes, so it must
-  // work there too). The index is the manual's topics, which live in the lazy chunk — load it on demand here;
-  // outside Ajustes nothing changes and the books keep the bar to themselves.
+  // work there too). The index is the manual's topics, which live in the lazy chunk — load it on demand here.
+  // 1.3.148: the settings index answers from ANY section (a setting you need is usually looked for from where
+  // you are, not from inside Ajustes), and the results list lives while you type — Enter is no longer the gate.
   const [manualData, setManualData] = useState<ManualData | null>(manualNow);
+  const [manualGaveUp, setManualGaveUp] = useState(false);
   const inSettings = ui.section === "settings";
   useEffect(() => {
-    if (manualData || !searchOpen || !inSettings) return;
+    if (manualData || manualGaveUp || !searchOpen) return;
     let live = true;
-    void loadManual().then((d) => { if (live) setManualData(d); }).catch(() => { /* the books still answer */ });
+    void loadManual().then((d) => { if (live) setManualData(d); }).catch(() => { if (live) setManualGaveUp(true); /* the books still answer */ });
     return () => { live = false; };
-  }, [manualData, searchOpen, inSettings]);
+  }, [manualData, manualGaveUp, searchOpen]);
   const settingHits = useMemo(
-    () => (inSettings && manualData ? searchSettings(manualData.MANUAL_TOPICS, ui.query, lang) : []),
-    [inSettings, manualData, ui.query, lang],
+    () => (manualData ? searchSettings(manualData.MANUAL_TOPICS, ui.query, lang) : []),
+    [manualData, ui.query, lang],
   );
+  const renderSettingHits = () => settingHits.map((hit) => (
+    <button key={`aj-${hit.id}`} type="button" className="hit" onClick={() => {
+      setSearchOpen(false);
+      goTopic(hit.id, hit.go);
+    }}>
+      <strong>{hit.title}</strong>
+      <span className="block text-sm text-muted">{hit.where}</span>
+    </button>
+  ));
+  const renderBookHits = () => hits.map((hit) => (
+    <button key={hit.id} type="button" className="hit" onClick={() => {
+      const [y, m] = hit.monthKey.split("-").map(Number);
+      setSearchOpen(false);
+      if (hit.vault === "owe") preferOweTab("loans");
+      if (hit.vault) setUi({ section: "income", vault: hit.vault, query: "" });
+      else setUi({ section: hit.section, year: y ?? ui.year, month: m ?? ui.month, highlight: hit.lineId, query: "" });
+    }}>
+      <strong>{hit.title}</strong>
+      <span className="block text-sm text-muted">{hit.subtitle}</span>
+    </button>
+  ));
   const [exportOpen, setExportOpen] = useState(false);
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth() + 1);
@@ -618,7 +640,6 @@ export function Shell() {
     const onBack = (e: Event) => {
       if (e.defaultPrevented || !searchOpen) return;
       setSearchOpen(false);
-      setSearchListed(false);
       e.preventDefault();
     };
     window.addEventListener("faro-back", onBack);
@@ -631,7 +652,6 @@ export function Shell() {
       const target = e.target as Node;
       if (searchRef.current?.contains(target) || searchPopRef.current?.contains(target)) return;
       setSearchOpen(false);
-      setSearchListed(false);
     };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
@@ -870,10 +890,10 @@ export function Shell() {
             <div className="top-actions">
               <div className="hist-nav" data-anchor="top-undo">
                 <button type="button" className="hist-btn" aria-label={t("undo")} disabled={!canUndo} onClick={undo}>
-                  <Undo2 />
+                  <Undo2 /><span className="hist-word">{t("undo")}</span>
                 </button>
                 <button type="button" className="hist-btn" aria-label={t("redo")} disabled={!canRedo} onClick={redo}>
-                  <Redo2 />
+                  <Redo2 /><span className="hist-word">{t("redo")}</span>
                 </button>
               </div>
               <div className="desk-grid">
@@ -949,7 +969,7 @@ export function Shell() {
                 ) : null}
               </div>
               <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
-                <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => { setSearchListed(false); setSearchOpen((v) => !v); }}>
+                <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}>
                   <Search className="size-4" />
                 </button>
               </div>
@@ -1108,41 +1128,31 @@ export function Shell() {
                 ref={searchPopRef}
                 onSubmit={(e) => {
                   e.preventDefault();
-                  setSearchListed(true);
                 }}
               >
                 <div className="search-pill">
                   <Search className="size-4" aria-hidden />
                   <input id="faro-search" type="search" enterKeyHint="search" value={ui.query} placeholder={t("search")} autoFocus onChange={(e) => setUi({ query: e.target.value })} />
                 </div>
-                {searchListed && ui.query.trim().length >= 2 ? (
+                {ui.query.trim().length >= 2 ? (
                   <div className="hits" role="listbox">
-                    {hits.length === 0 && settingHits.length === 0 && (!inSettings || manualData) ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
-                    {settingHits.length ? <p className="hit-group">{lang === "en" ? "In Settings" : "En Ajustes"}</p> : null}
-                    {settingHits.map((hit) => (
-                      <button key={`aj-${hit.id}`} type="button" className="hit" onClick={() => {
-                        setSearchOpen(false);
-                        setSearchListed(false);
-                        goTopic(hit.id, hit.go);
-                      }}>
-                        <strong>{hit.title}</strong>
-                        <span className="block text-sm text-muted">{hit.where}</span>
-                      </button>
-                    ))}
-                    {settingHits.length && hits.length ? <p className="hit-group">{lang === "en" ? "In your books" : "En tus libros"}</p> : null}
-                    {hits.map((hit) => (
-                      <button key={hit.id} type="button" className="hit" onClick={() => {
-                        const [y, m] = hit.monthKey.split("-").map(Number);
-                        setSearchOpen(false);
-                        setSearchListed(false);
-                        if (hit.vault === "owe") preferOweTab("loans");
-                        if (hit.vault) setUi({ section: "income", vault: hit.vault, query: "" });
-                        else setUi({ section: hit.section, year: y ?? ui.year, month: m ?? ui.month, highlight: hit.lineId, query: "" });
-                      }}>
-                        <strong>{hit.title}</strong>
-                        <span className="block text-sm text-muted">{hit.subtitle}</span>
-                      </button>
-                    ))}
+                    {hits.length === 0 && settingHits.length === 0 && (manualData || manualGaveUp) ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
+                    {/* 1.3.142 order inside Ajustes: settings first, books under their own header. From anywhere
+                        else (1.3.148) the books lead as they always did and the settings follow under theirs. */}
+                    {inSettings ? (
+                      <>
+                        {settingHits.length ? <p className="hit-group">{lang === "en" ? "In Settings" : "En Ajustes"}</p> : null}
+                        {renderSettingHits()}
+                        {settingHits.length && hits.length ? <p className="hit-group">{lang === "en" ? "In your books" : "En tus libros"}</p> : null}
+                        {renderBookHits()}
+                      </>
+                    ) : (
+                      <>
+                        {renderBookHits()}
+                        {settingHits.length ? <p className="hit-group">{lang === "en" ? "In Settings" : "En Ajustes"}</p> : null}
+                        {renderSettingHits()}
+                      </>
+                    )}
                   </div>
                 ) : null}
               </form>

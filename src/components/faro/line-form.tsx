@@ -180,7 +180,7 @@ function clearReportDraft(mode: "in" | "out") {
 }
 
 export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look, scan }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look; scan?: ReactNode }) {
-  const { t, key, session, commit, confirm, focusAmount, names, lang } = useFaro();
+  const { t, key, session, commit, confirm, focusAmount, names, lang, goTopic } = useFaro();
   const settings = session?.ledger.settings;
   const structure = session?.ledger.structure;
   const [concept, setConcept] = useState(existing?.concept ?? seed?.concept ?? "");
@@ -350,6 +350,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           <div className={`label fit-f${long(nameOf(structure.categories, categoryId))}`} data-f="category">
             {head(t("category"), "f-categoria")}
             <CategoryPick group={group} value={categoryId} onChange={(value) => { setCategoryId(value); setSubId(""); }} />
+            <button type="button" className="fit-manage" onClick={() => goTopic("arbol", { screen: "settings", fold: "structure", anchor: "aj-tree" })}>{t("cats.manage")}</button>
           </div>
         ) : null}
         {group && cat && (subs.length || subId) ? (

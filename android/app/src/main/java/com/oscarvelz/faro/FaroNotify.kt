@@ -59,7 +59,7 @@ object FaroNotify {
     /* ---------- the three kinds ---------- */
 
     private fun checkDues(ctx: Context, s: Snap) {
-        if (!enabled(ctx)) return
+        if (!enabled(ctx) || !s.notify) return
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         for (d in s.dues) {
             val days = Fmt.daysLeft(d.on) ?: continue
@@ -81,7 +81,7 @@ object FaroNotify {
     }
 
     private fun checkPace(ctx: Context, s: Snap) {
-        if (!enabled(ctx)) return
+        if (!enabled(ctx) || !s.notify) return
         if (s.have <= 0 || s.month != monthKey(0)) return
         val now = Calendar.getInstance()
         val elapsed = now.get(Calendar.DAY_OF_MONTH)
@@ -105,7 +105,7 @@ object FaroNotify {
     }
 
     private fun checkClose(ctx: Context, s: Snap) {
-        if (!enabled(ctx)) return
+        if (!enabled(ctx) || !s.notify) return
         val prev = monthKey(-1)
         val f = s.flow.firstOrNull { it.key == prev } ?: return
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

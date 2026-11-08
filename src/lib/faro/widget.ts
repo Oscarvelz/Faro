@@ -44,6 +44,8 @@ export type WidgetSnapshot = {
   monthLabel: string;
   /** Hide amounts on the widget (dots; a tap opens Faro, which asks for the fingerprint). */
   hide: boolean;
+  /** 1.3.148: the user's Avisos switch from Ajustes — FaroNotify posts nothing while this is false. */
+  notify: boolean;
   /** The fingerprint lock is on for this device. */
   lock: boolean;
   /** Central: Tengo, Gastaré, Queda (Tengo − Gastaré), Usado % (null with no income), Pagos and its signal. */
@@ -208,6 +210,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     month: key,
     monthLabel: longMonth.charAt(0).toUpperCase() + longMonth.slice(1),
     hide: opts.hide,
+    notify: state.settings.notify !== false,
     lock: opts.lock,
     have: s.income,
     spend: s.expense,

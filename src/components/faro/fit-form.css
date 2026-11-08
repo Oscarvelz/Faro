@@ -276,3 +276,5 @@
   .fit-all-long { display: none; }
   .fit-all-short { display: inline; }
 }
+/* 1.3.148: the doorway from picking a category to managing them (Ajustes → Estructura). */
+.fit-manage { justify-self: start; margin-top: 2px; padding: 2px 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: .8rem; font-weight: 560; text-decoration: underline; text-underline-offset: 3px; }

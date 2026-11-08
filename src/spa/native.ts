@@ -30,6 +30,9 @@ export type FaroNativeBridge = {
   /** 1.3.121 home-screen widgets: the snapshot (lib/faro/widget.ts) as JSON ("" clears it); the target of a widget tap. */
   setWidgetData?(json: string): void;
   takeOpen?(): string;
+  /** 1.3.148: the Ajustes → Avisos row — the phone's real notification-permission state, and re-asking for it. */
+  notifyState?(): string;
+  requestNotify?(): void;
 };
 
 type W = Window & { FaroNative?: FaroNativeBridge; FaroBack?: () => string; __faroProviderLive?: number; __faroNativeOn?: boolean };

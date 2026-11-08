@@ -125,7 +125,7 @@ export function DueSide() {
           ))}
         </ul>
       ) : null}
-      <p className="bs-foot">{rows.length ? (list.length ? "" : L("Nada vence en los próximos 30 días.", "Nothing due in the next 30 days.")) : L("Ponle fecha a una cuota y aparece aquí, en orden.", "Give a cuota a date and it shows here, in order.")}</p>
+      <p className="bs-foot">{rows.length ? (list.length ? "" : L("Nada vence en los próximos 30 días.", "Nothing due in the next 30 days.")) : L("Ponle fecha a una cuota y aparece aquí, en orden.", "Give a cuota a date and it shows here, in order.")}{list.length > 10 ? L(`+${list.length - 10} más · ${fmt(list.slice(10).reduce((a, r) => a + r.amt, 0))}`, `+${list.length - 10} more · ${fmt(list.slice(10).reduce((a, r) => a + r.amt, 0))}`) : ""}</p>
     </aside>
   );
 }

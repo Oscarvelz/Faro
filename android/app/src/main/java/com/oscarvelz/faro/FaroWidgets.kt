@@ -149,6 +149,8 @@ class Snap(
     val hide: Boolean, val have: Long, val spend: Long, val left: Long, val usedPct: Int?, val pay: Long, val tone: String,
     val saveMonth: Long, val saveGoal: Long, val saveTotal: Long, val pockets: List<Pocket>,
     val owed: Long, val owe: Long, val dues: List<Due>, val cats: List<Cat>, val flow: List<Flow>,
+    /** 1.3.148: the user's Avisos switch (Ajustes); snapshots from older web builds don't carry it = on. */
+    val notify: Boolean = true,
 ) {
     val en get() = lang == "en"
 
@@ -157,7 +159,7 @@ class Snap(
         at = at, lang = lang, cur = cur, rateE4 = rateE4, rateSrc = rateSrc, rateAsOf = rateAsOf, month = month, monthLabel = monthLabel,
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
-        owed = owed, owe = owe, dues = dues, cats = cats, flow = flow,
+        owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
     )
 
     companion object {
@@ -169,6 +171,7 @@ class Snap(
             at = o.optString("at"), lang = o.optString("lang", "es"), cur = o.optString("cur", "USD"), rateE4 = o.optLong("rateE4"),
             rateSrc = o.optString("rateSrc"), rateAsOf = o.optString("rateAsOf"),
             month = o.optString("month"), monthLabel = o.optString("monthLabel"), hide = o.optBoolean("hide"),
+            notify = o.optBoolean("notify", true),
             have = o.optLong("have"), spend = o.optLong("spend"), left = o.optLong("left"),
             usedPct = if (o.isNull("usedPct") || !o.has("usedPct")) null else o.optInt("usedPct"),
             pay = o.optLong("pay"), tone = o.optString("tone", "neutral"),

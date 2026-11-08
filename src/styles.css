@@ -86,8 +86,18 @@
 .top-chrome { gap: 0; padding: 14px 16px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
 .top-row { grid-template-columns: minmax(0, 1fr) auto; }
 .hist-nav { display: flex; align-items: center; }
-.hist-btn { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--faint); display: grid; place-items: center; }
-.hist-btn svg { width: 14px; height: 14px; }
+.hist-btn { width: auto; height: 22px; padding: 0 5px; border: 0; border-radius: 999px; background: transparent; color: var(--faint); display: inline-flex; align-items: center; gap: 3px; font: inherit; font-size: 11px; font-weight: 560; }
+.hist-btn svg { width: 14px; height: 14px; flex: none; }
+.hist-word { line-height: 1; white-space: nowrap; }
+.tree-hint { margin: 8px 0 0; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
+/* The word makes the pill wider than the Pagos note is long: it hangs off the card's bottom edge
+   like a tab (its top stays inside, below the note's last line) instead of covering the note. */
+.lens-corner.is-cobro { width: auto; min-width: 22px; padding: 0 7px; display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 650; bottom: -13px; }
+.lens-corner.is-cobro .cobro-word { line-height: 1; white-space: nowrap; }
+.export-note { margin: 10px 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+.export-share { display: flex; gap: 8px; margin-top: 8px; }
+.advice-basis { margin: 0 0 10px; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
+.otros-note { margin: 10px 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
 .hist-btn:disabled { opacity: 0.32; }
 .desk-grid { display: grid; grid-template-columns: repeat(2, var(--desk-col, 44px)); justify-items: center; align-items: center; column-gap: 6px; }
 .account-slot:empty { display: none; }
@@ -1896,8 +1906,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
   .app-frame:not(.is-split) .main-pad { padding: 10px 12px 18px; }
   .app-frame:not(.is-split) .top-actions .icon-btn,
   .app-frame:not(.is-split) .account-slot img,
-  .app-frame:not(.is-split) .icon-desk .icon-btn,
-  .app-frame:not(.is-split) .hist-btn { width: 32px; height: 32px; min-width: 32px; }
+  .app-frame:not(.is-split) .icon-desk .icon-btn { width: 32px; height: 32px; min-width: 32px; }
+  .app-frame:not(.is-split) .hist-btn { height: 32px; min-height: 32px; min-width: 32px; }
   .app-frame:not(.is-split) .dock-recall {
     position: fixed;
     z-index: 34;

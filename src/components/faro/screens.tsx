@@ -4,6 +4,7 @@ import type { AreaId } from "@/lib/faro/area-advice";
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
 import { ActivityLog, Note } from "./finish";
 import { SampleRow } from "./sample-mode";
+import { NotifyRow } from "./notify-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
 import { peopleOf } from "@/lib/faro/people";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
@@ -19,7 +20,8 @@ import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
-import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
+import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
+import { setSampleMode } from "@/lib/faro/samplemode";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
@@ -2516,6 +2518,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const btnOn: null | "plus" | "minus" | "cobro" = quick === "in" ? "plus" : quick === "out" ? "minus" : cobros && cobrosLit ? "cobro" : null;
   const cardOn = btnOn ? null : lens === "all" ? null : lens;
   const lowCorner = (btn: "plus" | "minus" | "cobro", card: "have" | "spend" | "debt") => (btnOn ? btnOn !== btn : cardOn ? cardOn !== card : false);
+  // 1.3.148: the first-run offers say only what is true — "bring recurring" needs an earlier month with
+  // lines, and the sample-data door belongs to a book with no lines at all (it lived only in Ajustes).
+  const monthKeysWithLines = session ? Object.keys(session.ledger.months).filter((k) => (session.ledger.months[k]?.lines.length ?? 0) > 0) : [];
+  const bookEmpty = monthKeysWithLines.length === 0;
+  const hasEarlierLines = monthKeysWithLines.some((k) => k < key);
   return (
     <div className={focus ? "vault-pane" : "desk-layout"}>
       {focus ? null : (
@@ -2606,6 +2613,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <circle cx="12" cy="6.5" r="2.15" fill="none" stroke="currentColor" strokeWidth="1.5" />
               <path d="M12 5.55v1.9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
             </svg>
+            <span className="cobro-word">{t("cobro.open")}</span>
           </button>
         </div>
       </div>
@@ -3192,7 +3200,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {lines.length === 0 ? (
           <span className="row mt-3" data-anchor="desk-start">
             <button type="button" className="btn" onClick={() => setUi({ section: "income", draft: "income-fixed" })}>{t("desk.first")}</button>
-            <button type="button" className="btn ghost" onClick={copyPrev}>{t("desk.copy")}</button>
+            {hasEarlierLines ? <button type="button" className="btn ghost" onClick={copyPrev}>{t("desk.copy")}</button> : null}
+            {bookEmpty ? <button type="button" className="btn ghost" onClick={() => setSampleMode(true)}>{t("desk.sample")}</button> : null}
           </span>
         ) : null}
         {shown.length === 0 ? <Note>{t("desk.empty")}</Note> : null}
@@ -3703,7 +3712,7 @@ export function Study() {
       <StudyCharts
         points={points}
         compare={compare}
-        slices={slices.slice(0, 8).map((s) => ({ id: s.id, name: s.name, value: s.minor / 100, minor: s.minor, color: s.color }))}
+        slices={foldSlices(slices, 8, lang, session ? colorFor(session.ledger.structure, "otros") : "#c5c1b8").map((s) => ({ id: s.id, name: s.name, value: s.minor / 100, minor: s.minor, color: s.color }))}
         activeKey={activeKey}
         incomeLabel={t("study.in")}
         expenseLabel={t("study.out")}
@@ -3755,6 +3764,8 @@ export function Study() {
           runwayNote: t("study.runway.note"),
           top: t("study.top"),
           whereHint: es ? "Toca un rubro para ver sus tiendas y cada gasto; toca un gasto para abrirlo." : "Tap a category to see its stores and each expense; tap an expense to open it.",
+          otrosNote: t("chart.otrosNote"),
+          topMore: board && board.topRest.count > 0 ? (es ? `+${board.topRest.count} más · ${fmt(board.topRest.minor)}` : `+${board.topRest.count} more · ${fmt(board.topRest.minor)}`) : "",
         }}
       />
       {owedAny ? (
@@ -3846,6 +3857,22 @@ export function Advisor() {
   }, []);
   if (!budget || !session || !summary) return null;
   const reading = readAdvisor(session.ledger, key, lang, names);
+  // 1.3.148: the Asesor declares its basis — how many months and lines the reading stands on, and
+  // whether the month on screen is the current one, still going (a day-3 verdict should not look
+  // as settled as a year-long one).
+  const basisMonths = Object.values(session.ledger.months).filter((m) => m.lines.length > 0).length;
+  const basisLines = Object.values(session.ledger.months).reduce((a, m) => a + m.lines.length, 0);
+  const basisNowD = new Date();
+  const basisCurKey = `${basisNowD.getFullYear()}-${String(basisNowD.getMonth() + 1).padStart(2, "0")}`;
+  const basisLastDay = new Date(basisNowD.getFullYear(), basisNowD.getMonth() + 1, 0).getDate();
+  const basisText = (basisMonths === 1 && basisLines === 1
+    ? t("advice.basis.11")
+    : basisMonths === 1
+      ? t("advice.basis.m1").replace("{m}", String(basisLines))
+      : basisLines === 1
+        ? t("advice.basis.l1").replace("{n}", String(basisMonths))
+        : t("advice.basis").replace("{n}", String(basisMonths)).replace("{m}", String(basisLines)))
+    + (key === basisCurKey && basisNowD.getDate() < basisLastDay ? ` · ${t("advice.basis.now")}` : "");
   const tried = projectLeft(reading, preset, drops);
   const text = [reading.plan, applied].filter(Boolean).join("\n\n");
   const mark = { short: CalendarDays, medium: CreditCard, long: Landmark } as const;
@@ -3903,6 +3930,7 @@ export function Advisor() {
         <span>{t("study.unfold")}</span>
         <Hint topic="desplegar-asesor" />
       </label>
+      <p className="advice-basis" data-anchor="advice-basis">{basisText}</p>
       <section className="advice-hero-2" aria-label={reading.monthTag} data-anchor="advice-tower">
         <MonthTower reading={reading} income={summary.income} left={summary.opportunity} openPart={openPart} onPart={(id) => setOpenPart((cur) => (cur === id ? null : id))} more={more} onMore={() => setMore((on) => !on)}>
           <div className="a2-notes">
@@ -4328,6 +4356,7 @@ export function Settings() {
         </section>
       ) : null}
       {inAndroidApp() ? <WidgetRow /> : null}
+      <NotifyRow />
       <SampleRow />
       <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />
@@ -4537,6 +4566,7 @@ function StructureTree() {
         <Search className="size-4" aria-hidden />
         <input value={q} placeholder={t("tree.find")} onChange={(e) => setQ(e.target.value)} aria-label={t("tree.find")} />
       </div>
+      <p className="tree-hint">{t("tree.dragHint")}</p>
       {groups.length === 0 ? <Note>{t("tree.empty")}</Note> : null}
       {groups.map(({ group, rows }, gi) => {
         const groupOpen = needle.length > 0 || !folded.has(group);

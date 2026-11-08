@@ -316,6 +316,8 @@ export type Settings = {
   emergencyMonths: number;
   shortcuts: Record<string, string>;
   gestures?: Record<string, string>;
+  /** 1.3.148: the phone notifications (Android app) on/off as the user set it in Ajustes. Missing = on. */
+  notify?: boolean;
   /** One-time seeds already applied (e.g. "remesas"), so a default the user deleted is not added again. */
   seeds?: string[];
 };

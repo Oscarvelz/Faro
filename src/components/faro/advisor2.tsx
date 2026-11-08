@@ -65,7 +65,11 @@ export function ShortVisual({ reading }: { reading: Reading }) {
     { id: "unique", name: L(lang, "De una vez", "One-time"), minor: reading.uniqueMinor, c: "#d0837a" },
     { id: "transfer", name: L(lang, "Al ahorro", "To savings"), minor: reading.transferMinor, c: "#7fa6cf" },
   ].filter((p) => p.minor > 0);
-  const rows = [...reading.lines].sort((a, b) => b.minor - a.minor).slice(0, 7);
+  const sorted = [...reading.lines].sort((a, b) => b.minor - a.minor);
+  const rows = sorted.slice(0, 7);
+  // 1.3.148: the heaviest-lines list says what its top-7 cut leaves out, like Panorama's LineList.
+  const restCount = sorted.length - rows.length;
+  const restMinor = sorted.slice(7).reduce((a, l) => a + l.minor, 0);
   // 1.3.125: the biggest one-time line is still unconfirmed — invite marking it fixed if it repeats.
   const bigUniqueUnconfirmed = [...reading.lines].filter((l) => l.cls === "unique").sort((a, b) => b.minor - a.minor)[0]?.unconfirmed ?? false;
   const peak = Math.max(...rows.map((r) => r.minor), 1);
@@ -108,6 +112,7 @@ export function ShortVisual({ reading }: { reading: Reading }) {
               </button>
             );
           })}
+          {restCount > 0 ? <p className="a2-more">{lang === "en" ? `+${restCount} more · ${fmt(restMinor)}` : `+${restCount} más · ${fmt(restMinor)}`}</p> : null}
           <p className="a2-foot">
             <b style={{ color: tc(CLS.unique.c) }}>{L(lang, "Una vez", "One-time")}</b>{L(lang, ": ya salió; se puede devolver, vender o compensar. ", ": already gone; return, sell or offset it. ")}
             {bigUniqueUnconfirmed ? <>{L(lang, "Si alguna se repite cada mes, márcala fija y la cuento como de cada mes. ", "If one of these actually repeats every month, mark it fixed and I will count it as monthly. ")}</> : null}
@@ -258,6 +263,7 @@ export function LongVisual({ card }: { card: AdviceCard }) {
         </div>
       </div>
       {n.stock <= 0 ? <p className="a2-foot">{L(lang, "Anota el saldo de tu ahorro en su línea y la cuenta se vuelve real.", "Enter your savings balance on its line and this becomes real.")}</p> : null}
+      <p className="a2-foot">{L(lang, "No es una predicción: es la cuenta si nada cambia.", "Not a forecast: just the math if nothing changes.")}</p>
     </div>
   );
 }

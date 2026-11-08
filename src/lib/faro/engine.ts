@@ -179,6 +179,25 @@ export function categorySlices(state: LedgerState, key: string, names: Namer, la
   return out.filter((s) => s.minor !== 0).sort((a, b) => b.minor - a.minor);
 }
 
+/**
+ * 1.3.148: a top-N fold that keeps the money. Everything past the limit is summed into one «Otros»
+ * slice — merged into the Otros slice categorySlices already made when it sits in the head — so a
+ * chart's shares are shares of the real total, never of a silently cut list.
+ */
+export function foldSlices(slices: Slice[], limit: number, lang: Lang, otrosColor: string): Slice[] {
+  if (slices.length <= limit) return slices;
+  const head = slices.slice(0, limit);
+  const tailMinor = slices.slice(limit).reduce((a, s) => a + s.minor, 0);
+  if (tailMinor === 0) return head;
+  const at = head.findIndex((s) => s.id === "otros");
+  if (at >= 0) {
+    const out = head.slice();
+    out[at] = { ...out[at]!, minor: out[at]!.minor + tailMinor };
+    return out;
+  }
+  return [...head, { id: "otros", name: L(lang, "Otros", "Other"), minor: tailMinor, color: otrosColor }];
+}
+
 export function yearPoints(state: LedgerState, year: number, lang: Lang, kinds?: string[], subs?: string[]): MonthPoint[] {
   const { display, rateE4 } = state.settings;
   const fmt = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" });
@@ -300,6 +319,7 @@ export type StudyBoard = {
   runwayGoal: number;
   runwayHave: number;
   top: { name: string; minor: number }[];
+  topRest: { count: number; minor: number };
   flow: { name: string; minor: number; tone: string }[];
   donut: { name: string; minor: number; color: string }[];
   income: number;
@@ -349,15 +369,17 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   // Asesor's cushion and the widget read — not just the balances sitting in this month's bucket.
   const runwayHave = savingsStock(state, key).total;
   const runwayMonths = s.fixed > 0 ? runwayHave / s.fixed : null;
-  const top = lines
+  const topAll = lines
     .filter((l) => !l.kind.startsWith("income"))
     .map((l) => ({
       name: l.concept || names.cat(l.categoryId) || names.purchase(l.categoryId) || names.catalog(l.storeId) || l.kind,
       minor: inView(l, display, rateE4),
     }))
     .filter((l) => l.minor > 0)
-    .sort((a, b) => b.minor - a.minor)
-    .slice(0, 5);
+    .sort((a, b) => b.minor - a.minor);
+  const top = topAll.slice(0, 5);
+  // 1.3.148: what the top-5 cut leaves out, counted and summed, so the list can say "+N más ($X)".
+  const topRest = { count: topAll.length - top.length, minor: topAll.slice(5).reduce((a, l) => a + l.minor, 0) };
   const flow = [
     { name: L(lang, "Fijos", "Fixed"), minor: s.fixed, tone: "tone-1" },
     { name: L(lang, "Variables", "Variable"), minor: s.variable, tone: "tone-2" },
@@ -370,7 +392,8 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   const raw = categorySlices(state, key, names, lang);
   const head = raw.slice(0, 6);
   const tail = raw.slice(6).reduce((acc, sl) => acc + sl.minor, 0);
-  const donut = tail > 0
+  // 1.3.148: a negative tail (refunds past the head) is money too — it folds in instead of vanishing.
+  const donut = tail !== 0
     ? [...head.map((sl) => ({ name: sl.name, minor: sl.minor, color: sl.color })), { name: L(lang, "Otras", "Other"), minor: tail, color: "#c5c1b8" }]
     : head.map((sl) => ({ name: sl.name, minor: sl.minor, color: sl.color }));
   return {
@@ -383,6 +406,7 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
     runwayGoal: state.settings.emergencyMonths,
     runwayHave,
     top,
+    topRest,
     flow,
     donut,
     income: s.income,
@@ -598,7 +622,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: pareto.length ? String(pareto.length) : "—",
     detail: pareto.join(" · ") || L(lang, "Sin gastos activos.", "No active spending."),
     tone: "neutral",
-    viz: expenseAbs > 0 ? { kind: "parts", cut: pareto.length, parts: slices.filter((sl) => sl.minor > 0).slice(0, 8).map((sl) => ({ name: sl.name, share: sl.minor / expenseAbs, color: sl.color })) } : undefined,
+    viz: expenseAbs > 0 ? { kind: "parts", cut: pareto.length, parts: foldSlices(slices.filter((sl) => sl.minor > 0), 8, lang, colorFor(state.structure, "otros")).map((sl) => ({ name: sl.name, share: sl.minor / expenseAbs, color: sl.color })) } : undefined,
     meaning: L(lang, "Las categorías que, sumadas de mayor a menor, alcanzan el 80% del gasto del mes. El resto es cola.", "The categories that, added from largest to smallest, reach 80% of the month's spending. The rest is the tail."),
     formula: L(lang, "Ordenar categorías por monto descendente y acumular hasta 80% del gasto.", "Sort categories by amount descending and accumulate until 80% of spending."),
     implication: L(lang, "Si una decisión solo cabe en una categoría, que sea la primera de esta lista.", "If a decision only fits in one category, make it the first on this list."),

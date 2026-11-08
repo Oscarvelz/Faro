@@ -2,6 +2,7 @@ package com.oscarvelz.faro
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.ContentValues
@@ -314,6 +315,21 @@ class MainActivity : Activity() {
         // Every method below answers only the Faro page (trusted = the main frame is oscarvelz.github.io/Faro, or its own
         // blob:/data:); any other page gets the same neutral answer as "nothing here" (no exception, nothing visible).
         @JavascriptInterface fun version(): String = if (trusted) BuildConfig.VERSION_NAME else ""
+
+        // 1.3.148: the Ajustes → Avisos row. notifyState reads the phone's real permission state (never a guess);
+        // requestNotify re-asks on Android 13+ (below 13 notifications need no runtime permission).
+        @JavascriptInterface fun notifyState(): String {
+            if (!trusted) return "denied"
+            val nm = getSystemService(NotificationManager::class.java) ?: return "denied"
+            return if (nm.areNotificationsEnabled()) "granted" else "denied"
+        }
+
+        @JavascriptInterface fun requestNotify() {
+            if (!trusted) return
+            runOnUiThread {
+                if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 12)
+            }
+        }
 
         @JavascriptInterface fun setBars(top: String, bottom: String, darkTop: Boolean, darkBottom: Boolean) {
             if (!trusted) return

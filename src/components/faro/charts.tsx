@@ -1123,6 +1123,8 @@ export function StudyCharts({
     runwayNote: string;
     top: string;
     whereHint: string;
+    otrosNote: string;
+    topMore: string;
   };
   picked: string | null;
   onPick: (id: string) => void;
@@ -1179,12 +1181,14 @@ export function StudyCharts({
             </button>
           );
         })}
+        {slices.some((s) => s.id === "otros") ? <p className="otros-note">{copy.otrosNote}</p> : null}
         {!picked && board?.top.length ? (
           <div className="where-top">
             <h3>{copy.top}</h3>
             {board.top.map((row) => (
               <p key={row.name}><span>{row.name}</span><strong className="num">{money(row.minor)}</strong></p>
             ))}
+            {copy.topMore ? <p className="otros-note">{copy.topMore}</p> : null}
           </div>
         ) : null}
         {picked && detail.length ? (

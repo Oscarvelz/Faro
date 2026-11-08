@@ -452,6 +452,13 @@ export function AgendaCard({ coach }: { coach: Coach }) {
                 <strong className="num">{fmt(d.minor)}</strong>
               </li>
             ))}
+            {coach.dues.length > 6 ? (
+              <li className="pano-more">
+                {lang === "en"
+                  ? `+${coach.dues.length - 6} more · ${fmt(coach.dues.slice(6).reduce((a, d) => a + d.minor, 0))}`
+                  : `+${coach.dues.length - 6} más · ${fmt(coach.dues.slice(6).reduce((a, d) => a + d.minor, 0))}`}
+              </li>
+            ) : null}
           </ul>
         </>
       ) : (

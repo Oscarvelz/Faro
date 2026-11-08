@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
-import { EXPORT_KINDS, exportPdf, exportWorkbook, type ExportPick, type ExportScope } from "@/lib/faro/export-docs";
+import { Download, Share2 } from "lucide-react";
+import { EXPORT_KINDS, canShareFiles, exportPdf, exportWorkbook, pdfFile, shareFile, workbookFile, type ExportPick, type ExportScope } from "@/lib/faro/export-docs";
 import type { LineKind } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 
@@ -13,6 +13,7 @@ const EMPTY: ExportPick = {
   summary: true,
   charts: true,
   advice: true,
+  remit: true,
 };
 
 export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -50,7 +51,7 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
   const scope = (id: ExportScope, label: string) => (
     <button type="button" aria-pressed={pick.scope === id} onClick={() => setPick((cur) => ({ ...cur, scope: id }))}>{label}</button>
   );
-  const flag = (id: "activeOnly" | "savings" | "debt" | "summary" | "charts" | "advice", label: string) => (
+  const flag = (id: "activeOnly" | "savings" | "debt" | "summary" | "charts" | "advice" | "remit", label: string) => (
     <button type="button" aria-pressed={pick[id]} onClick={() => setPick((cur) => ({ ...cur, [id]: !cur[id] }))}>{label}</button>
   );
   return (
@@ -86,11 +87,19 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
             {flag("summary", t("export.summary"))}
             {flag("charts", t("export.charts"))}
             {flag("advice", t("export.advice"))}
+            {flag("remit", t("export.remit"))}
           </div>
           <div className="export-actions">
             <button type="button" className="btn" onClick={() => run("xlsx")}>{t("export.excel")}</button>
             <button type="button" className="btn ghost" onClick={() => run("pdf")}>{t("export.pdf")}</button>
           </div>
+          <p className="export-note">{t("export.pdfNote")}</p>
+          {canShareFiles() ? (
+            <div className="export-share">
+              <button type="button" className="btn ghost" onClick={() => { void shareFile(workbookFile(session.ledger, key, lang, names, pick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} Excel</button>
+              <button type="button" className="btn ghost" onClick={() => { void shareFile(pdfFile(session.ledger, key, lang, names, pick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} PDF</button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

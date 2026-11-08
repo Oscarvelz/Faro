@@ -20,6 +20,8 @@ export type ExportPick = {
   summary: boolean;
   charts: boolean;
   advice: boolean;
+  /** 1.3.148: the Remesas sheet has its own tick — it used to hide behind «charts». */
+  remit: boolean;
 };
 
 type Names = ReturnType<typeof makeNamer>;
@@ -569,7 +571,8 @@ function budgetSheets(ledger: LedgerState, key: string, lang: Lang, names: Names
   return months.map((month) => budgetSheet(ledger, month, lang, names, pick, used, solo));
 }
 
-function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): Sheet[] {
+/** Exported for tests (1.3.148): the sheet list is where the pick gates are honored or not. */
+export function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): Sheet[] {
   const sheets: Sheet[] = budgetSheets(ledger, key, lang, names, pick);
   const lines = pickedLines(ledger, key, pick);
   if (pick.kinds.length || pick.savings || pick.debt) {
@@ -659,7 +662,8 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
     });
   }
   // Remesas (1.3.86): the last 12 months sent home, US$ and C$ at today's rate, with the change and the share of income.
-  if (pick.charts) {
+  // 1.3.148: gated on its own option (pick.remit); it used to ride on the charts tick.
+  if (pick.remit) {
     const rt = remitTrend(ledger, key, 12);
     if (rt.any) {
       const last = rt.months.length + 2;
@@ -701,7 +705,8 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
   }
   // Loans received (Debo → Préstamos): one row each, in the loan's own currency, interest as of today.
   const loans = loansOf(ledger);
-  if (loans.length && Object.values(pick).some(Boolean)) {
+  // 1.3.148: the debt sheets honor the Deudas tick — the old gate was always true, so unticking did nothing.
+  if (loans.length && pick.debt) {
     const head = [say(lang, "Quién prestó", "Lender"), say(lang, "Libro", "Book"), say(lang, "Moneda", "Currency"), say(lang, "Recibido", "Received"), say(lang, "Fecha", "Date"), say(lang, "Tasa %", "Rate %"), say(lang, "Interés", "Interest"), say(lang, "Pagado", "Paid"), say(lang, "Pendiente", "Pending"), say(lang, "Pagos", "Payments"), say(lang, "Estado", "Status")];
     sheets.push({
       name: say(lang, "Prestamos", "Loans"),
@@ -731,7 +736,7 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
   }
   // 1.3.107: credit cards (Debo → Préstamos → Tarjetas): today's figures, then every balance reading and payment.
   const cardRows = [...cardsOf(ledger), ...storedCards(ledger).filter((c) => c.archived)].filter((c) => c.snaps.length || (c.rw?.length ?? 0) || cardPays(ledger, c.id).length);
-  if (cardRows.length && Object.values(pick).some(Boolean)) {
+  if (cardRows.length && pick.debt) {
     const head = [say(lang, "Tarjeta", "Card"), say(lang, "Emisor", "Issuer"), say(lang, "Moneda", "Currency"), say(lang, "Saldo", "Balance"), say(lang, "Límite", "Limit"), say(lang, "Disponible", "Available"), say(lang, "Uso %", "Use %"), say(lang, "Pago mínimo", "Minimum"), say(lang, "Fecha de pago", "Due date"), say(lang, "Tasa %", "APR %"), say(lang, "Interés al mes", "Interest a month"), say(lang, "Recompensas", "Rewards"), say(lang, "Estado", "Status")];
     const hist: { k: string; row: Cell[] }[] = [];
     for (const c of cardRows) {
@@ -764,7 +769,7 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
   }
   // 1.3.109: card rewards (cash back): every reading, what it added (earned) and every redemption, per card.
   const rwCards = [...cardsOf(ledger), ...storedCards(ledger).filter((c) => c.archived)].filter((c) => (c.rw?.length ?? 0) > 0);
-  if (rwCards.length && Object.values(pick).some(Boolean)) {
+  if (rwCards.length && pick.debt) {
     const rows: Cell[][] = [];
     for (const c of rwCards) {
       const earned = rewardsEarned(c);
@@ -787,7 +792,7 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
   }
   // 1.3.92: Me deben (money lent, abonos are income lines) and the payoff plan for Préstamos.
   const lentRows = lentOf(ledger);
-  if (lentRows.length && Object.values(pick).some(Boolean)) {
+  if (lentRows.length && pick.debt) {
     const head = [say(lang, "Persona", "Person"), say(lang, "Moneda", "Currency"), say(lang, "Prestado", "Lent"), say(lang, "Desde", "Since"), say(lang, "Cobrar el", "Due"), say(lang, "Tasa %", "Rate %"), say(lang, "Interés", "Interest"), say(lang, "Abonado", "Paid"), say(lang, "Pendiente", "Pending"), say(lang, "Abonos", "Payments"), say(lang, "Estado", "Status")];
     sheets.push({
       name: say(lang, "Me deben", "Owed to me"),
@@ -809,7 +814,7 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
     });
   }
   const plan = payoffPlan(ledger);
-  if (plan.debts.length && plan.chosen && Object.values(pick).some(Boolean)) {
+  if (plan.debts.length && plan.chosen && pick.debt) {
     const ch = plan.chosen;
     const name = (o: string) => (o === "avalanche" ? say(lang, "Avalancha", "Avalanche") : say(lang, "Bola de nieve", "Snowball"));
     const net = netBalance(ledger);
@@ -1166,14 +1171,46 @@ function save(filename: string, blob: Blob) {
 }
 
 export function exportWorkbook(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick) {
-  const stamp = key || new Date().toISOString().slice(0, 10);
-  save(`Faro_${sampleOn() ? "Ejemplo_" : ""}${stamp}.xlsx`, xlsx(buildSheets(ledger, key, lang, names, pick)));
+  const f = workbookFile(ledger, key, lang, names, pick);
+  save(f.name, f);
 }
 
 export function exportPdf(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick) {
-  const stamp = key || new Date().toISOString().slice(0, 10);
+  const f = pdfFile(ledger, key, lang, names, pick);
+  save(f.name, f);
+}
+
+function workbookBlob(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): Blob {
+  return xlsx(buildSheets(ledger, key, lang, names, pick));
+}
+
+function pdfBlobFor(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): Blob {
   const pages = buildPdfPages(ledger, key, lang, names, pick);
-  save(`Faro_${sampleOn() ? "Ejemplo_" : ""}${stamp}.pdf`, pdfBlob(pages.length ? pages : ["BT /F1 12 Tf 40 740 Td (Faro) Tj ET"], true));
+  return pdfBlob(pages.length ? pages : ["BT /F1 12 Tf 40 740 Td (Faro) Tj ET"], true);
+}
+
+/** 1.3.148: the same documents as Files, for the share sheet (download stays the default elsewhere). */
+export function workbookFile(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): File {
+  const stamp = key || new Date().toISOString().slice(0, 10);
+  return new File([workbookBlob(ledger, key, lang, names, pick)], `Faro_${sampleOn() ? "Ejemplo_" : ""}${stamp}.xlsx`, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
+export function pdfFile(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): File {
+  const stamp = key || new Date().toISOString().slice(0, 10);
+  return new File([pdfBlobFor(ledger, key, lang, names, pick)], `Faro_${sampleOn() ? "Ejemplo_" : ""}${stamp}.pdf`, { type: "application/pdf" });
+}
+
+/** True only when this browser can actually hand a file to the share sheet. */
+export function canShareFiles(): boolean {
+  try {
+    if (typeof navigator === "undefined" || typeof navigator.share !== "function" || typeof navigator.canShare !== "function") return false;
+    return navigator.canShare({ files: [new File(["x"], "probe.txt", { type: "text/plain" })] });
+  } catch { return false; }
+}
+
+/** Shares one generated file; a dismissed sheet is silence, not an error. */
+export async function shareFile(file: File): Promise<void> {
+  try { await navigator.share({ files: [file] }); } catch { /* the user closed the sheet, or the platform refused */ }
 }
 
 export const EXPORT_KINDS = KINDS;
