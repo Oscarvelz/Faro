@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyImport, buildReview, fileRecon, matchKey, revertImport, type ParsedFile } from "./bankparse.ts";
-import { classOfLabel, importBook, learnPayHint, manualLineRc, merchantKey, payHintFor, rewardsMonth } from "./bankbook.ts";
+import { acctKindWord, classOfLabel, DEFAULT_SOURCES, importBook, learnPayHint, manualLineRc, merchantKey, payAcctLabel, payHintFor, rewardsMonth } from "./bankbook.ts";
 import type { Category, ImportBook, LedgerState, Line } from "./types.ts";
 
 const sub = (id: string, name: string) => ({ id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 0 });
@@ -280,5 +280,42 @@ describe("conciliación: recompensas en lo anotado a mano (extensión del punto 
     const m = rewardsMonth(s, "2026-10", "USD", 366243);
     assert.equal(m?.earned ?? 0, 0);
     assert.equal(m?.count ?? 0, 0, "ninguna de las dos cuenta como compra de tarjeta");
+  });
+});
+
+describe("pagado con: la cara del selector (1.3.156)", () => {
+  const src = (id: string) => DEFAULT_SOURCES.find((d) => d.id === id)!;
+
+  it("la billetera gana su palabra de tipo: «PayPal · Billetera» / «PayPal · Wallet»", () => {
+    assert.equal(payAcctLabel(src("acct-paypal"), "es"), "PayPal · Billetera");
+    assert.equal(payAcctLabel(src("acct-paypal"), "en"), "PayPal · Wallet");
+  });
+
+  it("los nombres de fábrica ya tipados pasan intactos — nunca «· tarjeta · Crédito»", () => {
+    assert.equal(payAcctLabel(src("acct-chase-chk"), "es"), "Chase · cuenta");
+    assert.equal(payAcctLabel(src("acct-chase-card"), "es"), "Chase · tarjeta");
+    assert.equal(payAcctLabel(src("acct-chase-card"), "en"), "Chase · tarjeta");
+    assert.equal(payAcctLabel(src("acct-wf-card"), "es"), "Wells Fargo · tarjeta");
+    assert.equal(payAcctLabel(src("acct-pp-card"), "es"), "PayPal · tarjeta");
+    assert.equal(payAcctLabel(src("acct-pp-save"), "es"), "PayPal · ahorros");
+  });
+
+  it("una cuenta propia sin tipo en el nombre lo gana; con tipo, no se duplica", () => {
+    assert.equal(payAcctLabel({ name: "Citi", kind: "card" }, "es"), "Citi · Crédito");
+    assert.equal(payAcctLabel({ name: "Citi", kind: "card" }, "en"), "Citi · Credit");
+    assert.equal(payAcctLabel({ name: "Mi cuenta", kind: "checking" }, "es"), "Mi cuenta");
+    assert.equal(payAcctLabel({ name: "Tarjeta", kind: "card" }, "es"), "Tarjeta");
+    assert.equal(payAcctLabel({ name: "Banco · Billetera", kind: "paypal" }, "es"), "Banco · Billetera");
+  });
+
+  it("la palabra de tipo es una sola: la misma que fichan las cuentas en Ajustes", () => {
+    assert.equal(acctKindWord("card", "es"), "Crédito");
+    assert.equal(acctKindWord("checking", "es"), "Débito");
+    assert.equal(acctKindWord("paypal", "es"), "Billetera");
+    assert.equal(acctKindWord("savings", "es"), "Ahorros");
+    assert.equal(acctKindWord("card", "en"), "Credit");
+    assert.equal(acctKindWord("checking", "en"), "Debit");
+    assert.equal(acctKindWord("paypal", "en"), "Wallet");
+    assert.equal(acctKindWord("savings", "en"), "Savings");
   });
 });

@@ -1,7 +1,7 @@
 import { FieldTip } from "./ui";
 import { cadenceLabel, freqPresetsOf } from "@/lib/faro/cadence";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Banknote, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
 import { categoryBase, categoryColor, chosenTone } from "@/lib/faro/colors";
 import { monthName } from "@/lib/faro/i18n";
@@ -14,7 +14,8 @@ import { RemitToField } from "./remit-people";
 import { isRemitCat } from "@/lib/faro/remit-people";
 import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, StorePick, SubPick, type Look } from "./fit-pick";
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
-import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payHintFor, targets } from "@/lib/faro/bankbook";
+import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payAcctLabel, payHintFor, targets } from "@/lib/faro/bankbook";
+import { BankMark } from "./bank-mark";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
   const { lang } = useFaro();
@@ -133,6 +134,43 @@ export function ThemeSelect({ value, onChange, options }: { value: string; onCha
   );
 }
 
+/**
+ * 1.3.156: ThemeSelect's own idiom with a face — an option may carry a mark (a bank's plate, the cash
+ * glyph), shown in the open list and on the closed field, so «Pagado con» never offers a bare name.
+ * Same panel, same selected green, same listbox semantics; only this control renders marks.
+ */
+export function MarkSelect({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string; mark?: ReactNode }[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
+  const current = options.find((o) => o.value === value);
+  return (
+    <div className="theme-select theme-select--mark" ref={ref}>
+      <button type="button" className="theme-select-btn" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <span className="ts-face">{current?.mark}<span className="ts-txt">{current?.label || "—"}</span></span>
+        <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+      </button>
+      {open ? (
+        <div className="theme-select-menu" role="listbox">
+          {options.map((o) => (
+            <button key={o.value || "empty"} type="button" role="option" aria-selected={o.value === value} onClick={() => { onChange(o.value); setOpen(false); }}>
+              <span className="ts-face">{o.mark}<span className="ts-txt">{o.label || "—"}</span></span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 type ReportDraft = {
   kind: LineKind;
   categoryId: string;
@@ -222,7 +260,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     }
     return live;
   })();
-  const payOptions = [{ value: "", label: lang === "en" ? "Not specified" : "Sin especificar" }, ...payAccts.map((a) => ({ value: a.id, label: a.name })), { value: CASH_SOURCE, label: lang === "en" ? "Cash" : "Efectivo" }];
+  // 1.3.156: every account wears its bank's mark and its kind word — the bare wallet "PayPal" reads «PayPal · Billetera».
+  const payOptions = [{ value: "", label: lang === "en" ? "Not specified" : "Sin especificar" }, ...payAccts.map((a) => ({ value: a.id, label: payAcctLabel(a, lang), mark: <BankMark a={a} /> })), { value: CASH_SOURCE, label: lang === "en" ? "Cash" : "Efectivo", mark: <span className="pay-cash-mark"><Banknote className="size-4" /></span> }];
   // A merchant Oscar usually pays one way gets that way prefilled — visibly, and his own pick always wins.
   useEffect(() => {
     if (existing || payTouched) return;
@@ -393,7 +432,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         )}
         <div className="label fit-f" data-f="pay">
           {head(lang === "en" ? "Paid with" : "Pagado con", "f-pagado-con")}
-          <ThemeSelect value={pay} onChange={(v) => { setPay(v); setPayTouched(true); }} options={payOptions} />
+          <MarkSelect value={pay} onChange={(v) => { setPay(v); setPayTouched(true); }} options={payOptions} />
         </div>
         {kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase" ? <PersonPick value={personId} onChange={setPersonId} /> : null}
         {group ? (

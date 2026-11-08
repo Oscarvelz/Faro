@@ -5,7 +5,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Note } from "./finish";
 import { Archive, Check, ChevronDown, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
-import { DEFAULT_SOURCES, ISSUERS, acctColor, archiveBank, bankGroups, editAccount, isDefaultAcct, restoreBank, type Acct, type BankGroup, restoreDefaultAccounts, REWARD_CLASSES, accounts, addAccount, archiveAccount, classOfLabel, importBook, newBonus, rcLabel, restoreAccount, rowApplies, targets, withBook, type Target } from "@/lib/faro/bankbook";
+import { DEFAULT_SOURCES, ISSUERS, acctColor, acctKindWord, archiveBank, bankGroups, editAccount, isDefaultAcct, restoreBank, type Acct, type BankGroup, restoreDefaultAccounts, REWARD_CLASSES, accounts, addAccount, archiveAccount, classOfLabel, importBook, newBonus, rcLabel, restoreAccount, rowApplies, targets, withBook, type Target } from "@/lib/faro/bankbook";
 import type { AcctKind, BankSource, BonusRow } from "@/lib/faro/types";
 import { FieldTip } from "./ui";
 import { useFaro } from "./provider";
@@ -14,7 +14,7 @@ import { ThemeSelect } from "./line-form";
 import { TargetPicker, chipLabel } from "./bank-pick";
 import { ColorPick } from "./color-pick";
 import { RewardRealSettings } from "./rewards-real";
-import { BANK_PATHS } from "@/lib/faro/bank-paths";
+import { BankMark } from "./bank-mark";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
 const own = (rc: string) => rc.slice(0, 2) === "b-";
@@ -22,19 +22,6 @@ const tipOf = (rc: string) => (own(rc) ? "imp-fila-propia" : `imp-tasa-${rc}`);
 const short = (name: string) => name.split(" · ")[0];
 const pctText = (bps: number | undefined) => (typeof bps === "number" ? String(Math.round(bps) / 100).replace(".", ",") : "");
 const readPct = (s: string) => { const n = Number(s.replace(",", ".").replace("%", "").trim()); return Number.isFinite(n) && n >= 0 && n <= 30 ? Math.round(n * 100) : null; };
-
-/** A bank's mark: its colour plate with the Simple Icons glyph (Chase, Wells Fargo, PayPal…) or the name's initial. */
-export function BankMark({ a, className }: { a: { bank: string; color?: string; name: string }; className?: string }) {
-  const path = BANK_PATHS[a.bank];
-  const fg = a.bank === "wellsfargo" && !a.color ? "#ffcd41" : "#fff";
-  const ch = (a.name.trim()[0] ?? "•").toUpperCase();
-  return (
-    <svg viewBox="0 0 32 32" className={`bk-mark${className ? ` ${className}` : ""}`} data-bank={a.bank} aria-hidden style={{ ["--bk-c" as string]: acctColor(a) }}>
-      <rect className="bk-mark-plate" width="32" height="32" rx="9" />
-      {path ? <path className="bk-mark-glyph" d={path} fill={fg} transform="translate(7.5 7.5) scale(.7083)" /> : <text className="bk-mark-glyph" x="16" y="21.5" textAnchor="middle" fill={fg} fontFamily="Outfit, sans-serif" fontWeight="700" fontSize="15">{ch}</text>}
-    </svg>
-  );
-}
 
 /**
  * 1.3.152 (Oscar): a part of Bancos y recompensas as its own little fold card — Recompensas folded beside
@@ -95,7 +82,7 @@ export default function BankSettings() {
   const label = (rc: string) => rcLabel(rc, lang, bonus).replace(/^./, (c) => c.toUpperCase());
   const groups = bankGroups(state);
   const kindName = (k: AcctKind) => k === "card" ? L(lang, "Tarjeta de crédito", "Credit card") : k === "checking" ? L(lang, "Débito o cuenta", "Debit or checking") : L(lang, "Ahorros o billetera", "Savings or wallet");
-  const kindChip = (k: AcctKind) => k === "card" ? L(lang, "Crédito", "Credit") : k === "checking" ? L(lang, "Débito", "Debit") : k === "paypal" ? L(lang, "Billetera", "Wallet") : L(lang, "Ahorros", "Savings");
+  const kindChip = (k: AcctKind) => acctKindWord(k, lang);
   const archive = (a: { id: string; name: string }) => confirm({ title: L(lang, `Quitar ${a.name}`, `Remove ${a.name}`), danger: true, yes: L(lang, "Quitar", "Remove"),
     body: L(lang, "Sale de la tabla, del importador y de los consejos. Sus movimientos, reglas e historial de recompensas se quedan; la flecha en su lugar la trae de vuelta.", "It leaves the table, the importer and the advice. Its entries, rules and rewards history stay; the arrow in its place brings it back."),
     run: () => commit((s) => archiveAccount(s, a.id), L(lang, `Quitar ${a.name}`, `Remove ${a.name}`)) });

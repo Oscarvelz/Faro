@@ -144,6 +144,28 @@ export const ISSUERS: { value: string; label: string }[] = [
   { value: "discover", label: "Discover" }, { value: "bofa", label: "Bank of America" }, { value: "other", label: "" },
 ];
 export const KIND_ICON: Record<AcctKind, string> = { card: "CreditCard", checking: "Landmark", savings: "PiggyBank", paypal: "Wallet" };
+
+/** The kind word an account wears beside its name — the one canonical wording (Ajustes' chips read it from here too). */
+export function acctKindWord(kind: AcctKind, lang: string): string {
+  return kind === "card" ? (lang === "en" ? "Credit" : "Crédito")
+    : kind === "checking" ? (lang === "en" ? "Debit" : "Débito")
+    : kind === "paypal" ? (lang === "en" ? "Wallet" : "Billetera")
+    : (lang === "en" ? "Savings" : "Ahorros");
+}
+
+/** Kind words a name may already end with, in either language's naming or chip form ("… · tarjeta" names it; "Crédito" chips it). */
+const KIND_SUFFIX = new Set(["cuenta", "tarjeta", "ahorros", "billetera", "crédito", "credito", "débito", "debito", "account", "card", "savings", "wallet", "credit", "debit"]);
+
+/**
+ * 1.3.156: an account's picker label. Factory names already carry their kind ("PayPal · tarjeta") and pass
+ * untouched; a name that does not end in a kind word gains its own kind word — the wallet's bare "PayPal"
+ * becomes "PayPal · Billetera" — so no picker row is ever ambiguous, and the word is never doubled.
+ */
+export function payAcctLabel(a: { name: string; kind: AcctKind }, lang: string): string {
+  const tail = (a.name.split("·").pop() ?? "").trim().toLowerCase();
+  const last = tail.split(/\s+/).pop() ?? "";
+  return KIND_SUFFIX.has(tail) || KIND_SUFFIX.has(last) ? a.name : `${a.name} · ${acctKindWord(a.kind, lang)}`;
+}
 const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const rid = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random()}`).replace(/-/g, "").slice(0, 10);
 
