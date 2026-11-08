@@ -33,6 +33,9 @@ export type FaroNativeBridge = {
   /** 1.3.148: the Ajustes → Avisos row — the phone's real notification-permission state, and re-asking for it. */
   notifyState?(): string;
   requestNotify?(): void;
+  /** 1.3.150: the Ajustes → battery card — whether the phone exempts Faro from battery optimisation, and asking for it. */
+  battExempt?(): string;
+  battAsk?(): string;
 };
 
 type W = Window & { FaroNative?: FaroNativeBridge; FaroBack?: () => string; __faroProviderLive?: number; __faroNativeOn?: boolean };
@@ -82,6 +85,30 @@ export function nativeAuth(): Promise<boolean> {
       resolve(false);
     }
   });
+}
+
+/* ---------- battery ---------- */
+
+/**
+ * 1.3.150: is Faro exempt from the phone's battery optimisation? `true`/`false` are the phone's real
+ * state; `null` means no shell answer exists (a browser, or a shell older than this one) — the battery
+ * card says so instead of guessing.
+ */
+export function nativeBattExempt(): boolean | null {
+  const n = native();
+  if (!n?.battExempt) return null;
+  try { return n.battExempt() === "true"; } catch { return null; }
+}
+
+/**
+ * Asks the phone for the exemption (the shell walks its three doors: the direct dialog, the battery
+ * list, the app's system page). Resolves with the state the shell reports after the ask; the card
+ * re-reads nativeBattExempt() when the user returns, so a grant given in the dialog always lands.
+ */
+export function nativeBattAsk(): boolean | null {
+  const n = native();
+  if (!n?.battAsk) return null;
+  try { return n.battAsk() === "true"; } catch { return null; }
 }
 
 /* ---------- back ---------- */

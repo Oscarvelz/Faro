@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -99,6 +100,19 @@ object FaroWidgets {
             .setData(Uri.parse("faro-widget://open/$go"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         return PendingIntent.getActivity(ctx, go.hashCode(), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+}
+
+/**
+ * 1.3.150: closes the reboot hole FaroNotify documents — Android wipes every alarm on reboot (and on an app
+ * update), so the midnight tick that drives the dues/pace/month-close alerts died until the next snapshot.
+ * On BOOT_COMPLETED / MY_PACKAGE_REPLACED: re-arm the midnight alarm and redraw the widgets from the last
+ * snapshot. Registered in the manifest (exported: both are protected system broadcasts).
+ */
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        FaroWidgets.scheduleMidnight(ctx)
+        FaroWidgets.refreshAll(ctx)
     }
 }
 

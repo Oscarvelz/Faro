@@ -3401,6 +3401,17 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         terms: [["Notificaciones", "Notifications"], ["Permiso", "Permission"], ["Vencimientos", "Due dates"]],
       },
       {
+        id: "bateria-app",
+        depth: "manual",
+        title: ["Protegida de la batería", "Safe from battery saving"],
+        sum: ["Sin restricciones de batería, los avisos llegan a su hora aunque no abras Faro.", "With no battery restrictions, alerts arrive on time even if you don't open Faro."],
+        what: ["Android ahorra batería durmiendo las apps que no se abren, y algunos teléfonos son más duros que otros. Si Faro duerme, la alarma que revisa los vencimientos a medianoche se puede atrasar horas o saltarse, y el aviso de lo que vence hoy no llega. Sin restricciones, Faro despierta un instante a medianoche, revisa y vuelve a dormir: no gasta más batería de forma apreciable.", "Android saves battery by putting apps you don't open to sleep, and some phones are harsher than others. If Faro sleeps, the midnight alarm that checks due dates can be delayed for hours or skipped, and the warning about what is due today never arrives. Unrestricted, Faro wakes for a moment at midnight, checks, and goes back to sleep: it uses no noticeable extra battery."],
+        how: ["En [[Ajustes]] → Protegida de la batería, toca Proteger Faro y acepta el diálogo del teléfono. Si no aparece ningún diálogo, hazlo a mano: Ajustes del teléfono → Apps → Faro → Batería → Sin restricciones.", "In [[Settings]] → Safe from battery saving, tap Protect Faro and accept the phone's dialog. If no dialog appears, do it by hand: the phone's Settings → Apps → Faro → Battery → Unrestricted."],
+        tip: ["Si reinicias el teléfono, Faro vuelve a armar su alarma solo al encender: no hace falta abrirlo para que los avisos sigan llegando.", "If you restart the phone, Faro re-arms its alarm by itself at boot: no need to open it for alerts to keep arriving."],
+        go: { screen: "settings", anchor: "aj-battery", where: ["Ajustes → Protegida de la batería", "Settings → Safe from battery saving"] },
+        terms: [["Batería", "Battery"], ["Sin restricciones", "Unrestricted"], ["Optimización de batería", "Battery optimization"]],
+      },
+      {
         id: "cerrar-sesion",
         depth: "manual",
         title: ["Cerrar sesión", "Sign out"],

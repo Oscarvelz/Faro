@@ -6,6 +6,8 @@
 .smp-row[aria-checked="true"] .smp-switch { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 30%, transparent); }
 .smp-row[aria-checked="true"] .smp-switch b { transform: translateX(18px); background: var(--accent); }
 .smp-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
+/* Battery card (1.3.150): the manual-path notice under the row is a full sentence — it wraps and sits as a block. */
+.batt-note { display: block; margin-top: 8px; }
 .smp-acts { display: flex; justify-content: flex-end; margin-top: 4px; }
 .smp-act { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; white-space: nowrap; font-size: .86rem; }
 .smp-act svg { width: 16px; height: 16px; }

@@ -5,6 +5,7 @@ import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
 import { ActivityLog, Note } from "./finish";
 import { SampleRow } from "./sample-mode";
 import { NotifyRow } from "./notify-row";
+import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
 import { peopleOf } from "@/lib/faro/people";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
@@ -4422,6 +4423,7 @@ export function Settings() {
       ) : null}
       {inAndroidApp() ? <WidgetRow /> : null}
       <NotifyRow />
+      <BatteryRow />
       <SampleRow />
       <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />

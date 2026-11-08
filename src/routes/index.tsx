@@ -15,7 +15,7 @@ function Boot() {
       <div className="brand-lockup">
         <Mark className="size-14" />
         <h1 className="serif text-6xl">FARO</h1>
-        <p className="tagline">Cada córdoba en su lugar.</p>
+        <p className="tagline">Cada moneda en su lugar.</p>
       </div>
     </main>
   );

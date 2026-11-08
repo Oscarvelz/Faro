@@ -17,8 +17,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.Message
+import android.os.PowerManager
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.util.Base64
 import android.view.Gravity
 import android.view.View
@@ -37,6 +39,8 @@ import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Faro for Android: a thin shell around the Faro web app, loaded live from GitHub Pages so every web release arrives on
@@ -329,6 +333,40 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 12)
             }
+        }
+
+        // 1.3.150: the Ajustes → battery card. battExempt reads the phone's real battery-optimisation state;
+        // battAsk walks three doors in order — the direct exemption dialog, the battery-optimisation list,
+        // the app's own system page. The bridge runs on a binder thread: the intents launch on the UI thread
+        // and the launch is WAITED FOR with a latch (3 s) — without the wait the answer comes back before any
+        // door opens and always reads "false" (the Iris 2.34 lesson). The answer is the phone's real state
+        // after the ask, never a promise; the page re-reads battExempt when the user comes back.
+        @JavascriptInterface fun battExempt(): String {
+            if (!trusted) return "false"
+            val pm = getSystemService(PowerManager::class.java) ?: return "false"
+            return if (pm.isIgnoringBatteryOptimizations(packageName)) "true" else "false"
+        }
+
+        @JavascriptInterface fun battAsk(): String {
+            if (!trusted) return "false"
+            if (battExempt() == "true") return "true"
+            val latch = CountDownLatch(1)
+            runOnUiThread {
+                try {
+                    val doors = listOf(
+                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
+                        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")),
+                    )
+                    for (door in doors) {
+                        try { startActivity(door); break } catch (e: Exception) { /* this door is shut on this phone: try the next */ }
+                    }
+                } finally {
+                    latch.countDown()
+                }
+            }
+            try { latch.await(3, TimeUnit.SECONDS) } catch (e: InterruptedException) { /* fall through to the real state */ }
+            return battExempt()
         }
 
         @JavascriptInterface fun setBars(top: String, bottom: String, darkTop: Boolean, darkBottom: Boolean) {
