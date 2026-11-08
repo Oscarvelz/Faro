@@ -872,7 +872,7 @@ export function CardsAdvisor({ plan }: { plan: ReturnType<typeof import("@/lib/f
         {sums.util == null ? L("Añade el límite de cada tarjeta para ver tu uso de crédito.", "Add each card's limit to see your credit use.")
           : lvl === "great" || lvl === "ok" ? L("Tu uso está bajo 30%: bien para tu puntaje.", "Your use is under 30%: good for your score.")
             : L(`Tu uso pasa de 30%: paga ${fmt(cut)} para bajarlo.`, `Your use is over 30%: pay ${fmt(cut)} to bring it down.`)}
-        {costly && costly.cost > 0 ? <> {L(`${costly.c.name} te cuesta ${fmt(costly.cost)} al mes en intereses${costly.c.aprBps ? "" : " (estimado)"}.`, `${costly.c.name} costs you ${fmt(costly.cost)} a month in interest${costly.c.aprBps ? "" : " (estimated)"}.`)}</> : null}
+        {costly && costly.cost > 0 ? <> {L(`${costly.c.name} te cuesta ${fmt(costly.cost)} al mes en intereses (estimado).`, `${costly.c.name} costs you ${fmt(costly.cost)} a month in interest (estimated).`)}</> : null}
         {rows.some((r) => !r.c.aprBps) ? <> {L("Añade la tasa de cada tarjeta para un mejor consejo.", "Add each card's rate for better advice.")}</> : null}
         {rwt.total > 0 ? <> {L(`Tienes ${fmt(rwt.total)} en recompensas: canjéalas como crédito a ${top?.c.name ?? "la tarjeta de tasa más alta"}.`, `You have ${fmt(rwt.total)} in rewards: redeem them as a credit on ${top?.c.name ?? "the highest-rate card"}.`)}</> : null}
       </p>

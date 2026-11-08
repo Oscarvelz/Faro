@@ -48,6 +48,7 @@ export function normalizeLoan(l: Loan, fallback: Currency = "NIO"): Loan {
     currency: normCurrency(l.currency, fallback),
     aprBps: typeof l.aprBps === "number" && l.aprBps > 0 ? l.aprBps : 0,
     takenOn: typeof l.takenOn === "string" && ISO_DAY.test(l.takenOn) ? l.takenOn : "",
+    ...(typeof l.dueDay === "number" && l.dueDay >= 1 && l.dueDay <= 31 ? { dueDay: Math.round(l.dueDay) } : {}),
     book: l.book === "variable" ? "variable" : "fixed",
     note: typeof l.note === "string" ? l.note : "",
     ...(l.archived ? { archived: true, archivedOn: l.archivedOn ?? "", unpaidMinor: l.unpaidMinor ?? 0 } : {}),
@@ -97,6 +98,40 @@ export function loanTotals(state: LedgerState | null | undefined, today = todayI
   }, zero);
 }
 
+/* ---------- interest PAID (1.3.149) ----------
+ * Interest paid exists only where a payment recorded its split (Line.interestMinor). A legacy payment
+ * without a split counts as ZERO interest paid here — its money still lowers the balance exactly as
+ * before (loanState sums the whole payment); no total invents a split the user never recorded. */
+
+/** Interest paid on one loan, in the loan's currency; `year` restricts to payments booked that year. */
+export function loanInterestPaid(state: LedgerState, loan: Loan, year?: number): number {
+  return loanPays(state, loan.id).reduce((sum, line) => {
+    if (line.interestMinor == null) return sum;
+    if (year != null && (line.bookedOn || `${line.monthKey}-01`).slice(0, 4) !== String(year)) return sum;
+    return sum + convertMinor(line.interestMinor, line.currency, loan.currency, state.settings.rateE4);
+  }, 0);
+}
+
+/** Interest paid across every received loan (archived ones too: the money was paid), in the view currency. */
+export function interestPaidTotal(state: LedgerState | null | undefined, year?: number): number {
+  if (!state) return 0;
+  const { display, rateE4 } = state.settings;
+  return loansOf(state).reduce((acc, loan) => acc + convertMinor(loanInterestPaid(state, loan, year), loan.currency, display, rateE4), 0);
+}
+
+/**
+ * Accrued interest not yet covered by payments, for the payment form's prefill. When earlier payments
+ * recorded splits, they are the truth: accrued − splits. When none did (a legacy loan), payments are
+ * read interest-first — the usual reading — so the suggestion never asks for interest already covered.
+ */
+export function accruedUnpaidInterest(state: LedgerState, loan: Loan, today = todayIso()): number {
+  const f = loanState(state, loan, today);
+  if (f.interest <= 0) return 0;
+  const split = loanInterestPaid(state, loan);
+  const covered = split > 0 ? split : Math.min(f.paid, f.interest);
+  return Math.max(0, f.interest - covered);
+}
+
 export function addLoan(state: LedgerState, loan: Loan): LedgerState {
   return { ...state, loans: [normalizeLoan(loan, state.settings.display), ...loansOf(state)] };
 }
@@ -113,17 +148,21 @@ export function loanCategory(state: LedgerState, book: "fixed" | "variable"): { 
  * A payment toward a received loan: a normal expense line in the month of its date, in the loan's book,
  * so it counts in Gastaré, the books, the debt signal and every total. `amountMinor` is in the loan's currency.
  */
-export function payLoan(state: LedgerState, loanId: string, amountMinor: number, date: string, id: string, label: string): LedgerState {
+export function payLoan(state: LedgerState, loanId: string, amountMinor: number, date: string, id: string, label: string, interestMinor?: number): LedgerState {
   const loan = loansOf(state).find((l) => l.id === loanId);
   if (!loan || amountMinor <= 0) return state;
   const day = ISO_DAY.test(date) ? date : todayIso();
   const { cat, subId } = loanCategory(state, loan.book);
+  // 1.3.149: the split is recorded only when the caller supplies it (the payment form does, prefilled);
+  // clamped into the payment, never above it. No split supplied = the line stays byte-identical to 1.3.148.
+  const split = interestMinor != null && Number.isFinite(interestMinor) ? Math.min(Math.max(0, Math.round(interestMinor)), amountMinor) : null;
   const line: Line = {
     id, seriesId: id, monthKey: day.slice(0, 7), kind: loan.book === "variable" ? "expense-variable" : "expense-fixed",
     concept: `${label} · ${loan.lender}`, amountMinor, currency: loan.currency, active: true, note: "",
     categoryId: cat?.id ?? "", subId, recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "",
     cadence: "", nextDue: "", aprBps: loan.aprBps, balanceMinor: null, balanceCurrency: loan.currency, icon: "Landmark",
     history: [], bookedOn: day, loanId,
+    ...(split != null ? { interestMinor: split } : {}),
   };
   const bucket = state.months[line.monthKey] ?? { lines: [] };
   return { ...state, months: { ...state.months, [line.monthKey]: { lines: [...bucket.lines, line] } } };

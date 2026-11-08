@@ -5,6 +5,7 @@ import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
 import { remitTrend } from "./remesas.ts";
 import { remitByPerson } from "./remit-people.ts";
 import { savingsStock } from "./savings.ts";
+import { duesWindow } from "./dues.ts";
 import { visibleNamer } from "./defaults.ts";
 
 type Namer = {
@@ -495,24 +496,22 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   }
 
   const warnAt = Math.max(display === "USD" ? 5000 : convertMinor(5000, "USD", display, rateE4), income > 0 ? Math.round(income * 0.05) : 0);
-  const horizonEnd = addDays(today, 30);
-  const upcoming = lines.filter((line) => {
-    if (line.kind.startsWith("income")) return false;
-    const when = line.nextDue || line.bookedOn || "";
-    if (!when) return false;
-    const day = new Date(`${when.slice(0, 10)}T12:00:00`);
-    return day >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) && day <= horizonEnd;
-  });
-  const loud = upcoming.filter((line) => inView(line, display, rateE4) >= warnAt);
+  // 1.3.149: the count AND the sum come from the ONE dues window (dues.ts) — cuotas, card minimums
+  // and loans with a due day, the next 30 days. Before, this counted only the current month's dated
+  // lines (cards and loans invisible) and never summed them. Lent money (due IN) is not a payment.
+  const upcoming = duesWindow(state, 30, iso(today)).filter((e) => e.kind !== "lent" && e.on >= iso(today));
+  const upcomingSum = upcoming.reduce((a, e) => a + (e.amt ?? 0), 0);
+  const loud = upcoming.filter((e) => e.amt != null && e.amt >= warnAt);
+  const sumPart = upcomingSum > 0 ? L(lang, ` por ${money(upcomingSum)}`, ` totalling ${money(upcomingSum)}`) : "";
   const calendarNote = upcoming.length
     ? L(
         lang,
         loud.length
-          ? `En los próximos 30 días tienes ${upcoming.length} pagos con fecha. Los más grandes (más de ${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
-          : `En los próximos 30 días tienes ${upcoming.length} pagos con fecha, ninguno mayor de ${money(warnAt)}.`,
+          ? `En los próximos 30 días tienes ${upcoming.length} pagos con fecha${sumPart}. Los más grandes (más de ${money(warnAt)}): ${loud.map((e) => (e.line ? lineName(e.line, names) : e.name)).slice(0, 3).join(", ")}.`
+          : `En los próximos 30 días tienes ${upcoming.length} pagos con fecha${sumPart}, ninguno mayor de ${money(warnAt)}.`,
         loud.length
-          ? `In the next 30 days you have ${upcoming.length} dated payments. The biggest (over ${money(warnAt)}): ${loud.map((line) => lineName(line, names)).slice(0, 3).join(", ")}.`
-          : `In the next 30 days you have ${upcoming.length} dated payments, none over ${money(warnAt)}.`,
+          ? `In the next 30 days you have ${upcoming.length} dated payments${sumPart}. The biggest (over ${money(warnAt)}): ${loud.map((e) => (e.line ? lineName(e.line, names) : e.name)).slice(0, 3).join(", ")}.`
+          : `In the next 30 days you have ${upcoming.length} dated payments${sumPart}, none over ${money(warnAt)}.`,
       )
     : L(
         lang,
@@ -1009,7 +1008,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const months = state.settings.emergencyMonths || 3;
   const cushionGap = Math.max(0, cushionMinor - cushionStock);
   const unknownDebts = rawDebtLines.filter((line) => line.balanceMinor === null || !(line.aprBps > 0));
-  const loudNames = loud.map((line) => lineName(line, names)).slice(0, 2);
+  const loudNames = loud.map((e) => (e.line ? lineName(e.line, names) : e.name)).slice(0, 2);
   let day24 = "";
   let day7 = "";
   let day30 = "";

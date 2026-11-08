@@ -90,10 +90,6 @@
 .hist-btn svg { width: 14px; height: 14px; flex: none; }
 .hist-word { line-height: 1; white-space: nowrap; }
 .tree-hint { margin: 8px 0 0; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
-/* The word makes the pill wider than the Pagos note is long: it hangs off the card's bottom edge
-   like a tab (its top stays inside, below the note's last line) instead of covering the note. */
-.lens-corner.is-cobro { width: auto; min-width: 22px; padding: 0 7px; display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 650; bottom: -13px; }
-.lens-corner.is-cobro .cobro-word { line-height: 1; white-space: nowrap; }
 .export-note { margin: 10px 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
 .export-share { display: flex; gap: 8px; margin-top: 8px; }
 .advice-basis { margin: 0 0 10px; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
@@ -3242,3 +3238,16 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
 
 /* 1.3.146: persist-failure banner — a save to this phone failed; the banner stays until a write lands. */
 .persist-banner { margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--bad); border-radius: 14px; background: color-mix(in oklab, var(--bad) 12%, var(--surface)); color: var(--bad); font-weight: 600; font-size: .92rem; line-height: 1.35; }
+
+/* 1.3.149: the year view (Estudio). Month rows are buttons that navigate to the month. */
+.year-sub { margin: 14px 0 6px; }
+.year-months { display: grid; gap: 2px; margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+.year-month { display: grid; grid-template-columns: 3.4em 1fr 1fr 1fr; gap: 8px; align-items: baseline; width: 100%; padding: 6px 8px; border: 0; border-radius: 10px; background: transparent; font: inherit; color: inherit; text-align: right; cursor: pointer; }
+.year-month:hover { background: color-mix(in oklab, var(--fg) 6%, transparent); }
+.year-month-name { text-align: left; text-transform: capitalize; }
+.year-month.is-empty { opacity: .45; }
+.year-month .num[data-tone="bad"] { color: var(--bad); }
+.year-saves { margin-top: 2px; }
+.year-srow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 2px; }
+.year-srow + .year-srow { border-top: 1px solid color-mix(in oklab, var(--line) 55%, transparent); }
+.year-srow.is-total { font-weight: 600; }

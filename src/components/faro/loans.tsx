@@ -14,14 +14,14 @@ import { useLayer } from "@/lib/manual/back";
 import { DayField } from "./line-form";
 import { CobroSpan } from "./screens";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
-import { ISO_DAY, addLoan, archiveLoan, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
+import { ISO_DAY, accruedUnpaidInterest, addLoan, archiveLoan, interestPaidTotal, loanInterestPaid, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
 import type { Currency, Group, Loan } from "@/lib/faro/types";
 import { CardsGroup } from "./cards";
 import { BookKit } from "./book-kit";
 import { cardFigures, cardTotals, cardsOf } from "@/lib/faro/cards";
 import { lineDebtTotal, totalDebt } from "@/lib/faro/debts";
 
-export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group };
+export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group; /** 1.3.149 (borrow only): day of the month a payment is due, 1–31; 0/absent = no due day. */ dueDay?: number };
 
 const stampOf = (iso: string) => (iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—");
 const TINTS = ["#7aa2c4", "#8fb9a6", "#e7c27a", "#d7a08a", "#a9b4de"];
@@ -40,15 +40,18 @@ export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "
   const [date, setDate] = useState(initial?.date ?? (borrow ? todayIso() : ""));
   const [apr, setApr] = useState(initial && initial.aprBps ? String(initial.aprBps / 100) : "");
   const [book, setBook] = useState<Group>(initial?.book ?? "fixed");
+  const [dueDay, setDueDay] = useState(initial?.dueDay ? String(initial.dueDay) : "");
   function save() {
     const minor = parseAmount(amount);
     const clean = name.trim();
     if (!clean || minor === null || minor <= 0) return;
     const pct = Number(apr.trim().replace(",", "."));
+    const dd = Number(dueDay);
     onSave({
       name: clean, who, kind, amountMinor: minor, currency: borrow || initial ? currency : display,
       aprBps: kind === "interest" && Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0,
       date: ISO_DAY.test(date) ? date : todayIso(), book,
+      dueDay: borrow && Number.isInteger(dd) && dd >= 1 && dd <= 31 ? dd : 0,
     });
   }
   return (
@@ -100,6 +103,12 @@ export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "
           </label>
         ) : null}
         {borrow ? (
+          <label className="label is-right">
+            <span className="lab-head">{t("cobro.loan.dueday")}<FieldTip topic="f-prestamo-vence" /></span>
+            <input className="field num" inputMode="numeric" placeholder="1–31" value={dueDay} onChange={(e) => setDueDay(e.target.value.replace(/\D/g, "").slice(0, 2))} />
+          </label>
+        ) : null}
+        {borrow ? (
           <div className="label is-wide">
             <span className="lab-head">{t("cobro.loan.book")}<FieldTip topic="f-prestamo-libro" /></span>
             <div className="cobro-kind">
@@ -118,16 +127,24 @@ export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "
 }
 
 /** One loan's card: who, pending, amount · date · rate, its payments, then Pay/Bono and Archive. Amounts arrive in the view currency. */
-export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIso, aprBps, pays, payLabel, paying, onPaying, onPay, archiveBody, onArchive, hint, extra, onWho }: {
+export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIso, aprBps, pays, payLabel, paying, onPaying, onPay, onPaySplit, prefillInterest, archiveBody, onArchive, hint, extra, onWho }: {
   onWho?: () => void;
   name: string; rate: boolean; leftView: number; amountView: number; amountLabel: string; dateIso: string; aprBps: number;
   pays: { date: string; view: number }[]; payLabel: string; paying: boolean; onPaying: (on: boolean) => void;
   onPay: (displayMinor: number, date: string) => void; archiveBody: string; onArchive: () => void; hint: string; extra?: ReactNode;
+  /** 1.3.149: when present (a received loan with interest), the pay form splits the payment into
+   *  interest + principal; prefillInterest suggests the interest part for a typed amount. */
+  onPaySplit?: (displayMinor: number, date: string, interestDisplayMinor: number) => void;
+  prefillInterest?: (displayMinor: number) => number;
 }) {
   const { t, fmt, lang, confirm } = useFaro();
   const [amt, setAmt] = useState("");
   const [on, setOn] = useState("");
-  useEffect(() => { if (paying) { setAmt(""); setOn(todayIso()); } }, [paying]);
+  const [intAmt, setIntAmt] = useState("");
+  const intAuto = useRef(true);
+  useEffect(() => { if (paying) { setAmt(""); setOn(todayIso()); setIntAmt(""); intAuto.current = true; } }, [paying]);
+  const amtMinor = parseAmount(amt);
+  const intMinor = onPaySplit ? Math.min(Math.max(0, parseAmount(intAmt) ?? 0), amtMinor ?? 0) : 0;
   const tint = TINTS[name.charCodeAt(0) % 5];
   return (
     <article className={`cobro-card${rate ? " is-rate" : ""}`}>
@@ -159,19 +176,38 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
           <div className="cobro-grid">
             <label className="label">
               <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-bono-monto" /></span>
-              <input className="field num" inputMode="decimal" placeholder="0.00" value={amt} onChange={(e) => setAmt(e.target.value)} />
+              <input className="field num" inputMode="decimal" placeholder="0.00" value={amt} onChange={(e) => {
+                setAmt(e.target.value);
+                if (onPaySplit && intAuto.current) {
+                  const m = parseAmount(e.target.value);
+                  setIntAmt(m && m > 0 ? (Math.min(prefillInterest?.(m) ?? 0, m) / 100).toFixed(2) : "");
+                }
+              }} />
             </label>
             <div className="label is-right">
               <span className="lab-head">{t("cobro.bonus.on")}<FieldTip topic="f-bono-fecha" /></span>
               <DayField value={on} onChange={setOn} />
             </div>
+            {onPaySplit ? (
+              <>
+                <label className="label">
+                  <span className="lab-head">{t("cobro.loan.interest")}<FieldTip topic="f-pago-interes" /></span>
+                  <input className="field num" inputMode="decimal" placeholder="0.00" value={intAmt} onChange={(e) => { intAuto.current = false; setIntAmt(e.target.value); }} />
+                </label>
+                <label className="label is-right">
+                  <span className="lab-head">{t("loan.pay.principal")}</span>
+                  <input className="field num" readOnly tabIndex={-1} value={amtMinor && amtMinor > 0 ? ((amtMinor - intMinor) / 100).toFixed(2) : ""} placeholder="0.00" />
+                </label>
+              </>
+            ) : null}
           </div>
           <div className="cobro-actions">
             <button type="button" className="btn secondary" onClick={() => onPaying(false)}>{t("cancel")}</button>
             <button type="button" className="btn" onClick={() => {
               const minor = parseAmount(amt);
               if (minor === null || minor <= 0) return;
-              onPay(minor, ISO_DAY.test(on) ? on : todayIso());
+              if (onPaySplit) onPaySplit(minor, ISO_DAY.test(on) ? on : todayIso(), Math.min(Math.max(0, parseAmount(intAmt) ?? 0), minor));
+              else onPay(minor, ISO_DAY.test(on) ? on : todayIso());
               onPaying(false);
             }}>{t("save")}</button>
           </div>
@@ -298,7 +334,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
   const lineDebt = lineDebtTotal(ledger);
   const lineDebtPart: Array<string | { num: string }> = [lang === "en" ? "Credit" : "Créditos", { num: fmt(lineDebt) }];
   function save(d: LoanDraft) {
-    const loan: Loan = { id: uid(), lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, note: "" };
+    const loan: Loan = { id: uid(), lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, note: "", ...(d.dueDay ? { dueDay: d.dueDay } : {}) };
     commit((s) => addLoan(s, loan), d.name);
     setAdding(false);
   }
@@ -340,9 +376,9 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
       {(() => {
         const loan = editFor ? active.find((l) => l.id === editFor) : null;
         if (!loan) return null;
-        return <LoanForm key={loan.id} mode="borrow" initial={{ name: loan.lender, who: loan.who, kind: loan.kind, amountMinor: loan.amountMinor, currency: loan.currency, aprBps: loan.aprBps, date: loan.takenOn, book: loan.book }}
+        return <LoanForm key={loan.id} mode="borrow" initial={{ name: loan.lender, who: loan.who, kind: loan.kind, amountMinor: loan.amountMinor, currency: loan.currency, aprBps: loan.aprBps, date: loan.takenOn, book: loan.book, dueDay: loan.dueDay ?? 0 }}
           onCancel={() => setEditFor(null)}
-          onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => (l.id === loan.id ? { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book } : l)) }), d.name); setEditFor(null); }} />;
+          onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => { if (l.id !== loan.id) return l; const next: Loan = { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, ...(d.dueDay ? { dueDay: d.dueDay } : {}) }; if (!d.dueDay) delete next.dueDay; return next; }) }), d.name); setEditFor(null); }} />;
       })()}
       {/* 1.3.113 (Oscar): Tarjetas first, then the loans and their Archivo; Libros puts Plan de pago + Deudas below them. */}
       <CardsGroup libros={libros} />
@@ -355,10 +391,12 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
           <LoanCard key={loan.id} name={loan.lender} rate={loan.kind === "interest"} leftView={view(f.left, loan.currency)}
             amountView={view(loan.amountMinor, loan.currency)} amountLabel={t("cobro.loan.got")} dateIso={loan.takenOn} aprBps={loan.aprBps}
             pays={loanPays(ledger, loan.id).map((line) => ({ date: line.bookedOn || `${line.monthKey}-01`, view: view(line.amountMinor, line.currency) }))}
-            extra={<><p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}</p>{facts ? facts(loan.id, view(f.interest, loan.currency)) : null}</>}
+            extra={<><p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}{loan.dueDay ? <> · {t("cobro.loan.dueday")} <b className="num">{loan.dueDay}</b></> : null}{(() => { const ip = loanInterestPaid(ledger, loan); if (ip <= 0) return null; const yr = new Date().getFullYear(); const ipy = loanInterestPaid(ledger, loan, yr); return <> · {t("cobro.loan.intpaid")} <b className="num">{fmt(view(ip, loan.currency))}</b>{ipy > 0 && ipy < ip ? <> · {t("cobro.loan.intpaid.year")} <b className="num">{fmt(view(ipy, loan.currency))}</b></> : null}</>; })()}</p>{facts ? facts(loan.id, view(f.interest, loan.currency)) : null}</>}
             onWho={onWho ? () => onWho(loan.lender) : undefined}
             payLabel={t("cobro.loan.pay")} paying={payFor === loan.id} onPaying={(on) => setPayFor(on ? loan.id : null)}
             onPay={(minor, date) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line")), loan.lender)}
+            onPaySplit={loan.kind === "interest" ? (minor, date, intDisplay) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line"), convertMinor(intDisplay, display, loan.currency, rate)), loan.lender) : undefined}
+            prefillInterest={loan.kind === "interest" ? (minor) => Math.min(minor, view(accruedUnpaidInterest(ledger, loan), loan.currency)) : undefined}
             archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
         );
       }) : cardSum.count ? null : <Note>{t("cobro.loan.empty")}</Note>}
@@ -419,6 +457,7 @@ export function LoansStudy() {
         <div><em>{t("cobro.loan.got")}</em><strong className="num">{fmt(sums.borrowed)}</strong></div>
         <div><em>{t("cobro.loan.paid")}</em><strong className="num">{fmt(sums.paid)}</strong></div>
         <div><em>{t("cobro.loan.interest")}</em><strong className="num">{fmt(sums.interest)}</strong></div>
+        {interestPaidTotal(ledger) > 0 ? <div><em>{t("cobro.loan.intpaid")}</em><strong className="num">{fmt(interestPaidTotal(ledger))}</strong></div> : null}
       </div>
       {rows.map((r) => (
         <div key={r.id} className="share">

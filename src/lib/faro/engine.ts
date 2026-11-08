@@ -1227,7 +1227,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
         : util < 0.3 ? L(lang, `Usas el ${pct(util * 100)} de tu crédito: bien, mantenlo bajo 30%.`, `You use ${pct(util * 100)} of your credit: good, keep it under 30%.`)
           : L(lang, `Usas el ${pct(util * 100)} de tu crédito: paga ${money(cut)} para bajar a 30% y cuidar tu puntaje.`, `You use ${pct(util * 100)} of your credit: pay ${money(cut)} to get under 30% and protect your score.`);
     const costNote = costly && costly.cost > 0
-      ? L(lang, ` ${costly.c.name} te cuesta ${money(costly.cost)} al mes en intereses${costly.c.aprBps ? "" : " (estimado, sin tasa)"}; págala primero.`, ` ${costly.c.name} costs you ${money(costly.cost)} a month in interest${costly.c.aprBps ? "" : " (estimated, no rate)"}; pay it first.`)
+      ? L(lang, ` ${costly.c.name} te cuesta ${money(costly.cost)} al mes en intereses (estimado); págala primero.`, ` ${costly.c.name} costs you ${money(costly.cost)} a month in interest (estimated); pay it first.`)
       : "";
     mediumBits.push({
       label: L(lang, "Tarjetas de crédito", "Credit cards"),

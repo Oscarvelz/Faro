@@ -4,6 +4,7 @@
 import { useLayoutEffect, useState } from "react";
 import { useFaro } from "./provider";
 import { monthLines } from "@/lib/faro/engine";
+import { duesWindow } from "@/lib/faro/dues";
 import { convertMinor } from "@/lib/faro/money";
 import type { Line } from "@/lib/faro/types";
 
@@ -90,19 +91,22 @@ export function BookSide({ book }: { book: SideBook }) {
 /* Beside Debo → Cuotas: what is due next, in date order with the days left, which the Cuotas list (grouped by
    category, no dates side by side) does not give at a glance. */
 export function DueSide() {
-  const { session, key, fmt, lang } = useFaro();
+  const { session, fmt, lang } = useFaro();
   if (!session) return null;
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const st = session.ledger;
-  const { display, rateE4 } = st.settings;
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const rows = monthLines(st, key)
-    .filter((l) => l.kind === "subscription" && l.active && /^\d{4}-\d{2}-\d{2}/.test(l.nextDue || ""))
-    .map((l) => {
-      const d = new Date(Number(l.nextDue.slice(0, 4)), Number(l.nextDue.slice(5, 7)) - 1, Number(l.nextDue.slice(8, 10)));
-      return { name: l.concept || "—", date: d, days: Math.round((d.getTime() - today.getTime()) / 864e5), amt: convertMinor(l.amountMinor, l.currency, display, rateE4) };
-    })
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  // 1.3.149: the rows come from the ONE dues window (dues.ts) — cuotas, card minimums and loans with
+  // a due day, always counted from TODAY (the panel's own promise: «Próximos 30 días»), whatever month
+  // is open. Before, it read only the open month's subscription lines. Lent money (due IN) stays out:
+  // this panel sits beside Debo. A loan's amount shows «—»: its due day is known, its installment is not.
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const rows = duesWindow(st, 30, todayStr)
+    .filter((e) => e.kind !== "lent")
+    .map((e) => {
+      const d = new Date(Number(e.on.slice(0, 4)), Number(e.on.slice(5, 7)) - 1, Number(e.on.slice(8, 10)));
+      return { name: e.name, date: d, days: Math.round((d.getTime() - today.getTime()) / 864e5), amt: e.amt };
+    });
   const soon = rows.filter((r) => r.days >= 0 && r.days <= 30);
   const late = rows.filter((r) => r.days < 0);
   const fmtDay = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" });
@@ -112,7 +116,7 @@ export function DueSide() {
     <aside className="book-side due-side" aria-label={L("Próximos 30 días", "Next 30 days")}>
       <div className="bs-head">
         <span className="bs-kick">{L("Próximos 30 días", "Next 30 days")}</span>
-        <span className="bs-total"><strong className="num">{fmt(soon.reduce((a, r) => a + r.amt, 0))}</strong>{late.length ? <em data-tone="bad">{L(`${late.length} vencida${late.length > 1 ? "s" : ""}`, `${late.length} overdue`)}</em> : null}</span>
+        <span className="bs-total"><strong className="num">{fmt(soon.reduce((a, r) => a + (r.amt ?? 0), 0))}</strong>{late.length ? <em data-tone="bad">{L(`${late.length} vencida${late.length > 1 ? "s" : ""}`, `${late.length} overdue`)}</em> : null}</span>
       </div>
       {list.length ? (
         <ul className="bs-rows">
@@ -120,12 +124,12 @@ export function DueSide() {
             <li key={i}>
               <span className="bs-name">{r.name}</span>
               <span className="bs-pair">{fmtDay.format(r.date)} · <span data-tone={r.days < 0 ? "bad" : r.days <= 3 ? "warn" : "zero"}>{left(r.days)}</span></span>
-              <b className="num">{fmt(r.amt)}</b>
+              <b className="num">{r.amt != null ? fmt(r.amt) : "—"}</b>
             </li>
           ))}
         </ul>
       ) : null}
-      <p className="bs-foot">{rows.length ? (list.length ? "" : L("Nada vence en los próximos 30 días.", "Nothing due in the next 30 days.")) : L("Ponle fecha a una cuota y aparece aquí, en orden.", "Give a cuota a date and it shows here, in order.")}{list.length > 10 ? L(`+${list.length - 10} más · ${fmt(list.slice(10).reduce((a, r) => a + r.amt, 0))}`, `+${list.length - 10} more · ${fmt(list.slice(10).reduce((a, r) => a + r.amt, 0))}`) : ""}</p>
+      <p className="bs-foot">{rows.length ? (list.length ? "" : L("Nada vence en los próximos 30 días.", "Nothing due in the next 30 days.")) : L("Ponle fecha a una cuota y aparece aquí, en orden.", "Give a cuota a date and it shows here, in order.")}{list.length > 10 ? L(`+${list.length - 10} más · ${fmt(list.slice(10).reduce((a, r) => a + (r.amt ?? 0), 0))}`, `+${list.length - 10} more · ${fmt(list.slice(10).reduce((a, r) => a + (r.amt ?? 0), 0))}`) : ""}</p>
     </aside>
   );
 }

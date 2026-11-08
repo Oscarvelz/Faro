@@ -15,12 +15,13 @@ import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
+import { yearReport, yearsWithData } from "@/lib/faro/year";
 import { setSampleMode } from "@/lib/faro/samplemode";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
@@ -2613,7 +2614,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <circle cx="12" cy="6.5" r="2.15" fill="none" stroke="currentColor" strokeWidth="1.5" />
               <path d="M12 5.55v1.9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
             </svg>
-            <span className="cobro-word">{t("cobro.open")}</span>
           </button>
         </div>
       </div>
@@ -3557,6 +3557,68 @@ export function Subs() {
   return <LinesBlock kind="subscription" title={t("tab.subs")} />;
 }
 
+/** 1.3.149: the year as a report — Estudio's «El año» fold. Every figure comes from yearReport
+ *  (lib/faro/year.ts), which composes the monthly engine, so the year is the months added up.
+ *  Savings at year end is shown in Oscar's three types: Retiro, Emergencia, Metas y otros bolsillos. */
+export function YearCard() {
+  const { session, lang, fmt, t, ui, setMonth, names } = useFaro();
+  const years = session ? yearsWithData(session.ledger) : [];
+  const [pick, setPick] = useState<number | null>(null);
+  if (!session || !years.length) return null;
+  const year = pick != null && years.includes(pick) ? pick : years.includes(ui.year) ? ui.year : years[years.length - 1]!;
+  const r = yearReport(session.ledger, year, lang, names);
+  const at = years.indexOf(year);
+  const peak = Math.max(...r.top.map((s) => s.minor), 1);
+  return (
+    <section className="card">
+      <div className="stat-head">
+        <h2 className="serif text-2xl lab-head">{t("study.year.title")}<Hint topic="estudio-ano" fitParent /></h2>
+        <span className="hist-nav">
+          <button type="button" className="hist-btn" aria-label={t("study.year.prev")} disabled={at <= 0} onClick={() => setPick(years[at - 1]!)}><ChevronLeft /></button>
+          <strong className="num">{year}</strong>
+          <button type="button" className="hist-btn" aria-label={t("study.year.next")} disabled={at >= years.length - 1} onClick={() => setPick(years[at + 1]!)}><ChevronRight /></button>
+        </span>
+      </div>
+      <p className="num serif text-3xl">{fmt(r.net)}</p>
+      <div className="span-facts">
+        <div><em>{t("study.in")}</em><strong className="num">{fmt(r.income)}</strong></div>
+        <div><em>{t("study.out")}</em><strong className="num">{fmt(r.expense)}</strong></div>
+        {r.remittance > 0 ? <div><em>{t("study.year.remit")}</em><strong className="num">{fmt(r.remittance)}</strong></div> : null}
+        {r.interestPaid > 0 ? <div><em>{t("cobro.loan.intpaid")}</em><strong className="num">{fmt(r.interestPaid)}</strong></div> : null}
+      </div>
+      {r.top.length ? (
+        <>
+          <p className="lab-head year-sub">{t("study.year.top")}</p>
+          {r.top.map((s) => (
+            <div key={s.id} className="share">
+              <span className="share-name">{s.name}</span>
+              <span className="num">{fmt(s.minor)}</span>
+              <div className="bar-track"><div className="bar-fill tone-4" style={{ width: `${Math.max(s.minor > 0 ? 6 : 0, (s.minor / peak) * 100)}%`, background: s.color }} /></div>
+            </div>
+          ))}
+        </>
+      ) : null}
+      <p className="lab-head year-sub">{t("study.year.saved")}</p>
+      <div className="year-saves">
+        <div className="year-srow"><span>{t("study.year.retiro")}</span><strong className="num">{fmt(r.savingsEnd.retirement)}</strong></div>
+        <div className="year-srow"><span>{t("study.year.emergencia")}</span><strong className="num">{fmt(r.savingsEnd.emergency)}</strong></div>
+        <div className="year-srow"><span>{t("study.year.metas")}</span><strong className="num">{fmt(r.savingsEnd.goals)}</strong></div>
+        <div className="year-srow is-total"><span>{t("study.year.total")}</span><strong className="num">{fmt(r.savingsEnd.total)}</strong></div>
+      </div>
+      <div className="year-months">
+        {r.months.map((m, i) => (
+          <button key={m.key} type="button" className={`year-month${m.has ? "" : " is-empty"}`} onClick={() => setMonth(year, i + 1)}>
+            <span className="year-month-name">{m.label}</span>
+            <span className="num">{fmt(m.income)}</span>
+            <span className="num">{fmt(m.expense)}</span>
+            <span className="num" data-tone={m.net < 0 ? "bad" : undefined}>{fmt(m.net)}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Study() {
   const coach = useCoach();
   const { t, insights, slices, session, ui, setUi, lang, summary, fmt, names, lines, viewLine, key } = useFaro();
@@ -3648,6 +3710,7 @@ export function Study() {
   const detailRows = storePick
     ? pickedRows.filter((line) => line.storeId === storePick)
     : pickedRows.filter((line) => line.kind !== "purchase" || !line.storeId);
+  if (session && yearsWithData(session.ledger).length) visible.push("year");
   return (
     <StatFoldProvider
       label={t("study.unfold")}
@@ -3673,6 +3736,7 @@ export function Study() {
         { id: "movers", label: es ? "Qué se movió" : "What moved", section: "general" },
         { id: "time", label: es ? "Entra, sale y queda" : "In, out and left", section: "time" },
         { id: "earnings", label: es ? "De dónde viene tu dinero" : "Where your money comes from", section: "time" },
+        { id: "year", label: es ? "El año" : "The year", section: "time" },
         { id: "cushion", label: es ? "Ahorro y colchón" : "Savings and cushion", section: "save" },
         { id: "owed", label: t("study.owed.title"), section: "owed" },
         { id: "loans", label: t("study.loans.title"), section: "owed" },
@@ -3706,6 +3770,7 @@ export function Study() {
       {remitAny ? <StatFold id="remesas"><RemitCard monthKey={key} /></StatFold> : null}
       {insights.length === 0 ? <p>{t("stats.need")}</p> : null}
       <StatFold id="time"><TimeCard points={points} span={span} onSpan={setSpan} activeKey={activeKey} /></StatFold>
+      <StatFold id="year"><YearCard /></StatFold>
       {earnAny ? <StatFold id="earnings"><EarningsStudy /></StatFold> : null}
       {board?.envelopes.length ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
       <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold>

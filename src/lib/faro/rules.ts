@@ -4,7 +4,7 @@
 import { readAdvisor } from "./advisor.ts";
 import { intervalOf, perYear } from "./cadence.ts";
 export { perYear };
-import { cardFigures, cardsOf } from "./cards.ts";
+import { duesWindow } from "./dues.ts";
 import { convertMinor, formatMoney, formatRate } from "./money.ts";
 import type { Currency, Lang, LedgerState, Line, SectionId } from "./types.ts";
 
@@ -142,43 +142,35 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
     }
   }
 
-  /* 2. Payments due in the next 14 days: card minimums plus dated lines (cuotas, loans, bills). */
+  /* 2. Payments due in the next 14 days — from the ONE dues window (dues.ts, 1.3.149): cuotas,
+     card minimums and loans with a due day. This rule keeps its old reading of the window: the
+     future only (overdue entries belong to book-side's list), money due IN (lent) is not a payment. */
   if (current) {
     const t0 = isoOf(today);
     const t7 = isoOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7));
-    const t14 = isoOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14));
-    const items: { name: string; minor: number; on: string; go: RuleGo; card: boolean }[] = [];
-    for (const c of cardsOf(state)) {
-      const f = cardFigures(state, c, t0);
-      if (!f.known || f.balance <= 0 || !f.dueOn || f.dueOn < t0 || f.dueOn > t14) continue;
-      const due = f.min != null && f.min > 0 ? Math.min(f.min, f.balance) : f.balance;
-      items.push({ name: c.name, minor: convertMinor(due, c.currency, display, rateE4), on: f.dueOn, card: true, go: { kind: "place", topic: "tarjetas", screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards" } });
-    }
-    const seen = new Set<string>();
-    for (const k of [key, shiftKey(key, 1)]) {
-      for (const l of state.months[k]?.lines ?? []) {
-        if (!isOut(state, l)) continue;
-        const on = (l.nextDue || (l.bookedOn && l.bookedOn > t0 ? l.bookedOn : "")).slice(0, 10);
-        if (!on || on < t0 || on > t14) continue;
-        const sig = `${seriesKey(l)}@${on}`;
-        if (seen.has(sig)) continue;
-        seen.add(sig);
-        items.push({ name: lineName(l), minor: view(l), on, card: false, go: { kind: "line", section: sectionOf(l.kind), lineId: l.id } });
-      }
+    const items: { name: string; minor: number; on: string; go: RuleGo; card: boolean; amtKnown: boolean }[] = [];
+    for (const e of duesWindow(state, 14, t0)) {
+      if (e.kind === "lent" || e.on < t0) continue;
+      const go: RuleGo = e.kind === "card"
+        ? { kind: "place", topic: "tarjetas", screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards" }
+        : e.kind === "loan"
+          ? { kind: "place", topic: "prestamos", screen: "vault-owe", fold: "debt-loans", anchor: "cobros-loans" }
+          : { kind: "line", section: sectionOf(e.line!.kind), lineId: e.id };
+      items.push({ name: e.line ? lineName(e.line) : e.name, minor: e.amt ?? 0, on: e.on, card: e.kind === "card", go, amtKnown: e.amt != null });
     }
     items.sort((a, b) => a.on.localeCompare(b.on) || b.minor - a.minor);
     if (items.length) {
       const in7 = items.filter((i) => i.on <= t7).reduce((a, i) => a + i.minor, 0);
       const in14 = items.reduce((a, i) => a + i.minor, 0);
       const left = reading.left;
-      const list = items.slice(0, 3).map((i) => `${i.name} ${money(i.minor)} ${L(lang, "el", "on")} ${fmtDay(i.on)}`).join(", ");
+      const list = items.slice(0, 3).map((i) => (i.amtKnown ? `${i.name} ${money(i.minor)} ${L(lang, "el", "on")} ${fmtDay(i.on)}` : `${i.name} ${L(lang, "el", "on")} ${fmtDay(i.on)}`)).join(", ");
       rules.push({
         id: "due",
         tone: income > 0 && in14 > left ? "warn" : "calm",
         title: L(lang, "Pagos en 14 días", "Due in 14 days"),
         kicker: L(lang, `7 días: ${money(in7)}`, `7 days: ${money(in7)}`),
         num: money(in14),
-        say: L(lang, `${items.length} ${items.length === 1 ? "pago" : "pagos"} por ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.`, `${items.length} ${items.length === 1 ? "payment" : "payments"} for ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.`).replace("….", "."),
+        say: L(lang, in14 > 0 ? `${items.length} ${items.length === 1 ? "pago" : "pagos"} por ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.` : `${items.length} ${items.length === 1 ? "pago" : "pagos"} con fecha: ${list}${items.length > 3 ? "…" : ""}.`, in14 > 0 ? `${items.length} ${items.length === 1 ? "payment" : "payments"} for ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.` : `${items.length} ${items.length === 1 ? "payment" : "payments"} with dates: ${list}${items.length > 3 ? "…" : ""}.`).replace("….", "."),
         fill: left > 0 ? Math.min(1, in14 / left) : 1,
         topic: "regla-pagos",
         go: items[0]!.go,

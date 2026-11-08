@@ -133,6 +133,9 @@ export type Line = {
   batch?: string;
   /** A payment toward a received loan (Debo → Préstamos). See loans.ts. */
   loanId?: string;
+  /** 1.3.149: on a loan payment line, the part of amountMinor that paid interest (the rest is principal).
+   *  Absent = a legacy payment: no split was recorded and NO total invents one for it. See loans.ts. */
+  interestMinor?: number;
   /** A payment received toward money the user lent (Libros → Me deben, 1.3.92). An income line. See debts.ts. */
   lentId?: string;
   /** Removed from a pocket but kept for its money history (1.3.81): inactive and hidden from the pocket list. */
@@ -180,6 +183,9 @@ export type Loan = {
   aprBps: number;
   /** Day the money was received; interest counts from here. */
   takenOn: string;
+  /** 1.3.149: day of the month a payment is due (1–31, like CreditCard.dueDay). Absent/0 = no due day:
+   *  the loan simply never enters the dues window, exactly as before this field existed. */
+  dueDay?: number;
   /** Book the payments go to. */
   book: Group;
   note: string;
