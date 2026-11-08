@@ -31,7 +31,8 @@ import { SAVINGS_PURPLE, isTron as vtTron, tronize as vtTronize } from "@/lib/fa
 const vtint = (c: string) => (vtTron() ? vtTronize(c) : c);
 import { FaroPane, useFaro, type Api } from "./provider";
 import { useLayer } from "@/lib/manual/back";
-import { prefetchManual } from "@/lib/manual/load";
+import { loadManual, manualNow, prefetchManual, type ManualData } from "@/lib/manual/load";
+import { searchSettings } from "@/lib/faro/settings-search";
 import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
 import WidgetHost from "./widget-host";
@@ -145,7 +146,7 @@ function hubOf(section: SectionId) {
 
 export function Shell() {
   const faro = useFaro();
-  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, setMonth, fmt } = faro;
+  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, setMonth, fmt } = faro;
   const searchRef = useRef<HTMLDivElement>(null);
   const searchPopRef = useRef<HTMLFormElement>(null);
   const deskRef = useRef<HTMLDivElement>(null);
@@ -157,6 +158,21 @@ export function Shell() {
   const [calOpen, setCalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchListed, setSearchListed] = useState(false);
+  // 1.3.142: while in Ajustes the top search also finds settings (Oscar: the bar hangs over Ajustes, so it must
+  // work there too). The index is the manual's topics, which live in the lazy chunk — load it on demand here;
+  // outside Ajustes nothing changes and the books keep the bar to themselves.
+  const [manualData, setManualData] = useState<ManualData | null>(manualNow);
+  const inSettings = ui.section === "settings";
+  useEffect(() => {
+    if (manualData || !searchOpen || !inSettings) return;
+    let live = true;
+    void loadManual().then((d) => { if (live) setManualData(d); }).catch(() => { /* the books still answer */ });
+    return () => { live = false; };
+  }, [manualData, searchOpen, inSettings]);
+  const settingHits = useMemo(
+    () => (inSettings && manualData ? searchSettings(manualData.MANUAL_TOPICS, ui.query, lang) : []),
+    [inSettings, manualData, ui.query, lang],
+  );
   const [exportOpen, setExportOpen] = useState(false);
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth() + 1);
@@ -1101,7 +1117,19 @@ export function Shell() {
                 </div>
                 {searchListed && ui.query.trim().length >= 2 ? (
                   <div className="hits" role="listbox">
-                    {hits.length === 0 ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
+                    {hits.length === 0 && settingHits.length === 0 && (!inSettings || manualData) ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
+                    {settingHits.length ? <p className="hit-group">{lang === "en" ? "In Settings" : "En Ajustes"}</p> : null}
+                    {settingHits.map((hit) => (
+                      <button key={`aj-${hit.id}`} type="button" className="hit" onClick={() => {
+                        setSearchOpen(false);
+                        setSearchListed(false);
+                        goTopic(hit.id, hit.go);
+                      }}>
+                        <strong>{hit.title}</strong>
+                        <span className="block text-sm text-muted">{hit.where}</span>
+                      </button>
+                    ))}
+                    {settingHits.length && hits.length ? <p className="hit-group">{lang === "en" ? "In your books" : "En tus libros"}</p> : null}
                     {hits.map((hit) => (
                       <button key={hit.id} type="button" className="hit" onClick={() => {
                         const [y, m] = hit.monthKey.split("-").map(Number);
