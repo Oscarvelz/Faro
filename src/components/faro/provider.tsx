@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -268,6 +269,11 @@ function download(filename: string, text: string | Uint8Array, type: string) {
 
 const now = () => new Date();
 
+/** The bar colour a theme paints with (meta theme-color): written at the flip neck and by the session effect alike. */
+function chromeForTheme(shown: ThemeId): string {
+  return shown === "ion-noche" ? "#070b12" : shown === "tron" ? "#02060c" : NIGHT_THEMES.includes(shown) ? "#0e1114" : "#f4f1ea";
+}
+
 export function FaroProvider({ userId, children }: { userId: string; children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
@@ -280,6 +286,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const [planStale, setPlanStale] = useState(false);
   const [persistFailed, setPersistFailed] = useState(false);
   const persistFailedRef = useRef(false);
+  const flipGen = useRef(0); // 1.3.159: generation of the current fr-flip; stale lifts check it before removing the class.
   const planCopied = useRef(false);
   const dismissedRef = useRef<{ id: string; reason: string }[]>([]);
   const wakeBase = useRef<{ ledger: LedgerState; advice: ReturnType<typeof advicePrints>; goals: ReturnType<typeof readStoredGoals>; key: string } | null>(null);
@@ -545,10 +552,26 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     document.documentElement.lang = session.ledger.settings.lang;
     localStorage.setItem("faro-theme", shown);
     localStorage.setItem("faro-lang", session.ledger.settings.lang);
-    const night = NIGHT_THEMES.includes(shown);
-    const chrome = shown === "ion-noche" ? "#070b12" : shown === "tron" ? "#02060c" : night ? "#0e1114" : "#f4f1ea";
+    const chrome = chromeForTheme(shown);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chrome);
   }, [session, userId]);
+
+  // 1.3.159: lift fr-flip only AFTER the swapped tree has committed — two frames counted from
+  // this layout effect (post-commit, pre-paint), so the first painted frame of the new theme is
+  // always inside the kill window, however long reconciliation took. A generation guard keeps a
+  // stale lift from dropping a newer flip's class; the timer is only a net for a hidden tab,
+  // where rAF may never fire and nothing is on screen anyway.
+  const shownTheme = session?.ledger.settings.theme === "ion" ? "ion-noche" : session?.ledger.settings.theme;
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (!root.classList.contains("fr-flip")) return;
+    const gen = flipGen.current;
+    let raf = 0;
+    const lift = () => { if (flipGen.current === gen) root.classList.remove("fr-flip"); };
+    raf = requestAnimationFrame(() => { raf = requestAnimationFrame(lift); });
+    const timer = window.setTimeout(lift, 700);
+    return () => { cancelAnimationFrame(raf); window.clearTimeout(timer); };
+  }, [shownTheme]);
 
   const applyRemote = useCallback((row: RemoteRow, dirtyLocal: LedgerState | null) => {
     try {
@@ -1141,13 +1164,20 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   };
 
   // Apply the theme during render, before children paint, so colour maths (isTron, tints) and CSS flip in the same frame.
+  // 1.3.159: THE FLIP NECK — everything a flip needs happens in this one task: fr-flip goes on (it kills
+  // every colour transition), the theme attribute swaps, the meta bar colour is written HERE (not in a
+  // post-commit effect), and a forced reflow makes the kill live before a single child renders. The
+  // class comes off only in the post-commit layout effect above — never on a fuse counted from render,
+  // which a slow phone could burn before the new theme ever painted (Oscar's two-speed flip).
   if (session && typeof document !== "undefined") {
     const shownNow = session.ledger.settings.theme === "ion" ? "ion-noche" : session.ledger.settings.theme;
     const root = document.documentElement;
     if (root.dataset.theme !== shownNow) {
-      root.classList.add("theme-swap");
+      root.classList.add("fr-flip");
       root.dataset.theme = shownNow;
-      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-swap")));
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chromeForTheme(shownNow));
+      void root.offsetWidth;
+      flipGen.current += 1;
     }
   }
 

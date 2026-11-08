@@ -2246,7 +2246,8 @@ html:not([data-theme="tron"]) .lenses .lens.is-picked::after { animation: none !
 }
 
 html:not([data-theme="tron"]) .lens { position: relative; overflow: hidden; isolation: isolate; }
-html.theme-swap *, html.theme-swap *::before, html.theme-swap *::after { transition: none !important; }
+/* 1.3.159: while a day/night flip paints, every colour transition is dead — the swap lands in one frame. */
+html.fr-flip *, html.fr-flip *::before, html.fr-flip *::after { transition: none !important; }
 
 /* Cadence ripple on the six chips (main three + savings pockets): soft ink in the chip's own tone */
 html:not([data-theme="tron"]) :is(.lens, .save-seg) { position: relative; isolation: isolate; }

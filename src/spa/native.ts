@@ -177,7 +177,12 @@ function installBars(n: FaroNativeBridge) {
     try { n.setBars(`rgb(${t.join(",")})`, `rgb(${b.join(",")})`, isDark(t), isDark(b)); } catch { /* ignore */ }
   };
   const soon = () => { if (!queued) queued = window.setTimeout(apply, 160); };
-  new MutationObserver(soon).observe(document.documentElement, { attributes: true, childList: true, subtree: true, attributeFilter: ["content", "data-theme", "class", "style"] });
+  // 1.3.159: a theme flip (data-theme swap or the meta colour written at the flip neck) drives
+  // the shell bars NOW, in the flip's own frame; the debounce remains for scroll/resize sampling.
+  new MutationObserver((recs) => {
+    if (recs.some((r) => r.attributeName === "data-theme" || r.attributeName === "content")) { if (queued) { clearTimeout(queued); queued = 0; } apply(); }
+    else soon();
+  }).observe(document.documentElement, { attributes: true, childList: true, subtree: true, attributeFilter: ["content", "data-theme", "class", "style"] });
   addEventListener("scroll", soon, { passive: true });
   addEventListener("resize", soon);
   document.addEventListener("visibilitychange", soon);

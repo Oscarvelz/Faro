@@ -31,7 +31,12 @@ export function startStatusBar() {
   let queued = 0;
   const apply = () => { queued = 0; const c = topColor(); if (c && meta!.content !== c) meta!.content = c; };
   const soon = () => { if (!queued) queued = window.setTimeout(apply, 120); };
-  new MutationObserver(soon).observe(document.documentElement, { attributes: true, childList: true, subtree: true, attributeFilter: ["data-theme", "class", "style"] });
+  // 1.3.159: a theme flip applies NOW, in the flip's own frame — the debounce is only for
+  // scroll/resize sampling. Before, the bar colour took a second step ~250 ms after the flip.
+  new MutationObserver((recs) => {
+    if (recs.some((r) => r.attributeName === "data-theme")) { if (queued) { clearTimeout(queued); queued = 0; } apply(); }
+    else soon();
+  }).observe(document.documentElement, { attributes: true, childList: true, subtree: true, attributeFilter: ["data-theme", "class", "style"] });
   addEventListener("scroll", soon, { passive: true });
   addEventListener("resize", soon);
   document.addEventListener("visibilitychange", soon);
