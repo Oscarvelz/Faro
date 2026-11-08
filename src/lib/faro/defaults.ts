@@ -308,28 +308,45 @@ export function makeNamer(structure: Structure, lang: Lang) {
   return { cat, sub: subName, purchase: purchaseName, catalog };
 }
 
-function mapSubs(cat: Category, ids: string[], hidden: boolean): Category {
+function mapSubs(cat: Category, ids: string[], hidden: boolean, userVis: Record<string, boolean>): Category {
   return {
     ...cat,
-    subs: cat.subs.map((s) => (ids.some((id) => s.id.endsWith(`.${id}`)) ? { ...s, hidden } : s)),
+    subs: cat.subs.map((s) => (ids.some((id) => s.id.endsWith(`.${id}`)) && !(s.id in userVis) ? { ...s, hidden } : s)),
   };
 }
 
+/**
+ * Records visibility the user set by hand (the eyes in Estructura, the pickers' hide), by category/sub id.
+ * Templates read the record and never override it: what the user hid stays hidden, what they showed stays shown.
+ */
+export function markUserVis(structure: Structure, ids: string[], hidden: boolean): Structure {
+  if (!ids.length) return structure;
+  const userVis = { ...(structure.userVis ?? {}) };
+  for (const id of ids) userVis[id] = hidden;
+  return { ...structure, userVis };
+}
+
 export function applyTemplate(structure: Structure, id: TemplateId): Structure {
+  const userVis = structure.userVis ?? {};
   let categories = structure.categories.map((c) => ({ ...c, subs: c.subs.map((s) => ({ ...s })) }));
   const touch = (catId: string, fn: (c: Category) => Category) => {
     categories = categories.map((c) => (c.id === catId ? fn(c) : c));
   };
   if (id === "soltero") {
-    touch("f-familia", (c) => mapSubs(c, ["colegiaturas", "hijo1", "hijo2", "formativas", "funeraria"], true));
+    touch("f-familia", (c) => mapSubs(c, ["colegiaturas", "hijo1", "hijo2", "formativas", "funeraria"], true, userVis));
   }
   if (id === "familia") {
-    touch("f-familia", (c) => ({ ...c, hidden: false, subs: c.subs.map((s) => ({ ...s, hidden: false })) }));
-    touch("v-familia", (c) => ({ ...c, hidden: false, subs: c.subs.map((s) => ({ ...s, hidden: false })) }));
+    const showBranch = (c: Category): Category => ({
+      ...c,
+      hidden: c.id in userVis ? c.hidden : false,
+      subs: c.subs.map((s) => (s.id in userVis ? s : { ...s, hidden: false })),
+    });
+    touch("f-familia", showBranch);
+    touch("v-familia", showBranch);
   }
   if (id === "estudiante") {
-    touch("f-casa", (c) => mapSubs(c, ["hipoteca", "predial"], true));
-    touch("f-seguros", (c) => mapSubs(c, ["vida"], true));
+    touch("f-casa", (c) => mapSubs(c, ["hipoteca", "predial"], true, userVis));
+    touch("f-seguros", (c) => mapSubs(c, ["vida"], true, userVis));
   }
   let next: Structure = { ...structure, categories };
   if (id === "estudiante" && !next.categories.some((c) => c.id === "v-estudio" || c.nameKey === "v.estudio")) {
@@ -350,8 +367,8 @@ export function templateBlurb(id: TemplateId, lang: Lang): string {
       en: "Hides tuition, children, activities, and funeral. It does not delete entries.",
     },
     familia: {
-      es: "Vuelve a mostrar toda la rama de familia, fija y variable.",
-      en: "Shows the full family branch again, fixed and variable.",
+      es: "Vuelve a mostrar la rama de familia, fija y variable. Lo que ocultaste a mano se queda oculto.",
+      en: "Shows the family branch again, fixed and variable. What you hid by hand stays hidden.",
     },
     estudiante: {
       es: "Oculta hipoteca, predial y seguro de vida, y agrega Estudio si no existe.",

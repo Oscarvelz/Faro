@@ -3,6 +3,8 @@
  *
  * A bubble shows `what` of its topic, word for word. The manual shows the same `what`
  * under "Qué es" (and `whatAlt` right after it), so the two can never disagree.
+ * Exception: a topic may carry a short `bubble` text of its own, written only for the (?)
+ * (quick help goes straight to the point; the depth stays in the manual's `what`).
  * Every text is a pair [español, English].
  *
  * Writing rules: plain, short sentences. One-line `sum` first. Never name another app.
@@ -59,6 +61,9 @@ export type Topic = {
   what: L;
   /** Second text, when the same (?) changes with the state (shown after `what` in the manual). */
   whatAlt?: L;
+  /** Short bubble-only text, for topics whose `what` is the manual's full "Qué es": the (?) shows
+   * this instead, brief and to the point. Absent on almost every topic — their bubbles show `what`. */
+  bubble?: L;
   how?: L;
   tip?: L;
   go?: Go;
@@ -2374,8 +2379,9 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Estructura", "Structure"],
         sum: ["Tus categorías, subconceptos y catálogo.", "Your categories, subcategories and catalogue."],
         what: ["Estructura define en qué grupos se suman tus gastos: categorías fijas o variables, sus subconceptos y tu catálogo de tiendas y servicios. Es el esqueleto de tus libros: cada categoría va en [[Fijos]] o en [[Variables]], tiene su color y puede partirse en subconceptos, y todo lo que ves en [[Libros]], [[Estudio]] y el [[Asesor]] se suma siguiendo estos grupos.", "Structure sets the groups your spending adds up in: fixed or variable categories, their subcategories and your catalogue of stores and services. It is the skeleton of your books: each category sits in [[Fixed]] or [[Variable]], has its colour and can split into subcategories, and everything you see in [[Books]], [[Study]] and the [[Advisor]] adds up following these groups."],
-        how: ["El fold se recorre de arriba abajo. Primero las [[Plantillas]]: un toque muestra u oculta ramas enteras, y Faro explica el cambio antes de que confirmes. En el medio está el árbol de categorías, con su buscador: ahí creas, renombras, ordenas y ocultas categorías y subconceptos; su entrada, [[Categorías y subconceptos]], trae el detalle. Al final va el catálogo de tiendas y servicios, para elegirlos rápido al anotar compras y cuotas.", "Work the fold from top to bottom. First the [[Templates]]: one tap shows or hides whole branches, and Faro explains the change before you confirm. In the middle is the category tree, with its search field: there you create, rename, reorder and hide categories and subcategories; its entry, [[Categories and subcategories]], has the detail. At the end sits the catalogue of stores and services, so you can pick them quickly when recording purchases and subscriptions."],
-        tip: ["Ocultar no borra: la categoría solo deja de salir en las listas, y desde su panel la vuelves a mostrar. Borrar una categoría o un subconcepto sí es un cambio real, pero [[Deshacer]] te rescata si te equivocas.", "Hiding is not deleting: the category just stops showing in lists, and from its panel you can show it again. Deleting a category or subcategory is a real change, but [[Undo]] rescues you if you slip."],
+        bubble: ["Tus categorías, subconceptos y catálogo. Tú decides qué se muestra y qué se esconde.", "Your categories, subcategories and catalogue. You decide what shows and what hides."],
+        how: ["El fold se recorre de arriba abajo. Primero las [[Plantillas]]: un toque muestra u oculta ramas enteras, y Faro explica el cambio antes de que confirmes; son el punto de partida, no la última palabra. En el medio está el árbol de categorías, con su buscador: toca una categoría para desplegarla y ver sus subconceptos, y ahí creas, renombras, ordenas y ocultas categorías y subconceptos, cada uno por su cuenta; su entrada, [[Categorías y subconceptos]], trae el detalle. Al final va el catálogo de tiendas y servicios, para elegirlos rápido al anotar compras y cuotas.", "Work the fold from top to bottom. First the [[Templates]]: one tap shows or hides whole branches, and Faro explains the change before you confirm; they are the starting point, not the last word. In the middle is the category tree, with its search field: tap a category to unfold it and see its subcategories, and there you create, rename, reorder and hide categories and subcategories, each one on its own; its entry, [[Categories and subcategories]], has the detail. At the end sits the catalogue of stores and services, so you can pick them quickly when recording purchases and subscriptions."],
+        tip: ["Tu palabra manda: lo que ocultes o muestres a mano se queda así — ninguna plantilla lo deshace —, y también puedes dejar todo tal cual está. Ocultar no borra: solo deja de salir en las listas, y desde su panel se vuelve a mostrar. Borrar una categoría o un subconcepto sí es un cambio real, pero [[Deshacer]] te rescata si te equivocas.", "Your word rules: what you hide or show by hand stays that way — no template undoes it — and you can also leave everything exactly as it is. Hiding is not deleting: it just stops showing in lists, and from its panel you can show it again. Deleting a category or subcategory is a real change, but [[Undo]] rescues you if you slip."],
         go: { screen: "settings", fold: "structure", anchor: "aj-structure", where: ["Ajustes → Estructura", "Settings → Structure"] },
         terms: [["Categorías", "Categories"], ["Subconceptos", "Subcategories"]],
         keys: ["settings.structure"],
@@ -2385,9 +2391,9 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "manual",
         title: ["Plantillas", "Templates"],
         sum: ["Ajusta las categorías a tu vida de un toque.", "Fit the categories to your life in one tap."],
-        what: ["Soltero, Familia, Estudiante y Negocio muestran u ocultan grupos de categorías. Nunca borran movimientos. Soltero oculta colegiaturas, hijos, formativas y funeraria. Familia vuelve a mostrar toda la rama de familia, fija y variable. Estudiante oculta hipoteca, predial y seguro de vida, y agrega la categoría Estudio si no existe. Negocio agrega la categoría Negocio — local, inventario, impuestos y nómina — si no existe.", "Single, Family, Student and Business show or hide groups of categories. They never delete entries. Single hides tuition, children, activities and funeral cover. Family shows the whole family branch again, fixed and variable. Student hides mortgage, property tax and life insurance, and adds the Study category if it is missing. Business adds the Business category — shop rent, inventory, taxes and payroll — if it is missing."],
+        what: ["Soltero, Familia, Estudiante y Negocio muestran u ocultan grupos de categorías. Nunca borran movimientos. Soltero oculta colegiaturas, hijos, formativas y funeraria. Familia vuelve a mostrar la rama de familia, fija y variable, salvo lo que ocultaste a mano. Estudiante oculta hipoteca, predial y seguro de vida, y agrega la categoría Estudio si no existe. Negocio agrega la categoría Negocio — local, inventario, impuestos y nómina — si no existe.", "Single, Family, Student and Business show or hide groups of categories. They never delete entries. Single hides tuition, children, activities and funeral cover. Family shows the family branch again, fixed and variable, except what you hid by hand. Student hides mortgage, property tax and life insurance, and adds the Study category if it is missing. Business adds the Business category — shop rent, inventory, taxes and payroll — if it is missing."],
         how: ["Toca una plantilla; Faro explica qué cambia y pide confirmar.", "Tap a template; Faro explains what changes and asks you to confirm."],
-        tip: ["Cambiar de plantilla es reversible: muestran y ocultan, nunca borran, y tus categorías propias quedan fuera de su alcance.", "Switching templates is reversible: they show and hide, never delete, and your own categories stay out of their reach."],
+        tip: ["Cambiar de plantilla es reversible: muestran y ocultan, nunca borran. Tus categorías propias quedan fuera de su alcance, y lo que hayas ocultado o mostrado a mano tampoco lo tocan: tu ajuste manda sobre la plantilla.", "Switching templates is reversible: they show and hide, never delete. Your own categories stay out of their reach, and whatever you hid or showed by hand is left alone too: your choice outranks the template."],
         go: { screen: "settings", fold: "structure", anchor: "aj-structure", where: ["Ajustes → Estructura, arriba", "Settings → Structure, top"] },
         terms: [["Soltero", "Single"], ["Familia", "Family"], ["Estudiante", "Student"], ["Negocio", "Business"]],
         keys: ["settings.templates"],
@@ -3407,8 +3413,9 @@ export function pick(lang: string, pair: L): string {
   return lang === "en" ? pair[1] : pair[0];
 }
 
-/** Bubble text: `what`, or `whatAlt` when the caller says the alternate state is on. */
+/** Bubble text: the topic's short `bubble` when it carries one; else `what`, or `whatAlt` in the alternate state. */
 export function bubbleText(topic: Topic, lang: string, alt = false): string {
+  if (topic.bubble) return pick(lang, topic.bubble);
   return pick(lang, alt && topic.whatAlt ? topic.whatAlt : topic.what);
 }
 

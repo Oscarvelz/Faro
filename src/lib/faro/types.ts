@@ -65,6 +65,10 @@ export type Structure = {
   categories: Category[];
   purchases: PurchaseCat[];
   catalog: CatalogItem[];
+  /** Visibility the user set by hand (the eyes in Estructura, the pickers' hide), by category/sub id.
+   * Templates set only a baseline and never override it: the user's word wins.
+   * Missing in older ledgers and backups (= no hand-set choices yet). */
+  userVis?: Record<string, boolean>;
 };
 
 export type Charge = {

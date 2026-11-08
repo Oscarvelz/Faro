@@ -16,7 +16,8 @@ const STILL = ".cobro-form, .line-edit, .ah-form, .sc-form, .form-block, .look-d
 
 /**
  * The (?) bubble. Its text is the topic's `what`, word for word (lib/manual/topics.ts), so the bubble and the
- * manual's "Qué es" can never disagree. Manual-tier topics add "Más en el manual →", which opens that exact entry.
+ * manual's "Qué es" can never disagree — unless the topic carries a short `bubble` text of its own, written
+ * only for quick help while the manual keeps the depth. Manual-tier topics add "Más en el manual →".
  * `calc` adds "Ver el cálculo" for live-number sheets (the Explain sheet with this month's figures).
  * Solid, small, beside the button (below or above, whichever fits). Esc, a tap outside or phone back close it.
  */

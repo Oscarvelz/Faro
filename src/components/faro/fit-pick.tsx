@@ -10,7 +10,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Palette, Pencil, Plus, Repeat2, RotateCcw, Search, Sparkles, Store, Tag, Trash2, X } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
-import { displayName } from "@/lib/faro/defaults";
+import { displayName, markUserVis } from "@/lib/faro/defaults";
 import { categoryColor } from "@/lib/faro/colors";
 import { uid } from "@/lib/faro/money";
 import { inkOn, washForInk } from "@/lib/faro/palette";
@@ -428,7 +428,7 @@ export function CategoryPick({ group, value, onChange }: { group: "fixed" | "var
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{
             word: ["categoría", "categorías", "category", "categories"],
-            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); patch(ids, (c) => ({ ...c, hidden: true }), L(lang, "Categorías", "Categories")); },
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: markUserVis({ ...st.structure, categories: st.structure.categories.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) }, ids, true) }), L(lang, "Categorías", "Categories")); },
             onRename: (id, name) => patch([id], (c) => ({ ...c, customName: name }), name),
             onColor: (id, hex) => patch([id], (c) => ({ ...c, color: hex }), hex),
           }}
@@ -469,7 +469,7 @@ export function SubPick({ categoryId, value, onChange }: { categoryId: string; v
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{
             word: ["subcategoría", "subcategorías", "subcategory", "subcategories"],
-            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); patchSubs((list) => list.map((x) => (ids.includes(x.id) ? { ...x, hidden: true } : x)), t("sub")); },
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: markUserVis({ ...st.structure, categories: st.structure.categories.map((c) => (c.id === categoryId ? { ...c, subs: c.subs.map((x) => (ids.includes(x.id) ? { ...x, hidden: true } : x)) } : c)) }, ids, true) }), t("sub")); },
             onRename: (id, name) => patchSubs((list) => list.map((x) => (x.id === id ? { ...x, customName: name } : x)), name),
           }}
           add={{

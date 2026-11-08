@@ -18,7 +18,7 @@ import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Sh
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, missingDefaults, moveNamed, restoreDefaultCategories, templateBlurb } from "@/lib/faro/defaults";
+import { applyTemplate, displayName, markUserVis, missingDefaults, moveNamed, restoreDefaultCategories, templateBlurb } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
@@ -4523,12 +4523,20 @@ function TreePanel({ cat }: { cat: Category }) {
       <div className="tree-tools">
         <button type="button" className="icon-btn" aria-label={t("up")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, -1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "up")}><ChevronUp className="size-4" /></button>
         <button type="button" className="icon-btn" aria-label={t("down")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, 1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "down")}><ChevronDown className="size-4" /></button>
-        <button type="button" className="icon-btn" aria-label={cat.hidden ? t("show") : t("hide")} onClick={() => patch((c) => ({ ...c, hidden: !c.hidden }), "hide")}>{cat.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+        <button type="button" className="icon-btn" aria-label={cat.hidden ? t("show") : t("hide")} onClick={() => {
+          const next = !cat.hidden;
+          commit((s) => ({ ...s, structure: markUserVis({ ...s.structure, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, hidden: next } : c)) }, [cat.id], next) }), "hide");
+        }}>{cat.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
         <button type="button" className="icon-btn" aria-label={cat.group === "fixed" ? t("move.variable") : t("move.fixed")} onClick={() => patch((c) => ({ ...c, group: c.group === "fixed" ? "variable" : "fixed" }), "move")}><ArrowLeftRight className="size-4" /></button>
-        <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${displayName(cat, lang)}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => ({ ...s, structure: { ...s.structure, categories: s.structure.categories.filter((c) => c.id !== cat.id) } }), "delete cat") })}><Trash2 className="size-4" /></button>
+        <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${displayName(cat, lang)}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => {
+          const userVis = { ...(s.structure.userVis ?? {}) };
+          delete userVis[cat.id];
+          for (const sub of cat.subs) delete userVis[sub.id];
+          return { ...s, structure: { ...s.structure, userVis, categories: s.structure.categories.filter((c) => c.id !== cat.id) } };
+        }, "delete cat") })}><Trash2 className="size-4" /></button>
       </div>
       {cat.subs.map((sub) => (
-        <div key={sub.id} className="tree-sub">
+        <div key={sub.id} className={sub.hidden ? "tree-sub is-muted" : "tree-sub"}>
           {editSub === sub.id ? (
             <input className="field" value={subEdit} aria-label={t("rename")} autoFocus onChange={(e) => setSubEdit(e.target.value)} onKeyDown={(e) => {
               if (e.key === "Escape") setEditSub(null);
@@ -4541,8 +4549,15 @@ function TreePanel({ cat }: { cat: Category }) {
             <button type="button" className="tree-subname" onClick={() => { setEditSub(sub.id); setSubEdit(displayName(sub, lang)); }}>{displayName(sub, lang)}</button>
           )}
           <span className="row">
-            <button type="button" className="icon-btn" aria-label={sub.hidden ? t("show") : t("hide")} onClick={() => patch((c) => ({ ...c, subs: c.subs.map((x) => x.id === sub.id ? { ...x, hidden: !x.hidden } : x) }), sub.id)}>{sub.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
-            <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: displayName(sub, lang), danger: true, yes: t("yes"), run: () => patch((c) => ({ ...c, subs: c.subs.filter((x) => x.id !== sub.id) }), sub.id) })}><Trash2 className="size-4" /></button>
+            <button type="button" className="icon-btn" aria-label={sub.hidden ? t("show") : t("hide")} onClick={() => {
+              const next = !sub.hidden;
+              commit((s) => ({ ...s, structure: markUserVis({ ...s.structure, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.map((x) => (x.id === sub.id ? { ...x, hidden: next } : x)) } : c)) }, [sub.id], next) }), sub.id);
+            }}>{sub.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+            <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: displayName(sub, lang), danger: true, yes: t("yes"), run: () => commit((s) => {
+              const userVis = { ...(s.structure.userVis ?? {}) };
+              delete userVis[sub.id];
+              return { ...s, structure: { ...s.structure, userVis, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.filter((x) => x.id !== sub.id) } : c)) } };
+            }, sub.id) })}><Trash2 className="size-4" /></button>
           </span>
         </div>
       ))}
