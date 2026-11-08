@@ -6,8 +6,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyImport, buildReview, fileRecon, matchKey, revertImport, type ParsedFile } from "./bankparse.ts";
-import { importBook, learnPayHint, merchantKey, payHintFor, rewardsMonth } from "./bankbook.ts";
-import type { Category, LedgerState, Line } from "./types.ts";
+import { classOfLabel, importBook, learnPayHint, manualLineRc, merchantKey, payHintFor, rewardsMonth } from "./bankbook.ts";
+import type { Category, ImportBook, LedgerState, Line } from "./types.ts";
 
 const sub = (id: string, name: string) => ({ id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 0 });
 const cat = (id: string, group: "fixed" | "variable", name: string, subs: [string, string][]): Category => ({ id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 0, group, role: "", subs: subs.map(([a, b]) => sub(a, b)) });
@@ -218,5 +218,67 @@ describe("conciliación: cómo paga Oscar cada comercio", () => {
     assert.equal(r.earned, 150, "Freedom Unlimited paga 1,5% en lo demás");
     const cashOnly = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 10000, sourceId: "cash" })]);
     assert.equal(rewardsMonth(cashOnly, "2026-10", "USD", 366243), null, "el efectivo no gana recompensas ni cuenta como compra de tarjeta");
+  });
+});
+
+describe("conciliación: recompensas en lo anotado a mano (extensión del punto 7)", () => {
+  const diningBook = (): ImportBook => ({
+    sources: [{ id: "acct-chase-card", kind: "card", bank: "chase", rates: { dining: 300, other: 150 } }],
+    rules: [], maps: {}, bonus: [],
+  });
+
+  it("la clase sale de la categoría archivada, con la misma derivación de la revisión", () => {
+    assert.equal(classOfLabel("Comida fuera · Restaurantes", "other"), "dining");
+    assert.equal(classOfLabel("Alimentos · Despensa", "other"), "grocery");
+    assert.equal(classOfLabel("Personales · Farmacia", "other"), "drug");
+    assert.equal(classOfLabel("Transporte · Gasolina", "other"), "gas");
+    assert.equal(manualLineRc(importBook(ledger()), "expense-variable|v-personales|v.p.otros", "Personales · Otros"), "other");
+    const withBonus: ImportBook = { ...importBook(ledger()), bonus: [{ id: "fiesta", name: "Fiesta 5%", target: "expense-variable|v-personales|v.p.otros" }] };
+    assert.equal(manualLineRc(withBonus, "expense-variable|v-personales|v.p.otros", "Comida fuera · Restaurantes"), "fiesta", "una categoría bonus ligada al destino gana sobre la clase de la etiqueta");
+  });
+
+  it("gemelos: la línea a mano con tarjeta gana EXACTAMENTE lo mismo que su gemela importada", () => {
+    const rc = manualLineRc(diningBook(), "expense-variable|f-alimentos|f.alimentos.despensa", "Comida fuera · Restaurantes");
+    assert.equal(rc, "dining");
+    const byHand = { ...withLines(ledger(), [manual({ concept: "Cena", amountMinor: 10000, sourceId: "acct-chase-card", rc })]), imports: diningBook() };
+    const imported = { ...withLines(ledger(), [manual({ concept: "RESTAURANTE LUIGI", amountMinor: 10000, sourceId: "acct-chase-card", rc: "dining", importId: "fitid-gemela" })]), imports: diningBook() };
+    const a = rewardsMonth(byHand, "2026-10", "USD", 366243);
+    const b = rewardsMonth(imported, "2026-10", "USD", 366243);
+    assert.equal(a?.earned, 300, "la cena a mano en la Chase gana el 3% de comidas: $3,00");
+    assert.equal(b?.earned, 300);
+    assert.equal(a?.earned, b?.earned, "misma aritmética, centavo a centavo");
+  });
+
+  it("un duplicado excluido aporta CERO recompensas, aunque su vista previa prometa", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 10000, bookedOn: "2026-10-26" })]);
+    const file = cardFile([{ date: "2026-10-28", amount: -10000, desc: "AMZN Mktp*2K4XYZ SEATTLE WA" }]);
+    const rv = buildReview(s, [file], ["acct-chase-card"], names, "es");
+    const row = rv.rows[0];
+    assert.equal(row.dup, "fuzzy");
+    assert.equal(row.include, false);
+    assert.equal(row.reward?.earned, 150, "la vista previa de la fila SÍ promete $1,50 (su clase adivinada es la base): es el fantasma que no debe entrar");
+    const { state: after } = applyImport(s, rv, [file], ["acct-chase-card"], "batch-fantasma");
+    assert.equal(allLines(after).filter((l) => l.sourceId === "acct-chase-card").length, 0, "la fila excluida nunca se vuelve línea");
+    assert.equal(rewardsMonth(after, "2026-10", "USD", 366243)?.earned ?? 0, 0, "cero recompensas de un duplicado que no entró");
+  });
+
+  it("encender el duplicado a mano es la ÚNICA vía para que su recompensa cuente", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 10000, bookedOn: "2026-10-26" })]);
+    const file = cardFile([{ date: "2026-10-28", amount: -10000, desc: "AMZN Mktp*2K4XYZ SEATTLE WA" }]);
+    const rv = buildReview(s, [file], ["acct-chase-card"], names, "es");
+    rv.rows[0].include = true; // su gesto explícito de rescate en la revisión
+    const { state: after } = applyImport(s, rv, [file], ["acct-chase-card"], "batch-rescate");
+    assert.equal(allLines(after).filter((l) => l.sourceId === "acct-chase-card").length, 1);
+    assert.equal(rewardsMonth(after, "2026-10", "USD", 366243)?.earned, 150, "solo tras su rescate la recompensa es real: los mismos $1,50 que la vista previa prometía");
+  });
+
+  it("efectivo y sin especificar no ganan nada, ni con clase de recompensa escrita", () => {
+    const s = { ...withLines(ledger(), [
+      manual({ concept: "Cena", amountMinor: 10000, sourceId: "cash", rc: "dining" }),
+      manual({ concept: "Cena 2", amountMinor: 10000, rc: "dining" }),
+    ]), imports: diningBook() };
+    const m = rewardsMonth(s, "2026-10", "USD", 366243);
+    assert.equal(m?.earned ?? 0, 0);
+    assert.equal(m?.count ?? 0, 0, "ninguna de las dos cuenta como compra de tarjeta");
   });
 });

@@ -210,6 +210,12 @@ export function rowFor(bonus: BonusRow[] | undefined, target: string, label: str
   if (rc === "online" || rc === "travel") return rc;
   return bonusFor(bonus, target)?.id ?? classOfLabel(label, rc as RewardClass);
 }
+/** The reward class a HAND-ENTERED line earns with: the review's own derivation (rowFor from the neutral
+ *  class), so a purchase tagged with a card in «Pagado con» earns at its filed category's rate — a meal at
+ *  the dining rate — exactly like the imported twin he files to the same category. */
+export function manualLineRc(book: ImportBook, target: string, label: string): string {
+  return rowFor(book.bonus, target, label, "other");
+}
 /** A category the user picks says what kind of shop it is (for card rewards). */
 export function classOfLabel(label: string, fallback: RewardClass): RewardClass {
   const s = label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -461,7 +467,7 @@ export function lineReward(line: Pick<Line, "amountMinor" | "sourceId" | "via" |
 }
 
 export type RewardsMonth = { earned: number; missed: number; possible: number; count: number; top: { rc: string; best: Acct; missed: number } | null };
-/** One month of imported card spending, in the view currency. */
+/** One month of card spending — imported lines and hand-entered lines tagged with their card alike — in the view currency. */
 export function rewardsMonth(state: LedgerState, key: string, display: Currency, rateE4: number): RewardsMonth | null {
   const lines = state.months[key]?.lines ?? [];
   const accts = accounts(state);

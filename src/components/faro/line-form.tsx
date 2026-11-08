@@ -14,7 +14,7 @@ import { RemitToField } from "./remit-people";
 import { isRemitCat } from "@/lib/faro/remit-people";
 import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, StorePick, SubPick, type Look } from "./fit-pick";
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
-import { accounts, CASH_SOURCE, importBook, learnPayHint, payHintFor } from "@/lib/faro/bankbook";
+import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payHintFor, targets } from "@/lib/faro/bankbook";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
   const { lang } = useFaro();
@@ -293,6 +293,15 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     }
     const aprBps = apr.trim() ? Math.round(Number(apr.replace(",", ".")) * 100) : 0;
     const bal = balance.trim() ? parseAmount(balance) : null;
+    // Rewards class for a hand-entered line paid by card: derived from the filed category with the import
+    // review's own derivation, so the line earns at its category's rate (a meal at the dining rate) exactly
+    // like its imported twin. Imported lines keep the class their statement gave them — never re-derived.
+    const payTarget = `${kind}|${categoryId}|${subId}`;
+    const payTargets = structure ? targets(structure, names) : [];
+    const payLabel = payTargets.find((x) => x.value === payTarget)?.label ?? payTargets.find((x) => x.value === `${kind}|${categoryId}|`)?.label ?? "";
+    const rcDerived = !existing?.importId && session && pay && pay !== CASH_SOURCE && (kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase")
+      ? manualLineRc(importBook(session.ledger), payTarget, payLabel)
+      : undefined;
     const line: Line = {
       id: existing?.id ?? uid(),
       seriesId: existing?.seriesId ?? uid(),
@@ -329,6 +338,9 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       ...(to && group && session && isRemitCat(session.ledger, categoryId) ? { to } : {}),
       // Unspecified stays absent: the line keeps exactly the shape it had before this field existed.
       ...(pay ? { sourceId: pay } : {}),
+      // An imported line's reward class is its statement's own — preserved untouched; a hand-entered
+      // card line carries the class derived above; anything else carries none (base rate / no rewards).
+      ...(existing?.importId && existing.rc ? { rc: existing.rc } : rcDerived ? { rc: rcDerived } : {}),
     };
     commit((s) => {
       const next = upsertLine(s, line);
