@@ -14,6 +14,7 @@ import { RemitToField } from "./remit-people";
 import { isRemitCat } from "@/lib/faro/remit-people";
 import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, StorePick, SubPick, type Look } from "./fit-pick";
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
+import { accounts, CASH_SOURCE, importBook, learnPayHint, payHintFor } from "@/lib/faro/bankbook";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
   const { lang } = useFaro();
@@ -205,6 +206,33 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [balance, setBalance] = useState(existing?.balanceMinor !== null && existing?.balanceMinor !== undefined ? (existing.balanceMinor / 100).toFixed(2) : seed?.balance ?? "");
   const [active, setActive] = useState(existing?.active ?? true);
   const [personId, setPersonId] = useState(existing?.personId ?? "");
+  // 1.3.153: how this entry was paid (an account id, "cash", or "" = not specified). The import hunts duplicates with it.
+  const [pay, setPay] = useState(existing?.sourceId ?? "");
+  const [payTouched, setPayTouched] = useState(false);
+  const hintRef = useRef("");
+  // The accounts the picker offers: the live ones, plus the line's own when it points at one since removed.
+  const payAccts = (() => {
+    const led = session?.ledger;
+    if (!led) return [];
+    const live = accounts(led);
+    const cur = existing?.sourceId;
+    if (cur && cur !== CASH_SOURCE && !live.some((a) => a.id === cur)) {
+      const old = accounts(led, true).find((a) => a.id === cur);
+      if (old) return [...live, old];
+    }
+    return live;
+  })();
+  const payOptions = [{ value: "", label: lang === "en" ? "Not specified" : "Sin especificar" }, ...payAccts.map((a) => ({ value: a.id, label: a.name })), { value: CASH_SOURCE, label: lang === "en" ? "Cash" : "Efectivo" }];
+  // A merchant Oscar usually pays one way gets that way prefilled — visibly, and his own pick always wins.
+  useEffect(() => {
+    if (existing || payTouched) return;
+    const led = session?.ledger;
+    const hint = led ? payHintFor(importBook(led), concept) : "";
+    if (pay === hintRef.current && hint !== pay) {
+      hintRef.current = hint;
+      setPay(hint);
+    }
+  }, [concept, existing, payTouched, pay, session?.ledger]);
   // 1.3.118: a Remesas line's recipient ("Para"). Kept only while the category is a Remesas one.
   const [to, setTo] = useState(existing?.to ?? "");
   const [icon, setIcon] = useState(existing?.icon ?? "");
@@ -299,8 +327,14 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       color: swatch || ((bubbleTone || kind === "purchase") && tone !== toneStart ? tone : existing?.color),
       ...(personId ? { personId, ...(existing?.occasionId && existing.personId === personId ? { occasionId: existing.occasionId } : {}) } : {}),
       ...(to && group && session && isRemitCat(session.ledger, categoryId) ? { to } : {}),
+      // Unspecified stays absent: the line keeps exactly the shape it had before this field existed.
+      ...(pay ? { sourceId: pay } : {}),
     };
-    commit((s) => upsertLine(s, line), `${existing ? "Editar" : "Agregar"} ${line.concept}`);
+    commit((s) => {
+      const next = upsertLine(s, line);
+      // Learn how he pays this merchant — only from a source he picked or changed here himself, never from an import.
+      return pay && payTouched ? { ...next, imports: learnPayHint(importBook(next), line.concept, pay) } : next;
+    }, `${existing ? "Editar" : "Agregar"} ${line.concept}`);
     if (draftKey) clearReportDraft(draftKey);
     onClose();
   }
@@ -345,6 +379,10 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             <ThemeSelect value={currency} onChange={(value) => setCurrency(value as Currency)} options={[{ value: "NIO", label: "C$" }, { value: "USD", label: "$" }]} />
           </div>
         )}
+        <div className="label fit-f" data-f="pay">
+          {head(lang === "en" ? "Paid with" : "Pagado con", "f-pagado-con")}
+          <ThemeSelect value={pay} onChange={(v) => { setPay(v); setPayTouched(true); }} options={payOptions} />
+        </div>
         {kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase" ? <PersonPick value={personId} onChange={setPersonId} /> : null}
         {group ? (
           <div className={`label fit-f${long(nameOf(structure.categories, categoryId))}`} data-f="category">

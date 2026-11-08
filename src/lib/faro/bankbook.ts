@@ -45,7 +45,21 @@ function idIn(d: DefaultSource, cat: CatalogItem[], sources: BankSource[]): stri
 
 export function importBook(state: LedgerState | null | undefined): ImportBook {
   const b = state?.imports;
-  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {}, bonus: Array.isArray(b?.bonus) ? b!.bonus.filter((x) => x && typeof x.id === "string" && typeof x.name === "string") : [], ...(Array.isArray(b?.guides) ? { guides: b!.guides } : {}) };
+  return { sources: Array.isArray(b?.sources) ? b!.sources : [], rules: Array.isArray(b?.rules) ? b!.rules : [], maps: b?.maps && typeof b.maps === "object" ? b.maps : {}, files: b?.files && typeof b.files === "object" ? b.files : {}, bonus: Array.isArray(b?.bonus) ? b!.bonus.filter((x) => x && typeof x.id === "string" && typeof x.name === "string") : [], ...(Array.isArray(b?.guides) ? { guides: b!.guides } : {}), ...(b?.payHints && typeof b.payHints === "object" ? { payHints: b.payHints } : {}) };
+}
+
+/** The payment source of money that never touches an account: a Line.sourceId that matches no statement, ever (1.3.153). */
+export const CASH_SOURCE = "cash";
+/** How Oscar usually pays this merchant, from his own manual entries only ("" = no hint). */
+export function payHintFor(book: ImportBook, concept: string): string {
+  const k = merchantKey(concept);
+  return k ? book.payHints?.[k] ?? "" : "";
+}
+/** Remembers one manual payment choice for a merchant. Imports never teach this. */
+export function learnPayHint(book: ImportBook, concept: string, sourceId: string): ImportBook {
+  const k = merchantKey(concept);
+  if (!k || !sourceId || book.payHints?.[k] === sourceId) return book;
+  return { ...book, payHints: { ...(book.payHints ?? {}), [k]: sourceId } };
 }
 
 /** Accounts as the user sees them: the catalog item (name, icon) joined with its import settings; defaults until first saved. */

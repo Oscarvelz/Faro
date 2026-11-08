@@ -7,7 +7,7 @@ import { ArrowLeftRight, Ban, Settings as Gear, Check, CopyCheck, FileImage, Fil
 import { formatMoney } from "@/lib/faro/money";
 import { GUIDE_BUILTIN, accounts, guideName, guidesOf, importBook, rcLabel, resetGuides, rowFor, saveGuides } from "@/lib/faro/bankbook";
 import { GuideEditor, GuideMark } from "./bank-guides";
-import { applyImport, buildReview, counts, detectedCurrency, fromPdf, lineAmount, parseFile, pickSource, remap, revertImport, rewardFor, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
+import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, lineAmount, parseFile, pickSource, remap, revertImport, rewardFor, type ImportAdjustment, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
 import { translate } from "@/lib/faro/i18n";
 import type { ColumnMap, Currency, LedgerState, RewardClass } from "@/lib/faro/types";
@@ -67,6 +67,8 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
   const [bad, setBad] = useState("");
   const [busy, setBusy] = useState(false);
   const [pocketOn, setPocketOn] = useState(true);
+  // Files whose standing reconciliation difference Oscar confirmed an adjustment for (created with the import, 1.3.153).
+  const [adjQueued, setAdjQueued] = useState<ReadonlySet<number>>(new Set());
   const maps = useRef<Record<string, ColumnMap>>({});
   // The sheet and its category picker each own a history entry: phone back closes the picker, then the sheet.
   useLayer(true, onClose);
@@ -126,13 +128,34 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
   const money = (m: number) => formatMoney(m, "USD", lang);
   const tlabel = (v: string) => chipLabel(rv?.targets.find((x) => x.value === v), lang);
 
+  function queueAdj(i: number, diff: number) {
+    const acctName = accts.find((a) => a.id === sources[i])?.name ?? "";
+    confirm({
+      title: L(lang, "Crear ajuste por la diferencia", "Create an adjustment for the difference"),
+      body: L(lang, `Entrará una línea de ${money(Math.abs(diff))} en ${acctName}, con la fecha del último día del estado. Es una línea normal: puedes editarla o borrarla cuando quieras.`, `A ${money(Math.abs(diff))} line will go into ${acctName}, dated the statement's last day. It is a normal line: you can edit or delete it any time.`),
+      yes: L(lang, "Crear ajuste", "Create adjustment"),
+      run: () => setAdjQueued(new Set(adjQueued).add(i)),
+    });
+  }
+
   function save() {
     if (!rv || !state) return;
     const batch = crypto.randomUUID();
     const picked = rv.rows.filter((r) => r.include).length;
-    const undo = applyImport(state, rv, files, sources, batch, pocketOn).undo;
+    // Adjustments confirmed on a file's strip: recomputed at save time, so only a difference that still stands enters.
+    const adjustments: ImportAdjustment[] = [];
+    files.forEach((f, i) => {
+      if (!adjQueued.has(i) || !sources[i]) return;
+      const diff = fileRecon(rv.rows, i).diff;
+      const lastDay = rv.rows.filter((r) => r.file === i).map((r) => r.date).sort().pop();
+      if (!diff || !lastDay) return;
+      const acctName = accts.find((a) => a.id === sources[i])?.name ?? "";
+      const monthLabel = `${FULL[lang === "en" ? "en" : "es"][Number(lastDay.slice(5, 7)) - 1]} ${lastDay.slice(0, 4)}`;
+      adjustments.push({ file: i, diffMinor: diff, concept: L(lang, `Ajuste de conciliación · ${acctName} · ${monthLabel}`, `Reconciliation adjustment · ${acctName} · ${monthLabel}`), note: L(lang, "Conciliación: la diferencia entre el estado de cuenta y lo que Faro tenía.", "Reconciliation: the difference between the statement and what Faro had.") });
+    });
+    const undo = applyImport(state, rv, files, sources, batch, pocketOn, adjustments).undo;
     commit((s) => {
-      const next = applyImport(s, rv, files, sources, batch, pocketOn).state;
+      const next = applyImport(s, rv, files, sources, batch, pocketOn, adjustments).state;
       const book = importBook(next);
       return { ...next, imports: { ...book, maps: { ...book.maps, ...maps.current } } };
     }, L(lang, `Importar ${picked} movimientos`, `Import ${picked} transactions`));
@@ -208,6 +231,27 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                       <Hint topic="imp-cuenta" />
                     </div>
                     {f.pdf ? <PdfNotes lang={lang} file={f} money={money} /> : null}
+                    {(() => {
+                      const rec = fileRecon(rv.rows, i);
+                      if (!rec.rows) return null;
+                      const queued = adjQueued.has(i);
+                      return (
+                        <div className="imp-recon" data-anchor="imp-recon">
+                          <div className="imp-recon-nums">
+                            <div><span>{L(lang, "Total del estado", "Statement total")}</span><b className="num">{money(rec.total)}</b></div>
+                            <div><span>{L(lang, "Entra nuevo", "Coming in new")}</span><b className="num">{money(rec.incoming)}</b></div>
+                            <div><span>{L(lang, "Ya estaba", "Already in")}</span><b className="num">{money(rec.already)}</b></div>
+                            {rec.diff ? <div className="is-diff"><span>{L(lang, "Diferencia por conciliar", "Left to reconcile")}</span><b className="num">{money(rec.diff)}</b></div> : null}
+                          </div>
+                          {rec.diff && sources[i] && !queued ? (
+                            <button type="button" className="btn secondary imp-recon-btn" onClick={() => queueAdj(i, rec.diff)}>{L(lang, "Crear ajuste por la diferencia", "Create an adjustment for the difference")}</button>
+                          ) : null}
+                          {rec.diff && queued ? (
+                            <p className="imp-recon-note"><Check aria-hidden /><span>{L(lang, "El ajuste entrará con la importación, como una línea normal.", "The adjustment will go in with the import, as a normal line.")}</span><button type="button" className="imp-recon-x" onClick={() => { const next = new Set(adjQueued); next.delete(i); setAdjQueued(next); }}>{L(lang, "Quitar", "Remove")}</button></p>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -252,7 +296,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                             <div className="imp-main">
                               <p className="imp-line1"><span className="imp-date num">{day(r.date, lang)}</span><strong className="imp-name">{r.label}</strong></p>
                               <div className="imp-tags">
-                                {r.dup ? <span className="imp-tag is-dup"><CopyCheck aria-hidden />{L(lang, "Duplicado", "Duplicate")}</span> : null}
+                                {r.dup ? <span className={`imp-tag is-dup${r.dupOf ? " is-why" : ""}`}><CopyCheck aria-hidden />{r.dupOf ? L(lang, `Duplicado · tu línea "${r.dupOf.concept}" del ${day(r.dupOf.day, lang)}`, `Duplicate · your "${r.dupOf.concept}" line from ${day(r.dupOf.day, lang)}`) : L(lang, "Duplicado", "Duplicate")}</span> : null}
                                 {r.paired ? <span className="imp-tag is-pair"><Link2 aria-hidden />{files[r.file]?.bank === "paypal" || accts.find((a) => a.id === sources[r.file])?.kind === "paypal" ? L(lang, "Ya en la tarjeta", "Already on card") : L(lang, "Ya en PayPal", "Already in PayPal")}</span> : null}
                                 {r.pairs || (r.via && r.via !== "card") ? <span className="imp-tag is-pair"><Link2 aria-hidden />{L(lang, "PayPal + tarjeta", "PayPal + card")}</span> : null}
                                 {r.flow === "xfer" ? <span className="imp-tag is-xfer"><ArrowLeftRight aria-hidden />{L(lang, "Transferencia", "Transfer")}</span> : null}

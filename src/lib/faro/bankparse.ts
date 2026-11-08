@@ -5,7 +5,7 @@
  * Formats: OFX/QFX (SGML and XML), QIF, CSV (Chase card, Chase checking, PayPal, or any bank with column detection).
  */
 import Papa from "papaparse";
-import { accounts, bonusFor, ensureAccounts, findRule, guessClass, importBook, learnRule, lineReward, merchantKey, merchantLabel, splitTarget, suggestTarget, targets, type Acct, type LineReward, type Target } from "./bankbook.ts";
+import { accounts, bonusFor, CASH_SOURCE, ensureAccounts, findRule, guessClass, importBook, learnRule, lineReward, merchantKey, merchantLabel, splitTarget, suggestTarget, targets, type Acct, type LineReward, type Target } from "./bankbook.ts";
 import type { AcctKind, ColumnMap, Currency, ImportBook, LedgerState, Line, RewardClass, Structure, Sub } from "./types.ts";
 import type { PdfStatement } from "./pdfstmt.ts";
 
@@ -338,6 +338,8 @@ export type Row = {
   sourceId: string;
   via: string;
   dup: "" | "exact" | "fuzzy";
+  /** For a fuzzy duplicate: the book line it matched, so the review can say WHICH of his lines it is (1.3.153). */
+  dupOf?: { concept: string; day: string };
   /** This row is the same purchase as another row or line (PayPal + card): it is counted there. */
   paired: string;
   /** This PayPal row took in the card's copy (keeps the PayPal name). */
@@ -391,6 +393,24 @@ export function classify(r: RawTx, kind: AcctKind | undefined): Flow {
 }
 
 const words = (k: string) => new Set(k.split(" ").filter((w) => w.length > 1));
+
+/**
+ * The key the FUZZY duplicate hunt compares (1.3.153). merchantKey's own aliases already turn "AMZN Mktp",
+ * "Amazon Mktpl" or "Amazon.com" into "amazon"; this adds only what it leaves behind — a bare "amzn" and
+ * "amazon mktp" — and it lives ONLY on this matching path: merchantKey itself feeds the learned merchant
+ * rules, and moving it would orphan rules Oscar already taught Faro.
+ */
+const MATCH_ALIAS: [RegExp, string][] = [
+  [/^amzn\b.*/, "amazon"],
+  [/^amazon mktp\b.*/, "amazon"],
+];
+function canonMatch(key: string): string {
+  for (const [re, to] of MATCH_ALIAS) if (re.test(key)) return to;
+  return key;
+}
+export function matchKey(raw: string): string {
+  return canonMatch(merchantKey(raw));
+}
 function similar(a: string, b: string): boolean {
   if (!a || !b) return false;
   if (a === b || a.startsWith(b) || b.startsWith(a)) return true;
@@ -530,16 +550,28 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
     if (orig) { orig.voided = rev.voided = true; orig.flow = rev.flow = "skip"; }
   }
 
-  // 3. Fuzzy duplicates: same amount, ±2 days, similar name — against the books, then across files of this batch.
+  // 3. Fuzzy duplicates: same amount and ±4 days — against the books, then across files of this batch.
+  // Against the books, the ACCOUNT is a first-class witness (1.3.153): when the book line and the row both
+  // name their account, same account + amount + currency + side is the same money whatever the names say,
+  // and a different account is never the same purchase. When either side names none, the name decides,
+  // exactly as before. Cash lines never match (cash leaves no statement), an inactive line cannot claim a
+  // match through its account, and a line born from the same statement feed is only ever an exact match.
   const used = new Set<string>();
   for (const r of rows) {
     if (r.dup || r.paired || r.flow === "skip") continue;
     const amt = lineAmount(r);
     const sch = r.id ? scheme(r.id) : "";
-    const hit = all.find((l) => !used.has(l.id) && l.currency === r.currency && l.amountMinor === amt && (l.kind.startsWith("income") === isIncome(r.flow)) && dayGap(lineDay(l), r.date) <= 2
-      && (similar(merchantKey(l.concept), r.key) || l.concept === r.label)
-      && !(sch && (l.importId ?? "").split("|").some((k) => scheme(k) === sch)));
-    if (hit) { r.dup = "fuzzy"; used.add(hit.id); }
+    const rowAcct = sources[r.file] ?? "";
+    const rk = canonMatch(r.key);
+    const hit = all.find((l) => {
+      if (used.has(l.id) || l.sourceId === CASH_SOURCE) return false;
+      if (!(l.currency === r.currency && l.amountMinor === amt && (l.kind.startsWith("income") === isIncome(r.flow)) && dayGap(lineDay(l), r.date) <= 4)) return false;
+      if (sch && (l.importId ?? "").split("|").some((k) => scheme(k) === sch)) return false;
+      const lineAcct = l.sourceId ?? "";
+      if (lineAcct && rowAcct) return lineAcct === rowAcct && l.active;
+      return similar(matchKey(l.concept), rk) || l.concept === r.label;
+    });
+    if (hit) { r.dup = "fuzzy"; r.dupOf = { concept: hit.concept, day: lineDay(hit) }; used.add(hit.id); }
   }
   const taken = new Set<string>();
   for (const r of rows) {
@@ -579,6 +611,29 @@ export function rewardFor(state: LedgerState, r: Row): LineReward | null {
   return r.flow === "spend" && !r.noReward ? lineReward({ amountMinor: lineAmount(r), sourceId: r.sourceId, via: r.via && r.via !== "card" ? r.via : undefined, rc: r.rc }, accounts(state), r.elig) : null;
 }
 
+/**
+ * One file's reconciliation (1.3.153), in signed cents (spending positive, refunds negative — lineAmount).
+ * Only spend/refund rows count: transfers are the accounts' own plumbing and rows a reversal cancelled
+ * (flow "skip") already cancel each other inside the statement. Every counted row lands in exactly one
+ * bucket — included → incoming; duplicate or paired and left out → already; anything else → the residual —
+ * so Total = Incoming + Already + Diff holds by construction, never by rounding.
+ */
+export type FileRecon = { rows: number; total: number; incoming: number; already: number; diff: number };
+export function fileRecon(rows: Row[], file: number): FileRecon {
+  let n = 0, total = 0, incoming = 0, already = 0;
+  for (const r of rows) {
+    if (r.file !== file || (r.flow !== "spend" && r.flow !== "refund")) continue;
+    const amt = lineAmount(r);
+    n++; total += amt;
+    if (r.include) incoming += amt;
+    else if (r.dup || r.paired) already += amt;
+  }
+  return { rows: n, total, incoming, already, diff: total - incoming - already };
+}
+
+/** A reconciliation adjustment the user confirmed in the review: one normal line for a file's standing difference. */
+export type ImportAdjustment = { file: number; diffMinor: number; concept: string; note: string };
+
 export type Counts = { fresh: number; dups: number; xfers: number; total: number };
 export function counts(rows: Row[]): Counts {
   return {
@@ -610,7 +665,7 @@ export type Undo = { batch: string; added: number; before: Line[]; book: ImportB
  * One commit for the whole batch: new lines (by their month), PayPal pairs folded into existing lines, learned rules,
  * the account remembered per file, and the PayPal balance on its savings account when the user linked one.
  */
-export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[], sources: string[], batch: string, pocketOn = true): { state: LedgerState; undo: Undo } {
+export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[], sources: string[], batch: string, pocketOn = true, adjustments: ImportAdjustment[] = []): { state: LedgerState; undo: Undo } {
   const prevBook = state.imports;
   const prevStructure = state.structure;
   let s = ensureAccounts(state);
@@ -629,6 +684,27 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
   }
   let added = 0;
   for (const r of rv.rows) if (r.include && r.month) { put(newLine(r, batch)); added++; }
+  // Reconciliation adjustments confirmed in the review (1.3.153): ONE normal line per file for the standing
+  // difference, in this same batch (the import's Undo takes it out with the rest). Sign: a positive
+  // difference means the statement shows more spending than the books took in → an expense line on the
+  // review's fallback target; a negative one means the books hold more → money back, an income line.
+  for (const adj of adjustments) {
+    if (!adj.diffMinor) continue;
+    const fileRows = rv.rows.filter((r) => r.file === adj.file);
+    const lastDay = fileRows.map((r) => r.date).sort().pop();
+    if (!lastDay) continue;
+    const t = adj.diffMinor > 0 ? splitTarget(rv.fallback) : splitTarget("income-variable||");
+    const acctId = sources[adj.file] ?? "";
+    const cur = fileRows[0]?.currency ?? state.settings.display;
+    const id = crypto.randomUUID();
+    put({
+      id, seriesId: id, monthKey: lastDay.slice(0, 7), kind: t.kind, concept: adj.concept, amountMinor: Math.abs(adj.diffMinor), currency: cur,
+      active: true, note: adj.note, categoryId: t.categoryId, subId: t.subId, recurring: false, storeId: "", providerId: "",
+      productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: null, balanceCurrency: cur, icon: "", history: [], bookedOn: lastDay, startedOn: "",
+      ...(acctId ? { sourceId: acctId } : {}), batch,
+    });
+    added++;
+  }
   let book = importBook(s);
   for (const r of rv.rows) if (r.include && (r.flow === "spend" || r.flow === "refund") && r.key && r.target) book = { ...book, rules: learnRule(book.rules, r.key, r.label, r.target, r.rc) };
   const filesMap = { ...(book.files ?? {}) };

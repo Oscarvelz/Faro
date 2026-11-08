@@ -2,7 +2,7 @@ import type { Lang } from "./types";
 
 const es: Record<string, string> = {
   "app.name": "Faro",
-  "app.tagline": "Cada moneda en su lugar.",
+  "app.tagline": "Cada centavo en su lugar.",
   "boot": "Abriendo tus libros",
   "nav.desk": "Central",
   "nav.income": "Ingresos",
@@ -652,7 +652,7 @@ const es: Record<string, string> = {
 
 const en: Record<string, string> = {
   "app.name": "Faro",
-  "app.tagline": "Every coin in its place.",
+  "app.tagline": "Each penny in its place.",
   "boot": "Opening your books",
   "nav.desk": "Desk",
   "nav.income": "Income",

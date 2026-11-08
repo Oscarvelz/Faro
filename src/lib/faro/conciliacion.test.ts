@@ -1,0 +1,222 @@
+// Conciliación (1.3.153): a purchase Oscar typed by hand must never be counted twice when the statement
+// arrives. The import's fuzzy hunt now matches on amount + currency + side within ±4 days, treats the
+// ACCOUNT as a first-class witness, knows the statement abbreviations of the merchants, and can say
+// WHICH of his lines a duplicate matches. The review's per-file account (fileRecon) always ties:
+// Total = Entra nuevo + Ya estaba + Diferencia — and a confirmed difference becomes ONE normal line.
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { applyImport, buildReview, fileRecon, matchKey, revertImport, type ParsedFile } from "./bankparse.ts";
+import { importBook, learnPayHint, merchantKey, payHintFor, rewardsMonth } from "./bankbook.ts";
+import type { Category, LedgerState, Line } from "./types.ts";
+
+const sub = (id: string, name: string) => ({ id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 0 });
+const cat = (id: string, group: "fixed" | "variable", name: string, subs: [string, string][]): Category => ({ id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 0, group, role: "", subs: subs.map(([a, b]) => sub(a, b)) });
+function ledger(): LedgerState {
+  return {
+    v: 1, revision: 1, updatedAt: "", audit: [], months: {},
+    settings: { lang: "es", theme: "claro", display: "USD", rateE4: 366243, rateSource: "", rateAsOf: "", savingsGoalPct: 20, debtGreenPct: 30, debtYellowPct: 40, emergencyMonths: 3, shortcuts: {} },
+    structure: {
+      categories: [
+        cat("f-alimentos", "fixed", "Alimentos", [["f.alimentos.despensa", "Despensa"]]),
+        cat("v-personales", "variable", "Personales", [["v.p.salud", "Farmacia"], ["v.p.otros", "Otros"]]),
+      ],
+      purchases: [{ id: "otros", nameKey: "", customName: "Otros", icon: "Package", hidden: false, order: 0 }],
+      catalog: [],
+    },
+  };
+}
+const names = { cat: (id: string) => id, sub: (id: string) => id, purchase: (id: string) => id };
+let seq = 0;
+function manual(partial: Partial<Line>): Line {
+  const id = `m-${++seq}`;
+  return {
+    id, seriesId: id, monthKey: "2026-10", kind: "expense-variable", concept: "Amazon", amountMinor: 2599, currency: "USD",
+    active: true, note: "", categoryId: "v-personales", subId: "v.p.otros", recurring: false, storeId: "", providerId: "",
+    productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: null, balanceCurrency: "USD",
+    icon: "", history: [], bookedOn: "2026-10-28", startedOn: "", ...partial,
+  };
+}
+function withLines(state: LedgerState, lines: Line[]): LedgerState {
+  const months = { ...state.months };
+  for (const l of lines) months[l.monthKey] = { lines: [...(months[l.monthKey]?.lines ?? []), l] };
+  return { ...state, months };
+}
+const cardFile = (rows: ParsedFile["rows"]): ParsedFile => ({ name: "tarjeta.csv", format: "csv", bank: "chase", kind: "card", sig: "csv:chase-test", rows });
+const allLines = (s: LedgerState) => Object.values(s.months).flatMap((b) => b.lines);
+
+describe("conciliación: la ventana de ±4 días y los alias", () => {
+  it("una compra a mano del 28 atrapa su cargo del estado del 31 (3 días)", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 2599, bookedOn: "2026-10-28" })]);
+    const rv = buildReview(s, [cardFile([{ date: "2026-10-31", amount: -2599, desc: "AMZN Mktp*2K4XYZ SEATTLE WA" }])], [""], names, "es");
+    assert.equal(rv.rows[0].dup, "fuzzy");
+    assert.equal(rv.rows[0].include, false);
+    assert.equal(rv.rows[0].dupOf?.concept, "Amazon");
+    assert.equal(rv.rows[0].dupOf?.day, "2026-10-28");
+  });
+
+  it("AMZN a secas también es Amazon en la caza, sin mover la clave global de las reglas", () => {
+    assert.equal(merchantKey("AMZN"), "amzn", "la clave global no cambia: las reglas aprendidas no se mueven");
+    assert.equal(matchKey("AMZN"), "amazon");
+    assert.equal(matchKey("Amazon Mktp"), "amazon");
+    assert.equal(matchKey("AMZN Mktp*2K4XYZ"), "amazon");
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 2599, bookedOn: "2026-10-28" })]);
+    const rv = buildReview(s, [cardFile([{ date: "2026-10-28", amount: -2599, desc: "AMZN" }])], [""], names, "es");
+    assert.equal(rv.rows[0].dup, "fuzzy");
+  });
+
+  it("fuera de la ventana (5 días) o con otro monto, no hay duplicado", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 2599, bookedOn: "2026-10-26" })]);
+    const far = buildReview(s, [cardFile([{ date: "2026-10-31", amount: -2599, desc: "AMZN Mktp*2K4" }])], [""], names, "es");
+    assert.equal(far.rows[0].dup, "");
+    assert.equal(far.rows[0].include, true);
+    const off = buildReview(s, [cardFile([{ date: "2026-10-27", amount: -2600, desc: "AMZN Mktp*2K4" }])], [""], names, "es");
+    assert.equal(off.rows[0].dup, "", "un centavo de diferencia ya es otra compra");
+  });
+});
+
+describe("conciliación: la cuenta manda", () => {
+  it("misma cuenta, monto y días: duplicado aunque el nombre no ayude", () => {
+    const s = withLines(ledger(), [manual({ concept: "Compra en línea", amountMinor: 4200, bookedOn: "2026-10-29", sourceId: "acct-chase-card" })]);
+    const rv = buildReview(s, [cardFile([{ date: "2026-10-30", amount: -4200, desc: "XQZ WOBBLE RETAIL 9911" }])], ["acct-chase-card"], names, "es");
+    assert.equal(rv.rows[0].dup, "fuzzy");
+    assert.equal(rv.rows[0].dupOf?.concept, "Compra en línea");
+  });
+
+  it("otra cuenta nunca es la misma compra, ni con el mismo nombre", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 2599, bookedOn: "2026-10-28", sourceId: "acct-wf-card" })]);
+    const rv = buildReview(s, [cardFile([{ date: "2026-10-29", amount: -2599, desc: "AMZN Mktp*2K4" }])], ["acct-chase-card"], names, "es");
+    assert.equal(rv.rows[0].dup, "");
+    assert.equal(rv.rows[0].include, true);
+  });
+
+  it("lo pagado en efectivo nunca coincide con un cargo del banco", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 2599, bookedOn: "2026-10-28", sourceId: "cash" })]);
+    const noAcct = buildReview(s, [cardFile([{ date: "2026-10-28", amount: -2599, desc: "AMZN Mktp*2K4" }])], [""], names, "es");
+    assert.equal(noAcct.rows[0].dup, "");
+    const withAcct = buildReview(s, [cardFile([{ date: "2026-10-28", amount: -2599, desc: "AMZN Mktp*2K4" }])], ["acct-chase-card"], names, "es");
+    assert.equal(withAcct.rows[0].dup, "");
+  });
+
+  it("sin cuenta en ningún lado, decide el nombre como antes", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 2599, bookedOn: "2026-10-28" })]);
+    const rv = buildReview(s, [cardFile([{ date: "2026-10-30", amount: -2599, desc: "AMZN Mktp*2K4" }])], [""], names, "es");
+    assert.equal(rv.rows[0].dup, "fuzzy", "a 2 días con nombre parecido: el comportamiento de siempre");
+  });
+
+  it("una línea del mismo feed solo coincide por su número exacto, nunca por cercanía", () => {
+    const s = withLines(ledger(), [manual({ concept: "Compra", amountMinor: 4200, bookedOn: "2026-10-29", sourceId: "acct-chase-card", importId: "ofx:acct-chase-card:OLD1" })]);
+    const rv = buildReview(s, [cardFile([{ date: "2026-10-30", amount: -4200, desc: "XQZ WOBBLE RETAIL 9911", id: "NEW9" }])], ["acct-chase-card"], names, "es");
+    assert.equal(rv.rows[0].dup, "", "otro FITID del mismo banco es otra compra, aunque cuenta y monto coincidan");
+    assert.equal(rv.rows[0].include, true);
+  });
+});
+
+describe("conciliación: la cuenta del archivo", () => {
+  const file = cardFile([
+    { date: "2026-10-03", amount: -10000, desc: "MERCADO A" },
+    { date: "2026-10-10", amount: -2500, desc: "TIENDA B" },
+    { date: "2026-10-20", amount: -700, desc: "COSA C" },
+    { date: "2026-10-21", amount: 500, desc: "DEVOLUCION" },
+  ]);
+  const state = () => withLines(ledger(), [manual({ concept: "TIENDA B", amountMinor: 2500, bookedOn: "2026-10-10" })]);
+
+  it("Total = Entra nuevo + Ya estaba + Diferencia, siempre", () => {
+    const rv = buildReview(state(), [file], [""], names, "es");
+    let rec = fileRecon(rv.rows, 0);
+    assert.equal(rec.rows, 4);
+    assert.equal(rec.total, 12700);
+    assert.equal(rec.incoming, 10200);
+    assert.equal(rec.already, 2500);
+    assert.equal(rec.diff, 0);
+    // Oscar apaga una fila a mano: esa fila pasa a ser la diferencia, ni más ni menos.
+    rv.rows.find((r) => r.key === "cosa c")!.include = false;
+    rec = fileRecon(rv.rows, 0);
+    assert.equal(rec.incoming, 9500);
+    assert.equal(rec.diff, 700);
+    assert.equal(rec.total, rec.incoming + rec.already + rec.diff);
+  });
+
+  it("un archivo sin gastos ni reembolsos no tiene cuenta que conciliar", () => {
+    const rv = buildReview(ledger(), [cardFile([{ date: "2026-10-05", amount: 9000, desc: "PAGO RECIBIDO", type: "PAYMENT" }])], [""], names, "es");
+    assert.equal(fileRecon(rv.rows, 0).rows, 0);
+  });
+});
+
+describe("conciliación: el ajuste", () => {
+  const file = cardFile([
+    { date: "2026-10-05", amount: -4200, desc: "MERCADO A" },
+    { date: "2026-10-31", amount: -1000, desc: "COSA C" },
+  ]);
+
+  it("diferencia positiva: una línea de gasto normal, con la cuenta y el último día del estado", () => {
+    const s = ledger();
+    const rv = buildReview(s, [file], ["acct-chase-card"], names, "es");
+    const { state: after, undo } = applyImport(s, rv, [file], ["acct-chase-card"], "batch-adj", true, [
+      { file: 0, diffMinor: 4200, concept: "Ajuste de conciliación · Chase · tarjeta · Octubre 2026", note: "Conciliación: la diferencia." },
+    ]);
+    const adj = allLines(after).find((l) => l.concept.startsWith("Ajuste de conciliación"));
+    assert.ok(adj, "la línea de ajuste existe");
+    assert.equal(adj.amountMinor, 4200);
+    assert.equal(adj.kind, "expense-variable");
+    assert.equal(adj.categoryId, "v-personales");
+    assert.equal(adj.subId, "v.p.otros");
+    assert.equal(adj.sourceId, "acct-chase-card");
+    assert.equal(adj.bookedOn, "2026-10-31");
+    assert.equal(adj.monthKey, "2026-10");
+    assert.equal(adj.batch, "batch-adj");
+    assert.equal(adj.importId, undefined);
+    assert.equal(adj.rc, undefined);
+    const back = revertImport(after, undo);
+    assert.equal(allLines(back).some((l) => l.concept.startsWith("Ajuste de conciliación")), false, "Deshacer la importación también quita el ajuste");
+  });
+
+  it("diferencia negativa: el dinero vuelve como ingreso", () => {
+    const s = ledger();
+    const rv = buildReview(s, [file], ["acct-chase-card"], names, "es");
+    const { state: after } = applyImport(s, rv, [file], ["acct-chase-card"], "batch-adj2", true, [
+      { file: 0, diffMinor: -1500, concept: "Ajuste de conciliación", note: "Conciliación." },
+    ]);
+    const adj = allLines(after).find((l) => l.concept === "Ajuste de conciliación");
+    assert.ok(adj);
+    assert.equal(adj.kind, "income-variable");
+    assert.equal(adj.amountMinor, 1500);
+  });
+
+  it("sin diferencia o sin filas no se crea nada", () => {
+    const s = ledger();
+    const rv = buildReview(s, [file], ["acct-chase-card"], names, "es");
+    const { state: after } = applyImport(s, rv, [file], ["acct-chase-card"], "batch-adj3", true, [
+      { file: 0, diffMinor: 0, concept: "Ajuste de conciliación", note: "Conciliación." },
+    ]);
+    assert.equal(allLines(after).some((l) => l.concept === "Ajuste de conciliación"), false);
+  });
+});
+
+describe("conciliación: cómo paga Oscar cada comercio", () => {
+  it("la pista se aprende por la clave del comercio y se lee con cualquier grafía", () => {
+    const book = learnPayHint(importBook(ledger()), "Amazon", "acct-paypal");
+    assert.equal(payHintFor(book, "Amazon"), "acct-paypal");
+    assert.equal(payHintFor(book, "AMZN Mktp*2K4XYZ"), "acct-paypal", "la misma clave: amzn mktp y Amazon son un comercio");
+    assert.equal(payHintFor(book, "Publix"), "");
+    assert.equal(payHintFor(book, ""), "");
+  });
+
+  it("las pistas sobreviven a una importación (importBook las deja pasar)", () => {
+    const base = ledger();
+    const s0: LedgerState = { ...base, imports: { sources: [], rules: [], maps: {}, payHints: { amazon: "acct-paypal" } } };
+    const file = cardFile([{ date: "2026-10-05", amount: -1000, desc: "COSA C" }]);
+    const rv = buildReview(s0, [file], [""], names, "es");
+    const { state: after } = applyImport(s0, rv, [file], [""], "batch-hints");
+    assert.equal(after.imports?.payHints?.amazon, "acct-paypal");
+  });
+
+  it("una línea a mano con tarjeta gana recompensas por el mismo camino que una importada", () => {
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 10000, sourceId: "acct-chase-card" })]);
+    const r = rewardsMonth(s, "2026-10", "USD", 366243);
+    assert.ok(r);
+    assert.equal(r.count, 1);
+    assert.equal(r.earned, 150, "Freedom Unlimited paga 1,5% en lo demás");
+    const cashOnly = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 10000, sourceId: "cash" })]);
+    assert.equal(rewardsMonth(cashOnly, "2026-10", "USD", 366243), null, "el efectivo no gana recompensas ni cuenta como compra de tarjeta");
+  });
+});
