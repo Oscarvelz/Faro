@@ -4442,16 +4442,27 @@ function StructureTree() {
   const pressRef = useRef<{ id: string; group: string; index: number; count: number; y: number; timer: number; el: HTMLElement } | null>(null);
   const swallowClickRef = useRef(false);
   const stopScrollRef = useRef<((e: TouchEvent) => void) | null>(null);
+  const scrollWatchRef = useRef<(() => void) | null>(null);
   const endPress = () => {
     if (pressRef.current) window.clearTimeout(pressRef.current.timer);
     pressRef.current = null;
     if (stopScrollRef.current) { window.removeEventListener("touchmove", stopScrollRef.current); stopScrollRef.current = null; }
+    if (scrollWatchRef.current) { window.removeEventListener("scroll", scrollWatchRef.current, true); scrollWatchRef.current = null; }
   };
   const onRowPointerDown = (e: React.PointerEvent<HTMLElement>, cat: Category, group: string, index: number, count: number) => {
     if (needle || openId === cat.id) return; // no dragging while searching or while the row is being edited
     if (e.button !== undefined && e.button !== 0) return;
     swallowClickRef.current = false; // a new gesture clears any stale swallow from a cancelled drag
     endPress();
+    // 1.3.145: if the page actually scrolls while the finger is down, the gesture was a scroll —
+    // cancel the pending lift at the first real movement (position compared, so a scroll event
+    // queued from before the press can't cancel it), and swiping stays fluid (Oscar: with a category
+    // open, scrolling stuck: a slow-starting scroll let the lift timer fire mid-gesture, capture
+    // the finger and freeze the page).
+    const startScrollY = window.scrollY;
+    const watch = () => { if (!dragRef.current && Math.abs(window.scrollY - startScrollY) > 4) endPress(); };
+    scrollWatchRef.current = watch;
+    window.addEventListener("scroll", watch, { capture: true, passive: true });
     const el = e.currentTarget;
     const timer = window.setTimeout(() => {
       const wrap = el.closest<HTMLElement>("[data-row]");
@@ -4471,7 +4482,7 @@ function StructureTree() {
     if (!press) return;
     const live = dragRef.current;
     if (!live) {
-      if (Math.abs(e.clientY - press.y) > 10) endPress(); // it was a scroll or a tap, not a hold
+      if (Math.abs(e.clientY - press.y) > 6) endPress(); // it was a scroll or a tap, not a hold
       return;
     }
     const dy = e.clientY - press.y;
@@ -4642,16 +4653,8 @@ function TreePanel({ cat }: { cat: Category }) {
         </button>
         {colorOpen ? <ColorPick face="solid" value={categoryBase(cat.id, cat.color)} label={t("color")} onPick={(hex) => { patch((c) => ({ ...c, color: hex }), "color"); setColorOpen(false); }} /> : null}
       </div>
-      {/* 1.3.144: the strip keeps only the bin (Oscar: the arrows, the eye and the group switch go;
-          reordering is drag-and-drop on the list, and the editor keeps its delete). */}
-      <div className="tree-tools">
-        <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${displayName(cat, lang)}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => {
-          const userVis = { ...(s.structure.userVis ?? {}) };
-          delete userVis[cat.id];
-          for (const sub of cat.subs) delete userVis[sub.id];
-          return { ...s, structure: { ...s.structure, userVis, categories: s.structure.categories.filter((c) => c.id !== cat.id) } };
-        }, "delete cat") })}><Trash2 className="size-4" /></button>
-      </div>
+      {/* 1.3.145: no bin for the category itself (Oscar: the name-and-colour editor has immunity —
+          a category is not deleted as if it were a subcategory; only subcategories carry a bin). */}
       {cat.subs.map((sub) => (
         <div key={sub.id} className={sub.hidden ? "tree-sub is-muted" : "tree-sub"}>
           {editSub === sub.id ? (
