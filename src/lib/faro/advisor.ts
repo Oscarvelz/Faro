@@ -4,6 +4,7 @@ import { perYear } from "./cadence.ts";
 import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
 import { remitTrend } from "./remesas.ts";
 import { remitByPerson } from "./remit-people.ts";
+import { visibleNamer } from "./defaults.ts";
 
 type Namer = {
   cat: (id: string) => string;
@@ -201,7 +202,7 @@ function categoryName(line: Line, names: Namer, lang: Lang = "es"): string {
   if (named) return named;
   if (line.kind === "purchase") return L(lang, "Compras", "Shopping");
   if (line.kind === "subscription") return L(lang, "Suscripciones", "Subscriptions");
-  return line.categoryId || L(lang, "Otros", "Other");
+  return L(lang, "Otros", "Other");
 }
 
 /* Everyday words: things people buy every week. These never read as "one-time" just because it is the first month. */
@@ -270,6 +271,7 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
 }
 
 function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Namer, options: AdvisorOptions = {}): Reading {
+  names = visibleNamer(state.structure, names); // Contrato, regla 2: el Asesor no nombra lo oculto.
   const today = options.today ?? new Date();
   const { display, rateE4 } = state.settings;
   const money = (n: number) => formatMoney(n, display, lang);

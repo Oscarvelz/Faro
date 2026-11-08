@@ -610,3 +610,11 @@
 - Ejemplos en vez de lemas (enmienda 1): cada pastilla del selector lleva su ejemplo cortito y concreto en una segunda línea («Sin hijos en casa: esconde colegiaturas, hijos, formativas y funeraria», «Vuelve a mostrar toda la rama de familia: colegiaturas, hijos, libros y juguetes»…), y el mismo ejemplo abre la confirmación. El lema abstracto prohibido por Oscar no aparece en ningún texto; la batería lo vigila como aserción permanente.
 - La batería dorada gana las aserciones de la vista previa (diff de Soltero/Estudiante/Negocio, conteo de movimientos, mano protegida, caso vacío) y de los ejemplos.
 - Tests: 59/59 + 131 en test:faro (130 pasan, 1 todo = R-4).
+
+## Web 1.3.137 (2026-11-07, Muse) — Reforma de Estructura, paso 4: nombrar sigue a la visibilidad («Otros»)
+- Contrato, regla 2 (decisión D-2): donde una superficie nombra categorías, el dinero de las ocultas se agrupa bajo «Otros» con el mismo monto — el precedente de la casa (la exportación de libros) aplicado a las superficies que faltaban.
+- Estudio: `categorySlices` pliega las rebanadas de categorías (y compras) ocultas en una sola rebanada «Otros»; la suma total no se mueve un centavo (la batería lo afirma en los seis estados). Firma con `lang` nuevo; los llamadores (provider, widget, exportaciones) lo pasan.
+- Widget de inicio: su top por categoría sale de las mismas rebanadas, así que hereda la regla — una categoría oculta ya no se anuncia con nombre en la pantalla de inicio; su dinero aparece como «Otros» y el mes anterior se compara por el mismo id.
+- Asesor e Insights: `visibleNamer` (defaults.ts) envuelve el nombrador en `readAdvisor`, `buildAdvice` y `buildInsights` — una categoría, subconcepto o compra oculta no presta su nombre a ninguna etiqueta; la línea conserva siempre su concepto propio y, sin nombre visible, la etiqueta es «Otros» (la etiqueta del Asesor ya no devuelve jamás un id crudo). El pareto de Insights usa las rebanadas ya plegadas: su fracción «Otros» es exactamente la del dinero plegado.
+- Nota de contrato: el conteo de partes del pareto es una propiedad de la capa de nombres (cuántos grupos nombrados alcanzan el 80%) y cambia con el plegado por diseño; su dinero no cambia, y la batería lo afirma por separado en vez de exigirle identidad de cifras.
+- Tests: 59/59 + 132 en test:faro (131 pasan, 1 todo = R-4, lo cierra el paso 5).

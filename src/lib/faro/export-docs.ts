@@ -640,7 +640,7 @@ function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names,
         }),
       ],
     });
-    const slices = categorySlices(ledger, key, names);
+    const slices = categorySlices(ledger, key, names, lang);
     const total = slices.reduce((sum, item) => sum + item.minor, 0);
     sheets.push({
       name: "Categorias",
@@ -1094,7 +1094,7 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
     page.need(24);
     page.text(28, page.y, 12, say(lang, "A dónde se va", "Where it goes"), ink);
     page.y -= 16;
-    const slices = categorySlices(ledger, key, names).slice(0, 8);
+    const slices = categorySlices(ledger, key, names, lang).slice(0, 8);
     const sliceMax = Math.max(...slices.map((slice) => slice.minor), 1);
     const sliceSum = slices.reduce((sum, slice) => sum + slice.minor, 0);
     const palette = [green, "0.55 0.42 0.16", "0.32 0.46 0.58", "0.45 0.36 0.28", "0.28 0.45 0.4", "0.62 0.4 0.32"];

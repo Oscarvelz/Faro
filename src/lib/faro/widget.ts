@@ -151,7 +151,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
   dues.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : a.name.localeCompare(b.name)));
 
   // Spending by category (Estudio's slices), with last month for the same category.
-  const prevSlices = new Map(categorySlices(state, shiftKey(key, -1), names).map((x) => [x.id, x.minor]));
+  const prevSlices = new Map(categorySlices(state, shiftKey(key, -1), names, lang).map((x) => [x.id, x.minor]));
   const goOfCat = (id: string): WidgetGo => {
     const c = state.structure.categories.find((x) => x.id === id);
     if (c) return c.role === SAVINGS ? "vault-save" : c.group === "fixed" ? "fixed" : "variable";
@@ -165,7 +165,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     subscription: ["Cuotas", "Plans"], purchase: ["Compras", "Shopping"],
     "expense-fixed": ["Fijos", "Fixed"], "expense-variable": ["Variables", "Variable"],
   };
-  const slices = categorySlices(state, key, names).slice(0, 5).map((x) => ({ ...x, name: KIND[x.id] ? KIND[x.id][lang === "en" ? 1 : 0] : x.name }));
+  const slices = categorySlices(state, key, names, lang).slice(0, 5).map((x) => ({ ...x, name: KIND[x.id] ? KIND[x.id][lang === "en" ? 1 : 0] : x.name }));
   // Two categories with one name (Casa in Fijos and in Variables) get their book beside it.
   const seen = new Map<string, number>();
   for (const x of slices) seen.set(x.name, (seen.get(x.name) ?? 0) + 1);

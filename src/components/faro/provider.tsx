@@ -675,7 +675,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       insights: () => (i ??= ledgerNow ? buildInsights(ledgerNow, key, lang, names) : []),
       advice: () => (a ??= ledgerNow ? buildAdvice(ledgerNow, key, lang, names) : []),
       budget: () => (b === undefined ? (b = ledgerNow ? buildBudget(ledgerNow, key, lang, names) : null) : b),
-      slices: () => (sl ??= ledgerNow ? categorySlices(ledgerNow, key, names) : []),
+      slices: () => (sl ??= ledgerNow ? categorySlices(ledgerNow, key, names, lang) : []),
     };
   }, [ledgerNow, key, lang, names]);
   const hits = session && ui.query.trim().length >= 2 ? searchLedger(session.ledger, ui.query, lang, names) : [];

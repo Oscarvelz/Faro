@@ -287,6 +287,25 @@ export function createInitial(lang: Lang = "es", theme: ThemeId = "claro"): Ledg
   };
 }
 
+/**
+ * The namer the naming surfaces (Asesor, Insights, advice) must use (contrato, regla 2):
+ * a hidden category, subconcept or purchase yields NO name, so labels fall back to the line's
+ * own concept or to «Otros» instead of naming what the user folded away. The line's own
+ * concept is never touched — only the structure's names follow visibility.
+ */
+export function visibleNamer(structure: Structure, names: ReturnType<typeof makeNamer>): ReturnType<typeof makeNamer> {
+  const hiddenCats = new Set(structure.categories.filter((c) => c.hidden).map((c) => c.id));
+  const hiddenSubs = new Map<string, boolean>();
+  for (const c of structure.categories) for (const s of c.subs) hiddenSubs.set(s.id, c.hidden || s.hidden);
+  const hiddenPurchases = new Set(structure.purchases.filter((p) => p.hidden).map((p) => p.id));
+  return {
+    cat: (id: string) => (hiddenCats.has(id) ? "" : names.cat(id)),
+    sub: (id: string) => (hiddenSubs.get(id) ? "" : names.sub(id)),
+    purchase: (id: string) => (hiddenPurchases.has(id) ? "" : names.purchase(id)),
+    catalog: names.catalog,
+  };
+}
+
 export function makeNamer(structure: Structure, lang: Lang) {
   const cat = (id: string) => {
     const found = structure.categories.find((c) => c.id === id);

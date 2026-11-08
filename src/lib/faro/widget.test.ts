@@ -89,8 +89,8 @@ describe("widget snapshot", () => {
 
   it("categories match Estudio, with last month beside each", () => {
     const names = makeNamer(s.structure, "es");
-    const now = categorySlices(s, "2026-11", names);
-    const prev = new Map(categorySlices(s, "2026-10", names).map((x) => [x.id, x.minor]));
+    const now = categorySlices(s, "2026-11", names, "es");
+    const prev = new Map(categorySlices(s, "2026-10", names, "es").map((x) => [x.id, x.minor]));
     assert.deepEqual(snap.cats.map((c) => c.amt), now.slice(0, 5).map((x) => x.minor));
     assert.deepEqual(snap.cats.map((c) => c.prev), now.slice(0, 5).map((x) => prev.get(x.id) ?? 0));
     assert.equal(snap.cats.find((c) => c.save)?.go, "vault-save");

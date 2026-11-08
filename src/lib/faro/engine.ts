@@ -1,6 +1,6 @@
 import { readAdvisor } from "./advisor";
 import { colorFor } from "./colors";
-import { displayName } from "./defaults";
+import { displayName, visibleNamer } from "./defaults";
 import { loanTotals } from "./loans";
 import { lentTotals, payoffPlan } from "./debts";
 import { cardFigures, cardMonthlyInterest, cardTotals, cardsOf, rewardsTotals, toThirty } from "./cards";
@@ -150,8 +150,29 @@ function slicesFor(lines: Line[], structure: Structure, display: Currency, rateE
   return [...map.values()].filter((s) => s.minor !== 0).sort((a, b) => b.minor - a.minor);
 }
 
-export function categorySlices(state: LedgerState, key: string, names: Namer): Slice[] {
-  return slicesFor(monthLines(state, key), state.structure, state.settings.display, state.settings.rateE4, names);
+export function categorySlices(state: LedgerState, key: string, names: Namer, lang: Lang): Slice[] {
+  const raw = slicesFor(monthLines(state, key), state.structure, state.settings.display, state.settings.rateE4, names);
+  // Contrato, regla 2: nombrar sigue a la visibilidad. El dinero de las categorías (y compras)
+  // ocultas se agrupa bajo «Otros» con el mismo monto — la suma no se mueve un centavo.
+  const hidden = new Set<string>([
+    ...state.structure.categories.filter((c) => c.hidden).map((c) => c.id),
+    ...state.structure.purchases.filter((p) => p.hidden).map((p) => p.id),
+  ]);
+  if (!raw.some((s) => hidden.has(s.id))) return raw;
+  const out: Slice[] = [];
+  let otros: Slice | null = null;
+  for (const s of raw) {
+    if (hidden.has(s.id)) {
+      if (!otros) {
+        otros = { id: "otros", name: L(lang, "Otros", "Other"), minor: 0, color: colorFor(state.structure, "otros") };
+        out.push(otros);
+      }
+      otros.minor += s.minor;
+    } else {
+      out.push(s);
+    }
+  }
+  return out.filter((s) => s.minor !== 0).sort((a, b) => b.minor - a.minor);
 }
 
 export function yearPoints(state: LedgerState, year: number, lang: Lang, kinds?: string[], subs?: string[]): MonthPoint[] {
@@ -432,6 +453,7 @@ function previousKey(key: string): string {
 }
 
 export function buildInsights(state: LedgerState, key: string, lang: Lang, names: Namer): Insight[] {
+  names = visibleNamer(state.structure, names); // Contrato, regla 2: las etiquetas no nombran lo oculto.
   const s = summarize(state, key, lang);
   const { display, rateE4 } = state.settings;
   const money = (n: number) => formatMoney(n, display, lang);
@@ -540,7 +562,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     implication: L(lang, `En doce meses, ese ritmo son ${money(runRate * 12)} si ninguna se cancela y el precio no cambia.`, `Over twelve months that run-rate is ${money(runRate * 12)} if none are cancelled and the price holds.`),
   });
 
-  const slices = slicesFor(lines, state.structure, display, rateE4, names);
+  const slices = categorySlices(state, key, names, lang);
   const expenseAbs = slices.reduce((a, sl) => a + Math.max(0, sl.minor), 0);
   let walk = 0;
   const pareto: string[] = [];
@@ -791,6 +813,7 @@ export function buildBudget(state: LedgerState, key: string, lang: Lang, names: 
 }
 
 export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: Namer): AdviceCard[] {
+  names = visibleNamer(state.structure, names); // Contrato, regla 2: las etiquetas no nombran lo oculto.
   const s = summarize(state, key, lang);
   const reading = readAdvisor(state, key, lang, names);
   const money = (n: number) => formatMoney(n, state.settings.display, lang);

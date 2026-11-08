@@ -11,7 +11,7 @@ import { describe, it } from "node:test";
 import { readAdvisor } from "./advisor.ts";
 import { applyTemplate, createInitial, makeNamer, markUserVis, structureStatusLine, templateExample, templatePreview } from "./defaults.ts";
 import { buildAdvice, buildInsights, categorySlices, studyBoard, summarize } from "./engine.ts";
-import { savingsOf } from "./widget.ts";
+import { buildWidgetSnapshot, savingsOf } from "./widget.ts";
 import type { LedgerState, Line, LineKind, Structure } from "./types.ts";
 
 const KEY = "2026-10";
@@ -128,11 +128,16 @@ function figures(x: unknown): string {
 
 function capture(ledger: LedgerState) {
   const names = makeNamer(ledger.structure, "es");
+  // El pareto de Insights queda fuera de la identidad de cifras a propósito: su conteo de partes
+  // es una propiedad de la capa de NOMBRES (cuántos grupos nombrados alcanzan el 80%), y la regla 2
+  // cambia esa capa al plegar lo oculto en «Otros». Su dinero se afirma aparte (prueba de nombres):
+  // la fracción de «Otros» es exactamente la del dinero plegado, y la suma de rebanadas no se mueve.
+  const insights = buildInsights(ledger, KEY, "es", names).filter((i) => i.id !== "pareto");
   return {
     summary: figures(summarize(ledger, KEY, "es")),
     advisor: figures(readAdvisor(ledger, KEY, "es", names, { today: TODAY })),
     advice: figures(buildAdvice(ledger, KEY, "es", names)),
-    insights: figures(buildInsights(ledger, KEY, "es", names)),
+    insights: figures(insights),
     board: figures(studyBoard(ledger, KEY, "es", names)),
   };
 }
@@ -153,7 +158,7 @@ describe("batería dorada de Estructura — el contrato", () => {
   });
 
   it("la suma de las rebanadas de Estudio es idéntica en los seis estados (solo los nombres pueden cambiar)", () => {
-    const sumOf = (l: LedgerState) => categorySlices(l, KEY, makeNamer(l.structure, "es")).reduce((a, s) => a + s.minor, 0);
+    const sumOf = (l: LedgerState) => categorySlices(l, KEY, makeNamer(l.structure, "es"), "es").reduce((a, s) => a + s.minor, 0);
     const want = sumOf(states[0]!.ledger);
     for (const s of states.slice(1)) assert.equal(sumOf(s.ledger), want, `suma de rebanadas difiere en estado ${s.name}`);
   });
@@ -238,6 +243,39 @@ describe("batería dorada de Estructura — el contrato", () => {
       }
     }
     assert.match(templateExample("familia", "es"), /Vuelve a mostrar toda la rama de familia/);
+  });
+
+  it("regla de nombres: lo oculto se nombra «Otros» en Estudio, el widget y el Asesor", () => {
+    const states = sixStates(goldenLedger());
+    const hand = states[5]!.ledger; // f-familia oculta a mano (la plantilla Familia no la resucita)
+    const slices = categorySlices(hand, KEY, makeNamer(hand.structure, "es"), "es");
+    assert.equal(slices.some((s) => s.id === "f-familia"), false, "ninguna rebanada nombra la categoría oculta");
+    const otros = slices.find((s) => s.id === "otros");
+    assert.ok(otros, "debe existir la rebanada «otros»");
+    assert.equal(otros.name, "Otros");
+    // El estado a mano oculta DOS categorías: Familia fija (66038) y Ahorro entero (189900).
+    assert.equal(otros.minor, 255938, "el dinero de las categorías ocultas suma igual, bajo «Otros»");
+    assert.equal(slices.find((s) => s.id === "v-familia")?.minor, 23000, "la rama visible conserva su nombre");
+    // Soltero oculta SUBconceptos, no la categoría: la rebanada sigue nombrando Familia, completa.
+    const soltero = states[2]!.ledger;
+    const sSoltero = categorySlices(soltero, KEY, makeNamer(soltero.structure, "es"), "es");
+    assert.equal(sSoltero.find((s) => s.id === "f-familia")?.minor, 66038);
+    assert.equal(sSoltero.some((s) => s.id === "otros"), false);
+    // Widget de inicio: su top por categoría hereda la misma regla desde las rebanadas.
+    const snap = buildWidgetSnapshot(hand, "es", { today: "2026-10-22", hide: false, lock: false });
+    assert.ok(snap.cats.some((c) => c.name === "Otros" && c.amt === 255938), "el widget nombra «Otros», no la categoría oculta");
+    // Insights (pareto): la parte «Otros» lleva la misma fracción del gasto que las categorías plegadas.
+    const insights = buildInsights(hand, KEY, "es", makeNamer(hand.structure, "es"));
+    const pareto = insights.find((i) => i.id === "pareto");
+    const totalSlices = slices.reduce((a, s) => a + Math.max(0, s.minor), 0);
+    const otrosPart = pareto?.viz?.kind === "parts" ? pareto.viz.parts.find((p) => p.name === "Otros") : undefined;
+    assert.ok(otrosPart, "el pareto de Insights nombra «Otros»");
+    assert.ok(Math.abs((otrosPart?.share ?? 0) - 255938 / totalSlices) < 1e-9, "la fracción de «Otros» es la del dinero plegado");
+    // Asesor: las líneas de la categoría oculta se etiquetan «Otros»; visibles, con su nombre.
+    const readHand = readAdvisor(hand, KEY, "es", makeNamer(hand.structure, "es"), { today: TODAY });
+    assert.ok(readHand.lines.filter((l) => l.categoryId === "f-familia").every((l) => l.category === "Otros"));
+    const readBirth = readAdvisor(states[0]!.ledger, KEY, "es", makeNamer(states[0]!.ledger.structure, "es"), { today: TODAY });
+    assert.ok(readBirth.lines.filter((l) => l.categoryId === "f-familia").every((l) => l.category === "Familia"));
   });
 
   it("el respaldo guarda TODO: estructura (con la mano) y ajustes sobreviven la ida y vuelta", () => {
