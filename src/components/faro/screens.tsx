@@ -18,7 +18,7 @@ import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Sh
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, markUserVis, missingDefaults, moveNamed, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
+import { applyTemplate, displayName, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
 import { cashSankey, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
@@ -4419,7 +4419,13 @@ function StructureTree() {
   // 1.3.143: the two groups fold by their title, so the tree can shrink to two lines (Oscar: the long
   // list made him lose focus). UI-only state, kept on this device; searching always shows its matches.
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("faro.tree.folded") ?? "[]") as string[]); } catch { return new Set<string>(); }
+    try {
+      const raw = localStorage.getItem("faro.tree.folded");
+      if (raw !== null) return new Set(JSON.parse(raw) as string[]);
+    } catch { /* ignore */ }
+    // 1.3.144: with nothing saved by hand, the groups are born folded (Oscar: «Deben comenzar
+    // plegados. Ese es el punto.»). A set saved by his own taps keeps ruling, as always.
+    return new Set(["fixed", "variable"]);
   });
   const foldGroup = (group: string) => setFolded((prev) => {
     const next = new Set(prev);
@@ -4427,6 +4433,68 @@ function StructureTree() {
     try { localStorage.setItem("faro.tree.folded", JSON.stringify([...next])); } catch { /* ignore */ }
     return next;
   });
+  // 1.3.144: reordering is drag-and-drop now (Oscar: the arrow buttons go). Press-and-hold a row to
+  // lift it, drag it inside its own group, release to drop — the drop rewrites the group's `order`.
+  type DragState = { id: string; group: string; from: number; to: number; dy: number; rowH: number };
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  dragRef.current = drag;
+  const pressRef = useRef<{ id: string; group: string; index: number; count: number; y: number; timer: number; el: HTMLElement } | null>(null);
+  const swallowClickRef = useRef(false);
+  const stopScrollRef = useRef<((e: TouchEvent) => void) | null>(null);
+  const endPress = () => {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer);
+    pressRef.current = null;
+    if (stopScrollRef.current) { window.removeEventListener("touchmove", stopScrollRef.current); stopScrollRef.current = null; }
+  };
+  const onRowPointerDown = (e: React.PointerEvent<HTMLElement>, cat: Category, group: string, index: number, count: number) => {
+    if (needle || openId === cat.id) return; // no dragging while searching or while the row is being edited
+    if (e.button !== undefined && e.button !== 0) return;
+    swallowClickRef.current = false; // a new gesture clears any stale swallow from a cancelled drag
+    endPress();
+    const el = e.currentTarget;
+    const timer = window.setTimeout(() => {
+      const wrap = el.closest<HTMLElement>("[data-row]");
+      const rowH = wrap?.getBoundingClientRect().height ?? 52;
+      try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      const stop = (ev: TouchEvent) => { if (dragRef.current) ev.preventDefault(); };
+      stopScrollRef.current = stop;
+      window.addEventListener("touchmove", stop, { passive: false });
+      const lifted: DragState = { id: cat.id, group, from: index, to: index, dy: 0, rowH };
+      dragRef.current = lifted;
+      setDrag(lifted);
+    }, 260);
+    pressRef.current = { id: cat.id, group, index, count, y: e.clientY, timer, el };
+  };
+  const onRowPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const press = pressRef.current;
+    if (!press) return;
+    const live = dragRef.current;
+    if (!live) {
+      if (Math.abs(e.clientY - press.y) > 10) endPress(); // it was a scroll or a tap, not a hold
+      return;
+    }
+    const dy = e.clientY - press.y;
+    const to = Math.max(0, Math.min(press.count - 1, live.from + Math.round(dy / live.rowH)));
+    if (to !== live.to || dy !== live.dy) { const next = { ...live, dy, to }; dragRef.current = next; setDrag(next); }
+  };
+  const onRowPointerUp = () => {
+    const live = dragRef.current;
+    endPress();
+    if (!live) return;
+    dragRef.current = null;
+    setDrag(null);
+    swallowClickRef.current = true; // the click that follows a drop must not open/close the editor
+    if (live.to !== live.from) {
+      commit((s) => {
+        const inGroup = s.structure.categories.filter((c) => c.group === live.group).slice().sort((a, b) => a.order - b.order);
+        const [moved] = inGroup.splice(live.from, 1);
+        inGroup.splice(live.to, 0, moved);
+        const orderOf = new Map(inGroup.map((c, i) => [c.id, i]));
+        return { ...s, structure: { ...s.structure, categories: s.structure.categories.map((c) => (c.group === live.group ? { ...c, order: orderOf.get(c.id)! } : c)) } };
+      }, "drag reorder");
+    }
+  };
   if (!session) return null;
   const addCat = () => {
     const name = catName.trim();
@@ -4477,11 +4545,24 @@ function StructureTree() {
           </div>
           {groupOpen ? (
           <div className="tree">
-            {rows.map((cat) => {
+            {rows.map((cat, rowIndex) => {
               const open = openId === cat.id;
+              const dragStyle: React.CSSProperties | undefined = (() => {
+                if (!drag || drag.group !== group) return undefined;
+                if (drag.id === cat.id) return { transform: `translateY(${drag.dy}px)` };
+                if (drag.from < rowIndex && rowIndex <= drag.to) return { transform: `translateY(${-drag.rowH}px)` };
+                if (drag.to <= rowIndex && rowIndex < drag.from) return { transform: `translateY(${drag.rowH}px)` };
+                return undefined;
+              })();
+              const dragClass = drag && drag.group === group ? (drag.id === cat.id ? "is-drag-src" : "is-drag-shift") : undefined;
               return (
-                <div key={cat.id} className={cat.hidden ? "is-muted" : undefined}>
-                  <button type="button" className="tree-row" aria-expanded={open} onClick={() => setOpenId(open ? null : cat.id)}>
+                <div key={cat.id} data-row className={[cat.hidden ? "is-muted" : "", dragClass ?? ""].join(" ").trim() || undefined} style={dragStyle}>
+                  <button type="button" className="tree-row" aria-expanded={open}
+                    onPointerDown={(e) => onRowPointerDown(e, cat, group, rowIndex, rows.length)}
+                    onPointerMove={onRowPointerMove}
+                    onPointerUp={onRowPointerUp}
+                    onPointerCancel={onRowPointerUp}
+                    onClick={() => { if (swallowClickRef.current) { swallowClickRef.current = false; return; } setOpenId(open ? null : cat.id); }}>
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
                     <span className="min-w-0">
                       <span className="tree-name"><i className="sw tree-swatch" style={{ background: categoryColor(cat.id, cat.color) }} />{displayName(cat, lang)}</span>
@@ -4561,14 +4642,9 @@ function TreePanel({ cat }: { cat: Category }) {
         </button>
         {colorOpen ? <ColorPick face="solid" value={categoryBase(cat.id, cat.color)} label={t("color")} onPick={(hex) => { patch((c) => ({ ...c, color: hex }), "color"); setColorOpen(false); }} /> : null}
       </div>
+      {/* 1.3.144: the strip keeps only the bin (Oscar: the arrows, the eye and the group switch go;
+          reordering is drag-and-drop on the list, and the editor keeps its delete). */}
       <div className="tree-tools">
-        <button type="button" className="icon-btn" aria-label={t("up")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, -1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "up")}><ChevronUp className="size-4" /></button>
-        <button type="button" className="icon-btn" aria-label={t("down")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, categories: moveNamed(s.structure.categories.filter((c) => c.group === cat.group), cat.id, 1).concat(s.structure.categories.filter((c) => c.group !== cat.group)) } }), "down")}><ChevronDown className="size-4" /></button>
-        <button type="button" className="icon-btn" aria-label={cat.hidden ? t("show") : t("hide")} onClick={() => {
-          const next = !cat.hidden;
-          commit((s) => ({ ...s, structure: markUserVis({ ...s.structure, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, hidden: next } : c)) }, [cat.id], next) }), "hide");
-        }}>{cat.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
-        <button type="button" className="icon-btn" aria-label={cat.group === "fixed" ? t("move.variable") : t("move.fixed")} onClick={() => patch((c) => ({ ...c, group: c.group === "fixed" ? "variable" : "fixed" }), "move")}><ArrowLeftRight className="size-4" /></button>
         <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: `${displayName(cat, lang)}. ${t("delete.warn")}`, danger: true, yes: t("yes"), run: () => commit((s) => {
           const userVis = { ...(s.structure.userVis ?? {}) };
           delete userVis[cat.id];
