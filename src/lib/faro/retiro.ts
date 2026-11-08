@@ -12,11 +12,22 @@ export const RETIRO_PRESETS = [{ id: "primerica", name: "Primerica", icon: "bran
 export const isPrimerica = (line: Pick<Line, "icon" | "concept">) =>
   line.icon === "brand:primerica" || line.concept.trim().toLowerCase() === "primerica";
 
-/** The Retiro pocket's sub (first savings category, sub id "*.retiro"). */
+/** The Retiro pocket's sub (first savings category, sub id "*.retiro").
+ * Contrato, regla 4: la función se busca por ROL, no por visibilidad — ocultar es cosa de
+ * listas, no de existencia. Antes, ocultar Ahorro o Retiro apagaba el bolsillo en silencio. */
 export function retiroSub(state: LedgerState): { catId: string; subId: string } | null {
-  const cat = state.structure.categories.find((c) => c.role === "savings" && !c.hidden);
-  const sub = cat?.subs.find((s) => s.id.endsWith(".retiro") && !s.hidden);
+  const cat = state.structure.categories.find((c) => c.role === "savings");
+  const sub = cat?.subs.find((s) => s.id.endsWith(".retiro"));
   return cat && sub ? { catId: cat.id, subId: sub.id } : null;
+}
+
+/** True when the Retiro pocket exists but is currently hidden (its category or the sub itself):
+ * the surfaces that would show the pocket say so («Está oculto en Estructura») instead of
+ * letting it disappear in silence. */
+export function retiroHidden(state: LedgerState): boolean {
+  const cat = state.structure.categories.find((c) => c.role === "savings");
+  const sub = cat?.subs.find((s) => s.id.endsWith(".retiro"));
+  return Boolean(cat && sub && (cat.hidden || sub.hidden));
 }
 
 /** Seeds missing default presets into month `key`. Returns the same state when nothing is needed. */

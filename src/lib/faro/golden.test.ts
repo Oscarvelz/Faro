@@ -11,6 +11,7 @@ import { describe, it } from "node:test";
 import { readAdvisor } from "./advisor.ts";
 import { applyTemplate, createInitial, makeNamer, markUserVis, structureStatusLine, templateExample, templatePreview } from "./defaults.ts";
 import { buildAdvice, buildInsights, categorySlices, studyBoard, summarize } from "./engine.ts";
+import { isPrimerica, retiroHidden, retiroSub, seedRetiro } from "./retiro.ts";
 import { buildWidgetSnapshot, savingsOf } from "./widget.ts";
 import type { LedgerState, Line, LineKind, Structure } from "./types.ts";
 
@@ -221,9 +222,11 @@ describe("batería dorada de Estructura — el contrato", () => {
     const ledger = goldenLedger();
     const soltero = templatePreview(ledger, "soltero", "es");
     assert.equal(soltero.empty, false);
-    assert.match(soltero.body, /Se oculta: Colegiaturas, Hijo 1, Hijo 2, Formativas, Funeraria\./);
+    // Desde el paso 6 (D-6), Soltero cubre la rama entera: también Libros y Juguetes (variable).
+    assert.match(soltero.body, /Se oculta: Colegiaturas, Hijo 1, Hijo 2, Formativas, Funeraria, Libros, Juguetes\./);
     // KEY: colegiaturas + hijo1 + funeraria; PREV: colegiaturas — 4 movimientos bajo lo que se esconde.
     assert.match(soltero.body, /Tienes 4 movimientos en Familia: seguirán contando y reaparecerán cuando vuelvas a mostrar la rama\./);
+    assert.match(soltero.body, /Tienes 2 movimientos en Familia: seguirán contando/);
     const familia = templatePreview(ledger, "familia", "es");
     assert.equal(familia.empty, true);
     assert.equal(familia.body, "No cambiaría nada en tu estructura.");
@@ -283,6 +286,30 @@ describe("batería dorada de Estructura — el contrato", () => {
     assert.ok(readHand.lines.filter((l) => l.categoryId === "f-familia").every((l) => l.category === "Otros"));
     const readBirth = readAdvisor(states[0]!.ledger, KEY, "es", makeNamer(states[0]!.ledger.structure, "es"), { today: TODAY });
     assert.ok(readBirth.lines.filter((l) => l.categoryId === "f-familia").every((l) => l.category === "Familia"));
+  });
+
+  it("las funciones buscan por rol: Retiro resuelve aunque esté oculto, y lo oculto se declara", () => {
+    const ledger = goldenLedger();
+    assert.deepEqual(retiroSub(ledger), { catId: "f-ahorro", subId: "f.ahorro.retiro" });
+    assert.equal(retiroHidden(ledger), false);
+    const hiddenCat: LedgerState = { ...ledger, structure: eyeCat(ledger.structure, "f-ahorro", true) };
+    assert.deepEqual(retiroSub(hiddenCat), { catId: "f-ahorro", subId: "f.ahorro.retiro" }, "ocultar la categoría ya no apaga el bolsillo");
+    assert.equal(retiroHidden(hiddenCat), true);
+    const hiddenSub: LedgerState = { ...ledger, structure: eyeSub(ledger.structure, "f-ahorro", "f.ahorro.retiro", true) };
+    assert.deepEqual(retiroSub(hiddenSub), { catId: "f-ahorro", subId: "f.ahorro.retiro" });
+    assert.equal(retiroHidden(hiddenSub), true);
+    // Sembrar el bolsillo vuelve a funcionar con el bolsillo oculto (antes devolvía el estado intacto, en silencio).
+    const seeded = seedRetiro(hiddenSub, KEY);
+    assert.ok(seeded.months[KEY]?.lines.some((l) => l.subId === "f.ahorro.retiro" && isPrimerica(l)));
+  });
+
+  it("Soltero cubre la rama de familia entera, fija y variable (D-6)", () => {
+    const ledger = goldenLedger();
+    const next = applyTemplate(ledger.structure, "soltero");
+    const vFam = next.categories.find((c) => c.id === "v-familia");
+    assert.ok(vFam?.subs.every((s) => s.hidden), "libros y juguetes quedan ocultos");
+    const fFam = next.categories.find((c) => c.id === "f-familia");
+    assert.ok(fFam?.subs.filter((s) => s.id !== "f.familia.otros").every((s) => s.hidden));
   });
 
   it("el respaldo guarda TODO: estructura (con la mano) y ajustes sobreviven la ida y vuelta", () => {

@@ -355,6 +355,9 @@ export function applyTemplate(structure: Structure, id: TemplateId): Structure {
   };
   if (id === "soltero") {
     touch("f-familia", (c) => mapSubs(c, ["colegiaturas", "hijo1", "hijo2", "formativas", "funeraria"], true, userVis));
+    // D-6 (1.3.139): Soltero cubre la rama de familia ENTERA — la variable (libros, juguetes)
+    // ya no queda visible a medias, que era el riesgo R-7 de la asesoría.
+    touch("v-familia", (c) => mapSubs(c, ["libros", "juguetes"], true, userVis));
   }
   if (id === "familia") {
     const showBranch = (c: Category): Category => ({
@@ -417,8 +420,8 @@ export function structureStatusLine(structure: Structure, lang: Lang): string {
 export function templateBlurb(id: TemplateId, lang: Lang): string {
   const copy: Record<TemplateId, { es: string; en: string }> = {
     soltero: {
-      es: "Oculta colegiaturas, hijos, formativas y funeraria. No borra movimientos.",
-      en: "Hides tuition, children, activities, and funeral. It does not delete entries.",
+      es: "Oculta colegiaturas, hijos, formativas, funeraria, libros y juguetes. No borra movimientos.",
+      en: "Hides tuition, children, activities, funeral, books, and toys. It does not delete entries.",
     },
     familia: {
       es: "Vuelve a mostrar la rama de familia, fija y variable. Lo que ocultaste a mano se queda oculto.",
@@ -443,8 +446,8 @@ export function templateBlurb(id: TemplateId, lang: Lang): string {
 export function templateExample(id: TemplateId, lang: Lang): string {
   const copy: Record<TemplateId, { es: string; en: string }> = {
     soltero: {
-      es: "Sin hijos en casa: esconde colegiaturas, hijos, formativas y funeraria.",
-      en: "No kids at home: it hides tuition, children, activities and funeral.",
+      es: "Sin hijos en casa: esconde colegiaturas, hijos, funeraria y los libros y juguetes de familia.",
+      en: "No kids at home: it hides tuition, children, funeral, and the family's books and toys.",
     },
     familia: {
       es: "Vuelve a mostrar toda la rama de familia: colegiaturas, hijos, libros y juguetes.",

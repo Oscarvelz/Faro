@@ -625,3 +625,11 @@
 - La banda de Central (screens.tsx) aplica la misma reconciliación a su copia en línea: `savingsIds` cubre todas las categorías de ahorro, los segmentos con nombre y las filas de cuentas salen de las visibles, y las líneas de subconceptos bóveda ocultos caen al segmento genérico en vez de excluirse.
 - La batería dorada cierra su deuda: la aserción R-4 pasa de «todo» a permanente y se extiende — el total de `savingsOf` es idéntico en los seis estados (679900 en el libro dorado), y en el estado a mano todo el ahorro vive en el resto genérico, sin bolsillos con nombre.
 - Tests: 59/59 + 132/132 en test:faro, sin pendientes.
+
+## Web 1.3.139 (2026-11-07, Muse) — Reforma de Estructura, paso 6: funciones por rol y Soltero completo (R-5, R-7)
+- Contrato, regla 4 (decisión D-3): la función se busca por ROL, no por visibilidad. `retiroSub` resuelve el bolsillo Retiro por su rol aunque la categoría Ahorro o el propio subconcepto estén ocultos — ocultar ya no apaga el bolsillo en silencio, y `seedRetiro` vuelve a sembrar con el bolsillo oculto.
+- El destino de ahorro de las importaciones bancarias (`bankparse.ts`: la oferta del bolsillo y su aplicación) se resuelve igual, por rol. Las LISTAS no cambian: los selectores y destinos visibles del importador siguen mostrando solo lo visible, como manda el contrato.
+- Donde la superficie entera es el bolsillo oculto, Faro lo dice: la banda de Ahorros de Central muestra «Retiro está oculto en Estructura» (nuevo `retiroHidden`) en vez de dejar que el bolsillo desaparezca en silencio.
+- Soltero completo (decisión D-6, riesgo R-7): su parche gana la rama variable de Familia — libros y juguetes se ocultan con el resto de la rama; la plantilla ya no queda a medias. Su ejemplo y su texto se actualizan el mismo día («…y los libros y juguetes de familia»).
+- La batería dorada gana: resolución por rol de Retiro (categoría oculta, subconcepto oculto, siembra con el bolsillo oculto), Soltero sobre la rama entera, y la vista previa de Soltero con su conteo nuevo (4 movimientos en la fija + 2 en la variable).
+- Tests: 59/59 + 134/134 en test:faro, sin pendientes.

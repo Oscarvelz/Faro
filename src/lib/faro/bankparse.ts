@@ -544,7 +544,7 @@ function pocketOffer(state: LedgerState, files: ParsedFile[], sources: string[],
   if (fi < 0) return undefined;
   const f = files[fi], acct = accts.find((a) => a.id === sources[fi]);
   const name = lang === "en" ? `${acct?.bank === "paypal" ? "PayPal" : acct?.name ?? "Savings"} Savings` : `${acct?.bank === "paypal" ? "PayPal" : acct?.name ?? ""} Ahorros`.trim();
-  const cat = state.structure.categories.find((c) => c.role === "savings" && !c.hidden);
+  const cat = state.structure.categories.find((c) => c.role === "savings"); // Por rol (contrato, regla 4): el destino existe aunque esté oculto.
   const subs = cat?.subs ?? [];
   const fold2 = (x: string) => fold(x);
   const sub = subs.find((s) => s.id === acct?.pocketId) ?? subs.find((s) => [fold2("PayPal Ahorros"), fold2("PayPal Savings"), fold2(name)].includes(fold2(s.customName || "")));
@@ -634,7 +634,7 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
   // A savings statement: its ending balance goes to its pocket in Ahorros (purple, created once when missing), APY in the note.
   let structure = s.structure, touched = false;
   const po = rv.pocket;
-  const cat = structure.categories.find((c) => c.role === "savings" && !c.hidden);
+  const cat = structure.categories.find((c) => c.role === "savings"); // Por rol (contrato, regla 4).
   if (po && pocketOn && cat && po.month) {
     let subId = po.subId;
     if (!subId || !cat.subs.some((x) => x.id === subId)) {
