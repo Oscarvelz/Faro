@@ -1,6 +1,6 @@
 import { FieldTip } from "./ui";
 import { cadenceLabel, freqPresetsOf } from "@/lib/faro/cadence";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Banknote, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
 import { categoryBase, categoryColor, chosenTone } from "@/lib/faro/colors";
@@ -20,6 +20,7 @@ import { BankMark } from "./bank-mark";
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
   const { lang } = useFaro();
   const [open, setOpen] = useState(false);
+  const [flipX, setFlipX] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const seed = value || min || "";
   const seeded = seed ? new Date(`${seed.slice(0, 10)}T12:00:00`) : new Date();
@@ -34,6 +35,28 @@ export function DayField({ value, onChange, min, max }: { value: string; onChang
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
+  // The open calendar must land fully on screen: if it would run past the right edge it
+  // re-anchors to the field's right side (the cobro/ah forms already do this by label), and
+  // if its bottom would hide under the sheet's fixed foot, the sheet body scrolls just
+  // enough to show it whole — direction and size never change.
+  useLayoutEffect(() => {
+    if (!open) { setFlipX(false); return; }
+    const root = ref.current;
+    const pop = root?.querySelector<HTMLElement>(".day-pop");
+    if (!root || !pop) return;
+    const pr = pop.getBoundingClientRect();
+    if (!flipX && pr.right > window.innerWidth - 4) { setFlipX(true); return; }
+    let sc: HTMLElement | null = root.parentElement;
+    while (sc && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
+    const box = sc ?? (document.scrollingElement as HTMLElement | null);
+    if (!box) return;
+    const limit = sc ? sc.getBoundingClientRect().bottom : window.innerHeight;
+    const need = pr.bottom - limit;
+    if (need > 2) {
+      const room = box.scrollHeight - box.clientHeight - box.scrollTop;
+      if (room > 0) box.scrollTop += Math.min(need + 8, room);
+    }
+  }, [open, flipX, month, year]);
   const locked = !!min && !!max && min.slice(0, 7) === max.slice(0, 7);
   const label = value
     ? `${Number(value.slice(8, 10))} ${monthName(lang, Number(value.slice(5, 7)), true)}${value.startsWith("1904-") ? "" : ` ${value.slice(0, 4)}`}` // 1904 = year unknown (imported --MMDD)
@@ -73,7 +96,7 @@ export function DayField({ value, onChange, min, max }: { value: string; onChang
         <CalendarDays className="size-4" />
       </button>
       {open ? (
-        <div className="day-pop">
+        <div className={`day-pop${flipX ? " is-right" : ""}`}>
           <div className="day-pop-head">
             <button type="button" aria-label={lang === "en" ? "Previous month" : "Mes anterior"} disabled={locked} onClick={() => shift(-1)}><ChevronLeft className="size-4" /></button>
             <strong>{monthName(lang, month)} {year}</strong>
