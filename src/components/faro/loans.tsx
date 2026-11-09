@@ -20,6 +20,7 @@ import { CardsGroup } from "./cards";
 import { BookKit } from "./book-kit";
 import { cardFigures, cardTotals, cardsOf } from "@/lib/faro/cards";
 import { lineDebtTotal, totalDebt } from "@/lib/faro/debts";
+import { formDirty } from "@/lib/faro/dirty";
 
 export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group; /** 1.3.149 (borrow only): day of the month a payment is due, 1–31; 0/absent = no due day. */ dueDay?: number };
 
@@ -28,7 +29,7 @@ const TINTS = ["#7aa2c4", "#8fb9a6", "#e7c27a", "#d7a08a", "#a9b4de"];
 
 /** The loan form. mode "lend" = Me deben (as it always was); "borrow" = Préstamos (lender kind, currency, book). */
 export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "borrow"; onCancel: () => void; onSave: (draft: LoanDraft) => void; initial?: LoanDraft }) {
-  const { t, session } = useFaro();
+  const { t, session, confirm } = useFaro();
   const display = session?.ledger.settings.display ?? "USD";
   const borrow = mode === "borrow";
   // 1.3.115: the same form edits a record from Libros (Me deben / Préstamos → lápiz → tap a name).
@@ -41,6 +42,12 @@ export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "
   const [apr, setApr] = useState(initial && initial.aprBps ? String(initial.aprBps / 100) : "");
   const [book, setBook] = useState<Group>(initial?.book ?? "fixed");
   const [dueDay, setDueDay] = useState(initial?.dueDay ? String(initial.dueDay) : "");
+  // Oleada de botones 4 (R7): la misma política única — Cancelar pregunta solo si el
+  // préstamo cambió desde que la forma abrió (la forma se monta fresca en cada apertura).
+  const baseRef = useRef<Record<string, unknown> | null>(null);
+  if (baseRef.current === null) baseRef.current = { kind, who, name, amount, currency, date, apr, book, dueDay };
+  const loanDirty = formDirty(baseRef.current, { kind, who, name, amount, currency, date, apr, book, dueDay });
+  const cancel = () => { if (!loanDirty) { onCancel(); return; } confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onCancel }); };
   function save() {
     const minor = parseAmount(amount);
     const clean = name.trim();
@@ -119,7 +126,7 @@ export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "
         ) : null}
       </div>
       <div className="cobro-actions">
-        <button type="button" className="btn secondary" onClick={onCancel}>{t("cancel")}</button>
+        <button type="button" className="btn secondary" onClick={cancel}>{t("cancel")}</button>
         <button type="button" className="btn" onClick={save}>{t("save")}</button>
       </div>
     </div>
@@ -142,7 +149,11 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
   const [on, setOn] = useState("");
   const [intAmt, setIntAmt] = useState("");
   const intAuto = useRef(true);
-  useEffect(() => { if (paying) { setAmt(""); setOn(todayIso()); setIntAmt(""); intAuto.current = true; } }, [paying]);
+  // Oleada de botones 4 (R7): el abono sigue la misma política — la línea base es la
+  // forma recién abierta (vacía, con la fecha de hoy) y Cancelar pregunta solo si cambió.
+  const payBaseRef = useRef<Record<string, unknown> | null>(null);
+  useEffect(() => { if (paying) { const today = todayIso(); setAmt(""); setOn(today); setIntAmt(""); intAuto.current = true; payBaseRef.current = { amt: "", intAmt: "", on: today }; } }, [paying]);
+  const payDirty = payBaseRef.current !== null && formDirty(payBaseRef.current, { amt, intAmt, on });
   const amtMinor = parseAmount(amt);
   const intMinor = onPaySplit ? Math.min(Math.max(0, parseAmount(intAmt) ?? 0), amtMinor ?? 0) : 0;
   const tint = TINTS[name.charCodeAt(0) % 5];
@@ -202,7 +213,7 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
             ) : null}
           </div>
           <div className="cobro-actions">
-            <button type="button" className="btn secondary" onClick={() => onPaying(false)}>{t("cancel")}</button>
+            <button type="button" className="btn secondary" onClick={() => { if (!payDirty) { onPaying(false); return; } confirm({ title: t("entry.leave"), body: name, yes: t("entry.leave.yes"), run: () => onPaying(false) }); }}>{t("cancel")}</button>
             <button type="button" className="btn" onClick={() => {
               const minor = parseAmount(amt);
               if (minor === null || minor <= 0) return;

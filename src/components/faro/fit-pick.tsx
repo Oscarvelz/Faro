@@ -85,7 +85,7 @@ function LookView({ look, lang, q, onDone, onInk }: { look: Look; lang: string; 
         {icons.length ? (
           <div className="look-icons fit-look-icons">
             {icons.map((name) => (
-              <button key={name} type="button" data-icon={name} aria-pressed={look.glyph === name} aria-label={iconLabel(name, lang)} title={iconLabel(name, lang)} style={{ ["--ink" as string]: ink, background: washForInk(ink), color: inkOn(washForInk(ink)) }} onClick={() => { look.onGlyph(name); onDone?.(); }}><Glyph name={name} /></button>
+              <button key={name} type="button" data-icon={name} aria-pressed={look.glyph === name} aria-label={iconLabel(name, lang)} title={iconLabel(name, lang)} style={{ ["--ink" as string]: ink, background: washForInk(ink), color: inkOn(washForInk(ink)) }} onClick={() => { look.onGlyph(name); }}><Glyph name={name} /></button>
             ))}
           </div>
         ) : <p className="fit-empty">{L(lang, "Nada coincide", "No matches")}</p>}
@@ -119,7 +119,9 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
   test?: string;
   /** The line's colour + Faro icons: behind the palette button ("Color e íconos"), or the whole sheet when there is no list. */
   look?: Look;
-  /** A confirmed colour or a picked Faro icon returns to the trigger. */
+  /** A confirmed colour returns to the trigger. Oleada de botones 4 (R9): picking a
+   *  Faro icon applies it and the sheet STAYS open — icon and colour in one visit;
+   *  the sheet leaves through its normal exits (X, veil, Back). */
   onLookDone?: () => void;
   /** 1.3.115: a book's pencil opens its sheet straight in the manage state (✓ then leaves it for the list). */
   startEditing?: boolean;

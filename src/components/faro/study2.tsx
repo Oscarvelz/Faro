@@ -8,6 +8,7 @@ import { Explain } from "@/components/faro/ui";
 import { Hint } from "@/components/faro/hint";
 import type { Coach } from "@/lib/faro/coach";
 import type { Insight } from "@/lib/faro/types";
+import { keyNumbersShown } from "@/lib/faro/keynumbers";
 
 type Point = { key: string; label: string; income: number; expense: number };
 type Span = "week" | "month" | "year";
@@ -275,7 +276,8 @@ export function LimitsCard({ rows }: { rows: { name: string; budget: number; act
 }
 
 /* ── Números clave: each number with its own small picture; formulas stay behind the i ─ */
-const EMPTY = /^(—|-|[^\d]*0([.,]0+)?\s*%?|[^\d]*0([.,]0+)?\s*(en dólares|in dollars)?)$/i;
+/* La regla de vacío (qué valor «no dice nada») vive en keynumbers.ts desde la oleada
+   de botones 4: el pliegue de Estudio la comparte para no anunciar una carpeta vacía. */
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 function Ring({ pct, mark, tone }: { pct: number; mark?: number; tone: string }) {
@@ -382,7 +384,7 @@ const CAPTION: Record<string, [string, string]> = {
 export function KeyNumbers({ items }: { items: Insight[] }) {
   const { lang } = useFaro();
   const [all, setAll] = useState(false);
-  const shown = useMemo(() => items.filter((i) => !EMPTY.test(i.value.trim())), [items]);
+  const shown = useMemo(() => keyNumbersShown(items), [items]);
   const list = all ? shown : shown.slice(0, 6);
   if (!shown.length) return null;
   return (

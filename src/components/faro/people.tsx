@@ -12,6 +12,7 @@ import { Hint } from "./hint";
 import { FieldTip } from "./ui";
 import { Head } from "./panorama";
 import { DayField, ThemeSelect } from "./line-form";
+import { formDirty } from "@/lib/faro/dirty";
 
 const L = (lang: Lang, es: string, en: string) => (lang === "en" ? en : es);
 const HUES = ["#d0679a", "#3f8fd2", "#d08a2e", "#4fa37a", "#8d6ad8", "#c9564a", "#2fa3a8", "#a8862f"];
@@ -315,10 +316,17 @@ export function PeopleBox() {
 const CUSTOM = "custom";
 
 function PersonForm({ lang, person, onCancel, onSave }: { lang: Lang; person?: Person; onCancel: () => void; onSave: (p: Person) => void }) {
+  const { confirm, t } = useFaro();
   const [name, setName] = useState(person?.name ?? "");
   const [birthday, setBirthday] = useState(person?.birthday ?? "");
   const [note, setNote] = useState(person?.note ?? "");
   const [dates, setDates] = useState<PersonDate[]>(person?.dates ?? []);
+  // Oleada de botones 4 (R7): la misma política única — Cancelar pregunta solo si la
+  // persona cambió desde que la forma abrió; la lista de fechas compara por contenido.
+  const baseRef = useRef<Record<string, unknown> | null>(null);
+  if (baseRef.current === null) baseRef.current = { name, birthday, note, dates };
+  const personDirty = formDirty(baseRef.current, { name, birthday, note, dates });
+  const cancel = () => { if (!personDirty) { onCancel(); return; } confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onCancel }); };
   const kinds = [...OCCASIONS.map((o) => ({ value: o.kind, label: L(lang, o.es, o.en) })), { value: CUSTOM, label: L(lang, "Otra: escríbela", "Other: type it") }];
   const set = (i: number, patch: Partial<PersonDate>) => setDates(dates.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const setKind = (i: number, kind: OccasionKind) => {
@@ -368,7 +376,7 @@ function PersonForm({ lang, person, onCancel, onSave }: { lang: Lang; person?: P
         </label>
       </div>
       <div className="ah-actions">
-        <button type="button" className="btn secondary" onClick={onCancel}>{L(lang, "Cancelar", "Cancel")}</button>
+        <button type="button" className="btn secondary" onClick={cancel}>{L(lang, "Cancelar", "Cancel")}</button>
         <button type="button" className="btn" disabled={!name.trim()} onClick={save}>{L(lang, "Guardar", "Save")}</button>
       </div>
     </div>
@@ -376,7 +384,7 @@ function PersonForm({ lang, person, onCancel, onSave }: { lang: Lang; person?: P
 }
 
 function GiftForm({ person, onDone }: { person: Person; onDone: () => void }) {
-  const { session, lang, names, commit, key } = useFaro();
+  const { session, lang, names, commit, key, confirm, t } = useFaro();
   const state = session!.ledger;
   const options = useMemo(() => lineTargets(state, lang, names, false), [state.structure, lang]);
   const last = personLines(state, person.id)[0];
@@ -389,6 +397,12 @@ function GiftForm({ person, onDone }: { person: Person; onDone: () => void }) {
   const [day, setDay] = useState(now.startsWith(key) ? now : `${key}-01`);
   const occ = occasionsOf(person, now);
   const [occasion, setOccasion] = useState(occ[0] && occ[0].next.days <= 30 ? occ[0].id : "");
+  // Oleada de botones 4 (R7): la misma política única — Cancelar pregunta solo si el
+  // regalo cambió desde que la forma abrió (el concepto viene relleno y no ensucia).
+  const baseRef = useRef<Record<string, unknown> | null>(null);
+  if (baseRef.current === null) baseRef.current = { target, concept, amount, currency, day, occasion };
+  const giftDirty = formDirty(baseRef.current, { target, concept, amount, currency, day, occasion });
+  const cancel = () => { if (!giftDirty) { onDone(); return; } confirm({ title: t("entry.leave"), body: concept.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onDone }); };
   const minor = parseAmount(amount);
   const save = () => {
     if (minor === null || minor <= 0 || !target) return;
@@ -430,7 +444,7 @@ function GiftForm({ person, onDone }: { person: Person; onDone: () => void }) {
         ) : null}
       </div>
       <div className="ah-actions">
-        <button type="button" className="btn secondary" onClick={onDone}>{L(lang, "Cancelar", "Cancel")}</button>
+        <button type="button" className="btn secondary" onClick={cancel}>{L(lang, "Cancelar", "Cancel")}</button>
         <button type="button" className="btn" disabled={minor === null || minor <= 0} onClick={save}>{L(lang, "Guardar", "Save")}</button>
       </div>
     </div>

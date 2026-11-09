@@ -8,6 +8,8 @@ import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
 import { peopleOf } from "@/lib/faro/people";
+import { formDirty } from "@/lib/faro/dirty";
+import { hasKeyNumbers } from "@/lib/faro/keynumbers";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
@@ -1069,6 +1071,12 @@ function DueOwe() {
   const presets = subPresetsOf(session?.ledger);
   const [dueIcon, setDueIcon] = useState("");
   const [dueColor, setDueColor] = useState("#e7c27a");
+  // Oleada de botones 4 (R7): la misma política única — Cancelar pregunta solo si la
+  // cuota cambió desde que la forma abrió. La forma queda montada entre aperturas,
+  // así que la línea base se renueva cada vez que se abre.
+  const dueBaseRef = useRef<Record<string, unknown> | null>(null);
+  useEffect(() => { if (adding) dueBaseRef.current = { name, amount, due, cadence, dueIcon, dueColor }; }, [adding]);
+  const dueDirty = dueBaseRef.current ? formDirty(dueBaseRef.current, { name, amount, due, cadence, dueIcon, dueColor }) : false;
   const libOff = libraryOff(session?.ledger);
   const [editFreq, setEditFreq] = useState(false);
   const [otherFreq, setOtherFreq] = useState(false);
@@ -1172,7 +1180,7 @@ function DueOwe() {
             </div>
           </div>
           <div className="cobro-actions">
-            <button type="button" className="btn secondary" onClick={() => setAdding(false)}>{t("cancel")}</button>
+            <button type="button" className="btn secondary" onClick={() => { if (!dueDirty) { setAdding(false); return; } confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: () => setAdding(false) }); }}>{t("cancel")}</button>
             <button type="button" className="btn" onClick={addDue}>{t("save")}</button>
           </div>
         </div>
@@ -1691,10 +1699,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         e.preventDefault();
         return;
       }
-      if (editId || adding || moving) {
+      // Oleada de botones 4 (R15): el editor en línea de la bolsa (renameId) consume su
+      // propio paso atrás, como Agregar y como Ícono y color — antes se caía a la rama
+      // de la bolsa abierta y un solo atrás salía de la bolsa entera.
+      if (editId || adding || moving || renameId) {
         setEditId(null);
         setAdding(false);
         setMoving(null);
+        setRenameId(null);
         e.preventDefault();
         return;
       }
@@ -1718,7 +1730,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     };
     window.addEventListener("faro-back", onBack);
     return () => window.removeEventListener("faro-back", onBack);
-  }, [lens, openSave, editId, adding, moving, accountsOpen, accountsPin, deskLine, focus]);
+  }, [lens, openSave, editId, adding, moving, renameId, accountsOpen, accountsPin, deskLine, focus]);
   useEffect(() => {
     if (!quick) return;
     quickRef.current?.scrollIntoView({ block: "nearest" });
@@ -3658,7 +3670,12 @@ export function Study() {
   const owedPeak = Math.max(...owedPeople.map((row) => row.left), 1);
   const es = lang !== "en";
   const owedAny = owedRows.length > 0;
-  const visible = ["pulse", "health", "pace", "agenda", "waffle", "where", "rule", "movers", "time", "cushion", "numeros"];
+  const visible = ["pulse", "health", "pace", "agenda", "waffle", "where", "rule", "movers", "time", "cushion"];
+  // Oleada de botones 4 (R12): «Números clave» sigue el patrón de las carpetas con
+  // datos (sankey, plan, préstamos…): cuando ningún número dice algo, la carpeta no
+  // se anuncia — antes quedaba una carpeta fantasma, sin título y vacía.
+  const numerosAny = hasKeyNumbers(insights);
+  if (numerosAny) visible.push("numeros");
   if (sankey.links.length) visible.push("sankey");
   if (board?.envelopes.length) visible.push("plan");
   if (owedAny) visible.push("owed");
@@ -3740,7 +3757,7 @@ export function Study() {
       <StatFold id="year"><YearCard /></StatFold>
       {earnAny ? <StatFold id="earnings"><EarningsStudy /></StatFold> : null}
       {board?.envelopes.length ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
-      <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold>
+      {numerosAny ? <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold> : null}
       <StudyCharts
         points={points}
         compare={compare}

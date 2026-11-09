@@ -15,6 +15,7 @@ import { isRemitCat } from "@/lib/faro/remit-people";
 import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, StorePick, SubPick, type Look } from "./fit-pick";
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payAcctLabel, payHintFor, targets } from "@/lib/faro/bankbook";
+import { formDirty } from "@/lib/faro/dirty";
 import { BankMark } from "./bank-mark";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
@@ -241,7 +242,7 @@ function clearReportDraft(mode: "in" | "out") {
   localStorage.removeItem(draftKeyFor(mode));
 }
 
-export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look, scan }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look; scan?: ReactNode }) {
+export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look, scan, onDirtyChange }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look; scan?: ReactNode; onDirtyChange?: (dirty: boolean) => void }) {
   const { t, key, session, commit, confirm, focusAmount, names, lang, goTopic } = useFaro();
   const settings = session?.ledger.settings;
   const structure = session?.ledger.structure;
@@ -306,6 +307,19 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [toneStart] = useState(() => chosenTone(existing?.color, existing?.categoryId) || (existing?.categoryId === "f-ahorro" ? categoryBase("f-ahorro", structure?.categories.find((c) => c.id === "f-ahorro")?.color) : categoryColor(existing?.categoryId || "otros")));
   const [tone, setTone] = useState(toneStart);
   const [err, setErr] = useState("");
+  // Oleada de botones 4 (R7): la política única de confirmación — Guardar y Cancelar
+  // preguntan solo si la forma cambió desde que abrió; intacta, hacen lo suyo en
+  // silencio. La bolsa de apertura se captura en el primer render y se compara por
+  // contenido (dirty.ts). El «Pagado con» que el sistema rellena solo desde el aviso
+  // del comercio no cuenta como toque: la cuenta sigue el aviso vigente si la mano
+  // nunca la tocó.
+  const bag = () => ({ concept, amount, currency, note, categoryId, subId, recurring, storeId, providerId, code, url, cadence, nextDue, apr, balance, active, personId, pay, to, icon, bookedOn, startedOn, tone });
+  const baseRef = useRef<Record<string, unknown> | null>(null);
+  if (baseRef.current === null) baseRef.current = bag();
+  const baseBag = baseRef.current;
+  const hintFilled = !payTouched && pay === hintRef.current && baseBag.pay !== pay;
+  const dirty = formDirty(hintFilled ? { ...baseBag, pay } : baseBag, bag());
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   useEffect(() => {
     focusAmount((n) => setAmount(n.toFixed(2)));
@@ -454,7 +468,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           </div>
         )}
         <div className="label fit-f" data-f="pay">
-          {head(lang === "en" ? "Paid with" : "Pagado con", "f-pagado-con")}
+          {head(kind === "income-fixed" || kind === "income-variable" ? (lang === "en" ? "Received into" : "Recibido en") : (lang === "en" ? "Paid with" : "Pagado con"), "f-pagado-con")}
           <MarkSelect value={pay} onChange={(v) => { setPay(v); setPayTouched(true); }} options={payOptions} />
         </div>
         {kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase" ? <PersonPick value={personId} onChange={setPersonId} /> : null}
@@ -573,8 +587,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       ) : null}
       {err ? <p className="bad text-sm fit-err">{err}</p> : null}
       <div className="fit-actions">
-        <button type="button" className="btn secondary" onClick={() => confirm({ title: t("entry.leave"), body: concept.trim() || t("amount"), yes: t("entry.leave.yes"), run: onClose })}>{t("cancel")}</button>
-        <button type="button" className="btn" onClick={() => confirm({ title: t("entry.save"), body: concept.trim() || t("amount"), yes: t("entry.save.yes"), run: save })}>{t("save")}</button>
+        <button type="button" className="btn secondary" onClick={() => { if (!dirty) { onClose(); return; } confirm({ title: t("entry.leave"), body: concept.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onClose }); }}>{t("cancel")}</button>
+        <button type="button" className="btn" onClick={() => { if (!dirty) { save(); return; } confirm({ title: t("entry.save"), body: concept.trim() || t("entry.this"), yes: t("entry.save.yes"), run: save }); }}>{t("save")}</button>
       </div>
     </div>
     </div>
@@ -590,6 +604,9 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
   const [gate, setGate] = useState<"ask" | "go">(() => (jump ? "go" : readReportDraft(mode) ? "ask" : "go"));
   const closeRef = useRef(onClose);
   const pickRef = useRef(pick);
+  // Oleada de botones 4 (R7): el paso atrás de la hoja sigue la misma política — la
+  // forma abierta reporta si está sucia y solo entonces se pregunta al volver.
+  const formDirtyRef = useRef(false);
   const layer = useRef(0);
   closeRef.current = onClose;
   pickRef.current = pick;
@@ -653,6 +670,7 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
     const onBack = (e: Event) => {
       if (e.defaultPrevented) return;
       e.preventDefault();
+      if (!formDirtyRef.current) { setPick(null); return; }
       confirm({ title: t("entry.back"), body: pick.title, yes: t("entry.back.yes"), run: () => setPick(null) });
     };
     window.addEventListener("faro-back", onBack, true);
@@ -732,11 +750,11 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
     };
     return (
       <section className={`card where-sheet where-form${mode === "in" ? " is-in" : " is-out"}`} data-reporting="true">
-        <button type="button" className="where-back" onClick={() => confirm({ title: t("entry.back"), body: pick.title, yes: t("entry.back.yes"), run: () => setPick(null) })}>
+        <button type="button" className="where-back" onClick={() => { if (!formDirtyRef.current) { setPick(null); return; } confirm({ title: t("entry.back"), body: pick.title, yes: t("entry.back.yes"), run: () => setPick(null) }); }}>
           <ChevronLeft className="size-4" />
           <span className="serif">{pick.title}</span>
         </button>
-        <LineForm key={`${pick.kind}-${pick.categoryId}-${resume ? "keep" : "new"}`} kind={pick.kind} preset={{ categoryId: pick.categoryId }} seed={resume} draftKey={mode} draftTitle={pick.title} onClose={finish} />
+        <LineForm key={`${pick.kind}-${pick.categoryId}-${resume ? "keep" : "new"}`} kind={pick.kind} preset={{ categoryId: pick.categoryId }} seed={resume} draftKey={mode} draftTitle={pick.title} onClose={finish} onDirtyChange={(d) => { formDirtyRef.current = d; }} />
       </section>
     );
   }
