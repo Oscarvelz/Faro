@@ -18,6 +18,7 @@ import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.Message
 import android.os.PowerManager
+import android.provider.ContactsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.provider.Settings
@@ -72,6 +73,8 @@ class MainActivity : Activity() {
     @Volatile private var widgetGo: String? = null
     private val saves = ConcurrentHashMap<String, Save>()
     private val shared = java.util.Collections.synchronizedList(ArrayList<SharedPic>())
+    /** 1.3.165: names from the system contact picker, waiting for the page's takeContacts(). */
+    private val pickedNames = java.util.Collections.synchronizedList(ArrayList<String>())
 
     private class Save(val uri: Uri, val out: OutputStream, val name: String)
     private class SharedPic(val file: File, val name: String, val mime: String)
@@ -79,6 +82,7 @@ class MainActivity : Activity() {
     companion object {
         private const val RQ_FILES = 7
         private const val RQ_CAMERA = 8
+        private const val RQ_CONTACTS = 9
         private const val AUTH = BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
         private const val REPO_RELEASES = "https://api.github.com/repos/Oscarvelz/Faro/releases?per_page=30"
     }
@@ -273,6 +277,29 @@ class MainActivity : Activity() {
                     else if (cd != null && cd.itemCount > 0) Array(cd.itemCount) { cd.getItemAt(it).uri }
                     else d?.data?.let { arrayOf(it) }
                 fileCb?.onReceiveValue(res); fileCb = null
+            }
+            RQ_CONTACTS -> {
+                // 1.3.165: only the contacts the user picked; their names are read through the
+                // returned URIs (the picker's temporary grant — no READ_CONTACTS anywhere).
+                val cd = d?.clipData
+                val uris: List<Uri> = when {
+                    rc != RESULT_OK -> emptyList()
+                    cd != null && cd.itemCount > 0 -> (0 until cd.itemCount).map { cd.getItemAt(it).uri }
+                    d?.data != null -> listOf(d.data!!)
+                    else -> emptyList()
+                }
+                if (uris.isEmpty()) contactsReply(-1)
+                else Thread {
+                    val names = uris.mapNotNull { u ->
+                        runCatching {
+                            contentResolver.query(u, arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null)?.use { c ->
+                                if (c.moveToFirst()) c.getString(0)?.trim()?.takeIf { it.isNotEmpty() } else null
+                            }
+                        }.getOrNull()
+                    }
+                    synchronized(pickedNames) { pickedNames.clear(); pickedNames.addAll(names) }
+                    contactsReply(names.size)
+                }.start()
             }
             else -> super.onActivityResult(rq, rc, d)
         }
@@ -494,6 +521,33 @@ class MainActivity : Activity() {
             if (!trusted) return
             synchronized(shared) { shared.forEach { it.file.delete() }; shared.clear() }
         }
+
+        /** 1.3.165: «Agregar personas» inside the shell — opens the SYSTEM contact picker
+         *  (ACTION_PICK over Contacts, multiple where the system honors it) WITHOUT declaring
+         *  READ_CONTACTS: the user picks, and only the chosen contacts' DISPLAY_NAMEs are read
+         *  through the returned URIs. The names land in the tray; the page is told through the
+         *  faronative-contacts event and pulls them with takeContacts(). */
+        @JavascriptInterface fun pickContacts() {
+            if (!trusted) return
+            runOnUiThread {
+                val intent = Intent(Intent.ACTION_PICK).apply {
+                    type = ContactsContract.Contacts.CONTENT_TYPE
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                }
+                try { startActivityForResult(intent, RQ_CONTACTS) }
+                catch (e: Exception) { contactsReply(-1) }
+            }
+        }
+
+        /** The picked names as a JSON array, once ("" when the tray is empty). */
+        @JavascriptInterface fun takeContacts(): String {
+            if (!trusted) return ""
+            val names = synchronized(pickedNames) { ArrayList(pickedNames).also { pickedNames.clear() } }
+            if (names.isEmpty()) return ""
+            val arr = JSONArray()
+            names.forEach { arr.put(it) }
+            return arr.toString()
+        }
     }
 
     private fun drop(id: String) {
@@ -503,6 +557,10 @@ class MainActivity : Activity() {
 
     private fun authReply(id: String, ok: Boolean) =
         dispatch("dispatchEvent(new CustomEvent('faronative-auth',{detail:{id:${JSONObject.quote(id)},ok:$ok}}))")
+
+    /** count ≥ 0: that many names wait in the tray; −1: the picker was cancelled or failed. */
+    private fun contactsReply(count: Int) =
+        dispatch("dispatchEvent(new CustomEvent('faronative-contacts',{detail:{count:$count}}))")
 
     /* ---------- back ---------- */
 

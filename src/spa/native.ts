@@ -39,6 +39,10 @@ export type FaroNativeBridge = {
   /** 1.3.150: the Ajustes → battery card — whether the phone exempts Faro from battery optimisation, and asking for it. */
   battExempt?(): string;
   battAsk?(): string;
+  /** 1.3.165: «Agregar personas» — opens the system contact picker (no READ_CONTACTS in the shell);
+   *  the picked names wait in the shell's tray until takeContacts() pulls them (JSON array, once). */
+  pickContacts?(): void;
+  takeContacts?(): string;
 };
 
 type W = Window & { FaroNative?: FaroNativeBridge; FaroBack?: () => string; __faroProviderLive?: number; __faroNativeOn?: boolean };
@@ -112,6 +116,38 @@ export function nativeBattAsk(): boolean | null {
   const n = native();
   if (!n?.battAsk) return null;
   try { return n.battAsk() === "true"; } catch { return null; }
+}
+
+/* ---------- contacts ---------- */
+
+/**
+ * 1.3.165: «Agregar personas» inside the shell. The web Contact Picker API does not exist in the
+ * WebView, so people.tsx used to fall through to a .vcf file hunt; the bridge opens the phone's
+ * own contact picker instead (the shell declares no READ_CONTACTS — only the contacts the user
+ * picks are read, through their URIs). Resolves with the picked names, or null when the picker
+ * was cancelled. Returns null (not a promise) when there is no shell or the shell predates the
+ * method, so the caller keeps its old order: web API in Chrome, .vcf file last.
+ */
+export function nativePickContacts(): Promise<string[] | null> | null {
+  const n = native();
+  if (!n?.pickContacts || !n?.takeContacts) return null;
+  return new Promise((resolve) => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ count?: number }>).detail;
+      window.removeEventListener("faronative-contacts", on);
+      if (!d || typeof d.count !== "number" || d.count < 0) { resolve(null); return; }
+      try {
+        const raw = n.takeContacts!();
+        const arr: unknown = raw ? JSON.parse(raw) : [];
+        resolve(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim()) : []);
+      } catch { resolve([]); }
+    };
+    window.addEventListener("faronative-contacts", on);
+    try { n.pickContacts!(); } catch {
+      window.removeEventListener("faronative-contacts", on);
+      resolve(null);
+    }
+  });
 }
 
 /* ---------- back ---------- */

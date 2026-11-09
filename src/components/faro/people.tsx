@@ -5,6 +5,7 @@ import { formatMoney, parseAmount, uid } from "@/lib/faro/money";
 import { upsertLine } from "@/lib/faro/reducer";
 import { dayLabel, mergeContacts, nameKey, OCCASIONS, occasionName, occasionsOf, peopleAdvice, peopleOf, personLines, personName, personTotals, spendByPerson, todayIso, upcoming, type Occasion } from "@/lib/faro/people";
 import { parseVCards, type ImportedContact } from "@/lib/faro/vcard";
+import { nativePickContacts } from "@/spa/native";
 import type { Currency, Lang, LedgerState, Line, LineKind, OccasionKind, Person, PersonDate } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
@@ -158,6 +159,19 @@ export function PeopleBox() {
   };
   const pick = async () => {
     setEditing(null);
+    // 1.3.165: inside the Android shell, the phone's own contact picker (bridge) comes FIRST —
+    // the web Contact Picker API does not exist in the WebView, so this button used to fall
+    // through to the hidden .vcf input: a file picker hunting a file nobody has. Names arrive
+    // the same shape as the web API's (birthdays keep arriving through shared .vcf cards,
+    // unchanged). Chrome keeps its API next; the file stays last.
+    const shell = nativePickContacts();
+    if (shell) {
+      const names = await shell;
+      if (names === null) return; // picker cancelled: silence, like the web API's catch below
+      const contacts: ImportedContact[] = names.map((name) => ({ name, birthday: "", dates: [] })).filter((c) => c.name);
+      if (contacts.length) add(contacts);
+      return;
+    }
     const api = contactsApi();
     if (!api) { fileRef.current?.click(); return; }
     try {
