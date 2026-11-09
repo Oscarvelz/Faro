@@ -11,12 +11,13 @@
  *   Me deben / Debo from netBalance() (the scale), the savings total is Central's Ahorros figure (pockets + accounts),
  *   spending by category is Estudio's categorySlices().
  */
-import { categorySlices, monthLines, summarize } from "./engine";
+import { categorySlices, summarize } from "./engine";
 import { savingsStock } from "./savings";
+import { duesWindow } from "./dues";
 import { makeNamer } from "./defaults";
-import { convertMinor, monthKey } from "./money";
+import { monthKey } from "./money";
 import { netBalance } from "./debts";
-import { cardFigures, cardsOf } from "./cards";
+import { cardsOf } from "./cards";
 import type { Lang, LedgerState } from "./types";
 
 /** Where a tap on the widget lands (routed by the web app, see components/faro/widget-host.tsx). */
@@ -25,7 +26,7 @@ export type WidgetGo =
   | "income" | "fixed" | "variable" | "shops" | "subs"
   | "vault-save" | "vault-meta" | "vault-retiro" | "vault-emergencia" | "vault-owed" | "vault-owe" | "vault-loans";
 
-export type WidgetDue = { name: string; kind: "cuota" | "card"; on: string; amt: number | null; go: WidgetGo };
+export type WidgetDue = { name: string; kind: "cuota" | "card" | "loan"; on: string; amt: number | null; go: WidgetGo };
 export type WidgetCat = { name: string; amt: number; prev: number; save: boolean; go: WidgetGo };
 export type WidgetFlow = { key: string; label: string; inn: number; out: number };
 export type WidgetPocket = { name: string; amt: number; go: WidgetGo };
@@ -81,13 +82,6 @@ export function shiftKey(key: string, d: number): string {
   return monthKey(yy, mm + 1);
 }
 
-function dayDiff(from: string, to: string): number {
-  const a = Date.UTC(Number(from.slice(0, 4)), Number(from.slice(5, 7)) - 1, Number(from.slice(8, 10)));
-  const b = Date.UTC(Number(to.slice(0, 4)), Number(to.slice(5, 7)) - 1, Number(to.slice(8, 10)));
-  return Math.round((b - a) / 864e5);
-}
-
-const ISO = /^\d{4}-\d{2}-\d{2}/;
 const isVault = (icon: string) => icon === "vault" || icon.startsWith("vault:");
 
 /** Savings exactly as Central's Ahorros band adds them: pockets (Meta, Retiro, Emergencia, own ones, rest) + accounts.
@@ -106,9 +100,10 @@ export function savingsOf(state: LedgerState, key: string, lang: Lang) {
   const seed = visibleCats.flatMap((c) => c.subs.filter((s) => !s.hidden && !isVault(s.icon)).map((s) => ({ id: s.id, name: names.sub(s.id) })));
   const stock = savingsStock(state, key);
   const buckets = new Map<string, number>();
+  const acctPockets = new Map<string, number>();
   let accounts = 0;
   for (const s of stock.series.values()) {
-    if (namedVaultIds.has(s.subId)) { accounts += s.minor; continue; }
+    if (namedVaultIds.has(s.subId)) { accounts += s.minor; acctPockets.set(s.subId, (acctPockets.get(s.subId) ?? 0) + s.minor); continue; }
     const id = s.subId && seed.some((x) => x.id === s.subId) ? s.subId : "rest";
     buckets.set(id, (buckets.get(id) ?? 0) + s.minor);
   }
@@ -116,7 +111,11 @@ export function savingsOf(state: LedgerState, key: string, lang: Lang) {
   const pockets = seed.map((s) => ({ id: s.id, name: s.name, amt: buckets.get(s.id) ?? 0 }));
   if (rest !== 0) pockets.push({ id: "rest", name: lang === "en" ? "Savings" : "Ahorros", amt: rest });
   const pocketTotal = pockets.reduce((a, p) => a + p.amt, 0);
-  return { pockets, pocketTotal, accounts, total: pocketTotal + accounts };
+  // 1.3.163 (audit D1): the accounts lump, broken down per named vault sub — the widget snapshot
+  // lists them as their own pockets so its pocket list can add up to `total` (it never could while
+  // the accounts rode along only inside the total).
+  const accountPockets = [...acctPockets.entries()].map(([id, amt]) => ({ id, name: names.sub(id), amt }));
+  return { pockets, pocketTotal, accounts, accountPockets, total: pocketTotal + accounts };
 }
 
 const goOfPocket = (id: string): WidgetGo => (id.endsWith(".meta") ? "vault-meta" : id.endsWith(".retiro") ? "vault-retiro" : id.endsWith(".emergencia") ? "vault-emergencia" : "vault-save");
@@ -133,27 +132,29 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
   const nb = netBalance(state, today);
   const sav = savingsOf(state, key, lang);
 
-  // Dues: dated cuotas (overdue too, like Debo → Cuotas' "Próximos 30 días") and credit cards with a known due day.
-  const dues: WidgetDue[] = [];
-  for (const l of monthLines(state, key)) {
-    if (l.kind !== "subscription" || !l.active || !ISO.test(l.nextDue || "")) continue;
-    const on = l.nextDue.slice(0, 10);
-    if (dayDiff(today, on) > 31) continue;
-    dues.push({ name: (l.concept || "").trim() || (lang === "en" ? "Plan" : "Cuota"), kind: "cuota", on, amt: convertMinor(l.amountMinor, l.currency, display, rateE4), go: "pagos" });
-  }
-  // Cards by their short bank name ("PayPal"), unless two cards share it (then their own names).
+  // Dues (1.3.163, audit D1): the snapshot consumes the ONE dues window (dues.ts) at its own
+  // 31-day horizon — the same entries Central's «Próximos 30 días» shows. The private math it
+  // replaces read only the current month's lines (a cuota filed in a future or past bucket was
+  // invisible), took a card's minimum UNCAPPED (a $400 minimum on a $250 balance), omitted a due
+  // card whose minimum was unknown instead of showing its balance, and never saw loans at all:
+  // on the audit's book it showed $655.99 against the window's $743.76. Lent money stays OUT on
+  // purpose: the widget's contract is no people's names, and Me deben already rides as `owed`.
+  // Cards keep their short bank name ("PayPal"), unless two cards share it (then their own names);
+  // a loan shows no lender either (privacy), just the word and its day.
   const cards = cardsOf(state);
   const issuers = new Map<string, number>();
   for (const c of cards) if (c.issuer) issuers.set(c.issuer, (issuers.get(c.issuer) ?? 0) + 1);
-  for (const c of cards) {
-    const f = cardFigures(state, c, today);
-    if (!f.known || !f.dueOn || f.balance <= 0) continue;
-    const d = dayDiff(today, f.dueOn);
-    if (d > 31) continue;
-    const amt = f.min != null ? convertMinor(f.min, c.currency, display, rateE4) : null;
-    dues.push({ name: ((c.issuer && issuers.get(c.issuer) === 1 ? c.issuer : c.name) || c.issuer || "").trim() || (lang === "en" ? "Card" : "Tarjeta"), kind: "card", on: f.dueOn, amt, go: "vault-loans" });
-  }
-  dues.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : a.name.localeCompare(b.name)));
+  const dues: WidgetDue[] = duesWindow(state, 31, today)
+    .filter((e) => e.kind !== "lent")
+    .map((e): WidgetDue => {
+      if (e.kind === "card") {
+        const c = cards.find((x) => x.id === e.id);
+        const name = c ? (((c.issuer && issuers.get(c.issuer) === 1 ? c.issuer : c.name) || c.issuer || "").trim() || (lang === "en" ? "Card" : "Tarjeta")) : e.name;
+        return { name, kind: "card", on: e.on, amt: e.amt, go: "vault-loans" };
+      }
+      if (e.kind === "loan") return { name: lang === "en" ? "Loan" : "Préstamo", kind: "loan", on: e.on, amt: e.amt, go: "vault-loans" };
+      return { name: e.name || (lang === "en" ? "Plan" : "Cuota"), kind: "cuota", on: e.on, amt: e.amt, go: "pagos" };
+    });
 
   // Spending by category (Estudio's slices), with last month for the same category.
   const prevSlices = new Map(categorySlices(state, shiftKey(key, -1), names, lang).map((x) => [x.id, x.minor]));
@@ -221,7 +222,14 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     saveMonth: s.savingsFlow,
     saveGoal: s.savingsGoal,
     saveTotal: sav.total,
-    pockets: sav.pockets.filter((p) => p.amt !== 0).slice(0, 4).map((p) => ({ name: p.name, amt: p.amt, go: goOfPocket(p.id) })),
+    // 1.3.163 (audit D1): EVERY pocket with money, plus the savings accounts as their own entries.
+    // The old slice(0, 4) dropped the fifth pocket while saveTotal kept counting it, and the
+    // accounts never appeared at all — the snapshot disagreed with itself by $1,100 on the
+    // audit's book. Now Σ pockets == saveTotal, always.
+    pockets: [
+      ...sav.pockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: goOfPocket(p.id) })),
+      ...sav.accountPockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: "vault-save" as WidgetGo })),
+    ],
     owed: nb.owed,
     owe: nb.owe,
     dues: dues.slice(0, 8),

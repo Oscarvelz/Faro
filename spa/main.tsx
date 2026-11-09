@@ -257,13 +257,20 @@ createRoot(document.getElementById("root")!).render(
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").then((reg) => {
+      // 1.3.163 (audit W1): an update never reloads over the user's hands. While any open sheet
+      // or form holds an editable field, the reload waits and keeps checking; it lands the
+      // moment the sheet closes. (Before, the reload fired the instant the new worker
+      // activated — mid-edit, mid-import-review, unsaved text and all.)
+      const workOpen = () => [...document.querySelectorAll('[role="dialog"]')].some((d) => d.querySelector("input, textarea, select"));
+      const reloadWhenClear = () => {
+        if (workOpen()) { setTimeout(reloadWhenClear, 15_000); return; }
+        try { sessionStorage.setItem("faro-quiet-boot", "1"); } catch { /* ignore */ }
+        location.reload();
+      };
       reg.addEventListener("updatefound", () => {
         const nw = reg.installing;
         nw?.addEventListener("statechange", () => {
-          if (nw.state === "activated" && navigator.serviceWorker.controller) {
-            try { sessionStorage.setItem("faro-quiet-boot", "1"); } catch { /* ignore */ }
-            location.reload();
-          }
+          if (nw.state === "activated" && navigator.serviceWorker.controller) reloadWhenClear();
         });
       });
       setInterval(() => void reg.update(), 60 * 60 * 1000);

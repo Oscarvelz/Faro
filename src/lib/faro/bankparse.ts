@@ -515,6 +515,19 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
   for (const l of all) for (const k of (l.importId ?? "").split("|").filter(Boolean)) have.set(k, l);
   for (const r of rows) if (r.id && have.has(r.id)) r.dup = "exact";
 
+  // 1b. The same import id twice inside ONE file (1.3.163, audit P1): a statement that lists one
+  // FITID twice imported both copies — the twin pass at the bottom only compares ACROSS files
+  // (o.file < r.file). The second copy is born a duplicate of the first, exactly as if the first
+  // were already in the books, with the first copy named as its reason.
+  const inFile = new Map<string, Row>();
+  for (const r of rows) {
+    if (!r.id) continue;
+    const k = `${r.file} ${r.id}`;
+    const first = inFile.get(k);
+    if (first) { if (!r.dup) { r.dup = "exact"; r.dupOf = { concept: first.label, day: first.date }; } }
+    else inFile.set(k, r);
+  }
+
   // 2. PayPal ↔ card: the same purchase seen from both sides is counted once, under the PayPal name.
   const mods = new Map<string, Line>();
   const fileKind = (r: Row) => accts.find((a) => a.id === sources[r.file])?.kind ?? files[r.file].kind;
@@ -569,7 +582,9 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
       if (sch && (l.importId ?? "").split("|").some((k) => scheme(k) === sch)) return false;
       const lineAcct = l.sourceId ?? "";
       if (lineAcct && rowAcct) return lineAcct === rowAcct && l.active;
-      return similar(matchKey(l.concept), rk) || l.concept === r.label;
+      // 1.3.163 (audit P2): the name fallback obeys the same law as the account path — an
+      // inactive line never claims an incoming row, on ANY path.
+      return l.active && (similar(matchKey(l.concept), rk) || l.concept === r.label);
     });
     if (hit) { r.dup = "fuzzy"; r.dupOf = { concept: hit.concept, day: lineDay(hit) }; used.add(hit.id); }
   }

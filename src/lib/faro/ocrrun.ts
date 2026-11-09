@@ -5,6 +5,25 @@
  */
 type Progress = (stage: "load" | "read", ratio: number) => void;
 
+/** 1.3.163 (audit P5): the OCR watchdog bound. A healthy read of one picture takes seconds; a
+ *  wedged tesseract worker used to spin forever with no way out. After this long, the worker is
+ *  terminated and the read FAILS LOUDLY (the caller's catch marks the picture as not read)
+ *  instead of hanging the sheet. 90 seconds, per worker boot and per picture. */
+export const OCR_TIMEOUT_MS = 90_000;
+
+export function withOcrTimeout<T>(p: Promise<T>, ms: number, onTimeout: () => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      try { onTimeout(); } catch { /* the kill is best-effort; the failure is the point */ }
+      reject(new Error("ocr-timeout"));
+    }, ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 /** ~1600px long side, greyscale, as a PNG blob: fast to read and good enough for printed statements. */
 export async function shrink(file: Blob, longSide = 1600): Promise<{ blob: Blob; thumb: string }> {
   const bmp = await createImageBitmap(file);
@@ -39,22 +58,25 @@ export async function readImage(file: Blob, onProgress: Progress): Promise<{ tex
   const createWorker = ((T.default as { createWorker?: unknown } | undefined)?.createWorker ?? T.createWorker) as (
     langs: string[], oem: number, opts: Record<string, unknown>,
   ) => Promise<{ recognize: (img: Blob) => Promise<{ data: { text: string } }>; terminate: () => Promise<unknown> }>;
-  const worker = await createWorker(["eng", "spa"], 1, {
-    workerPath: `${base}worker.min.js`,
-    corePath: base,
-    langPath: base,
-    gzip: true,
-    workerBlobURL: false,
-    cacheMethod: "none",
-    logger: (m: { status?: string; progress?: number }) => {
-      const p = typeof m.progress === "number" ? m.progress : 0;
-      onProgress(m.status === "recognizing text" ? "read" : "load", p);
-    },
-  });
+  type W = Awaited<ReturnType<typeof createWorker>>;
+  let worker: W | null = null;
+  const kill = () => { const w = worker; worker = null; if (w) void w.terminate().catch(() => {}); };
   try {
-    const { data } = await worker.recognize(blob);
+    worker = await withOcrTimeout(createWorker(["eng", "spa"], 1, {
+      workerPath: `${base}worker.min.js`,
+      corePath: base,
+      langPath: base,
+      gzip: true,
+      workerBlobURL: false,
+      cacheMethod: "none",
+      logger: (m: { status?: string; progress?: number }) => {
+        const p = typeof m.progress === "number" ? m.progress : 0;
+        onProgress(m.status === "recognizing text" ? "read" : "load", p);
+      },
+    }), OCR_TIMEOUT_MS, kill);
+    const { data } = await withOcrTimeout(worker.recognize(blob), OCR_TIMEOUT_MS, kill);
     return { text: data.text || "", thumb };
   } finally {
-    worker.terminate().catch(() => {});
+    kill();
   }
 }

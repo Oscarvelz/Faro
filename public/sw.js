@@ -1,5 +1,5 @@
 // FARO service worker: the app opens with no internet. Bump VERSION on every release.
-const VERSION = "faro-1.3.162";
+const VERSION = "faro-1.3.163";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./icon-192.png", "./icon-512.png", "./precache.json"];
 
 self.addEventListener("install", (event) => {
@@ -14,7 +14,15 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== VERSION && k.startsWith("faro-")) await caches.delete(k);
+    // 1.3.163 (audit W2): keep the current generation AND the newest previous one — a client
+    // still running the old page keeps its cache until it reloads, instead of losing it at
+    // activation and failing offline. Only older generations are purged. Non-version faro-*
+    // caches (faro-fonts) are not generations and are left alone.
+    const gen = (k) => { const m = /^faro-(\d+)\.(\d+)\.(\d+)$/.exec(k); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null; };
+    const gens = (await caches.keys()).filter((k) => gen(k) && k !== VERSION)
+      .sort((a, b) => { const x = gen(a), y = gen(b); return y[0] - x[0] || y[1] - x[1] || y[2] - x[2]; });
+    const keep = new Set([VERSION, gens[0]]);
+    for (const k of await caches.keys()) if (gen(k) && !keep.has(k)) await caches.delete(k);
     await self.clients.claim();
   })());
 });

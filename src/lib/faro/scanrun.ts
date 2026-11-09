@@ -6,6 +6,7 @@
  */
 import type { OcrBox, OcrLine } from "./receiptparse";
 import { shrinkIcon } from "./icon";
+import { OCR_TIMEOUT_MS, withOcrTimeout } from "./ocrrun";
 
 export type ScanStage = "load" | "read";
 export type ScanImage = { lines: OcrLine[]; text: string; w: number; h: number; dark: boolean; canvas: HTMLCanvasElement; ms: number };
@@ -76,14 +77,17 @@ export async function openScanner(): Promise<Scanner> {
   let worker: Worker | null = null;
   let report: (stage: ScanStage, p: number) => void = () => {};
   let n = 0;
+  // 1.3.163 (audit P5): the shared OCR watchdog (ocrrun.withOcrTimeout, 90 s). A wedged worker is
+  // terminated and forgotten, so the picture fails loudly and the NEXT picture reboots a fresh one.
+  const killWorker = () => { const w = worker; worker = null; if (w) void w.terminate().catch(() => {}); };
   const boot = async () => {
     const base = new URL("./ocr/", import.meta.url).href;
     const T = (await import(/* @vite-ignore */ `${base}tesseract.esm.min.js`)) as { default?: unknown; createWorker?: unknown };
     const createWorker = ((T.default as { createWorker?: unknown } | undefined)?.createWorker ?? T.createWorker) as (langs: string[], oem: number, opts: Record<string, unknown>) => Promise<Worker>;
-    worker = await createWorker(["eng", "spa"], 1, {
+    worker = await withOcrTimeout(createWorker(["eng", "spa"], 1, {
       workerPath: `${base}worker.min.js`, corePath: base, langPath: base, gzip: true, workerBlobURL: false, cacheMethod: "none",
       logger: (m: { status?: string; progress?: number }) => report(m.status === "recognizing text" ? "read" : "load", typeof m.progress === "number" ? m.progress : 0),
-    });
+    }), OCR_TIMEOUT_MS, killWorker);
     if (stopped) { void worker.terminate().catch(() => {}); throw new Error("stopped"); }
   };
   return {
@@ -102,7 +106,7 @@ export async function openScanner(): Promise<Scanner> {
       if (!worker) { onProgress("load", 0); await boot(); }
       const { blob, dark } = await forOcr(canvas);
       onProgress("read", 0);
-      const { data } = await worker!.recognize(blob, {}, { text: true, blocks: true });
+      const { data } = await withOcrTimeout(worker!.recognize(blob, {}, { text: true, blocks: true }), OCR_TIMEOUT_MS, killWorker);
       if (stopped) throw new Error("stopped");
       return { lines: linesOf(data, canvas.width), text: data.text || "", w: canvas.width, h: canvas.height, dark, canvas, ms: Math.round(performance.now() - t0) };
     },

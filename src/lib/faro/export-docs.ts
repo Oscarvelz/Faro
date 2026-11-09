@@ -4,7 +4,8 @@ import { monthName } from "./i18n";
 import { formatMoney } from "./money";
 import { loanPays, loanState, loansOf } from "./loans";
 import { cardFigures, cardMonthlyInterest, cardPays, cardsOf, rewardsEarned, rewardsOf, storedCards } from "./cards";
-import { lentOf, lentPays, lentState, monthAhead, netBalance, payoffPlan } from "./debts";
+import { lentOf, lentPays, lentState, monthAhead, netBalance, payoffPlan, totalDebt } from "./debts";
+import { visibleNamer } from "./defaults";
 import { remitTrend } from "./remesas";
 import { recipientName, remitByPerson } from "./remit-people";
 import type { Lang, LedgerState, Line, LineKind } from "./types";
@@ -551,7 +552,11 @@ function budgetSheet(ledger: LedgerState, month: string, lang: Lang, names: Name
     { v: allowance, s: S.ratioNum },
     "",
     { v: say(lang, "Total de deudas", "Total debt"), s: S.debt },
-    { v: debt, s: debtPct !== null && debtPct > yellow ? S.leftBad : debtPct !== null && debtPct >= green ? S.spendNum : S.leftNum },
+    // 1.3.163 (audit D2): under this label goes the real shared totalDebt() — balances owed today
+    // (cards + loans + debt-role lines), the figure Debo shows. It used to print `debt`, the
+    // month's debt PAYMENTS ($350 on the audit's book against $4,270 actually owed). The cell's
+    // traffic light still reads the payments-vs-income ratio (debtPct), as everywhere else.
+    { v: totalDebt(ledger) / 100, s: debtPct !== null && debtPct > yellow ? S.leftBad : debtPct !== null && debtPct >= green ? S.spendNum : S.leftNum },
   ]);
   merges.push(`A${rows.length}:C${rows.length}`);
   const note = say(
@@ -573,6 +578,9 @@ function budgetSheets(ledger: LedgerState, key: string, lang: Lang, names: Names
 
 /** Exported for tests (1.3.148): the sheet list is where the pick gates are honored or not. */
 export function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): Sheet[] {
+  // 1.3.163 (audit D2): the export speaks with the VISIBLE names, like every screen — a hidden
+  // category's own name used to print in «Movimientos» while the app showed its generic stand-in.
+  names = visibleNamer(ledger.structure, names);
   const sheets: Sheet[] = budgetSheets(ledger, key, lang, names, pick);
   const lines = pickedLines(ledger, key, pick);
   if (pick.kinds.length || pick.savings || pick.debt) {
@@ -867,6 +875,8 @@ function clip(value: string, size: number): string {
 }
 
 function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): string[] {
+  // 1.3.163 (audit D2): same visible-names rule as the workbook — the PDF printed them raw too.
+  names = visibleNamer(ledger.structure, names);
   const pages: string[][] = [];
   const ink = "0.07 0.09 0.08";
   const muted = "0.33 0.4 0.36";
@@ -1019,7 +1029,8 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
     const debtHot = debtTone(income > 0 ? (debt / income) * 100 : null, greenPct, yellowPct) === S.bad;
     rect(420, y - 8, 344, 22, debtHot ? rose : sage);
     stroke(420, y - 8, 344, 22, debtHot ? "0.55 0.23 0.2" : green);
-    text(428, y, 9, `${say(lang, "Total de deudas", "Total debt")}    ${shown(debt)}`, debtHot ? "0.55 0.23 0.2" : green);
+    // 1.3.163 (audit D2): the same honesty as the workbook — the label shows totalDebt(), not the month's payments (the tone above still reads the payments ratio).
+    text(428, y, 9, `${say(lang, "Total de deudas", "Total debt")}    ${shown(totalDebt(ledger) / 100)}`, debtHot ? "0.55 0.23 0.2" : green);
     y -= 28;
     const note = say(
       lang,

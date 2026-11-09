@@ -25,6 +25,7 @@ import "@/lib/manual/back";
 import { readY, requestFocus, writeY } from "@/lib/manual/nav";
 import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual/places";
 import { moveCobros, lentOf } from "@/lib/faro/debts";
+import { todayIso } from "@/lib/faro/loans";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; run: () => void };
@@ -683,7 +684,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           };
           const q = withPerm.queryPermission ? await withPerm.queryPermission({ mode: "readwrite" }) : "prompt";
           if (q !== "granted") return;
-          const file = await handle.getFileHandle(`Faro_Backup_${led.updatedAt.slice(0, 10)}.json.gz`, { create: true });
+          const file = await handle.getFileHandle(`Faro_Backup_${todayIso(new Date(led.updatedAt))}.json.gz`, { create: true });
           const writable = await file.createWritable();
           await writable.write((await backupBlob(led)) as BlobPart);
           await writable.close();
@@ -763,11 +764,35 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     };
   }, []);
 
+  // 1.3.163 (audit W3): a slow clock for the tab left open AND visible across midnight — it
+  // re-derives "today" through the same goalTick ping the visibility return uses (the wake
+  // effect below does the re-deriving, month follow included), never a parallel mechanism.
+  // It pings only when the local day actually moved since the last derivation.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const d = new Date();
+      const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (dayRef.current && dayRef.current !== t) setGoalTick((n) => n + 1);
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   useEffect(() => {
     const cur = liveWake.current;
     if (!cur.ledger) return;
     const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
-    const dayChanged = dayRef.current !== "" && dayRef.current !== today;
+    const prevDay = dayRef.current;
+    const dayChanged = prevDay !== "" && prevDay !== today;
+    // 1.3.163 (audit W3): the calendar rolled while the app stayed open. When the user is simply
+    // looking at "this month" — the month that was current when state was last derived — the
+    // view follows the calendar into the new month. A month the user deliberately navigated to
+    // is never yanked away (their month no longer equals the derived one).
+    if (dayChanged && prevDay.slice(0, 7) !== today.slice(0, 7)) {
+      const u = uiRef.current;
+      if (`${u.year}-${String(u.month).padStart(2, "0")}` === prevDay.slice(0, 7)) {
+        setUi({ year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) });
+      }
+    }
     dayRef.current = today;
     window.clearTimeout(wakeTimer.current);
     wakeTimer.current = window.setTimeout(() => {
@@ -1012,7 +1037,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
 
   function exportJson() {
     if (!session) return;
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = todayIso();
     void backupBlob(session.ledger).then((bytes) => {
       const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
       download(`Faro_${sampleOn() ? "Ejemplo" : "Backup"}_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
@@ -1020,12 +1045,23 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   }
 
   function askRestore(text: string, title: string) {
-    const parsed = JSON.parse(text) as { ledger?: unknown };
+    const parsed = JSON.parse(text) as { ledger?: unknown; v?: unknown; exportedAt?: unknown };
     const ledger = isLedger(parsed) ? parsed : parsed.ledger;
     if (!isLedger(ledger)) { setUi({ notice: t("backup.bad") }); return; }
+    // 1.3.163 (audit C6): the door says what it is about to restore BEFORE anything is replaced —
+    // the copy's format version and its date, read from the backup wrapper itself (vault.ts writes
+    // { app, v, exportedAt, ledger }). A version this Faro does not know is refused outright (a
+    // v=99 copy used to restore in silence); a copy with no recorded date is named as such,
+    // honestly — a date is never invented for it. The safety copy below is untouched.
+    const wrapped = !isLedger(parsed);
+    if (wrapped && parsed.v !== undefined && parsed.v !== 1) { setUi({ notice: t("backup.versionBad") }); return; }
+    const stamp = wrapped && typeof parsed.exportedAt === "string" && !Number.isNaN(Date.parse(parsed.exportedAt))
+      ? new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { dateStyle: "long" }).format(new Date(parsed.exportedAt))
+      : null;
+    const info = stamp ? t("backup.restore.from").replace("{date}", stamp) : t("backup.restore.nodate");
     setConfirm({
       title,
-      body: t("backup.restore.body"),
+      body: `${t("backup.restore.body")} ${info}`,
       danger: true,
       yes: t("backup.restore.yes"),
       run: () => {

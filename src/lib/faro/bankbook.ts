@@ -4,6 +4,7 @@
  * Money stays in normal lines: an imported purchase is a line with `sourceId` (and `importId` for its statement key).
  */
 import { convertMinor } from "./money.ts";
+import { todayIso } from "./loans.ts";
 import type { AcctKind, BankGuide, BankSource, BonusRow, CatalogItem, Currency, ImportBook, LedgerState, Line, MerchantRule, RewardClass, RewardRealFig, Structure } from "./types.ts";
 
 export const REWARD_CLASSES: RewardClass[] = ["travel", "dining", "grocery", "drug", "gas", "online", "other"];
@@ -354,7 +355,7 @@ export function findRule(rules: MerchantRule[], key: string): MerchantRule | und
 /** Records one filing: the next purchase at this merchant goes there by itself. */
 export function learnRule(rules: MerchantRule[], key: string, label: string, target: string, rc?: RewardClass): MerchantRule[] {
   if (!key || !target) return rules;
-  const at = new Date().toISOString().slice(0, 10);
+  const at = todayIso();
   const hit = rules.find((r) => r.key === key);
   if (hit) return rules.map((r) => (r.key === key ? { ...r, target, rc: rc ?? r.rc, n: r.target === target ? r.n + 1 : 1, at } : r));
   return [...rules, { key, label, target, ...(rc ? { rc } : {}), n: 1, at }];

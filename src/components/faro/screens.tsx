@@ -2104,7 +2104,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   function setOpening(row: { id: string; name: string; categoryId: string }) {
     const minor = parseAmount(accountAmt);
     if (minor === null) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
     const existing = lines.find((line) => line.subId === row.id);
     const line = existing
       ? { ...existing, concept: row.name, amountMinor: minor, balanceMinor: minor, currency: rate.display, balanceCurrency: rate.display, startedOn: existing.startedOn || today }
@@ -2123,7 +2123,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       ? convertMinor(existing.balanceMinor ?? existing.amountMinor, existing.balanceMinor != null ? existing.balanceCurrency : existing.currency, rate.display, rate.rateE4)
       : 0;
     const next = Math.max(0, base + sign * Math.abs(delta));
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
     const line = existing
       ? {
           ...existing,
@@ -2281,7 +2281,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }
   function applyStatement(r: StmtSave) {
     if (!openSeg) return;
-    const date = r.end || new Date().toISOString().slice(0, 10);
+    const date = r.end || todayIso();
     const tag = `estado:${r.month || date.slice(0, 7)}:`;
     const base = retireLine ?? freshLine(openSeg.name, 0, openSeg.id, openSeg.categoryId, { balanceMinor: null, balanceCurrency: r.currency, icon: "brand:primerica" });
     const history = base.history.filter((h) => !h.note.startsWith(tag));

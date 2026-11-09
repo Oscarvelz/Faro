@@ -189,6 +189,26 @@ function readBlock(lines: string[], today: string): CardRead | null {
     if (L_LASTPAY.test(f)) { const h = mark(valueFor(lines, i)); if (h && out.lastPayMinor == null) out.lastPayMinor = h.v; const d = datesLoose(`${t} ${lines[i + 1] ?? ""}`, today)[0]; if (d) out.lastPayOn = d; return; }
     if (NOISE.test(f) && !hasLabel(t)) return;
     const take = (re: RegExp) => re.test(f);
+    // 1.3.163 (audit P3): ONE line carrying BOTH a balance and a credit-limit label ("Credit limit
+    // $5,000.00 Current balance $250.00"). The old chain let the balance branch take the line's
+    // FIRST amount — the limit silently became the balance. Now each figure is read after its own
+    // label, and BOTH are flagged unsure: the review sheet paints them amber and nothing is taken
+    // on faith from a shared line.
+    if (take(L_BAL) && take(L_LIMIT)) {
+      const after = (re: RegExp): Hit | null => {
+        const m = f.match(re);
+        if (!m || m.index == null) return null;
+        const a = amountOn(f.slice(m.index + m[0].length));
+        return a ? { ...a, near: false, at: i } : null;
+      };
+      const hb = after(L_BAL), hl = after(L_LIMIT);
+      if (hb && out.balanceMinor == null) { out.balanceMinor = hb.v; out.currency = hb.cur; }
+      if (hl && out.limitMinor == null) out.limitMinor = hl.v;
+      if (hb || hl) taken.add(i);
+      if (!unsure.includes("balance")) unsure.push("balance");
+      if (!unsure.includes("limit")) unsure.push("limit");
+      return;
+    }
     if (take(L_STMT)) { const h = mark(valueFor(lines, i)); if (h && out.statementMinor == null) out.statementMinor = h.v; return; }
     if (take(L_BAL)) { const h = mark(valueFor(lines, i)); if (h && out.balanceMinor == null) { out.balanceMinor = h.v; out.currency = h.cur; } return; }
     if (take(L_AVAIL) && !take(L_LIMIT)) { const h = mark(valueFor(lines, i)); if (h && out.availMinor == null) out.availMinor = h.v; return; }

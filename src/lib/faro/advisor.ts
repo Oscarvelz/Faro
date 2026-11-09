@@ -564,7 +564,13 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   // never counted twice. Estudio's runway and the widget read this same walk.
   const stock = savingsStock(state, key);
   const stockEm = stock.emergency;
-  const cushionStock = stockEm > 0 ? stockEm : Math.max(0, stock.total - stock.retirement);
+  // 1.3.163 (audit D3): the cushion («lo que tienes guardado») means ONE thing — everything saved
+  // that is not protected for old age: total − retirement, from the one stock. The old rule jumped
+  // definitions: with even $1 in the Emergencia pocket it counted ONLY that pocket, so the same
+  // sentence quoted $200 before a small deposit and $1,500 after it was removed. The loser is the
+  // emergency-pocket-only branch; stockEm still serves the cushion PACE below (a different idea:
+  // how fast the pocket itself is filling), which was never the quoted stock.
+  const cushionStock = Math.max(0, stock.total - stock.retirement);
   if (!dated.length && cushionStock > 0 && perDay > 0 && !(uniqueMinor > 0 && left < 0)) {
     const essentialPerDay = Math.max(1, Math.round(essentialsMonthly / days));
     const lastDays = Math.floor(cushionStock / essentialPerDay);

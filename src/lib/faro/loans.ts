@@ -103,20 +103,24 @@ export function loanTotals(state: LedgerState | null | undefined, today = todayI
  * without a split counts as ZERO interest paid here — its money still lowers the balance exactly as
  * before (loanState sums the whole payment); no total invents a split the user never recorded. */
 
-/** Interest paid on one loan, in the loan's currency; `year` restricts to payments booked that year. */
-export function loanInterestPaid(state: LedgerState, loan: Loan, year?: number): number {
+/** Interest paid on one loan, in the loan's currency; `year` restricts to payments booked that year.
+ *  1.3.163 (audit P4): a payment booked AFTER `today` has not been paid yet and counts nothing —
+ *  the same ≤today bound loanState already applies to the balance. */
+export function loanInterestPaid(state: LedgerState, loan: Loan, year?: number, today = todayIso()): number {
   return loanPays(state, loan.id).reduce((sum, line) => {
     if (line.interestMinor == null) return sum;
-    if (year != null && (line.bookedOn || `${line.monthKey}-01`).slice(0, 4) !== String(year)) return sum;
+    const booked = line.bookedOn || `${line.monthKey}-01`;
+    if (booked > today) return sum;
+    if (year != null && booked.slice(0, 4) !== String(year)) return sum;
     return sum + convertMinor(line.interestMinor, line.currency, loan.currency, state.settings.rateE4);
   }, 0);
 }
 
 /** Interest paid across every received loan (archived ones too: the money was paid), in the view currency. */
-export function interestPaidTotal(state: LedgerState | null | undefined, year?: number): number {
+export function interestPaidTotal(state: LedgerState | null | undefined, year?: number, today = todayIso()): number {
   if (!state) return 0;
   const { display, rateE4 } = state.settings;
-  return loansOf(state).reduce((acc, loan) => acc + convertMinor(loanInterestPaid(state, loan, year), loan.currency, display, rateE4), 0);
+  return loansOf(state).reduce((acc, loan) => acc + convertMinor(loanInterestPaid(state, loan, year, today), loan.currency, display, rateE4), 0);
 }
 
 /**

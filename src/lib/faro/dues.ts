@@ -43,11 +43,6 @@ function addDays(iso: string, days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function shiftKey(key: string, delta: number): string {
-  const d = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 /** Next occurrence of a day-of-month on or after `today`, clamped to the month's length —
  *  the same reading CreditCard.dueDay gets in cards.nextDue. */
 export function nextDueDayOn(dueDay: number, today: string): string {
@@ -79,18 +74,24 @@ export function duesWindow(state: LedgerState, days: number, today = todayIso())
   const seen = new Set<string>();
   const firstKey = today.slice(0, 7);
   const lastKey = end.slice(0, 7);
-  for (let k = firstKey; ; k = shiftKey(k, 1)) {
+  // 1.3.163 (audit P4): past month buckets are scanned too — a cuota filed in a past bucket whose
+  // stored nextDue points into the current era was invisible here (the scan began at this month).
+  // A past bucket contributes only obligations dated from this month on; its own era's stale
+  // instances stay buried (the live instance is filed in its own month), and the series+day
+  // dedup below still applies, so nothing is ever counted twice.
+  for (const k of Object.keys(state.months).sort()) {
+    if (k > lastKey) continue;
     for (const l of state.months[k]?.lines ?? []) {
       if (!l.active || l.xfer || l.kind.startsWith("income") || roleOf(state, l.categoryId) === "savings") continue;
       if (l.loanId || l.cardId || l.lentId) continue; // entity dues come from their own entries below
       const on = (l.nextDue || "").slice(0, 10);
       if (!ISO_DAY.test(on) || on > end) continue;
+      if (k < firstKey && on < `${firstKey}-01`) continue;
       const sig = `${l.seriesId || l.id}@${on}`;
       if (seen.has(sig)) continue;
       seen.add(sig);
       out.push({ kind: "cuota", name: (l.concept || "").trim() || "—", on, amt: view(l.amountMinor, l.currency), id: l.id, line: l });
     }
-    if (k === lastKey) break;
   }
 
   // Credit cards: the minimum when the bank showed one, else the whole balance (the rule the
