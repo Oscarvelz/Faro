@@ -13,6 +13,8 @@
  * - Fingerprint: WebAuthn does not work in a plain WebView, so lock.ts asks the phone's BiometricPrompt through
  *   nativeAuth() (fingerprint, face, or the phone's PIN/pattern/password as fallback).
  * - Shared screenshots (Phase 2): pictures shared to Faro from another app wait in the app until the page takes them.
+ * - Shared files (1.3.172): a vCard or a bank statement shared to Faro waits in a second tray (docCount/docInfo/
+ *   docChunk) until doc-inbox.tsx takes it and routes it to the people importer or the bank import sheet.
  */
 
 export type FaroNativeBridge = {
@@ -30,6 +32,12 @@ export type FaroNativeBridge = {
   sharedInfo?(i: number): string;
   sharedChunk?(i: number, offset: number, length: number): string;
   sharedClear?(): void;
+  /** 1.3.172: files shared into Faro that are not pictures (a vCard, a bank statement) wait in
+   *  their own tray until nativePullDocs() takes them. Absent on shells before 1.3.172. */
+  docCount?(): number;
+  docInfo?(i: number): string;
+  docChunk?(i: number, offset: number, length: number): string;
+  docClear?(): void;
   /** 1.3.121 home-screen widgets: the snapshot (lib/faro/widget.ts) as JSON ("" clears it); the target of a widget tap. */
   setWidgetData?(json: string): void;
   takeOpen?(): string;
@@ -40,7 +48,9 @@ export type FaroNativeBridge = {
   battExempt?(): string;
   battAsk?(): string;
   /** 1.3.165: «Agregar personas» — opens the system contact picker (no READ_CONTACTS in the shell);
-   *  the picked names wait in the shell's tray until takeContacts() pulls them (JSON array, once). */
+   *  the picked people wait in the shell's tray until takeContacts() pulls them (once).
+   *  1.3.172: the tray's JSON carries {name, birthday} objects (birthday "" when the pick grant
+   *  did not cover the contact's birthday rows); shells before it return plain name strings. */
   pickContacts?(): void;
   takeContacts?(): string;
 };
@@ -120,15 +130,21 @@ export function nativeBattAsk(): boolean | null {
 
 /* ---------- contacts ---------- */
 
+/** One person from the shell's contact picker; birthday is the phone's raw date ("" when none rode along). */
+export type PickedContact = { name: string; birthday: string };
+
 /**
  * 1.3.165: «Agregar personas» inside the shell. The web Contact Picker API does not exist in the
  * WebView, so people.tsx used to fall through to a .vcf file hunt; the bridge opens the phone's
  * own contact picker instead (the shell declares no READ_CONTACTS — only the contacts the user
- * picks are read, through their URIs). Resolves with the picked names, or null when the picker
+ * picks are read, through their URIs). Resolves with the picked people, or null when the picker
  * was cancelled. Returns null (not a promise) when there is no shell or the shell predates the
  * method, so the caller keeps its old order: web API in Chrome, .vcf file last.
+ * 1.3.172: the shell's tray now answers {name, birthday} objects (the birthday read through the
+ * same pick grant, when it covers the contact's birthday rows); a shell from before this wave
+ * answers plain name strings, which land here with an empty birthday — both shapes are read.
  */
-export function nativePickContacts(): Promise<string[] | null> | null {
+export function nativePickContacts(): Promise<PickedContact[] | null> | null {
   const n = native();
   if (!n?.pickContacts || !n?.takeContacts) return null;
   return new Promise((resolve) => {
@@ -139,7 +155,16 @@ export function nativePickContacts(): Promise<string[] | null> | null {
       try {
         const raw = n.takeContacts!();
         const arr: unknown = raw ? JSON.parse(raw) : [];
-        resolve(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim()) : []);
+        if (!Array.isArray(arr)) { resolve([]); return; }
+        resolve(arr.flatMap((x): PickedContact[] => {
+          if (typeof x === "string") return x.trim() ? [{ name: x.trim(), birthday: "" }] : [];
+          if (x && typeof x === "object") {
+            const o = x as { name?: unknown; birthday?: unknown };
+            const name = typeof o.name === "string" ? o.name.trim() : "";
+            return name ? [{ name, birthday: typeof o.birthday === "string" ? o.birthday : "" }] : [];
+          }
+          return [];
+        }));
       } catch { resolve([]); }
     };
     window.addEventListener("faronative-contacts", on);
@@ -148,6 +173,42 @@ export function nativePickContacts(): Promise<string[] | null> | null {
       resolve(null);
     }
   });
+}
+
+/* ---------- files shared into Faro (1.3.172) ---------- */
+
+const DOC_CH = 512 * 1024;
+
+/**
+ * Takes the files waiting in the shell's doc tray (vCards and statements shared into Faro),
+ * exactly like the picture tray's pull in share-inbox.tsx: chunk by chunk, then the tray is
+ * cleared. Returns [] when there is no shell, the shell predates the tray, or nothing waits.
+ * Routing the files by kind is the caller's job (lib/faro/shareddocs.ts).
+ */
+export function nativePullDocs(): File[] {
+  const n = native();
+  if (!n?.docCount || !n.docInfo || !n.docChunk) return [];
+  const out: File[] = [];
+  const count = Math.min(12, Number(n.docCount()) || 0);
+  for (let i = 0; i < count; i++) {
+    let info: { name?: string; type?: string } = {};
+    try { info = JSON.parse(n.docInfo(i) || "{}"); } catch { /* keep defaults */ }
+    const parts: Uint8Array[] = [];
+    let off = 0;
+    for (;;) {
+      const b = n.docChunk(i, off, DOC_CH);
+      if (!b) break;
+      const bin = atob(b);
+      const u = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
+      parts.push(u);
+      off += u.length;
+      if (u.length < DOC_CH) break;
+    }
+    if (off > 0) out.push(new File(parts as BlobPart[], info.name || `archivo-${i + 1}`, { type: info.type || "" }));
+  }
+  try { n.docClear?.(); } catch { /* ignore */ }
+  return out;
 }
 
 /* ---------- back ---------- */

@@ -4,7 +4,7 @@ import { Cake, Gift, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { formatMoney, parseAmount, uid } from "@/lib/faro/money";
 import { upsertLine } from "@/lib/faro/reducer";
 import { dayLabel, mergeContacts, nameKey, OCCASIONS, occasionName, occasionsOf, peopleAdvice, peopleOf, personLines, personName, personTotals, spendByPerson, todayIso, upcoming, type Occasion } from "@/lib/faro/people";
-import { parseVCards, type ImportedContact } from "@/lib/faro/vcard";
+import { parseVCards, parseVDate, type ImportedContact } from "@/lib/faro/vcard";
 import { nativePickContacts } from "@/spa/native";
 import type { Currency, Lang, LedgerState, Line, LineKind, OccasionKind, Person, PersonDate } from "@/lib/faro/types";
 import { useFaro } from "./provider";
@@ -72,7 +72,7 @@ function importNotice(lang: Lang, r: { added: number; restored: number; noBirthd
   return n ? L(lang, `Personas añadidas: ${n}`, `People added: ${n}`) : L(lang, "Ya estaban en Personas", "They were already in People");
 }
 
-function useImport() {
+export function useImport() {
   const { session, lang, commit } = useFaro();
   return (contacts: ImportedContact[]) => {
     if (!session) return;
@@ -161,19 +161,28 @@ export function PeopleBox() {
     setEditing(null);
     // 1.3.165: inside the Android shell, the phone's own contact picker (bridge) comes FIRST —
     // the web Contact Picker API does not exist in the WebView, so this button used to fall
-    // through to the hidden .vcf input: a file picker hunting a file nobody has. Names arrive
-    // the same shape as the web API's (birthdays keep arriving through shared .vcf cards,
-    // unchanged). Chrome keeps its API next; the file stays last.
+    // through to the hidden .vcf input: a file picker hunting a file nobody has. Chrome keeps
+    // its API next; the file stays last. 1.3.172: a picked contact's birthday now rides along
+    // when the pick grant covered it, normalised by the vCard reader's own date parser (the
+    // raw phone form, "1985-03-04" or "--03-04", becomes the stored form here); where it did
+    // not, the person arrives name-only, as before.
     const shell = nativePickContacts();
     if (shell) {
-      const names = await shell;
-      if (names === null) return; // picker cancelled: silence, like the web API's catch below
-      const contacts: ImportedContact[] = names.map((name) => ({ name, birthday: "", dates: [] })).filter((c) => c.name);
+      const picked = await shell;
+      if (picked === null) return; // picker cancelled: silence, like the web API's catch below
+      const contacts: ImportedContact[] = picked.map((c) => ({ name: c.name, birthday: parseVDate(c.birthday ?? ""), dates: [] })).filter((c) => c.name);
       if (contacts.length) add(contacts);
       return;
     }
     const api = contactsApi();
-    if (!api) { fileRef.current?.click(); return; }
+    if (!api) {
+      // 1.3.172 (census R4): no bridge and no web picker — the .vcf file is the only door, and
+      // the tap used to open the file hunt in silence. Say what is needed first, in the toast
+      // this screen already uses, and give it a moment to be read before the picker opens.
+      ppToast(L(lang, "Aquí no hay selector de contactos: elige un archivo .vcf con tus contactos.", "No contact picker here: pick a .vcf file with your contacts."));
+      window.setTimeout(() => fileRef.current?.click(), 900);
+      return;
+    }
     try {
       const got = await api.select(["name"], { multiple: true });
       const contacts: ImportedContact[] = (got ?? []).map((c) => ({ name: (c.name?.[0] ?? "").trim(), birthday: "", dates: [] })).filter((c) => c.name);

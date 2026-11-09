@@ -73,11 +73,16 @@ class MainActivity : Activity() {
     @Volatile private var widgetGo: String? = null
     private val saves = ConcurrentHashMap<String, Save>()
     private val shared = java.util.Collections.synchronizedList(ArrayList<SharedPic>())
-    /** 1.3.165: names from the system contact picker, waiting for the page's takeContacts(). */
-    private val pickedNames = java.util.Collections.synchronizedList(ArrayList<String>())
+    /** 1.3.172: shared files that are not pictures (a vCard, a bank statement), in their own tray —
+     *  the page pulls them with docCount/docInfo/docChunk and routes each by kind. */
+    private val sharedDocs = java.util.Collections.synchronizedList(ArrayList<SharedPic>())
+    /** 1.3.165: people from the system contact picker, waiting for the page's takeContacts().
+     *  1.3.172: each carries the birthday too, when the pick grant lets the shell read it. */
+    private val pickedContacts = java.util.Collections.synchronizedList(ArrayList<Picked>())
 
     private class Save(val uri: Uri, val out: OutputStream, val name: String)
     private class SharedPic(val file: File, val name: String, val mime: String)
+    private class Picked(val name: String, val birthday: String)
 
     companion object {
         private const val RQ_FILES = 7
@@ -140,6 +145,7 @@ class MainActivity : Activity() {
             override fun onPageFinished(v: WebView, url: String?) {
                 trusted = url != null && isFaro(Uri.parse(url)); pageReady = trusted
                 if (pageReady && shared.isNotEmpty()) dispatch("dispatchEvent(new Event('faronative-share'))")
+                if (pageReady && sharedDocs.isNotEmpty()) dispatch("dispatchEvent(new Event('faronative-docs'))")
                 if (pageReady && widgetGo != null) dispatch("dispatchEvent(new Event('faronative-open'))")
             }
             override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
@@ -290,22 +296,76 @@ class MainActivity : Activity() {
                 }
                 if (uris.isEmpty()) contactsReply(-1)
                 else Thread {
-                    val names = uris.mapNotNull { u ->
+                    val picked = uris.mapNotNull { u ->
                         runCatching {
-                            contentResolver.query(u, arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null)?.use { c ->
-                                if (c.moveToFirst()) c.getString(0)?.trim()?.takeIf { it.isNotEmpty() } else null
+                            contentResolver.query(u, arrayOf(ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME), null, null, null)?.use { c ->
+                                if (!c.moveToFirst()) null
+                                else {
+                                    val name = c.getString(1)?.trim()?.takeIf { it.isNotEmpty() } ?: return@use null
+                                    val id = c.getString(0)?.trim().orEmpty()
+                                    // 1.3.172: the birthday rides along when the same grant covers it (see pickedBirthday).
+                                    Picked(name, if (id.isEmpty()) "" else pickedBirthday(id))
+                                }
                             }
                         }.getOrNull()
                     }
-                    synchronized(pickedNames) { pickedNames.clear(); pickedNames.addAll(names) }
-                    contactsReply(names.size)
+                    synchronized(pickedContacts) { pickedContacts.clear(); pickedContacts.addAll(picked) }
+                    contactsReply(picked.size)
                 }.start()
             }
             else -> super.onActivityResult(rq, rc, d)
         }
     }
 
-    /* ---------- pictures shared from other apps ---------- */
+    /**
+     * 1.3.172 (stretch of the contacts bridge): the picked contact's birthday, read through the
+     * SAME temporary grant as its name — a Data query for the contact's birthday Event rows.
+     * READ_CONTACTS is still not declared anywhere: if the grant does not cover the Data table
+     * the query throws, the runCatching answers "" and the person arrives with a name only,
+     * exactly as before this wave. The date comes back as the phone stores it ("1985-03-04",
+     * "--03-04" with no year); the page normalises it with the vCard reader's own date parser.
+     */
+    private fun pickedBirthday(contactId: String): String = runCatching {
+        contentResolver.query(
+            ContactsContract.Data.CONTENT_URI,
+            arrayOf(ContactsContract.CommonDataKinds.Event.START_DATE),
+            "${ContactsContract.Data.CONTACT_ID} = ? AND ${ContactsContract.Data.MIMETYPE} = ? AND ${ContactsContract.CommonDataKinds.Event.TYPE} = ?",
+            arrayOf(contactId, ContactsContract.CommonDataKinds.Event.CONTENT_ITEM_TYPE, ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY.toString()),
+            null
+        )?.use { c ->
+            var out = ""
+            while (out.isEmpty() && c.moveToNext()) out = c.getString(0)?.trim().orEmpty()
+            out
+        } ?: ""
+    }.getOrDefault("")
+
+    /* ---------- files shared from other apps ---------- */
+
+    /** 1.3.172: besides pictures, takeShare accepts the files the web app knows how to eat.
+     *  vCards arrive as text/vcard (what the Contacts app declares) or text/x-vcard; statements
+     *  as the bank importer's own types plus the flavours mail and file managers actually
+     *  declare for them. .ofx/.qfx/.qif have no registered MIME at all, so senders fall back to
+     *  application/octet-stream — under that type, and for untyped streams, the file NAME's
+     *  extension decides (SHARE_DOC_EXTS). Anything else is discarded, exactly as before. */
+    private val SHARE_DOC_MIMES = setOf(
+        "text/vcard", "text/x-vcard",
+        "text/csv", "text/comma-separated-values", "application/csv", "application/vnd.ms-excel",
+        "application/x-ofx", "application/vnd.intu.qfx", "application/qif", "text/plain", "application/pdf"
+    )
+    private val SHARE_DOC_EXTS = setOf("vcf", "csv", "ofx", "qfx", "qif", "pdf", "txt")
+
+    /** "image" keeps the 1.3.111 path; "doc" is the 1.3.172 tray; null is discarded. */
+    private fun shareKind(mime: String, name: String): String? {
+        val m = mime.trim().lowercase()
+        if (m.startsWith("image/")) return "image"
+        if (m in SHARE_DOC_MIMES) return "doc"
+        if (m.isEmpty() || m == "application/octet-stream") {
+            val ext = name.substringAfterLast('.', "").lowercase()
+            if (ext in SHARE_DOC_EXTS) return "doc"
+            if (m.isEmpty()) return "image" // the historical default: an untyped stream was read as a picture
+        }
+        return null
+    }
 
     private fun takeShare(i: Intent?) {
         if (i == null) return
@@ -314,22 +374,48 @@ class MainActivity : Activity() {
             Intent.ACTION_SEND_MULTIPLE -> streamMany(i)
             else -> return
         }
-        if (uris.isEmpty()) return
         // Copy right away: the sending app's permission to read them ends with this intent.
-        val dir = File(cacheDir, "shared").apply { mkdirs() }
-        synchronized(shared) { shared.clear(); dir.listFiles()?.forEach { it.delete() } }
+        val imgDir = File(cacheDir, "shared").apply { mkdirs() }
+        val docDir = File(cacheDir, "shared-docs").apply { mkdirs() }
+        if (uris.isEmpty()) {
+            // Some Contacts apps put the vCard itself in EXTRA_TEXT instead of a stream (the
+            // PWA's sw.js sorts those by content too). That text is a file for Faro; any other
+            // streamless share is not, and ends here as it always did.
+            val text = i.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.contains("BEGIN:VCARD", ignoreCase = true) } ?: return
+            val f = File(docDir, "0-contacto.vcf")
+            runCatching {
+                f.writeText(text)
+                if (f.length() > 0) {
+                    synchronized(sharedDocs) { sharedDocs.clear(); docDir.listFiles()?.forEach { if (it != f) it.delete() }; sharedDocs.add(SharedPic(f, "contacto.vcf", "text/vcard")) }
+                    if (pageReady) dispatch("dispatchEvent(new Event('faronative-docs'))")
+                }
+            }
+            return
+        }
+        // Each tray is replaced by the first file of its own kind in this share, so a share of
+        // one kind never throws away what an earlier share of the other kind left waiting.
+        var imgCleared = false
+        var docCleared = false
         for ((n, u) in uris.take(12).withIndex()) {
             runCatching {
-                val mime = contentResolver.getType(u) ?: "image/jpeg"
-                if (!mime.startsWith("image/")) return@runCatching
                 var name = "captura-${n + 1}.jpg"
                 contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0)?.let { name = it } }
-                val f = File(dir, "$n-" + name.replace(Regex("[^\\w.\\- ]"), "_"))
+                val rawMime = contentResolver.getType(u) ?: ""
+                val kind = shareKind(rawMime, name) ?: return@runCatching
+                val f = File(if (kind == "image") imgDir else docDir, "$n-" + name.replace(Regex("[^\\w.\\- ]"), "_"))
                 contentResolver.openInputStream(u)?.use { inp -> f.outputStream().use { inp.copyTo(it) } }
-                if (f.length() > 0) shared.add(SharedPic(f, name, mime))
+                if (f.length() <= 0) return@runCatching
+                if (kind == "image") {
+                    if (!imgCleared) { synchronized(shared) { shared.clear(); imgDir.listFiles()?.forEach { if (it != f) it.delete() } }; imgCleared = true }
+                    shared.add(SharedPic(f, name, rawMime.ifBlank { "image/jpeg" }))
+                } else {
+                    if (!docCleared) { synchronized(sharedDocs) { sharedDocs.clear(); docDir.listFiles()?.forEach { if (it != f) it.delete() } }; docCleared = true }
+                    sharedDocs.add(SharedPic(f, name, rawMime))
+                }
             }
         }
         if (shared.isNotEmpty() && pageReady) dispatch("dispatchEvent(new Event('faronative-share'))")
+        if (sharedDocs.isNotEmpty() && pageReady) dispatch("dispatchEvent(new Event('faronative-docs'))")
     }
 
     private fun streamOne(i: Intent): Uri? =
@@ -484,15 +570,29 @@ class MainActivity : Activity() {
 
         @JavascriptInterface fun sharedCount(): Int = if (trusted) shared.size else 0
 
-        @JavascriptInterface fun sharedInfo(i: Int): String {
+        @JavascriptInterface fun sharedInfo(i: Int): String = trayInfo(shared, i)
+
+        @JavascriptInterface fun sharedChunk(i: Int, offset: Double, length: Int): String = trayChunk(shared, i, offset, length)
+
+        /** 1.3.172: the doc tray (vCards and statements shared into Faro) — the same three
+         *  questions as the picture tray, over its own list. The page pulls the files, sorts
+         *  each by kind (a vCard is a contact wherever it arrives; anything else is a
+         *  statement) and hands them to the existing importers. */
+        @JavascriptInterface fun docCount(): Int = if (trusted) sharedDocs.size else 0
+
+        @JavascriptInterface fun docInfo(i: Int): String = trayInfo(sharedDocs, i)
+
+        @JavascriptInterface fun docChunk(i: Int, offset: Double, length: Int): String = trayChunk(sharedDocs, i, offset, length)
+
+        private fun trayInfo(tray: List<SharedPic>, i: Int): String {
             if (!trusted) return "{}"
-            val p = synchronized(shared) { shared.getOrNull(i) } ?: return "{}"
+            val p = synchronized(tray) { tray.getOrNull(i) } ?: return "{}"
             return JSONObject().put("name", p.name).put("type", p.mime).put("size", p.file.length()).toString()
         }
 
-        @JavascriptInterface fun sharedChunk(i: Int, offset: Double, length: Int): String {
+        private fun trayChunk(tray: List<SharedPic>, i: Int, offset: Double, length: Int): String {
             if (!trusted) return ""
-            val p = synchronized(shared) { shared.getOrNull(i) } ?: return ""
+            val p = synchronized(tray) { tray.getOrNull(i) } ?: return ""
             return runCatching {
                 RandomAccessFile(p.file, "r").use { f ->
                     f.seek(offset.toLong())
@@ -522,11 +622,19 @@ class MainActivity : Activity() {
             synchronized(shared) { shared.forEach { it.file.delete() }; shared.clear() }
         }
 
+        /** 1.3.172: the doc tray is emptied once the page has taken its files. */
+        @JavascriptInterface fun docClear() {
+            if (!trusted) return
+            synchronized(sharedDocs) { sharedDocs.forEach { it.file.delete() }; sharedDocs.clear() }
+        }
+
         /** 1.3.165: «Agregar personas» inside the shell — opens the SYSTEM contact picker
          *  (ACTION_PICK over Contacts, multiple where the system honors it) WITHOUT declaring
          *  READ_CONTACTS: the user picks, and only the chosen contacts' DISPLAY_NAMEs are read
          *  through the returned URIs. The names land in the tray; the page is told through the
-         *  faronative-contacts event and pulls them with takeContacts(). */
+         *  faronative-contacts event and pulls them with takeContacts(). 1.3.172: a picked
+         *  contact's birthday Event rows are read through the same grant when it covers them
+         *  (see pickedBirthday) — still no READ_CONTACTS anywhere. */
         @JavascriptInterface fun pickContacts() {
             if (!trusted) return
             runOnUiThread {
@@ -539,13 +647,14 @@ class MainActivity : Activity() {
             }
         }
 
-        /** The picked names as a JSON array, once ("" when the tray is empty). */
+        /** The picked people as a JSON array of {name, birthday}, once ("" when the tray is
+         *  empty). birthday is "" whenever the grant did not cover the contact's Event rows. */
         @JavascriptInterface fun takeContacts(): String {
             if (!trusted) return ""
-            val names = synchronized(pickedNames) { ArrayList(pickedNames).also { pickedNames.clear() } }
-            if (names.isEmpty()) return ""
+            val picked = synchronized(pickedContacts) { ArrayList(pickedContacts).also { pickedContacts.clear() } }
+            if (picked.isEmpty()) return ""
             val arr = JSONArray()
-            names.forEach { arr.put(it) }
+            picked.forEach { arr.put(JSONObject().put("name", it.name).put("birthday", it.birthday)) }
             return arr.toString()
         }
     }

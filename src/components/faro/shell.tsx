@@ -42,6 +42,7 @@ import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
 const ShareInbox = lazy(() => import("./share-inbox"));
+const DocInbox = lazy(() => import("./doc-inbox"));
 
 const ManualLayer = lazy(() => import("./manual"));
 
@@ -1368,6 +1369,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
     <FocusHost />
     <ToTop lang={lang} />
     {inAndroidApp() ? <Suspense fallback={null}><ShareInbox /></Suspense> : null}
+    {inAndroidApp() ? <Suspense fallback={null}><DocInbox /></Suspense> : null}
     {inAndroidApp() ? <WidgetHost /> : null}
     </>
   );
