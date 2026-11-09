@@ -4776,7 +4776,7 @@ function StructureTree() {
                       <span className="tree-subs">{cat.subs.map((sub) => displayName(sub, lang)).join(" · ") || "—"}</span>
                     </span>
                   </button>
-                  {open ? <TreePanel cat={cat} /> : null}
+                  {open ? <TreePanel cat={cat} onClose={() => setOpenId(null)} /> : null}
                 </div>
               );
             })}
@@ -4809,7 +4809,7 @@ function StructureTree() {
   );
 }
 
-function TreePanel({ cat }: { cat: Category }) {
+function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
   const { t, lang, commit, confirm } = useFaro();
   const [name, setName] = useState(displayName(cat, lang));
   const [subName, setSubName] = useState("");
@@ -4818,6 +4818,26 @@ function TreePanel({ cat }: { cat: Category }) {
   // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
   // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
   const [colorOpen, setColorOpen] = useState(false);
+  // 1.3.176 (pedido de Oscar): Cancelar PLIEGA la tarjeta — antes solo borraba el
+  // borrador de subcategoría y la tarjeta quedaba abierta, como si no hiciera nada
+  // (con el borrador vacío no cambiaba ni un estado). La política es la única de la
+  // oleada de botones 4: se pregunta solo si hay trabajo SIN APLICAR. En esta tarjeta
+  // casi todo se aplica al instante — el ✓ del nombre, el color, ocultar y borrar
+  // subcategorías van directos a commit() — así que la bolsa lleva solo los
+  // borradores: el nombre aún no confirmado con ✓ (su línea base se renueva cuando
+  // el ✓ guarda), la subcategoría a medio escribir y un renombre de subcategoría a
+  // mitad de teclear. Lo ya aplicado NO se descarta ni se revierte (Cancelar nunca
+  // lo revirtió: no hay copia a la que volver).
+  const nameBaseRef = useRef(displayName(cat, lang));
+  const editingSub = editSub ? cat.subs.find((x) => x.id === editSub) : undefined;
+  const panelDirty = formDirty(
+    { name: nameBaseRef.current, sub: "", edit: "" },
+    { name, sub: subName, edit: editingSub && subEdit !== displayName(editingSub, lang) ? subEdit : "" },
+  );
+  const cancelPanel = () => {
+    if (!panelDirty) { onClose(); return; }
+    confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onClose });
+  };
   const addSub = () => {
     const next = subName.trim();
     if (!next) return;
@@ -4838,6 +4858,7 @@ function TreePanel({ cat }: { cat: Category }) {
           const next = name.trim();
           if (!next || next === displayName(cat, lang)) return;
           patch((c) => ({ ...c, customName: next }), next);
+          nameBaseRef.current = name; // lo tecleado acaba de guardarse: deja de ser borrador
         }}><Check className="size-4" /></button>
       </div>
       <div className="tree-color">
@@ -4885,7 +4906,7 @@ function TreePanel({ cat }: { cat: Category }) {
           </label>
         </div>
         <div className="ah-actions">
-          <button type="button" className="btn secondary" onClick={() => setSubName("")}>{t("cancel")}</button>
+          <button type="button" className="btn secondary" onClick={cancelPanel}>{t("cancel")}</button>
           <button type="button" className="btn" disabled={!subName.trim()} onClick={addSub}>{t("save")}</button>
         </div>
       </div>
