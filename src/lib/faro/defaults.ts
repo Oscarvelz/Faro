@@ -4,6 +4,7 @@ import type {
   Category,
   Lang,
   LedgerState,
+  Line,
   Named,
   PurchaseCat,
   Settings,
@@ -304,6 +305,33 @@ export function visibleNamer(structure: Structure, names: ReturnType<typeof make
     purchase: (id: string) => (hiddenPurchases.has(id) ? "" : names.purchase(id)),
     catalog: names.catalog,
   };
+}
+
+/**
+ * The list face of the same contract (manual, Estructura): hiding never deletes or moves a
+ * cent — the entries keep counting in every total — but they stop appearing in LISTS
+ * (Central's board, the Libros books, Compras, Cuotas). A line belongs to a list only when
+ * its category and its subconcept are both shown; a purchase, when its purchase category
+ * and its store are both shown. Totals, balances and the engine never consult this.
+ */
+export function lineListVisible(structure: Structure, line: Line): boolean {
+  if (line.kind === "purchase") {
+    const purchase = structure.purchases.find((p) => p.id === line.categoryId);
+    if (purchase?.hidden) return false;
+    if (line.storeId) {
+      const store = structure.catalog.find((c) => c.id === line.storeId);
+      if (store?.hidden) return false;
+    }
+    return true;
+  }
+  const cat = structure.categories.find((c) => c.id === line.categoryId);
+  if (!cat) return true;
+  if (cat.hidden) return false;
+  if (line.subId) {
+    const sub = cat.subs.find((s) => s.id === line.subId);
+    if (sub?.hidden) return false;
+  }
+  return true;
 }
 
 export function makeNamer(structure: Structure, lang: Lang) {

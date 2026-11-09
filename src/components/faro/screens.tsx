@@ -22,7 +22,8 @@ import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Sh
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
+import { applyTemplate, displayName, lineListVisible, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
+import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
 import { setSampleMode } from "@/lib/faro/samplemode";
@@ -780,6 +781,9 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
   const group = draftKind === "expense-fixed" ? "fixed" : draftKind === "expense-variable" ? "variable" : null;
   const rows = lines.filter((l) => {
     if (!kinds.includes(l.kind)) return false;
+    // 1.3.177: the books are lists too — a line under a hidden category/subconcept (or a
+    // hidden purchase category/store) does not render; it keeps counting everywhere.
+    if (session && !lineListVisible(session.ledger.structure, l)) return false;
     if (draftKind === "expense-fixed" && (session?.ledger.structure.categories.find((c) => c.id === l.categoryId)?.role === "savings")) return false;
     if (categoryId && categoryId !== "all" && l.categoryId !== categoryId) return false;
     if (storeId && storeId !== "all" && l.storeId !== storeId) return false;
@@ -1576,9 +1580,18 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [bankRank, setBankRank] = useState<string[] | null>(null);
   useEffect(() => {
     if (seeded.current || !session) return;
-    try {
-      if (localStorage.getItem("faro-save-presets") === "1") { seeded.current = true; return; }
-    } catch { return; }
+    let deviceGate = false;
+    try { deviceGate = localStorage.getItem("faro-save-presets") === "1"; } catch { return; }
+    // 1.3.177: the seed-once decision lives in the ledger (deskseed.ts), not only in this
+    // device's localStorage — a bank the user deleted stays deleted wherever the book goes.
+    const decision = deskSeedDecision(session.ledger, "desk-banks", deviceGate);
+    if (decision === "done") { seeded.current = true; return; }
+    if (decision === "adopt") {
+      seeded.current = true;
+      try { localStorage.setItem("faro-save-presets", "1"); } catch { /* ignore */ }
+      commit((s) => withDeskSeedFlag(s, "desk-banks"), "presets");
+      return;
+    }
     const cat = session.ledger.structure.categories.find((c) => c.role === "savings" && !c.hidden);
     if (!cat) return;
     seeded.current = true;
@@ -1601,7 +1614,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       const concept = row[0];
       return !!subId && !!concept && !all.some((line) => line.subId === subId && line.concept.toLowerCase() === concept.toLowerCase());
     });
-    if (!banks.length && !pockets.length) return;
+    if (!banks.length && !pockets.length) { commit((s) => withDeskSeedFlag(s, "desk-banks"), "presets"); return; }
     const display = session.ledger.settings.display;
     commit((s) => {
       const categories = s.structure.categories.map((c) => c.id !== cat.id ? c : {
@@ -1633,7 +1646,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           balanceCurrency: display, icon: "vault", history: [],
         });
       }
-      return next;
+      return withDeskSeedFlag(next, "desk-banks");
     }, "presets");
   }, [session, commit, key]);
   // 1.3.81: Primerica is offered in Retiro (a $0 preset) in the current month or later (or the ledger's latest month) until the user removes it (ledger.retiroOff).
@@ -1647,9 +1660,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }, [session, commit, key]);
   useEffect(() => {
     if (!session) return;
-    try {
-      if (localStorage.getItem("faro-save-ni") === "1") return;
-    } catch { return; }
+    let deviceGateNi = false;
+    try { deviceGateNi = localStorage.getItem("faro-save-ni") === "1"; } catch { return; }
+    // 1.3.177: same ledger-kept decision as the presets seed (deskseed.ts).
+    const decisionNi = deskSeedDecision(session.ledger, "desk-ni", deviceGateNi);
+    if (decisionNi === "done") return;
+    if (decisionNi === "adopt") {
+      try { localStorage.setItem("faro-save-ni", "1"); } catch { /* ignore */ }
+      commit((s) => withDeskSeedFlag(s, "desk-ni"), "ni-banks");
+      return;
+    }
     const cat = session.ledger.structure.categories.find((c) => c.role === "savings" && !c.hidden);
     if (!cat) return;
     try { localStorage.setItem("faro-save-ni", "1"); } catch { /* ignore */ }
@@ -1661,10 +1681,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     ] as const;
     commit((s) => {
       const current = s.structure.categories.find((c) => c.id === cat.id);
-      if (!current) return s;
+      if (!current) return withDeskSeedFlag(s, "desk-ni");
       const named = new Set(current.subs.map((sub) => (sub.customName || "").trim().toLowerCase()));
       const banks = wanted.filter(([id, name]) => !current.subs.some((sub) => sub.id === id) && !named.has(name.toLowerCase()));
-      if (!banks.length) return s;
+      if (!banks.length) return withDeskSeedFlag(s, "desk-ni");
       const categories = s.structure.categories.map((c) => c.id !== current.id ? c : {
         ...c,
         subs: [...c.subs, ...banks.map(([id, name, icon], i) => ({ id, nameKey: "", customName: name, icon, hidden: false, order: 93 + i }))],
@@ -1679,7 +1699,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           balanceCurrency: display, icon: "vault", history: [],
         });
       }
-      return next;
+      return withDeskSeedFlag(next, "desk-ni");
     }, "ni-banks");
   }, [session, commit, key]);
   const quickRef = useRef<HTMLDivElement>(null);
@@ -1847,6 +1867,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   if (!summary || !session) return null;
   const debtIds = new Set(session.ledger.structure.categories.filter((c) => c.role === "debt").map((c) => c.id));
   const shown = lines.filter((line) => {
+    // 1.3.177: the board is a list — a line whose category or subconcept the user hid does
+    // not appear (it keeps counting in every total; see lineListVisible). The Asesor's
+    // naming surfaces already obeyed this via visibleNamer; the board itself did not.
+    if (!lineListVisible(session.ledger.structure, line)) return false;
     if (lens === "have") return line.kind.startsWith("income");
     if (lens === "debt") return debtIds.has(line.categoryId) || line.kind === "subscription";
     if (lens === "spend") return !line.kind.startsWith("income");

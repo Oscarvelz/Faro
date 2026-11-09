@@ -154,7 +154,12 @@ export function savingsPicture(state: LedgerState, monthKey: string): SavingsPic
     const stock = stockOf(line, display, rateE4);
     if (isVault(state, line.subId)) accounts += stock;
     else {
-      const dest = destOf(line.subId);
+      // 1.3.177: a destination the user hid is never named back to them — its stock reads
+      // as unassigned in this picture, exactly like the Desk band's generic «rest». The
+      // savings total does not move; only the attribution follows visibility.
+      const cat = state.structure.categories.find((c) => c.id === line.categoryId);
+      const sub = cat?.subs.find((s) => s.id === line.subId);
+      const dest = cat?.hidden || sub?.hidden ? null : destOf(line.subId);
       if (dest === "meta") meta += stock;
       else if (dest === "retiro") retiro += stock;
       else if (dest === "emergencia") emergencia += stock;
