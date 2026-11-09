@@ -4511,6 +4511,17 @@ function StructureTree() {
     if (stopScrollRef.current) { window.removeEventListener("touchmove", stopScrollRef.current); stopScrollRef.current = null; }
     if (scrollWatchRef.current) { window.removeEventListener("scroll", scrollWatchRef.current, true); scrollWatchRef.current = null; }
   };
+  // 1.3.164: no window listener survives this tree. The touchmove blocker a lift installs was
+  // removed ONLY by endPress(), which ran only from the row's own pointerup/pointercancel — if
+  // the tree unmounted mid-drag (leaving Ajustes with another tap while holding a lifted row,
+  // the row node replaced by a re-render, capture lost without up/cancel), the blocker lived
+  // forever and ALL touch scroll died until the app was closed and reopened (Oscar's report,
+  // reproduced in faro-shots/scenario-bugrepro.mjs). Unmounting now ends the press.
+  useEffect(() => () => {
+    endPress();
+    dragRef.current = null;
+    pressRef.current = null;
+  }, []);
   const onRowPointerDown = (e: React.PointerEvent<HTMLElement>, cat: Category, group: string, index: number, count: number) => {
     if (needle || openId === cat.id) return; // no dragging while searching or while the row is being edited
     if (e.button !== undefined && e.button !== 0) return;
@@ -4636,6 +4647,7 @@ function StructureTree() {
                     onPointerMove={onRowPointerMove}
                     onPointerUp={onRowPointerUp}
                     onPointerCancel={onRowPointerUp}
+                    onLostPointerCapture={onRowPointerUp}
                     onClick={() => { if (swallowClickRef.current) { swallowClickRef.current = false; return; } setOpenId(open ? null : cat.id); }}>
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
                     <span className="min-w-0">

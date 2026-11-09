@@ -5,8 +5,9 @@
  *
  * What the bridge does inside the app:
  * - Back: the phone's Back asks FaroBack(); Faro's own history (each layer owns its entry) handles it exactly as in
- *   Chrome. Only when Faro is at its root (the provider's "nothing to close" branch, or no screen mounted) the app hears
- *   atRoot() and shows "Pulsa atrás otra vez para salir".
+ *   Chrome. At the root, the WEB exit confirm rules (1.3.164): FaroBack's no-step case and the provider's root branch both
+ *   end at the provider's «¿Salir de Faro?» dialog, whose Salir calls the bridge's exitNow() (older shells: atRoot()'s
+ *   press-again). Only with no screen mounted (sign-in, lock, boot) does atRoot() still show "Pulsa atrás otra vez para salir".
  * - Status/navigation bar colours follow the theme (the same colour statusbar.ts writes to meta theme-color).
  * - Downloads (Excel, PDF, backup JSON): a blob link is handed to the app and saved in Downloads/Faro.
  * - Fingerprint: WebAuthn does not work in a plain WebView, so lock.ts asks the phone's BiometricPrompt through
@@ -18,6 +19,8 @@ export type FaroNativeBridge = {
   version(): string;
   setBars(top: string, bottom: string, darkTop: boolean, darkBottom: boolean): void;
   atRoot(msg: string): void;
+  /** 1.3.164: the exit confirm's Salir — the shell finishes at once. Absent on shells before it. */
+  exitNow?(): void;
   canAuth(): string;
   authenticate(id: string, title: string, subtitle: string): void;
   saveBegin(name: string, mime: string): string;
@@ -116,10 +119,15 @@ export function nativeBattAsk(): boolean | null {
 function installBack(n: FaroNativeBridge) {
   const w = window as W;
   const root = () => {
+    // 1.3.164: with the app mounted, a root Back is answered by the WEB exit confirm (the
+    // provider's «¿Salir de Faro?»), in the shell exactly as in the browser — this event is its
+    // door. The shell's press-again toast now serves only the screens with no Faro history of
+    // their own (sign-in, lock, boot), where Back still means leave at once. (The provider used
+    // to announce its root branch with a "faro-back-at-root" event; it opens the confirm itself
+    // now, so that announcement is gone.)
+    if (w.__faroProviderLive) { window.dispatchEvent(new Event("faro-root-back")); return; }
     try { n.atRoot(en() ? "Press back again to close Faro" : "Pulsa atrás otra vez para salir"); } catch { /* ignore */ }
   };
-  // The provider's popstate reached its "nothing left to close" branch: Faro is on its first screen.
-  window.addEventListener("faro-back-at-root", root);
   // Count every completed history step. Faro's layers stop popstate from reaching later listeners, so the count also
   // listens to the Navigation API (currententrychange fires for every traversal, whoever handles the popstate).
   let steps = 0;

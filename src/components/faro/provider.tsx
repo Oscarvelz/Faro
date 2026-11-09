@@ -28,7 +28,7 @@ import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { todayIso } from "@/lib/faro/loans";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
-type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; run: () => void };
+type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; run: () => void };
 /** Load-time seeds: the August sample, then the one-time Remesas categories (1.3.86). */
 function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean; sample: boolean } {
   // 1.3.87: the August sample lives only in sample mode (its own store). Personal books that are
@@ -342,6 +342,38 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   confirmRef.current = confirmState;
   uiRef.current = ui;
 
+  // 1.3.164: Back at the root asks «¿Salir de Faro?» before leaving — in the browser and in the
+  // Android shell alike (the shell's FaroBack lands here through the same popstate, or through
+  // the faro-root-back event when no entry was left to step to). Quedarme just closes the dialog:
+  // the root branch has already re-pushed its guard entry, so the next Back asks again — it never
+  // falls through and never traps. Salir lets the exit proceed exactly as it did before the
+  // question existed.
+  const exitOkRef = useRef(false);
+  const showExitConfirm = useCallback(() => {
+    if (confirmRef.current) return; // a dialog is already up — one question at a time
+    const lg = sessionRef.current?.ledger.settings.lang ?? "es";
+    const tr = (k: string) => translate(lg, k);
+    setConfirm({
+      title: tr("exit.title"),
+      body: tr("exit.body"),
+      yes: tr("exit.leave"),
+      no: tr("exit.stay"),
+      run: () => {
+        const bridge = (window as Window & { FaroNative?: { exitNow?: () => void; atRoot?: (msg: string) => void } }).FaroNative;
+        // The newest shell knows exitNow() and finishes at once. A shell from before it only has
+        // atRoot (its press-again-to-exit): the first call arms that window, the second confirms
+        // it — Salir still leaves, by the shell's own rule, until the shell update lands.
+        if (bridge?.exitNow) { try { bridge.exitNow(); return; } catch { /* fall through */ } }
+        if (bridge?.atRoot) { try { bridge.atRoot(tr("exit.again")); bridge.atRoot(tr("exit.again")); return; } catch { /* fall through */ } }
+        // Browser / PWA: consume the guard and step off the app's history for real.
+        exitOkRef.current = true;
+        history.back();
+      },
+    });
+  }, []);
+  const showExitConfirmRef = useRef(showExitConfirm);
+  showExitConfirmRef.current = showExitConfirm;
+
   useEffect(() => {
     const place: Place = {
       section: ui.section,
@@ -462,16 +494,24 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         setDepth(places.current.length);
         return;
       }
+      // 1.3.164: the root. The one step Salir itself authorized falls off the app's history
+      // without re-arming and without asking again — the exit proceeds.
+      if (exitOkRef.current) { exitOkRef.current = false; return; }
       history.pushState({ faro: 1 }, "");
-      // Faro for Android (1.3.111): nothing was left to close, so the app's Back may offer to leave. Browser: no listener.
-      if ((window as Window & { FaroNative?: unknown }).FaroNative) window.dispatchEvent(new Event("faro-back-at-root"));
+      // Nothing was left to close: Back at the root asks before leaving. The guard entry just
+      // pushed keeps the question armed — Quedarme closes the dialog and the next Back asks again.
+      showExitConfirmRef.current();
     };
     window.addEventListener("popstate", onPop);
+    // The Android shell's FaroBack found no entry to step to (the true first entry): same question.
+    const onRootBack = () => showExitConfirmRef.current();
+    window.addEventListener("faro-root-back", onRootBack);
     const live = window as Window & { __faroProviderLive?: number };
     live.__faroProviderLive = (live.__faroProviderLive ?? 0) + 1;
     return () => {
       live.__faroProviderLive = Math.max(0, (live.__faroProviderLive ?? 1) - 1);
       window.removeEventListener("popstate", onPop);
+      window.removeEventListener("faro-root-back", onRootBack);
       window.removeEventListener("wheel", stopRestore);
       window.removeEventListener("touchstart", stopRestore);
     };
@@ -1234,7 +1274,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
             <h2 id="faro-confirm-title" className="ask-title">{confirmState.title}</h2>
             <p id="faro-confirm-body" className="ask-body">{confirmState.body}</p>
             <div className="ask-actions">
-              <button type="button" className="ask-btn is-quiet" onClick={() => setConfirm(null)}>{t("cancel")}</button>
+              <button type="button" className="ask-btn is-quiet" onClick={() => setConfirm(null)}>{confirmState.no ?? t("cancel")}</button>
               <button
                 type="button"
                 autoFocus

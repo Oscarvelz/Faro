@@ -385,6 +385,13 @@ class MainActivity : Activity() {
             runOnUiThread { leaveOnSecondBack(msg.ifBlank { "Pulsa atrás otra vez para salir" }) }
         }
 
+        /** 1.3.164 (web): the exit confirm's Salir — the user already answered the question in
+         *  the web dialog, so the activity finishes at once (no press-again window). */
+        @JavascriptInterface fun exitNow() {
+            if (!trusted) return
+            runOnUiThread { finish() }
+        }
+
         @JavascriptInterface fun canAuth(): String {
             if (!trusted) return "no"
             val bm = getSystemService(BiometricManager::class.java) ?: return "no"
