@@ -154,6 +154,10 @@
 .tool-close:active { transform: scale(.92); }
 .tool-close::before { content: ""; position: absolute; inset: -6px; }
 .tool-close { position: relative; }
+/* 1.3.174: the tools aside's close — the same quiet round X, floated at the panel's
+   top-right, clear of the resize corner (the aside is a fixed panel whenever it is
+   open, so the panel is the anchor). */
+.aside .money-close { position: absolute; z-index: 3; top: 8px; right: 44px; background: color-mix(in oklab, var(--surface) 86%, transparent); }
 .tool-brand .brand-lamp svg { width: 40px !important; height: 40px !important; }
 .tool-brand .brand-lamp { transform: translateY(-2px); }
 /* Guardados: select many, delete with one confirmation */

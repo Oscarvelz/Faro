@@ -302,6 +302,8 @@ export function Shell() {
   }, [viewOpen]);
   // Esc and phone back close the Vista menu only.
   useLayer(viewOpen, () => setViewOpen(false));
+  // 1.3.174: the tools aside is a layer too — Esc and phone back close it, like every other sheet.
+  useLayer(moneyOpen, () => setMoneyOpen(false));
   const stackRef = useRef<HTMLDivElement>(null);
   const topPaneRef = useRef<HTMLDivElement>(null);
   const wideRef = useRef(wide);
@@ -1298,6 +1300,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
           </main>
           <aside ref={moneyPanel} className={`aside${moneyOpen ? " is-open" : ""}`}>
             {moneyOpen ? <button type="button" className="money-resize" aria-label={lang === "en" ? "Resize" : "Tamaño"} onPointerDown={resizeMoney} /> : null}
+            {moneyOpen ? <button type="button" className="tool-close money-close" aria-label={t("close")} title={t("close")} onClick={() => setMoneyOpen(false)}><X /></button> : null}
             <Instruments pinned />
           </aside>
           {ui.instruments && !split ? <ToolSheet /> : null}

@@ -47,6 +47,18 @@ export function DayField({ value, onChange, min, max }: { value: string; onChang
     if (!root || !pop) return;
     const pr = pop.getBoundingClientRect();
     if (!flipX && pr.right > window.innerWidth - 4) { setFlipX(true); return; }
+    // 1.3.174: on tablet widths the +/− sheet is narrower than the screen, so a pop can
+    // stay on screen yet spill past its sheet's right edge — anchor it to the field's
+    // right instead, provided the flipped pop still starts inside the sheet. Phone
+    // widths keep the viewport rule alone.
+    if (!flipX && window.innerWidth >= 1100) {
+      const sheet = root.closest<HTMLElement>(".where-sheet");
+      if (sheet) {
+        const sr = sheet.getBoundingClientRect();
+        const rr = root.getBoundingClientRect();
+        if (pr.right > sr.right - 2 && rr.right - pr.width >= sr.left + 2) { setFlipX(true); return; }
+      }
+    }
     let sc: HTMLElement | null = root.parentElement;
     while (sc && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
     const box = sc ?? (document.scrollingElement as HTMLElement | null);

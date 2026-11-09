@@ -86,6 +86,13 @@
     margin: -27px auto 0;
   }
   .app-frame:not(.is-split) .top-chrome > .top-scale > .debt-scale { margin: 0; }
+  /* 1.3.174: the wrapper itself takes no taps — only the scale's own parts do — so the
+     brand button underneath keeps its whole box, centre included. The shut scale keeps
+     its own rule from top-scale.css (root takes no taps, the emblem does): re-asserted
+     here because the line above would otherwise outrank it. */
+  .app-frame:not(.is-split) .top-chrome > .top-scale { pointer-events: none; }
+  .app-frame:not(.is-split) .top-chrome > .top-scale > .debt-scale { pointer-events: auto; }
+  .app-frame:not(.is-split) .top-chrome > .top-scale > .debt-scale[data-fold="shut"] { pointer-events: none; }
 }
 
 @media (width >= 1100px) {
