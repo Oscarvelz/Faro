@@ -4537,15 +4537,17 @@ function StructureTree() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   dragRef.current = drag;
-  const pressRef = useRef<{ id: string; group: string; index: number; count: number; y: number; timer: number; el: HTMLElement } | null>(null);
+  const pressRef = useRef<{ id: string; group: string; index: number; count: number; y: number; pid: number; timer: number; el: HTMLElement } | null>(null);
   const swallowClickRef = useRef(false);
   const stopScrollRef = useRef<((e: TouchEvent) => void) | null>(null);
   const scrollWatchRef = useRef<(() => void) | null>(null);
+  const endGestureRef = useRef<((e: PointerEvent) => void) | null>(null);
   const endPress = () => {
     if (pressRef.current) window.clearTimeout(pressRef.current.timer);
     pressRef.current = null;
     if (stopScrollRef.current) { window.removeEventListener("touchmove", stopScrollRef.current); stopScrollRef.current = null; }
     if (scrollWatchRef.current) { window.removeEventListener("scroll", scrollWatchRef.current, true); scrollWatchRef.current = null; }
+    if (endGestureRef.current) { window.removeEventListener("pointerup", endGestureRef.current); window.removeEventListener("pointercancel", endGestureRef.current); endGestureRef.current = null; }
   };
   // 1.3.164: no window listener survives this tree. The touchmove blocker a lift installs was
   // removed ONLY by endPress(), which ran only from the row's own pointerup/pointercancel — if
@@ -4563,6 +4565,19 @@ function StructureTree() {
     if (e.button !== undefined && e.button !== 0) return;
     swallowClickRef.current = false; // a new gesture clears any stale swallow from a cancelled drag
     endPress();
+    // 1.3.167: <main>'s swipe capture (shell.tsx) takes pointer capture on EVERY touch
+    // pointerdown, so a short tap's pointerup is retargeted to <main> and the row never sees
+    // it — its lift timer was never cancelled and fired alone into an empty room: the row
+    // lifted itself and the touch blocker stayed armed, killing scroll (Oscar's "se pega";
+    // faro-shots/scenario-tapleak.mjs). This window-level listener hears the gesture's end
+    // no matter which element holds capture; endPress() itself disarms it, so it can never
+    // kill a later press, and unmount disarms it through endPress too. For a real drag the
+    // row's own pointerup (the drop) dispatches from the app root before this bubble-phase
+    // window listener fires, so the drop still runs first and this is a no-op cleanup.
+    const endGesture = (ev: PointerEvent) => { if (pressRef.current && ev.pointerId === pressRef.current.pid) endPress(); };
+    endGestureRef.current = endGesture;
+    window.addEventListener("pointerup", endGesture);
+    window.addEventListener("pointercancel", endGesture);
     // 1.3.145: if the page actually scrolls while the finger is down, the gesture was a scroll —
     // cancel the pending lift at the first real movement (position compared, so a scroll event
     // queued from before the press can't cancel it), and swiping stays fluid (Oscar: with a category
@@ -4574,6 +4589,7 @@ function StructureTree() {
     window.addEventListener("scroll", watch, { capture: true, passive: true });
     const el = e.currentTarget;
     const timer = window.setTimeout(() => {
+      if (!pressRef.current) return; // 1.3.167: the press already ended — never lift into an empty room
       const wrap = el.closest<HTMLElement>("[data-row]");
       const rowH = wrap?.getBoundingClientRect().height ?? 52;
       try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
@@ -4584,7 +4600,7 @@ function StructureTree() {
       dragRef.current = lifted;
       setDrag(lifted);
     }, 260);
-    pressRef.current = { id: cat.id, group, index, count, y: e.clientY, timer, el };
+    pressRef.current = { id: cat.id, group, index, count, y: e.clientY, pid: e.pointerId, timer, el };
   };
   const onRowPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const press = pressRef.current;
