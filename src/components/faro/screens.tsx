@@ -1064,7 +1064,6 @@ function DueOwe() {
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState(todayIso());
   const [cadence, setCadence] = useState<Line["cadence"]>("monthly");
-  const [fileOpen, setFileOpen] = useState(false);
   const [editPresets, setEditPresets] = useState(false);
   const presets = subPresetsOf(session?.ledger);
   const [dueIcon, setDueIcon] = useState("");
@@ -1074,12 +1073,6 @@ function DueOwe() {
   const [otherFreq, setOtherFreq] = useState(false);
   const freqs = freqPresetsOf(session?.ledger);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
-  useEffect(() => {
-    const onOpen = (e: Event) => { if ((e as CustomEvent<string>).detail === "cobros-out-file") setFileOpen(true); };
-    window.addEventListener("faro-open", onOpen);
-    return () => window.removeEventListener("faro-open", onOpen);
-  }, []);
-  const [openPeak, setOpenPeak] = useState<string | null>(null);
   const display = session?.ledger.settings.display ?? "USD";
   const active = lines.filter((line) => line.kind === "subscription" && line.active);
   const sum = active.reduce((total, line) => total + convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0), 0);
@@ -1196,36 +1189,8 @@ function DueOwe() {
           </div>
         </article>
       )) : <Note>{t("cobro.owe.empty")}</Note>}
-      <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
-        <div role="button" tabIndex={0} data-anchor="cobros-out-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
-          <span className="lab-head">{t("cobro.file")}<Hint topic="archivo-cuotas" /></span>
-          <b>{filed.length}</b>
-          <ChevronDown className={fileOpen ? "fold-chev is-open" : "fold-chev"} />
-        </div>
-        {fileOpen ? (filed.length ? filed.map((row) => (
-          <article key={row.id} className="cobro-card is-file">
-            <button type="button" className="due-peak" onClick={() => setOpenPeak(openPeak === row.id ? null : row.id)}>
-              <span>{row.name}</span>
-              <strong>{t("cobro.owe.peak")} {fmt(convertMinor(row.maxMinor, row.currency, display, session?.ledger.settings.rateE4 ?? 0))}</strong>
-            </button>
-            {openPeak === row.id ? (
-              <ul className="due-pays">
-                {row.pays.map((pay, index) => <li key={`${row.id}-${index}`}><span>{pay.date}</span><span>{fmt(convertMinor(pay.amountMinor, row.currency, display, session?.ledger.settings.rateE4 ?? 0))}</span></li>)}
-              </ul>
-            ) : null}
-            <button type="button" className="btn secondary" onClick={() => confirm({
-              title: t("cobro.owe.move"),
-              body: t("cobro.owe.move.body"),
-              yes: t("cobro.owe.move"),
-              run: () => {
-                const line = Object.values(session?.ledger.months ?? {}).flatMap((month) => month.lines).find((item) => item.seriesId === row.seriesId || item.id === row.seriesId);
-                if (line) commit((s) => upsertLine(s, { ...line, active: true }), row.name);
-                saveFile(filed.filter((item) => item.id !== row.id));
-              },
-            })}>{t("cobro.owe.move")}</button>
-          </article>
-        )) : <Note>{t("cobro.owe.file.empty")}</Note>) : null}
-      </div>
+      {/* 1.3.162 (Oscar): the dues Archive section is gone from Central's panel — the
+          filed dues and their data stay untouched; the Archive lives in Libros. */}
     </div>
   );
 }

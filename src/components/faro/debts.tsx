@@ -413,6 +413,8 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
       {group("plain")}
       {group("interest")}
       <RewardsGroup />
+      {/* 1.3.162 (Oscar): the Archive lives in Libros; Central's panel does not show it. */}
+      {libros ? (
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
         <div role="button" tabIndex={0} data-anchor={libros ? "debt-owed-file" : "cobros-file"} className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
           <span className="lab-head">{t("cobro.file")}<Hint topic="archivar" /></span>
@@ -431,6 +433,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
           </article>
         )) : <Note>{t("cobro.file.empty")}</Note>) : null}
       </div>
+      ) : null}
       {libros && tabletOne ? <AreaAdvisor area="owed" /> : null}
       {sheet}
     </div>

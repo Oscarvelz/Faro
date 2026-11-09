@@ -815,3 +815,9 @@
 - Cabecera de las hojas de tarjeta (detalle, Editar/Añadir tarjeta, Actualizar a mano, Canjear): el título ya no se monta sobre la placa de la tarjeta. La regla de columnas pensada para la cabecera (placa automática de 64px) perdía contra las pistas de 34px de la hoja de escaneo por orden del paquete; ahora manda con la especificidad correcta y el título queda entero al lado de la placa, con su hueco de 10px.
 - El calendario de fecha ya no queda debajo de los botones: al abrirse, el formulario que lo contiene se levanta como una unidad (el mismo movimiento que ya hacían los paneles de cobro), así Editar/Eliminar y las filas de acciones nunca se pintan encima de los días de la semana.
 - El mismo calendario, en cualquier formulario: si saldría cortado por el pie fijo de la hoja, el cuerpo se desplaza lo justo para mostrarlo entero; si saldría por el borde derecho de la pantalla (formulario de línea), se ancla al lado derecho del campo. Dirección y tamaño, los de siempre.
+
+## Web 1.3.162 (2026-11-08, Muse) — El Archivo sale del panel de Central y se queda en Libros
+
+- El panel de Cobros de Central ya no muestra la fila de Archivo en ninguna de sus vistas: ni en Me deben, ni en Debo → Cuotas, ni en Debo → Préstamos. El panel es para ver y anotar; el Archivo vive en Libros, donde pertenece.
+- En Libros el Archivo sigue exactamente como estaba: la fila aparece en el libro Me deben y en Préstamos del libro Debo, se abre igual y muestra los registros archivados con su botón de restaurar.
+- No se tocó ningún dato: los registros archivados, el archivar desde cada tarjeta y el restaurar quedan intactos; solo cambia dónde se ve la sección.

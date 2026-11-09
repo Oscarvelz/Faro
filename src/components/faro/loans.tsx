@@ -400,6 +400,8 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
             archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
         );
       }) : cardSum.count ? null : <Note>{t("cobro.loan.empty")}</Note>}
+      {/* 1.3.162 (Oscar): the Archive lives in Libros; Central's panel does not show it. */}
+      {libros ? (
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
         <div role="button" tabIndex={0} data-anchor="cobros-loans-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
           <span className="lab-head">{t("cobro.file")}<Hint topic="prestamo-archivo" /></span>
@@ -425,6 +427,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
           </article>
         )) : <Note>{t("cobro.loan.file.empty")}</Note>) : null}
       </div>
+      ) : null}
       {between}
     </div>
   );
