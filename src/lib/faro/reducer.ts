@@ -13,7 +13,7 @@ export function blankSession(ledger: LedgerState, dirty = false): Session {
   return { ledger, past: [], future: [], dirty };
 }
 
-export function commit(session: Session, recipe: (s: LedgerState) => LedgerState, detail: string): Session {
+export function commit(session: Session, recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)): Session {
   const snap: LedgerState = session.ledger;
   const drafted = recipe(snap);
   const updatedAt = new Date().toISOString();
@@ -21,7 +21,9 @@ export function commit(session: Session, recipe: (s: LedgerState) => LedgerState
     ...drafted,
     revision: snap.revision + 1,
     updatedAt,
-    audit: [{ id: uid(), at: updatedAt, detail }, ...snap.audit].slice(0, 80),
+    // 1.3.170: the detail may be a thunk, resolved only after the recipe ran, so the activity
+    // entry can carry an outcome the recipe itself computed (the undo-import preserved count, N1).
+    audit: [{ id: uid(), at: updatedAt, detail: typeof detail === "function" ? detail() : detail }, ...snap.audit].slice(0, 80),
   };
   return {
     ledger,

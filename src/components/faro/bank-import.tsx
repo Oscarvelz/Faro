@@ -7,7 +7,7 @@ import { ArrowLeftRight, Ban, Settings as Gear, Check, CopyCheck, FileImage, Fil
 import { formatMoney } from "@/lib/faro/money";
 import { GUIDE_BUILTIN, accounts, guideName, guidesOf, importBook, rcLabel, resetGuides, rowFor, saveGuides } from "@/lib/faro/bankbook";
 import { GuideEditor, GuideMark } from "./bank-guides";
-import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, lineAmount, parseFile, pickSource, remap, revertImportCounted, rewardFor, type ImportAdjustment, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
+import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, lineAmount, parseFile, pickSource, remap, revertImportCounted, rewardFor, type ImportAdjustment, type ParsedFile, type Review, type Row, type Undo } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
 import { translate } from "@/lib/faro/i18n";
 import type { ColumnMap, Currency, LedgerState, RewardClass } from "@/lib/faro/types";
@@ -153,19 +153,36 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
       const monthLabel = `${FULL[lang === "en" ? "en" : "es"][Number(lastDay.slice(5, 7)) - 1]} ${lastDay.slice(0, 4)}`;
       adjustments.push({ file: i, diffMinor: diff, concept: L(lang, `Ajuste de conciliación · ${acctName} · ${monthLabel}`, `Reconciliation adjustment · ${acctName} · ${monthLabel}`), note: L(lang, "Conciliación: la diferencia entre el estado de cuenta y lo que Faro tenía.", "Reconciliation: the difference between the statement and what Faro had.") });
     });
-    const undo = applyImport(state, rv, files, sources, batch, pocketOn, adjustments).undo;
+    // 1.3.170 (N1, la raíz): el Deshacer tiene que ser el de la corrida que de verdad escribió el
+    // libro. El que se calculaba aquí, sobre el estado de render, trae la procedencia (written) de
+    // una corrida en seco: sus ids no son los que el commit escribió, así que la cuenta de líneas
+    // conservadas nacía siempre en cero y la línea editada solo sobrevivía de rebote. La receta del
+    // commit captura el suyo al correr; el de la corrida en seco queda solo como red de seguridad
+    // por si un toque llegara antes de que la receta corra.
+    let undo: Undo = applyImport(state, rv, files, sources, batch, pocketOn, adjustments).undo;
     commit((s) => {
-      const next = applyImport(s, rv, files, sources, batch, pocketOn, adjustments).state;
+      const applied = applyImport(s, rv, files, sources, batch, pocketOn, adjustments);
+      undo = applied.undo;
+      const next = applied.state;
       const book = importBook(next);
       return { ...next, imports: { ...book, maps: { ...book.maps, ...maps.current } } };
     }, L(lang, `Importar ${picked} movimientos`, `Import ${picked} transactions`));
     importToast({
       text: L(lang, `Importados: ${picked}`, `Imported: ${picked}`),
       // 1.3.166 (P6): el deshacer respeta las ediciones posteriores a la importación — y lo dice.
+      // 1.3.170 (censo de botones, N1): el resultado vive en el registro de actividad, cuya entrada
+      // escribe este mismo commit — el detalle es una función que se resuelve tras correr la receta,
+      // así la entrada lleva la cuenta de líneas conservadas que la receta acaba de calcular. El toast
+      // es solo el botón de deshacer, no el portador del resultado: su segundo toast con este texto se
+      // cerraba en el mismo toque y nunca llegaba al usuario, por eso desaparece.
       undo: () => {
         let kept = 0;
-        commit((s) => { const r = revertImportCounted(s, undo); kept = r.preserved; return r.state; }, L(lang, "Deshacer importación", "Undo import"));
-        if (kept > 0) importToast({ text: L(lang, `Importación deshecha. Se conservaron ${kept} línea${kept === 1 ? "" : "s"} que editaste después.`, `Import undone. ${kept} line${kept === 1 ? "" : "s"} you edited afterwards were kept.`) });
+        commit(
+          (s) => { const r = revertImportCounted(s, undo); kept = r.preserved; return r.state; },
+          () => (kept > 0
+            ? L(lang, `Deshacer importación. Se conservaron ${kept} línea${kept === 1 ? "" : "s"} que editaste después.`, `Undo import. ${kept} line${kept === 1 ? "" : "s"} you edited afterwards were kept.`)
+            : L(lang, "Deshacer importación", "Undo import")),
+        );
       },
     });
     onClose();

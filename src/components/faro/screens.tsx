@@ -3863,6 +3863,7 @@ let advisorFolded = false;
 export function Advisor() {
   const { t, advice, budget, fmt, summary, session, lang, names, key, ui, awakeOn, wake, notePlanCopied, dismissFinding, planStale, confirm } = useFaro();
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [openPart, setOpenPart] = useState<string | null>(null);
   const [spreadParts, setSpreadParts] = useState(!advisorFolded);
   // Explicit per-card choices; a card with no choice follows Desplegar (so findings that arrive later open too).
@@ -3907,6 +3908,22 @@ export function Advisor() {
     + (key === basisCurKey && basisNowD.getDate() < basisLastDay ? ` · ${t("advice.basis.now")}` : "");
   const tried = projectLeft(reading, preset, drops);
   const text = [reading.plan, applied].filter(Boolean).join("\n\n");
+  // 1.3.170 (censo de botones, R1): la afirmación sigue al resultado — la escritura se espera y
+  // «Plan copiado» solo aparece cuando el plan de verdad quedó en el portapapeles. Si el navegador
+  // la rechaza o no hay API de portapapeles, un aviso honesto lo dice y el plan de arriba queda
+  // seleccionable para copiarlo a mano; ninguna promesa rechazada se escapa.
+  async function copyPlan() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setCopyFailed(false);
+      notePlanCopied();
+    } catch {
+      setCopied(false);
+      setCopyFailed(true);
+    }
+  }
   const mark = { short: CalendarDays, medium: CreditCard, long: Landmark } as const;
   const toneOf = (id: string) => (id === "base" ? "good" : id === "unique" ? "warn" : "gold");
   const cardOn = (id: string) => openCards[id] ?? unfold;
@@ -4103,10 +4120,11 @@ export function Advisor() {
               <p className="advice-tried"><em>{preset === "base" ? reading.scenarios[0]?.label : preset === "repeat" ? reading.scenarios[1]?.label : reading.scenarios[2]?.label}</em><strong className="num">{fmt(tried)}</strong></p>
               <div className="advice-acts">
                 <button type="button" className="btn secondary" onClick={apply}>{t("advice.apply")}</button>
-                <button type="button" className="btn secondary advice-copy" onClick={() => { void navigator.clipboard.writeText(text); setCopied(true); notePlanCopied(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
+                <button type="button" className="btn secondary advice-copy" onClick={() => { void copyPlan(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
                 <Hint topic="copiar-plan" alt={planStale} />
               </div>
               {applied ? <p className="advice-aside">{t("advice.applied")} {applied}</p> : null}
+              {copyFailed ? <p className="advice-aside" role="alert">{t("advice.copyFailed")}</p> : null}
             </div>
           </>
         ) : null}

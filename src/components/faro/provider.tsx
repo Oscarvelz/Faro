@@ -114,7 +114,7 @@ export type Api = {
   fmt: (minor: number) => string;
   viewLine: (line: Line) => string;
   recordLine: (line: Line) => string;
-  commit: (recipe: (s: LedgerState) => LedgerState, detail: string) => void;
+  commit: (recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -854,7 +854,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     return () => window.clearTimeout(timer);
   }, [session?.dirty, session?.ledger.revision, syncNow]);
 
-  const commit = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string) => {
+  const commit = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => {
     setSession((s) => (s ? commitSession(s, recipe, detail) : s));
   }, []);
   const undo = useCallback(() => setSession((s) => (s ? undoSession(s) : s)), []);
