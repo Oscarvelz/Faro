@@ -50,6 +50,7 @@ const SCAN_KINDS: LineKind[] = ["subscription", "purchase", "expense-variable", 
 import { StmtScan, type StmtSave } from "./stmt-scan";
 import { useFaro } from "./provider";
 import type { BackupInfo } from "@/spa/vault";
+import type { QuarantineEntry } from "@/lib/faro/packguard";
 import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
@@ -4155,7 +4156,7 @@ function clipWords(text: string, max: number): string {
 }
 
 export function Settings() {
-  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual } = useFaro();
+  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
   const [themeSide, setThemeSide] = useState<{ day: boolean; night: boolean } | null>(null);
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
@@ -4392,6 +4393,7 @@ export function Settings() {
       <SampleRow />
       <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />
+        <QuarantinePanel entries={quarantined} onRestore={restoreQuarantine} />
         <div className="vault-more">
           <button type="button" className="btn secondary" onClick={exportJson}>{t("settings.export")}</button>
           <label className="btn secondary">{t("settings.import")}<input type="file" accept="application/json,application/gzip,.json,.gz" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.currentTarget.value = ""; }} /></label>
@@ -4468,6 +4470,40 @@ function BackupPanel({ backups, onNow, onRestore }: { backups: BackupInfo[]; onN
           </ul>
         </>
       ) : <p className="vault-sub mt-3">{t("backup.none")}</p>}
+    </div>
+  );
+}
+
+/**
+ * Cuarentena visible (1.3.166, arreglo C4): las copias que Faro apartó al encontrarlas dañadas,
+ * con su fecha y su tamaño. Una copia que sigue siendo un libro legible se restaura por la
+ * misma puerta que una copia de la bóveda; una dañada se nombra como tal y no se ofrece.
+ * Sin copias apartadas, el panel no existe (el primer arranque y el uso normal no lo ven).
+ */
+function QuarantinePanel({ entries, onRestore }: { entries: QuarantineEntry[]; onRestore: (ts: number) => void }) {
+  const { t, lang } = useFaro();
+  if (!entries.length) return null;
+  const loc = lang === "en" ? "en-US" : "es-NI";
+  const when = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long" });
+  };
+  const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`);
+  return (
+    <div className="vault">
+      <h3 className="vault-list-title">{t("backup.quarantine")}</h3>
+      <p className="vault-sub">{t("backup.quarantine.sub")}</p>
+      <ul className="vault-list">
+        {entries.map((e) => (
+          <li key={e.key}>
+            <span className="vault-dot" aria-hidden />
+            <span className="vault-day">{when(e.at)}<small><span className="num">{kb(e.bytes)}</span></small></span>
+            {e.ok
+              ? <button type="button" className="btn ghost vault-restore" onClick={() => onRestore(e.ts)}>{t("backup.restore")}</button>
+              : <span className="vault-sub">{t("backup.quarantine.bad")}</span>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

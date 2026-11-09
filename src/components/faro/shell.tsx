@@ -146,7 +146,7 @@ function hubOf(section: SectionId) {
 
 export function Shell() {
   const faro = useFaro();
-  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, setMonth, fmt, persistFailed } = faro;
+  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, setMonth, fmt, persistFailed, tabConflict, dismissTabConflict } = faro;
   const searchRef = useRef<HTMLDivElement>(null);
   const searchPopRef = useRef<HTMLFormElement>(null);
   const deskRef = useRef<HTMLDivElement>(null);
@@ -1274,6 +1274,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
             }}
           >
             {persistFailed ? <p className="persist-banner" role="alert">{t("persist.fail")}</p> : null}
+            {tabConflict ? <p className="persist-banner" role="alert">{t("pack.tabConflict")} <button type="button" onClick={dismissTabConflict}>{t("close")}</button></p> : null}
             {hub === "books" ? (
               <BooksHub vault={vault} onVault={setVault} segRef={segRef} vaultRef={vaultRef} slideDir={slideDir} onSlide={setSlideDir} anchors bar />
             ) : null}

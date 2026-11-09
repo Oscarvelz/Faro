@@ -565,3 +565,55 @@ export function isLedger(x: unknown): x is LedgerState {
   const o = x as Partial<LedgerState>;
   return o.v === 1 && !!o.structure && !!o.months && !!o.settings && typeof o.revision === "number";
 }
+
+/**
+ * isLedgerDeep — la validación con dientes de la oleada 2 del corazón (1.3.166). isLedger solo
+ * comprueba presencia; un libro con un campo corrupto (months[mk].lines = "corrupt-string") lo
+ * pasaba, explotaba en el arranque y la cuarentena se negaba a apartarlo — el libro entero se
+ * sustituía en silencio por uno nuevo (auditoría del corazón, C1). Esta versión comprueba, a
+ * nivel de campo, las formas que los motores y el provider desreferencian de verdad: buckets con
+ * `lines` como array de objetos-línea, las categorías de la estructura, los ajustes que se leen
+ * al arrancar y el bloque imports. Los campos opcionales modernos NO se exigen: un libro de
+ * forma vieja (sin people/imports/loans/cards/…) sigue siendo un libro válido y jamás debe ir a
+ * cuarentena. Si algo separa «dañado» de «nuevo/vacío», gana siempre la preservación.
+ */
+const isObjD = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const isStrD = (v: unknown): v is string => typeof v === "string";
+const isFinD = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+export function isLedgerDeep(x: unknown): x is LedgerState {
+  if (!isLedger(x)) return false;
+  const s = x as unknown as Record<string, unknown>;
+  if (!isStrD(s.updatedAt)) return false;
+  // months: objeto de buckets; cada bucket un objeto con lines = array de objetos-línea.
+  if (!isObjD(s.months)) return false;
+  for (const bucket of Object.values(s.months as Record<string, unknown>)) {
+    if (!isObjD(bucket) || !Array.isArray(bucket.lines)) return false;
+    for (const l of bucket.lines as unknown[]) {
+      if (!isObjD(l)) return false;
+      if (!isStrD(l.id) || !isStrD(l.kind) || !isStrD(l.concept) || !isStrD(l.currency)) return false;
+      if (!isFinD(l.amountMinor)) return false;
+    }
+  }
+  // structure: las categorías que nombran y ordenan todo lo demás.
+  if (!isObjD(s.structure)) return false;
+  const st = s.structure;
+  if (!Array.isArray(st.categories)) return false;
+  for (const c of st.categories as unknown[]) {
+    if (!isObjD(c) || !isStrD(c.id) || !Array.isArray(c.subs)) return false;
+  }
+  if (st.purchases !== undefined && !Array.isArray(st.purchases)) return false;
+  if (st.catalog !== undefined && !Array.isArray(st.catalog)) return false;
+  // settings: los campos que el provider lee al arrancar (idioma, tema, moneda, tipo de cambio).
+  if (!isObjD(s.settings)) return false;
+  const set = s.settings;
+  if (!isStrD(set.lang) || !isStrD(set.theme) || !isStrD(set.display)) return false;
+  if (!isFinD(set.rateE4)) return false;
+  // audit e imports: si están, tienen que tener su forma (su ausencia es forma vieja, válida).
+  if (s.audit !== undefined && !Array.isArray(s.audit)) return false;
+  if (s.imports !== undefined) {
+    if (!isObjD(s.imports)) return false;
+    if (!Array.isArray(s.imports.sources) || !Array.isArray(s.imports.rules) || !isObjD(s.imports.maps)) return false;
+  }
+  return true;
+}

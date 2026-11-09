@@ -7,7 +7,7 @@ import { ArrowLeftRight, Ban, Settings as Gear, Check, CopyCheck, FileImage, Fil
 import { formatMoney } from "@/lib/faro/money";
 import { GUIDE_BUILTIN, accounts, guideName, guidesOf, importBook, rcLabel, resetGuides, rowFor, saveGuides } from "@/lib/faro/bankbook";
 import { GuideEditor, GuideMark } from "./bank-guides";
-import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, lineAmount, parseFile, pickSource, remap, revertImport, rewardFor, type ImportAdjustment, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
+import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, lineAmount, parseFile, pickSource, remap, revertImportCounted, rewardFor, type ImportAdjustment, type ParsedFile, type Review, type Row } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
 import { translate } from "@/lib/faro/i18n";
 import type { ColumnMap, Currency, LedgerState, RewardClass } from "@/lib/faro/types";
@@ -159,7 +159,15 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
       const book = importBook(next);
       return { ...next, imports: { ...book, maps: { ...book.maps, ...maps.current } } };
     }, L(lang, `Importar ${picked} movimientos`, `Import ${picked} transactions`));
-    importToast({ text: L(lang, `Importados: ${picked}`, `Imported: ${picked}`), undo: () => commit((s) => revertImport(s, undo), L(lang, "Deshacer importación", "Undo import")) });
+    importToast({
+      text: L(lang, `Importados: ${picked}`, `Imported: ${picked}`),
+      // 1.3.166 (P6): el deshacer respeta las ediciones posteriores a la importación — y lo dice.
+      undo: () => {
+        let kept = 0;
+        commit((s) => { const r = revertImportCounted(s, undo); kept = r.preserved; return r.state; }, L(lang, "Deshacer importación", "Undo import"));
+        if (kept > 0) importToast({ text: L(lang, `Importación deshecha. Se conservaron ${kept} línea${kept === 1 ? "" : "s"} que editaste después.`, `Import undone. ${kept} line${kept === 1 ? "" : "s"} you edited afterwards were kept.`) });
+      },
+    });
     onClose();
   }
 

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { BCN_AS_OF, BCN_RATE_E4 } from "./money";
+import { pushWins } from "./syncdecide";
 
 export type RemoteRow = {
   dataJson: string;
@@ -55,15 +56,19 @@ export const pushLedger = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<{ stale: boolean; row: RemoteRow | null }> => {
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
-    const current = await sql<{ revision: number; updated_at: string }>`
-      select revision, updated_at::text as updated_at
+    const current = await sql<{ revision: number; data_json: string }>`
+      select revision, data_json
       from faro_ledgers
       where user_id = ${context.userId}
     `;
     const prev = current[0];
-    const incomingTime = Date.parse(data.updatedAt);
-    const prevTime = prev ? Date.parse(String(prev.updated_at)) : 0;
-    const wins = !prev || data.revision > Number(prev.revision) || (data.revision === Number(prev.revision) && incomingTime >= prevTime);
+    // 1.3.166 (syncdecide/pushWins): el arbitraje es SIN reloj de pared — gana solo una
+    // revisión mayor; a igual revisión solo pasa el re-empuje idéntico. Antes, a igual
+    // revisión decidía updatedAt y un reloj adelantado reemplazaba el libro en silencio (C7/W5).
+    const wins = pushWins(
+      prev ? { revision: Number(prev.revision), dataJson: typeof prev.data_json === "string" ? prev.data_json : JSON.stringify(prev.data_json) } : null,
+      { revision: data.revision, dataJson: data.dataJson },
+    );
     if (wins) {
       await sql`
         insert into faro_ledgers (user_id, data_json, revision, updated_at, device_id)
@@ -74,7 +79,6 @@ export const pushLedger = createServerFn({ method: "POST" })
           updated_at = excluded.updated_at,
           device_id = excluded.device_id
         where faro_ledgers.revision < excluded.revision
-           or (faro_ledgers.revision = excluded.revision and faro_ledgers.updated_at <= excluded.updated_at)
       `;
     }
     const rows = await sql<{ data_json: string; revision: number; updated_at: string; device_id: string }>`
@@ -91,7 +95,6 @@ export const pushLedger = createServerFn({ method: "POST" })
           deviceId: row.device_id,
         }
       : null;
-    const stale = !remote || remote.revision > data.revision || (remote.revision === data.revision && Date.parse(remote.updatedAt) > incomingTime + 1000 && remote.deviceId !== data.deviceId);
     return { stale: Boolean(prev) && !wins, row: remote };
   });
 

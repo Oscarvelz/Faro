@@ -11,7 +11,9 @@ import {
 } from "react";
 import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow } from "@/lib/faro/api";
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
-import { applyTemplate, createInitial, isLedger, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
+import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
+import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
+import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
@@ -89,6 +91,12 @@ export type Api = {
   setUi: (patch: Partial<UiState>) => void;
   sync: "offline" | "syncing" | "saved" | "local" | "error" | "conflict";
   hasConflict: boolean;
+  /** Cuarentena visible (1.3.166): copias apartadas por daño, restaurables desde Ajustes. */
+  quarantined: QuarantineEntry[];
+  restoreQuarantine: (ts: number) => void;
+  /** C2 (1.3.166): el libro cambió en otra pestaña/ventana y esta ya se puso al día. */
+  tabConflict: boolean;
+  dismissTabConflict: () => void;
   t: (key: string) => string;
   lang: Lang;
   monthLabel: string;
@@ -182,12 +190,19 @@ function conflictKey(userId: string) {
   return `faro.conflict.${userId}`;
 }
 
+/** C2 (1.3.166): el trabajo de ESTA pestaña, apartado cuando el libro se movió en otra. */
+function tabConflictKey(userId: string) {
+  return `faro.conflict.${userId}.tab`;
+}
+
 function readPack(userId: string): { ledger: LedgerState; dirty: boolean } | null {
   try {
     const raw = localStorage.getItem(packKey(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { ledger?: unknown; dirty?: boolean };
-    if (!isLedger(parsed.ledger)) return null;
+    // 1.3.166 (C1): la lectura de arranque valida EN PROFUNDIDAD — un pack con corrupción de
+    // campo ya no «pasa» para luego explotar dentro del arranque.
+    if (!isLedgerDeep(parsed.ledger)) return null;
     return { ledger: parsed.ledger, dirty: Boolean(parsed.dirty) };
   } catch {
     return null;
@@ -198,19 +213,15 @@ function readPack(userId: string): { ledger: LedgerState; dirty: boolean } | nul
  * 1.3.146: a pack that exists but cannot be read (damaged JSON, an old shape) is set aside raw — newest 3 kept —
  * before the fresh book overwrites the pack key, so booting empty never silently destroys the only local copy.
  * Returns true when a copy was set aside. A genuine first run (no pack at all) never quarantines.
+ *
+ * 1.3.166 (oleada 2 del corazón): la mecánica vive ahora en packguard — validación PROFUNDA
+ * (un pack con corrupción de campo también se aparta: era el hueco C1), rotación que nunca
+ * expulsa la última copia buena (C5), y `force` para el catch del arranque: el pack existía
+ * pero el arranque falló, así que se aparta aunque valide — la preservación gana el empate.
  */
-function quarantineCorruptPack(userId: string): boolean {
+function quarantineCorruptPack(userId: string, force = false): boolean {
   try {
-    const raw = localStorage.getItem(packKey(userId));
-    if (!raw) return false;
-    let valid = false;
-    try { valid = isLedger((JSON.parse(raw) as { ledger?: unknown }).ledger); } catch { valid = false; }
-    if (valid) return false;
-    const prefix = `faro.pack.corrupt.${userId}.`;
-    localStorage.setItem(`${prefix}${Date.now()}`, raw);
-    const keys = Object.keys(localStorage).filter((k) => k.startsWith(prefix)).sort();
-    for (const k of keys.slice(0, Math.max(0, keys.length - 3))) localStorage.removeItem(k);
-    return true;
+    return quarantinePack(browserPackStorage(), userId, { force });
   } catch {
     return false;
   }
@@ -287,6 +298,15 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const [planStale, setPlanStale] = useState(false);
   const [persistFailed, setPersistFailed] = useState(false);
   const persistFailedRef = useRef(false);
+  // Oleada 2 del corazón (1.3.166): C2 — el sello de revisión que esta pestaña cargó o guardó por
+  // última vez (baseRevRef), si su guardado está bloqueado por un pack ilegible (tabBlockedRef),
+  // la revisión adoptada tras el último aviso (para no repetir el aviso en bucle), el aviso
+  // visible (tabBanner) y la lista de cuarentena que Ajustes muestra (C4).
+  const baseRevRef = useRef<number | null>(null);
+  const tabBlockedRef = useRef(false);
+  const tabAdoptRevRef = useRef<number | null>(null);
+  const [tabBanner, setTabBanner] = useState(false);
+  const [quarantined, setQuarantined] = useState<QuarantineEntry[]>([]);
   const flipGen = useRef(0); // 1.3.159: generation of the current fr-flip; stale lifts check it before removing the class.
   const planCopied = useRef(false);
   const dismissedRef = useRef<{ id: string; reason: string }[]>([]);
@@ -551,6 +571,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           dirty = true;
         }
       }
+      baseRevRef.current = saved ? ledger.revision : null; // C2: el sello con el que esta pestaña cargó
       setSession(blankSession(ledger, dirty));
       if (corruptAside) setUi({ notice: translate(lang, "pack.corrupt") });
       const now = new Date();
@@ -558,14 +579,52 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const currentEmpty = (ledger.months[currentKey]?.lines.length ?? 0) === 0;
       const hasDemo = (ledger.months["2026-08"]?.lines ?? []).some((line) => line.id.startsWith("demo-ago-"));
       if (seeded.sample || (currentEmpty && hasDemo)) setUi({ year: 2026, month: 8, section: "desk" });
-      setHasConflict(Boolean(localStorage.getItem(conflictKey(userId))));
+      setHasConflict(Boolean(localStorage.getItem(conflictKey(userId)) || localStorage.getItem(tabConflictKey(userId))));
     } catch {
-      if (quarantineCorruptPack(userId)) setUi({ notice: translate(bootLang, "pack.corrupt") });
+      // 1.3.166: el pack existía pero el arranque falló — se aparta SIEMPRE (force), aunque
+      // validara: un fallo de motor no debe costar el libro. La preservación gana el empate.
+      if (quarantineCorruptPack(userId, true)) setUi({ notice: translate(bootLang, "pack.corrupt") });
       setSession(blankSession(createInitial("es", "claro"), false));
     } finally {
       setReady(true);
     }
   }, [userId]);
+
+  /** C2 (1.3.166): adopta el libro guardado — esta pestaña se pone al día antes de seguir editando. */
+  function adoptStoredPack() {
+    const stored = readPack(userId);
+    if (!stored) {
+      // El pack guardado no valida en profundidad: se aparta y esta pestaña deja de escribir
+      // hasta que el usuario resuelva (restaurar una copia o recargar). Nunca se pisa.
+      quarantineCorruptPack(userId, true);
+      tabBlockedRef.current = true;
+      return;
+    }
+    baseRevRef.current = stored.ledger.revision;
+    tabAdoptRevRef.current = stored.ledger.revision;
+    setSession(blankSession(stored.ledger, stored.dirty));
+  }
+
+  /**
+   * C2 (1.3.166): el libro se movió en otra pestaña y ESTA tiene trabajo propio sin guardar.
+   * Comportamiento honesto mínimo: el trabajo se aparta a la puerta de conflicto existente
+   * (faro.conflict.<uid> si está libre; si no, faro.conflict.<uid>.tab — Ajustes → Copias lo
+   * ofrece desde el mismo botón), el aviso persistente lo dice, y la pestaña adopta el libro
+   * vigente. Nada se pierde en silencio y nada pisa el libro nuevo.
+   */
+  function surfaceTabConflict() {
+    const cur = sessionRef.current;
+    try {
+      if (cur) {
+        const mine = JSON.stringify(cur.ledger);
+        if (!localStorage.getItem(conflictKey(userId))) localStorage.setItem(conflictKey(userId), mine);
+        else localStorage.setItem(tabConflictKey(userId), mine);
+        setHasConflict(true);
+      }
+    } catch { /* el aviso sigue en pie aunque el apartado falle */ }
+    setTabBanner(true);
+    adoptStoredPack();
+  }
 
   useEffect(() => {
     if (!session) return;
@@ -575,9 +634,24 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       if (seeded.sample) setUi({ year: 2026, month: 8, section: "desk" });
       return;
     }
+    // Oleada 2 del corazón (1.3.166, C2): antes de escribir, esta pestaña comprueba que el
+    // libro no se haya movido en otra pestaña/ventana. Con el veredicto "write" el camino es
+    // EXACTAMENTE el de siempre (incluido el banner de fallo de escritura, intacto).
+    if (tabBlockedRef.current) return;
+    let storedRaw: string | null = null;
+    try { storedRaw = localStorage.getItem(packKey(userId)); } catch { storedRaw = null; }
+    if (storedRaw && baseRevRef.current !== null && storedRevision(storedRaw) === null) {
+      surfaceTabConflict(); // el pack guardado ya no se puede leer: jamás se pisa a ciegas
+      return;
+    }
+    const verdict = tabVerdict(storedRevision(storedRaw), baseRevRef.current, session.ledger.revision, session.dirty);
+    if (verdict === "surface") { surfaceTabConflict(); return; }
+    if (verdict === "adopt") { adoptStoredPack(); return; }
     // 1.3.146: a failed write (full storage) must not pass as saved — the shell shows a banner until a write lands.
     try {
       localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
+      baseRevRef.current = session.ledger.revision;
+      if (tabAdoptRevRef.current !== null && session.ledger.revision > tabAdoptRevRef.current) setTabBanner(false);
       if (persistFailedRef.current) { persistFailedRef.current = false; setPersistFailed(false); }
     } catch {
       if (!persistFailedRef.current) { persistFailedRef.current = true; setPersistFailed(true); }
@@ -596,6 +670,31 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     const chrome = chromeForTheme(shown);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chrome);
   }, [session, userId]);
+
+  // C2 (1.3.166): el evento storage avisa en vivo — otra pestaña guardó. Si esta está limpia,
+  // adopta en silencio; si tiene trabajo propio, lo aparta y avisa (nunca pisa, nunca pierde).
+  useEffect(() => {
+    if (!ready) return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== packKey(userId) || tabBlockedRef.current) return;
+      const storedRev = storedRevision(e.newValue);
+      const base = baseRevRef.current;
+      if (storedRev === null || base === null || storedRev <= base) return;
+      const cur = sessionRef.current;
+      if (!cur) return;
+      if (!cur.dirty && cur.ledger.revision === base) adoptStoredPack();
+      else surfaceTabConflict();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, userId]);
+
+  // C4 (1.3.166): la lista de cuarentena que Ajustes muestra (se refresca al quedar listo).
+  useEffect(() => {
+    if (!ready) return;
+    try { setQuarantined(listQuarantine(browserPackStorage(), userId)); } catch { /* la lista es informativa */ }
+  }, [ready, userId]);
 
   // 1.3.159: lift fr-flip only AFTER the swapped tree has committed — two frames counted from
   // this layout effect (post-commit, pre-paint), so the first painted frame of the new theme is
@@ -617,13 +716,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const applyRemote = useCallback((row: RemoteRow, dirtyLocal: LedgerState | null) => {
     try {
       const parsed = JSON.parse(row.dataJson) as unknown;
-      if (!isLedger(parsed)) return false;
+      if (!isLedgerDeep(parsed)) return false;
       const seeded = seedLedger(parsed);
       if (dirtyLocal) {
         localStorage.setItem(conflictKey(userId), JSON.stringify(dirtyLocal));
         setHasConflict(true);
         setSync("conflict");
       }
+      baseRevRef.current = seeded.ledger.revision; // C2: la base de esta pestaña pasa a ser el libro aplicado
       setSession(blankSession(seeded.ledger, Boolean(dirtyLocal) || seeded.added));
       return true;
     } catch {
@@ -666,37 +766,32 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const remote = await pullLedger();
       const local = sessionRef.current;
       if (!local) return;
-      if (remote && (remote.revision > local.ledger.revision || (remote.revision === local.ledger.revision && Date.parse(remote.updatedAt) > Date.parse(local.ledger.updatedAt) && !local.dirty))) {
+      // 1.3.166: la decisión vive en syncdecide — manda el sello de revisión; el reloj de pared
+      // (updatedAt) ya NO desempata. A igual revisión y local limpio se queda el incumbente
+      // ("saved"), donde antes el reloj aplicaba el remoto en silencio (C7/W5).
+      const action = syncDecision(remote, { revision: local.ledger.revision, dirty: local.dirty });
+      if (action === "apply-remote" && remote) {
         applyRemote(remote, local.dirty ? local.ledger : null);
         if (!local.dirty) setSync("saved");
         return;
       }
-      if (remote && !local.dirty && local.ledger.revision <= remote.revision && Date.parse(remote.updatedAt) >= Date.parse(local.ledger.updatedAt)) {
-        setSync("saved");
+      if (action === "saved") { setSync("saved"); return; }
+      if (action === "local") { setSync("local"); return; }
+      const pushed = await pushLedger({
+        data: {
+          dataJson: JSON.stringify(local.ledger),
+          revision: local.ledger.revision,
+          updatedAt: local.ledger.updatedAt,
+          deviceId: deviceId(),
+        },
+      });
+      if (pushed.stale && pushed.row) {
+        applyRemote(pushed.row, local.ledger);
         return;
       }
-      if (local.dirty || !remote || local.ledger.revision > (remote?.revision ?? 0)) {
-        if (!local.dirty && !remote) {
-          setSync("local");
-          return;
-        }
-        const pushed = await pushLedger({
-          data: {
-            dataJson: JSON.stringify(local.ledger),
-            revision: local.ledger.revision,
-            updatedAt: local.ledger.updatedAt,
-            deviceId: deviceId(),
-          },
-        });
-        if (pushed.stale && pushed.row) {
-          applyRemote(pushed.row, local.ledger);
-          return;
-        }
-        setSession((s) => (s ? { ...s, dirty: false } : s));
-        setSync("saved");
-        return;
-      }
+      setSession((s) => (s ? { ...s, dirty: false } : s));
       setSync("saved");
+      return;
     } catch {
       setSync(typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "error");
     } finally {
@@ -1084,10 +1179,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     });
   }
 
-  function askRestore(text: string, title: string) {
+  function askRestore(text: string, title: string, stampIso?: string) {
     const parsed = JSON.parse(text) as { ledger?: unknown; v?: unknown; exportedAt?: unknown };
     const ledger = isLedger(parsed) ? parsed : parsed.ledger;
-    if (!isLedger(ledger)) { setUi({ notice: t("backup.bad") }); return; }
+    // 1.3.166 (C1): la puerta de restauración también valida en profundidad — una copia con
+    // corrupción de campo se rechaza como «dañada» en vez de entrar y explotar al arrancar.
+    if (!isLedgerDeep(ledger)) { setUi({ notice: t("backup.bad") }); return; }
     // 1.3.163 (audit C6): the door says what it is about to restore BEFORE anything is replaced —
     // the copy's format version and its date, read from the backup wrapper itself (vault.ts writes
     // { app, v, exportedAt, ledger }). A version this Faro does not know is refused outright (a
@@ -1097,7 +1194,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     if (wrapped && parsed.v !== undefined && parsed.v !== 1) { setUi({ notice: t("backup.versionBad") }); return; }
     const stamp = wrapped && typeof parsed.exportedAt === "string" && !Number.isNaN(Date.parse(parsed.exportedAt))
       ? new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { dateStyle: "long" }).format(new Date(parsed.exportedAt))
-      : null;
+      : stampIso && !Number.isNaN(Date.parse(stampIso))
+        ? new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { dateStyle: "long" }).format(new Date(stampIso))
+        : null;
     const info = stamp ? t("backup.restore.from").replace("{date}", stamp) : t("backup.restore.nodate");
     setConfirm({
       title,
@@ -1107,7 +1206,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       run: () => {
         const apply = () => {
           const updatedAt = new Date().toISOString();
-          setSession(blankSession({ ...ledger, revision: (sessionRef.current?.ledger.revision ?? 1) + 1, updatedAt }, true));
+          const restoredRev = (sessionRef.current?.ledger.revision ?? 1) + 1;
+          baseRevRef.current = restoredRev; // C2: la base pasa a ser el libro restaurado
+          tabBlockedRef.current = false;
+          setSession(blankSession({ ...ledger, revision: restoredRev, updatedAt }, true));
         };
         const cur = sessionRef.current?.ledger;
         if (!cur) { apply(); return; }
@@ -1124,6 +1226,16 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     setUi,
     sync,
     hasConflict,
+    quarantined,
+    restoreQuarantine: (ts) => {
+      const raw = readQuarantine(browserPackStorage(), userId, ts);
+      if (!raw || !packLedgerOk(raw)) return; // una copia dañada no se restaura: la UI ni la ofrece
+      // Por la misma puerta que una copia de la bóveda: confirmación con fecha y copia de
+      // seguridad automática del libro actual (askRestore). La fecha es la de la copia apartada.
+      askRestore(raw, t("backup.restore.title"), new Date(ts).toISOString());
+    },
+    tabConflict: tabBanner,
+    dismissTabConflict: () => setTabBanner(false),
     t,
     lang,
     monthLabel: `${monthName(lang, ui.month)} ${ui.year}`,
@@ -1188,10 +1300,13 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       void picker().then((handle) => saveHandle(handle)).catch(() => undefined);
     },
     restoreConflict: () => {
-      const raw = localStorage.getItem(conflictKey(userId));
+      // 1.3.166 (C2): la copia de la pestaña (.tab) entra por la misma puerta cuando la
+      // principal está libre; al restaurarla, el libro vigente pasa a ser la copia ofrecida.
+      const fromTab = !localStorage.getItem(conflictKey(userId));
+      const raw = localStorage.getItem(conflictKey(userId)) ?? localStorage.getItem(tabConflictKey(userId));
       if (!raw) return;
       const ledger = JSON.parse(raw) as unknown;
-      if (!isLedger(ledger)) return;
+      if (!isLedgerDeep(ledger)) return;
       setConfirm({
         title: t("settings.conflict"),
         body: t("delete.warn"),
@@ -1199,9 +1314,18 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         yes: t("yes"),
         run: () => {
           const updatedAt = new Date().toISOString();
-          setSession(blankSession({ ...ledger, revision: (session?.ledger.revision ?? ledger.revision) + 1, updatedAt }, true));
-          localStorage.removeItem(conflictKey(userId));
-          setHasConflict(false);
+          const restoredRev = (session?.ledger.revision ?? ledger.revision) + 1;
+          baseRevRef.current = restoredRev;
+          tabBlockedRef.current = false;
+          setSession(blankSession({ ...ledger, revision: restoredRev, updatedAt }, true));
+          if (fromTab) {
+            localStorage.removeItem(tabConflictKey(userId));
+            const other = readPack(userId)?.ledger;
+            if (other) localStorage.setItem(conflictKey(userId), JSON.stringify(other));
+          } else {
+            localStorage.removeItem(conflictKey(userId));
+          }
+          setHasConflict(Boolean(localStorage.getItem(conflictKey(userId))));
         },
       });
     },

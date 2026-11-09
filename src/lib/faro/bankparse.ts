@@ -674,7 +674,16 @@ function newLine(r: Row, batch: string): Line {
   };
 }
 
-export type Undo = { batch: string; added: number; before: Line[]; book: ImportBook | undefined; structure?: Structure };
+export type Undo = {
+  batch: string; added: number; before: Line[]; book: ImportBook | undefined; structure?: Structure;
+  /**
+   * Procedencia por línea (oleada 2 del corazón, 1.3.166 — arreglo P6): la versión EXACTA de
+   * cada línea que este lote escribió al importar. El deshacer solo revierte lo que sigue
+   * idéntico a lo escrito; una línea que el usuario editó después sobrevive. Los lotes legados
+   * (sin `written`) conservan el comportamiento histórico y no ganan ningún poder nuevo.
+   */
+  written?: Line[];
+};
 
 /**
  * One commit for the whole batch: new lines (by their month), PayPal pairs folded into existing lines, learned rules,
@@ -686,8 +695,10 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
   let s = ensureAccounts(state);
   const before: Line[] = [];
   const months = { ...s.months };
+  const writtenById = new Map<string, Line>();
   const put = (line: Line) => {
     if (!line.monthKey) return; // Never write a phantom month: a line with no month belongs nowhere.
+    writtenById.set(line.id, line); // Provenance (P6): the last version this batch wrote wins.
     const bucket = months[line.monthKey]?.lines ?? [];
     const i = bucket.findIndex((l) => l.id === line.id);
     months[line.monthKey] = { lines: i >= 0 ? bucket.map((l) => (l.id === line.id ? line : l)) : [...bucket, line] };
@@ -771,11 +782,65 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
     if (po.sourceId) book = { ...book, sources: book.sources.map((x) => (x.id === po.sourceId ? { ...x, pocketId: subId, ...(po.apyBps ? { apyBps: po.apyBps } : {}) } : x)) };
   }
   s = { ...s, structure, months, imports: book };
-  return { state: s, undo: { batch, added, before, book: prevBook, ...(touched ? { structure: prevStructure } : {}) } };
+  return { state: s, undo: { batch, added, before, book: prevBook, ...(touched ? { structure: prevStructure } : {}), written: [...writtenById.values()] } };
+}
+
+/** Orden canónico para comparar líneas por contenido (claves ordenadas, undefined fuera). */
+function canonicalLine(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonicalLine).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).filter((k) => o[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonicalLine(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
+/**
+ * Deshacer con procedencia (oleada 2 del corazón, 1.3.166 — arreglo P6): el deshacer solo
+ * deshace lo que el lote AÚN posee intacto. Por cada línea del libro:
+ * - si el lote registró lo que escribió (`written`) y la línea sigue idéntica → se revierte
+ *   como siempre (vuelve la versión previa si el lote la modificó; si el lote la creó, sale);
+ * - si el lote la escribió pero la línea YA NO es idéntica → el usuario la editó después: la
+ *   línea se conserva tal cual y cuenta en `preserved`;
+ * - sin registro de procedencia pero tocada por el lote (en `before`, ya sin la marca del lote)
+ *   → no se puede probar que esté intacta: gana la palabra del usuario, se conserva y cuenta;
+ * - sin procedencia registrada en absoluto (lote legado, sin `written`) → el algoritmo histórico,
+ *   byte a byte, y `preserved` = 0: el legado no gana ningún poder destructivo nuevo.
+ */
+export function revertImportCounted(state: LedgerState, u: Undo): { state: LedgerState; preserved: number } {
+  if (!u.written) return { state: revertImport(state, u), preserved: 0 };
+  const back = new Map(u.before.map((l) => [l.id, l]));
+  const written = new Map(u.written.map((l) => [l.id, l]));
+  let preserved = 0;
+  const months: LedgerState["months"] = {};
+  for (const [k, b] of Object.entries(state.months)) {
+    const lines: Line[] = [];
+    for (const l of b.lines) {
+      const w = written.get(l.id);
+      if (w) {
+        if (canonicalLine(l) === canonicalLine(w)) {
+          const prev = back.get(l.id);
+          if (prev) lines.push(prev); // intacta y modificada por el lote: vuelve la previa
+          // intacta y creada por el lote: sale (no se empuja nada)
+        } else {
+          preserved++; lines.push(l); // editada después del import: la palabra del usuario
+        }
+        continue;
+      }
+      if (l.batch === u.batch) continue; // del lote, sin procedencia propia: sale como siempre
+      if (back.has(l.id)) { preserved++; lines.push(l); continue; } // tocada y ya sin marca: se conserva
+      lines.push(l);
+    }
+    months[k] = { lines };
+  }
+  const next: LedgerState = { ...state, months, ...(u.structure ? { structure: { ...state.structure, categories: u.structure.categories } } : {}) };
+  if (u.book) next.imports = u.book; else delete next.imports;
+  return { state: next, preserved };
 }
 
 /** Deshacer: takes the batch's lines out, puts back the lines it changed and the import settings as they were. */
 export function revertImport(state: LedgerState, u: Undo): LedgerState {
+  if (u.written) return revertImportCounted(state, u).state;
   const months: LedgerState["months"] = {};
   const back = new Map(u.before.map((l) => [l.id, l]));
   for (const [k, b] of Object.entries(state.months)) months[k] = { lines: b.lines.filter((l) => l.batch !== u.batch || back.has(l.id)).map((l) => back.get(l.id) ?? l) };
