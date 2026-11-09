@@ -381,6 +381,9 @@ export type BackupFile = {
   v: 1;
   exportedAt: string;
   ledger: LedgerState;
+  /** 1.3.168 (la puerta): la capa del aparato (devicelayer.ts) como sección hermana — el
+   *  contenido del libro no cambia. Ausente en respaldos viejos: la capa queda intacta. */
+  device?: Record<string, string>;
 };
 
 export type Tone = "neutral" | "good" | "warn" | "bad";

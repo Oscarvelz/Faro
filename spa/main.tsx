@@ -7,6 +7,8 @@ import { useSampleEpoch } from "@/components/faro/sample-mode";
 import { Shell } from "@/components/faro/shell";
 import { Mark } from "@/components/faro/icons";
 import { CLOUD_READY, emitUser, keepSignedIn, lastUser, rememberUser, setSessionGone, supabase } from "@/spa/cloud";
+import { bookUidForKeys, bootDecision, readExplicitOut, readOwnerMark } from "@/lib/faro/door";
+import { browserPackStorage } from "@/lib/faro/packguard";
 import { useFaroUser } from "@/spa/gates";
 import { Login } from "@/spa/login";
 import { lockCredential, unlock } from "@/spa/lock";
@@ -139,10 +141,14 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   const [recovery, setRecovery] = useState(false);
   const [expiredRaw, setExpired] = useState(false);
   const [relogin, setRelogin] = useState(false);
+  // 1.3.168 (la puerta): the cold start opened the local book on the owner mark alone, with
+  // no live session — same posture as a soft-expired keep-on session (books open, sync parked,
+  // Ajustes offers "Entrar de nuevo"), reached through the door instead of the session.
+  const [door, setDoor] = useState(false);
   // "Mantener sesión abierta": an ended cloud session doesn't block the books; Ajustes offers to sign in again.
   const softExpired = expiredRaw && keepSignedIn() && !relogin;
   const expired = expiredRaw && !softExpired;
-  useEffect(() => { setSessionGone(expiredRaw); }, [expiredRaw]);
+  useEffect(() => { setSessionGone(expiredRaw || door); }, [expiredRaw, door]);
   useEffect(() => {
     const go = () => setRelogin(true);
     window.addEventListener("faro-relogin", go);
@@ -160,19 +166,44 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
       if (session) {
         setExpired(false);
         setRelogin(false);
+        setDoor(false);
         emitUser(rememberUser(session));
       }
     });
     void (async () => {
+      let live = false;
       try {
         const { data, error } = await supabase.auth.getSession();
-        if (data.session) emitUser(rememberUser(data.session));
-        else if (!error && lastUser() && navigator.onLine) {
+        if (data.session) {
+          live = true;
+          emitUser(rememberUser(data.session));
+        } else if (!error && lastUser() && navigator.onLine) {
           // Online but no valid session (signed out elsewhere or refresh expired):
           // keep the local books available, but ask to sign in again to sync.
           setExpired(true);
         }
       } catch { /* offline: keep the remembered user */ }
+      if (!live) {
+        // 1.3.168 (la puerta): no live session — the boot matrix decides (door.ts). Only the
+        // door case changes anything: this device holds a book whose owner mark matches it,
+        // so the book opens and work proceeds locally; sync stays parked (sessionGone via
+        // `door`) until the owner signs in again from Ajustes. Every other outcome falls
+        // through to today's behavior untouched (remembered user, expired, or Login).
+        const store = browserPackStorage();
+        const mark = readOwnerMark(store);
+        const decision = bootDecision({
+          hasSession: false,
+          remembered: !!lastUser(),
+          keep: keepSignedIn(),
+          markUid: mark?.id ?? null,
+          bookUid: bookUidForKeys(store.keys(), mark?.id ?? null),
+          explicitOut: readExplicitOut(store),
+        });
+        if (decision === "door" && mark) {
+          setDoor(true);
+          emitUser({ id: mark.id, email: mark.email, name: mark.name });
+        }
+      }
       setBooted(true);
     })();
     return () => sub.subscription.unsubscribe();
@@ -236,6 +267,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   if (!booted) return <Boot />;
   if (recovery) return <Login recovery />;
   if (!user || expired) return <Login note={expired ? w("acct.relogin") : undefined} />;
+  if (door && relogin) return <Login note={w("acct.relogin")} />;
   if (!open) return <Locked uid={user.id} onOpen={() => { markSeen(user.id); hiddenAt.current = 0; openRef.current = true; setOpen(true); }} />;
   return (
     <FaroProvider key={epoch} userId={user.id}>

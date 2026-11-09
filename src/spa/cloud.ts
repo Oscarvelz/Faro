@@ -1,5 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { CLOUD_READY, SUPABASE_KEY, SUPABASE_URL } from "./config";
+import { clearExplicitOut, clearOwnerMark, setExplicitOut, writeOwnerMark } from "@/lib/faro/door";
+import { browserPackStorage } from "@/lib/faro/packguard";
 export { CLOUD_READY };
 
 const LAST = "faro.lastUser";
@@ -44,6 +46,12 @@ export function rememberUser(s: Session | null): FaroUser | null {
     name: (s.user.user_metadata?.name as string | undefined) || (s.user.user_metadata?.full_name as string | undefined) || s.user.email || "",
   };
   try { box().setItem(LAST, JSON.stringify(u)); } catch { /* ignore */ }
+  // 1.3.168 (la puerta): una sesión viva marca el aparato — este aparato guarda un libro de
+  // esta cuenta (faro.owner, fuera de la sesión) y levanta la bandera de salida explícita.
+  // Es el cimiento de que el libro abra sin red con «Mantener sesión» apagado (door.ts).
+  const store = browserPackStorage();
+  writeOwnerMark(store, u);
+  clearExplicitOut(store);
   return u;
 }
 
@@ -61,6 +69,12 @@ export function lastUser(): FaroUser | null {
 
 export function forgetUser() {
   try { localStorage.removeItem(LAST); sessionStorage.removeItem(LAST); } catch { /* ignore */ }
+  // 1.3.168 (la puerta): olvidar al usuario es la salida explícita — la marca de dueño se
+  // borra y la bandera de salida queda puesta. La caducidad de la sesión NO pasa por aquí:
+  // expirar no es salir, y la puerta no se cierra por caducar.
+  const store = browserPackStorage();
+  clearOwnerMark(store);
+  setExplicitOut(store);
 }
 
 let listeners: ((u: FaroUser | null) => void)[] = [];

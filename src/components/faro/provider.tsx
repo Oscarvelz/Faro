@@ -13,6 +13,7 @@ import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow 
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
 import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
+import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
@@ -739,7 +740,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     backingUp.current = true;
     try {
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
-      const done = await autoBackup(userId, led, { online, force });
+      // 1.3.168 (la puerta): cada copia lleva la capa del aparato como sección hermana.
+      const done = await autoBackup(userId, led, { online, force, device: snapshotDeviceLayer(browserPackStorage(), userId) });
       if (done.device || done.cloud || force || backups.length === 0) setBackups(await listBackups(userId));
       if (force) {
         // The notice names what actually landed, from the real flags — never "saved here" when the device write failed.
@@ -821,7 +823,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           if (q !== "granted") return;
           const file = await handle.getFileHandle(`Faro_Backup_${todayIso(new Date(led.updatedAt))}.json.gz`, { create: true });
           const writable = await file.createWritable();
-          await writable.write((await backupBlob(led)) as BlobPart);
+          await writable.write((await backupBlob(led, snapshotDeviceLayer(browserPackStorage(), userId))) as BlobPart);
           await writable.close();
         })().catch(() => undefined);
       }
@@ -1173,7 +1175,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   function exportJson() {
     if (!session) return;
     const stamp = todayIso();
-    void backupBlob(session.ledger).then((bytes) => {
+    void backupBlob(session.ledger, snapshotDeviceLayer(browserPackStorage(), userId)).then((bytes) => {
       const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
       download(`Faro_${sampleOn() ? "Ejemplo" : "Backup"}_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
     });
@@ -1182,6 +1184,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   function askRestore(text: string, title: string, stampIso?: string) {
     const parsed = JSON.parse(text) as { ledger?: unknown; v?: unknown; exportedAt?: unknown };
     const ledger = isLedger(parsed) ? parsed : parsed.ledger;
+    // 1.3.168 (la puerta): la sección `device` del respaldo (la capa del aparato). Ausente en
+    // respaldos viejos → null → la capa queda intacta. Dañada → null: jamás bloquea el libro.
+    const device = deviceSectionOf(parsed);
     // 1.3.166 (C1): la puerta de restauración también valida en profundidad — una copia con
     // corrupción de campo se rechaza como «dañada» en vez de entrar y explotar al arrancar.
     if (!isLedgerDeep(ledger)) { setUi({ notice: t("backup.bad") }); return; }
@@ -1210,10 +1215,16 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           baseRevRef.current = restoredRev; // C2: la base pasa a ser el libro restaurado
           tabBlockedRef.current = false;
           setSession(blankSession({ ...ledger, revision: restoredRev, updatedAt }, true));
+          // 1.3.168: la capa del respaldo entra con el libro (solo-poner, solo claves de la
+          // lista); la puerta de conflicto refleja la copia que la capa haya traído.
+          if (device) {
+            applyDeviceLayer(browserPackStorage(), device);
+            setHasConflict(Boolean(localStorage.getItem(conflictKey(userId)) || localStorage.getItem(tabConflictKey(userId))));
+          }
         };
         const cur = sessionRef.current?.ledger;
         if (!cur) { apply(); return; }
-        void autoBackup(userId, cur, { online: false, safety: true }).catch(() => undefined).finally(apply);
+        void autoBackup(userId, cur, { online: false, safety: true, device: snapshotDeviceLayer(browserPackStorage(), userId) }).catch(() => undefined).finally(apply);
       },
     });
   }
