@@ -4,6 +4,7 @@ import { GROK_PROVIDERS, authEnabled, signIn, signOut } from "./client";
 import { hasGateSessionMarker } from "./gate-session-marker";
 import { resolveSignInGateState } from "./sign-in-gate";
 import { useCurrentUser, useCurrentUserState } from "./use-current-user";
+import { translate } from "@/lib/faro/i18n";
 
 const subscribeToNothing = () => () => {};
 const noGateSessionOnServer = () => false;
@@ -129,4 +130,18 @@ export function UserButton() {
       )}
     </div>
   );
+}
+
+/**
+ * Twin of the SPA gates' AccountLocalNote (1.3.171, censo R3): the Cuenta fold's honest body
+ * when there is no account — the dev fallback (auth disabled = local mode) or signed out.
+ * Renders nothing while the session resolves, and nothing with a real account.
+ */
+export function AccountLocalNote() {
+  const { user, isPending } = useCurrentUserState();
+  if (isPending) return null;
+  if (user && !user.isDevFallback) return null;
+  let lang: "es" | "en" = "es";
+  try { lang = localStorage.getItem("faro-lang") === "en" ? "en" : "es"; } catch { /* keep es */ }
+  return <p className="text-sm text-muted">{translate(lang, "account.local")}</p>;
 }

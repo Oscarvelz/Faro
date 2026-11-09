@@ -146,7 +146,7 @@ function hubOf(section: SectionId) {
 
 export function Shell() {
   const faro = useFaro();
-  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, setMonth, fmt, persistFailed, tabConflict, dismissTabConflict } = faro;
+  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, fmt, persistFailed, tabConflict, dismissTabConflict } = faro;
   const searchRef = useRef<HTMLDivElement>(null);
   const searchPopRef = useRef<HTMLFormElement>(null);
   const deskRef = useRef<HTMLDivElement>(null);
@@ -1089,7 +1089,7 @@ export function Shell() {
                                 </button>
                               )) : <p>{t("cal.empty")}</p>}
                             </div>
-                            <button type="button" onClick={() => { setMonth(calYear, calMonth); setCalOpen(false); }}>{t("cal.use")}</button>
+                            <button type="button" onClick={() => setCalDay(null)}>{t("cal.use")}</button>
                           </div>
                         ) : cal.undated > 0 ? (
                           <p className="cal-note">{cal.undated} {t("cal.undated")}</p>

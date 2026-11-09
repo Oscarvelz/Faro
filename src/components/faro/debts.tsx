@@ -384,7 +384,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
               onRename={(id, name) => commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => (r.id === id ? { ...r, person: name } : r)) }), name)} />
           </span>
         ) : null}
-        <button type="button" className="cobro-plus" aria-label={t("cobro.open")} aria-pressed={draft} onClick={() => { setEditFor(null); setDraft((on) => !on); }}><Plus /></button>
+        <button type="button" className="cobro-plus" aria-label={t("cobro.owe.add")} aria-pressed={draft} onClick={() => { setEditFor(null); setDraft((on) => !on); }}><Plus /></button>
       </div>
       <DeboSum help="me-deben" empty={t("debo.sum.owed.empty")} parts={active.length && rwSum.total > 0 ? [
         [`${people.filter((p) => p.active).length} ${t(people.filter((p) => p.active).length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],

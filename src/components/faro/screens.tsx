@@ -19,7 +19,7 @@ import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
-import { UserButton } from "@/lib/auth/gates";
+import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
 import { applyTemplate, displayName, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -3159,7 +3159,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         ) : null}
         {lens !== "have" && lens !== "debt" ? (
           <p className="desk-kicker" data-anchor="desk-opportunity">
-            <span>{t("desk.opportunity")}<Hint topic="oportunidad" className="is-inline" avoid=".desk-kicker strong" /></span>
+            <span>{t("desk.opportunity")}<Hint topic="oportunidad" className="is-inline" /></span>
             <strong className={`num ${summary.opportunity < 0 ? "bad" : ""}`}>{fmt(summary.opportunity)}</strong>
           </p>
         ) : null}
@@ -4423,6 +4423,7 @@ export function Settings() {
       </Fold>
       <Fold id="account" icon={UserRound} sub={lang === "en" ? "Login, sync, fingerprint" : "Sesión, nube y huella"} topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />
+        <AccountLocalNote />
       </Fold>
     </div>
   );

@@ -100,3 +100,15 @@ export function UserButton() {
     </div>
   );
 }
+
+/**
+ * The Cuenta fold's honest body when this device has no account (local mode): UserButton renders
+ * nothing then, and an empty fold is the one wrong answer (1.3.171, censo R3). With an account —
+ * including the sessionless door, where lastUser() still names the owner — this renders nothing
+ * and UserButton carries the fold exactly as before.
+ */
+export function AccountLocalNote() {
+  const user = useFaroUser();
+  if (user) return null;
+  return <p className="text-sm text-muted">{w("account.local")}</p>;
+}

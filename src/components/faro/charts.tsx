@@ -4,6 +4,7 @@ import { ArrowUpDown, ChevronDown, ChevronUp, Pin } from "lucide-react";
 import type { CashSankey, StudyBoard } from "@/lib/faro/engine";
 import { Hint } from "./hint";
 import { useFaro } from "./provider";
+import { swapVisible, visibleOrder } from "@/lib/faro/studyorder";
 
 /** Each Estudio card's manual topic: its (?) sits on the card's own title line. */
 const FOLD_TOPIC: Record<string, string> = {
@@ -173,18 +174,17 @@ export function StatFoldProvider({
   }), [spread, shut, forced, pinned, pinLabel, foldLabel, placed, breaks, items, openByDefault]);
   const openNow = (id: string) => !!pinned[id] || (shut[id] ? false : forced[id] ? true : spread || !!openByDefault?.includes(id));
   const liveIds = live.split("\0").filter(Boolean);
+  // 1.3.171 (censo N2): the reorder mode lists and moves only the cards that actually render —
+  // the full placed order stays the single source both views consume (studyorder.ts).
+  const livePlaced = visibleOrder(placed, liveIds);
   const checked = liveIds.length > 0 && liveIds.every(openNow);
   const sectionAt = (id: string) => items.find((item) => item.id === id)?.section ?? "";
   const move = (index: number, dir: -1 | 1) => {
     setOrder(() => {
-      const next = [...placed];
-      const to = index + dir;
-      if (to < 0 || to >= next.length) return placed;
-      if (sectionAt(next[index] ?? "") !== sectionAt(next[to] ?? "")) return placed;
-      const [row] = next.splice(index, 1);
-      next.splice(to, 0, row!);
+      const next = swapVisible(placed, livePlaced, sectionAt, index, dir);
+      if (next === placed) return placed;
       try { localStorage.setItem("faro-study-order-2", JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
+      return [...next];
     });
   };
   return (
@@ -225,11 +225,11 @@ export function StatFoldProvider({
       </div>
       {sorting ? (
         <div className="study-order" role="list">
-          {placed.map((id, index) => (
+          {livePlaced.map((id, index) => (
             <div key={id} className="study-order-row" role="listitem">
-              <button type="button" aria-label={moveUpLabel} disabled={index === 0 || sectionAt(id) !== sectionAt(placed[index - 1] ?? "")} onClick={() => move(index, -1)}><ChevronUp /></button>
+              <button type="button" aria-label={moveUpLabel} disabled={index === 0 || sectionAt(id) !== sectionAt(livePlaced[index - 1] ?? "")} onClick={() => move(index, -1)}><ChevronUp /></button>
               <span>{items.find((item) => item.id === id)?.label ?? id}</span>
-              <button type="button" aria-label={moveDownLabel} disabled={index === placed.length - 1 || sectionAt(id) !== sectionAt(placed[index + 1] ?? "")} onClick={() => move(index, 1)}><ChevronDown /></button>
+              <button type="button" aria-label={moveDownLabel} disabled={index === livePlaced.length - 1 || sectionAt(id) !== sectionAt(livePlaced[index + 1] ?? "")} onClick={() => move(index, 1)}><ChevronDown /></button>
             </div>
           ))}
         </div>
