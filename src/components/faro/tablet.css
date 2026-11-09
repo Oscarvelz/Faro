@@ -183,12 +183,17 @@
 /* ---------- 1.3.128: the wide-monitor step (>= 1600; the tablet range is untouched) ---------- */
 @media (width >= 1600px) and (height >= 600px) {
   /* Central in three zones when the area Advisor is there: the left stack, the month board at a
-     useful width (it stops growing at ~920px), and the Advisor beside the board instead of under
+     useful width (it stops growing at ~780px), and the Advisor beside the board instead of under
      Ahorros, held sticky like the book comparison pane. */
-  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane):has(> .advice-card.is-area) { grid-template-columns: minmax(0, 5fr) minmax(0, 920px) minmax(300px, 4fr); }
+  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane):has(> .advice-card.is-area) { grid-template-columns: minmax(320px, 5fr) minmax(0, 780px) minmax(300px, 4fr); }
   .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane) > .advice-card.is-area { grid-column: 3; grid-row: 1 / span 6; align-self: start; position: sticky; top: 140px; }
   /* Without the Advisor the board still stops at the same useful width, and the pair sits centred. */
-  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane):not(:has(> .advice-card.is-area)) { grid-template-columns: minmax(0, 5fr) minmax(0, 920px); justify-content: center; }
+  .app-frame:not(.is-split) .desk-layout:has(> .swipe-pane):not(:has(> .advice-card.is-area)) { grid-template-columns: minmax(320px, 5fr) minmax(0, 780px); justify-content: center; }
+  /* 1.3.160: the lens numbers keep a 12px floor on this step. At 1600 the old 920px board left the
+     left track at 188px, and the fit routine (fit.ts shrinks a wide .num inline, down to 55%) took
+     the lens values to 7.57px. The widened track means they rest at their natural size again; this
+     floor is the net, so they can never fall that far on the wide step. */
+  .app-frame:not(.is-split) .lenses .lens-value { font-size: max(12px, clamp(0.86rem, 10.7cqi, 1.06rem)) !important; }
 }
 @media (width >= 1920px) and (height >= 600px) {
   /* The comparison panes stop growing too: past this width they keep a useful size. */
