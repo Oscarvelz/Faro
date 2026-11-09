@@ -22,7 +22,7 @@ import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Sh
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, lineListVisible, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, templateExample, templatePreview } from "@/lib/faro/defaults";
+import { applyTemplate, displayName, dropSubLines, lineListVisible, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, subLinesSummary, templateExample, templatePreview, type SubLinesSummary } from "@/lib/faro/defaults";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -39,10 +39,10 @@ import { BrandIconPick, FreqSheet, LookPick } from "./fit-pick";
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { dateFmt } from "@/lib/faro/datefmt";
-import { formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
+import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
-import type { Category, Currency, Line, LineKind, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
+import type { Category, Currency, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@/lib/faro/types";
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
@@ -2186,7 +2186,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       danger: true,
       yes: t("yes"),
       run: () => commit((s) => {
-        const months = Object.fromEntries(Object.entries(s.months).map(([month, bucket]) => [month, { lines: bucket.lines.filter((line) => line.subId !== row.id) }]));
+        const months = dropSubLines(s.months, row.id);
         return {
           ...s,
           months,
@@ -4834,7 +4834,7 @@ function StructureTree() {
 }
 
 function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
-  const { t, lang, commit, confirm } = useFaro();
+  const { t, lang, session, commit, confirm } = useFaro();
   const [name, setName] = useState(displayName(cat, lang));
   const [subName, setSubName] = useState("");
   const [editSub, setEditSub] = useState<string | null>(null);
@@ -4874,6 +4874,43 @@ function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
       structure: { ...s.structure, categories: s.structure.categories.map((c) => c.id === cat.id ? run(c) : c) },
     }), detail);
   }
+  // 1.3.178 (decisión de Oscar sobre el punto 1 del catálogo de la 1.3.177): la papelera
+  // del árbol retira el subconcepto Y sus líneas — borrar es borrar, en todas las
+  // superficies y para siempre; hasta la 1.3.177 las líneas quedaban huérfanas y seguían
+  // saliendo en Central con su propio nombre. El aviso lo dice ANTES de quemar nada: sin
+  // líneas, como siempre; con líneas, el conteo y el total por moneda (subLinesSummary,
+  // sin convertir ni mezclar monedas). Lo retirado es exactamente el mismo conjunto que
+  // retira la papelera de la fila del banco en el escritorio (dropSubLines, compartido):
+  // todas las líneas del subconcepto en todos los meses, con su historial dentro (los
+  // cargos viven en la línea) y sus series con ellas (una serie son líneas con el mismo
+  // seriesId). El Archivo de Debo (faro-due-file) no se toca: son copias ya archivadas
+  // fuera del libro, igual que con la papelera del banco. Y como el borrado es UN commit,
+  // Deshacer restaura el subconcepto y sus líneas juntos, como cualquier otro cambio.
+  const dropSub = (sub: Sub) => {
+    const name = displayName(sub, lang);
+    const summary: SubLinesSummary = session ? subLinesSummary(session.ledger, sub.id) : { count: 0, totals: [] };
+    const totalsText = summary.totals.map((x) => formatMoney(x.minor, x.currency, lang)).join(" + ");
+    const body = summary.count === 0
+      ? name
+      : `${name}. ${summary.count === 1
+        ? t("delete.sub.lines.one").replace("{totals}", totalsText)
+        : t("delete.sub.lines").replace("{n}", String(summary.count)).replace("{totals}", totalsText)}`;
+    confirm({
+      title: t("delete"),
+      body,
+      danger: true,
+      yes: t("yes"),
+      run: () => commit((s) => {
+        const userVis = { ...(s.structure.userVis ?? {}) };
+        delete userVis[sub.id];
+        return {
+          ...s,
+          months: dropSubLines(s.months, sub.id),
+          structure: { ...s.structure, userVis, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.filter((x) => x.id !== sub.id) } : c)) },
+        };
+      }, sub.id),
+    });
+  };
   return (
     <div className="tree-open">
       <div className="row">
@@ -4914,11 +4951,7 @@ function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
               const next = !sub.hidden;
               commit((s) => ({ ...s, structure: markUserVis({ ...s.structure, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.map((x) => (x.id === sub.id ? { ...x, hidden: next } : x)) } : c)) }, [sub.id], next) }), sub.id);
             }}>{sub.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
-            <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: displayName(sub, lang), danger: true, yes: t("yes"), run: () => commit((s) => {
-              const userVis = { ...(s.structure.userVis ?? {}) };
-              delete userVis[sub.id];
-              return { ...s, structure: { ...s.structure, userVis, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.filter((x) => x.id !== sub.id) } : c)) } };
-            }, sub.id) })}><Trash2 className="size-4" /></button>
+            <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
           </span>
         </div>
       ))}

@@ -2,6 +2,7 @@ import { BCN_AS_OF, BCN_RATE_E4 } from "./money";
 import type {
   CatalogItem,
   Category,
+  Currency,
   Lang,
   LedgerState,
   Line,
@@ -332,6 +333,45 @@ export function lineListVisible(structure: Structure, line: Line): boolean {
     if (sub?.hidden) return false;
   }
   return true;
+}
+
+/**
+ * Every month bucket with one subcategory's lines taken out — the whole of what
+ * "retire a sub's lines" means. There is no second store: a line's history charges ride
+ * inside the line, its series is just lines sharing a seriesId, so removing the lines
+ * retires both with them. Shared by the Desk bank-row bin (dropAccount) and, since
+ * 1.3.178, by the Estructura tree bin, so both controls retire exactly the same set.
+ */
+export function dropSubLines(months: LedgerState["months"], subId: string): LedgerState["months"] {
+  return Object.fromEntries(Object.entries(months).map(([month, bucket]) => [month, { lines: bucket.lines.filter((line) => line.subId !== subId) }]));
+}
+
+export type SubLinesSummary = { count: number; totals: { currency: Currency; minor: number }[] };
+
+/**
+ * What a subcategory still holds, for the delete confirmation (1.3.178): how many lines
+ * name it, across every month, and what they total per currency — never merged, never
+ * converted. A line reads at its balance when it carries one (a bank account's money is
+ * its balance; its amount is only the opening), else at its amount, each in its own
+ * currency — the same reading the account editors use.
+ */
+export function subLinesSummary(ledger: LedgerState, subId: string): SubLinesSummary {
+  let count = 0;
+  const byCurrency = new Map<Currency, number>();
+  for (const bucket of Object.values(ledger.months)) {
+    for (const line of bucket.lines) {
+      if (line.subId !== subId) continue;
+      count += 1;
+      const carried = line.balanceMinor != null;
+      const minor = carried ? (line.balanceMinor as number) : line.amountMinor;
+      const currency = carried ? line.balanceCurrency : line.currency;
+      byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + minor);
+    }
+  }
+  const totals = (["NIO", "USD"] as Currency[])
+    .filter((currency) => byCurrency.has(currency))
+    .map((currency) => ({ currency, minor: byCurrency.get(currency) as number }));
+  return { count, totals };
 }
 
 export function makeNamer(structure: Structure, lang: Lang) {
