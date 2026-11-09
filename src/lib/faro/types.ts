@@ -376,6 +376,18 @@ export type LedgerState = {
   updatedAt: string;
 };
 
+/** El Archivo de Debo (screens.tsx, DueOwe): una serie archivada con su historial de pagos.
+ *  Vive FUERA del libro, en la clave global `faro-due-file` de localStorage (duefile.ts). */
+export type DueFile = {
+  id: string;
+  seriesId: string;
+  name: string;
+  maxMinor: number;
+  currency: Currency;
+  archivedOn: string;
+  pays: { date: string; amountMinor: number }[];
+};
+
 export type BackupFile = {
   app: "FARO";
   v: 1;
@@ -384,6 +396,10 @@ export type BackupFile = {
   /** 1.3.168 (la puerta): la capa del aparato (devicelayer.ts) como sección hermana — el
    *  contenido del libro no cambia. Ausente en respaldos viejos: la capa queda intacta. */
   device?: Record<string, string>;
+  /** 1.3.169: el Archivo de Debo (duefile.ts) como su PROPIA sección hermana — es dato del
+   *  dueño, no capa del aparato. Ausente en respaldos viejos: el Archivo del aparato que
+   *  restaura queda intacto (una sección ausente jamás borra). */
+  dueFile?: DueFile[];
 };
 
 export type Tone = "neutral" | "good" | "warn" | "bad";

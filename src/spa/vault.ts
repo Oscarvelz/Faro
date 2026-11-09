@@ -1,6 +1,6 @@
 // Automatic backups: one compressed copy per day, kept on this device (IndexedDB) and in the
 // user's Faro account online (Supabase faro_backups, newest 14 days). gzip makes a ledger ~10x smaller.
-import type { LedgerState } from "@/lib/faro/types";
+import type { DueFile, LedgerState } from "@/lib/faro/types";
 import { CLOUD_READY, supabase } from "./cloud";
 
 export type BackupInfo = { day: string; bytes: number; at: string; where: "device" | "cloud" };
@@ -13,11 +13,13 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function payload(ledger: LedgerState, device?: Record<string, string> | null): string {
+function payload(ledger: LedgerState, device?: Record<string, string> | null, dueFile?: DueFile[] | null): string {
   // 1.3.168 (la puerta): la capa del aparato viaja como sección HERMANA (`device`) — el
   // contenido del libro ({ app, v, exportedAt, ledger }) no cambia, y un respaldo sin la
   // sección (todos los anteriores) sigue restaurando igual: la capa queda intacta.
-  return JSON.stringify({ app: "FARO", v: 1, exportedAt: new Date().toISOString(), ledger, ...(device ? { device } : {}) });
+  // 1.3.169: el Archivo de Debo viaja en su PROPIA sección hermana (`dueFile`, duefile.ts) —
+  // es dato del dueño, no capa del aparato. Sin sección, el Archivo del aparato queda intacto.
+  return JSON.stringify({ app: "FARO", v: 1, exportedAt: new Date().toISOString(), ledger, ...(device ? { device } : {}), ...(dueFile ? { dueFile } : {}) });
 }
 
 export async function gzip(text: string): Promise<Uint8Array> {
@@ -89,10 +91,10 @@ export async function listBackups(uid: string): Promise<BackupInfo[]> {
 const lastKey = (uid: string, where: string) => `faro.vault.${where}.${uid}`;
 
 /** Saves today's copy where it is due. Cheap to call often: it writes at most once per hour per place. */
-export async function autoBackup(uid: string, ledger: LedgerState, opts: { online: boolean; force?: boolean; safety?: boolean; device?: Record<string, string> | null }): Promise<{ device: boolean; cloud: boolean }> {
+export async function autoBackup(uid: string, ledger: LedgerState, opts: { online: boolean; force?: boolean; safety?: boolean; device?: Record<string, string> | null; dueFile?: DueFile[] | null }): Promise<{ device: boolean; cloud: boolean }> {
   if (opts.safety) {
     const day = `${today()} ·`;
-    const bytes = await gzip(payload(ledger, opts.device));
+    const bytes = await gzip(payload(ledger, opts.device, opts.dueFile));
     const copy: LocalCopy = { day, at: new Date().toISOString(), bytes: bytes.length, data: bytes };
     await tx("readwrite", (s) => s.put(copy, `${uid}|${day}`));
     return { device: true, cloud: false };
@@ -113,7 +115,7 @@ export async function autoBackup(uid: string, ledger: LedgerState, opts: { onlin
   const wantDevice = due("device");
   const wantCloud = opts.online && CLOUD_READY && uid !== "local" && due("cloud");
   if (!wantDevice && !wantCloud) return done;
-  const bytes = await gzip(payload(ledger, opts.device));
+  const bytes = await gzip(payload(ledger, opts.device, opts.dueFile));
   if (wantDevice) {
     try {
       const copy: LocalCopy = { day, at: new Date().toISOString(), bytes: bytes.length, data: bytes };
@@ -143,8 +145,8 @@ export async function readBackup(uid: string, info: BackupInfo): Promise<string 
   return data ? gunzip(fromB64(String(data.data_gz))) : null;
 }
 
-export async function backupBlob(ledger: LedgerState, device?: Record<string, string> | null): Promise<Uint8Array> {
-  return gzip(payload(ledger, device));
+export async function backupBlob(ledger: LedgerState, device?: Record<string, string> | null, dueFile?: DueFile[] | null): Promise<Uint8Array> {
+  return gzip(payload(ledger, device, dueFile));
 }
 
 export async function wipeLocalBackups(uid: string) {

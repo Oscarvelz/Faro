@@ -14,6 +14,7 @@ import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } fr
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
 import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
+import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
@@ -741,7 +742,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     try {
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
       // 1.3.168 (la puerta): cada copia lleva la capa del aparato como sección hermana.
-      const done = await autoBackup(userId, led, { online, force, device: snapshotDeviceLayer(browserPackStorage(), userId) });
+      // 1.3.169: y el Archivo de Debo en la suya (duefile.ts), por la misma vía.
+      const done = await autoBackup(userId, led, { online, force, device: snapshotDeviceLayer(browserPackStorage(), userId), dueFile: snapshotDueFile(browserPackStorage()) });
       if (done.device || done.cloud || force || backups.length === 0) setBackups(await listBackups(userId));
       if (force) {
         // The notice names what actually landed, from the real flags — never "saved here" when the device write failed.
@@ -823,7 +825,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           if (q !== "granted") return;
           const file = await handle.getFileHandle(`Faro_Backup_${todayIso(new Date(led.updatedAt))}.json.gz`, { create: true });
           const writable = await file.createWritable();
-          await writable.write((await backupBlob(led, snapshotDeviceLayer(browserPackStorage(), userId))) as BlobPart);
+          await writable.write((await backupBlob(led, snapshotDeviceLayer(browserPackStorage(), userId), snapshotDueFile(browserPackStorage()))) as BlobPart);
           await writable.close();
         })().catch(() => undefined);
       }
@@ -1175,7 +1177,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   function exportJson() {
     if (!session) return;
     const stamp = todayIso();
-    void backupBlob(session.ledger, snapshotDeviceLayer(browserPackStorage(), userId)).then((bytes) => {
+    void backupBlob(session.ledger, snapshotDeviceLayer(browserPackStorage(), userId), snapshotDueFile(browserPackStorage())).then((bytes) => {
       const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
       download(`Faro_${sampleOn() ? "Ejemplo" : "Backup"}_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
     });
@@ -1187,6 +1189,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // 1.3.168 (la puerta): la sección `device` del respaldo (la capa del aparato). Ausente en
     // respaldos viejos → null → la capa queda intacta. Dañada → null: jamás bloquea el libro.
     const device = deviceSectionOf(parsed);
+    // 1.3.169: la sección `dueFile` (el Archivo de Debo). La misma regla: ausente o dañada →
+    // null → el Archivo de este aparato queda intacto; presente → reemplaza entero.
+    const dueFile = dueFileSectionOf(parsed);
     // 1.3.166 (C1): la puerta de restauración también valida en profundidad — una copia con
     // corrupción de campo se rechaza como «dañada» en vez de entrar y explotar al arrancar.
     if (!isLedgerDeep(ledger)) { setUi({ notice: t("backup.bad") }); return; }
@@ -1221,10 +1226,13 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
             applyDeviceLayer(browserPackStorage(), device);
             setHasConflict(Boolean(localStorage.getItem(conflictKey(userId)) || localStorage.getItem(tabConflictKey(userId))));
           }
+          // 1.3.169: el Archivo del respaldo aterriza en su clave global, junto a la capa —
+          // solo si la sección vino (la regla de la sección ausente protege el de este aparato).
+          if (dueFile) applyDueFile(browserPackStorage(), dueFile);
         };
         const cur = sessionRef.current?.ledger;
         if (!cur) { apply(); return; }
-        void autoBackup(userId, cur, { online: false, safety: true, device: snapshotDeviceLayer(browserPackStorage(), userId) }).catch(() => undefined).finally(apply);
+        void autoBackup(userId, cur, { online: false, safety: true, device: snapshotDeviceLayer(browserPackStorage(), userId), dueFile: snapshotDueFile(browserPackStorage()) }).catch(() => undefined).finally(apply);
       },
     });
   }
