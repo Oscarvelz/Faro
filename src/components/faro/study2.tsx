@@ -8,6 +8,7 @@ import { Explain } from "@/components/faro/ui";
 import { Hint } from "@/components/faro/hint";
 import type { Coach } from "@/lib/faro/coach";
 import type { Insight } from "@/lib/faro/types";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { keyNumbersShown } from "@/lib/faro/keynumbers";
 
 type Point = { key: string; label: string; income: number; expense: number };
@@ -108,8 +109,8 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
   const move = Math.min(gap, Math.max(0, coach.left));
   const peak = Math.max(...pockets.map((p) => p.minor), 1);
   const locale = lang === "en" ? "en-US" : "es-NI";
-  const day = (d: Date) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(d).replace(".", "");
-  const mon = (d: Date) => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(d);
+  const day = (d: Date) => dateFmt(locale, { day: "numeric", month: "short" }).format(d).replace(".", "");
+  const mon = (d: Date) => dateFmt(locale, { month: "long", year: "numeric" }).format(d);
   const today = new Date();
   const until = new Date(today.getTime() + covered * 30.44 * 86400000);
   // What-if dial: how long to the full cushion if you set aside X a month.

@@ -19,6 +19,7 @@ import { useLayer } from "@/lib/manual/back";
 import { DayField } from "./line-form";
 import { ColorPick } from "./color-pick";
 import { CardArt } from "./card-art";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
 import {
@@ -30,7 +31,7 @@ import type { CreditCard, Currency, LedgerState } from "@/lib/faro/types";
 
 const useL = () => { const { lang } = useFaro(); return (es: string, en: string) => (lang === "en" ? en : es); };
 const money = (m: number | null | undefined) => (m == null ? "" : (m / 100).toFixed(2));
-const dayLabel = (iso: string, lang: string) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "") : "");
+const dayLabel = (iso: string, lang: string) => (iso ? dateFmt(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`)).replace(".", "") : "");
 const titleCase = (s: string) => s.replace(/\b([A-ZÁÉÍÓÚÑ])([A-ZÁÉÍÓÚÑ]+)\b/g, (_, a: string, b: string) => a + b.toLowerCase()).replace(/\bVisa\b/g, "Visa");
 const pctText = (bps: number, lang: string) => `${(bps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%`;
 
@@ -847,7 +848,7 @@ export function CardsAdvisor({ plan }: { plan: ReturnType<typeof import("@/lib/f
   const firstCard = first ? rows.find((r) => r.c.id === first.id) : undefined;
   const lvl = utilLevel(sums.util);
   const cut = sums.util != null ? toThirty(sums.limited, sums.limit) : 0;
-  const when = (n: number) => { const t = new Date(); const d = new Date(t.getFullYear(), t.getMonth() + n, 1); return d.toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { month: "short", year: "numeric" }).replace(".", ""); };
+  const when = (n: number) => { const t = new Date(); const d = new Date(t.getFullYear(), t.getMonth() + n, 1); return dateFmt(lang === "en" ? "en-US" : "es-NI", { month: "short", year: "numeric" }).format(d).replace(".", ""); };
   const goPlan = () => { setUi({ section: "income", vault: "owe" }); window.setTimeout(() => window.dispatchEvent(new CustomEvent("faro-open", { detail: "debt-plan" })), 60); };
   return (
     <article className="advice-card is-medium card-advice" data-anchor="advice-cards">

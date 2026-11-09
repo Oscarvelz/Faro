@@ -8,6 +8,7 @@ import { Hint } from "./hint";
 import type { AdviceCard, SectionId } from "@/lib/faro/types";
 import type { readAdvisor } from "@/lib/faro/advisor";
 import { isTron, tronize } from "@/lib/faro/colors";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { cardFigures, cardTotals, cardsOf, utilLevel } from "@/lib/faro/cards";
 import { adviceRules, rateLine, type Rule, type RuleTone } from "@/lib/faro/rules";
 import { readStoredGoals } from "@/lib/faro/awake";
@@ -202,7 +203,7 @@ function CardsCredit() {
   if (!ledger || !ct.known || ct.balance <= 0) return null;
   const due = cardsOf(ledger).map((c) => cardFigures(ledger, c)).filter((f) => f.known && f.balance > 0 && f.dueOn).map((f) => f.dueOn).sort()[0] ?? "";
   const lvl = utilLevel(ct.util);
-  const dueTxt = due ? new Date(`${due}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "") : "—";
+  const dueTxt = due ? dateFmt(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).format(new Date(`${due}T12:00:00`)).replace(".", "") : "—";
   return (
     <div className="a2-cards" data-anchor="advice-medium-cards">
       <p className="a2-cards-say">{L(lang, `Tus tarjetas deben ${fmt(ct.balance)}${ct.min > 0 ? `; el pago mínimo suma ${fmt(ct.min)}` : ""}${due ? ` y el próximo vence el ${dueTxt}` : ""}.`, `Your cards owe ${fmt(ct.balance)}${ct.min > 0 ? `; minimums add up to ${fmt(ct.min)}` : ""}${due ? ` and the next is due ${dueTxt}` : ""}.`)}</p>
@@ -228,7 +229,7 @@ export function LongVisual({ card }: { card: AdviceCard }) {
   const top = Math.max(...series.map(Math.abs), n.target, 1);
   const hit = !hole && n.target > 0 ? series.findIndex((v) => v >= n.target) : -1;
   const now = new Date();
-  const mo = (i: number) => new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" }).format(new Date(now.getFullYear(), now.getMonth() + i + 1, 1)).replace(".", "");
+  const mo = (i: number) => dateFmt(lang === "en" ? "en-US" : "es-NI", { month: "short" }).format(new Date(now.getFullYear(), now.getMonth() + i + 1, 1)).replace(".", "");
   const have = n.target > 0 ? Math.min(100, (n.stock / n.target) * 100) : 0;
   return (
     <div className="a2">

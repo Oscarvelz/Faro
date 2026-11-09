@@ -10,6 +10,7 @@ import type React from "react";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { isTron, tronize } from "@/lib/faro/colors";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { AREA_TONE, areaReport, type AreaChart, type AreaId, type AreaItem, type AreaTone } from "@/lib/faro/area-advice";
 import { readStoredGoals } from "@/lib/faro/awake";
 
@@ -104,7 +105,7 @@ export function AreaAdvisor({ area, label, onLeave }: { area: AreaId; label?: st
   );
 }
 
-const MON = (k: string, lang: string) => new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" }).format(new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 1)).replace(".", "");
+const MON = (k: string, lang: string) => dateFmt(lang === "en" ? "en-US" : "es-NI", { month: "short" }).format(new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 1)).replace(".", "");
 
 function AreaFigure({ chart, caption, fmt, lang }: { chart: NonNullable<AreaChart>; caption: string; fmt: (n: number) => string; lang: string }) {
   if (chart.type === "bars") {

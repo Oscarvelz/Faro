@@ -20,6 +20,7 @@ import { DueSide, TABLET_ONE_MQ, useTabletOne } from "./book-side";
 import { AreaAdvisor, SideCol } from "./area-advisor";
 import { FreqPick } from "./fit-pick";
 import { freqPresetsOf, cadenceLabel } from "@/lib/faro/cadence";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { DeboSum, DueLoans, LoanCard, LoanForm, deboTabNow, type LoanDraft } from "./loans";
 import { RewardsGroup } from "./cards";
 import { BookKit } from "./book-kit";
@@ -39,7 +40,7 @@ function useL() {
 
 function monthName(key: string, lang: string, year = true) {
   const d = new Date(`${key}-15T12:00:00`);
-  return d.toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { month: "short", ...(year ? { year: "2-digit" } : {}) }).replace(".", "");
+  return dateFmt(lang === "en" ? "en-US" : "es-NI", { month: "short", ...(year ? { year: "2-digit" } : {}) }).format(d).replace(".", "");
 }
 
 /* ---------- Central → Libros jump, and the way back ---------- */
@@ -393,7 +394,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
       ] : active.length ? [
         [`${people.filter((p) => p.active).length} ${t(people.filter((p) => p.active).length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],
         ...(sums.interest > 0 ? [[{ num: fmt(sums.interest) }, t("debo.sum.interest")]] : [[{ num: fmt(sums.paid) }, t("debo.sum.got")]]),
-        ...(nextOwed ? [[`${t("debo.sum.nextGet")} ${new Date(`${nextOwed}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}`]] : []),
+        ...(nextOwed ? [[`${t("debo.sum.nextGet")} ${dateFmt(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).format(new Date(`${nextOwed}T12:00:00`)).replace(".", "")}`]] : []),
       ] : rwSum.total > 0 ? [
         [`${rwSum.count} ${lang === "en" ? (rwSum.count === 1 ? "card" : "cards") : (rwSum.count === 1 ? "tarjeta" : "tarjetas")}`],
         [{ num: fmt(rwSum.total) }, lang === "en" ? "in card rewards" : "en recompensas"],

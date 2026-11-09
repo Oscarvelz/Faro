@@ -8,6 +8,7 @@ import { ThemeSelect } from "./line-form";
 import { plainLine } from "./people";
 import { importToast } from "./bank-dock";
 import { useLayer } from "@/lib/manual/back";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { convertMinor, formatMoney, formatRate } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { remitTrend } from "@/lib/faro/remesas";
@@ -107,7 +108,7 @@ export function RemitCard({ monthKey }: { monthKey: string }) {
   const avgPct = (tr.avgUsd / max) * 100;
   const mon = (key: string) => {
     const [y, m] = key.split("-").map(Number);
-    return new Date(y!, m! - 1, 1).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { month: "short" }).replace(".", "");
+    return dateFmt(lang === "en" ? "en-US" : "es-NI", { month: "short" }).format(new Date(y!, m! - 1, 1)).replace(".", "");
   };
   const d = tr.deltaPct;
   const tone = d === null ? "" : d > 0 ? " is-up" : d < 0 ? " is-down" : "";

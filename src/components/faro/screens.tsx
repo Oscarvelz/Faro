@@ -37,6 +37,7 @@ import { iconForName, libraryOff, presetName, subPresetsOf } from "@/lib/faro/su
 import { BrandIconPick, FreqSheet, LookPick } from "./fit-pick";
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
@@ -1138,7 +1139,7 @@ function DueOwe() {
       </div>
       <DeboSum empty={t("debo.sum.dues.empty")} parts={active.length ? [
         [`${active.length} ${t(active.length === 1 ? "debo.sum.active1" : "debo.sum.activeN")}`],
-        [nextDay ? `${t("debo.sum.next")} ${new Date(`${nextDay}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}` : t("debo.sum.allPaid")],
+        [nextDay ? `${t("debo.sum.next")} ${dateFmt(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).format(new Date(`${nextDay}T12:00:00`)).replace(".", "")}` : t("debo.sum.allPaid")],
         [{ num: fmt(paidSum) }, t("debo.sum.paid")],
       ] : null} />
       <CobroSpan out help="debo-tiempo" title={t("cobro.owe.span")} total={sum} events={charges}
@@ -1232,7 +1233,7 @@ export function CobroSpan({ title, total, facts, events, out = false, help }: { 
       const stop = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
       start = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-01`;
       end = `${stop.getFullYear()}-${String(stop.getMonth() + 1).padStart(2, "0")}-01`;
-      label = day.toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { month: "short" }).replace(".", "");
+      label = dateFmt(lang === "en" ? "en-US" : "es-NI", { month: "short" }).format(day).replace(".", "");
     } else {
       const year = now.getFullYear() - i;
       start = `${year}-01-01`;
@@ -3875,6 +3876,31 @@ function useUnfoldHello() {
   }, []);
   return n;
 }
+/** 1.3.175: on phone widths the Asesor's below-the-fold cards used to land whole
+ * in the page turn — every card rendered, measured and fitted before the turn
+ * could settle, which is where the Estudio↔Asesor heaviness lived. A deferred
+ * card now mounts as it approaches the viewport (well before it can scroll
+ * into view), so a turn only pays for what the eye can reach. Wide layouts
+ * (the masonry range, ≥700px) render everything at once, exactly as before;
+ * a faro-open jump or a print mounts the whole stack immediately. No spinner,
+ * no placeholder content: the slot is simply not there until its card is. */
+function DeferredCard({ force, children }: { force?: boolean; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (shown || force) return;
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined" || !window.matchMedia("(max-width: 699px)").matches) { setShown(true); return; }
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setShown(true); io.disconnect(); } }, { rootMargin: "1200px 0px" });
+    io.observe(el);
+    const onPrint = () => setShown(true);
+    window.addEventListener("beforeprint", onPrint);
+    return () => { io.disconnect(); window.removeEventListener("beforeprint", onPrint); };
+  }, [shown, force]);
+  if (shown || force) return <>{children}</>;
+  return <div ref={ref} aria-hidden style={{ height: 0 }} />;
+}
+
 /** 1.3.98: Asesor's Desplegar starts ticked. Unticking it lasts only until Faro is opened again (kept in memory, never saved). */
 let advisorFolded = false;
 export function Advisor() {
@@ -3895,10 +3921,13 @@ export function Advisor() {
   useMasonry(stackRef, !!(budget && session && summary));
   usePinchZoom(lang);
   const rules = useRules();
+  // 1.3.175: a jump into the stack mounts the deferred cards at once.
+  const [forceBelow, setForceBelow] = useState(false);
   // "Ir allí" / [[links]]: open the plan card (or a horizon card) when asked.
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
+      setForceBelow(true);
       if (id === "plan" || id === "short" || id === "medium" || id === "long" || id === "rules") setOpenCards((cur) => ({ ...cur, [id]: true }));
       else if (id === "advice-more") setMore(true);
     };
@@ -4057,7 +4086,8 @@ export function Advisor() {
           return card.horizon === "short" || !point.emphasis;
         });
         return (
-          <article key={card.horizon} data-anchor={`advice-${card.horizon}`} className={`advice-card is-${card.horizon} is-${index === 0 ? reading.tone : card.horizon === "medium" ? (summary.tone === "bad" ? "bad" : "good") : "good"}`} style={{ ["--enter" as string]: `${index + 1}` }}>
+          <DeferredCard key={card.horizon} force={forceBelow}>
+          <article data-anchor={`advice-${card.horizon}`} className={`advice-card is-${card.horizon} is-${index === 0 ? reading.tone : card.horizon === "medium" ? (summary.tone === "bad" ? "bad" : "good") : "good"}`} style={{ ["--enter" as string]: `${index + 1}` }}>
             <div role="button" tabIndex={0} className="advice-head" aria-expanded={open} onClick={() => toggleCard(card.horizon)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard(card.horizon); } }}>
               <span className="advice-mark" aria-hidden><Icon className="size-4" /></span>
               <div>
@@ -4075,10 +4105,12 @@ export function Advisor() {
               </>
             ) : null}
           </article>
+          </DeferredCard>
         );
       })}
-      <RulesCard rules={rules} open={cardOn("rules")} onToggle={() => toggleCard("rules")} enter={4} />
-      {session ? <CardsAdvisor plan={payoffPlan(session.ledger)} /> : null}
+      <DeferredCard force={forceBelow}><RulesCard rules={rules} open={cardOn("rules")} onToggle={() => toggleCard("rules")} enter={4} /></DeferredCard>
+      {session ? <DeferredCard force={forceBelow}><CardsAdvisor plan={payoffPlan(session.ledger)} /></DeferredCard> : null}
+      <DeferredCard force={forceBelow}>
       <section className="advice-card is-plan is-start" data-anchor="advice-plan" style={{ ["--enter" as string]: "4" }}>
         <div role="button" tabIndex={0} className="advice-head" aria-expanded={cardOn("plan")} onClick={() => toggleCard("plan")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard("plan"); } }}>
           <span className="advice-mark" aria-hidden><ListChecks className="size-4" /></span>
@@ -4146,8 +4178,9 @@ export function Advisor() {
           </>
         ) : null}
       </section>
-      <PeopleAdviceCard />
-      <RewardsAdvice />
+      </DeferredCard>
+      <DeferredCard force={forceBelow}><PeopleAdviceCard /></DeferredCard>
+      <DeferredCard force={forceBelow}><RewardsAdvice /></DeferredCard>
     </div>
   );
 }

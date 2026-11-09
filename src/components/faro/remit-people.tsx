@@ -15,6 +15,7 @@ import { Glyph } from "./icons";
 import { BookKit, type KitRow } from "./book-kit";
 import { PickButton, PickSheet } from "./fit-pick";
 import { useLayer } from "@/lib/manual/back";
+import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, uid } from "@/lib/faro/money";
 import { addRemitPerson, colorRemitPerson, dropRemitPeople, iconRemitPerson, initialsOf, remitByPerson, remitHistory, remitHue, remitNameKey, remitPeopleOf, renameRemitPerson, type Pair, type RemitRow } from "@/lib/faro/remit-people";
 import type { Currency, RemitPerson } from "@/lib/faro/types";
@@ -96,7 +97,7 @@ export function RemitToField({ value, onChange, className = "label is-wide" }: {
 
 const fmtDay = (iso: string, lang: string) => {
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y!, (m ?? 1) - 1, d ?? 1).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short", year: "numeric" }).replace(/\./g, "");
+  return dateFmt(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short", year: "numeric" }).format(new Date(y!, (m ?? 1) - 1, d ?? 1)).replace(/\./g, "");
 };
 
 type Col = "month" | "year" | "all";
@@ -122,7 +123,9 @@ export function RemitPeople({ monthKey, where }: { monthKey: string; where: "boo
   const sel = rows.find((r) => r.id === selId) ?? null;
   const nameOf = (r: RemitRow) => r.person?.name ?? L(lang, "Sin persona", "No person");
   const kitRows: KitRow[] = remitPeopleOf(state).map((p) => ({ id: p.id, label: p.name, glyph: p.icon || undefined, color: remitHue(p), initial: p.name }));
-  const entries = sel ? remitHistory(state, sel.id) : [];
+  // 1.3.175: this all-history scan ran unmemoised on every render; the mount of
+  // the Variables book paid it again and again. Same inputs, same result.
+  const entries = useMemo(() => (sel ? remitHistory(state, sel.id) : []), [state, sel]);
   const cols: [Col, string, string][] = [
     ["month", L(lang, "Este mes", "This month"), "rp-mes"],
     ["year", L(lang, "Este año", "This year"), "rp-ano"],
@@ -216,8 +219,12 @@ export function RemitPeople({ monthKey, where }: { monthKey: string; where: "boo
 export function RemitPeopleBox() {
   const { session, key } = useFaro();
   const tabletOne = useTabletOne();
+  // 1.3.175: the existence guard used to rescan ALL history (per person: this
+  // month / this year / all time, both currencies) on every render of the
+  // Variables book. Memoised on the same inputs RemitPeople itself uses.
+  const guard = useMemo(() => (session ? remitByPerson(session.ledger, key) : null), [session, key]);
   if (!session) return null;
-  if (!remitByPerson(session.ledger, key).rows.length) return null;
+  if (!guard?.rows.length) return null;
   return (
     <>
     <section className="card pp-box rp-box" data-anchor="book-remit" data-test="rp-box">

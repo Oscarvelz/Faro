@@ -1,5 +1,6 @@
 import type { Currency, Lang, LedgerState } from "./types";
 import { intervalOf, monthlyFactor, stepDate } from "./cadence.ts";
+import { numFmt } from "./datefmt.ts";
 
 export const BCN_RATE_E4 = 366243;
 export const BCN_AS_OF = "2026-10-12";
@@ -191,7 +192,7 @@ export function formatMoney(minor: number, currency: Currency, lang: Lang): stri
   if (minor < 0 && Math.round(minor) !== 0) return `-${formatMoney(-minor, currency, lang)}`;
   minor = Math.abs(minor);
   const value = minor / 100;
-  const formatted = new Intl.NumberFormat(lang === "en" ? "en-US" : "es-NI", {
+  const formatted = numFmt(lang === "en" ? "en-US" : "es-NI", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
@@ -200,7 +201,7 @@ export function formatMoney(minor: number, currency: Currency, lang: Lang): stri
 
 export function formatPct(n: number | null, lang: Lang): string {
   if (n === null || !Number.isFinite(n)) return "—";
-  const body = new Intl.NumberFormat(lang === "en" ? "en-US" : "es-NI", {
+  const body = numFmt(lang === "en" ? "en-US" : "es-NI", {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(n);

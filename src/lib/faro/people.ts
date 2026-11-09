@@ -2,6 +2,7 @@
  * People (Nov 2026): someone the user spends on, usually gifts. There is no second money system:
  * a gift is a normal expense line with `personId`. This file only reads those lines.
  */
+import { dateFmt } from "./datefmt";
 import { convertMinor } from "./money";
 import type { Currency, Lang, LedgerState, Line, OccasionKind, Person, PersonDate } from "./types";
 import { NO_YEAR, type ImportedContact } from "./vcard";
@@ -235,5 +236,5 @@ export function mergeContacts(people: Person[], contacts: ImportedContact[], mak
 
 export function dayLabel(iso: string, lang: Lang): string {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
-  return d.toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(/\.$/, "");
+  return dateFmt(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).format(d).replace(/\.$/, "");
 }

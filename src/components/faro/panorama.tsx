@@ -10,6 +10,7 @@ import { StatFold, useFoldTopic } from "@/components/faro/charts";
 import { Hint } from "./hint";
 import { SubMark } from "./icons";
 import { isTron } from "@/lib/faro/colors";
+import { dateFmt } from "@/lib/faro/datefmt";
 
 function sectionFor(kind: string): SectionId {
   if (kind.startsWith("income")) return "income";
@@ -424,7 +425,7 @@ export function HistoryCard({ coach }: { coach: Coach }) {
 export function AgendaCard({ coach }: { coach: Coach }) {
   const { fmt, lang } = useFaro();
   const peak = Math.max(1, ...coach.dues.map((d) => d.minor));
-  const day = (iso: string) => new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`));
+  const day = (iso: string) => dateFmt(lang === "en" ? "en-US" : "es-NI", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`));
   const total = coach.dues.reduce((a, d) => a + d.minor, 0);
   return (
     <section className="card pano-card">
