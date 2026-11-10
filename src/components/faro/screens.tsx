@@ -4800,7 +4800,7 @@ function StructureTree() {
               foldGroup(group);
             }}>
               <ChevronDown className={groupOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
-              <span>{t(group === "fixed" ? "group.fixed" : "group.variable")}</span>
+              <span className="tree-group-name">{t(group === "fixed" ? "group.fixed" : "group.variable")}</span>
               <span className="tree-group-count num">{rows.length}</span>
             </button>
             {missingHere.length ? <button type="button" className="sub-gear tree-restore" data-test="cat-restore" data-group={group} aria-label={lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica"} onClick={() => confirm({
