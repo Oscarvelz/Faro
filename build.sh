@@ -2,6 +2,7 @@
 set -e
 # Lazy on-use files stay out of precache.json (the SW keeps them after first use): pdf.js (pdftext + worker) and the OCR (ocrrun chunk + ocr/ folder).
 cd "$(dirname "$0")"
+python3 tools/stamp-version.py
 npx vite build -c vite.spa.config.ts
 cd dist
 rm -rf __grok og.jpg

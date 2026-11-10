@@ -31,6 +31,7 @@ import { setSampleMode } from "@/lib/faro/samplemode";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
+import { FARO_VERSION } from "@/lib/faro/build-version";
 import { SAVINGS_PURPLE, baseFor, categoryBase, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
 import { shrinkIcon } from "@/lib/faro/icon";
 import { inkOn, washForInk } from "@/lib/faro/palette";
@@ -4339,6 +4340,7 @@ export function Settings() {
     apply();
   }
   return (
+    <>
     <div ref={boardRef} className="grid gap-3 settings-board">
       <Fold id="lang" icon={Languages} sub={lang === "en" ? "Spanish or English" : "Español o inglés"} topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
         <div className="aj-seg" role="group" aria-label={t("settings.lang")}>
@@ -4508,7 +4510,9 @@ export function Settings() {
         <UserButton />
         <AccountLocalNote />
       </Fold>
-    </div>
+      </div>
+      <p className="app-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>
+    </>
   );
 }
 
