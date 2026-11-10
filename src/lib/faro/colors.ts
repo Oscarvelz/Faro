@@ -85,12 +85,26 @@ export function tronize(hex: string): string {
 }
 
 /**
- * Cyberpunk (neon-noir, 1.3.189): the same doctrine as the Grid — every category
- * keeps its own hue — lit hotter: signal-neon on near-black blue, a step brighter
- * and more saturated than Tron's light lines so the two night machines never blur.
- * Ahorros keeps its purple, pushed to a vivid violet neon. Only while Cyberpunk is on.
+ * Cyberpunk (1.3.189; re-voiced warm, 1.3.197): category colours as SIGNAGE —
+ * the warm span of the research palette (yellow / red / pink / orange /
+ * violet / acid). Warm hues keep their hue, lit hot; the cold band is
+ * re-voiced, never left to glow blue in a warm city: teal turns acid
+ * green, cyan-blue turns violet, blue-violet turns violet-magenta.
+ * Mapping (HSL degrees, hand colours): 170–190 → 148–158 (acid),
+ * 190–255 → 262–285 (violet); (OKLCH degrees, palette colours):
+ * 165–185 → 142–155 (acid), 185–250 → 295–318 (violet),
+ * 250–285 → 318–330 (violet-magenta). Neutrals keep their tint at
+ * whisper chroma. Ahorros keeps its purple, a vivid violet. Only while
+ * Cyberpunk is on.
  */
 const SAVINGS_CYBER = "#cd7bff";
+
+/** HSL warm re-voice: cold hues land in the acid/violet span (see above). */
+function warmHueHsl(h: number): number {
+  if (h >= 190 && h < 255) return 262 + (h - 190) * (23 / 65);
+  if (h >= 170 && h < 190) return 148 + (h - 170) * (10 / 20);
+  return h;
+}
 
 export function cyberize(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -103,7 +117,7 @@ export function cyberize(hex: string): string {
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
   let h = 0;
   if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  h = (h * 60 + 360) % 360;
+  h = warmHueHsl((h * 60 + 360) % 360);
   if (d < 0.06) return `hsl(${h.toFixed(0)} 24% 74%)`;
   const light = h >= 45 && h < 170 ? 60 : h >= 200 && h < 290 ? 70 : 66;
   return `hsl(${h.toFixed(0)} 100% ${light}%)`;
@@ -184,9 +198,20 @@ function paletteNeon(i: number): string {
   return out;
 }
 
-// Palette colours in neon-noir: same hue-keeping OKLCH method as the Grid's, one step
-// hotter (lightness .72/.85, chroma up to .26) so Cyberpunk's categories read as
-// arcade neon next to Tron's light lines, and neighbours still never collapse.
+// Palette colours as signage (1.3.197): the Grid's hue-keeping OKLCH method,
+// one step hotter (lightness .72/.85, chroma up to .26) — then the cold band
+// is re-voiced warm before the colour is built: OKLCH hue 165–185° (teal)
+// lands at 142–155° (acid green), 185–250° (cyan-blue) at 295–318° (violet),
+// 250–285° (blue-violet) at 318–330° (violet-magenta). Warm hues, reds,
+// pinks and true violets pass through untouched, and neighbours still
+// never collapse (the alternating lightness steps keep them apart).
+function warmHueOklch(hDeg: number): number {
+  if (hDeg >= 185 && hDeg < 250) return 295 + (hDeg - 185) * (23 / 65);
+  if (hDeg >= 250 && hDeg < 285) return 318 + (hDeg - 250) * (12 / 35);
+  if (hDeg >= 165 && hDeg < 185) return 142 + (hDeg - 165) * (13 / 20);
+  return hDeg;
+}
+
 const cyberCache = new Map<number, string>();
 function paletteCyber(i: number): string {
   const hit = cyberCache.get(i);
@@ -200,7 +225,7 @@ function paletteCyber(i: number): string {
   const L = 0.2104542553 * l + 0.793617785 * mm - 0.0040720468 * s;
   const A = 1.9779984951 * l - 2.428592205 * mm + 0.4505937099 * s;
   const B = 0.0259040371 * l + 0.7827717662 * mm - 0.808675766 * s;
-  const h = Math.atan2(B, A);
+  const h = warmHueOklch((Math.atan2(B, A) * 180 / Math.PI + 360) % 360) * Math.PI / 180;
   const neutral = Math.hypot(A, B) < 0.05;
   const L2 = neutral ? 0.52 + (L - 0.42) * 0.9 : i % 2 === 0 ? 0.72 : 0.85;
   let C = neutral ? Math.min(Math.hypot(A, B), 0.05) : 0.26;

@@ -881,6 +881,7 @@ export function Shell() {
       <div className={split ? "split-stack" : "stage"} ref={stackRef}>
         <div ref={topPaneRef} className={split ? "split-pane" : "stage-pane"} style={split ? { flex: `0 0 ${draggingRef.current ? liveRatio.current : splitRatio}%` } : undefined}>
         <header className="top-chrome">
+          <span className="cp-kata" aria-hidden="true">サイバーパンク</span>
           <SampleEdge />
           <div className="top-scale">{topScaleOn ? <DebtScale top value={topDebt} onPick={pickTopDebt} /> : null}</div>
           <div className="top-row">

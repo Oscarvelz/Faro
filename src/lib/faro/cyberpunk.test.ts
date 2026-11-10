@@ -36,29 +36,36 @@ describe("cyberpunk: registro", () => {
 
 describe("cyberpunk: tokens y contraste (la legibilidad es sagrada)", () => {
   it("la hoja declara la identidad de la especificación", () => {
-    assert.match(css, /--bg: #08080d/);
-    assert.match(css, /--surface: #111119/);
+    // 1.3.197: la identidad pasa a la paleta cálida de la investigación —
+    // fondo cálido #0b0a08 y panel #161310 (antes el negro azulado
+    // #08080d/#111119 de la 189, que lo hacía leer Tron×Ion).
+    assert.match(css, /--bg: #0b0a08/);
+    assert.match(css, /--surface: #161310/);
     assert.match(css, /--accent: #fcee0a/);
     assert.match(css, /--cp-cyan: #00f0ff/);
     assert.match(css, /--cp-magenta: #ff2a6d/);
+    assert.match(css, /--bad: #ff003c/);
+    assert.match(css, /--cp-data: #00f0ff/);
   });
   it("el texto cumple sobre los fondos del tema", () => {
-    const surface = "#111119", bg = "#08080d";
-    assert.ok(contrast("#eceef4", surface) >= 12, "fg sobre surface");
-    assert.ok(contrast("#eceef4", bg) >= 12, "fg sobre bg (la cifra héroe)");
-    assert.ok(contrast("#a2a7b8", surface) >= 7, "muted sobre surface");
-    assert.ok(contrast("#7a8095", surface) >= 4.5, "faint sobre surface");
+    const surface = "#161310", bg = "#0b0a08";
+    assert.ok(contrast("#f2eee3", surface) >= 12, "fg sobre surface");
+    assert.ok(contrast("#f2eee3", bg) >= 12, "fg sobre bg (la cifra héroe)");
+    assert.ok(contrast("#aca294", surface) >= 7, "muted sobre surface");
+    assert.ok(contrast("#968b78", surface) >= 4.5, "faint sobre surface");
     assert.ok(contrast("#fcee0a", surface) >= 12, "el amarillo como texto");
-    assert.ok(contrast("#0a0a05", "#fcee0a") >= 12, "la tinta sobre el amarillo");
-    assert.ok(contrast("#00f0ff", surface) >= 10, "cian sobre surface");
+    assert.ok(contrast("#0b0a08", "#fcee0a") >= 12, "la tinta sobre el amarillo");
+    assert.ok(contrast("#00f0ff", surface) >= 10, "cian (dato) sobre surface");
     assert.ok(contrast("#ff2a6d", surface) >= 4.5, "magenta (alertas) sobre surface");
-    assert.ok(contrast("#45ff7a", surface) >= 10, "good sobre surface");
-    assert.ok(contrast("#ffaa3f", surface) >= 7, "warn sobre surface");
+    assert.ok(contrast("#00e67a", surface) >= 10, "good sobre surface");
+    assert.ok(contrast("#ff7a00", surface) >= 7, "warn sobre surface");
+    assert.ok(contrast("#ff003c", surface) >= 4.5, "rojo peligro sobre surface");
+    assert.ok(contrast("#0b0a08", "#ff003c") >= 4.5, "la tinta sobre el rojo (rellenos de peligro)");
   });
 });
 
 describe("cyberpunk: las categorías se encienden sin tocar a Tron", () => {
-  it("cyberize conserva el matiz y difiere del encendido de Tron", () => {
+  it("cyberize difiere del encendido de Tron en toda la paleta", () => {
     let differ = 0;
     for (const hex of PALETTE) {
       const neon = cyberize(hex);
@@ -66,6 +73,27 @@ describe("cyberpunk: las categorías se encienden sin tocar a Tron", () => {
       if (neon !== tronize(hex)) differ += 1;
     }
     assert.ok(differ >= 20, `solo ${differ} colores difieren del encendido Tron`);
+  });
+  it("cyberize re-voz cálida: la banda fría cae en ácido o violeta (1.3.197)", () => {
+    // El matiz cálido se conserva; el frío se re-voz: un azul de la paleta
+    // (#079ed9) sale violeta y un turquesa (#52d7c1) sale verde ácido —
+    // ningún color de categoría queda en la banda cian/azul (185–255°).
+    const hueOf = (out: string): number => {
+      const m = /rgb\((\d+) (\d+) (\d+)\)/.exec(out);
+      assert.ok(m, `salida no rgb: ${out}`);
+      const [r, g, b] = [+m[1] / 255, +m[2] / 255, +m[3] / 255];
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+      if (d < 0.03) return -2;
+      const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      return Math.round((h * 60 + 360) % 360);
+    };
+    const blue = hueOf(cyberize("#079ed9"));
+    assert.ok(blue >= 255 && blue <= 330, `el azul debía salir violeta, salió ${blue}`);
+    const teal = hueOf(cyberize("#52d7c1"));
+    assert.ok(teal >= 130 && teal < 185, `el turquesa debía salir ácido, salió ${teal}`);
+    const hand = cyberize("#079ed9");
+    assert.match(hand, /^rgb\(/, "el color a mano de paleta sale rgb");
+    assert.match(cyberize("#1e6fd9"), /^hsl\(2[6-8]\d 100% 70%\)$/, "un azul a mano sale violeta en hsl");
   });
   it("Ahorros conserva su púrpura, en neón violeta propio", () => {
     assert.equal(cyberize(SAVINGS_PURPLE), "#cd7bff");
@@ -101,7 +129,10 @@ describe("cyberpunk: el glitch (1.3.195) — naves sin cristal, tira contenida",
   it("la tira contiene a sus rectángulos: pista a 6px y luz solo hacia adentro", () => {
     assert.match(css, /\.seg\.is-follow:not\(\.is-pair\) \{\s*border-radius: 8px; padding: 6px;/, "la pista no tomó su esquina y su margen nuevos");
     assert.ok(!css.includes("0 0 14px rgb(252 238 10 / .28)"), "el brillo que se salía de la pista (14px sobre 4px) sigue vivo");
-    assert.ok(css.includes("inset 0 0 0 1.5px rgb(252 238 10 / .55)"), "la pestaña viva no lleva su anillo interior");
+    // 1.3.197: el anillo interior de la 195 (inset 0 0 0 1.5px, tinte amarillo)
+    // deja paso a la ley nueva — el amarillo es superficie plana con tinta
+    // negra; la cerca ahora exige ese relleno plano en la pestaña viva.
+    assert.match(css, /\.seg button\[aria-current="page"\] \{\s*background: var\(--accent\); color: var\(--accent-fg\);/, "la pestaña viva no lleva su relleno amarillo plano");
   });
   it("ningún keyframe de presión lleva clip-path (el corte se come el clic)", () => {
     // Lección medida en el banco: un clip-path en :active encoge el área de
@@ -116,8 +147,10 @@ describe("cyberpunk: el glitch (1.3.195) — naves sin cristal, tira contenida",
       assert.ok(!block.includes("clip-path"), `${n} no debe recortar: se comería el clic`);
     }
   });
-  it("la píldora de la tira ya no es cristal: es una celda encendida", () => {
-    assert.match(css, /\.seg\.is-follow \.seg-pill \{\s*background: linear-gradient\(180deg, rgb\(252 238 10 \/ \.17\)/);
+  it("la píldora de la tira es un sólido amarillo plano (1.3.197)", () => {
+    // 1.3.195 la hizo una celda encendida con tinte (linear-gradient .17/.07);
+    // la 197 la convierte en superficie plana #fcee0a, sin gradiente ni brillo.
+    assert.match(css, /\.seg\.is-follow \.seg-pill \{\s*background: #fcee0a;/);
   });
   it("todo el movimiento vive tras la guarda de no-preferencia y muere con reduce", () => {
     assert.ok(css.includes("@media (prefers-reduced-motion: no-preference)"), "falta la guarda de movimiento");
@@ -125,5 +158,44 @@ describe("cyberpunk: el glitch (1.3.195) — naves sin cristal, tira contenida",
     assert.ok(aplicaciones.includes("cp-ship-burst") && aplicaciones.includes("cp-pick-burst"), "las aplicaciones del glitch deben vivir dentro de la guarda");
     const reduce = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
     assert.ok(reduce.includes(".seg button") && reduce.includes("animation: none"), "el bloque reduce no apaga la familia");
+  });
+});
+
+describe("cyberpunk: la identidad cálida (1.3.197)", () => {
+  it("el cian queda degradado a dato: ningún literal cian fuera de los tokens y la ceremonia", () => {
+    // Se retiran las definiciones de los tokens de dato y TODAS las
+    // referencias var(--cp-cyan)/var(--cp-data) (la ceremonia del glitch y
+    // las micro-etiquetas de dato hablan por tokens); lo que quede no puede
+    // contener el literal cian en ninguna forma: ni tinte, ni brillo, ni fondo.
+    const resto = css
+      .replace(/--cp-cyan: #00f0ff; ?/g, "")
+      .replace(/--cp-data: #00f0ff; ?/g, "")
+      .replace(/var\(--cp-cyan\)/g, "")
+      .replace(/var\(--cp-data\)/g, "");
+    assert.ok(!resto.includes("#00f0ff"), "queda un literal #00f0ff fuera de los tokens");
+    assert.ok(!resto.includes("0 240 255"), "queda un rgb(0 240 255) fuera de los tokens");
+    assert.ok(!resto.includes("#4deaff"), "queda el cian claro de las cifras de la 189");
+  });
+  it("el cristal y la luz de fondo murieron: ni sheen holográfico ni estela en la loseta", () => {
+    assert.ok(!css.includes("cp-sheen"), "el sheen de cristal de la 189 sigue vivo");
+    assert.ok(!css.includes("cp-trail"), "la estela cian de la loseta sigue viva");
+    assert.ok(!css.includes("radial-gradient(55% 20%"), "el lavado cian del mundo sigue vivo");
+  });
+  it("las rayas de peligro marcan los umbrales: cabecera y loseta", () => {
+    assert.ok(css.includes("repeating-linear-gradient(-45deg, #fcee0a 0 7px, #0b0a08 7px 14px)"), "falta la franja de peligro");
+  });
+  it("Rajdhani viene en el paquete, jamás de la red", () => {
+    assert.ok(css.includes("@font-face"), "falta la cara auto-alojada");
+    assert.ok(css.includes("rajdhani-latin-600.woff2"), "falta el archivo de la fuente en src/assets/fonts");
+    assert.ok(!css.includes("fonts.googleapis"), "la fuente no puede venir de la red");
+    assert.ok(css.includes("--cp-display:"), "falta el token de la voz condensada");
+  });
+  it("la nave viva es una celda amarilla plana con tinta negra", () => {
+    assert.match(css, /:is\(\.dock, \.rail, \.side-dock\) \.nav-btn\[aria-current="page"\] \{\s*background: var\(--accent\); color: var\(--accent-fg\);/);
+  });
+  it("las voces del dinero: verde entra, naranja sale, rojo se debe", () => {
+    assert.match(css, /\.amt-in \{ color: var\(--cp-green\); \}/);
+    assert.match(css, /\.amt-out \{ color: var\(--cp-orange\); \}/);
+    assert.match(css, /\.lens\.is-debt \{ box-shadow: inset 0 -2px 0 var\(--cp-red\); \}/);
   });
 });
