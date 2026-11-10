@@ -231,18 +231,23 @@ export function defaultStructure(): Structure {
   };
 }
 
-/** Default categories missing from a ledger (by id), e.g. to put back what the user deleted. */
-export function missingDefaults(structure: Structure): Category[] {
+/** Default categories missing from a ledger (by id), e.g. to put back what the user deleted.
+ *  With a group, only that group's missing (1.3.187, E-8: each group header carries its own
+ *  restore, so the affordance lives where the absence is). */
+export function missingDefaults(structure: Structure, group?: Category["group"]): Category[] {
   const have = new Set(structure.categories.map((c) => c.id));
-  return defaultStructure().categories.filter((c) => !have.has(c.id));
+  return defaultStructure().categories.filter((c) => !have.has(c.id) && (group === undefined || c.group === group));
 }
 
-/** Puts every missing default category back (at the end of its book); never touches the user's own ones or any line. */
-export function restoreDefaultCategories(state: LedgerState): LedgerState {
-  const add = missingDefaults(state.structure);
+/** Puts every missing default category back (at the end of its group); never touches the user's own ones or any line. */
+export function restoreDefaultCategories(state: LedgerState, group?: Category["group"]): LedgerState {
+  const add = missingDefaults(state.structure, group);
   if (!add.length) return state;
   const next = [...state.structure.categories];
-  for (const c of add) next.push({ ...c, order: next.filter((x) => x.group === c.group).length });
+  // The end of the group, truly: `order` runs across the whole book (fixed first), so a
+  // restored variable must land past the group's own maximum — counting the group's
+  // members put it at the TOP of the variable group (found by the 1.3.187 E-8 bench).
+  for (const c of add) next.push({ ...c, order: next.filter((x) => x.group === c.group).reduce((m, x) => Math.max(m, x.order), -1) + 1 });
   return { ...state, structure: { ...state.structure, categories: next } };
 }
 
@@ -355,12 +360,12 @@ export type SubLinesSummary = { count: number; totals: { currency: Currency; min
  * its balance; its amount is only the opening), else at its amount, each in its own
  * currency — the same reading the account editors use.
  */
-export function subLinesSummary(ledger: LedgerState, subId: string): SubLinesSummary {
+function sumLines(ledger: LedgerState, pick: (line: Line) => boolean): SubLinesSummary {
   let count = 0;
   const byCurrency = new Map<Currency, number>();
   for (const bucket of Object.values(ledger.months)) {
     for (const line of bucket.lines) {
-      if (line.subId !== subId) continue;
+      if (!pick(line)) continue;
       count += 1;
       const carried = line.balanceMinor != null;
       const minor = carried ? (line.balanceMinor as number) : line.amountMinor;
@@ -372,6 +377,21 @@ export function subLinesSummary(ledger: LedgerState, subId: string): SubLinesSum
     .filter((currency) => byCurrency.has(currency))
     .map((currency) => ({ currency, minor: byCurrency.get(currency) as number }));
   return { count, totals };
+}
+
+export function subLinesSummary(ledger: LedgerState, subId: string): SubLinesSummary {
+  return sumLines(ledger, (line) => line.subId === subId);
+}
+
+/**
+ * What hangs from a Catalog piece, for its delete confirmation (1.3.187, R-4): how many
+ * lines name it — purchases by storeId, services by providerId — across every month,
+ * and what they total per currency, read exactly like subLinesSummary (a balance when
+ * the line carries one, else its amount; never merged, never converted). Deleting the
+ * piece does NOT delete these lines; the warning says what they keep and what they lose.
+ */
+export function catalogLinesSummary(ledger: LedgerState, itemId: string): SubLinesSummary {
+  return sumLines(ledger, (line) => line.storeId === itemId || line.providerId === itemId);
 }
 
 export function makeNamer(structure: Structure, lang: Lang) {
@@ -611,6 +631,70 @@ export function templatePreview(state: LedgerState, id: TemplateId, lang: Lang):
     );
   }
   if (kept.length) lines.push(lang === "es" ? `Protegido por ti (no cambia): ${kept.join(", ")}.` : `Protected by you (unchanged): ${kept.join(", ")}.`);
+  return { body: lines.join("\n"), empty };
+}
+
+/**
+ * «Mostrar todo» (1.3.187, R-3 — the full variant, Oscar's approved package): the base
+ * becomes Completa in one stroke. Every category and subcategory shows again — what
+ * templates hid AND what the user's own hand hid — and the hand registry (userVis) is
+ * cleared with it, so the base status line returns to its zero-adjustment form. This is
+ * the user's own explicit act, confirmed after the honest preview below: no template
+ * overrides the hand here; the hand itself lets go. Templates only ever hide and add —
+ * nothing structural is undone: categories a template added (Estudio, Negocio) stay,
+ * exactly as they do when switching between templates today. Purchases and the Catalog
+ * are not part of the base and are not touched. One commit; Undo restores the exact
+ * prior structure, registry included.
+ */
+export function showAllStructure(structure: Structure): Structure {
+  return {
+    ...structure,
+    categories: structure.categories.map((c) => ({ ...c, hidden: false, subs: c.subs.map((s) => ({ ...s, hidden: false })) })),
+    userVis: {},
+    base: "completa",
+  };
+}
+
+/** One-line concrete example for the «Completa» card, in the family of templateExample. */
+export function showAllExample(lang: Lang): string {
+  return lang === "es"
+    ? "Muestra todo otra vez: cada categoría y subconcepto, incluidos tus ajustes a mano."
+    : "Shows everything again: every category and subcategory, including your own adjustments.";
+}
+
+/**
+ * The honest preview of «Mostrar todo» on THIS ledger, in templatePreview's family: how
+ * many hidden categories will reappear (named), how many hidden subcategories, that the
+ * base becomes Completa, and — when the hand has adjustments standing — that they reset,
+ * with the warning said out loud: afterwards a template can change those pieces again.
+ * Nothing here promises a restore the action does not perform.
+ */
+export function showAllPreview(state: LedgerState, lang: Lang): { body: string; empty: boolean } {
+  const cur = state.structure;
+  const hiddenCats = cur.categories.filter((c) => c.hidden);
+  const hiddenSubs = cur.categories.flatMap((c) => c.subs).filter((s) => s.hidden);
+  const hand = Object.keys(cur.userVis ?? {}).length;
+  const baseChanges = cur.base !== "completa";
+  const empty = !hiddenCats.length && !hiddenSubs.length && !hand && !baseChanges;
+  const lines: string[] = [];
+  if (empty) lines.push(lang === "es" ? "No cambiaría nada en tu estructura." : "It would change nothing in your structure.");
+  if (hiddenCats.length) lines.push(lang === "es" ? `Se muestra: ${hiddenCats.map((c) => displayName(c, lang)).join(", ")}.` : `Shows: ${hiddenCats.map((c) => displayName(c, lang)).join(", ")}.`);
+  if (hiddenSubs.length) {
+    lines.push(lang === "es"
+      ? hiddenSubs.length === 1 ? "Vuelve a mostrarse 1 subconcepto oculto." : `Vuelven a mostrarse ${hiddenSubs.length} subconceptos ocultos.`
+      : hiddenSubs.length === 1 ? "1 hidden subcategory shows again." : `${hiddenSubs.length} hidden subcategories show again.`);
+  }
+  if (baseChanges) {
+    lines.push(cur.base
+      ? (lang === "es" ? "La base vuelve a ser Completa." : "The base becomes Complete again.")
+      : (lang === "es" ? "La base queda registrada: Completa." : "The base is registered: Complete."));
+  }
+  if (hand) {
+    lines.push(lang === "es" ? `Tus ajustes a mano (${hand}) se reinician.` : `Your own adjustments (${hand}) are reset.`);
+    lines.push(lang === "es"
+      ? "Ojo: también se deshace lo que tu mano había fijado — una plantilla podrá volver a cambiar esas piezas. Nada se borra y ningún movimiento se toca."
+      : "Careful: what your hand had set is undone too — a template will be able to change those pieces again. Nothing is deleted and no entry is touched.");
+  }
   return { body: lines.join("\n"), empty };
 }
 

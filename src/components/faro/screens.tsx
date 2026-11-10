@@ -23,7 +23,7 @@ import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Sh
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
-import { applyTemplate, displayName, dropSubLines, lineListVisible, markUserVis, missingDefaults, restoreDefaultCategories, structureStatusLine, subLinesSummary, templateExample, templatePreview, type SubLinesSummary } from "@/lib/faro/defaults";
+import { applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, markUserVis, missingDefaults, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, type SubLinesSummary } from "@/lib/faro/defaults";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -44,7 +44,7 @@ import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
-import type { Category, Currency, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
+import type { CatalogItem, Category, Currency, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@/lib/faro/types";
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
@@ -4386,6 +4386,13 @@ export function Settings() {
               <span className="aj-pick-ex">{templateExample(id, lang)}</span>
             </button>
           ))}
+          {/* 1.3.187 (R-3): la quinta tarjeta, «Completa» — mostrar todo en un solo gesto,
+              con la misma maquinaria honesta de las plantillas: vista previa con conteos
+              y el aviso de que los ajustes a mano se reinician, un solo commit, un Deshacer. */}
+          <button type="button" className="btn ghost aj-pick" aria-pressed={session.ledger.structure.base === "completa"} onClick={() => { const pv = showAllPreview(session.ledger, lang); confirm({ title: t("tpl.completa"), body: `${showAllExample(lang)}\n\n${pv.body}`, yes: pv.empty ? (lang === "en" ? "Got it" : "Entendido") : t("yes"), run: pv.empty ? () => {} : () => commit((s) => ({ ...s, structure: showAllStructure(s.structure) }), "completa") }); }}>
+            <span className="aj-pick-name">{t("tpl.completa")}</span>
+            <span className="aj-pick-ex">{showAllExample(lang)}</span>
+          </button>
         </div>
         <Note kind="tip">{structureStatusLine(session.ledger.structure, lang)}</Note>
         <StructureTree />
@@ -4778,8 +4785,11 @@ function StructureTree() {
       </div>
       <p className="tree-hint">{t("tree.dragHint")}</p>
       {groups.length === 0 ? <Note>{t("tree.empty")}</Note> : null}
-      {groups.map(({ group, rows }, gi) => {
+      {groups.map(({ group, rows }) => {
         const groupOpen = needle.length > 0 || !folded.has(group);
+        // 1.3.187 (E-8): el restaurar vive en la cabecera de SU grupo — antes solo salía
+        // en el primer grupo aunque la ausente fuera del otro, y había que adivinarlo.
+        const missingHere = missing.filter((c) => c.group === group);
         return (
         <div key={group}>
           <div className="tree-kicker tree-kick-row">
@@ -4793,11 +4803,11 @@ function StructureTree() {
               <span>{t(group === "fixed" ? "group.fixed" : "group.variable")}</span>
               <span className="tree-group-count num">{rows.length}</span>
             </button>
-            {gi === 0 && missing.length ? <button type="button" className="sub-gear tree-restore" data-test="cat-restore" aria-label={lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica"} onClick={() => confirm({
+            {missingHere.length ? <button type="button" className="sub-gear tree-restore" data-test="cat-restore" data-group={group} aria-label={lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica"} onClick={() => confirm({
               title: lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica",
-              body: (lang === "en" ? "These come back: " : "Vuelven: ") + missing.map((c) => `${displayName(c, lang)} (${t(c.group === "fixed" ? "group.fixed" : "group.variable").toLowerCase()})`).join(", ") + (lang === "en" ? ". Your own categories and every entry stay as they are." : ". Tus categorías propias y cada movimiento quedan como están."),
+              body: (lang === "en" ? "These come back: " : "Vuelven: ") + missingHere.map((c) => `${displayName(c, lang)} (${t(c.group === "fixed" ? "group.fixed" : "group.variable").toLowerCase()})`).join(", ") + (lang === "en" ? ". Your own categories and every entry stay as they are." : ". Tus categorías propias y cada movimiento quedan como están."),
               yes: lang === "en" ? "Restore" : "Restaurar",
-              run: () => commit((s) => restoreDefaultCategories(s), lang === "en" ? "Default categories" : "Categorías de fábrica"),
+              run: () => commit((s) => restoreDefaultCategories(s, group), lang === "en" ? "Default categories" : "Categorías de fábrica"),
             })}><RotateCcw /></button> : null}
           </div>
           {groupOpen ? (
@@ -5127,6 +5137,8 @@ function CatalogEditor() {
   const { t, lang, session, commit, confirm } = useFaro();
   const [itemName, setItemName] = useState("");
   const [iconFor, setIconFor] = useState<string | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState("");
   const catalog = session?.ledger.structure.catalog ?? [];
   const addItem = () => {
     const name = itemName.trim();
@@ -5137,17 +5149,59 @@ function CatalogEditor() {
     }), name);
     setItemName("");
   };
+  // 1.3.187 — la casa del Catálogo se completa (R-5, cierra E-5) y su borrado avisa (R-4,
+  // cierra E-4). El modelo de guardado de ESTA casa es el inmediato: cada control hace su
+  // propio commit (así ya aplicaban el icono, el alta y el borrado), así que el renombre
+  // confirma con Enter/✓ en su propio commit y el ojo de la tienda alterna al toque, como
+  // en el engranaje de Compras — no se importa el modelo preparado del árbol (1.3.179).
+  // Renombrar escribe customName: la identidad de la pieza es su id y las líneas la
+  // nombran por id (storeId/providerId), así que ninguna compra se despega.
+  const saveRename = (item: CatalogItem) => {
+    const next = renameText.trim();
+    setRenameId(null);
+    if (!next || next === displayName(item, lang)) return;
+    commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, customName: next } : c)) } }), next);
+  };
+  // R-4: el aviso informado de la familia de la 1.3.178 — cuántas líneas nombran la pieza
+  // y cuánto suman por moneda (catalogLinesSummary). El borrado NO se lleva esas líneas:
+  // se quedan, pero ya no llevarán el nombre de la pieza; el cuerpo lo dice antes de quemar.
+  const dropItem = (item: CatalogItem) => {
+    const name = displayName(item, lang);
+    const summary: SubLinesSummary = session ? catalogLinesSummary(session.ledger, item.id) : { count: 0, totals: [] };
+    const totalsText = summary.totals.map((x) => formatMoney(x.minor, x.currency, lang)).join(" + ");
+    const fam = item.kind === "store" ? "delete.store.lines" : "delete.item.lines";
+    const body = summary.count === 0
+      ? name
+      : `${name}. ${summary.count === 1
+        ? t(`${fam}.one`).replace("{totals}", totalsText)
+        : t(fam).replace("{n}", String(summary.count)).replace("{totals}", totalsText)}`;
+    confirm({ title: t("delete"), body, danger: true, yes: t("yes"), run: () => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.filter((c) => c.id !== item.id) } }), item.id) });
+  };
   return (
     <div className="mt-2">
       {catalog.map((item) => (
-        <div key={item.id} className="line-row">
-          <div className="row min-w-0">
-            {item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-8" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-8" /> : <Glyph name={item.icon} />}
-            <span className="truncate">{displayName(item, lang)}</span>
-          </div>
+        <div key={item.id} className={item.hidden ? "line-row is-muted" : "line-row"}>
+          {renameId === item.id ? (
+            <div className="row min-w-0">
+              <input className="field" value={renameText} autoFocus aria-label={t("rename")} onChange={(e) => setRenameText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveRename(item); if (e.key === "Escape") setRenameId(null); }} />
+            </div>
+          ) : (
+            <div className="row min-w-0">
+              {item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-8" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-8" /> : <Glyph name={item.icon} />}
+              <span className="truncate">{displayName(item, lang)}</span>
+            </div>
+          )}
           <div className="row">
-            <button type="button" className="icon-btn" aria-label={t("icon.pick")} onClick={() => setIconFor(iconFor === item.id ? null : item.id)}><Palette className="size-4" /></button>
-            <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => confirm({ title: t("delete"), body: displayName(item, lang), danger: true, yes: t("yes"), run: () => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.filter((c) => c.id !== item.id) } }), item.id) })}><Trash2 className="size-4" /></button>
+            {renameId === item.id ? (
+              <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => saveRename(item)}><Check className="size-4" /></button>
+            ) : (
+              <>
+                <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => { setIconFor(null); setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
+                {item.kind === "store" ? <button type="button" className="icon-btn" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button> : null}
+                <button type="button" className="icon-btn" aria-label={t("icon.pick")} onClick={() => setIconFor(iconFor === item.id ? null : item.id)}><Palette className="size-4" /></button>
+                <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
+              </>
+            )}
           </div>
         </div>
       ))}

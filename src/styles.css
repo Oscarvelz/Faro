@@ -3039,6 +3039,8 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .aj-seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .aj-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .aj-pick[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: transparent; box-shadow: 0 1px 2px color-mix(in oklab, black 18%, transparent); }
+/* 1.3.187: la regla de arriba perdía la cascada contra .btn.ghost (mismo peso, más tardía) y la tarjeta elegida quedaba con texto casi blanco sobre fondo pálido — invisible en los temas claros; como «Completa» nace elegida, se refuerza el fondo declarado, menos en Tron (su pintura no se toca). */
+html:not([data-theme="tron"]) .aj-pick[aria-pressed="true"] { background: var(--accent); }
 /* 1.3.141: the pills stack name over example in a column — as a row flex item the example sat beside the name, and the nowrap below (equal specificity, later rule) made it run on one line across the card. */
 .aj-picks > .aj-pick { white-space: normal; text-align: left; padding-block: 8px; flex-direction: column; align-items: stretch; justify-content: center; gap: 0; }
 .aj-pick-name { display: block; }
