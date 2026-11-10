@@ -3054,6 +3054,10 @@ html:not([data-theme="tron"]) .aj-pick[aria-pressed="true"] { background: var(--
 .aj-pick-name { display: block; }
 .aj-pick-ex { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; line-height: 1.35; color: var(--muted); }
 .aj-pick[aria-pressed="true"] .aj-pick-ex { color: inherit; opacity: .85; }
+/* 1.3.196: «Completa» lleva marco, no sólido. Oscar (2026-11-10, con foto bajo Cyberpunk): «I love the new design. Just remove the solid from the center and create the frame utilizing the same color for cyberpunk and a different color for the different theme for Completo.» Solo esta tarjeta: en su estado elegido el interior vuelve a la superficie de sus hermanas, el texto a la tinta normal del tema, y el acento del tema vive en un marco de 2px — el borde propio teñido de acento más un anillo interior de 1px (inset), sin mover la geometría ni la altura. Las demás tarjetas de base (Soltero, Familia, Estudiante, Negocio) conservan su relleno sólido intacto. Bajo Tron la superficie elegida ya era la fantasma (su regla de .btn.ghost gana la cascada contra el relleno), así que el fondo solo se neutraliza fuera de Tron, en espejo de la regla de la 1.3.187. */
+html .settings-board .aj-picks > .aj-pick-wide[aria-pressed="true"] { color: var(--fg); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 1px 2px color-mix(in oklab, black 18%, transparent); }
+html:not([data-theme="tron"]) .settings-board .aj-picks > .aj-pick-wide[aria-pressed="true"] { background: color-mix(in oklab, var(--fg) 3%, transparent); }
+html .settings-board .aj-picks > .aj-pick-wide[aria-pressed="true"] .aj-pick-ex { color: var(--muted); opacity: 1; }
 .aj-picks > .btn { min-width: 0; padding-inline: 8px; }
 .settings-board .btn.ghost { border-color: var(--line); background: color-mix(in oklab, var(--fg) 3%, transparent); }
 /* English lenses: a kicker never sets the lens' column width (the amount and note keep the lens' own width, as in Spanish). */
