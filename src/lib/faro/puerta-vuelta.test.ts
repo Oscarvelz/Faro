@@ -99,7 +99,13 @@ describe("el cableado de la tarjeta y de los selectores (contra las fuentes)", (
   });
 
   it("Guardar escribe la categoría por markUserVis con su id y su valor, en el mismo commit", () => {
-    assert.match(screens, /markUserVis\(structure, \[cat\.id\], stagedCatVis\)/);
+    // 1.3.188: el Guardar pasa por applyCardEdits (R-6) — la tarjeta le entrega
+    // catHidden: stagedCatVis en su único commit y el canal puro escribe
+    // markUserVis(out, [catId], edits.catHidden): el mismo camino de la 1.3.186.
+    assert.match(screens, /catHidden: stagedCatVis/);
+    assert.match(screens, /applyCardEdits\(s\.structure, cat\.id, edits/);
+    const defaults = fs.readFileSync(new URL("./defaults.ts", import.meta.url), "utf8");
+    assert.match(defaults, /markUserVis\(out, \[catId\], edits\.catHidden\)/);
   });
 
   it("los cuatro selectores de estructura declaran hide y el verbo se resuelve a «Ocultar» con el ojo cerrado (R-2)", () => {

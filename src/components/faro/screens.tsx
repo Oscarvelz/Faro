@@ -11,7 +11,7 @@ import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
 import { hasKeyNumbers } from "@/lib/faro/keynumbers";
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { RemitCard } from "@/components/faro/remesas";
@@ -19,11 +19,11 @@ import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
-import { applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, markUserVis, missingDefaults, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, type SubLinesSummary } from "@/lib/faro/defaults";
+import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type SubLinesSummary } from "@/lib/faro/defaults";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -4841,7 +4841,11 @@ function StructureTree() {
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
                     <span className="min-w-0">
                       <span className="tree-name"><i className="sw tree-swatch" style={{ background: categoryColor(cat.id, cat.color) }} />{displayName(cat, lang)}</span>
-                      <span className="tree-subs">{cat.subs.map((sub) => displayName(sub, lang)).join(" · ") || "—"}</span>
+                      {/* 1.3.188 (R-7, cierra E-7): el subtítulo sigue listando TODOS los
+                          subconceptos (la fila es el mapa completo), pero los ocultos se
+                          pintan atenuados con la misma tinta is-muted de la categoría
+                          oculta — la fila ya no los anuncia como si vivieran. */}
+                      <span className="tree-subs">{cat.subs.length ? treeSubLine(cat, lang).map((s, i) => (<Fragment key={s.id}>{i > 0 ? " · " : null}<span className={s.hidden ? "is-muted" : undefined}>{s.name}</span></Fragment>)) : "—"}</span>
                     </span>
                   </button>
                   {open ? <TreePanel cat={cat} onClose={() => setOpenId(null)} exitRef={panelExitRef} /> : null}
@@ -4894,6 +4898,13 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // dentro de la sesión, la rescataba). Guardar lo escribe por el mismo camino
   // markUserVis de los subconceptos, con su valor, en el mismo commit.
   const [stagedCatVis, setStagedCatVis] = useState<boolean | null>(null);
+  // 1.3.188 (R-6, cierra E-6): las subcategorías nuevas también se PREPARAN
+  // (stagedSubs: nombres en orden, visibles en la tarjeta como filas pendientes
+  // con su ✕ para quitarlas) y los renombres de subconcepto igual (stagedNames:
+  // subId -> nombre nuevo, solo si difiere del visible). El Enter ya no crea ni
+  // guarda nada por ningún camino: Guardar es el único commit de la tarjeta.
+  const [stagedSubs, setStagedSubs] = useState<string[]>([]);
+  const [stagedNames, setStagedNames] = useState<Record<string, string>>({});
   const rootRef = useRef<HTMLDivElement>(null);
   // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
   // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
@@ -4916,12 +4927,19 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // Y al plegar con Cancelar, revealRow lo deja en la fila de su categoría
   // («que me deje justamente donde comencé»): la fila se trae a la vista con el
   // mismo revealEditor de siempre (descontando la franja superior pegajosa).
+  // 1.3.188 (R-6): la bolsa de descarte crece con el modelo — lleva también las
+  // subcategorías preparadas y los renombres preparados, y el nombre de la
+  // categoría pasa a ser un borrador como los demás (su línea base se renueva
+  // cuando GUARDAR lo escribe, ya no cuando un ✓ lo confirmaba al instante).
+  // Desde esta oleada lo único que sigue aplicando al instante en la tarjeta es
+  // el color y la papelera con su aviso de la 1.3.178: son gestos con su propia
+  // confirmación o su propia casa, y Cancelar jamás los revierte.
   const nameBaseRef = useRef(displayName(cat, lang));
   const editingSub = editSub ? cat.subs.find((x) => x.id === editSub) : undefined;
   const stagedIds = Object.keys(stagedVis);
   const panelDirty = formDirty(
-    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean>, catVis: null as boolean | null },
-    { name, sub: subName, edit: editingSub && subEdit !== displayName(editingSub, lang) ? subEdit : "", vis: stagedVis, catVis: stagedCatVis },
+    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean>, catVis: null as boolean | null, newSubs: [] as string[], renames: {} as Record<string, string> },
+    { name, sub: subName, edit: editingSub && subEdit !== (stagedNames[editingSub.id] ?? displayName(editingSub, lang)) ? subEdit : "", vis: stagedVis, catVis: stagedCatVis, newSubs: stagedSubs, renames: stagedNames },
   );
   const revealRow = () => {
     const row = rootRef.current?.closest("[data-row]");
@@ -4975,45 +4993,64 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     const next = !effCatHidden;
     setStagedCatVis(next === cat.hidden ? null : next);
   };
-  // Guardar confirma TODO lo pendiente de la tarjeta en un solo commit: la
-  // subcategoría escrita (exactamente el alta de siempre) y la visibilidad
-  // preparada, escrita por el camino de los ojos (markUserVis por valor, para
-  // que cada id quede registrado con SU valor, como N toques de ojo habrían
-  // dejado el libro — solo que en un paso de Deshacer, el de este Guardar).
+  // Guardar confirma TODO lo pendiente de la tarjeta en un solo commit — esa
+  // es su única escritura desde la 1.3.179 para la visibilidad (preparada,
+  // escrita por el camino de los ojos: markUserVis por valor, para que cada id
+  // quede registrado con SU valor, como N toques de ojo habrían dejado el
+  // libro — solo que en un paso de Deshacer, el de este Guardar).
   // 1.3.186: el ojo de la categoría viaja en el MISMO commit y por el mismo
   // camino (su hidden + markUserVis con su id y su valor).
+  // 1.3.188 (R-6): el commit crece hasta ser el ÚNICO de la tarjeta — lleva
+  // también el nombre de la categoría si cambió, los renombres preparados y
+  // las subcategorías preparadas MÁS la que esté escrita en el campo en ese
+  // momento (applyCardEdits lo aplica todo de una vez; un Deshacer lo
+  // revierte entero). Guardado, la línea base del nombre se renueva y toda la
+  // preparación se vacía: la tarjeta queda limpia.
+  const nameStaged = name.trim() !== "" && name.trim() !== displayName(cat, lang);
+  const hasStaged = nameStaged || !!subName.trim() || stagedSubs.length > 0 || stagedIds.length > 0 || stagedCatVis !== null || Object.keys(stagedNames).length > 0;
   const savePanel = () => {
-    const next = subName.trim();
-    if (!next && !stagedIds.length && stagedCatVis === null) return;
-    commit((s) => {
-      let structure = s.structure;
-      if (stagedIds.length || stagedCatVis !== null) {
-        const cats = structure.categories.map((c) => (c.id === cat.id
-          ? { ...c, ...(stagedCatVis !== null ? { hidden: stagedCatVis } : {}), subs: c.subs.map((x) => (x.id in stagedVis ? { ...x, hidden: stagedVis[x.id]! } : x)) }
-          : c));
-        structure = { ...structure, categories: cats };
-        if (stagedIds.length) {
-          structure = markUserVis(structure, stagedIds.filter((id) => stagedVis[id]), true);
-          structure = markUserVis(structure, stagedIds.filter((id) => !stagedVis[id]), false);
-        }
-        if (stagedCatVis !== null) structure = markUserVis(structure, [cat.id], stagedCatVis);
-      }
-      if (next) {
-        structure = { ...structure, categories: structure.categories.map((c) => (c.id === cat.id
-          ? { ...c, subs: [...c.subs, { id: `${c.id}.${uid().slice(0, 6)}`, nameKey: "", customName: next, icon: "Circle", hidden: false, order: c.subs.length }] }
-          : c)) };
-      }
-      return { ...s, structure };
-    }, next || stagedIds[0] || cat.id);
-    if (next) setSubName("");
+    if (!hasStaged) return;
+    const fresh = [...stagedSubs, ...(subName.trim() ? [subName.trim()] : [])];
+    const edits: CardEdits = {
+      ...(nameStaged ? { name: name.trim() } : {}),
+      ...(stagedCatVis !== null ? { catHidden: stagedCatVis } : {}),
+      ...(stagedIds.length ? { subHidden: stagedVis } : {}),
+      ...(Object.keys(stagedNames).length ? { subNames: stagedNames } : {}),
+      ...(fresh.length ? { newSubs: fresh } : {}),
+    };
+    commit((s) => ({ ...s, structure: applyCardEdits(s.structure, cat.id, edits, () => uid().slice(0, 6)) }), fresh[0] || edits.name || stagedIds[0] || cat.id);
+    setSubName("");
+    setStagedSubs([]);
+    setStagedNames({});
     if (stagedIds.length) setStagedVis({});
     if (stagedCatVis !== null) setStagedCatVis(null);
+    nameBaseRef.current = name;
   };
-  const addSub = () => {
+  // 1.3.188 (R-6): el Enter del campo de subcategoría nueva ya NO crea nada al
+  // instante (ese era el segundo camino silencioso de E-6, un commit propio
+  // fuera del modelo preparado y de la guardia de descarte): mueve el texto a
+  // la lista de preparadas, que se ven en la tarjeta como filas pendientes, y
+  // Guardar las crea junto con todo lo demás en el mismo commit.
+  const stageSub = () => {
     const next = subName.trim();
     if (!next) return;
-    patch((c) => ({ ...c, subs: [...c.subs, { id: `${c.id}.${uid().slice(0, 6)}`, nameKey: "", customName: next, icon: "Circle", hidden: false, order: c.subs.length }] }), next);
+    setStagedSubs((prev) => [...prev, next]);
     setSubName("");
+  };
+  // 1.3.188 (R-6): el Enter del renombre de un subconcepto tampoco guarda al
+  // instante — prepara el nombre nuevo (la fila lo pinta, como pinta el estado
+  // nuevo de un ojo preparado) y Guardar lo confirma. Teclear de vuelta el
+  // nombre visible desprepara, igual que un ojo que vuelve a su estado.
+  const stageSubName = (sub: Sub) => {
+    const next = subEdit.trim();
+    if (next) {
+      setStagedNames((prev) => {
+        const copy = { ...prev };
+        if (next === displayName(sub, lang)) delete copy[sub.id]; else copy[sub.id] = next;
+        return copy;
+      });
+    }
+    setEditSub(null);
   };
   function patch(run: (cat: Category) => Category, detail: string) {
     commit((s) => ({
@@ -5055,6 +5092,13 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
           delete copy[sub.id];
           return copy;
         });
+        // 1.3.188: y su renombre preparado muere con él, por la misma regla.
+        setStagedNames((prev) => {
+          if (!(sub.id in prev)) return prev;
+          const copy = { ...prev };
+          delete copy[sub.id];
+          return copy;
+        });
         commit((s) => {
           const userVis = { ...(s.structure.userVis ?? {}) };
           delete userVis[sub.id];
@@ -5070,13 +5114,12 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   return (
     <div className="tree-open" ref={rootRef}>
       <div className={effCatHidden ? "row is-muted" : "row"}>
-        <input className="field" value={name} aria-label={t("rename")} onChange={(e) => setName(e.target.value)} />
-        <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => {
-          const next = name.trim();
-          if (!next || next === displayName(cat, lang)) return;
-          patch((c) => ({ ...c, customName: next }), next);
-          nameBaseRef.current = name; // lo tecleado acaba de guardarse: deja de ser borrador
-        }}><Check className="size-4" /></button>
+        {/* 1.3.188 (R-6): el nombre ya no tiene ✓ — ese botón era un segundo gesto
+            de guardado con commit propio, y la tarjeta queda con UNO solo:
+            Guardar. El texto del campo ES el borrador preparado; Enter solo
+            cierra el gesto de teclear (suelta el foco), como el Enter del
+            renombre de un subconcepto deja su nombre preparado. */}
+        <input className="field" value={name} aria-label={t("rename")} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
         {/* 1.3.186 (R-1): el ojo de la categoría, junto a su nombre — el mismo ojo
             de sus subconceptos, preparado igual: la fila pinta el estado nuevo
             (atenuada si quedaría oculta) y Guardar lo confirma. La categoría
@@ -5103,12 +5146,10 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
             <input className="field" value={subEdit} aria-label={t("rename")} autoFocus onChange={(e) => setSubEdit(e.target.value)} onKeyDown={(e) => {
               if (e.key === "Escape") setEditSub(null);
               if (e.key !== "Enter") return;
-              const next = subEdit.trim();
-              if (next) patch((c) => ({ ...c, subs: c.subs.map((x) => x.id === sub.id ? { ...x, customName: next } : x) }), next);
-              setEditSub(null);
+              stageSubName(sub); // 1.3.188: Enter PREPARA el renombre; Guardar lo confirma
             }} />
           ) : (
-            <button type="button" className="tree-subname" onClick={() => { setEditSub(sub.id); setSubEdit(displayName(sub, lang)); }}>{displayName(sub, lang)}</button>
+            <button type="button" className="tree-subname" onClick={() => { setEditSub(sub.id); setSubEdit(stagedNames[sub.id] ?? displayName(sub, lang)); }}>{stagedNames[sub.id] ?? displayName(sub, lang)}</button>
           )}
           <span className="row">
             <button type="button" className="icon-btn" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
@@ -5117,16 +5158,27 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
         </div>
         );
       })}
+      {/* 1.3.188 (R-6): las subcategorías PREPARADAS se ven en la tarjeta como
+          filas pendientes — el mismo renglón que tendrán al guardar — con su ✕
+          para quitarlas antes de Guardar. Todavía no existen en el libro. */}
+      {stagedSubs.map((n, i) => (
+        <div key={`staged-${i}`} className="tree-sub is-staged" data-test="staged-sub">
+          <span className="tree-subname">{n}</span>
+          <span className="row">
+            <button type="button" className="icon-btn" aria-label={t("stage.remove")} onClick={() => setStagedSubs((prev) => prev.filter((_, j) => j !== i))}><X className="size-4" /></button>
+          </span>
+        </div>
+      ))}
       <div className="ah-form sc-form is-treesub">
         <div className="ah-grid">
           <label className="label is-wide">
             <span className="lab-head">{t("sc.sub")}<FieldTip topic="f-subcat" /></span>
-            <input className="field" value={subName} onChange={(e) => setSubName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addSub(); }} placeholder={t("sc.sub.ph")} aria-label={t("add.sub")} />
+            <input className="field" value={subName} onChange={(e) => setSubName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") stageSub(); }} placeholder={t("sc.sub.ph")} aria-label={t("add.sub")} />
           </label>
         </div>
         <div className="ah-actions">
           <button type="button" className="btn secondary" onClick={cancelPanel}>{t("cancel")}</button>
-          <button type="button" className="btn" disabled={!subName.trim() && !stagedIds.length && stagedCatVis === null} onClick={savePanel}>{t("save")}</button>
+          <button type="button" className="btn" disabled={!hasStaged} onClick={savePanel}>{t("save")}</button>
         </div>
       </div>
     </div>
@@ -5180,7 +5232,7 @@ function CatalogEditor() {
   return (
     <div className="mt-2">
       {catalog.map((item) => (
-        <div key={item.id} className={item.hidden ? "line-row is-muted" : "line-row"}>
+        <div key={item.id} data-kind={item.kind} className={item.hidden ? "line-row is-muted" : "line-row"}>
           {renameId === item.id ? (
             <div className="row min-w-0">
               <input className="field" value={renameText} autoFocus aria-label={t("rename")} onChange={(e) => setRenameText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveRename(item); if (e.key === "Escape") setRenameId(null); }} />
@@ -5189,6 +5241,13 @@ function CatalogEditor() {
             <div className="row min-w-0">
               {item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-8" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-8" /> : <Glyph name={item.icon} />}
               <span className="truncate">{displayName(item, lang)}</span>
+              {/* 1.3.188 (E-5, resto): la clase de la pieza se distingue de un vistazo —
+                  las de IA y las suscripciones llevan su glifo pequeño y tenue junto
+                  al nombre (iconos, nunca etiquetas de texto): las de IA vestían la
+                  misma placa de marca que las tiendas y se confundían con ellas. La
+                  tienda no lleva glifo: su placa de marca ya la anuncia, y un glifo
+                  más empujaba los nombres largos (AliExpress) a una segunda línea. */}
+              {item.kind === "ai" ? <Sparkles className="cat-kind-ic" aria-hidden /> : item.kind === "sub" ? <Repeat2 className="cat-kind-ic" aria-hidden /> : null}
             </div>
           )}
           <div className="row">

@@ -435,6 +435,65 @@ export function markUserVis(structure: Structure, ids: string[], hidden: boolean
   return { ...structure, userVis };
 }
 
+/** Lo que la tarjeta de una categoría puede tener PREPARADO (1.3.188, R-6):
+ *  el nombre, la visibilidad de la categoría, la de sus subconceptos, los
+ *  renombres de subconcepto y las subcategorías nuevas — todo ya recortado. */
+export interface CardEdits {
+  name?: string;
+  catHidden?: boolean;
+  subHidden?: Record<string, boolean>;
+  subNames?: Record<string, string>;
+  newSubs?: string[];
+}
+
+/** 1.3.188 (R-6 de la auditoría de Estructura, cierra E-6): el ÚNICO commit del
+ *  Guardar de la tarjeta. Aplica de una vez todo lo preparado — nombre,
+ *  visibilidad de categoría y subconceptos (por el camino markUserVis de
+ *  siempre, cada id con SU valor, como N toques de ojo habrían dejado el
+ *  libro), renombres y altas — para que un solo Deshacer lo revierta entero.
+ *  Sin nada preparado devuelve la misma estructura. `nextSuffix` da el sufijo
+ *  de id de cada alta, como hacía el alta de siempre (`${catId}.${uid}`), para
+ *  que la función siga siendo pura y cercable en pruebas. */
+export function applyCardEdits(structure: Structure, catId: string, edits: CardEdits, nextSuffix: () => string): Structure {
+  const subHidden = edits.subHidden ?? {};
+  const subNames = edits.subNames ?? {};
+  const newSubs = (edits.newSubs ?? []).map((n) => n.trim()).filter(Boolean);
+  const hiddenIds = Object.keys(subHidden);
+  if (edits.name === undefined && edits.catHidden === undefined && !hiddenIds.length && !Object.keys(subNames).length && !newSubs.length) return structure;
+  let out: Structure = {
+    ...structure,
+    categories: structure.categories.map((c) => {
+      if (c.id !== catId) return c;
+      const subs = c.subs.map((x) => {
+        const hidden = x.id in subHidden ? subHidden[x.id]! : x.hidden;
+        const customName = x.id in subNames ? subNames[x.id]! : x.customName;
+        return hidden === x.hidden && customName === x.customName ? x : { ...x, hidden, customName };
+      });
+      for (const n of newSubs) subs.push({ id: `${c.id}.${nextSuffix()}`, nameKey: "", customName: n, icon: "Circle", hidden: false, order: subs.length });
+      return {
+        ...c,
+        ...(edits.name !== undefined ? { customName: edits.name } : {}),
+        ...(edits.catHidden !== undefined ? { hidden: edits.catHidden } : {}),
+        subs,
+      };
+    }),
+  };
+  if (hiddenIds.length) {
+    out = markUserVis(out, hiddenIds.filter((id) => subHidden[id]), true);
+    out = markUserVis(out, hiddenIds.filter((id) => !subHidden[id]), false);
+  }
+  if (edits.catHidden !== undefined) out = markUserVis(out, [catId], edits.catHidden);
+  return out;
+}
+
+/** 1.3.188 (R-7, cierra E-7): los renglones del subtítulo de la fila del árbol —
+ *  cada subconcepto con su nombre visible y su estado, para que la fila pinte
+ *  los ocultos atenuados en vez de anunciarlos como si vivieran. La fila sigue
+ *  siendo el mapa completo: ningún nombre se quita. */
+export function treeSubLine(cat: Category, lang: Lang): { id: string; name: string; hidden: boolean }[] {
+  return cat.subs.map((sub) => ({ id: sub.id, name: displayName(sub, lang), hidden: !!sub.hidden }));
+}
+
 export function applyTemplate(structure: Structure, id: TemplateId): Structure {
   const userVis = structure.userVis ?? {};
   let categories = structure.categories.map((c) => ({ ...c, subs: c.subs.map((s) => ({ ...s })) }));
