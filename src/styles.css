@@ -2379,6 +2379,14 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 /* Book buttons: compact. Book chart: slots, a baseline, the peak lit, and the average as a dashed line. */
 .icon-btn.line-act { width: 26px; min-width: 26px; height: 26px; }
 .icon-btn.line-act svg { width: 12px; height: 12px; }
+/* 1.3.194 (Oscar): el ojo del árbol y los botones redondos del Catálogo bajan
+   a la familia de la papelera de su fila — el ojo a 28px (un pelo sobre los
+   26px de su papelera, es el control que más se toca de la pareja) y los del
+   Catálogo a los 26px exactos de su borrado, para que los cuatro sean uno. */
+.icon-btn.tree-eye { width: 28px; min-width: 28px; height: 28px; }
+.icon-btn.tree-eye svg { width: 13px; height: 13px; }
+.icon-btn.cat-act { width: 26px; min-width: 26px; height: 26px; }
+.icon-btn.cat-act svg { width: 12px; height: 12px; }
 .line-row { gap: 8px; }
 .pot-help > .icon-btn { position: absolute; top: 6px; right: 6px; }
 .seg.is-follow + .icon-btn { margin-bottom: 12px; }

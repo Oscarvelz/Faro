@@ -5124,7 +5124,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
             de sus subconceptos, preparado igual: la fila pinta el estado nuevo
             (atenuada si quedaría oculta) y Guardar lo confirma. La categoría
             sigue sin papelera (1.3.145): esto es mostrar/ocultar, no borrar. */}
-        <button type="button" className="icon-btn" data-test="cat-eye" aria-label={effCatHidden ? t("show") : t("hide")} onClick={toggleCatVis}>{effCatHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+        <button type="button" className="icon-btn tree-eye" data-test="cat-eye" aria-label={effCatHidden ? t("show") : t("hide")} onClick={toggleCatVis}>{effCatHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
       </div>
       <div className="tree-color">
         <button type="button" className="tree-color-point" aria-expanded={colorOpen} onClick={() => setColorOpen((v) => !v)}>
@@ -5152,7 +5152,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
             <button type="button" className="tree-subname" onClick={() => { setEditSub(sub.id); setSubEdit(stagedNames[sub.id] ?? displayName(sub, lang)); }}>{stagedNames[sub.id] ?? displayName(sub, lang)}</button>
           )}
           <span className="row">
-            <button type="button" className="icon-btn" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+            <button type="button" className="icon-btn tree-eye" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
             <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
           </span>
         </div>
@@ -5252,12 +5252,12 @@ function CatalogEditor() {
           )}
           <div className="row">
             {renameId === item.id ? (
-              <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => saveRename(item)}><Check className="size-4" /></button>
+              <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => saveRename(item)}><Check className="size-4" /></button>
             ) : (
               <>
-                <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => { setIconFor(null); setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
-                {item.kind === "store" ? <button type="button" className="icon-btn" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button> : null}
-                <button type="button" className="icon-btn" aria-label={t("icon.pick")} onClick={() => setIconFor(iconFor === item.id ? null : item.id)}><Palette className="size-4" /></button>
+                <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => { setIconFor(null); setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
+                {item.kind === "store" ? <button type="button" className="icon-btn cat-act" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button> : null}
+                <button type="button" className="icon-btn cat-act" aria-label={t("icon.pick")} onClick={() => setIconFor(iconFor === item.id ? null : item.id)}><Palette className="size-4" /></button>
                 <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               </>
             )}
