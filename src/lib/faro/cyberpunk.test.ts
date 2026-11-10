@@ -196,48 +196,168 @@ describe("cyberpunk: la identidad cálida (1.3.197)", () => {
   it("las voces del dinero: verde entra, naranja sale, rojo se debe", () => {
     assert.match(css, /\.amt-in \{ color: var\(--cp-green\); \}/);
     assert.match(css, /\.amt-out \{ color: var\(--cp-orange\); \}/);
-    assert.match(css, /\.lens\.is-debt \{ box-shadow: inset 0 -2px 0 var\(--cp-red\); \}/);
+    // 1.3.199: la regla inferior del lente ya no se escribe por clase —
+    // vive en la regla base del lente, teñida por la variable --lens que
+    // cada clase declara (Pagos declara el rojo). La cerca sigue al
+    // mecanismo nuevo; la voz medida es la misma.
+    assert.match(css, /\.lens\.is-debt \{\s*--lens: var\(--cp-red\);/, "Pagos no declara su voz roja");
+    assert.ok(css.includes("color-mix(in oklab, var(--cp-red) var(--lw1), transparent) 38%"), "el lavado en reposo de Pagos no habla con su voz");
+    assert.ok(css.includes("inset 0 -2px 0 var(--cp-red)"), "la regla inferior de Pagos no lleva su rojo");
   });
 });
 
-describe("cyberpunk: los lentes guardan su color y Ahorros se suma al glitch (1.3.198)", () => {
-  it("el lente vivo lleva SU color de relleno, no el amarillo general", () => {
-    // Veredicto de Oscar sobre la 197 en vivo: «instead of the yellow,
-    // these chips use their respective color of the chips».
-    assert.match(css, /\.lens\.is-have\[aria-pressed="true"\] \{ background: var\(--cp-green\); \}/, "Tengo vivo no lleva su verde");
-    assert.match(css, /\.lens\.is-spend\[aria-pressed="true"\] \{ background: var\(--cp-orange\); \}/, "Gastaré vivo no lleva su naranja");
-    assert.match(css, /\.lens\.is-debt\[aria-pressed="true"\] \{ background: var\(--cp-red\); \}/, "Pagos vivo no lleva su rojo");
-    assert.ok(!/\.lenses \.lens\[aria-pressed="true"\] \{\s*background: var\(--accent\);/.test(css), "el relleno amarillo general de la 197 sigue vivo");
+describe("cyberpunk: la selección a la manera de Cadence (1.3.199) y Ahorros en el glitch (1.3.198)", () => {
+  it("el bloque de color murió: ningún lente vivo lleva relleno plano", () => {
+    // Veredicto de Oscar sobre la 198 en vivo: «the color block is not
+    // the right way to proceed» — la selección se lee en oscuro, con el
+    // color como estructura (marco, lavado, barra), nunca como sólido.
+    for (const cls of ["is-have", "is-spend", "is-debt"]) {
+      assert.ok(!new RegExp(`\\.lens\\.${cls}\\[aria-pressed="true"\\] \\{ background: var\\(--cp-`).test(css), `el relleno plano de ${cls} (1.3.198) sigue vivo`);
+    }
+    assert.ok(!css.includes('.lens[aria-pressed="true"] :is(.lens-kicker, .lens-value, .lens-note) { color: var(--accent-fg); }'), "la tinta negra del relleno sigue viva");
+    // Los arreglos de la era del relleno se retiran con él: el disco de
+    // la esquina y el (?) vuelven a su trato en reposo sobre el vivo.
+    assert.ok(!css.includes('.lens-wrap:has(.lens[aria-pressed="true"]) .lens-corner { box-shadow: 0 0 0 2px var(--accent-fg); }'), "la línea clave negra del disco sigue viva");
+    assert.ok(!css.includes('.lens-wrap:has(.lens[aria-pressed="true"]) > .hint.is-lens .ftip-btn { color: var(--accent-fg); }'), "el (?) sigue tomando la tinta del relleno");
   });
-  it("la tinta sobre cada relleno es negra por medición (el blanco cálido fracasa en los tres)", () => {
-    assert.ok(contrast("#0b0a08", "#00e67a") >= 4.5, "tinta sobre verde");
-    assert.ok(contrast("#0b0a08", "#ff7a00") >= 4.5, "tinta sobre naranja");
-    assert.ok(contrast("#0b0a08", "#ff003c") >= 4.5, "tinta sobre rojo");
-    assert.ok(contrast("#f2eee3", "#00e67a") < 4.5, "el blanco cálido debía fracasar sobre verde");
-    assert.ok(contrast("#f2eee3", "#ff7a00") < 4.5, "el blanco cálido debía fracasar sobre naranja");
-    assert.ok(contrast("#f2eee3", "#ff003c") < 4.5, "el blanco cálido debía fracasar sobre rojo");
-    // Los controles que viajan sobre el lente lleno siguen a la tinta:
-    // el disco de la esquina con su línea clave negra y el (?) en tinta.
-    assert.match(css, /\.lens-wrap:has\(\.lens\[aria-pressed="true"\]\) \.lens-corner \{ box-shadow: 0 0 0 2px var\(--accent-fg\); \}/, "el disco no lleva su línea clave");
-    assert.match(css, /\.lens-wrap:has\(\.lens\[aria-pressed="true"\]\) > \.hint\.is-lens \.ftip-btn \{ color: var\(--accent-fg\); \}/, "el (?) no toma la tinta del lente");
+  it("el lente vivo se selecciona en oscuro: marco pleno, barra y lavado de su voz", () => {
+    assert.match(css, /\.lenses \.lens\[aria-pressed="true"\] \{\s*background: linear-gradient\(180deg, transparent 16%, color-mix\(in oklab, var\(--lens\) var\(--lv1\), transparent\) 38%/, "el vivo no lleva el lavado fuerte de su voz");
+    assert.ok(css.includes("box-shadow: inset 0 0 0 1px var(--lens), inset 0 -3px 0 var(--lens);"), "el vivo no lleva marco pleno ni barra de 3px en su voz");
+    // En reposo el marco es la misma voz al 38% (la dosis de Cadence) y
+    // la regla inferior es la de siempre, a 2px — escrito por lente,
+    // porque el bloque nocturno compartido se re-basa por clase.
+    for (const tok of ["--cp-green", "--cp-orange", "--cp-red"]) {
+      assert.ok(css.includes(`box-shadow: inset 0 0 0 1px color-mix(in oklab, var(${tok}) 38%, transparent), inset 0 -2px 0 var(${tok});`), `el reposo no lleva marco al 38% + regla de 2px en ${tok}`);
+    }
+    // La cifra conserva la tinta cálida y el rótulo su voz en ambos estados.
+    assert.match(css, /\.lens \.lens-value \{ color: #f2eee3; \}/);
+    assert.match(css, /\.lens\.is-debt \.lens-kicker \{ color: var\(--cp-red\); \}/);
   });
-  it("Pagos desgarra cian contra negro: su magenta es invisible sobre su rojo", () => {
-    // La franja magenta sobre el relleno rojo mide 1.09:1 — el mismo
-    // matiz a la misma luminancia: no se lee. Los otros dos lentes
-    // conservan el par magenta/cian de la familia, intacto.
-    assert.ok(contrast("#ff2a6d", "#ff003c") < 1.2, "la premisa medida: magenta sobre rojo no se lee");
-    assert.ok(css.includes("@keyframes cp-lens-flicker-debt"), "falta el miembro de Pagos");
-    assert.match(css, /\.lens\.is-debt\[aria-pressed="true"\] \.lens-kicker \{ animation: cp-lens-flicker-debt/, "Pagos no usa su desgarro propio");
-    assert.ok(css.includes("@keyframes cp-lens-flicker"), "el flicker de la familia sigue para Tengo y Gastaré");
+  it("el lavado nunca come el rótulo y la cifra cumple sobre el lavado (medido)", () => {
+    // Modelo del fondo efectivo: el lavado es color-mix(voz p%, transparente)
+    // — la voz con alfa p — compuesto sobre --cp-panel (su brillo cálido
+    // sobre el gradiente #171310 → #100d0a). El lavado vive en el cuerpo
+    // (transparente hasta el 16%, pico al 38%, cola al 64%, fuera al 90%):
+    // el rótulo queda sobre panel casi limpio y la cifra, con contraste
+    // de sobra, es la que se sienta en el color. Los porcentajes se LEEN
+    // de la propia hoja: si el diseño cambia los valores, la cerca los
+    // vuelve a medir.
+    const rgbOf = (h: string): number[] => [0, 2, 4].map((i) => parseInt(h.substr(i, 2), 16));
+    const hexOf = (rgb: number[]): string => "#" + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+    const PANEL_T = rgbOf("171310"), PANEL_B = rgbOf("100d0a"), SHEEN = [255, 240, 200];
+    const washA = (p1: number, p2: number, y: number): number => {
+      const yp = y * 100;
+      if (yp <= 16) return 0;
+      if (yp <= 38) return (p1 * (yp - 16)) / 22;
+      if (yp <= 64) return p1 + ((p2 - p1) * (yp - 38)) / 26;
+      if (yp <= 90) return p2 * (1 - (yp - 64) / 26);
+      return 0;
+    };
+    const effBg = (C: number[], p1: number, p2: number, y: number): string => {
+      const sa = y * 100 < 36 ? 0.05 * (1 - (y * 100) / 36) : 0;
+      const wa = washA(p1, p2, y);
+      const under = PANEL_T.map((v, i) => sa * SHEEN[i] + (1 - sa) * (v + (PANEL_B[i] - v) * y));
+      return hexOf(under.map((v, i) => wa * C[i] + (1 - wa) * v));
+    };
+    const FG = "#f2eee3", MUTED = "#aca294";
+    const lenses: Array<[string, string, string]> = [["is-have", "--cp-green", "#00e67a"], ["is-spend", "--cp-orange", "#ff7a00"], ["is-debt", "--cp-red", "#ff003c"]];
+    for (const [cls, token, voice] of lenses) {
+      const m = new RegExp(`\\.lens\\.${cls} \\{\\s*--lens: var\\(${token.replace("-", "\\-")}\\); --lw1: ([\\d.]+)%; --lw2: ([\\d.]+)%; --lv1: ([\\d.]+)%; --lv2: ([\\d.]+)%;`).exec(css);
+      assert.ok(m, `faltan las variables del lente ${cls}`);
+      const [lw1, lw2, lv1, lv2] = m.slice(1).map((s) => Number(s) / 100);
+      const C = rgbOf(voice.slice(1));
+      for (const [state, p1, p2] of [["reposo", lw1, lw2], ["vivo", lv1, lv2]] as Array<[string, number, number]>) {
+        assert.ok(contrast(FG, effBg(C, p1, p2, 0.38)) >= 4.5, `${cls} ${state}: la cifra sobre el pico del lavado`);
+        assert.ok(contrast(FG, effBg(C, p1, p2, 0.5)) >= 4.5, `${cls} ${state}: la cifra sobre el lavado`);
+        assert.ok(contrast(MUTED, effBg(C, p1, p2, 0.82)) >= 4.5, `${cls} ${state}: la nota sobre la cola del lavado`);
+        // El rótulo, en el centro de su banda (y=0.19): las voces con
+        // margen (verde, naranja) quedan ≥4.5 aún lavadas; la voz justa
+        // (el rojo, cuyo par sobre panel plano ya cerca la 197: 4.69) se
+        // cerca en relativo — el lavado no puede costarle más de 0.15
+        // frente al mismo punto sin lavar, porque su valor absoluto en
+        // el render es propiedad del brillo del panel, no de este lavado.
+        const con = contrast(voice, effBg(C, p1, p2, 0.19));
+        const sin = contrast(voice, effBg(C, 0, 0, 0.19));
+        if (cls === "is-debt") {
+          assert.ok(con >= sin - 0.15, `${cls} ${state}: el lavado le costó al rótulo ${sin.toFixed(2)} → ${con.toFixed(2)}`);
+        } else {
+          assert.ok(con >= 4.5, `${cls} ${state}: el rótulo lavado cae a ${con.toFixed(2)}`);
+        }
+      }
+      // Marco y barra vivos contra el suelo de la ciudad: estructura con
+      // voz plena, muy por encima del mínimo de componente (3:1).
+      assert.ok(contrast(voice, "#0b0a08") >= 4.5, `${cls}: su voz plena sobre el suelo`);
+    }
+  });
+  it("Pagos vuelve al flicker de la familia: su variante era hija del relleno", () => {
+    // La premisa de la 198 era cierta SOBRE EL RELLENO (magenta/rojo
+    // 1.09:1); sobre el interior oscuro la franja magenta se lee de
+    // nuevo (5.11:1 sobre el panel) y la variante deja de existir.
+    assert.ok(contrast("#ff2a6d", "#ff003c") < 1.2, "la premisa vieja sigue siendo cierta sobre el relleno");
+    assert.ok(contrast("#ff2a6d", "#161310") >= 4.5, "sobre el panel oscuro la magenta sí se lee");
+    assert.ok(!css.includes("cp-lens-flicker-debt"), "la variante de Pagos sigue viva");
+    assert.ok(css.includes("@keyframes cp-lens-flicker"), "el flicker de la familia sigue");
+    assert.ok(!css.includes('.lens.is-debt[aria-pressed="true"] .lens-kicker { animation:'), "Pagos sigue apuntando a una ceremonia propia");
+  });
+  it("las marcas HUD: tics punteados en los lentes y en la banda de totales", () => {
+    // La familia de micro-detalle de Cadence, en la gramática de Faro:
+    // tics de 22×4 (3px sí, 3px no) en la esquina superior derecha de
+    // cada lente, con la voz del propio lente, y en la banda de totales
+    // con el amarillo señal. Nunca sobre filas de datos.
+    assert.match(css, /\.lens::before \{\s*content: ""; position: absolute; top: 8px; right: 10px; width: 22px; height: 4px;/, "faltan los tics del lente");
+    assert.ok(css.includes("background: repeating-linear-gradient(90deg, var(--lens, #fcee0a) 0 3px, transparent 3px 6px);"), "los tics del lente no hablan con su voz");
+    assert.match(css, /\.desk-bar::after \{\s*content: ""; position: absolute; top: 7px; right: 12px; width: 18px; height: 4px;/, "faltan los tics de la banda");
+    assert.ok(css.includes("background: repeating-linear-gradient(90deg, var(--accent) 0 3px, transparent 3px 6px);"), "los tics de la banda no llevan el amarillo señal");
+  });
+  it("el split vive en la marca: permanente, rebanado, solo en la palabra", () => {
+    // Oscar señaló el CADENCE de Cadence: el split como pintura de
+    // identidad, no solo ceremonia. En Faro vive SOLO en la palabra de
+    // la marca — la ley de degradación del cian sobrevive porque el
+    // split no es pintura constante en ningún otro sitio.
+    assert.match(css, /\.brand-word \{\s*position: relative; display: inline-block;/, "la palabra no toma su postura para las rebanadas");
+    assert.ok(css.includes("text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan);"), "la palabra no lleva el split permanente con los tokens");
+    assert.ok(css.includes('.brand-word::before, [data-theme="cyberpunk"] .brand-word::after {\n  content: "Faro";'), "faltan las copias rebanadas de la marca");
+    assert.ok(css.includes("@keyframes cp-brand-a") && css.includes("@keyframes cp-brand-b"), "faltan los desgarros de la marca");
+    const aplicaciones = css.slice(css.indexOf("@media (prefers-reduced-motion: no-preference)"));
+    assert.ok(aplicaciones.includes(".brand-word::before { animation: cp-brand-a 5.5s steps(1) infinite; }"), "la rebanada A no vive tras la guarda");
+    assert.ok(aplicaciones.includes(".brand-word::after { animation: cp-brand-b 5.5s steps(1) infinite; }"), "la rebanada B no vive tras la guarda");
+    const reduce = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+    assert.ok(reduce.includes(".brand-word::before") && reduce.includes("display: none"), "con movimiento reducido las rebanadas no se esconden");
+    // La palabra se repinta plana: fuera el degradado de la lámpara.
+    assert.match(css, /\.brand-word \{[^}]*-webkit-text-fill-color: currentColor; color: var\(--accent\);/, "la palabra no se repintó plana en amarillo");
+  });
+  it("la celda viva se contiene en ángulo: naves y píldora con el chaflán de la casa", () => {
+    assert.match(css, /:is\(\.dock, \.rail, \.side-dock\) \.nav-btn\[aria-current="page"\] \{\s*background: var\(--accent\); color: var\(--accent-fg\);\s*box-shadow: none;\s*clip-path: var\(--cp-cut-sm\);/, "la nave viva no lleva el chaflán");
+    assert.match(css, /\.seg\.is-follow \.seg-pill \{\s*background: #fcee0a;\s*box-shadow: none;\s*\/\* 1\.3\.199[\s\S]*?clip-path: var\(--cp-cut-sm\);/, "la píldora viva no lleva el chaflán");
+  });
+  it("la línea de emergencia marcha despacio y sin salto (solo la de la cabecera)", () => {
+    // Veredicto de Oscar con la foto en primer plano de la franja:
+    // «Make this emergency line slowly as an animation». El patrón se
+    // repite cada 14px sobre su eje de −45°: un período horizontal
+    // completo son 14px × √2, y desplazar el fondo exactamente eso en
+    // un ciclo lineal de 16s cierra el bucle sin salto visible.
+    assert.ok(css.includes("@keyframes cp-hazard-march"), "falta la marcha de la línea");
+    assert.ok(css.includes("background-position: calc(-14px * 1.41421356) 0;"), "el ciclo no cierra en el período exacto de la franja");
+    const aplicaciones = css.slice(css.indexOf("@media (prefers-reduced-motion: no-preference)"));
+    assert.ok(aplicaciones.includes(".top-chrome::before { animation: cp-hazard-march 16s linear infinite; }"), "la marcha no vive tras la guarda a 16s lineal");
+    assert.equal((css.match(/animation: cp-hazard-march/g) || []).length, 1, "la marcha debe animar SOLO la franja de la cabecera (loseta y diálogos quedan estáticos)");
+  });
+  it("Ahorros lleva su lavado: la voz del bolsillo en el cuerpo de la nave", () => {
+    assert.ok(css.includes("color-mix(in oklab, var(--seg, #fcee0a) 10%, transparent) 62%"), "la nave de Ahorros no lleva el lavado de su bolsillo");
+    assert.match(css, /\.save-seg \{\s*background: linear-gradient\(180deg, transparent 30%,/, "el lavado de Ahorros no vive en su regla");
   });
   it("las tres naves de Ahorros tienen su ceremonia: marco, nombre y banda — nunca la cifra", () => {
-    for (const n of ["cp-save-frame", "cp-save-burst", "cp-save-tear", "cp-save-idle", "cp-save-idle-band"]) {
+    for (const n of ["cp-save-frame", "cp-save-burst", "cp-save-tear"]) {
       assert.ok(css.includes(`@keyframes ${n}`), `falta el miembro de Ahorros: ${n}`);
     }
+    // 1.3.199 (veredicto de Oscar: «the glitch takes too long»): la
+    // ráfaga baja de 460ms a 280ms y el tic en reposo de 11s se retira —
+    // los valores de la 198 quedan superados por este veredicto.
+    assert.ok(!css.includes("cp-save-idle"), "el tic en reposo de Ahorros debía retirarse en la 199");
     const aplicaciones = css.slice(css.indexOf("@media (prefers-reduced-motion: no-preference)"));
-    assert.ok(aplicaciones.includes(".save-seg[aria-pressed=\"true\"] { animation: cp-save-frame .46s steps(1) 1; }"), "el marco de la nave no toma al tocar");
-    assert.ok(aplicaciones.includes("cp-save-burst .46s steps(1) 1, cp-save-idle 11s steps(1) 1.6s infinite"), "el nombre no lleva ráfaga + tic raro");
-    assert.ok(aplicaciones.includes("cp-save-tear .46s steps(1) 1, cp-save-idle-band 11s steps(1) 1.6s infinite"), "la banda no lleva desgarro + tic raro");
+    assert.ok(aplicaciones.includes(".save-seg[aria-pressed=\"true\"] { animation: cp-save-frame .28s steps(1) 1; }"), "el marco de la nave no toma al tocar en 280ms");
+    assert.ok(aplicaciones.includes("cp-save-burst .28s steps(1) 1;"), "el nombre no lleva su ráfaga de 280ms, sin tic");
+    assert.ok(aplicaciones.includes("cp-save-tear .28s steps(1) 1;"), "la banda no lleva su desgarro de 280ms, sin tic");
     assert.ok(!/\.save-seg[^\n{]*\.num/.test(css), "ninguna regla del tema puede apuntar a la cifra de Ahorros");
   });
   it("el marco de Ahorros no recorta ni transforma el botón (la lección de la 195)", () => {

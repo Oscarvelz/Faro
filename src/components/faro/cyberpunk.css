@@ -23,7 +23,8 @@
      brackets on the lenses, a barcode + mono micro-print on the
      version line, one quiet vertical katakana rail in the header,
      scanline grain in the header only (well under 5%), and the RGB
-     split living ONLY inside the 195 glitch ceremony.
+     split living inside the 195 glitch ceremony — plus, since
+     1.3.199, as permanent identity paint on the brand word alone.
    - Type: Rajdhani (2077's own UI face) SELF-HOSTED in the bundle —
      never loaded from the network — condensed caps for headings and
      labels; figures tabular, warm off-white, no glow, no effects.
@@ -40,6 +41,21 @@
    instead of the blanket yellow, and the three savings ships (Meta,
    Retiro, Emergencia) join the glitch family with a variation of
    their own. Details at the lens block and the save keyframes below.
+   1.3.199 — Oscar pointed at Cadence's Caseload in this theme ("look
+   how it is achieved in Cadence... adapt it to Faro"), then ruled
+   from his phone that the 198 colour BLOCK is not the way: in
+   Cadence a selected card stays DARK — its own colour arrives as
+   frame, wash, label and bar, never as a solid. This wave rebuilds
+   the lens selection that way (details at the lens block), gives the
+   hero surfaces Cadence's per-surface colour structure at rest
+   (frame + whisper wash in each surface's own colour), adds the HUD
+   micro-detail family (dotted ticks on the lenses and the desk
+   totals band), moves the RGB split onto the brand word as permanent
+   identity (brand only — the cyan-demotion law survives because the
+   split lives nowhere else as constant paint), and gives the
+   selected nav cells and the books pill Cadence's angled corner.
+   Cadence's cyan ATMOSPHERE is not imported: construction, not
+   palette — the warm ground, flat yellow and Rajdhani stay.
    ===================================================================== */
 
 /* Rajdhani, self-hosted (latin + latin-ext, 500/600/700): the files live
@@ -115,7 +131,13 @@
   box-shadow: 0 12px 26px -16px rgb(0 0 0 / .7);
 }
 /* The threshold mark: a hazard stripe runs along the header's base —
-   caution paint, not a light line. */
+   caution paint, not a light line. 1.3.199 (Oscar's verdict, with a
+   close-up of this stripe: «Make this emergency line slowly as an
+   animation»): the emergency line MARCHES — slowly, seamlessly,
+   forever (the keyframes and their guard live with the glitch family
+   below). Scope is this stripe only: the tile's hazard band and the
+   danger dialogs' stay static — a crawling alarm dialog would be
+   wrong, and he pointed at this one. */
 [data-theme="cyberpunk"] .top-chrome::before {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; pointer-events: none;
   background: repeating-linear-gradient(-45deg, #fcee0a 0 7px, #0b0a08 7px 14px);
@@ -129,6 +151,31 @@
   opacity: .5;
 }
 [data-theme="cyberpunk"] .brand-mini { text-shadow: none; }
+/* The brand split (1.3.199): Cadence carries its wordmark with the RGB
+   split as PERMANENT identity paint — sliced copies resting over the
+   word, tearing only inside the glitch ceremony's last breath. Faro's
+   word takes the same construction on Oscar's explicit pointing, and
+   only the word: it is the one surface where the split is paint rather
+   than ceremony. The house paints the word through a lamp-gradient
+   clipped to the text; here the word is re-based flat — solid signal
+   yellow with the magenta/cyan split as hard offsets (blur 0: print,
+   not glow) — in Faro's own serif, the brand voice since long before
+   this theme. The slices ride ::before/::after with the word itself as
+   their text; they are pointer-events: none and never widen the mark. */
+[data-theme="cyberpunk"] .brand-word {
+  position: relative; display: inline-block;
+  background: none; -webkit-background-clip: initial; background-clip: initial;
+  -webkit-text-fill-color: currentColor; color: var(--accent);
+  animation: none;
+  text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan);
+}
+[data-theme="cyberpunk"] .brand-word::before, [data-theme="cyberpunk"] .brand-word::after {
+  content: "Faro"; position: absolute; inset: 0; pointer-events: none;
+  color: var(--accent); -webkit-text-fill-color: currentColor;
+  clip-path: inset(0 0 100% 0);
+}
+[data-theme="cyberpunk"] .brand-word::before { text-shadow: -3px 0 var(--cp-magenta); }
+[data-theme="cyberpunk"] .brand-word::after { text-shadow: 3px 0 var(--cp-cyan); }
 [data-theme="cyberpunk"] .month-cal { border-radius: 2px; }
 /* One quiet katakana rail down the header's right edge — decoration
    only (aria-hidden in the markup), the genre's shorthand kept hushed:
@@ -163,6 +210,18 @@
 /* The desk bar takes the label rail: 3px of signal yellow down its left
    edge — industrial label framing on Central's own bar. */
 [data-theme="cyberpunk"] .desk-bar { box-shadow: inset 3px 0 0 var(--accent), inset 0 1px 0 rgb(255 255 255 / .06), 0 8px 18px rgb(0 0 0 / .35); }
+/* HUD ticks on the desk totals band (1.3.199): Cadence's dotted
+   calibration marks, dosed the same way — a detail noticed second,
+   never first. They sit in the band's empty top-right, above the
+   bottom-aligned totals, clear of the chamfer cut and of every figure;
+   the band's ::after is unclaimed in this theme (Tron and the light
+   themes keep theirs). */
+[data-theme="cyberpunk"] .desk-bar { position: relative; }
+[data-theme="cyberpunk"] .desk-bar::after {
+  content: ""; position: absolute; top: 7px; right: 12px; width: 18px; height: 4px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 3px, transparent 3px 6px);
+  opacity: .55;
+}
 [data-theme="cyberpunk"] .lens {
   background: var(--cp-panel);
   border-color: #3a332a;
@@ -216,7 +275,18 @@
   box-shadow: inset 0 0 0 1.5px var(--tone, #fcee0a) !important;
 }
 [data-theme="cyberpunk"] :is(.spend-bubble, .buy-glass) .num { color: #fff; }
-[data-theme="cyberpunk"] .save-seg { background: var(--cp-panel); border-color: color-mix(in oklab, var(--seg, #fcee0a) 55%, transparent); }
+/* The savings ships carry their pocket colour as structure (1.3.199):
+   the frame they already had (the border at 55% of --seg) gains the
+   whisper wash in the ship's body — Cadence's per-surface construction
+   at rest. The wash peaks low, under the wave band, at 10% of the
+   pocket tint: every figure keeps its contrast (the tints are light,
+   the wash is a tenth of them over the dark panel). Selection stays
+   the 198 ceremony's business — frame steps and name split — the wash
+   does not deepen, exactly as the ships' flat fill never changed. */
+[data-theme="cyberpunk"] .save-seg {
+  background: linear-gradient(180deg, transparent 30%, color-mix(in oklab, var(--seg, #fcee0a) 10%, transparent) 62%, color-mix(in oklab, var(--seg, #fcee0a) 4%, transparent) 82%, transparent 96%), var(--cp-panel);
+  border-color: color-mix(in oklab, var(--seg, #fcee0a) 55%, transparent);
+}
 /* The fit form's action pair carries its own 12px radius (fit-form.css);
    the Grid sharpens it to 4px in that sheet — Cyberpunk takes it to the 2px system. */
 [data-theme="cyberpunk"] :is(.form-block.is-fit .fit-actions .btn, .fit-sheet .fit-actions .btn) { border-radius: 2px; }
@@ -238,41 +308,78 @@ html[data-theme="cyberpunk"] :is(.form-block.is-fit, .fit-add) :is(.field, .them
 [data-theme="cyberpunk"] .bar-track { background: #0a0806; box-shadow: inset 0 0 0 1px #3a332a; }
 [data-theme="cyberpunk"] .bar-fill { background: linear-gradient(90deg, #fcee0a, #ff7a00); box-shadow: none; }
 
-/* Lenses: one voice per side — Tengo green, Gastaré orange, Pagos red —
-   as the bottom rule and the kicker word. 1.3.198 (Oscar's phone
-   verdict on the live 197): the LIVE lens wears its OWN voice as a flat
-   fill — not the blanket signal yellow — the colour it already speaks
-   with, at full surface strength, so it sits better with its glitch.
-   Ink is black on all three fills, by measurement with the app's own
-   contrast(): green 11.87:1, orange 7.57:1, red 5.01:1 — warm white
-   fails all three (1.44 / 2.25 / 3.41). The two controls riding on the
-   filled lens follow: the corner disc takes a black keyline (its
-   tinted ring all but vanishes on the orange and red fills; separation
-   becomes the ink's own 7.57 / 5.01) and the hint glyph takes the
-   lens ink. Corner brackets frame the trio: calibration marks, in
-   accent. */
+/* Lenses: one voice per side — Tengo green, Gastaré orange, Pagos red.
+   1.3.198 wore that voice as a flat fill on the live lens; 1.3.199
+   retires the block on Oscar's verdict («the color block is not the
+   right way to proceed») for the selection Cadence taught: the
+   interior stays DARK and the colour becomes STRUCTURE.
+   At rest (the per-lens rules below): each lens carries its own
+   colour as a quiet FRAME (an inset line at 38% of the voice, over
+   the 2px bottom rule the lenses have always worn) plus a whisper
+   WASH of the same colour in the body's mid-band — the wash starts
+   below the kicker's band on purpose: the label keeps its bare-panel
+   contrast untouched (red on panel is the theme's tightest pair), and
+   the figure, with contrast to spare, is the one who sits in colour.
+   Live: the frame goes full-strength, the wash roughly doubles, the
+   bottom rule grows to a 3px accent BAR, the kicker keeps its colour,
+   the figure keeps the warm ink — clean, tabular, no effects, per
+   Faro's figure law — and the caption stays muted. Wash percentages
+   are per-lens (--lw rest / --lv live, peak then tail): red runs a
+   step quieter because its wash eats its own kicker's headroom first;
+   every figure and caption on every wash is measured in the test
+   suite and holds the ≥4.5:1 floor with room (figures 11–16:1).
+   The corner disc and the hint glyph return to their at-rest
+   treatments on the live lens: the black keyline and ink of the 198
+   fill era retire with the fill. Dotted HUD ticks (Cadence's
+   calibration marks) ride each lens's top-right corner, in its own
+   colour, clear of the chamfer cut and the kicker's line; the lens's
+   ::before was unclaimed (the house ripple lives on ::after).
+   Corner brackets frame the trio: calibration marks, in accent. */
 [data-theme="cyberpunk"] .lenses { position: relative; }
 [data-theme="cyberpunk"] .lenses::before, [data-theme="cyberpunk"] .lenses::after {
   content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none; z-index: 1;
 }
 [data-theme="cyberpunk"] .lenses::before { top: -5px; left: -5px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
 [data-theme="cyberpunk"] .lenses::after { bottom: -5px; right: -5px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
-html[data-theme="cyberpunk"] .lens .lens-value { color: #f2eee3; }
-html[data-theme="cyberpunk"] .lens.is-have { box-shadow: inset 0 -2px 0 var(--cp-green); }
-html[data-theme="cyberpunk"] .lens.is-spend { box-shadow: inset 0 -2px 0 var(--cp-orange); }
-html[data-theme="cyberpunk"] .lens.is-debt { box-shadow: inset 0 -2px 0 var(--cp-red); }
+/* The per-lens construction. The shared night block in styles.css
+   paints every night theme's lenses with deep tone gradients and pale
+   tinted text at (0,3,1)/(0,4,1); this theme re-bases its own lenses
+   (the 197 pattern) with rules of equal weight in a later sheet:
+   the warm panel under a wash of the lens's own voice, the 38% frame,
+   and text in the theme's own ink, muted and voice colours. */
+html[data-theme="cyberpunk"] .lenses .lens .lens-value { color: #f2eee3; }
+html[data-theme="cyberpunk"] .lenses .lens .lens-note { color: var(--muted); }
+html[data-theme="cyberpunk"] .lens.is-have {
+  --lens: var(--cp-green); --lw1: 14%; --lw2: 5%; --lv1: 26%; --lv2: 10%;
+  background: linear-gradient(180deg, transparent 16%, color-mix(in oklab, var(--cp-green) var(--lw1), transparent) 38%, color-mix(in oklab, var(--cp-green) var(--lw2), transparent) 64%, transparent 90%), var(--cp-panel);
+  border-color: #3a332a; color: var(--fg);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cp-green) 38%, transparent), inset 0 -2px 0 var(--cp-green);
+}
+html[data-theme="cyberpunk"] .lens.is-spend {
+  --lens: var(--cp-orange); --lw1: 14%; --lw2: 5%; --lv1: 26%; --lv2: 10%;
+  background: linear-gradient(180deg, transparent 16%, color-mix(in oklab, var(--cp-orange) var(--lw1), transparent) 38%, color-mix(in oklab, var(--cp-orange) var(--lw2), transparent) 64%, transparent 90%), var(--cp-panel);
+  border-color: #3a332a; color: var(--fg);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cp-orange) 38%, transparent), inset 0 -2px 0 var(--cp-orange);
+}
+html[data-theme="cyberpunk"] .lens.is-debt {
+  --lens: var(--cp-red); --lw1: 12%; --lw2: 4%; --lv1: 22%; --lv2: 8%;
+  background: linear-gradient(180deg, transparent 16%, color-mix(in oklab, var(--cp-red) var(--lw1), transparent) 38%, color-mix(in oklab, var(--cp-red) var(--lw2), transparent) 64%, transparent 90%), var(--cp-panel);
+  border-color: #3a332a; color: var(--fg);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cp-red) 38%, transparent), inset 0 -2px 0 var(--cp-red);
+}
 html[data-theme="cyberpunk"] .lens.is-have .lens-kicker { color: var(--cp-green); }
 html[data-theme="cyberpunk"] .lens.is-spend .lens-kicker { color: var(--cp-orange); }
 html[data-theme="cyberpunk"] .lens.is-debt .lens-kicker { color: var(--cp-red); }
-html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"] {
-  color: var(--accent-fg); box-shadow: none;
+[data-theme="cyberpunk"] .lens::before {
+  content: ""; position: absolute; top: 8px; right: 10px; width: 22px; height: 4px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, var(--lens, #fcee0a) 0 3px, transparent 3px 6px);
+  opacity: .7;
 }
-html[data-theme="cyberpunk"] .lenses .lens.is-have[aria-pressed="true"] { background: var(--cp-green); }
-html[data-theme="cyberpunk"] .lenses .lens.is-spend[aria-pressed="true"] { background: var(--cp-orange); }
-html[data-theme="cyberpunk"] .lenses .lens.is-debt[aria-pressed="true"] { background: var(--cp-red); }
-html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"] :is(.lens-kicker, .lens-value, .lens-note) { color: var(--accent-fg); }
-html[data-theme="cyberpunk"] .lens-wrap:has(.lens[aria-pressed="true"]) > .hint.is-lens .ftip-btn { color: var(--accent-fg); }
-html[data-theme="cyberpunk"] .lens-wrap:has(.lens[aria-pressed="true"]) .lens-corner { box-shadow: 0 0 0 2px var(--accent-fg); }
+html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"] {
+  background: linear-gradient(180deg, transparent 16%, color-mix(in oklab, var(--lens) var(--lv1), transparent) 38%, color-mix(in oklab, var(--lens) var(--lv2), transparent) 64%, transparent 90%), var(--cp-panel);
+  box-shadow: inset 0 0 0 1px var(--lens), inset 0 -3px 0 var(--lens);
+  color: var(--fg);
+}
 
 /* ---------- Signage type: Rajdhani speaks; the serif keeps the brand ---------- */
 /* Page titles take the condensed face too — set as written (no caps:
@@ -340,6 +447,10 @@ html[data-theme="cyberpunk"] .seg.is-follow button[aria-current="page"] { backgr
 html[data-theme="cyberpunk"] .seg.is-follow .seg-pill {
   background: #fcee0a;
   box-shadow: none;
+  /* 1.3.199: the selected cell takes Cadence's angled containment —
+     the chamfer the rest of the theme's panels already wear, so the
+     living cell reads cut from the same sheet as its track. */
+  clip-path: var(--cp-cut-sm);
 }
 html[data-theme="cyberpunk"] .seg.is-follow .seg-pill.is-gliding::after {
   background: linear-gradient(100deg, transparent 22%, rgb(255 255 255 / .22) 50%, transparent 78%);
@@ -364,9 +475,10 @@ html[data-theme="cyberpunk"] .seg.is-follow .seg-pill.is-gliding::after {
 [data-theme="cyberpunk"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] {
   background: var(--accent); color: var(--accent-fg);
   box-shadow: none;
+  clip-path: var(--cp-cut-sm);
 }
 [data-theme="cyberpunk"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] svg { color: var(--accent-fg); filter: none; }
-[data-theme="cyberpunk"] :is(.top-nav, .bottom-nav) .nav-btn[aria-current="page"] { background: var(--accent); color: var(--accent-fg); box-shadow: none; }
+[data-theme="cyberpunk"] :is(.top-nav, .bottom-nav) .nav-btn[aria-current="page"] { background: var(--accent); color: var(--accent-fg); box-shadow: none; clip-path: var(--cp-cut-sm); }
 [data-theme="cyberpunk"] .bubble[aria-current="page"], [data-theme="cyberpunk"] .rail-btn[aria-current="page"] {
   box-shadow: none;
 }
@@ -554,19 +666,39 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
   70% { transform: none; text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 35%, transparent); }
   100% { transform: none; text-shadow: none; }
 }
-/* Pagos' own flicker (1.3.198): since the live lens wears its own fill,
-   the family split is re-measured per lens. On Tengo's green and
-   Gastaré's orange the magenta/cyan pair still straddles the fill, so
-   those kickers keep cp-lens-flicker untouched — but on Pagos' red the
-   magenta fringe is the fill's own hue at the fill's own luminance
-   (1.09:1 measured: it does not read at all). The debt kicker therefore
-   tears cyan against BLACK — the fill's own ink (2.80:1 and 5.01:1) —
-   same bands, same .5s stepped timing, another member of the family. */
-@keyframes cp-lens-flicker-debt {
-  0% { text-shadow: -2px 0 var(--cp-cyan), 2px 0 var(--accent-fg); }
-  30% { text-shadow: 2px 0 var(--cp-cyan), -2px 0 var(--accent-fg); }
-  60% { text-shadow: -1px 0 var(--cp-cyan), 1px 0 var(--accent-fg); }
-  100% { text-shadow: none; }
+/* Pagos' own flicker (1.3.198) retired in 1.3.199: it existed because
+   on the red FILL the magenta fringe measured 1.09:1 — invisible. The
+   fill is gone; on the dark interior the family's magenta fringe reads
+   again (5.11:1 on the panel), so all three kickers tear with the one
+   cp-lens-flicker, as they did before the fill era. */
+/* The brand slices (1.3.199): Cadence's wordmark ceremony, word for
+   word in construction — two sliced copies of the brand resting
+   clipped away over the permanently split word, tearing in stepped
+   bands only in the cycle's last breath (89–96% of 5.5s), mirrored
+   per side. The slices are pseudo-elements, never the tap target, so
+   clips are safe here (the 195 press lesson guards real buttons). */
+@keyframes cp-brand-a {
+  0%, 88%, 91%, 94%, 100% { clip-path: inset(0 0 100% 0); transform: none; }
+  89% { clip-path: inset(8% 0 58% 0); transform: translate(-2px, 0); }
+  92% { clip-path: inset(52% 0 12% 0); transform: translate(-2px, 0); }
+  95% { clip-path: inset(28% 0 40% 0); transform: translate(-1px, 0); }
+}
+@keyframes cp-brand-b {
+  0%, 89%, 92%, 95%, 100% { clip-path: inset(0 0 100% 0); transform: none; }
+  90% { clip-path: inset(60% 0 4% 0); transform: translate(2px, 0); }
+  93% { clip-path: inset(12% 0 66% 0); transform: translate(2px, 0); }
+  96% { clip-path: inset(38% 0 30% 0); transform: translate(1px, 0); }
+}
+/* The emergency line's march (1.3.199): the stripe pattern repeats
+   every 14px along its −45° axis, so one full period of horizontal
+   travel is 14px × √2 — shifting the background by exactly that over
+   a slow 16s linear cycle loops with no visible jump (a warning tape
+   in slow motion, ~1.2px per second). background-position only: no
+   layout moves, nothing widens — and the header already clips its
+   layers (overflow: hidden since the 189 sheen lesson). */
+@keyframes cp-hazard-march {
+  from { background-position: 0 0; }
+  to { background-position: calc(-14px * 1.41421356) 0; }
 }
 /* The savings ships (1.3.198 — Oscar's second verdict: Meta, Retiro and
    Emergencia "lack the glitch effect when being tapped over"). Their
@@ -576,9 +708,13 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
    the press, per the 195 lesson); the NAME takes a ±2.5px split; and
    the WAVE BAND tears in the low band, at its waterline (insets nobody
    else uses: the ships tear high, the books tabs open from below, the
-   vault tears mid-band). One dry 460ms shot when a card takes, then a
-   rare idle on the fleet's slowest cycle (11s, twitching at 95–97%).
-   The C$ figure (.num) is never a target — not at rest, not in burst. */
+   vault tears mid-band). 1.3.199 compresses the shot on Oscar's third
+   verdict («the glitch takes too long», his screenshot caught Retiro
+   still mid-glitch): 460ms → 280ms, a snap at the fast end of the
+   family, and the 11s idle RETIRES — on these three cards the ceremony
+   happens when tapped and is then DONE; nothing lingers, nothing
+   twitches later. The C$ figure (.num) is never a target — not at
+   rest, not in burst. */
 @keyframes cp-save-frame {
   0% { border-color: var(--cp-magenta); }
   28% { border-color: var(--cp-cyan); }
@@ -596,15 +732,6 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
   28% { transform: translate(-3px, 0); clip-path: inset(0 0 66% 0); }
   55% { transform: translate(1px, 0); clip-path: inset(30% 0 38% 0); }
   100% { transform: none; clip-path: none; }
-}
-@keyframes cp-save-idle {
-  0%, 93%, 100% { text-shadow: none; }
-  95% { text-shadow: -1.5px 0 var(--cp-magenta), 1.5px 0 var(--cp-cyan); }
-  97% { text-shadow: 1.5px 0 var(--cp-magenta), -1.5px 0 var(--cp-cyan); }
-}
-@keyframes cp-save-idle-band {
-  0%, 94%, 100% { transform: none; clip-path: none; }
-  96% { transform: translate(1px, 0); clip-path: inset(72% 0 0 0); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -634,14 +761,21 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
   [data-theme="cyberpunk"] .chips button[aria-pressed="true"] { animation: cp-chip-burst .36s steps(1) 1; }
   [data-theme="cyberpunk"] .store-chip[aria-pressed="true"] { animation: cp-store-press .3s steps(1) 1; }
   [data-theme="cyberpunk"] .lens[aria-pressed="true"] .lens-kicker { animation: cp-lens-flicker .5s steps(1) 1; }
-  [data-theme="cyberpunk"] .lens.is-debt[aria-pressed="true"] .lens-kicker { animation: cp-lens-flicker-debt .5s steps(1) 1; }
+  /* The brand slices tear on their own slow cycle (1.3.199) — the only
+     idle ceremony in the theme that is identity, not feedback. */
+  [data-theme="cyberpunk"] .brand-word::before { animation: cp-brand-a 5.5s steps(1) infinite; }
+  [data-theme="cyberpunk"] .brand-word::after { animation: cp-brand-b 5.5s steps(1) infinite; }
+  /* The emergency line marches (1.3.199): header stripe only, behind
+     the same guard — under reduced motion the line stands still. */
+  [data-theme="cyberpunk"] .top-chrome::before { animation: cp-hazard-march 16s linear infinite; }
   [data-theme="cyberpunk"] .aj-pick[aria-pressed="true"] .aj-pick-name { animation: cp-pick-burst .42s steps(1) 1; }
-  /* The savings ships take on tap (1.3.198): frame, name and wave band
-     fire together; the idle rides only while the card stays the open
-     one, exactly like the ships' — and the figure never joins. */
-  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] { animation: cp-save-frame .46s steps(1) 1; }
-  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] strong { animation: cp-save-burst .46s steps(1) 1, cp-save-idle 11s steps(1) 1.6s infinite; }
-  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] .save-band { animation: cp-save-tear .46s steps(1) 1, cp-save-idle-band 11s steps(1) 1.6s infinite; }
+  /* The savings ships take on tap (1.3.198; timing 1.3.199): frame,
+     name and wave band fire together in ONE 280ms snap — no idle rides
+     while the card stays open (retired on Oscar's «takes too long») —
+     and the figure never joins. */
+  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] { animation: cp-save-frame .28s steps(1) 1; }
+  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] strong { animation: cp-save-burst .28s steps(1) 1; }
+  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] .save-band { animation: cp-save-tear .28s steps(1) 1; }
 }
 
 /* ---------- Stillness: reduced motion parks the city ---------- */
@@ -650,4 +784,7 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
      behind the no-preference guard; this is the explicit kill-switch).
      The header grain is static paint, not motion, and stays. */
   [data-theme="cyberpunk"] :is(.nav-btn, .seg button, .vault-bar button, .btn, .ask-btn, .icon-btn, .bubble, .currency-bubble, .chips button, .store-chip, .lens .lens-kicker, .aj-pick .aj-pick-name, .save-seg, .save-seg strong, .save-seg .save-band) { animation: none; }
+  /* The brand's sliced copies hide entirely under reduced motion
+     (Cadence's own treatment); the base split is static paint and stays. */
+  [data-theme="cyberpunk"] .brand-word::before, [data-theme="cyberpunk"] .brand-word::after { animation: none; display: none; }
 }
