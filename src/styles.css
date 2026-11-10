@@ -2120,7 +2120,17 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .ask:not(.is-danger) .ask-lamp { fill: #f0b85a; filter: drop-shadow(0 0 5px rgba(240, 184, 90, 0.7)); }
 .ask-title { margin: 0; font-family: var(--font-serif); font-size: 1.55rem; font-weight: 560; letter-spacing: -0.02em; line-height: 1.15; overflow-wrap: anywhere; }
 .ask-body { margin: 2px 0 0; max-width: 34ch; color: var(--muted); font-size: 0.98rem; line-height: 1.45; overflow-wrap: anywhere; }
-.ask-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+/* 1.3.185: Oscar's centering order — the pills do not change (same height,
+   radius, padding, colours, hierarchy); only their placement does. The pair
+   sits as a centered group: the row shrink-wraps the two equal pills and
+   centers itself, so a row stays a row and the dialog never grows. */
+.ask-actions { width: fit-content; max-width: 100%; margin-inline: auto; justify-self: center; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; margin-top: 18px; }
+/* The exit dialog's stack: each pill keeps the exact width it has in the pair
+   row — calc((100% - gap) / 2) of the same actions width — centered, with the
+   go pill (Salir) on top at the true center and the quiet pill beneath it. */
+.ask-actions.is-stack { width: 100%; display: flex; flex-direction: column; align-items: center; }
+.ask-actions.is-stack .ask-btn { width: calc((100% - 10px) / 2); flex: none; }
+.ask-actions.is-stack .ask-btn.is-go, .ask-actions.is-stack .ask-btn.is-danger { order: -1; }
 .ask-btn { min-height: 50px; border-radius: 16px; font: inherit; font-weight: 600; font-size: 1rem; border: 1px solid transparent; padding: 0 12px; transition: transform .15s cubic-bezier(.22, 1, .36, 1), filter .15s; }
 .ask-btn:active { transform: scale(0.97); }
 .ask-btn.is-quiet { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); border-color: var(--line); }
