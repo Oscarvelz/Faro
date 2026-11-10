@@ -474,15 +474,15 @@ export function baseName(base: StructureBase, lang: Lang): string {
  */
 export function structureStatusLine(structure: Structure, lang: Lang): string {
   const hand = Object.keys(structure.userVis ?? {}).length;
-  const handEs = hand === 1 ? "1 ajuste a mano" : `${hand} ajustes a mano`;
-  const handEn = hand === 1 ? "1 hand adjustment" : `${hand} hand adjustments`;
+  const handEs = hand === 1 ? "1 ajuste tuyo" : `${hand} ajustes tuyos`;
+  const handEn = hand === 1 ? "1 adjustment of yours" : `${hand} adjustments of yours`;
   if (!structure.base) {
-    if (lang === "es") return hand ? `Sin base registrada · con tus ajustes a mano (${handEs}).` : "Sin base registrada: ninguna plantilla se ha aplicado a este libro.";
-    return hand ? `No base registered · with your hand adjustments (${handEn}).` : "No base registered: no template has been applied to this book.";
+    if (lang === "es") return hand ? `Sin base registrada · ${handEs}.` : "Sin base registrada: ninguna plantilla se ha aplicado a este libro.";
+    return hand ? `No base registered · ${handEn}.` : "No base registered: no template has been applied to this book.";
   }
   const name = baseName(structure.base, lang);
-  if (lang === "es") return hand ? `Base: ${name} · con tus ajustes a mano (${handEs}): tu mano manda.` : `Base: ${name}${structure.base === "completa" ? " — todo visible" : ""}.`;
-  return hand ? `Base: ${name} · with your hand adjustments (${handEn}): your hand wins.` : `Base: ${name}${structure.base === "completa" ? " — everything visible" : ""}.`;
+  if (lang === "es") return hand ? `Base: ${name} · ${handEs}: ninguna plantilla los cambia.` : `Base: ${name}${structure.base === "completa" ? " — todo visible" : ""}.`;
+  return hand ? `Base: ${name} · ${handEn}: no template changes them.` : `Base: ${name}${structure.base === "completa" ? " — everything visible" : ""}.`;
 }
 
 export function templateBlurb(id: TemplateId, lang: Lang): string {

@@ -225,8 +225,8 @@ describe("batería dorada de Estructura — el contrato", () => {
     const conBase = applyTemplate(ledger.structure, "familia");
     assert.equal(structureStatusLine(conBase, "es"), "Base: Familia.");
     const conMano = eyeCat(conBase, "f-casa", true);
-    assert.match(structureStatusLine(conMano, "es"), /^Base: Familia · con tus ajustes a mano \(1 ajuste a mano\)/);
-    assert.match(structureStatusLine(conMano, "en"), /^Base: Family · with your hand adjustments \(1 hand adjustment\)/);
+    assert.equal(structureStatusLine(conMano, "es"), "Base: Familia · 1 ajuste tuyo: ninguna plantilla los cambia.");
+    assert.equal(structureStatusLine(conMano, "en"), "Base: Family · 1 adjustment of yours: no template changes them.");
   });
 
   it("la vista previa es calculada: diff real, conteo de movimientos y mano protegida", () => {
