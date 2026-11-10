@@ -1,6 +1,6 @@
 /* Estudio "De dónde viene tu dinero" (1.3.109). Money in = teal; card rewards highlighted. */
 .ea-study { container-type: inline-size; --ea: #2f8f86; --ea-ink: color-mix(in oklab, #2f8f86 80%, var(--fg)); }
-html:is([data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="ion"]) .ea-study { --ea: #4cc2b4; --ea-ink: #6fd3c6; }
+html:is([data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="ion"], [data-theme="cyberpunk"]) .ea-study { --ea: #4cc2b4; --ea-ink: #6fd3c6; }
 html[data-theme="tron"] .ea-study { --ea: #3fd6f5; --ea-ink: #3fd6f5; }
 .ea-pic { color: var(--ea-ink); background: color-mix(in oklab, var(--ea) 14%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ea) 26%, transparent); }
 html[data-theme="tron"] .ea-pic { color: #3fd6f5; }

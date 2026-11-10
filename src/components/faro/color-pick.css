@@ -58,19 +58,19 @@ i.look-gem > svg { width: 15px; height: 15px; }
 .look-open i.look-gem.is-brand, i.look-gem.is-brand { background: none; box-shadow: none; }
 i.look-gem.is-brand > svg { width: 24px; height: 24px; }
 i.look-gem > .look-dot { position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--sw); box-shadow: 0 0 0 1.5px var(--look-ring); pointer-events: none; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) :is(.look-open i.look-gem, i.look-gem):not(.is-brand) { background: #1c1f23; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .09); color: #d4d8dd; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) :is(.look-open i.look-gem, i.look-gem):not(.is-brand) { background: #1c1f23; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .09); color: #d4d8dd; }
 [data-theme="tron"] :is(.look-open i.look-gem, i.look-gem):not(.is-brand) { background: #15191c; box-shadow: inset 0 0 0 1px rgb(205 232 240 / .13); color: #cfdde2; border-radius: 4px; }
 [data-theme="tron"] i.look-gem { --look-ring: #03090c; }
 [data-theme="tron"] .look-open i.look-gem { --look-ring: var(--bg); }
 /* Personalizado: a neutral well with a pipette (the spectrum lives inside, on the hue bar), not a rainbow disc. */
 .cp-sw.is-spectrum { background: #eef0f2; color: #3a3f45; box-shadow: inset 0 0 0 1px rgb(24 28 33 / .16); }
 .cp-sw.is-spectrum svg { width: 46%; height: 46%; stroke-width: 2; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cp-sw.is-spectrum, [data-theme="tron"] .cp-sw.is-spectrum { background: #1c1f23; color: #d4d8dd; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .cp-sw.is-spectrum, [data-theme="tron"] .cp-sw.is-spectrum { background: #1c1f23; color: #d4d8dd; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
 .cp-sw.is-spectrum[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg); }
 
 /* Night themes: rings in the theme's ink. */
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cp-sw { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 22%, transparent), inset 0 -3px 6px rgb(0 0 0 / .14); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .cp-sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .cp-sw { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 22%, transparent), inset 0 -3px 6px rgb(0 0 0 / .14); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .cp-sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg); }
 
 /* Tron: swatches are the lights the Grid draws; the selected one locks in with a teal ring; the preview is a Tron bubble. */
 [data-theme="tron"] .cp-sw:not(.is-spectrum) { background: radial-gradient(circle at 32% 26%, rgb(255 255 255 / .42), transparent 46%), var(--sw); box-shadow: 0 0 7px -1px color-mix(in oklab, var(--sw) 75%, transparent), inset 0 0 0 1px rgb(0 0 0 / .25); }

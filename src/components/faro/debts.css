@@ -74,7 +74,7 @@ html[data-theme="marfil"] .debt-scale { --in: #3a8a7e; --owe: #a8792f; }
 html[data-theme="niebla"] .debt-scale { --in: #3e8790; --owe: #a7844a; }
 html[data-theme="piedra"] .debt-scale { --in: #3d8278; --owe: #9d7a44; }
 /* Night (Ion and the rest): brighter pans on charcoal. */
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .debt-scale { --in: #3cc7b6; --owe: #d7a65a; background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-scale { --in: #3cc7b6; --owe: #d7a65a; background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
 /* Tron: a lit steel beam; teal pan, amber pan, the pivot a glowing node. No corner brackets (those belong to the savings row). */
 [data-theme="tron"] .debt-scale { --in: #3fd6f5; --owe: #e8a54a; border-radius: 10px; background: rgba(0, 0, 0, .45); border-color: rgba(120, 225, 250, .18); box-shadow: inset 0 0 0 1px rgba(120, 225, 250, .06); }
 [data-theme="tron"] .debt-scale::before { opacity: .9; box-shadow: 0 0 6px rgba(63, 214, 245, .35); }
@@ -215,7 +215,7 @@ html[data-theme="costa"] :is(.debt-book, .cobros) { --in: #1f8b93; --owe: #b07a3
 html[data-theme="marfil"] :is(.debt-book, .cobros) { --in: #3a8a7e; --owe: #a8792f; }
 html[data-theme="niebla"] :is(.debt-book, .cobros) { --in: #3e8790; --owe: #a7844a; }
 html[data-theme="piedra"] :is(.debt-book, .cobros) { --in: #3d8278; --owe: #9d7a44; }
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) :is(.debt-book, .cobros) { --in: #3cc7b6; --owe: #d7a65a; }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) :is(.debt-book, .cobros) { --in: #3cc7b6; --owe: #d7a65a; }
 [data-theme="tron"] :is(.debt-book, .cobros) { --in: #3fd6f5; --owe: #e8a54a; }
 
 /* ---------- tap on a side: bloom from the finger, the dot pulses, the beam settles ---------- */
@@ -296,8 +296,8 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
 .debt-book .cobro-swap .cobro-file-head { color: var(--muted); }
 .debt-book .cobro-swap .cobro-file .fold-chev { color: var(--faint); }
 /* Night themes: charcoal panels (never black, never brown). */
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) { background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) { background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
 /* Tron: dark graphite panel, the scale's hairline, a teal (or amber) firefly. */
 [data-theme="tron"] .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
 [data-theme="tron"] .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) {
@@ -486,7 +486,7 @@ html:not([data-theme="tron"]) main [data-enter="rise"] { animation: screen-rise 
    Section cards (Prestado en el tiempo, Sin/Con interés, an empty list, Archivo) share one height (8 + 40 + 8),
    one label style and a lit segment of the top border in the side colour; Archivo stays neutral. */
 .cobros { --tone-ink: color-mix(in oklab, var(--tone) 64%, var(--fg)); }
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="tron"]) .cobros { --tone-ink: var(--tone); }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="tron"], [data-theme="cyberpunk"]) .cobros { --tone-ink: var(--tone); }
 
 html body .cobros .cobro-swap :is(.cobro-group, .cobro-group.is-rate, .cobro-file),
 html body .cobros .cobro-swap > .span-cut > .span-fold-bar,
@@ -577,12 +577,12 @@ html body .cobros .cobro-all:hover > svg { transform: translateX(2px); }
 html body .cobros .cobro-all:active { transform: translateY(.5px) scale(.99); }
 
 /* night themes: charcoal, never black, never brown */
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros .cobro-swap > .fx-note,
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros .cobro-swap > .cobro-card:not(.is-file),
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros .cobro-swap > .span-cut > .span-fold-bar { background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros .cobro-swap .cobro-file { background: color-mix(in oklab, #171b1f 70%, var(--surface)); }
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros .cobro-all { background: linear-gradient(180deg, color-mix(in oklab, var(--tone) 12%, #1d2227), color-mix(in oklab, var(--tone) 6%, #1a1e22)); }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) body .cobros .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) body .cobros .cobro-swap > .fx-note,
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) body .cobros .cobro-swap > .cobro-card:not(.is-file),
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) body .cobros .cobro-swap > .span-cut > .span-fold-bar { background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) body .cobros .cobro-swap .cobro-file { background: color-mix(in oklab, #171b1f 70%, var(--surface)); }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) body .cobros .cobro-all { background: linear-gradient(180deg, color-mix(in oklab, var(--tone) 12%, #1d2227), color-mix(in oklab, var(--tone) 6%, #1a1e22)); }
 
 /* Tron: graphite panels (Libros' own), the side's light on the edge, Exo labels */
 html[data-theme="tron"] body .cobros .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
@@ -617,7 +617,7 @@ html[data-theme="tron"] body .cobros .cobro-all {
 }
 @media (prefers-reduced-motion: reduce) { html body .cobros .cobro-all, html body .cobros .cobro-all > svg { transition: none; } }
 /* night themes: the Debo panel itself was a brown wash; graphite with a faint amber light instead */
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) body .cobros.is-due {
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) body .cobros.is-due {
   border-color: color-mix(in oklab, var(--owe) 30%, var(--line));
   background: radial-gradient(110% 70% at 0% 0%, color-mix(in oklab, var(--owe) 11%, transparent), transparent 48%), linear-gradient(165deg, color-mix(in oklab, #2a2e33 45%, var(--surface)), var(--surface) 70%);
 }
@@ -671,10 +671,10 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
   .app-frame:not(.is-split) .swipe-pane .debt-book > .debo-tabs[data-ready].is-lux > .debo-ink { transition: transform .42s cubic-bezier(.22, 1.08, .36, 1), width .42s cubic-bezier(.22, 1.08, .36, 1); }
 
   /* Night themes: charcoal track, a deeper charcoal lit segment with the amber rim. */
-  html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .app-frame:not(.is-split) .swipe-pane .debt-book > .debo-tabs.is-lux {
+  html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .app-frame:not(.is-split) .swipe-pane .debt-book > .debo-tabs.is-lux {
     background: color-mix(in oklab, #1d2227 70%, var(--surface)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
   }
-  html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"]) .app-frame:not(.is-split) .swipe-pane .debt-book > .debo-tabs.is-lux > .debo-ink {
+  html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .app-frame:not(.is-split) .swipe-pane .debt-book > .debo-tabs.is-lux > .debo-ink {
     background: linear-gradient(180deg, color-mix(in oklab, var(--tone) 6%, #2a3036), color-mix(in oklab, var(--tone) 3%, #1c2126));
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, .06), 0 4px 14px -8px color-mix(in oklab, var(--tone) 60%, transparent);
   }

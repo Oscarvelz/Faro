@@ -254,8 +254,8 @@
 .bk-empty { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.4; }
 
 /* ---------------------------------------------------------------- night themes */
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) :is(.imp-tag.is-xfer) { color: #8cbfec; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) :is(.imp-tag.is-pair) { color: #c3a6f2; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) :is(.imp-tag.is-xfer) { color: #8cbfec; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) :is(.imp-tag.is-pair) { color: #c3a6f2; }
 
 /* ---------------------------------------------------------------- Tron: teal frames and marks; amber only on amounts */
 [data-theme="tron"] .imp-door { border-radius: 6px; background: rgba(63, 214, 245, .05); border-color: rgba(63, 214, 245, .45); color: #d7eef4; box-shadow: 0 0 12px -4px rgba(63, 214, 245, .5); }
@@ -355,7 +355,7 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .imp-pocket-amt { display: grid; justify-items: end; gap: 1px; }
 .imp-pocket-amt b { font-size: .95rem; white-space: nowrap; }
 .imp-pocket:not(.is-on) :is(.imp-pocket-ico, .imp-pocket-text, .imp-pocket-amt) { opacity: .5; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .imp-pocket-ico { color: #b48cf0; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .imp-pocket-ico { color: #b48cf0; }
 [data-theme="tron"] .imp-pocket { border-color: rgba(63, 214, 245, .16); }
 [data-theme="tron"] .imp-pocket-ico { color: #c9a3ff; background: rgba(160, 110, 255, .12); box-shadow: inset 0 0 0 1px rgba(190, 140, 255, .45), 0 0 10px rgba(160, 110, 255, .3); }
 [data-theme="tron"] .imp-pdf-check { color: #3fd6f5; text-shadow: 0 0 8px rgba(63, 214, 245, .35); }
@@ -484,9 +484,9 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 @container (max-width: 21rem) { .bk-set.is-manage .bk-acct:not(.is-sub) .bk-kind { display: none; } }
 
 /* Night themes: charcoal cells, never pure black or brown. */
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .bk-pct .field { background: #23272c; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .bk-pct.is-inherit .field { background: #1c1f23; }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .bk-pct .field:focus { background: #2a2e34; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .bk-pct .field { background: #23272c; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .bk-pct.is-inherit .field { background: #1c1f23; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .bk-pct .field:focus { background: #2a2e34; }
 /* Ion: its cyan glow on focus. */
 html:is([data-theme="ion"], [data-theme="ion-noche"]) .bk-pct .field:focus { box-shadow: 0 0 0 1.5px var(--glow), 0 0 10px color-mix(in oklab, var(--glow) 35%, transparent); }
 /* Tron: graphite cells with a teal edge, teal marks (no brand rainbow), amber for the lit pencil, orange-red for removals. */

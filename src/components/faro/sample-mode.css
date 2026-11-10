@@ -26,7 +26,7 @@
   background: color-mix(in oklab, var(--smp, #b8761f) 10%, transparent); white-space: nowrap; transform: translateY(2px);
 }
 :root { --smp: #a8711e; }
-[data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="ion"], [data-theme="tron"] { --smp: #e8b04a; }
+[data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="ion"], [data-theme="tron"], [data-theme="cyberpunk"] { --smp: #e8b04a; }
 [data-theme="tron"] .brand-mini em.smp-pill { font-family: "Orbitron", system-ui, sans-serif; text-shadow: 0 0 6px rgba(255, 194, 58, .35); box-shadow: 0 0 8px rgba(255, 194, 58, .12); }
 .smp-edge { position: fixed; z-index: 60; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
   background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--smp) 80%, transparent) 20%, color-mix(in oklab, var(--smp) 80%, transparent) 80%, transparent); }

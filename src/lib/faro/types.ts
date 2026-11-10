@@ -1,6 +1,6 @@
 export type Lang = "es" | "en";
 export type Currency = "NIO" | "USD";
-export type ThemeId = "claro" | "lino" | "costa" | "marfil" | "niebla" | "piedra" | "ion" | "oscuro" | "oled" | "naturaleza" | "oceano" | "sunset" | "tinta" | "bosque" | "humo" | "ion-noche" | "tron";
+export type ThemeId = "claro" | "lino" | "costa" | "marfil" | "niebla" | "piedra" | "ion" | "oscuro" | "oled" | "naturaleza" | "oceano" | "sunset" | "tinta" | "bosque" | "humo" | "ion-noche" | "tron" | "cyberpunk";
 export type Group = "fixed" | "variable";
 export type LineKind =
   | "income-fixed"
@@ -16,7 +16,7 @@ export type CatalogKind = "store" | "ai" | "sub" | "acct";
 export type TemplateId = "soltero" | "familia" | "estudiante" | "negocio";
 
 export const DAY_THEMES: ThemeId[] = ["claro", "lino", "costa", "marfil", "niebla", "piedra"];
-export const NIGHT_THEMES: ThemeId[] = ["oscuro", "oled", "naturaleza", "oceano", "sunset", "tinta", "bosque", "humo", "ion-noche", "tron"];
+export const NIGHT_THEMES: ThemeId[] = ["oscuro", "oled", "naturaleza", "oceano", "sunset", "tinta", "bosque", "humo", "ion-noche", "tron", "cyberpunk"];
 /** "ion" (the old light Ion) is still accepted from saved data; it now opens as Ion in Noche. */
 export const THEME_IDS: ThemeId[] = [...DAY_THEMES, "ion", ...NIGHT_THEMES];
 

@@ -6,7 +6,7 @@
 .rp-head h2 { white-space: nowrap; }
 .rp-tools { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .rp-pic { color: #c0703f; background: radial-gradient(circle at 30% 25%, color-mix(in oklab, #f0b08c 45%, var(--surface)), color-mix(in oklab, var(--rm) 16%, var(--surface))); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--rm) 26%, transparent); }
-html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]) .rp-pic { color: #f2b08a; background: color-mix(in oklab, var(--rm) 20%, var(--surface)); }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="cyberpunk"]) .rp-pic { color: #f2b08a; background: color-mix(in oklab, var(--rm) 20%, var(--surface)); }
 .rp-hero .pp-hero-text em { display: inline-flex; align-items: center; gap: 4px; }
 .rp-hero .pp-hero-text > span { font-size: .84rem; }
 

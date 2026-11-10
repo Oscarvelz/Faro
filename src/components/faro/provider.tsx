@@ -286,7 +286,7 @@ const now = () => new Date();
 
 /** The bar colour a theme paints with (meta theme-color): written at the flip neck and by the session effect alike. */
 function chromeForTheme(shown: ThemeId): string {
-  return shown === "ion-noche" ? "#070b12" : shown === "tron" ? "#02060c" : NIGHT_THEMES.includes(shown) ? "#0e1114" : "#f4f1ea";
+  return shown === "ion-noche" ? "#070b12" : shown === "tron" ? "#02060c" : shown === "cyberpunk" ? "#08080d" : NIGHT_THEMES.includes(shown) ? "#0e1114" : "#f4f1ea";
 }
 
 export function FaroProvider({ userId, children }: { userId: string; children: ReactNode }) {

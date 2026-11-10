@@ -5,6 +5,7 @@ import { SampleEdge, SamplePill } from "./sample-mode";
 import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
 import "./float.css";
 import "./tron.css";
+import "./cyberpunk.css";
 import "./cal.css";
 import "./tablet.css";
 import { UserButton } from "@/lib/auth/gates";
