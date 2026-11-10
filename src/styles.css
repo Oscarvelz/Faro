@@ -2113,6 +2113,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 /* Faro's own dialog (replaces the browser's gray confirm box). */
 .ask-back { position: fixed; inset: 0; z-index: 90; display: grid; place-items: end center; padding: 16px 14px calc(18px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #04070a 58%, transparent); backdrop-filter: blur(6px) saturate(1.1); -webkit-backdrop-filter: blur(6px) saturate(1.1); animation: ask-fade .22s ease-out both; }
 @media (width >= 640px) { .ask-back { place-items: center; } }
+/* 1.3.191: the exit dialog's window sits at the center of the screen at every
+   width — the one change Oscar asked for. Every other ask keeps its anchor. */
+.ask-back.is-center { place-items: center; }
 .ask { --ask-tone: var(--accent); position: relative; width: min(440px, 100%); overflow: hidden; isolation: isolate; display: grid; justify-items: center; text-align: center; gap: 6px; padding: 26px 22px 18px; border-radius: 30px; color: var(--fg); background: linear-gradient(180deg, color-mix(in oklab, var(--surface) 96%, var(--ask-tone)), var(--surface)); border: 1px solid color-mix(in oklab, var(--line) 70%, var(--ask-tone)); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.55), 0 1px 0 color-mix(in oklab, white 8%, transparent) inset; animation: ask-rise .34s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .ask.is-danger { --ask-tone: var(--bad); }
 .ask-glow { position: absolute; z-index: -1; left: 50%; top: -90px; width: 260px; height: 200px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in oklab, var(--ask-tone) 30%, transparent), transparent); pointer-events: none; }
@@ -2122,17 +2125,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .ask:not(.is-danger) .ask-lamp { fill: #f0b85a; filter: drop-shadow(0 0 5px rgba(240, 184, 90, 0.7)); }
 .ask-title { margin: 0; font-family: var(--font-serif); font-size: 1.55rem; font-weight: 560; letter-spacing: -0.02em; line-height: 1.15; overflow-wrap: anywhere; }
 .ask-body { margin: 2px 0 0; max-width: 34ch; color: var(--muted); font-size: 0.98rem; line-height: 1.45; overflow-wrap: anywhere; }
-/* 1.3.185: Oscar's centering order — the pills do not change (same height,
-   radius, padding, colours, hierarchy); only their placement does. The pair
-   sits as a centered group: the row shrink-wraps the two equal pills and
-   centers itself, so a row stays a row and the dialog never grows. */
-.ask-actions { width: fit-content; max-width: 100%; margin-inline: auto; justify-self: center; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; margin-top: 18px; }
-/* The exit dialog's stack: each pill keeps the exact width it has in the pair
-   row — calc((100% - gap) / 2) of the same actions width — centered, with the
-   go pill (Salir) on top at the true center and the quiet pill beneath it. */
-.ask-actions.is-stack { width: 100%; display: flex; flex-direction: column; align-items: center; }
-.ask-actions.is-stack .ask-btn { width: calc((100% - 10px) / 2); flex: none; }
-.ask-actions.is-stack .ask-btn.is-go, .ask-actions.is-stack .ask-btn.is-danger { order: -1; }
+/* 1.3.191: the pair stands exactly as designed — one full row, side by side.
+   (1.3.185's centered group and the exit stack were reverted in full at
+   Oscar's word: the dialog design was never his complaint.) */
+.ask-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
 .ask-btn { min-height: 50px; border-radius: 16px; font: inherit; font-weight: 600; font-size: 1rem; border: 1px solid transparent; padding: 0 12px; transition: transform .15s cubic-bezier(.22, 1, .36, 1), filter .15s; }
 .ask-btn:active { transform: scale(0.97); }
 .ask-btn.is-quiet { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); border-color: var(--line); }

@@ -33,7 +33,7 @@ import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { todayIso } from "@/lib/faro/loans";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
-type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; stack?: boolean; run: () => void };
+type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void };
 /** Load-time seeds: the August sample, then the one-time Remesas categories (1.3.86). */
 function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean; sample: boolean } {
   // 1.3.87: the August sample lives only in sample mode (its own store). Personal books that are
@@ -400,9 +400,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       body: tr("exit.body"),
       yes: tr("exit.leave"),
       no: tr("exit.stay"),
-      // 1.3.185: Oscar's centering order — the exit dialog is the protagonist:
-      // its two unchanged pills form a centered stack, Salir at the true center.
-      stack: true,
+      // 1.3.191: Oscar's one ask — the exit WINDOW sits at the center of the
+      // screen. The dialog itself is the design he approved; nothing else moves.
+      center: true,
       run: () => {
         const bridge = (window as Window & { FaroNative?: { exitNow?: () => void; atRoot?: (msg: string) => void } }).FaroNative;
         // The newest shell knows exitNow() and finishes at once. A shell from before it only has
@@ -1427,7 +1427,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     <Ctx.Provider value={value}>
       {children}
       {confirmState ? (
-        <div className="ask-back" role="presentation" onMouseDown={() => setConfirm(null)}>
+        <div className={`ask-back${confirmState.center ? " is-center" : ""}`} role="presentation" onMouseDown={() => setConfirm(null)}>
           <div className={`ask${confirmState.danger ? " is-danger" : ""}`} role="alertdialog" aria-modal="true" aria-labelledby="faro-confirm-title" aria-describedby="faro-confirm-body" onMouseDown={(e) => e.stopPropagation()}>
             <i className="ask-glow" aria-hidden />
             <span className="ask-seal" aria-hidden>
@@ -1439,7 +1439,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
             </span>
             <h2 id="faro-confirm-title" className="ask-title">{confirmState.title}</h2>
             <p id="faro-confirm-body" className="ask-body">{confirmState.body}</p>
-            <div className={`ask-actions${confirmState.stack ? " is-stack" : ""}`}>
+            <div className="ask-actions">
               <button type="button" className="ask-btn is-quiet" onClick={() => setConfirm(null)}>{confirmState.no ?? t("cancel")}</button>
               <button
                 type="button"
