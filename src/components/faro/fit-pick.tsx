@@ -3,12 +3,13 @@
  * and an inline "add". The field that identifies a line (Cuotas → Ícono y color, Compras → Tienda, the other books → the
  * mark beside Concepto) also carries the line's icon and colour: its sheet adds the colour section (ColorPick, shared) and
  * the Faro icons, so the floating "Ícono y color" pill is gone from the editors.
- * The pencil beside the X turns on a manage state: checkboxes and one confirmation for many deletions; categories and
+ * The pencil beside the X turns on a manage state: checkboxes and one confirmation for many hidings; categories and
  * stores also rename inline and categories change colour, with the same data and rules as Compras → engranaje
- * (deleting = hiding, exactly like that switch: lines keep their category and money history). */
+ * (the manage action HIDES, exactly like that switch: lines keep their category and money history — and since
+ * 1.3.186 the button says so: «Ocultar» with the eye-off icon, not «Borrar» with a bin; audit E-2). */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Palette, Pencil, Plus, Repeat2, RotateCcw, Search, Sparkles, Store, Tag, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, EyeOff, Palette, Pencil, Plus, Repeat2, RotateCcw, Search, Sparkles, Store, Tag, Trash2, X } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
 import { displayName, markUserVis } from "@/lib/faro/defaults";
 import { categoryColor } from "@/lib/faro/colors";
@@ -104,6 +105,10 @@ export type Manage = {
   /** 1.3.115 (Libros books): the verb of the red button and its confirmation ("Archivar"), and the confirmation's body. */
   verb?: [string, string];
   body?: string;
+  /** 1.3.186 (R-2, cierra E-2): the structure pickers' manage action HIDES — the button and its
+   *  confirmation say «Ocultar» and carry the eye-off icon instead of «Borrar» + bin. The action
+   *  itself (and its non-danger confirmation, as it always was) does not change. */
+  hide?: boolean;
 };
 
 export function PickSheet({ title, items, groups, value, onPick, onClose, add, manage, none, test, look, onLookDone, startEditing, onPalette }: {
@@ -216,7 +221,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
     if (!manage || !sel.size) return;
     const ids = [...sel];
     const [one, many] = lang === "en" ? [manage.word[2], manage.word[3]] : [manage.word[0], manage.word[1]];
-    const verb = manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : L(lang, "Borrar", "Delete");
+    const verb = manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : manage.hide ? L(lang, "Ocultar", "Hide") : L(lang, "Borrar", "Delete");
     confirm({
       title: L(lang, `¿${verb} ${ids.length} ${ids.length === 1 ? one : many}?`, `${verb} ${ids.length} ${ids.length === 1 ? one : many}?`),
       body: manage.body ?? L(lang, "Las líneas que ya los usan los conservan, con todo su historial.", "Lines already using them keep them, with all their history."),
@@ -309,7 +314,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
         {editing && manage ? (
           <div className="fit-manage-bar">
             <label className="fit-all"><input type="checkbox" className="fit-check" data-test="manage-all" aria-label={L(lang, "Seleccionar todo", "Select all")} checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(visibleIds))} /><span className="fit-all-long">{L(lang, "Seleccionar todo", "Select all")}</span><span className="fit-all-short" aria-hidden>{L(lang, "Todo", "All")}</span></label>
-            <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}><Trash2 />{manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
+            <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}>{manage.hide ? <EyeOff /> : <Trash2 />}{manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : manage.hide ? L(lang, "Ocultar", "Hide") : L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
           </div>
         ) : add && !lookView ? (
           <div className="fit-add">
@@ -347,6 +352,7 @@ export function StorePick({ value, onChange, look }: { value: string; onChange: 
           look={look}
           onLookDone={() => setOpen(false)}
           manage={{
+            hide: true,
             word: ["tienda", "tiendas", "store", "stores"],
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) } }), L(lang, "Tiendas", "Stores")); },
             onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } }), name),
@@ -386,6 +392,7 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{
+            hide: true,
             word: ["categoría", "categorías", "category", "categories"],
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (ids.includes(p.id) ? { ...p, hidden: true } : p)) } }), L(lang, "Categorías", "Categories")); },
             onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } }), name),
@@ -407,7 +414,7 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
 }
 
 /** Fijos / Variables: the category (with its colour) and its subcategory, as chips; same sheet, inline add and manage
- * state as Compras. Deleting hides, exactly like the eye in Ajustes → Estructura: lines keep their category and history. */
+ * state as Compras. The manage action hides («Ocultar»), exactly like the eye in Ajustes → Estructura: lines keep their category and history. */
 export function CategoryPick({ group, value, onChange }: { group: "fixed" | "variable"; value: string; onChange: (id: string) => void }) {
   const { t, session, commit, lang } = useFaro();
   const [open, setOpen] = useState(false);
@@ -429,6 +436,7 @@ export function CategoryPick({ group, value, onChange }: { group: "fixed" | "var
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{
+            hide: true,
             word: ["categoría", "categorías", "category", "categories"],
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: markUserVis({ ...st.structure, categories: st.structure.categories.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) }, ids, true) }), L(lang, "Categorías", "Categories")); },
             onRename: (id, name) => patch([id], (c) => ({ ...c, customName: name }), name),
@@ -470,6 +478,7 @@ export function SubPick({ categoryId, value, onChange }: { categoryId: string; v
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{
+            hide: true,
             word: ["subcategoría", "subcategorías", "subcategory", "subcategories"],
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: markUserVis({ ...st.structure, categories: st.structure.categories.map((c) => (c.id === categoryId ? { ...c, subs: c.subs.map((x) => (ids.includes(x.id) ? { ...x, hidden: true } : x)) } : c)) }, ids, true) }), t("sub")); },
             onRename: (id, name) => patchSubs((list) => list.map((x) => (x.id === id ? { ...x, customName: name } : x)), name),

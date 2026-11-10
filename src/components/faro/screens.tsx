@@ -4875,6 +4875,15 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   const [subEdit, setSubEdit] = useState("");
   // 1.3.179: visibilidad PREPARADA (subId -> hidden deseado, solo si difiere de lo guardado).
   const [stagedVis, setStagedVis] = useState<Record<string, boolean>>({});
+  // 1.3.186 (R-1 de la auditoría de Estructura, cierra E-1): la CATEGORÍA también
+  // tiene su ojo, preparado con el mismo modelo — stagedCatVis es su hidden
+  // deseado SOLO si difiere del guardado (null = nada preparado). Hasta aquí una
+  // categoría oculta no podía volver a mostrarse por ningún control: los
+  // selectores la filtran incluso administrando y esta tarjeta no tenía ojo para
+  // ella, así que esconderla era una puerta de un solo sentido (solo Deshacer,
+  // dentro de la sesión, la rescataba). Guardar lo escribe por el mismo camino
+  // markUserVis de los subconceptos, con su valor, en el mismo commit.
+  const [stagedCatVis, setStagedCatVis] = useState<boolean | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
   // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
@@ -4901,8 +4910,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   const editingSub = editSub ? cat.subs.find((x) => x.id === editSub) : undefined;
   const stagedIds = Object.keys(stagedVis);
   const panelDirty = formDirty(
-    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean> },
-    { name, sub: subName, edit: editingSub && subEdit !== displayName(editingSub, lang) ? subEdit : "", vis: stagedVis },
+    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean>, catVis: null as boolean | null },
+    { name, sub: subName, edit: editingSub && subEdit !== displayName(editingSub, lang) ? subEdit : "", vis: stagedVis, catVis: stagedCatVis },
   );
   const revealRow = () => {
     const row = rootRef.current?.closest("[data-row]");
@@ -4949,22 +4958,35 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       return copy;
     });
   };
+  // 1.3.186: el ojo de la categoría prepara igual que el de un subconcepto —
+  // tocarlo de vuelta a su estado guardado DESPREPARA (la tarjeta queda limpia).
+  const effCatHidden = stagedCatVis ?? cat.hidden;
+  const toggleCatVis = () => {
+    const next = !effCatHidden;
+    setStagedCatVis(next === cat.hidden ? null : next);
+  };
   // Guardar confirma TODO lo pendiente de la tarjeta en un solo commit: la
   // subcategoría escrita (exactamente el alta de siempre) y la visibilidad
   // preparada, escrita por el camino de los ojos (markUserVis por valor, para
   // que cada id quede registrado con SU valor, como N toques de ojo habrían
   // dejado el libro — solo que en un paso de Deshacer, el de este Guardar).
+  // 1.3.186: el ojo de la categoría viaja en el MISMO commit y por el mismo
+  // camino (su hidden + markUserVis con su id y su valor).
   const savePanel = () => {
     const next = subName.trim();
-    if (!next && !stagedIds.length) return;
+    if (!next && !stagedIds.length && stagedCatVis === null) return;
     commit((s) => {
       let structure = s.structure;
-      if (stagedIds.length) {
+      if (stagedIds.length || stagedCatVis !== null) {
         const cats = structure.categories.map((c) => (c.id === cat.id
-          ? { ...c, subs: c.subs.map((x) => (x.id in stagedVis ? { ...x, hidden: stagedVis[x.id]! } : x)) }
+          ? { ...c, ...(stagedCatVis !== null ? { hidden: stagedCatVis } : {}), subs: c.subs.map((x) => (x.id in stagedVis ? { ...x, hidden: stagedVis[x.id]! } : x)) }
           : c));
-        structure = markUserVis({ ...structure, categories: cats }, stagedIds.filter((id) => stagedVis[id]), true);
-        structure = markUserVis(structure, stagedIds.filter((id) => !stagedVis[id]), false);
+        structure = { ...structure, categories: cats };
+        if (stagedIds.length) {
+          structure = markUserVis(structure, stagedIds.filter((id) => stagedVis[id]), true);
+          structure = markUserVis(structure, stagedIds.filter((id) => !stagedVis[id]), false);
+        }
+        if (stagedCatVis !== null) structure = markUserVis(structure, [cat.id], stagedCatVis);
       }
       if (next) {
         structure = { ...structure, categories: structure.categories.map((c) => (c.id === cat.id
@@ -4972,9 +4994,10 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
           : c)) };
       }
       return { ...s, structure };
-    }, next || stagedIds[0]!);
+    }, next || stagedIds[0] || cat.id);
     if (next) setSubName("");
     if (stagedIds.length) setStagedVis({});
+    if (stagedCatVis !== null) setStagedCatVis(null);
   };
   const addSub = () => {
     const next = subName.trim();
@@ -5036,7 +5059,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   };
   return (
     <div className="tree-open" ref={rootRef}>
-      <div className="row">
+      <div className={effCatHidden ? "row is-muted" : "row"}>
         <input className="field" value={name} aria-label={t("rename")} onChange={(e) => setName(e.target.value)} />
         <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => {
           const next = name.trim();
@@ -5044,6 +5067,11 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
           patch((c) => ({ ...c, customName: next }), next);
           nameBaseRef.current = name; // lo tecleado acaba de guardarse: deja de ser borrador
         }}><Check className="size-4" /></button>
+        {/* 1.3.186 (R-1): el ojo de la categoría, junto a su nombre — el mismo ojo
+            de sus subconceptos, preparado igual: la fila pinta el estado nuevo
+            (atenuada si quedaría oculta) y Guardar lo confirma. La categoría
+            sigue sin papelera (1.3.145): esto es mostrar/ocultar, no borrar. */}
+        <button type="button" className="icon-btn" data-test="cat-eye" aria-label={effCatHidden ? t("show") : t("hide")} onClick={toggleCatVis}>{effCatHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
       </div>
       <div className="tree-color">
         <button type="button" className="tree-color-point" aria-expanded={colorOpen} onClick={() => setColorOpen((v) => !v)}>
@@ -5088,7 +5116,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
         </div>
         <div className="ah-actions">
           <button type="button" className="btn secondary" onClick={cancelPanel}>{t("cancel")}</button>
-          <button type="button" className="btn" disabled={!subName.trim() && !stagedIds.length} onClick={savePanel}>{t("save")}</button>
+          <button type="button" className="btn" disabled={!subName.trim() && !stagedIds.length && stagedCatVis === null} onClick={savePanel}>{t("save")}</button>
         </div>
       </div>
     </div>
