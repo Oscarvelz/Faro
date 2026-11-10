@@ -35,6 +35,11 @@
    theme tokens (--cp-magenta / --cp-cyan / --accent), so the 197
    palette pass re-voices the whole family from the token block: the
    burst's cyan split is a ceremony flash, not atmosphere.
+   1.3.198 — Oscar's two phone verdicts on the live 197: the live
+   Central lens wears its OWN colour (green/orange/red) as a flat fill
+   instead of the blanket yellow, and the three savings ships (Meta,
+   Retiro, Emergencia) join the glitch family with a variation of
+   their own. Details at the lens block and the save keyframes below.
    ===================================================================== */
 
 /* Rajdhani, self-hosted (latin + latin-ext, 500/600/700): the files live
@@ -234,9 +239,18 @@ html[data-theme="cyberpunk"] :is(.form-block.is-fit, .fit-add) :is(.field, .them
 [data-theme="cyberpunk"] .bar-fill { background: linear-gradient(90deg, #fcee0a, #ff7a00); box-shadow: none; }
 
 /* Lenses: one voice per side — Tengo green, Gastaré orange, Pagos red —
-   as the bottom rule and the kicker word. The pressed lens is a flat
-   yellow solid with black ink, like every selected state in the city.
-   Corner brackets frame the trio: calibration marks, in accent. */
+   as the bottom rule and the kicker word. 1.3.198 (Oscar's phone
+   verdict on the live 197): the LIVE lens wears its OWN voice as a flat
+   fill — not the blanket signal yellow — the colour it already speaks
+   with, at full surface strength, so it sits better with its glitch.
+   Ink is black on all three fills, by measurement with the app's own
+   contrast(): green 11.87:1, orange 7.57:1, red 5.01:1 — warm white
+   fails all three (1.44 / 2.25 / 3.41). The two controls riding on the
+   filled lens follow: the corner disc takes a black keyline (its
+   tinted ring all but vanishes on the orange and red fills; separation
+   becomes the ink's own 7.57 / 5.01) and the hint glyph takes the
+   lens ink. Corner brackets frame the trio: calibration marks, in
+   accent. */
 [data-theme="cyberpunk"] .lenses { position: relative; }
 [data-theme="cyberpunk"] .lenses::before, [data-theme="cyberpunk"] .lenses::after {
   content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none; z-index: 1;
@@ -251,9 +265,14 @@ html[data-theme="cyberpunk"] .lens.is-have .lens-kicker { color: var(--cp-green)
 html[data-theme="cyberpunk"] .lens.is-spend .lens-kicker { color: var(--cp-orange); }
 html[data-theme="cyberpunk"] .lens.is-debt .lens-kicker { color: var(--cp-red); }
 html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"] {
-  background: var(--accent); color: var(--accent-fg); box-shadow: none;
+  color: var(--accent-fg); box-shadow: none;
 }
+html[data-theme="cyberpunk"] .lenses .lens.is-have[aria-pressed="true"] { background: var(--cp-green); }
+html[data-theme="cyberpunk"] .lenses .lens.is-spend[aria-pressed="true"] { background: var(--cp-orange); }
+html[data-theme="cyberpunk"] .lenses .lens.is-debt[aria-pressed="true"] { background: var(--cp-red); }
 html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"] :is(.lens-kicker, .lens-value, .lens-note) { color: var(--accent-fg); }
+html[data-theme="cyberpunk"] .lens-wrap:has(.lens[aria-pressed="true"]) > .hint.is-lens .ftip-btn { color: var(--accent-fg); }
+html[data-theme="cyberpunk"] .lens-wrap:has(.lens[aria-pressed="true"]) .lens-corner { box-shadow: 0 0 0 2px var(--accent-fg); }
 
 /* ---------- Signage type: Rajdhani speaks; the serif keeps the brand ---------- */
 /* Page titles take the condensed face too — set as written (no caps:
@@ -535,6 +554,58 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
   70% { transform: none; text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 35%, transparent); }
   100% { transform: none; text-shadow: none; }
 }
+/* Pagos' own flicker (1.3.198): since the live lens wears its own fill,
+   the family split is re-measured per lens. On Tengo's green and
+   Gastaré's orange the magenta/cyan pair still straddles the fill, so
+   those kickers keep cp-lens-flicker untouched — but on Pagos' red the
+   magenta fringe is the fill's own hue at the fill's own luminance
+   (1.09:1 measured: it does not read at all). The debt kicker therefore
+   tears cyan against BLACK — the fill's own ink (2.80:1 and 5.01:1) —
+   same bands, same .5s stepped timing, another member of the family. */
+@keyframes cp-lens-flicker-debt {
+  0% { text-shadow: -2px 0 var(--cp-cyan), 2px 0 var(--accent-fg); }
+  30% { text-shadow: 2px 0 var(--cp-cyan), -2px 0 var(--accent-fg); }
+  60% { text-shadow: -1px 0 var(--cp-cyan), 1px 0 var(--accent-fg); }
+  100% { text-shadow: none; }
+}
+/* The savings ships (1.3.198 — Oscar's second verdict: Meta, Retiro and
+   Emergencia "lack the glitch effect when being tapped over"). Their
+   own variation of the family, in three voices at once: the FRAME steps
+   magenta → cyan → home (border colour only: the button is the tap
+   target, so no clip and no transform — the house :active scale keeps
+   the press, per the 195 lesson); the NAME takes a ±2.5px split; and
+   the WAVE BAND tears in the low band, at its waterline (insets nobody
+   else uses: the ships tear high, the books tabs open from below, the
+   vault tears mid-band). One dry 460ms shot when a card takes, then a
+   rare idle on the fleet's slowest cycle (11s, twitching at 95–97%).
+   The C$ figure (.num) is never a target — not at rest, not in burst. */
+@keyframes cp-save-frame {
+  0% { border-color: var(--cp-magenta); }
+  28% { border-color: var(--cp-cyan); }
+  55% { border-color: color-mix(in oklab, var(--seg, #fcee0a) 82%, transparent); }
+  100% { border-color: color-mix(in oklab, var(--seg, #fcee0a) 55%, transparent); }
+}
+@keyframes cp-save-burst {
+  0% { text-shadow: -2.5px 0 var(--cp-magenta), 2.5px 0 var(--cp-cyan); }
+  28% { text-shadow: 2.5px 0 var(--cp-magenta), -2.5px 0 var(--cp-cyan); }
+  55% { text-shadow: -1px 0 var(--cp-magenta), 1px 0 var(--cp-cyan); }
+  100% { text-shadow: none; }
+}
+@keyframes cp-save-tear {
+  0% { transform: translate(3px, 0); clip-path: inset(58% 0 0 0); }
+  28% { transform: translate(-3px, 0); clip-path: inset(0 0 66% 0); }
+  55% { transform: translate(1px, 0); clip-path: inset(30% 0 38% 0); }
+  100% { transform: none; clip-path: none; }
+}
+@keyframes cp-save-idle {
+  0%, 93%, 100% { text-shadow: none; }
+  95% { text-shadow: -1.5px 0 var(--cp-magenta), 1.5px 0 var(--cp-cyan); }
+  97% { text-shadow: 1.5px 0 var(--cp-magenta), -1.5px 0 var(--cp-cyan); }
+}
+@keyframes cp-save-idle-band {
+  0%, 94%, 100% { transform: none; clip-path: none; }
+  96% { transform: translate(1px, 0); clip-path: inset(72% 0 0 0); }
+}
 
 @media (prefers-reduced-motion: no-preference) {
   [data-theme="cyberpunk"] :is(.rail, .side-dock) .nav-btn[aria-current="page"],
@@ -563,7 +634,14 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
   [data-theme="cyberpunk"] .chips button[aria-pressed="true"] { animation: cp-chip-burst .36s steps(1) 1; }
   [data-theme="cyberpunk"] .store-chip[aria-pressed="true"] { animation: cp-store-press .3s steps(1) 1; }
   [data-theme="cyberpunk"] .lens[aria-pressed="true"] .lens-kicker { animation: cp-lens-flicker .5s steps(1) 1; }
+  [data-theme="cyberpunk"] .lens.is-debt[aria-pressed="true"] .lens-kicker { animation: cp-lens-flicker-debt .5s steps(1) 1; }
   [data-theme="cyberpunk"] .aj-pick[aria-pressed="true"] .aj-pick-name { animation: cp-pick-burst .42s steps(1) 1; }
+  /* The savings ships take on tap (1.3.198): frame, name and wave band
+     fire together; the idle rides only while the card stays the open
+     one, exactly like the ships' — and the figure never joins. */
+  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] { animation: cp-save-frame .46s steps(1) 1; }
+  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] strong { animation: cp-save-burst .46s steps(1) 1, cp-save-idle 11s steps(1) 1.6s infinite; }
+  [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] .save-band { animation: cp-save-tear .46s steps(1) 1, cp-save-idle-band 11s steps(1) 1.6s infinite; }
 }
 
 /* ---------- Stillness: reduced motion parks the city ---------- */
@@ -571,5 +649,5 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
   /* The whole glitch family parks too (its applications already live
      behind the no-preference guard; this is the explicit kill-switch).
      The header grain is static paint, not motion, and stays. */
-  [data-theme="cyberpunk"] :is(.nav-btn, .seg button, .vault-bar button, .btn, .ask-btn, .icon-btn, .bubble, .currency-bubble, .chips button, .store-chip, .lens .lens-kicker, .aj-pick .aj-pick-name) { animation: none; }
+  [data-theme="cyberpunk"] :is(.nav-btn, .seg button, .vault-bar button, .btn, .ask-btn, .icon-btn, .bubble, .currency-bubble, .chips button, .store-chip, .lens .lens-kicker, .aj-pick .aj-pick-name, .save-seg, .save-seg strong, .save-seg .save-band) { animation: none; }
 }

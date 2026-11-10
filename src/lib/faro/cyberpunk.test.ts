@@ -199,3 +199,51 @@ describe("cyberpunk: la identidad cálida (1.3.197)", () => {
     assert.match(css, /\.lens\.is-debt \{ box-shadow: inset 0 -2px 0 var\(--cp-red\); \}/);
   });
 });
+
+describe("cyberpunk: los lentes guardan su color y Ahorros se suma al glitch (1.3.198)", () => {
+  it("el lente vivo lleva SU color de relleno, no el amarillo general", () => {
+    // Veredicto de Oscar sobre la 197 en vivo: «instead of the yellow,
+    // these chips use their respective color of the chips».
+    assert.match(css, /\.lens\.is-have\[aria-pressed="true"\] \{ background: var\(--cp-green\); \}/, "Tengo vivo no lleva su verde");
+    assert.match(css, /\.lens\.is-spend\[aria-pressed="true"\] \{ background: var\(--cp-orange\); \}/, "Gastaré vivo no lleva su naranja");
+    assert.match(css, /\.lens\.is-debt\[aria-pressed="true"\] \{ background: var\(--cp-red\); \}/, "Pagos vivo no lleva su rojo");
+    assert.ok(!/\.lenses \.lens\[aria-pressed="true"\] \{\s*background: var\(--accent\);/.test(css), "el relleno amarillo general de la 197 sigue vivo");
+  });
+  it("la tinta sobre cada relleno es negra por medición (el blanco cálido fracasa en los tres)", () => {
+    assert.ok(contrast("#0b0a08", "#00e67a") >= 4.5, "tinta sobre verde");
+    assert.ok(contrast("#0b0a08", "#ff7a00") >= 4.5, "tinta sobre naranja");
+    assert.ok(contrast("#0b0a08", "#ff003c") >= 4.5, "tinta sobre rojo");
+    assert.ok(contrast("#f2eee3", "#00e67a") < 4.5, "el blanco cálido debía fracasar sobre verde");
+    assert.ok(contrast("#f2eee3", "#ff7a00") < 4.5, "el blanco cálido debía fracasar sobre naranja");
+    assert.ok(contrast("#f2eee3", "#ff003c") < 4.5, "el blanco cálido debía fracasar sobre rojo");
+    // Los controles que viajan sobre el lente lleno siguen a la tinta:
+    // el disco de la esquina con su línea clave negra y el (?) en tinta.
+    assert.match(css, /\.lens-wrap:has\(\.lens\[aria-pressed="true"\]\) \.lens-corner \{ box-shadow: 0 0 0 2px var\(--accent-fg\); \}/, "el disco no lleva su línea clave");
+    assert.match(css, /\.lens-wrap:has\(\.lens\[aria-pressed="true"\]\) > \.hint\.is-lens \.ftip-btn \{ color: var\(--accent-fg\); \}/, "el (?) no toma la tinta del lente");
+  });
+  it("Pagos desgarra cian contra negro: su magenta es invisible sobre su rojo", () => {
+    // La franja magenta sobre el relleno rojo mide 1.09:1 — el mismo
+    // matiz a la misma luminancia: no se lee. Los otros dos lentes
+    // conservan el par magenta/cian de la familia, intacto.
+    assert.ok(contrast("#ff2a6d", "#ff003c") < 1.2, "la premisa medida: magenta sobre rojo no se lee");
+    assert.ok(css.includes("@keyframes cp-lens-flicker-debt"), "falta el miembro de Pagos");
+    assert.match(css, /\.lens\.is-debt\[aria-pressed="true"\] \.lens-kicker \{ animation: cp-lens-flicker-debt/, "Pagos no usa su desgarro propio");
+    assert.ok(css.includes("@keyframes cp-lens-flicker"), "el flicker de la familia sigue para Tengo y Gastaré");
+  });
+  it("las tres naves de Ahorros tienen su ceremonia: marco, nombre y banda — nunca la cifra", () => {
+    for (const n of ["cp-save-frame", "cp-save-burst", "cp-save-tear", "cp-save-idle", "cp-save-idle-band"]) {
+      assert.ok(css.includes(`@keyframes ${n}`), `falta el miembro de Ahorros: ${n}`);
+    }
+    const aplicaciones = css.slice(css.indexOf("@media (prefers-reduced-motion: no-preference)"));
+    assert.ok(aplicaciones.includes(".save-seg[aria-pressed=\"true\"] { animation: cp-save-frame .46s steps(1) 1; }"), "el marco de la nave no toma al tocar");
+    assert.ok(aplicaciones.includes("cp-save-burst .46s steps(1) 1, cp-save-idle 11s steps(1) 1.6s infinite"), "el nombre no lleva ráfaga + tic raro");
+    assert.ok(aplicaciones.includes("cp-save-tear .46s steps(1) 1, cp-save-idle-band 11s steps(1) 1.6s infinite"), "la banda no lleva desgarro + tic raro");
+    assert.ok(!/\.save-seg[^\n{]*\.num/.test(css), "ninguna regla del tema puede apuntar a la cifra de Ahorros");
+  });
+  it("el marco de Ahorros no recorta ni transforma el botón (la lección de la 195)", () => {
+    const at = css.indexOf("@keyframes cp-save-frame");
+    const block = css.slice(at, css.indexOf("\n}", at));
+    assert.ok(!block.includes("clip-path"), "cp-save-frame no debe recortar: el botón es el blanco del toque");
+    assert.ok(!block.includes("transform"), "cp-save-frame no debe transformar: la escala de presión de la casa se queda");
+  });
+});
