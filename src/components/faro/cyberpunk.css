@@ -11,6 +11,12 @@
    - Ambient life is one slow holo sheen breathing across the header.
      Transform/opacity only; everything stills under reduced motion.
    Skin only: tokens, paint, geometry. No behaviour lives in this file.
+   1.3.195 — El glitch: the ships trade their glass for Cadence's stepped
+   glitch ceremony (Oscar's encargo, code handed over from Cadence), the
+   buttons each take their own variation of that DNA, and the books strip
+   is rebuilt so its rectangles live inside their track. All glitch colour
+   rides the theme tokens (--cp-magenta / --cp-cyan / --accent), so a
+   future palette pass re-voices the whole family from the token block.
    ===================================================================== */
 
 [data-theme="cyberpunk"] {
@@ -215,9 +221,32 @@ html[data-theme="cyberpunk"] .lens[aria-pressed="true"] { box-shadow: 0 0 0 1.5p
    system takes it too, with the specificity to hold. */
 html[data-theme="cyberpunk"] .seg.is-follow:not(.is-pair) button { border-radius: 2px; }
 html[data-theme="cyberpunk"] .seg.is-follow:not(.is-pair) .seg-pill { border-radius: 2px; }
+/* 1.3.195 — the strip, contained (Oscar's screenshot correction): the track
+   trades its 22px capsule curve for an 8px corner a rectangle can actually
+   live inside, the inset grows 4px → 6px and is even on every side, and the
+   selected tab's light moves INSIDE its own box (inset ring + inset wash).
+   The 189 build threw a 14px outer glow past a 4px inset — 10px of light
+   outside the track, measured. That overflow is what he photographed. */
+html[data-theme="cyberpunk"] .seg.is-follow:not(.is-pair) {
+  border-radius: 8px; padding: 6px; gap: 3px;
+  background: linear-gradient(180deg, #0d0d16, #0a0a11);
+  border-color: rgb(0 240 255 / .22);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .04), inset 0 0 0 1px rgb(0 0 0 / .3);
+}
 [data-theme="cyberpunk"] .seg button[aria-current="page"] {
-  background: rgb(252 238 10 / .13); color: #fcee0a; border-color: rgb(252 238 10 / .6);
-  box-shadow: 0 0 0 1.5px rgb(252 238 10 / .55), 0 0 14px rgb(252 238 10 / .28);
+  background: rgb(252 238 10 / .1); color: var(--accent); border-color: rgb(252 238 10 / .6);
+  box-shadow: inset 0 0 0 1.5px rgb(252 238 10 / .55), inset 0 0 14px rgb(252 238 10 / .13);
+}
+/* On the follow strips the gliding pill IS the selected cell: the button
+   itself stays transparent, and the pill trades its pale glass gradient
+   for a lit cell in the accent's own light; its glide sheen turns cyan. */
+html[data-theme="cyberpunk"] .seg.is-follow button[aria-current="page"] { background: transparent; }
+html[data-theme="cyberpunk"] .seg.is-follow .seg-pill {
+  background: linear-gradient(180deg, rgb(252 238 10 / .17), rgb(252 238 10 / .07));
+  box-shadow: inset 0 0 0 1px rgb(252 238 10 / .4), inset 0 1px 0 rgb(255 255 255 / .07);
+}
+html[data-theme="cyberpunk"] .seg.is-follow .seg-pill.is-gliding::after {
+  background: linear-gradient(100deg, transparent 22%, rgb(0 240 255 / .16) 50%, transparent 78%);
 }
 [data-theme="cyberpunk"] .chips button { border-radius: 2px; }
 [data-theme="cyberpunk"] .chips button[aria-pressed="true"] {
@@ -230,14 +259,20 @@ html[data-theme="cyberpunk"] .seg.is-follow:not(.is-pair) .seg-pill { border-rad
   border-color: rgb(0 240 255 / .26); border-radius: 6px;
   box-shadow: 0 18px 34px rgb(0 0 0 / .6), 0 0 26px rgb(0 240 255 / .07);
 }
+/* 1.3.195 — the glass leaves the ships: the gliding glass pill and the dock
+   glide no longer paint in this city (their markup and glide logic stay;
+   the surfaces simply do not render), and the selected ship carries a dark
+   cell, an inset ring and the glitch ceremony further down instead of a
+   translucent wash with an outer glow. */
+[data-theme="cyberpunk"] :is(.dock-glass, .dock-glide) { display: none; }
 [data-theme="cyberpunk"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] {
-  background: rgb(252 238 10 / .13); color: #fcee0a;
-  box-shadow: inset 0 0 0 1.5px rgb(252 238 10 / .6), 0 0 14px rgb(252 238 10 / .3);
+  background: #0b0b12; color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px rgb(252 238 10 / .6);
 }
 [data-theme="cyberpunk"] :is(.dock, .rail, .side-dock) .nav-btn[aria-current="page"] svg { color: #fcee0a; filter: drop-shadow(0 0 4px rgb(252 238 10 / .8)); }
-[data-theme="cyberpunk"] :is(.top-nav, .bottom-nav) .nav-btn[aria-current="page"] { color: #fcee0a; box-shadow: inset 0 -2px 0 #fcee0a, 0 8px 12px -8px rgb(252 238 10 / .55); }
+[data-theme="cyberpunk"] :is(.top-nav, .bottom-nav) .nav-btn[aria-current="page"] { color: #fcee0a; box-shadow: inset 0 -2px 0 var(--accent); }
 [data-theme="cyberpunk"] .bubble[aria-current="page"], [data-theme="cyberpunk"] .rail-btn[aria-current="page"] {
-  box-shadow: 0 0 0 1.5px rgb(252 238 10 / .7), 0 0 14px rgb(252 238 10 / .4);
+  box-shadow: 0 0 0 1.5px rgb(252 238 10 / .7);
 }
 
 /* ---------- Buttons and fields ---------- */
@@ -266,8 +301,174 @@ html[data-theme="cyberpunk"] .cp-sw[aria-pressed="true"] { box-shadow: 0 0 0 2px
 [data-theme="cyberpunk"] .fx-note > svg { filter: drop-shadow(0 0 4px color-mix(in oklab, var(--fx-tone) 70%, transparent)); }
 [data-theme="cyberpunk"] .brand-mini em.smp-pill { box-shadow: 0 0 8px color-mix(in oklab, var(--smp) 30%, transparent); }
 
+/* ---------- El glitch (1.3.195): one DNA, a family of motions ----------
+   Oscar handed over Cadence's dock-tab glitch verbatim and ordered: the
+   ships get THAT ceremony instead of glass, and the buttons get a FAMILY
+   from the same DNA — stepped timing, the magenta/cyan split, clip-slice
+   bands — varied per surface, the exact same keyframes almost nowhere
+   twice. Every colour below rides the tokens (--cp-magenta, --cp-cyan,
+   --accent) so a palette pass re-voices the family from one block.
+   Motions are transform / text-shadow / clip-path only, they fire on a
+   tap or a selection (a ceremony, never noise at rest), nothing animates
+   a money figure, and every application lives inside the no-preference
+   guard: under reduced motion none of these animations exist. */
+
+/* The ships: Cadence's ceremony, re-voiced — burst on taking the helm,
+   then the rare idle twitch on a 7s cycle, alive only in its last breath. */
+@keyframes cp-ship-burst {
+  0% { transform: translate(-3px, 0); text-shadow: -3px 0 var(--cp-magenta), 3px 0 var(--cp-cyan); clip-path: inset(0 0 55% 0); }
+  15% { transform: translate(3px, 0); text-shadow: 3px 0 var(--cp-magenta), -3px 0 var(--cp-cyan); clip-path: inset(40% 0 0 0); }
+  30% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); clip-path: inset(20% 0 30% 0); }
+  45% { transform: translate(1px, 0); text-shadow: 1px 0 var(--cp-magenta), -1px 0 var(--cp-cyan); clip-path: none; }
+  60%, 100% { transform: none; text-shadow: 0 0 10px color-mix(in oklab, var(--accent) 45%, transparent); clip-path: none; }
+}
+@keyframes cp-ship-idle {
+  0%, 90%, 100% { transform: none; text-shadow: 0 0 10px color-mix(in oklab, var(--accent) 45%, transparent); }
+  91% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); }
+  93% { transform: translate(2px, 0); text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); }
+  95% { transform: none; text-shadow: 0 0 10px color-mix(in oklab, var(--accent) 45%, transparent); }
+}
+/* The books tabs: the same blood, another cut — the slices open from the
+   bottom band, the split is tighter, the idle breathes on a 9s cycle and
+   twitches later (94–96%) than the ships'. */
+@keyframes cp-tab-burst {
+  0% { transform: translate(2px, 0); text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); clip-path: inset(58% 0 0 0); }
+  18% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); clip-path: inset(0 0 62% 0); }
+  36% { transform: translate(1px, 0); text-shadow: 1px 0 var(--cp-magenta), -1px 0 var(--cp-cyan); clip-path: inset(34% 0 22% 0); }
+  55%, 100% { transform: none; text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 40%, transparent); clip-path: none; }
+}
+@keyframes cp-tab-idle {
+  0%, 92%, 100% { transform: none; text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 40%, transparent); }
+  94% { transform: translate(-1px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); }
+  96% { transform: translate(1px, 0); text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); }
+  98% { transform: none; text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 40%, transparent); }
+}
+/* The study pair: one dry shot, cyan leading the split, no idle — the
+   quietest ship in the fleet. */
+@keyframes cp-pair-burst {
+  0% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cp-cyan), 2px 0 var(--cp-magenta); clip-path: inset(0 0 70% 0); }
+  30% { transform: translate(2px, 0); text-shadow: 2px 0 var(--cp-cyan), -2px 0 var(--cp-magenta); clip-path: inset(64% 0 0 0); }
+  60% { transform: translate(-1px, 0); text-shadow: -1px 0 var(--cp-cyan), 1px 0 var(--cp-magenta); clip-path: none; }
+  100% { transform: none; text-shadow: none; clip-path: none; }
+}
+/* The savings tabs: a mid-band tear, one shot, over the glide's own move. */
+@keyframes cp-vault-burst {
+  0% { transform: translate(-1px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); clip-path: inset(12% 0 58% 0); }
+  35% { transform: translate(1px, 0); text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); clip-path: inset(52% 0 8% 0); }
+  70% { transform: none; text-shadow: 1px 0 var(--cp-magenta), -1px 0 var(--cp-cyan); clip-path: none; }
+  100% { transform: none; text-shadow: none; clip-path: none; }
+}
+/* Primary buttons: a stepped split-press instead of the house scale.
+   PRESS KEYFRAMES CARRY NO clip-path, by hard lesson (this wave's first
+   build): a clip on :active shrinks the element's hit area mid-press, the
+   tap point falls outside the slice, and the browser never delivers the
+   click — the settings gear stopped answering under this theme until the
+   cuts came out of the press family. Slices belong to the selection
+   ceremonies (ships, tabs), whose state change is caused by tapping a
+   DIFFERENT element or lands after the click; presses keep the split and
+   the stepped jumps, which never move the hit area off the finger. */
+@keyframes cp-btn-press {
+  0% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); }
+  35% { transform: translate(2px, 0); text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); }
+  70% { transform: translate(-1px, 0); text-shadow: 1px 0 var(--cp-magenta), -1px 0 var(--cp-cyan); }
+  100% { transform: none; text-shadow: none; }
+}
+/* Ghost and secondary buttons: no cut at all — a two-beat colour flicker,
+   cyan first, in 180ms. The quiet end of the family. */
+@keyframes cp-btn-soft {
+  0% { text-shadow: -2px 0 var(--cp-cyan); }
+  45% { text-shadow: 2px 0 var(--cp-magenta); }
+  100% { text-shadow: none; }
+}
+/* Danger: the widest split in the family (±3px) and a magenta-dominant
+   tear — the alarm member, shared by danger buttons and danger pills. */
+@keyframes cp-danger-press {
+  0% { transform: translate(3px, 0); text-shadow: 3px 0 var(--cp-magenta), -1px 0 var(--cp-cyan); }
+  40% { transform: translate(-3px, 0); text-shadow: -3px 0 var(--cp-magenta), 1px 0 var(--cp-cyan); }
+  75% { transform: translate(1px, 0); text-shadow: 1px 0 var(--cp-magenta); }
+  100% { transform: none; text-shadow: none; }
+}
+/* Dialog pills: a split press that lands on the accent's glow before it
+   lets go — the ceremony of confirming something in this city. */
+@keyframes cp-ask-press {
+  0% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); }
+  40% { transform: translate(2px, 0); text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); }
+  75% { transform: none; text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 40%, transparent); }
+  100% { transform: none; text-shadow: none; }
+}
+/* Round icon buttons: a 200ms two-step twitch — small tool, small glitch.
+   (No clip here either: this member sits on the settings gear itself.) */
+@keyframes cp-icon-twitch {
+  0% { transform: translate(-1px, 0); }
+  50% { transform: translate(1px, 0); }
+  100% { transform: none; }
+}
+/* Filter chips: a split flash when a chip takes — no clip (a chip toggles
+   on its own tap; its hit area stays whole, per the press rule above). */
+@keyframes cp-chip-burst {
+  0% { transform: translate(1px, 0); text-shadow: 1.5px 0 var(--cp-magenta), -1.5px 0 var(--cp-cyan); }
+  35% { transform: translate(-1px, 0); text-shadow: -1.5px 0 var(--cp-magenta), 1.5px 0 var(--cp-cyan); }
+  70% { transform: none; text-shadow: 0 0 6px color-mix(in oklab, var(--accent) 35%, transparent); }
+  100% { transform: none; text-shadow: none; }
+}
+/* Store chips: brand paint is never split — a dry two-step slide. */
+@keyframes cp-store-press {
+  0% { transform: translate(-2px, 0); }
+  40% { transform: translate(1px, 0); }
+  100% { transform: none; }
+}
+/* Lenses: only the kicker word flickers when a lens takes — the figure
+   under it is never animated, at rest or in the burst. */
+@keyframes cp-lens-flicker {
+  0% { text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); }
+  30% { text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); }
+  60% { text-shadow: -1px 0 var(--cp-magenta), 1px 0 var(--cp-cyan); }
+  100% { text-shadow: none; }
+}
+/* Base picks: the name takes the widest text split outside danger —
+   choosing the shape of the whole book earns the big ceremony. */
+@keyframes cp-pick-burst {
+  0% { transform: translate(-2px, 0); text-shadow: -2.5px 0 var(--cp-magenta), 2.5px 0 var(--cp-cyan); }
+  35% { transform: translate(2px, 0); text-shadow: 2.5px 0 var(--cp-magenta), -2.5px 0 var(--cp-cyan); }
+  70% { transform: none; text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 35%, transparent); }
+  100% { transform: none; text-shadow: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme="cyberpunk"] :is(.rail, .side-dock) .nav-btn[aria-current="page"],
+  [data-theme="cyberpunk"] :is(.top-nav, .bottom-nav) .nav-btn[aria-current="page"] {
+    animation: cp-ship-burst .42s steps(1) 1, cp-ship-idle 7s steps(1) 1.4s infinite;
+  }
+  /* The phone dock's buttons carry a house guard (styles.css: transform and
+     animation are !important-none there — the dock never jitters under the
+     thumb; only its icon rises). The guard stands: in the dock the ceremony
+     plays on the ship's FACE — the word and the icon slice together, in the
+     same keyframes, while the button's box stays exactly where it was. */
+  [data-theme="cyberpunk"] .dock .nav-btn[aria-current="page"] > :is(span, svg) {
+    animation: cp-ship-burst .42s steps(1) 1, cp-ship-idle 7s steps(1) 1.4s infinite;
+  }
+  [data-theme="cyberpunk"] .seg.is-follow:not(.is-pair) button[aria-current="page"] {
+    animation: cp-tab-burst .38s steps(1) 1, cp-tab-idle 9s steps(1) 1.2s infinite;
+  }
+  [data-theme="cyberpunk"] .seg.is-follow.is-pair button[aria-current="page"] { animation: cp-pair-burst .34s steps(1) 1; }
+  [data-theme="cyberpunk"] .vault-bar button[aria-current="page"] { animation: cp-vault-burst .4s steps(1) 1; }
+  [data-theme="cyberpunk"] .btn:not(.ghost):not(.danger):not(.secondary):active { animation: cp-btn-press .3s steps(1) 1; }
+  [data-theme="cyberpunk"] :is(.btn.secondary, .btn.ghost):active { animation: cp-btn-soft .18s steps(1) 1; }
+  [data-theme="cyberpunk"] .btn.danger:active { animation: cp-danger-press .34s steps(1) 1; }
+  [data-theme="cyberpunk"] .ask-btn:active { animation: cp-ask-press .38s steps(1) 1; }
+  [data-theme="cyberpunk"] .ask-btn.is-danger:active { animation: cp-danger-press .34s steps(1) 1; }
+  [data-theme="cyberpunk"] :is(.icon-btn, .bubble, .currency-bubble):active { animation: cp-icon-twitch .2s steps(1) 1; }
+  [data-theme="cyberpunk"] .chips button[aria-pressed="true"] { animation: cp-chip-burst .36s steps(1) 1; }
+  [data-theme="cyberpunk"] .store-chip[aria-pressed="true"] { animation: cp-store-press .3s steps(1) 1; }
+  [data-theme="cyberpunk"] .lens[aria-pressed="true"] .lens-kicker { animation: cp-lens-flicker .5s steps(1) 1; }
+  [data-theme="cyberpunk"] .aj-pick[aria-pressed="true"] .aj-pick-name { animation: cp-pick-burst .42s steps(1) 1; }
+}
+
 /* ---------- Stillness: reduced motion parks the city ---------- */
 @media (prefers-reduced-motion: reduce) {
   [data-theme="cyberpunk"] .top-chrome::after { animation: none; }
   .theme-swatch.swatch-cyberpunk .swatch-bar { animation: none; }
+  /* The whole glitch family parks too (its applications already live
+     behind the no-preference guard; this is the explicit kill-switch). */
+  [data-theme="cyberpunk"] :is(.nav-btn, .seg button, .vault-bar button, .btn, .ask-btn, .icon-btn, .bubble, .currency-bubble, .chips button, .store-chip, .lens .lens-kicker, .aj-pick .aj-pick-name) { animation: none; }
 }
