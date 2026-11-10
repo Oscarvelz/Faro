@@ -9,6 +9,7 @@ import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
 import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
+import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
 import { hasKeyNumbers } from "@/lib/faro/keynumbers";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
@@ -4328,7 +4329,15 @@ export function Settings() {
   }, []);
   if (!session) return null;
   const settings = session.ledger.settings;
-  function toggle(id: string) { setOpenFold((cur) => (cur === id ? null : id)); }
+  function toggle(id: string) {
+    const apply = () => setOpenFold((cur) => (cur === id ? null : id));
+    // 1.3.182: plegar Estructura — o saltar a otra sección, que la pliega igual —
+    // desmonta la tarjeta abierta que vive en ella: su salida manda (panel-exit).
+    // Pregunta si hay trabajo sin aplicar y solo pliega tras su confirmación;
+    // con la tarjeta limpia o sin tarjeta, pliega al momento, como siempre.
+    if (openFold === "structure") { guardPanelExit(apply); return; }
+    apply();
+  }
   return (
     <div ref={boardRef} className="grid gap-3 settings-board">
       <Fold id="lang" icon={Languages} sub={lang === "en" ? "Spanish or English" : "Español o inglés"} topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
@@ -4611,7 +4620,7 @@ function StructureTree() {
   // nada de lo que él preparó se pierde en silencio. La tarjeta abierta es
   // además una capa: el Back del teléfono la pliega a ella antes que a la
   // pantalla, como en el resto de la app.
-  const panelExitRef = useRef<((reveal: boolean) => boolean) | null>(null);
+  const panelExitRef = useRef<PanelExit | null>(null);
   useLayer(openId !== null, () => { panelExitRef.current?.(false); });
   const [catName, setCatName] = useState("");
   const [catGroup, setCatGroup] = useState<"fixed" | "variable">("fixed");
@@ -4854,7 +4863,7 @@ function StructureTree() {
   );
 }
 
-function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => void; exitRef: { current: ((reveal: boolean) => boolean) | null } }) {
+function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => void; exitRef: { current: PanelExit | null } }) {
   const { t, lang, session, commit, confirm } = useFaro();
   const [name, setName] = useState(displayName(cat, lang));
   const [subName, setSubName] = useState("");
@@ -4900,8 +4909,12 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // plegado, si él confirma, corre la misma finish(). `reveal` solo lo pide
   // Cancelar; el chevron de la fila, el Back/Esc (la capa) y el pliegue del grupo
   // salen por aquí sin scroll, porque su dedo ya está en la fila o en el grupo.
-  const exitPanel = (reveal: boolean): boolean => {
-    const finish = () => { onClose(); if (reveal) revealRow(); };
+  // 1.3.182: `after` es la navegación de quien desmonta la tarjeta desde fuera
+  // (el dock, el pliegue de la sección): viaja AL FINAL de finish() — corre
+  // cuando la tarjeta ya plegó, sea al momento (limpia) o tras su confirmación
+  // (sucia); si rechaza el aviso, finish nunca corre y la navegación tampoco.
+  const exitPanel = (reveal: boolean, after?: () => void): boolean => {
+    const finish = () => { onClose(); if (reveal) revealRow(); if (after) after(); };
     if (!panelDirty) { finish(); return true; }
     confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: finish });
     return false;
@@ -4910,6 +4923,15 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   exitSelfRef.current = exitPanel;
   exitRef.current = exitPanel;
   useEffect(() => () => { if (exitRef.current === exitSelfRef.current) exitRef.current = null; }, [exitRef]);
+  // 1.3.182: la misma salida queda registrada fuera del árbol (panel-exit) para
+  // las dos puertas que la 1.3.179 no alcanzaba desde StructureTree — el dock y
+  // el pliegue de la sección de Ajustes — que desmontan Ajustes entero. El
+  // trampolín llama siempre a la salida viva (exitSelfRef), como el resto.
+  useEffect(() => {
+    const trampoline: PanelExit = (reveal, after) => exitSelfRef.current(reveal, after);
+    setPanelExit(trampoline);
+    return () => clearPanelExit(trampoline);
+  }, []);
   const cancelPanel = () => { exitPanel(true); };
   // El renombre en curso es su propia capa (como en el resto de la app): un
   // Back/Esc lo cancela a él primero; el siguiente llega a la salida de la tarjeta.

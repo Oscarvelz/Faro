@@ -14,6 +14,7 @@ import { holidaysFor } from "@/lib/faro/holidays";
 import { convertMinor } from "@/lib/faro/money";
 import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId } from "@/lib/faro/types";
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
+import { guardPanelExit } from "@/lib/faro/panel-exit";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
 import { BookSide, useTabletOne, type SideBook } from "./book-side";
 import { AreaAdvisor, SideCol } from "./area-advisor";
@@ -848,18 +849,18 @@ export function Shell() {
       <nav ref={railRef} className="rail" aria-label={t("nav.desk")}>
         <div className="dock-face">
         <i className="dock-glass" aria-hidden />
-        <button type="button" className="nav-btn" aria-current={!moneyOpen && !vault && ui.section === "desk" ? "page" : undefined} onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
+        <button type="button" className="nav-btn" aria-current={!moneyOpen && !vault && ui.section === "desk" ? "page" : undefined} onClick={() => guardPanelExit(() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); })}>
           <SectionIcon id="desk" />
           <span>{t("nav.desk")}</span>
         </button>
         {VAULT.map((id) => (
-          <button key={id} type="button" className="nav-btn" aria-current={!moneyOpen && vault === id ? "page" : undefined} onClick={() => {
+          <button key={id} type="button" className="nav-btn" aria-current={!moneyOpen && vault === id ? "page" : undefined} onClick={() => guardPanelExit(() => {
             setRecall(false);
             setMoneyOpen(false);
             if (hub !== "books") setUi({ section: "income" });
             if (vault && vault !== id) setSlideDir(VAULT.indexOf(id) > VAULT.indexOf(vault as (typeof VAULT)[number]) ? 1 : -1);
             setVault(id);
-          }}>
+          })}>
             {id === "save" ? <Landmark className="size-4" /> : id === "meta" ? <Flag className="size-4" /> : id === "retiro" ? <Hourglass className="size-4" /> : <Shield className="size-4" />}
             <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
           </button>
@@ -1306,7 +1307,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
           {ui.instruments && !split ? <ToolSheet /> : null}
         </div>
         </FaroPane>
-        <DockNav section={ui.section} onSection={(id) => setUi({ section: id })} />
+        <DockNav section={ui.section} onSection={(id) => guardPanelExit(() => setUi({ section: id }))} />
         {split && ui.instruments && toolHost === "top" ? <ToolSheet contained /> : null}
       </div>
       {split ? (
@@ -1335,7 +1336,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
         <div className="dock-face">
         <i className="dock-glass" aria-hidden />
         {([...BOOKS, ...STUDY] as SectionId[]).map((id) => (
-          <button key={id} type="button" className="nav-btn" aria-current={!moneyOpen && !vault && ui.section === id ? "page" : undefined} onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: id }); }}>
+          <button key={id} type="button" className="nav-btn" aria-current={!moneyOpen && !vault && ui.section === id ? "page" : undefined} onClick={() => guardPanelExit(() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: id }); })}>
             <SectionIcon id={id} />
             <span>{t(id === "subs" ? "tab.subs" : `nav.${id}`)}</span>
           </button>
