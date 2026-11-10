@@ -6,6 +6,7 @@ import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, 
 import "./float.css";
 import "./tron.css";
 import "./cyberpunk.css";
+import "./brillo.css";
 import "./cal.css";
 import "./tablet.css";
 import { UserButton } from "@/lib/auth/gates";

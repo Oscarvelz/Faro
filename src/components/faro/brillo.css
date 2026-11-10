@@ -1,0 +1,126 @@
+/* =====================================================================
+   Faro · «Todos los temas brillan» (1.3.190). Oscar's night direction:
+   improve EVERY theme — polish, not replacement; make everything shine,
+   with subtle animations that make the app bloom; nothing exaggerated,
+   everything beautiful and moderate; functionality untouched.
+
+   THE FENCE, BY CONSTRUCTION: every rule in this sheet is scoped behind
+   :not([data-theme="tron"]):not([data-theme="cyberpunk"]). Tron is
+   untouchable (Oscar's hard order, 2026-11-10) and Cyberpunk was born
+   under this same design language in 1.3.189 — neither can match a
+   single selector here, so neither can change by a single pixel.
+
+   The program, expressed in each theme's OWN accent and materials
+   (every token below resolves through the theme's own variables, so
+   each theme stays unmistakably itself):
+   1. Top-light — cards and primary panels are lit from above and gain
+      a soft depth shadow. Paint only: no box moves, no ground changes
+      colour, nothing lands behind a money figure.
+   2. Bloom — tappable things glow gently in the theme's accent while
+      pressed; the living nav/segment/chip carries a quiet accent halo.
+      In scrolling rows the glow turns inward so it can never clip.
+   3. A breath in the headers — a very slow ambient drift of accent
+      light across the top chrome. Opacity only (a transform would
+      bleed into the page's scrollable overflow — the 1.3.189 lesson),
+      12s, and fully stilled under prefers-reduced-motion.
+   4. Focus light — fields the house recipes don't already cover pick
+      up the house focus recipe itself (accent border + soft ring).
+      Contexts with their own designed focus (.ah-form, .bk-pct) are
+      excluded by name and keep theirs.
+   ===================================================================== */
+
+/* ---------- 1 · Top-light and depth ---------- */
+/* Day set (ion included — it is a light theme): the lit-from-above cue
+   is a whisper of the theme's own accent over the first 132px, and the
+   depth is a soft shadow tinted with the theme's own ink. */
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]):not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.main-pad .card, .modal) {
+  background-image: linear-gradient(180deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 58%);
+  background-size: 100% 132px;
+  background-repeat: no-repeat;
+  box-shadow: 0 12px 26px -16px color-mix(in oklab, var(--fg) 30%, transparent);
+}
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]):not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.cal-pop, .hits) {
+  box-shadow: 0 14px 30px -12px color-mix(in oklab, var(--fg) 32%, transparent);
+}
+/* Night set: the house top-light recipe (the one Cyberpunk's panels
+   wear) — a 1px inner light at the top edge over a white whisper,
+   and depth in true black. */
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]):not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.main-pad .card, .modal) {
+  background-image: linear-gradient(180deg, rgb(255 255 255 / .055), rgb(255 255 255 / 0) 58%);
+  background-size: 100% 132px;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .05), 0 16px 32px -16px rgb(0 0 0 / .5);
+}
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"]):not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.cal-pop, .hits) {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .05), 0 16px 34px -12px rgb(0 0 0 / .55);
+}
+
+/* ---------- 2 · Bloom: the press and the living one ---------- */
+/* Free-standing tappables bloom outward while pressed. The glow is a
+   state, not an animation — it arrives with the house ripple and leaves
+   with the finger. Danger keeps its semantics and stays out. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.btn:not(.danger), .lens, .bubble, .icon-btn, .currency-bubble, .store-chip, .nav-btn, .rail-btn):active {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 18px -4px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+/* In the scrolling rows (segments, chips) the glow turns inward —
+   an outer ring would clip against the row's overflow. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.seg button, .chips button):active {
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 55%, transparent), inset 0 0 12px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+/* The living ones: the current nav button wears a quiet accent halo
+   around its ink fill; the underline navs keep their underline and
+   gain a spill of accent light beneath it. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.dock, .rail) .nav-btn[aria-current="page"] {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .top-nav .nav-btn[aria-current="page"] {
+  box-shadow: inset 0 -2px 0 var(--fg), 0 10px 14px -8px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .bottom-nav .nav-btn[aria-current="page"] {
+  box-shadow: inset 0 2px 0 var(--fg), 0 -10px 14px -8px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+/* The selected segment and the pressed chip: an inner accent frame. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .seg button[aria-current="page"] {
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 65%, transparent), inset 0 0 14px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .chips button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 50%, transparent), inset 0 0 10px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+/* Round current markers (the bubble, the rail button) are already
+   accent-filled — a halo is all they ask for. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.bubble, .rail-btn)[aria-current="page"] {
+  box-shadow: 0 0 14px -2px color-mix(in oklab, var(--accent) 50%, transparent);
+}
+
+/* ---------- 3 · A breath in the headers ---------- */
+/* One slow drift of the theme's own light across the top chrome.
+   Opacity only, 12s, alternate — the light breathes in and out
+   without ever moving a box. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .top-chrome::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(115% 160% at 50% -45%, color-mix(in oklab, var(--accent) 13%, transparent), transparent 62%);
+  animation: brillo-breath 12s ease-in-out infinite alternate;
+}
+@keyframes brillo-breath { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- 4 · Focus light ---------- */
+/* The house recipe (.form-block's own: accent border at 58%, a 3px
+   ring at 18%) extended to the fields it doesn't reach — plain fields,
+   selects and text areas elsewhere. The contexts with a designed
+   focus of their own (.ah-form's per-form accent, the bank percent
+   field) are excluded by name and keep theirs, untouched. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.field, .select, textarea):focus-visible:not(.ah-form :is(.field, .select, textarea), .bk-pct .field) {
+  outline: none;
+  border-color: color-mix(in oklab, var(--accent) 58%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+/* The search pill is borderless inside — the pill itself lights up. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .search-pill:focus-within {
+  border-color: color-mix(in oklab, var(--accent) 58%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
+}
+
+/* ---------- Stillness: reduced motion parks the breath ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .top-chrome::after { animation: none; opacity: 0; }
+}
