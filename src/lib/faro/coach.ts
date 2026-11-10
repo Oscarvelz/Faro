@@ -481,7 +481,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     steps.push({
       id: "wants",
       title: L(lang, `Baja los gustos a 30%`, `Bring wants down to 30%`),
-      detail: L(lang, `Lo que eliges gastar cada mes se lleva ${Math.round((wantsRepeat / income) * 100)} de cada ${unit}. Llevarlo a 30 libera ${money(wantsRepeat - target)} al mes.`, `What you choose to spend each month takes ${Math.round((wantsRepeat / income) * 100)} of every ${unit}. Bringing it to 30 frees ${money(wantsRepeat - target)} a month.`),
+      detail: L(lang, `Lo que eliges gastar cada mes se lleva ${Math.round((wantsRepeat / income) * 100)} de cada ${unit}. Llevarlo a 30 de cada ${unit} libera ${money(wantsRepeat - target)} al mes.`, `What you choose to spend each month takes ${Math.round((wantsRepeat / income) * 100)} of every ${unit}. Bringing it to 30 of every ${unit} frees ${money(wantsRepeat - target)} a month.`),
       impactMinor: wantsRepeat - target,
       tone: "warn",
     });

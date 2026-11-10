@@ -492,8 +492,8 @@ export function templateBlurb(id: TemplateId, lang: Lang): string {
       en: "Hides tuition, children, activities, funeral, books, and toys. It does not delete entries.",
     },
     familia: {
-      es: "Vuelve a mostrar la rama de familia, fija y variable. Lo que ocultaste a mano se queda oculto.",
-      en: "Shows the family branch again, fixed and variable. What you hid by hand stays hidden.",
+      es: "Vuelve a mostrar la rama de familia, fija y variable. Lo que ocultaste tú se queda oculto.",
+      en: "Shows the family branch again, fixed and variable. What you hid yourself stays hidden.",
     },
     estudiante: {
       es: "Oculta hipoteca, predial y seguro de vida, y agrega Estudio si no existe.",
@@ -610,7 +610,7 @@ export function templatePreview(state: LedgerState, id: TemplateId, lang: Lang):
         : `You have ${n} ${n === 1 ? "entry" : "entries"} in ${name}: they will keep counting and will reappear when you show the branch again.`,
     );
   }
-  if (kept.length) lines.push(lang === "es" ? `Protegido por tu mano (no cambia): ${kept.join(", ")}.` : `Protected by your hand (unchanged): ${kept.join(", ")}.`);
+  if (kept.length) lines.push(lang === "es" ? `Protegido por ti (no cambia): ${kept.join(", ")}.` : `Protected by you (unchanged): ${kept.join(", ")}.`);
   return { body: lines.join("\n"), empty };
 }
 

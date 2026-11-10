@@ -84,7 +84,7 @@ export default function BankSettings() {
   const kindName = (k: AcctKind) => k === "card" ? L(lang, "Tarjeta de crédito", "Credit card") : k === "checking" ? L(lang, "Débito o cuenta", "Debit or checking") : L(lang, "Ahorros o billetera", "Savings or wallet");
   const kindChip = (k: AcctKind) => acctKindWord(k, lang);
   const archive = (a: { id: string; name: string }) => confirm({ title: L(lang, `Quitar ${a.name}`, `Remove ${a.name}`), danger: true, yes: L(lang, "Quitar", "Remove"),
-    body: L(lang, "Sale de la tabla, del importador y de los consejos. Sus movimientos, reglas e historial de recompensas se quedan; la flecha en su lugar la trae de vuelta.", "It leaves the table, the importer and the advice. Its entries, rules and rewards history stay; the arrow in its place brings it back."),
+    body: L(lang, "Sale de la tabla, del importador y de los consejos. Sus movimientos, reglas e historial de recompensas se quedan. Para traerla de vuelta, usa la flecha que queda en su lugar.", "It leaves the table, the importer and the advice. Its entries, rules and rewards history stay. To bring it back, use the arrow left in its place."),
     run: () => commit((s) => archiveAccount(s, a.id), L(lang, `Quitar ${a.name}`, `Remove ${a.name}`)) });
   const archiveGroup = (g: BankGroup) => confirm({ title: L(lang, `Quitar ${g.name}`, `Remove ${g.name}`), danger: true, yes: L(lang, "Quitar", "Remove"),
     body: L(lang, `Salen sus ${g.live.length} cuentas de la tabla, del importador y de los consejos. Sus movimientos e historial se quedan; la flecha en su lugar lo trae de vuelta.`, `Its ${g.live.length} accounts leave the table, the importer and the advice. Their entries and history stay; the arrow in its place brings it back.`),

@@ -312,8 +312,8 @@ export function wake(input: WakeInput): WakeResult {
     const share = snap.savingsTotal > 0 ? (snap.unassigned / snap.savingsTotal) * 100 : null;
     const body = L(
       lang,
-      `Ahorros son ${fmt(snap.savingsTotal)}. Destino Meta + destino Retiro + destino Emergencia suman ${fmt(snap.meta + snap.retiro + snap.emergencia)}. Sin asignar: ${fmt(snap.unassigned)} (${formatPct(share, lang)}). Asignarle destino convierte el saldo en un plan.`,
-      `Savings are ${fmt(snap.savingsTotal)}. Meta destination + Retirement destination + Emergency destination add up to ${fmt(snap.meta + snap.retiro + snap.emergencia)}. Unassigned: ${fmt(snap.unassigned)} (${formatPct(share, lang)}). Giving it a destination is what turns a balance into a plan.`,
+      `Tus ahorros son ${fmt(snap.savingsTotal)}. Lo que va a Meta, Retiro y Emergencia suma ${fmt(snap.meta + snap.retiro + snap.emergencia)}. Sin asignar: ${fmt(snap.unassigned)} (${formatPct(share, lang)}). Asignarle destino convierte el saldo en un plan.`,
+      `Your savings are ${fmt(snap.savingsTotal)}. What goes to Goal, Retirement and Emergency adds up to ${fmt(snap.meta + snap.retiro + snap.emergencia)}. Unassigned: ${fmt(snap.unassigned)} (${formatPct(share, lang)}). Giving it a destination is what turns a balance into a plan.`,
     );
     const changed = beforeSnap ? beforeSnap.unassigned !== snap.unassigned || beforeSnap.emergencia !== snap.emergencia || beforeSnap.meta !== snap.meta || beforeSnap.retiro !== snap.retiro : true;
     const move = beforeSnap ? snap.emergencia - beforeSnap.emergencia : 0;
@@ -383,8 +383,8 @@ export function wake(input: WakeInput): WakeResult {
     const names = createdIncomes.map((line) => line.concept || L(lang, "un ingreso", "an income")).join(", ");
     notice = L(
       lang,
-      `Actualizado porque anotaste ${names} (${added >= 0 ? "+" : ""}${fmt(added)}): la ${monthGoalName} quedó en ${fmt(snap.monthGoal)}, el ingreso piso (lo que entra casi seguro cada mes) en ${fmt(snap.floor)} y lo que queda en ${fmt(snap.left)}.`,
-      `Updated because you entered ${names} (${added >= 0 ? "+" : ""}${fmt(added)}): ${monthGoalName} is now ${fmt(snap.monthGoal)}, the income floor (what almost certainly comes in each month) is ${fmt(snap.floor)} and what is left is ${fmt(snap.left)}.`,
+      `Actualizado porque anotaste ${names} (${added >= 0 ? "+" : ""}${fmt(added)}). Ahora la ${monthGoalName} quedó en ${fmt(snap.monthGoal)}; el ingreso piso (lo que entra casi seguro cada mes), en ${fmt(snap.floor)}; y lo que queda, en ${fmt(snap.left)}.`,
+      `Updated because you entered ${names} (${added >= 0 ? "+" : ""}${fmt(added)}). Now ${monthGoalName} is ${fmt(snap.monthGoal)}; the income floor (what almost certainly comes in each month) is ${fmt(snap.floor)}; and what is left is ${fmt(snap.left)}.`,
     );
   } else if (deleted.length && loud) {
     const name = deleted.map((line) => line.concept || L(lang, "una partida", "a line")).join(", ");

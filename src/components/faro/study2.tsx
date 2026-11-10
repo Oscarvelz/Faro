@@ -254,7 +254,7 @@ export function LimitsCard({ rows }: { rows: { name: string; budget: number; act
   return (
     <section className="card s2-limits">
       <Head kicker={L(lang, "Tu plan", "Your plan")} title={L(lang, "¿Vas dentro del tope?", "Within your limits?")} />
-      <p className="pano-lead">{L(lang, "Cuánto llevas gastado de lo que te alcanza en cada grupo, después de apartar tu ahorro.", "How much of each group's room you've used, after setting savings aside.")}</p>
+      <p className="pano-lead">{L(lang, "Cuánto ya gastaste de lo que te cabe en cada grupo, después de apartar tu ahorro.", "How much of each group's room you've used, after setting savings aside.")}</p>
       {rows.map((r) => {
         const used = r.budget > 0 ? (r.actual / r.budget) * 100 : r.actual > 0 ? 150 : 0;
         const over = r.actual > r.budget;

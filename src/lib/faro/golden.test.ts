@@ -251,7 +251,7 @@ describe("batería dorada de Estructura — el contrato", () => {
     // La mano protege: hipoteca mostrada a mano no se oculta ni se promete — se declara protegida.
     const conMano: LedgerState = { ...ledger, structure: eyeSub(ledger.structure, "f-casa", "f.casa.hipoteca", false) };
     const protegido = templatePreview(conMano, "estudiante", "es");
-    assert.match(protegido.body, /Protegido por tu mano \(no cambia\): Hipoteca\./);
+    assert.match(protegido.body, /Protegido por ti \(no cambia\): Hipoteca\./);
     assert.equal(/Se oculta: [^\n]*Hipoteca/.test(protegido.body), false);
   });
 
