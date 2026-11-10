@@ -14,6 +14,7 @@ import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } fr
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
 import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
+import { readPlace, writePlace } from "@/lib/faro/navplace";
 import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
@@ -324,7 +325,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const [depth, setDepth] = useState(1);
   const [ui, setUiState] = useState<UiState>(() => {
     const d = now();
-    return {
+    const base: UiState = {
       section: "desk",
       year: d.getFullYear(),
       month: d.getMonth() + 1,
@@ -341,7 +342,26 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       vault: null,
       spot: 0,
     };
+    // 1.3.180 (el lugar): el piso se desmonta detrás del bloqueo y se reconstruye en cada
+    // desbloqueo, recarga o arranque en frío — el aterrizaje es donde el dueño lo dejó,
+    // leído de SU clave en la capa del aparato (navplace.ts). Sin lugar guardado (primera
+    // vez, otro dueño, salida explícita), el objeto de arriba queda byte a byte igual.
+    // Solo página + mes + pestaña de Bóveda: hojas, editores y borradores nunca vuelven.
+    const place = readPlace(browserPackStorage(), userId);
+    if (place) {
+      base.section = place.section;
+      base.year = place.year;
+      base.month = place.month;
+      base.vault = place.vault;
+    }
+    return base;
   });
+  // El lugar se escribe al navegar: cada cambio de página, mes o pestaña de Bóveda queda
+  // guardado bajo la clave del dueño en el acto (la restauración de «atrás» también: él
+  // ESTÁ ahí). Es capa del aparato — nunca pasa por commit/undo ni sincroniza como libro.
+  useEffect(() => {
+    writePlace(browserPackStorage(), userId, { section: ui.section, year: ui.year, month: ui.month, vault: ui.vault });
+  }, [ui.section, ui.year, ui.month, ui.vault, userId]);
   const amountRef = useRef<((n: number) => void) | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const syncing = useRef(false);

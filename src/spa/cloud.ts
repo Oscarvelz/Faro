@@ -2,6 +2,7 @@ import { createClient, type Session } from "@supabase/supabase-js";
 import { CLOUD_READY, SUPABASE_KEY, SUPABASE_URL } from "./config";
 import { clearExplicitOut, clearOwnerMark, setExplicitOut, writeOwnerMark } from "@/lib/faro/door";
 import { browserPackStorage } from "@/lib/faro/packguard";
+import { clearPlace } from "@/lib/faro/navplace";
 export { CLOUD_READY };
 
 const LAST = "faro.lastUser";
@@ -68,6 +69,16 @@ export function lastUser(): FaroUser | null {
 }
 
 export function forgetUser() {
+  // 1.3.180 (el lugar): la salida explícita también termina el lugar — el próximo arranque
+  // aterriza por defecto, como la primera vez. El uid sale del registro ANTES de borrarlo
+  // (se busca en las dos cajas: «Mantener sesión» decide en cuál vive).
+  let goneId: string | null = null;
+  for (const b of [localStorage, sessionStorage]) {
+    try {
+      const u = JSON.parse(b.getItem(LAST) ?? "null") as FaroUser | null;
+      if (u && typeof u.id === "string" && u.id) { goneId = u.id; break; }
+    } catch { /* ignore */ }
+  }
   try { localStorage.removeItem(LAST); sessionStorage.removeItem(LAST); } catch { /* ignore */ }
   // 1.3.168 (la puerta): olvidar al usuario es la salida explícita — la marca de dueño se
   // borra y la bandera de salida queda puesta. La caducidad de la sesión NO pasa por aquí:
@@ -75,6 +86,7 @@ export function forgetUser() {
   const store = browserPackStorage();
   clearOwnerMark(store);
   setExplicitOut(store);
+  if (goneId) clearPlace(store, goneId);
 }
 
 let listeners: ((u: FaroUser | null) => void)[] = [];

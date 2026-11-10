@@ -20,9 +20,14 @@
  * (faro.conflict.<uid> y faro.conflict.<uid>.tab); al aplicar se admite la familia
  * faro.conflict.* listada, para que la copia aterrice en la puerta de su propio dueño.
  *
+ * El lugar (1.3.180, navplace.ts) sigue la misma ley que el conflicto: la familia
+ * faro.place.* entra en la capa al aplicar, y la foto recoge solo la clave del dueño
+ * que respalda (faro.place.<uid>) — el lugar de otra cuenta no viaja en este respaldo.
+ *
  * Puro y testeable contra un almacén inyectado (PackStorage). Nada aquí toca React ni el DOM.
  */
 import type { PackStorage } from "./packguard.ts";
+import { PLACE_PREFIX, placeKeyOf } from "./navplace.ts";
 
 /** Claves exactas de la capa: preferencias y acomodos del dueño en este aparato. */
 export const DEVICE_LAYER_EXACT: readonly string[] = [
@@ -64,11 +69,12 @@ export const DEVICE_LAYER_PREFIXES: readonly string[] = [
 
 const CONFLICT_PREFIX = "faro.conflict.";
 
-/** ¿Esta clave pertenece a la capa que viaja? (La familia de conflicto entra entera.) */
+/** ¿Esta clave pertenece a la capa que viaja? (Las familias de conflicto y de lugar entran enteras.) */
 export function isDeviceLayerKey(key: string): boolean {
   if (DEVICE_LAYER_EXACT.includes(key)) return true;
   if (DEVICE_LAYER_PREFIXES.some((p) => key.startsWith(p))) return true;
   if (key.startsWith(CONFLICT_PREFIX) && key.length > CONFLICT_PREFIX.length) return true;
+  if (key.startsWith(PLACE_PREFIX) && key.length > PLACE_PREFIX.length) return true;
   return false;
 }
 
@@ -77,7 +83,8 @@ export const conflictKeysOf = (uid: string): string[] => [`faro.conflict.${uid}`
 
 /**
  * La foto de la capa: los valores crudos (texto) de cada clave listada que exista.
- * De la familia de conflicto solo viajan las claves del usuario que está respaldando.
+ * De las familias de conflicto y de lugar solo viajan las claves del usuario que
+ * está respaldando.
  */
 export function snapshotDeviceLayer(store: PackStorage, uid: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -86,10 +93,11 @@ export function snapshotDeviceLayer(store: PackStorage, uid: string): Record<str
     if (v !== null) out[k] = v;
   };
   for (const k of DEVICE_LAYER_EXACT) put(k);
-  const mine = new Set(conflictKeysOf(uid));
+  const mine = new Set([...conflictKeysOf(uid), placeKeyOf(uid)]);
   for (const k of store.keys()) {
     if (mine.has(k)) { put(k); continue; }
     if (k.startsWith(CONFLICT_PREFIX)) continue; // el conflicto de otra cuenta no viaja aquí
+    if (k.startsWith(PLACE_PREFIX)) continue; // el lugar de otra cuenta tampoco
     if (DEVICE_LAYER_PREFIXES.some((p) => k.startsWith(p))) put(k);
   }
   return out;
