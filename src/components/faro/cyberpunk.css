@@ -455,6 +455,18 @@ html[data-theme="cyberpunk"] .seg.is-follow .seg-pill {
 html[data-theme="cyberpunk"] .seg.is-follow .seg-pill.is-gliding::after {
   background: linear-gradient(100deg, transparent 22%, rgb(255 255 255 / .22) 50%, transparent 78%);
 }
+/* 1.3.200 — the icon on the block takes the label's ink (Oscar's verdict,
+   from his photo of this very strip): the base sheet paints the living
+   follow tab's icon with the ACCENT colour (styles.css gives
+   .seg.is-follow [aria-current] .seg-ico the accent) — on the dark pill
+   of another city that reads as a lit glyph, but in this city the pill
+   IS the accent, so the icon painted signal yellow on signal yellow and
+   vanished (measured: colour rgb(252,238,10) on rgb(252,238,10) = 1.00:1)
+   while its word read black beside it. The icon now wears the same dark
+   ink the label wears, at full strength — both follow strips share the
+   root, so the books four and the Estudio pair are cured by one rule.
+   The block itself is untouched: Oscar likes the block. */
+html[data-theme="cyberpunk"] .seg.is-follow button[aria-current="page"] .seg-ico { color: var(--accent-fg); }
 [data-theme="cyberpunk"] .chips button { border-radius: 2px; }
 [data-theme="cyberpunk"] .chips button[aria-pressed="true"] {
   background: var(--accent); color: var(--accent-fg); border-color: transparent;

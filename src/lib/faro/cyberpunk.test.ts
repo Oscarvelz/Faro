@@ -367,3 +367,28 @@ describe("cyberpunk: la selección a la manera de Cadence (1.3.199) y Ahorros en
     assert.ok(!block.includes("transform"), "cp-save-frame no debe transformar: la escala de presión de la casa se queda");
   });
 });
+
+describe("cyberpunk: el icono sobre el bloque (1.3.200)", () => {
+  // Veredicto de Oscar (2026-11-10 18:00 EST, su foto de la tira de Libros
+  // sobre la 1.3.199 en vivo): «Some icons are swallowed up by the color
+  // block. I like the color block here in these chips, but make the icon
+  // appear again.» La hoja base pinta el icono de la pestaña viva de las
+  // tiras is-follow con el color de ACENTO (styles.css: .seg-ico bajo
+  // [aria-current] lleva var(--accent)); en esta ciudad la píldora ES el
+  // acento, así que el icono salía amarillo sobre amarillo (1.00:1 medido
+  // en el banco) y desaparecía, con su palabra en negro al lado.
+  it("el icono de la pestaña viva lleva la tinta oscura de su rótulo", () => {
+    assert.match(css, /html\[data-theme="cyberpunk"\] \.seg\.is-follow button\[aria-current="page"\] \.seg-ico \{\s*color: var\(--accent-fg\);\s*\}/,
+      "el icono sobre el bloque debe llevar var(--accent-fg), la tinta del rótulo");
+  });
+  it("la cura es una sola regla de color: no toca el bloque ni pinta fondos", () => {
+    const at = css.indexOf("1.3.200");
+    const block = css.slice(at, css.indexOf("}", at));
+    assert.ok(!block.includes("background"), "la regla de la 1.3.200 no debe repintar ningún fondo: el bloque se queda");
+    assert.ok(css.includes(".seg.is-follow .seg-pill {\n  background: #fcee0a;"), "la píldora sigue siendo el bloque amarillo plano que Oscar aprobó");
+  });
+  it("la tinta sobre el bloque mide como el rótulo; el acento sobre el acento medía 1", () => {
+    assert.ok(contrast("#0b0a08", "#fcee0a") >= 15, "la tinta oscura sobre el amarillo señal debe medir ≥15:1 (la del rótulo)");
+    assert.equal(contrast("#fcee0a", "#fcee0a"), 1, "el defecto medido: acento sobre acento = 1.00:1, el icono tragado");
+  });
+});
