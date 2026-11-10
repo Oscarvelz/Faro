@@ -4605,6 +4605,14 @@ function StructureTree() {
   const { t, lang, session, commit, confirm } = useFaro();
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  // 1.3.179: la tarjeta abierta registra aquí su única salida (exitPanel): toda
+  // vía que la pliega — su Cancelar, el chevron de la fila, este pliegue de
+  // grupo, el Back/Esc — pasa por ella, y con trabajo sin aplicar manda su aviso;
+  // nada de lo que él preparó se pierde en silencio. La tarjeta abierta es
+  // además una capa: el Back del teléfono la pliega a ella antes que a la
+  // pantalla, como en el resto de la app.
+  const panelExitRef = useRef<((reveal: boolean) => boolean) | null>(null);
+  useLayer(openId !== null, () => { panelExitRef.current?.(false); });
   const [catName, setCatName] = useState("");
   const [catGroup, setCatGroup] = useState<"fixed" | "variable">("fixed");
   // 1.3.143: the two groups fold by their title, so the tree can shrink to two lines (Oscar: the long
@@ -4740,6 +4748,7 @@ function StructureTree() {
   const missing = missingDefaults(session.ledger.structure);
   const categories = session.ledger.structure.categories.slice().sort((a, b) => a.order - b.order);
   const visible = (cat: Category) => {
+    if (cat.id === openId) return true; // 1.3.179: la categoría en edición nunca se desmonta por una búsqueda
     if (!needle) return true;
     const blob = [displayName(cat, lang), ...cat.subs.map((sub) => displayName(sub, lang))].join(" ").toLowerCase();
     return blob.includes(needle);
@@ -4761,7 +4770,12 @@ function StructureTree() {
         return (
         <div key={group}>
           <div className="tree-kicker tree-kick-row">
-            <button type="button" className="tree-group-btn" aria-expanded={groupOpen} onClick={() => foldGroup(group)}>
+            <button type="button" className="tree-group-btn" aria-expanded={groupOpen} onClick={() => {
+              // 1.3.179: plegar el grupo desmontaría la tarjeta abierta que vive en él —
+              // primero manda su salida (si levanta el aviso, el grupo no se pliega).
+              if (groupOpen && openId !== null && categories.some((c) => c.id === openId && c.group === group) && !(panelExitRef.current?.(false) ?? true)) return;
+              foldGroup(group);
+            }}>
               <ChevronDown className={groupOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
               <span>{t(group === "fixed" ? "group.fixed" : "group.variable")}</span>
               <span className="tree-group-count num">{rows.length}</span>
@@ -4793,14 +4807,21 @@ function StructureTree() {
                     onPointerUp={onRowPointerUp}
                     onPointerCancel={onRowPointerUp}
                     onLostPointerCapture={onRowPointerUp}
-                    onClick={() => { if (swallowClickRef.current) { swallowClickRef.current = false; return; } setOpenId(open ? null : cat.id); }}>
+                    onClick={() => {
+                      if (swallowClickRef.current) { swallowClickRef.current = false; return; }
+                      // 1.3.179: cerrar la tarjeta (esta fila) o saltar a otra pasa por la
+                      // salida de la tarjeta abierta — con trabajo sin aplicar manda su aviso.
+                      if (open) { panelExitRef.current?.(false); return; }
+                      if (openId !== null && !(panelExitRef.current?.(false) ?? true)) return;
+                      setOpenId(cat.id);
+                    }}>
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
                     <span className="min-w-0">
                       <span className="tree-name"><i className="sw tree-swatch" style={{ background: categoryColor(cat.id, cat.color) }} />{displayName(cat, lang)}</span>
                       <span className="tree-subs">{cat.subs.map((sub) => displayName(sub, lang)).join(" · ") || "—"}</span>
                     </span>
                   </button>
-                  {open ? <TreePanel cat={cat} onClose={() => setOpenId(null)} /> : null}
+                  {open ? <TreePanel cat={cat} onClose={() => setOpenId(null)} exitRef={panelExitRef} /> : null}
                 </div>
               );
             })}
@@ -4833,34 +4854,101 @@ function StructureTree() {
   );
 }
 
-function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
+function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => void; exitRef: { current: ((reveal: boolean) => boolean) | null } }) {
   const { t, lang, session, commit, confirm } = useFaro();
   const [name, setName] = useState(displayName(cat, lang));
   const [subName, setSubName] = useState("");
   const [editSub, setEditSub] = useState<string | null>(null);
   const [subEdit, setSubEdit] = useState("");
+  // 1.3.179: visibilidad PREPARADA (subId -> hidden deseado, solo si difiere de lo guardado).
+  const [stagedVis, setStagedVis] = useState<Record<string, boolean>>({});
+  const rootRef = useRef<HTMLDivElement>(null);
   // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
   // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
   const [colorOpen, setColorOpen] = useState(false);
   // 1.3.176 (pedido de Oscar): Cancelar PLIEGA la tarjeta — antes solo borraba el
   // borrador de subcategoría y la tarjeta quedaba abierta, como si no hiciera nada
   // (con el borrador vacío no cambiaba ni un estado). La política es la única de la
-  // oleada de botones 4: se pregunta solo si hay trabajo SIN APLICAR. En esta tarjeta
-  // casi todo se aplica al instante — el ✓ del nombre, el color, ocultar y borrar
-  // subcategorías van directos a commit() — así que la bolsa lleva solo los
-  // borradores: el nombre aún no confirmado con ✓ (su línea base se renueva cuando
-  // el ✓ guarda), la subcategoría a medio escribir y un renombre de subcategoría a
-  // mitad de teclear. Lo ya aplicado NO se descarta ni se revierte (Cancelar nunca
-  // lo revirtió: no hay copia a la que volver).
+  // oleada de botones 4: se pregunta solo si hay trabajo SIN APLICAR.
+  // 1.3.179 (su modelo, textual): los ojos ya NO aplican al instante — se PREPARAN
+  // en la tarjeta (stagedVis): la fila muestra el estado nuevo y Guardar se
+  // enciende, pero nada llega al libro (ni Sub.hidden ni structure.userVis) hasta
+  // que él guarda; Guardar confirma lo preparado junto con la subcategoría
+  // escrita, por el mismo camino markUserVis de siempre, así que la precedencia
+  // de la 1.3.131 queda bit a bit. La bolsa de descarte lleva los borradores de
+  // siempre (el nombre aún no confirmado con ✓ — su línea base se renueva cuando
+  // el ✓ guarda —, la subcategoría a medio escribir y un renombre a mitad de
+  // teclear) MÁS la visibilidad preparada. Lo demás sigue aplicando al instante
+  // (el ✓ del nombre, el color, los renombres, los borrados con su aviso de la
+  // 1.3.178) y Cancelar jamás lo revierte: no hay copia a la que volver.
+  // Y al plegar con Cancelar, revealRow lo deja en la fila de su categoría
+  // («que me deje justamente donde comencé»): la fila se trae a la vista con el
+  // mismo revealEditor de siempre (descontando la franja superior pegajosa).
   const nameBaseRef = useRef(displayName(cat, lang));
   const editingSub = editSub ? cat.subs.find((x) => x.id === editSub) : undefined;
+  const stagedIds = Object.keys(stagedVis);
   const panelDirty = formDirty(
-    { name: nameBaseRef.current, sub: "", edit: "" },
-    { name, sub: subName, edit: editingSub && subEdit !== displayName(editingSub, lang) ? subEdit : "" },
+    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean> },
+    { name, sub: subName, edit: editingSub && subEdit !== displayName(editingSub, lang) ? subEdit : "", vis: stagedVis },
   );
-  const cancelPanel = () => {
-    if (!panelDirty) { onClose(); return; }
-    confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onClose });
+  const revealRow = () => {
+    const row = rootRef.current?.closest("[data-row]");
+    if (row) revealEditor(row as HTMLElement);
+  };
+  // La única salida de la tarjeta: devuelve true si plegó al momento (sin trabajo
+  // pendiente); con trabajo pendiente levanta el aviso y devuelve false — el
+  // plegado, si él confirma, corre la misma finish(). `reveal` solo lo pide
+  // Cancelar; el chevron de la fila, el Back/Esc (la capa) y el pliegue del grupo
+  // salen por aquí sin scroll, porque su dedo ya está en la fila o en el grupo.
+  const exitPanel = (reveal: boolean): boolean => {
+    const finish = () => { onClose(); if (reveal) revealRow(); };
+    if (!panelDirty) { finish(); return true; }
+    confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: finish });
+    return false;
+  };
+  const exitSelfRef = useRef(exitPanel);
+  exitSelfRef.current = exitPanel;
+  exitRef.current = exitPanel;
+  useEffect(() => () => { if (exitRef.current === exitSelfRef.current) exitRef.current = null; }, [exitRef]);
+  const cancelPanel = () => { exitPanel(true); };
+  // El renombre en curso es su propia capa (como en el resto de la app): un
+  // Back/Esc lo cancela a él primero; el siguiente llega a la salida de la tarjeta.
+  useLayer(editSub !== null, () => setEditSub(null));
+  const toggleVis = (sub: Sub) => {
+    const eff = stagedVis[sub.id] ?? sub.hidden;
+    const next = !eff;
+    setStagedVis((prev) => {
+      const copy = { ...prev };
+      if (next === sub.hidden) delete copy[sub.id]; else copy[sub.id] = next;
+      return copy;
+    });
+  };
+  // Guardar confirma TODO lo pendiente de la tarjeta en un solo commit: la
+  // subcategoría escrita (exactamente el alta de siempre) y la visibilidad
+  // preparada, escrita por el camino de los ojos (markUserVis por valor, para
+  // que cada id quede registrado con SU valor, como N toques de ojo habrían
+  // dejado el libro — solo que en un paso de Deshacer, el de este Guardar).
+  const savePanel = () => {
+    const next = subName.trim();
+    if (!next && !stagedIds.length) return;
+    commit((s) => {
+      let structure = s.structure;
+      if (stagedIds.length) {
+        const cats = structure.categories.map((c) => (c.id === cat.id
+          ? { ...c, subs: c.subs.map((x) => (x.id in stagedVis ? { ...x, hidden: stagedVis[x.id]! } : x)) }
+          : c));
+        structure = markUserVis({ ...structure, categories: cats }, stagedIds.filter((id) => stagedVis[id]), true);
+        structure = markUserVis(structure, stagedIds.filter((id) => !stagedVis[id]), false);
+      }
+      if (next) {
+        structure = { ...structure, categories: structure.categories.map((c) => (c.id === cat.id
+          ? { ...c, subs: [...c.subs, { id: `${c.id}.${uid().slice(0, 6)}`, nameKey: "", customName: next, icon: "Circle", hidden: false, order: c.subs.length }] }
+          : c)) };
+      }
+      return { ...s, structure };
+    }, next || stagedIds[0]!);
+    if (next) setSubName("");
+    if (stagedIds.length) setStagedVis({});
   };
   const addSub = () => {
     const next = subName.trim();
@@ -4900,19 +4988,28 @@ function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
       body,
       danger: true,
       yes: t("yes"),
-      run: () => commit((s) => {
-        const userVis = { ...(s.structure.userVis ?? {}) };
-        delete userVis[sub.id];
-        return {
-          ...s,
-          months: dropSubLines(s.months, sub.id),
-          structure: { ...s.structure, userVis, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.filter((x) => x.id !== sub.id) } : c)) },
-        };
-      }, sub.id),
+      run: () => {
+        // 1.3.179: si este subconcepto tenía visibilidad preparada, su preparación muere con él.
+        setStagedVis((prev) => {
+          if (!(sub.id in prev)) return prev;
+          const copy = { ...prev };
+          delete copy[sub.id];
+          return copy;
+        });
+        commit((s) => {
+          const userVis = { ...(s.structure.userVis ?? {}) };
+          delete userVis[sub.id];
+          return {
+            ...s,
+            months: dropSubLines(s.months, sub.id),
+            structure: { ...s.structure, userVis, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.filter((x) => x.id !== sub.id) } : c)) },
+          };
+        }, sub.id);
+      },
     });
   };
   return (
-    <div className="tree-open">
+    <div className="tree-open" ref={rootRef}>
       <div className="row">
         <input className="field" value={name} aria-label={t("rename")} onChange={(e) => setName(e.target.value)} />
         <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => {
@@ -4933,8 +5030,11 @@ function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
       </div>
       {/* 1.3.145: no bin for the category itself (Oscar: the name-and-colour editor has immunity —
           a category is not deleted as if it were a subcategory; only subcategories carry a bin). */}
-      {cat.subs.map((sub) => (
-        <div key={sub.id} className={sub.hidden ? "tree-sub is-muted" : "tree-sub"}>
+      {cat.subs.map((sub) => {
+        // 1.3.179: la fila pinta el estado PREPARADO si lo hay; el guardado manda en el libro.
+        const effHidden = stagedVis[sub.id] ?? sub.hidden;
+        return (
+        <div key={sub.id} className={effHidden ? "tree-sub is-muted" : "tree-sub"}>
           {editSub === sub.id ? (
             <input className="field" value={subEdit} aria-label={t("rename")} autoFocus onChange={(e) => setSubEdit(e.target.value)} onKeyDown={(e) => {
               if (e.key === "Escape") setEditSub(null);
@@ -4947,14 +5047,12 @@ function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
             <button type="button" className="tree-subname" onClick={() => { setEditSub(sub.id); setSubEdit(displayName(sub, lang)); }}>{displayName(sub, lang)}</button>
           )}
           <span className="row">
-            <button type="button" className="icon-btn" aria-label={sub.hidden ? t("show") : t("hide")} onClick={() => {
-              const next = !sub.hidden;
-              commit((s) => ({ ...s, structure: markUserVis({ ...s.structure, categories: s.structure.categories.map((c) => (c.id === cat.id ? { ...c, subs: c.subs.map((x) => (x.id === sub.id ? { ...x, hidden: next } : x)) } : c)) }, [sub.id], next) }), sub.id);
-            }}>{sub.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+            <button type="button" className="icon-btn" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
             <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
           </span>
         </div>
-      ))}
+        );
+      })}
       <div className="ah-form sc-form is-treesub">
         <div className="ah-grid">
           <label className="label is-wide">
@@ -4964,7 +5062,7 @@ function TreePanel({ cat, onClose }: { cat: Category; onClose: () => void }) {
         </div>
         <div className="ah-actions">
           <button type="button" className="btn secondary" onClick={cancelPanel}>{t("cancel")}</button>
-          <button type="button" className="btn" disabled={!subName.trim()} onClick={addSub}>{t("save")}</button>
+          <button type="button" className="btn" disabled={!subName.trim() && !stagedIds.length} onClick={savePanel}>{t("save")}</button>
         </div>
       </div>
     </div>
