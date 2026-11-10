@@ -4389,7 +4389,7 @@ export function Settings() {
           {/* 1.3.187 (R-3): la quinta tarjeta, «Completa» — mostrar todo en un solo gesto,
               con la misma maquinaria honesta de las plantillas: vista previa con conteos
               y el aviso de que los ajustes a mano se reinician, un solo commit, un Deshacer. */}
-          <button type="button" className="btn ghost aj-pick" aria-pressed={session.ledger.structure.base === "completa"} onClick={() => { const pv = showAllPreview(session.ledger, lang); confirm({ title: t("tpl.completa"), body: `${showAllExample(lang)}\n\n${pv.body}`, yes: pv.empty ? (lang === "en" ? "Got it" : "Entendido") : t("yes"), run: pv.empty ? () => {} : () => commit((s) => ({ ...s, structure: showAllStructure(s.structure) }), "completa") }); }}>
+          <button type="button" className="btn ghost aj-pick aj-pick-wide" aria-pressed={session.ledger.structure.base === "completa"} onClick={() => { const pv = showAllPreview(session.ledger, lang); confirm({ title: t("tpl.completa"), body: `${showAllExample(lang)}\n\n${pv.body}`, yes: pv.empty ? (lang === "en" ? "Got it" : "Entendido") : t("yes"), run: pv.empty ? () => {} : () => commit((s) => ({ ...s, structure: showAllStructure(s.structure) }), "completa") }); }}>
             <span className="aj-pick-name">{t("tpl.completa")}</span>
             <span className="aj-pick-ex">{showAllExample(lang)}</span>
           </button>

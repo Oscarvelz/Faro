@@ -3036,6 +3036,8 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .aj-seg-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); box-shadow: 0 1px 2px color-mix(in oklab, black 18%, transparent); }
 .aj-seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .aj-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* 1.3.192: «Completa» abarca la fila entera. Oscar (2026-11-10, con foto): «No me gustan los huecos que hago con el espacio vacío que está al lado de completa. Busca la forma de estirar esa tarjeta si es posible para que lo rellene.» La 1.3.188 había descartado este mismo estiramiento por respeto al diseño asentado de la 1.3.187; su orden directa lo decide ahora al revés. 1 / -1 abarca todas las columnas y es inocuo si la rejilla fuera de una sola. */
+.aj-picks > .aj-pick-wide { grid-column: 1 / -1; }
 .aj-pick[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: transparent; box-shadow: 0 1px 2px color-mix(in oklab, black 18%, transparent); }
 /* 1.3.187: la regla de arriba perdía la cascada contra .btn.ghost (mismo peso, más tardía) y la tarjeta elegida quedaba con texto casi blanco sobre fondo pálido — invisible en los temas claros; como «Completa» nace elegida, se refuerza el fondo declarado, menos en Tron (su pintura no se toca). */
 html:not([data-theme="tron"]) .aj-pick[aria-pressed="true"] { background: var(--accent); }
