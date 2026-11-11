@@ -123,7 +123,7 @@
 .a2-rock { fill: #1b2633; }
 .a2-lamp { filter: drop-shadow(0 0 7px #fff1c4); transform-box: fill-box; transform-origin: center; animation: a2-lampflash 9s linear infinite; }
 .a2-halo { opacity: var(--glow, .8); transform-box: fill-box; transform-origin: center; animation: a2-flash 9s linear infinite; }
-.a2-beam { opacity: var(--glow, .8); transform-origin: 60px 46px; animation: a2-turn 9s linear infinite; mix-blend-mode: screen; will-change: transform, opacity; pointer-events: none; }
+.a2-beam { opacity: var(--glow, .8); transform-origin: 60px 45px; animation: a2-turn 9s linear infinite; mix-blend-mode: screen; will-change: transform, opacity; pointer-events: none; }
 .a2-tower-top { position: relative; }
 .a2-tower-say { position: relative; z-index: 1; }
 .a2-tower-say { display: grid; gap: 6px; justify-items: start; min-width: 0; }

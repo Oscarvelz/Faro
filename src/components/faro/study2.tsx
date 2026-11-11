@@ -138,7 +138,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
           <g clipPath="url(#s2-clip)">
             <rect width="320" height="124" fill="#0c1520" />
             {[[40, 18], [92, 30], [150, 14], [210, 26], [250, 12], [118, 44], [180, 40]].map(([x, y], i) => <circle key={i} className="s2-star" cx={x} cy={y} r={i % 3 ? 0.9 : 1.3} style={{ animationDelay: `${i * 0.6}s` }} />)}
-            <polygon className="s2-beamcone" points={`${x1 + 6},50 ${Math.max(x0, bx + 10)},38 ${Math.max(x0, bx + 10)},66`} fill="url(#s2-beam)" />
+            <polygon className="s2-beamcone" points={`${x1 + 4},35.5 ${Math.max(x0, bx + 10)},38 ${Math.max(x0, bx + 10)},66`} fill="url(#s2-beam)" />
             <rect y="78" width="320" height="46" fill="url(#s2-sea)" />
             <path className="s2-wave a" d="M0 80 Q 20 75 40 80 T 80 80 T 120 80 T 160 80 T 200 80 T 240 80 T 280 80 T 320 80 T 360 80 T 400 80 V124 H0Z" />
             <path className="s2-wave b" d="M0 88 Q 25 83 50 88 T 100 88 T 150 88 T 200 88 T 250 88 T 300 88 T 350 88 T 400 88 V124 H0Z" />

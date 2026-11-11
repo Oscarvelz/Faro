@@ -345,7 +345,7 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
             <filter id={`${uid}-soft`} x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.4" /></filter>
             <clipPath id={`${uid}-body`}><path d="M40 66 L80 66 L90 192 L30 192 Z" /></clipPath>
           </defs>
-          {!short ? <g className="a2-beam" filter={`url(#${uid}-soft)`}><path d="M62 42 L400 -24 L400 124 L62 50 Z" fill={`url(#${uid}-beam)`} /><path d="M62 44.5 L250 36 L250 56 L62 47.5 Z" fill={`url(#${uid}-core)`} /></g> : null}
+          {!short ? <g className="a2-beam" filter={`url(#${uid}-soft)`}><path d="M60 41 L400 -24 L400 124 L60 49 Z" fill={`url(#${uid}-beam)`} /><path d="M60 43.5 L250 36 L250 56 L60 46.5 Z" fill={`url(#${uid}-core)`} /></g> : null}
           <circle cx="60" cy="46" r="32" fill={`url(#${uid}-glow)`} className="a2-halo" />
           <path d="M43 34 Q60 16 77 34 Z" fill={`url(#${uid}-band)`} />
           <circle cx="60" cy="19" r="2.2" fill="#c9584d" />
