@@ -70,8 +70,8 @@ describe("proyector 217: el panel «Si apartas»", () => {
   });
 
   it("el deslizador es la palanca plana de la 1.3.208: relleno plano y disco plano con llave oscura", () => {
-    assert.ok(block.includes(".vault-lever-rail i::after { background: var(--seg, #d5e2ea); }"), "el relleno blanco-iluminado se vuelve riel plano en el color del bolsillo");
-    assert.ok(block.includes(".vault-lever-rail b {\n  background: var(--seg, #d5e2ea);\n  box-shadow: 0 2px 6px rgb(0 0 0 / .55), inset 0 0 0 1.5px rgb(11 10 8 / .38);\n}"), "la bola radial brillante se vuelve disco impreso del mismo color");
+    assert.ok(block.includes(".vault-lever-rail i::after { background: var(--seg, #d5e2ea); box-shadow: 0 0 10px color-mix(in oklab, var(--seg, #d5e2ea) 65%, transparent); }"), "el relleno blanco-iluminado se vuelve riel plano en el color del bolsillo (1.3.219: con su resplandor suave)");
+    assert.ok(block.includes(".vault-lever-rail b {\n  background: var(--seg, #d5e2ea);\n  box-shadow: 0 0 9px color-mix(in oklab, var(--seg, #d5e2ea) 50%, transparent), 0 2px 6px rgb(0 0 0 / .55), inset 0 0 0 1.5px rgb(11 10 8 / .38);\n}"), "la bola radial brillante se vuelve disco impreso del mismo color (1.3.219: con el halo suave de la ley base por delante de su profundidad y su llave)");
     assert.ok(!paint.includes("radial-gradient"), "ningún brillo radial sobrevive en el bloque");
   });
 
@@ -96,7 +96,7 @@ describe("proyector 217: el panel «Si apartas»", () => {
 
 describe("proyector 217: lo que no se tocó", () => {
   it("el vestido de las ventanas de Libros (1.3.208) sobrevive intacto en la misma hoja", () => {
-    assert.ok(cyber.includes('html[data-theme="cyberpunk"] .save-band.is-records .vault-lever-rail i::after { background: var(--seg, #d5e2ea); }'), "la palanca de las ventanas conserva su regla de la 1.3.208");
+    assert.ok(cyber.includes('html[data-theme="cyberpunk"] .save-band.is-records .vault-lever-rail i::after { background: var(--seg, #d5e2ea); box-shadow: 0 0 10px color-mix(in oklab, var(--seg, #d5e2ea) 65%, transparent); }'), "la palanca de las ventanas conserva su regla de la 1.3.208 (con el resplandor de la 1.3.219)");
     assert.ok(cyber.includes('html[data-theme="cyberpunk"] .save-band.is-records :is(.save-ledger, .save-view, .save-more, .vault-lever) {'), "los paneles de las ventanas conservan su regla de la 1.3.208");
   });
 

@@ -427,7 +427,7 @@ describe("cyberpunk: las ventanas de los bolsillos (1.3.207)", () => {
     assert.ok(!/:is\([^)]*\.save-ledger[^)]*\)\s*\{\s*clip-path/.test(block) && !block.includes(".save-more {\n  clip-path") && !block.includes(".vault-lever {\n  clip-path"), "libro, cuentas y palanca NO se recortan: su pin vive en top:-8/-9px y un clip lo amputaría");
   });
   it("la palanca pierde el brillo: riel y bola planos en el color del bolsillo", () => {
-    assert.ok(block.includes(".vault-lever-rail i::after { background: var(--seg, #d5e2ea); }"), "el relleno del riel es plano, sin el degradado con luz blanca");
+    assert.ok(block.includes(".vault-lever-rail i::after { background: var(--seg, #d5e2ea); box-shadow: 0 0 10px color-mix(in oklab, var(--seg, #d5e2ea) 65%, transparent); }"), "el relleno del riel es plano, sin el degradado con luz blanca (1.3.219: su luz es una sombra suave en el color del bolsillo)");
     assert.ok(block.includes(".vault-lever-rail b {\n  background: var(--seg, #d5e2ea);"), "la bola radial brillante es un disco plano del mismo color");
   });
   it("ninguna regla de la 207 asigna un color de bolsillo: solo los lee", () => {
