@@ -1,0 +1,175 @@
+/* =====================================================================
+   Faro · Cyberpunk vivo (1.3.201, Hark) — the city wakes up.
+   Oscar (2026-11-10 18:23): "upgrade its look to the next level, adding
+   animations here and there and things that make the app feel alive…
+   Only skin." Everything here builds ON Muse's city (1.3.189–1.3.200)
+   and obeys its laws: yellow is the primary, cyan is data (it appears
+   only inside the glitch ceremony's hard split), magenta/red are
+   danger, flat print over glow, and NO money figure ever animates.
+   Faro's motion rules hold: no motion moves layout (0px), nothing on
+   a tap or swipe goes invisible, ambient lives only on its own fixed,
+   contained layer (transform/opacity), reduced motion parks it all,
+   and the city pauses when hidden, while a float window is dragged
+   (html[data-cp-still]) and on low battery/data saver (html[data-cp-calm]).
+   Scope: html[data-theme="cyberpunk"] only — every other theme cannot
+   match a single rule below (the two layers are display:none there).
+   ===================================================================== */
+
+/* ---------- 1. The city behind the glass (ambient, own layer) ---------- */
+.cp-city, .cp-scan { display: none; }
+html[data-theme="cyberpunk"] .cp-city {
+  display: block; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  overflow: hidden; contain: strict;
+}
+html[data-theme="cyberpunk"] .cp-city > i, html[data-theme="cyberpunk"] .cp-skyline > b { position: absolute; display: block; }
+/* Skyline: two rows of warm towers, a hair lighter than the ground, with a
+   whisper of sodium haze over the roofline (warm, never cyan, never from below). */
+html[data-theme="cyberpunk"] .cp-skyline {
+  left: 0; right: 0; bottom: 0; height: clamp(150px, 27vh, 300px);
+  /* The towers and their steady windows are ONE still layer (a single
+     element, two images); only the twinkling windows, the beacons and the
+     tired signs move — fewer layers in the band the rain redraws. */
+  background:
+    url("../../assets/cyberpunk/lights-a.svg") left bottom / auto 100% repeat-x,
+    url("../../assets/cyberpunk/city.svg") left bottom / auto 100% repeat-x;
+  opacity: .9;
+}
+html[data-theme="cyberpunk"] .cp-skyline::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 30%; height: 90%;
+  background: linear-gradient(180deg, transparent, rgb(255 140 50 / .035) 70%, transparent);
+}
+html[data-theme="cyberpunk"] .cp-skyline > b { inset: 0; background: left bottom / auto 100% repeat-x; will-change: opacity; }
+html[data-theme="cyberpunk"] .cp-lit { background-image: url("../../assets/cyberpunk/lights-b.svg"); opacity: .42; }
+html[data-theme="cyberpunk"] .cp-beacon { background-image: url("../../assets/cyberpunk/beacons.svg"); opacity: .85; }
+html[data-theme="cyberpunk"] .cp-sign { background-image: url("../../assets/cyberpunk/signs.svg"); opacity: .55; }
+/* Rain: near-vertical warm streaks on a 240px tile, falling in the towers'
+   band only — where the city lights would catch it. The sheet is one tile
+   taller than its box and slides exactly one tile: a seamless loop on the
+   compositor. Sized by measurement (4x CPU throttle, 1970x1200, software
+   compositing): two full-screen sheets cost the tablet ~30 fps, a masked
+   half-screen sheet ~24 fps (the mask adds a render surface), one unmasked
+   sheet in this band keeps the base build's 60 fps. */
+html[data-theme="cyberpunk"] .cp-rainbox { left: 0; right: 0; bottom: 0; height: clamp(150px, 30vh, 330px); overflow: hidden; }
+/* The rain's top edge fades into the night with a still veil in the ground's own colour (cheaper than a mask). */
+html[data-theme="cyberpunk"] .cp-rainbox::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 72px; z-index: 1;
+  background: linear-gradient(180deg, #0a0907, rgb(10 9 7 / 0));
+}
+html[data-theme="cyberpunk"] .cp-rain {
+  position: absolute; display: block; left: 0; right: 0; top: -240px; bottom: 0;
+  background: url("../../assets/cyberpunk/rain.svg") 0 0 / 240px 240px repeat;
+  opacity: .08; will-change: transform; backface-visibility: hidden;
+}
+/* Spinners: two far lights crossing the sky now and then — the city's own
+   meteors. A warm headlight with an orange trail; one each way. */
+html[data-theme="cyberpunk"] .cp-spin {
+  left: 0; top: 17vh; width: 58px; height: 2px; border-radius: 2px; opacity: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 122 0 / .35) 55%, #f2eee3 94%, transparent);
+  will-change: transform, opacity;
+}
+html[data-theme="cyberpunk"] .cp-spin.is-b { top: 31vh; width: 40px; background: linear-gradient(270deg, transparent, rgb(255 0 60 / .4) 55%, #f2eee3 94%, transparent); }
+
+/* ---------- 2. The signal sweep (one-shot, own layer, driven by cp-city.ts) ---------- */
+html[data-theme="cyberpunk"] .cp-scan { display: block; position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; contain: strict; }
+html[data-theme="cyberpunk"] .cp-scan > i {
+  position: absolute; left: 0; right: 0; top: 0; height: 140px; display: block; opacity: 0;
+  background: linear-gradient(180deg, transparent, rgb(252 238 10 / .035) 62%, rgb(252 238 10 / .08) 96%, rgb(252 238 10 / .42) 99%, transparent);
+  will-change: transform, opacity;
+}
+
+/* ---------- 3. Lock-on: the card you are working in lights its edge ---------- */
+/* Flat sign paint, no glow: the 1px seam switches up to signal yellow at a
+   46% mix, in three hard steps like a tube catching, while focus lives
+   inside the card. A transition, not an animation: the house's cards carry
+   their own entrance animations (study-in, screen-rise) and an animation
+   here would replace them and replay them on blur. Cards carry no
+   transition of their own (measured on Central, Libros, Estudio, Ajustes). */
+html[data-theme="cyberpunk"] .card { transition: border-color .27s steps(3, jump-end); }
+html[data-theme="cyberpunk"] .card:focus-within { border-color: color-mix(in oklab, var(--accent) 46%, #3a332a); }
+
+/* ---------- 4. Data stream: bar fills carry one pass of light on arrival ---------- */
+html[data-theme="cyberpunk"] .bar-fill { position: relative; overflow: hidden; }
+html[data-theme="cyberpunk"] .bar-fill::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 250 230 / .42) 50%, transparent);
+  transform: translateX(-110%);
+}
+
+@keyframes cp-rain-near { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 240px, 0); } }
+@keyframes cp-spin-a {
+  0% { opacity: 0; transform: translate3d(-80px, 0, 0); }
+  1% { opacity: .85; }
+  21% { opacity: .85; }
+  22% { opacity: 0; transform: translate3d(calc(100vw + 80px), -5vh, 0); }
+  100% { opacity: 0; transform: translate3d(calc(100vw + 80px), -5vh, 0); }
+}
+@keyframes cp-spin-b {
+  0% { opacity: 0; transform: translate3d(calc(100vw + 60px), 0, 0); }
+  1% { opacity: .7; }
+  27% { opacity: .7; }
+  28% { opacity: 0; transform: translate3d(-60px, 3vh, 0); }
+  100% { opacity: 0; transform: translate3d(-60px, 3vh, 0); }
+}
+/* Windows going on and off across the night, in steps (lights switch, they don't fade). */
+@keyframes cp-lit { 0%, 100% { opacity: .42; } 18% { opacity: .2; } 40% { opacity: .42; } 71% { opacity: .12; } 74% { opacity: .42; } }
+@keyframes cp-beacon { 0%, 100% { opacity: .85; } 50% { opacity: .08; } }
+/* A tired sign: buzzes off for a beat now and then. */
+@keyframes cp-sign { 0%, 100% { opacity: .55; } 61% { opacity: .55; } 62% { opacity: .1; } 63% { opacity: .5; } 64% { opacity: .08; } 66% { opacity: .55; } }
+@keyframes cp-kata-buzz { 0%, 100% { opacity: .5; } 72% { opacity: .5; } 73% { opacity: .14; } 74% { opacity: .46; } 75% { opacity: .18; } 77% { opacity: .5; } }
+/* The sign ignites: the brand word strikes like a neon tube (never below .38). */
+@keyframes cp-ignite { 0% { opacity: .38; } 9% { opacity: 1; } 15% { opacity: .5; } 23% { opacity: 1; } 31% { opacity: .72; } 40%, 100% { opacity: 1; } }
+/* Entrance split for section heads and dialog titles: hard offsets, blur 0 — the ceremony's DNA. */
+@keyframes cp-head-in {
+  0% { text-shadow: -3px 0 var(--cp-magenta), 3px 0 var(--cp-cyan); }
+  30% { text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); }
+  60% { text-shadow: -1px 0 var(--cp-magenta), 1px 0 var(--cp-cyan); }
+  100% { text-shadow: none; }
+}
+@keyframes cp-field-scan { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+@keyframes cp-stream { from { transform: translateX(-110%); } to { transform: translateX(110%); } }
+@keyframes cp-tick-charge { 0% { opacity: .7; } 15% { opacity: 1; } 30% { opacity: .2; } 45% { opacity: 1; } 60% { opacity: .3; } 100% { opacity: .7; } }
+@keyframes cp-tick-boot { 0% { opacity: .55; } 20% { opacity: 0; } 35% { opacity: .9; } 50% { opacity: .15; } 70%, 100% { opacity: .55; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme="cyberpunk"] .cp-rain { animation: cp-rain-near .72s linear infinite; }
+  html[data-theme="cyberpunk"] .cp-spin.is-a { animation: cp-spin-a 27s linear 3s infinite; }
+  html[data-theme="cyberpunk"] .cp-spin.is-b { animation: cp-spin-b 38s linear 14s infinite; }
+  html[data-theme="cyberpunk"] .cp-lit { animation: cp-lit 31s steps(1) 4s infinite; }
+  html[data-theme="cyberpunk"] .cp-beacon { animation: cp-beacon 2.4s steps(1) infinite; }
+  html[data-theme="cyberpunk"] .cp-sign { animation: cp-sign 11s steps(1) 2s infinite; }
+  html[data-theme="cyberpunk"] .cp-kata { animation: cp-kata-buzz 13s steps(1) 5s infinite; will-change: opacity; }
+  html[data-theme="cyberpunk"] .brand-word { animation: cp-ignite .9s steps(1) 1; }
+  html[data-theme="cyberpunk"] .swipe-pane :is(.lab-head, .fold-btn h2) { animation: cp-head-in .36s steps(1) 1; }
+  html[data-theme="cyberpunk"] .ask .ask-title { animation: cp-head-in .36s steps(1) .06s 1; }
+  html[data-theme="cyberpunk"] .theme-swatch.swatch-cyberpunk[aria-pressed="true"] strong { animation: cp-head-in .42s steps(1) 1; }
+  html[data-theme="cyberpunk"] .bar-fill::after { animation: cp-stream 1.1s cubic-bezier(.3, .6, .4, 1) .25s 1 both; }
+  html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"]::before { animation: cp-tick-charge .6s steps(1) 1; }
+  html[data-theme="cyberpunk"] .desk-bar::after { animation: cp-tick-boot 1s steps(1) .3s 1; }
+  /* The field takes one scan of signal light across its face as it focuses (its caret is already signal yellow). */
+  html[data-theme="cyberpunk"] :is(.field, .select):focus {
+    background-image: linear-gradient(100deg, transparent 40%, rgb(252 238 10 / .13) 50%, transparent 60%);
+    background-size: 260% 100%; background-repeat: no-repeat; background-position: -30% 0;
+    animation: cp-field-scan .55s cubic-bezier(.3, .6, .4, 1) 1;
+  }
+}
+
+/* ---------- Pauses: hidden tab, float drag, battery/data saver ---------- */
+html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-still], [data-cp-calm]) :is(.cp-city i, .cp-city b, .cp-kata) { animation-play-state: paused !important; }
+/* While a screen changes, the rain and the spinners hold their frame (~0.5s). */
+html[data-theme="cyberpunk"][data-cp-hush] :is(.cp-rain, .cp-spin) { animation-play-state: paused !important; }
+/* Muse's two endless loops park with the city too (their look is untouched). */
+html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-calm]) .top-chrome::before,
+html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-calm]) .brand-word::before,
+html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-calm]) .brand-word::after { animation-play-state: paused !important; }
+/* Calm: the moving layers leave entirely (no layers, no work); the skyline stays as still paint. */
+html[data-theme="cyberpunk"][data-cp-calm] .cp-city > i:is(.cp-rainbox, .cp-spin) { display: none; }
+html[data-theme="cyberpunk"][data-cp-calm] .cp-skyline > b { animation: none !important; }
+
+/* ---------- Stillness: reduced motion = the city as a photograph ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="cyberpunk"] .card { transition: none; }
+  html[data-theme="cyberpunk"] .cp-city > i:is(.cp-rainbox, .cp-spin) { display: none; }
+  html[data-theme="cyberpunk"] .cp-scan { display: none; }
+  html[data-theme="cyberpunk"] :is(.cp-skyline > b, .cp-kata, .brand-word) { animation: none; }
+  html[data-theme="cyberpunk"] .bar-fill::after { animation: none; }
+}

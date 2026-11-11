@@ -6,6 +6,7 @@ import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, 
 import "./float.css";
 import "./tron.css";
 import "./cyberpunk.css";
+import { mountCpCity } from "./cp-city";
 import "./brillo.css";
 import "./principal.css";
 import "./cal.css";
@@ -44,6 +45,8 @@ import { PeopleInbox } from "./people";
 import { BankDock } from "./bank-dock";
 import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
+
+mountCpCity(); // 1.3.201: the Cyberpunk city layers (display:none outside that theme)
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
 const ShareInbox = lazy(() => import("./share-inbox"));
 const DocInbox = lazy(() => import("./doc-inbox"));
