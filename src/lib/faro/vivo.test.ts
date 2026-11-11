@@ -1,4 +1,4 @@
-// 1.3.201 — Cyberpunk vivo (Hark): fences for the living skin. Skin only — these pins guard scope, the figure law,
+// 1.3.201 (+1.3.202 sweep rule) — Cyberpunk vivo (Hark): fences for the living skin. Skin only — these pins guard scope, the figure law,
 // the motion rules and the battery/visibility pauses; they hold no behaviour of the app.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -64,4 +64,38 @@ test("vivo: the script touches only data-* attributes on html (fit/native/status
 test("vivo: the card lock-on is a transition, never an animation (cards keep their own entrances)", () => {
   assert.ok(!/\.card[^{]*\{[^}]*animation\s*:/.test(strip), "no animation on .card");
   assert.match(strip, /\.card \{ transition: border-color \.27s steps\(3, jump-end\); \}/);
+});
+
+// 1.3.202 (Oscar): the yellow signal sweep fires ONLY on a main-screen switch — Central ↔ Libros ↔ Estudio and
+// Estudio ↔ Asesor. Never on Tengo/Gastaré/Pagos, Debo tabs, lenses, the books inside Libros, or Ajustes.
+import { isScreenSwitch, SCREEN_NAVS } from "../../components/faro/cp-switch.ts";
+
+type FakeNav = { cls: string; matches(sel: string): boolean };
+const nav = (cls: string): FakeNav => ({ cls, matches: (sel) => sel.split(",").some((s) => s.trim().split(".").filter(Boolean).every((c) => cls.split(" ").includes(c))) });
+const btn = (n: FakeNav, current: boolean) => ({ parentElement: n, getAttribute: (a: string) => (a === "aria-current" && current ? "page" : null) });
+/** A switch inside nav n: one button loses "page", another gains it (what React writes in one commit). */
+const swap = (n: FakeNav) => [{ target: btn(n, false), oldValue: "page" }, { target: btn(n, true), oldValue: null }];
+
+test("vivo 1.3.202: the sweep fires on Central ↔ Libros ↔ Estudio (dock) and Estudio ↔ Asesor (study pair)", () => {
+  assert.equal(SCREEN_NAVS, ".dock, .seg.is-pair");
+  assert.equal(isScreenSwitch(swap(nav("dock"))), true, "dock tap or swipe between main screens");
+  assert.equal(isScreenSwitch(swap(nav("seg is-follow is-pair"))), true, "Estudio ↔ Asesor");
+});
+
+test("vivo 1.3.202: no sweep on books, Tengo/Gastaré/Pagos, Debo tabs, vault, lenses or Ajustes", () => {
+  for (const cls of ["seg is-follow is-four", "seg is-follow", "vault-bar", "seg", "rail", "dock-face", "debt-tabs", "side-dock"])
+    assert.equal(isScreenSwitch(swap(nav(cls))), false, `no sweep for .${cls.replace(/ /g, ".")}`);
+  // Lenses are aria-pressed (never observed); the dock entering/leaving Ajustes only gains or only loses.
+  const d = nav("dock");
+  assert.equal(isScreenSwitch([{ target: btn(d, true), oldValue: null }]), false, "Ajustes → Central");
+  assert.equal(isScreenSwitch([{ target: btn(d, false), oldValue: "page" }]), false, "Central → Ajustes");
+  // Two different navs each moving half a step is not a switch.
+  assert.equal(isScreenSwitch([{ target: btn(nav("dock"), false), oldValue: "page" }, { target: btn(nav("dock"), true), oldValue: null }]), false);
+});
+
+test("vivo 1.3.202: the sweep reads only aria-current, no longer the entrance animations", () => {
+  assert.match(ts, /new MutationObserver\(\(recs\) => \{ if \(isScreenSwitch\(recs\)\) fire\(\); \}\)/);
+  assert.match(ts, /attributeFilter: \["aria-current"\]/);
+  const anim = ts.slice(ts.indexOf('addEventListener("animationstart"'), ts.indexOf("const fire"));
+  assert.ok(!/scan\.animate|fire\(/.test(anim), "entrance animations only hush the rain, never sweep");
 });

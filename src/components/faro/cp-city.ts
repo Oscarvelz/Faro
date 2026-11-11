@@ -10,11 +10,14 @@
 //    would — on battery at 20% or less, or when the browser asks to save data — via html[data-cp-calm] (rain and
 //    spinners leave, every ambient loop parks). Ajustes' battery card (1.3.150) is untouched.
 //  - screen change: the rain and spinners hold still for ~0.5s (html[data-cp-hush]) so the slide owns the frame.
-//  - screen entrance: one signal sweep (WAAPI, transform/opacity on its own layer) when a pane slides in or a ship,
-//    tab, pair or vault takes — read from the animations the house already starts, so no handler of the app changes.
+//  - screen change: one signal sweep (WAAPI, transform/opacity on its own layer) ONLY when the main screen changes —
+//    Central ↔ Libros ↔ Estudio (a dock button's aria-current moves, by tap or swipe) or Estudio ↔ Asesor (the study
+//    pair's aria-current moves). 1.3.202 (Oscar): never on Tengo/Gastaré/Pagos, Debo tabs, lenses or the books inside
+//    Libros, and not when Ajustes is left or entered. Read from aria-current only, so no handler of the app changes.
 //    Never under reduced motion, never while still or calm.
 // Attributes only (data-*), never class or style on body or html: spa/fit.ts, native.ts and statusbar.ts observe those.
 import "./cyberpunk-vivo.css";
+import { isScreenSwitch } from "./cp-switch";
 
 const ENTRANCES = new Set(["study-in", "study-in-back", "ring-in", "ring-in-back", "cp-ship-burst", "cp-tab-burst", "cp-pair-burst", "cp-vault-burst"]);
 
@@ -56,16 +59,20 @@ export function mountCpCity() {
   } catch { /* no battery API: the city simply stays awake */ }
   calm();
 
-  // Entrance sweep.
+  // The rain holds still while a pane slides in (html[data-cp-hush], ~0.5s), so the slide owns the frame.
   const reduce = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
   let last = 0;
   let hushT: ReturnType<typeof setTimeout> | undefined;
   document.addEventListener("animationstart", (e) => {
-    if (!ENTRANCES.has(e.animationName) || !scan || !isCity() || reduce?.matches) return;
-    // The rain holds still while the screen changes (html[data-cp-hush], ~0.5s), so a pane's slide owns the frame.
+    if (!ENTRANCES.has(e.animationName) || !isCity() || reduce?.matches) return;
     html.setAttribute("data-cp-hush", "");
     clearTimeout(hushT);
     hushT = setTimeout(() => html.removeAttribute("data-cp-hush"), 560);
+  }, true);
+
+  // Signal sweep: only a main-screen switch (cp-switch.ts holds the rule).
+  const fire = () => {
+    if (!scan || !isCity() || reduce?.matches) return;
     if (html.hasAttribute("data-cp-still") || html.hasAttribute("data-cp-calm") || document.hidden) return;
     const now = performance.now();
     if (now - last < 320) return;
@@ -79,5 +86,7 @@ export function mountCpCity() {
         { transform: `translate3d(0, ${h}px, 0)`, opacity: 0 },
       ], { duration: 520, easing: "cubic-bezier(.3, .55, .35, 1)" });
     } catch { /* no WAAPI: no sweep */ }
-  }, true);
+  };
+  new MutationObserver((recs) => { if (isScreenSwitch(recs)) fire(); })
+    .observe(document, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ["aria-current"] });
 }
