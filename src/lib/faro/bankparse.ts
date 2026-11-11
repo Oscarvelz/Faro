@@ -202,7 +202,19 @@ export function guessColumns(headers: string[], data: string[][]): { map: Column
     const vals = col(amount).map(parseMoney).filter((v): v is number => v !== null);
     invert = vals.length > 3 && vals.filter((v) => v > 0).length / vals.length > 0.7 && !hs.some((h) => /tipo|type/.test(h));
   }
-  const map: ColumnMap = { date, desc, amount: debit >= 0 ? -1 : amount, debit, credit, invert, dmy };
+  // FIXLAB C: a single Amount column whose sign lives in a Type column (Debit/Credit):
+  // the type decides each row's sign, and the global invert guess stands down.
+  let typeCol = -1;
+  if (amount >= 0 && debit < 0) {
+    const ti = hs.findIndex((h) => /^(type|tipo|transaction type)$/.test(h));
+    if (ti >= 0) {
+      const vals = col(ti).map(fold);
+      const typed = vals.filter((v) => /debit|credit|cargo|abono|sale|purchase|compra/.test(v)).length;
+      if (vals.length && typed / vals.length > 0.6) typeCol = ti;
+    }
+  }
+  if (typeCol >= 0) invert = false;
+  const map: ColumnMap = { date, desc, amount: debit >= 0 ? -1 : amount, debit, credit, invert, dmy, ...(typeCol >= 0 ? { typeCol } : {}) };
   const ok = date >= 0 && desc >= 0 && (map.amount >= 0 || (debit >= 0 && credit >= 0));
   const parsedOk = ok && sample.length ? sample.filter((r) => rowFromMap(r, map) !== null).length / sample.length > 0.8 : false;
   return { map, auto: ok && parsedOk };
@@ -219,6 +231,11 @@ export function rowFromMap(r: string[], map: ColumnMap): RawTx | null {
   }
   if (amount === null) return null;
   if (map.invert) amount = -amount;
+  // FIXLAB C: sign from the row's own type word when the guesser found a type column.
+  if (map.typeCol !== undefined && map.typeCol >= 0) {
+    const t = fold(r[map.typeCol] ?? "");
+    amount = /credit|abono|haber|refund|reembolso/.test(t) ? Math.abs(amount) : -Math.abs(amount);
+  }
   return { date, amount, desc: (r[map.desc] ?? "").trim() };
 }
 
@@ -235,8 +252,16 @@ export function parseCsv(text: string, name = "file.csv", maps: Record<string, C
     const next = all[i + 1] ?? [];
     if (all[i].filter(Boolean).length >= 3 && !all[i].some((c) => parseDate(c)) && next.some((c) => !!parseDate(c) || !!parseDate(c, true))) { hi = i; break; }
   }
-  const headers = all[hi] ?? [];
-  const data = all.slice(hi + 1).filter((r) => r.some(Boolean));
+  let headers = all[hi] ?? [];
+  let data = all.slice(hi + 1).filter((r) => r.some(Boolean));
+  // FIXLAB A: a headerless download (Wells Fargo's CSV has no header row): row 1 is itself
+  // a transaction — a date and a money amount, and no header words. Treat every row as data
+  // under synthetic column names; the content-based guesser finds date/amount/description.
+  if (hi === 0 && all[0] && all[0].some((c) => !!parseDate(c) || !!parseDate(c, true)) && all[0].some((c) => parseMoney(c) !== null)
+    && !headers.some((h) => /date|fecha|amount|importe|monto|descrip|concepto|transaction|posting|details|name|nombre/i.test(fold(h)))) {
+    data = all.filter((r) => r.some(Boolean));
+    headers = all[0].map((_, i) => `c${i}`);
+  }
   const hs = headers.map(fold);
   const has = (...names: string[]) => names.every((n) => hs.includes(n));
   const at = (n: string) => hs.indexOf(n);
@@ -273,6 +298,25 @@ export function parseCsv(text: string, name = "file.csv", maps: Record<string, C
     }
     return { name, format: "csv", bank: "paypal", kind: "paypal", sig: "csv:paypal", rows };
   }
+  // FIXLAB B: PayPal's CURRENT activity download — Amount/Fees/Total with a Transaction ID,
+  // no Gross/Net. Total is the net that actually moved (Amount minus fees); the ID, Status,
+  // Type and Currency columns carry the same meaning as the legacy file's.
+  if (hs.includes("transaction id") && hs.includes("amount") && (hs.includes("total") || hs.includes("fees"))) {
+    const get = (r: string[], n: string) => (at(n) >= 0 ? r[at(n)] ?? "" : "");
+    const dates = data.map((r) => get(r, "date"));
+    const dmy = dates.some((v) => +(v.split(/[/.-]/)[0] ?? 0) > 12);
+    const rows = data.map((r): RawTx | null => {
+      const amount = parseMoney(get(r, "total") || get(r, "amount")); const date = parseDate(get(r, "date"), dmy);
+      if (amount === null || !date) return null;
+      const nm = get(r, "name") || get(r, "item title");
+      return { date, amount, desc: nm || get(r, "type"), name: nm, id: get(r, "transaction id") || undefined, type: get(r, "type"), status: get(r, "status"), currency: get(r, "currency") || "USD", balance: parseMoney(get(r, "balance")) ?? undefined };
+    }).filter((x): x is RawTx => !!x);
+    for (const dep of rows.filter((x) => /card deposit|credit card deposit|debit card deposit/i.test(x.type ?? ""))) {
+      const buy = rows.find((x) => x !== dep && x.amount === -dep.amount && x.date === dep.date);
+      if (buy) buy.fundedByCard = true;
+    }
+    return { name, format: "csv", bank: "paypal", kind: "paypal", sig: "csv:paypal", rows };
+  }
   const saved = maps[sig];
   const guess = saved ? { map: saved, auto: true } : guessColumns(headers, data);
   const rows = guess.auto ? data.map((r) => rowFromMap(r, guess.map)).filter((x): x is RawTx => !!x) : [];
@@ -303,6 +347,15 @@ export function remap(file: ParsedFile, map: ColumnMap): ParsedFile {
 
 /** The account a file most likely belongs to: the one remembered for its signature, otherwise by bank and kind. */
 export function pickSource(file: ParsedFile, book: ImportBook, accts: Acct[]): string {
+  // A file that names no account (every CSV/QIF: their signature is just the column headers)
+  // cannot tell two accounts of the same bank and kind apart — a Chase Freedom CSV and a
+  // Chase Sapphire CSV are byte-identical in shape. When more than one account fits, guessing
+  // would silently route one card's statement onto another: no pick, the user chooses in the
+  // review (the selector is right there). Files that carry their account tail (OFX, PDF) keep
+  // the remembered routing, and a single fitting account still picks itself.
+  const ambiguous = !file.tail && !!file.bank && file.bank !== "other"
+    && accts.filter((a) => a.bank === file.bank && (!file.kind || a.kind === file.kind)).length > 1;
+  if (ambiguous) return "";
   const known = book.files?.[file.sig];
   if (known && accts.some((a) => a.id === known)) return known;
   const by = (bank: string, kind?: AcctKind) => accts.find((a) => a.bank === bank && (!kind || a.kind === kind))?.id;
@@ -591,7 +644,7 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
   const taken = new Set<string>();
   for (const r of rows) {
     if (r.dup || r.paired || r.flow === "skip") continue;
-    const twin = rows.find((o) => o !== r && o.file < r.file && !taken.has(o.uid) && !o.paired && o.sourceId === r.sourceId && o.amount === r.amount && dayGap(o.date, r.date) <= 2 && similar(o.key, r.key));
+    const twin = rows.find((o) => o !== r && o.file < r.file && !taken.has(o.uid) && !o.paired && o.sourceId === r.sourceId && o.amount === r.amount && dayGap(o.date, r.date) <= 4 && similar(o.key, r.key));
     if (twin) { r.dup = "fuzzy"; taken.add(twin.uid); }
   }
 

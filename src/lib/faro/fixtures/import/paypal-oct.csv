@@ -1,0 +1,7 @@
+Date,Time,TimeZone,Name,Type,Status,Currency,Gross,Fee,Net,From Email Address,To Email Address,Transaction ID,Item Title,Reference Txn ID,Receipt ID,Balance
+10/05/2026,10:15:00,PST,Valve Corp,Express Checkout Payment,Completed,USD,-19.99,0.00,-19.99,,,5TY12345AB678901C,Steam game,,123,219.24
+10/05/2026,10:16:00,PST,,General Card Deposit,Completed,USD,19.99,0.00,19.99,,,,,,5TY12345AB678901C,,239.23
+10/08/2026,09:00:00,PST,,Bank Deposit to PP Account ,Completed,USD,100.00,0.00,100.00,,,9AB12345CD678902D,,,,339.23
+10/12/2026,12:00:00,PST,Etsy Inc,Payment Refund,Completed,USD,8.50,0.00,8.50,,,7ZZ12345AB678903E,Owl print,,,347.73
+10/15/2026,08:00:00,PST,PayPal,Interest,Completed,USD,1.84,0.00,1.84,,,1DV12345AB678904F,,,,349.57
+10/20/2026,20:00:00,PST,Netflix,Subscription Payment,Completed,USD,-15.49,0.00,-15.49,,,4NF12345AB678905G,Streaming,,,258.73

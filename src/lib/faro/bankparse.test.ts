@@ -7,7 +7,7 @@ import { accounts, addAccount, archiveAccount, ensureAccounts, importBook, merch
 import { parsePdfStatement, rowDate, type PdfDoc } from "./pdfstmt.ts";
 import type { Category, LedgerState } from "./types.ts";
 
-const FX = "/workspace/work/browser-test/fixtures/import";
+const FX = new URL("./fixtures/import", import.meta.url).pathname;
 const read = (f: string) => parseFile(f, fs.readFileSync(`${FX}/${f}`, "utf8"));
 const sub = (id: string, name: string) => ({ id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 0 });
 const cat = (id: string, group: "fixed" | "variable", name: string, subs: [string, string][]): Category => ({ id, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 0, group, role: "", subs: subs.map(([a, b]) => sub(a, b)) });
@@ -391,5 +391,59 @@ describe("importer bank chips (1.3.79)", () => {
     assert.ok(accounts(s).some((a) => a.id === "acct-wf-card"));
     assert.ok(!accounts(s).some((a) => a.id === acct?.id));
     assert.ok(accounts(s, true).some((a) => a.id === acct?.id && a.off));
+  });
+});
+
+describe("audit fixes (this line): format drift and routing", () => {
+  it("Wells Fargo's headerless CSV keeps its first transaction and a stable signature", () => {
+    const wf = parseFile("wellsfargo.csv", ['"11/02/2026","-45.99","","*","PAYPAL *TEMU 402-935-7733 CA"', '"11/03/2026","-120.00","","*","SEDANOS SUPERMARKET MIAMI FL"', '"11/04/2026","1500.00","","*","ONLINE TRANSFER FROM CHECKING"'].join("\n"));
+    assert.equal(wf.rows.length, 3);
+    assert.equal(wf.rows[0].amount, -4599);
+    assert.match(wf.rows[0].desc, /TEMU/);
+    assert.equal(wf.sig, "csv:c0,c1,c2,c3,c4");
+    const headed = parseFile("h.csv", ["Date,Description,Amount", "11/02/2026,AMAZON,-45.99", "11/03/2026,SHELL,-20.00"].join("\n"));
+    assert.equal(headed.rows.length, 2, "an ordinary headed CSV is untouched");
+  });
+  it("PayPal's current CSV (Amount/Fees/Total) keeps ids, skips pending, and a bank deposit is a transfer", () => {
+    const pp = parseFile("PayPalActivity.csv", ["Date,Time,Time Zone,Name,Type,Status,Currency,Amount,Fees,Total,Exchange Rate,Receipt ID,Balance,Transaction ID,Item Title",
+      "11/02/2026,10:15:00,PST,Valve Corp,Express Checkout Payment,Completed,USD,-19.99,0.00,-19.99,,123,258.73,5TY12345AB678901C,Steam game",
+      "11/03/2026,09:00:00,PST,,Bank Deposit to PP Account ,Completed,USD,100.00,0.00,100.00,,,358.73,9AB12345CD678902D,",
+      "11/04/2026,11:00:00,PST,Some Store,Express Checkout Payment,Pending,USD,-50.00,0.00,-50.00,,123,258.73,7ZZ12345AB678903E,Thing"].join("\n"));
+    assert.equal(pp.bank, "paypal"); assert.equal(pp.kind, "paypal");
+    assert.equal(pp.rows[0].id, "5TY12345AB678901C");
+    const s = ensureAccounts(ledger());
+    const { rv, c } = run(s, [pp]);
+    assert.equal(rv.rows.find((r) => r.amount === 10000)?.flow, "xfer");
+    assert.equal(rv.rows.find((r) => r.amount === -5000)?.flow, "skip");
+    assert.equal(c.fresh, 1);
+  });
+  it("a single Amount column signed by a Type column reads purchases as purchases", () => {
+    const f = parseFile("bankx.csv", ["Date,Description,Type,Amount", "11/02/2026,AMAZON MARKETPLACE,Debit,45.99", "11/07/2026,PAYMENT RECEIVED,Credit,450.00"].join("\n"));
+    const s = ensureAccounts(ledger());
+    const { rv } = run(s, [f]);
+    assert.equal(rv.rows[0].flow, "spend"); assert.equal(rv.rows[0].amount, -4599);
+  });
+  it("overlapping files in ONE batch, dates shifted three days, still count once", () => {
+    const head = "Transaction Date,Post Date,Description,Category,Type,Amount,Memo";
+    const mk = (d: number) => [head, `11/0${d}/2026,11/0${d + 1}/2026,AMZN Mktp*2K4UST5Z3,Shopping,Sale,-45.99,`, `11/0${d + 1}/2026,11/0${d + 2}/2026,PUBLIX #1234,Groceries,Sale,-64.20,`].join("\n");
+    const s = ensureAccounts(ledger());
+    const files = [parseFile("a.csv", mk(2)), parseFile("b.csv", mk(5))];
+    const { rv, c, srcs } = run(s, files);
+    assert.equal(c.fresh, 2); assert.equal(c.dups, 2);
+    const st = applyImport(s, rv, files, srcs, "fx-batch").state;
+    assert.equal(Object.values(st.months).flatMap((m) => m.lines).filter((l) => l.amountMinor === 4599).length, 1);
+  });
+  it("two cards at one bank: a tail-less CSV picks no account; one card still picks itself", () => {
+    const s0 = ensureAccounts(ledger());
+    const two = addAccount(s0, { name: "Chase Sapphire · tarjeta", kind: "card", bank: "chase", rates: { other: 100 } }).state;
+    const csv = parseFile("any-chase-card.csv", ["Transaction Date,Post Date,Description,Category,Type,Amount,Memo", "11/02/2026,11/03/2026,AMZN Mktp*2K4UST5Z3,Shopping,Sale,-45.99,"].join("\n"));
+    assert.equal(pickSource(csv, importBook(two), accounts(two)), "", "Freedom or Sapphire? The file cannot say — the user chooses");
+    assert.equal(pickSource(csv, importBook(s0), accounts(s0)), "acct-chase-card");
+    const qfx = parseFile("chase-card.qfx", fs.readFileSync(`${FX}/chase-card.qfx`, "utf8"));
+    assert.equal(pickSource(qfx, importBook(two), accounts(two)), "acct-chase-card", "a file carrying its account tail still routes by signature memory and bank");
+  });
+  it("a payroll deposit is the payroll, not a merchant called Orig Name", () => {
+    assert.equal(merchantKey("ORIG CO NAME:PAYROLL CO"), "payroll");
+    assert.equal(merchantLabel("ORIG CO NAME:PAYROLL CO"), "Payroll");
   });
 });

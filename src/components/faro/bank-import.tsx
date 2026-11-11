@@ -88,6 +88,9 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
       for (const f of Array.from(list)) read.push(await readOne(f, { ...book.maps, ...maps.current }, () => setBusy(true)));
     } finally { setBusy(false); }
     const ok = read.filter((f) => !f.error);
+    const dropped = read.filter((f) => f.error);
+    // A file Faro could not read is named, never silently dropped from a mixed batch.
+    if (ok.length && dropped.length) importToast({ text: L(lang, `No pude leer: ${dropped.map((f) => f.name).join(", ")}`, `Couldn't read: ${dropped.map((f) => f.name).join(", ")}`) });
     if (!ok.length) {
       const why = read[0]?.error;
       setBad(why === "pdf-image" ? L(lang, "Ese PDF es una imagen sin texto. Descarga el estado desde el sitio del banco.", "That PDF is a picture with no text. Download the statement from the bank's website.")

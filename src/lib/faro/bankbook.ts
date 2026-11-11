@@ -325,6 +325,10 @@ export function merchantKey(raw: string): string {
   let cityCut = false;
   if (num > 2) { s = s.slice(0, num); cityCut = true; }
   let words = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9&' ]/g, " ").split(/\s+/).filter(Boolean);
+  // ACH boilerplate first, before the city/state trim can eat it: "ORIG CO NAME:PAYROLL CO"
+  // is the payroll, not a merchant called Orig Name (and its trailing CO is not Colorado).
+  if (words[0] === "orig" && words[1] === "name") words = words.slice(2);
+  else if (words[0] === "orig" && words[1] === "co" && words[2] === "name") words = words.slice(3);
   if (!cityCut && words.length > 1 && STATES.has(words[words.length - 1].toUpperCase())) {
     words.pop();
     const two = words.slice(-2).join(" ");
