@@ -80,7 +80,9 @@ html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.seg button, .ch
    spill. The underline navs keep theirs on the button — nothing
    travels there, so nothing can trail. */
 html:not([data-theme="tron"]):not([data-theme="cyberpunk"]):not([data-theme="ion"]):not([data-theme="ion-noche"]) .dock-glide {
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 28%, transparent), 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
+  /* 1.3.212: the glide's top light softens with the intermediate white
+     (28% -> 18%); the halo layers are unchanged. */
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 18%, transparent), 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
 }
 html:not([data-theme="tron"]):not([data-theme="cyberpunk"]):not([data-theme="ion"]):not([data-theme="ion-noche"]) .rail .dock-glass {
   box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent), 0 10px 22px color-mix(in oklab, black 18%, transparent), 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
@@ -116,7 +118,10 @@ html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .seg:not(.is-follow)
    box-shadow: none there; this rule simply stops outvoting it). Ion is
    fenced out — its sheet makes the same move in refracted light. */
 html:not([data-theme="tron"]):not([data-theme="cyberpunk"]):not([data-theme="ion"]):not([data-theme="ion-noche"]) .seg.is-follow .seg-pill {
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 65%, transparent), inset 0 0 14px color-mix(in oklab, var(--accent) 25%, transparent), inset 0 1px 0 color-mix(in oklab, white 62%, transparent);
+  /* 1.3.212: frame (65%) and glow (25%) unchanged — they carry the
+     selected signal now that the fill is the intermediate white; only
+     the top light softens with it (62% -> 38%). */
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 65%, transparent), inset 0 0 14px color-mix(in oklab, var(--accent) 25%, transparent), inset 0 1px 0 color-mix(in oklab, white 38%, transparent);
 }
 html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .chips button[aria-pressed="true"] {
   box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 50%, transparent), inset 0 0 10px color-mix(in oklab, var(--accent) 18%, transparent);
