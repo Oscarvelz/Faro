@@ -69,9 +69,24 @@ html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.seg button, .ch
 }
 /* The living ones: the current nav button wears a quiet accent halo
    around its ink fill; the underline navs keep their underline and
-   gain a spill of accent light beneath it. */
-html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) :is(.dock, .rail) .nav-btn[aria-current="page"] {
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
+   gain a spill of accent light beneath it.
+   1.3.210 — on the dock and the rail the halo no longer sits on the
+   button: the button's halo crossfaded in place while the glass/glide
+   mass travelled, the same two-painter split as the seg frame below
+   (Oscar's white ghost). The halo now rides the carrier itself — the
+   phone dock's .dock-glide and the rail's .dock-glass (both shell
+   variants) — so frame, glow and background are one element again.
+   Ion is fenced out here: its sheet makes the same move with its own
+   spill. The underline navs keep theirs on the button — nothing
+   travels there, so nothing can trail. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]):not([data-theme="ion"]):not([data-theme="ion-noche"]) .dock-glide {
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 28%, transparent), 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]):not([data-theme="ion"]):not([data-theme="ion-noche"]) .rail .dock-glass {
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent), 0 10px 22px color-mix(in oklab, black 18%, transparent), 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]):not([data-theme="ion"]):not([data-theme="ion-noche"]) .app-frame:not(.is-split) .rail .dock-glass {
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent), 0 8px 16px color-mix(in oklab, black 16%, transparent), 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 16px -2px color-mix(in oklab, var(--accent) 40%, transparent);
 }
 html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .top-nav .nav-btn[aria-current="page"] {
   box-shadow: inset 0 -2px 0 var(--fg), 0 10px 14px -8px color-mix(in oklab, var(--accent) 55%, transparent);
@@ -79,9 +94,29 @@ html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .top-nav .nav-btn[ar
 html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .bottom-nav .nav-btn[aria-current="page"] {
   box-shadow: inset 0 2px 0 var(--fg), 0 -10px 14px -8px color-mix(in oklab, var(--accent) 55%, transparent);
 }
-/* The selected segment and the pressed chip: an inner accent frame. */
-html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .seg button[aria-current="page"] {
+/* The selected segment and the pressed chip: an inner accent frame.
+   On plain segment rows the frame stays here — frame and fill share
+   the button itself, one element, arriving together by construction. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .seg:not(.is-follow) button[aria-current="page"] {
   box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 65%, transparent), inset 0 0 14px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+/* 1.3.210 — THE PILL IS THE ONLY PAINTER (Oscar, 2026-11-10 21:58 EST:
+   "el fantasma blanco todavía no se cambia de ficha simultáneamente
+   con el marco"). On the follow strips this frame used to live on the
+   BUTTON: a box-shadow crossfading in place around the whole tab while
+   the white .seg-pill travelled underneath it. 1.3.201 put both on one
+   clock, but a crossfade anchored to the destination can never occupy
+   the same geometry as a translating mass — mid-flight the frame stood
+   complete around a tab the fill had not reached, and the departing
+   tab kept its fading frame after the mass had left (measured on the
+   bench: at 84% of the journey the destination ring already read 0.54
+   of its 0.65 alpha around the whole box). The frame now rides the
+   pill: same shadows, same box at rest, one carrier for background,
+   frame and glow. The button paints nothing (styles.css already says
+   box-shadow: none there; this rule simply stops outvoting it). Ion is
+   fenced out — its sheet makes the same move in refracted light. */
+html:not([data-theme="tron"]):not([data-theme="cyberpunk"]):not([data-theme="ion"]):not([data-theme="ion-noche"]) .seg.is-follow .seg-pill {
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 65%, transparent), inset 0 0 14px color-mix(in oklab, var(--accent) 25%, transparent), inset 0 1px 0 color-mix(in oklab, white 62%, transparent);
 }
 html:not([data-theme="tron"]):not([data-theme="cyberpunk"]) .chips button[aria-pressed="true"] {
   box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 50%, transparent), inset 0 0 10px color-mix(in oklab, var(--accent) 18%, transparent);

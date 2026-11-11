@@ -28,34 +28,70 @@
    (its glide is a tinted wash behind transparent buttons) and is
    consciously left as it is. Imported after brillo.css so these
    recipes, at higher specificity, are the ones Ion reads.
+
+   1.3.210: the recipes above still describe the RESTING glass — but
+   every one of those shadows now sits on the travelling carrier (the
+   seg pill, the dock glide, the rail's dock glass), never on the
+   button. In 201 the chip's edge-light was painted on the button and
+   crossfaded in place while the pill travelled: the white ghost
+   Oscar photographed in Niebla had an Ion twin. One painter per
+   selection now, in this sheet as in brillo.css.
    ===================================================================== */
 
-/* The living chip: refracted light, not an outline. */
+/* 1.3.210 — the refracted light moved onto the carrier. In 1.3.201 the
+   chip's edge-light sat on the BUTTON and the lift on the pill: two
+   painters again, and the button's light crossfaded in place around
+   the whole tab while the glass travelled — Oscar's white ghost in
+   Ion's own voice (2026-11-10 21:58 EST). The button now paints
+   nothing; every shadow it wore lives on the pill, merged with the
+   pill's own lift, the union moved verbatim, in paint order (see the
+   pill rule below). Same glass at rest, one painter in flight. */
+/* The living chip: no paint of its own — the pill below carries it all. */
 html:is([data-theme="ion"], [data-theme="ion-noche"]) .app-frame .seg.is-follow button[aria-current="page"] {
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .55),
-    inset 0 0 14px color-mix(in oklab, var(--glow) 16%, transparent),
-    inset 0 -1px 0 color-mix(in oklab, var(--glow) 38%, transparent);
+  box-shadow: none;
 }
 
-/* The glass pill lifts: top light, glow inside the glass, halo beneath. */
+/* The glass pill is the only painter. Its shadow list is the EXACT
+   union of the two lists it replaces, in the original paint order —
+   the button's three refractions first (they painted on top), then
+   the pill's own top light, inner glow and halo beneath — so the
+   resting glass is composite-identical; only its address changed. */
 html:is([data-theme="ion"], [data-theme="ion-noche"]) .seg.is-follow .seg-pill {
   background: linear-gradient(180deg, color-mix(in oklab, white 30%, var(--surface)), color-mix(in oklab, var(--glow) 12%, var(--surface)));
   box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .55),
+    inset 0 0 14px color-mix(in oklab, var(--glow) 16%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--glow) 38%, transparent),
     inset 0 1px 0 rgb(255 255 255 / .5),
     inset 0 0 18px color-mix(in oklab, var(--glow) 13%, transparent),
     0 8px 20px -8px color-mix(in oklab, var(--glow) 50%, transparent);
 }
 
-/* The living ship: the spill of light, without the hard ring. */
+/* The living ship: no paint of its own either — the spill of light
+   rides the carrier (the phone dock's glide, the rail's glass). */
 html:is([data-theme="ion"], [data-theme="ion-noche"]) .app-frame :is(.dock, .rail) .nav-btn[aria-current="page"] {
-  box-shadow: 0 0 18px -2px color-mix(in oklab, var(--glow) 45%, transparent);
+  box-shadow: none;
+}
+html:is([data-theme="ion"], [data-theme="ion-noche"]) .app-frame .rail .dock-glass {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 62%, transparent),
+    0 10px 22px color-mix(in oklab, black 18%, transparent),
+    0 0 18px -2px color-mix(in oklab, var(--glow) 45%, transparent);
+}
+html:is([data-theme="ion"], [data-theme="ion-noche"]) .app-frame:not(.is-split) .rail .dock-glass {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 62%, transparent),
+    0 8px 16px color-mix(in oklab, black 16%, transparent),
+    0 0 18px -2px color-mix(in oklab, var(--glow) 45%, transparent);
 }
 
-/* The dock glide's edge: refracted, lit from its top. */
+/* The dock glide's edge: refracted, lit from its top — and, since
+   1.3.210, carrying the living ship's spill of light as well (it used
+   to crossfade on the button, a second painter beside the glide). */
 html:is([data-theme="ion"], [data-theme="ion-noche"]) .dock-glide {
   border-color: color-mix(in oklab, var(--glow) 24%, transparent);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / .4),
-    inset 0 0 14px color-mix(in oklab, var(--glow) 12%, transparent);
+    inset 0 0 14px color-mix(in oklab, var(--glow) 12%, transparent),
+    0 0 18px -2px color-mix(in oklab, var(--glow) 45%, transparent);
 }
