@@ -790,6 +790,146 @@ html[data-theme="cyberpunk"] .cp-sw.is-spectrum { background: #1e1913; }
   [data-theme="cyberpunk"] .save-seg[aria-pressed="true"] .save-band { animation: cp-save-tear .28s steps(1) 1; }
 }
 
+/* ---------- The savings windows dress for the city (1.3.207) ----------
+   Oscar's order (2026-11-10, long photo of Libros): the UNFOLDED
+   savings windows — the pocket panels (Emergencia / Retiro / Meta),
+   the MES row, the horizon lever and the inner blocks (Fondos /
+   Cuentas / Proyectos / Apartado del mes) — wore the shared night
+   finish in this theme: glossy seg-tinted gradients, white-lit insets,
+   24px bubble corners, a radial-gloss slider ball. Bubbles that speak
+   no Cyberpunk. This block dresses those windows in the theme's own
+   language, scoped to the Libros vault (.save-band.is-records):
+   the flat warm panel stock under a breath of the pocket's OWN colour
+   (the 199 wash doctrine — frame and wash, never a block), the 2px
+   radius system, Rajdhani for the heads and figures inside, the +
+   buttons as the theme's flat yellow primary, and every pocket colour
+   kept exactly where it already lived (--seg / --save / --sav are
+   read, never rewritten: «manteniendo sus colores, la misma paleta»).
+   The chamfer follows the house rule and its pin lesson: .save-view
+   and .save-flow take the cut (their contents live in flow), while
+   the ledger, the accounts panel and the lever keep square 2px
+   corners — each of them carries a corner pin OUTSIDE its box
+   (top: -8/-9px), and a clip-path would amputate the pin. HUD ticks
+   are NOT dosed here: the theme doses them on the hero surfaces, and
+   on these windows the pin and the hint already own the top corner.
+   Other themes are fenced out by the [data-theme] prefix itself. */
+html[data-theme="cyberpunk"] .save-band.is-records :is(.save-ledger, .save-view, .save-more, .vault-lever) {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--seg, #894ed6) 8%, transparent) 0%, transparent 46%),
+    var(--cp-panel);
+  border-radius: 2px;
+  box-shadow: 0 12px 20px rgb(0 0 0 / .38);
+}
+html[data-theme="cyberpunk"] .save-band.is-records .save-more {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--sav, #894ed6) 8%, transparent) 0%, transparent 46%),
+    var(--cp-panel);
+  border-color: color-mix(in oklab, var(--sav, #894ed6) 38%, var(--line));
+}
+html[data-theme="cyberpunk"] .save-band.is-records .save-flow {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--save, #894ed6) 8%, transparent) 0%, transparent 46%),
+    var(--cp-panel);
+  border-radius: 2px;
+  box-shadow: 0 12px 20px rgb(0 0 0 / .38);
+}
+/* The cut, where the house rule allows it: both panels pad past the
+   12px chamfer and nothing rides outside their boxes. */
+html[data-theme="cyberpunk"] .save-band.is-records :is(.save-view, .save-flow) {
+  clip-path: var(--cp-cut);
+  filter: drop-shadow(0 12px 20px rgb(0 0 0 / .45));
+  box-shadow: none;
+}
+/* Heads and figures inside the windows wear the display face. The
+   ledger and flow heads are .lab-head and already speak Rajdhani; the
+   view's serif head and every .num figure join them here. */
+html[data-theme="cyberpunk"] .save-band.is-records .save-view .save-ledger-head strong {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .02em;
+}
+html[data-theme="cyberpunk"] .save-band.is-records :is(.save-ledger, .save-view, .save-more, .save-flow, .vault-lever) .num {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;
+}
+/* The + buttons on these windows take the primary treatment: flat
+   signal yellow, dark glyph — the same block Oscar kept on the chips.
+   (The ledger head's fold chevron and the view head's kit pencil are
+   excluded on purpose: secondary tools keep the tool finish.) */
+html[data-theme="cyberpunk"] .save-band.is-records .save-ledger-head .icon-btn:not(.ledger-fold):not(.is-pen),
+html[data-theme="cyberpunk"] .save-band.is-records .kit-btn.is-add {
+  background: var(--accent); color: var(--accent-fg);
+  border-color: transparent; border-radius: 2px; box-shadow: none;
+}
+html[data-theme="cyberpunk"] .save-band.is-records .kit-btn { border-radius: 2px; }
+/* The pocket add form's own save wire flattens to the same primary
+   (the base sheet paints it as a glossy gradient in the pocket tint). */
+html[data-theme="cyberpunk"] .save-band.is-records .save-ledger .form-block .btn:not(.secondary):not(.ghost) {
+  background: var(--accent); color: var(--accent-fg);
+  border-color: transparent; box-shadow: none;
+}
+/* Rows inside the windows: the gold bank rows flatten to dark stock
+   with the 2px system (the brass border and the marks keep their
+   colours), and the edit pencil trades its foreign teal for a whisper
+   of the surface's own colour over the warm ink. */
+html[data-theme="cyberpunk"] .save-band.is-records .save-account {
+  background: #14100b; border-radius: 2px;
+}
+html[data-theme="cyberpunk"] .save-band.is-records .save-account-edit .field {
+  background: #100d0a; border-color: color-mix(in oklab, var(--seg, var(--sav, #3a332a)) 55%, var(--line));
+}
+html[data-theme="cyberpunk"] .save-band.is-records :is(.save-ledger, .save-accounts) .bank-pencil {
+  color: color-mix(in oklab, var(--seg, var(--sav, #aca294)) 70%, var(--fg));
+}
+/* The MES row (the savings SpanCut): the glossy fold bar flattens to
+   the panel stock with a breath of its tone, its glow shadow dies,
+   and the amount pill takes the 2px system over its flat tone wash.
+   The open state's SEMANA/MES/AÑO filter takes the 199 selection
+   grammar in the row's own tone: frame at full strength, wash inside,
+   never the foreign white block the base sheet paints. */
+html[data-theme="cyberpunk"] .save-band.is-records .span-cut.is-saving .span-fold-bar {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 8%, transparent) 0%, transparent 46%),
+    var(--cp-panel);
+  border-radius: 2px;
+  box-shadow: none;
+}
+html[data-theme="cyberpunk"] .save-band.is-records .span-cut.is-saving .span-fold-main strong {
+  background: color-mix(in oklab, var(--accent) 16%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 32%, transparent);
+  border-radius: 2px;
+}
+html[data-theme="cyberpunk"] .save-band.is-records .span-cut.is-saving .span-filter { border-radius: 2px; }
+html[data-theme="cyberpunk"] .save-band.is-records .span-cut.is-saving .span-filter button { border-radius: 2px; }
+html[data-theme="cyberpunk"] .save-band.is-records .span-cut.is-saving .span-filter button[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--accent) 24%, var(--surface)); color: var(--fg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* The horizon lever: its white-lit fill gradient becomes a flat rail
+   in the pocket's colour, and the glossy radial ball becomes a flat
+   printed disc of the same colour with a dark keyline — the colour is
+   the pocket's, only the gloss dies. The read tiles (Semana / Mes /
+   Año / horizon) flatten to dark stock framed in the pocket colour;
+   the living mark takes the full-strength frame and the deeper wash,
+   the Cadence selection at tile size. */
+html[data-theme="cyberpunk"] .save-band.is-records .vault-lever-rail i::after { background: var(--seg, #d5e2ea); }
+html[data-theme="cyberpunk"] .save-band.is-records .vault-lever-rail b {
+  background: var(--seg, #d5e2ea);
+  box-shadow: 0 2px 6px rgb(0 0 0 / .55), inset 0 0 0 1.5px rgb(11 10 8 / .38);
+}
+html[data-theme="cyberpunk"] .save-band.is-records .vault-lever-read > div :is(span, .vault-mark) {
+  background: #14100b;
+  border-color: color-mix(in oklab, var(--seg, #d5e2ea) 38%, transparent);
+  border-radius: 2px;
+}
+html[data-theme="cyberpunk"] .save-band.is-records .vault-lever-read > div .vault-mark.is-on {
+  background: color-mix(in oklab, var(--seg, #d5e2ea) 22%, #14100b);
+  border-color: var(--seg, #d5e2ea);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 70%, transparent);
+}
+html[data-theme="cyberpunk"] .save-band.is-records .vault-year-btn { font-family: var(--cp-display); }
+/* The Apartado meter: a flat fill of its own colour, like every fill
+   in this city (the base sheet's OKLCH sweep was the last gradient
+   left inside these windows). */
+html[data-theme="cyberpunk"] .save-band.is-records .save-flow-meter i { background: var(--save, #8fb9a6); }
+
 /* ---------- Stillness: reduced motion parks the city ---------- */
 @media (prefers-reduced-motion: reduce) {
   /* The whole glitch family parks too (its applications already live

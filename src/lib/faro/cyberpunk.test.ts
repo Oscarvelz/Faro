@@ -392,3 +392,45 @@ describe("cyberpunk: el icono sobre el bloque (1.3.200)", () => {
     assert.equal(contrast("#fcee0a", "#fcee0a"), 1, "el defecto medido: acento sobre acento = 1.00:1, el icono tragado");
   });
 });
+
+describe("cyberpunk: las ventanas de los bolsillos (1.3.207)", () => {
+  // Orden de Oscar (2026-11-10 20:11 EST, foto larga de Libros): las
+  // ventanas DESPLEGADAS de los bolsillos (Emergencia / Retiro / Meta)
+  // y el panel de Todas / Apartado llevaban el acabado nocturno
+  // compartido — burbujas brillantes que no hablan cyberpunk. «Haz que
+  // estas ventanas se vean únicas en el cyberpunk, manteniendo sus
+  // colores, la misma paleta… Deja los otros temas como están.»
+  const at = css.indexOf("1.3.207");
+  const block = css.slice(at, css.indexOf("/* ---------- Stillness", at));
+  it("el vestido existe y vive cercado a la bóveda de Libros en este tema", () => {
+    assert.ok(at > 0, "la sección de la 1.3.207 debe existir en la hoja del tema");
+    assert.ok(block.includes('.save-band.is-records :is(.save-ledger, .save-view, .save-more, .vault-lever)'), "los paneles se visten bajo .save-band.is-records");
+    assert.ok(!/\.save-band(?!\.is-records)/.test(block.replace(/\.save-band\.is-records/g, "")), "ninguna regla de la 207 viste la banda fuera de Libros (el escritorio queda fuera)");
+  });
+  it("los paneles toman el fondo plano cálido y el radio de 2px de la ciudad", () => {
+    assert.ok(block.includes("var(--cp-panel)"), "el fondo es el material plano del tema");
+    assert.ok(block.includes("border-radius: 2px;"), "las burbujas de 24px dan paso al sistema de 2px");
+  });
+  it("el corte va solo donde ningún pin vive fuera de la caja", () => {
+    assert.ok(block.includes(":is(.save-view, .save-flow) {\n  clip-path: var(--cp-cut);"), "Fondos/Cuentas/Proyectos y Apartado toman el chaflán");
+    assert.ok(!/:is\([^)]*\.save-ledger[^)]*\)\s*\{\s*clip-path/.test(block) && !block.includes(".save-more {\n  clip-path") && !block.includes(".vault-lever {\n  clip-path"), "libro, cuentas y palanca NO se recortan: su pin vive en top:-8/-9px y un clip lo amputaría");
+  });
+  it("la palanca pierde el brillo: riel y bola planos en el color del bolsillo", () => {
+    assert.ok(block.includes(".vault-lever-rail i::after { background: var(--seg, #d5e2ea); }"), "el relleno del riel es plano, sin el degradado con luz blanca");
+    assert.ok(block.includes(".vault-lever-rail b {\n  background: var(--seg, #d5e2ea);"), "la bola radial brillante es un disco plano del mismo color");
+  });
+  it("ninguna regla de la 207 asigna un color de bolsillo: solo los lee", () => {
+    assert.ok(!/--(seg|save|sav)\s*:/.test(block), "«manteniendo sus colores»: --seg/--save/--sav se leen con var(), jamás se reescriben");
+  });
+  it("los + de estas ventanas son el primario plano; el lápiz y el pliegue quedan como herramientas", () => {
+    assert.ok(block.includes(".save-ledger-head .icon-btn:not(.ledger-fold):not(.is-pen)"), "el + del libro excluye el pliegue y el lápiz del kit");
+    assert.ok(block.includes(".kit-btn.is-add {\n  background: var(--accent); color: var(--accent-fg);"), "el + es el bloque amarillo señal con glifo oscuro");
+  });
+  it("titulares y cifras de las ventanas hablan Rajdhani", () => {
+    assert.ok(block.includes(".save-view .save-ledger-head strong {\n  font-family: var(--cp-display);"), "el titular de la vista deja la serif compartida");
+    assert.ok(block.includes(".num {\n  font-family: var(--cp-display);"), "las cifras de los paneles toman la fuente de la ciudad");
+  });
+  it("el medidor del Apartado es un relleno plano de su color", () => {
+    assert.ok(block.includes(".save-flow-meter i { background: var(--save, #8fb9a6); }"), "el último degradado dentro de estas ventanas desaparece");
+  });
+});
