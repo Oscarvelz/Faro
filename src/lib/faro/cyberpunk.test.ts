@@ -434,3 +434,59 @@ describe("cyberpunk: las ventanas de los bolsillos (1.3.207)", () => {
     assert.ok(block.includes(".save-flow-meter i { background: var(--save, #8fb9a6); }"), "el último degradado dentro de estas ventanas desaparece");
   });
 });
+
+describe("cyberpunk: los menús diarios de Libros (1.3.211)", () => {
+  // Orden de Oscar (2026-11-10 23:53 EST, cuatro fotos de Libros): los
+  // MENÚS de las cinco secciones diarias (Ingresos fijos / variables,
+  // Gastos fijos / variables, Compras) llevaban el acabado compartido —
+  // la barra MES burbuja brillante de 22px, el + moneda de oro, la
+  // burbuja vacía translúcida. «Dale su toque cyberpunk a estas fichas
+  // diarias… No toques a esas tarjetas principales, solo los menús.»
+  const at = css.indexOf("1.3.211");
+  const block = css.slice(at, css.indexOf("/* ---------- Stillness", at));
+  const screens = fs.readFileSync(new URL("../../components/faro/screens.tsx", import.meta.url), "utf8");
+  it("el vestido existe y cada regla vive cercada al gancho is-menu de Libros", () => {
+    assert.ok(at > 0, "la sección de la 1.3.211 debe existir en la hoja del tema");
+    const rules = block.replace(/\/\*[\s\S]*?\*\//g, "").split("}").map((s) => s.trim()).filter((s) => s.includes("{"));
+    assert.ok(rules.length >= 8, "el bloque trae su familia de reglas");
+    for (const r of rules) assert.ok(r.slice(0, r.indexOf("{")).includes(".card.income-book.is-menu"), `toda regla del bloque cuelga del gancho: ${r.slice(0, 60)}`);
+    assert.ok(!block.includes(".save-band"), "el bloque no toca la banda de ahorros ni el vestido de la 1.3.208");
+  });
+  it("el gancho lo llevan solo las cinco secciones de Libros; Cuotas queda fuera", () => {
+    assert.ok(screens.includes('${menu ? " is-menu" : ""}'), "la sección pinta is-menu solo desde el prop menu");
+    for (const kind of ["income-fixed", "income-variable", "expense-fixed", "expense-variable", "purchase"]) {
+      assert.ok(new RegExp(`LinesBlock kind="${kind}"[^/>]*menu /`).test(screens), `la llamada de ${kind} lleva menu`);
+    }
+    assert.ok(!/LinesBlock kind="subscription"[^/>]*menu/.test(screens), "Cuotas (la gemela del escritorio de Pagos) NO lleva el gancho: no es un menú de Libros");
+  });
+  it("el panel toma el fondo plano cálido con el respiro del acento, sin redeclarar el corte", () => {
+    assert.ok(block.includes(".card.income-book.is-menu {\n  background:\n    linear-gradient(180deg, color-mix(in oklab, var(--accent) 8%, transparent) 0%, transparent 46%),\n    var(--cp-panel);"), "el panel es el material plano del tema bajo el respiro del acento de su barra");
+    assert.ok(!block.includes("clip-path"), "el chaflán sigue siendo el de la regla genérica de tarjetas: nada se rede­clara ni se amputa");
+  });
+  it("la barra MES pierde el brillo: fondo plano, radio 2px, sin sombra ni luz interior", () => {
+    assert.ok(block.includes(".span-fold-bar {\n  background:\n    linear-gradient(180deg, color-mix(in oklab, var(--accent) 8%, transparent) 0%, transparent 46%),\n    var(--cp-panel);\n  border-radius: 2px;\n  box-shadow: none;"), "la barra es material plano de la ciudad, no la burbuja de 22px con luz blanca");
+  });
+  it("la píldora del monto es lavado plano del acento con marco interior, en el sistema de 2px", () => {
+    assert.ok(block.includes(".span-fold-main strong {\n  background: color-mix(in oklab, var(--accent) 16%, var(--surface));\n  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 32%, transparent);\n  border-radius: 2px;"), "la píldora: lavado 16% + marco interior 32%, como la fila MES de los bolsillos");
+  });
+  it("el filtro abierto SEMANA/MES/AÑO toma la gramática de selección 199 en el acento", () => {
+    assert.ok(block.includes('.span-filter button[aria-pressed="true"] {\n  background: color-mix(in oklab, var(--accent) 24%, var(--surface)); color: var(--fg);\n  box-shadow: inset 0 0 0 1px var(--accent);'), "la opción viva: marco a plena fuerza y lavado dentro, nunca el bloque claro de la hoja base");
+    assert.ok(block.includes(".span-filter { border-radius: 2px; }"), "el filtro entra en el sistema de 2px");
+  });
+  it("el + deja de ser la moneda de oro: bloque amarillo plano, círculos silenciados, glifo oscuro", () => {
+    assert.ok(block.includes(".plus-mark {\n  background: var(--accent); border-radius: 2px; box-shadow: none;"), "el + es el primario plano de la ciudad");
+    assert.ok(block.includes(".plus-mark svg circle {\n  fill: none; stroke: none;"), "la moneda muere por pintura: sin relleno degradado ni anillo; el trazo oscuro propio del SVG queda como glifo");
+  });
+  it("la burbuja vacía se asienta en el fondo oscuro con su marco punteado acabado en el acento", () => {
+    assert.ok(block.includes(".fx-note.is-empty {\n  background: #14100b;\n  border-color: color-mix(in oklab, var(--accent) 38%, var(--line));\n  border-radius: 2px;"), "burbuja: fondo oscuro plano, marco al 38% del acento, radio 2px");
+    assert.ok(!/\.fx-note\.is-empty \{[^}]*border-style/.test(block), "el punteado es de la hoja base y se queda punteado: el bloque no lo toca");
+  });
+  it("rótulo y cifra de la barra hablan Rajdhani", () => {
+    assert.ok(block.includes(".span-fold-main span {\n  font-family: var(--cp-display); font-weight: 600;"), "el rótulo MES toma la fuente de la ciudad");
+    assert.ok(block.includes("font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;"), "la cifra del monto toma la fuente de la ciudad");
+  });
+  it("el bloque no asigna colores de bolsillo ni de sección: solo lee el acento", () => {
+    assert.ok(!/--(seg|save|sav)\s*:/.test(block), "ninguna variable de color se reescribe en los menús");
+    assert.ok(!/--accent\s*:/.test(block), "ni siquiera el acento: se lee con var(), jamás se asigna");
+  });
+});

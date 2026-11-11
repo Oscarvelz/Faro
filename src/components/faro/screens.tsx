@@ -776,7 +776,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
   );
 }
 
-export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKind | LineKind[]; title: string; categoryId?: string; storeId?: string }) {
+export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: LineKind | LineKind[]; title: string; categoryId?: string; storeId?: string; menu?: boolean }) {
   const { lines, t, ui, setUi, viewLine, recordLine, session, confirm, commit, key, names, fmt, lang } = useFaro();
   const kinds = Array.isArray(kind) ? kind : [kind];
   const draftKind = kinds[0] ?? "income-fixed";
@@ -831,7 +831,7 @@ export function LinesBlock({ kind, title, categoryId, storeId }: { kind: LineKin
   }, [ui.editing]);
 
   return (
-    <section className="card income-book" data-anchor="book-card">
+    <section className={`card income-book${menu ? " is-menu" : ""}`} data-anchor="book-card">
       <div className="row income-head" style={{ justifyContent: "space-between" }}>
         <h2 className="serif text-2xl lab-head">{title}<Hint topic="libro-categoria" fitParent /></h2>
         <span className="row">
@@ -3325,16 +3325,16 @@ export function Books({ mode }: { mode: "income" | "fixed" | "variable" }) {
   if (mode === "income") {
     return (
       <div className="grid gap-3">
-        <LinesBlock kind="income-fixed" title={t("income.fixed")} />
-        <LinesBlock kind="income-variable" title={t("income.variable")} />
+        <LinesBlock kind="income-fixed" title={t("income.fixed")} menu />
+        <LinesBlock kind="income-variable" title={t("income.variable")} menu />
         <ImportDoor />
       </div>
     );
   }
-  if (mode === "fixed") return <div className="grid gap-3"><LinesBlock kind="expense-fixed" title={t("group.fixed")} /><ImportDoor /></div>;
+  if (mode === "fixed") return <div className="grid gap-3"><LinesBlock kind="expense-fixed" title={t("group.fixed")} menu /><ImportDoor /></div>;
   return (
     <div className="grid gap-3">
-      <LinesBlock kind="expense-variable" title={t("group.variable")} />
+      <LinesBlock kind="expense-variable" title={t("group.variable")} menu />
       <PeopleBox />
       <RemitPeopleBox />
       <ImportDoor />
@@ -3404,7 +3404,7 @@ export function Shops() {
   return (
     <div className="grid gap-3">
       <div className="shop-stage">
-        <LinesBlock kind="purchase" title={t("nav.shops")} />
+        <LinesBlock kind="purchase" title={t("nav.shops")} menu />
         <button type="button" data-anchor="shops-gear" className="icon-btn shop-gear" aria-expanded={open} aria-label={t("nav.settings")} onClick={() => { gearJump.current = false; setOpen((v) => !v); }}>
           <Gear className="size-4" />
         </button>
