@@ -1,0 +1,61 @@
+/* =====================================================================
+   Faro · Ion — «La luz refractada» (1.3.201, Part 2). Oscar, from his
+   photo of the follow strip in Ion-noche on 1.3.200: the selection
+   frame "is making a disservice to the glass finishing. It should
+   look better."
+
+   The frame he meant is brillo.css §2's inner accent frame — in every
+   theme a quiet inset ring, but in Ion the accent is a hard cyan, so
+   the living chip wore a 1.5px cyan outline (measured on the bench:
+   oklab(0.865 -0.103 -0.052 / 0.65) 0px 0px 0px 1.5px inset) that read
+   pasted onto the glass pill, and the dock's living ship wore the
+   same family's hard 3px halo ring. An outline is not how glass
+   announces itself. In Ion the selection is now REFRACTED LIGHT:
+
+   · the chip keeps no outline at all — a bright top edge where the
+     light enters, a soft inner glow in Ion's own cyan, and a hairline
+     of pooled light along the bottom edge, the way light settles
+     inside thick glass;
+   · the pill itself lifts as frosted glass — a stronger top light, a
+     whisper of the glow colour inside the glass, and a soft halo
+     beneath it;
+   · the dock/rail halo loses its hard ring and keeps only the spill;
+   · the dock glide's border softens from a cyan line to a refracted
+     edge, lit from its top.
+
+   Fenced to the Ion family (ion + ion-noche) by the theme attribute
+   on every selector; the vault bar carries no selection ring in Ion
+   (its glide is a tinted wash behind transparent buttons) and is
+   consciously left as it is. Imported after brillo.css so these
+   recipes, at higher specificity, are the ones Ion reads.
+   ===================================================================== */
+
+/* The living chip: refracted light, not an outline. */
+html:is([data-theme="ion"], [data-theme="ion-noche"]) .app-frame .seg.is-follow button[aria-current="page"] {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .55),
+    inset 0 0 14px color-mix(in oklab, var(--glow) 16%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--glow) 38%, transparent);
+}
+
+/* The glass pill lifts: top light, glow inside the glass, halo beneath. */
+html:is([data-theme="ion"], [data-theme="ion-noche"]) .seg.is-follow .seg-pill {
+  background: linear-gradient(180deg, color-mix(in oklab, white 30%, var(--surface)), color-mix(in oklab, var(--glow) 12%, var(--surface)));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .5),
+    inset 0 0 18px color-mix(in oklab, var(--glow) 13%, transparent),
+    0 8px 20px -8px color-mix(in oklab, var(--glow) 50%, transparent);
+}
+
+/* The living ship: the spill of light, without the hard ring. */
+html:is([data-theme="ion"], [data-theme="ion-noche"]) .app-frame :is(.dock, .rail) .nav-btn[aria-current="page"] {
+  box-shadow: 0 0 18px -2px color-mix(in oklab, var(--glow) 45%, transparent);
+}
+
+/* The dock glide's edge: refracted, lit from its top. */
+html:is([data-theme="ion"], [data-theme="ion-noche"]) .dock-glide {
+  border-color: color-mix(in oklab, var(--glow) 24%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .4),
+    inset 0 0 14px color-mix(in oklab, var(--glow) 12%, transparent);
+}

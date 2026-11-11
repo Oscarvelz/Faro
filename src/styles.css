@@ -1166,12 +1166,26 @@ html[data-theme="ion"] .save-band { background: linear-gradient(180deg, #f3f7f4 
 .seg.is-follow .seg-ico, .seg.is-follow .seg-ico svg { width: 13px; height: 13px; }
 .seg.is-follow button[aria-current="page"] { color: var(--fg); background: transparent; border-color: transparent; box-shadow: none; }
 .seg-pill { background: linear-gradient(180deg, color-mix(in oklab, white 22%, var(--surface)), var(--surface)); box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent); border: 0; }
-.seg-pill.is-gliding::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, color-mix(in oklab, white 55%, transparent) 50%, transparent 85%); animation: seg-sheen .62s cubic-bezier(.22, 1, .36, 1); }
+.seg-pill.is-gliding::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, color-mix(in oklab, white 55%, transparent) 50%, transparent 85%); animation: seg-sheen .38s cubic-bezier(.22, 1, .36, 1); }
 @keyframes seg-sheen { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
 .seg.is-follow .seg-ico { width: 14px; height: 14px; }
 .seg.is-follow .seg-ico svg { width: 14px; height: 14px; }
 .seg.is-follow .seg-label { white-space: nowrap; }
 .seg.is-follow + .relative { margin-bottom: 12px; }
+/* 1.3.201 — the selection travels as ONE piece. Oscar, from photos of
+   Niebla and Ion-noche on 1.3.200: the button's own paint moved first
+   and the travelling pill trailed behind it — in Ion "a ghost following
+   the frame of the button". The mechanism, measured: the label's colour
+   rode a .15s transition, the pill glides .38s, the sheen swept .62s,
+   and the selection frame (brillo's inset ring, a box-shadow) sat in NO
+   transition list at all, so it snapped onto the target instantly while
+   the glass was still travelling. Now every paint that marks the living
+   follow tab shares the pill's own clock — .38s, the house glide
+   easing: the label's colour, the icon's colour and the frame itself.
+   Only the press scale keeps its .15s: that is the tap answering,
+   not the selection travelling. */
+.seg.is-follow button { transition: transform .15s cubic-bezier(.22, 1, .36, 1), background-color .38s cubic-bezier(.22, 1, .36, 1), color .38s cubic-bezier(.22, 1, .36, 1), box-shadow .38s cubic-bezier(.22, 1, .36, 1); }
+.seg.is-follow .seg-ico { transition: color .38s cubic-bezier(.22, 1, .36, 1); }
 
 .lens,
 .save-seg,
@@ -1284,15 +1298,21 @@ html .lenses .lens.is-picked::after {
 .dock .nav-btn:focus {
   transform: none !important;
   animation: none !important;
-  transition: color .35s ease;
+  /* 1.3.201 — one clock on the dock too: the ink and the halo (a
+     box-shadow that used to snap on untransitioned) ride the glide's
+     own .42s, and the icon's rise lands with the frame, not after it. */
+  transition: color .42s cubic-bezier(.22, 1, .36, 1), box-shadow .42s cubic-bezier(.22, 1, .36, 1);
   background: transparent;
   z-index: 1;
 }
 .dock .nav-btn[aria-current="page"] { background: transparent; color: var(--fg); }
-.dock .nav-btn svg { transition: opacity .35s ease; }
-.dock .nav-btn[aria-current="page"] svg { animation: dock-rise .48s cubic-bezier(.22, 1, .36, 1); }
+/* The rail and the side-dock are ink over the same glass pill (their
+   buttons paint no background of their own): the same one-clock rule. */
+.rail .nav-btn, .side-dock .nav-btn { transition: color .42s cubic-bezier(.22, 1, .36, 1), box-shadow .42s cubic-bezier(.22, 1, .36, 1); }
+.dock .nav-btn svg { transition: opacity .42s cubic-bezier(.22, 1, .36, 1); }
+.dock .nav-btn[aria-current="page"] svg { animation: dock-rise .42s cubic-bezier(.22, 1, .36, 1); }
 .dock-glide { position: absolute; z-index: 0; top: 6px; bottom: 6px; width: calc((100% - 20px) / 3); left: calc(6px + var(--dock, 0) * ((100% - 20px) / 3 + 4px)); border-radius: 16px; background: color-mix(in oklab, var(--accent) 14%, var(--surface)); border: 1px solid color-mix(in oklab, var(--accent) 32%, var(--line)); pointer-events: none; box-shadow: inset 0 1px 0 color-mix(in oklab, white 28%, transparent); transition: left .42s cubic-bezier(.22, 1, .36, 1); overflow: hidden; }
-.dock-sheen { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 22%, color-mix(in oklab, white 28%, transparent) 48%, transparent 76%); animation: dock-sheen .62s cubic-bezier(.22, 1, .36, 1); }
+.dock-sheen { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 22%, color-mix(in oklab, white 28%, transparent) 48%, transparent 76%); animation: dock-sheen .42s cubic-bezier(.22, 1, .36, 1); }
 @keyframes dock-rise { from { transform: translateY(4px); opacity: .35; } to { transform: none; opacity: 1; } }
 @keyframes dock-sheen { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
 @media (prefers-reduced-motion: reduce) {
@@ -1306,11 +1326,11 @@ html .lenses .lens.is-picked::after {
   animation: none !important;
 }
 .vault-bar { position: relative; display: flex; gap: 4px; margin: 10px 0 14px; padding: 4px; border-radius: 16px; background: color-mix(in oklab, var(--surface) 88%, var(--bg)); border: 1px solid color-mix(in oklab, #c4a15a 28%, var(--line)); box-shadow: inset 0 1px 0 color-mix(in oklab, white 16%, transparent); }
-.vault-glide { position: absolute; z-index: 0; top: 4px; left: 0; height: calc(100% - 8px); width: 0; border-radius: 12px; background: linear-gradient(180deg, color-mix(in oklab, var(--vtint) 48%, var(--surface)), color-mix(in oklab, var(--vtint) 18%, var(--surface))); border: 0; box-shadow: inset 0 1px 0 color-mix(in oklab, white 36%, transparent); opacity: 0; pointer-events: none; transition: left .38s cubic-bezier(.16, 1, .3, 1), width .38s cubic-bezier(.16, 1, .3, 1), opacity .28s ease, background .32s ease, border-color .32s ease; }
+.vault-glide { position: absolute; z-index: 0; top: 4px; left: 0; height: calc(100% - 8px); width: 0; border-radius: 12px; background: linear-gradient(180deg, color-mix(in oklab, var(--vtint) 48%, var(--surface)), color-mix(in oklab, var(--vtint) 18%, var(--surface))); border: 0; box-shadow: inset 0 1px 0 color-mix(in oklab, white 36%, transparent); opacity: 0; pointer-events: none; transition: left .38s cubic-bezier(.16, 1, .3, 1), width .38s cubic-bezier(.16, 1, .3, 1), opacity .38s cubic-bezier(.16, 1, .3, 1), background .38s cubic-bezier(.16, 1, .3, 1), border-color .38s cubic-bezier(.16, 1, .3, 1); }
 .vault-glide.is-on { opacity: 1; }
 /* Savings tab (Nov 2 2026): no longer a neutral white pill. It takes --vtint like its siblings, and --vtint is the
    savings purple (shell.tsx), so the selected Savings tab is purple in every theme. */
-.vault-bar button { position: relative; z-index: 1; flex: 1 0 auto; min-height: 36px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px; padding: 0 6px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font: inherit; font-size: 0.66rem; font-weight: 620; letter-spacing: -0.02em; transition: color .35s ease; }
+.vault-bar button { position: relative; z-index: 1; flex: 1 0 auto; min-height: 36px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px; padding: 0 6px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font: inherit; font-size: 0.66rem; font-weight: 620; letter-spacing: -0.02em; transition: color .38s cubic-bezier(.16, 1, .3, 1), box-shadow .38s cubic-bezier(.16, 1, .3, 1); }
 .vault-bar button span { white-space: nowrap; }
 .vault-bar button svg { width: 13px; height: 13px; flex: none; }
 .vault-bar button[aria-current="page"] { background: transparent; color: var(--fg); box-shadow: none; }
@@ -1819,9 +1839,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
   .app-frame:not(.is-split) .aside.is-open .slip-btn { max-width: 100%; white-space: normal; text-align: left; }
   .money-resize { position: absolute; z-index: 2; top: 0; right: 0; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 0 28px 0 10px; background: transparent; cursor: nesw-resize; touch-action: none; }
   .money-resize::after { content: ""; position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-top: 2px solid color-mix(in oklab, var(--fg) 55%, transparent); border-right: 2px solid color-mix(in oklab, var(--fg) 55%, transparent); }
-  .dock-glass { position: absolute; top: 0; left: 0; z-index: 0; width: 0; height: 0; opacity: 0; pointer-events: none; border-radius: 16px; overflow: hidden; border: 1px solid color-mix(in oklab, white 30%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, white 26%, var(--surface)), color-mix(in oklab, var(--surface) 78%, var(--bg))); box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent), 0 10px 22px color-mix(in oklab, black 18%, transparent); transition: transform .42s cubic-bezier(.22, 1, .36, 1), width .42s cubic-bezier(.22, 1, .36, 1), height .42s cubic-bezier(.22, 1, .36, 1), opacity .18s ease; }
+  .dock-glass { position: absolute; top: 0; left: 0; z-index: 0; width: 0; height: 0; opacity: 0; pointer-events: none; border-radius: 16px; overflow: hidden; border: 1px solid color-mix(in oklab, white 30%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, white 26%, var(--surface)), color-mix(in oklab, var(--surface) 78%, var(--bg))); box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent), 0 10px 22px color-mix(in oklab, black 18%, transparent); transition: transform .42s cubic-bezier(.22, 1, .36, 1), width .42s cubic-bezier(.22, 1, .36, 1), height .42s cubic-bezier(.22, 1, .36, 1), opacity .42s cubic-bezier(.22, 1, .36, 1); }
   .dock-glass.is-on { opacity: 1; }
-  .dock-glass.is-gliding::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, color-mix(in oklab, white 55%, transparent) 50%, transparent 85%); animation: seg-sheen .62s cubic-bezier(.22, 1, .36, 1); }
+  .dock-glass.is-gliding::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, color-mix(in oklab, white 55%, transparent) 50%, transparent 85%); animation: seg-sheen .42s cubic-bezier(.22, 1, .36, 1); }
   .app-frame:not(.is-split) .rail .nav-btn,
   .app-frame:not(.is-split) .side-dock .nav-btn { position: relative; z-index: 1; }
   .app-frame:not(.is-split) .rail .nav-btn[aria-current="page"],
@@ -1899,7 +1919,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
   .app-frame:not(.is-split) .dock-face .nav-btn svg { width: 18px; height: 18px; }
   .app-frame:not(.is-split) .dock-face .nav-btn[aria-current="page"],
   .app-frame:not(.is-split) .dock-face .nav-btn[aria-pressed="true"] { background: transparent; color: var(--fg); box-shadow: none; }
-  .app-frame:not(.is-split) .dock-glass { position: absolute; top: 0; left: 0; z-index: 0; width: 0; height: 0; opacity: 0; pointer-events: none; border-radius: 14px; overflow: hidden; border: 1px solid color-mix(in oklab, white 30%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, white 26%, var(--surface)), color-mix(in oklab, var(--surface) 78%, var(--bg))); box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent), 0 8px 16px color-mix(in oklab, black 16%, transparent); transition: transform .42s cubic-bezier(.22, 1, .36, 1), width .42s cubic-bezier(.22, 1, .36, 1), height .42s cubic-bezier(.22, 1, .36, 1), opacity .18s ease; }
+  .app-frame:not(.is-split) .dock-glass { position: absolute; top: 0; left: 0; z-index: 0; width: 0; height: 0; opacity: 0; pointer-events: none; border-radius: 14px; overflow: hidden; border: 1px solid color-mix(in oklab, white 30%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, white 26%, var(--surface)), color-mix(in oklab, var(--surface) 78%, var(--bg))); box-shadow: inset 0 1px 0 color-mix(in oklab, white 62%, transparent), 0 8px 16px color-mix(in oklab, black 16%, transparent); transition: transform .42s cubic-bezier(.22, 1, .36, 1), width .42s cubic-bezier(.22, 1, .36, 1), height .42s cubic-bezier(.22, 1, .36, 1), opacity .42s cubic-bezier(.22, 1, .36, 1); }
   .app-frame:not(.is-split) .dock-glass.is-on { opacity: 1; }
   .app-frame:not(.is-split) .dock { display: none; }
   .app-frame:not(.is-split) .phone-gear { display: none; }

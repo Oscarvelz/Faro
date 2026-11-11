@@ -6,9 +6,9 @@ import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, 
 import "./float.css";
 import "./tron.css";
 import "./cyberpunk.css";
-import { mountCpCity } from "./cp-city";
 import "./brillo.css";
 import "./principal.css";
+import "./ion.css";
 import "./cal.css";
 import "./tablet.css";
 import { UserButton } from "@/lib/auth/gates";
@@ -45,8 +45,6 @@ import { PeopleInbox } from "./people";
 import { BankDock } from "./bank-dock";
 import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
-
-mountCpCity(); // 1.3.201: the Cyberpunk city layers (display:none outside that theme)
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
 const ShareInbox = lazy(() => import("./share-inbox"));
 const DocInbox = lazy(() => import("./doc-inbox"));
@@ -685,7 +683,14 @@ export function Shell() {
     };
   }, [searchOpen]);
 
-  useEffect(() => {
+  // 1.3.201: the selection placers run in the LAYOUT phase, not after
+  // paint. The pill's target used to be committed a frame behind the
+  // buttons' own paint, so the selection's pieces never even started
+  // together; committed before the same frame paints, pill, frame and
+  // ink share one start as well as one clock. Same computation,
+  // earlier phase — here and in the vault/glass placers below and in
+  // SectionView's pair.
+  useLayoutEffect(() => {
     const root = segRef.current;
     if (!root) return;
     const current = root.querySelector<HTMLElement>('[aria-current="page"]');
@@ -735,7 +740,7 @@ export function Shell() {
     return () => ro.disconnect();
   }, [hub, lang]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = vaultRef.current;
     if (!root) return;
     const current = root.querySelector<HTMLElement>('[aria-current="page"]');
@@ -747,7 +752,7 @@ export function Shell() {
     glide.style.top = `${current.offsetTop}px`;
   }, [vault, hub]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const place = (root: HTMLElement | null) => {
       if (!root) return;
       const pill = root.querySelector<HTMLElement>(".dock-glass");
@@ -1608,7 +1613,7 @@ function SectionView() {
   const vaultRef = useRef<HTMLDivElement>(null);
   const swipe = useRef<Swipe | null>(null);
   const swiped = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = segRef.current;
     if (!root) return;
     const current = root.querySelector<HTMLElement>('[aria-current="page"]');
@@ -1618,7 +1623,7 @@ function SectionView() {
     pill.style.height = `${current.offsetHeight}px`;
     pill.style.transform = `translate3d(${current.offsetLeft}px, ${current.offsetTop}px, 0)`;
   }, [ui.section, hub, vault]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = vaultRef.current;
     if (!root) return;
     const current = root.querySelector<HTMLElement>('[aria-current="page"]');
