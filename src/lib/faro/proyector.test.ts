@@ -18,7 +18,8 @@ const cyber = fs.readFileSync(new URL("../../components/faro/cyberpunk.css", imp
 const styles = fs.readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
 
 const sectionStart = cyber.lastIndexOf("/*", cyber.indexOf("1.3.217:"));
-const block = cyber.slice(sectionStart); // la sección cierra la hoja
+const sectionEnd = cyber.indexOf("1.3.220:", sectionStart);
+const block = cyber.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : undefined); // la sección cerraba la hoja hasta que la 1.3.220 añadió la suya
 const paint = block.replace(/\/\*[\s\S]*?\*\//g, "");
 const FENCE = 'html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records)';
 

@@ -1580,3 +1580,117 @@ html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-
 html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-flat .vault-year-btn {
   font-family: var(--cp-display);
 }
+
+/* ---------- 1.3.220: la banda de Ahorros y su menú Todas ----------
+   Oscar's order (2026-11-11 07:28 EST, two photos of Central):
+   «Preserving the same color, upgrade the look of ours and its menu.
+   Same. Upgrade in Cyberpunk only.» The desk Ahorros band header —
+   the glossy purple sphere medallion, the serif «Ahorros», the band
+   total, the save-track — and its Todas menu (the «Cuentas» panel:
+   account rows and the CUENTA NUEVA form) still wore the shared
+   finish: a radial-lit sphere, a serif title, a pill track, a 24px
+   bubble panel lit from inside, gold-framed rows, a dark cell where
+   the form's primary should be. This block closes the desk savings
+   side the 208 fence deliberately left out, fenced to the DESK band
+   (.save-band.sav-scope without .is-records — the Libros windows
+   took their dress in 1.3.208 and do not change here; the pocket
+   cards and levers inside the band are 217/219 territory).
+   THE PRESERVATION CLAUSE, from Oscar's own words: on this surface
+   the purple outranks the theme's yellow primary — the medallion
+   flattens to the identity colour itself (var(--sav) IS #894ed6,
+   set inline from colors.ts), the panel breathes it at 8% like
+   every dressed window breathes its own colour, and the form's
+   primary buttons stay PURPLE, flat. The band's frame already wears
+   the grammar (1.3.197: flat cp-panel stock, 2px radius, the cut);
+   what changes here is the header's furniture, the track, and the
+   menu. The medallion stays a disc — round is for cells, the cut
+   is for panels — only its gloss dies: flat purple, a black depth
+   shadow, the white bank mark it already carried. */
+/* The medallion: the sphere becomes a flat printed disc of the
+   identity purple; the border keeps the night law's darkened seam. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .bank-tap {
+  background: var(--sav, #894ed6);
+  box-shadow: 0 2px 5px rgb(0 0 0 / .35);
+}
+/* The title and the band's figures speak the display face; the open
+   state's lightened purple keeps its colour and loses its glow. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-word {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .02em;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-word.is-gold {
+  text-shadow: none;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-head .num {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-head em {
+  font-family: var(--cp-display); font-style: normal;
+}
+/* The track: the pill becomes a flat dark bed at 2px; the segments
+   keep their tint paints — they are the pockets' shares, data. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-track {
+  background: #14100b; border-radius: 2px;
+}
+/* The Todas panel: flat cp-panel stock under an 8% breath of the
+   Ahorros purple (the 208/213/217 grammar), its border at the same
+   38% the Libros panel wears, square 2px corners — no chamfer: the
+   house pin lesson, inherited from 208. The inner white light dies;
+   black depth stays. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-more {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--sav, #894ed6) 8%, transparent) 0%, transparent 46%),
+    var(--cp-panel);
+  border-color: color-mix(in oklab, var(--sav, #894ed6) 38%, var(--line));
+  border-radius: 2px;
+  box-shadow: 0 12px 20px rgb(0 0 0 / .38);
+}
+/* Figures inside the panel speak the display face (the head total,
+   the row sums, the amount field — the .num law of these windows,
+   as in 208), and the TODAS pin takes the chip finish: its sav
+   colours are the band voice and stay; only the pill rounds off. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-more .num {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-more .save-ledger-head .fold-pin {
+  border-radius: 2px;
+}
+/* Account rows: the shared gold-framed cells flatten to dark stock
+   at 2px (the sav border law of the base sheet keeps its colour);
+   the edit pencil trades its shared teal for a whisper of the
+   surface's own purple, as in 208, and the rename field flattens
+   to the dark stock with a purple frame. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-account {
+  background: #14100b; border-radius: 2px;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-account .bank-pencil {
+  color: color-mix(in oklab, var(--sav, #aca294) 70%, var(--fg));
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-account .bank-rename {
+  background: #100d0a; border-radius: 2px;
+  border-color: color-mix(in oklab, var(--sav, #894ed6) 55%, var(--line));
+}
+/* The CUENTA NUEVA form: fields already square off in this theme;
+   their focus frame becomes the identity purple at full strength
+   (the base sheet mixes it at 75%), the image picker flattens to
+   dark stock at 2px (still a dashed drop zone — that is its job)
+   and its + badge — already flat purple — takes the chip radius. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-more .ah-form :is(.field, .day-field-btn):focus {
+  border-color: var(--sav, #894ed6);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--sav, #894ed6) 35%, transparent);
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-more .bank-photo-btn {
+  background: #14100b; border-radius: 2px;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-more .bank-photo-plus {
+  border-radius: 2px;
+}
+/* The preservation clause, applied: the form's primaries — «+ Agregar»
+   and the account forms' save wire — stay PURPLE, flat. No gradient,
+   no yellow: on this surface the identity colour is the primary. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-more .ah-form :is(.ah-actions .btn:not(.secondary), .ah-go .btn) {
+  background: var(--sav, #894ed6);
+  color: var(--sav-ink, #fff);
+  border-color: transparent;
+  box-shadow: none;
+  border-radius: 2px;
+}
