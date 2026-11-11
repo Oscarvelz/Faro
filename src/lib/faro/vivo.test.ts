@@ -120,3 +120,15 @@ test("hud: no money figure is ever animated (Faro's figure law); motion sits beh
   const outside = hud.replace(/@media \(prefers-reduced-motion: (no-preference|reduce)\) \{[\s\S]*?\n\}/g, "").replace(/@keyframes[^{]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, "");
   assert.ok(!/animation\s*:\s*(?!none)[a-z]/.test(outside.replace(/animation: cp-ts-ring[^;]*;/, "")), "every animation lives behind a motion guard (the tablet ring replaces the house's own ring)");
 });
+
+test("vivo 1.3.205: the city and the sweep live only behind the drawn screens (never splash, boot, gates or teardown)", () => {
+  const gate = 'html[data-theme="cyberpunk"][data-cp-shell]:not(.booting):not(:has(.sp, main.gate, main.splash))';
+  assert.ok(strip.includes(`${gate} .cp-city {`), "city shown only with the shell gate");
+  assert.ok(strip.includes(`${gate} .cp-scan {`), "sweep layer shown only with the shell gate");
+  assert.match(ts, /export function cpShellLive\(\)/);
+  assert.match(ts, /!html\.hasAttribute\("data-cp-shell"\)\) return;/);
+  assert.match(ts, /childList: true, attributes: true, attributeFilter: \["data-moving"\]/);
+  const shell = fs.readFileSync(new URL("../../components/faro/shell.tsx", import.meta.url), "utf8");
+  assert.match(shell, /ready && session \? cpShellLive\(\) : undefined/);
+  assert.equal((shell.match(/mountCpCity\(\);/g) || []).length, 1, "the city is mounted exactly once");
+});

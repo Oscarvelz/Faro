@@ -7,7 +7,7 @@ import "./float.css";
 import "./tron.css";
 import "./cyberpunk.css";
 import "./cyberpunk-hud.css";
-import { mountCpCity } from "./cp-city";
+import { cpShellLive, mountCpCity } from "./cp-city";
 import "./brillo.css";
 import "./principal.css";
 import "./ion.css";
@@ -799,6 +799,8 @@ export function Shell() {
   useEffect(() => {
     if (ready && session) window.dispatchEvent(new Event("faro:shell-ready"));
   }, [ready, !!session]);
+  // 1.3.205: the Cyberpunk city only behind the drawn screens (never the boot frame, gates or teardown).
+  useEffect(() => (ready && session ? cpShellLive() : undefined), [ready, !!session]);
 
   // The manual's text: warm it when idle. A deep link (#manual or #manual=<topic>) opens it once, after unlock.
   const linked = useRef(false);

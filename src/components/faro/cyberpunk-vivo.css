@@ -17,10 +17,15 @@
 
 /* ---------- 1. The city behind the glass (ambient, own layer) ---------- */
 .cp-city, .cp-scan { display: none; }
-html[data-theme="cyberpunk"] .cp-city {
+/* 1.3.205 (Oscar): the city lives only behind the app's own screens — never on the launch splash, the boot
+   frame, the sign-in or fingerprint gate, or the empty frame Back leaves. html[data-cp-shell] is set by the shell
+   while its screens are really drawn (cp-city.ts cpShellLive); the splash/gates also hide it while they show. */
+html[data-theme="cyberpunk"][data-cp-shell]:not(.booting):not(:has(.sp, main.gate, main.splash)) .cp-city {
   display: block; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   overflow: hidden; contain: strict;
+  animation: cp-city-in .42s ease-out 1;
 }
+@keyframes cp-city-in { from { opacity: 0; } to { opacity: 1; } }
 html[data-theme="cyberpunk"] .cp-city > i, html[data-theme="cyberpunk"] .cp-skyline > b { position: absolute; display: block; }
 /* Skyline: two rows of warm towers, a hair lighter than the ground, with a
    whisper of sodium haze over the roofline (warm, never cyan, never from below). */
@@ -70,7 +75,7 @@ html[data-theme="cyberpunk"] .cp-spin {
 html[data-theme="cyberpunk"] .cp-spin.is-b { top: 31vh; width: 40px; background: linear-gradient(270deg, transparent, rgb(255 0 60 / .4) 55%, #f2eee3 94%, transparent); }
 
 /* ---------- 2. The signal sweep (one-shot, own layer, driven by cp-city.ts) ---------- */
-html[data-theme="cyberpunk"] .cp-scan { display: block; position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; contain: strict; }
+html[data-theme="cyberpunk"][data-cp-shell]:not(.booting):not(:has(.sp, main.gate, main.splash)) .cp-scan { display: block; position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; contain: strict; }
 html[data-theme="cyberpunk"] .cp-scan > i {
   position: absolute; left: 0; right: 0; top: 0; height: 140px; display: block; opacity: 0;
   background: linear-gradient(180deg, transparent, rgb(252 238 10 / .035) 62%, rgb(252 238 10 / .08) 96%, rgb(252 238 10 / .42) 99%, transparent);
@@ -170,6 +175,7 @@ html[data-theme="cyberpunk"][data-cp-calm] .cp-skyline > b { animation: none !im
   html[data-theme="cyberpunk"] .card { transition: none; }
   html[data-theme="cyberpunk"] .cp-city > i:is(.cp-rainbox, .cp-spin) { display: none; }
   html[data-theme="cyberpunk"] .cp-scan { display: none; }
+  html[data-theme="cyberpunk"] .cp-city { animation: none !important; }
   html[data-theme="cyberpunk"] :is(.cp-skyline > b, .cp-kata, .brand-word) { animation: none; }
   html[data-theme="cyberpunk"] .bar-fill::after { animation: none; }
 }

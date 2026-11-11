@@ -21,6 +21,18 @@ import { isScreenSwitch } from "./cp-switch";
 
 const ENTRANCES = new Set(["study-in", "study-in-back", "ring-in", "ring-in-back", "cp-ship-burst", "cp-tab-burst", "cp-pair-burst", "cp-vault-burst"]);
 
+const moving = () => Boolean(document.querySelector(".float-win[data-moving]"));
+
+/** 1.3.205 (Oscar): the city shows only behind the app's real screens. The shell calls this while its screens are drawn
+ *  (ready + session) and runs the returned cleanup when it leaves (lock, sign-in, teardown). Attribute only. */
+let shellCount = 0;
+export function cpShellLive(): () => void {
+  const html = document.documentElement;
+  shellCount++;
+  html.setAttribute("data-cp-shell", "");
+  return () => { shellCount = Math.max(0, shellCount - 1); if (!shellCount) html.removeAttribute("data-cp-shell"); };
+}
+
 export function mountCpCity() {
   if (typeof document === "undefined") return;
   const html = document.documentElement;
@@ -39,9 +51,10 @@ export function mountCpCity() {
     document.body.prepend(city);
     scan = sweep.firstElementChild as HTMLElement;
 
-    // Float-window drag → still.
-    const still = () => { if (document.querySelector(".float-win[data-moving]")) html.setAttribute("data-cp-still", ""); else html.removeAttribute("data-cp-still"); };
-    new MutationObserver(still).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["data-moving"] });
+    // Float-window drag → still. 1.3.205: also re-read when nodes leave, so a window unmounted mid-drag can never leave
+    // the city stuck still (and the sweep silenced) for the rest of the session.
+    const still = () => { if (moving()) html.setAttribute("data-cp-still", ""); else html.removeAttribute("data-cp-still"); };
+    new MutationObserver(still).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-moving"] });
   };
   if (document.body) mount(); else document.addEventListener("DOMContentLoaded", mount, { once: true });
 
@@ -72,8 +85,9 @@ export function mountCpCity() {
 
   // Signal sweep: only a main-screen switch (cp-switch.ts holds the rule).
   const fire = () => {
-    if (!scan || !isCity() || reduce?.matches) return;
-    if (html.hasAttribute("data-cp-still") || html.hasAttribute("data-cp-calm") || document.hidden) return;
+    if (!scan || !isCity() || reduce?.matches || !html.hasAttribute("data-cp-shell")) return;
+    // Still is read live (a drag in progress right now), never from a possibly stale attribute.
+    if (moving() || html.hasAttribute("data-cp-calm") || document.hidden) return;
     const now = performance.now();
     if (now - last < 320) return;
     last = now;
