@@ -443,7 +443,7 @@ describe("cyberpunk: los menús diarios de Libros (1.3.211)", () => {
   // burbuja vacía translúcida. «Dale su toque cyberpunk a estas fichas
   // diarias… No toques a esas tarjetas principales, solo los menús.»
   const at = css.indexOf("1.3.211");
-  const block = css.slice(at, css.indexOf("/* ---------- Stillness", at));
+  const block = css.slice(at, css.indexOf("1.3.213", at));
   const screens = fs.readFileSync(new URL("../../components/faro/screens.tsx", import.meta.url), "utf8");
   it("el vestido existe y cada regla vive cercada al gancho is-menu de Libros", () => {
     assert.ok(at > 0, "la sección de la 1.3.211 debe existir en la hoja del tema");
@@ -452,12 +452,14 @@ describe("cyberpunk: los menús diarios de Libros (1.3.211)", () => {
     for (const r of rules) assert.ok(r.slice(0, r.indexOf("{")).includes(".card.income-book.is-menu"), `toda regla del bloque cuelga del gancho: ${r.slice(0, 60)}`);
     assert.ok(!block.includes(".save-band"), "el bloque no toca la banda de ahorros ni el vestido de la 1.3.208");
   });
-  it("el gancho lo llevan solo las cinco secciones de Libros; Cuotas queda fuera", () => {
+  it("el gancho lo llevan las cinco secciones de Libros y, desde la 1.3.213, también Cuotas", () => {
     assert.ok(screens.includes('${menu ? " is-menu" : ""}'), "la sección pinta is-menu solo desde el prop menu");
     for (const kind of ["income-fixed", "income-variable", "expense-fixed", "expense-variable", "purchase"]) {
       assert.ok(new RegExp(`LinesBlock kind="${kind}"[^/>]*menu /`).test(screens), `la llamada de ${kind} lleva menu`);
     }
-    assert.ok(!/LinesBlock kind="subscription"[^/>]*menu/.test(screens), "Cuotas (la gemela del escritorio de Pagos) NO lleva el gancho: no es un menú de Libros");
+    // 1.3.213 (Oscar: «The last menus in me deben and debo»): the fence this
+    // pin guarded in 1.3.211 moved by his order — Cuotas carries the hook now.
+    assert.ok(/LinesBlock kind="subscription"[^/>]*menu/.test(screens), "Cuotas (la gemela del escritorio de Pagos) lleva el gancho desde la 1.3.213: es un menú de Libros");
   });
   it("el panel toma el fondo plano cálido con el respiro del acento, sin redeclarar el corte", () => {
     assert.ok(block.includes(".card.income-book.is-menu {\n  background:\n    linear-gradient(180deg, color-mix(in oklab, var(--accent) 8%, transparent) 0%, transparent 46%),\n    var(--cp-panel);"), "el panel es el material plano del tema bajo el respiro del acento de su barra");
@@ -488,5 +490,51 @@ describe("cyberpunk: los menús diarios de Libros (1.3.211)", () => {
   it("el bloque no asigna colores de bolsillo ni de sección: solo lee el acento", () => {
     assert.ok(!/--(seg|save|sav)\s*:/.test(block), "ninguna variable de color se reescribe en los menús");
     assert.ok(!/--accent\s*:/.test(block), "ni siquiera el acento: se lee con var(), jamás se asigna");
+  });
+});
+
+describe("cyberpunk: los últimos menús — Cuotas y Debo / Me deben (1.3.213)", () => {
+  // Orden de Oscar (2026-11-11 07:22 EST, dos fotos de Libros): «The last
+  // menus in me deben and debo.» + «For cyberpunk» + «You know what to do.»
+  // Cuotas se une al vestido de los menús (el gancho, pin de la 1.3.211 ya
+  // movido) y las vistas de personas de la fila media — cifra y +, gráfica
+  // de 6 meses, paneles Sin interés / Con interés / Tarjetas con sus
+  // burbujas vacías, y la fila Archivo — dejan el acabado compartido.
+  const at = css.indexOf("1.3.213");
+  const block = css.slice(at, css.indexOf("/* ---------- Stillness", at));
+  it("el vestido existe y cada regla vive cercada al libro de Libros en este tema", () => {
+    assert.ok(at > 0, "la sección de la 1.3.213 debe existir en la hoja del tema");
+    const rules = block.replace(/\/\*[\s\S]*?\*\//g, "").split("}").map((s) => s.trim()).filter((s) => s.includes("{"));
+    assert.ok(rules.length >= 5, "el bloque trae su familia de reglas");
+    for (const r of rules) assert.ok(r.slice(0, r.indexOf("{")).includes(".debt-book"), `toda regla del bloque cuelga del libro de Libros: ${r.slice(0, 60)}`);
+    assert.ok(!block.includes(".cobros"), "Central y su panel de Cobros quedan fuera: la cerca es el libro, no la clase compartida");
+    assert.ok(!block.includes(".is-menu"), "el vestido del menú de Cuotas sigue siendo el bloque de la 1.3.211: aquí no se rede­clara");
+  });
+  it("los paneles toman el fondo plano cálido con el respiro del tono del lado, en el sistema de 2px y sin luz interior", () => {
+    assert.ok(block.includes(":is(.cobro-group, .cobro-file),\nhtml[data-theme=\"cyberpunk\"] body .debt-book .debt-chart {\n  background:\n    linear-gradient(180deg, color-mix(in oklab, var(--tone) 8%, transparent) 0%, transparent 46%),\n    var(--cp-panel);\n  border-radius: 2px;\n  box-shadow: none;"), "paneles: material plano de la ciudad bajo el respiro del tono propio, radio 2px, la luz blanca interior muere");
+  });
+  it("el bloque no asigna ningún color: el tono del lado se lee, jamás se reescribe", () => {
+    assert.ok(!/--(tone|in|owe|accent|seg|save|sav)\s*:/.test(block), "«manteniendo sus colores»: --tone/--in/--owe se leen con var(), jamás se asignan");
+  });
+  it("sin corte en este bloque: los paneles acolchan 12px, el chaflán mismo", () => {
+    assert.ok(!block.includes("clip-path"), "ningún panel se recorta: su acolchado es el chaflán y el corte comería las esquinas de lo que guarda");
+  });
+  it("titulares y cifras de las vistas hablan Rajdhani", () => {
+    assert.ok(block.includes(".cobro-group > h3 {\n  font-family: var(--cp-display); font-weight: 600;"), "los titulares de los paneles toman la fuente de la ciudad");
+    assert.ok(block.includes(":is(.cobro-top strong.num, .debo-sum b.num, .debt-chart .num) {\n  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;"), "la cifra mayor, las del resumen y las de la gráfica toman la fuente de la ciudad");
+  });
+  it("el + deja de ser la esfera azul: bloque amarillo plano con glifo oscuro en ambas vistas", () => {
+    assert.ok(block.includes(".cobro-plus {\n  background: var(--accent); color: var(--accent-fg);\n  border-radius: 2px; box-shadow: none;"), "el + es el primario plano de la ciudad, no el degradado azul compartido");
+  });
+  it("las burbujas vacías se asientan en el fondo oscuro con su marco punteado acabado en el tono del lado", () => {
+    assert.ok(block.includes(".fx-note.is-empty {\n  background: #14100b;\n  border-color: color-mix(in oklab, var(--tone) 38%, var(--line));\n  border-radius: 2px;"), "burbuja: fondo oscuro plano, marco al 38% del tono del lado, radio 2px");
+    assert.ok(!/\.fx-note\.is-empty \{[^}]*border-style/.test(block), "el punteado es de la hoja base y se queda punteado: el bloque no lo toca");
+  });
+  it("lo que no es menú queda fuera: ni la banda, ni las pestañas, ni el plan, ni la fila del balance", () => {
+    assert.ok(!block.includes(".debt-scale"), "la banda Me deben · Debo no se toca");
+    assert.ok(!block.includes(".debo-tabs"), "el interruptor Cuotas · Préstamos es navegación, no menú: no se viste");
+    assert.ok(!block.includes(".debt-plan"), "el Plan de pago es una herramienta con anatomía propia: queda fuera");
+    assert.ok(!block.includes(".debt-net"), "la fila del Balance neto no se toca");
+    assert.ok(!block.includes(".cobro-card"), "las filas de personas y préstamos conservan su acabado: ninguna regla viste una fila");
   });
 });

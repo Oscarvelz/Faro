@@ -3560,7 +3560,9 @@ export function Shops() {
 
 export function Subs() {
   const { t } = useFaro();
-  return <LinesBlock kind="subscription" title={t("tab.subs")} />;
+  // 1.3.213 (Oscar): Cuotas is a Libros menu like the five daily sections —
+  // it carries the menu hook and takes the same Cyberpunk dress (1.3.211).
+  return <LinesBlock kind="subscription" title={t("tab.subs")} menu />;
 }
 
 /** 1.3.149: the year as a report — Estudio's «El año» fold. Every figure comes from yearReport
