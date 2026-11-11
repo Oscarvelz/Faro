@@ -45,7 +45,11 @@ export type Named = {
   order: number;
 };
 
-export type Sub = Named;
+export type Sub = Named & {
+  /** The sub's OWN colour (congruency pass, Oscar 2026-11-11): every sub is born with a preset shade of its
+   *  category's family (colors.subPresetColor) and the user can change it; absent = the preset rules. */
+  color?: string;
+};
 
 export type Category = Named & {
   group: Group;

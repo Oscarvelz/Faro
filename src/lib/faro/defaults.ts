@@ -394,6 +394,40 @@ export function catalogLinesSummary(ledger: LedgerState, itemId: string): SubLin
   return sumLines(ledger, (line) => line.storeId === itemId || line.providerId === itemId);
 }
 
+/** The identity a Catalog piece is replaced WITH (congruency pass, Oscar 2026-11-11): the palette's new job. */
+export type ReplaceTarget = Pick<CatalogItem, "nameKey" | "customName" | "icon" | "kind" | "urlTemplate">;
+
+/**
+ * Replace a Catalog piece (Oscar 2026-11-11: the user decides AT THE MOMENT, never a fixed law).
+ * - "merge": the piece keeps its id (and its place and hidden state) and takes the target's face — every
+ *   purchase that named it now names the new item; nothing is lost.
+ * - "fresh": the slot keeps its place and hidden state but is born again under a NEW id — the old
+ *   purchases keep their lines but lose the name, exactly like today's delete leaves them.
+ * With no purchases hanging from the piece the two modes agree, so the UI only asks when there are some.
+ */
+export function replaceCatalogItem(
+  structure: Structure,
+  itemId: string,
+  target: ReplaceTarget,
+  mode: "merge" | "fresh",
+  newId: () => string,
+): Structure {
+  return {
+    ...structure,
+    catalog: structure.catalog.map((item) => {
+      if (item.id !== itemId) return item;
+      if (mode === "merge") return { ...item, ...target };
+      return { ...target, id: newId(), hidden: item.hidden, order: item.order };
+    }),
+  };
+}
+
+/** What a Catalog piece can be replaced with: the factory pieces of its OWN kind that the book does not already carry. */
+export function replaceCandidates(structure: Structure, item: CatalogItem): CatalogItem[] {
+  const carried = new Set(structure.catalog.map((c) => c.id));
+  return defaultStructure().catalog.filter((c) => c.kind === item.kind && !carried.has(c.id));
+}
+
 export function makeNamer(structure: Structure, lang: Lang) {
   const cat = (id: string) => {
     const found = structure.categories.find((c) => c.id === id);

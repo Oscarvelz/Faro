@@ -2424,6 +2424,66 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .icon-btn.tree-eye svg { width: 13px; height: 13px; }
 .icon-btn.cat-act { width: 26px; min-width: 26px; height: 26px; }
 .icon-btn.cat-act svg { width: 12px; height: 12px; }
+/* The Catalog's kind groups (Oscar, 2026-11-11): each class under its own quiet heading with the
+   hairline running out to the right — the mockup's shape in Faro's own restraint, compact so the
+   headings never eat the rows' space. */
+.cat-group { margin-top: 14px; }
+.cat-group:first-child { margin-top: 2px; }
+.cat-group-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cat-group-head span { font-size: 1rem; font-weight: 650; color: var(--ink); white-space: nowrap; }
+.cat-group-head i { flex: 1; border-top: 1px solid var(--line); }
+/* THE GRID + THE FOLD LAW (Oscar, 2026-11-11): catalog pieces live in cards, in columns counted
+   by the width of their house (--cols is measured in JS on the container itself: 2 on the phone,
+   3–4 on tablet/computer). NOTHING changes size to fit: a card never stretches — a new column
+   appears instead. At rest a card is only its plate and its name (1.07rem, the name law). There
+   is no arrow chip: the card itself is the door, and open (.is-open) it spans its whole row with
+   the whole hand inside at natural size — pen · palette · eye · trash — plus, on membership
+   cards, the repeat badge after the trash (inside the fold only; not a button). The TreePanel's
+   subcategory rows take the same fold law in list form: the row is the door (cursor), the name
+   carries nothing, the hand opens in the same order. */
+.cat-grid { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 8px; }
+.cat-card { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; min-width: 0; }
+.cat-card.is-open { grid-column: 1 / -1; }
+.cat-name { flex: 1; min-width: 0; font-size: 1.07rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-tools { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.cat-badge { display: inline-flex; align-items: center; color: var(--muted); margin-left: 2px; }
+/* The subs' grid (Oscar, 2026-11-11): the Catalog's system whole, in the category panel —
+   same measures, same hand, same bloom. The faces are the cards' faces. */
+.sub-grid { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 8px; }
+.sub-card { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; min-width: 0; }
+.sub-card.is-open { grid-column: 1 / -1; }
+.sub-card.is-staged { border-style: dashed; cursor: default; }
+.sub-name { flex: 1; min-width: 0; font-size: 1.07rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub-tools { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+/* One hand, one size (Oscar, 2026-11-11): in the fold's hand — the grid cards' and the
+   catalog's alike — every tool wears the trash's measure (26px, the line-act size). The
+   pen, palette and eye were riding the 44px base button and eating the card's room for
+   nothing; now the four sit as equals and the freed space goes back to the name. */
+.cat-tools .icon-btn, .sub-tools .icon-btn { width: 26px; min-width: 26px; height: 26px; }
+.sub-panel { grid-column: 1 / -1; padding: 2px 0 4px 10px; }
+.sub-rename { flex: 1; min-width: 0; }
+.cat-rename { flex: 1; min-width: 0; }
+.cat-repl.is-grid-panel { grid-column: 1 / -1; padding: 2px 0 4px 10px; }
+.tree-sub:not(.is-staged) { cursor: pointer; }
+.tree-subname > span { font-size: 1.07rem; }
+/* FACES (Oscar, 2026-11-11): the piece plate — the owner's own colour as a soft wash, the owner's
+   own glyph in that colour's deep tone. One plate everywhere a category or subcategory appears as
+   itself (tree, panels, pickers, Compras chips); the colour dot grew into it, it did not vanish. */
+.piece-plate { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; border: 0; padding: 0; flex: none; font: inherit; }
+button.piece-plate { cursor: pointer; }
+.piece-plate.is-sm { width: 24px; height: 24px; border-radius: 8px; }
+.tree-name { display: flex; align-items: center; gap: 8px; }
+.tree-subname { display: inline-flex; align-items: center; gap: 8px; }
+.icon-pick { display: grid; gap: 8px; padding: 8px 0 4px; }
+.shop-cat-ic { flex: none; }
+/* Replace panel (the palette's new job): candidate rows + a custom name + the merge/fresh question. */
+.cat-repl { display: grid; gap: 6px; padding: 8px 0 10px 40px; }
+.cat-repl-row { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cat-repl-custom { align-items: center; }
+.cat-repl-custom .field { flex: 1; min-width: 0; }
+.cat-repl-ask { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.cat-repl-ask p { margin: 0; }
+.cat-repl-ask .row { flex-wrap: wrap; }
 .line-row { gap: 8px; }
 .pot-help > .icon-btn { position: absolute; top: 6px; right: 6px; }
 .seg.is-follow + .icon-btn { margin-bottom: 12px; }

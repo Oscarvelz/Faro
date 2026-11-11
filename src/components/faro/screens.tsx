@@ -11,7 +11,7 @@ import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
 import { hasKeyNumbers } from "@/lib/faro/keynumbers";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type CSSProperties } from "react";
 import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { RemitCard } from "@/components/faro/remesas";
@@ -19,11 +19,11 @@ import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetRow } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
-import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type SubLinesSummary } from "@/lib/faro/defaults";
+import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, replaceCandidates, replaceCatalogItem, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type ReplaceTarget, type SubLinesSummary } from "@/lib/faro/defaults";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -32,12 +32,13 @@ import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/li
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
 import { FARO_VERSION } from "@/lib/faro/build-version";
-import { SAVINGS_PURPLE, baseFor, categoryBase, categoryColor, chosenTone, colorFor, isTron, tronize } from "@/lib/faro/colors";
+import { SAVINGS_PURPLE, baseFor, categoryBase, categoryColor, chosenTone, colorFor, colorForLine, isTron, subBase, subColorFor, tronize } from "@/lib/faro/colors";
+import { namedIconFor, subIconFor } from "@/lib/faro/faces";
 import { shrinkIcon } from "@/lib/faro/icon";
 import { inkOn, washForInk } from "@/lib/faro/palette";
 import { ColorPick, LookGem, QUICK } from "./color-pick";
 import { iconForName, libraryOff, presetName, subPresetsOf } from "@/lib/faro/subs";
-import { BrandIconPick, FreqSheet, LookPick } from "./fit-pick";
+import { BrandIconPick, FreqSheet, IconPick, LookPick, PiecePlate } from "./fit-pick";
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { dateFmt } from "@/lib/faro/datefmt";
@@ -806,7 +807,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   const present = chipSource.filter((c) => rows.some((l) => l.categoryId === c.id));
   // 1.3.115: a tap opens the editor straight away; the open bubble is the one being edited (one state, one Back step).
   const pickedLine = chipRows.find((l) => l.id === ui.editing) ?? null;
-  const kitRows: KitRow[] = chipRows.map((l) => ({ id: l.id, label: l.concept || names.cat(l.categoryId) || names.purchase(l.categoryId) || "—", glyph: lineGlyph(l, session?.ledger.structure), color: chosenTone(l.color, l.categoryId) || (session ? colorFor(session.ledger.structure, l.categoryId) : undefined) }));
+  const kitRows: KitRow[] = chipRows.map((l) => ({ id: l.id, label: l.concept || names.cat(l.categoryId) || names.purchase(l.categoryId) || "—", glyph: lineGlyph(l, session?.ledger.structure), color: chosenTone(l.color, l.categoryId) || (session ? colorForLine(session.ledger.structure, l.categoryId, l.subId) : undefined) }));
   const kitLine = (id: string) => chipRows.find((l) => l.id === id);
   const display = session?.ledger.settings.display ?? "NIO";
   const [money, setMoney] = useState<Currency>(display);
@@ -915,8 +916,8 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
                   data-hot={ui.highlight === line.id}
                   aria-pressed={ui.editing === line.id}
                   style={{
-                    backgroundColor: washForInk(chosenTone(line.color, line.categoryId) || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc")),
-                    ["--tone" as string]: chosenTone(line.color, line.categoryId) || (session ? colorFor(session.ledger.structure, line.categoryId) : "#c5d5cc"),
+                    backgroundColor: washForInk(chosenTone(line.color, line.categoryId) || (session ? colorForLine(session.ledger.structure, line.categoryId, line.subId) : "#c5d5cc")),
+                    ["--tone" as string]: chosenTone(line.color, line.categoryId) || (session ? colorForLine(session.ledger.structure, line.categoryId, line.subId) : "#c5d5cc"),
                     color: "#14110e",
                   }}
                   onPointerDown={rippleAt}
@@ -1015,7 +1016,7 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
               onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}
             >
               <span className="buy-id">
-                {line.storeId ? <BrandMark id={line.storeId} src={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("data:") ? session.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon : undefined} className="buy-mark" /> : <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>}
+                {line.storeId ? <BrandMark id={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("brand:") ? (session?.ledger.structure.catalog.find((item) => item.id === line.storeId) as CatalogItem).icon.slice(6) : line.storeId} src={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("data:") ? session.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon : undefined} className="buy-mark" /> : <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>}
                 <strong>{line.concept || names.purchase(line.categoryId)}</strong>
               </span>
               <span className="num">{outView(line, viewLine)}</span>
@@ -1933,7 +1934,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // (archive when the line carries money history, so nothing is lost).
   const savKit = (rows: Line[], title: string, restore?: () => void) => (
     <BookKit title={title} test="sav-kit" word={["línea", "líneas", "line", "lines"]}
-      rows={rows.map((l) => ({ id: l.id, label: l.concept || names.sub(l.subId) || names.cat(l.categoryId) || "—", glyph: isPrimerica(l) && (!l.icon || l.icon === "Circle") ? "brand:primerica" : (l.icon && l.icon !== "Circle" ? l.icon : "PiggyBank"), color: chosenTone(l.color, l.categoryId) || colorFor(session.ledger.structure, l.categoryId) }))}
+      rows={rows.map((l) => ({ id: l.id, label: l.concept || names.sub(l.subId) || names.cat(l.categoryId) || "—", glyph: isPrimerica(l) && (!l.icon || l.icon === "Circle") ? "brand:primerica" : (l.icon && l.icon !== "Circle" ? l.icon : "PiggyBank"), color: chosenTone(l.color, l.categoryId) || colorForLine(session.ledger.structure, l.categoryId, l.subId) }))}
       body={lang === "en" ? "Lines with money or history go to the archive, with all of it saved. Empty ones are removed." : "Las que tienen dinero o historial pasan al archivo, con todo guardado. Las vacías se quitan."}
       onEdit={(id) => setUi({ editing: id, draft: null })}
       onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => dropPocketLine(acc, key, id).state, s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || title) : `${ids.length}`)}
@@ -3145,7 +3146,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <div key={line.id} className="save-flow-slot">
               <div className={`save-flow-row is-tap${ui.editing === line.id ? " is-open" : ""}`} {...savTap(line)}>
                 <span className="save-flow-name">
-                  <i className="save-flow-ico" style={{ background: chosenTone(line.color, line.categoryId) || undefined, ["--ico" as string]: chosenTone(line.color, line.categoryId) || colorFor(session.ledger.structure, line.categoryId) }}>
+                  <i className="save-flow-ico" style={{ background: chosenTone(line.color, line.categoryId) || undefined, ["--ico" as string]: chosenTone(line.color, line.categoryId) || colorForLine(session.ledger.structure, line.categoryId, line.subId) }}>
                     {line.icon?.startsWith("brand:") ? <BrandMark id={line.icon.slice(6)} /> : <Glyph name={line.icon && line.icon !== "Circle" ? line.icon : "PiggyBank"} />}
                   </i>
                   <span>{line.concept || names.sub(line.subId) || names.cat(line.categoryId)}</span>
@@ -3447,7 +3448,7 @@ export function Shops() {
                       structure: { ...st.structure, catalog: st.structure.catalog.map((c) => c.id === s.id ? { ...c, hidden: !c.hidden } : c) },
                     }), s.id)}
                   >
-                    <BrandMark id={s.id} src={s.icon.startsWith("data:") ? s.icon : undefined} className="size-9" />
+                    <BrandMark id={s.icon.startsWith("brand:") ? s.icon.slice(6) : s.id} src={s.icon.startsWith("data:") ? s.icon : undefined} className="size-9" />
                     <span>{names.catalog(s.id)}</span>
                   </button>
                 ))}
@@ -3519,6 +3520,7 @@ export function Shops() {
                           setPaint(paint === c.id ? null : c.id);
                         }}
                       />
+                      <Glyph name={namedIconFor(c)} className="size-4 shop-cat-ic" />
                       {displayName(c, lang)}
                     </button>
                     {paint === c.id ? (
@@ -4842,7 +4844,7 @@ function StructureTree() {
                     }}>
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
                     <span className="min-w-0">
-                      <span className="tree-name"><i className="sw tree-swatch" style={{ background: categoryColor(cat.id, cat.color) }} />{displayName(cat, lang)}</span>
+                      <span className="tree-name"><PiecePlate color={categoryColor(cat.id, cat.color)} icon={namedIconFor(cat)} />{displayName(cat, lang)}</span>
                       {/* 1.3.188 (R-7, cierra E-7): el subtítulo sigue listando TODOS los
                           subconceptos (la fila es el mapa completo), pero los ocultos se
                           pintan atenuados con la misma tinta is-muted de la categoría
@@ -4911,6 +4913,12 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
   // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
   const [colorOpen, setColorOpen] = useState(false);
+  // Congruency pass (Oscar, 2026-11-11): a sub row at rest carries only the little pen on its name and
+  // ONE fold icon; its tools (eye, its own colour, trash) unfold from it — one sub open at a time.
+  const [toolsForSub, setToolsForSub] = useState<string | null>(null);
+  const [subColorId, setSubColorId] = useState<string | null>(null);
+  const [iconOpen, setIconOpen] = useState(false);
+  const [subIconId, setSubIconId] = useState<string | null>(null);
   // 1.3.176 (pedido de Oscar): Cancelar PLIEGA la tarjeta — antes solo borraba el
   // borrador de subcategoría y la tarjeta quedaba abierta, como si no hiciera nada
   // (con el borrador vacío no cambiaba ni un estado). La política es la única de la
@@ -5113,6 +5121,110 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       },
     });
   };
+  // THE GRID FOR THE SUBS (Oscar, 2026-11-11 — "No. GRID"): the subcategories take the SAME
+  // system as the Catalog, the night's invention, whole. Cards in columns counted by the width
+  // of their house (this panel, not the screen): 2 on the phone, more as the house widens; a
+  // card never stretches, a new column appears instead. At rest a card carries only its plate
+  // and its name — the faces stay; they ARE the cards' faces. The card itself is the door:
+  // tapped, it blooms across its whole row with the tight hand inside (pen · palette · eye ·
+  // red trash — the Catalog's cluster, the Catalog's measures); its row-mates drop below the
+  // stripe and the rest re-pack: no gaps, open or closed. The old one-column list is retired
+  // in this panel; nothing else changes its law — renames and eyes still stage for Guardar,
+  // colour and icon still land at once, the trash still asks first.
+  const subGridRef = useRef<HTMLDivElement>(null);
+  const [subCols, setSubCols] = useState(2);
+  useEffect(() => {
+    const el = subGridRef.current;
+    if (!el) return;
+    const measure = () => { const w = el.clientWidth; setSubCols(w >= 840 ? 4 : w >= 580 ? 3 : 2); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const subIsOpen = (sub: Sub) => toolsForSub === sub.id || editSub === sub.id;
+  const renderSubCard = (sub: Sub) => {
+    // 1.3.179: la tarjeta pinta el estado PREPARADO si lo hay; el guardado manda en el libro.
+    const effHidden = stagedVis[sub.id] ?? sub.hidden;
+    const structure = session?.ledger.structure;
+    return (
+      <div key={sub.id} className={"sub-card" + (subIsOpen(sub) ? " is-open" : "") + (effHidden ? " is-muted" : "")} onClick={(e) => {
+        if (editSub === sub.id) return;
+        if ((e.target as HTMLElement).closest("button, input, a")) return;
+        if (toolsForSub === sub.id) { setToolsForSub(null); setSubColorId(null); setSubIconId(null); } else { setToolsForSub(sub.id); setSubIconId(null); }
+      }}>
+        {editSub === sub.id ? (
+          <input className="field sub-rename" value={subEdit} aria-label={t("rename")} autoFocus onChange={(e) => setSubEdit(e.target.value)} onKeyDown={(e) => {
+            if (e.key === "Escape") setEditSub(null);
+            if (e.key !== "Enter") return;
+            stageSubName(sub); // 1.3.188: Enter PREPARA el renombre; Guardar lo confirma
+          }} />
+        ) : (
+          <>
+            {/* FACES: the card's face — the sub's plate, its own colour as the wash, its own
+                glyph. Tapping it blooms the card with its icon picker open under the bloom,
+                the same gesture its palette works by. */}
+            {structure ? <PiecePlate color={subColorFor(structure, cat.id, sub.id)} icon={subIconFor(structure, cat.id, sub.id)} label={t("look.icon")} onClick={() => { setToolsForSub(sub.id); setSubIconId(subIconId === sub.id ? null : sub.id); }} /> : null}
+            <span className="sub-name">{stagedNames[sub.id] ?? displayName(sub, lang)}</span>
+            {toolsForSub === sub.id ? (
+              <span className="sub-tools">
+                {/* The hand — the Catalog's cluster and order: pen · palette · eye · trash. */}
+                <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => { setEditSub(sub.id); setSubEdit(stagedNames[sub.id] ?? displayName(sub, lang)); }}><Pencil className="size-4" /></button>
+                <button type="button" className="icon-btn" aria-label={t("color")} aria-pressed={subColorId === sub.id} onClick={() => setSubColorId(subColorId === sub.id ? null : sub.id)}><Palette className="size-4" /></button>
+                <button type="button" className="icon-btn" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+                <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
+              </span>
+            ) : null}
+          </>
+        )}
+      </div>
+    );
+  };
+  const renderSubPanels = (sub: Sub) => {
+    const structure = session?.ledger.structure;
+    if (!structure) return null;
+    return (
+      <Fragment key={`panels-${sub.id}`}>
+        {subColorId === sub.id ? (
+          <div className="sub-panel">
+            <ColorPick face="solid" value={subBase(structure, cat.id, sub.id)} label={t("color")} onPick={(hex) => { patch((c) => ({ ...c, subs: c.subs.map((x) => (x.id === sub.id ? { ...x, color: hex } : x)) }), "color"); setSubColorId(null); }} />
+          </div>
+        ) : null}
+        {subIconId === sub.id ? (
+          <div className="sub-panel">
+            <IconPick value={subIconFor(structure, cat.id, sub.id)} color={subColorFor(structure, cat.id, sub.id)} onPick={(name) => { patch((c) => ({ ...c, subs: c.subs.map((x) => (x.id === sub.id ? { ...x, icon: name } : x)) }), "icon"); setSubIconId(null); }} />
+          </div>
+        ) : null}
+      </Fragment>
+    );
+  };
+  // Chunk into rows of `subCols`; a chunk holding the open card renders it FIRST (it spans the
+  // whole row), its panels right under it, and its row-mates after — they drop below the stripe
+  // and the rest re-pack. No gaps, open or closed.
+  const subCells: ReactNode[] = [];
+  for (let i = 0; i < cat.subs.length; i += subCols) {
+    const chunk = cat.subs.slice(i, i + subCols);
+    const openSub = chunk.find((s) => subIsOpen(s));
+    if (openSub) {
+      subCells.push(renderSubCard(openSub));
+      subCells.push(renderSubPanels(openSub));
+      chunk.filter((s) => s.id !== openSub.id).forEach((s) => subCells.push(renderSubCard(s)));
+    } else {
+      chunk.forEach((s) => subCells.push(renderSubCard(s)));
+    }
+  }
+  // 1.3.188 (R-6): las subcategorías PREPARADAS se ven en la parrilla como tarjetas pendientes
+  // — la misma tarjeta que tendrán al guardar, con la cara de su categoría — con su ✕ para
+  // quitarlas antes de Guardar. Todavía no existen en el libro.
+  stagedSubs.forEach((n, i) => {
+    subCells.push(
+      <div key={`staged-${i}`} className="sub-card is-staged" data-test="staged-sub">
+        <PiecePlate color={categoryColor(cat.id, cat.color)} icon={namedIconFor(cat)} />
+        <span className="sub-name">{n}</span>
+        <button type="button" className="icon-btn" aria-label={t("stage.remove")} onClick={() => setStagedSubs((prev) => prev.filter((_, j) => j !== i))}><X className="size-4" /></button>
+      </div>
+    );
+  });
   return (
     <div className="tree-open" ref={rootRef}>
       <div className={effCatHidden ? "row is-muted" : "row"}>
@@ -5121,6 +5233,10 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
             Guardar. El texto del campo ES el borrador preparado; Enter solo
             cierra el gesto de teclear (suelta el foco), como el Enter del
             renombre de un subconcepto deja su nombre preparado. */}
+        {/* FACES (Oscar, 2026-11-11): the category's plate beside its name — its colour's wash,
+            its own glyph. Tapping it opens the icon picker, the same gesture as its colour ball
+            below; the pick commits at once, like its colour does. */}
+        <PiecePlate color={categoryColor(cat.id, cat.color)} icon={namedIconFor(cat)} label={t("look.icon")} onClick={() => setIconOpen((v) => !v)} />
         <input className="field" value={name} aria-label={t("rename")} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
         {/* 1.3.186 (R-1): el ojo de la categoría, junto a su nombre — el mismo ojo
             de sus subconceptos, preparado igual: la fila pinta el estado nuevo
@@ -5128,6 +5244,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
             sigue sin papelera (1.3.145): esto es mostrar/ocultar, no borrar. */}
         <button type="button" className="icon-btn tree-eye" data-test="cat-eye" aria-label={effCatHidden ? t("show") : t("hide")} onClick={toggleCatVis}>{effCatHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
       </div>
+      {iconOpen ? <IconPick value={namedIconFor(cat)} color={categoryColor(cat.id, cat.color)} onPick={(name) => { patch((c) => ({ ...c, icon: name }), "icon"); setIconOpen(false); }} /> : null}
       <div className="tree-color">
         <button type="button" className="tree-color-point" aria-expanded={colorOpen} onClick={() => setColorOpen((v) => !v)}>
           <i className="tree-color-ball" style={{ ["--ball" as string]: categoryColor(cat.id, cat.color) }} aria-hidden />
@@ -5139,38 +5256,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       </div>
       {/* 1.3.145: no bin for the category itself (Oscar: the name-and-colour editor has immunity —
           a category is not deleted as if it were a subcategory; only subcategories carry a bin). */}
-      {cat.subs.map((sub) => {
-        // 1.3.179: la fila pinta el estado PREPARADO si lo hay; el guardado manda en el libro.
-        const effHidden = stagedVis[sub.id] ?? sub.hidden;
-        return (
-        <div key={sub.id} className={effHidden ? "tree-sub is-muted" : "tree-sub"}>
-          {editSub === sub.id ? (
-            <input className="field" value={subEdit} aria-label={t("rename")} autoFocus onChange={(e) => setSubEdit(e.target.value)} onKeyDown={(e) => {
-              if (e.key === "Escape") setEditSub(null);
-              if (e.key !== "Enter") return;
-              stageSubName(sub); // 1.3.188: Enter PREPARA el renombre; Guardar lo confirma
-            }} />
-          ) : (
-            <button type="button" className="tree-subname" onClick={() => { setEditSub(sub.id); setSubEdit(stagedNames[sub.id] ?? displayName(sub, lang)); }}>{stagedNames[sub.id] ?? displayName(sub, lang)}</button>
-          )}
-          <span className="row">
-            <button type="button" className="icon-btn tree-eye" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
-            <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
-          </span>
-        </div>
-        );
-      })}
-      {/* 1.3.188 (R-6): las subcategorías PREPARADAS se ven en la tarjeta como
-          filas pendientes — el mismo renglón que tendrán al guardar — con su ✕
-          para quitarlas antes de Guardar. Todavía no existen en el libro. */}
-      {stagedSubs.map((n, i) => (
-        <div key={`staged-${i}`} className="tree-sub is-staged" data-test="staged-sub">
-          <span className="tree-subname">{n}</span>
-          <span className="row">
-            <button type="button" className="icon-btn" aria-label={t("stage.remove")} onClick={() => setStagedSubs((prev) => prev.filter((_, j) => j !== i))}><X className="size-4" /></button>
-          </span>
-        </div>
-      ))}
+      {/* The grid: cards built by the helpers above — the Catalog's system, whole. */}
+      <div className="sub-grid" ref={subGridRef} style={{ "--cols": subCols } as CSSProperties}>{subCells}</div>
       <div className="ah-form sc-form is-treesub">
         <div className="ah-grid">
           <label className="label is-wide">
@@ -5190,9 +5277,14 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
 function CatalogEditor() {
   const { t, lang, session, commit, confirm } = useFaro();
   const [itemName, setItemName] = useState("");
-  const [iconFor, setIconFor] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
+  // Congruency pass (Oscar, 2026-11-11): at rest a row carries only the little pen on its name and ONE
+  // fold icon at the far right; the tools (eye, replace, trash) unfold from it — one row open at a time.
+  const [toolsFor, setToolsFor] = useState<string | null>(null);
+  const [replaceFor, setReplaceFor] = useState<string | null>(null);
+  const [replaceCustom, setReplaceCustom] = useState("");
+  const [pending, setPending] = useState<{ item: CatalogItem; target: ReplaceTarget; targetName: string; count: number } | null>(null);
   const catalog = session?.ledger.structure.catalog ?? [];
   const addItem = () => {
     const name = itemName.trim();
@@ -5231,51 +5323,139 @@ function CatalogEditor() {
         : t(fam).replace("{n}", String(summary.count)).replace("{totals}", totalsText)}`;
     confirm({ title: t("delete"), body, danger: true, yes: t("yes"), run: () => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.filter((c) => c.id !== item.id) } }), item.id) });
   };
-  return (
-    <div className="mt-2">
-      {catalog.map((item) => (
-        <div key={item.id} data-kind={item.kind} className={item.hidden ? "line-row is-muted" : "line-row"}>
-          {renameId === item.id ? (
-            <div className="row min-w-0">
-              <input className="field" value={renameText} autoFocus aria-label={t("rename")} onChange={(e) => setRenameText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveRename(item); if (e.key === "Escape") setRenameId(null); }} />
-            </div>
-          ) : (
-            <div className="row min-w-0">
-              {item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-8" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-8" /> : <Glyph name={item.icon} />}
-              <span className="truncate">{displayName(item, lang)}</span>
-              {/* 1.3.188 (E-5, resto): la clase de la pieza se distingue de un vistazo —
-                  las de IA y las suscripciones llevan su glifo pequeño y tenue junto
-                  al nombre (iconos, nunca etiquetas de texto): las de IA vestían la
-                  misma placa de marca que las tiendas y se confundían con ellas. La
-                  tienda no lleva glifo: su placa de marca ya la anuncia, y un glifo
-                  más empujaba los nombres largos (AliExpress) a una segunda línea. */}
-              {item.kind === "ai" ? <Sparkles className="cat-kind-ic" aria-hidden /> : item.kind === "sub" ? <Repeat2 className="cat-kind-ic" aria-hidden /> : null}
-            </div>
-          )}
+  // Replace (the palette's new job): the user picks what this slot becomes. When purchases hang from
+  // the piece, the app ASKS at that moment (Oscar's rule) — merge them into the new name, or start
+  // fresh and let them lose it. With no purchases there is nothing to decide: it just happens.
+  const applyReplace = (item: CatalogItem, target: ReplaceTarget, targetName: string, mode: "merge" | "fresh") => {
+    commit((s) => ({ ...s, structure: replaceCatalogItem(s.structure, item.id, target, mode, () => `c-${uid().slice(0, 8)}`) }), targetName);
+    setPending(null);
+    setReplaceFor(null);
+    setReplaceCustom("");
+    setToolsFor(null);
+  };
+  const chooseReplace = (item: CatalogItem, target: ReplaceTarget, targetName: string) => {
+    const count = session ? catalogLinesSummary(session.ledger, item.id).count : 0;
+    if (count === 0) { applyReplace(item, target, targetName, "merge"); return; }
+    setPending({ item, target, targetName, count });
+  };
+  const toggleTools = (item: CatalogItem) => {
+    if (toolsFor === item.id) { setToolsFor(null); setReplaceFor(null); setPending(null); }
+    else { setToolsFor(item.id); setReplaceFor(null); setPending(null); setReplaceCustom(""); }
+  };
+  // Grouped by kind (Oscar, 2026-11-11): each class sits in its own determined group, under its
+  // own heading — the differentiation lives in the grouping itself, not in a glyph by the name.
+  const groups: { kind: CatalogItem["kind"]; label: string }[] = [
+    { kind: "store", label: t("cat.g.store") },
+    { kind: "ai", label: t("cat.g.ai") },
+    { kind: "sub", label: t("cat.g.sub") },
+  ];
+  // THE GRID + THE FOLD LAW (Oscar, 2026-11-11, built after a night of thinking): the pieces live
+  // in cards, in columns counted by the width of their house — 2 on the phone, more on the tablet
+  // and the computer; a card NEVER stretches, a new column appears instead (cols is measured on
+  // this very container, not on the screen). There is NO arrow chip: the card itself is the door.
+  // Tapped, it blooms across its whole row with the whole hand inside, at its natural size —
+  // pen (rename) · palette (replace) · eye · trash, the red trash last, in the dead arrow's seat,
+  // because it is the only one with colour. On membership rows the little repeat badge rides
+  // INSIDE the fold too, after the trash, announcing itself — it is not a button, and at rest it
+  // is nowhere. The bloomed card's row-mates drop below the stripe and the rest re-pack (the
+  // chunk render below): no gaps, open or closed. Tapping the open card again, or opening
+  // another, folds it back — the accordion law the categories already live by.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [cols, setCols] = useState(2);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => { const w = el.clientWidth; setCols(w >= 840 ? 4 : w >= 580 ? 3 : 2); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const isOpen = (item: CatalogItem) => toolsFor === item.id || renameId === item.id;
+  const door = (item: CatalogItem) => (e: ReactMouseEvent) => {
+    if (renameId === item.id) return; // mid-rename the card is a form, not a door
+    if ((e.target as HTMLElement).closest("button, input, a")) return; // a tool was tapped, not the card
+    toggleTools(item);
+  };
+  const renderPanel = (item: CatalogItem) => (
+    <div key={`panel-${item.id}`} className="cat-repl is-grid-panel">
+      {replaceCandidates(session?.ledger.structure ?? { categories: [], purchases: [], catalog: [] }, item).map((cand) => (
+        <button key={cand.id} type="button" className="cat-repl-row" onClick={() => chooseReplace(item, { nameKey: cand.nameKey, customName: cand.customName, icon: cand.icon, kind: cand.kind, urlTemplate: cand.urlTemplate }, displayName(cand, lang))}>
+          {cand.icon.startsWith("brand:") ? <BrandMark id={cand.icon.slice(6)} className="size-7" /> : cand.kind === "store" ? <BrandMark id={cand.id} className="size-7" /> : <Glyph name={cand.icon} />}
+          <span className="truncate">{displayName(cand, lang)}</span>
+        </button>
+      ))}
+      <div className="row cat-repl-custom">
+        <input className="field" value={replaceCustom} placeholder={t("cat.replace.custom")} aria-label={t("cat.replace.custom")} onChange={(e) => setReplaceCustom(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && replaceCustom.trim()) chooseReplace(item, { nameKey: "", customName: replaceCustom.trim(), icon: "Circle", kind: item.kind, urlTemplate: "" }, replaceCustom.trim()); }} />
+        <button type="button" className="btn secondary" disabled={!replaceCustom.trim()} onClick={() => chooseReplace(item, { nameKey: "", customName: replaceCustom.trim(), icon: "Circle", kind: item.kind, urlTemplate: "" }, replaceCustom.trim())}>{t("cat.replace")}</button>
+      </div>
+      {pending && pending.item.id === item.id ? (
+        <div className="cat-repl-ask">
+          <p className="text-sm">{t(pending.count === 1 ? "cat.replace.q.one" : "cat.replace.q").replace("{n}", String(pending.count))}</p>
           <div className="row">
-            {renameId === item.id ? (
-              <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => saveRename(item)}><Check className="size-4" /></button>
-            ) : (
-              <>
-                <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => { setIconFor(null); setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
-                {item.kind === "store" ? <button type="button" className="icon-btn cat-act" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button> : null}
-                <button type="button" className="icon-btn cat-act" aria-label={t("icon.pick")} onClick={() => setIconFor(iconFor === item.id ? null : item.id)}><Palette className="size-4" /></button>
-                <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
-              </>
-            )}
+            <button type="button" className="btn" onClick={() => applyReplace(pending.item, pending.target, pending.targetName, "merge")}>{t("cat.replace.merge").replace("{name}", pending.targetName)}</button>
+            <button type="button" className="btn secondary" onClick={() => applyReplace(pending.item, pending.target, pending.targetName, "fresh")}>{t("cat.replace.fresh")}</button>
           </div>
         </div>
-      ))}
-      {iconFor ? (
-        <div className="row mt-2">
-          {ICON_NAMES.map((name) => (
-            <button key={name} type="button" className="icon-btn" aria-label={name} onClick={() => {
-              commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => c.id === iconFor ? { ...c, icon: name } : c) } }), name);
-              setIconFor(null);
-            }}><Glyph name={name} /></button>
-          ))}
-        </div>
       ) : null}
+    </div>
+  );
+  const renderCard = (item: CatalogItem) => (
+    <div key={item.id} data-kind={item.kind} className={"cat-card" + (isOpen(item) ? " is-open" : "") + (item.hidden ? " is-muted" : "")} onClick={door(item)}>
+      {renameId === item.id ? (
+        <>
+          <input className="field cat-rename" value={renameText} autoFocus aria-label={t("rename")} onChange={(e) => setRenameText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveRename(item); if (e.key === "Escape") setRenameId(null); }} />
+          <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => saveRename(item)}><Check className="size-4" /></button>
+        </>
+      ) : (
+        <>
+          {item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-8" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-8" /> : <Glyph name={item.icon} />}
+          <span className="cat-name">{displayName(item, lang)}</span>
+          {toolsFor === item.id ? (
+            <span className="cat-tools">
+              {/* The whole hand, in Oscar's order: pen · palette · eye · trash (red last). The eye
+                  belongs to EVERY kind — no piece is special. */}
+              <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => { setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
+              <button type="button" className="icon-btn cat-act" aria-label={t("cat.replace")} aria-pressed={replaceFor === item.id} onClick={() => { setReplaceFor(replaceFor === item.id ? null : item.id); setPending(null); setReplaceCustom(""); }}><Palette className="size-4" /></button>
+              <button type="button" className="icon-btn cat-act" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+              <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
+              {/* The membership badge: inside the fold only, after the trash, announcing itself.
+                  Not a button — the row signing its name at the end of the hand. */}
+              {item.kind === "sub" ? <span className="cat-badge" aria-hidden><Repeat2 className="size-4" /></span> : null}
+            </span>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+  const renderGroup = (g: { kind: CatalogItem["kind"]; label: string }) => {
+    const items = catalog.filter((c) => c.kind === g.kind);
+    if (!items.length) return null;
+    // Chunk into rows of `cols`; a chunk holding the open card renders it FIRST (it spans the
+    // whole row), its replace panel right under it, and its row-mates after — they drop below
+    // the stripe and the rest re-pack. No gaps, open or closed.
+    const cells: ReactNode[] = [];
+    for (let i = 0; i < items.length; i += cols) {
+      const chunk = items.slice(i, i + cols);
+      const openItem = chunk.find((c) => isOpen(c));
+      if (openItem) {
+        cells.push(renderCard(openItem));
+        if (replaceFor === openItem.id) cells.push(renderPanel(openItem));
+        chunk.filter((c) => c.id !== openItem.id).forEach((c) => cells.push(renderCard(c)));
+      } else {
+        chunk.forEach((c) => cells.push(renderCard(c)));
+      }
+    }
+    return (
+      <div key={g.kind} className="cat-group">
+        <div className="cat-group-head"><span>{g.label}</span><i aria-hidden /></div>
+        <div className="cat-grid" style={{ "--cols": cols } as CSSProperties}>{cells}</div>
+      </div>
+    );
+  };
+  return (
+    <div className="mt-2" ref={rootRef}>
+      {groups.map(renderGroup)}
       <div className="ah-form sc-form is-item">
         <div className="ah-grid">
           <label className="label is-wide">

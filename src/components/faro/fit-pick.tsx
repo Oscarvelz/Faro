@@ -12,7 +12,8 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown, EyeOff, Palette, Pencil, Plus, Repeat2, RotateCcw, Search, Sparkles, Store, Tag, Trash2, X } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
 import { displayName, markUserVis } from "@/lib/faro/defaults";
-import { categoryColor } from "@/lib/faro/colors";
+import { categoryColor, subColorFor } from "@/lib/faro/colors";
+import { namedIconFor, subIconFor } from "@/lib/faro/faces";
 import { uid } from "@/lib/faro/money";
 import { inkOn, washForInk } from "@/lib/faro/palette";
 import { SUB_GROUPS, groupOf, libraryOf, libraryOff, normName, poolName, restoreLibrary } from "@/lib/faro/subs";
@@ -92,6 +93,42 @@ function LookView({ look, lang, q, onDone, onInk }: { look: Look; lang: string; 
         ) : <p className="fit-empty">{L(lang, "Nada coincide", "No matches")}</p>}
       </section>
     </>
+  );
+}
+
+/**
+ * FACES (Oscar, 2026-11-11): a category's or subcategory's plate — its own colour as a soft wash,
+ * its own glyph drawn in the colour's deep tone. The same plate everywhere the piece appears as
+ * itself: Estructura's tree, the pickers, Compras. With onClick it becomes the door to the icon
+ * picker — tapping the face to change the face, the gesture the category's colour ball set.
+ */
+export function PiecePlate({ color, icon, small, onClick, label }: { color: string; icon: string; small?: boolean; onClick?: () => void; label?: string }) {
+  const wash = washForInk(color);
+  const style = { background: wash, color: inkOn(wash) };
+  const glyph = <Glyph name={icon} className={small ? "size-3.5" : "size-4"} />;
+  if (onClick) return <button type="button" className={"piece-plate" + (small ? " is-sm" : "")} style={style} aria-label={label} onClick={onClick}>{glyph}</button>;
+  return <span className={"piece-plate" + (small ? " is-sm" : "")} style={style} aria-hidden>{glyph}</span>;
+}
+
+/** The icon picker for a piece's face: the app's Faro icons, searchable, tinted with the piece's
+ *  own colour — ColorPick's sibling, rendered inline where the piece is edited. */
+export function IconPick({ value, color, onPick }: { value: string; color: string; onPick: (name: string) => void }) {
+  const { lang } = useFaro();
+  const [q, setQ] = useState("");
+  const needle = normName(q);
+  const icons = needle ? LOOK_ICONS.filter((name) => normName(iconWords(name, lang)).includes(needle)) : LOOK_ICONS;
+  const wash = washForInk(color);
+  return (
+    <div className="icon-pick">
+      <input className="field" value={q} placeholder={L(lang, "Buscar ícono", "Search icons")} aria-label={L(lang, "Buscar ícono", "Search icons")} onChange={(e) => setQ(e.target.value)} />
+      {icons.length ? (
+        <div className="look-icons icon-pick-grid">
+          {icons.map((name) => (
+            <button key={name} type="button" data-icon={name} aria-pressed={value === name} aria-label={iconLabel(name, lang)} title={iconLabel(name, lang)} style={{ ["--ink" as string]: color, background: wash, color: inkOn(wash) }} onClick={() => onPick(name)}><Glyph name={name} /></button>
+          ))}
+        </div>
+      ) : <p className="fit-empty">{L(lang, "Nada coincide", "No matches")}</p>}
+    </div>
   );
 }
 
@@ -378,17 +415,17 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
   const [open, setOpen] = useState(false);
   const cats = (session?.ledger.structure.purchases ?? []).filter((p) => !p.hidden || p.id === value).sort((a, b) => a.order - b.order);
   const cur = cats.find((p) => p.id === value);
-  const dot = (id: string, color?: string) => <i className="fit-dot" style={{ ["--dot" as string]: categoryColor(id, color) }} />;
+  const dot = (p: (typeof cats)[number]) => <PiecePlate small color={categoryColor(p.id, p.color)} icon={namedIconFor(p)} />;
   return (
     <>
-      <PickButton test="cat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur.id, cur.color) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
+      <PickButton test="cat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
       {open ? (
         <PickSheet
           test="cat-sheet"
           title={t("category")}
           value={value}
           none={L(lang, "Ninguna", "None")}
-          items={cats.filter((p) => !p.hidden).map((p) => ({ id: p.id, label: displayName(p, lang), mark: dot(p.id, p.color), color: categoryColor(p.id, p.color) }))}
+          items={cats.filter((p) => !p.hidden).map((p) => ({ id: p.id, label: displayName(p, lang), mark: dot(p), color: categoryColor(p.id, p.color) }))}
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{
@@ -420,19 +457,19 @@ export function CategoryPick({ group, value, onChange }: { group: "fixed" | "var
   const [open, setOpen] = useState(false);
   const all = (session?.ledger.structure.categories ?? []).filter((c) => c.group === group).sort((a, b) => a.order - b.order);
   const cur = all.find((c) => c.id === value);
-  const dot = (id: string, color?: string) => <i className="fit-dot" style={{ ["--dot" as string]: categoryColor(id, color) }} />;
+  const dot = (c: (typeof all)[number]) => <PiecePlate small color={categoryColor(c.id, c.color)} icon={namedIconFor(c)} />;
   const patch = (ids: string[], fn: (c: (typeof all)[number]) => (typeof all)[number], label: string) =>
     commit((st) => ({ ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (ids.includes(c.id) ? fn(c) : c)) } }), label);
   return (
     <>
-      <PickButton test="fcat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur.id, cur.color) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
+      <PickButton test="fcat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
       {open ? (
         <PickSheet
           test="fcat-sheet"
           title={t("category")}
           value={value}
           none={L(lang, "Ninguna", "None")}
-          items={all.filter((c) => !c.hidden).map((c) => ({ id: c.id, label: displayName(c, lang), mark: dot(c.id, c.color), color: categoryColor(c.id, c.color) }))}
+          items={all.filter((c) => !c.hidden).map((c) => ({ id: c.id, label: displayName(c, lang), mark: dot(c), color: categoryColor(c.id, c.color) }))}
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{
@@ -467,14 +504,14 @@ export function SubPick({ categoryId, value, onChange }: { categoryId: string; v
     commit((st) => ({ ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (c.id === categoryId ? { ...c, subs: fn(c.subs) } : c)) } }), label);
   return (
     <>
-      <PickButton test="sub-pick" open={open} onOpen={() => setOpen(true)} mark={<Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
+      <PickButton test="sub-pick" open={open} onOpen={() => setOpen(true)} mark={cur && session?.ledger.structure ? <PiecePlate small color={subColorFor(session.ledger.structure, categoryId, cur.id)} icon={subIconFor(session.ledger.structure, categoryId, cur.id)} /> : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
       {open ? (
         <PickSheet
           test="sub-sheet"
           title={t("sub")}
           value={value}
           none={L(lang, "Ninguna", "None")}
-          items={subs.filter((x) => !x.hidden).map((x) => ({ id: x.id, label: displayName(x, lang), mark: <Tag /> }))}
+          items={subs.filter((x) => !x.hidden).map((x) => ({ id: x.id, label: displayName(x, lang), mark: session?.ledger.structure ? <PiecePlate small color={subColorFor(session.ledger.structure, categoryId, x.id)} icon={subIconFor(session.ledger.structure, categoryId, x.id)} /> : <Tag /> }))}
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
           manage={{

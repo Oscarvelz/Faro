@@ -1,4 +1,5 @@
 import type { Structure } from "./types";
+import { hexToHsv, hsvToHex } from "./palette";
 
 // 24 colours (Oscar, Nov 1 2026): 20 hues 18° apart in OKLCH, alternating deep (L .66, C .17) and light (L .80, C .12) so neighbours never blur, plus 4 neutrals from stone to graphite. Checked: min OKLab distance ≈ .064 in day themes and ≈ .057 in Tron.
 // Stored as the day colour; every theme adapts it when drawing (Tron lights it with tronize()).
@@ -148,6 +149,45 @@ export function colorFor(structure: Structure, categoryId: string): string {
   const buy = structure.purchases.find((p) => p.id === categoryId);
   if (buy) return categoryColor(buy.id, buy.color);
   return categoryColor(categoryId || "otros");
+}
+
+/* ——— Per-subcategory colours (congruency pass, Oscar 2026-11-11) ———
+ * Every subcategory is BORN with its own colour: a preset shade of its category's family, derived
+ * deterministically from the sub's id, so the same book shows the same presets on every device with
+ * nothing stored. The user can change it (Sub.color), and a hand-picked colour always wins. */
+
+/** The preset a sub is born with: the category's base colour shifted a little in hue/sat/value by the sub's id. */
+export function subPresetColor(catBaseHex: string, subId: string): string {
+  const hsv = hexToHsv(catBaseHex);
+  if (!hsv) return catBaseHex;
+  let n = 0;
+  for (let i = 0; i < subId.length; i += 1) n = (n * 31 + subId.charCodeAt(i)) >>> 0;
+  const hue = (hsv[0] + ((n % 25) - 12) + 360) % 360;
+  const sat = Math.min(1, Math.max(0.08, hsv[1] + (((n >> 5) % 13) - 6) / 100));
+  const val = Math.min(0.96, Math.max(0.3, hsv[2] + (((n >> 11) % 17) - 8) / 100));
+  return hsvToHex(hue, sat, val);
+}
+
+/** The sub's stored day colour: its hand-picked colour, or its born preset when it has none. */
+export function subBase(structure: Structure | undefined, categoryId: string, subId: string): string {
+  const cat = structure?.categories.find((c) => c.id === categoryId);
+  const sub = cat?.subs.find((s) => s.id === subId);
+  if (sub?.color) return sub.color;
+  return subPresetColor(categoryBase(categoryId, cat?.color), subId);
+}
+
+/** The sub's colour as the current theme draws it (what swatches and line paints use). */
+export function subColorFor(structure: Structure, categoryId: string, subId: string): string {
+  return themeSwatch(subBase(structure, categoryId, subId));
+}
+
+/** A line's category paint: its sub's own colour when the line carries a live sub, else the category's. */
+export function colorForLine(structure: Structure, categoryId: string, subId?: string): string {
+  if (subId) {
+    const cat = structure.categories.find((c) => c.id === categoryId);
+    if (cat?.subs.some((s) => s.id === subId)) return subColorFor(structure, categoryId, subId);
+  }
+  return colorFor(structure, categoryId);
 }
 
 /** The day colour a line of this category shows (before any theme lights it); what the look pickers start from. */
