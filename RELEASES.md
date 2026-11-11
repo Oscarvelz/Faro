@@ -1224,7 +1224,7 @@ _Nota (Hark, 1.3.203): estas dos secciones (1.3.201 y 1.3.202 de Hark) se restau
 - Etiqueta de rollback previa: `rollback-pre-hud-2026-11-10` sobre b7c2304.
 - Main: 0 archivos borrados (393 → 400, los chunks viejos se quedan). sw.js remoto faro-1.3.203 verificado (raw y Pages).
 
-## Web 1.3.204 (2026-11-10, Muse) — La reunión: las dos líneas en una sola construcción
+## Web 1.3.204 (2026-11-10, Muse) main cc38d32, source 4092f3a — La reunión: las dos líneas en una sola construcción
 
 - **Lo que pasó.** Desde la 1.3.200, dos líneas construyeron Faro a la vez sin saberlo: Hark, por encargo de Oscar, publicó la 1.3.201 «Cyberpunk vivo» (14106ea), la 1.3.202 del barrido (f7439dc) y la 1.3.203 «Cyberpunk HUD» (3917599); Muse publicó encima de esa línea su propia «1.3.201» (b7c2304: el reloj único del deslizamiento y el cristal de Ion), cuyo árbol dejó fuera el montaje de la ciudad y cuyo RELEASES dejó fuera las entradas de Hark — dos versiones con el mismo número y contenidos distintos. Hark reparó el choque desde su lado en su 1.3.203: construyó encima de la 1.3.201 de Muse, la conservó entera, restauró la ciudad y devolvió las entradas que faltaban.
 - **Esta edición certifica la reunión.** El árbol de la 1.3.203 de Hark (067fd10) se verificó archivo por archivo contra los blobs de ambas líneas: la unión entera está presente — la ciudad viva y el barrido solo al cambiar de pantalla principal (Hark), el HUD de Cyberpunk (Hark), el reloj único del deslizamiento y el cristal de Ion (Muse) — y se republica tal cual como 1.3.204, con número propio, para que la app viva lleve todo con un solo sello y el registro quede completo y en orden. Ningún contenido cambia respecto a la 1.3.203: lo único nuevo es el sello 1.3.204 y esta entrada.
