@@ -99,3 +99,24 @@ test("vivo 1.3.202: the sweep reads only aria-current, no longer the entrance an
   const anim = ts.slice(ts.indexOf('addEventListener("animationstart"'), ts.indexOf("const fire"));
   assert.ok(!/scan\.animate|fire\(/.test(anim), "entrance animations only hush the rain, never sweep");
 });
+
+// 1.3.203 — Cyberpunk HUD (savings chips, split debt meter, Estudio cards): skin fences only.
+const hud = fs.readFileSync(new URL("../../components/faro/cyberpunk-hud.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const debtsCss = fs.readFileSync(new URL("../../components/faro/debts.css", import.meta.url), "utf8");
+
+test("hud: every rule is fenced to Cyberpunk; the split meter is hidden in every other theme", () => {
+  for (const sel of selectors(hud)) {
+    for (const one of sel.split(/,(?![^(]*\))/).map((s) => s.trim())) {
+      if (/^(\d+%|from|to)\b/.test(one)) continue;
+      assert.ok(one.startsWith('html:root[data-theme="cyberpunk"]'), `selector not fenced: ${one}`);
+    }
+  }
+  assert.match(debtsCss, /\.ds-cp \{ display: none; \}/);
+});
+
+test("hud: no money figure is ever animated (Faro's figure law); motion sits behind the guard", () => {
+  const rules = [...hud.matchAll(/([^{}@;]+)\{([^{}]*)\}/g)].filter((m) => /animation(-name)?\s*:/.test(m[2]) && !/animation:\s*none/.test(m[2]));
+  for (const [, sel] of rules) assert.ok(!/(> button b|\bstrong\b|\.num\b|\.a2-col b|\.ds-cp b)/.test(sel), `figure animated: ${sel.trim()}`);
+  const outside = hud.replace(/@media \(prefers-reduced-motion: (no-preference|reduce)\) \{[\s\S]*?\n\}/g, "").replace(/@keyframes[^{]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, "");
+  assert.ok(!/animation\s*:\s*(?!none)[a-z]/.test(outside.replace(/animation: cp-ts-ring[^;]*;/, "")), "every animation lives behind a motion guard (the tablet ring replaces the house's own ring)");
+});

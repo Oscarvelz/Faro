@@ -1,0 +1,385 @@
+/* =====================================================================
+   Faro · Cyberpunk HUD (1.3.203, Hark). Oscar, 2026-11-10 19:35 EST:
+   «Keeping their colors, create better buttons following the cyberpunk
+   style for the Ahorros chips. Instead of the scale above, create
+   something that is truly cyberpunk between Me deben and Debo. Same
+   applies to my tablet, but only for the Cyberpunk theme.» — and, the
+   same minute, the Estudio card «Si cada mes fuera así» in this city.
+   Skin only, Cyberpunk only: every rule is fenced to
+   html:root[data-theme="cyberpunk"]; no other theme can match a selector
+   here. Muse's laws hold: yellow is the primary, cyan is data, flat
+   paint (no glows), money figures never animate, motion is a ceremony
+   on a tap or a reveal (never at rest), reduced motion = fade.
+   1. Los chips de Ahorros — a cut-corner switch track with HUD brackets;
+      the living chip is a lit plate in ITS OWN colour (Ahorros purple,
+      Meta green, Retiro teal, Emergencia blue) with a rail and an LED
+      edge; the others are dim stencils with their icon in their colour.
+      A tap sends one stepped scan across the chip. Tablet: the rail's
+      savings entries wear the same plate.
+   2. La balanza → the split meter — Me deben's cells (green) from the
+      left, Debo's (amber) from the right, a signal-yellow nib at the
+      balance point; the pivot becomes a core plate. On the tablet top
+      bar the round emblem becomes a cut plate holding a mini meter.
+   3. Estudio · Asesor — cut-corner cards, HUD head strips with a rail
+      in the card's colour, angular icon plates, Rajdhani titles and
+      figures, stepped cyan columns on a baseline grid with month ticks
+      (the latest one lit), stencil readouts, segmented cell meters.
+   ===================================================================== */
+
+/* ---------- 1. Los chips de Ahorros ---------- */
+html:root[data-theme="cyberpunk"] .vault-bar {
+  border-radius: 2px;
+  background:
+    linear-gradient(to bottom left, transparent calc(50% - .8px), #3a332a calc(50% - .8px) calc(50% + .8px), transparent calc(50% + .8px)) right top / 10px 10px no-repeat,
+    linear-gradient(to bottom left, transparent calc(50% - .8px), #3a332a calc(50% - .8px) calc(50% + .8px), transparent calc(50% + .8px)) left bottom / 10px 10px no-repeat,
+    repeating-linear-gradient(0deg, rgb(255 240 200 / .022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #14110d, #0e0c09);
+  border-color: #3a332a;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .04), inset 0 0 0 1px rgb(0 0 0 / .35);
+  clip-path: var(--cp-cut-sm);
+}
+/* HUD brackets on the two square corners (top-left, bottom-right); the
+   (?) sits 6px inside, clear of the 2px bracket arms. */
+html:root[data-theme="cyberpunk"] .vault-bar::before,
+html:root[data-theme="cyberpunk"] .vault-bar::after {
+  content: ""; position: absolute; z-index: 2; width: 9px; height: 9px; pointer-events: none;
+  border: 0 solid color-mix(in oklab, var(--accent) 78%, transparent);
+}
+html:root[data-theme="cyberpunk"] .vault-bar::before { left: 2px; top: 2px; border-width: 1.5px 0 0 1.5px; }
+html:root[data-theme="cyberpunk"] .vault-bar::after { right: 2px; bottom: 2px; border-width: 0 1.5px 1.5px 0; }
+/* The lit plate: the chip's own colour, cut from the same sheet. */
+html:root[data-theme="cyberpunk"] :is(.vault-glide, .vault-glide.is-save) {
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, var(--vtint) 0 3px, transparent 3px),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / .045) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, color-mix(in oklab, var(--vtint) 50%, #161310), color-mix(in oklab, var(--vtint) 28%, #0b0a08));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vtint) 82%, transparent), inset 0 -2px 0 color-mix(in oklab, var(--vtint) 62%, #f2eee3);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+/* The stencils: condensed caps, dim ink, the icon in the chip's colour. */
+html:root[data-theme="cyberpunk"] .vault-bar > button {
+  border-radius: 0;
+  font-family: var(--cp-display); font-weight: 600; font-size: .76rem; letter-spacing: .06em; text-transform: uppercase;
+  color: #9a907f;
+}
+html:root[data-theme="cyberpunk"] .vault-bar > button > svg { color: color-mix(in oklab, var(--vtone) 78%, #9a907f); }
+html:root[data-theme="cyberpunk"] .vault-bar > button[aria-current="page"] { color: #fbf8f0; text-shadow: 0 1px 0 rgb(0 0 0 / .55); }
+html:root[data-theme="cyberpunk"] .vault-bar > button[aria-current="page"] > svg { color: #fbf8f0; filter: drop-shadow(0 1px 0 rgb(0 0 0 / .55)); }
+/* Seams between the stencils: short hairlines, silent beside the plate. */
+html:root[data-theme="cyberpunk"] .vault-bar > button + button::before {
+  content: ""; position: absolute; z-index: 0; left: -2.5px; top: 32%; bottom: 32%; width: 1px; pointer-events: none;
+  background: #3a332a;
+}
+html:root[data-theme="cyberpunk"] .vault-bar > button[aria-current="page"]::before,
+html:root[data-theme="cyberpunk"] .vault-bar > button[aria-current="page"] + button::before { opacity: 0; }
+/* Tighter homes (360 px, large text): the stencil steps down before the bar's own squeeze drops the icons. */
+@container vaultbar (max-width: 23em) {
+  html:root[data-theme="cyberpunk"] .vault-bar > button { letter-spacing: .04em; }
+}
+@container vaultbar (max-width: 19em) {
+  html:root[data-theme="cyberpunk"] .vault-bar > button { font-size: .7rem; letter-spacing: .03em; }
+}
+html:root[data-theme="cyberpunk"] .vault-bar[data-squeeze="2"] > button { font-size: .64rem; letter-spacing: .01em; }
+/* The tap: one stepped scan crosses the chip in its colour (the plate's glide stays the house's own move). */
+html:root[data-theme="cyberpunk"] .vault-bar > button > .vb-fx { border-radius: 0; }
+html:root[data-theme="cyberpunk"] .vb-fill {
+  left: 0; right: 0; top: 0; bottom: 0; height: auto; border-radius: 0;
+  background: linear-gradient(90deg, transparent 0 58%, color-mix(in oklab, var(--vtone) 26%, transparent) 86%, color-mix(in oklab, var(--vtone) 60%, #fbf8f0) 86% 88.5%, transparent 88.5%);
+  transform-origin: 0 50%; transform: translateX(-100%);
+  animation: none;
+}
+
+/* Tablet: the rail's savings entries (Ahorros · Meta · Retiro · Emergencia) wear the same plate. */
+html:root[data-theme="cyberpunk"] .rail .nav-btn[data-vault="save"] { --vtone: #894ed6; }
+html:root[data-theme="cyberpunk"] .rail .nav-btn[data-vault="meta"] { --vtone: #8fb9a6; }
+html:root[data-theme="cyberpunk"] .rail .nav-btn[data-vault="retiro"] { --vtone: #72b4b2; }
+html:root[data-theme="cyberpunk"] .rail .nav-btn[data-vault="emergencia"] { --vtone: #7aa2c4; }
+html:root[data-theme="cyberpunk"] .app-frame .rail .nav-btn[data-vault] svg { color: color-mix(in oklab, var(--vtone) 80%, #9a907f); }
+html:root[data-theme="cyberpunk"] .app-frame .rail .dock-face .nav-btn[data-vault][aria-current="page"] {
+  color: #fbf8f0;
+  background:
+    linear-gradient(90deg, var(--vtone) 0 3px, transparent 3px),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / .045) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, color-mix(in oklab, var(--vtone) 50%, #161310), color-mix(in oklab, var(--vtone) 28%, #0b0a08));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--vtone) 82%, transparent), inset 0 -2px 0 color-mix(in oklab, var(--vtone) 62%, #f2eee3);
+  clip-path: var(--cp-cut-sm);
+  text-shadow: 0 1px 0 rgb(0 0 0 / .55);
+}
+html:root[data-theme="cyberpunk"] .app-frame .rail .dock-face .nav-btn[data-vault][aria-current="page"] svg { color: #fbf8f0; }
+
+/* ---------- 2. La balanza → el medidor dividido ---------- */
+html:root[data-theme="cyberpunk"] .debt-scale:not(.is-top) {
+  border-radius: 2px;
+  background:
+    linear-gradient(to bottom left, transparent calc(50% - .8px), #3a332a calc(50% - .8px) calc(50% + .8px), transparent calc(50% + .8px)) right top / 10px 10px no-repeat,
+    linear-gradient(to bottom left, transparent calc(50% - .8px), #3a332a calc(50% - .8px) calc(50% + .8px), transparent calc(50% + .8px)) left bottom / 10px 10px no-repeat,
+    repeating-linear-gradient(0deg, rgb(255 240 200 / .022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #15120e, #0e0c09);
+  border-color: #3a332a;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .04), inset 0 0 0 1px rgb(0 0 0 / .35);
+  clip-path: var(--cp-cut-sm);
+}
+/* The tilting beam leaves; the meter carries the balance. */
+html:root[data-theme="cyberpunk"] .debt-scale::before { display: none; }
+/* The chosen side: a dark plate framed in its colour, the rail on its outer edge (Cadence's selection — no solid). */
+html:root[data-theme="cyberpunk"] .debt-plate {
+  border-radius: 0;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--tone, var(--in)) 15%, transparent), color-mix(in oklab, var(--tone, var(--in)) 4%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone, var(--in)) 55%, transparent), inset 3px 0 0 var(--tone, var(--in));
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+html:root[data-theme="cyberpunk"] .debt-scale[data-on="owe"] .debt-plate {
+  background: linear-gradient(270deg, color-mix(in oklab, var(--tone) 15%, transparent), color-mix(in oklab, var(--tone) 4%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 55%, transparent), inset -3px 0 0 var(--tone);
+}
+/* Labels: condensed caps; the dots become square signal lamps. Amounts: the display face, tabular, still. */
+html:root[data-theme="cyberpunk"] .debt-scale .ds-lab { font-family: var(--cp-display); font-weight: 700; font-size: .82rem; line-height: calc(.8rem * 1.15); letter-spacing: .07em; text-transform: uppercase; } /* the house's line box (.8rem × 1.15): the scale never grows */
+html:root[data-theme="cyberpunk"] .debt-scale > button .ds-lab::before,
+html:root[data-theme="cyberpunk"] .debt-scale > button .ds-lab::after { border-radius: 0; width: 5px; height: 5px; }
+html:root[data-theme="cyberpunk"] .debt-scale > button b { font-family: var(--cp-display); font-weight: 600; font-size: .78rem; line-height: calc(.68rem * 1.15); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+html:root[data-theme="cyberpunk"] .debt-scale > button { border-radius: 0; }
+/* The pivot becomes the core: a cut plate, the yellow nib between a green and an amber lamp. */
+html:root[data-theme="cyberpunk"] .debt-pivot {
+  border-radius: 0;
+  background:
+    linear-gradient(var(--accent), var(--accent)) center / 2px 12px no-repeat,
+    linear-gradient(var(--in), var(--in)) left 5px center / 4px 4px no-repeat,
+    linear-gradient(var(--owe), var(--owe)) right 5px center / 4px 4px no-repeat,
+    #0f0d0a;
+  border-color: #57503f; box-shadow: none; color: transparent;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+html:root[data-theme="cyberpunk"] .debt-pivot svg { display: none; }
+html:root[data-theme="cyberpunk"] .debt-pivot::before, html:root[data-theme="cyberpunk"] .debt-pivot::after { background: #3a332a; }
+/* The meter: Me deben's cells from the left, Debo's from the right, the nib at the balance point. */
+html:root[data-theme="cyberpunk"] .debt-scale > .ds-cp {
+  display: block; position: absolute; z-index: 2; left: 22px; right: 22px; bottom: 4px; height: 3px; pointer-events: none;
+}
+html:root[data-theme="cyberpunk"] .ds-cp > :is(.ds-cp-in, .ds-cp-owe) {
+  position: absolute; top: 0; bottom: 0;
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 7px);
+  mask: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 7px);
+  transition: width .6s cubic-bezier(.2, .8, .2, 1);
+}
+html:root[data-theme="cyberpunk"] .ds-cp > .ds-cp-in { left: 0; width: calc(var(--bal, .5) * 100%); background: var(--in); }
+html:root[data-theme="cyberpunk"] .ds-cp > .ds-cp-owe { right: 0; width: calc((1 - var(--bal, .5)) * 100%); background: var(--owe); -webkit-mask-position: right; mask-position: right; }
+html:root[data-theme="cyberpunk"] .ds-cp > .ds-cp-nib {
+  position: absolute; z-index: 1; top: -3px; bottom: -2px; left: calc(var(--bal, .5) * 100% - 1px); width: 2px;
+  background: var(--accent); transition: left .6s cubic-bezier(.2, .8, .2, 1);
+}
+html:root[data-theme="cyberpunk"] .ds-cp > .ds-cp-nib::before {
+  content: ""; position: absolute; left: -3px; top: -4px; width: 8px; height: 4px; background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+/* Nothing owed either way: the cells stand dim, the nib holds the middle. */
+html:root[data-theme="cyberpunk"] .debt-scale[data-cp-empty] .ds-cp > :is(.ds-cp-in, .ds-cp-owe) { opacity: .34; }
+
+/* Tablet top bar: the halves are cut panels; the emblem is a plate holding the mini meter. */
+/* At rest only the emblem shows (the house's 1.3.120 rule; a shared night rule had left the old pill painted behind it here). */
+html:root[data-theme="cyberpunk"] .debt-scale.is-top { background: transparent; border-color: transparent; box-shadow: none; }
+html:root[data-theme="cyberpunk"] .ds-shell {
+  background:
+    repeating-linear-gradient(0deg, rgb(255 240 200 / .022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #15120e, #0e0c09);
+  border-color: #3a332a; box-shadow: inset 0 1px 0 rgb(255 255 255 / .04);
+}
+html:root[data-theme="cyberpunk"] .ds-shell.is-l { border-radius: 2px 0 0 2px; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px); }
+html:root[data-theme="cyberpunk"] .ds-shell.is-r { border-radius: 0 2px 2px 0; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+html:root[data-theme="cyberpunk"] .ds-shell::after { background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--tone) 30%, transparent) 50%, transparent); }
+html:root[data-theme="cyberpunk"] .debt-scale.is-top > .ds-cp { left: 26px; right: 26px; bottom: 5px; transition: opacity .3s ease .2s; }
+html:root[data-theme="cyberpunk"] .debt-scale.is-top[data-fold="shut"] > .ds-cp { opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility 0s .2s; }
+html:root[data-theme="cyberpunk"] .debt-scale.is-top > .ds-emblem::before {
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(0deg, rgb(255 240 200 / .03) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #1a1611, #0e0c09);
+  border-color: #57503f;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .05);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+html:root[data-theme="cyberpunk"] .debt-scale.is-top[data-on="owed"] > .ds-emblem::before { border-color: color-mix(in oklab, var(--in) 70%, #3a332a); }
+html:root[data-theme="cyberpunk"] .debt-scale.is-top[data-on="owe"] > .ds-emblem::before { border-color: color-mix(in oklab, var(--owe) 70%, #3a332a); }
+html:root[data-theme="cyberpunk"] .debt-scale.is-top > button.ds-emblem > .ts-scale { display: none; }
+html:root[data-theme="cyberpunk"] .debt-scale.is-top > button.ds-emblem > .ts-aura { display: none; }
+/* Two HUD ticks on the plate's square corners. */
+html:root[data-theme="cyberpunk"] .debt-scale.is-top > .ds-emblem::after {
+  content: ""; position: absolute; z-index: 1; inset: 4px; pointer-events: none;
+  background:
+    linear-gradient(var(--accent), var(--accent)) left top / 6px 1.5px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left top / 1.5px 6px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right bottom / 6px 1.5px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right bottom / 1.5px 6px no-repeat;
+  opacity: .8;
+}
+html:root[data-theme="cyberpunk"] .ds-emblem > .ds-cp.is-mini { display: block; position: relative; z-index: 1; width: 28px; height: 6px; }
+html:root[data-theme="cyberpunk"] .ds-emblem > .ds-cp.is-mini > :is(.ds-cp-in, .ds-cp-owe) {
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 4px);
+  mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 4px);
+}
+html:root[data-theme="cyberpunk"] .ds-emblem > .ds-cp.is-mini > .ds-cp-owe { -webkit-mask-position: right; mask-position: right; }
+html:root[data-theme="cyberpunk"] .ds-emblem > .ds-cp.is-mini > .ds-cp-nib { top: -5px; bottom: -5px; }
+html:root[data-theme="cyberpunk"] .ds-emblem > .ds-cp.is-mini > .ds-cp-nib::before { display: none; }
+html:root[data-theme="cyberpunk"] .debt-scale.is-top > button.ds-emblem > .ts-ring {
+  border-radius: 0; box-shadow: 0 0 0 1.5px var(--accent);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  animation: cp-ts-ring .42s steps(4, end) forwards;
+}
+@keyframes cp-ts-ring { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.32); } }
+
+/* ---------- 3. Estudio · Asesor ---------- */
+html:root[data-theme="cyberpunk"] :is(.advice-card, .advice-pulse) {
+  border-radius: 2px; border-color: #3a332a;
+  background: var(--cp-panel);
+  clip-path: var(--cp-cut);
+}
+/* The head: a HUD strip — scanned dark band, a rail and a seam in the card's own colour. */
+html:root[data-theme="cyberpunk"] .advice-card { --hk: var(--accent); }
+html:root[data-theme="cyberpunk"] .advice-card.is-short { --hk: var(--warn); }
+html:root[data-theme="cyberpunk"] .advice-card.is-long { --hk: var(--good); }
+html:root[data-theme="cyberpunk"] .advice-card.is-plan { --hk: var(--fg); }
+html:root[data-theme="cyberpunk"] .advice-card.is-area { --hk: var(--area); }
+html:root[data-theme="cyberpunk"] .advice-card .advice-head {
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--hk) 13%, transparent), transparent 64%),
+    repeating-linear-gradient(0deg, rgb(255 240 200 / .028) 0 1px, transparent 1px 3px),
+    #120f0c;
+  box-shadow: inset 3px 0 0 var(--hk), inset 0 -1px 0 color-mix(in oklab, var(--hk) 42%, #3a332a);
+}
+/* The icon plate: angular, flat signal paint (its colour stays the card's). */
+html:root[data-theme="cyberpunk"] .advice-card .advice-mark {
+  border-radius: 0; box-shadow: none;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+html:root[data-theme="cyberpunk"] .advice-card .advice-head h2 { font-family: var(--cp-display); font-weight: 600; letter-spacing: .015em; }
+/* Figures in the display face — tabular, warm, still. */
+html:root[data-theme="cyberpunk"] :is(.a2-year strong, .a2-tiles strong, .advice-facts strong, .advice-points li.is-hero strong, .a2-plan-sum strong, .a2-gauge-read strong, .s2-runway-big strong, .s2-whatif-amt) {
+  font-family: var(--cp-display); font-weight: 700; letter-spacing: .01em; font-variant-numeric: tabular-nums lining-nums;
+}
+html:root[data-theme="cyberpunk"] .a2-year strong { color: color-mix(in oklab, var(--good) 82%, var(--fg)); }
+html:root[data-theme="cyberpunk"] .a2-year strong.bad { color: var(--bad); }
+html:root[data-theme="cyberpunk"] .a2-year em { font-family: var(--cp-display); font-weight: 600; letter-spacing: .04em; }
+/* Stencil readouts: condensed caps, tracked wide, a square signal lamp before each. */
+html:root[data-theme="cyberpunk"] :is(.a2-tiles em, .advice-facts em, .a2-cards-facts em, .a2-load em, .a2-plan-sum em, .s2-trio em, .s2-when, .advice-points li.is-hero span) {
+  font-family: var(--cp-display); font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: var(--muted);
+}
+html:root[data-theme="cyberpunk"] .a2-tiles em::before {
+  content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 7px 0 0; vertical-align: .12em; background: var(--accent);
+}
+
+/* The 12-month chart: a baseline grid, month ticks, stepped cyan columns, the latest lit. */
+html:root[data-theme="cyberpunk"] .a2-stack::before {
+  content: ""; position: absolute; z-index: 0; left: 0; right: 0; top: 18px; bottom: 20px; pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgb(242 238 227 / .07) 0 1px, transparent 1px 25%);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 2px, transparent 2px 5px);
+  mask: repeating-linear-gradient(90deg, #000 0 2px, transparent 2px 5px);
+}
+html:root[data-theme="cyberpunk"] .a2-stack { container-type: inline-size; }
+html:root[data-theme="cyberpunk"] .a2-col { position: relative; z-index: 1; }
+html:root[data-theme="cyberpunk"] .a2-col i {
+  border-radius: 0; opacity: 1;
+  background: color-mix(in oklab, var(--cp-data) 46%, #0b0a08);
+  -webkit-mask: linear-gradient(to top, #000 0 5px, transparent 5px 7px) bottom / 100% 7px repeat-y;
+  mask: linear-gradient(to top, #000 0 5px, transparent 5px 7px) bottom / 100% 7px repeat-y;
+}
+html:root[data-theme="cyberpunk"] .a2-col.is-full i { background: color-mix(in oklab, var(--cp-data) 78%, #0b0a08); opacity: 1; }
+html:root[data-theme="cyberpunk"] .a2-col:last-of-type i { background: linear-gradient(180deg, #e6fdff 0 5px, var(--cp-data) 5px); }
+html:root[data-theme="cyberpunk"] .a2-stack.is-hole .a2-col i { background: color-mix(in oklab, var(--bad) 70%, #0b0a08); }
+html:root[data-theme="cyberpunk"] .a2-stack.is-hole .a2-col:last-of-type i { background: linear-gradient(180deg, #ffd0d8 0 5px, var(--bad) 5px); }
+/* The month the cushion fills: its lane glows faintly yellow and its tick reads in yellow (a frame on the bar would be cut by its cells). */
+html:root[data-theme="cyberpunk"] .a2-col.is-hit i { box-shadow: none; }
+html:root[data-theme="cyberpunk"] .a2-col.is-hit { background: linear-gradient(0deg, rgb(252 238 10 / .1), rgb(252 238 10 / 0) 70%); }
+html:root[data-theme="cyberpunk"] .a2-col.is-hit b { color: var(--accent); }
+html:root[data-theme="cyberpunk"] .a2-col b {
+  position: relative; overflow: visible;
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--faint);
+  font-size: min(.62rem, calc((100cqi - 44px) / 28.8)); /* "SEPT" always fits its column (large text on 360 phones) */
+}
+html:root[data-theme="cyberpunk"] .a2-col:last-of-type b { color: var(--cp-data); }
+/* The baseline runs under every column (through the gaps); a tick drops at each month. */
+html:root[data-theme="cyberpunk"] .a2-col b::before {
+  content: ""; position: absolute; left: -2px; right: -2px; top: -3px; height: 1px; background: #57503f; pointer-events: none;
+}
+html:root[data-theme="cyberpunk"] .a2-col b::after {
+  content: ""; position: absolute; left: calc(50% - .5px); top: -3px; width: 1px; height: 4px; background: #7a705f; pointer-events: none;
+}
+html:root[data-theme="cyberpunk"] .a2-goal { z-index: 3; border-top: 1.5px dashed var(--accent); }
+html:root[data-theme="cyberpunk"] .a2-goal span {
+  border-radius: 0; color: var(--accent); background: #120f0c;
+  font-family: var(--cp-display); font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Segmented cell meters: every progress bar in Estudio and the Asesor reads as cells. */
+html:root[data-theme="cyberpunk"] :is(.a2-mini, .a2-line-bar, .a2-sum-bar, .a2-load-bar, .s2-track, .advice-meter b) {
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, rgb(242 238 227 / .09) 0 6px, transparent 6px 8px);
+}
+html:root[data-theme="cyberpunk"] :is(.a2-mini b, .a2-line-bar b, .a2-sum-bar b, .a2-load-bar b, .s2-track b, .s2-track i, .advice-meter i) {
+  border-radius: 0;
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+  mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+}
+html:root[data-theme="cyberpunk"] .a2-mini b { background: var(--cp-data); }
+html:root[data-theme="cyberpunk"] .s2-cells i { border-radius: 0; }
+html:root[data-theme="cyberpunk"] .s2-cells b {
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+  mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+}
+/* Estudio's month bars: the same stepped columns, in their own in/out colours. */
+html:root[data-theme="cyberpunk"] .s2-pair i {
+  border-radius: 0;
+  -webkit-mask: linear-gradient(to top, #000 0 4px, transparent 4px 6px) bottom / 100% 6px repeat-y;
+  mask: linear-gradient(to top, #000 0 4px, transparent 4px 6px) bottom / 100% 6px repeat-y;
+}
+html:root[data-theme="cyberpunk"] .s2-bars button { border-radius: 2px; }
+html:root[data-theme="cyberpunk"] .s2-bars button.is-on { background: rgb(252 238 10 / .05); box-shadow: inset 0 -2px 0 var(--accent); }
+html:root[data-theme="cyberpunk"] .s2-bars b { font-family: var(--cp-display); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+html:root[data-theme="cyberpunk"] :is(.s2-seg, .s2-seg button) { border-radius: 2px; }
+html:root[data-theme="cyberpunk"] .s2-seg button { font-family: var(--cp-display); letter-spacing: .05em; text-transform: uppercase; }
+html:root[data-theme="cyberpunk"] .s2-seg button[aria-selected=true] { background: var(--accent); color: var(--accent-fg); clip-path: var(--cp-cut-sm); }
+html:root[data-theme="cyberpunk"] :is(.s2-readout, .s2-month, .s2-whatif, .s2-voyage-read div) { border-radius: 2px; }
+html:root[data-theme="cyberpunk"] .s2-readout { clip-path: var(--cp-cut-sm); }
+html:root[data-theme="cyberpunk"] :is(.a2-cal i, .a2-chips span, .a2-chips i) { border-radius: 1px; }
+html:root[data-theme="cyberpunk"] .a2-river-bar { border-radius: 2px; }
+
+/* ---------- Motion: ceremonies only, behind the guard ---------- */
+/* The power-up reveals the column cell by cell from the baseline (a clip, so the cells never squash), then one stutter. */
+@keyframes cp-bar-power-a { 0% { clip-path: inset(100% 0 0 0); opacity: .45; } 70% { clip-path: inset(0 0 0 0); opacity: 1; } 80% { opacity: .45; } 90%, 100% { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes cp-bar-power-b { 0% { clip-path: inset(100% 0 0 0); opacity: .45; } 70% { clip-path: inset(0 0 0 0); opacity: 1; } 80% { opacity: .45; } 90%, 100% { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes cp-vb-scan { 0% { transform: translateX(-100%); opacity: 1; } 82% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(0); opacity: 0; } }
+@keyframes cp-ds-charge-a { 0% { opacity: .4; } 25% { opacity: 1; filter: brightness(1.6); } 50% { opacity: .55; } 75% { opacity: 1; filter: brightness(1.3); } 100% { opacity: 1; filter: none; } }
+@keyframes cp-ds-charge-b { 0% { opacity: .4; } 25% { opacity: 1; filter: brightness(1.6); } 50% { opacity: .55; } 75% { opacity: 1; filter: brightness(1.3); } 100% { opacity: 1; filter: none; } }
+@keyframes cp-ds-tear { 0% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cp-magenta), 2px 0 var(--cp-cyan); clip-path: inset(0 0 55% 0); } 34% { transform: translate(2px, 0); text-shadow: 2px 0 var(--cp-magenta), -2px 0 var(--cp-cyan); clip-path: inset(45% 0 0 0); } 67% { transform: none; text-shadow: 1px 0 var(--cp-magenta), -1px 0 var(--cp-cyan); clip-path: none; } 100% { transform: none; text-shadow: none; clip-path: none; } }
+@keyframes cp-ds-jolt-a { 0% { transform: translateX(-2px); } 33% { transform: translateX(2px); } 66% { transform: translateX(-1px); } 100% { transform: none; } }
+@keyframes cp-ds-jolt-b { 0% { transform: translateX(-2px); } 33% { transform: translateX(2px); } 66% { transform: translateX(-1px); } 100% { transform: none; } }
+@keyframes cp-fade-a { from { opacity: 0; } }
+@keyframes cp-fade-b { from { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  /* The chart powers up once on reveal, again on a tap — the bars grow, the figures never move. */
+  html:root[data-theme="cyberpunk"] .a2-stack .a2-col i { animation: cp-bar-power-a .6s steps(8, end) both; }
+  html:root[data-theme="cyberpunk"] .a2-stack[data-pw="1"] .a2-col i { animation-name: cp-bar-power-b; }
+  /* The meter's tap answers in the side's own cells, not a round bloom (reduced motion keeps the house's soft tint). */
+  html:root[data-theme="cyberpunk"] .debt-scale .ds-bloom { display: none; }
+  /* A savings chip tapped: one stepped scan across it. */
+  html:root[data-theme="cyberpunk"] .vb-fill { animation: cp-vb-scan .42s steps(7, end) forwards; }
+  /* A side of the meter tapped: its cells charge, its label tears once (the amount stays still). */
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tap="owed"][data-tapn="0"] .ds-cp-in,
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tap="owe"][data-tapn="0"] .ds-cp-owe { animation: cp-ds-charge-a .5s steps(1) 1; }
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tap="owed"][data-tapn="1"] .ds-cp-in,
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tap="owe"][data-tapn="1"] .ds-cp-owe { animation: cp-ds-charge-b .5s steps(1) 1; }
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tap="owed"] > button[data-side="owed"] .ds-lab,
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tap="owe"] > button[data-side="owe"] .ds-lab { animation: cp-ds-tear .32s steps(1) 1; }
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tapn="0"] .debt-pivot { animation: cp-ds-jolt-a .3s steps(1) 1; }
+  html:root[data-theme="cyberpunk"] .debt-scale[data-tapn="1"] .debt-pivot { animation: cp-ds-jolt-b .3s steps(1) 1; }
+  html:root[data-theme="cyberpunk"] .ds-emblem[data-poke="0"] > .ds-cp.is-mini { animation: cp-ds-jolt-a .3s steps(1) 1; }
+  html:root[data-theme="cyberpunk"] .ds-emblem[data-poke="1"] > .ds-cp.is-mini { animation: cp-ds-jolt-b .3s steps(1) 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Stillness: the meter and the nib arrive in place; the chart fades in (and again on a tap); no scans, tears or jolts. */
+  html:root[data-theme="cyberpunk"] .ds-cp > *, html:root[data-theme="cyberpunk"] .debt-scale.is-top > .ds-cp { transition: none; }
+  html:root[data-theme="cyberpunk"] .a2 .a2-stack .a2-col i { animation: cp-fade-a .3s ease both !important; }
+  html:root[data-theme="cyberpunk"] .a2 .a2-stack[data-pw="1"] .a2-col i { animation-name: cp-fade-b !important; }
+  html:root[data-theme="cyberpunk"] .debt-scale.is-top > button.ds-emblem > .ts-ring { display: none; }
+  html:root[data-theme="cyberpunk"] .vb-fill { transform: none; background: color-mix(in oklab, var(--vtone) 22%, transparent); animation: ds-tint .45s ease-out forwards; }
+}

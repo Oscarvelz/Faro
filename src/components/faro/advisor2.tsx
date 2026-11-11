@@ -1,7 +1,7 @@
 // Asesor 2: each advice card leads with a picture; words come second.
 import "./advisor2.css";
 import { Calculator, ChevronDown, ChevronRight, House, PiggyBank, ShoppingBag, Wallet } from "lucide-react";
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import type React from "react";
 import { useFaro } from "@/components/faro/provider";
 import { Hint } from "./hint";
@@ -220,6 +220,8 @@ function CardsCredit() {
 /* ── Si cada mes fuera así ──────────────────────────────────────────── */
 export function LongVisual({ card }: { card: AdviceCard }) {
   const { fmt, lang } = useFaro();
+  // 1.3.203: a tap on the chart replays its bars' entrance (paint only; only Cyberpunk gives the replay a motion).
+  const [pw, setPw] = useState(0);
   const n = card.nums;
   if (!n) return null;
   const save = n.pace > 0 ? n.pace : Math.max(0, n.monthly);
@@ -238,7 +240,7 @@ export function LongVisual({ card }: { card: AdviceCard }) {
         <strong className={`num serif ${hole ? "bad" : ""}`}>{fmt(Math.abs(n.year))}</strong>
         <span>{L(lang, `${fmt(Math.abs(n.monthly))} al mes × 12, sin compras de una vez`, `${fmt(Math.abs(n.monthly))} a month × 12, no one-offs`)}</span>
       </div>
-      <div className={`a2-stack${hole ? " is-hole" : ""}`}>
+      <div className={`a2-stack${hole ? " is-hole" : ""}`} data-pw={pw ? pw % 2 : undefined} onClick={() => setPw((k) => k + 1)}>
         {n.target > 0 && !hole ? <div className="a2-goal" style={{ bottom: `${(n.target / top) * 100}%` }}><span>{L(lang, "Colchón", "Cushion")} · {fmt(n.target)}</span></div> : null}
         {series.map((v, i) => (
           <div key={i} className={`a2-col${i === hit ? " is-hit" : ""}${hit >= 0 && i >= hit ? " is-full" : ""}`}>

@@ -144,6 +144,8 @@ export function DebtScale({ value, onPick, top = false }: { value: DebtSide | nu
   // The pivot leans toward the heavier side (at most 7°), like a real scale.
   const sum = n.owed + n.owe;
   const lean = sum > 0 ? Math.max(-7, Math.min(7, ((n.owe - n.owed) / sum) * 7)) : 0;
+  // 1.3.203 (Cyberpunk only): the balance point of the split meter, Me deben's share of the two (0.5 when both are empty).
+  const bal = sum > 0 ? n.owed / sum : 0.5;
   const pick = (side: DebtSide) => (e: React.MouseEvent) => {
     debtHello(side, e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined);
     onPick(side);
@@ -152,9 +154,10 @@ export function DebtScale({ value, onPick, top = false }: { value: DebtSide | nu
   const shut = top && !open;
   const hide = shut ? { tabIndex: -1, "aria-hidden": true as const } : {};
   return (
-    <div ref={root} className={`debt-scale${top ? " is-top" : ""}`} data-on={value ?? undefined} data-tap={tap?.side} data-tapn={tap ? tap.n % 2 : undefined} data-fold={top ? (open ? "open" : "shut") : undefined} data-has-in={top && n.owed > 0 ? "" : undefined} data-has-owe={top && n.owe > 0 ? "" : undefined} role="tablist" aria-label={L("Deudas", "Debts")} data-anchor="debt-scale" style={{ ["--lean" as string]: `${lean.toFixed(2)}deg` }}>
+    <div ref={root} className={`debt-scale${top ? " is-top" : ""}`} data-on={value ?? undefined} data-tap={tap?.side} data-tapn={tap ? tap.n % 2 : undefined} data-fold={top ? (open ? "open" : "shut") : undefined} data-has-in={top && n.owed > 0 ? "" : undefined} data-has-owe={top && n.owe > 0 ? "" : undefined} role="tablist" aria-label={L("Deudas", "Debts")} data-anchor="debt-scale" data-cp-empty={sum > 0 ? undefined : ""} style={{ ["--lean" as string]: `${lean.toFixed(2)}deg`, ["--bal" as string]: bal.toFixed(4) }}>
       {top ? <><i className="ds-shell is-l" aria-hidden /><i className="ds-shell is-r" aria-hidden /></> : null}
       <i className="debt-plate" aria-hidden />
+      <CpMeter />
       <button type="button" role="tab" data-side="owed" aria-selected={value === "owed"} aria-current={value === "owed" ? "page" : undefined} onClick={pick("owed")} {...hide}>
         {bloom("owed")}
         <span className="ds-lab">{L("Me deben", "Owed to me")}</span>
@@ -166,6 +169,7 @@ export function DebtScale({ value, onPick, top = false }: { value: DebtSide | nu
           <i className="ts-aura is-owe" aria-hidden />
           {poke ? <i key={poke} className="ts-ring" aria-hidden /> : null}
           <ScaleEmblem lean={lean} />
+          <CpMeter mini />
         </button>
       ) : <span className="debt-pivot" aria-hidden><Scale /></span>}
       <button type="button" role="tab" data-side="owe" aria-selected={value === "owe"} aria-current={value === "owe" ? "page" : undefined} onClick={pick("owe")} {...hide}>
@@ -175,6 +179,18 @@ export function DebtScale({ value, onPick, top = false }: { value: DebtSide | nu
       </button>
       <Hint topic="deudas" className="is-scale" corner overlay />
     </div>
+  );
+}
+
+/** 1.3.203 — the Cyberpunk split meter: Me deben's cells from the left, Debo's from the right, a signal-yellow nib at the
+ *  balance point (--bal on the scale). Pure paint, aria-hidden; every other theme never displays it (debts.css). */
+function CpMeter({ mini = false }: { mini?: boolean }) {
+  return (
+    <i className={`ds-cp${mini ? " is-mini" : ""}`} aria-hidden>
+      <i className="ds-cp-in" />
+      <i className="ds-cp-owe" />
+      <i className="ds-cp-nib" />
+    </i>
   );
 }
 
