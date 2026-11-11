@@ -501,7 +501,9 @@ describe("cyberpunk: los últimos menús — Cuotas y Debo / Me deben (1.3.213)"
   // de 6 meses, paneles Sin interés / Con interés / Tarjetas con sus
   // burbujas vacías, y la fila Archivo — dejan el acabado compartido.
   const at = css.indexOf("1.3.213");
-  const block = css.slice(at, css.indexOf("/* ---------- Stillness", at));
+  // 1.3.214: la frontera de la rebanada se mueve a la sección nueva (las
+  // aserciones de la 1.3.213 no cambian; la ruta del plan vive en su bloque).
+  const block = css.slice(at, css.indexOf("1.3.214", at));
   it("el vestido existe y cada regla vive cercada al libro de Libros en este tema", () => {
     assert.ok(at > 0, "la sección de la 1.3.213 debe existir en la hoja del tema");
     const rules = block.replace(/\/\*[\s\S]*?\*\//g, "").split("}").map((s) => s.trim()).filter((s) => s.includes("{"));
@@ -536,5 +538,51 @@ describe("cyberpunk: los últimos menús — Cuotas y Debo / Me deben (1.3.213)"
     assert.ok(!block.includes(".debt-plan"), "el Plan de pago es una herramienta con anatomía propia: queda fuera");
     assert.ok(!block.includes(".debt-net"), "la fila del Balance neto no se toca");
     assert.ok(!block.includes(".cobro-card"), "las filas de personas y préstamos conservan su acabado: ninguna regla viste una fila");
+  });
+});
+
+describe("cyberpunk: la ruta del plan — la línea de tiempo del Asesor (1.3.214)", () => {
+  // Orden de Oscar (2026-11-11 07:24 EST, una foto del Asesor): «For
+  // cyberpunk only. Apply the style to this section in advisor.» La
+  // sección es la ruta del plan (PlanRoute): 24 h / 7 d / 30 d / 90 d
+  // dentro de «Por dónde empezar», que llevaba el latón compartido —
+  // nodo vivo radial brillante con halo, anillos dorados, conector en
+  // degradado dorado y titulares en la fuente del cuerpo.
+  const at = css.indexOf("1.3.214");
+  const block = css.slice(at, css.indexOf("/* ---------- Stillness", at));
+  it("el vestido existe y cada regla cuelga de la ruta, cercada a este tema", () => {
+    assert.ok(at > 0, "la sección de la 1.3.214 debe existir en la hoja del tema");
+    const rules = block.replace(/\/\*[\s\S]*?\*\//g, "").split("}").map((s) => s.trim()).filter((s) => s.includes("{"));
+    assert.ok(rules.length >= 6, "el bloque trae su familia de reglas");
+    for (const r of rules) {
+      const sel = r.slice(0, r.indexOf("{"));
+      assert.ok(sel.includes("html[data-theme=\"cyberpunk\"]"), `toda regla nace cercada al tema: ${sel.slice(0, 60)}`);
+      assert.ok(/\.a2-(route|stop)/.test(sel), `toda regla cuelga de la ruta del plan: ${sel.slice(0, 60)}`);
+    }
+  });
+  it("fuera quedan el héroe, el resumen y la tarjeta: la ruta es la sección", () => {
+    assert.ok(!block.includes(".a2-tower"), "el héroe del faro es de la oleada de arte (1.3.215): no se toca");
+    assert.ok(!block.includes(".a2-plan-sum"), "la franja del resumen ya es plana por la ley de hairlines de la pila: nombrada y fuera");
+    assert.ok(!block.includes(".advice-card"), "la tarjeta ya viste el HUD (cyberpunk-hud.css §3): aquí no se rede­clara");
+    assert.ok(!block.includes(".a2-stop-rest"), "el cuerpo de cada paso conserva su tinta apagada de la hoja base");
+  });
+  it("el conector es una regla plana de acento: sin degradado y sin brillo", () => {
+    assert.ok(block.includes(".a2-route::before {\n  background: color-mix(in oklab, var(--accent) 60%, transparent);"), "una sola tinta plana al 60% sustituye al degradado dorado que se desvanecía");
+    assert.ok(!block.includes("#ffd98a"), "el latón (#ffd98a) desaparece del bloque entero");
+    assert.ok(!block.includes("linear-gradient"), "ningún degradado viste la ruta");
+  });
+  it("el nodo vivo es el disco amarillo plano con sus horas oscuras en Rajdhani, y el halo muere", () => {
+    assert.ok(block.includes("li:first-child .a2-stop {\n  background: var(--accent);\n  box-shadow: 0 0 0 4px var(--surface);"), "disco plano var(--accent); la sombra es solo el anillo que enmascara la regla, como en la hoja base");
+    assert.ok(block.includes("li:first-child .a2-stop b {\n  font-family: var(--cp-display); font-weight: 700; color: var(--accent-fg);"), "las horas del paso vivo: Rajdhani oscura sobre el amarillo señal");
+    assert.ok(!block.includes("radial-gradient"), "el radial brillante del nodo muere");
+    assert.ok(!block.includes("18px"), "el halo de 18px muere: ninguna regla del bloque lo conserva");
+  });
+  it("los pasos que vienen se sientan en el material del panel, enmarcados en silencio", () => {
+    assert.ok(block.includes("li:nth-child(n+2) .a2-stop {\n  background: var(--cp-panel);\n  border-color: color-mix(in oklab, var(--accent) 42%, var(--line));"), "disco plano del material del panel; marco de acento al 42%, la fuerza callada de las costuras de la casa");
+    assert.ok(block.includes("li:nth-child(n+2) .a2-stop b {\n  font-family: var(--cp-display); font-weight: 700; color: var(--fg);"), "sus horas: Rajdhani en la tinta cálida, sin competir con el paso vivo");
+  });
+  it("los titulares hablan Rajdhani y el bloque no asigna ningún token", () => {
+    assert.ok(block.includes(".a2-stop-head {\n  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;"), "los titulares de los pasos toman la fuente de la ciudad; las fechas siguen calculándose igual");
+    assert.ok(!/--(accent|seg|save|sav|tone|cp-panel)\s*:/.test(block), "el bloque lee los tokens con var(), jamás los asigna");
   });
 });

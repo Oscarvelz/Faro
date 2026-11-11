@@ -1090,6 +1090,53 @@ html[data-theme="cyberpunk"] body .debt-book .fx-note.is-empty {
   border-radius: 2px;
 }
 
+/* ---------- 1.3.214: la ruta del plan — la línea de tiempo del Asesor ----------
+   Oscar's order (2026-11-11 07:24 EST, one photo of the Advisor in
+   this theme): «For cyberpunk only. Apply the style to this section
+   in advisor.» The section is the plan route (PlanRoute): the
+   vertical timeline 24 h / 7 d / 30 d / 90 d inside «Por dónde
+   empezar». It wore the shared brass: the live step a glossy gold
+   radial disc with a halo, the steps ahead gold rings on the
+   surface, the connector a gold gradient fading away, the heads
+   in the body face. Here the live node becomes the city's flat
+   signal-yellow disc, its hours in dark Rajdhani; the nodes ahead
+   sit on the flat panel stock, framed quietly in the accent — the
+   future stays quiet and never competes with the step that is
+   live; the connector is one flat accent rule, no gradient, no
+   glow; the heads take the display face and the body text keeps
+   its muted ink. The first step is the live one by construction —
+   the base sheet paints it so (the filled stop is the default,
+   the rings the override) and this block mirrors that reading.
+   The card the route lives in already wears the HUD dress
+   (cyberpunk-hud.css §3: flat panel stock, 2px, the cut corners)
+   — nothing here redeclares it. The hero with the lighthouse
+   belongs to the art wave (1.3.215) and stays untouched; the
+   plan's summary strip is already flat by the stack's hairline
+   law, and only its figure keeps the base gold — named here and
+   left alone. Texts, dates and the step logic are the base
+   sheet's and the component's: nothing here moves a word. Other
+   themes are fenced out by the theme prefix itself. */
+html[data-theme="cyberpunk"] .a2-route::before {
+  background: color-mix(in oklab, var(--accent) 60%, transparent);
+}
+html[data-theme="cyberpunk"] .a2-route li:first-child .a2-stop {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--surface);
+}
+html[data-theme="cyberpunk"] .a2-route li:first-child .a2-stop b {
+  font-family: var(--cp-display); font-weight: 700; color: var(--accent-fg);
+}
+html[data-theme="cyberpunk"] .a2-route li:nth-child(n+2) .a2-stop {
+  background: var(--cp-panel);
+  border-color: color-mix(in oklab, var(--accent) 42%, var(--line));
+}
+html[data-theme="cyberpunk"] .a2-route li:nth-child(n+2) .a2-stop b {
+  font-family: var(--cp-display); font-weight: 700; color: var(--fg);
+}
+html[data-theme="cyberpunk"] .a2-stop-head {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;
+}
+
 /* ---------- Stillness: reduced motion parks the city ---------- */
 @media (prefers-reduced-motion: reduce) {
   /* The whole glitch family parks too (its applications already live
