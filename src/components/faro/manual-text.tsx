@@ -14,7 +14,10 @@ export type TermCtx = { self?: string; here?: (go: Go) => boolean; seen?: Set<st
 /**
  * Bubble and manual text. `[[Term]]` is a proper name of something in Faro (a screen, a book, a side, a button):
  * it reads as a name (thin dotted underline, same colour and weight as the text) and is a link that jumps there.
- * Known feature names with no place to go keep a gentle emphasis (same colour, a little weight, no underline).
+ * A name that is not the link here — the topic's own name, a repeat, the place already on screen — still reads
+ * as a name: the same dotted underline on a plain span. Known feature names written bare (NAME_TERMS) get that
+ * same span. Since 1.3.209 the dotted values are Brizna's `.name-ref` ones (see manual.css): the name reads
+ * apart from its sentence, with a pause, whether it navigates or not.
  */
 export function richText(text: string, data: ManualData, onLink: (term: string) => void, ctx: TermCtx = {}): ReactNode {
   const parts = text.split(/(\[\[[^\]]+\]\])/g);
@@ -33,8 +36,8 @@ export function richText(text: string, data: ManualData, onLink: (term: string) 
         || seen.has(key)
         || !!ctx.here?.(dest.go);
       let node: ReactNode;
-      if (!dest) node = <b className="faro-name">{term}</b>;
-      else if (plain) node = term;
+      if (!dest) node = <span className="faro-name">{term}</span>;
+      else if (plain) node = <span className="faro-name">{term}</span>;
       else if (ctx.still) { seen.add(key); node = <span className="term-link is-still">{term}</span>; }
       else {
         seen.add(key);
@@ -89,7 +92,7 @@ function emphasize(text: string, names: readonly string[]): ReactNode {
   for (const m of text.matchAll(re)) {
     const i = m.index ?? 0;
     if (i > at) out.push(text.slice(at, i));
-    out.push(<b key={i} className="faro-name">{m[0]}</b>);
+    out.push(<span key={i} className="faro-name">{m[0]}</span>);
     at = i + m[0].length;
   }
   if (!out.length) return text;

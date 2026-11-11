@@ -23,6 +23,7 @@ export const LINKS: Record<string, string> = {
   "Libros → Me deben": "deudas", "Books → Owed to me": "deudas",
   "Plan de pago": "plan-pago", "Payoff plan": "plan-pago",
   "Tarjetas de crédito": "tarjetas", "Credit cards": "tarjetas",
+  "Fecha de pago": "tc-fecha", "Due date": "tc-fecha",
   "Actualizar con una captura": "tarjetas-captura", "Update with a screenshot": "tarjetas-captura",
   "Recompensas de tarjetas": "recompensas-tarjetas", "Card rewards": "recompensas-tarjetas",
   Canjear: "recompensas-tarjetas", Redeem: "recompensas-tarjetas",
@@ -71,6 +72,7 @@ export const LINKS: Record<string, string> = {
   Retiro: "retiro", Retirement: "retiro",
   Emergencia: "emergencia", Emergency: "emergencia",
   // Study
+  "El año": "estudio-ano", "The year": "estudio-ano",
   "Cinco chequeos": "pilares", "Five checks": "pilares",
   "Próximos pagos": "proximos-pagos", "Payments ahead": "proximos-pagos",
   "Ahorro y colchón": "colchon", "Savings and cushion": "colchon",
@@ -82,6 +84,8 @@ export const LINKS: Record<string, string> = {
   // Settings
   Tema: "temas", Theme: "temas",
   Estructura: "estructura", Structure: "estructura",
+  Plantillas: "plantillas", Templates: "plantillas",
+  "Categorías y subconceptos": "arbol", "Categories and subcategories": "arbol",
   Reglas: "reglas", Rules: "reglas",
   "Meta de ahorro": "meta-ahorro", "Savings goal": "meta-ahorro",
   "Meses de colchón": "meses-colchon", "Months of cushion": "meses-colchon",
@@ -123,11 +127,14 @@ export const LINK_GO: Record<string, Go> = {
 };
 
 /**
- * Feature names that are NOT written as [[links]] but should read as names (gentle emphasis:
- * weight 600, no underline). Matched as whole words in bubble and manual text.
+ * Feature names that are NOT written as [[links]] but should read as names. Since 1.3.209 they carry
+ * the same dotted underline as a link (Brizna's `.name-ref` values, in manual.css `.faro-name`): the
+ * name reads apart from its sentence — the pause Oscar asked for — without navigating anywhere.
+ * Matched as whole words in bubble and manual text. Every entry must name something that exists
+ * (a [[link]] term, a topic title, or a label in the app's strings): nombres.test.ts proves it.
  */
 export const NAME_TERMS: string[] = [
-  "Tengo", "Gastaré", "Usado", "Tasa", "Cobros", "Me deben", "Debo", "Bono", "Archivo", "Acumulado", "Promedio",
+  "Tengo", "Gastaré", "Usado", "Tasa", "Cobros", "Me deben", "Debo", "Archivo", "Acumulado", "Promedio",
   "Este periodo", "Desplegar", "Ir allí", "Más en el manual", "Poner en el campo", "Aplicar al plan", "Copiar plan",
   "Guardar copia ahora", "Restaurar", "Entendido", "Fijos", "Variables", "Compras",
   "Have", "Spending", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",

@@ -19,21 +19,30 @@
 .hint-more svg, .hint-act svg { width: 13px; height: 13px; flex: none; }
 .hint-act { color: var(--muted); }
 /* Proper names in help text (1.3.94): a name of something in Faro reads as a name, not as ordinary words.
-   Same colour and weight as the sentence; only a thin dotted underline, a little stronger on hover/focus. */
+   Same colour and weight as the sentence; only a thin dotted underline, a little stronger on hover/focus.
+   1.3.209: the dotted values are Brizna's `.name-ref` ones, word for word (Oscar: the underlined name
+   reads apart from the sentence — a pause is created), and a name that is not the link here (its own
+   topic, a repeat, the place on screen, a feature name written bare) carries the very same mark on a
+   plain span (.faro-name) instead of the old weight-only emphasis. One mark for every name, link or not. */
 .term-link {
   display: inline; padding: 0; margin: 0; border: 0; border-radius: 2px; background: none;
   font: inherit; color: inherit; letter-spacing: inherit; text-align: inherit; cursor: pointer;
   text-decoration-line: underline; text-decoration-style: dotted; text-decoration-thickness: 1px;
-  text-underline-offset: 3px; text-decoration-skip-ink: auto;
-  text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+  text-underline-offset: 0.2em; text-decoration-skip-ink: auto;
+  text-decoration-color: color-mix(in srgb, currentColor 62%, transparent);
   -webkit-tap-highlight-color: transparent;
   transition: text-decoration-color .15s ease;
 }
-.term-link:hover, .term-link:focus-visible { text-decoration-color: color-mix(in oklab, currentColor 80%, transparent); }
+.term-link:hover, .term-link:focus-visible { text-decoration-color: color-mix(in srgb, currentColor 80%, transparent); }
 .term-link:focus-visible { outline: 1.5px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: 2px; }
 .term-link.is-still { cursor: inherit; }
-.term-link.is-still:hover { text-decoration-color: color-mix(in oklab, currentColor 45%, transparent); }
-.faro-name { font-weight: 600; color: inherit; }
+.term-link.is-still:hover { text-decoration-color: color-mix(in srgb, currentColor 62%, transparent); }
+.faro-name {
+  color: inherit; font-weight: inherit;
+  text-decoration-line: underline; text-decoration-style: dotted; text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em; text-decoration-skip-ink: auto;
+  text-decoration-color: color-mix(in srgb, currentColor 62%, transparent);
+}
 
 /* ===================================================== "Ir allí" glow
    A ring in its own fixed layer that follows the element: no movement, no scale, nothing on the element.
