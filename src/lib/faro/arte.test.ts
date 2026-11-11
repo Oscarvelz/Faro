@@ -21,7 +21,11 @@ const section = cyber.slice(sectionStart); // la sección cierra la hoja (tras e
 
 describe("arte 216: la cerca", () => {
   it("toda regla de la sección vive bajo la cerca cyberpunk", () => {
-    const selectors = section.split("\n").filter((l) => l.trimEnd().endsWith("{") && !l.trim().startsWith("/*") && !l.trim().startsWith("*"));
+    // 1.3.218 (declarado): las líneas contenedoras de arroba (@media,
+    // @keyframes) no son reglas de tema — son los marcos donde viven
+    // las reglas cercadas; se eximen del filtro, y cada regla dentro
+    // de ellas sigue debiendo llevar la cerca.
+    const selectors = section.split("\n").filter((l) => l.trimEnd().endsWith("{") && !l.trim().startsWith("/*") && !l.trim().startsWith("*") && !l.trim().startsWith("@"));
     assert.ok(selectors.length >= 20, "la sección tiene menos reglas de las esperadas");
     for (const s of selectors) assert.ok(s.includes('[data-theme="cyberpunk"]'), `regla fuera de la cerca: ${s.trim()}`);
   });
@@ -44,15 +48,23 @@ describe("arte 216: el faro (MonthTower)", () => {
     assert.ok(section.includes('circle[fill="#c9584d"] { fill: #b44a40; }'));
   });
 
-  it("el haz es una cuña plana amarilla con la opacidad atada al dato (--glow × 0.5), sin barrido ni mezcla", () => {
+  it("el haz es una cuña plana amarilla con la opacidad atada al dato (--glow × 0.5), sin mezcla; la regla en pie es solo pintura", () => {
+    // Pin volteado por la 1.3.218 (declarado): la 216 exigía aquí
+    // «animation: none»; la corrección de Oscar devuelve el barrido,
+    // asignado en el bloque 1b bajo la ley de Hark — la regla en pie
+    // del haz ya no declara animación alguna, ni para darla ni para
+    // quitarla, y conserva la mezcla normal de la 216.
     assert.ok(section.includes("opacity: calc(var(--glow) * .5);"));
     assert.ok(section.includes(".a2-beam path { fill: #fcee0a; }"));
     const beam = section.slice(section.indexOf(".a2-beam {"), section.indexOf("}", section.indexOf(".a2-beam {")));
-    assert.ok(beam.includes("animation: none") && beam.includes("mix-blend-mode: normal"), "el haz conserva movimiento o mezcla");
+    assert.ok(!beam.includes("animation") && beam.includes("mix-blend-mode: normal"), "la regla en pie del haz debe ser solo pintura, sin mezcla");
   });
 
   it("la lámpara es un disco plano amarillo; en corto, el disco rojo reservado", () => {
-    assert.ok(section.includes(".a2-lamp { fill: #fcee0a; filter: none; animation: none; r: 7px; }"));
+    // Pin volteado por la 1.3.218 (declarado): fuera el
+    // «animation: none» — el destello vuelve en el bloque 1b,
+    // cercado a la torre sana; el disco y su radio no se mueven.
+    assert.ok(section.includes(".a2-lamp { fill: #fcee0a; filter: none; r: 7px; }"));
     assert.ok(section.includes(".a2-tower.is-short .a2-lamp { fill: #ff003c; }"));
     assert.ok(section.includes(".a2-halo { display: none; }"));
   });
@@ -154,5 +166,43 @@ describe("arte 216: lo que no se tocó", () => {
     assert.ok(styles.includes(".signal-light.bad.is-on { background: #e15b52; box-shadow: 0 0 12px rgb(225 91 82 / 70%)"), "el rojo base del semáforo cambió");
     assert.ok(styles.includes(".signal-light.warn.is-on { background: #e2b04a; box-shadow: 0 0 12px rgb(226 176 74 / 70%)"), "el ámbar base del semáforo cambió");
     assert.ok(styles.includes(".signal-light.good.is-on { background: #2f9a62; box-shadow: 0 0 12px rgb(47 154 98 / 70%)"), "el verde base del semáforo cambió");
+  });
+});
+
+describe("arte 218: la luz se mueve otra vez (corrección de Oscar, aprendida de Hark)", () => {
+  const motion = section.slice(section.indexOf("— 1b · THE LIGHT MOVES AGAIN"));
+
+  it("el barrido es la pista de transformadas de la base (a2-turn) con la opacidad a la mitad: techo --glow × 0.5", () => {
+    assert.ok(motion.includes("@keyframes cp-a2-turn {"), "falta la reemisión del barrido");
+    // La vuelta completa: de frente al 25% (techo de la 216), de
+    // espaldas al 75% (el suelo), pasada de lado al 50%.
+    assert.ok(motion.includes("25.0% { transform: scale(0.030, 1.450); opacity: calc(var(--glow) * 0.5); }"), "el pico del barrido no es el techo de la 216");
+    assert.ok(motion.includes("50.0% { transform: scale(-1.000, 1.000); opacity: calc(var(--glow) * 0.172); }"), "la pasada de espaldas cambió");
+    assert.ok(motion.includes("75.0% { transform: scale(-0.030, 1.000); opacity: calc(var(--glow) * 0.069); }"), "el suelo del barrido cambió");
+    assert.ok(motion.includes("0.0% { transform: scale(1.000, 1.000); opacity: calc(var(--glow) * 0.3125); }"), "el arranque del barrido cambió");
+    const stops = motion.split("\n").filter((l) => /^\s+\d+\.\d+% \{ transform: scale\(/.test(l));
+    assert.equal(stops.length, 41, "la pista reemitida debe tener las 41 paradas de la base");
+  });
+
+  it("el movimiento se asigna solo tras la guarda de no-preferencia, a la manera de vivo", () => {
+    assert.ok(motion.includes("@media (prefers-reduced-motion: no-preference) {"), "falta la guarda de Hark");
+    assert.ok(motion.includes('.a2-beam { animation: cp-a2-turn 9s linear infinite; }'), "el barrido no está asignado");
+    // El destello de la lámpara es el de la base, por su nombre, y
+    // cercado a la torre sana: en corto el disco rojo queda quieto.
+    assert.ok(motion.includes('.a2-tower:not(.is-short) .a2-lamp { animation: a2-lampflash 9s linear infinite; }'), "el destello no volvió cercado a la torre sana");
+  });
+
+  it("la ley de pausa de Hark cubre el haz y la lámpara: oculto, quieto, calmo y el silencio del cambio", () => {
+    assert.ok(motion.includes(":is([data-hidden], [data-cp-still], [data-cp-calm], [data-cp-hush]) :is(.a2-beam, .a2-lamp) { animation-play-state: paused !important; }"), "falta la ley de pausa");
+  });
+
+  it("el movimiento reducido apaga la luz con la muerte explícita, además de no asignarla", () => {
+    assert.ok(motion.includes("@media (prefers-reduced-motion: reduce) {"), "falta el bloque de quietud");
+    assert.ok(motion.includes(":is(.a2-beam, .a2-lamp) { animation: none !important; }"), "falta la muerte explícita");
+  });
+
+  it("el halo sigue ido (es pintura de la 216, no movimiento) y el haz de la ruta nunca se movió", () => {
+    assert.ok(section.includes(".a2-halo { display: none; }"), "el halo volvió");
+    assert.ok(section.includes(".s2-beamcone { fill: #fcee0a; opacity: .35; animation: none; }"), "la cuña de la ruta se movió");
   });
 });

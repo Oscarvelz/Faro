@@ -1204,17 +1204,25 @@ html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(1) st
 html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(4) { stop-color: #c9c0a8; }
 html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(2) stop { stop-color: #b44a40; }
 html[data-theme="cyberpunk"] .a2-tower-art circle[fill="#c9584d"] { fill: #b44a40; }
-/* The beam: one hard flat wedge of signal yellow, no blend, no
-   sweep — its opacity stays bound to the data (--glow × 0.5). */
+/* The beam: one hard flat wedge of signal yellow, no blend — and,
+   by Oscar's correction (1.3.218, below), it SWEEPS again: the turn
+   every other theme gets from the base, on the pivot 1.3.215
+   centred on the lamp, its brightness still bound to the data at
+   this wave's settlement (--glow × 0.5). The standing rule here is
+   paint only; the motion is assigned in the 1b block below, under
+   Hark's vivo law. */
 html[data-theme="cyberpunk"] .a2-beam {
-  animation: none; filter: none; mix-blend-mode: normal;
+  filter: none; mix-blend-mode: normal;
   opacity: calc(var(--glow) * .5);
 }
 html[data-theme="cyberpunk"] .a2-beam path { fill: #fcee0a; }
 html[data-theme="cyberpunk"] .a2-halo { display: none; }
 /* The lamp: one flat disc in its dark housing; short, it is the
-   one thing in the scene allowed the theme's red. */
-html[data-theme="cyberpunk"] .a2-lamp { fill: #fcee0a; filter: none; animation: none; r: 7px; }
+   one thing in the scene allowed the theme's red. Its flash — the
+   base's a2-lampflash, in step with the sweep — returns with the
+   beam on the healthy tower (1b block); in short the disc stays
+   flat and still, as this wave settled it. */
+html[data-theme="cyberpunk"] .a2-lamp { fill: #fcee0a; filter: none; r: 7px; }
 html[data-theme="cyberpunk"] .a2-tower.is-short .a2-lamp { fill: #ff003c; }
 html[data-theme="cyberpunk"] .a2-lantern { fill: #201b16; stroke: #f2eee3; stroke-width: 1.5px; }
 html[data-theme="cyberpunk"] .a2-mullion { stroke: #a79e8d; stroke-width: 1px; }
@@ -1239,6 +1247,84 @@ html[data-theme="cyberpunk"] .a2-sum-row.is-total .a2-op.a2-lampdot {
 }
 html[data-theme="cyberpunk"] .a2-sum-row.is-total.is-short .a2-op.a2-lampdot {
   background: radial-gradient(circle, #ff003c 0 4.5px, transparent 5.5px);
+}
+
+/* — 1b · THE LIGHT MOVES AGAIN (1.3.218) —
+   Oscar (2026-11-11 11:23 EST), over his phone's Asesor hero:
+   «Missing the fact that the light is Animated! It's moving.
+   Learn how Hark implemented it.» The 216 settlement above parked
+   the sweep under this theme; his word restores it — every paint
+   value of §1 stands exactly as shipped. Before 216 nothing in
+   this theme fenced the tower, so the base trio simply ran here;
+   what returns is that motion, no more and no less: the beam's
+   9 s turn and the healthy lamp's flash, in step. The halo stays
+   gone — it is 216 paint, not motion.
+   The discipline is Hark's, from cyberpunk-vivo.css, its patterns
+   named: (1) motion is assigned ONLY inside the no-preference
+   guard — reduced motion never receives the assignment; (2) the
+   explicit kill under reduce as well, his belt and braces; (3)
+   his pause selector's shape — the loops hold their frame while
+   the app is hidden, stilled or calmed, and under the hush of a
+   screen change, as his rain and spinners do; (4) transform and
+   opacity only — the layout never learns about it.
+   The sweep itself is the base's a2-turn TRANSFORM track verbatim,
+   re-issued as cp-a2-turn with every opacity stop halved, so the
+   wedge's brightest moment (25%, facing the viewer) is exactly
+   216's --glow × 0.5 and it never outshines the still poster. The
+   rotation rides the base rule's own origin — 60px 45px, the lamp
+   1.3.215 centred. The lamp's flash needs no re-issue: the base
+   keyframes run by name, fenced here to the healthy tower so the
+   short state's red disc stays flat and still. */
+@keyframes cp-a2-turn {
+    0.0% { transform: scale(1.000, 1.000); opacity: calc(var(--glow) * 0.3125); }
+    2.5% { transform: scale(0.988, 1.070); opacity: calc(var(--glow) * 0.342); }
+    5.0% { transform: scale(0.951, 1.139); opacity: calc(var(--glow) * 0.3705); }
+    7.5% { transform: scale(0.891, 1.204); opacity: calc(var(--glow) * 0.3975); }
+    10.0% { transform: scale(0.809, 1.265); opacity: calc(var(--glow) * 0.4225); }
+    12.5% { transform: scale(0.707, 1.318); opacity: calc(var(--glow) * 0.445); }
+    15.0% { transform: scale(0.588, 1.364); opacity: calc(var(--glow) * 0.464); }
+    17.5% { transform: scale(0.454, 1.401); opacity: calc(var(--glow) * 0.4795); }
+    20.0% { transform: scale(0.309, 1.428); opacity: calc(var(--glow) * 0.491); }
+    22.5% { transform: scale(0.156, 1.444); opacity: calc(var(--glow) * 0.4975); }
+    25.0% { transform: scale(0.030, 1.450); opacity: calc(var(--glow) * 0.5); }
+    27.5% { transform: scale(-0.156, 1.444); opacity: calc(var(--glow) * 0.2735); }
+    30.0% { transform: scale(-0.309, 1.428); opacity: calc(var(--glow) * 0.27); }
+    32.5% { transform: scale(-0.454, 1.401); opacity: calc(var(--glow) * 0.264); }
+    35.0% { transform: scale(-0.588, 1.364); opacity: calc(var(--glow) * 0.2555); }
+    37.5% { transform: scale(-0.707, 1.318); opacity: calc(var(--glow) * 0.245); }
+    40.0% { transform: scale(-0.809, 1.265); opacity: calc(var(--glow) * 0.2325); }
+    42.5% { transform: scale(-0.891, 1.204); opacity: calc(var(--glow) * 0.2185); }
+    45.0% { transform: scale(-0.951, 1.139); opacity: calc(var(--glow) * 0.2035); }
+    47.5% { transform: scale(-0.988, 1.070); opacity: calc(var(--glow) * 0.188); }
+    50.0% { transform: scale(-1.000, 1.000); opacity: calc(var(--glow) * 0.172); }
+    52.5% { transform: scale(-0.988, 1.000); opacity: calc(var(--glow) * 0.1555); }
+    55.0% { transform: scale(-0.951, 1.000); opacity: calc(var(--glow) * 0.14); }
+    57.5% { transform: scale(-0.891, 1.000); opacity: calc(var(--glow) * 0.125); }
+    60.0% { transform: scale(-0.809, 1.000); opacity: calc(var(--glow) * 0.1115); }
+    62.5% { transform: scale(-0.707, 1.000); opacity: calc(var(--glow) * 0.099); }
+    65.0% { transform: scale(-0.588, 1.000); opacity: calc(var(--glow) * 0.0885); }
+    67.5% { transform: scale(-0.454, 1.000); opacity: calc(var(--glow) * 0.08); }
+    70.0% { transform: scale(-0.309, 1.000); opacity: calc(var(--glow) * 0.074); }
+    72.5% { transform: scale(-0.156, 1.000); opacity: calc(var(--glow) * 0.07); }
+    75.0% { transform: scale(-0.030, 1.000); opacity: calc(var(--glow) * 0.069); }
+    77.5% { transform: scale(0.156, 1.000); opacity: calc(var(--glow) * 0.1275); }
+    80.0% { transform: scale(0.309, 1.000); opacity: calc(var(--glow) * 0.134); }
+    82.5% { transform: scale(0.454, 1.000); opacity: calc(var(--glow) * 0.1455); }
+    85.0% { transform: scale(0.588, 1.000); opacity: calc(var(--glow) * 0.161); }
+    87.5% { transform: scale(0.707, 1.000); opacity: calc(var(--glow) * 0.18); }
+    90.0% { transform: scale(0.809, 1.000); opacity: calc(var(--glow) * 0.2025); }
+    92.5% { transform: scale(0.891, 1.000); opacity: calc(var(--glow) * 0.2275); }
+    95.0% { transform: scale(0.951, 1.000); opacity: calc(var(--glow) * 0.2545); }
+    97.5% { transform: scale(0.988, 1.000); opacity: calc(var(--glow) * 0.283); }
+    100.0% { transform: scale(1.000, 1.000); opacity: calc(var(--glow) * 0.3125); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme="cyberpunk"] .a2-beam { animation: cp-a2-turn 9s linear infinite; }
+  html[data-theme="cyberpunk"] .a2-tower:not(.is-short) .a2-lamp { animation: a2-lampflash 9s linear infinite; }
+}
+html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-still], [data-cp-calm], [data-cp-hush]) :is(.a2-beam, .a2-lamp) { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="cyberpunk"] :is(.a2-beam, .a2-lamp) { animation: none !important; }
 }
 
 /* — 2 · THE NIGHT-SEA ROUTE (CushionCard voyage, Estudio) —
