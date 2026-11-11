@@ -297,7 +297,7 @@ export function Hint({
                     </button>
                   ) : null}
                   {entry.depth === "manual" ? (
-                    <button type="button" className="hint-more" onClick={(e) => { e.stopPropagation(); setOpen(false); root.openManual(entry.id); }}>
+                    <button type="button" className="hint-more" onClick={(e) => { e.stopPropagation(); setOpen(false); root.openManual(entry.moreId ?? entry.id); }}>
                       <span>{t("manual.more")}</span>
                       <ArrowRight aria-hidden />
                     </button>

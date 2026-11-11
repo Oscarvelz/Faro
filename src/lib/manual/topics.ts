@@ -64,6 +64,9 @@ export type Topic = {
   /** Short bubble-only text, for topics whose `what` is the manual's full "Qué es": the (?) shows
    * this instead, brief and to the point. Absent on almost every topic — their bubbles show `what`. */
   bubble?: L;
+  /** Where the bubble's "Más en el manual →" lands, when the depth lives in one shared entry
+   * (the three lenses → "lentes"). Absent: the button opens this topic's own entry. */
+  moreId?: string;
   how?: L;
   tip?: L;
   go?: Go;
@@ -296,21 +299,36 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         keys: ["desk.rate"],
       },
       {
+        id: "lentes",
+        depth: "manual",
+        title: ["Los lentes de Central", "The Desk lenses"],
+        sum: ["Tres miradas del mes: lo que entra, lo que sale y lo comprometido.", "Three views of the month: what comes in, what goes out, and what is committed."],
+        what: ["Central ve el mes con tres lentes. [[Tengo]] suma lo que entra: tus ingresos fijos y variables. [[Gastaré]] suma lo que sale: fijos, variables, compras y cuotas. [[Pagos]] suma lo comprometido: lo que pagas este mes a créditos, préstamos y cuotas.", "Desk sees the month through three lenses. [[Have]] adds up what comes in: your fixed and variable income. [[Spending]] adds up what goes out: fixed, variable, purchases and subscriptions. [[Payments]] adds up what is committed: what you pay this month toward credit, loans and subscriptions."],
+        how: ["Toca un lente y la lista de abajo muestra solo sus líneas; lo demás se atenúa, para que sigas viendo el mes entero sin que estorbe. Ejemplo: toca [[Pagos]] y quedan encendidas las líneas de tus créditos y cuotas — la tarjeta, el préstamo, la suscripción — mientras los ingresos y los demás gastos se ven apagados. Si antes elegiste una tarjeta en la lista, brillan la tarjeta y su botón juntos, para que no pierdas dónde estás; si no elegiste ninguna, brilla solo el lente que abriste. Tócalo otra vez para ver todo de nuevo.", "Tap a lens and the list below shows only its lines; the rest dims, so you still see the whole month without it getting in the way. Example: tap [[Payments]] and the lines of your credit and subscriptions stay lit — the card, the loan, the subscription — while income and the other spending look dimmed. If you had picked a card in the list before, the card and its button glow together, so you don't lose your place; if you picked none, only the lens you opened glows. Tap it again to see everything again."],
+        tip: ["Desliza a los lados sobre los lentes para pasar de uno a otro sin tocarlos.", "Swipe sideways over the lenses to move from one to another without tapping."],
+        go: { screen: "desk", anchor: "lens-have", where: ["Central, los tres lentes", "Desk, the three lenses"] },
+        terms: [["Lentes", "Lenses"], ["Lente", "Lens"], ["Atenuado", "Dimmed"]],
+      },
+      {
         id: "tengo",
-        depth: "tip",
+        depth: "manual",
         title: ["Tengo", "Have"],
         sum: ["Todo lo que entra este mes.", "Everything that comes in this month."],
-        what: ["Tengo suma tus ingresos de este mes, fijos y variables. Tócalo para ver solo esas líneas abajo. Lo que está activo brilla y lo demás se atenúa: si elegiste una tarjeta, brillan la tarjeta y su botón; si no, solo el botón que abriste.", "The Have lens adds up this month's income, fixed and variable. Tap it to see only those lines below. What is active glows and the rest dims: if you picked a card, the card and its button glow; if not, only the button you opened."],
+        what: ["Tengo suma tus ingresos del mes, fijos y variables. Tócalo para ver solo esas líneas.", "Tengo adds up this month's income, fixed and variable. Tap it to see only those lines."],
+        how: ["Ejemplo: tu salario entra cada mes y a veces vendes algo o te pagan un trabajo suelto. Tengo suma los dos: el salario como ingreso fijo y la venta como variable.", "Example: your salary comes in every month, and sometimes you sell something or get paid for a side job. Tengo adds both: the salary as fixed income and the sale as variable."],
         go: { screen: "desk", lens: "have", anchor: "lens-have", where: ["Central, primer lente", "Desk, first lens"] },
+        moreId: "lentes",
         terms: [["Ingreso", "Income"], ["Entra este mes", "Month in"]],
       },
       {
         id: "gastare",
-        depth: "tip",
+        depth: "manual",
         title: ["Gastaré", "Spending"],
         sum: ["Todo lo que sale este mes.", "Everything that goes out this month."],
         what: ["Gastaré suma todo lo que sale este mes: fijos, variables, compras y cuotas. Tócalo para ver solo esas líneas.", "The Spending lens adds up everything that goes out this month: fixed, variable, purchases and subscriptions. Tap it to see only those lines."],
+        how: ["Ejemplo: la renta y el internet salen como fijos; el súper, como variable; una camisa, como compra; y la aplicación de música, como cuota. Gastaré lo suma todo.", "Example: rent and internet go out as fixed; groceries as variable; a shirt as a purchase; and the music app as a subscription. Spending adds them all up."],
         go: { screen: "desk", lens: "spend", anchor: "lens-spend", where: ["Central, segundo lente", "Desk, second lens"] },
+        moreId: "lentes",
         terms: [["Gasto", "Spending"], ["Sale este mes", "Month out"]],
       },
       {
@@ -321,6 +339,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         what: ["Pagos suma lo que pagas este mes a créditos, préstamos y cuotas. Tócalo para ver esas líneas y el [[Semáforo de deuda]].", "Payments adds what you pay this month toward credit, loans and subscriptions. Tap it to see those lines and the [[Debt signal]]."],
         tip: ["Es el pago del mes, no lo que debes en total. El saldo total va en el campo [[Saldo que aún debes]].", "It is this month's payment, not your total debt. The total goes in the [[Balance still owed]] field."],
         go: { screen: "desk", lens: "debt", anchor: "lens-debt", where: ["Central, tercer lente", "Desk, third lens"] },
+        moreId: "lentes",
         terms: [["Deudas", "Debts"], ["Comprometido", "Committed"], ["Créditos", "Credit"]],
         keys: ["desk.allowance"],
       },
