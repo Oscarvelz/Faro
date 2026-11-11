@@ -132,3 +132,17 @@ test("vivo 1.3.205: the city and the sweep live only behind the drawn screens (n
   assert.match(shell, /ready && session \? cpShellLive\(\) : undefined/);
   assert.equal((shell.match(/mountCpCity\(\);/g) || []).length, 1, "the city is mounted exactly once");
 });
+
+// 1.3.206 — after the lock (unlock, resume behind the lock, reload) the Shell mounts straight onto Libros or Estudio:
+// the follow strip's pill and the savings glide must be placed when the screen appears, not only on a tap.
+test("1.3.206: the follow pill and the savings glide re-place when the books become ready", () => {
+  const sh = fs.readFileSync(new URL("../../components/faro/shell.tsx", import.meta.url), "utf8");
+  assert.match(sh, /\}, \[ui\.section, hub, ready, !!session\]\);/);
+  assert.match(sh, /\}, \[vault, hub, ready, !!session\]\);/);
+});
+
+test("1.3.206: the Cyberpunk dial reads its score from --sc (the HUD needle); every other theme ignores it", () => {
+  const pano = fs.readFileSync(new URL("../../components/faro/panorama.tsx", import.meta.url), "utf8");
+  assert.match(pano, /\["--sc" as string\]/);
+  assert.match(hud, /rotate\(calc\(var\(--sc, 0\) \* 1\.8deg - 90deg\)\)/);
+});

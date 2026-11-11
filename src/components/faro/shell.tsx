@@ -709,7 +709,11 @@ export function Shell() {
       pill.classList.add("is-gliding");
     };
     place();
-  }, [ui.section, hub]);
+    // 1.3.206: the strip is only drawn once the books are ready (the loading frame renders first), so a Shell
+    // mounted straight onto Libros or Estudio — every unlock, resume behind the lock, reload — used to leave
+    // the pill at 0 px until a tap. Placing again when the screen appears (and once the fonts settle) fixes it.
+    void document.fonts?.ready.then(() => { if (pill.isConnected && current.isConnected && current.getAttribute("aria-current") === "page") { pill.style.width = `${current.offsetWidth}px`; pill.style.height = `${current.offsetHeight}px`; pill.style.transform = `translate3d(${current.offsetLeft}px, ${current.offsetTop}px, 0)`; } });
+  }, [ui.section, hub, ready, !!session]);
 
   // Savings tabs: when the four tabs don't fit on one bar (narrow phone, large text, long English labels), they drop their small icons
   // (data-squeeze 1), then tighten their letters (2), so no tab ever spills past the bar. The (?) floats over the bar and takes no room.
@@ -754,7 +758,7 @@ export function Shell() {
     glide.style.height = `${current.offsetHeight}px`;
     glide.style.left = `${current.offsetLeft}px`;
     glide.style.top = `${current.offsetTop}px`;
-  }, [vault, hub]);
+  }, [vault, hub, ready, !!session]);
 
   useLayoutEffect(() => {
     const place = (root: HTMLElement | null) => {
