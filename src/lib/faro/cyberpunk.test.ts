@@ -358,7 +358,12 @@ describe("cyberpunk: la selección a la manera de Cadence (1.3.199) y Ahorros en
     assert.ok(aplicaciones.includes(".save-seg[aria-pressed=\"true\"] { animation: cp-save-frame .28s steps(1) 1; }"), "el marco de la nave no toma al tocar en 280ms");
     assert.ok(aplicaciones.includes("cp-save-burst .28s steps(1) 1;"), "el nombre no lleva su ráfaga de 280ms, sin tic");
     assert.ok(aplicaciones.includes("cp-save-tear .28s steps(1) 1;"), "la banda no lleva su desgarro de 280ms, sin tic");
-    assert.ok(!/\.save-seg[^\n{]*\.num/.test(css), "ninguna regla del tema puede apuntar a la cifra de Ahorros");
+    // 1.3.217 (orden de Oscar, fotos del escritorio): la cifra de la
+    // tarjeta toma la CARA de la ciudad (Rajdhani) como las demás
+    // cifras de la flota — eso supera la mitad tipográfica de esta
+    // guardia. La mitad de la ceremonia queda intacta y es la que
+    // aquí se fija: ninguna ANIMACIÓN apunta jamás a la cifra.
+    assert.ok(!/\.save-seg[^\n{]*\.num/.test(aplicaciones), "ninguna animación del tema puede apuntar a la cifra de Ahorros: la ceremonia sigue sin ella");
   });
   it("el marco de Ahorros no recorta ni transforma el botón (la lección de la 195)", () => {
     const at = css.indexOf("@keyframes cp-save-frame");

@@ -1388,3 +1388,99 @@ html[data-theme="cyberpunk"] .debt-lamp::after {
   background: linear-gradient(#3a332a, #3a332a) top left / 34px 1px no-repeat;
   font-family: var(--cp-mono); font-size: 7.5px; letter-spacing: .14em; color: #a79e8d;
 }
+
+/* ---------- 1.3.217: el proyector del escritorio ----------
+   Oscar's order (2026-11-11 07:27 EST, two photos of Central): «for
+   the three menus in this three-hours [ahorros] category, upgrade
+   the projector to the cyberpunk style only.» The cluster is the
+   desk side of the savings band — the three pocket cards (Meta /
+   Retiro / Emergencia) and the «Si apartas» projector that unfolds
+   under the picked card — which still wore the shared finish in
+   this theme: 14px bubble cards with serif figures, a 24px bubble
+   panel lit from inside, the glossy radial slider ball and its
+   white-lit rail fill, 14px seg-wash tiles. This block dresses the
+   cluster in the theme's own language, fenced to the DESK surface
+   (.save-band.sav-scope without .is-records — the Libros windows
+   took their dress in 1.3.208 and do not change here): the flat
+   warm panel stock under an 8% breath of each pocket's OWN colour
+   (the 208/213 grammar), the 2px radius system, Rajdhani for the
+   names and figures, the slider as the flat lever of 1.3.208, and
+   the chosen tile taking the full 1.3.199 selection grammar —
+   frame at full strength, doubled wash, 3px bottom bar — in its
+   own colour. The colours are read, never assigned: --seg drives
+   the slider, the frames and the washes, and the band's own voice
+   (--sav-deep, the base sheet's sav-scope law) keeps the read
+   figures it already owned — the amount, the year label, the
+   chosen tile's label — exactly as Oscar's photo shows them.
+   THE SEAM: the sea-band picture on each card (b.save-band and its
+   wave SVG) is a picture, not a finish — no rule here touches it,
+   its shape or its paint; the dress ends at the card's frame.
+   Also outside, by name: the band header (medallón + «Ahorros» +
+   total — that is 1.3.218), the save-track bar, and the desk
+   ledger/span that unfold beside the projector (neighbours with
+   their own anatomy; the ledger's Libros twin dressed in 208).
+   The open card keeps the 199 doctrine: no persistent paint
+   distinction — selection is the tap ceremony, as today. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-seg {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--seg, #8fb9a6) 8%, transparent) 0%, transparent 46%),
+    var(--cp-panel);
+  border-radius: 2px;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-seg :is(strong, .num, small) {
+  font-family: var(--cp-display);
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .save-seg .num {
+  font-weight: 600; letter-spacing: .01em;
+}
+/* The projector panel: the same flat stock under the breath of the
+   pocket it projects for; the inner white light dies, black depth
+   stays. The lever keeps square 2px corners — its pin rides
+   OUTSIDE the box (top: -9px), and a clip-path would amputate it:
+   the 208 pin lesson, inherited. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--seg, #d5e2ea) 8%, transparent) 0%, transparent 46%),
+    var(--cp-panel);
+  border-radius: 2px;
+  box-shadow: 0 12px 20px rgb(0 0 0 / .38);
+}
+/* The slider as a flat lever (the 208 grammar, both orientations —
+   the closed rail is horizontal, the open one vertical; one rule
+   paints its fill, one its thumb): the white-lit fill gradient
+   becomes a flat rail in the pocket's colour, and the glossy
+   radial ball becomes a flat printed disc of the same colour with
+   a dark keyline. The colour is the pocket's; only the gloss dies. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-rail i::after { background: var(--seg, #d5e2ea); }
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-rail b {
+  background: var(--seg, #d5e2ea);
+  box-shadow: 0 2px 6px rgb(0 0 0 / .55), inset 0 0 0 1.5px rgb(11 10 8 / .38);
+}
+/* The read tiles (Semana / Mes / Año / horizon) flatten to dark
+   stock framed in the pocket colour; the chosen one takes the
+   1.3.199 selection grammar whole — full frame, doubled wash,
+   3px bottom bar — in its own colour. Its label keeps the band
+   voice colour the base sheet gave it; only the face changes. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-read > div :is(span, .vault-mark) {
+  background: #14100b;
+  border-color: color-mix(in oklab, var(--seg, #d5e2ea) 38%, transparent);
+  border-radius: 2px;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-read > div .vault-mark.is-on {
+  background: color-mix(in oklab, var(--seg, #d5e2ea) 22%, #14100b);
+  border-color: var(--seg, #d5e2ea);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg, #d5e2ea) 70%, transparent), inset 0 -3px 0 var(--seg, #d5e2ea);
+}
+/* Heads and figures of the projector speak the display face: the
+   amount and every tile figure (.num), the tile labels and the
+   year control. The «Si apartas» head is a .lab-head and already
+   speaks Rajdhani by the theme's global law. */
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever .num {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-read > div :is(em, .vault-year-btn) {
+  font-family: var(--cp-display);
+}
+html[data-theme="cyberpunk"] .save-band.sav-scope:not(.is-records) .vault-lever-flat .vault-year-btn {
+  font-family: var(--cp-display);
+}
