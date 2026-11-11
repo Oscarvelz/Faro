@@ -1147,3 +1147,244 @@ html[data-theme="cyberpunk"] .a2-stop-head {
      (Cadence's own treatment); the base split is static paint and stays. */
   [data-theme="cyberpunk"] .brand-word::before, [data-theme="cyberpunk"] .brand-word::after { animation: none; display: none; }
 }
+
+/* ---------- 1.3.216: el arte como letrero — las cuatro ilustraciones ----------
+   Oscar's order (2026-11-11 07:25 EST, four photos of this theme's
+   screens) and his decision (07:37 EST): the lighthouse, the night-sea
+   route, the savings jar and the debt traffic light are re-issued as
+   Cyberpunk SIGNS — print, not light: flat ink fields, one flat
+   colour per thing, micro-print labels — from the art study
+   (~/workspace/faro-art-study, its four briefs and previews approved
+   by Oscar). His one change to the study: the daymark bands are
+   BRICK #B44A40 in BOTH lighthouses (the sea study had rendered its
+   mini bands in the theme's red); #FF003C is reserved for the
+   short-state lamp alone. CSS only, this one fenced section: no
+   markup, no geometry, no data — every number, position, threshold
+   and binding is the base sheets' and the components'. The beams'
+   geometry is 1.3.215's (apex at the lamp centre in both drawings);
+   nothing here moves a point. Two study details are element
+   additions the CSS-only fence cannot reach and are declared in
+   the wave's report: the tower wall's hard diagonal shade step and
+   the mini-house's drawn housing ring. Other themes are fenced out
+   by the theme prefix itself; Tron's own repaint of this same tower
+   lives behind its own fence and is untouched. */
+
+/* — 1 · THE LIGHTHOUSE (MonthTower, the Asesor hero) —
+   The panel: flat stock at the system's 2px, its corner brackets
+   painted as background layers (placard hardware, no markup). */
+html[data-theme="cyberpunk"] .a2-tower {
+  background-color: #161310;
+  background-image:
+    linear-gradient(#a79e8d, #a79e8d), linear-gradient(#a79e8d, #a79e8d),
+    linear-gradient(#a79e8d, #a79e8d), linear-gradient(#a79e8d, #a79e8d),
+    linear-gradient(#a79e8d, #a79e8d), linear-gradient(#a79e8d, #a79e8d),
+    linear-gradient(#a79e8d, #a79e8d), linear-gradient(#a79e8d, #a79e8d);
+  background-size: 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px;
+  background-position: 0 0, 0 0, 100% 0, 100% 0, 0 100%, 0 100%, 100% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  border-radius: 2px;
+  color: #f2eee3;
+}
+/* The plate's micro-print label, set in the grid gap under the art. */
+html[data-theme="cyberpunk"] .a2-tower-top { position: relative; }
+html[data-theme="cyberpunk"] .a2-tower-top::after {
+  content: "FARO · MES EN CURSO";
+  position: absolute; left: 0; bottom: 0;
+  font-family: var(--cp-mono); font-size: 8.5px; letter-spacing: .18em;
+  color: #a79e8d; white-space: nowrap;
+}
+/* The drawing: the poster wall (two flat tones through the base
+   gradient's own stops), the daymark bands and the roof in flat
+   BRICK — Oscar's colour, in the hero as in the mini tower below.
+   Tron's sheet walks this same road behind its own fence. */
+html[data-theme="cyberpunk"] .a2-tower-art { filter: none; }
+html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(1) { stop-color: #ede7d6; }
+html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(2) { stop-color: #ede7d6; }
+html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(3) { stop-color: #c9c0a8; }
+html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(1) stop:nth-child(4) { stop-color: #c9c0a8; }
+html[data-theme="cyberpunk"] .a2-tower-art defs linearGradient:nth-of-type(2) stop { stop-color: #b44a40; }
+html[data-theme="cyberpunk"] .a2-tower-art circle[fill="#c9584d"] { fill: #b44a40; }
+/* The beam: one hard flat wedge of signal yellow, no blend, no
+   sweep — its opacity stays bound to the data (--glow × 0.5). */
+html[data-theme="cyberpunk"] .a2-beam {
+  animation: none; filter: none; mix-blend-mode: normal;
+  opacity: calc(var(--glow) * .5);
+}
+html[data-theme="cyberpunk"] .a2-beam path { fill: #fcee0a; }
+html[data-theme="cyberpunk"] .a2-halo { display: none; }
+/* The lamp: one flat disc in its dark housing; short, it is the
+   one thing in the scene allowed the theme's red. */
+html[data-theme="cyberpunk"] .a2-lamp { fill: #fcee0a; filter: none; animation: none; r: 7px; }
+html[data-theme="cyberpunk"] .a2-tower.is-short .a2-lamp { fill: #ff003c; }
+html[data-theme="cyberpunk"] .a2-lantern { fill: #201b16; stroke: #f2eee3; stroke-width: 1.5px; }
+html[data-theme="cyberpunk"] .a2-mullion { stroke: #a79e8d; stroke-width: 1px; }
+html[data-theme="cyberpunk"] .a2-gallery { fill: #201b16; stroke: #3a332a; stroke-width: 1px; }
+html[data-theme="cyberpunk"] .a2-rail { stroke: #a79e8d; stroke-width: 1px; }
+html[data-theme="cyberpunk"] .a2-window { fill: #201b16; rx: 0; }
+html[data-theme="cyberpunk"] .a2-door { fill: #201b16; }
+html[data-theme="cyberpunk"] .a2-rock { fill: #201b16; stroke: #3a332a; stroke-width: 1px; }
+/* The saying: quiet label, ink figure; short speaks in the red. */
+html[data-theme="cyberpunk"] .a2-tower-say em { color: #a79e8d; }
+html[data-theme="cyberpunk"] .a2-tower-say strong { color: #f2eee3; }
+html[data-theme="cyberpunk"] .a2-tower-say strong.bad { color: #ff003c; }
+html[data-theme="cyberpunk"] .a2-badge {
+  background: #201b16; border: 1px solid #3a332a; border-radius: 2px;
+  color: #f2eee3; font-family: var(--cp-mono); box-shadow: none;
+}
+html[data-theme="cyberpunk"] .a2-badge .num { font-family: var(--cp-mono); }
+/* The total row's lamp dot takes the same flat treatment. */
+html[data-theme="cyberpunk"] .a2-sum-row.is-total .a2-op.a2-lampdot {
+  background: radial-gradient(circle, #fcee0a 0 4.5px, transparent 5.5px);
+  animation: none; box-shadow: none;
+}
+html[data-theme="cyberpunk"] .a2-sum-row.is-total.is-short .a2-op.a2-lampdot {
+  background: radial-gradient(circle, #ff003c 0 4.5px, transparent 5.5px);
+}
+
+/* — 2 · THE NIGHT-SEA ROUTE (CushionCard voyage, Estudio) —
+   The geometry is the data and does not move; the plate changes
+   clothes: chamfered chart frame, warm sea in three flat bands
+   (the base drawing's own sea rect and two wave shapes, restacked
+   as bands), the beam one flat band at the dossier's accepted .35,
+   cyan kept for exactly one family — the route not yet sailed and
+   the ticks not yet reached. */
+html[data-theme="cyberpunk"] .s2-voyage { position: relative; }
+html[data-theme="cyberpunk"] .s2-voyage svg {
+  border: 1px solid #3a332a; border-radius: 0;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+html[data-theme="cyberpunk"] #s2-clip rect { rx: 0; }
+html[data-theme="cyberpunk"] .s2-voyage::before {
+  content: ""; position: absolute; z-index: 1; top: 8px; left: 16px;
+  width: 7px; height: 7px; background: #fcee0a;
+}
+html[data-theme="cyberpunk"] .s2-voyage::after {
+  content: "RUTA · COLCHÓN";
+  position: absolute; z-index: 1; top: 7px; left: 29px;
+  font-family: var(--cp-mono); font-size: 7px; letter-spacing: .16em;
+  color: #a79e8d; white-space: nowrap;
+}
+html[data-theme="cyberpunk"] .s2-voyage svg rect[fill="#0c1520"] { fill: #0b0a08; }
+html[data-theme="cyberpunk"] .s2-star { fill: #f2eee3; animation: none; }
+html[data-theme="cyberpunk"] .s2-star[r="1.3"] { opacity: .55; }
+html[data-theme="cyberpunk"] .s2-star[r="0.9"] { opacity: .32; }
+html[data-theme="cyberpunk"] .s2-beamcone { fill: #fcee0a; opacity: .35; animation: none; }
+html[data-theme="cyberpunk"] .s2-voyage svg rect[fill="url(#s2-sea)"] { fill: #2d261d; }
+html[data-theme="cyberpunk"] .s2-wave { fill: #211b14; opacity: 1; animation: none; }
+html[data-theme="cyberpunk"] .s2-wave.b { fill: #15120f; opacity: 1; }
+html[data-theme="cyberpunk"] .s2-route { stroke: var(--cp-data); opacity: .8; }
+html[data-theme="cyberpunk"] .s2-route-on { stroke: #fcee0a; stroke-width: 2.2; }
+html[data-theme="cyberpunk"] .s2-tick circle { fill: #15120f; stroke: var(--cp-data); stroke-width: 1.2; }
+html[data-theme="cyberpunk"] .s2-tick.is-on circle { fill: #fcee0a; stroke: none; }
+html[data-theme="cyberpunk"] .s2-tick text {
+  fill: var(--cp-data); font-family: var(--cp-mono);
+  text-transform: uppercase; letter-spacing: .08em;
+}
+html[data-theme="cyberpunk"] .s2-tick.is-on text { fill: #f2eee3; }
+/* The mini tower wears the hero's clothes, brick bands included. */
+html[data-theme="cyberpunk"] .s2-house path[fill="#e9e2d0"] { fill: #f2eee3; }
+html[data-theme="cyberpunk"] .s2-house path[fill="#c45c4a"] { fill: #b44a40; }
+html[data-theme="cyberpunk"] .s2-house rect[fill="#3a4a56"] { fill: #3a332a; rx: 0; }
+html[data-theme="cyberpunk"] .s2-lamp { fill: #fcee0a; animation: none; }
+html[data-theme="cyberpunk"] .s2-voyage.is-home .s2-lamp { filter: drop-shadow(0 0 5px rgb(252 238 10 / .85)); }
+html[data-theme="cyberpunk"] .s2-boat path[fill="#d7b48a"] { fill: #d9a441; }
+html[data-theme="cyberpunk"] .s2-boat path[fill="#f4efe4"] { fill: #f2eee3; }
+html[data-theme="cyberpunk"] .s2-boat path[fill="#cfd8de"] { fill: #b9b2a0; }
+/* The readouts under the plate: flat elevated boxes, mono labels,
+   display-face values — the gold is retired (radius is the HUD's). */
+html[data-theme="cyberpunk"] .s2-voyage-read div { background: #201b16; border-color: #3a332a; }
+html[data-theme="cyberpunk"] .s2-voyage-read em {
+  font-family: var(--cp-mono); font-size: .68rem;
+  text-transform: uppercase; letter-spacing: .14em; color: #a79e8d;
+}
+html[data-theme="cyberpunk"] .s2-voyage-read strong { font-family: var(--cp-display); color: #f2eee3; }
+
+/* — 3 · THE JAR (the month's savings vessel, Estudio) —
+   A labelled vessel, not a glass: flat outline, ochre lid, one
+   flat green band whose top edge is the poster's three steps (the
+   steps shrink with the fill and vanish flat at the floor), the
+   figure riveted on its own ground-colour plate, «MES · META»
+   stamped at the foot. The animated wave is retired. */
+html[data-theme="cyberpunk"] .s2-jar-glass {
+  border-color: color-mix(in oklab, #f2eee3 52%, #3a332a);
+  border-radius: 0 0 6px 6px;
+  background: rgb(242 238 227 / .045);
+}
+html[data-theme="cyberpunk"] .s2-jar-water {
+  background: #00e67a;
+  clip-path: polygon(0 min(5px, 45%), 34% min(5px, 45%), 34% min(2px, 20%), 67% min(2px, 20%), 67% 0, 100% 0, 100% 100%, 0 100%);
+}
+html[data-theme="cyberpunk"] .s2-jar-water svg { display: none; }
+html[data-theme="cyberpunk"] .s2-jar-glass span {
+  inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: block; padding: 2px 7px; white-space: nowrap;
+  background: #0b0a08; border: 1px solid #3a332a;
+  font-family: var(--cp-display); font-weight: 700;
+  color: #f2eee3; text-shadow: none;
+}
+html[data-theme="cyberpunk"] .s2-jar-lid {
+  background-color: #d9a441; border-radius: 0;
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 100%, 0 100%);
+  background-image: linear-gradient(90deg, transparent 0 31%, rgb(11 10 8 / .38) 31% 34%, transparent 34% 64%, rgb(11 10 8 / .38) 64% 67%, transparent 67% 100%);
+}
+/* Calibration ticks on the right wall, at the quarters. */
+html[data-theme="cyberpunk"] .s2-jar::before {
+  content: ""; position: absolute; z-index: 2; pointer-events: none;
+  top: 8px; bottom: 0; right: 7px; width: 6px;
+  background-image:
+    linear-gradient(rgb(242 238 227 / .3), rgb(242 238 227 / .3)),
+    linear-gradient(rgb(242 238 227 / .3), rgb(242 238 227 / .3)),
+    linear-gradient(rgb(242 238 227 / .3), rgb(242 238 227 / .3));
+  background-size: 6px 2px;
+  background-position: right bottom 25%, right bottom 50%, right bottom 75%;
+  background-repeat: no-repeat;
+}
+html[data-theme="cyberpunk"] .s2-jar::after {
+  content: "MES · META";
+  position: absolute; z-index: 2; left: 50%; bottom: 4px; transform: translateX(-50%);
+  background: #0b0a08; border: 1px solid #3a332a; padding: 2px 4px;
+  font-family: var(--cp-mono); font-size: 6px; font-weight: 600;
+  letter-spacing: .14em; line-height: 1; color: #a79e8d; white-space: nowrap;
+}
+/* The month card carries the placard's ochre corner ticks. */
+html[data-theme="cyberpunk"] .s2-month { position: relative; }
+html[data-theme="cyberpunk"] .s2-month::before,
+html[data-theme="cyberpunk"] .s2-month::after {
+  content: ""; position: absolute; width: 7px; height: 7px;
+  border: 0 solid #d9a441; opacity: .85; pointer-events: none;
+}
+html[data-theme="cyberpunk"] .s2-month::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+html[data-theme="cyberpunk"] .s2-month::after { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+
+/* — 4 · THE TRAFFIC LIGHT (the debt signal, Central's Pagos lens) —
+   A placard housing: flat elevated stock, 10px chamfers, a single
+   hairline shell (the inset ring reads through the chamfered clip).
+   The lamp hexes are data and do not change; the lit lamp's glow
+   is rationed to a tight 6px halo in its own colour; the live lamp,
+   when another is being previewed, wears the outset ink ring. No
+   signal yellow anywhere on this card. */
+html[data-theme="cyberpunk"] .signal {
+  background: #201b16; border-radius: 0;
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  box-shadow: inset 0 0 0 1px #57503f;
+}
+html[data-theme="cyberpunk"] .signal-light { background: #0b0a08; box-shadow: inset 0 0 0 1.5px #57503f; }
+html[data-theme="cyberpunk"] .signal-light.bad.is-on { background: #e15b52; box-shadow: 0 0 6px rgb(225 91 82 / .65); }
+html[data-theme="cyberpunk"] .signal-light.warn.is-on { background: #e2b04a; box-shadow: 0 0 6px rgb(226 176 74 / .65); }
+html[data-theme="cyberpunk"] .signal-light.good.is-on { background: #2f9a62; box-shadow: 0 0 6px rgb(47 154 98 / .65); }
+html[data-theme="cyberpunk"] .signal-light.is-live:not(.is-on) {
+  box-shadow: inset 0 0 0 1.5px #57503f, 0 0 0 2px #201b16, 0 0 0 4px #f2eee3;
+}
+html[data-theme="cyberpunk"] .signal-light:focus-visible { outline: 2px solid #f2eee3; outline-offset: 2px; }
+html[data-theme="cyberpunk"] .debt-lamp h2.lab-head { font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+/* The nameplate hangs under the housing on the row's own reserve;
+   it is anchored to the housing's left edge (the study centred it
+   on a wider column the app's markup does not have). */
+html[data-theme="cyberpunk"] .debt-lamp { position: relative; margin-bottom: 22px; }
+html[data-theme="cyberpunk"] .debt-lamp::after {
+  content: "SEMÁFORO · DEUDA";
+  position: absolute; left: 0; bottom: -20px;
+  padding-top: 6px; white-space: nowrap;
+  background: linear-gradient(#3a332a, #3a332a) top left / 34px 1px no-repeat;
+  font-family: var(--cp-mono); font-size: 7.5px; letter-spacing: .14em; color: #a79e8d;
+}
