@@ -5630,7 +5630,10 @@ function CatalogEditor() {
   const isOpen = (item: CatalogItem) => toolsFor === item.id || renameId === item.id;
   const door = (item: CatalogItem) => (e: ReactMouseEvent) => {
     if (renameId === item.id) return; // mid-rename the card is a form, not a door
-    if ((e.target as HTMLElement).closest("button, input, a")) return; // a tool was tapped, not the card
+    // A tool was tapped, not the card — and the membership sign (.cat-badge) is exempt too:
+    // it is a sign, not a button (1.3.222), so its tap must be inert. Until 1.3.230 it fell
+    // through to the door and folded the open card under the owner's finger (his report).
+    if ((e.target as HTMLElement).closest("button, input, a, .cat-badge")) return;
     toggleTools(item);
   };
   const renderPanel = (item: CatalogItem) => (
@@ -5676,7 +5679,9 @@ function CatalogEditor() {
               <button type="button" className="icon-btn cat-act" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => toggleItemVis(item)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
               <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.
-                  Not a button — the row signing its name at the end of the hand. */}
+                  Not a button — the row signing its name at the end of the hand. Its tap is
+                  inert by law: the door above exempts .cat-badge like a tool, so touching the
+                  sign can never fold or unfold the card (Oscar's report, fixed in 1.3.230). */}
               {item.kind === "sub" ? <span className="cat-badge" aria-hidden><Repeat2 className="size-4" /></span> : null}
             </span>
           ) : null}

@@ -7,6 +7,7 @@
  */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { defaultStructure, replaceCatalogItem, replaceCandidates, type ReplaceTarget } from "./defaults";
 import { colorForLine, subBase, subColorFor, subPresetColor } from "./colors";
 import type { Structure } from "./types";
@@ -74,5 +75,30 @@ describe("per-sub colours: born with a preset, the hand wins", () => {
     // A line with no sub (or a dead sub id) keeps the category's paint, untouched.
     assert.equal(colorForLine(s, "f-casa"), colorForLine(base, "f-casa"));
     assert.equal(colorForLine(s, "f-casa", "no-such-sub"), colorForLine(base, "f-casa"));
+  });
+});
+
+// 1.3.230 (Oscar's report): the membership sign (⇄, Repeat2) at the end of a subscription
+// row's hand is a SIGN, not a button (the 1.3.222 law) — but it rendered as a bare span
+// inside the card whose door only exempted button/input/a, so a tap on the sign fell
+// through to the door and folded the open card under his finger. The fix exempts the
+// sign in the door's guard: its tap is inert, and no member of the hand can ever fold
+// or unfold the card as a side effect.
+const screens = fs.readFileSync(new URL("../../components/faro/screens.tsx", import.meta.url), "utf8");
+
+describe("the membership sign: a sign, tap-inert, never a door", () => {
+  test("the sign renders as an aria-hidden span on subscription rows only — never a button", () => {
+    assert.match(screens, /item\.kind === "sub" \? <span className="cat-badge" aria-hidden><Repeat2 className="size-4" \/><\/span>/);
+    assert.ok(!/<button[^>]*>\s*<Repeat2/.test(screens), "no button in the catalog card may wear the repeat sign");
+  });
+
+  test("the card's door exempts the sign exactly like a tool — its tap folds nothing", () => {
+    assert.match(screens, /closest\("button, input, a, \.cat-badge"\)/);
+  });
+
+  test("the four tools of the hand stay real buttons (rename · replace · eye · trash)", () => {
+    const hand = screens.slice(screens.indexOf('className="cat-tools"'), screens.indexOf('className="cat-badge"'));
+    const buttons = hand.match(/<button type="button"/g) ?? [];
+    assert.equal(buttons.length, 4);
   });
 });
