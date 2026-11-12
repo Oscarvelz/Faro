@@ -134,6 +134,18 @@ function revealEditor(node: HTMLElement | null) {
   requestAnimationFrame(() => requestAnimationFrame(run));
 }
 
+// cubic-bezier(.22, 1, .36, 1) — la curva de la casa, evaluada a mano para
+// animar lo que CSS no alcanza (el scroll de retorno de la tarjeta, 1.3.225).
+function easeHouse(x: number): number {
+  let t = x;
+  for (let i = 0; i < 4; i++) {
+    const xt = 3 * (1 - t) * (1 - t) * t * 0.22 + 3 * (1 - t) * t * t * 0.36 + t * t * t;
+    const dx = 3 * (1 - t) * (1 - t) * 0.22 + 6 * (1 - t) * t * (0.36 - 0.22) + 3 * t * t * (1 - 0.36);
+    t -= (xt - x) / dx;
+  }
+  return 3 * (1 - t) * (1 - t) * t + 3 * (1 - t) * t * t + t * t * t;
+}
+
 function lineGlyph(line: Line, structure?: { categories: { id: string; icon: string; subs: { id: string; icon: string }[] }[]; purchases: { id: string; icon: string }[] }) {
   // A Cuota saved with the generic ↻ shows the brand its name points at (display only; the line is not changed).
   if (line.kind === "subscription" && line.icon === "RefreshCw") return iconForName(line.concept, [], "es") || "RefreshCw";
@@ -4639,6 +4651,9 @@ function StructureTree() {
   useLayer(openId !== null, () => { panelExitRef.current?.(false); });
   const [catName, setCatName] = useState("");
   const [catGroup, setCatGroup] = useState<"fixed" | "variable">("fixed");
+  // 1.3.225 (pedido de Oscar): el formulario de categoría nueva nace plegado
+  // tras su propia tarjeta-puerta, tercera bajo los dos grupos — como ellos.
+  const [addOpen, setAddOpen] = useState(false);
   // 1.3.143: the two groups fold by their title, so the tree can shrink to two lines (Oscar: the long
   // list made him lose focus). UI-only state, kept on this device; searching always shows its matches.
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => {
@@ -4869,10 +4884,21 @@ function StructureTree() {
         </div>
         );
       })}
+      {/* 1.3.225 (pedido de Oscar): «Nueva categoría» deja de ser un campo
+          abierto al final del árbol — gana la misma tarjeta-puerta de los dos
+          grupos (su medallón, su título), tercera bajo Gastos variables, y
+          nace plegada como ellos; el formulario vive dentro, entero. */}
+      <div className="tree-kicker tree-kick-row">
+        <button type="button" className="tree-group-btn" aria-expanded={addOpen} onClick={() => setAddOpen((v) => !v)}>
+          <ChevronDown className={addOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+          <span className="tree-group-name">{t("add.cat")}</span>
+        </button>
+        <FieldTip topic="f-cat-arbol" />
+      </div>
+      {addOpen ? (
       <div className="ah-form sc-form is-treecat">
         <div className="ah-grid">
           <label className="label is-wide">
-            <span className="lab-head">{t("add.cat")}<FieldTip topic="f-cat-arbol" /></span>
             <input className="field" value={catName} onChange={(e) => setCatName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addCat(); }} placeholder={t("sc.treeCat.ph")} aria-label={t("add.cat")} />
           </label>
           <div className="label is-wide">
@@ -4885,10 +4911,11 @@ function StructureTree() {
           </div>
         </div>
         <div className="ah-actions">
-          <button type="button" className="btn secondary" onClick={() => { setCatName(""); setCatGroup("fixed"); }}>{t("cancel")}</button>
+          <button type="button" className="btn secondary" onClick={() => { setCatName(""); setCatGroup("fixed"); setAddOpen(false); }}>{t("cancel")}</button>
           <button type="button" className="btn" disabled={!catName.trim()} onClick={addCat}>{t("save")}</button>
         </div>
       </div>
+      ) : null}
     </div>
   );
 }
@@ -4963,13 +4990,95 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     const row = rootRef.current?.closest("[data-row]");
     if (row) revealEditor(row as HTMLElement);
   };
+  // 1.3.225 (pedido de Oscar): el regreso de Cancelar era el salto feo de la
+  // tarjeta. Eran DOS tirones, no uno: el plegado respiraba .3s y DESPUÉS
+  // revealEditor deslizaba toda la pantalla (dos scrolls suaves encadenados)
+  // para «ubicar» la categoría, incluso cuando la fila nunca había salido de
+  // la pantalla — y al desmontar, la capa devolvía su entrada de historial
+  // (lib/manual/back.ts) y el navegador restauraba el scroll de la entrada
+  // anterior, que es la posición de cuando la tarjeta se ABRIÓ: si él había
+  // bajado leyendo la tarjeta, ese tirón lo devolvía de golpe adonde empezó
+  // a abrirla. Cazado en banco fotograma a fotograma (el scroll aterrizaba
+  // perfecto y el tirón llegaba en el mismo fotograma del desmonte, sin
+  // llamada JS de por medio). Ahora el retorno se decide ANTES de plegar,
+  // corre CON el plegado — un solo movimiento — y se defiende al desmontar:
+  //  · si la fila ya se ve entera bajo la franja superior, la página NO se
+  //    mueve — donde comenzó es donde está («donde comencé», su ley);
+  //  · si quedó fuera (tarjeta alta, él bajó hasta Cancelar), el scroll
+  //    viaja con la misma duración y la misma curva del plegado y aterriza
+  //    la fila donde revealEditor la deja (bajo la franja + 8);
+  //  · al desmontar, el settle (un rAF y un segundo pase a los 90ms, ambos
+  //    con guarda de deriva) reafirma el destino y pisa la restauración
+  //    del navegador antes de que se pinte;
+  //  · su dedo manda: un toque o una rueda durante el retorno lo cancela
+  //    todo, retorno y settle.
+  // La fila que él ve es el BOTÓN (.tree-row); el [data-row] que la envuelve
+  // contiene también la tarjeta abierta, así que su rectángulo siempre
+  // «sobresale» por abajo — medirlo a él disparaba el retorno incluso con la
+  // fila perfectamente a la vista (primera versión, cazada con espías).
+  // El camino síncrono (movimiento reducido) conserva revealRow intacto.
+  const settleLiveRef = useRef(false);
+  const startReturn = (panel: HTMLElement): { settle: () => void; disarm: () => void } | null => {
+    const wrap = panel.closest("[data-row]") as HTMLElement | null;
+    const row = (wrap?.querySelector("button.tree-row") ?? wrap) as HTMLElement | null;
+    if (!row) return null;
+    let box: HTMLElement | null = row.parentElement;
+    while (box) {
+      const style = getComputedStyle(box);
+      if (/(auto|scroll)/.test(style.overflowY) && box.scrollHeight > box.clientHeight + 8) break;
+      box = box.parentElement;
+    }
+    const getY = () => (box ? box.scrollTop : window.scrollY);
+    const setY = (y: number) => { if (box) box.scrollTop = y; else window.scrollTo(0, y); };
+    const maxY = () => Math.max(0, box ? box.scrollHeight - box.clientHeight : document.documentElement.scrollHeight - window.innerHeight);
+    const chrome = document.querySelector(".top-chrome")?.getBoundingClientRect().height ?? 72;
+    const viewTop = box ? box.getBoundingClientRect().top : 0;
+    const viewBottom = box ? box.getBoundingClientRect().bottom : window.innerHeight;
+    const yKeep = getY();
+    settleLiveRef.current = true;
+    const stop = () => {
+      settleLiveRef.current = false;
+      if (scrollAnimRef.current !== null) { window.cancelAnimationFrame(scrollAnimRef.current); scrollAnimRef.current = null; }
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("wheel", stop);
+    };
+    window.addEventListener("touchstart", stop, { passive: true });
+    window.addEventListener("wheel", stop, { passive: true });
+    const disarm = () => { window.removeEventListener("touchstart", stop); window.removeEventListener("wheel", stop); };
+    const settleTo = (target: () => number) => () => {
+      if (!settleLiveRef.current) return;
+      const to = Math.max(0, Math.min(target(), maxY()));
+      if (Math.abs(getY() - to) > 1) setY(to);
+    };
+    const rowRect = row.getBoundingClientRect();
+    if (rowRect.top >= viewTop + chrome && rowRect.bottom <= viewBottom + 1) {
+      return { settle: settleTo(() => yKeep), disarm };
+    }
+    const cur = yKeep;
+    const targetFor = () => { const r = row.getBoundingClientRect(); const vt = box ? box.getBoundingClientRect().top : 0; return getY() + (r.top - vt) - chrome - 8; };
+    const target = Math.max(0, cur + (rowRect.top - viewTop) - chrome - 8);
+    const maxAfter = Math.max(0, maxY() - Math.round(panel.getBoundingClientRect().height));
+    const to = Math.min(target, maxAfter);
+    const landed = { settle: settleTo(targetFor), disarm };
+    if (Math.abs(to - cur) < 2) return landed;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / 300);
+      setY(cur + (to - cur) * easeHouse(p));
+      if (p < 1) { scrollAnimRef.current = window.requestAnimationFrame(step); }
+      else { scrollAnimRef.current = null; }
+    };
+    scrollAnimRef.current = window.requestAnimationFrame(step);
+    return landed;
+  };
   // 1.3.223 (pedido de Oscar): el plegado de la tarjeta ya no es un corte seco —
   // finish() pliega con la curva de la casa (la altura medida cae a 0 y el
   // contenido se funde, .3s) y SOLO al final desmonta; con movimiento reducido
   // (o sin nodo) pliega al momento, como siempre.
   const closingRef = useRef(false);
   const closeTimerRef = useRef<number | null>(null);
-  useEffect(() => () => { if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current); }, []);
+  const scrollAnimRef = useRef<number | null>(null);
+  useEffect(() => () => { if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current); if (scrollAnimRef.current !== null) window.cancelAnimationFrame(scrollAnimRef.current); }, []);
   const openAnimRef = useRef<Animation | null>(null);
   // 1.3.223: la apertura despliega con la misma gracia — la tarjeta nace plegada
   // y crece hasta su altura natural con la curva de la casa, vía WAAPI: en un
@@ -5022,7 +5131,17 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       void el.offsetHeight;
       el.classList.add("is-closing");
       el.style.height = "0px";
-      closeTimerRef.current = window.setTimeout(done, 330);
+      // 1.3.225: el retorno de Cancelar se coreografía CON el plegado
+      // (startReturn) — si corre, al desmontar ya no hay revealRow: la fila
+      // quedó en su sitio, y el settle defiende ese sitio de la restauración
+      // de scroll que trae la devolución de la entrada de historial.
+      const ret = reveal ? startReturn(el) : null;
+      closeTimerRef.current = window.setTimeout(() => {
+        onClose();
+        if (reveal && !ret) revealRow();
+        if (ret) { const s = ret.settle; requestAnimationFrame(() => s()); window.setTimeout(() => { s(); ret.disarm(); }, 90); }
+        if (after) after();
+      }, 330);
       return false;
     };
     if (!panelDirty) return finish();
@@ -5047,10 +5166,15 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // Back/Esc lo cancela a él primero; el siguiente llega a la salida de la tarjeta.
   useLayer(editSub !== null, () => setEditSub(null));
   // 1.3.223 (pedido de Oscar): ocultar ya no es un gesto mudo — cuando el toque
-  // PREPARA una ocultación nueva, un aviso dice antes qué hace el ojo: dónde
-  // deja de aparecer la pieza, que sus movimientos pasan a «Otros», que nada
-  // se borra y que el cambio se aplica al Guardar. Mostrar de nuevo — o
-  // despreparar una ocultación — nunca pregunta: enseñar no esconde nada.
+  // PREPARA una ocultación, un aviso dice antes qué hace el ojo: dónde deja de
+  // aparecer la pieza, que sus movimientos pasan a «Otros», que nada se borra
+  // y que el cambio se aplica al Guardar. Mostrar nunca pregunta: enseñar no
+  // esconde nada. 1.3.225 (su caso «Automotriz», con foto): la 223 solo
+  // preguntaba ante una ocultación NUEVA respecto al estado guardado — una
+  // pieza nacida oculta, mostrada y vuelta a ocultar en la misma sesión se
+  // saltaba la ventana, porque el toque «solo» restauraba su estado guardado.
+  // Desde su asiento, ocultar es ocultar: pregunta TODO toque cuyo resultado
+  // es la pieza oculta, sin excepciones.
   const askHide = (name: string, bodyKey: string, stage: () => void) =>
     confirm({ title: t("hide.title").replace("{name}", name), body: t(bodyKey), yes: t("hide"), run: stage });
   const toggleVis = (sub: Sub) => {
@@ -5061,7 +5185,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       if (next === sub.hidden) delete copy[sub.id]; else copy[sub.id] = next;
       return copy;
     });
-    if (next && next !== sub.hidden) { askHide(displayName(sub, lang), "hide.sub.body", stage); return; }
+    if (next) { askHide(displayName(sub, lang), "hide.sub.body", stage); return; }
     stage();
   };
   // 1.3.186: el ojo de la categoría prepara igual que el de un subconcepto —
@@ -5070,7 +5194,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   const toggleCatVis = () => {
     const next = !effCatHidden;
     const stage = () => setStagedCatVis(next === cat.hidden ? null : next);
-    if (next && next !== cat.hidden) { askHide(displayName(cat, lang), "hide.cat.body", stage); return; }
+    if (next) { askHide(displayName(cat, lang), "hide.cat.body", stage); return; }
     stage();
   };
   // Guardar confirma TODO lo pendiente de la tarjeta en un solo commit — esa
@@ -5397,6 +5521,16 @@ function CatalogEditor() {
         : t(fam).replace("{n}", String(summary.count)).replace("{totals}", totalsText)}`;
     confirm({ title: t("delete"), body, danger: true, yes: t("yes"), run: () => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.filter((c) => c.id !== item.id) } }), item.id) });
   };
+  // 1.3.225 (pedido de Oscar): el ojo del Catálogo era la última puerta muda de
+  // la familia — la tarjeta de categoría avisa desde la 1.3.223 y este ojo
+  // confirmaba al instante sin decir qué hace. Ahora pregunta lo mismo antes
+  // de ocultar (esta casa aplica al toque: sin Guardar, su cuerpo no lo
+  // promete); mostrar sigue sin preguntar, como en toda la familia.
+  const toggleItemVis = (item: CatalogItem) => {
+    const apply = () => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id);
+    if (!item.hidden) { confirm({ title: t("hide.title").replace("{name}", displayName(item, lang)), body: t("hide.item.body"), yes: t("hide"), run: apply }); return; }
+    apply();
+  };
   // Replace (the palette's new job): the user picks what this slot becomes. When purchases hang from
   // the piece, the app ASKS at that moment (Oscar's rule) — merge them into the new name, or start
   // fresh and let them lose it. With no purchases there is nothing to decide: it just happens.
@@ -5491,7 +5625,7 @@ function CatalogEditor() {
                   belongs to EVERY kind — no piece is special. */}
               <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => { setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
               <button type="button" className="icon-btn cat-act" aria-label={t("cat.replace")} aria-pressed={replaceFor === item.id} onClick={() => { setReplaceFor(replaceFor === item.id ? null : item.id); setPending(null); setReplaceCustom(""); }}><Palette className="size-4" /></button>
-              <button type="button" className="icon-btn cat-act" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+              <button type="button" className="icon-btn cat-act" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => toggleItemVis(item)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
               <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.
                   Not a button — the row signing its name at the end of the hand. */}
