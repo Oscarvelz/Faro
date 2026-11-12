@@ -4800,7 +4800,10 @@ function StructureTree() {
             <button type="button" className="tree-group-btn" aria-expanded={groupOpen} onClick={() => {
               // 1.3.179: plegar el grupo desmontaría la tarjeta abierta que vive en él —
               // primero manda su salida (si levanta el aviso, el grupo no se pliega).
-              if (groupOpen && openId !== null && categories.some((c) => c.id === openId && c.group === group) && !(panelExitRef.current?.(false) ?? true)) return;
+              // 1.3.223: el pliegue del grupo viaja en el `after` de la salida — el
+              // grupo se pliega cuando la tarjeta terminó de plegarse (o tras su
+              // confirmación), nunca antes que ella.
+              if (groupOpen && openId !== null && categories.some((c) => c.id === openId && c.group === group)) { const exit = panelExitRef.current; if (exit) { exit(false, () => foldGroup(group)); return; } }
               foldGroup(group);
             }}>
               <ChevronDown className={groupOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
@@ -4839,7 +4842,12 @@ function StructureTree() {
                       // 1.3.179: cerrar la tarjeta (esta fila) o saltar a otra pasa por la
                       // salida de la tarjeta abierta — con trabajo sin aplicar manda su aviso.
                       if (open) { panelExitRef.current?.(false); return; }
-                      if (openId !== null && !(panelExitRef.current?.(false) ?? true)) return;
+                      // 1.3.223: el salto a otra fila viaja en el `after` de la salida —
+                      // la fila nueva abre cuando la tarjeta terminó de plegarse (o
+                      // tras su confirmación si hay trabajo sin aplicar), como la
+                      // navegación del dock desde la 1.3.182; ya no depende de que
+                      // el plegado sea síncrono.
+                      if (openId !== null) { const exit = panelExitRef.current; if (exit) { exit(false, () => setOpenId(cat.id)); return; } }
                       setOpenId(cat.id);
                     }}>
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
@@ -4955,19 +4963,70 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     const row = rootRef.current?.closest("[data-row]");
     if (row) revealEditor(row as HTMLElement);
   };
-  // La única salida de la tarjeta: devuelve true si plegó al momento (sin trabajo
-  // pendiente); con trabajo pendiente levanta el aviso y devuelve false — el
-  // plegado, si él confirma, corre la misma finish(). `reveal` solo lo pide
-  // Cancelar; el chevron de la fila, el Back/Esc (la capa) y el pliegue del grupo
-  // salen por aquí sin scroll, porque su dedo ya está en la fila o en el grupo.
+  // 1.3.223 (pedido de Oscar): el plegado de la tarjeta ya no es un corte seco —
+  // finish() pliega con la curva de la casa (la altura medida cae a 0 y el
+  // contenido se funde, .3s) y SOLO al final desmonta; con movimiento reducido
+  // (o sin nodo) pliega al momento, como siempre.
+  const closingRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
+  useEffect(() => () => { if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current); }, []);
+  const openAnimRef = useRef<Animation | null>(null);
+  // 1.3.223: la apertura despliega con la misma gracia — la tarjeta nace plegada
+  // y crece hasta su altura natural con la curva de la casa, vía WAAPI: en un
+  // nodo recién montado la transición CSS de opacidad nunca arrancaba (el
+  // navegador funde partida y destino en su primer estilo; probado en banco —
+  // la altura sí transicionaba, la opacidad no), y la animación web no depende
+  // de ese primer estilo. Al terminar, el nodo queda LIBRE (sin altura fija:
+  // su contenido cambia de alto al editar — tarjetas que florecen, el selector
+  // de color, la lista de preparadas). Con movimiento reducido nace abierta.
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const h = el.offsetHeight;
+    if (!h) return;
+    el.style.overflow = "hidden";
+    const anim = el.animate(
+      [{ height: "0px", opacity: "0" }, { height: `${h}px`, opacity: "1" }],
+      { duration: 300, easing: "cubic-bezier(.22,1,.36,1)" },
+    );
+    openAnimRef.current = anim;
+    const clear = () => { if (openAnimRef.current === anim) openAnimRef.current = null; el.style.overflow = ""; };
+    anim.onfinish = clear;
+    anim.oncancel = clear;
+    return () => { anim.cancel(); };
+  }, []);
+  // La única salida de la tarjeta: devuelve true SOLO si plegó al momento (el
+  // camino síncrono); si el plegado va animado o el aviso está en pie, devuelve
+  // false y el final llega dentro de finish() — quien tenga una navegación la
+  // entrega en `after`, jamás la corre por su cuenta tras la llamada. `reveal`
+  // solo lo pide Cancelar; el chevron de la fila, el Back/Esc (la capa) y el
+  // pliegue del grupo salen por aquí sin scroll, porque su dedo ya está en la
+  // fila o en el grupo.
   // 1.3.182: `after` es la navegación de quien desmonta la tarjeta desde fuera
   // (el dock, el pliegue de la sección): viaja AL FINAL de finish() — corre
-  // cuando la tarjeta ya plegó, sea al momento (limpia) o tras su confirmación
-  // (sucia); si rechaza el aviso, finish nunca corre y la navegación tampoco.
+  // cuando la tarjeta ya plegó, sea limpia o tras su confirmación (sucia); si
+  // rechaza el aviso, finish nunca corre y la navegación tampoco.
   const exitPanel = (reveal: boolean, after?: () => void): boolean => {
-    const finish = () => { onClose(); if (reveal) revealRow(); if (after) after(); };
-    if (!panelDirty) { finish(); return true; }
-    confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: finish });
+    if (closingRef.current) return false;
+    const done = () => { onClose(); if (reveal) revealRow(); if (after) after(); };
+    const finish = (): boolean => {
+      const el = rootRef.current;
+      if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { done(); return true; }
+      // Si la salida llega a media apertura, el despliegue se retira primero:
+      // el plegado se mide desde el alto visible en ese instante y sigue.
+      const hNow = Math.round(el.getBoundingClientRect().height);
+      if (openAnimRef.current) { openAnimRef.current.cancel(); openAnimRef.current = null; }
+      closingRef.current = true;
+      el.style.height = `${hNow}px`;
+      el.style.overflow = "hidden";
+      void el.offsetHeight;
+      el.classList.add("is-closing");
+      el.style.height = "0px";
+      closeTimerRef.current = window.setTimeout(done, 330);
+      return false;
+    };
+    if (!panelDirty) return finish();
+    confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: () => { finish(); } });
     return false;
   };
   const exitSelfRef = useRef(exitPanel);
@@ -4987,21 +5046,32 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // El renombre en curso es su propia capa (como en el resto de la app): un
   // Back/Esc lo cancela a él primero; el siguiente llega a la salida de la tarjeta.
   useLayer(editSub !== null, () => setEditSub(null));
+  // 1.3.223 (pedido de Oscar): ocultar ya no es un gesto mudo — cuando el toque
+  // PREPARA una ocultación nueva, un aviso dice antes qué hace el ojo: dónde
+  // deja de aparecer la pieza, que sus movimientos pasan a «Otros», que nada
+  // se borra y que el cambio se aplica al Guardar. Mostrar de nuevo — o
+  // despreparar una ocultación — nunca pregunta: enseñar no esconde nada.
+  const askHide = (name: string, bodyKey: string, stage: () => void) =>
+    confirm({ title: t("hide.title").replace("{name}", name), body: t(bodyKey), yes: t("hide"), run: stage });
   const toggleVis = (sub: Sub) => {
     const eff = stagedVis[sub.id] ?? sub.hidden;
     const next = !eff;
-    setStagedVis((prev) => {
+    const stage = () => setStagedVis((prev) => {
       const copy = { ...prev };
       if (next === sub.hidden) delete copy[sub.id]; else copy[sub.id] = next;
       return copy;
     });
+    if (next && next !== sub.hidden) { askHide(displayName(sub, lang), "hide.sub.body", stage); return; }
+    stage();
   };
   // 1.3.186: el ojo de la categoría prepara igual que el de un subconcepto —
   // tocarlo de vuelta a su estado guardado DESPREPARA (la tarjeta queda limpia).
   const effCatHidden = stagedCatVis ?? cat.hidden;
   const toggleCatVis = () => {
     const next = !effCatHidden;
-    setStagedCatVis(next === cat.hidden ? null : next);
+    const stage = () => setStagedCatVis(next === cat.hidden ? null : next);
+    if (next && next !== cat.hidden) { askHide(displayName(cat, lang), "hide.cat.body", stage); return; }
+    stage();
   };
   // Guardar confirma TODO lo pendiente de la tarjeta en un solo commit — esa
   // es su única escritura desde la 1.3.179 para la visibilidad (preparada,
@@ -5254,6 +5324,10 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
         </button>
         {colorOpen ? <ColorPick face="solid" value={categoryBase(cat.id, cat.color)} label={t("color")} onPick={(hex) => { patch((c) => ({ ...c, color: hex }), "color"); setColorOpen(false); }} /> : null}
       </div>
+      {/* 1.3.223 (pedido de Oscar): una línea profesional separa la cabecera de
+          la categoría (nombre y color) de su rejilla de subconceptos — sin ella
+          las tarjetas se confunden con la categoría misma. */}
+      <div className="sub-divider" aria-hidden />
       {/* 1.3.145: no bin for the category itself (Oscar: the name-and-colour editor has immunity —
           a category is not deleted as if it were a subcategory; only subcategories carry a bin). */}
       {/* The grid: cards built by the helpers above — the Catalog's system, whole. */}

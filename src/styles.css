@@ -2460,6 +2460,13 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
    pen, palette and eye were riding the 44px base button and eating the card's room for
    nothing; now the four sit as equals and the freed space goes back to the name. */
 .cat-tools .icon-btn, .sub-tools .icon-btn { width: 26px; min-width: 26px; height: 26px; }
+/* 1.3.223: la línea que separa la cabecera de la categoría de su rejilla. */
+.tree-open .sub-divider { border-top: 1px solid var(--line); margin: 2px 0 0; }
+/* 1.3.223: el plegado de la tarjeta — exitPanel fija la altura medida en línea y
+   añade .is-closing; la altura cae a 0, el relleno y el margen se recogen y el
+   contenido se funde, todo con la curva de la casa. */
+.tree-open.is-closing { opacity: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; transition: height .3s cubic-bezier(.22,1,.36,1), opacity .3s cubic-bezier(.22,1,.36,1), padding .3s cubic-bezier(.22,1,.36,1), margin .3s cubic-bezier(.22,1,.36,1); }
+@media (prefers-reduced-motion: reduce) { .tree-open.is-closing { transition: none; } }
 .sub-panel { grid-column: 1 / -1; padding: 2px 0 4px 10px; }
 .sub-rename { flex: 1; min-width: 0; }
 .cat-rename { flex: 1; min-width: 0; }
@@ -3156,6 +3163,16 @@ html .settings-board .aj-picks > .aj-pick-wide[aria-pressed="true"] { color: var
 html:not([data-theme="tron"]) .settings-board .aj-picks > .aj-pick-wide[aria-pressed="true"] { background: color-mix(in oklab, var(--fg) 3%, transparent); }
 html .settings-board .aj-picks > .aj-pick-wide[aria-pressed="true"] .aj-pick-ex { color: var(--muted); opacity: 1; }
 .aj-picks > .btn { min-width: 0; padding-inline: 8px; }
+/* 1.3.223 (pedido de Oscar): las tarjetas de base se pulen sin tocar ni su texto
+   ni su geometría — en reposo la superficie gana un degradado leve con la tinta
+   del tema, una luz interior arriba y una sombra suave; la elegida sólida
+   profundiza su acento con el mismo degradado (Tron conserva su pintura, como
+   en la 1.3.187); la de marco («Completa», 1.3.196) no se toca elegida: su
+   regla propia gana la cascada. */
+.aj-picks > .aj-pick:not([aria-pressed="true"]) { background: linear-gradient(180deg, color-mix(in oklab, white 6%, var(--surface)), color-mix(in oklab, black 5%, var(--surface))); border-color: color-mix(in oklab, var(--fg) 20%, var(--line)); box-shadow: inset 0 1px 0 color-mix(in oklab, white 12%, transparent), inset 0 -1px 0 color-mix(in oklab, black 6%, transparent), 0 2px 5px color-mix(in oklab, black 8%, transparent); }
+html:not([data-theme="tron"]) .aj-pick[aria-pressed="true"] { background: linear-gradient(180deg, color-mix(in oklab, white 12%, var(--accent)), var(--accent)); box-shadow: inset 0 1px 0 color-mix(in oklab, white 24%, transparent), 0 2px 6px color-mix(in oklab, var(--accent) 32%, transparent); }
+.aj-picks > .aj-pick { transition: background-color .15s cubic-bezier(.22,1,.36,1), box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1); }
+.aj-picks > .aj-pick:active { transform: scale(.99); }
 .settings-board .btn.ghost { border-color: var(--line); background: color-mix(in oklab, var(--fg) 3%, transparent); }
 /* English lenses: a kicker never sets the lens' column width (the amount and note keep the lens' own width, as in Spanish). */
 html[lang="en"] .lenses .lens { grid-template-columns: minmax(0, 1fr); }
