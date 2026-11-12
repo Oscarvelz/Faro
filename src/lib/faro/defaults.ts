@@ -690,9 +690,19 @@ export function templatePreview(state: LedgerState, id: TemplateId, lang: Lang):
       } else if (rawS && rawS.hidden !== cs.hidden) kept.push(displayName(rs, lang));
     }
   }
-  const empty = !hide.length && !show.length && !add.length;
+  // 1.3.227 (Oscar: «las estructuras no cambian a la primera»): el vacío del
+  // diff de VISIBILIDAD no es el vacío del cambio — elegir una base distinta
+  // ES un cambio (la base queda registrada y manda sobre la línea de estado
+  // y las plantillas futuras), y esta vista previa lo negaba: con el diff
+  // visible vacío, la ventana se volvía un «Entendido» sin salida y la base
+  // nunca se aplicaba, por más veces que lo intentara. showAllPreview ya
+  // contaba la base desde la 1.3.187; esta función, mayor, nunca recibió la
+  // corrección. Ahora las dos cuentan lo mismo.
+  const baseChanges = cur.base !== id;
+  const empty = !hide.length && !show.length && !add.length && !baseChanges;
   const lines: string[] = [];
   if (empty) lines.push(lang === "es" ? "No cambiaría nada en tu estructura." : "It would change nothing in your structure.");
+  else if (!hide.length && !show.length && !add.length) lines.push(lang === "es" ? `Nada se oculta ni se muestra: solo cambia la base a ${baseName(id, lang)}.` : `Nothing hides or shows: only the base changes to ${baseName(id, lang)}.`);
   if (hide.length) lines.push(lang === "es" ? `Se oculta: ${hide.join(", ")}.` : `Hides: ${hide.join(", ")}.`);
   if (show.length) lines.push(lang === "es" ? `Se muestra: ${show.join(", ")}.` : `Shows: ${show.join(", ")}.`);
   if (add.length) lines.push(lang === "es" ? `Se agrega: ${add.join(", ")}.` : `Adds: ${add.join(", ")}.`);

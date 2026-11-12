@@ -3409,6 +3409,21 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
    grupo (24px en el acento, principal.css, asentado por Oscar en la 1.3.193)
    es otra pieza y no se toca. */
 .tree-row .fold-chev { width: 18px; height: 18px; min-width: 18px; align-self: start; margin-top: 5px; }
+/* 1.3.227 (pedido de Oscar): mantener presionada una fila o una tarjeta
+   LEVANTA — nunca selecciona. Sin esta protección, el gesto largo del
+   teléfono abría la selección de texto (copiar) y cancelaba la pulsación
+   antes de que el arrastre naciera: reordenar era imposible. Los campos
+   de los paneles quedan fuera — allí seleccionar sigue siendo suyo. */
+.tree-row, .tree-group-btn, .cat-face { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* 1.3.227: «Tiendas y servicios» viste su burbuja — la tarjeta de la
+   familia (.tree-kick-row de principal.css trae la superficie, el borde
+   y la luz; el botón trae la ley de la ficha entera y el medallón de
+   24px). Aquí solo va lo suyo: el título en serif de sección y el
+   medallón fijo al extremo derecho del botón, en la misma vertical que
+   los conteos de las tarjetas de grupo. */
+.cat-kick .tree-group-btn { min-height: 44px; }
+.cat-kick-title { font-family: var(--font-serif); font-size: 1.25rem; font-weight: 560; color: var(--fg); text-transform: none; letter-spacing: 0; }
+.cat-kick .tree-group-btn .fold-chev { margin-left: auto; }
 /* 1.3.225: el anclaje de scroll del navegador peleaba con el plegado de la
    tarjeta (tirones a mitad de pliegue y al desmontar, medidos en banco): la
    región del árbol sale de ese mecanismo — el movimiento lo coreografía la

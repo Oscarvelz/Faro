@@ -239,8 +239,12 @@ describe("batería dorada de Estructura — el contrato", () => {
     assert.match(soltero.body, /Tienes 4 movimientos en Familia: seguirán contando y reaparecerán cuando vuelvas a mostrar la rama\./);
     assert.match(soltero.body, /Tienes 2 movimientos en Familia: seguirán contando/);
     const familia = templatePreview(ledger, "familia", "es");
-    assert.equal(familia.empty, true);
-    assert.equal(familia.body, "No cambiaría nada en tu estructura.");
+    // 1.3.227: la rama de familia ya se ve entera, pero la base del libro
+    // dorado es «completa» — pasar a Familia SÍ cambia (la base), y la
+    // vista previa ya no lo niega. El aserto anterior fijaba como dorado
+    // el «no cambia a la primera» que Oscar reportó con fotos.
+    assert.equal(familia.empty, false);
+    assert.equal(familia.body, "Nada se oculta ni se muestra: solo cambia la base a Familia.");
     const estudiante = templatePreview(ledger, "estudiante", "es");
     assert.match(estudiante.body, /Se oculta: Hipoteca, Predial, Vida\./);
     assert.match(estudiante.body, /Se agrega: Estudio\./);

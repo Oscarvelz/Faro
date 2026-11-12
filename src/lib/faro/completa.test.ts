@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   applyTemplate, catalogLinesSummary, defaultStructure, markUserVis, missingDefaults,
   restoreDefaultCategories, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary,
+  templatePreview,
 } from "./defaults.ts";
 import type { Currency, LedgerState, Line, Structure } from "./types.ts";
 
@@ -214,6 +215,40 @@ describe("E-8 · missingDefaults/restoreDefaultCategories por grupo", () => {
     assert.ok(next.structure.categories.some((c) => c.id === "v-mascotas"));
     const full = ledger(defaultStructure());
     assert.equal(restoreDefaultCategories(full, "fixed"), full);
+  });
+});
+
+describe("1.3.227 · templatePreview: la base cuenta — un diff visible vacío no niega el cambio de base", () => {
+  it("visibilidad ya de Estudiante pero base Soltero: NO es vacío y la ventana ofrece el cambio", () => {
+    // El estado exacto de la foto de Oscar: la estructura ya se ve como
+    // Estudiante (hipoteca/predial/vida ocultos, Estudio presente) y la
+    // base sigue en Soltero — la vista previa vieja decía «No cambiaría
+    // nada» y la ventana era un «Entendido» sin salida.
+    const dressed = applyTemplate(defaultStructure(), "estudiante");
+    const stuck = { ...dressed, base: "soltero" as const };
+    const pv = templatePreview(ledger(stuck), "estudiante", "es");
+    assert.equal(pv.empty, false);
+    assert.ok(pv.body.includes("solo cambia la base a Estudiante"), pv.body);
+    const pvEn = templatePreview(ledger(stuck), "estudiante", "en");
+    assert.equal(pvEn.empty, false);
+    assert.ok(pvEn.body.includes("only the base changes to Student"), pvEn.body);
+    // Y el cambio ofrecido se aplica a la primera: un solo applyTemplate.
+    assert.equal(applyTemplate(stuck, "estudiante").base, "estudiante");
+  });
+
+  it("misma base y mismo diff: el «no cambiaría nada» sigue siendo honesto", () => {
+    const dressed = applyTemplate(defaultStructure(), "estudiante");
+    const pv = templatePreview(ledger(dressed), "estudiante", "es");
+    assert.equal(pv.empty, true);
+    assert.ok(pv.body.includes("No cambiaría nada"), pv.body);
+  });
+
+  it("de Soltero a Familia sin nada que mostrar: la base manda y no es vacío", () => {
+    const single = applyTemplate(defaultStructure(), "soltero");
+    const visible = { ...single, categories: single.categories.map((c) => ({ ...c, hidden: false, subs: c.subs.map((s) => ({ ...s, hidden: false })) })) };
+    const pv = templatePreview(ledger(visible), "familia", "es");
+    assert.equal(pv.empty, false);
+    assert.ok(pv.body.includes("solo cambia la base a Familia"), pv.body);
   });
 });
 

@@ -4268,6 +4268,11 @@ function clipWords(text: string, max: number): string {
 export function Settings() {
   const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
+  // 1.3.227 (pedido de Oscar): el catálogo gana su propio pliegue bajo
+  // Estructura — nace plegado y su estado lo mandan sus toques, guardado
+  // como el de los grupos del árbol.
+  const [catalogOpen, setCatalogOpen] = useState<boolean>(() => { try { return localStorage.getItem("faro.catalog.open") === "1"; } catch { return false; } });
+  const toggleCatalog = () => setCatalogOpen((v) => { try { localStorage.setItem("faro.catalog.open", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
   const [themeSide, setThemeSide] = useState<{ day: boolean; night: boolean } | null>(null);
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
   const boardRef = useRef<HTMLDivElement>(null);
@@ -4412,8 +4417,30 @@ export function Settings() {
         </div>
         <Note kind="tip">{structureStatusLine(session.ledger.structure, lang)}</Note>
         <StructureTree />
-        <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-catalog">{t("settings.catalog")}<Hint topic="catalogo" /></h2>
-        <CatalogEditor />
+        {/* 1.3.227 (pedido de Oscar): la cabecera del catálogo es una puerta —
+            título y flecha pliegan y despliegan la sección entera; la
+            sección se llama ahora «Tiendas y servicios». Y viste SU BURBUJA:
+            no un texto flotando desnudo sobre el fondo, sino la tarjeta de
+            la familia — la misma .tree-kick-row de Gastos fijos y Gastos
+            variables, con su superficie, su borde y su luz — con el título
+            en serif, el (?) en el asiento del engranaje y su medallón de
+            24px fijo al extremo derecho, alineado con los conteos de las
+            tarjetas de arriba (tres correcciones suyas con foto hasta dar
+            con su palabra: «bubble» era la tarjeta misma). */}
+        <h2 className="tree-kicker tree-kick-row cat-kick" data-anchor="aj-catalog">
+          {/* La puerta es un div-botón con la ropa entera del botón de grupo
+              (la gramática de Fold): así el (?) vive junto al título, dentro,
+              y el medallón cae en la vertical exacta de los conteos — como
+              botón real, el (?) hermano empujaba la burbuja 26px a la
+              izquierda de esa línea. El (?) detiene su propia propagación. */}
+          <div role="button" tabIndex={0} className="tree-group-btn" aria-expanded={catalogOpen} onClick={toggleCatalog}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCatalog(); } }}>
+            <span className="cat-kick-title">{t("settings.catalog")}</span>
+            <Hint topic="catalogo" />
+            <ChevronDown className={catalogOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+          </div>
+        </h2>
+        {catalogOpen ? <CatalogEditor /> : null}
       </Fold>
       <Fold id="banks" icon={CreditCard} sub={lang === "en" ? "Cards, rates and bonuses" : "Tarjetas, tasas y bonos"} topic="bancos" title={lang === "en" ? "Banks and rewards" : "Bancos y recompensas"} open={openFold === "banks"} onToggle={() => toggle("banks")}>
         <BankSettings />
@@ -4673,6 +4700,13 @@ function StructureTree() {
   });
   // 1.3.144: reordering is drag-and-drop now (Oscar: the arrow buttons go). Press-and-hold a row to
   // lift it, drag it inside its own group, release to drop — the drop rewrites the group's `order`.
+  // 1.3.227 (Oscar: «no pude mover ninguna; si sostengo la ficha, copio el texto»): el gesto moría
+  // antes de nacer por tres lados — la selección de texto del teléfono se llevaba la pulsación
+  // larga (arreglado en styles.css: user-select/touch-callout fuera de las filas), el temblor de
+  // la mano (>6px) cancelaba la espera, y la espera misma (260ms) se sentía muerta. Ahora: la
+  // espera baja a 200ms, la tolerancia sube a 12px y el menú contextual queda suprimido en la
+  // fila — sostener levanta, arrastrar mueve, soltar deja; tocar sigue abriendo y el scroll
+  // sigue siendo fluido porque un scroll de verdad supera los 12px en los primeros milisegundos.
   type DragState = { id: string; group: string; from: number; to: number; dy: number; rowH: number };
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -4739,7 +4773,7 @@ function StructureTree() {
       const lifted: DragState = { id: cat.id, group, from: index, to: index, dy: 0, rowH };
       dragRef.current = lifted;
       setDrag(lifted);
-    }, 260);
+    }, 200);
     pressRef.current = { id: cat.id, group, index, count, y: e.clientY, pid: e.pointerId, timer, el };
   };
   const onRowPointerMove = (e: React.PointerEvent<HTMLElement>) => {
@@ -4747,7 +4781,10 @@ function StructureTree() {
     if (!press) return;
     const live = dragRef.current;
     if (!live) {
-      if (Math.abs(e.clientY - press.y) > 6) endPress(); // it was a scroll or a tap, not a hold
+      // 1.3.227: la tolerancia sube de 6 a 12px — una mano real tiembla más
+      // de 6px mientras sostiene, y el temblor cancelaba el levantamiento
+      // antes de que naciera (Oscar: «no pude mover ninguna categoría»).
+      if (Math.abs(e.clientY - press.y) > 12) endPress(); // it was a scroll or a tap, not a hold
       return;
     }
     const dy = e.clientY - press.y;
@@ -4847,6 +4884,7 @@ function StructureTree() {
               return (
                 <div key={cat.id} data-row className={[cat.hidden ? "is-muted" : "", dragClass ?? ""].join(" ").trim() || undefined} style={dragStyle}>
                   <button type="button" className="tree-row" aria-expanded={open}
+                    onContextMenu={(e) => e.preventDefault()}
                     onPointerDown={(e) => onRowPointerDown(e, cat, group, rowIndex, rows.length)}
                     onPointerMove={onRowPointerMove}
                     onPointerUp={onRowPointerUp}
@@ -4885,12 +4923,17 @@ function StructureTree() {
         );
       })}
       {/* 1.3.225 (pedido de Oscar): «Nueva categoría» deja de ser un campo
-          abierto al final del árbol — gana la misma tarjeta-puerta de los dos
-          grupos (su medallón, su título), tercera bajo Gastos variables, y
-          nace plegada como ellos; el formulario vive dentro, entero. */}
-      <div className="tree-kicker tree-kick-row">
+          abierto al final del árbol — gana una tarjeta-puerta tercera bajo
+          Gastos variables y nace plegada como ellos; el formulario vive
+          dentro, entero. 1.3.227 (su corrección con foto): la puerta NO
+          puede parecer una categoría principal más — pierde el material de
+          las principales (sin relleno, sin luz de arriba, sin medallón) y
+          queda como una puerta discreta: borde de puntos, título menor en
+          tono muted y un «+» en un aro fino que gira a × al abrirse. Menos
+          importante a la vista, igual de puerta al tacto. */}
+      <div className="tree-kicker tree-kick-row tree-kick-add">
         <button type="button" className="tree-group-btn" aria-expanded={addOpen} onClick={() => setAddOpen((v) => !v)}>
-          <ChevronDown className={addOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
+          <span className={addOpen ? "tree-add-medal is-open" : "tree-add-medal"}><Plus /></span>
           <span className="tree-group-name">{t("add.cat")}</span>
         </button>
         <FieldTip topic="f-cat-arbol" />
@@ -5475,6 +5518,11 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
 function CatalogEditor() {
   const { t, lang, session, commit, confirm } = useFaro();
   const [itemName, setItemName] = useState("");
+  // 1.3.227 (pedido de Oscar): el alta elige su clase — el formulario
+  // siempre sembró «tienda» y una suscripción nueva caía en el grupo
+  // equivocado; ahora el selector Tienda / Suscripción manda, con la
+  // misma pieza segmentada de Fijo / Variable del alta de categorías.
+  const [itemKind, setItemKind] = useState<"store" | "sub">("store");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
   // Congruency pass (Oscar, 2026-11-11): at rest a row carries only the little pen on its name and ONE
@@ -5489,7 +5537,7 @@ function CatalogEditor() {
     if (!name) return;
     commit((s) => ({
       ...s,
-      structure: { ...s.structure, catalog: [...s.structure.catalog, { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: "store", urlTemplate: "" }] },
+      structure: { ...s.structure, catalog: [...s.structure.catalog, { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: itemKind, urlTemplate: "" }] },
     }), name);
     setItemName("");
   };
@@ -5670,9 +5718,16 @@ function CatalogEditor() {
             <span className="lab-head">{t("sc.item")}<FieldTip topic="f-catalogo" /></span>
             <input className="field" value={itemName} placeholder={t("sc.item.ph")} aria-label={t("add.item")} onChange={(e) => setItemName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addItem(); }} />
           </label>
+          <div className="label is-wide">
+            <div className="ah-sign" role="radiogroup" aria-label={t("sc.item")}>
+              {(["store", "sub"] as const).map((k) => (
+                <button key={k} type="button" role="radio" aria-checked={itemKind === k} aria-pressed={itemKind === k} onClick={() => setItemKind(k)}>{t(`add.kind.${k}`)}</button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="ah-actions">
-          <button type="button" className="btn secondary" onClick={() => setItemName("")}>{t("cancel")}</button>
+          <button type="button" className="btn secondary" onClick={() => { setItemName(""); setItemKind("store"); }}>{t("cancel")}</button>
           <button type="button" className="btn" disabled={!itemName.trim()} onClick={addItem}>{t("save")}</button>
         </div>
       </div>

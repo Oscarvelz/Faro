@@ -27,8 +27,13 @@ describe("1.3.193 — la tarjeta principal del árbol", () => {
   it("el medallón es de 24px en el acento — ninguna fila de debajo lo comparte", () => {
     // Refinamiento (Oscar, 2026-11-10): 30px → 24px; la jerarquía se queda,
     // el bulto se va. El acento y la receta de bola no cambian.
+    // 1.3.227 (Oscar, con foto): «Tiendas y servicios» viste la burbuja —
+    // es decir, una tarjeta .tree-kick-row como las de grupo, con este
+    // mismo medallón dentro de su botón: no es una fila y no comparte
+    // nada que la cerca no vista ya; las filas siguen con su 18px.
     assert.match(css, /\.tree-group-btn \.fold-chev\s*\{[^}]*width:\s*24px/);
     assert.match(css, /\.tree-group-btn \.fold-chev\s*\{[^}]*color:\s*var\(--accent\)/);
+    assert.ok(screens.includes("cat-kick"), "screens.tsx viste la burbuja del catálogo como tarjeta de la familia");
   });
 
   it("el nombre lleva su clase de título y el conteo su pastilla", () => {
