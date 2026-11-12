@@ -14,7 +14,7 @@ import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } fr
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
 import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
-import { isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
+import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
 import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
 import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
@@ -351,7 +351,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // leído de SU clave en la capa del aparato (navplace.ts). Sin lugar guardado (primera
     // vez, otro dueño, salida explícita), el objeto de arriba queda byte a byte igual.
     // Solo página + mes + pestaña de Bóveda: hojas, editores y borradores nunca vuelven.
-    const place = readPlace(browserPackStorage(), userId);
+    // 1.3.228 (la ley del arranque): bootPlace cerca Ajustes fuera del aterrizaje —
+    // Central es la pantalla de inicio y un arranque jamás abre en Ajustes; el lugar
+    // principal guardado manda, y un registro que solo conoce Ajustes cae a Central
+    // con el mes y la pestaña del dueño intactos.
+    const place = bootPlace(readPlace(browserPackStorage(), userId));
     if (place) {
       base.section = place.section;
       base.year = place.year;
@@ -363,7 +367,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   // El lugar se escribe al navegar: cada cambio de página, mes o pestaña de Bóveda queda
   // guardado bajo la clave del dueño en el acto (la restauración de «atrás» también: él
   // ESTÁ ahí). Es capa del aparato — nunca pasa por commit/undo ni sincroniza como libro.
+  // 1.3.228: Ajustes nunca se escribe como lugar — el registro guarda siempre el último
+  // lugar PRINCIPAL, así el arranque siempre tiene un lugar principal al que volver.
+  // Estar en Ajustes no borra el lugar guardado: simplemente no lo pisa (y ni el mes ni
+  // la pestaña de Bóveda pueden cambiar desde Ajustes, así que nada se pierde).
   useEffect(() => {
+    if (!isMainSection(ui.section)) return;
     writePlace(browserPackStorage(), userId, { section: ui.section, year: ui.year, month: ui.month, vault: ui.vault });
   }, [ui.section, ui.year, ui.month, ui.vault, userId]);
   const amountRef = useRef<((n: number) => void) | null>(null);

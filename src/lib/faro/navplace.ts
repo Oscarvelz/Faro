@@ -103,6 +103,22 @@ export function lastMainPlace<T extends { section: SectionId }>(places: readonly
   return null;
 }
 
+/**
+ * LA LEY DEL ARRANQUE (Oscar, 2026-11-12, foto de su teléfono en Cyberpunk): cerró la
+ * app por completo, la volvió a abrir y apareció Ajustes como pantalla de inicio —
+ * «Central es la pantalla de inicio». Un arranque (arranque en frío, recarga o el
+ * desbloqueo que reconstruye el piso) NUNCA aterriza en Ajustes: el lugar guardado
+ * manda solo si es principal. Si el registro solo conoce Ajustes — lugares escritos
+ * antes de la 1.3.228 o un respaldo que aterriza un lugar de Ajustes — el arranque
+ * cae a Central («desk», el aterrizaje por defecto) conservando el mes y la pestaña
+ * de Bóveda del dueño, que siguen siendo suyos. La memoria del lugar de la 1.3.180
+ * no muere: queda cercada fuera de Ajustes, que es exactamente lo que la ley pide.
+ */
+export function bootPlace(place: NavPlace | null): NavPlace | null {
+  if (!place || isMainSection(place.section)) return place;
+  return lastMainPlace([place]) ?? { ...place, section: "desk" };
+}
+
 /** Borra el lugar del dueño (la salida explícita: el próximo arranque aterriza por defecto). */
 export function clearPlace(store: PackStorage, uid: string): void {
   try { store.removeItem(placeKeyOf(uid)); } catch { /* ignore */ }

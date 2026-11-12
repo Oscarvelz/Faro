@@ -4,9 +4,12 @@
 // vive en la capa del aparato, bajo la clave del dueño del libro: otro dueño no hereda
 // lugar ajeno, la salida explícita lo borra, y la basura guardada cae al aterrizaje por
 // defecto. Datos sintéticos solamente.
+// 1.3.228 (la ley del arranque): la memoria queda cercada fuera de Ajustes — Central es la
+// pantalla de inicio y ningún arranque aterriza en Ajustes (bootPlace); el registro de la
+// capa sigue guardando lo que se escribe, y la cerca vive en el aterrizaje.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { clearPlace, placeKeyOf, readPlace, validPlace, writePlace, type NavPlace } from "./navplace.ts";
+import { bootPlace, clearPlace, placeKeyOf, readPlace, validPlace, writePlace, type NavPlace } from "./navplace.ts";
 import { applyDeviceLayer, isDeviceLayerKey, snapshotDeviceLayer } from "./devicelayer.ts";
 import type { PackStorage } from "./packguard.ts";
 
@@ -109,6 +112,35 @@ describe("lugar — disciplina de dueño", () => {
     clearPlace(s, UID);
     assert.equal(readPlace(s, UID), null);
     assert.deepEqual(readPlace(s, OTHER), META);
+  });
+});
+
+describe("lugar — la ley del arranque (1.3.228)", () => {
+  it("sin lugar, el arranque es null (aterrizaje por defecto)", () => {
+    assert.equal(bootPlace(null), null);
+  });
+
+  it("un lugar principal pasa intacto, campo a campo", () => {
+    assert.deepEqual(bootPlace(META), META);
+    assert.deepEqual(bootPlace({ section: "desk", year: 2026, month: 11, vault: null }), { section: "desk", year: 2026, month: 11, vault: null });
+  });
+
+  it("un lugar de Ajustes cae a Central conservando mes y año del dueño", () => {
+    assert.deepEqual(bootPlace(AJUSTES), { section: "desk", year: 2026, month: 10, vault: null });
+  });
+
+  it("un lugar de Ajustes conserva también su pestaña de Bóveda", () => {
+    assert.deepEqual(
+      bootPlace({ section: "settings", year: 2026, month: 9, vault: "meta" }),
+      { section: "desk", year: 2026, month: 9, vault: "meta" },
+    );
+  });
+
+  it("el registro heredado: un Ajustes guardado se lee honesto y el arranque lo cerca", () => {
+    const s = fakeStorage();
+    writePlace(s, UID, AJUSTES); // registros escritos antes de la 1.3.228
+    assert.deepEqual(readPlace(s, UID), AJUSTES); // la capa guarda lo que hay
+    assert.deepEqual(bootPlace(readPlace(s, UID)), { section: "desk", year: 2026, month: 10, vault: null });
   });
 });
 
