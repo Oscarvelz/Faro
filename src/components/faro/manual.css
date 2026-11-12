@@ -285,6 +285,11 @@ div.advice-head[role="button"] > div { flex: 1; min-width: 0; }
 .a2-tower-say .ftip-btn { color: rgba(238,242,246,.72); }
 .acct-out-row { display: flex; align-items: center; gap: 6px; }
 .acct-out-row > .btn { flex: 1; min-width: 0; }
+/* La zona de peligro de Cuenta: separada de Cerrar sesión por su propio borde y
+   su rótulo — tranquila, encontrable, imposible de confundir con la salida. */
+.acct-del-zone { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid color-mix(in oklab, var(--bad) 35%, var(--line)); }
+.acct-del-cap { color: var(--bad); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.acct-del-zone > .btn { width: 100%; }
 
 /* Ajustes manual rate: the (?) follows the Save button on its line (was alone on a line above the field). */
 .row > .hint.is-after { align-self: center; flex: none; }

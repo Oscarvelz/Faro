@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { askSignInAgain, lastUser, onUser, sessionGone, signOutEverywhereLocal, type FaroUser } from "./cloud";
+import { askSignInAgain, deleteAccountForever, lastUser, onUser, sessionGone, signOutEverywhereLocal, type FaroUser } from "./cloud";
 import { disableLock, enableLock, lockCredential, lockSupported } from "./lock";
 import { w } from "./words";
 import { useFaro } from "@/components/faro/provider";
@@ -24,7 +24,7 @@ function wipeDevice(uid: string) {
 
 export function UserButton() {
   const user = useFaroUser();
-  const { confirm } = useFaro();
+  const { confirm, exportJson } = useFaro();
   const [busy, setBusy] = useState(false);
   const [canLock, setCanLock] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -96,6 +96,40 @@ export function UserButton() {
           {w("acct.out")}
         </button>
         <Hint topic="cerrar-sesion" />
+      </div>
+      {/* La zona de peligro (Oscar, chat de ventanas, 2026-11-11): eliminar la cuenta
+          es el único acto de Faro sin regreso — por eso vive separado, tranquilo, y
+          por eso su ventana lleva la puerta de GitHub que Cerrar sesión no merece. */}
+      <div className="acct-del-zone">
+        <span className="acct-del-cap">{w("acct.delZone")}</span>
+        <button
+          type="button"
+          className="btn danger"
+          disabled={busy}
+          onClick={() => confirm({
+            title: w("acct.delTitle"),
+            body: w("acct.delWarn"),
+            danger: true,
+            typeText: user.email || undefined,
+            extraLabel: w("acct.delGetBook"),
+            extraRun: () => exportJson(),
+            yes: w("acct.delYes"),
+            run: () => {
+              void (async () => {
+                setBusy(true);
+                // Primero el servidor confirma el borrado; si no lo confirma, la
+                // cuenta sigue viva y NO se toca nada local (sería mentir).
+                const gone = await deleteAccountForever();
+                if (!gone) { setBusy(false); setMsg(w("acct.delFail")); return; }
+                wipeDevice(user.id);
+                await wipeLocalBackups(user.id);
+                await signOutEverywhereLocal();
+              })();
+            },
+          })}
+        >
+          {w("acct.del")}
+        </button>
       </div>
     </div>
   );

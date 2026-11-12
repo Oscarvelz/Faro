@@ -227,6 +227,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                 <h4 className="lab-head">{L(lang, "Cómo descargar tu archivo", "How to download your file")}<button type="button" className="sub-gear" data-test="guide-gear" aria-pressed={gEdit} aria-label={L(lang, "Editar bancos", "Edit banks")} onClick={() => setGEdit((on) => !on)}><Gear /></button><Hint topic="imp-descargar" />
                   {gEdit ? <button type="button" className="sub-gear bg-restore" data-test="guide-restore" aria-label={L(lang, "Restaurar bancos", "Restore banks")} onClick={() => confirm({ title: L(lang, "Restaurar bancos", "Restore banks"),
                     body: L(lang, "Vuelven Chase, Wells Fargo y PayPal. Tus bancos propios salen de esta lista; sus tarjetas y tasas siguen en Bancos y recompensas.", "Chase, Wells Fargo and PayPal come back. Your own banks leave this list; their cards and rates stay in Banks and rewards."),
+                    danger: true,
                     yes: L(lang, "Restaurar", "Restore"), run: () => { commit((s) => resetGuides(s), L(lang, "Bancos de fábrica", "Factory banks")); setGEdit(false); setGOpen(null); } })}><RotateCcw /></button> : null}</h4>
                 {gEdit ? <GuideEditor lang={lang} state={state} guides={guidesOf(state)} onClose={() => setGEdit(false)} onSave={(next, fresh) => commit((s) => saveGuides(s, next, fresh), L(lang, "Bancos", "Banks"))} /> : (
                   <>

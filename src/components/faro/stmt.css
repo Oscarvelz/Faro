@@ -17,7 +17,8 @@
 .stm-row .stm-restore svg { width: 12px; height: 12px; }
 
 .stm-scrim {
-  --stm: #72b4b2; position: fixed; inset: 0; z-index: 70; display: grid; align-items: end; justify-items: center;
+  /* Oscar's center law (2026-11-10): centered at every width. */
+  --stm: #72b4b2; position: fixed; inset: 0; z-index: 70; display: grid; align-items: center; justify-items: center;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #05080c 46%, transparent);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: stm-fade .2s ease both;
 }

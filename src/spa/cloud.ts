@@ -98,6 +98,22 @@ export function emitUser(u: FaroUser | null) {
   listeners.forEach((f) => f(u));
 }
 
+/**
+ * Eliminar la cuenta para siempre (Oscar, chat de ventanas, 2026-11-11): el cliente
+ * NO puede borrar un usuario — solo el servidor. Esta llamada pide a la función
+ * faro_delete_account (delete-account.sql, preparada en el repo, pendiente de
+ * aplicar en Supabase al portar) que borre las filas del que llama (faro_ledgers,
+ * faro_backups) y su usuario de auth. Devuelve true SOLO si el servidor confirmó
+ * el borrado: si la función no existe todavía o falla, devuelve false y quien
+ * llama NO toca nada local — la cuenta sigue viva y decir lo contrario sería mentir.
+ */
+export async function deleteAccountForever(): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc("faro_delete_account");
+    return !error;
+  } catch { return false; }
+}
+
 export async function signOutEverywhereLocal() {
   try { await supabase.auth.signOut({ scope: "local" }); } catch { /* offline: still clear locally */ }
   try { localStorage.removeItem("faro-auth"); sessionStorage.removeItem("faro-auth"); } catch { /* ignore */ }

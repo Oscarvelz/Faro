@@ -14,7 +14,8 @@ import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } fr
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
 import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
-import { readPlace, writePlace } from "@/lib/faro/navplace";
+import { isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
+import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
 import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
@@ -33,7 +34,7 @@ import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { todayIso } from "@/lib/faro/loans";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
-type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void };
+type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void; /** La puerta de GitHub (Oscar, chat de ventanas, 2026-11-10): la ventana más irreversible exige ESCRIBIR este texto exacto para armar el botón de confirmar — que el usuario demuestre que sabe lo que está haciendo, no solo que tocó dos veces. Vive SOLO en «Eliminar cuenta»: cerrar sesión es ida y vuelta y no la merece (su corrección del 2026-11-11). */ typeText?: string; /** Una salida amable DENTRO de la ventana, antes del punto de no retorno (p. ej. «Descargar mi libro» al eliminar la cuenta): corre sin cerrar la ventana. */ extraLabel?: string; extraRun?: () => void };
 /** Load-time seeds: the August sample, then the one-time Remesas categories (1.3.86). */
 function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean; sample: boolean } {
   // 1.3.87: the August sample lives only in sample mode (its own store). Personal books that are
@@ -322,6 +323,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   if (wakeQuiet.current === null) wakeQuiet.current = takeSwitchRemount();
   const dayRef = useRef("");
   const [confirmState, setConfirm] = useState<ConfirmOpts | null>(null);
+  /** Lo escrito en la puerta de GitHub; se vacía con cada ventana nueva. */
+  const [confirmTyped, setConfirmTyped] = useState("");
+  useEffect(() => { setConfirmTyped(""); }, [confirmState]);
   const [depth, setDepth] = useState(1);
   const [ui, setUiState] = useState<UiState>(() => {
     const d = now();
@@ -373,14 +377,37 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     const top = places.current[places.current.length - 1];
     if (top) top.y = readY();
   }, []);
+  const uiRef = useRef(ui);
   const setUi = useCallback((patch: Partial<UiState>) => {
+    // LA PUERTA ÚNICA (Oscar, chat de ventanas, 2026-11-10, cerrando la lista de la
+    // 1.3.182): toda navegación que SALE de Ajustes desmonta el árbol donde vive la
+    // tarjeta abierta de Estructura. El dock y el pliegue ya entregaban su navegación
+    // a guardPanelExit; el barrido entre páginas, los saltos de búsqueda y calendario,
+    // el logo a Central y la ventana flotante a pantalla completa navegaban por la
+    // suya y se llevaban lo preparado en silencio. En vez de perseguir cada camino,
+    // la puerta vive AQUÍ, en el único setUi por el que pasa toda navegación: si el
+    // parche cambia la sección saliendo de Ajustes y hay una tarjeta registrada, la
+    // navegación se entrega a su salida — limpia, corre al momento dentro de su
+    // finish; con trabajo, el aviso manda y un rechazo deja todo como estaba.
+    // Las restauraciones internas (lugares, capas) usan setUiState y no pasan por aquí.
+    if (
+      patch.section !== undefined &&
+      patch.section !== uiRef.current.section &&
+      uiRef.current.section === "settings" &&
+      hasPanelExit()
+    ) {
+      guardPanelExit(() => {
+        if (PLACE_KEYS.some((k) => k in patch)) snap();
+        setUiState((u) => ({ ...u, ...patch }));
+      });
+      return;
+    }
     if (PLACE_KEYS.some((k) => k in patch)) snap();
     setUiState((u) => ({ ...u, ...patch }));
   }, [snap]);
 
   const applying = useRef(false);
   const confirmRef = useRef(confirmState);
-  const uiRef = useRef(ui);
   confirmRef.current = confirmState;
   uiRef.current = ui;
 
@@ -451,6 +478,33 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   }, [ui.section, ui.year, ui.month, ui.help, ui.instruments, ui.draft, ui.editing, ui.manual, ui.vault, ui.spot]);
 
   useEffect(() => {
+    // La ley de la salida (Oscar, chat de ventanas, 2026-11-10): desde Ajustes no se sale
+    // de la app. El lugar guardado reconstruye el piso EN Ajustes tras cada bloqueo, así
+    // que el primer Atrás allí era un Atrás de raíz y preguntaba «¿Salir de Faro?» parado
+    // en Ajustes. Ahora ese Atrás primero sale de Ajustes — a la última página principal
+    // de la pila, o a Central si no hay ninguna — sin preguntar nada; la pregunta de
+    // salida solo nace parada en una página principal.
+    const leaveSettings = () => {
+      const live = uiRef.current;
+      const main = lastMainPlace(places.current);
+      const dest: Place = main ?? {
+        section: "desk",
+        year: live.year,
+        month: live.month,
+        help: false,
+        instruments: false,
+        draft: null,
+        editing: null,
+        manual: null,
+        vault: null,
+        spot: 0,
+      };
+      places.current = [dest];
+      applying.current = true;
+      setUiState((u) => ({ ...u, section: dest.section, year: dest.year, month: dest.month, manual: dest.manual, vault: dest.vault, spot: dest.spot, instruments: false, help: false, calcOpen: false }));
+      history.pushState({ faro: 1 }, "");
+      setDepth(1);
+    };
     const closeOverlay = () => {
       const live = uiRef.current;
       applying.current = true;
@@ -539,6 +593,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         setDepth(places.current.length);
         return;
       }
+      // La puerta de la salida: parado en Ajustes, este Atrás sale de Ajustes, no de la app.
+      if (!isMainSection(live.section)) { guardPanelExit(leaveSettings); return; }
       // 1.3.164: the root. The one step Salir itself authorized falls off the app's history
       // without re-arming and without asking again — the exit proceeds.
       if (exitOkRef.current) { exitOkRef.current = false; return; }
@@ -548,8 +604,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       showExitConfirmRef.current();
     };
     window.addEventListener("popstate", onPop);
-    // The Android shell's FaroBack found no entry to step to (the true first entry): same question.
-    const onRootBack = () => showExitConfirmRef.current();
+    // The Android shell's FaroBack found no entry to step to (the true first entry): same
+    // question — but the same door applies: in Ajustes it steps out to a main page instead
+    // of asking, and with the question already up it does nothing.
+    const onRootBack = () => {
+      if (confirmRef.current) return;
+      if (!isMainSection(uiRef.current.section)) { guardPanelExit(leaveSettings); return; }
+      showExitConfirmRef.current();
+    };
     window.addEventListener("faro-root-back", onRootBack);
     const live = window as Window & { __faroProviderLive?: number };
     live.__faroProviderLive = (live.__faroProviderLive ?? 0) + 1;
@@ -1439,11 +1501,38 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
             </span>
             <h2 id="faro-confirm-title" className="ask-title">{confirmState.title}</h2>
             <p id="faro-confirm-body" className="ask-body">{confirmState.body}</p>
+            {confirmState.extraLabel && confirmState.extraRun ? (
+              <button type="button" className="ask-extra" onClick={() => confirmState.extraRun?.()}>{confirmState.extraLabel}</button>
+            ) : null}
+            {confirmState.typeText ? (
+              <>
+                <p className="ask-type-hint">{t("ask.type").replace("{text}", confirmState.typeText)}</p>
+                <input
+                  type="text"
+                  className="field ask-type"
+                  value={confirmTyped}
+                  autoFocus
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label={confirmState.typeText}
+                  onChange={(e) => setConfirmTyped(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && confirmTyped === confirmState.typeText) {
+                      confirmState.run();
+                      setConfirm(null);
+                    }
+                  }}
+                />
+              </>
+            ) : null}
             <div className="ask-actions">
               <button type="button" className="ask-btn is-quiet" onClick={() => setConfirm(null)}>{confirmState.no ?? t("cancel")}</button>
               <button
                 type="button"
-                autoFocus
+                autoFocus={!confirmState.typeText}
+                disabled={!!confirmState.typeText && confirmTyped !== confirmState.typeText}
                 className={`ask-btn ${confirmState.danger ? "is-danger" : "is-go"}`}
                 onClick={() => {
                   confirmState.run();

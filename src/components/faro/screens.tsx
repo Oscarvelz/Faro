@@ -4435,7 +4435,7 @@ export function Settings() {
             <button type="button" className="btn ghost key-change" onClick={() => setUi({ rebind: action })}>{ui.rebind === action ? t("settings.press") : t("settings.rebind")}</button>
           </div>
         ))}
-        <button type="button" className="btn ghost mt-2" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys")}>{t("settings.resetKeys")}</button>
+        <button type="button" className="btn ghost mt-2" onClick={() => confirm({ title: t("settings.resetKeys"), body: t("settings.resetKeys.body"), danger: true, yes: t("settings.resetKeys.yes"), run: () => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys") })}>{t("settings.resetKeys")}</button>
       </Fold>
       <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Long or double tap" : "Toque largo o doble"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
         <Note kind="tip">{t("gesture.help")}</Note>

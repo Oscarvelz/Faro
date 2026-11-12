@@ -37,7 +37,7 @@
  * Nada aquí toca React ni el DOM.
  */
 import type { PackStorage } from "./packguard.ts";
-import { SECTIONS, type SectionId } from "./types.ts";
+import { SECTIONS, SWIPE_SECTIONS, type SectionId } from "./types.ts";
 import type { VaultTab } from "../manual/places.ts";
 
 export const PLACE_PREFIX = "faro.place.";
@@ -82,6 +82,25 @@ export function writePlace(store: PackStorage, uid: string, place: NavPlace): vo
   const valid = validPlace(place);
   if (!valid) return;
   try { store.setItem(placeKeyOf(uid), JSON.stringify(valid)); } catch { /* ignore */ }
+}
+
+/**
+ * ¿Es una página principal? La ley de la salida (Oscar, chat de ventanas, 2026-11-10):
+ * «It should not be possible to leave the app from the settings. I should at least be in
+ * any of the main pages outside.» La pregunta de salida solo puede nacer parada en una
+ * página principal — y las principales son todas menos Ajustes (la misma partición que
+ * SWIPE_SECTIONS: «Settings stays out»). En Ajustes, el Atrás primero SALE de Ajustes.
+ */
+export const isMainSection = (section: SectionId): boolean =>
+  (SWIPE_SECTIONS as readonly string[]).includes(section);
+
+/** El lugar principal más hondo de la pila (el último que no es Ajustes), o null si no hay. */
+export function lastMainPlace<T extends { section: SectionId }>(places: readonly T[]): T | null {
+  for (let i = places.length - 1; i >= 0; i--) {
+    const p = places[i];
+    if (p && isMainSection(p.section)) return p;
+  }
+  return null;
 }
 
 /** Borra el lugar del dueño (la salida explícita: el próximo arranque aterriza por defecto). */

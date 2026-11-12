@@ -632,6 +632,7 @@ export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { va
         confirm({
           title: L(lang, "Borrar frecuencia", "Delete frequency"),
           body: L(lang, `${cadenceLabel(c, lang)} sale de la lista. Las líneas que ya la usan la conservan.`, `${cadenceLabel(c, lang)} leaves the list. Lines already using it keep it.`),
+          danger: true,
           yes: L(lang, "Borrar", "Delete"),
           run: () => commit((s) => dropFreq(s, c), cadenceLabel(c, lang)),
         });

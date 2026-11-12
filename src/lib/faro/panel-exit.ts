@@ -45,6 +45,11 @@ export function clearPanelExit(fn: PanelExit): void {
   if (current === fn) current = null;
 }
 
+/** ¿Hay una tarjeta abierta registrada ahora mismo? (La puerta de setUi lo pregunta.) */
+export function hasPanelExit(): boolean {
+  return current !== null;
+}
+
 /**
  * La única puerta de las salidas que desmontan la tarjeta desde fuera de su
  * árbol: el dock y el pliegue de la sección de Ajustes entregan aquí su

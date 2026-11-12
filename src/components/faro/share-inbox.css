@@ -1,6 +1,7 @@
 /* Faro for Android: the "what are these pictures?" chooser for images shared from another app (share-inbox.tsx). */
-.shr-scrim { display: grid; align-items: end; justify-items: center; padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #05080c 40%, transparent); }
-.shr-pop { position: relative; width: min(420px, 100%); padding: 12px; gap: 8px; transform-origin: bottom center; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5em), 1fr)); }
+/* Oscar's center law (2026-11-10): the share chooser sits at the center too. */
+.shr-scrim { display: grid; align-items: center; justify-items: center; padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #05080c 40%, transparent); }
+.shr-pop { position: relative; width: min(420px, 100%); padding: 12px; gap: 8px; transform-origin: center; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5em), 1fr)); }
 .shr-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 2px 2px 0 4px; }
 .shr-head > svg { width: 18px; height: 18px; color: var(--scn); flex: none; }
 .shr-head strong { flex: 1 1 auto; min-width: 0; font-size: min(1rem, 17px); font-weight: 650; white-space: nowrap; }

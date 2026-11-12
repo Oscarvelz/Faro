@@ -7,8 +7,9 @@ import { describe, it } from "node:test";
 // MENOR que los nombres de categoría que manda (16px/560), y el mismo círculo chevron
 // de 22px que lleva cada fila. Estas cercas fijan contra las fuentes el diseño nuevo:
 // la cabecera es una tarjeta con superficie propia (--surface-2), su medallón es de
-// 30px en el acento del tema, su nombre lleva la clase de título y el conteo vive en
-// una pastilla. A diferencia de brillo.css (1.3.190), esta hoja SÍ alcanza a Tron y a
+// 24px en el acento del tema (30px en la 1.3.193 original; refinado por Oscar el
+// 2026-11-10: «esto es el extremo»), su nombre lleva la clase de título y el conteo
+// vive en una pastilla. A diferencia de brillo.css (1.3.190), esta hoja SÍ alcanza a Tron y a
 // Cyberpunk: el diseño es una orden expresa de Oscar con fotos en Tron — la cerca lo
 // comprueba en ambos sentidos.
 
@@ -23,14 +24,16 @@ describe("1.3.193 — la tarjeta principal del árbol", () => {
     assert.match(css, /\.tree-kicker\.tree-kick-row\s*\{[^}]*border-radius:\s*16px/);
   });
 
-  it("el medallón es de 30px en el acento — ninguna fila de debajo lo comparte", () => {
-    assert.match(css, /\.tree-group-btn \.fold-chev\s*\{[^}]*width:\s*30px/);
+  it("el medallón es de 24px en el acento — ninguna fila de debajo lo comparte", () => {
+    // Refinamiento (Oscar, 2026-11-10): 30px → 24px; la jerarquía se queda,
+    // el bulto se va. El acento y la receta de bola no cambian.
+    assert.match(css, /\.tree-group-btn \.fold-chev\s*\{[^}]*width:\s*24px/);
     assert.match(css, /\.tree-group-btn \.fold-chev\s*\{[^}]*color:\s*var\(--accent\)/);
   });
 
   it("el nombre lleva su clase de título y el conteo su pastilla", () => {
     assert.ok(screens.includes('className="tree-group-name"'), "screens.tsx nombra el título");
-    assert.match(css, /\.tree-group-name\s*\{[^}]*font-weight:\s*700/);
+    assert.match(css, /\.tree-group-name\s*\{[^}]*font-weight:\s*650/);
     assert.match(css, /\.tree-group-count\s*\{[^}]*border-radius:\s*999px/);
     assert.match(css, /\.tree-group-count\s*\{[^}]*opacity:\s*1/);
   });

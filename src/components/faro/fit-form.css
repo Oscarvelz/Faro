@@ -66,8 +66,9 @@
 :is(.cobro-form, .ah-form) .label { gap: 4px; }
 
 /* ---------- Picker sheet ---------- */
-.fit-scrim { position: fixed; inset: 0; z-index: 80; display: grid; place-items: end center; padding: 12px 10px calc(10px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #04070a 52%, transparent); animation: fit-fade .18s ease-out both; }
-@media (width >= 700px) { .fit-scrim { place-items: center; } }
+/* Oscar's center law (2026-11-10): the picker sheet sits at the precise
+   center of the screen at every width — the window moves, not its contents. */
+.fit-scrim { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 12px 10px calc(10px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #04070a 52%, transparent); animation: fit-fade .18s ease-out both; }
 .fit-sheet { display: flex; flex-direction: column; gap: 10px; width: min(560px, 100%); max-height: min(78dvh, 640px); padding: 12px 12px 12px; border-radius: 22px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px -18px rgb(0 0 0 / 55%); animation: fit-rise .24s cubic-bezier(.22, 1, .36, 1) both; overflow: hidden; }
 .fit-sheet-head { display: flex; align-items: center; gap: 6px; min-height: 36px; }
 .fit-sheet-head strong { flex: 1; min-width: 0; padding-left: 4px; font-size: 1.02rem; font-weight: 700; white-space: nowrap; overflow: hidden; }

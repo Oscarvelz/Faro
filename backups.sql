@@ -35,6 +35,7 @@ grant execute on function public.faro_backup(date, text, integer) to authenticat
 -- cualquier otro contenido se rechaza: el cliente lo recupera como conflicto.
 -- La firma y la forma de retorno (data_json, revision, updated_at, device_id,
 -- won) no cambian; el cliente no necesita tocarse.
+-- APLICADA Y VIVA (2026-11-11): esta firma integer ES la que vive en el servidor — no «corregirla» a bigint; la sobrecarga bigint se eliminó a propósito.
 -- ============================================================================
 create or replace function public.faro_push(p_data text, p_revision integer, p_updated timestamptz, p_device text)
 returns table (data_json text, revision integer, updated_at timestamptz, device_id text, won boolean)

@@ -16,7 +16,8 @@
 
 /* ---------------------------------------------------------------- sheet */
 .imp-scrim {
-  position: fixed; inset: 0; z-index: 70; display: grid; align-items: end; justify-items: center;
+  /* Oscar's center law (2026-11-10): centered at every width, as tablets already were. */
+  position: fixed; inset: 0; z-index: 70; display: grid; align-items: center; justify-items: center;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: color-mix(in oklab, #05080c 46%, transparent);
   backdrop-filter: blur(6px) saturate(.9); -webkit-backdrop-filter: blur(6px) saturate(.9); animation: imp-fade .2s ease both;
 }
@@ -129,8 +130,11 @@
 .imp-amt small { font-size: .74rem; font-weight: 700; color: var(--good); white-space: nowrap; }
 
 /* category picker (inside the sheet) */
-.imp-pick-scrim { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: flex-end; background: color-mix(in oklab, #05080c 38%, transparent); animation: imp-fade .16s ease both; }
-.imp-pick { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; max-height: 76%; min-height: 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom) * .3); border-radius: 22px 22px 0 0; background: var(--surface); box-shadow: 0 -12px 40px -16px rgba(0, 0, 0, .5); animation: imp-up .24s cubic-bezier(.22, 1, .36, 1) both; }
+/* Center law (2026-11-10): the category picker floats at the center of the
+   sheet it belongs to (and of the screen in its fixed form) — fully rounded,
+   no longer flush with the bottom edge. */
+.imp-pick-scrim { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: center; padding: 12px; background: color-mix(in oklab, #05080c 38%, transparent); animation: imp-fade .16s ease both; }
+.imp-pick { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; max-height: 76%; min-height: 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom) * .3); border-radius: 22px; background: var(--surface); box-shadow: 0 18px 44px -16px rgba(0, 0, 0, .5); animation: imp-up .24s cubic-bezier(.22, 1, .36, 1) both; }
 .imp-pick-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .imp-pick-note { margin: 0; color: var(--muted); font-size: .86rem; line-height: 1.35; }
 .imp-pick-scrim.is-fixed { position: fixed; z-index: 75; padding: 0 8px; }

@@ -51,7 +51,7 @@
 .ask > .ask-seal { grid-column: 1; grid-row: 1; width: 44px; height: 44px; margin: 0; border-radius: 14px; }
 .ask > .ask-seal svg { width: 23px; height: 23px; }
 .ask > .ask-title { grid-column: 2; grid-row: 1; font-size: 1.38rem; }
-.ask > .ask-body, .ask > .ask-actions { grid-column: 1 / -1; }
+.ask > .ask-body, .ask > .ask-actions, .ask > .ask-extra, .ask > .ask-type-hint, .ask > .ask-type { grid-column: 1 / -1; }
 .ask > .ask-body { max-width: none; margin-top: 6px; }
 .ask > .ask-actions { margin-top: 14px; }
 .ask > .ask-glow { left: 42px; top: -110px; }
