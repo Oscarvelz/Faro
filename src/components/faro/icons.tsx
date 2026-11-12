@@ -373,6 +373,18 @@ export function BrandMark({ id, className, src }: { id: string; className?: stri
     banpro: "Bp",
     bac: "BAC",
   };
+  if (id === "muse" || id === "meta") {
+    // Muse, Meta's AI agent (1.3.229, Oscar's order): its mark is a mono-weight stroke M — the letterform
+    // drawn for Meta as one rounded stroke — on the Meta-blue plate, in this family's plate grammar.
+    // Books written before 1.3.229 carry the factory piece with icon "brand:meta"; that piece IS Muse now,
+    // so the legacy id draws the same mark (the name already flows through LABELS; no book data is touched).
+    return (
+      <svg viewBox="0 0 32 32" className={`brand-muse ${cls}`} aria-hidden>
+        <rect className="brand-plate" width="32" height="32" rx="8" />
+        <path className="brand-muse-m" d="M9.4 22.2 9.6 11.9c.1-1.7 2.1-2 3.15-.6l2.25 3.6c.6 1 1.5 1 2.1 0l2.25-3.6c1.05-1.4 3.05-1.1 3.15.6l.2 10.3" />
+      </svg>
+    );
+  }
   if (id === "ebay") {
     return (
       <svg viewBox="0 0 32 32" className={cls} aria-hidden>
