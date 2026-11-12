@@ -97,11 +97,12 @@ export function UserButton() {
         </button>
         <Hint topic="cerrar-sesion" />
       </div>
-      {/* La zona de peligro (Oscar, chat de ventanas, 2026-11-11): eliminar la cuenta
-          es el único acto de Faro sin regreso — por eso vive separado, tranquilo, y
-          por eso su ventana lleva la puerta de GitHub que Cerrar sesión no merece. */}
+      {/* Eliminar cuenta (Oscar, chat de ventanas, 2026-11-11): es el único acto de
+          Faro sin regreso — por eso vive separado, tranquilo, tras su propio borde
+          y SIN rótulo (corrección de Oscar, 2026-11-12: «No quiero 'zona de
+          peligro'»), y por eso su ventana lleva la puerta de GitHub que Cerrar
+          sesión no merece. */}
       <div className="acct-del-zone">
-        <span className="acct-del-cap">{w("acct.delZone")}</span>
         <button
           type="button"
           className="btn danger"
