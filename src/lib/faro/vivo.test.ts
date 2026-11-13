@@ -146,3 +146,31 @@ test("1.3.206: the Cyberpunk dial reads its score from --sc (the HUD needle); ev
   assert.match(pano, /\["--sc" as string\]/);
   assert.match(hud, /rotate\(calc\(var\(--sc, 0\) \* 1\.8deg - 90deg\)\)/);
 });
+
+// 1.3.232 (Oscar): the card-corner dots run a loading chase — the desk band's trio always,
+// and on the lenses only the live one (rationed: at most two chases share Central).
+test("vivo 1.3.232: the tick strips run the loading chase behind the guard, rationed to the live lens", () => {
+  assert.match(strip, /@keyframes cp-tick-chase-desk \{/);
+  assert.match(strip, /@keyframes cp-tick-chase-lens \{/);
+  const guard = strip.slice(strip.indexOf("@media (prefers-reduced-motion: no-preference)"), strip.indexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.match(guard, /\.desk-bar::after \{ animation: cp-tick-chase-desk 2\.4s steps\(1, end\) infinite; \}/);
+  assert.match(guard, /\.lens\[aria-pressed="true"\]::before \{ animation: cp-tick-chase-lens 2\.4s steps\(1, end\) infinite; \}/);
+  assert.ok(!/\.lens::before \{ animation: cp-tick-chase/.test(strip), "an unpressed lens never chases");
+  assert.ok(!/cp-tick-boot|cp-tick-charge/.test(strip), "the boot flicker and the one-shot charge retired");
+  // The chase frames carry a rest beat (the last stop is the all-dim frame, held to 100%).
+  assert.match(strip, /54%, 100% \{ background: repeating-linear-gradient\(90deg, color-mix\(in oklab, var\(--accent\) 38%, transparent\) 0 3px, transparent 3px 6px\); \}/);
+  // cyberpunk.css base paint is untouched: same recipe, same geometry — the chase is vivo-only.
+  const cp = fs.readFileSync(new URL("../../components/faro/cyberpunk.css", import.meta.url), "utf8");
+  assert.match(cp, /repeating-linear-gradient\(90deg, var\(--accent\) 0 3px, transparent 3px 6px\)/);
+  assert.match(cp, /repeating-linear-gradient\(90deg, var\(--lens, #fcee0a\) 0 3px, transparent 3px 6px\)/);
+});
+
+test("vivo 1.3.232: the chases park under hidden/still/calm/hush and die under reduced motion", () => {
+  assert.match(strip, /:is\(\[data-hidden\], \[data-cp-still\], \[data-cp-calm\], \[data-cp-hush\]\) \.desk-bar::after,\s*html\[data-theme="cyberpunk"\]:is\(\[data-hidden\], \[data-cp-still\], \[data-cp-calm\], \[data-cp-hush\]\) \.lenses \.lens::before \{ animation-play-state: paused !important; \}/);
+  const rm = strip.slice(strip.indexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.match(rm, /html\[data-theme="cyberpunk"\] \.desk-bar::after, html\[data-theme="cyberpunk"\] \.lenses \.lens::before \{ animation: none; \}/);
+  // The minifier empties an :is() that carries pseudo-elements (measured on the first
+  // 1.3.232 build: the pause and reduce rules shipped as ":is()" and matched nothing) —
+  // pseudo-element targets in this sheet are always written as plain selectors.
+  assert.ok(!/:is\([^)]*::(before|after)/.test(strip), "no pseudo-element inside :is() in vivo");
+});

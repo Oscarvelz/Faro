@@ -132,8 +132,35 @@ html[data-theme="cyberpunk"] .bar-fill::after {
 }
 @keyframes cp-field-scan { from { background-position: 130% 0; } to { background-position: -30% 0; } }
 @keyframes cp-stream { from { transform: translateX(-110%); } to { transform: translateX(110%); } }
-@keyframes cp-tick-charge { 0% { opacity: .7; } 15% { opacity: 1; } 30% { opacity: .2; } 45% { opacity: 1; } 60% { opacity: .3; } 100% { opacity: .7; } }
-@keyframes cp-tick-boot { 0% { opacity: .55; } 20% { opacity: 0; } 35% { opacity: .9; } 50% { opacity: .15; } 70%, 100% { opacity: .55; } }
+/* ---------- 5. The tick strips learn to load (1.3.232, Oscar) ----------
+   «In cyberpunk, animate these three yellow dots as if they were loading…
+   If you can find more dots like that, you can animate, be my guest. Do it
+   in such a way that it will not be tiresome, yet it will look incredibly
+   awesome.» The dots are the HUD tick strips (cyberpunk.css): the desk
+   totals band's corner trio and the same strip on each Central lens.
+   One language for both: a 2.4s stepped chase — one tick lit at the
+   strip's own full paint, the rest dimmed to 38%, then a rest beat with
+   every tick dim (nothing ever burns brighter than the static paint, and
+   no tick ever vanishes). A chase cannot be played with an element's
+   opacity — one element carries one opacity — so each frame swaps the
+   background stack discretely, the HUD's own switching character
+   ("lights switch, they don't fade"). Rationed: the band always runs;
+   on the lenses only the LIVE (pressed) lens runs — at most two chases
+   share Central. The one-shots these replace (cp-tick-boot's flicker,
+   cp-tick-charge's blink) retire with this wave. */
+@keyframes cp-tick-chase-desk {
+  0% { background: linear-gradient(var(--accent), var(--accent)) 0 0 / 3px 4px no-repeat, repeating-linear-gradient(90deg, color-mix(in oklab, var(--accent) 38%, transparent) 0 3px, transparent 3px 6px); }
+  18% { background: linear-gradient(var(--accent), var(--accent)) 6px 0 / 3px 4px no-repeat, repeating-linear-gradient(90deg, color-mix(in oklab, var(--accent) 38%, transparent) 0 3px, transparent 3px 6px); }
+  36% { background: linear-gradient(var(--accent), var(--accent)) 12px 0 / 3px 4px no-repeat, repeating-linear-gradient(90deg, color-mix(in oklab, var(--accent) 38%, transparent) 0 3px, transparent 3px 6px); }
+  54%, 100% { background: repeating-linear-gradient(90deg, color-mix(in oklab, var(--accent) 38%, transparent) 0 3px, transparent 3px 6px); }
+}
+@keyframes cp-tick-chase-lens {
+  0% { background: linear-gradient(var(--lens, #fcee0a), var(--lens, #fcee0a)) 0 0 / 3px 4px no-repeat, repeating-linear-gradient(90deg, color-mix(in oklab, var(--lens, #fcee0a) 38%, transparent) 0 3px, transparent 3px 6px); }
+  14% { background: linear-gradient(var(--lens, #fcee0a), var(--lens, #fcee0a)) 6px 0 / 3px 4px no-repeat, repeating-linear-gradient(90deg, color-mix(in oklab, var(--lens, #fcee0a) 38%, transparent) 0 3px, transparent 3px 6px); }
+  28% { background: linear-gradient(var(--lens, #fcee0a), var(--lens, #fcee0a)) 12px 0 / 3px 4px no-repeat, repeating-linear-gradient(90deg, color-mix(in oklab, var(--lens, #fcee0a) 38%, transparent) 0 3px, transparent 3px 6px); }
+  42% { background: linear-gradient(var(--lens, #fcee0a), var(--lens, #fcee0a)) 18px 0 / 3px 4px no-repeat, repeating-linear-gradient(90deg, color-mix(in oklab, var(--lens, #fcee0a) 38%, transparent) 0 3px, transparent 3px 6px); }
+  56%, 100% { background: repeating-linear-gradient(90deg, color-mix(in oklab, var(--lens, #fcee0a) 38%, transparent) 0 3px, transparent 3px 6px); }
+}
 
 @media (prefers-reduced-motion: no-preference) {
   html[data-theme="cyberpunk"] .cp-rain { animation: cp-rain-near .72s linear infinite; }
@@ -148,8 +175,8 @@ html[data-theme="cyberpunk"] .bar-fill::after {
   html[data-theme="cyberpunk"] .ask .ask-title { animation: cp-head-in .36s steps(1) .06s 1; }
   html[data-theme="cyberpunk"] .theme-swatch.swatch-cyberpunk[aria-pressed="true"] strong { animation: cp-head-in .42s steps(1) 1; }
   html[data-theme="cyberpunk"] .bar-fill::after { animation: cp-stream 1.1s cubic-bezier(.3, .6, .4, 1) .25s 1 both; }
-  html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"]::before { animation: cp-tick-charge .6s steps(1) 1; }
-  html[data-theme="cyberpunk"] .desk-bar::after { animation: cp-tick-boot 1s steps(1) .3s 1; }
+  html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"]::before { animation: cp-tick-chase-lens 2.4s steps(1, end) infinite; }
+  html[data-theme="cyberpunk"] .desk-bar::after { animation: cp-tick-chase-desk 2.4s steps(1, end) infinite; }
   /* The field takes one scan of signal light across its face as it focuses (its caret is already signal yellow). */
   html[data-theme="cyberpunk"] :is(.field, .select):focus {
     background-image: linear-gradient(100deg, transparent 40%, rgb(252 238 10 / .13) 50%, transparent 60%);
@@ -162,6 +189,12 @@ html[data-theme="cyberpunk"] .bar-fill::after {
 html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-still], [data-cp-calm]) :is(.cp-city i, .cp-city b, .cp-kata) { animation-play-state: paused !important; }
 /* While a screen changes, the rain and the spinners hold their frame (~0.5s). */
 html[data-theme="cyberpunk"][data-cp-hush] :is(.cp-rain, .cp-spin) { animation-play-state: paused !important; }
+/* The tick chases park under the same four states (a frozen frame still shows every tick).
+   The targets are written as plain selectors, never inside :is() — the bundler's minifier
+   empties an :is() that carries pseudo-elements (measured on the 1.3.232 first build: the
+   rule shipped as ":is()" and matched nothing). */
+html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-still], [data-cp-calm], [data-cp-hush]) .desk-bar::after,
+html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-still], [data-cp-calm], [data-cp-hush]) .lenses .lens::before { animation-play-state: paused !important; }
 /* Muse's two endless loops park with the city too (their look is untouched). */
 html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-calm]) .top-chrome::before,
 html[data-theme="cyberpunk"]:is([data-hidden], [data-cp-calm]) .brand-word::before,
@@ -178,4 +211,7 @@ html[data-theme="cyberpunk"][data-cp-calm] .cp-skyline > b { animation: none !im
   html[data-theme="cyberpunk"] .cp-city { animation: none !important; }
   html[data-theme="cyberpunk"] :is(.cp-skyline > b, .cp-kata, .brand-word) { animation: none; }
   html[data-theme="cyberpunk"] .bar-fill::after { animation: none; }
+  /* The tick strips stand still at their base paint, fully visible (plain selectors —
+     the minifier empties an :is() carrying pseudo-elements; see the pause law above). */
+  html[data-theme="cyberpunk"] .desk-bar::after, html[data-theme="cyberpunk"] .lenses .lens::before { animation: none; }
 }
