@@ -1,38 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Home-screen widgets, day (Claro-like paper). values-night holds the Tron night. Teal = money in, orange = money out,
-     amber = what is owed / due soon (subtle), purple = savings only. -->
+<!-- Home-screen widgets. Since 1.3.237 «Señal» the widget is ONE register day and night:
+     a warm-black pressed plate (the finish Oscar picked for the quick-note card), so this
+     file and values-night carry the same values — the plate does not follow the phone's
+     day/night, exactly as in the specimen he approved. Teal = money in, orange = money out,
+     amber = what is owed / due soon (subtle), purple = savings only; the data colours keep
+     their bright register so they read on the dark plate. -->
 <resources>
-    <color name="w_bg">#F7F6F3</color>
-    <color name="w_ink">#1C2229</color>
-    <color name="w_muted">#69717B</color>
-    <color name="w_line">#1A1C2229</color>
-    <color name="w_track">#141C2229</color>
-    <color name="w_teal">#0B8BAD</color>
-    <color name="w_teal_soft">#290B8BAD</color>
-    <color name="w_teal_track">#8C0B8BAD</color>
-    <color name="w_orange">#D46A00</color>
-    <color name="w_orange_soft">#38D46A00</color>
-    <color name="w_amber">#BD8200</color>
-    <color name="w_amber_soft">#2EBD8200</color>
-    <color name="w_purple">#894ED6</color>
-    <color name="w_purple_soft">#33894ED6</color>
-    <color name="w_bad">#C2463A</color>
-    <color name="w_prev">#381C2229</color>
-    <color name="w_press">#141C2229</color>
-    <!-- 1.3.235 «El cristal»: the widget glass tokens (day paper). One language with the night
-         set in values-night: hairline (black ring) / rim (white ring) / body gradient stops /
-         brillo (diagonal sheen) per size / fall (top light) / seat (bottom shade) / the +/−
-         buttons' top-lit gradient. Bodies stay opaque — glass here is lit stock. -->
-    <color name="w_glass_hair">#26000000</color>
-    <color name="w_glass_rim">#BFFFFFFF</color>
-    <color name="w_glass_top">#FFFCFBF9</color>
-    <color name="w_glass_mid">#FFF7F6F3</color>
-    <color name="w_glass_bot">#FFEEEDE8</color>
-    <color name="w_glass_brillo">#2EFFFFFF</color>
-    <color name="w_glass_brillo_s">#47FFFFFF</color>
-    <color name="w_glass_brillo_xl">#1FFFFFFF</color>
-    <color name="w_glass_fall">#40FFFFFF</color>
-    <color name="w_glass_seat">#14000000</color>
-    <color name="w_btn_hi">#291C2229</color>
-    <color name="w_btn_lo">#0A1C2229</color>
+    <color name="w_bg">#16120F</color>
+    <color name="w_ink">#F2EAD9</color>
+    <color name="w_muted">#A79B88</color>
+    <color name="w_line">#1CFFFFFF</color>
+    <color name="w_track">#1AFFFFFF</color>
+    <color name="w_teal">#3FD6F5</color>
+    <color name="w_teal_soft">#263FD6F5</color>
+    <color name="w_teal_track">#803FD6F5</color>
+    <color name="w_orange">#FF9D2A</color>
+    <color name="w_orange_soft">#33FF9D2A</color>
+    <color name="w_amber">#FFC23A</color>
+    <color name="w_amber_soft">#29FFC23A</color>
+    <color name="w_purple">#BA92FD</color>
+    <color name="w_purple_soft">#2EBA92FD</color>
+    <color name="w_bad">#FF6A5A</color>
+    <color name="w_prev">#3DFFFFFF</color>
+    <color name="w_press">#1FFFFFFF</color>
+    <!-- 1.3.237 «Señal»: the plate tokens — black outer ring / taupe keyline / flat warm body /
+         the +/− chips' solid fill and frame. All SOLID (alpha FF): in this language nothing
+         carries meaning below full paint. Same values in values-night, by design. -->
+    <color name="w_senal_hair">#FF000000</color>
+    <color name="w_senal_rim">#FF3A332B</color>
+    <color name="w_senal_body">#FF16120F</color>
+    <color name="w_senal_chip">#FF241E19</color>
+    <color name="w_senal_chip_line">#FF453B31</color>
 </resources>

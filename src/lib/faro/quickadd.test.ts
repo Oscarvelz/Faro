@@ -7,6 +7,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { ingestQuick, parseQuickEntries, quickHomes, quickLine, QUICK_MAX_MINOR, type QuickEntry } from "./quickadd.ts";
+import { createInitial } from "./defaults.ts";
+import { packLedgerOk } from "./packguard.ts";
+import { buildWidgetSnapshot } from "./widget.ts";
 import type { LedgerState, Line } from "./types.ts";
 
 const blank = () => ({ revision: 1, updatedAt: "2026-11-12T00:00:00.000Z", settings: { lang: "es" }, months: {}, structure: { categories: [] } }) as unknown as LedgerState;
@@ -127,7 +130,7 @@ describe("apuntes rápidos del widget", () => {
     assert.ok(!quick.includes("faro_ledgers") && !quick.includes("supabase"), "la tarjeta no toca el libro ni la red");
   });
 
-  it("el shell 1.3.234: entrega en dos fases, señal de regreso, widgets que se curan y foto vieja honesta", () => {
+  it("el shell 1.3.234: entrega en dos fases, señal de regreso y widgets que se curan", () => {
     const root = process.cwd();
     const widgets = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/FaroWidgets.kt"), "utf8");
     const main = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/MainActivity.kt"), "utf8");
@@ -150,10 +153,49 @@ describe("apuntes rápidos del widget", () => {
     // Al arrancar, el shell re-dibuja los widgets: ninguna instancia conserva botones de
     // un shell anterior tras abrir la app una vez.
     assert.match(main, /FaroWidgets\.refreshAll\(applicationContext\)/);
-    // Foto vieja: se detecta por la clave qhIn ausente y la tarjeta lo dice en voz alta.
-    assert.match(widgets, /stale = !o\.has\("qhIn"\)/);
-    assert.match(quick, /snap\.stale/);
-    assert.match(quick, /activar tus categorías/);
-    assert.match(quick, /enable your categories/);
+    // (La cuarta parte de esta cerca — la «foto vieja» que la tarjeta decía en voz alta —
+    // se retiró en 1.3.237: la cerca nueva de abajo la sustituye. La línea que pedía abrir
+    // la app murió por la ley de Oscar en su tercera prueba.)
+  });
+
+  it("1.3.237: la foto es del libro real en cualquier sesión, la tarjeta no pide abrir la app y los botones respiran", () => {
+    const root = process.cwd();
+    const widgets = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/FaroWidgets.kt"), "utf8");
+    const quick = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/QuickAdd.kt"), "utf8");
+    const host = fs.readFileSync(path.join(root, "src/components/faro/widget-host.tsx"), "utf8");
+    // La desacoplación: con el ejemplo en pantalla, el feed calcula la foto desde el pack
+    // personal guardado (el canal que salta el prefijo del ejemplo) y lo valida en
+    // profundidad. El ejemplo jamás se fotografía: lo que se fotografía es el libro real.
+    assert.match(host, /personalGet\(packKeyOf\(userId\)\)/);
+    assert.match(host, /packLedgerOk/);
+    // La línea amarilla murió y el shell ya no calcula «foto vieja».
+    assert.ok(!quick.includes("activar tus categorías") && !quick.includes("enable your categories"),
+      "ningún texto de la tarjeta pide abrir la app");
+    assert.ok(!quick.includes("snap.stale"), "la tarjeta ya no conoce el estado «foto vieja»");
+    assert.ok(!widgets.includes("stale"), "el shell ya no calcula «foto vieja»");
+    // Los botones respiran: hueco declarado de 10dp entre las fichas y aire propio dentro
+    // de cada una (la tercera prueba: Cancelar y Guardar se dibujaban pegadas).
+    const row = quick.slice(quick.indexOf("val buttons"));
+    assert.match(row, /leftMargin = dp\(10\)/);
+    assert.match(row, /setPadding\(dp\(18\), 0, dp\(18\), 0\)/);
+  });
+
+  it("1.3.237: la foto que el feed empuja con el ejemplo en pantalla es función pura del pack personal", () => {
+    const init = createInitial("es", "tron");
+    const renta = {
+      id: "renta", seriesId: "renta", concept: "renta", currency: "USD", active: true, note: "",
+      categoryId: "f-casa", subId: "f.casa.renta", recurring: false, storeId: "", providerId: "",
+      productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: null,
+      balanceCurrency: "USD", icon: "", history: [],
+      kind: "expense-fixed", amountMinor: 95000, monthKey: "2026-11",
+    } as unknown as Line;
+    const real: LedgerState = { ...init, months: { "2026-11": { lines: [renta] } } };
+    const raw = JSON.stringify({ ledger: real, dirty: false });
+    assert.equal(packLedgerOk(raw), true, "el pack personal del libro real valida en profundidad");
+    assert.equal(packLedgerOk("{roto"), false);
+    assert.equal(packLedgerOk(JSON.stringify({ ledger: { nope: 1 } })), false, "un pack sin libro válido nunca se fotografía");
+    const parsed = (JSON.parse(raw) as { ledger: LedgerState }).ledger;
+    const snap = buildWidgetSnapshot(parsed, "es", { today: "2026-11-12", hide: false, lock: false });
+    assert.ok(snap.qhOut.some((h) => h.n.includes("Renta")), "la foto trae las casas del libro real");
   });
 });

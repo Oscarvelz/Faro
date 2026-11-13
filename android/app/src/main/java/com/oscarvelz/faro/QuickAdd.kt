@@ -3,9 +3,10 @@ package com.oscarvelz.faro
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.StateListDrawable
@@ -104,67 +105,81 @@ object QuickAdd {
 class QuickAddActivity : Activity() {
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-    // ——— 1.3.235 «El cristal»: el acabado de la tarjeta y de sus opciones. Solo pintura —
-    // fondos, marcos y luz; ni un id, ni un listener, ni una medida de contenido cambia. ———
+    // ——— 1.3.237 «Señal»: el acabado que Oscar eligió entre los tres candidatos del estudio
+    // (faro-glass2-study). Placa cálida prensada: negro cálido PLANO, filete topo sólido,
+    // una sola lengüeta del color de signo, el monto sentado en su placa hundida y Guardar
+    // SÓLIDO en el color del signo. Nada de degradados multiparada, nada de alfa por debajo
+    // del 15 % portando significado, nada de texto de botón de fábrica: todo sólido, para
+    // que en el teléfono se vea exactamente como en la vista previa que Oscar aprobó.
+    // Solo pintura — ni un id, ni un listener, ni una regla de función cambia. ———
 
-    private fun withAlpha(c: Int, a: Int): Int = Color.argb(a, Color.red(c), Color.green(c), Color.blue(c))
+    private val cBody = Color.rgb(0x16, 0x12, 0x0F)       // el cuerpo: negro cálido plano
+    private val cKeyline = Color.rgb(0x3A, 0x33, 0x2B)    // el filete topo, siempre visible
+    private val cPlate = Color.rgb(0x0D, 0x0A, 0x08)      // la placa hundida del monto
+    private val cPlateLine = Color.rgb(0x33, 0x2C, 0x24)  // el trazo de la placa
+    private val cRow = Color.rgb(0x1E, 0x19, 0x15)        // las filas del selector
+    private val cRowLine = Color.rgb(0x2E, 0x28, 0x22)    // su trazo en reposo
+    private val cRadioLine = Color.rgb(0x6B, 0x5F, 0x52)  // el cuadrado del radio en reposo
+    private val cCancel = Color.rgb(0x24, 0x1E, 0x19)     // Cancelar: sólido cálido
+    private val cCancelLine = Color.rgb(0x45, 0x3B, 0x31) // su trazo
+    private val cCancelText = Color.rgb(0xED, 0xE4, 0xD3)
+    private val cInk = Color.rgb(0xFF, 0xF8, 0xEC)        // la cifra
+    private val cText = Color.rgb(0xF2, 0xEA, 0xD9)       // el texto de las filas
+    private val cLabel = Color.rgb(0xCF, 0xC4, 0xB0)      // rótulos (Rajdhani, con tracking)
+    private val cNote = Color.rgb(0xD8, 0xCE, 0xBE)       // la nota bajo el monto
+    private val cHint = Color.rgb(0x7A, 0x6E, 0x5E)       // el «0.00» antes de escribir
+    private val cOnSign = Color.rgb(0x11, 0x10, 0x0E)     // el texto sobre el color de signo
+    private val cSignal = Color.rgb(0xFC, 0xEE, 0x0A)     // el amarillo señal, una sola vez
 
-    /** El cuerpo de cristal de la tarjeta: degradado propio de arriba (luz) a abajo, marco de
-     *  luz al 18 %, brillo diagonal que muere a mitad de camino y la caída de luz (claro arriba,
-     *  asiento oscuro abajo). La tarjeta es opaca — el cristal aquí es luz, no transparencia. */
-    private fun glassCardBg(): LayerDrawable {
-        val r = dp(18).toFloat()
-        val body = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.rgb(36, 47, 59), Color.rgb(22, 30, 39), Color.rgb(13, 19, 25))).apply {
-            cornerRadius = r; setStroke(dp(1), Color.argb(46, 255, 255, 255))
+    /** Rajdhani viaja con el shell (assets/fonts, la misma fuente que la app web se sirve a
+     *  sí misma): la voz de Faro también en la tarjeta — rótulos, título, cifra y botones. */
+    private val rajdhani500: Typeface by lazy { Typeface.createFromAsset(assets, "fonts/rajdhani-500.ttf") }
+    private val rajdhani600: Typeface by lazy { Typeface.createFromAsset(assets, "fonts/rajdhani-600.ttf") }
+    private val rajdhani700: Typeface by lazy { Typeface.createFromAsset(assets, "fonts/rajdhani-700.ttf") }
+
+    private fun darken(c: Int, f: Double): Int = Color.rgb(
+        (Color.red(c) * f).toInt(), (Color.green(c) * f).toInt(), (Color.blue(c) * f).toInt())
+
+    private fun solid(c: Int, rDp: Int, strokeDp: Int = 0, stroke: Int = 0): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(c); cornerRadius = dp(rDp).toFloat()
+            if (strokeDp > 0) setStroke(dp(strokeDp), stroke)
         }
-        val brillo = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.argb(20, 255, 255, 255), Color.TRANSPARENT, Color.TRANSPARENT)).apply { cornerRadius = r }
-        val fall = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.argb(48, 255, 255, 255), Color.TRANSPARENT, Color.argb(51, 0, 0, 0))).apply { cornerRadius = r }
-        return LayerDrawable(arrayOf(body, brillo, fall))
+
+    /** El cuerpo de la tarjeta: tres anillos sólidos concéntricos — negro fuera, filete topo,
+     *  cuerpo cálido — cada uno con SU radio (el de fuera menos su anillo), para que ninguna
+     *  esquina engorde. Sin degradado: sin bandas en OLED. */
+    private fun senalCardBg(): LayerDrawable {
+        val outer = solid(Color.BLACK, 12)
+        val key = solid(cKeyline, 11)
+        val body = solid(cBody, 10)
+        return LayerDrawable(arrayOf(outer, key, body)).apply {
+            paddingMode = LayerDrawable.PADDING_MODE_STACK
+            setLayerInset(1, dp(1), dp(1), dp(1), dp(1))
+            setLayerInset(2, dp(2), dp(2), dp(2), dp(2))
+        }
     }
 
-    /** La tarjeta dentro de un marco transparente con aire: su sombra real (elevación con el
-     *  contorno redondeado declarado) necesita ese aire dentro de la ventana para dibujarse. */
-    private fun wrapCard(card: View): FrameLayout {
-        card.elevation = dp(18).toFloat()
-        card.outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, dp(18).toFloat())
-            }
-        }
-        card.clipToOutline = true
-        return FrameLayout(this).apply {
-            setPadding(dp(20), dp(20), dp(20), dp(20))
-            addView(card)
-        }
-    }
+    /** La placa del monto: superficie hundida propia, radio 6 (la mitad del de la tarjeta —
+     *  la regla de radios anidados), trazo cálido. La cifra vive DENTRO de algo. */
+    private fun plateBg(): GradientDrawable = solid(cPlate, 6, 1, cPlateLine)
 
-    /** Los botones de la tarjeta como fichas de cristal; Guardar lleva el color del signo. */
-    private fun chipBg(fill: Int, stroke: Int): GradientDrawable = GradientDrawable().apply {
-        setColor(fill); cornerRadius = dp(12).toFloat(); setStroke(dp(1), stroke)
-    }
-
-    /** El cristal de una opción de «¿Dónde va?», en el color c (el del signo; blanco para
-     *  «Sin categoría»): en reposo, un susurro de c y su marco al 22 %; elegida, el marco casi
-     *  entero, el lavado doblado y la banda de luz de c al borde de abajo — la gramática de
-     *  selección de la casa, a escala de diálogo. */
-    private fun rowBg(c: Int, checked: Boolean): LayerDrawable {
-        val r = dp(12).toFloat()
-        return if (!checked) {
-            val under = GradientDrawable().apply { setColor(Color.argb(8, 255, 255, 255)); cornerRadius = r }
-            val wash = GradientDrawable().apply {
-                setColor(withAlpha(c, 15)); cornerRadius = r; setStroke(dp(1), withAlpha(c, 56))
-            }
-            LayerDrawable(arrayOf(under, wash))
-        } else {
-            val wash = GradientDrawable().apply {
-                setColor(withAlpha(c, 38)); cornerRadius = r; setStroke(dp(1), withAlpha(c, 204))
-            }
-            val band = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, withAlpha(c, 140))).apply { cornerRadius = r }
-            LayerDrawable(arrayOf(wash, band))
+    /** Una fila del selector: en reposo, plana con su trazo; marcada, cambian TRES canales a
+     *  la vez — trazo de 2dp del color de signo, barra izquierda de 4dp del mismo color
+     *  (pegada al borde, altura entera, esquinas de la izquierda redondeadas como la fila) y
+     *  el cuadrado del radio relleno (ver radioSquare). */
+    private fun rowBg(c: Int, checked: Boolean): Drawable {
+        if (!checked) return solid(cRow, 6, 1, cRowLine)
+        val base = solid(cRow, 6, 2, c)
+        val bar = GradientDrawable().apply {
+            setColor(c)
+            cornerRadii = floatArrayOf(
+                dp(6).toFloat(), dp(6).toFloat(), 0f, 0f, 0f, 0f, dp(6).toFloat(), dp(6).toFloat())
+        }
+        return LayerDrawable(arrayOf(base, bar)).apply {
+            paddingMode = LayerDrawable.PADDING_MODE_STACK
+            setLayerGravity(1, Gravity.FILL_VERTICAL or Gravity.START)
+            setLayerWidth(1, dp(4))
         }
     }
 
@@ -173,22 +188,72 @@ class QuickAddActivity : Activity() {
         addState(intArrayOf(), rowBg(c, false))
     }
 
-    private fun ringTint(c: Int): ColorStateList = ColorStateList(
-        arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-        intArrayOf(c, Color.argb(92, 255, 255, 255)))
+    /** El radio CUADRADO de Señal (18dp, radio 2): en reposo solo su trazo topo; marcado, el
+     *  cuadrado se llena del color de signo con su centro negro de 8dp — el tercer canal. */
+    private fun radioSquare(c: Int): StateListDrawable {
+        val off = GradientDrawable().apply {
+            cornerRadius = dp(2).toFloat(); setStroke(dp(2), cRadioLine); setSize(dp(18), dp(18))
+        }
+        val fill = solid(c, 2).apply { setSize(dp(18), dp(18)) }
+        val core = solid(cOnSign, 0).apply { setSize(dp(8), dp(8)) }
+        val on = LayerDrawable(arrayOf(fill, core)).apply {
+            paddingMode = LayerDrawable.PADDING_MODE_STACK
+            setLayerInset(1, dp(5), dp(5), dp(5), dp(5))
+        }
+        return StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_checked), on)
+            addState(intArrayOf(), off)
+        }
+    }
+
+    /** Los botones: fichas SÓLIDAS de 50dp, radio 8. Pulsado = el relleno oscurece ~16 %,
+     *  nada más (sin alfa: sobre el cuerpo cálido el alfa se haría barro). */
+    private fun btnBg(fill: Int, stroke: Int = 0): StateListDrawable = StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_pressed),
+            if (stroke != 0) solid(darken(fill, 0.84), 8, 1, stroke) else solid(darken(fill, 0.84), 8))
+        addState(intArrayOf(), if (stroke != 0) solid(fill, 8, 1, stroke) else solid(fill, 8))
+    }
+
+    /** La tarjeta dentro de un marco transparente con aire: su sombra real (elevación 24dp con
+     *  el contorno redondeado declarado) necesita ese aire dentro de la ventana para dibujarse.
+     *  La lengüeta del color de signo (28×3dp) se sienta sobre el borde superior de la tarjeta,
+     *  a 20dp de su borde izquierdo: la única decoración, una sola vez. */
+    private fun wrapCard(card: View, tick: Int?): FrameLayout {
+        card.elevation = dp(24).toFloat()
+        card.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, dp(12).toFloat())
+            }
+        }
+        card.clipToOutline = true
+        return FrameLayout(this).apply {
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+            addView(card)
+            if (tick != null) addView(View(this@QuickAddActivity).apply {
+                setBackgroundColor(tick)
+            }, FrameLayout.LayoutParams(dp(28), dp(3)).apply {
+                gravity = Gravity.TOP or Gravity.START
+                leftMargin = dp(20)
+            })
+        }
+    }
 
     override fun onCreate(saved: Bundle?) {
         super.onCreate(saved)
+        // La ventana respira sobre el lanzador atenuado al 72 %: la placa es opaca y pesada;
+        // más atenuación la haría flotar sin suelo (la receta de Señal fija el techo en 0,72).
+        window.attributes = window.attributes.apply { dimAmount = 0.72f }
         val sign = intent.getStringExtra(QuickAdd.EXTRA_SIGN) ?: "out"
         val snap = FaroWidgets.load(this)
         val en = snap?.en ?: false
-        val accent = if (sign == "in") Color.rgb(66, 190, 235) else Color.rgb(232, 138, 30)
+        // El color del signo, SÓLIDO siempre (nunca lavado): cian de ingreso / naranja de gasto.
+        val accent = if (sign == "in") Color.rgb(0x35, 0xE0, 0xFF) else Color.rgb(0xFF, 0x8B, 0x35)
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             minimumWidth = dp(288)
-            setPadding(dp(22), dp(20), dp(22), dp(20))
-            background = glassCardBg()
+            setPadding(dp(20), dp(18), dp(20), dp(20))
+            background = senalCardBg()
         }
 
         if (snap == null) {
@@ -196,78 +261,108 @@ class QuickAddActivity : Activity() {
             card.addView(TextView(this).apply {
                 text = "Abre Faro una vez para activar los apuntes rápidos."
                 textSize = 16f
-                setTextColor(Color.rgb(232, 236, 240))
+                setTextColor(cCancelText)
             })
             card.addView(Button(this).apply {
                 text = "Abrir Faro"
-                background = chipBg(Color.argb(20, 255, 255, 255), Color.argb(46, 255, 255, 255))
-                setTextColor(Color.rgb(232, 236, 240))
+                isAllCaps = false
+                background = btnBg(cCancel, cCancelLine)
+                setTextColor(cCancelText)
+                setPadding(dp(18), 0, dp(18), 0)
                 setOnClickListener {
                     startActivity(Intent(this@QuickAddActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     finish()
                 }
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(50)).apply {
                 gravity = Gravity.END
                 topMargin = dp(16)
             })
-            setContentView(wrapCard(card))
+            setContentView(wrapCard(card, null))
             return
         }
+
+        // El rótulo: cuadrado señal de 6dp + NOTA RÁPIDA en Rajdhani Medium con tracking.
+        val eyebrow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        eyebrow.addView(View(this).apply { setBackgroundColor(cSignal) },
+            LinearLayout.LayoutParams(dp(6), dp(6)))
+        eyebrow.addView(TextView(this).apply {
+            text = if (en) "QUICK NOTE" else "NOTA RÁPIDA"
+            typeface = rajdhani500
+            textSize = 11f
+            letterSpacing = 0.18f
+            setTextColor(cLabel)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            leftMargin = dp(8)
+        })
+        card.addView(eyebrow)
 
         card.addView(TextView(this).apply {
             text = when {
                 sign == "in" -> if (en) "+ New income" else "+ Anotar ingreso"
                 else -> if (en) "− New expense" else "− Anotar gasto"
             }
+            typeface = rajdhani600
             textSize = 20f
+            letterSpacing = 0.02f
             setTextColor(accent)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(6)
         })
 
+        // El monto sobre su placa: símbolo y cifra en Rajdhani, y la regla sólida del color
+        // de signo al pie interior de la placa — la cifra está sentada, no flotando.
+        val plate = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = plateBg()
+            setPadding(dp(16), dp(12), dp(16), dp(10))
+        }
         val amount = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
             hint = "0.00"
-            textSize = 32f
-            setTextColor(Color.rgb(232, 236, 240))
-            setHintTextColor(Color.rgb(120, 131, 154))
+            typeface = rajdhani700
+            textSize = 44f
+            setTextColor(cInk)
+            setHintTextColor(cHint)
+            background = null
             isSingleLine = true
             gravity = Gravity.END
         }
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(14), 0, 0)
         }
         row.addView(TextView(this).apply {
             text = if (snap.cur == "NIO") "C$" else "$"
+            typeface = rajdhani600
             textSize = 24f
-            setTextColor(Color.rgb(154, 163, 173))
+            setTextColor(accent)
             setPadding(0, 0, dp(10), 0)
         })
         row.addView(amount, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        card.addView(row)
+        plate.addView(row)
+        plate.addView(View(this).apply { setBackgroundColor(accent) },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(2)).apply { topMargin = dp(10) })
+        card.addView(plate, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(14)
+        })
 
         card.addView(TextView(this).apply {
             text = if (en) "Joins your book when you open Faro." else "Entra a tu libro al abrir Faro."
             textSize = 13f
-            setTextColor(Color.rgb(154, 163, 173))
-            setPadding(0, dp(10), 0, 0)
+            setTextColor(cNote)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(12)
         })
 
-        // Foto vieja: una foto escrita por una página anterior a los apuntes con casa no trae
-        // las casas (Snap.stale) y la tarjeta no puede inventarlas — el apunte igual se guarda
-        // (cae sin categoría), pero la tarjeta lo DICE. Desde 1.3.235 la página renueva la foto
-        // en CADA primer plano del libro real, cambie algo o no, así que esta línea solo puede
-        // quedar cuando el libro real no ha estado en primer plano ni una vez desde que existen
-        // las casas (las sesiones de ejemplo no tocan la foto real, por la propia ley del modo
-        // de ejemplo; al salir de él, el montaje renueva la foto al instante).
-        if (snap.stale) {
-            card.addView(TextView(this).apply {
-                text = if (en) "Open Faro once to enable your categories." else "Abre Faro una vez para activar tus categorías."
-                textSize = 13f
-                setTextColor(Color.rgb(232, 184, 96))
-                setPadding(0, dp(8), 0, 0)
-            })
-        }
+        // Sin casas para este signo (un libro nuevo, o una foto que aún no las trae) la
+        // tarjeta queda como nació: el apunte cae sin categoría y la lista no aparece.
+        // Ningún texto pide abrir la app (la ley de Oscar, 1.3.237 — «esta implementación
+        // es para evitar que sea necesario abrir la app»): la página renueva la foto del
+        // libro real en CADA apertura, también con el ejemplo en pantalla, así que tras
+        // cualquier apertura las casas ya vienen en la foto y este estado no se alcanza.
 
         // La casa del apunte (2026-11-12): las que la foto trae para este signo — las que ya lo
         // reciben, en orden de uso. Sin casas (libro nuevo) la tarjeta queda como nació: el
@@ -277,10 +372,13 @@ class QuickAddActivity : Activity() {
         var group: RadioGroup? = null
         if (homes.isNotEmpty()) {
             card.addView(TextView(this).apply {
-                text = if (en) "Where does it go?" else "¿Dónde va?"
-                textSize = 14f
-                setTextColor(Color.rgb(154, 163, 173))
-                setPadding(0, dp(16), 0, dp(4))
+                text = if (en) "WHERE DOES IT GO?" else "¿DÓNDE VA?"
+                typeface = rajdhani600
+                textSize = 13f
+                letterSpacing = 0.14f
+                setTextColor(cLabel)
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(16); bottomMargin = dp(8)
             })
             val g = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
             val last = QuickAdd.lastHome(this, sign)
@@ -288,26 +386,28 @@ class QuickAddActivity : Activity() {
                 g.addView(RadioButton(this).apply {
                     id = 1000 + i
                     text = h.n
-                    textSize = 16f
-                    setTextColor(Color.rgb(232, 236, 240))
+                    textSize = 15f
+                    setTextColor(cText)
                     background = rowSelector(accent)
-                    buttonTintList = ringTint(accent)
-                    setPadding(dp(12), dp(9), dp(10), dp(9))
+                    setButtonDrawable(radioSquare(accent))
+                    compoundDrawablePadding = dp(12)
+                    setPadding(dp(14), 0, dp(14), 0)
                 }, RadioGroup.LayoutParams(
-                    RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT
-                ).apply { if (i > 0) topMargin = dp(5) })
+                    RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
+                ).apply { if (i > 0) topMargin = dp(6) })
             }
             g.addView(RadioButton(this).apply {
                 id = 1000 + homes.size
                 text = if (en) "No category (quick note)" else "Sin categoría (apunte rápido)"
-                textSize = 16f
-                setTextColor(Color.rgb(154, 163, 173))
-                background = rowSelector(Color.WHITE)
-                buttonTintList = ringTint(Color.WHITE)
-                setPadding(dp(12), dp(9), dp(10), dp(9))
+                textSize = 15f
+                setTextColor(cText)
+                background = rowSelector(accent)
+                setButtonDrawable(radioSquare(accent))
+                compoundDrawablePadding = dp(12)
+                setPadding(dp(14), 0, dp(14), 0)
             }, RadioGroup.LayoutParams(
-                RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT
-            ).apply { if (homes.isNotEmpty()) topMargin = dp(5) })
+                RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
+            ).apply { topMargin = dp(6) })
             val lastIdx = homes.indexOfFirst { "${it.c}|${it.s}" == last }
             g.check(1000 + if (lastIdx >= 0) lastIdx else homes.size)
             group = g
@@ -317,19 +417,35 @@ class QuickAddActivity : Activity() {
 
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            setPadding(0, dp(18), 0, 0)
+            setPadding(0, dp(20), 0, 0)
         }
+        // La fila de botones respira (1.3.237): antes las dos fichas se añadían sin ningún
+        // margen declarado — el fondo de siempre del botón traía su propio aire transparente,
+        // pero la ficha pinta hasta el borde de su vista, así que Cancelar y Guardar se
+        // dibujaban PEGADAS (la tercera prueba de Oscar). Ahora la separación es una medida
+        // de la fila, no un accidente del fondo: hueco constante de 10dp y aire propio dentro
+        // de cada ficha para que la palabra nunca bese el marco. En Señal la fila entera es
+        // de las fichas: Cancelar pesa 1, Guardar 1,25 (la receta que Oscar eligió).
         buttons.addView(Button(this).apply {
             text = if (en) "Cancel" else "Cancelar"
-            background = chipBg(Color.argb(20, 255, 255, 255), Color.argb(46, 255, 255, 255))
-            setTextColor(Color.rgb(232, 236, 240))
+            isAllCaps = false
+            typeface = rajdhani700
+            textSize = 16f
+            letterSpacing = 0.06f
+            background = btnBg(cCancel, cCancelLine)
+            setTextColor(cCancelText)
+            setPadding(dp(18), 0, dp(18), 0)
             setOnClickListener { finish() }
-        })
+        }, LinearLayout.LayoutParams(0, dp(50), 1f))
         buttons.addView(Button(this).apply {
             text = if (en) "Save" else "Guardar"
-            background = chipBg(withAlpha(accent, 51), withAlpha(accent, 153))
-            setTextColor(Color.WHITE)
+            isAllCaps = false
+            typeface = rajdhani700
+            textSize = 16f
+            letterSpacing = 0.06f
+            background = btnBg(accent)
+            setTextColor(cOnSign)
+            setPadding(dp(18), 0, dp(18), 0)
             setOnClickListener {
                 val minor = parseMinor(amount.text.toString())
                 if (minor == null) {
@@ -352,9 +468,11 @@ class QuickAddActivity : Activity() {
                 Toast.makeText(this@QuickAddActivity, if (en) "Noted ✓" else "Anotado ✓", Toast.LENGTH_SHORT).show()
                 finish()
             }
-        })
+        }, LinearLayout.LayoutParams(
+            0, dp(50), 1.25f
+        ).apply { leftMargin = dp(10) })
         card.addView(buttons)
-        setContentView(wrapCard(card))
+        setContentView(wrapCard(card, accent))
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         amount.requestFocus()
     }

@@ -176,14 +176,13 @@ class Snap(
     val owed: Long, val owe: Long, val dues: List<Due>, val cats: List<Cat>, val flow: List<Flow>,
     /** 1.3.148: the user's Avisos switch (Ajustes); snapshots from older web builds don't carry it = on. */
     val notify: Boolean = true,
-    /** Apuntes rápidos: las casas que la tarjeta ofrece por signo; fotos viejas no las traen = ninguna. */
+    /** Apuntes rápidos: las casas que la tarjeta ofrece por signo. Una foto escrita por una
+     *  página anterior a las casas no las trae = ninguna; desde 1.3.237 la página renueva la
+     *  foto del libro real en CADA apertura (también con el ejemplo en pantalla), así que el
+     *  shell ya no distingue «foto vieja»: la tarjeta ofrece lo que la foto trae y ningún
+     *  texto pide abrir la app. */
     val qhIn: List<QHome> = emptyList(),
     val qhOut: List<QHome> = emptyList(),
-    /** 1.3.234: la foto es VIEJA si la escribió una página anterior a las casas (no trae la
-     *  clave qhIn): sus listas vacías no significan «libro sin casas» sino «foto sin renovar»,
-     *  y la tarjeta rápida lo dice en vez de callarlo. Una foto nueva con las listas vacías
-     *  (libro nuevo) NO es vieja: trae las claves, aunque vengan vacías. */
-    val stale: Boolean = false,
 ) {
     val en get() = lang == "en"
 
@@ -193,7 +192,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
-        qhIn = qhIn, qhOut = qhOut, stale = stale,
+        qhIn = qhIn, qhOut = qhOut,
     )
 
     companion object {
@@ -217,7 +216,6 @@ class Snap(
             flow = arr(o, "flow").map { Flow(it.optString("label"), it.optLong("inn"), it.optLong("out"), it.optString("key")) },
             qhIn = arr(o, "qhIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             qhOut = arr(o, "qhOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
-            stale = !o.has("qhIn"),
         )
     }
 }

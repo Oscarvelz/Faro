@@ -8,8 +8,13 @@
  *   whether or not anything changed — a session that merely resumes the page can no longer leave the
  *   widgets carrying a photo from before the quick-note homes existed (Oscar's second test: the card
  *   still showed the stale line after the app had been opened, because that open changed nothing and,
- *   being a sample session, pushed nothing at all; sample sessions still never touch the real photo —
- *   leaving sample mode remounts this host and the mount push refreshes the real photo at once).
+ *   being a sample session, pushed nothing at all).
+ *   1.3.237: the photo now ALWAYS describes the real book — in a sample session the feed computes it
+ *   from the real book's saved pack, read through the personal channel (samplemode's personalGet:
+ *   reading never writes, the pack stays byte-identical and no sample datum ever enters the photo —
+ *   what is photographed is the real book itself). Oscar's law, from his third test: a surface that
+ *   needs the app opened in the right mode to complete itself is pointless — after ANY single app
+ *   run of any kind, the widgets carry the real photo, homes included.
  * - Answers widget taps: the app keeps the target of the tap (Central, Pagos, a book, + / −) and the page takes it
  *   once it is open and unlocked, then goes there the same way the manual's "Ir allí" does.
  */
@@ -21,7 +26,9 @@ import { preferOweTab } from "./debts";
 import { native } from "@/spa/native";
 import { lastUser } from "@/spa/cloud";
 import { lockCredential } from "@/spa/lock";
-import { sampleOn } from "@/lib/faro/samplemode";
+import { personalGet, sampleOn } from "@/lib/faro/samplemode";
+import { packKeyOf, packLedgerOk } from "@/lib/faro/packguard";
+import type { LedgerState } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, widgetHide, WIDGET_HIDE_KEY, type WidgetGo } from "@/lib/faro/widget";
 import { ingestQuick, parseQuickEntries, type QuickEntry } from "@/lib/faro/quickadd";
@@ -75,7 +82,7 @@ function pressCorner(anchor: "desk-plus" | "desk-minus") {
 }
 
 export default function WidgetHost() {
-  const { session, lang, goTopic, commit } = useFaroRoot();
+  const { session, lang, goTopic, commit, userId } = useFaroRoot();
   const ledger = session?.ledger ?? null;
   const live = useRef({ ledger, lang });
   live.current = { ledger, lang };
@@ -87,7 +94,25 @@ export default function WidgetHost() {
     if (!n?.setWidgetData) return;
     const push = () => {
       const { ledger: l, lang: lg } = live.current;
-      if (sampleOn()) return;
+      if (sampleOn()) {
+        // 1.3.237: con el ejemplo en pantalla, la foto se calcula del libro REAL guardado —
+        // el mismo pack que el proveedor lee al arrancar en modo real — y se empuja igual.
+        // El ejemplo no se fotografía jamás (su almacén es otro) y su sesión no escribe
+        // nada personal: personalGet solo lee. Sin pack real válido (el libro real nunca
+        // se guardó en este aparato) no hay foto que renovar: la que haya queda como está.
+        try {
+          const raw = personalGet(packKeyOf(userId));
+          if (!raw || !packLedgerOk(raw)) return;
+          const real = (JSON.parse(raw) as { ledger: LedgerState }).ledger;
+          const lock = lockOn();
+          const snap = buildWidgetSnapshot(real, real.settings.lang === "en" ? "en" : "es", {
+            today: todayIso(), hide: widgetHide(personalGet(WIDGET_HIDE_KEY), lock), lock,
+          });
+          n.setWidgetData?.(JSON.stringify(snap));
+          had.current = true;
+        } catch { /* la foto queda como está */ }
+        return;
+      }
       if (!l) {
         // Signed out on this device: the widgets go back to "Abre Faro una vez".
         if (had.current) { try { n.setWidgetData?.(""); } catch { /* ignore */ } had.current = false; }

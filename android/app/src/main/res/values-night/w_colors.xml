@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tron night: near-neutral charcoal with a faint cool lean (no violet, no brown, not pure black). -->
+<!-- Home-screen widgets, night. Since 1.3.237 «Señal» this file carries the SAME values as
+     values/w_colors.xml: the widget is one warm-black plate day and night (see the day
+     file's note). Kept as a separate file so the token set stays in exact parity. -->
 <resources>
-    <color name="w_bg">#121316</color>
-    <color name="w_ink">#E8EAED</color>
-    <color name="w_muted">#8C929A</color>
+    <color name="w_bg">#16120F</color>
+    <color name="w_ink">#F2EAD9</color>
+    <color name="w_muted">#A79B88</color>
     <color name="w_line">#1CFFFFFF</color>
     <color name="w_track">#1AFFFFFF</color>
     <color name="w_teal">#3FD6F5</color>
@@ -18,17 +20,10 @@
     <color name="w_bad">#FF6A5A</color>
     <color name="w_prev">#3DFFFFFF</color>
     <color name="w_press">#1FFFFFFF</color>
-    <!-- 1.3.235 «El cristal»: the widget glass tokens (Tron night charcoal). Same names as day. -->
-    <color name="w_glass_hair">#99000000</color>
-    <color name="w_glass_rim">#33FFFFFF</color>
-    <color name="w_glass_top">#FF1F2126</color>
-    <color name="w_glass_mid">#FF121316</color>
-    <color name="w_glass_bot">#FF0C0D0F</color>
-    <color name="w_glass_brillo">#12FFFFFF</color>
-    <color name="w_glass_brillo_s">#24FFFFFF</color>
-    <color name="w_glass_brillo_xl">#0DFFFFFF</color>
-    <color name="w_glass_fall">#1FFFFFFF</color>
-    <color name="w_glass_seat">#38000000</color>
-    <color name="w_btn_hi">#33FFFFFF</color>
-    <color name="w_btn_lo">#12FFFFFF</color>
+    <!-- 1.3.237 «Señal»: the plate tokens. Same values as day, by design. -->
+    <color name="w_senal_hair">#FF000000</color>
+    <color name="w_senal_rim">#FF3A332B</color>
+    <color name="w_senal_body">#FF16120F</color>
+    <color name="w_senal_chip">#FF241E19</color>
+    <color name="w_senal_chip_line">#FF453B31</color>
 </resources>
