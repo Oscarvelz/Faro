@@ -4,6 +4,7 @@ import {
   ArrowLeftRight,
   AudioLines,
   BarChart3,
+  BookCopy,
   Bot,
   Briefcase,
   Calculator,
@@ -311,7 +312,7 @@ export const LOOK_ICONS = [
 
 const SECTION_ICON: Record<string, LucideIcon> = {
   desk: LayoutDashboard,
-  income: ArrowDownLeft,
+  income: BookCopy,
   fixed: Lock,
   variable: Waves,
   shops: ShoppingBag,
