@@ -13,6 +13,19 @@
  * La píldora se coloca con el mismo cálculo del par de Estudio (SectionView):
  * medir el botón con aria-current="page" y trasladarla hasta él, en fase de
  * layout y otra vez cuando las fuentes asientan (1.3.206).
+ *
+ * EL ASIENTO ES LA MITAD DEL MECANISMO (1.3.249, Oscar: la vuelta Archivo →
+ * Historial «está demasiado fuerte»). Este componente lo sienta shell.tsx en
+ * el padre persistente (la rama folios de sus dos <main>), exactamente donde
+ * vive el par de Estudio: la píldora SOBREVIVE al cambio de pantalla y su
+ * transform transiciona de asiento a asiento en el reloj compartido de
+ * .38s, en las dos direcciones. Hasta la 1.3.248 cada pantalla montaba su
+ * propio FoliosChips: la píldora renacía a cada cambio en su posición de
+ * reposo CSS (sobre la primera pastilla, Historial, y con ancho cero) y el
+ * colocador la llevaba al destino desde ahí — hacia Archivo el viaje se
+ * leía como deslizamiento, pero la vuelta a Historial nacía ya sentada y
+ * solo crecía de ancho en el sitio, con todo el brillo encima: el golpe
+ * que Oscar vio. Ninguna pantalla debe volver a renderizar este par.
  */
 import { useLayoutEffect, useRef } from "react";
 import { useFaro } from "./provider";

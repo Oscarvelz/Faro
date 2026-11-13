@@ -26,6 +26,7 @@ import { installModalityGate } from "@/lib/faro/modality";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
 import { HistorialScreen } from "./historial";
 import { ArchivoScreen } from "./archivo";
+import { FoliosChips } from "./folios-chips";
 import { BookSide, useTabletOne, type SideBook } from "./book-side";
 import { AreaAdvisor, SideCol } from "./area-advisor";
 import type { AreaId } from "@/lib/faro/area-advice";
@@ -1338,7 +1339,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
             ) : null}
             {hub === "desk" ? <Desk /> : null}
             {hub === "settings" ? <SettingsScreen /> : null}
-            {hub === "folios" ? (ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />) : null}
+            {hub === "folios" ? (<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />}</>) : null}
           </main>
           <aside ref={moneyPanel} className={`aside${moneyOpen ? " is-open" : ""}`}>
             {moneyOpen ? <button type="button" className="money-resize" aria-label={lang === "en" ? "Resize" : "Tamaño"} onPointerDown={resizeMoney} /> : null}
@@ -1763,7 +1764,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
       ) : null}
       {hub === "desk" ? <Desk /> : null}
       {hub === "settings" ? <SettingsScreen /> : null}
-      {hub === "folios" ? (ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />) : null}
+      {hub === "folios" ? (<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />}</>) : null}
     </main>
   );
 }

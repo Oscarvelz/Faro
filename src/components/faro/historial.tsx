@@ -22,7 +22,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, EyeOff, Search, SlidersHorizontal, X } from "lucide-react";
 import { useFaro } from "./provider";
-import { FoliosChips } from "./folios-chips";
 import { useLongPress } from "./use-longpress";
 import { SelectionBar, SelMark, useSelection } from "./selection";
 import { PiecePlate } from "./fit-pick";
@@ -285,10 +284,10 @@ export function HistorialScreen() {
 
   return (
     <>
-      {/* Las pastillas de Folios abren la pantalla (2026-11-13): el chip par vive
-          FUERA de .hist para que las reglas del tema que pintan la lente interna
-          (.hist .seg) jamás lo tiñan — las dos pastillas visten el mismo chip. */}
-      <FoliosChips />
+      {/* Las pastillas de Folios ya no viven en esta pantalla (1.3.249): las
+          sienta shell.tsx en el padre persistente, como el par de Estudio —
+          dentro de la pantalla la píldora renacía a cada cambio y la vuelta
+          al Historial caía «demasiado fuerte». */}
       <div className="hist">
       <header className="hist-head">
         <p className="hist-sub">{t("hist.sub")}</p>

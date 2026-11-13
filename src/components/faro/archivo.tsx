@@ -19,7 +19,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { useFaro } from "./provider";
-import { FoliosChips } from "./folios-chips";
 import { useLongPress } from "./use-longpress";
 import { SelectionBar, SelMark, useSelection } from "./selection";
 import { useFaroUser } from "@/spa/gates";
@@ -170,9 +169,8 @@ export function ArchivoScreen() {
 
   return (
     <>
-      {/* El mismo chip par del Historial abre esta pantalla (2026-11-13): un solo
-          componente para las dos pastillas de Folios, fuera de .arch como allí. */}
-      <FoliosChips />
+      {/* El chip par de Folios ya no vive en esta pantalla (1.3.249): lo
+          sienta shell.tsx en el padre persistente, como el par de Estudio. */}
       <div className="arch">
       <p className="arch-sub">{t("arch.sub")}</p>
       {!total ? <Note>{t("arch.empty")}</Note> : null}

@@ -74,15 +74,26 @@ describe("el contenedor: hubOf, el nombre y los chips de Folios", () => {
     // El (?) del hub lee el tema «folios» del manual (su capítulo propio).
     assert.match(shell, /hub === "folios" \? "folios"/);
     // Las dos ramas de pantalla (principal y SectionView) pintan la pastilla actual.
-    const renders = shell.match(/hub === "folios" \? \(ui\.section === "archivo" \? <ArchivoScreen \/> : <HistorialScreen \/>\) : null/g) ?? [];
+    // RE-FIJADO (corrección de Oscar, 2026-11-13, 1.3.249 «La vuelta suave»): la
+    // rama ahora ABRE con las pastillas, sentadas en el padre persistente como el
+    // par de Estudio — dentro de cada pantalla la píldora renacía a cada cambio y
+    // la vuelta Archivo → Historial caía «demasiado fuerte». La intención queda
+    // intacta y más fuerte: ambas superficies pintan la pastilla por el mismo
+    // camino, y ahora también la sientan por el mismo camino.
+    const renders = shell.match(/hub === "folios" \? \(<><FoliosChips \/>\{ui\.section === "archivo" \? <ArchivoScreen \/> : <HistorialScreen \/>\}<\/>\) : null/g) ?? [];
     assert.equal(renders.length, 2, "ambas superficies deben pintar la pastilla por el mismo camino");
   });
 
-  it("ambas pantallas abren con el MISMO componente de chips, en la ropa del par de Estudio", () => {
-    assert.match(historial, /import \{ FoliosChips \} from "\.\/folios-chips";/);
-    assert.match(archivo, /import \{ FoliosChips \} from "\.\/folios-chips";/);
-    assert.match(historial, /<FoliosChips \/>/);
-    assert.match(archivo, /<FoliosChips \/>/);
+  it("ambas pantallas abren con el MISMO componente de chips, sentado en el padre como el par de Estudio", () => {
+    // RE-FIJADO (corrección de Oscar, 2026-11-13, 1.3.249 «La vuelta suave»): el
+    // par ya no lo renderiza cada pantalla — lo sienta shell.tsx en el padre
+    // persistente, el asiento exacto del par de Estudio, para que la píldora
+    // sobreviva al cambio y se deslice en las dos direcciones. La intención de
+    // la cerca queda: UN solo componente de chips para las dos pastillas, en la
+    // ropa del par — lo que cambia es el asiento, por su orden.
+    assert.ok(!historial.includes("FoliosChips"), "el Historial ya no sienta el par: vive en el padre");
+    assert.ok(!archivo.includes("FoliosChips"), "el Archivo ya no sienta el par: vive en el padre");
+    assert.equal(shell.match(/<FoliosChips \/>/g)?.length, 2, "el padre sienta el MISMO componente en sus dos superficies");
     const chips = read("components/faro/folios-chips.tsx");
     // El modelo es shell.tsx (Estudio⇄Asesor): .seg.is-follow.is-pair, píldora
     // seguidora, role=tab/aria-current, icono y etiqueta nav.<sección>.
