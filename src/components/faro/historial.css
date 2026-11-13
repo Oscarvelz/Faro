@@ -24,16 +24,46 @@
 .hist-period { font-family: var(--font-serif); font-size: 1.15rem; letter-spacing: -.02em; text-align: center; }
 .hist-range { display: flex; gap: 8px; flex-wrap: wrap; }
 .hist-range-lab { display: grid; gap: 4px; flex: 1 1 130px; color: var(--muted); font-size: .8rem; font-weight: 500; }
+/* El panel de totales viste «El veredicto» (Oscar eligió el candidato B del
+   estudio faro-folios-panel-study, 2026-11-13): NETO héroe a la izquierda
+   (1.42rem) y ENTRÓ/SALIÓ degradados a una lista de evidencia a la derecha,
+   tras un filete vertical. Encima corre la fila de folio: la identidad del
+   período a la izquierda y la cuenta de movimientos archivada a la derecha,
+   pequeña y tenue — la cuenta es metadato de la vista, no parte de la línea
+   de NETO (corrección de Oscar al espécimen, que la llevaba junto a NETO).
+   La estructura interna pinta solo con --line: el acabado de cada tema
+   (acero de Tron, corchetes y escaneo de Cyberpunk) se sigue viendo sin
+   bifurcar, y el borde inferior queda libre para el escaneo. */
 .hist-totals {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 10px 14px;
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  column-gap: 14px; align-items: center;
+  /* El interlineado interno va fijado al registro del espécimen aprobado: el
+     1.5 global de la app inflaba cada fila del panel muy por encima de sus
+     proporciones (≈106px contra los ≈57 del estudio); con 1.25 el panel
+     vuelve a su estatura — la fila de folio es el resto del precio, y es la
+     corrección de Oscar. Ningún tamaño del espécimen cambia. */
+  line-height: 1.25;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 9px 14px 10px;
 }
-.hist-total { display: inline-flex; align-items: baseline; gap: 6px; }
-.hist-total i { font-style: normal; text-transform: uppercase; letter-spacing: .05em; font-size: .66rem; font-weight: 600; color: var(--muted); }
-.hist-total b { font-family: var(--font-serif); font-size: 1.02rem; font-weight: 560; }
-.hist-total .is-in { color: var(--good); }
-.hist-total .is-neg { color: var(--bad); }
-.hist-total-count { margin-left: auto; color: var(--faint); font-size: .8rem; }
+.hist-folio {
+  grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding-bottom: 5px; margin-bottom: 6px; border-bottom: 1px solid var(--line);
+}
+.hist-folio-period {
+  font-size: .7rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hist-total-count { color: var(--faint); font-size: .7rem; white-space: nowrap; }
+.hist-totals i { font-style: normal; text-transform: uppercase; letter-spacing: .05em; font-size: .66rem; font-weight: 600; color: var(--muted); }
+.tb-net { display: grid; gap: 1px; min-width: 0; }
+.tb-net > b { font-family: var(--font-serif); font-size: 1.42rem; font-weight: 600; line-height: 1.08; }
+.tb-flows { border-left: 1px solid var(--line); padding-left: 14px; min-width: 0; }
+.tb-flow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.tb-flow + .tb-flow { border-top: 1px solid var(--line); }
+.tb-flow b { font-family: var(--font-serif); font-size: .98rem; font-weight: 560; }
+.hist-totals .is-in { color: var(--good); }
+.hist-totals .is-neg { color: var(--bad); }
+.hist-totals .is-zero { color: var(--faint); }
 .hist-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .hist-search { flex: 1 1 170px; min-width: 0; }
 .hist-tool-btn { position: relative; }

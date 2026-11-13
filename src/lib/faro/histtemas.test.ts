@@ -61,6 +61,32 @@ describe("el envoltorio por temas del Historial y el Archivo", () => {
     }
   });
 
+  it("la selección de día es un colado del acento, nunca la losa --fg (Oscar, 2026-11-13)", () => {
+    // Su veredicto con foto: en día, la pastilla elegida de la lente caía como
+    // una losa casi negra (la base .seg pinta background: var(--fg)). La regla
+    // nueva: en los seis días, la lente viste la gramática 1.3.199 resuelta en
+    // el acento del propio tema — lavado doble (16%), marco completo, barra
+    // inferior de 3px, etiqueta en tinta — y la herramienta encendida enmarca
+    // en el acento con el lavado susurro (8%). Las noches no reciben el colado.
+    for (const id of DAYS) {
+      const lens = themeRules(id).find((r) => r.sel.includes('.hist .seg button[aria-pressed="true"]'));
+      assert.ok(lens, `el día ${id} no tiñe la lente`);
+      assert.ok(/var\(--accent\) 16%/.test(lens!.body), `el lavado doble de ${id}`);
+      assert.ok(/border-color: var\(--accent\)/.test(lens!.body), `el marco completo de ${id}`);
+      assert.ok(/inset 0 -3px 0 var\(--accent\)/.test(lens!.body), `la barra de 3px de ${id}`);
+      assert.ok(/color: var\(--fg\)/.test(lens!.body), `la etiqueta de ${id} queda en tinta`);
+      assert.ok(!/background: var\(--fg\)/.test(lens!.body), `la lente de ${id} no viste la losa`);
+      const tool = themeRules(id).find((r) => r.sel.includes(".hist-tool-btn.is-on"));
+      assert.ok(tool && /var\(--accent\) 65%/.test(tool.body) && /var\(--accent\) 8%/.test(tool.body), `la herramienta encendida de ${id} enmarca en el acento`);
+    }
+    for (const id of THEMES.filter((x) => !DAYS.includes(x))) {
+      assert.ok(
+        !themeRules(id).some((r) => r.sel.includes('.hist .seg button[aria-pressed="true"]') && /var\(--accent\) 16%/.test(r.body)),
+        `${id} (no-día) no recibe el colado de día`,
+      );
+    }
+  });
+
   it("Niebla y Bosque acallan encabezados y filetes — nunca las cifras", () => {
     for (const id of ["niebla", "bosque"]) {
       assert.ok(themeRules(id).some((r) => r.sel.includes(".hist-day-head") && /var\(--faint\)/.test(r.body)), `${id} acalla el encabezado`);

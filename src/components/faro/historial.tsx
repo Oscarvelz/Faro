@@ -254,11 +254,25 @@ export function HistorialScreen() {
             <button type="button" className="icon-btn" aria-label={t("hist.next")} onClick={() => shift(1)}><ChevronRight /></button>
           </div>
         )}
+        {/* El veredicto (Oscar eligió el panel B del estudio, 2026-11-13): NETO
+            manda a la izquierda como héroe y los flujos son la evidencia a la
+            derecha. La cuenta NO vive en la línea de NETO (corrección de Oscar
+            al espécimen): va archivada en la fila de folio, junto a la identidad
+            del período, como metadato de la vista. La ley del color se completa:
+            SALIÓ pinta is-neg cuando salió algo e is-zero (tenue) en cero. */}
         <div key={viewSig} className="hist-totals" data-anchor="hist-totals">
-          <span className="hist-total"><i>{t("hist.in")}</i><b className="num is-in">{fmt(totals.inMinor)}</b></span>
-          <span className="hist-total"><i>{t("hist.out")}</i><b className="num">{fmt(totals.outMinor)}</b></span>
-          <span className="hist-total"><i>{t("hist.net")}</i><b className={`num ${totals.netMinor < 0 ? "is-neg" : "is-in"}`}>{fmt(totals.netMinor)}</b></span>
-          <span className="hist-total-count">{totals.count === 1 ? t("hist.count1") : t("hist.count").replace("{n}", String(totals.count))}</span>
+          <div className="hist-folio">
+            <span className="hist-folio-period">{periodLabel}</span>
+            <span className="hist-total-count">{totals.count === 1 ? t("hist.count1") : t("hist.count").replace("{n}", String(totals.count))}</span>
+          </div>
+          <div className="tb-net">
+            <i>{t("hist.net")}</i>
+            <b className={`num ${totals.netMinor < 0 ? "is-neg" : "is-in"}`}>{fmt(totals.netMinor)}</b>
+          </div>
+          <div className="tb-flows">
+            <span className="tb-flow"><i>{t("hist.in")}</i><b className="num is-in">{fmt(totals.inMinor)}</b></span>
+            <span className="tb-flow"><i>{t("hist.out")}</i><b className={`num ${totals.outMinor !== 0 ? "is-neg" : "is-zero"}`}>{fmt(totals.outMinor)}</b></span>
+          </div>
         </div>
         <div className="hist-tools">
           <label className="search-pill hist-search">

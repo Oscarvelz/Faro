@@ -59,6 +59,49 @@
   border-top-color: color-mix(in oklab, var(--fg) 20%, var(--line));
 }
 
+/* La selección de día es un COLADO, no una losa (Oscar, 2026-11-13 06:20 EST,
+   foto de la lente en un tema de día: «para día el negro es demasiado severo.
+   La selección debe hacerlo un colado que se adapte mejor a los temas de
+   día.»). La losa base de styles.css (.seg button[aria-pressed] con
+   background: var(--fg)) es el registro de la noche — en los días --fg es
+   casi negro y la pastilla elegida cae como una piedra. Aquí la lente del
+   Historial toma, SOLO en los seis días, la gramática de selección de la
+   casa (1.3.199): marco completo en el acento, lavado doble sobre la
+   superficie, barra inferior de 3px en el acento y la etiqueta en tinta.
+   Cada día tiñe con SU acento porque todo se resuelve por var(--accent) —
+   ningún hex se inventa. El censo de banco (antes/después) está en
+   ~/workspace/faro-folios-panel-study/. Las demás selecciones de Folios ya
+   eran colado y no se tocan: las fichas de filtro y las etiquetas activas
+   visten surface-2 con el marco interior de brillo.css, y la píldora del
+   par Historial⇄Archivo ya viaja con marco y resplandor del acento.
+   Las noches NO se nombran en esta sección: su selección queda byte a byte
+   la publicada en 1.3.239. */
+[data-theme="claro"] .hist .seg button[aria-pressed="true"],
+[data-theme="lino"] .hist .seg button[aria-pressed="true"],
+[data-theme="costa"] .hist .seg button[aria-pressed="true"],
+[data-theme="marfil"] .hist .seg button[aria-pressed="true"],
+[data-theme="niebla"] .hist .seg button[aria-pressed="true"],
+[data-theme="piedra"] .hist .seg button[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--accent) 16%, var(--surface));
+  border-color: var(--accent);
+  color: var(--fg);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+/* Los botones-herramienta encendidos (Filtros / Vistas abiertos) señalaban
+   solo con un marco en --fg — el mismo negro severo en miniatura. Bajo la
+   misma regla: marco en el acento (la fuerza del marco de brillo.css) y el
+   lavado susurro del reposo de la gramática, la mitad del lavado vivo. */
+[data-theme="claro"] .hist-tool-btn.is-on,
+[data-theme="lino"] .hist-tool-btn.is-on,
+[data-theme="costa"] .hist-tool-btn.is-on,
+[data-theme="marfil"] .hist-tool-btn.is-on,
+[data-theme="niebla"] .hist-tool-btn.is-on,
+[data-theme="piedra"] .hist-tool-btn.is-on {
+  border-color: color-mix(in oklab, var(--accent) 65%, var(--line));
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  color: var(--fg);
+}
+
 /* ================= El puente: Ion de día ================= */
 
 /* El cristal es nativo aquí (.glass-line): el río corre por canales de cristal —

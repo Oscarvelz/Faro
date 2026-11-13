@@ -264,3 +264,41 @@ describe("el manual: el capítulo de Folios (Oscar, 2026-11-13)", () => {
     assert.match(tp.what[1], /belong to what stays in view/);
   });
 });
+
+describe("el panel de totales: «El veredicto» y la fila de folio (Oscar, 2026-11-13)", () => {
+  // Oscar eligió el candidato B del estudio (NETO héroe, flujos como evidencia)
+  // con una corrección al espécimen: la cuenta de movimientos NO vive en la
+  // línea de NETO — va archivada en la fila de folio, con la identidad del
+  // período, como metadato de la vista. Y la ley del color de SALIÓ se completa:
+  // is-neg cuando salió algo, is-zero (tenue) cuando no salió nada.
+  const totals = historial.slice(historial.indexOf('className="hist-totals"'), historial.indexOf('className="hist-tools"'));
+  const css = read("components/faro/historial.css");
+
+  it("la cuenta vive en la fila de folio, junto al período — nunca en la zona de NETO", () => {
+    const folio = totals.slice(totals.indexOf('className="hist-folio"'), totals.indexOf('className="tb-net"'));
+    assert.ok(folio.includes("hist-folio-period"), "la fila de folio lleva la identidad del período");
+    assert.ok(folio.includes("periodLabel"), "la identidad es la etiqueta del período de la vista");
+    assert.ok(folio.includes("hist-total-count"), "la cuenta está archivada en la fila de folio");
+    const net = totals.slice(totals.indexOf('className="tb-net"'), totals.indexOf('className="tb-flows"'));
+    assert.ok(net.includes('t("hist.net")'), "la zona de NETO lleva su etiqueta");
+    assert.ok(!net.includes("hist-total-count") && !net.includes("hist.count"), "la cuenta no se cuela en la línea de NETO");
+  });
+
+  it("NETO va primero y los flujos son la evidencia: el orden del veredicto", () => {
+    assert.ok(totals.indexOf('className="tb-net"') < totals.indexOf('className="tb-flows"'), "NETO precede a los flujos");
+    const flows = totals.slice(totals.indexOf('className="tb-flows"'));
+    assert.ok(flows.indexOf('t("hist.in")') < flows.indexOf('t("hist.out")'), "ENTRÓ precede a SALIÓ en la evidencia");
+  });
+
+  it("la ley del color de SALIÓ está completa: is-neg con salida, is-zero en cero", () => {
+    assert.match(totals, /totals\.outMinor !== 0 \? "is-neg" : "is-zero"/);
+    assert.match(css, /\.hist-totals \.is-zero \{ color: var\(--faint\); \}/);
+  });
+
+  it("la gramática del panel es la del espécimen: héroe 1.42rem, filetes --line, folio tenue", () => {
+    assert.match(css, /\.tb-net > b \{[^}]*font-size: 1\.42rem/);
+    assert.match(css, /\.tb-flows \{ border-left: 1px solid var\(--line\)/);
+    assert.match(css, /\.hist-folio \{[^}]*border-bottom: 1px solid var\(--line\)/);
+    assert.match(css, /\.hist-total-count \{ color: var\(--faint\); font-size: \.7rem/);
+  });
+});
