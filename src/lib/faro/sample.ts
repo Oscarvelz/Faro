@@ -75,7 +75,16 @@ export function withAugustSample(ledger: LedgerState): { ledger: LedgerState; ad
   };
 }
 
-const isDemo = (l: Line) => l.id.startsWith("demo-ago-");
+/* A line is sample by LINEAGE, not only by its own id (línea «Windows», 2026-11-13).
+   The seed writes id = seriesId = demo-ago-*; but copyRecurring — the «Traer recurrentes»
+   carry — mints every carried copy a fresh uid() id while keeping the seriesId, so from
+   September on the sample lives under anonymous ids. Counting/stripping by id alone saw
+   only August's originals: «Quitar filas de ejemplo» reported success and the carried
+   copies kept feeding Tengo month after month, re-seeding the next carry forever
+   (Oscar: «quito los datos de ejemplo… y todavía veo información que queda»). A seriesId
+   with the demo-ago- prefix can only descend from this seed (uid() never mints one), so
+   matching it removes exactly the sample's descendants — never a line of the user's own. */
+const isDemo = (l: Line) => l.id.startsWith("demo-ago-") || (l.seriesId ?? "").startsWith("demo-ago-");
 
 /** True only when every line in the books is an August sample line still exactly as seeded
  * (no other line anywhere, nothing edited). Anything else is the user's and is kept. */
@@ -95,7 +104,7 @@ export function countSampleRows(ledger: LedgerState): number {
   return Object.values(ledger.months).reduce((n, m) => n + (m?.lines ?? []).filter(isDemo).length, 0);
 }
 
-/** Remove the August sample lines (demo-ago-*) and nothing else. */
+/** Remove the August sample lines and every carried descendant of them, and nothing else. */
 export function stripSample(ledger: LedgerState): LedgerState {
   const months: LedgerState["months"] = {};
   for (const [k, m] of Object.entries(ledger.months)) months[k] = { ...m, lines: (m?.lines ?? []).filter((l) => !isDemo(l)) };

@@ -2,7 +2,7 @@
 // Everything here is read-only; it never writes the ledger.
 import { readAdvisor, type ReadLine } from "./advisor";
 import { savingsPicture } from "./awake";
-import { colorFor } from "./colors";
+import { colorFor, cyberize, themeSwatch } from "./colors";
 import { convertMinor, formatMoney, formatPct, niceDown } from "./money";
 import { cardTotals } from "./cards";
 import { perYear } from "./cadence";
@@ -66,7 +66,15 @@ export type Coach = {
 const DAY_PALETTE = { needs: "#7fb2a0", wants: "#e0a35c", debt: "#d0837a", save: "#7fa6cf", free: "#ffd98a" };
 /* Tron: the same hues, lit like light lines on the Grid. */
 const TRON_PALETTE = { needs: "#2effc4", wants: "#ffa236", debt: "#ff4b3e", save: "#4fa8ff", free: "#ffd84a" };
-const PALETTE = new Proxy(DAY_PALETTE, { get: (t, k: keyof typeof DAY_PALETTE) => (typeof document !== "undefined" && document.documentElement.dataset.theme === "tron" ? TRON_PALETTE : t)[k] });
+/* Cyberpunk (línea «Windows», 2026-11-12): NO invented colours — every day tone passes
+   through cyberize(), the very transform that lights the category colours in this theme
+   (themeSwatch / colorFor). Oscar's law: integrate all the colours instead of inventing
+   ones that don't match. The transform lands each bucket in the theme's register on its
+   own: needs → neon mint, wants → neon orange, debt → neon red, save → the theme's own
+   violet (savings' identity here), free → neon gold. Until now Cyberpunk had NO branch
+   and the statistics silently fell back to the day pastels. */
+const CYBER_PALETTE = { needs: cyberize(DAY_PALETTE.needs), wants: cyberize(DAY_PALETTE.wants), debt: cyberize(DAY_PALETTE.debt), save: cyberize(DAY_PALETTE.save), free: cyberize(DAY_PALETTE.free) };
+const PALETTE = new Proxy(DAY_PALETTE, { get: (t, k: keyof typeof DAY_PALETTE) => { const th = typeof document !== "undefined" ? document.documentElement.dataset.theme : undefined; return (th === "tron" ? TRON_PALETTE : th === "cyberpunk" ? CYBER_PALETTE : t)[k]; } });
 
 function L(lang: Lang, es: string, en: string) {
   return lang === "en" ? en : es;
@@ -167,7 +175,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   const top = cats.slice(0, 6);
   const rest = cats.slice(6);
   const cells: Cell[] = [...top];
-  if (rest.length) cells.push({ id: "rest", name: L(lang, "Lo demás", "Everything else"), color: "#8b97a8", count: 0, minor: rest.reduce((a, c) => a + c.minor, 0), lineIds: rest.flatMap((c) => c.lineIds) });
+  if (rest.length) cells.push({ id: "rest", name: L(lang, "Lo demás", "Everything else"), color: themeSwatch("#8b97a8"), count: 0, minor: rest.reduce((a, c) => a + c.minor, 0), lineIds: rest.flatMap((c) => c.lineIds) });
   if (saved > 0) cells.push({ id: "save", name: L(lang, "Ahorro", "Savings"), color: PALETTE.save, count: 0, minor: saved, lineIds: idsOf(isSave) });
   if (free > 0) cells.push({ id: "free", name: L(lang, "Te queda", "Left over"), color: PALETTE.free, count: 0, minor: free, lineIds: [] });
   const counts = toHundred(cells, base);

@@ -597,3 +597,33 @@ describe("cyberpunk: la ruta del plan — la línea de tiempo del Asesor (1.3.21
     assert.ok(!/--(accent|seg|save|sav|tone|cp-panel)\s*:/.test(block), "el bloque lee los tokens con var(), jamás los asigna");
   });
 });
+
+describe("cyberpunk: el cromo superior no rompe el contrato (línea «Windows», 2026-11-12)", () => {
+  it("la barra superior sigue sticky y sin recorte: ni hueco al desplazar ni ventanas atrapadas", () => {
+    // Oscar, con fotos: al desplazar, la barra se escondía pero dejaba su hueco arriba
+    // (position:relative dejaba la caja en el documento) y el calendario abría BAJO la
+    // página (overflow:hidden lo recortaba al borde de la barra). La base y Tron cumplen
+    // el contrato (sticky, sin recorte); Cyberpunk no debe romperlo nunca más.
+    const rawRule = css.match(/\[data-theme="cyberpunk"\] \.top-chrome \{([^}]*)\}/)?.[1] ?? "";
+    const rule = rawRule.replace(/\/\*[\s\S]*?\*\//g, ""); // las declaraciones, no la prosa del comentario
+    assert.match(rule, /position:\s*sticky/, "el cromo de Cyberpunk debe quedar sticky como la base");
+    assert.ok(!/overflow:\s*hidden/.test(rule), "el cromo de Cyberpunk no puede recortar sus ventanas (calendario, buscador, escala)");
+    const tronRule = tronCss.match(/\[data-theme="tron"\] \.top-chrome \{([^}]*)\}/)?.[1] ?? "";
+    assert.match(tronRule, /position:\s*sticky/, "Tron conserva su sticky (referencia del contrato)");
+  });
+
+  it("las estadísticas: Cyberpunk tiene paleta de cubos y la hoja jamás pinta el dato", () => {
+    // Oscar (fotos, 2026-11-12): las estadísticas seguían en el registro de día porque
+    // coach.ts tenía paleta Tron pero ninguna Cyberpunk — e integrar los colores manda
+    // sobre inventarlos: cada tono de día pasa por cyberize(), como los de categoría.
+    const coach = fs.readFileSync(new URL("./coach.ts", import.meta.url), "utf8");
+    assert.match(coach, /const CYBER_PALETTE = \{ needs: cyberize\(DAY_PALETTE\.needs\)/, "la paleta Cyberpunk nace de cyberize(), no de hexes inventados");
+    assert.match(coach, /th === "cyberpunk" \? CYBER_PALETTE/, "el Proxy de la paleta conoce la rama cyberpunk");
+    for (const hex of ["#7fb2a0", "#e0a35c", "#d0837a", "#7fa6cf", "#ffd98a"]) assert.notEqual(cyberize(hex), hex, `cyberize enciende ${hex}`);
+    assert.equal(cyberize("#ffd98a"), "hsl(41 100% 66%)", "el oro de «Te queda» que la hoja CSS espeja");
+    // La hoja de estadísticas da cromo, nunca color de dato:
+    assert.ok(css.includes("Statistics: Panorama and the Where board"), "existe la sección de estadísticas");
+    const segRules = [...css.matchAll(/\[data-theme="cyberpunk"\][^{]*\.pano-(seg|rule-track b)[^{]*\{([^}]*)\}/g)];
+    for (const [, , body] of segRules) assert.ok(!/background|stroke/.test(body), "ninguna regla Cyberpunk pinta segmentos ni rellenos de barra");
+  });
+});

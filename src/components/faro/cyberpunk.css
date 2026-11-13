@@ -125,7 +125,16 @@
 
 /* ---------- Header: flat warm glass-less bar, hazard base, grain ---------- */
 [data-theme="cyberpunk"] .top-chrome {
-  position: relative; overflow: hidden; /* contains the grain layer — without this its bleed widened the page's scrollable overflow (docW 399 vs 390 measured in 189) */
+  /* Ventanas (2026-11-12): position stays STICKY and the box stays UNCLIPPED, as the base
+     contract requires — this rule once set position:relative + overflow:hidden (the grain
+     containment from 189), which broke both contracts at once: relative leaves the chrome's
+     flow box at the top of the document, so the scroll-hide left exactly its own height as
+     an empty gap; and overflow:hidden clipped every chrome popover at the bar's edge (the
+     month calendar opened UNDER the page). The 189 bleed does not return with the clip
+     gone (bench: docW stays 390 at phone width — the grain ::after is inset:0 and never
+     bled itself), and the contract is fenced in cyberpunk.test.ts so it cannot regress
+     silently. */
+  position: sticky; overflow: visible;
   background: linear-gradient(180deg, rgb(22 18 14 / .98), rgb(13 11 8 / .96));
   border-bottom: 1px solid #3a332a;
   box-shadow: 0 12px 26px -16px rgb(0 0 0 / .7);
@@ -407,6 +416,40 @@ html[data-theme="cyberpunk"] .lenses .lens[aria-pressed="true"] {
    UI proper: small info glyphs, colour only, never a glow — the demoted
    voice doing its one declared job. */
 [data-theme="cyberpunk"] .mn-tip dt svg { color: var(--cp-data); }
+
+/* ---------- Statistics: Panorama and the Where board take the theme's chrome ----------
+   (línea «Windows», 2026-11-12; Oscar's photos: the statistics still wore the day
+   register — serif figures, pill tracks, and the coach buckets in day pastels, because
+   coach.ts had a Tron palette but no Cyberpunk one.) Doctrine, his words: integrate
+   ALL the colours instead of inventing colours that don't match. So this section
+   NEVER paints data — segments, fills, dots and waffle cells keep the colour the
+   data gave them (category colours arrive cyberized through colorFor; the buckets
+   through coach.ts's CYBER_PALETTE, cyberize() of the same day tones). The theme
+   gives these surfaces only its chrome: display-face figures and labels, flat
+   tracks and ticks, squared cells and chips. */
+[data-theme="cyberpunk"] :is(.pano-ring-read strong, .pano-rule-top strong, .pano-dial-read strong, .pano-pace-top strong, .donut-core strong) {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .01em;
+}
+[data-theme="cyberpunk"] :is(.pano-kicker, .pano-rule-top span, .pano-chips button, .pano-legend button) {
+  font-family: var(--cp-display); font-weight: 600; letter-spacing: .05em;
+}
+[data-theme="cyberpunk"] :is(.pano-rule-track, .pano-mover-track, .pano-pillar-track, .pano-rule-track b, .pano-mover-track b, .pano-pillar-track b) { border-radius: 2px; }
+[data-theme="cyberpunk"] :is(.pano-rule-track u, .pano-mover-track u) { border-radius: 0; }
+[data-theme="cyberpunk"] .pano-waffle button { border-radius: 2px; }
+[data-theme="cyberpunk"] .pano-days i { border-radius: 1px; }
+[data-theme="cyberpunk"] :is(.pano-chips button, .pano-legend button) { border-radius: 2px; background: #14100b; }
+[data-theme="cyberpunk"] :is(.pano-chips button, .pano-legend button) i { border-radius: 1px; }
+[data-theme="cyberpunk"] :is(.pano-chips button[aria-pressed="true"], .pano-legend button[aria-pressed="true"]) { border-color: var(--accent); }
+[data-theme="cyberpunk"] .pano-pick { border-radius: 2px; background: #14100b; }
+[data-theme="cyberpunk"] .pano-pace-top > div { border-radius: 2px; }
+/* «Te queda» hollow gold: the day sheet hardcodes #ffd98a; here the ring and dot take
+   the cyberized gold — cyberize() of that very tone, the same value coach.ts computes
+   for the free bucket (pinned equal in cyberpunk.test.ts). */
+[data-theme="cyberpunk"] .pano-waffle button.is-free { box-shadow: inset 0 0 0 2px hsl(41 100% 66%); }
+[data-theme="cyberpunk"] .pano-waffle button.is-free::after { background: hsl(41 100% 66%); }
+[data-theme="cyberpunk"] .pano-legend button.is-free i { box-shadow: inset 0 0 0 2px hsl(41 100% 66%); }
+[data-theme="cyberpunk"] .pano-legend button.is-free { border-color: color-mix(in oklab, hsl(41 100% 66%) 45%, var(--line)); }
+[data-theme="cyberpunk"] .coach-bar i.is-free { box-shadow: inset 0 0 0 2px hsl(41 100% 66%); }
 
 /* ---------- The version line: mono micro-print under a barcode ---------- */
 [data-theme="cyberpunk"] .app-version {
