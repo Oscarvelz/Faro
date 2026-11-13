@@ -60,6 +60,18 @@
  * a UN período apartado (hidePeriod salta las que ya descansan), así que Restaurar y
  * Eliminar actúan siempre sobre conjuntos disjuntos y exactos.
  *
+ * La selección (Oscar, 2026-11-13 — el motor de selección de la casa): las puertas por
+ * LÍNEA de esta misma casa, con la misma membresía del río (W1) y el mismo registro:
+ *  - hideLines: aparta un conjunto elegido de líneas (la selección del Historial, o un
+ *    solo movimiento) y lo registra como UN período más — Restaurar y Eliminar del
+ *    Archivo actúan sobre él como sobre cualquier período, sin saber que nació de
+ *    una selección. La cerca anti-fuga no distingue el origen del descanso: una línea
+ *    apartada por selección desaparece de cada lectura igual que una de período.
+ *  - deleteRestingLines: borra líneas apartadas ELEGIDAS (una, o la selección del
+ *    Archivo) del libro y las poda de los registros que las nombraban; un registro
+ *    que se queda sin líneas se va con ellas. Es la única puerta que borra líneas
+ *    sueltas: solo acepta líneas que descansan (lo demás no es asunto del Archivo).
+ *
  * Puro: ninguna función muta el estado que recibe.
  */
 import { convertMinor, uid } from "./money.ts";
@@ -162,6 +174,97 @@ export function hidePeriod(state: LedgerState, from: string, to: string, label?:
     outMinor,
     months: months.sort(),
   };
+}
+
+/**
+ * Ocultar líneas elegidas (el motor de selección, 2026-11-13): aparta exactamente las
+ * líneas nombradas y las registra como UN período (de su primer a su último día de
+ * movimiento). La membresía es la del río (W1), como en hidePeriod: la línea activa o
+ * la transferencia; la que ya descansa pertenece a su propio período y no se toca.
+ * Así la ventana que confirma y el verbo describen los mismos movimientos, y el
+ * Archivo recibe la selección como un período más, sin saber su origen.
+ */
+export function hideLines(state: LedgerState, ids: Iterable<string>, label?: string, now = Date.now()): HideResult {
+  const none: HideResult = { state, span: null, count: 0, inMinor: 0, outMinor: 0, months: [] };
+  const wanted = new Set(ids);
+  if (!wanted.size) return none;
+  const { display, rateE4 } = state.settings;
+  const lineIds: string[] = [];
+  const months: string[] = [];
+  let inMinor = 0;
+  let outMinor = 0;
+  let from = "";
+  let to = "";
+  const nextMonths: LedgerState["months"] = {};
+  for (const [key, bucket] of Object.entries(state.months)) {
+    let touched = false;
+    const lines = bucket.lines.map((l) => {
+      if (!wanted.has(l.id) || l.rest) return l;
+      if (!l.active && !l.xfer) return l;
+      touched = true;
+      lineIds.push(l.id);
+      const day = movementDate(l);
+      if (!from || day < from) from = day;
+      if (!to || day > to) to = day;
+      const v = convertMinor(l.amountMinor, l.currency, display, rateE4);
+      if (l.kind.startsWith("income")) inMinor += v; else if (!l.xfer) outMinor += v;
+      return { ...l, rest: true };
+    });
+    if (touched) months.push(key);
+    nextMonths[key] = touched ? { ...bucket, lines } : bucket;
+  }
+  if (!lineIds.length) return none;
+  const span: RestingSpan = {
+    id: uid(),
+    from,
+    to,
+    ...(label ? { label } : {}),
+    hiddenAt: now,
+    lineIds,
+  };
+  return {
+    // D2, como en hidePeriod: la escritura carga el registro CRUDO.
+    state: { ...state, months: nextMonths, restingSpans: [...(state.restingSpans ?? []), span] },
+    span,
+    count: lineIds.length,
+    inMinor,
+    outMinor,
+    months: months.sort(),
+  };
+}
+
+/**
+ * Eliminar líneas apartadas elegidas (Archivo, 2026-11-13): salen del libro y de los
+ * registros que las nombraban; un registro que se queda sin líneas se va con ellas.
+ * Solo borra líneas que DESCANSAN — es la puerta del Archivo, y lo que cuenta en las
+ * lecturas no es asunto suyo. El registro que se escribe es el crudo (D2): las
+ * entradas malformadas no son nuestras para enterrar y pasan intactas.
+ */
+export function deleteRestingLines(state: LedgerState, ids: Iterable<string>): LedgerState {
+  const wanted = new Set(ids);
+  if (!wanted.size) return state;
+  let removed = false;
+  const months: LedgerState["months"] = {};
+  for (const [key, bucket] of Object.entries(state.months)) {
+    if (bucket.lines.some((l) => wanted.has(l.id) && l.rest)) removed = true;
+    months[key] = bucket.lines.some((l) => wanted.has(l.id) && l.rest)
+      ? { ...bucket, lines: bucket.lines.filter((l) => !(wanted.has(l.id) && l.rest)) }
+      : bucket;
+  }
+  if (!removed) return state;
+  const emptied = new Set<string>();
+  const restingSpans = (state.restingSpans ?? [])
+    .map((s) => {
+      if (!s || typeof s.id !== "string" || !Array.isArray(s.lineIds)) return s;
+      if (!s.lineIds.some((id) => wanted.has(id))) return s;
+      const kept = s.lineIds.filter((id) => !wanted.has(id));
+      if (!kept.length) emptied.add(s.id);
+      return { ...s, lineIds: kept };
+    })
+    // Solo se va el registro que ESTE borrado vació; uno que ya estaba vacío no es
+    // nuestro para enterrar (D2).
+    .filter((s) => !(s && typeof s.id === "string" && emptied.has(s.id)));
+  return { ...state, months, restingSpans };
 }
 
 /** Mostrar de nuevo: las líneas del período vuelven a contar y el registro se va. */

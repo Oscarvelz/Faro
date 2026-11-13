@@ -23,7 +23,7 @@ import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
 import { blankSession, commit as commitSession, commitFinal as commitFinalSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
-import { deleteSpan, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
+import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
 import { isPureSample, stripSample, withAugustSample } from "@/lib/faro/sample";
 import { sampleOn, takeSwitchRemount } from "@/lib/faro/samplemode";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
@@ -129,6 +129,11 @@ export type Api = {
   hidePeriodRange: (from: string, to: string, label?: string) => void;
   restoreRestingSpan: (spanId: string) => void;
   deleteRestingSpan: (spanId: string) => void;
+  /** El motor de selección (2026-11-13): apartar líneas elegidas (deshacible, como
+   *  apartar un período) y borrar líneas apartadas elegidas (commitFinal, como
+   *  borrar un período). Los únicos caminos de la UI hacia esas dos puertas. */
+  hideLineSelection: (ids: string[], label?: string) => void;
+  deleteRestingLineSelection: (ids: string[]) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -1134,11 +1139,18 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     setUiState((u) => {
       const books = ["income", "fixed", "variable", "shops", "subs"] as const;
       const study = ["stats", "advice"] as const;
+      // Folios (Oscar, 2026-11-13): el par Historial⇄Archivo recorre su propio
+      // bucle de dos, EXACTAMENTE como el par de Estudio — deslizar el dedo en la
+      // pantalla salta de la una a la otra. Sin este bucle, el gesto caía al bucle
+      // de Central y el deslizamiento expulsaba al dueño de Folios.
+      const folios = ["historial", "archivo"] as const;
       const loop = (books as readonly string[]).includes(u.section)
         ? books
         : (study as readonly string[]).includes(u.section)
           ? study
-          : (["desk"] as const);
+          : (folios as readonly string[]).includes(u.section)
+            ? folios
+            : (["desk"] as const);
       const i = loop.indexOf(u.section as never);
       const next = loop[(i + delta + loop.length) % loop.length] ?? u.section;
       return { ...u, section: next, draft: null, editing: null };
@@ -1391,6 +1403,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     },
     deleteRestingSpan: (spanId) => {
       commitFinal((s) => deleteSpan(s, spanId), "Eliminar período");
+    },
+    hideLineSelection: (ids, label) => {
+      commit((s) => hideLines(s, ids, label).state, label ?? "Ocultar selección");
+    },
+    deleteRestingLineSelection: (ids) => {
+      commitFinal((s) => deleteRestingLines(s, ids), "Eliminar selección");
     },
     undo,
     redo,

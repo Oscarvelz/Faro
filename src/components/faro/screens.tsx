@@ -30,7 +30,7 @@ import { yearReport, yearsWithData } from "@/lib/faro/year";
 import { setSampleMode } from "@/lib/faro/samplemode";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
-import { auditLabel, shortcutLabel } from "@/lib/faro/i18n";
+import { auditLabel, monthName, shortcutLabel } from "@/lib/faro/i18n";
 import { FARO_VERSION } from "@/lib/faro/build-version";
 import { SAVINGS_PURPLE, baseFor, categoryBase, categoryColor, chosenTone, colorFor, colorForLine, isTron, subBase, subColorFor, tronize } from "@/lib/faro/colors";
 import { namedIconFor, subIconFor } from "@/lib/faro/faces";
@@ -38,7 +38,7 @@ import { shrinkIcon } from "@/lib/faro/icon";
 import { inkOn, washForInk } from "@/lib/faro/palette";
 import { ColorPick, LookGem, QUICK } from "./color-pick";
 import { iconForName, libraryOff, presetName, subPresetsOf } from "@/lib/faro/subs";
-import { BrandIconPick, FreqSheet, IconPick, LookPick, PiecePlate } from "./fit-pick";
+import { BrandIconPick, CategoryPick, FreqSheet, IconPick, LookPick, PiecePlate, PurchaseCatPick, SubPick } from "./fit-pick";
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { dateFmt } from "@/lib/faro/datefmt";
@@ -52,6 +52,8 @@ import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from 
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { ScanEntry } from "./receipt-scan";
 import { BookKit, type KitRow } from "./book-kit";
+import { useLongPress } from "./use-longpress";
+import { SelectionBar, SelMark, useSelection } from "./selection";
 /** Books whose + editor offers Escanear (1.3.101). */
 const SCAN_KINDS: LineKind[] = ["subscription", "purchase", "expense-variable", "expense-fixed"];
 import { StmtScan, type StmtSave } from "./stmt-scan";
@@ -823,6 +825,49 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   const pickedLine = chipRows.find((l) => l.id === ui.editing) ?? null;
   const kitRows: KitRow[] = chipRows.map((l) => ({ id: l.id, label: l.concept || names.cat(l.categoryId) || names.purchase(l.categoryId) || "—", glyph: lineGlyph(l, session?.ledger.structure), color: chosenTone(l.color, l.categoryId) || (session ? colorForLine(session.ledger.structure, l.categoryId, l.subId) : undefined) }));
   const kitLine = (id: string) => chipRows.find((l) => l.id === id);
+  // El motor de selección en las listas de Libros (Oscar, 2026-11-13): sostener
+  // una fila entra al modo — el editor se cierra, porque el modo es otra
+  // habitación —; tocar marca; la barra anuncia conteo, verbos y salida.
+  // Eliminar hereda EXACTAMENTE el verbo del kit del libro (la misma ventana
+  // que nombra cuántas, el mismo commit deshacible, el mismo detalle), y Mover
+  // aplica UN selector de la casa a toda la selección en un solo commit.
+  const selection = useSelection();
+  const lp = useLongPress((id) => {
+    if (selection.mode) selection.toggle(id);
+    else { setUi({ editing: null, draft: null }); selection.enter(id); }
+  });
+  const selVisible = chipRows.filter((l) => selection.sel.has(l.id));
+  const monthLabel = `${monthName(lang, Number(key.slice(5, 7)))} ${key.slice(0, 4)}`;
+  const askDeleteSel = () => {
+    const ids = selVisible.map((l) => l.id);
+    if (!ids.length) return;
+    confirm({
+      title: t(ids.length === 1 ? "sel.lines.delete.title.one" : "sel.lines.delete.title").replace("{n}", String(ids.length)),
+      body: t("sel.lines.delete.body").replace("{month}", monthLabel),
+      yes: t("sel.lines.delete.yes"),
+      run: () => {
+        commit((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`);
+        selection.exit();
+      },
+    });
+  };
+  // Mover a carpeta: el universo del selector es el de la casa — gastos llevan
+  // categoría/subcategoría de su grupo; compras, su carpeta de Compras; ingresos
+  // y suscripciones no tienen carpetas en el modelo y el verbo no se ofrece.
+  // Las transferencias conservan su casa (su categoría es estructural): quedan
+  // fuera del conteo que se mueve, y la ventana lo nombra.
+  const canMove = group !== null || asShop;
+  const movableSel = selVisible.filter((l) => !l.xfer);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveCat, setMoveCat] = useState("");
+  const [moveSub, setMoveSub] = useState("");
+  const applyMove = () => {
+    if (!movableSel.length) return;
+    const targets = movableSel;
+    commit((s0) => targets.reduce((acc, l) => upsertLine(acc, { ...l, categoryId: moveCat, subId: group ? moveSub : "" }), s0), `${targets.length}`);
+    setMoveOpen(false);
+    selection.exit();
+  };
   const display = session?.ledger.settings.display ?? "NIO";
   const [money, setMoney] = useState<Currency>(display);
   const [span, setSpan] = useState<"week" | "month" | "year">("month");
@@ -925,18 +970,25 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
                 <div key={line.id} className="spend-slot" style={{ gridColumn: `span ${span}`, minHeight: `${78 + share * 64}px` }}>
                 <button
                   type="button"
-                  className="spend-bubble"
+                  className={`spend-bubble${selection.sel.has(line.id) ? " is-selected" : ""}`}
                   data-line-id={line.id}
                   data-hot={ui.highlight === line.id}
                   aria-pressed={ui.editing === line.id}
                   style={{
                     backgroundColor: washForInk(chosenTone(line.color, line.categoryId) || (session ? colorForLine(session.ledger.structure, line.categoryId, line.subId) : "#c5d5cc")),
                     ["--tone" as string]: chosenTone(line.color, line.categoryId) || (session ? colorForLine(session.ledger.structure, line.categoryId, line.subId) : "#c5d5cc"),
+                    ["--selc" as string]: chosenTone(line.color, line.categoryId) || (session ? colorForLine(session.ledger.structure, line.categoryId, line.subId) : "#c5d5cc"),
                     color: "#14110e",
                   }}
-                  onPointerDown={rippleAt}
-                  onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}
+                  {...lp.bind(line.id)}
+                  onPointerDown={(e) => { rippleAt(e); lp.bind(line.id).onPointerDown(e); }}
+                  onClick={() => {
+                    if (lp.consumeClick()) return;
+                    if (selection.mode) { selection.toggle(line.id); return; }
+                    setUi({ editing: ui.editing === line.id ? null : line.id, draft: null });
+                  }}
                 >
+                  {selection.mode ? <SelMark on={selection.sel.has(line.id)} /> : null}
                   <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>
                   <strong>{line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId)}</strong>
                   <span className="num">{draftKind.startsWith("income") ? "" : "−"}{viewLine(line)}</span>
@@ -957,9 +1009,12 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
       ) : (
         chipRows.map((line) => (
           <div key={line.id} className="line-stack">
-            <div className={`line-row is-tap${ui.editing === line.id ? " is-open" : ""}`} data-line-id={line.id} data-hot={ui.highlight === line.id} role="button" tabIndex={0} aria-expanded={ui.editing === line.id}
-              onClick={(e) => { if ((e.target as Element).closest(".line-edit")) return; setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }); }}
-              onKeyDown={(e) => { if ((e.target as Element).closest(".line-edit") || (e.key !== "Enter" && e.key !== " ")) return; e.preventDefault(); setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }); }}>
+            <div className={`line-row is-tap${ui.editing === line.id ? " is-open" : ""}${selection.sel.has(line.id) ? " is-selected" : ""}`} data-line-id={line.id} data-hot={ui.highlight === line.id} role="button" tabIndex={0} aria-expanded={ui.editing === line.id}
+              {...(ui.editing === line.id ? {} : lp.bind(line.id))}
+              style={{ "--selc": session ? colorForLine(session.ledger.structure, line.categoryId, line.subId) : "var(--accent)" } as CSSProperties}
+              onClick={(e) => { if (lp.consumeClick()) return; if ((e.target as Element).closest(".line-edit")) return; if (selection.mode) { selection.toggle(line.id); return; } setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }); }}
+              onKeyDown={(e) => { if ((e.target as Element).closest(".line-edit") || (e.key !== "Enter" && e.key !== " ")) return; e.preventDefault(); if (selection.mode) { selection.toggle(line.id); return; } setUi({ editing: ui.editing === line.id ? null : line.id, draft: null }); }}>
+              {selection.mode ? <SelMark on={selection.sel.has(line.id)} /> : null}
               <div className="min-w-0">
                 <strong className="block">{keepTail(line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId), true)}</strong>
                 <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).join(" · ")}</span>
@@ -972,12 +1027,42 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
         ))
       )}
       {purchases.length && draftKind === "purchase" ? null : null}
+      {selection.mode && !asShop ? (
+        <>
+          <SelectionBar count={selVisible.length} onExit={selection.exit}>
+            <button type="button" className="btn danger" disabled={!selVisible.length} onClick={askDeleteSel} data-testid="sel-delete">
+              <Trash2 className="size-4" aria-hidden />{t("sel.lines.delete.yes")}
+            </button>
+            {canMove ? (
+              <button type="button" className="btn secondary" aria-pressed={moveOpen} onClick={() => setMoveOpen((v) => !v)} data-testid="sel-move">
+                {t("sel.move")}
+              </button>
+            ) : null}
+          </SelectionBar>
+          {moveOpen && canMove ? (
+            <div className="sel-move">
+              {group ? (
+                <>
+                  <CategoryPick group={group} value={moveCat} onChange={(id) => { setMoveCat(id); setMoveSub(""); }} />
+                  {moveCat ? <SubPick categoryId={moveCat} value={moveSub} onChange={setMoveSub} /> : null}
+                </>
+              ) : null}
+              {selVisible.length > movableSel.length ? (
+                <p className="sel-move-note">{t("sel.move.skip").replace("{n}", String(selVisible.length - movableSel.length))}</p>
+              ) : null}
+              <button type="button" className="btn primary" disabled={!movableSel.length} onClick={applyMove} data-testid="sel-move-apply">
+                {t("sel.move.apply").replace("{n}", String(movableSel.length))}
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </section>
   );
 }
 
 function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Currency; onMoney: (value: Currency) => void; span: "week" | "month" | "year" }) {
-  const { names, viewLine, session, ui, setUi, confirm, commit, key, t, fmt } = useFaro();
+  const { names, viewLine, session, ui, setUi, confirm, commit, key, t, fmt, lang } = useFaro();
   const display = session?.ledger.settings.display ?? "NIO";
   const rate = session?.ledger.settings.rateE4 ?? 0;
   const [picked, setPicked] = useState<string | null>(null);
@@ -989,6 +1074,40 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
   useEffect(() => {
     if (pickedLine) revealEditor(editRef.current);
   }, [ui.editing]);
+  // El motor de selección en el tablero de Compras (Oscar, 2026-11-13): la
+  // misma máquina que en las demás listas — sostener entra, tocar marca, la
+  // barra anuncia; Eliminar hereda la ventana y el commit del kit del libro, y
+  // Mover aplica el selector de carpetas de Compras a toda la selección.
+  const selection = useSelection();
+  const lp = useLongPress((id) => {
+    if (selection.mode) selection.toggle(id);
+    else { setUi({ editing: null, draft: null }); selection.enter(id); }
+  });
+  const selVisible = rows.filter((l) => selection.sel.has(l.id));
+  const movableSel = selVisible.filter((l) => !l.xfer);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveCat, setMoveCat] = useState("");
+  const shopMonthLabel = `${monthName(lang, Number(key.slice(5, 7)))} ${key.slice(0, 4)}`;
+  const askDeleteSel = () => {
+    const ids = selVisible.map((l) => l.id);
+    if (!ids.length) return;
+    confirm({
+      title: t(ids.length === 1 ? "sel.lines.delete.title.one" : "sel.lines.delete.title").replace("{n}", String(ids.length)),
+      body: t("sel.lines.delete.body").replace("{month}", shopMonthLabel),
+      yes: t("sel.lines.delete.yes"),
+      run: () => {
+        commit((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || t("sel.lines.delete.yes")) : `${ids.length}`);
+        selection.exit();
+      },
+    });
+  };
+  const applyMove = () => {
+    if (!movableSel.length) return;
+    const targets = movableSel;
+    commit((s0) => targets.reduce((acc, l) => upsertLine(acc, { ...l, categoryId: moveCat, subId: "" }), s0), `${targets.length}`);
+    setMoveOpen(false);
+    selection.exit();
+  };
   const storeTotals = new Map<string, number>();
   const window = spanBounds(span, ui.year, ui.month);
   if (session) {
@@ -1022,13 +1141,20 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
             <div key={line.id} className="spend-slot" style={{ gridColumn: `span ${span}`, minHeight: `${78 + share * 64}px` }}>
             <button
               type="button"
-              className={`buy-glass${line.storeId ? ` brand-${line.storeId}` : ""}`}
+              className={`buy-glass${line.storeId ? ` brand-${line.storeId}` : ""}${selection.sel.has(line.id) ? " is-selected" : ""}`}
               data-line-id={line.id}
               data-hot={ui.highlight === line.id}
               aria-pressed={ui.editing === line.id}
-              onPointerDown={rippleAt}
-              onClick={() => setUi({ editing: ui.editing === line.id ? null : line.id, draft: null })}
+              style={{ "--selc": categoryColor(line.categoryId, session?.ledger.structure.purchases.find((p) => p.id === line.categoryId)?.color) } as CSSProperties}
+              {...lp.bind(line.id)}
+              onPointerDown={(e) => { rippleAt(e); lp.bind(line.id).onPointerDown(e); }}
+              onClick={() => {
+                if (lp.consumeClick()) return;
+                if (selection.mode) { selection.toggle(line.id); return; }
+                setUi({ editing: ui.editing === line.id ? null : line.id, draft: null });
+              }}
             >
+              {selection.mode ? <SelMark on={selection.sel.has(line.id)} /> : null}
               <span className="buy-id">
                 {line.storeId ? <BrandMark id={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("brand:") ? (session?.ledger.structure.catalog.find((item) => item.id === line.storeId) as CatalogItem).icon.slice(6) : line.storeId} src={session?.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon.startsWith("data:") ? session.ledger.structure.catalog.find((item) => item.id === line.storeId)?.icon : undefined} className="buy-mark" /> : <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>}
                 <strong>{line.concept || names.purchase(line.categoryId)}</strong>
@@ -1044,6 +1170,29 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
           <BubbleEditor key={pickedLine.id} line={pickedLine} money={money} onMoney={onMoney} />
           <PotReport line={pickedLine} span={span} />
         </div>
+      ) : null}
+      {selection.mode ? (
+        <>
+          <SelectionBar count={selVisible.length} onExit={selection.exit}>
+            <button type="button" className="btn danger" disabled={!selVisible.length} onClick={askDeleteSel} data-testid="sel-delete">
+              <Trash2 className="size-4" aria-hidden />{t("sel.lines.delete.yes")}
+            </button>
+            <button type="button" className="btn secondary" aria-pressed={moveOpen} onClick={() => setMoveOpen((v) => !v)} data-testid="sel-move">
+              {t("sel.move")}
+            </button>
+          </SelectionBar>
+          {moveOpen ? (
+            <div className="sel-move">
+              <PurchaseCatPick value={moveCat} onChange={setMoveCat} />
+              {selVisible.length > movableSel.length ? (
+                <p className="sel-move-note">{t("sel.move.skip").replace("{n}", String(selVisible.length - movableSel.length))}</p>
+              ) : null}
+              <button type="button" className="btn primary" disabled={!movableSel.length} onClick={applyMove} data-testid="sel-move-apply">
+                {t("sel.move.apply").replace("{n}", String(movableSel.length))}
+              </button>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </>
   );

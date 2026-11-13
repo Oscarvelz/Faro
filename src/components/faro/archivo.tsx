@@ -16,10 +16,12 @@
  * que Eliminar cuenta). Lo que descansa aquí no cuenta en ninguna lectura: la puerta
  * anti-fuga (descanso.ts) lo garantiza en la fuente, no en esta pantalla.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { useFaro } from "./provider";
 import { FoliosChips } from "./folios-chips";
+import { useLongPress } from "./use-longpress";
+import { SelectionBar, SelMark, useSelection } from "./selection";
 import { useFaroUser } from "@/spa/gates";
 import { Note } from "./finish";
 import { PiecePlate } from "./fit-pick";
@@ -40,7 +42,7 @@ import "./hist-temas.css";
 
 export function ArchivoScreen() {
   const api = useFaro();
-  const { session, t, lang, fmt, names, commit, confirm, restoreRestingSpan, deleteRestingSpan, exportJson, recordLine } = api;
+  const { session, t, lang, fmt, names, commit, confirm, restoreRestingSpan, deleteRestingSpan, deleteRestingLineSelection, exportJson, recordLine } = api;
   const user = useFaroUser();
   const state = session?.ledger ?? null;
   const [dueRows, setDueRows] = useState<DueFile[]>(() => readDueFileRows(browserPackStorage()));
@@ -78,6 +80,69 @@ export function ArchivoScreen() {
       yes: t("arch.del.yes"),
       run: () => deleteRestingSpan(e.span.id),
     });
+  };
+
+  // Restaurar un período gana su ventana (Oscar, 2026-11-13: que nadie restaure
+  // por error): la casa confirma nombrando lo que vuelve a contar. Solo el
+  // período — las demás casas del Archivo conservan su toque único.
+  const askRestoreSpan = (e: RestingEntry) => {
+    confirm({
+      title: t("arch.restore.title"),
+      body: t("arch.restore.body")
+        .replace("{count}", countWords(e.count))
+        .replace("{period}", spanPeriod(e))
+        .replace("{inn}", fmt(e.inMinor))
+        .replace("{out}", fmt(e.outMinor)),
+      yes: t("arch.restore"),
+      run: () => restoreRestingSpan(e.span.id),
+    });
+  };
+
+  // El motor de selección sobre las líneas apartadas (Oscar, 2026-11-13):
+  // sostener entra al modo, tocar marca, y UNA sola puerta escrita cubre la
+  // selección entera — la misma guarda del borrado de período, jamás más débil.
+  // El toque sin modo ofrece borrar ESA línea sola, tras la misma puerta (S4).
+  const selection = useSelection();
+  const lp = useLongPress((id) => (selection.mode ? selection.toggle(id) : selection.enter(id)));
+  const restingById = useMemo(() => {
+    const map = new Map<string, Line>();
+    for (const e of spans) for (const l of e.lines) map.set(l.id, l);
+    return map;
+  }, [spans]);
+  const askDeleteLines = (lines: Line[]) => {
+    if (!lines.length) return;
+    const one = lines.length === 1 ? lines[0] : null;
+    let inMinor = 0;
+    let outMinor = 0;
+    for (const l of lines) {
+      const v = view(l.amountMinor, l.currency);
+      if (l.kind.startsWith("income")) inMinor += v;
+      else if (!l.xfer) outMinor += v;
+    }
+    confirm({
+      title: one
+        ? t("arch.delOne.title")
+        : t(lines.length === 1 ? "arch.delSel.title.one" : "arch.delSel.title").replace("{n}", String(lines.length)),
+      body: one
+        ? t("arch.delOne.body")
+            .replace("{concept}", one.concept)
+            .replace("{amount}", recordLine(one))
+            .replace("{day}", dayLabel(lang, movementDate(one)))
+        : t("arch.delSel.body")
+            .replace("{n}", String(lines.length))
+            .replace("{inn}", fmt(inMinor))
+            .replace("{out}", fmt(outMinor)),
+      danger: true,
+      typeText: user?.email || undefined,
+      extraLabel: t("arch.del.getBook"),
+      extraRun: () => exportJson(),
+      yes: t("arch.del.yes"),
+      run: () => { deleteRestingLineSelection(lines.map((l) => l.id)); selection.exit(); },
+    });
+  };
+  const lineTap = (line: Line) => {
+    if (selection.mode) { selection.toggle(line.id); return; }
+    askDeleteLines([line]);
   };
 
   /** El Archivo de Debo vive fuera del libro (duefile.ts): restaurar es su mecánica
@@ -129,8 +194,22 @@ export function ArchivoScreen() {
               <div className="arch-lines">
                 {[...e.lines].sort((a, b) => movementDate(b).localeCompare(movementDate(a))).map((line) => {
                   const cat = state.structure.categories.find((c) => c.id === line.categoryId);
+                  const tone = line.subId && cat
+                    ? subColorFor(state.structure, line.categoryId, line.subId)
+                    : cat
+                      ? categoryColor(cat.id, cat.color)
+                      : "var(--faint)";
+                  const marked = selection.sel.has(line.id);
                   return (
-                    <div key={line.id} className="hist-row">
+                    <div
+                      key={line.id}
+                      className={`hist-row${marked ? " is-selected" : ""}`}
+                      data-line-id={line.id}
+                      {...lp.bind(line.id)}
+                      onClick={() => { if (!lp.consumeClick()) lineTap(line); }}
+                      style={{ "--selc": tone } as CSSProperties}
+                    >
+                      {selection.mode ? <SelMark on={marked} /> : null}
                       {line.subId && cat
                         ? <PiecePlate small color={subColorFor(state.structure, line.categoryId, line.subId)} icon={subIconFor(state.structure, line.categoryId, line.subId)} />
                         : cat
@@ -146,7 +225,7 @@ export function ArchivoScreen() {
                 })}
               </div>
               <div className="arch-acts">
-                {restoreBtn(() => restoreRestingSpan(e.span.id))}
+                {restoreBtn(() => askRestoreSpan(e))}
                 <button type="button" className="btn danger" onClick={() => askDeleteSpan(e)}><Trash2 aria-hidden />{t("arch.delete")}</button>
               </div>
             </article>
@@ -225,6 +304,19 @@ export function ArchivoScreen() {
             </article>
           ))}
         </section>
+      ) : null}
+      {selection.mode ? (
+        <SelectionBar count={selection.count} onExit={selection.exit}>
+          <button
+            type="button"
+            className="btn danger"
+            disabled={!selection.count}
+            onClick={() => askDeleteLines([...selection.sel].map((id) => restingById.get(id)).filter((l): l is Line => !!l))}
+            data-testid="sel-delete"
+          >
+            <Trash2 className="size-4" aria-hidden />{t("sel.delete")}
+          </button>
+        </SelectionBar>
       ) : null}
       </div>
     </>

@@ -117,7 +117,9 @@
 @media (min-width: 1280px) {
   .hist-days { column-count: 3; }
 }
-.hist-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+/* Las filas de Folios responden al toque (ocultar/borrar lo suyo, y la presión
+   larga del motor de selección): la mano lo dice. */
+.hist-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; cursor: pointer; }
 .hist-row + .hist-row { border-top: 1px solid var(--line); }
 .hist-row-main { flex: 1; min-width: 0; display: grid; }
 .hist-row-concept { overflow-wrap: anywhere; line-height: 1.25; font-size: .95rem; }
@@ -165,3 +167,6 @@
 .arch-meta { margin: 0; color: var(--muted); font-size: .85rem; }
 .arch-lines { border-top: 1px solid var(--line); }
 .arch-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+/* La pareja repartida (Oscar, 2026-11-13): con DOS verbos, la tarjeta se parte
+   a medias — ninguno amontonado a la izquierda; el verbo solo guarda su ancho. */
+.arch-acts:has(> :nth-child(2)) .btn { flex: 1 1 0; }

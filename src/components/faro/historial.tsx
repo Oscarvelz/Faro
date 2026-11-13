@@ -19,10 +19,12 @@
  * `faro.hist.views`, como el pliegue del catálogo): nombre del dueño, su idioma, jamás
  * dato del libro.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, EyeOff, Search, SlidersHorizontal, X } from "lucide-react";
 import { useFaro } from "./provider";
 import { FoliosChips } from "./folios-chips";
+import { useLongPress } from "./use-longpress";
+import { SelectionBar, SelMark, useSelection } from "./selection";
 import { PiecePlate } from "./fit-pick";
 import { Note } from "./finish";
 import { buildStream, periodRange, streamTotals, type Movement, type PeriodKind, type StreamFilters } from "@/lib/faro/historial";
@@ -66,12 +68,29 @@ export function bookLabel(lang: Lang, monthKey: string): string {
 }
 
 /** Una fila del río, con su procedencia puesta. Compartida con el Archivo (archivo.tsx). */
-export function StreamRow({ m, state }: { m: Movement; state: LedgerState }) {
+/** La fila interactiva del motor de selección: la pantalla presta su presión larga
+ *  y su toque; la fila solo sabe mostrarse (su marca y su marco, en su color). */
+export type RowSel = {
+  mode: boolean;
+  marked: boolean;
+  bind: ReturnType<typeof useLongPress>["bind"];
+  consumeClick: () => boolean;
+  onTap: (m: Movement) => void;
+};
+
+export function StreamRow({ m, state, sel }: { m: Movement; state: LedgerState; sel?: RowSel }) {
   const { names, lang, t } = useFaro();
   const structure = state.structure;
   const cat = structure.categories.find((c) => c.id === m.categoryId);
   // Una compra lleva su categoría de Compras (structure.purchases), no una del árbol.
   const purchase = !cat ? structure.purchases.find((p) => p.id === m.categoryId) : undefined;
+  const tone = m.subId && cat
+    ? subColorFor(structure, m.categoryId, m.subId)
+    : cat
+      ? categoryColor(cat.id, cat.color)
+      : purchase
+        ? categoryColor(purchase.id, purchase.color)
+        : "var(--faint)";
   const plate = m.subId && cat
     ? <PiecePlate small color={subColorFor(structure, m.categoryId, m.subId)} icon={subIconFor(structure, m.categoryId, m.subId)} />
     : cat
@@ -86,7 +105,14 @@ export function StreamRow({ m, state }: { m: Movement; state: LedgerState }) {
     m.merchantId ? names.catalog(m.merchantId) : "",
   ].filter(Boolean).join(" · ");
   return (
-    <div className={`hist-row is-${m.kind}`}>
+    <div
+      className={`hist-row is-${m.kind}${sel?.marked ? " is-selected" : ""}`}
+      data-line-id={m.lineId}
+      {...(sel ? sel.bind(m.lineId) : {})}
+      onClick={sel ? () => { if (!sel.consumeClick()) sel.onTap(m); } : undefined}
+      style={sel ? ({ "--selc": tone } as CSSProperties) : undefined}
+    >
+      {sel?.mode ? <SelMark on={sel.marked} /> : null}
       {plate}
       <div className="hist-row-main">
         <strong className="hist-row-concept">{m.concept}</strong>
@@ -101,7 +127,7 @@ export function StreamRow({ m, state }: { m: Movement; state: LedgerState }) {
 }
 
 export function HistorialScreen() {
-  const { session, t, lang, fmt, names, confirm, hidePeriodRange } = useFaro();
+  const { session, t, lang, fmt, names, confirm, hidePeriodRange, hideLineSelection } = useFaro();
   const state = session?.ledger ?? null;
   const today = todayIso();
   const [lens, setLens] = useState<Lens>("month");
@@ -222,6 +248,36 @@ export function HistorialScreen() {
     });
   };
   const hideLabel = t(lens === "week" ? "hist.hide.week" : lens === "month" ? "hist.hide.month" : lens === "year" ? "hist.hide.year" : "hist.hide.range");
+
+  // El motor de selección en el río (Oscar, 2026-11-13): sostener una fila entra
+  // al modo; tocar marca; la barra anuncia conteo, verbo y salida. El toque sin
+  // modo ofrece ocultar ESE movimiento solo (S4) — la misma puerta de descanso
+  // que el período, con su ventana. Ocultar hereda las guardas del período:
+  // ventana honesta y commit deshacible.
+  const selection = useSelection();
+  const lp = useLongPress((id) => (selection.mode ? selection.toggle(id) : selection.enter(id)));
+  const rowTap = (m: Movement) => {
+    if (selection.mode) { selection.toggle(m.lineId); return; }
+    confirm({
+      title: t("hist.hideOne.title"),
+      body: t("hist.hideOne.body")
+        .replace("{concept}", m.concept)
+        .replace("{amount}", formatMoney(m.amountMinor, m.currency, lang))
+        .replace("{day}", dayLabel(lang, m.date)),
+      yes: t("hist.hide.yes"),
+      run: () => hideLineSelection([m.lineId]),
+    });
+  };
+  const askHideSel = () => {
+    const ids = [...selection.sel];
+    if (!ids.length) return;
+    confirm({
+      title: t(ids.length === 1 ? "hist.hideSel.title.one" : "hist.hideSel.title").replace("{n}", String(ids.length)),
+      body: t("hist.hideSel.body"),
+      yes: t("hist.hide.yes"),
+      run: () => { hideLineSelection(ids); selection.exit(); },
+    });
+  };
 
   const segBtn = (id: string, pressed: boolean, onPress: () => void, label: string) => (
     <button key={id} type="button" aria-pressed={pressed} onClick={onPress}>{label}</button>
@@ -395,7 +451,14 @@ export function HistorialScreen() {
           {days.slice(0, shownDays).map((d) => (
             <section key={d.date} className="hist-day">
               <h3 className="hist-day-head">{dayLabel(lang, d.date)}</h3>
-              {d.moves.map((m) => <StreamRow key={m.lineId} m={m} state={state} />)}
+              {d.moves.map((m) => (
+                <StreamRow
+                  key={m.lineId}
+                  m={m}
+                  state={state}
+                  sel={{ mode: selection.mode, marked: selection.sel.has(m.lineId), bind: lp.bind, consumeClick: lp.consumeClick, onTap: rowTap }}
+                />
+              ))}
             </section>
           ))}
         </div>
@@ -406,11 +469,20 @@ export function HistorialScreen() {
         <button type="button" className="btn secondary hist-more" onClick={() => setShownDays((n) => n + DAY_CHUNK)}>{t("hist.more")}</button>
       ) : null}
 
-      <div className="hist-hidebar">
-        <button type="button" className="btn secondary hist-hide-btn" disabled={!preview.count} onClick={askHide}>
-          <EyeOff className="size-4" aria-hidden />{hideLabel}
-        </button>
-      </div>
+      {!selection.mode ? (
+        <div className="hist-hidebar">
+          <button type="button" className="btn secondary hist-hide-btn" disabled={!preview.count} onClick={askHide}>
+            <EyeOff className="size-4" aria-hidden />{hideLabel}
+          </button>
+        </div>
+      ) : null}
+      {selection.mode ? (
+        <SelectionBar count={selection.count} onExit={selection.exit}>
+          <button type="button" className="btn secondary" disabled={!selection.count} onClick={askHideSel} data-testid="sel-hide">
+            <EyeOff className="size-4" aria-hidden />{t("sel.hide")}
+          </button>
+        </SelectionBar>
+      ) : null}
       </div>
     </>
   );
