@@ -360,7 +360,16 @@ export type Settings = {
   notify?: boolean;
   /** One-time seeds already applied (e.g. "remesas"), so a default the user deleted is not added again. */
   seeds?: string[];
+  /** 1.3.246: las categorías fijas del widget — los pares (categoría, sub) que la tarjeta
+   *  de apuntes ofrece SIEMPRE, antes que las casas por hábito (quickadd.quickPins).
+   *  Viven en los ajustes del LIBRO (viajan con él: sincronía y copias), no en el aparato.
+   *  El signo NO se guarda: se deriva de los recibos de la categoría en el libro
+   *  (quickadd.pinSigns). Missing en libros viejos (= ninguna fija). */
+  widgetPins?: WidgetPin[];
 };
+
+/** 1.3.246: una categoría fija del widget: `c` = categoría, `s` = subcategoría ("" = la categoría misma). */
+export type WidgetPin = { c: string; s: string };
 
 /** 1.3.118: a remittance recipient: a name, an optional colour and Faro icon. The money stays in normal lines (`line.to`). */
 export type RemitPerson = { id: string; name: string; color?: string; icon?: string };

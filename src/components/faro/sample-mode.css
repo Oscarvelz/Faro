@@ -8,6 +8,13 @@
 .smp-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
 /* Battery card (1.3.150): the manual-path notice under the row is a full sentence — it wraps and sits as a block. */
 .batt-note { display: block; margin-top: 8px; }
+/* Widget pins card (1.3.246): the header stacks title over subtitle — as bare siblings
+   they flowed onto one line — and the empty-state line is a block of its own. The pin
+   rows themselves ride .manual-row.smp-row, whose third column is auto (a button's
+   width), never the 18px chevron column of the plain .manual-row grid. */
+.wpin-head { display: grid; gap: 2px; margin-bottom: 2px; }
+.wpin-head .aj-sub { color: var(--muted); font-size: .84rem; line-height: 1.35; }
+.wpin-empty { display: block; margin-top: 6px; color: var(--muted); font-size: .84rem; line-height: 1.35; }
 .smp-acts { display: flex; justify-content: flex-end; margin-top: 4px; }
 .smp-act { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; white-space: nowrap; font-size: .86rem; }
 .smp-act svg { width: 16px; height: 16px; }

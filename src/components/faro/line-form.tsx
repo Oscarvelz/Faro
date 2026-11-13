@@ -16,6 +16,7 @@ import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, Store
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payAcctLabel, payHintFor, targets } from "@/lib/faro/bankbook";
 import { formDirty } from "@/lib/faro/dirty";
+import { suggestHome } from "@/lib/faro/quickadd";
 import { BankMark } from "./bank-mark";
 
 export function DayField({ value, onChange, min, max }: { value: string; onChange: (value: string) => void; min?: string; max?: string }) {
@@ -258,6 +259,24 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const { t, key, session, commit, confirm, focusAmount, names, lang, goTopic } = useFaro();
   const settings = session?.ledger.settings;
   const structure = session?.ledger.structure;
+  // 1.3.246 (P6): un apunte del widget SIN categoría y con concepto propio abre con la
+  // casa que su propio historial de conceptos vota — preseleccionada en el selector,
+  // jamás guardada por ella: si él la cambia o no guarda, nada pasó. Solo para gastos:
+  // el editor de ingresos no tiene selector de categoría (su group es null), así que
+  // ahí no existe asiento donde preseleccionar.
+  const widgetSuggestion = (() => {
+    if (!existing || existing.categoryId || existing.note !== "Widget" || !session) return null;
+    const concept = (existing.concept ?? "").trim();
+    if (!concept || concept === "Apunte rápido" || concept === "Quick entry") return null;
+    const group = kind === "expense-fixed" ? "fixed" : kind === "expense-variable" ? "variable" : null;
+    if (!group) return null;
+    const sug = suggestHome(session.ledger, concept, "out", group);
+    if (!sug) return null;
+    const cat = session.ledger.structure.categories.find((c) => c.id === sug.c);
+    if (!cat || cat.hidden) return null;
+    if (sug.s && !cat.subs.some((s) => s.id === sug.s && !s.hidden)) return null;
+    return sug;
+  })();
   const [concept, setConcept] = useState(existing?.concept ?? seed?.concept ?? "");
   const [amount, setAmount] = useState(existing ? (existing.amountMinor / 100).toFixed(2) : seed?.amount ?? "");
   const [currencyState, setCurrencyState] = useState<Currency>(existing?.currency ?? seed?.currency ?? settings?.display ?? "NIO");
@@ -267,8 +286,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     onMoney?.(value);
   };
   const [note, setNote] = useState(existing?.note ?? seed?.note ?? "");
-  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? seed?.categoryId ?? preset?.categoryId ?? "");
-  const [subId, setSubId] = useState(existing?.subId ?? seed?.subId ?? preset?.subId ?? "");
+  const [categoryId, setCategoryId] = useState(existing?.categoryId || widgetSuggestion?.c || seed?.categoryId || preset?.categoryId || "");
+  const [subId, setSubId] = useState(existing?.subId || widgetSuggestion?.s || seed?.subId || preset?.subId || "");
   const [recurring, setRecurring] = useState(existing?.recurring ?? seed?.recurring ?? (kind === "expense-fixed" || kind === "subscription" || kind === "income-fixed"));
   const [storeId, setStoreId] = useState(existing?.storeId ?? seed?.storeId ?? "");
   const [providerId, setProviderId] = useState(existing?.providerId ?? seed?.providerId ?? "");
@@ -488,6 +507,9 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           <div className={`label fit-f${long(nameOf(structure.categories, categoryId))}`} data-f="category">
             {head(t("category"), "f-categoria")}
             <CategoryPick group={group} value={categoryId} onChange={(value) => { setCategoryId(value); setSubId(""); }} />
+            {widgetSuggestion && categoryId === widgetSuggestion.c && subId === widgetSuggestion.s ? (
+              <span className="fit-suggest">{t("widget.suggested")}</span>
+            ) : null}
             <button type="button" className="fit-manage" onClick={() => goTopic("arbol", { screen: "settings", fold: "structure", anchor: "aj-tree" })}>{t("cats.manage")}</button>
           </div>
         ) : null}

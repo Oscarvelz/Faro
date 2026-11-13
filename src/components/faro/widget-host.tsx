@@ -19,8 +19,8 @@
  *   once it is open and unlocked, then goes there the same way the manual's "Ir allí" does.
  */
 import { useEffect, useRef, useState } from "react";
-import { EyeOff } from "lucide-react";
-import { useFaroRoot } from "./provider";
+import { EyeOff, Pin } from "lucide-react";
+import { useFaro, useFaroRoot } from "./provider";
 import { Hint } from "./hint";
 import { preferOweTab } from "./debts";
 import { native } from "@/spa/native";
@@ -28,10 +28,10 @@ import { lastUser } from "@/spa/cloud";
 import { lockCredential } from "@/spa/lock";
 import { personalGet, sampleOn } from "@/lib/faro/samplemode";
 import { packKeyOf, packLedgerOk } from "@/lib/faro/packguard";
-import type { LedgerState } from "@/lib/faro/types";
+import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, widgetHide, WIDGET_HIDE_KEY, type WidgetGo } from "@/lib/faro/widget";
-import { ingestQuick, parseQuickEntries, type QuickEntry } from "@/lib/faro/quickadd";
+import { ingestQuick, parseQuickEntries, pinSigns, toggleWidgetPin, type QuickEntry } from "@/lib/faro/quickadd";
 import type { GoLike } from "@/lib/manual/places";
 import "./sample-mode.css";
 
@@ -211,6 +211,47 @@ export default function WidgetHost() {
   }, [hasSession, commit, lang]);
 
   return null;
+}
+
+/**
+ * Ajustes → «Categorías fijas del widget» (1.3.246): la lista de gestión de las fijas.
+ * Las fijas NACEN en Estructura (el editor de cada categoría/sub las prepara y Guardar
+ * las confirma); aquí se ven todas — con el signo que sus recibos les derivan — y se
+ * desfijan por el camino normal de commit (desfijar no borra nada: la categoría y su
+ * dinero quedan intactos, y su asiento de hábito puede volver solo). Sin fijas, la
+ * tarjeta dice dónde nacen: lo que no se anuncia no existe (su principio del usuario
+ * frío). No se limita a la app Android: las fijas son dato del libro y viajan con él.
+ */
+export function WidgetPinsCard() {
+  const { t, session, commit, names } = useFaro();
+  const ledger = session?.ledger ?? null;
+  if (!ledger) return null;
+  const pins = ledger.settings.widgetPins ?? [];
+  const label = (p: WidgetPin) => (p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c)) || p.c;
+  const signWord = (p: WidgetPin) => {
+    const signs = pinSigns(ledger, p);
+    return signs.length === 2 ? t("widget.pin.signboth") : signs[0] === "in" ? t("widget.pin.signin") : t("widget.pin.signout");
+  };
+  return (
+    <section className="card manual-card aj-card smp-card" data-anchor="aj-widgetpins">
+      <div className="smp-in">
+        <div className="wpin-head">
+          <div className="fold-title aj-title"><h2 className="serif">{t("settings.widgetpins")}</h2></div>
+          <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
+        </div>
+        {pins.length ? pins.map((p) => (
+          <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
+            <Pin aria-hidden />
+            <span className="manual-row-text">
+              <strong>{label(p)}</strong>
+              <span>{signWord(p)}</span>
+            </span>
+            <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
+          </div>
+        )) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
+      </div>
+    </section>
+  );
 }
 
 /** Ajustes → "Widget: ocultar montos" (only inside the Android app). The same row and switch as Datos de ejemplo. */

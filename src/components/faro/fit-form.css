@@ -279,3 +279,6 @@
 }
 /* 1.3.148: the doorway from picking a category to managing them (Ajustes → Estructura). */
 .fit-manage { justify-self: start; margin-top: 2px; padding: 2px 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: .8rem; font-weight: 560; text-decoration: underline; text-underline-offset: 3px; }
+/* 1.3.246: la nota discreta de la sugerencia por apuntes — el mismo registro visual que
+   el enlace de gestión, en tinta tenue: anuncia el porqué de la preselección y nada más. */
+.fit-suggest { display: block; margin-top: 6px; color: var(--faint); font-size: .8rem; }

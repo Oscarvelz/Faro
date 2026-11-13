@@ -21,9 +21,10 @@ import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
-import { WidgetRow } from "./widget-host";
+import { WidgetPinsCard, WidgetRow } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
 import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, replaceCandidates, replaceCatalogItem, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type ReplaceTarget, type SubLinesSummary } from "@/lib/faro/defaults";
+import { hasWidgetPin, toggleWidgetPin } from "@/lib/faro/quickadd";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -45,7 +46,7 @@ import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
-import type { CatalogItem, Category, Currency, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
+import type { CatalogItem, Category, Currency, LedgerState, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@/lib/faro/types";
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
@@ -4729,6 +4730,7 @@ export function Settings() {
         </section>
       ) : null}
       {inAndroidApp() ? <WidgetRow /> : null}
+      <WidgetPinsCard />
       <NotifyRow />
       <BatteryRow />
       <SampleRow />
@@ -5175,6 +5177,23 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // guarda nada por ningún camino: Guardar es el único commit de la tarjeta.
   const [stagedSubs, setStagedSubs] = useState<string[]>([]);
   const [stagedNames, setStagedNames] = useState<Record<string, string>>({});
+  // 1.3.246: las fijas del widget también se PREPARAN (stagedPins: "catId|subId" ->
+  // fijada deseada, solo si difiere de lo guardado) y Guardar las confirma en el MISMO
+  // commit que todo lo demás de la tarjeta — un solo Deshacer para el gesto entero.
+  // Las fijas viven en los ajustes del libro (settings.widgetPins), no en la Estructura:
+  // por eso no viajan dentro de CardEdits sino junto a él en la misma receta.
+  const [stagedPins, setStagedPins] = useState<Record<string, boolean>>({});
+  const savedPins = session?.ledger.settings.widgetPins;
+  const pinKeyOf = (subId: string) => `${cat.id}|${subId}`;
+  const effPin = (subId: string) => stagedPins[pinKeyOf(subId)] ?? hasWidgetPin(savedPins, cat.id, subId);
+  const stagePin = (subId: string) => {
+    const next = !effPin(subId);
+    setStagedPins((prev) => {
+      const copy = { ...prev };
+      if (next === hasWidgetPin(savedPins, cat.id, subId)) delete copy[pinKeyOf(subId)]; else copy[pinKeyOf(subId)] = next;
+      return copy;
+    });
+  };
   const rootRef = useRef<HTMLDivElement>(null);
   // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
   // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
@@ -5214,8 +5233,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   const editingSub = editSub ? cat.subs.find((x) => x.id === editSub) : undefined;
   const stagedIds = Object.keys(stagedVis);
   const panelDirty = formDirty(
-    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean>, catVis: null as boolean | null, newSubs: [] as string[], renames: {} as Record<string, string> },
-    { name, sub: subName, edit: editingSub && subEdit !== (stagedNames[editingSub.id] ?? displayName(editingSub, lang)) ? subEdit : "", vis: stagedVis, catVis: stagedCatVis, newSubs: stagedSubs, renames: stagedNames },
+    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean>, catVis: null as boolean | null, newSubs: [] as string[], renames: {} as Record<string, string>, pins: {} as Record<string, boolean> },
+    { name, sub: subName, edit: editingSub && subEdit !== (stagedNames[editingSub.id] ?? displayName(editingSub, lang)) ? subEdit : "", vis: stagedVis, catVis: stagedCatVis, newSubs: stagedSubs, renames: stagedNames, pins: stagedPins },
   );
   const revealRow = () => {
     const row = rootRef.current?.closest("[data-row]");
@@ -5442,7 +5461,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // revierte entero). Guardado, la línea base del nombre se renueva y toda la
   // preparación se vacía: la tarjeta queda limpia.
   const nameStaged = name.trim() !== "" && name.trim() !== displayName(cat, lang);
-  const hasStaged = nameStaged || !!subName.trim() || stagedSubs.length > 0 || stagedIds.length > 0 || stagedCatVis !== null || Object.keys(stagedNames).length > 0;
+  const hasStaged = nameStaged || !!subName.trim() || stagedSubs.length > 0 || stagedIds.length > 0 || stagedCatVis !== null || Object.keys(stagedNames).length > 0 || Object.keys(stagedPins).length > 0;
   const savePanel = () => {
     if (!hasStaged) return;
     const fresh = [...stagedSubs, ...(subName.trim() ? [subName.trim()] : [])];
@@ -5453,12 +5472,27 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       ...(Object.keys(stagedNames).length ? { subNames: stagedNames } : {}),
       ...(fresh.length ? { newSubs: fresh } : {}),
     };
-    commit((s) => ({ ...s, structure: applyCardEdits(s.structure, cat.id, edits, () => uid().slice(0, 6)) }), fresh[0] || edits.name || stagedIds[0] || cat.id);
+    const pinChanges = Object.entries(stagedPins);
+    commit((s) => {
+      let next: LedgerState = { ...s, structure: applyCardEdits(s.structure, cat.id, edits, () => uid().slice(0, 6)) };
+      // 1.3.246: las fijas preparadas se escriben en el MISMO commit (los ajustes del
+      // libro viajan junto a la Estructura; un Deshacer revierte el gesto entero).
+      if (pinChanges.length) {
+        let pins = next.settings.widgetPins ?? [];
+        for (const [k, on] of pinChanges) {
+          const [c, sub] = k.split("|");
+          if (hasWidgetPin(pins, c, sub ?? "") !== on) pins = toggleWidgetPin(pins, c, sub ?? "");
+        }
+        next = { ...next, settings: { ...next.settings, widgetPins: pins } };
+      }
+      return next;
+    }, fresh[0] || edits.name || stagedIds[0] || cat.id);
     setSubName("");
     setStagedSubs([]);
     setStagedNames({});
     if (stagedIds.length) setStagedVis({});
     if (stagedCatVis !== null) setStagedCatVis(null);
+    if (pinChanges.length) setStagedPins({});
     nameBaseRef.current = name;
   };
   // 1.3.188 (R-6): el Enter del campo de subcategoría nueva ya NO crea nada al
@@ -5597,6 +5631,9 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
                 <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => { setEditSub(sub.id); setSubEdit(stagedNames[sub.id] ?? displayName(sub, lang)); }}><Pencil className="size-4" /></button>
                 <button type="button" className="icon-btn" aria-label={t("color")} aria-pressed={subColorId === sub.id} onClick={() => setSubColorId(subColorId === sub.id ? null : sub.id)}><Palette className="size-4" /></button>
                 <button type="button" className="icon-btn" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+                {/* 1.3.246: la fija del subconcepto — se PREPARA como su ojo (la mano la
+                    ofrece junto a él) y Guardar la confirma; el pin lleno la anuncia. */}
+                <button type="button" className="icon-btn" aria-label={t("widget.pin")} aria-pressed={effPin(sub.id)} onClick={() => stagePin(sub.id)}><Pin className="size-4" fill={effPin(sub.id) ? "currentColor" : "none"} /></button>
                 <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
               </span>
             ) : null}
@@ -5679,6 +5716,14 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
         </button>
         {colorOpen ? <ColorPick face="solid" value={categoryBase(cat.id, cat.color)} label={t("color")} onPick={(hex) => { patch((c) => ({ ...c, color: hex }), "color"); setColorOpen(false); }} /> : null}
       </div>
+      {/* 1.3.246: la fija de la categoría misma — una fila con la geometría de la del
+          color y el interruptor de la casa; se prepara como los ojos y Guardar la
+          confirma en el mismo commit. Fijada, la tarjeta de apuntes la ofrece siempre. */}
+      <button type="button" className="tree-pin-row smp-row" role="switch" aria-checked={effPin("")} onClick={() => stagePin("")}>
+        <Pin className="size-4 tree-pin-ico" aria-hidden fill={effPin("") ? "currentColor" : "none"} />
+        <span className="tree-pin-lab">{t("widget.pin")}</span>
+        <i className="smp-switch" aria-hidden><b /></i>
+      </button>
       {/* 1.3.223 (pedido de Oscar): una línea profesional separa la cabecera de
           la categoría (nombre y color) de su rejilla de subconceptos — sin ella
           las tarjetas se confunden con la categoría misma. */}

@@ -3,14 +3,20 @@ package com.oscarvelz.faro
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
 import android.graphics.Outline
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
+import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -19,6 +25,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -228,6 +235,60 @@ class QuickAddActivity : Activity() {
         setLayerInset(0, dp(14), 0, 0, 0)
     }
 
+    /** La marca de las FIJAS (1.3.246): un pin pequeño dibujado en código — cabeza redonda
+     *  y punta — en el tono de los rótulos (cLabel), el mismo peso visual que el cuadrado
+     *  señal de 6dp y la lengüeta: la fila de una fija mide y pesa EXACTAMENTE como la de
+     *  una casa de hábito (la ley de espacio de Oscar); solo esta marca la distingue, y
+     *  cuelga del extremo final de la fila sin tocar su geometría. */
+    private fun pinMark(): Drawable = object : Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = cLabel; style = Paint.Style.FILL }
+        override fun draw(canvas: Canvas) {
+            val cx = bounds.exactCenterX()
+            val cy = bounds.exactCenterY()
+            canvas.drawCircle(cx, cy - dp(2).toFloat(), dp(4).toFloat(), paint)
+            val tip = Path().apply {
+                moveTo(cx - dp(3).toFloat(), cy + dp(1).toFloat())
+                lineTo(cx + dp(3).toFloat(), cy + dp(1).toFloat())
+                lineTo(cx, cy + dp(7).toFloat())
+                close()
+            }
+            canvas.drawPath(tip, paint)
+        }
+        override fun setAlpha(a: Int) { paint.alpha = a }
+        override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+        @Deprecated("Deprecated in Java") override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+        override fun getIntrinsicWidth(): Int = dp(12)
+        override fun getIntrinsicHeight(): Int = dp(14)
+    }
+
+    /** El ícono de la nota (1.3.246): una página de trazo fino con su esquina doblada y un
+     *  lápiz en diagonal — papel y lápiz, sin texto de pie en la tarjeta. Se dibuja en el
+     *  color que le pasen: cLabel en reposo (el peso de los demás controles) y el color de
+     *  signo cuando el campo está abierto o ya guarda palabras — encendido = hay nota. */
+    private fun noteIconDrawable(color: Int): Drawable = object : Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color; style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat()
+            strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+        }
+        override fun draw(canvas: Canvas) {
+            val l = bounds.left + dp(3).toFloat(); val t = bounds.top + dp(2).toFloat()
+            val r = bounds.right - dp(3).toFloat(); val bt = bounds.bottom - dp(2).toFloat()
+            val fold = dp(5).toFloat()
+            val page = Path().apply {
+                moveTo(l, t); lineTo(r - fold, t); lineTo(r, t + fold); lineTo(r, bt); lineTo(l, bt); close()
+            }
+            canvas.drawPath(page, paint)
+            canvas.drawLine(r - fold, t, r - fold, t + fold, paint)
+            canvas.drawLine(r - fold, t + fold, r, t + fold, paint)
+            canvas.drawLine(l + dp(4).toFloat(), bt - dp(4).toFloat(), r - dp(5).toFloat(), t + dp(6).toFloat(), paint)
+        }
+        override fun setAlpha(a: Int) { paint.alpha = a }
+        override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+        @Deprecated("Deprecated in Java") override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+        override fun getIntrinsicWidth(): Int = dp(20)
+        override fun getIntrinsicHeight(): Int = dp(20)
+    }
+
     /** La ficha del signo de moneda (1.3.241): el signo es un blanco de toque — tocarlo
      *  alterna la moneda del apunte entre las que el libro conoce. Su acabado es el de la
      *  placa (superficie hundida, trazo cálido) con el tacto de las fichas: al pulsar, el
@@ -354,7 +415,50 @@ class QuickAddActivity : Activity() {
         })
         card.addView(eyebrow)
 
-        card.addView(TextView(this).apply {
+        // La nota del apunte (1.3.246): un ÍCONO — papel y lápiz — al extremo de la fila
+        // del título, con el peso de los demás controles de la tarjeta y sin ningún texto
+        // de pie. Tocarlo abre UNA línea entre la nota de pie y el «¿Dónde va?» cuyo texto
+        // viaja como el CONCEPTO del apunte (sustituye al «Apunte rápido» genérico al
+        // archivarse); sin tocarlo, la tarjeta es exactamente la de siempre. Cerrar el
+        // campo lo pliega pero CONSERVA lo escrito, y el ícono queda encendido en el
+        // color de signo mientras haya palabras: la nota se anuncia sola.
+        var noteOpen = false
+        val noteField = EditText(this).apply {
+            hint = if (en) "What was it?" else "¿Qué fue?"
+            setHintTextColor(cHint)
+            setTextColor(cText)
+            textSize = 15f
+            isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            filters = arrayOf(InputFilter.LengthFilter(60))
+            background = plateBg()
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            visibility = View.GONE
+        }
+        val noteBtn = ImageButton(this).apply {
+            background = null
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+            contentDescription = if (en) "What was it?" else "¿Qué fue?"
+            setImageDrawable(noteIconDrawable(cLabel))
+            setOnClickListener {
+                noteOpen = !noteOpen
+                noteField.visibility = if (noteOpen) View.VISIBLE else View.GONE
+                if (noteOpen) noteField.requestFocus()
+                setImageDrawable(noteIconDrawable(if (noteOpen || noteField.text.isNotEmpty()) accent else cLabel))
+            }
+        }
+        noteField.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                noteBtn.setImageDrawable(noteIconDrawable(if (noteOpen || !s.isNullOrEmpty()) accent else cLabel))
+            }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(TextView(this).apply {
             text = when {
                 sign == "in" -> if (en) "+ New income" else "+ Anotar ingreso"
                 else -> if (en) "− New expense" else "− Anotar gasto"
@@ -363,7 +467,10 @@ class QuickAddActivity : Activity() {
             textSize = 20f
             letterSpacing = 0.02f
             setTextColor(accent)
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+        })
+        titleRow.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        titleRow.addView(noteBtn, LinearLayout.LayoutParams(dp(32), dp(32)))
+        card.addView(titleRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(6)
         })
 
@@ -434,6 +541,13 @@ class QuickAddActivity : Activity() {
             topMargin = dp(12)
         })
 
+        // El campo de la nota vive AQUÍ — entre la nota de pie y el «¿Dónde va?» — en el
+        // ritmo de la tarjeta: 12dp bajo la nota, y el encabezado conserva sus 16dp, así
+        // abierto no empuja ninguna medida asentada. Nace plegado (GONE: cero espacio).
+        card.addView(noteField, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(12)
+        })
+
         // La casa del apunte: la sección «¿Dónde va?» se compone SIEMPRE que hay foto
         // (1.3.241). Hasta 1.3.240 la lista solo se dibujaba si la foto traía casas — y
         // como las casas nacían solo de líneas con subcategoría, un libro cuyo hábito cae
@@ -448,7 +562,17 @@ class QuickAddActivity : Activity() {
         // orden de uso, a nivel de subcategoría o de categoría (quickadd.ts). La última
         // casa usada queda preseleccionada; si nunca se eligió una, «Sin categoría» manda
         // hasta que el usuario opte por una.
+        // 1.3.246: la lista es UNA sola — primero las FIJAS que él preestableció (la foto
+        // ya las validó contra la Estructura viva y ya deduplicó: una pareja fijada no
+        // vuelve a aparecer como hábito, y el hábito rellenó su hueco), después las casas
+        // de hábito, y «Sin categoría» al final como siempre. Las fijas visten la MISMA
+        // fila de 48dp, el mismo marco y el mismo radio cuadrado: solo la marca de pin al
+        // extremo las distingue (la ley de espacio: una geometría para todo). Sin fijas,
+        // UNA línea discreta en el registro de la nota anuncia dónde nacen — lo que no se
+        // anuncia no existe para un usuario frío — y desaparece en cuanto hay una.
+        val pins = if (sign == "in") snap.qpIn else snap.qpOut
         val homes = if (sign == "in") snap.qhIn else snap.qhOut
+        val rows = pins.map { it to true } + homes.map { it to false }
         card.addView(TextView(this).apply {
             text = if (en) "WHERE DOES IT GO?" else "¿DÓNDE VA?"
             typeface = rajdhani600
@@ -458,9 +582,19 @@ class QuickAddActivity : Activity() {
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(16); bottomMargin = dp(8)
         })
+        if (pins.isEmpty()) {
+            card.addView(TextView(this).apply {
+                text = if (en) "Pin your categories in Faro, in each category's editor."
+                    else "Fija tus categorías en Faro, en el editor de cada categoría."
+                textSize = 13f
+                setTextColor(cNote)
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(8)
+            })
+        }
         val group = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
         val last = QuickAdd.lastHome(this, sign)
-        homes.forEachIndexed { i, h ->
+        rows.forEachIndexed { i, (h, pinned) ->
             group.addView(RadioButton(this).apply {
                 id = 1000 + i
                 text = h.n
@@ -470,12 +604,13 @@ class QuickAddActivity : Activity() {
                 setButtonDrawable(radioSquare(accent))
                 compoundDrawablePadding = dp(12)
                 setPadding(dp(14), 0, dp(14), 0)
+                setCompoundDrawablesRelative(null, null, if (pinned) pinMark() else null, null)
             }, RadioGroup.LayoutParams(
                 RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
             ).apply { if (i > 0) topMargin = dp(6) })
         }
         group.addView(RadioButton(this).apply {
-            id = 1000 + homes.size
+            id = 1000 + rows.size
             text = if (en) "No category (quick note)" else "Sin categoría (apunte rápido)"
             textSize = 15f
             setTextColor(cText)
@@ -485,13 +620,13 @@ class QuickAddActivity : Activity() {
             setPadding(dp(14), 0, dp(14), 0)
         }, RadioGroup.LayoutParams(
             RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
-        ).apply { if (homes.isNotEmpty()) topMargin = dp(6) })
-        val lastIdx = homes.indexOfFirst { "${it.c}|${it.s}" == last }
-        group.check(1000 + if (lastIdx >= 0) lastIdx else homes.size)
+        ).apply { if (rows.isNotEmpty()) topMargin = dp(6) })
+        val lastIdx = rows.indexOfFirst { (h, _) -> "${h.c}|${h.s}" == last }
+        group.check(1000 + if (lastIdx >= 0) lastIdx else rows.size)
         // La zona de scroll (176dp) solo se reserva cuando las filas ya no caben a la
         // vista (4 o más, contando «Sin categoría»); con pocas casas la sección mide lo
         // que mide y la tarjeta no carga un hueco vacío.
-        val rowsTotal = homes.size + 1
+        val rowsTotal = rows.size + 1
         card.addView(ScrollView(this).apply { addView(group) },
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -536,7 +671,12 @@ class QuickAddActivity : Activity() {
                     return@setOnClickListener
                 }
                 val chosenIdx = group.checkedRadioButtonId - 1000
-                val home = if (chosenIdx in homes.indices) homes[chosenIdx] else null
+                val home = rows.getOrNull(chosenIdx)?.first
+                // 1.3.246: el concepto viaja SOLO si hay palabras — una tarjeta vieja nunca
+                // lo manda y una página vieja lo ignora: la degradación es limpia en los
+                // dos sentidos. La página (quickadd.ts) lo recorta y lo convierte en el
+                // concepto de la línea; vacío, el apunte nace «Apunte rápido» como siempre.
+                val concept = noteField.text.toString().trim()
                 val entry = JSONObject()
                     .put("id", UUID.randomUUID().toString())
                     .put("sign", sign)
@@ -546,6 +686,7 @@ class QuickAddActivity : Activity() {
                     .put("at", java.time.Instant.now().toString())
                     .put("cat", home?.c ?: "")
                     .put("sub", home?.s ?: "")
+                if (concept.isNotEmpty()) entry.put("concept", concept)
                 QuickAdd.enqueue(this@QuickAddActivity, entry)
                 QuickAdd.rememberCur(this@QuickAddActivity, sign, cur)
                 if (home != null) QuickAdd.rememberHome(this@QuickAddActivity, sign, home)

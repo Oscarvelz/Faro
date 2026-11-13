@@ -183,6 +183,12 @@ class Snap(
      *  texto pide abrir la app. */
     val qhIn: List<QHome> = emptyList(),
     val qhOut: List<QHome> = emptyList(),
+    /** 1.3.246: las FIJAS del widget (las categorías que él preestableció en Faro) por
+     *  signo. La página ya las deduplicó contra las casas de hábito y rellenó los huecos;
+     *  la tarjeta las pinta primero con su marca de pin. Una foto vieja no las trae = lista
+     *  vacía, y la tarjeta muestra entonces su línea de anuncio. */
+    val qpIn: List<QHome> = emptyList(),
+    val qpOut: List<QHome> = emptyList(),
     /** 1.3.241: las monedas que el libro conoce, en el orden de la tarjeta (la foto las trae
      *  desde 1.3.241). Una foto vieja no las trae = lista vacía, y la tarjeta alterna entre
      *  las dos monedas del sistema por su cuenta. */
@@ -196,7 +202,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
-        qhIn = qhIn, qhOut = qhOut, curs = curs,
+        qhIn = qhIn, qhOut = qhOut, qpIn = qpIn, qpOut = qpOut, curs = curs,
     )
 
     companion object {
@@ -220,6 +226,8 @@ class Snap(
             flow = arr(o, "flow").map { Flow(it.optString("label"), it.optLong("inn"), it.optLong("out"), it.optString("key")) },
             qhIn = arr(o, "qhIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             qhOut = arr(o, "qhOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
+            qpIn = arr(o, "qpIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
+            qpOut = arr(o, "qpOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             curs = (o.optJSONArray("curs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotEmpty() } } } ?: emptyList()),
         )
     }

@@ -12,7 +12,7 @@
  *   spending by category is Estudio's categorySlices().
  */
 import { categorySlices, summarize } from "./engine";
-import { quickHomes, type QuickHome } from "./quickadd";
+import { quickHomesRanked, quickPins, type QuickHome } from "./quickadd";
 import { savingsStock } from "./savings";
 import { duesWindow } from "./dues";
 import { makeNamer } from "./defaults";
@@ -81,6 +81,12 @@ export type WidgetSnapshot = {
    *  Solo nombres e ids — la foto sigue sin llevar montos por línea ni notas. */
   qhIn: QuickHome[];
   qhOut: QuickHome[];
+  /** 1.3.246: las categorías FIJAS del dueño (settings.widgetPins), validadas contra la
+   *  Estructura viva — la tarjeta las pinta primero, con su marca de fija. Las casas por
+   *  hábito (qhIn/qhOut) ya vienen SIN ninguna fija y con el hueco relleno: la
+   *  deduplicación y el relleno se calculan aquí, una sola vez, para cada superficie. */
+  qpIn: QuickHome[];
+  qpOut: QuickHome[];
 };
 
 const SAVINGS = "savings";
@@ -256,7 +262,19 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     dues: dues.slice(0, 8),
     cats,
     flow,
-    ...(() => { const qh = quickHomes(state, key, lang); return { qhIn: qh.inn, qhOut: qh.out }; })(),
+    // Las casas de la tarjeta (1.3.246): las fijas mandan y el hábito rellena. La lista
+    // ordenada SIN tope pierde los pares ya fijados (por signo: una fija de la tarjeta +
+    // no toca la lista de la −) y solo entonces se corta a 10 — así ninguna categoría
+    // aparece dos veces y ninguna sugerencia se pierde por el camino.
+    ...(() => {
+      const ranked = quickHomesRanked(state, key, lang);
+      const pins = quickPins(state, lang);
+      const drop = (homes: QuickHome[], pinned: QuickHome[]): QuickHome[] => {
+        const set = new Set(pinned.map((p) => `${p.c}|${p.s}`));
+        return homes.filter((h) => !set.has(`${h.c}|${h.s}`)).slice(0, 10);
+      };
+      return { qhIn: drop(ranked.inn, pins.inn), qhOut: drop(ranked.out, pins.out), qpIn: pins.inn, qpOut: pins.out };
+    })(),
   };
 }
 

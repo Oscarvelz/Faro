@@ -3388,6 +3388,13 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
 .tree-color-lab { font-weight: 560; }
 .tree-color-hex { margin-left: auto; color: var(--faint); font-size: .8rem; letter-spacing: .05em; }
 .tree-color .cp { margin-top: 10px; }
+/* 1.3.246: la fila de la fija del widget en la tarjeta de categoría — la geometría de la
+   fila del color (46px, mismo marco y radio) y el interruptor de la casa (.smp-switch,
+   cuya pintura cuelga de .smp-row[aria-checked]); nada en la tarjeta crece por ella. */
+.tree-pin-row { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 46px; padding: 6px 12px 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.tree-pin-lab { font-weight: 560; }
+.tree-pin-row .smp-switch { margin-left: auto; }
+.tree-pin-row[aria-checked="true"] .tree-pin-ico { color: var(--accent); }
 
 /* 1.3.144 (Oscar, 2026-11-08): reorder by dragging — hold a category row to lift it (it takes a
    surface and a shadow), its neighbours slide to make room, release drops it. The tools strip keeps

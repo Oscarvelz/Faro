@@ -18,10 +18,21 @@
  *   reciben cada signo (quickHomes) y el apunte guarda los ids elegidos; al recoger, la casa se
  *   resuelve contra la Estructura viva y el kind sale de su grupo — si la casa ya no existe, el
  *   apunte cae sin categoría, jamás en un lugar equivocado ni se pierde.
+ * - Con fijas (1.3.246, el plan de Oscar): la foto lleva ADEMÁS las categorías que el dueño
+ *   preestableció (settings.widgetPins → quickPins), siempre presentes y antes que las de
+ *   hábito. La deduplicación es ley suya: un par (categoría, sub) que es fija y también casa
+ *   por hábito aparece UNA vez — como fija — y la lista de hábito RELLENA el hueco con la
+ *   siguiente (por eso quickHomesRanked ordena sin tope y el corte a 10 ocurre tras quitar
+ *   las fijas, en widget.ts). Desfijar devuelve el asiento al hábito por su propio mérito.
+ * - Con sus palabras (1.3.246): si en la tarjeta escribió «¿Qué fue?», ese texto ES el
+ *   concepto de la línea (el genérico «Apunte rápido» solo queda cuando no escribió nada),
+ *   para que al corregir sepa cuál apunte fue cuál. Y al clasificar un apunte con concepto
+ *   propio, el editor sugiere la casa que su propio historial de conceptos vota
+ *   (suggestHome): preselecciona, jamás guarda por él.
  */
 import { upsertLine } from "./reducer";
 import { makeNamer } from "./defaults";
-import type { Currency, Lang, LedgerState, Line, LineKind } from "./types";
+import type { Currency, Group, Lang, LedgerState, Line, LineKind, WidgetPin } from "./types";
 
 export type QuickEntry = {
   id: string;
@@ -34,6 +45,9 @@ export type QuickEntry = {
   /** La casa elegida en la tarjeta (categoría/sub de Estructura); "" = apunte sin categoría. */
   cat?: string;
   sub?: string;
+  /** 1.3.246: lo que el dueño escribió en «¿Qué fue?» — será el concepto de la línea.
+   *  Ausente o vacío = el concepto genérico de siempre. Los shells viejos nunca lo traen. */
+  concept?: string;
 };
 
 /** Una casa elegible en la tarjeta: ids de Estructura + el nombre a mostrar («Casa · Renta»,
@@ -64,7 +78,10 @@ export function parseQuickEntries(raw: string): QuickEntry[] {
     // resolución contra la Estructura viva (ingestQuick) vuelve a validar.
     const cat = typeof e.cat === "string" && e.cat.length <= 64 ? e.cat : "";
     const sub = typeof e.sub === "string" && e.sub.length <= 64 ? e.sub : "";
-    out.push({ id: e.id, sign: e.sign, minor, cur: e.cur, day: e.day, cat, sub });
+    // El concepto es UNA línea suya: espacios colapsados, recortado y con techo — la cola
+    // no es de fiar y un concepto no es un párrafo. Vacío = como si no viniera.
+    const concept = typeof e.concept === "string" ? e.concept.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+    out.push({ id: e.id, sign: e.sign, minor, cur: e.cur, day: e.day, cat, sub, ...(concept ? { concept } : {}) });
   }
   return out;
 }
@@ -81,9 +98,12 @@ export function parseQuickEntries(raw: string): QuickEntry[] {
  * nombrar): las cubre el «Sin categoría» que la tarjeta siempre ofrece. Solo uso real: una
  * casa que nunca recibió un ingreso no se ofrece para ingresos — ofrecerla invitaría a
  * archivar mal. Fuera: categorías ocultas, subs ocultas y las de Ahorros (su dinero es stock
- * con series propias; un apunte genérico ahí corrompería la cifra). Tope 10 por signo.
+ * con series propias; un apunte genérico ahí corrompería la cifra). Esta es la lista
+ * ORDENADA y SIN tope (1.3.246): el corte a 10 lo hace quien la consume — quickHomes para
+ * su contrato de siempre, y la foto del widget DESPUÉS de quitar las fijas, para que el
+ * hueco que una fija libera lo rellene la siguiente casa (la ley de deduplicación).
  */
-export function quickHomes(state: LedgerState, key: string, lang: Lang): { inn: QuickHome[]; out: QuickHome[] } {
+export function quickHomesRanked(state: LedgerState, key: string, lang: Lang): { inn: QuickHome[]; out: QuickHome[] } {
   const names = makeNamer(state.structure, lang);
   const counts = new Map<string, number>();
   const y = Number(key.slice(0, 4));
@@ -113,9 +133,123 @@ export function quickHomes(state: LedgerState, key: string, lang: Lang): { inn: 
         homes.push({ c: c.id, s: s.id, n: `${names.cat(c.id)} · ${names.sub(s.id)}`, n0, o0: c.order * 1000 + s.order + 1 });
       }
     }
-    return homes.sort((a, b) => b.n0 - a.n0 || a.o0 - b.o0).slice(0, 10).map(({ c, s, n }) => ({ c, s, n }));
+    return homes.sort((a, b) => b.n0 - a.n0 || a.o0 - b.o0).map(({ c, s, n }) => ({ c, s, n }));
   };
   return { inn: build("in"), out: build("out") };
+}
+
+/** Las casas de la tarjeta, con su tope de siempre: las 10 más usadas por signo. */
+export function quickHomes(state: LedgerState, key: string, lang: Lang): { inn: QuickHome[]; out: QuickHome[] } {
+  const ranked = quickHomesRanked(state, key, lang);
+  return { inn: ranked.inn.slice(0, 10), out: ranked.out.slice(0, 10) };
+}
+
+/* —— Las fijas del widget (1.3.246) ——
+ * Los pares que el dueño preestableció en Estructura (settings.widgetPins). A diferencia
+ * de las casas por hábito, una fija no espera a que el uso la gane: está en la tarjeta
+ * desde que se fija hasta que se desfija. La foto las valida contra la Estructura viva:
+ * categoría borrada u oculta, sub borrada u oculta, o categoría de Ahorros → la fija cae
+ * en silencio (ley de soberanía: lo que él esconde o borra no resucita en ninguna
+ * superficie, ni siquiera porque una fija lo nombre). */
+
+/** ¿Está fijado este par? */
+export function hasWidgetPin(pins: WidgetPin[] | undefined, c: string, s: string): boolean {
+  return (pins ?? []).some((p) => p.c === c && p.s === s);
+}
+
+/** Fija o desfija un par (puro: devuelve la lista nueva). Fijar añade AL FINAL — el orden
+ *  de la lista es el orden en que él las fijó, y ese es su orden en la tarjeta. */
+export function toggleWidgetPin(pins: WidgetPin[] | undefined, c: string, s: string): WidgetPin[] {
+  const list = pins ?? [];
+  if (hasWidgetPin(list, c, s)) return list.filter((p) => !(p.c === c && p.s === s));
+  return [...list, { c, s }];
+}
+
+/**
+ * El signo de una fija se DERIVA, no se guarda: las categorías de Faro no llevan signo
+ * (el signo vive en el kind de cada línea — la misma categoría puede recibir ingresos y
+ * gastos), así que la tarjeta de una fija es la de los recibos de SU CATEGORÍA en todo el
+ * libro. Si la categoría recibió de un solo signo, la fija vive en esa tarjeta; si recibió
+ * de ambos — o TODAVÍA de ninguno (la preestableció antes de usarla, su caso) — vive en
+ * las dos: una fija jamás se esconde de una tarjeta por falta de evidencia.
+ */
+export function pinSigns(state: LedgerState, pin: WidgetPin): ("in" | "out")[] {
+  let inn = false;
+  let out = false;
+  for (const book of Object.values(state.months)) {
+    for (const l of book.lines) {
+      if (l.categoryId !== pin.c) continue;
+      if (l.kind.startsWith("income")) inn = true;
+      else if (l.kind.startsWith("expense")) out = true;
+      if (inn && out) break;
+    }
+    if (inn && out) break;
+  }
+  if (inn && !out) return ["in"];
+  if (out && !inn) return ["out"];
+  return ["in", "out"];
+}
+
+/** Las fijas como casas de la tarjeta, por signo y en el orden en que él las fijó. */
+export function quickPins(state: LedgerState, lang: Lang): { inn: QuickHome[]; out: QuickHome[] } {
+  const names = makeNamer(state.structure, lang);
+  const inn: QuickHome[] = [];
+  const out: QuickHome[] = [];
+  const seen = new Set<string>();
+  for (const p of state.settings.widgetPins ?? []) {
+    const k = `${p.c}|${p.s}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const cat = state.structure.categories.find((c) => c.id === p.c);
+    if (!cat || cat.hidden || cat.role === "savings") continue;
+    if (p.s) {
+      const sub = cat.subs.find((s) => s.id === p.s);
+      if (!sub || sub.hidden) continue;
+    }
+    const home: QuickHome = { c: p.c, s: p.s, n: p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c) };
+    const signs = pinSigns(state, p);
+    if (signs.includes("in")) inn.push(home);
+    if (signs.includes("out")) out.push(home);
+  }
+  return { inn, out };
+}
+
+/**
+ * La casa que el propio historial de conceptos sugiere para un apunte sin clasificar
+ * (1.3.246): las líneas vivas (no apartadas) del MISMO signo cuyo concepto coincide —
+ * sin mayúsculas ni espacios — votan por su (categoría, sub); la moda solo manda si
+ * reúne al menos 2 votos y el 60 % del total. Con `group`, solo votan las líneas cuya
+ * categoría es de ese grupo (el selector del editor de gastos solo ofrece su grupo:
+ * sugerir fuera de él sería preseleccionar algo que el selector no puede ni mostrar).
+ * Devuelve null cuando el historial no se pone de acuerdo: no sugerir también es honesto.
+ */
+export function suggestHome(state: LedgerState, concept: string, sign: "in" | "out", group?: Group | null): { c: string; s: string } | null {
+  const want = concept.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!want) return null;
+  const counts = new Map<string, number>();
+  let total = 0;
+  for (const book of Object.values(state.months)) {
+    for (const l of book.lines) {
+      if (l.rest || !l.categoryId) continue;
+      const lsign = l.kind.startsWith("income") ? "in" : l.kind.startsWith("expense") ? "out" : null;
+      if (lsign !== sign) continue;
+      if ((l.concept ?? "").replace(/\s+/g, " ").trim().toLowerCase() !== want) continue;
+      if (group) {
+        const cat = state.structure.categories.find((c) => c.id === l.categoryId);
+        if (!cat || cat.group !== group) continue;
+      }
+      const k = `${l.categoryId}|${l.subId}`;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+      total++;
+    }
+  }
+  if (total < 2) return null;
+  let best: string | null = null;
+  let bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) { best = k; bestN = n; }
+  if (!best || bestN / total < 0.6) return null;
+  const [c, s] = best.split("|");
+  return { c, s };
 }
 
 /**
@@ -139,14 +273,17 @@ function resolveHome(state: LedgerState, e: QuickEntry): { categoryId: string; s
 }
 
 /** El apunte como línea del libro. Pura: la misma entrada (y la misma casa resuelta) siempre
- *  produce la misma línea. Sin casa resuelta, la forma original: variable y sin categoría. */
+ *  produce la misma línea. Sin casa resuelta, la forma original: variable y sin categoría.
+ *  El concepto es el suyo si escribió «¿Qué fue?» (normalizado como en el parseo); el
+ *  genérico solo firma los apuntes sin palabras. */
 export function quickLine(e: QuickEntry, lang: Lang, home?: { categoryId: string; subId: string; kind: LineKind }): Line {
+  const own = (e.concept ?? "").replace(/\s+/g, " ").trim();
   return {
     id: e.id,
     seriesId: e.id,
     monthKey: e.day.slice(0, 7),
     kind: home?.kind ?? (e.sign === "in" ? "income-variable" : "expense-variable"),
-    concept: lang === "en" ? "Quick entry" : "Apunte rápido",
+    concept: own || (lang === "en" ? "Quick entry" : "Apunte rápido"),
     amountMinor: e.minor,
     currency: e.cur,
     active: true,
