@@ -4239,6 +4239,43 @@ function ThemeSide({ title, open, onToggle, children }: { title: string; open: b
   );
 }
 
+/** 1.3.231 (pedido de Oscar): la familia de pliegues de Estructura — los grupos
+    del árbol, el formulario de «Nueva categoría», la tarjeta del Catálogo y su
+    panel de Reemplazar — deja de abrir de golpe: se despliega y se pliega con
+    la curva de la casa sobre la rejilla 0fr→1fr de pliegues.css. La fase vive
+    aquí: al abrir, el contenido nace plegado y crece en el siguiente fotograma;
+    al cerrar, sigue montado mientras cae y SOLO se desmonta al aterrizar — un
+    toque a mitad de vuelo invierte la transición desde su altura actual, sin
+    saltos ni bloqueos. Con movimiento reducido el pliegue es instantáneo. */
+const FOLD_CLOSE_MS = { md: 225, sm: 150 } as const;
+function FoldShell({ open, tier = "md", className, children }: { open: boolean; tier?: keyof typeof FOLD_CLOSE_MS; className?: string; children: ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  const [shown, setShown] = useState(open);
+  const timerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (timerRef.current !== null) { window.clearTimeout(timerRef.current); timerRef.current = null; }
+    if (open) { setMounted(true); return; }
+    if (!mounted) return;
+    setShown(false);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    timerRef.current = window.setTimeout(() => { timerRef.current = null; setMounted(false); }, reduced ? 0 : FOLD_CLOSE_MS[tier] + 30);
+  }, [open, mounted, tier]);
+  useEffect(() => {
+    if (mounted && open && !shown) {
+      let raf2 = 0;
+      const raf1 = window.requestAnimationFrame(() => { raf2 = window.requestAnimationFrame(() => setShown(true)); });
+      return () => { window.cancelAnimationFrame(raf1); if (raf2) window.cancelAnimationFrame(raf2); };
+    }
+  }, [mounted, open, shown]);
+  useEffect(() => () => { if (timerRef.current !== null) window.clearTimeout(timerRef.current); }, []);
+  if (!mounted) return null;
+  return (
+    <div className={`fold-shell${tier === "sm" ? " fold-sm" : ""}${className ? ` ${className}` : ""}${shown && open ? " is-open" : ""}`}>
+      <div className="fold-clip">{children}</div>
+    </div>
+  );
+}
+
 function Fold({ id, topic, title, sub, icon: Icon, open, onToggle, children }: { id: string; topic: string; title: string; sub: string; icon: typeof Gear; open: boolean; onToggle: () => void; children: ReactNode }) {
   // Same row as Manual de uso / Importar movimientos: icon, bold title + (?), one-line subtitle, chevron.
   // The header is a div-button so the title's (?) can sit right after the title without nesting buttons.
@@ -4440,7 +4477,7 @@ export function Settings() {
             <ChevronDown className={catalogOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
           </div>
         </h2>
-        {catalogOpen ? <CatalogEditor /> : null}
+        <FoldShell open={catalogOpen}><CatalogEditor /></FoldShell>
       </Fold>
       <Fold id="banks" icon={CreditCard} sub={lang === "en" ? "Cards, rates and bonuses" : "Tarjetas, tasas y bonos"} topic="bancos" title={lang === "en" ? "Banks and rewards" : "Bancos y recompensas"} open={openFold === "banks"} onToggle={() => toggle("banks")}>
         <BankSettings />
@@ -4869,7 +4906,7 @@ function StructureTree() {
               run: () => commit((s) => restoreDefaultCategories(s, group), lang === "en" ? "Default categories" : "Categorías de fábrica"),
             })}><RotateCcw /></button> : null}
           </div>
-          {groupOpen ? (
+          <FoldShell open={groupOpen}>
           <div className="tree">
             {rows.map((cat, rowIndex) => {
               const open = openId === cat.id;
@@ -4918,7 +4955,7 @@ function StructureTree() {
               );
             })}
           </div>
-          ) : null}
+          </FoldShell>
         </div>
         );
       })}
@@ -4938,7 +4975,7 @@ function StructureTree() {
         </button>
         <FieldTip topic="f-cat-arbol" />
       </div>
-      {addOpen ? (
+      <FoldShell open={addOpen}>
       <div className="ah-form sc-form is-treecat">
         <div className="ah-grid">
           <label className="label is-wide">
@@ -4958,7 +4995,7 @@ function StructureTree() {
           <button type="button" className="btn" disabled={!catName.trim()} onClick={addCat}>{t("save")}</button>
         </div>
       </div>
-      ) : null}
+      </FoldShell>
     </div>
   );
 }
@@ -5531,6 +5568,22 @@ function CatalogEditor() {
   const [replaceFor, setReplaceFor] = useState<string | null>(null);
   const [replaceCustom, setReplaceCustom] = useState("");
   const [pending, setPending] = useState<{ item: CatalogItem; target: ReplaceTarget; targetName: string; count: number } | null>(null);
+  // 1.3.231: la mano no desaparece de golpe — al cerrarse queda su fantasma
+  // unos 150ms fundiéndose (la clase is-bye de pliegues.css), en la misma
+  // familia de pliegues que el resto de Estructura; con movimiento reducido
+  // se va al momento.
+  const [byeHand, setByeHand] = useState<string | null>(null);
+  const prevToolsRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevToolsRef.current;
+    prevToolsRef.current = toolsFor;
+    if (prev && prev !== toolsFor) {
+      setByeHand(prev);
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const id = window.setTimeout(() => setByeHand((b) => (b === prev ? null : b)), reduced ? 0 : 170);
+      return () => window.clearTimeout(id);
+    }
+  }, [toolsFor]);
   const catalog = session?.ledger.structure.catalog ?? [];
   const addItem = () => {
     const name = itemName.trim();
@@ -5670,19 +5723,19 @@ function CatalogEditor() {
         <>
           {item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-8" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-8" /> : <Glyph name={item.icon} />}
           <span className="cat-name">{displayName(item, lang)}</span>
-          {toolsFor === item.id ? (
-            <span className="cat-tools">
+          {toolsFor === item.id || byeHand === item.id ? (
+            <span className={`cat-tools${byeHand === item.id && toolsFor !== item.id ? " is-bye" : ""}`}>
               {/* The whole hand, in Oscar's order: pen · palette · eye · trash (red last). The eye
                   belongs to EVERY kind — no piece is special. */}
-              <button type="button" className="icon-btn cat-act" aria-label={t("rename")} onClick={() => { setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
-              <button type="button" className="icon-btn cat-act" aria-label={t("cat.replace")} aria-pressed={replaceFor === item.id} onClick={() => { setReplaceFor(replaceFor === item.id ? null : item.id); setPending(null); setReplaceCustom(""); }}><Palette className="size-4" /></button>
-              <button type="button" className="icon-btn cat-act" aria-label={item.hidden ? t("show") : t("hide")} onClick={() => toggleItemVis(item)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
-              <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
+              <button type="button" className="icon-btn cat-act" style={{ "--i": 0 } as CSSProperties} aria-label={t("rename")} onClick={() => { setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
+              <button type="button" className="icon-btn cat-act" style={{ "--i": 1 } as CSSProperties} aria-label={t("cat.replace")} aria-pressed={replaceFor === item.id} onClick={() => { setReplaceFor(replaceFor === item.id ? null : item.id); setPending(null); setReplaceCustom(""); }}><Palette className="size-4" /></button>
+              <button type="button" className="icon-btn cat-act" style={{ "--i": 2 } as CSSProperties} aria-label={item.hidden ? t("show") : t("hide")} onClick={() => toggleItemVis(item)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
+              <button type="button" className="icon-btn line-act is-danger" style={{ "--i": 3 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.
                   Not a button — the row signing its name at the end of the hand. Its tap is
                   inert by law: the door above exempts .cat-badge like a tool, so touching the
                   sign can never fold or unfold the card (Oscar's report, fixed in 1.3.230). */}
-              {item.kind === "sub" ? <span className="cat-badge" aria-hidden><Repeat2 className="size-4" /></span> : null}
+              {item.kind === "sub" ? <span className="cat-badge" style={{ "--i": 4 } as CSSProperties} aria-hidden><Repeat2 className="size-4" /></span> : null}
             </span>
           ) : null}
         </>
@@ -5701,7 +5754,7 @@ function CatalogEditor() {
       const openItem = chunk.find((c) => isOpen(c));
       if (openItem) {
         cells.push(renderCard(openItem));
-        if (replaceFor === openItem.id) cells.push(renderPanel(openItem));
+        cells.push(<FoldShell key={`repl-${openItem.id}`} open={replaceFor === openItem.id} tier="sm" className="fold-grid-panel">{renderPanel(openItem)}</FoldShell>);
         chunk.filter((c) => c.id !== openItem.id).forEach((c) => cells.push(renderCard(c)));
       } else {
         chunk.forEach((c) => cells.push(renderCard(c)));

@@ -1,0 +1,129 @@
+/* =====================================================================
+   1.3.231 (pedido de Oscar) — LOS PLIEGUES: la familia de tarjetas de
+   Estructura (los grupos, el formulario de «Nueva categoría», la tarjeta
+   «Tiendas y servicios» y el panel de Reemplazar del Catálogo) deja de
+   abrir de golpe y se despliega con una transición hermosa, «premium».
+
+   El lenguaje de movimiento (nota de diseño en faro-fold-study/, con la
+   investigación y los dos especialistas): UNA curva — la de la casa,
+   cubic-bezier(.22,1,.36,1), la misma del medallón de «Nueva categoría»,
+   de los chevrons y de la tarjeta de categoría desde la 1.3.223 — y una
+   familia de duraciones asimétrica (abrir respira más que cerrar; la
+   duración la manda el estado destino). La técnica es la rejilla
+   0fr→1fr: sin medir alturas en JS, sin alturas fantasma, con el punto
+   final exacto a cualquier contenido y reversible a mitad de vuelo con
+   un segundo toque. Los tokens son invariantes entre temas: ninguno de
+   los 17 temas puede re-temporizarlos — la constancia del tiempo ES la
+   sensación premium. Con movimiento reducido, los tokens colapsan y el
+   pliegue es instantáneo, como siempre.
+   ===================================================================== */
+
+:root {
+  --fold-ease: cubic-bezier(.22, 1, .36, 1);
+  --fold-open-md: 300ms;
+  --fold-close-md: 225ms;
+  --fold-open-sm: 200ms;
+  --fold-close-sm: 150ms;
+  --fold-fade-open: 220ms;
+  --fold-fade-close: 130ms;
+}
+
+/* La concha: una pista de rejilla que crece de 0fr a 1fr. El contenido
+   sigue montado mientras cae (la fase la lleva FoldShell en screens.tsx)
+   y solo se desmonta al aterrizar; la visibilidad acompaña con su retardo
+   para que lo plegado salga del orden de tabulación al cerrarse. */
+.fold-shell {
+  --fold-open: var(--fold-open-md);
+  --fold-close: var(--fold-close-md);
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--fold-close) var(--fold-ease),
+    visibility 0s linear var(--fold-close);
+}
+.fold-shell.fold-sm {
+  --fold-open: var(--fold-open-sm);
+  --fold-close: var(--fold-close-sm);
+}
+.fold-shell.is-open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--fold-open) var(--fold-ease),
+    visibility 0s;
+}
+
+/* El clip: recorta el vuelo, contiene su coste de pintado y funde el
+   contenido — tarde y suave al abrir (40ms de retardo: primero se
+   establece la apertura), temprano y rápido al cerrar (el contenido se
+   va antes de que el pliegue llegue a la mitad: el detalle premium). */
+.fold-clip {
+  overflow: hidden;
+  min-height: 0;
+  contain: layout paint;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--fold-fade-close) var(--fold-ease),
+    transform var(--fold-fade-close) var(--fold-ease);
+}
+.fold-shell.is-open .fold-clip {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--fold-fade-open) var(--fold-ease) 40ms,
+    transform var(--fold-fade-open) var(--fold-ease) 40ms;
+}
+
+/* El panel de Reemplazar vive dentro de la rejilla del Catálogo: la
+   concha hereda su columna entera. */
+.fold-shell.fold-grid-panel { grid-column: 1 / -1; }
+
+/* Los chevrons de las puertas de la familia giran en el reloj de su
+   superficie (antes: 180ms para todo): la duración la manda el estado
+   destino — al abrir manda la de apertura, al cerrar la de cierre. */
+.tree-kick-row .fold-chev { transition-duration: var(--fold-close-md); }
+.tree-kick-row .fold-chev.is-open { transition-duration: var(--fold-open-md); }
+/* La flecha de la fila de categoría gira en el reloj de su tarjeta
+   (300ms: la apertura WAAPI y el cierre de la 1.3.223). */
+.tree-row .fold-chev { transition-duration: 300ms; }
+
+/* La mano del Catálogo florece: cada herramienta entra con su pequeño
+   escalonamiento (25ms por pieza, solo al abrir), y al marcharse se
+   funde entera y rápido — sin escalonar — bajo la clase is-bye que la
+   fase de CatalogEditor mantiene 150ms. */
+.cat-tools > * {
+  animation: fold-bloom var(--fold-open-sm) var(--fold-ease) both;
+  animation-delay: calc(var(--i, 0) * 25ms);
+}
+@keyframes fold-bloom {
+  from { opacity: 0; transform: translateX(6px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+.cat-tools.is-bye {
+  opacity: 0;
+  transform: translateX(4px);
+  transition:
+    opacity var(--fold-fade-close) var(--fold-ease),
+    transform var(--fold-fade-close) var(--fold-ease);
+  pointer-events: none;
+}
+.cat-tools.is-bye > * { animation: none; }
+
+/* Movimiento reducido: la familia entera se retira — los tokens
+   colapsan a 1ms y el pliegue vuelve a ser instantáneo, como siempre. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fold-open-md: 1ms;
+    --fold-close-md: 1ms;
+    --fold-open-sm: 1ms;
+    --fold-close-sm: 1ms;
+    --fold-fade-open: 1ms;
+    --fold-fade-close: 1ms;
+  }
+  .fold-clip { transform: none; }
+  .cat-tools > * { animation: none; }
+  .cat-tools.is-bye { transition: none; }
+  .tree-kick-row .fold-chev, .tree-row .fold-chev { transition-duration: 1ms; }
+}

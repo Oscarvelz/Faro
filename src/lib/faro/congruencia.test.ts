@@ -84,11 +84,15 @@ describe("per-sub colours: born with a preset, the hand wins", () => {
 // through to the door and folded the open card under his finger. The fix exempts the
 // sign in the door's guard: its tap is inert, and no member of the hand can ever fold
 // or unfold the card as a side effect.
+// 1.3.231 declared pin touch: the hand now blooms — its members carry a --i stagger
+// style and the hand's className is a template (its is-bye ghost state) — so two
+// literal matches below widen to the new markup; the contract they guard (the sign
+// is an aria-hidden span, never a button; the four tools stay real buttons) is unchanged.
 const screens = fs.readFileSync(new URL("../../components/faro/screens.tsx", import.meta.url), "utf8");
 
 describe("the membership sign: a sign, tap-inert, never a door", () => {
   test("the sign renders as an aria-hidden span on subscription rows only — never a button", () => {
-    assert.match(screens, /item\.kind === "sub" \? <span className="cat-badge" aria-hidden><Repeat2 className="size-4" \/><\/span>/);
+    assert.match(screens, /item\.kind === "sub" \? <span className="cat-badge" style=\{\{ "--i": 4 \} as CSSProperties\} aria-hidden><Repeat2 className="size-4" \/><\/span>/);
     assert.ok(!/<button[^>]*>\s*<Repeat2/.test(screens), "no button in the catalog card may wear the repeat sign");
   });
 
@@ -97,7 +101,7 @@ describe("the membership sign: a sign, tap-inert, never a door", () => {
   });
 
   test("the four tools of the hand stay real buttons (rename · replace · eye · trash)", () => {
-    const hand = screens.slice(screens.indexOf('className="cat-tools"'), screens.indexOf('className="cat-badge"'));
+    const hand = screens.slice(screens.indexOf("cat-tools"), screens.indexOf('className="cat-badge"'));
     const buttons = hand.match(/<button type="button"/g) ?? [];
     assert.equal(buttons.length, 4);
   });
