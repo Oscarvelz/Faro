@@ -282,4 +282,32 @@ describe("apuntes rápidos del widget", () => {
     const snap = buildWidgetSnapshot(parsed, "es", { today: "2026-11-12", hide: false, lock: false });
     assert.ok(snap.qhOut.some((h) => h.n.includes("Renta")), "la foto trae las casas del libro real");
   });
+
+  it("1.3.243: la pasada fina — los seis defectos medidos del censo no vuelven", () => {
+    const root = process.cwd();
+    const quick = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/QuickAdd.kt"), "utf8");
+    // (1) La ventana va a todo lo ancho tras montar el contenido: la tarjeta corre a
+    // pantalla − 40dp por el aire del marco (≈90 %), no a su mínimo de 288dp (75 %).
+    assert.ok((quick.match(/window\.setLayout\(\s*WindowManager\.LayoutParams\.MATCH_PARENT/g) ?? []).length >= 2,
+      "los dos caminos de setContentView fijan la ventana a todo lo ancho");
+    // (2) El campo del monto nace sin el relleno de fábrica del tema.
+    const amountBlock = quick.slice(quick.indexOf("val amount = EditText"), quick.indexOf("val row = LinearLayout"));
+    assert.match(amountBlock, /background = null\s*\n\s*\/\/ 1\.3\.243[\s\S]*?setPadding\(0, 0, 0, 0\)/,
+      "tras background = null el relleno queda en cero");
+    // (3) La caja de línea de la cifra es la del espécimen: 44dp (line-height: 1).
+    assert.match(amountBlock, /lineHeight = dp\(44\)/, "la cifra vive en su caja de 44dp");
+    // (6) El cursor es el color de signo, sólido y de 2dp — nunca el turquesa de fábrica.
+    assert.match(amountBlock, /textCursorDrawable = GradientDrawable\(\)/, "el cursor lleva su propio dibujo");
+    assert.match(amountBlock, /setColor\(accent\); setSize\(dp\(2\), dp\(44\)\)/, "cursor sólido de signo, 2dp");
+    // (4) La lengüeta de Señal vuela 1dp por encima de la tarjeta o no se ve.
+    assert.match(quick, /elevation = dp\(25\)\.toFloat\(\)/, "la lengüeta se eleva sobre la tarjeta (24dp)");
+    // (5) El cuadrado del radio viaja remetido 14dp en su lienzo: la barra queda visible
+    // y el texto cae en los 44dp del espécimen por el ancho intrínseco del dibujo.
+    assert.match(quick, /private fun insetSquare\(d: Drawable\): Drawable = LayerDrawable\(arrayOf\(d\)\)/,
+      "el cuadrado viaja dentro de su lienzo");
+    assert.match(quick, /setLayerInset\(0, dp\(14\), 0, 0, 0\)/, "el cuadrado se remete 14dp desde la izquierda");
+    assert.match(quick, /addState\(intArrayOf\(android\.R\.attr\.state_checked\), insetSquare\(on\)\)/,
+      "el estado marcado usa el lienzo remetido");
+    assert.match(quick, /addState\(intArrayOf\(\), insetSquare\(off\)\)/, "el estado en reposo también");
+  });
 });

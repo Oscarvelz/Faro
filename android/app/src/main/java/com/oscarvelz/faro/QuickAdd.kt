@@ -212,9 +212,20 @@ class QuickAddActivity : Activity() {
             setLayerInset(1, dp(5), dp(5), dp(5), dp(5))
         }
         return StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_checked), on)
-            addState(intArrayOf(), off)
+            addState(intArrayOf(android.R.attr.state_checked), insetSquare(on))
+            addState(intArrayOf(), insetSquare(off))
         }
+    }
+
+    /** El cuadrado dentro de su lienzo (1.3.243, defecto 5 del censo): el botón de un
+     *  CompoundButton se pinta al ras del borde izquierdo de la vista — el padding de la
+     *  fila no lo mueve — así que el cuadrado caía en 0dp y se tragaba la barra de 4dp.
+     *  Ahora viaja dentro de una capa de 32dp de ancho, remetido 14dp desde la izquierda
+     *  (la medida del espécimen): pinta en su sitio, la barra queda visible al borde, y
+     *  como el texto se separa según el ancho intrínseco del dibujo, el texto cae en los
+     *  44dp del espécimen (14 + 18 + los 12 de separación) sin tocar ningún layout. */
+    private fun insetSquare(d: Drawable): Drawable = LayerDrawable(arrayOf(d)).apply {
+        setLayerInset(0, dp(14), 0, 0, 0)
     }
 
     /** La ficha del signo de moneda (1.3.241): el signo es un blanco de toque — tocarlo
@@ -253,6 +264,10 @@ class QuickAddActivity : Activity() {
             addView(card)
             if (tick != null) addView(View(this@QuickAddActivity).apply {
                 setBackgroundColor(tick)
+                // 1.3.243 (pasada fina, defecto 4 del censo): la lengüeta necesita 1dp MÁS
+                // de elevación que la tarjeta — como hermana sin elevar en el mismo marco,
+                // la tarjeta (24dp) la pintaba encima y nunca llegaba a la pantalla.
+                elevation = dp(25).toFloat()
             }, FrameLayout.LayoutParams(dp(28), dp(3)).apply {
                 gravity = Gravity.TOP or Gravity.START
                 leftMargin = dp(20)
@@ -313,6 +328,11 @@ class QuickAddActivity : Activity() {
                 topMargin = dp(16)
             })
             setContentView(wrapCard(card, null))
+            // 1.3.243 (defecto 1 del censo): la ventana a todo lo ancho — ver la nota en
+            // el camino principal; esta tarjeta de reserva comparte el mismo marco.
+            window.setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT)
             return
         }
 
@@ -362,6 +382,18 @@ class QuickAddActivity : Activity() {
             setTextColor(cInk)
             setHintTextColor(cHint)
             background = null
+            // 1.3.243 (pasada fina, defectos 2, 3 y 6 del censo): el campo nacía con el
+            // relleno de fábrica del tema (≈10dp de aire sobre y bajo la cifra, ≈6dp a la
+            // derecha — la cifra flotaba y ni compartía borde con la regla) y su caja de
+            // línea natural es 56dp cuando el espécimen fija 44 (line-height: 1); con las
+            // dos cosas corregidas la placa mide los 78dp exactos aprobados. Y el cursor
+            // deja de ser el turquesa Material de fábrica: pasa a ser el color de signo,
+            // sólido, de 2dp — la única decoración que el cursor puede llevar en Señal.
+            setPadding(0, 0, 0, 0)
+            lineHeight = dp(44)
+            textCursorDrawable = GradientDrawable().apply {
+                setColor(accent); setSize(dp(2), dp(44))
+            }
             isSingleLine = true
             gravity = Gravity.END
         }
@@ -525,6 +557,13 @@ class QuickAddActivity : Activity() {
         ).apply { leftMargin = dp(10) })
         card.addView(buttons)
         setContentView(wrapCard(card, accent))
+        // 1.3.243 (pasada fina, defecto 1 del censo): la ventana ya no envuelve al mínimo
+        // de la tarjeta (288dp = el 75 % de la pantalla); va a todo lo ancho y es el aire
+        // de 20dp del marco de wrapCard quien fija la tarjeta en pantalla − 40dp
+        // (≈90 % — la proporción del espécimen en cualquier teléfono).
+        window.setLayout(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.WRAP_CONTENT)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         amount.requestFocus()
     }
