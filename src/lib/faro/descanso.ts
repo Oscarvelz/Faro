@@ -30,6 +30,11 @@
  *  - earnings.ts  `isIncome`: un ingreso apartado no aparece en Ganancias.
  *  - search.ts    searchLedger: la búsqueda jamás presenta una línea apartada.
  *  - quickadd.ts  quickHomes: el uso apartado no sugiere casas al widget.
+ *  - patron.ts    pacePattern/paceReading: su `isOut` local lleva el mismo `!rest` —
+ *                 la curva aprendida jamás se dobla con dinero apartado, ni en la
+ *                 historia ni en el mes en curso; sus tres lectores (la regla de
+ *                 ritmo en rules.ts, la nota de coach.ts y la notificación vía el
+ *                 bloque `pace` de widget.ts) heredan la lectura ya filtrada.
  * Segunda pasada (auditoría 2026-11-13: los escapes vivían en pantallas que reimplementan
  * lecturas, no en los motores de arriba):
  *  - screens.tsx  LinesBlock y la tabla de suscripciones filtran `rest`; las sumas de

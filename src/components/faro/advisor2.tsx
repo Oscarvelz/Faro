@@ -1,7 +1,7 @@
 // Asesor 2: each advice card leads with a picture; words come second.
 import "./advisor2.css";
 import { Calculator, ChevronDown, ChevronRight, House, PiggyBank, ShoppingBag, Wallet } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { Fragment, useId, useMemo, useState } from "react";
 import type React from "react";
 import { useFaro } from "@/components/faro/provider";
 import { Hint } from "./hint";
@@ -11,6 +11,7 @@ import { isTron, tronize } from "@/lib/faro/colors";
 import { dateFmt } from "@/lib/faro/datefmt";
 import { cardFigures, cardTotals, cardsOf, utilLevel } from "@/lib/faro/cards";
 import { adviceRules, rateLine, type Rule, type RuleTone } from "@/lib/faro/rules";
+import { pacePattern, paceReading } from "@/lib/faro/patron";
 import { readStoredGoals } from "@/lib/faro/awake";
 const tc = (c: string) => (isTron() ? tronize(c) : c);
 
@@ -422,6 +423,47 @@ export function useRules(): Rule[] {
     return adviceRules(ledger, key, lang, names, { goal });
   }, [ledger, key, lang, names]);
 }
+/* ── Tu patrón de mes (1.3.248) ───────────────────────────────────────
+ * The learned curve itself, drawn under its rule: the pattern the user can
+ * see is the pattern the user can trust (brief: pace-learning). Anchors from
+ * patron.pacePattern; the dot marks what the pattern usually has out by
+ * today. While the pattern is still learning (one closed month so far), the
+ * block says so honestly instead of drawing a curve it does not have. */
+export function PatternBlock({ tone }: { tone: RuleTone }) {
+  const { session, key, lang } = useFaro();
+  const ledger = session?.ledger;
+  const data = useMemo(() => {
+    if (!ledger) return null;
+    return { pattern: pacePattern(ledger, key), reading: paceReading(ledger, key, new Date()) };
+  }, [ledger, key]);
+  if (!data) return null;
+  const { pattern, reading } = data;
+  if (!pattern && reading.monthsUsed < 1) return null;
+  const dim = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate();
+  const X = (day: number) => 8 + (Math.min(Math.max(day, 0), dim) / dim) * 284;
+  const Y = (pct: number) => 78 - (Math.max(0, Math.min(100, pct)) / 100) * 66;
+  const todayDay = Math.min(new Date().getDate(), dim);
+  const pts = pattern ? [{ day: 0, sharePct: 0 }, ...pattern.anchors].map((a) => `${X(a.day).toFixed(1)},${Y(a.sharePct).toFixed(1)}`).join(" ") : "";
+  return (
+    <div className="a2-pattern" style={{ ["--c" as string]: tc(RULE_C[tone]) }}>
+      <p className="a2-pattern-title">{L(lang, "Tu patrón de mes", "Your month's pattern")}</p>
+      {pattern ? (
+        <>
+          <svg viewBox="0 0 300 88" role="img" aria-label={L(lang, "Tu patrón de mes", "Your month's pattern")}>
+            <line x1="8" y1="78" x2="292" y2="78" className="a2-pattern-axis" />
+            <line x1={X(todayDay)} y1="8" x2={X(todayDay)} y2="78" className="a2-pattern-today" />
+            <polyline points={pts} className="a2-pattern-line" fill="none" />
+            <circle cx={X(todayDay)} cy={Y(reading.expectedSharePct)} r="3.5" className="a2-pattern-dot" />
+          </svg>
+          <p className="a2-pattern-cap">{L(lang, `Para hoy, tu patrón suele llevar el ${reading.expectedSharePct}% fuera · aprendido de ${pattern.monthsUsed} meses`, `By today, your pattern usually has ${reading.expectedSharePct}% out · learned from ${pattern.monthsUsed} months`)}</p>
+        </>
+      ) : (
+        <p className="a2-pattern-cap">{L(lang, "Todavía estoy aprendiendo tu patrón: con dos meses cerrados, aquí verás tu curva.", "I'm still learning your pattern: once two months have closed, your curve will show here.")}</p>
+      )}
+    </div>
+  );
+}
+
 export function RulesCard({ rules, open, onToggle, enter }: { rules: Rule[]; open: boolean; onToggle: () => void; enter: number }) {
   const { session, lang, setUi, goTopic, t } = useFaro();
   if (!rules.length || !session) return null;
@@ -448,13 +490,16 @@ export function RulesCard({ rules, open, onToggle, enter }: { rules: Rule[]; ope
         <div className="a2">
           <div className="a2-lines">
             {rules.map((r, i) => (
-              <div key={r.id} role="button" tabIndex={0} data-rule={r.id} className="a2-line a2-rule" style={{ ["--c" as string]: tc(RULE_C[r.tone]), animationDelay: `${i * 50}ms` }} aria-label={`${r.title}: ${r.num}. ${t("advice.rule.go")}`}
-                onClick={() => go(r)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(r); } }}>
-                <span className="a2-line-name">{r.title}<em style={{ color: tc(RULE_C[r.tone]) }}>{r.kicker}</em></span>
-                <span className="a2-line-amt"><strong className="num">{r.num}</strong><Hint topic={r.topic} /><ChevronRight aria-hidden /></span>
-                <span className="a2-line-bar" aria-hidden><b style={{ width: `${Math.max(4, Math.round(r.fill * 100))}%` }} /></span>
-                <p className="a2-rule-say">{r.say}</p>
-              </div>
+              <Fragment key={r.id}>
+                <div role="button" tabIndex={0} data-rule={r.id} className="a2-line a2-rule" style={{ ["--c" as string]: tc(RULE_C[r.tone]), animationDelay: `${i * 50}ms` }} aria-label={`${r.title}: ${r.num}. ${t("advice.rule.go")}`}
+                  onClick={() => go(r)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(r); } }}>
+                  <span className="a2-line-name">{r.title}<em style={{ color: tc(RULE_C[r.tone]) }}>{r.kicker}</em></span>
+                  <span className="a2-line-amt"><strong className="num">{r.num}</strong><Hint topic={r.topic} /><ChevronRight aria-hidden /></span>
+                  <span className="a2-line-bar" aria-hidden><b style={{ width: `${Math.max(4, Math.round(r.fill * 100))}%` }} /></span>
+                  <p className="a2-rule-say">{r.say}</p>
+                </div>
+                {r.id === "pace" ? <PatternBlock tone={r.tone} /> : null}
+              </Fragment>
             ))}
           </div>
           <p className="a2-foot">{rateLine(session.ledger, lang)}<Hint topic="tasa" /></p>

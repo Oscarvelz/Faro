@@ -20,8 +20,13 @@ import java.util.Locale
  * - Due payments: a cuota or card whose date is overdue or at most 2 days away. Posted once per due (dedupe key
  *   "due|<name>|<on>"); re-checked when a new snapshot arrives and at the widgets' midnight tick, so "due today"
  *   lands even if Faro is not opened that day (as fresh as the last snapshot, exactly like the widgets).
- * - Spending pace: once a week at most, when the month (from day 5 on) is spending at a pace that passes the month's
- *   income — or has already passed it. Evaluated only on a fresh snapshot, never at the tick (stale data, no nagging).
+ * - Spending pace: once a week at most, from day 5 on. Since 1.3.248 the snapshot carries the learned pattern's
+ *   judgement (the `pace` block, computed by the page with patron.ts — the web computes, the shell renders): with
+ *   the pattern ready it posts only when the verdict is "over" against his own pattern (a body that names the
+ *   pattern and its figures), or when spending has already passed the income — a fact, never a projection, in
+ *   the plain body; while the pattern is learning there is no pace post at all, except that same fact. A snapshot
+ *   without the block (a page from before 1.3.248) keeps the original straight-line judgement, verbatim.
+ *   Evaluated only on a fresh snapshot, never at the tick (stale data, no nagging).
  * - Month close: the day the calendar turns, the finished month's report (in · out · left) from the snapshot's
  *   six-month flow. Posted once per month ("close|<yyyy-MM>"); a snapshot too old to contain that month stays silent.
  *
@@ -86,19 +91,54 @@ object FaroNotify {
         val now = Calendar.getInstance()
         val elapsed = now.get(Calendar.DAY_OF_MONTH)
         if (elapsed < 5) return
-        val dim = now.getActualMaximum(Calendar.DAY_OF_MONTH)
-        val projected = s.spend * dim / elapsed
-        val bad = s.spend >= s.have
-        if (!bad && projected <= s.have) return
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val bad = s.spend >= s.have
+        val pace = s.pace
+        if (pace == null) {
+            // Respaldo exacto (degradación): una foto sin el bloque del patrón — una
+            // página anterior a 1.3.248 — se juzga con la recta de siempre, palabra
+            // por palabra, con su misma cadencia semanal y su mismo día de arranque.
+            val dim = now.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val projected = s.spend * dim / elapsed
+            if (!bad && projected <= s.have) return
+            if (System.currentTimeMillis() - prefs.getLong("paceAt", 0L) < WEEK_MS) return
+            val body = when {
+                bad && !s.hide -> L(s, "Ya gastaste ${Fmt.money(s.spend, s.cur)} de tu ingreso de ${Fmt.money(s.have, s.cur)} este mes.",
+                                       "You have already spent ${Fmt.money(s.spend, s.cur)} of this month's income of ${Fmt.money(s.have, s.cur)}.")
+                bad -> L(s, "Ya pasaste tu ingreso de este mes.", "You have already passed this month's income.")
+                !s.hide -> L(s, "Vas en ${Fmt.money(s.spend, s.cur)} (${s.usedPct ?: 0}%) y el mes va en ${elapsed * 100 / dim}%. A este ritmo cerrarías en ${Fmt.money(projected, s.cur)}, sobre tu ingreso de ${Fmt.money(s.have, s.cur)}.",
+                             "You are at ${Fmt.money(s.spend, s.cur)} (${s.usedPct ?: 0}%) with the month ${elapsed * 100 / dim}% through. At this pace you would close at ${Fmt.money(projected, s.cur)}, over your income of ${Fmt.money(s.have, s.cur)}.")
+                else -> L(s, "Tu ritmo de gasto proyecta pasar tu ingreso este mes.", "Your spending pace is on track to pass this month's income.")
+            }
+            post(ctx, ID_PACE, L(s, "Faro · Ritmo de gasto", "Faro · Spending pace"), body, "desk")
+            prefs.edit().putLong("paceAt", System.currentTimeMillis()).apply()
+            return
+        }
+        // Con el bloque (1.3.248) manda el patrón, nunca la recta. Listo: solo suena
+        // si el veredicto es «over» contra su propio patrón, o si el gasto ya pasó el
+        // ingreso (un hecho, con su cuerpo llano y sin cifra proyectada). Aprendiendo:
+        // silencio de ritmo — solo ese mismo hecho puede hablar.
+        if (pace.status == "ready") {
+            if (!bad && pace.verdict != "over") return
+        } else {
+            if (!bad) return
+        }
         if (System.currentTimeMillis() - prefs.getLong("paceAt", 0L) < WEEK_MS) return
         val body = when {
             bad && !s.hide -> L(s, "Ya gastaste ${Fmt.money(s.spend, s.cur)} de tu ingreso de ${Fmt.money(s.have, s.cur)} este mes.",
                                    "You have already spent ${Fmt.money(s.spend, s.cur)} of this month's income of ${Fmt.money(s.have, s.cur)}.")
             bad -> L(s, "Ya pasaste tu ingreso de este mes.", "You have already passed this month's income.")
-            !s.hide -> L(s, "Vas en ${Fmt.money(s.spend, s.cur)} (${s.usedPct ?: 0}%) y el mes va en ${elapsed * 100 / dim}%. A este ritmo cerrarías en ${Fmt.money(projected, s.cur)}, sobre tu ingreso de ${Fmt.money(s.have, s.cur)}.",
-                         "You are at ${Fmt.money(s.spend, s.cur)} (${s.usedPct ?: 0}%) with the month ${elapsed * 100 / dim}% through. At this pace you would close at ${Fmt.money(projected, s.cur)}, over your income of ${Fmt.money(s.have, s.cur)}.")
-            else -> L(s, "Tu ritmo de gasto proyecta pasar tu ingreso este mes.", "Your spending pace is on track to pass this month's income.")
+            !s.hide -> {
+                val close = if (pace.projected > pace.income)
+                    L(s, " A este ritmo cerrarías en ${Fmt.money(pace.projected, s.cur)}, sobre tu ingreso de ${Fmt.money(pace.income, s.cur)}.",
+                         " At this pace you would close at ${Fmt.money(pace.projected, s.cur)}, over your income of ${Fmt.money(pace.income, s.cur)}.")
+                else
+                    L(s, " Aun así cerrarías en ${Fmt.money(pace.projected, s.cur)}, dentro de tu ingreso de ${Fmt.money(pace.income, s.cur)}.",
+                         " You would still close at ${Fmt.money(pace.projected, s.cur)}, within your income of ${Fmt.money(pace.income, s.cur)}.")
+                L(s, "Vas en ${Fmt.money(pace.spent, s.cur)} y para esta fecha tu patrón suele llevar unos ${Fmt.money(pace.expected, s.cur)}: vas sobre tu ritmo normal.$close",
+                     "You are at ${Fmt.money(pace.spent, s.cur)} and by this date your pattern usually has about ${Fmt.money(pace.expected, s.cur)} out: you are running above your normal pace.$close")
+            }
+            else -> L(s, "Tu ritmo va por encima de tu patrón este mes.", "Your pace is running above your pattern this month.")
         }
         post(ctx, ID_PACE, L(s, "Faro · Ritmo de gasto", "Faro · Spending pace"), body, "desk")
         prefs.edit().putLong("paceAt", System.currentTimeMillis()).apply()

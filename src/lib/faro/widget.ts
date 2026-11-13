@@ -12,6 +12,7 @@
  *   spending by category is Estudio's categorySlices().
  */
 import { categorySlices, summarize } from "./engine";
+import { paceReading } from "./patron";
 import { quickHomesRanked, quickPins, type QuickHome } from "./quickadd";
 import { savingsStock } from "./savings";
 import { duesWindow } from "./dues";
@@ -28,6 +29,13 @@ export type WidgetGo =
   | "vault-save" | "vault-meta" | "vault-retiro" | "vault-emergencia" | "vault-owed" | "vault-owe" | "vault-loans";
 
 export type WidgetDue = { name: string; kind: "cuota" | "card" | "loan"; on: string; amt: number | null; go: WidgetGo };
+/** El juicio del patrón de ritmo (1.3.248): la lectura de patron.ts tal cual, en
+ *  cifras de vista — estado, veredicto (null mientras aprende) y los montos que la
+ *  notificación del shell nombra (gastado, lo que el patrón suele llevar, el cierre
+ *  proyectado por el patrón y el ingreso). El shell juzga contra esto, nunca contra
+ *  su propia recta; una foto de una página anterior no lo trae y la recta queda
+ *  como respaldo exacto. */
+export type WidgetPace = { status: "learning" | "ready"; verdict: "under" | "on" | "over" | null; spent: number; expected: number; projected: number; income: number };
 export type WidgetCat = { name: string; amt: number; prev: number; save: boolean; go: WidgetGo };
 export type WidgetFlow = { key: string; label: string; inn: number; out: number };
 export type WidgetPocket = { name: string; amt: number; go: WidgetGo };
@@ -87,6 +95,9 @@ export type WidgetSnapshot = {
    *  deduplicación y el relleno se calculan aquí, una sola vez, para cada superficie. */
   qpIn: QuickHome[];
   qpOut: QuickHome[];
+  /** 1.3.248: el patrón de ritmo, calculado por patron.paceReading sobre el libro
+   *  ya filtrado por la puerta anti-fuga (su isOut lleva el mismo !rest). */
+  pace: WidgetPace;
 };
 
 const SAVINGS = "savings";
@@ -274,6 +285,13 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
         return homes.filter((h) => !set.has(`${h.c}|${h.s}`)).slice(0, 10);
       };
       return { qhIn: drop(ranked.inn, pins.inn), qhOut: drop(ranked.out, pins.out), qpIn: pins.inn, qpOut: pins.out };
+    })(),
+    // El patrón de ritmo (1.3.248): la web calcula, el shell juzga — la costura de
+    // siempre (como vencimientos y cierre). La lectura sale del libro filtrado:
+    // patron.ts nunca ve una línea apartada.
+    ...(() => {
+      const r = paceReading(state, key, new Date(`${today}T12:00:00`));
+      return { pace: { status: r.status, verdict: r.verdict, spent: r.spentMinor, expected: r.expectedMinor, projected: r.projectedMinor, income: s.income } };
     })(),
   };
 }

@@ -1,6 +1,7 @@
 // Coach: turns one month of the books into plain language and simple pictures.
 // Everything here is read-only; it never writes the ledger.
 import { readAdvisor, type ReadLine } from "./advisor";
+import { paceReading, paceSay } from "./patron";
 import { savingsPicture } from "./awake";
 import { colorFor, cyberize, themeSwatch } from "./colors";
 import { convertMinor, formatMoney, formatPct, niceDown } from "./money";
@@ -392,11 +393,25 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   const daysInMonth = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate() || 30;
   const perDay = Math.round((spend + saved) / daysInMonth);
   const coverDays = perDay > 0 && income > 0 ? Math.floor(income / perDay) : null;
-  const paceNote = coverDays === null
+  const linearNote = coverDays === null
     ? L(lang, "Anota ingresos y gastos para ver tu ritmo.", "Record income and spending to see your pace.")
     : coverDays >= daysInMonth
       ? L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra te alcanza para ${coverDays} días: el mes completo y ${coverDays - daysInMonth} más.`, `You spend about ${money(perDay)} a day. At that pace your income lasts ${coverDays} days: the whole month and ${coverDays - daysInMonth} more.`)
       : L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra se acaba el día ${coverDays} y faltan ${daysInMonth - coverDays} días.`, `You spend about ${money(perDay)} a day. At that pace your income runs out on day ${coverDays}, ${daysInMonth - coverDays} days short.`);
+  // 1.3.248: en el mes en curso manda el patrón aprendido (patron.ts) — la MISMA
+  // lectura que juzga la regla del Asesor y la notificación del shell. Con el
+  // patrón listo, la nota ES su frase; mientras aprende, la nota lleva su aviso
+  // honesto y debajo el andamiaje de siempre (el promedio diario), sin fingir
+  // un juicio que todavía no existe. Sin datos no hay ni aviso: la primera frase.
+  const paceNote = ((): string => {
+    if (coverDays === null) return linearNote;
+    const currentKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+    if (key !== currentKey) return linearNote;
+    const rd = paceReading(state, key, today);
+    if (rd.status === "ready" && rd.spentMinor > 0) return paceSay(rd, lang, money, income).say;
+    if (rd.status === "learning") return `${paceSay(rd, lang, money, income).say} ${linearNote}`;
+    return linearNote;
+  })();
 
   // Upcoming dated payments.
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());

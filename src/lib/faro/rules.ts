@@ -2,6 +2,7 @@
 // (integer minor units, never floats), the help topic that explains that number, and one place to go and act.
 // Pure and read-only: it never writes the ledger. No guessing: a rule with too little history says nothing.
 import { readAdvisor } from "./advisor.ts";
+import { paceReading, paceSay } from "./patron.ts";
 import { intervalOf, perYear } from "./cadence.ts";
 export { perYear };
 import { duesWindow } from "./dues.ts";
@@ -108,7 +109,12 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
   const current = key === todayKey;
   const rules: Rule[] = [];
 
-  /* 1. Pace: at this month's day-to-day pace, how many days the money that is left lasts. */
+  /* 1. Pace: at this month's day-to-day pace, how many days the money that is left lasts.
+     1.3.248: with two or more closed months, the learned pattern (patron.ts) takes
+     this rule's surface — tone, kicker, number and sentence come from paceSay, the
+     same reading Central's note and the shell's notification judge by. While the
+     pattern is still learning, the rule below is the honest scaffolding: the daily
+     variable pace, exactly as it always was. */
   if (current && income > 0) {
     const day = today.getDate();
     const dim = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -117,28 +123,46 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
     const daily = lines.filter((l) => isOut(state, l) && (l.kind === "expense-variable" || l.kind === "purchase") && roleOf(state, l.categoryId) !== "debt" && (!l.bookedOn || l.bookedOn.slice(0, 10) <= todayIso));
     const spent = daily.reduce((a, l) => a + view(l), 0);
     const left = reading.left;
-    if (daysLeft > 0 && spent > 0) {
+    const paceRd = paceReading(state, key, today);
+    const patternFires = paceRd.status === "ready" && paceRd.spentMinor > 0;
+    if (daysLeft > 0 && (spent > 0 || patternFires)) {
       const perDay = divRound(spent, day);
-      const covered = left > 0 ? Math.floor((left * day) / spent) : 0;
+      const covered = left > 0 && spent > 0 ? Math.floor((left * day) / spent) : 0;
       const atEnd = left - divRound(spent * daysLeft, day);
       const enough = covered >= daysLeft;
       const runOut = isoOf(new Date(today.getFullYear(), today.getMonth(), day + covered));
-      rules.push({
-        id: "pace",
-        tone: left <= 0 ? "bad" : enough ? "good" : "warn",
-        title: L(lang, "Ritmo del mes", "Month's pace"),
-        kicker: L(lang, `${money(perDay)} al día`, `${money(perDay)} a day`),
-        num: enough ? signed(atEnd) : L(lang, `${covered} ${covered === 1 ? "día" : "días"}`, `${covered} ${covered === 1 ? "day" : "days"}`),
-        say: left <= 0
-          ? L(lang, `Ya no queda para el día a día: faltan ${both(-left)} y quedan ${daysLeft} días del mes.`, `Nothing is left for daily spending: ${both(-left)} short with ${daysLeft} days to go.`)
-          : enough
-            ? L(lang, `Al ritmo de ${money(perDay)} al día, lo que queda alcanza y cierras el mes con ${both(atEnd)}.`, `At ${money(perDay)} a day, what is left lasts and you close the month with ${both(atEnd)}.`)
-            : L(lang, `Al ritmo de ${money(perDay)} al día, lo que queda, ${both(left)}, se acaba el ${fmtDay(runOut)}: ${daysLeft - covered} días antes del cierre.`, `At ${money(perDay)} a day, what is left, ${both(left)}, runs out on ${fmtDay(runOut)}: ${daysLeft - covered} days before month end.`),
-        fill: left <= 0 ? 0 : Math.min(1, covered / daysLeft),
-        topic: "regla-ritmo",
-        go: { kind: "book", section: "variable" },
-        v: { spent, perDay, left, covered, daysLeft, atEnd },
-      });
+      if (patternFires) {
+        const ps = paceSay(paceRd, lang, money, income);
+        rules.push({
+          id: "pace",
+          tone: ps.tone,
+          title: L(lang, "Ritmo del mes", "Month's pace"),
+          kicker: L(lang, "Contra tu patrón", "Against your pattern"),
+          num: money(paceRd.projectedMinor),
+          say: ps.say,
+          fill: paceRd.expectedMinor > 0 ? Math.min(1, paceRd.spentMinor / paceRd.expectedMinor) : 1,
+          topic: "regla-ritmo",
+          go: { kind: "book", section: "variable" },
+          v: { spent, perDay, left, covered, daysLeft, atEnd, pSpent: paceRd.spentMinor, pExpected: paceRd.expectedMinor, pDelta: paceRd.deltaMinor, pProjected: paceRd.projectedMinor, pShare: paceRd.expectedSharePct, pMonths: paceRd.monthsUsed, verdict: paceRd.verdict ?? "" },
+        });
+      } else {
+        rules.push({
+          id: "pace",
+          tone: left <= 0 ? "bad" : enough ? "good" : "warn",
+          title: L(lang, "Ritmo del mes", "Month's pace"),
+          kicker: L(lang, `${money(perDay)} al día`, `${money(perDay)} a day`),
+          num: enough ? signed(atEnd) : L(lang, `${covered} ${covered === 1 ? "día" : "días"}`, `${covered} ${covered === 1 ? "day" : "days"}`),
+          say: left <= 0
+            ? L(lang, `Ya no queda para el día a día: faltan ${both(-left)} y quedan ${daysLeft} días del mes.`, `Nothing is left for daily spending: ${both(-left)} short with ${daysLeft} days to go.`)
+            : enough
+              ? L(lang, `Al ritmo de ${money(perDay)} al día, lo que queda alcanza y cierras el mes con ${both(atEnd)}.`, `At ${money(perDay)} a day, what is left lasts and you close the month with ${both(atEnd)}.`)
+              : L(lang, `Al ritmo de ${money(perDay)} al día, lo que queda, ${both(left)}, se acaba el ${fmtDay(runOut)}: ${daysLeft - covered} días antes del cierre.`, `At ${money(perDay)} a day, what is left, ${both(left)}, runs out on ${fmtDay(runOut)}: ${daysLeft - covered} days before month end.`),
+          fill: left <= 0 ? 0 : Math.min(1, covered / daysLeft),
+          topic: "regla-ritmo",
+          go: { kind: "book", section: "variable" },
+          v: { spent, perDay, left, covered, daysLeft, atEnd },
+        });
+      }
     }
   }
 

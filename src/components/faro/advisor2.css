@@ -452,6 +452,16 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 /* 1.3.117 Lo que dicen tus números: the same a2-line rows; the sentence under each row uses the a2-foot type. */
 .a2-rule { cursor: pointer; }
 .a2-rule-say { grid-column: 1 / -1; flex: 1 0 100%; margin: 0; font-size: .82rem; line-height: 1.45; color: var(--muted); font-weight: 400; }
+/* 1.3.248 Tu patrón de mes: the learned curve under the pace rule — a quiet inset
+   panel in the same skin as the rule rows; the line wears the rule's tone colour. */
+.a2-pattern { margin: 0 4px 2px 16px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in oklab, var(--fg) 3%, var(--surface)); }
+.a2-pattern-title { margin: 0 0 6px; font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.a2-pattern svg { display: block; width: 100%; height: auto; }
+.a2-pattern-line { stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.a2-pattern-axis { stroke: var(--line); stroke-width: 1; }
+.a2-pattern-today { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; }
+.a2-pattern-dot { fill: var(--c); }
+.a2-pattern-cap { margin: 6px 0 0; font-size: .82rem; line-height: 1.45; color: var(--muted); }
 .a2-rule .a2-line-amt { display: inline-flex; align-items: center; gap: 6px; }
 .a2-rule .a2-line-amt .ftip { margin: 0; }
 .a2-rule:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }

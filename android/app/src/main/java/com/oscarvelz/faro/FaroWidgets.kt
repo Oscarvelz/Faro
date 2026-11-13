@@ -166,6 +166,9 @@ class Due(val name: String, val kind: String, val on: String, val amt: Long?, va
 class Cat(val name: String, val amt: Long, val prev: Long, val save: Boolean, val go: String)
 /** Una casa para los apuntes rápidos (quickadd.ts quickHomes): ids de Estructura + nombre. */
 class QHome(val c: String, val s: String, val n: String)
+/** El juicio del patrón de ritmo (patron.ts paceReading, calculado por la página; 1.3.248):
+ *  estado, veredicto ("" mientras aprende) y las cifras que la notificación nombra. */
+class Pace(val status: String, val verdict: String, val spent: Long, val expected: Long, val projected: Long, val income: Long)
 class Flow(val label: String, val inn: Long, val out: Long, val key: String = "")
 class Pocket(val name: String, val amt: Long, val go: String)
 
@@ -193,6 +196,9 @@ class Snap(
      *  desde 1.3.241). Una foto vieja no las trae = lista vacía, y la tarjeta alterna entre
      *  las dos monedas del sistema por su cuenta. */
     val curs: List<String> = emptyList(),
+    /** 1.3.248: el bloque del patrón de ritmo. Una foto de una página anterior no lo
+     *  trae = null, y FaroNotify.checkPace conserva su recta como respaldo exacto. */
+    val pace: Pace? = null,
 ) {
     val en get() = lang == "en"
 
@@ -202,7 +208,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
-        qhIn = qhIn, qhOut = qhOut, qpIn = qpIn, qpOut = qpOut, curs = curs,
+        qhIn = qhIn, qhOut = qhOut, qpIn = qpIn, qpOut = qpOut, curs = curs, pace = pace,
     )
 
     companion object {
@@ -229,6 +235,7 @@ class Snap(
             qpIn = arr(o, "qpIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             qpOut = arr(o, "qpOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             curs = (o.optJSONArray("curs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotEmpty() } } } ?: emptyList()),
+            pace = o.optJSONObject("pace")?.let { Pace(it.optString("status"), it.optString("verdict"), it.optLong("spent"), it.optLong("expected"), it.optLong("projected"), it.optLong("income")) },
         )
     }
 }

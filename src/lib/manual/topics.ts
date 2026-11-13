@@ -2278,7 +2278,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Ritmo del mes", "Month's pace"],
         sum: ["Cuántos días te dura lo que queda.", "How many days what is left lasts."],
-        what: ["Tu gasto del día a día de este mes (Variables y Compras hasta hoy) entre los días que van. Con ese ritmo: lo que queda alcanza y cuánto sobra al cierre, o el día en que se acaba.", "Your day-to-day spending this month (Variable and Shopping so far) over the days gone by. At that pace: what is left lasts and how much remains at month end, or the day it runs out."],
+        what: ["Tu gasto del día a día de este mes (Variables y Compras hasta hoy) entre los días que van. Con ese ritmo: lo que queda alcanza y cuánto sobra al cierre, o el día en que se acaba. Con dos meses cerrados o más, la regla deja la recta: Faro aprende tu patrón de tus propios meses y juzga contra él — lo que sueles llevar gastado para esta fecha y el cierre que ese ritmo proyecta. La curva vive en el Asesor, en «Tu patrón de mes».", "Your day-to-day spending this month (Variable and Shopping so far) over the days gone by. At that pace: what is left lasts and how much remains at month end, or the day it runs out. With two or more closed months, the rule drops the straight line: Faro learns your pattern from your own months and judges against it — what you usually have spent by this date and the close that pace projects. The curve lives in the Advisor, under «Your month's pattern»."],
         go: { screen: "advice", anchor: "advice-rules|advice-tower", fold: "rules", where: ["Asesor → Lo que dicen tus números", "Advisor → What your numbers say"] },
       },
       {
