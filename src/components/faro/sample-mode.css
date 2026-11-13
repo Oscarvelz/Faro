@@ -8,12 +8,20 @@
 .smp-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
 /* Battery card (1.3.150): the manual-path notice under the row is a full sentence — it wraps and sits as a block. */
 .batt-note { display: block; margin-top: 8px; }
-/* Widget pins card (1.3.246): the header stacks title over subtitle — as bare siblings
+/* Widget pins (1.3.246): the header stacks title over subtitle — as bare siblings
    they flowed onto one line — and the empty-state line is a block of its own. The pin
    rows themselves ride .manual-row.smp-row, whose third column is auto (a button's
    width), never the 18px chevron column of the plain .manual-row grid. */
-.wpin-head { display: grid; gap: 2px; margin-bottom: 2px; }
-.wpin-head .aj-sub { color: var(--muted); font-size: .84rem; line-height: 1.35; }
+/* Widget card (1.3.250): the two widget windows share ONE card named «Widget». The
+   card head carries only the name; the pins live in their own section under a heading
+   one step below the card title — at the old card-title size (and in the display
+   faces the themes paint card h2s with) «Categorías fijas del widget» ran past the
+   card's right edge, so the section heading is the shorter «Categorías fijadas» in
+   this register, where it fits with margin in both languages at phone width. */
+.wcard-head { margin-bottom: 2px; }
+.wpin-sec { display: grid; gap: 2px; margin-top: 12px; }
+.wpin-h { font-size: .95rem; }
+.wpin-sec .aj-sub { color: var(--muted); font-size: .84rem; line-height: 1.35; }
 .wpin-empty { display: block; margin-top: 6px; color: var(--muted); font-size: .84rem; line-height: 1.35; }
 .smp-acts { display: flex; justify-content: flex-end; margin-top: 4px; }
 .smp-act { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; white-space: nowrap; font-size: .86rem; }

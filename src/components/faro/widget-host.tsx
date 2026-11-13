@@ -2,7 +2,7 @@
  * Faro for Android widgets (1.3.121), the web half. Mounted only inside the Android app (inAndroidApp()); in a browser
  * or the installed PWA nothing here runs and nothing shows.
  * - Feeds the widgets: a privacy-safe snapshot (lib/faro/widget.ts) goes to FaroNative.setWidgetData whenever the
- *   ledger changes (debounced), when Faro opens, when it goes to the background, and when "Widget: ocultar montos" or
+ *   ledger changes (debounced), when Faro opens, when it goes to the background, and when "Widget → Ocultar montos" or
  *   the fingerprint lock changes. Sample mode never feeds them (the widget keeps the real books).
  *   1.3.235: the feed ALSO pushes on every foreground (visible again / the shell's onResume signal / focus),
  *   whether or not anything changed — a session that merely resumes the page can no longer leave the
@@ -23,7 +23,7 @@ import { EyeOff, Pin } from "lucide-react";
 import { useFaro, useFaroRoot } from "./provider";
 import { Hint } from "./hint";
 import { preferOweTab } from "./debts";
-import { native } from "@/spa/native";
+import { inAndroidApp, native } from "@/spa/native";
 import { lastUser } from "@/spa/cloud";
 import { lockCredential } from "@/spa/lock";
 import { personalGet, sampleOn } from "@/lib/faro/samplemode";
@@ -214,48 +214,30 @@ export default function WidgetHost() {
 }
 
 /**
- * Ajustes → «Categorías fijas del widget» (1.3.246): la lista de gestión de las fijas.
+ * Ajustes → «Widget» (1.3.250; Oscar, 2026-11-13 16:36 EST): UNA sola tarjeta con las
+ * dos ventanas del widget juntas — antes eran dos tarjetas sueltas («Widget: ocultar
+ * montos» y «Categorías fijas del widget»). Dentro, en el orden en que ya se apilaban:
+ * primero el interruptor de ocultar montos (dato local del equipo, solo dentro de la
+ * app Android — fuera de ella la sección simplemente no se pinta, como siempre) y
+ * debajo la gestión de las fijas (dato del libro, por el camino normal de commit).
+ * Ningún control cambia de comportamiento ni de almacén; lo que cambia es la casa.
+ *
  * Las fijas NACEN en Estructura (el editor de cada categoría/sub las prepara y Guardar
  * las confirma); aquí se ven todas — con el signo que sus recibos les derivan — y se
- * desfijan por el camino normal de commit (desfijar no borra nada: la categoría y su
- * dinero quedan intactos, y su asiento de hábito puede volver solo). Sin fijas, la
- * tarjeta dice dónde nacen: lo que no se anuncia no existe (su principio del usuario
- * frío). No se limita a la app Android: las fijas son dato del libro y viajan con él.
+ * desfijan (desfijar no borra nada: la categoría y su dinero quedan intactos, y su
+ * asiento de hábito puede volver solo). Sin fijas, la sección dice dónde nacen: lo que
+ * no se anuncia no existe (su principio del usuario frío).
+ *
+ * La cara de la sección de fijas (su orden, foto 234809): el título de 1.3.246,
+ * «CATEGORÍAS FIJAS DEL WIDGET», se salía por el borde derecho de la tarjeta en la
+ * letra de exhibición de los temas — la T final quedaba cortada contra el marco. La
+ * palabra se adapta, el diseño no se estira: dentro de una tarjeta que ya se llama
+ * «Widget», el encabezado de sección dice «Categorías fijadas» / "Pinned categories",
+ * en el registro de sección (un paso bajo el título de la tarjeta), y cabe con margen
+ * en ambos idiomas al ancho del teléfono.
  */
-export function WidgetPinsCard() {
+export function WidgetCard() {
   const { t, session, commit, names } = useFaro();
-  const ledger = session?.ledger ?? null;
-  if (!ledger) return null;
-  const pins = ledger.settings.widgetPins ?? [];
-  const label = (p: WidgetPin) => (p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c)) || p.c;
-  const signWord = (p: WidgetPin) => {
-    const signs = pinSigns(ledger, p);
-    return signs.length === 2 ? t("widget.pin.signboth") : signs[0] === "in" ? t("widget.pin.signin") : t("widget.pin.signout");
-  };
-  return (
-    <section className="card manual-card aj-card smp-card" data-anchor="aj-widgetpins">
-      <div className="smp-in">
-        <div className="wpin-head">
-          <div className="fold-title aj-title"><h2 className="serif">{t("settings.widgetpins")}</h2></div>
-          <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
-        </div>
-        {pins.length ? pins.map((p) => (
-          <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
-            <Pin aria-hidden />
-            <span className="manual-row-text">
-              <strong>{label(p)}</strong>
-              <span>{signWord(p)}</span>
-            </span>
-            <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
-          </div>
-        )) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
-      </div>
-    </section>
-  );
-}
-
-/** Ajustes → "Widget: ocultar montos" (only inside the Android app). The same row and switch as Datos de ejemplo. */
-export function WidgetRow() {
   const { lang } = useFaroRoot();
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const [pref, setPref] = useState<string | null>(hidePref);
@@ -266,18 +248,49 @@ export function WidgetRow() {
     setPref(next);
     window.dispatchEvent(new Event(WIDGET_REFRESH));
   };
+  const android = inAndroidApp();
+  const ledger = session?.ledger ?? null;
+  if (!android && !ledger) return null;
+  const pins = ledger?.settings.widgetPins ?? [];
+  const label = (p: WidgetPin) => (p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c)) || p.c;
+  const signWord = (p: WidgetPin) => {
+    if (!ledger) return "";
+    const signs = pinSigns(ledger, p);
+    return signs.length === 2 ? t("widget.pin.signboth") : signs[0] === "in" ? t("widget.pin.signin") : t("widget.pin.signout");
+  };
   return (
     <section className="card manual-card aj-card smp-card" data-anchor="aj-widget">
       <div className="smp-in">
-        <div role="switch" tabIndex={0} aria-checked={on} className="manual-row aj-row smp-row" onClick={flip}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } }}>
-          <EyeOff aria-hidden />
-          <span className="manual-row-text">
-            <div className="fold-title aj-title"><h2 className="serif">{L("Widget: ocultar montos", "Widget: hide amounts")}</h2><Hint topic="widget-android" /></div>
-            <span className="aj-sub">{on ? L("Puntos en la pantalla de inicio", "Dots on the home screen") : L("Montos a la vista en el widget", "Amounts shown on the widget")}</span>
-          </span>
-          <i className="smp-switch" aria-hidden><b /></i>
-        </div>
+        <div className="fold-title aj-title wcard-head"><h2 className="serif">Widget</h2></div>
+        {android ? (
+          <div role="switch" tabIndex={0} aria-checked={on} className="manual-row aj-row smp-row" onClick={flip}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } }}>
+            <EyeOff aria-hidden />
+            <span className="manual-row-text">
+              <div className="fold-title aj-title"><strong>{L("Ocultar montos", "Hide amounts")}</strong><Hint topic="widget-android" /></div>
+              <span className="aj-sub">{on ? L("Puntos en la pantalla de inicio", "Dots on the home screen") : L("Montos a la vista en el widget", "Amounts shown on the widget")}</span>
+            </span>
+            <i className="smp-switch" aria-hidden><b /></i>
+          </div>
+        ) : null}
+        {ledger ? (
+          <>
+            <div className="wpin-sec">
+              <div className="fold-title aj-title"><h2 className="serif wpin-h">{t("settings.widgetpins")}</h2></div>
+              <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
+            </div>
+            {pins.length ? pins.map((p) => (
+              <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
+                <Pin aria-hidden />
+                <span className="manual-row-text">
+                  <strong>{label(p)}</strong>
+                  <span>{signWord(p)}</span>
+                </span>
+                <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
+              </div>
+            )) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
+          </>
+        ) : null}
       </div>
     </section>
   );

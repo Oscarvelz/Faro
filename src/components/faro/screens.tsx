@@ -21,7 +21,7 @@ import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
-import { WidgetPinsCard, WidgetRow } from "./widget-host";
+import { WidgetCard } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
 import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, replaceCandidates, replaceCatalogItem, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type ReplaceTarget, type SubLinesSummary } from "@/lib/faro/defaults";
 import { hasWidgetPin, toggleWidgetPin } from "@/lib/faro/quickadd";
@@ -4729,8 +4729,7 @@ export function Settings() {
           </button>
         </section>
       ) : null}
-      {inAndroidApp() ? <WidgetRow /> : null}
-      <WidgetPinsCard />
+      <WidgetCard />
       <NotifyRow />
       <BatteryRow />
       <SampleRow />
