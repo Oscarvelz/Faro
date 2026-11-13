@@ -68,6 +68,30 @@ object QuickAdd {
         if (raw.isNotBlank()) prefs.edit().remove(KEY).apply()
         return raw
     }
+
+    /** La cola como texto SIN vaciarla (entrega en dos fases, 1.3.234): la página primero
+     *  mira, archiva en el libro y después confirma con ack los ids que archivó. */
+    fun peek(ctx: Context): String =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "") ?: ""
+
+    /** Quita de la cola SOLO los ids confirmados (un JSON array de ids); todo lo demás —
+     *  incluido lo que la página no pudo archivar — se queda esperando. Nada se pierde. */
+    fun ack(ctx: Context, idsJson: String) {
+        val ids = runCatching {
+            val a = JSONArray(idsJson)
+            (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotEmpty() } }.toSet()
+        }.getOrDefault(emptySet())
+        if (ids.isEmpty()) return
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val arr = runCatching { JSONArray(prefs.getString(KEY, "[]") ?: "[]") }.getOrDefault(JSONArray())
+        val kept = JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i)
+            if (o == null || o.optString("id") !in ids) kept.put(arr.opt(i))
+        }
+        if (kept.length() == 0) prefs.edit().remove(KEY).apply()
+        else prefs.edit().putString(KEY, kept.toString()).apply()
+    }
 }
 
 class QuickAddActivity : Activity() {
@@ -149,6 +173,20 @@ class QuickAddActivity : Activity() {
             setTextColor(Color.rgb(154, 163, 173))
             setPadding(0, dp(10), 0, 0)
         })
+
+        // Foto vieja (1.3.234): una foto escrita por una página anterior a los apuntes con casa
+        // no trae las casas (Snap.stale) y la tarjeta no puede inventarlas — el apunte igual se
+        // guarda (cae sin categoría), pero la tarjeta lo DICE y dice cómo se cura: abrir Faro
+        // una vez renueva la foto y las casas aparecen. Sin esta línea, la primera tarjeta tras
+        // una actualización parecía no tener categorías, sin más explicación.
+        if (snap.stale) {
+            card.addView(TextView(this).apply {
+                text = if (en) "Open Faro once to enable your categories." else "Abre Faro una vez para activar tus categorías."
+                textSize = 13f
+                setTextColor(Color.rgb(232, 184, 96))
+                setPadding(0, dp(8), 0, 0)
+            })
+        }
 
         // La casa del apunte (2026-11-12): las que la foto trae para este signo — las que ya lo
         // reciben, en orden de uso. Sin casas (libro nuevo) la tarjeta queda como nació: el

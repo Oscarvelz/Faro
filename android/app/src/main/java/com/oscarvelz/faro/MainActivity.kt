@@ -194,6 +194,13 @@ class MainActivity : Activity() {
             prefs.edit().putBoolean("notifyAsked", true).apply()
             runCatching { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 11) }
         }
+        // 1.3.234: el primer arranque de un shell nuevo re-dibuja TODOS los widgets con los
+        // intents de este código. Tras una actualización, la única curación era el broadcast
+        // MY_PACKAGE_REPLACED (BootReceiver): si esa entrega se pierde o llega tarde, una
+        // instancia se quedaba con las vistas del shell anterior — su − seguía abriendo la app
+        // en vez de levantar la tarjeta. Esto corre siempre al crear la actividad y es
+        // idempotente: abrir Faro una vez deja cada instancia con los botones de su versión.
+        runCatching { FaroWidgets.refreshAll(applicationContext) }
         if (state != null) web.restoreState(state) else web.loadUrl(home)
         checkUpdate()
     }
@@ -624,6 +631,20 @@ class MainActivity : Activity() {
             return QuickAdd.drain(applicationContext)
         }
 
+        /** 1.3.234: la entrega en dos fases de la misma cola. peek mira SIN vaciar — si la
+         *  página muere antes de archivar, la cola sigue ahí y ningún apunte se pierde; ack
+         *  retira solo los ids que la página confirma archivados. takeQuickEntries queda para
+         *  las páginas 1.3.233, que recogen en una sola vez como siempre. */
+        @JavascriptInterface fun peekQuickEntries(): String {
+            if (!trusted) return ""
+            return QuickAdd.peek(applicationContext)
+        }
+
+        @JavascriptInterface fun ackQuickEntries(idsJson: String) {
+            if (!trusted) return
+            QuickAdd.ack(applicationContext, idsJson)
+        }
+
         @JavascriptInterface fun sharedClear() {
             if (!trusted) return
             synchronized(shared) { shared.forEach { it.file.delete() }; shared.clear() }
@@ -771,6 +792,16 @@ class MainActivity : Activity() {
         val go = i.getStringExtra(FaroWidgets.EXTRA_GO)?.takeIf { Regex("^[a-z-]{2,24}$").matches(it) } ?: return false
         widgetGo = go
         return true
+    }
+
+    /** 1.3.234: volver a la app despierta a la página con nombre propio. La recogida de los
+     *  apuntes rápidos dependía solo de los eventos de foco/visibilidad del WebView al resumir
+     *  una página ya montada — un camino que el shell no controla y que puede no surfacear
+     *  nada (actividad pausada sin detenerse, multi-ventana). Con esta señal, regresar a Faro
+     *  recoge la cola siempre; recoger dos veces no duplica (el id del apunte es el de la línea). */
+    override fun onResume() {
+        super.onResume()
+        if (pageReady) dispatch("dispatchEvent(new Event('faronative-resume'))")
     }
 
     override fun onPause() {

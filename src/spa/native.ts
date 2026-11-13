@@ -44,6 +44,12 @@ export type FaroNativeBridge = {
   /** Apuntes rápidos del widget (línea de ventanas, 2026-11-12): la cola que los botones + / −
    *  del widget llenan sin abrir la app; la página la recoge (y el shell la vacía) al abrir. */
   takeQuickEntries?(): string;
+  /** 1.3.234: la entrega en dos fases de la misma cola — peek mira SIN vaciar el shell y ack
+   *  retira solo los ids ya archivados en el libro, así una página que muere entre la lectura y
+   *  el archivo no pierde ningún apunte. Ausentes en shells anteriores a 1.3.234: la página cae
+   *  a takeQuickEntries, como en 1.3.233. */
+  peekQuickEntries?(): string;
+  ackQuickEntries?(idsJson: string): void;
   /** 1.3.148: the Ajustes → Avisos row — the phone's real notification-permission state, and re-asking for it. */
   notifyState?(): string;
   requestNotify?(): void;

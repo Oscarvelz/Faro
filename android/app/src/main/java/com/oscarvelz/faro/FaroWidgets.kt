@@ -179,6 +179,11 @@ class Snap(
     /** Apuntes rápidos: las casas que la tarjeta ofrece por signo; fotos viejas no las traen = ninguna. */
     val qhIn: List<QHome> = emptyList(),
     val qhOut: List<QHome> = emptyList(),
+    /** 1.3.234: la foto es VIEJA si la escribió una página anterior a las casas (no trae la
+     *  clave qhIn): sus listas vacías no significan «libro sin casas» sino «foto sin renovar»,
+     *  y la tarjeta rápida lo dice en vez de callarlo. Una foto nueva con las listas vacías
+     *  (libro nuevo) NO es vieja: trae las claves, aunque vengan vacías. */
+    val stale: Boolean = false,
 ) {
     val en get() = lang == "en"
 
@@ -188,7 +193,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
-        qhIn = qhIn, qhOut = qhOut,
+        qhIn = qhIn, qhOut = qhOut, stale = stale,
     )
 
     companion object {
@@ -212,6 +217,7 @@ class Snap(
             flow = arr(o, "flow").map { Flow(it.optString("label"), it.optLong("inn"), it.optLong("out"), it.optString("key")) },
             qhIn = arr(o, "qhIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             qhOut = arr(o, "qhOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
+            stale = !o.has("qhIn"),
         )
     }
 }

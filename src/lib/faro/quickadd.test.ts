@@ -126,4 +126,34 @@ describe("apuntes rápidos del widget", () => {
     assert.match(quick, /FaroWidgets\.load\(this\)/);
     assert.ok(!quick.includes("faro_ledgers") && !quick.includes("supabase"), "la tarjeta no toca el libro ni la red");
   });
+
+  it("el shell 1.3.234: entrega en dos fases, señal de regreso, widgets que se curan y foto vieja honesta", () => {
+    const root = process.cwd();
+    const widgets = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/FaroWidgets.kt"), "utf8");
+    const main = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/MainActivity.kt"), "utf8");
+    const quick = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/QuickAdd.kt"), "utf8");
+    const host = fs.readFileSync(path.join(root, "src/components/faro/widget-host.tsx"), "utf8");
+    // Dos fases: peek mira sin vaciar y ack retira solo los ids archivados; el drain de
+    // 1.3.233 queda intacto para las páginas que recogen en una sola vez.
+    assert.match(main, /fun peekQuickEntries\(\): String/);
+    assert.match(main, /fun ackQuickEntries\(idsJson: String\)/);
+    assert.match(quick, /fun peek\(ctx: Context\): String/);
+    assert.match(quick, /fun ack\(ctx: Context, idsJson: String\)/);
+    assert.match(quick, /fun drain\(ctx: Context\): String/);
+    // La página prefiere la entrega en dos fases y cae a la de una vez en shells viejos.
+    assert.match(host, /n\.peekQuickEntries && n\.ackQuickEntries/);
+    assert.match(host, /n\.takeQuickEntries\?\.\(\)/);
+    // El regreso a la app tiene señal propia (onResume) y la página la escucha.
+    assert.match(main, /override fun onResume\(\)/);
+    assert.match(main, /faronative-resume/);
+    assert.match(host, /addEventListener\("faronative-resume", drain\)/);
+    // Al arrancar, el shell re-dibuja los widgets: ninguna instancia conserva botones de
+    // un shell anterior tras abrir la app una vez.
+    assert.match(main, /FaroWidgets\.refreshAll\(applicationContext\)/);
+    // Foto vieja: se detecta por la clave qhIn ausente y la tarjeta lo dice en voz alta.
+    assert.match(widgets, /stale = !o\.has\("qhIn"\)/);
+    assert.match(quick, /snap\.stale/);
+    assert.match(quick, /activar tus categorías/);
+    assert.match(quick, /enable your categories/);
+  });
 });

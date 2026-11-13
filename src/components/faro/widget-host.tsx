@@ -18,7 +18,7 @@ import { lockCredential } from "@/spa/lock";
 import { sampleOn } from "@/lib/faro/samplemode";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, widgetHide, WIDGET_HIDE_KEY, type WidgetGo } from "@/lib/faro/widget";
-import { ingestQuick, parseQuickEntries } from "@/lib/faro/quickadd";
+import { ingestQuick, parseQuickEntries, type QuickEntry } from "@/lib/faro/quickadd";
 import type { GoLike } from "@/lib/manual/places";
 import "./sample-mode.css";
 
@@ -134,21 +134,40 @@ export default function WidgetHost() {
   useEffect(() => {
     const n = native();
     if (!n?.takeQuickEntries || !hasSession) return;
+    const file = (raw: string): QuickEntry[] => {
+      const entries = parseQuickEntries(raw);
+      if (!entries.length) return entries;
+      commit((s) => ingestQuick(s, entries, lang), lang === "en" ? "Widget quick entry" : "Apunte rápido del widget");
+      return entries;
+    };
     const drain = () => {
       if (sampleOn()) return;
-      let raw = "";
-      try { raw = n.takeQuickEntries?.() ?? ""; } catch { raw = ""; }
-      const entries = parseQuickEntries(raw);
-      if (!entries.length) return;
-      commit((s) => ingestQuick(s, entries, lang), lang === "en" ? "Widget quick entry" : "Apunte rápido del widget");
+      try {
+        if (n.peekQuickEntries && n.ackQuickEntries) {
+          // Entrega en dos fases (1.3.234): se mira la cola SIN vaciarla, se archiva en el
+          // libro y solo entonces el shell retira los ids archivados. Si la página muere
+          // entre la lectura y el archivo, los apuntes siguen en la cola y se recogen a la
+          // próxima (recoger dos veces no duplica: el id del apunte es el de la línea).
+          // Lo que el parseo descarta por mal formado NUNCA se confirma: no se pierde.
+          const filed = file(n.peekQuickEntries() ?? "");
+          if (filed.length) n.ackQuickEntries(JSON.stringify(filed.map((e) => e.id)));
+        } else {
+          // Shelles anteriores a 1.3.234: la recogida de siempre, en una sola vez.
+          file(n.takeQuickEntries?.() ?? "");
+        }
+      } catch { /* la cola espera a la próxima recogida */ }
     };
     drain();
     const onVis = () => { if (document.visibilityState === "visible") drain(); };
     window.addEventListener("faronative-open", drain);
+    // 1.3.234: el shell avisa al volver a la app (onResume) — la recogida ya no depende solo
+    // de que el WebView surfacee foco/visibilidad al resumir una página que nunca se recargó.
+    window.addEventListener("faronative-resume", drain);
     window.addEventListener("focus", drain);
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("faronative-open", drain);
+      window.removeEventListener("faronative-resume", drain);
       window.removeEventListener("focus", drain);
       document.removeEventListener("visibilitychange", onVis);
     };
