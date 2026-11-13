@@ -125,6 +125,10 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+        <!-- The widgets' quick note (línea de ventanas, 2026-11-12): the + / − card. Not exported —
+             only the widgets' own PendingIntents can raise it; it never lingers in recents/history. -->
+        <activity android:name=".QuickAddActivity" android:exported="false" android:theme="@style/FaroQuickAdd"
+            android:excludeFromRecents="true" android:noHistory="true" android:windowSoftInputMode="stateVisible" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.oscarvelz.faro.files"

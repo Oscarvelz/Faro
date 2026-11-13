@@ -101,6 +101,15 @@ object FaroWidgets {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         return PendingIntent.getActivity(ctx, go.hashCode(), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
+
+    /** Los + / − del widget (línea de ventanas, 2026-11-12): ya no abren la app — levantan la
+     *  tarjeta rápida del shell (QuickAddActivity), donde el apunte se escribe sin abrir Faro. */
+    fun quickIntent(ctx: Context, sign: String): PendingIntent {
+        val i = Intent(ctx, QuickAddActivity::class.java).putExtra(QuickAdd.EXTRA_SIGN, sign)
+            .setData(Uri.parse("faro-widget://quick/$sign"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(ctx, sign.hashCode(), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
 }
 
 /**
@@ -155,6 +164,8 @@ object WidgetCfg {
 
 class Due(val name: String, val kind: String, val on: String, val amt: Long?, val go: String)
 class Cat(val name: String, val amt: Long, val prev: Long, val save: Boolean, val go: String)
+/** Una casa para los apuntes rápidos (quickadd.ts quickHomes): ids de Estructura + nombre. */
+class QHome(val c: String, val s: String, val n: String)
 class Flow(val label: String, val inn: Long, val out: Long, val key: String = "")
 class Pocket(val name: String, val amt: Long, val go: String)
 
@@ -165,6 +176,9 @@ class Snap(
     val owed: Long, val owe: Long, val dues: List<Due>, val cats: List<Cat>, val flow: List<Flow>,
     /** 1.3.148: the user's Avisos switch (Ajustes); snapshots from older web builds don't carry it = on. */
     val notify: Boolean = true,
+    /** Apuntes rápidos: las casas que la tarjeta ofrece por signo; fotos viejas no las traen = ninguna. */
+    val qhIn: List<QHome> = emptyList(),
+    val qhOut: List<QHome> = emptyList(),
 ) {
     val en get() = lang == "en"
 
@@ -174,6 +188,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
+        qhIn = qhIn, qhOut = qhOut,
     )
 
     companion object {
@@ -195,6 +210,8 @@ class Snap(
             dues = arr(o, "dues").map { Due(it.optString("name"), it.optString("kind"), it.optString("on"), if (it.isNull("amt")) null else it.optLong("amt"), it.optString("go", "pagos")) },
             cats = arr(o, "cats").map { Cat(it.optString("name"), it.optLong("amt"), it.optLong("prev"), it.optBoolean("save"), it.optString("go", "desk")) },
             flow = arr(o, "flow").map { Flow(it.optString("label"), it.optLong("inn"), it.optLong("out"), it.optString("key")) },
+            qhIn = arr(o, "qhIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
+            qhOut = arr(o, "qhOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
         )
     }
 }
@@ -363,8 +380,8 @@ object Render {
         v.setProgressBar(R.id.w_bar, 1000, used, false)
         v.setContentDescription(R.id.w_hero_box, L(s, "Queda ", "Left ") + money(s, s.left))
         v.setOnClickPendingIntent(R.id.w_hero_box, FaroWidgets.openIntent(ctx, "desk"))
-        v.setOnClickPendingIntent(R.id.w_add_in, FaroWidgets.openIntent(ctx, "add-in"))
-        v.setOnClickPendingIntent(R.id.w_add_out, FaroWidgets.openIntent(ctx, "add-out"))
+        v.setOnClickPendingIntent(R.id.w_add_in, FaroWidgets.quickIntent(ctx, "in"))
+        v.setOnClickPendingIntent(R.id.w_add_out, FaroWidgets.quickIntent(ctx, "out"))
         v.setOnClickPendingIntent(R.id.w_lamp, FaroWidgets.openIntent(ctx, "desk"))
     }
 
@@ -457,7 +474,7 @@ object Render {
         v.setTextViewText(R.id.w_left, money(s, s.left))
         v.setTextColor(R.id.w_left, ctx.getColor(if (s.left < 0 && !s.hide) R.color.w_orange else R.color.w_ink))
         v.setOnClickPendingIntent(R.id.w_hero_box, FaroWidgets.openIntent(ctx, "desk"))
-        v.setOnClickPendingIntent(R.id.w_add_out, FaroWidgets.openIntent(ctx, "add-out"))
+        v.setOnClickPendingIntent(R.id.w_add_out, FaroWidgets.quickIntent(ctx, "out"))
         pay(ctx, v, s, withAmount = false)
         return v
     }

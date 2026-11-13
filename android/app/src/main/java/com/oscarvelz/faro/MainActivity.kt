@@ -617,6 +617,13 @@ class MainActivity : Activity() {
             return g
         }
 
+        /** Apuntes rápidos del widget (línea de ventanas, 2026-11-12): la cola que los + / − del
+         *  widget llenaron sin abrir la app; la página la recoge una vez ("" cuando está vacía). */
+        @JavascriptInterface fun takeQuickEntries(): String {
+            if (!trusted) return ""
+            return QuickAdd.drain(applicationContext)
+        }
+
         @JavascriptInterface fun sharedClear() {
             if (!trusted) return
             synchronized(shared) { shared.forEach { it.file.delete() }; shared.clear() }

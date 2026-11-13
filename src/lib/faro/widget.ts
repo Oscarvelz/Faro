@@ -12,6 +12,7 @@
  *   spending by category is Estudio's categorySlices().
  */
 import { categorySlices, summarize } from "./engine";
+import { quickHomes, type QuickHome } from "./quickadd";
 import { savingsStock } from "./savings";
 import { duesWindow } from "./dues";
 import { makeNamer } from "./defaults";
@@ -70,6 +71,10 @@ export type WidgetSnapshot = {
   cats: WidgetCat[];
   /** Tengo vs Gastaré for the last six months, this month last. */
   flow: WidgetFlow[];
+  /** Apuntes rápidos: las casas que la tarjeta + / − ofrece para cada signo (quickadd.ts).
+   *  Solo nombres e ids — la foto sigue sin llevar montos por línea ni notas. */
+  qhIn: QuickHome[];
+  qhOut: QuickHome[];
 };
 
 const SAVINGS = "savings";
@@ -235,6 +240,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     dues: dues.slice(0, 8),
     cats,
     flow,
+    ...(() => { const qh = quickHomes(state, key, lang); return { qhIn: qh.inn, qhOut: qh.out }; })(),
   };
 }
 

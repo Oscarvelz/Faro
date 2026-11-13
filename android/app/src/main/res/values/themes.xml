@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The widgets' quick-note card (QuickAddActivity): a small dialog window over the launcher,
+         transparent around the card the activity draws itself. -->
+    <style name="FaroQuickAdd" parent="@android:style/Theme.Material.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
     <style name="Faro" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/faro_night</item>
         <item name="android:statusBarColor">@android:color/transparent</item>

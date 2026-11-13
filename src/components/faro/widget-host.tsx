@@ -18,6 +18,7 @@ import { lockCredential } from "@/spa/lock";
 import { sampleOn } from "@/lib/faro/samplemode";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, widgetHide, WIDGET_HIDE_KEY, type WidgetGo } from "@/lib/faro/widget";
+import { ingestQuick, parseQuickEntries } from "@/lib/faro/quickadd";
 import type { GoLike } from "@/lib/manual/places";
 import "./sample-mode.css";
 
@@ -68,7 +69,7 @@ function pressCorner(anchor: "desk-plus" | "desk-minus") {
 }
 
 export default function WidgetHost() {
-  const { session, lang, goTopic } = useFaroRoot();
+  const { session, lang, goTopic, commit } = useFaroRoot();
   const ledger = session?.ledger ?? null;
   const live = useRef({ ledger, lang });
   live.current = { ledger, lang };
@@ -125,6 +126,33 @@ export default function WidgetHost() {
     window.addEventListener("faronative-open", take);
     return () => window.removeEventListener("faronative-open", take);
   }, [hasSession, goTopic]);
+
+  // Apuntes rápidos del widget (línea de ventanas, 2026-11-12): los + / − ya no abren la app —
+  // el shell guarda cada apunte en su cola y aquí se archivan en el libro por el camino normal
+  // (commit, con Deshacer y sincronía). En modo de ejemplo NO se recoge: la cola espera al libro
+  // real, como la foto del widget. Recoger es idempotente (el id del apunte es el de la línea).
+  useEffect(() => {
+    const n = native();
+    if (!n?.takeQuickEntries || !hasSession) return;
+    const drain = () => {
+      if (sampleOn()) return;
+      let raw = "";
+      try { raw = n.takeQuickEntries?.() ?? ""; } catch { raw = ""; }
+      const entries = parseQuickEntries(raw);
+      if (!entries.length) return;
+      commit((s) => ingestQuick(s, entries, lang), lang === "en" ? "Widget quick entry" : "Apunte rápido del widget");
+    };
+    drain();
+    const onVis = () => { if (document.visibilityState === "visible") drain(); };
+    window.addEventListener("faronative-open", drain);
+    window.addEventListener("focus", drain);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("faronative-open", drain);
+      window.removeEventListener("focus", drain);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [hasSession, commit, lang]);
 
   return null;
 }
