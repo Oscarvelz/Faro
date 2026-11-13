@@ -85,7 +85,7 @@ export function quickHomes(state: LedgerState, key: string, lang: Lang): { inn: 
     const yy = y + Math.floor((m - 1 - back) / 12);
     const k = `${yy}-${String(mm).padStart(2, "0")}`;
     for (const l of state.months[k]?.lines ?? []) {
-      if (!l.subId || l.xfer) continue;
+      if (!l.subId || l.xfer || l.rest) continue;
       const sign = l.kind.startsWith("income") ? "in" : l.kind.startsWith("expense") ? "out" : null;
       if (!sign) continue;
       const id = `${sign}|${l.categoryId}|${l.subId}`;

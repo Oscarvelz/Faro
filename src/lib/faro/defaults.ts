@@ -866,6 +866,10 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   if (!isFinD(set.rateE4)) return false;
   // audit e imports: si están, tienen que tener su forma (su ausencia es forma vieja, válida).
   if (s.audit !== undefined && !Array.isArray(s.audit)) return false;
+  // restingSpans (el descanso, descanso.ts): si está, es una lista — las entradas se leen con
+  // desconfianza en spansOf, así que aquí no se exige más forma y un registro dañado jamás
+  // manda el libro entero a cuarentena.
+  if (s.restingSpans !== undefined && !Array.isArray(s.restingSpans)) return false;
   if (s.imports !== undefined) {
     if (!isObjD(s.imports)) return false;
     if (!Array.isArray(s.imports.sources) || !Array.isArray(s.imports.rules) || !isObjD(s.imports.maps)) return false;

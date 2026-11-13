@@ -71,6 +71,8 @@ export function searchLedger(state: LedgerState, query: string, lang: Lang, name
   const hits: Hit[] = [];
   for (const [monthKey, bucket] of Object.entries(state.months)) {
     for (const line of bucket.lines) {
+      // La puerta anti-fuga (descanso.ts): la búsqueda jamás presenta una línea apartada.
+      if (line.rest) continue;
       // 1.3.118: a Remesas line also answers to its recipient's name.
       const to = recipientName(state, line);
       const hay = `${lineLabel(line, names, lang)} ${formatMoney(line.amountMinor, line.currency, lang)} ${line.kind} ${to}`

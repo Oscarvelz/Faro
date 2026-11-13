@@ -182,6 +182,22 @@ export function dropCard(state: LedgerState, id: string, today = todayIso()): Le
   return { ...state, cards, ...(cardsOff ? { cardsOff } : {}) };
 }
 
+/**
+ * ONE card back from its archive (el Archivo universal): the same per-card transform
+ * restorePresets applies to every preset at once — `archived` cleared — and, for a preset,
+ * its id leaves `cardsOff` (only its own; restorePresets clears the whole list because it
+ * brings them all back). An archived user card had no other door back: the Tarjetas group
+ * never lists it. Same item, two doors — the transform is the area's own.
+ */
+export function restoreCard(state: LedgerState, id: string): LedgerState {
+  const stored = storedCards(state);
+  const card = stored.find((c) => c.id === id);
+  if (!card || !card.archived) return state;
+  const cards = stored.map((c) => (c.id === id ? { ...c, archived: undefined, archivedOn: undefined } : c));
+  const cardsOff = card.preset ? (state.cardsOff ?? []).filter((p) => p !== card.preset) : state.cardsOff;
+  return { ...state, cards: cards.map(normalizeCard), ...(cardsOff ? { cardsOff } : {}) };
+}
+
 /** "Empezar de cero": every preset off in one step (their history archived, restorable). User cards stay. */
 export function dropPresets(state: LedgerState, today = todayIso()): LedgerState {
   return cardsOf(state).filter((c) => c.preset).reduce((s, c) => dropCard(s, c.id, today), state);

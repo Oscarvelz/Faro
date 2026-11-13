@@ -1,0 +1,312 @@
+/* El envoltorio del Historial y el Archivo, tema por tema (brief 2026-11-12,
+   «The polish, theme by theme» + los pulidos especiales de Tron y Cyberpunk).
+   Una gramática, dieciocho materiales: la estructura del río no cambia — lo que
+   cambia es el material por el que corre. Las placas de procedencia son colores-
+   DATO (la placa emite su lavado y su tinta en línea) y aquí no se retiñen: se
+   enmarcan, se atenúan o se dejan en paz según el tema. Las cifras jamás llevan
+   luz, niebla ni animación en ningún tema: el suelo de contraste es ley.
+   Este archivo se importa justo después de historial.css en historial.tsx y en
+   archivo.tsx — el mismo camino de carga, para que sus reglas ganen por orden. */
+
+/* ================= Los días: el río sobre papel ================= */
+
+/* El borde dorado de la casa (la familia .own-line de los temas de día,
+   styles.css): el bloque que va primero en el río — el día más reciente, el
+   período vivo — lo lleva en los seis días. */
+[data-theme="claro"] .hist-days .hist-day:first-child,
+[data-theme="lino"] .hist-days .hist-day:first-child,
+[data-theme="costa"] .hist-days .hist-day:first-child,
+[data-theme="marfil"] .hist-days .hist-day:first-child,
+[data-theme="niebla"] .hist-days .hist-day:first-child,
+[data-theme="piedra"] .hist-days .hist-day:first-child {
+  border-color: #c9a15a;
+  background-image: linear-gradient(180deg, #fffdf8 0%, color-mix(in oklab, #f3e2bc 52%, var(--surface)) 100%);
+}
+
+/* Lino: la etiqueta cosida — el encabezado de cada día se cose al bloque con un
+   pespunte de su terracota, y los bordes se ablandan como tela. */
+[data-theme="lino"] .hist-day-head {
+  border-bottom: 1px dashed color-mix(in oklab, var(--accent) 42%, var(--line));
+  padding-bottom: 4px;
+}
+[data-theme="lino"] .hist-day, [data-theme="lino"] .arch-card { border-radius: 22px; }
+
+/* Costa: las líneas de marea — filetes teñidos de su teal separan los días, y la
+   cabecera de totales es la orilla donde se junta la cuenta del agua. */
+[data-theme="costa"] .hist-day { border-color: color-mix(in oklab, var(--accent) 26%, var(--line)); }
+[data-theme="costa"] .hist-totals { border-color: color-mix(in oklab, var(--accent) 36%, var(--line)); }
+
+/* Marfil: el cuaderno quieto — bordes suaves, filetes casi en voz baja; el único
+   drama lo guardan las cifras. */
+[data-theme="marfil"] .hist-day, [data-theme="marfil"] .arch-card {
+  border-radius: 22px;
+  border-color: color-mix(in oklab, var(--line) 72%, transparent);
+}
+
+/* Niebla: la distancia misma informa — los días viejos se retiran (encabezados y
+   filetes en niebla; las CIFRAS jamás), hoy queda nítido. */
+[data-theme="niebla"] .hist-days .hist-day:not(:first-child) .hist-day-head { color: var(--faint); }
+[data-theme="niebla"] .hist-days .hist-day:not(:first-child) .hist-row + .hist-row {
+  border-top-color: color-mix(in oklab, var(--line) 48%, transparent);
+}
+
+/* Piedra: el río tallado — filetes fuertes, como totales grabados. El Archivo es
+   la bóveda de piedra: la puerta escrita se siente en casa. */
+[data-theme="piedra"] .hist-day, [data-theme="piedra"] .arch-card {
+  border-color: color-mix(in oklab, var(--fg) 26%, var(--line));
+}
+[data-theme="piedra"] .hist-row + .hist-row, [data-theme="piedra"] .arch-lines {
+  border-top-color: color-mix(in oklab, var(--fg) 20%, var(--line));
+}
+
+/* ================= El puente: Ion de día ================= */
+
+/* El cristal es nativo aquí (.glass-line): el río corre por canales de cristal —
+   los bloques-día llevan la receta de la línea de cristal de la casa, y la
+   cabecera fija entera es cristal esmerilado sobre el agua que pasa. */
+[data-theme="ion"] .hist-day {
+  border: 1px solid color-mix(in oklab, #8ea6c4 55%, #ffffff);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, #eef3f8 100%);
+  box-shadow: inset 0 1px 0 #fff, 0 8px 18px color-mix(in oklab, #0b1220 8%, transparent);
+  border-radius: 16px;
+}
+[data-theme="ion"] .hist-head {
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+  backdrop-filter: blur(10px) saturate(1.25);
+  -webkit-backdrop-filter: blur(10px) saturate(1.25);
+}
+[data-theme="ion"] .hist-totals {
+  background: color-mix(in oklab, var(--surface) 66%, transparent);
+  border-color: color-mix(in oklab, var(--glow) 45%, var(--line));
+}
+
+/* ================= Las noches ================= */
+
+/* Oscuro, la noche de referencia: las fechas en su salvia, piscinas de luz de
+   lámpara sobre el suelo oscuro. */
+[data-theme="oscuro"] .hist-day-head, [data-theme="oscuro"] .arch-group-head h3 { color: var(--accent); }
+
+/* OLED: el vacío — sin cajas; las filas flotan sobre la nada y solo quedan los
+   filetes plateados. El bloque que se toca recupera su superficie un instante. */
+[data-theme="oled"] .hist-day, [data-theme="oled"] .arch-card {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+[data-theme="oled"] .hist-day:is(:active, :focus-within), [data-theme="oled"] .arch-card:is(:active, :focus-within) {
+  background: var(--surface); border-color: var(--line);
+}
+[data-theme="oled"] .hist-totals { background: transparent; }
+
+/* Naturaleza: las placas son marcas de sendero — un anillo redondo en su salvia
+   alrededor de cada cara, en el bosque de noche. */
+[data-theme="naturaleza"] :is(.hist-row, .arch-card) .piece-plate {
+  border: 1px solid color-mix(in oklab, var(--accent) 38%, transparent);
+  border-radius: 999px;
+}
+
+/* Océano: el descenso — cada día más viejo, un tono más profundo; la cabecera de
+   totales lleva el anillo del medidor de profundidad. */
+[data-theme="oceano"] .hist-days .hist-day:not(:first-child) {
+  background: color-mix(in oklab, var(--surface) 66%, var(--bg));
+}
+[data-theme="oceano"] .hist-totals { border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
+
+/* Sunset: el cajón junto a la chimenea — lo que descansa en el Archivo se tiñe
+   cálido (surface-2), y la guardia nombrada del brief: el rojo de peligro de la
+   puerta es SU rojo (--bad), jamás el melocotón del acento. */
+[data-theme="sunset"] .arch-card {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--surface-2) 62%, var(--surface)), var(--surface));
+}
+[data-theme="sunset"] .ask.is-danger { --ask-tone: var(--bad); }
+[data-theme="sunset"] .ask.is-danger .ask-seal { color: var(--bad); background: color-mix(in oklab, var(--bad) 14%, var(--surface)); }
+[data-theme="sunset"] .ask .ask-btn.is-danger { background: var(--bad); color: var(--bg); border-color: transparent; }
+
+/* Tinta: el diario rayado — el encabezado de cada día se subraya con la doble
+   regla del papel pautado, y las filas heredan la regla. */
+[data-theme="tinta"] .hist-day-head {
+  border-bottom: 3px double color-mix(in oklab, var(--fg) 30%, var(--line));
+  padding-bottom: 4px;
+}
+[data-theme="tinta"] .hist-row + .hist-row {
+  border-top-color: color-mix(in oklab, var(--fg) 14%, var(--line));
+}
+
+/* Bosque: el silencio más hondo de Naturaleza — los días viejos se acallan como
+   en Niebla, con las cifras siempre nítidas contra la oscuridad. */
+[data-theme="bosque"] .hist-days .hist-day:not(:first-child) .hist-day-head { color: var(--faint); }
+[data-theme="bosque"] .hist-days .hist-day:not(:first-child) .hist-row + .hist-row {
+  border-top-color: color-mix(in oklab, var(--line) 55%, transparent);
+}
+
+/* Humo: la noche más suave — ninguna esquina afilada en ninguna superficie
+   nueva; luz de lámpara baja, los números siempre fuera del humo. */
+[data-theme="humo"] .hist-day, [data-theme="humo"] .arch-card,
+[data-theme="humo"] .hist-totals, [data-theme="humo"] .hist-panel {
+  border-radius: 26px;
+  border-color: color-mix(in oklab, var(--line) 78%, transparent);
+}
+
+/* Ion-noche: el río cargado — un hilo de resplandor cian recorre el bloque que va
+   primero (el día vivo), y los filtros encendidos llevan la misma luz. Resplandor
+   estático, sin animación: la disciplina vivo se hereda tal cual. */
+[data-theme="ion-noche"] .hist-days .hist-day:first-child {
+  border-color: color-mix(in oklab, var(--glow) 65%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--glow) 35%, transparent), 0 0 22px color-mix(in oklab, var(--glow) 16%, transparent);
+}
+[data-theme="ion-noche"] .hist .seg button[aria-pressed="true"],
+[data-theme="ion-noche"] .hist-tool-btn.is-on {
+  border-color: color-mix(in oklab, var(--glow) 60%, var(--line));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--glow) 18%, transparent);
+}
+
+/* ================= Pulido especial — TRON =================
+   Su canon ya habla el idioma del Historial (tron.css): teal lo que entra,
+   naranja Clu lo que sale, rojo Ares solo para errores y borrados. La dirección
+   como borde de luz vive en historial.css (.hist-row.is-in/.is-out); aquí van
+   los paneles, las placas-marco, los selectores de sector y la puerta. */
+
+/* Los paneles: gunmetal brillante con líneas de luz — nunca cajas de neón
+   planas. La cabecera de totales es uno de ellos, flotando sobre la Retícula. */
+[data-theme="tron"] .hist-totals, [data-theme="tron"] .hist-day,
+[data-theme="tron"] .arch-card, [data-theme="tron"] .hist-panel {
+  background: var(--t-steel);
+  border-color: var(--t-edge);
+}
+
+/* Las placas de procedencia como marcos de luz: el filete de luz del tema
+   alrededor de la cara, cuyo interior sigue siendo su lavado-DATO (la tinta de
+   la placa se calcula contra ese lavado; un interior de acero la enterraría).
+   El acero queda alrededor: es el panel donde la placa se sienta. */
+[data-theme="tron"] :is(.hist-row, .arch-card) .piece-plate {
+  border: 1px solid var(--t-edge);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .4), 0 0 10px color-mix(in oklab, var(--t-teal) 22%, transparent);
+}
+
+/* Los filtros como selectores de sector: esténcil de acero en reposo; el activo
+   se enciende con la línea de luz teal (los filtros son del lado del usuario). */
+[data-theme="tron"] .hist :is(.seg, .chips) button {
+  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+  border-color: color-mix(in oklab, var(--t-edge) 40%, transparent);
+}
+[data-theme="tron"] .hist :is(.seg, .chips) button[aria-pressed="true"] {
+  border-color: var(--t-teal); color: var(--t-teal-hot);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--t-teal) 45%, transparent), 0 0 10px color-mix(in oklab, var(--t-teal) 20%, transparent);
+}
+[data-theme="tron"] .hist-chip {
+  background: var(--t-steel); color: var(--t-teal-hot);
+  border-color: color-mix(in oklab, var(--t-teal) 55%, transparent);
+}
+[data-theme="tron"] .hist-chip.is-clear {
+  background: transparent; color: var(--muted); border-color: var(--line);
+}
+[data-theme="tron"] .hist-tool-btn.is-on { border-color: var(--t-teal); color: var(--t-teal-hot); }
+
+/* La puerta: la losa de gunmetal de Eliminar lleva el borde en rojo Ares —
+   tenue en reposo, completo solo cuando el correo escrito arma el botón. Y la
+   historia más rara de Tron, el segundo ciclo de luz que persigue al primero,
+   se permite exactamente una vez en todo el diseño: el ciclo rojo alcanzando al
+   teal por el borde en el instante del armado. Una ceremonia de un segundo,
+   solo transform, y luego reposo. */
+[data-theme="tron"] .ask.is-danger {
+  background: var(--t-steel);
+  border-color: color-mix(in oklab, var(--t-red) 42%, transparent);
+}
+[data-theme="tron"] .ask:has(.ask-btn.is-danger:not(:disabled)) {
+  border-color: var(--t-red);
+}
+[data-theme="tron"] .ask:has(.ask-btn.is-danger:not(:disabled))::after {
+  content: ""; position: absolute; top: 0; left: 0; width: 30%; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--t-red) 55%, var(--t-teal));
+  animation: hist-tron-chase 1s steps(14) 1 both;
+}
+@keyframes hist-tron-chase {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(440%); }
+}
+
+/* ================= Pulido especial — CYBERPUNK =================
+   Sus leyes no se doblan (cyberpunk-vivo.css, cyberpunk-hud.css): amarillo es
+   el primario, el cian es DATO, magenta/rojo es peligro, impresión plana sobre
+   resplandor, y ninguna cifra se anima jamás. */
+
+/* La cabecera de totales: esquinas cortadas y corchetes HUD (dibujados como
+   fondos, a la manera de .vault-bar, porque el ::after es del escaneo). */
+[data-theme="cyberpunk"] .hist-totals {
+  position: relative; border-radius: 2px; border-color: #57503f;
+  clip-path: var(--cp-cut);
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) left 2px top 2px / 9px 1.5px no-repeat,
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) left 2px top 2px / 1.5px 9px no-repeat,
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) right 2px bottom 2px / 9px 1.5px no-repeat,
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) right 2px bottom 2px / 1.5px 9px no-repeat,
+    var(--cp-panel);
+}
+/* El escaneo: el cian aparece una vez, como dato, en ceremonia — un paso
+   escalonado por la PISTA DEL BORDE INFERIOR de la cabecera (2px), nunca sobre
+   las cifras. Corre al montar la cabecera; historial.tsx remonta los totales
+   con una key de la firma de la vista, así que cada cambio de período o de
+   filtros estructurales lo vuelve a disparar. */
+[data-theme="cyberpunk"] .hist-totals::after {
+  content: ""; position: absolute; left: 0; bottom: 0; width: 30%; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--cp-data) 30%, var(--cp-data) 70%, transparent);
+  animation: hist-cp-scan .7s steps(14) 1 both;
+}
+@keyframes hist-cp-scan {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(340%); }
+}
+
+/* La estructura en amarillo plano: las fechas de los días y las superficies
+   nuevas con la esquina cortada de la ciudad. */
+[data-theme="cyberpunk"] .hist-day-head { color: var(--accent); }
+[data-theme="cyberpunk"] .hist-day, [data-theme="cyberpunk"] .arch-card { border-radius: 3px; }
+
+/* Las placas de procedencia como esténciles de señal: atenuadas, cuadradas,
+   con su anillo oscuro — el glifo conserva su tinta sobre su lavado-DATO. */
+[data-theme="cyberpunk"] :is(.hist-row, .arch-card) .piece-plate {
+  border-radius: 3px; opacity: .85;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .4);
+}
+
+/* La placa encendida del idioma HUD (las fichas de Ahorros): riel de 3px a la
+   izquierda, anillo interior y borde LED — para los filtros ACTIVOS, que son
+   los chips de la barra. Su luz es el amarillo primario: el chip no emite color
+   propio en el DOM, así que no puede encenderse en el color de su categoría. */
+[data-theme="cyberpunk"] .hist-chip {
+  border-radius: 2px; clip-path: var(--cp-cut-sm); border-color: transparent; color: #fbf8f0;
+  background:
+    linear-gradient(90deg, var(--accent) 0 3px, transparent 3px),
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 20%, #161310), color-mix(in oklab, var(--accent) 10%, #0b0a08));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent), inset 0 -2px 0 color-mix(in oklab, var(--accent) 62%, #f2eee3);
+}
+[data-theme="cyberpunk"] .hist-chip.is-clear {
+  background: transparent; box-shadow: none; clip-path: none;
+  color: var(--muted); border-color: var(--line);
+}
+[data-theme="cyberpunk"] .hist :is(.seg, .chips) button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent), inset 0 -2px 0 color-mix(in oklab, var(--accent) 62%, #f2eee3);
+}
+
+/* El Archivo es el sótano de la ciudad: por LUGAR, no por batería, la ciudad
+   ambiente cae a su estado más calmado sobre lo que descansa — atenuada y con
+   sus capas en pausa, como manda la disciplina de .cp-city en vivo. */
+html[data-theme="cyberpunk"]:has(.arch) .cp-city { opacity: .38; }
+html[data-theme="cyberpunk"]:has(.arch) :is(.cp-city i, .cp-city b, .cp-kata) {
+  animation-play-state: paused !important;
+}
+
+/* La puerta en magenta/rojo PLANO, sin resplandor: la superficie más ruidosa
+   de la ciudad es donde Faro más se calla. El botón de peligro no lleva sombra
+   alguna y la ventana pierde su halo (.ask-glow) — pura consecuencia. El borde
+   del modal conserva el rojo plano que cyberpunk.css ya le da. */
+[data-theme="cyberpunk"] .ask .ask-btn.is-danger { box-shadow: none; text-shadow: none; }
+[data-theme="cyberpunk"] .ask.is-danger .ask-glow { display: none; }
+
+/* ================= La disciplina, en todos los temas =================
+   Movimiento reducido o pestaña oculta: las dos ceremonias de este archivo se
+   retiran — el borde de la puerta y el escaneo descansan, como manda vivo. */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="tron"] .ask:has(.ask-btn.is-danger:not(:disabled))::after { animation: none; }
+  [data-theme="cyberpunk"] .hist-totals::after { animation: none; }
+}
+html[data-hidden] .ask:has(.ask-btn.is-danger:not(:disabled))::after,
+html[data-hidden] .hist-totals::after { animation: none; }

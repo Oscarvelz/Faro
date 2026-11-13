@@ -23,6 +23,8 @@ import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId }
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { guardPanelExit } from "@/lib/faro/panel-exit";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
+import { HistorialScreen } from "./historial";
+import { ArchivoScreen } from "./archivo";
 import { BookSide, useTabletOne, type SideBook } from "./book-side";
 import { AreaAdvisor, SideCol } from "./area-advisor";
 import type { AreaId } from "@/lib/faro/area-advice";
@@ -150,6 +152,10 @@ const SYNC_KEY = {
 
 function hubOf(section: SectionId) {
   if (section === "settings") return "settings";
+  // Folios (Oscar, 2026-11-13): Historial y Archivo son UN hub — el contenedor con
+  // dos pastillas, sin conexión de datos entre ellas. Ningún otro hub las disfraza
+  // (el Historial no es un cuarto de Libros; el Archivo no es Libros tampoco).
+  if (section === "archivo" || section === "historial") return "folios";
   if ((STUDY as readonly string[]).includes(section)) return "study";
   if ((BOOKS as readonly string[]).includes(section)) return "books";
   return "desk";
@@ -165,6 +171,10 @@ export function Shell() {
   const segRef = useRef<HTMLDivElement>(null);
   const vaultRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  // Folios (2026-11-13): la última pastilla visitada — el riel aterriza en ella,
+  // como el ciudadano del dock (DockNav guarda la suya).
+  const lastPastilla = useRef<SectionId>("historial");
+  if (ui.section === "historial" || ui.section === "archivo") lastPastilla.current = ui.section;
   useScreenEntrance(mainRef, `${ui.section}`);
   const [calOpen, setCalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -887,6 +897,10 @@ export function Shell() {
             <span>{id === "save" ? t("desk.savings") : id === "meta" ? t("vault.meta") : id === "retiro" ? t("vault.retiro") : t("vault.emerg")}</span>
           </button>
         ))}
+        <button type="button" className="nav-btn" data-anchor="nav-folios" aria-current={!moneyOpen && !vault && hub === "folios" ? "page" : undefined} onClick={() => guardPanelExit(() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: lastPastilla.current }); })}>
+          <SectionIcon id="archivo" />
+          <span>{t("nav.folios")}</span>
+        </button>
         <button ref={moneyDock} type="button" className="nav-btn" aria-pressed={moneyOpen} onClick={() => { setRecall(false); setMoneyOpen((open) => !open); }}>
           <Coins className="size-4" />
           <span>{t("convert.title")}</span>
@@ -935,8 +949,8 @@ export function Shell() {
           <div className="icon-desk" ref={deskRef}>
             <div className="hub-line">
               <span className="hub-mark" aria-hidden />
-              <span className="hub-name">{hub === "books" ? t("hub.books") : hub === "study" ? t("hub.study") : hub === "settings" ? t("nav.settings") : t("nav.desk")}</span>
-              <Hint topic={hub === "books" ? "libros" : hub === "study" ? (ui.section === "advice" ? "asesor" : "estudio") : hub === "settings" ? "ajustes" : "central"} className="hub-hint" avoid=".icon-desk .icon-desk-tools > *" />
+              <span className="hub-name">{hub === "books" ? t("hub.books") : hub === "study" ? t("hub.study") : hub === "settings" ? t("nav.settings") : hub === "folios" ? t("nav.folios") : t("nav.desk")}</span>
+              <Hint topic={hub === "books" ? "libros" : hub === "study" ? (ui.section === "advice" ? "asesor" : "estudio") : hub === "settings" ? "ajustes" : hub === "folios" ? "folios" : "central"} className="hub-hint" avoid=".icon-desk .icon-desk-tools > *" />
             </div>
             <div className="icon-desk-tools">
               <button
@@ -1321,6 +1335,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
             ) : null}
             {hub === "desk" ? <Desk /> : null}
             {hub === "settings" ? <SettingsScreen /> : null}
+            {hub === "folios" ? (ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />) : null}
           </main>
           <aside ref={moneyPanel} className={`aside${moneyOpen ? " is-open" : ""}`}>
             {moneyOpen ? <button type="button" className="money-resize" aria-label={lang === "en" ? "Resize" : "Tamaño"} onPointerDown={resizeMoney} /> : null}
@@ -1427,8 +1442,15 @@ function ToolSheet({ contained = false }: { contained?: boolean }) {
 function DockNav({ section, onSection }: { section: SectionId; onSection: (id: SectionId) => void }) {
   const { t } = useFaro();
   const hub = hubOf(section);
+  // El cuarto ciudadano es Folios (Oscar, 2026-11-13, sobre su foto del dock): el
+  // contenedor de las dos pastillas — Historial y Archivo — entre Libros y Estudio.
+  // Libros ya está a su capacidad y no guarda ninguna de las dos. El ciudadano
+  // recuerda la última pastilla visitada en la sesión y aterriza en ella; sin
+  // visita previa, aterriza en el Historial, el cuarto principal.
+  const lastPastilla = useRef<SectionId>("historial");
+  if (section === "historial" || section === "archivo") lastPastilla.current = section;
   return (
-    <nav className="dock" data-anchor="nav-dock" style={{ ["--dock" as string]: hub === "books" ? 1 : hub === "study" ? 2 : 0 }} aria-label={t("nav.desk")}>
+    <nav className="dock" data-anchor="nav-dock" style={{ ["--dock" as string]: hub === "books" ? 1 : hub === "folios" ? 2 : hub === "study" ? 3 : 0 }} aria-label={t("nav.desk")}>
       <i className="dock-glide" aria-hidden><i key={hub} className="dock-sheen" /></i>
       <button type="button" className="nav-btn" aria-current={hub === "desk" ? "page" : undefined} onClick={() => { if (hub !== "desk") onSection("desk"); }}>
         <SectionIcon id="desk" />
@@ -1437,6 +1459,10 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
       <button type="button" className="nav-btn" aria-current={hub === "books" ? "page" : undefined} onClick={() => { if (hub !== "books") onSection("income"); }}>
         <SectionIcon id="income" />
         <span>{t("hub.books")}</span>
+      </button>
+      <button type="button" className="nav-btn" data-anchor="nav-folios" aria-current={hub === "folios" ? "page" : undefined} onClick={() => { if (hub !== "folios") onSection(lastPastilla.current); }}>
+        <SectionIcon id="archivo" />
+        <span>{t("nav.folios")}</span>
       </button>
       <button type="button" className="nav-btn" aria-current={hub === "study" ? "page" : undefined} onClick={() => { if (hub !== "study") onSection("stats"); }}>
         <SectionIcon id="stats" />
@@ -1582,6 +1608,9 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   );
   return (
     <>
+      {/* Libros sin puerta del Historial (2026-11-13): el diario vive en Folios, con
+          su pastilla propia — Libros ya está a su capacidad y vuelve a ser, entero,
+          el de siempre. */}
       <div className="seg is-follow is-four" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor={anchors ? "books-tabs" : undefined}>
         <i className="seg-pill" aria-hidden style={off ? { opacity: 0 } : undefined} />
         {TOP_BOOKS.map((id) => (
@@ -1731,6 +1760,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
       ) : null}
       {hub === "desk" ? <Desk /> : null}
       {hub === "settings" ? <SettingsScreen /> : null}
+      {hub === "folios" ? (ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />) : null}
     </main>
   );
 }
@@ -1745,7 +1775,9 @@ function placeFor(kind: LineKind): SectionId {
 
 function buildCal(session: ReturnType<typeof useFaro>["session"], year: number, month: number) {
   const key = `${year}-${String(month).padStart(2, "0")}`;
-  const lines = session ? monthLines(session.ledger, key).filter((line) => line.active) : [];
+  // La puerta anti-fuga (descanso.ts): el calendario no nombra ni suma lo apartado —
+  // nombres y totales de buildCal fluyen de este único filtro.
+  const lines = session ? monthLines(session.ledger, key).filter((line) => line.active && !line.rest) : [];
   const settings = session?.ledger.settings;
   const lead = (new Date(year, month - 1, 1).getDay() + 6) % 7;
   const count = new Date(year, month, 0).getDate();
@@ -2141,7 +2173,7 @@ function FloatWindow({ section, onSection, folded, onFold, onClose, onFull }: {
     },
   }), [section, onSection]);
 
-  const name = hubOf(section) === "books" || hubOf(section) === "study"
+  const name = hubOf(section) === "books" || hubOf(section) === "study" || hubOf(section) === "folios"
     ? t(section === "subs" ? "tab.subs" : `nav.${section}`)
     : t("nav.desk");
 

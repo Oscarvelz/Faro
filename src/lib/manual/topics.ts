@@ -32,6 +32,8 @@ export type Screen =
   | "vault-owe" //  Libros → Debo (Cuotas · Préstamos)
   | "stats" //      Estudio → Estudio
   | "advice" //     Estudio → Asesor
+  | "historial" //  Folios → Historial
+  | "archivo" //    Folios → Archivo
   | "tools" //      Mesa de cambio (sheet on phone, aside on wide screens)
   | "settings"; //  Ajustes
 
@@ -1601,6 +1603,62 @@ export const MANUAL_CHAPTERS: Chapter[] = [
   },
   /* ------------------------------------------------------------------ 6 */
   {
+    // Folios (2026-11-13): el capítulo sigue el orden de la app — el contenedor se
+    // sienta entre Libros y Estudio en el dock, y su capítulo entre Ahorros y Estudio.
+    // Como manda Oscar: el manual ayuda, no confunde ni repite lo que la pantalla ya
+    // dice — aquí solo vive lo que no se ve: que los dos cuartos no se mezclan, qué
+    // hacen de verdad Ocultar y Eliminar, que los totales son de la vista filtrada
+    // y por qué cada fila lleva puesta su procedencia.
+    id: "folios",
+    title: ["Folios", "Folios"],
+    intro: ["El diario de tu dinero por tiempo y el lugar donde descansa lo apartado: dos cuartos separados.", "Your money's journal by time and the place where what you set aside rests: two separate rooms."],
+    topics: [
+      {
+        id: "folios",
+        depth: "manual",
+        title: ["Folios", "Folios"],
+        sum: ["Dos cuartos con un solo techo: el diario y el descanso, sin mezclarse.", "Two rooms under one roof: the journal and the resting place, never mixed."],
+        what: ["Folios guarda dos cuartos separados: el Historial, el diario de cada movimiento en orden de tiempo, y el Archivo, donde descansa lo que apartas. El Historial nunca muestra lo que descansa, y nada de lo que descansa cuenta en una cifra, en el [[Asesor]] o en un aviso.", "Folios holds two separate rooms: the History, the journal of every movement in time order, and the Archive, where what you set aside rests. The History never shows what rests, and nothing that rests counts in any figure, in the [[Advisor]] or in a notification."],
+        how: ["Toca Folios abajo, entre [[Libros]] y [[Estudio]]. Adentro, salta de un cuarto al otro con los chips de arriba o con un deslizamiento. Folios recuerda el último cuarto que visitaste.", "Tap Folios at the bottom, between [[Books]] and [[Study]]. Inside, jump from one room to the other with the chips at the top or with a swipe. Folios remembers the last room you visited."],
+        go: { screen: "historial", anchor: "nav-folios", where: ["Abajo, entre Libros y Estudio", "At the bottom, between Books and Study"] },
+        terms: [["Historial", "History"], ["Archivo", "Archive"], ["Diario", "Journal"]],
+      },
+      {
+        id: "folios-filtros",
+        depth: "manual",
+        title: ["Los filtros del Historial", "The Historial's filters"],
+        sum: ["Cada combinación de filtros responde con sus propios totales.", "Every filter combination answers with its own totals."],
+        what: ["Los filtros se combinan: período, categoría, tienda o servicio, cuenta, monto, origen. Los totales de la cabecera son de lo que queda a la vista, no del mes entero: cada combinación es una pregunta con su respuesta.", "Filters combine: period, category, store or service, account, amount, origin. The totals in the header belong to what stays in view, not to the whole month: every combination is a question with its answer."],
+        how: ["Arma tu pregunta con los filtros y lee el total. Si la vas a repetir, guárdala como vista con el nombre que tú quieras: tus nombres se quedan como los escribes.", "Build your question with the filters and read the total. If you will ask it again, save it as a view with any name you like: your names stay exactly as you write them."],
+        tip: ["Los chips bajo la cabecera dicen qué filtros están puestos; un toque quita cada uno.", "The chips under the header say which filters are on; one tap lifts each one."],
+        go: { screen: "historial", anchor: "hist-totals", where: ["Folios → Historial", "Folios → History"] },
+        terms: [["Filtros", "Filters"], ["Vistas guardadas", "Saved views"]],
+      },
+      {
+        id: "folios-apartar",
+        depth: "manual",
+        title: ["Ocultar y eliminar un período", "Hiding and deleting a period"],
+        sum: ["Ocultar es ida y vuelta; eliminar es para siempre y pide tu correo escrito.", "Hiding is a round trip; deleting is forever and asks for your typed email."],
+        what: ["Ocultar un período lo saca de la vista y de todas las lecturas: deja de contar como si nunca hubiera existido, y descansa en el Archivo. Eliminar es otra cosa: solo se puede desde el Archivo, es definitivo, y el botón se arma solo cuando escribes el correo de tu sesión, letra por letra.", "Hiding a period takes it out of view and out of every reading: it stops counting as if it had never existed, and it rests in the Archive. Deleting is something else: it can only be done from the Archive, it is final, and the button arms only when you type your session email, letter by letter."],
+        how: ["Para ocultar: en el Historial, elige el período y toca «Ocultar». Para devolverlo: en el Archivo, toca Restaurar en su tarjeta — vuelve entero, tal como estaba.", "To hide: in the History, choose the period and tap “Hide”. To bring it back: in the Archive, tap Restore on its card — it returns whole, just as it was."],
+        tip: ["Si un día restauras una [[Copias de seguridad]] anterior al borrado, el período eliminado puede volver con ella: una copia es una foto de su día, y Faro te lo dice antes de borrar.", "If one day you restore [[Backups]] from before the deletion, the deleted period may come back with it: a backup is a photograph of its day, and Faro tells you so before deleting."],
+        go: { screen: "archivo", where: ["Folios → Archivo", "Folios → Archive"] },
+        terms: [["Ocultar un período", "Hide a period"], ["Eliminar un período", "Delete a period"]],
+      },
+      {
+        id: "folios-procedencia",
+        depth: "manual",
+        title: ["La procedencia de cada fila", "Where each row comes from"],
+        sum: ["Cada movimiento lleva puesta su categoría, su libro y su origen.", "Every movement wears its category, its book and its origin."],
+        what: ["Cada fila del río lleva su placa: el color y el glifo de su categoría, tal como la pintaste en [[Estructura]], y el libro al que pertenece. Cuando un movimiento nació del widget o de una importación, su fila lo dice con una marca de origen.", "Every row in the river wears its plate: the colour and glyph of its category, just as you painted it in [[Structure]], and the book it belongs to. When a movement was born from the widget or an import, its row says so with an origin mark."],
+        tip: ["Así, bajando por el río a velocidad, nunca pierdes de vista de dónde nació cada dato.", "That way, running down the river at speed, you never lose sight of where each piece of data was born."],
+        go: { screen: "historial", where: ["Folios → Historial", "Folios → History"] },
+        terms: [["Procedencia", "Provenance"], ["Origen", "Origin"]],
+      },
+    ],
+  },
+  /* ------------------------------------------------------------------ 7 */
+  {
     id: "estudio",
     title: ["Estudio", "Study"],
     intro: ["Tarjetas que leen tu mes: cuánto queda, a dónde va, si vas bien y cómo cambia con el tiempo.", "Cards that read your month: what is left, where it goes, whether you are on track and how it changes over time."],
@@ -1948,7 +2006,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
     ],
   },
-  /* ------------------------------------------------------------------ 7 */
+  /* ------------------------------------------------------------------ 8 */
   {
     id: "asesor",
     title: ["Asesor", "Advisor"],
@@ -2273,7 +2331,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
     ],
   },
-  /* ------------------------------------------------------------------ 8 */
+  /* ------------------------------------------------------------------ 9 */
   {
     id: "cambio",
     title: ["Mesa de cambio", "Exchange desk"],
@@ -2374,7 +2432,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
     ],
   },
-  /* ------------------------------------------------------------------ 9 */
+  /* ----------------------------------------------------------------- 10 */
   {
     id: "ajustes",
     title: ["Ajustes", "Settings"],
@@ -3069,7 +3127,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
     ],
   },
-  /* ----------------------------------------------------------------- 10 */
+  /* ----------------------------------------------------------------- 11 */
   {
     id: "editor",
     title: ["El editor de líneas", "The line editor"],
@@ -3331,7 +3389,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
     ],
   },
-  /* ----------------------------------------------------------------- 11 */
+  /* ----------------------------------------------------------------- 12 */
   {
     id: "cuenta",
     title: ["Tu cuenta y tu privacidad", "Your account and privacy"],

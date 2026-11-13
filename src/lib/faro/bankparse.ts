@@ -639,7 +639,10 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
       // inactive line never claims an incoming row, on ANY path.
       return l.active && (similar(matchKey(l.concept), rk) || l.concept === r.label);
     });
-    if (hit) { r.dup = "fuzzy"; r.dupOf = { concept: hit.concept, day: lineDay(hit) }; used.add(hit.id); }
+    // La puerta (L10): una línea apartada RECLAMA su duplicado — así, si vuelve, no nace
+    // un gemelo visible — pero jamás se la nombra: dupOf lleva su concepto y su día a la
+    // pantalla de revisión, y nombrarla sería la fuga.
+    if (hit) { r.dup = "fuzzy"; if (!hit.rest) r.dupOf = { concept: hit.concept, day: lineDay(hit) }; used.add(hit.id); }
   }
   const taken = new Set<string>();
   for (const r of rows) {

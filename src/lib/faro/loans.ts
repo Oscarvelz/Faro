@@ -72,8 +72,9 @@ export function loanState(state: LedgerState, loan: Loan, today = todayIso()) {
   // 1.3.147: only payments booked on or before `today` count — a payment dated next month used to
   // reduce today's debt here while the trend chart (debtSeries.leftAt, which bounds by date) said
   // otherwise. The bound is the same one leftAt uses: bookedOn, else the 1st of the line's month.
+  // La puerta anti-fuga (descanso.ts): un pago que descansa no baja la figura — no cuenta.
   const paid = loanPays(state, loan.id)
-    .filter((line) => (line.bookedOn || `${line.monthKey}-01`) <= today)
+    .filter((line) => !line.rest && (line.bookedOn || `${line.monthKey}-01`) <= today)
     .reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, loan.currency, state.settings.rateE4), 0);
   return loanFigures(loan.amountMinor, loan.kind, loan.aprBps, loan.takenOn, paid, today);
 }
@@ -108,7 +109,7 @@ export function loanTotals(state: LedgerState | null | undefined, today = todayI
  *  the same ≤today bound loanState already applies to the balance. */
 export function loanInterestPaid(state: LedgerState, loan: Loan, year?: number, today = todayIso()): number {
   return loanPays(state, loan.id).reduce((sum, line) => {
-    if (line.interestMinor == null) return sum;
+    if (line.rest || line.interestMinor == null) return sum;
     const booked = line.bookedOn || `${line.monthKey}-01`;
     if (booked > today) return sum;
     if (year != null && booked.slice(0, 4) !== String(year)) return sum;

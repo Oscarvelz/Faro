@@ -21,8 +21,9 @@ import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
-import { blankSession, commit as commitSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
+import { blankSession, commit as commitSession, commitFinal as commitFinalSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
+import { deleteSpan, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
 import { isPureSample, stripSample, withAugustSample } from "@/lib/faro/sample";
 import { sampleOn, takeSwitchRemount } from "@/lib/faro/samplemode";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
@@ -35,6 +36,11 @@ import { todayIso } from "@/lib/faro/loans";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void; /** La puerta de GitHub (Oscar, chat de ventanas, 2026-11-10): la ventana más irreversible exige ESCRIBIR este texto exacto para armar el botón de confirmar — que el usuario demuestre que sabe lo que está haciendo, no solo que tocó dos veces. Vive SOLO en «Eliminar cuenta»: cerrar sesión es ida y vuelta y no la merece (su corrección del 2026-11-11). */ typeText?: string; /** Una salida amable DENTRO de la ventana, antes del punto de no retorno (p. ej. «Descargar mi libro» al eliminar la cuenta): corre sin cerrar la ventana. */ extraLabel?: string; extraRun?: () => void };
+// La puerta escrita ganó una segunda casa por orden de Oscar (2026-11-12, el Historial):
+// eliminar un período apartado en el Archivo universal la exige con el mismo ritual
+// (el correo de la sesión, exacto y case sensitive, sin ayuda del teclado — las
+// propiedades del campo están cercadas en puerta-escrita.test.ts). Cerrar sesión y
+// Ocultar son ida y vuelta y siguen sin merecerla.
 /** Load-time seeds: the August sample, then the one-time Remesas categories (1.3.86). */
 function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean; sample: boolean } {
   // 1.3.87: the August sample lives only in sample mode (its own store). Personal books that are
@@ -117,6 +123,12 @@ export type Api = {
   viewLine: (line: Line) => string;
   recordLine: (line: Line) => string;
   commit: (recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => void;
+  /** El descanso (Historial → Archivo): apartar un período, mostrarlo de nuevo, borrarlo.
+   *  Los únicos caminos de la UI hacia descanso.ts: la puerta anti-fuga se pone y se quita
+   *  en un solo sitio, nunca a mano en una pantalla. */
+  hidePeriodRange: (from: string, to: string, label?: string) => void;
+  restoreRestingSpan: (spanId: string) => void;
+  deleteRestingSpan: (spanId: string) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -951,6 +963,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const commit = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => {
     setSession((s) => (s ? commitSession(s, recipe, detail) : s));
   }, []);
+  // D3: el commit sin deshacer — solo para lo que la puerta escrita ya declaró final
+  // (eliminar un período apartado). La ventana dice «Esto no se puede deshacer» y el
+  // código obedece a las palabras, nunca al revés.
+  const commitFinal = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => {
+    setSession((s) => (s ? commitFinalSession(s, recipe, detail) : s));
+  }, []);
   const undo = useCallback(() => setSession((s) => (s ? undoSession(s) : s)), []);
   const redo = useCallback(() => setSession((s) => (s ? redoSession(s) : s)), []);
 
@@ -1365,6 +1383,15 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     viewLine,
     recordLine,
     commit,
+    hidePeriodRange: (from, to, label) => {
+      commit((s) => hidePeriod(s, from, to, label).state, label ?? "Ocultar período");
+    },
+    restoreRestingSpan: (spanId) => {
+      commit((s) => restoreSpan(s, spanId), "Mostrar de nuevo");
+    },
+    deleteRestingSpan: (spanId) => {
+      commitFinal((s) => deleteSpan(s, spanId), "Eliminar período");
+    },
     undo,
     redo,
     canUndo: Boolean(session && session.past.length),

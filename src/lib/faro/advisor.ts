@@ -146,7 +146,8 @@ function isVaultSub(structure: Structure, subId: string): boolean {
 }
 
 function inView(line: Line, display: Currency, rateE4: number): number {
-  if (!line.active) return 0;
+  // La puerta anti-fuga (descanso.ts): una línea que descansa no cuenta, en ninguna lectura.
+  if (!line.active || line.rest) return 0;
   return convertMinor(line.amountMinor, line.currency, display, rateE4);
 }
 
@@ -186,7 +187,7 @@ function seenIn(state: LedgerState, line: Line, key: string): number {
   for (const month of lastKeys(key, 3)) {
     const bucket = state.months[month]?.lines ?? [];
     const found = bucket.some((item) => {
-      if (!item.active || item.kind.startsWith("income")) return false;
+      if (!item.active || item.rest || item.kind.startsWith("income")) return false;
       if (line.seriesId && item.seriesId === line.seriesId) return true;
       return norm(item.concept) !== "" && norm(item.concept) === norm(line.concept) && item.categoryId === line.categoryId;
     });

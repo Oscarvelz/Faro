@@ -66,7 +66,7 @@
 }
 .float-body .dock .nav-btn { min-height: 36px; padding: 3px 2px 4px; border-radius: 12px; font-size: .62rem; gap: 1px; }
 .float-body .dock .nav-btn svg { width: 14px; height: 14px; }
-.float-body .dock-glide { top: 3px; bottom: 3px; border-radius: 12px; width: calc((100% - 10px) / 3); left: calc(3px + var(--dock, 0) * ((100% - 10px) / 3 + 2px)); }
+.float-body .dock-glide { top: 3px; bottom: 3px; border-radius: 12px; width: calc((100% - 12px) / 4); left: calc(3px + var(--dock, 0) * ((100% - 12px) / 4 + 2px)); }
 
 /* Resize handles: every edge and corner. Hit areas reach 10px outside the frame and ~10px inside (finger / S-Pen),
    corners 40px. Only the bottom-right shows a grip: a short arc just outside the frame that hugs the rounded corner. */

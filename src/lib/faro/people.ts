@@ -57,7 +57,7 @@ export function lineDay(line: Line): string {
 /** Every spending line tagged with this person (income never counts). */
 export function personLines(state: LedgerState, id: string): Line[] {
   const out: Line[] = [];
-  for (const bucket of Object.values(state.months)) for (const line of bucket.lines) if (line.personId === id && line.active && !line.kind.startsWith("income")) out.push(line);
+  for (const bucket of Object.values(state.months)) for (const line of bucket.lines) if (line.personId === id && line.active && !line.rest && !line.kind.startsWith("income")) out.push(line);
   return out.sort((a, b) => lineDay(b).localeCompare(lineDay(a)));
 }
 

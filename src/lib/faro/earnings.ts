@@ -22,7 +22,7 @@ export type Earnings = {
 };
 
 const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-const isIncome = (l: Line) => l.active && (l.kind === "income-fixed" || l.kind === "income-variable");
+const isIncome = (l: Line) => l.active && !l.rest && (l.kind === "income-fixed" || l.kind === "income-variable");
 
 export function earningsBySource(state: LedgerState | null | undefined, year: number, lang: "es" | "en" = "es", keep = 5): Earnings {
   const empty: Earnings = { year, total: 0, sources: [], rewards: { minor: 0, cards: [], months: Array(12).fill(0), share: 0 } };

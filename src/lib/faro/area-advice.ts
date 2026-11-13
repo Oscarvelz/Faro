@@ -27,7 +27,7 @@ export function idiv(n: number, d: number): number {
   return neg ? -q : q;
 }
 export const roleIn = (state: LedgerState, l: Line) => state.structure.categories.find((c) => c.id === l.categoryId)?.role ?? "";
-const view = (state: LedgerState, l: Line) => (l.active ? convertMinor(l.amountMinor, l.currency, state.settings.display, state.settings.rateE4) : 0);
+const view = (state: LedgerState, l: Line) => (l.active && !l.rest ? convertMinor(l.amountMinor, l.currency, state.settings.display, state.settings.rateE4) : 0);
 
 /** Which lines belong to an area's monthly flow (savings pockets by their sub id). */
 export function inArea(state: LedgerState, l: Line, area: AreaId): boolean {

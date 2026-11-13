@@ -39,7 +39,8 @@ export function roleOf(structure: Structure, categoryId: string): string {
 }
 
 export function inView(line: Line, display: Currency, rateE4: number): number {
-  if (!line.active) return 0;
+  // La puerta anti-fuga (descanso.ts): una línea que descansa no cuenta, en ninguna lectura.
+  if (!line.active || line.rest) return 0;
   return convertMinor(line.amountMinor, line.currency, display, rateE4);
 }
 
@@ -137,7 +138,7 @@ export function summarize(state: LedgerState, key: string, lang: Lang): Summary 
 function slicesFor(lines: Line[], structure: Structure, display: Currency, rateE4: number, names: Namer): Slice[] {
   const map = new Map<string, Slice>();
   for (const line of lines) {
-    if (!line.active) continue;
+    if (!line.active || line.rest) continue;
     if (!line.kind.startsWith("expense") && line.kind !== "purchase" && line.kind !== "subscription") continue;
     const id = line.categoryId || line.kind;
     const name =
@@ -364,7 +365,7 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
     { name: L(lang, "Créditos", "Credit"), budget: s.debtAllowance, actual: s.debt },
     { name: L(lang, "Casa", "Home"), budget: s.income > 0 ? roundHalfAway((s.income * 35) / 100) : 0, actual: s.housing },
   ].filter((row) => row.budget > 0 || row.actual > 0);
-  const lines = monthLines(state, key).filter((l) => l.active);
+  const lines = monthLines(state, key).filter((l) => l.active && !l.rest);
   // 1.3.147: the runway numerator is the ONE savings stock (savings.ts) — the same figure the
   // Asesor's cushion and the widget read — not just the balances sitting in this month's bucket.
   const runwayHave = savingsStock(state, key).total;
@@ -501,7 +502,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
   const s = summarize(state, key, lang);
   const { display, rateE4 } = state.settings;
   const money = (n: number) => formatMoney(n, display, lang);
-  const lines = monthLines(state, key).filter((l) => l.active);
+  const lines = monthLines(state, key).filter((l) => l.active && !l.rest);
   const out: Insight[] = [];
   const push = (row: Insight) => out.push(row);
 
@@ -780,7 +781,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
 export function buildBudget(state: LedgerState, key: string, lang: Lang, names: Namer): BudgetPlan {
   names = visibleNamer(state.structure, names); // Contrato, regla 2: las etiquetas no nombran lo oculto.
   const s = summarize(state, key, lang);
-  const lines = monthLines(state, key).filter((l) => l.active);
+  const lines = monthLines(state, key).filter((l) => l.active && !l.rest);
   const savingsFixed = sum(lines, state.settings.display, state.settings.rateE4, (l) => l.kind === "expense-fixed" && roleOf(state.structure, l.categoryId) === "savings");
   // Savings already sent count toward the goal; they are not a bill on top of it.
   const goalLeft = Math.max(0, s.savingsGoal - s.savingsFlow);
@@ -863,7 +864,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
   const reading = readAdvisor(state, key, lang, names);
   const money = (n: number) => formatMoney(n, state.settings.display, lang);
   const pct = (n: number | null) => formatPct(n, lang);
-  const lines = monthLines(state, key).filter((l) => l.active);
+  const lines = monthLines(state, key).filter((l) => l.active && !l.rest);
   const debts = lines.filter((l) => roleOf(state.structure, l.categoryId) === "debt");
   const absLeft = Math.abs(s.opportunity);
 

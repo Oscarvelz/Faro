@@ -137,9 +137,12 @@ export const NAME_TERMS: string[] = [
   "Tengo", "Gastaré", "Usado", "Tasa", "Cobros", "Me deben", "Debo", "Archivo", "Acumulado", "Promedio",
   "Este periodo", "Desplegar", "Ir allí", "Más en el manual", "Poner en el campo", "Aplicar al plan", "Copiar plan",
   "Guardar copia ahora", "Restaurar", "Entendido", "Fijos", "Variables", "Compras",
+  // Folios (2026-11-13): los nombres de los dos cuartos leen como nombres en la prosa.
+  "Folios", "Historial",
   "Have", "Spending", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",
   "Average", "This period", "Unfold", "Go there", "More in the manual", "Put in the field", "Apply to the plan", "Copy plan",
   "Save a copy now", "Restore", "Got it", "Fixed", "Variable", "Shopping",
+  "History",
 ];
 
 const TERMS_LONGEST_FIRST = Object.keys(LINKS).sort((a, b) => b.length - a.length);
@@ -171,6 +174,8 @@ export const ANCHORS: Record<string, { screen: string; where: string }> = {
   "top-coin": { screen: "any", where: "shell.tsx .currency-bubble" },
   "top-gear": { screen: "any", where: "shell.tsx .phone-gear" },
   "nav-dock": { screen: "any", where: "shell.tsx DockNav <nav.dock> (phone) / .rail (wide)" },
+  "nav-folios": { screen: "historial", where: "shell.tsx DockNav Folios citizen (phone) / .rail button (wide)" },
+  "hist-totals": { screen: "historial", where: "historial.tsx .hist-totals (the filtered view's totals)" },
   "desk-left": { screen: "desk", where: "screens.tsx .desk-bar > span:nth-child(1)" },
   "desk-used": { screen: "desk", where: "screens.tsx .desk-bar > span:nth-child(2)" },
   "desk-rate": { screen: "desk", where: "screens.tsx .desk-bar > button" },

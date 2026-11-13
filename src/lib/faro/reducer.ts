@@ -45,6 +45,31 @@ export function undo(session: Session): Session {
   };
 }
 
+/**
+ * Como `commit`, pero SIN historia: lo hecho por esta vía no se puede deshacer (la
+ * eliminación de un período tras la puerta escrita, D3). El pasado se vacía ENTERO,
+ * no solo se deja de empujar: un snapshot anterior en la pila resucitaría lo borrado
+ * al deshacer cualquier cosa, así que la única pila segura es la vacía — el mismo
+ * corte que una restauración de copia hace con blankSession.
+ */
+export function commitFinal(session: Session, recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)): Session {
+  const snap: LedgerState = session.ledger;
+  const drafted = recipe(snap);
+  const updatedAt = new Date().toISOString();
+  const ledger: LedgerState = {
+    ...drafted,
+    revision: snap.revision + 1,
+    updatedAt,
+    audit: [{ id: uid(), at: updatedAt, detail: typeof detail === "function" ? detail() : detail }, ...snap.audit].slice(0, 80),
+  };
+  return {
+    ledger,
+    past: [],
+    future: [],
+    dirty: true,
+  };
+}
+
 export function redo(session: Session): Session {
   const next = session.future[0];
   if (!next) return session;
@@ -82,12 +107,17 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
     .filter((l) => (l.recurring || l.kind === "subscription") && l.active)
     .filter((l) => !have.has(l.seriesId || l.id))
     .flatMap((l) => {
+      // D1: una copia es un movimiento NUEVO — jamás nace apartada. `rest` pertenece al
+      // período que apartó la original; la copia no tiene período, así que heredarlo la
+      // dejaría invisible y sin restauración posible, contando en ninguna parte.
+      const born = { ...l };
+      delete born.rest;
       // 1.3.76 intervals ("3m", "1d"…): carry only into a month the rhythm falls in, dated on that payment. Old words keep the old copy.
       const from0 = l.nextDue || l.bookedOn;
-      if (!l.cadence || FREQ_DEFAULT.includes(l.cadence) || !from0) return [{ ...l, id: uid(), monthKey: to }];
+      if (!l.cadence || FREQ_DEFAULT.includes(l.cadence) || !from0) return [{ ...born, id: uid(), monthKey: to }];
       const due = nextDueFrom(from0, l.cadence, `${to}-01`);
       if (due.slice(0, 7) !== to) return [];
-      return [{ ...l, id: uid(), monthKey: to, nextDue: due, bookedOn: due }];
+      return [{ ...born, id: uid(), monthKey: to, nextDue: due, bookedOn: due }];
     });
   if (!additions.length) return { state, count: 0 };
   return {

@@ -105,7 +105,8 @@ function money(minor: number, currency: Currency, lang: Lang): string {
 }
 
 function viewOf(line: Line, display: Currency, rateE4: number): number {
-  if (!line.active) return 0;
+  // La puerta anti-fuga (descanso.ts): lo apartado no se ve — vale 0 en toda lectura.
+  if (!line.active || line.rest) return 0;
   return convertMinor(line.amountMinor, line.currency, display, rateE4);
 }
 
@@ -150,6 +151,7 @@ export function savingsPicture(state: LedgerState, monthKey: string): SavingsPic
   let floor = 0;
   let out = 0;
   for (const line of linesOf(state)) {
+    if (line.rest) continue; // la puerta: el stock apartado no entra en la foto (stockOf no pasa por viewOf cuando hay saldo escrito)
     if (roleOf(state, line.categoryId) !== "savings") continue;
     const stock = stockOf(line, display, rateE4);
     if (isVault(state, line.subId)) accounts += stock;
@@ -167,7 +169,7 @@ export function savingsPicture(state: LedgerState, monthKey: string): SavingsPic
     }
   }
   for (const line of state.months[monthKey]?.lines ?? []) {
-    if (!line.active) continue;
+    if (!line.active || line.rest) continue;
     const n = viewOf(line, display, rateE4);
     if (line.kind.startsWith("income")) {
       income += n;

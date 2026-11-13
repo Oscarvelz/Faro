@@ -82,7 +82,8 @@ function clamp(n: number, lo = 0, hi = 100) {
   return Math.max(lo, Math.min(hi, n));
 }
 function viewOf(line: Line, display: Currency, rateE4: number) {
-  if (!line.active) return 0;
+  // La puerta anti-fuga (descanso.ts): una línea que descansa no cuenta, en ninguna lectura.
+  if (!line.active || line.rest) return 0;
   return convertMinor(line.amountMinor, line.currency, display, rateE4);
 }
 function roleOf(state: LedgerState, categoryId: string) {
@@ -348,7 +349,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   // Movers vs previous month, by category.
   const prevKey = shiftKey(key, -1);
   const prevLines = state.months[prevKey]?.lines ?? [];
-  const hasPrior = prevLines.some((l) => l.active);
+  const hasPrior = prevLines.some((l) => l.active && !l.rest);
   const prevByCat = new Map<string, number>();
   for (const line of prevLines) {
     if (line.kind.startsWith("income") || roleOf(state, line.categoryId) === "savings") continue;
@@ -395,7 +396,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   const seen = new Set<string>();
   for (const k of [key, shiftKey(key, 1)]) {
     for (const line of state.months[k]?.lines ?? []) {
-      if (!line.active || line.kind.startsWith("income")) continue;
+      if (!line.active || line.rest || line.kind.startsWith("income")) continue;
       const when = (line.nextDue || "").slice(0, 10);
       if (!when) continue;
       const sig = `${line.seriesId || line.id}:${when}`;
@@ -496,7 +497,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     });
   }
   // 1.3.117: per month and per year by each Cuota's cadence (a yearly charge is not ×12); loan installments are debt.
-  const subs = (state.months[key]?.lines ?? []).filter((l) => l.active && l.kind === "subscription" && roleOf(state, l.categoryId) !== "debt");
+  const subs = (state.months[key]?.lines ?? []).filter((l) => l.active && !l.rest && l.kind === "subscription" && roleOf(state, l.categoryId) !== "debt");
   const subsYear = subs.reduce((a, l) => { const [n, d] = perYear(l.cadence || "monthly"); return a + Math.round((viewOf(l, display, rateE4) * n) / d); }, 0);
   const subsMinor = Math.round(subsYear / 12);
   if (subsMinor > 0 && (subs.length >= 3 || (income > 0 && subsMinor >= income * 0.03))) {

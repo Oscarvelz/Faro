@@ -523,7 +523,7 @@ export function rewardsMonth(state: LedgerState, key: string, display: Currency,
   let earned = 0, missed = 0, count = 0;
   const byClass = new Map<string, { best: Acct; missed: number }>();
   for (const line of lines) {
-    if (!line.active || !line.sourceId || line.xfer || line.kind.startsWith("income")) continue;
+    if (!line.active || line.rest || !line.sourceId || line.xfer || line.kind.startsWith("income")) continue;
     const elig = !!findRule(rules, merchantKey(line.concept))?.elig;
     const r = lineReward(line, accts, elig, every);
     if (!r) continue;
@@ -552,7 +552,7 @@ export function rewardsByCard(state: LedgerState, key: string, display: Currency
   const rules = importBook(state).rules;
   const sums = new Map<string, number>();
   for (const line of lines) {
-    if (!line.active || !line.sourceId || line.xfer || line.kind.startsWith("income")) continue;
+    if (!line.active || line.rest || !line.sourceId || line.xfer || line.kind.startsWith("income")) continue;
     const elig = !!findRule(rules, merchantKey(line.concept))?.elig;
     const r = lineReward(line, accts, elig, every);
     if (!r) continue;

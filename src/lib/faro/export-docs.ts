@@ -310,6 +310,7 @@ function pickedLines(ledger: LedgerState, key: string, pick: ExportPick): Line[]
   const lines: Line[] = [];
   for (const month of monthKeys(ledger, key, pick.scope)) {
     for (const line of monthLines(ledger, month)) {
+      if (line.rest) continue; // la puerta: una hoja impresa también es mostrar (los respaldos, no: copiar no es mostrar)
       if (pick.activeOnly && !line.active) continue;
       const role = roleOf(ledger.structure, line.categoryId);
       const byKind = wanted.has(line.kind);
@@ -336,6 +337,7 @@ function majorOf(line: Line, ledger: LedgerState): number {
 function monthLinesPicked(ledger: LedgerState, month: string, pick: ExportPick): Line[] {
   const wanted = new Set(pick.kinds);
   return monthLines(ledger, month).filter((line) => {
+    if (line.rest) return false; // la puerta, como en pickedLines
     if (pick.activeOnly && !line.active) return false;
     const role = roleOf(ledger.structure, line.categoryId);
     return wanted.has(line.kind) || (pick.savings && role === "savings") || (pick.debt && role === "debt");

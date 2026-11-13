@@ -54,6 +54,16 @@ describe("conciliación: la ventana de ±4 días y los alias", () => {
     assert.equal(rv.rows[0].dupOf?.day, "2026-10-28");
   });
 
+  it("la puerta (L10): una línea apartada reclama su duplicado pero jamás se la nombra", () => {
+    // Apartada, la compra sigue reclamando su cargo — si vuelve, no nace un gemelo
+    // visible — pero dupOf llevaría su nombre y su día a la revisión: eso sería la fuga.
+    const s = withLines(ledger(), [manual({ concept: "Amazon", amountMinor: 2599, bookedOn: "2026-10-28", rest: true })]);
+    const rv = buildReview(s, [cardFile([{ date: "2026-10-31", amount: -2599, desc: "AMZN Mktp*2K4XYZ SEATTLE WA" }])], [""], names, "es");
+    assert.equal(rv.rows[0].dup, "fuzzy", "el reclamo se mantiene: el cargo no entra dos veces");
+    assert.equal(rv.rows[0].include, false);
+    assert.equal(rv.rows[0].dupOf, undefined, "ni el concepto ni el día de lo apartado llegan a la pantalla");
+  });
+
   it("AMZN a secas también es Amazon en la caza, sin mover la clave global de las reglas", () => {
     assert.equal(merchantKey("AMZN"), "amzn", "la clave global no cambia: las reglas aprendidas no se mueven");
     assert.equal(matchKey("AMZN"), "amazon");

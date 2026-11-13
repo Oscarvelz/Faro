@@ -44,11 +44,13 @@ export function BookSide({ book }: { book: SideBook }) {
   const val = (l: Line) => (l.active ? convertMinor(l.amountMinor, l.currency, display, rateE4) : 0);
   const idOf = (l: Line) => l.seriesId || l.concept.trim().toLowerCase();
   const rows = new Map<string, { name: string; now: number; then: number; isNew: boolean; gone: boolean }>();
-  for (const l of monthLines(st, prev).filter(match)) {
+  // La puerta anti-fuga (descanso.ts): lo apartado no entra ni como nombre — poner su
+  // valor a cero no bastaría, la fila llevaría su concepto. Fuera en los dos meses.
+  for (const l of monthLines(st, prev).filter((l) => match(l) && !l.rest)) {
     const r = rows.get(idOf(l)) ?? { name: l.concept || "—", now: 0, then: 0, isNew: false, gone: true };
     r.then += val(l); rows.set(idOf(l), r);
   }
-  for (const l of monthLines(st, key).filter(match)) {
+  for (const l of monthLines(st, key).filter((l) => match(l) && !l.rest)) {
     const r = rows.get(idOf(l)) ?? { name: l.concept || "—", now: 0, then: 0, isNew: true, gone: false };
     r.now += val(l); r.gone = false; r.name = l.concept || r.name; rows.set(idOf(l), r);
   }

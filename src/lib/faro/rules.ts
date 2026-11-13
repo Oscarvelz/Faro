@@ -83,7 +83,7 @@ function sectionOf(kind: Line["kind"]): SectionId {
   if (kind === "purchase") return "shops";
   return "subs";
 }
-const isOut = (state: LedgerState, l: Line) => l.active && !l.xfer && !l.kind.startsWith("income") && roleOf(state, l.categoryId) !== "savings";
+const isOut = (state: LedgerState, l: Line) => l.active && !l.rest && !l.xfer && !l.kind.startsWith("income") && roleOf(state, l.categoryId) !== "savings";
 const seriesKey = (l: Line) => l.seriesId || `${l.concept.trim().toLowerCase()}|${l.categoryId}`;
 
 /** Every rule that has something true and useful to say about this month, worst first. */
@@ -91,7 +91,7 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
   const today = options.today ?? new Date();
   const { display, rateE4 } = state.settings;
   const other: Currency = display === "USD" ? "NIO" : "USD";
-  const view = (l: Line) => (l.active ? convertMinor(l.amountMinor, l.currency, display, rateE4) : 0);
+  const view = (l: Line) => (l.active && !l.rest ? convertMinor(l.amountMinor, l.currency, display, rateE4) : 0);
   const money = (n: number) => formatMoney(n, display, lang);
   const both = (n: number) => `${money(n)} (${formatMoney(convertMinor(n, display, other, rateE4), other, lang)})`;
   const signed = (n: number) => `${n < 0 ? "−" : "+"}${money(Math.abs(n))}`;
@@ -272,7 +272,7 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
         last.set(seriesKey(l), { line: l, key: k });
       }
     }
-    const live = [...last.values()].filter(({ line, key: k }) => line.active && line.amountMinor > 0 && monthsBetween(k, key) < periodMonths(line.cadence || "monthly"));
+    const live = [...last.values()].filter(({ line, key: k }) => line.active && !line.rest && line.amountMinor > 0 && monthsBetween(k, key) < periodMonths(line.cadence || "monthly"));
     if (live.length) {
       const yearOf = (l: Line) => { const [n, d] = perYear(l.cadence || "monthly"); return divRound(convertMinor(l.amountMinor, l.currency, display, rateE4) * n, d); };
       const year = live.reduce((a, { line }) => a + yearOf(line), 0);
@@ -302,7 +302,7 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
     for (const [k, m] of Object.entries(state.months)) {
       if (k > key) continue;
       for (const l of m.lines) {
-        if (!l.active || roleOf(state, l.categoryId) !== "savings" || !l.subId.endsWith(".meta")) continue;
+        if (!l.active || l.rest || roleOf(state, l.categoryId) !== "savings" || !l.subId.endsWith(".meta")) continue;
         if (l.balanceMinor !== null && l.balanceMinor !== undefined) {
           const s = l.seriesId || l.id;
           const prev = snaps.get(s);

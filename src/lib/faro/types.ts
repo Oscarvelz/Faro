@@ -30,11 +30,21 @@ export const SECTIONS = [
   "stats",
   "advice",
   "settings",
+  // Historial y Archivo (Oscar, 2026-11-12; el contenedor, 2026-11-13): las dos
+  // pastillas de Folios — el diario de los libros y el lugar de descanso universal —
+  // bajo un solo ciudadano del dock (entre Libros y Estudio), sin conexión de datos
+  // entre ellas. Libros no las guarda: ya está a su capacidad. Ambos son lugares
+  // principales a efectos del lugar guardado (navplace): la salida puede nacer en
+  // ellos y el arranque puede volver a ellos, como a cualquier página principal.
+  "archivo",
+  "historial",
 ] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
-/** Sections the finger can loop through. Settings stays out of the swipe. */
-export const SWIPE_SECTIONS: SectionId[] = ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice"];
+/** Sections the finger can loop through. Settings stays out of the swipe.
+ *  Las pastillas de Folios van juntas y en su orden interno (historial → archivo):
+ *  un deslizamiento sencillo va de la una a la otra (Oscar, 2026-11-13). */
+export const SWIPE_SECTIONS: SectionId[] = ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice", "historial", "archivo"];
 
 export type Named = {
   id: string;
@@ -152,6 +162,23 @@ export type Line = {
   rwCard?: string;
   /** 1.3.118: a remittance line's recipient (RemitPerson id in ledger.remitPeople). Missing = "Sin persona". See remit-people.ts. */
   to?: string;
+  /** El descanso (Historial/Archivo): la línea está apartada — no cuenta en NINGUNA lectura
+   *  (la puerta anti-fuga de descanso.ts) y su período vive en LedgerState.restingSpans.
+   *  Ausente = activa en las lecturas, como siempre. Lo pone y lo quita SOLO descanso.ts. */
+  rest?: boolean;
+};
+
+/** Un período apartado desde el Historial (descanso.ts): las líneas cuyos movimientos caen en
+ *  [from, to] llevan `rest` y este registro dice cuáles son, para que Restaurar y Eliminar
+ *  actúen sobre exactamente el mismo conjunto. Las fechas son días ISO "YYYY-MM-DD". */
+export type RestingSpan = {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+  /** Cuándo se apartó (epoch ms): el orden de llegada al Archivo. */
+  hiddenAt: number;
+  lineIds: string[];
 };
 
 /** Money the user lent to someone (Me deben). Interest follows the same rule as Loan (simple, by the day, from startedOn). */
@@ -376,6 +403,9 @@ export type LedgerState = {
   cardsOff?: string[];
   /** 1.3.118: the people the user sends remittances to (Remesas → Para). Missing in older ledgers (= none). */
   remitPeople?: RemitPerson[];
+  /** Los períodos apartados (Historial → Archivo, descanso.ts). Missing in older ledgers and
+   *  backups (= nada apartado). Viaja con el libro: lo apartado en un aparato, apartado en todos. */
+  restingSpans?: RestingSpan[];
   revision: number;
   updatedAt: string;
 };

@@ -82,7 +82,7 @@ export function duesWindow(state: LedgerState, days: number, today = todayIso())
   for (const k of Object.keys(state.months).sort()) {
     if (k > lastKey) continue;
     for (const l of state.months[k]?.lines ?? []) {
-      if (!l.active || l.xfer || l.kind.startsWith("income") || roleOf(state, l.categoryId) === "savings") continue;
+      if (!l.active || l.rest || l.xfer || l.kind.startsWith("income") || roleOf(state, l.categoryId) === "savings") continue;
       if (l.loanId || l.cardId || l.lentId) continue; // entity dues come from their own entries below
       const on = (l.nextDue || "").slice(0, 10);
       if (!ISO_DAY.test(on) || on > end) continue;

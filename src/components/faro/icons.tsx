@@ -1,4 +1,5 @@
 import {
+  Archive,
   ArrowDownLeft,
   ArrowLeftRight,
   AudioLines,
@@ -17,6 +18,7 @@ import {
   ExternalLink,
   Film,
   GraduationCap,
+  History,
   Home,
   Info,
   Keyboard,
@@ -317,6 +319,8 @@ const SECTION_ICON: Record<string, LucideIcon> = {
   stats: BarChart3,
   advice: Compass,
   settings: Settings,
+  archivo: Archive,
+  historial: History,
 };
 
 export function SectionIcon({ id, className }: { id: string; className?: string }) {

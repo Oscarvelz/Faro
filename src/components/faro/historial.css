@@ -1,0 +1,137 @@
+/* El Historial y el Archivo universal (2026-11-12): una sola gramática, dieciocho
+   materiales — todo pinta con las variables del tema (--bg, --surface, --line,
+   --accent…), así que el río corre igual en Claro que en Tron. Las placas de
+   procedencia son colores-DATO (las caras de Estructura) y no se tiñen aquí.
+   Compacto por ley: ninguna legibilidad se compra con espacio que es del contenido. */
+
+/* ---------- las pastillas de Folios (folios-chips.tsx) ----------
+   El par viste la ropa del modelo (Estudio⇄Asesor): .seg.is-follow.is-pair con
+   su píldora, su icono y su etiqueta — los temas ya lo pintan en tron.css y
+   cyberpunk.css por esas mismas clases. Aquí solo va el aire que lo separa del
+   cuarto que abre; nada de lenguaje nuevo. */
+.fol-chips { margin-bottom: 12px; }
+
+/* ---------- el Historial ---------- */
+.hist { display: grid; gap: 12px; }
+.hist-head {
+  position: sticky; top: 0; z-index: 6; display: grid; gap: 8px;
+  padding-bottom: 10px; background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.hist-sub { margin: 0; color: var(--muted); font-size: .9rem; }
+.hist-lens { margin: 0; }
+.hist-navrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hist-period { font-family: var(--font-serif); font-size: 1.15rem; letter-spacing: -.02em; text-align: center; }
+.hist-range { display: flex; gap: 8px; flex-wrap: wrap; }
+.hist-range-lab { display: grid; gap: 4px; flex: 1 1 130px; color: var(--muted); font-size: .8rem; font-weight: 500; }
+.hist-totals {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 10px 14px;
+}
+.hist-total { display: inline-flex; align-items: baseline; gap: 6px; }
+.hist-total i { font-style: normal; text-transform: uppercase; letter-spacing: .05em; font-size: .66rem; font-weight: 600; color: var(--muted); }
+.hist-total b { font-family: var(--font-serif); font-size: 1.02rem; font-weight: 560; }
+.hist-total .is-in { color: var(--good); }
+.hist-total .is-neg { color: var(--bad); }
+.hist-total-count { margin-left: auto; color: var(--faint); font-size: .8rem; }
+.hist-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hist-search { flex: 1 1 170px; min-width: 0; }
+.hist-tool-btn { position: relative; }
+.hist-tool-btn.is-on { border-color: var(--fg); color: var(--fg); }
+.hist-tool-n {
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-fg); font-size: .68rem;
+  display: inline-grid; place-items: center;
+}
+.hist-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hist-chip {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2);
+  color: var(--fg); font: inherit; font-size: .8rem;
+}
+.hist-chip.is-clear { background: transparent; color: var(--muted); }
+.hist-panel {
+  display: grid; gap: 10px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 18px; padding: 12px;
+}
+.hist-panel-note { margin: 0; color: var(--muted); font-size: .85rem; }
+.hist-frow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.hist-flab { flex: 0 0 100%; color: var(--muted); font-size: .78rem; font-weight: 560; }
+@media (min-width: 640px) {
+  .hist-flab { flex-basis: 108px; }
+}
+.hist-select { width: auto; flex: 1 1 150px; min-width: 0; }
+.hist-amt { width: 104px; flex: none; }
+.hist-view { display: inline-flex; align-items: center; gap: 2px; }
+.hist-view-go {
+  min-height: 32px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); font: inherit; font-size: .85rem;
+}
+.hist-view-save { display: flex; gap: 8px; }
+.hist-view-save .field { flex: 1; min-width: 0; }
+.hist-x {
+  width: 28px; height: 28px; flex: none; display: grid; place-items: center;
+  background: none; border: 0; color: var(--muted); border-radius: 999px;
+}
+
+/* ---------- el río ---------- */
+.hist-day {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+  padding: 10px 14px 6px; margin-bottom: 12px;
+}
+.hist-day-head { margin: 0 0 2px; font-family: var(--font-serif); font-size: 1rem; font-weight: 560; letter-spacing: -.01em; }
+@media (min-width: 840px) {
+  .hist-days { column-count: 2; column-gap: 14px; }
+  .hist-day { break-inside: avoid; }
+}
+@media (min-width: 1280px) {
+  .hist-days { column-count: 3; }
+}
+.hist-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.hist-row + .hist-row { border-top: 1px solid var(--line); }
+.hist-row-main { flex: 1; min-width: 0; display: grid; }
+.hist-row-concept { overflow-wrap: anywhere; line-height: 1.25; font-size: .95rem; }
+.hist-row-meta { color: var(--muted); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-badge {
+  flex: none; padding: 2px 7px; border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--line));
+  color: var(--muted); font-size: .66rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.hist-row-amt { white-space: nowrap; font-size: .95rem; }
+.hist-row-amt.is-in { color: var(--good); }
+.hist-row-amt.is-xfer { color: var(--faint); }
+.hist-more { width: 100%; }
+
+/* La barra del verbo: nombra su período y vive en la zona del pulgar. */
+.hist-hidebar { position: sticky; bottom: 10px; display: flex; justify-content: center; pointer-events: none; }
+.hist-hide-btn {
+  pointer-events: auto; min-height: 48px; padding: 0 22px; border-radius: 999px;
+  background: var(--surface); box-shadow: 0 10px 28px color-mix(in oklab, var(--fg) 18%, transparent);
+}
+
+/* Tron (pulido especial, brief 2026-11-12): la dirección es luz — teal lo que entra,
+   naranja Clu lo que sale, con las variables del propio tema. Solo el borde: las
+   cifras jamás llevan luz, como manda la ley de Tron. */
+[data-theme="tron"] .hist-row.is-in { box-shadow: inset 2px 0 0 var(--t-teal, transparent); padding-left: 8px; }
+[data-theme="tron"] .hist-row.is-out { box-shadow: inset 2px 0 0 var(--t-orange, transparent); padding-left: 8px; }
+
+/* ---------- el Archivo universal ---------- */
+.arch { display: grid; gap: 16px; }
+.arch-sub { margin: 0; color: var(--muted); font-size: .9rem; }
+.arch-group { display: grid; gap: 8px; }
+.arch-group-head { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+.arch-group-head h3 { margin: 0; font-family: var(--font-serif); font-size: 1.08rem; font-weight: 560; }
+.arch-group-head b { color: var(--faint); font-size: .85rem; font-weight: 560; }
+.arch-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+  padding: 12px 14px; display: grid; gap: 8px;
+}
+.arch-card-top { display: flex; align-items: flex-start; gap: 10px; }
+.arch-origin {
+  flex: none; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--muted); font-size: .66rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.arch-name { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.25; }
+.arch-meta { margin: 0; color: var(--muted); font-size: .85rem; }
+.arch-lines { border-top: 1px solid var(--line); }
+.arch-acts { display: flex; flex-wrap: wrap; gap: 8px; }

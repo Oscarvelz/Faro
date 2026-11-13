@@ -799,6 +799,8 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
     // 1.3.177: the books are lists too — a line under a hidden category/subconcept (or a
     // hidden purchase category/store) does not render; it keeps counting everywhere.
     if (session && !lineListVisible(session.ledger.structure, l)) return false;
+    // La puerta anti-fuga (descanso.ts): una línea apartada no se lista en ningún libro.
+    if (l.rest) return false;
     if (draftKind === "expense-fixed" && (session?.ledger.structure.categories.find((c) => c.id === l.categoryId)?.role === "savings")) return false;
     if (categoryId && categoryId !== "all" && l.categoryId !== categoryId) return false;
     if (storeId && storeId !== "all" && l.storeId !== storeId) return false;
@@ -1103,7 +1105,7 @@ function DueOwe() {
   const freqs = freqPresetsOf(session?.ledger);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
   const display = session?.ledger.settings.display ?? "USD";
-  const active = lines.filter((line) => line.kind === "subscription" && line.active);
+  const active = lines.filter((line) => line.kind === "subscription" && line.active && !line.rest);
   const sum = active.reduce((total, line) => total + convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0), 0);
   // Debo over time: every due of every month (archived ones too) on its day; this month's tiles split paid (its day came) from pending.
   const today = todayIso();
@@ -1905,7 +1907,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const subCat = new Map(seed.map((s) => [s.id, s.categoryId]));
   const buckets = new Map<string, number>();
   for (const line of lines) {
-    if (!line.active || !savingsIds.has(line.categoryId) || namedVaultIds.has(line.subId)) continue;
+    if (!line.active || line.rest || !savingsIds.has(line.categoryId) || namedVaultIds.has(line.subId)) continue;
     const id = line.subId && seed.some((s) => s.id === line.subId) ? line.subId : "rest";
     buckets.set(id, (buckets.get(id) ?? 0) + convertMinor(line.balanceMinor != null ? line.balanceMinor : line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4));
   }
@@ -1925,11 +1927,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       })
     : [];
   const accountRows = visibleSavingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))).map((s) => {
-    const minor = lines.filter((line) => line.active && line.subId === s.id).reduce((sum, line) => sum + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4), 0);
+    const minor = lines.filter((line) => line.active && !line.rest && line.subId === s.id).reduce((sum, line) => sum + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4), 0);
     return { id: s.id, name: s.customName || names.sub(s.id), categoryId: c.id, minor, icon: s.icon, order: s.order };
   }));
   const accountTotal = accountRows.reduce((sum, row) => sum + row.minor, 0);
-  const fixedSave = lines.filter((line) => line.active && line.kind === "expense-fixed" && savingsIds.has(line.categoryId) && !vaultIds.has(line.subId));
+  const fixedSave = lines.filter((line) => line.active && !line.rest && line.kind === "expense-fixed" && savingsIds.has(line.categoryId) && !vaultIds.has(line.subId));
   const aside = fixedSave.reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, rate.display, rate.rateE4), 0);
   const orderedAccounts = [...accountRows].sort((a, b) => a.order - b.order);
   const bankRows = bankRank
@@ -3664,7 +3666,7 @@ export function Study() {
     : [];
   const whole = Math.max(summary?.income ?? 0, 1);
   const pickedRows = picked
-    ? lines.filter((l) => l.active && (l.categoryId || l.kind) === picked && !l.kind.startsWith("income"))
+    ? lines.filter((l) => l.active && !l.rest && (l.categoryId || l.kind) === picked && !l.kind.startsWith("income"))
     : [];
   const display = session?.ledger.settings.display ?? "NIO";
   const rate = session?.ledger.settings.rateE4 ?? 0;
@@ -3684,7 +3686,7 @@ export function Study() {
   const savingsCats = session?.ledger.structure.categories.filter((c) => c.role === "savings" && !c.hidden) ?? [];
   const pocketSubs = savingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && s.icon !== "vault" && !s.icon.startsWith("vault:")));
   const bankSubs = savingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))));
-  const bag = (subId: string) => lines.filter((line) => line.active && line.subId === subId).reduce((sum, line) => sum + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, display, rate), 0);
+  const bag = (subId: string) => lines.filter((line) => line.active && !line.rest && line.subId === subId).reduce((sum, line) => sum + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, display, rate), 0);
   const saveBars = pocketSubs.map((sub) => ({
     id: sub.id,
     name: names.sub(sub.id),

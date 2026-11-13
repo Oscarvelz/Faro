@@ -55,7 +55,7 @@ export function savingsStock(state: LedgerState, asOfKey: string): SavingsStock 
   for (const [monthKey, bucket] of Object.entries(state.months)) {
     if (monthKey > asOfKey) continue;
     for (const line of bucket.lines) {
-      if (!line.active || roleOf(state, line.categoryId) !== "savings") continue;
+      if (!line.active || line.rest || roleOf(state, line.categoryId) !== "savings") continue;
       const sid = line.seriesId || line.id;
       const p = placed(line, monthKey);
       if (line.balanceMinor != null) {

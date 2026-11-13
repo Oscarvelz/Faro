@@ -114,7 +114,7 @@ export function remitHistory(state: LedgerState, id: string): RemitEntry[] {
   const out: RemitEntry[] = [];
   for (const [mk, b] of Object.entries(state.months)) {
     for (const l of b.lines) {
-      if (!isRemitLine(state, l) || recipientOf(state, l) !== id) continue;
+      if (l.rest || !isRemitLine(state, l) || recipientOf(state, l) !== id) continue;
       out.push({
         lineId: l.id, monthKey: mk, date: dateOf(l, mk), concept: l.concept, book: l.kind === "expense-fixed" ? "fixed" : "variable",
         amountMinor: l.amountMinor, currency: l.currency,

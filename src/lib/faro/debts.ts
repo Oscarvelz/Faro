@@ -44,8 +44,9 @@ export function lentPays(state: LedgerState, id: string): Line[] {
 
 export function lentState(state: LedgerState, l: Lent, today = todayIso()) {
   // 1.3.147: same date bound as loanState — an abono dated next month does not lower today's figure.
+  // La puerta anti-fuga (descanso.ts): un abono que descansa tampoco lo baja — no cuenta.
   const paid = lentPays(state, l.id)
-    .filter((line) => (line.bookedOn || `${line.monthKey}-01`) <= today)
+    .filter((line) => !line.rest && (line.bookedOn || `${line.monthKey}-01`) <= today)
     .reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, l.currency, state.settings.rateE4), 0);
   return loanFigures(l.amountMinor, l.kind, l.aprBps, l.startedOn || l.dueOn || today, paid, today);
 }
@@ -272,7 +273,7 @@ export function debtSeries(state: LedgerState | null | undefined, today = todayI
     const leftAt = (amount: number, kind: "plain" | "interest", apr: number, from: string, currency: Currency, pays: Line[], archivedOn?: string) => {
       if (!from || from > end) return 0;
       if (archivedOn && archivedOn <= end) return 0;
-      const paid = pays.filter((x) => (x.bookedOn || `${x.monthKey}-01`) <= end).reduce((s, x) => s + convertMinor(x.amountMinor, x.currency, currency, rateE4), 0);
+      const paid = pays.filter((x) => !x.rest && (x.bookedOn || `${x.monthKey}-01`) <= end).reduce((s, x) => s + convertMinor(x.amountMinor, x.currency, currency, rateE4), 0);
       const interest = kind === "interest" ? simpleInterest(amount, apr, from, end) : 0;
       return view(Math.max(0, amount + interest - paid), currency);
     };
