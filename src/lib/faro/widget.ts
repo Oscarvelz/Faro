@@ -38,6 +38,12 @@ export type WidgetSnapshot = {
   at: string;
   lang: Lang;
   cur: "NIO" | "USD";
+  /** Las monedas que el libro conoce, en orden de la tarjeta (1.3.241): primero la de vista,
+   *  luego las que sus líneas y saldos usan, y al final la otra moneda del sistema — el
+   *  universo de monedas de Faro es exactamente {NIO, USD} (types.ts), así que la lista
+   *  siempre permite alternar. La tarjeta + / − recorre ESTA lista al tocar el signo; una
+   *  foto vieja no la trae y el shell alterna entre las dos por su cuenta. */
+  curs: ("NIO" | "USD")[];
   /** C$ per US$ × 10 000 (Faro's rateE4), its source and date. */
   rateE4: number;
   rateSrc: string;
@@ -192,6 +198,15 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     go: goOfCat(x.id),
   }));
 
+  // Las monedas del libro (1.3.241): la de vista manda, las de sus líneas y saldos siguen,
+  // y la otra moneda del sistema cierra la lista — tocar el signo de la tarjeta siempre
+  // puede alternar (el Córdoba que Oscar pidió junto a su dólar de vista).
+  const curs: ("NIO" | "USD")[] = [];
+  const pushCur = (c: string) => { if ((c === "NIO" || c === "USD") && !curs.includes(c)) curs.push(c); };
+  pushCur(display);
+  for (const b of Object.values(state.months)) for (const l of b.lines) { pushCur(l.currency); pushCur(l.balanceCurrency ?? ""); }
+  pushCur("NIO"); pushCur("USD");
+
   const loc = lang === "en" ? "en-US" : "es-NI";
   const mid = (k: string) => new Date(Date.UTC(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 15));
   const shortFmt = new Intl.DateTimeFormat(loc, { month: "short", timeZone: "UTC" });
@@ -210,6 +225,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     at: opts.now ?? new Date().toISOString(),
     lang,
     cur: display,
+    curs,
     rateE4,
     rateSrc: state.settings.rateSource || "",
     rateAsOf: state.settings.rateAsOf || "",

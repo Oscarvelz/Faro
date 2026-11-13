@@ -43,7 +43,8 @@ import java.util.UUID
  * y desbloqueado (FaroNative.takeQuickEntries → lib/faro/quickadd.ts), por el camino normal.
  *
  * La tarjeta no muestra NADA del libro: solo el monto que el propio usuario está escribiendo.
- * La moneda es la de la foto del widget (la moneda de vista); el día, el día local del apunte.
+ * La moneda abre en la de vista de la foto (o la última usada) y desde 1.3.241 el signo se
+ * toca para alternarla entre las monedas del libro; el día, el día local del apunte.
  * El id del apunte será el id de su línea: recoger dos veces nunca duplica.
  */
 object QuickAdd {
@@ -67,6 +68,16 @@ object QuickAdd {
     fun rememberHome(ctx: Context, sign: String, home: QHome) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("last_$sign", "${home.c}|${home.s}").apply()
+    }
+
+    /** La última moneda usada por signo al alternar el signo de la tarjeta (1.3.241),
+     *  para abrir la próxima vez en la misma moneda. */
+    fun lastCur(ctx: Context, sign: String): String =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lastcur_$sign", "") ?: ""
+
+    fun rememberCur(ctx: Context, sign: String, cur: String) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("lastcur_$sign", cur).apply()
     }
 
     /** La cola entera como texto ("" si vacía); al entregarla queda vacía. */
@@ -206,6 +217,17 @@ class QuickAddActivity : Activity() {
         }
     }
 
+    /** La ficha del signo de moneda (1.3.241): el signo es un blanco de toque — tocarlo
+     *  alterna la moneda del apunte entre las que el libro conoce. Su acabado es el de la
+     *  placa (superficie hundida, trazo cálido) con el tacto de las fichas: al pulsar, el
+     *  relleno oscurece ~16 %. Ningún texto lo anuncia: el anuncio es el propio signo
+     *  cambiando ante los ojos (C$ ⇄ $) — la superficie de anuncios de la tarjeta es el
+     *  «¿Dónde va?» de la casa, no este signo. */
+    private fun curChipBg(): StateListDrawable = StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_pressed), solid(darken(cPlate, 0.84), 6, 1, cPlateLine))
+        addState(intArrayOf(), solid(cPlate, 6, 1, cPlateLine))
+    }
+
     /** Los botones: fichas SÓLIDAS de 50dp, radio 8. Pulsado = el relleno oscurece ~16 %,
      *  nada más (sin alfa: sobre el cuerpo cálido el alfa se haría barro). */
     private fun btnBg(fill: Int, stroke: Int = 0): StateListDrawable = StateListDrawable().apply {
@@ -248,6 +270,19 @@ class QuickAddActivity : Activity() {
         val en = snap?.en ?: false
         // El color del signo, SÓLIDO siempre (nunca lavado): cian de ingreso / naranja de gasto.
         val accent = if (sign == "in") Color.rgb(0x35, 0xE0, 0xFF) else Color.rgb(0xFF, 0x8B, 0x35)
+
+        // La moneda del apunte (1.3.241, la orden de Oscar: «tocar el signo de dinero, poder
+        // alternarlo»): la foto trae las monedas del libro (curs, con la de vista primero);
+        // una foto vieja no las trae y se alterna entre las dos del sistema. La tarjeta abre
+        // en la última moneda usada para este signo si sigue en la lista; si no, en la de
+        // vista. El monto se escribe EN la moneda elegida: nada se convierte en la tarjeta —
+        // la línea nace en esa moneda y los totales convierten, como con cualquier línea.
+        val cursCycle: List<String> = run {
+            val fromPhoto = snap?.curs?.filter { it == "NIO" || it == "USD" }?.distinct() ?: emptyList()
+            val base = if (fromPhoto.isNotEmpty()) fromPhoto else listOf(snap?.cur ?: "USD")
+            if (base.size >= 2) base else base + if (base[0] == "NIO") "USD" else "NIO"
+        }
+        var cur: String = QuickAdd.lastCur(this, sign).takeIf { it in cursCycle } ?: cursCycle.first()
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -334,13 +369,23 @@ class QuickAddActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        row.addView(TextView(this).apply {
-            text = if (snap.cur == "NIO") "C$" else "$"
+        // El signo es una ficha sobre la placa: tocarlo recorre las monedas del libro.
+        val signView = TextView(this).apply {
             typeface = rajdhani600
             textSize = 24f
             setTextColor(accent)
-            setPadding(0, 0, dp(10), 0)
-        })
+            background = curChipBg()
+            setPadding(dp(10), dp(2), dp(10), dp(2))
+            isClickable = true
+            setOnClickListener {
+                cur = cursCycle[(cursCycle.indexOf(cur) + 1) % cursCycle.size]
+                text = if (cur == "NIO") "C$" else "$"
+            }
+        }
+        signView.text = if (cur == "NIO") "C$" else "$"
+        row.addView(signView, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { rightMargin = dp(10) })
         row.addView(amount, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         plate.addView(row)
         plate.addView(View(this).apply { setBackgroundColor(accent) },
@@ -357,48 +402,36 @@ class QuickAddActivity : Activity() {
             topMargin = dp(12)
         })
 
-        // Sin casas para este signo (un libro nuevo, o una foto que aún no las trae) la
-        // tarjeta queda como nació: el apunte cae sin categoría y la lista no aparece.
-        // Ningún texto pide abrir la app (la ley de Oscar, 1.3.237 — «esta implementación
-        // es para evitar que sea necesario abrir la app»): la página renueva la foto del
-        // libro real en CADA apertura, también con el ejemplo en pantalla, así que tras
-        // cualquier apertura las casas ya vienen en la foto y este estado no se alcanza.
-
-        // La casa del apunte (2026-11-12): las que la foto trae para este signo — las que ya lo
-        // reciben, en orden de uso. Sin casas (libro nuevo) la tarjeta queda como nació: el
-        // apunte cae sin categoría. La última casa usada queda preseleccionada; si nunca se
-        // eligió una, «Sin categoría» manda hasta que el usuario opte por una.
+        // La casa del apunte: la sección «¿Dónde va?» se compone SIEMPRE que hay foto
+        // (1.3.241). Hasta 1.3.240 la lista solo se dibujaba si la foto traía casas — y
+        // como las casas nacían solo de líneas con subcategoría, un libro cuyo hábito cae
+        // sin categoría o a nivel de categoría devolvía la lista vacía y la tarjeta no
+        // mostraba NI la pregunta (la cuarta prueba de Oscar: «No me aparece dónde va, no
+        // puedo elegir ninguna carpeta»). Ahora la pregunta va impresa siempre, la casa
+        // elegida se lee de un vistazo sin tocar nada (su principio del usuario frío: lo
+        // que no se anuncia no existe) y «Sin categoría» es una fila más, explícita y
+        // marcada cuando no hay hábito. Ningún texto pide abrir la app (la ley de Oscar,
+        // 1.3.237): la foto se renueva del libro real en cada apertura.
+        // Las casas son las que la foto trae para este signo — las que ya lo reciben, en
+        // orden de uso, a nivel de subcategoría o de categoría (quickadd.ts). La última
+        // casa usada queda preseleccionada; si nunca se eligió una, «Sin categoría» manda
+        // hasta que el usuario opte por una.
         val homes = if (sign == "in") snap.qhIn else snap.qhOut
-        var group: RadioGroup? = null
-        if (homes.isNotEmpty()) {
-            card.addView(TextView(this).apply {
-                text = if (en) "WHERE DOES IT GO?" else "¿DÓNDE VA?"
-                typeface = rajdhani600
-                textSize = 13f
-                letterSpacing = 0.14f
-                setTextColor(cLabel)
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = dp(16); bottomMargin = dp(8)
-            })
-            val g = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
-            val last = QuickAdd.lastHome(this, sign)
-            homes.forEachIndexed { i, h ->
-                g.addView(RadioButton(this).apply {
-                    id = 1000 + i
-                    text = h.n
-                    textSize = 15f
-                    setTextColor(cText)
-                    background = rowSelector(accent)
-                    setButtonDrawable(radioSquare(accent))
-                    compoundDrawablePadding = dp(12)
-                    setPadding(dp(14), 0, dp(14), 0)
-                }, RadioGroup.LayoutParams(
-                    RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
-                ).apply { if (i > 0) topMargin = dp(6) })
-            }
-            g.addView(RadioButton(this).apply {
-                id = 1000 + homes.size
-                text = if (en) "No category (quick note)" else "Sin categoría (apunte rápido)"
+        card.addView(TextView(this).apply {
+            text = if (en) "WHERE DOES IT GO?" else "¿DÓNDE VA?"
+            typeface = rajdhani600
+            textSize = 13f
+            letterSpacing = 0.14f
+            setTextColor(cLabel)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(16); bottomMargin = dp(8)
+        })
+        val group = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+        val last = QuickAdd.lastHome(this, sign)
+        homes.forEachIndexed { i, h ->
+            group.addView(RadioButton(this).apply {
+                id = 1000 + i
+                text = h.n
                 textSize = 15f
                 setTextColor(cText)
                 background = rowSelector(accent)
@@ -407,13 +440,31 @@ class QuickAddActivity : Activity() {
                 setPadding(dp(14), 0, dp(14), 0)
             }, RadioGroup.LayoutParams(
                 RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
-            ).apply { topMargin = dp(6) })
-            val lastIdx = homes.indexOfFirst { "${it.c}|${it.s}" == last }
-            g.check(1000 + if (lastIdx >= 0) lastIdx else homes.size)
-            group = g
-            card.addView(ScrollView(this).apply { addView(g) },
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(176)))
+            ).apply { if (i > 0) topMargin = dp(6) })
         }
+        group.addView(RadioButton(this).apply {
+            id = 1000 + homes.size
+            text = if (en) "No category (quick note)" else "Sin categoría (apunte rápido)"
+            textSize = 15f
+            setTextColor(cText)
+            background = rowSelector(accent)
+            setButtonDrawable(radioSquare(accent))
+            compoundDrawablePadding = dp(12)
+            setPadding(dp(14), 0, dp(14), 0)
+        }, RadioGroup.LayoutParams(
+            RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
+        ).apply { if (homes.isNotEmpty()) topMargin = dp(6) })
+        val lastIdx = homes.indexOfFirst { "${it.c}|${it.s}" == last }
+        group.check(1000 + if (lastIdx >= 0) lastIdx else homes.size)
+        // La zona de scroll (176dp) solo se reserva cuando las filas ya no caben a la
+        // vista (4 o más, contando «Sin categoría»); con pocas casas la sección mide lo
+        // que mide y la tarjeta no carga un hueco vacío.
+        val rowsTotal = homes.size + 1
+        card.addView(ScrollView(this).apply { addView(group) },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                if (rowsTotal >= 4) dp(176) else LinearLayout.LayoutParams.WRAP_CONTENT
+            ))
 
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -452,18 +503,19 @@ class QuickAddActivity : Activity() {
                     amount.error = if (en) "Enter an amount" else "Escribe un monto"
                     return@setOnClickListener
                 }
-                val chosenIdx = (group?.checkedRadioButtonId ?: -1) - 1000
+                val chosenIdx = group.checkedRadioButtonId - 1000
                 val home = if (chosenIdx in homes.indices) homes[chosenIdx] else null
                 val entry = JSONObject()
                     .put("id", UUID.randomUUID().toString())
                     .put("sign", sign)
                     .put("minor", minor)
-                    .put("cur", snap.cur)
+                    .put("cur", cur)
                     .put("day", SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()))
                     .put("at", java.time.Instant.now().toString())
                     .put("cat", home?.c ?: "")
                     .put("sub", home?.s ?: "")
                 QuickAdd.enqueue(this@QuickAddActivity, entry)
+                QuickAdd.rememberCur(this@QuickAddActivity, sign, cur)
                 if (home != null) QuickAdd.rememberHome(this@QuickAddActivity, sign, home)
                 Toast.makeText(this@QuickAddActivity, if (en) "Noted ✓" else "Anotado ✓", Toast.LENGTH_SHORT).show()
                 finish()

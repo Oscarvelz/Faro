@@ -88,6 +88,64 @@ describe("apuntes rápidos del widget", () => {
     assert.ok(!homes.out.some((h) => h.c === "c-ahorro"), "Ahorros nunca es casa de un apunte");
   });
 
+  it("las casas a nivel de categoría: el libro de Oscar (ingreso sin subs) ya no devuelve la lista vacía", () => {
+    // El censo de 1.3.241 sobre su cuarta prueba: quickHomes solo contaba líneas CON
+    // subcategoría — su ingreso cae sin categoría o a nivel de categoría («Ingresos
+    // variables» sin subs) y qhIn volvía []: la tarjeta ni dibujaba el «¿Dónde va?».
+    const st = blank();
+    const named = (id: string, customName: string, order: number, extra: object = {}) =>
+      ({ id, nameKey: "", customName, icon: "", hidden: false, order, ...extra });
+    (st.structure as unknown as { categories: unknown[] }).categories = [
+      named("c-salario", "Salario", 1, { group: "fixed", role: "", subs: [] }),
+      named("c-casa", "Casa", 2, { group: "fixed", role: "housing", subs: [named("s-renta", "Renta", 1)] }),
+      named("c-comida", "Comida", 3, { group: "variable", role: "food", subs: [named("s-super", "Súper", 1)] }),
+    ];
+    const mk = (kind: string, categoryId: string, subId: string) =>
+      ({ id: `${kind}-${categoryId}-${subId}-${Math.random()}`, seriesId: "x", monthKey: "2026-11", kind, concept: "x", amountMinor: 100, currency: "USD", active: true, note: "", categoryId, subId, recurring: false, cadence: "", nextDue: "", color: "", icon: "" }) as unknown as Line;
+    st.months = { "2026-11": { lines: [
+      mk("income-fixed", "c-salario", ""), mk("income-fixed", "c-salario", ""), // su hábito: la categoría, sin sub
+      mk("income-variable", "", ""), mk("income-variable", "", ""), mk("income-variable", "", ""), // y apuntes sin categoría
+      mk("expense-fixed", "c-casa", "s-renta"),
+    ] } };
+    const homes = quickHomes(st, "2026-11", "es");
+    // La casa de ingreso ES la categoría: s = "" y el nombre sin «· sub».
+    assert.deepEqual(homes.inn, [{ c: "c-salario", s: "", n: "Salario" }]);
+    assert.deepEqual(homes.out.map((h) => h.n), ["Casa · Renta"]);
+    // Un libro donde TODO cae sin categoría no inventa casas: la lista queda vacía y la
+    // tarjeta ofrece su «Sin categoría» siempre presente (cerca del shell, abajo).
+    const bare = blank();
+    (bare.structure as unknown as { categories: unknown[] }).categories = [
+      named("c-salario", "Salario", 1, { group: "fixed", role: "", subs: [] }),
+    ];
+    bare.months = { "2026-11": { lines: [mk("income-variable", "", "")] } };
+    assert.deepEqual(quickHomes(bare, "2026-11", "es"), { inn: [], out: [] });
+  });
+
+  it("con casa a nivel de categoría: el apunte cae en la categoría sin sub, con el kind de su grupo", () => {
+    const st = blank();
+    const named = (id: string, customName: string, order: number, extra: object = {}) =>
+      ({ id, nameKey: "", customName, icon: "", hidden: false, order, ...extra });
+    (st.structure as unknown as { categories: unknown[] }).categories = [
+      named("c-salario", "Salario", 1, { group: "fixed", role: "", subs: [] }),
+    ];
+    const filed = ingestQuick(st, [{ ...GOOD, id: "q-66666666-ff", sign: "in", cat: "c-salario", sub: "" }], "es")
+      .months["2026-10"]?.lines[0];
+    assert.equal(filed?.categoryId, "c-salario"); // exactamente donde la tarjeta dijo
+    assert.equal(filed?.subId, "");
+    assert.equal(filed?.kind, "income-fixed"); // el grupo de la categoría, no el variable por defecto
+  });
+
+  it("la foto trae las monedas del libro: la de vista primero y siempre se puede alternar", () => {
+    const init = createInitial("es", "tron"); // vista NIO por defecto
+    const snapNio = buildWidgetSnapshot(init, "es", { today: "2026-11-12", hide: false, lock: false });
+    assert.deepEqual(snapNio.curs, ["NIO", "USD"]); // el Córdoba de vista y el dólar al que alternar
+    const usd = createInitial("es", "tron");
+    (usd.settings as unknown as { display: string }).display = "USD"; // el libro de Oscar: vista en dólares
+    const snapUsd = buildWidgetSnapshot(usd, "es", { today: "2026-11-12", hide: false, lock: false });
+    assert.equal(snapUsd.cur, "USD");
+    assert.deepEqual(snapUsd.curs, ["USD", "NIO"]); // su dólar primero; tocar el signo trae el Córdoba
+  });
+
   it("con casa: el kind sale del grupo de la categoría; las caídas son honestas", () => {
     const st = blank();
     const named = (id: string, customName: string, order: number, extra: object = {}) =>
@@ -178,6 +236,32 @@ describe("apuntes rápidos del widget", () => {
     const row = quick.slice(quick.indexOf("val buttons"));
     assert.match(row, /leftMargin = dp\(10\)/);
     assert.match(row, /setPadding\(dp\(18\), 0, dp\(18\), 0\)/);
+  });
+
+  it("1.3.241: el «¿Dónde va?» nunca desaparece y el signo de moneda alterna la moneda del apunte", () => {
+    const root = process.cwd();
+    const quick = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/QuickAdd.kt"), "utf8");
+    const widgets = fs.readFileSync(path.join(root, "android/app/src/main/java/com/oscarvelz/faro/FaroWidgets.kt"), "utf8");
+    // La sección se compone siempre que hay foto: la pregunta impresa y el grupo existen
+    // fuera de toda condición sobre las casas. (En 1.3.240 un `if (homes.isNotEmpty())`
+    // envolvía la sección entera: sin casas no había ni pregunta.)
+    assert.match(quick, /val group = RadioGroup\(this\)/);
+    assert.ok(!/if \(homes\.isNotEmpty\(\)\) \{\s*card\.addView\(TextView/.test(quick),
+      "la sección ya no vive dentro de la condición de las casas");
+    assert.ok(quick.includes("¿DÓNDE VA?") && quick.includes("WHERE DOES IT GO?"), "la pregunta va impresa siempre");
+    assert.match(quick, /group\.check\(1000 \+ if \(lastIdx >= 0\) lastIdx else homes\.size\)/,
+      "sin hábito, «Sin categoría» queda marcada y legible");
+    // El signo alterna: la moneda elegida es la que viaja en el apunte (ya no la de la foto
+    // a la fuerza) y se recuerda por signo, como la casa.
+    assert.match(quick, /val cursCycle: List<String>/);
+    assert.match(quick, /fun lastCur\(ctx: Context, sign: String\)/);
+    assert.match(quick, /fun rememberCur\(ctx: Context, sign: String, cur: String\)/);
+    assert.ok(quick.includes('.put("cur", cur)'), "el apunte lleva la moneda elegida en la tarjeta");
+    assert.ok(!quick.includes('.put("cur", snap.cur)'), "la moneda de la foto ya no se impone");
+    assert.match(quick, /curChipBg\(\)/);
+    // La foto trae las monedas del libro; sin ellas el shell alterna por su cuenta.
+    assert.ok(widgets.includes("\"curs\""), "el shell lee las monedas de la foto");
+    assert.match(widgets, /val curs: List<String> = emptyList\(\)/);
   });
 
   it("1.3.237: la foto que el feed empuja con el ejemplo en pantalla es función pura del pack personal", () => {

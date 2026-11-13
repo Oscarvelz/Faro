@@ -183,6 +183,10 @@ class Snap(
      *  texto pide abrir la app. */
     val qhIn: List<QHome> = emptyList(),
     val qhOut: List<QHome> = emptyList(),
+    /** 1.3.241: las monedas que el libro conoce, en el orden de la tarjeta (la foto las trae
+     *  desde 1.3.241). Una foto vieja no las trae = lista vacía, y la tarjeta alterna entre
+     *  las dos monedas del sistema por su cuenta. */
+    val curs: List<String> = emptyList(),
 ) {
     val en get() = lang == "en"
 
@@ -192,7 +196,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
-        qhIn = qhIn, qhOut = qhOut,
+        qhIn = qhIn, qhOut = qhOut, curs = curs,
     )
 
     companion object {
@@ -216,6 +220,7 @@ class Snap(
             flow = arr(o, "flow").map { Flow(it.optString("label"), it.optLong("inn"), it.optLong("out"), it.optString("key")) },
             qhIn = arr(o, "qhIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             qhOut = arr(o, "qhOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
+            curs = (o.optJSONArray("curs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotEmpty() } } } ?: emptyList()),
         )
     }
 }

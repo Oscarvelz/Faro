@@ -36,7 +36,8 @@ export type QuickEntry = {
   sub?: string;
 };
 
-/** Una casa elegible en la tarjeta: ids de Estructura + el nombre a mostrar («Casa · Renta»). */
+/** Una casa elegible en la tarjeta: ids de Estructura + el nombre a mostrar («Casa · Renta»,
+ *  o solo la categoría — «Salario» — cuando la casa es la categoría misma, con s = ""). */
 export type QuickHome = { c: string; s: string; n: string };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -69,11 +70,18 @@ export function parseQuickEntries(raw: string): QuickEntry[] {
 }
 
 /**
- * Las casas que la tarjeta ofrece para cada signo: las subcategorías que YA reciben ese signo,
- * contadas en los últimos 3 meses (la costumbre manda), en orden de uso y luego de Estructura.
- * Solo uso real: una casa que nunca recibió un ingreso no se ofrece para ingresos — ofrecerla
- * invitaría a archivar mal. Fuera: categorías ocultas, subs ocultas y las de Ahorros (su dinero
- * es stock con series propias; un apunte genérico ahí corrompería la cifra). Tope 10 por signo.
+ * Las casas que la tarjeta ofrece para cada signo: los destinos que YA reciben ese signo,
+ * contados en los últimos 3 meses (la costumbre manda), en orden de uso y luego de Estructura.
+ * Una casa es una subcategoría («Casa · Renta») O la categoría misma cuando el hábito cae a
+ * nivel de categoría, sin sub (s = ""): archivar ahí es archivar en la categoría sin sub, el
+ * mismo destino que la resolución ya conocía. Hasta 1.3.240 solo se contaban las líneas CON
+ * sub — un libro cuyo ingreso cae sin categoría o a nivel de categoría (el de Oscar: su
+ * ENTRÓ vive en «Ingresos variables» sin subs) devolvía la lista VACÍA y la tarjeta ni
+ * siquiera dibujaba la pregunta. Las líneas sin categoría no forman casa (no hay carpeta que
+ * nombrar): las cubre el «Sin categoría» que la tarjeta siempre ofrece. Solo uso real: una
+ * casa que nunca recibió un ingreso no se ofrece para ingresos — ofrecerla invitaría a
+ * archivar mal. Fuera: categorías ocultas, subs ocultas y las de Ahorros (su dinero es stock
+ * con series propias; un apunte genérico ahí corrompería la cifra). Tope 10 por signo.
  */
 export function quickHomes(state: LedgerState, key: string, lang: Lang): { inn: QuickHome[]; out: QuickHome[] } {
   const names = makeNamer(state.structure, lang);
@@ -85,7 +93,7 @@ export function quickHomes(state: LedgerState, key: string, lang: Lang): { inn: 
     const yy = y + Math.floor((m - 1 - back) / 12);
     const k = `${yy}-${String(mm).padStart(2, "0")}`;
     for (const l of state.months[k]?.lines ?? []) {
-      if (!l.subId || l.xfer || l.rest) continue;
+      if (!l.categoryId || l.xfer || l.rest) continue;
       const sign = l.kind.startsWith("income") ? "in" : l.kind.startsWith("expense") ? "out" : null;
       if (!sign) continue;
       const id = `${sign}|${l.categoryId}|${l.subId}`;
@@ -96,11 +104,13 @@ export function quickHomes(state: LedgerState, key: string, lang: Lang): { inn: 
     const homes: (QuickHome & { n0: number; o0: number })[] = [];
     for (const c of state.structure.categories) {
       if (c.hidden || c.role === "savings") continue;
+      const nCat = counts.get(`${sign}|${c.id}|`) ?? 0;
+      if (nCat > 0) homes.push({ c: c.id, s: "", n: names.cat(c.id), n0: nCat, o0: c.order * 1000 });
       for (const s of c.subs) {
         if (s.hidden) continue;
         const n0 = counts.get(`${sign}|${c.id}|${s.id}`) ?? 0;
         if (n0 <= 0) continue;
-        homes.push({ c: c.id, s: s.id, n: `${names.cat(c.id)} · ${names.sub(s.id)}`, n0, o0: c.order * 1000 + s.order });
+        homes.push({ c: c.id, s: s.id, n: `${names.cat(c.id)} · ${names.sub(s.id)}`, n0, o0: c.order * 1000 + s.order + 1 });
       }
     }
     return homes.sort((a, b) => b.n0 - a.n0 || a.o0 - b.o0).slice(0, 10).map(({ c, s, n }) => ({ c, s, n }));
