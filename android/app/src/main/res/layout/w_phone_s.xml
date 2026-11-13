@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@drawable/w_bg" android:clipToOutline="true">
+    android:background="@drawable/w_bg_s" android:clipToOutline="true">
     <LinearLayout android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal"
         android:gravity="center_vertical" android:paddingStart="14dp" android:paddingEnd="10dp">
         <ImageView android:id="@+id/w_lamp" android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_lamp" android:importantForAccessibility="no" />

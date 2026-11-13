@@ -18,4 +18,17 @@
     <color name="w_bad">#FF6A5A</color>
     <color name="w_prev">#3DFFFFFF</color>
     <color name="w_press">#1FFFFFFF</color>
+    <!-- 1.3.235 «El cristal»: the widget glass tokens (Tron night charcoal). Same names as day. -->
+    <color name="w_glass_hair">#99000000</color>
+    <color name="w_glass_rim">#33FFFFFF</color>
+    <color name="w_glass_top">#FF1F2126</color>
+    <color name="w_glass_mid">#FF121316</color>
+    <color name="w_glass_bot">#FF0C0D0F</color>
+    <color name="w_glass_brillo">#12FFFFFF</color>
+    <color name="w_glass_brillo_s">#24FFFFFF</color>
+    <color name="w_glass_brillo_xl">#0DFFFFFF</color>
+    <color name="w_glass_fall">#1FFFFFFF</color>
+    <color name="w_glass_seat">#38000000</color>
+    <color name="w_btn_hi">#33FFFFFF</color>
+    <color name="w_btn_lo">#12FFFFFF</color>
 </resources>

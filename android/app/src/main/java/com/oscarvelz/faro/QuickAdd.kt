@@ -3,14 +3,21 @@ package com.oscarvelz.faro
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
+import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -97,6 +104,79 @@ object QuickAdd {
 class QuickAddActivity : Activity() {
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+    // ——— 1.3.235 «El cristal»: el acabado de la tarjeta y de sus opciones. Solo pintura —
+    // fondos, marcos y luz; ni un id, ni un listener, ni una medida de contenido cambia. ———
+
+    private fun withAlpha(c: Int, a: Int): Int = Color.argb(a, Color.red(c), Color.green(c), Color.blue(c))
+
+    /** El cuerpo de cristal de la tarjeta: degradado propio de arriba (luz) a abajo, marco de
+     *  luz al 18 %, brillo diagonal que muere a mitad de camino y la caída de luz (claro arriba,
+     *  asiento oscuro abajo). La tarjeta es opaca — el cristal aquí es luz, no transparencia. */
+    private fun glassCardBg(): LayerDrawable {
+        val r = dp(18).toFloat()
+        val body = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(Color.rgb(36, 47, 59), Color.rgb(22, 30, 39), Color.rgb(13, 19, 25))).apply {
+            cornerRadius = r; setStroke(dp(1), Color.argb(46, 255, 255, 255))
+        }
+        val brillo = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+            intArrayOf(Color.argb(20, 255, 255, 255), Color.TRANSPARENT, Color.TRANSPARENT)).apply { cornerRadius = r }
+        val fall = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(Color.argb(48, 255, 255, 255), Color.TRANSPARENT, Color.argb(51, 0, 0, 0))).apply { cornerRadius = r }
+        return LayerDrawable(arrayOf(body, brillo, fall))
+    }
+
+    /** La tarjeta dentro de un marco transparente con aire: su sombra real (elevación con el
+     *  contorno redondeado declarado) necesita ese aire dentro de la ventana para dibujarse. */
+    private fun wrapCard(card: View): FrameLayout {
+        card.elevation = dp(18).toFloat()
+        card.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, dp(18).toFloat())
+            }
+        }
+        card.clipToOutline = true
+        return FrameLayout(this).apply {
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+            addView(card)
+        }
+    }
+
+    /** Los botones de la tarjeta como fichas de cristal; Guardar lleva el color del signo. */
+    private fun chipBg(fill: Int, stroke: Int): GradientDrawable = GradientDrawable().apply {
+        setColor(fill); cornerRadius = dp(12).toFloat(); setStroke(dp(1), stroke)
+    }
+
+    /** El cristal de una opción de «¿Dónde va?», en el color c (el del signo; blanco para
+     *  «Sin categoría»): en reposo, un susurro de c y su marco al 22 %; elegida, el marco casi
+     *  entero, el lavado doblado y la banda de luz de c al borde de abajo — la gramática de
+     *  selección de la casa, a escala de diálogo. */
+    private fun rowBg(c: Int, checked: Boolean): LayerDrawable {
+        val r = dp(12).toFloat()
+        return if (!checked) {
+            val under = GradientDrawable().apply { setColor(Color.argb(8, 255, 255, 255)); cornerRadius = r }
+            val wash = GradientDrawable().apply {
+                setColor(withAlpha(c, 15)); cornerRadius = r; setStroke(dp(1), withAlpha(c, 56))
+            }
+            LayerDrawable(arrayOf(under, wash))
+        } else {
+            val wash = GradientDrawable().apply {
+                setColor(withAlpha(c, 38)); cornerRadius = r; setStroke(dp(1), withAlpha(c, 204))
+            }
+            val band = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, withAlpha(c, 140))).apply { cornerRadius = r }
+            LayerDrawable(arrayOf(wash, band))
+        }
+    }
+
+    private fun rowSelector(c: Int): StateListDrawable = StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_checked), rowBg(c, true))
+        addState(intArrayOf(), rowBg(c, false))
+    }
+
+    private fun ringTint(c: Int): ColorStateList = ColorStateList(
+        arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+        intArrayOf(c, Color.argb(92, 255, 255, 255)))
+
     override fun onCreate(saved: Bundle?) {
         super.onCreate(saved)
         val sign = intent.getStringExtra(QuickAdd.EXTRA_SIGN) ?: "out"
@@ -108,10 +188,7 @@ class QuickAddActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             minimumWidth = dp(288)
             setPadding(dp(22), dp(20), dp(22), dp(20))
-            background = GradientDrawable().apply {
-                setColor(Color.rgb(18, 24, 31))
-                cornerRadius = dp(18).toFloat()
-            }
+            background = glassCardBg()
         }
 
         if (snap == null) {
@@ -123,6 +200,8 @@ class QuickAddActivity : Activity() {
             })
             card.addView(Button(this).apply {
                 text = "Abrir Faro"
+                background = chipBg(Color.argb(20, 255, 255, 255), Color.argb(46, 255, 255, 255))
+                setTextColor(Color.rgb(232, 236, 240))
                 setOnClickListener {
                     startActivity(Intent(this@QuickAddActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     finish()
@@ -131,7 +210,7 @@ class QuickAddActivity : Activity() {
                 gravity = Gravity.END
                 topMargin = dp(16)
             })
-            setContentView(card)
+            setContentView(wrapCard(card))
             return
         }
 
@@ -174,11 +253,13 @@ class QuickAddActivity : Activity() {
             setPadding(0, dp(10), 0, 0)
         })
 
-        // Foto vieja (1.3.234): una foto escrita por una página anterior a los apuntes con casa
-        // no trae las casas (Snap.stale) y la tarjeta no puede inventarlas — el apunte igual se
-        // guarda (cae sin categoría), pero la tarjeta lo DICE y dice cómo se cura: abrir Faro
-        // una vez renueva la foto y las casas aparecen. Sin esta línea, la primera tarjeta tras
-        // una actualización parecía no tener categorías, sin más explicación.
+        // Foto vieja: una foto escrita por una página anterior a los apuntes con casa no trae
+        // las casas (Snap.stale) y la tarjeta no puede inventarlas — el apunte igual se guarda
+        // (cae sin categoría), pero la tarjeta lo DICE. Desde 1.3.235 la página renueva la foto
+        // en CADA primer plano del libro real, cambie algo o no, así que esta línea solo puede
+        // quedar cuando el libro real no ha estado en primer plano ni una vez desde que existen
+        // las casas (las sesiones de ejemplo no tocan la foto real, por la propia ley del modo
+        // de ejemplo; al salir de él, el montaje renueva la foto al instante).
         if (snap.stale) {
             card.addView(TextView(this).apply {
                 text = if (en) "Open Faro once to enable your categories." else "Abre Faro una vez para activar tus categorías."
@@ -209,16 +290,24 @@ class QuickAddActivity : Activity() {
                     text = h.n
                     textSize = 16f
                     setTextColor(Color.rgb(232, 236, 240))
-                    setPadding(dp(6), dp(7), 0, dp(7))
-                })
+                    background = rowSelector(accent)
+                    buttonTintList = ringTint(accent)
+                    setPadding(dp(12), dp(9), dp(10), dp(9))
+                }, RadioGroup.LayoutParams(
+                    RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT
+                ).apply { if (i > 0) topMargin = dp(5) })
             }
             g.addView(RadioButton(this).apply {
                 id = 1000 + homes.size
                 text = if (en) "No category (quick note)" else "Sin categoría (apunte rápido)"
                 textSize = 16f
                 setTextColor(Color.rgb(154, 163, 173))
-                setPadding(dp(6), dp(7), 0, dp(7))
-            })
+                background = rowSelector(Color.WHITE)
+                buttonTintList = ringTint(Color.WHITE)
+                setPadding(dp(12), dp(9), dp(10), dp(9))
+            }, RadioGroup.LayoutParams(
+                RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT
+            ).apply { if (homes.isNotEmpty()) topMargin = dp(5) })
             val lastIdx = homes.indexOfFirst { "${it.c}|${it.s}" == last }
             g.check(1000 + if (lastIdx >= 0) lastIdx else homes.size)
             group = g
@@ -233,10 +322,14 @@ class QuickAddActivity : Activity() {
         }
         buttons.addView(Button(this).apply {
             text = if (en) "Cancel" else "Cancelar"
+            background = chipBg(Color.argb(20, 255, 255, 255), Color.argb(46, 255, 255, 255))
+            setTextColor(Color.rgb(232, 236, 240))
             setOnClickListener { finish() }
         })
         buttons.addView(Button(this).apply {
             text = if (en) "Save" else "Guardar"
+            background = chipBg(withAlpha(accent, 51), withAlpha(accent, 153))
+            setTextColor(Color.WHITE)
             setOnClickListener {
                 val minor = parseMinor(amount.text.toString())
                 if (minor == null) {
@@ -261,7 +354,7 @@ class QuickAddActivity : Activity() {
             }
         })
         card.addView(buttons)
-        setContentView(card)
+        setContentView(wrapCard(card))
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         amount.requestFocus()
     }

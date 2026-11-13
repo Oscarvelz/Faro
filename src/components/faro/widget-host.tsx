@@ -4,6 +4,12 @@
  * - Feeds the widgets: a privacy-safe snapshot (lib/faro/widget.ts) goes to FaroNative.setWidgetData whenever the
  *   ledger changes (debounced), when Faro opens, when it goes to the background, and when "Widget: ocultar montos" or
  *   the fingerprint lock changes. Sample mode never feeds them (the widget keeps the real books).
+ *   1.3.235: the feed ALSO pushes on every foreground (visible again / the shell's onResume signal / focus),
+ *   whether or not anything changed — a session that merely resumes the page can no longer leave the
+ *   widgets carrying a photo from before the quick-note homes existed (Oscar's second test: the card
+ *   still showed the stale line after the app had been opened, because that open changed nothing and,
+ *   being a sample session, pushed nothing at all; sample sessions still never touch the real photo —
+ *   leaving sample mode remounts this host and the mount push refreshes the real photo at once).
  * - Answers widget taps: the app keeps the target of the tap (Central, Pagos, a book, + / −) and the page takes it
  *   once it is open and unlocked, then goes there the same way the manual's "Ir allí" does.
  */
@@ -96,12 +102,18 @@ export default function WidgetHost() {
     };
     const timer = window.setTimeout(push, 700);
     const now = () => { window.clearTimeout(timer); push(); };
-    const onVis = () => { if (document.visibilityState === "hidden") now(); };
+    // Leaving pushes (the photo is fresh when the launcher comes back) and so does every
+    // foreground (1.3.235): a no-change resume refreshes the photo too, homes included.
+    const onVis = () => { if (document.visibilityState === "hidden" || document.visibilityState === "visible") now(); };
     window.addEventListener(WIDGET_REFRESH, now);
+    window.addEventListener("faronative-resume", now);
+    window.addEventListener("focus", now);
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener(WIDGET_REFRESH, now);
+      window.removeEventListener("faronative-resume", now);
+      window.removeEventListener("focus", now);
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [ledger, lang]);

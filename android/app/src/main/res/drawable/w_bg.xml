@@ -1,6 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/w_bg" />
-    <corners android:radius="@dimen/w_radius" />
-    <stroke android:width="1dp" android:color="@color/w_line" />
-</shape>
+<!-- 1.3.235 «El cristal»: the widget glass (standard). Five layers, all colours from the
+     w_glass_* tokens (day in values/, night in values-night/): the black hairline ring, the
+     white rim ring, the body gradient in the surface's own hue, the diagonal brillo, and the
+     light falloff (top light in, bottom seat). The body stays OPAQUE — glass here is lit
+     stock, never see-through (an un-blurred wallpaper would bleed through and cheapen it).
+     Every layer carries its own corners: a layer-list's outline is only its bounds, so
+     nothing else clips them (the layouts' content is padded inward, as before). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/w_glass_hair" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/w_glass_rim" />
+            <corners android:radius="23dp" />
+        </shape>
+    </item>
+    <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <gradient android:type="linear" android:angle="270"
+                android:startColor="@color/w_glass_top" android:centerColor="@color/w_glass_mid" android:endColor="@color/w_glass_bot" />
+            <corners android:radius="22dp" />
+        </shape>
+    </item>
+    <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <gradient android:type="linear" android:angle="315"
+                android:startColor="@color/w_glass_brillo" android:centerColor="#00000000" android:endColor="#00000000" />
+            <corners android:radius="22dp" />
+        </shape>
+    </item>
+    <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <gradient android:type="linear" android:angle="270"
+                android:startColor="@color/w_glass_fall" android:centerColor="#00000000" android:endColor="@color/w_glass_seat" />
+            <corners android:radius="22dp" />
+        </shape>
+    </item>
+</layer-list>
