@@ -22,6 +22,7 @@ import { convertMinor } from "@/lib/faro/money";
 import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId } from "@/lib/faro/types";
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { guardPanelExit } from "@/lib/faro/panel-exit";
+import { installModalityGate } from "@/lib/faro/modality";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
 import { HistorialScreen } from "./historial";
 import { ArchivoScreen } from "./archivo";
@@ -185,6 +186,8 @@ export function Shell() {
   const [manualData, setManualData] = useState<ManualData | null>(manualNow);
   const [manualGaveUp, setManualGaveUp] = useState(false);
   const inSettings = ui.section === "settings";
+  // 1.3.244: the focus-ring modality gate (lib/faro/modality.ts) — installed once, for the whole shell.
+  useEffect(() => { installModalityGate(); }, []);
   useEffect(() => {
     if (manualData || manualGaveUp || !searchOpen) return;
     let live = true;

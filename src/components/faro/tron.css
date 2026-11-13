@@ -407,7 +407,18 @@ html[data-theme="tron"][data-hidden] *, html[data-theme="tron"][data-hidden] *::
 [data-theme="tron"] :is(.btn, .icon-btn, .nav-btn, .seg button, .lens, .spend-bubble, .pano-waffle button):active {
   box-shadow: 0 0 0 1px #c9f6ff, 0 0 16px rgba(63, 214, 245, .8) !important;
 }
-[data-theme="tron"] :focus-visible { outline: 2px solid #3fd6f5 !important; outline-offset: 2px; box-shadow: 0 0 12px rgba(63, 214, 245, .6); }
+/* The focus ring — gated by birth, not by the browser's current mood (1.3.244,
+   «el recuadro fantasma»): a control focused by a finger used to light up later
+   when a stray key (Back/Escape leaving Ajustes) flipped :focus-visible onto
+   it. [data-fv] is stamped at focus time by the modality gate
+   (lib/faro/modality.ts) — keyboard-born focus and text fields carry it, a
+   late key cannot mint it. Text fields also keep the native paint below:
+   they are focus-visible by nature, exactly as before. */
+[data-theme="tron"] :is(.field, .select, input, textarea, select):focus-visible { outline: 2px solid #3fd6f5 !important; outline-offset: 2px; box-shadow: 0 0 12px rgba(63, 214, 245, .6); }
+[data-theme="tron"] [data-fv]:focus { outline: 2px solid #3fd6f5 !important; outline-offset: 2px; box-shadow: 0 0 12px rgba(63, 214, 245, .6); }
+/* And the base sheet's own :focus-visible paint (styles.css, the accent ring)
+   must not ghost either: under Tron it answers only to the same stamp. */
+[data-theme="tron"] :focus-visible:not([data-fv]):not(:active) { outline: none; }
 
 /* The header lamp becomes an identity disc: a lit ring that turns slowly. */
 [data-theme="tron"] .brand-lamp::after {
