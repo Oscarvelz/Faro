@@ -66,7 +66,19 @@ export function UserButton() {
             onClick={async () => {
               setMsg("");
               // 1.3.121: the Android widget hides amounts by default while the lock is on (until its own switch is used).
-              if (locked) { disableLock(user.id); setLocked(false); window.dispatchEvent(new Event("faro-widget-refresh")); return; }
+              // 1.3.259 (Oscar, 2026-11-13): «no queremos problemas o errores» — QUITAR la huella
+              // pide confirmación primero, con la ventana de la casa: quitarla apaga una forma
+              // de entrar en este dispositivo. El apagado confirmado corre EXACTAMENTE el camino
+              // de siempre (el mismo disableLock de lock.ts, ni una línea más); lock.ts no se toca.
+              if (locked) {
+                confirm({
+                  title: w("lock.disable"),
+                  body: w("lock.offBody"),
+                  yes: w("lock.disable"),
+                  run: () => { disableLock(user.id); setLocked(false); window.dispatchEvent(new Event("faro-widget-refresh")); },
+                });
+                return;
+              }
               try { setLocked(await enableLock(user.id, user.email)); } catch { setMsg(w("lock.failed")); }
               window.dispatchEvent(new Event("faro-widget-refresh"));
             }}

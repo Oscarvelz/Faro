@@ -15,9 +15,13 @@ const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
  * FaroNotify) and the line under it reports the phone's real permission — read through the bridge,
  * never guessed. An older shell without the bridge methods still gets the switch, with a sub-line
  * that says the app asks the permission itself.
+ * 1.3.259 (Oscar, 2026-11-13): «no queremos problemas o errores» — APAGAR pide confirmación
+ * primero, con la ventana de la casa: qué avisos llegan hoy y qué deja de llegar, en palabras
+ * sencillas. El interruptor no cambia hasta que la ventana confirma (su commit vive dentro
+ * del run, por el mismo camino de siempre); ENCENDER sigue siendo el toque desnudo de antes.
  */
 export function NotifyRow() {
-  const { lang, session, commit } = useFaro();
+  const { lang, session, commit, confirm } = useFaro();
   const prefOn = session ? session.ledger.settings.notify !== false : true;
   const bridge = native();
   const canState = !!bridge?.notifyState;
@@ -36,8 +40,20 @@ export function NotifyRow() {
   }, [canState]);
 
   const flip = () => {
-    commit((s) => ({ ...s, settings: { ...s.settings, notify: !prefOn } }),
-      L(lang, prefOn ? "Avisos apagados" : "Avisos encendidos", prefOn ? "Notifications off" : "Notifications on"));
+    if (prefOn) {
+      confirm({
+        title: L(lang, "Desactivar avisos", "Turn off notifications"),
+        body: L(lang,
+          "Faro deja de avisarte de los vencimientos, el ritmo de gasto y el cierre del mes. Puedes volver a activarlos cuando quieras, aquí mismo.",
+          "Faro will stop reminding you about due dates, your spending pace and the month-end close. You can turn them back on any time, right here."),
+        yes: L(lang, "Desactivar", "Turn off"),
+        run: () => commit((s) => ({ ...s, settings: { ...s.settings, notify: false } }),
+          L(lang, "Avisos apagados", "Notifications off")),
+      });
+      return;
+    }
+    commit((s) => ({ ...s, settings: { ...s.settings, notify: true } }),
+      L(lang, "Avisos encendidos", "Notifications on"));
   };
 
   if (!inAndroidApp()) {

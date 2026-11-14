@@ -284,18 +284,38 @@ export default function WidgetHost() {
  * cabecera gana su subtítulo de una línea («Tu pantalla de inicio: montos y
  * fijas»), en el hueco de las vecinas — orden suya del mismo día (foto
  * 235299) que sustituye la decisión de 1.3.253 de dejarla sin subtítulo.
+ * 1.3.259: desactivar «Ocultar montos» pide confirmación (la ventana de la
+ * casa explica que los montos vuelven a la vista en la pantalla de inicio);
+ * la escritura de la pref vive dentro del run de la ventana.
  */
 export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { t, session, commit, names } = useFaro();
+  const { t, session, commit, names, confirm } = useFaro();
   const { lang } = useFaroRoot();
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const [pref, setPref] = useState<string | null>(hidePref);
   const on = widgetHide(pref, lockOn());
-  const flip = () => {
+  const applyFlip = () => {
     const next = on ? "0" : "1";
     try { localStorage.setItem(WIDGET_HIDE_KEY, next); } catch { /* ignore */ }
     setPref(next);
     window.dispatchEvent(new Event(WIDGET_REFRESH));
+  };
+  // 1.3.259 (Oscar, 2026-11-13): «no queremos problemas o errores» — DESACTIVAR
+  // «Ocultar montos» pide confirmación primero, con la ventana de la casa: apagar
+  // este interruptor es MOSTRAR el dinero en la pantalla de inicio, y eso se
+  // explica antes de hacerlo. La pref no se escribe hasta que la ventana
+  // confirma (vive dentro de su run, por el camino de siempre); ocultar de
+  // nuevo —más privacidad— sigue siendo el toque desnudo de antes.
+  const flip = () => {
+    if (!on) { applyFlip(); return; }
+    confirm({
+      title: L("Mostrar montos en el widget", "Show amounts on the widget"),
+      body: L(
+        "Los montos vuelven a verse en tu pantalla de inicio, a la vista de quien mire tu teléfono. Puedes volver a ocultarlos cuando quieras, aquí mismo.",
+        "Your amounts will show on your home screen again, visible to anyone who looks at your phone. You can hide them again any time, right here."),
+      yes: L("Mostrar", "Show"),
+      run: applyFlip,
+    });
   };
   const android = inAndroidApp();
   const ledger = session?.ledger ?? null;
