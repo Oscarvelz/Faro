@@ -6,8 +6,10 @@
  * OBLIGACIÓN (un vencimiento más en Pagos, por la vía única de dues.ts); la
  * póliza NUNCA es un activo — no hay bolsillo, no hay saldo, no entra en
  * savingsStock, ni en Tengo, ni en Retiro. Contarla como dinero sería el pecado
- * del dinero fantasma. La cobertura y el beneficiario viven solo como texto en
- * la nota de la pieza, jamás como una cifra.
+ * del dinero fantasma. La cobertura vive solo como texto en la nota de la
+ * pieza, jamás como una cifra; los beneficiarios (1.3.273) son una lista de
+ * nombres sobre la pieza — información que queda porque es importante, nunca
+ * una cifra ni un reparto.
  *
  * La pieza vive en el Catálogo (kind "ins"), sobre la maquinaria de las
  * suscripciones: misma tarjeta, misma mano, misma soberanía (ojo/papelera), y
@@ -38,10 +40,21 @@
  * meses × importe: los importes cambian con los años y una multiplicación
  * fabricaría dinero. Conteo y suma son lecturas de hechos: no entran en
  * ningún total, bolsillo ni stock.
+ *
+ * 1.3.273 «El seguro, en el fondo» (órdenes de Oscar, 2026-11-14): tres
+ * extensiones sobre la MISMA lectura de líneas anotadas (insFiledLines).
+ * (1) Estadísticas cuenta las primas al final de su lista: las del mes que
+ * se mira y la suma de todas — a la moneda de vista con la tasa del usuario,
+ * como convierte esa superficie entera. (2) El Asesor solo habla del seguro
+ * si la última prima anotada CAMBIÓ contra la anterior de la misma pieza —
+ * aunque sea un centavo, en cualquier dirección — y dice cuánto era y cuánto
+ * es; fuera de eso, silencio: ninguna otra opinión sobre el seguro existe.
+ * (3) Los beneficiarios: el usuario elige cuántos y los nombra — escritos o
+ * traídos de sus contactos — y quedan guardados en la pieza.
  */
 import { nextDueDayOn } from "./dues";
 import { defaultStructure, displayName } from "./defaults";
-import { uid } from "./money";
+import { convertMinor, uid } from "./money";
 import type { CatalogItem, Currency, InsPlan, LedgerState, Line } from "./types";
 
 /** La categoría de fábrica donde archiva la prima y su subconcepto Vida. */
@@ -114,6 +127,27 @@ function lineDay(line: Line): string {
   return line.bookedOn || line.nextDue || `${line.monthKey}-01`;
 }
 
+export type InsFiled = { day: string; monthKey: string; amountMinor: number; currency: Currency; lineId: string };
+
+/** LA lectura de las primas anotadas de una pieza (1.3.273: un solo lugar —
+ *  el panel de la pieza, la estadística de Estudio y el aviso del Asesor leen
+ *  de aquí): las líneas archivadas de la pieza (providerId = la pieza,
+ *  activas, no en descanso) con su día dentro de [desde, hoy], en orden de
+ *  día. `desde` vacío = sin suelo: cuentan todas las anotadas. Son hechos —
+ *  dinero que salió — y nada más que hechos. */
+export function insFiledLines(state: LedgerState, itemId: string, from: string, today: string): InsFiled[] {
+  const out: InsFiled[] = [];
+  for (const bucket of Object.values(state.months)) {
+    for (const line of bucket.lines) {
+      if (line.providerId !== itemId || line.rest || !line.active) continue;
+      const day = lineDay(line);
+      if ((from && day < from) || day > today) continue;
+      out.push({ day, monthKey: line.monthKey, amountMinor: line.amountMinor, currency: line.currency, lineId: line.id });
+    }
+  }
+  return out.sort((a, b) => a.day.localeCompare(b.day) || a.lineId.localeCompare(b.lineId));
+}
+
 export type InsPaid = { count: number; totals: { cur: Currency; amt: number }[] };
 
 /** Las primas ANOTADAS de una pieza entre su inicio y hoy: el conteo y la
@@ -124,18 +158,68 @@ export type InsPaid = { count: number; totals: { cur: Currency; amt: number }[] 
  *  (regla de la casa). */
 export function insPaid(state: LedgerState, itemId: string, start: string, today: string): InsPaid | null {
   if (!start || start > today) return null;
-  let count = 0;
+  const filed = insFiledLines(state, itemId, start, today);
   const byCur = new Map<Currency, number>();
-  for (const bucket of Object.values(state.months)) {
-    for (const line of bucket.lines) {
-      if (line.providerId !== itemId || line.rest || !line.active) continue;
-      const day = lineDay(line);
-      if (day < start || day > today) continue;
+  for (const f of filed) byCur.set(f.currency, (byCur.get(f.currency) ?? 0) + f.amountMinor);
+  return { count: filed.length, totals: [...byCur.entries()].map(([cur, amt]) => ({ cur, amt })) };
+}
+
+/** La ventana honesta de una pieza para las lecturas de 1.3.273: su fecha de
+ *  inicio si la puso y no es futura; si no la puso, sin suelo — sus primas
+ *  anotadas son cargos reales y cuentan todos (la estadística cuenta dinero,
+ *  no una historia desde una fecha). */
+function insFrom(item: CatalogItem, today: string): string {
+  const start = item.ins?.start ?? "";
+  return start && start <= today ? start : "";
+}
+
+export type InsTotals = { monthMinor: number; totalMinor: number; count: number };
+
+/** La estadística de Estudio (1.3.273): las primas anotadas de TODAS las
+ *  piezas de seguro — las del mes que se mira y la suma de todas hasta hoy —
+ *  en la moneda de vista, convertidas con la tasa del usuario como convierte
+ *  esa superficie entera. Suma líneas anotadas, nunca meses × importe: un
+ *  cambio de importe a mitad de historia no reescribe el pasado. null cuando
+ *  ninguna prima se ha anotado jamás: la estadística no se anuncia vacía. */
+export function insTotals(state: LedgerState, monthKey: string, today: string): InsTotals | null {
+  const { display, rateE4 } = state.settings;
+  let monthMinor = 0;
+  let totalMinor = 0;
+  let count = 0;
+  for (const item of state.structure.catalog) {
+    if (item.kind !== "ins") continue;
+    for (const f of insFiledLines(state, item.id, insFrom(item, today), today)) {
+      const v = convertMinor(f.amountMinor, f.currency, display, rateE4);
+      totalMinor += v;
+      if (f.day.slice(0, 7) === monthKey) monthMinor += v;
       count += 1;
-      byCur.set(line.currency, (byCur.get(line.currency) ?? 0) + line.amountMinor);
     }
   }
-  return { count, totals: [...byCur.entries()].map(([cur, amt]) => ({ cur, amt })) };
+  return count > 0 ? { monthMinor, totalMinor, count } : null;
+}
+
+export type InsChange = { itemId: string; wasMinor: number; wasCur: Currency; nowMinor: number; nowCur: Currency; lineId: string; monthKey: string };
+
+/** El único hecho del seguro del que el Asesor habla (1.3.273): la última
+ *  prima anotada de una pieza difiere de la anterior de la MISMA pieza —
+ *  aunque sea un centavo, en cualquier dirección. Devuelve el cambio más
+ *  reciente entre las piezas (a igual día, el orden del catálogo manda), o
+ *  null: mismo importe, primera anotación o ninguna anotación = silencio. */
+export function insPremiumChange(state: LedgerState, today: string): InsChange | null {
+  let best: (InsChange & { day: string }) | null = null;
+  for (const item of state.structure.catalog) {
+    if (item.kind !== "ins") continue;
+    const filed = insFiledLines(state, item.id, insFrom(item, today), today);
+    if (filed.length < 2) continue;
+    const prev = filed[filed.length - 2]!;
+    const last = filed[filed.length - 1]!;
+    if (prev.amountMinor === last.amountMinor && prev.currency === last.currency) continue;
+    if (best && last.day <= best.day) continue;
+    best = { itemId: item.id, wasMinor: prev.amountMinor, wasCur: prev.currency, nowMinor: last.amountMinor, nowCur: last.currency, lineId: last.lineId, monthKey: last.day.slice(0, 7), day: last.day };
+  }
+  if (!best) return null;
+  const { day: _day, ...change } = best;
+  return change;
 }
 
 /** El asiento de la prima dentro de la estructura: la categoría de fábrica

@@ -45,7 +45,7 @@ import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/
 import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { accounts } from "@/lib/faro/bankbook";
-import { insPaid, insTiming, monthsSince, syncInsLine } from "@/lib/faro/insurance";
+import { insPaid, insTiming, insTotals, monthsSince, syncInsLine } from "@/lib/faro/insurance";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
 import type { CatalogItem, Category, Currency, InsPlan, LedgerState, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
@@ -3885,6 +3885,11 @@ export function Study() {
   // 1.3.109: earnings by source (card rewards as their own source).
   const earnAny = hasEarnings(session?.ledger, ui.year);
   if (earnAny) visible.push("earnings");
+  // 1.3.273 (Oscar): el seguro de vida se cuenta al final de Estadísticas —
+  // es dinero que corre en el fondo. Solo se anuncia cuando ya se anotó una
+  // prima: sin hechos, la carpeta no existe, como sus vecinas.
+  const insStat = session ? insTotals(session.ledger, key, todayIso()) : null;
+  if (insStat) visible.push("seguro");
   const rwHave = rewardsTotals(session?.ledger).total;
   const detailRows = storePick
     ? pickedRows.filter((line) => line.storeId === storePick)
@@ -3920,6 +3925,7 @@ export function Study() {
         { id: "owed", label: t("study.owed.title"), section: "owed" },
         { id: "loans", label: t("study.loans.title"), section: "owed" },
         { id: "numeros", label: es ? "Números clave" : "Key numbers", section: "keys" },
+        { id: "seguro", label: t("cat.g.ins"), section: "keys" },
       ]}
       sections={[
         { id: "now", label: es ? "Este mes" : "This month" },
@@ -4043,6 +4049,20 @@ export function Study() {
       {loansAny ? <StatFold id="loans"><LoansStudy /></StatFold> : null}
       {hasPeople ? <StatFold id="people"><PeopleStudy /></StatFold> : null}
       {showRewards ? <StatFold id="rewards"><RewardsStudy /></StatFold> : null}
+      {insStat ? (
+      <StatFold id="seguro">
+        <section className="card">
+          <div className="stat-head">
+            <h2 className="serif text-2xl lab-head">{t("cat.g.ins")}<Hint topic="seguro-vida" fitParent /></h2>
+          </div>
+          <p className="num serif text-3xl">{fmt(insStat.totalMinor)}</p>
+          <p className="text-sm text-muted">{(insStat.count === 1 ? t("ins.stat.count1") : t("ins.stat.count")).replace("{n}", String(insStat.count))}</p>
+          <div className="span-facts">
+            <div><em>{`${monthName(lang, Number(key.slice(5, 7)))} ${key.slice(0, 4)}`}</em><strong className="num">{fmt(insStat.monthMinor)}</strong></div>
+          </div>
+        </section>
+      </StatFold>
+      ) : null}
     </StudyStack>
     </StatFoldProvider>
   );
@@ -5878,12 +5898,15 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
  *  las dos puertas pidan exactamente lo mismo. El importe nace vacío (es del
  *  usuario o no es) y el momento no trae día fingido: sin día/semana elegidos
  *  y con importe puesto, el guardado pregunta (ins.needTiming). */
-type InsDraft = { amt: string; cur: Currency; mode: "day" | "week"; day: string; week: number; src: string; start: string; note: string };
+type InsDraft = { amt: string; cur: Currency; mode: "day" | "week"; day: string; week: number; src: string; start: string; note: string; bens: string[] };
 function emptyInsDraft(cur: Currency): InsDraft {
-  return { amt: "", cur, mode: "day", day: "", week: 0, src: "", start: "", note: "" };
+  return { amt: "", cur, mode: "day", day: "", week: 0, src: "", start: "", note: "", bens: [] };
 }
-function draftFromPlan(plan: InsPlan | undefined, cur: Currency): InsDraft {
-  if (!plan) return emptyInsDraft(cur);
+function cleanInsBens(values: string[]): string[] {
+  return values.map((name) => name.trim()).filter(Boolean);
+}
+function draftFromPlan(plan: InsPlan | undefined, cur: Currency, bens: string[] = []): InsDraft {
+  if (!plan) return { ...emptyInsDraft(cur), bens: [...bens] };
   return {
     amt: String(plan.amt / 100),
     cur: plan.cur,
@@ -5893,8 +5916,14 @@ function draftFromPlan(plan: InsPlan | undefined, cur: Currency): InsDraft {
     src: plan.src,
     start: plan.start,
     note: plan.note,
+    bens: [...bens],
   };
 }
+type InsContactsApi = { select: (props: string[], opts: { multiple: boolean }) => Promise<{ name?: string[] }[]> };
+const insContactsApi = (): InsContactsApi | null => {
+  const contacts = (navigator as unknown as { contacts?: InsContactsApi }).contacts;
+  return contacts && typeof contacts.select === "function" ? contacts : null;
+};
 function planFromDraft(d: InsDraft): { plan?: InsPlan; err?: "amount" | "timing" } {
   if (!d.amt.trim()) return {};
   const minor = parseAmount(d.amt);
@@ -5910,6 +5939,15 @@ function planFromDraft(d: InsDraft): { plan?: InsPlan; err?: "amount" | "timing"
 }
 function InsFields({ draft, onChange, accts, t }: { draft: InsDraft; onChange: (d: InsDraft) => void; accts: { id: string; name: string }[]; t: (key: string) => string }) {
   const set = (patch: Partial<InsDraft>) => onChange({ ...draft, ...patch });
+  const contacts = insContactsApi();
+  const pickBeneficiaries = async () => {
+    if (!contacts) return;
+    try {
+      const picked = await contacts.select(["name"], { multiple: true });
+      const names = (picked ?? []).map((contact) => (contact.name?.[0] ?? "").trim()).filter(Boolean);
+      if (names.length) set({ bens: [...draft.bens, ...names] });
+    } catch { /* cancelled: the typed names stay as they are */ }
+  };
   return (
     <>
       <div className="ah-grid">
@@ -5957,6 +5995,19 @@ function InsFields({ draft, onChange, accts, t }: { draft: InsDraft; onChange: (
           <span className="lab-head">{t("ins.note")}</span>
           <input className="field" value={draft.note} aria-label={t("ins.note")} onChange={(e) => set({ note: e.target.value })} />
         </label>
+      </div>
+      <div className="label">
+        <span className="lab-head">{t("ins.bens")}<FieldTip topic="f-seguro-beneficiarios" /></span>
+        {draft.bens.map((name, i) => (
+          <span className="row" key={i}>
+            <input className="field" value={name} aria-label={t("ins.bens.name")} onChange={(e) => set({ bens: draft.bens.map((b, at) => (at === i ? e.target.value : b)) })} />
+            <button type="button" className="icon-btn" aria-label={t("ins.bens.remove")} onClick={() => set({ bens: draft.bens.filter((_, at) => at !== i) })}><X className="size-4" /></button>
+          </span>
+        ))}
+        <div className="row">
+          <button type="button" className="btn secondary" onClick={() => set({ bens: [...draft.bens, ""] })}><Plus className="size-4" />{t("ins.bens.add")}</button>
+          {contacts ? <button type="button" className="btn secondary" onClick={() => void pickBeneficiaries()}><UserRound className="size-4" />{t("ins.bens.contacts")}</button> : null}
+        </div>
       </div>
     </>
   );
@@ -6016,7 +6067,8 @@ function CatalogEditor() {
       if (r.err) { setInsErr(r.err === "timing" ? t("ins.needTiming") : t("field.required")); return; }
       plan = r.plan;
     }
-    const piece: CatalogItem = { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: itemKind, urlTemplate: "", ...(plan ? { ins: plan } : {}) };
+    const bens = itemKind === "ins" ? cleanInsBens(insDraft.bens) : [];
+    const piece: CatalogItem = { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: itemKind, urlTemplate: "", ...(plan ? { ins: plan } : {}), ...(bens.length ? { bens } : {}) };
     commit((s) => {
       const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog: [...s.structure.catalog, piece] } };
       return plan ? syncInsLine(withPiece, piece, todayIso()) : withPiece;
@@ -6280,7 +6332,8 @@ function CatalogEditor() {
   const savePlan = (item: CatalogItem) => {
     const r = planFromDraft(planDraft);
     if (r.err) { setPlanErr(r.err === "timing" ? t("ins.needTiming") : t("field.required")); return; }
-    const updated: CatalogItem = { ...item, ins: r.plan };
+    const bens = cleanInsBens(planDraft.bens);
+    const updated: CatalogItem = { ...item, ins: r.plan, bens: bens.length ? bens : undefined };
     commit((s) => {
       const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? updated : c)) } };
       return r.plan ? syncInsLine(withPiece, updated, todayIso()) : withPiece;
@@ -6318,6 +6371,7 @@ function CatalogEditor() {
           <>
             {plan && timing ? <p className="text-sm">{summary.join(" · ")}</p> : <p className="text-sm">{t("ins.none")}</p>}
             {plan?.note ? <p className="text-sm">{plan.note}</p> : null}
+            {item.bens?.length ? <p className="text-sm"><span className="lab-head">{t("ins.bens")}</span> {item.bens.join(", ")}</p> : null}
             {months !== null && plan?.start ? (
               <p className="text-sm">
                 <span className="lab-head">{t("ins.since").replace("{date}", fmtDate(plan.start))} · {months === 0 ? t("ins.thisMonth") : months === 1 ? t("ins.month1") : t("ins.months").replace("{n}", String(months))}<Hint topic="seguro-vida" alt /></span>
@@ -6327,7 +6381,7 @@ function CatalogEditor() {
               <p className="text-sm">{(paid.count === 1 ? t("ins.paid1") : t("ins.paid")).replace("{n}", String(paid.count)).replace("{sum}", paid.totals.map((x) => formatMoney(x.amt, x.cur, lang)).join(" + "))}</p>
             ) : null}
             <div className="row">
-              <button type="button" className="btn secondary" onClick={() => { setPlanDraft(draftFromPlan(item.ins, ledger?.settings.display ?? "NIO")); setPlanErr(""); setPlanEditing(true); }}>{plan ? t("ins.edit") : t("ins.configure")}</button>
+              <button type="button" className="btn secondary" onClick={() => { setPlanDraft(draftFromPlan(item.ins, ledger?.settings.display ?? "NIO", item.bens)); setPlanErr(""); setPlanEditing(true); }}>{plan ? t("ins.edit") : t("ins.configure")}</button>
             </div>
           </>
         )}
@@ -6383,7 +6437,7 @@ function CatalogEditor() {
                   plan — no se puede fijar, como las suscripciones (la nota de
                   la tarjeta Widget sigue siendo verdad), y su botón abre el
                   panel de hechos y de edición bajo la tarjeta. */}
-              {item.kind === "ins" ? <button type="button" className="icon-btn cat-act" style={{ "--i": 3 } as CSSProperties} aria-label={t("ins.plan")} aria-pressed={planFor === item.id} onClick={() => { const open = planFor !== item.id; setPlanFor(open ? item.id : null); setPlanEditing(open && !item.ins); setPlanDraft(draftFromPlan(item.ins, session?.ledger.settings.display ?? "NIO")); setPlanErr(""); }}><SlidersHorizontal className="size-4" /></button> : null}
+              {item.kind === "ins" ? <button type="button" className="icon-btn cat-act" style={{ "--i": 3 } as CSSProperties} aria-label={t("ins.plan")} aria-pressed={planFor === item.id} onClick={() => { const open = planFor !== item.id; setPlanFor(open ? item.id : null); setPlanEditing(open && !item.ins); setPlanDraft(draftFromPlan(item.ins, session?.ledger.settings.display ?? "NIO", item.bens)); setPlanErr(""); }}><SlidersHorizontal className="size-4" /></button> : null}
               <button type="button" className="icon-btn line-act is-danger" style={{ "--i": item.kind === "sub" || item.kind === "ins" ? 3 : 4 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.
                   Not a button — the row signing its name at the end of the hand. Its tap is

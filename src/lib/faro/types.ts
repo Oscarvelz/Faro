@@ -96,6 +96,10 @@ export type CatalogItem = Named & {
   urlTemplate: string;
   /** Solo kind "ins": su plan de seguro de vida (1.3.271). Ausente = pieza sin configurar. */
   ins?: InsPlan;
+  /** Solo kind "ins" (1.3.273): los beneficiarios que el usuario nombró — solo
+   *  nombres, en su orden. Viven en la pieza (viajan con el libro: respaldo y
+   *  sincronización), fuera del plan: quitar el importe no los borra. */
+  bens?: string[];
 };
 
 /** The registered starting point of a structure: the last template applied, or "completa"

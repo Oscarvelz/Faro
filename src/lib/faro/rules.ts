@@ -2,6 +2,7 @@
 // (integer minor units, never floats), the help topic that explains that number, and one place to go and act.
 // Pure and read-only: it never writes the ledger. No guessing: a rule with too little history says nothing.
 import { readAdvisor } from "./advisor.ts";
+import { insPremiumChange } from "./insurance.ts";
 import { paceReading, paceSay } from "./patron.ts";
 import { intervalOf, perYear } from "./cadence.ts";
 export { perYear };
@@ -11,7 +12,7 @@ import type { Currency, Lang, LedgerState, Line, SectionId } from "./types.ts";
 
 type Namer = { cat: (id: string) => string; sub: (id: string) => string; purchase: (id: string) => string; catalog: (id: string) => string };
 
-export type RuleId = "pace" | "due" | "category" | "outlier" | "recurring" | "goal" | "cushion";
+export type RuleId = "pace" | "due" | "category" | "outlier" | "recurring" | "goal" | "cushion" | "insurance";
 export type RuleTone = "good" | "calm" | "warn" | "bad";
 /** Where the one tap goes: a line in its book, a whole book, or a manual-style place (screen + anchor). */
 export type RuleGo =
@@ -389,8 +390,38 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
     });
   }
 
+  /* 8. Seguro de vida (1.3.273, orden de Oscar): el Asesor solo habla del
+     seguro si la prima ANOTADA cambió contra la anterior de la misma pieza —
+     aunque sea un centavo — y lo dice en el mes del cambio, con los dos
+     importes en su moneda. Ninguna otra opinión sobre el seguro existe: ni
+     su peso, ni su cobertura; y la póliza jamás se cuenta como dinero. */
+  {
+    const change = insPremiumChange(state, isoOf(today));
+    if (change && change.monthKey === key) {
+      const piece = names.catalog(change.itemId) || change.itemId;
+      const was = formatMoney(change.wasMinor, change.wasCur, lang);
+      const now = formatMoney(change.nowMinor, change.nowCur, lang);
+      const sameCur = change.wasCur === change.nowCur;
+      const verb = !sameCur ? L(lang, "cambió", "changed") : change.nowMinor > change.wasMinor ? L(lang, "subió", "rose") : L(lang, "bajó", "fell");
+      const wasView = convertMinor(change.wasMinor, change.wasCur, display, rateE4);
+      const nowView = convertMinor(change.nowMinor, change.nowCur, display, rateE4);
+      rules.push({
+        id: "insurance",
+        tone: "calm",
+        title: L(lang, "La prima cambió", "The premium changed"),
+        kicker: piece,
+        num: now,
+        say: L(lang, `La prima de ${piece} ${verb}: era ${was} y ahora es ${now}.`, `${piece}'s premium ${verb}: it was ${was} and is now ${now}.`),
+        fill: Math.max(wasView, nowView) > 0 ? Math.min(1, nowView / Math.max(wasView, nowView)) : 0,
+        topic: "seguro-vida",
+        go: { kind: "line", section: "fixed", lineId: change.lineId },
+        v: { piece: change.itemId, was: change.wasMinor, now: change.nowMinor, wasCur: change.wasCur, nowCur: change.nowCur },
+      });
+    }
+  }
+
   const rank: Record<RuleTone, number> = { bad: 0, warn: 1, calm: 2, good: 3 };
-  const order: RuleId[] = ["pace", "due", "category", "outlier", "recurring", "goal", "cushion"];
+  const order: RuleId[] = ["pace", "due", "category", "outlier", "recurring", "goal", "cushion", "insurance"];
   return rules.sort((a, b) => rank[a.tone] - rank[b.tone] || order.indexOf(a.id) - order.indexOf(b.id));
 }
 
