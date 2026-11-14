@@ -17,8 +17,10 @@
    one step below the card title — at the old card-title size (and in the display
    faces the themes paint card h2s with) «Categorías fijas del widget» ran past the
    card's right edge, so the section heading is the shorter «Categorías fijadas» in
-   this register, where it fits with margin in both languages at phone width. */
-.wcard-head { margin-bottom: 2px; }
+   this register, where it fits with margin in both languages at phone width.
+   1.3.253: the card folds with the Ajustes accordion — its head is now the house
+   fold header (manual-row fold-btn aj-row, in widget-host.tsx) and the old static
+   head rule (.wcard-head) retired with it; the pins section keeps this register. */
 .wpin-sec { display: grid; gap: 2px; margin-top: 12px; }
 .wpin-h { font-size: .95rem; }
 .wpin-sec .aj-sub { color: var(--muted); font-size: .84rem; line-height: 1.35; }

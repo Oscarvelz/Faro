@@ -19,7 +19,7 @@
  *   once it is open and unlocked, then goes there the same way the manual's "Ir allí" does.
  */
 import { useEffect, useRef, useState } from "react";
-import { EyeOff, Pin } from "lucide-react";
+import { ChevronDown, EyeOff, LayoutGrid, Pin } from "lucide-react";
 import { useFaro, useFaroRoot } from "./provider";
 import { Hint } from "./hint";
 import { preferOweTab } from "./debts";
@@ -240,8 +240,18 @@ export default function WidgetHost() {
  * fijadas en el catálogo cuelgan de la misma sección, con la marca de su pieza y
  * su Desfijar, y el encabezado se acorta a «Fijadas» / "Pinned" para seguir
  * diciendo la verdad sobre las dos familias sin crecer un milímetro.
+ * 1.3.253 (Oscar, 2026-11-13 18:38 EST): «Sigue la lógica de ajustes. Que se
+ * pliegue por favor, así está abierta completamente.» La tarjeta se pliega
+ * como las demás de Ajustes: entra en el acordeón compartido de la pantalla
+ * (openFold, id «widget» — nace plegada en cada visita, como sus vecinas, y
+ * abrir otra la pliega) con su misma fila de cabecera (manual-row fold-btn
+ * aj-row, aria-expanded, chevron fold-chev) y el contenido montado solo al
+ * abrir, en el mismo <div className="mt-3"> del componente Fold de la casa.
+ * El salto del Manual (tema widget-android, fold: "widget") la abre por el
+ * faro-open de siempre, igual que Idioma o Copias. Nada de su contenido
+ * cambia: el interruptor y las fijas viven dentro del pliegue, en su orden.
  */
-export function WidgetCard() {
+export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t, session, commit, names } = useFaro();
   const { lang } = useFaroRoot();
   const L = (es: string, en: string) => (lang === "en" ? en : es);
@@ -274,55 +284,66 @@ export function WidgetCard() {
     return item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-6" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-6" /> : <Glyph name={item.icon} className="size-6" />;
   };
   return (
-    <section className="card manual-card aj-card smp-card" data-anchor="aj-widget">
-      <div className="smp-in">
-        <div className="fold-title aj-title wcard-head"><h2 className="serif">Widget</h2></div>
-        {android ? (
-          <div role="switch" tabIndex={0} aria-checked={on} className="manual-row aj-row smp-row" onClick={flip}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } }}>
-            <EyeOff aria-hidden />
-            <span className="manual-row-text">
-              <div className="fold-title aj-title"><strong>{L("Ocultar montos", "Hide amounts")}</strong><Hint topic="widget-android" /></div>
-              <span className="aj-sub">{on ? L("Puntos en la pantalla de inicio", "Dots on the home screen") : L("Montos a la vista en el widget", "Amounts shown on the widget")}</span>
-            </span>
-            <i className="smp-switch" aria-hidden><b /></i>
-          </div>
-        ) : null}
-        {ledger ? (
-          <>
-            <div className="wpin-sec">
-              <div className="fold-title aj-title"><h2 className="serif wpin-h">{t("settings.widgetpins")}</h2></div>
-              <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
-            </div>
-            {pins.length ? (
-              <>
-                {catPins.map((p) => (
-                  <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
-                    <Pin aria-hidden />
-                    <span className="manual-row-text">
-                      <strong>{label(p)}</strong>
-                      <span>{signWord(p)}</span>
-                    </span>
-                    <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
-                  </div>
-                ))}
-                {/* 1.3.251: las fijas del catálogo — su marca, su nombre y su signo
-                    (siempre gasto: una compra no entra) en la misma fila de la casa. */}
-                {storePins.map((p) => (
-                  <div key={`store|${p.store}`} className="manual-row aj-row smp-row">
-                    {storeMark(p.store as string)}
-                    <span className="manual-row-text">
-                      <strong>{names.catalog(p.store as string) || p.store}</strong>
-                      <span>{t("widget.pin.signout")}</span>
-                    </span>
-                    <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string))}>{t("widget.pin.remove")}</button>
-                  </div>
-                ))}
-              </>
-            ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
-          </>
-        ) : null}
+    <section className="card manual-card aj-card smp-card" data-anchor="aj-widget" data-fold="widget">
+      <div role="button" tabIndex={0} className="manual-row fold-btn aj-row" aria-expanded={open} onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}>
+        <LayoutGrid aria-hidden />
+        <span className="manual-row-text">
+          <div className="fold-title aj-title"><h2 className="serif">Widget</h2></div>
+        </span>
+        <ChevronDown className={open ? "fold-chev is-open" : "fold-chev"} />
       </div>
+      {open ? (
+        <div className="mt-3">
+          <div className="smp-in">
+            {android ? (
+              <div role="switch" tabIndex={0} aria-checked={on} className="manual-row aj-row smp-row" onClick={flip}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } }}>
+                <EyeOff aria-hidden />
+                <span className="manual-row-text">
+                  <div className="fold-title aj-title"><strong>{L("Ocultar montos", "Hide amounts")}</strong><Hint topic="widget-android" /></div>
+                  <span className="aj-sub">{on ? L("Puntos en la pantalla de inicio", "Dots on the home screen") : L("Montos a la vista en el widget", "Amounts shown on the widget")}</span>
+                </span>
+                <i className="smp-switch" aria-hidden><b /></i>
+              </div>
+            ) : null}
+            {ledger ? (
+              <>
+                <div className="wpin-sec">
+                  <div className="fold-title aj-title"><h2 className="serif wpin-h">{t("settings.widgetpins")}</h2></div>
+                  <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
+                </div>
+                {pins.length ? (
+                  <>
+                    {catPins.map((p) => (
+                      <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
+                        <Pin aria-hidden />
+                        <span className="manual-row-text">
+                          <strong>{label(p)}</strong>
+                          <span>{signWord(p)}</span>
+                        </span>
+                        <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
+                      </div>
+                    ))}
+                    {/* 1.3.251: las fijas del catálogo — su marca, su nombre y su signo
+                        (siempre gasto: una compra no entra) en la misma fila de la casa. */}
+                    {storePins.map((p) => (
+                      <div key={`store|${p.store}`} className="manual-row aj-row smp-row">
+                        {storeMark(p.store as string)}
+                        <span className="manual-row-text">
+                          <strong>{names.catalog(p.store as string) || p.store}</strong>
+                          <span>{t("widget.pin.signout")}</span>
+                        </span>
+                        <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string))}>{t("widget.pin.remove")}</button>
+                      </div>
+                    ))}
+                  </>
+                ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

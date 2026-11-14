@@ -4533,7 +4533,7 @@ export function Settings() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (["lang", "theme", "structure", "rate", "keys", "gestures", "backup", "banks", "account"].includes(id)) setOpenFold(id);
+      if (["lang", "theme", "structure", "rate", "keys", "gestures", "backup", "banks", "account", "widget"].includes(id)) setOpenFold(id);
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
@@ -4729,7 +4729,7 @@ export function Settings() {
           </button>
         </section>
       ) : null}
-      <WidgetCard />
+      <WidgetCard open={openFold === "widget"} onToggle={() => toggle("widget")} />
       <NotifyRow />
       <BatteryRow />
       <SampleRow />
