@@ -21,7 +21,24 @@
 .hist-sub { margin: 0; color: var(--muted); font-size: .9rem; }
 .hist-lens { margin: 0; }
 .hist-navrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.hist-period { font-family: var(--font-serif); font-size: 1.15rem; letter-spacing: -.02em; text-align: center; }
+/* El nombre del período lleva casa (Oscar, 2026-11-13): antes flotaba desnudo
+   entre las dos flechas. Ahora vive en una placa con la gramática del panel
+   de totales de abajo (superficie, filete de 1px, redondeo) — el mismo
+   material que los temas ya visten en .hist-totals, con su acabado por tema
+   en hist-temas.css. La placa es BOTÓN (devuelve al presente, historial.tsx)
+   y su letra conserva la tipografía que el nombre siempre tuvo (serif
+   1.15rem, su peso de <strong>). La forma es de pastilla como las flechas
+   circulares que la flanquean y como el .month-cal de la casa; llena el
+   hueco entre ambas (flex: 1) para que el trío se lea como UN solo control,
+   y su altura es la de las flechas (44px): la fila no crece ni un píxel y
+   nada de lo de abajo se mueve. */
+.hist-period {
+  flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; letter-spacing: -.02em; text-align: center;
+  color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .hist-range { display: flex; gap: 8px; flex-wrap: wrap; }
 .hist-range-lab { display: grid; gap: 4px; flex: 1 1 130px; color: var(--muted); font-size: .8rem; font-weight: 500; }
 /* El panel de totales viste «El veredicto» (Oscar eligió el candidato B del

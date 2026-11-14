@@ -195,6 +195,15 @@ export function HistorialScreen() {
     setAnchor(isoOf(d));
   };
 
+  // Volver al presente (Oscar, 2026-11-13): tocar la placa del período salta
+  // directo al período en curso, sin desandar flechas — el mismo reinicio que
+  // applyView ya usa (setAnchor(today)). La comparación es por el RANGO de la
+  // lente, así que semana, mes y año comparten la semántica; estando ya en el
+  // presente, el toque no hace nada (ni ventana ni animación de adorno).
+  const presentRange = lens === "range" ? null : periodRange(lens, today, weekStart);
+  const onPresent = !!presentRange && range.from === presentRange.from && range.to === presentRange.to;
+  const goPresent = () => { if (!onPresent) setAnchor(today); };
+
   const cats = state.structure.categories;
   const subs = f.categoryId ? cats.find((c) => c.id === f.categoryId)?.subs ?? [] : [];
   const catalog = state.structure.catalog;
@@ -305,7 +314,11 @@ export function HistorialScreen() {
         ) : (
           <div className="hist-navrow">
             <button type="button" className="icon-btn" aria-label={t("hist.prev")} onClick={() => shift(-1)}><ChevronLeft /></button>
-            <strong className="hist-period">{periodLabel}</strong>
+            {/* El mes con casa (Oscar, 2026-11-13): el nombre del período vive
+                en su placa — la gramática del panel de totales — y la placa
+                entera es el botón que devuelve al presente. En el presente no
+                promete acción alguna (sin aria-label) y su toque no hace nada. */}
+            <button type="button" className="hist-period" onClick={goPresent} aria-label={onPresent ? undefined : t("hist.now")}>{periodLabel}</button>
             <button type="button" className="icon-btn" aria-label={t("hist.next")} onClick={() => shift(1)}><ChevronRight /></button>
           </div>
         )}

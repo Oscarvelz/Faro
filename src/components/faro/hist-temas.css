@@ -34,7 +34,7 @@
 /* Costa: las líneas de marea — filetes teñidos de su teal separan los días, y la
    cabecera de totales es la orilla donde se junta la cuenta del agua. */
 [data-theme="costa"] .hist-day { border-color: color-mix(in oklab, var(--accent) 26%, var(--line)); }
-[data-theme="costa"] .hist-totals { border-color: color-mix(in oklab, var(--accent) 36%, var(--line)); }
+[data-theme="costa"] .hist-totals, [data-theme="costa"] .hist-period { border-color: color-mix(in oklab, var(--accent) 36%, var(--line)); }
 
 /* Marfil: el cuaderno quieto — bordes suaves, filetes casi en voz baja; el único
    drama lo guardan las cifras. */
@@ -118,7 +118,7 @@
   backdrop-filter: blur(10px) saturate(1.25);
   -webkit-backdrop-filter: blur(10px) saturate(1.25);
 }
-[data-theme="ion"] .hist-totals {
+[data-theme="ion"] .hist-totals, [data-theme="ion"] .hist-period {
   background: color-mix(in oklab, var(--surface) 66%, transparent);
   border-color: color-mix(in oklab, var(--glow) 45%, var(--line));
 }
@@ -137,7 +137,7 @@
 [data-theme="oled"] .hist-day:is(:active, :focus-within), [data-theme="oled"] .arch-card:is(:active, :focus-within) {
   background: var(--surface); border-color: var(--line);
 }
-[data-theme="oled"] .hist-totals { background: transparent; }
+[data-theme="oled"] .hist-totals, [data-theme="oled"] .hist-period { background: transparent; }
 
 /* Naturaleza: las placas son marcas de sendero — un anillo redondo en su salvia
    alrededor de cada cara, en el bosque de noche. */
@@ -151,7 +151,7 @@
 [data-theme="oceano"] .hist-days .hist-day:not(:first-child) {
   background: color-mix(in oklab, var(--surface) 66%, var(--bg));
 }
-[data-theme="oceano"] .hist-totals { border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
+[data-theme="oceano"] .hist-totals, [data-theme="oceano"] .hist-period { border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
 
 /* Sunset: el cajón junto a la chimenea — lo que descansa en el Archivo se tiñe
    cálido (surface-2), y la guardia nombrada del brief: el rojo de peligro de la
@@ -183,7 +183,7 @@
 /* Humo: la noche más suave — ninguna esquina afilada en ninguna superficie
    nueva; luz de lámpara baja, los números siempre fuera del humo. */
 [data-theme="humo"] .hist-day, [data-theme="humo"] .arch-card,
-[data-theme="humo"] .hist-totals, [data-theme="humo"] .hist-panel {
+[data-theme="humo"] .hist-totals, [data-theme="humo"] .hist-panel, [data-theme="humo"] .hist-period {
   border-radius: 26px;
   border-color: color-mix(in oklab, var(--line) 78%, transparent);
 }
@@ -210,7 +210,7 @@
 /* Los paneles: gunmetal brillante con líneas de luz — nunca cajas de neón
    planas. La cabecera de totales es uno de ellos, flotando sobre la Retícula. */
 [data-theme="tron"] .hist-totals, [data-theme="tron"] .hist-day,
-[data-theme="tron"] .arch-card, [data-theme="tron"] .hist-panel {
+[data-theme="tron"] .arch-card, [data-theme="tron"] .hist-panel, [data-theme="tron"] .hist-period {
   background: var(--t-steel);
   border-color: var(--t-edge);
 }
@@ -272,8 +272,11 @@
    resplandor, y ninguna cifra se anima jamás. */
 
 /* La cabecera de totales: esquinas cortadas y corchetes HUD (dibujados como
-   fondos, a la manera de .vault-bar, porque el ::after es del escaneo). */
-[data-theme="cyberpunk"] .hist-totals {
+   fondos, a la manera de .vault-bar, porque el ::after es del escaneo). La
+   placa del período viste la misma ciudad (corte, corchetes, panel) — pero
+   el escaneo NO la toca: su ::after es la ceremonia del panel de totales al
+   remontarse con la firma de la vista, y la placa nunca se remonta. */
+[data-theme="cyberpunk"] .hist-totals, [data-theme="cyberpunk"] .hist-period {
   position: relative; border-radius: 2px; border-color: #57503f;
   clip-path: var(--cp-cut);
   background:
