@@ -457,16 +457,20 @@ describe("apuntes rápidos del widget", () => {
     assert.match(widgets, /val qpIn: List<QHome> = emptyList\(\)/);
     // La lista de la tarjeta: fijas primero — la misma fila de 48dp, la misma geometría —
     // y solo la marca discreta las distingue (ley de espacio de Oscar: nada más grande).
+    // RE-FIJADO en 1.3.251: la fila ahora lleva su CLASE (0 hábito, 1 fija de categoría,
+    // 2 fija del catálogo) porque la lista creció una familia — la geometría no cambió.
     assert.match(quick, /val pins = if \(sign == "in"\) snap\.qpIn else snap\.qpOut/);
-    assert.match(quick, /val rows = pins\.map \{ it to true \} \+ homes\.map \{ it to false \}/,
-      "una sola lista: fijas y hábito comparten fila");
+    assert.match(quick, /val rows = pins\.map \{ it to 1 \} \+ storePins\.map \{ it to 2 \} \+ homes\.map \{ it to 0 \}/,
+      "una sola lista: fijas de categoría, fijas del catálogo y hábito comparten fila");
     assert.match(quick, /private fun pinMark\(\): Drawable/, "la marca de fija existe como dibujo propio");
-    assert.match(quick, /setCompoundDrawablesRelative\(null, null, if \(pinned\) pinMark\(\) else null, null\)/,
-      "la marca cuelga del extremo de la fila, sin tocar su geometría");
+    assert.match(quick, /if \(kind > 0\) pinMark\(\) else null, null\)/,
+      "la marca de fija cuelga del extremo de la fila, sin tocar su geometría");
     // Sin fijas, la sección anuncia dónde viven (su principio: lo que no se anuncia no
     // existe); con fijas, la línea no existe.
-    assert.ok(quick.includes("Fija tus categorías en Faro, en el editor de cada categoría."));
-    assert.ok(quick.includes("Pin your categories in Faro, in each category's editor."));
+    // RE-FIJADO en 1.3.251: la frase es la que Oscar acortó con su orden de la foto
+    // 234813 (una sola línea, letra menor) — la tarjeta ya dice Faro en su título.
+    assert.ok(quick.includes("Fija tus categorías en el editor de cada categoría."));
+    assert.ok(quick.includes("Pin your categories in each category's editor."));
     assert.match(quick, /if \(pins\.isEmpty\(\)\)/, "el anuncio solo vive sin fijas");
     // La nota: un ícono la abre; el campo es una línea con su pregunta impresa como hint,
     // mayúscula de frase y techo de 60; el concepto viaja SOLO si escribió algo.

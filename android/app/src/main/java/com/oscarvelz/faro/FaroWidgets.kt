@@ -164,8 +164,11 @@ object WidgetCfg {
 
 class Due(val name: String, val kind: String, val on: String, val amt: Long?, val go: String)
 class Cat(val name: String, val amt: Long, val prev: Long, val save: Boolean, val go: String)
-/** Una casa para los apuntes rápidos (quickadd.ts quickHomes): ids de Estructura + nombre. */
-class QHome(val c: String, val s: String, val n: String)
+/** Una casa para los apuntes rápidos (quickadd.ts quickHomes): ids de Estructura + nombre.
+ *  1.3.251: con `store` la casa es una pieza del catálogo (una fija de Tiendas o de IA):
+ *  c y s van vacíos y el id de la pieza manda — el apunte viajará con ella y la página
+ *  lo archivará como la compra que la propia app archivaría. */
+class QHome(val c: String, val s: String, val n: String, val store: String = "")
 /** El juicio del patrón de ritmo (patron.ts paceReading, calculado por la página; 1.3.248):
  *  estado, veredicto ("" mientras aprende) y las cifras que la notificación nombra. */
 class Pace(val status: String, val verdict: String, val spent: Long, val expected: Long, val projected: Long, val income: Long)
@@ -192,6 +195,11 @@ class Snap(
      *  vacía, y la tarjeta muestra entonces su línea de anuncio. */
     val qpIn: List<QHome> = emptyList(),
     val qpOut: List<QHome> = emptyList(),
+    /** 1.3.251: las fijas del CATÁLOGO (Tiendas e IA) — solo gasto. La página las
+     *  validó contra el catálogo vivo; la tarjeta las pinta tras las fijas de
+     *  categoría, con su marca de tienda y su marca de fija. Una foto de una página
+     *  anterior no las trae = lista vacía y la tarjeta es la de siempre. */
+    val qsOut: List<QHome> = emptyList(),
     /** 1.3.241: las monedas que el libro conoce, en el orden de la tarjeta (la foto las trae
      *  desde 1.3.241). Una foto vieja no las trae = lista vacía, y la tarjeta alterna entre
      *  las dos monedas del sistema por su cuenta. */
@@ -208,7 +216,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
-        qhIn = qhIn, qhOut = qhOut, qpIn = qpIn, qpOut = qpOut, curs = curs, pace = pace,
+        qhIn = qhIn, qhOut = qhOut, qpIn = qpIn, qpOut = qpOut, qsOut = qsOut, curs = curs, pace = pace,
     )
 
     companion object {
@@ -234,6 +242,7 @@ class Snap(
             qhOut = arr(o, "qhOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             qpIn = arr(o, "qpIn").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
             qpOut = arr(o, "qpOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n")) },
+            qsOut = arr(o, "qsOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n"), it.optString("store")) },
             curs = (o.optJSONArray("curs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotEmpty() } } } ?: emptyList()),
             pace = o.optJSONObject("pace")?.let { Pace(it.optString("status"), it.optString("verdict"), it.optLong("spent"), it.optLong("expected"), it.optLong("projected"), it.optLong("income")) },
         )

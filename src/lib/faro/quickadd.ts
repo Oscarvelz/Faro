@@ -24,6 +24,11 @@
  *   por hábito aparece UNA vez — como fija — y la lista de hábito RELLENA el hueco con la
  *   siguiente (por eso quickHomesRanked ordena sin tope y el corte a 10 ocurre tras quitar
  *   las fijas, en widget.ts). Desfijar devuelve el asiento al hábito por su propio mérito.
+ * - Con piezas (1.3.251): la misma lista de fijas guarda también las del catálogo
+ *   (Tiendas e IA: { store }); la foto las lleva en qsOut (solo gasto) y el apunte
+ *   guarda la pieza elegida; al recoger se archiva como la compra que la propia app
+ *   archivaría (resolveStore espeja el guardado de LineForm). Las de Suscripciones
+ *   no existen: ninguna línea guarda su id, y una fija sin archivo honesto no se ofrece.
  * - Con sus palabras (1.3.246): si en la tarjeta escribió «¿Qué fue?», ese texto ES el
  *   concepto de la línea (el genérico «Apunte rápido» solo queda cuando no escribió nada),
  *   para que al corregir sepa cuál apunte fue cuál. Y al clasificar un apunte con concepto
@@ -48,11 +53,18 @@ export type QuickEntry = {
   /** 1.3.246: lo que el dueño escribió en «¿Qué fue?» — será el concepto de la línea.
    *  Ausente o vacío = el concepto genérico de siempre. Los shells viejos nunca lo traen. */
   concept?: string;
+  /** 1.3.251: la pieza del catálogo elegida en la tarjeta (una fija de Tiendas o de IA).
+   *  Viaja SOLA, sin cat/sub: al recoger, el apunte se archiva como la compra que la
+   *  propia app archivaría (kind "purchase" con su storeId o su providerId). Los shells
+   *  viejos nunca lo traen y las páginas viejas lo ignoran sin romper el apunte. */
+  store?: string;
 };
 
 /** Una casa elegible en la tarjeta: ids de Estructura + el nombre a mostrar («Casa · Renta»,
- *  o solo la categoría — «Salario» — cuando la casa es la categoría misma, con s = ""). */
-export type QuickHome = { c: string; s: string; n: string };
+ *  o solo la categoría — «Salario» — cuando la casa es la categoría misma, con s = "").
+ *  Con `store` (1.3.251) la casa es una pieza del catálogo: c y s van vacíos y el id de
+ *  la pieza manda — la tarjeta la distingue por su marca, no por un camino de nombres. */
+export type QuickHome = { c: string; s: string; n: string; store?: string };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 /** Techo sano: $999,999,999.99 — el shell ya lo impone; aquí se repite porque la cola no es de fiar. */
@@ -78,10 +90,13 @@ export function parseQuickEntries(raw: string): QuickEntry[] {
     // resolución contra la Estructura viva (ingestQuick) vuelve a validar.
     const cat = typeof e.cat === "string" && e.cat.length <= 64 ? e.cat : "";
     const sub = typeof e.sub === "string" && e.sub.length <= 64 ? e.sub : "";
+    // La pieza del catálogo se valida como la casa: una malformada degrada el apunte a
+    // su forma sin pieza (la resolución contra el catálogo vivo vuelve a validar).
+    const store = typeof e.store === "string" && e.store.length <= 64 ? e.store : "";
     // El concepto es UNA línea suya: espacios colapsados, recortado y con techo — la cola
     // no es de fiar y un concepto no es un párrafo. Vacío = como si no viniera.
     const concept = typeof e.concept === "string" ? e.concept.replace(/\s+/g, " ").trim().slice(0, 120) : "";
-    out.push({ id: e.id, sign: e.sign, minor, cur: e.cur, day: e.day, cat, sub, ...(concept ? { concept } : {}) });
+    out.push({ id: e.id, sign: e.sign, minor, cur: e.cur, day: e.day, cat, sub, ...(concept ? { concept } : {}), ...(store ? { store } : {}) });
   }
   return out;
 }
@@ -214,6 +229,45 @@ export function quickPins(state: LedgerState, lang: Lang): { inn: QuickHome[]; o
   return { inn, out };
 }
 
+/* —— Las fijas del catálogo (1.3.251) ——
+ * La segunda familia de fijas: las piezas de Tiendas y de IA que él preestableció en
+ * las tarjetas del catálogo (Estructura). Viven en la misma lista settings.widgetPins
+ * (con `store`), en el orden en que él las fijó, y la foto las valida contra el
+ * catálogo vivo con la misma ley de soberanía que las de categoría: pieza borrada u
+ * oculta → la fija cae en silencio. Su signo no se deriva: una compra es gasto, así
+ * que solo viajan en la tarjeta del −. Las piezas de Suscripciones quedan FUERA a
+ * propósito: ninguna línea guarda su id (las cuotas nacen de presets con nombre
+ * libre), así que una fija suya no tendría forma honesta de archivarse. */
+
+/** ¿Está fijada esta pieza del catálogo? */
+export function hasStorePin(pins: WidgetPin[] | undefined, id: string): boolean {
+  return (pins ?? []).some((p) => p.store === id);
+}
+
+/** Fija o desfija una pieza del catálogo (puro, como toggleWidgetPin: fijar añade
+ *  AL FINAL — el orden de la lista es el orden en que él las fijó). */
+export function toggleStorePin(pins: WidgetPin[] | undefined, id: string): WidgetPin[] {
+  const list = pins ?? [];
+  if (hasStorePin(list, id)) return list.filter((p) => p.store !== id);
+  return [...list, { c: "", s: "", store: id }];
+}
+
+/** Las fijas del catálogo como casas de la tarjeta del gasto, en su orden. */
+export function quickStorePins(state: LedgerState, lang: Lang): QuickHome[] {
+  const names = makeNamer(state.structure, lang);
+  const out: QuickHome[] = [];
+  const seen = new Set<string>();
+  for (const p of state.settings.widgetPins ?? []) {
+    if (!p.store || seen.has(p.store)) continue;
+    seen.add(p.store);
+    const item = state.structure.catalog.find((c) => c.id === p.store);
+    if (!item || item.hidden) continue;
+    if (item.kind !== "store" && item.kind !== "ai") continue;
+    out.push({ c: "", s: "", n: names.catalog(item.id) || item.id, store: item.id });
+  }
+  return out;
+}
+
 /**
  * La casa que el propio historial de conceptos sugiere para un apunte sin clasificar
  * (1.3.246): las líneas vivas (no apartadas) del MISMO signo cuyo concepto coincide —
@@ -272,11 +326,32 @@ function resolveHome(state: LedgerState, e: QuickEntry): { categoryId: string; s
   };
 }
 
+/**
+ * La pieza del apunte, resuelta contra el catálogo VIVO al recoger (1.3.251). El
+ * archivo ESPEJA el constructor de la propia app (el guardado de una compra en
+ * LineForm): una tienda archiva kind "purchase" con su storeId y SIN categoría de
+ * compra (la rebanada de Compras se nombra por la tienda); una IA archiva la misma
+ * compra bajo la categoría «ia» con su providerId. Nada de formas paralelas: la
+ * línea que nace aquí es indistinguible de la que nace en el formulario — mismo
+ * kind, mismos ids, recurring false, y el icono vacío (la fila de Compras deriva
+ * la marca del storeId al pintar). Pieza borrada, oculta o de Suscripciones → null:
+ * el apunte cae a la resolución de siempre y el dinero jamás se pierde ni se
+ * archiva en un lugar equivocado.
+ */
+function resolveStore(state: LedgerState, e: QuickEntry): { categoryId: string; subId: string; kind: LineKind; storeId: string; providerId: string } | null {
+  if (!e.store) return null;
+  const item = state.structure.catalog.find((c) => c.id === e.store);
+  if (!item || item.hidden) return null;
+  if (item.kind === "store") return { categoryId: "", subId: "", kind: "purchase", storeId: item.id, providerId: "" };
+  if (item.kind === "ai") return { categoryId: "ia", subId: "", kind: "purchase", storeId: "", providerId: item.id };
+  return null;
+}
+
 /** El apunte como línea del libro. Pura: la misma entrada (y la misma casa resuelta) siempre
  *  produce la misma línea. Sin casa resuelta, la forma original: variable y sin categoría.
  *  El concepto es el suyo si escribió «¿Qué fue?» (normalizado como en el parseo); el
  *  genérico solo firma los apuntes sin palabras. */
-export function quickLine(e: QuickEntry, lang: Lang, home?: { categoryId: string; subId: string; kind: LineKind }): Line {
+export function quickLine(e: QuickEntry, lang: Lang, home?: { categoryId: string; subId: string; kind: LineKind; storeId?: string; providerId?: string }): Line {
   const own = (e.concept ?? "").replace(/\s+/g, " ").trim();
   return {
     id: e.id,
@@ -291,8 +366,8 @@ export function quickLine(e: QuickEntry, lang: Lang, home?: { categoryId: string
     categoryId: home?.categoryId ?? "",
     subId: home?.subId ?? "",
     recurring: false,
-    storeId: "",
-    providerId: "",
+    storeId: home?.storeId ?? "",
+    providerId: home?.providerId ?? "",
     productCode: "",
     productUrl: "",
     cadence: "",
@@ -306,9 +381,10 @@ export function quickLine(e: QuickEntry, lang: Lang, home?: { categoryId: string
   };
 }
 
-/** Archiva los apuntes en el libro (idempotente por id). El estado no se muta: pasa por upsertLine. */
+/** Archiva los apuntes en el libro (idempotente por id). El estado no se muta: pasa por upsertLine.
+ *  Una pieza del catálogo manda sobre la casa: el apunte de una fija de tienda ES una compra. */
 export function ingestQuick(state: LedgerState, entries: QuickEntry[], lang: Lang): LedgerState {
   let s = state;
-  for (const e of entries) s = upsertLine(s, quickLine(e, lang, resolveHome(s, e)));
+  for (const e of entries) s = upsertLine(s, quickLine(e, lang, resolveStore(s, e) ?? resolveHome(s, e)));
   return s;
 }

@@ -31,7 +31,8 @@ import { packKeyOf, packLedgerOk } from "@/lib/faro/packguard";
 import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, widgetHide, WIDGET_HIDE_KEY, type WidgetGo } from "@/lib/faro/widget";
-import { ingestQuick, parseQuickEntries, pinSigns, toggleWidgetPin, type QuickEntry } from "@/lib/faro/quickadd";
+import { ingestQuick, parseQuickEntries, pinSigns, toggleStorePin, toggleWidgetPin, type QuickEntry } from "@/lib/faro/quickadd";
+import { BrandMark, Glyph } from "./icons";
 import type { GoLike } from "@/lib/manual/places";
 import "./sample-mode.css";
 
@@ -235,6 +236,10 @@ export default function WidgetHost() {
  * «Widget», el encabezado de sección dice «Categorías fijadas» / "Pinned categories",
  * en el registro de sección (un paso bajo el título de la tarjeta), y cabe con margen
  * en ambos idiomas al ancho del teléfono.
+ * 1.3.251: la lista crece con la segunda familia — las piezas de Tiendas e IA
+ * fijadas en el catálogo cuelgan de la misma sección, con la marca de su pieza y
+ * su Desfijar, y el encabezado se acorta a «Fijadas» / "Pinned" para seguir
+ * diciendo la verdad sobre las dos familias sin crecer un milímetro.
  */
 export function WidgetCard() {
   const { t, session, commit, names } = useFaro();
@@ -252,11 +257,21 @@ export function WidgetCard() {
   const ledger = session?.ledger ?? null;
   if (!android && !ledger) return null;
   const pins = ledger?.settings.widgetPins ?? [];
+  const catPins = pins.filter((p) => !p.store);
+  const storePins = pins.filter((p) => p.store);
   const label = (p: WidgetPin) => (p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c)) || p.c;
   const signWord = (p: WidgetPin) => {
     if (!ledger) return "";
     const signs = pinSigns(ledger, p);
     return signs.length === 2 ? t("widget.pin.signboth") : signs[0] === "in" ? t("widget.pin.signin") : t("widget.pin.signout");
+  };
+  // La cara de una pieza fijada: su marca, como la pintan las tarjetas del catálogo
+  // y las filas de Compras (la marca de fábrica si la trae; la de su id si es tienda;
+  // su glifo para el resto).
+  const storeMark = (id: string) => {
+    const item = ledger?.structure.catalog.find((c) => c.id === id);
+    if (!item) return <Pin aria-hidden />;
+    return item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-6" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-6" /> : <Glyph name={item.icon} className="size-6" />;
   };
   return (
     <section className="card manual-card aj-card smp-card" data-anchor="aj-widget">
@@ -279,16 +294,32 @@ export function WidgetCard() {
               <div className="fold-title aj-title"><h2 className="serif wpin-h">{t("settings.widgetpins")}</h2></div>
               <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
             </div>
-            {pins.length ? pins.map((p) => (
-              <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
-                <Pin aria-hidden />
-                <span className="manual-row-text">
-                  <strong>{label(p)}</strong>
-                  <span>{signWord(p)}</span>
-                </span>
-                <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
-              </div>
-            )) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
+            {pins.length ? (
+              <>
+                {catPins.map((p) => (
+                  <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
+                    <Pin aria-hidden />
+                    <span className="manual-row-text">
+                      <strong>{label(p)}</strong>
+                      <span>{signWord(p)}</span>
+                    </span>
+                    <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
+                  </div>
+                ))}
+                {/* 1.3.251: las fijas del catálogo — su marca, su nombre y su signo
+                    (siempre gasto: una compra no entra) en la misma fila de la casa. */}
+                {storePins.map((p) => (
+                  <div key={`store|${p.store}`} className="manual-row aj-row smp-row">
+                    {storeMark(p.store as string)}
+                    <span className="manual-row-text">
+                      <strong>{names.catalog(p.store as string) || p.store}</strong>
+                      <span>{t("widget.pin.signout")}</span>
+                    </span>
+                    <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string))}>{t("widget.pin.remove")}</button>
+                  </div>
+                ))}
+              </>
+            ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
           </>
         ) : null}
       </div>

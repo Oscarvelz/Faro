@@ -369,7 +369,13 @@ export type Settings = {
 };
 
 /** 1.3.246: una categoría fija del widget: `c` = categoría, `s` = subcategoría ("" = la categoría misma). */
-export type WidgetPin = { c: string; s: string };
+/** Una fija del widget. Dos familias en la misma lista, en el orden en que él las fijó:
+ *  la de Estructura ({ c, s } — categoría y sub, s = "" cuando la fija es la categoría)
+ *  y la del catálogo ({ c: "", s: "", store } — la pieza de Tiendas o de IA, 1.3.251).
+ *  Las piezas de Suscripciones NO se fijan: ninguna línea del libro guarda su id (las
+ *  cuotas viven de presets con nombre libre), así que una fija suya no tendría dónde
+ *  archivar — la mitad honesta de 1.3.251 se detuvo ahí y se declaró. */
+export type WidgetPin = { c: string; s: string; store?: string };
 
 /** 1.3.118: a remittance recipient: a name, an optional colour and Faro icon. The money stays in normal lines (`line.to`). */
 export type RemitPerson = { id: string; name: string; color?: string; icon?: string };

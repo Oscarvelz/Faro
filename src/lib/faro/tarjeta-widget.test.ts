@@ -46,8 +46,12 @@ test("tarjeta-widget: cada control conserva su maquinaria — el interruptor loc
 });
 
 test("tarjeta-widget: el encabezado de las fijas cabe en su casa — corto, en su registro de sección, en ambos idiomas", () => {
-  assert.ok(i18n.includes('"settings.widgetpins": "Categorías fijadas"'), "ES heading is the short form");
-  assert.ok(i18n.includes('"settings.widgetpins": "Pinned categories"'), "EN heading is the short form");
+  // RE-FIJADO en 1.3.251: la sección creció la segunda familia de fijas (las piezas
+  // del catálogo) y el encabezado se acortó otra vez con la misma doctrina — la
+  // palabra se adapta, el diseño no se estira: dentro de la tarjeta «Widget»,
+  // «Fijadas» / "Pinned" dice la verdad sobre las dos familias.
+  assert.ok(i18n.includes('"settings.widgetpins": "Fijadas"'), "ES heading is the short form");
+  assert.ok(i18n.includes('"settings.widgetpins": "Pinned"'), "EN heading is the short form");
   assert.ok(!i18n.includes("Categorías fijas del widget") && !i18n.includes("Widget pinned categories"), "the overflowing titles are gone");
   assert.ok(host.includes("wpin-h") && host.includes("wpin-sec"), "the heading rides the section register inside the card");
   assert.ok(css.includes(".wpin-sec") && !css.includes(".wpin-head"), "the section's CSS replaced the old card-head rules");

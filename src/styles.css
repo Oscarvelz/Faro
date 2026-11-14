@@ -2460,6 +2460,14 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
    subcategory rows take the same fold law in list form: the row is the door (cursor), the name
    carries nothing, the hand opens in the same order. */
 .cat-grid { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 8px; }
+/* 1.3.251: la rejilla del catálogo es un suelo de agarre, no un texto — sostener una
+   tarjeta para arrastrarla jamás selecciona ni ofrece copiar su nombre. La valla vive
+   solo en la rejilla: el resto de la app sigue seleccionando como siempre. */
+.cat-grid { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* 1.3.251: el arrastre del catálogo pinta el mismo cuadro que el del árbol — las
+   vecinas se apartan con su transición y la levantada viaja con su sombra. */
+.cat-card.is-drag-shift { transition: transform .18s ease; }
+.cat-card.is-drag-src { z-index: 6; position: relative; box-shadow: 0 10px 24px rgb(0 0 0 / .18), 0 2px 6px rgb(0 0 0 / .12); cursor: grabbing; }
 .cat-card { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; min-width: 0; }
 .cat-card.is-open { grid-column: 1 / -1; }
 .cat-name { flex: 1; min-width: 0; font-size: 1.07rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2478,6 +2486,14 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
    pen, palette and eye were riding the 44px base button and eating the card's room for
    nothing; now the four sit as equals and the freed space goes back to the name. */
 .cat-tools .icon-btn, .sub-tools .icon-btn { width: 26px; min-width: 26px; height: 26px; }
+/* 1.3.251: el pin PUESTO se lee en su botón, no solo en su relleno — el fondo de
+   «pulsado» de la casa (el mismo lavado de acento de los menús de filtro) detrás
+   del pin lleno, en la mano de las subs y en la del catálogo por igual. */
+.pin-btn[aria-pressed="true"] { background: color-mix(in oklab, var(--accent) 22%, transparent); }
+/* 1.3.251: las marcas de «fijada» en reposo — un pin pequeño junto al nombre, en el
+   color de acento del tema, sin tocar la geometría de su tarjeta ni de su fila. */
+.tree-pinmark { color: var(--accent); vertical-align: -1px; margin-left: 5px; }
+.sub-pinmark, .cat-pinmark { color: var(--accent); flex: none; }
 /* 1.3.223: la línea que separa la cabecera de la categoría de su rejilla. */
 .tree-open .sub-divider { border-top: 1px solid var(--line); margin: 2px 0 0; }
 /* 1.3.223: el plegado de la tarjeta — exitPanel fija la altura medida en línea y

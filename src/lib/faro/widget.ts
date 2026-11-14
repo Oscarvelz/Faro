@@ -13,7 +13,7 @@
  */
 import { categorySlices, summarize } from "./engine";
 import { paceReading } from "./patron";
-import { quickHomesRanked, quickPins, type QuickHome } from "./quickadd";
+import { quickHomesRanked, quickPins, quickStorePins, type QuickHome } from "./quickadd";
 import { savingsStock } from "./savings";
 import { duesWindow } from "./dues";
 import { makeNamer } from "./defaults";
@@ -95,6 +95,12 @@ export type WidgetSnapshot = {
    *  deduplicación y el relleno se calculan aquí, una sola vez, para cada superficie. */
   qpIn: QuickHome[];
   qpOut: QuickHome[];
+  /** 1.3.251: las fijas del CATÁLOGO (Tiendas e IA), validadas contra el catálogo
+   *  vivo — solo gasto: una compra no entra. Viajan aparte de qpOut porque su casa
+   *  no es una categoría: cada una trae su pieza en `store` y la tarjeta la pinta
+   *  con la marca de su clase. Una foto vieja no las trae y un shell viejo las
+   *  ignora: la degradación es limpia en los dos sentidos. */
+  qsOut: QuickHome[];
   /** 1.3.248: el patrón de ritmo, calculado por patron.paceReading sobre el libro
    *  ya filtrado por la puerta anti-fuga (su isOut lleva el mismo !rest). */
   pace: WidgetPace;
@@ -286,6 +292,10 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
       };
       return { qhIn: drop(ranked.inn, pins.inn), qhOut: drop(ranked.out, pins.out), qpIn: pins.inn, qpOut: pins.out };
     })(),
+    // Las fijas del catálogo (1.3.251): su propia lista, solo para la tarjeta del
+    // gasto — no deduplican contra el hábito (una compra en Temu no es una casa de
+    // Estructura) ni cuentan contra su tope de 10.
+    qsOut: quickStorePins(state, lang),
     // El patrón de ritmo (1.3.248): la web calcula, el shell juzga — la costura de
     // siempre (como vencimientos y cierre). La lectura sale del libro filtrado:
     // patron.ts nunca ve una línea apartada.

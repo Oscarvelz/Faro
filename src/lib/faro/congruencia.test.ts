@@ -100,9 +100,15 @@ describe("the membership sign: a sign, tap-inert, never a door", () => {
     assert.match(screens, /closest\("button, input, a, \.cat-badge"\)/);
   });
 
-  test("the four tools of the hand stay real buttons (rename · replace · eye · trash)", () => {
+  test("the tools of the hand stay real buttons (rename · replace · eye · pin · trash)", () => {
+    // RE-FIJADO en 1.3.251: la mano creció su quinta herramienta por orden de Oscar
+    // (el pin de las fijas del widget, solo para Tiendas e IA — las Suscripciones no
+    // lo pintan). La ley de esta cerca no cambia: toda herramienta de la mano es un
+    // botón de verdad y la insignia de membresía no lo es.
     const hand = screens.slice(screens.indexOf("cat-tools"), screens.indexOf('className="cat-badge"'));
     const buttons = hand.match(/<button type="button"/g) ?? [];
-    assert.equal(buttons.length, 4);
+    assert.equal(buttons.length, 5);
+    assert.match(hand, /item\.kind !== "sub" \? <button type="button" className="icon-btn cat-act pin-btn"/,
+      "el pin es la quinta herramienta y solo vive fuera de Suscripciones");
   });
 });

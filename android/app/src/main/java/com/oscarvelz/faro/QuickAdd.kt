@@ -68,13 +68,19 @@ object QuickAdd {
         prefs.edit().putString(KEY, arr.toString()).apply()
     }
 
-    /** La última casa usada por signo («cat|sub»), para preseleccionarla la próxima vez. */
+    /** La clave de una casa para recordarla: «cat|sub» para las de Estructura y
+     *  «store:<id>» para las piezas del catálogo (1.3.251) — sus c/s van vacíos y
+     *  sin la pieza dos casas distintas firmarían lo mismo. */
+    fun homeKey(home: QHome): String =
+        if (home.store.isNotEmpty()) "store:${home.store}" else "${home.c}|${home.s}"
+
+    /** La última casa usada por signo (su clave), para preseleccionarla la próxima vez. */
     fun lastHome(ctx: Context, sign: String): String =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("last_$sign", "") ?: ""
 
     fun rememberHome(ctx: Context, sign: String, home: QHome) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString("last_$sign", "${home.c}|${home.s}").apply()
+            .putString("last_$sign", homeKey(home)).apply()
     }
 
     /** La última moneda usada por signo al alternar el signo de la tarjeta (1.3.241),
@@ -259,6 +265,38 @@ class QuickAddActivity : Activity() {
         @Deprecated("Deprecated in Java") override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
         override fun getIntrinsicWidth(): Int = dp(12)
         override fun getIntrinsicHeight(): Int = dp(14)
+    }
+
+    /** La marca de las piezas del catálogo (1.3.251): una tiendita de trazo fino —
+     *  su tejadillo y su puerta — dibujada en código como el pin y la nota, en el
+     *  tono de los rótulos. El shell no guarda marcas de fábrica (Temu, Amazon…):
+     *  esta es la única señal de clase de la fila, y cuelga de su extremo inicial
+     *  sin tocar su geometría — la fila mide y pesa como todas (la ley de espacio),
+     *  y la marca de fija sigue colgando del extremo final. */
+    private fun storeMark(): Drawable = object : Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = cLabel; style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat()
+            strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+        }
+        override fun draw(canvas: Canvas) {
+            val l = bounds.left + dp(3).toFloat(); val r = bounds.right - dp(3).toFloat()
+            val t = bounds.top + dp(3).toFloat(); val bt = bounds.bottom - dp(3).toFloat()
+            val awn = t + dp(5).toFloat()
+            val path = Path().apply {
+                moveTo(l + dp(2).toFloat(), t); lineTo(r - dp(2).toFloat(), t) // el tejado
+                lineTo(r, awn); lineTo(l, awn); close()                        // el tejadillo
+                moveTo(l + dp(2).toFloat(), awn); lineTo(l + dp(2).toFloat(), bt)
+                lineTo(r - dp(2).toFloat(), bt); lineTo(r - dp(2).toFloat(), awn) // el cuerpo
+            }
+            canvas.drawPath(path, paint)
+            val dw = dp(4).toFloat()
+            canvas.drawRect(bounds.exactCenterX() - dw / 2, bt - dp(6).toFloat(), bounds.exactCenterX() + dw / 2, bt, paint)
+        }
+        override fun setAlpha(a: Int) { paint.alpha = a }
+        override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+        @Deprecated("Deprecated in Java") override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+        override fun getIntrinsicWidth(): Int = dp(18)
+        override fun getIntrinsicHeight(): Int = dp(18)
     }
 
     /** El ícono de la nota (1.3.246): una página de trazo fino con su esquina doblada y un
@@ -570,9 +608,19 @@ class QuickAddActivity : Activity() {
         // extremo las distingue (la ley de espacio: una geometría para todo). Sin fijas,
         // UNA línea discreta en el registro de la nota anuncia dónde nacen — lo que no se
         // anuncia no existe para un usuario frío — y desaparece en cuanto hay una.
+        // 1.3.251: entre las fijas y el hábito se sientan las fijas del CATÁLOGO —
+        // la misma fila de 48dp, su pin al final y una tiendita de trazo al inicio
+        // como única señal de clase; su apunte viaja con la pieza y se archiva como
+        // compra. El anuncio sigue hablando de categorías y sigue mandando su
+        // propia lección: vive mientras no haya fijas DE CATEGORÍA.
         val pins = if (sign == "in") snap.qpIn else snap.qpOut
+        val storePins = if (sign == "out") snap.qsOut else emptyList()
         val homes = if (sign == "in") snap.qhIn else snap.qhOut
-        val rows = pins.map { it to true } + homes.map { it to false }
+        // 1.3.251: la lista crece una familia — tras las fijas de categoría van las
+        // del catálogo (solo existen en la tarjeta del gasto), y el hábito detrás
+        // como siempre. La clase de cada fila viaja con ella: 0 = hábito,
+        // 1 = fija de categoría, 2 = fija de pieza del catálogo.
+        val rows = pins.map { it to 1 } + storePins.map { it to 2 } + homes.map { it to 0 }
         card.addView(TextView(this).apply {
             text = if (en) "WHERE DOES IT GO?" else "¿DÓNDE VA?"
             typeface = rajdhani600
@@ -584,9 +632,17 @@ class QuickAddActivity : Activity() {
         })
         if (pins.isEmpty()) {
             card.addView(TextView(this).apply {
-                text = if (en) "Pin your categories in Faro, in each category's editor."
-                    else "Fija tus categorías en Faro, en el editor de cada categoría."
-                textSize = 13f
+                // 1.3.251 (la foto 234813 de Oscar): la línea se partía en dos en su
+                // teléfono. La palabra se adapta y el cuerpo baja un paso — la
+                // tarjeta ya dice Faro en su título, así que el «en Faro» sale de la
+                // frase y el sentido queda entero: las fijas nacen en el editor de
+                // cada categoría. La cuenta, a su ancho (386dp): la tarjeta mide
+                // pantalla − 40dp y su aire interior es 20 + 20, así que la línea
+                // dispone de 306dp; 50 signos a 11.5sp en la letra de la tarjeta
+                // ocupan ≈ 285dp — una sola línea, con margen.
+                text = if (en) "Pin your categories in each category's editor."
+                    else "Fija tus categorías en el editor de cada categoría."
+                textSize = 11.5f
                 setTextColor(cNote)
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(8)
@@ -594,7 +650,7 @@ class QuickAddActivity : Activity() {
         }
         val group = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
         val last = QuickAdd.lastHome(this, sign)
-        rows.forEachIndexed { i, (h, pinned) ->
+        rows.forEachIndexed { i, (h, kind) ->
             group.addView(RadioButton(this).apply {
                 id = 1000 + i
                 text = h.n
@@ -604,7 +660,12 @@ class QuickAddActivity : Activity() {
                 setButtonDrawable(radioSquare(accent))
                 compoundDrawablePadding = dp(12)
                 setPadding(dp(14), 0, dp(14), 0)
-                setCompoundDrawablesRelative(null, null, if (pinned) pinMark() else null, null)
+                // La clase se lee sin tocar la fila: la pieza lleva su tiendita al
+                // inicio (1.3.251) y toda fija su pin al final (1.3.246); la casa
+                // de hábito no lleva nada — es el fondo contra el que se lee.
+                setCompoundDrawablesRelative(
+                    if (kind == 2) storeMark() else null, null,
+                    if (kind > 0) pinMark() else null, null)
             }, RadioGroup.LayoutParams(
                 RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
             ).apply { if (i > 0) topMargin = dp(6) })
@@ -621,7 +682,7 @@ class QuickAddActivity : Activity() {
         }, RadioGroup.LayoutParams(
             RadioGroup.LayoutParams.MATCH_PARENT, dp(48)
         ).apply { if (rows.isNotEmpty()) topMargin = dp(6) })
-        val lastIdx = rows.indexOfFirst { (h, _) -> "${h.c}|${h.s}" == last }
+        val lastIdx = rows.indexOfFirst { (h, _) -> QuickAdd.homeKey(h) == last }
         group.check(1000 + if (lastIdx >= 0) lastIdx else rows.size)
         // La zona de scroll (176dp) solo se reserva cuando las filas ya no caben a la
         // vista (4 o más, contando «Sin categoría»); con pocas casas la sección mide lo
@@ -686,6 +747,10 @@ class QuickAddActivity : Activity() {
                     .put("at", java.time.Instant.now().toString())
                     .put("cat", home?.c ?: "")
                     .put("sub", home?.s ?: "")
+                // 1.3.251: la pieza viaja SOLO si la casa elegida es una — una página
+                // vieja la ignora y el apunte cae como el sin categoría de siempre;
+                // la nueva lo archiva como la compra de esa tienda o esa IA.
+                if (!home?.store.isNullOrEmpty()) entry.put("store", home.store)
                 if (concept.isNotEmpty()) entry.put("concept", concept)
                 QuickAdd.enqueue(this@QuickAddActivity, entry)
                 QuickAdd.rememberCur(this@QuickAddActivity, sign, cur)

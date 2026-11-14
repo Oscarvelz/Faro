@@ -24,7 +24,7 @@ import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
 import { WidgetCard } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
 import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, replaceCandidates, replaceCatalogItem, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type ReplaceTarget, type SubLinesSummary } from "@/lib/faro/defaults";
-import { hasWidgetPin, toggleWidgetPin } from "@/lib/faro/quickadd";
+import { hasStorePin, hasWidgetPin, toggleStorePin, toggleWidgetPin } from "@/lib/faro/quickadd";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -5070,6 +5070,10 @@ function StructureTree() {
                 return undefined;
               })();
               const dragClass = drag && drag.group === group ? (drag.id === cat.id ? "is-drag-src" : "is-drag-shift") : undefined;
+              // 1.3.251: la fila anuncia sus fijas en reposo — la categoría misma o
+              // cualquiera de sus subs fijada deja esta marca junto al nombre, para
+              // que las fijas se puedan ENCONTRAR sin abrir cada editor.
+              const catPinned = (session?.ledger.settings.widgetPins ?? []).some((p) => p.c === cat.id);
               return (
                 <div key={cat.id} data-row className={[cat.hidden ? "is-muted" : "", dragClass ?? ""].join(" ").trim() || undefined} style={dragStyle}>
                   <button type="button" className="tree-row" aria-expanded={open}
@@ -5094,7 +5098,7 @@ function StructureTree() {
                     }}>
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
                     <span className="min-w-0">
-                      <span className="tree-name"><PiecePlate color={categoryColor(cat.id, cat.color)} icon={namedIconFor(cat)} />{displayName(cat, lang)}</span>
+                      <span className="tree-name"><PiecePlate color={categoryColor(cat.id, cat.color)} icon={namedIconFor(cat)} />{displayName(cat, lang)}{catPinned ? <Pin size={12} className="tree-pinmark" fill="currentColor" aria-hidden /> : null}</span>
                       {/* 1.3.188 (R-7, cierra E-7): el subtítulo sigue listando TODOS los
                           subconceptos (la fila es el mapa completo), pero los ocultos se
                           pintan atenuados con la misma tinta is-muted de la categoría
@@ -5624,6 +5628,12 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
                 the same gesture its palette works by. */}
             {structure ? <PiecePlate color={subColorFor(structure, cat.id, sub.id)} icon={subIconFor(structure, cat.id, sub.id)} label={t("look.icon")} onClick={() => { setToolsForSub(sub.id); setSubIconId(subIconId === sub.id ? null : sub.id); }} /> : null}
             <span className="sub-name">{stagedNames[sub.id] ?? displayName(sub, lang)}</span>
+            {/* 1.3.251: la fija se lee EN REPOSO — hasta hoy una sub fijada no dejaba
+                rastro fuera de su mano abierta y Oscar no podía ver que la había
+                fijado («no me deja»): la cadena entera funcionaba en el banco y la
+                falla era de anuncio. La marca pinta el estado EFECTIVO (preparado
+                o guardado), junto al nombre, sin tocar la geometría de la tarjeta. */}
+            {toolsForSub !== sub.id && effPin(sub.id) ? <Pin size={12} className="sub-pinmark" fill="currentColor" aria-hidden /> : null}
             {toolsForSub === sub.id ? (
               <span className="sub-tools">
                 {/* The hand — the Catalog's cluster and order: pen · palette · eye · trash. */}
@@ -5631,8 +5641,12 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
                 <button type="button" className="icon-btn" aria-label={t("color")} aria-pressed={subColorId === sub.id} onClick={() => setSubColorId(subColorId === sub.id ? null : sub.id)}><Palette className="size-4" /></button>
                 <button type="button" className="icon-btn" aria-label={effHidden ? t("show") : t("hide")} onClick={() => toggleVis(sub)}>{effHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
                 {/* 1.3.246: la fija del subconcepto — se PREPARA como su ojo (la mano la
-                    ofrece junto a él) y Guardar la confirma; el pin lleno la anuncia. */}
-                <button type="button" className="icon-btn" aria-label={t("widget.pin")} aria-pressed={effPin(sub.id)} onClick={() => stagePin(sub.id)}><Pin className="size-4" fill={effPin(sub.id) ? "currentColor" : "none"} /></button>
+                    ofrece junto a él) y Guardar la confirma; el pin lleno la anuncia.
+                    1.3.251: el anuncio se completa — el botón lleva la clase pin-btn
+                    (su fondo de «pulsado» en styles.css) y su nombre ACCESIBLE cambia
+                    con el estado: «Fijada en el widget» cuando está puesta, la frase
+                    que el diccionario guardaba sin uso desde 1.3.246. */}
+                <button type="button" className="icon-btn pin-btn" aria-label={effPin(sub.id) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={effPin(sub.id)} onClick={() => stagePin(sub.id)}><Pin className="size-4" fill={effPin(sub.id) ? "currentColor" : "none"} /></button>
                 <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
               </span>
             ) : null}
@@ -5720,7 +5734,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
           confirma en el mismo commit. Fijada, la tarjeta de apuntes la ofrece siempre. */}
       <button type="button" className="tree-pin-row smp-row" role="switch" aria-checked={effPin("")} onClick={() => stagePin("")}>
         <Pin className="size-4 tree-pin-ico" aria-hidden fill={effPin("") ? "currentColor" : "none"} />
-        <span className="tree-pin-lab">{t("widget.pin")}</span>
+        <span className="tree-pin-lab">{effPin("") ? t("widget.pin.on") : t("widget.pin")}</span>
         <i className="smp-switch" aria-hidden><b /></i>
       </button>
       {/* 1.3.223 (pedido de Oscar): una línea profesional separa la cabecera de
@@ -5884,6 +5898,107 @@ function CatalogEditor() {
     if ((e.target as HTMLElement).closest("button, input, a, .cat-badge")) return;
     toggleTools(item);
   };
+  // 1.3.251 (pedido de Oscar): la fija de las piezas de Tiendas e IA — el pin vive en
+  // la mano, junto al ojo, y se guarda AL MOMENTO como todo lo de esta tarjeta (la
+  // ley de guardado del catálogo desde 1.3.187: cada control confirma el suyo; aquí
+  // no hay Guardar que lo prepare). Las de Suscripciones NO llevan pin: ninguna
+  // línea del libro guarda su id y una fija sin archivo honesto no se ofrece.
+  const storePinned = (item: CatalogItem) => hasStorePin(session?.ledger.settings.widgetPins, item.id);
+  const toggleStorePinFor = (item: CatalogItem) => {
+    commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, item.id) } }), displayName(item, lang));
+  };
+  // 1.3.251: reordenar el catálogo sosteniendo y arrastrando — la disciplina EXACTA
+  // del arrastre del árbol (StructureTree, 1.3.145/167/227), trasplantada a la
+  // rejilla: sostener 200ms levanta la tarjeta; un temblor de más de 12px o un
+  // scroll real (>4px) cancelan el gesto antes de que nazca; con el dedo ya en
+  // arrastre, el touchmove se detiene para que la página no huya; al soltar, el
+  // orden viaja por el commit de siempre y el click que sigue nace ahogado. El
+  // paso de la rejilla es la fila (pitch medido entre filas): arrastrar una fila
+  // mueve la tarjeta `cols` puestos en el orden de lectura. Con una mano abierta
+  // o un renombre en curso no hay arrastre: la tarjeta abierta florece y rompe la
+  // rejilla — arrastrar es un gesto de reposo, como en el árbol.
+  type CatDragState = { id: string; kind: CatalogItem["kind"]; from: number; to: number; dy: number; pitch: number };
+  const [catDrag, setCatDrag] = useState<CatDragState | null>(null);
+  const catDragRef = useRef<CatDragState | null>(null);
+  const catPressRef = useRef<{ id: string; kind: CatalogItem["kind"]; index: number; count: number; y: number; pid: number; timer: number; el: HTMLElement } | null>(null);
+  const catSwallowRef = useRef(false);
+  const catEndRef = useRef<(() => void) | null>(null);
+  const endCatPress = () => {
+    const p = catPressRef.current;
+    if (p) window.clearTimeout(p.timer);
+    catPressRef.current = null;
+    catEndRef.current?.();
+    catEndRef.current = null;
+  };
+  const onCardPointerDown = (e: ReactPointerEvent, item: CatalogItem, index: number, count: number) => {
+    if (toolsFor !== null || renameId !== null) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button, input, a")) return;
+    catSwallowRef.current = false;
+    endCatPress();
+    const el = e.currentTarget as HTMLElement;
+    const endGesture = (ev: PointerEvent) => { if (catPressRef.current && ev.pointerId === catPressRef.current.pid) endCatPress(); };
+    window.addEventListener("pointerup", endGesture);
+    window.addEventListener("pointercancel", endGesture);
+    const startScrollY = window.scrollY;
+    const watch = () => { if (!catDragRef.current && Math.abs(window.scrollY - startScrollY) > 4) endCatPress(); };
+    window.addEventListener("scroll", watch, { capture: true, passive: true });
+    catEndRef.current = () => {
+      window.removeEventListener("pointerup", endGesture);
+      window.removeEventListener("pointercancel", endGesture);
+      window.removeEventListener("scroll", watch, { capture: true } as EventListenerOptions);
+    };
+    const timer = window.setTimeout(() => {
+      if (!catPressRef.current) return; // la presión ya terminó: nunca levantar en una sala vacía
+      const grid = el.closest<HTMLElement>(".cat-grid");
+      const cards = grid ? [...grid.querySelectorAll<HTMLElement>(".cat-card")] : [];
+      const rowTop = (n: number) => cards[n]?.getBoundingClientRect().top;
+      const pitch = cards.length > cols && rowTop(cols) !== undefined && rowTop(0) !== undefined
+        ? Math.max(1, (rowTop(cols) as number) - (rowTop(0) as number))
+        : el.getBoundingClientRect().height + 8;
+      try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      el.style.touchAction = "none";
+      const stop = (ev: TouchEvent) => { if (catDragRef.current) ev.preventDefault(); };
+      window.addEventListener("touchmove", stop, { passive: false });
+      const prevEnd = catEndRef.current;
+      catEndRef.current = () => { prevEnd?.(); window.removeEventListener("touchmove", stop); };
+      const lifted: CatDragState = { id: item.id, kind: item.kind, from: index, to: index, dy: 0, pitch };
+      catDragRef.current = lifted;
+      setCatDrag(lifted);
+    }, 200);
+    catPressRef.current = { id: item.id, kind: item.kind, index, count, y: e.clientY, pid: e.pointerId, timer, el };
+  };
+  const onCardPointerMove = (e: ReactPointerEvent) => {
+    const press = catPressRef.current;
+    if (!press) return;
+    const live = catDragRef.current;
+    if (!live) {
+      if (Math.abs(e.clientY - press.y) > 12) endCatPress(); // era un scroll o un toque, no una sostén
+      return;
+    }
+    const dy = e.clientY - press.y;
+    const to = Math.max(0, Math.min(press.count - 1, live.from + Math.round(dy / live.pitch) * cols));
+    if (to !== live.to || dy !== live.dy) { const next = { ...live, dy, to }; catDragRef.current = next; setCatDrag(next); }
+  };
+  const onCardPointerUp = () => {
+    const live = catDragRef.current;
+    endCatPress();
+    if (!live) return;
+    catDragRef.current = null;
+    setCatDrag(null);
+    catSwallowRef.current = true; // el click que sigue a una caída no abre ni cierra la tarjeta
+    if (live.to !== live.from) {
+      commit((s) => {
+        const catalog = s.structure.catalog.slice();
+        const slots = catalog.map((c, i) => (c.kind === live.kind ? i : -1)).filter((i) => i >= 0);
+        const items = slots.map((i) => catalog[i]);
+        const [moved] = items.splice(live.from, 1);
+        items.splice(live.to, 0, moved);
+        items.forEach((it, i) => { catalog[slots[i]] = { ...it, order: i }; });
+        return { ...s, structure: { ...s.structure, catalog } };
+      }, "drag reorder");
+    }
+  };
   const renderPanel = (item: CatalogItem) => (
     <div key={`panel-${item.id}`} className="cat-repl is-grid-panel">
       {replaceCandidates(session?.ledger.structure ?? { categories: [], purchases: [], catalog: [] }, item).map((cand) => (
@@ -5907,8 +6022,26 @@ function CatalogEditor() {
       ) : null}
     </div>
   );
-  const renderCard = (item: CatalogItem) => (
-    <div key={item.id} data-kind={item.kind} className={"cat-card" + (isOpen(item) ? " is-open" : "") + (item.hidden ? " is-muted" : "")} onClick={door(item)}>
+  const renderCard = (item: CatalogItem, index = 0, count = 0) => {
+    // El suelo del arrastre (1.3.251): la tarjeta levantada sigue al dedo y sus
+    // vecinas del grupo se apartan una fila — el mismo cuadro que el árbol pinta.
+    const dragStyle: CSSProperties | undefined = (() => {
+      if (!catDrag || catDrag.kind !== item.kind) return undefined;
+      if (catDrag.id === item.id) return { transform: `translateY(${catDrag.dy}px)` };
+      if (catDrag.from < index && index <= catDrag.to) return { transform: `translateY(${-catDrag.pitch}px)` };
+      if (catDrag.to <= index && index < catDrag.from) return { transform: `translateY(${catDrag.pitch}px)` };
+      return undefined;
+    })();
+    const dragClass = catDrag && catDrag.kind === item.kind ? (catDrag.id === item.id ? " is-drag-src" : " is-drag-shift") : "";
+    return (
+    <div key={item.id} data-kind={item.kind} className={"cat-card" + (isOpen(item) ? " is-open" : "") + (item.hidden ? " is-muted" : "") + dragClass} style={dragStyle}
+      onContextMenu={(e) => e.preventDefault()}
+      onPointerDown={(e) => onCardPointerDown(e, item, index, count)}
+      onPointerMove={onCardPointerMove}
+      onPointerUp={onCardPointerUp}
+      onPointerCancel={onCardPointerUp}
+      onLostPointerCapture={onCardPointerUp}
+      onClick={(e) => { if (catSwallowRef.current) { catSwallowRef.current = false; return; } door(item)(e); }}>
       {renameId === item.id ? (
         <>
           <input className="field cat-rename" value={renameText} autoFocus aria-label={t("rename")} onChange={(e) => setRenameText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveRename(item); if (e.key === "Escape") setRenameId(null); }} />
@@ -5918,6 +6051,9 @@ function CatalogEditor() {
         <>
           {item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-8" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-8" /> : <Glyph name={item.icon} />}
           <span className="cat-name">{displayName(item, lang)}</span>
+          {/* 1.3.251: la fija se lee en reposo también aquí — la misma marca junto
+              al nombre que las categorías y las subs llevan desde esta versión. */}
+          {toolsFor !== item.id && item.kind !== "sub" && storePinned(item) ? <Pin size={12} className="cat-pinmark" fill="currentColor" aria-hidden /> : null}
           {toolsFor === item.id || byeHand === item.id ? (
             <span className={`cat-tools${byeHand === item.id && toolsFor !== item.id ? " is-bye" : ""}`}>
               {/* The whole hand, in Oscar's order: pen · palette · eye · trash (red last). The eye
@@ -5925,7 +6061,11 @@ function CatalogEditor() {
               <button type="button" className="icon-btn cat-act" style={{ "--i": 0 } as CSSProperties} aria-label={t("rename")} onClick={() => { setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
               <button type="button" className="icon-btn cat-act" style={{ "--i": 1 } as CSSProperties} aria-label={t("cat.replace")} aria-pressed={replaceFor === item.id} onClick={() => { setReplaceFor(replaceFor === item.id ? null : item.id); setPending(null); setReplaceCustom(""); }}><Palette className="size-4" /></button>
               <button type="button" className="icon-btn cat-act" style={{ "--i": 2 } as CSSProperties} aria-label={item.hidden ? t("show") : t("hide")} onClick={() => toggleItemVis(item)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
-              <button type="button" className="icon-btn line-act is-danger" style={{ "--i": 3 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
+              {/* 1.3.251: el pin de Tiendas e IA, entre el ojo y la papelera — se
+                  guarda al momento, como cada control de esta mano. Su nombre
+                  accesible cambia con el estado, como en la mano de las subs. */}
+              {item.kind !== "sub" ? <button type="button" className="icon-btn cat-act pin-btn" style={{ "--i": 3 } as CSSProperties} aria-label={storePinned(item) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={storePinned(item)} onClick={() => toggleStorePinFor(item)}><Pin className="size-4" fill={storePinned(item) ? "currentColor" : "none"} /></button> : null}
+              <button type="button" className="icon-btn line-act is-danger" style={{ "--i": item.kind === "sub" ? 3 : 4 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.
                   Not a button — the row signing its name at the end of the hand. Its tap is
                   inert by law: the door above exempts .cat-badge like a tool, so touching the
@@ -5936,7 +6076,8 @@ function CatalogEditor() {
         </>
       )}
     </div>
-  );
+    );
+  };
   const renderGroup = (g: { kind: CatalogItem["kind"]; label: string }) => {
     const items = catalog.filter((c) => c.kind === g.kind);
     if (!items.length) return null;
@@ -5948,11 +6089,11 @@ function CatalogEditor() {
       const chunk = items.slice(i, i + cols);
       const openItem = chunk.find((c) => isOpen(c));
       if (openItem) {
-        cells.push(renderCard(openItem));
+        cells.push(renderCard(openItem, items.indexOf(openItem), items.length));
         cells.push(<FoldShell key={`repl-${openItem.id}`} open={replaceFor === openItem.id} tier="sm" className="fold-grid-panel">{renderPanel(openItem)}</FoldShell>);
-        chunk.filter((c) => c.id !== openItem.id).forEach((c) => cells.push(renderCard(c)));
+        chunk.filter((c) => c.id !== openItem.id).forEach((c) => cells.push(renderCard(c, items.indexOf(c), items.length)));
       } else {
-        chunk.forEach((c) => cells.push(renderCard(c)));
+        chunk.forEach((c) => cells.push(renderCard(c, items.indexOf(c), items.length)));
       }
     }
     return (
@@ -5964,6 +6105,10 @@ function CatalogEditor() {
   };
   return (
     <div className="mt-2" ref={rootRef}>
+      {/* La línea del gesto, en el registro del aviso del árbol (tree-hint): lo que
+          no se anuncia no existe para un usuario frío — el arrastre se dice una vez,
+          aquí, donde las tarjetas viven (1.3.251). */}
+      <p className="tree-hint">{t("cat.dragHint")}</p>
       {groups.map(renderGroup)}
       <div className="ah-form sc-form is-item">
         <div className="ah-grid">
