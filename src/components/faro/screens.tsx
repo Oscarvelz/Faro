@@ -5707,7 +5707,11 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     return (
       <div key={sub.id} className={"sub-card" + (subIsOpen(sub) ? " is-open" : "") + (effHidden ? " is-muted" : "")} onClick={(e) => {
         if (editSub === sub.id) return;
-        if ((e.target as HTMLElement).closest("button, input, a")) return;
+        // 1.3.269: the pin mark (.sub-pinmark) is a sign, not a button — its tap is inert
+        // here, like the membership sign's in the Catalog door (1.3.230). Until this wave
+        // its tap opened the sub's hand and the mark, painted only while the hand is
+        // closed, vanished in the same gesture — the same lie Oscar caught in the Catalog.
+        if ((e.target as HTMLElement).closest("button, input, a, .sub-pinmark")) return;
         if (toolsForSub === sub.id) { setToolsForSub(null); setSubColorId(null); setSubIconId(null); } else { setToolsForSub(sub.id); setSubIconId(null); }
       }}>
         {editSub === sub.id ? (
@@ -6001,7 +6005,11 @@ function CatalogEditor() {
     // A tool was tapped, not the card — and the membership sign (.cat-badge) is exempt too:
     // it is a sign, not a button (1.3.222), so its tap must be inert. Until 1.3.230 it fell
     // through to the door and folded the open card under the owner's finger (his report).
-    if ((e.target as HTMLElement).closest("button, input, a, .cat-badge")) return;
+    // 1.3.269: the pin mark (.cat-pinmark) joins the exemption for the same reason — it is
+    // a sign, not a button. Until this wave its tap fell through to the door, opened the
+    // hand, and the mark — painted only while the hand is closed — vanished in the same
+    // gesture, so it looked as if the tap had unpinned the piece (Oscar's report: it lied).
+    if ((e.target as HTMLElement).closest("button, input, a, .cat-badge, .cat-pinmark")) return;
     toggleTools(item);
   };
   // 1.3.251 (pedido de Oscar): la fija de las piezas de Tiendas e IA — el pin vive en

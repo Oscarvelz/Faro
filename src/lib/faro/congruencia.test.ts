@@ -97,7 +97,12 @@ describe("the membership sign: a sign, tap-inert, never a door", () => {
   });
 
   test("the card's door exempts the sign exactly like a tool — its tap folds nothing", () => {
-    assert.match(screens, /closest\("button, input, a, \.cat-badge"\)/);
+    // RE-FIJADO en 1.3.269: la exención de la puerta crece un miembro — la marca del
+    // pin (.cat-pinmark) entra por la misma ley (es un signo, no un botón; su toque
+    // abría la mano y la marca se desmontaba en el gesto, el reporte de Oscar). El
+    // contrato de ESTA cerca no cambia: el ⇄ sigue exento como una herramienta y su
+    // toque no pliega nada; la forma nueva la fija marcanomiente269.test.ts.
+    assert.match(screens, /closest\("button, input, a, \.cat-badge, \.cat-pinmark"\)/);
   });
 
   test("the tools of the hand stay real buttons (rename · replace · eye · pin · trash)", () => {

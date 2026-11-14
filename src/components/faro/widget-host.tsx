@@ -580,6 +580,12 @@ function WidgetPinsSection() {
           {groups.out.length ? <PinGroup title={t("widget.pin.signout")}>{groups.out.map(pinRow)}</PinGroup> : null}
         </>
       ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
+      {/* 1.3.269 (steer de Oscar, 2026-11-14 09:05 EST): que el hecho no quede en
+          silencio — las suscripciones no se fijan en ninguna parte (ninguna línea
+          del libro guarda su id: su fija no tendría archivo honesto) y la sección
+          lo dice a su pie, en el registro mudo de la nota del ejemplo y siempre,
+          con el ejemplo o sin él: es un hecho del sistema, no de este libro. */}
+      <span className="aj-sub wpin-note">{t("settings.widgetpins.nosubs")}</span>
     </>
   );
 }
