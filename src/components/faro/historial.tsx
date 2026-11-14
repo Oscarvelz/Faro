@@ -26,6 +26,7 @@ import { useLongPress } from "./use-longpress";
 import { SelectionBar, SelMark, useSelection } from "./selection";
 import { PiecePlate } from "./fit-pick";
 import { Note } from "./finish";
+import { Hint } from "./hint";
 import { buildStream, periodRange, streamTotals, type Movement, type PeriodKind, type StreamFilters } from "@/lib/faro/historial";
 import { hidePeriod as hidePeriodDryRun } from "@/lib/faro/descanso";
 import { namedIconFor, subIconFor } from "@/lib/faro/faces";
@@ -418,6 +419,7 @@ export function HistorialScreen() {
             <SlidersHorizontal className="size-4" aria-hidden />{t("hist.filters")}{chips.length ? <b className="hist-tool-n">{chips.length}</b> : null}
           </button>
           <button type="button" className={`btn secondary hist-tool-btn${viewsOpen ? " is-on" : ""}`} aria-expanded={viewsOpen} onClick={() => setViewsOpen((on) => !on)}>{t("hist.views")}</button>
+          <Hint topic="folios-filtros" alt />
         </div>
         {chips.length ? (
           <div className="hist-chips">
