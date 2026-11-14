@@ -5195,6 +5195,28 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       return copy;
     });
   };
+  // 1.3.260 (pedido de Oscar): el botón de anclaje PREGUNTA — como el ojo que
+  // oculta desde la 1.3.223 (askHide, en esta misma tarjeta), la ventana de la
+  // casa llega al tocar y su run es quien PREPARA: cancelar no prepara nada y
+  // Guardar sigue siendo el único commit (la suciedad de la tarjeta y sus
+  // salidas guardadas no cambian). Fijar y desfijar preguntan los dos — su
+  // orden: «cuando se activa y se desactiva» — cada uno con su explicación
+  // sencilla de a dónde va el nombre (la tarjeta de apuntes de la pantalla de
+  // inicio) y de que el libro no cambia. El cuerpo lleva la frase de Guardar
+  // de las ventanas de ocultar, y con el ejemplo activo suma la verdad del
+  // ejemplo (1.3.258): la fija caería en el libro de ejemplo y el widget
+  // enseña el real — las dos verdades se encuentran antes de preparar nada.
+  const askPin = (subId: string) => {
+    const next = !effPin(subId);
+    const sub = subId ? cat.subs.find((x) => x.id === subId) : undefined;
+    const name = sub ? `${displayName(cat, lang)} · ${displayName(sub, lang)}` : displayName(cat, lang);
+    confirm({
+      title: t(next ? "widget.pin.ask.title" : "widget.pin.ask.offTitle").replace("{name}", name),
+      body: t(next ? "widget.pin.ask.body" : "widget.pin.ask.offBody") + " " + t("widget.pin.ask.staged") + (sampleOn() ? " " + t("widget.pin.sample") : ""),
+      yes: next ? t("widget.pin.ask.yes") : t("widget.pin.remove"),
+      run: () => stagePin(subId),
+    });
+  };
   const rootRef = useRef<HTMLDivElement>(null);
   // 1.3.143: the colour palette lives folded behind one point (Oscar: deployed swatches took over the
   // panel); tapping the point opens the same ColorPick as everywhere, picking folds it back up.
@@ -5647,8 +5669,10 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
                     1.3.251: el anuncio se completa — el botón lleva la clase pin-btn
                     (su fondo de «pulsado» en styles.css) y su nombre ACCESIBLE cambia
                     con el estado: «Fijada en el widget» cuando está puesta, la frase
-                    que el diccionario guardaba sin uso desde 1.3.246. */}
-                <button type="button" className="icon-btn pin-btn" aria-label={effPin(sub.id) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={effPin(sub.id)} onClick={() => stagePin(sub.id)}><Pin className="size-4" fill={effPin(sub.id) ? "currentColor" : "none"} /></button>
+                    que el diccionario guardaba sin uso desde 1.3.246.
+                    1.3.260: desde esta ola el toque pregunta primero (askPin, como el
+                    ojo desde la 1.3.223) y la ventana es quien prepara. */}
+                <button type="button" className="icon-btn pin-btn" aria-label={effPin(sub.id) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={effPin(sub.id)} onClick={() => askPin(sub.id)}><Pin className="size-4" fill={effPin(sub.id) ? "currentColor" : "none"} /></button>
                 <button type="button" className="icon-btn line-act is-danger" aria-label={t("delete")} onClick={() => dropSub(sub)}><Trash2 className="size-4" /></button>
               </span>
             ) : null}
@@ -5734,6 +5758,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       {/* 1.3.246: la fija de la categoría misma — una fila con la geometría de la del
           color y el interruptor de la casa; se prepara como los ojos y Guardar la
           confirma en el mismo commit. Fijada, la tarjeta de apuntes la ofrece siempre.
+          1.3.260: el toque de la fila pregunta primero (askPin) — la ventana explica
+          a dónde va el nombre y su run prepara; la fila y su geometría no cambian.
           1.3.258: con el ejemplo activo, la fila lleva el subtítulo de la casa (el
           mismo gesto que la fila de «Datos de ejemplo» en Ajustes): la fija que aquí
           se prepare cae en el libro DE EJEMPLO y la foto del widget enseña el real —
@@ -5741,7 +5767,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
           (la trampa del estudio faro-pinsdiag-257). La línea gobierna la tarjeta
           entera: las fijas de los subconceptos se preparan y se confirman con el
           mismo Guardar. En modo real la fila queda byte a byte como estaba. */}
-      <button type="button" className="tree-pin-row smp-row" role="switch" aria-checked={effPin("")} onClick={() => stagePin("")}>
+      <button type="button" className="tree-pin-row smp-row" role="switch" aria-checked={effPin("")} onClick={() => askPin("")}>
         <Pin className="size-4 tree-pin-ico" aria-hidden fill={effPin("") ? "currentColor" : "none"} />
         <span className="tree-pin-lab">{effPin("") ? t("widget.pin.on") : t("widget.pin")}{sampleOn() ? <span className="tree-pin-sub">{t("widget.pin.sample")}</span> : null}</span>
         <i className="smp-switch" aria-hidden><b /></i>
@@ -5913,10 +5939,26 @@ function CatalogEditor() {
   // no hay Guardar que lo prepare). Las de Suscripciones NO llevan pin: ninguna
   // línea del libro guarda su id y una fija sin archivo honesto no se ofrece.
   const storePinned = (item: CatalogItem) => hasStorePin(session?.ledger.settings.widgetPins, item.id);
+  // 1.3.260 (pedido de Oscar): esta mano guarda AL MOMENTO, así que su anclaje
+  // pregunta ANTES de escribir — la ventana de la casa explica a dónde va el
+  // nombre al fijar (una compra con ese nombre) o qué se quita al desfijar, y
+  // el guardado de siempre vive solo dentro de su run: cancelar no escribe
+  // nada. Con el ejemplo activo, el cuerpo suma la verdad del ejemplo
+  // (1.3.258): esta fija caería en el libro de ejemplo y el widget enseña el
+  // real — las dos verdades se encuentran antes de la escritura.
   const toggleStorePinFor = (item: CatalogItem) => {
-    commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, item.id) } }), displayName(item, lang));
-    // 1.3.258: la foto se refresca síncrona con el gesto, como en el Guardar del árbol.
-    window.dispatchEvent(new Event(WIDGET_REFRESH));
+    const on = storePinned(item);
+    const apply = () => {
+      commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, item.id) } }), displayName(item, lang));
+      // 1.3.258: la foto se refresca síncrona con el gesto, como en el Guardar del árbol.
+      window.dispatchEvent(new Event(WIDGET_REFRESH));
+    };
+    confirm({
+      title: t(on ? "widget.pin.ask.offTitle" : "widget.pin.ask.title").replace("{name}", displayName(item, lang)),
+      body: t(on ? "widget.pin.ask.offBody" : "widget.pin.ask.storeBody") + (sampleOn() ? " " + t("widget.pin.sample") : ""),
+      yes: on ? t("widget.pin.remove") : t("widget.pin.ask.yes"),
+      run: apply,
+    });
   };
   // 1.3.251: reordenar el catálogo sosteniendo y arrastrando — la disciplina EXACTA
   // del arrastre del árbol (StructureTree, 1.3.145/167/227), trasplantada a la
@@ -6074,7 +6116,9 @@ function CatalogEditor() {
               <button type="button" className="icon-btn cat-act" style={{ "--i": 2 } as CSSProperties} aria-label={item.hidden ? t("show") : t("hide")} onClick={() => toggleItemVis(item)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
               {/* 1.3.251: el pin de Tiendas e IA, entre el ojo y la papelera — se
                   guarda al momento, como cada control de esta mano. Su nombre
-                  accesible cambia con el estado, como en la mano de las subs. */}
+                  accesible cambia con el estado, como en la mano de las subs.
+                  1.3.260: antes de escribir, la ventana de la casa lo confirma
+                  (toggleStorePinFor) — el guardado vive dentro de su run. */}
               {item.kind !== "sub" ? <button type="button" className="icon-btn cat-act pin-btn" style={{ "--i": 3 } as CSSProperties} aria-label={storePinned(item) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={storePinned(item)} onClick={() => toggleStorePinFor(item)}><Pin className="size-4" fill={storePinned(item) ? "currentColor" : "none"} /></button> : null}
               <button type="button" className="icon-btn line-act is-danger" style={{ "--i": item.kind === "sub" ? 3 : 4 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.

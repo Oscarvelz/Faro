@@ -287,6 +287,8 @@ export default function WidgetHost() {
  * 1.3.259: desactivar «Ocultar montos» pide confirmación (la ventana de la
  * casa explica que los montos vuelven a la vista en la pantalla de inicio);
  * la escritura de la pref vive dentro del run de la ventana.
+ * 1.3.260: Desfijar pide la misma ventana antes de escribir (askUnpin): la
+ * explicación de qué se quita y el commit de siempre dentro de su run.
  */
 export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t, session, commit, names, confirm } = useFaro();
@@ -329,6 +331,19 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
     const signs = pinSigns(ledger, p);
     return signs.length === 2 ? t("widget.pin.signboth") : signs[0] === "in" ? t("widget.pin.signin") : t("widget.pin.signout");
   };
+  // 1.3.260 (pedido de Oscar): Desfijar también pregunta — esta lista es un
+  // asiento inmediato, así que la ventana de la casa llega antes de la
+  // escritura: explica qué se quita (el nombre deja de salir en la tarjeta de
+  // apuntes; nada se borra) y el commit de siempre vive solo dentro de su
+  // run — cancelar deja la fija puesta. Con el ejemplo activo, el cuerpo suma
+  // la verdad de la nota de la 1.3.258: la lista que se está leyendo es la del
+  // libro de ejemplo, no la del real que el widget enseña.
+  const askUnpin = (name: string, run: () => void) => confirm({
+    title: t("widget.pin.ask.offTitle").replace("{name}", name),
+    body: t("widget.pin.ask.offBody") + (sampleOn() ? " " + t("settings.widgetpins.sample") : ""),
+    yes: t("widget.pin.remove"),
+    run,
+  });
   // La cara de una pieza fijada: su marca, como la pintan las tarjetas del catálogo
   // y las filas de Compras (la marca de fábrica si la trae; la de su id si es tienda;
   // su glifo para el resto).
@@ -402,7 +417,7 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
                           <strong>{label(p)}</strong>
                           <span>{signWord(p)}</span>
                         </span>
-                        <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p))}>{t("widget.pin.remove")}</button>
+                        <button type="button" className="btn ghost" onClick={() => askUnpin(label(p), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p)))}>{t("widget.pin.remove")}</button>
                       </div>
                     ))}
                     {/* 1.3.251: las fijas del catálogo — su marca, su nombre y su signo
@@ -414,7 +429,7 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
                           <strong>{names.catalog(p.store as string) || p.store}</strong>
                           <span>{t("widget.pin.signout")}</span>
                         </span>
-                        <button type="button" className="btn ghost" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string))}>{t("widget.pin.remove")}</button>
+                        <button type="button" className="btn ghost" onClick={() => askUnpin(names.catalog(p.store as string) || (p.store as string), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string)))}>{t("widget.pin.remove")}</button>
                       </div>
                     ))}
                   </>

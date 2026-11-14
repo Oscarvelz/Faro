@@ -18,6 +18,7 @@ export const LINKS: Record<string, string> = {
   "Enviar a": "cambio-enviar", "Send to": "cambio-enviar",
   "Remesas por persona": "remesas-personas", "Remittances by person": "remesas-personas",
   Asesor: "asesor", Advisor: "asesor",
+  Widget: "widget-android",
   Ingresos: "ingresos", Income: "ingresos",
   Cuotas: "cuotas", Plans: "cuotas",
   "Libros → Me deben": "deudas", "Books → Owed to me": "deudas",
@@ -139,10 +140,13 @@ export const NAME_TERMS: string[] = [
   "Guardar copia ahora", "Restaurar", "Entendido", "Fijos", "Variables", "Compras",
   // Folios (2026-11-13): los nombres de los dos cuartos leen como nombres en la prosa.
   "Folios", "Historial",
+  // Las fijas del widget (1.3.260): los nombres de sus controles leen como nombres.
+  "Fijar en el widget", "Fijada en el widget", "Desfijar", "Fijadas",
   "Have", "Spending", "Used", "Rate", "Collections", "Owed to me", "I owe", "Payment", "Archive", "Accumulated",
   "Average", "This period", "Unfold", "Go there", "More in the manual", "Put in the field", "Apply to the plan", "Copy plan",
   "Save a copy now", "Restore", "Got it", "Fixed", "Variable", "Shopping",
   "History",
+  "Pin to the widget", "Pinned to the widget", "Unpin", "Pinned",
 ];
 
 const TERMS_LONGEST_FIRST = Object.keys(LINKS).sort((a, b) => b.length - a.length);
