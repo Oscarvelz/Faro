@@ -204,6 +204,18 @@ export function HistorialScreen() {
   const onPresent = !!presentRange && range.from === presentRange.from && range.to === presentRange.to;
   const goPresent = () => { if (!onPresent) setAnchor(today); };
 
+  // «Mes actual» (Oscar, 2026-11-13, a imagen del «Current Week» de Weekly):
+  // SOLO la placa del navegador dice «actual» cuando el período mirado ES el
+  // presente — estando en él no hace falta que la placa te diga dónde estás, y
+  // fuera de él la placa conserva el nombre verdadero porque sí hace falta
+  // saberlo. La prueba es la misma onPresent de la 255 (ninguna segunda noción
+  // de presente) y la etiqueta es SOLO de la placa: periodLabel sigue intacta
+  // para la identidad del folio en el panel de totales, para la ventana de
+  // ocultar y para el nombre con que el tramo descansa en el Archivo.
+  const plateLabel = onPresent
+    ? t(lens === "week" ? "hist.now.week" : lens === "year" ? "hist.now.year" : "hist.now.month")
+    : periodLabel;
+
   const cats = state.structure.categories;
   const subs = f.categoryId ? cats.find((c) => c.id === f.categoryId)?.subs ?? [] : [];
   const catalog = state.structure.catalog;
@@ -318,7 +330,7 @@ export function HistorialScreen() {
                 en su placa — la gramática del panel de totales — y la placa
                 entera es el botón que devuelve al presente. En el presente no
                 promete acción alguna (sin aria-label) y su toque no hace nada. */}
-            <button type="button" className="hist-period" onClick={goPresent} aria-label={onPresent ? undefined : t("hist.now")}>{periodLabel}</button>
+            <button type="button" className="hist-period" onClick={goPresent} aria-label={onPresent ? undefined : t("hist.now")}>{plateLabel}</button>
             <button type="button" className="icon-btn" aria-label={t("hist.next")} onClick={() => shift(1)}><ChevronRight /></button>
           </div>
         )}
