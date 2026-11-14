@@ -1,5 +1,5 @@
 // FARO service worker: the app opens with no internet. Bump VERSION on every release.
-const VERSION = "faro-1.3.270";
+const VERSION = "faro-1.3.271";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./icon-192.png", "./icon-512.png", "./precache.json"];
 
 self.addEventListener("install", (event) => {
