@@ -1,0 +1,112 @@
+/**
+ * FARO 1.3.275 — «El manual con ejemplos» (meta de Oscar, dictada en el chat
+ * de Cadence 2026-11-14 y pasada a Faro como ley de manuales):
+ * «Con ejemplos cortos y fáciles de entender, el manual se vuelve mucho más útil».
+ *
+ * El censo de la ola (~/workspace/faro-manual-examples/CENSUS.md) recorrió los
+ * 347 temas: 12 ADD (ganan un ejemplo breve con números redondos), 3 IMPROVE
+ * (su ejemplo existía pero con cifras de calculadora real) y 332 NONE.
+ *
+ * Cercas de esta ola:
+ *  - Cada tema ADD lleva su ejemplo en el campo que el censo declaró (how o
+ *    tip), en los dos idiomas, con la marca de la casa «Ejemplo:» / "Example:"
+ *    y su cifra redonda — una edición futura no puede quitárselo en silencio.
+ *  - Los tres IMPROVE llevan las cifras redondas nuevas, y las cifras viejas
+ *    (38,181 · 7,636 · 11,454 · 36,6243 · 3 662) no aparecen en NINGÚN texto
+ *    del manual.
+ *  - Las burbujas quedan intactas por construcción: los ejemplos viven solo
+ *    en how/tip (campos que solo renderiza el Manual) y ninguno de los 15
+ *    temas tocados lleva campo `bubble`.
+ */
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { MANUAL_TOPICS, findTopic } from "../manual/topics.ts";
+
+type Field = "how" | "tip";
+
+/** [tema, campo, cifra redonda que el ejemplo debe mostrar en ambos idiomas] */
+const ADD: ReadonlyArray<readonly [string, Field, string]> = [
+  ["oportunidad", "how", "C$5,000"],
+  ["si-apartas", "how", "C$12,000"],
+  ["con-interes", "how", "C$1,200"],
+  ["f-pago-interes", "how", "C$800"],
+  ["balance-neto", "how", "C$3,000"],
+  ["cuotas", "how", "$120"],
+  ["promedio", "tip", "C$3,000"],
+  ["ritmo", "tip", "C$15,000"],
+  ["regla-50-30-20", "tip", "C$10,000"],
+  ["lo-que-me-deben", "how", "C$3,500"],
+  ["kn-petty", "how", "C$6,000"],
+  ["seguro-vida", "how", "$50"],
+];
+
+/** [tema, cifras redondas nuevas que su how debe mostrar] */
+const IMPROVE: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ["libros", ["3,600", "36"]],
+  ["meta-ahorro", ["C$40,000", "C$8,000"]],
+  ["semaforo-verde", ["C$40,000", "C$12,000"]],
+];
+
+const OLD_FIGURES = ["38,181", "38 181", "7,636", "11,454", "36,6243", "36.6243", "3 662", "3,662"] as const;
+
+describe("manual con ejemplos: el censo", () => {
+  it("el manual sigue teniendo los 347 temas censados", () => {
+    assert.equal(MANUAL_TOPICS.length, 347);
+  });
+});
+
+describe("manual con ejemplos: los ADD llevan su ejemplo", () => {
+  for (const [id, field, figure] of ADD) {
+    it(`${id}: «Ejemplo:» con ${figure} en su ${field}, en los dos idiomas`, () => {
+      const tp = findTopic(id);
+      assert.ok(tp, `el tema ${id} no existe`);
+      const pair = tp[field];
+      assert.ok(pair, `${id} no tiene campo ${field}`);
+      assert.ok(pair[0].includes("Ejemplo:"), `${id} (${field}, ES) perdió la marca «Ejemplo:»`);
+      assert.ok(pair[1].includes("Example:"), `${id} (${field}, EN) perdió la marca "Example:"`);
+      assert.ok(pair[0].includes(figure), `${id} (${field}, ES) perdió su cifra redonda ${figure}`);
+      assert.ok(pair[1].includes(figure), `${id} (${field}, EN) perdió su cifra redonda ${figure}`);
+    });
+  }
+});
+
+describe("manual con ejemplos: los IMPROVE quedaron redondos", () => {
+  for (const [id, figures] of IMPROVE) {
+    it(`${id}: su how muestra ${figures.join(" y ")}`, () => {
+      const tp = findTopic(id);
+      assert.ok(tp, `el tema ${id} no existe`);
+      assert.ok(tp.how, `${id} no tiene how`);
+      for (const f of figures) {
+        assert.ok(tp.how[0].includes(f), `${id} (ES) no muestra ${f}`);
+        assert.ok(tp.how[1].includes(f), `${id} (EN) no muestra ${f}`);
+      }
+    });
+  }
+
+  it("ninguna cifra vieja sobrevive en ningún texto del manual", () => {
+    const fields = ["title", "sum", "what", "whatAlt", "bubble", "how", "tip"] as const;
+    for (const tp of MANUAL_TOPICS) {
+      for (const f of fields) {
+        const pair = tp[f];
+        if (!pair) continue;
+        for (const lang of pair) {
+          for (const old of OLD_FIGURES) {
+            assert.ok(!lang.includes(old), `${tp.id} (${f}) aún cita la cifra vieja ${old}`);
+          }
+        }
+      }
+    }
+  });
+});
+
+describe("manual con ejemplos: las burbujas no se tocaron", () => {
+  it("ninguno de los 15 temas tocados lleva campo bubble", () => {
+    const touched = [...ADD.map(([id]) => id), ...IMPROVE.map(([id]) => id)];
+    assert.equal(touched.length, 15);
+    for (const id of touched) {
+      const tp = findTopic(id);
+      assert.ok(tp, `el tema ${id} no existe`);
+      assert.equal(tp.bubble, undefined, `${id} ganó un campo bubble: la burbuja cambió`);
+    }
+  });
+});
