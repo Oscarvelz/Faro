@@ -311,15 +311,22 @@ export const LOOK_ICONS = [
   "Sprout", "TreeDeciduous", "Bird", "Bone", "Footprints", "Guitar", "Drum", "Snowflake",
 ] as const;
 
-// «A la base» — la flecha de Ingresos, dibujada para Oscar (su elección,
-// 2026-11-14): baja recta y aterriza sobre una base con dos patitas
-// cuadradas. No es un glifo de Lucide (su ArrowDownToLine no trae las
-// patitas), así que vive aquí, con la misma firma que sus hermanas del
-// mapa (forwardRef + LucideProps) y la geometría exacta que él escogió.
-const IngresoBase: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(function IngresoBase(
-  { size = 24, strokeWidth = 2, className, ...props },
+// «La diagonal gruesa» — la flecha de Ingresos (elección de Oscar en la
+// misma hoja, 2026-11-14): la diagonal descendente de siempre, dibujada
+// MÁS GRUESA. Su historia, en una línea: la 272 publicó primero su
+// elección 4, «A la base», y él la retiró de su teléfono al verla gemela
+// del Download del encabezado — «Al final terminamos con otro icono
+// igual» — y mandó «Que sea la 3 mejor»: esta. La geometría es la de su
+// hoja (fuste 16.8,7.2 → 7.2,16.8; cabeza abierta 15.8,16.8 H7.2 V8.2)
+// y el peso 2.25 es PARTE de la elección — la juzgó así contra el 1.75
+// de la familia — así que el componente lo lleva intrínseco e ignora el
+// strokeWidth que le pasen sus asientos; la familia sigue a 1.75.
+const IngresoFlecha: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(function IngresoFlecha(
+  { size = 24, strokeWidth, className, ...props },
   ref,
 ) {
+  // El strokeWidth del asiento se descarta a propósito (ver arriba).
+  void strokeWidth;
   return (
     <svg
       ref={ref}
@@ -329,16 +336,14 @@ const IngresoBase: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(function 
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={strokeWidth}
+      strokeWidth={2.25}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
       {...props}
     >
-      <path d="M12 3.5V14" />
-      <path d="m6.8 9.6 5.2 5.2 5.2-5.2" />
-      <path d="M5 20.5h14" />
-      <path d="M5 18.6v1.9M19 18.6v1.9" />
+      <path d="M16.8 7.2 7.2 16.8" />
+      <path d="M15.8 16.8H7.2V8.2" />
     </svg>
   );
 });
@@ -347,11 +352,12 @@ const SECTION_ICON: Record<string, LucideIcon> = {
   desk: LayoutDashboard,
   // El hub «Libros» del muelle tiene clave propia desde la 1.3.270:
   // BookCopy es de Libros (elección de Oscar, 1.3.245) y no se mueve;
-  // «Ingresos» lleva el suyo en sus cuatro asientos — desde la 1.3.272,
-  // «A la base» (IngresoBase), la flecha que Oscar escogió en persona
-  // tras retirar en contexto las monedas redondas de la 1.3.270.
+  // «Ingresos» lleva el suyo en sus cuatro asientos — desde la 1.3.274,
+  // «La diagonal gruesa» (IngresoFlecha), la flecha que Oscar escogió
+  // en persona tras retirar en contexto las monedas redondas de la
+  // 1.3.270 y la bandeja de la 1.3.272, gemela del Download.
   books: BookCopy,
-  income: IngresoBase,
+  income: IngresoFlecha,
   fixed: Lock,
   variable: Waves,
   shops: ShoppingBag,

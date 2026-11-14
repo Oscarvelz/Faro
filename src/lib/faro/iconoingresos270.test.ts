@@ -71,6 +71,32 @@
  * que income vuelva a Coins por esta puerta; y la última cerca cambia
  * de objeto — ya no «Coins viene de lucide» sino la geometría literal
  * de «A la base».
+ *
+ * RE-FIJADO — 1.3.274 «La diagonal gruesa» (2026-11-14). La partición
+ * sigue intacta; el glifo cambia otra vez, y otra vez por veredicto de
+ * Oscar EN SU TELÉFONO: la 1.3.272 publicó su elección 4, «A la base»,
+ * y al verla sentada en la lente de Libros la rodeó con un círculo rojo
+ * junto al Download del encabezado — la flecha recta sobre su base con
+ * patitas y la flecha de descargar sobre su bandeja se leían el MISMO
+ * icono a tamaño verdadero: «Al final terminamos con otro icono
+ * igual». De la misma hoja de cuatro mejoras mandó: «Que sea la 3
+ * mejor» — la 3, «Más gruesa»: la diagonal descendente de siempre (la
+ * flecha que Ingresos tenía antes de que se la quitaran), dibujada más
+ * pesada. La geometría es la de su hoja, trazo a trazo (fuste
+ * 16.8,7.2 → 7.2,16.8; cabeza abierta 15.8,16.8 H7.2 V8.2), y el peso
+ * 2.25 es parte de la elección — la juzgó a 2.25 contra el 1.75 de la
+ * familia — así que el componente nuevo, IngresoFlecha, lo lleva
+ * intrínseco e ignora el strokeWidth de sus asientos (la cerca de la
+ * geometría lo fija). IngresoBase se retira entero: su geometría de
+ * bandeja queda prohibida en este asiento por la última cerca. El
+ * censo de unicidad de la ola revisó los vecinos cercanos — el
+ * Download del encabezado (vertical sobre bandeja en U: otra
+ * geometría), la marca ArrowDownLeft de «Tengo» en el escritorio de
+ * Central (misma dirección, pero sello de texto a 12px y peso de
+ * fábrica, en otra pantalla), las diagonales espejo de Panorama y de
+ * «Gasté» (dirección contraria) y ArrowDownLeft/Download en el MAP de
+ * glifos elegibles (biblioteca del usuario, no cromo) — y ninguno es
+ * esta flecha en este asiento.
  */
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
@@ -89,11 +115,11 @@ const mapEntries = () => {
 };
 
 describe("1.3.270 — el icono de Ingresos (la clave se parte)", () => {
-  it("el mapa entero es el esperado: nace books y income gana glifo propio (RE-FIJADO 272: IngresoBase)", () => {
+  it("el mapa entero es el esperado: nace books y income gana glifo propio (RE-FIJADO 274: IngresoFlecha)", () => {
     assert.deepEqual(mapEntries(), {
       desk: "LayoutDashboard",
       books: "BookCopy",
-      income: "IngresoBase",
+      income: "IngresoFlecha",
       fixed: "Lock",
       variable: "Waves",
       shops: "ShoppingBag",
@@ -113,6 +139,8 @@ describe("1.3.270 — el icono de Ingresos (la clave se parte)", () => {
     assert.ok(!icons.includes("income: CircleDollarSign"));
     // RE-FIJADO 272: tampoco con las monedas que Oscar retiró en contexto.
     assert.ok(!icons.includes("income: Coins"));
+    // RE-FIJADO 274: tampoco con la bandeja que retiró por gemela del Download.
+    assert.ok(!icons.includes("income: IngresoBase"));
   });
 
   it("el muelle pide la clave books una sola vez, junto a su rótulo y su destino de siempre", () => {
@@ -134,15 +162,25 @@ describe("1.3.270 — el icono de Ingresos (la clave se parte)", () => {
     assert.ok(shell.includes('<SectionIcon id={section} className="size-3.5" />'));
   });
 
-  it("«A la base» es un componente propio con la geometría exacta que Oscar escogió (RE-FIJADO 272)", () => {
+  it("«La diagonal gruesa» es un componente propio con la geometría y el peso exactos que Oscar escogió (RE-FIJADO 274)", () => {
     // El componente vive en icons.tsx, con la firma de la casa.
-    assert.ok(icons.includes("const IngresoBase: LucideIcon = forwardRef"));
-    // La geometría, trazo a trazo, tal como la escogió (2026-11-14):
-    // el fuste recto, la cabeza, la base y sus dos patitas cuadradas.
-    assert.ok(icons.includes('<path d="M12 3.5V14" />'));
-    assert.ok(icons.includes('<path d="m6.8 9.6 5.2 5.2 5.2-5.2" />'));
-    assert.ok(icons.includes('<path d="M5 20.5h14" />'));
-    assert.ok(icons.includes('<path d="M5 18.6v1.9M19 18.6v1.9" />'));
+    assert.ok(icons.includes("const IngresoFlecha: LucideIcon = forwardRef"));
+    // La geometría, trazo a trazo, tal como la escogió de su hoja
+    // (2026-11-14): el fuste diagonal de arriba-derecha a abajo-izquierda
+    // y la cabeza abierta en la esquina.
+    assert.ok(icons.includes('<path d="M16.8 7.2 7.2 16.8" />'));
+    assert.ok(icons.includes('<path d="M15.8 16.8H7.2V8.2" />'));
+    // El peso es parte de la elección: 2.25 intrínseco en el componente,
+    // aunque SectionIcon siga pasando el 1.75 de la familia a todos.
+    assert.ok(icons.includes("strokeWidth={2.25}"));
+    assert.ok(icons.includes("strokeWidth={1.75}"));
+    // La bandeja de la 1.3.272 no vuelve a este asiento: su geometría
+    // entera sale de icons.tsx con el componente retirado.
+    assert.ok(!icons.includes("IngresoBase"));
+    assert.ok(!icons.includes('<path d="M12 3.5V14" />'));
+    assert.ok(!icons.includes('<path d="m6.8 9.6 5.2 5.2 5.2-5.2" />'));
+    assert.ok(!icons.includes('<path d="M5 20.5h14" />'));
+    assert.ok(!icons.includes('<path d="M5 18.6v1.9M19 18.6v1.9" />'));
     // Coins no se borra de la casa: sigue importado de lucide-react y en
     // el MAP de glifos elegibles — solo deja el asiento de Ingresos.
     const importBlock = icons.split('from "lucide-react"')[0];
