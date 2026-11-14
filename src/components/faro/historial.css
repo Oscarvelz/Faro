@@ -20,6 +20,41 @@
 }
 .hist-sub { margin: 0; color: var(--muted); font-size: .9rem; }
 .hist-lens { margin: 0; }
+/* El carril de la lente (Oscar, 2026-11-14 — candidato B «Carril hundido»
+   del estudio de lentes): la fila deja las pastillas sueltas y viste el
+   traje viajero de la casa (.seg.is-follow con su píldora seguidora), el
+   mismo del par de Folios y el par de Estudio — en palabras de Oscar, el
+   carril «prácticamente es la consistencia del app». is-pair nombra el traje
+   HORIZONTAL de la familia (la otra rama, :not(.is-pair), es el traje
+   apilado de iconos del dock y de Libros); sobre esa ropa aquí solo se fija
+   la geometría de esta fila: cuatro columnas, hueco de 2px, aire de 3px y
+   botones de 44px — la ley de toque de la casa. El estudio aprobó un pulgar
+   de 40 en una pista de 50; la pista queda en 52 por los 4px que el pulgar
+   recupera para la ley, declarados. La pintura NO se escribe aquí: la pista
+   hundida, el pulgar y su marco los pintan styles.css, brillo.css y cada
+   tema (tron.css, cyberpunk.css, ion.css) por las clases de la familia, como
+   pintan a los pares. En los días el pulgar es el de la familia — el blanco
+   intermedio de la 1.3.212 con su marco y su resplandor de acento (brillo)
+   — jamás la losa --fg: el botón activo no pinta nada (la píldora es la
+   única pintora, ley de la 1.3.210) y la regla del colado de hist-temas.css
+   sigue gobernando a los seg de filtros, que conservan su aria-pressed. */
+.seg.is-follow.is-pair.hist-lens {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px; padding: 3px; margin: 0;
+}
+.seg.is-follow.is-pair.hist-lens button {
+  height: 44px; min-height: 44px; padding: 0 6px;
+  font-size: .85rem; font-weight: 620;
+}
+/* Movimiento reducido: el pulgar NO viaja. Los viajeros hermanos sí tienen
+   su muerte escrita (.dock-glide y .vault-glide: transition: none, en
+   styles.css); la píldora de los pares nunca la recibió — sus adornos se
+   retiran por tema, pero el viaje de .38s quedó sin cercar. La lente adopta
+   el idioma de los hermanos ceñido a su propia pista, sin tocar la regla
+   compartida de los pares. */
+@media (prefers-reduced-motion: reduce) {
+  .seg.is-follow.hist-lens .seg-pill { transition: none; }
+}
 .hist-navrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 /* El nombre del período lleva casa (Oscar, 2026-11-13): antes flotaba desnudo
    entre las dos flechas. Ahora vive en una placa con la gramática del panel

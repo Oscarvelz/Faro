@@ -19,7 +19,7 @@
  * `faro.hist.views`, como el pliegue del catálogo): nombre del dueño, su idioma, jamás
  * dato del libro.
  */
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, EyeOff, Search, SlidersHorizontal, X } from "lucide-react";
 import { useFaro } from "./provider";
 import { useLongPress } from "./use-longpress";
@@ -143,6 +143,36 @@ export function HistorialScreen() {
   const [viewName, setViewName] = useState("");
   const [views, setViews] = useState<SavedView[]>(readViews);
   const [shownDays, setShownDays] = useState(DAY_CHUNK);
+
+  // El carril de la lente (Oscar, 2026-11-14: eligió el «Carril hundido» del
+  // estudio de lentes — candidato B): la fila viste el traje viajero de la
+  // casa (.seg.is-follow con su píldora) y la píldora se coloca con el MISMO
+  // cálculo del par de Folios (folios-chips.tsx): medir el botón con
+  // aria-current="page" y trasladarla hasta él en fase de layout, y otra vez
+  // cuando las fuentes asientan. Las dependencias cargan la lente, el idioma
+  // (las etiquetas cambian de ancho) y la llegada del libro — el colocador
+  // del shell ya aprendió esa lección (1.3.206): sin la llegada, la píldora
+  // nacía en 0px hasta el primer toque.
+  const lensRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = lensRef.current;
+    if (!root) return;
+    const current = root.querySelector<HTMLElement>('[aria-current="page"]');
+    const pill = root.querySelector<HTMLElement>(".seg-pill");
+    if (!current || !pill) return;
+    const place = () => {
+      pill.style.width = `${current.offsetWidth}px`;
+      pill.style.height = `${current.offsetHeight}px`;
+      pill.style.transform = `translate3d(${current.offsetLeft}px, ${current.offsetTop}px, 0)`;
+      pill.classList.remove("is-gliding");
+      void pill.offsetWidth;
+      pill.classList.add("is-gliding");
+    };
+    place();
+    void document.fonts?.ready.then(() => {
+      if (pill.isConnected && current.isConnected && current.getAttribute("aria-current") === "page") place();
+    });
+  }, [lens, lang, !!state]);
 
   // El inicio de semana del locale del aparato (brief, pregunta abierta 2): el inglés
   // de EE. UU. empieza en domingo; el español, en lunes.
@@ -303,6 +333,19 @@ export function HistorialScreen() {
     <button key={id} type="button" aria-pressed={pressed} onClick={onPress}>{label}</button>
   );
 
+  // Los botones de la lente NO salen de segBtn: desde la 1.3.264 la lente es
+  // un carril viajero y anuncia con la semántica exacta de su familia
+  // (role="tab", aria-selected, y aria-current="page" en la activa — la del
+  // par de Folios y el par de Estudio). La migración se declara, no se
+  // improvisa: el contenedor ya decía role="tablist" con botones que no eran
+  // pestañas; ahora el marcado es verdad, y el colocador de la píldora tiene
+  // por fin su blanco. segBtn sigue sirviendo a los seg de filtros, intactos.
+  const lensBtn = (id: Lens, label: string) => (
+    <button key={id} type="button" role="tab" aria-selected={lens === id} aria-current={lens === id ? "page" : undefined} onClick={() => setLens(id)}>
+      <span className="seg-label">{label}</span>
+    </button>
+  );
+
   return (
     <>
       {/* Las pastillas de Folios ya no viven en esta pantalla (1.3.249): las
@@ -312,11 +355,12 @@ export function HistorialScreen() {
       <div className="hist">
       <header className="hist-head">
         <p className="hist-sub">{t("hist.sub")}</p>
-        <div className="seg hist-lens" role="tablist" aria-label={t("hist.title")}>
-          {segBtn("week", lens === "week", () => setLens("week"), t("hist.week"))}
-          {segBtn("month", lens === "month", () => setLens("month"), t("hist.month"))}
-          {segBtn("year", lens === "year", () => setLens("year"), t("hist.year"))}
-          {segBtn("range", lens === "range", () => setLens("range"), t("hist.range"))}
+        <div className="seg is-follow is-pair hist-lens" ref={lensRef} role="tablist" aria-label={t("hist.title")}>
+          <i className="seg-pill" aria-hidden />
+          {lensBtn("week", t("hist.week"))}
+          {lensBtn("month", t("hist.month"))}
+          {lensBtn("year", t("hist.year"))}
+          {lensBtn("range", t("hist.range"))}
         </div>
         {lens === "range" ? (
           <div className="hist-range">
