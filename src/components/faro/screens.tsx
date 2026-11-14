@@ -21,10 +21,11 @@ import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
-import { WidgetCard } from "./widget-host";
+import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
 import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, replaceCandidates, replaceCatalogItem, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type ReplaceTarget, type SubLinesSummary } from "@/lib/faro/defaults";
 import { hasStorePin, hasWidgetPin, toggleStorePin, toggleWidgetPin } from "@/lib/faro/quickadd";
+import { sampleOn } from "@/lib/faro/samplemode";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
@@ -5492,7 +5493,11 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     setStagedNames({});
     if (stagedIds.length) setStagedVis({});
     if (stagedCatVis !== null) setStagedCatVis(null);
-    if (pinChanges.length) setStagedPins({});
+    // 1.3.258: si el gesto llevó fijas, la foto del widget se refresca AL MOMENTO,
+    // síncrona con el Guardar — el efecto del anfitrión ya la reempuja al cambiar
+    // el libro (700 ms), esto es el cinturón además de los tirantes para que el
+    // empujón nazca del propio gesto de fijar.
+    if (pinChanges.length) { setStagedPins({}); window.dispatchEvent(new Event(WIDGET_REFRESH)); }
     nameBaseRef.current = name;
   };
   // 1.3.188 (R-6): el Enter del campo de subcategoría nueva ya NO crea nada al
@@ -5728,10 +5733,17 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       </div>
       {/* 1.3.246: la fija de la categoría misma — una fila con la geometría de la del
           color y el interruptor de la casa; se prepara como los ojos y Guardar la
-          confirma en el mismo commit. Fijada, la tarjeta de apuntes la ofrece siempre. */}
+          confirma en el mismo commit. Fijada, la tarjeta de apuntes la ofrece siempre.
+          1.3.258: con el ejemplo activo, la fila lleva el subtítulo de la casa (el
+          mismo gesto que la fila de «Datos de ejemplo» en Ajustes): la fija que aquí
+          se prepare cae en el libro DE EJEMPLO y la foto del widget enseña el real —
+          sin esta línea, fijar en el ejemplo era indistinguible de fijar en serio
+          (la trampa del estudio faro-pinsdiag-257). La línea gobierna la tarjeta
+          entera: las fijas de los subconceptos se preparan y se confirman con el
+          mismo Guardar. En modo real la fila queda byte a byte como estaba. */}
       <button type="button" className="tree-pin-row smp-row" role="switch" aria-checked={effPin("")} onClick={() => stagePin("")}>
         <Pin className="size-4 tree-pin-ico" aria-hidden fill={effPin("") ? "currentColor" : "none"} />
-        <span className="tree-pin-lab">{effPin("") ? t("widget.pin.on") : t("widget.pin")}</span>
+        <span className="tree-pin-lab">{effPin("") ? t("widget.pin.on") : t("widget.pin")}{sampleOn() ? <span className="tree-pin-sub">{t("widget.pin.sample")}</span> : null}</span>
         <i className="smp-switch" aria-hidden><b /></i>
       </button>
       {/* 1.3.223 (pedido de Oscar): una línea profesional separa la cabecera de
@@ -5903,6 +5915,8 @@ function CatalogEditor() {
   const storePinned = (item: CatalogItem) => hasStorePin(session?.ledger.settings.widgetPins, item.id);
   const toggleStorePinFor = (item: CatalogItem) => {
     commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, item.id) } }), displayName(item, lang));
+    // 1.3.258: la foto se refresca síncrona con el gesto, como en el Guardar del árbol.
+    window.dispatchEvent(new Event(WIDGET_REFRESH));
   };
   // 1.3.251: reordenar el catálogo sosteniendo y arrastrando — la disciplina EXACTA
   // del arrastre del árbol (StructureTree, 1.3.145/167/227), trasplantada a la
@@ -6106,6 +6120,10 @@ function CatalogEditor() {
           no se anuncia no existe para un usuario frío — el arrastre se dice una vez,
           aquí, donde las tarjetas viven (1.3.251). */}
       <p className="tree-hint">{t("cat.dragHint")}</p>
+      {/* 1.3.258: con el ejemplo activo, el editor anuncia su libro en el mismo
+          registro — las fijas de la mano de cada tarjeta caen en el libro de
+          ejemplo y la foto del widget enseña el real (la trampa de pinsdiag-257). */}
+      {sampleOn() ? <p className="tree-hint">{t("widget.pin.sample")}</p> : null}
       {groups.map(renderGroup)}
       <div className="ah-form sc-form is-item">
         <div className="ah-grid">

@@ -82,3 +82,14 @@ test("tarjeta-widget: nace plegada en cada visita y el salto del Manual la abre 
   assert.ok(screens.includes('"account", "widget"'), "Settings answers faro-open for «widget», like the other folds");
   assert.ok(topics.includes('fold: "widget", anchor: "aj-widget"'), "the widget-android topic opens the fold first, then lands on the anchor — the house jump for folded cards");
 });
+
+test("tarjeta-widget: la cabecera lleva su subtítulo, como todas las de Ajustes (1.3.258)", () => {
+  // Oscar, 2026-11-13 21:56 EST (foto 235299): «debajo de Widget le hacen falta
+  // las letras, como en todos los ajustes». Su palabra SUSTITUYE la decisión
+  // declarada de 1.3.253, que dejó la cabecera sin subtítulo a propósito: el
+  // subtítulo vive en el hueco de las vecinas (el aj-sub tras el título, como
+  // lo pinta el componente Fold) y dice lo que la tarjeta guarda.
+  const head = host.slice(host.indexOf('data-anchor="aj-widget"'), host.indexOf('data-anchor="aj-widget"') + 1500);
+  assert.ok(head.includes('<span className="aj-sub">{L("Tu pantalla de inicio: montos y fijas", "Your home screen: amounts and pins")}</span>'),
+    "the header carries its one-line subtitle in the neighbours' slot, in both languages");
+});

@@ -78,6 +78,13 @@ export function personalGet(key: string): string | null {
   try { return raw ? raw.get(key) : localStorage.getItem(key); } catch { return null; }
 }
 
+/** Raw write to the personal (unprefixed) value of a key, whatever mode is on —
+ * the write half of personalGet, for device-local facts that must stay readable in
+ * both modes (1.3.258: the widget photo's last-push record). */
+export function personalSet(key: string, value: string): void {
+  try { if (raw) raw.set(key, value); else localStorage.setItem(key, value); } catch { /* ignore */ }
+}
+
 /** Every key that belongs to the sample namespace (localStorage + sessionStorage) is removed and
  * the sample IndexedDB databases are deleted. Personal keys are not read or written. */
 export async function clearSampleStore() {

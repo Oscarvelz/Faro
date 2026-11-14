@@ -15,6 +15,11 @@
  *   what is photographed is the real book itself). Oscar's law, from his third test: a surface that
  *   needs the app opened in the right mode to complete itself is pointless — after ANY single app
  *   run of any kind, the widgets carry the real photo, homes included.
+ *   1.3.258: every push leaves a trace — its outcome (which branch, whether the photo was sent or
+ *   why not, when) is recorded device-locally (faro-widget-lastpush, written through the raw
+ *   channel so sample mode cannot hide it in its own namespace) and the Ajustes «Widget» card
+ *   reads it back in one muted line. Until this version every outcome was swallowed, and a stale
+ *   photo could not be diagnosed from outside (the faro-pinsdiag-257 study).
  * - Answers widget taps: the app keeps the target of the tap (Central, Pagos, a book, + / −) and the page takes it
  *   once it is open and unlocked, then goes there the same way the manual's "Ir allí" does.
  */
@@ -26,11 +31,11 @@ import { preferOweTab } from "./debts";
 import { inAndroidApp, native } from "@/spa/native";
 import { lastUser } from "@/spa/cloud";
 import { lockCredential } from "@/spa/lock";
-import { personalGet, sampleOn } from "@/lib/faro/samplemode";
+import { personalGet, personalSet, sampleOn } from "@/lib/faro/samplemode";
 import { packKeyOf, packLedgerOk } from "@/lib/faro/packguard";
 import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
-import { buildWidgetSnapshot, widgetHide, WIDGET_HIDE_KEY, type WidgetGo } from "@/lib/faro/widget";
+import { buildWidgetSnapshot, parseWidgetPushRecord, widgetHide, WIDGET_HIDE_KEY, WIDGET_LASTPUSH_KEY, type WidgetGo, type WidgetPushRecord } from "@/lib/faro/widget";
 import { ingestQuick, parseQuickEntries, pinSigns, toggleStorePin, toggleWidgetPin, type QuickEntry } from "@/lib/faro/quickadd";
 import { BrandMark, Glyph } from "./icons";
 import type { GoLike } from "@/lib/manual/places";
@@ -44,6 +49,16 @@ function hidePref(): string | null {
 function lockOn(): boolean {
   const u = lastUser();
   return !!u && !!lockCredential(u.id);
+}
+
+/**
+ * 1.3.258: el parte del empujón — cada push deja su resultado en la llave del
+ * equipo (canal crudo: legible en los dos modos, porque un empujón de la rama de
+ * ejemplo fotografía el libro real y su parte importa también fuera del ejemplo).
+ * Registrar nunca rompe nada: si hasta escribir el parte falla, la foto manda.
+ */
+function recordPush(rec: Omit<WidgetPushRecord, "at">) {
+  try { personalSet(WIDGET_LASTPUSH_KEY, JSON.stringify({ ...rec, at: new Date().toISOString() })); } catch { /* el parte nunca rompe la foto */ }
 }
 
 export const WIDGET_PLACES: Record<WidgetGo, GoLike> = {
@@ -101,30 +116,41 @@ export default function WidgetHost() {
         // El ejemplo no se fotografía jamás (su almacén es otro) y su sesión no escribe
         // nada personal: personalGet solo lee. Sin pack real válido (el libro real nunca
         // se guardó en este aparato) no hay foto que renovar: la que haya queda como está.
+        // 1.3.258: cada salida de esta rama deja su parte (recordPush) — hasta hoy la
+        // vuelta temprana era muda y una foto vieja no se podía diagnosticar.
         try {
           const raw = personalGet(packKeyOf(userId));
-          if (!raw || !packLedgerOk(raw)) return;
+          if (!raw) { recordPush({ branch: "sample", sent: false, why: "nopack" }); return; }
+          if (!packLedgerOk(raw)) { recordPush({ branch: "sample", sent: false, why: "pack" }); return; }
           const real = (JSON.parse(raw) as { ledger: LedgerState }).ledger;
           const lock = lockOn();
           const snap = buildWidgetSnapshot(real, real.settings.lang === "en" ? "en" : "es", {
             today: todayIso(), hide: widgetHide(personalGet(WIDGET_HIDE_KEY), lock), lock,
           });
           n.setWidgetData?.(JSON.stringify(snap));
+          recordPush({ branch: "sample", sent: true });
           had.current = true;
-        } catch { /* la foto queda como está */ }
+        } catch { recordPush({ branch: "sample", sent: false, why: "error" }); /* la foto queda como está */ }
         return;
       }
       if (!l) {
         // Signed out on this device: the widgets go back to "Abre Faro una vez".
-        if (had.current) { try { n.setWidgetData?.(""); } catch { /* ignore */ } had.current = false; }
+        // 1.3.258: el vaciado también es un envío y deja su parte; sin nada que
+        // vaciar no pasó nada que contar y el último parte queda como está.
+        if (had.current) {
+          try { n.setWidgetData?.(""); recordPush({ branch: "out", sent: true }); }
+          catch { recordPush({ branch: "out", sent: false, why: "error" }); /* ignore */ }
+          had.current = false;
+        }
         return;
       }
       try {
         const lock = lockOn();
         const snap = buildWidgetSnapshot(l, lg, { today: todayIso(), hide: widgetHide(hidePref(), lock), lock });
         n.setWidgetData?.(JSON.stringify(snap));
+        recordPush({ branch: "real", sent: true });
         had.current = true;
-      } catch { /* a widget never breaks the app */ }
+      } catch { recordPush({ branch: "real", sent: false, why: "error" }); /* a widget never breaks the app */ }
     };
     const timer = window.setTimeout(push, 700);
     const now = () => { window.clearTimeout(timer); push(); };
@@ -250,6 +276,14 @@ export default function WidgetHost() {
  * El salto del Manual (tema widget-android, fold: "widget") la abre por el
  * faro-open de siempre, igual que Idioma o Copias. Nada de su contenido
  * cambia: el interruptor y las fijas viven dentro del pliegue, en su orden.
+ * 1.3.258: dos líneas nuevas al pie de ese orden — con el ejemplo activo, una
+ * nota dice que la lista de fijas que se está leyendo es la del libro de
+ * ejemplo (la foto del widget enseña el real: una fija del ejemplo no llega
+ * nunca a la tarjeta); y la línea del último empujón (el parte que WidgetHost
+ * registra en el equipo) cierra la tarjeta dentro de la app Android. Y la
+ * cabecera gana su subtítulo de una línea («Tu pantalla de inicio: montos y
+ * fijas»), en el hueco de las vecinas — orden suya del mismo día (foto
+ * 235299) que sustituye la decisión de 1.3.253 de dejarla sin subtítulo.
  */
 export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t, session, commit, names } = useFaro();
@@ -283,6 +317,20 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
     if (!item) return <Pin aria-hidden />;
     return item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-6" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-6" /> : <Glyph name={item.icon} className="size-6" />;
   };
+  // 1.3.258: el parte del último empujón, en una línea muda al pie de la tarjeta —
+  // solo dentro de la app Android (fuera no hay widget que fotografiar) y solo si
+  // el equipo guarda un parte: así un «la foto no se actualizó» se diagnostica solo.
+  const pushRec = android ? parseWidgetPushRecord(personalGet(WIDGET_LASTPUSH_KEY)) : null;
+  const pushLine = !pushRec ? null : !pushRec.sent
+    ? t(pushRec.why === "pack" ? "widget.push.fail.pack" : pushRec.why === "nopack" ? "widget.push.fail.nopack" : "widget.push.fail.error")
+    : (() => {
+        const mins = Math.max(0, Math.floor((Date.now() - Date.parse(pushRec.at)) / 60000));
+        const when = mins < 1 ? t("widget.push.now")
+          : mins < 60 ? t("widget.push.min").replace("{n}", String(mins))
+          : mins < 1440 ? t("widget.push.hour").replace("{n}", String(Math.floor(mins / 60)))
+          : t("widget.push.day").replace("{n}", String(Math.floor(mins / 1440)));
+        return `${t("widget.push.sent")} ${when}`;
+      })();
   return (
     <section className="card manual-card aj-card smp-card" data-anchor="aj-widget" data-fold="widget">
       <div role="button" tabIndex={0} className="manual-row fold-btn aj-row" aria-expanded={open} onClick={onToggle}
@@ -290,6 +338,13 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
         <LayoutGrid aria-hidden />
         <span className="manual-row-text">
           <div className="fold-title aj-title"><h2 className="serif">Widget</h2></div>
+          {/* 1.3.258 (Oscar, 2026-11-13 21:56 EST, foto 235299): «debajo de Widget le
+              hacen falta las letras, como en todos los ajustes» — la cabecera gana su
+              subtítulo de una línea en el mismo hueco de las vecinas (Manual de uso:
+              «Cada función, explicada»), diciendo lo que la tarjeta guarda: el
+              interruptor de montos y la lista de fijas. SU PALABRA SUSTITUYE la
+              decisión declarada de 1.3.253, que la dejó sin subtítulo a propósito. */}
+          <span className="aj-sub">{L("Tu pantalla de inicio: montos y fijas", "Your home screen: amounts and pins")}</span>
         </span>
         <ChevronDown className={open ? "fold-chev is-open" : "fold-chev"} />
       </div>
@@ -313,6 +368,11 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
                   <div className="fold-title aj-title"><h2 className="serif wpin-h">{t("settings.widgetpins")}</h2></div>
                   <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
                 </div>
+                {/* 1.3.258: con el ejemplo activo, esta lista lee el libro DE EJEMPLO —
+                    la línea lo dice en la misma tarjeta, porque la foto del widget
+                    enseña siempre el libro real (ley de 1.3.237) y una fija del
+                    ejemplo jamás llega a la tarjeta de apuntes. */}
+                {sampleOn() ? <span className="aj-sub wpin-note">{t("settings.widgetpins.sample")}</span> : null}
                 {pins.length ? (
                   <>
                     {catPins.map((p) => (
@@ -341,6 +401,7 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
                 ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
               </>
             ) : null}
+            {pushLine ? <span className="wpush-line">{pushLine}</span> : null}
           </div>
         </div>
       ) : null}

@@ -314,3 +314,31 @@ export function widgetHide(pref: string | null, lockOn: boolean): boolean {
   if (pref === "0") return false;
   return lockOn;
 }
+
+/**
+ * 1.3.258: el último empujón de la foto, registrado en el equipo (nunca en el libro:
+ * la llave se lee y se escribe por el canal crudo de samplemode, así que el modo de
+ * ejemplo no la esconde en su espacio — el parte vale en los dos modos). Hasta
+ * 1.3.257 todo resultado del empujón se tragaba en silencio y una foto vieja no se
+ * podía diagnosticar desde fuera (estudio faro-pinsdiag-257); ahora cada empujón
+ * deja su parte: cuándo, por qué rama y si la foto salió o por qué no. Sin
+ * contenido del paquete, sin montos, sin datos personales: solo el resultado.
+ */
+export const WIDGET_LASTPUSH_KEY = "faro-widget-lastpush";
+
+export type WidgetPushBranch = "real" | "sample" | "out";
+export type WidgetPushWhy = "nopack" | "pack" | "error";
+export type WidgetPushRecord = { at: string; branch: WidgetPushBranch; sent: boolean; why?: WidgetPushWhy };
+
+/** Lee un parte guardado sin fiarse de su forma: cualquier cosa rara no es un parte. */
+export function parseWidgetPushRecord(raw: string | null): WidgetPushRecord | null {
+  if (!raw) return null;
+  try {
+    const r = JSON.parse(raw) as Partial<WidgetPushRecord>;
+    if (typeof r.at !== "string" || Number.isNaN(Date.parse(r.at))) return null;
+    if (r.branch !== "real" && r.branch !== "sample" && r.branch !== "out") return null;
+    if (typeof r.sent !== "boolean") return null;
+    if (r.why !== undefined && r.why !== "nopack" && r.why !== "pack" && r.why !== "error") return null;
+    return { at: r.at, branch: r.branch, sent: r.sent, ...(r.why ? { why: r.why } : {}) };
+  } catch { return null; }
+}
