@@ -47,6 +47,30 @@
  *    BOOKS/TOP_BOOKS llevan "income"; la lente y el riel pintan id={id};
  *    la burbuja y el título de la flotante pintan id={section}).
  *  - Coins viene de lucide-react y ya vivía importado en la casa.
+ *
+ * RE-FIJADO — 1.3.272 «La flecha a la base» (2026-11-14). La partición
+ * de la 1.3.270 queda intacta y estas cercas la siguen guardando; lo que
+ * cambia es SOLO el glifo que cuelga de income, y se re-fija con su
+ * historia dicha llanamente: Oscar vio Coins en su teléfono, en la fila
+ * de Libros, y lo retiró en contexto — las monedas son REDONDAS y van
+ * EN DIAGONAL, y la familia de esa fila (el candado de Fijos, las olas
+ * de Variables, la bolsa de Compras) es de contorno CASI CUADRADO y
+ * vertical. Dos rondas de reemplazos dibujados a mano se le mostraron
+ * en el chat (cinco objetos de dinero; cinco conceptos) y las rechazó
+ * las diez. Entonces revirtió él mismo el rumbo: «Vuelve a la flecha
+ * que tenía antes de quitarla. Solo mejórala.» Se le mostraron cuatro
+ * mejoras de la flecha y escogió la 4, «A la base»: la flecha baja
+ * RECTA y aterriza sobre una base con dos patitas cuadradas. No es un
+ * glifo de Lucide (su ArrowDownToLine no trae las patitas y NO se
+ * sustituye por él): es un componente propio, IngresoBase, definido en
+ * icons.tsx con la firma de la casa y la geometría exacta de su
+ * elección, fijada trazo a trazo en la última cerca. Coins no se borra
+ * de la casa: sigue importado y en el MAP de glifos elegibles, como
+ * siempre; solo deja el asiento de Ingresos. La cerca del mapa espera
+ * ahora income: "IngresoBase"; la de «ninguna línea» prohíbe también
+ * que income vuelva a Coins por esta puerta; y la última cerca cambia
+ * de objeto — ya no «Coins viene de lucide» sino la geometría literal
+ * de «A la base».
  */
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
@@ -65,11 +89,11 @@ const mapEntries = () => {
 };
 
 describe("1.3.270 — el icono de Ingresos (la clave se parte)", () => {
-  it("el mapa entero es el esperado: nace books y income gana glifo propio", () => {
+  it("el mapa entero es el esperado: nace books y income gana glifo propio (RE-FIJADO 272: IngresoBase)", () => {
     assert.deepEqual(mapEntries(), {
       desk: "LayoutDashboard",
       books: "BookCopy",
-      income: "Coins",
+      income: "IngresoBase",
       fixed: "Lock",
       variable: "Waves",
       shops: "ShoppingBag",
@@ -82,11 +106,13 @@ describe("1.3.270 — el icono de Ingresos (la clave se parte)", () => {
     });
   });
 
-  it("ninguna línea vuelve a alimentar income con BookCopy", () => {
+  it("ninguna línea vuelve a alimentar income con BookCopy ni con los glifos retirados", () => {
     assert.ok(!icons.includes("income: BookCopy"));
     assert.ok(!icons.includes("income: ArrowDownToLine"));
     assert.ok(!icons.includes("income: HandCoins"));
     assert.ok(!icons.includes("income: CircleDollarSign"));
+    // RE-FIJADO 272: tampoco con las monedas que Oscar retiró en contexto.
+    assert.ok(!icons.includes("income: Coins"));
   });
 
   it("el muelle pide la clave books una sola vez, junto a su rótulo y su destino de siempre", () => {
@@ -108,9 +134,21 @@ describe("1.3.270 — el icono de Ingresos (la clave se parte)", () => {
     assert.ok(shell.includes('<SectionIcon id={section} className="size-3.5" />'));
   });
 
-  it("Coins viene de lucide-react, importado en el bloque de la casa", () => {
+  it("«A la base» es un componente propio con la geometría exacta que Oscar escogió (RE-FIJADO 272)", () => {
+    // El componente vive en icons.tsx, con la firma de la casa.
+    assert.ok(icons.includes("const IngresoBase: LucideIcon = forwardRef"));
+    // La geometría, trazo a trazo, tal como la escogió (2026-11-14):
+    // el fuste recto, la cabeza, la base y sus dos patitas cuadradas.
+    assert.ok(icons.includes('<path d="M12 3.5V14" />'));
+    assert.ok(icons.includes('<path d="m6.8 9.6 5.2 5.2 5.2-5.2" />'));
+    assert.ok(icons.includes('<path d="M5 20.5h14" />'));
+    assert.ok(icons.includes('<path d="M5 18.6v1.9M19 18.6v1.9" />'));
+    // Coins no se borra de la casa: sigue importado de lucide-react y en
+    // el MAP de glifos elegibles — solo deja el asiento de Ingresos.
     const importBlock = icons.split('from "lucide-react"')[0];
     assert.ok(importBlock.split("\n").some((l) => l.trim() === "Coins,"));
     assert.ok(importBlock.split("\n").some((l) => l.trim() === "BookCopy,"));
+    const glyphMap = icons.split("const MAP")[1].split("};")[0];
+    assert.ok(glyphMap.split("\n").some((l) => l.trim() === "Coins,"));
   });
 });

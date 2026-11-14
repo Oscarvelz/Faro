@@ -141,9 +141,10 @@ import {
   Wine,
   Zap,
   type LucideIcon,
+  type LucideProps,
 } from "lucide-react";
 import { SUB_POOL } from "@/lib/faro/subs";
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 
 const MAP: Record<string, LucideIcon> = {
   ArrowDownLeft,
@@ -310,13 +311,47 @@ export const LOOK_ICONS = [
   "Sprout", "TreeDeciduous", "Bird", "Bone", "Footprints", "Guitar", "Drum", "Snowflake",
 ] as const;
 
+// «A la base» — la flecha de Ingresos, dibujada para Oscar (su elección,
+// 2026-11-14): baja recta y aterriza sobre una base con dos patitas
+// cuadradas. No es un glifo de Lucide (su ArrowDownToLine no trae las
+// patitas), así que vive aquí, con la misma firma que sus hermanas del
+// mapa (forwardRef + LucideProps) y la geometría exacta que él escogió.
+const IngresoBase: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(function IngresoBase(
+  { size = 24, strokeWidth = 2, className, ...props },
+  ref,
+) {
+  return (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M12 3.5V14" />
+      <path d="m6.8 9.6 5.2 5.2 5.2-5.2" />
+      <path d="M5 20.5h14" />
+      <path d="M5 18.6v1.9M19 18.6v1.9" />
+    </svg>
+  );
+});
+
 const SECTION_ICON: Record<string, LucideIcon> = {
   desk: LayoutDashboard,
   // El hub «Libros» del muelle tiene clave propia desde la 1.3.270:
   // BookCopy es de Libros (elección de Oscar, 1.3.245) y no se mueve;
-  // «Ingresos» lleva por fin el suyo (Coins), en sus cuatro asientos.
+  // «Ingresos» lleva el suyo en sus cuatro asientos — desde la 1.3.272,
+  // «A la base» (IngresoBase), la flecha que Oscar escogió en persona
+  // tras retirar en contexto las monedas redondas de la 1.3.270.
   books: BookCopy,
-  income: Coins,
+  income: IngresoBase,
   fixed: Lock,
   variable: Waves,
   shops: ShoppingBag,
