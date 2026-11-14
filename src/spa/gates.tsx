@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { askSignInAgain, deleteAccountForever, lastUser, onUser, sessionGone, signOutEverywhereLocal, type FaroUser } from "./cloud";
+import { LOCK_ASK_KEY } from "@/lib/faro/lockoffer";
 import { disableLock, enableLock, lockCredential, lockSupported } from "./lock";
 import { w } from "./words";
 import { useFaro } from "@/components/faro/provider";
@@ -17,6 +18,8 @@ function wipeDevice(uid: string) {
     for (const k of Object.keys(localStorage)) {
       // The fingerprint choice survives signing out, so signing back in on this device never asks to set it up again.
       if (k === `faro.lock.${uid}`) continue;
+      // 1.3.257: the asked-once fact survives too — declining the fingerprint offer is forever on this device.
+      if (k === LOCK_ASK_KEY(uid)) continue;
       if (k.includes(uid) || k.startsWith("faro.pack") || k.startsWith("faro.conflict")) localStorage.removeItem(k);
     }
   } catch { /* ignore */ }

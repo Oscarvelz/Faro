@@ -52,6 +52,7 @@ import { PeopleInbox } from "./people";
 import { BankDock } from "./bank-dock";
 import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
+import { LockOffer } from "@/spa/lockoffer";
 
 mountCpCity(); // 1.3.201: the Cyberpunk city layers (display:none outside that theme)
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
@@ -1417,6 +1418,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
     {inAndroidApp() ? <Suspense fallback={null}><ShareInbox /></Suspense> : null}
     {inAndroidApp() ? <Suspense fallback={null}><DocInbox /></Suspense> : null}
     {inAndroidApp() ? <WidgetHost /> : null}
+    <LockOffer />
     </>
   );
 }

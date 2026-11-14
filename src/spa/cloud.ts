@@ -1,6 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { CLOUD_READY, SUPABASE_KEY, SUPABASE_URL } from "./config";
 import { clearExplicitOut, clearOwnerMark, setExplicitOut, writeOwnerMark } from "@/lib/faro/door";
+import { pendOfferIfFirst } from "@/lib/faro/lockoffer";
 import { browserPackStorage } from "@/lib/faro/packguard";
 import { clearPlace } from "@/lib/faro/navplace";
 export { CLOUD_READY };
@@ -46,6 +47,11 @@ export function rememberUser(s: Session | null): FaroUser | null {
     email: s.user.email ?? "",
     name: (s.user.user_metadata?.name as string | undefined) || (s.user.user_metadata?.full_name as string | undefined) || s.user.email || "",
   };
+  // 1.3.257 (la oferta de huella): este es el único momento en que las huellas del
+  // aparato todavía distinguen un registro genuino — después, las marcas de abajo
+  // (usuario recordado y marca de dueño) ya son de esta cuenta. La foto se toma
+  // ANTES de escribirlas; la decisión y sus claves viven en lib/faro/lockoffer.ts.
+  pendOfferIfFirst(browserPackStorage(), { uid: u.id, createdAt: s.user.created_at, rememberedUid: lastUser()?.id ?? null });
   try { box().setItem(LAST, JSON.stringify(u)); } catch { /* ignore */ }
   // 1.3.168 (la puerta): una sesión viva marca el aparato — este aparato guarda un libro de
   // esta cuenta (faro.owner, fuera de la sesión) y levanta la bandera de salida explícita.
