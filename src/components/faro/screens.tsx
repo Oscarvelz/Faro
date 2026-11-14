@@ -20,7 +20,7 @@ import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
-import { APK_URL, androidBrowser, inAndroidApp } from "@/spa/native";
+import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
 import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, replaceCandidates, replaceCatalogItem, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type ReplaceTarget, type SubLinesSummary } from "@/lib/faro/defaults";
@@ -5940,13 +5940,23 @@ function planFromDraft(d: InsDraft): { plan?: InsPlan; err?: "amount" | "timing"
 function InsFields({ draft, onChange, accts, t }: { draft: InsDraft; onChange: (d: InsDraft) => void; accts: { id: string; name: string }[]; t: (key: string) => string }) {
   const set = (patch: Partial<InsDraft>) => onChange({ ...draft, ...patch });
   const contacts = insContactsApi();
+  // 1.3.276: dentro de la carcasa no hay selector web (su WebView no lo expone), así que el
+  // botón también nace de la sonda del puente nativo: la carcasa nueva sabe traer UN nombre.
+  const nativeName = nativeCanPickContactName();
   const pickBeneficiaries = async () => {
-    if (!contacts) return;
-    try {
-      const picked = await contacts.select(["name"], { multiple: true });
-      const names = (picked ?? []).map((contact) => (contact.name?.[0] ?? "").trim()).filter(Boolean);
-      if (names.length) set({ bens: [...draft.bens, ...names] });
-    } catch { /* cancelled: the typed names stay as they are */ }
+    if (contacts) {
+      try {
+        const picked = await contacts.select(["name"], { multiple: true });
+        const names = (picked ?? []).map((contact) => (contact.name?.[0] ?? "").trim()).filter(Boolean);
+        if (names.length) set({ bens: [...draft.bens, ...names] });
+      } catch { /* cancelled: the typed names stay as they are */ }
+      return;
+    }
+    // El camino nativo trae un solo nombre y llena solo ese campo; cancelar es silencio.
+    const pending = nativePickContactName();
+    if (!pending) return;
+    const name = await pending;
+    if (name) set({ bens: [...draft.bens, name] });
   };
   return (
     <>
@@ -6006,7 +6016,7 @@ function InsFields({ draft, onChange, accts, t }: { draft: InsDraft; onChange: (
         ))}
         <div className="row">
           <button type="button" className="btn secondary" onClick={() => set({ bens: [...draft.bens, ""] })}><Plus className="size-4" />{t("ins.bens.add")}</button>
-          {contacts ? <button type="button" className="btn secondary" onClick={() => void pickBeneficiaries()}><UserRound className="size-4" />{t("ins.bens.contacts")}</button> : null}
+          {contacts || nativeName ? <button type="button" className="btn secondary" onClick={() => void pickBeneficiaries()}><UserRound className="size-4" />{t("ins.bens.contacts")}</button> : null}
         </div>
       </div>
     </>

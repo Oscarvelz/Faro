@@ -62,6 +62,12 @@ export type FaroNativeBridge = {
    *  did not cover the contact's birthday rows); shells before it return plain name strings. */
   pickContacts?(): void;
   takeContacts?(): string;
+  /** 1.3.276: ONE contact for ONE name field (the insurance beneficiaries editor) — the shell
+   *  opens the system picker for a single pick (ACTION_PICK, still no READ_CONTACTS) and the
+   *  picked contact's DISPLAY_NAME comes back on the faronative-contact-name event as
+   *  {id, name}; name "" means the pick was cancelled or failed. Absent on shells before
+   *  android-24: the page's probe fails and the editor keeps its 1.3.275 behaviour. */
+  pickContactName?(id: string): void;
 };
 
 type W = Window & { FaroNative?: FaroNativeBridge; FaroBack?: () => string; __faroProviderLive?: number; __faroNativeOn?: boolean };
@@ -179,6 +185,44 @@ export function nativePickContacts(): Promise<PickedContact[] | null> | null {
     window.addEventListener("faronative-contacts", on);
     try { n.pickContacts!(); } catch {
       window.removeEventListener("faronative-contacts", on);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * 1.3.276: the synchronous probe — can this shell pick ONE contact for a single name field?
+ * The beneficiaries editor renders its «Desde contactos» button by this when the web Contact
+ * Picker API is absent (inside the shell's WebView it does not exist). A browser, or a shell
+ * older than android-24, answers false and the button stays hidden, exactly as in 1.3.275.
+ */
+export function nativeCanPickContactName(): boolean {
+  const n = native();
+  try { return !!n && typeof n.pickContactName === "function"; } catch { return false; }
+}
+
+/**
+ * 1.3.276: asks the shell for one contact and resolves with its DISPLAY_NAME, or null when
+ * the pick was cancelled or failed — the caller stays silent either way (no toast, no error).
+ * Returns null (not a promise) when there is no shell or the shell predates the method, so
+ * the caller keeps its own order. Mirrors nativeAuth's id-keyed event round-trip: the answer
+ * rides faronative-contact-name with {id, name}, and only the picked name ever crosses.
+ */
+export function nativePickContactName(): Promise<string | null> | null {
+  const n = native();
+  if (!n?.pickContactName) return null;
+  const id = Math.random().toString(36).slice(2);
+  return new Promise((resolve) => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ id: string; name: string }>).detail;
+      if (!d || d.id !== id) return;
+      window.removeEventListener("faronative-contact-name", on);
+      const name = typeof d.name === "string" ? d.name.trim() : "";
+      resolve(name || null);
+    };
+    window.addEventListener("faronative-contact-name", on);
+    try { n.pickContactName!(id); } catch {
+      window.removeEventListener("faronative-contact-name", on);
       resolve(null);
     }
   });

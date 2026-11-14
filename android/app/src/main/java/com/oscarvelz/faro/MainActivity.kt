@@ -79,6 +79,8 @@ class MainActivity : Activity() {
     /** 1.3.165: people from the system contact picker, waiting for the page's takeContacts().
      *  1.3.172: each carries the birthday too, when the pick grant lets the shell read it. */
     private val pickedContacts = java.util.Collections.synchronizedList(ArrayList<Picked>())
+    /** 1.3.276: el id del pick único de nombre en curso (su respuesta viaja con ese id). */
+    @Volatile private var contactNameId: String? = null
 
     private class Save(val uri: Uri, val out: OutputStream, val name: String)
     private class SharedPic(val file: File, val name: String, val mime: String)
@@ -88,6 +90,8 @@ class MainActivity : Activity() {
         private const val RQ_FILES = 7
         private const val RQ_CAMERA = 8
         private const val RQ_CONTACTS = 9
+        /** 1.3.276: el pick único de un nombre para un campo (beneficiarios del seguro). */
+        private const val RQ_CONTACT_NAME = 10
         private const val AUTH = BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
         private const val REPO_RELEASES = "https://api.github.com/repos/Oscarvelz/Faro/releases?per_page=30"
     }
@@ -319,6 +323,20 @@ class MainActivity : Activity() {
                     synchronized(pickedContacts) { pickedContacts.clear(); pickedContacts.addAll(picked) }
                     contactsReply(picked.size)
                 }.start()
+            }
+            RQ_CONTACT_NAME -> {
+                // 1.3.276: the single pick for one name field. Only its DISPLAY_NAME is read,
+                // through the returned URI (the picker's temporary grant — no READ_CONTACTS
+                // anywhere); every failure answers "" and the page stays silent.
+                val id = contactNameId ?: ""
+                contactNameId = null
+                val uri = if (rc == RESULT_OK) d?.data else null
+                val name = if (uri == null) "" else runCatching {
+                    contentResolver.query(uri, arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null)?.use { c ->
+                        if (c.moveToFirst()) c.getString(0)?.trim().orEmpty() else ""
+                    } ?: ""
+                }.getOrDefault("")
+                contactNameReply(id, name)
             }
             else -> super.onActivityResult(rq, rc, d)
         }
@@ -685,6 +703,22 @@ class MainActivity : Activity() {
             picked.forEach { arr.put(JSONObject().put("name", it.name).put("birthday", it.birthday)) }
             return arr.toString()
         }
+
+        /** 1.3.276: ONE contact for ONE name field — the insurance beneficiaries editor asks
+         *  for a single name, so this is a single ACTION_PICK over Contacts.CONTENT_URI,
+         *  still WITHOUT declaring READ_CONTACTS: only the chosen contact's DISPLAY_NAME is
+         *  read through the returned URI and answered on the faronative-contact-name event
+         *  ({id, name}; name "" = cancelled or failed). The personas tray above is never
+         *  touched: this pick has its own request code and its own event. */
+        @JavascriptInterface fun pickContactName(id: String) {
+            if (!trusted) return
+            contactNameId = id
+            runOnUiThread {
+                val intent = Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
+                try { startActivityForResult(intent, RQ_CONTACT_NAME) }
+                catch (e: Exception) { contactNameReply(id, "") }
+            }
+        }
     }
 
     private fun drop(id: String) {
@@ -698,6 +732,10 @@ class MainActivity : Activity() {
     /** count ≥ 0: that many names wait in the tray; −1: the picker was cancelled or failed. */
     private fun contactsReply(count: Int) =
         dispatch("dispatchEvent(new CustomEvent('faronative-contacts',{detail:{count:$count}}))")
+
+    /** 1.3.276: name "" = the single pick was cancelled or failed; the page stays silent. */
+    private fun contactNameReply(id: String, name: String) =
+        dispatch("dispatchEvent(new CustomEvent('faronative-contact-name',{detail:{id:${JSONObject.quote(id)},name:${JSONObject.quote(name)}}}))")
 
     /* ---------- back ---------- */
 

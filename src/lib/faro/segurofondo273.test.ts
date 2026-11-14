@@ -10,6 +10,12 @@
  *  - Los beneficiarios viven en la pieza como nombres, en el orden del
  *    usuario; se escriben o se traen SOLO por el selector web de contactos
  *    (navigator.contacts). Sin selector, el campo sigue siendo escribible.
+ *    [RE-FIJADO 1.3.276: el «SOLO» quedó superado por la orden expresa de
+ *    Oscar («Haz la ola nativa de contactos», 2026-11-14): la carcasa ganó
+ *    su propio pick de UN nombre por el puente nuevo pickContactName —
+ *    cercado en contactoscarcasa276.test.ts —. Lo de esta cerca que sigue
+ *    en pie: el selector web intacto y la bandeja de personas fuera de
+ *    los beneficiarios.]
  */
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
@@ -146,11 +152,17 @@ describe("1.3.273 — beneficiarios en la pieza", () => {
     assert.ok(screens.includes('topic="f-seguro-beneficiarios"'), "el campo lleva su tarjetita de ayuda");
   });
 
-  it("los contactos entran SOLO por el selector web; sin selector, escribir sigue abierto", () => {
+  // RE-FIJADO 1.3.276: Oscar ordenó la ruta nativa y el «SOLO por el selector
+  // web» de la 273 quedó superado (el contrato nuevo vive en
+  // contactoscarcasa276.test.ts). Las aserciones de abajo siguen siendo
+  // verdad literal y se quedan: el selector web intacto, la bandeja de
+  // personas (nativePickContacts) fuera de los beneficiarios, y los dos
+  // nombres del rodeo nativo revertido en la propia 273, que nunca volvieron.
+  it("los contactos: el selector web intacto y la bandeja de personas fuera de los beneficiarios", () => {
     assert.ok(screens.includes('contacts.select(["name"], { multiple: true })'), "el selector web trae nombres");
     assert.ok(screens.includes("insContactsApi()"), "el botón nace de detectar navigator.contacts");
-    assert.ok(!screens.includes("nativePickContacts"), "ninguna ruta nativa nueva para beneficiarios");
-    assert.ok(!native.includes("pickContactNames") && !native.includes("contactPickerAvailable"), "native.ts no ganó superficie para esta ola");
+    assert.ok(!screens.includes("nativePickContacts"), "la bandeja de personas no sirve a los beneficiarios");
+    assert.ok(!native.includes("pickContactNames") && !native.includes("contactPickerAvailable"), "los nombres del rodeo revertido de la 273 no volvieron");
   });
 
   it("las claves nuevas existen en los dos diccionarios y el Manual cuenta las tres órdenes", () => {
