@@ -37,7 +37,20 @@ export function SampleRow() {
   const { lang, confirm, session, commit } = useFaro();
   const on = sampleOn();
   const leftovers = !on && session ? countSampleRows(session.ledger) : 0;
-  const flip = () => setSampleMode(!on);
+  // 1.3.254 (Oscar, 2026-11-13): ACTIVAR el ejemplo pide confirmación primero — la ventana de la
+  // casa explica, en palabras sencillas, qué se va a ver y que lo suyo queda intacto. APAGAR
+  // vuelve a su libro sin ceremonia, como siempre.
+  const flip = () => {
+    if (on) { setSampleMode(false); return; }
+    confirm({
+      title: L(lang, "Activar datos de ejemplo", "Turn on sample data"),
+      body: L(lang,
+        "Verás el libro de ejemplo: los números de una casa inventada, para explorar y aprender Faro. Tu libro queda intacto — nada se borra ni se mezcla — y al apagar el ejemplo vuelve tal como estaba.",
+        "You will see the sample book: a made-up household's numbers, to explore and learn Faro. Your book stays untouched — nothing is erased or mixed — and when you turn the sample off it comes back exactly as it was."),
+      yes: L(lang, "Activar", "Turn on"),
+      run: () => setSampleMode(true),
+    });
+  };
   return (
     <section className="card manual-card aj-card smp-card" data-anchor="aj-ejemplo">
       <div className="smp-in">
