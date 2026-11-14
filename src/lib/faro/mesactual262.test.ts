@@ -52,7 +52,12 @@ describe("mes actual: solo aquí", () => {
   it("la placa es el único asiento de plateLabel", () => {
     const seats = tsx.match(/\{plateLabel\}/g) ?? [];
     assert.equal(seats.length, 1, "plateLabel se pinta una sola vez: en la placa");
-    assert.match(tsx, /<button type="button" className="hist-period" onClick=\{goPresent\} aria-label=\{onPresent \? undefined : t\("hist\.now"\)\}>\{plateLabel\}<\/button>/);
+    // RE-FIJADO 1.3.263: la clase de la placa ahora cuelga de onPresent
+    // («hist-period is-now» en el presente, para que el actual vista el
+    // acento del tema); el asiento, el toque y el aria no cambian — la
+    // intención de esta cerca queda intacta y el gancho nuevo lo cerca
+    // actualcolor263.test.ts.
+    assert.match(tsx, /<button type="button" className=\{onPresent \? "hist-period is-now" : "hist-period"\} onClick=\{goPresent\} aria-label=\{onPresent \? undefined : t\("hist\.now"\)\}>\{plateLabel\}<\/button>/);
   });
 
   it("el folio del panel de totales conserva el nombre verdadero (periodLabel)", () => {

@@ -39,6 +39,15 @@
   color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
   cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* El actual se distingue (Oscar, 2026-11-14): cuando la placa dice «actual»
+   (is-now, colgada de la misma onPresent de la pantalla), su letra viste el
+   acento DEL TEMA — cada tema presta su color señal y el «estás aquí» se lee
+   distinto del nombre verdadero en los dieciocho temas. La regla es una sola
+   porque el color nace de var(--accent), nunca de un hex en el componente;
+   los únicos acabados por tema viven en hist-temas.css (el filete de Costa y
+   Océano, que ya se teñía de acento, se fortalece hasta casar con la letra).
+   Fuera del presente la placa pinta exactamente como siempre: var(--fg). */
+.hist-period.is-now { color: var(--accent); }
 .hist-range { display: flex; gap: 8px; flex-wrap: wrap; }
 .hist-range-lab { display: grid; gap: 4px; flex: 1 1 130px; color: var(--muted); font-size: .8rem; font-weight: 500; }
 /* El panel de totales viste «El veredicto» (Oscar eligió el candidato B del

@@ -329,8 +329,12 @@ export function HistorialScreen() {
             {/* El mes con casa (Oscar, 2026-11-13): el nombre del período vive
                 en su placa — la gramática del panel de totales — y la placa
                 entera es el botón que devuelve al presente. En el presente no
-                promete acción alguna (sin aria-label) y su toque no hace nada. */}
-            <button type="button" className="hist-period" onClick={goPresent} aria-label={onPresent ? undefined : t("hist.now")}>{plateLabel}</button>
+                promete acción alguna (sin aria-label) y su toque no hace nada.
+                El actual se distingue (Oscar, 2026-11-14): encendida, la placa
+                lleva is-now y su letra viste el acento del tema (historial.css
+                + hist-temas.css); el gancho cuelga de la MISMA onPresent — la
+                pantalla no conoce un segundo presente. */}
+            <button type="button" className={onPresent ? "hist-period is-now" : "hist-period"} onClick={goPresent} aria-label={onPresent ? undefined : t("hist.now")}>{plateLabel}</button>
             <button type="button" className="icon-btn" aria-label={t("hist.next")} onClick={() => shift(1)}><ChevronRight /></button>
           </div>
         )}

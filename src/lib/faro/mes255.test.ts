@@ -35,7 +35,11 @@ const rule = (all: string, sel: string) => {
 
 describe("el mes con casa: la placa del período", () => {
   it("el nombre del período es un botón-placa; el <strong> desnudo no sobrevive", () => {
-    assert.match(tsx, /<button type="button" className="hist-period" onClick=\{goPresent\}/);
+    // RE-FIJADO 1.3.263: la clase de la placa ahora cuelga de onPresent
+    // («hist-period is-now» en el presente, para que el actual vista el
+    // acento del tema); sigue siendo el mismo botón-placa con goPresent —
+    // la intención de esta cerca queda intacta.
+    assert.match(tsx, /<button type="button" className=\{onPresent \? "hist-period is-now" : "hist-period"\} onClick=\{goPresent\}/);
     assert.ok(!tsx.includes('<strong className="hist-period">'), "el nombre desnudo no sobrevive");
   });
 
