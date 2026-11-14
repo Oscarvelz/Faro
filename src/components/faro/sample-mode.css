@@ -29,6 +29,19 @@
    último empujón al pie de la tarjeta «Widget» — el mismo registro mudo. */
 .wpin-note { display: block; margin-top: 6px; color: var(--muted); font-size: .84rem; line-height: 1.35; }
 .wpush-line { display: block; margin-top: 10px; color: var(--muted); font-size: .84rem; line-height: 1.35; }
+/* 1.3.267: el buscador del tercer asiento (la pastilla de búsqueda de la casa,
+   con su ✕ en la geometría de la del Historial) y los grupos de signo — su
+   cabecera es un botón con el chevrones de pliegue de la casa y la palabra del
+   signo en el registro del encabezado de la sección; la fila de resultado es
+   un botón sin caja propia sobre la fila de la casa, y su estado «Fijada»
+   viaja mudo al final de la línea. */
+.wpin-search { margin-top: 10px; }
+.wpin-x { width: 28px; height: 28px; flex: none; display: grid; place-items: center; background: none; border: 0; color: var(--muted); border-radius: 999px; }
+.wpin-group { margin-top: 6px; }
+.wpin-group-btn { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 36px; padding: 2px 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.wpin-group-name { font-family: var(--font-serif); font-size: .95rem; font-weight: 560; }
+.wpin-hit { background: none; border: 0; padding: 0; }
+.wpin-state { color: var(--muted); font-size: .8rem; white-space: nowrap; }
 .smp-acts { display: flex; justify-content: flex-end; margin-top: 4px; }
 .smp-act { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; white-space: nowrap; font-size: .86rem; }
 .smp-act svg { width: 16px; height: 16px; }

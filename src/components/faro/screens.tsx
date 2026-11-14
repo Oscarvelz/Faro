@@ -4398,7 +4398,7 @@ function ThemeSide({ title, open, onToggle, children }: { title: string; open: b
     toque a mitad de vuelo invierte la transición desde su altura actual, sin
     saltos ni bloqueos. Con movimiento reducido el pliegue es instantáneo. */
 const FOLD_CLOSE_MS = { md: 225, sm: 150 } as const;
-function FoldShell({ open, tier = "md", className, children }: { open: boolean; tier?: keyof typeof FOLD_CLOSE_MS; className?: string; children: ReactNode }) {
+export function FoldShell({ open, tier = "md", className, children }: { open: boolean; tier?: keyof typeof FOLD_CLOSE_MS; className?: string; children: ReactNode }) {
   const [mounted, setMounted] = useState(open);
   const [shown, setShown] = useState(open);
   const timerRef = useRef<number | null>(null);

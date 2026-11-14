@@ -268,6 +268,92 @@ export function quickStorePins(state: LedgerState, lang: Lang): QuickHome[] {
   return out;
 }
 
+/* —— Fijar desde la tarjeta «Widget» (1.3.267) ——
+ * El tercer asiento de las fijas vive donde el widget se administra (Oscar,
+ * 2026-11-14): la propia tarjeta «Widget» de Ajustes busca en la Estructura
+ * viva y fija desde ahí, sin salir de la tarjeta. El universo es el de las
+ * piezas fijables de siempre — categorías y sus subconceptos — con las
+ * exclusiones de la propia honestidad del sistema:
+ *  · las de Ahorros quedan fuera: nunca son casas de la tarjeta (quickPins
+ *    las descarta) y sus subconceptos son los bolsillos, que ya tienen su
+ *    casa en la bóveda;
+ *  · las piezas del catálogo NO entran: no son «la estructura escogida por
+ *    el usuario» y su asiento sigue siendo su tarjeta en el catálogo;
+ *  · lo oculto SÍ aparece, como en el editor de Estructura — el asiento que
+ *    administra lo oculto —: fijarlo allí es legal y la foto lo retiene en
+ *    silencio hasta que se muestre (la ley de soberanía de siempre). La fila
+ *    lo pinta atenuado, como el árbol pinta lo oculto.
+ * El grupo de cada pieza es el signo que pinSigns deriva: la Estructura no
+ * guarda signo en la categoría (vive en el kind de cada línea — la misma
+ * categoría puede recibir ingresos y gastos), así que la derivación del
+ * sistema de fijas es la única verdad disponible, y es la misma que decide
+ * en qué tarjeta de apuntes vive la fija: el grupo de aquí jamás puede
+ * discrepar de la tarjeta de allá. Una pieza de los dos signos — o todavía
+ * de ninguno — vive en los dos grupos, como vive en las dos tarjetas. */
+
+/** Una pieza fijable del universo: la categoría (s = "") o uno de sus subconceptos. */
+export type PinCandidate = { c: string; s: string; signs: ("in" | "out")[]; hidden: boolean };
+
+/** El pliegue con el que la casa compara nombres al buscar (el de searchLedger
+ *  y el del índice de Ajustes): minúsculas y sin acentos — «alimentacion»
+ *  encuentra «Alimentación». El nombre que él escribió jamás se altera: solo
+ *  se pliega la copia que se compara. */
+export function foldPinText(x: string): string {
+  return x.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+/** El universo fijable, en el orden de la Estructura: cada categoría (menos
+ *  las de Ahorros) y, tras ella, sus subconceptos; el signo se deriva una vez
+ *  por categoría, porque la derivación lee las líneas de la categoría. */
+export function pinCandidates(state: LedgerState): PinCandidate[] {
+  const out: PinCandidate[] = [];
+  for (const cat of state.structure.categories) {
+    if (cat.role === "savings") continue;
+    const signs = pinSigns(state, { c: cat.id, s: "" });
+    out.push({ c: cat.id, s: "", signs, hidden: cat.hidden });
+    for (const sub of cat.subs) out.push({ c: cat.id, s: sub.id, signs, hidden: cat.hidden || sub.hidden });
+  }
+  return out;
+}
+
+/** La búsqueda de la tarjeta: una pieza casa si su nombre — el del subconcepto
+ *  o el camino «Categoría · Sub» — contiene lo escrito, plegado. Los dos
+ *  grupos salen separados por el signo derivado, en el orden de la Estructura. */
+export function searchPinCandidates(state: LedgerState, query: string, lang: Lang): { inn: PinCandidate[]; out: PinCandidate[] } {
+  const q = foldPinText(query.trim());
+  const inn: PinCandidate[] = [];
+  const out: PinCandidate[] = [];
+  if (!q) return { inn, out };
+  const names = makeNamer(state.structure, lang);
+  for (const cand of pinCandidates(state)) {
+    const path = cand.s ? `${names.cat(cand.c)} · ${names.sub(cand.s)}` : names.cat(cand.c);
+    const own = cand.s ? names.sub(cand.s) : path;
+    if (!foldPinText(path).includes(q) && !foldPinText(own).includes(q)) continue;
+    if (cand.signs.includes("in")) inn.push(cand);
+    if (cand.signs.includes("out")) out.push(cand);
+  }
+  return { inn, out };
+}
+
+/** Las fijas guardadas, agrupadas por su signo — la organización que la
+ *  lista «Fijadas» pinta desde 1.3.267 (su orden): dentro de cada grupo, las
+ *  de categoría en el orden en que se fijaron y las piezas después, como la
+ *  lista las ha leído siempre; la pieza es siempre gasto (una compra no
+ *  entra) y la fija de los dos signos vive en los dos grupos. */
+export function pinGroups(state: LedgerState): { inn: WidgetPin[]; out: WidgetPin[] } {
+  const pins = state.settings.widgetPins ?? [];
+  const inn: WidgetPin[] = [];
+  const out: WidgetPin[] = [];
+  for (const p of pins) {
+    if (p.store) continue;
+    const signs = pinSigns(state, p);
+    if (signs.includes("in")) inn.push(p);
+    if (signs.includes("out")) out.push(p);
+  }
+  for (const p of pins) if (p.store) out.push(p);
+  return { inn, out };
+}
+
 /**
  * La casa que el propio historial de conceptos sugiere para un apunte sin clasificar
  * (1.3.246): las líneas vivas (no apartadas) del MISMO signo cuyo concepto coincide —

@@ -23,9 +23,10 @@
  * - Answers widget taps: the app keeps the target of the tap (Central, Pagos, a book, + / −) and the page takes it
  *   once it is open and unlocked, then goes there the same way the manual's "Ir allí" does.
  */
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, EyeOff, LayoutGrid, Pin } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, EyeOff, LayoutGrid, Pin, Search, X } from "lucide-react";
 import { useFaro, useFaroRoot } from "./provider";
+import { FoldShell } from "./screens";
 import { Hint } from "./hint";
 import { preferOweTab } from "./debts";
 import { inAndroidApp, native } from "@/spa/native";
@@ -36,7 +37,7 @@ import { packKeyOf, packLedgerOk } from "@/lib/faro/packguard";
 import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, parseWidgetPushRecord, widgetHide, WIDGET_HIDE_KEY, WIDGET_LASTPUSH_KEY, type WidgetGo, type WidgetPushRecord } from "@/lib/faro/widget";
-import { ingestQuick, parseQuickEntries, pinSigns, toggleStorePin, toggleWidgetPin, type QuickEntry } from "@/lib/faro/quickadd";
+import { hasWidgetPin, ingestQuick, parseQuickEntries, pinGroups, searchPinCandidates, toggleStorePin, toggleWidgetPin, type PinCandidate, type QuickEntry } from "@/lib/faro/quickadd";
 import { BrandMark, Glyph } from "./icons";
 import type { GoLike } from "@/lib/manual/places";
 import "./sample-mode.css";
@@ -289,9 +290,16 @@ export default function WidgetHost() {
  * la escritura de la pref vive dentro del run de la ventana.
  * 1.3.260: Desfijar pide la misma ventana antes de escribir (askUnpin): la
  * explicación de qué se quita y el commit de siempre dentro de su run.
+ * 1.3.267 (Oscar, 2026-11-14): la sección de fijas se hace su propio
+ * componente (WidgetPinsSection, bajo esta tarjeta) y gana el tercer
+ * asiento — su buscador — y la organización por signo que él pidió el
+ * mismo día: dos grupos plegables, «Ingreso» y «Gasto», con las filas a
+ * una sola línea (el signo lo dice el grupo; la segunda línea de la fila
+ * se retira). El estado de la sección (la búsqueda, los pliegues de los
+ * grupos) nace y muere con el pliegue de la tarjeta, como su contenido.
  */
 export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { t, session, commit, names, confirm } = useFaro();
+  const { t, session, confirm } = useFaro();
   const { lang } = useFaroRoot();
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const [pref, setPref] = useState<string | null>(hidePref);
@@ -322,36 +330,6 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
   const android = inAndroidApp();
   const ledger = session?.ledger ?? null;
   if (!android && !ledger) return null;
-  const pins = ledger?.settings.widgetPins ?? [];
-  const catPins = pins.filter((p) => !p.store);
-  const storePins = pins.filter((p) => p.store);
-  const label = (p: WidgetPin) => (p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c)) || p.c;
-  const signWord = (p: WidgetPin) => {
-    if (!ledger) return "";
-    const signs = pinSigns(ledger, p);
-    return signs.length === 2 ? t("widget.pin.signboth") : signs[0] === "in" ? t("widget.pin.signin") : t("widget.pin.signout");
-  };
-  // 1.3.260 (pedido de Oscar): Desfijar también pregunta — esta lista es un
-  // asiento inmediato, así que la ventana de la casa llega antes de la
-  // escritura: explica qué se quita (el nombre deja de salir en la tarjeta de
-  // apuntes; nada se borra) y el commit de siempre vive solo dentro de su
-  // run — cancelar deja la fija puesta. Con el ejemplo activo, el cuerpo suma
-  // la verdad de la nota de la 1.3.258: la lista que se está leyendo es la del
-  // libro de ejemplo, no la del real que el widget enseña.
-  const askUnpin = (name: string, run: () => void) => confirm({
-    title: t("widget.pin.ask.offTitle").replace("{name}", name),
-    body: t("widget.pin.ask.offBody") + (sampleOn() ? " " + t("settings.widgetpins.sample") : ""),
-    yes: t("widget.pin.remove"),
-    run,
-  });
-  // La cara de una pieza fijada: su marca, como la pintan las tarjetas del catálogo
-  // y las filas de Compras (la marca de fábrica si la trae; la de su id si es tienda;
-  // su glifo para el resto).
-  const storeMark = (id: string) => {
-    const item = ledger?.structure.catalog.find((c) => c.id === id);
-    if (!item) return <Pin aria-hidden />;
-    return item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-6" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-6" /> : <Glyph name={item.icon} className="size-6" />;
-  };
   // 1.3.258: el parte del último empujón, en una línea muda al pie de la tarjeta —
   // solo dentro de la app Android (fuera no hay widget que fotografiar) y solo si
   // el equipo guarda un parte: así un «la foto no se actualizó» se diagnostica solo.
@@ -397,49 +375,175 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
                 <i className="smp-switch" aria-hidden><b /></i>
               </div>
             ) : null}
-            {ledger ? (
-              <>
-                <div className="wpin-sec">
-                  <div className="fold-title aj-title"><h2 className="serif wpin-h">{t("settings.widgetpins")}</h2></div>
-                  <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
-                </div>
-                {/* 1.3.258: con el ejemplo activo, esta lista lee el libro DE EJEMPLO —
-                    la línea lo dice en la misma tarjeta, porque la foto del widget
-                    enseña siempre el libro real (ley de 1.3.237) y una fija del
-                    ejemplo jamás llega a la tarjeta de apuntes. */}
-                {sampleOn() ? <span className="aj-sub wpin-note">{t("settings.widgetpins.sample")}</span> : null}
-                {pins.length ? (
-                  <>
-                    {catPins.map((p) => (
-                      <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
-                        <Pin aria-hidden />
-                        <span className="manual-row-text">
-                          <strong>{label(p)}</strong>
-                          <span>{signWord(p)}</span>
-                        </span>
-                        <button type="button" className="btn ghost" onClick={() => askUnpin(label(p), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p)))}>{t("widget.pin.remove")}</button>
-                      </div>
-                    ))}
-                    {/* 1.3.251: las fijas del catálogo — su marca, su nombre y su signo
-                        (siempre gasto: una compra no entra) en la misma fila de la casa. */}
-                    {storePins.map((p) => (
-                      <div key={`store|${p.store}`} className="manual-row aj-row smp-row">
-                        {storeMark(p.store as string)}
-                        <span className="manual-row-text">
-                          <strong>{names.catalog(p.store as string) || p.store}</strong>
-                          <span>{t("widget.pin.signout")}</span>
-                        </span>
-                        <button type="button" className="btn ghost" onClick={() => askUnpin(names.catalog(p.store as string) || (p.store as string), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string)))}>{t("widget.pin.remove")}</button>
-                      </div>
-                    ))}
-                  </>
-                ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
-              </>
-            ) : null}
+            {ledger ? <WidgetPinsSection /> : null}
             {pushLine ? <span className="wpush-line">{pushLine}</span> : null}
           </div>
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Un grupo de signo de la sección de fijas (1.3.267): su cabecera es un
+ * botón con el chevrones de pliegue de la casa y su cuerpo cuelga de
+ * FoldShell — el mismo pliegue interior que los grupos de Estructura y las
+ * puertas del Catálogo (la gramática de la 1.3.231), no el acordeón de
+ * tarjetas de Ajustes. Nace abierto — «fácil de identificar, rápido de
+ * accionar» — y su estado vive en la sesión de la tarjeta: ni se guarda ni
+ * sobrevive al pliegue de la tarjeta, como el resto de su contenido.
+ */
+function PinGroup({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="wpin-group">
+      <button type="button" className="wpin-group-btn" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} aria-hidden />
+        <span className="wpin-group-name">{title}</span>
+      </button>
+      <FoldShell open={open}>{children}</FoldShell>
+    </div>
+  );
+}
+
+/**
+ * La sección de fijas de la tarjeta «Widget» (componente propio desde
+ * 1.3.267 para que su estado — la búsqueda y los pliegues de los grupos —
+ * nazca y muera con el pliegue de la tarjeta, que solo monta su contenido
+ * al abrir). Dos órdenes de Oscar del 2026-11-14 viven aquí:
+ *  · el tercer asiento de las fijas: un buscador sobre la Estructura viva
+ *    (categorías y subconceptos; las piezas del catálogo no son estructura
+ *    y siguen fijándose en su tarjeta). Elegir un resultado abre la misma
+ *    ventana de la 1.3.260 que los demás asientos — fijar y desfijar
+ *    preguntan — y su run escribe por el toggleWidgetPin de siempre, con
+ *    su refresco de la foto, como el asiento inmediato del catálogo.
+ *  · la organización por signo: lo encontrado y lo fijado se leen bajo dos
+ *    grupos plegables, «Ingreso» y «Gasto» — los sustantivos de la propia
+ *    familia de las fijas (widget.pin.signin/signout) — y cada fila gasta
+ *    UNA línea: el signo lo dice el grupo, así que la segunda línea de la
+ *    fila (la palabra del signo bajo el nombre) se retira. El grupo se
+ *    alimenta de pinGroups/pinSigns (quickadd): la derivación del sistema,
+ *    la misma que decide en qué tarjeta de apuntes vive cada fija.
+ */
+function WidgetPinsSection() {
+  const { t, session, commit, names, confirm } = useFaro();
+  const { lang } = useFaroRoot();
+  const [q, setQ] = useState("");
+  const ledger = session?.ledger ?? null;
+  if (!ledger) return null;
+  const pins = ledger.settings.widgetPins ?? [];
+  const label = (p: { c: string; s: string }) => (p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c)) || p.c;
+  // 1.3.260 (pedido de Oscar): Desfijar también pregunta — esta lista es un
+  // asiento inmediato, así que la ventana de la casa llega antes de la
+  // escritura: explica qué se quita (el nombre deja de salir en la tarjeta de
+  // apuntes; nada se borra) y el commit de siempre vive solo dentro de su
+  // run — cancelar deja la fija puesta. Con el ejemplo activo, el cuerpo suma
+  // la verdad de la nota de la 1.3.258: la lista que se está leyendo es la del
+  // libro de ejemplo, no la del real que el widget enseña.
+  const askUnpin = (name: string, run: () => void) => confirm({
+    title: t("widget.pin.ask.offTitle").replace("{name}", name),
+    body: t("widget.pin.ask.offBody") + (sampleOn() ? " " + t("settings.widgetpins.sample") : ""),
+    yes: t("widget.pin.remove"),
+    run,
+  });
+  // La cara de una pieza fijada: su marca, como la pintan las tarjetas del catálogo
+  // y las filas de Compras (la marca de fábrica si la trae; la de su id si es tienda;
+  // su glifo para el resto).
+  const storeMark = (id: string) => {
+    const item = ledger.structure.catalog.find((c) => c.id === id);
+    if (!item) return <Pin aria-hidden />;
+    return item.icon.startsWith("brand:") ? <BrandMark id={item.icon.slice(6)} className="size-6" /> : item.kind === "store" ? <BrandMark id={item.id} className="size-6" /> : <Glyph name={item.icon} className="size-6" />;
+  };
+  // 1.3.267: el buscador fija y desfija por la misma ventana de la 1.3.260
+  // que el catálogo usa en su asiento inmediato — el cuerpo de fijar es el de
+  // las categorías y, con el ejemplo activo, suma la verdad del ejemplo de
+  // los asientos de fijar (widget.pin.sample). La escritura es el
+  // toggleWidgetPin de siempre dentro del run, con el refresco de la foto
+  // que acompaña a los guardados inmediatos desde la 1.3.258; cancelar no
+  // escribe nada.
+  const askPin = (cand: PinCandidate) => {
+    const name = label(cand);
+    const pinned = hasWidgetPin(pins, cand.c, cand.s);
+    confirm({
+      title: t(pinned ? "widget.pin.ask.offTitle" : "widget.pin.ask.title").replace("{name}", name),
+      body: t(pinned ? "widget.pin.ask.offBody" : "widget.pin.ask.body") + (sampleOn() ? " " + t("widget.pin.sample") : ""),
+      yes: pinned ? t("widget.pin.remove") : t("widget.pin.ask.yes"),
+      run: () => {
+        commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, cand.c, cand.s) } }), name);
+        window.dispatchEvent(new Event(WIDGET_REFRESH));
+      },
+    });
+  };
+  const searching = q.trim().length > 0;
+  const results = searching ? searchPinCandidates(ledger, q, lang) : { inn: [] as PinCandidate[], out: [] as PinCandidate[] };
+  const groups = pinGroups(ledger);
+  // La fila de una fija, a una línea (1.3.267): marca · nombre · Desfijar —
+  // el signo lo lleva el grupo que la contiene, no la fila.
+  const pinRow = (p: WidgetPin) => p.store ? (
+    <div key={`store|${p.store}`} className="manual-row aj-row smp-row">
+      {storeMark(p.store as string)}
+      <span className="manual-row-text">
+        <strong>{names.catalog(p.store as string) || p.store}</strong>
+      </span>
+      <button type="button" className="btn ghost" onClick={() => askUnpin(names.catalog(p.store as string) || (p.store as string), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string)))}>{t("widget.pin.remove")}</button>
+    </div>
+  ) : (
+    <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
+      <Pin aria-hidden />
+      <span className="manual-row-text">
+        <strong>{label(p)}</strong>
+      </span>
+      <button type="button" className="btn ghost" onClick={() => askUnpin(label(p), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p)))}>{t("widget.pin.remove")}</button>
+    </div>
+  );
+  // La fila de un resultado: la fila entera es el gesto (elegirla abre la
+  // ventana); el ancla llena y la palabra «Fijada» anuncian la que ya está.
+  const hitRow = (cand: PinCandidate) => {
+    const pinned = hasWidgetPin(pins, cand.c, cand.s);
+    return (
+      <button key={`${cand.c}|${cand.s}`} type="button" className="manual-row aj-row smp-row wpin-hit" onClick={() => askPin(cand)}>
+        <Pin aria-hidden fill={pinned ? "currentColor" : "none"} />
+        <span className="manual-row-text">
+          <strong className={cand.hidden ? "is-muted" : undefined}>{label(cand)}</strong>
+        </span>
+        {pinned ? <span className="wpin-state">{t("widget.pin.state")}</span> : null}
+      </button>
+    );
+  };
+  return (
+    <>
+      <div className="wpin-sec">
+        <div className="fold-title aj-title"><h2 className="serif wpin-h">{t("settings.widgetpins")}</h2></div>
+        <span className="aj-sub">{t("settings.widgetpins.sub")}</span>
+      </div>
+      {/* 1.3.258: con el ejemplo activo, esta lista lee el libro DE EJEMPLO —
+          la línea lo dice en la misma tarjeta, porque la foto del widget
+          enseña siempre el libro real (ley de 1.3.237) y una fija del
+          ejemplo jamás llega a la tarjeta de apuntes. */}
+      {sampleOn() ? <span className="aj-sub wpin-note">{t("settings.widgetpins.sample")}</span> : null}
+      {/* 1.3.267: el buscador del tercer asiento — la pastilla de búsqueda de
+          la casa (la del Historial), con su ✕ para limpiarla. Busca sobre la
+          Estructura viva; los resultados cuelgan bajo el campo, agrupados
+          por signo como la lista de fijadas. */}
+      <label className="search-pill wpin-search">
+        <Search className="size-4" aria-hidden />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("settings.widgetpins.search")} aria-label={t("settings.widgetpins.search")} />
+        {q ? <button type="button" className="wpin-x" aria-label={t("hist.clearFilters")} onClick={() => setQ("")}><X className="size-4" /></button> : null}
+      </label>
+      {searching ? (
+        results.inn.length || results.out.length ? (
+          <>
+            {results.inn.length ? <PinGroup title={t("widget.pin.signin")}>{results.inn.map(hitRow)}</PinGroup> : null}
+            {results.out.length ? <PinGroup title={t("widget.pin.signout")}>{results.out.map(hitRow)}</PinGroup> : null}
+          </>
+        ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.none")}</span>
+      ) : null}
+      {pins.length ? (
+        <>
+          {groups.inn.length ? <PinGroup title={t("widget.pin.signin")}>{groups.inn.map(pinRow)}</PinGroup> : null}
+          {groups.out.length ? <PinGroup title={t("widget.pin.signout")}>{groups.out.map(pinRow)}</PinGroup> : null}
+        </>
+      ) : <span className="aj-sub wpin-empty">{t("settings.widgetpins.empty")}</span>}
+    </>
   );
 }
