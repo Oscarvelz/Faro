@@ -3,16 +3,20 @@ import { Eraser, FlaskConical, RotateCcw } from "lucide-react";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { countSampleRows, stripSample } from "@/lib/faro/sample";
-import { SAMPLE_EVENT, resetSample, sampleOn, setSampleMode } from "@/lib/faro/samplemode";
+import { SAMPLE_EVENT, STAGE_EVENT, resetSample, sampleOn, setSampleMode } from "@/lib/faro/samplemode";
 import "./sample-mode.css";
 
-/** Bumps on every sample switch/reset; used as the provider key so the app remounts on the other store. */
+/** Bumps on every sample switch/reset and every stage entry/exit; used as the provider key so the app remounts on the other store. */
 export function useSampleEpoch(): number {
   const [n, setN] = useState(0);
   useEffect(() => {
     const on = () => setN((v) => v + 1);
     window.addEventListener(SAMPLE_EVENT, on);
-    return () => window.removeEventListener(SAMPLE_EVENT, on);
+    window.addEventListener(STAGE_EVENT, on);
+    return () => {
+      window.removeEventListener(SAMPLE_EVENT, on);
+      window.removeEventListener(STAGE_EVENT, on);
+    };
   }, []);
   return n;
 }

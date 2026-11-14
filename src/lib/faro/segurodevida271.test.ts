@@ -115,6 +115,9 @@ describe("1.3.271 — el importe de Oscar no existe; el nombre solo donde ya viv
       "src/lib/faro/subs.test.ts",
       "src/lib/manual/topics.ts",
       "src/lib/faro/segurodevida271.test.ts",
+      // La lección de la presentación (puerto 2026-11-14): el guion nombra la
+      // pieza de fábrica en su escena del Seguro de vida, sin importe alguno.
+      "src/lib/faro/guion.ts",
     ]);
     for (const f of files) {
       if (!readFileSync(f, "utf8").includes("Primerica")) continue;

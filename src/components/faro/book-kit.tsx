@@ -56,7 +56,7 @@ export function BookKit({ title, rows, word, onEdit, onDrop, onRename, onColor, 
   const edit = (id: string) => { setOpen(false); if (onEdit) window.setTimeout(() => onEdit(id), 160); };
   return (
     <>
-      <button type="button" className="icon-btn kit-btn is-pen" data-test={test ? `${test}-pen` : "kit-pen"} aria-pressed={open} aria-label={L(lang, "Editar", "Edit")} title={L(lang, "Editar", "Edit")} onClick={() => setOpen(true)}>
+      <button type="button" className="icon-btn kit-btn is-pen" data-anchor="book-kit" data-test={test ? `${test}-pen` : "kit-pen"} aria-pressed={open} aria-label={L(lang, "Editar", "Edit")} title={L(lang, "Editar", "Edit")} onClick={() => setOpen(true)}>
         <Pencil aria-hidden />
       </button>
       {open ? (

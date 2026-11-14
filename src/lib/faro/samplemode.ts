@@ -10,11 +10,24 @@ export const SAMPLE_FLAG = "faro-sample-mode";
 export const SAMPLE_PREFIX = "faro.sample:";
 export const SAMPLE_EVENT = "faro-sample-switch";
 
+/**
+ * El escenario de las presentaciones (Presentación Guiada). A third namespace beside the
+ * personal books and the sample: while the stage is on, every data key maps to `faro.stage:`,
+ * so a guided presentation performs on an empty, ephemeral book that is built by its script
+ * and discarded on exit — the personal keys are never read or written, exactly as in sample
+ * mode. Two differences from sample, both deliberate: the stage is MEMORY-ONLY (no storage
+ * flag is ever written, so a cold boot can never land inside it — the app always reopens on
+ * the real books), and it starts EMPTY (no seed dressing beyond what a genuinely new book
+ * gets), because each module builds only what its lesson needs.
+ */
+export const STAGE_PREFIX = "faro.stage:";
+export const STAGE_EVENT = "faro-stage-switch";
+
 const SHARED_EXACT = new Set([
   SAMPLE_FLAG, "faro-theme", "faro-lang", "faro-day", "faro-day-theme", "faro-night-theme",
   "faro.device", "faro.keep", "faro.lastUser", "faro-auth", "faro-quiet-boot", "faro-sample-migrated",
 ]);
-const SHARED_PREFIX = ["faro.lock.", "faro.seen.", "faro-split", "faro-float", "faro-money-size", SAMPLE_PREFIX];
+const SHARED_PREFIX = ["faro.lock.", "faro.seen.", "faro-split", "faro-float", "faro-money-size", SAMPLE_PREFIX, STAGE_PREFIX];
 
 /** True for keys that hold the user's data (and so get their own copy in sample mode). */
 export function isDataKey(key: string): boolean {
@@ -26,6 +39,7 @@ export function isDataKey(key: string): boolean {
 type Raw = { get: (k: string) => string | null; set: (k: string, v: string) => void; del: (k: string) => void };
 let raw: Raw | null = null;
 let on = false;
+let stage = false;
 
 function readFlag(): boolean {
   try { return (raw ? raw.get(SAMPLE_FLAG) : localStorage.getItem(SAMPLE_FLAG)) === "1"; } catch { return false; }
@@ -33,6 +47,20 @@ function readFlag(): boolean {
 
 export function sampleOn(): boolean {
   return on;
+}
+
+export function stageOn(): boolean {
+  return stage;
+}
+
+/** True in any sealed namespace (sample or stage): nothing leaves the device, no backups, no sync. */
+export function sealedOn(): boolean {
+  return on || stage;
+}
+
+export type DataMode = "real" | "sample" | "stage";
+export function dataMode(): DataMode {
+  return stage ? "stage" : on ? "sample" : "real";
 }
 
 let remountFromSwitch = false;
@@ -44,7 +72,13 @@ export function takeSwitchRemount(): boolean {
   return v;
 }
 
-const mapKey = (k: string) => (on && isDataKey(String(k)) ? SAMPLE_PREFIX + String(k) : String(k));
+const mapKey = (k: string) => {
+  const key = String(k);
+  if (!isDataKey(key)) return key;
+  if (stage) return STAGE_PREFIX + key;
+  if (on) return SAMPLE_PREFIX + key;
+  return key;
+};
 
 /** Patch storage, IndexedDB and fetch once, before anything reads data. */
 export function installSampleMode() {
@@ -59,15 +93,20 @@ export function installSampleMode() {
   proto.removeItem = function (k: string) { return r.call(this, mapKey(k)); };
   if (typeof IDBFactory !== "undefined") {
     const open = IDBFactory.prototype.open, del = IDBFactory.prototype.deleteDatabase;
-    const dbName = (n: string) => (on && String(n).startsWith("faro") ? `faro-sample:${n}` : n);
+    const dbName = (n: string) => {
+      if (!String(n).startsWith("faro")) return n;
+      if (stage) return `faro-stage:${n}`;
+      if (on) return `faro-sample:${n}`;
+      return n;
+    };
     IDBFactory.prototype.open = function (n: string, v?: number) { return v === undefined ? open.call(this, dbName(n)) : open.call(this, dbName(n), v); };
     IDBFactory.prototype.deleteDatabase = function (n: string) { return del.call(this, dbName(n)); };
   }
   const f = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    if (on) {
+    if (on || stage) {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      if (/supabase\.co\/(rest|storage|functions|realtime)\//.test(url)) return Promise.reject(new TypeError("sample mode: cloud paused"));
+      if (/supabase\.co\/(rest|storage|functions|realtime)\//.test(url)) return Promise.reject(new TypeError("sealed mode: cloud paused"));
     }
     return f(input, init);
   };
@@ -114,6 +153,44 @@ export async function resetSample() {
   await clearSampleStore();
   remountFromSwitch = true;
   window.dispatchEvent(new Event(SAMPLE_EVENT));
+}
+
+/** Every key that belongs to the stage namespace is removed and the stage IndexedDB
+ * databases are deleted. Personal and sample keys are not read or written. */
+export async function clearStageStore() {
+  for (const st of [localStorage, sessionStorage]) {
+    const ks: string[] = [];
+    for (let i = 0; i < st.length; i++) { const k = st.key(i); if (k && k.startsWith(STAGE_PREFIX)) ks.push(k); }
+    for (const k of ks) Storage.prototype.removeItem.call(st, k); // prefixed keys map to themselves
+  }
+  try {
+    const dbs = (await (indexedDB as IDBFactory & { databases?: () => Promise<{ name?: string }[]> }).databases?.()) ?? [];
+    for (const d of dbs) if (d.name?.startsWith("faro-stage:")) await new Promise((res) => { const q = indexedDB.deleteDatabase(d.name!.slice("faro-stage:".length)); q.onsuccess = q.onerror = q.onblocked = () => res(null); });
+  } catch { /* ignore */ }
+}
+
+/** Switch the stage in place: the app tree remounts (no reload, no lock). The stage flag is
+ * memory-only on purpose — it is never written to storage, so no boot can ever restore it. */
+export function setStageMode(next: boolean) {
+  if (next === stage || !raw) return; // never flip without the storage guard in place
+  stage = next;
+  remountFromSwitch = true;
+  window.dispatchEvent(new Event(STAGE_EVENT));
+}
+
+/** Enter the stage on a guaranteed-empty namespace: any stage keys left by an earlier
+ * module (or an interrupted one) are wiped first, so every module starts from nothing. */
+export async function enterStage() {
+  await clearStageStore();
+  setStageMode(true);
+}
+
+/** Leave the stage: remount on the books that were active before (real or sample) and wipe
+ * the stage namespace — the constructed book is discarded whole, never merged or saved. */
+export function exitStage() {
+  if (!stage) return;
+  setStageMode(false);
+  void clearStageStore();
 }
 
 // Installed as soon as this module is evaluated (it is imported ahead of every data reader).

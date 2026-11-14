@@ -1,0 +1,401 @@
+/* La Presentación Guiada — el conductor y el índice.
+   Todo viste las variables del tema activo: el marcador es el acento de la casa,
+   nunca el feedback por defecto de Android (gramática premium del plan). */
+
+/* Las leyes de la casa (flota, 2026-11-14): UN SOLO RELOJ DE MOVIMIENTO —
+ * una curva y una duración gobiernan el deslizamiento de la tarjeta, sus
+ * apariciones y sus ventanas — y LOS BORDES SE CONSTRUYEN solo de las
+ * variables del tema: borde mezclado con el acento, luz interior arriba y
+ * sombra en dos pisos (contacto + ambiente, teñidas por el tema). Nada de
+ * grises genéricos en la familia de la tarjeta. */
+.pres-root, .pres-offer {
+  --pres-ease: cubic-bezier(.22, 1, .36, 1);
+  --pres-dur: .42s;
+  --pres-edge: color-mix(in oklab, var(--accent) 18%, var(--line));
+  --pres-sheen: inset 0 1px 0 color-mix(in oklab, var(--surface) 35%, #fff);
+  --pres-shadow: 0 1px 2px color-mix(in oklab, var(--accent) 10%, oklab(0% none none / .16)),
+    0 18px 44px color-mix(in oklab, var(--accent) 7%, oklab(0% none none / .27));
+}
+.pres-root { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+/* EL FONDO SE DIFUMINA (ley de flota, 2026-11-14): el velo son los cuatro
+ * escudos — difuminan y oscurecen todo MENOS el hueco del foco, que queda
+ * nítido píxel a píxel (ningún escudo lo cubre). */
+.pres-shield {
+  position: fixed; pointer-events: auto;
+  background: oklab(0% none none / .5);
+  -webkit-backdrop-filter: blur(5px);
+}
+/* La forma estándar va en su propia regla: el minificador de la casa, cuando
+ * las dos conviven en una regla, deja solo la -webkit- (como ya pasa en los
+ * velos de la app: .ask-back, .xp-scrim). Separadas, ambas llegan al build. */
+.pres-shield { backdrop-filter: blur(5px); }
+
+.pres-hole {
+  position: fixed;
+  border-radius: 16px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 26px 2px color-mix(in oklab, var(--accent) 45%, transparent);
+  transition: left var(--pres-dur) var(--pres-ease), top var(--pres-dur) var(--pres-ease),
+    width var(--pres-dur) var(--pres-ease), height var(--pres-dur) var(--pres-ease), box-shadow var(--pres-dur) var(--pres-ease);
+}
+.pres-hole.is-won {
+  box-shadow:
+    0 0 0 2px var(--good),
+    0 0 26px 2px color-mix(in oklab, var(--good) 50%, transparent);
+}
+
+.pres-thread { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: color-mix(in oklab, var(--line) 55%, transparent); pointer-events: none; }
+.pres-thread i { display: block; height: 100%; background: var(--accent); transition: width var(--pres-dur) var(--pres-ease); }
+
+.pres-card {
+  position: fixed;
+  width: min(370px, calc(100vw - 20px));
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--pres-edge);
+  border-radius: 20px;
+  padding: 15px 14px 13px;
+  box-shadow: var(--pres-sheen), var(--pres-shadow);
+  pointer-events: auto;
+  /* LA TARJETA NACE DONDE VA A VIVIR: su aparición es un fundido gobernado
+   * por el reloj único — nunca un viaje desde un sitio provisional. */
+  transition: opacity var(--pres-dur) var(--pres-ease), visibility 0s;
+}
+.pres-card.is-shake { animation: pres-shake .32s var(--pres-ease); }
+/* La ventanita de contexto (ley universal §0.6): arribita de la tarjeta, pequeña,
+   solo cuando el pie y la pantalla no bastan. Mismo material del tema que la C′. */
+.pres-contexto {
+  position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: min(302px, 84vw);
+  /* La ventanita es SOLO explicación (ley §0.6): jamás intercepta el toque del
+     alumno — sin esto puede quedar sobre el foco y comerse el tap de un «hazlo tú»
+     (defecto cazado en banco por la línea de Brizna, 2026-11-14). */
+  pointer-events: none;
+  background: var(--surface); color: var(--muted);
+  border: 1px solid var(--pres-edge); border-radius: 13px;
+  padding: 7px 11px; font-size: .8rem; line-height: 1.4; text-align: center;
+  box-shadow: var(--pres-sheen), 0 10px 26px color-mix(in oklab, var(--accent) 6%, oklab(0% none none / .22));
+}
+.pres-contexto::after {
+  content: ""; position: absolute; top: 100%; left: 50%; width: 9px; height: 9px;
+  transform: translate(-50%, -5px) rotate(45deg);
+  background: var(--surface); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+@keyframes pres-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  55% { transform: translateX(5px); }
+  80% { transform: translateX(-3px); }
+}
+
+.pres-kicker {
+  display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0;
+  margin: 0; color: var(--muted); font-size: .72rem; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.pres-kicker span { white-space: nowrap; }
+.pres-toprow { display: flex; align-items: center; gap: 4px; }
+.pres-speedrow { display: flex; gap: 4px; margin-top: 9px; }
+.pres-speedopt {
+  flex: 1; min-height: 32px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--muted); font: inherit; font-size: .82rem;
+  font-weight: 560; cursor: pointer;
+}
+.pres-speedopt.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 700; }
+.pres-caption { margin: 11px 0 4px; font-size: 1.16rem; line-height: 1.52; display: flex; align-items: baseline; gap: 8px; }
+.pres-caption.is-ask { font-family: var(--font-serif); font-size: 1.26rem; }
+.pres-dot {
+  flex: none; width: 10px; height: 10px; border-radius: 999px; background: var(--accent);
+  align-self: center; animation: pres-pulse 1.15s ease-in-out infinite;
+}
+.pres-dot.is-won { background: var(--good); animation: none; }
+@keyframes pres-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.45); opacity: .55; } }
+.pres-won { flex: none; width: 18px; height: 18px; color: var(--good); align-self: center; }
+
+.pres-ctl {
+  min-width: 36px; min-height: 36px; padding: 0 8px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--fg); font: inherit; font-size: .8rem; font-weight: 560; cursor: pointer;
+  white-space: nowrap;
+}
+.pres-ctl svg { width: 15px; height: 15px; }
+.pres-ctl:active { transform: scale(.96); }
+.pres-ctl.hd { min-width: 30px; min-height: 30px; height: 30px; padding: 0 7px; font-size: .72rem; }
+.pres-ctl.hd svg { width: 13px; height: 13px; }
+.pres-botrow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 7px; }
+.pres-chapname { color: var(--faint); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pres-botlinks { display: inline-flex; align-items: baseline; gap: 14px; flex: none; }
+/* La pareja ‹ › (ley de flota, 2026-11-14): solo iconos, solo en
+ * Interactivo, en la CABECERA a la izquierda del botón de modo — la fila
+ * inferior quedó para el texto (enmienda de Oscar, 10:07 EST). En los
+ * compases de gesto solo vive ‹: el › saltaría el gesto. Al tocarlos,
+ * cada uno MUESTRA su toque de selección — tinte del acento al 18% y una
+ * ligera encogida mientras dura la presión; nunca silencio, nunca la
+ * respuesta del sistema operativo. */
+.pres-navbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex: none;
+  border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--accent);
+  cursor: pointer; padding: 0;
+  transition: background .15s ease, transform .1s ease;
+}
+.pres-navbtn svg { width: 18px; height: 18px; flex: none; }
+.pres-navbtn:disabled { opacity: .35; cursor: default; }
+.pres-navbtn:active:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  transform: scale(.9);
+}
+.pres-showme {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  min-height: 30px; padding: 0 2px; border: 0; background: none; color: var(--accent);
+  font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer;
+}
+.pres-showme svg { width: 15px; height: 15px; flex: none; }
+.pres-stay {
+  min-height: 30px; padding: 0 2px;
+  border: 0; background: none; color: var(--muted); font: inherit; font-size: .84rem;
+  text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; white-space: nowrap;
+}
+/* El puente al Manual (ley de flota, 2026-11-14): vive junto a «Quedarme
+ * aquí» solo en las escenas cuya función tiene tema en el Manual. */
+.pres-manualbtn {
+  min-height: 30px; padding: 0 2px;
+  border: 0; background: none; color: var(--accent); font: inherit; font-size: .84rem;
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+
+.pres-card.is-done { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 22px 20px 18px; }
+.pres-card.is-done strong { font-size: 1.3rem; }
+.pres-card.is-done p { margin: 0; color: var(--muted); line-height: 1.45; }
+.pres-done-check {
+  width: 46px; height: 46px; border-radius: 999px; display: grid; place-items: center;
+  background: color-mix(in oklab, var(--good) 16%, var(--surface)); color: var(--good);
+  border: 1.5px solid var(--good);
+}
+.pres-done-check svg { width: 22px; height: 22px; }
+.pres-done-acts { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+
+.pres-panel {
+  position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
+  width: min(360px, calc(100vw - 24px)); max-height: 76dvh; overflow: auto;
+  background: var(--surface); color: var(--fg); border: 1px solid var(--pres-edge);
+  border-radius: 20px; padding: 14px 16px; box-shadow: var(--pres-sheen), var(--pres-shadow);
+  pointer-events: auto;
+  animation: pres-fade var(--pres-dur) var(--pres-ease);
+}
+@keyframes pres-fade { from { opacity: 0; } }
+@keyframes pres-in { from { opacity: 0; transform: translateY(8px); } }
+.pres-panel-head { display: flex; justify-content: space-between; align-items: center; }
+.pres-panel-head strong { font-size: 1.2rem; }
+.pres-panel-kicker { margin: 14px 0 4px; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.pres-panel-scene {
+  display: flex; align-items: baseline; gap: 9px; width: 100%; text-align: left;
+  min-height: 44px; padding: 8px 6px; border: 0; border-bottom: 1px solid var(--line);
+  background: none; color: var(--fg); font: inherit; font-size: .92rem; line-height: 1.35; cursor: pointer;
+}
+.pres-panel-scene .num { color: var(--faint); font-size: .8rem; flex: none; }
+.pres-panel-scene.is-now { color: var(--accent); font-weight: 600; }
+.pres-panel-scene em { margin-left: auto; color: var(--warn); font-size: .78rem; font-style: normal; flex: none; }
+.pres-panel-row { display: flex; align-items: stretch; gap: 8px; }
+.pres-panel-row .pres-panel-scene { flex: 1; border-bottom: 1px solid var(--line); }
+.pres-panel-save {
+  flex: none; width: 40px; border: 0; border-bottom: 1px solid var(--line); background: none;
+  color: var(--faint); cursor: pointer; display: grid; place-items: center;
+}
+.pres-panel-save svg { width: 16px; height: 16px; }
+.pres-panel-save.is-saved { color: var(--accent); }
+.pres-panel-save.is-saved svg { fill: currentColor; }
+
+/* ------------------------------- el índice ------------------------------- */
+
+.pres-index { display: grid; gap: 4px; margin-top: 6px; }
+.pres-mod { padding: 12px 2px 10px; border-bottom: 1px solid var(--line); }
+.pres-mod:last-of-type { border-bottom: 0; }
+.pres-mod-head { display: flex; align-items: baseline; gap: 9px; }
+.pres-mod-n {
+  flex: none; width: 24px; height: 24px; border-radius: 999px; display: inline-grid; place-items: center;
+  background: color-mix(in oklab, var(--accent) 14%, var(--surface)); color: var(--accent);
+  font-size: .78rem; font-weight: 700; align-self: center;
+}
+.pres-mod-head strong { font-size: 1.08rem; flex: 1; min-width: 0; }
+.pres-mod-dur { color: var(--faint); font-size: .8rem; }
+.pres-mod-done { display: inline-flex; align-items: center; gap: 4px; color: var(--good); font-size: .8rem; font-weight: 600; }
+.pres-mod-done svg { width: 14px; height: 14px; }
+.pres-mod-promise { margin: 5px 0 0 33px; color: var(--muted); font-size: .9rem; line-height: 1.4; }
+.pres-mod-acts { display: flex; gap: 8px; margin: 9px 0 0 33px; flex-wrap: wrap; }
+.pres-play svg { width: 16px; height: 16px; }
+/* Con las dos acciones presentes (seguir / desde el principio) los botones
+ * van LADO A LADO en una sola línea — nunca apilados (orden de Oscar,
+ * 2026-11-14); el texto se reduce lo justo para que quepan enteros. */
+.pres-mod-acts:has(> :nth-child(2)) { flex-wrap: nowrap; margin-left: 0; }
+.pres-mod-acts:has(> :nth-child(2)) > .btn {
+  flex: 1 1 0; min-width: 0; white-space: nowrap;
+  font-size: .78rem; padding-inline: 8px; gap: 5px;
+}
+.pres-mod-acts:has(> :nth-child(2)) > .pres-play { flex-grow: 1.45; }
+.pres-mod-soon { margin: 6px 0 0 33px; color: var(--faint); font-size: .82rem; }
+.pres-note { margin: 10px 0 2px; color: var(--faint); font-size: .82rem; line-height: 1.45; }
+
+/* La línea general de progreso (ley universal, 2026-11-14): una barra con
+ * la cuenta honesta al frente del índice — terminados de cuántos, en curso,
+ * y cuánto falta de la app entera. */
+.pres-overall { margin: 2px 0 12px; }
+.pres-overall-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: .86rem; color: var(--muted); }
+.pres-overall-head strong { color: var(--accent); font-size: 1.02rem; }
+.pres-overall-bar { height: 6px; border-radius: 999px; background: var(--line); margin-top: 6px; overflow: hidden; }
+.pres-overall-bar i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transition: width .5s ease; }
+.pres-overall-counts { margin: 6px 0 0; font-size: .8rem; color: var(--faint); }
+@media (prefers-reduced-motion: reduce) { .pres-overall-bar i { transition: none; } }
+
+/* ============================ EL TEATRO DEL WIDGET ============================ */
+.pres-theater {
+  position: fixed; inset: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.pres-home {
+  width: min(336px, calc(100vw - 44px));
+  border-radius: 30px; padding: 20px 18px 14px;
+  background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 16%, var(--bg)), var(--bg) 62%);
+  border: 1px solid var(--pres-edge);
+  box-shadow: var(--pres-sheen), 0 24px 60px color-mix(in oklab, var(--accent) 7%, oklab(0% none none / .34));
+}
+.pres-dots { display: flex; gap: 14px; justify-content: space-around; margin-bottom: 16px; }
+.pres-dots span {
+  width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+  background: color-mix(in oklab, var(--surface) 72%, transparent); color: var(--muted);
+  border: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+}
+.pres-dots svg { width: 21px; height: 21px; }
+.pres-widgetwrap { position: relative; pointer-events: auto; }
+.pres-widgetface {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 22px; padding: 13px 15px 12px; font: inherit;
+  box-shadow: 0 10px 28px oklab(0% none none / .18);
+}
+.pres-wf-head { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: .78rem; margin-bottom: 4px; padding-right: 42px; }
+.pres-wf-head strong { color: var(--fg); font-size: .95rem; }
+.pres-wf-left { display: block; margin-bottom: 7px; }
+.pres-wf-left small { display: block; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+.pres-wf-left b { font-size: 1.55rem; line-height: 1.15; }
+.pres-wf-row { display: flex; gap: 10px; margin-bottom: 7px; }
+.pres-wf-row > span { flex: 1; }
+.pres-wf-row small { display: block; color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; }
+.pres-wf-row b { font-size: .92rem; }
+.pres-wf-due { display: block; color: var(--accent); font-size: .82rem; font-weight: 560; }
+.pres-widgeteye {
+  position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 999px;
+  display: grid; place-items: center; cursor: pointer;
+  background: color-mix(in oklab, var(--accent) 12%, var(--surface)); color: var(--accent);
+  border: 1px solid var(--line);
+}
+.pres-widgeteye svg { width: 17px; height: 17px; }
+.pres-home-hint { text-align: center; color: var(--muted); font-size: .78rem; margin-top: 12px; }
+
+/* --------------------------- Mis escenas (repisa) --------------------------- */
+
+.pres-shelf { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.pres-shelf-title { color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; margin: 0 0 4px; }
+.pres-shelf-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+.pres-shelf-row:last-child { border-bottom: 0; }
+.pres-shelf-play {
+  flex: 1; display: flex; align-items: center; gap: 9px; text-align: left; min-height: 44px;
+  padding: 8px 6px; border: 0; background: none; color: var(--fg); font: inherit; font-size: .92rem; line-height: 1.35; cursor: pointer;
+}
+.pres-shelf-play svg { width: 15px; height: 15px; flex: none; color: var(--accent); }
+.pres-shelf-play em { display: block; color: var(--faint); font-size: .78rem; font-style: normal; }
+.pres-shelf-x {
+  flex: none; width: 40px; border: 0; background: none; color: var(--faint); cursor: pointer; display: grid; place-items: center;
+}
+.pres-shelf-x svg { width: 15px; height: 15px; }
+
+/* ------------------------------ la oferta ------------------------------ */
+
+.pres-offer {
+  position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  width: min(370px, calc(100vw - 20px)); z-index: 60;
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--surface); color: var(--fg); border: 1px solid var(--pres-edge);
+  border-radius: 20px; padding: 16px; box-shadow: var(--pres-sheen), var(--pres-shadow);
+}
+.pres-offer > svg { width: 22px; height: 22px; flex: none; color: var(--accent); margin-top: 2px; }
+.pres-offer-text { flex: 1; min-width: 0; }
+.pres-offer-text strong { font-size: 1.02rem; line-height: 1.35; display: block; }
+.pres-offer-text p { margin: 4px 0 0; color: var(--muted); font-size: .88rem; line-height: 1.45; }
+.pres-offer-acts { display: flex; flex-direction: column; gap: 8px; flex: none; }
+
+/* --------------------- escenas en la búsqueda (shell) --------------------- */
+
+.pres-hit { cursor: default; }
+.pres-hit-acts { display: flex; gap: 8px; margin-top: 8px; }
+.pres-hit-see, .pres-hit-go {
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  border-radius: 999px; padding: 7px 12px; font: inherit; font-size: .82rem; cursor: pointer; min-height: 36px;
+}
+.pres-hit-see { background: var(--accent); border-color: var(--accent); color: var(--accent-ink, #fff); font-weight: 600; }
+
+/* --------------------- la tarjeta en pantalla ancha ---------------------
+ * Ley de flota (Oscar, vía Cadence, 2026-11-14): la tarjeta se mide para la
+ * computadora donde hay computadora — presencia notable, sin pasarse — y el
+ * texto NUNCA se corta en «…» donde la pantalla tiene sitio: envuelve entero.
+ * En el teléfono quedan intactas las medidas C′ que él aprobó. */
+@media (min-width: 1024px) {
+  .pres-card { width: 550px; padding: 26px; }
+  .pres-card.is-done { padding: 30px 26px 26px; }
+  .pres-caption { font-size: 1.375rem; }
+  .pres-chapname { white-space: normal; overflow: visible; text-overflow: clip; }
+}
+
+/* ----------------- la ventana de «Quedarme aquí» -----------------
+ * Ley de flota, 2026-11-14: a mitad de módulo, quedarse pide una palabra
+ * antes de disolver el escenario — qué pasa después y dónde vive la ficha.
+ * El reloj está detenido mientras ella vive (stayAsk en la guarda del
+ * motor). Pinta solo con las variables del tema, como toda la casa. */
+.pres-stayask-veil {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: oklab(0% none none / .45);
+  -webkit-backdrop-filter: blur(3px);
+  pointer-events: auto; padding: 18px;
+}
+.pres-stayask-veil { backdrop-filter: blur(3px); }
+.pres-stayask {
+  width: min(400px, 100%);
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--pres-edge); border-radius: 20px;
+  padding: 22px 20px 18px;
+  box-shadow: var(--pres-sheen), var(--pres-shadow);
+  display: grid; gap: 9px;
+  animation: pres-in var(--pres-dur) var(--pres-ease);
+}
+/* LA VENTANA PREGUNTA EN GRANDE Y EXPLICA CORTO (ley de flota, 2026-11-14):
+ * en las ventanas de confirmación la pregunta es el titular grande y el
+ * cuerpo se queda en una frase breve. */
+.pres-stayask strong { font-size: 1.5rem; line-height: 1.25; }
+.pres-stayask p { margin: 0; line-height: 1.5; color: var(--muted); }
+.pres-stayask-acts { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; flex-wrap: wrap; }
+
+/* ------------- la ficha primera («Sigue donde ibas») ------------- */
+.pres-first { margin-bottom: 6px; }
+.pres-first-title {
+  margin: 2px 0 8px; font-size: .82rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--accent);
+}
+.pres-first .pres-mod {
+  border: 1px solid var(--accent); border-radius: 16px; padding: 12px 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pres-hole { transition: none; }
+  .pres-dot { animation: none; }
+  .pres-card { transition: none; }
+  .pres-card.is-shake { animation: none; }
+  .pres-panel, .pres-stayask { animation: none; }
+  .pres-thread i { transition: none; }
+  .pres-navbtn { transition: none; }
+  .pres-navbtn:active:not(:disabled) { transform: none; }
+}

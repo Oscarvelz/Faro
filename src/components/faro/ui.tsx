@@ -104,7 +104,7 @@ export function Explain({
       {open
         ? createPortal(
             <div className={`xp-scrim${leaving ? " is-leaving" : ""}`} onPointerDown={(e) => { if (e.target === e.currentTarget) close(); }}>
-              <div ref={sheet} className="xp-sheet" role="dialog" aria-modal="true" aria-label={title}>
+              <div ref={sheet} className="xp-sheet" data-anchor="xp-sheet" role="dialog" aria-modal="true" aria-label={title}>
                 <i className="xp-grip" aria-hidden />
                 <header className="xp-head">
                   <span className="xp-badge" aria-hidden><CircleHelp /></span>

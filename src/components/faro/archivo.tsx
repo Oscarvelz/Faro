@@ -164,7 +164,7 @@ export function ArchivoScreen() {
     <div className="arch-group-head"><h3>{label}</h3><b>{n}</b></div>
   );
   const restoreBtn = (run: () => void) => (
-    <button type="button" className="btn secondary" onClick={run}><RotateCcw aria-hidden />{t("arch.restore")}</button>
+    <button type="button" className="btn secondary" data-anchor="arch-restore" onClick={run}><RotateCcw aria-hidden />{t("arch.restore")}</button>
   );
 
   return (
@@ -178,8 +178,8 @@ export function ArchivoScreen() {
       {spans.length ? (
         <section className="arch-group">
           {groupHead(t("arch.spans"), spans.length)}
-          {spans.map((e) => (
-            <article key={e.span.id} className="arch-card">
+          {spans.map((e, i) => (
+            <article key={e.span.id} className="arch-card" data-anchor={i === 0 ? "arch-card" : undefined}>
               <div className="arch-card-top">
                 <strong className="arch-name">{spanPeriod(e)}</strong>
                 <span className="arch-origin">{t("arch.spans")}</span>
@@ -224,7 +224,7 @@ export function ArchivoScreen() {
               </div>
               <div className="arch-acts">
                 {restoreBtn(() => askRestoreSpan(e))}
-                <button type="button" className="btn danger" onClick={() => askDeleteSpan(e)}><Trash2 aria-hidden />{t("arch.delete")}</button>
+                <button type="button" className="btn danger" data-anchor="arch-delete" onClick={() => askDeleteSpan(e)}><Trash2 aria-hidden />{t("arch.delete")}</button>
               </div>
             </article>
           ))}

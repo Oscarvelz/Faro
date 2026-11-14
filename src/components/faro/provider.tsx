@@ -25,7 +25,7 @@ import { blankSession, commit as commitSession, commitFinal as commitFinalSessio
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
 import { isPureSample, stripSample, withAugustSample } from "@/lib/faro/sample";
-import { sampleOn, takeSwitchRemount } from "@/lib/faro/samplemode";
+import { dataMode, sampleOn, sealedOn, stageOn, takeSwitchRemount } from "@/lib/faro/samplemode";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
 import "@/lib/manual/back";
@@ -338,7 +338,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const wakeTimer = useRef(0);
   // Awake log / dismissals belong to the mode this provider mounted in (sample keys are namespaced;
   // this also stops a timer from one mode writing after the switch, before the tree remounts).
-  const wakeMode = useRef(sampleOn());
+  const wakeMode = useRef(dataMode());
   const wakeQuiet = useRef<boolean | null>(null); // first wake after a mode switch is not logged
   if (wakeQuiet.current === null) wakeQuiet.current = takeSwitchRemount();
   const dayRef = useRef("");
@@ -667,7 +667,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       let ledger = saved?.ledger ?? createInitial(lang, theme);
       let dirty = saved?.dirty ?? false;
       // Sample mode wears the personal look (theme, language) without ever writing personal books.
-      if (sampleOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}) } };
+      if (sealedOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}) } };
       const seeded = seedLedger(ledger);
       ledger = seeded.ledger;
       if (seeded.added) dirty = true;
@@ -851,7 +851,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const backingUp = useRef(false);
   const runBackup = useCallback(async (force = false) => {
     const led = sessionRef.current?.ledger;
-    if (!led || backingUp.current || sampleOn()) return;
+    if (!led || backingUp.current || sealedOn()) return;
     backingUp.current = true;
     try {
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
@@ -870,7 +870,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const syncNow = useCallback(async () => {
     const current = sessionRef.current;
     if (!current || syncing.current) return;
-    if (!CLOUD_READY || sampleOn()) {
+    if (!CLOUD_READY || sealedOn()) {
       setSync("local");
       return;
     }
@@ -928,7 +928,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         void syncNow();
         void runBackup();
         void (async () => {
-          if (sampleOn()) return;
+          if (sealedOn()) return;
           const handle = await loadHandle();
           const led = sessionRef.current?.ledger;
           if (!handle || !led) return;
@@ -1056,7 +1056,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     window.clearTimeout(wakeTimer.current);
     wakeTimer.current = window.setTimeout(() => {
       const now = liveWake.current;
-      if (!now.ledger || sampleOn() !== wakeMode.current) return;
+      if (!now.ledger || dataMode() !== wakeMode.current) return;
       const goals = readStoredGoals(now.ledger.settings.display, now.ledger.settings.rateE4);
       const before = wakeBase.current;
       const opened = !before || dayChanged || before.key !== now.key;
@@ -1084,7 +1084,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         if (result.log.event !== "sin-cambio" && !quiet) {
           setWakeLog((prev) => {
             const next = [result.log, ...prev].slice(0, 40);
-            try { if (sampleOn() === wakeMode.current) localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
+            try { if (dataMode() === wakeMode.current) localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
             return next;
           });
         }
@@ -1099,7 +1099,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         };
         setWakeLog((prev) => {
           const next = [fail, ...prev].slice(0, 40);
-          try { if (sampleOn() === wakeMode.current) localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
+          try { if (dataMode() === wakeMode.current) localStorage.setItem("faro-awake-log", JSON.stringify(next)); } catch { /* ignore */ }
           return next;
         });
       }
@@ -1118,7 +1118,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const dismissFinding = useCallback((id: string, reason: string) => {
     const next = [...dismissedRef.current.filter((item) => item.id !== id), { id, reason }];
     dismissedRef.current = next;
-    try { if (sampleOn() === wakeMode.current) localStorage.setItem("faro-awake-dismiss", JSON.stringify(next)); } catch { /* ignore */ }
+    try { if (dataMode() === wakeMode.current) localStorage.setItem("faro-awake-dismiss", JSON.stringify(next)); } catch { /* ignore */ }
     setWakeView((cur) => (cur ? { ...cur, findings: cur.findings.filter((item) => !(item.id === id && item.reason === reason)) } : cur));
   }, []);
 
@@ -1306,7 +1306,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     const stamp = todayIso();
     void backupBlob(session.ledger, snapshotDeviceLayer(browserPackStorage(), userId), snapshotDueFile(browserPackStorage())).then((bytes) => {
       const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
-      download(`Faro_${sampleOn() ? "Ejemplo" : "Backup"}_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
+      download(`Faro_${sampleOn() ? "Ejemplo" : stageOn() ? "Escenario" : "Backup"}_${stamp}.json${gz ? ".gz" : ""}`, bytes, gz ? "application/gzip" : "application/json");
     });
   }
 
@@ -1547,7 +1547,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       {children}
       {confirmState ? (
         <div className={`ask-back${confirmState.center ? " is-center" : ""}`} role="presentation" onMouseDown={() => setConfirm(null)}>
-          <div className={`ask${confirmState.danger ? " is-danger" : ""}`} role="alertdialog" aria-modal="true" aria-labelledby="faro-confirm-title" aria-describedby="faro-confirm-body" onMouseDown={(e) => e.stopPropagation()}>
+          <div className={`ask${confirmState.danger ? " is-danger" : ""}`} data-anchor="ask-dialog" role="alertdialog" aria-modal="true" aria-labelledby="faro-confirm-title" aria-describedby="faro-confirm-body" onMouseDown={(e) => e.stopPropagation()}>
             <i className="ask-glow" aria-hidden />
             <span className="ask-seal" aria-hidden>
               {confirmState.danger ? (
@@ -1585,9 +1585,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
               </>
             ) : null}
             <div className="ask-actions">
-              <button type="button" className="ask-btn is-quiet" onClick={() => setConfirm(null)}>{confirmState.no ?? t("cancel")}</button>
+              <button type="button" className="ask-btn is-quiet" data-anchor="ask-no" onClick={() => setConfirm(null)}>{confirmState.no ?? t("cancel")}</button>
               <button
                 type="button"
+                data-anchor="ask-yes"
                 autoFocus={!confirmState.typeText}
                 disabled={!!confirmState.typeText && confirmTyped !== confirmState.typeText}
                 className={`ask-btn ${confirmState.danger ? "is-danger" : "is-go"}`}

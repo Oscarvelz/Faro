@@ -32,7 +32,7 @@ import { preferOweTab } from "./debts";
 import { inAndroidApp, native } from "@/spa/native";
 import { lastUser } from "@/spa/cloud";
 import { lockCredential } from "@/spa/lock";
-import { personalGet, personalSet, sampleOn } from "@/lib/faro/samplemode";
+import { personalGet, personalSet, sampleOn, sealedOn, stageOn } from "@/lib/faro/samplemode";
 import { packKeyOf, packLedgerOk } from "@/lib/faro/packguard";
 import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
@@ -111,6 +111,7 @@ export default function WidgetHost() {
     if (!n?.setWidgetData) return;
     const push = () => {
       const { ledger: l, lang: lg } = live.current;
+      if (stageOn()) return; // El escenario de la presentación jamás se fotografía ni empuja foto alguna.
       if (sampleOn()) {
         // 1.3.237: con el ejemplo en pantalla, la foto se calcula del libro REAL guardado —
         // el mismo pack que el proveedor lee al arrancar en modo real — y se empuja igual.
@@ -206,7 +207,7 @@ export default function WidgetHost() {
       return entries;
     };
     const drain = () => {
-      if (sampleOn()) return;
+      if (sealedOn()) return;
       try {
         if (n.peekQuickEntries && n.ackQuickEntries) {
           // Entrega en dos fases (1.3.234): se mira la cola SIN vaciarla, se archiva en el

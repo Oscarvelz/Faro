@@ -474,7 +474,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     <div className="fit-host">
     <div className="form-block is-fit" data-kind={kind}>
       <div className="fit-fields">
-        <label className="label fit-f is-wide" data-f="concept">
+        <label className="label fit-f is-wide" data-f="concept" data-anchor="line-concept">
           {head(t("concept"), "f-concepto")}
           {lookHere && kind !== "subscription" && kind !== "purchase" ? (
             <span className="fit-concept-row" onClick={(e) => { if ((e.target as Element).closest(".fit-pick-btn")) e.preventDefault(); }}>
@@ -484,7 +484,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           ) : <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />}
           {scan}
         </label>
-        <label className="label fit-f is-num" data-f="amount">
+        <label className="label fit-f is-num" data-f="amount" data-anchor="line-amount">
           {head(t("amount"), "f-monto")}
           <input className="field num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} onFocus={() => focusAmount((n) => setAmount(n.toFixed(2)))} />
         </label>
@@ -622,7 +622,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       {err ? <p className="bad text-sm fit-err">{err}</p> : null}
       <div className="fit-actions">
         <button type="button" className="btn secondary" onClick={() => { if (!dirty) { onClose(); return; } confirm({ title: t("entry.leave"), body: concept.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onClose }); }}>{t("cancel")}</button>
-        <button type="button" className="btn" onClick={() => { if (!dirty) { save(); return; } confirm({ title: t("entry.save"), body: concept.trim() || t("entry.this"), yes: t("entry.save.yes"), run: save }); }}>{t("save")}</button>
+        <button type="button" className="btn" data-anchor="line-save" onClick={() => { if (!dirty) { save(); return; } confirm({ title: t("entry.save"), body: concept.trim() || t("entry.this"), yes: t("entry.save.yes"), run: save }); }}>{t("save")}</button>
       </div>
     </div>
     </div>
@@ -796,12 +796,12 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
   return (
     <section className={`card where-sheet${mode === "in" ? " is-in" : " is-out"}`}>
       <h2 className="serif text-xl">{mode === "in" ? t("desk.addIn") : t("desk.addOut")}</h2>
-      {groups.map((group) => {
+      {groups.map((group, gi) => {
         const shown = group.items.length ? group.items : [{ id: "", label: t("add"), color: group.tone }];
         const on = open === group.id;
         return (
           <div key={group.id} className={`where-fold${on ? " is-open" : ""}`}>
-            <button type="button" className="where-head" aria-expanded={on} onClick={() => setOpen(on ? null : group.id)}>
+            <button type="button" className="where-head" data-anchor={gi === 0 ? "quick-fold" : undefined} aria-expanded={on} onClick={() => setOpen(on ? null : group.id)}>
               <i className="where-mark" style={{ background: group.tone }} />
               <span className="min-w-0">
                 <strong>{group.title}</strong>
@@ -811,11 +811,12 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
             </button>
             <div className="where-list">
               <div className="where-clip">
-                {shown.map((item) => (
+                {shown.map((item, ii) => (
                   <button
                     key={item.id || group.id}
                     type="button"
                     className="where-item"
+                    data-anchor={gi === 0 && ii === 0 ? "quick-house" : undefined}
                     onClick={() => setPick({ kind: group.kind, categoryId: item.id, title: item.id ? item.label : group.title })}
                   >
                     <i style={{ background: item.color }} />

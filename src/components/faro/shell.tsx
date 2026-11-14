@@ -35,7 +35,7 @@ import { DebtBook, DebtScale, debtHello, preferOweTab, type DebtSide } from "./d
 import { markRing, ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import { cardFigures, cardsOf } from "@/lib/faro/cards";
-import type { VaultTab } from "@/lib/manual/places";
+import { screenPatch, type VaultTab } from "@/lib/manual/places";
 import { ExportPanel } from "./export-panel";
 import { Mark, SectionIcon } from "./icons";
 import { Instruments } from "./instruments";
@@ -53,6 +53,8 @@ import { BankDock } from "./bank-dock";
 import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
 import { LockOffer } from "@/spa/lockoffer";
+import { Presentacion, PresOffer, launchScene } from "./presentacion";
+import { moduleById, pick, scenePlace, searchScenes } from "@/lib/faro/guion";
 
 mountCpCity(); // 1.3.201: the Cyberpunk city layers (display:none outside that theme)
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
@@ -200,6 +202,34 @@ export function Shell() {
     () => (manualData ? searchSettings(manualData.MANUAL_TOPICS, ui.query, lang) : []),
     [manualData, ui.query, lang],
   );
+  // Las presentaciones también se encuentran desde la lupa: cada escena trae dos
+  // aterrizajes — verla en la presentación o ir directo a la función, en tus libros.
+  const sceneHits = useMemo(
+    () => (ui.query.trim().length >= 2 ? searchScenes(ui.query) : []),
+    [ui.query],
+  );
+  const renderSceneHits = () => sceneHits.map((hit) => {
+    const mod = moduleById(hit.moduleId);
+    if (!mod) return null;
+    return (
+      <div key={`pres-${hit.moduleId}-${hit.sceneId}`} className="hit pres-hit">
+        <strong>{pick(hit.caption, lang)}</strong>
+        <span className="block text-sm text-muted">{pick(hit.moduleTitle, lang)}</span>
+        <span className="pres-hit-acts">
+          <button type="button" className="pres-hit-see" onClick={() => {
+            setSearchOpen(false);
+            setUi({ query: "" });
+            launchScene(hit.moduleId, hit.sceneId);
+          }}>{lang === "en" ? "See it in the presentation" : "Ver en la presentación"}</button>
+          <button type="button" className="pres-hit-go" onClick={() => {
+            setSearchOpen(false);
+            const { patch } = screenPatch({ screen: scenePlace(mod, hit.sceneId) });
+            setUi({ ...patch, query: "" });
+          }}>{lang === "en" ? "Go to the function" : "Ir a la función"}</button>
+        </span>
+      </div>
+    );
+  });
   const renderSettingHits = () => settingHits.map((hit) => (
     <button key={`aj-${hit.id}`} type="button" className="hit" onClick={() => {
       setSearchOpen(false);
@@ -988,10 +1018,10 @@ export function Shell() {
                   {floatOn && !split ? <PictureInPicture2 className="size-4" /> : wide && split && splitAxis === "col" ? <Columns2 className="size-4" /> : <Rows2 className="size-4" />}
                 </button>
                 {viewOpen ? (
-                  <div className="view-menu" role="menu" aria-label={t("view.title")}>
+                  <div className="view-menu" role="menu" aria-label={t("view.title")} data-anchor="view-menu">
                     <p className="view-menu-kicker">{t("view.title")}</p>
                     <div className="view-menu-row">
-                      <button type="button" role="menuitemradio" aria-checked={!split} onClick={() => { setSplit(false); setViewOpen(false); }}>
+                      <button type="button" role="menuitemradio" data-anchor="view-one" aria-checked={!split} onClick={() => { setSplit(false); setViewOpen(false); }}>
                         <i className="view-glyph is-one" aria-hidden><b /></i>
                         <span>{t("split.one")}</span>
                       </button>
@@ -1001,7 +1031,7 @@ export function Shell() {
                           <span>{t("view.cols")}</span>
                         </button>
                       ) : null}
-                      <button type="button" role="menuitemradio" aria-checked={split && (!wide || splitAxis === "row")} onClick={() => { const fresh = !split; setSplitAxis("row"); if (fresh) openLower(); setSplit(true); setViewOpen(false); }}>
+                      <button type="button" role="menuitemradio" data-anchor="view-rows" aria-checked={split && (!wide || splitAxis === "row")} onClick={() => { const fresh = !split; setSplitAxis("row"); if (fresh) openLower(); setSplit(true); setViewOpen(false); }}>
                         <i className="view-glyph is-row" aria-hidden><b /><b /></i>
                         <span>{t("view.rows")}</span>
                       </button>
@@ -1182,7 +1212,7 @@ export function Shell() {
                 </div>
                 {ui.query.trim().length >= 2 ? (
                   <div className="hits" role="listbox">
-                    {hits.length === 0 && settingHits.length === 0 && (manualData || manualGaveUp) ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
+                    {hits.length === 0 && settingHits.length === 0 && sceneHits.length === 0 && (manualData || manualGaveUp) ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
                     {/* 1.3.142 order inside Ajustes: settings first, books under their own header. From anywhere
                         else (1.3.148) the books lead as they always did and the settings follow under theirs. */}
                     {inSettings ? (
@@ -1191,12 +1221,16 @@ export function Shell() {
                         {renderSettingHits()}
                         {settingHits.length && hits.length ? <p className="hit-group">{lang === "en" ? "In your books" : "En tus libros"}</p> : null}
                         {renderBookHits()}
+                        {sceneHits.length ? <p className="hit-group">{lang === "en" ? "In the presentation" : "En la presentación"}</p> : null}
+                        {renderSceneHits()}
                       </>
                     ) : (
                       <>
                         {renderBookHits()}
                         {settingHits.length ? <p className="hit-group">{lang === "en" ? "In Settings" : "En Ajustes"}</p> : null}
                         {renderSettingHits()}
+                        {sceneHits.length ? <p className="hit-group">{lang === "en" ? "In the presentation" : "En la presentación"}</p> : null}
+                        {renderSceneHits()}
                       </>
                     )}
                   </div>
@@ -1419,6 +1453,8 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
     {inAndroidApp() ? <Suspense fallback={null}><DocInbox /></Suspense> : null}
     {inAndroidApp() ? <WidgetHost /> : null}
     <LockOffer />
+    <Presentacion />
+    <PresOffer />
     </>
   );
 }
@@ -1436,7 +1472,7 @@ function ToolSheet({ contained = false }: { contained?: boolean }) {
           </span>
           <span className="brand-word">Faro</span>
         </div>
-        <button type="button" className="tool-close" aria-label={t("close")} title={t("close")} onClick={() => setUi({ instruments: false, calcOpen: false })}><X /></button>
+        <button type="button" className="tool-close" data-anchor="fx-close" aria-label={t("close")} title={t("close")} onClick={() => setUi({ instruments: false, calcOpen: false })}><X /></button>
       </div>
       <div className="tool-sheet-body">
         <Instruments contained={contained} />
@@ -1458,11 +1494,11 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
   return (
     <nav className="dock" data-anchor="nav-dock" style={{ ["--dock" as string]: hub === "books" ? 1 : hub === "folios" ? 2 : hub === "study" ? 3 : 0 }} aria-label={t("nav.desk")}>
       <i className="dock-glide" aria-hidden><i key={hub} className="dock-sheen" /></i>
-      <button type="button" className="nav-btn" aria-current={hub === "desk" ? "page" : undefined} onClick={() => { if (hub !== "desk") onSection("desk"); }}>
+      <button type="button" className="nav-btn" data-anchor="nav-desk" aria-current={hub === "desk" ? "page" : undefined} onClick={() => { if (hub !== "desk") onSection("desk"); }}>
         <SectionIcon id="desk" />
         <span>{t("nav.desk")}</span>
       </button>
-      <button type="button" className="nav-btn" aria-current={hub === "books" ? "page" : undefined} onClick={() => { if (hub !== "books") onSection("income"); }}>
+      <button type="button" className="nav-btn" data-anchor="nav-books" aria-current={hub === "books" ? "page" : undefined} onClick={() => { if (hub !== "books") onSection("income"); }}>
         <SectionIcon id="books" />
         <span>{t("hub.books")}</span>
       </button>
@@ -1470,7 +1506,7 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
         <SectionIcon id="archivo" />
         <span>{t("nav.folios")}</span>
       </button>
-      <button type="button" className="nav-btn" aria-current={hub === "study" ? "page" : undefined} onClick={() => { if (hub !== "study") onSection("stats"); }}>
+      <button type="button" className="nav-btn" data-anchor="nav-study" aria-current={hub === "study" ? "page" : undefined} onClick={() => { if (hub !== "study") onSection("stats"); }}>
         <SectionIcon id="stats" />
         <span>{t("hub.study")}</span>
       </button>

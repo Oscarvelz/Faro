@@ -536,7 +536,7 @@ export function StatFold({ id, children }: { id: string; children: ReactNode }) 
         <button type="button" className="fold-pin" aria-label={ctx.pinLabel} aria-pressed={on} onClick={() => ctx.pin(id)}>
           <Pin />
         </button>
-        <button type="button" className="fold-chev" aria-label={ctx.foldLabel} aria-expanded={open} onClick={() => ctx.toggle(id)}>
+        <button type="button" className="fold-chev" data-anchor={`chev-${id}`} aria-label={ctx.foldLabel} aria-expanded={open} onClick={() => ctx.toggle(id)}>
           <ChevronDown />
         </button>
       </div>

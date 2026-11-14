@@ -96,6 +96,7 @@ export function ToTop({ lang }: { lang: string }) {
   return (
     <button
       type="button"
+      data-anchor="to-top"
       className={`to-top${show ? " is-on" : ""}`}
       style={{ right: `calc(${pos.right}px + env(safe-area-inset-right, 0px))`, bottom: `max(${pos.bottom}px, calc(16px + env(safe-area-inset-bottom, 0px)))`, zIndex: pos.z }}
       aria-label={lang === "en" ? "Back to top" : "Volver arriba"}

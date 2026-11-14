@@ -187,13 +187,13 @@ function Manual({ data }: { data: ManualData }) {
   return (
     <div className="mn-layer" ref={scroller} role="dialog" aria-modal="true" aria-label={t("manual.title")} data-entry={want} lang={lang}>
       <div className="mn-top">
-        <button type="button" className="mn-back" onClick={goBack}>
+        <button type="button" className="mn-back" data-anchor="mn-back" onClick={goBack}>
           <ChevronLeft aria-hidden />
           {findOn ? <span className="sr-only">{backLabel}</span> : <span className="mn-back-text">{backLabel}</span>}
           <kbd className="mn-esc" aria-hidden>Esc</kbd>
         </button>
         {findOn ? (
-          <div className="search-pill mn-find" role="search">
+          <div className="search-pill mn-find" role="search" data-anchor="mn-find">
             <Search className="size-4" aria-hidden />
             <input
               ref={findRef}
@@ -207,14 +207,14 @@ function Manual({ data }: { data: ManualData }) {
             <button type="button" className="mn-find-x" aria-label={t("manual.clear")} onClick={shutFind}><X aria-hidden /></button>
           </div>
         ) : (
-          <button type="button" className="icon-btn mn-find-btn" aria-label={t("manual.searchLabel")} onClick={() => setFindOn(true)}>
+          <button type="button" className="icon-btn mn-find-btn" data-anchor="mn-findbtn" aria-label={t("manual.searchLabel")} onClick={() => setFindOn(true)}>
             <Search className="size-4" aria-hidden />
           </button>
         )}
       </div>
 
       {searching ? (
-        <section className="mn-results" aria-live="polite">
+        <section className="mn-results" aria-live="polite" data-anchor="mn-results">
           <p className="mn-count">{results.length === 0 ? t("manual.none") : results.length === 1 ? t("manual.result") : t("manual.results").replace("{n}", String(results.length))}</p>
           {results.length === 0 ? (
             <p className="mn-empty"><SearchX aria-hidden /><span>{t("manual.try")}</span></p>
@@ -242,12 +242,12 @@ function Manual({ data }: { data: ManualData }) {
       ) : null}
 
       <div className={`mn-body${searching ? " is-hidden" : ""}`}>
-        <header className="mn-cover">
+        <header className="mn-cover" data-anchor="mn-cover">
           <p className="mn-kicker"><Mark className="mn-mark" bold /><span>Faro · {t("manual.title")}</span></p>
           <h1 className="mn-cover-title">{t("manual.cover")}</h1>
           <p className="mn-cover-sub">{t("manual.coverSub")}</p>
           <div className="mn-cover-row">
-            <button type="button" className="mn-btn" onClick={() => jump("@az")}><ListOrdered aria-hidden /><span>{t("manual.az")}</span></button>
+            <button type="button" className="mn-btn" data-anchor="mn-azbtn" onClick={() => jump("@az")}><ListOrdered aria-hidden /><span>{t("manual.az")}</span></button>
             <span className="mn-cover-count">{t("manual.chapters").replace("{c}", String(MANUAL_CHAPTERS.length)).replace("{t}", String(MANUAL_TOPICS.length))}</span>
           </div>
         </header>
@@ -289,7 +289,7 @@ function Manual({ data }: { data: ManualData }) {
                     {ch.topics.map((tp0) => {
                       const tp = findTopic(tp0.id)!;
                       return (
-                        <article key={tp.id} id={`mn-${tp.id}`} className={`mn-entry${current?.id === tp.id ? " is-current" : ""}`} data-depth={tp.depth}>
+                        <article key={tp.id} id={`mn-${tp.id}`} className={`mn-entry${current?.id === tp.id ? " is-current" : ""}`} data-depth={tp.depth} data-anchor={current?.id === tp.id ? "mn-current" : undefined}>
                           <h3 className="mn-entry-title"><span className="mn-num">{tp.num}</span><span>{say(tp.title)}</span></h3>
                           <p className="mn-sum">{say(tp.sum)}</p>
                           <dl className="mn-parts">
@@ -335,7 +335,7 @@ function Manual({ data }: { data: ManualData }) {
           })}
         </nav>
 
-        <section id="mn-az" className="mn-az">
+        <section id="mn-az" className="mn-az" data-anchor="mn-az">
           <h2 className="mn-toc-title"><ListOrdered aria-hidden /><span>{t("manual.az")}</span></h2>
           <p className="mn-az-note">{t("manual.azNote")}</p>
           <div className="mn-az-cols">

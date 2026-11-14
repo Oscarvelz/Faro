@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, Calculator, CircleHelp } from "lucide-react";
+import { ArrowRight, Calculator, CircleHelp, Presentation } from "lucide-react";
+import { TOPIC_SCENES } from "@/lib/faro/guion";
+import { stageOn } from "@/lib/faro/samplemode";
+import { launchScene } from "./presentacion";
 import { useLayer } from "@/lib/manual/back";
 import { isHere } from "@/lib/manual/places";
 import { loadManual, manualNow, type ManualData } from "@/lib/manual/load";
@@ -25,6 +28,7 @@ export function Hint({
   topic,
   alt = false,
   calc,
+  anchor,
   className = "",
   label,
   avoid,
@@ -37,6 +41,8 @@ export function Hint({
   topic: string;
   alt?: boolean;
   calc?: () => void;
+  /** Ancla viva opcional para las presentaciones (una sola instancia la lleva). */
+  anchor?: string;
   className?: string;
   label?: string;
   /** "<container> <target>": hide this (?) while it would touch that element (tight layouts, large text). */
@@ -268,6 +274,7 @@ export function Hint({
         ref={btn}
         type="button"
         className="ftip-btn"
+        data-anchor={anchor}
         aria-label={label ?? t("hint.label")}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -285,25 +292,31 @@ export function Hint({
       </button>
       {open && entry && data
         ? createPortal(
-            <span ref={pop} className="ftip-pop hint-pop" role="dialog" aria-label={data.pick(lang, entry.title)} data-hint={topic} onPointerDown={(e) => e.stopPropagation()}>
+            <span ref={pop} className="ftip-pop hint-pop" role="dialog" aria-label={data.pick(lang, entry.title)} data-hint={topic} data-anchor="hint-bubble" onPointerDown={(e) => e.stopPropagation()}>
               <span className="hint-scroll">
               <span className="hint-text">{richText(data.bubbleText(entry, lang, alt), data, onLink, { self: entry.id, here: (go) => isHere(go, root.ui), still })}</span>
-              {calc || entry.depth === "manual" ? (
+              {(() => { const pres = TOPIC_SCENES[entry.id] ?? (entry.moreId ? TOPIC_SCENES[entry.moreId] : undefined); return calc || entry.depth === "manual" || pres ? (
                 <span className="hint-acts">
                   {calc ? (
-                    <button type="button" className="hint-act" onClick={(e) => { e.stopPropagation(); setOpen(false); calc(); }}>
+                    <button type="button" className="hint-act" data-anchor="hint-calc" onClick={(e) => { e.stopPropagation(); setOpen(false); calc(); }}>
                       <Calculator aria-hidden />
                       <span>{t("manual.calc")}</span>
                     </button>
                   ) : null}
                   {entry.depth === "manual" ? (
-                    <button type="button" className="hint-more" onClick={(e) => { e.stopPropagation(); setOpen(false); root.openManual(entry.moreId ?? entry.id); }}>
+                    <button type="button" className="hint-more" data-anchor="hint-more" onClick={(e) => { e.stopPropagation(); setOpen(false); root.openManual(entry.moreId ?? entry.id); }}>
                       <span>{t("manual.more")}</span>
                       <ArrowRight aria-hidden />
                     </button>
                   ) : null}
+                  {pres ? (
+                    <button type="button" className="hint-act" data-anchor="hint-pres" onClick={(e) => { e.stopPropagation(); setOpen(false); if (!stageOn()) launchScene(pres.moduleId, pres.sceneId); }}>
+                      <Presentation aria-hidden />
+                      <span>{lang === "en" ? "See it in the presentation" : "Ver en la presentación"}</span>
+                    </button>
+                  ) : null}
                 </span>
-              ) : null}
+              ) : null; })()}
               </span>
             </span>,
             document.body,

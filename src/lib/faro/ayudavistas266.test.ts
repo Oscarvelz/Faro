@@ -28,7 +28,7 @@ const read = (rel: string) => fs.readFileSync(path.join(root, rel), "utf8");
 const tsx = read("components/faro/historial.tsx");
 const i18n = read("lib/faro/i18n.ts");
 
-const PILL = '<button type="button" className={`btn secondary hist-tool-btn${viewsOpen ? " is-on" : ""}`} aria-expanded={viewsOpen} onClick={() => setViewsOpen((on) => !on)}>{t("hist.views")}</button>';
+const PILL = '<button type="button" className={`btn secondary hist-tool-btn${viewsOpen ? " is-on" : ""}`} data-anchor="hist-views-btn" aria-expanded={viewsOpen} onClick={() => setViewsOpen((on) => !on)}>{t("hist.views")}</button>';
 
 describe("la ayuda de Vistas guardadas: el (?) de la casa, junto a la pastilla", () => {
   it("la pastilla queda intacta y el (?) vive inmediatamente después, dentro de la fila de herramientas", () => {

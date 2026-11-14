@@ -78,7 +78,7 @@ export type RowSel = {
   onTap: (m: Movement) => void;
 };
 
-export function StreamRow({ m, state, sel }: { m: Movement; state: LedgerState; sel?: RowSel }) {
+export function StreamRow({ m, state, sel, anchor }: { m: Movement; state: LedgerState; sel?: RowSel; anchor?: string }) {
   const { names, lang, t } = useFaro();
   const structure = state.structure;
   const cat = structure.categories.find((c) => c.id === m.categoryId);
@@ -107,6 +107,7 @@ export function StreamRow({ m, state, sel }: { m: Movement; state: LedgerState; 
   return (
     <div
       className={`hist-row is-${m.kind}${sel?.marked ? " is-selected" : ""}`}
+      data-anchor={anchor}
       data-line-id={m.lineId}
       {...(sel ? sel.bind(m.lineId) : {})}
       onClick={sel ? () => { if (!sel.consumeClick()) sel.onTap(m); } : undefined}
@@ -415,10 +416,10 @@ export function HistorialScreen() {
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t("hist.search")} aria-label={t("hist.search")} />
             {text ? <button type="button" className="hist-x" aria-label={t("hist.clearFilters")} onClick={() => setText("")}><X className="size-4" /></button> : null}
           </label>
-          <button type="button" className={`btn secondary hist-tool-btn${filtersOpen ? " is-on" : ""}`} aria-expanded={filtersOpen} onClick={() => setFiltersOpen((on) => !on)}>
+          <button type="button" className={`btn secondary hist-tool-btn${filtersOpen ? " is-on" : ""}`} data-anchor="hist-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((on) => !on)}>
             <SlidersHorizontal className="size-4" aria-hidden />{t("hist.filters")}{chips.length ? <b className="hist-tool-n">{chips.length}</b> : null}
           </button>
-          <button type="button" className={`btn secondary hist-tool-btn${viewsOpen ? " is-on" : ""}`} aria-expanded={viewsOpen} onClick={() => setViewsOpen((on) => !on)}>{t("hist.views")}</button>
+          <button type="button" className={`btn secondary hist-tool-btn${viewsOpen ? " is-on" : ""}`} data-anchor="hist-views-btn" aria-expanded={viewsOpen} onClick={() => setViewsOpen((on) => !on)}>{t("hist.views")}</button>
           <Hint topic="folios-filtros" alt />
         </div>
         {chips.length ? (
@@ -437,7 +438,7 @@ export function HistorialScreen() {
                 <button type="button" className="hist-x" aria-label={v.name} onClick={() => saveViews(views.filter((x) => x.name !== v.name))}><X className="size-4" /></button>
               </span>
             )) : <p className="hist-panel-note">{t("hist.views.empty")}</p>}
-            <div className="hist-view-save">
+            <div className="hist-view-save" data-anchor="hist-view-save">
               <input className="field" value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder={t("hist.views.name")} aria-label={t("hist.views.name")} />
               <button type="button" className="btn" disabled={!viewName.trim()} onClick={() => {
                 const name = viewName.trim();
@@ -449,7 +450,7 @@ export function HistorialScreen() {
           </div>
         ) : null}
         {filtersOpen ? (
-          <div className="hist-panel">
+          <div className="hist-panel" data-anchor="hist-panel">
             <div className="hist-frow">
               <span className="hist-flab">{t("hist.f.direction")}</span>
               <div className="chips">
@@ -528,14 +529,15 @@ export function HistorialScreen() {
 
       {days.length ? (
         <div className="hist-days">
-          {days.slice(0, shownDays).map((d) => (
+          {days.slice(0, shownDays).map((d, di) => (
             <section key={d.date} className="hist-day">
               <h3 className="hist-day-head">{dayLabel(lang, d.date)}</h3>
-              {d.moves.map((m) => (
+              {d.moves.map((m, mi) => (
                 <StreamRow
                   key={m.lineId}
                   m={m}
                   state={state}
+                  anchor={di === 0 && mi === 0 ? "hist-row" : undefined}
                   sel={{ mode: selection.mode, marked: selection.sel.has(m.lineId), bind: lp.bind, consumeClick: lp.consumeClick, onTap: rowTap }}
                 />
               ))}

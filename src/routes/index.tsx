@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { FaroProvider } from "@/components/faro/provider";
+import { useSampleEpoch } from "@/components/faro/sample-mode";
 import { Shell } from "@/components/faro/shell";
 import { Mark } from "@/components/faro/icons";
 import { authClient } from "@/lib/auth/client";
@@ -22,6 +23,7 @@ function Boot() {
 }
 
 function Home() {
+  const epoch = useSampleEpoch();
   const [mounted, setMounted] = useState(false);
   const [waited, setWaited] = useState(false);
   const { user, isPending } = useCurrentUserState();
@@ -41,7 +43,7 @@ function Home() {
   if ((!mounted || isPending) && !waited) return <Boot />;
   if (!user) return <Navigate to="/login" />;
   return (
-    <FaroProvider userId={user.id}>
+    <FaroProvider key={epoch} userId={user.id}>
       <Shell />
     </FaroProvider>
   );

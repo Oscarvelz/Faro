@@ -128,7 +128,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
     <div className="tool-stack" ref={box}>
       <section className={`card tool-card rate-plate${fxOpen ? "" : " is-shut"}`} data-anchor="tools-rate">
         <div className="tool-title">
-          <div role="button" tabIndex={0} className="fx-fold" aria-expanded={fxOpen} onClick={() => setFxOpen((open) => !open)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFxOpen((open) => !open); } }}>
+          <div role="button" tabIndex={0} className="fx-fold" data-anchor="fx-fold" aria-expanded={fxOpen} onClick={() => setFxOpen((open) => !open)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFxOpen((open) => !open); } }}>
             <span className="serif text-xl lab-head">{t("rate.label")}<Hint topic="tasa" /></span>
             {fxOpen ? null : <em className="fx-brief num">C${formatRate(settings.rateE4)}</em>}
             <ChevronDown className={fxOpen ? "fold-chev is-open" : "fold-chev"} />
@@ -145,7 +145,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
             </div>
             <p className="rate-note">{t("rate.note")}</p>
             <div className="rate-edit">
-              <input className="field num" inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} aria-label={t("rate.manual")} />
+              <input className="field num" data-anchor="fx-rate-in" inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} aria-label={t("rate.manual")} />
               <button type="button" className="btn secondary" onClick={() => saveRate(rateText)}>{t("rate.manual")}</button>
             </div>
             <div className="rate-actions">
@@ -153,6 +153,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
               <button
                 type="button"
                 className="btn"
+                data-anchor="fx-view"
                 aria-pressed={settings.display === "USD"}
                 onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, display: s.settings.display === "NIO" ? "USD" : "NIO" } }), "Vista de moneda")}
               >
@@ -180,6 +181,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
             <span className="cv-cur"><b>{from === "USD" ? "US$" : "C$"}</b><small>{from === "USD" ? (lang === "en" ? "Dollars" : "Dólares") : (lang === "en" ? "Córdobas" : "Córdobas")}</small></span>
             <input
               className="cv-in num"
+              data-anchor="fx-in"
               inputMode="decimal"
               enterKeyHint="done"
               value={text}
@@ -192,16 +194,16 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
               }}
             />
           </label>
-          <button type="button" className="cv-swap" aria-label={t("convert.swap")} onClick={() => { touched.current = true; setFrom(to); }}>
+          <button type="button" className="cv-swap" data-anchor="fx-swap" aria-label={t("convert.swap")} onClick={() => { touched.current = true; setFrom(to); }}>
             <ArrowUpDown className="size-4" />
           </button>
           <div className={`cv-row is-to cur-${to}`} aria-live="polite">
             <span className="cv-cur"><b>{to === "USD" ? "US$" : "C$"}</b><small>{to === "USD" ? (lang === "en" ? "Dollars" : "Dólares") : "Córdobas"}</small></span>
-            <strong className="cv-out num">{converted === null ? "—" : formatMoney(converted, to, lang).replace(/^-?(US)?C?\$/, (m) => (m.startsWith("-") ? "-" : ""))}</strong>
+            <strong className="cv-out num" data-anchor="fx-out">{converted === null ? "—" : formatMoney(converted, to, lang).replace(/^-?(US)?C?\$/, (m) => (m.startsWith("-") ? "-" : ""))}</strong>
           </div>
         </div>
         <p className="cv-rate num">1 US$ = C${formatRate(settings.rateE4)}</p>
-        <div className="cv-chips" role="group" aria-label={lang === "en" ? "Quick amounts" : "Montos rápidos"}>
+        <div className="cv-chips" data-anchor="fx-chips" role="group" aria-label={lang === "en" ? "Quick amounts" : "Montos rápidos"}>
           {(from === "USD" ? prefs.usd : prefs.nio).map((v) => (
             <button key={v} type="button" aria-pressed={text === v} onClick={() => { touched.current = true; setText(v); }}>
               {Number(v).toLocaleString(lang === "en" ? "en-US" : "es-NI")}
@@ -209,8 +211,8 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           ))}
         </div>
         <div className="cv-actions">
-          <button type="button" className="btn secondary cv-send-open" data-test="cv-send-open" aria-expanded={sendOn} onClick={() => setSendOn((v) => !v)} disabled={converted === null || !minor}><Send aria-hidden className="size-4" />{lang === "en" ? "Send to" : "Enviar a"}</button>
-          <button type="button" className="btn cv-use" onClick={useConverted} disabled={converted === null}>{t("convert.use")}</button>
+          <button type="button" className="btn secondary cv-send-open" data-anchor="fx-send" data-test="cv-send-open" aria-expanded={sendOn} onClick={() => setSendOn((v) => !v)} disabled={converted === null || !minor}><Send aria-hidden className="size-4" />{lang === "en" ? "Send to" : "Enviar a"}</button>
+          <button type="button" className="btn cv-use" data-anchor="fx-use" onClick={useConverted} disabled={converted === null}>{t("convert.use")}</button>
         </div>
         {sendOn && converted !== null && minor ? <SendPanel fromMinor={minor} from={from} toMinor={converted} to={to} onDone={() => setSendOn(false)} /> : null}
       </section>
@@ -654,6 +656,7 @@ function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose, onSend }: {
   const node = (
     <section
       ref={panel}
+      data-anchor="fx-calc"
       className={`calc2${host ? " is-in" : ""}${big ? " is-big" : ""}`}
       style={style}
       role="dialog"

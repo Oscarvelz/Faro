@@ -4,6 +4,7 @@ import type { AreaId } from "@/lib/faro/area-advice";
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
 import { ActivityLog, Note } from "./finish";
 import { SampleRow } from "./sample-mode";
+import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
@@ -522,7 +523,7 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
       }}
     />
   ) : (
-    <button type="button" className="vault-year-btn" onClick={() => setYearDraft(String(years))}>{yearLabel}</button>
+    <button type="button" className="vault-year-btn" data-anchor="lever-years" onClick={() => setYearDraft(String(years))}>{yearLabel}</button>
   );
   const keys = (e: { key: string }) => {
     if (e.key === "ArrowUp" || e.key === "ArrowRight") keep(usdMinor + 500);
@@ -556,8 +557,8 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
   }, []);
   return (
     <div data-anchor="lever" className={`vault-lever${open ? " is-open" : ""}`} style={{ ["--seg" as string]: tone, ["--p" as string]: `${(usdMinor / maxUsd) * 100}%` }}>
-      {open ? <button type="button" className="fold-pin" aria-label={t("study.pin")} aria-pressed={pinned} onClick={togglePin}><Pin /></button> : null}
-      <button type="button" className="fold-chev" aria-label={t("study.fold")} aria-expanded={open} onClick={toggleOpen}><ChevronDown /></button>
+      {open ? <button type="button" className="fold-pin" data-anchor="lever-pin" aria-label={t("study.pin")} aria-pressed={pinned} onClick={togglePin}><Pin /></button> : null}
+      <button type="button" className="fold-chev" data-anchor="lever-open" aria-label={t("study.fold")} aria-expanded={open} onClick={toggleOpen}><ChevronDown /></button>
       {open ? (
         <>
           <div
@@ -899,7 +900,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
         <h2 className="serif text-2xl lab-head">{title}<Hint topic="libro-categoria" fitParent /></h2>
         <span className="row">
           {ui.draft === draftKind && !ui.editing ? (
-            <button type="button" className="copper-coin" aria-label={money === "USD" ? "USD" : "NIO"} onClick={() => setMoney((cur) => (cur === "USD" ? "NIO" : "USD"))}>
+            <button type="button" className="copper-coin" data-anchor="book-coin" aria-label={money === "USD" ? "USD" : "NIO"} onClick={() => setMoney((cur) => (cur === "USD" ? "NIO" : "USD"))}>
               {money === "USD" ? "$" : "C$"}
             </button>
           ) : null}
@@ -964,7 +965,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
       {chipRows.length === 0 ? <Note>{t("empty.lines")}</Note> : null}
       {asBubble ? (
         <>
-          <div className="spend-cloud">
+          <div className="spend-cloud" data-anchor="book-cloud">
             {[...chipRows].sort((a, b) => b.amountMinor - a.amountMinor).map((line) => {
               const share = line.amountMinor / Math.max(chipRows.reduce((sum, item) => sum + item.amountMinor, 0), 1);
               const label = line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId) || "";
@@ -2790,7 +2791,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         </div>
       </div>
       {quick ? (
-        <div ref={quickRef} className="sheet-swap" data-mode={quick}>
+        <div ref={quickRef} className="sheet-swap" data-mode={quick} data-anchor="quick-window">
           <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={(how) => { if (lens === "all" && how !== "back") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
           {/* 1.3.108: phone Back restores the card that was active before (none stays none); only a finished entry still lights its card. */}
           {/* 1.3.108: the panel says hello in its own colour (teal +, orange −), once per opening; see styles.css "quick-hello". */}
@@ -2865,6 +2866,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 key={s.id}
                 type="button"
                 className={`save-seg${on ? " is-on" : ""}`}
+                data-anchor={i === 0 ? "desk-pocket" : undefined}
                 style={{ ["--seg" as string]: tint }}
                 aria-pressed={on}
                 aria-expanded={openSave === s.id}
@@ -2938,7 +2940,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               return (
                   <div key={line.id} className={`save-account pocket-row${line.active ? "" : " is-muted"}`}>
                     <span className="bank-tools">
-                      <button type="button" className="bank-grip" aria-label={t("save.move")} aria-pressed={moving === line.id} onClick={() => { setMoving(moving === line.id ? null : line.id); setEditId(null); setAdding(false); }}>
+                      <button type="button" className="bank-grip" data-anchor="vault-grip" aria-label={t("save.move")} aria-pressed={moving === line.id} onClick={() => { setMoving(moving === line.id ? null : line.id); setEditId(null); setAdding(false); }}>
                         <GripVertical />
                       </button>
                     </span>
@@ -3174,7 +3176,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                         </button>
                       )}
                     </span>
-                    <button type="button" className="bank-sum num" onClick={() => {
+                    <button type="button" className="bank-sum num" data-anchor="vault-figure" onClick={() => {
                       setAccountFocus((cur) => {
                         if (cur === row.id) return null;
                         setAccountAmt("");
@@ -4382,8 +4384,8 @@ export function Advisor() {
               </ul>
               <p className="advice-tried"><em>{preset === "base" ? reading.scenarios[0]?.label : preset === "repeat" ? reading.scenarios[1]?.label : reading.scenarios[2]?.label}</em><strong className="num">{fmt(tried)}</strong></p>
               <div className="advice-acts">
-                <button type="button" className="btn secondary" onClick={apply}>{t("advice.apply")}</button>
-                <button type="button" className="btn secondary advice-copy" onClick={() => { void copyPlan(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
+                <button type="button" className="btn secondary" data-anchor="advice-apply" onClick={apply}>{t("advice.apply")}</button>
+                <button type="button" className="btn secondary advice-copy" data-anchor="advice-copy" onClick={() => { void copyPlan(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
                 <Hint topic="copiar-plan" alt={planStale} />
               </div>
               {applied ? <p className="advice-aside">{t("advice.applied")} {applied}</p> : null}
@@ -4733,6 +4735,7 @@ export function Settings() {
           <ChevronRight aria-hidden />
         </button>
       </section>
+      <PresentacionesCard />
       {androidBrowser() ? (
         <section className="card manual-card" data-anchor="aj-android" data-topic-box="app-android">
           <button type="button" className="manual-row fold-btn" onClick={() => confirm({
@@ -4770,7 +4773,7 @@ export function Settings() {
         <AccountLocalNote />
       </Fold>
       </div>
-      <p className="app-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>
+      <p className="app-version" data-anchor="aj-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>
     </>
   );
 }
@@ -5058,7 +5061,7 @@ function StructureTree() {
         return (
         <div key={group}>
           <div className="tree-kicker tree-kick-row">
-            <button type="button" className="tree-group-btn" aria-expanded={groupOpen} onClick={() => {
+            <button type="button" className="tree-group-btn" data-anchor={group === "fixed" ? "est-group" : undefined} aria-expanded={groupOpen} onClick={() => {
               // 1.3.179: plegar el grupo desmontaría la tarjeta abierta que vive en él —
               // primero manda su salida (si levanta el aviso, el grupo no se pliega).
               // 1.3.223: el pliegue del grupo viaja en el `after` de la salida — el
@@ -5096,7 +5099,7 @@ function StructureTree() {
               const catPinned = (session?.ledger.settings.widgetPins ?? []).some((p) => p.c === cat.id);
               return (
                 <div key={cat.id} data-row className={[cat.hidden ? "is-muted" : "", dragClass ?? ""].join(" ").trim() || undefined} style={dragStyle}>
-                  <button type="button" className="tree-row" aria-expanded={open}
+                  <button type="button" className="tree-row" data-anchor={group === "fixed" && rowIndex === 0 ? "est-cat" : undefined} aria-expanded={open}
                     onContextMenu={(e) => e.preventDefault()}
                     onPointerDown={(e) => onRowPointerDown(e, cat, group, rowIndex, rows.length)}
                     onPointerMove={onRowPointerMove}
@@ -5727,7 +5730,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     const effHidden = stagedVis[sub.id] ?? sub.hidden;
     const structure = session?.ledger.structure;
     return (
-      <div key={sub.id} className={"sub-card" + (subIsOpen(sub) ? " is-open" : "") + (effHidden ? " is-muted" : "")} onClick={(e) => {
+      <div key={sub.id} data-anchor={sub.id === cat.subs[0]?.id ? "est-sub" : undefined} className={"sub-card" + (subIsOpen(sub) ? " is-open" : "") + (effHidden ? " is-muted" : "")} onClick={(e) => {
         if (editSub === sub.id) return;
         // 1.3.269: the pin mark (.sub-pinmark) is a sign, not a button — its tap is inert
         // here, like the membership sign's in the Catalog door (1.3.230). Until this wave
@@ -5756,7 +5759,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
                 o guardado), junto al nombre, sin tocar la geometría de la tarjeta. */}
             {toolsForSub !== sub.id && effPin(sub.id) ? <Pin size={12} className="sub-pinmark" fill="currentColor" aria-hidden /> : null}
             {toolsForSub === sub.id ? (
-              <span className="sub-tools">
+              <span className="sub-tools" data-anchor={sub.id === cat.subs[0]?.id ? "est-hand" : undefined}>
                 {/* The hand — the Catalog's cluster and order: pen · palette · eye · trash. */}
                 <button type="button" className="icon-btn" aria-label={t("rename")} onClick={() => { setEditSub(sub.id); setSubEdit(stagedNames[sub.id] ?? displayName(sub, lang)); }}><Pencil className="size-4" /></button>
                 <button type="button" className="icon-btn" aria-label={t("color")} aria-pressed={subColorId === sub.id} onClick={() => setSubColorId(subColorId === sub.id ? null : sub.id)}><Palette className="size-4" /></button>
@@ -5824,7 +5827,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     );
   });
   return (
-    <div className="tree-open" ref={rootRef}>
+    <div className="tree-open" data-anchor="est-panel" ref={rootRef}>
       <div className={effCatHidden ? "row is-muted" : "row"}>
         {/* 1.3.188 (R-6): el nombre ya no tiene ✓ — ese botón era un segundo gesto
             de guardado con commit propio, y la tarjeta queda con UNO solo:
@@ -5876,7 +5879,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       {/* 1.3.145: no bin for the category itself (Oscar: the name-and-colour editor has immunity —
           a category is not deleted as if it were a subcategory; only subcategories carry a bin). */}
       {/* The grid: cards built by the helpers above — the Catalog's system, whole. */}
-      <div className="sub-grid" ref={subGridRef} style={{ "--cols": subCols } as CSSProperties}>{subCells}</div>
+      <div className="sub-grid" data-anchor="est-grid" ref={subGridRef} style={{ "--cols": subCols } as CSSProperties}>{subCells}</div>
       <div className="ah-form sc-form is-treesub">
         <div className="ah-grid">
           <label className="label is-wide">
@@ -5886,7 +5889,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
         </div>
         <div className="ah-actions">
           <button type="button" className="btn secondary" onClick={cancelPanel}>{t("cancel")}</button>
-          <button type="button" className="btn" disabled={!hasStaged} onClick={savePanel}>{t("save")}</button>
+          <button type="button" className="btn" data-anchor="est-save" disabled={!hasStaged} onClick={savePanel}>{t("save")}</button>
         </div>
       </div>
     </div>
@@ -6481,14 +6484,14 @@ function CatalogEditor() {
       }
     }
     return (
-      <div key={g.kind} className="cat-group">
+      <div key={g.kind} className="cat-group" data-anchor={g.kind === "ins" ? "est-seguro" : undefined}>
         <div className="cat-group-head"><span>{g.label}</span><i aria-hidden /></div>
         <div className="cat-grid" style={{ "--cols": cols } as CSSProperties}>{cells}</div>
       </div>
     );
   };
   return (
-    <div className="mt-2" ref={rootRef}>
+    <div className="mt-2" data-anchor="est-catalog" ref={rootRef}>
       {/* La línea del gesto, en el registro del aviso del árbol (tree-hint): lo que
           no se anuncia no existe para un usuario frío — el arrastre se dice una vez,
           aquí, donde las tarjetas viven (1.3.251). */}

@@ -217,7 +217,7 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
       </div>
 
       {months !== null && missing > 0 ? (
-        <div className="s2-whatif">
+        <div className="s2-whatif" data-anchor="whatif">
           <p className="s2-whatif-q"><span className="lab-head">{L(lang, "¿Y si apartara cada mes…?", "What if I saved each month…?")}<Hint topic="y-si-apartara" avoid=".s2-whatif" /></span></p>
           <div className="s2-whatif-amt num serif">{fmt(per)}</div>
           <input type="range" min={step} max={top} step={step} value={per} onChange={(e) => setPer(Number(e.target.value))} aria-label={L(lang, "Ahorro al mes", "Monthly saving")} style={{ ["--p" as string]: `${((per - step) / Math.max(1, top - step)) * 100}%` }} />
@@ -398,7 +398,7 @@ export function KeyNumbers({ items }: { items: Insight[] }) {
           const cap = CAPTION[i.id];
           const pct = i.viz && (i.viz.kind === "share" || i.viz.kind === "ring") ? i.viz.pct : null;
           return (
-            <li key={i.id} data-anchor={`kn-${i.id}`} className={`kn-row tone-${i.tone}`} style={{ ["--n" as string]: String(n) }}>
+            <li key={i.id} data-anchor={n === 0 ? "kn-first" : `kn-${i.id}`} className={`kn-row tone-${i.tone}`} style={{ ["--n" as string]: String(n) }}>
               <Viz item={i} />
               <div className="kn-text">
                 <span className="kn-title">{i.title}</span>
