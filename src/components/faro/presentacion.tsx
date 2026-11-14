@@ -376,10 +376,42 @@ export function Presentacion() {
    * actual no tiene SU medida, la tarjeta permanece invisible — jamás
    * aparece primero en un sitio provisional para viajar después. */
   const [rectFor, setRectFor] = useState<{ s: number; t: number } | null>(null);
+  /* …pero la invisibilidad es SOLO del nacimiento (invariante de la flota,
+   * 2026-11-14): una vez que la tarjeta nació en su sitio, permanece VIVA
+   * mientras la lección sigue su camino — un ancla muerta cuesta su espera
+   * con la tarjeta presente en su último hogar y su pie en pantalla, jamás
+   * con la lección invisible durante segundos. Cada corrida renace: el
+   * arranque limpia el hogar y la tarjeta vuelve a nacer donde va a vivir. */
+  const [born, setBorn] = useState(false);
+  const homeRef = useRef<React.CSSProperties | null>(null);
+  /* La altura real de la tarjeta, medida en su nodo: la colocación se
+   * acota con ella para que la tarjeta jamás quede cortada por ningún
+   * borde — con un foco alto y ancho (la lista de «Me deben»), la fórmula
+   * de «arriba» la dejaba fuera de pantalla por arriba. */
+  const [cardH, setCardH] = useState(0);
   const [shaking, setShaking] = useState(0);
   const [theater, setTheater] = useState(false);
   const [wHide, setWHide] = useState(false);
   const seededRef = useRef<Set<string>>(new Set());
+  /* El escenario previo, garantizado (caza de la flota, 2026-11-14): entrar
+   * a un módulo por una escena intermedia — la ficha «Sigue donde ibas», un
+   * aterrizaje de la lupa o del Manual, un salto de capítulos — siembra
+   * ANTES todas las semillas de las escenas anteriores, en su orden: la
+   * ficción que las escenas siguientes enseñan existe antes de actuar, y
+   * sus anclas no mueren por un arranque a mitad. Las recetas son
+   * idempotentes y seededRef manda: lo ya sembrado no se repite jamás. */
+  const sowPrefix = (m: Module, upTo: number) => {
+    for (let s = 0; s < upTo && s < m.scenes.length; s++) {
+      m.scenes[s].steps.forEach((st, p) => {
+        if (st.kind !== "seed") return;
+        const key = `${m.id}:${s}:${p}`;
+        if (seededRef.current.has(key)) return;
+        seededRef.current.add(key);
+        const sow = STAGE_SEEDS[st.seed];
+        if (sow) api.commit(sow, lang === "en" ? "Presentation stage" : "Escenario de la presentación");
+      });
+    }
+  };
   const runRef = useRef<RunState | null>(null);
   runRef.current = run;
   const timers = useRef<number[]>([]);
@@ -419,6 +451,9 @@ export function Presentacion() {
       : 0;
     // La ficha primera se marca desde el arranque mismo.
     writeState({ ...prefs, lastModule: mod.id });
+    // La tarjeta de esta corrida aún no nació: su primer compás se mide.
+    homeRef.current = null;
+    setBorn(false);
     // El escenario amanece en Central, como la app misma.
     const { patch } = screenPatch({ screen: "desk" });
     setUi({ ...patch });
@@ -550,6 +585,11 @@ export function Presentacion() {
     if (!run || !scene || !step || run.finished || run.chaptersOpen || run.speedOpen || run.stayAsk || run.exitAsk || run.manualTrip) return;
     const r = run;
     let cancelled = false;
+    // El escenario previo se garantiza AQUÍ, al actuar, en cada entrada —
+    // arranque, reanudación, aterrizaje o salto: las semillas de las escenas
+    // anteriores a la actual se siembran antes de su primer paso, en el
+    // mismo momento seguro en que las siembra el flujo normal.
+    sowPrefix(r.mod, r.sceneIdx);
     const speed = r.speed;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -749,10 +789,24 @@ export function Presentacion() {
   // con SU ancho real — con las constantes viejas de 340 se salía hasta 18px por la
   // derecha cuando el foco vivía a la derecha (visto por Oscar en foto, 2026-11-13).
   const cardW = window.innerWidth >= 1024 ? 550 : Math.min(370, window.innerWidth - 20);
+  /* Con la altura medida, la colocación es un «top» acotado a la pantalla:
+   * el sitio deseado (bajo el foco, o sobre él) se comprime hasta caber —
+   * el aire se comprime, la tarjeta nunca se corta. Sin medida aún (el
+   * primer pintado), rigen las fórmulas de siempre. */
   const cardStyle: React.CSSProperties = hole ? {
     left: Math.min(Math.max(10, hole.left + hole.width / 2 - cardW / 2), window.innerWidth - cardW - 10),
-    ...(cardBelow ? { top: hole.top + hole.height + 14 } : { bottom: window.innerHeight - hole.top + 14 }),
+    ...(cardH > 0
+      ? { top: Math.max(10, Math.min(cardBelow ? hole.top + hole.height + 14 : hole.top - 14 - cardH, window.innerHeight - cardH - 10)) }
+      : cardBelow ? { top: hole.top + hole.height + 14 } : { bottom: window.innerHeight - hole.top + 14 }),
   } : { left: "50%", top: "38%", transform: "translateX(-50%)" };
+
+  /* El nacimiento de la tarjeta: la primera vez que un compás tiene SU
+   * medida, ese estilo queda guardado como su hogar y la tarjeta ya nació —
+   * desde ahí, ningún compás pendiente la vuelve invisible. Es un ajuste en
+   * fase de render, a propósito: tras los retornos tempranos de arriba no
+   * puede vivir ningún hook (su orden cambiaría entre renders). */
+  if (cardHome && hole) { homeRef.current = cardStyle; if (!born) setBorn(true); }
+  const cardPos = !cardHome && born && homeRef.current ? homeRef.current : cardStyle;
 
   const jumpToScene = (idx: number) => {
     clearTimers();
@@ -834,7 +888,7 @@ export function Presentacion() {
           </div>
         </div>
       ) : caption ? (
-        <div key={shaking} className={`pres-card${shaking ? " is-shake" : ""}`} style={{ ...cardStyle, opacity: cardHome ? 1 : 0, visibility: cardHome ? "visible" : "hidden" }} aria-live="polite">
+        <div key={shaking} ref={(node) => { if (node) { const h = node.getBoundingClientRect().height; if (h > 0 && Math.abs(h - cardH) > 1) setCardH(h); } }} className={`pres-card${shaking ? " is-shake" : ""}`} style={{ ...cardPos, opacity: cardHome || born ? 1 : 0, visibility: cardHome || born ? "visible" : "hidden" }} aria-live="polite">
           {contexto ? <div className="pres-contexto" role="note">{contexto}</div> : null}
           <div className="pres-toprow">
             <p className="pres-kicker">

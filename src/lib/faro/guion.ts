@@ -451,7 +451,8 @@ const ANOTAR: Module = {
       { kind: "type", anchor: "line-amount", text: ["900", "900.00"], caption: ["Luego el monto: novecientos, sin símbolos ni comas.", "Then the amount: nine hundred, no symbols or commas."] },
     ] },
     { id: "m3-moneda", chapter: "escribir", anchors: ["book-coin"], keys: [["moneda", "currency"], ["córdobas", "cordobas"]], steps: [
-      { kind: "show", anchor: "book-coin", caption: ["La moneda dorada alterna C$ y $: anotas sin reescribir.", "The golden coin flips C$ and $: write without rewriting."] },
+      { kind: "do", anchor: "book-coin", caption: ["La moneda dorada alterna C$ y $: anotas sin reescribir.", "The golden coin flips C$ and $: write without rewriting."] },
+      { kind: "tap", anchor: "book-coin" },
     ] },
     { id: "m3-guardar", chapter: "escribir", anchors: ["line-save"], keys: [["guardar", "save"]], steps: [
       { kind: "do", anchor: "line-save", caption: ["Al guardar, Faro confirma antes de asentar lo nuevo.", "On saving, Faro confirms before settling anything new."] },
@@ -535,7 +536,7 @@ const CAMBIO: Module = {
       { kind: "show", anchor: "fx-rate-in", caption: ["¿Otra tasa? Escríbela aquí y guarda: manda la tuya.", "A different rate? Write it here and save: yours rules."] },
     ] },
     { id: "m4-vista", chapter: "tasa", anchors: ["fx-view"], keys: [["ver en dólares", "view in dollars"]], steps: [
-      { kind: "show", anchor: "fx-view", caption: ["«Ver en dólares» viste toda la app de dólares, al instante.", "“View in dollars” dresses the whole app in dollars, instantly."] },
+      { kind: "do", anchor: "fx-view", caption: ["«Ver en dólares» viste toda la app de dólares, al instante.", "“View in dollars” dresses the whole app in dollars, instantly."] },
     ] },
     { id: "m4-plegar", chapter: "tasa", anchors: ["fx-fold"], keys: [["plegar", "fold"]], steps: [
       { kind: "do", anchor: "fx-fold", caption: ["El título pliega la placa; la tasa queda en una línea.", "The title folds the plate; the rate stays on one line."] },
@@ -701,7 +702,7 @@ const AHORROS: Module = {
       { kind: "do", anchor: "lever-open", caption: ["Ábrela y aparece el riel con sus marcas de tiempo.", "Open it and the rail appears, with its time marks."] },
     ] },
     { id: "m6-anos", chapter: "palanca", anchors: ["lever-years"], keys: [["años", "years"]], steps: [
-      { kind: "show", anchor: "lever-years", caption: ["Los años se tocan y se editan: la foto cambia contigo.", "The years can be tapped and edited: the photo changes with you."] },
+      { kind: "do", anchor: "lever-years", caption: ["Los años se tocan y se editan: la foto cambia contigo.", "The years can be tapped and edited: the photo changes with you."] },
     ] },
     { id: "m6-pin", chapter: "palanca", anchors: ["lever-pin"], keys: [["pin", "pin"], ["fijar", "pin"]], steps: [
       { kind: "show", anchor: "lever-pin", caption: ["El pin la deja abierta entre visitas; sin pin, nace plegada.", "The pin keeps it open between visits; unpinned, it starts folded."] },
@@ -789,13 +790,13 @@ const ASESOR: Module = {
       { kind: "show", anchor: "advice-basis", caption: ["Cada lectura declara su base: qué meses está mirando.", "Every reading declares its basis: which months it's looking at."] },
     ] },
     { id: "m8-torre", chapter: "torre", anchors: ["advice-tower"], keys: [["la torre", "the tower"]], steps: [
-      { kind: "show", anchor: "advice-tower", caption: ["La torre del mes se abre por partes: toca y despliega.", "The month's tower opens in parts: tap and unfold."] },
+      { kind: "do", anchor: "advice-tower", caption: ["La torre del mes se abre por partes: toca y despliega.", "The month's tower opens in parts: tap and unfold."] },
     ] },
     { id: "m8-fichas", chapter: "torre", anchors: ["advice-tiles"], keys: [["las fichas", "the tiles"]], steps: [
       { kind: "show", anchor: "advice-tiles", caption: ["Las fichas ponen la lectura en números: lo esencial del mes, sin prosa.", "The tiles put the reading into numbers: the month's essentials, no prose."] },
     ] },
     { id: "m8-desplegar", chapter: "torre", anchors: ["advice-unfold"], keys: [["desplegar", "unfold all"]], steps: [
-      { kind: "show", anchor: "advice-unfold", caption: ["«Desplegar» abre todas las tarjetas de una sola vez.", "“Unfold” opens every card in one go."] },
+      { kind: "do", anchor: "advice-unfold", caption: ["«Desplegar» abre todas las tarjetas de una sola vez.", "“Unfold” opens every card in one go."] },
     ] },
     { id: "m8-pilares", chapter: "torre", anchors: ["coach-pillars"], keys: [["pilares", "pillars"]], steps: [
       { kind: "show", anchor: "coach-pillars", caption: ["Los pilares separan lo que está firme de lo frágil.", "The pillars separate what is firm from what is fragile."] },
