@@ -122,7 +122,7 @@ describe("fijas extendidas del catálogo (1.3.251)", () => {
     assert.ok(widgets.includes("\"qsOut\"") && widgets.includes("optString(\"store\")"), "el shell lee las piezas de la foto");
     assert.match(quick, /private fun storeMark\(\): Drawable/, "la marca de clase de la pieza se dibuja en código");
     assert.match(quick, /if \(kind == 2\) storeMark\(\) else null/, "la tiendita cuelga del inicio de la fila de pieza");
-    assert.match(quick, /if \(!home\?\.store\.isNullOrEmpty\(\)\) entry\.put\("store", home\.store\)/,
+    assert.match(quick, /if \(storeId\.isNotEmpty\(\)\) entry\.put\("store", storeId\)/,
       "la pieza viaja solo si la casa elegida es una");
     assert.match(quick, /fun homeKey\(home: QHome\): String/, "la última casa se recuerda también por pieza");
     // El anuncio de Oscar (foto 234813): una línea, letra menor, su frase corta.

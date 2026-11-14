@@ -750,7 +750,8 @@ class QuickAddActivity : Activity() {
                 // 1.3.251: la pieza viaja SOLO si la casa elegida es una — una página
                 // vieja la ignora y el apunte cae como el sin categoría de siempre;
                 // la nueva lo archiva como la compra de esa tienda o esa IA.
-                if (!home?.store.isNullOrEmpty()) entry.put("store", home.store)
+                val storeId = home?.store ?: ""
+                if (storeId.isNotEmpty()) entry.put("store", storeId)
                 if (concept.isNotEmpty()) entry.put("concept", concept)
                 QuickAdd.enqueue(this@QuickAddActivity, entry)
                 QuickAdd.rememberCur(this@QuickAddActivity, sign, cur)
