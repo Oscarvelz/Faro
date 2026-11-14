@@ -5081,7 +5081,7 @@ function StructureTree() {
                     onPointerUp={onRowPointerUp}
                     onPointerCancel={onRowPointerUp}
                     onLostPointerCapture={onRowPointerUp}
-                    onClick={() => {
+                    onClick={(e) => {
                       if (swallowClickRef.current) { swallowClickRef.current = false; return; }
                       // 1.3.179: cerrar la tarjeta (esta fila) o saltar a otra pasa por la
                       // salida de la tarjeta abierta — con trabajo sin aplicar manda su aviso.
@@ -5091,7 +5091,11 @@ function StructureTree() {
                       // tras su confirmación si hay trabajo sin aplicar), como la
                       // navegación del dock desde la 1.3.182; ya no depende de que
                       // el plegado sea síncrono.
-                      if (openId !== null) { const exit = panelExitRef.current; if (exit) { exit(false, () => setOpenId(cat.id)); return; } }
+                      // 1.3.261: el salto entrega además SU fila (la tocada) como
+                      // ancla — el plegado la mantiene quieta en pantalla
+                      // (startAnchorReturn); el aviso, si lo hay, sigue mandando
+                      // primero: el ancla solo se lee cuando el pliegue corre.
+                      if (openId !== null) { const exit = panelExitRef.current; if (exit) { exit(false, () => setOpenId(cat.id), e.currentTarget); return; } }
                       setOpenId(cat.id);
                     }}>
                     <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} />
@@ -5344,6 +5348,66 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     scrollAnimRef.current = window.requestAnimationFrame(step);
     return landed;
   };
+  // 1.3.261 (pedido de Oscar): el SALTO a otra categoría era el movimiento
+  // duro que quedaba. La tarjeta abierta se pliega animada desde la 1.3.223,
+  // pero la fila que él toca vive DEBAJO de la tarjeta: al caer esta, la fila
+  // vuela hacia arriba toda la altura del panel (en su teléfono, más que la
+  // pantalla entera) y aterriza donde el pliegue la deja, sin que nadie
+  // acompañe el desplazamiento — dos mareas seguidas, la suya y la de la
+  // tarjeta nueva que empuja al abrir. El retorno de Cancelar (1.3.225) ya
+  // resolvió este mismo problema para la fila PROPIA; el salto lo resuelve
+  // para la fila DESTINO con el mismo idioma: mientras la tarjeta cae, el
+  // desplazamiento de la caja cede en cada fotograma exactamente lo que el
+  // pliegue ya cedió (la altura se lee viva — la curva que manda es la del
+  // propio pliegue), de modo que la fila tocada ni sube ni baja: el mundo se
+  // desliza una sola vez y la tarjeta nueva crece bajo su dedo. Si la fila
+  // destino vive POR ENCIMA de la tarjeta, el pliegue no la mueve y su salto
+  // ya nace quieto: no hay acompañamiento. Su dedo manda, como en el
+  // retorno: un toque o una rueda lo cancela todo, acompañamiento y settle;
+  // al desmontar, el settle reafirma el sitio de la fila contra la
+  // restauración de scroll del navegador, con su segundo pase a los 90ms.
+  const startAnchorReturn = (panel: HTMLElement, anchor: HTMLElement): { settle: () => void; disarm: () => void } | null => {
+    if (!(panel.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING)) return null;
+    let box: HTMLElement | null = anchor.parentElement;
+    while (box) {
+      const style = getComputedStyle(box);
+      if (/(auto|scroll)/.test(style.overflowY) && box.scrollHeight > box.clientHeight + 8) break;
+      box = box.parentElement;
+    }
+    const getY = () => (box ? box.scrollTop : window.scrollY);
+    const setY = (y: number) => { if (box) box.scrollTop = y; else window.scrollTo(0, y); };
+    const maxY = () => Math.max(0, box ? box.scrollHeight - box.clientHeight : document.documentElement.scrollHeight - window.innerHeight);
+    const inBoxTop = () => { const r = anchor.getBoundingClientRect(); const vt = box ? box.getBoundingClientRect().top : 0; return r.top - vt; };
+    const heldTop = inBoxTop();
+    const startY = getY();
+    const hStart = panel.getBoundingClientRect().height;
+    if (startY <= 0) return null; // sin desplazamiento que ceder, la fila sube con el pliegue como siempre — nada que acompañar
+    anchorLiveRef.current = true;
+    const stop = () => {
+      anchorLiveRef.current = false;
+      if (anchorAnimRef.current !== null) { window.cancelAnimationFrame(anchorAnimRef.current); anchorAnimRef.current = null; }
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("wheel", stop);
+    };
+    window.addEventListener("touchstart", stop, { passive: true });
+    window.addEventListener("wheel", stop, { passive: true });
+    const disarm = () => { window.removeEventListener("touchstart", stop); window.removeEventListener("wheel", stop); };
+    const tick = () => {
+      if (!anchorLiveRef.current) return;
+      if (!panel.isConnected) { anchorAnimRef.current = null; return; }
+      const fallen = hStart - panel.getBoundingClientRect().height;
+      const want = Math.max(0, Math.min(startY - fallen, maxY()));
+      if (Math.abs(getY() - want) > 0.5) setY(want);
+      anchorAnimRef.current = window.requestAnimationFrame(tick);
+    };
+    anchorAnimRef.current = window.requestAnimationFrame(tick);
+    const settle = () => {
+      if (!anchorLiveRef.current || !anchor.isConnected) return;
+      const to = Math.max(0, Math.min(getY() + (inBoxTop() - heldTop), maxY()));
+      if (Math.abs(getY() - to) > 1) setY(to);
+    };
+    return { settle, disarm };
+  };
   // 1.3.223 (pedido de Oscar): el plegado de la tarjeta ya no es un corte seco —
   // finish() pliega con la curva de la casa (la altura medida cae a 0 y el
   // contenido se funde, .3s) y SOLO al final desmonta; con movimiento reducido
@@ -5351,7 +5415,11 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   const closingRef = useRef(false);
   const closeTimerRef = useRef<number | null>(null);
   const scrollAnimRef = useRef<number | null>(null);
-  useEffect(() => () => { if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current); if (scrollAnimRef.current !== null) window.cancelAnimationFrame(scrollAnimRef.current); }, []);
+  // 1.3.261: el acompañamiento del salto (startAnchorReturn) — su fotograma
+  // en curso y su guarda de vida, hermanos de los del retorno de la 1.3.225.
+  const anchorAnimRef = useRef<number | null>(null);
+  const anchorLiveRef = useRef(false);
+  useEffect(() => () => { if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current); if (scrollAnimRef.current !== null) window.cancelAnimationFrame(scrollAnimRef.current); if (anchorAnimRef.current !== null) window.cancelAnimationFrame(anchorAnimRef.current); anchorLiveRef.current = false; }, []);
   const openAnimRef = useRef<Animation | null>(null);
   // 1.3.223: la apertura despliega con la misma gracia — la tarjeta nace plegada
   // y crece hasta su altura natural con la curva de la casa, vía WAAPI: en un
@@ -5388,7 +5456,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // (el dock, el pliegue de la sección): viaja AL FINAL de finish() — corre
   // cuando la tarjeta ya plegó, sea limpia o tras su confirmación (sucia); si
   // rechaza el aviso, finish nunca corre y la navegación tampoco.
-  const exitPanel = (reveal: boolean, after?: () => void): boolean => {
+  const exitPanel = (reveal: boolean, after?: () => void, anchor?: HTMLElement | null): boolean => {
     if (closingRef.current) return false;
     const done = () => { onClose(); if (reveal) revealRow(); if (after) after(); };
     const finish = (): boolean => {
@@ -5408,7 +5476,10 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       // (startReturn) — si corre, al desmontar ya no hay revealRow: la fila
       // quedó en su sitio, y el settle defiende ese sitio de la restauración
       // de scroll que trae la devolución de la entrada de historial.
-      const ret = reveal ? startReturn(el) : null;
+      // 1.3.261: el salto a otra categoría trae su propio retorno
+      // (startAnchorReturn) anclado en la fila destino — el mismo asiento
+      // en el temporizador: su settle defiende el sitio de ESA fila.
+      const ret = reveal ? startReturn(el) : anchor ? startAnchorReturn(el, anchor) : null;
       closeTimerRef.current = window.setTimeout(() => {
         onClose();
         if (reveal && !ret) revealRow();
@@ -5430,7 +5501,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // el pliegue de la sección de Ajustes — que desmontan Ajustes entero. El
   // trampolín llama siempre a la salida viva (exitSelfRef), como el resto.
   useEffect(() => {
-    const trampoline: PanelExit = (reveal, after) => exitSelfRef.current(reveal, after);
+    const trampoline: PanelExit = (reveal, after, anchor) => exitSelfRef.current(reveal, after, anchor);
     setPanelExit(trampoline);
     return () => clearPanelExit(trampoline);
   }, []);

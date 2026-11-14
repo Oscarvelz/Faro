@@ -28,10 +28,17 @@
  * navegación ocurre de verdad, así que un rechazo — que no navega — deja el lugar
  * donde estaba, y una confirmación lo mueve con la navegación misma.
  *
+ * 1.3.261: la salida acepta un tercer dato opcional, `anchor` — la fila que el
+ * dedo tocó al saltar a otra categoría. No cambia el contrato (qué se guarda,
+ * cuándo pregunta, cuándo corre el `after`): solo la coreografía — el plegado
+ * de la tarjeta mantiene esa fila quieta en pantalla mientras cae, con el
+ * mismo idioma del retorno de Cancelar de la 1.3.225. Quien no lo pasa (el
+ * dock, el pliegue de la sección, el Back/Esc) sale exactamente como siempre.
+ *
  * Nada aquí toca React ni el DOM: un registro de una sola función, como la pila
  * de capas de back.ts pero con un solo puesto — hay una sola tarjeta.
  */
-export type PanelExit = (reveal: boolean, after?: () => void) => boolean;
+export type PanelExit = (reveal: boolean, after?: () => void, anchor?: HTMLElement | null) => boolean;
 
 let current: PanelExit | null = null;
 
