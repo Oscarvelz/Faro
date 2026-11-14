@@ -12,6 +12,9 @@
 //  - el único acompañamiento permitido: el filete de Costa y de Océano, que
 //    en reposo ya se teñía de acento, se fortalece hasta var(--accent) —
 //    ningún otro tema gana regla is-now;
+//    (1.3.265: con la barra fundida ese filete es el de la barra entera —
+//    .hist-navrow.is-now — y la cerca del filete se re-fijó ese día, con su
+//    nota; la letra y su regla no se movieron);
 //  - fuera del presente NADA cambia: la regla base de la placa conserva su
 //    var(--fg) y su forma; el folio del panel de totales jamás toma el
 //    tratamiento (ni la clase ni el acento).
@@ -47,17 +50,28 @@ describe("el actual se distingue: la pintura", () => {
   });
 
   it("el filete que ya se teñía (Costa, Océano) casa con la letra; ningún otro tema gana regla is-now", () => {
-    assert.match(temas, /\[data-theme="costa"\] \.hist-period\.is-now \{ border-color: var\(--accent\); \}/);
-    assert.match(temas, /\[data-theme="oceano"\] \.hist-period\.is-now \{ border-color: var\(--accent\); \}/);
-    const rules = temas.match(/\.hist-period\.is-now/g) ?? [];
+    // RE-FIJADO 1.3.265: la ceremonia subió de la placa a la BARRA — el
+    // filete que se enciende es el de .hist-navrow.is-now (el borde entero
+    // de la barra fundida, colgado de la misma onPresent), y la zona del
+    // nombre ya no lleva regla is-now en hist-temas.css. La intención —
+    // solo Costa y Océano acompañan la letra con el filete — queda intacta.
+    assert.match(temas, /\[data-theme="costa"\] \.hist-navrow\.is-now \{ border-color: var\(--accent\); \}/);
+    assert.match(temas, /\[data-theme="oceano"\] \.hist-navrow\.is-now \{ border-color: var\(--accent\); \}/);
+    const rules = temas.match(/\.hist-navrow\.is-now/g) ?? [];
     assert.equal(rules.length, 2, "solo Costa y Océano acompañan con el filete; el resto es letra sola");
+    assert.ok(!temas.includes(".hist-period.is-now"), "la ceremonia ya no vive en la zona: vive en la barra");
   });
 });
 
 describe("el actual se distingue: fuera del presente, nada cambia", () => {
   it("la regla base de la placa conserva su letra de siempre (var(--fg)) y su forma", () => {
     assert.match(css, /\.hist-period \{\s+flex: 1 1 auto; min-width: 0; min-height: 44px;/);
-    assert.match(css, /color: var\(--fg\); background: var\(--surface\); border: 1px solid var\(--line\); border-radius: 999px;/);
+    // RE-FIJADO 1.3.265: la letra de siempre sigue en la zona (var(--fg));
+    // la forma que la cerca original nombraba (superficie, filete,
+    // redondeo) es ahora la de la BARRA que la contiene — superficie y
+    // filete idénticos, radio rectangular de 14px en vez de la pastilla.
+    assert.match(css, /color: var\(--fg\); background: transparent;/);
+    assert.match(css, /\.hist-navrow \{[^}]*background: var\(--surface\); border: 1px solid var\(--line\); border-radius: 14px;/);
   });
 
   it("el folio del panel de totales jamás toma el tratamiento", () => {

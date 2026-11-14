@@ -55,23 +55,53 @@
 @media (prefers-reduced-motion: reduce) {
   .seg.is-follow.hist-lens .seg-pill { transition: none; }
 }
-.hist-navrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-/* El nombre del período lleva casa (Oscar, 2026-11-13): antes flotaba desnudo
-   entre las dos flechas. Ahora vive en una placa con la gramática del panel
-   de totales de abajo (superficie, filete de 1px, redondeo) — el mismo
-   material que los temas ya visten en .hist-totals, con su acabado por tema
-   en hist-temas.css. La placa es BOTÓN (devuelve al presente, historial.tsx)
-   y su letra conserva la tipografía que el nombre siempre tuvo (serif
-   1.15rem, su peso de <strong>). La forma es de pastilla como las flechas
-   circulares que la flanquean y como el .month-cal de la casa; llena el
-   hueco entre ambas (flex: 1) para que el trío se lea como UN solo control,
-   y su altura es la de las flechas (44px): la fila no crece ni un píxel y
-   nada de lo de abajo se mueve. */
+/* La barra fundida (Oscar, 2026-11-14, candidato C del estudio de navegador
+   faro-navstudy: «Este me gustó mucho precisamente porque contrastan»): el
+   trío ‹ placa › deja de ser tres burbujas sueltas — la placa era pastilla
+   de 999px en catorce temas y las flechas círculos perfectos en los
+   dieciocho, gemelos del carril de la lente de arriba — y se funde en UNA
+   barra rectangular: zona ‹ | nombre | zona ›, con divisores de filete
+   entre las zonas. La barra hereda la casa que la placa tenía desde la 255
+   (superficie y filete, con su acabado por tema en hist-temas.css, que
+   migra de .hist-period a .hist-navrow) y su radio es 14px: rectangular,
+   sin volver a la pastilla. overflow: hidden guarda cada pintura de zona
+   dentro de la silueta de la barra. La fila crece solo lo que el marco
+   pesa: 46px — los 44 de toque de siempre más el filete que antes vivía
+   dentro de la placa y ahora ciñe al trío entero. El contraste que Oscar
+   eligió es de gramática: arriba el carril con su pulgar viajero, aquí un
+   control de zonas fijas, abajo el panel-documento de totales. */
+.hist-navrow {
+  display: flex; align-items: stretch; gap: 0; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+}
+/* Las flechas dejan de ser botones circulares sueltos y pasan a ser los
+   extremos de la barra: zonas de 52px, con el blanco de toque de 44px que
+   la barra misma guarda. Conservan su clase — y con ella sus ceremonias de
+   presión: el bloom de brillo.css se vuelve interior para ellas, como en
+   las filas con overflow (su anillo exterior se recortaría contra la
+   barra), y el twitch de Cyberpunk sigue siendo el suyo. Lo que se retira
+   es solo su caja propia: fondo, filete y redondez pasan a ser de la barra.
+   La especificidad (.hist .hist-navrow .icon-btn) gana a la pintura
+   genérica de .icon-btn de los temas (el fondo radial de Tron) sin tocarla
+   fuera de la barra; la tinta del glifo sigue siendo la de cada tema. */
+.hist .hist-navrow .icon-btn {
+  width: 52px; min-width: 52px; height: auto; min-height: 44px;
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+}
+/* El nombre del período es la zona central de la barra. Lleva casa desde la
+   255 (Oscar, 2026-11-13: antes flotaba desnudo entre las dos flechas) y la
+   casa ahora es la barra: la zona conserva su tipografía de siempre (serif
+   1.15rem, su peso de <strong>), su altura de 44px y su toque — la zona
+   entera es el BOTÓN que devuelve al presente (historial.tsx). Sus costados
+   son los divisores de la barra: filete en el color de línea del tema (Tron
+   y Cyberpunk los tiñen en hist-temas.css, como tiñen el resto de la
+   barra). Fondo, filete exterior y redondez ya no son suyos: son de la
+   barra, y por eso aquí van en transparente y en 0. */
 .hist-period {
   flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 20px;
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; letter-spacing: -.02em; text-align: center;
-  color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--fg); background: transparent; border: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); border-radius: 0;
   cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* El actual se distingue (Oscar, 2026-11-14): cuando la placa dice «actual»
@@ -79,10 +109,24 @@
    acento DEL TEMA — cada tema presta su color señal y el «estás aquí» se lee
    distinto del nombre verdadero en los dieciocho temas. La regla es una sola
    porque el color nace de var(--accent), nunca de un hex en el componente;
-   los únicos acabados por tema viven en hist-temas.css (el filete de Costa y
-   Océano, que ya se teñía de acento, se fortalece hasta casar con la letra).
+   los únicos acompañamientos por tema viven en hist-temas.css: el filete de
+   Costa y de Océano, que ya se teñía de acento, se fortalece hasta casar con
+   la letra — y desde la barra fundida (1.3.265) ese filete es el de la BARRA
+   entera (.hist-navrow.is-now, colgada de la misma onPresent), no el de la
+   zona: la ceremonia subió un piso, la letra no se movió.
    Fuera del presente la placa pinta exactamente como siempre: var(--fg). */
 .hist-period.is-now { color: var(--accent); }
+/* El foco dentro de la barra se pinta INTERIOR: un anillo exterior quedaría
+   recortado por el overflow de la barra (y mordido por el corte de
+   Cyberpunk), y un foco recortado es un foco que miente — la lección de la
+   puerta de modalidad de la 1.3.244. Cada zona anuncia su foco dentro de su
+   propio rectángulo, con el acento del tema; Tron presta su cian con la
+   misma geometría interior en hist-temas.css, por encima de su regla
+   exterior general. La puerta sigue mandando: sin [data-fv] no hay anillo
+   de Tron, y en el resto de temas :focus-visible ya nace del teclado. */
+.hist-navrow :is(.hist-period, .icon-btn):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: -2px;
+}
 .hist-range { display: flex; gap: 8px; flex-wrap: wrap; }
 .hist-range-lab { display: grid; gap: 4px; flex: 1 1 130px; color: var(--muted); font-size: .8rem; font-weight: 500; }
 /* El panel de totales viste «El veredicto» (Oscar eligió el candidato B del

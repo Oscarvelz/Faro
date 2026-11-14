@@ -368,7 +368,7 @@ export function HistorialScreen() {
             <label className="hist-range-lab">{t("hist.to")}<input type="date" className="field" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} /></label>
           </div>
         ) : (
-          <div className="hist-navrow">
+          <div className={onPresent ? "hist-navrow is-now" : "hist-navrow"}>
             <button type="button" className="icon-btn" aria-label={t("hist.prev")} onClick={() => shift(-1)}><ChevronLeft /></button>
             {/* El mes con casa (Oscar, 2026-11-13): el nombre del período vive
                 en su placa — la gramática del panel de totales — y la placa
@@ -377,7 +377,13 @@ export function HistorialScreen() {
                 El actual se distingue (Oscar, 2026-11-14): encendida, la placa
                 lleva is-now y su letra viste el acento del tema (historial.css
                 + hist-temas.css); el gancho cuelga de la MISMA onPresent — la
-                pantalla no conoce un segundo presente. */}
+                pantalla no conoce un segundo presente.
+                La barra fundida (Oscar, 2026-11-14, candidato C del estudio
+                de navegador): la fila entera es UNA barra rectangular — zona
+                ‹, nombre, zona › — y la barra hereda el is-now de la misma
+                onPresent, para que la ceremonia del filete encendido de
+                Costa y Océano (263) suba de la placa a la barra entera. La
+                placa sigue llevando su propio is-now: su letra no cambia. */}
             <button type="button" className={onPresent ? "hist-period is-now" : "hist-period"} onClick={goPresent} aria-label={onPresent ? undefined : t("hist.now")}>{plateLabel}</button>
             <button type="button" className="icon-btn" aria-label={t("hist.next")} onClick={() => shift(1)}><ChevronRight /></button>
           </div>

@@ -34,10 +34,16 @@
 /* Costa: las líneas de marea — filetes teñidos de su teal separan los días, y la
    cabecera de totales es la orilla donde se junta la cuenta del agua. */
 [data-theme="costa"] .hist-day { border-color: color-mix(in oklab, var(--accent) 26%, var(--line)); }
-[data-theme="costa"] .hist-totals, [data-theme="costa"] .hist-period { border-color: color-mix(in oklab, var(--accent) 36%, var(--line)); }
-/* El actual (1.3.263): el filete de esta placa ya se teñía de acento en reposo;
-   encendida, se fortalece hasta casar con la letra, que ya viste el acento. */
-[data-theme="costa"] .hist-period.is-now { border-color: var(--accent); }
+[data-theme="costa"] .hist-totals { border-color: color-mix(in oklab, var(--accent) 36%, var(--line)); }
+/* La barra fundida (1.3.265): el tinte de marea que vestía a la placa viste
+   ahora a la barra entera — los selectores que pintaban «.hist-totals,
+   .hist-period» juntos se separaron, y el panel conserva el suyo intacto. */
+[data-theme="costa"] .hist-navrow { border-color: color-mix(in oklab, var(--accent) 36%, var(--line)); }
+/* El actual (1.3.263, y subido a la barra en la 1.3.265): el filete de esta
+   barra ya se tiñe de acento en reposo; encendida, se fortalece hasta casar
+   con la letra, que viste el acento — el borde entero de la barra se
+   enciende, no solo el de la zona del nombre. */
+[data-theme="costa"] .hist-navrow.is-now { border-color: var(--accent); }
 
 /* Marfil: el cuaderno quieto — bordes suaves, filetes casi en voz baja; el único
    drama lo guardan las cifras. */
@@ -121,7 +127,13 @@
   backdrop-filter: blur(10px) saturate(1.25);
   -webkit-backdrop-filter: blur(10px) saturate(1.25);
 }
-[data-theme="ion"] .hist-totals, [data-theme="ion"] .hist-period {
+[data-theme="ion"] .hist-totals {
+  background: color-mix(in oklab, var(--surface) 66%, transparent);
+  border-color: color-mix(in oklab, var(--glow) 45%, var(--line));
+}
+/* La barra fundida (1.3.265): el cristal que vestía a la placa viste a la
+   barra entera, con la misma receta; el panel conserva la suya intacta. */
+[data-theme="ion"] .hist-navrow {
   background: color-mix(in oklab, var(--surface) 66%, transparent);
   border-color: color-mix(in oklab, var(--glow) 45%, var(--line));
 }
@@ -140,7 +152,10 @@
 [data-theme="oled"] .hist-day:is(:active, :focus-within), [data-theme="oled"] .arch-card:is(:active, :focus-within) {
   background: var(--surface); border-color: var(--line);
 }
-[data-theme="oled"] .hist-totals, [data-theme="oled"] .hist-period { background: transparent; }
+[data-theme="oled"] .hist-totals { background: transparent; }
+/* La barra fundida (1.3.265): el vacío alcanza a la barra como alcanzaba a
+   la placa — sin fondo; quedan su filete y sus divisores. */
+[data-theme="oled"] .hist-navrow { background: transparent; }
 
 /* Naturaleza: las placas son marcas de sendero — un anillo redondo en su salvia
    alrededor de cada cara, en el bosque de noche. */
@@ -154,10 +169,14 @@
 [data-theme="oceano"] .hist-days .hist-day:not(:first-child) {
   background: color-mix(in oklab, var(--surface) 66%, var(--bg));
 }
-[data-theme="oceano"] .hist-totals, [data-theme="oceano"] .hist-period { border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
-/* El actual (1.3.263): como en Costa, su filete ya se teñía de acento; encendida
-   la placa, el filete casa con la letra en el acento pleno. */
-[data-theme="oceano"] .hist-period.is-now { border-color: var(--accent); }
+[data-theme="oceano"] .hist-totals { border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
+/* La barra fundida (1.3.265): el anillo del medidor ciñe ahora la barra
+   entera, no solo la placa; el panel conserva el suyo intacto. */
+[data-theme="oceano"] .hist-navrow { border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
+/* El actual (1.3.263, y subido a la barra en la 1.3.265): como en Costa, su
+   filete ya se teñía de acento; encendida la barra, el filete casa con la
+   letra en el acento pleno. */
+[data-theme="oceano"] .hist-navrow.is-now { border-color: var(--accent); }
 
 /* Sunset: el cajón junto a la chimenea — lo que descansa en el Archivo se tiñe
    cálido (surface-2), y la guardia nombrada del brief: el rojo de peligro de la
@@ -189,8 +208,16 @@
 /* Humo: la noche más suave — ninguna esquina afilada en ninguna superficie
    nueva; luz de lámpara baja, los números siempre fuera del humo. */
 [data-theme="humo"] .hist-day, [data-theme="humo"] .arch-card,
-[data-theme="humo"] .hist-totals, [data-theme="humo"] .hist-panel, [data-theme="humo"] .hist-period {
+[data-theme="humo"] .hist-totals, [data-theme="humo"] .hist-panel {
   border-radius: 26px;
+  border-color: color-mix(in oklab, var(--line) 78%, transparent);
+}
+/* La barra fundida (1.3.265): la barra ablanda su esquina a 22px — suave
+   como manda el tema, pero menos que los 26px del panel: sigue siendo un
+   control, no un documento — y hereda el filete ahumado que la placa
+   llevaba en el grupo de arriba. */
+[data-theme="humo"] .hist-navrow {
+  border-radius: 22px;
   border-color: color-mix(in oklab, var(--line) 78%, transparent);
 }
 
@@ -216,9 +243,31 @@
 /* Los paneles: gunmetal brillante con líneas de luz — nunca cajas de neón
    planas. La cabecera de totales es uno de ellos, flotando sobre la Retícula. */
 [data-theme="tron"] .hist-totals, [data-theme="tron"] .hist-day,
-[data-theme="tron"] .arch-card, [data-theme="tron"] .hist-panel, [data-theme="tron"] .hist-period {
+[data-theme="tron"] .arch-card, [data-theme="tron"] .hist-panel {
   background: var(--t-steel);
   border-color: var(--t-edge);
+}
+
+/* La barra fundida (1.3.265): el acero y el filete de luz que vestían a la
+   placa visten la barra entera — una barra de acero con divisores, el mismo
+   --t-edge atenuado que separa sus zonas. El panel de totales conserva su
+   regla intacta (los selectores que los pintaban juntos se separaron). Y el
+   foco de las zonas de la barra se pinta INTERIOR con el cian de la puerta
+   de modalidad (1.3.244): la regla general de tron.css lo dibuja exterior
+   con desplazamiento, y contra el overflow de la barra quedaría recortado
+   — dentro de la barra, el anillo se recoge a su rectángulo sin perder el
+   color ni la ceremonia. */
+[data-theme="tron"] .hist-navrow {
+  background: var(--t-steel);
+  border-color: var(--t-edge);
+}
+[data-theme="tron"] .hist-navrow .hist-period {
+  border-left-color: color-mix(in oklab, var(--t-edge) 70%, transparent);
+  border-right-color: color-mix(in oklab, var(--t-edge) 70%, transparent);
+}
+[data-theme="tron"] .hist-navrow [data-fv]:focus {
+  outline: 2px solid #3fd6f5 !important; outline-offset: -2px;
+  box-shadow: inset 0 0 12px rgba(63, 214, 245, .35);
 }
 
 /* Las placas de procedencia como marcos de luz: el filete de luz del tema
@@ -278,11 +327,8 @@
    resplandor, y ninguna cifra se anima jamás. */
 
 /* La cabecera de totales: esquinas cortadas y corchetes HUD (dibujados como
-   fondos, a la manera de .vault-bar, porque el ::after es del escaneo). La
-   placa del período viste la misma ciudad (corte, corchetes, panel) — pero
-   el escaneo NO la toca: su ::after es la ceremonia del panel de totales al
-   remontarse con la firma de la vista, y la placa nunca se remonta. */
-[data-theme="cyberpunk"] .hist-totals, [data-theme="cyberpunk"] .hist-period {
+   fondos, a la manera de .vault-bar, porque el ::after es del escaneo). */
+[data-theme="cyberpunk"] .hist-totals {
   position: relative; border-radius: 2px; border-color: #57503f;
   clip-path: var(--cp-cut);
   background:
@@ -291,6 +337,27 @@
     linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) right 2px bottom 2px / 9px 1.5px no-repeat,
     linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) right 2px bottom 2px / 1.5px 9px no-repeat,
     var(--cp-panel);
+}
+/* La barra fundida (1.3.265): la ciudad que vestía a la placa se extiende a
+   la barra entera — mismo corte, mismos corchetes, mismo panel — porque la
+   barra ES ahora la placa con sus flechas fundidas dentro. El escaneo NO la
+   toca: su ::after es la ceremonia del panel de totales al remontarse con
+   la firma de la vista, y la barra nunca se remonta con esa firma. Los
+   divisores de sus zonas van teñidos del amarillo primario, atenuados: son
+   estructura de la ciudad, no dato. */
+[data-theme="cyberpunk"] .hist-navrow {
+  position: relative; border-radius: 2px; border-color: #57503f;
+  clip-path: var(--cp-cut);
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) left 2px top 2px / 9px 1.5px no-repeat,
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) left 2px top 2px / 1.5px 9px no-repeat,
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) right 2px bottom 2px / 9px 1.5px no-repeat,
+    linear-gradient(color-mix(in oklab, var(--accent) 78%, transparent), color-mix(in oklab, var(--accent) 78%, transparent)) right 2px bottom 2px / 1.5px 9px no-repeat,
+    var(--cp-panel);
+}
+[data-theme="cyberpunk"] .hist-navrow .hist-period {
+  border-left-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  border-right-color: color-mix(in oklab, var(--accent) 35%, transparent);
 }
 /* El escaneo: el cian aparece una vez, como dato, en ceremonia — un paso
    escalonado por la PISTA DEL BORDE INFERIOR de la cabecera (2px), nunca sobre
