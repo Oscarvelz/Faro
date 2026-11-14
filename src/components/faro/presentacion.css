@@ -17,18 +17,24 @@
     0 18px 44px color-mix(in oklab, var(--accent) 7%, oklab(0% none none / .27));
 }
 .pres-root { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
-/* EL FONDO SE DIFUMINA (ley de flota, 2026-11-14): el velo son los cuatro
- * escudos — difuminan y oscurecen todo MENOS el hueco del foco, que queda
- * nítido píxel a píxel (ningún escudo lo cubre). */
+/* EL FONDO SE OSCURECE Y SE DESATURA — SIN DIFUMINADO (corrección de Oscar,
+ * veredicto telefónico sobre la 1.3.277, 2026-11-14 16:58 EST, que manda
+ * sobre la descripción anterior): «no es un difuminado, es un
+ * oscurecimiento de la pantalla de atrás y una desaturización leve para
+ * poder ver dónde están los botones. De otra forma no sirve el mapa.»
+ * Los cuatro escudos oscurecen (.34, antes .5) y desaturan levemente
+ * (saturate .72) todo MENOS el hueco del foco, que queda nítido píxel a
+ * píxel (ningún escudo lo cubre): el layout y los botones de atrás se
+ * siguen infiriendo, que es lo que el módulo que recorre la app necesita. */
 .pres-shield {
   position: fixed; pointer-events: auto;
-  background: oklab(0% none none / .5);
-  -webkit-backdrop-filter: blur(5px);
+  background: oklab(0% none none / .34);
+  -webkit-backdrop-filter: saturate(.72);
 }
 /* La forma estándar va en su propia regla: el minificador de la casa, cuando
  * las dos conviven en una regla, deja solo la -webkit- (como ya pasa en los
  * velos de la app: .ask-back, .xp-scrim). Separadas, ambas llegan al build. */
-.pres-shield { backdrop-filter: blur(5px); }
+.pres-shield { backdrop-filter: saturate(.72); }
 
 .pres-hole {
   position: fixed;

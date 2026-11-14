@@ -185,7 +185,11 @@ export function PresentacionesCard() {
   };
 
   return (
-    <section className="card manual-card aj-card pres-card" data-anchor="aj-presentaciones">
+    /* Esta tarjeta vive EN EL FLUJO de Ajustes, como sus hermanas: jamás la
+     * clase `pres-card`, que es la tarjeta de la actuación (position:fixed) —
+     * con ella puesta, la tarjeta se salía del flujo y se sobreponía a las
+     * demás (veredicto telefónico de Oscar sobre la 1.3.277; arreglo 1.3.278). */
+    <section className="card manual-card aj-card" data-anchor="aj-presentaciones">
       <div role="button" tabIndex={0} className="manual-row fold-btn aj-row" aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } }}>
@@ -567,7 +571,7 @@ export function Presentacion() {
           const sow = STAGE_SEEDS[step.seed];
           if (sow) api.commit(sow, lang === "en" ? "Presentation stage" : "Escenario de la presentación");
         }
-        later(() => { if (!cancelled) advance(); }, 500 / speed);
+        later(() => { if (!cancelled) advance(); }, 600 / speed);
         return;
       }
       if (step.kind === "go") {
@@ -638,13 +642,17 @@ export function Presentacion() {
         document.addEventListener("pointerdown", onTap, true);
         timers.current.push(window.setTimeout(() => document.removeEventListener("pointerdown", onTap, true), 120_000) as unknown as number);
       } else if (r.playing) {
-        const beat = Math.max(650, capDwell * 0.55) / speed;
+        // El gesto espera el pie ENTERO (1.3.278, veredicto de Oscar: el mapa
+        // «pasa muy rápido»): antes el conductor actuaba al 55% de la
+        // permanencia y el compás de gesto vivía casi la mitad de lo que el
+        // índice anunciaba — el alumno veía el toque antes de acabar de leer
+        // la orden. Ahora lee el pie completo, ve el gesto y su asentamiento.
         later(() => {
           if (cancelled) return;
           tapEl(el);
           setRun((cur) => (cur ? { ...cur, won: true } : cur));
           later(() => { if (!cancelled) advance(); }, 650 / speed);
-        }, beat);
+        }, capDwell / speed);
       }
     };
     void runStep();

@@ -72,12 +72,19 @@ export interface Module {
 export const WORDS_PER_MINUTE = 200;
 /** Toda permanencia lleva ~1s de orientación antes de la lectura. */
 export const ORIENT_MS = 1000;
+/** El suelo de todo pie (1.3.278, veredicto telefónico de Oscar sobre la
+ * 1.3.277: «en su velocidad normal el mapa pasa muy rápido»). La proporción
+ * por palabras dejaba los pies cortos — los del mapa, de 3-4 palabras — en
+ * 1.9-2.2s nominales, de los que la aparición de la tarjeta y el scroll se
+ * comen ~0.4s: el alumno no alcanza a leer el pie Y registrar el foco antes
+ * de que el compás se mueva. Ningún pie vive menos de 2.6s a 1×. */
+export const MIN_DWELL_MS = 2600;
 
 export const wordCount = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
 
-/** Permanencia de un pie a velocidad 1×: proporcional a sus palabras. */
+/** Permanencia de un pie a velocidad 1×: proporcional a sus palabras, con suelo. */
 export const dwellMs = (caption: Pair, lang: string): number =>
-  Math.round((wordCount(pick(caption, lang)) / WORDS_PER_MINUTE) * 60_000) + ORIENT_MS;
+  Math.max(MIN_DWELL_MS, Math.round((wordCount(pick(caption, lang)) / WORDS_PER_MINUTE) * 60_000) + ORIENT_MS);
 
 /** Lo que un paso cuesta en modo automático a 1× (para la duración anunciada).
  * La ventanita de contexto, cuando la hay, suma su propia lectura: anunciarla sin
@@ -91,15 +98,15 @@ export function stepMs(step: Step, lang: string): number {
     case "ask":
       return dwellMs(step.caption, lang) + contextoMs;
     case "do":
-      return dwellMs(step.caption, lang) + contextoMs + 1200; // el latido + el gesto
+      return dwellMs(step.caption, lang) + contextoMs + 650; // el pie entero, el gesto y su asentamiento (1.3.278: el motor espera el pie completo antes de actuar; antes anunciaba +1200 y ejecutaba la mitad)
     case "go":
       return 1400; // el viaje y el asentamiento
     case "tap":
-      return 700;
+      return 720; // el motor, exacto: 300 de espera + el toque + 420 de asentamiento
     case "seed":
-      return 600; // sembrar y seguir
+      return 600; // sembrar y seguir (el motor espera lo mismo desde la 1.3.278)
     case "type":
-      return dwellMs(step.caption, lang) + contextoMs + 900; // el pie + el tecleo
+      return dwellMs(step.caption, lang) + contextoMs + 500; // el pie + el tecleo (el motor avanza a permanencia + 500)
     case "ref":
       return 0; // la referencia se ofrece; no cuesta tiempo de guion
   }
