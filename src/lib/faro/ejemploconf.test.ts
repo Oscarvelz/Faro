@@ -6,9 +6,11 @@
 // borrar), con la explicación sencilla de qué se va a ver y de que lo suyo
 // queda intacto; APAGAR vuelve a su libro sin ceremonia, como siempre. La
 // puerta vive en el asiento del interruptor (SampleRow) — la maquinaria
-// setSampleMode no se toca, y la otra puerta que activa el ejemplo (el botón
-// del escritorio con el libro vacío, desk.sample) queda FUERA a propósito:
-// se nombra en el asiento de la ola, no se le pone puerta en silencio.
+// setSampleMode no se toca. (RE-FIJADO 1.3.256: la otra puerta que activaba
+// el ejemplo — el botón del escritorio con el libro vacío, desk.sample —
+// fue RETIRADA por orden de Oscar: «Basta con las que tenemos ya en ajustes.»
+// El interruptor de Ajustes es ahora la ÚNICA puerta, y la cerca de censo
+// de abajo guarda exactamente eso.)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -45,7 +47,13 @@ test("ejemploconf: la maquinaria no se toca — setSampleMode no conoce ninguna 
   assert.ok(mode.includes("export function setSampleMode(next: boolean)"), "the switch itself is unchanged");
 });
 
-test("ejemploconf: censo de puertas — el escritorio (desk.sample) sigue directo, nombrado y fuera de esta puerta", () => {
-  assert.ok(screens.includes('onClick={() => setSampleMode(true)}'), "the empty-book desk offer still activates directly — declared out of scope for this gate");
+// RE-FIJADO 1.3.256: esta cerca nació (1.3.254) guardando que la puerta del
+// escritorio seguía directa y fuera de la confirmación. La orden de Oscar en
+// 1.3.256 retiró esa puerta; la cerca guarda ahora la ley nueva — una sola
+// puerta — con la misma intención de censo: ninguna otra superficie activa
+// el ejemplo.
+test("ejemploconf: censo de puertas — una sola puerta: el escritorio ya no activa el ejemplo (RE-FIJADO 1.3.256)", () => {
+  assert.ok(!screens.includes("setSampleMode"), "screens.tsx carries no sample activation at all — the desk door is gone");
+  assert.ok(!screens.includes("desk.sample"), "the retired desk.sample offer is referenced nowhere in the desk");
   assert.ok(row.includes('data-anchor="aj-ejemplo"'), "the gated toggle is the Ajustes card, anchor aj-ejemplo");
 });

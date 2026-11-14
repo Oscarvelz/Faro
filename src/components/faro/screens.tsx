@@ -28,7 +28,6 @@ import { hasStorePin, hasWidgetPin, toggleStorePin, toggleWidgetPin } from "@/li
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
-import { setSampleMode } from "@/lib/faro/samplemode";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { auditLabel, monthName, shortcutLabel } from "@/lib/faro/i18n";
@@ -2690,10 +2689,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const btnOn: null | "plus" | "minus" | "cobro" = quick === "in" ? "plus" : quick === "out" ? "minus" : cobros && cobrosLit ? "cobro" : null;
   const cardOn = btnOn ? null : lens === "all" ? null : lens;
   const lowCorner = (btn: "plus" | "minus" | "cobro", card: "have" | "spend" | "debt") => (btnOn ? btnOn !== btn : cardOn ? cardOn !== card : false);
-  // 1.3.148: the first-run offers say only what is true — "bring recurring" needs an earlier month with
-  // lines, and the sample-data door belongs to a book with no lines at all (it lived only in Ajustes).
+  // 1.3.148: the first-run offer says only what is true — "bring recurring" needs an earlier month with
+  // lines. 1.3.256: the desk no longer offers the sample data — its only door is the Ajustes toggle.
   const monthKeysWithLines = session ? Object.keys(session.ledger.months).filter((k) => (session.ledger.months[k]?.lines.length ?? 0) > 0) : [];
-  const bookEmpty = monthKeysWithLines.length === 0;
   const hasEarlierLines = monthKeysWithLines.some((k) => k < key);
   return (
     <div className={focus ? "vault-pane" : "desk-layout"}>
@@ -3372,7 +3370,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <span className="row mt-3" data-anchor="desk-start">
             <button type="button" className="btn" onClick={() => setUi({ section: "income", draft: "income-fixed" })}>{t("desk.first")}</button>
             {hasEarlierLines ? <button type="button" className="btn ghost" onClick={copyPrev}>{t("desk.copy")}</button> : null}
-            {bookEmpty ? <button type="button" className="btn ghost" onClick={() => setSampleMode(true)}>{t("desk.sample")}</button> : null}
           </span>
         ) : null}
         {shown.length === 0 ? <Note>{t("desk.empty")}</Note> : null}
