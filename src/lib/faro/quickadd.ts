@@ -277,8 +277,11 @@ export function quickStorePins(state: LedgerState, lang: Lang): QuickHome[] {
  *  · las de Ahorros quedan fuera: nunca son casas de la tarjeta (quickPins
  *    las descarta) y sus subconceptos son los bolsillos, que ya tienen su
  *    casa en la bóveda;
- *  · las piezas del catálogo NO entran: no son «la estructura escogida por
- *    el usuario» y su asiento sigue siendo su tarjeta en el catálogo;
+ *  · las piezas del catálogo (Tiendas e IA) entraron en 1.3.268, por su
+ *    palabra: «Debe existir cualquier cosa que pueda preestablecerse» —
+ *    viven solo en Salida (una compra es gasto), tras las de categoría,
+ *    como la foto las ordena; las de Suscripciones siguen fuera en todas
+ *    partes: ninguna línea guarda su id y su fija no tendría archivo;
  *  · lo oculto SÍ aparece, como en el editor de Estructura — el asiento que
  *    administra lo oculto —: fijarlo allí es legal y la foto lo retiene en
  *    silencio hasta que se muestre (la ley de soberanía de siempre). La fila
@@ -291,8 +294,10 @@ export function quickStorePins(state: LedgerState, lang: Lang): QuickHome[] {
  * discrepar de la tarjeta de allá. Una pieza de los dos signos — o todavía
  * de ninguno — vive en los dos grupos, como vive en las dos tarjetas. */
 
-/** Una pieza fijable del universo: la categoría (s = "") o uno de sus subconceptos. */
-export type PinCandidate = { c: string; s: string; signs: ("in" | "out")[]; hidden: boolean };
+/** Una pieza fijable del universo: la categoría (s = ""), uno de sus
+ *  subconceptos, o — con `store` — una pieza del catálogo (Tienda o IA,
+ *  1.3.268), que lleva su id en `store` y c/s vacíos, como su fija. */
+export type PinCandidate = { c: string; s: string; signs: ("in" | "out")[]; hidden: boolean; store?: string };
 
 /** El pliegue con el que la casa compara nombres al buscar (el de searchLedger
  *  y el del índice de Ajustes): minúsculas y sin acentos — «alimentacion»
@@ -316,6 +321,22 @@ export function pinCandidates(state: LedgerState): PinCandidate[] {
   return out;
 }
 
+/** El universo fijable del catálogo (1.3.268): las piezas de Tiendas y de
+ *  IA, en el orden del catálogo — exactamente las que su tarjeta ofrece
+ *  fijar (las de Suscripciones no se fijan en ninguna parte; las de cuentas
+ *  no son casas de la tarjeta). Su signo no se deriva: una compra es gasto,
+ *  así que viven solo en Salida. Lo oculto entra marcado, como en el resto
+ *  del universo: su tarjeta lo sigue ofreciendo y la foto lo retiene en
+ *  silencio (la ley de soberanía). */
+export function pinStoreCandidates(state: LedgerState): PinCandidate[] {
+  const out: PinCandidate[] = [];
+  for (const item of state.structure.catalog) {
+    if (item.kind !== "store" && item.kind !== "ai") continue;
+    out.push({ c: "", s: "", signs: ["out"], hidden: item.hidden, store: item.id });
+  }
+  return out;
+}
+
 /** La búsqueda de la tarjeta: una pieza casa si su nombre — el del subconcepto
  *  o el camino «Categoría · Sub» — contiene lo escrito, plegado. Los dos
  *  grupos salen separados por el signo derivado, en el orden de la Estructura. */
@@ -331,6 +352,13 @@ export function searchPinCandidates(state: LedgerState, query: string, lang: Lan
     if (!foldPinText(path).includes(q) && !foldPinText(own).includes(q)) continue;
     if (cand.signs.includes("in")) inn.push(cand);
     if (cand.signs.includes("out")) out.push(cand);
+  }
+  // 1.3.268: las piezas del catálogo cierran el grupo de Salida, tras las de
+  // categoría — el orden en que la propia tarjeta de apuntes las ofrece
+  // (quickPins antes que quickStorePins) y en que pinGroups lee la lista.
+  for (const cand of pinStoreCandidates(state)) {
+    const name = names.catalog(cand.store as string) || (cand.store as string);
+    if (foldPinText(name).includes(q)) out.push(cand);
   }
   return { inn, out };
 }

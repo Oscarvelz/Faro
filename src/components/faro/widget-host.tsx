@@ -37,7 +37,7 @@ import { packKeyOf, packLedgerOk } from "@/lib/faro/packguard";
 import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, parseWidgetPushRecord, widgetHide, WIDGET_HIDE_KEY, WIDGET_LASTPUSH_KEY, type WidgetGo, type WidgetPushRecord } from "@/lib/faro/widget";
-import { hasWidgetPin, ingestQuick, parseQuickEntries, pinGroups, searchPinCandidates, toggleStorePin, toggleWidgetPin, type PinCandidate, type QuickEntry } from "@/lib/faro/quickadd";
+import { hasStorePin, hasWidgetPin, ingestQuick, parseQuickEntries, pinGroups, searchPinCandidates, toggleStorePin, toggleWidgetPin, type PinCandidate, type QuickEntry } from "@/lib/faro/quickadd";
 import { BrandMark, Glyph } from "./icons";
 import type { GoLike } from "@/lib/manual/places";
 import "./sample-mode.css";
@@ -412,8 +412,9 @@ function PinGroup({ title, children }: { title: string; children: ReactNode }) {
  * nazca y muera con el pliegue de la tarjeta, que solo monta su contenido
  * al abrir). Dos órdenes de Oscar del 2026-11-14 viven aquí:
  *  · el tercer asiento de las fijas: un buscador sobre la Estructura viva
- *    (categorías y subconceptos; las piezas del catálogo no son estructura
- *    y siguen fijándose en su tarjeta). Elegir un resultado abre la misma
+ *    (categorías y subconceptos; desde 1.3.268 también las piezas del
+ *    catálogo — Tiendas e IA — bajo «Gasto»: «Debe existir cualquier cosa
+ *    que pueda preestablecerse»). Elegir un resultado abre la misma
  *    ventana de la 1.3.260 que los demás asientos — fijar y desfijar
  *    preguntan — y su run escribe por el toggleWidgetPin de siempre, con
  *    su refresco de la foto, como el asiento inmediato del catálogo.
@@ -474,6 +475,26 @@ function WidgetPinsSection() {
       },
     });
   };
+  // 1.3.268: fijar y desfijar una pieza del catálogo desde el buscador pasa
+  // por la MISMA ventana que su asiento del catálogo (1.3.260): el cuerpo de
+  // las tiendas al fijar, el compartido al quitar, y con el ejemplo activo
+  // la frase del ejemplo de los asientos de fijar. La escritura es el
+  // toggleStorePin de siempre dentro del run, con su refresco de la foto;
+  // cancelar no escribe nada.
+  const askStorePin = (cand: PinCandidate) => {
+    const id = cand.store as string;
+    const name = names.catalog(id) || id;
+    const pinned = hasStorePin(pins, id);
+    confirm({
+      title: t(pinned ? "widget.pin.ask.offTitle" : "widget.pin.ask.title").replace("{name}", name),
+      body: t(pinned ? "widget.pin.ask.offBody" : "widget.pin.ask.storeBody") + (sampleOn() ? " " + t("widget.pin.sample") : ""),
+      yes: pinned ? t("widget.pin.remove") : t("widget.pin.ask.yes"),
+      run: () => {
+        commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, id) } }), name);
+        window.dispatchEvent(new Event(WIDGET_REFRESH));
+      },
+    });
+  };
   const searching = q.trim().length > 0;
   const results = searching ? searchPinCandidates(ledger, q, lang) : { inn: [] as PinCandidate[], out: [] as PinCandidate[] };
   const groups = pinGroups(ledger);
@@ -499,14 +520,29 @@ function WidgetPinsSection() {
   // La fila de un resultado: la fila entera es el gesto (elegirla abre la
   // ventana); el ancla llena y la palabra «Fijada» anuncian la que ya está.
   const hitRow = (cand: PinCandidate) => {
-    const pinned = hasWidgetPin(pins, cand.c, cand.s);
+    if (!cand.store) {
+      const pinned = hasWidgetPin(pins, cand.c, cand.s);
+      return (
+        <button key={`${cand.c}|${cand.s}`} type="button" className="manual-row aj-row smp-row wpin-hit" onClick={() => askPin(cand)}>
+          <Pin aria-hidden fill={pinned ? "currentColor" : "none"} />
+          <span className="manual-row-text">
+            <strong className={cand.hidden ? "is-muted" : undefined}>{label(cand)}</strong>
+          </span>
+          {pinned ? <span className="wpin-state">{t("widget.pin.state")}</span> : null}
+        </button>
+      );
+    }
+    // 1.3.268: la fila de una pieza del catálogo — su marca al principio (la
+    // diferenciación de la 1.3.251) y la palabra «Fijada» cuando ya está,
+    // como las de categoría anuncian la suya.
+    const pinnedStore = hasStorePin(pins, cand.store);
     return (
-      <button key={`${cand.c}|${cand.s}`} type="button" className="manual-row aj-row smp-row wpin-hit" onClick={() => askPin(cand)}>
-        <Pin aria-hidden fill={pinned ? "currentColor" : "none"} />
+      <button key={`store|${cand.store}`} type="button" className="manual-row aj-row smp-row wpin-hit" onClick={() => askStorePin(cand)}>
+        {storeMark(cand.store)}
         <span className="manual-row-text">
-          <strong className={cand.hidden ? "is-muted" : undefined}>{label(cand)}</strong>
+          <strong className={cand.hidden ? "is-muted" : undefined}>{names.catalog(cand.store) || cand.store}</strong>
         </span>
-        {pinned ? <span className="wpin-state">{t("widget.pin.state")}</span> : null}
+        {pinnedStore ? <span className="wpin-state">{t("widget.pin.state")}</span> : null}
       </button>
     );
   };
