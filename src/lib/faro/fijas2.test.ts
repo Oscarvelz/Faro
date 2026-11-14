@@ -136,8 +136,11 @@ describe("fijas extendidas del catálogo (1.3.251)", () => {
     const screens = fs.readFileSync(path.join(root, "src/components/faro/screens.tsx"), "utf8");
     const styles = fs.readFileSync(path.join(root, "src/styles.css"), "utf8");
     assert.ok(screens.includes("toggleStorePin(s.settings.widgetPins, item.id)"), "fijar una pieza guarda al momento, como el catálogo guarda");
-    assert.match(screens, /item\.kind !== "sub" \? <button type="button" className="icon-btn cat-act pin-btn"/,
-      "la mano ofrece el pin a Tiendas e IA y NO a Suscripciones");
+    // RE-FIJADO en 1.3.271: el conjunto fijable se nombra en positivo — el
+    // pin es de Tiendas e IA; ni Suscripciones ni el nuevo Seguro de vida
+    // lo reciben (la nota de la 1.3.269 sigue siendo verdad).
+    assert.match(screens, /\(item\.kind === "store" \|\| item\.kind === "ai"\) \? <button type="button" className="icon-btn cat-act pin-btn"/,
+      "la mano ofrece el pin a Tiendas e IA y NO a Suscripciones ni a Seguros");
     assert.match(styles, /\.cat-grid \{ -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; \}/,
       "la rejilla es un suelo de agarre: sostener nunca selecciona texto");
     assert.ok(screens.includes("onCardPointerDown") && screens.includes("\"drag reorder\""),

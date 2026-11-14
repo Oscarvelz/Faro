@@ -12,7 +12,28 @@ export type LineKind =
 /** Old words load unchanged; 1.3.76 adds any interval "<n><d|w|m|y>" (see cadence.ts). */
 export type Cadence = "weekly" | "biweekly" | "monthly" | "yearly" | "" | `${number}${"d" | "w" | "m" | "y"}`;
 /** "acct": a bank or card account that statements are imported from (bank-import, Nov 2026). */
-export type CatalogKind = "store" | "ai" | "sub" | "acct";
+export type CatalogKind = "store" | "ai" | "sub" | "acct" | "ins";
+/** El plan de un seguro de vida (1.3.271): la prima es un gasto fijo que se
+ *  cobra de una cuenta; la póliza NUNCA es un activo — no hay saldo, no hay
+ *  bolsillo, no entra en ningún total. «start» es la fecha en que el usuario
+ *  empezó con la aseguradora (su dato, vacío al nacer: nada se inventa) y
+ *  sostiene el conteo retrospectivo de la tarjeta. «note» es texto libre
+ *  (cobertura, beneficiario): texto, nunca una cifra en ningún total. */
+export type InsPlan = {
+  /** La prima en unidades menores (> 0). Sin plan = la pieza no está configurada. */
+  amt: number;
+  cur: Currency;
+  /** Día fijo del mes (1–31). Exactamente uno de day/week está puesto. */
+  day?: number;
+  /** Semana del mes (1–4): el cobro cae en esa semana; su fecha es el primer día de la semana. */
+  week?: number;
+  /** La cuenta (pieza del catálogo de kind "acct") de la que se cobra; "" = sin especificar. */
+  src: string;
+  /** Fecha de inicio (ISO) o "" si el usuario no la puso. */
+  start: string;
+  /** Nota libre (cobertura, beneficiario): solo texto. */
+  note: string;
+};
 export type TemplateId = "soltero" | "familia" | "estudiante" | "negocio";
 
 export const DAY_THEMES: ThemeId[] = ["claro", "lino", "costa", "marfil", "niebla", "piedra"];
@@ -73,6 +94,8 @@ export type PurchaseCat = Named & { color?: string };
 export type CatalogItem = Named & {
   kind: CatalogKind;
   urlTemplate: string;
+  /** Solo kind "ins": su plan de seguro de vida (1.3.271). Ausente = pieza sin configurar. */
+  ins?: InsPlan;
 };
 
 /** The registered starting point of a structure: the last template applied, or "completa"

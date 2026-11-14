@@ -132,6 +132,7 @@ export const LABELS: Lab = {
   "c.googleone": { es: "Google One", en: "Google One" },
   "c.eleven": { es: "ElevenReader", en: "ElevenReader" },
   "c.groksub": { es: "Grok", en: "Grok" },
+  "c.primerica": { es: "Primerica", en: "Primerica" },
 };
 
 export function displayName(item: { nameKey: string; customName: string }, lang: Lang): string {
@@ -227,6 +228,7 @@ export function defaultStructure(): Structure {
       item("googleone", "sub", "Cloud", 2, "https://one.google.com"),
       item("eleven", "sub", "AudioLines", 3),
       item("groksub", "sub", "brand:grok", 4, "https://grok.com"),
+      item("primerica", "ins", "brand:primerica", 0),
     ],
   };
 }
@@ -264,6 +266,25 @@ export function withRemesas(state: LedgerState): { ledger: LedgerState; added: b
   };
 }
 
+/** 1.3.271: la pieza de fábrica del seguro de vida (Primerica, kind "ins", SIN
+ *  importe — el importe es del usuario o no es) llega una sola vez a los libros
+ *  anteriores a esta versión. La bandera "segurodevida" guarda la soberanía:
+ *  una pieza borrada por el usuario no vuelve jamás por esta vía. Los libros
+ *  nuevos nacen con la pieza en defaultStructure y con la bandera puesta. El
+ *  libro de ejemplo NO pasa por aquí (el proveedor lo salta): el ejemplo es
+ *  provincia de la línea de Estructura. */
+export function withSeguroDeVida(state: LedgerState): { ledger: LedgerState; added: boolean } {
+  const seeds = state.settings.seeds ?? [];
+  if (seeds.includes("segurodevida")) return { ledger: state, added: false };
+  const piece = defaultStructure().catalog.find((c) => c.kind === "ins");
+  const has = !!piece && state.structure.catalog.some((c) => c.id === piece.id);
+  const catalog = piece && !has ? [...state.structure.catalog, piece] : state.structure.catalog;
+  return {
+    added: !has && !!piece,
+    ledger: { ...state, structure: { ...state.structure, catalog }, settings: { ...state.settings, seeds: [...seeds, "segurodevida"] }, revision: state.revision + 1, updatedAt: new Date().toISOString() },
+  };
+}
+
 export function defaultSettings(lang: Lang, theme: ThemeId): Settings {
   return {
     lang,
@@ -278,7 +299,7 @@ export function defaultSettings(lang: Lang, theme: ThemeId): Settings {
     emergencyMonths: 3,
     shortcuts: { ...DEFAULT_SHORTCUTS },
     gestures: {},
-    seeds: ["remesas"],
+    seeds: ["remesas", "segurodevida"],
   };
 }
 

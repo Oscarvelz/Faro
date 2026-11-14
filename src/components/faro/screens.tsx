@@ -44,9 +44,11 @@ import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
+import { accounts } from "@/lib/faro/bankbook";
+import { insPaid, insTiming, monthsSince, syncInsLine } from "@/lib/faro/insurance";
 import { deleteLine, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
-import type { CatalogItem, Category, Currency, LedgerState, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
+import type { CatalogItem, Category, Currency, InsPlan, LedgerState, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@/lib/faro/types";
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
@@ -5871,6 +5873,95 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   );
 }
 
+/** 1.3.271: el borrador del plan de un seguro de vida — UN solo bloque de
+ *  campos para el alta del catálogo y para el panel de la tarjeta, para que
+ *  las dos puertas pidan exactamente lo mismo. El importe nace vacío (es del
+ *  usuario o no es) y el momento no trae día fingido: sin día/semana elegidos
+ *  y con importe puesto, el guardado pregunta (ins.needTiming). */
+type InsDraft = { amt: string; cur: Currency; mode: "day" | "week"; day: string; week: number; src: string; start: string; note: string };
+function emptyInsDraft(cur: Currency): InsDraft {
+  return { amt: "", cur, mode: "day", day: "", week: 0, src: "", start: "", note: "" };
+}
+function draftFromPlan(plan: InsPlan | undefined, cur: Currency): InsDraft {
+  if (!plan) return emptyInsDraft(cur);
+  return {
+    amt: String(plan.amt / 100),
+    cur: plan.cur,
+    mode: plan.week ? "week" : "day",
+    day: plan.day ? String(plan.day) : "",
+    week: plan.week ?? 0,
+    src: plan.src,
+    start: plan.start,
+    note: plan.note,
+  };
+}
+function planFromDraft(d: InsDraft): { plan?: InsPlan; err?: "amount" | "timing" } {
+  if (!d.amt.trim()) return {};
+  const minor = parseAmount(d.amt);
+  if (minor === null || minor <= 0) return { err: "amount" };
+  const base = { amt: minor, cur: d.cur, src: d.src, start: d.start, note: d.note.trim() };
+  if (d.mode === "day") {
+    const day = Number(d.day);
+    if (!Number.isInteger(day) || day < 1 || day > 31) return { err: "timing" };
+    return { plan: { ...base, day } };
+  }
+  if (d.week < 1 || d.week > 4) return { err: "timing" };
+  return { plan: { ...base, week: d.week } };
+}
+function InsFields({ draft, onChange, accts, t }: { draft: InsDraft; onChange: (d: InsDraft) => void; accts: { id: string; name: string }[]; t: (key: string) => string }) {
+  const set = (patch: Partial<InsDraft>) => onChange({ ...draft, ...patch });
+  return (
+    <>
+      <div className="ah-grid">
+        <label className="label">
+          <span className="lab-head">{t("ins.amount")}</span>
+          <span className="row">
+            <input className="field" inputMode="decimal" value={draft.amt} placeholder="0.00" aria-label={t("ins.amount")} onChange={(e) => set({ amt: e.target.value })} />
+            <ThemeSelect value={draft.cur} onChange={(v) => set({ cur: v as Currency })} options={[{ value: "NIO", label: "C$" }, { value: "USD", label: "$" }]} />
+          </span>
+        </label>
+        <label className="label">
+          <span className="lab-head">{t("ins.src")}</span>
+          <ThemeSelect value={draft.src} onChange={(v) => set({ src: v })} options={[{ value: "", label: t("ins.src.none") }, ...accts.map((a) => ({ value: a.id, label: a.name }))]} />
+        </label>
+      </div>
+      <div className="label">
+        <span className="lab-head">{t("ins.timing")}</span>
+        <div className="ah-sign" role="radiogroup" aria-label={t("ins.timing")}>
+          {(["day", "week"] as const).map((m) => (
+            <button key={m} type="button" role="radio" aria-checked={draft.mode === m} aria-pressed={draft.mode === m} onClick={() => set({ mode: m })}>{t(`ins.timing.${m}`)}</button>
+          ))}
+        </div>
+      </div>
+      {draft.mode === "day" ? (
+        <label className="label">
+          <span className="lab-head">{t("ins.day")}</span>
+          <input className="field" inputMode="numeric" value={draft.day} placeholder="8" aria-label={t("ins.day")} onChange={(e) => set({ day: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} />
+        </label>
+      ) : (
+        <div className="label">
+          <span className="lab-head">{t("ins.timing.week")}</span>
+          <div className="ah-sign" role="radiogroup" aria-label={t("ins.timing.week")}>
+            {[1, 2, 3, 4].map((w) => (
+              <button key={w} type="button" role="radio" aria-checked={draft.week === w} aria-pressed={draft.week === w} onClick={() => set({ week: w })}>{t(`ins.week.${w}`)}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="ah-grid">
+        <label className="label">
+          <span className="lab-head">{t("ins.start")}<FieldTip topic="f-seguro-inicio" /></span>
+          <input className="field" type="date" value={draft.start} aria-label={t("ins.start")} onChange={(e) => set({ start: e.target.value })} />
+        </label>
+        <label className="label">
+          <span className="lab-head">{t("ins.note")}</span>
+          <input className="field" value={draft.note} aria-label={t("ins.note")} onChange={(e) => set({ note: e.target.value })} />
+        </label>
+      </div>
+    </>
+  );
+}
+
 function CatalogEditor() {
   const { t, lang, session, commit, confirm } = useFaro();
   const [itemName, setItemName] = useState("");
@@ -5878,7 +5969,15 @@ function CatalogEditor() {
   // siempre sembró «tienda» y una suscripción nueva caía en el grupo
   // equivocado; ahora el selector Tienda / Suscripción manda, con la
   // misma pieza segmentada de Fijo / Variable del alta de categorías.
-  const [itemKind, setItemKind] = useState<"store" | "sub">("store");
+  const [itemKind, setItemKind] = useState<"store" | "sub" | "ins">("store");
+  // 1.3.271: el plan del seguro — el borrador del alta y el del panel de la
+  // tarjeta comparten el bloque InsFields; planFor dice qué tarjeta lo enseña.
+  const [insDraft, setInsDraft] = useState<InsDraft>(() => emptyInsDraft("NIO"));
+  const [insErr, setInsErr] = useState("");
+  const [planFor, setPlanFor] = useState<string | null>(null);
+  const [planEditing, setPlanEditing] = useState(false);
+  const [planDraft, setPlanDraft] = useState<InsDraft>(() => emptyInsDraft("NIO"));
+  const [planErr, setPlanErr] = useState("");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
   // Congruency pass (Oscar, 2026-11-11): at rest a row carries only the little pen on its name and ONE
@@ -5907,11 +6006,24 @@ function CatalogEditor() {
   const addItem = () => {
     const name = itemName.trim();
     if (!name) return;
-    commit((s) => ({
-      ...s,
-      structure: { ...s.structure, catalog: [...s.structure.catalog, { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: itemKind, urlTemplate: "" }] },
-    }), name);
+    // 1.3.271: el alta de un seguro compone su plan en el MISMO commit que la
+    // pieza — pieza y línea permanente nacen juntas o no nacen. Sin importe,
+    // la pieza nace sin configurar (nada se inventa); con importe y sin
+    // momento, el alta pregunta antes de escribir nada.
+    let plan: InsPlan | undefined;
+    if (itemKind === "ins") {
+      const r = planFromDraft(insDraft);
+      if (r.err) { setInsErr(r.err === "timing" ? t("ins.needTiming") : t("field.required")); return; }
+      plan = r.plan;
+    }
+    const piece: CatalogItem = { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: itemKind, urlTemplate: "", ...(plan ? { ins: plan } : {}) };
+    commit((s) => {
+      const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog: [...s.structure.catalog, piece] } };
+      return plan ? syncInsLine(withPiece, piece, todayIso()) : withPiece;
+    }, name);
     setItemName("");
+    setInsDraft(emptyInsDraft(session?.ledger.settings.display ?? "NIO"));
+    setInsErr("");
   };
   // 1.3.187 — la casa del Catálogo se completa (R-5, cierra E-5) y su borrado avisa (R-4,
   // cierra E-4). El modelo de guardado de ESTA casa es el inmediato: cada control hace su
@@ -5967,6 +6079,7 @@ function CatalogEditor() {
     setPending({ item, target, targetName, count });
   };
   const toggleTools = (item: CatalogItem) => {
+    setPlanFor(null); setPlanEditing(false); setPlanErr("");
     if (toolsFor === item.id) { setToolsFor(null); setReplaceFor(null); setPending(null); }
     else { setToolsFor(item.id); setReplaceFor(null); setPending(null); setReplaceCustom(""); }
   };
@@ -5976,6 +6089,7 @@ function CatalogEditor() {
     { kind: "store", label: t("cat.g.store") },
     { kind: "ai", label: t("cat.g.ai") },
     { kind: "sub", label: t("cat.g.sub") },
+    { kind: "ins", label: t("cat.g.ins") },
   ];
   // THE GRID + THE FOLD LAW (Oscar, 2026-11-11, built after a night of thinking): the pieces live
   // in cards, in columns counted by the width of their house — 2 on the phone, more on the tablet
@@ -6154,6 +6268,72 @@ function CatalogEditor() {
       ) : null}
     </div>
   );
+  // 1.3.271: el panel del plan de un seguro — la cara completa de la pieza
+  // cuando su tarjeta florece. En reposo enseña los hechos: el plan (importe ·
+  // momento · cuenta), la nota si la hay, y la retrospectiva del steer de
+  // Oscar — desde cuándo y cuántos meses van, con las primas ANOTADAS sumadas
+  // de las líneas archivadas (nunca meses × importe: eso fabricaría dinero).
+  // Conteo y suma son lecturas: no entran en ningún total. Editar guarda la
+  // pieza y su línea permanente en un solo commit (syncInsLine); limpiar el
+  // importe desconfigura la pieza y deja las líneas como están — la historia
+  // anotada no se toca desde aquí.
+  const savePlan = (item: CatalogItem) => {
+    const r = planFromDraft(planDraft);
+    if (r.err) { setPlanErr(r.err === "timing" ? t("ins.needTiming") : t("field.required")); return; }
+    const updated: CatalogItem = { ...item, ins: r.plan };
+    commit((s) => {
+      const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? updated : c)) } };
+      return r.plan ? syncInsLine(withPiece, updated, todayIso()) : withPiece;
+    }, displayName(item, lang));
+    setPlanEditing(false);
+    setPlanErr("");
+  };
+  const renderInsPanel = (item: CatalogItem) => {
+    const ledger = session?.ledger;
+    const plan = item.ins;
+    const today = todayIso();
+    const timing = insTiming(plan);
+    const fmtDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es", { day: "numeric", month: "short", year: "numeric" });
+    const summary: string[] = [];
+    if (plan && timing) {
+      summary.push(formatMoney(plan.amt, plan.cur, lang));
+      summary.push("day" in timing ? t("ins.dayShort").replace("{d}", String(timing.day)) : t(`ins.week.${timing.week}`));
+      const srcName = plan.src ? accounts(ledger).find((a) => a.id === plan.src)?.name ?? "" : "";
+      if (srcName) summary.push(srcName);
+    }
+    const months = plan?.start ? monthsSince(plan.start, today) : null;
+    const paid = ledger && plan?.start ? insPaid(ledger, item.id, plan.start, today) : null;
+    return (
+      <div key={`plan-${item.id}`} className="cat-repl is-grid-panel">
+        {planEditing ? (
+          <>
+            <InsFields draft={planDraft} onChange={setPlanDraft} accts={accounts(ledger)} t={t} />
+            {planErr ? <p className="form-err">{planErr}</p> : null}
+            <div className="row">
+              <button type="button" className="btn secondary" onClick={() => { setPlanEditing(false); setPlanErr(""); }}>{t("cancel")}</button>
+              <button type="button" className="btn" onClick={() => savePlan(item)}>{t("save")}</button>
+            </div>
+          </>
+        ) : (
+          <>
+            {plan && timing ? <p className="text-sm">{summary.join(" · ")}</p> : <p className="text-sm">{t("ins.none")}</p>}
+            {plan?.note ? <p className="text-sm">{plan.note}</p> : null}
+            {months !== null && plan?.start ? (
+              <p className="text-sm">
+                <span className="lab-head">{t("ins.since").replace("{date}", fmtDate(plan.start))} · {months === 0 ? t("ins.thisMonth") : months === 1 ? t("ins.month1") : t("ins.months").replace("{n}", String(months))}<Hint topic="seguro-vida" alt /></span>
+              </p>
+            ) : null}
+            {paid && paid.count > 0 ? (
+              <p className="text-sm">{(paid.count === 1 ? t("ins.paid1") : t("ins.paid")).replace("{n}", String(paid.count)).replace("{sum}", paid.totals.map((x) => formatMoney(x.amt, x.cur, lang)).join(" + "))}</p>
+            ) : null}
+            <div className="row">
+              <button type="button" className="btn secondary" onClick={() => { setPlanDraft(draftFromPlan(item.ins, ledger?.settings.display ?? "NIO")); setPlanErr(""); setPlanEditing(true); }}>{plan ? t("ins.edit") : t("ins.configure")}</button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
   const renderCard = (item: CatalogItem, index = 0, count = 0) => {
     // El suelo del arrastre (1.3.251): la tarjeta levantada sigue al dedo y sus
     // vecinas del grupo se apartan una fila — el mismo cuadro que el árbol pinta.
@@ -6185,7 +6365,7 @@ function CatalogEditor() {
           <span className="cat-name">{displayName(item, lang)}</span>
           {/* 1.3.251: la fija se lee en reposo también aquí — la misma marca junto
               al nombre que las categorías y las subs llevan desde esta versión. */}
-          {toolsFor !== item.id && item.kind !== "sub" && storePinned(item) ? <Pin size={12} className="cat-pinmark" fill="currentColor" aria-hidden /> : null}
+          {toolsFor !== item.id && (item.kind === "store" || item.kind === "ai") && storePinned(item) ? <Pin size={12} className="cat-pinmark" fill="currentColor" aria-hidden /> : null}
           {toolsFor === item.id || byeHand === item.id ? (
             <span className={`cat-tools${byeHand === item.id && toolsFor !== item.id ? " is-bye" : ""}`}>
               {/* The whole hand, in Oscar's order: pen · palette · eye · trash (red last). The eye
@@ -6198,8 +6378,13 @@ function CatalogEditor() {
                   accesible cambia con el estado, como en la mano de las subs.
                   1.3.260: antes de escribir, la ventana de la casa lo confirma
                   (toggleStorePinFor) — el guardado vive dentro de su run. */}
-              {item.kind !== "sub" ? <button type="button" className="icon-btn cat-act pin-btn" style={{ "--i": 3 } as CSSProperties} aria-label={storePinned(item) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={storePinned(item)} onClick={() => toggleStorePinFor(item)}><Pin className="size-4" fill={storePinned(item) ? "currentColor" : "none"} /></button> : null}
-              <button type="button" className="icon-btn line-act is-danger" style={{ "--i": item.kind === "sub" ? 3 : 4 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
+              {(item.kind === "store" || item.kind === "ai") ? <button type="button" className="icon-btn cat-act pin-btn" style={{ "--i": 3 } as CSSProperties} aria-label={storePinned(item) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={storePinned(item)} onClick={() => toggleStorePinFor(item)}><Pin className="size-4" fill={storePinned(item) ? "currentColor" : "none"} /></button> : null}
+              {/* 1.3.271: en el asiento donde iría el pin, el seguro lleva su
+                  plan — no se puede fijar, como las suscripciones (la nota de
+                  la tarjeta Widget sigue siendo verdad), y su botón abre el
+                  panel de hechos y de edición bajo la tarjeta. */}
+              {item.kind === "ins" ? <button type="button" className="icon-btn cat-act" style={{ "--i": 3 } as CSSProperties} aria-label={t("ins.plan")} aria-pressed={planFor === item.id} onClick={() => { const open = planFor !== item.id; setPlanFor(open ? item.id : null); setPlanEditing(open && !item.ins); setPlanDraft(draftFromPlan(item.ins, session?.ledger.settings.display ?? "NIO")); setPlanErr(""); }}><SlidersHorizontal className="size-4" /></button> : null}
+              <button type="button" className="icon-btn line-act is-danger" style={{ "--i": item.kind === "sub" || item.kind === "ins" ? 3 : 4 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.
                   Not a button — the row signing its name at the end of the hand. Its tap is
                   inert by law: the door above exempts .cat-badge like a tool, so touching the
@@ -6225,6 +6410,7 @@ function CatalogEditor() {
       if (openItem) {
         cells.push(renderCard(openItem, items.indexOf(openItem), items.length));
         cells.push(<FoldShell key={`repl-${openItem.id}`} open={replaceFor === openItem.id} tier="sm" className="fold-grid-panel">{renderPanel(openItem)}</FoldShell>);
+        if (openItem.kind === "ins") cells.push(<FoldShell key={`planfold-${openItem.id}`} open={planFor === openItem.id} tier="sm" className="fold-grid-panel">{renderInsPanel(openItem)}</FoldShell>);
         chunk.filter((c) => c.id !== openItem.id).forEach((c) => cells.push(renderCard(c, items.indexOf(c), items.length)));
       } else {
         chunk.forEach((c) => cells.push(renderCard(c, items.indexOf(c), items.length)));
@@ -6256,14 +6442,20 @@ function CatalogEditor() {
           </label>
           <div className="label is-wide">
             <div className="ah-sign" role="radiogroup" aria-label={t("sc.item")}>
-              {(["store", "sub"] as const).map((k) => (
-                <button key={k} type="button" role="radio" aria-checked={itemKind === k} aria-pressed={itemKind === k} onClick={() => setItemKind(k)}>{t(`add.kind.${k}`)}</button>
+              {(["store", "sub", "ins"] as const).map((k) => (
+                <button key={k} type="button" role="radio" aria-checked={itemKind === k} aria-pressed={itemKind === k} onClick={() => { setItemKind(k); setInsErr(""); }}>{t(`add.kind.${k}`)}</button>
               ))}
             </div>
           </div>
         </div>
+        {itemKind === "ins" ? (
+          <>
+            <InsFields draft={insDraft} onChange={setInsDraft} accts={accounts(session?.ledger)} t={t} />
+            {insErr ? <p className="form-err">{insErr}</p> : null}
+          </>
+        ) : null}
         <div className="ah-actions">
-          <button type="button" className="btn secondary" onClick={() => { setItemName(""); setItemKind("store"); }}>{t("cancel")}</button>
+          <button type="button" className="btn secondary" onClick={() => { setItemName(""); setItemKind("store"); setInsDraft(emptyInsDraft(session?.ledger.settings.display ?? "NIO")); setInsErr(""); }}>{t("cancel")}</button>
           <button type="button" className="btn" disabled={!itemName.trim()} onClick={addItem}>{t("save")}</button>
         </div>
       </div>

@@ -11,7 +11,7 @@ import {
 } from "react";
 import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow } from "@/lib/faro/api";
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
-import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas } from "@/lib/faro/defaults";
+import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas, withSeguroDeVida } from "@/lib/faro/defaults";
 import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
@@ -47,8 +47,11 @@ function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean;
   // still pure, untouched sample start empty; anything the user touched is kept as theirs.
   const a = sampleOn() ? withAugustSample(ledger) : isPureSample(ledger) ? { ledger: { ...stripSample(ledger), revision: ledger.revision + 1, updatedAt: new Date().toISOString() }, added: true } : { ledger, added: false };
   const b = withRemesas(a.ledger);
-  const c = withDeviceCobros(b.ledger);
-  return { ledger: c.ledger, added: a.added || b.added || c.moved > 0, sample: sampleOn() && a.added };
+  // 1.3.271: la pieza del seguro de vida llega a los libros personales; el libro de
+  // ejemplo no la recibe de esta ola (es provincia de la línea de Estructura).
+  const b2 = sampleOn() ? { ledger: b.ledger, added: false } : withSeguroDeVida(b.ledger);
+  const c = withDeviceCobros(b2.ledger);
+  return { ledger: c.ledger, added: a.added || b.added || b2.added || c.moved > 0, sample: sampleOn() && a.added };
 }
 
 /** 1.3.92: Me deben moves from this device into the ledger once (idempotent by id); the device copy stays, plus a backup key. */

@@ -87,6 +87,8 @@ export const LINKS: Record<string, string> = {
   Estructura: "estructura", Structure: "estructura",
   Plantillas: "plantillas", Templates: "plantillas",
   "Categorías y subconceptos": "arbol", "Categories and subcategories": "arbol",
+  "Tiendas y servicios": "catalogo", "Stores and services": "catalogo",
+  "Seguro de vida": "seguro-vida", "Life insurance": "seguro-vida",
   Reglas: "reglas", Rules: "reglas",
   "Meta de ahorro": "meta-ahorro", "Savings goal": "meta-ahorro",
   "Meses de colchón": "meses-colchon", "Months of cushion": "meses-colchon",

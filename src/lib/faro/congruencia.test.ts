@@ -110,10 +110,15 @@ describe("the membership sign: a sign, tap-inert, never a door", () => {
     // (el pin de las fijas del widget, solo para Tiendas e IA — las Suscripciones no
     // lo pintan). La ley de esta cerca no cambia: toda herramienta de la mano es un
     // botón de verdad y la insignia de membresía no lo es.
+    // RE-FIJADO en 1.3.271: la mano crece una sexta herramienta SOLO para el
+    // Seguro de vida (el botón de su plan, en el asiento donde iría el pin) y
+    // el pin nombra su conjunto en positivo (Tiendas e IA). La ley de esta
+    // cerca no cambia: toda herramienta de la mano es un botón de verdad y la
+    // insignia de membresía no lo es.
     const hand = screens.slice(screens.indexOf("cat-tools"), screens.indexOf('className="cat-badge"'));
     const buttons = hand.match(/<button type="button"/g) ?? [];
-    assert.equal(buttons.length, 5);
-    assert.match(hand, /item\.kind !== "sub" \? <button type="button" className="icon-btn cat-act pin-btn"/,
-      "el pin es la quinta herramienta y solo vive fuera de Suscripciones");
+    assert.equal(buttons.length, 6);
+    assert.match(hand, /\(item\.kind === "store" \|\| item\.kind === "ai"\) \? <button type="button" className="icon-btn cat-act pin-btn"/,
+      "el pin es herramienta solo de Tiendas e IA");
   });
 });

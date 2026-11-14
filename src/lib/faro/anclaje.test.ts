@@ -65,7 +65,12 @@ describe("anclaje: el catálogo pregunta antes de su guardado al momento (1.3.26
   });
 
   it("el botón de la mano sigue siendo el pin de la casa y llama al toggle con ventana", () => {
-    assert.match(screens, /item\.kind !== "sub" \? <button type="button" className="icon-btn cat-act pin-btn"[^>]*onClick=\{\(\) => toggleStorePinFor\(item\)\}/,
+    // RE-FIJADO en 1.3.271: el conjunto fijable se nombra en positivo — el pin
+    // es de Tiendas e IA; las Suscripciones nunca lo tuvieron y el Seguro de
+    // vida tampoco (en su asiento vive el botón de su plan). El contrato de
+    // esta cerca no cambia: el botón es el pin de la casa y su gesto llama
+    // al toggle con la ventana de la 1.3.260 delante.
+    assert.match(screens, /\(item\.kind === "store" \|\| item\.kind === "ai"\) \? <button type="button" className="icon-btn cat-act pin-btn"[^>]*onClick=\{\(\) => toggleStorePinFor\(item\)\}/,
       "la mano conserva su botón y su gesto");
   });
 });

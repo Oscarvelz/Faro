@@ -85,8 +85,12 @@ describe("1.3.269 — la marca no miente (las guardias eximen a las marcas)", ()
 
 describe("1.3.269 — las marcas se pintan solo del estado real y no son controles", () => {
   it("la marca del catálogo cuelga de la fija guardada (storePinned) y de la mano cerrada", () => {
+    // RE-FIJADO en 1.3.271: la condición nombra el conjunto fijable en
+    // positivo (Tiendas e IA) — el Seguro de vida, como las Suscripciones,
+    // no se puede fijar y su marca no existe. La ley de esta cerca no
+    // cambia: la marca cuelga de la fija guardada y de la mano cerrada.
     assert.ok(
-      screens.includes('{toolsFor !== item.id && item.kind !== "sub" && storePinned(item) ? <Pin size={12} className="cat-pinmark" fill="currentColor" aria-hidden /> : null}'),
+      screens.includes('{toolsFor !== item.id && (item.kind === "store" || item.kind === "ai") && storePinned(item) ? <Pin size={12} className="cat-pinmark" fill="currentColor" aria-hidden /> : null}'),
     );
     assert.ok(
       screens.includes("const storePinned = (item: CatalogItem) => hasStorePin(session?.ledger.settings.widgetPins, item.id);"),
