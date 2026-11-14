@@ -312,7 +312,11 @@ export const LOOK_ICONS = [
 
 const SECTION_ICON: Record<string, LucideIcon> = {
   desk: LayoutDashboard,
-  income: BookCopy,
+  // El hub «Libros» del muelle tiene clave propia desde la 1.3.270:
+  // BookCopy es de Libros (elección de Oscar, 1.3.245) y no se mueve;
+  // «Ingresos» lleva por fin el suyo (Coins), en sus cuatro asientos.
+  books: BookCopy,
+  income: Coins,
   fixed: Lock,
   variable: Waves,
   shops: ShoppingBag,

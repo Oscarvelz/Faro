@@ -1463,7 +1463,7 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
         <span>{t("nav.desk")}</span>
       </button>
       <button type="button" className="nav-btn" aria-current={hub === "books" ? "page" : undefined} onClick={() => { if (hub !== "books") onSection("income"); }}>
-        <SectionIcon id="income" />
+        <SectionIcon id="books" />
         <span>{t("hub.books")}</span>
       </button>
       <button type="button" className="nav-btn" data-anchor="nav-folios" aria-current={hub === "folios" ? "page" : undefined} onClick={() => { if (hub !== "folios") onSection(lastPastilla.current); }}>
