@@ -1,0 +1,28 @@
+/* Los clusters de Ajustes (Oscar, 2026-11-15: el render de las cinco
+   divisiones le valió un «Hazlo»). La pantalla se agrupa en bandejas por
+   territorio, como en Brizna. La bandeja se deriva de los tokens del tema
+   activo — se adapta, nunca se trasplanta: hundida un tono bajo la página
+   (fg 4% sobre bg), borde apilado (filete con --line, luz superior, sombra
+   corta), el nombre en la serif de la casa y la línea en --muted. En las
+   pantallas anchas la masonería de Ajustes reparte por bandeja: cada
+   cluster es una pieza del tablero y sus tarjetas se apilan dentro. */
+.cluster { border-radius: 28px; padding: 16px 12px 12px; background: color-mix(in oklab, var(--fg) 4%, var(--bg)); box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 color-mix(in srgb, #ffffff 6%, transparent), 0 16px 30px -22px rgb(0 0 0 / .55); }
+.cluster-head { padding: 0 6px 10px; }
+.cluster-title { font-size: 19px; font-weight: 700; line-height: 1.2; color: var(--fg); margin: 0; }
+.cluster-hint { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+.cluster-body { display: flex; flex-direction: column; gap: 10px; }
+.cluster-body > .card { margin: 0; }
+
+/* Tron: la luz es material. El filete de la bandeja se enciende en el cian
+   soberano (--t-edge) con su resplandor contenido en el borde y la costura
+   de luz arriba; el interior queda oscuro, sin lavado neón, y el título
+   lleva el brillo de texto de la casa. */
+[data-theme="tron"] .cluster { border-radius: 6px; background: color-mix(in oklab, var(--fg) 3%, var(--bg)); box-shadow: inset 0 0 0 1px var(--t-edge), inset 0 1px 0 color-mix(in srgb, var(--accent) 25%, transparent), 0 0 22px -8px var(--accent); }
+[data-theme="tron"] .cluster-title { text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* Cyberpunk: imprime plano. Bandeja en --surface-2 con su chaflán --cp-cut,
+   SIN sombra ni resplandor; el amarillo señal vive solo como filete
+   superior de 3px y en el título — el cian queda para datos y el magenta
+   para peligro, como manda su gramática. */
+[data-theme="cyberpunk"] .cluster { border-radius: 2px; clip-path: var(--cp-cut); background: var(--surface-2); box-shadow: inset 0 3px 0 var(--accent); }
+[data-theme="cyberpunk"] .cluster-title { color: var(--accent); }

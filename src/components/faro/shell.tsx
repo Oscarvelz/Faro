@@ -11,6 +11,7 @@ import { cpShellLive, mountCpCity } from "./cp-city";
 import "./brillo.css";
 import "./principal.css";
 import "./pliegues.css";
+import "./clusters.css";
 import "./ion.css";
 import "./cal.css";
 import "./tablet.css";

@@ -4557,6 +4557,22 @@ function Fold({ id, topic, title, sub, icon: Icon, open, onToggle, children }: {
   );
 }
 
+/** Los clusters de Ajustes (Oscar, 2026-11-15): la bandeja que agrupa las
+ * piezas de siempre por territorio, sin tocar su contenido — el patrón de
+ * Brizna, derivado de los tokens de Faro (clusters.css). En pantallas anchas
+ * la masonería del tablero reparte por bandeja. */
+function Cluster({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+  return (
+    <section className="cluster">
+      <header className="cluster-head">
+        <h2 className="cluster-title serif">{title}</h2>
+        <p className="cluster-hint">{hint}</p>
+      </header>
+      <div className="cluster-body">{children}</div>
+    </section>
+  );
+}
+
 /** Shorten at a word boundary (never mid-word); an ellipsis marks the cut. */
 function clipWords(text: string, max: number): string {
   if (text.length <= max) return text;
@@ -4586,7 +4602,11 @@ export function Settings() {
       const wide = window.matchMedia("(min-width: 1100px)").matches;
       const floatBody = root.closest<HTMLElement>(".float-body");
       const pair = (land || wide) && !split && !(floatBody && floatBody.clientWidth < 620);
-      const cards = [...root.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains("card"));
+      // 1.3.285: con los clusters, las piezas del tablero son las bandejas
+      // (.cluster) — la masonería reparte por bandeja y las tarjetas se
+      // apilan dentro de cada una. Una tarjeta suelta (sin bandeja) sigue
+      // contando como pieza, como antes.
+      const cards = [...root.children].filter((el): el is HTMLElement => el instanceof HTMLElement && (el.classList.contains("card") || el.classList.contains("cluster")));
       if (!pair) {
         root.style.removeProperty("position");
         root.style.removeProperty("height");
@@ -4625,7 +4645,7 @@ export function Settings() {
     const ro = new ResizeObserver(watch);
     const arm = () => {
       ro.disconnect();
-      for (const el of root.querySelectorAll(":scope > .card")) ro.observe(el);
+      for (const el of root.querySelectorAll(":scope > .card, :scope > .cluster")) ro.observe(el);
       watch();
     };
     const mo = new MutationObserver(arm);
@@ -4662,6 +4682,7 @@ export function Settings() {
   return (
     <>
     <div ref={boardRef} className="grid gap-3 settings-board">
+      <Cluster title={lang === "en" ? "The app" : "La app"} hint={lang === "en" ? "How it looks and how it handles" : "Cómo se ve y cómo se maneja"}>
       <Fold id="lang" icon={Languages} sub={lang === "en" ? "Spanish or English" : "Español o inglés"} topic="idioma" title={t("settings.lang")} open={openFold === "lang"} onToggle={() => toggle("lang")}>
         <div className="aj-seg" role="group" aria-label={t("settings.lang")}>
           {(["es", "en"] as const).map((id) => (
@@ -4698,6 +4719,72 @@ export function Settings() {
           );
         })()}
       </Fold>
+      <Fold id="keys" icon={Keyboard} sub={lang === "en" ? "One key per action" : "Una tecla por acción"} topic="atajos-teclado" title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
+        {SHORTCUT_ACTIONS.map((action) => (
+          <div key={action} className={`key-row${ui.rebind === action ? " is-rebinding" : ""}`}>
+            <span className="key-name">{shortcutLabel(lang, action)}</span>
+            <kbd className="key-combo num">{settings.shortcuts[action] || DEFAULT_SHORTCUTS[action]}</kbd>
+            <button type="button" className="btn ghost key-change" onClick={() => setUi({ rebind: action })}>{ui.rebind === action ? t("settings.press") : t("settings.rebind")}</button>
+          </div>
+        ))}
+        <button type="button" className="btn ghost mt-2" onClick={() => confirm({ title: t("settings.resetKeys"), body: t("settings.resetKeys.body"), danger: true, yes: t("settings.resetKeys.yes"), run: () => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys") })}>{t("settings.resetKeys")}</button>
+      </Fold>
+      <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Long or double tap" : "Toque largo o doble"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
+        <Note kind="tip">{t("gesture.help")}</Note>
+        {([
+          { head: "gesture.btnIn", mode: "in" },
+          { head: "gesture.btnOut", mode: "out" },
+          { head: "gesture.btnDue", mode: "due" },
+        ] as const).map(({ head, mode }) => {
+          const options = [{ value: "", label: t("gesture.none") }];
+          if (mode === "in") {
+            options.push({ value: "income-fixed", label: t("income.fixed") }, { value: "income-variable", label: t("income.variable") });
+          } else if (mode === "due") {
+            options.push(
+              { value: "owed", label: t("cobro.owed") },
+              { value: "owe", label: t("cobro.owe") },
+              { value: "dues", label: t("cobro.tab.dues") },
+              { value: "loans", label: t("cobro.tab.loans") },
+            );
+          } else {
+            for (const cat of session.ledger.structure.categories.filter((c) => !c.hidden && c.group === "fixed").sort((a, b) => a.order - b.order)) {
+              options.push({ value: `expense-fixed:${cat.id}`, label: `${t("group.fixed")} · ${displayName(cat, lang)}` });
+            }
+            for (const cat of session.ledger.structure.categories.filter((c) => !c.hidden && c.group === "variable").sort((a, b) => a.order - b.order)) {
+              options.push({ value: `expense-variable:${cat.id}`, label: `${t("group.variable")} · ${displayName(cat, lang)}` });
+            }
+            for (const shop of session.ledger.structure.purchases.filter((p) => !p.hidden).sort((a, b) => a.order - b.order)) {
+              options.push({ value: `purchase:${shop.id}`, label: `${t("nav.shops")} · ${displayName(shop, lang)}` });
+            }
+            options.push({ value: "subscription", label: t("tab.subs") });
+          }
+          return (
+            <div key={mode} className="gesture-group">
+              <h4 className="gesture-group-head">{t(head)}</h4>
+              {(["hold", "double"] as const).map((gesture) => {
+                const slot = `${mode}.${gesture}`;
+                return (
+                  <label key={slot} className="label mt-3">
+                    {t(gesture === "hold" ? "gesture.hold" : "gesture.double")}
+                    <ThemeSelect
+                      value={settings.gestures?.[slot] ?? ""}
+                      onChange={(value) => commit((s) => {
+                        const gestures = { ...(s.settings.gestures ?? {}) };
+                        if (value) gestures[slot] = value;
+                        else delete gestures[slot];
+                        return { ...s, settings: { ...s.settings, gestures } };
+                      }, slot)}
+                      options={options}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          );
+        })}
+      </Fold>
+      </Cluster>
+      <Cluster title={lang === "en" ? "The book" : "El libro"} hint={lang === "en" ? "How your money is organized" : "Cómo se organiza tu dinero"}>
       <Fold id="structure" icon={FolderTree} sub={lang === "en" ? "Categories and stores" : "Categorías y tiendas"} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
         <div className="aj-picks" role="group" aria-label={t("settings.structure")}>
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
@@ -4765,70 +4852,8 @@ export function Settings() {
         </div>
         {session && fxRateBroken(session.ledger) ? <Note kind="tip">{t("rate.broken")}</Note> : null}
       </Fold>
-      <Fold id="keys" icon={Keyboard} sub={lang === "en" ? "One key per action" : "Una tecla por acción"} topic="atajos-teclado" title={t("settings.shortcuts")} open={openFold === "keys"} onToggle={() => toggle("keys")}>
-        {SHORTCUT_ACTIONS.map((action) => (
-          <div key={action} className={`key-row${ui.rebind === action ? " is-rebinding" : ""}`}>
-            <span className="key-name">{shortcutLabel(lang, action)}</span>
-            <kbd className="key-combo num">{settings.shortcuts[action] || DEFAULT_SHORTCUTS[action]}</kbd>
-            <button type="button" className="btn ghost key-change" onClick={() => setUi({ rebind: action })}>{ui.rebind === action ? t("settings.press") : t("settings.rebind")}</button>
-          </div>
-        ))}
-        <button type="button" className="btn ghost mt-2" onClick={() => confirm({ title: t("settings.resetKeys"), body: t("settings.resetKeys.body"), danger: true, yes: t("settings.resetKeys.yes"), run: () => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys") })}>{t("settings.resetKeys")}</button>
-      </Fold>
-      <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Long or double tap" : "Toque largo o doble"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
-        <Note kind="tip">{t("gesture.help")}</Note>
-        {([
-          { head: "gesture.btnIn", mode: "in" },
-          { head: "gesture.btnOut", mode: "out" },
-          { head: "gesture.btnDue", mode: "due" },
-        ] as const).map(({ head, mode }) => {
-          const options = [{ value: "", label: t("gesture.none") }];
-          if (mode === "in") {
-            options.push({ value: "income-fixed", label: t("income.fixed") }, { value: "income-variable", label: t("income.variable") });
-          } else if (mode === "due") {
-            options.push(
-              { value: "owed", label: t("cobro.owed") },
-              { value: "owe", label: t("cobro.owe") },
-              { value: "dues", label: t("cobro.tab.dues") },
-              { value: "loans", label: t("cobro.tab.loans") },
-            );
-          } else {
-            for (const cat of session.ledger.structure.categories.filter((c) => !c.hidden && c.group === "fixed").sort((a, b) => a.order - b.order)) {
-              options.push({ value: `expense-fixed:${cat.id}`, label: `${t("group.fixed")} · ${displayName(cat, lang)}` });
-            }
-            for (const cat of session.ledger.structure.categories.filter((c) => !c.hidden && c.group === "variable").sort((a, b) => a.order - b.order)) {
-              options.push({ value: `expense-variable:${cat.id}`, label: `${t("group.variable")} · ${displayName(cat, lang)}` });
-            }
-            for (const shop of session.ledger.structure.purchases.filter((p) => !p.hidden).sort((a, b) => a.order - b.order)) {
-              options.push({ value: `purchase:${shop.id}`, label: `${t("nav.shops")} · ${displayName(shop, lang)}` });
-            }
-            options.push({ value: "subscription", label: t("tab.subs") });
-          }
-          return (
-            <div key={mode} className="gesture-group">
-              <h4 className="gesture-group-head">{t(head)}</h4>
-              {(["hold", "double"] as const).map((gesture) => {
-                const slot = `${mode}.${gesture}`;
-                return (
-                  <label key={slot} className="label mt-3">
-                    {t(gesture === "hold" ? "gesture.hold" : "gesture.double")}
-                    <ThemeSelect
-                      value={settings.gestures?.[slot] ?? ""}
-                      onChange={(value) => commit((s) => {
-                        const gestures = { ...(s.settings.gestures ?? {}) };
-                        if (value) gestures[slot] = value;
-                        else delete gestures[slot];
-                        return { ...s, settings: { ...s.settings, gestures } };
-                      }, slot)}
-                      options={options}
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          );
-        })}
-      </Fold>
+      </Cluster>
+      <Cluster title={lang === "en" ? "Learn" : "Aprender"} hint={lang === "en" ? "The manual and the lessons, at your pace" : "El manual y las lecciones, a tu paso"}>
       <section className="card manual-card" data-anchor="aj-manual" data-topic-box="manual">
         <button type="button" className="manual-row fold-btn" onClick={() => openManual("")}>
           <BookOpen aria-hidden />
@@ -4837,6 +4862,11 @@ export function Settings() {
         </button>
       </section>
       <PresentacionesCard />
+      </Cluster>
+      <Cluster title={lang === "en" ? "The phone" : "El teléfono"} hint={lang === "en" ? "Faro also lives outside the app" : "Faro también vive fuera de la app"}>
+      <WidgetCard open={openFold === "widget"} onToggle={() => toggle("widget")} />
+      <NotifyRow />
+      <BatteryRow />
       {androidBrowser() ? (
         <section className="card manual-card" data-anchor="aj-android" data-topic-box="app-android">
           <button type="button" className="manual-row fold-btn" onClick={() => confirm({
@@ -4853,9 +4883,8 @@ export function Settings() {
           </button>
         </section>
       ) : null}
-      <WidgetCard open={openFold === "widget"} onToggle={() => toggle("widget")} />
-      <NotifyRow />
-      <BatteryRow />
+      </Cluster>
+      <Cluster title={lang === "en" ? "Your data" : "Tus datos"} hint={lang === "en" ? "Yours, saved and safe" : "Lo tuyo, guardado y a salvo"}>
       <SampleRow />
       <Fold id="backup" icon={ShieldCheck} sub={lang === "en" ? "On device and in cloud" : "En el equipo y la nube"} topic="copias" title={t("settings.backup")} open={openFold === "backup"} onToggle={() => toggle("backup")}>
         <BackupPanel backups={backups} onNow={backupNow} onRestore={restoreBackup} />
@@ -4873,8 +4902,9 @@ export function Settings() {
         <UserButton />
         <AccountLocalNote />
       </Fold>
-      </div>
-      <p className="app-version" data-anchor="aj-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>
+      </Cluster>
+    </div>
+    <p className="app-version" data-anchor="aj-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>
     </>
   );
 }
