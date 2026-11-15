@@ -89,9 +89,9 @@ const arc = buildSampleArc(createInitial("es"));
 const TODAY = new Date(2026, 10, 14); // el «hoy» del censo
 
 describe("ejemplo 280: la forma del arco", () => {
-  it("116 filas jun–nov, linaje demo-ago- en id Y seriesId, sin rest, todas «Muestra»", () => {
+  it("128 filas jun–nov (116 del arco 280 + la Meta partida en dos fondos + la cuenta, 1.3.291), linaje demo-ago- en id Y seriesId, sin rest, todas «Muestra»", () => {
     const lines = sampleArcLines();
-    assert.equal(lines.length, 116);
+    assert.equal(lines.length, 128);
     assert.ok(lines.every((l) => l.id.startsWith("demo-ago-") && (l.seriesId ?? "").startsWith("demo-ago-")));
     assert.ok(lines.every((l) => !l.rest));
     assert.ok(lines.every((l) => l.note === "Muestra"));
@@ -111,11 +111,12 @@ describe("ejemplo 280: la forma del arco", () => {
     assert.equal(arc.people?.length, 1);
     assert.equal(arc.remitPeople?.length, 1);
     assert.equal(arc.settings.widgetPins?.length, 2);
-    assert.ok(arc.settings.seeds?.includes("sample-v2"));
+    assert.ok(arc.settings.seeds?.includes("sample-v2"), "la marca v2 se sigue escribiendo: una app ≤1.3.290 no re-siembra sobre la casa nueva");
+    assert.ok(arc.settings.seeds?.includes("sample-v3"));
   });
 
   it("la quita por linaje vacía el libro del arco en un gesto", () => {
-    assert.equal(countSampleRows(arc), 116);
+    assert.equal(countSampleRows(arc), 128);
     const clean = stripSample(arc);
     assert.equal(allLines(clean).length, 0);
     assert.equal(countSampleRows(clean), 0);
@@ -123,17 +124,17 @@ describe("ejemplo 280: la forma del arco", () => {
 
   it("el arrastre a diciembre conserva el linaje y la quita lo sigue vaciando", () => {
     const dec = copyRecurring(arc, "2026-11", "2026-12").state;
-    assert.ok(countSampleRows(dec) > 116);
+    assert.ok(countSampleRows(dec) > 128);
     assert.equal(countSampleRows(stripSample(dec)), 0);
   });
 });
 
 describe("ejemplo 280: las cifras del censo (§2.4)", () => {
-  it("totales por mes — la tabla del censo omitía en octubre el mes de MetroPCS (C$650); manda §2.2", () => {
+  it("totales por mes — la tabla del censo omitía en octubre el mes de MetroPCS (C$650); manda §2.2. 1.3.291: el gasto crece con lo que entra a la cuenta de la casa cada mes (su fila es de ahorro: el ingreso y el resto no se mueven)", () => {
     const totals: Record<string, [number, number, number]> = {
-      "2026-06": [3364100, 2466000, 898100], "2026-07": [3684600, 2536000, 1148600],
-      "2026-08": [3818100, 3456000, 362100], "2026-09": [3379100, 3176000, 203100],
-      "2026-10": [3992000, 3592900, 399100], "2026-11": [3547600, 3198000, 349600],
+      "2026-06": [3364100, 2966000, 398100], "2026-07": [3684600, 2786000, 898600],
+      "2026-08": [3818100, 3636000, 182100], "2026-09": [3379100, 3296000, 83100],
+      "2026-10": [3992000, 3842900, 149100], "2026-11": [3547600, 3438000, 109600],
     };
     for (const [k, [inc, exp, left]] of Object.entries(totals)) {
       const s = summarize(arc, k, "es");
@@ -141,14 +142,16 @@ describe("ejemplo 280: las cifras del censo (§2.4)", () => {
     }
   });
 
-  it("el flujo de ahorro sube 3,900 → 6,400 y los bolsillos aterrizan en 6,300 / 14,700 / 9,900", () => {
-    const flow = [390000, 440000, 490000, 540000, 590000, 640000];
+  it("el flujo de ahorro: el del censo más lo que entra a la cuenta (1.3.291); los fondos aterrizan en Casa 3,750 / Viaje 2,550 / Retiro 14,700 / Emergencia 9,900 y la cuenta en 15,400", () => {
+    const flow = [890000, 690000, 670000, 660000, 840000, 880000];
     ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"].forEach((k, i) => assert.equal(summarize(arc, k, "es").savingsFlow, flow[i], k));
     const stock = savingsStock(arc, "2026-11");
-    assert.equal(stock.total, 3090000);
-    assert.equal(stock.series.get("demo-ago-ahorro-meta")?.minor, 630000);
+    assert.equal(stock.total, 4630000);
+    assert.equal(stock.series.get("demo-ago-ahorro-casa")?.minor, 375000);
+    assert.equal(stock.series.get("demo-ago-ahorro-viaje")?.minor, 255000);
     assert.equal(stock.series.get("demo-ago-ahorro-retiro")?.minor, 1470000);
     assert.equal(stock.series.get("demo-ago-ahorro-emergencia")?.minor, 990000);
+    assert.equal(stock.series.get("demo-ago-cuenta")?.minor, 1540000);
   });
 
   it("el Patrón nace graduado y juzga «on» en agosto (2 meses) y en noviembre (5 meses, 107%)", () => {
@@ -186,7 +189,7 @@ describe("ejemplo 280: las cifras del censo (§2.4)", () => {
   });
 });
 
-describe("ejemplo 280: pureza doble y regla de ascenso (§3.3)", () => {
+describe("ejemplo 280: pureza de plantillas y regla de ascenso (§3.3)", () => {
   it("el libro del arco es muestra pura por la plantilla nueva", () => {
     assert.equal(isPureSample(arc), true);
     assert.equal(isPureArcSample(arc), true);
@@ -214,12 +217,12 @@ describe("ejemplo 280: pureza doble y regla de ascenso (§3.3)", () => {
     const up = withSampleArc(legacy);
     assert.equal(up.added, true);
     assert.equal(isPureArcSample(up.ledger), true);
-    assert.equal(countSampleRows(up.ledger), 116);
+    assert.equal(countSampleRows(up.ledger), 128);
   });
 
-  it("(c) la caja de arena editada — de cualquiera de las dos generaciones — queda intacta", () => {
+  it("(c) la caja de arena editada — de cualquiera de las generaciones — queda intacta", () => {
     const sandbox = clone(arc);
-    sandbox.settings = { ...sandbox.settings, seeds: (sandbox.settings.seeds ?? []).filter((s) => s !== "sample-v2") };
+    sandbox.settings = { ...sandbox.settings, seeds: (sandbox.settings.seeds ?? []).filter((s) => s !== "sample-v2" && s !== "sample-v3") };
     sandbox.months["2026-08"].lines[0].amountMinor += 500;
     assert.equal(withSampleArc(sandbox).added, false);
     const playedLegacy = withAugustSample(createInitial("es")).ledger;

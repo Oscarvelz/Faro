@@ -10,8 +10,12 @@
  * - Every figure is the one Faro shows: Tengo / Gastaré / Queda / Usado / Pagos come from summarize() (Central),
  *   Me deben / Debo from netBalance() (the scale), the savings total is Central's Ahorros figure (pockets + accounts),
  *   spending by category is Estudio's categorySlices().
+ * - 1.3.291 (savings model, §4.5): the photo also carries saveKept / savePledged — the savings total split by the
+ *   partition — and each pocket's nature for the light. saveTotal keeps its old meaning on purpose: an old shell
+ *   must never read a new figure under the old label.
  */
 import { categorySlices, summarize } from "./engine";
+import { keptTotal } from "./funds";
 import { paceReading } from "./patron";
 import { quickHomesRanked, quickPins, quickStorePins, type QuickHome } from "./quickadd";
 import { savingsStock } from "./savings";
@@ -38,7 +42,15 @@ export type WidgetDue = { name: string; kind: "cuota" | "card" | "loan"; on: str
 export type WidgetPace = { status: "learning" | "ready"; verdict: "under" | "on" | "over" | null; spent: number; expected: number; projected: number; income: number };
 export type WidgetCat = { name: string; amt: number; prev: number; save: boolean; go: WidgetGo };
 export type WidgetFlow = { key: string; label: string; inn: number; out: number };
-export type WidgetPocket = { name: string; amt: number; go: WidgetGo };
+/** La naturaleza de un bolsillo en la foto (1.3.291, oleada 5 del modelo de ahorros,
+ *  §4.5): la luz que el shell pinta junto al nombre — disco lleno «aparte», anillo
+ *  «saldo», disco gris «sin-declarar» (el código de §7). Viaja solo cuando TODAS las
+ *  series del bolsillo comparten la misma naturaleza: un bolsillo mezclado (una meta
+ *  aparte y otra del saldo bajo la misma bolsa) no lleva el campo — una sola luz no
+ *  puede decir dos verdades. El Retiro y las cuentas no lo llevan nunca: la naturaleza
+ *  del Retiro es su nombre, y la cuenta es la base misma. */
+export type WidgetPocketNature = "aparte" | "saldo" | "sin-declarar";
+export type WidgetPocket = { name: string; amt: number; go: WidgetGo; fund?: WidgetPocketNature };
 
 export type WidgetSnapshot = {
   v: 1;
@@ -75,6 +87,15 @@ export type WidgetSnapshot = {
   saveMonth: number;
   saveGoal: number;
   saveTotal: number;
+  /** 1.3.291 (modelo de ahorros, §4.5): Lo guardado — el dinero que existe una sola vez
+   *  (cuentas + fondos aparte + Retiro + la pila sin declarar leyéndose como aparte) — y
+   *  Lo comprometido del saldo, que nunca suma: es una lectura sobre las cuentas.
+   *  saveTotal NO se redefine: sigue siendo bolsas + cuentas, la cifra que los shelles
+   *  en la calle ya leen con su etiqueta «Ahorros»; los campos nuevos viajan aparte y un
+   *  shell viejo los ignora, como ya ignora curs o qsOut. saveKept + savePledged ==
+   *  saveTotal, siempre: partir el total no lo mueve. */
+  saveKept: number;
+  savePledged: number;
   pockets: WidgetPocket[];
   /** The scale: Me deben (lent + card rewards) · Debo (loans + cards). */
   owed: number;
@@ -135,21 +156,39 @@ export function savingsOf(state: LedgerState, key: string, lang: Lang) {
   const stock = savingsStock(state, key);
   const buckets = new Map<string, number>();
   const acctPockets = new Map<string, number>();
+  // 1.3.291 (§4.5): la naturaleza por bolsillo, leída de la MISMA partición — las clases
+  // de las series que caen en cada bolsa. Una bolsa con dos naturalezas no gana luz en
+  // la foto (ver WidgetPocketNature); el resto genérico tampoco (mezcla por definición).
+  const natures = new Map<string, Set<WidgetPocketNature>>();
   let accounts = 0;
   for (const s of stock.series.values()) {
     if (namedVaultIds.has(s.subId)) { accounts += s.minor; acctPockets.set(s.subId, (acctPockets.get(s.subId) ?? 0) + s.minor); continue; }
     const id = s.subId && seed.some((x) => x.id === s.subId) ? s.subId : "rest";
     buckets.set(id, (buckets.get(id) ?? 0) + s.minor);
+    if (id !== "rest" && s.minor !== 0 && (s.cls === "aparte" || s.cls === "saldo" || s.cls === "sin-declarar")) {
+      const set = natures.get(id) ?? new Set<WidgetPocketNature>();
+      set.add(s.cls);
+      natures.set(id, set);
+    }
   }
+  const natureOf = (id: string): WidgetPocketNature | undefined => {
+    const set = natures.get(id);
+    return set && set.size === 1 ? [...set][0] : undefined;
+  };
   const rest = buckets.get("rest") ?? 0;
-  const pockets = seed.map((s) => ({ id: s.id, name: s.name, amt: buckets.get(s.id) ?? 0 }));
+  const pockets = seed.map((s) => {
+    const fund = natureOf(s.id);
+    return { id: s.id, name: s.name, amt: buckets.get(s.id) ?? 0, ...(fund ? { fund } : {}) };
+  });
   if (rest !== 0) pockets.push({ id: "rest", name: lang === "en" ? "Savings" : "Ahorros", amt: rest });
   const pocketTotal = pockets.reduce((a, p) => a + p.amt, 0);
   // 1.3.163 (audit D1): the accounts lump, broken down per named vault sub — the widget snapshot
   // lists them as their own pockets so its pocket list can add up to `total` (it never could while
   // the accounts rode along only inside the total).
   const accountPockets = [...acctPockets.entries()].map(([id, amt]) => ({ id, name: names.sub(id), amt }));
-  return { pockets, pocketTotal, accounts, accountPockets, total: pocketTotal + accounts };
+  // 1.3.291 (§4.5): el total partido por la partición — kept es la fórmula única de
+  // funds.keptTotal sobre este mismo stock (ninguna caminata nueva), pledged su resto.
+  return { pockets, pocketTotal, accounts, accountPockets, total: pocketTotal + accounts, kept: keptTotal(stock), pledged: stock.pledged };
 }
 
 const goOfPocket = (id: string): WidgetGo => (id.endsWith(".meta") ? "vault-meta" : id.endsWith(".retiro") ? "vault-retiro" : id.endsWith(".emergencia") ? "vault-emergencia" : "vault-save");
@@ -266,12 +305,16 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     saveMonth: s.savingsFlow,
     saveGoal: s.savingsGoal,
     saveTotal: sav.total,
+    saveKept: sav.kept,
+    savePledged: sav.pledged,
     // 1.3.163 (audit D1): EVERY pocket with money, plus the savings accounts as their own entries.
     // The old slice(0, 4) dropped the fifth pocket while saveTotal kept counting it, and the
     // accounts never appeared at all — the snapshot disagreed with itself by $1,100 on the
     // audit's book. Now Σ pockets == saveTotal, always.
+    // 1.3.291: cada bolsillo lleva su naturaleza cuando la tiene (savingsOf la leyó de la
+    // partición); las cuentas, nunca — son la base, no un fondo.
     pockets: [
-      ...sav.pockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: goOfPocket(p.id) })),
+      ...sav.pockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: goOfPocket(p.id), ...("fund" in p && p.fund ? { fund: p.fund } : {}) })),
       ...sav.accountPockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: "vault-save" as WidgetGo })),
     ],
     owed: nb.owed,

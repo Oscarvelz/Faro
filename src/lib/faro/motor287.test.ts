@@ -138,14 +138,14 @@ describe("motor 287 — libros sin declarar: la partición reproduce las cifras 
     reconciles(st);
   });
 
-  it("la casa de ejemplo (arco 280): 3,090,000 partidos en retiro + sin-declarar", () => {
+  it("la casa de ejemplo (arco v3, 1.3.291): 4,630,000 partidos por el modelo — cuenta, aparte, saldo y Retiro", () => {
     const arc = buildSampleArc(createInitial("es"));
     const st = savingsStock(arc, "2026-11");
-    assert.equal(st.total, 3090000);
-    assert.deepEqual(st.byClass, { cuenta: 0, retiro: 1470000, aparte: 0, saldo: 0, "sin-declarar": 1620000 });
-    assert.equal(st.kept, 1470000);
-    assert.equal(st.pledged, 0);
-    assert.equal(st.undeclared, 1620000);
+    assert.equal(st.total, 4630000);
+    assert.deepEqual(st.byClass, { cuenta: 1540000, retiro: 1470000, aparte: 375000, saldo: 1245000, "sin-declarar": 0 });
+    assert.equal(st.kept, 1845000);
+    assert.equal(st.pledged, 1245000);
+    assert.equal(st.undeclared, 0);
     reconciles(st);
   });
 });

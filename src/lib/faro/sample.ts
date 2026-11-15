@@ -116,7 +116,16 @@ export function countSampleRows(ledger: LedgerState): number {
 export function stripSample(ledger: LedgerState): LedgerState {
   const months: LedgerState["months"] = {};
   for (const [k, m] of Object.entries(ledger.months)) months[k] = { ...m, lines: (m?.lines ?? []).filter((l) => !isDemo(l)) };
-  return { ...ledger, months };
+  // 1.3.291: la cuenta de la casa (arco v3) es mobiliario de la semilla, no del usuario:
+  // su sub sale con las filas — un vault vacío sería un cadáver en Estructura. El id es
+  // fijo y lo acuña solo la semilla (addAccount acuña vault-<uid>, jamás este), así que
+  // quitarlo no puede tocar una cuenta de verdad.
+  if (!ledger.structure.categories.some((c) => c.subs.some((s) => s.id === SAMPLE_ACCOUNT_ID))) return { ...ledger, months };
+  const structure = {
+    ...ledger.structure,
+    categories: ledger.structure.categories.map((c) => (c.subs.some((s) => s.id === SAMPLE_ACCOUNT_ID) ? { ...c, subs: c.subs.filter((s) => s.id !== SAMPLE_ACCOUNT_ID) } : c)),
+  };
+  return { ...ledger, months, structure };
 }
 
 /* ------------------------------------------------------------------ *
@@ -141,10 +150,32 @@ export function stripSample(ledger: LedgerState): LedgerState {
  *  sumando EXACTO su importe y su día en `bookedOn`: el Patrón de
  *  ritmo nace graduado (juzga «on» en agosto y en noviembre) porque
  *  sus numeradores y denominadores describen el mismo dinero fechado.
+ *
+ *  EL ARCO V3 (1.3.291, oleada 5 del modelo de ahorros, diseño §11): la
+ *  casa aprende el modelo nuevo DECLARÁNDOLO. Una cuenta con saldo real
+ *  (Lafise, sub vault sembrado en la Estructura por la propia semilla)
+ *  sostiene los fondos del saldo: «Viaje» y «Emergencia» viven sobre su
+ *  saldo, amarrados a ella como anfitriona; «Casa» es dinero aparte que
+ *  acumula su pila; el Retiro sigue siendo el Retiro. Sin la cuenta, un
+ *  compromiso sin saldo detrás enseñaría dinero falso — justo lo que
+ *  el modelo vino a matar. La cuenta crece mes a mes (5,000 → 15,400)
+ *  cubriendo siempre sus compromisos (1,600 → 12,450): su Libre nunca
+ *  es negativo y el piso de emergencia queda cubierto. El generador
+ *  del arco 280 queda congelado abajo como plantilla de pureza v2, con
+ *  la misma regla de ascenso de siempre: la casa pura se reemplaza,
+ *  la caja de arena editada jamás se toca.
  * ------------------------------------------------------------------ */
 
 export const SAMPLE_ARC_MONTHS = ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"] as const;
 export const SAMPLE_V2_SEED = "sample-v2";
+export const SAMPLE_V3_SEED = "sample-v3";
+/** La cuenta de la casa: id fijo (addAccount acuña vault-<uid>, nunca este) y su sub
+ *  tal como la semilla lo escribe en f-ahorro — la pureza v3 lo compara exacto. */
+export const SAMPLE_ACCOUNT_ID = "vault-demo01";
+export const SAMPLE_ACCOUNT_NAME = "Lafise";
+export const SAMPLE_ACCOUNT_SUB = { id: SAMPLE_ACCOUNT_ID, nameKey: "", customName: SAMPLE_ACCOUNT_NAME, icon: "vault", hidden: false, order: 3 };
+/** Saldos de la cuenta al cierre de cada mes del arco (mayores, C$). */
+const ACCOUNT_BALANCES = [5000, 7500, 9300, 10500, 13000, 15400];
 
 const day = (key: string, d: number) => `${key}-${String(d).padStart(2, "0")}`;
 
@@ -168,6 +199,12 @@ type ArcOpts = {
   personId?: string;
   occasionId?: string;
   to?: string;
+  /** 1.3.291: la naturaleza declarada del fondo (la estampa del modelo, §2.1). */
+  fund?: Line["fund"];
+  fundHost?: string;
+  /** Icono de la LÍNEA (la cuenta lleva «vault», como las líneas de addAccount). */
+  icon?: string;
+  startedOn?: string;
 };
 
 function arcLine(key: string, name: string, kind: LineKind, concept: string, major: number, o: ArcOpts = {}): Line {
@@ -195,7 +232,7 @@ function arcLine(key: string, name: string, kind: LineKind, concept: string, maj
     aprBps: 0,
     balanceMinor: o.balanceMajor === undefined ? null : Math.round(o.balanceMajor * 100),
     balanceCurrency: "NIO",
-    icon: "",
+    icon: o.icon ?? "",
     history: (o.charges ?? []).map(([d, m], i) => ({ id: `${id}-c${i + 1}`, date: day(key, d), amountMinor: Math.round(m * 100), currency: "NIO" as const, note: "" })),
     ...(bookedOn ? { bookedOn } : {}),
     ...(o.sourceId ? { sourceId: o.sourceId } : {}),
@@ -205,23 +242,38 @@ function arcLine(key: string, name: string, kind: LineKind, concept: string, maj
     ...(o.personId ? { personId: o.personId } : {}),
     ...(o.occasionId ? { occasionId: o.occasionId } : {}),
     ...(o.to ? { to: o.to } : {}),
+    ...(o.fund ? { fund: o.fund } : {}),
+    ...(o.fundHost ? { fundHost: o.fundHost } : {}),
+    ...(o.startedOn ? { startedOn: o.startedOn } : {}),
   };
 }
 
 const NEGOCIO: Record<string, number> = { "2026-06": 11300, "2026-07": 13750, "2026-08": 14585, "2026-09": 12400, "2026-10": 15129, "2026-11": 14585 };
 const OTRO: Record<string, number> = { "2026-06": 1450, "2026-07": 2205, "2026-08": 2205, "2026-10": 900 };
 const BONO_MONTHS = new Set(["2026-08", "2026-09"]);
-/** Depósitos mensuales por bolsillo y su saldo acumulado al cierre (la doble forma que leen la banda y el stock). */
-const POCKETS: { name: string; subId: string; deposits: number[] }[] = [
-  { name: "ahorro-meta", subId: "f.ahorro.meta", deposits: [800, 900, 1000, 1100, 1200, 1300] },
-  { name: "ahorro-retiro", subId: "f.ahorro.retiro", deposits: [1800, 2100, 2400, 2600, 2800, 3000] },
-  { name: "ahorro-emergencia", subId: "f.ahorro.emergencia", deposits: [1300, 1400, 1500, 1700, 1900, 2100] },
+
+type ArcFund = { name: string; subId: string; concept: string; deposits: number[]; fund?: "saldo" | "aparte" };
+/** Los fondos del arco v3 (1.3.291): Meta lleva los dos fondos de Oscar — «Casa» aparte
+ *  y «Viaje» del saldo — con los MISMOS depósitos mensuales que la Meta única del arco
+ *  280 sumaba (800…1,300 partidos 500+300, 550+350, …): el flujo de la bolsa no cambia,
+ *  solo su composición. Emergencia declara «saldo»; el Retiro no declara nunca. */
+const ARC_FUNDS: ArcFund[] = [
+  { name: "ahorro-casa", subId: "f.ahorro.meta", concept: "Casa", deposits: [500, 550, 600, 650, 700, 750], fund: "aparte" },
+  { name: "ahorro-viaje", subId: "f.ahorro.meta", concept: "Viaje", deposits: [300, 350, 400, 450, 500, 550], fund: "saldo" },
+  { name: "ahorro-retiro", subId: "f.ahorro.retiro", concept: "Ahorro", deposits: [1800, 2100, 2400, 2600, 2800, 3000] },
+  { name: "ahorro-emergencia", subId: "f.ahorro.emergencia", concept: "Emergencia", deposits: [1300, 1400, 1500, 1700, 1900, 2100], fund: "saldo" },
+];
+/** La tabla del arco 280, congelada: es la plantilla de pureza v2 (sampleArcLinesV2). */
+const ARC_FUNDS_V2: ArcFund[] = [
+  { name: "ahorro-meta", subId: "f.ahorro.meta", concept: "Ahorro", deposits: [800, 900, 1000, 1100, 1200, 1300] },
+  { name: "ahorro-retiro", subId: "f.ahorro.retiro", concept: "Ahorro", deposits: [1800, 2100, 2400, 2600, 2800, 3000] },
+  { name: "ahorro-emergencia", subId: "f.ahorro.emergencia", concept: "Ahorro", deposits: [1300, 1400, 1500, 1700, 1900, 2100] },
 ];
 const cumulative = (xs: number[]) => xs.map((_, i) => xs.slice(0, i + 1).reduce((a, b) => a + b, 0));
 
-/** Las 116 filas del arco (censo §2.2; su tabla de octubre cuenta 22 y el total 115 —
- * la tabla de diseño manda: octubre lleva también el abono de Carlos y son 23). */
-export function sampleArcLines(): Line[] {
+/** El cuerpo del arco, compartido por las dos generaciones: la casa es la misma; lo que
+ * cambia entre v2 y v3 son los fondos que la habitan y la cuenta que los sostiene. */
+function arcLines(funds: ArcFund[], account: number[] | null): Line[] {
   const out: Line[] = [];
   SAMPLE_ARC_MONTHS.forEach((key, mi) => {
     const despensa = key === "2026-06" ? 3400 : key === "2026-07" ? 3600 : 3500;
@@ -242,10 +294,21 @@ export function sampleArcLines(): Line[] {
     out.push(arcLine(key, "funeraria", "expense-fixed", "Funeraria", 380, { categoryId: "f-familia", subId: "f.familia.funeraria", recurring: true, charges: [[12, 380]], bookedDay: 12 }));
     out.push(arcLine(key, "youtube", "expense-fixed", "Youtube", 185, { categoryId: "f-casa", subId: "f.casa.youtube", recurring: true, charges: [[15, 185]], bookedDay: 15 }));
     out.push(arcLine(key, "xuper", "expense-variable", "XUPER TV", 10596, { categoryId: "v-entretenimiento", subId: "v.entretenimiento.xuper", charges: [[6, 10596]], bookedDay: 6 }));
-    // — Los tres bolsillos, cada mes —
-    for (const p of POCKETS) {
-      out.push(arcLine(key, p.name, "expense-fixed", "Ahorro", p.deposits[mi], {
-        categoryId: "f-ahorro", subId: p.subId, recurring: true, charges: [[28, p.deposits[mi]]], bookedDay: 28, balanceMajor: cumulative(p.deposits)[mi],
+    // — La cuenta de la casa (solo v3): su saldo al cierre de cada mes, con lo que
+    // entró en el mes como importe — la misma doble forma que las bolsas. —
+    if (account) {
+      const bal = account[mi]!;
+      const delta = bal - (mi > 0 ? account[mi - 1]! : 0);
+      out.push(arcLine(key, "cuenta", "expense-fixed", SAMPLE_ACCOUNT_NAME, delta, {
+        categoryId: "f-ahorro", subId: SAMPLE_ACCOUNT_ID, charges: [[2, delta]], bookedDay: 2, balanceMajor: bal, icon: "vault", startedOn: "2026-06-01",
+      }));
+    }
+    // — Los fondos, cada mes —
+    for (const p of funds) {
+      out.push(arcLine(key, p.name, "expense-fixed", p.concept, p.deposits[mi]!, {
+        categoryId: "f-ahorro", subId: p.subId, recurring: true, charges: [[28, p.deposits[mi]!]], bookedDay: 28, balanceMajor: cumulative(p.deposits)[mi],
+        ...(p.fund ? { fund: p.fund } : {}),
+        ...(p.fund === "saldo" ? { fundHost: SAMPLE_ACCOUNT_ID } : {}),
       }));
     }
     // — Llegadas de la segunda mitad —
@@ -264,6 +327,17 @@ export function sampleArcLines(): Line[] {
     if (key === "2026-11") out.push(arcLine(key, "shein", "purchase", "Compra en Shein", 1450, { categoryId: "ropa", storeId: "shein", charges: [[11, 1450]], bookedDay: 11, sourceId: "acct-pp-card", rc: "online" }));
   });
   return out;
+}
+
+/** Las 128 filas del arco v3 (1.3.291): las 116 del arco 280, con la Meta partida en
+ * dos fondos (+6), más la serie de la cuenta de la casa (+6). */
+export function sampleArcLines(): Line[] {
+  return arcLines(ARC_FUNDS, ACCOUNT_BALANCES);
+}
+
+/** Las 116 filas del arco 280, congeladas: la plantilla de pureza de su generación. */
+export function sampleArcLinesV2(): Line[] {
+  return arcLines(ARC_FUNDS_V2, null);
 }
 
 /** La tarjeta guardada: la PayPal de la casa, con su lectura de noviembre (censo §2.2). */
@@ -296,64 +370,103 @@ export function sampleArcRemitPerson(): RemitPerson {
 
 export const SAMPLE_ARC_PINS = [{ c: "f-alimentos", s: "f.alimentos.despensa" }, { c: "f-casa", s: "" }];
 
-/** El libro del arco completo sobre un libro base: los seis meses y las colecciones de
- * estado que la semilla vieja nunca escribía. Solo se aplica dentro del namespace de
- * ejemplo (provider, bajo sampleOn) — jamás sobre un libro personal. */
+/** La Estructura del arco: la de la base, con el sub de la cuenta de la casa en
+ * f-ahorro si aún no está (idempotente: la semilla nunca duplica su propia cuenta). */
+function withSampleAccountSub(structure: LedgerState["structure"]): LedgerState["structure"] {
+  if (structure.categories.some((c) => c.subs.some((s) => s.id === SAMPLE_ACCOUNT_ID))) return structure;
+  return {
+    ...structure,
+    categories: structure.categories.map((c) => (c.id === "f-ahorro" ? { ...c, subs: [...c.subs, { ...SAMPLE_ACCOUNT_SUB }] } : c)),
+  };
+}
+
+/** El libro del arco completo sobre un libro base: los seis meses, la Estructura con
+ * la cuenta de la casa y las colecciones de estado que la semilla vieja nunca
+ * escribía. Solo se aplica dentro del namespace de ejemplo (provider, bajo
+ * sampleOn) — jamás sobre un libro personal. Las marcas de semilla son DOS: la v3,
+ * que es la que manda, y la v2, que se sigue escribiendo para que una versión
+ * anterior de la app (≤1.3.290) no intente re-sembrar sobre la casa nueva: su
+ * withSampleArc se detiene ante la marca v2 y su pureza no reconoce las filas
+ * nuevas, así que deja el libro en paz. */
 export function buildSampleArc(ledger: LedgerState): LedgerState {
   const months: LedgerState["months"] = {};
   for (const key of SAMPLE_ARC_MONTHS) months[key] = { lines: sampleArcLines().filter((l) => l.monthKey === key) };
   const seeds = ledger.settings.seeds ?? [];
+  const nextSeeds = [...seeds];
+  for (const s of [SAMPLE_V2_SEED, SAMPLE_V3_SEED]) if (!nextSeeds.includes(s)) nextSeeds.push(s);
   return {
     ...ledger,
     months,
+    structure: withSampleAccountSub(ledger.structure),
     cards: [sampleArcCard()],
     loans: [sampleArcLoan()],
     lent: [sampleArcLent()],
     people: [sampleArcPerson()],
     remitPeople: [sampleArcRemitPerson()],
-    settings: { ...ledger.settings, widgetPins: SAMPLE_ARC_PINS.map((p) => ({ ...p })), seeds: seeds.includes(SAMPLE_V2_SEED) ? seeds : [...seeds, SAMPLE_V2_SEED] },
+    settings: { ...ledger.settings, widgetPins: SAMPLE_ARC_PINS.map((p) => ({ ...p })), seeds: nextSeeds },
   };
 }
 
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-/** Pureza del arco: el libro ES la semilla, fila por fila y colección por colección,
- * sin una sola edición. Estricta como la de siempre — cualquier toque la rompe. */
-export function isPureArcSample(ledger: LedgerState): boolean {
-  const tpl = sampleArcLines();
+const linesMatch = (ledger: LedgerState, tpl: Line[]): boolean => {
   const all = allLines(ledger);
   if (all.length !== tpl.length) return false;
   const byId = new Map(tpl.map((l) => [l.id, l]));
-  if (!all.every((l) => { const t = byId.get(l.id); return !!t && sameJson(l, t); })) return false;
-  return sameJson(ledger.cards ?? [], [sampleArcCard()])
-    && sameJson(ledger.loans ?? [], [sampleArcLoan()])
-    && sameJson(ledger.lent ?? [], [sampleArcLent()])
-    && sameJson(ledger.people ?? [], [sampleArcPerson()])
-    && sameJson(ledger.remitPeople ?? [], [sampleArcRemitPerson()])
-    && sameJson(ledger.settings.widgetPins ?? [], SAMPLE_ARC_PINS)
+  return all.every((l) => { const t = byId.get(l.id); return !!t && sameJson(l, t); });
+};
+
+/** Las colecciones de estado, idénticas en las dos generaciones del arco. */
+const sameCollections = (ledger: LedgerState): boolean =>
+  sameJson(ledger.cards ?? [], [sampleArcCard()])
+  && sameJson(ledger.loans ?? [], [sampleArcLoan()])
+  && sameJson(ledger.lent ?? [], [sampleArcLent()])
+  && sameJson(ledger.people ?? [], [sampleArcPerson()])
+  && sameJson(ledger.remitPeople ?? [], [sampleArcRemitPerson()])
+  && sameJson(ledger.settings.widgetPins ?? [], SAMPLE_ARC_PINS);
+
+/** Pureza del arco v3 (1.3.291): el libro ES la semilla — filas y colecciones exactas,
+ * y la Estructura lleva exactamente el sub de la cuenta de la casa como único vault
+ * de f-ahorro. Estricta como la de siempre — cualquier toque la rompe. */
+export function isPureArcSample(ledger: LedgerState): boolean {
+  if (!linesMatch(ledger, sampleArcLines())) return false;
+  if (!sameCollections(ledger)) return false;
+  if (!(ledger.settings.seeds ?? []).includes(SAMPLE_V3_SEED)) return false;
+  const vaults = (ledger.structure.categories.find((c) => c.id === "f-ahorro")?.subs ?? [])
+    .filter((s) => s.icon === "vault" || s.icon.startsWith("vault:"));
+  return vaults.length === 1 && sameJson(vaults[0], SAMPLE_ACCOUNT_SUB);
+}
+
+/** Pureza del arco 280 (v2), congelada con su generador: la plantilla contra la que
+ * la regla de ascenso reconoce una casa de la generación anterior aún intacta. */
+export function isPureArcSampleV2(ledger: LedgerState): boolean {
+  return linesMatch(ledger, sampleArcLinesV2())
+    && sameCollections(ledger)
     && (ledger.settings.seeds ?? []).includes(SAMPLE_V2_SEED);
 }
 
-/** La pureza de la casa, con sus dos plantillas: el arco nuevo y la muestra legada de
- * agosto. La puerta de carga de los libros personales la usa tal cual: un libro que
- * todavía sea SOLO muestra — de cualquiera de las dos generaciones — empieza vacío. */
+/** La pureza de la casa, con sus tres plantillas: el arco v3, el arco 280 y la
+ * muestra legada de agosto. La puerta de carga de los libros personales la usa tal
+ * cual: un libro que todavía sea SOLO muestra — de cualquiera de las tres
+ * generaciones — empieza vacío. */
 export function isPureSample(ledger: LedgerState): boolean {
-  return isPureArcSample(ledger) || isPureLegacySample(ledger);
+  return isPureArcSample(ledger) || isPureArcSampleV2(ledger) || isPureLegacySample(ledger);
 }
 
 /**
  * La semilla del modo ejemplo, con la regla de ascenso del censo (§3.3):
- * (a) namespace con la muestra legada PURA → se reemplaza entera por el arco;
- * (b) marca `sample-v2` presente → no-op (idempotente);
- * (c) namespace con filas que no son la muestra pura → INTOCADO: quien jugó en la
+ * (a) namespace con una muestra PURA de una generación anterior (la legada o el
+ *     arco v2) → se reemplaza entera por el arco v3;
+ * (b) marca `sample-v3` presente → no-op (idempotente);
+ * (c) namespace con filas que no son una muestra pura → INTOCADO: quien jugó en la
  *     caja de arena es dueño de sus ediciones; «Reiniciar ejemplo» es su camino;
  * (d) namespace fresco (sin filas) → el arco directo.
  * Un libro personal jamás entra aquí: el provider solo llama bajo sampleOn().
  */
 export function withSampleArc(ledger: LedgerState): { ledger: LedgerState; added: boolean } {
   const seeds = ledger.settings.seeds ?? [];
-  if (seeds.includes(SAMPLE_V2_SEED)) return { ledger, added: false };
-  if (!isPureLegacySample(ledger) && allLines(ledger).length > 0) return { ledger, added: false };
+  if (seeds.includes(SAMPLE_V3_SEED)) return { ledger, added: false };
+  if (allLines(ledger).length > 0 && !isPureArcSampleV2(ledger) && !isPureLegacySample(ledger)) return { ledger, added: false };
   const now = new Date().toISOString();
   return {
     added: true,
