@@ -69,6 +69,7 @@ export const LINKS: Record<string, string> = {
   "Fórmula en el monto": "formula-monto", "Formula in the amount": "formula-monto",
   // Savings
   Ahorros: "ahorros-todas", Savings: "ahorros-todas",
+  "Apartado del mes": "apartado-mes", "Set aside this month": "apartado-mes",
   Meta: "meta", Goal: "meta",
   Retiro: "retiro", Retirement: "retiro",
   Emergencia: "emergencia", Emergency: "emergencia",
