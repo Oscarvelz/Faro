@@ -2130,7 +2130,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 @media (prefers-reduced-motion: reduce) {
   .app-frame .rail, .app-frame .side-dock, .app-frame .dock-recall, .app-frame .dock-recall svg { transition: none !important; }
 }
-.tree-open { gap: 8px; padding: 8px 0 8px 18px; }
+.tree-open-card { gap: 8px; }
 .color-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .color-dot { width: 22px; height: 22px; min-width: 22px; padding: 0; border-radius: 999px; border: 2px solid transparent; }
 .color-dot[aria-pressed="true"] { border-color: var(--fg); }
@@ -2509,11 +2509,9 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .sub-pinmark, .cat-pinmark { color: var(--accent); flex: none; }
 /* 1.3.223: la línea que separa la cabecera de la categoría de su rejilla. */
 .tree-open .sub-divider { border-top: 1px solid var(--line); margin: 2px 0 0; }
-/* 1.3.223: el plegado de la tarjeta — exitPanel fija la altura medida en línea y
-   añade .is-closing; la altura cae a 0, el relleno y el margen se recogen y el
-   contenido se funde, todo con la curva de la casa. */
-.tree-open.is-closing { opacity: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; transition: height .3s cubic-bezier(.22,1,.36,1), opacity .3s cubic-bezier(.22,1,.36,1), padding .3s cubic-bezier(.22,1,.36,1), margin .3s cubic-bezier(.22,1,.36,1); }
-@media (prefers-reduced-motion: reduce) { .tree-open.is-closing { transition: none; } }
+/* 1.3.284: el plegado de la tarjeta ya no vive aquí — la regla .is-closing de
+   la 1.3.223 se retiró con su mecanismo; la concha y el clip de la familia
+   están junto a la pintura de la tarjeta (busca «tree-open-clip»). */
 .sub-panel { grid-column: 1 / -1; padding: 2px 0 4px 10px; }
 .sub-rename { flex: 1; min-width: 0; }
 .cat-rename { flex: 1; min-width: 0; }
@@ -3423,7 +3421,22 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
 .tree-group-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 3px 10px 3px 4px; margin: -3px 0 -3px -4px; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
 .tree-group-btn:active { background: color-mix(in oklab, var(--fg) 6%, transparent); }
 .tree-group-count { font-size: .92rem; letter-spacing: 0; opacity: .75; }
-.tree-open { background: color-mix(in oklab, var(--fg) 3%, var(--surface)); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin: 6px 0 12px; }
+/* 1.3.284 (pedido de Oscar): la tarjeta del editor se suma a la familia de
+   pliegues de la 1.3.231 — .tree-open es la CONCHA: rejilla 0fr→1fr con los
+   tokens de la familia y sin pintura propia que fantasmalizar; sus márgenes
+   nacen en 0 y se recogen a 0 con el reloj del pliegue, para aterrizar sin
+   residuo. El clip (.tree-open-clip) tampoco lleva pintura — como el
+   .fold-clip de la familia, para que la pista aterrice en 0 exacto — y el
+   fundido es el de la familia; la pintura de la tarjeta (fondo, borde,
+   radio, relleno) vive un nivel adentro, en .tree-open-card: el contenido
+   se recorta al plegar, nunca se transparenta entero. Sustituye al pliegue
+   propio de la 1.3.223 (altura medida + .is-closing), el brusco y
+   parpadeante. */
+.tree-open { display: grid; grid-template-rows: 0fr; gap: 0; padding: 0; margin: 0; transition: grid-template-rows var(--fold-close-md) var(--fold-ease), margin var(--fold-close-md) var(--fold-ease); }
+.tree-open.is-open { grid-template-rows: 1fr; margin: 6px 0 12px; transition: grid-template-rows var(--fold-open-md) var(--fold-ease), margin var(--fold-open-md) var(--fold-ease); }
+.tree-open-clip { min-height: 0; overflow: hidden; contain: layout paint; opacity: 0; transform: translateY(-4px); transition: opacity var(--fold-fade-close) var(--fold-ease), transform var(--fold-fade-close) var(--fold-ease); }
+.tree-open-card { display: grid; gap: 8px; background: color-mix(in oklab, var(--fg) 3%, var(--surface)); border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
+.tree-open.is-open .tree-open-clip { opacity: 1; transform: translateY(0); transition: opacity var(--fold-fade-open) var(--fold-ease) 40ms, transform var(--fold-fade-open) var(--fold-ease) 40ms; }
 .tree-color-point { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 46px; padding: 6px 12px 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
 .tree-color-ball { width: 22px; height: 22px; flex: none; border-radius: 50%; background: radial-gradient(circle at 32% 26%, rgb(255 255 255 / .55), transparent 44%), var(--ball); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .12), inset 0 -3px 6px rgb(0 0 0 / .1), 0 1px 2px rgb(0 0 0 / .14); }
 .tree-color-lab { font-weight: 560; }

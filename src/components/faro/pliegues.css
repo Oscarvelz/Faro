@@ -85,9 +85,12 @@
    destino — al abrir manda la de apertura, al cerrar la de cierre. */
 .tree-kick-row .fold-chev { transition-duration: var(--fold-close-md); }
 .tree-kick-row .fold-chev.is-open { transition-duration: var(--fold-open-md); }
-/* La flecha de la fila de categoría gira en el reloj de su tarjeta
-   (300ms: la apertura WAAPI y el cierre de la 1.3.223). */
-.tree-row .fold-chev { transition-duration: 300ms; }
+/* La flecha de la fila de categoría gira en el reloj de su tarjeta — desde
+   la 1.3.284 la tarjeta vive en la familia, así que manda el estado destino
+   como en los chevrons de grupo: abrir 300ms, cerrar 225ms. (Antes giraba
+   siempre a 300ms, el reloj de la apertura WAAPI y el cierre de la 1.3.223.) */
+.tree-row .fold-chev { transition-duration: var(--fold-close-md); }
+.tree-row .fold-chev.is-open { transition-duration: var(--fold-open-md); }
 
 /* La mano del Catálogo florece: cada herramienta entra con su pequeño
    escalonamiento (25ms por pieza, solo al abrir), y al marcharse se

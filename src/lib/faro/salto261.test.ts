@@ -11,10 +11,14 @@
  * - Solo acompaña si la fila vive DEBAJO de la tarjeta (lo de arriba no se
  *   mueve con el pliegue) y si hay desplazamiento que ceder.
  * - Su dedo manda: toque o rueda lo cancelan todo, como en el retorno.
- * - El contrato de salida no cambió: el temporizador de 330ms, la clase
- *   is-closing, el aviso de trabajo sin aplicar ANTES que el pliegue, y los
- *   demás llamadores (la propia fila, el grupo, el dock, el Back/Esc) salen
- *   sin ancla, exactamente como siempre.
+ * - El contrato de salida no cambió: el temporizador del pliegue, el aviso
+ *   de trabajo sin aplicar ANTES que el pliegue, y los demás llamadores (la
+ *   propia fila, el grupo, el dock, el Back/Esc) salen sin ancla,
+ *   exactamente como siempre. (La MAQUINARIA del pliegue sí cambió en la
+ *   1.3.284 — la tarjeta entró en la familia de pliegues: fase shown y
+ *   temporizador de 255ms en vez de .is-closing y 330ms; la cerca de la
+ *   maquinaria se enmendó en esa ola, y el acompañamiento que estas cercas
+ *   protegen no se movió: sigue leyendo la altura viva, ahora de la concha.)
  */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
@@ -85,9 +89,11 @@ describe("salto261: el contrato de salida no se movió", () => {
     assert.ok(clean > -1 && ask > clean, "sin suciedad pliega; con suciedad pregunta primero");
   });
 
-  test("la maquinaria del pliegue es la de siempre: is-closing y sus 330ms", () => {
-    assert.ok(exitPanelBody.includes('el.classList.add("is-closing");'));
-    assert.ok(exitPanelBody.includes("}, 330);"));
+  test("la maquinaria del pliegue es la de la familia desde la 1.3.284: fase shown y sus 255ms", () => {
+    // Enmendada en la 1.3.284 (antes fijaba .is-closing y 330ms, la maquinaria
+    // de la 1.3.223 que esa ola retiró): el pliegue ahora lo lleva la concha.
+    assert.ok(exitPanelBody.includes("setShown(false);"));
+    assert.ok(exitPanelBody.includes("}, 255);"));
   });
 
   test("con movimiento reducido la salida sigue siendo síncrona, sin acompañamiento", () => {

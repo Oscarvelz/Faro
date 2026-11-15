@@ -5466,7 +5466,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     if (Math.abs(to - cur) < 2) return landed;
     const t0 = performance.now();
     const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / 300);
+      // 1.3.284: la duración es la del pliegue de la familia (225ms de cierre).
+      const p = Math.min(1, (now - t0) / 225);
       setY(cur + (to - cur) * easeHouse(p));
       if (p < 1) { scrollAnimRef.current = window.requestAnimationFrame(step); }
       else { scrollAnimRef.current = null; }
@@ -5535,9 +5536,11 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     return { settle, disarm };
   };
   // 1.3.223 (pedido de Oscar): el plegado de la tarjeta ya no es un corte seco —
-  // finish() pliega con la curva de la casa (la altura medida cae a 0 y el
-  // contenido se funde, .3s) y SOLO al final desmonta; con movimiento reducido
+  // finish() pliega animada y SOLO al final desmonta; con movimiento reducido
   // (o sin nodo) pliega al momento, como siempre.
+  // 1.3.284: la animación ya no la hace la propia tarjeta (altura medida +
+  // .is-closing) sino la concha, con la rejilla y los tokens de la familia —
+  // finish() solo cambia la fase y desmonta cuando la concha aterriza.
   const closingRef = useRef(false);
   const closeTimerRef = useRef<number | null>(null);
   const scrollAnimRef = useRef<number | null>(null);
@@ -5546,30 +5549,20 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   const anchorAnimRef = useRef<number | null>(null);
   const anchorLiveRef = useRef(false);
   useEffect(() => () => { if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current); if (scrollAnimRef.current !== null) window.cancelAnimationFrame(scrollAnimRef.current); if (anchorAnimRef.current !== null) window.cancelAnimationFrame(anchorAnimRef.current); anchorLiveRef.current = false; }, []);
-  const openAnimRef = useRef<Animation | null>(null);
-  // 1.3.223: la apertura despliega con la misma gracia — la tarjeta nace plegada
-  // y crece hasta su altura natural con la curva de la casa, vía WAAPI: en un
-  // nodo recién montado la transición CSS de opacidad nunca arrancaba (el
-  // navegador funde partida y destino en su primer estilo; probado en banco —
-  // la altura sí transicionaba, la opacidad no), y la animación web no depende
-  // de ese primer estilo. Al terminar, el nodo queda LIBRE (sin altura fija:
-  // su contenido cambia de alto al editar — tarjetas que florecen, el selector
-  // de color, la lista de preparadas). Con movimiento reducido nace abierta.
-  useLayoutEffect(() => {
-    const el = rootRef.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const h = el.offsetHeight;
-    if (!h) return;
-    el.style.overflow = "hidden";
-    const anim = el.animate(
-      [{ height: "0px", opacity: "0" }, { height: `${h}px`, opacity: "1" }],
-      { duration: 300, easing: "cubic-bezier(.22,1,.36,1)" },
-    );
-    openAnimRef.current = anim;
-    const clear = () => { if (openAnimRef.current === anim) openAnimRef.current = null; el.style.overflow = ""; };
-    anim.onfinish = clear;
-    anim.oncancel = clear;
-    return () => { anim.cancel(); };
+  // 1.3.284 (pedido de Oscar): la tarjeta entra en la familia de pliegues de
+  // la 1.3.231 — su fase es la de FoldShell: nace plegada (shown=false) y el
+  // doble rAF la muestra para que la rejilla 0fr→1fr de la concha (.tree-open)
+  // la despliegue; finish() la repliega por el mismo camino (shown=false).
+  // La apertura WAAPI de la 1.3.223 se retira: la fase resuelve lo que aquella
+  // resolvía (la transición CSS que no arrancaba en un nodo recién montado)
+  // sin animar la altura a mano ni fijarla — el contenido sigue libre de
+  // cambiar de alto al editar. Con movimiento reducido nace abierta.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setShown(true); return; }
+    let raf2 = 0;
+    const raf1 = window.requestAnimationFrame(() => { raf2 = window.requestAnimationFrame(() => setShown(true)); });
+    return () => { window.cancelAnimationFrame(raf1); if (raf2) window.cancelAnimationFrame(raf2); };
   }, []);
   // La única salida de la tarjeta: devuelve true SOLO si plegó al momento (el
   // camino síncrono); si el plegado va animado o el aviso está en pie, devuelve
@@ -5588,16 +5581,12 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     const finish = (): boolean => {
       const el = rootRef.current;
       if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { done(); return true; }
-      // Si la salida llega a media apertura, el despliegue se retira primero:
-      // el plegado se mide desde el alto visible en ese instante y sigue.
-      const hNow = Math.round(el.getBoundingClientRect().height);
-      if (openAnimRef.current) { openAnimRef.current.cancel(); openAnimRef.current = null; }
+      // 1.3.284: la fase se invierte donde la concha esté — si la salida llega
+      // a media apertura, la rejilla parte de su altura actual y sigue; no se
+      // mide ni se fija altura alguna (la coreografía de la 1.3.223 — altura
+      // medida, .is-closing, altura a 0 — se retiró con el pliegue brusco).
       closingRef.current = true;
-      el.style.height = `${hNow}px`;
-      el.style.overflow = "hidden";
-      void el.offsetHeight;
-      el.classList.add("is-closing");
-      el.style.height = "0px";
+      setShown(false);
       // 1.3.225: el retorno de Cancelar se coreografía CON el plegado
       // (startReturn) — si corre, al desmontar ya no hay revealRow: la fila
       // quedó en su sitio, y el settle defiende ese sitio de la restauración
@@ -5605,13 +5594,17 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       // 1.3.261: el salto a otra categoría trae su propio retorno
       // (startAnchorReturn) anclado en la fila destino — el mismo asiento
       // en el temporizador: su settle defiende el sitio de ESA fila.
+      // 1.3.284: ambos retornos leen la altura viva de la CONCHA (el es la
+      // raíz .tree-open), que ahora cae con la rejilla — su diseño ya era
+      // agnóstico a la curva. El temporizador es el aterrizaje de la
+      // familia: 225ms de cierre + 30 de desfase, el de FoldShell.
       const ret = reveal ? startReturn(el) : anchor ? startAnchorReturn(el, anchor) : null;
       closeTimerRef.current = window.setTimeout(() => {
         onClose();
         if (reveal && !ret) revealRow();
         if (ret) { const s = ret.settle; requestAnimationFrame(() => s()); window.setTimeout(() => { s(); ret.disarm(); }, 90); }
         if (after) after();
-      }, 330);
+      }, 255);
       return false;
     };
     if (!panelDirty) return finish();
@@ -5928,7 +5921,12 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     );
   });
   return (
-    <div className="tree-open" data-anchor="est-panel" ref={rootRef}>
+    <div className={shown ? "tree-open is-open" : "tree-open"} data-anchor="est-panel" ref={rootRef}>
+      {/* 1.3.284: el clip de la familia — sin pintura propia, se recorta al
+          plegar y la rejilla aterriza en 0 exacto; la pintura de la tarjeta
+          vive un nivel adentro (.tree-open-card) y nunca se transparenta. */}
+      <div className="tree-open-clip">
+        <div className="tree-open-card">
       <div className={effCatHidden ? "row is-muted" : "row"}>
         {/* 1.3.188 (R-6): el nombre ya no tiene ✓ — ese botón era un segundo gesto
             de guardado con commit propio, y la tarjeta queda con UNO solo:
@@ -5991,6 +5989,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
         <div className="ah-actions">
           <button type="button" className="btn secondary" onClick={cancelPanel}>{t("cancel")}</button>
           <button type="button" className="btn" data-anchor="est-save" disabled={!hasStaged} onClick={savePanel}>{t("save")}</button>
+        </div>
+      </div>
         </div>
       </div>
     </div>

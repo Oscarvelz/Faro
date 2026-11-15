@@ -61,7 +61,10 @@ describe("pliegues: un solo lenguaje de movimiento", () => {
   test("los chevrons de las puertas giran en el reloj de su superficie", () => {
     assert.ok(css.includes(".tree-kick-row .fold-chev { transition-duration: var(--fold-close-md); }"));
     assert.ok(css.includes(".tree-kick-row .fold-chev.is-open { transition-duration: var(--fold-open-md); }"));
-    assert.ok(css.includes(".tree-row .fold-chev { transition-duration: 300ms; }"));
+    // Desde la 1.3.284 la fila de categoría gira también con manda del estado
+    // destino (antes: 300ms fijos, el reloj propio de su tarjeta de la 1.3.223).
+    assert.ok(css.includes(".tree-row .fold-chev { transition-duration: var(--fold-close-md); }"));
+    assert.ok(css.includes(".tree-row .fold-chev.is-open { transition-duration: var(--fold-open-md); }"));
   });
 });
 
@@ -92,9 +95,14 @@ describe("pliegues: las superficies conectadas", () => {
     assert.ok(screens.includes('"--i": 3'));
   });
 
-  test("la tarjeta de categoría conserva su apertura de la 1.3.223 con la misma curva", () => {
-    assert.ok(screens.includes('easing: "cubic-bezier(.22,1,.36,1)"'));
-    assert.ok(screens.includes("openAnimRef"));
+  test("la tarjeta de categoría se pliega con la familia desde la 1.3.284", () => {
+    // Enmendada en la 1.3.284 (antes fijaba que la tarjeta CONSERVABA su
+    // apertura WAAPI de la 1.3.223 — la exclusión deliberada de esta ola):
+    // Oscar la reportó «brusca y parpadeante» y la tarjeta entró en la
+    // familia: fase shown propia, concha y clip; la WAAPI se retiró.
+    assert.ok(screens.includes('className="tree-open-clip"'));
+    assert.ok(screens.includes("const [shown, setShown] = useState(false);"));
+    assert.equal(screens.includes("openAnimRef"), false);
   });
 });
 
