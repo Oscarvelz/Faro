@@ -26,19 +26,35 @@ revoke all on function public.faro_backup(date, text, integer) from public, anon
 grant execute on function public.faro_backup(date, text, integer) to authenticated;
 
 -- ============================================================================
--- faro_push SIN RELOJ DE PARED (oleada 2 del corazón, 1.3.166) — PREPARADO,
--- PENDIENTE DE APLICAR en el editor SQL de Supabase (la definición viva de
--- faro_push no vive en este repo). Antes, a igual revisión decidía p_updated:
--- un reloj adelantado podía reemplazar el libro en silencio (auditoría del
--- corazón, C7/W5). Ahora gana solo una revisión MAYOR; a igual revisión solo
--- pasa el re-empuje idéntico (mismo contenido, comparado como jsonb) y
--- cualquier otro contenido se rechaza: el cliente lo recupera como conflicto.
+-- faro_push SIN RELOJ DE PARED (oleada 2 del corazón, 1.3.166) — la definición
+-- viva de faro_push no vive en este repo; este bloque es su única fuente en
+-- papel y debe pegarse TAL CUAL en el editor SQL de Supabase. Antes, a igual
+-- revisión decidía p_updated: un reloj adelantado podía reemplazar el libro
+-- en silencio (auditoría del corazón, C7/W5). Ahora gana solo una revisión
+-- MAYOR; a igual revisión solo pasa el re-empuje idéntico (mismo contenido,
+-- comparado como jsonb) y cualquier otro contenido se rechaza: el cliente lo
+-- recupera como conflicto.
 -- La firma y la forma de retorno (data_json, revision, updated_at, device_id,
 -- won) no cambian; el cliente no necesita tocarse.
--- APLICADA Y VIVA (2026-11-11): esta firma integer ES la que vive en el servidor — no «corregirla» a bigint; la sobrecarga bigint se eliminó a propósito.
+-- LA FIRMA: el parámetro p_revision es integer y vive UNA sola sobrecarga,
+-- (text, integer, timestamptz, text) — la gemela bigint se eliminó a
+-- propósito el 2026-11-11; el parámetro NO se «corrige» a bigint.
+-- LA COLUMNA DE RETORNO ES OTRA COSA: `revision` en el RETURNS TABLE es
+-- bigint, porque faro_ledgers.revision ES bigint. Historia que no se
+-- repite: el bloque pegado el 2026-11-09 declaraba ese retorno integer;
+-- cada llamada moría en el RETURN QUERY con el error 42804 («Returned type
+-- bigint does not match expected type integer in column 2») y la
+-- sincronización estuvo muerta del 9 al 14 de noviembre — cada pegada
+-- devolvía «Success» porque el cuerpo plpgsql no se valida al crear.
+-- Corregido y verificado en vivo el 2026-11-14 (la sonda devolvió la fila
+-- sin error y el libro pendiente subió solo): ESTE bloque, con el retorno
+-- bigint y el device_id::text, es exactamente la función viva.
 -- ============================================================================
-create or replace function public.faro_push(p_data text, p_revision integer, p_updated timestamptz, p_device text)
-returns table (data_json text, revision integer, updated_at timestamptz, device_id text, won boolean)
+-- CREATE OR REPLACE no puede cambiar el tipo de retorno: sin este drop, una
+-- pegada sobre la definición vieja (retorno integer) sería rechazada.
+drop function if exists public.faro_push(text, integer, timestamptz, text);
+create function public.faro_push(p_data text, p_revision integer, p_updated timestamptz, p_device text)
+returns table (data_json text, revision bigint, updated_at timestamptz, device_id text, won boolean)
 language plpgsql security definer set search_path = public as $$
 declare
   uid uuid := auth.uid();
@@ -63,7 +79,7 @@ begin
     where public.faro_ledgers.revision < excluded.revision;
   end if;
   return query
-    select l.data_json::text, l.revision, l.updated_at, l.device_id, did_win
+    select l.data_json::text, l.revision, l.updated_at, l.device_id::text, did_win
     from public.faro_ledgers l where l.user_id = uid;
 end $$;
 revoke all on function public.faro_push(text, integer, timestamptz, text) from public, anon;
