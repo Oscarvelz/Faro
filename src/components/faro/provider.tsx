@@ -24,7 +24,7 @@ import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, mont
 import { blankSession, commit as commitSession, commitFinal as commitFinalSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
-import { isPureSample, stripSample, withAugustSample } from "@/lib/faro/sample";
+import { isPureSample, stripSample, withSampleArc } from "@/lib/faro/sample";
 import { dataMode, sampleOn, sealedOn, stageOn, takeSwitchRemount } from "@/lib/faro/samplemode";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
@@ -41,11 +41,13 @@ type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string
 // (el correo de la sesión, exacto y case sensitive, sin ayuda del teclado — las
 // propiedades del campo están cercadas en puerta-escrita.test.ts). Cerrar sesión y
 // Ocultar son ida y vuelta y siguen sin merecerla.
-/** Load-time seeds: the August sample, then the one-time Remesas categories (1.3.86). */
+/** Load-time seeds: the sample arc, then the one-time Remesas categories (1.3.86). */
 function seedLedger(ledger: LedgerState): { ledger: LedgerState; added: boolean; sample: boolean } {
-  // 1.3.87: the August sample lives only in sample mode (its own store). Personal books that are
-  // still pure, untouched sample start empty; anything the user touched is kept as theirs.
-  const a = sampleOn() ? withAugustSample(ledger) : isPureSample(ledger) ? { ledger: { ...stripSample(ledger), revision: ledger.revision + 1, updatedAt: new Date().toISOString() }, added: true } : { ledger, added: false };
+  // 1.3.87: the sample lives only in sample mode (its own store). 1.3.280: the seed is the
+  // six-month arc («la casa de ejemplo») with its upgrade rule (withSampleArc). Personal books
+  // that are still pure, untouched sample — of either generation — start empty; anything the
+  // user touched is kept as theirs.
+  const a = sampleOn() ? withSampleArc(ledger) : isPureSample(ledger) ? { ledger: { ...stripSample(ledger), revision: ledger.revision + 1, updatedAt: new Date().toISOString() }, added: true } : { ledger, added: false };
   const b = withRemesas(a.ledger);
   // 1.3.271: la pieza del seguro de vida llega a los libros personales; el libro de
   // ejemplo no la recibe de esta ola (es provincia de la línea de Estructura).
