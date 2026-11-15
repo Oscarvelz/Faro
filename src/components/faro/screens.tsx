@@ -76,6 +76,9 @@ import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import { OwedSide, SeeAll, takeCobrosReturn } from "./debts";
 import { ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
+import { declareSeries, guardFor, hostAccounts, libreOf, natureMode, seriesName, stampFor, undeclaredFunds, type FundNature, type PendingFund } from "@/lib/faro/funds";
+import { savingsStock } from "@/lib/faro/savings";
+import { FundLight, NaturePick } from "./fund-light";
 
 const STORE_TINT: Record<string, string> = {
   temu: "#fb7701",
@@ -1657,6 +1660,107 @@ function takeLensReturn(depth: number) {
   return r.lens;
 }
 
+/**
+ * El encuentro de §5.2 en modo «preguntar»: la ventana de confirmación de la casa con
+ * sus tres salidas — dentro de la cuenta que acaba de entrar / dinero aparte / fondo
+ * por fondo, que se despliega DENTRO de la misma ventana (ninguna ventana nueva). El
+ * guardia habla antes de estampar: lo marcado dentro nunca supera lo libre de la
+ * cuenta anfitriona, y lo que no cabe queda sin declarar, con su pregunta viva.
+ */
+function EncounterDialog({ accountId, pending, onClose }: { accountId: string; pending: PendingFund[]; onClose: () => void }) {
+  const { session, commit, t, fmt, names, key } = useFaro();
+  const [each, setEach] = useState(false);
+  const [picks, setPicks] = useState<Record<string, { nature: FundNature | null; host: string }>>({});
+  const [guard, setGuard] = useState("");
+  if (!session) return null;
+  const stock = savingsStock(session.ledger, key);
+  const live = pending.filter((f) => stock.series.get(f.seriesId)?.cls === "sin-declarar");
+  const total = live.reduce((a, f) => a + f.minor, 0);
+  const list = live.map((f) => `${seriesName(session.ledger, f.seriesId) || names.sub(f.subId)} ${fmt(f.minor)}`).join(", ");
+  const moneyed = hostAccounts(session.ledger, key, stock).filter((a) => a.minor > 0);
+  const moneyedNamed = moneyed.map((a) => ({ id: a.id, name: names.sub(a.id) || a.id, minor: a.minor }));
+  const declareInside = () => {
+    const libre = libreOf(stock, accountId);
+    if (total > libre) {
+      setGuard(`${t("fund.guard").replace("{x}", fmt(total)).replace("{y}", fmt(libre))} ${t("fund.enc.guardNote")}`);
+      return;
+    }
+    commit((s) => live.reduce((acc, f) => declareSeries(acc, f.seriesId, "saldo", accountId), s), "fondos");
+    onClose();
+  };
+  const declareAparte = () => {
+    commit((s) => live.reduce((acc, f) => declareSeries(acc, f.seriesId, "aparte"), s), "fondos");
+    onClose();
+  };
+  const declareOne = (f: PendingFund) => {
+    const pick = picks[f.seriesId] ?? { nature: null as FundNature | null, host: "" };
+    const stamp = stampFor("ask", pick.nature, pick.host, moneyed);
+    if (!stamp.ready || !stamp.fund) return;
+    if (stamp.fund === "saldo") {
+      const g = guardFor(stock, stamp.fundHost ?? "", f.minor);
+      if (!g.fits) { setGuard(t("fund.guard").replace("{x}", fmt(f.minor)).replace("{y}", fmt(g.libre))); return; }
+    }
+    setGuard("");
+    commit((s) => declareSeries(s, f.seriesId, stamp.fund!, stamp.fundHost), session ? (seriesName(session.ledger, f.seriesId) || names.sub(f.subId)) : names.sub(f.subId));
+  };
+  return (
+    <div className="ask-back" role="presentation" onMouseDown={onClose}>
+      <div className="ask is-enc" data-anchor="ask-dialog" role="alertdialog" aria-modal="true" aria-label={t("fund.enc.title")} onMouseDown={(e) => e.stopPropagation()}>
+        <i className="ask-glow" aria-hidden />
+        <span className="ask-seal" aria-hidden>
+          <svg viewBox="0 0 100 118" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 98 L32 56 L68 56 L78 98 Z" />
+            <path d="M40 56 V46 H60 V56" />
+            <path d="M44 46 V32 H56 V46" />
+            <path d="M38 32 H62" />
+            <path d="M50 32 V16" />
+            <circle cx="50" cy="11" r="4" fill="currentColor" stroke="none" />
+          </svg>
+        </span>
+        <h2 className="ask-title">{t("fund.enc.title")}</h2>
+        <p className="ask-body">{t("fund.enc.body").replace("{x}", fmt(total)).replace("{list}", list)}</p>
+        {guard ? <p className="ask-body">{guard}</p> : null}
+        {!each ? (
+          <div className="enc-actions">
+            <button type="button" className="ask-btn is-go" onClick={declareInside}>{t("fund.enc.inside")}</button>
+            <button type="button" className="ask-btn" onClick={declareAparte}>{t("fund.enc.aparte")}</button>
+            <button type="button" className="ask-btn is-quiet" onClick={() => setEach(true)}>{t("fund.enc.each")}</button>
+            <button type="button" className="ask-btn is-quiet" onClick={onClose}>{t("cancel")}</button>
+          </div>
+        ) : (
+          <>
+            <div className="enc-funds">
+              {live.map((f) => {
+                const pick = picks[f.seriesId] ?? { nature: null as FundNature | null, host: "" };
+                const name = seriesName(session.ledger, f.seriesId) || names.sub(f.subId);
+                return (
+                  <div key={f.seriesId} className="enc-fund">
+                    <span className="enc-fund-name">
+                      <FundLight cls="sin-declarar" />
+                      <span>{name}</span>
+                      <strong className="num">{fmt(f.minor)}</strong>
+                    </span>
+                    <NaturePick
+                      mode="ask"
+                      value={pick.nature}
+                      onPick={(n) => setPicks((p) => ({ ...p, [f.seriesId]: { nature: n, host: pick.host } }))}
+                      host={pick.host}
+                      onHost={(h) => setPicks((p) => ({ ...p, [f.seriesId]: { nature: pick.nature, host: h } }))}
+                      accounts={moneyedNamed}
+                    />
+                    <button type="button" className="ask-btn" onClick={() => declareOne(f)}>{t("fund.mig.each")}</button>
+                  </div>
+                );
+              })}
+            </div>
+            <button type="button" className="ask-btn is-go enc-done" onClick={onClose}>{t("fund.enc.done")}</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
   const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang } = useFaro();
   const { depth } = useFaro();
@@ -1735,6 +1839,15 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [accountSign, setAccountSign] = useState<1 | -1 | null>(null);
   const [pocketName, setPocketName] = useState("");
   const [pocketAmt, setPocketAmt] = useState("");
+  // El modelo de ahorros (oleada 2): la respuesta a «¿dónde vive?» del formulario de bolsa,
+  // la lista de migración de la ventana Ahorros y el encuentro de §5.2.
+  const [pocketNature, setPocketNature] = useState<FundNature | null>(null);
+  const [pocketHost, setPocketHost] = useState("");
+  useEffect(() => { if (!adding) { setPocketNature(null); setPocketHost(""); } }, [adding]);
+  const [migrateOpen, setMigrateOpen] = useState(false);
+  const [migPicks, setMigPicks] = useState<Record<string, { nature: FundNature | null; host: string }>>({});
+  const [encounter, setEncounter] = useState<{ accountId: string; pending: PendingFund[] } | null>(null);
+  useLayer(!!encounter, () => setEncounter(null));
   const [pocketGlyph, setPocketGlyph] = useState("Flag");
   const [pocketColor, setPocketColor] = useState("#8fb9a6");
   const [pocketPicked, setPocketPicked] = useState(false);
@@ -2093,6 +2206,59 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     ? [...bankRank.flatMap((id) => orderedAccounts.filter((row) => row.id === id)), ...orderedAccounts.filter((row) => !bankRank.includes(row.id))]
     : orderedAccounts;
   const focusedAccount = accountRows.find((row) => row.id === accountFocus) ?? null;
+  // El modelo de ahorros (oleada 2): la partición canónica de savingsStock alimenta las
+  // luces de las filas, la lista de migración y el encuentro — ninguna cifra nueva se
+  // calcula aquí; las superficies solo leen la clase que el motor ya partió.
+  const stock = savingsStock(session.ledger, key);
+  const mode = natureMode(session.ledger.settings);
+  const hostAccts = hostAccounts(session.ledger, key, stock);
+  const namedAccts = hostAccts.map((a) => ({ id: a.id, name: names.sub(a.id) || a.id, minor: a.minor }));
+  // La lista de migración nombra los fondos CON DINERO sin declarar: una bolsa de
+  // fábrica en cero no tiene nada que clasificar todavía (el encuentro de §5.2 usa el
+  // mismo corte). Declarar sigue siendo posible para cualquier fondo desde su editor.
+  const pendingFunds = undeclaredFunds(stock).filter((f) => f.minor > 0);
+  const tintOf = (subId: string) => saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === subId)) % saveTints.length] ?? "#8fb9a6";
+  const fundLightFor = (line: Line) => {
+    const row = stock.series.get(line.seriesId || line.id);
+    if (!row || row.cls === "cuenta" || row.cls === "retiro") return null;
+    return <FundLight cls={row.cls} tone={tintOf(row.subId)} hostName={row.fundHost ? (names.sub(row.fundHost) || undefined) : undefined} />;
+  };
+  /** El encuentro de §5.2, en modo de postura fija: la respuesta global ya está dada por
+   *  Ajustes y se aplica en el acto — pero bajo «Todo sale de mi saldo» el guardia habla
+   *  igual si lo que entraría dentro supera lo libre de la cuenta que acaba de entrar. */
+  function meetFixedModes(accountId: string, pending: PendingFund[], libreAfter: number) {
+    if (mode === "ask") { setEncounter({ accountId, pending }); return; }
+    if (mode === "separate") {
+      commit((s) => pending.reduce((acc, f) => declareSeries(acc, f.seriesId, "aparte"), s), "fondos");
+      return;
+    }
+    const total = pending.reduce((a, f) => a + f.minor, 0);
+    if (total <= libreAfter) {
+      commit((s) => pending.reduce((acc, f) => declareSeries(acc, f.seriesId, "saldo", accountId), s), "fondos");
+    } else {
+      confirm({
+        title: t("fund.enc.title"),
+        body: `${t("fund.guard").replace("{x}", fmt(total)).replace("{y}", fmt(libreAfter))} ${t("fund.enc.guardNote")}`,
+        yes: t("fund.enc.done"),
+        run: () => {},
+      });
+    }
+  }
+  /** Declarar desde la lista de migración (§6.2): las opciones ya llevan su consecuencia
+   *  escrita, así que el acto estampa sin ventana extra — salvo el guardia, que sí habla. */
+  function declareFromMigration(f: PendingFund) {
+    const pick = migPicks[f.seriesId] ?? { nature: null as FundNature | null, host: "" };
+    const stamp = stampFor(mode, pick.nature, pick.host, hostAccts);
+    if (!stamp.ready || !stamp.fund) return;
+    if (stamp.fund === "saldo") {
+      const g = guardFor(stock, stamp.fundHost ?? "", f.minor);
+      if (!g.fits) {
+        confirm({ title: t("fund.enc.title"), body: t("fund.guard").replace("{x}", fmt(f.minor)).replace("{y}", fmt(g.libre)), yes: t("fund.enc.done"), run: () => {} });
+        return;
+      }
+    }
+    commit((s) => declareSeries(s, f.seriesId, stamp.fund!, stamp.fundHost), session ? (seriesName(session.ledger, f.seriesId) || names.sub(f.subId)) : names.sub(f.subId));
+  }
   const pocketKind = openSeg?.id.endsWith(".meta") ? "meta" : openSeg?.id.endsWith(".emergencia") ? "emergencia" : openSeg?.id.endsWith(".retiro") ? "retiro" : "";
   const retireLine = pocketKind === "retiro" ? (openLines.find((line) => line.active && isPrimerica(line)) ?? openLines.find((line) => line.startedOn || line.balanceMinor != null) ?? openLines[0] ?? null) : null;
   const retireStart = retireDate || retireLine?.startedOn || "";
@@ -2131,6 +2297,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     <span className="lab-head">{t("amount")}<FieldTip topic="f-bolsa-monto" /></span>
                     <input className="field num" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
                   </label>
+                  <NaturePick mode={mode} value={pocketNature} onPick={setPocketNature} host={pocketHost} onHost={setPocketHost} accounts={namedAccts} />
                 </div>
                 <div className="ah-actions">
                   <button type="button" className="btn secondary" onClick={() => { setAdding(false); setPocketName(""); setPocketAmt(""); }}>{t("cancel")}</button>
@@ -2241,6 +2408,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const name = accountName.trim();
     const minor = parseAmount(accountAmt);
     if (!cat || !name || minor === null) return;
+    // El encuentro de §5.2 se decide ANTES del commit: fondos sin declarar con dinero, y
+    // ninguna cuenta con dinero todavía — esta es la primera cuenta con dinero que entra.
+    const pendingBefore = pendingFunds.filter((f) => f.minor > 0);
+    const firstMoney = hostAccts.every((a) => a.minor <= 0);
     const subId = `vault-${uid().slice(0, 8)}`;
     const icon = accountIcon ? `vault:${accountIcon}` : "vault";
     const line = freshLine(name, minor, subId, cat.id, { balanceMinor: minor, icon: "vault", seriesId: subId });
@@ -2257,6 +2428,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     setAccountName("");
     setAccountAmt("");
     setAccountIcon("");
+    if (minor > 0 && firstMoney && pendingBefore.length) meetFixedModes(subId, pendingBefore, minor);
   }
   function saveRename(row: { id: string; categoryId: string; name: string }) {
     if (renameLock.current) return;
@@ -2314,6 +2486,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   function setOpening(row: { id: string; name: string; categoryId: string }) {
     const minor = parseAmount(accountAmt);
     if (minor === null) return;
+    // El encuentro de §5.2 también se da con cuentas ya existentes: una cuenta que no
+    // tenía dinero recibe su primer saldo mientras hay fondos sin declarar con dinero.
+    const pendingBefore = pendingFunds.filter((f) => f.minor > 0);
+    const wasEmpty = (stock.series.get(row.id)?.minor ?? 0) <= 0;
     const today = todayIso();
     const existing = lines.find((line) => line.subId === row.id);
     const line = existing
@@ -2323,6 +2499,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     setAccountAmt("");
     setAccountSign(null);
     setAccountFocus(null);
+    if (minor > 0 && wasEmpty && pendingBefore.length) meetFixedModes(row.id, pendingBefore, minor - (stock.pledgedByHost.get(row.id) ?? 0));
   }
 
   function adjustAccount(row: { id: string; name: string; categoryId: string }, sign: 1 | -1) {
@@ -2433,7 +2610,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const name = pocketName.trim();
     const minor = parseAmount(pocketAmt);
     if (!name || minor === null) return;
-    commit((s) => upsertLine(s, freshLine(name, minor, openSeg.id === "rest" ? "" : openSeg.id, openSeg.categoryId, { icon: pocketGlyph, color: pocketColor })), name);
+    // La pregunta de §5.1 manda al nacer: en modo «preguntar», sin respuesta no se guarda.
+    const stamp = stampFor(mode, pocketNature, pocketHost, hostAccts);
+    if (!stamp.ready) return;
+    commit((s) => upsertLine(s, freshLine(name, minor, openSeg.id === "rest" ? "" : openSeg.id, openSeg.categoryId, { icon: pocketGlyph, color: pocketColor, ...(stamp.fund ? { fund: stamp.fund } : {}), ...(stamp.fundHost ? { fundHost: stamp.fundHost } : {}) })), name);
     setPocketName("");
     setPocketAmt("");
     setAdding(false);
@@ -2892,6 +3072,44 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
         {retiroHidden(session.ledger) ? <Note kind="tip">{lang === "en" ? "Retirement is hidden in Structure" : "Retiro está oculto en Estructura"}</Note> : null}
         {focus ? <button type="button" data-anchor="vault-sort" className={`vault-lamp${vaultSort ? " is-on" : ""}`} aria-pressed={vaultSort} aria-label={t("vault.sort")} onClick={() => setVaultSort((on) => !on)} /> : null}
+        {focus === "save" && pendingFunds.length ? (
+          <div className="save-migrate" data-anchor="vault-migrate">
+            <button type="button" className="save-migrate-head" aria-expanded={migrateOpen} onClick={() => setMigrateOpen((v) => !v)}>
+              <FundLight cls="sin-declarar" />
+              <span>{t("fund.mig.line")}</span>
+              <ChevronDown className={migrateOpen ? "fold-chev is-open" : "fold-chev"} />
+            </button>
+            {migrateOpen ? (
+              <div className="save-migrate-list">
+                {pendingFunds.map((f) => {
+                  const pick = migPicks[f.seriesId] ?? { nature: null as FundNature | null, host: "" };
+                  const name = seriesName(session.ledger, f.seriesId) || names.sub(f.subId);
+                  return (
+                    <div key={f.seriesId} className="save-migrate-fund">
+                      <span className="save-migrate-name">
+                        <FundLight cls="sin-declarar" tone={tintOf(f.subId)} />
+                        <span>{name}</span>
+                        <strong className="num">{fmt(f.minor)}</strong>
+                      </span>
+                      <NaturePick
+                        mode={mode}
+                        value={pick.nature}
+                        onPick={(n) => setMigPicks((p) => ({ ...p, [f.seriesId]: { nature: n, host: pick.host } }))}
+                        host={pick.host}
+                        onHost={(h) => setMigPicks((p) => ({ ...p, [f.seriesId]: { nature: pick.nature, host: h } }))}
+                        accounts={namedAccts}
+                      />
+                      <div className="ah-actions">
+                        <button type="button" className="btn" onClick={() => declareFromMigration(f)}>{t("fund.mig.each")}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {encounter ? <EncounterDialog accountId={encounter.accountId} pending={encounter.pending} onClose={() => setEncounter(null)} /> : null}
         {focus ? null : (
         <>
         <div className="save-head">
@@ -3058,6 +3276,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                               {line.icon?.startsWith("brand:") ? <BrandMark id={line.icon.slice(6)} className="size-4" /> : <Glyph name={line.icon && line.icon !== "Circle" ? line.icon : "Flag"} className="size-4" />}
                             </button>
                             <span>{label}</span>
+                            {fundLightFor(line)}
                           </span>
                         )}
                         {renameId === line.id ? null : (
@@ -3095,6 +3314,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                           <input className="field num save-inline" inputMode="decimal" value={retireOpen === line.id ? retireNow : ""} placeholder={line.balanceMinor != null ? fmt(convertMinor(line.balanceMinor, line.balanceCurrency, rate.display, rate.rateE4)) : t("amount")} aria-label={t("save.haveNow")} onChange={(e) => { setRetireOpen(line.id); setRetireNow(e.target.value); }} />
                           <button type="button" className="icon-btn" aria-label={t("save.keep")} onClick={() => saveRetire(line)}><Check className="size-4" /></button>
                         </div>
+                        <p className="fund-note">{t("fund.retiro.note")}</p>
                       </div>
                     ) : null}
                     {lookId === line.id ? (
@@ -3132,6 +3352,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   <span className="lab-head">{t("save.accrued")}<FieldTip topic="f-retiro-acumulado" /></span>
                   <strong className="num">{fmt(retireAccrued)}</strong>
                 </p>
+                <p className="fund-note">{t("fund.retiro.note")}</p>
                 <div className="ah-actions">
                   <button type="button" className="btn secondary" onClick={() => { setRetireDeskOpen(false); setRetireNow(""); setRetireDate(""); }}>{t("cancel")}</button>
                   <button type="button" className="btn" onClick={() => saveRetire()}>{t("save.keep")}</button>
@@ -3175,6 +3396,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   <span className="save-view-name" {...savTap(line)}>
                     {line.icon?.startsWith("brand:") ? <BrandMark id={line.icon.slice(6)} className="size-5" /> : line.icon ? <Glyph name={line.icon} className="size-4" /> : null}
                     <span>{line.concept || names.sub(line.subId) || openSeg.name}</span>
+                    {fundLightFor(line)}
                     <strong className="num">{fmt(minor)}</strong>
                   </span>
                   <i aria-hidden><b style={{ width: `${openSeg.minor > 0 ? Math.max(8, Math.round((minor / openSeg.minor) * 100)) : 0}%` }} /></i>
@@ -4845,6 +5067,15 @@ export function Settings() {
         <label className="label mt-2" data-anchor="aj-months"><span className="lab-head">{glueHint(t("settings.emergency"), <Hint topic="meses-colchon" fitParent />)}</span>
           <input className="field num" defaultValue={settings.emergencyMonths} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, emergencyMonths: Number(e.target.value) || 0 } }), "months")} />
         </label>
+        <div className="label mt-2" data-anchor="aj-nature">
+          <span className="lab-head">{glueHint(t("fund.mode.q"), <Hint topic="donde-vive" fitParent />)}</span>
+          <ThemeSelect value={settings.savingsNatureMode ?? "ask"} onChange={(v) => commit((s) => ({ ...s, settings: { ...s.settings, savingsNatureMode: v as "ask" | "balance" | "separate" } }), "nature")} options={[
+            { value: "ask", label: t("fund.mode.ask") },
+            { value: "balance", label: t("fund.mode.balance") },
+            { value: "separate", label: t("fund.mode.separate") },
+          ]} />
+          <p className="aj-nature-note">{t("fund.mode.note")}</p>
+        </div>
         <div className="row mt-3" data-anchor="aj-rate">
           <input className="field num" value={rateText} onChange={(e) => setRateText(e.target.value)} aria-label={t("rate.manual")} />
           <button type="button" className="btn" onClick={() => saveRate(rateText)}>{t("rate.manual")}</button>

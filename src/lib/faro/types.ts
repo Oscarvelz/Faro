@@ -388,6 +388,12 @@ export type Settings = {
   rateSource: string;
   rateAsOf: string;
   savingsGoalPct: number;
+  /** La postura ante la naturaleza de los fondos NUEVOS (modelo de ahorros, 1.3.288):
+   *  "ask" = preguntar en cada fondo; "balance" = todo nace como parte del saldo;
+   *  "separate" = todo nace como dinero aparte. Ausente = "ask". Gobierna solo la
+   *  pregunta y lo ofrecido: JAMÁS reescribe la naturaleza de un fondo que ya existe
+   *  (cada fondo conserva lo que su dueño declaró, línea `fund`/`fundHost`). */
+  savingsNatureMode?: "ask" | "balance" | "separate";
   debtGreenPct: number;
   debtYellowPct: number;
   emergencyMonths: number;

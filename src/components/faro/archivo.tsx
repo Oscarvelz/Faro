@@ -25,6 +25,8 @@ import { useFaroUser } from "@/spa/gates";
 import { Note } from "./finish";
 import { PiecePlate } from "./fit-pick";
 import { bookLabel, dayLabel, shortDay } from "./historial";
+import { SaveNote } from "./fund-light";
+import { fundOfLine, saveKindOf } from "@/lib/faro/funds";
 import { movementDate, restingEntries, type RestingEntry } from "@/lib/faro/descanso";
 import { lentOf, restoreLent } from "@/lib/faro/debts";
 import { loansOf, restoreLoan } from "@/lib/faro/loans";
@@ -216,6 +218,22 @@ export function ArchivoScreen() {
                       <div className="hist-row-main">
                         <strong className="hist-row-concept">{line.concept}</strong>
                         <span className="hist-row-meta">{dayLabel(lang, movementDate(line))}{names.cat(line.categoryId) ? ` · ${names.cat(line.categoryId)}` : ""}</span>
+                        {(() => {
+                          // El Archivo pinta las mismas líneas descansando (§4.6): la luz y la nota
+                          // VIAJAN con la entrada — descansar no despoja a la línea de sus campos.
+                          const kind = saveKindOf(state, line);
+                          if (!kind) return null;
+                          const nature = kind === "fund" ? fundOfLine(line) : undefined;
+                          return (
+                            <SaveNote
+                              kind={kind}
+                              nature={nature}
+                              fundName={kind === "cuenta" ? (names.sub(line.subId) || line.concept) : (line.concept || names.sub(line.subId))}
+                              hostName={nature === "saldo" && line.fundHost ? names.sub(line.fundHost) : undefined}
+                              tone={tone}
+                            />
+                          );
+                        })()}
                       </div>
                       <strong className="hist-row-amt num">{recordLine(line)}</strong>
                     </div>

@@ -1,6 +1,6 @@
 import { FieldTip } from "./ui";
 import { cadenceLabel, freqPresetsOf } from "@/lib/faro/cadence";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Banknote, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { displayName } from "@/lib/faro/defaults";
 import { categoryBase, categoryColor, chosenTone } from "@/lib/faro/colors";
@@ -16,6 +16,9 @@ import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, Store
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payAcctLabel, payHintFor, targets } from "@/lib/faro/bankbook";
 import { formDirty } from "@/lib/faro/dirty";
+import { declareSeries, guardFor, hostAccounts, isFundSub, isRetiroSubId, natureMode, stampFor, type FundNature } from "@/lib/faro/funds";
+import { savingsStock } from "@/lib/faro/savings";
+import { NaturePick } from "./fund-light";
 import { suggestHome } from "@/lib/faro/quickadd";
 import { BankMark } from "./bank-mark";
 
@@ -256,7 +259,7 @@ function clearReportDraft(mode: "in" | "out") {
 }
 
 export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look, scan, onDirtyChange }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look; scan?: ReactNode; onDirtyChange?: (dirty: boolean) => void }) {
-  const { t, key, session, commit, confirm, focusAmount, names, lang, goTopic } = useFaro();
+  const { t, key, session, commit, confirm, focusAmount, names, lang, goTopic, fmt } = useFaro();
   const settings = session?.ledger.settings;
   const structure = session?.ledger.structure;
   // 1.3.246 (P6): un apunte del widget SIN categoría y con concepto propio abre con la
@@ -338,13 +341,31 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [toneStart] = useState(() => chosenTone(existing?.color, existing?.categoryId) || (existing?.categoryId === "f-ahorro" ? categoryBase("f-ahorro", structure?.categories.find((c) => c.id === "f-ahorro")?.color) : categoryColor(existing?.categoryId || "otros")));
   const [tone, setTone] = useState(toneStart);
   const [err, setErr] = useState("");
+  // El modelo de ahorros (§5.1 al crear, §5.3 al cambiar): si la línea vive en un sub de fondo
+  // (Meta/Emergencia — ni cuenta ni Retiro), la forma pregunta dónde vive el dinero. El borrador
+  // nace intacto (null): sin tocar, una línea existente conserva la naturaleza de su serie, leída
+  // de la partición; una nueva nace sin elegir (en modo «preguntar», guardar exige responder).
+  const [natureDraft, setNatureDraft] = useState<{ nature: FundNature | null; host: string } | null>(null);
+  const ledNow = session?.ledger ?? null;
+  const fundSubNow = !!ledNow && isFundSub(ledNow, categoryId, subId);
+  const stockNow = useMemo(() => (ledNow ? savingsStock(ledNow, key) : null), [ledNow, key]);
+  const seriesRow = existing && stockNow ? stockNow.series.get(existing.seriesId || existing.id) : undefined;
+  const curNature: FundNature | null = seriesRow?.fund ?? null;
+  const curHost = seriesRow?.fundHost ?? "";
+  const nature: FundNature | null = natureDraft ? natureDraft.nature : existing ? curNature : null;
+  const host = natureDraft ? natureDraft.host : existing ? curHost : "";
+  const setNature = (n: FundNature) => setNatureDraft({ nature: n, host });
+  const setHost = (h: string) => setNatureDraft({ nature, host: h });
+  const natureChanged = !!existing && fundSubNow && (nature !== curNature || (nature === "saldo" && host !== curHost));
+  const namedAccounts = ledNow && stockNow ? hostAccounts(ledNow, key, stockNow).map((a) => ({ id: a.id, name: names.sub(a.id) || a.id, minor: a.minor })) : [];
+  const modeNow = ledNow ? natureMode(ledNow.settings) : "ask";
   // Oleada de botones 4 (R7): la política única de confirmación — Guardar y Cancelar
   // preguntan solo si la forma cambió desde que abrió; intacta, hacen lo suyo en
   // silencio. La bolsa de apertura se captura en el primer render y se compara por
   // contenido (dirty.ts). El «Pagado con» que el sistema rellena solo desde el aviso
   // del comercio no cuenta como toque: la cuenta sigue el aviso vigente si la mano
   // nunca la tocó.
-  const bag = () => ({ concept, amount, currency, note, categoryId, subId, recurring, storeId, providerId, code, url, cadence, nextDue, apr, balance, active, personId, pay, to, icon, bookedOn, startedOn, tone });
+  const bag = () => ({ concept, amount, currency, note, categoryId, subId, recurring, storeId, providerId, code, url, cadence, nextDue, apr, balance, active, personId, pay, to, icon, bookedOn, startedOn, tone, natureKey: fundSubNow ? `${nature ?? ""}|${host}` : "" });
   const baseRef = useRef<Record<string, unknown> | null>(null);
   if (baseRef.current === null) baseRef.current = bag();
   const baseBag = baseRef.current;
@@ -449,10 +470,41 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       // card line carries the class derived above; anything else carries none (base rate / no rewards).
       ...(existing?.importId && existing.rc ? { rc: existing.rc } : rcDerived ? { rc: rcDerived } : {}),
     };
+    // El modelo de ahorros: la naturaleza se estampa en la línea al nacer (§5.1); al cambiar,
+    // la serie entera se declara en el mismo commit (§5.3), tras pasar el guardia de la
+    // anfitriona — un límite nunca supera el Libre de la cuenta donde vive.
+    let declare: { nature: FundNature; host?: string } | null = null;
+    if (fundSubNow && ledNow && stockNow) {
+      const accountsNow = hostAccounts(ledNow, key, stockNow);
+      if (!existing) {
+        const stamp = stampFor(modeNow, nature, host, accountsNow);
+        if (!stamp.ready) { setErr(t("fund.q")); return; }
+        if (stamp.fund) {
+          line.fund = stamp.fund;
+          if (stamp.fundHost) line.fundHost = stamp.fundHost;
+        }
+      } else if (natureDraft) {
+        const stamp = stampFor("ask", nature, host, accountsNow);
+        if (!stamp.ready) { setErr(t("fund.q")); return; }
+        if (!stamp.fund) { setErr(t("fund.host.none")); return; }
+        if (natureChanged && stamp.fund === "saldo") {
+          const g = guardFor(stockNow, stamp.fundHost ?? "", seriesRow?.minor ?? 0);
+          if (!g.fits) { setErr(t("fund.guard").replace("{x}", fmt(seriesRow?.minor ?? 0)).replace("{y}", fmt(g.libre))); return; }
+        }
+        line.fund = stamp.fund;
+        if (stamp.fundHost) line.fundHost = stamp.fundHost;
+        if (natureChanged) declare = { nature: stamp.fund, host: stamp.fundHost };
+      } else if (existing.fund) {
+        // Sin tocar la pregunta, la línea conserva la estampa que ya traía.
+        line.fund = existing.fund;
+        if (existing.fundHost) line.fundHost = existing.fundHost;
+      }
+    }
     commit((s) => {
       const next = upsertLine(s, line);
+      const withNature = declare ? declareSeries(next, line.seriesId, declare.nature, declare.host) : next;
       // Learn how he pays this merchant — only from a source he picked or changed here himself, never from an import.
-      return pay && payTouched ? { ...next, imports: learnPayHint(importBook(next), line.concept, pay) } : next;
+      return pay && payTouched ? { ...withNature, imports: learnPayHint(importBook(withNature), line.concept, pay) } : withNature;
     }, `${existing ? "Editar" : "Agregar"} ${line.concept}`);
     if (draftKey) clearReportDraft(draftKey);
     onClose();
@@ -584,6 +636,14 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             <input className="field num" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} onFocus={() => focusAmount((n) => setBalance(n.toFixed(2)))} />
           </label>
         ) : null}
+        {role === "savings" && fundSubNow ? (
+          <div className="label fit-f is-wide" data-f="nature">
+            <NaturePick mode={modeNow} value={nature} onPick={setNature} host={host} onHost={setHost} accounts={namedAccounts} />
+          </div>
+        ) : null}
+        {role === "savings" && isRetiroSubId(subId) ? (
+          <p className="fund-note fit-f is-wide">{t("fund.retiro.note")}</p>
+        ) : null}
         <label className={`label fit-f${kind === "subscription" ? "" : " is-note"}`} data-f="note">
           {head(t("note"), "f-nota")}
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -622,7 +682,26 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       {err ? <p className="bad text-sm fit-err">{err}</p> : null}
       <div className="fit-actions">
         <button type="button" className="btn secondary" onClick={() => { if (!dirty) { onClose(); return; } confirm({ title: t("entry.leave"), body: concept.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onClose }); }}>{t("cancel")}</button>
-        <button type="button" className="btn" data-anchor="line-save" onClick={() => { if (!dirty) { save(); return; } confirm({ title: t("entry.save"), body: concept.trim() || t("entry.this"), yes: t("entry.save.yes"), run: save }); }}>{t("save")}</button>
+        <button type="button" className="btn" data-anchor="line-save" onClick={() => {
+          if (natureChanged && stockNow) {
+            // §5.3: cambiar la naturaleza — o la anfitriona — lleva la confirmación de la casa
+            // con la consecuencia escrita; el guardia habla antes si el fondo no cabe.
+            if (nature === "saldo") {
+              const g = guardFor(stockNow, host, seriesRow?.minor ?? 0);
+              if (!g.fits) { setErr(t("fund.guard").replace("{x}", fmt(seriesRow?.minor ?? 0)).replace("{y}", fmt(g.libre))); return; }
+            }
+            const hostName = names.sub(host) || host;
+            const body = nature === "saldo" && curNature === "saldo"
+              ? t("fund.change.host").replace("{x}", hostName)
+              : nature === "saldo"
+                ? t("fund.change.toSaldo").replace("{x}", hostName)
+                : t("fund.change.toAparte");
+            confirm({ title: t("fund.q"), body, yes: t("save"), run: save });
+            return;
+          }
+          if (!dirty) { save(); return; }
+          confirm({ title: t("entry.save"), body: concept.trim() || t("entry.this"), yes: t("entry.save.yes"), run: save });
+        }}>{t("save")}</button>
       </div>
     </div>
     </div>

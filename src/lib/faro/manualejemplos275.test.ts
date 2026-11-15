@@ -50,8 +50,8 @@ const IMPROVE: ReadonlyArray<readonly [string, readonly string[]]> = [
 const OLD_FIGURES = ["38,181", "38 181", "7,636", "11,454", "36,6243", "36.6243", "3 662", "3,662"] as const;
 
 describe("manual con ejemplos: el censo", () => {
-  it("el manual sigue teniendo los 347 temas censados", () => {
-    assert.equal(MANUAL_TOPICS.length, 347);
+  it("el manual sigue teniendo los temas censados (347 en 275; 348 desde la oleada 2 del modelo de ahorros, que añadió «Dónde vive tu ahorro»)", () => {
+    assert.equal(MANUAL_TOPICS.length, 348);
   });
 });
 

@@ -16,6 +16,7 @@
  * ventana viven en la capa de UI; aquí solo hay matemáticas de períodos y el río.
  */
 import { ISO_DAY, movementDate } from "./descanso.ts";
+import { fundOfLine, saveKindOf, type SaveKind } from "./funds.ts";
 import { convertMinor } from "./money.ts";
 import type { Currency, Group, LedgerState, Line } from "./types.ts";
 
@@ -73,6 +74,13 @@ export type Movement = {
   currency: Line["currency"];
   kind: MovementKind;
   recurring: boolean;
+  /** El modelo de ahorros (1.3.288, §4.6): si el movimiento es una entrada de ahorro,
+   *  su clase de Folios (fondo / retiro / cuenta) y la naturaleza que la PROPIA línea
+   *  declara — levantadas de la línea como accountId, leídas con desconfianza. La nota
+   *  y la luz se derivan al pintar; el río no suma ni declara nada con esto. */
+  saveKind?: SaveKind;
+  fund?: "saldo" | "aparte";
+  fundHost?: string;
 };
 
 export type StreamFilters = {
@@ -115,6 +123,8 @@ function groupOf(state: LedgerState, l: Line): Group {
 
 function toMovement(state: LedgerState, monthKey: string, l: Line): Movement {
   const origin = originOf(l);
+  const saveKind = saveKindOf(state, l) ?? undefined;
+  const fund = saveKind === "fund" ? fundOfLine(l) : undefined;
   return {
     lineId: l.id,
     monthKey,
@@ -132,6 +142,9 @@ function toMovement(state: LedgerState, monthKey: string, l: Line): Movement {
     currency: l.currency,
     kind: l.xfer ? "xfer" : l.kind.startsWith("income") ? "in" : "out",
     recurring: l.recurring,
+    ...(saveKind ? { saveKind } : {}),
+    ...(fund ? { fund } : {}),
+    ...(fund === "saldo" && typeof l.fundHost === "string" && l.fundHost !== "" ? { fundHost: l.fundHost } : {}),
   };
 }
 

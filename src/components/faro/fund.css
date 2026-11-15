@@ -1,0 +1,78 @@
+/* El modelo de ahorros (oleada 2, 1.3.288): la luz de naturaleza, la pregunta
+   ¿dónde vive?, la lista de migración y el encuentro — todo en el idioma visual
+   de la casa, sin ventanas nuevas: superficies y bordes de las tarjetas vivas. */
+
+/* ---- La luz (§7): disco lleno = aparte · anillo = saldo · disco gris = sin declarar.
+   La forma se lee sin color; el color es el tinte de la bolsa (--fl). ---- */
+.fund-light-wrap { position: relative; display: inline-flex; align-items: center; flex: none; }
+.fund-light {
+  width: 11px; height: 11px; border-radius: 50%; padding: 0; cursor: pointer;
+  background: var(--fl, var(--accent)); border: none; flex: none;
+}
+.fund-light.is-saldo { background: transparent; border: 2px solid var(--fl, var(--accent)); }
+.fund-light.is-sin-declarar { background: var(--faint); opacity: .75; }
+.fund-light-pop {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; width: max-content; max-width: 240px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 10px; font-size: .8rem; line-height: 1.35; box-shadow: 0 10px 28px rgba(0, 0, 0, .28);
+  white-space: normal; text-align: left;
+}
+
+/* ---- La pregunta de naturaleza (§5.1) en los formularios de bolsa y en LineForm ---- */
+.fund-ask { display: grid; gap: 8px; margin-top: 10px; }
+.fund-ask .lab-head { display: inline-flex; align-items: center; gap: 4px; }
+.fund-opts { display: grid; gap: 8px; }
+.fund-opt {
+  display: grid; gap: 2px; text-align: left; padding: 10px 12px; cursor: pointer;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 12px;
+}
+.fund-opt strong { font-size: .92rem; }
+.fund-opt small { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.fund-opt.is-on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.fund-born { color: var(--muted); font-size: .85rem; margin: 0; }
+.fund-note { color: var(--muted); font-size: .8rem; line-height: 1.4; margin: 0; }
+.fund-host { display: grid; gap: 6px; }
+.fund-host-list { display: grid; gap: 6px; }
+.fund-host-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  font-size: .9rem;
+}
+.fund-host-row.is-on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* ---- La lista de migración (§6.2): una línea tranquila al frente del libro ---- */
+.save-migrate { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface); }
+.save-migrate-head { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: var(--ink); cursor: pointer; padding: 0; text-align: left; font-size: .9rem; }
+.save-migrate-head .fund-light-wrap { margin-right: 2px; }
+.save-migrate-head svg { margin-left: auto; }
+.save-migrate-list { display: grid; gap: 12px; margin-top: 10px; }
+.save-migrate-fund { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 6px; }
+.save-migrate-name { display: flex; align-items: center; gap: 8px; font-size: .92rem; }
+.save-migrate-name .num { margin-left: auto; }
+.save-migrate .fund-ask { margin-top: 2px; }
+
+/* ---- El encuentro (§5.2): la ventana de confirmación de la casa, con su tercera
+   salida (fondo por fondo) desplegada dentro de la misma ventana. La ventana de la
+   casa es una rejilla (sello + título; cuerpo y acciones a todo ancho): las piezas
+   del encuentro ocupan el ancho entero y la ventana, cuando el contenido crece,
+   se queda en pantalla y se desplaza por dentro. ---- */
+.ask > .enc-actions, .ask > .enc-funds, .ask > .enc-done { grid-column: 1 / -1; width: 100%; }
+.ask.is-enc { max-height: calc(100dvh - 56px); overflow-y: auto; }
+.enc-funds { display: grid; gap: 10px; margin-top: 10px; text-align: left; }
+.enc-fund { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; }
+.enc-fund-name { display: flex; align-items: center; gap: 8px; font-size: .92rem; }
+.enc-fund-name .num { margin-left: auto; }
+.enc-actions { display: grid; gap: 8px; margin-top: 14px; }
+.enc-actions .ask-btn { width: 100%; }
+.enc-done { margin-top: 10px; width: 100%; }
+
+/* ---- La nota de Folios (§4.6): una línea tranquila bajo la meta, en su registro ---- */
+.hist-row-note {
+  display: inline-flex; align-items: flex-start; gap: 6px; color: var(--muted);
+  font-size: .78rem; line-height: 1.35; margin-top: 2px; white-space: normal;
+}
+.hist-row-note .fund-light-wrap { margin-top: 2px; }
+.hist-row-note .fund-light-pop { color: var(--ink); }
+
+/* La fila del modo en Ajustes (§8) */
+.aj-nature-note { color: var(--muted); font-size: .8rem; line-height: 1.4; margin-top: 6px; }
