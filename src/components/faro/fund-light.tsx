@@ -14,7 +14,7 @@ import "./fund.css";
  * hueco); el color es el tinte de su bolsa. El Retiro no lleva luz: su naturaleza es
  * su nombre.
  */
-export function FundLight({ cls, tone, hostName }: { cls: "aparte" | "saldo" | "sin-declarar"; tone?: string; hostName?: string }) {
+export function FundLight({ cls, tone, hostName, asSpan }: { cls: "aparte" | "saldo" | "sin-declarar"; tone?: string; hostName?: string; asSpan?: boolean }) {
   const { t } = useFaro();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLSpanElement>(null);
@@ -32,17 +32,28 @@ export function FundLight({ cls, tone, hostName }: { cls: "aparte" | "saldo" | "
     : cls === "saldo"
       ? hostName ? t("fund.light.saldo").replace("{x}", hostName) : t("fund.light.saldoFree")
       : t("fund.light.none");
+  const style = tone && cls !== "sin-declarar" ? ({ "--fl": tone } as React.CSSProperties) : undefined;
+  const handlers = {
+    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+    onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen((v) => !v); },
+  };
   return (
     <span className="fund-light-wrap" ref={wrap}>
-      <button
-        type="button"
-        className={`fund-light is-${cls}`}
-        style={tone && cls !== "sin-declarar" ? ({ "--fl": tone } as React.CSSProperties) : undefined}
-        aria-label={text}
-        aria-expanded={open}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-      />
+      {asSpan ? (
+        // Dentro de un botón (el chip de la banda) la luz no puede ser otro botón:
+        // es un span con el mismo signo y la misma explicación, y su toque se
+        // detiene ahí — explica y no hace nada más, como en todas partes (§7).
+        <span role="button" tabIndex={-1} className={`fund-light is-${cls}`} style={style} aria-label={text} aria-expanded={open} {...handlers} />
+      ) : (
+        <button
+          type="button"
+          className={`fund-light is-${cls}`}
+          style={style}
+          aria-label={text}
+          aria-expanded={open}
+          {...handlers}
+        />
+      )}
       {open ? <span className="fund-light-pop" role="note">{text}</span> : null}
     </span>
   );

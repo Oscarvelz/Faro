@@ -171,6 +171,67 @@ export function stampFor(
   return host ? { fund: "saldo", fundHost: host, ready: true } : { ready: false };
 }
 
+/** Lo guardado (oleada 3, §3): el dinero que existe una sola vez — cuentas + aparte
+ *  + Retiro + lo sin declarar leyéndose como pila. Es el total de la partición menos
+ *  lo comprometido: un fondo del saldo NUNCA suma, porque su dinero ya es el saldo
+ *  de su anfitriona. Para un libro sin declaraciones vale exactamente el total de
+ *  siempre. */
+export function keptTotal(stock: SavingsStock): number {
+  return stock.total - stock.pledged;
+}
+
+/** Lo libre que se muestra (§3): la suma de los saldos visibles menos TODO lo
+ *  comprometido. El agregado vive solo en la presentación — el amarre que manda
+ *  es por cuenta (libreOf) — y puede salir negativo: se muestra y se dice. */
+export function freeShown(stock: SavingsStock, accountsTotal: number): number {
+  return accountsTotal - stock.pledged;
+}
+
+export type SegmentAgg = { kept: number; pledged: number; undecl: number; total: number; saldoHosts: string[] };
+
+/** Los segmentos de la banda (oleada 3, §4.1): la partición agrupada por bolsa.
+ *  Cada serie cae en su sub si es una bolsa con nombre (seedIds); si su sub es una
+ *  cuenta VISIBLE, no es segmento (es la base, y vive en el panel de cuentas); todo
+ *  lo demás cae en «rest» — como siempre: el dinero oculto sigue contando en los
+ *  totales aunque su nombre no se pinte (una cuenta oculta viaja en «rest» con su
+ *  clase de cuenta sumando a kept, igual que la caminata del mes la sumaba).
+ *  kept = aparte + Retiro (la clase), y la lectura de pila de cada segmento suma
+ *  además su parte sin declarar en las superficies que la componen. */
+export function segmentAgg(stock: SavingsStock, seedIds: ReadonlySet<string>, visibleVaultIds: ReadonlySet<string>): Map<string, SegmentAgg> {
+  const out = new Map<string, SegmentAgg>();
+  const forId = (id: string): SegmentAgg => {
+    let a = out.get(id);
+    if (!a) { a = { kept: 0, pledged: 0, undecl: 0, total: 0, saldoHosts: [] }; out.set(id, a); }
+    return a;
+  };
+  for (const row of stock.series.values()) {
+    if (visibleVaultIds.has(row.subId)) continue;
+    const a = forId(seedIds.has(row.subId) ? row.subId : "rest");
+    a.total += row.minor;
+    if (row.cls === "aparte" || row.cls === "retiro" || row.cls === "cuenta") a.kept += row.minor;
+    else if (row.cls === "saldo") {
+      a.pledged += row.minor;
+      if (row.fundHost && !a.saldoHosts.includes(row.fundHost)) a.saldoHosts.push(row.fundHost);
+    } else a.undecl += row.minor;
+  }
+  return out;
+}
+
+/** El Apartado del mes partido en dos lecturas (§4.2): lo apartado a fondos del
+ *  saldo (etiquetar: no mueve dinero) contra todo lo demás (aparte, sin declarar
+ *  leyéndose como pila, Retiro). Las dos partes suman siempre el total de la
+ *  tarjeta: la meta del mes se cumple con ambas naturalezas (§3). Las entradas
+ *  llegan ya convertidas a la moneda de vista. */
+export function asideSplit(entries: { seriesKey: string; minor: number }[], stock: SavingsStock): { saldo: number; moved: number } {
+  let saldo = 0;
+  let moved = 0;
+  for (const e of entries) {
+    if (stock.series.get(e.seriesKey)?.cls === "saldo") saldo += e.minor;
+    else moved += e.minor;
+  }
+  return { saldo, moved };
+}
+
 /** La clase de Folios de una línea (§4.6): solo las entradas de ahorro la llevan —
  *  las series de las tres bolsas y las líneas propias de una cuenta (su apertura y
  *  sus depósitos, las mismas que el libro lee como la cuenta). Un gasto que solo

@@ -30,6 +30,7 @@ const provider = read("components/faro/provider.tsx");
 const historial = read("components/faro/historial.tsx");
 const archivo = read("components/faro/archivo.tsx");
 const screens = read("components/faro/screens.tsx");
+const savingsEngine = read("lib/faro/savings.ts");
 const bookSide = read("components/faro/book-side.tsx");
 
 describe("el dock: cuatro ciudadanos, Folios entre Libros y Estudio", () => {
@@ -205,7 +206,10 @@ describe("la segunda pasada: las pantallas que reimplementan lecturas (auditorí
   });
 
   it("las sumas derivadas de Ahorros llevan su !rest (L4)", () => {
-    assert.match(screens, /!line\.active \|\| line\.rest \|\| !savingsIds\.has/);
+    // Oleada 3 del modelo: los segmentos de la banda ya no caminan las líneas en la
+    // pantalla — leen la partición de savingsStock, y el !rest vive en el motor
+    // (savings.ts), que es la única pasada que alimenta esas sumas.
+    assert.match(savingsEngine, /if \(!line\.active \|\| line\.rest \|\| roleOf\(state, line\.categoryId\) !== "savings"\) continue;/);
     assert.match(screens, /line\.active && !line\.rest && line\.subId === s\.id/);
     assert.match(screens, /line\.active && !line\.rest && line\.kind === "expense-fixed"/);
     assert.match(screens, /l\.active && !l\.rest && \(l\.categoryId \|\| l\.kind\) === picked/);

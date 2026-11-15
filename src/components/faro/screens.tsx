@@ -76,7 +76,7 @@ import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import { OwedSide, SeeAll, takeCobrosReturn } from "./debts";
 import { ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
-import { declareSeries, guardFor, hostAccounts, libreOf, natureMode, seriesName, stampFor, undeclaredFunds, type FundNature, type PendingFund } from "@/lib/faro/funds";
+import { asideSplit, declareSeries, freeShown, guardFor, hostAccounts, keptTotal as keptTotalOf, libreOf, natureMode, segmentAgg, seriesName, stampFor, undeclaredFunds, type FundNature, type PendingFund, type SegmentAgg } from "@/lib/faro/funds";
 import { savingsStock } from "@/lib/faro/savings";
 import { FundLight, NaturePick } from "./fund-light";
 
@@ -392,7 +392,7 @@ function glueHint(text: string, hint: ReactNode) {
   return <>{text.slice(0, cut + 1)}<span className="hint-glue">{text.slice(cut + 1)}{hint}</span></>;
 }
 
-function VaultLever({ base, tone, storeId }: { base: number; tone: string; storeId: string }) {
+function VaultLever({ base, tone, storeId, baseNote }: { base: number; tone: string; storeId: string; baseNote?: string }) {
   const { fmt, t, session } = useFaro();
   const display = session?.ledger.settings.display ?? "USD";
   const rate = session?.ledger.settings.rateE4 ?? 0;
@@ -584,6 +584,7 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
               <span className="lab-head">{t("lever.if")}<Hint topic="si-apartas" /></span>
               <span className="lever-amt"><strong className="num">{fmt(shown)}</strong><em>{t("lever.each")}</em></span>
             </p>
+            {baseNote ? <p className="fund-note lever-base-note">{baseNote}</p> : null}
             <div>
               {cards.filter((card) => card.id !== "far").map((card) => (
                 <button key={card.id} type="button" className={`vault-mark${mark === card.id ? " is-on" : ""}`} aria-pressed={mark === card.id} onClick={() => pick(card.id)}>
@@ -1762,7 +1763,7 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
 }
 
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
-  const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang } = useFaro();
+  const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang, goTopic } = useFaro();
   const { depth } = useFaro();
   const [lens, setLens] = useState<"all" | "have" | "spend" | "debt">(() => (focus ? "all" : takeLensReturn(depth) ?? "all"));
   const lensByJump = useRef(false);
@@ -2173,18 +2174,49 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const namedVaultIds = new Set(visibleSavingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))).map((s) => s.id)));
   const seed = visibleSavingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && s.icon !== "vault" && !s.icon.startsWith("vault:")).map((s) => ({ id: s.id, name: names.sub(s.id), categoryId: c.id })));
   const subCat = new Map(seed.map((s) => [s.id, s.categoryId]));
-  const buckets = new Map<string, number>();
-  for (const line of lines) {
-    if (!line.active || line.rest || !savingsIds.has(line.categoryId) || namedVaultIds.has(line.subId)) continue;
-    const id = line.subId && seed.some((s) => s.id === line.subId) ? line.subId : "rest";
-    buckets.set(id, (buckets.get(id) ?? 0) + convertMinor(line.balanceMinor != null ? line.balanceMinor : line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, rate.display, rate.rateE4));
-  }
-  const saveSegs = (seed.length ? seed : [{ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "" }]).map((s) => ({ ...s, minor: buckets.get(s.id) ?? 0 }));
-  const rest = buckets.get("rest") ?? 0;
-  if (rest !== 0 && seed.length) saveSegs.push({ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "", minor: rest });
+  // Oleada 3 del modelo de ahorros: la banda y el libro leen la PARTICIÓN (la única
+  // fuente de stocks, §2.3) — cada segmento trae su dinero por clase: keptMinor es su
+  // lectura de pila (aparte + sin declarar, que se lee como pila) más su Retiro;
+  // pledgedMinor es lo que monta sobre el saldo y NUNCA suma al titular; minor es el
+  // stock entero atribuido a la bolsa (lo que sus ventanas listan). Para un libro sin
+  // declaraciones, keptMinor + pledgedMinor reproduce las cifras de siempre.
+  const stock = savingsStock(session.ledger, key);
+  const segAggs = segmentAgg(stock, new Set(seed.map((s) => s.id)), namedVaultIds);
+  const segOf = (agg: SegmentAgg | undefined, id: string) => {
+    const keptMinor = (agg?.kept ?? 0) + (agg?.undecl ?? 0);
+    const pledgedMinor = agg?.pledged ?? 0;
+    const hosts = agg?.saldoHosts ?? [];
+    const lightCls: "aparte" | "saldo" | "sin-declarar" | null = id.endsWith(".retiro") || ((agg?.total ?? 0) <= 0 && keptMinor <= 0 && pledgedMinor <= 0)
+      ? null
+      : (agg?.undecl ?? 0) > 0 ? "sin-declarar" : keptMinor > 0 ? "aparte" : "saldo";
+    return {
+      minor: keptMinor + pledgedMinor,
+      keptMinor,
+      pledgedMinor,
+      undeclMinor: agg?.undecl ?? 0,
+      lightCls,
+      saldoHostName: hosts.length === 1 ? (names.sub(hosts[0]!) || undefined) : undefined,
+    };
+  };
+  const saveSegs = (seed.length ? seed : [{ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "" }]).map((s) => ({ ...s, ...segOf(segAggs.get(s.id), s.id) }));
+  const restAgg = segAggs.get("rest");
+  if (restAgg && restAgg.total !== 0 && seed.length) saveSegs.push({ id: "rest", name: t("desk.savings"), categoryId: savingsCats[0]?.id ?? "", ...segOf(restAgg, "rest") });
   ringLive.current = { lens, openSave, ids: saveSegs.map((s) => s.id) };
-  const saveTotal = saveSegs.reduce((acc, s) => acc + s.minor, 0);
-  const savePeak = Math.max(...saveSegs.map((s) => s.minor), 1);
+  // Lo guardado: el titular (§3). Lo comprometido: la segunda lectura, que nunca suma.
+  const keptTotal = keptTotalOf(stock);
+  const keptPeak = Math.max(...saveSegs.map((s) => s.keptMinor), 1);
+  const keptSegTotal = saveSegs.reduce((acc, s) => acc + s.keptMinor, 0);
+  // La fórmula del titular (§4.1): solo dinero que existe una vez, con sus partes.
+  const keptFormula = [
+    `${t("save.accounts")} ${fmt(stock.byClass.cuenta)}`,
+    `${t("save.kept.funds")} ${fmt(stock.byClass.aparte + stock.undeclared)}`,
+    `${saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")} ${fmt(stock.byClass.retiro)}`,
+  ].join(" · ");
+  // La lista de fondos del saldo, para la fórmula de la segunda línea (§4.1).
+  const pledgedFundsList = [...stock.series.entries()]
+    .filter(([, r]) => r.cls === "saldo")
+    .map(([sid, r]) => `${seriesName(session.ledger, sid) || names.sub(r.subId)} ${fmt(r.minor)}`)
+    .join(" · ");
   const saveTints = ["#8fb9a6", "#72b4b2", "#7aa2c4", "#e07a5f", "#c9a6d4", "#d7b48a"].map((c) => (isTron() ? tronize(c) : c));
   const openSeg = saveSegs.find((s) => s.id === openSave) ?? null;
   const openLines = openSave
@@ -2201,15 +2233,18 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const accountTotal = accountRows.reduce((sum, row) => sum + row.minor, 0);
   const fixedSave = lines.filter((line) => line.active && !line.rest && line.kind === "expense-fixed" && savingsIds.has(line.categoryId) && !vaultIds.has(line.subId));
   const aside = fixedSave.reduce((sum, line) => sum + convertMinor(line.amountMinor, line.currency, rate.display, rate.rateE4), 0);
+  // Oleada 3 (§4.2): el Apartado partido en dos lecturas — lo que solo etiquetó el
+  // saldo contra lo que de verdad se movió a pilas aparte. Suman el total de siempre.
+  const asideParts = asideSplit(fixedSave.map((line) => ({ seriesKey: line.seriesId || line.id, minor: convertMinor(line.amountMinor, line.currency, rate.display, rate.rateE4) })), stock);
   const orderedAccounts = [...accountRows].sort((a, b) => a.order - b.order);
   const bankRows = bankRank
     ? [...bankRank.flatMap((id) => orderedAccounts.filter((row) => row.id === id)), ...orderedAccounts.filter((row) => !bankRank.includes(row.id))]
     : orderedAccounts;
   const focusedAccount = accountRows.find((row) => row.id === accountFocus) ?? null;
-  // El modelo de ahorros (oleada 2): la partición canónica de savingsStock alimenta las
-  // luces de las filas, la lista de migración y el encuentro — ninguna cifra nueva se
-  // calcula aquí; las superficies solo leen la clase que el motor ya partió.
-  const stock = savingsStock(session.ledger, key);
+  // El modelo de ahorros (oleada 2): la partición canónica de savingsStock (calculada
+  // arriba, junto a los segmentos) alimenta las luces de las filas, la lista de
+  // migración y el encuentro — ninguna cifra nueva se calcula aquí; las superficies
+  // solo leen la clase que el motor ya partió.
   const mode = natureMode(session.ledger.settings);
   const hostAccts = hostAccounts(session.ledger, key, stock);
   const namedAccts = hostAccts.map((a) => ({ id: a.id, name: names.sub(a.id) || a.id, minor: a.minor }));
@@ -2943,7 +2978,15 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const vaultStore = focus === "meta" || focus === "retiro" || focus === "emergencia" ? focus : focus === "save" ? "save" : pocketKind;
   const vaultTone0 = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#72b4b2" : vaultStore === "emergencia" ? "#7aa2c4" : vaultStore === "save" ? SAVINGS_PURPLE : "#d5e2ea";
   const vaultTone = isTron() ? tronize(vaultTone0) : vaultTone0;
-  const vaultBase = focus === "save" ? accountTotal : (openSeg?.minor ?? 0);
+  // Oleada 3 (§4.2): la palanca de la ventana Ahorros proyecta lo guardado que es pila
+  // — cuentas + fondos aparte DECLARADOS (el Retiro conserva su palanca en su ventana);
+  // para un libro sin declaraciones su base es la de siempre (solo cuentas), así que
+  // ninguna cifra se mueve el día del aterrizaje. En la ventana de una bolsa, la base
+  // es el stock entero de la bolsa y su texto dice qué proyecta (lever.baseNote).
+  const vaultBase = focus === "save" ? accountTotal + stock.byClass.aparte : (openSeg?.minor ?? 0);
+  const leverBaseNote = focus === "save" || !openSeg
+    ? t("lever.base.pile")
+    : openSeg.pledgedMinor > 0 && openSeg.keptMinor <= 0 ? t("lever.base.pledged") : t("lever.base.pile");
   const spanNode = (
     <SpanCut
       kinds={[]}
@@ -2957,7 +3000,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       tone={vaultTone}
     />
   );
-  const leverNode = vaultStore ? <VaultLever base={vaultBase} tone={vaultTone} storeId={vaultStore} /> : null;
+  const leverNode = vaultStore ? <VaultLever base={vaultBase} tone={vaultTone} storeId={vaultStore} baseNote={leverBaseNote} /> : null;
   function blockAt(id: string) {
     const at = blockRank.indexOf(id);
     return at < 0 ? 9 : at;
@@ -3110,6 +3153,42 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </div>
         ) : null}
         {encounter ? <EncounterDialog accountId={encounter.accountId} pending={encounter.pending} onClose={() => setEncounter(null)} /> : null}
+        {focus === "save" && stock.byClass.aparte > 0 ? (
+          <div className="save-kept-head" data-anchor="vault-kept">
+            <span className="save-kept-total"><span>{t("save.kept")}</span><strong className="num">{fmt(keptTotal)}</strong></span>
+            <span className="save-kept-parts">
+              <SourceNote
+                label={t("desk.savings.from")}
+                title={t("save.accounts")}
+                meaning={t("save.kept.cuentas.what")}
+                formula={accountRows.map((r) => `${r.name} ${fmt(r.minor)}`).join(" · ")}
+                implication={t("save.kept.cuentas.note")}
+              >
+                <span>{`${t("save.accounts")} ${fmt(stock.byClass.cuenta)}`}</span>
+              </SourceNote>
+              <i aria-hidden>·</i>
+              <SourceNote
+                label={t("desk.savings.from")}
+                title={t("save.kept.funds")}
+                meaning={t("save.kept.aparte.what")}
+                formula={[...stock.series.entries()].filter(([, r]) => r.cls === "aparte" || r.cls === "sin-declarar").map(([sid, r]) => `${seriesName(session.ledger, sid) || names.sub(r.subId)} ${fmt(r.minor)}`).join(" · ")}
+                implication={t("save.kept.aparte.note")}
+              >
+                <span>{`${t("save.kept.funds")} ${fmt(stock.byClass.aparte + stock.undeclared)}`}</span>
+              </SourceNote>
+              <i aria-hidden>·</i>
+              <SourceNote
+                label={t("desk.savings.from")}
+                title={saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")}
+                meaning={t("save.kept.retiro.what")}
+                formula={`${saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")} ${fmt(stock.byClass.retiro)}`}
+                implication={t("save.kept.retiro.note")}
+              >
+                <span>{`${saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")} ${fmt(stock.byClass.retiro)}`}</span>
+              </SourceNote>
+            </span>
+          </div>
+        ) : null}
         {focus ? null : (
         <>
         <div className="save-head">
@@ -3139,10 +3218,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               label={t("desk.savings.from")}
               title={t("desk.savings.from")}
               meaning={t("desk.savings.from.total")}
-              formula={[...saveSegs.map((s) => `${s.name} ${fmt(s.minor)}`), `${t("save.accounts")} ${fmt(accountTotal)}`].join(" · ")}
+              formula={keptFormula}
               implication={t("desk.savings.from.total.note")}
             >
-              <strong className="num">{fmt(saveTotal + accountTotal)}</strong>
+              <strong className="num">{fmt(keptTotal)}</strong>
             </SourceNote>
             {summary.savingsGoal > 0 ? (
               <SourceNote
@@ -3157,16 +3236,29 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             ) : null}
           </span>
         </div>
+        {stock.pledged > 0 ? (
+          <div className="save-pledged">
+            <SourceNote
+              label={t("desk.savings.from")}
+              title={t("desk.savings.from")}
+              meaning={t("desk.savings.pledged.what")}
+              formula={pledgedFundsList}
+              implication={t("desk.savings.pledged.note")}
+            >
+              <span>{t("desk.savings.pledged").replace("{x}", fmt(stock.pledged))}</span>
+            </SourceNote>
+          </div>
+        ) : null}
         <div className="save-track" aria-hidden>
-          {saveTotal <= 0 ? <i /> : saveSegs.map((s, i) => (
-            <i key={s.id} style={{ width: `${(s.minor / saveTotal) * 100}%`, background: saveTints[i % saveTints.length] }} />
+          {keptSegTotal <= 0 ? <i /> : saveSegs.map((s, i) => (
+            <i key={s.id} style={{ width: `${(s.keptMinor / keptSegTotal) * 100}%`, background: saveTints[i % saveTints.length] }} />
           ))}
         </div>
         <div className="save-segs" data-anchor="desk-pockets" style={{ gridTemplateColumns: `repeat(${Math.max(saveSegs.length, 1)}, minmax(0, 1fr))` }}>
           {saveSegs.map((s, i) => {
             const tint = saveTints[i % saveTints.length] ?? "#8fb9a6";
             const on = openSave === s.id;
-            const pct = saveTotal > 0 ? Math.round((s.minor / saveTotal) * 100) : 0;
+            const pct = keptTotal > 0 ? Math.round((s.keptMinor / keptTotal) * 100) : 0;
             return (
               <button
                 key={s.id}
@@ -3181,7 +3273,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               >
                 {(() => {
                   // Tron keeps its own segmented energy gauge.
-                  if (isTron()) return <b aria-hidden><i style={{ height: `${s.minor > 0 ? Math.max(12, (s.minor / savePeak) * 100) : 8}%`, background: tint, opacity: openSave && !on ? 0.35 : 1 }} /></b>;
+                  if (isTron()) return <b aria-hidden><i style={{ height: `${s.keptMinor > 0 ? Math.max(12, (s.keptMinor / keptPeak) * 100) : 8}%`, background: tint, opacity: openSave && !on ? 0.35 : 1 }} /></b>;
                   // Everywhere else the block is a full-colour band: the pocket's own colour with soft sea swells.
                   return (
                     <b className="save-band" aria-hidden style={{ opacity: openSave && !on ? 0.5 : 1 }}>
@@ -3192,9 +3284,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     </b>
                   );
                 })()}
-                <strong data-long={s.name.length > 8 ? "" : undefined}>{s.name}</strong>
-                <span className="num">{fmt(s.minor)}</span>
+                <strong data-long={s.name.length > 8 ? "" : undefined}>{s.name}{s.lightCls ? <> <FundLight asSpan cls={s.lightCls} tone={tint} hostName={s.saldoHostName} /></> : null}</strong>
+                <span className="num">{fmt(s.keptMinor)}</span>
                 <small>{pct}%</small>
+                {s.pledgedMinor > 0 ? (
+                  <span className="save-seg-sub"><FundLight asSpan cls="saldo" tone={tint} hostName={s.saldoHostName} /><span className="ss-amt">{`+ ${fmt(s.pledgedMinor)}`}</span><span className="ss-lab">{t("desk.savings.onBalance")}</span></span>
+                ) : null}
               </button>
             );
           })}
@@ -3227,6 +3322,19 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 )}
               </span>
             </div>
+            {(focus === "meta" || focus === "emergencia") && (stock.keptByPocket.get(openSeg.id) ?? 0) > 0 ? (
+              <p className="save-part-line">
+                <SourceNote
+                  label={t("desk.savings.from")}
+                  title={t("save.kept.funds")}
+                  meaning={t("save.kept.aparte.what")}
+                  formula={[...stock.series.entries()].filter(([, r]) => r.subId === openSeg.id && r.cls === "aparte").map(([sid, r]) => `${seriesName(session.ledger, sid) || names.sub(r.subId)} ${fmt(r.minor)}`).join(" · ")}
+                  implication={t("save.kept.aparte.note")}
+                >
+                  <span>{t("save.part.of").replace("{pocket}", openSeg.name).replace("{x}", fmt(stock.keptByPocket.get(openSeg.id) ?? 0))}</span>
+                </SourceNote>
+              </p>
+            ) : null}
             {focus && focus !== "save" && !pocketFold ? (
               <button type="button" className="fold-pin vault-corner-pin" aria-label={t("study.pin")} aria-pressed={pocketPin} onClick={(event) => { event.stopPropagation(); togglePocketPin(); }}><Pin /></button>
             ) : null}
@@ -3437,6 +3545,19 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             ) : null}
             {focus === "save" && banksFold ? null : (
             <>
+            {stock.pledged > 0 ? (
+              <p className="save-panel-line">
+                <SourceNote
+                  label={t("desk.savings.from")}
+                  title={t("save.free")}
+                  meaning={t("save.panel.pledged.what")}
+                  formula={accountRows.filter((r) => (stock.pledgedByHost.get(r.id) ?? 0) > 0).map((r) => `${r.name} ${fmt(stock.pledgedByHost.get(r.id) ?? 0)}`).join(" · ")}
+                  implication={t("save.panel.pledged.note")}
+                >
+                  <span>{t("save.panel.pledged").replace("{x}", fmt(stock.pledged)).replace("{y}", fmt(freeShown(stock, accountTotal)))}</span>
+                </SourceNote>
+              </p>
+            ) : null}
             <div className="save-accounts">
               {bankRows.map((row) => (
                 <div key={row.id} data-bank={row.id} className={`save-account${accountFocus === row.id ? " is-on" : ""}${bankRank?.[0] && bankDrag.current === row.id ? " is-drag" : ""}`}>
@@ -3495,6 +3616,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                       });
                     }}>{fmt(row.minor)}</button>
                   </div>
+                  {(stock.pledgedByHost.get(row.id) ?? 0) > 0 ? (
+                    <p className="save-acct-line">{t("save.acct.named").replace("{x}", fmt(stock.pledgedByHost.get(row.id) ?? 0)).replace("{y}", fmt(row.minor - (stock.pledgedByHost.get(row.id) ?? 0)))}</p>
+                  ) : null}
                   {accountFocus === row.id ? (
                     row.minor > 0 || lines.some((line) => line.subId === row.id && line.startedOn) ? (
                       <div className="ah-form is-account">
@@ -3619,6 +3743,48 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   </>
                 )}
             </p>
+            {asideParts.saldo > 0 ? (
+              <p className="save-flow-split">
+                <SourceNote
+                  label={t("desk.savings.from")}
+                  title={t("vault.aside")}
+                  meaning={t("vault.aside.saldo.what")}
+                  formula={fixedSave.filter((l) => stock.series.get(l.seriesId || l.id)?.cls === "saldo").map((l) => l.concept || names.sub(l.subId)).join(" · ")}
+                  implication={t("vault.aside.goalNote")}
+                >
+                  <span>{t("vault.aside.saldo").replace("{x}", fmt(asideParts.saldo))}</span>
+                </SourceNote>
+                <i aria-hidden>·</i>
+                <SourceNote
+                  label={t("desk.savings.from")}
+                  title={t("vault.aside")}
+                  meaning={t("vault.aside.aparte.what")}
+                  formula={fixedSave.filter((l) => stock.series.get(l.seriesId || l.id)?.cls !== "saldo").map((l) => l.concept || names.sub(l.subId)).join(" · ")}
+                  implication={t("vault.aside.goalNote")}
+                >
+                  <span>{t("vault.aside.aparte").replace("{x}", fmt(asideParts.moved))}</span>
+                </SourceNote>
+              </p>
+            ) : null}
+            <div className="save-flow-goal">
+              <span className="lab-head">
+                <button type="button" className="term-link" onClick={() => goTopic("meta-ahorro", { screen: "settings", fold: "rate", anchor: "aj-goal" })}>{lang === "es" ? "Meta de ahorro" : "Savings goal"}</button>
+              </span>
+              <span className="save-flow-pct">
+                <input
+                  key={rate.savingsGoalPct}
+                  className="field num"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={100}
+                  defaultValue={rate.savingsGoalPct}
+                  aria-label={t("settings.goal")}
+                  onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Number(e.target.value) || 0 } }), "goal")}
+                />
+                <i>%</i>
+              </span>
+            </div>
             {fixedSave.map((line) => (
               <div key={line.id} className="save-flow-slot">
               <div className={`save-flow-row is-tap${ui.editing === line.id ? " is-open" : ""}`} {...savTap(line)}>

@@ -76,3 +76,55 @@
 
 /* La fila del modo en Ajustes (§8) */
 .aj-nature-note { color: var(--muted); font-size: .8rem; line-height: 1.4; margin-top: 6px; }
+
+/* ---- Oleada 3 (§4.1, §4.2): los dos totales en la cara ---- */
+
+/* La segunda línea de la banda: lo comprometido, tranquilo bajo el titular. */
+.save-pledged { margin-top: 2px; }
+.save-pledged .save-from { text-align: left; }
+.save-pledged .save-from summary span { color: var(--muted); font-size: .9rem; }
+
+/* La sublínea del chip: lo que la bolsa monta sobre el saldo, con su luz. El monto
+   nunca se parte: en chips estrechos la etiqueta baja a su propia línea (la misma
+   puerta de contenedor que encoge el nombre de la bolsa). */
+.save-seg-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; color: var(--muted); font-size: .72rem; line-height: 1.25; }
+.save-seg-sub .ss-amt { white-space: nowrap; }
+@container (max-width: 5.15rem) {
+  .save-seg-sub { font-size: .64rem; }
+  .save-seg-sub .ss-lab { flex: 1 0 100%; }
+}
+.save-seg strong .fund-light-wrap { vertical-align: -1px; }
+
+/* La cabecera compuesta del libro: Lo guardado con sus partes nombradas. */
+.save-kept-head { display: grid; gap: 4px; margin-bottom: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.save-kept-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.save-kept-total > span { font-family: var(--font-serif); font-size: 1.02rem; }
+.save-kept-total .num { font-family: var(--font-serif); font-size: 1.25rem; }
+.save-kept-parts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; color: var(--muted); font-size: .86rem; }
+.save-kept-parts .save-from { margin: 0; text-align: left; }
+.save-kept-parts .save-from summary { display: inline; }
+.save-kept-parts > i { font-style: normal; color: var(--faint); }
+
+/* La parte aparte en la cabecera de Meta / Emergencia. */
+.save-part-line { margin: 6px 2px 0; color: var(--muted); font-size: .84rem; }
+.save-part-line .save-from { margin: 0; text-align: left; }
+.save-part-line .save-from summary { display: inline; }
+
+/* Las líneas de compromiso del panel de cuentas. */
+.save-panel-line { margin: 0 2px; color: var(--muted); font-size: .86rem; }
+.save-panel-line .save-from { margin: 0; text-align: left; }
+.save-panel-line .save-from summary { display: inline; }
+.save-acct-line { flex: 1 0 100%; margin: 0 0 4px; padding-left: 42px; color: var(--muted); font-size: .8rem; line-height: 1.35; }
+
+/* El Apartado partido en dos lecturas, y la sede del porcentaje en Libros. */
+.save-flow-split { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; margin: 0; color: var(--muted); font-size: .82rem; }
+.save-flow-split .save-from { margin: 0; text-align: left; }
+.save-flow-split .save-from summary { display: inline; }
+.save-flow-split > i { font-style: normal; color: var(--faint); }
+.save-flow-goal { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+.save-flow-goal .term-link { font: inherit; }
+.save-flow-pct { display: inline-flex; align-items: center; gap: 4px; }
+.save-flow-pct .field { width: 72px; text-align: right; }
+.save-flow-pct i { font-style: normal; color: var(--muted); }
+
+.lever-base-note { margin-top: 4px; }
