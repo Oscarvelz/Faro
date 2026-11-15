@@ -95,9 +95,12 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
 }
 
 /* ── Ahorro y colchón: a voyage to the lighthouse, a jar, and a what-if dial ─ */
-export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: { id: string; name: string; minor: number; color: string }[]; goal: number }) {
+export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Coach; pockets: { id: string; name: string; minor: number; color: string }[]; goal: number; have: number; pledged: number }) {
   const { fmt, lang } = useFaro();
-  const have = pockets.reduce((a, p) => a + p.minor, 0);
+  // 1.3.290 (modelo de ahorros, oleada 4 — §4.4): `have` es Lo guardado desde la partición
+  // (lo pasa Study, ya no se suma de las barras) y los meses salen del mismo colchón de §3:
+  // una frase, un numerador. Lo comprometido va en su línea compañera, abajo.
+  const [showCommitted, setShowCommitted] = useState(false);
   const months = coach.cushionMonths;
   const target = Math.max(1, coach.cushionTarget);
   const need = coach.needsMonthly;
@@ -190,6 +193,18 @@ export function CushionCard({ coach, pockets, goal }: { coach: Coach; pockets: {
             ? L(lang, `Llegaste al faro: lo guardado (${fmt(have)}) cubre ${covered.toFixed(1).replace(/\.0$/, "")} meses de lo básico.`, `You reached the lighthouse: your savings (${fmt(have)}) cover ${covered.toFixed(1).replace(/\.0$/, "")} months of basics.`)
             : L(lang, `Lo básico te cuesta ${fmt(need)} al mes. El faro está a ${target} meses: ${fmt(target * need)} guardados.`, `Basics cost ${fmt(need)} a month. The lighthouse is ${target} months out: ${fmt(target * need)} saved.`)}
       </p>
+
+      {pledged > 0 ? (
+        <div className="s2-committed">
+          <button type="button" className="s2-committed-row" aria-expanded={showCommitted} onClick={() => setShowCommitted((v) => !v)}>
+            <span>{L(lang, "Lo comprometido", "Committed")}</span>
+            <strong className="num">{fmt(pledged)}</strong>
+          </button>
+          {showCommitted ? (
+            <p className="s2-committed-note">{L(lang, "Es dinero que ya está en tus cuentas, apartado con nombre por tus fondos del saldo. No se cuenta dos veces: no alarga la pista ni llena el frasco.", "It is money already in your accounts, set apart by name by your balance funds. It is not counted twice: it does not lengthen the runway or fill the jar.")}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="s2-month">
         <div className="s2-jar" aria-hidden>

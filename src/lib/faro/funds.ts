@@ -187,6 +187,69 @@ export function freeShown(stock: SavingsStock, accountsTotal: number): number {
   return accountsTotal - stock.pledged;
 }
 
+export type CushionReading = {
+  /** El colchón unificado (§3): cuánto de lo guardado aguantaría lo esencial. */
+  cushion: number;
+  /** Σ pisos de emergencia del saldo (con anfitriona y sin ella): lo que hay que cubrir. */
+  emergencyFloor: number;
+  /** Lo que de ese piso ningún saldo libre alcanza a cubrir — el Asesor lo dice con esta cifra. */
+  floorShortfall: number;
+  /** Anfitrionas cuyo saldo ya no cubre los límites del saldo que montan sobre él
+   *  (su Libre bajó de cero), la peor primero. */
+  overCommitted: { host: string; balance: number; committed: number; libre: number }[];
+};
+
+/** EL COLCHÓN (§3, oleada 4 — 1.3.290): la única fórmula, leída de la partición.
+ *  Por cada cuenta: máx(0, su saldo − sus compromisos del saldo que NO son de
+ *  emergencia) — un fondo de emergencia del saldo GUARDA el saldo de su anfitriona
+ *  (ese tramo cuenta como colchón: es dinero de emergencia, ya está ahí), pero no
+ *  suma nada por encima del saldo. Suma además el stock de emergencia APARTE (su
+ *  propia pila) y todo lo sin declarar, que se lee como pila (§6.3). El Retiro
+ *  nunca cuenta (ley de siempre) y un fondo aparte que no es de emergencia tampoco:
+ *  su dinero ya tiene otro destino. Para un libro sin declaraciones la fórmula se
+ *  reduce exactamente a la lectura de siempre: cuentas + pila sin declarar =
+ *  total − Retiro. El piso de emergencia se comprueba anfitriona por anfitriona:
+ *  lo que el saldo libre de cada una no alcanza a guardar es la falta; un piso sin
+ *  anfitriona se cubre con lo que sobre de las demás. */
+export function cushionOf(stock: SavingsStock): CushionReading {
+  const emgByHost = new Map<string, number>();
+  const nonEmgByHost = new Map<string, number>();
+  let aparteEmg = 0;
+  for (const row of stock.series.values()) {
+    if (row.cls === "aparte" && row.subId.endsWith(".emergencia")) aparteEmg += row.minor;
+    if (row.cls !== "saldo") continue;
+    const host = row.fundHost ?? "";
+    const m = row.subId.endsWith(".emergencia") ? emgByHost : nonEmgByHost;
+    m.set(host, (m.get(host) ?? 0) + row.minor);
+  }
+  const hosts = new Set<string>();
+  for (const row of stock.series.values()) if (row.cls === "cuenta") hosts.add(row.subId);
+  for (const h of emgByHost.keys()) if (h) hosts.add(h);
+  for (const h of nonEmgByHost.keys()) if (h) hosts.add(h);
+  let cushion = stock.undeclared + aparteEmg;
+  let floorShortfall = 0;
+  let leftover = 0;
+  let emergencyFloor = 0;
+  const overCommitted: CushionReading["overCommitted"] = [];
+  for (const host of hosts) {
+    const balance = accountBalance(stock, host);
+    const nonEmg = nonEmgByHost.get(host) ?? 0;
+    const emg = emgByHost.get(host) ?? 0;
+    emergencyFloor += emg;
+    const libre = libreOf(stock, host);
+    if (libre < 0) overCommitted.push({ host, balance, committed: emg + nonEmg, libre });
+    const free = Math.max(0, balance - nonEmg);
+    cushion += free;
+    floorShortfall += emg - Math.min(emg, free);
+    leftover += Math.max(0, free - emg);
+  }
+  const hostlessEmg = emgByHost.get("") ?? 0;
+  emergencyFloor += hostlessEmg;
+  floorShortfall += Math.max(0, hostlessEmg - leftover);
+  overCommitted.sort((a, b) => a.libre - b.libre);
+  return { cushion, emergencyFloor, floorShortfall, overCommitted };
+}
+
 export type SegmentAgg = { kept: number; pledged: number; undecl: number; total: number; saldoHosts: string[] };
 
 /** Los segmentos de la banda (oleada 3, §4.1): la partición agrupada por bolsa.

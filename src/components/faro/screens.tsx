@@ -4314,16 +4314,23 @@ export function Study() {
   const savingsCats = session?.ledger.structure.categories.filter((c) => c.role === "savings" && !c.hidden) ?? [];
   const pocketSubs = savingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && s.icon !== "vault" && !s.icon.startsWith("vault:")));
   const bankSubs = savingsCats.flatMap((c) => c.subs.filter((s) => !s.hidden && (s.icon === "vault" || s.icon.startsWith("vault:"))));
-  const bag = (subId: string) => lines.filter((line) => line.active && !line.rest && line.subId === subId).reduce((sum, line) => sum + convertMinor(line.balanceMinor ?? line.amountMinor, line.balanceMinor != null ? line.balanceCurrency : line.currency, display, rate), 0);
+  // 1.3.290 (modelo de ahorros, oleada 4 — §4.4): Estudio lee la partición, como la banda:
+  // las barras son el stock de cada bolsa (no las líneas del mes en pantalla) y el dinero
+  // de la tarjeta es Lo guardado — un fondo del saldo no llena el frasco: su cifra va
+  // aparte, como Lo comprometido. Una frase, un numerador.
+  const stockNow = session ? savingsStock(session.ledger, key) : null;
+  const perSub = new Map<string, number>();
+  if (stockNow) for (const row of stockNow.series.values()) perSub.set(row.subId, (perSub.get(row.subId) ?? 0) + row.minor);
   const saveBars = pocketSubs.map((sub) => ({
     id: sub.id,
     name: names.sub(sub.id),
-    minor: bag(sub.id),
+    minor: perSub.get(sub.id) ?? 0,
     color: sub.id.endsWith(".meta") ? "#8fb9a6" : sub.id.endsWith(".retiro") ? "#72b4b2" : sub.id.endsWith(".emergencia") ? "#7aa2c4" : "#d7b48a",
   }));
-  const bankMinor = bankSubs.reduce((sum, sub) => sum + bag(sub.id), 0);
+  const bankMinor = stockNow ? stockNow.byClass.cuenta : 0;
   if (bankSubs.length) saveBars.push({ id: "banks", name: t("study.save.banks"), minor: bankMinor, color: "#d5e2ea" });
-  const saveHave = saveBars.reduce((sum, row) => sum + row.minor, 0);
+  const saveHave = stockNow ? keptTotalOf(stockNow) : 0;
+  const savePledged = stockNow ? stockNow.pledged : 0;
   const savePeak = Math.max(...saveBars.map((row) => row.minor), 1);
   const saveGoal = summary?.savingsGoal ?? 0;
   const saveFlow = summary?.savingsFlow ?? 0;
@@ -4427,7 +4434,7 @@ export function Study() {
           <StatFold id="waffle"><WaffleCard coach={coach} /></StatFold>
           <StatFold id="rule"><RuleCard coach={coach} /></StatFold>
           <StatFold id="movers"><MoversCard coach={coach} /></StatFold>
-          <StatFold id="cushion"><CushionCard coach={coach} pockets={saveBars} goal={saveGoal} /></StatFold>
+          <StatFold id="cushion"><CushionCard coach={coach} pockets={saveBars} goal={saveGoal} have={saveHave} pledged={savePledged} /></StatFold>
         </>
       ) : null}
       {remitAny ? <StatFold id="remesas"><RemitCard monthKey={key} /></StatFold> : null}

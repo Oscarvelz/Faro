@@ -3,6 +3,7 @@ import { colorFor } from "./colors";
 import { displayName, visibleNamer } from "./defaults";
 import { isRemitLine } from "./remesas";
 import { savingsStock } from "./savings";
+import { keptTotal } from "./funds";
 import { loanTotals } from "./loans";
 import { lentTotals, payoffPlan } from "./debts";
 import { cardFigures, cardMonthlyInterest, cardTotals, cardsOf, rewardsTotals, toThirty } from "./cards";
@@ -368,7 +369,10 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   const lines = monthLines(state, key).filter((l) => l.active && !l.rest);
   // 1.3.147: the runway numerator is the ONE savings stock (savings.ts) — the same figure the
   // Asesor's cushion and the widget read — not just the balances sitting in this month's bucket.
-  const runwayHave = savingsStock(state, key).total;
+  // 1.3.290 (modelo de ahorros, oleada 4 — §4.4): the runway reads Lo guardado (keptTotal):
+  // a saldo fund does not lengthen the runway — it labels money already in the accounts,
+  // counted once. Estudio and the band now show the same Lo guardado.
+  const runwayHave = keptTotal(savingsStock(state, key));
   const runwayMonths = s.fixed > 0 ? runwayHave / s.fixed : null;
   const topAll = lines
     .filter((l) => !l.kind.startsWith("income"))

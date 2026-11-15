@@ -1,5 +1,7 @@
 import { readAdvisor } from "./advisor";
 import { convertMinor, formatMoney, formatPct } from "./money";
+import { savingsStock } from "./savings";
+import { keptTotal } from "./funds";
 import type { AdviceCard, Currency, Lang, LedgerState, Line } from "./types";
 
 /**
@@ -120,14 +122,6 @@ function roleOf(state: LedgerState, categoryId: string): string {
   return state.structure.categories.find((c) => c.id === categoryId)?.role ?? "";
 }
 
-function isVault(state: LedgerState, subId: string): boolean {
-  for (const cat of state.structure.categories) {
-    const sub = cat.subs.find((item) => item.id === subId);
-    if (sub && (sub.icon === "vault" || sub.icon.startsWith("vault:"))) return true;
-  }
-  return false;
-}
-
 function destOf(subId: string): "meta" | "retiro" | "emergencia" | null {
   if (subId.endsWith(".meta")) return "meta";
   if (subId.endsWith(".retiro")) return "retiro";
@@ -140,34 +134,37 @@ function linesOf(state: LedgerState): Line[] {
 }
 
 export function savingsPicture(state: LedgerState, monthKey: string): SavingsPicture {
-  const { display, rateE4, savingsGoalPct } = state.settings;
-  const empty = { savingsTotal: 0, accounts: 0, unassigned: 0, meta: 0, retiro: 0, emergencia: 0, income: 0, floor: 0, left: 0, monthGoal: 0 };
-  let accounts = 0;
+  const { savingsGoalPct } = state.settings;
+  // 1.3.290 (modelo de ahorros, oleada 4 — §2.3): the wake picture reads the ONE
+  // partition (savings.ts), like every other surface — its old per-line walk summed
+  // snapshots and the deposits they already included. savingsTotal is Lo guardado
+  // (keptTotal): a saldo fund's money is its host's balance, already inside
+  // `accounts`, never counted twice; a pocket's own reading excludes its saldo
+  // series for the same reason. The month's flows below stay this picture's own.
+  const stock = savingsStock(state, monthKey);
+  const accounts = stock.byClass.cuenta;
+  // 1.3.177: a destination the user hid is never named back to them — its stock reads
+  // as unassigned in this picture, exactly like the Desk band's generic «rest». The
+  // savings total does not move; only the attribution follows visibility.
+  const hiddenSubs = new Set<string>();
+  for (const cat of state.structure.categories) {
+    for (const sub of cat.subs) if (cat.hidden || sub.hidden) hiddenSubs.add(sub.id);
+  }
   let meta = 0;
   let retiro = 0;
   let emergencia = 0;
-  let other = 0;
+  for (const row of stock.series.values()) {
+    if (row.cls === "saldo" || row.cls === "cuenta") continue;
+    if (hiddenSubs.has(row.subId)) continue;
+    const dest = destOf(row.subId);
+    if (dest === "meta") meta += row.minor;
+    else if (dest === "retiro") retiro += row.minor;
+    else if (dest === "emergencia") emergencia += row.minor;
+  }
   let income = 0;
   let floor = 0;
   let out = 0;
-  for (const line of linesOf(state)) {
-    if (line.rest) continue; // la puerta: el stock apartado no entra en la foto (stockOf no pasa por viewOf cuando hay saldo escrito)
-    if (roleOf(state, line.categoryId) !== "savings") continue;
-    const stock = stockOf(line, display, rateE4);
-    if (isVault(state, line.subId)) accounts += stock;
-    else {
-      // 1.3.177: a destination the user hid is never named back to them — its stock reads
-      // as unassigned in this picture, exactly like the Desk band's generic «rest». The
-      // savings total does not move; only the attribution follows visibility.
-      const cat = state.structure.categories.find((c) => c.id === line.categoryId);
-      const sub = cat?.subs.find((s) => s.id === line.subId);
-      const dest = cat?.hidden || sub?.hidden ? null : destOf(line.subId);
-      if (dest === "meta") meta += stock;
-      else if (dest === "retiro") retiro += stock;
-      else if (dest === "emergencia") emergencia += stock;
-      else other += stock;
-    }
-  }
+  const { display, rateE4 } = state.settings;
   for (const line of state.months[monthKey]?.lines ?? []) {
     if (!line.active || line.rest) continue;
     const n = viewOf(line, display, rateE4);
@@ -176,7 +173,7 @@ export function savingsPicture(state: LedgerState, monthKey: string): SavingsPic
       if (line.kind === "income-fixed") floor += n;
     } else out += n;
   }
-  const savingsTotal = accounts + meta + retiro + emergencia + other;
+  const savingsTotal = keptTotal(stock);
   const monthGoal = Math.round((income * savingsGoalPct) / 100);
   return { savingsTotal, accounts, unassigned: savingsTotal - meta - retiro - emergencia, meta, retiro, emergencia, income, floor, left: income - out, monthGoal };
 }

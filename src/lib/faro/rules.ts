@@ -2,6 +2,8 @@
 // (integer minor units, never floats), the help topic that explains that number, and one place to go and act.
 // Pure and read-only: it never writes the ledger. No guessing: a rule with too little history says nothing.
 import { readAdvisor } from "./advisor.ts";
+import { cushionOf } from "./funds.ts";
+import { savingsStock } from "./savings.ts";
 import { insPremiumChange } from "./insurance.ts";
 import { paceReading, paceSay } from "./patron.ts";
 import { intervalOf, perYear } from "./cadence.ts";
@@ -12,13 +14,13 @@ import type { Currency, Lang, LedgerState, Line, SectionId } from "./types.ts";
 
 type Namer = { cat: (id: string) => string; sub: (id: string) => string; purchase: (id: string) => string; catalog: (id: string) => string };
 
-export type RuleId = "pace" | "due" | "category" | "outlier" | "recurring" | "goal" | "cushion" | "insurance";
+export type RuleId = "pace" | "due" | "category" | "outlier" | "recurring" | "goal" | "cushion" | "floor" | "overcommit" | "insurance";
 export type RuleTone = "good" | "calm" | "warn" | "bad";
 /** Where the one tap goes: a line in its book, a whole book, or a manual-style place (screen + anchor). */
 export type RuleGo =
   | { kind: "line"; section: SectionId; lineId: string }
   | { kind: "book"; section: SectionId }
-  | { kind: "place"; topic: string; screen: "vault-owe" | "vault-meta" | "vault-emergencia"; anchor?: string; fold?: string };
+  | { kind: "place"; topic: string; screen: "vault-owe" | "vault-meta" | "vault-emergencia" | "vault-save"; anchor?: string; fold?: string };
 export type Rule = {
   id: RuleId;
   tone: RuleTone;
@@ -103,6 +105,9 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
   const fmtMonth = (k: string) => new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short", year: "numeric" }).format(new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 1)).replace(".", "").replace(" de ", " ");
   const lines = state.months[key]?.lines ?? [];
   const reading = readAdvisor(state, key, lang, names, { today });
+  // 1.3.290 (modelo de ahorros, oleada 4): the partition is the only stock any rule reads —
+  // the goal rule's own snapshot walk and every other private count are gone.
+  const stockAll = savingsStock(state, key);
   const income = reading.income;
   // A figure only counts as "notable" past 3% of income and never under US$20 (in the view currency).
   const floor = Math.max(display === "USD" ? 2000 : convertMinor(2000, "USD", display, rateE4), divRound(income * 3, 100));
@@ -322,20 +327,12 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
   /* 6. Meta: what you really set aside (average of the last 3 months) against your plan, with the date you get there. */
   {
     const goal = options.goal ?? null;
+    // 1.3.290: the Goal's stock is the partition's Meta series (kept + pledged + the
+    // undeclared pile) — this rule's old private walk counted every deposit a later
+    // snapshot already included, the double count the census branded. The 3-month
+    // `put` below stays a flow: how fast you feed it is a different question (§2.3).
     let stock = 0;
-    const snaps = new Map<string, { k: string; l: Line }>();
-    for (const [k, m] of Object.entries(state.months)) {
-      if (k > key) continue;
-      for (const l of m.lines) {
-        if (!l.active || l.rest || roleOf(state, l.categoryId) !== "savings" || !l.subId.endsWith(".meta")) continue;
-        if (l.balanceMinor !== null && l.balanceMinor !== undefined) {
-          const s = l.seriesId || l.id;
-          const prev = snaps.get(s);
-          if (!prev || prev.k < k) snaps.set(s, { k, l });
-        } else stock += view(l);
-      }
-    }
-    for (const { l } of snaps.values()) stock += convertMinor(l.balanceMinor as number, l.balanceCurrency || l.currency, display, rateE4);
+    for (const row of stockAll.series.values()) if (row.subId.endsWith(".meta")) stock += row.minor;
     let put = 0;
     for (let i = 0; i < 3; i += 1) for (const l of state.months[shiftKey(key, -i)]?.lines ?? []) if (l.active && roleOf(state, l.categoryId) === "savings" && l.subId.endsWith(".meta")) put += view(l);
     const pace = divRound(put, 3);
@@ -390,7 +387,50 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
     });
   }
 
-  /* 8. Seguro de vida (1.3.273, orden de Oscar): el Asesor solo habla del
+  /* 8. The emergency floor (§3/§4.3, 1.3.290): a saldo emergency fund is a floor written
+     over its host's balance. When what stays free of that balance no longer reaches the
+     floor, the Asesor says so with the missing figure — and only then: silence when the
+     floor is covered, and when no emergency fund rides a balance at all. */
+  {
+    const cush = cushionOf(stockAll);
+    if (cush.floorShortfall > 0) {
+      rules.push({
+        id: "floor",
+        tone: "warn",
+        title: L(lang, "Piso de emergencia", "Emergency floor"),
+        kicker: L(lang, "Emergencia", "Emergency"),
+        num: money(cush.floorShortfall),
+        say: L(lang, `Tu piso de emergencia no está cubierto: faltan ${both(cush.floorShortfall)}.`, `Your emergency floor is not covered: ${both(cush.floorShortfall)} missing.`),
+        fill: cush.emergencyFloor > 0 ? Math.max(0, (cush.emergencyFloor - cush.floorShortfall) / cush.emergencyFloor) : 0,
+        topic: "colchon",
+        go: { kind: "place", topic: "emergencia", screen: "vault-emergencia" },
+        v: { shortfall: cush.floorShortfall, floor: cush.emergencyFloor },
+      });
+    }
+
+    /* 9. Over-commitment (§4.3, 1.3.290): a host whose balance fell below the saldo limits
+       riding on it — its Libre dropped under zero. One calm note, the worst host, with
+       its figures; the guard at declaration time prevents this, so it can only appear
+       when money later leaves the account. */
+    const worst = cush.overCommitted[0];
+    if (worst) {
+      const hostName = names.sub(worst.host) || worst.host;
+      rules.push({
+        id: "overcommit",
+        tone: "warn",
+        title: L(lang, "El libre bajó de cero", "Free balance below zero"),
+        kicker: hostName,
+        num: signed(worst.libre),
+        say: L(lang, `En ${hostName} tus fondos del saldo apartan ${both(worst.committed)}, pero el saldo es ${money(worst.balance)}: el libre quedó en ${signed(worst.libre)}.`, `In ${hostName} your balance funds set apart ${both(worst.committed)}, but the balance is ${money(worst.balance)}: the free balance is now ${signed(worst.libre)}.`),
+        fill: worst.balance > 0 ? Math.min(1, worst.committed / worst.balance) : 1,
+        topic: "donde-vive",
+        go: { kind: "place", topic: "donde-vive", screen: "vault-save" },
+        v: { host: worst.host, balance: worst.balance, committed: worst.committed, libre: worst.libre },
+      });
+    }
+  }
+
+  /* 10. Seguro de vida (1.3.273, orden de Oscar): el Asesor solo habla del
      seguro si la prima ANOTADA cambió contra la anterior de la misma pieza —
      aunque sea un centavo — y lo dice en el mes del cambio, con los dos
      importes en su moneda. Ninguna otra opinión sobre el seguro existe: ni
@@ -421,7 +461,7 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
   }
 
   const rank: Record<RuleTone, number> = { bad: 0, warn: 1, calm: 2, good: 3 };
-  const order: RuleId[] = ["pace", "due", "category", "outlier", "recurring", "goal", "cushion", "insurance"];
+  const order: RuleId[] = ["pace", "due", "category", "outlier", "recurring", "goal", "cushion", "floor", "overcommit", "insurance"];
   return rules.sort((a, b) => rank[a.tone] - rank[b.tone] || order.indexOf(a.id) - order.indexOf(b.id));
 }
 

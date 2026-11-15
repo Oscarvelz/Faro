@@ -209,11 +209,16 @@ describe("la segunda pasada: las pantallas que reimplementan lecturas (auditorí
     // Oleada 3 del modelo: los segmentos de la banda ya no caminan las líneas en la
     // pantalla — leen la partición de savingsStock, y el !rest vive en el motor
     // (savings.ts), que es la única pasada que alimenta esas sumas.
+    // Oleada 4 (1.3.290): la última suma derivada de pantalla — las barras del mes
+    // de Estudio — también se fue: la tarjeta lee la partición (stockNow) y su
+    // dinero es keptTotalOf; en la pantalla ya no queda ninguna suma de Ahorros
+    // que camine líneas, así que el !rest vive solo en el motor.
     assert.match(savingsEngine, /if \(!line\.active \|\| line\.rest \|\| roleOf\(state, line\.categoryId\) !== "savings"\) continue;/);
     assert.match(screens, /line\.active && !line\.rest && line\.subId === s\.id/);
     assert.match(screens, /line\.active && !line\.rest && line\.kind === "expense-fixed"/);
     assert.match(screens, /l\.active && !l\.rest && \(l\.categoryId \|\| l\.kind\) === picked/);
-    assert.match(screens, /line\.active && !line\.rest && line\.subId === subId/);
+    assert.match(screens, /stockNow\.byClass\.cuenta/);
+    assert.match(screens, /keptTotalOf\(stockNow\)/);
   });
 
   it("eliminar un período usa el commit SIN deshacer, y la ventana promete la copia anterior (D3)", () => {

@@ -5,6 +5,7 @@ import type { Currency, Lang, LedgerState, Line, Structure } from "./types.ts";
 import { remitTrend } from "./remesas.ts";
 import { remitByPerson } from "./remit-people.ts";
 import { savingsStock } from "./savings.ts";
+import { cushionOf } from "./funds.ts";
 import { duesWindow } from "./dues.ts";
 import { visibleNamer } from "./defaults.ts";
 
@@ -360,18 +361,39 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     )
     .reduce((acc, line) => acc + inView(line, display, rateE4), 0);
   const unassignedSavings = Math.max(0, savingsFlow - pocketAside);
+  // 1.3.290 (modelo de ahorros, oleada 4 — §4.3): con naturalezas, el dinero mandado a una
+  // cuenta que ANFITRIONA fondos del saldo no quedó sin hogar: puede estar cumpliendo el
+  // fondo que vive sobre ese saldo. La lectura vieja lo trataba como contradicción; ahora
+  // solo lo que llegó a una cuenta sin ningún fondo declarado encima queda «sin meta».
+  // Las anfitrionas se leen de las líneas mismas, con la desconfianza de la partición.
+  const saldoHosts = new Set<string>();
+  for (const bucket of Object.values(state.months)) {
+    for (const l of bucket.lines) {
+      if (l.fund === "saldo" && typeof l.fundHost === "string" && l.fundHost) saldoHosts.add(l.fundHost);
+    }
+  }
+  const destinedToFunds = lines
+    .filter(
+      (line) =>
+        roleOf(state.structure, line.categoryId) === "savings" &&
+        isVaultSub(state.structure, line.subId) &&
+        saldoHosts.has(line.subId),
+    )
+    .reduce((acc, line) => acc + inView(line, display, rateE4), 0);
+  const looseFlow = Math.max(0, savingsFlow - destinedToFunds);
+  const unassignedLoose = Math.max(0, looseFlow - pocketAside);
   const contradiction =
-    pocketAside === 0 && savingsFlow > 0
+    pocketAside === 0 && looseFlow > 0
       ? L(
           lang,
-          `Mandaste ${money(savingsFlow)} a una cuenta de ahorro, pero tus metas (Meta, Retiro, Emergencia) siguen en ${money(0)}. Decide a cuál meta va ese dinero para que el avance se vea.`,
-          `You sent ${money(savingsFlow)} to a savings account, but your goals (Goal, Retirement, Emergency) are still at ${money(0)}. Choose which goal that money is for so the progress shows.`,
+          `Mandaste ${money(looseFlow)} a una cuenta de ahorro, pero tus metas (Meta, Retiro, Emergencia) siguen en ${money(0)}. Decide a cuál meta va ese dinero para que el avance se vea.`,
+          `You sent ${money(looseFlow)} to a savings account, but your goals (Goal, Retirement, Emergency) are still at ${money(0)}. Choose which goal that money is for so the progress shows.`,
         )
-      : unassignedSavings > 0
+      : unassignedLoose > 0
         ? L(
             lang,
-            `Mandaste ${money(savingsFlow)} a ahorro y ${money(pocketAside)} ya están en tus metas, pero ${money(unassignedSavings)} quedaron sin meta asignada. Decide a cuál meta va ese dinero para que el avance se vea.`,
-            `You sent ${money(savingsFlow)} to savings and ${money(pocketAside)} is already in your goals, but ${money(unassignedSavings)} has no goal assigned. Choose which goal that money is for so the progress shows.`,
+            `Mandaste ${money(looseFlow)} a ahorro y ${money(pocketAside)} ya están en tus metas, pero ${money(unassignedLoose)} quedaron sin meta asignada. Decide a cuál meta va ese dinero para que el avance se vea.`,
+            `You sent ${money(looseFlow)} to savings and ${money(pocketAside)} is already in your goals, but ${money(unassignedLoose)} has no goal assigned. Choose which goal that money is for so the progress shows.`,
           )
         : null;
 
@@ -571,7 +593,13 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   // sentence quoted $200 before a small deposit and $1,500 after it was removed. The loser is the
   // emergency-pocket-only branch; stockEm still serves the cushion PACE below (a different idea:
   // how fast the pocket itself is filling), which was never the quoted stock.
-  const cushionStock = Math.max(0, stock.total - stock.retirement);
+  // 1.3.290 (modelo de ahorros, oleada 4 — §3): the cushion is now the ONE formula of the
+  // model, read from the partition (funds.cushionOf): per account, what its balance holds
+  // past its non-emergency saldo commitments, plus aparte emergency stock, plus the
+  // undeclared pile. For a book with no declarations it reduces EXACTLY to total −
+  // retirement, so no undeclared figure moves; a declared aparte Goal no longer counts
+  // (its money has another destination, like Retirement's).
+  const cushionStock = cushionOf(stock).cushion;
   if (!dated.length && cushionStock > 0 && perDay > 0 && !(uniqueMinor > 0 && left < 0)) {
     const essentialPerDay = Math.max(1, Math.round(essentialsMonthly / days));
     const lastDays = Math.floor(cushionStock / essentialPerDay);
