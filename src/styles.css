@@ -1746,6 +1746,13 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
    (Fijos, Compras) to a taller one (Variables) promoted it mid-switch and the new layer showed unrastered for ~0.2-0.5 s, so the
    pane painted where the dock was. Pre-promoted, nothing changes at the switch: the dock never blinks, moves or gets covered. */
 .app-frame .dock { will-change: transform; }
+/* 1.3.281: the header takes the dock's 1.3.112 cure in portrait too. Until now only the landscape rule above pre-promoted it;
+   in portrait its compositor layer was created and destroyed by the scroll glide's inline transform, and a screen entered
+   right after a glide-back could present the fresh layer before its right tiles rasterized — in Tron the header's glass and
+   cyan seam vanished on one side of a straight vertical line while its icons painted on the body sky. Pre-promoted, the
+   header owns its layer from first paint: no scroll, glide or transition ever creates it mid-flight, and the glide's own
+   transform values, lerp and thresholds are untouched — will-change only pre-creates the layer that transform already uses. */
+.app-frame:not(.is-split) .top-chrome { will-change: transform; }
 /* 1.3.112: a ring step slides the new book in from 56 px and a finger drag moves the pane up to 150 px; that transform used
    to count as page overflow, so the phone widened its layout viewport for those frames (the page zoomed out and the dock
    jumped and grew). Below the wide layout the main column is the screen's width, so clipping its sideways overflow hides
