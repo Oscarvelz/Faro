@@ -196,7 +196,7 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
 
       {pledged > 0 ? (
         <div className="s2-committed">
-          <button type="button" className="s2-committed-row" aria-expanded={showCommitted} onClick={() => setShowCommitted((v) => !v)}>
+          <button type="button" className="s2-committed-row" data-anchor="study-committed" aria-expanded={showCommitted} onClick={() => setShowCommitted((v) => !v)}>
             <span>{L(lang, "Lo comprometido", "Committed")}</span>
             <strong className="num">{fmt(pledged)}</strong>
           </button>

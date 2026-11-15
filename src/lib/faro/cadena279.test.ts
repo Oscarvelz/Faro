@@ -25,6 +25,14 @@
  *
  * La conducta se prueba en banco; aquí se cerca la forma de la fuente y
  * los datos del guion donde la conducta vive.
+ *
+ * NOTA 292 (cura de m8-desplegar, ordenada por Oscar al integrar los
+ * módulos del modelo de ahorro): el compás de «Desplegar» vuelve de do a
+ * show. Con el Asesor desplegado (allOpen), el toque sobre advice-unfold
+ * no despliega: abre «¿Plegar las tarjetas?» a mitad de lección. La escena
+ * monta la cascada con el tap de maquinaria sobre advice-tiles (el patrón
+ * de m14-colchon) y presenta el control con show; el pie queda intacto.
+ * La conversión show→do de 279 se mantiene en los otros cuatro compases.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -135,7 +143,7 @@ describe("279 · ley 15: los cinco compases ejecutan, no solo cuentan", () => {
       ["Los años se tocan y se editan: la foto cambia contigo.", "The years can be tapped and edited: the photo changes with you."]);
   });
 
-  it("m8-torre y m8-desplegar: la torre se abre y «Desplegar» despliega (do), pies intactos", () => {
+  it("m8-torre y m8-desplegar: la torre se abre (do); «Desplegar» se presenta sin tocarlo (cura 292), pies intactos", () => {
     const torre = sceneById("m8-torre");
     assert.ok(torre);
     assert.deepEqual(kindAnchor(torre.steps[0]), { kind: "do", anchor: "advice-tower" });
@@ -143,8 +151,12 @@ describe("279 · ley 15: los cinco compases ejecutan, no solo cuentan", () => {
       ["La torre del mes se abre por partes: toca y despliega.", "The month's tower opens in parts: tap and unfold."]);
     const desp = sceneById("m8-desplegar");
     assert.ok(desp);
-    assert.deepEqual(kindAnchor(desp.steps[0]), { kind: "do", anchor: "advice-unfold" });
-    assert.deepEqual((desp.steps[0] as { caption: unknown }).caption,
+    // Cura 292: la cascada se monta con el tap de maquinaria (patrón
+    // m14-colchon) y el control se presenta con show — tocarlo con el
+    // Asesor desplegado abriría «¿Plegar las tarjetas?» en plena lección.
+    assert.deepEqual(kindAnchor(desp.steps[0]), { kind: "tap", anchor: "advice-tiles" });
+    assert.deepEqual(kindAnchor(desp.steps[1]), { kind: "show", anchor: "advice-unfold" });
+    assert.deepEqual((desp.steps[1] as { caption: unknown }).caption,
       ["«Desplegar» abre todas las tarjetas de una sola vez.", "“Unfold” opens every card in one go."]);
   });
 });

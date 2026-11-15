@@ -125,4 +125,171 @@ export const STAGE_SEEDS: Record<string, (s: LedgerState) => LedgerState> = {
   /** El mes del módulo 8: la historia de Estudio más la tarjeta con saldo de
    *  Anotar — sin tarjeta viva, el bloque de tarjetas del Asesor ni siquiera nace. */
   "asesor-meses": (s) => STAGE_SEEDS["anotar-deudas"](STAGE_SEEDS["estudio-meses"](s)),
+
+  /** Módulo «La pregunta», capítulo de nacer: el mes vivo y UNA cuenta con
+   *  C$20,000 — ningún fondo todavía. La cuenta la siembra sowBanco con ids
+   *  estables: toda semilla del modelo que la necesite siembra LA MISMA línea. */
+  "modelo-nacer": (s) => sowBanco(STAGE_SEEDS["widget-mes"](s)),
+
+  /** Capítulo de declarar: la misma cuenta, más dos fondos que esperan con la
+   *  luz gris — «Regalo» C$2,000 en Emergencia y «Moto» C$25,000 en Meta. Moto
+   *  supera el libre en cualquier camino (C$20,000 recién aterrizado; C$15,000
+   *  si Viaje ya monta sobre el Banco): la guardia tiene qué decir. */
+  "modelo-declarar": (s) => {
+    const st = sowBanco(STAGE_SEEDS["widget-mes"](s));
+    const key = todayIso().slice(0, 7);
+    return sow(st, key, [
+      line({ id: "seed-m-regalo", kind: "expense-fixed", concept: "Regalo", amountMinor: 50_000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", balanceMinor: 200_000, monthKey: key }),
+      line({ id: "seed-m-moto", kind: "expense-fixed", concept: "Moto", amountMinor: 500_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", balanceMinor: 2_500_000, monthKey: key }),
+    ]);
+  },
+
+  /** Capítulo del encuentro: una segunda cuenta, «Cooperativa», que existe pero
+   *  no tiene un córdoba (ninguna línea: su primer saldo es el que la despierta),
+   *  y «Terreno» C$3,000 esperando sin declarar en Meta. La Cooperativa lleva
+   *  orden 9 — antes que el Banco (10) — para ser la primera fila del panel. */
+  "modelo-encuentro": (s) => {
+    let st = STAGE_SEEDS["widget-mes"](s);
+    const cat = st.structure.categories.find((c) => c.id === "f-ahorro");
+    if (cat && !cat.subs.some((x) => x.id === "f.ahorro.coop")) {
+      st = { ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (c.id === "f-ahorro" ? { ...c, subs: [...c.subs, { id: "f.ahorro.coop", nameKey: "", customName: "Cooperativa", icon: "vault", hidden: false, order: 9 }] } : c)) } };
+    }
+    st = hideFactoryVaults(st);
+    // Si la corrida entra por este capítulo, Regalo y Moto nunca pasaron por la
+    // lista: la semilla los deja en su estado final (aparte), para que el único
+    // fondo esperando el encuentro sea Terreno — como en la corrida completa.
+    const months: LedgerState["months"] = {};
+    for (const [k, bucket] of Object.entries(st.months)) {
+      months[k] = {
+        lines: bucket.lines.map((l) => {
+          const sid = l.seriesId || l.id;
+          return sid === "seed-m-regalo" || sid === "seed-m-moto" ? { ...l, fund: "aparte" as const, fundHost: undefined } : l;
+        }),
+      };
+    }
+    st = { ...st, months };
+    const key = todayIso().slice(0, 7);
+    return sow(st, key, [
+      line({ id: "seed-m-terreno", kind: "expense-fixed", concept: "Terreno", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", balanceMinor: 300_000, monthKey: key }),
+    ]);
+  },
+
+  /** Módulo «Los dos totales»: la casa del modelo en cifras redondas. Banco
+   *  C$20,000; Viaje del saldo C$5,000 y Emergencia del saldo C$8,000 sobre él
+   *  (comprometido 13,000, libre 7,000); Casa aparte C$6,000; Regalo sin
+   *  declarar C$2,000; Retiro C$10,000. Lo guardado: C$38,000. El Apartado del
+   *  mes: C$6,000 = 3,000 etiquetado (las cuotas del saldo) + 3,000 movido. */
+  "modelo-casa": (s) => {
+    const st = sowBanco(STAGE_SEEDS["widget-mes"](s));
+    const key = todayIso().slice(0, 7);
+    return sow(st, key, [
+      line({ id: "seed-t-viaje", kind: "expense-fixed", concept: "Viaje", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", balanceMinor: 500_000, fund: "saldo", fundHost: "f.ahorro.banco", monthKey: key }),
+      line({ id: "seed-t-casa", kind: "expense-fixed", concept: "Casa", amountMinor: 150_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", balanceMinor: 600_000, fund: "aparte", monthKey: key }),
+      line({ id: "seed-t-emergencia", kind: "expense-fixed", concept: "Fondo de emergencia", amountMinor: 200_000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", balanceMinor: 800_000, fund: "saldo", fundHost: "f.ahorro.banco", monthKey: key }),
+      line({ id: "seed-t-regalo", kind: "expense-fixed", concept: "Regalo", amountMinor: 50_000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", balanceMinor: 200_000, monthKey: key }),
+      line({ id: "seed-t-retiro", kind: "expense-fixed", concept: "Retiro", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.retiro", balanceMinor: 1_000_000, monthKey: key }),
+    ]);
+  },
+
+  /** Módulo «El colchón»: la misma casa, pero la Emergencia vive APARTE (su
+   *  propia pila) y Viaje se compone de foto + depósito — la foto (C$4,000) en
+   *  el mes pasado y un depósito de C$1,000 hoy, ya con su sello: el stock lee
+   *  C$5,000 y Folios tiene un movimiento de hoy que contar. Sin piso del saldo
+   *  y sin sobrecompromiso: el Asesor calla lo que está cubierto. */
+  "modelo-colchon": (s) => {
+    const st = sowBanco(STAGE_SEEDS["widget-mes"](s));
+    const today = todayIso();
+    const key = today.slice(0, 7);
+    const prev = (() => { const d = new Date(`${today}T12:00:00`); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); })();
+    const withPrev = sow(st, prev, [
+      line({ id: "seed-c-viaje", kind: "expense-fixed", concept: "Viaje", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", balanceMinor: 400_000, fund: "saldo", fundHost: "f.ahorro.banco", bookedOn: `${prev}-15`, monthKey: prev }),
+    ]);
+    return sow(withPrev, key, [
+      line({ id: "seed-c-viaje-dep", seriesId: "seed-c-viaje", kind: "expense-fixed", concept: "Viaje", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", fund: "saldo", fundHost: "f.ahorro.banco", bookedOn: today, monthKey: key }),
+      line({ id: "seed-c-casa", kind: "expense-fixed", concept: "Casa", amountMinor: 150_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", balanceMinor: 600_000, fund: "aparte", monthKey: key }),
+      line({ id: "seed-c-emergencia", kind: "expense-fixed", concept: "Fondo de emergencia", amountMinor: 200_000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", balanceMinor: 800_000, fund: "aparte", monthKey: key }),
+      line({ id: "seed-c-regalo", kind: "expense-fixed", concept: "Regalo", amountMinor: 50_000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", balanceMinor: 200_000, monthKey: key }),
+      line({ id: "seed-c-retiro", kind: "expense-fixed", concept: "Retiro", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.retiro", balanceMinor: 1_000_000, monthKey: key }),
+    ]);
+  },
+
+  /** El eco en el Archivo: un depósito de Viaje de hace tres días, apartado
+   *  con la maquinaria propia del descanso (hidePeriod registra el período:
+   *  sin registro no hay tarjeta en el Archivo). Su entrada lleva la misma luz
+   *  y la misma nota que en el río. No cuenta en ningún total: la caminata del
+   *  ahorro salta las líneas en descanso. */
+  "modelo-archivo": (s) => {
+    const today = todayIso();
+    const day = addDays(today, -3);
+    const key = day.slice(0, 7);
+    const st = sow(s, key, [
+      line({ id: "seed-c-viaje-rest", seriesId: "seed-c-viaje", kind: "expense-fixed", concept: "Viaje", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", fund: "saldo", fundHost: "f.ahorro.banco", bookedOn: day, monthKey: key }),
+    ]);
+    return hidePeriod(st, day, day, "Depósito apartado").state;
+  },
+
+  /** Capítulo de Folios del módulo del colchón: apaga la cuota del mes vivo —
+   *  su movimiento vencería en 5 días y se pondría primero en el río — para que
+   *  la primera entrada sea el depósito de hoy de Viaje, con su luz y su nota. */
+  "modelo-folios": (s) => {
+    const months: LedgerState["months"] = {};
+    for (const [k, bucket] of Object.entries(s.months)) {
+      months[k] = { lines: bucket.lines.map((l) => (l.id === "seed-w-cuota" ? { ...l, active: false } : l)) };
+    }
+    return { ...s, months };
+  },
+
+  /** El giro del módulo del colchón: primero siembra la casa en calma y luego
+   *  la mueve — la Emergencia pasa a vivir del saldo del Banco y el saldo del
+   *  Banco baja a C$10,000. Comprometido 13,000, libre −3,000, piso descubierto
+   *  por 3,000: las dos frases del Asesor nacen del mismo descenso. Idempotente:
+   *  mapea a los mismos valores. */
+  "modelo-giro": (s) => {
+    const base = STAGE_SEEDS["modelo-colchon"](s);
+    const months: LedgerState["months"] = {};
+    for (const [k, bucket] of Object.entries(base.months)) {
+      months[k] = {
+        lines: bucket.lines.map((l) => {
+          if ((l.seriesId || l.id) === "seed-c-emergencia") return { ...l, fund: "saldo" as const, fundHost: "f.ahorro.banco" };
+          if (l.id === "seed-m-banco") return { ...l, amountMinor: 1_000_000, balanceMinor: 1_000_000 };
+          return l;
+        }),
+      };
+    }
+    return { ...base, months };
+  },
 };
+
+/** Las cuentas de fábrica (PayPal, Chase, Lafise… con su icono de bóveda)
+ *  quedan fuera del escenario del modelo: la casa de la lección tiene solo las
+ *  cuentas que la lección planta. Sin esto, la pregunta del anfitrión vería
+ *  siete «cuentas» y el fondo no se ataría solo a la única con dinero — y el
+ *  panel de cuentas abriría con filas ajenas a la historia. */
+function hideFactoryVaults(s: LedgerState): LedgerState {
+  const keep = new Set(["f.ahorro.banco", "f.ahorro.coop"]);
+  return {
+    ...s,
+    structure: {
+      ...s.structure,
+      categories: s.structure.categories.map((c) => (c.role !== "savings" ? c : {
+        ...c,
+        subs: c.subs.map((sub) => (keep.has(sub.id) || !(sub.icon === "vault" || sub.icon.startsWith("vault:")) ? sub : { ...sub, hidden: true })),
+      })),
+    },
+  };
+}
+
+/** La cuenta anfitriona de los módulos del modelo: el sub «Banco» (orden 10 —
+ *  la Cooperativa del encuentro lleva el 9) y su línea de saldo de C$20,000,
+ *  siempre con los mismos ids, para que las semillas la compartan sin duplicar. */
+function sowBanco(s: LedgerState): LedgerState {
+  let st = hideFactoryVaults(s);
+  const cat = st.structure.categories.find((c) => c.id === "f-ahorro");
+  if (cat && !cat.subs.some((x) => x.id === "f.ahorro.banco")) {
+    st = { ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (c.id === "f-ahorro" ? { ...c, subs: [...c.subs, { id: "f.ahorro.banco", nameKey: "", customName: "Banco", icon: "vault", hidden: false, order: 10 }] } : c)) } };
+  }
+  const key = todayIso().slice(0, 7);
+  return sow(st, key, [
+    line({ id: "seed-m-banco", kind: "expense-fixed", concept: "Saldo del Banco", amountMinor: 2_000_000, categoryId: "f-ahorro", subId: "f.ahorro.banco", balanceMinor: 2_000_000, monthKey: key }),
+  ]);
+}

@@ -795,8 +795,9 @@ const ASESOR: Module = {
     { id: "m8-fichas", chapter: "torre", anchors: ["advice-tiles"], keys: [["las fichas", "the tiles"]], steps: [
       { kind: "show", anchor: "advice-tiles", caption: ["Las fichas ponen la lectura en números: lo esencial del mes, sin prosa.", "The tiles put the reading into numbers: the month's essentials, no prose."] },
     ] },
-    { id: "m8-desplegar", chapter: "torre", anchors: ["advice-unfold"], keys: [["desplegar", "unfold all"]], steps: [
-      { kind: "do", anchor: "advice-unfold", caption: ["«Desplegar» abre todas las tarjetas de una sola vez.", "“Unfold” opens every card in one go."] },
+    { id: "m8-desplegar", chapter: "torre", anchors: ["advice-tiles", "advice-unfold"], keys: [["desplegar", "unfold all"]], steps: [
+      { kind: "tap", anchor: "advice-tiles" },
+      { kind: "show", anchor: "advice-unfold", caption: ["«Desplegar» abre todas las tarjetas de una sola vez.", "“Unfold” opens every card in one go."] },
     ] },
     { id: "m8-pilares", chapter: "torre", anchors: ["coach-pillars"], keys: [["pilares", "pillars"]], steps: [
       { kind: "show", anchor: "coach-pillars", caption: ["Los pilares separan lo que está firme de lo frágil.", "The pillars separate what is firm from what is fragile."] },
@@ -1030,6 +1031,194 @@ const PUERTAS: Module = {
   ],
 };
 
+/* ====================== MÓDULO 12 · LA PREGUNTA ======================
+ * El modelo de ahorro (1.3.287–1.3.291): cada fondo declara dónde vive.
+ * La declaración se EJECUTA en escena por sus tres caminos — al nacer en el
+ * formulario, en la lista de migración (con su guardia), y en el encuentro
+ * cuando una cuenta recibe su primer saldo. */
+
+const PREGUNTA: Module = {
+  id: "pregunta", n: 12, title: ["La pregunta", "The question"], ready: true,
+  promise: ["Al salir, declaras dónde vive cada fondo — y sabes qué cambia al declararlo.", "By the end, you declare where each fund lives — and know what changes when you do."],
+  chapters: [
+    { id: "nacer", title: ["Un fondo nace", "A fund is born"] },
+    { id: "declarar", title: ["Los que ya tienes", "The ones you already have"] },
+    { id: "encuentro", title: ["El encuentro", "The encounter"] },
+    { id: "postura", title: ["La postura de la casa", "The house posture"] },
+  ],
+  scenes: [
+    { id: "m12-nace", chapter: "nacer", anchors: ["desk-pocket", "pocket-add"], keys: [["nace un fondo", "a fund is born"], ["añadir", "add"]], steps: [
+      { kind: "seed", seed: "modelo-nacer" },
+      { kind: "go", screen: "desk" },
+      { kind: "do", anchor: "desk-pocket", caption: ["Toca Meta: su libro se despliega aquí mismo, en Central.", "Tap Goal: its book unfolds right here, at the Desk."] },
+      { kind: "do", anchor: "pocket-add", caption: ["El más abre el formulario de un fondo nuevo.", "The plus opens a new fund's form."] },
+    ] },
+    { id: "m12-escribe", chapter: "nacer", anchors: ["pocket-name", "pocket-amt"], keys: [["nombre", "name"], ["monto", "amount"]], steps: [
+      { kind: "type", anchor: "pocket-name", text: ["Viaje", "Trip"], caption: ["Se llama Viaje y nace con cinco mil córdobas.", "It's called Trip and starts with five thousand córdobas."] },
+      { kind: "type", anchor: "pocket-amt", text: ["5000", "5000"], caption: ["El monto es lo que ya se apartó para él.", "The amount is what has already been set aside for it."] },
+    ] },
+    { id: "m12-pregunta", chapter: "nacer", anchors: ["nature-pick"], keys: [["dónde vive", "where it lives"], ["la pregunta", "the question"]], steps: [
+      { kind: "show", anchor: "nature-pick", caption: ["Antes de guardar, la app pregunta: ¿dónde vive este dinero?", "Before saving, the app asks: where does this money live?"], contexto: ["Cada respuesta lleva su consecuencia escrita. Sin responder, Guardar no guarda.", "Each answer carries its consequence in writing. Unanswered, Save doesn't save."] },
+    ] },
+    { id: "m12-saldo", chapter: "nacer", anchors: ["nature-saldo", "nature-pick"], keys: [["del saldo", "from the balance"], ["anfitriona", "host"]], steps: [
+      { kind: "do", anchor: "nature-saldo", caption: ["«Del saldo»: el dinero no se mueve; solo recibe nombre.", "“From the balance”: the money doesn't move; it only gets a name."], contexto: ["Hay una sola cuenta: se amarra sola a Banco.", "There's only one account: it binds itself to Banco."] },
+    ] },
+    { id: "m12-guardar", chapter: "nacer", anchors: ["pocket-save", "vault-ledger"], keys: [["guardar", "save"], ["nace declarado", "born declared"]], steps: [
+      { kind: "do", anchor: "pocket-save", caption: ["Guarda: el fondo nace ya declarado, con su anillo.", "Save: the fund is born declared, wearing its ring."] },
+      { kind: "show", anchor: "vault-ledger", caption: ["Su fila lleva la luz de anillo: parte del saldo.", "Its row wears the ring light: part of the balance."] },
+    ] },
+    { id: "m12-solo", chapter: "declarar", anchors: ["vault-migrate"], keys: [["sin declarar", "undeclared"], ["esperan", "waiting"]], steps: [
+      { kind: "seed", seed: "modelo-declarar" },
+      { kind: "go", screen: "vault-save" },
+      { kind: "show", anchor: "vault-migrate", caption: ["Estos fondos tienen dinero y ninguna declaración: luz gris.", "These funds hold money and no declaration: a gray light."], contexto: ["Sin declarar se leen como pila de siempre: declarar es tu acto.", "Undeclared, they read as the usual pile: declaring is your act."] },
+    ] },
+    { id: "m12-aparte", chapter: "declarar", anchors: ["vault-migrate", "nature-aparte", "migrate-declare", "vault-kept"], keys: [["aparte", "apart"], ["declarar", "declare"]], steps: [
+      { kind: "do", anchor: "vault-migrate", caption: ["Abre la lista: cada fondo espera su respuesta.", "Open the list: every fund awaits its answer."] },
+      { kind: "do", anchor: "nature-aparte", caption: ["Para Regalo: «Es una cuenta aparte», su propia pila.", "For Regalo: “It's a separate account,” its own pile."] },
+      { kind: "do", anchor: "migrate-declare", caption: ["Declarar estampa la serie entera en un solo acto.", "Declaring stamps the whole series in a single act."] },
+      { kind: "show", anchor: "vault-kept", caption: ["Ahora Regalo suma a Lo guardado: su dinero existe aparte.", "Now Regalo adds to Kept: its money exists apart."] },
+    ] },
+    { id: "m12-guardia", chapter: "declarar", anchors: ["nature-saldo", "migrate-declare", "ask-dialog", "ask-yes"], keys: [["guardia", "guard"], ["no cabe", "doesn't fit"]], steps: [
+      { kind: "do", anchor: "nature-saldo", caption: ["Moto quiere vivir del saldo del Banco. Mira la guardia.", "Moto wants to live off the Bank's balance. Watch the guard."] },
+      { kind: "do", anchor: "migrate-declare", caption: ["Declarar lo intenta — y la app se niega con cifras.", "Declaring tries — and the app refuses, with figures."] },
+      { kind: "show", anchor: "ask-dialog", caption: ["Un límite no puede ser mayor que el saldo donde vive.", "A limit can't be bigger than the balance it lives on."] },
+      { kind: "do", anchor: "ask-yes", caption: ["Entendido. Moto sigue gris: la decisión queda tuya.", "Understood. Moto stays gray: the decision remains yours."] },
+    ] },
+    { id: "m12-pila", chapter: "declarar", anchors: ["nature-aparte", "migrate-declare"], keys: [["su propia pila", "its own pile"]], steps: [
+      { kind: "do", anchor: "nature-aparte", caption: ["Lo que no cabe en el saldo puede ser su propia pila.", "What doesn't fit the balance can be its own pile."] },
+      { kind: "do", anchor: "migrate-declare", caption: ["Moto queda aparte: declarado, con su disco lleno.", "Moto is now apart: declared, with its full disc."] },
+    ] },
+    { id: "m12-encuentro", chapter: "encuentro", anchors: ["desk-accounts", "vault-accounts"], keys: [["encuentro", "encounter"], ["cuentas", "accounts"]], steps: [
+      { kind: "seed", seed: "modelo-encuentro" },
+      { kind: "go", screen: "desk" },
+      { kind: "do", anchor: "desk-accounts", caption: ["El panel de cuentas: la Cooperativa existe, sin un córdoba.", "The accounts panel: the Cooperative exists, without a single córdoba."] },
+      { kind: "show", anchor: "vault-accounts", caption: ["Cada cuenta muestra su saldo: la Cooperativa, en cero.", "Each account shows its balance: the Cooperative, at zero."] },
+    ] },
+    { id: "m12-cuenta", chapter: "encuentro", anchors: ["vault-figure", "acct-open-amt"], keys: [["saldo inicial", "opening balance"], ["primer saldo", "first balance"]], steps: [
+      { kind: "do", anchor: "vault-figure", caption: ["La cifra de la Cooperativa es botón: pide su saldo inicial.", "The Cooperative's figure is a button: it asks its opening balance."] },
+      { kind: "type", anchor: "acct-open-amt", text: ["8000", "8000"], caption: ["Ocho mil: el primer dinero que la cuenta recibe.", "Eight thousand: the first money the account receives."] },
+    ] },
+    { id: "m12-dialogo", chapter: "encuentro", anchors: ["acct-open-save", "ask-dialog"], keys: [["la pregunta llega", "the question arrives"]], steps: [
+      { kind: "do", anchor: "acct-open-save", caption: ["Guarda el saldo — y mira lo que la app hace.", "Save the balance — and watch what the app does."] },
+      { kind: "show", anchor: "ask-dialog", caption: ["El encuentro: un fondo esperaba, y la cuenta acaba de nacer.", "The encounter: a fund was waiting, and the account was just born."], contexto: ["La pregunta se hace en el acto, con el total y la lista.", "The question is asked on the spot, with the total and the list."] },
+    ] },
+    { id: "m12-dentro", chapter: "encuentro", anchors: ["enc-inside", "desk-pledged"], keys: [["dentro de la cuenta", "inside the account"]], steps: [
+      { kind: "do", anchor: "enc-inside", caption: ["«Está dentro de esta cuenta»: Terreno se amarra a la Cooperativa.", "“It's inside this account”: Terreno binds to the Cooperative."] },
+      { kind: "show", anchor: "desk-pledged", caption: ["La línea del nombre aparece: ese saldo ya tiene nombre.", "The named line appears: that balance now has a name."] },
+    ] },
+    { id: "m12-modos", chapter: "postura", anchors: ["aj-rules", "aj-nature"], keys: [["modos", "modes"], ["preguntarme", "ask me"], ["postura", "posture"]], steps: [
+      { kind: "go", screen: "settings" },
+      { kind: "do", anchor: "aj-rules", caption: ["La postura vive con las metas de la casa.", "The posture lives with the house's goals."] },
+      { kind: "show", anchor: "aj-nature", caption: ["En Ajustes eliges la postura: preguntar siempre, o una respuesta fija.", "In Settings you choose the posture: always ask, or one fixed answer."], contexto: ["El modo manda al nacer; nunca reescribe lo ya declarado.", "The mode rules at birth; it never rewrites what's declared."] },
+    ] },
+    { id: "m12-cierre", chapter: "postura", anchors: ["desk-save"], keys: [["declarar mueve", "declaring moves"]], steps: [
+      { kind: "go", screen: "desk" },
+      { kind: "show", anchor: "desk-save", caption: ["Declarar es el acto que mueve los números. Lo demás, no.", "Declaring is the act that moves the numbers. Nothing else does."] },
+    ] },
+  ],
+};
+
+/* ===================== MÓDULO 13 · LOS DOS TOTALES ===================== */
+
+const TOTALES: Module = {
+  id: "totales", n: 13, title: ["Los dos totales", "The two totals"], ready: true,
+  promise: ["Al salir, lees la banda sin contar dos veces el mismo dinero.", "By the end, you read the band without counting the same money twice."],
+  chapters: [
+    { id: "banda", title: ["La banda que no duplica", "The band that never doubles"] },
+    { id: "cuentas", title: ["El libre por cuenta", "Each account's free balance"] },
+    { id: "mes", title: ["El mes, en dos lecturas", "The month, in two readings"] },
+  ],
+  scenes: [
+    { id: "m13-titular", chapter: "banda", anchors: ["desk-save"], keys: [["lo guardado", "kept"], ["titular", "headline"]], steps: [
+      { kind: "seed", seed: "modelo-casa" },
+      { kind: "go", screen: "desk" },
+      { kind: "show", anchor: "desk-save", caption: ["«Lo guardado» cuenta cada dinero una sola vez.", "“Kept” counts every sum of money exactly once."], contexto: ["Cuentas, fondos aparte y Retiro: el saldo nunca suma.", "Accounts, apart funds and Retirement: the balance never adds."] },
+    ] },
+    { id: "m13-nombre", chapter: "banda", anchors: ["desk-pledged"], keys: [["ya tiene nombre", "already has a name"], ["segunda línea", "second line"]], steps: [
+      { kind: "do", anchor: "desk-pledged", caption: ["La segunda línea no suma: es el mismo saldo, con nombre.", "The second line doesn't add: it's the same balance, named."], contexto: ["Tócala y se explica: qué fondos montan y sobre qué cuenta.", "Tap it and it explains itself: which funds ride, and on which account."] },
+    ] },
+    { id: "m13-luces", chapter: "banda", anchors: ["desk-pockets"], keys: [["luces", "lights"], ["disco", "disc"], ["anillo", "ring"]], steps: [
+      { kind: "show", anchor: "desk-pockets", caption: ["Cada bolsa lleva su luz: disco, aparte; anillo, saldo; gris, esperando.", "Every pocket wears its light: disc, apart; ring, balance; gray, waiting."], contexto: ["El Retiro no lleva luz: su naturaleza es su nombre.", "Retirement wears no light: its nature is its name."] },
+    ] },
+    { id: "m13-luz", chapter: "banda", anchors: ["fund-light"], keys: [["la luz se explica", "the light explains itself"], ["signo", "sign"]], steps: [
+      { kind: "do", anchor: "fund-light", caption: ["La luz es un signo: al tocarla se explica; no actúa.", "The light is a sign: tapped, it explains itself; it never acts."] },
+    ] },
+    { id: "m13-widget", chapter: "banda", anchors: ["theater", "theater-wrap", "theater-open"], keys: [["widget", "widget"], ["bolsas con luz", "pockets with lights"]], steps: [
+      { kind: "show", anchor: "theater-wrap", caption: ["Tu pantalla de inicio, en escena: cada bolsa lleva su luz.", "Your home screen, on stage: every pocket wears its light."], contexto: ["Lo comprometido se muestra aparte: nunca disfrazado de guardado.", "Committed money shows apart: never dressed up as kept."] },
+      { kind: "show", anchor: "theater-open", caption: ["El widget separa lo guardado de lo comprometido, sin abrir Faro.", "The widget splits kept from committed, without opening Faro."] },
+    ] },
+    { id: "m13-cuentas", chapter: "cuentas", anchors: ["desk-accounts", "vault-accounts"], keys: [["todas las cuentas", "all the accounts"], ["libre", "free"]], steps: [
+      { kind: "do", anchor: "desk-accounts", caption: ["El banco despliega el panel: todas las cuentas.", "The bank unfolds the panel: all the accounts."] },
+      { kind: "show", anchor: "vault-accounts", caption: ["Cada cuenta dice cuánto de su saldo ya tiene nombre.", "Each account says how much of its balance already has a name."], contexto: ["Y lo que queda libre: su saldo menos sus límites.", "And what stays free: its balance minus its limits."] },
+    ] },
+    { id: "m13-suma", chapter: "cuentas", anchors: ["vault-accounts"], keys: [["la suma libre", "the free sum"]], steps: [
+      { kind: "show", anchor: "vault-accounts", caption: ["El panel suma los libres: lo que ningún fondo ha nombrado.", "The panel adds the free balances: what no fund has named."] },
+    ] },
+    { id: "m13-tope", chapter: "cuentas", anchors: ["vault-accounts"], keys: [["el tope", "the ceiling"], ["nunca pasa", "never passes"]], steps: [
+      { kind: "show", anchor: "vault-accounts", caption: ["Un límite nunca puede pasar del libre de su cuenta.", "A limit can never pass its account's free balance."], contexto: ["Si lo intentas, la guardia se niega con las cifras en la mano.", "Try it, and the guard refuses with the figures in hand."] },
+    ] },
+    { id: "m13-partes", chapter: "cuentas", anchors: ["vault-kept"], keys: [["las tres fuentes", "the three sources"], ["las partes", "the parts"]], steps: [
+      { kind: "go", screen: "vault-save" },
+      { kind: "show", anchor: "vault-kept", caption: ["En la bóveda, el titular se parte en sus tres fuentes.", "In the vault, the headline splits into its three sources."] },
+      { kind: "do", anchor: "vault-kept", caption: ["Cada parte se explica al tocarla: de dónde sale.", "Each part explains itself when tapped: where it comes from."] },
+    ] },
+    { id: "m13-apartado", chapter: "mes", anchors: ["desk-aside"], keys: [["apartado del mes", "the month's set-aside"], ["dos partes", "two parts"]], steps: [
+      { kind: "go", screen: "vault-save" },
+      { kind: "show", anchor: "desk-aside", caption: ["El Apartado del mes se lee en dos partes que siempre suman.", "The month's set-aside reads in two parts that always add up."], contexto: ["Lo etiquetado sobre el saldo, y lo de verdad movido a pilas.", "What was labeled on the balance, and what truly moved to piles."] },
+    ] },
+  ],
+};
+
+/* ================ MÓDULO 14 · EL COLCHÓN QUE DICE LA VERDAD ================ */
+
+const COLCHON: Module = {
+  id: "colchon", n: 14, title: ["El colchón que dice la verdad", "The cushion that tells the truth"], ready: true,
+  promise: ["Al salir, sabes cuándo tu colchón aguanta — y cuándo el Asesor debe avisarte.", "By the end, you know when your cushion holds — and when the Advisor must warn you."],
+  chapters: [
+    { id: "asesor", title: ["El Asesor lee la partición", "The Advisor reads the partition"] },
+    { id: "eco", title: ["El eco en Estudio y Folios", "The echo in Study and Folios"] },
+  ],
+  scenes: [
+    { id: "m14-colchon", chapter: "asesor", anchors: ["advice-tiles", "advice-rules"], keys: [["colchón", "cushion"], ["por cuenta", "per account"]], steps: [
+      { kind: "seed", seed: "modelo-colchon" },
+      { kind: "go", screen: "advice" },
+      { kind: "tap", anchor: "advice-tiles" },
+      { kind: "show", anchor: "advice-rules", caption: ["El colchón se calcula por cuenta: lo que sobra tras los límites.", "The cushion is figured per account: what remains after the limits."], contexto: ["Más la emergencia que vive aparte: su pila sí es colchón.", "Plus the emergency living apart: its pile truly is cushion."] },
+    ] },
+    { id: "m14-silencio", chapter: "asesor", anchors: ["advice-rules"], keys: [["el silencio", "the silence"], ["cubierto", "covered"]], steps: [
+      { kind: "show", anchor: "advice-rules", caption: ["Cuando el piso está cubierto, el Asesor calla: el silencio también lee.", "When the floor is covered, the Advisor is silent: silence reads too."], contexto: ["Solo habla del colchón cuando falta: con la cifra que falta.", "It speaks of the cushion only when it's short: with the missing figure."] },
+    ] },
+    { id: "m14-piso", chapter: "asesor", anchors: ["advice-rules"], keys: [["piso de emergencia", "emergency floor"], ["faltan", "missing"]], steps: [
+      { kind: "seed", seed: "modelo-giro" },
+      { kind: "show", anchor: "advice-rules", caption: ["Si el saldo baja, el piso se descubre: el Asesor dice cuánto falta.", "If the balance drops, the floor uncovers: the Advisor says what's missing."] },
+    ] },
+    { id: "m14-sobre", chapter: "asesor", anchors: ["advice-rules"], keys: [["libre bajo cero", "free below zero"], ["sobrecompromiso", "overcommitment"]], steps: [
+      { kind: "show", anchor: "advice-rules", caption: ["Y lo nombra una vez: el libre de esa cuenta bajó de cero.", "And it names it once: that account's free balance fell below zero."] },
+    ] },
+    { id: "m14-libre", chapter: "asesor", anchors: ["desk-accounts", "vault-accounts"], keys: [["libre negativo", "negative free"], ["el panel lo dice", "the panel says it"]], steps: [
+      { kind: "go", screen: "desk" },
+      { kind: "do", anchor: "desk-accounts", caption: ["El panel de cuentas guarda la misma verdad que el Asesor.", "The accounts panel keeps the same truth as the Advisor."] },
+      { kind: "show", anchor: "vault-accounts", caption: ["El panel también lo dice: el libre del Banco quedó en negativo.", "The panel says it too: the Bank's free balance went negative."], contexto: ["Se muestra y se dice: nunca se esconde tras el total.", "It's shown and said: never hidden behind the total."] },
+    ] },
+    { id: "m14-estudio", chapter: "eco", anchors: ["cushion", "study-committed"], keys: [["lo comprometido", "committed"], ["no dos veces", "not twice"]], steps: [
+      { kind: "seed", seed: "modelo-colchon" },
+      { kind: "go", screen: "stats" },
+      { kind: "show", anchor: "cushion", caption: ["El Estudio lee Lo guardado de la misma fuente que la banda.", "Study reads Kept from the same source as the band."] },
+      { kind: "do", anchor: "study-committed", caption: ["«Lo comprometido» se despliega: no se cuenta dos veces.", "“Committed” unfolds: it is never counted twice."], contexto: ["Es el saldo ya nombrado: no alarga la pista ni llena el frasco.", "It's the already-named balance: no longer runway, no fuller jar."] },
+    ] },
+    { id: "m14-folios", chapter: "eco", anchors: ["hist-row"], keys: [["la nota", "the note"], ["folios cuenta", "folios tells"]], steps: [
+      { kind: "seed", seed: "modelo-folios" },
+      { kind: "go", screen: "historial" },
+      { kind: "show", anchor: "hist-row", caption: ["Folios cuenta el movimiento con su luz y su nota.", "Folios tells the movement with its light and its note."], contexto: ["«No se movió dinero»: un límite también es historia.", "“No money moved”: a limit is history too."] },
+    ] },
+    { id: "m14-archivo", chapter: "eco", anchors: ["arch-card"], keys: [["la nota viaja", "the note travels"], ["archivo", "archive"]], steps: [
+      { kind: "seed", seed: "modelo-archivo" },
+      { kind: "go", screen: "archivo" },
+      { kind: "show", anchor: "arch-card", caption: ["En el Archivo, la nota viaja con el folio: la historia no se pierde.", "In the Archive, the note travels with the entry: the story isn't lost."] },
+    ] },
+  ],
+};
+
 export const MODULES: readonly Module[] = [
   MAPA,
   MANUAL,
@@ -1042,6 +1231,9 @@ export const MODULES: readonly Module[] = [
   FOLIOS,
   ESTRUCTURA,
   PUERTAS,
+  PREGUNTA,
+  TOTALES,
+  COLCHON,
 ];
 
 export const moduleById = (id: string): Module | undefined => MODULES.find((m) => m.id === id);
@@ -1136,4 +1328,10 @@ export const TOPIC_SCENES: Record<string, { moduleId: string; sceneId: string }>
   "asesor": { moduleId: "asesor", sceneId: "m8-asesor" },
   "libros": { moduleId: "anotar", sceneId: "m3-fijos" },
   "ajustes": { moduleId: "mapa", sceneId: "m1-ajustes" },
+  "donde-vive": { moduleId: "pregunta", sceneId: "m12-pregunta" },
+  "ahorros-banda": { moduleId: "totales", sceneId: "m13-titular" },
+  "cuentas": { moduleId: "totales", sceneId: "m13-cuentas" },
+  "apartado-mes": { moduleId: "totales", sceneId: "m13-apartado" },
+  "bolsas": { moduleId: "totales", sceneId: "m13-luces" },
+  "colchon": { moduleId: "colchon", sceneId: "m14-piso" },
 };

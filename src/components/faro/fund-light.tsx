@@ -38,7 +38,7 @@ export function FundLight({ cls, tone, hostName, asSpan }: { cls: "aparte" | "sa
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen((v) => !v); },
   };
   return (
-    <span className="fund-light-wrap" ref={wrap}>
+    <span className="fund-light-wrap" data-anchor="fund-light" ref={wrap}>
       {asSpan ? (
         // Dentro de un botón (el chip de la banda) la luz no puede ser otro botón:
         // es un span con el mismo signo y la misma explicación, y su toque se
@@ -111,21 +111,21 @@ export function NaturePick({
   ) : null;
   if (mode !== "ask") {
     return (
-      <div className="fund-ask">
+      <div className="fund-ask" data-anchor="nature-pick">
         <p className="fund-born">{t(mode === "balance" ? "fund.born.saldo" : "fund.born.aparte")}</p>
         {hostArea}
       </div>
     );
   }
   return (
-    <div className="fund-ask">
+    <div className="fund-ask" data-anchor="nature-pick">
       <span className="lab-head">{t("fund.q")}<Hint topic="donde-vive" /></span>
       <div className="fund-opts" role="group">
-        <button type="button" className={`fund-opt${value === "saldo" ? " is-on" : ""}`} aria-pressed={value === "saldo"} onClick={() => onPick("saldo")}>
+        <button type="button" data-anchor="nature-saldo" className={`fund-opt${value === "saldo" ? " is-on" : ""}`} aria-pressed={value === "saldo"} onClick={() => onPick("saldo")}>
           <strong>{t("fund.q.saldo")}</strong>
           <small>{t("fund.q.saldo.how")}</small>
         </button>
-        <button type="button" className={`fund-opt${value === "aparte" ? " is-on" : ""}`} aria-pressed={value === "aparte"} onClick={() => onPick("aparte")}>
+        <button type="button" data-anchor="nature-aparte" className={`fund-opt${value === "aparte" ? " is-on" : ""}`} aria-pressed={value === "aparte"} onClick={() => onPick("aparte")}>
           <strong>{t("fund.q.aparte")}</strong>
           <small>{t("fund.q.aparte.how")}</small>
         </button>

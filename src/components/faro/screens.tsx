@@ -1723,7 +1723,7 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
         {guard ? <p className="ask-body">{guard}</p> : null}
         {!each ? (
           <div className="enc-actions">
-            <button type="button" className="ask-btn is-go" onClick={declareInside}>{t("fund.enc.inside")}</button>
+            <button type="button" className="ask-btn is-go" data-anchor="enc-inside" onClick={declareInside}>{t("fund.enc.inside")}</button>
             <button type="button" className="ask-btn" onClick={declareAparte}>{t("fund.enc.aparte")}</button>
             <button type="button" className="ask-btn is-quiet" onClick={() => setEach(true)}>{t("fund.enc.each")}</button>
             <button type="button" className="ask-btn is-quiet" onClick={onClose}>{t("cancel")}</button>
@@ -2325,18 +2325,18 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     <span className="lab-head">{pocketKind === "meta" ? t("save.goal") : t("save.emerg")}<FieldTip topic="f-bolsa-nombre" alt={pocketKind !== "meta"} /></span>
                     <span className="fit-concept-row" onClick={(e) => { if ((e.target as Element).closest(".fit-pick-btn")) e.preventDefault(); }}>
                       <LookPick look={{ glyph: pocketGlyph, color: pocketColor, onGlyph: setPocketGlyph, onColor: setPocketColor }} />
-                      <input className="field" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
+                      <input className="field" data-anchor="pocket-name" value={pocketName} placeholder={pocketKind === "meta" ? t("save.goal.ph") : t("save.emerg.ph")} onChange={(e) => setPocketName(e.target.value)} />
                     </span>
                   </label>
                   <label className="label is-wide">
                     <span className="lab-head">{t("amount")}<FieldTip topic="f-bolsa-monto" /></span>
-                    <input className="field num" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
+                    <input className="field num" data-anchor="pocket-amt" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
                   </label>
                   <NaturePick mode={mode} value={pocketNature} onPick={setPocketNature} host={pocketHost} onHost={setPocketHost} accounts={namedAccts} />
                 </div>
                 <div className="ah-actions">
                   <button type="button" className="btn secondary" onClick={() => { setAdding(false); setPocketName(""); setPocketAmt(""); }}>{t("cancel")}</button>
-                  <button type="button" className="btn" onClick={addPocket}>{t("save.keep")}</button>
+                  <button type="button" className="btn" data-anchor="pocket-save" onClick={addPocket}>{t("save.keep")}</button>
                 </div>
               </div>
             ) : adding ? (
@@ -3143,7 +3143,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                         accounts={namedAccts}
                       />
                       <div className="ah-actions">
-                        <button type="button" className="btn" onClick={() => declareFromMigration(f)}>{t("fund.mig.each")}</button>
+                        <button type="button" className="btn" data-anchor="migrate-declare" onClick={() => declareFromMigration(f)}>{t("fund.mig.each")}</button>
                       </div>
                     </div>
                   );
@@ -3237,7 +3237,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </span>
         </div>
         {stock.pledged > 0 ? (
-          <div className="save-pledged">
+          <div className="save-pledged" data-anchor="desk-pledged">
             <SourceNote
               label={t("desk.savings.from")}
               title={t("desk.savings.from")}
@@ -3316,7 +3316,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     </button>
                   </>
                 ) : (
-                  <button type="button" className="icon-btn" aria-label={t("add")} onClick={() => { setAddFromView(false); setAdding((v) => !v); setEditId(null); setMoving(null); }}>
+                  <button type="button" className="icon-btn" data-anchor="pocket-add" aria-label={t("add")} onClick={() => { setAddFromView(false); setAdding((v) => !v); setEditId(null); setMoving(null); }}>
                     <Plus className="size-4" />
                   </button>
                 )}
@@ -3493,7 +3493,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <span className="row kit-row">
                 <span className="num">{fmt(openSeg.minor)}</span>
                 {savKit(openLines, openSeg.name, pocketKind === "retiro" ? restoreRetiroAsk : undefined)}
-                <button type="button" className="icon-btn kit-btn is-add" data-test="sav-add" aria-label={t("add")} aria-pressed={adding} onClick={() => { setAddFromView(true); setAdding((v) => !(v && addFromView)); setEditId(null); setMoving(null); }}><Plus /></button>
+                <button type="button" className="icon-btn kit-btn is-add" data-test="sav-add" data-anchor="pocket-add" aria-label={t("add")} aria-pressed={adding} onClick={() => { setAddFromView(true); setAdding((v) => !(v && addFromView)); setEditId(null); setMoving(null); }}><Plus /></button>
               </span>
             </div>
             {addFromView && adding ? <div className="kit-add">{pocketAdd}</div> : null}
@@ -3647,12 +3647,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                         <div className="ah-grid">
                           <label className="label is-wide">
                             <span className="lab-head">{t("save.opening")}<FieldTip topic="f-cuenta-inicial" /></span>
-                            <input className="field num" inputMode="decimal" autoFocus value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
+                            <input className="field num" data-anchor="acct-open-amt" inputMode="decimal" autoFocus value={accountAmt} placeholder="0.00" onChange={(e) => setAccountAmt(e.target.value)} />
                           </label>
                         </div>
                         <div className="ah-actions">
                           <button type="button" className="btn secondary" onClick={() => { setAccountFocus(null); setAccountAmt(""); }}>{t("cancel")}</button>
-                          <button type="button" className="btn" onClick={() => setOpening(row)}>{t("save.keep")}</button>
+                          <button type="button" className="btn" data-anchor="acct-open-save" onClick={() => setOpening(row)}>{t("save.keep")}</button>
                         </div>
                       </div>
                     )
