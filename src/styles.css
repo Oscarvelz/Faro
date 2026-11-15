@@ -1753,6 +1753,12 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
    header owns its layer from first paint: no scroll, glide or transition ever creates it mid-flight, and the glide's own
    transform values, lerp and thresholds are untouched — will-change only pre-creates the layer that transform already uses. */
 .app-frame:not(.is-split) .top-chrome { will-change: transform; }
+/* 1.3.282: while the keyboard holds the visual viewport materially below the layout height, the portrait dock does not
+   paint at all. The shell marks the frame (data-kb) from its visualViewport hook; in the family of the split-pane
+   precedent above, which display:none's a pane's dock while its sheet is present. In the installed shell the window
+   itself resizes (adjustResize) and the mark stays silent — there the glide's form exception (shell.tsx) is what
+   keeps the dock off the keyboard. At rest, no keyboard, no mark: the dock's geometry and paint are untouched. */
+.app-frame[data-kb]:not(.is-split) .dock { display: none; }
 /* 1.3.112: a ring step slides the new book in from 56 px and a finger drag moves the pane up to 150 px; that transform used
    to count as page overflow, so the phone widened its layout viewport for those frames (the page zoomed out and the dock
    jumped and grew). Below the wide layout the main column is the screen's width, so clipping its sideways overflow hides

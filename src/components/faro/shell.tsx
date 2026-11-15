@@ -522,6 +522,25 @@ export function Shell() {
     el.addEventListener("pointercancel", end);
   };
 
+  // 1.3.282: a line form is open somewhere in the app. The provider seats
+  // (Libros draft and line-edit) speak through ui.draft/ui.editing, but other
+  // seats keep their open state locally (the Central desk-edit, the Ahorros
+  // pocket form) — every seat, present and future, renders the same form
+  // root (.form-block.is-fit), so the shell watches for the root itself.
+  // The chrome glide below reads this as one boolean: while a form holds,
+  // the dock is driven away by state, not by however far the page happens
+  // to be scrolled — Oscar's rule (2026-11-14): the dock never sits on the
+  // keyboard, at any form height.
+  const [fitOpen, setFitOpen] = useState(false);
+  useEffect(() => {
+    const check = () => setFitOpen(!!document.querySelector(".form-block.is-fit"));
+    check();
+    const mo = new MutationObserver(check);
+    mo.observe(document.body, { subtree: true, childList: true });
+    return () => mo.disconnect();
+  }, []);
+  const formOpen = ui.draft != null || ui.editing != null || fitOpen;
+
   useEffect(() => {
     const frame = topPaneRef.current?.closest<HTMLElement>(".app-frame");
     if (!frame || !topPaneRef.current) return;
@@ -576,6 +595,10 @@ export function Shell() {
         const T = measureDock();
         if (header) headerTarget = Math.max(0, Math.min(H, headerTarget));
         if (dock) dockTarget = Math.max(0, Math.min(T, dockTarget));
+        // 1.3.282: the dock's form exception, in the overlay family of the
+        // header's above — while a form holds, its target is full travel at
+        // every scroll height, so the keyboard never finds it parked home.
+        if (formOpen && dock && T > 0) dockTarget = T;
         if (phoneLand()) {
           headerVisual = headerTarget;
           dockVisual = dockTarget;
@@ -615,6 +638,7 @@ export function Shell() {
         else headerTarget += dy;
         if (y <= 0) dockTarget = 0;
         else dockTarget += dy;
+        if (formOpen) dockTarget = measureDock();
         if (!raf) raf = requestAnimationFrame(step);
       };
       scroller.addEventListener("scroll", onScroll, { passive: true });
@@ -638,8 +662,27 @@ export function Shell() {
         host?.style.removeProperty("--dock-h");
       };
     });
-    return () => cleanups.forEach((fn) => fn());
-  }, [split, searchOpen, calOpen, exportOpen, ready, !!session]);
+    // 1.3.282: the keyboard leg for fields outside the form state (search,
+    // quick-add). When the visual viewport falls materially below the layout
+    // height — a keyboard over the page, well past any browser-chrome
+    // collapse — the frame carries data-kb and the stylesheet parks the
+    // portrait dock outright (styles.css, beside the split-pane precedent).
+    // In the installed shell the window itself resizes (adjustResize), the
+    // two heights move together and this leg stays silent by design: there
+    // the form exception above is what keeps the dock off the keyboard.
+    const kbCheck = () => {
+      const vv = window.visualViewport;
+      if (vv && window.innerHeight - vv.height > 120) frame.dataset.kb = "1";
+      else delete frame.dataset.kb;
+    };
+    kbCheck();
+    window.visualViewport?.addEventListener("resize", kbCheck);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", kbCheck);
+      delete frame.dataset.kb;
+      cleanups.forEach((fn) => fn());
+    };
+  }, [split, searchOpen, calOpen, exportOpen, formOpen, ready, !!session]);
 
   useEffect(() => {
     const onBack = (e: Event) => {
