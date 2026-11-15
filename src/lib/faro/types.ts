@@ -193,6 +193,16 @@ export type Line = {
    *  (la puerta anti-fuga de descanso.ts) y su período vive en LedgerState.restingSpans.
    *  Ausente = activa en las lecturas, como siempre. Lo pone y lo quita SOLO descanso.ts. */
   rest?: boolean;
+  /** Naturaleza declarada del fondo (serie) al que pertenece la línea (modelo de ahorros,
+   *  1.3.287): "saldo" = límite sobre el saldo de una cuenta específica; "aparte" = pila
+   *  separada. Ausente = sin declarar (libros anteriores al modelo, o fondo nacido antes
+   *  de que existiera una cuenta): se lee como pila, como siempre. Se lee por serie, de
+   *  su línea determinante, y se escribe a la serie entera. El Retiro nunca lo lleva. */
+  fund?: "saldo" | "aparte";
+  /** Cuenta anfitriona de un fondo "saldo": el sub de la cuenta cuyo saldo sostiene el
+   *  límite. Vive junto a `fund` en la misma serie y se declara una sola vez, con la
+   *  naturaleza. Sin sentido en fondos "aparte" ni en el Retiro: ahí no se escribe. */
+  fundHost?: string;
 };
 
 /** Un período apartado desde el Historial (descanso.ts): las líneas cuyos movimientos caen en
