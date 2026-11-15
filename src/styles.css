@@ -3251,6 +3251,11 @@ html.manual-open :is(.dock-recall, .float-bubble) { visibility: hidden; pointer-
 [data-theme="tron"] .key-row { border-top-color: rgba(63, 214, 245, .18); }
 [data-theme="tron"] .key-combo { border-color: rgba(63, 214, 245, .35); color: #bfe9f2; background: rgba(63, 214, 245, .06); }
 
+/* Ajustes → Atajos de Central (1.3.283): the gesture card is grouped by the button it belongs to — each group
+   carries its button's name and home as a quiet serif head, the two rows under it name only the gesture. */
+.gesture-group { margin-top: 14px; }
+.gesture-group-head { font-family: var(--font-serif); font-size: .95rem; font-weight: 560; margin: 0; }
+
 /* Oscuro: framed buttons in Ajustes need a border that reads (≥ 3:1 on the card and on surface-2; was #2c343c ≈ 1.4:1). */
 html[data-theme="oscuro"] .settings-board :is(.btn.ghost, .btn.secondary) { border-color: #66707a; }
 html[data-theme="oscuro"] .key-combo { border-color: #66707a; }

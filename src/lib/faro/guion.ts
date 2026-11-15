@@ -623,7 +623,7 @@ const MES: Module = {
       { kind: "show", anchor: "desk-minus", caption: ["La esquina − anota gastos sin salir de Central.", "The − corner notes expenses without leaving the Desk."] },
     ] },
     { id: "m5-atajos", chapter: "esquinas", anchors: ["desk-plus"], keys: [["atajos", "shortcuts"], ["sostener", "hold"]], steps: [
-      { kind: "show", anchor: "desk-plus", caption: ["Sostén la esquina un segundo, o tócala dos veces: es un atajo.", "Hold the corner a second, or tap it twice: it's a shortcut."], contexto: ["Los cuatro atajos se asignan en Ajustes, «Atajos +/−».", "The four shortcuts are assigned in Settings, “+/− shortcuts”."] },
+      { kind: "show", anchor: "desk-plus", caption: ["Sostén la esquina un segundo, o tócala dos veces: es un atajo.", "Hold the corner a second, or tap it twice: it's a shortcut."], contexto: ["Los seis atajos se asignan en Ajustes, «Atajos de Central».", "The six shortcuts are assigned in Settings, “Central shortcuts”."] },
     ] },
     { id: "m5-saludo", chapter: "esquinas", anchors: ["desk-minus"], keys: [["saludo", "greeting"]], steps: [
       { kind: "do", anchor: "desk-minus", caption: ["La ventana nace de la esquina, con el color de la casa que elegiste.", "The window is born from the corner, wearing the color of the house you picked."] },

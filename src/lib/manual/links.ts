@@ -92,7 +92,7 @@ export const LINKS: Record<string, string> = {
   Reglas: "reglas", Rules: "reglas",
   "Meta de ahorro": "meta-ahorro", "Savings goal": "meta-ahorro",
   "Meses de colchón": "meses-colchon", "Months of cushion": "meses-colchon",
-  "Atajos de + y −": "atajos-mas-menos", "+/− shortcuts": "atajos-mas-menos",
+  "Atajos de Central": "atajos-mas-menos", "Central shortcuts": "atajos-mas-menos",
   "Copias de seguridad": "copias", Backups: "copias",
   "Manual de uso": "manual", "User manual": "manual",
   // Estudio + Asesor gestures and wide layout

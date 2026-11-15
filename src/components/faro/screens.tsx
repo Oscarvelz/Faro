@@ -1686,10 +1686,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [flowDir, setFlowDir] = useState(1);
   const [quick, setQuick] = useState<null | "in" | "out">(null);
   const [jump, setJump] = useState<null | { kind: LineKind; categoryId: string; title: string }>(null);
-  const holdTimer = useRef<{ in?: number; out?: number }>({});
-  const clickTimer = useRef<{ in: number; out: number }>({ in: 0, out: 0 });
-  const openTimer = useRef<{ in?: number; out?: number }>({});
-  const heldFlag = useRef<{ in: boolean; out: boolean }>({ in: false, out: false });
+  const holdTimer = useRef<{ in?: number; out?: number; due?: number }>({});
+  const clickTimer = useRef<{ in: number; out: number; due: number }>({ in: 0, out: 0, due: 0 });
+  const openTimer = useRef<{ in?: number; out?: number; due?: number }>({});
+  const heldFlag = useRef<{ in: boolean; out: boolean; due: boolean }>({ in: false, out: false, due: false });
+  // 1.3.283: the side a fresh Cobros mount opens on when a Pagos-button gesture (or the plain tap, which resets it) asks.
+  const [cobrosSide, setCobrosSide] = useState<"in" | "out">("out");
   const [saveOn, setSaveOn] = useState<string | null>(null);
   const [openSave, setOpenSave] = useState<string | null>(null);
   const [deskLine, setDeskLine] = useState<string | null>(null);
@@ -2007,7 +2009,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     if (focus) return;
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (id === "cobros") { setQuick(null); setJump(null); setCobrosJump(true); setCobros(true); setCobrosLit(true); }
+      if (id === "cobros") { setQuick(null); setJump(null); setCobrosSide("out"); setCobrosJump(true); setCobros(true); setCobrosLit(true); }
       else if (id === "lens-have" || id === "lens-spend" || id === "lens-debt") { lensByJump.current = true; setLens(id.slice(5) as "have" | "spend" | "debt"); }
     };
     window.addEventListener("faro-open", onOpen);
@@ -2643,6 +2645,121 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     };
   }
 
+  // 1.3.283: the Pagos corner button joins the gesture system (Atajos de Central). Its destinations are not
+  // QuickAdd areas but landings inside Cobros — the same seats the «Ir allí» jumps use.
+  type DueDest = "owed" | "owe" | "dues" | "loans";
+  function dueGestureOf(slot: string): DueDest | null {
+    const raw = session?.ledger.settings.gestures?.[slot];
+    return raw === "owed" || raw === "owe" || raw === "dues" || raw === "loans" ? raw : null;
+  }
+  function openCobrosAt(dest: DueDest) {
+    if (cobros) {
+      // Already open: Cobros' and DeboSide's own faro-open listeners pick the side (and the tab, except
+      // «Debo», which names the side itself and leaves its tab standing).
+      setCobrosLit(true);
+      setCobrosPing((n) => n + 1);
+      const id = dest === "owed" ? "cobros-in" : dest === "loans" ? "cobros-loans" : dest === "dues" ? "cobros-out" : "cobros-debo-tabs";
+      window.dispatchEvent(new CustomEvent("faro-open", { detail: id }));
+      return;
+    }
+    if (dest === "loans") { try { localStorage.setItem("faro-debo-tab", "loans"); } catch { /* ignore */ } }
+    else { try { localStorage.removeItem("faro-debo-tab"); } catch { /* ignore */ } }
+    setCobrosSide(dest === "owed" ? "in" : "out");
+    setCobrosJump(false);
+    if (quick) {
+      setJump(null);
+      setQuick(null);
+      setCobrosWait(true);
+    }
+    setCobros(true);
+    setCobrosLit(true);
+    setCobrosPing((n) => n + 1);
+  }
+  // The Pagos button's plain tap, exactly as it behaved before the gestures arrived (extracted verbatim).
+  function cobroTap() {
+    setCobrosJump(false);
+    setCobrosSide("out");
+    try { localStorage.removeItem("faro-debo-tab"); } catch { /* ignore */ }
+    if (quick) {
+      setJump(null);
+      setQuick(null);
+      setCobrosWait(true);
+      setCobros(true);
+      setCobrosLit(true);
+      setCobrosPing((n) => n + 1);
+      return;
+    }
+    if (cobros && !cobrosLit) {
+      // 1.3.106: open behind a picked card: the button takes the focus back (and calls the panel back) instead of closing it.
+      setCobrosLit(true);
+      setCobrosPing((n) => n + 1);
+      return;
+    }
+    if (cobros) {
+      // Open but scrolled away: bring it back with the same pulse instead of closing what you cannot see.
+      const r = document.querySelector('[data-anchor="cobros"]')?.getBoundingClientRect();
+      const seen = r && r.bottom > 60 && r.top < window.innerHeight - 60;
+      if (!seen) { setCobrosPing((n) => n + 1); return; }
+      setCobros(false);
+      return;
+    }
+    setCobros(true);
+    setCobrosLit(true);
+    setCobrosPing((n) => n + 1);
+  }
+  // The same timing as corner() (1 s hold, 170 ms double window, the tap waits out the double window only
+  // when a double shortcut exists); what a gesture fires is a Cobros landing instead of a QuickAdd jump.
+  function cornerDue() {
+    const clearHold = () => {
+      if (holdTimer.current.due) window.clearTimeout(holdTimer.current.due);
+      holdTimer.current.due = undefined;
+    };
+    return {
+      onPointerDown: () => {
+        heldFlag.current.due = false;
+        clearHold();
+        holdTimer.current.due = window.setTimeout(() => {
+          heldFlag.current.due = true;
+          const hit = dueGestureOf("due.hold");
+          if (!hit) return;
+          openCobrosAt(hit);
+        }, 1000);
+      },
+      onPointerUp: clearHold,
+      onPointerLeave: clearHold,
+      onPointerCancel: clearHold,
+      onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault(),
+      onClick: () => {
+        if (heldFlag.current.due) {
+          heldFlag.current.due = false;
+          return;
+        }
+        if (openTimer.current.due) {
+          window.clearTimeout(openTimer.current.due);
+          openTimer.current.due = undefined;
+        }
+        const now = Date.now();
+        const doubled = now - (clickTimer.current.due ?? 0) < 170;
+        clickTimer.current.due = now;
+        if (doubled) {
+          const hit = dueGestureOf("due.double");
+          if (hit) {
+            openCobrosAt(hit);
+            return;
+          }
+        }
+        if (!dueGestureOf("due.double")) {
+          cobroTap();
+          return;
+        }
+        openTimer.current.due = window.setTimeout(() => {
+          openTimer.current.due = undefined;
+          cobroTap();
+        }, 170);
+      },
+    };
+  }
+
   const vaultStore = focus === "meta" || focus === "retiro" || focus === "emergencia" ? focus : focus === "save" ? "save" : pocketKind;
   const vaultTone0 = vaultStore === "meta" ? "#8fb9a6" : vaultStore === "retiro" ? "#72b4b2" : vaultStore === "emergencia" ? "#7aa2c4" : vaultStore === "save" ? SAVINGS_PURPLE : "#d5e2ea";
   const vaultTone = isTron() ? tronize(vaultTone0) : vaultTone0;
@@ -2751,36 +2868,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <span className="lens-value num">{fmt(summary.debt)}</span>
             <span className="lens-note">{t("desk.debt.note")}</span>
           </button>
-          <button type="button" data-anchor="desk-cobro" className={`lens-corner is-cobro${lowCorner("cobro", "debt") ? " is-low" : ""}`} aria-label={t("cobro.open")} aria-pressed={btnOn === "cobro"} onClick={() => {
-            setCobrosJump(false);
-            try { localStorage.removeItem("faro-debo-tab"); } catch { /* ignore */ }
-            if (quick) {
-              setJump(null);
-              setQuick(null);
-              setCobrosWait(true);
-              setCobros(true);
-              setCobrosLit(true);
-              setCobrosPing((n) => n + 1);
-              return;
-            }
-            if (cobros && !cobrosLit) {
-              // 1.3.106: open behind a picked card: the button takes the focus back (and calls the panel back) instead of closing it.
-              setCobrosLit(true);
-              setCobrosPing((n) => n + 1);
-              return;
-            }
-            if (cobros) {
-              // Open but scrolled away: bring it back with the same pulse instead of closing what you cannot see.
-              const r = document.querySelector('[data-anchor="cobros"]')?.getBoundingClientRect();
-              const seen = r && r.bottom > 60 && r.top < window.innerHeight - 60;
-              if (!seen) { setCobrosPing((n) => n + 1); return; }
-              setCobros(false);
-              return;
-            }
-            setCobros(true);
-            setCobrosLit(true);
-            setCobrosPing((n) => n + 1);
-          }}>
+          <button type="button" data-anchor="desk-cobro" className={`lens-corner is-cobro${lowCorner("cobro", "debt") ? " is-low" : ""}`} aria-label={t("cobro.open")} aria-pressed={btnOn === "cobro"} {...cornerDue()}>
             <svg viewBox="0 0 16 16" aria-hidden>
               <circle cx="5.6" cy="4.7" r="1.85" fill="none" stroke="currentColor" strokeWidth="1.5" />
               <path d="M2.5 12.5c.5-2.2 1.7-3.2 3.1-3.2s2.6 1 3.1 3.2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -2798,7 +2886,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <QuickHello key={`qh-${quick}`} mode={quick} />
         </div>
       ) : null}
-      {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? "out"} ping={cobrosJump ? 0 : cobrosPing} wait={cobrosWait} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
+      {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? cobrosSide} ping={cobrosJump ? 0 : cobrosPing} wait={cobrosWait} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
       </>
       )}
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
@@ -4690,15 +4778,20 @@ export function Settings() {
       <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Long or double tap" : "Toque largo o doble"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
         <Note kind="tip">{t("gesture.help")}</Note>
         {([
-          ["in.hold", "gesture.inHold"],
-          ["in.double", "gesture.inDouble"],
-          ["out.hold", "gesture.outHold"],
-          ["out.double", "gesture.outDouble"],
-        ] as const).map(([slot, label]) => {
-          const income = slot.startsWith("in.");
+          { head: "gesture.btnIn", mode: "in" },
+          { head: "gesture.btnOut", mode: "out" },
+          { head: "gesture.btnDue", mode: "due" },
+        ] as const).map(({ head, mode }) => {
           const options = [{ value: "", label: t("gesture.none") }];
-          if (income) {
+          if (mode === "in") {
             options.push({ value: "income-fixed", label: t("income.fixed") }, { value: "income-variable", label: t("income.variable") });
+          } else if (mode === "due") {
+            options.push(
+              { value: "owed", label: t("cobro.owed") },
+              { value: "owe", label: t("cobro.owe") },
+              { value: "dues", label: t("cobro.tab.dues") },
+              { value: "loans", label: t("cobro.tab.loans") },
+            );
           } else {
             for (const cat of session.ledger.structure.categories.filter((c) => !c.hidden && c.group === "fixed").sort((a, b) => a.order - b.order)) {
               options.push({ value: `expense-fixed:${cat.id}`, label: `${t("group.fixed")} · ${displayName(cat, lang)}` });
@@ -4712,19 +4805,27 @@ export function Settings() {
             options.push({ value: "subscription", label: t("tab.subs") });
           }
           return (
-            <label key={slot} className="label mt-3">
-              {t(label)}
-              <ThemeSelect
-                value={settings.gestures?.[slot] ?? ""}
-                onChange={(value) => commit((s) => {
-                  const gestures = { ...(s.settings.gestures ?? {}) };
-                  if (value) gestures[slot] = value;
-                  else delete gestures[slot];
-                  return { ...s, settings: { ...s.settings, gestures } };
-                }, slot)}
-                options={options}
-              />
-            </label>
+            <div key={mode} className="gesture-group">
+              <h4 className="gesture-group-head">{t(head)}</h4>
+              {(["hold", "double"] as const).map((gesture) => {
+                const slot = `${mode}.${gesture}`;
+                return (
+                  <label key={slot} className="label mt-3">
+                    {t(gesture === "hold" ? "gesture.hold" : "gesture.double")}
+                    <ThemeSelect
+                      value={settings.gestures?.[slot] ?? ""}
+                      onChange={(value) => commit((s) => {
+                        const gestures = { ...(s.settings.gestures ?? {}) };
+                        if (value) gestures[slot] = value;
+                        else delete gestures[slot];
+                        return { ...s, settings: { ...s.settings, gestures } };
+                      }, slot)}
+                      options={options}
+                    />
+                  </label>
+                );
+              })}
+            </div>
           );
         })}
       </Fold>
