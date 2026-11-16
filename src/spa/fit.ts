@@ -180,6 +180,24 @@ function groupKickers() {
   sweepWrote = true;
 }
 
+// The pocket cards of one savings band are siblings (Meta · Retiro ·
+// Emergencia): when one amount had to shrink, every card of the band takes
+// that same size — a C$0.00 must never sit smaller beside a C$6,300.00
+// (Oscar's photo verdict, 2026-11-16). The same law the lens kickers and the
+// projector tiles above already keep, applied to the band's amounts.
+function groupSegs() {
+  document.querySelectorAll<HTMLElement>(".save-segs").forEach((band) => {
+    const els = [...band.querySelectorAll<HTMLElement>(".save-seg > .num")]
+      .filter((el) => el.getBoundingClientRect().width > 0);
+    if (els.length < 2) return;
+    const sizes = els.map((el) => parseFloat(getComputedStyle(el).fontSize));
+    const min = Math.min(...sizes);
+    els.forEach((el, i) => {
+      if (sizes[i] - min > 0.05) { el.style.fontSize = `${min.toFixed(2)}px`; sweepWrote = true; }
+    });
+  });
+}
+
 // Libros section tabs (icon over label, five equal columns): when a label would end in "…" (e.g. "Shopping" in Claro EN on a 360 phone),
 // that bar tightens its spacing (1), then its letters (2). Bars whose labels fit keep their exact look.
 function segTabs() {
@@ -281,6 +299,7 @@ function scheduleRecheck() {
       const over = measureOver(fitList());
       for (const el of over) { el.style.fontSize = ""; fitLoop(el); }
       groupKickers();
+      groupSegs();
     } finally {
       sweepCache = null;
     }
@@ -313,6 +332,7 @@ export function fitAll() {
       leverAmt();
       fitNums();
       groupKickers();
+      groupSegs();
     } finally {
       sweepCache = null;
     }

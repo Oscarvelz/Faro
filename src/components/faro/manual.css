@@ -342,15 +342,15 @@ label.label[data-anchor^="aj-"] > .lab-head .hint { margin-left: 4px; margin-blo
 .hint.is-corner .ftip-btn svg { width: 14px; height: 14px; }
 .hint.is-corner .ftip-btn::before { inset: -3px -5px -7px -5px; border-radius: 8px; }
 .hint.is-corner[data-clash] { visibility: hidden; pointer-events: none; }
-/* Savings tab bar (owner, Nov 2 2026): the bar keeps its exact original height; a small (?) floats over the last tab's bottom-right
-   corner, 2px inside that tab's edges (7px inside the bar's), taking no layout space. Its tap opens the help, never the tab under it (hint.tsx stops the event);
-   the 20px tap area grows over the tab's empty corner, clear of its label and icon. */
-.vault-bar > .hint.is-corner { right: 6px; bottom: 6px; z-index: 3; } /* 2px inside the last tab's own edges (clear of its lit/selected outline and the bar's corner curve) */
-.vault-bar > .hint.is-corner .ftip-btn { width: 12px; height: 12px; min-height: 12px; overflow: visible; text-transform: none; } /* not a tab: none of the bar's tab styling (Tron clips tabs) */
-.vault-bar > .hint.is-corner .ftip-btn svg { width: 12px; height: 12px; }
-.vault-bar > .hint.is-corner .ftip-btn::before { inset: -6px -2px -2px -6px; border-radius: 4px; } /* 20 × 20 */
-/* The last tab's label and icon stay clear of the (?): that tab keeps a little more room on its right (the bar's height never changes). */
-.vault-bar:has(> .hint.is-corner) > button:last-of-type { padding-right: 17px; }
+/* Savings tab bar (Oscar's photo verdict, 2026-11-16 — supersedes the Nov 2 corner float): the (?) no longer
+   floats detached in the last tab's bottom-right corner; it sits IN the row as the bar's last member, centred
+   with the tabs and at the house inline size (18px button, 13px glyph — the same (?) that stands beside the
+   «Meta» header), so the panel reads finished. It takes its own seat in the row now, so the old 17px padding
+   that kept the last tab's label clear of the floating mark is gone. Its tap opens the help, never a tab. */
+.vault-bar > .hint.is-corner { position: static; align-self: center; flex: none; margin-left: 2px; z-index: 3; }
+.vault-bar > .hint.is-corner .ftip-btn { width: 18px; height: 18px; min-height: 18px; overflow: visible; text-transform: none; } /* not a tab: none of the bar's tab styling (Tron clips tabs) */
+.vault-bar > .hint.is-corner .ftip-btn svg { width: 13px; height: 13px; }
+.vault-bar > .hint.is-corner .ftip-btn::before { inset: -7px -4px; border-radius: 50%; } /* the house (?) tap area, inside its own seat */
 /* Savings tabs that would not fit one bar (360 px phones, large text, long English labels): less side padding (they still grow to fill the
    bar), then a slightly smaller label; shell.tsx drops the icons (data-squeeze) only when even that does not fit. */
 @container vaultbar (max-width: 23em) {
@@ -367,8 +367,8 @@ label.label[data-anchor^="aj-"] > .lab-head .hint { margin-left: 4px; margin-blo
 /* Glyph colours: day/night themes muted, Tron teal with a faint glow. */
 .hint.is-corner .ftip-btn { color: color-mix(in oklab, var(--muted) 88%, var(--fg)); }
 [data-theme="tron"] .hint.is-corner .ftip-btn { color: #3fd6f5; filter: drop-shadow(0 0 3px rgba(63, 214, 245, .45)); }
-/* Over the lit, selected last tab the teal would sink into its glow: it takes the selected label's white (≥ 7:1 there). */
-[data-theme="tron"] .vault-bar:has(> button:last-of-type[aria-current="page"]) > .hint.is-corner .ftip-btn { color: #f2fdff; filter: drop-shadow(0 0 3px rgba(122, 162, 196, .6)); }
+/* (The old white-over-the-lit-last-tab rule went with the corner float: seated in the row on the bar's own
+   ground, the (?) keeps Tron's teal in every tab state.) */
 
 /* Tron Manual: subtle amber accents (owner exception, Nov 2 2026, scoped to the Manual layer only: elsewhere in Tron amber stays for amounts).
    Entry numbers, the Tip bulb and its rule, the open chapter's number, the A–Z letters and a short tick under the top bar.
