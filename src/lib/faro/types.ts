@@ -394,6 +394,16 @@ export type Settings = {
    *  pregunta y lo ofrecido: JAMÁS reescribe la naturaleza de un fondo que ya existe
    *  (cada fondo conserva lo que su dueño declaró, línea `fund`/`fundHost`). */
   savingsNatureMode?: "ask" | "balance" | "separate";
+  /** El modo de uso de Faro (tres modos: Esencial · Ritmo · Completo): un filtro de
+   *  lectura y de capacidades sobre el MISMO libro — jamás una regla de almacenamiento
+   *  ni una partición de datos. Es dato de la PERSONA: viaja con su cuenta y su libro
+   *  (sincronía, copias, restauración) como el idioma y el tema, y los libros sellados
+   *  (ejemplo/escenario) lo toman prestado del espejo del aparato (`faro-mode`, el
+   *  patrón de `faro-lang`). Ausente = "completo": el Faro de siempre, entero — un
+   *  libro que ya existe no pierde ni una pieza el día que el campo nace. Lo escriben
+   *  SOLO el selector de Ajustes y la pantalla inicial de elección (cerca en
+   *  modos293.test.ts); la lectura canónica es `modeOf` en lib/faro/mode.ts. */
+  mode?: "esencial" | "ritmo" | "completo";
   debtGreenPct: number;
   debtYellowPct: number;
   emergencyMonths: number;

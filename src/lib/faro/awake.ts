@@ -1,4 +1,4 @@
-import { readAdvisor } from "./advisor";
+import { bookMode, readAdvisor } from "./advisor";
 import { convertMinor, formatMoney, formatPct } from "./money";
 import { savingsStock } from "./savings";
 import { keptTotal } from "./funds";
@@ -232,6 +232,13 @@ function hidden(dismissed: { id: string; reason: string }[], id: string, reason:
 export function wake(input: WakeInput): WakeResult {
   const lang = input.lang;
   const after = input.after;
+  // 3.2 (registro §3.8): la capa despierta habla por modo — los hallazgos de
+  // destino y de proyección son de Completo; los avisos de recálculo, en
+  // Esencial, solo nombran el hecho (ingreso anotado, línea borrada) sin
+  // cifras de meta, piso ni meses; el aviso de plan viejo nace en Ritmo.
+  const mode = bookMode(after);
+  const completo = mode === "completo";
+  const ritmoUp = mode !== "esencial";
   const display = after.settings.display;
   const rate = after.settings.rateE4;
   const snap = savingsPicture(after, input.monthKey);
@@ -307,7 +314,7 @@ export function wake(input: WakeInput): WakeResult {
   const fresh: string[] = [];
 
   const unassignedReason = `unassigned:${snap.unassigned}:${snap.savingsTotal}`;
-  if (snap.savingsTotal > 0 && snap.unassigned !== 0 && !hidden(dismissed, "unassigned", unassignedReason)) {
+  if (completo && snap.savingsTotal > 0 && snap.unassigned !== 0 && !hidden(dismissed, "unassigned", unassignedReason)) {
     const share = snap.savingsTotal > 0 ? (snap.unassigned / snap.savingsTotal) * 100 : null;
     const body = L(
       lang,
@@ -333,7 +340,7 @@ export function wake(input: WakeInput): WakeResult {
   };
   const reading = readAdvisor(after, input.monthKey, lang, safeNames);
   const essentials = reading.recurrentMinor;
-  for (const goal of goalsAfter) {
+  for (const goal of completo ? goalsAfter : []) {
     if (goal.totalMinor <= 0 || goal.years <= 0) continue;
     const old = goalsBefore.find((item) => item.id === goal.id);
     const changed = !old || old.totalMinor !== goal.totalMinor || old.years !== goal.years;
@@ -380,11 +387,17 @@ export function wake(input: WakeInput): WakeResult {
   if (createdIncomes.length && loud) {
     const added = createdIncomes.reduce((sum, line) => sum + viewOf(line, display, rate), 0);
     const names = createdIncomes.map((line) => line.concept || L(lang, "un ingreso", "an income")).join(", ");
-    notice = L(
-      lang,
-      `Actualizado porque anotaste ${names} (${added >= 0 ? "+" : ""}${fmt(added)}). Ahora la ${monthGoalName} quedó en ${fmt(snap.monthGoal)}; el ingreso piso (lo que entra casi seguro cada mes), en ${fmt(snap.floor)}; y lo que queda, en ${fmt(snap.left)}.`,
-      `Updated because you entered ${names} (${added >= 0 ? "+" : ""}${fmt(added)}). Now ${monthGoalName} is ${fmt(snap.monthGoal)}; the income floor (what almost certainly comes in each month) is ${fmt(snap.floor)}; and what is left is ${fmt(snap.left)}.`,
-    );
+    notice = !ritmoUp
+      ? L(
+          lang,
+          `Actualizado porque anotaste ${names} (${added >= 0 ? "+" : ""}${fmt(added)}).`,
+          `Updated because you entered ${names} (${added >= 0 ? "+" : ""}${fmt(added)}).`,
+        )
+      : L(
+          lang,
+          `Actualizado porque anotaste ${names} (${added >= 0 ? "+" : ""}${fmt(added)}). Ahora la ${monthGoalName} quedó en ${fmt(snap.monthGoal)}; el ingreso piso (lo que entra casi seguro cada mes), en ${fmt(snap.floor)}; y lo que queda, en ${fmt(snap.left)}.`,
+          `Updated because you entered ${names} (${added >= 0 ? "+" : ""}${fmt(added)}). Now ${monthGoalName} is ${fmt(snap.monthGoal)}; the income floor (what almost certainly comes in each month) is ${fmt(snap.floor)}; and what is left is ${fmt(snap.left)}.`,
+        );
   } else if (deleted.length && loud) {
     const name = deleted.map((line) => line.concept || L(lang, "una partida", "a line")).join(", ");
     notice = L(
@@ -392,20 +405,22 @@ export function wake(input: WakeInput): WakeResult {
       `Actualizado porque borraste ${name}: ese consejo ya no aplica y se corrigió con lo que quedó.`,
       `Updated because you deleted ${name}: that advice no longer applies and it was corrected with what remains.`,
     );
-  } else if (loud && uniqueEvents.includes("destino-movido")) {
+  } else if (ritmoUp && loud && uniqueEvents.includes("destino-movido")) {
     const move = beforeSnap ? snap.emergencia - beforeSnap.emergencia : snap.emergencia;
     if (move !== 0) {
       const months = essentials > 0 ? Math.abs(move) / essentials : null;
-      const monthBit = months === null
-        ? L(lang, " No hay esenciales anotados, así que no convierto el colchón en meses.", " There are no essentials on record, so the cushion is not turned into months.")
-        : L(lang, ` Tu colchón dejó de ser ${fmt(beforeSnap?.emergencia ?? 0)} y ahora cubre unos ${months.toFixed(2)} meses de esenciales.`, ` Your cushion is no longer ${fmt(beforeSnap?.emergencia ?? 0)} and now covers about ${months.toFixed(2)} months of essentials.`);
+      const monthBit = !completo
+        ? ""
+        : months === null
+          ? L(lang, " No hay esenciales anotados, así que no convierto el colchón en meses.", " There are no essentials on record, so the cushion is not turned into months.")
+          : L(lang, ` Tu colchón dejó de ser ${fmt(beforeSnap?.emergencia ?? 0)} y ahora cubre unos ${months.toFixed(2)} meses de esenciales.`, ` Your cushion is no longer ${fmt(beforeSnap?.emergencia ?? 0)} and now covers about ${months.toFixed(2)} months of essentials.`);
       notice = L(
         lang,
         `Actualizado porque asignaste ${fmt(Math.abs(move))} a Emergencia.${monthBit}`,
         `Updated because you assigned ${fmt(Math.abs(move))} to Emergency.${monthBit}`,
       );
     }
-  } else if (loud && uniqueEvents.includes("destino-editado")) {
+  } else if (completo && loud && uniqueEvents.includes("destino-editado")) {
     const goal = goalsAfter.find((item) => {
       const old = goalsBefore.find((prev) => prev.id === item.id);
       return !old || old.totalMinor !== item.totalMinor || old.years !== item.years;
@@ -437,7 +452,7 @@ export function wake(input: WakeInput): WakeResult {
   }
   if (notice && uniqueEvents.includes("destino-movido")) causes.long = notice;
 
-  const stalePlan = Boolean(input.planCopied && loud && (deleted.length > 0 || changedCards.length > 0 || fresh.length > 0));
+  const stalePlan = ritmoUp && Boolean(input.planCopied && loud && (deleted.length > 0 || changedCards.length > 0 || fresh.length > 0));
   const log: WakeLog = {
     at,
     event: uniqueEvents.join(" + ") || "sin-cambio",

@@ -28,7 +28,7 @@ import { PiecePlate } from "./fit-pick";
 import { Note } from "./finish";
 import { Hint } from "./hint";
 import { SaveNote } from "./fund-light";
-import { buildStream, periodRange, streamTotals, type Movement, type PeriodKind, type StreamFilters } from "@/lib/faro/historial";
+import { buildStream, intersectViewFilters, periodRange, streamTotals, type Movement, type PeriodKind, type StreamFilters } from "@/lib/faro/historial";
 import { hidePeriod as hidePeriodDryRun } from "@/lib/faro/descanso";
 import { namedIconFor, subIconFor } from "@/lib/faro/faces";
 import { categoryColor, subColorFor } from "@/lib/faro/colors";
@@ -138,7 +138,7 @@ export function StreamRow({ m, state, sel, anchor }: { m: Movement; state: Ledge
 }
 
 export function HistorialScreen() {
-  const { session, t, lang, fmt, names, confirm, hidePeriodRange, hideLineSelection } = useFaro();
+  const { session, t, lang, fmt, names, confirm, hidePeriodRange, hideLineSelection, has } = useFaro();
   const state = session?.ledger ?? null;
   const today = todayIso();
   const [lens, setLens] = useState<Lens>("month");
@@ -151,7 +151,12 @@ export function HistorialScreen() {
   const [minText, setMinText] = useState("");
   const [maxText, setMaxText] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [viewsOpen, setViewsOpen] = useState(false);
+  const [viewsOpenRaw, setViewsOpen] = useState(false);
+  // Etapa 3.3: las vistas guardadas son de Ritmo (hist.saved-views) — el
+  // estado crudo se conserva, pero lo abierto se lee ya intersectado con el
+  // modo: bajar de modo pliega el panel sin tocar ni el estado ni la copia
+  // del aparato, y al subir vuelve tal cual estaba.
+  const viewsOpen = viewsOpenRaw && has("hist.saved-views");
   const [viewName, setViewName] = useState("");
   const [views, setViews] = useState<SavedView[]>(readViews);
   const [shownDays, setShownDays] = useState(DAY_CHUNK);
@@ -193,16 +198,32 @@ export function HistorialScreen() {
     () => (lens === "range" ? { from: rangeFrom, to: rangeTo } : periodRange(lens, anchor, weekStart)),
     [lens, anchor, rangeFrom, rangeTo, weekStart],
   );
+  // Fo-4 (tres modos, etapa 3.3): los filtros vivos se intersectan con el modo
+  // AL APLICAR — un filtro cuya función duerme no filtra, venga del panel, de
+  // una vista guardada o de un estado anterior a una bajada de modo. El estado
+  // del dueño (f, los textos) no se reescribe: la intersección es de lectura
+  // (la memo se rearma con la sesión, que es como un cambio de modo llega).
+  const effF = useMemo(() => intersectViewFilters(f, has), [f, session]);
+  const canAmount = has("hist.filter-amount");
   const filters: StreamFilters = useMemo(() => {
-    const out: StreamFilters = { ...f, from: range.from, to: range.to };
-    const min = parseAmount(minText);
-    const max = parseAmount(maxText);
+    const out: StreamFilters = { ...effF, from: range.from, to: range.to };
+    const min = canAmount ? parseAmount(minText) : null;
+    const max = canAmount ? parseAmount(maxText) : null;
     if (min !== null && min > 0) out.minMinor = min; else delete out.minMinor;
     if (max !== null && max > 0) out.maxMinor = max; else delete out.maxMinor;
     if (text.trim()) out.text = text; else delete out.text;
     return out;
-  }, [f, range, minText, maxText, text]);
+  }, [effF, range, minText, maxText, text, canAmount]);
 
+  // Fo-2 (tres modos, etapa 3.3): las cuentas/tarjetas que el río conoce — el
+  // filtro de Cuenta nombra las tarjetas CON movimientos como cuentas de solo
+  // lectura; una tarjeta que nunca movió dinero no se ofrece (daría un río
+  // vacío y promete una cuenta que el libro no conoce). El río sin filtros es
+  // la fuente: lo apartado no cuenta como movimiento, por construcción.
+  const movedIds = useMemo(
+    () => new Set((state ? buildStream(state, {}) : []).map((m) => m.accountId).filter((x): x is string => !!x)),
+    [state],
+  );
   const stream = useMemo(() => (state ? buildStream(state, filters) : []), [state, filters]);
   const totals = useMemo(() => (state ? streamTotals(state, stream) : { inMinor: 0, outMinor: 0, netMinor: 0, count: 0 }), [state, stream]);
   const days = useMemo(() => {
@@ -223,7 +244,7 @@ export function HistorialScreen() {
   // Cyberpunk, el escaneo del borde de los totales — hist-temas.css). El texto
   // libre y los montos quedan fuera a propósito: teclear no debe ametrallar la
   // ceremonia con cada tecla.
-  const viewSig = [lens, range.from, range.to, JSON.stringify(f)].join("|");
+  const viewSig = [lens, range.from, range.to, JSON.stringify(effF)].join("|");
   const periodLabel = lens === "month"
     ? `${monthName(lang, Number(range.from.slice(5, 7)))} ${range.from.slice(0, 4)}`
     : lens === "year"
@@ -263,7 +284,7 @@ export function HistorialScreen() {
   const catalog = state.structure.catalog;
   const accounts = [
     ...catalog.filter((c) => c.kind === "acct").map((c) => ({ id: c.id, name: displayName(c, lang) })),
-    ...cardsOf(state).map((c) => ({ id: c.id, name: c.name })),
+    ...cardsOf(state).filter((c) => movedIds.has(c.id)).map((c) => ({ id: c.id, name: c.name })),
   ];
   const batches = [...new Set(buildStream(state, { origin: "import" }).map((m) => m.batchId).filter((b): b is string => !!b))];
 
@@ -271,12 +292,12 @@ export function HistorialScreen() {
   const chips: Chip[] = [];
   if (f.direction) chips.push({ key: "direction", label: t(`hist.f.${f.direction}`), clear: () => setF({ ...f, direction: undefined }) });
   if (f.categoryId) chips.push({ key: "category", label: `${names.cat(f.categoryId)}${f.subId ? ` · ${names.sub(f.subId)}` : ""}`, clear: () => setF({ ...f, categoryId: undefined, subId: undefined }) });
-  if (f.group) chips.push({ key: "group", label: t(f.group === "fixed" ? "hist.f.fixed" : "hist.f.variable"), clear: () => setF({ ...f, group: undefined }) });
-  if (f.merchantId) chips.push({ key: "merchant", label: names.catalog(f.merchantId) || f.merchantId, clear: () => setF({ ...f, merchantId: undefined }) });
-  if (f.accountId) chips.push({ key: "account", label: accounts.find((a) => a.id === f.accountId)?.name ?? f.accountId, clear: () => setF({ ...f, accountId: undefined }) });
-  if (f.origin) chips.push({ key: "origin", label: t(`hist.f.${f.origin}`), clear: () => setF({ ...f, origin: undefined, batchId: undefined }) });
-  if (f.batchId) chips.push({ key: "batch", label: `${t("hist.f.batch")} ${f.batchId}`, clear: () => setF({ ...f, batchId: undefined }) });
-  if (f.recurring != null) chips.push({ key: "recurring", label: t(f.recurring ? "hist.f.recYes" : "hist.f.recNo"), clear: () => setF({ ...f, recurring: undefined }) });
+  if (effF.group) chips.push({ key: "group", label: t(effF.group === "fixed" ? "hist.f.fixed" : "hist.f.variable"), clear: () => setF({ ...f, group: undefined }) });
+  if (effF.merchantId) chips.push({ key: "merchant", label: names.catalog(effF.merchantId) || effF.merchantId, clear: () => setF({ ...f, merchantId: undefined }) });
+  if (effF.accountId) chips.push({ key: "account", label: accounts.find((a) => a.id === effF.accountId)?.name ?? effF.accountId, clear: () => setF({ ...f, accountId: undefined }) });
+  if (effF.origin) chips.push({ key: "origin", label: t(`hist.f.${effF.origin}`), clear: () => setF({ ...f, origin: undefined, batchId: undefined }) });
+  if (effF.batchId) chips.push({ key: "batch", label: `${t("hist.f.batch")} ${effF.batchId}`, clear: () => setF({ ...f, batchId: undefined }) });
+  if (effF.recurring != null) chips.push({ key: "recurring", label: t(effF.recurring ? "hist.f.recYes" : "hist.f.recNo"), clear: () => setF({ ...f, recurring: undefined }) });
   if (filters.minMinor != null) chips.push({ key: "min", label: `${t("hist.f.min")} ${fmt(filters.minMinor)}`, clear: () => setMinText("") });
   if (filters.maxMinor != null) chips.push({ key: "max", label: `${t("hist.f.max")} ${fmt(filters.maxMinor)}`, clear: () => setMaxText("") });
   if (text.trim()) chips.push({ key: "text", label: `“${text.trim()}”`, clear: () => setText("") });
@@ -284,7 +305,9 @@ export function HistorialScreen() {
   const clearAll = () => { setF({}); setText(""); setMinText(""); setMaxText(""); };
   const saveViews = (next: SavedView[]) => { setViews(next); try { localStorage.setItem(VIEWS_KEY, JSON.stringify(next)); } catch { /* ignore */ } };
   const applyView = (v: SavedView) => {
-    const { from: _from, to: _to, text: vtext, minMinor, maxMinor, ...rest } = v.filters;
+    // Fo-4: la vista guardada se intersecta con el modo AL APLICAR — los
+    // filtros dormidos caen en silencio y la copia del aparato no se toca.
+    const { from: _from, to: _to, text: vtext, minMinor, maxMinor, ...rest } = intersectViewFilters(v.filters, has);
     setLens(v.lens);
     setAnchor(today);
     setF(rest);
@@ -316,6 +339,11 @@ export function HistorialScreen() {
   // modo ofrece ocultar ESE movimiento solo (S4) — la misma puerta de descanso
   // que el período, con su ventana. Ocultar hereda las guardas del período:
   // ventana honesta y commit deshacible.
+  // El descanso es Completo (archive.hide-*): fuera de Completo el río es
+  // lectura pura — sin presión larga, sin toque que oculte, sin barra de
+  // ocultar. Los motores quedan montados (los hooks no se condicionan); lo
+  // que el modo cierra es su cable con las filas.
+  const canRest = has("archive.hide-selection");
   const selection = useSelection();
   const lp = useLongPress((id) => (selection.mode ? selection.toggle(id) : selection.enter(id)));
   const rowTap = (m: Movement) => {
@@ -429,8 +457,10 @@ export function HistorialScreen() {
           <button type="button" className={`btn secondary hist-tool-btn${filtersOpen ? " is-on" : ""}`} data-anchor="hist-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((on) => !on)}>
             <SlidersHorizontal className="size-4" aria-hidden />{t("hist.filters")}{chips.length ? <b className="hist-tool-n">{chips.length}</b> : null}
           </button>
-          <button type="button" className={`btn secondary hist-tool-btn${viewsOpen ? " is-on" : ""}`} data-anchor="hist-views-btn" aria-expanded={viewsOpen} onClick={() => setViewsOpen((on) => !on)}>{t("hist.views")}</button>
-          <Hint topic="folios-filtros" alt />
+          {has("hist.saved-views") ? (
+            <button type="button" className={`btn secondary hist-tool-btn${viewsOpen ? " is-on" : ""}`} data-anchor="hist-views-btn" aria-expanded={viewsOpen} onClick={() => setViewsOpen((on) => !on)}>{t("hist.views")}</button>
+          ) : null}
+          {has("hist.saved-views") ? <Hint topic="folios-filtros" alt /> : null}
         </div>
         {chips.length ? (
           <div className="hist-chips">
@@ -483,6 +513,7 @@ export function HistorialScreen() {
                 </select>
               ) : null}
             </div>
+            {has("hist.filter-group") ? (
             <div className="hist-frow">
               <span className="hist-flab">{t("hist.f.group")}</span>
               <div className="chips">
@@ -491,6 +522,8 @@ export function HistorialScreen() {
                 {segBtn("g-var", f.group === "variable", () => setF({ ...f, group: "variable" }), t("hist.f.variable"))}
               </div>
             </div>
+            ) : null}
+            {has("hist.filter-store") ? (
             <div className="hist-frow">
               <span className="hist-flab">{t("hist.f.merchant")}</span>
               <select className="select hist-select" value={f.merchantId ?? ""} onChange={(e) => setF({ ...f, merchantId: e.target.value || undefined })} aria-label={t("hist.f.merchant")}>
@@ -498,6 +531,8 @@ export function HistorialScreen() {
                 {catalog.map((c) => <option key={c.id} value={c.id}>{displayName(c, lang)}</option>)}
               </select>
             </div>
+            ) : null}
+            {has("hist.filter-account") ? (
             <div className="hist-frow">
               <span className="hist-flab">{t("hist.f.account")}</span>
               <select className="select hist-select" value={f.accountId ?? ""} onChange={(e) => setF({ ...f, accountId: e.target.value || undefined })} aria-label={t("hist.f.account")}>
@@ -505,11 +540,15 @@ export function HistorialScreen() {
                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
+            ) : null}
+            {canAmount ? (
             <div className="hist-frow">
               <span className="hist-flab">{t("hist.f.amount")}</span>
               <input className="field hist-amt" inputMode="decimal" value={minText} onChange={(e) => setMinText(e.target.value)} placeholder={t("hist.f.min")} aria-label={t("hist.f.min")} />
               <input className="field hist-amt" inputMode="decimal" value={maxText} onChange={(e) => setMaxText(e.target.value)} placeholder={t("hist.f.max")} aria-label={t("hist.f.max")} />
             </div>
+            ) : null}
+            {has("hist.filter-origin") ? (
             <div className="hist-frow">
               <span className="hist-flab">{t("hist.f.origin")}</span>
               <div className="chips">
@@ -525,6 +564,8 @@ export function HistorialScreen() {
                 </select>
               ) : null}
             </div>
+            ) : null}
+            {has("hist.filter-recurring") ? (
             <div className="hist-frow">
               <span className="hist-flab">{t("hist.f.recurring")}</span>
               <div className="chips">
@@ -533,6 +574,7 @@ export function HistorialScreen() {
                 {segBtn("r-no", f.recurring === false, () => setF({ ...f, recurring: false }), t("hist.f.recNo"))}
               </div>
             </div>
+            ) : null}
           </div>
         ) : null}
       </header>
@@ -548,7 +590,7 @@ export function HistorialScreen() {
                   m={m}
                   state={state}
                   anchor={di === 0 && mi === 0 ? "hist-row" : undefined}
-                  sel={{ mode: selection.mode, marked: selection.sel.has(m.lineId), bind: lp.bind, consumeClick: lp.consumeClick, onTap: rowTap }}
+                  sel={canRest ? { mode: selection.mode, marked: selection.sel.has(m.lineId), bind: lp.bind, consumeClick: lp.consumeClick, onTap: rowTap } : undefined}
                 />
               ))}
             </section>
@@ -561,14 +603,14 @@ export function HistorialScreen() {
         <button type="button" className="btn secondary hist-more" onClick={() => setShownDays((n) => n + DAY_CHUNK)}>{t("hist.more")}</button>
       ) : null}
 
-      {!selection.mode ? (
+      {canRest && !selection.mode ? (
         <div className="hist-hidebar">
           <button type="button" className="btn secondary hist-hide-btn" disabled={!preview.count} onClick={askHide}>
             <EyeOff className="size-4" aria-hidden />{hideLabel}
           </button>
         </div>
       ) : null}
-      {selection.mode ? (
+      {canRest && selection.mode ? (
         <SelectionBar count={selection.count} onExit={selection.exit}>
           <button type="button" className="btn secondary" disabled={!selection.count} onClick={askHideSel} data-testid="sel-hide">
             <EyeOff className="size-4" aria-hidden />{t("sel.hide")}

@@ -43,7 +43,7 @@ import "./hist-temas.css";
 
 export function ArchivoScreen() {
   const api = useFaro();
-  const { session, t, lang, fmt, names, commit, confirm, restoreRestingSpan, deleteRestingSpan, deleteRestingLineSelection, exportJson, recordLine } = api;
+  const { session, t, lang, fmt, names, commit, confirm, restoreRestingSpan, deleteRestingSpan, deleteRestingLineSelection, exportJson, recordLine, has } = api;
   const user = useFaroUser();
   const state = session?.ledger ?? null;
   const [dueRows, setDueRows] = useState<DueFile[]>(() => readDueFileRows(browserPackStorage()));
@@ -99,6 +99,16 @@ export function ArchivoScreen() {
     });
   };
 
+  // Fo-1 (tres modos, etapa 3.3): los grupos del Archivo se quedan con sus
+  // datos en todo modo y Restaurar funciona siempre (fallo 15: restaurar lo
+  // propio es existencia, no gestión) — lo restaurado cae a la cara lectora
+  // del modo, nunca a la superficie editable (la cara lectora vive en Libros).
+  // Los verbos de los apartados son otra familia: restaurar/borrar un período
+  // y borrar líneas son Completo (archive.restore-span / delete-span /
+  // delete-lines); fuera de Completo el grupo se lee como dato mudo, con su
+  // explicación llana, y la puerta de correo queda intacta donde vive.
+  const canSpanVerbs = has("archive.restore-span");
+  const canDeleteLines = has("archive.delete-lines");
   // El motor de selección sobre las líneas apartadas (Oscar, 2026-11-13):
   // sostener entra al modo, tocar marca, y UNA sola puerta escrita cubre la
   // selección entera — la misma guarda del borrado de período, jamás más débil.
@@ -180,6 +190,7 @@ export function ArchivoScreen() {
       {spans.length ? (
         <section className="arch-group">
           {groupHead(t("arch.spans"), spans.length)}
+          {canSpanVerbs ? null : <p className="arch-meta">{t("arch.spans.muteNote")}</p>}
           {spans.map((e, i) => (
             <article key={e.span.id} className="arch-card" data-anchor={i === 0 ? "arch-card" : undefined}>
               <div className="arch-card-top">
@@ -199,17 +210,17 @@ export function ArchivoScreen() {
                     : cat
                       ? categoryColor(cat.id, cat.color)
                       : "var(--faint)";
-                  const marked = selection.sel.has(line.id);
+                  const marked = canDeleteLines && selection.sel.has(line.id);
                   return (
                     <div
                       key={line.id}
                       className={`hist-row${marked ? " is-selected" : ""}`}
                       data-line-id={line.id}
-                      {...lp.bind(line.id)}
-                      onClick={() => { if (!lp.consumeClick()) lineTap(line); }}
+                      {...(canDeleteLines ? lp.bind(line.id) : {})}
+                      onClick={canDeleteLines ? () => { if (!lp.consumeClick()) lineTap(line); } : undefined}
                       style={{ "--selc": tone } as CSSProperties}
                     >
-                      {selection.mode ? <SelMark on={marked} /> : null}
+                      {canDeleteLines && selection.mode ? <SelMark on={marked} /> : null}
                       {line.subId && cat
                         ? <PiecePlate small color={subColorFor(state.structure, line.categoryId, line.subId)} icon={subIconFor(state.structure, line.categoryId, line.subId)} />
                         : cat
@@ -240,10 +251,12 @@ export function ArchivoScreen() {
                   );
                 })}
               </div>
+              {canSpanVerbs ? (
               <div className="arch-acts">
                 {restoreBtn(() => askRestoreSpan(e))}
                 <button type="button" className="btn danger" data-anchor="arch-delete" onClick={() => askDeleteSpan(e)}><Trash2 aria-hidden />{t("arch.delete")}</button>
               </div>
+              ) : null}
             </article>
           ))}
         </section>
@@ -321,7 +334,7 @@ export function ArchivoScreen() {
           ))}
         </section>
       ) : null}
-      {selection.mode ? (
+      {canDeleteLines && selection.mode ? (
         <SelectionBar count={selection.count} onExit={selection.exit}>
           <button
             type="button"

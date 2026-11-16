@@ -3,7 +3,7 @@
 // Pure and read-only. Money is integer minor units in the view currency; every average is an exact integer division.
 import { convertMinor, formatMoney } from "./money.ts";
 import { adviceRules, type Rule } from "./rules.ts";
-import { readAdvisor } from "./advisor.ts";
+import { bookMode, readAdvisor, type BookMode } from "./advisor.ts";
 import { debtSeries, lentOf, lentState, payoffPlan, simulatePlan, type PlanDebt } from "./debts.ts";
 import type { Lang, LedgerState, Line, SectionId } from "./types.ts";
 
@@ -110,8 +110,17 @@ export function pctOf(a: number, b: number): number | null {
   return b ? idiv(a * 100, b) : null;
 }
 
+/** El modo mínimo de cada hallazgo propio de área (registro §3.7). Las reglas
+ *  del Asesor que se reparten por área heredan el filtro de adviceRules. */
+const ITEM_MIN: Record<string, BookMode> = {
+  "owed-late": "esencial", "income-steady": "ritmo", "save-aside": "ritmo",
+  "retiro-paused": "ritmo", "remit-up": "ritmo", "loans-plan": "completo", "loans-noplan": "completo",
+};
+const MODE_RANK: Record<BookMode, number> = { esencial: 0, ritmo: 1, completo: 2 };
+
 /** Chart + caption + calm sentence for an area (no rule needed). Rule items are added by areaReport. */
 export function areaPicture(state: LedgerState, key: string, lang: string, area: AreaId, options: AreaOptions = {}, extra: { essentials?: number } = {}): { chart: AreaChart; caption: string; calm: string } {
+  const mode = bookMode(state);
   const { display, rateE4 } = state.settings;
   const money = (n: number) => formatMoney(n, display, lang as "es" | "en");
   const today = options.today ?? new Date();
@@ -133,7 +142,9 @@ export function areaPicture(state: LedgerState, key: string, lang: string, area:
         ? nm(`Este mes llevas ${money(now)}. Es tu primer mes con datos aquí; desde el próximo te comparo con tu promedio.`, `This month you're at ${money(now)}. It's your first month with data here; from next month I compare it with your average.`)
         : p !== null && p <= 10
           ? nm(`Nada que vigilar: ${money(now)} este mes, en línea con tu promedio de ${money(avg)}.`, `Nothing to watch: ${money(now)} this month, in line with your ${money(avg)} average.`)
-          : nm(`Este mes ${money(now)}, ${p}% ${d > 0 ? "más" : "menos"} que tu promedio de ${money(avg)}.`, `This month ${money(now)}, ${p}% ${d > 0 ? "above" : "below"} your ${money(avg)} average.`);
+          : mode === "esencial"
+            ? nm(`Este mes ${money(now)}; tu promedio es ${money(avg)}.`, `This month ${money(now)}; your average is ${money(avg)}.`)
+            : nm(`Este mes ${money(now)}, ${p}% ${d > 0 ? "más" : "menos"} que tu promedio de ${money(avg)}.`, `This month ${money(now)}, ${p}% ${d > 0 ? "above" : "below"} your ${money(avg)} average.`);
     return { chart: bars.some((b) => b.minor > 0) ? { type: "bars", bars, ref: avg, refKind: "avg", unit: "money" } : null, caption, calm };
   }
   if (area === "meta") {
@@ -145,7 +156,9 @@ export function areaPicture(state: LedgerState, key: string, lang: string, area:
     const target = options.goal?.totalMinor ?? 0;
     const ahead: { key: string; minor: number }[] = [];
     let endKey = "";
-    if (target > stock && pace > 0) {
+    // El tramo punteado es proyección (meta-path, Completo): fuera de
+    // Completo el camino no se dibuja hacia adelante (A-5).
+    if (mode === "completo" && target > stock && pace > 0) {
       const need = Math.ceil((target - stock) / pace);
       const n = Math.min(need, 36);
       const step = Math.max(1, Math.ceil(n / 6));
@@ -204,7 +217,7 @@ export function areaPicture(state: LedgerState, key: string, lang: string, area:
     const past = series.map((s) => ({ key: s.key, minor: s.owe }));
     const ahead: { key: string; minor: number }[] = [];
     let endKey = "";
-    const trace = plan.chosen ? planTrace(plan.debts, plan.budget, plan.order) : [];
+    const trace = plan.chosen && mode === "completo" ? planTrace(plan.debts, plan.budget, plan.order) : [];
     if (trace.length && past.length) {
       const now = past[past.length - 1]!.key;
       const step = Math.max(1, Math.ceil(trace.length / 8));
@@ -216,11 +229,17 @@ export function areaPicture(state: LedgerState, key: string, lang: string, area:
     const caption = ahead.length
       ? nm(`Lo que debes en préstamos y tarjetas: tres meses atrás y, punteado, cómo baja con tu plan de pago hasta quedar en cero.`, `What you owe on loans and cards: three months back and, dotted, how it falls with your payoff plan until it reaches zero.`)
       : nm(`Lo que debes en préstamos y tarjetas en los últimos tres meses.`, `What you owe on loans and cards over the last three months.`);
+    // La frase calma nombra el plan solo en Completo (debt-free es su fila):
+    // fuera, el hecho desnudo — lo que se debe.
     const calm = owe <= 0
-      ? nm(`No debes préstamos ni tarjetas. Si tomas uno, aquí verás cuándo quedas libre.`, `No loans or card balances. If you take one, here you'll see when you're free.`)
-      : plan.chosen
+      ? mode === "completo"
+        ? nm(`No debes préstamos ni tarjetas. Si tomas uno, aquí verás cuándo quedas libre.`, `No loans or card balances. If you take one, here you'll see when you're free.`)
+        : nm(`No debes préstamos ni tarjetas.`, `No loans or card balances.`)
+      : plan.chosen && mode === "completo"
         ? nm(`Debes ${money(owe)}; con tu plan quedas libre en ${plan.chosen.months} ${plan.chosen.months === 1 ? "mes" : "meses"}.`, `You owe ${money(owe)}; with your plan you're free in ${plan.chosen.months} ${plan.chosen.months === 1 ? "month" : "months"}.`)
-        : nm(`Debes ${money(owe)}. Pon cuánto puedes pagar al mes en el Plan de pago y te digo cuándo quedas libre.`, `You owe ${money(owe)}. Set what you can pay a month in the Payoff plan and I'll tell you when you're free.`);
+        : !plan.chosen && mode === "completo"
+          ? nm(`Debes ${money(owe)}. Pon cuánto puedes pagar al mes en el Plan de pago y te digo cuándo quedas libre.`, `You owe ${money(owe)}. Set what you can pay a month in the Payoff plan and I'll tell you when you're free.`)
+          : nm(`Debes ${money(owe)}.`, `You owe ${money(owe)}.`);
     return { chart: past.length && owe > 0 ? { type: "path", past, ahead, target: 0, endKey } : null, caption, calm };
   }
   // Central (nothing picked): what was left at the end of each month.
@@ -303,7 +322,7 @@ export function areaItems(state: LedgerState, key: string, lang: string, names: 
   if (AREA_SECTION[area] && AREA_SECTION[area] !== "income" && !out.some((r) => r.id === "category" || r.id === "outlier")) {
     for (const r of adviceRules(scoped(state, area), key, lg, names, { today })) if ((r.id === "category" || r.id === "outlier") && !out.some((x) => x.id === r.id)) out.push(r);
   }
-  const own = ownItems(state, key, lang, area, today);
+  const own = ownItems(state, key, lang, area, today).filter((it) => MODE_RANK[bookMode(state)] >= MODE_RANK[ITEM_MIN[it.id] ?? "completo"]);
   const rank: Record<AreaTone, number> = { bad: 0, warn: 1, calm: 2, good: 3 };
   const items: AreaItem[] = [...out.map((r) => ({ id: r.id, tone: r.tone, title: r.title, kicker: r.kicker, num: r.num, say: r.say, fill: r.fill, topic: r.topic, go: r.go as AreaGo, act: "" })), ...own]
     .sort((a, b) => rank[a.tone] - rank[b.tone]);

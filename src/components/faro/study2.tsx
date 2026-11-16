@@ -17,7 +17,10 @@ const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
 
 /* ── Con el tiempo: one card instead of five ─────────────────────────── */
 export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[]; span: Span; onSpan: (s: Span) => void; activeKey: string }) {
-  const { fmt, lang } = useFaro();
+  const { fmt, lang, has } = useFaro();
+  // La forma simple (Esencial, fallo 28) es la semana en dinero, sin control
+  // de tramos ni frase de cada-100: el Estudio pasa span="week" en ese modo.
+  const simple = !has("study.flow");
   const [pick, setPick] = useState<string | null>(null);
   const m = (v: number) => Math.round(v * 100);
   const rows = points.map((p) => ({ ...p, net: p.income - p.expense }));
@@ -38,6 +41,7 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
   return (
     <section className="card s2-time">
       <Head title={L(lang, "Entra, sale y queda", "In, out and left")} />
+      {!simple ? (
       <div className="s2-seg" role="tablist">
         {(["week", "month", "year"] as const).map((id) => (
           <button key={id} type="button" role="tab" aria-selected={span === id} onClick={() => { onSpan(id); setPick(null); }}>
@@ -45,6 +49,7 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
           </button>
         ))}
       </div>
+      ) : null}
       {sel ? (
         <div className="s2-readout" aria-live="polite">
           <p className="s2-when">{sel.label}</p>
@@ -57,7 +62,9 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
             {sel.income <= 0
                 ? L(lang, "Salió dinero sin que entrara nada en este periodo.", "Money went out with nothing coming in this period.")
                 : sel.net >= 0
-                  ? L(lang, `De cada C$100 que entraron, te quedaron C$${pct}.`, `Of every 100 that came in, ${pct} stayed with you.`)
+                  ? simple
+                    ? L(lang, `Te quedaron ${fmt(m(sel.net))}.`, `${fmt(m(sel.net))} stayed with you.`)
+                    : L(lang, `De cada C$100 que entraron, te quedaron C$${pct}.`, `Of every 100 that came in, ${pct} stayed with you.`)
                   : L(lang, `Gastaste ${fmt(m(-sel.net))} más de lo que entró.`, `You spent ${fmt(m(-sel.net))} more than came in.`)}
           </p>}
         </div>
@@ -96,7 +103,12 @@ export function TimeCard({ points, span, onSpan, activeKey }: { points: Point[];
 
 /* ── Ahorro y colchón: a voyage to the lighthouse, a jar, and a what-if dial ─ */
 export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Coach; pockets: { id: string; name: string; minor: number; color: string }[]; goal: number; have: number; pledged: number }) {
-  const { fmt, lang } = useFaro();
+  const { fmt, lang, has } = useFaro();
+  // X-11: la tarjeta se parte por sus filas del registro — el viaje y el dial
+  // «¿y si…?» son de Completo (cushion-dial), «Lo comprometido» también
+  // (study.committed); el frasco del mes y los bolsillos son de Ritmo. En
+  // Ritmo la cabeza es la del frasco, y ningún bloque nombra a otro.
+  const dial = has("study.cushion-dial");
   // 1.3.290 (modelo de ahorros, oleada 4 — §4.4): `have` es Lo guardado desde la partición
   // (lo pasa Study, ya no se suma de las barras) y los meses salen del mismo colchón de §3:
   // una frase, un numerador. Lo comprometido va en su línea compañera, abajo.
@@ -130,7 +142,11 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
   const done = reach >= 1;
   return (
     <section className="card s2-cushion">
-      <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If pay stopped tomorrow")} />
+      {dial
+        ? <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If pay stopped tomorrow")} />
+        : <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Este mes en tu ahorro", "This month in your savings")} />}
+      {dial ? (
+      <>
       <div className={`s2-voyage${done ? " is-home" : ""}`}>
         <svg viewBox="0 0 320 124" role="img" aria-label={L(lang, `Cubres ${covered.toFixed(1).replace(/\.0$/, "")} de ${target} meses`, `${covered.toFixed(1).replace(/\.0$/, "")} of ${target} months covered`)}>
           <defs>
@@ -193,8 +209,10 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
             ? L(lang, `Llegaste al faro: lo guardado (${fmt(have)}) cubre ${covered.toFixed(1).replace(/\.0$/, "")} meses de lo básico.`, `You reached the lighthouse: your savings (${fmt(have)}) cover ${covered.toFixed(1).replace(/\.0$/, "")} months of basics.`)
             : L(lang, `Lo básico te cuesta ${fmt(need)} al mes. El faro está a ${target} meses: ${fmt(target * need)} guardados.`, `Basics cost ${fmt(need)} a month. The lighthouse is ${target} months out: ${fmt(target * need)} saved.`)}
       </p>
+      </>
+      ) : null}
 
-      {pledged > 0 ? (
+      {pledged > 0 && has("study.committed") ? (
         <div className="s2-committed">
           <button type="button" className="s2-committed-row" data-anchor="study-committed" aria-expanded={showCommitted} onClick={() => setShowCommitted((v) => !v)}>
             <span>{L(lang, "Lo comprometido", "Committed")}</span>
@@ -206,6 +224,7 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
         </div>
       ) : null}
 
+      {has("study.month-jar") ? (
       <div className="s2-month">
         <div className="s2-jar" aria-hidden>
           <div className="s2-jar-glass">
@@ -230,8 +249,9 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
           </p>
         </div>
       </div>
+      ) : null}
 
-      {months !== null && missing > 0 ? (
+      {dial && months !== null && missing > 0 ? (
         <div className="s2-whatif" data-anchor="whatif">
           <p className="s2-whatif-q"><span className="lab-head">{L(lang, "¿Y si apartara cada mes…?", "What if I saved each month…?")}<Hint topic="y-si-apartara" avoid=".s2-whatif" /></span></p>
           <div className="s2-whatif-amt num serif">{fmt(per)}</div>
@@ -248,7 +268,7 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
         </div>
       ) : null}
 
-      {pockets.some((p) => p.minor > 0) ? (
+      {has("study.pockets-list") && pockets.some((p) => p.minor > 0) ? (
         <div className="s2-pockets">
           {pockets.filter((p) => p.minor > 0).map((p) => (
             <div key={p.id} className="s2-pocket">
@@ -265,11 +285,16 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
 
 /* ── Topes: spent vs what you planned, in plain words ─────────────────── */
 export function LimitsCard({ rows }: { rows: { name: string; budget: number; actual: number }[] }) {
-  const { fmt, lang } = useFaro();
+  const { fmt, lang, has } = useFaro();
   return (
     <section className="card s2-limits">
       <Head kicker={L(lang, "Tu plan", "Your plan")} title={L(lang, "¿Vas dentro del tope?", "Within your limits?")} />
-      <p className="pano-lead">{L(lang, "Cuánto ya gastaste de lo que te cabe en cada grupo, después de apartar tu ahorro.", "How much of each group's room you've used, after setting savings aside.")}</p>
+      {/* E-6: en Ritmo el lead habla de lo que queda por gastar, sin nombrar el
+          apartado como función; la forma de Completo lo nombra. El semáforo
+          (85% / más de 100%) no se toca. */}
+      <p className="pano-lead">{has("study.cushion-dial")
+        ? L(lang, "Cuánto ya gastaste de lo que te cabe en cada grupo, después de apartar tu ahorro.", "How much of each group's room you've used, after setting savings aside.")
+        : L(lang, "De lo que te queda por gastar, así va cada categoría.", "Of what's left for you to spend, here's how each category is doing.")}</p>
       {rows.map((r) => {
         const used = r.budget > 0 ? (r.actual / r.budget) * 100 : r.actual > 0 ? 150 : 0;
         const over = r.actual > r.budget;

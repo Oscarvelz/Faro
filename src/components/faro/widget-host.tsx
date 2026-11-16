@@ -84,6 +84,34 @@ export const WIDGET_PLACES: Record<WidgetGo, GoLike> = {
   "vault-loans": { screen: "vault-owe" },
 };
 
+/** El tema del Manual de cada destino del widget (etapa 2, tres modos): el
+ *  salto del widget pasa por goTopic como todo salto, y goTopic necesita el
+ *  tema del DESTINO — si el destino duerme en el modo de la persona, el salto
+ *  cae a la explicación, que es ese tema. (Antes todo toque pasaba el id
+ *  «widget», que no es ningún tema: el localizador de foco por tema no
+ *  encontraba nada y la caída no habría tenido explicación propia.) */
+export const WIDGET_TOPICS: Record<WidgetGo, string> = {
+  desk: "widget-android",
+  pagos: "pagos",
+  cobros: "cobros",
+  "add-in": "widget-android",
+  "add-out": "widget-android",
+  tools: "mesa-cambio",
+  stats: "estudio",
+  income: "ingresos",
+  fixed: "fijos",
+  variable: "variables",
+  shops: "compras",
+  subs: "cuotas",
+  "vault-save": "ahorros",
+  "vault-meta": "meta",
+  "vault-retiro": "retiro",
+  "vault-emergencia": "emergencia",
+  "vault-owed": "aa-cobros",
+  "vault-owe": "debo",
+  "vault-loans": "prestamos",
+};
+
 /** Press Central's + or − once it is on screen (the same tap a finger makes: its list opens). */
 function pressCorner(anchor: "desk-plus" | "desk-minus") {
   const t0 = Date.now();
@@ -100,6 +128,7 @@ function pressCorner(anchor: "desk-plus" | "desk-minus") {
 
 export default function WidgetHost() {
   const { session, lang, goTopic, commit, userId } = useFaroRoot();
+  const { has } = useFaro();
   const ledger = session?.ledger ?? null;
   const live = useRef({ ledger, lang });
   live.current = { ledger, lang };
@@ -180,18 +209,28 @@ export default function WidgetHost() {
     const take = () => {
       let go = "";
       try { go = n.takeOpen?.() ?? ""; } catch { go = ""; }
-      const place = (WIDGET_PLACES as Record<string, GoLike>)[go];
+      let place = (WIDGET_PLACES as Record<string, GoLike>)[go];
       if (!place) return;
-      if (go === "vault-loans") preferOweTab("loans");
-      else if (go === "vault-owe") preferOweTab("dues");
-      goTopic("widget", place);
+      // Etapa 3.3 (T-1): sin la escala de deudas (Esencial), los destinos del
+      // widget se remapean a donde su hecho se lee — el toque de una cuota cae
+      // en Central, donde las cuotas se leen en ese modo, y el de préstamos o
+      // deudas entra por la puerta vault-owe, que goTopic admite por
+      // debt.facts (Esencial) y Libros pinta como la cara lectora. Desde Ritmo
+      // el destino y su pestaña son los de siempre.
+      const scale = has("debt.scale");
+      if (!scale && go === "pagos") place = { screen: "desk" };
+      if (scale && go === "vault-loans") preferOweTab("loans");
+      else if (scale && go === "vault-owe") preferOweTab("dues");
+      // Etapa 2: el salto se valida en goTopic contra el modo; el tema que lo
+      // acompaña es el del destino (WIDGET_TOPICS), su explicación si duerme.
+      goTopic((WIDGET_TOPICS as Record<string, string>)[go] ?? "widget-android", place);
       if (go === "add-in") pressCorner("desk-plus");
       if (go === "add-out") pressCorner("desk-minus");
     };
     take();
     window.addEventListener("faronative-open", take);
     return () => window.removeEventListener("faronative-open", take);
-  }, [hasSession, goTopic]);
+  }, [hasSession, goTopic, has]);
 
   // Apuntes rápidos del widget (línea de ventanas, 2026-11-12): los + / − ya no abren la app —
   // el shell guarda cada apunte en su cola y aquí se archivan en el libro por el camino normal
@@ -300,7 +339,7 @@ export default function WidgetHost() {
  * grupos) nace y muere con el pliegue de la tarjeta, como su contenido.
  */
 export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { t, session, confirm } = useFaro();
+  const { t, session, confirm, has } = useFaro();
   const { lang } = useFaroRoot();
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const [pref, setPref] = useState<string | null>(hidePref);
@@ -335,7 +374,10 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
   // solo dentro de la app Android (fuera no hay widget que fotografiar) y solo si
   // el equipo guarda un parte: así un «la foto no se actualizó» se diagnostica solo.
   const pushRec = android ? parseWidgetPushRecord(personalGet(WIDGET_LASTPUSH_KEY)) : null;
-  const pushLine = !pushRec ? null : !pushRec.sent
+  // Etapa 3.3 (J-6): el parte del último empujón es un diagnóstico de Completo
+  // (widget.last-push) — fuera de ese modo la línea no se pinta; el parte sigue
+  // registrándose en el equipo y reaparece al volver.
+  const pushLine = !has("widget.last-push") || !pushRec ? null : !pushRec.sent
     ? t(pushRec.why === "pack" ? "widget.push.fail.pack" : pushRec.why === "nopack" ? "widget.push.fail.nopack" : "widget.push.fail.error")
     : (() => {
         const mins = Math.max(0, Math.floor((Date.now() - Date.parse(pushRec.at)) / 60000));
@@ -428,12 +470,19 @@ function PinGroup({ title, children }: { title: string; children: ReactNode }) {
  *    la misma que decide en qué tarjeta de apuntes vive cada fija.
  */
 function WidgetPinsSection() {
-  const { t, session, commit, names, confirm } = useFaro();
+  const { t, session, commit, names, confirm, has } = useFaro();
   const { lang } = useFaroRoot();
   const [q, setQ] = useState("");
   const ledger = session?.ledger ?? null;
   if (!ledger) return null;
   const pins = ledger.settings.widgetPins ?? [];
+  // Etapa 3.3 (J-6): gestionar las fijas es de Ritmo (widget.pins-manage) y el
+  // buscador que fija desde el catálogo es de Completo (widget.pin-from-
+  // catalog). En Esencial la sección enseña las fijas como filas mudas — se
+  // ven, se explican y no se tocan; la lista guardada no cambia y las fijas
+  // vuelven a la foto del widget al subir de modo.
+  const canManage = has("widget.pins-manage");
+  const canSearch = has("widget.pin-from-catalog");
   const label = (p: { c: string; s: string }) => (p.s ? `${names.cat(p.c)} · ${names.sub(p.s)}` : names.cat(p.c)) || p.c;
   // 1.3.260 (pedido de Oscar): Desfijar también pregunta — esta lista es un
   // asiento inmediato, así que la ventana de la casa llega antes de la
@@ -507,7 +556,7 @@ function WidgetPinsSection() {
       <span className="manual-row-text">
         <strong>{names.catalog(p.store as string) || p.store}</strong>
       </span>
-      <button type="button" className="btn ghost" onClick={() => askUnpin(names.catalog(p.store as string) || (p.store as string), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string)))}>{t("widget.pin.remove")}</button>
+      {canManage ? <button type="button" className="btn ghost" onClick={() => askUnpin(names.catalog(p.store as string) || (p.store as string), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleStorePin(s.settings.widgetPins, p.store as string) } }), names.catalog(p.store as string)))}>{t("widget.pin.remove")}</button> : null}
     </div>
   ) : (
     <div key={`${p.c}|${p.s}`} className="manual-row aj-row smp-row">
@@ -515,7 +564,7 @@ function WidgetPinsSection() {
       <span className="manual-row-text">
         <strong>{label(p)}</strong>
       </span>
-      <button type="button" className="btn ghost" onClick={() => askUnpin(label(p), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p)))}>{t("widget.pin.remove")}</button>
+      {canManage ? <button type="button" className="btn ghost" onClick={() => askUnpin(label(p), () => commit((s) => ({ ...s, settings: { ...s.settings, widgetPins: toggleWidgetPin(s.settings.widgetPins, p.c, p.s) } }), label(p)))}>{t("widget.pin.remove")}</button> : null}
     </div>
   );
   // La fila de un resultado: la fila entera es el gesto (elegirla abre la
@@ -558,15 +607,22 @@ function WidgetPinsSection() {
           enseña siempre el libro real (ley de 1.3.237) y una fija del
           ejemplo jamás llega a la tarjeta de apuntes. */}
       {sampleOn() ? <span className="aj-sub wpin-note">{t("settings.widgetpins.sample")}</span> : null}
+      {/* Etapa 3.3 (J-6): en Esencial las fijas se leen y se explican; la
+          gestión vive en Ritmo y la nota lo dice en el registro mudo de la
+          sección, antes de la lista. */}
+      {!canManage ? <span className="aj-sub wpin-note">{t("widget.pins.muteNote")}</span> : null}
       {/* 1.3.267: el buscador del tercer asiento — la pastilla de búsqueda de
           la casa (la del Historial), con su ✕ para limpiarla. Busca sobre la
           Estructura viva; los resultados cuelgan bajo el campo, agrupados
-          por signo como la lista de fijadas. */}
+          por signo como la lista de fijadas. Etapa 3.3: el buscador fija
+          desde el catálogo (Completo) — fuera de ese modo no se pinta. */}
+      {canSearch ? (
       <label className="search-pill wpin-search">
         <Search className="size-4" aria-hidden />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("settings.widgetpins.search")} aria-label={t("settings.widgetpins.search")} />
         {q ? <button type="button" className="wpin-x" aria-label={t("hist.clearFilters")} onClick={() => setQ("")}><X className="size-4" /></button> : null}
       </label>
+      ) : null}
       {searching ? (
         results.inn.length || results.out.length ? (
           <>

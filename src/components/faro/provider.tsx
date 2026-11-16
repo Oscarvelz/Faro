@@ -26,6 +26,9 @@ import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
 import { isPureSample, stripSample, withSampleArc } from "@/lib/faro/sample";
 import { dataMode, sampleOn, sealedOn, stageOn, takeSwitchRemount } from "@/lib/faro/samplemode";
+import { featureForGo, featureMinMode, hasFeature, isMode, modeOf, type FeatureId, type Mode } from "@/lib/faro/mode";
+import { ModeGate } from "./mode-gate";
+import { importToast } from "./bank-dock";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
 import "@/lib/manual/back";
@@ -176,6 +179,13 @@ export type Api = {
   backName: () => string;
   /** Open the manual at the cover ("") or at an entry. Always a new history step. */
   openManual: (id?: string) => void;
+  /** El modo de uso de la persona (etapa 2): el filtro de lectura del sistema
+   *  entero. Ausente en el libro = Completo (modeOf). */
+  mode: Mode;
+  /** HasFeature (etapa 2): ¿esta función vive en el modo de la persona? El
+   *  ÚNICO punto por el que las superficies preguntan — nadie filtra por su
+   *  cuenta contra el registro (cerca de grep en modos294.test.ts). */
+  has: (feature: FeatureId) => boolean;
   /** Jump to where a topic lives (screen, fold, element). `from` = the manual entry being read, so back lands on it. */
   goTopic: (id: string, go: GoLike, from?: string) => void;
   /** Make the current spot a step, before an in-page jump. */
@@ -332,6 +342,15 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const tabBlockedRef = useRef(false);
   const tabAdoptRevRef = useRef<number | null>(null);
   const [tabBanner, setTabBanner] = useState(false);
+  // La pantalla inicial de elección (tres modos, D-1): nace armada SOLO si el
+  // arranque no encontró paquete alguno (cuenta nueva en este aparato) y se
+  // resuelve tras la primera sincronía — si la nube trae un libro, ese libro ya
+  // existe y jamás la ve. Vive aquí, hermana de la puerta del candado: antes de
+  // la primera sesión útil, nunca en medio de una.
+  const [modeGateOpen, setModeGateOpen] = useState(false);
+  const modeBirthRef = useRef(false);
+  const remoteBookRef = useRef(false);
+  const modeGateDoneRef = useRef(false);
   const [quarantined, setQuarantined] = useState<QuarantineEntry[]>([]);
   const flipGen = useRef(0); // 1.3.159: generation of the current fr-flip; stale lifts check it before removing the class.
   const planCopied = useRef(false);
@@ -662,6 +681,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const corruptAside = saved ? false : quarantineCorruptPack(userId);
       const lang = localStorage.getItem("faro-lang") === "en" ? "en" : "es";
       bootLang = lang;
+      // El espejo del modo (patrón faro-lang): un libro sellado no puede leer el
+      // paquete de la persona — el namespace de samplemode lo aparta — así que el
+      // modo viaja por esta llave compartida (SHARED_EXACT) y el libro sellado lo
+      // toma prestado abajo, junto al idioma y el tema. El libro real manda por
+      // su propio paquete; el espejo solo viste a los sellados (D-2 de la etapa 1).
+      const modeMirror = localStorage.getItem("faro-mode");
       const stored = localStorage.getItem("faro-theme");
       const daySet = localStorage.getItem("faro-day") === "1";
       const known = (value: string | null): value is ThemeId => !!value && THEME_IDS.includes(value as ThemeId);
@@ -669,7 +694,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       let ledger = saved?.ledger ?? createInitial(lang, theme);
       let dirty = saved?.dirty ?? false;
       // Sample mode wears the personal look (theme, language) without ever writing personal books.
-      if (sealedOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}) } };
+      if (sealedOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}), ...(isMode(modeMirror) ? { mode: modeMirror } : {}) } };
       const seeded = seedLedger(ledger);
       ledger = seeded.ledger;
       if (seeded.added) dirty = true;
@@ -690,6 +715,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         }
       }
       baseRevRef.current = saved ? ledger.revision : null; // C2: el sello con el que esta pestaña cargó
+      modeBirthRef.current = !saved && !corruptAside && !sealedOn();
       setSession(blankSession(ledger, dirty));
       if (corruptAside) setUi({ notice: translate(lang, "pack.corrupt") });
       const now = new Date();
@@ -785,6 +811,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     document.documentElement.lang = session.ledger.settings.lang;
     localStorage.setItem("faro-theme", shown);
     localStorage.setItem("faro-lang", session.ledger.settings.lang);
+    // El espejo del modo se reescribe de la sesión en cada guardado, como el del
+    // idioma: es la única vía por la que un libro sellado conoce el modo de la
+    // persona. Lleva el modo EFECTIVO (ausente = completo), que es la verdad.
+    localStorage.setItem("faro-mode", modeOf(session.ledger.settings));
     const chrome = chromeForTheme(shown);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chrome);
   }, [session, userId]);
@@ -842,6 +872,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         setSync("conflict");
       }
       baseRevRef.current = seeded.ledger.revision; // C2: la base de esta pestaña pasa a ser el libro aplicado
+      remoteBookRef.current = true; // un libro que llega de la nube YA existe: cancela la pantalla inicial de elección
+      setModeGateOpen(false);
       setSession(blankSession(seeded.ledger, Boolean(dirtyLocal) || seeded.added));
       return true;
     } catch {
@@ -979,10 +1011,48 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const commitFinal = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => {
     setSession((s) => (s ? commitFinalSession(s, recipe, detail) : s));
   }, []);
+  // La pantalla inicial de elección escribe el modo por commit ordinario — el
+  // campo viaja con el libro como cualquier dato de la persona. Saltarla TAMBIÉN
+  // escribe: Esencial (el fallo manda avisado, nunca en silencio; el aviso lo
+  // pone la propia pantalla al saltar). Son, con el selector de Ajustes, las dos
+  // únicas manos que escriben settings.mode (cerca en modos293.test.ts).
+  const chooseMode = useCallback((mode: Mode) => {
+    setModeGateOpen(false);
+    commit((s) => ({ ...s, settings: { ...s.settings, mode } }), mode);
+  }, [commit]);
+  const skipModeGate = useCallback(() => {
+    setModeGateOpen(false);
+    commit((s) => ({ ...s, settings: { ...s.settings, mode: "esencial" as Mode } }), "esencial");
+  }, [commit]);
+  // La resolución de la pantalla inicial: espera a que la primera sincronía
+  // asiente (syncNow se autoprotege de la concurrencia; el bucle solo observa).
+  // Sin nube (modo local) asienta al instante; con nube, un libro remoto aplicado
+  // cancela la candidatura y la pantalla nunca nace.
+  useEffect(() => {
+    if (!ready || !modeBirthRef.current || modeGateDoneRef.current) return;
+    modeGateDoneRef.current = true;
+    let alive = true;
+    void (async () => {
+      for (let i = 0; i < 40 && alive; i += 1) {
+        await syncNow();
+        if (!alive || remoteBookRef.current) return;
+        if (!syncing.current) break;
+        await new Promise((r) => window.setTimeout(r, 250));
+      }
+      if (!alive || remoteBookRef.current) return;
+      const s = sessionRef.current;
+      if (s && s.ledger.settings.mode === undefined) setModeGateOpen(true);
+    })();
+    return () => { alive = false; };
+  }, [ready, syncNow]);
   const undo = useCallback(() => setSession((s) => (s ? undoSession(s) : s)), []);
   const redo = useCallback(() => setSession((s) => (s ? redoSession(s) : s)), []);
 
   const lang: Lang = session?.ledger.settings.lang ?? "es";
+  // El modo de la persona, leído del libro en cada render (etapa 2): el
+  // contexto lo expone junto a has() y es la única lectura que las superficies
+  // necesitan — el campo viaja con el libro y su ausencia vale Completo.
+  const mode: Mode = session ? modeOf(session.ledger.settings) : "completo";
   const t = useCallback((key: string) => translate(lang, key), [lang]);
   const key = toKey(ui.year, ui.month);
   const names = useMemo(() => (session ? makeNamer(session.ledger.structure, lang) : makeNamer(createInitial().structure, lang)), [session, lang]);
@@ -1201,6 +1271,19 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       none = lentOf(sessionRef.current?.ledger).length === 0;
       if (none) go = { screen: "cobros", anchor: "cobros-in" };
     }
+    // Etapa 2 (HasFeature): TODO salto se valida contra el modo en este único
+    // punto — «Ir allí» del Manual, los enlaces [[…]], las (?), el buscador de
+    // Ajustes, el Asesor y los toques del widget pasan todos por aquí (huecos
+    // J-1, S-3, T-1). Si el destino duerme en el modo de la persona, el salto
+    // cae a la EXPLICACIÓN: el Manual abierto en el tema que lo cuenta, y un
+    // aviso nombra el modo donde la función vive. Nunca cae a la nada.
+    const feature = featureForGo(go);
+    const bookNow = sessionRef.current?.ledger;
+    if (feature && bookNow && !hasFeature(modeOf(bookNow.settings), feature)) {
+      openManual(id);
+      importToast({ text: t("mode.dormant.notice").replace("{name}", t(`mode.${featureMinMode(feature)}`)) });
+      return;
+    }
     const res = screenPatch(go);
     // Wide screens show Cambio as a side panel, not the phone sheet.
     if (go.screen === "tools" && window.innerWidth >= 1100) {
@@ -1217,7 +1300,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       return same ? { ...next, spot: u.spot + 1 } : next;
     });
     window.setTimeout(() => window.dispatchEvent(new Event("faro-focus")), 40);
-  }, [snap]);
+  }, [snap, openManual, t]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1386,6 +1469,8 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     dismissTabConflict: () => setTabBanner(false),
     t,
     lang,
+    mode,
+    has: (feature: FeatureId) => hasFeature(mode, feature),
     monthLabel: `${monthName(lang, ui.month)} ${ui.year}`,
     key,
     lines,
@@ -1604,6 +1689,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
             </div>
           </div>
         </div>
+      ) : null}
+      {/* La ceremonia de primer arranque espera al escenario sellado: si la
+          puerta se abriera sobre una Presentación en curso (su ventana de
+          asentamiento de sync dura segundos), la lección quedaría atrapada
+          bajo la elección — el escenario es ficción sellada, no un libro que
+          nace; al salir del escenario, la puerta aparece para el libro real. */}
+      {modeGateOpen && session && !stageOn() && session.ledger.settings.mode === undefined ? (
+        <ModeGate lang={session.ledger.settings.lang} onChoose={chooseMode} onSkip={skipModeGate} />
       ) : null}
     </Ctx.Provider>
   );

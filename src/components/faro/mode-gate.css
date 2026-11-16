@@ -1,0 +1,159 @@
+/* La pantalla inicial de elección y la lista de impacto (tres modos, etapa 1).
+   Hablan el idioma visual de la casa: tokens del tema activo (--bg/--surface/
+   --fg/--accent), la serif de los títulos (.ask-title usa --font-serif) y
+   ninguna superficie extranjera — la ley del envoltorio. La puerta cubre la
+   app entera (va sobre el chrome, bajo los diálogos .ask) y su tarjeta se lee
+   a 390 px sin desbordar: los tres modos se apilan, cada uno con sus puntos. */
+
+.mode-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--fg);
+  padding: max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+
+.mode-gate-card {
+  width: 100%;
+  max-width: 430px;
+  margin: auto 0;
+}
+
+.mode-gate-kicker {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.mode-gate-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.9rem;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.mode-gate-sub {
+  margin: 10px 0 20px;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.mode-gate-modes {
+  display: grid;
+  gap: 12px;
+}
+
+.mode-gate-mode {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 16px 14px;
+}
+
+.mode-gate-name {
+  margin: 0;
+  font-size: 1.22rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.mode-gate-line {
+  margin: 2px 0 0;
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.mode-gate-points {
+  margin: 10px 0 14px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.mode-gate-points li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mode-gate-points li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.52em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.mode-gate-go {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 16px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.98rem;
+  cursor: pointer;
+}
+
+.mode-gate-skip {
+  display: block;
+  margin: 18px auto 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+/* La lista de la pantalla de impacto, dentro de la tarjeta .ask de la casa. */
+.mode-impact-body p {
+  margin: 0 0 8px;
+}
+
+.mode-impact-body p:last-child {
+  margin-bottom: 0;
+}
+
+.mode-impact-list {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.mode-impact-list li {
+  overflow-wrap: anywhere;
+}
+
+.mode-impact-list b {
+  color: var(--fg);
+  font-weight: 700;
+}

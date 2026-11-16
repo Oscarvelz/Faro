@@ -155,6 +155,11 @@
 .coach-bar { display: flex; gap: 3px; height: 12px; }
 .coach-bar i { flex-basis: 0; min-width: 6px; border-radius: 999px; animation: pano-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: left; }
 .coach-line { margin: -4px 0 0; font-size: 0.86rem; color: var(--muted); line-height: 1.4; }
+/* Etapa 4 (tres modos): la sugerencia de subida del Asesor — una línea
+ * discreta bajo los pasos, con su puerta a Ajustes y su descarte. */
+.coach-hint { display: grid; gap: 6px; margin-top: 12px; padding: 12px; border-radius: 18px; border: 1px dashed var(--line); }
+.coach-hint p { margin: 0; font-size: 0.9rem; line-height: 1.45; }
+.coach-hint-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .coach-h3 { margin: 4px 0 -4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
 .coach-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .coach-steps li { display: grid; grid-template-columns: 30px minmax(0, 1fr); grid-template-areas: "n body" "n imp"; gap: 4px 10px; padding: 12px; border-radius: 18px; background: var(--surface-2); animation: pano-in 0.35s ease both; }

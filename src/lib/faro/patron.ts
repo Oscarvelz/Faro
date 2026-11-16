@@ -112,6 +112,10 @@ export type PaceReading = {
   typicalTotalMinor: number;
   expectedSharePct: number;
   verdict: PaceVerdict | null;
+  /** Day of the month being judged and the month's length (3.2: the linear
+   *  description below is computed from these, never from the pattern). */
+  day: number;
+  dim: number;
 };
 
 /** Judges the current month against the learned pattern. While learning, the
@@ -125,7 +129,7 @@ export function paceReading(state: LedgerState, currentKey: string, today: Date)
   const spentMinor = cumAt(evs, dim, frac);
   const monthsUsed = hist.length;
   if (monthsUsed < 2) {
-    return { status: "learning", monthsUsed, spentMinor, expectedMinor: 0, deltaMinor: 0, projectedMinor: 0, typicalTotalMinor: 0, expectedSharePct: 0, verdict: null };
+    return { status: "learning", monthsUsed, spentMinor, expectedMinor: 0, deltaMinor: 0, projectedMinor: 0, typicalTotalMinor: 0, expectedSharePct: 0, verdict: null, day: today.getDate(), dim };
   }
   const expectedMinor = medianInt(hist.map((h) => cumAt(h.evs, daysIn(h.key), frac)));
   const typicalTotalMinor = medianInt(hist.map((h) => h.total));
@@ -144,12 +148,29 @@ export function paceReading(state: LedgerState, currentKey: string, today: Date)
     typicalTotalMinor,
     expectedSharePct: typicalTotalMinor > 0 ? divRound(expectedMinor * 100, typicalTotalMinor) : 0,
     verdict,
+    day: today.getDate(),
+    dim,
   };
 }
 
 /** The pace sentence, naming its comparison every time (the brief's
- *  transparency law). `money` formats display minor units. */
-export function paceSay(r: PaceReading, lang: Lang, money: (n: number) => string, incomeMinor: number | null): { tone: "good" | "calm" | "warn"; say: string } {
+ *  transparency law). `money` formats display minor units.
+ *  3.2 (A-3): the saying is born per mode at this same source. Completo hears
+ *  the learned pattern (verdict, expected share, projected close). Ritmo hears
+ *  only the LINEAR description — per-day money and the days the income lasts,
+ *  computed from the dated money already out, with no expected share and no
+ *  projected close (patron.linear-pace). Esencial never asks for a saying. */
+export function paceSay(r: PaceReading, lang: Lang, money: (n: number) => string, incomeMinor: number | null, mode: "esencial" | "ritmo" | "completo" = "completo"): { tone: "good" | "calm" | "warn"; say: string } {
+  if (mode !== "completo") {
+    const perDay = r.day > 0 ? divRound(r.spentMinor, r.day) : 0;
+    const cover = perDay > 0 && incomeMinor !== null && incomeMinor > 0 ? Math.floor(incomeMinor / perDay) : null;
+    if (cover === null) {
+      return { tone: "calm", say: L(lang, "Anota ingresos y gastos para ver tu ritmo.", "Record income and spending to see your pace.") };
+    }
+    return cover >= r.dim
+      ? { tone: "good", say: L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra te alcanza para ${cover} días: el mes completo y ${cover - r.dim} más.`, `You spend about ${money(perDay)} a day. At that pace your income lasts ${cover} days: the whole month and ${cover - r.dim} more.`) }
+      : { tone: "warn", say: L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra se acaba el día ${cover} y faltan ${r.dim - cover} días.`, `You spend about ${money(perDay)} a day. At that pace your income runs out on day ${cover}, ${r.dim - cover} days short.`) };
+  }
   if (r.status === "learning") {
     return {
       tone: "calm",

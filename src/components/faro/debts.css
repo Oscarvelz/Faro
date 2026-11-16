@@ -700,3 +700,14 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
     .app-frame:not(.is-split) .swipe-pane .debt-book > .debo-tabs[data-ready].is-lux > .debo-ink { transition: none; }
   }
 }
+
+/* Etapa 3.3 (S-1): la fila-persona de la cara lectora es un botón sin cromo —
+ * abre la hoja de la persona, que también es lectura; la fila viste la misma
+ * ropa que las filas de la cara de Cuotas (.subs-ro .save-view-row). */
+.debt-ro-row { width: 100%; text-align: left; background: none; font: inherit; color: inherit; cursor: pointer; }
+
+/* Etapa 4 (S-1, forma final): el bloque de estudio de la cara lectora — los
+ * hechos de los préstamos bajo su rótulo, con la rejilla de hechos de la casa. */
+.debt-ro-study { display: grid; gap: 8px; margin-top: 12px; }
+.debt-ro-study .span-facts em { font-style: normal; color: var(--muted); font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; }
+.debt-ro-study .span-facts strong { font-size: 1rem; }

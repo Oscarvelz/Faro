@@ -24,7 +24,7 @@ export const STAGE_PREFIX = "faro.stage:";
 export const STAGE_EVENT = "faro-stage-switch";
 
 const SHARED_EXACT = new Set([
-  SAMPLE_FLAG, "faro-theme", "faro-lang", "faro-day", "faro-day-theme", "faro-night-theme",
+  SAMPLE_FLAG, "faro-theme", "faro-lang", "faro-day", "faro-day-theme", "faro-night-theme", "faro-mode",
   "faro.device", "faro.keep", "faro.lastUser", "faro-auth", "faro-quiet-boot", "faro-sample-migrated",
 ]);
 const SHARED_PREFIX = ["faro.lock.", "faro.seen.", "faro-split", "faro-float", "faro-money-size", SAMPLE_PREFIX, STAGE_PREFIX];

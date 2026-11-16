@@ -262,6 +262,18 @@ function isVague(name: string): boolean {
 
 export type AdvisorOptions = { today?: Date };
 
+export type BookMode = "esencial" | "ritmo" | "completo";
+/** El modo del libro, leído del propio libro (ausencia = Completo, X-7 del
+ *  plan de la ola). Vive aquí y no en mode.ts porque la cerca de asientos de
+ *  la etapa 2 reserva la importación del registro a sus asientos declarados;
+ *  los motores filtran EN LA FUENTE (A-1) leyendo el campo que el libro ya
+ *  trae, y la cerca de modos296 verifica que sus tablas coinciden con el
+ *  registro. Las superficies jamás leen esto: consumen useFaro().has. */
+export function bookMode(state: LedgerState): BookMode {
+  const m = state.settings.mode;
+  return m === "esencial" || m === "ritmo" ? m : "completo";
+}
+
 /* 1.3.117: in the app the same month is read by the coach, the advice cards, the rules and the Asesor screen in one render;
  * a ledger never changes in place (every commit makes a new one), so each reading is kept per ledger object. Tests (no
  * window) and calls with a fixed `today` always read fresh. */
@@ -279,6 +291,13 @@ export function readAdvisor(state: LedgerState, key: string, lang: Lang, names: 
 
 function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Namer, options: AdvisorOptions = {}): Reading {
   names = visibleNamer(state.structure, names); // Contrato, regla 2: el Asesor no nombra lo oculto.
+  // 3.2 (A-1): la Reading nace acotada al modo — cada texto de abajo se
+  // compone solo si su función vive en el modo del libro (registro §3.3/§3.4).
+  // Los números se calculan siempre (el cerebro no duerme); lo que el modo
+  // no puede mostrar, la Reading no lo dice en ninguna de sus formas.
+  const mode = bookMode(state);
+  const ritmoUp = mode !== "esencial";
+  const completo = mode === "completo";
   const today = options.today ?? new Date();
   const { display, rateE4 } = state.settings;
   const money = (n: number) => formatMoney(n, display, lang);
@@ -341,7 +360,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     .filter((line) => line.kind === "expense-fixed" && roleOf(state.structure, line.categoryId) === "savings")
     .reduce((acc, line) => acc + inView(line, display, rateE4), 0);
   const classificationError =
-    transferInsideFixed > 0
+    ritmoUp && transferInsideFixed > 0
       ? L(
           lang,
           `De tus fijos (${money(naiveFixed)}), ${money(transferInsideFixed)} son ahorro: no es gasto, sigue siendo tuyo. Lo que de verdad pagas fijo cada mes son ${money(naiveFixed - transferInsideFixed)}.`,
@@ -383,7 +402,9 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const looseFlow = Math.max(0, savingsFlow - destinedToFunds);
   const unassignedLoose = Math.max(0, looseFlow - pocketAside);
   const contradiction =
-    pocketAside === 0 && looseFlow > 0
+    !completo
+      ? null
+      : pocketAside === 0 && looseFlow > 0
       ? L(
           lang,
           `Mandaste ${money(looseFlow)} a una cuenta de ahorro, pero tus metas (Meta, Retiro, Emergencia) siguen en ${money(0)}. Decide a cuál meta va ese dinero para que el avance se vea.`,
@@ -402,7 +423,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const debtPct = income > 0 ? (debtMinor / income) * 100 : null;
   const rawDebts = lines.filter((line) => roleOf(state.structure, line.categoryId) === "debt");
   const debtTermKnown = rawDebts.length > 0 && rawDebts.every((line) => line.balanceMinor !== null && line.aprBps > 0);
-  const creditAsk = !debtTermKnown && debtMinor > 0
+  const creditAsk = completo && !debtTermKnown && debtMinor > 0
     ? L(
         lang,
         "Por ahora solo veo la cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.",
@@ -452,6 +473,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
       ironmanPct = share;
     }
   }
+  if (!ritmoUp) splitNote = null; // not-habit-note es de Ritmo: en Esencial la nota no nace.
 
   const vagueCandidates = read
     .filter((line) => line.vague && line.cls !== "transfer" && (income <= 0 || line.minor * 10 > income))
@@ -461,8 +483,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const vagueQuestion = vague
     ? L(
         lang,
-        `«${vague.name}» son ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} de lo que entra)` : ""}, pero el nombre no dice qué es. Ponle un nombre claro y te digo si conviene moverlo.`,
-        `“${vague.name}” is ${money(vague.minor)}${vaguePct !== null ? ` (${pct(vaguePct)} of what comes in)` : ""}, but the name doesn't say what it is. Give it a clear name and I'll tell you if it's worth moving.`,
+        `«${vague.name}» son ${money(vague.minor)}${ritmoUp && vaguePct !== null ? ` (${pct(vaguePct)} de lo que entra)` : ""}, pero el nombre no dice qué es. Ponle un nombre claro y te digo si conviene moverlo.`,
+        `“${vague.name}” is ${money(vague.minor)}${ritmoUp && vaguePct !== null ? ` (${pct(vaguePct)} of what comes in)` : ""}, but the name doesn't say what it is. Give it a clear name and I'll tell you if it's worth moving.`,
       )
     : null;
 
@@ -492,7 +514,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     `Lo que se repite cada mes te cuesta ${money(perDay)} al día. Si anotas cuánto tienes en el banco, te digo cuántos días aguantarías si dejara de entrar dinero.`,
     `What repeats costs you ${money(perDay)} a day. Enter what you have in the bank and I'll tell you how many days you'd last if money stopped coming in.`,
   );
-  if (dated.length && income > 0) {
+  if (ritmoUp && dated.length && income > 0) {
     let running = 0;
     let crossed: { name: string; day: string } | null = null;
     for (const item of dated) {
@@ -510,7 +532,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
           `Con las fechas anotadas, ningún pago deja el mes en rojo. Lo que se repite te cuesta ${money(perDay)} al día.`,
           `With the dates on file, no payment puts the month in the red. What repeats costs you ${money(perDay)} a day.`,
         );
-  } else if (uniqueMinor > 0 && left < 0) {
+  } else if (ritmoUp && uniqueMinor > 0 && left < 0) {
     paceNote = L(
       lang,
       `El hueco no viene del gasto de todos los días: son compras de una vez por ${money(uniqueMinor)} que ya salieron. Ponles fecha a tus pagos y te digo qué día aprieta.`,
@@ -551,7 +573,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const subsYear = subsRead.reduce((acc, line) => acc + line.year, 0);
   const subsSum = Math.round(subsYear / 12);
   const subsShare = incomeAll > 0 ? (subsSum / incomeAll) * 100 : null;
-  const antNote = subsRead.length
+  const antNote = ritmoUp && subsRead.length
     ? subsRead.length === 1
       ? L(
           lang,
@@ -600,7 +622,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   // retirement, so no undeclared figure moves; a declared aparte Goal no longer counts
   // (its money has another destination, like Retirement's).
   const cushionStock = cushionOf(stock).cushion;
-  if (!dated.length && cushionStock > 0 && perDay > 0 && !(uniqueMinor > 0 && left < 0)) {
+  if (completo && !dated.length && cushionStock > 0 && perDay > 0 && !(uniqueMinor > 0 && left < 0)) {
     const essentialPerDay = Math.max(1, Math.round(essentialsMonthly / days));
     const lastDays = Math.floor(cushionStock / essentialPerDay);
     paceNote = L(
@@ -668,6 +690,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
       );
     }
   }
+  if (!ritmoUp) trendNote = null; // trend-note es de Ritmo: en Esencial la tendencia no se dice.
   const habitBuys = read.filter((line) => line.cls === "discretionary" && lines.find((raw) => raw.id === line.id)?.kind === "purchase");
   const habitSum = habitBuys.reduce((acc, line) => acc + line.minor, 0);
   const buyHabit = habitBuys.length >= 3 && income > 0 && habitSum >= income * 0.05;
@@ -720,8 +743,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     );
     action = L(
       lang,
-      `Qué hacer: si perdiste ese ingreso, deja solo lo esencial (${money(essentialsMonthly)} al mes) y pausa lo demás hasta que vuelva a entrar dinero.${cushionStock > 0 && essentialsMonthly > 0 ? ` Lo que tienes guardado alcanza para unos ${Math.max(0, Math.floor((cushionStock / essentialsMonthly) * 10) / 10)} meses de lo esencial.` : ""}`,
-      `What to do: if that income is gone, keep only the essentials (${money(essentialsMonthly)} a month) and pause the rest until money comes in again.${cushionStock > 0 && essentialsMonthly > 0 ? ` Your savings cover about ${Math.max(0, Math.floor((cushionStock / essentialsMonthly) * 10) / 10)} months of essentials.` : ""}`,
+      `Qué hacer: si perdiste ese ingreso, deja solo lo esencial (${money(essentialsMonthly)} al mes) y pausa lo demás hasta que vuelva a entrar dinero.${completo && cushionStock > 0 && essentialsMonthly > 0 ? ` Lo que tienes guardado alcanza para unos ${Math.max(0, Math.floor((cushionStock / essentialsMonthly) * 10) / 10)} meses de lo esencial.` : ""}`,
+      `What to do: if that income is gone, keep only the essentials (${money(essentialsMonthly)} a month) and pause the rest until money comes in again.${completo && cushionStock > 0 && essentialsMonthly > 0 ? ` Your savings cover about ${Math.max(0, Math.floor((cushionStock / essentialsMonthly) * 10) / 10)} months of essentials.` : ""}`,
     );
   } else if (income <= 0) {
     headline = L(
@@ -744,8 +767,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
         )
       : L(
           lang,
-          `Qué hacer: ${movable.length ? `los gustos que se repiten solo suman ${money(movableSum)}, así que no alcanzan. El hueco` : "el hueco"} se cierra bajando un gasto grande${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}${priciest ? `, pidiendo una tasa más baja en ${lineName(priciest, names)} (${priciest.aprBps / 100}%)` : ""} o con ${money(-baseSurplus)} más de ingreso al mes.`,
-          `What to do: ${movable.length ? `repeating wants only add up to ${money(movableSum)}, so they won't close it. The gap` : "the gap"} closes by lowering a big bill${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}${priciest ? `, asking for a lower rate on ${lineName(priciest, names)} (${priciest.aprBps / 100}%)` : ""} or with ${money(-baseSurplus)} more income a month.`,
+          `Qué hacer: ${movable.length ? `los gustos que se repiten solo suman ${money(movableSum)}, así que no alcanzan. El hueco` : "el hueco"} se cierra bajando un gasto grande${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}${ritmoUp && priciest ? `, pidiendo una tasa más baja en ${lineName(priciest, names)} (${priciest.aprBps / 100}%)` : ""} o con ${money(-baseSurplus)} más de ingreso al mes.`,
+          `What to do: ${movable.length ? `repeating wants only add up to ${money(movableSum)}, so they won't close it. The gap` : "the gap"} closes by lowering a big bill${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}${ritmoUp && priciest ? `, asking for a lower rate on ${lineName(priciest, names)} (${priciest.aprBps / 100}%)` : ""} or with ${money(-baseSurplus)} more income a month.`,
         );
   } else if (atypical && transferMinor > 0) {
     headline = L(
@@ -781,8 +804,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     headline = transferMinor > 0
       ? L(
           lang,
-          `Tus gastos de cada mes caben. Ya apartaste ${money(transferMinor)} para ahorro${saveRate !== null ? ` (${pct(saveRate)} de lo que entra)` : ""} y aún te quedan ${money(left)}.`,
-          `Your monthly bills fit. You already set aside ${money(transferMinor)}${saveRate !== null ? ` (${pct(saveRate)} of income)` : ""} and ${money(left)} is still left.`,
+          `Tus gastos de cada mes caben. Ya apartaste ${money(transferMinor)} para ahorro${ritmoUp && saveRate !== null ? ` (${pct(saveRate)} de lo que entra)` : ""} y aún te quedan ${money(left)}.`,
+          `Your monthly bills fit. You already set aside ${money(transferMinor)}${ritmoUp && saveRate !== null ? ` (${pct(saveRate)} of income)` : ""} and ${money(left)} is still left.`,
         )
       : uniqueMinor > 0
         ? L(
@@ -812,11 +835,17 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
       );
     } else if (goalGap <= 0 && transferMinor > 0) {
       action = cushionGap > 0
-        ? L(
-            lang,
-            `Qué hacer: sigue igual, ya cumples tu ahorro. Los ${money(left)} que quedan pueden ir a tu colchón: te faltan ${money(cushionGap)} para ${state.settings.emergencyMonths || 3} meses de lo esencial.`,
-            `What to do: keep going, you meet your savings goal. The ${money(left)} left can go to your cushion: ${money(cushionGap)} to go for ${state.settings.emergencyMonths || 3} months of essentials.`,
-          )
+        ? completo
+          ? L(
+              lang,
+              `Qué hacer: sigue igual, ya cumples tu ahorro. Los ${money(left)} que quedan pueden ir a tu colchón: te faltan ${money(cushionGap)} para ${state.settings.emergencyMonths || 3} meses de lo esencial.`,
+              `What to do: keep going, you meet your savings goal. The ${money(left)} left can go to your cushion: ${money(cushionGap)} to go for ${state.settings.emergencyMonths || 3} months of essentials.`,
+            )
+          : L(
+              lang,
+              `Qué hacer: sigue igual, ya cumples tu ahorro. Los ${money(left)} que quedan pueden ir a tu colchón: te faltan ${money(cushionGap)} para llenarlo.`,
+              `What to do: keep going, you meet your savings goal. The ${money(left)} left can go to your cushion: ${money(cushionGap)} to go to fill it.`,
+            )
         : L(
             lang,
             `Qué hacer: sigue igual. Tu colchón ya está completo; lo que queda puede ir a una meta con fecha.`,
@@ -826,8 +855,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
       const move = niceDown(Math.min(left, goalGap > 0 ? goalGap : left), display);
       action = L(
         lang,
-        `Qué hacer: aparta hoy ${money(move)} para tu ${cushionGap > 0 ? "colchón" : "ahorro"}, antes de que se vaya en gastos pequeños.${goalGap > left ? ` Tu meta del ${state.settings.savingsGoalPct}% serían ${money(niceDown(goalMinor, display))}; empieza con lo que sí cabe.` : ""}`,
-        `What to do: move ${money(move)} to your ${cushionGap > 0 ? "cushion" : "savings"} today, before small spending eats it.${goalGap > left ? ` Your ${state.settings.savingsGoalPct}% goal would be ${money(goalMinor)}; start with what fits.` : ""}`,
+        `Qué hacer: aparta hoy ${money(move)} para tu ${cushionGap > 0 ? "colchón" : "ahorro"}, antes de que se vaya en gastos pequeños.${ritmoUp && goalGap > left ? ` Tu meta del ${state.settings.savingsGoalPct}% serían ${money(niceDown(goalMinor, display))}; empieza con lo que sí cabe.` : ""}`,
+        `What to do: move ${money(move)} to your ${cushionGap > 0 ? "cushion" : "savings"} today, before small spending eats it.${ritmoUp && goalGap > left ? ` Your ${state.settings.savingsGoalPct}% goal would be ${money(goalMinor)}; start with what fits.` : ""}`,
       );
     } else {
       action = L(lang, "Qué hacer: el mes queda justo. Evita compras nuevas hasta que vuelvas a cobrar.", "What to do: the month is tight. Avoid new purchases until your next paycheck.");
@@ -855,7 +884,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     alert = incomeFixed >= recurrentMinor
       ? L(lang, `Tu ingreso es estable: ${money(incomeFixed)} seguros cubren tus gastos de cada mes (${money(recurrentMinor)}).`, `Your income is steady: ${money(incomeFixed)} you can count on covers your monthly bills (${money(recurrentMinor)}).`)
       : L(lang, `Tu ingreso es estable, pero no alcanza: entran ${money(incomeFixed)} seguros y lo de cada mes son ${money(recurrentMinor)}.`, `Your income is steady but short: ${money(incomeFixed)} comes in and your monthly bills are ${money(recurrentMinor)}.`);
-  } else if (floorFromHistory) {
+  } else if (floorFromHistory && completo) {
     alert = incomeFloor >= recurrentMinor
       ? L(lang, `Tu ingreso cambia de mes a mes, pero aun en tu peor mes reciente entraron ${money(incomeFloor)}, más que lo de cada mes (${money(recurrentMinor)}). En los meses buenos, guarda la diferencia.`, `Your income changes month to month, but even your worst recent month brought ${money(incomeFloor)}, more than your monthly bills (${money(recurrentMinor)}). Save the difference in good months.`)
       : L(lang, `Tu ingreso cambia de mes a mes. En tu peor mes reciente entraron ${money(incomeFloor)} y lo de cada mes son ${money(recurrentMinor)}: en un mes flojo faltarían ${money(recurrentMinor - incomeFloor)}. Guarda eso de los meses buenos.`, `Your income changes month to month. Your worst recent month brought ${money(incomeFloor)} and your monthly bills are ${money(recurrentMinor)}: a slow month would be ${money(recurrentMinor - incomeFloor)} short. Keep that from the good months.`);
@@ -879,13 +908,19 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     );
   }
 
+  // income-stability es de Ritmo (y su piso histórico, de Completo: la rama de
+  // arriba ya solo nace en Completo): en Esencial la alerta no nace.
+  if (!ritmoUp) alert = "";
+
   // 1.3.117: card balances are credit too; "no credit payments" while cards carry a balance was misleading.
   const ct = cardTotals(state, iso(today));
   const cardBit = ct.known && ct.balance > 0
     ? L(lang, ` Tus tarjetas deben ${money(ct.balance)}${ct.util != null ? ` (${Math.round(ct.util * 100)}% del límite)` : ""}.`, ` Your cards owe ${money(ct.balance)}${ct.util != null ? ` (${Math.round(ct.util * 100)}% of the limit)` : ""}.`)
     : "";
   const creditBlurb =
-    debtMinor <= 0
+    !completo
+      ? ""
+      : debtMinor <= 0
       ? cardBit ? L(lang, `Sin cuotas de préstamos este mes.${cardBit}`, `No loan payments this month.${cardBit}`) : L(lang, "Este mes no hay pagos de crédito.", "No credit payments this month.")
       : debtPct !== null && debtPct < state.settings.debtGreenPct
         ? L(
@@ -952,7 +987,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     .map((line) => ({
       name: line.name,
       minor: line.minor,
-      pctOfOut: outTotal > 0 ? (line.minor / outTotal) * 100 : null,
+      // top5 en Esencial es solo dinero; el % y la clase llegan con Ritmo (top5-rich).
+      pctOfOut: ritmoUp && outTotal > 0 ? (line.minor / outTotal) * 100 : null,
       cls: line.cls,
     }));
 
@@ -1040,6 +1076,10 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     });
   }
 
+  // En Esencial las palancas que sobreviven son las de hecho (mantener, anotar
+  // el ingreso); decidir/devolver/vender son palancas del mes, de Ritmo.
+  const leversOut = ritmoUp ? levers : levers.filter((l) => l.id === "keep" || l.id === "income");
+
   const months = state.settings.emergencyMonths || 3;
   const cushionGap = Math.max(0, cushionMinor - cushionStock);
   const unknownDebts = rawDebtLines.filter((line) => line.balanceMinor === null || !(line.aprBps > 0));
@@ -1067,8 +1107,8 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   } else {
     // 24 hours: the one move that matters today.
     if (levers[0] && levers[0].id !== "keep") day24 = levers[0].text;
-    else if ((debtPct ?? 0) > state.settings.debtYellowPct && rawDebtLines.length) day24 = L(lang, `Llama a ${rawDebtLines.slice(0, 3).map((line) => lineName(line, names)).join(", ")} y pide bajar la tasa o un plan de pagos. Con ${pct(debtPct)} de lo que entra en cuotas, esa llamada vale más que cualquier recorte.`, `Call ${rawDebtLines.slice(0, 3).map((line) => lineName(line, names)).join(", ")} and ask for a lower rate or a payment plan. With ${pct(debtPct)} of income going to payments, that call beats any cut.`);
-    else if (red && priciest && priciest.aprBps >= 1500) day24 = L(lang, `Llama a ${lineName(priciest, names)} y pide bajar la tasa (${priciest.aprBps / 100}%) o un plan de pagos. Es la llamada que más dinero te ahorra.`, `Call ${lineName(priciest, names)} and ask for a lower rate (${priciest.aprBps / 100}%) or a payment plan. It's the call that saves the most.`);
+    else if (ritmoUp && (debtPct ?? 0) > state.settings.debtYellowPct && rawDebtLines.length) day24 = L(lang, `Llama a ${rawDebtLines.slice(0, 3).map((line) => lineName(line, names)).join(", ")} y pide bajar la tasa o un plan de pagos. Con ${pct(debtPct)} de lo que entra en cuotas, esa llamada vale más que cualquier recorte.`, `Call ${rawDebtLines.slice(0, 3).map((line) => lineName(line, names)).join(", ")} and ask for a lower rate or a payment plan. With ${pct(debtPct)} of income going to payments, that call beats any cut.`);
+    else if (ritmoUp && red && priciest && priciest.aprBps >= 1500) day24 = L(lang, `Llama a ${lineName(priciest, names)} y pide bajar la tasa (${priciest.aprBps / 100}%) o un plan de pagos. Es la llamada que más dinero te ahorra.`, `Call ${lineName(priciest, names)} and ask for a lower rate (${priciest.aprBps / 100}%) or a payment plan. It's the call that saves the most.`);
     else if (red) day24 = movable.length
       ? L(lang, `Elige hoy qué bajas: ${listNames(movable)}. ${movableSum >= -left ? `Con eso puedes cerrar los ${money(-left)}.` : `Eso solo cubre ${money(movableSum)} de ${money(-left)}; también hace falta tocar un gasto grande.`}`, `Choose today what to trim: ${listNames(movable)}. ${movableSum >= -left ? `That can close the ${money(-left)}.` : `That only covers ${money(movableSum)} of ${money(-left)}; a big bill has to move too.`}`)
       : L(lang, `Revisa tus dos gastos más grandes${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}: ahí está el cambio que se nota.`, `Review your two biggest bills${bigNeeds.length ? ` (${listNames(bigNeeds)})` : ""}: that's where change shows.`);
@@ -1078,7 +1118,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
 
     // 7 days: payments and the paycheck routine.
     const dueBit = loudNames.length ? L(lang, `separa dinero para ${loudNames.join(" y ")}, que vencen pronto`, `set money aside for ${loudNames.join(" and ")}, due soon`) : "";
-    const askBit = unknownDebts.length
+    const askBit = completo && unknownDebts.length
       ? L(lang, `anota cuánto debes y la tasa de ${unknownDebts.slice(0, 2).map((line) => lineName(line, names)).join(" y ")} para saber cuándo terminas`, `enter the balance and rate of ${unknownDebts.slice(0, 2).map((line) => lineName(line, names)).join(" and ")} to see when you finish`)
       : "";
     const holdBit = rawDebtLines.length && red && (debtPct ?? 0) > state.settings.debtGreenPct ? L(lang, `no subas la cuota del crédito (${money(debtMinor)}) este mes`, `don't raise the credit payment (${money(debtMinor)}) this month`) : "";
@@ -1095,11 +1135,17 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
 
     // 30 days: the purchase rule and where extra money goes.
     const tight = red || (debtPct ?? 0) > state.settings.debtGreenPct;
-    day30 = L(
-      lang,
-      `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. ${tight ? "Si te entra dinero extra: la mitad a tapar el hueco o la deuda, 30% al colchón y 20% para ti." : "Si te entra dinero extra: la mitad a tu colchón o meta y la otra mitad para ti."}`,
-      `By ${fmtDay(when30)}: before any purchase over ${money(hundred)}, wait 24 hours and decide where the money comes from. ${tight ? "If extra money comes in: half to the gap or debt, 30% to the cushion and 20% for you." : "If extra money comes in: half to your cushion or goal, half for you."}`,
-    );
+    day30 = !ritmoUp
+      ? L(
+          lang,
+          `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. ${tight ? "Si te entra dinero extra: la mitad a tapar el hueco o la deuda, 3 de cada 10 al colchón y 2 de cada 10 para ti." : "Si te entra dinero extra: la mitad a tu colchón o meta y la otra mitad para ti."}`,
+          `By ${fmtDay(when30)}: before any purchase over ${money(hundred)}, wait 24 hours and decide where the money comes from. ${tight ? "If extra money comes in: half to the gap or debt, 3 of every 10 to the cushion and 2 of every 10 for you." : "If extra money comes in: half to your cushion or goal, half for you."}`,
+        )
+      : L(
+          lang,
+          `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. ${tight ? "Si te entra dinero extra: la mitad a tapar el hueco o la deuda, 30% al colchón y 20% para ti." : "Si te entra dinero extra: la mitad a tu colchón o meta y la otra mitad para ti."}`,
+          `By ${fmtDay(when30)}: before any purchase over ${money(hundred)}, wait 24 hours and decide where the money comes from. ${tight ? "If extra money comes in: half to the gap or debt, 30% to the cushion and 20% for you." : "If extra money comes in: half to your cushion or goal, half for you."}`,
+        );
 
     // 90 days: the bigger goal that fits this month's numbers.
     if (red && baseSurplus < 0) {
@@ -1129,7 +1175,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   const usd = (m: number) => formatMoney(m, "USD", lang);
   const nio = (m: number) => formatMoney(m, "NIO", lang);
   let remitNote: string | null = null;
-  if (rt.now.usd > 0 || rt.prev.usd > 0) {
+  if (ritmoUp && (rt.now.usd > 0 || rt.prev.usd > 0)) {
     const share = rt.sharePct;
     const sharePart = share !== null ? L(lang, `, el ${share.toLocaleString("es-NI")}% de tu ingreso`, `, ${share.toLocaleString("en-US")}% of your income`) : "";
     const incPrev = rt.prev.income;
@@ -1155,7 +1201,9 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     L(lang, `24 horas: ${day24}`, `24 hours: ${day24}`),
     L(lang, `7 días: ${day7}`, `7 days: ${day7}`),
     L(lang, `30 días: ${day30}`, `30 days: ${day30}`),
-    L(lang, `90 días: ${day90}`, `90 days: ${day90}`),
+    // El paso de 90 días es el plan a 90 (plan-90, Completo): fuera de
+    // Completo la ruta del plan termina en 30 días (A-6).
+    ...(completo ? [L(lang, `90 días: ${day90}`, `90 days: ${day90}`)] : []),
     ...(remitNote ? [remitNote] : []),
   ].join("\n");
 
@@ -1188,7 +1236,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     currency: display,
     monthTag,
     tone,
-    toneLabel,
+    toneLabel: ritmoUp ? toneLabel : "",
     headline,
     action,
     alert,
@@ -1237,7 +1285,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     ironmanPct,
     parts,
     top,
-    levers,
+    levers: leversOut,
     plan,
     antNote,
     remitNote,
@@ -1249,7 +1297,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     compareNote,
     balanceGap,
     lines: read,
-    scenarios,
+    scenarios: completo ? scenarios : [],
   };
 }
 

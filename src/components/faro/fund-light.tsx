@@ -76,6 +76,8 @@ export function NaturePick({
   host,
   onHost,
   accounts,
+  simple = false,
+  armed = true,
 }: {
   mode: NatureMode;
   value: FundNature | null;
@@ -83,6 +85,12 @@ export function NaturePick({
   host: string;
   onHost: (id: string) => void;
   accounts: NamedAccount[];
+  /* Etapa 3.1 (F-1): fuera de Completo la pregunta es simple — sin selector de
+   * anfitriona; con varias cuentas el fondo se amarra a la primera y la forma
+   * lo DICE con su nombre. `armed` = la elección está viva en esta forma (en
+   * una serie existente sin tocar, la anfitriona guardada manda y no se mueve). */
+  simple?: boolean;
+  armed?: boolean;
 }) {
   const { t, fmt } = useFaro();
   const nature = mode === "ask" ? value : mode === "balance" ? "saldo" : "aparte";
@@ -90,11 +98,18 @@ export function NaturePick({
   useEffect(() => {
     if (nature === "saldo" && accounts.length === 1 && host !== accounts[0]!.id) onHost(accounts[0]!.id);
   }, [nature, accounts, host, onHost]);
+  // En la forma simple, elegir «del saldo» amarra a la primera cuenta — guardar
+  // nunca puede exigir una anfitriona que la forma no muestra (cerca F-1).
+  useEffect(() => {
+    if (simple && armed && nature === "saldo" && accounts.length > 1 && host !== accounts[0]!.id) onHost(accounts[0]!.id);
+  }, [simple, armed, nature, accounts, host, onHost]);
   const hostArea = nature === "saldo" ? (
     accounts.length === 0 ? (
       <p className="fund-note">{t("fund.host.none")}</p>
     ) : accounts.length === 1 ? (
       <p className="fund-note">{t("fund.host.only").replace("{x}", accounts[0]!.name)}</p>
+    ) : simple ? (
+      <p className="fund-note">{t("fund.host.first").replace("{x}", accounts[0]!.name)}</p>
     ) : (
       <div className="fund-host">
         <span className="lab-head">{t("fund.host.q")}</span>
@@ -148,19 +163,33 @@ export function SaveNote({ kind, nature, fundName, hostName, tone }: {
   hostName?: string;
   tone?: string;
 }) {
-  const { t } = useFaro();
+  const { t, has } = useFaro();
+  // Fo-3 (tres modos, etapa 3.3): la nota se compone por modo. La forma entera
+  // — la luz y la partición de naturaleza con su cuenta anfitriona — es
+  // Completo (nature.save-note / nature.light). En Ritmo nombra el fondo y su
+  // cuenta, sin la partición (la puerta es la banda de ahorros, vault.meta,
+  // que es donde el fondo vive con su cuenta en ese modo); en Esencial, solo
+  // el fondo. La cuenta se nombra igual en los tres modos (ciudadana de
+  // Esencial); el Retiro se nombra siempre, pero su clase («fuera de tu
+  // cuenta») se lee desde Ritmo (nature.class-retiro): en Esencial la nota es
+  // llana.
+  const full = has("nature.save-note");
   const text = kind === "cuenta"
     ? t("hist.note.cuenta").replace("{x}", fundName)
     : kind === "retiro"
-      ? t("hist.note.retiro")
-      : nature === "aparte"
-        ? t("hist.note.aparte").replace("{fund}", fundName)
-        : nature === "saldo"
-          ? t("hist.note.saldo").replace("{fund}", fundName).replace("{x}", hostName ?? "")
-          : t("hist.note.none").replace("{fund}", fundName);
+      ? has("nature.class-retiro") ? t("hist.note.retiro") : t("hist.note.retiroPlain")
+      : !full
+        ? nature === "saldo" && hostName && has("vault.meta")
+          ? t("hist.note.fundAcct").replace("{fund}", fundName).replace("{x}", hostName)
+          : t("hist.note.fund").replace("{fund}", fundName)
+        : nature === "aparte"
+          ? t("hist.note.aparte").replace("{fund}", fundName)
+          : nature === "saldo"
+            ? t("hist.note.saldo").replace("{fund}", fundName).replace("{x}", hostName ?? "")
+            : t("hist.note.none").replace("{fund}", fundName);
   return (
     <span className="hist-row-note">
-      {kind === "fund" ? <FundLight cls={nature ?? "sin-declarar"} tone={tone} hostName={hostName} /> : null}
+      {kind === "fund" && full ? <FundLight cls={nature ?? "sin-declarar"} tone={tone} hostName={hostName} /> : null}
       <span>{text}</span>
     </span>
   );

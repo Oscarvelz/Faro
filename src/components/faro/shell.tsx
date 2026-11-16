@@ -24,7 +24,7 @@ import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId }
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { guardPanelExit } from "@/lib/faro/panel-exit";
 import { installModalityGate } from "@/lib/faro/modality";
-import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study } from "./screens";
+import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study, SubsReadOnly } from "./screens";
 import { HistorialScreen } from "./historial";
 import { ArchivoScreen } from "./archivo";
 import { FoliosChips } from "./folios-chips";
@@ -32,11 +32,11 @@ import { BookSide, useTabletOne, type SideBook } from "./book-side";
 import { AreaAdvisor, SideCol } from "./area-advisor";
 import type { AreaId } from "@/lib/faro/area-advice";
 import { recipientName } from "@/lib/faro/remit-people";
-import { DebtBook, DebtScale, debtHello, preferOweTab, type DebtSide } from "./debts";
+import { DebtBook, DebtScale, DebtsReadOnly, debtHello, preferOweTab, type DebtSide } from "./debts";
 import { markRing, ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import { cardFigures, cardsOf } from "@/lib/faro/cards";
-import { screenPatch, type VaultTab } from "@/lib/manual/places";
+import { type VaultTab } from "@/lib/manual/places";
 import { ExportPanel } from "./export-panel";
 import { Mark, SectionIcon } from "./icons";
 import { Instruments } from "./instruments";
@@ -55,7 +55,7 @@ import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
 import { LockOffer } from "@/spa/lockoffer";
 import { Presentacion, PresOffer, launchScene } from "./presentacion";
-import { moduleById, pick, scenePlace, searchScenes } from "@/lib/faro/guion";
+import { TOPIC_SCENES, moduleById, moduleInMode, pick, sceneInMode, scenePlace, searchScenes } from "@/lib/faro/guion";
 
 mountCpCity(); // 1.3.201: the Cyberpunk city layers (display:none outside that theme)
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
@@ -73,10 +73,47 @@ const VAULT = ["save", "meta", "retiro", "emergencia"] as const;
 const RING = ["income", "fixed", "variable", "shops", "owed", "owe", "save", "meta", "retiro", "emergencia"] as const;
 type RingStop = (typeof RING)[number];
 type Swipe = { x: number; y: number; type: string; axis: "x" | "y" | null; el: HTMLElement | null };
-function ringNext(section: SectionId, vault: VaultTab | null, dir: number): RingStop {
+function ringNext(section: SectionId, vault: VaultTab | null, dir: number, stops: readonly RingStop[] = RING): RingStop {
   const here = vault ?? (section === "subs" ? "owe" : section);
-  const i = Math.max(0, RING.indexOf(here as RingStop));
-  return RING[(i + dir + RING.length) % RING.length]!;
+  const i = Math.max(0, stops.indexOf(here as RingStop));
+  return stops[(i + dir + stops.length) % stops.length]!;
+}
+/* Etapa 3.1 (N-1): los anillos se derivan de la lista visible del modo — la
+ * cerca única de los tres anillos es que ninguna parada viva fuera del modo.
+ * El registro se consume solo vía el contexto (has), nunca importado aquí. */
+function ringStopVisible<F extends string>(s: RingStop, has: (f: F) => boolean): boolean {
+  const gate = (f: string) => has(f as F);
+  switch (s) {
+    case "shops": return gate("books.shops");
+    case "owed": return gate("cobros.owed-side");
+    case "owe": return gate("cobros.owe-side");
+    case "save": return gate("vault.save");
+    case "meta": return gate("vault.meta");
+    case "retiro": return gate("vault.retiro");
+    case "emergencia": return gate("vault.emergencia");
+    default: return true;
+  }
+}
+function vaultStopVisible<F extends string>(id: (typeof VAULT)[number] | "owed" | "owe", has: (f: F) => boolean): boolean {
+  const gate = (f: string) => has(f as F);
+  switch (id) {
+    case "save": return gate("vault.save");
+    case "meta": return gate("vault.meta");
+    case "retiro": return gate("vault.retiro");
+    case "emergencia": return gate("vault.emergencia");
+    case "owed": return gate("cobros.owed-side");
+    case "owe": return gate("cobros.owe-side");
+    default: return true;
+  }
+}
+function dockStopVisible<F extends string>(stop: DockStop, has: (f: F) => boolean): boolean {
+  const gate = (f: string) => has(f as F);
+  if (stop.kind === "money") return true;
+  if (stop.kind === "vault") return vaultStopVisible(stop.id, has);
+  if (stop.id === "shops") return gate("books.shops");
+  if (stop.id === "subs") return gate("books.subs");
+  if (stop.id === "stats" || stop.id === "advice") return gate("study.flow");
+  return true;
 }
 /** The swiped content follows the finger with resistance (never more than ~150px), a little fainter the further it goes. */
 function dragPane(pane: HTMLElement | null, dx: number | null) {
@@ -139,9 +176,9 @@ const RIGHT_DOCK: DockStop[] = [...BOOKS, ...STUDY].map((id) => ({ kind: "sectio
 /** 1.3.119: both bands as one swipe loop on a tablet/desktop (left band, then right band, wrapping). */
 const DOCK_RING: DockStop[] = [...LEFT_DOCK, ...RIGHT_DOCK];
 const TABLET_RING_MQ = "(min-width: 1100px)";
-function dockRingIndex(moneyOpen: boolean, vault: VaultTab | null, section: SectionId): number {
+function dockRingIndex(moneyOpen: boolean, vault: VaultTab | null, section: SectionId, ring: readonly DockStop[] = DOCK_RING): number {
   // Me deben / Debo are not dock buttons: they sit with Cuotas (right band), so the loop goes on from there.
-  const i = DOCK_RING.findIndex((stop) => moneyOpen ? stop.kind === "money"
+  const i = ring.findIndex((stop) => moneyOpen ? stop.kind === "money"
     : vault === "owed" || vault === "owe" ? stop.kind === "section" && stop.id === "subs"
     : vault ? stop.kind === "vault" && stop.id === vault
     : stop.kind === "section" && stop.id === section);
@@ -169,7 +206,11 @@ function hubOf(section: SectionId) {
 
 export function Shell() {
   const faro = useFaro();
-  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, fmt, persistFailed, tabConflict, dismissTabConflict } = faro;
+  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, fmt, persistFailed, tabConflict, dismissTabConflict, has } = faro;
+  // N-3 (etapa 3.1) con el fallo 14 de Oscar: la búsqueda no conoce el modo —
+  // los resultados de personas y tarjetas se ofrecen en todo modo; lo que el
+  // modo regula es el aterrizaje (en Esencial, Folios; la cara lectora de
+  // deudas de S-1 lo recibirá en la etapa 4).
   const searchRef = useRef<HTMLDivElement>(null);
   const searchPopRef = useRef<HTMLFormElement>(null);
   const deskRef = useRef<HTMLDivElement>(null);
@@ -200,15 +241,26 @@ export function Shell() {
     return () => { live = false; };
   }, [manualData, manualGaveUp, searchOpen]);
   const settingHits = useMemo(
-    () => (manualData ? searchSettings(manualData.MANUAL_TOPICS, ui.query, lang) : []),
-    [manualData, ui.query, lang],
+    () => (manualData ? searchSettings(manualData.MANUAL_TOPICS, ui.query, lang, 6, faro.mode, manualData.topicMode) : []),
+    [manualData, ui.query, lang, faro.mode],
   );
   // Las presentaciones también se encuentran desde la lupa: cada escena trae dos
   // aterrizajes — verla en la presentación o ir directo a la función, en tus libros.
+  // La oferta se recompone por modo (etapa 5): una escena cuyo módulo o cuya
+  // cara duerme en el modo de la persona no se ofrece — enseñarla prometería
+  // una superficie que el modo no tiene.
   const sceneHits = useMemo(
-    () => (ui.query.trim().length >= 2 ? searchScenes(ui.query) : []),
-    [ui.query],
+    () => (ui.query.trim().length >= 2 ? searchScenes(ui.query) : []).filter((hit) => {
+      const m = moduleById(hit.moduleId);
+      const sc = m?.scenes.find((s) => s.id === hit.sceneId);
+      return !!m && !!sc && moduleInMode(m, faro.mode) && sceneInMode(sc, faro.mode);
+    }),
+    [ui.query, faro.mode],
   );
+  // El tema de una escena (para la caída a la explicación de goTopic): el
+  // inverso del mapa de puentes, la misma derivación que SCENE_TOPIC.
+  const topicOfScene = (sceneId: string): string =>
+    Object.entries(TOPIC_SCENES).find(([, t]) => t.sceneId === sceneId)?.[0] ?? "";
   const renderSceneHits = () => sceneHits.map((hit) => {
     const mod = moduleById(hit.moduleId);
     if (!mod) return null;
@@ -224,8 +276,12 @@ export function Shell() {
           }}>{lang === "en" ? "See it in the presentation" : "Ver en la presentación"}</button>
           <button type="button" className="pres-hit-go" onClick={() => {
             setSearchOpen(false);
-            const { patch } = screenPatch({ screen: scenePlace(mod, hit.sceneId) });
-            setUi({ ...patch, query: "" });
+            // El salto a la función valida contra el modo como todo salto
+            // (etapa 5 cierra el resto declarado de la etapa 2): si el
+            // destino duerme, goTopic cae a la explicación del tema de la
+            // escena — o a la portada del Manual si la escena no tiene tema.
+            goTopic(topicOfScene(hit.sceneId), { screen: scenePlace(mod, hit.sceneId) });
+            setUi({ query: "" });
           }}>{lang === "en" ? "Go to the function" : "Ir a la función"}</button>
         </span>
       </div>
@@ -244,8 +300,9 @@ export function Shell() {
     <button key={hit.id} type="button" className="hit" onClick={() => {
       const [y, m] = hit.monthKey.split("-").map(Number);
       setSearchOpen(false);
-      if (hit.vault === "owe") preferOweTab("loans");
-      if (hit.vault) setUi({ section: "income", vault: hit.vault, query: "" });
+      const vaultOk = !hit.vault || (hit.vault === "owed" ? has("cobros.owed-side") : has("cobros.owe-side"));
+      if (hit.vault && !vaultOk) setUi({ section: "historial", year: y ?? ui.year, month: m ?? ui.month, query: "" });
+      else if (hit.vault) { if (hit.vault === "owe") preferOweTab("loans"); setUi({ section: "income", vault: hit.vault, query: "" }); }
       else setUi({ section: hit.section, year: y ?? ui.year, month: m ?? ui.month, highlight: hit.lineId, query: "" });
     }}>
       <strong>{hit.title}</strong>
@@ -964,7 +1021,7 @@ export function Shell() {
           <SectionIcon id="desk" />
           <span>{t("nav.desk")}</span>
         </button>
-        {VAULT.map((id) => (
+        {VAULT.filter((id) => vaultStopVisible(id, has)).map((id) => (
           <button key={id} type="button" className="nav-btn" data-vault={id} aria-current={!moneyOpen && vault === id ? "page" : undefined} onClick={() => guardPanelExit(() => {
             setRecall(false);
             setMoneyOpen(false);
@@ -995,7 +1052,7 @@ export function Shell() {
         <header className="top-chrome">
           <span className="cp-kata" aria-hidden="true">サイバーパンク</span>
           <SampleEdge />
-          <div className="top-scale">{topScaleOn ? <DebtScale top value={topDebt} onPick={pickTopDebt} /> : null}</div>
+          {has("debt.scale") ? <div className="top-scale">{topScaleOn ? <DebtScale top value={topDebt} onPick={pickTopDebt} /> : null}</div> : null}
           <div className="top-row">
             <button type="button" className="brand-mini" data-anchor="top-brand" onClick={() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "desk" }); }}>
               <span className="brand-lamp" aria-hidden>
@@ -1017,7 +1074,10 @@ export function Shell() {
                 </button>
               </div>
               <div className="desk-grid">
-                <ExportPanel open={exportOpen} onOpenChange={setExportOpen} />
+                {/* Fo-5/X-21 (etapa 3.3): el panel de informes nace en Ritmo
+                    (export.panel); en Esencial la barra no lo lleva y la
+                    salida universal es la copia del libro de Ajustes. */}
+                {has("export.panel") ? <ExportPanel open={exportOpen} onOpenChange={setExportOpen} /> : null}
                 <button type="button" data-anchor="top-gear" className="icon-btn phone-gear" aria-label={t("nav.settings")} aria-current={hub === "settings" ? "page" : undefined} onClick={() => setUi({ section: "settings" })}>
                   <Settings className="size-4" />
                 </button>
@@ -1095,6 +1155,7 @@ export function Shell() {
               </div>
               <div className="desk-grid">
                 <div className="cal-anchor" ref={calRef} data-anchor="top-cal">
+                  {has("nav.calendar") ? (
                   <button
                     type="button"
                     className="icon-btn theme-toggle cal-launch"
@@ -1112,7 +1173,8 @@ export function Shell() {
                     <CalendarDays className="size-4" />
                     {onThisMonth ? null : <i className="cal-away" />}
                   </button>
-                  {calOpen ? (
+                  ) : null}
+                  {calOpen && has("nav.calendar") ? (
                     <div
                       className="cal-sheet"
                       role="dialog"
@@ -1200,8 +1262,11 @@ export function Shell() {
                                   key={item.id}
                                   type="button"
                                   onClick={() => {
-                                    if (item.vault) setUi({ section: "income", vault: item.vault, year: calYear, month: calMonth });
-                                    else setUi({ section: placeFor(item.kind), year: calYear, month: calMonth, highlight: item.id });
+                                    // N-3: un aterrizaje de bóveda que el modo no tiene cae a Folios
+                                    // como movimiento del día; un libro dormido (Compras) igual.
+                                    if (item.vault && vaultStopVisible(item.vault, has)) setUi({ section: "income", vault: item.vault, year: calYear, month: calMonth });
+                                    else if (item.vault) setUi({ section: "historial", year: calYear, month: calMonth });
+                                    else { const place = placeFor(item.kind); setUi({ section: place === "shops" && !has("books.shops") ? "historial" : place, year: calYear, month: calMonth, highlight: item.id }); }
                                     setCalOpen(false);
                                   }}
                                 >
@@ -1319,8 +1384,9 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
                 if (!flat) { if (start.axis === "x") dragPane(start.el, null); return; }
                 swiped.current = true;
                 const dir = dx < 0 ? 1 : -1;
-                const at = dockRingIndex(moneyOpen, vault, ui.section);
-                const next = DOCK_RING[(at + dir + DOCK_RING.length) % DOCK_RING.length]!;
+                const dockRing = DOCK_RING.filter((s) => dockStopVisible(s, has));
+                const at = dockRingIndex(moneyOpen, vault, ui.section, dockRing);
+                const next = dockRing[(at + dir + dockRing.length) % dockRing.length]!;
                 const el = start.el;
                 setSlideDir(dir);
                 setRecall(false);
@@ -1347,7 +1413,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
                 if (start.axis !== "x" || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) { if (start.axis === "x") dragPane(start.el, null); return; }
                 swiped.current = true;
                 const dir = dx < 0 ? 1 : -1;
-                const next = ringNext(ui.section, vault, dir);
+                const next = ringNext(ui.section, vault, dir, RING.filter((s) => ringStopVisible(s, has)));
                 markRing();
                 setSlideDir(dir);
                 setRecall(false);
@@ -1365,7 +1431,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
               if (docksOn) {
                 setRecall(false);
                 const onLeft = moneyOpen || !!vault || ui.section === "desk" || ui.section === "settings";
-                const dock = onLeft ? LEFT_DOCK : RIGHT_DOCK;
+                const dock = (onLeft ? LEFT_DOCK : RIGHT_DOCK).filter((s) => dockStopVisible(s, has));
                 const index = dock.findIndex((stop) => {
                   if (moneyOpen) return stop.kind === "money";
                   if (vault) return stop.kind === "vault" && stop.id === vault;
@@ -1386,8 +1452,9 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
               } else if (hub === "desk") window.dispatchEvent(new CustomEvent("faro-lens", { detail: dir }));
               else if (hub === "books" && (vault === "owed" || vault === "owe")) setVault(vault === "owed" ? "owe" : "owed");
               else if (hub === "books" && vault) {
-                const i = VAULT.indexOf(vault as (typeof VAULT)[number]);
-                setVault(VAULT[(i + dir + VAULT.length) % VAULT.length]);
+                const stops = VAULT.filter((id) => vaultStopVisible(id, has));
+                const i = stops.indexOf(vault as (typeof VAULT)[number]);
+                if (stops.length) setVault(stops[(Math.max(0, i) + dir + stops.length) % stops.length]!);
               } else goSection(dir);
             }}
             onClickCapture={(e) => {
@@ -1526,8 +1593,11 @@ function ToolSheet({ contained = false }: { contained?: boolean }) {
 }
 
 function DockNav({ section, onSection }: { section: SectionId; onSection: (id: SectionId) => void }) {
-  const { t } = useFaro();
+  const { t, has } = useFaro();
   const hub = hubOf(section);
+  // N-1 (etapa 3.1): sin Estudio el muelle se recompone a tres ciudadanos y la
+  // posición de la luz se deriva de la lista visible, no de un mapa fijo.
+  const hubs = ["desk", "books", "folios", ...(has("study.flow") ? ["study"] : [])] as const;
   // El cuarto ciudadano es Folios (Oscar, 2026-11-13, sobre su foto del dock): el
   // contenedor de las dos pastillas — Historial y Archivo — entre Libros y Estudio.
   // Libros ya está a su capacidad y no guarda ninguna de las dos. El ciudadano
@@ -1536,7 +1606,7 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
   const lastPastilla = useRef<SectionId>("historial");
   if (section === "historial" || section === "archivo") lastPastilla.current = section;
   return (
-    <nav className="dock" data-anchor="nav-dock" style={{ ["--dock" as string]: hub === "books" ? 1 : hub === "folios" ? 2 : hub === "study" ? 3 : 0 }} aria-label={t("nav.desk")}>
+    <nav className={`dock${hubs.length === 3 ? " is-3" : ""}`} data-anchor="nav-dock" style={{ ["--dock" as string]: Math.max(0, hubs.indexOf(hub as (typeof hubs)[number])) }} aria-label={t("nav.desk")}>
       <i className="dock-glide" aria-hidden><i key={hub} className="dock-sheen" /></i>
       <button type="button" className="nav-btn" data-anchor="nav-desk" aria-current={hub === "desk" ? "page" : undefined} onClick={() => { if (hub !== "desk") onSection("desk"); }}>
         <SectionIcon id="desk" />
@@ -1550,10 +1620,12 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
         <SectionIcon id="archivo" />
         <span>{t("nav.folios")}</span>
       </button>
+      {has("study.flow") ? (
       <button type="button" className="nav-btn" data-anchor="nav-study" aria-current={hub === "study" ? "page" : undefined} onClick={() => { if (hub !== "study") onSection("stats"); }}>
         <SectionIcon id="stats" />
         <span>{t("hub.study")}</span>
       </button>
+      ) : null}
     </nav>
   );
 }
@@ -1667,14 +1739,26 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   vault: VaultTab | null; onVault: (next: VaultTab | null) => void; segRef: React.RefObject<HTMLDivElement | null>; vaultRef: React.RefObject<HTMLDivElement | null>;
   slideDir: number; onSlide: (dir: number) => void; anchors?: boolean; bar?: boolean;
 }) {
-  const { t, ui, setUi } = useFaro();
-  const debt: DebtSide | null = vault === "owed" || vault === "owe" ? vault : !vault && ui.section === "subs" ? "owe" : null;
-  const save = vault && vault !== "owed" && vault !== "owe" ? vault : null;
-  const off = !!vault || ui.section === "subs";
+  const { t, ui, setUi, has } = useFaro();
+  // Etapa 3.1: la barra se recompone por modo y el estado guardado se filtra
+  // AL LEER — una bóveda o un lado de deuda que el modo no tiene cae al libro,
+  // sin reescribir el estado (L-4/Fo-4).
+  const segBooks = TOP_BOOKS.filter((id) => id !== "shops" || has("books.shops"));
+  const vaultTabs = VAULT.filter((id) => vaultStopVisible(id, has));
+  const debtRaw: DebtSide | null = vault === "owed" || vault === "owe" ? vault : !vault && ui.section === "subs" ? "owe" : null;
+  const debt: DebtSide | null = debtRaw && has("debt.scale") ? debtRaw : null;
+  // Etapa 3.3 (S-1/S-3): sin balanza, el lado de deuda no cae al libro — cae a
+  // la cara lectora. Es el aterrizaje de los saltos que goTopic valida contra
+  // debt.facts y de lo restaurado en el Archivo (Fo-1): el estado de bóveda
+  // guardado se lee, no se reescribe, y su cara en Esencial es la lectora.
+  const debtRo: DebtSide | null = debtRaw && !has("debt.scale") ? debtRaw : null;
+  const saveRaw = vault && vault !== "owed" && vault !== "owe" ? vault : null;
+  const save = saveRaw && vaultStopVisible(saveRaw, has) ? saveRaw : null;
+  const off = !!debt || !!debtRo || !!save;
   const { tap: vtap, hello: vaultHello } = useVaultHello(vaultRef);
   // 1.3.97: once the pane has been swapped by a tap or a ring step (not the hub's first pane), its content must be there in the very
   // first frame: `is-swap` turns off the arrival fades inside it (Tron's card "rez", note and cobro fades all started at opacity 0).
-  const paneKey = debt ?? save ?? ui.section;
+  const paneKey = debt ?? debtRo ?? save ?? ui.section;
   const lastPane = useRef(paneKey);
   const swapped = useRef(false);
   if (lastPane.current !== paneKey) { lastPane.current = paneKey; swapped.current = true; }
@@ -1682,9 +1766,12 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   // 1.3.120: the Shell draws it there itself (on every screen), so the main view's hub leaves it out; split/float panes keep theirs.
   const topScale = useTopScaleSlot();
   const tabletOne = useTabletOne();
-  const sideBook: SideBook | null = !tabletOne || debt ? null : save ? "save" : ui.section === "fixed" ? "fixed" : ui.section === "shops" ? "shops" : null;
+  const sideBook: SideBook | null = !tabletOne || debt || debtRo ? null : save ? "save" : ui.section === "fixed" ? "fixed" : ui.section === "shops" ? "shops" : null;
   // 1.3.122: every book gets its own Asesor in the right column (under the comparison pane when there is one).
-  const sideArea: AreaId | null = !tabletOne || debt ? null : save ? save : ui.section === "income" || ui.section === "fixed" || ui.section === "variable" || ui.section === "shops" ? ui.section : null;
+  // 3.2 (A-5): en Esencial no hay columna del área — el área efectiva es nula
+  // y el libro gana el ancho entero (la clase has-side sigue a este valor).
+  const sideAreaRaw: AreaId | null = !tabletOne || debt || debtRo ? null : save ? save : ui.section === "income" || ui.section === "fixed" || ui.section === "variable" || ui.section === "shops" ? ui.section : null;
+  const sideArea: AreaId | null = sideAreaRaw && has("area.bars-6m") ? sideAreaRaw : null;
   const scale = (
     <DebtScale value={debt} onPick={(side) => {
       if (debt && debt !== side) onSlide(side === "owe" ? 1 : -1);
@@ -1699,19 +1786,25 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
           el de siempre. */}
       <div className="seg is-follow is-four" ref={segRef} role="tablist" aria-label={t("hub.books")} data-anchor={anchors ? "books-tabs" : undefined}>
         <i className="seg-pill" aria-hidden style={off ? { opacity: 0 } : undefined} />
-        {TOP_BOOKS.map((id) => (
+        {segBooks.map((id) => (
           <button key={id} type="button" role="tab" aria-selected={!off && ui.section === id} aria-current={!off && ui.section === id ? "page" : undefined} onClick={() => { onVault(null); setUi({ section: id }); }}>
             <span className="seg-ico" aria-hidden><SectionIcon id={id} className="size-3.5" /></span>
             <span className="seg-label">{t(`nav.${id}`)}</span>
           </button>
         ))}
+        {!has("debt.scale") ? (
+          <button key="subs" type="button" role="tab" aria-selected={ui.section === "subs"} aria-current={ui.section === "subs" ? "page" : undefined} onClick={() => { onVault(null); setUi({ section: "subs" }); }}>
+            <span className="seg-ico" aria-hidden><SectionIcon id="subs" className="size-3.5" /></span>
+            <span className="seg-label">{t("tab.subs")}</span>
+          </button>
+        ) : null}
       </div>
-      {bar && topScale ? null : scale}
-      <div className="vault-bar" ref={vaultRef} data-anchor={anchors ? "vault-tabs" : undefined} style={{ ["--vault" as string]: save ? VAULT.indexOf(save) : 0, ["--vtint" as string]: save === "meta" ? vtint("#8fb9a6") : save === "retiro" ? vtint("#72b4b2") : save === "emergencia" ? vtint("#7aa2c4") : save === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
+      {has("debt.scale") ? (bar && topScale ? null : scale) : null}
+      <div className="vault-bar" ref={vaultRef} data-anchor={anchors ? "vault-tabs" : undefined} style={{ ["--vault" as string]: save ? vaultTabs.indexOf(save) : 0, ["--vtint" as string]: save === "meta" ? vtint("#8fb9a6") : save === "retiro" ? vtint("#72b4b2") : save === "emergencia" ? vtint("#7aa2c4") : save === "save" ? vtint(SAVINGS_PURPLE) : "var(--fg)" }} role="tablist" aria-label={t("desk.savings")}>
         <i className={`vault-glide${save ? " is-on" : ""}${save === "save" ? " is-save" : ""}`} aria-hidden />
-        {VAULT.map((id) => (
+        {vaultTabs.map((id) => (
           <button key={id} type="button" role="tab" data-vault={id} data-rise={vtap?.id === id ? vtap.n % 2 : undefined} style={{ ["--vtone" as string]: vtint(VAULT_TONE[id]) }} aria-selected={save === id} aria-current={save === id ? "page" : undefined} onClick={(e) => {
-            if (save && save !== id) onSlide(VAULT.indexOf(id) > VAULT.indexOf(save) ? 1 : -1);
+            if (save && save !== id) onSlide(vaultTabs.indexOf(id) > vaultTabs.indexOf(save) ? 1 : -1);
             onVault(id);
             vaultHello(id, e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined);
           }}>
@@ -1722,8 +1815,8 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
         ))}
         {anchors ? <Hint topic="ahorros-tabs" className="is-tabs" corner overlay /> : null}
       </div>
-      <div key={paneKey} className={`swipe-pane${save || debt ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}${sideBook || sideArea ? " has-side" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
-        {debt ? <DebtBook side={debt} /> : save ? <Desk focus={save} /> : ui.section === "shops" ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
+      <div key={paneKey} className={`swipe-pane${save || debt || debtRo ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}${sideBook || sideArea ? " has-side" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
+        {debt ? <DebtBook side={debt} /> : debtRo ? <DebtsReadOnly side={debtRo} /> : save ? <Desk focus={save} /> : ui.section === "subs" ? <SubsReadOnly /> : ui.section === "shops" && has("books.shops") ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
         {sideArea ? <SideCol>{sideBook ? <BookSide book={sideBook} /> : null}<AreaAdvisor area={sideArea} /></SideCol> : sideBook ? <BookSide book={sideBook} /> : null}
       </div>
     </>
@@ -1731,8 +1824,10 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
 }
 
 function SectionView() {
-  const { t, ui, setUi, goSection } = useFaro();
-  const hub = hubOf(ui.section);
+  const { t, ui, setUi, goSection, has } = useFaro();
+  // Filtro al leer: una sección de Estudio guardada no resucita su cara en un
+  // modo sin Estudio — se lee como Central, sin reescribir el estado.
+  const hub = hubOf(ui.section) === "study" && !has("study.flow") ? "desk" : hubOf(ui.section);
   const [vault, setVault] = useState<VaultTab | null>(null);
   const [slideDir, setSlideDir] = useState(1);
   const segRef = useRef<HTMLDivElement>(null);
@@ -1801,7 +1896,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
           if (start.axis !== "x" || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) { if (start.axis === "x") dragPane(start.el, null); return; }
           swiped.current = true;
           const dir = dx < 0 ? 1 : -1;
-          const next = ringNext(ui.section, vault, dir);
+          const next = ringNext(ui.section, vault, dir, RING.filter((s) => ringStopVisible(s, has)));
           markRing();
           setSlideDir(dir);
           if ((TOP_BOOKS as readonly string[]).includes(next)) { setVault(null); setUi({ section: next as SectionId }); }
@@ -1816,8 +1911,9 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
         if (hub === "desk") window.dispatchEvent(new CustomEvent("faro-lens", { detail: dir }));
         else if (hub === "books" && (vault === "owed" || vault === "owe")) setVault(vault === "owed" ? "owe" : "owed");
         else if (hub === "books" && vault) {
-          const i = VAULT.indexOf(vault as (typeof VAULT)[number]);
-          setVault(VAULT[(i + dir + VAULT.length) % VAULT.length]);
+          const stops = VAULT.filter((id) => vaultStopVisible(id, has));
+          const i = stops.indexOf(vault as (typeof VAULT)[number]);
+          if (stops.length) setVault(stops[(Math.max(0, i) + dir + stops.length) % stops.length]!);
         } else goSection(dir);
       }}
       onClickCapture={(e) => {

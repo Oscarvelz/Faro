@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, Calculator, CircleHelp, Presentation } from "lucide-react";
-import { TOPIC_SCENES } from "@/lib/faro/guion";
+import { TOPIC_SCENES, moduleById, moduleInMode } from "@/lib/faro/guion";
+import { modeReaches } from "@/lib/faro/mode";
 import { stageOn } from "@/lib/faro/samplemode";
 import { launchScene } from "./presentacion";
 import { useLayer } from "@/lib/manual/back";
@@ -295,7 +296,15 @@ export function Hint({
             <span ref={pop} className="ftip-pop hint-pop" role="dialog" aria-label={data.pick(lang, entry.title)} data-hint={topic} data-anchor="hint-bubble" onPointerDown={(e) => e.stopPropagation()}>
               <span className="hint-scroll">
               <span className="hint-text">{richText(data.bubbleText(entry, lang, alt), data, onLink, { self: entry.id, here: (go) => isHere(go, root.ui), still })}</span>
-              {(() => { const pres = TOPIC_SCENES[entry.id] ?? (entry.moreId ? TOPIC_SCENES[entry.moreId] : undefined); return calc || entry.depth === "manual" || pres ? (
+              {(() => { const pres0 = TOPIC_SCENES[entry.id] ?? (entry.moreId ? TOPIC_SCENES[entry.moreId] : undefined);
+                /* Los puentes siguen al modo (etapa 5): «Más en el manual» solo si el tema vive en el modo
+                 * de la persona, y «Ver en la presentación» solo si el módulo del puente también vive en
+                 * él — un puente a un tema o módulo dormido sería una puerta a ninguna parte. */
+                const alive = modeReaches(root.mode, data.topicMode(entry));
+                const presMod = pres0 ? moduleById(pres0.moduleId) : undefined;
+                const pres = pres0 && presMod && moduleInMode(presMod, root.mode) ? pres0 : undefined;
+                const more = entry.depth === "manual" && alive;
+                return calc || more || pres ? (
                 <span className="hint-acts">
                   {calc ? (
                     <button type="button" className="hint-act" data-anchor="hint-calc" onClick={(e) => { e.stopPropagation(); setOpen(false); calc(); }}>
@@ -303,7 +312,7 @@ export function Hint({
                       <span>{t("manual.calc")}</span>
                     </button>
                   ) : null}
-                  {entry.depth === "manual" ? (
+                  {more ? (
                     <button type="button" className="hint-more" data-anchor="hint-more" onClick={(e) => { e.stopPropagation(); setOpen(false); root.openManual(entry.moreId ?? entry.id); }}>
                       <span>{t("manual.more")}</span>
                       <ArrowRight aria-hidden />

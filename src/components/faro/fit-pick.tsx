@@ -598,7 +598,11 @@ const UNITS: [FreqUnit, string, string][] = [["d", "días", "days"], ["w", "sema
 
 /** The frequency sheet: presets, the user's saved ones (removable in edit state) and "Otro…" with a "Cada N …" setter. */
 export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { value: string; presets: string[]; onPick: (token: string) => void; onClose: () => void; startSetter?: boolean }) {
-  const { lang, session, commit, confirm } = useFaro();
+  const { lang, session, commit, confirm, has } = useFaro();
+  // Etapa 3.1: la cadencia completa (intervalos propios, «Otro…», la lista
+  // propia editable) es de Completo; fuera de él la hoja ofrece las frecuencias
+  // de la casa y el valor actual de la línea se sigue LEYENDO entre las opciones.
+  const full = has("subs.cadence-custom");
   const [setter, setSetter] = useState(!!startSetter);
   const [editing, setEditing] = useState(false);
   const iv = intervalOf(value);
@@ -645,13 +649,13 @@ export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { va
     <div className="fit-scrim" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={`fit-sheet is-freq${editing ? " is-editing" : ""}`} role="dialog" aria-modal="true" aria-label={L(lang, "Frecuencia", "Frequency")} data-test="freq-sheet" onPointerDown={(e) => e.stopPropagation()}>
         <div className="fit-sheet-head">
-          <strong>{setter ? L(lang, "Otra frecuencia", "Other frequency") : L(lang, "Frecuencia", "Frequency")}</strong>
-          {!setter && mine.length ? (
+          <strong>{setter && full ? L(lang, "Otra frecuencia", "Other frequency") : L(lang, "Frecuencia", "Frequency")}</strong>
+          {!setter && full && mine.length ? (
             <button type="button" className="fit-sheet-tool" data-test="freq-edit" aria-pressed={editing} aria-label={editing ? L(lang, "Listo", "Done") : L(lang, "Editar lista", "Edit list")} onClick={() => setEditing((v) => !v)}>{editing ? <Check /> : <Pencil />}</button>
           ) : null}
           <button type="button" className="fit-sheet-tool" aria-label={L(lang, "Cerrar", "Close")} onClick={onClose}><X /></button>
         </div>
-        {setter ? (
+        {setter && full ? (
           <div className="freq-set" data-test="freq-set">
             <div className="freq-set-row">
               <span>{L(lang, "Cada", "Every")}</span>
@@ -671,13 +675,13 @@ export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { va
         ) : (
           <div className="fit-sheet-list">
             <div className="fit-grid">{[...presets, ...extra].map((c) => opt(c))}</div>
-            {mine.length ? (
+            {full && mine.length ? (
               <section className="fit-group">
                 <p className="fit-kicker">{L(lang, "Tus frecuencias", "Your frequencies")}</p>
                 <div className="fit-grid">{mine.map((c) => opt(c, true))}</div>
               </section>
             ) : null}
-            {editing ? null : (
+            {editing || !full ? null : (
               <div className="fit-grid">
                 <button type="button" className="fit-opt is-other" data-test="freq-other" onClick={() => setSetter(true)}><span className="fit-opt-mark" aria-hidden><Plus /></span><span>{L(lang, "Otro…", "Other…")}</span></button>
               </div>

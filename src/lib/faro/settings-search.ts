@@ -8,9 +8,15 @@
  * manual's lazy chunk (lib/manual/load), never through a static import — this module only takes them as data.
  * Matching mirrors the manual's own search (lib/manual/search): accent- and case-blind (ñ stays), every word
  * must appear, longer words forgive a typo.
+ *
+ * Etapa 2 (tres modos, hueco J-1): the search also takes the person's mode. A setting whose function sleeps
+ * in that mode does not surface as a live destination — the hit list stays a list of places the mode can
+ * actually open. The destination's function comes from the one registry (lib/faro/mode, featureForGo);
+ * the default is Completo (a book with no mode chosen yet), where nothing sleeps and nothing is filtered.
  */
 import type { Numbered } from "../manual/topics";
 import type { GoLike } from "../manual/places";
+import { featureForGo, hasFeature, modeReaches, type Mode } from "./mode";
 
 export type SettingHit = {
   /** Manual topic id — the jump goes through goTopic, like every "Ir allí". */
@@ -69,7 +75,7 @@ function topicText(tp: Numbered, lang: string): string {
  * The settings a query finds, best first. Several topics can share one spot (seventeen import topics all land
  * on the same row): each spot appears once, under its best-ranked topic, so the list stays a list of places.
  */
-export function searchSettings(topics: readonly Numbered[], query: string, lang: string, limit = 6): SettingHit[] {
+export function searchSettings(topics: readonly Numbered[], query: string, lang: string, limit = 6, mode: Mode = "completo", topicModeOf?: (tp: Numbered) => Mode): SettingHit[] {
   const words = fold(query.trim()).split(/\s+/).filter((w) => w.length >= 2);
   if (!words.length) return [];
   const q = words.join(" ");
@@ -87,6 +93,15 @@ export function searchSettings(topics: readonly Numbered[], query: string, lang:
   const kind = (tp: Numbered) => (tp.id.startsWith("f-") ? 2 : tp.depth === "manual" ? 0 : 1);
   const ranked = topics
     .filter((tp) => tp.go?.screen === "settings" && (tp.go.anchor || tp.go.fold))
+    // Etapa 2: un destino dormido en el modo de la persona no se ofrece como
+    // destino vivo (el salto mismo se valida además en goTopic, el punto único).
+    .filter((tp) => { const f = featureForGo(tp.go!); return !f || hasFeature(mode, f); })
+    // Etapa 5 (la herencia de T-2): un tema que duerme en el modo tampoco
+    // presta su título ni sus términos a un acierto — la búsqueda hereda el
+    // metadato del Manual, no solo el destino. El resolvedor llega como dato
+    // (topicMode vive en el chunk perezoso del Manual; este módulo jamás lo
+    // importa estático). Sin resolvedor, nada se filtra por tema.
+    .filter((tp) => !topicModeOf || modeReaches(mode, topicModeOf(tp)))
     .filter((tp) => hitWords(words, topicText(tp, lang)))
     .map((tp, i) => {
       const r = rank(tp);

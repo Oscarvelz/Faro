@@ -1,4 +1,4 @@
-import { readAdvisor } from "./advisor";
+import { bookMode, readAdvisor } from "./advisor";
 import { colorFor } from "./colors";
 import { displayName, visibleNamer } from "./defaults";
 import { isRemitLine } from "./remesas";
@@ -864,6 +864,11 @@ export function buildBudget(state: LedgerState, key: string, lang: Lang, names: 
 
 export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: Namer): AdviceCard[] {
   names = visibleNamer(state.structure, names); // Contrato, regla 2: las etiquetas no nombran lo oculto.
+  // 3.2 (A-1/A-4): las tarjetas nacen acotadas al modo — fuera de Completo no
+  // hay tarjeta larga y la mediana se reduce a montos y fechas.
+  const mode = bookMode(state);
+  const completo = mode === "completo";
+  const ritmoUp = mode !== "esencial";
   const s = summarize(state, key, lang);
   const reading = readAdvisor(state, key, lang, names);
   const money = (n: number) => formatMoney(n, state.settings.display, lang);
@@ -977,8 +982,8 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
 
   const spentCaption = L(
     lang,
-    `Gastaste ${money(reading.realSpend)} (sin contar ahorro). ${reading.toneLabel}`,
-    `You spent ${money(reading.realSpend)} (savings not counted). ${reading.toneLabel}`,
+    reading.toneLabel ? `Gastaste ${money(reading.realSpend)} (sin contar ahorro). ${reading.toneLabel}` : `Gastaste ${money(reading.realSpend)} (sin contar ahorro).`,
+    reading.toneLabel ? `You spent ${money(reading.realSpend)} (savings not counted). ${reading.toneLabel}` : `You spent ${money(reading.realSpend)} (savings not counted).`,
   );
 
   const mediumBits: AdviceCard["points"] = [];
@@ -989,7 +994,11 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       mediumBits.push({
         label: name,
         value: money(pay),
-        note: L(lang, "Cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.", "This month's payment. Enter what you owe, the annual rate and the minimum payment, and I'll tell you in how many months you finish."),
+        // La promesa de «en cuántos meses terminas» es la pregunta de datos de
+        // Completo (debt-data-ask): fuera de Completo se pide el dato sin ella.
+        note: completo
+          ? L(lang, "Cuota de este mes. Anota cuánto debes, la tasa anual y el pago mínimo, y te digo en cuántos meses terminas.", "This month's payment. Enter what you owe, the annual rate and the minimum payment, and I'll tell you in how many months you finish.")
+          : L(lang, "Cuota de este mes. Anota cuánto debes para llevar la cuenta completa.", "This month's payment. Note what you owe to keep the full count."),
       });
       continue;
     }
@@ -1027,7 +1036,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     }
   }
   const rated = debts.filter((d) => d.aprBps > 0 && d.balanceMinor !== null && d.balanceMinor > 0).sort((a, b) => b.aprBps - a.aprBps);
-  if (rated.length >= 2 && s.opportunity >= 0) {
+  if (completo && rated.length >= 2 && s.opportunity >= 0) {
     const first = rated[0]!;
     mediumBits.push({
       label: L(lang, "Primero", "First"),
@@ -1062,12 +1071,17 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
   const ct = cardTotals(state);
   const mediumLead = (() => {
     if ((!debts.length || s.debt <= 0) && ct.known && ct.balance > 0) {
-      const use = ct.util != null ? L(lang, `, el ${Math.round(ct.util * 100)}% de tu límite`, `, ${Math.round(ct.util * 100)}% of your limit`) : "";
+      const use = completo && ct.util != null ? L(lang, `, el ${Math.round(ct.util * 100)}% de tu límite`, `, ${Math.round(ct.util * 100)}% of your limit`) : "";
       const mins = ct.min > 0 ? L(lang, ` Su pago mínimo suma ${money(ct.min)}.`, ` Their minimums add up to ${money(ct.min)}.`) : "";
       return L(lang, `Sin cuotas de préstamos este mes, pero tus tarjetas deben ${money(ct.balance)}${use}.${mins}`, `No loan payments this month, but your cards owe ${money(ct.balance)}${use}.${mins}`);
     }
     if (!debts.length || s.debt <= 0) {
       return L(lang, "Este mes no hay pagos de crédito.", "No credit payments this month.");
+    }
+    if (!ritmoUp) {
+      // Esencial: el monto y el hecho, sin % de ingreso ni zonas (A-4).
+      const missingE = debts.some((d) => d.balanceMinor === null);
+      return L(lang, `Pagas ${money(s.debt)} este mes.${missingE ? " Anota cuánto debes en cada una para llevar la cuenta completa." : ""}`, `You pay ${money(s.debt)} this month.${missingE ? " Note what you owe on each one to keep the full count." : ""}`);
     }
     const load = s.debtPct !== null
       ? L(lang, `, el ${pct(s.debtPct)} de lo que entra.`, `, ${pct(s.debtPct)} of what comes in.`)
@@ -1089,8 +1103,8 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     const missing = debts.some((d) => d.balanceMinor === null);
     return L(
       lang,
-      `Pagas ${money(s.debt)}${load} Tu zona cómoda llega a ${money(s.debtAllowance)}. El pago está bien.${missing ? " Anota cuánto debes, la tasa y el pago mínimo para saber cuándo terminas." : ""}`,
-      `You pay ${money(s.debt)}${load} Your easy zone goes up to ${money(s.debtAllowance)}. The payment is fine.${missing ? " Enter what you owe, the rate and the minimum payment to see when you finish." : ""}`,
+      `Pagas ${money(s.debt)}${load} Tu zona cómoda llega a ${money(s.debtAllowance)}. El pago está bien.${missing ? (completo ? " Anota cuánto debes, la tasa y el pago mínimo para saber cuándo terminas." : " Anota cuánto debes en cada una para llevar la cuenta completa.") : ""}`,
+      `You pay ${money(s.debt)}${load} Your easy zone goes up to ${money(s.debtAllowance)}. The payment is fine.${missing ? (completo ? " Enter what you owe, the rate and the minimum payment to see when you finish." : " Note what you owe on each one to keep the full count.") : ""}`,
     );
   })();
 
@@ -1216,8 +1230,8 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     mediumBits.push({
       label: L(lang, "Préstamos recibidos", "Loans received"),
       value: money(lt.left),
-      note: L(lang, `Pendiente con interés. Recibiste ${money(lt.borrowed)}, has pagado ${money(lt.paid)} y el interés acumulado va en ${money(lt.interest)}.${s.income > 0 ? ` Equivale a ${pct((lt.left / s.income) * 100)} de un mes de ingreso.` : ""}`,
-        `Pending with interest. You received ${money(lt.borrowed)}, have paid ${money(lt.paid)} and interest so far is ${money(lt.interest)}.${s.income > 0 ? ` That is ${pct((lt.left / s.income) * 100)} of a month's income.` : ""}`),
+      note: L(lang, `Pendiente con interés. Recibiste ${money(lt.borrowed)}, has pagado ${money(lt.paid)} y el interés acumulado va en ${money(lt.interest)}.${ritmoUp && s.income > 0 ? ` Equivale a ${pct((lt.left / s.income) * 100)} de un mes de ingreso.` : ""}`,
+        `Pending with interest. You received ${money(lt.borrowed)}, have paid ${money(lt.paid)} and interest so far is ${money(lt.interest)}.${ritmoUp && s.income > 0 ? ` That is ${pct((lt.left / s.income) * 100)} of a month's income.` : ""}`),
     });
   }
   // 1.3.107: credit cards are revolving loans: balance, utilization (keep it under 30%) and what interest costs a month.
@@ -1237,13 +1251,18 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     mediumBits.push({
       label: L(lang, "Tarjetas de crédito", "Credit cards"),
       value: money(ct.balance),
-      note: `${utilNote}${costNote}${ct.min > 0 ? L(lang, ` Mínimos del mes: ${money(ct.min)}.`, ` This month's minimums: ${money(ct.min)}.`) : ""}`,
-      emphasis: util != null && util >= 0.3,
+      // Fuera de Completo no hay medidor de uso ni orden de pago: saldo y mínimos.
+      note: completo
+        ? `${utilNote}${costNote}${ct.min > 0 ? L(lang, ` Mínimos del mes: ${money(ct.min)}.`, ` This month's minimums: ${money(ct.min)}.`) : ""}`
+        : ct.min > 0
+          ? L(lang, `Mínimos del mes: ${money(ct.min)}.`, `This month's minimums: ${money(ct.min)}.`)
+          : "",
+      emphasis: completo && util != null && util >= 0.3,
     });
   }
   // 1.3.92: the payoff plan (Libros → Debo → Préstamos) says which loan to pay first and what the order saves.
   const plan = payoffPlan(state);
-  if (plan.debts.length > 1 || (plan.debts.length === 1 && plan.chosen)) {
+  if (completo && (plan.debts.length > 1 || (plan.debts.length === 1 && plan.chosen))) {
     const ch = plan.chosen;
     const order = plan.order === "avalanche" ? L(lang, "avalancha", "avalanche") : L(lang, "bola de nieve", "snowball");
     const other = plan.order === "avalanche" ? L(lang, "bola de nieve", "snowball") : L(lang, "avalancha", "avalanche");
@@ -1260,7 +1279,7 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
   }
   // 1.3.109: card rewards are money the user has (an asset, not a smaller debt): say how much and where to use it.
   const rwt = rewardsTotals(state);
-  if (rwt.total > 0) {
+  if (completo && rwt.total > 0) {
     const costly = cardsOf(state).map((c) => ({ c, f: cardFigures(state, c) })).filter((x) => x.f.known && x.f.balance > 0)
       .sort((a, b) => (b.c.aprBps || 2400) - (a.c.aprBps || 2400))[0];
     const per = rwt.rows.filter((r) => r.minor > 0).map((r) => `${r.card.name} ${money(r.view)}`).join(", ");
@@ -1288,8 +1307,10 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     body: "",
     evidence: L(lang, `Cuotas ${money(s.debt)} · Zona cómoda hasta ${money(s.debtAllowance)}${lt.count ? ` · Préstamos ${money(lt.left)}` : ""}${ct.known ? ` · Tarjetas ${money(ct.balance)}` : ""}`, `Payments ${money(s.debt)} · Easy cap ${money(s.debtAllowance)}${lt.count ? ` · Loans ${money(lt.left)}` : ""}${ct.known ? ` · Cards ${money(ct.balance)}` : ""}`),
     points: mediumBits,
-    nums: { debt: s.debt, loanLeft: lt.left, loanInterest: lt.interest, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income, cardBal: ct.known ? ct.balance : 0, cardUtil: ct.util ?? -1, cardMin: ct.min },
-    meter: s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `Your payments use ${pct(s.debtPct)} of income. The easy zone goes up to ${state.settings.debtGreenPct}%.`) } : null,
+    nums: { debt: s.debt, loanLeft: lt.left, loanInterest: lt.interest, pct: s.debtPct ?? 0, green: state.settings.debtGreenPct, yellow: state.settings.debtYellowPct, allowance: s.debtAllowance, income: s.income, cardBal: ct.known ? ct.balance : 0, cardUtil: completo ? (ct.util ?? -1) : -1, cardMin: ct.min },
+    // El medidor de cuotas es el medidor de crédito (Completo): fuera de
+    // Completo la tarjeta mediana no lleva medidor (A-4).
+    meter: completo && s.income > 0 && s.debt > 0 ? { pct: debtMeterPct, caption: L(lang, `Tus cuotas usan el ${pct(s.debtPct)} de lo que entra. La zona cómoda llega a ${state.settings.debtGreenPct}%.`, `Your payments use ${pct(s.debtPct)} of income. The easy zone goes up to ${state.settings.debtGreenPct}%.`) } : null,
   };
   const longCard: AdviceCard = {
     horizon: "long",
@@ -1302,10 +1323,13 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
     meter: emergencyTarget > 0 ? { pct: fundMeterPct, caption: stock >= emergencyTarget ? L(lang, "El fondo anotado ya cubre el colchón.", "The recorded fund already covers the cushion.") : L(lang, `Llevas el ${pct(fundMeterPct)} del colchón.`, `You have ${pct(fundMeterPct)} of the cushion.`) } : null,
   };
 
-  for (const card of [shortCard, mediumCard, longCard]) {
+  // La tarjeta larga es la proyección a 12 meses (Completo): fuera de
+  // Completo no nace, y ninguna superficie la echa en falta (A-1).
+  const cardsOut = completo ? [shortCard, mediumCard, longCard] : [shortCard, mediumCard];
+  for (const card of cardsOut) {
     card.body = [card.lead, ...card.points.map((p) => `${p.label}: ${p.value}. ${p.note}`), card.evidence].filter(Boolean).join("\n");
   }
-  return [shortCard, mediumCard, longCard];
+  return cardsOut;
 }
 
 export function lineLabel(line: Line, names: Namer, lang: Lang): string {

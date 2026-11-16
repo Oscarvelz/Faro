@@ -108,6 +108,30 @@ export type StreamFilters = {
 
 const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
+/** Los filtros del río cuya función tiene modo propio (registro hist.filter-*). */
+export type HistFilterFeature =
+  | "hist.filter-group" | "hist.filter-store" | "hist.filter-account"
+  | "hist.filter-amount" | "hist.filter-recurring" | "hist.filter-origin" | "hist.filter-import-lot";
+
+/**
+ * La intersección de unos filtros con el modo (tres modos, Fo-4): un filtro
+ * cuya función duerme en el modo NO se aplica — ni viniendo de una vista
+ * guardada (la copia del aparato jamás se reescribe: la intersección vive
+ * solo en la aplicación) ni de un estado vivo anterior a una bajada. Lo que
+ * el modo sí muestra (dirección, categoría, texto, lente) pasa intacto.
+ */
+export function intersectViewFilters(f: StreamFilters, has: (feature: HistFilterFeature) => boolean): StreamFilters {
+  const out: StreamFilters = { ...f };
+  if (!has("hist.filter-group")) delete out.group;
+  if (!has("hist.filter-store")) delete out.merchantId;
+  if (!has("hist.filter-account")) delete out.accountId;
+  if (!has("hist.filter-amount")) { delete out.minMinor; delete out.maxMinor; }
+  if (!has("hist.filter-recurring")) delete out.recurring;
+  if (!has("hist.filter-origin")) { delete out.origin; delete out.batchId; }
+  else if (!has("hist.filter-import-lot")) delete out.batchId;
+  return out;
+}
+
 function originOf(l: Line): MovementOrigin {
   if (l.batch || l.importId) return "import";
   // El apunte del widget se escribe con la nota «Widget» (quickadd, 1.3.233): su única marca.

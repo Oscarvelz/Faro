@@ -7,7 +7,9 @@ import { SampleRow } from "./sample-mode";
 import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
-import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards } from "./bank-dock";
+import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, importToast } from "./bank-dock";
+import { ModeImpactDialog } from "./mode-gate";
+import { MODES, modeImpact, modeOf, modeRank, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
 import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
@@ -20,7 +22,7 @@ import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
@@ -30,6 +32,7 @@ import { sampleOn } from "@/lib/faro/samplemode";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
+import { todayText } from "@/lib/faro/today";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
 import { readVaultPref, writeVaultPref } from "@/lib/faro/awake";
 import { auditLabel, monthName, shortcutLabel } from "@/lib/faro/i18n";
@@ -801,6 +804,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
 
 export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: LineKind | LineKind[]; title: string; categoryId?: string; storeId?: string; menu?: boolean }) {
   const { lines, t, ui, setUi, viewLine, recordLine, session, confirm, commit, key, names, fmt, lang } = useFaro();
+  const { has } = useFaro();
   const kinds = Array.isArray(kind) ? kind : [kind];
   const draftKind = kinds[0] ?? "income-fixed";
   const group = draftKind === "expense-fixed" ? "fixed" : draftKind === "expense-variable" ? "variable" : null;
@@ -811,7 +815,15 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
     if (session && !lineListVisible(session.ledger.structure, l)) return false;
     // La puerta anti-fuga (descanso.ts): una línea apartada no se lista en ningún libro.
     if (l.rest) return false;
-    if (draftKind === "expense-fixed" && (session?.ledger.structure.categories.find((c) => c.id === l.categoryId)?.role === "savings")) return false;
+    if (draftKind === "expense-fixed" && (session?.ledger.structure.categories.find((c) => c.id === l.categoryId)?.role === "savings")) {
+      // L-5 acotado por X-3 (etapa 3.1): la exclusión cubre lo que la bóveda
+      // recoge. En Esencial la bóveda de Ahorros recoge las líneas generales;
+      // las de bolsillo (Meta/Retiro/Emergencia, sin bóveda en este modo) se
+      // listan aquí como líneas normales, para que ninguna línea con dinero
+      // quede sin libro donde verse.
+      const pocketLine = !!l.subId && (l.subId.endsWith(".meta") || l.subId.endsWith(".retiro") || l.subId.endsWith(".emergencia"));
+      if (!pocketLine || has("vault.meta")) return false;
+    }
     if (categoryId && categoryId !== "all" && l.categoryId !== categoryId) return false;
     if (storeId && storeId !== "all" && l.storeId !== storeId) return false;
     return true;
@@ -936,7 +948,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
           </button>
         </span>
       </div>
-      <SpanCut kinds={kinds} span={span} onSpan={setSpan} />
+      {has("vault.span-cut") ? <SpanCut kinds={kinds} span={span} onSpan={setSpan} /> : null}
       {(asCloud || asDrift) && filterOpen ? (
         <div className="filter-menu" role="menu">
           <button type="button" aria-pressed={chip === "all"} onClick={() => { setChip("all"); setFilterOpen(false); }}>
@@ -1008,7 +1020,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
           {pickedLine ? (
             <div className="mt-3" ref={editRef}>
               <BubbleEditor key={pickedLine.id} line={pickedLine} money={money} onMoney={setMoney} />
-              <PotReport line={pickedLine} span={span} />
+              {has("vault.pot") ? <PotReport line={pickedLine} span={span} /> : null}
             </div>
           ) : null}
         </>
@@ -1030,7 +1042,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
               {moneyRow(line, outView(line, viewLine), recordLine(line), display)}
               {ui.editing === line.id ? <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
             </div>
-            <PotReport line={line} span={span} />
+            {has("vault.pot") ? <PotReport line={line} span={span} /> : null}
           </div>
         ))
       )}
@@ -1070,7 +1082,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
 }
 
 function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Currency; onMoney: (value: Currency) => void; span: "week" | "month" | "year" }) {
-  const { names, viewLine, session, ui, setUi, confirm, commit, key, t, fmt, lang } = useFaro();
+  const { names, viewLine, session, ui, setUi, confirm, commit, key, t, fmt, lang, has } = useFaro();
   const display = session?.ledger.settings.display ?? "NIO";
   const rate = session?.ledger.settings.rateE4 ?? 0;
   const [picked, setPicked] = useState<string | null>(null);
@@ -1176,7 +1188,7 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
       {pickedLine ? (
         <div className="mt-3" ref={editRef}>
           <BubbleEditor key={pickedLine.id} line={pickedLine} money={money} onMoney={onMoney} />
-          <PotReport line={pickedLine} span={span} />
+          {has("vault.pot") ? <PotReport line={pickedLine} span={span} /> : null}
         </div>
       ) : null}
       {selection.mode ? (
@@ -1765,6 +1777,10 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
   const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang, goTopic } = useFaro();
   const { depth } = useFaro();
+  // Etapa 3.1: la cara se recompone por el registro, solo vía el contexto (has).
+  // `mode` a secas ya es la postura de naturalezas en esta función; el modo de la
+  // app viaja como `faroMode`.
+  const { has, mode: faroMode } = useFaro();
   const [lens, setLens] = useState<"all" | "have" | "spend" | "debt">(() => (focus ? "all" : takeLensReturn(depth) ?? "all"));
   const lensByJump = useRef(false);
   // An Asesor step that stayed on Central (no remount) leaves nothing to bring back.
@@ -1814,6 +1830,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [accountsOpen, setAccountsOpen] = useState(() => {
     try { return localStorage.getItem("faro-save-accounts") === "1"; } catch { return false; }
   });
+  // Etapa 4 (X-26): la lista de fondos mudos que la fila abre (modo-lista).
+  const [muteOpen, setMuteOpen] = useState(false);
   const [accountsPin, setAccountsPin] = useState(() => {
     try { return localStorage.getItem("faro-save-accounts") === "1"; } catch { return false; }
   });
@@ -1900,7 +1918,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       const concept = row[0];
       return !!subId && !!concept && !all.some((line) => line.subId === subId && line.concept.toLowerCase() === concept.toLowerCase());
     });
-    if (!banks.length && !pockets.length) { commit((s) => withDeskSeedFlag(s, "desk-banks"), "presets"); return; }
+    // C-5 (etapa 3.1): la siembra se acota por modo — en Esencial solo nacen las
+    // cuentas; los bolsillos esperan su modo (quedan «en espera» en el propio
+    // libro, y el efecto de subida los siembra al llegar a Ritmo). Un libro que
+    // ya vive por encima los recibe en esta misma pasada, como siempre.
+    const pocketsPending = pockets.length > 0 && !has("vault.meta");
+    const pocketsSeed = pocketsPending ? [] : pockets;
+    if (!banks.length && !pockets.length) { commit((s) => withDeskSeedFlag(withDeskSeedFlag(s, "desk-banks"), "desk-pockets"), "presets"); return; }
     const display = session.ledger.settings.display;
     commit((s) => {
       const categories = s.structure.categories.map((c) => c.id !== cat.id ? c : {
@@ -1914,7 +1938,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         ],
       });
       let next = { ...s, structure: { ...s.structure, categories } };
-      for (const [concept, subId, icon] of pockets) {
+      for (const [concept, subId, icon] of pocketsSeed) {
         const id = uid();
         next = upsertLine(next, {
           id, seriesId: id, monthKey: key, kind: "expense-fixed", concept, amountMinor: 0, currency: display,
@@ -1932,18 +1956,55 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           balanceCurrency: display, icon: "vault", history: [],
         });
       }
-      return withDeskSeedFlag(next, "desk-banks");
+      return withDeskSeedFlag(withDeskSeedFlag(next, "desk-banks"), pocketsPending ? "desk-pockets-wait" : "desk-pockets");
     }, "presets");
-  }, [session, commit, key]);
-  // 1.3.81: Primerica is offered in Retiro (a $0 preset) in the current month or later (or the ledger's latest month) until the user removes it (ledger.retiroOff).
+  }, [session, commit, key, faroMode]);
+  // C-5, la otra mitad: un libro nacido en Esencial siembra sus bolsillos al
+  // subir a Ritmo, si aún no los tiene. La señal vive en el libro («desk-pockets
+  // -wait» la dejó la pasada de nacimiento); los libros de antes de los modos no
+  // la llevan y nunca son tocados por este efecto.
   useEffect(() => {
-    if (!session) return;
+    if (!session || !has("vault.meta")) return;
+    const seeds = session.ledger.settings.seeds ?? [];
+    if (!seeds.includes("desk-pockets-wait") || seeds.includes("desk-pockets")) return;
+    const cat = session.ledger.structure.categories.find((c) => c.role === "savings" && !c.hidden);
+    if (!cat) return;
+    const all = Object.values(session.ledger.months).flatMap((bucket) => bucket.lines);
+    const pockets = [
+      ["Viajes", cat.subs.find((s) => s.id.endsWith(".meta"))?.id, "Plane"],
+      ["Carro", cat.subs.find((s) => s.id.endsWith(".emergencia"))?.id, "Car"],
+    ].filter((row): row is [string, string, string] => {
+      const subId = row[1];
+      const concept = row[0];
+      return !!subId && !!concept && !all.some((line) => line.subId === subId && line.concept.toLowerCase() === concept.toLowerCase());
+    });
+    const display = session.ledger.settings.display;
+    commit((s) => {
+      let next = s;
+      for (const [concept, subId, icon] of pockets) {
+        const id = uid();
+        next = upsertLine(next, {
+          id, seriesId: id, monthKey: key, kind: "expense-fixed", concept, amountMinor: 0, currency: display,
+          active: true, note: "", categoryId: cat.id, subId, recurring: false, storeId: "", providerId: "",
+          productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: null,
+          balanceCurrency: display, icon, history: [],
+        });
+      }
+      return withDeskSeedFlag(next, "desk-pockets");
+    }, "presets");
+  }, [session, commit, key, faroMode]);
+  // 1.3.81: Primerica is offered in Retiro (a $0 preset) in the current month or later (or the ledger's latest month) until the user removes it (ledger.retiroOff).
+  // C-5 (etapa 3.1): la oferta vive en Retiro — en Esencial, donde Retiro no
+  // tiene cara, la siembra espera su modo en vez de crear un dato mudo en un
+  // libro que nunca subió.
+  useEffect(() => {
+    if (!session || !has("vault.retiro")) return;
     const now = new Date();
     const latest = Object.keys(session.ledger.months).every((m) => m <= key);
     if (!latest && key < `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`) return;
     if (seedRetiro(session.ledger, key) === session.ledger) return;
     commit((s) => seedRetiro(s, key), "Primerica");
-  }, [session, commit, key]);
+  }, [session, commit, key, faroMode]);
   useEffect(() => {
     if (!session) return;
     let deviceGateNi = false;
@@ -2074,11 +2135,18 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     if (kind) ringAt.current = kind;
   }, [openSave]);
   const tabletOneAA = useTabletOneAA();
+  // La lente Pagos es de Ritmo (central.lens-pagos): en Esencial una lente
+  // guardada en «debt» se lee como «all» — se filtra al leer, nunca se reescribe.
+  const lensMode = lens === "debt" && !has("central.lens-pagos") ? "all" : lens;
   const deskPocket = openSave?.endsWith(".meta") ? "meta" : openSave?.endsWith(".retiro") ? "retiro" : openSave?.endsWith(".emergencia") ? "emergencia" : null;
-  const deskArea: AreaId = deskPocket ?? (lens === "have" ? "income" : lens === "spend" ? "spend" : lens === "debt" ? "subs" : "central");
+  const deskArea: AreaId = deskPocket ?? (lensMode === "have" ? "income" : lensMode === "spend" ? "spend" : lensMode === "debt" ? "subs" : "central");
   const ringLive = useRef({ lens, openSave, ids: [] as string[] });
   useEffect(() => {
-    const order = ["have", "spend", "debt"] as const;
+    // C-4/N-1 (etapa 3.1): el anillo se construye desde las paradas del modo
+    // activo — las lentes que el modo tiene y los bolsillos que el modo tiene
+    // (y que existen en el libro). Ninguna parada fuera del modo.
+    const order = (has("central.lens-pagos") ? ["have", "spend", "debt"] : ["have", "spend"]) as readonly ("have" | "spend" | "debt")[];
+    const pocketStop = (k: string) => (k === "meta" ? has("vault.meta") : k === "retiro" ? has("vault.retiro") : has("vault.emergencia"));
     const onLens = (e: Event) => {
       if (focus) return;
       const detail = (e as CustomEvent<number | { dir: number; ring: true }>).detail;
@@ -2087,18 +2155,18 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       lensByJump.current = false;
       setCobrosLit(false);
       if (typeof detail === "number") {
-        // Mouse drag: the three lenses, as before.
+        // Mouse drag: the mode's lenses, as before.
         setLens((cur) => {
           const i = order.indexOf(cur as (typeof order)[number]);
           const base = i < 0 ? (dir > 0 ? -1 : 0) : i;
-          return order[(base + dir + order.length) % order.length];
+          return order[(base + dir + order.length) % order.length]!;
         });
         return;
       }
-      // Touch: Tengo · Gastaré · Pagos · Meta · Retiro · Emergencia as one loop (a pocket that does not exist is skipped).
+      // Touch: the mode's lenses and pockets as one loop (a pocket that does not exist is skipped).
       const live = ringLive.current;
       const pocketOf = (k: string) => live.ids.find((id) => id.endsWith(`.${k}`)) ?? null;
-      const ring = ["have", "spend", "debt", "meta", "retiro", "emergencia"].filter((k) => order.includes(k as never) || !!pocketOf(k));
+      const ring = ["have", "spend", "debt", "meta", "retiro", "emergencia"].filter((k) => order.includes(k as never) || (pocketStop(k) && !!pocketOf(k)));
       const here = ringAt.current && ring.includes(ringAt.current) && (order.includes(ringAt.current as never) ? live.lens === ringAt.current : live.openSave === pocketOf(ringAt.current)) ? ringAt.current : null;
       const i = here ? ring.indexOf(here) : (dir > 0 ? -1 : 0);
       const next = ring[(i + dir + ring.length) % ring.length]!;
@@ -2117,18 +2185,20 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     };
     window.addEventListener("faro-lens", onLens);
     return () => window.removeEventListener("faro-lens", onLens);
-  }, [focus]);
-  // "Ir allí" / [[links]]: pick a lens or open Cobros.
+  }, [focus, faroMode]);
+  // "Ir allí" / [[links]]: pick a lens or open Cobros. Etapa 3.1: el oyente
+  // hereda la validación del modo (resto declarado de la etapa 2) — un destino
+  // que el modo no tiene no se abre desde dentro tampoco.
   useEffect(() => {
     if (focus) return;
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (id === "cobros") { setQuick(null); setJump(null); setCobrosSide("out"); setCobrosJump(true); setCobros(true); setCobrosLit(true); }
-      else if (id === "lens-have" || id === "lens-spend" || id === "lens-debt") { lensByJump.current = true; setLens(id.slice(5) as "have" | "spend" | "debt"); }
+      if (id === "cobros") { if (!has("central.cobros-panel")) return; setQuick(null); setJump(null); setCobrosSide("out"); setCobrosJump(true); setCobros(true); setCobrosLit(true); }
+      else if (id === "lens-have" || id === "lens-spend" || id === "lens-debt") { if (id === "lens-debt" && !has("central.lens-pagos")) return; lensByJump.current = true; setLens(id.slice(5) as "have" | "spend" | "debt"); }
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
-  }, [focus]);
+  }, [focus, faroMode]);
   // 1.3.95: a layout effect, so the pocket's own blocks (Todas / the pocket ledger) are there in the very first painted frame
   // of a savings tab. As a plain effect they arrived one frame late and everything under them jumped 55–78px.
   useLayoutEffect(() => {
@@ -2157,9 +2227,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // not appear (it keeps counting in every total; see lineListVisible). The Asesor's
     // naming surfaces already obeyed this via visibleNamer; the board itself did not.
     if (!lineListVisible(session.ledger.structure, line)) return false;
-    if (lens === "have") return line.kind.startsWith("income");
-    if (lens === "debt") return debtIds.has(line.categoryId) || line.kind === "subscription";
-    if (lens === "spend") return !line.kind.startsWith("income");
+    if (lensMode === "have") return line.kind.startsWith("income");
+    if (lensMode === "debt") return debtIds.has(line.categoryId) || line.kind === "subscription";
+    if (lensMode === "spend") return !line.kind.startsWith("income");
     return true;
   });
   const rate = session.ledger.settings;
@@ -2217,6 +2287,44 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     .filter(([, r]) => r.cls === "saldo")
     .map(([sid, r]) => `${seriesName(session.ledger, sid) || names.sub(r.subId)} ${fmt(r.minor)}`)
     .join(" · ");
+  // Etapa 3.1 (C-2): los fondos mudos de un modo sin bolsillos — el dinero que
+  // suma a los totales sin tener cara en este modo (aparte, sin declarar y
+  // Retiro). Lo del saldo no se cuenta aquí: ya vive dentro de las cuentas.
+  const dormantSeries = [...stock.series.entries()].filter(([, r]) => (r.cls === "aparte" || r.cls === "sin-declarar" || r.cls === "retiro") && r.minor > 0);
+  const dormantMinor = dormantSeries.reduce((acc, [, r]) => acc + r.minor, 0);
+  // Etapa 4 (X-26): la fila muda en su forma final — su toque ABRE la lista de
+  // los fondos (modo-lista): todo se lee, nada se edita aquí. La explicación
+  // de la fila viaja a la cabeza de la lista (qué es + la nota), así que la
+  // ley del número se cumple entera: la lista ES la fórmula de su cifra.
+  const muteRow = !has("vault.meta") && dormantMinor > 0 ? (
+    <div className="mute-row">
+      <button type="button" className="mute-row-head" data-anchor="modo-mudos" aria-expanded={muteOpen} onClick={() => setMuteOpen((v) => !v)}>
+        <span>{t(dormantSeries.length === 1 ? "mode.mute.fund.one" : "mode.mute.fund.many").replace("{n}", String(dormantSeries.length))} <span className="faro-name">{t("mode.completo")}</span>{` · ${fmt(dormantMinor)}`}</span>
+        <ChevronDown className={muteOpen ? "fold-chev is-open" : "fold-chev"} aria-hidden />
+      </button>
+      {muteOpen ? (
+        <div className="mute-list" data-anchor="modo-lista">
+          <p className="mute-list-what">{t("mode.mute.what")}</p>
+          {dormantSeries.map(([sid, r]) => (
+            <div key={sid} className="mute-list-row">
+              <span className="mute-list-name">{seriesName(session.ledger, sid) || names.sub(r.subId)}</span>
+              <span className="mute-list-cls">{t(`mode.list.cls.${r.cls}`)}</span>
+              <strong className="num">{fmt(r.minor)}</strong>
+            </div>
+          ))}
+          <div className="mute-list-row is-total">
+            <span className="mute-list-name">{t("mode.list.total")}</span>
+            <strong className="num">{fmt(dormantMinor)}</strong>
+          </div>
+          <p className="mute-list-note">{t("mode.mute.note")}</p>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+  // Etapa 4 (E-1): «Puedes gastar hoy» — solo en Central y solo cuando el mes
+  // mirado es el mes en curso; en un mes pasado o futuro la pieza no monta
+  // (ningún cadáver, ninguna cifra fingida sobre otro mes).
+  const todayFig = !focus && key === todayIso().slice(0, 7) ? todayText(session.ledger, todayIso(), lang) : null;
   const saveTints = ["#8fb9a6", "#72b4b2", "#7aa2c4", "#e07a5f", "#c9a6d4", "#d7b48a"].map((c) => (isTron() ? tronize(c) : c));
   const openSeg = saveSegs.find((s) => s.id === openSave) ?? null;
   const openLines = openSave
@@ -2254,6 +2362,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const pendingFunds = undeclaredFunds(stock).filter((f) => f.minor > 0);
   const tintOf = (subId: string) => saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === subId)) % saveTints.length] ?? "#8fb9a6";
   const fundLightFor = (line: Line) => {
+    // La luz es el signo del análisis por naturaleza (nature.light, Completo):
+    // fuera de Completo la fila no lleva luz, como no lleva el análisis.
+    if (!has("nature.light")) return null;
     const row = stock.series.get(line.seriesId || line.id);
     if (!row || row.cls === "cuenta" || row.cls === "retiro") return null;
     return <FundLight cls={row.cls} tone={tintOf(row.subId)} hostName={row.fundHost ? (names.sub(row.fundHost) || undefined) : undefined} />;
@@ -2332,7 +2443,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     <span className="lab-head">{t("amount")}<FieldTip topic="f-bolsa-monto" /></span>
                     <input className="field num" data-anchor="pocket-amt" inputMode="decimal" value={pocketAmt} placeholder="0.00" onChange={(e) => setPocketAmt(e.target.value)} />
                   </label>
-                  <NaturePick mode={mode} value={pocketNature} onPick={setPocketNature} host={pocketHost} onHost={setPocketHost} accounts={namedAccts} />
+                  <NaturePick mode={mode} value={pocketNature} onPick={setPocketNature} host={pocketHost} onHost={setPocketHost} accounts={namedAccts} simple={!has("nature.naturepick-full")} />
                 </div>
                 <div className="ah-actions">
                   <button type="button" className="btn secondary" onClick={() => { setAdding(false); setPocketName(""); setPocketAmt(""); }}>{t("cancel")}</button>
@@ -2786,6 +2897,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const raw = session?.ledger.settings.gestures?.[slot];
     if (!raw) return null;
     const [kind, categoryId = ""] = raw.split(":");
+    // F-4 (etapa 3.1): la elección guardada se resuelve contra el modo AL
+    // DISPARAR — un gesto a un destino que el modo no tiene no hace nada, y
+    // el valor guardado nunca se borra: vuelve solo al subir de modo.
+    if (kind === "subscription" && !has("books.subs")) return null;
+    if (kind === "purchase" && !has("books.shops")) return null;
     const title = kind === "income-fixed" ? t("income.fixed")
       : kind === "income-variable" ? t("income.variable")
       : kind === "subscription" ? t("tab.subs")
@@ -2865,6 +2981,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   type DueDest = "owed" | "owe" | "dues" | "loans";
   function dueGestureOf(slot: string): DueDest | null {
     const raw = session?.ledger.settings.gestures?.[slot];
+    if (!has("central.cobros-panel")) return null;
     return raw === "owed" || raw === "owe" || raw === "dues" || raw === "loans" ? raw : null;
   }
   function openCobrosAt(dest: DueDest) {
@@ -3031,7 +3148,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // 1.3.106: one active thing among the three cards and their corner buttons. An open corner flow wins; else the picked card
   // (with its own button). Everything else goes low-profile (cards via aria-pressed=false, buttons via .is-low).
   const btnOn: null | "plus" | "minus" | "cobro" = quick === "in" ? "plus" : quick === "out" ? "minus" : cobros && cobrosLit ? "cobro" : null;
-  const cardOn = btnOn ? null : lens === "all" ? null : lens;
+  const cardOn = btnOn ? null : lensMode === "all" ? null : lensMode;
   const lowCorner = (btn: "plus" | "minus" | "cobro", card: "have" | "spend" | "debt") => (btnOn ? btnOn !== btn : cardOn ? cardOn !== card : false);
   // 1.3.148: the first-run offer says only what is true — "bring recurring" needs an earlier month with
   // lines. 1.3.256: the desk no longer offers the sample data — its only door is the Ajustes toggle.
@@ -3061,6 +3178,22 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {/* The Tasa (?) cannot live inside the button; it is laid just after the button's own label (measured), so nothing moves. */}
         <RateHint />
       </div>
+      {todayFig ? (
+        <div className="desk-today" data-anchor="desk-hoy">
+          <SourceNote
+            label={t("desk.savings.from")}
+            title={t("desk.today.title")}
+            meaning={todayFig.what}
+            formula={todayFig.formula}
+            implication={todayFig.note}
+          >
+            <span className="desk-today-in">
+              <em className="bar-head">{t("desk.today.title")}</em>
+              <strong className={`num${todayFig.fig.perDayMinor < 0 ? " bad" : ""}`}>{fmt(todayFig.fig.perDayMinor)}</strong>
+            </span>
+          </SourceNote>
+        </div>
+      ) : null}
       <div className="lenses" data-focus={btnOn ?? cardOn ?? undefined}>
         <div className="lens-wrap">
           <Hint topic="tengo" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
@@ -3084,6 +3217,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <span aria-hidden>−</span>
           </button>
         </div>
+        {has("central.lens-pagos") ? (
         <div className="lens-wrap">
           <Hint topic="pagos" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
           <button type="button" data-anchor="lens-debt" className={`lens is-debt tone-${summary.tone}${lens === "debt" ? " is-picked" : ""}`} data-lens="debt" aria-pressed={cardOn === "debt"} onClick={() => focusLens("debt")}>
@@ -3100,6 +3234,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             </svg>
           </button>
         </div>
+        ) : null}
       </div>
       {quick ? (
         <div ref={quickRef} className="sheet-swap" data-mode={quick} data-anchor="quick-window">
@@ -3114,8 +3249,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       )}
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
         {retiroHidden(session.ledger) ? <Note kind="tip">{lang === "en" ? "Retirement is hidden in Structure" : "Retiro está oculto en Estructura"}</Note> : null}
-        {focus ? <button type="button" data-anchor="vault-sort" className={`vault-lamp${vaultSort ? " is-on" : ""}`} aria-pressed={vaultSort} aria-label={t("vault.sort")} onClick={() => setVaultSort((on) => !on)} /> : null}
-        {focus === "save" && pendingFunds.length ? (
+        {focus && has("books.vault-order") ? <button type="button" data-anchor="vault-sort" className={`vault-lamp${vaultSort ? " is-on" : ""}`} aria-pressed={vaultSort} aria-label={t("vault.sort")} onClick={() => setVaultSort((on) => !on)} /> : null}
+        {focus === "save" && has("nature.undeclared-encounter") && pendingFunds.length ? (
           <div className="save-migrate" data-anchor="vault-migrate">
             <button type="button" className="save-migrate-head" aria-expanded={migrateOpen} onClick={() => setMigrateOpen((v) => !v)}>
               <FundLight cls="sin-declarar" />
@@ -3152,8 +3287,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             ) : null}
           </div>
         ) : null}
-        {encounter ? <EncounterDialog accountId={encounter.accountId} pending={encounter.pending} onClose={() => setEncounter(null)} /> : null}
-        {focus === "save" && stock.byClass.aparte > 0 ? (
+        {encounter && has("nature.undeclared-encounter") ? <EncounterDialog accountId={encounter.accountId} pending={encounter.pending} onClose={() => setEncounter(null)} /> : null}
+        {focus === "save" && stock.byClass.aparte > 0 && has("vault.kept") ? (
           <div className="save-kept-head" data-anchor="vault-kept">
             <span className="save-kept-total"><span>{t("save.kept")}</span><strong className="num">{fmt(keptTotal)}</strong></span>
             <span className="save-kept-parts">
@@ -3189,7 +3324,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             </span>
           </div>
         ) : null}
+        {focus === "save" && stock.byClass.aparte > 0 && !has("vault.kept") ? (
+          <div className="save-kept-head" data-anchor="vault-kept">
+            <span className="save-kept-total"><span>{t("save.kept")}</span><strong className="num">{fmt(keptTotal)}</strong></span>
+          </div>
+        ) : null}
+        {focus === "save" ? muteRow : null}
         {focus ? null : (
+        <>
+        {muteRow}
+        {has("vault.meta") ? (
         <>
         <div className="save-head">
           <div className="save-name">
@@ -3214,6 +3358,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <Hint topic="ahorros-banda" />
           </div>
           <span className="save-tools">
+            {has("vault.kept") ? (
             <SourceNote
               label={t("desk.savings.from")}
               title={t("desk.savings.from")}
@@ -3223,6 +3368,17 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             >
               <strong className="num">{fmt(keptTotal)}</strong>
             </SourceNote>
+            ) : (
+            <SourceNote
+              label={t("desk.savings.from")}
+              title={t("save.kept")}
+              meaning={t("save.kept.plain.what")}
+              formula={keptFormula}
+              implication={t("save.kept.plain.note")}
+            >
+              <strong className="num">{fmt(keptTotal)}</strong>
+            </SourceNote>
+            )}
             {summary.savingsGoal > 0 ? (
               <SourceNote
                 label={t("desk.savings.from")}
@@ -3236,7 +3392,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             ) : null}
           </span>
         </div>
-        {stock.pledged > 0 ? (
+        {has("nature.class-saldo") && stock.pledged > 0 ? (
           <div className="save-pledged" data-anchor="desk-pledged">
             <SourceNote
               label={t("desk.savings.from")}
@@ -3249,11 +3405,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             </SourceNote>
           </div>
         ) : null}
+        {has("vault.segments") ? (
         <div className="save-track" aria-hidden>
           {keptSegTotal <= 0 ? <i /> : saveSegs.map((s, i) => (
             <i key={s.id} style={{ width: `${(s.keptMinor / keptSegTotal) * 100}%`, background: saveTints[i % saveTints.length] }} />
           ))}
         </div>
+        ) : null}
         <div className="save-segs" data-anchor="desk-pockets" style={{ gridTemplateColumns: `repeat(${Math.max(saveSegs.length, 1)}, minmax(0, 1fr))` }}>
           {saveSegs.map((s, i) => {
             const tint = saveTints[i % saveTints.length] ?? "#8fb9a6";
@@ -3284,26 +3442,33 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     </b>
                   );
                 })()}
-                <strong data-long={s.name.length > 8 ? "" : undefined}>{s.name}{s.lightCls ? <> <FundLight asSpan cls={s.lightCls} tone={tint} hostName={s.saldoHostName} /></> : null}</strong>
+                <strong data-long={s.name.length > 8 ? "" : undefined}>{s.name}{has("nature.light") && s.lightCls ? <> <FundLight asSpan cls={s.lightCls} tone={tint} hostName={s.saldoHostName} /></> : null}</strong>
                 <span className="num">{fmt(s.keptMinor)}</span>
                 <small>{pct}%</small>
-                {s.pledgedMinor > 0 ? (
+                {has("nature.class-saldo") && s.pledgedMinor > 0 ? (
                   <span className="save-seg-sub"><FundLight asSpan cls="saldo" tone={tint} hostName={s.saldoHostName} /><span className="ss-amt">{`+ ${fmt(s.pledgedMinor)}`}</span><span className="ss-lab">{t("desk.savings.onBalance")}</span></span>
                 ) : null}
               </button>
             );
           })}
         </div>
+        </>) : null}
         </>
         )}
-        {openSeg ? (
+        {openSeg && (focus || has("vault.meta")) ? (
           <div className={focus && focus !== "save" ? "vault-block" : "vault-pass"} style={focus && focus !== "save" ? { order: blockAt("board") } : undefined}>
             {focus && focus !== "save" && vaultSort ? blockArrows("board") : null}
           <div key={focus ? "ledger" : openSeg.id} data-dir={flowDir < 0 ? "-1" : "1"} data-anchor="vault-ledger" className={`save-ledger${!focus && ringFresh() ? " is-ring" : ""}${pocketKind === "retiro" ? " is-retiro" : ""}${focus && focus !== "save" ? " is-manage" : ""}${focus && focus !== "save" && pocketFold ? " is-folded" : ""}`} ref={ledgerRef} style={{ ["--seg" as string]: saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === openSeg.id)) % saveTints.length] }} onClick={() => { if (focus && focus !== "save" && pocketFold) togglePocketFold(); }}>
             <div className={`save-ledger-head${focus && focus !== "save" ? " is-tab" : ""}`} onClick={(event) => { if (!focus || focus === "save") return; event.stopPropagation(); togglePocketFold(); }}>
               <strong className="lab-head">{openSeg.name}<Hint topic={pocketKind === "retiro" ? "retiro" : pocketKind === "emergencia" ? "emergencia" : "meta"} /></strong>
               <span className="row">
-                <span className="num">{fmt(openSeg.minor)}</span>
+                {has("vault.kept") ? <span className="num">{fmt(openSeg.minor)}</span> : (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <SourceNote label={t("desk.savings.from")} title={openSeg.name} meaning={t("save.pocket.plain")} formula={`${openSeg.name} ${fmt(openSeg.minor)}`} implication={t("save.kept.plain.note")}>
+                      <span className="num">{fmt(openSeg.minor)}</span>
+                    </SourceNote>
+                  </span>
+                )}
                 {focus && focus !== "save" ? (
                   <>
                     {!pocketFold ? (
@@ -3322,7 +3487,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 )}
               </span>
             </div>
-            {(focus === "meta" || focus === "emergencia") && (stock.keptByPocket.get(openSeg.id) ?? 0) > 0 ? (
+            {has("nature.class-aparte") && (focus === "meta" || focus === "emergencia") && (stock.keptByPocket.get(openSeg.id) ?? 0) > 0 ? (
               <p className="save-part-line">
                 <SourceNote
                   label={t("desk.savings.from")}
@@ -3354,9 +3519,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               return (
                   <div key={line.id} className={`save-account pocket-row${line.active ? "" : " is-muted"}`}>
                     <span className="bank-tools">
+                      {has("vault.move-line") ? (
                       <button type="button" className="bank-grip" data-anchor="vault-grip" aria-label={t("save.move")} aria-pressed={moving === line.id} onClick={() => { setMoving(moving === line.id ? null : line.id); setEditId(null); setAdding(false); }}>
                         <GripVertical />
                       </button>
+                      ) : null}
                     </span>
                     <div className="save-account-hit">
                       <span className="save-account-name">
@@ -3472,13 +3639,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </div>
           </div>
         ) : null}
-        {focus ? (
+        {focus && has("vault.span-cut") ? (
           <div className="vault-block" style={{ order: blockAt("span") }}>
             {vaultSort ? blockArrows("span") : null}
             {spanNode}
           </div>
         ) : null}
-        {leverNode ? (
+        {has("vault.lever") && leverNode ? (
           <div className={focus ? "vault-block" : "vault-pass"} style={focus ? { order: blockAt("lever") } : undefined}>
             {focus && vaultSort ? blockArrows("lever") : null}
             {leverNode}
@@ -3523,29 +3690,35 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </div>
           </div>
         ) : null}
-        {accountsOpen ? (
+        {accountsOpen || !focus ? (
           <div className={focus === "save" ? "vault-block" : "vault-pass"} style={focus === "save" ? { order: blockAt("accounts") } : undefined}>
             {focus === "save" && vaultSort ? blockArrows("accounts") : null}
           <div data-anchor="vault-accounts" className={`save-more${focus === "save" && banksFold ? " is-folded" : ""}`} onClick={() => { if (focus === "save" && banksFold) toggleBanksFold(); }}>
-            <div className={`save-ledger-head${focus === "save" ? " is-tab" : ""}`} onClick={(event) => { if (focus !== "save") return; event.stopPropagation(); toggleBanksFold(); }}>
-              <strong className="lab-head">{focusedAccount ? focusedAccount.name : t("save.accounts.all")}<Hint topic="cuentas" /></strong>
+            <div className={`save-ledger-head${focus === "save" ? " is-tab" : ""}`} onClick={(event) => { if (focus === "save") { event.stopPropagation(); toggleBanksFold(); } else if (!focus) setAccountsOpen((v) => !v); }}>
+              <strong className="lab-head">{focusedAccount ? focusedAccount.name : !focus ? t("save.accounts.band") : t("save.accounts.all")}<Hint topic="cuentas" /></strong>
               <span className="row">
-                <span className="num">{fmt(focusedAccount ? focusedAccount.minor : accountTotal)}</span>
+                {!focus ? (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <SourceNote label={t("desk.savings.from")} title={t("save.accounts")} meaning={t("save.kept.cuentas.what")} formula={focusedAccount ? `${focusedAccount.name} ${fmt(focusedAccount.minor)}` : accountRows.map((r) => `${r.name} ${fmt(r.minor)}`).join(" · ")} implication={t("save.kept.cuentas.note")}>
+                      <span className="num">{fmt(focusedAccount ? focusedAccount.minor : accountTotal)}</span>
+                    </SourceNote>
+                  </span>
+                ) : <span className="num">{fmt(focusedAccount ? focusedAccount.minor : accountTotal)}</span>}
                 {focus === "save" ? (
                   <button type="button" className={`icon-btn ledger-fold${banksFold ? "" : " is-open"}`} aria-label={t("study.fold")} aria-expanded={!banksFold} onClick={(event) => { event.stopPropagation(); toggleBanksFold(); }}>
                     <ChevronDown className="size-4" />
                   </button>
                 ) : (
-                  <button type="button" className="fold-pin" aria-label={t("study.pin")} aria-pressed={accountsPin} onClick={toggleAccountsPin}><Pin /></button>
+                  <button type="button" className="fold-pin" aria-label={t("study.pin")} aria-pressed={accountsPin} onClick={(event) => { event.stopPropagation(); toggleAccountsPin(); }}><Pin /></button>
                 )}
               </span>
             </div>
             {focus === "save" && !banksFold ? (
               <button type="button" className="fold-pin vault-corner-pin" aria-label={t("study.pin")} aria-pressed={banksPin} onClick={toggleBanksPin}><Pin /></button>
             ) : null}
-            {focus === "save" && banksFold ? null : (
+            {focus === "save" && banksFold ? null : !focus && !accountsOpen ? null : (
             <>
-            {stock.pledged > 0 ? (
+            {has("nature.class-saldo") && stock.pledged > 0 ? (
               <p className="save-panel-line">
                 <SourceNote
                   label={t("desk.savings.from")}
@@ -3562,9 +3735,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               {bankRows.map((row) => (
                 <div key={row.id} data-bank={row.id} className={`save-account${accountFocus === row.id ? " is-on" : ""}${bankRank?.[0] && bankDrag.current === row.id ? " is-drag" : ""}`}>
                   <span className="bank-tools">
+                    {has("accounts.reorder") ? (
                     <button type="button" className="bank-grip" aria-label={t("save.move")} onPointerDown={(event) => startBankDrag(row.id, event)} onPointerMove={moveBankDrag} onPointerUp={endBankDrag} onPointerCancel={endBankDrag}>
                       <GripVertical />
                     </button>
+                    ) : null}
                   </span>
                   <div className="save-account-hit">
                     <span className="save-account-name">
@@ -3588,9 +3763,15 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                         </button>
                       ) : (
                         <span className="bank-name">
+                          {has("vault.look") ? (
                           <button type="button" className="look-mark" data-look-toggle aria-label={t("look.title")} aria-pressed={lookId === row.id} onClick={(event) => { event.stopPropagation(); setLookId(lookId === row.id ? null : row.id); }}>
                             {vaultGlyph(row.icon) ? <Glyph name={vaultGlyph(row.icon)!} className="size-4" /> : row.icon.startsWith("vault:data:") ? <img src={row.icon.slice(6)} alt="" className="bank-photo" /> : row.icon.startsWith("vault:") || row.icon.startsWith("brand:") ? <BrandMark id={row.icon.slice(row.icon.indexOf(":") + 1)} className="size-4" /> : <Glyph name={row.icon === "vault" ? "Landmark" : row.icon} className="size-4" />}
                           </button>
+                          ) : (
+                          <span className="look-mark is-still">
+                            {vaultGlyph(row.icon) ? <Glyph name={vaultGlyph(row.icon)!} className="size-4" /> : row.icon.startsWith("vault:data:") ? <img src={row.icon.slice(6)} alt="" className="bank-photo" /> : row.icon.startsWith("vault:") || row.icon.startsWith("brand:") ? <BrandMark id={row.icon.slice(row.icon.indexOf(":") + 1)} className="size-4" /> : <Glyph name={row.icon === "vault" ? "Landmark" : row.icon} className="size-4" />}
+                          </span>
+                          )}
                           <button type="button" aria-pressed={accountFocus === row.id} onClick={() => {
                             setAccountFocus((cur) => {
                               if (cur === row.id) return null;
@@ -3601,7 +3782,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                           }}>{row.name}</button>
                         </span>
                       )}
-                      {renameId === row.id ? null : (
+                      {renameId === row.id || !has("vault.rename") ? null : (
                         <button type="button" className="bank-pencil" aria-label={t("edit")} onClick={() => { setRenameId(row.id); setRenameValue(row.name); }}>
                           <Pencil />
                         </button>
@@ -3616,11 +3797,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                       });
                     }}>{fmt(row.minor)}</button>
                   </div>
-                  {(stock.pledgedByHost.get(row.id) ?? 0) > 0 ? (
+                  {has("nature.class-saldo") && (stock.pledgedByHost.get(row.id) ?? 0) > 0 ? (
                     <p className="save-acct-line">{t("save.acct.named").replace("{x}", fmt(stock.pledgedByHost.get(row.id) ?? 0)).replace("{y}", fmt(row.minor - (stock.pledgedByHost.get(row.id) ?? 0)))}</p>
                   ) : null}
                   {accountFocus === row.id ? (
-                    row.minor > 0 || lines.some((line) => line.subId === row.id && line.startedOn) ? (
+                    row.minor > 0 || lines.some((line) => line.subId === row.id && line.startedOn) || !has("accounts.opening") ? (
                       <div className="ah-form is-account">
                         <div className="ah-grid">
                           <div className="label is-wide">
@@ -3670,6 +3851,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 </div>
               ))}
             </div>
+            {has("accounts.add") ? (
             <div className="ah-form is-bank">
               <div className="ah-grid">
                 <div className="label is-wide">
@@ -3700,12 +3882,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 </div>
               </div>
             </div>
+            ) : null}
             </>
             )}
           </div>
           </div>
         ) : null}
-        {focus === "save" ? (
+        {focus === "save" && has("vault.monthly-setaside") ? (
           <div className="vault-block" style={{ order: blockAt("flow") }}>
             {vaultSort ? blockArrows("flow") : null}
           <div className="save-flow" style={{ ["--save" as string]: colorFor(session.ledger.structure, savingsCats[0]?.id ?? "f-ahorro") }}>
@@ -3743,7 +3926,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   </>
                 )}
             </p>
-            {asideParts.saldo > 0 ? (
+            {has("vault.setaside-split") && asideParts.saldo > 0 ? (
               <p className="save-flow-split">
                 <SourceNote
                   label={t("desk.savings.from")}
@@ -3804,10 +3987,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         ) : null}
       </section>
       {/* 1.3.122 tablet: the Asesor for whatever Central has picked (a card, an open pocket), else the month. */}
-      {!focus && tabletOneAA ? <AreaAdvisor area={deskArea} label={deskArea === "subs" ? (lang === "en" ? "Payments" : "Pagos") : undefined} onLeave={() => { lensReturn = lens === "all" ? null : { depth, lens }; }} /> : null}
+      {!focus && tabletOneAA && has("area.bars-6m") ? <AreaAdvisor area={deskArea} label={deskArea === "subs" ? (lang === "en" ? "Payments" : "Pagos") : undefined} onLeave={() => { lensReturn = lens === "all" ? null : { depth, lens }; }} /> : null}
       {focus ? null : (
       <section key={lens} data-anchor="desk-list" className={`card span-all swipe-pane${lensSwapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={flowDir < 0 ? "-1" : "1"}>
-        {lens === "debt" ? (
+        {lensMode === "debt" ? (
           <div className="debt-lamp" data-anchor="desk-semaforo">
             {(() => {
               const live = summary.tone === "warn" || summary.tone === "bad" ? summary.tone : "good";
@@ -3964,23 +4147,23 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
 }
 
 export function Books({ mode }: { mode: "income" | "fixed" | "variable" }) {
-  const { t } = useFaro();
+  const { t, has } = useFaro();
   if (mode === "income") {
     return (
       <div className="grid gap-3">
         <LinesBlock kind="income-fixed" title={t("income.fixed")} menu />
         <LinesBlock kind="income-variable" title={t("income.variable")} menu />
-        <ImportDoor />
+        {has("import.bank") ? <ImportDoor /> : null}
       </div>
     );
   }
-  if (mode === "fixed") return <div className="grid gap-3"><LinesBlock kind="expense-fixed" title={t("group.fixed")} menu /><ImportDoor /></div>;
+  if (mode === "fixed") return <div className="grid gap-3"><LinesBlock kind="expense-fixed" title={t("group.fixed")} menu />{has("import.bank") ? <ImportDoor /> : null}</div>;
   return (
     <div className="grid gap-3">
       <LinesBlock kind="expense-variable" title={t("group.variable")} menu />
       <PeopleBox />
-      <RemitPeopleBox />
-      <ImportDoor />
+      {has("remit.card") ? <RemitPeopleBox /> : null}
+      {has("import.bank") ? <ImportDoor /> : null}
     </div>
   );
 }
@@ -4209,6 +4392,41 @@ export function Subs() {
   return <LinesBlock kind="subscription" title={t("tab.subs")} menu />;
 }
 
+/** Etapa 3.1 (L-2): en Esencial Cuotas se mira, no se gestiona — las cuotas
+ *  del mes listadas como movimientos (nombre, monto, próximo cobro como
+ *  hecho), sin DueOwe, sin balanza y sin edición. La quinta entrada del riel
+ *  de Libros aterriza aquí. */
+export function SubsReadOnly() {
+  const { t, lines, fmt, session, names, lang } = useFaro();
+  if (!session) return null;
+  const rate = session.ledger.settings;
+  const rows = lines.filter((l) => l.kind === "subscription" && !l.rest && lineListVisible(session.ledger.structure, l));
+  const total = rows.reduce((acc, l) => acc + convertMinor(l.amountMinor, l.currency, rate.display, rate.rateE4), 0);
+  const today = todayIso();
+  return (
+    <section className="card subs-ro" data-anchor="subs-readonly">
+      <div className="save-ledger-head">
+        <strong className="lab-head">{t("tab.subs")}<Hint topic="cuotas" /></strong>
+        <span className="num">{fmt(total)}</span>
+      </div>
+      {rows.length === 0 ? <p className="save-flow-read">{t("subs.ro.none")}</p> : rows.map((l) => {
+        const due = l.nextDue ? nextDueFrom(l.nextDue, l.cadence, today) : "";
+        return (
+          <div key={l.id} className="save-view-row">
+            <span className="save-view-name">
+              {l.icon ? <Glyph name={l.icon} className="size-4" /> : null}
+              <span>{l.concept || names.cat(l.categoryId)}</span>
+              <strong className="num">{fmt(convertMinor(l.amountMinor, l.currency, rate.display, rate.rateE4))}</strong>
+            </span>
+            {due ? <span className="subs-ro-due">{`${t("subs.ro.next")} · ${new Date(`${due}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}`}</span> : null}
+          </div>
+        );
+      })}
+      <p className="save-flow-read">{t("subs.ro.note.pre")}<span className="faro-name">{t("mode.ritmo")}</span>{t("subs.ro.note.post")}</p>
+    </section>
+  );
+}
+
 /** 1.3.149: the year as a report — Estudio's «El año» fold. Every figure comes from yearReport
  *  (lib/faro/year.ts), which composes the monthly engine, so the year is the months added up.
  *  Savings at year end is shown in Oscar's three types: Retiro, Emergencia, Metas y otros bolsillos. */
@@ -4273,14 +4491,22 @@ export function YearCard() {
 
 export function Study() {
   const coach = useCoach();
-  const { t, insights, slices, session, ui, setUi, lang, summary, fmt, names, lines, viewLine, key } = useFaro();
+  const { t, insights, slices, session, ui, setUi, lang, summary, fmt, names, lines, viewLine, key, has } = useFaro();
   usePinchZoom(lang);
   const [span, setSpan] = useState<"year" | "month" | "week">("year");
   const [picked, setPicked] = useState<string | null>(null);
   const [storePick, setStorePick] = useState<string | null>(null);
-  const points = session ? spanPoints(session.ledger, ui.year, ui.month, span, lang) : [];
-  const compare = session ? compareSpans(session.ledger, ui.year, ui.month, span, span === "week" ? 4 : span === "month" ? 6 : 3, lang) : [];
-  const activeKey = span === "year"
+  // 3.2 (E-3): cada carpeta del Estudio cuelga de su función del registro por
+  // los dos caminos que el mecanismo de datos ya usa: la lista `visible` (que
+  // alimenta cortes de sección, orden y herramientas) se filtra por el modo, y
+  // cada carpeta se monta tras su condición de datos Y su función — una
+  // carpeta ausente por modo se comporta exactamente como una ausente por
+  // datos. En Esencial la tarjeta de tiempo vive en su forma simple (la
+  // semana), así que el tramo efectivo es "week".
+  const spanEff: "year" | "month" | "week" = has("study.flow") ? span : "week";
+  const points = session ? spanPoints(session.ledger, ui.year, ui.month, spanEff, lang) : [];
+  const compare = session ? compareSpans(session.ledger, ui.year, ui.month, spanEff, spanEff === "week" ? 4 : spanEff === "month" ? 6 : 3, lang) : [];
+  const activeKey = spanEff === "year"
     ? `${ui.year}-${String(ui.month).padStart(2, "0")}`
     : (points.find((p) => p.income > 0 || p.expense > 0)?.key ?? points[0]?.key ?? "");
   const board = session ? studyBoard(session.ledger, `${ui.year}-${String(ui.month).padStart(2, "0")}`, lang, names) : null;
@@ -4380,6 +4606,17 @@ export function Study() {
     ? pickedRows.filter((line) => line.storeId === storePick)
     : pickedRows.filter((line) => line.kind !== "purchase" || !line.storeId);
   if (session && yearsWithData(session.ledger).length) visible.push("year");
+  // 3.2 (E-3): el filtro del modo sobre la misma lista — cada carpeta nombra
+  // la función que la sostiene (X-12: año, recompensas y seguro cuelgan de su
+  // familia, porque el censo no les dio fila propia de Estudio).
+  const FOLD_FEATURE = {
+    pulse: "pano.month-ring", health: "pano.health-note", pace: "pano.runway-linear", agenda: "pano.next-dues-reduced",
+    waffle: "pano.hundred", where: "study.where", rule: "pano.rule-503020", movers: "pano.movers", time: "study.flow-simple",
+    cushion: "study.month-jar", plan: "study.budget-caps", numeros: "study.key-numbers", sankey: "study.sankey",
+    owed: "study.owed", loans: "study.loans", people: "study.people", remesas: "study.remit", earnings: "study.income-sources",
+    year: "study.income-sources", rewards: "cards.rewards", seguro: "ins.premiums-paid",
+  } as const;
+  const modeVisible = visible.filter((id) => has(FOLD_FEATURE[id as keyof typeof FOLD_FEATURE] ?? "study.fold-shell"));
   return (
     <StatFoldProvider
       label={t("study.unfold")}
@@ -4388,7 +4625,7 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "remesas", "rewards", "rule", "movers", "time", "earnings", "cushion", "plan", "owed", "loans"]}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "remesas", "rewards", "rule", "movers", "time", "earnings", "cushion", "plan", "owed", "loans"].filter((id) => has(FOLD_FEATURE[id as keyof typeof FOLD_FEATURE] ?? "study.fold-shell"))}
       items={[
         { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
@@ -4421,29 +4658,29 @@ export function Study() {
         { id: "owed", label: t("study.sec.owed") },
         { id: "keys", label: es ? "Para los curiosos" : "For the curious" },
       ]}
-      visible={visible}
+      visible={modeVisible}
     >
     <StudyStack>
       <StatBreaks />
       {coach ? (
         <>
-          <StatFold id="pulse"><PulseCard coach={coach} /></StatFold>
-          <StatFold id="health"><HealthCard coach={coach} /></StatFold>
-          <StatFold id="pace"><PaceCard coach={coach} /></StatFold>
+          {has("pano.month-ring") ? <StatFold id="pulse"><PulseCard coach={coach} /></StatFold> : null}
+          {has("pano.health-note") ? <StatFold id="health"><HealthCard coach={coach} /></StatFold> : null}
+          {has("pano.runway-linear") ? <StatFold id="pace"><PaceCard coach={coach} /></StatFold> : null}
           <StatFold id="agenda"><AgendaCard coach={coach} /></StatFold>
-          <StatFold id="waffle"><WaffleCard coach={coach} /></StatFold>
-          <StatFold id="rule"><RuleCard coach={coach} /></StatFold>
-          <StatFold id="movers"><MoversCard coach={coach} /></StatFold>
-          <StatFold id="cushion"><CushionCard coach={coach} pockets={saveBars} goal={saveGoal} have={saveHave} pledged={savePledged} /></StatFold>
+          {has("pano.hundred") ? <StatFold id="waffle"><WaffleCard coach={coach} /></StatFold> : null}
+          {has("pano.rule-503020") ? <StatFold id="rule"><RuleCard coach={coach} /></StatFold> : null}
+          {has("pano.movers") ? <StatFold id="movers"><MoversCard coach={coach} /></StatFold> : null}
+          {has("study.month-jar") ? <StatFold id="cushion"><CushionCard coach={coach} pockets={saveBars} goal={saveGoal} have={saveHave} pledged={savePledged} /></StatFold> : null}
         </>
       ) : null}
-      {remitAny ? <StatFold id="remesas"><RemitCard monthKey={key} /></StatFold> : null}
+      {remitAny && has("study.remit") ? <StatFold id="remesas"><RemitCard monthKey={key} /></StatFold> : null}
       {insights.length === 0 ? <p>{t("stats.need")}</p> : null}
-      <StatFold id="time"><TimeCard points={points} span={span} onSpan={setSpan} activeKey={activeKey} /></StatFold>
-      <StatFold id="year"><YearCard /></StatFold>
-      {earnAny ? <StatFold id="earnings"><EarningsStudy /></StatFold> : null}
-      {board?.envelopes.length ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
-      {numerosAny ? <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold> : null}
+      <StatFold id="time"><TimeCard points={points} span={spanEff} onSpan={setSpan} activeKey={activeKey} /></StatFold>
+      {has("study.income-sources") ? <StatFold id="year"><YearCard /></StatFold> : null}
+      {earnAny && has("study.income-sources") ? <StatFold id="earnings"><EarningsStudy /></StatFold> : null}
+      {board?.envelopes.length && has("study.budget-caps") ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
+      {numerosAny && has("study.key-numbers") ? <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold> : null}
       <StudyCharts
         points={points}
         compare={compare}
@@ -4451,8 +4688,8 @@ export function Study() {
         activeKey={activeKey}
         incomeLabel={t("study.in")}
         expenseLabel={t("study.out")}
-        barsTitle={t(`study.bars.${span}`)}
-        compareTitle={t(`study.compare.${span}`)}
+        barsTitle={t(`study.bars.${spanEff}`)}
+        compareTitle={t(`study.compare.${spanEff}`)}
         whereLabel={t("study.where")}
         board={board}
         sankey={sankey}
@@ -4503,7 +4740,7 @@ export function Study() {
           topMore: board && board.topRest.count > 0 ? (es ? `+${board.topRest.count} más · ${fmt(board.topRest.minor)}` : `+${board.topRest.count} more · ${fmt(board.topRest.minor)}`) : "",
         }}
       />
-      {owedAny ? (
+      {owedAny && has("study.owed") ? (
       <StatFold id="owed">
         <section className="card">
           <div className="stat-head">
@@ -4531,10 +4768,10 @@ export function Study() {
         </section>
       </StatFold>
       ) : null}
-      {loansAny ? <StatFold id="loans"><LoansStudy /></StatFold> : null}
-      {hasPeople ? <StatFold id="people"><PeopleStudy /></StatFold> : null}
-      {showRewards ? <StatFold id="rewards"><RewardsStudy /></StatFold> : null}
-      {insStat ? (
+      {loansAny && has("study.loans") ? <StatFold id="loans"><LoansStudy /></StatFold> : null}
+      {hasPeople && has("study.people") ? <StatFold id="people"><PeopleStudy /></StatFold> : null}
+      {showRewards && has("cards.rewards") ? <StatFold id="rewards"><RewardsStudy /></StatFold> : null}
+      {insStat && has("ins.premiums-paid") ? (
       <StatFold id="seguro">
         <section className="card">
           <div className="stat-head">
@@ -4603,7 +4840,7 @@ function DeferredCard({ force, children }: { force?: boolean; children: ReactNod
 /** 1.3.98: Asesor's Desplegar starts ticked. Unticking it lasts only until Faro is opened again (kept in memory, never saved). */
 let advisorFolded = false;
 export function Advisor() {
-  const { t, advice, budget, fmt, summary, session, lang, names, key, ui, awakeOn, wake, notePlanCopied, dismissFinding, planStale, confirm } = useFaro();
+  const { t, advice, budget, fmt, summary, session, lang, names, key, ui, awakeOn, wake, notePlanCopied, dismissFinding, planStale, confirm, has } = useFaro();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [openPart, setOpenPart] = useState<string | null>(null);
@@ -4779,7 +5016,7 @@ export function Advisor() {
       {advice.map((card, index) => {
         const Icon = mark[card.horizon];
         const open = cardOn(card.horizon);
-        const teaser = adviceTeaser(card, reading, fmt, lang, new Date(ui.year, ui.month, 0).getDate() || 30);
+        const teaser = adviceTeaser(card, reading, fmt, lang, new Date(ui.year, ui.month, 0).getDate() || 30, has);
         const rows = card.points.filter((point) => {
           if (card.horizon === "short" && (["Base", "Únicas", "Apartado", "One-offs", "Transfer", "De siempre", "De una vez", "Ahorro", "Usual", "One-time", "Saved"].includes(point.label))) return false;
           return card.horizon === "short" || !point.emphasis;
@@ -4808,7 +5045,9 @@ export function Advisor() {
         );
       })}
       <DeferredCard force={forceBelow}><RulesCard rules={rules} open={cardOn("rules")} onToggle={() => toggleCard("rules")} enter={4} /></DeferredCard>
-      {session ? <DeferredCard force={forceBelow}><CardsAdvisor plan={payoffPlan(session.ledger)} /></DeferredCard> : null}
+      {/* A-4: la tarjeta de «cuál pago primero» es el plan de pago (Completo):
+          fuera de Completo no monta, ni plegada. */}
+      {session && has("loans.payoff-plan") ? <DeferredCard force={forceBelow}><CardsAdvisor plan={payoffPlan(session.ledger)} /></DeferredCard> : null}
       <DeferredCard force={forceBelow}>
       <section className="advice-card is-plan is-start" data-anchor="advice-plan" style={{ ["--enter" as string]: "4" }}>
         <div role="button" tabIndex={0} className="advice-head" aria-expanded={cardOn("plan")} onClick={() => toggleCard("plan")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCard("plan"); } }}>
@@ -4841,6 +5080,7 @@ export function Advisor() {
                 </>
               );
             })()}
+            {has("advisor.scenarios") ? (
             <div className="advice-sim" data-anchor="advice-sim">
               <p className="advice-kicker"><span className="lab-head">{t("advice.sim")}<Hint topic="que-pasa-si" /></span></p>
               <div className="advice-presets" role="tablist" aria-label={t("advice.sim")}>
@@ -4874,12 +5114,23 @@ export function Advisor() {
               {applied ? <p className="advice-aside">{t("advice.applied")} {applied}</p> : null}
               {copyFailed ? <p className="advice-aside" role="alert">{t("advice.copyFailed")}</p> : null}
             </div>
+            ) : (
+            <>
+              {/* A-6: fuera de Completo el plan es solo la ruta — sin pestañas
+                  de escenario ni botones de ensayo; copiar el plan queda. */}
+              <div className="advice-acts">
+                <button type="button" className="btn secondary advice-copy" data-anchor="advice-copy" onClick={() => { void copyPlan(); }}>{copied ? t("advice.copied") : t("advice.copy")}</button>
+                <Hint topic="copiar-plan" alt={planStale} />
+              </div>
+              {copyFailed ? <p className="advice-aside" role="alert">{t("advice.copyFailed")}</p> : null}
+            </>
+            )}
           </>
         ) : null}
       </section>
       </DeferredCard>
-      <DeferredCard force={forceBelow}><PeopleAdviceCard /></DeferredCard>
-      <DeferredCard force={forceBelow}><RewardsAdvice /></DeferredCard>
+      {has("advisor.people-tip") ? <DeferredCard force={forceBelow}><PeopleAdviceCard /></DeferredCard> : null}
+      {has("advisor.rewards-note") ? <DeferredCard force={forceBelow}><RewardsAdvice /></DeferredCard> : null}
     </div>
   );
 }
@@ -4976,7 +5227,7 @@ function clipWords(text: string, max: number): string {
 }
 
 export function Settings() {
-  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine } = useFaro();
+  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine, has } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
   // 1.3.227 (pedido de Oscar): el catálogo gana su propio pliegue bajo
   // Estructura — nace plegado y su estado lo mandan sus toques, guardado
@@ -4984,6 +5235,38 @@ export function Settings() {
   const [catalogOpen, setCatalogOpen] = useState<boolean>(() => { try { return localStorage.getItem("faro.catalog.open") === "1"; } catch { return false; } });
   const toggleCatalog = () => setCatalogOpen((v) => { try { localStorage.setItem("faro.catalog.open", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
   const [themeSide, setThemeSide] = useState<{ day: boolean; night: boolean } | null>(null);
+  // El selector de modo (tres modos, etapa 1): vive siempre en Ajustes y nunca se
+  // esconde a sí mismo. Bajar abre primero la pantalla de impacto — y solo si hay
+  // algo real que avisar; subir aplica y avisa después. Ambos caminos cierran los
+  // flujos abiertos por sus propias reglas antes de cambiar la cara (principio 8).
+  const [modeImpactState, setModeImpactState] = useState<{ target: Mode; impact: ModeImpact } | null>(null);
+  const currentMode: Mode = session ? modeOf(session.ledger.settings) : "completo";
+  const applyMode = (target: Mode) => commit((s) => ({ ...s, settings: { ...s.settings, mode: target } }), target);
+  const pickMode = (target: Mode) => {
+    if (!session || target === currentMode) return;
+    if (modeRank(target) > modeRank(currentMode)) {
+      guardPanelExit(() => {
+        applyMode(target);
+        const unlocked = unlockedGroups(currentMode, target);
+        if (unlocked.length === 0) {
+          importToast({ text: t("mode.up.notice.plain").replace("{name}", t(`mode.${target}`)).replace("{line}", t(`mode.${target}.line`)) });
+          return;
+        }
+        const list = unlocked.slice(0, 3).map((g) => t(g.labelKey)).join(", ") + (unlocked.length > 3 ? ` ${t("mode.andmore").replace("{n}", String(unlocked.length - 3))}` : "");
+        importToast({ text: t("mode.up.notice").replace("{name}", t(`mode.${target}`)).replace("{list}", list) });
+      });
+      return;
+    }
+    const impact = modeImpact(session.ledger, target, lang);
+    if (impact.total === 0) {
+      guardPanelExit(() => {
+        applyMode(target);
+        importToast({ text: t("mode.down.notice").replace("{name}", t(`mode.${target}`)) });
+      });
+      return;
+    }
+    guardPanelExit(() => setModeImpactState({ target, impact }));
+  };
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
   const boardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -5058,13 +5341,28 @@ export function Settings() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (["lang", "theme", "structure", "rate", "keys", "gestures", "backup", "banks", "account", "widget"].includes(id)) setOpenFold(id);
+      if (["lang", "theme", "modo", "structure", "rate", "keys", "gestures", "backup", "banks", "account", "widget"].includes(id)) setOpenFold(id);
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
   }, []);
   if (!session) return null;
   const settings = session.ledger.settings;
+  // J-2 (etapa 3.3): la fila de la tasa manual es UNA sola pieza con dos
+  // asientos — dentro del pliegue «Metas, semáforo y tasa» desde Ritmo, y
+  // como fila suelta en «La app» en Esencial, donde el pliegue se disuelve
+  // (todos sus demás renglones son de Ritmo). El valor vive en settings y
+  // ningún asiento lo reinicia: esconder el pliegue no toca la tasa.
+  const rateRow = (
+    <>
+      <div className="row mt-3" data-anchor="aj-rate">
+        <input className="field num" value={rateText} onChange={(e) => setRateText(e.target.value)} aria-label={t("rate.manual")} />
+        <button type="button" className="btn" onClick={() => saveRate(rateText)}>{t("rate.manual")}</button>
+        <Hint topic="tasa-manual" className="is-after" />
+      </div>
+      {fxRateBroken(session.ledger) ? <Note kind="tip">{t("rate.broken")}</Note> : null}
+    </>
+  );
   function toggle(id: string) {
     const apply = () => setOpenFold((cur) => (cur === id ? null : id));
     // 1.3.182: plegar Estructura — o saltar a otra sección, que la pliega igual —
@@ -5084,6 +5382,14 @@ export function Settings() {
             <button key={id} type="button" className="aj-seg-btn" aria-pressed={lang === id} onClick={() => { localStorage.setItem("faro-lang", id); commit((s) => ({ ...s, settings: { ...s.settings, lang: id } }), id); }}>{t(`lang.${id}`)}</button>
           ))}
         </div>
+      </Fold>
+      <Fold id="modo" icon={Gauge} sub={lang === "en" ? "Simple, paced or complete" : "Simple, con ritmo o completo"} topic="modos" title={t("settings.mode")} open={openFold === "modo"} onToggle={() => toggle("modo")}>
+        <div className="aj-seg is-3" role="group" aria-label={t("settings.mode")}>
+          {MODES.map((id) => (
+            <button key={id} type="button" className="aj-seg-btn" data-anchor={`modo-opt-${id}`} aria-pressed={currentMode === id} onClick={() => pickMode(id)}>{t(`mode.${id}`)}</button>
+          ))}
+        </div>
+        <p className="aj-mode-note">{t("mode.current").replace("{name}", t(`mode.${currentMode}`)).replace("{line}", t(`mode.${currentMode}.line`))}</p>
       </Fold>
       <Fold id="theme" icon={Palette} sub={lang === "en" ? "Day and night colors" : "Colores de día y noche"} topic="temas" title={t("settings.theme")} open={openFold === "theme"} onToggle={() => toggle("theme")}>
         {(() => {
@@ -5130,7 +5436,13 @@ export function Settings() {
           { head: "gesture.btnIn", mode: "in" },
           { head: "gesture.btnOut", mode: "out" },
           { head: "gesture.btnDue", mode: "due" },
-        ] as const).map(({ head, mode }) => {
+        ] as const)
+        // J-5 (etapa 3.3): el grupo Debo/Cobros se esconde ENTERO en Esencial
+        // (todos sus destinos son de Ritmo) y las opciones de cada grupo se
+        // limitan al modo — el gesto guardado duerme en settings, no se borra,
+        // y F-4 ya lo filtra al disparar.
+        .filter(({ mode }) => mode !== "due" || has("subs.cuota"))
+        .map(({ head, mode }) => {
           const options = [{ value: "", label: t("gesture.none") }];
           if (mode === "in") {
             options.push({ value: "income-fixed", label: t("income.fixed") }, { value: "income-variable", label: t("income.variable") });
@@ -5151,7 +5463,7 @@ export function Settings() {
             for (const shop of session.ledger.structure.purchases.filter((p) => !p.hidden).sort((a, b) => a.order - b.order)) {
               options.push({ value: `purchase:${shop.id}`, label: `${t("nav.shops")} · ${displayName(shop, lang)}` });
             }
-            options.push({ value: "subscription", label: t("tab.subs") });
+            if (has("subs.cuota")) options.push({ value: "subscription", label: t("tab.subs") });
           }
           return (
             <div key={mode} className="gesture-group">
@@ -5178,9 +5490,18 @@ export function Settings() {
           );
         })}
       </Fold>
+      {!has("settings.savings-goal") ? (
+        <section className="card manual-card aj-card smp-card" data-anchor="aj-rate-card">
+          <div className="smp-in">
+            <span className="lab-head">{t("settings.rate")}</span>
+            {rateRow}
+          </div>
+        </section>
+      ) : null}
       </Cluster>
       <Cluster title={lang === "en" ? "The book" : "El libro"} hint={lang === "en" ? "How your money is organized" : "Cómo se organiza tu dinero"}>
-      <Fold id="structure" icon={FolderTree} sub={lang === "en" ? "Categories and stores" : "Categorías y tiendas"} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
+      <Fold id="structure" icon={FolderTree} sub={has("settings.structure-tree") ? (lang === "en" ? "Categories and stores" : "Categorías y tiendas") : t("settings.catalog")} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
+        {has("settings.structure-card") ? (
         <div className="aj-picks" role="group" aria-label={t("settings.structure")}>
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
             <button key={id} type="button" className="btn ghost aj-pick" aria-pressed={session.ledger.structure.base === id} onClick={() => { const pv = templatePreview(session.ledger, id, lang); confirm({ title: t(`tpl.${id}`), body: `${templateExample(id, lang)}\n\n${pv.body}`, yes: pv.empty ? (lang === "en" ? "Got it" : "Entendido") : t("yes"), run: pv.empty ? () => {} : () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) }); }}>
@@ -5196,8 +5517,13 @@ export function Settings() {
             <span className="aj-pick-ex">{showAllExample(lang)}</span>
           </button>
         </div>
-        <Note kind="tip">{structureStatusLine(session.ledger.structure, lang)}</Note>
-        <StructureTree />
+        ) : null}
+        {has("settings.structure-tree") ? (
+          <>
+            <Note kind="tip">{structureStatusLine(session.ledger.structure, lang)}</Note>
+            <StructureTree />
+          </>
+        ) : null}
         {/* 1.3.227 (pedido de Oscar): la cabecera del catálogo es una puerta —
             título y flecha pliegan y despliegan la sección entera; la
             sección se llama ahora «Tiendas y servicios». Y viste SU BURBUJA:
@@ -5223,10 +5549,18 @@ export function Settings() {
         </h2>
         <FoldShell open={catalogOpen}><CatalogEditor /></FoldShell>
       </Fold>
+      {/* J-3 (etapa 3.3): Bancos se esconde como componente ENTERO fuera de
+          Completo (settings.banks) — tarjetas, tasas, bonos y las reglas de
+          comercio que viven dentro de BankSettings duermen con él; ningún
+          renglón suelto queda en el cluster. La fila de importar sigue a su
+          función (settings.import-row, Completo). */}
+      {has("settings.banks") ? (
       <Fold id="banks" icon={CreditCard} sub={lang === "en" ? "Cards, rates and bonuses" : "Tarjetas, tasas y bonos"} topic="bancos" title={lang === "en" ? "Banks and rewards" : "Bancos y recompensas"} open={openFold === "banks"} onToggle={() => toggle("banks")}>
         <BankSettings />
       </Fold>
-      <ImportRow />
+      ) : null}
+      {has("settings.import-row") ? <ImportRow /> : null}
+      {has("settings.savings-goal") ? (
       <Fold id="rate" icon={SlidersHorizontal} sub={lang === "en" ? "Goals, signal and rate" : "Metas, semáforo y tasa"} topic="reglas" title={t("settings.rate")} open={openFold === "rate"} onToggle={() => toggle("rate")}>
         <label className="label" data-anchor="aj-goal"><span className="lab-head">{glueHint(t("settings.goal"), <Hint topic="meta-ahorro" fitParent />)}</span>
           <input className="field num" defaultValue={settings.savingsGoalPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Number(e.target.value) || 0 } }), "goal")} />
@@ -5249,13 +5583,9 @@ export function Settings() {
           ]} />
           <p className="aj-nature-note">{t("fund.mode.note")}</p>
         </div>
-        <div className="row mt-3" data-anchor="aj-rate">
-          <input className="field num" value={rateText} onChange={(e) => setRateText(e.target.value)} aria-label={t("rate.manual")} />
-          <button type="button" className="btn" onClick={() => saveRate(rateText)}>{t("rate.manual")}</button>
-          <Hint topic="tasa-manual" className="is-after" />
-        </div>
-        {session && fxRateBroken(session.ledger) ? <Note kind="tip">{t("rate.broken")}</Note> : null}
+        {rateRow}
       </Fold>
+      ) : null}
       </Cluster>
       <Cluster title={lang === "en" ? "Learn" : "Aprender"} hint={lang === "en" ? "The manual and the lessons, at your pace" : "El manual y las lecciones, a tu paso"}>
       <section className="card manual-card" data-anchor="aj-manual" data-topic-box="manual">
@@ -5309,6 +5639,19 @@ export function Settings() {
       </Cluster>
     </div>
     <p className="app-version" data-anchor="aj-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>
+    {modeImpactState ? (
+      <ModeImpactDialog
+        lang={lang}
+        target={modeImpactState.target}
+        impact={modeImpactState.impact}
+        onCancel={() => setModeImpactState(null)}
+        onConfirm={() => {
+          const target = modeImpactState.target;
+          setModeImpactState(null);
+          applyMode(target);
+        }}
+      />
+    ) : null}
     </>
   );
 }
@@ -6562,7 +6905,18 @@ function InsFields({ draft, onChange, accts, t }: { draft: InsDraft; onChange: (
 }
 
 function CatalogEditor() {
-  const { t, lang, session, commit, confirm } = useFaro();
+  const { t, lang, session, commit, confirm, has } = useFaro();
+  // Etapa 3.3: el catálogo se recompone por modo — el alta es Esencial
+  // (settings.catalog-add), la mano de administración nace en Ritmo
+  // (settings.catalog-admin) y la mano sobre las piezas de suscripción es
+  // Completo (settings.catalog-admin-subs, X-23); el plan del seguro sigue a
+  // su función (ins.setup, la fila del registro para armar el plan de una
+  // pieza de seguro). Sin mano, la tarjeta es una ficha que se lee: ni
+  // puerta, ni arrastre, ni herramientas.
+  const canAdmin = has("settings.catalog-admin");
+  const canAdminSubs = has("settings.catalog-admin-subs");
+  const canIns = has("ins.setup");
+  const handFor = (item: CatalogItem) => (item.kind === "sub" ? canAdminSubs : canAdmin);
   const [itemName, setItemName] = useState("");
   // 1.3.227 (pedido de Oscar): el alta elige su clase — el formulario
   // siempre sembró «tienda» y una suscripción nueva caía en el grupo
@@ -6605,18 +6959,21 @@ function CatalogEditor() {
   const addItem = () => {
     const name = itemName.trim();
     if (!name) return;
+    // Etapa 3.3: la clase del alta sigue al modo — una clase que duerme no
+    // puede nacer desde esta forma (el estado guardado cae a «tienda»).
+    const kind = itemKind === "ins" && !canIns ? "store" : itemKind === "sub" && !has("subs.cuota") ? "store" : itemKind;
     // 1.3.271: el alta de un seguro compone su plan en el MISMO commit que la
     // pieza — pieza y línea permanente nacen juntas o no nacen. Sin importe,
     // la pieza nace sin configurar (nada se inventa); con importe y sin
     // momento, el alta pregunta antes de escribir nada.
     let plan: InsPlan | undefined;
-    if (itemKind === "ins") {
+    if (kind === "ins") {
       const r = planFromDraft(insDraft);
       if (r.err) { setInsErr(r.err === "timing" ? t("ins.needTiming") : t("field.required")); return; }
       plan = r.plan;
     }
-    const bens = itemKind === "ins" ? cleanInsBens(insDraft.bens) : [];
-    const piece: CatalogItem = { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind: itemKind, urlTemplate: "", ...(plan ? { ins: plan } : {}), ...(bens.length ? { bens } : {}) };
+    const bens = kind === "ins" ? cleanInsBens(insDraft.bens) : [];
+    const piece: CatalogItem = { id: `c-${uid().slice(0, 8)}`, nameKey: "", customName: name, icon: "Circle", hidden: false, order: 99, kind, urlTemplate: "", ...(plan ? { ins: plan } : {}), ...(bens.length ? { bens } : {}) };
     commit((s) => {
       const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog: [...s.structure.catalog, piece] } };
       return plan ? syncInsLine(withPiece, piece, todayIso()) : withPiece;
@@ -6715,6 +7072,7 @@ function CatalogEditor() {
   }, []);
   const isOpen = (item: CatalogItem) => toolsFor === item.id || renameId === item.id;
   const door = (item: CatalogItem) => (e: ReactMouseEvent) => {
+    if (!handFor(item)) return; // sin mano en este modo, la tarjeta no es puerta
     if (renameId === item.id) return; // mid-rename the card is a form, not a door
     // A tool was tapped, not the card — and the membership sign (.cat-badge) is exempt too:
     // it is a sign, not a button (1.3.222), so its tap must be inert. Until 1.3.230 it fell
@@ -6777,6 +7135,7 @@ function CatalogEditor() {
     catEndRef.current = null;
   };
   const onCardPointerDown = (e: ReactPointerEvent, item: CatalogItem, index: number, count: number) => {
+    if (!handFor(item)) return; // reordenar es administrar: sigue a la mano
     if (toolsFor !== null || renameId !== null) return;
     if (e.button !== undefined && e.button !== 0) return;
     if ((e.target as HTMLElement).closest("button, input, a")) return;
@@ -6985,7 +7344,7 @@ function CatalogEditor() {
                   plan — no se puede fijar, como las suscripciones (la nota de
                   la tarjeta Widget sigue siendo verdad), y su botón abre el
                   panel de hechos y de edición bajo la tarjeta. */}
-              {item.kind === "ins" ? <button type="button" className="icon-btn cat-act" style={{ "--i": 3 } as CSSProperties} aria-label={t("ins.plan")} aria-pressed={planFor === item.id} onClick={() => { const open = planFor !== item.id; setPlanFor(open ? item.id : null); setPlanEditing(open && !item.ins); setPlanDraft(draftFromPlan(item.ins, session?.ledger.settings.display ?? "NIO", item.bens)); setPlanErr(""); }}><SlidersHorizontal className="size-4" /></button> : null}
+              {item.kind === "ins" && canIns ? <button type="button" className="icon-btn cat-act" style={{ "--i": 3 } as CSSProperties} aria-label={t("ins.plan")} aria-pressed={planFor === item.id} onClick={() => { const open = planFor !== item.id; setPlanFor(open ? item.id : null); setPlanEditing(open && !item.ins); setPlanDraft(draftFromPlan(item.ins, session?.ledger.settings.display ?? "NIO", item.bens)); setPlanErr(""); }}><SlidersHorizontal className="size-4" /></button> : null}
               <button type="button" className="icon-btn line-act is-danger" style={{ "--i": item.kind === "sub" || item.kind === "ins" ? 3 : 4 } as CSSProperties} aria-label={t("delete")} onClick={() => dropItem(item)}><Trash2 className="size-4" /></button>
               {/* The membership badge: inside the fold only, after the trash, announcing itself.
                   Not a button — the row signing its name at the end of the hand. Its tap is
@@ -7012,7 +7371,7 @@ function CatalogEditor() {
       if (openItem) {
         cells.push(renderCard(openItem, items.indexOf(openItem), items.length));
         cells.push(<FoldShell key={`repl-${openItem.id}`} open={replaceFor === openItem.id} tier="sm" className="fold-grid-panel">{renderPanel(openItem)}</FoldShell>);
-        if (openItem.kind === "ins") cells.push(<FoldShell key={`planfold-${openItem.id}`} open={planFor === openItem.id} tier="sm" className="fold-grid-panel">{renderInsPanel(openItem)}</FoldShell>);
+        if (openItem.kind === "ins" && canIns) cells.push(<FoldShell key={`planfold-${openItem.id}`} open={planFor === openItem.id} tier="sm" className="fold-grid-panel">{renderInsPanel(openItem)}</FoldShell>);
         chunk.filter((c) => c.id !== openItem.id).forEach((c) => cells.push(renderCard(c, items.indexOf(c), items.length)));
       } else {
         chunk.forEach((c) => cells.push(renderCard(c, items.indexOf(c), items.length)));
@@ -7030,7 +7389,7 @@ function CatalogEditor() {
       {/* La línea del gesto, en el registro del aviso del árbol (tree-hint): lo que
           no se anuncia no existe para un usuario frío — el arrastre se dice una vez,
           aquí, donde las tarjetas viven (1.3.251). */}
-      <p className="tree-hint">{t("cat.dragHint")}</p>
+      {canAdmin || canAdminSubs ? <p className="tree-hint">{t("cat.dragHint")}</p> : null}
       {/* 1.3.258: con el ejemplo activo, el editor anuncia su libro en el mismo
           registro — las fijas de la mano de cada tarjeta caen en el libro de
           ejemplo y la foto del widget enseña el real (la trampa de pinsdiag-257). */}
@@ -7044,13 +7403,13 @@ function CatalogEditor() {
           </label>
           <div className="label is-wide">
             <div className="ah-sign" role="radiogroup" aria-label={t("sc.item")}>
-              {(["store", "sub", "ins"] as const).map((k) => (
+              {(["store", "sub", "ins"] as const).filter((k) => k === "store" || (k === "sub" ? has("subs.cuota") : canIns)).map((k) => (
                 <button key={k} type="button" role="radio" aria-checked={itemKind === k} aria-pressed={itemKind === k} onClick={() => { setItemKind(k); setInsErr(""); }}>{t(`add.kind.${k}`)}</button>
               ))}
             </div>
           </div>
         </div>
-        {itemKind === "ins" ? (
+        {itemKind === "ins" && canIns ? (
           <>
             <InsFields draft={insDraft} onChange={setInsDraft} accts={accounts(session?.ledger)} t={t} />
             {insErr ? <p className="form-err">{insErr}</p> : null}

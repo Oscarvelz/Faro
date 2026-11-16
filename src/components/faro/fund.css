@@ -140,3 +140,22 @@
 .save-flow-pct i { font-style: normal; color: var(--muted); }
 
 .lever-base-note { margin-top: 4px; }
+
+/* Etapa 3.1 (tres modos): la fila discreta de los fondos dormidos en Central
+ * (solo lectura, con su explicación al tocarla) y la cara lectora de Cuotas.
+ * Etapa 4 (X-26): la fila es una cabecera que ABRE su lista (modo-lista) —
+ * los fondos como hechos, con su clase en llano; la explicación de la fila
+ * viaja a la cabeza de la lista. */
+.mute-row { margin-top: 10px; }
+.mute-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 0; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; text-align: left; cursor: pointer; }
+.mute-row-head .fold-chev { flex: none; }
+.mute-list { margin-top: 6px; }
+.mute-list-what { margin: 0 0 4px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.mute-list-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+.mute-list-name { flex: 1 1 auto; min-width: 0; }
+.mute-list-cls { flex: none; color: var(--faint); font-size: .78rem; }
+.mute-list-row strong { flex: none; }
+.mute-list-row.is-total { font-weight: 600; }
+.mute-list-note { margin: 6px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.subs-ro .save-view-row { padding: 8px 0; border-top: 1px solid var(--line); }
+.subs-ro-due { color: var(--muted); font-size: .8rem; }

@@ -112,14 +112,12 @@ describe("guion: anclas vivas", () => {
       const ajFolded = Boolean(aj && componentSource.includes("data-anchor={`aj-${") && (componentSource.includes(`<Fold id="${aj[1]}"`) || (aj[1] === "rules" && componentSource.includes('<Fold id="rate"'))));
       // Vía prop: StreamRow recibe anchor="…" y lo vuelca en su data-anchor.
       const viaProp = new RegExp(`anchor=\\{[^}]*"${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`).test(componentSource);
-      // Excepción NOMBRADA de los modos (2026-11-15): las anclas del sistema de
-      // tres modos — el selector («aj-modo»), la pantalla de impacto, la fila de
-      // datos mudos y su lista, y la pieza «Puedes gastar hoy» («desk-hoy») —
-      // las acuña la ola de modos; los módulos H-1/H-2 las citan desde ya para
-      // nacer completos. Cuando la ola aterrice, esta excepción se borra.
-      const modePending = ["aj-modo", "modo-impacto", "modo-mudos", "modo-lista", "desk-hoy"].includes(anchor);
+      // Plantilla sobre los tres modos: el selector produce `modo-opt-<modo>`
+      // para cada modo de MODES — el ancla vive si la plantilla y el modo viven.
+      const modoOpt = /^modo-opt-(.+)$/.exec(anchor);
+      const modoOptLive = Boolean(modoOpt && componentSource.includes("data-anchor={`modo-opt-${") && componentSource.includes(`"${modoOpt[1]}"`));
       assert.ok(
-        plain || dynamic || templated || folded || viaProp || ajFolded || modePending,
+        plain || dynamic || templated || folded || viaProp || ajFolded || modoOptLive,
         `ancla muerta: "${anchor}" no aparece en ningún componente — el módulo que la cita debe revisarse`,
       );
     }
@@ -275,12 +273,16 @@ describe("guion: los puentes", () => {
         assert.ok(typeof place === "string" && place.length > 0, `${scene.id}: sin lugar`);
       }
     }
-    const folios = moduleById("folios")!;
+    // La escena de la puerta vive hoy en «folios-descanso» (la partición del
+    // fallo 19, etapa 5); su lugar sigue siendo el Archivo.
+    const folios = moduleById("folios-descanso")!;
     assert.equal(scenePlace(folios, "m9-puerta"), "archivo");
   });
 
   it("el aterrizaje con contexto es la primera escena del capítulo", () => {
-    const folios = moduleById("folios")!;
+    // La partición de Folios (fallo 19, etapa 5 de los modos): el capítulo de
+    // la puerta vive hoy en «folios-descanso»; el ejemplo se mueve con él.
+    const folios = moduleById("folios-descanso")!;
     assert.equal(chapterFirst(folios, "m9-puerta").id, "m9-escalera");
     for (const mod of MODULES) for (const scene of mod.scenes) {
       assert.equal(chapterFirst(mod, scene.id).chapter, scene.chapter, `${scene.id}: capítulo distinto`);
@@ -372,7 +374,11 @@ describe("guion: los modos (2026-11-15)", () => {
     }
   });
 
-  it("los cinco módulos de los modos declaran su modo y nacen en preparación", () => {
+  it("los cinco módulos de los modos declaran su modo y viven encendidos", () => {
+    // Nacieron «en preparación» (2026-11-15) porque sus superficies no
+    // existían; la etapa 5 de la ola de modos (2026-11-16) las aterrizó
+    // todas — selector, impacto, datos mudos, «Puedes gastar hoy», las
+    // caras por modo — y los volteó: esta cerca guarda el estado encendido.
     const born: Record<string, string> = {
       modos: "esencial",
       hoy: "esencial",
@@ -384,7 +390,7 @@ describe("guion: los modos (2026-11-15)", () => {
       const mod = moduleById(id);
       assert.ok(mod, `falta el módulo ${id}`);
       assert.equal(mod.mode, mode, `${id}: debe declarar el modo ${mode}`);
-      assert.equal(mod.ready, false, `${id}: nace en preparación — sus superficies aún no existen en la app`);
+      assert.equal(mod.ready, true, `${id}: vive encendido — sus superficies existen en la app`);
       assert.ok(mod.scenes.length > 0, `${id}: nace completo, con sus escenas escritas`);
     }
   });

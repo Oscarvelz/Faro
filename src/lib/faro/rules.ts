@@ -1,7 +1,7 @@
 // Asesor rules (1.3.117): small, exact checks on the user's own books. Every rule carries the one number that backs it
 // (integer minor units, never floats), the help topic that explains that number, and one place to go and act.
 // Pure and read-only: it never writes the ledger. No guessing: a rule with too little history says nothing.
-import { readAdvisor } from "./advisor.ts";
+import { bookMode, readAdvisor, type BookMode } from "./advisor.ts";
 import { cushionOf } from "./funds.ts";
 import { savingsStock } from "./savings.ts";
 import { insPremiumChange } from "./insurance.ts";
@@ -41,7 +41,7 @@ export type Rule = {
   v: Record<string, number | string>;
 };
 export type RuleGoal = { monthlyMinor: number; totalMinor: number; years: number };
-export type RuleOptions = { today?: Date; goal?: RuleGoal | null };
+export type RuleOptions = { today?: Date; goal?: RuleGoal | null; census?: boolean };
 
 const L = (lang: Lang, es: string, en: string) => (lang === "en" ? en : es);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -90,8 +90,25 @@ function sectionOf(kind: Line["kind"]): SectionId {
 const isOut = (state: LedgerState, l: Line) => l.active && !l.rest && !l.xfer && !l.kind.startsWith("income") && roleOf(state, l.categoryId) !== "savings";
 const seriesKey = (l: Line) => l.seriesId || `${l.concept.trim().toLowerCase()}|${l.categoryId}`;
 
+/** El modo mínimo de cada regla (la misma tabla que RULE_MIN_MODE en mode.ts;
+ *  la cerca de modos296 la verifica contra el registro por comportamiento).
+ *  La regla pace es el caso X-10: su forma patrón es de Completo, pero en
+ *  Ritmo vive como descripción lineal — por eso el filtro la trata aparte. */
+const RULE_MIN: Record<RuleId, BookMode> = {
+  due: "esencial", category: "ritmo", outlier: "ritmo", recurring: "ritmo",
+  pace: "completo", goal: "completo", cushion: "completo", floor: "completo",
+  overcommit: "completo", insurance: "completo",
+};
+const MODE_RANK: Record<BookMode, number> = { esencial: 0, ritmo: 1, completo: 2 };
+
 /** Every rule that has something true and useful to say about this month, worst first. */
 export function adviceRules(state: LedgerState, key: string, lang: Lang, names: Namer, options: RuleOptions = {}): Rule[] {
+  // 3.3 (T-5): el censo derivado corre la construcción COMO Completo y sin el
+  // filtro de modo — cuenta los avisos que los constructores levantan de verdad
+  // (leyendo la ventana de dues.ts y la lectura de patron.ts en su origen), no
+  // los que el modo actual del libro ya dejó pasar. Ver alertCensus abajo.
+  const census = options.census === true;
+  const mode: BookMode = census ? "completo" : bookMode(state);
   const today = options.today ?? new Date();
   const { display, rateE4 } = state.settings;
   const other: Currency = display === "USD" ? "NIO" : "USD";
@@ -130,7 +147,9 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
     const spent = daily.reduce((a, l) => a + view(l), 0);
     const left = reading.left;
     const paceRd = paceReading(state, key, today);
-    const patternFires = paceRd.status === "ready" && paceRd.spentMinor > 0;
+    // La forma patrón de la regla solo nace en Completo (A-3): en Ritmo la
+    // regla cae a su andamiaje lineal de siempre, que es la descripción.
+    const patternFires = mode === "completo" && paceRd.status === "ready" && paceRd.spentMinor > 0;
     if (daysLeft > 0 && (spent > 0 || patternFires)) {
       const perDay = divRound(spent, day);
       const covered = left > 0 && spent > 0 ? Math.floor((left * day) / spent) : 0;
@@ -462,7 +481,30 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
 
   const rank: Record<RuleTone, number> = { bad: 0, warn: 1, calm: 2, good: 3 };
   const order: RuleId[] = ["pace", "due", "category", "outlier", "recurring", "goal", "cushion", "floor", "overcommit", "insurance"];
-  return rules.sort((a, b) => rank[a.tone] - rank[b.tone] || order.indexOf(a.id) - order.indexOf(b.id));
+  // 3.2 (A-1): la lista nace acotada al modo — una regla cuya función el modo
+  // no muestra no se dice en ese modo, en ninguna superficie que la consuma.
+  // El censo (T-5) no filtra: su trabajo es contar lo que hay, no lo que se ve.
+  const visible = census ? rules : rules.filter((r) => (r.id === "pace" ? mode !== "esencial" : MODE_RANK[mode] >= MODE_RANK[RULE_MIN[r.id]]));
+  return visible.sort((a, b) => rank[a.tone] - rank[b.tone] || order.indexOf(a.id) - order.indexOf(b.id));
+}
+
+/**
+ * El censo de alertas derivado en la fuente (tres modos, etapa 3.3 — T-5,
+ * cierra el aviso D-5): cuántos avisos VIVOS levanta cada familia en este
+ * libro y este mes, contados donde nacen — los constructores de arriba, que
+ * leen la ventana única de vencimientos (dues.ts) y la lectura del patrón
+ * (patron.ts) en su origen. NO pasa por el filtro de modo de adviceRules: un
+ * censo leído de una corrida ya filtrada no puede ver las familias que el
+ * modo actual ya silenció, y la pantalla de impacto necesita exactamente
+ * esas. La tabla familia→modo mínimo vive en mode.ts (RULE_MIN_MODE); la
+ * cerca de modos297 verifica que las dos tablas cuentan lo mismo.
+ */
+export function alertCensus(state: LedgerState, key: string, lang: Lang, names: Namer, options: RuleOptions = {}): { id: RuleId; count: number }[] {
+  const byFamily = new Map<RuleId, number>();
+  for (const rule of adviceRules(state, key, lang, names, { ...options, census: true })) {
+    byFamily.set(rule.id, (byFamily.get(rule.id) ?? 0) + 1);
+  }
+  return [...byFamily.entries()].map(([id, count]) => ({ id, count }));
 }
 
 /** The rate line under the rules: the same rate Cambio uses for every converted figure. */

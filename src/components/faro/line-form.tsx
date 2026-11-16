@@ -259,7 +259,7 @@ function clearReportDraft(mode: "in" | "out") {
 }
 
 export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed, draftKey, draftTitle, glyph, swatch, dock, look, scan, onDirtyChange }: { kind: LineKind; existing?: Line; onClose: () => void; preset?: { categoryId?: string; subId?: string }; money?: Currency; onMoney?: (value: Currency) => void; seed?: ReportDraft | null; draftKey?: "in" | "out"; draftTitle?: string; glyph?: string; swatch?: string; dock?: boolean; look?: Look; scan?: ReactNode; onDirtyChange?: (dirty: boolean) => void }) {
-  const { t, key, session, commit, confirm, focusAmount, names, lang, goTopic, fmt } = useFaro();
+  const { t, key, session, commit, confirm, focusAmount, names, lang, goTopic, fmt, has } = useFaro();
   const settings = session?.ledger.settings;
   const structure = session?.ledger.structure;
   // 1.3.246 (P6): un apunte del widget SIN categoría y con concepto propio abre con la
@@ -554,7 +554,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           {head(kind === "income-fixed" || kind === "income-variable" ? (lang === "en" ? "Received into" : "Recibido en") : (lang === "en" ? "Paid with" : "Pagado con"), "f-pagado-con")}
           <MarkSelect value={pay} onChange={(v) => { setPay(v); setPayTouched(true); }} options={payOptions} />
         </div>
-        {kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase" ? <PersonPick value={personId} onChange={setPersonId} /> : null}
+        {(kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase") && has("editor.person") ? <PersonPick value={personId} onChange={setPersonId} /> : null}
         {group ? (
           <div className={`label fit-f${long(nameOf(structure.categories, categoryId))}`} data-f="category">
             {head(t("category"), "f-categoria")}
@@ -571,8 +571,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             <SubPick categoryId={cat.id} value={subId} onChange={setSubId} />
           </div>
         ) : null}
-        {group && session && categoryId && isRemitCat(session.ledger, categoryId) ? <RemitToField value={to} onChange={setTo} className={`label fit-f${to ? long(session.ledger.remitPeople?.find((p) => p.id === to)?.name) : ""}`} /> : null}
-        {kind === "purchase" ? (
+        {group && session && categoryId && isRemitCat(session.ledger, categoryId) && has("editor.for-remit") ? <RemitToField value={to} onChange={setTo} className={`label fit-f${to ? long(session.ledger.remitPeople?.find((p) => p.id === to)?.name) : ""}`} /> : null}
+        {kind === "purchase" && has("books.shops") ? (
           <>
             <div className={`label fit-f${long(nameOf(structure.catalog, storeId))}`} data-f="store">
               {head(t("store"), "f-tienda-elegir")}
@@ -600,10 +600,12 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         ) : null}
         {kind === "subscription" ? (
           <>
+            {has("subs.brand-library") ? (
             <div className={`label fit-f${long(poolName((icon || suggest).replace(/^sub:/, ""), lang))}`} data-f="brand">
               {head(lookHere ? (lang === "en" ? "Icon, colour" : "Ícono y color") : lang === "en" ? "Brand" : "Marca", "f-icono-cuota")}
               <BrandIconPick value={icon} suggest={suggest} look={lookHere ?? undefined} onChange={(next, name) => { setIcon(next); setBrandTouched(true); if (next && name && !concept.trim()) setConcept(name); }} />
             </div>
+            ) : null}
             <div className={`label fit-f${long(cadenceLabel(cadence || "monthly", lang))}`} data-f="cadence">
               {head(t("cadence"), "f-frecuencia")}
               <FreqPick value={cadence || "monthly"} presets={freqPresetsOf(session?.ledger)} onChange={(value) => setCadence(value as Line["cadence"])} />
@@ -618,7 +620,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             </div>
           </>
         ) : null}
-        {role === "debt" ? (
+        {role === "debt" && has("editor.debt-balance") ? (
           <>
             <label className="label fit-f is-num" data-f="apr">
               {head(t("apr"), "f-tasa-anual")}
@@ -638,7 +640,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         ) : null}
         {role === "savings" && fundSubNow ? (
           <div className="label fit-f is-wide" data-f="nature">
-            <NaturePick mode={modeNow} value={nature} onPick={setNature} host={host} onHost={setHost} accounts={namedAccounts} />
+            <NaturePick mode={modeNow} value={nature} onPick={setNature} host={host} onHost={setHost} accounts={namedAccounts} simple={!has("nature.naturepick-full")} armed={natureDraft !== null || !existing} />
           </div>
         ) : null}
         {role === "savings" && isRetiroSubId(subId) ? (
@@ -661,13 +663,15 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             <span>{t("active")}</span><FieldTip topic="f-activo" />
           </label>
+          {has("editor.recurrent-toggle") ? (
           <label className="form-toggle fit-chip">
             <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
             <span>{t("recurring")}</span><FieldTip topic="f-recurrente" />
           </label>
+          ) : null}
         </div>
       ) : null}
-      {recurring && kind !== "subscription" ? (
+      {recurring && kind !== "subscription" && has("editor.recurrent-toggle") ? (
         <div className="fit-fields fit-repeat">
           <div className="label fit-f is-day" data-f="first">
             {head(t("pot.first"), "f-primer-pago")}
@@ -709,11 +713,19 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
 }
 
 export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose: (how?: "back") => void; jump?: { kind: LineKind; categoryId: string; title: string } | null }) {
-  const { t, session, lang, confirm } = useFaro();
+  const { t, session, lang, confirm, has } = useFaro();
   const structure = session?.ledger.structure;
   const [open, setOpen] = useState<string | null>(null);
   const [pick, setPick] = useState<null | { kind: LineKind; categoryId: string; title: string }>(jump ?? null);
   const [held, setHeld] = useState<ReportDraft | null>(null);
+  const [heldDegraded, setHeldDegraded] = useState(false);
+  // F-3 (etapa 3.1): el borrador se filtra AL LEER, nunca se reescribe — si su
+  // clase duerme en el modo, reanuda degradado a línea normal (concepto e
+  // importe intactos; cadencia, próximo cobro y APR duermen en el borrador
+  // guardado y vuelven solos al subir de modo). La sesión degradada no lleva
+  // draftKey: su autoguardado no puede pisar los campos dormidos.
+  const draftAwake = (d: ReportDraft) => (d.kind === "subscription" ? has("books.subs") : d.kind === "purchase" ? has("books.shops") : true);
+  const seedFor = (d: ReportDraft): ReportDraft => (draftAwake(d) ? d : { ...d, kind: "expense-variable", categoryId: "", subId: "", cadence: "", nextDue: "", apr: has("editor.debt-balance") ? d.apr : "", recurring: false });
   const [gate, setGate] = useState<"ask" | "go">(() => (jump ? "go" : readReportDraft(mode) ? "ask" : "go"));
   const closeRef = useRef(onClose);
   const pickRef = useRef(pick);
@@ -813,14 +825,14 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
             kind: "expense-variable",
             items: structure.categories.filter((c) => !c.hidden && c.group === "variable").sort((a, b) => a.order - b.order).map((c) => ({ id: c.id, label: displayName(c, lang), color: toneOf(c.id, "#1b5e43", c.color) })),
           },
-          {
+          ...(has("books.shops") ? [{
             id: "shops",
             title: t("nav.shops"),
             tone: "#3a4a6b",
-            kind: "purchase",
+            kind: "purchase" as LineKind,
             items: structure.purchases.filter((p) => !p.hidden).sort((a, b) => a.order - b.order).map((p) => ({ id: p.id, label: displayName(p, lang), color: toneOf(p.id, "#3a4a6b", p.color) })),
-          },
-          { id: "subs", title: t("tab.subs"), tone: "#3a5574", kind: "subscription", items: [] },
+          }] : []),
+          ...(has("books.subs") ? [{ id: "subs", title: t("tab.subs"), tone: "#3a5574", kind: "subscription" as LineKind, items: [] as { id: string; label: string; color: string }[] }] : []),
         ];
 
   if (gate === "ask") {
@@ -839,8 +851,10 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
                 setGate("go");
                 return;
               }
-              setHeld(draft);
-              setPick({ kind: draft.kind, categoryId: draft.categoryId, title: draft.title || draft.concept });
+              const seed = seedFor(draft);
+              setHeld(seed);
+              setHeldDegraded(seed !== draft);
+              setPick({ kind: seed.kind, categoryId: seed.categoryId, title: draft.title || draft.concept });
               setGate("go");
             }}
           >
@@ -867,7 +881,7 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
           <ChevronLeft className="size-4" />
           <span className="serif">{pick.title}</span>
         </button>
-        <LineForm key={`${pick.kind}-${pick.categoryId}-${resume ? "keep" : "new"}`} kind={pick.kind} preset={{ categoryId: pick.categoryId }} seed={resume} draftKey={mode} draftTitle={pick.title} onClose={finish} onDirtyChange={(d) => { formDirtyRef.current = d; }} />
+        <LineForm key={`${pick.kind}-${pick.categoryId}-${resume ? "keep" : "new"}`} kind={pick.kind} preset={{ categoryId: pick.categoryId }} seed={resume} draftKey={heldDegraded ? undefined : mode} draftTitle={pick.title} onClose={finish} onDirtyChange={(d) => { formDirtyRef.current = d; }} />
       </section>
     );
   }

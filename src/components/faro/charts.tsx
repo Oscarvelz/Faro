@@ -1136,6 +1136,9 @@ export function StudyCharts({
 }) {
   const [mark, setMark] = useState<string | null>(null);
   const fold = useContext(FoldCtx);
+  // 3.2: las carpetas propias de StudyCharts (sankey, where y sus sub-bloques)
+  // se montan tras su función, como las demás (E-3).
+  const { has } = useFaro();
   const focus = points.find((p) => p.key === mark) ?? null;
   const max = Math.max(...points.map((p) => Math.max(p.income, p.expense)), 1);
   const sliceMax = Math.max(...slices.map((s) => s.value), 1);
@@ -1148,7 +1151,8 @@ export function StudyCharts({
   const rateWidth = rate === null ? 0 : Math.max(0, Math.min(100, rate));
   return (
     <div className="study-charts">
-      {sankey.links.length ? <StatFold id="sankey"><MoneySankey model={sankey} title={copy.sankey} note={copy.sankeyNote} empty={copy.empty} money={money} /></StatFold> : null}
+      {sankey.links.length && has("study.sankey") ? <StatFold id="sankey"><MoneySankey model={sankey} title={copy.sankey} note={copy.sankeyNote} empty={copy.empty} money={money} /></StatFold> : null}
+      {has("study.where") ? (
       <StatFold id="where">
       <section className="card">
         <h2 className="serif text-2xl lab-head">{whereLabel}<Hint topic="en-que-se-va" fitParent /></h2>
@@ -1161,7 +1165,7 @@ export function StudyCharts({
             onPick={onPick}
           />
         ) : null}
-        {picked && stores.length ? (
+        {picked && stores.length && has("study.where-stores") ? (
           <div className="store-burst">
             <Donut slices={stores} title={whereLabel} picked={storePicked} onPick={onStore} />
           </div>
@@ -1182,7 +1186,7 @@ export function StudyCharts({
           );
         })}
         {slices.some((s) => s.id === "otros") ? <p className="otros-note">{copy.otrosNote}</p> : null}
-        {!picked && board?.top.length ? (
+        {!picked && board?.top.length && has("study.where-top") ? (
           <div className="where-top">
             <h3>{copy.top}</h3>
             {board.top.map((row) => (
@@ -1203,6 +1207,7 @@ export function StudyCharts({
         ) : null}
       </section>
       </StatFold>
+      ) : null}
     </div>
   );
 }

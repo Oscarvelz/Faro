@@ -294,6 +294,28 @@ export const STAGE_SEEDS: Record<string, (s: LedgerState) => LedgerState> = {
     // escena de la tarjeta enseña la forma del hecho, sin cifra sembrada.
     return next;
   },
+
+  /** El libro del módulo 15 («Los modos»): el mes vivo, un fondo declarado
+   *  aparte (Casa, C$4,500 en Meta), un Retiro con C$9,000 y un préstamo del
+   *  Banco. La lección del sistema necesita objetos reales en cada dirección:
+   *  bajar desde Ritmo duerme bolsillos y el préstamo; bajar desde Completo
+   *  duerme la naturaleza declarada; la fila de datos mudos tiene qué contar
+   *  en Esencial (los dos fondos) y en Ritmo (el Retiro); y el Asesor tiene
+   *  una deuda sobre la que sugerir la subida. Sin estos objetos, la pantalla
+   *  de impacto ni siquiera abriría (principio 5: sin objeto no hay aviso). */
+  "modos-sistema": (s) => {
+    const today = todayIso();
+    const key = today.slice(0, 7);
+    let next = STAGE_SEEDS["widget-mes"](s);
+    next = sow(next, key, [
+      line({ id: "seed-x-casa", kind: "expense-fixed", concept: "Apartado para la casa", amountMinor: 150_000, categoryId: "f-ahorro", subId: "f.ahorro.meta", fund: "aparte", balanceMinor: 450_000, monthKey: key }),
+      line({ id: "seed-x-retiro", kind: "expense-fixed", concept: "Retiro", amountMinor: 100_000, categoryId: "f-ahorro", subId: "f.ahorro.retiro", balanceMinor: 900_000, monthKey: key }),
+    ]);
+    if (!(next.loans ?? []).some((l) => l.id === "seed-x-banco")) {
+      next = addLoan(next, { id: "seed-x-banco", lender: "Banco", who: "entity", kind: "plain", amountMinor: 2_000_000, currency: "NIO", aprBps: 0, takenOn: today, book: "fixed", note: "" });
+    }
+    return next;
+  },
 };
 
 /** Las cuentas de fábrica (PayPal, Chase, Lafise… con su icono de bóveda)

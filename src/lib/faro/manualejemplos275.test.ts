@@ -50,7 +50,7 @@ const IMPROVE: ReadonlyArray<readonly [string, readonly string[]]> = [
 const OLD_FIGURES = ["38,181", "38 181", "7,636", "11,454", "36,6243", "36.6243", "3 662", "3,662"] as const;
 
 describe("manual con ejemplos: el censo", () => {
-  it("el manual sigue teniendo los temas censados (347 en 275; 348 desde la oleada 2 del modelo de ahorros, que añadió «Dónde vive tu ahorro»; 353 desde la entrega de la Presentación 2026-11-16, que añadió los cinco temas de los modos: «Puedes gastar hoy», «Tus deudas, en claro», «Tu Asesor en Esencial», «Tu Asesor en Ritmo» y «Los modos de Faro»)", () => {
+  it("el manual sigue teniendo los temas censados (347 en 275; 348 desde la oleada 2 del modelo de ahorros, que añadió «Dónde vive tu ahorro»; 349 desde la etapa 1 de los tres modos, que añadió «Modo»; 353 desde la etapa 5, que injertó los cuatro temas de la entrega de Presentación — «Puedes gastar hoy», «Tus deudas, en claro», «Tu Asesor en Esencial», «Tu Asesor en Ritmo» — y reconcilió el quinto de la entrega, «Los modos de Faro», dentro del «Modo» ya existente: un solo tema `modos`)", () => {
     assert.equal(MANUAL_TOPICS.length, 353);
   });
 });

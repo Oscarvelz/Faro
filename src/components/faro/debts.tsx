@@ -24,11 +24,11 @@ import { dateFmt } from "@/lib/faro/datefmt";
 import { DeboSum, DueLoans, LoanCard, LoanForm, deboTabNow, type LoanDraft } from "./loans";
 import { RewardsGroup } from "./cards";
 import { BookKit } from "./book-kit";
-import { rewardsTotals } from "@/lib/faro/cards";
+import { cardFigures, cardsOf, nextDue, rewardsTotals } from "@/lib/faro/cards";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
-import { todayIso } from "@/lib/faro/loans";
+import { interestPaidTotal, loanState, loanTotals, loansOf, todayIso } from "@/lib/faro/loans";
 import { addLent, archiveLent, debtSeries, lentOf, lentPays, lentState, lentTotals, monthAhead, netBalance, payLent, payoffPlan, peopleOf, personKey, restoreLent, type Person } from "@/lib/faro/debts";
-import type { Currency, Lent } from "@/lib/faro/types";
+import type { CardSnap, Currency, Lent } from "@/lib/faro/types";
 
 export type DebtSide = "owed" | "owe";
 const stampOf = (iso: string) => (iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—");
@@ -332,8 +332,14 @@ function sinceText(days: number | null, L: (es: string, en: string) => string) {
 /** Me deben, from the ledger. `libros` adds the person sheets, days since the last abono and the 6-month chart. */
 export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: number }) {
   const tabletOne = useTabletOne();
-  const { t, fmt, session, commit, lang } = useFaro();
+  const { t, fmt, session, commit, lang, has } = useFaro();
   const L = useL();
+  // Etapa 3.3 (S-1/S-3): las piezas de Completo que vivían dentro de esta
+  // cara de Ritmo se acotan a su modo — la gráfica (debt.chart), el grupo de
+  // recompensas (cards.rewards-group) y la partición con/sin interés con su
+  // cifra de interés devengado (lent.interest): en Ritmo la lista es una sola
+  // y ninguna cifra de interés se nombra.
+  const splitInterest = has("lent.interest");
   const [draft, setDraft] = useState(false);
   const [bonusFor, setBonusFor] = useState<string | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
@@ -371,7 +377,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
       <LoanCard key={row.id} name={row.person} rate={row.kind === "interest"} leftView={view(f.left, row.currency)}
         amountView={view(row.amountMinor, row.currency)} amountLabel={t("cobro.lent")} dateIso={row.dueOn || row.startedOn} aprBps={row.aprBps}
         pays={lentPays(ledger, row.id).map((line) => ({ date: line.bookedOn || `${line.monthKey}-01`, view: view(line.amountMinor, line.currency) }))}
-        extra={libros ? <p className="cobro-meta debt-since">{sinceText(who?.days ?? null, L)}{f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, row.currency))}</b></> : null}</p> : undefined}
+        extra={libros ? <p className="cobro-meta debt-since">{sinceText(who?.days ?? null, L)}{splitInterest && f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, row.currency))}</b></> : null}</p> : undefined}
         onWho={libros ? () => openFor(row.person) : undefined}
         payLabel={t("cobro.bonus")} paying={bonusFor === row.id} onPaying={(on) => setBonusFor(on ? row.id : null)}
         onPay={(minor, date) => commit((s) => payLent(s, row.id, convertMinor(minor, display, row.currency, rate), date, uid(), L("Abono", "Payment")), row.person)}
@@ -423,13 +429,21 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
           onCancel={() => setEditFor(null)}
           onSave={(d) => { commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => (r.id === row.id ? { ...r, person: d.name, kind: d.kind, amountMinor: d.amountMinor, aprBps: d.aprBps, dueOn: d.date } : r)) }), d.name); setEditFor(null); }} />;
       })()}
-      {libros ? <DebtChart /> : (
+      {libros ? (has("debt.chart") ? <DebtChart /> : null) : (
         <CobroSpan title={t("cobro.span")} total={sums.lent} events={all.map((r) => ({ date: r.startedOn, value: view(r.amountMinor, r.currency) }))}
           facts={[[t("cobro.lent"), sums.lent], [t("cobro.paid"), sums.paid], [t("cobro.left"), sums.left]]} />
       )}
-      {group("plain")}
-      {group("interest")}
-      <RewardsGroup />
+      {splitInterest ? (
+        <>
+          {group("plain")}
+          {group("interest")}
+        </>
+      ) : (
+        <div className="cobro-group">
+          {active.length ? active.map(card) : <Note>{t("cobro.empty")}</Note>}
+        </div>
+      )}
+      {has("cards.rewards-group") ? <RewardsGroup /> : null}
       {/* 1.3.162 (Oscar): the Archive lives in Libros; Central's panel does not show it. */}
       {libros ? (
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
@@ -552,7 +566,7 @@ export function PayoffPlan() {
 
 export function OweBook() {
   const tabletOne = useTabletOne();
-  const { session, fmt, lang, summary } = useFaro();
+  const { session, fmt, lang, summary, has } = useFaro();
   const L = useL();
   const owe = netBalance(session?.ledger).owe;
   // The sub-tab survives leaving Debo (a name link, Back, the ring swipe): Debo opens on the one you last read.
@@ -632,7 +646,7 @@ export function OweBook() {
       </div>
       {tab === "dues" ? <div className={`debt-dues${flip ? " is-flip" : ""}`} data-anchor="debt-dues" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}><Subs />{tabletOne ? <SideCol><DueSide /><AreaAdvisor area="subs" /></SideCol> : null}</div> : (
         <div className={`debt-loans${flip ? " is-flip" : ""}`} data-anchor="debt-loans" data-flip={flip ? (flip.n % 2 ? "a" : "b") : undefined} style={flip ? { ["--flip-x" as string]: `${flip.dir * 14}px` } : undefined}>
-          <DueLoans libros onWho={openFor} facts={loanFacts} between={<><PayoffPlan /><DebtChart />{tabletOne ? <AreaAdvisor area="loans" /> : null}</>} />
+          <DueLoans libros onWho={openFor} facts={has("loans.payoff-result") ? loanFacts : undefined} between={<>{has("loans.payoff-plan") ? <PayoffPlan /> : null}{has("debt.chart") ? <DebtChart /> : null}{tabletOne ? <AreaAdvisor area="loans" /> : null}</>} />
         </div>
       )}
       {sheet}
@@ -667,6 +681,139 @@ export function DebtBook({ side }: { side: DebtSide }) {
     <div className="debt-book" data-side={side} ref={box}>
       <NetLine />
       {side === "owed" ? <OwedSide libros /> : <OweBook />}
+    </div>
+  );
+}
+
+/* ---------- la cara lectora de Esencial (S-1, forma mínima) ---------- */
+
+/**
+ * Los hechos de deuda de Esencial (fallo 31, S-1 en su forma mínima — la
+ * construcción completa es la etapa 4): la cifra neta y, por lado, las
+ * personas con su saldo y su último abono (con la alerta de vencidos como
+ * hecho), los préstamos con su saldo y su día de pago, y las tarjetas con su
+ * saldo y su próximo vencimiento. Solo lectores puros (netBalance, peopleOf,
+ * loanState, cardFigures, nextDue) y la hoja de persona, que también es
+ * lectura: ningún verbo de pago, archivo o alta vive aquí. Es el aterrizaje
+ * de Fo-1 (lo restaurado en Esencial se lee aquí) y de los saltos de deuda
+ * que goTopic valida contra debt.facts (S-3).
+ */
+export function DebtsReadOnly({ side }: { side: DebtSide }) {
+  const { session, fmt, t, lang } = useFaro();
+  const L = useL();
+  const ledger = session?.ledger;
+  const { people, openFor, sheet } = usePerson(side);
+  if (!ledger) return null;
+  const display = ledger.settings.display;
+  const rate = ledger.settings.rateE4;
+  const view = (m: number, c: Currency) => convertMinor(m, c, display, rate);
+  const n = netBalance(ledger);
+  const today = todayIso();
+  const fmtDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "");
+  const owedPeople = people.filter((p) => p.active && p.left > 0);
+  const overdueKeys = new Set(
+    lentOf(ledger)
+      .filter((r) => !r.archived && r.dueOn && r.dueOn < today && lentState(ledger, r).left > 0)
+      .map((r) => personKey(r.person)),
+  );
+  const loanRows = loansOf(ledger)
+    .filter((l) => !l.archived)
+    .map((loan) => ({ loan, left: loanState(ledger, loan).left }))
+    .filter((x) => x.left > 0);
+  const cardRows = cardsOf(ledger)
+    .map((card) => {
+      const fig = cardFigures(ledger, card);
+      const last: CardSnap | null = card.snaps.reduce<CardSnap | null>((a, s) => (!a || s.on > a.on ? s : a), null);
+      // Etapa 4 (S-1): el mínimo del ciclo es un hecho de la fila (la misma
+      // cifra que la ventana de vencimientos cobra), no una voz de la hoja.
+      return { card, balance: fig.balance, due: nextDue(card, last, today), min: fig.min != null && fig.min > 0 ? Math.min(fig.min, fig.balance) : null };
+    })
+    .filter((x) => x.balance > 0);
+  // Etapa 4 (S-1, X-27): los hechos del estudio de préstamos, desde los
+  // mismos lectores puros de LoansStudy pero sin su frase de utilización
+  // (una cifra de Completo): recibido, pagado e intereses como hechos.
+  const study = side === "owe" && (loanRows.length > 0 || cardRows.length > 0) ? loanTotals(ledger) : null;
+  const intPaid = study ? interestPaidTotal(ledger) : 0;
+  return (
+    <div className="debt-book" data-side={side}>
+      <NetLine />
+      {/* Etapa 4 (S-1): la gráfica de la deuda es una lectura pura (saldos e
+          historia, sin una sola cifra proyectada) y vive también aquí. */}
+      <DebtChart />
+      <section className="card subs-ro" data-anchor="debt-readonly">
+        <div className="save-ledger-head" data-anchor={side === "owed" ? "debt-owed" : undefined}>
+          <strong className="lab-head">{side === "owed" ? L("Me deben", "Owed to me") : L("Debo", "I owe")}</strong>
+          <span className="num">{fmt(side === "owed" ? n.owed : n.owe)}</span>
+        </div>
+        {side === "owed" ? (
+          <>
+            {owedPeople.length === 0 && n.rewards <= 0 ? <p className="save-flow-read">{t("debt.ro.noneOwed")}</p> : null}
+            {owedPeople.map((p) => (
+              <button key={p.key} type="button" className="save-view-row debt-ro-row" onClick={() => openFor(p.name)}>
+                <span className="save-view-name">
+                  <span>{p.name}</span>
+                  <strong className="num">{fmt(p.left)}</strong>
+                </span>
+                <span className="subs-ro-due">
+                  {sinceText(p.days, L)}
+                  {overdueKeys.has(p.key) ? ` · ${t("debt.ro.overdue")}` : ""}
+                </span>
+              </button>
+            ))}
+            {n.rewards > 0 ? (
+              <div className="save-view-row">
+                <span className="save-view-name">
+                  <span>{t("debt.ro.rewards")}</span>
+                  <strong className="num">{fmt(n.rewards)}</strong>
+                </span>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {loanRows.length === 0 && cardRows.length === 0 ? <p className="save-flow-read">{t("debt.ro.noneOwe")}</p> : null}
+            {loanRows.length ? (
+              <div data-anchor="debt-loans">
+                {loanRows.map(({ loan, left }) => (
+                  <div key={loan.id} className="save-view-row">
+                    <span className="save-view-name">
+                      <span>{loan.lender}</span>
+                      <strong className="num">{fmt(view(left, loan.currency))}</strong>
+                    </span>
+                    {loan.dueDay ? <span className="subs-ro-due">{`${t("cobro.loan.dueday")} ${loan.dueDay}`}</span> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {cardRows.length ? (
+              <div data-anchor="debt-cards">
+                {cardRows.map(({ card, balance, due, min }) => (
+                  <div key={card.id} className="save-view-row">
+                    <span className="save-view-name">
+                      <span>{card.name}</span>
+                      <strong className="num">{fmt(view(balance, card.currency))}</strong>
+                    </span>
+                    {due || min ? <span className="subs-ro-due">{[due ? `${t("debt.ro.due")} · ${fmtDay(due)}` : "", min ? `${L("Mínimo", "Minimum")} ${fmt(view(min, card.currency))}` : ""].filter(Boolean).join(" · ")}</span> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {study ? (
+              <div className="debt-ro-study">
+                <span className="lab-head">{L("Tus préstamos, en hechos", "Your loans, in facts")}<Hint topic="estudio-prestamos" /></span>
+                <div className="span-facts">
+                  <div><em>{t("cobro.loan.got")}</em><strong className="num">{fmt(study.borrowed)}</strong></div>
+                  <div><em>{t("cobro.loan.paid")}</em><strong className="num">{fmt(study.paid)}</strong></div>
+                  <div><em>{t("cobro.loan.interest")}</em><strong className="num">{fmt(study.interest)}</strong></div>
+                  {intPaid > 0 ? <div><em>{t("cobro.loan.intpaid")}</em><strong className="num">{fmt(intPaid)}</strong></div> : null}
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+        <p className="save-flow-read">{t("debt.ro.note.pre")}<span className="faro-name">{t("mode.ritmo")}</span>{t("subs.ro.note.post")}</p>
+      </section>
+      {sheet}
     </div>
   );
 }

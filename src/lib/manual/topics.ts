@@ -142,6 +142,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "exportar",
+        mode: "ritmo",
         depth: "manual",
         title: ["Exportar", "Export"],
         sum: ["Saca tus números a Excel o PDF.", "Take your numbers out to Excel or PDF."],
@@ -172,6 +173,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "ventana-flotante",
+        mode: "completo",
         depth: "manual",
         title: ["Ventana flotante", "Floating window"],
         sum: ["Una ventanita de Faro que se queda encima mientras trabajas.", "A small Faro window that stays on top while you work."],
@@ -434,6 +436,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "ahorros-banda",
+        mode: "ritmo",
         depth: "manual",
         title: ["Ahorros en Central", "Savings on Desk"],
         sum: ["Todo lo que tienes guardado y la meta del mes.", "Everything you have saved and this month's goal."],
@@ -478,6 +481,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "si-apartas",
+        mode: "ritmo",
         depth: "manual",
         title: ["Si apartas", "If you set aside"],
         sum: ["Prueba cuánto tendrías si ahorras un monto fijo.", "Try how much you would have if you save a fixed amount."],
@@ -781,6 +785,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-tasa",
+        mode: "completo",
         depth: "tip",
         title: ["Tasa anual (APR)", "Yearly rate (APR)"],
         sum: ["El interés de la tarjeta en un año.", "The card's interest over a year."],
@@ -789,6 +794,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-corte",
+        mode: "completo",
         depth: "tip",
         title: ["Saldo al corte", "Statement balance"],
         sum: ["Lo que debías el día de cierre.", "What you owed on the closing day."],
@@ -813,6 +819,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-uso",
+        mode: "completo",
         depth: "tip",
         title: ["Uso del crédito", "Credit use"],
         sum: ["Qué parte del límite ocupa el saldo.", "How much of the limit the balance takes."],
@@ -821,6 +828,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-interes",
+        mode: "completo",
         depth: "tip",
         title: ["Interés al mes", "Interest a month"],
         sum: ["Lo que el saldo te cuesta cada mes.", "What the balance costs you each month."],
@@ -853,6 +861,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "plan-libre",
+        mode: "completo",
         depth: "tip",
         title: ["Libre en", "Debt-free"],
         sum: ["El mes en que terminas de pagar.", "The month you finish paying."],
@@ -861,6 +870,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "plan-meses",
+        mode: "completo",
         depth: "tip",
         title: ["Meses del plan", "Plan months"],
         sum: ["Cuántos meses faltan.", "How many months are left."],
@@ -869,6 +879,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "plan-interes",
+        mode: "completo",
         depth: "tip",
         title: ["Interés por pagar", "Interest to pay"],
         sum: ["Todo el interés hasta quedar libre.", "All the interest until you are free."],
@@ -877,6 +888,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "plan-orden",
+        mode: "completo",
         depth: "tip",
         title: ["Por qué ese orden", "Why that order"],
         sum: ["Mínimos primero; el resto a una deuda.", "Minimums first; the rest to one debt."],
@@ -885,6 +897,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "plan-tasa-estimada",
+        mode: "completo",
         depth: "tip",
         title: ["Tasa estimada", "Estimated rate"],
         sum: ["24% cuando una tarjeta no tiene tasa.", "24% when a card has no rate."],
@@ -915,6 +928,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "estudio-prestamos",
+        mode: "esencial",
         depth: "manual",
         title: ["Préstamos que debo", "Loans I owe"],
         sum: ["Tus préstamos en Estudio.", "Your loans in Study."],
@@ -1201,6 +1215,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "deudas-grafica",
+        mode: "esencial",
         depth: "tip",
         title: ["Últimos 6 meses", "Last 6 months"],
         sum: ["Cómo baja tu deuda mes a mes.", "How your debt goes down month by month."],
@@ -1209,6 +1224,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "plan-pago",
+        mode: "completo",
         depth: "manual",
         title: ["Plan de pago", "Payoff plan"],
         sum: ["¿Cuál pago primero? Préstamos y tarjetas en orden.", "Which first? Loans and cards in order."],
@@ -1323,6 +1339,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "corte",
+        mode: "ritmo",
         depth: "manual",
         title: ["Corte del periodo", "Period cut"],
         sum: ["La gráfica del libro por semana, mes o año.", "The book's chart by week, month or year."],
@@ -1333,6 +1350,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "acumulado",
+        mode: "ritmo",
         depth: "manual",
         title: ["Acumulado", "Total"],
         sum: ["El total del corte que elegiste.", "The total for the cut you picked."],
@@ -1354,6 +1372,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "promedio",
+        mode: "ritmo",
         depth: "manual",
         title: ["Promedio (x̄)", "Average (x̄)"],
         sum: ["El tramo típico, y la línea ámbar punteada.", "The typical stretch, and the dashed amber line."],
@@ -1365,6 +1384,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "bote",
+        mode: "ritmo",
         depth: "manual",
         title: ["Intacto, usado y queda", "Untouched, used and left"],
         sum: ["Cuánto de un ingreso ya gastaste.", "How much of an income you already spent."],
@@ -1508,6 +1528,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "retiro-primerica",
+        mode: "completo",
         depth: "manual",
         title: ["Primerica en Retiro", "Primerica in Retirement"],
         sum: ["Una cuenta lista para tus estados de retiro.", "An account ready for your retirement statements."],
@@ -1607,6 +1628,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-retiro-acumulado",
+        mode: "completo",
         depth: "tip",
         title: ["Acumulado si no se toca", "Accumulated if untouched"],
         sum: ["Lo que tendrías sin sacar nada.", "What you would have without taking any out."],
@@ -1680,6 +1702,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "folios-apartar",
+        mode: "completo",
         depth: "manual",
         title: ["Ocultar y eliminar un período", "Hiding and deleting a period"],
         sum: ["Ocultar es ida y vuelta; eliminar es para siempre y pide tu correo escrito.", "Hiding is a round trip; deleting is forever and asks for your typed email."],
@@ -1781,6 +1804,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "proximos-pagos",
+        mode: "esencial",
         depth: "manual",
         title: ["Próximos pagos", "Payments ahead"],
         sum: ["Lo que vence en las próximas cinco semanas.", "What is due in the next five weeks."],
@@ -1852,6 +1876,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "entra-sale-queda",
+        mode: "esencial",
         depth: "tip",
         title: ["Entra, sale y queda", "In, out and left"],
         sum: ["Barras de lo que entra y sale con el tiempo.", "Bars of what comes in and goes out over time."],
@@ -2509,6 +2534,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
     topics: [
       {
         id: "ajustes",
+        mode: "esencial",
         depth: "manual",
         title: ["Ajustes", "Settings"],
         sum: ["Cómo se ve Faro, cómo se ordena y cómo se guarda.", "How Faro looks, how it is organised and how it is saved."],
@@ -2520,6 +2546,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "manual",
+        mode: "esencial",
         depth: "manual",
         title: ["Manual de uso", "User manual"],
         sum: ["Este manual: cada función de Faro, en corto.", "This manual: every Faro feature, in short."],
@@ -2531,6 +2558,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "idioma",
+        mode: "esencial",
         depth: "tip",
         title: ["Idioma", "Language"],
         sum: ["Español o inglés.", "Spanish or English."],
@@ -2541,6 +2569,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "temas",
+        mode: "esencial",
         depth: "manual",
         title: ["Tema", "Theme"],
         sum: ["El aspecto de Faro, de día y de noche.", "How Faro looks, by day and by night."],
@@ -2552,7 +2581,22 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         keys: ["settings.theme", "theme.day", "theme.night"],
       },
       {
+        id: "modos",
+        depth: "manual",
+        mode: "esencial",
+        title: ["Modo", "Mode"],
+        sum: ["Cuánto de Faro ves: simple, con ritmo o completo.", "How much of Faro you see: simple, paced or complete."],
+        what: ["Faro tiene tres modos y un solo libro. [[Esencial]] registra y mira: anotar, tus cuentas, tu ahorro simple y los avisos de vencimientos. [[Ritmo]] presupuesta y anticipa: presupuestos, cuotas, deudas, tarjetas y tu mes en montos y fechas. [[Completo]] interpreta y proyecta: el patrón de tu ritmo de gasto, las proyecciones y la salud completa de tu dinero. El modo manda cuánto se muestra y qué se puede gestionar; nunca qué existe.", "Faro has three modes and one book. [[Essential]] records and looks: entries, your accounts, your simple savings and due-date alerts. [[Rhythm]] budgets and anticipates: budgets, plans, debts, cards and your month in amounts and dates. [[Complete]] interprets and projects: the pattern of your spending pace, projections and your money's full health. The mode rules how much shows and what can be managed; never what exists."],
+        bubble: ["Tres modos, un solo libro: el modo decide cuánto ves, nunca qué existe ni cuánto suma.", "Three modes, one book: the mode decides how much you see, never what exists or what it adds up to."],
+        how: ["Al abrir una cuenta nueva, Faro pregunta una vez cómo quieres verlo; si saltas la pregunta, empiezas en [[Esencial]] y te lo dice. Después, el selector vive siempre en [[Ajustes]], junto al idioma y el tema. Subir no pide nada: aplica y te avisa qué se destapó. Bajar sí pregunta antes, con la lista de lo que dejará de verse y los avisos que dejarán de llegar, contados de tu propio libro.", "When you open a new account, Faro asks once how you want to see it; if you skip the question, you start in [[Essential]] and it tells you so. After that, the selector always lives in [[Settings]], beside language and theme. Moving up asks nothing: it applies and tells you what opened up. Moving down asks first, with the list of what will stop showing and the alerts that will stop arriving, counted from your own book."],
+        tip: ["Bajar nunca borra: lo que deja de verse sigue guardado y contando en tus totales, y vuelve entero cuando subes. El modo es tuyo, no del libro: viaja con tu cuenta como el idioma y el tema, y si nunca lo tocas, Faro se queda en [[Completo]], entero, como siempre.", "Going down never deletes: what stops showing stays saved and counting in your totals, and returns in full when you go back up. The mode is yours, not the book's: it travels with your account like language and theme, and if you never touch it, Faro stays in [[Complete]], whole, as always."],
+        go: { screen: "settings", fold: "modo", anchor: "aj-modo", where: ["Ajustes → Modo", "Settings → Mode"] },
+        terms: [["Esencial", "Essential"], ["Ritmo", "Rhythm"], ["Completo", "Complete"], ["Modo de uso", "Usage mode"]],
+        keys: ["settings.mode"],
+      },
+      {
         id: "estructura",
+        mode: "ritmo",
         depth: "manual",
         title: ["Estructura", "Structure"],
         sum: ["Tus categorías, subconceptos y catálogo.", "Your categories, subcategories and catalogue."],
@@ -2578,6 +2622,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "arbol",
+        mode: "ritmo",
         depth: "manual",
         title: ["Categorías y subconceptos", "Categories and subcategories"],
         sum: ["Crea, renombra u ordena tus categorías — y añade sus subconceptos.", "Create, rename or reorder your categories — and add their subcategories."],
@@ -2590,6 +2635,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "catalogo",
+        mode: "ritmo",
         depth: "tip",
         title: ["Tiendas y servicios", "Stores and services"],
         sum: ["Tu lista de tiendas y servicios para elegir rápido.", "Your list of stores and services to pick quickly."],
@@ -2614,6 +2660,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-cat-arbol",
+        mode: "ritmo",
         depth: "tip",
         title: ["Nueva categoría", "New category"],
         sum: ["Un grupo de gastos.", "A group of spending."],
@@ -2623,6 +2670,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "remesas",
+        mode: "ritmo",
         depth: "manual",
         title: ["Remesas", "Remittances"],
         sum: ["La categoría para lo que mandas a tu familia.", "The category for what you send your family."],
@@ -2634,6 +2682,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "remesas-personas",
+        mode: "ritmo",
         depth: "manual",
         title: ["Remesas por persona", "Remittances by person"],
         sum: ["A quién le envías y cuánto lleva cada persona.", "Who you send to and how much each person has had."],
@@ -2645,6 +2694,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-para",
+        mode: "ritmo",
         depth: "tip",
         title: ["Para", "To"],
         sum: ["A quién le envías esta remesa.", "Who this remittance goes to."],
@@ -2653,6 +2703,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "rp-mes",
+        mode: "ritmo",
         depth: "tip",
         title: ["Este mes", "This month"],
         sum: ["Lo enviado a esa persona en el mes que ves.", "What went to that person in the month on screen."],
@@ -2661,6 +2712,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "rp-ano",
+        mode: "ritmo",
         depth: "tip",
         title: ["Este año", "This year"],
         sum: ["Lo enviado en el año del mes que ves.", "What went out in the year of the month on screen."],
@@ -2669,6 +2721,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "rp-total",
+        mode: "ritmo",
         depth: "tip",
         title: ["En total", "All time"],
         sum: ["Todo lo enviado a esa persona desde el principio.", "Everything sent to that person from the start."],
@@ -2677,6 +2730,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "rp-historial",
+        mode: "ritmo",
         depth: "tip",
         title: ["Historial", "History"],
         sum: ["Cada envío a esa persona, del más nuevo al más viejo.", "Every transfer to that person, newest first."],
@@ -2685,6 +2739,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-grupo",
+        mode: "ritmo",
         depth: "tip",
         title: ["Fijo o variable", "Fixed or variable"],
         sum: ["En qué libro va la categoría.", "Which book the category goes in."],
@@ -2694,6 +2749,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-subcat",
+        mode: "ritmo",
         depth: "tip",
         title: ["Subcategoría", "Subcategory"],
         sum: ["Una parte de la categoría.", "A part of the category."],
@@ -2703,6 +2759,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-catalogo",
+        mode: "ritmo",
         depth: "tip",
         title: ["Tienda o servicio", "Store or service"],
         sum: ["Algo nuevo para tu catálogo.", "Something new for your catalogue."],
@@ -2728,6 +2785,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "reglas",
+        mode: "ritmo",
         depth: "tip",
         title: ["Reglas", "Rules"],
         sum: ["Tu meta de ahorro, el semáforo y tu colchón.", "Your savings goal, the debt light and your cushion."],
@@ -2738,6 +2796,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "meta-ahorro",
+        mode: "ritmo",
         depth: "manual",
         title: ["Meta de ahorro", "Savings goal"],
         sum: ["Qué porcentaje de lo que entra quieres ahorrar.", "What percent of income you want to save."],
@@ -2750,6 +2809,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "semaforo-verde",
+        mode: "ritmo",
         depth: "manual",
         title: ["Límite verde", "Green limit"],
         sum: ["Hasta dónde los pagos a créditos son cómodos.", "How far credit payments stay comfortable."],
@@ -2762,6 +2822,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "semaforo-amarillo",
+        mode: "ritmo",
         depth: "tip",
         title: ["Límite amarillo", "Yellow limit"],
         sum: ["Hasta dónde es zona de cuidado.", "How far is the caution zone."],
@@ -2771,6 +2832,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "meses-colchon",
+        mode: "ritmo",
         depth: "manual",
         title: ["Meses de colchón", "Months of cushion"],
         sum: ["Cuántos meses de lo básico quieres tener guardados.", "How many months of basics you want saved."],
@@ -2783,6 +2845,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tasa-manual",
+        mode: "esencial",
         depth: "tip",
         title: ["Tasa manual", "Manual rate"],
         sum: ["Usa tu propia tasa de cambio.", "Use your own exchange rate."],
@@ -2792,6 +2855,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "atajos-teclado",
+        mode: "esencial",
         depth: "manual",
         title: ["Atajos de teclado", "Key shortcuts"],
         sum: ["Usa Faro rápido con un teclado.", "Use Faro quickly with a keyboard."],
@@ -2803,6 +2867,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "atajos-mas-menos",
+        mode: "esencial",
         depth: "manual",
         title: ["Atajos de Central", "Central shortcuts"],
         sum: ["Los tres botones de Central, directo a tu área favorita.", "Central's three buttons, straight to your favourite area."],
@@ -2814,6 +2879,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "ejemplo",
+        mode: "esencial",
         depth: "manual",
         title: ["Datos de ejemplo", "Sample data"],
         sum: ["Prueba Faro con libros de ejemplo sin tocar los tuyos.", "Try Faro on sample books without touching yours."],
@@ -2834,6 +2900,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "copias",
+        mode: "esencial",
         depth: "manual",
         title: ["Copias de seguridad", "Backups"],
         sum: ["Faro guarda una copia de tus libros cada día.", "Faro saves a copy of your books every day."],
@@ -2846,6 +2913,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "archivo-respaldo",
+        mode: "esencial",
         depth: "manual",
         title: ["Descargar y restaurar archivo", "Download and restore a file"],
         sum: ["Tu copia como archivo, para guardarla donde quieras.", "Your copy as a file, to keep wherever you like."],
@@ -2857,6 +2925,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "conflicto",
+        mode: "esencial",
         depth: "manual",
         title: ["Copia que no se aplicó", "Copy that was not applied"],
         sum: ["Recupera la versión que perdió en un choque.", "Recover the version that lost in a clash."],
@@ -2869,6 +2938,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "actividad",
+        mode: "esencial",
         depth: "tip",
         title: ["Actividad", "Activity"],
         sum: ["Tus últimos cambios.", "Your latest changes."],
@@ -2876,18 +2946,6 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         go: { screen: "settings", fold: "backup", anchor: "aj-activity", where: ["Ajustes → Copias de seguridad, al final", "Settings → Backups, at the end"] },
         terms: [["Historial de cambios", "Change history"], ["Bitácora", "Log"]],
         keys: ["settings.activity"],
-      },
-      {
-        id: "modos",
-        depth: "manual",
-        mode: "esencial",
-        title: ["Los modos de Faro", "Faro's modes"],
-        sum: ["Esencial, Ritmo y Completo: tres caras de un mismo Faro.", "Essential, Rhythm and Complete: three faces of one Faro."],
-        what: ["Faro tiene tres modos. [[Esencial]] registra y mira; [[Ritmo]] presupuesta y anticipa; [[Completo]] interpreta y proyecta. El modo filtra lo que se ve y se gestiona; nunca toca tus datos.", "Faro has three modes. [[Essential]] notes and watches; [[Rhythm]] budgets and anticipates; [[Complete]] interprets and projects. The mode filters what is seen and managed; it never touches your data."],
-        how: ["El selector vive siempre en Ajustes. Subir no pregunta y destapa al instante; bajar pregunta primero y su pantalla de impacto cuenta lo que dormirá. Nada se borra en ninguna dirección.", "The selector always lives in Settings. Moving up never asks and uncovers at once; moving down asks first and its impact screen counts what will sleep. Nothing is deleted in either direction."],
-        tip: ["Lo de un modo mayor se ve en su sitio como datos mudos, en solo lectura, y suma en tus totales igual que siempre.", "What belongs to a higher mode shows in its place as mute data, read-only, and counts in your totals as always."],
-        go: { screen: "settings", anchor: "aj-modo", where: ["Ajustes → La app", "Settings → The app"] },
-        terms: [["Cambiar de modo", "Change mode"], ["Modo simple", "Simple mode"], ["Modo avanzado", "Advanced mode"]],
       },
     ],
   },
@@ -3275,6 +3333,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "formula-monto",
+        mode: "ritmo",
         depth: "manual",
         title: ["Fórmula en el monto", "Formula in the amount"],
         sum: ["Haz la cuenta dentro del campo.", "Do the sum inside the field."],
@@ -3370,6 +3429,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-primer-pago",
+        mode: "ritmo",
         depth: "tip",
         title: ["Primer pago", "First payment"],
         sum: ["Desde cuándo se cuentan los pagos.", "When the payments start counting."],
@@ -3379,6 +3439,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-frecuencia",
+        mode: "ritmo",
         depth: "tip",
         title: ["Frecuencia", "Frequency"],
         sum: ["Cada cuánto se repite.", "How often it repeats."],
@@ -3418,6 +3479,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-tienda-elegir",
+        mode: "ritmo",
         depth: "tip",
         title: ["Tienda de la compra", "Store of the purchase"],
         sum: ["Dónde compraste.", "Where you bought it."],
@@ -3426,6 +3488,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-cat-elegir",
+        mode: "ritmo",
         depth: "tip",
         title: ["Rubro de la compra", "Group of the purchase"],
         sum: ["Qué tipo de compra es.", "What kind of purchase it is."],
@@ -3434,6 +3497,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "frecuencia-otra",
+        mode: "ritmo",
         depth: "manual",
         title: ["Otra frecuencia", "Other frequency"],
         sum: ["Un ritmo de pago que no está en la lista.", "A payment rhythm that is not on the list."],
@@ -3444,6 +3508,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-proveedor",
+        mode: "ritmo",
         depth: "tip",
         title: ["Proveedor", "Provider"],
         sum: ["La empresa a la que pagas.", "The company you pay."],
@@ -3453,6 +3518,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-codigo",
+        mode: "ritmo",
         depth: "tip",
         title: ["Código de compra", "Order code"],
         sum: ["Para reclamar si hace falta.", "To claim if you need to."],
@@ -3462,6 +3528,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-enlace",
+        mode: "ritmo",
         depth: "tip",
         title: ["Enlace directo", "Direct link"],
         sum: ["Abre la compra con un toque.", "Opens the purchase in one tap."],
@@ -3655,6 +3722,34 @@ export type Numbered = Topic & { num: string; chapter: Chapter };
 export const MANUAL_TOPICS: Numbered[] = MANUAL_CHAPTERS.flatMap((chapter, ci) =>
   chapter.topics.map((topic, ti) => ({ ...topic, num: `${ci + 1}.${ti + 1}`, chapter })),
 );
+
+/* ============ EL MODO DE CADA TEMA (T-2; etapa 5 de los modos, 2026-11-16) ====
+ * El tema sigue a la función, no al capítulo (fallo 25): cada tema declara su
+ * modo mínimo y el índice, la búsqueda y los puentes del Manual se filtran
+ * por él — el tema duerme en los modos que no alcanzan su función y vuelve
+ * intacto al subir. La línea de cada capítulo se declara UNA vez aquí; el
+ * `mode` explícito de un tema (en su propio objeto) es la excepción que la
+ * auditoría de MAPA-MODULOS §6.2 falló, tema a tema. Sin línea declarada,
+ * un capítulo se lee como Completo (lo seguro: nada se promete de más). */
+export const CHAPTER_MODE: Record<string, Mode> = {
+  arriba: "esencial",
+  central: "esencial",
+  cobros: "ritmo",
+  libros: "esencial",
+  ahorros: "ritmo",
+  folios: "esencial",
+  estudio: "completo",
+  asesor: "completo",
+  cambio: "ritmo",
+  ajustes: "completo",
+  importar: "completo",
+  editor: "esencial",
+  cuenta: "esencial",
+};
+
+/** El modo mínimo de un tema: su declaración propia, o la línea de su capítulo. */
+export const topicMode = (topic: Topic & { chapter: Chapter }): Mode =>
+  topic.mode ?? CHAPTER_MODE[topic.chapter.id] ?? "completo";
 
 const BY_ID = new Map(MANUAL_TOPICS.map((t) => [t.id, t]));
 

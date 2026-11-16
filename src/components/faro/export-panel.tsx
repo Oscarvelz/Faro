@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download, Share2 } from "lucide-react";
-import { EXPORT_KINDS, canShareFiles, exportPdf, exportWorkbook, pdfFile, shareFile, workbookFile, type ExportPick, type ExportScope } from "@/lib/faro/export-docs";
+import { EXPORT_KINDS, canShareFiles, exportPdf, exportWorkbook, pdfFile, pickForMode, shareFile, workbookFile, type ExportPick, type ExportScope } from "@/lib/faro/export-docs";
 import type { LineKind } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 
@@ -17,8 +17,17 @@ const EMPTY: ExportPick = {
 };
 
 export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { t, lang, session, key, names } = useFaro();
+  const { t, lang, session, key, names, has, mode } = useFaro();
   const [pick, setPick] = useState<ExportPick>(EMPTY);
+  // Fo-5 (tres modos, etapa 3.3): el panel se compone con las banderas del
+  // modo — en Ritmo ofrece alcance, tipos, activos, resumen y ahorros; las
+  // banderas de Deudas, Gráficos, Asesor y Remesas solo existen con el panel
+  // entero (export.full-sheets, Completo). Lo que corre es la elección ya
+  // intersectada (pickForMode; el documento la vuelve a intersectar en su
+  // entrada, así que ninguna bandera dormida puede colarse).
+  const full = has("export.full-sheets");
+  const canSave = has("vault.meta");
+  const effPick = pickForMode(pick, mode);
   useEffect(() => {
     if (!open) return;
     const onBack = (e: Event) => {
@@ -44,8 +53,8 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
   }
   function run(format: "xlsx" | "pdf") {
     if (!session) return;
-    if (format === "xlsx") exportWorkbook(session.ledger, key, lang, names, pick);
-    else exportPdf(session.ledger, key, lang, names, pick);
+    if (format === "xlsx") exportWorkbook(session.ledger, key, lang, names, effPick);
+    else exportPdf(session.ledger, key, lang, names, effPick);
     onOpenChange(false);
   }
   const scope = (id: ExportScope, label: string) => (
@@ -78,16 +87,16 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
             <button type="button" aria-pressed={pick.kinds.includes("expense-variable")} onClick={() => toggleKind("expense-variable")}>{t("nav.variable")}</button>
             <button type="button" aria-pressed={pick.kinds.includes("purchase")} onClick={() => toggleKind("purchase")}>{t("nav.shops")}</button>
             <button type="button" aria-pressed={pick.kinds.includes("subscription")} onClick={() => toggleKind("subscription")}>{t("tab.subs")}</button>
-            {flag("savings", t("desk.savings"))}
-            {flag("debt", t("desk.debt"))}
+            {canSave ? flag("savings", t("desk.savings")) : null}
+            {full ? flag("debt", t("desk.debt")) : null}
           </div>
           <p className="export-kicker">{t("export.extra")}</p>
           <div className="export-picks">
             {flag("activeOnly", t("export.active"))}
             {flag("summary", t("export.summary"))}
-            {flag("charts", t("export.charts"))}
-            {flag("advice", t("export.advice"))}
-            {flag("remit", t("export.remit"))}
+            {full ? flag("charts", t("export.charts")) : null}
+            {full ? flag("advice", t("export.advice")) : null}
+            {full ? flag("remit", t("export.remit")) : null}
           </div>
           <div className="export-actions">
             <button type="button" className="btn" onClick={() => run("xlsx")}>{t("export.excel")}</button>
@@ -96,8 +105,8 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
           <p className="export-note">{t("export.pdfNote")}</p>
           {canShareFiles() ? (
             <div className="export-share">
-              <button type="button" className="btn ghost" onClick={() => { void shareFile(workbookFile(session.ledger, key, lang, names, pick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} Excel</button>
-              <button type="button" className="btn ghost" onClick={() => { void shareFile(pdfFile(session.ledger, key, lang, names, pick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} PDF</button>
+              <button type="button" className="btn ghost" onClick={() => { void shareFile(workbookFile(session.ledger, key, lang, names, effPick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} Excel</button>
+              <button type="button" className="btn ghost" onClick={() => { void shareFile(pdfFile(session.ledger, key, lang, names, effPick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} PDF</button>
             </div>
           ) : null}
         </div>

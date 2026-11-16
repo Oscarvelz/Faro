@@ -5,6 +5,7 @@ import { ArrowDownRight, ArrowUpRight, CalendarClock, ChevronDown, ChevronRight,
 import { useLayer } from "@/lib/manual/back";
 import { useFaro } from "@/components/faro/provider";
 import { readCoach, SCORE_WEIGHTS, type Coach, type CoachLine, type Pillar, type Tone } from "@/lib/faro/coach";
+import { findTopic } from "@/lib/manual/topics";
 import type { LineKind, SectionId } from "@/lib/faro/types";
 import { StatFold, useFoldTopic } from "@/components/faro/charts";
 import { Hint } from "./hint";
@@ -423,7 +424,11 @@ export function HistoryCard({ coach }: { coach: Coach }) {
 
 /* 7 · Dated payments in the next five weeks. */
 export function AgendaCard({ coach }: { coach: Coach }) {
-  const { fmt, lang } = useFaro();
+  const { fmt, lang, has } = useFaro();
+  // Fallo 27: en Esencial la tarjeta es reducida — el próximo pago y el total
+  // cercano; la línea de tiempo y la lista entera llegan con Ritmo.
+  const reduced = !has("pano.next-dues-timeline");
+  const shown = reduced ? coach.dues.slice(0, 1) : coach.dues.slice(0, 6);
   const peak = Math.max(1, ...coach.dues.map((d) => d.minor));
   const day = (iso: string) => dateFmt(lang === "en" ? "en-US" : "es-NI", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`));
   const total = coach.dues.reduce((a, d) => a + d.minor, 0);
@@ -437,6 +442,7 @@ export function AgendaCard({ coach }: { coach: Coach }) {
               ? `${coach.dues.length} dated payment${coach.dues.length === 1 ? "" : "s"} in the next 5 weeks, ${fmt(total)} in all.`
               : `${coach.dues.length} pago${coach.dues.length === 1 ? "" : "s"} con fecha en las próximas 5 semanas, ${fmt(total)} en total.`}
           </p>
+          {!reduced ? (
           <div className="pano-agenda" aria-hidden>
             <b />
             {[0, 7, 14, 21, 28, 35].map((d) => <span key={d} className="pano-agenda-tick" style={{ left: `${(d / 35) * 100}%` }}>{d === 0 ? (lang === "en" ? "today" : "hoy") : `${d}d`}</span>)}
@@ -445,19 +451,20 @@ export function AgendaCard({ coach }: { coach: Coach }) {
               return <i key={`${d.id}-${d.day}`} style={{ left: `${(d.inDays / 35) * 100}%`, width: size, height: size }} />;
             })}
           </div>
+          ) : null}
           <ul className="pano-due-list">
-            {coach.dues.slice(0, 6).map((d) => (
+            {shown.map((d) => (
               <li key={`${d.id}-${d.day}`}>
                 {d.icon ? <SubMark id={d.icon.slice(4)} className="pano-due-mark" /> : <CalendarClock aria-hidden />}
                 <span>{d.name}<em>{day(d.day)}{d.inDays <= 3 ? (lang === "en" ? " · soon" : " · pronto") : ""}</em></span>
                 <strong className="num">{fmt(d.minor)}</strong>
               </li>
             ))}
-            {coach.dues.length > 6 ? (
+            {coach.dues.length > shown.length ? (
               <li className="pano-more">
                 {lang === "en"
-                  ? `+${coach.dues.length - 6} more · ${fmt(coach.dues.slice(6).reduce((a, d) => a + d.minor, 0))}`
-                  : `+${coach.dues.length - 6} más · ${fmt(coach.dues.slice(6).reduce((a, d) => a + d.minor, 0))}`}
+                  ? `+${coach.dues.length - shown.length} more · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + d.minor, 0))}`
+                  : `+${coach.dues.length - shown.length} más · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + d.minor, 0))}`}
               </li>
             ) : null}
           </ul>
@@ -641,9 +648,23 @@ export function PanoramaCards() {
 /** Top of the Asesor: the month in plain words, a score, and three moves. */
 export function CoachHero() {
   const coach = useCoach();
-  const { fmt, lang } = useFaro();
+  const { fmt, lang, has, goTopic } = useFaro();
   const [open, setOpen] = useState<string | null>(null);
   const [words, setWords] = useState(false);
+  // Etapa 4: el descarte de la sugerencia de subida vive en el aparato, con la
+  // misma forma que el de la capa despierta (faro-awake-dismiss): la firma
+  // (razón + conteo) manda — descartada con esta firma calla; si la razón
+  // cambia o el conteo crece, puede hablar otra vez.
+  const [hintGone, setHintGone] = useState<string[]>(() => {
+    try { const v = JSON.parse(localStorage.getItem("faro-hint-dismiss") || "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string") : []; } catch { return []; }
+  });
+  const dismissHint = (sig: string) => {
+    setHintGone((cur) => {
+      const next = [...cur.filter((x) => x !== sig), sig];
+      try { localStorage.setItem("faro-hint-dismiss", JSON.stringify(next)); } catch { /* el aparato decide */ }
+      return next;
+    });
+  };
   useEffect(() => {
     const onOpen = (e: Event) => { if ((e as CustomEvent).detail === "coach-words") setWords(true); };
     window.addEventListener("faro-open", onOpen);
@@ -658,14 +679,22 @@ export function CoachHero() {
           <h2 className="serif coach-verdict">{coach.verdict}</h2>
           {coach.verdictSub ? <p className="coach-sub">{coach.verdictSub}</p> : null}
         </div>
-        <ScoreDial score={coach.score} tone={coach.scoreTone} label={coach.scoreLabel} size={132} />
+        {/* E-2: la salud desagregada (dial + pilares) es de Completo y se
+            retira de aquí y del Estudio en el mismo gesto. */}
+        {has("advisor.pillars") ? <ScoreDial score={coach.score} tone={coach.scoreTone} label={coach.scoreLabel} size={132} /> : null}
       </div>
-      {coach.income > 0 ? (
+      {coach.income > 0 && has("advisor.hero-cubes") ? (
         <div className="coach-bar" aria-hidden>
           {coach.buckets.filter((b) => b.minor > 0).map((b) => <i key={b.id} className={b.id === "free" ? "is-free" : undefined} style={{ flexGrow: b.minor, background: b.id === "free" ? undefined : b.color }} />)}
         </div>
       ) : null}
-      {coach.income > 0 ? <p className="coach-line">{coach.per100Line}</p> : null}
+      {coach.income > 0 && has("advisor.hero-cubes") ? <p className="coach-line">{coach.per100Line}</p> : null}
+      {/* Sin pasos en el modo, la sección entera se retira: un encabezado
+          sobre una lista vacía sería un cadáver (la cara recompuesta, sin
+          restos) — antes de los modos siempre nacía algún paso; el filtro
+          por modo puede dejar la lista vacía y la cara lo asume. */}
+      {coach.steps.length ? (
+      <>
       <h3 className="coach-h3 lab-head">{lang === "en" ? "What I'd do now" : "Lo que yo haría ahora"}<Hint topic="lo-que-haria" /></h3>
       <ol className="coach-steps" data-anchor="coach-steps">
         {coach.steps.map((s, i) => (
@@ -679,10 +708,28 @@ export function CoachHero() {
           </li>
         ))}
       </ol>
+      </>
+      ) : null}
+      {/* Etapa 4: la sugerencia de subida, en contexto y con su razón. El
+          Asesor sugiere; no cambia el modo — su puerta lleva al selector de
+          Ajustes, donde la persona decide. */}
+      {has("advisor.mode-hint") && coach.upgradeHint && !hintGone.includes(coach.upgradeHint.sig) ? (
+        <div className="coach-hint">
+          <p>{coach.upgradeHint.text}</p>
+          <span className="coach-hint-actions">
+            <button type="button" className="btn ghost advice-copy" onClick={() => { const tp = findTopic("modos"); if (tp?.go) goTopic(tp.id, tp.go); }}>{lang === "en" ? "See it in Settings" : "Verlo en Ajustes"}</button>
+            <button type="button" className="btn ghost advice-copy" onClick={() => dismissHint(coach.upgradeHint!.sig)}>{lang === "en" ? "Not now" : "Ahora no"}</button>
+          </span>
+        </div>
+      ) : null}
+      {has("advisor.pillars") ? (
+      <>
       <h3 className="coach-h3 lab-head">{lang === "en" ? "Five checks" : "Cinco chequeos"}<Hint topic="cinco-chequeos" /></h3>
       <div className="pano-pillars" data-anchor="coach-pillars">
         {coach.pillars.map((p) => <PillarRow key={p.id} pillar={p} open={open === p.id} onToggle={() => setOpen((cur) => (cur === p.id ? null : p.id))} />)}
       </div>
+      </>
+      ) : null}
       <button type="button" data-anchor="coach-words" className="coach-words" aria-expanded={words} onClick={() => setWords((on) => !on)}>
         <span>{lang === "en" ? "Plain words" : "Palabras claras"}</span>
         <ChevronDown aria-hidden className={words ? "is-open" : ""} />

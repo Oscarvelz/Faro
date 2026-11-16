@@ -5,6 +5,7 @@ import { loadManual, manualNow, type ManualData } from "@/lib/manual/load";
 import { glow, justPopped, reduced } from "@/lib/manual/nav";
 import { hitRanges, plain, queryWords, searchTopics, snippet } from "@/lib/manual/search";
 import type { L, Numbered } from "@/lib/manual/topics";
+import { modeReaches } from "@/lib/faro/mode";
 import { Mark } from "./icons";
 import { useFaroRoot } from "./provider";
 import { richText } from "./manual-text";
@@ -48,8 +49,8 @@ export default function ManualLayer() {
 
 function Manual({ data }: { data: ManualData }) {
   const root = useFaroRoot();
-  const { t, lang, ui } = root;
-  const { MANUAL_CHAPTERS, MANUAL_TOPICS, findTopic, pick, alphaIndex } = data;
+  const { t, lang, ui, mode } = root;
+  const { MANUAL_CHAPTERS, MANUAL_TOPICS, findTopic, pick, alphaIndex, topicMode } = data;
   const say = (pair: L) => pick(lang, pair);
   const want = ui.manual ?? "";
   const current = want && want !== "@az" ? findTopic(want) : null;
@@ -59,8 +60,26 @@ function Manual({ data }: { data: ManualData }) {
   const [needle, setNeedle] = useState("");
   const [openCh, setOpenCh] = useState<string[]>(() => (current ? [current.chapter.id] : []));
   const words = useMemo(() => queryWords(needle), [needle]);
-  const results = useMemo(() => searchTopics(MANUAL_TOPICS, words, lang), [MANUAL_TOPICS, words, lang]);
-  const alpha = useMemo(() => alphaIndex(lang), [alphaIndex, lang]);
+  /* El Manual se recompone por modo (fallo 25 + T-2, etapa 5): un tema cuya
+   * función duerme en el modo de la persona no aparece en el índice, ni en
+   * la búsqueda, ni en el A–Z — y un capítulo que se queda vacío, tampoco.
+   * Los temas no se borran: duermen y vuelven intactos al subir. La
+   * numeración que se muestra es la canónica del tema (su dirección), así
+   * que un modo menor ve huecos donde duermen temas — la dirección de un
+   * tema nunca cambia con el modo. */
+  const topicAlive = (tp: (typeof MANUAL_TOPICS)[number]) => modeReaches(mode, topicMode(tp));
+  const chapters = useMemo(
+    () => MANUAL_CHAPTERS.map((ch, ci) => ({ ch, ci, topics: ch.topics.filter((tp) => topicAlive({ ...tp, chapter: ch } as (typeof MANUAL_TOPICS)[number])) })).filter((x) => x.topics.length > 0),
+    [MANUAL_CHAPTERS, mode],
+  );
+  const visibleCount = useMemo(() => chapters.reduce((n, x) => n + x.topics.length, 0), [chapters]);
+  const results = useMemo(() => searchTopics(MANUAL_TOPICS, words, lang).filter(topicAlive), [MANUAL_TOPICS, words, lang, mode]);
+  const alpha = useMemo(
+    () => alphaIndex(lang)
+      .map((g) => ({ ...g, items: g.items.map((it) => ({ ...it, topics: it.topics.filter(topicAlive) })).filter((it) => it.topics.length > 0) }))
+      .filter((g) => g.items.length > 0),
+    [alphaIndex, lang, mode],
+  );
   const searching = needle.trim().length > 0;
   const shutFind = () => { setFindOn(false); setNeedle(""); };
   // The search is a small layer of its own: Esc or phone back clears and closes it first.
@@ -248,13 +267,13 @@ function Manual({ data }: { data: ManualData }) {
           <p className="mn-cover-sub">{t("manual.coverSub")}</p>
           <div className="mn-cover-row">
             <button type="button" className="mn-btn" data-anchor="mn-azbtn" onClick={() => jump("@az")}><ListOrdered aria-hidden /><span>{t("manual.az")}</span></button>
-            <span className="mn-cover-count">{t("manual.chapters").replace("{c}", String(MANUAL_CHAPTERS.length)).replace("{t}", String(MANUAL_TOPICS.length))}</span>
+            <span className="mn-cover-count">{t("manual.chapters").replace("{c}", String(chapters.length)).replace("{t}", String(visibleCount))}</span>
           </div>
         </header>
 
         <nav className="mn-toc" aria-label={t("manual.contents")}>
           <h2 className="mn-toc-title"><BookOpen aria-hidden /><span>{t("manual.contents")}</span></h2>
-          {MANUAL_CHAPTERS.map((ch, ci) => {
+          {chapters.map(({ ch, ci, topics }) => {
             const isOpen = openCh.includes(ch.id);
             return (
               <section key={ch.id} className={`mn-ch${isOpen ? " is-open" : ""}`} id={`mn-ch-${ch.id}`}>
@@ -266,7 +285,7 @@ function Manual({ data }: { data: ManualData }) {
                 >
                   <span className="mn-ch-num">{ci + 1}</span>
                   <span className="mn-ch-name">{say(ch.title)}</span>
-                  <span className="mn-ch-count">{ch.topics.length}</span>
+                  <span className="mn-ch-count">{topics.length}</span>
                   <ChevronDown className="mn-ch-chev" aria-hidden />
                 </button>
                 {isOpen ? (
@@ -275,10 +294,10 @@ function Manual({ data }: { data: ManualData }) {
                     <p className="mn-ch-railhead" aria-hidden><span className="mn-ch-num">{ci + 1}</span><span>{say(ch.title)}</span></p>
                     <p className="mn-ch-intro">{say(ch.intro)}</p>
                     <ol className="mn-ch-list">
-                      {ch.topics.map((tp, ti) => (
+                      {topics.map((tp) => (
                         <li key={tp.id}>
                           <button type="button" data-to={tp.id} aria-current={spy === tp.id ? "location" : undefined} onClick={() => jump(tp.id)}>
-                            <span className="mn-num">{ci + 1}.{ti + 1}</span>
+                            <span className="mn-num">{findTopic(tp.id)!.num}</span>
                             <span>{say(tp.title)}</span>
                           </button>
                         </li>
@@ -286,7 +305,7 @@ function Manual({ data }: { data: ManualData }) {
                     </ol>
                     </div>
                     <div className="mn-ch-entries">
-                    {ch.topics.map((tp0) => {
+                    {topics.map((tp0) => {
                       const tp = findTopic(tp0.id)!;
                       return (
                         <article key={tp.id} id={`mn-${tp.id}`} className={`mn-entry${current?.id === tp.id ? " is-current" : ""}`} data-depth={tp.depth} data-anchor={current?.id === tp.id ? "mn-current" : undefined}>

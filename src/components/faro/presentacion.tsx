@@ -24,9 +24,10 @@ import { STAGE_SEEDS } from "@/lib/faro/stage-seeds";
 import { buildWidgetSnapshot } from "@/lib/faro/widget";
 import { todayIso } from "@/lib/faro/loans";
 import {
-  MODULES, RESULT_MS, TOPIC_SCENES, WORDS_PER_MINUTE, chapterFirst, durationLabel, dwellMs, moduleById, overallProgress, paceOf, pick, sceneCaption, scenePlace, stepMs, wordCount,
+  MODULES, RESULT_MS, TOPIC_SCENES, WORDS_PER_MINUTE, chapterFirst, durationLabel, dwellMs, moduleById, moduleInMode, moduleView, overallProgress, paceOf, pick, sceneCaption, sceneInMode, scenePlace, stepMs, wordCount,
   type Module, type Scene, type Step,
 } from "@/lib/faro/guion";
+import { modeReaches } from "@/lib/faro/mode";
 import "./presentacion.css";
 
 /* El puente al Manual, al revés (ley de flota, 2026-11-14): de la escena al
@@ -130,7 +131,7 @@ function peekStay(): { section: string; vault?: string | null; openPres?: boolea
 /* ================================== ÍNDICE ================================== */
 
 export function PresentacionesCard() {
-  const { lang } = useFaroRoot();
+  const { lang, mode } = useFaroRoot();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<PresState>(() => readState());
 
@@ -144,14 +145,17 @@ export function PresentacionesCard() {
 
   const play = (mod: Module, resume: boolean) => {
     if (stageOn()) return; // dentro de una presentación no se lanza otra
+    // El módulo se camina SIEMPRE en la vista del modo de la persona: las
+    // escenas que su modo no ofrece no cuentan ni como reanudación.
+    const view = moduleView(mod, mode);
     const saved = state.modules[mod.id];
-    let sceneId = mod.scenes[0]?.id;
+    let sceneId = view.scenes[0]?.id;
     if (resume && saved && !saved.done) {
       // Reanudar = el PRINCIPIO del capítulo donde ibas: las escenas de un capítulo
       // dependen del estado que las anteriores dejan (un menú abierto, una vista),
       // y el capítulo es la unidad de sentada.
-      const at = mod.scenes[saved.scene];
-      const firstOfChapter = at ? mod.scenes.find((s) => s.chapter === at.chapter) : undefined;
+      const at = view.scenes[saved.scene];
+      const firstOfChapter = at ? view.scenes.find((s) => s.chapter === at.chapter) : undefined;
       sceneId = firstOfChapter?.id ?? sceneId;
     }
     launchPresentation(mod.id, sceneId);
@@ -160,19 +164,25 @@ export function PresentacionesCard() {
   /* La ficha primera: el último módulo en uso, si quedó incompleto, abre la
    * lista sacado de su piso — aparece una sola vez. Al completarlo, la marca
    * se limpia (saveProgress) y la ficha vuelve sola a su sitio. */
+  /* El índice se recompone por modo (fallos de Oscar, MAPA-MODULOS §1–§4):
+   * un módulo de una función que el modo no tiene no aparece — su tarjeta
+   * sería ella misma una tarjeta fantasma. El avance y «Sigue donde ibas»
+   * se calculan sobre ESTE índice, y el número de cada ficha es su posición
+   * en él. Los módulos no se borran: duermen y vuelven al subir. */
+  const indexMods = MODULES.filter((m) => moduleInMode(m, mode));
   const lastMod = state.lastModule ? moduleById(state.lastModule) : undefined;
-  const firstCard = lastMod && lastMod.ready && !state.modules[lastMod.id]?.done ? lastMod : undefined;
-  const prog = overallProgress(MODULES, state.modules);
+  const firstCard = lastMod && lastMod.ready && moduleInMode(lastMod, mode) && !state.modules[lastMod.id]?.done ? lastMod : undefined;
+  const prog = overallProgress(indexMods, state.modules, mode);
 
-  const renderMod = (mod: Module) => {
+  const renderMod = (mod: Module, pos: number) => {
     const saved = state.modules[mod.id];
     const mid = !!saved && !saved.done && saved.scene > 0;
     return (
       <div key={mod.id} className="pres-mod">
         <div className="pres-mod-head">
-          <span className="pres-mod-n num">{mod.n}</span>
+          <span className="pres-mod-n num">{pos}</span>
           <strong className="serif">{pick(mod.title, lang)}</strong>
-          {mod.ready ? <span className="pres-mod-dur num">{durationLabel(mod, lang)}</span> : null}
+          {mod.ready ? <span className="pres-mod-dur num">{durationLabel(mod, lang, mode)}</span> : null}
           {saved?.done ? <span className="pres-mod-done"><Check aria-hidden />{L(lang, "Vista", "Seen")}</span> : null}
         </div>
         <p className="pres-mod-promise">{pick(mod.promise, lang)}</p>
@@ -229,18 +239,21 @@ export function PresentacionesCard() {
           {firstCard ? (
             <div className="pres-first">
               <p className="pres-first-title">{L(lang, "Sigue donde ibas", "Pick up where you left off")}</p>
-              {renderMod(firstCard)}
+              {renderMod(firstCard, indexMods.indexOf(firstCard) + 1)}
             </div>
           ) : null}
-          {MODULES.filter((mod) => mod.id !== firstCard?.id).map(renderMod)}
-          {state.savedScenes.length ? (
+          {indexMods.filter((mod) => mod.id !== firstCard?.id).map((mod) => renderMod(mod, indexMods.indexOf(mod) + 1))}
+          {modeReaches(mode, "ritmo") && state.savedScenes.length ? (
             <div className="pres-shelf">
               <p className="pres-shelf-title">{L(lang, "Mis escenas", "My scenes")}</p>
               {state.savedScenes.map((key) => {
                 const [mid, sid] = key.split("/");
                 const m = moduleById(mid ?? "");
                 const sc = m?.scenes.find((s) => s.id === sid);
-                if (!m || !sc) return null;
+                // La repisa también se recompone: una escena guardada cuyo
+                // módulo o cuya cara duerme en este modo no se ofrece (la
+                // guardada no se borra: vuelve con su modo).
+                if (!m || !sc || !moduleInMode(m, mode) || !sceneInMode(sc, mode)) return null;
                 return (
                   <div key={key} className="pres-shelf-row">
                     <button type="button" className="pres-shelf-play" onClick={() => { if (!stageOn()) launchPresentation(m.id, sc.id); }}>
@@ -483,8 +496,12 @@ export function Presentacion() {
     if (!stageOn()) return;
     const launch = takeLaunch();
     if (!launch) return;
-    const mod = moduleById(launch.moduleId);
-    if (!mod || !mod.ready) return;
+    const rawMod = moduleById(launch.moduleId);
+    if (!rawMod || !rawMod.ready) return;
+    // La corrida entera — índices, capítulos, contadores, avance — vive en
+    // la vista del modo del libro de escenario (que toma prestado el modo de
+    // la persona): una escena que ese modo no puede mostrar no se camina.
+    const mod = moduleView(rawMod, api.mode);
     const prefs = readState();
     const savedScene = launch.sceneId
       ? Math.max(0, mod.scenes.findIndex((s) => s.id === launch.sceneId))
@@ -1151,12 +1168,14 @@ export function Presentacion() {
                     <span className="num">{i + 1}</span>{pick(s.steps.find((x) => x.kind === "show" || x.kind === "do" || x.kind === "ask")?.caption ?? mod.title, lang)}
                     {run.skipped.includes(s.id) ? <em>{L(lang, "saltada", "skipped")}</em> : null}
                   </button>
-                  <button type="button" className={`pres-panel-save${saved.includes(`${mod.id}/${s.id}`) ? " is-saved" : ""}`}
-                    aria-pressed={saved.includes(`${mod.id}/${s.id}`)}
-                    aria-label={L(lang, "Guardar en Mis escenas", "Save to My scenes")}
-                    onClick={() => toggleSave(s.id)}>
-                    <Bookmark aria-hidden />
-                  </button>
+                  {modeReaches(api.mode, "ritmo") ? (
+                    <button type="button" className={`pres-panel-save${saved.includes(`${mod.id}/${s.id}`) ? " is-saved" : ""}`}
+                      aria-pressed={saved.includes(`${mod.id}/${s.id}`)}
+                      aria-label={L(lang, "Guardar en Mis escenas", "Save to My scenes")}
+                      onClick={() => toggleSave(s.id)}>
+                      <Bookmark aria-hidden />
+                    </button>
+                  ) : null}
                 </div>
               ) : null)}
             </div>

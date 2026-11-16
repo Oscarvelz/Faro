@@ -37,11 +37,21 @@ function useDays() {
   return new Date(ui.year, ui.month, 0).getDate() || 30;
 }
 
-/** One-line preview shown on a closed card so it is worth opening. */
-export function adviceTeaser(card: AdviceCard, reading: Reading, fmt: (n: number) => string, lang: string, days: number) {
-  if (card.horizon === "short") return { big: fmt(Math.round(reading.recurrentMinor / days)), small: L(lang, "al día en lo de cada mes", "a day on the usual") };
+type FaroHas = ReturnType<typeof useFaro>["has"];
+
+/** One-line preview shown on a closed card so it is worth opening. A-2: the
+ *  teaser is face — it is computed only from what the mode may show. */
+export function adviceTeaser(card: AdviceCard, reading: Reading, fmt: (n: number) => string, lang: string, days: number, has: FaroHas) {
+  if (card.horizon === "short") return has("advisor.what-happened-day")
+    ? { big: fmt(Math.round(reading.recurrentMinor / days)), small: L(lang, "al día en lo de cada mes", "a day on the usual") }
+    : { big: fmt(reading.recurrentMinor), small: L(lang, "en lo de cada mes", "on the usual") };
   if (card.horizon === "medium") {
     const n = card.nums;
+    if (!has("advisor.credit-meter")) {
+      if (n && n.debt <= 0 && (n.cardBal ?? 0) > 0) return { big: fmt(n.cardBal ?? 0), small: L(lang, "en tarjetas", "on cards") };
+      if (!n || n.debt <= 0) return { big: L(lang, "Sin cuotas", "No payments"), small: L(lang, "este mes", "this month") };
+      return { big: fmt(n.debt), small: L(lang, "en cuotas este mes", "in payments this month") };
+    }
     if (n && n.debt <= 0 && (n.cardBal ?? 0) > 0) return (n.cardUtil ?? -1) >= 0
       ? { big: `${Math.round((n.cardUtil ?? 0) * 100)}%`, small: L(lang, "de uso en tarjetas", "card use") }
       : { big: fmt(n.cardBal ?? 0), small: L(lang, "en tarjetas", "on cards") };
@@ -58,7 +68,7 @@ export function adviceTeaser(card: AdviceCard, reading: Reading, fmt: (n: number
 
 /* ── Qué pasó ───────────────────────────────────────────────────────── */
 export function ShortVisual({ reading }: { reading: Reading }) {
-  const { fmt, lang, setUi, session, ui } = useFaro();
+  const { fmt, lang, setUi, session, ui, has } = useFaro();
   const days = useDays();
   const perDay = Math.round(reading.recurrentMinor / days);
   const total = Math.max(reading.outTotal, 1);
@@ -80,6 +90,7 @@ export function ShortVisual({ reading }: { reading: Reading }) {
   const today = now.getFullYear() === ui.year && now.getMonth() + 1 === ui.month ? now.getDate() : 0;
   return (
     <div className="a2">
+      {has("advisor.what-happened-day") ? (
       <div className="a2-day">
         <div>
           <em>{L(lang, "Lo de cada mes te cuesta", "The usual costs you")}</em>
@@ -90,7 +101,8 @@ export function ShortVisual({ reading }: { reading: Reading }) {
           {Array.from({ length: days }, (_, i) => <i key={i} className={i + 1 === today ? "is-today" : i + 1 < today ? "is-past" : ""} style={{ animationDelay: `${i * 12}ms` }} />)}
         </div>
       </div>
-      {parts.length ? (
+      ) : null}
+      {parts.length && has("advisor.what-happened-river") ? (
         <div className="a2-river">
           <p className="a2-kick">{L(lang, "Todo lo que salió", "Everything that went out")} · <span className="num">{fmt(reading.outTotal)}</span></p>
           <div className="a2-river-bar">
@@ -102,24 +114,28 @@ export function ShortVisual({ reading }: { reading: Reading }) {
         </div>
       ) : null}
       {rows.length ? (
-        <div className="a2-lines">
+        <div className="a2-lines" data-anchor="advice-heaviest">
           <p className="a2-kick">{L(lang, "Los gastos que más pesaron", "The heaviest lines")}</p>
           {rows.map((r, i) => {
             const k = CLS[r.cls] ?? CLS.discretionary;
             return (
               <button key={r.id} type="button" className="a2-line" style={{ ["--c" as string]: tc(k.c), animationDelay: `${i * 50}ms` }} onClick={() => setUi({ section: sectionFor(kindOf(r.id)), highlight: r.id })}>
-                <span className="a2-line-name">{r.name}<em style={{ color: tc(k.c) }}>{lang === "en" ? k.en : k.es}</em></span>
+                <span className="a2-line-name">{r.name}{has("advisor.heaviest-class") ? <em style={{ color: tc(k.c) }}>{lang === "en" ? k.en : k.es}</em> : null}</span>
                 <span className="a2-line-amt"><strong className="num">{fmt(r.minor)}</strong><ChevronRight aria-hidden /></span>
                 <span className="a2-line-bar"><b style={{ width: `${Math.max(4, (r.minor / peak) * 100)}%` }} /></span>
               </button>
             );
           })}
           {restCount > 0 ? <p className="a2-more">{lang === "en" ? `+${restCount} more · ${fmt(restMinor)}` : `+${restCount} más · ${fmt(restMinor)}`}</p> : null}
+          {has("advisor.heaviest-class") ? (
           <p className="a2-foot">
             <b style={{ color: tc(CLS.unique.c) }}>{L(lang, "Una vez", "One-time")}</b>{L(lang, ": ya salió; se puede devolver, vender o compensar. ", ": already gone; return, sell or offset it. ")}
             {bigUniqueUnconfirmed ? <>{L(lang, "Si alguna se repite cada mes, márcala fija y la cuento como de cada mes. ", "If one of these actually repeats every month, mark it fixed and I will count it as monthly. ")}</> : null}
             <b style={{ color: tc(CLS["essential-fixed"].c) }}>{L(lang, "Cada mes", "Monthly")}</b>{L(lang, ": aquí está el ahorro que dura.", ": this is where lasting savings live.")}
           </p>
+          ) : bigUniqueUnconfirmed ? (
+          <p className="a2-foot">{L(lang, "Si alguna se repite cada mes, márcala fija y la cuento como de cada mes.", "If one of these actually repeats every month, mark it fixed and I will count it as monthly.")}</p>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -128,7 +144,7 @@ export function ShortVisual({ reading }: { reading: Reading }) {
 
 /* ── Cómo va mi crédito ─────────────────────────────────────────────── */
 export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Reading }) {
-  const { fmt, lang } = useFaro();
+  const { fmt, lang, has } = useFaro();
   const n = card.nums ?? { debt: 0, pct: 0, green: 30, yellow: 40, allowance: 0, income: 0 };
   const max = Math.max(n.yellow * 1.5, n.pct * 1.15, 50);
   const ang = (v: number) => Math.PI * (1 - Math.min(v, max) / max);
@@ -151,6 +167,7 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
   return (
     <div className="a2">
       {cards}
+      {has("advisor.credit-meter") ? (
       <div className={`a2-gauge is-${zone}`}>
         <svg viewBox="0 0 200 116" role="img" aria-label={`${n.pct.toFixed(1)}%`}>
           <path d={arc(0, n.green, 80)} className="z-good" />
@@ -168,6 +185,7 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
           <span>{L(lang, "de lo que entra va a cuotas", "of income goes to payments")}</span>
         </div>
       </div>
+      ) : null}
       <div className="a2-load">
         <div className="a2-load-pair">
           <div><em>{L(lang, "Pagas al mes", "Monthly pay")}</em><strong className="num is-pay">{fmt(n.debt)}</strong></div>
@@ -180,7 +198,7 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
           <span className="a2-load-bar" aria-hidden><b style={{ width: `${n.allowance > 0 ? Math.min(100, (n.debt / n.allowance) * 100) : 100}%` }} /></span>
         </div>
       </div>
-      {debts.length ? (
+      {debts.length && has("advisor.credit-list") ? (
         <div className="a2-lines">
           {debts.map((d) => (
             <div key={d.id} className="a2-line is-static" style={{ ["--c" as string]: tc(CLS.credit.c) }}>
@@ -191,14 +209,14 @@ export function MediumVisual({ card, reading }: { card: AdviceCard; reading: Rea
           ))}
         </div>
       ) : null}
-      {!reading.debtTermKnown ? <p className="a2-foot">{L(lang, "Anota cuánto debes, la tasa y el pago mínimo, y te digo en cuántos meses terminas.", "Add what you owe, the rate and the minimum payment and I'll tell you when you finish.")}</p> : null}
+      {!reading.debtTermKnown && has("advisor.debt-data-ask") ? <p className="a2-foot">{L(lang, "Anota cuánto debes, la tasa y el pago mínimo, y te digo en cuántos meses terminas.", "Add what you owe, the rate and the minimum payment and I'll tell you when you finish.")}</p> : null}
     </div>
   );
 }
 
 /* 1.3.110: the cards (1.3.107) in "Cómo va mi crédito": owed, use of the limit, minimums and the next due date. */
 function CardsCredit() {
-  const { session, fmt, lang } = useFaro();
+  const { session, fmt, lang, has } = useFaro();
   const ledger = session?.ledger;
   const ct = cardTotals(ledger);
   if (!ledger || !ct.known || ct.balance <= 0) return null;
@@ -210,7 +228,7 @@ function CardsCredit() {
       <p className="a2-cards-say">{L(lang, `Tus tarjetas deben ${fmt(ct.balance)}${ct.min > 0 ? `; el pago mínimo suma ${fmt(ct.min)}` : ""}${due ? ` y el próximo vence el ${dueTxt}` : ""}.`, `Your cards owe ${fmt(ct.balance)}${ct.min > 0 ? `; minimums add up to ${fmt(ct.min)}` : ""}${due ? ` and the next is due ${dueTxt}` : ""}.`)}</p>
       <div className="a2-cards-facts">
         <span><em>{L(lang, "Tarjetas", "Cards")}<Hint topic="tc-total" /></em><strong className="num">{fmt(ct.balance)}</strong></span>
-        <span><em>{L(lang, "Uso", "Use")}<Hint topic="tc-uso" /></em><strong className="num" data-lvl={lvl}>{ct.util != null ? `${Math.round(ct.util * 100)}%` : "—"}</strong></span>
+        {has("advisor.cards-usage") ? <span><em>{L(lang, "Uso", "Use")}<Hint topic="tc-uso" /></em><strong className="num" data-lvl={lvl}>{ct.util != null ? `${Math.round(ct.util * 100)}%` : "—"}</strong></span> : null}
         <span><em>{L(lang, "Mínimos", "Minimums")}<Hint topic="tc-minimo" /></em><strong className="num">{ct.min > 0 ? fmt(ct.min) : "—"}</strong></span>
         <span><em>{L(lang, "Vence", "Due")}<Hint topic="tc-fecha" /></em><strong className="num">{dueTxt}</strong></span>
       </div>
@@ -313,7 +331,7 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
   reading: Reading; income: number; left: number; openPart: string | null; onPart: (id: "base" | "unique" | "transfer") => void;
   more: boolean; onMore: () => void; children?: React.ReactNode;
 }) {
-  const { fmt, lang } = useFaro();
+  const { fmt, lang, has } = useFaro();
   const uid = useId().replace(/:/g, "");
   const short = left < 0;
   const hundred = fmt(10000).replace(/[.,]00$/, "");
@@ -399,11 +417,13 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
           {doRest ? <p className="a2-do-rest">{doRest}</p> : null}
         </div>
       </div>
+      {has("advisor.month-detail") ? (
       <div className="a2-more-row">
         <button type="button" className="a2-more" aria-expanded={more} onClick={onMore}><span>{more ? L(lang, "Ocultar detalle", "Hide detail") : L(lang, "Ver el detalle", "See the detail")}</span><ChevronRight aria-hidden className="a2-more-chev" /></button>
         {more ? <Hint topic="cifras-asesor" className="is-detail" /> : null}
       </div>
-      {more ? <div className="a2-detail">{children}</div> : null}
+      ) : null}
+      {more && has("advisor.month-detail") ? <div className="a2-detail">{children}</div> : null}
     </div>
   );
 }
@@ -465,7 +485,7 @@ export function PatternBlock({ tone }: { tone: RuleTone }) {
 }
 
 export function RulesCard({ rules, open, onToggle, enter }: { rules: Rule[]; open: boolean; onToggle: () => void; enter: number }) {
-  const { session, lang, setUi, goTopic, t } = useFaro();
+  const { session, lang, setUi, goTopic, t, has } = useFaro();
   if (!rules.length || !session) return null;
   const go = (r: Rule) => {
     const g = r.go;
@@ -498,7 +518,7 @@ export function RulesCard({ rules, open, onToggle, enter }: { rules: Rule[]; ope
                   <span className="a2-line-bar" aria-hidden><b style={{ width: `${Math.max(4, Math.round(r.fill * 100))}%` }} /></span>
                   <p className="a2-rule-say">{r.say}</p>
                 </div>
-                {r.id === "pace" ? <PatternBlock tone={r.tone} /> : null}
+                {r.id === "pace" && has("patron.verdict") ? <PatternBlock tone={r.tone} /> : null}
               </Fragment>
             ))}
           </div>

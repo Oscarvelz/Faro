@@ -31,7 +31,7 @@ const NAME: Record<AreaId, [string, string]> = {
 };
 
 export function AreaAdvisor({ area, label, onLeave }: { area: AreaId; label?: string; onLeave?: () => void }) {
-  const { session, key, lang, names, fmt, goTopic, setUi, markSpot } = useFaro();
+  const { session, key, lang, names, fmt, goTopic, setUi, markSpot, has } = useFaro();
   const [open, setOpen] = useState(() => !folded.has(area));
   const today = new Date();
   const day = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
@@ -52,9 +52,26 @@ export function AreaAdvisor({ area, label, onLeave }: { area: AreaId; label?: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledger, key, lang, area, day, names]);
   if (!ledger || !report) return null;
+  // A-5/X-9: en Esencial no hay columna del área (el libro gana el ancho); en
+  // Ritmo la columna es reducida — figura comparativa, su pie y la frase
+  // calma, sin el marco de hallazgos — y las áreas cuyo ser es Completo
+  // (meta, retiro, emergencia, préstamos) no montan en Ritmo.
+  if (!has("area.bars-6m")) return null;
+  const full = has("area.frame");
+  if (!full && (area === "meta" || area === "retiro" || area === "emergencia" || area === "loans")) return null;
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const name = label ?? NAME[area][lang === "en" ? 1 : 0];
   const tone = isTron() ? tronize(AREA_TONE[area]) : AREA_TONE[area];
+  if (!full) {
+    return (
+      <section className="advice-card is-area is-reduced" data-area={area} data-anchor={`area-advisor-${area}`} style={{ ["--area" as string]: tone }} aria-label={`${L("Asesor", "Advisor")} · ${name}`}>
+        <div className="aa-body">
+          {report.chart && (report.chart.type === "bars" || report.chart.type === "ticks") ? <AreaFigure chart={report.chart} caption={report.caption} fmt={fmt} lang={lang} /> : null}
+          <p className="aa-calm">{report.calm}</p>
+        </div>
+      </section>
+    );
+  }
   const go = (it: AreaItem) => {
     const g = it.go;
     // Every action is its own step (markSpot), so Back returns here — also on a second tap of the same book or line.

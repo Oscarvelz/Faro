@@ -16,10 +16,12 @@
  */
 import { categorySlices, summarize } from "./engine";
 import { keptTotal } from "./funds";
+import { modeOf, type Mode } from "./mode";
 import { paceReading } from "./patron";
 import { quickHomesRanked, quickPins, quickStorePins, type QuickHome } from "./quickadd";
 import { savingsStock } from "./savings";
 import { duesWindow } from "./dues";
+import { todaySpend } from "./today";
 import { makeNamer } from "./defaults";
 import { monthKey } from "./money";
 import { netBalance } from "./debts";
@@ -57,6 +59,12 @@ export type WidgetSnapshot = {
   /** When the web app built it (ISO). */
   at: string;
   lang: Lang;
+  /** Etapa 2 (tres modos): el modo de uso de la persona, leído de su libro
+   *  (ausente = Completo). La foto lo lleva para que el shell pueda recomponer
+   *  su cara por modo (etapa 3.3); en esta etapa es solo fontanería — ningún
+   *  bloque de la foto cambia por él — y un shell viejo lo ignora, como ya
+   *  ignora saveKept o qsOut. */
+  mode: Mode;
   cur: "NIO" | "USD";
   /** Las monedas que el libro conoce, en orden de la tarjeta (1.3.241): primero la de vista,
    *  luego las que sus líneas y saldos usan, y al final la otra moneda del sistema — el
@@ -81,6 +89,13 @@ export type WidgetSnapshot = {
   spend: number;
   left: number;
   usedPct: number | null;
+  /** Etapa 4 (tres modos, X-29): «Puedes gastar hoy» — la cifra de E-1 como
+   *  cifra de verdad: la misma fórmula en los tres modos, idéntica entre
+   *  modos para el mismo libro (como dues y flow, no es un bloque de cara).
+   *  La foto siempre es del mes en curso, así que la cifra siempre viaja;
+   *  qué cara nativa la pinta lo decide el shell con el `mode` de la foto
+   *  (la cara de Esencial la lleva, CENSO T-1). Un shell viejo la ignora. */
+  todaySpend: number;
   pay: number;
   tone: "neutral" | "good" | "warn" | "bad";
   /** Ahorros: saved this month (savings lines), the month's goal (savingsGoalPct of income), the whole savings figure. */
@@ -204,6 +219,21 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
   const s = summarize(state, key, lang);
   const nb = netBalance(state, today);
   const sav = savingsOf(state, key, lang);
+  // Etapa 3.3 (T-1): la foto se compone por el modo del libro EN LA FUENTE. El
+  // cerebro nunca duerme — todo se calcula igual — pero lo que la foto LLEVA
+  // sigue la cara del modo (§1.25): los bloques de cara dormidos salen en cero
+  // o vacíos (Pagos y la balanza desde Ritmo; ahorros y sus bolsillos desde
+  // Ritmo; las casas por hábito y las fijas del catálogo, solo Completo; la
+  // luz de naturaleza de un bolsillo, solo Completo). Dos familias NO se
+  // componen: los datos de los que vive un aviso universal — los vencimientos
+  // (aviso de vencimientos, Esencial) y el flujo de seis meses (aviso de
+  // cierre, todos los modos) — viajan reales siempre, porque su cara duerma
+  // no apaga su aviso. Y el bloque pace viaja SIEMPRE presente (X-17): vacío
+  // en Esencial y descriptivo sin veredicto ni proyección en Ritmo, porque un
+  // pace ausente haría que el shell calculara su propia proyección lineal.
+  const mode = modeOf(state.settings);
+  const ritmoUp = mode !== "esencial";
+  const completo = mode === "completo";
 
   // Dues (1.3.163, audit D1): the snapshot consumes the ONE dues window (dues.ts) at its own
   // 31-day horizon — the same entries Central's «Próximos 30 días» shows. The private math it
@@ -286,6 +316,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     v: 1,
     at: opts.now ?? new Date().toISOString(),
     lang,
+    mode,
     cur: display,
     curs,
     rateE4,
@@ -300,27 +331,31 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     spend: s.expense,
     left: s.opportunity,
     usedPct: s.spentPct === null ? null : Math.round(s.spentPct),
-    pay: s.debt,
+    todaySpend: todaySpend(state, today).perDayMinor,
+    pay: ritmoUp ? s.debt : 0,
     tone: s.tone,
-    saveMonth: s.savingsFlow,
-    saveGoal: s.savingsGoal,
-    saveTotal: sav.total,
-    saveKept: sav.kept,
-    savePledged: sav.pledged,
+    saveMonth: ritmoUp ? s.savingsFlow : 0,
+    saveGoal: ritmoUp ? s.savingsGoal : 0,
+    saveTotal: ritmoUp ? sav.total : 0,
+    saveKept: ritmoUp ? sav.kept : 0,
+    savePledged: ritmoUp ? sav.pledged : 0,
     // 1.3.163 (audit D1): EVERY pocket with money, plus the savings accounts as their own entries.
     // The old slice(0, 4) dropped the fifth pocket while saveTotal kept counting it, and the
     // accounts never appeared at all — the snapshot disagreed with itself by $1,100 on the
     // audit's book. Now Σ pockets == saveTotal, always.
     // 1.3.291: cada bolsillo lleva su naturaleza cuando la tiene (savingsOf la leyó de la
     // partición); las cuentas, nunca — son la base, no un fondo.
-    pockets: [
-      ...sav.pockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: goOfPocket(p.id), ...("fund" in p && p.fund ? { fund: p.fund } : {}) })),
+    pockets: ritmoUp ? [
+      ...sav.pockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: goOfPocket(p.id), ...("fund" in p && p.fund && completo ? { fund: p.fund } : {}) })),
       ...sav.accountPockets.filter((p) => p.amt !== 0).map((p) => ({ name: p.name, amt: p.amt, go: "vault-save" as WidgetGo })),
-    ],
-    owed: nb.owed,
-    owe: nb.owe,
+    ] : [],
+    owed: ritmoUp ? nb.owed : 0,
+    owe: ritmoUp ? nb.owe : 0,
     dues: dues.slice(0, 8),
-    cats,
+    // La comparación con el mes pasado es la cara Completo (face-top5-compare):
+    // en Ritmo las categorías viajan con su cifra y prev en cero — prev solo lo
+    // consume la pintura de la comparación, ningún número impreso sale de él.
+    cats: ritmoUp ? cats.map((c) => (completo ? c : { ...c, prev: 0 })) : [],
     flow,
     // Las casas de la tarjeta (1.3.246): las fijas mandan y el hábito rellena. La lista
     // ordenada SIN tope pierde los pares ya fijados (por signo: una fija de la tarjeta +
@@ -333,18 +368,33 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
         const set = new Set(pinned.map((p) => `${p.c}|${p.s}`));
         return homes.filter((h) => !set.has(`${h.c}|${h.s}`)).slice(0, 10);
       };
-      return { qhIn: drop(ranked.inn, pins.inn), qhOut: drop(ranked.out, pins.out), qpIn: pins.inn, qpOut: pins.out };
+      // Etapa 3.3 (T-1): las fijas dormidas se filtran de la foto y vuelven al
+      // subir de modo — las del dueño desde Ritmo (face-pins), las del catálogo
+      // y las casas por hábito solo en Completo. La lista guardada no se toca.
+      return {
+        qhIn: completo ? drop(ranked.inn, pins.inn) : [],
+        qhOut: completo ? drop(ranked.out, pins.out) : [],
+        qpIn: ritmoUp ? pins.inn : [],
+        qpOut: ritmoUp ? pins.out : [],
+      };
     })(),
     // Las fijas del catálogo (1.3.251): su propia lista, solo para la tarjeta del
     // gasto — no deduplican contra el hábito (una compra en Temu no es una casa de
     // Estructura) ni cuentan contra su tope de 10.
-    qsOut: quickStorePins(state, lang),
+    qsOut: completo ? quickStorePins(state, lang) : [],
     // El patrón de ritmo (1.3.248): la web calcula, el shell juzga — la costura de
     // siempre (como vencimientos y cierre). La lectura sale del libro filtrado:
     // patron.ts nunca ve una línea apartada.
+    // Etapa 3.3 (X-17): la cara de ritmo es Completo (fallo 22/X-6), así que
+    // fuera de Completo el bloque viaja sin veredicto y sin proyección — en
+    // Ritmo con su descripción real (lo gastado y lo esperado, que el shell
+    // no imprime con status «learning») y en Esencial vacío. El bloque nunca
+    // falta: sin él, el shell proyectaría por su cuenta (FaroNotify).
     ...(() => {
       const r = paceReading(state, key, new Date(`${today}T12:00:00`));
-      return { pace: { status: r.status, verdict: r.verdict, spent: r.spentMinor, expected: r.expectedMinor, projected: r.projectedMinor, income: s.income } };
+      if (completo) return { pace: { status: r.status, verdict: r.verdict, spent: r.spentMinor, expected: r.expectedMinor, projected: r.projectedMinor, income: s.income } };
+      if (ritmoUp) return { pace: { status: "learning" as const, verdict: null, spent: r.spentMinor, expected: r.expectedMinor, projected: 0, income: s.income } };
+      return { pace: { status: "learning" as const, verdict: null, spent: 0, expected: 0, projected: 0, income: 0 } };
     })(),
   };
 }

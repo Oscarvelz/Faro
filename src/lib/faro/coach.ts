@@ -1,11 +1,14 @@
 // Coach: turns one month of the books into plain language and simple pictures.
 // Everything here is read-only; it never writes the ledger.
-import { readAdvisor, type ReadLine } from "./advisor";
+import { bookMode, readAdvisor, type BookMode, type ReadLine } from "./advisor";
 import { paceReading, paceSay } from "./patron";
 import { savingsPicture } from "./awake";
 import { colorFor, cyberize, themeSwatch } from "./colors";
 import { convertMinor, formatMoney, formatPct, niceDown } from "./money";
-import { cardTotals } from "./cards";
+import { cardFigures, cardTotals, cardsOf } from "./cards";
+import { lentOf, lentState } from "./debts";
+import { loanState, loansOf } from "./loans";
+import { savingsStock } from "./savings";
 import { perYear } from "./cadence";
 import type { Currency, Lang, LedgerState, Line } from "./types";
 
@@ -29,6 +32,11 @@ export type Step = { id: string; title: string; detail: string; impactMinor: num
 export type Due = { id: string; name: string; minor: number; day: string; inDays: number; /** 1.3.100: a Cuota's library mark ("sub:<id>"), when it has one. */ icon?: string };
 export type MonthNet = { key: string; label: string; income: number; expense: number; net: number; rate: number | null; current: boolean };
 export type CoachLine = { id: string; name: string; minor: number; category: string; kind: string };
+/** Etapa 4 (tres modos): la sugerencia de subida del Asesor — nace de la
+ *  Reading ya filtrada y de las señales del libro; lleva su razón y su firma
+ *  (razón + conteo) para la disciplina de descarte de la superficie. Nunca
+ *  escribe el modo: sugiere, y la persona decide en Ajustes. */
+export type UpgradeHint = { to: BookMode; reason: string; text: string; sig: string };
 
 export type Coach = {
   currency: Currency;
@@ -62,6 +70,8 @@ export type Coach = {
   needsMonthly: number;
   lines: CoachLine[];
   glossary: { term: string; plain: string }[];
+  /** La sugerencia de subida en contexto, o null (sin objeto, silencio). */
+  upgradeHint: UpgradeHint | null;
 };
 
 const DAY_PALETTE = { needs: "#7fb2a0", wants: "#e0a35c", debt: "#d0837a", save: "#7fa6cf", free: "#ffd98a" };
@@ -130,6 +140,9 @@ function toHundred(parts: { minor: number }[], whole: number): number[] {
 
 export function readCoach(state: LedgerState, key: string, lang: Lang, names: Namer, today: Date = new Date()): Coach {
   const { display, rateE4, savingsGoalPct, debtGreenPct, debtYellowPct, emergencyMonths } = state.settings;
+  // 3.2: el coach nace acotado al modo (registro §3.3/§3.5) — veredicto y
+  // pasos se componen solo con lo que el modo puede mostrar.
+  const mode = bookMode(state);
   const money = (n: number) => formatMoney(n, display, lang);
   const pct = (n: number | null) => formatPct(n, lang);
   const unit = display === "USD" ? "$100" : "C$100";
@@ -347,7 +360,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     : left >= 0
       ? L(lang, `Este mes entran ${money(income)} y te quedan ${money(left)} libres.`, `This month ${money(income)} comes in and ${money(left)} is left free.`)
       : L(lang, `Este mes sale ${money(-left)} más de lo que entra.`, `This month ${money(-left)} more goes out than comes in.`);
-  const verdictSub = !biggest || base <= 0
+  const verdictSub = mode === "esencial" || !biggest || base <= 0
     ? ""
     : L(
         lang,
@@ -405,6 +418,9 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   // un juicio que todavía no existe. Sin datos no hay ni aviso: la primera frase.
   const paceNote = ((): string => {
     if (coverDays === null) return linearNote;
+    // El patrón aprendido solo habla en Completo (A-3); en Ritmo y Esencial
+    // la nota es la descripción lineal de arriba, con las cifras de esta tarjeta.
+    if (mode !== "completo") return linearNote;
     const currentKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
     if (key !== currentKey) return linearNote;
     const rd = paceReading(state, key, today);
@@ -541,9 +557,46 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       tone: "neutral",
     });
   }
-  if (income > 0 && left >= 0 && saved >= goalMinor && steps.length === 0) {
-    steps.push({ id: "keep", title: L(lang, "Sigue así", "Keep it up"), detail: L(lang, "Cubres lo tuyo y cumples tu ahorro. Lo que sobra puede ir a una meta con fecha.", "You cover your bills and meet your savings. What's left can go to a goal with a date."), impactMinor: Math.max(0, left), tone: "good" });
-  }
+  const keepStep: Step | null = income > 0 && left >= 0 && saved >= goalMinor
+    ? { id: "keep", title: L(lang, "Sigue así", "Keep it up"), detail: L(lang, "Cubres lo tuyo y cumples tu ahorro. Lo que sobra puede ir a una meta con fecha.", "You cover your bills and meet your savings. What's left can go to a goal with a date."), impactMinor: Math.max(0, left), tone: "good" }
+    : null;
+  if (keepStep && steps.length === 0) steps.push(keepStep);
+
+  // 3.2: los pasos nacen acotados al modo (registro §3.3: anotar el ingreso,
+  // nombrar y seguir así son de Esencial; cerrar el hueco, apartar, gustos y
+  // suscripciones de Ritmo; colchón y deudas de Completo). Si el filtro deja
+  // la lista vacía y el mes va bien, el paso de «sigue así» la sostiene.
+  const STEP_MIN: Record<string, BookMode> = { income: "esencial", gap: "ritmo", save: "ritmo", cushion: "completo", wants: "ritmo", debt: "completo", subs: "ritmo", vague: "esencial", keep: "esencial" };
+  const MODE_RANK: Record<BookMode, number> = { esencial: 0, ritmo: 1, completo: 2 };
+  const stepsOut = steps.filter((s) => MODE_RANK[mode] >= MODE_RANK[STEP_MIN[s.id] ?? "completo"]);
+  if (!stepsOut.length && keepStep) stepsOut.push(keepStep);
+
+  // Etapa 4: la sugerencia de subida (principio 6, su otra mitad). Nace de la
+  // Reading ya filtrada de la etapa 3.2 y de las señales del libro: si lo
+  // esencial vive en el modo siguiente y el libro lo tiene, el consejo ES la
+  // sugerencia, con su razón. Un solo consejo (el de mayor rango), siempre al
+  // modo siguiente; sin objeto, silencio (principio 5). Nunca escribe el
+  // modo — eso lo hace la persona en Ajustes, si quiere.
+  const upgradeHint: UpgradeHint | null = (() => {
+    if (mode === "completo") return null;
+    const stock = savingsStock(state, key);
+    const dormantFunds = [...stock.series.values()].filter((r) => (r.cls === "aparte" || r.cls === "sin-declarar" || r.cls === "retiro") && r.minor > 0).length;
+    const declaredFunds = [...stock.series.values()].filter((r) => (r.cls === "aparte" || r.cls === "saldo") && r.minor > 0).length;
+    const debtItems =
+      cardsOf(state).filter((c) => cardFigures(state, c).balance > 0).length +
+      loansOf(state).filter((l) => !l.archived && loanState(state, l).left > 0).length +
+      lentOf(state).filter((l) => !l.archived && lentState(state, l).left > 0).length;
+    const mk = (to: BookMode, reason: string, count: number, text: string): UpgradeHint => ({ to, reason, text, sig: `${reason}:${count}` });
+    if (mode === "esencial") {
+      if (debtItems > 0) return mk("ritmo", "debt", debtItems, L(lang, "Tienes deudas con saldo. En Esencial ves sus hechos; en Ritmo las sigues de cerca.", "You have debts with a balance. In Essential you see their facts; in Rhythm you follow them closely."));
+      if (dormantFunds > 0) return mk("ritmo", "funds", dormantFunds, L(lang, "Tienes dinero en fondos que en Esencial solo se leen. En Ritmo sus bóvedas se abren y los gestionas.", "You have money in funds that in Essential are only read. In Rhythm their vaults open and you manage them."));
+      if (reading.subsCount > 0) return mk("ritmo", "subs", reading.subsCount, L(lang, "Tienes cuotas que en Esencial se leen como movimientos. En Ritmo las gestionas como lo que son.", "You have subscriptions that in Essential read as plain movements. In Rhythm you manage them as what they are."));
+      return null;
+    }
+    if (debtItems > 0) return mk("completo", "plan", debtItems, L(lang, "Tienes deudas con saldo. En Ritmo las sigues; el plan para salir de ellas vive en Completo.", "You have debts with a balance. In Rhythm you follow them; the plan to get out of them lives in Complete."));
+    if (declaredFunds > 0) return mk("completo", "nature", declaredFunds, L(lang, "Tus fondos tienen naturaleza declarada. Su lectura completa — qué vive sobre tu saldo y qué es dinero aparte — vive en Completo.", "Your funds have a declared nature. Their full reading — what rides on your balance and what is money set aside — lives in Complete."));
+    return null;
+  })();
 
   const lines: CoachLine[] = read.map((l) => ({ id: l.id, name: l.name, minor: l.minor, category: l.category, kind: lineById.get(l.id)?.kind ?? "" }));
 
@@ -579,7 +632,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     daysInMonth,
     coverDays,
     paceNote,
-    steps: steps.slice(0, 3),
+    steps: stepsOut.slice(0, 3),
     dues,
     months,
     historyNote,
@@ -588,5 +641,6 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     needsMonthly,
     lines,
     glossary,
+    upgradeHint,
   };
 }

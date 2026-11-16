@@ -21,8 +21,16 @@ const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
  * del run, por el mismo camino de siempre); ENCENDER sigue siendo el toque desnudo de antes.
  */
 export function NotifyRow() {
-  const { lang, session, commit, confirm } = useFaro();
+  const { lang, session, commit, confirm, has } = useFaro();
   const prefOn = session ? session.ledger.settings.notify !== false : true;
+  // J-4 (tres modos, etapa 3.3): el interruptor sigue único; su texto se
+  // compone por modo nombrando solo los avisos que el teléfono emite en ese
+  // modo (el censo T-5 manda sobre los nombres): vencimientos y cierre llegan
+  // siempre; el ritmo es la cara del Patrón, solo Completo (widget.face-pace).
+  const paceWord = has("widget.face-pace") ? L(lang, "ritmo", "pace") : null;
+  const kindsShort = paceWord
+    ? L(lang, `vencimientos, ${paceWord} y cierre`, `due dates, ${paceWord} and month-end`)
+    : L(lang, "vencimientos y cierre", "due dates and month-end");
   const bridge = native();
   const canState = !!bridge?.notifyState;
   const [perm, setPerm] = useState<string | null>(() => {
@@ -43,9 +51,17 @@ export function NotifyRow() {
     if (prefOn) {
       confirm({
         title: L(lang, "Desactivar avisos", "Turn off notifications"),
-        body: L(lang,
-          "Faro deja de avisarte de los vencimientos, el ritmo de gasto y el cierre del mes. Puedes volver a activarlos cuando quieras, aquí mismo.",
-          "Faro will stop reminding you about due dates, your spending pace and the month-end close. You can turn them back on any time, right here."),
+        // J-4: la frase entera depende del modo — con la cara de ritmo
+        // (Completo) nombra el ritmo; sin ella, solo lo que el teléfono
+        // sigue emitiendo: vencimientos y cierre. Dos frases completas,
+        // nunca una plantilla: la ventana dice lo que se pierde, entero.
+        body: paceWord
+          ? L(lang,
+            "Faro deja de avisarte de los vencimientos, el ritmo de gasto y el cierre del mes. Puedes volver a activarlos cuando quieras, aquí mismo.",
+            "Faro will stop reminding you about due dates, your spending pace and the month-end close. You can turn them back on any time, right here.")
+          : L(lang,
+            "Faro deja de avisarte de los vencimientos y el cierre del mes. Puedes volver a activarlos cuando quieras, aquí mismo.",
+            "Faro will stop reminding you about due dates and the month-end close. You can turn them back on any time, right here."),
         yes: L(lang, "Desactivar", "Turn off"),
         run: () => commit((s) => ({ ...s, settings: { ...s.settings, notify: false } }),
           L(lang, "Avisos apagados", "Notifications off")),
@@ -77,7 +93,7 @@ export function NotifyRow() {
     : perm === "denied"
       ? L(lang, "El teléfono no los permite todavía", "The phone does not allow them yet")
       : prefOn
-        ? L(lang, "Activados: vencimientos, ritmo y cierre", "On: due dates, pace and month-end")
+        ? L(lang, `Activados: ${kindsShort}`, `On: ${kindsShort}`)
         : L(lang, "Apagados por ti", "Turned off by you");
   return (
     <section className="card manual-card aj-card smp-card" data-anchor="aj-notify">

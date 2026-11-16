@@ -12,6 +12,37 @@ import type { Lang, LedgerState, Line, LineKind } from "./types";
 import type { makeNamer } from "./defaults";
 
 export type ExportScope = "month" | "year" | "all";
+
+/** El modo del libro, leído de su propio campo (ausente o ilegible = Completo):
+ *  la misma lectura que advisor.bookMode — los motores no importan el registro. */
+type BookMode = "esencial" | "ritmo" | "completo";
+const bookModeOf = (ledger: LedgerState): BookMode => {
+  const m = ledger.settings.mode;
+  return m === "esencial" || m === "ritmo" ? m : "completo";
+};
+
+/**
+ * La composición del informe por modo (tres modos, Fo-5): el documento nunca
+ * lleva secciones de funciones ausentes en el modo del libro — el panel
+ * imprime lo que presenta (matiz de Oscar al principio 4). En Ritmo salen el
+ * alcance, los tipos de línea, los activos, el resumen y los ahorros; las
+ * banderas de Deudas, Gráficos, Asesor y Remesas son del panel entero
+ * (Completo, export.full-sheets). En Esencial quedan los tipos y el resumen.
+ * Se aplica en la entrada de buildSheets/buildPdfPages: ningún llamante
+ * puede colar una bandera dormida, venga del panel o de una hoja de compartir.
+ */
+export function pickForMode(pick: ExportPick, mode: BookMode): ExportPick {
+  if (mode === "completo") return pick;
+  return {
+    ...pick,
+    savings: mode === "ritmo" ? pick.savings : false,
+    debt: false,
+    charts: false,
+    advice: false,
+    remit: false,
+  };
+}
+
 export type ExportPick = {
   scope: ExportScope;
   activeOnly: boolean;
@@ -580,6 +611,7 @@ function budgetSheets(ledger: LedgerState, key: string, lang: Lang, names: Names
 
 /** Exported for tests (1.3.148): the sheet list is where the pick gates are honored or not. */
 export function buildSheets(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): Sheet[] {
+  pick = pickForMode(pick, bookModeOf(ledger));
   // 1.3.163 (audit D2): the export speaks with the VISIBLE names, like every screen — a hidden
   // category's own name used to print in «Movimientos» while the app showed its generic stand-in.
   names = visibleNamer(ledger.structure, names);
@@ -877,6 +909,7 @@ function clip(value: string, size: number): string {
 }
 
 function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): string[] {
+  pick = pickForMode(pick, bookModeOf(ledger));
   // 1.3.163 (audit D2): same visible-names rule as the workbook — the PDF printed them raw too.
   names = visibleNamer(ledger.structure, names);
   const pages: string[][] = [];

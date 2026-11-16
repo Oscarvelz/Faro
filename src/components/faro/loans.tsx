@@ -315,7 +315,12 @@ export function DeboSum({ parts, empty, help }: { parts: Array<Array<string | { 
 
 /** Debo → Préstamos: loans received, kept in the ledger. Payments become normal lines in the loan's book. */
 export function DueLoans({ libros = false, onWho, facts, between }: { libros?: boolean; onWho?: (name: string) => void; facts?: (id: string, interestView: number) => ReactNode; between?: ReactNode } = {}) {
-  const { t, fmt, session, commit, lang } = useFaro();
+  const { t, fmt, session, commit, lang, has } = useFaro();
+  // Etapa 3.3 (S-1/S-3): la familia de interés de los préstamos es Completo
+  // (loans.interest / loans.interest-paid / loans.pay-split) — en Ritmo la
+  // tarjeta lee el préstamo sin tasa, sin interés devengado ni pagado y sin
+  // abono partido; el saldo y el día de pago, que son hechos, se quedan.
+  const canInterest = has("loans.interest");
   const [adding, setAdding] = useState(false);
   const [payFor, setPayFor] = useState<string | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
@@ -379,7 +384,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         ...(lineDebt > 0 ? [lineDebtPart] : []),
       ] : sums.count ? [
         [`${sums.count} ${t(sums.count === 1 ? "debo.sum.loan1" : "debo.sum.loanN")}`],
-        ...(sums.interest > 0 ? [[t("debo.sum.interest"), { num: fmt(sums.interest) }]] : []),
+        ...(canInterest && sums.interest > 0 ? [[t("debo.sum.interest"), { num: fmt(sums.interest) }]] : []),
         [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
         ...(lineDebt > 0 ? [lineDebtPart] : []),
       ] : lineDebt > 0 ? [lineDebtPart] : null} />
@@ -399,15 +404,15 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
       {ledger && active.length ? active.map((loan) => {
         const f = loanState(ledger, loan);
         return (
-          <LoanCard key={loan.id} name={loan.lender} rate={loan.kind === "interest"} leftView={view(f.left, loan.currency)}
-            amountView={view(loan.amountMinor, loan.currency)} amountLabel={t("cobro.loan.got")} dateIso={loan.takenOn} aprBps={loan.aprBps}
+          <LoanCard key={loan.id} name={loan.lender} rate={canInterest && loan.kind === "interest"} leftView={view(f.left, loan.currency)}
+            amountView={view(loan.amountMinor, loan.currency)} amountLabel={t("cobro.loan.got")} dateIso={loan.takenOn} aprBps={canInterest ? loan.aprBps : 0}
             pays={loanPays(ledger, loan.id).map((line) => ({ date: line.bookedOn || `${line.monthKey}-01`, view: view(line.amountMinor, line.currency) }))}
-            extra={<><p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}{loan.dueDay ? <> · {t("cobro.loan.dueday")} <b className="num">{loan.dueDay}</b></> : null}{(() => { const ip = loanInterestPaid(ledger, loan); if (ip <= 0) return null; const yr = new Date().getFullYear(); const ipy = loanInterestPaid(ledger, loan, yr); return <> · {t("cobro.loan.intpaid")} <b className="num">{fmt(view(ip, loan.currency))}</b>{ipy > 0 && ipy < ip ? <> · {t("cobro.loan.intpaid.year")} <b className="num">{fmt(view(ipy, loan.currency))}</b></> : null}</>; })()}</p>{facts ? facts(loan.id, view(f.interest, loan.currency)) : null}</>}
+            extra={<><p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{canInterest && f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}{loan.dueDay ? <> · {t("cobro.loan.dueday")} <b className="num">{loan.dueDay}</b></> : null}{(() => { if (!has("loans.interest-paid")) return null; const ip = loanInterestPaid(ledger, loan); if (ip <= 0) return null; const yr = new Date().getFullYear(); const ipy = loanInterestPaid(ledger, loan, yr); return <> · {t("cobro.loan.intpaid")} <b className="num">{fmt(view(ip, loan.currency))}</b>{ipy > 0 && ipy < ip ? <> · {t("cobro.loan.intpaid.year")} <b className="num">{fmt(view(ipy, loan.currency))}</b></> : null}</>; })()}</p>{facts ? facts(loan.id, view(f.interest, loan.currency)) : null}</>}
             onWho={onWho ? () => onWho(loan.lender) : undefined}
             payLabel={t("cobro.loan.pay")} paying={payFor === loan.id} onPaying={(on) => setPayFor(on ? loan.id : null)}
             onPay={(minor, date) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line")), loan.lender)}
-            onPaySplit={loan.kind === "interest" ? (minor, date, intDisplay) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line"), convertMinor(intDisplay, display, loan.currency, rate)), loan.lender) : undefined}
-            prefillInterest={loan.kind === "interest" ? (minor) => Math.min(minor, view(accruedUnpaidInterest(ledger, loan), loan.currency)) : undefined}
+            onPaySplit={canInterest && loan.kind === "interest" ? (minor, date, intDisplay) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line"), convertMinor(intDisplay, display, loan.currency, rate)), loan.lender) : undefined}
+            prefillInterest={canInterest && loan.kind === "interest" ? (minor) => Math.min(minor, view(accruedUnpaidInterest(ledger, loan), loan.currency)) : undefined}
             archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
         );
       }) : cardSum.count ? null : <Note>{t("cobro.loan.empty")}</Note>}

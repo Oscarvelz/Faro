@@ -286,6 +286,9 @@ export function withSeguroDeVida(state: LedgerState): { ledger: LedgerState; add
 }
 
 export function defaultSettings(lang: Lang, theme: ThemeId): Settings {
+  // El modo (Settings.mode) nace AUSENTE a propósito: ausente = Completo (el Faro de
+  // siempre) y la pantalla inicial de elección es quien lo escribe en una cuenta
+  // nueva — un default aquí le robaría a esa pantalla su única pregunta.
   return {
     lang,
     theme,

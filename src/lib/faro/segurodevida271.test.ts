@@ -118,6 +118,12 @@ describe("1.3.271 — el importe de Oscar no existe; el nombre solo donde ya viv
       // La lección de la presentación (puerto 2026-11-14): el guion nombra la
       // pieza de fábrica en su escena del Seguro de vida, sin importe alguno.
       "src/lib/faro/guion.ts",
+      // El fallo Primerica de los tres modos (Oscar, 2026-11-15 23:02): la
+      // serie de fábrica es suya y no cuenta como bolsillo dormido de otra
+      // persona hasta que la instituye — mode.ts la reconoce para NO contarla,
+      // y las cercas del fallo viven en modos293. Sin importe alguno.
+      "src/lib/faro/mode.ts",
+      "src/lib/faro/modos293.test.ts",
     ]);
     for (const f of files) {
       if (!readFileSync(f, "utf8").includes("Primerica")) continue;
