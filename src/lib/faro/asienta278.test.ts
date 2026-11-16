@@ -36,7 +36,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
-  MIN_DWELL_MS, MODULES, dwellMs, moduleById, moduleSeconds, stepMs, wordCount, pick,
+  MIN_DWELL_MS, MODULES, RESULT_MS, dwellMs, moduleById, moduleSeconds, stepMs, wordCount, pick,
   type Pair, type Step,
 } from "./guion.ts";
 
@@ -65,11 +65,16 @@ describe("278 · el reloj: suelo y honestidad", () => {
   it("los costes anunciados son los del motor, exactos", () => {
     const cap: Pair = ["Toca Libros para entrar.", "Tap Libros to go in."];
     const doStep: Step = { kind: "do", anchor: "nav-books", caption: cap };
-    assert.equal(stepMs(doStep, "es"), dwellMs(cap, "es") + 650, "do = pie entero + 650 de asentamiento");
+    // ACTUALIZADO en la integración de la entrega de los 18 principios (2026-11-16):
+    // el asentamiento fijo de 650/500 de la 1.3.278 lo sustituye RESULT_MS — el
+    // momento del resultado del principio 9 — en stepMs Y en el motor a la vez;
+    // la ley de esta cerca (lo anunciado es lo ejecutado) no cambia, y la cerca
+    // de los principios en guion.test.ts la afirma para todo el registro.
+    assert.equal(stepMs(doStep, "es"), dwellMs(cap, "es") + RESULT_MS, "do = pie entero + RESULT_MS (el momento del resultado)");
     assert.equal(stepMs({ kind: "tap", anchor: "x" }, "es"), 720, "tap = 300 + toque + 420");
     assert.equal(stepMs({ kind: "seed", seed: "x" }, "es"), 600, "seed = lo que el motor espera");
     const typeStep: Step = { kind: "type", anchor: "x", text: cap, caption: cap };
-    assert.equal(stepMs(typeStep, "es"), dwellMs(cap, "es") + 500, "type = pie + 500");
+    assert.equal(stepMs(typeStep, "es"), dwellMs(cap, "es") + RESULT_MS, "type = pie entero + RESULT_MS");
   });
 
   it("el mapa: ningún pie por debajo del suelo y la duración anunciada es la real", () => {
@@ -93,8 +98,12 @@ describe("278 · el reloj: suelo y honestidad", () => {
 
   it("el motor ya no actúa al 55%: el gesto espera el pie entero", () => {
     assert.ok(!presTsx.includes("capDwell * 0.55"), "el atajo del 55% no existe en el conductor");
-    assert.ok(/\}, capDwell \/ speed\)/.test(presTsx), "el gesto en Automático se programa a capDwell / speed");
-    assert.ok(presTsx.includes("600 / speed"), "la siembra espera los 600ms anunciados");
+    // ACTUALIZADO en la integración de los 18 principios (2026-11-16): el divisor
+    // del motor ya no es la etiqueta cruda (`speed`) sino su traducción por la
+    // escala recalibrada, `paceOf(speed)` — el gesto sigue programándose tras el
+    // pie ENTERO (capDwell / pace) y la siembra sigue esperando sus 600 anunciados.
+    assert.ok(/\}, capDwell \/ pace\)/.test(presTsx), "el gesto en Automático se programa a capDwell / pace (la escala recalibrada)");
+    assert.ok(presTsx.includes("600 / pace"), "la siembra espera los 600ms anunciados");
   });
 });
 

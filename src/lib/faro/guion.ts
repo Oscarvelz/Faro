@@ -15,6 +15,8 @@
  * escenas: cada función que la interfaz calla lleva la suya, con intención.
  */
 
+import type { Mode } from "./modes.ts";
+
 export type Pair = readonly [es: string, en: string];
 export const pick = (pair: Pair, lang: string): string => (lang === "en" ? pair[1] : pair[0]);
 
@@ -43,6 +45,10 @@ export type Step =
 export interface Scene {
   id: string;
   chapter: string;
+  /** El modo cuya cara enseña esta escena, cuando solo se ofrece mirando desde
+   * él (las escenas filtradas del módulo «Los modos»). Sin modo, la escena se
+   * ofrece en todo modo donde viva su módulo. Ver modes.ts. */
+  mode?: Mode;
   /** Toda ancla que la escena toca (la cerca las verifica contra los componentes). */
   anchors: readonly string[];
   /** Palabras clave de búsqueda (ES, EN) — la lupa encuentra escenas como encuentra ajustes. */
@@ -61,6 +67,11 @@ export interface Module {
   title: Pair;
   /** La descripción previa del índice: una promesa de capacidad, no un tema. */
   promise: Pair;
+  /** El modo mínimo en cuyo índice vive este módulo (el índice es acumulativo:
+   * Esencial ⊂ Ritmo ⊂ Completo). Lo declaran los módulos que nacen con el
+   * sistema de modos; la recomposición de los demás es obra de la ola de
+   * modos. Ver modes.ts. */
+  mode?: Mode;
   ready: boolean;
   chapters: readonly Chapter[];
   scenes: readonly Scene[];
@@ -82,9 +93,25 @@ export const MIN_DWELL_MS = 2600;
 
 export const wordCount = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
 
-/** Permanencia de un pie a velocidad 1×: proporcional a sus palabras, con suelo. */
+/** Permanencia de un pie al ritmo base: proporcional a sus palabras. */
 export const dwellMs = (caption: Pair, lang: string): number =>
   Math.max(MIN_DWELL_MS, Math.round((wordCount(pick(caption, lang)) / WORDS_PER_MINUTE) * 60_000) + ORIENT_MS);
+
+/* LA ESCALA RECALIBRADA (principio 2 de las Presentaciones, orden de Oscar
+ * vía la línea de Brizna, 2026-11-15): la antigua 0.5× es la nueva 1× normal.
+ * Cada etiqueta se reescala en proporción — la nueva 2× es la antigua 1×; la
+ * nueva 0.5× es el ritmo de estudio más lento (la antigua 0.25×) — y el reloj
+ * de arriba queda como el ritmo BASE: lo que una etiqueta corre de verdad es
+ * base / paceOf(etiqueta). Las duraciones anunciadas se calculan en la misma
+ * escala (moduleSeconds divide por paceOf(1)), y una velocidad guardada en la
+ * escala vieja nunca se reinterpreta en silencio (el estado del aparato lleva
+ * marca de escala; sin ella, vuelve una vez a la nueva 1×). */
+export const paceOf = (label: number): number => label / 2;
+
+/** EL MOMENTO DEL RESULTADO (principio 9): tras una acción ejecutada con pie,
+ * el compás se detiene sobre el resultado asentado este tiempo (ritmo base)
+ * antes de seguir — la pausa pertenece al efecto, no solo a la leyenda. */
+export const RESULT_MS = 1000;
 
 /** Lo que un paso cuesta en modo automático a 1× (para la duración anunciada).
  * La ventanita de contexto, cuando la hay, suma su propia lectura: anunciarla sin
@@ -98,7 +125,7 @@ export function stepMs(step: Step, lang: string): number {
     case "ask":
       return dwellMs(step.caption, lang) + contextoMs;
     case "do":
-      return dwellMs(step.caption, lang) + contextoMs + 650; // el pie entero, el gesto y su asentamiento (1.3.278: el motor espera el pie completo antes de actuar; antes anunciaba +1200 y ejecutaba la mitad)
+      return dwellMs(step.caption, lang) + contextoMs + RESULT_MS; // el pie entero, el gesto y su momento de resultado (principios 16 y 9: primero se lee, después se actúa, y el resultado se queda su tiempo)
     case "go":
       return 1400; // el viaje y el asentamiento
     case "tap":
@@ -106,7 +133,7 @@ export function stepMs(step: Step, lang: string): number {
     case "seed":
       return 600; // sembrar y seguir (el motor espera lo mismo desde la 1.3.278)
     case "type":
-      return dwellMs(step.caption, lang) + contextoMs + 500; // el pie + el tecleo (el motor avanza a permanencia + 500)
+      return dwellMs(step.caption, lang) + contextoMs + RESULT_MS; // el pie entero, el tecleo y su momento de resultado (principio 16: nunca se teclea mientras el pie aún se lee)
     case "ref":
       return 0; // la referencia se ofrece; no cuesta tiempo de guion
   }
@@ -115,9 +142,10 @@ export function stepMs(step: Step, lang: string): number {
 export const sceneMs = (scene: Scene, lang: string): number =>
   scene.steps.reduce((sum, s) => sum + stepMs(s, lang), 0);
 
-/** La duración honesta del índice: automática a 1×, en segundos. */
+/** La duración honesta del índice: automática a la NUEVA 1× (principio 2:
+ * el ritmo base dividido por paceOf(1)), en segundos. */
 export const moduleSeconds = (mod: Module, lang: string): number =>
-  Math.round(mod.scenes.reduce((sum, s) => sum + sceneMs(s, lang), 0) / 1000);
+  Math.round(mod.scenes.reduce((sum, s) => sum + sceneMs(s, lang), 0) / paceOf(1) / 1000);
 
 /** «Aprox. 4 min» / «Approx. 4 min» — ley de flota (Oscar, 2026-11-14): la
  * duración completa se etiqueta «Aprox.»/«Approx.», nunca «unos» ni «about»;
@@ -278,7 +306,7 @@ const MAPA: Module = {
       keys: [["widget", "widget"], ["pantalla de inicio", "home screen"]],
       steps: [
         { kind: "seed", seed: "widget-mes" },
-        { kind: "show", anchor: "theater-wrap", caption: ["Esto es tu pantalla de inicio: Faro ya vive ahí.", "This is your home screen: Faro already lives there."] },
+        { kind: "show", anchor: "theater-wrap", caption: ["Tu pantalla de inicio, en escena: Faro ya vive ahí.", "Your home screen, on stage: Faro already lives there."] },
       ],
     },
     {
@@ -491,16 +519,18 @@ const ANOTAR: Module = {
     { id: "m3-interes", chapter: "balanza", anchors: ["debt-owed"], keys: [["interés", "interest"], ["capital", "principal"]], steps: [
       { kind: "show", anchor: "debt-owed", caption: ["Con interés, cada pago se reparte solo: interés y capital.", "With interest, each payment splits itself: interest and principal."] },
     ] },
-    { id: "m3-debo", chapter: "balanza", anchors: ["debt-loans"], keys: [["debo", "i owe"], ["préstamo", "loan"]], steps: [
+    { id: "m3-debo", chapter: "balanza", anchors: ["debt-tab-loans", "debt-loans"], keys: [["debo", "i owe"], ["préstamo", "loan"]], steps: [
       { kind: "go", screen: "vault-owe" },
+      { kind: "tap", anchor: "debt-tab-loans" },
       { kind: "show", anchor: "debt-loans", caption: ["Debo suma préstamos y tarjetas: aquí, C$20,000 al Banco.", "I owe adds loans and cards: here, C$20,000 to the Bank."] },
     ] },
     { id: "m3-archivo", chapter: "balanza", anchors: ["debt-owed-file"], keys: [["archivo", "file"], ["saldado", "settled"]], steps: [
       { kind: "go", screen: "vault-owed" },
       { kind: "show", anchor: "debt-owed-file", caption: ["Lo saldado se archiva, no se borra: queda su historial.", "Settled debts are filed, not deleted: their history stays."] },
     ] },
-    { id: "m3-tarjetas", chapter: "balanza", anchors: ["debt-cards"], keys: [["tarjetas", "cards"], ["canjear", "redeem"]], steps: [
+    { id: "m3-tarjetas", chapter: "balanza", anchors: ["debt-tab-loans", "debt-cards"], keys: [["tarjetas", "cards"], ["canjear", "redeem"]], steps: [
       { kind: "go", screen: "vault-owe" },
+      { kind: "tap", anchor: "debt-tab-loans" },
       { kind: "show", anchor: "debt-cards", caption: ["Bajo Debo viven las tarjetas: Actualizar, Canjear, su hoja.", "Under I owe live the cards: Update, Redeem, their sheet."] },
     ] },
     { id: "m3-atajo", chapter: "atajos", anchors: ["desk-plus"], keys: [["atajo", "shortcut"], ["esquina", "corner"]], steps: [
@@ -1219,6 +1249,216 @@ const COLCHON: Module = {
   ],
 };
 
+/* ================= LOS MÓDULOS DE LOS MODOS (2026-11-15) =================
+ * Los cinco huecos del mapa de módulos (MAPA-MODULOS.md §5, H-1…H-5),
+ * construidos por orden de Oscar desde el chat de Modos. Nacen con
+ * `ready: false`: el sistema de modos aún no existe en la app (no hay
+ * selector, ni la pieza «Puedes gastar hoy», ni las caras por modo), así que
+ * sus tarjetas se ven «En preparación» y ninguna cerca de duración los mide
+ * todavía. Cuando la ola de modos aterrice las superficies, cada uno se
+ * voltea a `ready: true` y entra en el índice de su modo — el índice es
+ * acumulativo: Esencial ⊂ Ritmo ⊂ Completo. La numeración (15–19) sigue a
+ * los módulos del modelo de ahorro (12–14, en la vía del canon) para que la
+ * integración futura no renumere dos veces. */
+
+const MODOS: Module = {
+  id: "modos", n: 15, title: ["Los modos", "The modes"], mode: "esencial", ready: false,
+  promise: ["Al salir, sabes qué modo tienes, qué cambia al moverte y que nada se borra.", "By the end, you know your mode, what changes when you move, and that nothing is deleted."],
+  chapters: [
+    { id: "el-sistema", title: ["El sistema", "The system"] },
+    { id: "subir-bajar", title: ["Subir y bajar", "Moving up and down"] },
+    { id: "lo-dormido", title: ["Lo que duerme", "What sleeps"] },
+  ],
+  scenes: [
+    { id: "m15-modos", chapter: "el-sistema", anchors: ["aj-modo"], keys: [["modos", "modes"], ["tres modos", "three modes"]], steps: [
+      { kind: "seed", seed: "widget-mes" },
+      { kind: "go", screen: "settings" },
+      { kind: "show", anchor: "aj-modo", caption: ["Faro tiene tres modos; el tuyo vive aquí, en Ajustes.", "Faro has three modes; yours lives here, in Settings."] },
+    ] },
+    { id: "m15-lineas", chapter: "el-sistema", anchors: ["aj-modo"], keys: [["líneas", "lines"]], steps: [
+      { kind: "show", anchor: "aj-modo", caption: ["Esencial anota y mira; Ritmo presupuesta; Completo interpreta.", "Essential notes and watches; Rhythm budgets; Complete interprets."] },
+    ] },
+    { id: "m15-esencial", chapter: "el-sistema", mode: "esencial", anchors: ["aj-modo"], keys: [["esencial", "essential"]], steps: [
+      { kind: "show", anchor: "aj-modo", caption: ["Tu cara de Esencial: registrar y mirar, sin maquinaria de más.", "Your Essential face: note things down and look, no extra machinery."] },
+    ] },
+    { id: "m15-ritmo", chapter: "el-sistema", mode: "ritmo", anchors: ["aj-modo"], keys: [["ritmo", "rhythm"]], steps: [
+      { kind: "show", anchor: "aj-modo", caption: ["Ritmo añade presupuestar y anticipar sobre lo de Esencial.", "Rhythm adds budgeting and anticipating on top of Essential."] },
+    ] },
+    { id: "m15-completo", chapter: "el-sistema", mode: "completo", anchors: ["aj-modo"], keys: [["completo", "complete"]], steps: [
+      { kind: "show", anchor: "aj-modo", caption: ["Completo lo interpreta y proyecta todo; nada de abajo se pierde.", "Complete interprets and projects everything; nothing below is lost."] },
+    ] },
+    { id: "m15-subir", chapter: "subir-bajar", anchors: ["aj-modo"], keys: [["subir", "moving up"]], steps: [
+      { kind: "do", anchor: "aj-modo", caption: ["Subir no pregunta: destapa al instante lo del modo nuevo.", "Moving up never asks: it uncovers the new mode at once."], contexto: ["Un aviso breve nombra lo que se acaba de destapar.", "A brief notice names what was just uncovered."] },
+    ] },
+    { id: "m15-impacto", chapter: "subir-bajar", anchors: ["modo-impacto"], keys: [["impacto", "impact"], ["bajar", "moving down"]], steps: [
+      { kind: "show", anchor: "modo-impacto", caption: ["Bajar sí pregunta: esta pantalla cuenta lo que dormirá.", "Moving down does ask: this screen counts what will sleep."] },
+    ] },
+    { id: "m15-nada-se-borra", chapter: "subir-bajar", anchors: ["modo-impacto"], keys: [["nada se borra", "nothing is deleted"]], steps: [
+      { kind: "show", anchor: "modo-impacto", caption: ["Bajar es desactivar, nunca borrar: tus datos quedan enteros.", "Moving down turns things off, never deletes: your data stays whole."] },
+    ] },
+    { id: "m15-mudos", chapter: "lo-dormido", anchors: ["modo-mudos"], keys: [["datos mudos", "mute data"]], steps: [
+      { kind: "go", screen: "desk" },
+      { kind: "show", anchor: "modo-mudos", caption: ["Lo de un modo mayor se ve aquí, en su sitio, explicado.", "What belongs to a higher mode shows here, in its place, explained."], contexto: ["Suma en tus totales igual que siempre; solo duerme su gestión.", "It counts in your totals as always; only its managing sleeps."] },
+    ] },
+    { id: "m15-solo-lectura", chapter: "lo-dormido", anchors: ["modo-mudos", "modo-lista"], keys: [["solo lectura", "read only"]], steps: [
+      { kind: "do", anchor: "modo-mudos", caption: ["La fila abre su lista: todo se lee, nada se edita aquí.", "The row opens its list: everything reads, nothing edits here."] },
+      { kind: "show", anchor: "modo-lista", caption: ["Gestionarlo vive en su modo; mirarlo, en todos.", "Managing it lives in its mode; looking at it, in all of them."] },
+    ] },
+    { id: "m15-sugiere", chapter: "lo-dormido", anchors: ["coach"], keys: [["sugerencia", "suggestion"]], steps: [
+      { kind: "go", screen: "advice" },
+      { kind: "show", anchor: "coach", caption: ["El Asesor puede sugerir subir; jamás cambia el modo solo.", "The Advisor may suggest moving up; it never changes the mode itself."] },
+    ] },
+    { id: "m15-cierre", chapter: "lo-dormido", anchors: ["aj-modo"], keys: [["selector", "selector"]], steps: [
+      { kind: "go", screen: "settings" },
+      { kind: "show", anchor: "aj-modo", caption: ["El selector nunca se esconde: cambiar de modo no rompe nada.", "The selector never hides: changing modes breaks nothing midway."] },
+    ] },
+  ],
+};
+
+/* H-1: su casa final es un capítulo de «El mes de un vistazo» (MAPA §5);
+ * nace como módulo en preparación porque un capítulo no puede estar en
+ * preparación dentro de un módulo listo. Al recomponerse el índice, estas
+ * escenas se pliegan como capítulo del módulo `mes`. */
+const HOY: Module = {
+  id: "hoy", n: 16, title: ["Puedes gastar hoy", "What you can spend today"], mode: "esencial", ready: false,
+  promise: ["Al salir, lees tu número de hoy: qué es, de dónde sale y cómo se mueve.", "By the end, you read your spend-today number: what it is, where it comes from, how it moves."],
+  chapters: [
+    { id: "el-numero", title: ["El número", "The number"] },
+    { id: "se-mueve", title: ["Cómo se mueve", "How it moves"] },
+  ],
+  scenes: [
+    { id: "m16-numero", chapter: "el-numero", anchors: ["desk-hoy"], keys: [["puedes gastar hoy", "spend today"], ["el número", "the number"]], steps: [
+      { kind: "seed", seed: "widget-mes" },
+      { kind: "go", screen: "desk" },
+      { kind: "show", anchor: "desk-hoy", caption: ["Este número dice cuánto puedes gastar hoy, en dinero.", "This number says what you can spend today, in money."] },
+    ] },
+    { id: "m16-formula", chapter: "el-numero", anchors: ["desk-hoy"], keys: [["de dónde sale", "where it comes from"]], steps: [
+      { kind: "show", anchor: "desk-hoy", caption: ["Sale de tu mes real: lo libre, menos lo que falta.", "It comes from your real month: what's free, minus what's left."], contexto: ["Lo libre menos los compromisos que quedan, entre los días que quedan.", "What's free minus the commitments left, over the days left."] },
+    ] },
+    { id: "m16-explicacion", chapter: "el-numero", anchors: ["desk-hoy"], keys: [["explicación", "explanation"]], steps: [
+      { kind: "do", anchor: "desk-hoy", caption: ["Tócalo: su explicación se abre y se lee en llano.", "Tap it: its explanation opens and reads plainly."] },
+    ] },
+    { id: "m16-anota", chapter: "se-mueve", anchors: ["book-add", "line-concept", "line-amount", "line-save", "ask-yes"], keys: [["anotar", "noting"], ["se mueve", "it moves"]], steps: [
+      { kind: "go", screen: "fixed" },
+      { kind: "do", anchor: "book-add", caption: ["Anota un gasto como siempre: el editor de Fijos.", "Note an expense as always: the Fixed editor."] },
+      { kind: "type", anchor: "line-concept", text: ["Luz del taller", "Workshop light"], caption: ["Un nombre claro: «Luz del taller».", "A clear name: “Workshop light”."] },
+      { kind: "type", anchor: "line-amount", text: ["1000", "1000.00"], caption: ["Y su monto: mil córdobas redondos.", "And its amount: a round thousand córdobas."] },
+      { kind: "do", anchor: "line-save", caption: ["Guarda el registro.", "Save the entry."] },
+      { kind: "do", anchor: "ask-yes", caption: ["Y confirma: el dígito ya nació.", "And confirm: the digit is born."] },
+    ] },
+    { id: "m16-baja", chapter: "se-mueve", anchors: ["desk-hoy"], keys: [["bajó", "it dropped"]], steps: [
+      { kind: "go", screen: "desk" },
+      { kind: "show", anchor: "desk-hoy", caption: ["El número ya cuenta los mil: bajó solo, sin cuentas tuyas.", "The number already counts the thousand: it dropped by itself."] },
+    ] },
+    { id: "m16-cierre", chapter: "se-mueve", anchors: ["desk-left"], keys: [["cómo voy", "how am I doing"]], steps: [
+      { kind: "show", anchor: "desk-left", caption: ["Es la respuesta entera de Esencial a «¿cómo voy?».", "It is Essential's whole answer to “how am I doing?”."] },
+    ] },
+  ],
+};
+
+const ASESOR_ESENCIAL: Module = {
+  id: "asesor-esencial", n: 17, title: ["El Asesor en Esencial", "The Advisor in Essential"], mode: "esencial", ready: false,
+  promise: ["Al salir, tu Asesor en Esencial te resulta claro: dinero, fechas y pasos llanos.", "By the end, your Advisor in Essential reads clearly: money, dates and plain steps."],
+  chapters: [
+    { id: "en-llano", title: ["En dinero y en llano", "In money and plain words"] },
+    { id: "la-ruta", title: ["La ruta y la subida", "The route and the way up"] },
+  ],
+  scenes: [
+    { id: "m17-asesor", chapter: "en-llano", anchors: ["coach"], keys: [["asesor", "advisor"], ["en llano", "plainly"]], steps: [
+      { kind: "seed", seed: "modos-asesor" },
+      { kind: "go", screen: "advice" },
+      { kind: "show", anchor: "coach", caption: ["En Esencial, tu Asesor habla en dinero y en llano.", "In Essential, your Advisor speaks in money and plain words."] },
+    ] },
+    { id: "m17-hoy", chapter: "en-llano", anchors: ["advice-tiles"], keys: [["puedes gastar hoy", "spend today"]], steps: [
+      { kind: "show", anchor: "advice-tiles", caption: ["Te dice cuánto puedes gastar hoy: un monto, sin vueltas.", "It tells you what you can spend today: one amount, plainly."] },
+    ] },
+    { id: "m17-vencen", chapter: "en-llano", anchors: ["advice-rules"], keys: [["vencimientos", "due dates"]], steps: [
+      { kind: "show", anchor: "advice-rules", caption: ["Avisa los vencimientos de los dos lados, en dinero y fechas.", "It flags due dates on both sides, in money and dates."], contexto: ["Lo que debes y lo que te deben: la consecuencia real avisa siempre.", "What you owe and what you're owed: real consequences always warn."] },
+    ] },
+    { id: "m17-pesaron", chapter: "en-llano", anchors: ["advice-tiles"], keys: [["pesaron más", "weighed most"]], steps: [
+      { kind: "show", anchor: "advice-tiles", caption: ["Dice qué gastos pesaron más, en dinero y sin porcentajes.", "It says which expenses weighed most, in money, no percentages."] },
+    ] },
+    { id: "m17-plan", chapter: "la-ruta", anchors: ["advice-plan"], keys: [["el plan", "the plan"], ["primeros pasos", "first steps"]], steps: [
+      { kind: "show", anchor: "advice-plan", caption: ["Su Plan ordena tus primeros pasos, en un orden llano.", "Its Plan orders your first steps, in a plain order."] },
+    ] },
+    { id: "m17-palabras", chapter: "la-ruta", anchors: ["coach-words"], keys: [["palabras simples", "simple words"]], steps: [
+      { kind: "do", anchor: "coach-words", caption: ["Con «En palabras simples», su consejo se comparte tal cual.", "With “In simple words”, its advice shares as-is."] },
+    ] },
+    { id: "m17-subida", chapter: "la-ruta", anchors: ["coach"], keys: [["sugerencia de subida", "suggestion to move up"]], steps: [
+      { kind: "show", anchor: "coach", caption: ["Si tu uso pide más, sugiere subir; nunca cambia solo.", "If your use asks for more, it suggests moving up; never switches alone."] },
+    ] },
+    { id: "m17-cierre", chapter: "la-ruta", anchors: ["advice-basis"], keys: [["sin adivinanzas", "no guessing"]], steps: [
+      { kind: "show", anchor: "advice-basis", caption: ["Solo habla de lo que puede mostrarte: nada de adivinanzas.", "It only speaks of what it can show you: no guessing."] },
+    ] },
+  ],
+};
+
+const ASESOR_RITMO: Module = {
+  id: "asesor-ritmo", n: 18, title: ["El Asesor en Ritmo", "The Advisor in Rhythm"], mode: "ritmo", ready: false,
+  promise: ["Al salir, lees a tu Asesor en Ritmo: su regla, sus horizontes y sus avisos.", "By the end, you read your Advisor in Rhythm: its rule, horizons and notices."],
+  chapters: [
+    { id: "la-regla", title: ["La regla con nombre", "The named rule"] },
+    { id: "horizontes", title: ["Horizontes y avisos", "Horizons and notices"] },
+  ],
+  scenes: [
+    { id: "m18-asesor", chapter: "la-regla", anchors: ["coach"], keys: [["asesor", "advisor"], ["ritmo", "rhythm"]], steps: [
+      { kind: "seed", seed: "asesor-meses" },
+      { kind: "go", screen: "advice" },
+      { kind: "show", anchor: "coach", caption: ["En Ritmo, el Asesor gana su regla con nombre.", "In Rhythm, the Advisor gains its named rule."] },
+    ] },
+    { id: "m18-regla", chapter: "la-regla", anchors: ["advice-tiles", "advice-rules"], keys: [["50·30·20", "50·30·20"], ["la regla", "the rule"]], steps: [
+      { kind: "tap", anchor: "advice-tiles" },
+      { kind: "show", anchor: "advice-rules", caption: ["La regla 50·30·20 reparte tu mes: necesidades, gustos, ahorro.", "The 50·30·20 rule splits your month: needs, wants, savings."], contexto: ["Con barras y porcentajes: es guía descriptiva, no una orden.", "With bars and percentages: a descriptive guide, not an order."] },
+    ] },
+    { id: "m18-horizontes", chapter: "horizontes", anchors: ["advice-medium-cards"], keys: [["horizontes", "horizons"], ["tarjetas", "cards"]], steps: [
+      { kind: "show", anchor: "advice-medium-cards", caption: ["Sus horizontes hablan en montos y fechas: tus tarjetas, leídas.", "Its horizons speak in amounts and dates: your cards, read."] },
+    ] },
+    { id: "m18-avisos", chapter: "horizontes", anchors: ["advice-rules"], keys: [["avisos", "notices"], ["meta y piso", "goal and floor"]], steps: [
+      { kind: "show", anchor: "advice-rules", caption: ["Sus avisos citan tu meta y tu piso, con nombre y cifra.", "Its notices cite your goal and your floor, by name and figure."] },
+    ] },
+    { id: "m18-base", chapter: "horizontes", anchors: ["advice-basis"], keys: [["la base", "the basis"]], steps: [
+      { kind: "show", anchor: "advice-basis", caption: ["Su base son tus meses reales, y la declara en cada lectura.", "Its basis is your real months, declared in every reading."] },
+    ] },
+    { id: "m18-cierre", chapter: "horizontes", anchors: ["advice-plan"], keys: [["el plan", "the plan"]], steps: [
+      { kind: "show", anchor: "advice-plan", caption: ["El plan ordena los pasos con montos y fechas.", "The plan orders the steps with amounts and dates."] },
+    ] },
+  ],
+};
+
+/* H-5: su casa final es un capítulo de «Anotar» (o de «Folios · El río»);
+ * nace como módulo en preparación por la misma razón que H-1. Al
+ * recomponerse el índice, estas escenas se pliegan como capítulo. */
+const DEUDAS: Module = {
+  id: "deudas", n: 19, title: ["Tus deudas como hechos", "Your debts as facts"], mode: "esencial", ready: false,
+  promise: ["Al salir, lees tus deudas como hechos: saldos, vencidos y próximos vencimientos.", "By the end, you read your debts as facts: balances, overdues and next due dates."],
+  chapters: [
+    { id: "los-hechos", title: ["Los hechos", "The facts"] },
+  ],
+  scenes: [
+    { id: "m19-balanza", chapter: "los-hechos", anchors: ["debt-scale"], keys: [["balanza", "scale"], ["los dos lados", "both sides"]], steps: [
+      { kind: "seed", seed: "modos-hechos" },
+      { kind: "go", screen: "fixed" },
+      { kind: "show", anchor: "debt-scale", caption: ["Los dos lados de un vistazo: Me deben contra Debo.", "Both sides at a glance: owed to me against I owe."] },
+    ] },
+    { id: "m19-medeben", chapter: "los-hechos", anchors: ["debt-owed"], keys: [["me deben", "owed to me"], ["vencido", "overdue"]], steps: [
+      { kind: "go", screen: "vault-owed" },
+      { kind: "show", anchor: "debt-owed", caption: ["Me deben, como hechos: Ana, C$5,000; Luis venció ayer.", "Owed to me, as facts: Ana, C$5,000; Luis fell due yesterday."] },
+    ] },
+    { id: "m19-debo", chapter: "los-hechos", anchors: ["debt-tab-loans", "debt-loans"], keys: [["debo", "i owe"], ["préstamo", "loan"]], steps: [
+      { kind: "go", screen: "vault-owe" },
+      { kind: "tap", anchor: "debt-tab-loans" },
+      { kind: "show", anchor: "debt-loans", caption: ["Debo, como hechos: al Banco se le deben C$20,000.", "I owe, as facts: the Bank is owed C$20,000."] },
+    ] },
+    { id: "m19-tarjeta", chapter: "los-hechos", anchors: ["debt-cards"], keys: [["tarjeta", "card"], ["vence", "due"]], steps: [
+      { kind: "show", anchor: "debt-cards", caption: ["Cada tarjeta, como hecho: su saldo y su próximo vencimiento.", "Each card, as a fact: its balance and its next due date."] },
+    ] },
+    { id: "m19-cierre", chapter: "los-hechos", anchors: ["debt-scale"], keys: [["los hechos", "the facts"]], steps: [
+      { kind: "go", screen: "fixed" },
+      { kind: "show", anchor: "debt-scale", caption: ["Saldos, vencidos y próximos vencimientos: alcanza para mirar.", "Balances, overdues and next due dates: enough to look with."] },
+    ] },
+  ],
+};
+
 export const MODULES: readonly Module[] = [
   MAPA,
   MANUAL,
@@ -1234,6 +1474,11 @@ export const MODULES: readonly Module[] = [
   PREGUNTA,
   TOTALES,
   COLCHON,
+  MODOS,
+  HOY,
+  ASESOR_ESENCIAL,
+  ASESOR_RITMO,
+  DEUDAS,
 ];
 
 export const moduleById = (id: string): Module | undefined => MODULES.find((m) => m.id === id);

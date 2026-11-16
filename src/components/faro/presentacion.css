@@ -52,6 +52,21 @@
     0 0 26px 2px color-mix(in oklab, var(--good) 50%, transparent);
 }
 
+/* EL RECUADRO DE LA REGIÓN NOMBRADA (principio 11 reforzado, 2026-11-15):
+ * cuando la huella del compás excede al foco, este marco ata el pie a la
+ * región entera de la que habla — borde del acento atenuado y un halo
+ * suave, sin velo dentro (la ventana clara ya la despejó). Cabalga con la
+ * huella en el mismo reloj de movimiento que el hueco. */
+.pres-regionframe {
+  position: fixed;
+  border-radius: 18px;
+  pointer-events: none;
+  border: 1.5px solid color-mix(in oklab, var(--accent) 62%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 9%, transparent);
+  transition: left var(--pres-dur) var(--pres-ease), top var(--pres-dur) var(--pres-ease),
+    width var(--pres-dur) var(--pres-ease), height var(--pres-dur) var(--pres-ease);
+}
+
 .pres-thread { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: color-mix(in oklab, var(--line) 55%, transparent); pointer-events: none; }
 .pres-thread i { display: block; height: 100%; background: var(--accent); transition: width var(--pres-dur) var(--pres-ease); }
 
@@ -364,11 +379,15 @@
 .pres-stayask-veil {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
-  background: oklab(0% none none / .45);
-  -webkit-backdrop-filter: blur(3px);
+  /* El velo de las ventanas de la presentación sigue la gramática del velo
+   * de actuación (principio 7): oscurece y desatura levemente — el
+   * desenfoque está muerto también aquí — y su negro queda bajo el techo
+   * del 45 %. */
+  background: oklab(0% none none / .42);
+  -webkit-backdrop-filter: saturate(.72);
   pointer-events: auto; padding: 18px;
 }
-.pres-stayask-veil { backdrop-filter: blur(3px); }
+.pres-stayask-veil { backdrop-filter: saturate(.72); }
 .pres-stayask {
   width: min(400px, 100%);
   background: var(--surface); color: var(--fg);
@@ -385,6 +404,20 @@
 .pres-stayask p { margin: 0; line-height: 1.5; color: var(--muted); }
 .pres-stayask-acts { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; flex-wrap: wrap; }
 
+/* ----------------- LA VENTANA DE APERTURA (principio 1) -----------------
+ * La primera superficie de cada corrida: explica los dos modos y nombra
+ * cada control de la tarjeta antes de que la tarjeta exista. Viste la
+ * misma ventana centrada de la casa; sus filas de modo llevan el icono del
+ * acento y el nombre en el color del texto. */
+.pres-gate-modes { display: grid; gap: 7px; }
+.pres-gate-mode { display: flex; gap: 9px; align-items: flex-start; }
+.pres-gate-mode svg { width: 15px; height: 15px; flex: none; color: var(--accent); margin-top: 4px; }
+.pres-gate-mode strong { font-size: inherit; color: var(--fg); }
+.pres-gate-controls strong { color: var(--fg); font-weight: 600; font-size: inherit; }
+.pres-gate-acts { align-items: center; }
+.pres-gate-status { margin-right: auto; color: var(--faint); font-size: .84rem; }
+.pres-gate-go:disabled { opacity: .45; cursor: default; }
+
 /* ------------- la ficha primera («Sigue donde ibas») ------------- */
 .pres-first { margin-bottom: 6px; }
 .pres-first-title {
@@ -397,6 +430,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pres-hole { transition: none; }
+  .pres-regionframe { transition: none; }
   .pres-dot { animation: none; }
   .pres-card { transition: none; }
   .pres-card.is-shake { animation: none; }

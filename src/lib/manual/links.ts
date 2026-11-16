@@ -18,6 +18,12 @@ export const LINKS: Record<string, string> = {
   "Enviar a": "cambio-enviar", "Send to": "cambio-enviar",
   "Remesas por persona": "remesas-personas", "Remittances by person": "remesas-personas",
   Asesor: "asesor", Advisor: "asesor",
+  // Los modos (2026-11-15): los nombres oficiales del sistema de tres modos
+  // saltan a su tema, como manda la ley de nombres (diseño §2.9).
+  Esencial: "modos", Essential: "modos",
+  Ritmo: "modos", Rhythm: "modos",
+  Completo: "modos", Complete: "modos",
+  "Puedes gastar hoy": "puedes-gastar-hoy", "What you can spend today": "puedes-gastar-hoy",
   Widget: "widget-android",
   Ingresos: "ingresos", Income: "ingresos",
   Cuotas: "cuotas", Plans: "cuotas",

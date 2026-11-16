@@ -12,6 +12,8 @@
  * Chapters follow the app's screens, in the app's order.
  */
 
+import type { Mode } from "../faro/modes.ts";
+
 export type L = readonly [string, string];
 
 /** A place in Faro. Maps 1:1 to provider state (section / vault tab / overlay). */
@@ -59,6 +61,10 @@ export type Topic = {
    * "manual": needs context — the bubble adds "Más en el manual →", and the entry must extend the bubble (how / tip).
    */
   depth: "tip" | "manual";
+  /** El modo mínimo del tema: el tema sigue a la función, no al capítulo
+   * (fallo 25 de Oscar, 2026-11-15; hueco T-2 del censo de modos). Sin modo,
+   * el tema aún no declara el suyo — la ola de metadatos lo irá asentando. */
+  mode?: Mode;
   /** What it is. Also the exact text of the (?) bubble. 1–2 sentences. */
   what: L;
   /** Second text, when the same (?) changes with the state (shown after `what` in the manual). */
@@ -540,6 +546,18 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         sum: ["Para qué fecha fue el regalo.", "Which date the gift was for."],
         what: ["Opcional. Une el regalo a una fecha de la persona, como su cumpleaños o un aniversario. El total por año no cambia; al abrir a la persona ves cuánto fue para cada fecha.", "Optional. Ties the gift to one of the person's dates, like their birthday or an anniversary. The total per year stays; open the person to see what went to each date."],
         go: { screen: "variable", anchor: "book-people", where: ["Libros → Variables, Personas", "Books → Variable, People"] },
+      },
+      {
+        id: "puedes-gastar-hoy",
+        depth: "manual",
+        mode: "esencial",
+        title: ["Puedes gastar hoy", "What you can spend today"],
+        sum: ["El número de Central que dice tu disponible de hoy.", "The Desk number that states today's available money."],
+        what: ["Es el disponible de hoy: lo libre de tu mes, menos los compromisos que quedan, repartido entre los días que quedan. Se lee en dinero, sin porcentajes.", "It is today's available money: your month's free money, minus the commitments still ahead, spread over the days left. It reads in money, with no percentages."],
+        how: ["Tócalo en [[Central]] y su explicación se abre con las cifras que lo forman. Al anotar un gasto, el número se mueve solo.", "Tap it on the [[Desk]] and its explanation opens with the figures that form it. When you note an expense, the number moves by itself."],
+        tip: ["Es la respuesta de [[Esencial]] a «¿cómo voy?»: un solo número, honesto, para el día de hoy.", "It is [[Essential]]'s answer to “how am I doing?”: one single, honest number for today."],
+        go: { screen: "desk", anchor: "desk-hoy", where: ["Central, arriba", "Desk, at the top"] },
+        terms: [["Disponible de hoy", "Today's available"], ["Cuánto puedo gastar", "How much can I spend"]],
       },
     ],
   },
@@ -1092,6 +1110,18 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         what: ["El día del próximo pago. Vacío, queda hoy.", "The day of the next payment. Left empty, it is today."],
         go: { screen: "cobros", anchor: "cobros-out", where: ["Cobros → Debo → +", "Collections → I owe → +"] },
         keys: ["tip.cobro.owe.next"],
+      },
+      {
+        id: "deudas-hechos",
+        depth: "manual",
+        mode: "esencial",
+        title: ["Tus deudas, en claro", "Your debts, plainly"],
+        sum: ["Los hechos de tus deudas: saldos, vencidos y próximos vencimientos.", "The facts of your debts: balances, overdues and next due dates."],
+        what: ["En [[Esencial]] tus deudas se leen como hechos: quién te debe y cuánto, qué debes y su saldo, qué ya venció y qué vence próximo, en dinero y fechas.", "In [[Essential]] your debts read as facts: who owes you and how much, what you owe and its balance, what is already overdue and what falls due next, in money and dates."],
+        how: ["Ábrelas desde [[Libros]]: Me deben y Debo muestran sus tarjetas en solo lectura. Nada se edita ahí; es la cara de mirar.", "Open them from [[Books]]: Owed to me and I owe show their cards read-only. Nothing edits there; it is the looking face."],
+        tip: ["Los hechos viven en todos los modos: la mayoría de la gente debe algo, y eso se mira desde el primer día.", "The facts live in every mode: most people owe something, and that is looked at from day one."],
+        go: { screen: "vault-owed", where: ["Libros → Me deben", "Books → Owed to me"] },
+        terms: [["Deudas como hechos", "Debts as facts"], ["Vencidos", "Overdue"]],
       },
     ],
   },
@@ -2344,6 +2374,30 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         what: ["Tu colchón entre lo esencial de un mes: casa, comida, transporte, salud y créditos. El colchón es el saldo de cada cuenta que no está apartado para fondos que no son de emergencia, más tu [[Emergencia]] aparte; lo que aún no declara dónde vive cuenta como pila. Se redondea hacia abajo.", "Your cushion over a month of essentials: home, food, transport, health and credit. The cushion is each account's balance that isn't set apart for non-emergency funds, plus your set-apart [[Emergency]]; what hasn't declared where it lives yet counts as a pile. It rounds down."],
         go: { screen: "advice", anchor: "advice-rules|advice-tower", fold: "rules", where: ["Asesor → Lo que dicen tus números", "Advisor → What your numbers say"] },
       },
+      {
+        id: "asesor-esencial",
+        depth: "manual",
+        mode: "esencial",
+        title: ["Tu Asesor en Esencial", "Your Advisor in Essential"],
+        sum: ["Lo que tu Asesor te dice en dinero y en llano.", "What your Advisor tells you in money and plain words."],
+        what: ["En [[Esencial]] el [[Asesor]] habla de lo esencial: tu [[Puedes gastar hoy]], los vencimientos de los dos lados, los gastos que más pesaron y la ruta de su Plan. Sin maquinaria: dinero, fechas y pasos.", "In [[Essential]] the [[Advisor]] speaks of essentials: your [[What you can spend today]], due dates on both sides, the expenses that weighed most and its Plan's route. No machinery: money, dates and steps."],
+        how: ["Léelo en el [[Asesor]]: cada aviso nace de un movimiento tuyo y puede mostrarte cuál. Si tu uso pide más, te sugerirá subir de modo; nunca cambia el modo por su cuenta.", "Read it in the [[Advisor]]: every notice is born from a movement of yours and can show you which. If your use asks for more, it will suggest moving up a mode; it never changes the mode by itself."],
+        tip: ["Su deber no cambia con el modo: si algo es esencial, no se queda callado en ninguno.", "Its duty does not change with the mode: if something is essential, it stays silent in none."],
+        go: { screen: "advice", where: ["Estudio → Asesor", "Study → Advisor"] },
+        terms: [["Asesor en llano", "Advisor in plain words"], ["Consejos esenciales", "Essential advice"]],
+      },
+      {
+        id: "asesor-ritmo",
+        depth: "manual",
+        mode: "ritmo",
+        title: ["Tu Asesor en Ritmo", "Your Advisor in Rhythm"],
+        sum: ["La profundidad de Ritmo: la regla con nombre, horizontes y avisos.", "Rhythm's depth: the named rule, horizons and notices."],
+        what: ["En [[Ritmo]] el [[Asesor]] gana su regla 50·30·20 con barras y porcentajes, horizontes en montos y fechas, y avisos que citan tu meta y tu piso con nombre y cifra.", "In [[Rhythm]] the [[Advisor]] gains its 50·30·20 rule with bars and percentages, horizons in amounts and dates, and notices that cite your goal and your floor by name and figure."],
+        how: ["Cada lectura declara su base — qué meses mira — y cada aviso aterriza en una superficie que tu modo puede mostrarte.", "Every reading declares its basis — which months it looks at — and every notice lands on a surface your mode can show you."],
+        tip: ["Es la profundidad de presupuestar y anticipar: describe tu mes y te avisa antes, sin proyectar años.", "It is the depth of budgeting and anticipating: it describes your month and warns you ahead, without projecting years."],
+        go: { screen: "advice", where: ["Estudio → Asesor", "Study → Advisor"] },
+        terms: [["Asesor intermedio", "Middle Advisor"], ["Horizontes", "Horizons"]],
+      },
     ],
   },
   /* ------------------------------------------------------------------ 9 */
@@ -2822,6 +2876,18 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         go: { screen: "settings", fold: "backup", anchor: "aj-activity", where: ["Ajustes → Copias de seguridad, al final", "Settings → Backups, at the end"] },
         terms: [["Historial de cambios", "Change history"], ["Bitácora", "Log"]],
         keys: ["settings.activity"],
+      },
+      {
+        id: "modos",
+        depth: "manual",
+        mode: "esencial",
+        title: ["Los modos de Faro", "Faro's modes"],
+        sum: ["Esencial, Ritmo y Completo: tres caras de un mismo Faro.", "Essential, Rhythm and Complete: three faces of one Faro."],
+        what: ["Faro tiene tres modos. [[Esencial]] registra y mira; [[Ritmo]] presupuesta y anticipa; [[Completo]] interpreta y proyecta. El modo filtra lo que se ve y se gestiona; nunca toca tus datos.", "Faro has three modes. [[Essential]] notes and watches; [[Rhythm]] budgets and anticipates; [[Complete]] interprets and projects. The mode filters what is seen and managed; it never touches your data."],
+        how: ["El selector vive siempre en Ajustes. Subir no pregunta y destapa al instante; bajar pregunta primero y su pantalla de impacto cuenta lo que dormirá. Nada se borra en ninguna dirección.", "The selector always lives in Settings. Moving up never asks and uncovers at once; moving down asks first and its impact screen counts what will sleep. Nothing is deleted in either direction."],
+        tip: ["Lo de un modo mayor se ve en su sitio como datos mudos, en solo lectura, y suma en tus totales igual que siempre.", "What belongs to a higher mode shows in its place as mute data, read-only, and counts in your totals as always."],
+        go: { screen: "settings", anchor: "aj-modo", where: ["Ajustes → La app", "Settings → The app"] },
+        terms: [["Cambiar de modo", "Change mode"], ["Modo simple", "Simple mode"], ["Modo avanzado", "Advanced mode"]],
       },
     ],
   },

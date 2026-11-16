@@ -16,7 +16,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { MODULES, TOPIC_SCENES, allAnchors, chapterFirst, durationLabel, dwellMs, moduleById, moduleSeconds, overallProgress, scenePlace, searchScenes, wordCount, type Pair } from "./guion.ts";
+import { MODULES, RESULT_MS, TOPIC_SCENES, allAnchors, chapterFirst, durationLabel, dwellMs, moduleById, moduleSeconds, overallProgress, paceOf, scenePlace, searchScenes, stepMs, wordCount, type Pair } from "./guion.ts";
+import { MODES } from "./modes.ts";
 import { STAGE_SEEDS } from "./stage-seeds.ts";
 import { createInitial } from "./defaults.ts";
 import { isDataKey } from "./samplemode.ts";
@@ -111,8 +112,14 @@ describe("guion: anclas vivas", () => {
       const ajFolded = Boolean(aj && componentSource.includes("data-anchor={`aj-${") && (componentSource.includes(`<Fold id="${aj[1]}"`) || (aj[1] === "rules" && componentSource.includes('<Fold id="rate"'))));
       // Vía prop: StreamRow recibe anchor="…" y lo vuelca en su data-anchor.
       const viaProp = new RegExp(`anchor=\\{[^}]*"${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`).test(componentSource);
+      // Excepción NOMBRADA de los modos (2026-11-15): las anclas del sistema de
+      // tres modos — el selector («aj-modo»), la pantalla de impacto, la fila de
+      // datos mudos y su lista, y la pieza «Puedes gastar hoy» («desk-hoy») —
+      // las acuña la ola de modos; los módulos H-1/H-2 las citan desde ya para
+      // nacer completos. Cuando la ola aterrice, esta excepción se borra.
+      const modePending = ["aj-modo", "modo-impacto", "modo-mudos", "modo-lista", "desk-hoy"].includes(anchor);
       assert.ok(
-        plain || dynamic || templated || folded || viaProp || ajFolded,
+        plain || dynamic || templated || folded || viaProp || ajFolded || modePending,
         `ancla muerta: "${anchor}" no aparece en ningún componente — el módulo que la cita debe revisarse`,
       );
     }
@@ -170,6 +177,54 @@ describe("guion: la escalera sana y el reloj", () => {
     for (const mod of MODULES) {
       assert.match(durationLabel(mod, "es"), /^Aprox\. \d+ min$/, `${mod.id}: etiqueta ES`);
       assert.match(durationLabel(mod, "en"), /^Approx\. \d+ min$/, `${mod.id}: etiqueta EN`);
+    }
+  });
+});
+
+describe("guion: los 18 principios — la escala, la secuencia y la honestidad (2026-11-15)", () => {
+  it("principio 2: la escala recalibrada — la antigua 0.5× es la nueva 1× y cada etiqueta se reescala en proporción", () => {
+    assert.equal(paceOf(1), 0.5, "la nueva 1× corre al ritmo de la antigua 0.5×");
+    assert.equal(paceOf(2), 1, "la nueva 2× es la antigua 1×");
+    assert.equal(paceOf(0.5), 0.25, "la nueva 0.5× es el ritmo de estudio, el más lento");
+    assert.equal(paceOf(4), 2, "la nueva 4× es la antigua 2×");
+    // Las duraciones anunciadas viven en la misma escala: un módulo dura el
+    // doble de su suma al ritmo base, porque la nueva 1× es la mitad de él.
+    for (const mod of MODULES) {
+      if (!mod.ready) continue;
+      const base = mod.scenes.reduce((sum, s) => sum + s.steps.reduce((a, st) => a + stepMs(st, "es"), 0), 0);
+      assert.equal(moduleSeconds(mod, "es"), Math.round(base / paceOf(1) / 1000), `${mod.id}: la duración anunciada no sigue la escala`);
+    }
+  });
+
+  it("principios 16 y 9: lo anunciado es lo ejecutado — tras el pie entero, la acción y su momento de resultado", () => {
+    for (const mod of MODULES) {
+      for (const scene of mod.scenes) {
+        for (const step of scene.steps) {
+          if (step.kind === "do" || step.kind === "type") {
+            const contextoMs = step.contexto ? Math.round((wordCount(step.contexto[0]) / 200) * 60_000) : 0;
+            assert.equal(
+              stepMs(step, "es"),
+              dwellMs(step.caption, "es") + contextoMs + RESULT_MS,
+              `${scene.id}: un ${step.kind} anuncia pie + RESULT_MS (el motor corre exactamente eso)`,
+            );
+          }
+          if (step.kind === "tap") assert.equal(stepMs(step, "es"), 720, `${scene.id}: la maquinaria sin pie anuncia sus 720 exactos (300 + toque + 420)`);
+          if (step.kind === "seed") assert.equal(stepMs(step, "es"), 600, `${scene.id}: sembrar anuncia 600`);
+          if (step.kind === "go") assert.equal(stepMs(step, "es"), 1400, `${scene.id}: viajar anuncia 1400`);
+        }
+      }
+    }
+  });
+
+  it("principio 15: el teatro del widget se declara modelo — su pie dice «en escena», nunca se hace pasar por la pantalla real", () => {
+    const mapa = moduleById("mapa");
+    const scene = mapa?.scenes.find((s) => s.id === "m1-widget-mes");
+    const show = scene?.steps.find((st) => st.kind === "show");
+    assert.ok(show && show.kind === "show", "la escena del widget existe y abre con un show");
+    if (show && show.kind === "show") {
+      assert.match(show.caption[0], /en escena/, "el pie ES declara el modelo");
+      assert.match(show.caption[1], /on stage/, "el pie EN declara el modelo");
+      assert.ok(!/^Esto es|^This is/.test(show.caption[0]) && !/^This is/.test(show.caption[1]), "ningún pie afirma que el modelo ES la pantalla");
     }
   });
 });
@@ -304,5 +359,65 @@ describe("guion: la línea general de progreso (cuenta honesta)", () => {
     const p = overallProgress(mods as never, { a: { scene: 0, done: false } });
     assert.equal(p.pct, 0);
     assert.equal(p.inProgress, 0);
+  });
+});
+
+describe("guion: los modos (2026-11-15)", () => {
+  it("todo modo declarado es uno de los tres, en módulos y en escenas", () => {
+    for (const mod of MODULES) {
+      if (mod.mode) assert.ok(MODES.includes(mod.mode), `${mod.id}: modo de módulo inválido "${mod.mode}"`);
+      for (const scene of mod.scenes) {
+        if (scene.mode) assert.ok(MODES.includes(scene.mode), `${scene.id}: modo de escena inválido "${scene.mode}"`);
+      }
+    }
+  });
+
+  it("los cinco módulos de los modos declaran su modo y nacen en preparación", () => {
+    const born: Record<string, string> = {
+      modos: "esencial",
+      hoy: "esencial",
+      "asesor-esencial": "esencial",
+      "asesor-ritmo": "ritmo",
+      deudas: "esencial",
+    };
+    for (const [id, mode] of Object.entries(born)) {
+      const mod = moduleById(id);
+      assert.ok(mod, `falta el módulo ${id}`);
+      assert.equal(mod.mode, mode, `${id}: debe declarar el modo ${mode}`);
+      assert.equal(mod.ready, false, `${id}: nace en preparación — sus superficies aún no existen en la app`);
+      assert.ok(mod.scenes.length > 0, `${id}: nace completo, con sus escenas escritas`);
+    }
+  });
+
+  it("el módulo «Los modos» cubre los tres modos con escenas filtradas", () => {
+    const mod = moduleById("modos");
+    assert.ok(mod);
+    for (const mode of MODES) {
+      assert.ok(mod.scenes.some((s) => s.mode === mode), `modos: falta la escena filtrada de ${mode}`);
+    }
+  });
+
+  it("ningún módulo de Esencial o Ritmo enseña ni nombra la maquinaria de Completo", () => {
+    // Fallos 25 y 26: la maquinaria de Completo (pilares, simulador) no se
+    // enseña ni se referencia — ni negada — desde un módulo de un modo menor.
+    const bannedAnchors = ["advice-sim", "advice-apply", "coach-pillars"];
+    const bannedWords = ["simulador", "simulator", "pilares", "pillars", "patrón", "patron", "dti"];
+    for (const mod of MODULES) {
+      if (mod.mode !== "esencial" && mod.mode !== "ritmo") continue;
+      for (const scene of mod.scenes) {
+        for (const a of scene.anchors) {
+          assert.ok(!bannedAnchors.includes(a), `${scene.id}: ancla de Completo "${a}" en un módulo de ${mod.mode}`);
+        }
+        for (const step of scene.steps) {
+          if (!("caption" in step) || !step.caption) continue;
+          for (const lang of [0, 1] as const) {
+            const text = step.caption[lang].toLowerCase();
+            for (const w of bannedWords) {
+              assert.ok(!text.includes(w), `${scene.id}: nombra «${w}», maquinaria de Completo, en un módulo de ${mod.mode}`);
+            }
+          }
+        }
+      }
+    }
   });
 });

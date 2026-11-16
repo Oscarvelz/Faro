@@ -42,6 +42,11 @@ const BARE_OK: ReadonlyArray<readonly [string, string, 0 | 1, string, number]> =
   // «separated into Income and Expense»: las etiquetas de los grupos por signo de la búsqueda
   // de fijas (1.3.267), no el libro Ingresos.
   ["widget-android", "whatAlt", 1, "Income", 1],
+  // «A new book is born with the Complete base»: la base Completa de las plantillas de
+  // estructura — la base con todo visible — no el modo Completo; marcarla saltaría al
+  // tema de los modos, que es otra cosa. (Declarada en la integración de la entrega de la
+  // Presentación, 2026-11-16: el término «Complete» entró en LINKS con los modos.)
+  ["plantillas", "what", 1, "Complete", 1],
 ];
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

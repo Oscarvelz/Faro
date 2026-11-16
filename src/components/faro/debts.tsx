@@ -622,7 +622,7 @@ export function OweBook() {
           <Hint topic="debo" />
         </span>
         <span className="debo-tab" data-on={tab === "loans" || undefined}>
-          <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} onClick={() => pick("loans")}>
+          <button type="button" role="tab" aria-selected={tab === "loans"} aria-pressed={tab === "loans"} data-anchor="debt-tab-loans" onClick={() => pick("loans")}>
             <HandCoins className="dt-ico" strokeWidth={1.9} aria-hidden />
             <span className="dt-name">{L("Préstamos", "Loans")}</span>
             <em className="dt-sub num" aria-hidden>{fmt(owe)}</em>

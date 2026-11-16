@@ -258,6 +258,42 @@ export const STAGE_SEEDS: Record<string, (s: LedgerState) => LedgerState> = {
     }
     return { ...base, months };
   },
+
+  /** El mes del Asesor en Esencial (módulo 17): los hechos llanos que su
+   *  palabra nombra — salario, la renta que vence en 3 días, lo que Ana debe
+   *  con vencimiento en 2 días (vencimientos de los dos lados), un súper
+   *  grande que es lo que más pesó, y la cuota en 5 días. */
+  "modos-asesor": (s) => {
+    const today = todayIso();
+    const key = today.slice(0, 7);
+    let next = sow(s, key, [
+      line({ id: "seed-ma-salario", kind: "income-fixed", concept: "Salario", amountMinor: 3_000_000, monthKey: key }),
+      line({ id: "seed-ma-renta", kind: "expense-fixed", concept: "Renta", amountMinor: 800_000, categoryId: "f-casa", subId: "f.casa.renta", nextDue: addDays(today, 3), monthKey: key }),
+      line({ id: "seed-ma-super", kind: "expense-variable", concept: "Súper", amountMinor: 600_000, categoryId: "v-casa", monthKey: key }),
+      line({ id: "seed-ma-cuota", kind: "expense-fixed", concept: "Cuota de la refrigeradora", amountMinor: 150_000, categoryId: "f-casa", nextDue: addDays(today, 5), monthKey: key }),
+    ]);
+    if (!(next.lent ?? []).some((l) => l.id === "seed-ma-ana")) {
+      next = addLent(next, { id: "seed-ma-ana", person: "Ana", kind: "plain", amountMinor: 500_000, currency: "NIO", aprBps: 0, startedOn: today, dueOn: addDays(today, 2), note: "" });
+    }
+    return next;
+  },
+
+  /** Los hechos de deuda del módulo 19: la balanza de Anotar (Ana, el Banco,
+   *  la tarjeta) con los dos hechos fechados que Esencial lee — Ana gana un
+   *  próximo vencimiento (+10 días) y Luis ya venció (ayer). */
+  "modos-hechos": (s) => {
+    const today = todayIso();
+    let next = STAGE_SEEDS["anotar-deudas"](s);
+    next = { ...next, lent: (next.lent ?? []).map((l) => (l.id === "seed-a-ana" ? { ...l, dueOn: addDays(today, 10) } : l)) };
+    if (!(next.lent ?? []).some((l) => l.id === "seed-mh-luis")) {
+      next = addLent(next, { id: "seed-mh-luis", person: "Luis", kind: "plain", amountMinor: 300_000, currency: "NIO", aprBps: 0, startedOn: addDays(today, -30), dueOn: addDays(today, -1), note: "" });
+    }
+    // Sin lectura de tarjeta a propósito: el grupo enmarcado lee las tarjetas
+    // de la estructura, no el campo superior donde addReading escribe — una
+    // lectura sembrada ahí no se vería (verificado en banco, 2026-11-15). La
+    // escena de la tarjeta enseña la forma del hecho, sin cifra sembrada.
+    return next;
+  },
 };
 
 /** Las cuentas de fábrica (PayPal, Chase, Lafise… con su icono de bóveda)

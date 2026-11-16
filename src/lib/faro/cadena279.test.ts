@@ -70,7 +70,11 @@ describe("279 · la cadena de mitad: el escenario previo se garantiza", () => {
   it("el efecto de pasos llama a sowPrefix a su cabeza, antes de actuar", () => {
     const call = presTsx.indexOf("sowPrefix(r.mod, r.sceneIdx);");
     assert.ok(call >= 0, "la llamada debe existir");
-    const speed = presTsx.indexOf("const speed = r.speed;", call);
+    // ACTUALIZADO en la integración de los 18 principios (2026-11-16): la línea
+    // que arma el compás ya no es `const speed = r.speed` sino su traducción por
+    // la escala recalibrada, `const pace = paceOf(r.speed)` — sowPrefix sigue
+    // yendo a la cabeza del efecto, antes de que el motor arme nada.
+    const speed = presTsx.indexOf("const pace = paceOf(r.speed);", call);
     assert.ok(speed > call, "sowPrefix va antes de que el motor arme el compás");
     const seedFlow = presTsx.indexOf('step.kind === "seed"', call);
     assert.ok(seedFlow === -1 || seedFlow > call, "sowPrefix precede al flujo normal de siembra");
@@ -109,7 +113,10 @@ describe("279 · la tarjeta acotada: jamás cortada por un borde", () => {
   });
 
   it("con medida, la colocación es un top acotado a la pantalla por ambos lados", () => {
-    assert.ok(presTsx.includes("hole.top - 14 - cardH"), "el sitio de arriba descuenta la altura medida");
+    // ACTUALIZADO en la integración de los 18 principios (2026-11-16): la tarjeta
+    // se acota contra la HUELLA del compás (`clear`, principios 8 y 11), que sin
+    // huella medida es el propio foco (`hole`) — la cota y su fórmula no cambian.
+    assert.ok(presTsx.includes("clear.top - 14 - cardH"), "el sitio de arriba descuenta la altura medida");
     assert.ok(presTsx.includes("window.innerHeight - cardH - 10"), "el tope nunca sale por abajo");
     assert.ok(presTsx.includes("Math.max(10, Math.min("), "el top se comprime hasta caber, con suelo de 10");
   });

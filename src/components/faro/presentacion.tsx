@@ -24,7 +24,7 @@ import { STAGE_SEEDS } from "@/lib/faro/stage-seeds";
 import { buildWidgetSnapshot } from "@/lib/faro/widget";
 import { todayIso } from "@/lib/faro/loans";
 import {
-  MODULES, TOPIC_SCENES, WORDS_PER_MINUTE, chapterFirst, durationLabel, dwellMs, moduleById, overallProgress, pick, sceneCaption, scenePlace, stepMs, wordCount,
+  MODULES, RESULT_MS, TOPIC_SCENES, WORDS_PER_MINUTE, chapterFirst, durationLabel, dwellMs, moduleById, overallProgress, paceOf, pick, sceneCaption, scenePlace, stepMs, wordCount,
   type Module, type Scene, type Step,
 } from "@/lib/faro/guion";
 import "./presentacion.css";
@@ -54,23 +54,33 @@ type PresState = {
   /* La ficha primera (ley de flota, 2026-11-14): el último módulo en uso;
    * si quedó incompleto, su ficha abre el índice. Se limpia al completarlo. */
   lastModule?: string;
+  /* La marca de la escala de velocidades (principio 2, 2026-11-15): la
+   * escala recalibrada es la 2. Sin la marca, el número guardado pertenece
+   * a la escala vieja y NO se reinterpreta: la velocidad vuelve una vez a
+   * la nueva 1× y la marca se escribe con el primer guardado. */
+  sv?: number;
 };
 
-const SPEEDS = [0.5, 0.75, 1, 1.5, 2] as const;
+/* LAS ETIQUETAS DE LA ESCALA RECALIBRADA (principio 2): la antigua 0.5× es
+ * la nueva 1×; cada etiqueta vale el doble de su ritmo antiguo (paceOf en
+ * guion.ts) y la 0.5× abre el ritmo de estudio, el más lento. */
+const SPEEDS = [0.5, 1, 1.5, 2, 3, 4] as const;
+const SPEED_SCALE = 2;
 
 function readState(): PresState {
   try {
     const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || "null") as Partial<PresState> | null;
     return {
       modules: raw?.modules ?? {},
-      speed: SPEEDS.includes(raw?.speed as (typeof SPEEDS)[number]) ? (raw!.speed as number) : 1,
+      speed: raw?.sv === SPEED_SCALE && SPEEDS.includes(raw?.speed as (typeof SPEEDS)[number]) ? (raw!.speed as number) : 1,
       mode: raw?.mode === "interactive" ? "interactive" : "auto",
       savedScenes: Array.isArray(raw?.savedScenes) ? raw!.savedScenes : [],
       offered: raw?.offered === true,
       lastModule: typeof raw?.lastModule === "string" ? raw.lastModule : undefined,
+      sv: SPEED_SCALE,
     };
   } catch {
-    return { modules: {}, speed: 1, mode: "auto", savedScenes: [] };
+    return { modules: {}, speed: 1, mode: "auto", savedScenes: [], sv: SPEED_SCALE };
   }
 }
 
@@ -292,6 +302,18 @@ type RunState = {
    * mientras el alumno lee el tema exacto en el Manual; al cerrarlo, la
    * lección vuelve al MISMO compás (review: se presenta, no se re-ejecuta). */
   manualTrip: boolean;
+  /* LA VENTANA DE APERTURA (principio 1, 2026-11-15): la corrida nace tras
+   * ella — explica los dos modos y nombra cada control antes de que exista
+   * tarjeta. `ready` se enciende cuando la preparación sentó el primer
+   * compás; `gateStep` es el paso donde la lección arranca de verdad (la
+   * maquinaria previa quedó consumida en la preparación, principio 3). */
+  gate: boolean;
+  ready: boolean;
+  gateStep: number;
+  /* La suspensión por segundo plano (principio 14): mientras la app no se
+   * ve, el reloj está congelado; al volver, el compás se re-presenta solo
+   * si la lección estaba corriendo. */
+  suspended: boolean;
 };
 
 const anchorEl = (anchor: string): HTMLElement | null =>
@@ -371,6 +393,12 @@ export function Presentacion() {
   const [run, setRun] = useState<RunState | null>(null);
   const [saved, setSaved] = useState<string[]>(() => readState().savedScenes);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  /* LA HUELLA del compás (principios 8 y 11): la unión de los rects de las
+   * anclas que la escena declara más la del paso en curso — el control y la
+   * región donde su efecto se representa. La ventana clara cubre la huella
+   * entera; el anillo sigue enmarcando el foco; y cuando la huella excede
+   * al foco, un recuadro visible la ata a las palabras del pie. */
+  const [region, setRegion] = useState<DOMRect | null>(null);
   /* La tarjeta nace donde va a vivir (ley de flota, 2026-11-14): el rect
    * recuerda a qué compás [escena, paso] se midió; mientras el compás
    * actual no tiene SU medida, la tarjeta permanece invisible — jamás
@@ -393,6 +421,18 @@ export function Presentacion() {
   const [theater, setTheater] = useState(false);
   const [wHide, setWHide] = useState(false);
   const seededRef = useRef<Set<string>>(new Set());
+  /* ¿El módulo lanzado ya tenía avance guardado? Lo lee el arranque antes
+   * de marcar nada: si el alumno cancela en la ventana de apertura sin haber
+   * empezado nunca, la marca de «último módulo» se retira y el índice queda
+   * como estaba (la cancelación limpia del principio 1). */
+  const gateHadRef = useRef(false);
+  /* Lo ya ejecutado no se repite (principio 14): las acciones con efecto
+   * (el gesto automático, el toque de maquinaria, el tecleo) se marcan al
+   * ejecutarse en ESTA corrida; si el compás se re-presenta — la app volvió
+   * de segundo plano, se cerró un panel — la marca manda y la acción no se
+   * repite (en un interruptor, repetirla lo apagaría). Nace vacío en cada
+   * arranque: una corrida nueva vuelve a ejecutar su guion entero. */
+  const actedRef = useRef<Set<string>>(new Set());
   /* El escenario previo, garantizado (caza de la flota, 2026-11-14): entrar
    * a un módulo por una escena intermedia — la ficha «Sigue donde ibas», un
    * aterrizaje de la lupa o del Manual, un salto de capítulos — siembra
@@ -449,11 +489,14 @@ export function Presentacion() {
     const savedScene = launch.sceneId
       ? Math.max(0, mod.scenes.findIndex((s) => s.id === launch.sceneId))
       : 0;
+    gateHadRef.current = !!prefs.modules[mod.id];
     // La ficha primera se marca desde el arranque mismo.
     writeState({ ...prefs, lastModule: mod.id });
     // La tarjeta de esta corrida aún no nació: su primer compás se mide.
     homeRef.current = null;
     setBorn(false);
+    // La corrida es nueva: nada de lo ejecutado trae marca (principio 14).
+    actedRef.current = new Set();
     // El escenario amanece en Central, como la app misma.
     const { patch } = screenPatch({ screen: "desk" });
     setUi({ ...patch });
@@ -463,10 +506,62 @@ export function Presentacion() {
         mode: prefs.mode, speed: prefs.speed,
         playing: true, won: false, finished: false, chaptersOpen: false, speedOpen: false, skipped: [],
         trail: [], review: false, stayAsk: false, exitAsk: false, manualTrip: false,
+        gate: true, ready: false, gateStep: 0, suspended: false,
       });
     }, 650);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ---- LA PREPARACIÓN TRAS LA VENTANA (principios 1 y 3) ----
+   * Mientras la ventana de apertura vive, el escenario se prepara detrás:
+   * se siembra el prefijo de la escena de arranque, se navega a su lugar y
+   * se caminan sus pasos de maquinaria (sembrar, viajar, referir) hasta el
+   * primer paso que actúa o lleva pie; el ancla de ese compás se resuelve
+   * y solo entonces «Empezar» se enciende — la lección arranca en ese paso,
+   * con la tarjeta naciendo en su sitio medido, nunca encendida en un
+   * centro provisional mientras el escenario se construía. Si el ancla no
+   * aparece, la preparación termina igual: el motor saltará la escena con
+   * gracia y lo declarará (principio 17). */
+  useEffect(() => {
+    if (!run || !run.gate || run.ready) return;
+    const r = run;
+    let cancelled = false;
+    (async () => {
+      sowPrefix(r.mod, r.sceneIdx);
+      const sc = r.mod.scenes[r.sceneIdx];
+      if (!sc) { if (!cancelled) setRun((cur) => (cur ? { ...cur, ready: true, gateStep: 0 } : cur)); return; }
+      const place = scenePlace(r.mod, sc.id);
+      const { patch, open } = screenPatch({ screen: place });
+      setUi({ ...patch });
+      for (const id of open) window.setTimeout(() => window.dispatchEvent(new CustomEvent("faro-open", { detail: id })), 350);
+      let idx = 0;
+      for (; idx < sc.steps.length; idx++) {
+        const st = sc.steps[idx];
+        if (st.kind === "seed") {
+          const key = `${r.mod.id}:${r.sceneIdx}:${idx}`;
+          if (!seededRef.current.has(key)) {
+            seededRef.current.add(key);
+            const sow = STAGE_SEEDS[st.seed];
+            if (sow) api.commit(sow, lang === "en" ? "Presentation stage" : "Escenario de la presentación");
+          }
+          continue;
+        }
+        if (st.kind === "go") {
+          const gp = screenPatch({ screen: st.screen });
+          setUi({ ...gp.patch });
+          for (const id of gp.open) window.setTimeout(() => window.dispatchEvent(new CustomEvent("faro-open", { detail: id })), 350);
+          continue;
+        }
+        if (st.kind === "ref") continue;
+        break;
+      }
+      const first = sc.steps[idx];
+      if (first && "anchor" in first) await waitAnchor(first.anchor, 2600);
+      if (!cancelled) setRun((cur) => (cur ? { ...cur, ready: true, gateStep: idx } : cur));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.gate, run?.mod.id, run?.sceneIdx]);
 
   const scene: Scene | null = run ? (run.mod.scenes[run.sceneIdx] ?? null) : null;
   const step: Step | null = run && scene ? (scene.steps[run.stepIdx] ?? null) : null;
@@ -483,11 +578,23 @@ export function Presentacion() {
     writeState(prefs);
   }, []);
 
+  /* EL GUARDADO HONESTO AL TERMINAR (principio 17): una corrida que acaba
+   * con escenas saltadas NO se anota como aprendida — queda en curso, y su
+   * punto de reanudación es la primera escena saltada (al reanudar manda
+   * su capítulo, como siempre). Toda salida que guarda el final pasa por
+   * aquí: el avance, el salto, la salida y el quedarse. */
+  const finishSave = useCallback((r: RunState) => {
+    if (!r.finished) { saveProgress(r, false); return; }
+    if (r.skipped.length === 0) { saveProgress(r, true); return; }
+    const first = Math.max(0, r.mod.scenes.findIndex((s) => r.skipped.includes(s.id)));
+    saveProgress({ ...r, sceneIdx: first }, false);
+  }, [saveProgress]);
+
   const advance = useCallback(() => {
     const r = runRef.current;
     if (!r) return;
     clearTimers();
-    setRect(null);
+    setRect(null); setRegion(null);
     if (r.stepIdx + 1 < (r.mod.scenes[r.sceneIdx]?.steps.length ?? 0)) {
       setRun({ ...r, stepIdx: r.stepIdx + 1, won: false, review: false });
       return;
@@ -500,8 +607,8 @@ export function Presentacion() {
     }
     const done = { ...r, finished: true, won: false };
     setRun(done);
-    saveProgress(done, true);
-  }, [clearTimers, saveProgress]);
+    finishSave(done);
+  }, [clearTimers, finishSave]);
 
   /* «‹» — un compás atrás, al lugar exacto ya vivido (la cima de la pila).
    * Cruzar de escena navega a su pantalla sin re-sembrar nada: las semillas
@@ -512,7 +619,7 @@ export function Presentacion() {
     const r = runRef.current;
     if (!r || r.trail.length < 2) return;
     clearTimers();
-    setRect(null);
+    setRect(null); setRegion(null);
     const trail = r.trail.slice(0, -1);
     const [s, p] = trail[trail.length - 1];
     if (s !== r.sceneIdx) {
@@ -528,7 +635,7 @@ export function Presentacion() {
     const r = runRef.current;
     if (!r) return;
     clearTimers();
-    setRect(null);
+    setRect(null); setRegion(null);
     const skipped = r.skipped.includes(sceneId) ? r.skipped : [...r.skipped, sceneId];
     if (r.sceneIdx + 1 < r.mod.scenes.length) {
       const next = { ...r, sceneIdx: r.sceneIdx + 1, stepIdx: 0, won: false, skipped };
@@ -537,25 +644,25 @@ export function Presentacion() {
     } else {
       const done = { ...r, finished: true, won: false, skipped };
       setRun(done);
-      saveProgress(done, true);
+      finishSave(done);
     }
-  }, [clearTimers, saveProgress]);
+  }, [clearTimers, saveProgress, finishSave]);
 
   const exitToIndex = useCallback(() => {
     const r = runRef.current;
-    if (r) saveProgress(r, r.finished);
+    if (r) finishSave(r);
     setStay({ section: "settings", openPres: true });
     setRun(null);
     exitStage();
-  }, [saveProgress]);
+  }, [finishSave]);
 
   const stayHere = useCallback(() => {
     const r = runRef.current;
-    if (r) saveProgress(r, r.finished);
+    if (r) finishSave(r);
     setStay({ section: ui.section, vault: ui.vault ?? null });
     setRun(null);
     exitStage();
-  }, [saveProgress, ui.section, ui.vault]);
+  }, [finishSave, ui.section, ui.vault]);
 
   /* «Quedarme aquí» a mitad de módulo primero abre su ventana (la ley): el
    * escenario no se disuelve hasta que el usuario confirma sabiendo que
@@ -580,9 +687,34 @@ export function Presentacion() {
     setRun({ ...r, exitAsk: true });
   }, [clearTimers, exitToIndex]);
 
+  /* «Empezar» (principio 1): la ventana se retira y la lección arranca en
+   * el paso que la preparación sentó — la maquinaria previa ya no corre. */
+  const beginGate = useCallback(() => {
+    const r = runRef.current;
+    if (!r || !r.gate || !r.ready) return;
+    setRun({ ...r, gate: false, stepIdx: r.gateStep });
+  }, []);
+
+  /* «Ahora no» (principio 1): la cancelación es limpia — ningún avance se
+   * guarda, y si el módulo nunca tuvo avance, la marca de «último módulo»
+   * que el arranque escribió se retira: el índice queda como estaba. */
+  const cancelGate = useCallback(() => {
+    const r = runRef.current;
+    if (r && !gateHadRef.current) {
+      const prefs = readState();
+      if (prefs.lastModule === r.mod.id && !prefs.modules[r.mod.id]) {
+        delete prefs.lastModule;
+        writeState(prefs);
+      }
+    }
+    setStay({ section: "settings", openPres: true });
+    setRun(null);
+    exitStage();
+  }, []);
+
   /* ------------------------------ el motor de pasos ------------------------------ */
   useEffect(() => {
-    if (!run || !scene || !step || run.finished || run.chaptersOpen || run.speedOpen || run.stayAsk || run.exitAsk || run.manualTrip) return;
+    if (!run || !scene || !step || run.finished || run.gate || run.suspended || run.chaptersOpen || run.speedOpen || run.stayAsk || run.exitAsk || run.manualTrip) return;
     const r = run;
     let cancelled = false;
     // El escenario previo se garantiza AQUÍ, al actuar, en cada entrada —
@@ -590,11 +722,31 @@ export function Presentacion() {
     // anteriores a la actual se siembran antes de su primer paso, en el
     // mismo momento seguro en que las siembra el flujo normal.
     sowPrefix(r.mod, r.sceneIdx);
-    const speed = r.speed;
+    /* El ritmo que corre de verdad: la etiqueta del alumno traducida por la
+     * escala recalibrada (principio 2) — todo el motor divide por pace. */
+    const pace = paceOf(r.speed);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const armRect = (el: HTMLElement) => {
-      const measure = () => { if (!cancelled) { setRect(el.getBoundingClientRect()); setRectFor({ s: r.sceneIdx, t: r.stepIdx }); } };
+      /* El marco sigue a lo que enmarca (principio 10): foco Y huella se
+       * remiden en el mismo latido de 180 ms durante todo el compás —
+       * aperturas, animaciones y desplazamientos incluidos — y el anillo,
+       * el recuadro y la tarjeta cabalgan con ellos. */
+      const measure = () => {
+        if (cancelled) return;
+        setRect(el.getBoundingClientRect());
+        const sc = r.mod.scenes[r.sceneIdx];
+        const els: HTMLElement[] = [el];
+        if (sc) for (const a of sc.anchors) { const n = anchorEl(a); if (n && !els.includes(n)) els.push(n); }
+        let l = Infinity, t = Infinity, rr = -Infinity, b = -Infinity;
+        for (const n of els) {
+          const q = n.getBoundingClientRect();
+          if (q.width === 0 && q.height === 0) continue;
+          l = Math.min(l, q.left); t = Math.min(t, q.top); rr = Math.max(rr, q.right); b = Math.max(b, q.bottom);
+        }
+        setRegion(Number.isFinite(l) ? new DOMRect(l, t, rr - l, b - t) : null);
+        setRectFor({ s: r.sceneIdx, t: r.stepIdx });
+      };
       measure();
       const iv = window.setInterval(measure, 180);
       timers.current.push(iv as unknown as number);
@@ -611,21 +763,44 @@ export function Presentacion() {
           const sow = STAGE_SEEDS[step.seed];
           if (sow) api.commit(sow, lang === "en" ? "Presentation stage" : "Escenario de la presentación");
         }
-        later(() => { if (!cancelled) advance(); }, 600 / speed);
+        later(() => { if (!cancelled) advance(); }, 600 / pace);
         return;
       }
       if (step.kind === "go") {
         const { patch, open } = screenPatch({ screen: step.screen });
         setUi({ ...patch });
         for (const id of open) later(() => window.dispatchEvent(new CustomEvent("faro-open", { detail: id })), 350);
-        later(() => { if (!cancelled) advance(); }, stepMs(step, lang) / speed);
+        later(() => { if (!cancelled) advance(); }, stepMs(step, lang) / pace);
         return;
       }
       if (step.kind === "ref") { advance(); return; }
       const el = await waitAnchor(step.anchor);
       if (cancelled) return;
       if (!el) { skipScene(scene.id); return; } // ancla muerta: la escena se salta con gracia
-      el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      /* El desplazamiento mete la HUELLA entera en cuadro (principio 8):
+       * el control y la región donde su efecto se representa — no solo el
+       * foco centrado. Si la huella no cabe en la pantalla, manda el foco,
+       * como siempre. */
+      {
+        const sc2 = r.mod.scenes[r.sceneIdx];
+        const els: HTMLElement[] = [el];
+        if (sc2) for (const a of sc2.anchors) { const n = anchorEl(a); if (n && !els.includes(n)) els.push(n); }
+        const behavior = reduce ? "auto" : "smooth";
+        if (els.length === 1) {
+          el.scrollIntoView({ block: "center", behavior });
+        } else {
+          const rs = els.map((n) => n.getBoundingClientRect());
+          const top = Math.min(...rs.map((q) => q.top));
+          const bottom = Math.max(...rs.map((q) => q.bottom));
+          const vh = window.innerHeight;
+          if (bottom - top > vh - 16) {
+            el.scrollIntoView({ block: "center", behavior });
+          } else {
+            if (bottom > vh - 8) els[rs.findIndex((q) => q.bottom === bottom)]?.scrollIntoView({ block: "end", behavior });
+            if (top < 8) els[rs.findIndex((q) => q.top === top)]?.scrollIntoView({ block: "start", behavior });
+          }
+        }
+      }
       later(() => { if (!cancelled) armRect(el); }, reduce ? 60 : 380);
       // Posición vivida: solo los compases con pie (o los gestos) entran en
       // la pila de retorno — la maquinaria quedó atrás hace rato.
@@ -641,32 +816,46 @@ export function Presentacion() {
       // Al volver (review), el compás se presenta — pie y foco — pero un
       // tap/type NO repite su acción; el gesto (do) sí se vuelve a vivir.
       if (r.review && step.kind !== "do") return;
+      // La marca de lo ya ejecutado en esta corrida (principio 14): si el
+      // compás se re-presenta por una suspensión o un panel, la acción que
+      // ya ocurrió no se repite — se presenta su permanencia y se sigue.
+      const actedKey = `${r.mod.id}:${r.sceneIdx}:${r.stepIdx}`;
       // La permanencia del paso: el pie + la lectura de la ventanita, si la hay.
       const capDwell = "caption" in step
         ? dwellMs(step.caption, lang) + (step.contexto ? Math.round((wordCount(pick(step.contexto, lang)) / WORDS_PER_MINUTE) * 60_000) : 0)
         : 0;
 
       if (step.kind === "tap") {
-        later(() => { if (!cancelled) { tapEl(el); later(() => { if (!cancelled) advance(); }, 420 / speed); } }, 300 / speed);
+        if (actedRef.current.has(actedKey)) { later(() => { if (!cancelled) advance(); }, 300 / pace); return; }
+        later(() => { if (!cancelled) { actedRef.current.add(actedKey); tapEl(el); later(() => { if (!cancelled) advance(); }, 420 / pace); } }, 300 / pace);
         return;
       }
       if (step.kind === "type") {
         const input = el.matches("input") ? (el as HTMLInputElement) : el.querySelector<HTMLInputElement>("input");
         if (!input) { skipScene(scene.id); return; }
-        const dwell = capDwell / speed;
+        if (!r.playing && r.mode === "auto") return; // en pausa: el efecto se rearma al seguir
+        /* Primero se lee, después se teclea (principio 16): el tecleo llega
+         * tras el pie ENTERO — antes caía al 40 % de la permanencia, mientras
+         * el pie aún se leía — y lo tecleado se queda su momento de resultado
+         * (principio 9). Lo anunciado en stepMs es exactamente esto. */
+        if (actedRef.current.has(actedKey)) {
+          later(() => { if (!cancelled) advance(); }, capDwell / pace);
+          return;
+        }
         later(() => {
           if (cancelled) return;
+          actedRef.current.add(actedKey);
           input.focus();
           const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
           setter?.call(input, pick(step.text, lang));
           input.dispatchEvent(new Event("input", { bubbles: true }));
-        }, Math.min(600, dwell * 0.4));
-        if (r.playing || r.mode === "interactive") later(() => { if (!cancelled) advance(); }, dwell + 500 / speed);
+          later(() => { if (!cancelled) advance(); }, RESULT_MS / pace);
+        }, capDwell / pace);
         return;
       }
       if (step.kind === "show" || step.kind === "ask") {
         if (r.mode === "auto" || step.kind === "ask") {
-          if (r.playing) later(() => { if (!cancelled) advance(); }, capDwell / speed);
+          if (r.playing) later(() => { if (!cancelled) advance(); }, capDwell / pace);
         }
         return;
       }
@@ -676,7 +865,9 @@ export function Presentacion() {
           if (el.contains(e.target as Node)) {
             document.removeEventListener("pointerdown", onTap, true);
             setRun((cur) => (cur ? { ...cur, won: true } : cur));
-            later(() => { if (!cancelled) advance(); }, 650);
+            /* El resultado del gesto se queda su momento (principio 9),
+             * al ritmo que el alumno eligió. */
+            later(() => { if (!cancelled) advance(); }, RESULT_MS / pace);
           }
         };
         document.addEventListener("pointerdown", onTap, true);
@@ -686,19 +877,47 @@ export function Presentacion() {
         // «pasa muy rápido»): antes el conductor actuaba al 55% de la
         // permanencia y el compás de gesto vivía casi la mitad de lo que el
         // índice anunciaba — el alumno veía el toque antes de acabar de leer
-        // la orden. Ahora lee el pie completo, ve el gesto y su asentamiento.
+        // la orden. Ahora lee el pie completo, ve el gesto y su resultado se
+        // queda su momento (principios 16 y 9). Y si el compás se re-presenta
+        // con el gesto ya ejecutado, no se repite (principio 14).
+        if (actedRef.current.has(actedKey)) {
+          later(() => { if (!cancelled) advance(); }, capDwell / pace);
+          return;
+        }
         later(() => {
           if (cancelled) return;
+          actedRef.current.add(actedKey);
           tapEl(el);
           setRun((cur) => (cur ? { ...cur, won: true } : cur));
-          later(() => { if (!cancelled) advance(); }, 650 / speed);
-        }, capDwell / speed);
+          later(() => { if (!cancelled) advance(); }, RESULT_MS / pace);
+        }, capDwell / pace);
       }
     };
     void runStep();
     return () => { cancelled = true; clearTimers(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [run?.sceneIdx, run?.stepIdx, run?.mode, run?.playing, run?.speed, run?.chaptersOpen, run?.speedOpen, run?.finished, run?.stayAsk, run?.exitAsk, run?.manualTrip]);
+  }, [run?.sceneIdx, run?.stepIdx, run?.mode, run?.playing, run?.speed, run?.gate, run?.suspended, run?.chaptersOpen, run?.speedOpen, run?.finished, run?.stayAsk, run?.exitAsk, run?.manualTrip]);
+
+  /* LA LECCIÓN NUNCA ATRAPA AL ALUMNO (principio 14): si la app pasa a
+   * segundo plano — una llamada, un cambio de app — el reloj se congela y
+   * el compás queda suspendido: ningún gesto se ejecuta sin ser visto. Al
+   * volver, la lección se reanuda solo si estaba corriendo, re-presentando
+   * el compás; lo ya ejecutado no se repite (la guardia actedRef del
+   * motor). Si el sistema mata la app, no queda velo congelado: el
+   * conductor no corre fuera de sesión y el índice reanuda por capítulo. */
+  useEffect(() => {
+    const onVis = () => {
+      const r = runRef.current;
+      if (!r || r.gate) return;
+      if (document.hidden) {
+        if (!r.suspended) { clearTimers(); setRun({ ...r, suspended: true }); }
+      } else if (r.suspended) {
+        setRun({ ...r, suspended: false });
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [clearTimers]);
 
   /* ---- el teatro: vive mientras la escena lo declara; muere con la función ---- */
   const sceneWantsTheater = !!scene?.anchors.includes("theater");
@@ -721,6 +940,21 @@ export function Presentacion() {
     if (!topic) return;
     clearTimers();
     setRun({ ...r, manualTrip: true });
+    api.openManual(topic);
+  };
+
+  /* El puente desde la tarjeta final con saltos (principio 17): la lección
+   * que no pudo enseñarse manda al Manual — abre el tema de la primera
+   * escena saltada por el mismo viaje con vuelta al mismo sitio. */
+  const goManualSkipped = () => {
+    const r = runRef.current;
+    if (!r) return;
+    const idx = r.mod.scenes.findIndex((s) => r.skipped.includes(s.id));
+    if (idx < 0) return;
+    const topic = SCENE_TOPIC[r.mod.scenes[idx].id];
+    if (!topic) return;
+    clearTimers();
+    setRun({ ...r, sceneIdx: idx, manualTrip: true });
     api.openManual(topic);
   };
 
@@ -747,6 +981,7 @@ export function Presentacion() {
     if (!run) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (runRef.current?.gate) { cancelGate(); return; }
       if (runRef.current?.exitAsk) setRun((cur) => (cur ? { ...cur, exitAsk: false } : cur));
       else if (runRef.current?.stayAsk) setRun((cur) => (cur ? { ...cur, stayAsk: false } : cur));
       else if (runRef.current?.chaptersOpen) setRun((cur) => (cur ? { ...cur, chaptersOpen: false } : cur));
@@ -754,7 +989,7 @@ export function Presentacion() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [run, askExit]);
+  }, [run, askExit, cancelGate]);
 
   if (!stageOn() || !run) return null;
   /* En el viaje al Manual la lección entera se retira: ni tarjeta, ni
@@ -762,6 +997,41 @@ export function Presentacion() {
   if (run.manualTrip) return null;
 
   const mod = run.mod;
+  /* LA VENTANA DE APERTURA (principio 1): mientras vive, es lo único en
+   * pantalla — ni escudos, ni hueco, ni tarjeta: la lección aún no empieza
+   * y el escenario se prepara detrás de su velo. «Empezar» se enciende solo
+   * cuando la preparación sentó el primer compás; «Ahora no» cancela
+   * limpio, sin avance y sin marcas. */
+  if (run.gate) {
+    return (
+      <div className="pres-root">
+        <div className="pres-stayask-veil">
+          <div className="pres-stayask pres-gate" role="dialog" aria-modal="true" aria-label={pick(mod.title, lang)}>
+            <strong className="serif">{pick(mod.title, lang)}</strong>
+            <p>{L(lang, "Puedes mirarla o hacerla a mano — y cambiar de modo cuando quieras, sin perder el compás.", "You can watch it or do it by hand — and switch modes whenever you like, without losing your place.")}</p>
+            <div className="pres-gate-modes">
+              <p className="pres-gate-mode"><Play aria-hidden /><span><strong>{L(lang, "Automático", "Automatic")}</strong> — {L(lang, "la lección ejecuta y toca por ti; tú solo miras.", "the lesson performs and taps for you; you just watch.")}</span></p>
+              <p className="pres-gate-mode"><Hand aria-hidden /><span><strong>{L(lang, "Interactivo", "Interactive")}</strong> — {L(lang, "la lección avanza solo cuando tú tocas lo que te pide.", "the lesson moves only when you tap what it asks.")}</span></p>
+            </div>
+            <p className="pres-gate-controls">
+              {L(lang, "Los controles viven en la tarjeta: ", "The controls live on the card: ")}
+              <strong>{L(lang, "Modo", "Mode")}</strong>{L(lang, " cambia de modo · ", " switches modes · ")}
+              <strong>{L(lang, "Velocidad", "Speed")}</strong>{L(lang, " pone el ritmo · ", " sets the pace · ")}
+              <strong>{L(lang, "Capítulos", "Chapters")}</strong>{L(lang, " salta a otra escena · ", " jumps to another scene · ")}
+              <strong>‹ ›</strong>{L(lang, " un compás atrás o adelante · ", " one beat back or forward · ")}
+              <strong>{L(lang, "Quedarme aquí", "Stay here")}</strong>{L(lang, " te deja en ese lugar de tu app · la ", " leaves you at that place in your app · the ")}
+              <strong>✕</strong>{L(lang, " sale al índice.", " exits to the index.")}
+            </p>
+            <div className="pres-stayask-acts pres-gate-acts">
+              <span className="pres-gate-status" aria-live="polite">{run.ready ? L(lang, "El primer compás ya está listo.", "The first beat is ready.") : L(lang, "Preparando el escenario…", "Preparing the stage…")}</span>
+              <button type="button" className="btn ghost" onClick={cancelGate}>{L(lang, "Ahora no", "Not now")}</button>
+              <button type="button" className="btn pres-gate-go" disabled={!run.ready} onClick={beginGate}>{L(lang, "Empezar", "Start")}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const chapter = scene ? mod.chapters.find((c) => c.id === scene.chapter) : null;
   const totalScenes = mod.scenes.length;
   const caption = step && (step.kind === "show" || step.kind === "ask" || step.kind === "do" || step.kind === "type") ? pick(step.caption, lang) : null;
@@ -777,14 +1047,21 @@ export function Presentacion() {
   // contra el borde; el anillo jamás se corta. Antes solo se protegían arriba
   // e izquierda — un ancla al ras del fondo o de la derecha lo sacaba de la
   // pantalla (el dock escapaba por 1–3px de su propio margen, no por diseño).
-  const hole = rect ? (() => {
-    const left = Math.max(4, rect.left - 10);
-    const top = Math.max(4, rect.top - 10);
-    const right = Math.min(window.innerWidth - 4, rect.right + 10);
-    const bottom = Math.min(window.innerHeight - 4, rect.bottom + 10);
+  const clampHole = (q: DOMRect) => {
+    const left = Math.max(4, q.left - 10);
+    const top = Math.max(4, q.top - 10);
+    const right = Math.min(window.innerWidth - 4, q.right + 10);
+    const bottom = Math.min(window.innerHeight - 4, q.bottom + 10);
     return { left, top, width: right - left, height: bottom - top };
-  })() : null;
-  const cardBelow = hole ? (window.innerHeight - (hole.top + hole.height)) > 240 : true;
+  };
+  const hole = rect ? clampHole(rect) : null;
+  /* LA VENTANA CLARA ES LA HUELLA (principios 8 y 11, 2026-11-15): los
+   * escudos rodean la huella entera — el control y la región de su efecto —
+   * y la tarjeta se sienta contra ella, jamás sobre lo que la lección
+   * demuestra (principio 4 reforzado). El anillo sigue enmarcando el foco.
+   * Sin huella medida aún, manda el foco, como antes. */
+  const clear = region ? clampHole(region) : hole;
+  const cardBelow = clear ? (window.innerHeight - (clear.top + clear.height)) > 240 : true;
   // La tarjeta mide 370 (o el ancho menos 20): el centro y el tope derecho se calculan
   // con SU ancho real — con las constantes viejas de 340 se salía hasta 18px por la
   // derecha cuando el foco vivía a la derecha (visto por Oscar en foto, 2026-11-13).
@@ -793,11 +1070,11 @@ export function Presentacion() {
    * el sitio deseado (bajo el foco, o sobre él) se comprime hasta caber —
    * el aire se comprime, la tarjeta nunca se corta. Sin medida aún (el
    * primer pintado), rigen las fórmulas de siempre. */
-  const cardStyle: React.CSSProperties = hole ? {
-    left: Math.min(Math.max(10, hole.left + hole.width / 2 - cardW / 2), window.innerWidth - cardW - 10),
+  const cardStyle: React.CSSProperties = clear ? {
+    left: Math.min(Math.max(10, clear.left + clear.width / 2 - cardW / 2), window.innerWidth - cardW - 10),
     ...(cardH > 0
-      ? { top: Math.max(10, Math.min(cardBelow ? hole.top + hole.height + 14 : hole.top - 14 - cardH, window.innerHeight - cardH - 10)) }
-      : cardBelow ? { top: hole.top + hole.height + 14 } : { bottom: window.innerHeight - hole.top + 14 }),
+      ? { top: Math.max(10, Math.min(cardBelow ? clear.top + clear.height + 14 : clear.top - 14 - cardH, window.innerHeight - cardH - 10)) }
+      : cardBelow ? { top: clear.top + clear.height + 14 } : { bottom: window.innerHeight - clear.top + 14 }),
   } : { left: "50%", top: "38%", transform: "translateX(-50%)" };
 
   /* El nacimiento de la tarjeta: la primera vez que un compás tiene SU
@@ -810,7 +1087,7 @@ export function Presentacion() {
 
   const jumpToScene = (idx: number) => {
     clearTimers();
-    setRect(null);
+    setRect(null); setRegion(null);
     const next = { ...run, sceneIdx: idx, stepIdx: 0, won: false, chaptersOpen: false, speedOpen: false, finished: false, trail: [], review: false, stayAsk: false, exitAsk: false, manualTrip: false };
     setRun(next);
     saveProgress(next, false);
@@ -828,11 +1105,11 @@ export function Presentacion() {
   };
 
   const onShieldTap = (e: React.PointerEvent) => { if (isDo) { e.preventDefault(); setShaking((n) => n + 1); } };
-  const shieldRects: React.CSSProperties[] = hole ? [
-    { left: 0, top: 0, width: "100%", height: Math.max(0, hole.top) },
-    { left: 0, top: hole.top + hole.height, width: "100%", bottom: 0 },
-    { left: 0, top: hole.top, width: Math.max(0, hole.left), height: hole.height },
-    { left: hole.left + hole.width, top: hole.top, right: 0, height: hole.height },
+  const shieldRects: React.CSSProperties[] = clear ? [
+    { left: 0, top: 0, width: "100%", height: Math.max(0, clear.top) },
+    { left: 0, top: clear.top + clear.height, width: "100%", bottom: 0 },
+    { left: 0, top: clear.top, width: Math.max(0, clear.left), height: clear.height },
+    { left: clear.left + clear.width, top: clear.top, right: 0, height: clear.height },
   ] : [{ left: 0, top: 0, width: "100%", height: "100%" }];
 
   return (
@@ -844,6 +1121,15 @@ export function Presentacion() {
       ))}
       {hole && !run.finished ? (
         <div className={`pres-hole${run.won ? " is-won" : ""}`} style={{ left: hole.left, top: hole.top, width: hole.width, height: hole.height }} aria-hidden />
+      ) : null}
+      {/* EL RECUADRO DE LA REGIÓN NOMBRADA (principio 11 reforzado): cuando
+          la huella excede al foco, un marco visible ata el pie a la región
+          entera de la que habla — el alumno ve exactamente a qué «eso» se
+          refiere la leyenda. Si la huella ES el foco, el anillo ya es el
+          recuadro y este no nace. */}
+      {clear && rect && region && !run.finished
+        && (region.left < rect.left - 4 || region.right > rect.right + 4 || region.top < rect.top - 4 || region.bottom > rect.bottom + 4) ? (
+        <div className="pres-regionframe" style={{ left: clear.left, top: clear.top, width: clear.width, height: clear.height }} aria-hidden />
       ) : null}
       {theater ? (
         <Theater hide={wHide} onToggleHide={() => setWHide((h) => !h)} onOpen={() => setTheater(false)} />
@@ -879,11 +1165,17 @@ export function Presentacion() {
       ) : run.finished ? (
         <div className="pres-card is-done" style={{ left: "50%", top: "34%", transform: "translateX(-50%)" }}>
           <span className="pres-done-check"><Check aria-hidden /></span>
-          <strong className="serif">{L(lang, "Módulo completo", "Module complete")}</strong>
+          <strong className="serif">{run.skipped.length ? L(lang, "Módulo casi completo", "Module almost complete") : L(lang, "Módulo completo", "Module complete")}</strong>
           <p>{pick(mod.promise, lang)}</p>
-          {run.skipped.length ? <p className="pres-done-note">{L(lang, "Algunas escenas se saltaron: la app cambió bajo ellas. Quedan marcadas para revisión.", "Some scenes were skipped: the app changed under them. They are flagged for review.")}</p> : null}
+          {run.skipped.length ? <p className="pres-done-note">{L(lang, "Algunas escenas no pudieron enseñarse — la app cambió bajo ellas — y el módulo no queda marcado como aprendido: te espera en la primera de ellas.", "Some scenes could not be taught — the app changed under them — and the module is not marked as learned: it will be waiting at the first of them.")}</p> : null}
           <div className="pres-done-acts">
-            <button type="button" className="btn" onClick={exitToIndex}>{L(lang, "Volver al índice", "Back to the index")}</button>
+            {run.skipped.length ? (
+              <button type="button" className="btn" onClick={() => jumpToScene(Math.max(0, mod.scenes.findIndex((s) => run.skipped.includes(s.id))))}>{L(lang, "Repasar las saltadas", "Review the skipped ones")}</button>
+            ) : null}
+            {run.skipped.length && SCENE_TOPIC[mod.scenes.find((s) => run.skipped.includes(s.id))?.id ?? ""] ? (
+              <button type="button" className="btn ghost" onClick={goManualSkipped}>{L(lang, "Más en el manual", "More in the manual")}</button>
+            ) : null}
+            <button type="button" className={run.skipped.length ? "btn ghost" : "btn"} onClick={exitToIndex}>{L(lang, "Volver al índice", "Back to the index")}</button>
             <button type="button" className="btn ghost" onClick={stayHere}>{L(lang, "Quedarme aquí", "Stay here")}</button>
           </div>
         </div>
