@@ -174,10 +174,14 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
   it("todo tema resuelve un modo y los conteos por modo son los fallados", () => {
     for (const tp of MANUAL_TOPICS) assert.ok(MODES.includes(topicMode(tp)), `${tp.id} resuelve un modo`);
     const count = (mode: Mode) => MANUAL_TOPICS.filter((tp) => modeReaches(mode, topicMode(tp))).length;
+    // 354 desde la ayuda de la K (2026-11-16): «Cifras cortas» nace en Ritmo —
+    // la cifra corta vive en las tarjetas de la banda, que en Esencial no se
+    // muestran (X-3) y en Libros cuelgan de las puertas de la bóveda (Ritmo),
+    // como su tema hermano «ahorros-banda» y el de «retiro».
     assert.equal(count("esencial"), 118);
-    assert.equal(count("ritmo"), 229);
-    assert.equal(count("completo"), 353);
-    assert.equal(MANUAL_TOPICS.length, 353);
+    assert.equal(count("ritmo"), 230);
+    assert.equal(count("completo"), 354);
+    assert.equal(MANUAL_TOPICS.length, 354);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

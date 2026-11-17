@@ -199,6 +199,30 @@ export function formatMoney(minor: number, currency: Currency, lang: Lang): stri
   return currency === "NIO" ? `C$${formatted}` : `$${formatted}`;
 }
 
+/**
+ * La cifra corta de referencia rápida (la banda de Ahorros, Oscar 2026-11-16):
+ * bajo mil, la cifra exacta con sus centavos; de mil en adelante, K — y M al
+ * millón — con hasta dos decimales y sin ceros colgando: C$1.65K, C$6.3K,
+ * C$1.25M. La tarjeta es un vistazo que jamás se desborda por grande que el
+ * dinero crezca; la cifra exacta vive a un toque, en el detalle de la bolsa.
+ */
+export function formatMoneyShort(minor: number, currency: Currency, lang: Lang): string {
+  if (minor < 0 && Math.round(minor) !== 0) return `-${formatMoneyShort(-minor, currency, lang)}`;
+  const value = Math.abs(minor) / 100;
+  if (value < 1000) return formatMoney(minor, currency, lang);
+  const sym = currency === "NIO" ? "C$" : "$";
+  const body = (v: number) => numFmt(lang === "en" ? "en-US" : "es-NI", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  }).format(v);
+  if (value < 1_000_000) {
+    const k = body(value / 1000);
+    return k === "1000" ? `${sym}1M` : `${sym}${k}K`;
+  }
+  return `${sym}${body(value / 1_000_000)}M`;
+}
+
 export function formatPct(n: number | null, lang: Lang): string {
   if (n === null || !Number.isFinite(n)) return "—";
   const body = numFmt(lang === "en" ? "en-US" : "es-NI", {

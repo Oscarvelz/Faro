@@ -2274,6 +2274,19 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .save-seg { padding: 6px 6px 10px; }
 .save-seg > strong, .save-seg > .num, .save-seg > small { padding-inline: 6px; }
 .save-seg > .num { overflow: hidden; white-space: nowrap; }
+/* Nombre + luz, una sola unidad (ventanas, 2026-11-16): el nombre jamás suelta
+   su luz de naturaleza a otra línea, donde flotaba sola como una burbuja. El
+   tamaño se ajusta a la celda con unidades cqi a TODO ancho de tarjeta — la
+   antigua regla [data-long] solo actuaba en tarjetas de ≤90px y dejaba caer la
+   luz precisamente en el ancho telefónico corriente. Tron conserva su propia
+   regla (su cara corre más ancha y su techo es menor). */
+.save-seg > strong { white-space: nowrap; font-size: clamp(.62rem, 10.5cqi, .95rem); }
+/* El porcentaje conserva su cajita, pero en miniatura (Oscar, 2026-11-16): la
+   pastilla vieja era un widget rectangular con su fila entera para ella sola;
+   la nueva abraza al número — tan pequeña como el número — y vive junto a la
+   cifra, en su misma línea. La fila de la pastilla no vuelve: la tarjeta baja
+   igual, y la cajita solo viste al porcentaje. */
+.save-seg .seg-pct { margin-left: 6px; padding: 1px 5px; border-radius: 6px; font-family: var(--font-sans); font-size: .66rem; font-weight: 600; letter-spacing: .02em; color: color-mix(in oklab, var(--seg, var(--accent)) 72%, var(--fg)); background: color-mix(in oklab, var(--seg, var(--accent)) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg, var(--accent)) 38%, transparent); }
 .spend-slot { container-type: inline-size; }
 .spend-bubble .num { font-size: min(1.02rem, 13.5cqi); }
 .spend-bubble strong { font-size: min(0.8rem, 11.5cqi); }
@@ -2952,10 +2965,10 @@ section.save-band { container: savecard / inline-size; }
 }
 /* fix6: keep "Comprometido" clear of the corner button on narrow lenses */
 .lenses .lens.is-debt .lens-note { white-space: nowrap; font-size: min(0.573rem, 9.8cqi); letter-spacing: -0.01em; }
-/* fix7 (Nov 1 2026): only a long pocket name ("Emergencia") shrinks, and only in narrow tiles at normal text; other tiles untouched. */
-@container (max-width: 90px) {
-  :where(html:not([data-theme="tron"])) .save-segs > .save-seg > strong[data-long] { font-size: .73rem; letter-spacing: -.015em; padding-inline: 6px 0; }
-}
+/* fix7 (Nov 1 2026) — SUPERSEDED by the name+light unit rule beside .save-seg
+   (ventanas, 2026-11-16): this @container step only fired in tiles ≤90px, so at
+   ordinary phone widths a long name kept its full size and its nature light
+   wrapped onto its own line. The cqi clamp now sizes every name to its tile. */
 
 /* ==== ahorros-pass (Nov 1 2026): the Ahorros forms (new pocket, retirement dates, account deposit/withdraw/opening, new
    account) speak the line editor / Cobros language: labels with "?", two columns where fields pair, one tint and no inner

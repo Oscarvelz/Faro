@@ -124,6 +124,10 @@ describe("1.3.271 — el importe de Oscar no existe; el nombre solo donde ya viv
       // y las cercas del fallo viven en modos293. Sin importe alguno.
       "src/lib/faro/mode.ts",
       "src/lib/faro/modos293.test.ts",
+      // AUDIT-2 (ventanas, 2026-11-16): el cuerpo de la confirmación de
+      // restaurar la pieza — que ya la nombraba en screens.tsx — vive ahora en
+      // el diccionario, como todo el texto de la casa (save.restore.body).
+      "src/lib/faro/i18n.ts",
     ]);
     for (const f of files) {
       if (!readFileSync(f, "utf8").includes("Primerica")) continue;

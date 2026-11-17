@@ -502,7 +502,11 @@ html[data-theme="tron"][data-hidden] *, html[data-theme="tron"][data-hidden] *::
 }
 [data-theme="tron"] .save-seg strong { font-family: var(--t-display); font-weight: 500; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: color-mix(in oklab, var(--seg) 55%, white); text-shadow: 0 0 8px color-mix(in oklab, var(--seg) 50%, transparent); }
 [data-theme="tron"] .save-seg .num { font-size: 1.12rem; color: #f2fdff; }
-[data-theme="tron"] .save-seg small { justify-self: start; padding: 1px 6px; border-radius: 2px; font-size: .68rem; color: color-mix(in oklab, var(--seg) 70%, white); background: color-mix(in oklab, var(--seg) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 40%, transparent); }
+/* La cajita del porcentaje, en miniatura junto a la cifra (ventanas, 2026-11-16):
+   el idioma de la pastilla vieja — filo cuadrado, tinte y anillo — abrazando solo
+   al número, en la línea de la cifra. (La regla vestía a <small>, la pastilla de
+   fila entera que ya no existe.) */
+[data-theme="tron"] .save-seg .seg-pct { padding: 1px 5px; border-radius: 2px; font-size: .68rem; color: color-mix(in oklab, var(--seg) 70%, white); background: color-mix(in oklab, var(--seg) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 40%, transparent); }
 
 @media (prefers-reduced-motion: reduce) { [data-theme="tron"] .save-track i { animation: none !important; } }
 

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLayer } from "@/lib/manual/back";
 import type { FundNature, NatureMode } from "@/lib/faro/funds";
 import { useFaro } from "./provider";
@@ -13,19 +14,58 @@ import "./fund.css";
  * ley del número que se explica al tocarlo. La forma se lee sin color (lleno contra
  * hueco); el color es el tinte de su bolsa. El Retiro no lleva luz: su naturaleza es
  * su nombre.
+ *
+ * Su explicación se muestra en la CAPA SUPERIOR (portal al cuerpo, anclada y
+ * apretada a la ventana): la primera versión la dibujaba dentro del anfitrión y
+ * las tarjetas de la banda la recortaban siempre — una explicación que no puede
+ * mostrarse entera no explica nada (auditoría de ventanas, 2026-11-16).
  */
 export function FundLight({ cls, tone, hostName, asSpan }: { cls: "aparte" | "saldo" | "sin-declarar"; tone?: string; hostName?: string; asSpan?: boolean }) {
   const { t } = useFaro();
   const [open, setOpen] = useState(false);
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null);
   const wrap = useRef<HTMLSpanElement>(null);
+  const pop = useRef<HTMLSpanElement>(null);
   useLayer(open, () => setOpen(false));
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+      const el = e.target as Node;
+      if (wrap.current?.contains(el) || pop.current?.contains(el)) return;
+      setOpen(false);
     };
+    // Anclada a la luz en coordenadas de ventana: si la página se mueve, la
+    // explicación se cierra antes que quedar flotando lejos de su luz.
+    const onMove = () => setOpen(false);
     document.addEventListener("pointerdown", onDown);
-    return () => document.removeEventListener("pointerdown", onDown);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open ]);
+  // La explicación vive en la capa superior (portal al cuerpo, el camino de las
+  // tarjetas de la casa): nace medida desde su luz, se aprieta a la ventana con
+  // 12px de margen y se voltea hacia arriba si abajo no cabe. Ninguna tarjeta,
+  // banda ni panel puede recortarla — antes vivía dentro de la tarjeta de la
+  // bolsa (~108px para una línea de 240px) y jamás podía mostrarse entera
+  // (auditoría de ventanas, 2026-11-16).
+  useLayoutEffect(() => {
+    if (!open) { setPlace(null); return; }
+    const anchor = wrap.current;
+    const el = pop.current;
+    if (!anchor || !el) return;
+    const r = anchor.getBoundingClientRect();
+    const pw = el.offsetWidth;
+    const ph = el.offsetHeight;
+    const M = 12;
+    const left = Math.min(Math.max(r.left, M), Math.max(M, window.innerWidth - pw - M));
+    let top = r.bottom + 6;
+    if (top + ph > window.innerHeight - M && r.top - 6 - ph >= M) top = r.top - 6 - ph;
+    top = Math.min(Math.max(top, M), Math.max(M, window.innerHeight - ph - M));
+    setPlace({ left, top });
   }, [open ]);
   const text = cls === "aparte"
     ? t("fund.light.aparte")
@@ -54,7 +94,15 @@ export function FundLight({ cls, tone, hostName, asSpan }: { cls: "aparte" | "sa
           {...handlers}
         />
       )}
-      {open ? <span className="fund-light-pop" role="note">{text}</span> : null}
+      {open ? createPortal(
+        <span
+          className="fund-light-pop"
+          role="note"
+          ref={pop}
+          style={place ? { left: place.left, top: place.top } : { left: 0, top: 0, visibility: "hidden" }}
+        >{text}</span>,
+        document.body,
+      ) : null}
     </span>
   );
 }

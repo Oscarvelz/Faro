@@ -458,6 +458,18 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         terms: [["Bolsa", "Pocket"], ["Apartados", "Set aside"]],
       },
       {
+        id: "cifra-corta",
+        mode: "ritmo",
+        depth: "manual",
+        title: ["Cifras cortas", "Short figures"],
+        sum: ["Por qué una bolsa dice C$1.65K y no C$1,650.00.", "Why a pocket reads C$1.65K and not C$1,650.00."],
+        what: ["En las tarjetas de las bolsas, las cifras de mil o más se acortan con una letra: K quiere decir mil — C$1.65K son C$1,650. Bajo mil la cifra va exacta, y la completa, con sus centavos, aparece al tocar la bolsa.", "On the pocket cards, figures of a thousand or more are shortened with a letter: K means a thousand — C$1.65K is C$1,650. Under a thousand the figure is exact, and the full one, cents and all, appears when you tap the pocket."],
+        how: ["La letra multiplica: K por mil y M por un millón, con hasta dos decimales y sin ceros de más — C$6.3K son C$6,300, C$1.05K son C$1,050 y C$1.25M es C$1,250,000. Así la tarjeta nunca se desborda, crezca lo que crezca el dinero. La cifra corta es solo el retrato de la banda: en el detalle de la bolsa y en [[Libros]] cada cifra va siempre completa.", "The letter multiplies: K by a thousand and M by a million, with up to two decimals and no trailing zeros — C$6.3K is C$6,300, C$1.05K is C$1,050 and C$1.25M is C$1,250,000. So the card never overflows, however large the money grows. The short figure is only the band's portrait: in the pocket's detail and in [[Books]] every figure is always whole."],
+        tip: ["¿Dudas de una cifra corta? No adivines: toca la bolsa y abajo está su cifra exacta, con sus centavos.", "Unsure about a short figure? Don't guess: tap the pocket and its exact figure, cents and all, is right below."],
+        go: { screen: "desk", anchor: "desk-pockets", where: ["Central, las bolsas bajo Ahorros", "Desk, the pockets below Savings"] },
+        terms: [["Cifra abreviada", "Abbreviated figure"], ["Miles con K", "Thousands with K"]],
+      },
+      {
         id: "cuentas",
         depth: "manual",
         title: ["Cuentas", "Accounts"],

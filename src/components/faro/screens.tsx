@@ -1775,7 +1775,7 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
 }
 
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
-  const { t, summary, fmt, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang, goTopic } = useFaro();
+  const { t, summary, fmt, fmtShort, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang, goTopic } = useFaro();
   const { depth } = useFaro();
   // Etapa 3.1: la cara se recompone por el registro, solo vía el contexto (has).
   // `mode` a secas ya es la postura de naturalezas en esta función; el modo de la
@@ -3102,8 +3102,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // es el stock entero de la bolsa y su texto dice qué proyecta (lever.baseNote).
   const vaultBase = focus === "save" ? accountTotal + stock.byClass.aparte : (openSeg?.minor ?? 0);
   const leverBaseNote = focus === "save" || !openSeg
-    ? t("lever.base.pile")
-    : openSeg.pledgedMinor > 0 && openSeg.keptMinor <= 0 ? t("lever.base.pledged") : t("lever.base.pile");
+    ? t("lever.base.apart")
+    : openSeg.pledgedMinor > 0 && openSeg.keptMinor <= 0 ? t("lever.base.pledged") : t("lever.base.apart");
   const spanNode = (
     <SpanCut
       kinds={[]}
@@ -3248,12 +3248,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       </>
       )}
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>
-        {retiroHidden(session.ledger) ? <Note kind="tip">{lang === "en" ? "Retirement is hidden in Structure" : "Retiro está oculto en Estructura"}</Note> : null}
+        {retiroHidden(session.ledger) ? <Note kind="tip">{t("save.retiroHidden")}</Note> : null}
         {focus && has("books.vault-order") ? <button type="button" data-anchor="vault-sort" className={`vault-lamp${vaultSort ? " is-on" : ""}`} aria-pressed={vaultSort} aria-label={t("vault.sort")} onClick={() => setVaultSort((on) => !on)} /> : null}
         {focus === "save" && has("nature.undeclared-encounter") && pendingFunds.length ? (
           <div className="save-migrate" data-anchor="vault-migrate">
             <button type="button" className="save-migrate-head" aria-expanded={migrateOpen} onClick={() => setMigrateOpen((v) => !v)}>
-              <FundLight cls="sin-declarar" />
+              <FundLight cls="sin-declarar" asSpan />
               <span>{t("fund.mig.line")}</span>
               <ChevronDown className={migrateOpen ? "fold-chev is-open" : "fold-chev"} />
             </button>
@@ -3443,10 +3443,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   );
                 })()}
                 <strong data-long={s.name.length > 8 ? "" : undefined}>{s.name}{has("nature.light") && s.lightCls ? <> <FundLight asSpan cls={s.lightCls} tone={tint} hostName={s.saldoHostName} /></> : null}</strong>
-                <span className="num">{fmt(s.keptMinor)}</span>
-                <small>{pct}%</small>
+                <span className="num">{fmtShort(s.keptMinor)}<span className="seg-pct">{pct}%</span></span>
                 {has("nature.class-saldo") && s.pledgedMinor > 0 ? (
-                  <span className="save-seg-sub"><FundLight asSpan cls="saldo" tone={tint} hostName={s.saldoHostName} /><span className="ss-amt">{`+ ${fmt(s.pledgedMinor)}`}</span><span className="ss-lab">{t("desk.savings.onBalance")}</span></span>
+                  <span className="save-seg-sub"><FundLight asSpan cls="saldo" tone={tint} hostName={s.saldoHostName} /><span className="ss-amt">{`+ ${fmtShort(s.pledgedMinor)}`}</span><span className="ss-lab">{t("desk.savings.onBalance")}</span></span>
                 ) : null}
               </button>
             );
@@ -3469,6 +3468,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     </SourceNote>
                   </span>
                 )}
+                <Hint topic="cifra-corta" />
                 {focus && focus !== "save" ? (
                   <>
                     {!pocketFold ? (
@@ -3507,10 +3507,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <>
             {addFromView ? null : pocketAdd}
             {pocketKind === "retiro" ? <StmtScan seen={stmtSeen} onSave={applyStatement} tail={
-              <button type="button" className="sub-gear stm-restore" data-test="retiro-restore" aria-label={lang === "en" ? "Restore default accounts" : "Restaurar cuentas de fábrica"} onClick={() => confirm({
-                title: lang === "en" ? "Restore defaults" : "Restaurar de fábrica",
-                body: lang === "en" ? "Primerica comes back to Retiro at $0, or with its saved history. Nothing is deleted." : "Primerica vuelve a Retiro en $0, o con su historial guardado. No se borra nada.",
-                yes: lang === "en" ? "Restore" : "Restaurar", run: () => commit((s) => restoreRetiro(s, key), "Primerica") })}><RotateCcw /></button>
+              <button type="button" className="sub-gear stm-restore" data-test="retiro-restore" aria-label={t("save.restore.label")} onClick={() => confirm({
+                title: t("save.restore.title"),
+                body: t("save.restore.body"),
+                yes: t("save.restore.yes"), run: () => commit((s) => restoreRetiro(s, key), "Primerica") })}><RotateCcw /></button>
             } /> : null}
             {openLines.length === 0 && !adding && pocketKind !== "retiro" ? <Note>{t("save.empty")}</Note> : null}
             {openLines.map((line) => {
@@ -3951,7 +3951,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             ) : null}
             <div className="save-flow-goal">
               <span className="lab-head">
-                <button type="button" className="term-link" onClick={() => goTopic("meta-ahorro", { screen: "settings", fold: "rate", anchor: "aj-goal" })}>{lang === "es" ? "Meta de ahorro" : "Savings goal"}</button>
+                <button type="button" className="term-link" onClick={() => goTopic("meta-ahorro", { screen: "settings", fold: "rate", anchor: "aj-goal" })}>{t("save.goalTerm")}</button>
               </span>
               <span className="save-flow-pct">
                 <input
@@ -3963,7 +3963,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   max={100}
                   defaultValue={rate.savingsGoalPct}
                   aria-label={t("settings.goal")}
-                  onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Number(e.target.value) || 0 } }), "goal")}
+                  onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "goal")}
                 />
                 <i>%</i>
               </span>
@@ -5563,13 +5563,13 @@ export function Settings() {
       {has("settings.savings-goal") ? (
       <Fold id="rate" icon={SlidersHorizontal} sub={lang === "en" ? "Goals, signal and rate" : "Metas, semáforo y tasa"} topic="reglas" title={t("settings.rate")} open={openFold === "rate"} onToggle={() => toggle("rate")}>
         <label className="label" data-anchor="aj-goal"><span className="lab-head">{glueHint(t("settings.goal"), <Hint topic="meta-ahorro" fitParent />)}</span>
-          <input className="field num" defaultValue={settings.savingsGoalPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Number(e.target.value) || 0 } }), "goal")} />
+          <input className="field num" defaultValue={settings.savingsGoalPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "goal")} />
         </label>
         <label className="label mt-2" data-anchor="aj-green"><span className="lab-head">{glueHint(t("settings.green"), <Hint topic="semaforo-verde" fitParent />)}</span>
-          <input className="field num" defaultValue={settings.debtGreenPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtGreenPct: Number(e.target.value) || 0 } }), "green")} />
+          <input className="field num" defaultValue={settings.debtGreenPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtGreenPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "green")} />
         </label>
         <label className="label mt-2" data-anchor="aj-yellow"><span className="lab-head">{glueHint(t("settings.yellow"), <Hint topic="semaforo-amarillo" fitParent />)}</span>
-          <input className="field num" defaultValue={settings.debtYellowPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtYellowPct: Number(e.target.value) || 0 } }), "yellow")} />
+          <input className="field num" defaultValue={settings.debtYellowPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtYellowPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "yellow")} />
         </label>
         <label className="label mt-2" data-anchor="aj-months"><span className="lab-head">{glueHint(t("settings.emergency"), <Hint topic="meses-colchon" fitParent />)}</span>
           <input className="field num" defaultValue={settings.emergencyMonths} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, emergencyMonths: Number(e.target.value) || 0 } }), "months")} />

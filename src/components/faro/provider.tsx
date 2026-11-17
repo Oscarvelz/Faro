@@ -20,7 +20,7 @@ import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duef
 import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
-import { convertMinor, eventCombo, formatMoney, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
+import { convertMinor, eventCombo, formatMoney, formatMoneyShort, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
 import { blankSession, commit as commitSession, commitFinal as commitFinalSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
@@ -128,6 +128,7 @@ export type Api = {
   slices: ReturnType<typeof categorySlices>;
   hits: Hit[];
   fmt: (minor: number) => string;
+  fmtShort: (minor: number) => string;
   viewLine: (line: Line) => string;
   recordLine: (line: Line) => string;
   commit: (recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => void;
@@ -1198,6 +1199,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     (minor: number) => formatMoney(minor, session?.ledger.settings.display ?? "NIO", lang),
     [session?.ledger.settings.display, lang],
   );
+  const fmtShort = useCallback(
+    (minor: number) => formatMoneyShort(minor, session?.ledger.settings.display ?? "NIO", lang),
+    [session?.ledger.settings.display, lang],
+  );
   const viewLine = useCallback(
     (line: Line) => {
       const settings = session?.ledger.settings;
@@ -1482,6 +1487,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     get slices() { return lazy.slices(); },
     hits,
     fmt,
+    fmtShort,
     viewLine,
     recordLine,
     commit,
