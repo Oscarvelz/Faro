@@ -220,11 +220,19 @@ export const FEATURES = {
   "nav.day-night": E, "nav.swipe": E, "nav.ring": C, "nav.toolsheet": E,
   /* §1.2 Central */
   "central.month-left": E, "central.month-used": E, "central.month-rate": E,
-  "central.lens-have": E, "central.lens-spend": E, "central.lens-pagos": R,
+  "central.lens-have": E, "central.lens-spend": E, "central.lens-pagos": E,
   "central.list": E, "central.edit-line": E, "central.debt-light": R,
-  "central.first-line": E, "central.cobros-panel": R, "central.quickadd": E,
-  /* §1.3 Cobros — los hechos de los dos lados viven en Esencial (fallo D-bis 31) */
-  "debt.facts": E, "cobros.owed-side": R, "cobros.owe-side": R, "cobros.timeline": R,
+  "central.first-line": E, "central.cobros-panel": E, "central.quickadd": E,
+  /* §1.3 Cobros — los hechos de los dos lados viven en Esencial (fallo D-bis 31),
+     y con ellos su asiento: la lente Pagos, el panel y los dos lados son de
+     Esencial desde el veredicto de Oscar de 2026-11-16 («En Esencial se quedó
+     Cobros afuera… la gente vive endeudada»): la oleada dejó los hechos en
+     Esencial pero la casa en Ritmo, y Cobros no existía en Central. En
+     Esencial la ventana toma su forma lectora (la rama de debt.scale: los
+     hechos de DebtsReadOnly); la gestión — pista con importes, lista rápida,
+     alta rápida, archivo y el puente a Libros — queda en Ritmo, como el
+     propio fallo 31 la acota. */
+  "debt.facts": E, "cobros.owed-side": E, "cobros.owe-side": E, "cobros.timeline": R,
   "cobros.quick-list": R, "cobros.quick-add": R, "cobros.archive": R, "cobros.see-all": R,
   /* §1.4 Libros — máquina común (el escaneo al añadir es scan.receipt) */
   "books.list": E, "books.add-line": E, "books.edit-line": E, "books.currency": E,

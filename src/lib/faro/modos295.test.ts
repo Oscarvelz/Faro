@@ -68,9 +68,12 @@ const DOCK_STOPS: [string, string | null][] = [
 ];
 
 describe("modos295: ninguna parada de anillo fuera del modo (N-1)", () => {
-  it("el anillo de libros en Esencial es Ingresos·Fijos·Variables·Ahorros; en Ritmo y Completo, los diez", () => {
+  it("el anillo de libros en Esencial es Ingresos·Fijos·Variables·Me deben·Debo·Ahorros; en Ritmo y Completo, los diez", () => {
+    // Me deben y Debo entran en el anillo de Esencial por el veredicto de
+    // Oscar de 2026-11-16 (los lados de Cobros son de Esencial): sus paradas
+    // aterrizan en la cara lectora de los hechos (la rama de debt.scale).
     const visible = (mode: Mode) => RING_STOPS.filter(([, f]) => !f || has(mode, f)).map(([s]) => s);
-    assert.deepEqual(visible("esencial"), ["income", "fixed", "variable", "save"]);
+    assert.deepEqual(visible("esencial"), ["income", "fixed", "variable", "owed", "owe", "save"]);
     assert.deepEqual(visible("ritmo"), RING_STOPS.map(([s]) => s));
     assert.deepEqual(visible("completo"), RING_STOPS.map(([s]) => s));
   });
@@ -91,13 +94,16 @@ describe("modos295: ninguna parada de anillo fuera del modo (N-1)", () => {
     assert.deepEqual(visible("esencial"), ["income", "fixed", "variable"]);
     assert.deepEqual(visible("ritmo"), DOCK_STOPS.map(([s]) => s));
   });
-  it("la lente Pagos y el panel de Cobros son de Ritmo; los hechos de deuda quedan en Esencial", () => {
+  it("la lente Pagos y el panel de Cobros viven en los tres modos (veredicto de Oscar, 2026-11-16); la escala separa la forma lectora de la de gestión", () => {
     for (const mode of MODES) {
-      assert.equal(has(mode, "central.lens-pagos"), mode !== "esencial", `lens-pagos en ${mode}`);
-      assert.equal(has(mode, "central.cobros-panel"), mode !== "esencial", `cobros-panel en ${mode}`);
+      assert.equal(has(mode, "central.lens-pagos"), true, `lens-pagos en ${mode}`);
+      assert.equal(has(mode, "central.cobros-panel"), true, `cobros-panel en ${mode}`);
       assert.equal(has(mode, "debt.facts"), true, `debt.facts en ${mode}`);
       assert.equal(has(mode, "debt.scale"), mode !== "esencial", `debt.scale en ${mode}`);
     }
+    // Sin escala, la ventana de Cobros dibuja la cara lectora de los hechos.
+    const screens = SRC("../../components/faro/screens.tsx");
+    assert.ok(screens.includes('DebtsReadOnly side={side === "out" ? "owe" : "owed"}'), "la ventana de Cobros en Esencial es DebtsReadOnly");
   });
 });
 
@@ -251,7 +257,7 @@ describe("modos295: el cableado de la etapa vive en sus asientos", () => {
     const screens = SRC("../../components/faro/screens.tsx");
     assert.ok(screens.includes('kind === "subscription" && !has("books.subs")'), "gesto de cuota dormido en Esencial");
     assert.ok(screens.includes('kind === "purchase" && !has("books.shops")'), "gesto de compra dormido en Esencial");
-    assert.ok(screens.includes('!has("central.cobros-panel")'), "gestos de Cobros dormidos en Esencial");
+    assert.ok(screens.includes('!has("central.cobros-panel")'), "los gestos de Cobros se resuelven contra el modo al disparar (desde 2026-11-16 el panel vive también en Esencial, en su forma lectora)");
     // La cara lectora de Cuotas y la fila de mudos existen con sus anclas.
     // Etapa 4 (X-26): el ancla de la fila se renombra desk-mudos → modo-mudos
     // — es el nombre que el módulo 15 dormido espera, y la fila ahora ABRE su

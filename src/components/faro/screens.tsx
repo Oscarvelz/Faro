@@ -77,7 +77,7 @@ import { EarningsStudy, hasEarnings } from "./earnings";
 import { payoffPlan } from "@/lib/faro/debts";
 import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
-import { OwedSide, SeeAll, takeCobrosReturn } from "./debts";
+import { OwedSide, SeeAll, takeCobrosReturn, DebtsReadOnly } from "./debts";
 import { ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
 import { asideSplit, declareSeries, freeShown, guardFor, hostAccounts, keptTotal as keptTotalOf, libreOf, natureMode, segmentAgg, seriesName, stampFor, undeclaredFunds, type FundNature, type PendingFund, type SegmentAgg } from "@/lib/faro/funds";
 import { savingsStock } from "@/lib/faro/savings";
@@ -1526,7 +1526,7 @@ function QuickHello({ mode }: { mode: "in" | "out" }) {
 }
 
 function Cobros({ onClose, jumped = false, ping = 0, startSide = "out", wait = false }: { onClose: () => void; jumped?: boolean; ping?: number; startSide?: "in" | "out"; wait?: boolean }) {
-  const { t } = useFaro();
+  const { t, has } = useFaro();
   const [side, setSide] = useState<"in" | "out">(startSide);
   const [dir, setDir] = useState(1);
   const drag = useRef<{ x: number; y: number } | null>(null);
@@ -1604,8 +1604,14 @@ function Cobros({ onClose, jumped = false, ping = 0, startSide = "out", wait = f
         <button type="button" aria-pressed={side === "in"} onClick={() => { setDir(-1); setSide("in"); }}>{t("cobro.owed")}</button>
         <button type="button" aria-pressed={side === "out"} onClick={() => { setDir(1); setSide("out"); }}>{t("cobro.owe")}</button>
       </div>
-      {side === "out" ? <DeboSide dues={<DueOwe key="out" />} /> : <OwedSide key="in" dir={dir} />}
-      <SeeAll side={side} onGo={onClose} />
+      {/* Sin la escala de deudas (Esencial), la ventana es la cara lectora de
+          los hechos de los dos lados (fallo 31; veredicto de Oscar de
+          2026-11-16: Cobros no se queda afuera de Esencial) y el puente
+          «Ver todo en Libros», que es gestión, no se dibuja. */}
+      {!has("debt.scale") ? (
+        <DebtsReadOnly side={side === "out" ? "owe" : "owed"} />
+      ) : side === "out" ? <DeboSide dues={<DueOwe key="out" />} /> : <OwedSide key="in" dir={dir} />}
+      {has("debt.scale") ? <SeeAll side={side} onGo={onClose} /> : null}
     </section>
   );
 }

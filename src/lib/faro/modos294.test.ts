@@ -55,11 +55,13 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["nav.day-night", E], ["nav.swipe", E], ["nav.ring", C], ["nav.toolsheet", E],
   // §1.2 Central
   ["central.month-left", E], ["central.month-used", E], ["central.month-rate", E],
-  ["central.lens-have", E], ["central.lens-spend", E], ["central.lens-pagos", R],
+  ["central.lens-have", E], ["central.lens-spend", E], ["central.lens-pagos", E],
   ["central.list", E], ["central.edit-line", E], ["central.debt-light", R],
-  ["central.first-line", E], ["central.cobros-panel", R], ["central.quickadd", E],
-  // §1.3 Cobros
-  ["debt.facts", E], ["cobros.owed-side", R], ["cobros.owe-side", R], ["cobros.timeline", R],
+  ["central.first-line", E], ["central.cobros-panel", E], ["central.quickadd", E],
+  // §1.3 Cobros — el asiento y los dos lados en Esencial (veredicto 2026-11-16);
+  // la gestión (línea de tiempo con importes, lista y alta rápidas, archivo,
+  // ver-todo) sigue en Ritmo, como acota el fallo D-bis 31.
+  ["debt.facts", E], ["cobros.owed-side", E], ["cobros.owe-side", E], ["cobros.timeline", R],
   ["cobros.quick-list", R], ["cobros.quick-add", R], ["cobros.archive", R], ["cobros.see-all", R],
   // §1.4 Libros — máquina común
   ["books.list", E], ["books.add-line", E], ["books.edit-line", E], ["books.currency", E],
