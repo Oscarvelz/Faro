@@ -15,7 +15,7 @@
  */
 import { cardFigures, cardsOf } from "./cards";
 import { lentOf, lentState } from "./debts";
-import { ISO_DAY, loanState, loansOf, todayIso } from "./loans";
+import { ISO_DAY, loanPays, loanState, loansOf, todayIso } from "./loans";
 import { convertMinor } from "./money";
 import type { LedgerState, Line } from "./types";
 
@@ -104,12 +104,26 @@ export function duesWindow(state: LedgerState, days: number, today = todayIso())
     out.push({ kind: "card", name: c.name, on: f.dueOn, amt: view(due, c.currency), id: c.id });
   }
 
-  // Received loans with a due day (1.3.149): the next occurrence of that day. No installment
+  // Received loans with a due day (1.3.149): the current occurrence of that day. No installment
   // amount exists in the model, so amt stays null — consumers count the entry and skip the sum.
   for (const loan of loansOf(state)) {
     if (loan.archived || !loan.dueDay) continue;
     if (loanState(state, loan, today).left <= 0) continue;
-    const on = nextDueDayOn(loan.dueDay, today);
+    // PREJUDICE PJ-4: this module's own contract is «overdue entries are included —
+    // what is overdue is due», and the card branch has surfaced a past due since
+    // 1.3.147. The loan branch rolled every date forward, so a loan could NEVER be
+    // overdue here. Now: this month's occurrence stands in the past when it has
+    // passed unpaid — a payment booked on or after it covers the cycle (the card
+    // rule) and the date rolls forward; a loan taken after this month's due day
+    // owes its first occurrence next month.
+    const t = new Date(`${today}T12:00:00`);
+    const lastDay = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+    const occ = `${today.slice(0, 8)}${String(Math.min(loan.dueDay, lastDay)).padStart(2, "0")}`;
+    let on = nextDueDayOn(loan.dueDay, today);
+    if (occ < today && loan.takenOn <= occ) {
+      const covered = loanPays(state, loan.id).some((l) => !l.rest && (l.bookedOn || `${l.monthKey}-01`) >= occ);
+      if (!covered) on = occ;
+    }
     if (!on || on > end) continue;
     out.push({ kind: "loan", name: loan.lender, on, amt: null, id: loan.id });
   }

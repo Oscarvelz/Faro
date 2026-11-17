@@ -380,8 +380,8 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
         extra={libros ? <p className="cobro-meta debt-since">{sinceText(who?.days ?? null, L)}{splitInterest && f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, row.currency))}</b></> : null}</p> : undefined}
         onWho={libros ? () => openFor(row.person) : undefined}
         payLabel={t("cobro.bonus")} paying={bonusFor === row.id} onPaying={(on) => setBonusFor(on ? row.id : null)}
-        onPay={(minor, date) => commit((s) => payLent(s, row.id, convertMinor(minor, display, row.currency, rate), date, uid(), L("Abono", "Payment")), row.person)}
-        archiveBody={t("cobro.archive.body")} onArchive={() => commit((s) => archiveLent(s, row.id), row.person)} hint="bono" />
+        onPay={has("lent.payment") ? (minor, date) => commit((s) => payLent(s, row.id, convertMinor(minor, display, row.currency, rate), date, uid(), L("Abono", "Payment")), row.person) : undefined}
+        archiveBody={t("cobro.archive.body")} onArchive={has("lent.archive") ? () => commit((s) => archiveLent(s, row.id), row.person) : undefined} hint="bono" />
     );
   };
   const group = (mode: "plain" | "interest") => {
@@ -407,7 +407,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
               onRename={(id, name) => commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => (r.id === id ? { ...r, person: name } : r)) }), name)} />
           </span>
         ) : null}
-        <button type="button" className="cobro-plus" aria-label={t("cobro.owe.add")} aria-pressed={draft} onClick={() => { setEditFor(null); setDraft((on) => !on); }}><Plus /></button>
+        {has("cobros.quick-add") ? <button type="button" className="cobro-plus" aria-label={t("cobro.owe.add")} aria-pressed={draft} onClick={() => { setEditFor(null); setDraft((on) => !on); }}><Plus /></button> : null}
       </div>
       <DeboSum help="me-deben" empty={t("debo.sum.owed.empty")} parts={active.length && rwSum.total > 0 ? [
         [`${people.filter((p) => p.active).length} ${t(people.filter((p) => p.active).length === 1 ? "debo.sum.person1" : "debo.sum.personN")}`],

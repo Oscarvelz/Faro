@@ -11,6 +11,19 @@ import type { Category, Currency, LedgerState, Line, Loan } from "./types";
 
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * PREJUDICE PJ-15: the shape is not the day. ISO_DAY alone admits 2026-02-31,
+ * and every seat that trusted the shape booked or surfaced a day that does not
+ * exist (a lent "due Feb 31" stood in the dues window as a real due). A real
+ * calendar day — month lengths and leap years — or nothing.
+ */
+export function isRealDay(iso: unknown): iso is string {
+  if (typeof iso !== "string" || !ISO_DAY.test(iso)) return false;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (m! < 1 || m! > 12 || d! < 1) return false;
+  return d! <= new Date(y!, m!, 0).getDate();
+}
+
 export function todayIso(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -47,7 +60,7 @@ export function normalizeLoan(l: Loan, fallback: Currency = "NIO"): Loan {
     // (the ledger's display where known), never silently to córdobas.
     currency: normCurrency(l.currency, fallback),
     aprBps: typeof l.aprBps === "number" && l.aprBps > 0 ? l.aprBps : 0,
-    takenOn: typeof l.takenOn === "string" && ISO_DAY.test(l.takenOn) ? l.takenOn : "",
+    takenOn: isRealDay(l.takenOn) ? l.takenOn : "",
     ...(typeof l.dueDay === "number" && l.dueDay >= 1 && l.dueDay <= 31 ? { dueDay: Math.round(l.dueDay) } : {}),
     book: l.book === "variable" ? "variable" : "fixed",
     note: typeof l.note === "string" ? l.note : "",
@@ -156,7 +169,7 @@ export function loanCategory(state: LedgerState, book: "fixed" | "variable"): { 
 export function payLoan(state: LedgerState, loanId: string, amountMinor: number, date: string, id: string, label: string, interestMinor?: number): LedgerState {
   const loan = loansOf(state).find((l) => l.id === loanId);
   if (!loan || amountMinor <= 0) return state;
-  const day = ISO_DAY.test(date) ? date : todayIso();
+  const day = isRealDay(date) ? date : todayIso();
   const { cat, subId } = loanCategory(state, loan.book);
   // 1.3.149: the split is recorded only when the caller supplies it (the payment form does, prefilled);
   // clamped into the payment, never above it. No split supplied = the line stays byte-identical to 1.3.148.

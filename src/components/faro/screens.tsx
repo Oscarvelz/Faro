@@ -852,7 +852,12 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   // que nombra cuántas, el mismo commit deshacible, el mismo detalle), y Mover
   // aplica UN selector de la casa a toda la selección en un solo commit.
   const selection = useSelection();
+  // PREJUDICE PJ-11: the selection engine is a Ritmo room (selection.engine/delete/move,
+  // books.multiselect in the registry) — the surface must ASK its rows. Before this cure
+  // the engine installed unconditionally and bulk Delete/Move committed in Esencial.
+  const canSelect = has("selection.engine");
   const lp = useLongPress((id) => {
+    if (!canSelect) return;
     if (selection.mode) selection.toggle(id);
     else { setUi({ editing: null, draft: null }); selection.enter(id); }
   });
@@ -1050,10 +1055,12 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
       {selection.mode && !asShop ? (
         <>
           <SelectionBar count={selVisible.length} onExit={selection.exit}>
-            <button type="button" className="btn danger" disabled={!selVisible.length} onClick={askDeleteSel} data-testid="sel-delete">
-              <Trash2 className="size-4" aria-hidden />{t("sel.lines.delete.yes")}
-            </button>
-            {canMove ? (
+            {has("selection.delete") ? (
+              <button type="button" className="btn danger" disabled={!selVisible.length} onClick={askDeleteSel} data-testid="sel-delete">
+                <Trash2 className="size-4" aria-hidden />{t("sel.lines.delete.yes")}
+              </button>
+            ) : null}
+            {canMove && has("selection.move") ? (
               <button type="button" className="btn secondary" aria-pressed={moveOpen} onClick={() => setMoveOpen((v) => !v)} data-testid="sel-move">
                 {t("sel.move")}
               </button>
@@ -1099,7 +1106,10 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
   // barra anuncia; Eliminar hereda la ventana y el commit del kit del libro, y
   // Mover aplica el selector de carpetas de Compras a toda la selección.
   const selection = useSelection();
+  // PREJUDICE PJ-11: same engine, same law — the Compras board asks selection.engine too.
+  const canSelect = has("selection.engine");
   const lp = useLongPress((id) => {
+    if (!canSelect) return;
     if (selection.mode) selection.toggle(id);
     else { setUi({ editing: null, draft: null }); selection.enter(id); }
   });
@@ -1194,12 +1204,16 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
       {selection.mode ? (
         <>
           <SelectionBar count={selVisible.length} onExit={selection.exit}>
-            <button type="button" className="btn danger" disabled={!selVisible.length} onClick={askDeleteSel} data-testid="sel-delete">
-              <Trash2 className="size-4" aria-hidden />{t("sel.lines.delete.yes")}
-            </button>
-            <button type="button" className="btn secondary" aria-pressed={moveOpen} onClick={() => setMoveOpen((v) => !v)} data-testid="sel-move">
-              {t("sel.move")}
-            </button>
+            {has("selection.delete") ? (
+              <button type="button" className="btn danger" disabled={!selVisible.length} onClick={askDeleteSel} data-testid="sel-delete">
+                <Trash2 className="size-4" aria-hidden />{t("sel.lines.delete.yes")}
+              </button>
+            ) : null}
+            {has("selection.move") ? (
+              <button type="button" className="btn secondary" aria-pressed={moveOpen} onClick={() => setMoveOpen((v) => !v)} data-testid="sel-move">
+                {t("sel.move")}
+              </button>
+            ) : null}
           </SelectionBar>
           {moveOpen ? (
             <div className="sel-move">
@@ -1251,7 +1265,7 @@ function readDueFile(): DueFile[] {
 }
 
 function DueOwe() {
-  const { t, fmt, lang, lines, session, key, commit, confirm } = useFaro();
+  const { t, fmt, lang, lines, session, key, commit, confirm, has } = useFaro();
   const [adding, setAdding] = useState(false);
   useLayer(adding, () => setAdding(false));
   const [name, setName] = useState("");
@@ -1338,7 +1352,7 @@ function DueOwe() {
         <div className="form-block cobro-form is-owe">
           <div className="cobro-grid">
             <div className="label is-wide">
-              <span className="lab-head">{t("cobro.owe.name")}<button type="button" className="sub-gear" aria-pressed={editPresets} aria-label={lang === "en" ? "Edit shortcuts" : "Editar atajos"} onClick={() => setEditPresets((on) => !on)}><Gear /></button><FieldTip topic="f-cuota-nombre" /></span>
+              <span className="lab-head">{t("cobro.owe.name")}{has("subs.my-frequencies") ? <button type="button" className="sub-gear" aria-pressed={editPresets} aria-label={lang === "en" ? "Edit shortcuts" : "Editar atajos"} onClick={() => setEditPresets((on) => !on)}><Gear /></button> : null}<FieldTip topic="f-cuota-nombre" /></span>
               <div className="due-sites">
                 {presets.map((p) => (
                   <button key={p.id} type="button" aria-pressed={name === presetName(p, lang)} onClick={() => setName(presetName(p, lang))}><PresetMark p={p} />{presetName(p, lang)}</button>
@@ -1348,7 +1362,7 @@ function DueOwe() {
                 <BrandIconPick compact value={dueIcon} look={{ glyph: dueIcon && !dueIcon.startsWith("sub:") ? dueIcon : "", color: dueColor, onGlyph: setDueIcon, onColor: setDueColor }} suggest={dueIcon ? "" : iconForName(name, presets, lang, libOff)} onChange={(next, label) => { setDueIcon(next); if (next && label && !name.trim()) setName(label); }} />
                 <input className="field" aria-label={t("cobro.owe.name")} value={name} onChange={(event) => setName(event.target.value)} />
               </div>
-              {editPresets ? <SubPresetEditor lang={lang} presets={presets} onClose={() => setEditPresets(false)} onSave={(next) => commit((s) => ({ ...s, subPresets: next }), lang === "en" ? "Presets" : "Atajos")} /> : null}
+              {editPresets && has("subs.my-frequencies") ? <SubPresetEditor lang={lang} presets={presets} onClose={() => setEditPresets(false)} onSave={(next) => commit((s) => ({ ...s, subPresets: next }), lang === "en" ? "Presets" : "Atajos")} /> : null}
             </div>
             <label className="label">
               <span className="lab-head">{t("cobro.amount")}<FieldTip topic="f-cuota-monto" /></span>
@@ -1359,15 +1373,15 @@ function DueOwe() {
               <DayField value={due} onChange={setDue} />
             </div>
             <div className="label is-wide due-freq">
-              <span className="lab-head">{t("cobro.cadence")}<button type="button" className="sub-gear is-freq" aria-pressed={editFreq} aria-label={lang === "en" ? "Edit frequencies" : "Editar frecuencias"} onClick={() => setEditFreq((on) => !on)}><Gear /></button><FieldTip topic="f-frecuencia" /></span>
+              <span className="lab-head">{t("cobro.cadence")}{has("subs.freq-chips") ? <button type="button" className="sub-gear is-freq" aria-pressed={editFreq} aria-label={lang === "en" ? "Edit frequencies" : "Editar frecuencias"} onClick={() => setEditFreq((on) => !on)}><Gear /></button> : null}<FieldTip topic="f-frecuencia" /></span>
               <div className="due-cadence">
                 {[...freqs, ...customFreqsFor(session?.ledger, freqs), ...(cadence && ![...freqs, ...customFreqsFor(session?.ledger, freqs)].includes(cadence) ? [cadence] : [])].map((id) => (
                   <button key={id} type="button" aria-pressed={cadence === id} onClick={() => setCadence(id as Line["cadence"])}>{cadenceLabel(id, lang)}</button>
                 ))}
-                <button type="button" className="due-other" data-test="due-freq-other" aria-pressed={otherFreq} onClick={() => setOtherFreq(true)}><Plus />{lang === "en" ? "Other…" : "Otro…"}</button>
+                {has("subs.cadence-custom") ? <button type="button" className="due-other" data-test="due-freq-other" aria-pressed={otherFreq} onClick={() => setOtherFreq(true)}><Plus />{lang === "en" ? "Other…" : "Otro…"}</button> : null}
               </div>
-              {otherFreq ? <FreqSheet startSetter value={cadence} presets={freqs} onClose={() => setOtherFreq(false)} onPick={(c) => { setCadence(c as Line["cadence"]); setOtherFreq(false); }} /> : null}
-              {editFreq ? <FreqPresetEditor lang={lang} presets={freqs} onClose={() => setEditFreq(false)} onSave={(next) => { commit((s) => ({ ...s, freqPresets: next }), lang === "en" ? "Frequencies" : "Frecuencias"); if (!next.includes(cadence)) setCadence(next.includes("monthly") ? "monthly" : (next[0] as Line["cadence"])); }} /> : null}
+              {otherFreq && has("subs.cadence-custom") ? <FreqSheet startSetter value={cadence} presets={freqs} onClose={() => setOtherFreq(false)} onPick={(c) => { setCadence(c as Line["cadence"]); setOtherFreq(false); }} /> : null}
+              {editFreq && has("subs.freq-chips") ? <FreqPresetEditor lang={lang} presets={freqs} onClose={() => setEditFreq(false)} onSave={(next) => { commit((s) => ({ ...s, freqPresets: next }), lang === "en" ? "Frequencies" : "Frecuencias"); if (!next.includes(cadence)) setCadence(next.includes("monthly") ? "monthly" : (next[0] as Line["cadence"])); }} /> : null}
             </div>
           </div>
           <div className="cobro-actions">
@@ -1385,7 +1399,7 @@ function DueOwe() {
               <p data-test="due-when">{line.cadence ? `${cadenceLabel(line.cadence, lang) || t(line.cadence)}${line.nextDue ? ` · ${new Date(`${nextDueFrom(line.nextDue, line.cadence, today)}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" }).replace(".", "")}` : ""}` : t("cobro.owe")}</p>
             </div>
             <strong className="num">{fmt(convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0))}</strong>
-            <button type="button" className="due-drop" aria-label={t("cobro.archive")} onClick={() => confirm({ title: t("cobro.archive"), body: t("cobro.owe.file.body"), yes: t("cobro.archive"), run: () => archive(line) })}><Trash2 /></button>
+            {has("cobros.archive") ? <button type="button" className="due-drop" aria-label={t("cobro.archive")} onClick={() => confirm({ title: t("cobro.archive"), body: t("cobro.owe.file.body"), yes: t("cobro.archive"), run: () => archive(line) })}><Trash2 /></button> : null}
           </div>
         </article>
       )) : <Note>{t("cobro.owe.empty")}</Note>}

@@ -138,7 +138,9 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
   onWho?: () => void;
   name: string; rate: boolean; leftView: number; amountView: number; amountLabel: string; dateIso: string; aprBps: number;
   pays: { date: string; view: number }[]; payLabel: string; paying: boolean; onPaying: (on: boolean) => void;
-  onPay: (displayMinor: number, date: string) => void; archiveBody: string; onArchive: () => void; hint: string; extra?: ReactNode;
+  /** PREJUDICE PJ-12: both hands are optional — a side whose mode does not reach the
+   *  verb's registry row passes no handler and the card renders without that hand. */
+  onPay?: (displayMinor: number, date: string) => void; archiveBody: string; onArchive?: () => void; hint: string; extra?: ReactNode;
   /** 1.3.149: when present (a received loan with interest), the pay form splits the payment into
    *  interest + principal; prefillInterest suggests the interest part for a typed amount. */
   onPaySplit?: (displayMinor: number, date: string, interestDisplayMinor: number) => void;
@@ -218,15 +220,15 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
               const minor = parseAmount(amt);
               if (minor === null || minor <= 0) return;
               if (onPaySplit) onPaySplit(minor, ISO_DAY.test(on) ? on : todayIso(), Math.min(Math.max(0, parseAmount(intAmt) ?? 0), minor));
-              else onPay(minor, ISO_DAY.test(on) ? on : todayIso());
+              else if (onPay) onPay(minor, ISO_DAY.test(on) ? on : todayIso());
               onPaying(false);
             }}>{t("save")}</button>
           </div>
         </div>
       ) : (
         <div className="cobro-acts">
-          <button type="button" className="btn secondary" onClick={() => onPaying(true)}>{payLabel}</button>
-          <button type="button" className="btn secondary" onClick={() => confirm({ title: t("cobro.archive"), body: `${name}. ${archiveBody} ${fmt(leftView)}`, yes: t("cobro.archive"), run: onArchive })}>{t("cobro.archive")}</button>
+          {onPay || onPaySplit ? <button type="button" className="btn secondary" onClick={() => onPaying(true)}>{payLabel}</button> : null}
+          {onArchive ? <button type="button" className="btn secondary" onClick={() => confirm({ title: t("cobro.archive"), body: `${name}. ${archiveBody} ${fmt(leftView)}`, yes: t("cobro.archive"), run: onArchive })}>{t("cobro.archive")}</button> : null}
           <Hint topic={hint} className="is-acts" corner />
         </div>
       )}

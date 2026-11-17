@@ -36,7 +36,7 @@ export function isVaultSub(state: LedgerState, subId: string): boolean {
   if (!subId) return false;
   for (const c of state.structure.categories) {
     for (const s of c.subs) {
-      if (s.id === subId) return s.icon === "vault" || s.icon.startsWith("vault:");
+      if (s.id === subId) return typeof s.icon === "string" && (s.icon === "vault" || s.icon.startsWith("vault:"));
     }
   }
   return false;
@@ -71,7 +71,7 @@ export function hostAccounts(state: LedgerState, asOfKey: string, stock: Savings
     if (c.role !== "savings" || c.hidden) continue;
     for (const s of c.subs) {
       if (s.hidden) continue;
-      if (s.icon === "vault" || s.icon.startsWith("vault:")) out.push({ id: s.id, minor: bySub.get(s.id) ?? 0 });
+      if (typeof s.icon === "string" && (s.icon === "vault" || s.icon.startsWith("vault:"))) out.push({ id: s.id, minor: bySub.get(s.id) ?? 0 });
     }
   }
   return out;

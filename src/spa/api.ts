@@ -31,10 +31,32 @@ export async function pushLedger({ data: input }: { data: PushInput }): Promise<
   if (error) throw error;
   const r = (Array.isArray(data) ? data[0] : data) as { data_json: string; revision: number; updated_at: string; device_id: string; won: boolean } | undefined;
   if (!r) return { stale: false, row: null };
-  return {
-    stale: !r.won,
-    row: { dataJson: String(r.data_json), revision: Number(r.revision), updatedAt: String(r.updated_at), deviceId: String(r.device_id ?? "") },
-  };
+  const row: RemoteRow = { dataJson: String(r.data_json), revision: Number(r.revision), updatedAt: String(r.updated_at), deviceId: String(r.device_id ?? "") };
+  // PREJUDICE PJ-7 (client belt): a "won" is only believed when the row the server
+  // holds IS the book that was pushed — same revision, same content compared as
+  // parsed JSON (the server's jsonb rendering is not byte-identical). The old
+  // server function could declare a win its own ON CONFLICT had vetoed; with this
+  // check the app takes the conflict door instead of clearing dirty on a lie.
+  // The faro_push cure in backups.sql makes the server itself truthful; this
+  // belt keeps every already-deployed client honest until the pegada lands.
+  const believed = r.won && row.revision === Math.floor(input.revision) && sameBook(row.dataJson, input.dataJson);
+  return { stale: !believed, row };
+}
+
+/** Deep equality of two JSON texts, insensitive to key order and rendering. */
+function sameBook(a: string, b: string): boolean {
+  try {
+    return canonJson(JSON.parse(a)) === canonJson(JSON.parse(b));
+  } catch {
+    return false;
+  }
+}
+
+function canonJson(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v) ?? "null";
+  if (Array.isArray(v)) return `[${v.map(canonJson).join(",")}]`;
+  const o = v as Record<string, unknown>;
+  return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canonJson(o[k])}`).join(",")}}`;
 }
 
 export async function fetchOfficialRate(): Promise<{ rateE4: number; asOf: string; source: string }> {

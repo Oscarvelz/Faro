@@ -11,7 +11,7 @@
  * Pure: no DOM. Amounts in minor units of the card's currency.
  */
 import { convertMinor, normCurrency } from "./money";
-import { ISO_DAY, todayIso } from "./loans";
+import { ISO_DAY, isRealDay, todayIso } from "./loans";
 import type { CardSnap, CreditCard, Currency, LedgerState, Line, RewardSnap } from "./types";
 
 export const CARD_PRESETS: { id: string; name: string; issuer: string; mark: string; color: string; network: string; manualOnly?: boolean }[] = [
@@ -344,7 +344,11 @@ export function addReading(state: LedgerState, cardId: string, u: CardUpdate, to
     ...(u.lastPayMinor != null ? { lastPayMinor: u.lastPayMinor } : {}),
     ...(u.lastPayOn ? { lastPayOn: u.lastPayOn } : {}),
     ...(u.notes?.length ? { notes: u.notes } : {}),
-    seen: cardPays(state, card.id).map((l) => l.id),
+    // PREJUDICE PJ-3: a reading can only include payments dated on or before ITS OWN date.
+    // The old list marked every payment that existed at save time — readings are backdated
+    // by nature (a Nov 1 statement saved Nov 16), so a Nov 10 payment was swallowed as
+    // "already included" and the balance stayed too high until the next reading.
+    seen: cardPays(state, card.id).filter((l) => payDay(l) <= on).map((l) => l.id),
   })!;
   const last = card.snaps[card.snaps.length - 1];
   const same = last && last.on === snap.on && last.balanceMinor === snap.balanceMinor && last.availMinor === snap.availMinor && last.minMinor === snap.minMinor && last.limitMinor === snap.limitMinor && last.dueOn === snap.dueOn;
@@ -362,7 +366,7 @@ export function addReading(state: LedgerState, cardId: string, u: CardUpdate, to
 export function payCard(state: LedgerState, cardId: string, amountMinor: number, date: string, id: string, label: string): LedgerState {
   const card = cardsOf(state).find((c) => c.id === cardId) ?? storedCards(state).find((c) => c.id === cardId);
   if (!card || amountMinor <= 0) return state;
-  const day = ISO_DAY.test(date) ? date : todayIso();
+  const day = isRealDay(date) ? date : todayIso();
   const line: Line = {
     id, seriesId: id, monthKey: day.slice(0, 7), kind: "expense-variable", concept: `${label} · ${card.name}`, amountMinor, currency: card.currency,
     active: false, note: "", categoryId: "", subId: "", recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "",
@@ -507,7 +511,7 @@ export function redeemRewards(state: LedgerState, cardId: string, how: "credit" 
   const have = rewardsOf(card).amount;
   const use = Math.min(have, Math.round(amountMinor));
   if (!(use > 0)) return state;
-  const day = ISO_DAY.test(date) ? date : todayIso();
+  const day = isRealDay(date) ? date : todayIso();
   const base: Line = {
     id, seriesId: id, monthKey: day.slice(0, 7), kind: how === "credit" ? "expense-variable" : "income-variable", concept: `${label} · ${card.name}`, amountMinor: use, currency: card.currency,
     active: how === "deposit", note: "", categoryId: "", subId: "", recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "",

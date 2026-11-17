@@ -1,5 +1,6 @@
 import { uid } from "./money.ts";
-import { FREQ_DEFAULT, nextDueFrom } from "./cadence.ts";
+import { FREQ_DEFAULT, intervalOf, nextDueFrom } from "./cadence.ts";
+import { ISO_DAY } from "./loans.ts";
 import type { LedgerState, Line } from "./types";
 
 export type Session = {
@@ -114,7 +115,48 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
       delete born.rest;
       // 1.3.76 intervals ("3m", "1d"…): carry only into a month the rhythm falls in, dated on that payment. Old words keep the old copy.
       const from0 = l.nextDue || l.bookedOn;
-      if (!l.cadence || FREQ_DEFAULT.includes(l.cadence) || !from0) return [{ ...born, id: uid(), monthKey: to }];
+      if (!l.cadence || FREQ_DEFAULT.includes(l.cadence) || !from0) {
+        // PREJUDICE PJ-2: the copy is the TARGET month's instance — its due date must live in
+        // its own month too. The old copy kept the source month's nextDue verbatim, so
+        // duesWindow served a month-stale date forever and the real occurrence was invisible
+        // to the Asesor, the widget and «Puedes gastar hoy» (the Cuotas screens self-healed
+        // at render via nextDueFrom; the engine never did). Advance the date the same way
+        // the screens compute it: first occurrence of the rhythm on/after the target
+        // month's 1st; a cadence-less dated line shifts by the whole months between buckets.
+        if (!from0 || !ISO_DAY.test(from0)) return [{ ...born, id: uid(), monthKey: to }];
+        let due: string;
+        if (l.cadence) {
+          due = nextDueFrom(from0, l.cadence, `${to}-01`);
+        } else {
+          const [fy, fm] = from.split("-").map(Number);
+          const [ty, tm] = to.split("-").map(Number);
+          const shift = (ty! - fy!) * 12 + (tm! - fm!);
+          const total = fy! * 12 + (fm! - 1) + shift;
+          const yy = Math.floor(total / 12), mm = (total % 12) + 1;
+          const last = new Date(yy, mm, 0).getDate();
+          const dd = Math.min(Number(from0.slice(8, 10)), last);
+          due = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+        }
+        return [{ ...born, id: uid(), monthKey: to, nextDue: due }];
+      }
+      // PREJUDICE PJ-16: a cadence string the interval parser does not know
+      // ("every-3-months" and its kin) made nextDueFrom return the source date
+      // unchanged, the month check then dropped the copy — the charge silently
+      // VANISHED from the target month. An unknowable rhythm falls back to the
+      // whole-month shift, like a cadence-less line: the date may not follow the
+      // true rhythm, but the charge exists in its month, visible and correctable,
+      // instead of not existing at all.
+      if (!intervalOf(l.cadence)) {
+        const [fy, fm] = from.split("-").map(Number);
+        const [ty, tm] = to.split("-").map(Number);
+        const shift = (ty! - fy!) * 12 + (tm! - fm!);
+        const total = fy! * 12 + (fm! - 1) + shift;
+        const yy = Math.floor(total / 12), mm = (total % 12) + 1;
+        const last = new Date(yy, mm, 0).getDate();
+        const dd = Math.min(Number(from0.slice(8, 10)), last);
+        const due = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+        return [{ ...born, id: uid(), monthKey: to, nextDue: due }];
+      }
       const due = nextDueFrom(from0, l.cadence, `${to}-01`);
       if (due.slice(0, 7) !== to) return [];
       return [{ ...born, id: uid(), monthKey: to, nextDue: due, bookedOn: due }];

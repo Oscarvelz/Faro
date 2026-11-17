@@ -10,7 +10,7 @@
  * download it.
  */
 import { useEffect } from "react";
-import { nativePullDocs } from "@/spa/native";
+import { nativePeekDocKinds, nativePullDocs } from "@/spa/native";
 import { parseVCards } from "@/lib/faro/vcard";
 import { sharedDocKind } from "@/lib/faro/shareddocs";
 import { useFaro } from "./provider";
@@ -18,12 +18,21 @@ import { useImport } from "./people";
 import { openImport } from "./bank-dock";
 
 export default function DocInbox() {
-  const { session } = useFaro();
+  const { session, has, mode } = useFaro();
   const add = useImport();
   const ready = !!session;
   useEffect(() => {
     if (!ready) return;
     const take = async () => {
+      // PREJUDICE PJ-13: the inbox routes by MODE as well as by kind. The registry
+      // rows (inbox.vcf = Ritmo, inbox.bank = Completo) existed but this surface
+      // never asked them — a statement shared in Esencial opened the full import
+      // door. nativePullDocs CONSUMES the tray, so the gate peeks first: if any
+      // waiting kind is beyond this mode, nothing is taken — the tray keeps the
+      // files, lossless, and the effect re-runs when the mode changes.
+      const kinds = nativePeekDocKinds();
+      if (kinds.includes("statement") && !has("inbox.bank")) return;
+      if (kinds.includes("contact") && !has("inbox.vcf")) return;
       const files = nativePullDocs();
       if (!files.length) return;
       let contactText = "";
@@ -43,6 +52,6 @@ export default function DocInbox() {
     const on = () => void take();
     window.addEventListener("faronative-docs", on);
     return () => window.removeEventListener("faronative-docs", on);
-  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, mode]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }

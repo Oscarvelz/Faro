@@ -60,15 +60,16 @@ declare
   uid uuid := auth.uid();
   prev_rev integer;
   prev_json text;
+  may_write boolean;
   did_win boolean;
 begin
   if uid is null then raise exception 'not signed in'; end if;
   select l.revision, l.data_json::text into prev_rev, prev_json
     from public.faro_ledgers l where l.user_id = uid;
-  did_win := prev_rev is null
+  may_write := prev_rev is null
     or p_revision > prev_rev
     or (p_revision = prev_rev and prev_json::jsonb = p_data::jsonb);
-  if did_win then
+  if may_write then
     insert into public.faro_ledgers (user_id, data_json, revision, updated_at, device_id)
     values (uid, p_data::jsonb, p_revision, p_updated, p_device)
     on conflict (user_id) do update set
@@ -78,6 +79,17 @@ begin
       device_id = excluded.device_id
     where public.faro_ledgers.revision < excluded.revision;
   end if;
+  -- PREJUDICE PJ-7: el veredicto se lee de la fila RESULTANTE, nunca de la
+  -- lectura previa. Antes did_win se calculaba del SELECT inicial y el
+  -- ON CONFLICT podía vetar la escritura (otro aparato empujó una revisión
+  -- mayor entre la lectura y la escritura) sin revisar el veredicto: el
+  -- perdedor recibía won=true, limpiaba su dirty y veía «guardado» mientras
+  -- el servidor guardaba el libro del otro. Ahora ganar significa que la
+  -- fila guardada ES la empujada (misma revisión y mismo contenido); si el
+  -- veto ocurrió, la fila es la del ganador y el veredicto es falso — el
+  -- cliente la recupera como conflicto, que es la puerta diseñada.
+  select (l.revision = p_revision and l.data_json = p_data::jsonb) into did_win
+    from public.faro_ledgers l where l.user_id = uid;
   return query
     select l.data_json::text, l.revision, l.updated_at, l.device_id::text, did_win
     from public.faro_ledgers l where l.user_id = uid;

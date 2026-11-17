@@ -141,7 +141,7 @@ function isVaultSub(structure: Structure, subId: string): boolean {
   for (const category of structure.categories) {
     const sub = category.subs.find((item) => item.id === subId);
     if (!sub) continue;
-    return sub.icon === "vault" || sub.icon.startsWith("vault:");
+    return typeof sub.icon === "string" && (sub.icon === "vault" || sub.icon.startsWith("vault:"));
   }
   return false;
 }

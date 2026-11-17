@@ -842,7 +842,13 @@ export function moveNamed<T extends Named>(items: T[], id: string, dir: -1 | 1):
 export function isLedger(x: unknown): x is LedgerState {
   if (!x || typeof x !== "object") return false;
   const o = x as Partial<LedgerState>;
-  return o.v === 1 && !!o.structure && !!o.months && !!o.settings && typeof o.revision === "number";
+  // PREJUDICE PJ-10: the revision must be an integer the server can hold —
+  // faro_push's parameter is a Postgres integer. A finite 3e9 used to pass as
+  // "a number", then every push died on the server forever, unexplained, and
+  // the pack counted as valid so quarantine never fired.
+  return o.v === 1 && !!o.structure && !!o.months && !!o.settings
+    && typeof o.revision === "number" && Number.isInteger(o.revision)
+    && o.revision >= 0 && o.revision <= 2147483647;
 }
 
 /**
@@ -872,6 +878,11 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (!isObjD(l)) return false;
       if (!isStrD(l.id) || !isStrD(l.kind) || !isStrD(l.concept) || !isStrD(l.currency)) return false;
       if (!isFinD(l.amountMinor)) return false;
+      // PREJUDICE PJ-6: balanceMinor and aprBps are dereferenced as numbers by the
+      // walks (a string balance posed as a series snapshot and silently zeroed its
+      // pocket; debts.ts multiplies aprBps raw). Present = null or a finite number.
+      if (l.balanceMinor !== undefined && l.balanceMinor !== null && !isFinD(l.balanceMinor)) return false;
+      if (l.aprBps !== undefined && !isFinD(l.aprBps)) return false;
     }
   }
   // structure: las categorías que nombran y ordenan todo lo demás.
@@ -880,6 +891,13 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   if (!Array.isArray(st.categories)) return false;
   for (const c of st.categories as unknown[]) {
     if (!isObjD(c) || !isStrD(c.id) || !Array.isArray(c.subs)) return false;
+    // PREJUDICE PJ-1: a sub is an object with a string id (the engines join money
+    // to subs by id; an id-less sub misfiles silently) and, when it carries an
+    // icon, the icon is a string (the vault test reads it as one).
+    for (const sub of c.subs as unknown[]) {
+      if (!isObjD(sub) || !isStrD(sub.id)) return false;
+      if (sub.icon !== undefined && !isStrD(sub.icon)) return false;
+    }
   }
   if (st.purchases !== undefined && !Array.isArray(st.purchases)) return false;
   if (st.catalog !== undefined && !Array.isArray(st.catalog)) return false;

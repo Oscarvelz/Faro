@@ -44,7 +44,7 @@ function pull(): File[] {
 }
 
 function Ask({ count, onCards, onReceipt, onClose }: { count: number; onCards: () => void; onReceipt: () => void; onClose: () => void }) {
-  const { lang } = useFaro();
+  const { lang, has } = useFaro();
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const first = useRef<HTMLButtonElement>(null);
   useLayer(true, onClose);
@@ -59,12 +59,19 @@ function Ask({ count, onCards, onReceipt, onClose }: { count: number; onCards: (
           <button type="button" className="shr-x" aria-label={L("Cerrar", "Close")} onClick={onClose}><X /></button>
         </div>
         <p className="shr-sub">{L("¿Qué son? Revisas todo antes de guardar.", "What are they? You review everything before saving.")}</p>
-        <button ref={first} type="button" className="scn-opt" data-opt="cards" onClick={onCards}>
-          <CreditCard aria-hidden /><span>{L("Tarjeta de crédito", "Credit card")}</span>
-        </button>
-        <button type="button" className="scn-opt" data-opt="receipt" onClick={onReceipt}>
-          <ReceiptText aria-hidden /><span>{L("Recibo o gasto", "Receipt or expense")}</span>
-        </button>
+        {/* PREJUDICE PJ-14: the doors ask their registry rows (inbox.image-card =
+            Completo, inbox.image-receipt = Esencial). Before this cure a picture
+            shared in Esencial offered the full card-scan door ungated. */}
+        {has("inbox.image-card") ? (
+          <button ref={first} type="button" className="scn-opt" data-opt="cards" onClick={onCards}>
+            <CreditCard aria-hidden /><span>{L("Tarjeta de crédito", "Credit card")}</span>
+          </button>
+        ) : null}
+        {has("inbox.image-receipt") ? (
+          <button type="button" className="scn-opt" data-opt="receipt" onClick={onReceipt}>
+            <ReceiptText aria-hidden /><span>{L("Recibo o gasto", "Receipt or expense")}</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );

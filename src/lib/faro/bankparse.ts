@@ -87,6 +87,13 @@ export function parseMoney(raw: string): number | null {
     if (/,\d{1,2}$/.test(s) && (s.match(/,/g) ?? []).length === 1) { whole = s.slice(0, lastComma); frac = s.slice(lastComma + 1); }
   } else if (lastDot >= 0) {
     if (/\.\d{3}$/.test(s) && (s.match(/\./g) ?? []).length > 1) { /* 1.234.567 thousands */ }
+    else if (/^\d{1,3}\.\d{3}$/.test(s)) {
+      // PREJUDICE PJ-5: a single dot with exactly three trailing digits is the
+      // es-NI THOUSANDS format (1.234 = 1234) — parseAmount has always read it
+      // so, while this parser read it as a decimal 1.23, importing whole-córdoba
+      // statements ~1000× small. One text, one number, in both parsers.
+      whole = s.replace(".", ""); frac = "";
+    }
     else { whole = s.slice(0, lastDot); frac = s.slice(lastDot + 1); }
   }
   whole = whole.replace(/[.,]/g, "");

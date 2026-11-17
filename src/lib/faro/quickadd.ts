@@ -67,6 +67,15 @@ export type QuickEntry = {
 export type QuickHome = { c: string; s: string; n: string; store?: string };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** PREJUDICE PJ-9: the shape is not the day — 2026-13-45 and 2026-02-31 pass the
+ *  regex and drained into phantom buckets no surface reads, acked as saved.
+ *  A real calendar day or nothing. */
+const isRealDay = (s: string): boolean => {
+  if (!DAY.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  if (m! < 1 || m! > 12 || d! < 1) return false;
+  return d! <= new Date(y!, m!, 0).getDate();
+};
 /** Techo sano: $999,999,999.99 — el shell ya lo impone; aquí se repite porque la cola no es de fiar. */
 export const QUICK_MAX_MINOR = 99_999_999_999;
 
@@ -85,7 +94,7 @@ export function parseQuickEntries(raw: string): QuickEntry[] {
     if (e.sign !== "in" && e.sign !== "out") continue;
     if (!Number.isFinite(minor) || minor <= 0 || minor > QUICK_MAX_MINOR) continue;
     if (e.cur !== "NIO" && e.cur !== "USD") continue;
-    if (typeof e.day !== "string" || !DAY.test(e.day)) continue;
+    if (typeof e.day !== "string" || !isRealDay(e.day)) continue;
     // Una casa mal formada no mata el apunte: se degrada a «sin categoría» y la
     // resolución contra la Estructura viva (ingestQuick) vuelve a validar.
     const cat = typeof e.cat === "string" && e.cat.length <= 64 ? e.cat : "";

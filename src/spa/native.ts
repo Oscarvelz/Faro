@@ -238,6 +238,29 @@ const DOC_CH = 512 * 1024;
  * cleared. Returns [] when there is no shell, the shell predates the tray, or nothing waits.
  * Routing the files by kind is the caller's job (lib/faro/shareddocs.ts).
  */
+/**
+ * PREJUDICE PJ-13: peek the doc tray's kinds WITHOUT taking anything (no chunk
+ * reads, no docClear). nativePullDocs consumes the tray, so the mode gate in
+ * doc-inbox.tsx must decide from the names/types alone whether this mode may
+ * route what waits: a kind the mode does not reach stays in the tray, untaken,
+ * until the mode rises. Classification mirrors sharedDocKind's name/type rules;
+ * the content sniff still runs on the real pull, where it belongs.
+ */
+export function nativePeekDocKinds(): ("contact" | "statement")[] {
+  const n = native();
+  if (!n?.docCount || !n.docInfo) return [];
+  const out: ("contact" | "statement")[] = [];
+  const count = Math.min(12, Number(n.docCount()) || 0);
+  for (let i = 0; i < count; i++) {
+    let info: { name?: string; type?: string } = {};
+    try { info = JSON.parse(n.docInfo(i) || "{}"); } catch { /* keep defaults */ }
+    const type = (info.type || "").trim().toLowerCase();
+    const name = (info.name || "").trim();
+    out.push(type === "text/vcard" || type === "text/x-vcard" || /\.vcf$/i.test(name) ? "contact" : "statement");
+  }
+  return out;
+}
+
 export function nativePullDocs(): File[] {
   const n = native();
   if (!n?.docCount || !n.docInfo || !n.docChunk) return [];

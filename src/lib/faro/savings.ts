@@ -88,7 +88,9 @@ export function savingsStock(state: LedgerState, asOfKey: string): SavingsStock 
   const vaultSubs = new Set<string>();
   for (const c of state.structure.categories) {
     for (const s of c.subs) {
-      if (s.icon === "vault" || s.icon.startsWith("vault:")) vaultSubs.add(s.id);
+      // PREJUDICE PJ-1: the icon is read type-safely — an icon-less sub is a plain
+      // sub, never a crash (the deep gate separately requires the sub's id).
+      if (typeof s.icon === "string" && (s.icon === "vault" || s.icon.startsWith("vault:"))) vaultSubs.add(s.id);
     }
   }
   const snaps = new Map<string, Placed>();
@@ -104,7 +106,11 @@ export function savingsStock(state: LedgerState, asOfKey: string): SavingsStock 
       if (!line.active || line.rest || roleOf(state, line.categoryId) !== "savings") continue;
       const sid = line.seriesId || line.id;
       const p = placed(line, monthKey);
-      if (line.balanceMinor != null) {
+      // PREJUDICE PJ-6: only a real number is a snapshot. A corrupt (string) balance
+      // used to pose as one — suppressing every earlier deposit while contributing
+      // 0 itself, so the pocket read C$0.00 with money inside. Now it is no
+      // snapshot at all: the line counts by its amount, like any deposit line.
+      if (typeof line.balanceMinor === "number" && Number.isFinite(line.balanceMinor)) {
         const prev = snaps.get(sid);
         if (!prev || orderOf(p) > orderOf(prev)) snaps.set(sid, p);
       } else {

@@ -9,13 +9,13 @@
  */
 import { convertMinor, monthlyEquivalent, normCurrency } from "./money";
 import { cardBalanceAt, cardPays, cardPlanDebts, cardTotals, cardsOf, rewardsAt, rewardsTotals, storedCards } from "./cards";
-import { ISO_DAY, dayGap, loanFigures, loanPays, loanState, loansOf, simpleInterest, todayIso } from "./loans";
+import { ISO_DAY, isRealDay, dayGap, loanFigures, loanPays, loanState, loansOf, simpleInterest, todayIso } from "./loans";
 import type { Currency, DebtPlan, LedgerState, Lent, Line, Loan } from "./types";
 
 /* ---------- Me deben (lent) ---------- */
 
 export function normalizeLent(l: Lent, fallback: Currency = "USD"): Lent {
-  const started = typeof l.startedOn === "string" && ISO_DAY.test(l.startedOn) ? l.startedOn : "";
+  const started = isRealDay(l.startedOn) ? l.startedOn : "";
   return {
     id: String(l.id),
     person: typeof l.person === "string" ? l.person : "",
@@ -25,7 +25,7 @@ export function normalizeLent(l: Lent, fallback: Currency = "USD"): Lent {
     currency: normCurrency(l.currency, fallback),
     aprBps: typeof l.aprBps === "number" && l.aprBps > 0 ? l.aprBps : 0,
     startedOn: started,
-    dueOn: typeof l.dueOn === "string" && ISO_DAY.test(l.dueOn) ? l.dueOn : "",
+    dueOn: isRealDay(l.dueOn) ? l.dueOn : "",
     note: typeof l.note === "string" ? l.note : "",
     ...(l.archived ? { archived: true, archivedOn: l.archivedOn ?? "", unpaidMinor: l.unpaidMinor ?? 0 } : {}),
   };
@@ -79,7 +79,7 @@ function abonoLine(id: string, lentId: string, person: string, amountMinor: numb
 export function payLent(state: LedgerState, lentId: string, amountMinor: number, date: string, id: string, label: string): LedgerState {
   const l = lentOf(state).find((x) => x.id === lentId);
   if (!l || amountMinor <= 0) return state;
-  const day = ISO_DAY.test(date) ? date : todayIso();
+  const day = isRealDay(date) ? date : todayIso();
   const line = abonoLine(id, l.id, l.person, amountMinor, l.currency, day, label);
   const bucket = state.months[line.monthKey] ?? { lines: [] };
   return { ...state, months: { ...state.months, [line.monthKey]: { lines: [...bucket.lines, line] } } };

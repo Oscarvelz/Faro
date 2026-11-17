@@ -868,7 +868,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       if (!isLedgerDeep(parsed)) return false;
       const seeded = seedLedger(parsed);
       if (dirtyLocal) {
-        localStorage.setItem(conflictKey(userId), JSON.stringify(dirtyLocal));
+        // PREJUDICE PJ-8: the aparted book gets the tab door's protection — the
+        // first slot if it is free, the second otherwise. This write used to be
+        // unconditional: a second lost sync overwrote the first aparted book
+        // before the user ever judged it, destroyed unoffered.
+        if (!localStorage.getItem(conflictKey(userId))) localStorage.setItem(conflictKey(userId), JSON.stringify(dirtyLocal));
+        else localStorage.setItem(tabConflictKey(userId), JSON.stringify(dirtyLocal));
         setHasConflict(true);
         setSync("conflict");
       }
