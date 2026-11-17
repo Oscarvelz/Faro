@@ -71,7 +71,14 @@ export function StatFoldProvider({
   const saved = useMemo(() => {
     try { return JSON.parse(sessionStorage.getItem(OPEN_KEY) || "null") as { spread?: boolean; shut?: Record<string, boolean>; forced?: Record<string, boolean> } | null; } catch { return null; }
   }, []);
-  const { t, confirm } = useFaro();
+  const { t, confirm, has } = useFaro();
+  // Ola 2 (el cadáver BR-4, por fin): reordenar las tarjetas de Estudio es
+  // de Completo (fallo 33, asiento study.reorder) — el asiento existía desde
+  // la etapa 2 y NINGUNA ruta de render lo consultaba: el reordenar vivía
+  // en los tres modos. La puerta vive aquí, en el control que abre la lista
+  // de ordenación; el orden guardado se sigue respetando en todo modo (el
+  // `placed` de abajo lo consume sin mirar el modo), como el fallo manda.
+  const canReorder = has("study.reorder");
   const [spread, setSpread] = useState(typeof saved?.spread === "boolean" ? saved.spread : unfoldChoice());
   const [shut, setShut] = useState<Record<string, boolean>>(saved?.shut ?? {});
   const [forced, setForced] = useState<Record<string, boolean>>(saved?.forced ?? {});
@@ -217,13 +224,15 @@ export function StatFoldProvider({
           <span>{label}</span>
         </label>
         <span className="study-tools-end">
+          {canReorder ? (
           <button type="button" className={`study-sort${sorting ? " is-on" : ""}`} aria-pressed={sorting} aria-label={sortLabel} onClick={() => setSorting((on) => !on)}>
             <ArrowUpDown />
           </button>
+          ) : null}
           <Hint topic="ordenar-estudio" className="is-tools" />
         </span>
       </div>
-      {sorting ? (
+      {sorting && canReorder ? (
         <div className="study-order" role="list">
           {livePlaced.map((id, index) => (
             <div key={id} className="study-order-row" role="listitem">

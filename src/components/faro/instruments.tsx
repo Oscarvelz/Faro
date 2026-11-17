@@ -25,7 +25,18 @@ function readSlips(): Slip[] {
 }
 
 export function Instruments({ pinned = false, contained = false }: { pinned?: boolean; contained?: boolean }) {
-  const { t, session, summary, commit, refreshRate, saveRate, insertAmount, ui, setUi, confirm } = useFaro();
+  const { t, session, summary, commit, refreshRate, saveRate, insertAmount, ui, setUi, confirm, has } = useFaro();
+  // Ola 2 (C-4): esta hoja vivía ENTERA fuera del sistema de modos — la
+  // calculadora y los papelitos se ejercían en Esencial contra el fallo 8.
+  // Ahora cada pieza entra por su asiento: la placa de tasa y el conversor
+  // son universales; la calculadora simple es de Ritmo (tools.calculator),
+  // su ventana flotante libre de Completo (tools.calculator-float) y los
+  // papelitos de Ritmo (tools.slips). El recuerdo automático de conversiones
+  // sigue como dato (existencia), pero su sección y el «Guardar» de la
+  // calculadora solo existen donde el asiento vive.
+  const calcOk = has("tools.calculator");
+  const slipsOk = has("tools.slips");
+  const floatOk = has("tools.calculator-float");
   const settings = session?.ledger.settings;
   const box = useRef<HTMLDivElement>(null);
   const [prefs, setPrefs] = useState<CvPrefs>(() => readPrefs());
@@ -170,9 +181,11 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           <button type="button" className={`icon-btn cv-gear${prefsOn ? " is-on" : ""}`} aria-pressed={prefsOn} aria-expanded={prefsOn} aria-label={lang === "en" ? "Exchange settings" : "Ajustes del cambio"} onClick={() => setPrefsOn((v) => !v)}>
             <SlidersHorizontal className="size-4" />
           </button>
+          {calcOk ? (
           <button type="button" data-anchor="tools-calc" className={`icon-btn calc-launch${calcOn ? " is-on" : ""}`} aria-pressed={calcOn} aria-label={t("calc.open")} onClick={() => setCalcOn((v) => !v)}>
             <Calculator className="size-4" />
           </button>
+          ) : null}
           </span>
         </div>
         {prefsOn ? <CvSettings prefs={prefs} lang={lang} onChange={savePrefs} onDone={() => setPrefsOn(false)} /> : null}
@@ -216,8 +229,10 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
         </div>
         {sendOn && converted !== null && minor ? <SendPanel fromMinor={minor} from={from} toMinor={converted} to={to} onDone={() => setSendOn(false)} /> : null}
       </section>
-      {calcOn ? (
+      {calcOn && calcOk ? (
         <CalcPanel
+          floatOk={floatOk}
+          canSave={slipsOk}
           host={contained ? (box.current?.closest(".tool-sheet") as HTMLElement | null) : null}
           expr={expr}
           setExpr={(next) => { summed.current = true; setExpr(next); }}
@@ -241,6 +256,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           }}
         />
       ) : null}
+      {slipsOk ? (
       <section className="card tool-card" data-anchor="tools-slips">
         <div className="slip-head">
           <h2 className="serif text-xl lab-head">{t("slips.title")}<Hint topic="guardados" /></h2>
@@ -376,6 +392,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           </div>
         )}
       </section>
+      ) : null}
     </div>
   );
 }
@@ -522,7 +539,7 @@ function readGeo(): Geo | null {
   }
 }
 
-function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose, onSend }: {
+function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose, onSend, floatOk, canSave }: {
   host: HTMLElement | null;
   expr: string;
   setExpr: (next: string) => void;
@@ -530,6 +547,12 @@ function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose, onSend }: {
   onPut: () => void;
   onClose: () => void;
   onSend: () => void;
+  /** Ola 2 (C-4): la ventana flotante libre — arrastrar, redimensionar,
+   *  llenar la pantalla — es de Completo (tools.calculator-float); en Ritmo
+   *  la calculadora es simple: vive quieta donde nace (fallo 8). */
+  floatOk: boolean;
+  /** El «Guardar» papelito entra por el asiento de los papelitos. */
+  canSave: boolean;
 }) {
   const { t, lang } = useFaro();
   const en = lang === "en";
@@ -662,14 +685,16 @@ function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose, onSend }: {
       role="dialog"
       aria-label={t("calc.title")}
     >
-      <header className="calc2-bar" onPointerDown={drag} onDoubleClick={() => setBig((v) => !v)}>
+      <header className="calc2-bar" onPointerDown={floatOk ? drag : undefined} onDoubleClick={floatOk ? () => setBig((v) => !v) : undefined}>
         <i className="calc2-grab" aria-hidden />
         <strong className="serif">{t("calc.title")}</strong>
-        <button type="button" className="calc2-chip" onClick={onSave} disabled={result === null || !expr.trim()}>{t("slips.save")}</button>
+        {canSave ? <button type="button" className="calc2-chip" onClick={onSave} disabled={result === null || !expr.trim()}>{t("slips.save")}</button> : null}
         <button type="button" className="calc2-icon" data-test="calc-send" aria-label={en ? "Send to a category" : "Enviar a una categoría"} title={en ? "Send to" : "Enviar a"} onClick={onSend} disabled={result === null || result <= 0}><Send /></button>
+        {floatOk ? (
         <button type="button" className="calc2-icon" aria-label={big ? (en ? "Make smaller" : "Hacer más pequeña") : (en ? "Fill the screen" : "Llenar la pantalla")} onClick={() => setBig((v) => !v)}>
           {big ? <Minimize2 /> : <Maximize2 />}
         </button>
+        ) : null}
         <button type="button" className="calc2-icon" aria-label={t("close")} onClick={onClose}><X /></button>
       </header>
       <div className={`calc2-screen${flash ? " is-flash" : ""}`}>
@@ -701,7 +726,7 @@ function CalcPanel({ host, expr, setExpr, onSave, onPut, onClose, onSend }: {
       <button type="button" className="btn calc2-put" onClick={onPut} disabled={result === null}>
         {t("calc.put")}{result !== null ? <span className="num"> · {show(Math.round(result * 100) / 100)}</span> : null}
       </button>
-      {big ? null : (["tl", "tr", "bl", "br"] as Dir[]).map((d) => (
+      {big || !floatOk ? null : (["tl", "tr", "bl", "br"] as Dir[]).map((d) => (
         <i key={d} className={`calc2-size is-${d}`} onPointerDown={resize(d)} aria-hidden />
       ))}
     </section>

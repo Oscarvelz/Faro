@@ -229,17 +229,28 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
     }
     items.sort((a, b) => a.on.localeCompare(b.on) || b.minor - a.minor);
     if (items.length) {
-      const in7 = items.filter((i) => i.on <= t7).reduce((a, i) => a + i.minor, 0);
-      const in14 = items.reduce((a, i) => a + i.minor, 0);
+      // Ola 2 (BR2-5): las sumas cuentan solo lo que tiene cifra — el préstamo
+      // entra con amt null («no figure is invented») y la regla lo convertía
+      // en un titular «C$0.00» y en un total que sumaba un pago y callaba el
+      // otro. Sin cifra conocida, el titular es el conteo, no un cero; y la
+      // frase declara cuántos pagos no tienen importe.
+      const in7 = items.filter((i) => i.on <= t7 && i.amtKnown).reduce((a, i) => a + i.minor, 0);
+      const in14 = items.filter((i) => i.amtKnown).reduce((a, i) => a + i.minor, 0);
+      const unknownCount = items.filter((i) => !i.amtKnown).length;
+      const in7Items = items.filter((i) => i.on <= t7);
+      const kickerAmt = in7Items.some((i) => i.amtKnown) ? money(in7) : in7Items.length ? L(lang, "sin importe conocido", "no known amount") : money(0);
+      const unknownPart = unknownCount
+        ? L(lang, unknownCount === 1 ? " De uno no se conoce el importe." : ` De ${unknownCount} no se conoce el importe.`, unknownCount === 1 ? " One has no known amount." : ` ${unknownCount} have no known amount.`)
+        : "";
       const left = reading.left;
       const list = items.slice(0, 3).map((i) => (i.amtKnown ? `${i.name} ${money(i.minor)} ${L(lang, "el", "on")} ${fmtDay(i.on)}` : `${i.name} ${L(lang, "el", "on")} ${fmtDay(i.on)}`)).join(", ");
       rules.push({
         id: "due",
         tone: income > 0 && in14 > left ? "warn" : "calm",
         title: L(lang, "Pagos en 14 días", "Due in 14 days"),
-        kicker: L(lang, `7 días: ${money(in7)}`, `7 days: ${money(in7)}`),
-        num: money(in14),
-        say: L(lang, in14 > 0 ? `${items.length} ${items.length === 1 ? "pago" : "pagos"} por ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.` : `${items.length} ${items.length === 1 ? "pago" : "pagos"} con fecha: ${list}${items.length > 3 ? "…" : ""}.`, in14 > 0 ? `${items.length} ${items.length === 1 ? "payment" : "payments"} for ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.` : `${items.length} ${items.length === 1 ? "payment" : "payments"} with dates: ${list}${items.length > 3 ? "…" : ""}.`).replace("….", "."),
+        kicker: L(lang, `7 días: ${kickerAmt}`, `7 days: ${kickerAmt}`),
+        num: in14 > 0 || !unknownCount ? money(in14) : L(lang, `${items.length} ${items.length === 1 ? "pago" : "pagos"}`, `${items.length} ${items.length === 1 ? "payment" : "payments"}`),
+        say: (L(lang, in14 > 0 ? `${items.length} ${items.length === 1 ? "pago" : "pagos"} por ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.` : `${items.length} ${items.length === 1 ? "pago" : "pagos"} con fecha: ${list}${items.length > 3 ? "…" : ""}.`, in14 > 0 ? `${items.length} ${items.length === 1 ? "payment" : "payments"} for ${both(in14)}: ${list}${items.length > 3 ? "…" : ""}.` : `${items.length} ${items.length === 1 ? "payment" : "payments"} with dates: ${list}${items.length > 3 ? "…" : ""}.`) + unknownPart).replace("….", "."),
         fill: left > 0 ? Math.min(1, in14 / left) : 1,
         topic: "regla-pagos",
         go: items[0]!.go,

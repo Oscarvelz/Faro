@@ -549,10 +549,26 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   // 1.3.149: the count AND the sum come from the ONE dues window (dues.ts) — cuotas, card minimums
   // and loans with a due day, the next 30 days. Before, this counted only the current month's dated
   // lines (cards and loans invisible) and never summed them. Lent money (due IN) is not a payment.
+  // Ola 2 (BR2-6): lo vencido se lee ANTES que el vacío del calendario — la
+  // nota de «no hay pagos» necesita saber que el pasado existe (un libro de
+  // solo vencidos tiene fechas: ya pasaron, y aconsejar «ponles fecha» era
+  // aconsejar lo imposible).
+  const overdue = duesWindow(state, 0, iso(today)).filter((e) => e.on < iso(today));
   const upcoming = duesWindow(state, 30, iso(today)).filter((e) => e.kind !== "lent" && e.on >= iso(today));
-  const upcomingSum = upcoming.reduce((a, e) => a + (e.amt ?? 0), 0);
+  // Ola 2 (BR2-5): la suma cuenta solo lo que tiene cifra — el préstamo entra
+  // a la ventana con amt null y ninguna cifra se inventa; si algún pago no la
+  // tiene, la frase lo dice en vez de presentar una suma parcial como total.
+  const upcomingKnown = upcoming.filter((e) => e.amt != null);
+  const upcomingSum = upcomingKnown.reduce((a, e) => a + (e.amt ?? 0), 0);
+  const upcomingUnknown = upcoming.length - upcomingKnown.length;
   const loud = upcoming.filter((e) => e.amt != null && e.amt >= warnAt);
-  const sumPart = upcomingSum > 0 ? L(lang, ` por ${money(upcomingSum)}`, ` totalling ${money(upcomingSum)}`) : "";
+  const sumPart = upcomingSum > 0
+    ? (upcomingUnknown
+      ? L(lang, ` por ${money(upcomingSum)} en los que tienen importe, y ${upcomingUnknown} sin importe conocido`, ` totalling ${money(upcomingSum)} across those with a known amount, and ${upcomingUnknown} with no known amount`)
+      : L(lang, ` por ${money(upcomingSum)}`, ` totalling ${money(upcomingSum)}`))
+    : upcomingUnknown && !upcomingKnown.length
+      ? L(lang, ", sin importe conocido", ", with no known amounts")
+      : "";
   const calendarNote = upcoming.length
     ? L(
         lang,
@@ -563,17 +579,22 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
           ? `In the next 30 days you have ${upcoming.length} dated payments${sumPart}. The biggest (over ${money(warnAt)}): ${loud.map((e) => (e.line ? lineName(e.line, names) : e.name)).slice(0, 3).join(", ")}.`
           : `In the next 30 days you have ${upcoming.length} dated payments${sumPart}, none over ${money(warnAt)}.`,
       )
-    : L(
-        lang,
-        "No hay pagos con fecha en los próximos 30 días. Ponles fecha a tus pagos fijos y te aviso antes de que venzan.",
-        "No dated payments in the next 30 days. Add dates to your fixed bills and I'll warn you before they're due.",
-      );
+    : overdue.length
+      ? L(
+          lang,
+          "No hay pagos con fecha en los próximos 30 días. Lo que ya venció está en la nota de vencidos de esta misma lectura.",
+          "No dated payments in the next 30 days. What is already overdue is in this reading's overdue note.",
+        )
+      : L(
+          lang,
+          "No hay pagos con fecha en los próximos 30 días. Ponles fecha a tus pagos fijos y te aviso antes de que venzan.",
+          "No dated payments in the next 30 days. Add dates to your fixed bills and I'll warn you before they're due.",
+        );
 
   // Ola 1 (BR-6): lo vencido, de la misma ventana única — entradas con fecha
   // pasada y saldo vivo (cobros que te deben, mínimos de tarjeta, préstamos
   // y cuotas). La ventana ya las trae (su contrato: «lo vencido es debido»);
   // la Reading las nombra con nombre, dinero y días, en todo modo.
-  const overdue = duesWindow(state, 0, iso(today)).filter((e) => e.on < iso(today));
   const overdueNote = (() => {
     if (!overdue.length) return null;
     const daysAgo = (on: string) => Math.round((Date.parse(`${iso(today)}T12:00:00`) - Date.parse(`${on}T12:00:00`)) / 864e5);
@@ -586,8 +607,18 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
         const when = lang === "en" ? `${d} ${d === 1 ? "day" : "days"} ago` : `hace ${d} ${d === 1 ? "día" : "días"}`;
         return e.amt != null ? `${nm} ${money(e.amt)} (${when})` : `${nm} (${when})`;
       });
+    // Ola 2 (BR2-7): si la lista se recorta, la frase lo dice — nombrar tres
+    // y sumar cinco en silencio afirmaba un total sin su conteo.
+    if (overdue.length > 3) parts.push(L(lang, `y ${overdue.length - 3} más`, `and ${overdue.length - 3} more`));
     const sum = overdue.reduce((a, e) => a + (e.amt ?? 0), 0);
-    const total = sum > 0 ? (lang === "en" ? ` In all ${money(sum)}.` : ` En total ${money(sum)}.`) : "";
+    // Ola 2 (BR2-5): el total cuenta solo lo que tiene cifra; si algún
+    // vencido no la tiene (el préstamo), la frase lo declara.
+    const anyUnknown = overdue.some((e) => e.amt == null);
+    const total = sum > 0
+      ? (lang === "en"
+        ? (anyUnknown ? ` In all ${money(sum)} across those with a known amount.` : ` In all ${money(sum)}.`)
+        : (anyUnknown ? ` En total ${money(sum)} en los que tienen importe.` : ` En total ${money(sum)}.`))
+      : "";
     return L(lang, `Vencido: ${parts.join(", ")}.${total}`, `Overdue: ${parts.join(", ")}.${total}`);
   })();
 
@@ -1161,12 +1192,16 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     day7 = L(lang, `Para el ${fmtDay(when7)}: ${joined7}.`, `By ${fmtDay(when7)}: ${joined7}.`);
 
     // 30 days: the purchase rule and where extra money goes.
+    // Ola 2 (BR2-3): en Esencial el reparto del dinero extra se dice en orden
+    // y en palabras llanas — deletrearlo en décimos («3 de cada 10») era la
+    // regla 50/30/20 con disfraz de aritmética (fallo 26); la forma con
+    // porcentajes queda en Ritmo, donde la regla vive con su nombre.
     const tight = red || (debtPct ?? 0) > state.settings.debtGreenPct;
     day30 = !ritmoUp
       ? L(
           lang,
-          `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. ${tight ? "Si te entra dinero extra: la mitad a tapar el hueco o la deuda, 3 de cada 10 al colchón y 2 de cada 10 para ti." : "Si te entra dinero extra: la mitad a tu colchón o meta y la otra mitad para ti."}`,
-          `By ${fmtDay(when30)}: before any purchase over ${money(hundred)}, wait 24 hours and decide where the money comes from. ${tight ? "If extra money comes in: half to the gap or debt, 3 of every 10 to the cushion and 2 of every 10 for you." : "If extra money comes in: half to your cushion or goal, half for you."}`,
+          `Para el ${fmtDay(when30)}: antes de cualquier compra de más de ${money(hundred)}, espera 24 horas y decide de dónde sale el dinero. ${tight ? "Si te entra dinero extra: primero tapa el hueco o la deuda; de lo que quede, más al colchón que para ti." : "Si te entra dinero extra: la mitad a tu colchón o meta y la otra mitad para ti."}`,
+          `By ${fmtDay(when30)}: before any purchase over ${money(hundred)}, wait 24 hours and decide where the money comes from. ${tight ? "If extra money comes in: first cover the gap or the debt; of what's left, more to the cushion than for you." : "If extra money comes in: half to your cushion or goal, half for you."}`,
         )
       : L(
           lang,

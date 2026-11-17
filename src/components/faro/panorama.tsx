@@ -429,25 +429,36 @@ export function AgendaCard({ coach }: { coach: Coach }) {
   // cercano; la línea de tiempo y la lista entera llegan con Ritmo.
   const reduced = !has("pano.next-dues-timeline");
   const shown = reduced ? coach.dues.slice(0, 1) : coach.dues.slice(0, 6);
-  const peak = Math.max(1, ...coach.dues.map((d) => d.minor));
+  const peak = Math.max(1, ...coach.dues.map((d) => d.minor ?? 0));
   const day = (iso: string) => dateFmt(lang === "en" ? "en-US" : "es-NI", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`));
-  const total = coach.dues.reduce((a, d) => a + d.minor, 0);
+  // Ola 2 (BR2-5): el total cuenta solo lo que tiene cifra — el préstamo
+  // llega con minor null y ninguna cifra se inventa; el titular lo declara
+  // en vez de presentar una suma parcial como total.
+  const total = coach.dues.reduce((a, d) => a + (d.minor ?? 0), 0);
+  const unknownCount = coach.dues.filter((d) => d.minor == null).length;
+  const headline = lang === "en"
+    ? unknownCount === 0
+      ? `${coach.dues.length} dated payment${coach.dues.length === 1 ? "" : "s"} in the next 5 weeks, ${fmt(total)} in all.`
+      : total > 0
+        ? `${coach.dues.length} dated payments in the next 5 weeks, ${fmt(total)} across those with a known amount, and ${unknownCount} with no known amount.`
+        : `${coach.dues.length} dated payments in the next 5 weeks, with no known amounts.`
+    : unknownCount === 0
+      ? `${coach.dues.length} pago${coach.dues.length === 1 ? "" : "s"} con fecha en las próximas 5 semanas, ${fmt(total)} en total.`
+      : total > 0
+        ? `${coach.dues.length} pagos con fecha en las próximas 5 semanas, ${fmt(total)} en los que tienen importe, y ${unknownCount} sin importe conocido.`
+        : `${coach.dues.length} pagos con fecha en las próximas 5 semanas, sin importe conocido.`;
   return (
     <section className="card pano-card">
       <Head kicker={lang === "en" ? "Coming up" : "Lo que viene"} title={lang === "en" ? "Payments ahead" : "Próximos pagos"} />
       {coach.dues.length ? (
         <>
-          <p className="pano-lead">
-            {lang === "en"
-              ? `${coach.dues.length} dated payment${coach.dues.length === 1 ? "" : "s"} in the next 5 weeks, ${fmt(total)} in all.`
-              : `${coach.dues.length} pago${coach.dues.length === 1 ? "" : "s"} con fecha en las próximas 5 semanas, ${fmt(total)} en total.`}
-          </p>
+          <p className="pano-lead">{headline}</p>
           {!reduced ? (
           <div className="pano-agenda" aria-hidden>
             <b />
             {[0, 7, 14, 21, 28, 35].map((d) => <span key={d} className="pano-agenda-tick" style={{ left: `${(d / 35) * 100}%` }}>{d === 0 ? (lang === "en" ? "today" : "hoy") : `${d}d`}</span>)}
             {coach.dues.map((d) => {
-              const size = 10 + (d.minor / peak) * 18;
+              const size = 10 + ((d.minor ?? 0) / peak) * 18;
               return <i key={`${d.id}-${d.day}`} style={{ left: `${(d.inDays / 35) * 100}%`, width: size, height: size }} />;
             })}
           </div>
@@ -457,23 +468,30 @@ export function AgendaCard({ coach }: { coach: Coach }) {
               <li key={`${d.id}-${d.day}`}>
                 {d.icon ? <SubMark id={d.icon.slice(4)} className="pano-due-mark" /> : <CalendarClock aria-hidden />}
                 <span>{d.name}<em>{day(d.day)}{d.inDays <= 3 ? (lang === "en" ? " · soon" : " · pronto") : ""}</em></span>
-                <strong className="num">{fmt(d.minor)}</strong>
+                {d.minor != null ? <strong className="num">{fmt(d.minor)}</strong> : null}
               </li>
             ))}
             {coach.dues.length > shown.length ? (
               <li className="pano-more">
                 {lang === "en"
-                  ? `+${coach.dues.length - shown.length} more · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + d.minor, 0))}`
-                  : `+${coach.dues.length - shown.length} más · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + d.minor, 0))}`}
+                  ? `+${coach.dues.length - shown.length} more · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + (d.minor ?? 0), 0))}${coach.dues.slice(shown.length).some((d) => d.minor == null) ? " · some with no known amount" : ""}`
+                  : `+${coach.dues.length - shown.length} más · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + (d.minor ?? 0), 0))}${coach.dues.slice(shown.length).some((d) => d.minor == null) ? " · algunos sin importe conocido" : ""}`}
               </li>
             ) : null}
           </ul>
         </>
       ) : (
         <Note kind="date">
-          {lang === "en"
-            ? "No dated payments in the next weeks. Give your fixed bills a due date and they'll show up here before they're due."
-            : "No hay pagos con fecha en las próximas semanas. Ponle fecha a tus pagos fijos y aparecerán aquí antes de que venzan."}
+          {/* Ola 2 (BR2-6): el vacío distingue «nada con fecha» de «todo
+              vencido» — con vencidos vivos, el consejo de poner fechas y el
+              aviso «antes de que venzan» eran falsos. */}
+          {coach.overdueCount > 0
+            ? lang === "en"
+              ? "Nothing comes due in the next weeks. What is already overdue is told in the Advisor's overdue note."
+              : "Nada vence en las próximas semanas. Lo que ya venció se cuenta en la nota de vencidos del Asesor."
+            : lang === "en"
+              ? "No dated payments in the next weeks. Give your fixed bills a due date and they'll show up here before they're due."
+              : "No hay pagos con fecha en las próximas semanas. Ponle fecha a tus pagos fijos y aparecerán aquí antes de que venzan."}
         </Note>
       )}
     </section>

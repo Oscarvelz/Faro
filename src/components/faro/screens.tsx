@@ -2545,18 +2545,34 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
 
   function rekind(line: Line, kind: LineKind) {
     if (line.kind === kind) return;
+    // Ola 2 (G2-1): dos negativas en la raíz del conmutador. (1) Ninguna
+    // línea con vínculo de pago (loanId/lentId/cardId) se vuelve cuota, en
+    // NINGÚN modo: entraría en la única clase que la copia de mes reproduce
+    // sin preguntar y cada copia sumaría un abono fantasma contra la deuda.
+    // (2) Volverse cuota es gestión de Cuotas (subs.cuota): en Esencial esa
+    // habitación duerme y el verbo no existe — el conmutador ni lo ofrece.
+    // Volver a Fijos, en cambio, es siempre legal: es la salida de la
+    // habitación, también para las líneas que la cadena vieja ya envenenó.
+    if (kind === "subscription" && (line.loanId || line.lentId || line.cardId)) return;
+    if (kind === "subscription" && !has("subs.cuota")) return;
     commit((s) => upsertLine(s, { ...line, kind }), line.concept || kind);
   }
 
   function deskWork(line: Line) {
     if (deskLine !== line.id) return null;
     const flexible = line.kind === "expense-fixed" || line.kind === "subscription";
+    const linked = !!(line.loanId || line.lentId || line.cardId);
+    const toSubs = !linked && has("subs.cuota");
+    // El conmutador solo nace si ofrece una conversión real: hacia Cuotas
+    // cuando la puerta y el vínculo lo permiten, o la vuelta a Fijos de una
+    // línea que ya es cuota. Un botón que no hace nada es peor que ninguno.
+    const showKind = flexible && (line.kind === "subscription" || toSubs);
     return (
       <div className="desk-edit">
-        {flexible ? (
+        {showKind ? (
           <div className="desk-kind" role="group">
             <button type="button" aria-pressed={line.kind === "expense-fixed"} onClick={() => rekind(line, "expense-fixed")}>{t("group.fixed")}</button>
-            <button type="button" aria-pressed={line.kind === "subscription"} onClick={() => rekind(line, "subscription")}>{t("tab.subs")}</button>
+            {toSubs ? <button type="button" aria-pressed={line.kind === "subscription"} onClick={() => rekind(line, "subscription")}>{t("tab.subs")}</button> : null}
           </div>
         ) : null}
         <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p>
@@ -5301,7 +5317,7 @@ export function Settings() {
   // esconde a sí mismo. Bajar abre primero la pantalla de impacto — y solo si hay
   // algo real que avisar; subir aplica y avisa después. Ambos caminos cierran los
   // flujos abiertos por sus propias reglas antes de cambiar la cara (principio 8).
-  const [modeImpactState, setModeImpactState] = useState<{ target: Mode; impact: ModeImpact } | null>(null);
+  const [modeImpactState, setModeImpactState] = useState<{ target: Mode; impact: ModeImpact; refreshed?: boolean } | null>(null);
   const currentMode: Mode = session ? modeOf(session.ledger.settings) : "completo";
   const applyMode = (target: Mode) => commit((s) => ({ ...s, settings: { ...s.settings, mode: target } }), target);
   const pickMode = (target: Mode) => {
@@ -5708,9 +5724,30 @@ export function Settings() {
         lang={lang}
         target={modeImpactState.target}
         impact={modeImpactState.impact}
+        refreshed={modeImpactState.refreshed}
         onCancel={() => setModeImpactState(null)}
         onConfirm={() => {
           const target = modeImpactState.target;
+          // Ola 2 (C2-2): la pantalla confirma sobre los conteos de AHORA —
+          // su palabra es la que la persona acepta al bajar. Si el libro
+          // cambió bajo el diálogo (otra pestaña, la nube), la foto se
+          // repone con los conteos frescos y la persona confirma la verdad;
+          // nunca se aplica sobre una foto vieja.
+          if (session) {
+            const fresh = modeImpact(session.ledger, target, lang);
+            if (JSON.stringify(fresh) !== JSON.stringify(modeImpactState.impact)) {
+              if (fresh.total === 0) {
+                // Lo que dormía ya no existe: la bajada ya no tiene impacto
+                // que preguntar — se aplica con su aviso, como en pickMode.
+                setModeImpactState(null);
+                applyMode(target);
+                importToast({ text: t("mode.down.notice").replace("{name}", t(`mode.${target}`)) });
+                return;
+              }
+              setModeImpactState({ target, impact: fresh, refreshed: true });
+              return;
+            }
+          }
           setModeImpactState(null);
           applyMode(target);
         }}

@@ -344,9 +344,15 @@ describe("ola1 · el Asesor dice la verdad y no calla", () => {
     const dated = structuredClone(lone);
     dated.lent = [{ ...dated.lent![0]!, dueOn: "2026-12-01" }];
     assert.equal(coachOf(dated).upgradeHint?.reason, "debt", "con fecha que seguir, el uso pide Ritmo");
+    // ENMIENDA OLA 2 (BR2-2): este pin afirmaba que DOS prestados sin fecha ni
+    // pagos disparan por conteo desnudo. El espécimen S3 de la ola 2 (dos
+    // prestados de C$50, sin fechas) condenó esa señal: el conteo es
+    // existencia, no uso — la ley escrita pide uso. El pin se enmienda con su
+    // razón: dos hechos sin uso callan, como uno. La cerca completa del
+    // gatillo nuevo (con tarjetas) vive en modos-ola2.test.ts.
     const two = structuredClone(lone);
     two.lent = [...two.lent!, { id: "lent-2", person: "Luis", kind: "plain", amountMinor: 20_000, currency: "NIO", aprBps: 0, startedOn: "2026-11-02", dueOn: "", note: "" } as Lent];
-    assert.equal(coachOf(two).upgradeHint?.reason, "debt", "con dos deudas que seguir, el uso pide Ritmo");
+    assert.equal(coachOf(two).upgradeHint, null, "dos prestados sin fecha ni pagos: existencia, no uso — la ola 2 enmienda este pin");
   });
 });
 
@@ -445,7 +451,15 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  CHAPTER_MODE y topic.mode; pres.* por Module.mode en guion.ts; widget.*
  *  por el constructor de la foto) o por puertas gruesas de pantalla ya
  *  cercadas por las suites de comportamiento de cada familia. La lista solo
- *  puede encogerse. */
+ *  puede encogerse.
+ *  ENMIENDAS OLA 2 (con su razón, como la cerca manda): salen
+ *  archive.restore-{card,lent,loan,owe}, nav.float-window, nav.ring y
+ *  pres.m11-puertas porque el registro dejó de fallarlos R/C — la Ola 2
+ *  corrigió las mentiras del registro (C-1/C-2/C-5: la cara y la ley
+ *  asentada los viven en Esencial) y ya no son asientos R/C. Salen
+ *  cards.add-full y tools.calculator-float porque GANARON consumidor
+ *  literal: la ficha de tarjeta y la hoja de instrumentos entraron al
+ *  sistema de modos (C-6/C-4). */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
@@ -454,14 +468,13 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "advisor.step-debts", "advisor.step-set-aside", "advisor.step-subs", "advisor.step-wants-30",
   "advisor.subs-note", "advisor.three-parts", "advisor.top5-rich", "advisor.trend-note",
   "advisor.undestined-note", "advisor.verdict-sub", "archive.hide-one", "archive.hide-period",
-  "archive.restore-card", "archive.restore-lent", "archive.restore-loan", "archive.restore-owe",
   "archive.span-card", "area.debt-free", "area.debt-stuck", "area.emergency-months",
   "area.income-drift", "area.loans-path", "area.meta-path", "area.owed-track",
   "area.plain-phrase", "area.remit-up", "area.retiro-paused", "area.rules-split",
   "area.setaside", "awake.destination-projection", "awake.goals-horizon", "awake.recalc-notices",
   "awake.savings-photo", "awake.stale-plan", "awake.undestined", "books.bookkit",
   "books.bubble-editor", "books.cloud", "books.multiselect", "books.shop-catalog-gear",
-  "cards.add", "cards.add-full", "cards.capture-add", "cards.edit-delete",
+  "cards.add", "cards.capture-add", "cards.edit-delete",
   "cards.factory", "cards.ficha", "cards.group", "cards.pay",
   "cards.rewards-reconcile", "cards.rewards-redeem", "cards.update", "cards.usage-advice",
   "central.debt-light", "cobros.quick-list", "cobros.see-all", "cobros.timeline",
@@ -475,14 +488,14 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "manual.ch7-estudio", "manual.ch8-asesor", "manual.ch9-cambio", "manual.topic-apartar",
   "manual.topic-card-fine", "manual.topic-export", "manual.topic-float", "manual.topic-retiro",
   "nature.band-migration", "nature.class-cuenta", "nature.cushion", "nature.declare-series",
-  "nature.free-guard", "nature.overcommit", "nav.books-subs-entry", "nav.float-window",
-  "nav.ring", "nav.scale-topbar", "pano.closes", "pano.health-help",
+  "nature.free-guard", "nature.overcommit", "nav.books-subs-entry",
+  "nav.scale-topbar", "pano.closes", "pano.health-help",
   "pano.pillar-cushion", "pano.pillar-debt", "pano.pillar-save", "pano.pillar-spend",
   "pano.pillar-stability", "pano.runway-patron", "patron.history-rules", "patron.learning",
   "patron.linear-pace", "patron.model-rules", "patron.month-rules", "patron.sayings",
   "people.add-contacts", "people.add-manual", "people.dates", "people.delete",
   "people.gift", "people.import-vcf", "people.share-in", "people.totals",
-  "pres.m10-estructura", "pres.m11-puertas", "pres.m12-pregunta", "pres.m13-totales",
+  "pres.m10-estructura", "pres.m12-pregunta", "pres.m13-totales",
   "pres.m14-colchon", "pres.m3-balance-chapter", "pres.m4-cambio", "pres.m6-ahorros",
   "pres.m7-estadisticas", "pres.m8-asesor", "pres.m9-folios-rest", "pres.my-scenes",
   "remit.for", "remit.manage", "remit.send", "rule.category",
@@ -490,7 +503,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "rule.outlier", "rule.overcommit", "rule.pace", "rule.recurring",
   "scan.card-capture", "scan.retirement-stmt", "settings.bank-rewards-real", "settings.pin-in-card",
   "settings.widget-pins", "subs.brand-detect", "subs.brand-icon-admin", "subs.cadence-machinery",
-  "subs.dues-window", "subs.own-chips", "tools.calculator-float", "tools.calculator-use",
+  "subs.dues-window", "subs.own-chips", "tools.calculator-use",
   "tools.converter-chips-admin", "tools.converter-send", "tools.slip-to-category", "tools.slips-bulk",
   "tools.slips-reuse", "vault.delete", "vault.factory-restore", "vault.free",
   "vault.meta-plan", "vault.order-pockets", "vault.pin-block", "vault.retiro-fields",

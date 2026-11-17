@@ -699,6 +699,17 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       let dirty = saved?.dirty ?? false;
       // Sample mode wears the personal look (theme, language) without ever writing personal books.
       if (sealedOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}), ...(isMode(modeMirror) ? { mode: modeMirror } : {}) } };
+      // Ola 2 (E2-1): el libro de ESCENARIO nace vacío por aislamiento
+      // supremo — enterStage() limpia su namespace en cada lanzamiento, así
+      // que nunca hay paquete guardado y el préstamo de arriba jamás ocurría:
+      // el escenario se representaba en Completo para todo el mundo y las
+      // Presentaciones por modo quedaban anuladas en la práctica. El libro
+      // de escenario toma el modo del espejo AL NACER — nace vestido con el
+      // modo de la persona, que es la cara sobre la que la lección se
+      // representa; sus guardados posteriores ya lo traen dentro.
+      if (stageOn() && !saved && isMode(modeMirror)) {
+        ledger = { ...ledger, settings: { ...ledger.settings, mode: modeMirror } };
+      }
       const seeded = seedLedger(ledger);
       ledger = seeded.ledger;
       if (seeded.added) dirty = true;
@@ -818,7 +829,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // El espejo del modo se reescribe de la sesión en cada guardado, como el del
     // idioma: es la única vía por la que un libro sellado conoce el modo de la
     // persona. Lleva el modo EFECTIVO (ausente = completo), que es la verdad.
-    localStorage.setItem("faro-mode", modeOf(session.ledger.settings));
+    // Ola 2 (E2-1): la sesión del ESCENARIO no lo reescribe — representa
+    // sobre un modo prestado y sus experimentos (el módulo de los modos
+    // invita a tocarlo) no son el modo de la persona; antes lo dejaba en
+    // «completo» y ni un remontaje dentro del escenario podía ya tomar
+    // prestado el modo verdadero.
+    if (!stageOn()) localStorage.setItem("faro-mode", modeOf(session.ledger.settings));
     const chrome = chromeForTheme(shown);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chrome);
   }, [session, userId]);
@@ -870,6 +886,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const parsed = JSON.parse(row.dataJson) as unknown;
       if (!isLedgerDeep(parsed)) return false;
       const seeded = seedLedger(parsed);
+      // Ola 2 (C2-3): el modo que llega se ANUNCIA — era la única mudanza de
+      // cara del sistema sin palabra (ni pantalla, ni aviso, ni toast). Si el
+      // libro que aterriza trae otro modo, al aplicarlo se dice, con el mismo
+      // gesto del aviso de subida: nombrar, no bloquear.
+      const prevMode = sessionRef.current ? modeOf(sessionRef.current.ledger.settings) : null;
+      const landedMode = modeOf(seeded.ledger.settings);
       if (dirtyLocal) {
         // PREJUDICE PJ-8: the aparted book gets the tab door's protection — the
         // first slot if it is free, the second otherwise. This write used to be
@@ -884,6 +906,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       remoteBookRef.current = true; // un libro que llega de la nube YA existe: cancela la pantalla inicial de elección
       setModeGateOpen(false);
       setSession(blankSession(seeded.ledger, Boolean(dirtyLocal) || seeded.added));
+      if (prevMode !== null && landedMode !== prevMode) {
+        const inLang = seeded.ledger.settings.lang ?? "es";
+        importToast({ text: translate(inLang, "mode.arrived.notice").replace("{name}", translate(inLang, `mode.${landedMode}`)) });
+      }
       return true;
     } catch {
       return false;
@@ -1054,8 +1080,29 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     })();
     return () => { alive = false; };
   }, [ready, syncNow]);
-  const undo = useCallback(() => setSession((s) => (s ? undoSession(s) : s)), []);
-  const redo = useCallback(() => setSession((s) => (s ? redoSession(s) : s)), []);
+  // Ola 2 (C2-1): si el Deshacer/Rehacer se detiene en la frontera del modo
+  // (la pila tiene historia pero el paso siguiente la cruza), el aparato lo
+  // DICE — una detención silenciosa sería otra mudanza sin palabra.
+  const undo = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    const next = undoSession(s);
+    if (next === s) {
+      if (s.past.length > 0) setUi({ notice: translate(s.ledger.settings.lang ?? "es", "mode.undo.frontier") });
+      return;
+    }
+    setSession(next);
+  }, [setUi]);
+  const redo = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    const next = redoSession(s);
+    if (next === s) {
+      if (s.future.length > 0) setUi({ notice: translate(s.ledger.settings.lang ?? "es", "mode.undo.frontier") });
+      return;
+    }
+    setSession(next);
+  }, [setUi]);
 
   const lang: Lang = session?.ledger.settings.lang ?? "es";
   // El modo de la persona, leído del libro en cada render (etapa 2): el
@@ -1368,6 +1415,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         return;
       }
       if (confirmState) return;
+      // Ola 2 (C2-2): un diálogo modal local (la pantalla de impacto y toda
+      // hoja con aria-modal) es dueño del teclado mientras vive — los atajos
+      // globales no mutan la sesión bajo un modal que el proveedor no conoce.
+      // Antes el único guarda era el confirmState propio y Mod+Z deshacía
+      // bajo la pantalla de impacto abierta.
+      if (typeof document !== "undefined" && document.querySelector('[aria-modal="true"]')) return;
       const typing = isTypingTarget(e.target);
       const combo = eventCombo(e);
       const shortcuts = { ...DEFAULT_SHORTCUTS, ...(session?.ledger.settings.shortcuts ?? {}) };
@@ -1436,9 +1489,17 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         ? new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { dateStyle: "long" }).format(new Date(stampIso))
         : null;
     const info = stamp ? t("backup.restore.from").replace("{date}", stamp) : t("backup.restore.nodate");
+    // Ola 2 (C2-3): la confirmación nombra también el modo de la copia cuando
+    // difiere del vigente — decía el formato y la fecha, jamás la cara que
+    // viene dentro.
+    const landedMode = modeOf((ledger as LedgerState).settings);
+    const curMode = sessionRef.current ? modeOf(sessionRef.current.ledger.settings) : null;
+    const modeInfo = curMode !== null && landedMode !== curMode
+      ? ` ${t("mode.restore.names").replace("{name}", t(`mode.${landedMode}`))}`
+      : "";
     setConfirm({
       title,
-      body: `${t("backup.restore.body")} ${info}`,
+      body: `${t("backup.restore.body")} ${info}${modeInfo}`,
       danger: true,
       yes: t("backup.restore.yes"),
       run: () => {
@@ -1572,9 +1633,16 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       if (!raw) return;
       const ledger = JSON.parse(raw) as unknown;
       if (!isLedgerDeep(ledger)) return;
+      // Ola 2 (C2-3): la confirmación nombra el modo que la copia trae cuando
+      // difiere del vigente — el texto genérico de borrado no decía que
+      // restaurar también cambia la cara.
+      const landedMode = modeOf(ledger.settings);
+      const curMode = session ? modeOf(session.ledger.settings) : null;
       setConfirm({
         title: t("settings.conflict"),
-        body: t("delete.warn"),
+        body: curMode !== null && landedMode !== curMode
+          ? `${t("delete.warn")} ${t("mode.restore.names").replace("{name}", t(`mode.${landedMode}`))}`
+          : t("delete.warn"),
         danger: true,
         yes: t("yes"),
         run: () => {

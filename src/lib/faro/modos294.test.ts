@@ -46,13 +46,24 @@ const C = "completo" as const;
 /** EL MANIFIESTO — la transcripción del censo (CENSO-FUNCIONES.md corregido
  *  por los fallos D-bis), fila a fila, en el orden del propio censo. Si una
  *  fila del censo no está aquí, el registro está incompleto; si el registro
- *  trae una entrada que no está aquí, sobra. */
+ *  trae una entrada que no está aquí, sobra.
+ *  ENMIENDAS OLA 2 (las mentiras del registro, C-1/C-2/C-3/C-5 — la cara y
+ *  la ley asentada contra la fila del censo): nav.tablet-views,
+ *  nav.float-window y nav.global-search pasan a Esencial (cromo universal
+ *  de la barra: la cara los pinta sin puerta, el tema 1.7 y el módulo 1
+ *  viven en Esencial y el fallo 14 declara la búsqueda ciega al modo);
+ *  nav.ring pasa a Esencial (ya no es una puerta única: sus paradas se
+ *  filtran una a una); people.card pasa a Esencial (añadir una persona es
+ *  declarar, el criterio asentado); archive.restore-{lent,loan,card,owe}
+ *  pasan a Esencial (Fo-1: restaurar entidades propias es existencia);
+ *  pres.m11-puertas pasa a Esencial (su Module.mode y el MAPA-MODULOS
+ *  asentado lo declaran compartido). */
 const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   // §1.1 Navegación y dock
   ["nav.dock", E], ["nav.books-hub", E], ["nav.books-subs-entry", R], ["nav.vault-bar", E],
-  ["nav.scale-topbar", R], ["nav.tablet-views", C], ["nav.float-window", C], ["nav.calendar", R],
-  ["nav.global-search", R], ["nav.undo", E], ["nav.sync-light", E], ["nav.view-currency-bar", E],
-  ["nav.day-night", E], ["nav.swipe", E], ["nav.ring", C], ["nav.toolsheet", E],
+  ["nav.scale-topbar", R], ["nav.tablet-views", E], ["nav.float-window", E], ["nav.calendar", R],
+  ["nav.global-search", E], ["nav.undo", E], ["nav.sync-light", E], ["nav.view-currency-bar", E],
+  ["nav.day-night", E], ["nav.swipe", E], ["nav.ring", E], ["nav.toolsheet", E],
   // §1.2 Central
   ["central.month-left", E], ["central.month-used", E], ["central.month-rate", E],
   ["central.lens-have", E], ["central.lens-spend", E], ["central.lens-pagos", E],
@@ -118,7 +129,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["editor.save-guard", E], ["editor.draft", E],
   ["selection.engine", R], ["selection.delete", R], ["selection.move", R],
   // §1.14 Personas y contactos
-  ["people.card", R], ["people.add-contacts", R], ["people.add-manual", R],
+  ["people.card", E], ["people.add-contacts", R], ["people.add-manual", R],
   ["people.dates", R], ["people.gift", R], ["people.import-vcf", C], ["people.share-in", C],
   ["people.totals", C], ["people.delete", R],
   // §1.15 Remesas
@@ -142,8 +153,8 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   // §1.19 Folios — Archivo
   ["archive.rest-gate", E], ["archive.hide-period", C], ["archive.hide-one", C],
   ["archive.hide-selection", C], ["archive.span-card", C], ["archive.restore-span", E],
-  ["archive.delete-span", E], ["archive.delete-lines", E], ["archive.restore-lent", R],
-  ["archive.restore-loan", R], ["archive.restore-card", R], ["archive.restore-owe", R],
+  ["archive.delete-span", E], ["archive.delete-lines", E], ["archive.restore-lent", E],
+  ["archive.restore-loan", E], ["archive.restore-card", E], ["archive.restore-owe", E],
   ["archive.pair", E],
   // §1.20 Importación bancaria
   ["import.bank", C], ["import.guides", C],
@@ -168,7 +179,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["pres.m3-balance-chapter", R], ["pres.m4-cambio", R], ["pres.m5-mes", E],
   ["pres.m6-ahorros", R], ["pres.m7-estadisticas", C], ["pres.m8-asesor", C],
   ["pres.m9-folios-river", E], ["pres.m9-folios-rest", C], ["pres.m10-estructura", C],
-  ["pres.m11-puertas", C], ["pres.m12-pregunta", C], ["pres.m13-totales", C],
+  ["pres.m11-puertas", E], ["pres.m12-pregunta", C], ["pres.m13-totales", C],
   ["pres.m14-colchon", C], ["pres.my-scenes", R],
   // §1.27 Manual
   ["manual.ch1-arriba", E], ["manual.topic-export", R], ["manual.topic-float", C],

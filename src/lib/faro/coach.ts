@@ -30,7 +30,7 @@ export const SCORE_WEIGHTS: Record<string, number> = { spend: 0.3, save: 0.2, de
 export type Pillar = { id: string; label: string; score: number; value: string; note: string; tip: string; tone: Tone };
 export type Mover = { id: string; name: string; now: number; before: number; delta: number; color: string };
 export type Step = { id: string; title: string; detail: string; impactMinor: number; tone: Tone };
-export type Due = { id: string; name: string; minor: number; day: string; inDays: number; /** 1.3.100: a Cuota's library mark ("sub:<id>"), when it has one. */ icon?: string };
+export type Due = { id: string; name: string; /** Ola 2 (BR2-5): el importe puede ser null — el préstamo no modela cuota y ninguna cifra se inventa; la Agenda pinta la fila sin importe y sus totales cuentan solo lo que tiene cifra. */ minor: number | null; day: string; inDays: number; /** 1.3.100: a Cuota's library mark ("sub:<id>"), when it has one. */ icon?: string };
 export type MonthNet = { key: string; label: string; income: number; expense: number; net: number; rate: number | null; current: boolean };
 export type CoachLine = { id: string; name: string; minor: number; category: string; kind: string };
 /** Etapa 4 (tres modos): la sugerencia de subida del Asesor — nace de la
@@ -64,6 +64,8 @@ export type Coach = {
   paceNote: string;
   steps: Step[];
   dues: Due[];
+  /** Ola 2 (BR2-6): cuántas obligaciones ya vencieron (la misma ventana única, hacia atrás) — el vacío de la Agenda lo dice en vez de afirmar que no hay pagos con fecha. */
+  overdueCount: number;
   months: MonthNet[];
   historyNote: string;
   cushionMonths: number | null;
@@ -412,6 +414,17 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     : coverDays >= daysInMonth
       ? L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra te alcanza para ${coverDays} días: el mes completo y ${coverDays - daysInMonth} más.`, `You spend about ${money(perDay)} a day. At that pace your income lasts ${coverDays} days: the whole month and ${coverDays - daysInMonth} more.`)
       : L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra se acaba el día ${coverDays} y faltan ${daysInMonth - coverDays} días.`, `You spend about ${money(perDay)} a day. At that pace your income runs out on day ${coverDays}, ${daysInMonth - coverDays} days short.`);
+  // Ola 2 (BR2-4): en Ritmo la nota DESCRIBE, como su hermana la regla pace
+  // curada en la ola 1 (BR-3) — la forma lineal que anuncia el día de
+  // agotamiento es anticipación, y la anticipación es del Patrón (Completo).
+  // Todo número aquí es un hecho de hoy: ritmo por día, lo que ya salió,
+  // los días corridos y lo que queda (o lo que falta).
+  const elapsedDays = key === `${today.getFullYear()}-${pad(today.getMonth() + 1)}` ? today.getDate() : daysInMonth;
+  const ritmoNote = coverDays === null
+    ? linearNote
+    : left <= 0
+      ? L(lang, `Gastas en promedio ${money(perDay)} al día. Ya salió ${money(spend + saved)} y faltan ${money(-left)} para cerrar el mes.`, `You spend about ${money(perDay)} a day. ${money(spend + saved)} has gone out and ${money(-left)} is missing to close the month.`)
+      : L(lang, `Gastas en promedio ${money(perDay)} al día. Llevas ${money(spend + saved)} en ${elapsedDays} ${elapsedDays === 1 ? "día" : "días"} y te queda ${money(left)}.`, `You spend about ${money(perDay)} a day. You have spent ${money(spend + saved)} over ${elapsedDays} ${elapsedDays === 1 ? "day" : "days"} and ${money(left)} is left.`);
   // 1.3.248: en el mes en curso manda el patrón aprendido (patron.ts) — la MISMA
   // lectura que juzga la regla del Asesor y la notificación del shell. Con el
   // patrón listo, la nota ES su frase; mientras aprende, la nota lleva su aviso
@@ -419,7 +432,11 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   // un juicio que todavía no existe. Sin datos no hay ni aviso: la primera frase.
   const paceNote = ((): string => {
     if (coverDays === null) return linearNote;
-    // El patrón aprendido solo habla en Completo (A-3); en Ritmo y Esencial
+    // Ola 2 (BR2-4): en Ritmo manda la descripción (ritmoNote). En Esencial la
+    // PaceCard no monta (asiento R): la nota lineal queda como dato sin
+    // superficie, como la dejó asentada la ola 2.
+    if (mode === "ritmo") return ritmoNote;
+    // El patrón aprendido solo habla en Completo (A-3); en Esencial
     // la nota es la descripción lineal de arriba, con las cifras de esta tarjeta.
     if (mode !== "completo") return linearNote;
     const currentKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
@@ -460,9 +477,13 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     const inDays = Math.round((day.getTime() - start.getTime()) / 86400000);
     if (inDays < 0 || inDays > 35) continue;
     if (dues.some((d) => d.id === e.id)) continue;
-    dues.push({ id: e.id, name: e.name, minor: e.amt ?? 0, day: e.on, inDays });
+    dues.push({ id: e.id, name: e.name, minor: e.amt, day: e.on, inDays });
   }
   dues.sort((a, b) => a.inDays - b.inDays);
+  // Ola 2 (BR2-6): el conteo de vencidos, de la misma ventana única — la
+  // Agenda lo usa para no afirmar un vacío falso ante un libro de solo
+  // vencidos (las tres obligaciones del espécimen tenían fecha: ya pasó).
+  const overdueCount = duesWindow(state, 0, todayIsoC).filter((e) => e.on < todayIsoC).length;
 
   // Twelve months ending at this one.
   const months: MonthNet[] = [];
@@ -606,11 +627,30 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     // deuda. Un préstamo informal único, sin fecha y sin pagos, es un HECHO
     // que Esencial ya habla (fallo 31), no una gestión que pida Ritmo; con el
     // gatillo viejo la sugerencia era permanente en casi todo libro real y
-    // dejaba de ser consejo. Uso = varias deudas, o alguna con fecha de
-    // vencimiento que seguir, o pagos de deuda anotados este mes o el pasado.
-    const debtHasDue = debtCards.some((c) => !!cardFigures(state, c).dueOn) || debtLoans.some((l) => !!l.dueDay) || debtLent.some((l) => !!l.dueOn);
+    // dejaba de ser consejo.
+    // Ola 2 (BR2-1/BR2-2): la lectura de la ola 1 medía ESTRUCTURA, no uso:
+    // el «tiene fecha» de la tarjeta salía de cardFigures, y TODA tarjeta con
+    // saldo trae la fecha del ciclo siguiente — el espécimen original de
+    // SOS-1 (una tarjeta sola) seguía disparando; el conteo desnudo disparaba
+    // ante dos prestados sin fecha ni pagos y ante una fecha a 300 días; y
+    // con el prestado ya cobrado la firma decía debt:0 afirmando «Tienes
+    // deudas con saldo» sobre un libro sin deudas. El gatillo ahora mide
+    // solo USO, leído de la ventana única de vencimientos (la misma que la
+    // Agenda y el Asesor leen):
+    //   · pagos de deuda anotados este mes o el pasado — el uso mismo; o
+    //   · un vencimiento que la app ya sigue de cerca (ventana de 35 días,
+    //     saldos vivos): el préstamo con su día declarado y el prestado con
+    //     su fecha declarada entran por su fecha; la tarjeta solo entra por
+    //     su fecha VENCIDA — su fecha futura es el ciclo, no un uso.
+    // Y sin deuda viva no hay rama que hable: debtItems es el objeto de la
+    // frase «Tienes deudas con saldo»; sin objeto, silencio (principio 5).
+    const debtFollowed = duesWindow(state, 35, todayIsoC).some((e) => {
+      if (e.kind === "loan" || e.kind === "lent") return true;
+      if (e.kind === "card") return e.on < todayIsoC;
+      return false;
+    });
     const debtHasPays = [key, shiftKey(key, -1)].some((k) => (state.months[k]?.lines ?? []).some((l) => l.active && !l.rest && !!(l.loanId || l.cardId || l.lentId)));
-    const debtUsage = debtItems >= 2 || debtHasDue || debtHasPays;
+    const debtUsage = debtItems >= 1 && (debtHasPays || debtFollowed);
     const mk = (to: BookMode, reason: string, count: number, text: string): UpgradeHint => ({ to, reason, text, sig: `${reason}:${count}` });
     if (mode === "esencial") {
       if (debtUsage) return mk("ritmo", "debt", debtItems, L(lang, "Tienes deudas con saldo. En Esencial ves sus hechos; en Ritmo las sigues de cerca.", "You have debts with a balance. In Essential you see their facts; in Rhythm you follow them closely."));
@@ -664,6 +704,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     paceNote,
     steps: stepsOut.slice(0, 3),
     dues,
+    overdueCount,
     months,
     historyNote,
     cushionMonths,

@@ -62,7 +62,7 @@ export function ModeGate({ lang, onChoose, onSkip }: { lang: Lang; onChoose: (mo
  * desactivar pregunta primero. Vive en la familia visual de .ask, la casa de
  * las confirmaciones.
  */
-export function ModeImpactDialog({ lang, target, impact, onConfirm, onCancel }: { lang: Lang; target: Mode; impact: ModeImpact; onConfirm: () => void; onCancel: () => void }) {
+export function ModeImpactDialog({ lang, target, impact, refreshed, onConfirm, onCancel }: { lang: Lang; target: Mode; impact: ModeImpact; refreshed?: boolean; onConfirm: () => void; onCancel: () => void }) {
   const t = (key: string) => translate(lang, key);
   const name = t(`mode.${target}`);
   return (
@@ -70,6 +70,7 @@ export function ModeImpactDialog({ lang, target, impact, onConfirm, onCancel }: 
       <div className="ask" data-anchor="modo-impacto" role="alertdialog" aria-modal="true" aria-label={t("mode.impact.title").replace("{name}", name)} onMouseDown={(e) => e.stopPropagation()}>
         <h2 className="ask-title">{t("mode.impact.title").replace("{name}", name)}</h2>
         <div className="ask-body mode-impact-body">
+          {refreshed ? <p className="mode-impact-refreshed">{t("mode.impact.refreshed")}</p> : null}
           <p>{t("mode.impact.intro").replace("{name}", name)}</p>
           <ul className="mode-impact-list">
             {impact.groups.map((g) => (

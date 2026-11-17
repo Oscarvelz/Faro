@@ -256,9 +256,20 @@ const C = "completo" as const;
 export const FEATURES = {
   /* §1.1 Navegación y dock */
   "nav.dock": E, "nav.books-hub": E, "nav.books-subs-entry": R, "nav.vault-bar": E,
-  "nav.scale-topbar": R, "nav.tablet-views": C, "nav.float-window": C, "nav.calendar": R,
-  "nav.global-search": R, "nav.undo": E, "nav.sync-light": E, "nav.view-currency-bar": E,
-  "nav.day-night": E, "nav.swipe": E, "nav.ring": C, "nav.toolsheet": E,
+  "nav.scale-topbar": R,
+  // Ola 2 (C-2/C-3/C-5): las vistas, la ventana flotante y la lupa son CROMO
+  // UNIVERSAL de la barra — la cara los pinta sin puerta en los tres modos,
+  // el tema 1.7 del Manual vive en Esencial, el módulo 1 las enseña con las
+  // manos y el fallo 14 declara la búsqueda ciega al modo. El registro decía
+  // Completo/Ritmo y featureForGo mentía al saltar («Eso vive en Completo»)
+  // con el botón despierto en la barra. El registro sigue a la cara y a la
+  // ley; lo que el modo regula de la búsqueda es el aterrizaje, destino a
+  // destino, no la lupa. Y el anillo: ya no existe como puerta única — camina
+  // en todo modo con sus paradas filtradas una a una (ley N-1, modos295);
+  // el asiento nombra el cromo, que es de los tres modos.
+  "nav.tablet-views": E, "nav.float-window": E, "nav.calendar": R,
+  "nav.global-search": E, "nav.undo": E, "nav.sync-light": E, "nav.view-currency-bar": E,
+  "nav.day-night": E, "nav.swipe": E, "nav.ring": E, "nav.toolsheet": E,
   /* §1.2 Central */
   "central.month-left": E, "central.month-used": E, "central.month-rate": E,
   "central.lens-have": E, "central.lens-spend": E, "central.lens-pagos": E,
@@ -335,7 +346,10 @@ export const FEATURES = {
   "editor.save-guard": E, "editor.draft": E,
   "selection.engine": R, "selection.delete": R, "selection.move": R,
   /* §1.14 Personas y contactos */
-  "people.card": R, "people.add-contacts": R, "people.add-manual": R,
+  // Ola 2 (C-5): añadir una persona es declarar en el punto de uso — el
+  // criterio asentado (declarar/añadir al crear = Esencial) respalda a la
+  // cara, que pinta la tarjeta con su verbo en Esencial; el asiento decía R.
+  "people.card": E, "people.add-contacts": R, "people.add-manual": R,
   "people.dates": R, "people.gift": R, "people.import-vcf": C, "people.share-in": C,
   "people.totals": C, "people.delete": R,
   /* §1.15 Remesas */
@@ -362,8 +376,12 @@ export const FEATURES = {
    *  que restaurar un período y borrar lo propio viven en los tres modos) */
   "archive.rest-gate": E, "archive.hide-period": C, "archive.hide-one": C,
   "archive.hide-selection": C, "archive.span-card": C, "archive.restore-span": E,
-  "archive.delete-span": E, "archive.delete-lines": E, "archive.restore-lent": R,
-  "archive.restore-loan": R, "archive.restore-card": R, "archive.restore-owe": R,
+  "archive.delete-span": E, "archive.delete-lines": E,
+  // Ola 2 (C-5): restaurar las entidades propias es EXISTENCIA (Fo-1
+  // asentado: Archivo y restaurar viven en los tres modos, sin puerta) — la
+  // cara ya obedecía el fallo; los asientos decían Ritmo.
+  "archive.restore-lent": E,
+  "archive.restore-loan": E, "archive.restore-card": E, "archive.restore-owe": E,
   "archive.pair": E,
   /* §1.20 Importación bancaria — entera en Completo */
   "import.bank": C, "import.guides": C,
@@ -396,7 +414,11 @@ export const FEATURES = {
   "pres.m3-balance-chapter": R, "pres.m4-cambio": R, "pres.m5-mes": E,
   "pres.m6-ahorros": R, "pres.m7-estadisticas": C, "pres.m8-asesor": C,
   "pres.m9-folios-river": E, "pres.m9-folios-rest": C, "pres.m10-estructura": C,
-  "pres.m11-puertas": C, "pres.m12-pregunta": C, "pres.m13-totales": C,
+  // Ola 2 (C-1): el módulo «puertas» se declara esencial en su dato
+  // (Module.mode) y el MAPA-MODULOS asentado lo deja compartido filtrado —
+  // sus escenas son de respaldo, seguridad y borrado, que existen en los
+  // tres modos. El asiento era un resto del censo que nadie actualizó.
+  "pres.m11-puertas": E, "pres.m12-pregunta": C, "pres.m13-totales": C,
   "pres.m14-colchon": C, "pres.my-scenes": R,
   /* §1.27 Manual — el tema sigue a la función, no al capítulo (fallo D-bis 25):
    * los temas sueltos dentro de capítulos ajenos llevan su propia entrada */

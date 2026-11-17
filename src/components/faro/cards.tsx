@@ -497,7 +497,16 @@ function draftOf(c: CreditCard | null, seed?: Partial<CreditCard> & { read?: Car
 }
 
 function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "update"; card: CreditCard | null; seed?: Partial<CreditCard> & { read?: CardRead }; onClose: () => void }) {
-  const { commit, session } = useFaro();
+  const { commit, session, has } = useFaro();
+  // Ola 2 (C-6): la ficha entra al sistema de modos — este componente no
+  // contenía ni una referencia al modo y Ritmo recibía la ficha de Completo.
+  // Fallo 10: en Ritmo la forma es CORTA (nombre, saldo, límite); la ficha
+  // entera es de Completo (cards.add-full). El borrador sigue naciendo de la
+  // tarjeta entera (draftOf): lo que la forma corta no pinta viaja intacto
+  // en el borrador y se guarda como estaba — la forma corta se integra en
+  // la ficha, no la amputa. La captura (scan.card-capture, Completo)
+  // cabalga esta misma forma y nace con ella.
+  const full = has("cards.add-full");
   const L = useL();
   const [d, setD] = useState<Draft>(() => draftOf(card, seed));
   const [scan, setScan] = useState<File[] | null>(null);
@@ -547,7 +556,7 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
     <Sheet anchor="card-form" onClose={onClose} art={<CardArt card={{ ...live, art: d.art || (nameMark ? undefined : d.art || "wave") }} big />} title={title}
       foot={<><button type="button" className="btn secondary" onClick={onClose}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-form-save" onClick={save}>{L("Guardar", "Save")}</button></>}>
       <div className="form-block cobro-form is-owe card-form">
-        {isAdd && !seed?.read ? (
+        {isAdd && !seed?.read && full ? (
           <div className="cf-shot">
             <span>{L("¿Tienes una captura de tu banco?", "Got a screenshot from your bank?")}</span>
             <ShotButton label={L("Foto o captura", "Photo or screen")} onFiles={setScan} />
@@ -559,24 +568,30 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
             <>
               <label className="label is-wide"><span className="lab-head">{L("Nombre", "Name")}<Hint topic="tarjetas" /></span>
                 <input className="field" data-anchor="card-name" value={d.name} placeholder={L("Ej. Visa del banco", "E.g. Bank Visa")} onChange={(e) => { const name = e.target.value; const m = isAdd && !card ? (issuerOf(d.mark) ? d.mark : "") : d.mark; const guess = (m || (isAdd ? ISS(name) : "")); set({ name, ...(isAdd ? { mark: guess, issuer: issuerOf(guess)?.name ?? d.issuer } : {}) }); }} /></label>
+              {full ? (
               <label className="label is-wide cf-apr"><span className="lab-head">{L("Tasa anual (APR %)", "Yearly rate (APR %)")}<FieldTip topic="tc-tasa" /></span>
                 <span className="cobro-pct"><input className="field num" data-anchor="card-apr" inputMode="decimal" placeholder="0" value={d.apr} onChange={(e) => set({ apr: e.target.value })} /><i aria-hidden>%</i></span></label>
-              <div className="label"><span className="lab-head">{L("0% hasta", "0% until")}<FieldTip topic="tc-promo" /></span><DayField value={d.promo} onChange={(v) => set({ promo: v })} /></div>
-              <label className="label is-right"><span className="lab-head">{L("Últimos 4", "Last 4")}</span><input className="field num" inputMode="numeric" maxLength={4} placeholder="····" value={d.last4} onChange={(e) => set({ last4: e.target.value.replace(/\D/g, "").slice(0, 4) })} /></label>
+              ) : null}
+              {full ? <div className="label"><span className="lab-head">{L("0% hasta", "0% until")}<FieldTip topic="tc-promo" /></span><DayField value={d.promo} onChange={(v) => set({ promo: v })} /></div> : null}
+              {full ? <label className="label is-right"><span className="lab-head">{L("Últimos 4", "Last 4")}</span><input className="field num" inputMode="numeric" maxLength={4} placeholder="····" value={d.last4} onChange={(e) => set({ last4: e.target.value.replace(/\D/g, "").slice(0, 4) })} /></label> : null}
               {money4(L("Límite", "Limit"), "limit", undefined, "tc-limite")}
-              <label className="label is-right"><span className="lab-head">{L("Día de pago", "Due day")}<FieldTip topic="tc-fecha" /></span><input className="field num" inputMode="numeric" placeholder="1–31" value={d.dueDay} onChange={(e) => set({ dueDay: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></label>
+              {full ? <label className="label is-right"><span className="lab-head">{L("Día de pago", "Due day")}<FieldTip topic="tc-fecha" /></span><input className="field num" inputMode="numeric" placeholder="1–31" value={d.dueDay} onChange={(e) => set({ dueDay: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></label> : null}
             </>
           )}
           {upd || isAdd ? (
             <>
               {money4(L("Saldo actual", "Current balance"), "balance", "card-balance", "tc-saldo")}
+              {upd || full ? (
+              <>
               {money4(L("Disponible", "Available"), "avail", undefined, "tc-disponible")}
               {money4(L("Pago mínimo", "Minimum"), "min", undefined, "tc-minimo")}
               <div className="label is-right"><span className="lab-head">{L("Fecha de pago", "Due date")}<FieldTip topic="tc-fecha" /></span><DayField value={d.dueOn} onChange={(v) => set({ dueOn: v })} /></div>
               <label className="label is-wide cf-rw"><span className="lab-head">{L("Recompensas ($)", "Rewards ($)")}<FieldTip topic="tc-recompensas" /></span><input className="field num" inputMode="decimal" data-anchor="card-rw-input" placeholder={card && rewardsOf(card).known ? money(rewardsOf(card).amount) : "0.00"} value={d.rw} onChange={(e) => set({ rw: e.target.value })} /></label>
+              </>
+              ) : null}
             </>
           ) : null}
-          {upd ? null : (
+          {upd ? null : full ? (
             <>
               <div className="label is-wide"><span className="lab-head">{L("Pago automático", "Autopay")}</span>
                 <div className="cobro-kind"><button type="button" aria-pressed={d.autopay === "on"} onClick={() => set({ autopay: d.autopay === "on" ? "" : "on" })}>{L("Sí", "On")}</button><button type="button" aria-pressed={d.autopay === "off"} onClick={() => set({ autopay: d.autopay === "off" ? "" : "off" })}>{L("No", "Off")}</button></div></div>
@@ -594,7 +609,7 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
                 <div className="label is-wide cf-color"><ColorPick value={d.color} onPick={(hex) => set({ color: hex })} label={L("Color", "Colour")} /></div>
               )}
             </>
-          )}
+          ) : null}
         </div>
       </div>
       {scan ? <CardScan files={scan} onClose={() => setScan(null)} onAddFrom={(read) => { setScan(null); setD(draftOf(null, { name: read.title ? titleCase(read.title) : d.name, read })); }} /> : null}

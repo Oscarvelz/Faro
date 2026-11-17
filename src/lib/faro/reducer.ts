@@ -1,6 +1,7 @@
 import { uid } from "./money.ts";
 import { FREQ_DEFAULT, intervalOf, nextDueFrom } from "./cadence.ts";
 import { ISO_DAY } from "./loans.ts";
+import { modeOf } from "./mode.ts";
 import type { LedgerState, Line } from "./types";
 
 export type Session = {
@@ -37,6 +38,15 @@ export function commit(session: Session, recipe: (s: LedgerState) => LedgerState
 export function undo(session: Session): Session {
   const prev = session.past[session.past.length - 1];
   if (!prev) return session;
+  // Ola 2 (C2-1): LA FRONTERA DEL MODO. La historia restaura fotos enteras y
+  // el modo viaja dentro de la foto: un Deshacer que cruzara un cambio de
+  // modo lo revertía sin ninguna de sus dos ceremonias (bajar sin pantalla
+  // de impacto, subir sin aviso) y se llevaba su entrada de Actividad. El
+  // Deshacer se detiene en la frontera: la foto al otro lado tiene otro
+  // modo (leído con modeOf, la lectura del sistema) y no se cruza — el modo
+  // se cambia por su puerta, en Ajustes. La entrada de Actividad del cambio
+  // queda a este lado de la frontera: sobrevive.
+  if (modeOf(prev.settings) !== modeOf(session.ledger.settings)) return session;
   const updatedAt = new Date().toISOString();
   return {
     ledger: { ...prev, revision: session.ledger.revision + 1, updatedAt },
@@ -74,6 +84,9 @@ export function commitFinal(session: Session, recipe: (s: LedgerState) => Ledger
 export function redo(session: Session): Session {
   const next = session.future[0];
   if (!next) return session;
+  // Ola 2 (C2-1): la frontera del modo guarda también el Rehacer — rehacer
+  // un cambio de modo lo repondría sin su ceremonia, igual que deshacerlo.
+  if (modeOf(next.settings) !== modeOf(session.ledger.settings)) return session;
   const updatedAt = new Date().toISOString();
   return {
     ledger: { ...next, revision: session.ledger.revision + 1, updatedAt },
@@ -105,7 +118,12 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
   const dst = state.months[to]?.lines ?? [];
   const have = new Set(dst.map((l) => l.seriesId || l.id));
   const additions = src
-    .filter((l) => (l.recurring || l.kind === "subscription") && l.active)
+    // Ola 2 (G2-1): la rama ciega de la copia es la de las cuotas — toda
+    // línea `subscription` se reproduce sin preguntar. Una línea con vínculo
+    // de pago (loanId/lentId/cardId) jamás entra por esa rama: si se
+    // volviera cuota, cada copia sumaría un abono fantasma contra la deuda.
+    // Solo la marca `recurring` de la persona la trae, como a cualquier línea.
+    .filter((l) => (l.recurring || (l.kind === "subscription" && !l.loanId && !l.lentId && !l.cardId)) && l.active)
     .filter((l) => !have.has(l.seriesId || l.id))
     .flatMap((l) => {
       // D1: una copia es un movimiento NUEVO — jamás nace apartada. `rest` pertenece al
@@ -113,6 +131,17 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
       // dejaría invisible y sin restauración posible, contando en ninguna parte.
       const born = { ...l };
       delete born.rest;
+      // Ola 2 (G2-2): la copia nace también sin PROCEDENCIA de importación.
+      // Es una línea nueva de la persona, no un producto del lote — pero
+      // heredaba importId/batch/via y dos sistemas cobraban la mentira: el
+      // deshacer del lote original la borraba en silencio (caía en la regla
+      // «del lote» por su batch heredado, sin contar como preservada) y la
+      // deduplicación bloqueaba reimportar el original mientras la copia
+      // existiera. Sin identidad heredada, la copia es intocable para el
+      // lote y el original puede volver a importarse.
+      delete born.importId;
+      delete born.batch;
+      delete born.via;
       // 1.3.76 intervals ("3m", "1d"…): carry only into a month the rhythm falls in, dated on that payment. Old words keep the old copy.
       const from0 = l.nextDue || l.bookedOn;
       if (!l.cadence || FREQ_DEFAULT.includes(l.cadence) || !from0) {
