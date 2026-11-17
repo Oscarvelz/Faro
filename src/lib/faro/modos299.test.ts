@@ -192,8 +192,14 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // la cifra corta vive en las tarjetas de la banda, que en Esencial no se
     // muestran (X-3) y en Libros cuelgan de las puertas de la bóveda (Ritmo),
     // como su tema hermano «ahorros-banda» y el de «retiro».
-    assert.equal(count("esencial"), 118);
-    assert.equal(count("ritmo"), 230);
+    // ENMIENDA OLA 4 (fallo 25: el tema sigue a la función): los conteos se
+    // mueven porque diez temas cambian de modo por adjudicación —
+    // deudas-grafica E→C, si-apartas y meses-colchon R→C, cambio-ajustes
+    // R→C (esencial −1, ritmo −4) y tc-total/tc-minimo/tc-fecha, tasa,
+    // convertidor y donde-vive R→E (esencial +6 netos con la gráfica).
+    // El mapa tema→función vive en modos-ola4.test.ts §1.
+    assert.equal(count("esencial"), 123);
+    assert.equal(count("ritmo"), 226);
     assert.equal(count("completo"), 354);
     assert.equal(MANUAL_TOPICS.length, 354);
   });
@@ -202,13 +208,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     const mode = (id: string) => topicMode(findTopic(id)!);
     assert.equal(mode("exportar"), "ritmo"); // export.panel vive desde Ritmo
     assert.equal(mode("ventana-flotante"), "completo"); // H-4: duerme con su función
-    assert.equal(mode("deudas-grafica"), "esencial"); // la gráfica monta en la cara lectora, con su (?)
+    assert.equal(mode("deudas-grafica"), "completo"); // OLA 4 (O4-C2): su función debt.chart es de Completo; la «cara lectora» era la montura sin puerta que la ola 3 puertabó — el tema sigue a la función
     assert.equal(mode("estudio-prestamos"), "esencial"); // su (?) vive en «Tus préstamos, en hechos»
     assert.equal(mode("plan-pago"), "completo"); // loans.payoff-plan
     assert.equal(mode("tc-uso"), "completo"); // el detalle fino de la tarjeta
     assert.equal(mode("estructura"), "ritmo"); // settings.structure-card
     assert.equal(mode("copias"), "esencial"); // la copia del libro es universal
-    assert.equal(mode("donde-vive"), "ritmo"); // línea del capítulo Ahorros
+    assert.equal(mode("donde-vive"), "esencial"); // OLA 4 (O4-C10): el tema es la PREGUNTA al crear (fallo 36: Esencial pregunta siempre); la postura de Ajustes a la que salta es otra cosa (settings.nature-stance, Ritmo)
     assert.equal(mode("proximos-pagos"), "esencial"); // la carpeta Agenda de Estudio vive en Esencial
     assert.equal(mode("retiro"), "ritmo"); // el bolsillo como nombre y monto
     assert.equal(mode("retiro-primerica"), "completo"); // el plan y su estudio

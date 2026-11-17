@@ -493,7 +493,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "si-apartas",
-        mode: "ritmo",
+        mode: "completo",
         depth: "manual",
         title: ["Si apartas", "If you set aside"],
         sum: ["Prueba cuánto tendrías si ahorras un monto fijo.", "Try how much you would have if you save a fixed amount."],
@@ -765,6 +765,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-minimo",
+        mode: "esencial",
         depth: "tip",
         title: ["Pago mínimo", "Minimum payment"],
         sum: ["Lo menos que debes pagar a tiempo.", "The least you must pay on time."],
@@ -773,6 +774,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-fecha",
+        mode: "esencial",
         depth: "tip",
         title: ["Fecha de pago", "Due date"],
         sum: ["El último día para pagar.", "The last day to pay."],
@@ -857,6 +859,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-total",
+        mode: "esencial",
         depth: "tip",
         title: ["Debes en tarjetas", "Owed on cards"],
         sum: ["La suma de los saldos de tus tarjetas.", "The sum of your card balances."],
@@ -1227,7 +1230,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "deudas-grafica",
-        mode: "esencial",
+        mode: "completo",
         depth: "tip",
         title: ["Últimos 6 meses", "Last 6 months"],
         sum: ["Cómo baja tu deuda mes a mes.", "How your debt goes down month by month."],
@@ -1494,6 +1497,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "donde-vive",
+        mode: "esencial",
         depth: "manual",
         title: ["Dónde vive tu ahorro", "Where your savings live"],
         sum: ["Cada fondo declara si su dinero es parte de tu saldo o vive aparte.", "Every fund declares whether its money is part of your balance or lives apart."],
@@ -2456,6 +2460,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tasa",
+        mode: "esencial",
         depth: "manual",
         title: ["Tasa de cambio", "Exchange rate"],
         sum: ["Cuántos córdobas vale un dólar en tu vista.", "How many córdobas one dollar is worth in your view."],
@@ -2476,6 +2481,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "convertidor",
+        mode: "esencial",
         depth: "manual",
         title: ["Cambio", "Converter"],
         sum: ["Convierte un monto entre C$ y $.", "Converts an amount between C$ and $."],
@@ -2487,6 +2493,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "cambio-ajustes",
+        mode: "completo",
         depth: "manual",
         title: ["Ajustes del cambio", "Converter settings"],
         sum: ["Tus montos rápidos y cómo abre el cambio.", "Your quick amounts and how the converter opens."],
@@ -2844,7 +2851,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "meses-colchon",
-        mode: "ritmo",
+        mode: "completo",
         depth: "manual",
         title: ["Meses de colchón", "Months of cushion"],
         sum: ["Cuántos meses de lo básico quieres tener guardados.", "How many months of basics you want saved."],

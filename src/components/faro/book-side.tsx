@@ -119,8 +119,17 @@ export function DueSide() {
   // tiene cifra y declara lo que no la tiene: un préstamo solo en la
   // ventana ya no pinta C$0.00 como si fuera un total, ni una suma parcial
   // se presenta desnuda. La fila «+N más» hace lo mismo con lo escondido.
-  const soonKnown = soon.reduce((a, r) => a + (r.amt ?? 0), 0);
-  const soonUnknown = soon.filter((r) => r.amt == null).length;
+  // Ola 4 (BR4-2): el titular contaba SOLO la mitad por-vencer — un
+  // vencido con cifra no entraba en la suma (un mínimo vencido de C$250
+  // con su fila pintada dejaba el titular en C$0.00) y un vencido sin
+  // cifra no entraba en la declaración. La ventana es una sola: la suma
+  // y la declaración cubren vencidos y próximos por igual, y la cifra es
+  // «—» solo cuando nada tiene importe. (S-D de la ola 4 cambia con esta
+  // lectura: su «—» bendecido escondía un mínimo vencido conocido de
+  // C$250 pintado en su fila — la misma exclusión muda, con guion en vez
+  // de cero.)
+  const known = list.reduce((a, r) => a + (r.amt ?? 0), 0);
+  const unknown = list.filter((r) => r.amt == null).length;
   const hidden = list.slice(10);
   const hiddenKnown = hidden.reduce((a, r) => a + (r.amt ?? 0), 0);
   const hiddenUnknown = hidden.filter((r) => r.amt == null).length;
@@ -133,7 +142,7 @@ export function DueSide() {
     <aside className="book-side due-side" aria-label={L("Próximos 30 días", "Next 30 days")}>
       <div className="bs-head">
         <span className="bs-kick">{L("Próximos 30 días", "Next 30 days")}</span>
-        <span className="bs-total"><strong className="num">{soonUnknown > 0 && soonKnown === 0 ? "—" : fmt(soonKnown)}</strong>{late.length ? <em data-tone="bad">{L(`${late.length} vencida${late.length > 1 ? "s" : ""}`, `${late.length} overdue`)}</em> : null}{soonUnknown ? <em>{L(`${soonUnknown} sin importe conocido`, `${soonUnknown} with no known amount`)}</em> : null}</span>
+        <span className="bs-total"><strong className="num">{known > 0 ? fmt(known) : "—"}</strong>{late.length ? <em data-tone="bad">{L(`${late.length} vencida${late.length > 1 ? "s" : ""}`, `${late.length} overdue`)}</em> : null}{unknown ? <em>{L(`${unknown} sin importe conocido`, `${unknown} with no known amount`)}</em> : null}</span>
       </div>
       {list.length ? (
         <ul className="bs-rows">

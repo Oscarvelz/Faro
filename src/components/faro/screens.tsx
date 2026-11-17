@@ -5804,10 +5804,34 @@ export function Settings() {
         unlocked={modeReposed.unlocked}
         onCancel={() => setModeReposed(null)}
         onConfirm={() => {
-          const { target, from } = modeReposed;
+          const { target } = modeReposed;
           setModeReposed(null);
+          // Ola 4 (Cambios C4-1): el re-planteado confirmaba A CIEGAS con
+          // las premisas congeladas al plantearse — con una doble
+          // inversión (el libro volvió a Completo por otra puerta con el
+          // re-planteado abierto) ejecutaba una BAJADA real Completo→Ritmo
+          // sin pantalla de impacto y con el aviso de subida; y si el
+          // destino ya había llegado, anunciaba una subida que no hizo.
+          // La confirmación compara premisas como su padre: destino ya
+          // alcanzado → cierra en silencio veraz; dirección invertida otra
+          // vez → la bajada se plantea de nuevo con su pantalla verdadera;
+          // subida viva → se aplica y se anuncia desde el modo VIVO.
+          if (!session) return;
+          const live = modeOf(session.ledger.settings);
+          if (live === target) return;
+          if (modeRank(target) < modeRank(live)) {
+            const refDay = currentRefDay();
+            const impact = modeImpact(session.ledger, target, lang, refDay);
+            if (impact.total === 0) {
+              applyMode(target);
+              importToast({ text: t("mode.down.notice").replace("{name}", t(`mode.${target}`)) });
+              return;
+            }
+            setModeImpactState({ target, impact, from: live, refDay });
+            return;
+          }
           applyMode(target);
-          announceUp(from, target);
+          announceUp(live, target);
         }}
       />
     ) : null}

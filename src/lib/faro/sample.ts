@@ -169,6 +169,7 @@ export function stripSample(ledger: LedgerState): LedgerState {
 export const SAMPLE_ARC_MONTHS = ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"] as const;
 export const SAMPLE_V2_SEED = "sample-v2";
 export const SAMPLE_V3_SEED = "sample-v3";
+export const SAMPLE_V4_SEED = "sample-v4";
 /** La cuenta de la casa: id fijo (addAccount acuña vault-<uid>, nunca este) y su sub
  *  tal como la semilla lo escribe en f-ahorro — la pureza v3 lo compara exacto. */
 export const SAMPLE_ACCOUNT_ID = "vault-demo01";
@@ -271,9 +272,13 @@ const ARC_FUNDS_V2: ArcFund[] = [
 ];
 const cumulative = (xs: number[]) => xs.map((_, i) => xs.slice(0, i + 1).reduce((a, b) => a + b, 0));
 
-/** El cuerpo del arco, compartido por las dos generaciones: la casa es la misma; lo que
- * cambia entre v2 y v3 son los fondos que la habitan y la cuenta que los sostiene. */
-function arcLines(funds: ArcFund[], account: number[] | null): Line[] {
+/** El cuerpo del arco, compartido por las generaciones: la casa es la misma; lo que
+ * cambia entre v2 y v3 son los fondos que la habitan y la cuenta que los sostiene.
+ * La v4 (ola 4 de modos, E4-1) viste UNA línea con cadencia y fecha: la Despensa,
+ * la primera burbuja de Fijos en cada mes — la lección del bote (módulo 3) se
+ * camina también DESDE la casa, sobre este libro, y sin una línea fija fechada
+ * el informe del bote no existe aquí aunque la etapa del escenario sí la traiga. */
+function arcLines(funds: ArcFund[], account: number[] | null, dated = false): Line[] {
   const out: Line[] = [];
   SAMPLE_ARC_MONTHS.forEach((key, mi) => {
     const despensa = key === "2026-06" ? 3400 : key === "2026-07" ? 3600 : 3500;
@@ -285,7 +290,7 @@ function arcLines(funds: ArcFund[], account: number[] | null): Line[] {
     if (BONO_MONTHS.has(key)) out.push(arcLine(key, "bono", "income-variable", "Bono o pagos", 500, { bookedDay: 20 }));
     if (OTRO[key]) out.push(arcLine(key, "otro", "income-variable", "Otro", OTRO[key], { bookedDay: 22 }));
     // — El núcleo fijo (el frente cargado: días 3–6) —
-    out.push(arcLine(key, "despensa", "expense-fixed", "Despensa y mercado", despensa, { categoryId: "f-alimentos", subId: "f.alimentos.despensa", recurring: true, charges: [[3, despensa]], bookedDay: 3 }));
+    out.push(arcLine(key, "despensa", "expense-fixed", "Despensa y mercado", despensa, { categoryId: "f-alimentos", subId: "f.alimentos.despensa", recurring: true, charges: [[3, despensa]], bookedDay: 3, ...(dated ? { cadence: "monthly" as const, startedOn: "2026-06-03" } : {}) }));
     out.push(arcLine(key, "remesa", "expense-fixed", "Remesa a mamá", 2500, { categoryId: "f-remesas", subId: "f.remesas.envios", recurring: true, charges: [[3, 2500]], bookedDay: 3, to: "demo-remit-mama" }));
     out.push(arcLine(key, "gasolina", "expense-fixed", "Gasolina auto/moto", 1500, { categoryId: "f-transporte", subId: "f.transporte.gasolina", recurring: true, charges: [[4, 900], [19, 600]], bookedDay: 4 }));
     out.push(arcLine(key, "tarjetas", "expense-fixed", "Tarjetas (tablets)", 1299, { categoryId: "f-creditos", subId: "f.creditos.tarjetas", recurring: true, charges: [[5, 1299]], bookedDay: 5, ...(key === "2026-11" ? { nextDue: "2026-12-05" } : {}) }));
@@ -329,9 +334,16 @@ function arcLines(funds: ArcFund[], account: number[] | null): Line[] {
   return out;
 }
 
-/** Las 128 filas del arco v3 (1.3.291): las 116 del arco 280, con la Meta partida en
- * dos fondos (+6), más la serie de la cuenta de la casa (+6). */
+/** Las 128 filas del arco v4: las del arco v3, con la Despensa fechada
+ * (cadencia mensual y arranque el 2026-06-03, su primer cargo). */
 export function sampleArcLines(): Line[] {
+  return arcLines(ARC_FUNDS, ACCOUNT_BALANCES, true);
+}
+
+/** Las 128 filas del arco v3 (1.3.291), congeladas: la plantilla de pureza de
+ * su generación — las 116 del arco 280, con la Meta partida en dos fondos
+ * (+6), más la serie de la cuenta de la casa (+6). */
+export function sampleArcLinesV3(): Line[] {
   return arcLines(ARC_FUNDS, ACCOUNT_BALANCES);
 }
 
@@ -383,8 +395,8 @@ function withSampleAccountSub(structure: LedgerState["structure"]): LedgerState[
 /** El libro del arco completo sobre un libro base: los seis meses, la Estructura con
  * la cuenta de la casa y las colecciones de estado que la semilla vieja nunca
  * escribía. Solo se aplica dentro del namespace de ejemplo (provider, bajo
- * sampleOn) — jamás sobre un libro personal. Las marcas de semilla son DOS: la v3,
- * que es la que manda, y la v2, que se sigue escribiendo para que una versión
+ * sampleOn) — jamás sobre un libro personal. Las marcas de semilla son TRES: la v4,
+ * que es la que manda, y la v2 y la v3, que se siguen escribiendo para que una versión
  * anterior de la app (≤1.3.290) no intente re-sembrar sobre la casa nueva: su
  * withSampleArc se detiene ante la marca v2 y su pureza no reconoce las filas
  * nuevas, así que deja el libro en paz. */
@@ -393,7 +405,7 @@ export function buildSampleArc(ledger: LedgerState): LedgerState {
   for (const key of SAMPLE_ARC_MONTHS) months[key] = { lines: sampleArcLines().filter((l) => l.monthKey === key) };
   const seeds = ledger.settings.seeds ?? [];
   const nextSeeds = [...seeds];
-  for (const s of [SAMPLE_V2_SEED, SAMPLE_V3_SEED]) if (!nextSeeds.includes(s)) nextSeeds.push(s);
+  for (const s of [SAMPLE_V2_SEED, SAMPLE_V3_SEED, SAMPLE_V4_SEED]) if (!nextSeeds.includes(s)) nextSeeds.push(s);
   return {
     ...ledger,
     months,
@@ -425,16 +437,28 @@ const sameCollections = (ledger: LedgerState): boolean =>
   && sameJson(ledger.remitPeople ?? [], [sampleArcRemitPerson()])
   && sameJson(ledger.settings.widgetPins ?? [], SAMPLE_ARC_PINS);
 
-/** Pureza del arco v3 (1.3.291): el libro ES la semilla — filas y colecciones exactas,
+/** Pureza de un arco con cuenta de la casa (v3 y v4 comparten colecciones y
+ * Estructura): el libro ES la semilla — filas y colecciones exactas,
  * y la Estructura lleva exactamente el sub de la cuenta de la casa como único vault
  * de f-ahorro. Estricta como la de siempre — cualquier toque la rompe. */
-export function isPureArcSample(ledger: LedgerState): boolean {
-  if (!linesMatch(ledger, sampleArcLines())) return false;
+const pureArcWithAccount = (ledger: LedgerState, tpl: Line[], seed: string): boolean => {
+  if (!linesMatch(ledger, tpl)) return false;
   if (!sameCollections(ledger)) return false;
-  if (!(ledger.settings.seeds ?? []).includes(SAMPLE_V3_SEED)) return false;
+  if (!(ledger.settings.seeds ?? []).includes(seed)) return false;
   const vaults = (ledger.structure.categories.find((c) => c.id === "f-ahorro")?.subs ?? [])
     .filter((s) => s.icon === "vault" || s.icon.startsWith("vault:"));
   return vaults.length === 1 && sameJson(vaults[0], SAMPLE_ACCOUNT_SUB);
+};
+
+/** Pureza del arco v4: la generación que manda. */
+export function isPureArcSample(ledger: LedgerState): boolean {
+  return pureArcWithAccount(ledger, sampleArcLines(), SAMPLE_V4_SEED);
+}
+
+/** Pureza del arco v3 (1.3.291), congelada con su generador: la plantilla contra la
+ * que la regla de ascenso reconoce una casa de la generación anterior aún intacta. */
+export function isPureArcSampleV3(ledger: LedgerState): boolean {
+  return pureArcWithAccount(ledger, sampleArcLinesV3(), SAMPLE_V3_SEED);
 }
 
 /** Pureza del arco 280 (v2), congelada con su generador: la plantilla contra la que
@@ -445,19 +469,19 @@ export function isPureArcSampleV2(ledger: LedgerState): boolean {
     && (ledger.settings.seeds ?? []).includes(SAMPLE_V2_SEED);
 }
 
-/** La pureza de la casa, con sus tres plantillas: el arco v3, el arco 280 y la
- * muestra legada de agosto. La puerta de carga de los libros personales la usa tal
- * cual: un libro que todavía sea SOLO muestra — de cualquiera de las tres
+/** La pureza de la casa, con sus cuatro plantillas: el arco v4, el arco v3, el arco
+ * 280 y la muestra legada de agosto. La puerta de carga de los libros personales la usa tal
+ * cual: un libro que todavía sea SOLO muestra — de cualquiera de las
  * generaciones — empieza vacío. */
 export function isPureSample(ledger: LedgerState): boolean {
-  return isPureArcSample(ledger) || isPureArcSampleV2(ledger) || isPureLegacySample(ledger);
+  return isPureArcSample(ledger) || isPureArcSampleV3(ledger) || isPureArcSampleV2(ledger) || isPureLegacySample(ledger);
 }
 
 /**
  * La semilla del modo ejemplo, con la regla de ascenso del censo (§3.3):
- * (a) namespace con una muestra PURA de una generación anterior (la legada o el
- *     arco v2) → se reemplaza entera por el arco v3;
- * (b) marca `sample-v3` presente → no-op (idempotente);
+ * (a) namespace con una muestra PURA de una generación anterior (la legada, el
+ *     arco v2 o el arco v3) → se reemplaza entera por el arco v4;
+ * (b) marca `sample-v4` presente → no-op (idempotente);
  * (c) namespace con filas que no son una muestra pura → INTOCADO: quien jugó en la
  *     caja de arena es dueño de sus ediciones; «Reiniciar ejemplo» es su camino;
  * (d) namespace fresco (sin filas) → el arco directo.
@@ -465,8 +489,8 @@ export function isPureSample(ledger: LedgerState): boolean {
  */
 export function withSampleArc(ledger: LedgerState): { ledger: LedgerState; added: boolean } {
   const seeds = ledger.settings.seeds ?? [];
-  if (seeds.includes(SAMPLE_V3_SEED)) return { ledger, added: false };
-  if (allLines(ledger).length > 0 && !isPureArcSampleV2(ledger) && !isPureLegacySample(ledger)) return { ledger, added: false };
+  if (seeds.includes(SAMPLE_V4_SEED)) return { ledger, added: false };
+  if (allLines(ledger).length > 0 && !isPureArcSampleV3(ledger) && !isPureArcSampleV2(ledger) && !isPureLegacySample(ledger)) return { ledger, added: false };
   const now = new Date().toISOString();
   return {
     added: true,

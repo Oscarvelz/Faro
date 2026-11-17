@@ -331,7 +331,10 @@ export function PaceCard({ coach }: { coach: Coach }) {
       <div className="pano-pace-top">
         <div>
           <em>{lang === "en" ? "A day, on average" : "Al día, en promedio"}</em>
-          <strong className="num serif">{fmt(coach.perDay)}</strong>
+          {/* Ola 4 (BR4-1): fuera de Completo el promedio es el de los días
+              vividos (perDayLived), el mismo de la nota — la cifra y la
+              frase cuentan el mismo mes corrido. */}
+          <strong className="num serif">{fmt(full ? coach.perDay : coach.perDayLived)}</strong>
         </div>
         {full ? (
           <div className={extra >= 0 ? "is-good" : "is-bad"}>
@@ -455,6 +458,21 @@ export function AgendaCard({ coach }: { coach: Coach }) {
   // en vez de presentar una suma parcial como total.
   const total = coach.dues.reduce((a, d) => a + (d.minor ?? 0), 0);
   const unknownCount = coach.dues.filter((d) => d.minor == null).length;
+  // Ola 4 (BR4-3): la fila «+N más» recibe POR FIN el idioma de tres ramas
+  // que su cura de la ola 2 declaró sin aplicar en esta superficie — con
+  // todos los ocultos sin cifra pintaba «+N más · C$0.00 · algunos sin
+  // importe conocido»: una suma inventada y un «algunos» falso. Tres
+  // ramas, como el pie de DueSide: todos sin cifra → sin suma y «sin
+  // importe conocido»; mezcla → suma de lo cifrado y «algunos…»; todos
+  // con cifra → la suma sola.
+  const hiddenDues = coach.dues.slice(shown.length);
+  const hiddenKnown = hiddenDues.reduce((a, d) => a + (d.minor ?? 0), 0);
+  const hiddenUnknown = hiddenDues.filter((d) => d.minor == null).length;
+  const moreText = hiddenDues.length === 0 ? "" : hiddenUnknown === 0
+    ? (lang === "en" ? `+${hiddenDues.length} more · ${fmt(hiddenKnown)}` : `+${hiddenDues.length} más · ${fmt(hiddenKnown)}`)
+    : hiddenKnown > 0
+      ? (lang === "en" ? `+${hiddenDues.length} more · ${fmt(hiddenKnown)} · some with no known amount` : `+${hiddenDues.length} más · ${fmt(hiddenKnown)} · algunos sin importe conocido`)
+      : (lang === "en" ? `+${hiddenDues.length} more · no known amount` : `+${hiddenDues.length} más · sin importe conocido`);
   const headline = lang === "en"
     ? unknownCount === 0
       ? `${coach.dues.length} dated payment${coach.dues.length === 1 ? "" : "s"} in the next 5 weeks, ${fmt(total)} in all.`
@@ -491,11 +509,7 @@ export function AgendaCard({ coach }: { coach: Coach }) {
               </li>
             ))}
             {coach.dues.length > shown.length ? (
-              <li className="pano-more">
-                {lang === "en"
-                  ? `+${coach.dues.length - shown.length} more · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + (d.minor ?? 0), 0))}${coach.dues.slice(shown.length).some((d) => d.minor == null) ? " · some with no known amount" : ""}`
-                  : `+${coach.dues.length - shown.length} más · ${fmt(coach.dues.slice(shown.length).reduce((a, d) => a + (d.minor ?? 0), 0))}${coach.dues.slice(shown.length).some((d) => d.minor == null) ? " · algunos sin importe conocido" : ""}`}
-              </li>
+              <li className="pano-more">{moreText}</li>
             ) : null}
           </ul>
         </>

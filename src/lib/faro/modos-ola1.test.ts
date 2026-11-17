@@ -474,7 +474,13 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  de Esencial; la cura C3-4 de la Cara lo retiró). El asiento queda
  *  consumido por su canal verdadero, el de sus hermanas advisor.*: la
  *  frase del Asesor que interpreta la cifra en el texto de consejo
- *  (buildInsights), en superficies de Completo. */
+ *  (buildInsights), en superficies de Completo.
+ *  ENMIENDAS OLA 4 (con su razón, como la cerca manda): sale
+ *  tools.converter-chips-admin porque GANÓ consumidor literal — la Cara IV
+ *  lo encontró declarado sin cablear desde la ola 1 (O4-C1: el engranaje
+ *  del conversor abría entero el panel de administración de monedas en
+ *  Esencial y en Ritmo) y la cura le dio su `has(...)` en instruments.tsx:
+ *  el botón del engranaje y la montura del panel viven solo en Completo. */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
@@ -519,7 +525,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "scan.retirement-stmt", "settings.bank-rewards-real", "settings.pin-in-card",
   "settings.widget-pins", "subs.brand-detect", "subs.brand-icon-admin", "subs.cadence-machinery",
   "subs.dues-window", "subs.own-chips", "tools.calculator-use",
-  "tools.converter-chips-admin", "tools.slip-to-category", "tools.slips-bulk",
+  "tools.slip-to-category", "tools.slips-bulk",
   "tools.slips-reuse", "vault.delete", "vault.factory-restore", "vault.free",
   "vault.meta-plan", "vault.order-pockets", "vault.pin-block", "vault.retiro-fields",
   "vault.retiro-sheet", "vault.savings-goal-pct", "widget.face-dues", "widget.face-flow",

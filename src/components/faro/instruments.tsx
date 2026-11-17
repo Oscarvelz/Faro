@@ -37,6 +37,13 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
   const calcOk = has("tools.calculator");
   const slipsOk = has("tools.slips");
   const floatOk = has("tools.calculator-float");
+  // Ola 4 (Cara O4-C1): el engranaje del conversor abre la administración
+  // de monedas (los montos rápidos y la apertura) — configurar/administrar
+  // con efecto en todo el libro es de Completo (tools.converter-chips-admin,
+  // el asiento C sin consumidor desde la ola 1). El conversor en sí es
+  // universal; su administración nace solo donde el asiento vive, como la
+  // calculadora y los papelitos de arriba.
+  const chipsAdminOk = has("tools.converter-chips-admin");
   const settings = session?.ledger.settings;
   const box = useRef<HTMLDivElement>(null);
   const [prefs, setPrefs] = useState<CvPrefs>(() => readPrefs());
@@ -178,9 +185,11 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
         <div className="tool-title">
           <span className="serif text-xl lab-head">{t("convert.title")}<Hint topic="convertidor" /></span>
           <span className="cv-tools">
+          {chipsAdminOk ? (
           <button type="button" className={`icon-btn cv-gear${prefsOn ? " is-on" : ""}`} aria-pressed={prefsOn} aria-expanded={prefsOn} aria-label={lang === "en" ? "Exchange settings" : "Ajustes del cambio"} onClick={() => setPrefsOn((v) => !v)}>
             <SlidersHorizontal className="size-4" />
           </button>
+          ) : null}
           {calcOk ? (
           <button type="button" data-anchor="tools-calc" className={`icon-btn calc-launch${calcOn ? " is-on" : ""}`} aria-pressed={calcOn} aria-label={t("calc.open")} onClick={() => setCalcOn((v) => !v)}>
             <Calculator className="size-4" />
@@ -188,7 +197,7 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           ) : null}
           </span>
         </div>
-        {prefsOn ? <CvSettings prefs={prefs} lang={lang} onChange={savePrefs} onDone={() => setPrefsOn(false)} /> : null}
+        {prefsOn && chipsAdminOk ? <CvSettings prefs={prefs} lang={lang} onChange={savePrefs} onDone={() => setPrefsOn(false)} /> : null}
         <div className="cv-pair">
           <label className={`cv-row is-from cur-${from}`}>
             <span className="cv-cur"><b>{from === "USD" ? "US$" : "C$"}</b><small>{from === "USD" ? (lang === "en" ? "Dollars" : "Dólares") : (lang === "en" ? "Córdobas" : "Córdobas")}</small></span>

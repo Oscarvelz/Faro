@@ -101,8 +101,16 @@ const ANCHOR_SEAT: Record<string, FeatureId> = {
 /** Anclas de puerta INVERSA: la fila de datos mudos solo nace donde los
  *  bolsillos NO tienen cara propia (`!has("vault.meta")`) — Esencial. */
 const ANCHOR_ESENCIAL_ONLY = ["modo-mudos", "modo-lista"];
-/** Anclas construidas por plantilla (data-anchor={`…`}), no literales. */
-const ANCHOR_DYNAMIC = ["chev-numeros", "aj-theme", "aj-structure", "aj-banks", "aj-backup", "aj-account", "aj-modo", "modo-opt-esencial", "modo-opt-ritmo"];
+/** Anclas construidas por plantilla (data-anchor={`…`}), no literales.
+ *  Ola 4 (debilidad de cerca de Enseñanza IV): entra aj-rules — su montura
+ *  es la plantilla de pliegues de Ajustes (screens.tsx: `aj-${id === "rate"
+ *  ? "rules" : id}`) y su «existencia» la firmaba la colisión de subcadena
+ *  dentro de aj-rules-bank. Las demás anclas computadas que la ola temía
+ *  (hist-row, los ids del StatFold: pace, health, pulse, sankey, cushion,
+ *  numeros, year) existen como TOKEN completo entre comillas en los
+ *  componentes (props id="…"), así que el brazo de existencia endurecido
+ *  las sigue firmando — por su token, no por colisión. */
+const ANCHOR_DYNAMIC = ["chev-numeros", "aj-theme", "aj-structure", "aj-banks", "aj-backup", "aj-account", "aj-modo", "aj-rules", "modo-opt-esencial", "modo-opt-ritmo"];
 
 describe("ola3 · el censo ancla→asiento cruzado contra cada modo (E3-2/E3-3)", () => {
   it("ninguna escena se ofrece en un modo donde su ancla duerme", () => {
@@ -132,17 +140,43 @@ describe("ola3 · el censo ancla→asiento cruzado contra cada modo (E3-2/E3-3)"
       "la vista honesta de Esencial del módulo 3 es 13: la 14ª era la escena saltada en silencio");
   });
 
-  it("toda ancla de escena existe en los componentes (literal o por plantilla declarada)", () => {
+  it("toda ancla de escena existe en los componentes (token exacto o plantilla declarada)", () => {
     const dir = new URL("../../components/faro/", import.meta.url);
     const corpus = readdirSync(dir).filter((f) => f.endsWith(".tsx")).map((f) => readFileSync(new URL(f, dir), "utf8")).join("\n");
     const all = new Set<string>();
     for (const m of MODULES) for (const s of m.scenes) for (const a of sceneAnchors(s)) all.add(a);
+    // Ola 4: el brazo de existencia ya no acepta la subcadena desnuda —
+    // `corpus.includes(a)` firmaba aj-rules por vivir dentro de
+    // aj-rules-bank. Un ancla existe si aparece como TOKEN completo
+    // (delimitada por caracteres ajenos a [A-Za-z0-9_-]) o si su
+    // construcción por plantilla está declarada en ANCHOR_DYNAMIC.
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     for (const a of all) {
       if (ANCHOR_DYNAMIC.includes(a)) continue;
-      assert.ok(corpus.includes(`"${a}"`) || corpus.includes(a), `el ancla ${a} no existe en ningún componente: la escena caminaría hacia la nada`);
+      assert.ok(new RegExp(`(?<![A-Za-z0-9_-])${esc(a)}(?![A-Za-z0-9_-])`).test(corpus),
+        `el ancla ${a} no existe como token en ningún componente (o su plantilla no está declarada): la escena caminaría hacia la nada`);
     }
     assert.ok(corpus.includes("modo-opt-"), "las opciones del selector se construyen por plantilla");
     assert.ok(corpus.includes("aj-"), "los pliegues de Ajustes se construyen por plantilla");
+    assert.ok(corpus.includes('data-anchor={`aj-${'), "la plantilla de pliegues que construye aj-rules y sus hermanas sigue en screens.tsx");
+  });
+
+  it("cada asiento del censo tiene su puerta literal en la cara", () => {
+    const dir = new URL("../../components/faro/", import.meta.url);
+    const corpus = readdirSync(dir).filter((f) => f.endsWith(".tsx")).map((f) => readFileSync(new URL(f, dir), "utf8")).join("\n");
+    for (const [anchor, seat] of Object.entries(ANCHOR_SEAT)) {
+      assert.ok(corpus.includes(`has("${seat}")`), `el asiento ${seat} del ancla ${anchor} perdió su puerta literal: el censo cruzaría contra el vacío`);
+    }
+    // DECLARACIÓN PRECISA (ola 4): la dirección inversa — DESCUBRIR un
+    // ancla nueva con puerta no registrada — no se puede mecanizar en
+    // este código sin falsos positivos: las puertas se computan en
+    // variables (const canFilter = has(...), chipsAdminOk) a líneas o
+    // archivos de distancia de la montura, y has() llega por contexto, así
+    // que ningún patrón estático distingue una montura puertabada de una
+    // libre. El censo es por ley un registro DECLARADO («un ancla nueva
+    // con puerta entra aquí el día que nace»), y la red que caza la puerta
+    // no registrada es la caminata en vivo: una escena ofrecida donde su
+    // ancla duerme vuelve como escena saltada en el censo de saltos.
   });
 
   it("el censo no guarda asientos muertos: cada ancla censada sigue en el guion", () => {
@@ -181,8 +215,14 @@ describe("ola3 · las superficies declaradas ganan su puerta (Cara III)", () => 
 
   it("la burbuja (?) no enseña funciones dormidas: el aviso de la caída abre el texto (C3-3)", () => {
     const hint = SRC("../../components/faro/hint.tsx");
-    assert.ok(hint.includes("topicSleeps") && hint.includes('t("mode.dormant.notice")'),
-      "Hint consulta el modo del tema como sus puentes ya hacían, y nombra dónde vive antes de explicar");
+    // ENMIENDA OLA 4 (O4-C5): la ola 4 probó que anunciar y luego enseñar
+    // íntegro el tema dormido seguía siendo enseñar una función ausente.
+    // La burbuja ahora anuncia SIN enseñar (llave corta mode.dormant.short;
+    // el aviso largo queda en el salto de goTopic, donde el Manual sí abre
+    // la explicación). El pin se re-apunta a la llave corta; la cerca de la
+    // ola 4 fija que el cuerpo no se pinta cuando el tema duerme.
+    assert.ok(hint.includes("topicSleeps") && hint.includes('t("mode.dormant.short")'),
+      "Hint consulta el modo del tema como sus puentes ya hacían, y nombra dónde vive sin enseñar lo dormido");
   });
 
   it("el filtro de Libros lleva su puerta en el botón, el menú, los chips y el propio filtrado (C3-6)", () => {
@@ -319,7 +359,15 @@ describe("ola3 · las últimas cifras (BR3-1/BR3-2/BR3-3)", () => {
 
   it("BR3-2: DueSide suma solo lo cifrado y declara lo no cifrado, en el titular y en el «+N más» (fuente)", () => {
     const side = SRC("../../components/faro/book-side.tsx");
-    assert.ok(side.includes("soonUnknown") && side.includes("sin importe conocido"),
+    // ENMIENDA OLA 4 (BR4-2): la ola 4 probó que las sumas de esta cura
+    // (soonKnown/soonUnknown) contaban solo la mitad por-vencer — un
+    // vencido con cifra quedaba fuera de la suma y uno sin cifra fuera
+    // de la declaración. Las sumas ahora cubren la ventana entera
+    // (known/unknown sobre `list`); el pin se re-apunta a ellas y la
+    // verdad de BR3-2 se conserva y se agranda: el titular declara los
+    // vencimientos sin importe — vencidos y próximos — en vez de
+    // pintarlos C$0.00. Los especímenes viven en modos-ola4.test.ts §5.
+    assert.ok(side.includes("unknown") && side.includes("sin importe conocido"),
       "el titular declara los vencimientos sin importe en vez de pintarlos C$0.00");
     assert.ok(side.includes("hiddenUnknown"), "la fila «+N más» hace lo mismo con lo escondido");
   });
