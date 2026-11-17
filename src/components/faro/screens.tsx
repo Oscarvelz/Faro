@@ -2251,6 +2251,26 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // stock entero atribuido a la bolsa (lo que sus ventanas listan). Para un libro sin
   // declaraciones, keptMinor + pledgedMinor reproduce las cifras de siempre.
   const stock = savingsStock(session.ledger, key);
+  // La entrada del mes de Retiro (Oscar, vía de ventanas, 2026-11-16): su
+  // tarjeta nunca puede llevar la línea del saldo — su dinero no vive en una
+  // cuenta — así que su segundo asiento dice lo que SÍ entró este mes: los
+  // importes positivos asentados en la bolsa en el mes en pantalla. La doble
+  // forma cuenta por su importe (el depósito del mes; el saldo que la misma
+  // línea enuncia es la foto, no otra entrada); una línea cuyo importe ES su
+  // saldo se lee como enunciado de saldo, no como entrada. Mes sin entrada =
+  // asiento vacío, como una bolsa sin parte del saldo no pinta línea.
+  const monthBucket = session.ledger.months[key];
+  const inflowOf = (subId: string): number => {
+    if (!subId.endsWith(".retiro")) return 0;
+    let sum = 0;
+    for (const l of monthBucket?.lines ?? []) {
+      if (!l.active || l.rest || l.subId !== subId || !savingsIds.has(l.categoryId)) continue;
+      if (l.balanceMinor != null && l.amountMinor === l.balanceMinor) continue;
+      const minor = convertMinor(l.amountMinor, l.currency, rate.display, rate.rateE4);
+      if (minor > 0) sum += minor;
+    }
+    return sum;
+  };
   const segAggs = segmentAgg(stock, new Set(seed.map((s) => s.id)), namedVaultIds);
   const segOf = (agg: SegmentAgg | undefined, id: string) => {
     const keptMinor = (agg?.kept ?? 0) + (agg?.undecl ?? 0);
@@ -2263,6 +2283,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       minor: keptMinor + pledgedMinor,
       keptMinor,
       pledgedMinor,
+      inflowMinor: inflowOf(id),
       undeclMinor: agg?.undecl ?? 0,
       lightCls,
       saldoHostName: hosts.length === 1 ? (names.sub(hosts[0]!) || undefined) : undefined,
@@ -3446,6 +3467,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 <span className="num">{fmtShort(s.keptMinor)}<span className="seg-pct">{pct}%</span></span>
                 {has("nature.class-saldo") && s.pledgedMinor > 0 ? (
                   <span className="save-seg-sub"><FundLight asSpan cls="saldo" tone={tint} hostName={s.saldoHostName} /><span className="ss-amt">{`+ ${fmtShort(s.pledgedMinor)}`}</span><span className="ss-lab">{t("desk.savings.onBalance")}</span></span>
+                ) : null}
+                {s.id.endsWith(".retiro") && s.inflowMinor > 0 ? (
+                  <span className="save-seg-sub"><span className="ss-amt">{`+ ${fmtShort(s.inflowMinor)}`}</span><span className="ss-lab">{t("desk.savings.thisMonth")}</span></span>
                 ) : null}
               </button>
             );

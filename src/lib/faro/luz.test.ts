@@ -137,6 +137,30 @@ describe("la luz de naturaleza (ventanas, 2026-11-16)", () => {
     assert.match(screens, /t\("save\.goalTerm"\)/);
   });
 
+  it("Retiro llena su segundo asiento con la entrada del mes, y calla si no entró nada", () => {
+    // Oscar, 2026-11-16: la tarjeta de Retiro no puede llevar la línea del
+    // saldo; su asiento dice lo que entró este mes (depósitos positivos del
+    // mes, sin fotos), y en un mes sin entrada el asiento queda vacío.
+    const i18n = read("../../lib/faro/i18n.ts");
+    assert.match(i18n, /"desk\.savings\.thisMonth": "este mes"/);
+    assert.match(i18n, /"desk\.savings\.thisMonth": "this month"/);
+    assert.match(screens, /s\.id\.endsWith\("\.retiro"\) && s\.inflowMinor > 0/);
+    assert.match(screens, /l\.balanceMinor != null && l\.amountMinor === l\.balanceMinor/);
+    assert.match(screens, /t\("desk\.savings\.thisMonth"\)/);
+  });
+
+  it("la barra segmentada de Tron nace centrada: ambos extremos cortan por igual", () => {
+    // Oscar, 2026-11-16: la barra de Emergencia «está movida a la derecha de
+    // modo que pega en la caja». El patrón se anclaba a la izquierda y el
+    // sobrante del período caía entero a la derecha; pista y carga llevan el
+    // mismo centro para cortar parejo sin perder la fase entre ellas.
+    const tron = read("../../components/faro/tron.css");
+    const centers = tron.match(/background-position:\s*center 0 !important/g) ?? [];
+    assert.equal(centers.length, 2, "pista y carga centran su patrón");
+    const gauges = tron.slice(tron.indexOf(".save-seg b {", tron.indexOf("energy gauge")));
+    assert.ok(gauges.indexOf("background-position: center 0") > gauges.indexOf("repeating-linear-gradient"), "el centro vive en las reglas del medidor");
+  });
+
   it("nombre + luz: una unidad que no se parte a ningún ancho de tarjeta", () => {
     const strong = rule(styles, ".save-seg > strong { white-space: nowrap;");
     assert.match(strong, /font-size:\s*clamp\(\.62rem, 10\.5cqi, \.95rem\)/);
