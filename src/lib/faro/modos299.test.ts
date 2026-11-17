@@ -84,11 +84,25 @@ describe("tres modos, etapa 5 — el índice de la Presentación por modo", () =
     assert.equal(sceneInMode(sceneById("m15-impacto-c"), "completo"), true);
     assert.equal(sceneInMode(sceneById("m15-impacto-c"), "ritmo"), false);
     // La fila muda y la sugerencia no existen en Completo: nada duerme allí.
-    for (const id of ["m15-mudos", "m15-solo-lectura", "m15-sugiere"]) {
+    // ENMIENDA OLA 3 (E3-3): el par de la fila (m15-mudos, m15-solo-lectura)
+    // ya NO «vive en Ritmo» — la fila es cara de Esencial por construcción
+    // (nace solo donde los bolsillos no tienen cara propia) y en Ritmo las
+    // escenas se saltaban en silencio en cada caminata. El par se declara
+    // de Esencial y la ley se enseña en Ritmo con las variantes -r, sobre
+    // la banda de bolsillos. La sugerencia no cambia: vive en los dos.
+    for (const id of ["m15-mudos", "m15-solo-lectura"]) {
       assert.equal(sceneInMode(sceneById(id), "esencial"), true, `${id} vive en Esencial`);
-      assert.equal(sceneInMode(sceneById(id), "ritmo"), true, `${id} vive en Ritmo`);
+      assert.equal(sceneInMode(sceneById(id), "ritmo"), false, `${id} ya no se ofrece en Ritmo: su ancla no nace allí`);
       assert.equal(sceneInMode(sceneById(id), "completo"), false, `${id} no se ofrece en Completo`);
     }
+    for (const id of ["m15-mudos-r", "m15-solo-lectura-r"]) {
+      assert.equal(sceneInMode(sceneById(id), "ritmo"), true, `${id} es la variante de Ritmo`);
+      assert.equal(sceneInMode(sceneById(id), "esencial"), false, `${id} no se ofrece en Esencial`);
+      assert.equal(sceneInMode(sceneById(id), "completo"), false, `${id} no se ofrece en Completo`);
+    }
+    assert.equal(sceneInMode(sceneById("m15-sugiere"), "esencial"), true, "m15-sugiere vive en Esencial");
+    assert.equal(sceneInMode(sceneById("m15-sugiere"), "ritmo"), true, "m15-sugiere vive en Ritmo");
+    assert.equal(sceneInMode(sceneById("m15-sugiere"), "completo"), false, "m15-sugiere no se ofrece en Completo");
     // Deudas: la cara lectora solo en Esencial; la de gestión, desde Ritmo.
     for (const id of ["m19-balanza-h", "m19-debo-h", "m19-tarjeta-h", "m19-cierre-h"]) {
       assert.equal(sceneInMode(sceneById(id), "esencial"), true, `${id} es la cara de Esencial`);

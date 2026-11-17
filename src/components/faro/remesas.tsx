@@ -22,7 +22,7 @@ const todayIso = () => { const d = new Date(); return `${todayKey()}-${String(d.
 
 /** Cambio → "Enviar a": the converted amount (or the typed one) becomes one expense line in the chosen book and category, this month. */
 export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor: number; from: Currency; toMinor: number; to: Currency; onDone: () => void }) {
-  const { session, lang, names, commit } = useFaro();
+  const { session, lang, names, commit, has } = useFaro();
   useLayer(true, onDone);
   const state = session!.ledger;
   const rate = state.settings.rateE4;
@@ -39,7 +39,13 @@ export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor:
   // 1.3.118: Remesas → Para: who the money goes to (optional). Starts on the last person used here, if they still exist.
   const [toWho, setToWho] = useState(() => { const last = localStorage.getItem("faro-send-to") ?? ""; return remitPeopleOf(state).some((p) => p.id === last) ? last : ""; });
   const remit = !!cat && isRemitCat(state, cat);
-  const toName = remit && toWho ? remitPeopleOf(state).find((p) => p.id === toWho)?.name ?? "" : "";
+  // Ola 3 (Cara C3-2): el destinatario es dato de Ritmo (remit.for) — el
+  // campo lleva su puerta Y el camino de guardado la respeta: sin la
+  // puerta, ninguna línea nace con `to`, ni siquiera desde el recuerdo
+  // («la última persona usada») que el estado inicial trae. Guardar la
+  // conversión como gasto se queda (fallo 37); el destinatario, no.
+  const canFor = has("remit.for");
+  const toName = canFor && remit && toWho ? remitPeopleOf(state).find((p) => p.id === toWho)?.name ?? "" : "";
   const amount = money === from ? fromMinor : toMinor;
   const other = money === from ? toMinor : fromMinor;
   const otherCur: Currency = money === "USD" ? "NIO" : "USD";
@@ -49,7 +55,7 @@ export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor:
     const monthKey = todayKey();
     localStorage.setItem("faro-send-group", group);
     localStorage.setItem(`faro-send-cat-${group}`, cat);
-    if (remit) localStorage.setItem("faro-send-to", toName ? toWho : "");
+    if (canFor && remit) localStorage.setItem("faro-send-to", toName ? toWho : "");
     const usd = money === "USD" ? amount : convertMinor(amount, "NIO", "USD", rate);
     const nio = money === "NIO" ? amount : convertMinor(amount, "USD", "NIO", rate);
     const note = L(lang, `Desde Cambio: ${formatMoney(usd, "USD", lang)} = ${formatMoney(nio, "NIO", lang)} a C$${formatRate(rate)} por US$`, `From Exchange: ${formatMoney(usd, "USD", lang)} = ${formatMoney(nio, "NIO", lang)} at C$${formatRate(rate)} per US$`);
@@ -80,7 +86,7 @@ export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor:
           <span className="lab-head">{L(lang, "Categoría", "Category")}</span>
           <ThemeSelect value={cat} onChange={setCat} options={options} />
         </div>
-        {remit ? <RemitToField value={toWho} onChange={setToWho} /> : null}
+        {canFor && remit ? <RemitToField value={toWho} onChange={setToWho} /> : null}
         <div className="label is-wide">
           <span className="lab-head">{L(lang, "Moneda", "Currency")}</span>
           <div className="ah-sign" role="radiogroup" aria-label={L(lang, "Moneda", "Currency")}>

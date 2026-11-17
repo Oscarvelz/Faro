@@ -114,11 +114,26 @@ export function DueSide() {
   const fmtDay = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" });
   const left = (n: number) => (n < 0 ? L(`hace ${-n} d`, `${-n} d ago`) : n === 0 ? L("hoy", "today") : n === 1 ? L("mañana", "tomorrow") : L(`en ${n} d`, `in ${n} d`));
   const list = [...late, ...soon];
+  // Ola 3 (BR3-2): la quinta superficie respeta el null como sus cuatro
+  // hermanas curadas en la ola 2 (BR2-5) — el titular suma solo lo que
+  // tiene cifra y declara lo que no la tiene: un préstamo solo en la
+  // ventana ya no pinta C$0.00 como si fuera un total, ni una suma parcial
+  // se presenta desnuda. La fila «+N más» hace lo mismo con lo escondido.
+  const soonKnown = soon.reduce((a, r) => a + (r.amt ?? 0), 0);
+  const soonUnknown = soon.filter((r) => r.amt == null).length;
+  const hidden = list.slice(10);
+  const hiddenKnown = hidden.reduce((a, r) => a + (r.amt ?? 0), 0);
+  const hiddenUnknown = hidden.filter((r) => r.amt == null).length;
+  const moreText = hidden.length === 0 ? "" : hiddenUnknown === 0
+    ? L(`+${hidden.length} más · ${fmt(hiddenKnown)}`, `+${hidden.length} more · ${fmt(hiddenKnown)}`)
+    : hiddenKnown > 0
+      ? L(`+${hidden.length} más · ${fmt(hiddenKnown)} · algunos sin importe conocido`, `+${hidden.length} more · ${fmt(hiddenKnown)} · some with no known amount`)
+      : L(`+${hidden.length} más · sin importe conocido`, `+${hidden.length} more · no known amount`);
   return (
     <aside className="book-side due-side" aria-label={L("Próximos 30 días", "Next 30 days")}>
       <div className="bs-head">
         <span className="bs-kick">{L("Próximos 30 días", "Next 30 days")}</span>
-        <span className="bs-total"><strong className="num">{fmt(soon.reduce((a, r) => a + (r.amt ?? 0), 0))}</strong>{late.length ? <em data-tone="bad">{L(`${late.length} vencida${late.length > 1 ? "s" : ""}`, `${late.length} overdue`)}</em> : null}</span>
+        <span className="bs-total"><strong className="num">{soonUnknown > 0 && soonKnown === 0 ? "—" : fmt(soonKnown)}</strong>{late.length ? <em data-tone="bad">{L(`${late.length} vencida${late.length > 1 ? "s" : ""}`, `${late.length} overdue`)}</em> : null}{soonUnknown ? <em>{L(`${soonUnknown} sin importe conocido`, `${soonUnknown} with no known amount`)}</em> : null}</span>
       </div>
       {list.length ? (
         <ul className="bs-rows">
@@ -131,7 +146,7 @@ export function DueSide() {
           ))}
         </ul>
       ) : null}
-      <p className="bs-foot">{rows.length ? (list.length ? "" : L("Nada vence en los próximos 30 días.", "Nothing due in the next 30 days.")) : L("Ponle fecha a una cuota y aparece aquí, en orden.", "Give a cuota a date and it shows here, in order.")}{list.length > 10 ? L(`+${list.length - 10} más · ${fmt(list.slice(10).reduce((a, r) => a + (r.amt ?? 0), 0))}`, `+${list.length - 10} more · ${fmt(list.slice(10).reduce((a, r) => a + (r.amt ?? 0), 0))}`) : ""}</p>
+      <p className="bs-foot">{rows.length ? (list.length ? "" : L("Nada vence en los próximos 30 días.", "Nothing due in the next 30 days.")) : L("Ponle fecha a una cuota y aparece aquí, en orden.", "Give a cuota a date and it shows here, in order.")}{moreText}</p>
     </aside>
   );
 }

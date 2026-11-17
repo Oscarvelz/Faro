@@ -297,7 +297,11 @@ describe("ola2 · la pantalla de impacto confirma la verdad de ahora (C2-2)", ()
   it("onConfirm recuenta el impacto sobre el libro vivo antes de aplicar", () => {
     const screens = SRC("../../components/faro/screens.tsx");
     const dialog = screens.slice(screens.indexOf("<ModeImpactDialog"));
-    assert.ok(dialog.includes("modeImpact(session.ledger, target, lang)"), "la confirmación recalcula modeImpact con la sesión actual");
+    // ENMIENDA OLA 3 (Cambios C3-2): el reconteo sigue siendo sobre el
+    // libro vivo (la doctrina C2-2 no cambia), pero lleva además la fecha
+    // de referencia fijada al abrir — la comparación es contra las mismas
+    // premisas, para que la medianoche no se disfrace de cambio del libro.
+    assert.ok(dialog.includes("modeImpact(session.ledger, target, lang, modeImpactState.refDay)"), "la confirmación recalcula modeImpact con la sesión actual y la fecha de referencia");
     assert.ok(dialog.includes("refreshed: true"), "si la foto cambió, el diálogo se repone con los conteos frescos y no aplica");
     assert.ok(dialog.includes("fresh.total === 0"), "y si el impacto se evaporó, aplica con el aviso de bajada sin impacto");
     const gate = SRC("../../components/faro/mode-gate.tsx");
@@ -400,8 +404,7 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // bank-mark, bank-pick, rewards-real, stmt-scan: tras settings.banks /
   // import.bank), book-kit y book-side (el kit de los libros; las caras que
   // lo montan nombran el sistema), selection (cromo de Archivo/Historial),
-  // sub-presets (editores dentro del formulario de línea), remesas (el
-  // SendPanel cabalga el conversor universal y las caras de remesas),
+  // sub-presets (editores dentro del formulario de línea),
   // remit-people y earnings (tarjetas cuyas caras madre — Cobros y Estudio
   // — nombran el sistema y filtran en la fuente), slip-apply (hija de la
   // sección de papelitos, puertabada en instruments.tsx), battery-row (una
@@ -409,11 +412,17 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // el control de la casa de ejemplo — nombra el sistema de la CASA
   // (samplemode), no el de modos; el modo del escenario se gobierna en
   // presentacion.tsx y samplemode.ts (familia Enseñanza).
+  // ENMIENDA OLA 3 (Cara C3-2): remesas.tsx SALE de los exentos — el
+  // SendPanel dejó de «cabalgar» el conversor: su campo «Para» guardaba el
+  // destinatario (dato de Ritmo) en Esencial porque el panel nunca nombraba
+  // el sistema, y la exención de la ola 2 («las caras madre filtran en la
+  // fuente») era falsa para esta montura. El panel ahora lee remit.for
+  // él mismo, en la pintura y en el camino de guardado.
   const EXEMPT = [
     "bank-dock.tsx", "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-kit.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
-    "icons.tsx", "manual-text.tsx", "remesas.tsx", "remit-people.tsx", "rewards-real.tsx",
+    "icons.tsx", "manual-text.tsx", "remit-people.tsx", "rewards-real.tsx",
     "sample-mode.tsx", "selection.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",
     "to-top.tsx", "ui.tsx",
   ];
@@ -433,16 +442,28 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
 describe("ola2 · el escenario viste el modo de la persona (E2-1/E2-2)", () => {
   it("el libro de escenario toma el modo del espejo AL NACER, y su sesión no reescribe el espejo", () => {
     const provider = SRC("../../components/faro/provider.tsx");
-    assert.ok(provider.includes("stageOn() && !saved && isMode(modeMirror)"),
-      "el préstamo ocurre también sin paquete guardado: el escenario nace vestido, no en Completo por ausencia");
-    assert.ok(provider.includes('if (!stageOn()) localStorage.setItem("faro-mode"'),
-      "la sesión del escenario no reescribe el espejo faro-mode con su modo");
+    // ENMIENDA OLA 3 (E3-1): las dos formas se ensanchan de stageOn() a
+    // sealedOn() — el nacimiento vestido y la prohibición de escribir el
+    // espejo cubren también a la CASA DE EJEMPLO, que nacía desnuda (su
+    // cara efectiva era Completo: índice de 21 módulos para todos) y cuya
+    // sesión dejaba «completo» escrito en el espejo al entrar, envenenando
+    // toda lección lanzada desde dentro de la casa. La doctrina de la
+    // ola 2 queda intacta y gana su segundo libro sellado.
+    assert.ok(provider.includes("sealedOn() && !saved && isMode(modeMirror)"),
+      "el préstamo ocurre también sin paquete guardado: el libro sellado nace vestido, no en Completo por ausencia");
+    assert.ok(provider.includes('if (!sealedOn()) localStorage.setItem("faro-mode"'),
+      "ninguna sesión sellada reescribe el espejo faro-mode con su modo");
   });
 
   it("la vista que el escenario representa en Esencial es la de Esencial (los especímenes de la caminata)", () => {
     const m3 = MODULES.find((m) => m.id === "anotar")!;
     const v3 = moduleView(m3, "esencial");
-    assert.equal(v3.scenes.length, 14, "el módulo 3 en Esencial camina 14 escenas, no las 16 de Completo");
+    // ENMIENDA OLA 3 (E3-2): la vista honesta de Esencial es 13, no 14 —
+    // la escena 14 era m3-bote, cuyo ancla (book-pot, vault.pot) vive en
+    // Ritmo por el fallo 6 y el conductor la saltaba EN SILENCIO en cada
+    // caminata de Esencial: contarla como caminable era la mentira. La
+    // escena gana su minMode y la vista dice por fin la verdad.
+    assert.equal(v3.scenes.length, 13, "el módulo 3 en Esencial camina 13 escenas, no las 16 de Completo");
     assert.ok(!v3.scenes.some((s) => s.id.includes("import") || s.id.includes("estructura")),
       "ningún pie ajeno: ni la importación ni Estructura existen en la vista de Esencial");
     const m21 = MODULES.find((m) => m.scenes.some((s) => s.id === "m19-debo-h"))!;

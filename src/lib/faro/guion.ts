@@ -583,7 +583,7 @@ const ANOTAR: Module = {
     { id: "m3-burbuja", chapter: "gestionar", anchors: ["book-cloud"], keys: [["burbuja", "bubble"], ["editar", "edit"]], steps: [
       { kind: "do", anchor: "book-cloud", caption: ["Toca una burbuja y su editor se abre en el sitio.", "Tap a bubble and its editor opens right there."] },
     ] },
-    { id: "m3-bote", chapter: "gestionar", anchors: ["book-pot"], keys: [["bote", "pot"], ["informe", "report"]], steps: [
+    { id: "m3-bote", chapter: "gestionar", minMode: "ritmo", anchors: ["book-pot"], keys: [["bote", "pot"], ["informe", "report"]], steps: [
       { kind: "show", anchor: "book-pot", caption: ["El bote resume la línea: acumulado, anotado y cuántos pagos — tócalo y se abre.", "The pot sums up the line: total, logged, and payment count — tap it open."] },
     ] },
     { id: "m3-lapiz", chapter: "gestionar", anchors: ["book-kit"], keys: [["lápiz", "pencil"], ["gestionar", "manage"]], steps: [
@@ -817,14 +817,14 @@ const AHORROS: Module = {
     { id: "m6-cifra", chapter: "banda", anchors: ["vault-figure"], keys: [["la cifra", "the figure"], ["saldo", "balance"]], steps: [
       { kind: "show", anchor: "vault-figure", caption: ["La cifra de una cuenta es botón: ajusta su saldo ahí.", "An account's figure is a button: adjust its balance there."] },
     ] },
-    { id: "m6-mover", chapter: "banda", anchors: ["vault-grip"], keys: [["mover", "move"], ["agarre", "grip"]], steps: [
+    { id: "m6-mover", chapter: "banda", minMode: "completo", anchors: ["vault-grip"], keys: [["mover", "move"], ["agarre", "grip"]], steps: [
       { kind: "show", anchor: "vault-grip", caption: ["El agarre de una fila la vuelve mudanza entre bolsillos.", "A row's grip turns it into a move between pockets."] },
     ] },
     { id: "m6-boveda", chapter: "boveda", anchors: ["vault-ledger"], keys: [["bóveda", "vault"]], steps: [
       { kind: "go", screen: "vault-meta" },
       { kind: "show", anchor: "vault-ledger", caption: ["En Libros, la bóveda abre cada bolsillo a pantalla entera.", "In Books, the vault opens each pocket full-screen."] },
     ] },
-    { id: "m6-lampara", chapter: "boveda", anchors: ["vault-sort"], keys: [["lámpara", "lamp"], ["ordenar", "sort"]], steps: [
+    { id: "m6-lampara", chapter: "boveda", minMode: "completo", anchors: ["vault-sort"], keys: [["lámpara", "lamp"], ["ordenar", "sort"]], steps: [
       { kind: "show", anchor: "vault-sort", caption: ["La lámpara enciende el orden: flechas para mover bloques.", "The lamp turns on ordering: arrows to move blocks."] },
     ] },
     { id: "m6-corte", chapter: "boveda", anchors: ["book-span"], keys: [["corte", "cut"], ["período", "period"]], steps: [
@@ -992,10 +992,10 @@ const FOLIOS: Module = {
     { id: "m9-panel", chapter: "rio", anchors: ["hist-panel"], keys: [["combinar", "combine"]], steps: [
       { kind: "show", anchor: "hist-panel", caption: ["Se combinan a la vez: todos tienen que cumplirse.", "They combine at once: every one must hold."] },
     ] },
-    { id: "m9-vistas", chapter: "rio", anchors: ["hist-views-btn"], keys: [["vistas", "views"]], steps: [
+    { id: "m9-vistas", chapter: "rio", minMode: "ritmo", anchors: ["hist-views-btn"], keys: [["vistas", "views"]], steps: [
       { kind: "do", anchor: "hist-views-btn", caption: ["Una vista guarda tu combinación de filtros.", "A view saves your combination of filters."] },
     ] },
-    { id: "m9-nombre", chapter: "rio", anchors: ["hist-view-save"], keys: [["tu nombre", "your name"]], steps: [
+    { id: "m9-nombre", chapter: "rio", minMode: "ritmo", anchors: ["hist-view-save"], keys: [["tu nombre", "your name"]], steps: [
       { kind: "show", anchor: "hist-view-save", caption: ["Y la guardas con TU nombre, para volver en un toque.", "And you save it under YOUR name, to return in one tap."] },
     ] },
     { id: "m9-procedencia", chapter: "rio", anchors: ["hist-row"], keys: [["procedencia", "provenance"]], steps: [
@@ -1437,13 +1437,27 @@ const MODOS: Module = {
       { kind: "show", anchor: "modo-impacto", caption: ["Bajar es desactivar, nunca borrar: tus datos quedan enteros.", "Moving down turns things off, never deletes: your data stays whole."] },
       { kind: "tap", anchor: "modo-impacto-no" },
     ] },
-    { id: "m15-mudos", chapter: "lo-dormido", notMode: "completo", anchors: ["modo-mudos"], keys: [["datos mudos", "mute data"]], steps: [
+    /* Ola 3 (E3-3): el par de la fila es DE ESENCIAL — la fila de datos
+     * mudos es una cara de Esencial por construcción (nace solo donde los
+     * bolsillos no tienen cara propia: `!has("vault.meta")`, y ningún
+     * bolsillo se gestiona por encima de Ritmo). En Ritmo las escenas se
+     * saltaban en silencio porque su ancla jamás nace en esa vista; ahora
+     * el capítulo enseña la misma ley en Ritmo con las variantes -r, sobre
+     * un objeto que Ritmo sí tiene: sus bolsillos en la banda. */
+    { id: "m15-mudos", chapter: "lo-dormido", mode: "esencial", anchors: ["modo-mudos"], keys: [["datos mudos", "mute data"]], steps: [
       { kind: "go", screen: "desk" },
       { kind: "show", anchor: "modo-mudos", caption: ["Lo de un modo mayor se ve aquí, en su sitio, explicado.", "What belongs to a higher mode shows here, in its place, explained."], contexto: ["Suma en tus totales igual que siempre; solo duerme su gestión.", "It counts in your totals as always; only its managing sleeps."] },
     ] },
-    { id: "m15-solo-lectura", chapter: "lo-dormido", notMode: "completo", anchors: ["modo-mudos", "modo-lista"], keys: [["solo lectura", "read only"]], steps: [
+    { id: "m15-solo-lectura", chapter: "lo-dormido", mode: "esencial", anchors: ["modo-mudos", "modo-lista"], keys: [["solo lectura", "read only"]], steps: [
       { kind: "do", anchor: "modo-mudos", caption: ["La fila abre su lista: todo se lee, nada se edita aquí.", "The row opens its list: everything reads, nothing edits here."] },
       { kind: "show", anchor: "modo-lista", caption: ["Gestionarlo vive en su modo; mirarlo, en todos.", "Managing it lives in its mode; looking at it, in all of them."] },
+    ] },
+    { id: "m15-mudos-r", chapter: "lo-dormido", mode: "ritmo", anchors: ["desk-save"], keys: [["bolsillos", "pockets"], ["al bajar", "going down"]], steps: [
+      { kind: "go", screen: "desk" },
+      { kind: "show", anchor: "desk-save", caption: ["Si bajas a Esencial, estos bolsillos se leen en una fila de solo lectura.", "If you go down to Essential, these pockets read in a read-only row."], contexto: ["No se borran ni dejan de contar: solo duerme su gestión.", "They are not deleted and keep counting: only their managing sleeps."] },
+    ] },
+    { id: "m15-solo-lectura-r", chapter: "lo-dormido", mode: "ritmo", anchors: ["desk-save"], keys: [["se leen", "they read"], ["gestionar aquí", "managing here"]], steps: [
+      { kind: "show", anchor: "desk-save", caption: ["Su lista en Esencial lo lee todo y no edita nada; gestionarlos vive aquí.", "Its list in Essential reads everything and edits nothing; managing them lives here."] },
     ] },
     { id: "m15-sugiere", chapter: "lo-dormido", notMode: "completo", anchors: ["coach"], keys: [["sugerencia", "suggestion"]], steps: [
       { kind: "go", screen: "advice" },

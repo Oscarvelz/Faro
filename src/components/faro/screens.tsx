@@ -8,8 +8,8 @@ import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, importToast } from "./bank-dock";
-import { ModeImpactDialog } from "./mode-gate";
-import { MODES, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
+import { ModeImpactDialog, ModeReposedDialog } from "./mode-gate";
+import { MODES, currentRefDay, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
 import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
@@ -833,7 +833,12 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   const [chip, setChip] = useState("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
-  const chipRows = rows.filter((l) => chip === "all" || l.categoryId === chip);
+  // Ola 3 (Cara C3-6): el filtro por categoría es de Ritmo (books.filter-chips,
+  // fallo 3) — el botón, su menú Y la fila de chips llevan la misma puerta, y
+  // el chip elegido no filtra en silencio donde su cara duerme: el estado se
+  // conserva intacto (el modo no toca lo que no muestra) y vuelve al subir.
+  const canFilter = has("books.filter-chips");
+  const chipRows = rows.filter((l) => !canFilter || chip === "all" || l.categoryId === chip);
   const chipSource = group ? cats : [];
   const asCloud = draftKind === "expense-fixed";
   const asDrift = draftKind === "expense-variable";
@@ -925,7 +930,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
               {money === "USD" ? "$" : "C$"}
             </button>
           ) : null}
-          {(asCloud || asDrift) && present.length > 1 ? (
+          {canFilter && (asCloud || asDrift) && present.length > 1 ? (
             <button type="button" data-anchor="book-filter" className="icon-btn filter-btn" aria-pressed={filterOpen || chip !== "all"} aria-label={t("filter.button")} onClick={() => setFilterOpen((v) => !v)}>
               <Filter className="size-4" />
             </button>
@@ -954,7 +959,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
         </span>
       </div>
       {has("vault.span-cut") ? <SpanCut kinds={kinds} span={span} onSpan={setSpan} /> : null}
-      {(asCloud || asDrift) && filterOpen ? (
+      {canFilter && (asCloud || asDrift) && filterOpen ? (
         <div className="filter-menu" role="menu">
           <button type="button" aria-pressed={chip === "all"} onClick={() => { setChip("all"); setFilterOpen(false); }}>
             <i />
@@ -968,7 +973,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
           ))}
         </div>
       ) : null}
-      {!asCloud && !asDrift && chipSource.length > 1 ? (
+      {canFilter && !asCloud && !asDrift && chipSource.length > 1 ? (
         <div className="chips mt-3" role="toolbar" aria-label={t("filter.all")}>
           <button type="button" aria-pressed={chip === "all"} onClick={() => setChip("all")}>{t("filter.all")}</button>
           {chipSource.map((c) => (
@@ -5317,25 +5322,41 @@ export function Settings() {
   // esconde a sí mismo. Bajar abre primero la pantalla de impacto — y solo si hay
   // algo real que avisar; subir aplica y avisa después. Ambos caminos cierran los
   // flujos abiertos por sus propias reglas antes de cambiar la cara (principio 8).
-  const [modeImpactState, setModeImpactState] = useState<{ target: Mode; impact: ModeImpact; refreshed?: boolean } | null>(null);
+  // Ola 3 (Cambios C3-1/C3-2): el estado del diálogo guarda sus PREMISAS —
+  // el modo del que se partía (`from`) y la fecha de referencia del conteo
+  // (`refDay`) — porque al confirmar se comparan premisas, no solo
+  // conteos: si la dirección se invirtió bajo el diálogo, la confirmación
+  // se re-plantea como subida (ModeReposedDialog); si solo cambió el
+  // conteo, se refresca contra la misma fecha, para que la medianoche no
+  // se disfrace de cambio del libro.
+  const [modeImpactState, setModeImpactState] = useState<{ target: Mode; impact: ModeImpact; refreshed?: boolean; from: Mode; refDay: string } | null>(null);
+  const [modeReposed, setModeReposed] = useState<{ target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] } | null>(null);
   const currentMode: Mode = session ? modeOf(session.ledger.settings) : "completo";
   const applyMode = (target: Mode) => commit((s) => ({ ...s, settings: { ...s.settings, mode: target } }), target);
+  // El aviso de subida: nombra lo destapado en este libro (o la línea del
+  // modo cuando no hay datos dormidos suyos). Lo comparten pickMode y la
+  // confirmación re-planteada, para que las dos subidas hablen igual.
+  const announceUp = (from: Mode, target: Mode) => {
+    if (!session) return;
+    const unlocked = unlockedGroups(session.ledger, from, target);
+    if (unlocked.length === 0) {
+      importToast({ text: t("mode.up.notice.plain").replace("{name}", t(`mode.${target}`)).replace("{line}", t(`mode.${target}.line`)) });
+      return;
+    }
+    const list = unlocked.slice(0, 3).map((g) => t(g.labelKey)).join(", ") + (unlocked.length > 3 ? ` ${t("mode.andmore").replace("{n}", String(unlocked.length - 3))}` : "");
+    importToast({ text: t("mode.up.notice").replace("{name}", t(`mode.${target}`)).replace("{list}", list) });
+  };
   const pickMode = (target: Mode) => {
     if (!session || target === currentMode) return;
     if (modeRank(target) > modeRank(currentMode)) {
       guardPanelExit(() => {
         applyMode(target);
-        const unlocked = unlockedGroups(session.ledger, currentMode, target);
-        if (unlocked.length === 0) {
-          importToast({ text: t("mode.up.notice.plain").replace("{name}", t(`mode.${target}`)).replace("{line}", t(`mode.${target}.line`)) });
-          return;
-        }
-        const list = unlocked.slice(0, 3).map((g) => t(g.labelKey)).join(", ") + (unlocked.length > 3 ? ` ${t("mode.andmore").replace("{n}", String(unlocked.length - 3))}` : "");
-        importToast({ text: t("mode.up.notice").replace("{name}", t(`mode.${target}`)).replace("{list}", list) });
+        announceUp(currentMode, target);
       });
       return;
     }
-    const impact = modeImpact(session.ledger, target, lang);
+    const refDay = currentRefDay();
+    const impact = modeImpact(session.ledger, target, lang, refDay);
     if (impact.total === 0) {
       guardPanelExit(() => {
         applyMode(target);
@@ -5343,7 +5364,7 @@ export function Settings() {
       });
       return;
     }
-    guardPanelExit(() => setModeImpactState({ target, impact }));
+    guardPanelExit(() => setModeImpactState({ target, impact, from: currentMode, refDay }));
   };
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
   const boardRef = useRef<HTMLDivElement>(null);
@@ -5733,8 +5754,30 @@ export function Settings() {
           // cambió bajo el diálogo (otra pestaña, la nube), la foto se
           // repone con los conteos frescos y la persona confirma la verdad;
           // nunca se aplica sobre una foto vieja.
+          // Ola 3 (Cambios C3-1): antes que los conteos se comparan las
+          // PREMISAS — la dirección. Si el modo vivo ya pasó al otro lado
+          // del destino (el libro aterrizó en Esencial por otra puerta con
+          // este diálogo de bajada a Ritmo abierto), confirmar ya no es
+          // bajar: es SUBIR. Una subida jamás se aplica con palabras de
+          // bajada ni sin nombrar lo destapado — el diálogo se re-plantea
+          // en la dirección verdadera y pide su propia confirmación.
           if (session) {
-            const fresh = modeImpact(session.ledger, target, lang);
+            const live = modeOf(session.ledger.settings);
+            if (live === target) {
+              // El destino ya llegó por su propia puerta (que lo anunció):
+              // no hay mudanza que aplicar ni palabra que repetir.
+              setModeImpactState(null);
+              return;
+            }
+            if (modeRank(target) > modeRank(live)) {
+              setModeImpactState(null);
+              setModeReposed({ target, from: live, unlocked: unlockedGroups(session.ledger, live, target) });
+              return;
+            }
+            // Ola 3 (Cambios C3-2): el reconteo se hace contra la fecha de
+            // referencia fijada al abrir — la medianoche entre la apertura
+            // y la confirmación ya no cambia la foto ni acusa al libro.
+            const fresh = modeImpact(session.ledger, target, lang, modeImpactState.refDay);
             if (JSON.stringify(fresh) !== JSON.stringify(modeImpactState.impact)) {
               if (fresh.total === 0) {
                 // Lo que dormía ya no existe: la bajada ya no tiene impacto
@@ -5744,12 +5787,27 @@ export function Settings() {
                 importToast({ text: t("mode.down.notice").replace("{name}", t(`mode.${target}`)) });
                 return;
               }
-              setModeImpactState({ target, impact: fresh, refreshed: true });
+              setModeImpactState({ ...modeImpactState, impact: fresh, refreshed: true });
               return;
             }
           }
           setModeImpactState(null);
           applyMode(target);
+        }}
+      />
+    ) : null}
+    {modeReposed ? (
+      <ModeReposedDialog
+        lang={lang}
+        target={modeReposed.target}
+        from={modeReposed.from}
+        unlocked={modeReposed.unlocked}
+        onCancel={() => setModeReposed(null)}
+        onConfirm={() => {
+          const { target, from } = modeReposed;
+          setModeReposed(null);
+          applyMode(target);
+          announceUp(from, target);
         }}
       />
     ) : null}

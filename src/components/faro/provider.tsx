@@ -698,7 +698,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       let ledger = saved?.ledger ?? createInitial(lang, theme);
       let dirty = saved?.dirty ?? false;
       // Sample mode wears the personal look (theme, language) without ever writing personal books.
-      if (sealedOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}), ...(isMode(modeMirror) ? { mode: modeMirror } : {}) } };
+      // Ola 3 (Cambios C3-4): el préstamo del modo solo viste a un libro sellado
+      // que no trae el suyo — la casa de ejemplo guarda SU modo cuando la
+      // persona lo cambia dentro de la visita, y el arranque ya no lo pisa en
+      // silencio con el del espejo en cada entrada. El idioma y el tema sí se
+      // siguen prestando: son el aspecto personal, no un dato de la casa.
+      if (sealedOn() && saved) ledger = { ...ledger, settings: { ...ledger.settings, lang, ...(daySet && known(stored) ? { theme: stored } : {}), ...(ledger.settings.mode === undefined && isMode(modeMirror) ? { mode: modeMirror } : {}) } };
       // Ola 2 (E2-1): el libro de ESCENARIO nace vacío por aislamiento
       // supremo — enterStage() limpia su namespace en cada lanzamiento, así
       // que nunca hay paquete guardado y el préstamo de arriba jamás ocurría:
@@ -707,7 +712,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       // de escenario toma el modo del espejo AL NACER — nace vestido con el
       // modo de la persona, que es la cara sobre la que la lección se
       // representa; sus guardados posteriores ya lo traen dentro.
-      if (stageOn() && !saved && isMode(modeMirror)) {
+      // Ola 3 (E3-1): el nacimiento vestido es de TODO libro sellado, no solo
+      // del escenario — la casa de ejemplo nacía desnuda (sin paquete no hay
+      // préstamo posible) y su cara efectiva era Completo para todo el mundo:
+      // su índice ofrecía los 21 módulos y sus lecciones se representaban en
+      // Completo vistiendo a una persona de Esencial o de Ritmo.
+      if (sealedOn() && !saved && isMode(modeMirror)) {
         ledger = { ...ledger, settings: { ...ledger.settings, mode: modeMirror } };
       }
       const seeded = seedLedger(ledger);
@@ -761,7 +771,19 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     }
     baseRevRef.current = stored.ledger.revision;
     tabAdoptRevRef.current = stored.ledger.revision;
+    // Ola 3 (Cambios C3-3): la cuarta puerta también anuncia el modo que
+    // llega — era la última mudanza de cara sin palabra: la pestaña limpia
+    // adoptaba el libro de su hermana y despertaba en otro modo en silencio
+    // (ni el selector ni aviso alguno lo decían). Como sus tres hermanas
+    // curadas (la nube, la copia, el archivo), nombrar, no bloquear; la
+    // palabra dice «pestaña» porque de una pestaña viene, no de un aparato.
+    const prevMode = sessionRef.current ? modeOf(sessionRef.current.ledger.settings) : null;
+    const landedMode = modeOf(stored.ledger.settings);
     setSession(blankSession(stored.ledger, stored.dirty));
+    if (prevMode !== null && landedMode !== prevMode) {
+      const inLang = stored.ledger.settings.lang ?? "es";
+      importToast({ text: translate(inLang, "mode.arrived.tab").replace("{name}", translate(inLang, `mode.${landedMode}`)) });
+    }
   }
 
   /**
@@ -834,7 +856,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // invita a tocarlo) no son el modo de la persona; antes lo dejaba en
     // «completo» y ni un remontaje dentro del escenario podía ya tomar
     // prestado el modo verdadero.
-    if (!stageOn()) localStorage.setItem("faro-mode", modeOf(session.ledger.settings));
+    // Ola 3 (E3-1): la misma ley cubre a la CASA DE EJEMPLO — su sesión
+    // escribía «completo» en el espejo al entrar (su libro nace sin modo y
+    // el efectivo es Completo), y toda lección lanzada desde dentro de la
+    // casa nacía ya envenenada en Completo. Ninguna sesión sellada escribe
+    // el espejo: el espejo es solo del libro real de la persona.
+    if (!sealedOn()) localStorage.setItem("faro-mode", modeOf(session.ledger.settings));
     const chrome = chromeForTheme(shown);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chrome);
   }, [session, userId]);

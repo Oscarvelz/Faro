@@ -699,7 +699,7 @@ export function DebtBook({ side }: { side: DebtSide }) {
  * que goTopic valida contra debt.facts (S-3).
  */
 export function DebtsReadOnly({ side }: { side: DebtSide }) {
-  const { session, fmt, t, lang } = useFaro();
+  const { session, fmt, t, lang, has } = useFaro();
   const L = useL();
   const ledger = session?.ledger;
   const { people, openFor, sheet } = usePerson(side);
@@ -737,9 +737,13 @@ export function DebtsReadOnly({ side }: { side: DebtSide }) {
   return (
     <div className="debt-book" data-side={side}>
       <NetLine />
-      {/* Etapa 4 (S-1): la gráfica de la deuda es una lectura pura (saldos e
-          historia, sin una sola cifra proyectada) y vive también aquí. */}
-      <DebtChart />
+      {/* Etapa 4 (S-1) la montó aquí sin puerta declarándola «lectura pura»;
+          ola 3 (Cara C3-5) lo corrige: la gráfica lee la FORMA de la deuda en
+          el tiempo y la dice en una frase — interpretar, y su asiento
+          (debt.chart) es Completo, como en sus dos monturas hermanas. La
+          cara lectora de Esencial enseña los hechos (la balanza, las filas);
+          la gráfica espera a su modo. */}
+      {has("debt.chart") ? <DebtChart /> : null}
       <section className="card subs-ro" data-anchor="debt-readonly">
         <div className="save-ledger-head" data-anchor={side === "owed" ? "debt-owed" : undefined}>
           <strong className="lab-head">{side === "owed" ? L("Me deben", "Owed to me") : L("Debo", "I owe")}</strong>

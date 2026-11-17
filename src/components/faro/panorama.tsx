@@ -308,11 +308,23 @@ export function RuleCard({ coach }: { coach: Coach }) {
 
 /* 4 · How long the money lasts at this pace. */
 export function PaceCard({ coach }: { coach: Coach }) {
-  const { fmt, lang, ui } = useFaro();
+  const { fmt, lang, ui, has } = useFaro();
   const now = new Date();
   const sameMonth = now.getFullYear() === ui.year && now.getMonth() + 1 === ui.month;
   const cover = coach.coverDays ?? 0;
   const extra = coach.coverDays !== null ? coach.coverDays - coach.daysInMonth : 0;
+  // Ola 3 (BR3-1): el titular «Tu ingreso dura N días» era el horizonte de
+  // agotamiento en forma de duración — la misma cifra que BR-3/BR2-4
+  // expulsaron como fecha y como frase; vivía aquí porque la tarjeta es de
+  // Ritmo (pano.runway-linear) pero la cifra es del Patrón
+  // (pano.runway-patron, Completo). En Ritmo el segundo bloque DESCRIBE
+  // el pasado — los días corridos del mes abierto — y la tira de días
+  // pinta el mes vivido, sin corte de cobertura ni medalla de días extra.
+  // En Completo, la tarjeta entera queda como era.
+  const full = has("pano.runway-patron");
+  const openSerial = ui.year * 12 + ui.month;
+  const nowSerial = now.getFullYear() * 12 + (now.getMonth() + 1);
+  const elapsed = openSerial < nowSerial ? coach.daysInMonth : openSerial > nowSerial ? 0 : now.getDate();
   return (
     <section className="card pano-card">
       <Head kicker={lang === "en" ? "Pace" : "Ritmo"} title={lang === "en" ? "How far it goes" : "Hasta dónde te alcanza"} />
@@ -321,18 +333,25 @@ export function PaceCard({ coach }: { coach: Coach }) {
           <em>{lang === "en" ? "A day, on average" : "Al día, en promedio"}</em>
           <strong className="num serif">{fmt(coach.perDay)}</strong>
         </div>
-        <div className={extra >= 0 ? "is-good" : "is-bad"}>
-          <em>{lang === "en" ? "Income lasts" : "Tu ingreso dura"}</em>
-          <strong className="num serif">{coach.coverDays === null ? "—" : `${coach.coverDays} ${lang === "en" ? "days" : "días"}`}</strong>
-        </div>
+        {full ? (
+          <div className={extra >= 0 ? "is-good" : "is-bad"}>
+            <em>{lang === "en" ? "Income lasts" : "Tu ingreso dura"}</em>
+            <strong className="num serif">{coach.coverDays === null ? "—" : `${coach.coverDays} ${lang === "en" ? "days" : "días"}`}</strong>
+          </div>
+        ) : (
+          <div>
+            <em>{lang === "en" ? "Days gone this month" : "Del mes ya van"}</em>
+            <strong className="num serif">{`${elapsed} ${lang === "en" ? (elapsed === 1 ? "day" : "days") : (elapsed === 1 ? "día" : "días")}`}</strong>
+          </div>
+        )}
       </div>
       <div className="pano-days" aria-hidden>
         {Array.from({ length: coach.daysInMonth }, (_, i) => {
           const day = i + 1;
-          const state = coach.coverDays === null ? "" : day <= cover ? "is-on" : "is-off";
+          const state = full ? (coach.coverDays === null ? "" : day <= cover ? "is-on" : "is-off") : day <= elapsed ? "is-on" : "is-off";
           return <i key={day} className={`${state}${sameMonth && day === now.getDate() ? " is-today" : ""}`} style={{ animationDelay: `${i * 14}ms` }} />;
         })}
-        {extra > 0 ? <span className="pano-days-extra num">+{extra}</span> : null}
+        {full && extra > 0 ? <span className="pano-days-extra num">+{extra}</span> : null}
       </div>
       <div className="pano-days-scale"><span>1</span><span>{Math.ceil(coach.daysInMonth / 2)}</span><span>{coach.daysInMonth}</span></div>
       {coach.coverDays === null ? <Note kind="pen">{coach.paceNote}</Note> : <p className="pano-lead">{coach.paceNote}</p>}

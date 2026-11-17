@@ -368,13 +368,21 @@ describe("tres modos, etapa 2 — los totales no conocen el modo", () => {
         dues: duesWindow(b, 31, "2026-11-15").map((d) => [d.kind, d.id, d.amt]),
         // Etapa 3.3 (T-1, X-24): la foto es una CARA y su composición por modo
         // la cerca modos297 — aquí la foto aporta solo sus cifras de verdad,
-        // las que ninguna cara duerme: el héroe (have/spend/left/usedPct) y
+        // las que ninguna cara duerme: el héroe (have/spend/left) y
         // los datos de los avisos universales (dues, flow). Los bloques de
         // cara (pay, ahorros, balanza, bolsillos, categorías) salieron de
         // esta comparación al recomponerse la foto en la fuente; los totales
         // del motor (summary/slices/net/stock/sav/dues) no se tocaron.
+        // ENMIENDA OLA 3 (BR3-3): usedPct SALE de esta comparación — era la
+        // última «cifra héroe» que viajaba con valor en la foto de Esencial
+        // (97 con todo lo demás en cero): es spentPct, la semilla de la
+        // proyección que BR-2 expulsó de la torre, y su única cara en la
+        // foto es la torre de ritmo (Completo, X-6/X-17). La clasificación
+        // «héroe» era doctrina de constructor y contradecía la de la propia
+        // fuente; desde la ola 3 usedPct se compone por modo (null fuera de
+        // Completo) y su composición la cerca modos297, no esta igualdad.
         photo: {
-          have: snap.have, spend: snap.spend, left: snap.left, usedPct: snap.usedPct,
+          have: snap.have, spend: snap.spend, left: snap.left,
           dues: snap.dues, flow: snap.flow,
         },
       });

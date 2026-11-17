@@ -84,7 +84,8 @@ export type WidgetSnapshot = {
   notify: boolean;
   /** The fingerprint lock is on for this device. */
   lock: boolean;
-  /** Central: Tengo, Gastaré, Queda (Tengo − Gastaré), Usado % (null with no income), Pagos and its signal. */
+  /** Central: Tengo, Gastaré, Queda (Tengo − Gastaré), Usado % (null with no income — and, ola 3
+   *  BR3-3, null outside Completo: in the photo its only consuming face is the pace tower), Pagos and its signal. */
   have: number;
   spend: number;
   left: number;
@@ -330,7 +331,16 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     have: s.income,
     spend: s.expense,
     left: s.opportunity,
-    usedPct: s.spentPct === null ? null : Math.round(s.spentPct),
+    // Ola 3 (BR3-3, SOS2-1 condenado): usedPct es spentPct, la cifra semilla
+    // de la proyección que la ola 2 expulsó de la torre en palabras — en la
+    // foto su única cara consumidora es la torre de ritmo, Completo por la
+    // misma doctrina X-6/X-17 que deja el bloque pace sin veredicto ni
+    // proyección fuera de Completo. No alimenta ningún aviso y no es
+    // dinero: fuera de Completo viaja null, como el resto de su familia.
+    // (tone NO cae con él: es el color del semáforo de deuda — pagos contra
+    // los topes que la persona se marcó — cuya cara vive en los tres
+    // modos; estado honesto, no la cifra de ritmo ni su veredicto.)
+    usedPct: completo ? (s.spentPct === null ? null : Math.round(s.spentPct)) : null,
     todaySpend: todaySpend(state, today).perDayMinor,
     pay: ritmoUp ? s.debt : 0,
     tone: s.tone,

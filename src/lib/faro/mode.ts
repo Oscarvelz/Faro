@@ -174,10 +174,16 @@ const currentKey = (): string => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 };
 
+/** El día de hoy como «AAAA-MM-DD»: la fecha de referencia de un conteo. */
+export const currentRefDay = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
 /** Lo que una bajada al modo `target` pondría a dormir EN ESTE LIBRO, contado de
  *  verdad. Sin nada que avisar (total 0) no hay pantalla de impacto: el principio
  *  5 manda — un aviso sin objeto es un cadáver. */
-export function modeImpact(state: LedgerState, target: Mode, lang: Lang): ModeImpact {
+export function modeImpact(state: LedgerState, target: Mode, lang: Lang, refDay?: string): ModeImpact {
   const rank = modeRank(target);
   // Ola de prejuicio 1 (B-1/B-2): la mitad «grupos» cruza el modo actual igual
   // que la mitad «avisos» ya hacía — un grupo solo se anuncia si HOY está
@@ -199,7 +205,17 @@ export function modeImpact(state: LedgerState, target: Mode, lang: Lang): ModeIm
   // (cambia de forma, no deja de llegar) y bajar a Esencial sí.
   const current = modeRank(modeOf(state.settings));
   const liveAt = (id: RuleId, r: number) => (id === "pace" ? r >= modeRank("ritmo") : modeRank(RULE_MIN_MODE[id]) <= r);
-  const alerts = alertCensus(state, currentKey(), lang, makeNamer(state.structure, lang))
+  // Ola 3 (Cambios C3-2): el censo de avisos se cuenta contra la FECHA de
+  // referencia que el llamador fijó al contar la primera vez (`refDay`,
+  // «AAAA-MM-DD»: su mes manda la llave y su día se pasa como `today` al
+  // censo, porque familias como pace leen el día dentro del mes). El
+  // reconteo al confirmar compara contra la misma fecha, para que el
+  // calendario no se disfrace de cambio del libro — la misma foto a las
+  // 23:59 del día 30 daba un total y a las 00:01 del día 1 otro, y la
+  // línea de «tu libro cambió» acusaba a la persona de la medianoche.
+  const censusKey = refDay ? refDay.slice(0, 7) : currentKey();
+  const censusToday = refDay ? { today: new Date(`${refDay}T12:00:00`) } : {};
+  const alerts = alertCensus(state, censusKey, lang, makeNamer(state.structure, lang), censusToday)
     .filter((a) => liveAt(a.id, current) && !liveAt(a.id, rank));
   const total = groups.reduce((acc, g) => acc + g.count, 0) + alerts.reduce((acc, a) => acc + a.count, 0);
   return { groups, alerts, total };
@@ -574,7 +590,12 @@ export function featureForGo(go: GoDest): FeatureId | null {
     return null;
   }
   if (s === "desk") {
-    if (a === "desk-opportunity") return "advisor.kicker";
+    // Ola 3 (Cara C3-4): desk-opportunity NO mapea a advisor.kicker — la
+    // franja de Central es el resto declarado (entra − sale, el mismo
+    // número que «Queda» en la barra), su tema es de Esencial y la franja
+    // se pinta en los tres modos: el salto aterriza siempre (null, mueble
+    // universal). El asiento advisor.kicker (C) queda para la frase del
+    // Asesor, que sí interpreta la cifra en su texto de consejo.
     if (go.lens === "debt" || a === "desk-semaforo" || a === "lens-debt") return "central.lens-pagos";
     return null;
   }

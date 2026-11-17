@@ -224,10 +224,13 @@ export function Instruments({ pinned = false, contained = false }: { pinned?: bo
           ))}
         </div>
         <div className="cv-actions">
-          <button type="button" className="btn secondary cv-send-open" data-anchor="fx-send" data-test="cv-send-open" aria-expanded={sendOn} onClick={() => setSendOn((v) => !v)} disabled={converted === null || !minor}><Send aria-hidden className="size-4" />{lang === "en" ? "Send to" : "Enviar a"}</button>
+          {/* Ola 3 (Cara C3-2): «Enviar a» es de Ritmo (tools.converter-send) —
+              la puerta gana su puerta: en Esencial el conversor convierte y
+              usa el resultado, pero no envía; el envío vive desde Ritmo. */}
+          {has("tools.converter-send") ? <button type="button" className="btn secondary cv-send-open" data-anchor="fx-send" data-test="cv-send-open" aria-expanded={sendOn} onClick={() => setSendOn((v) => !v)} disabled={converted === null || !minor}><Send aria-hidden className="size-4" />{lang === "en" ? "Send to" : "Enviar a"}</button> : null}
           <button type="button" className="btn cv-use" data-anchor="fx-use" onClick={useConverted} disabled={converted === null}>{t("convert.use")}</button>
         </div>
-        {sendOn && converted !== null && minor ? <SendPanel fromMinor={minor} from={from} toMinor={converted} to={to} onDone={() => setSendOn(false)} /> : null}
+        {has("tools.converter-send") && sendOn && converted !== null && minor ? <SendPanel fromMinor={minor} from={from} toMinor={converted} to={to} onDone={() => setSendOn(false)} /> : null}
       </section>
       {calcOn && calcOk ? (
         <CalcPanel

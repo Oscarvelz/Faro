@@ -109,10 +109,20 @@ describe("modos297: la foto del widget (T-1)", () => {
     const [e, r, c] = MODES.map((m) => snap(book, key, m));
     for (const s of [r, c]) {
       assert.equal(s.have, e.have); assert.equal(s.spend, e.spend);
-      assert.equal(s.left, e.left); assert.equal(s.usedPct, e.usedPct); assert.equal(s.tone, e.tone);
+      assert.equal(s.left, e.left); assert.equal(s.tone, e.tone);
       assert.deepEqual(s.dues, e.dues, "los vencimientos viajan reales: su aviso es de Esencial");
       assert.deepEqual(s.flow, e.flow, "el flujo viaja real: su aviso de cierre es de todos los modos");
     }
+    // ENMIENDA OLA 3 (BR3-3): usedPct ya no es cifra héroe — es spentPct,
+    // la semilla de la proyección expulsada de la torre en la ola 2, y en
+    // la foto solo la consume la torre de ritmo (Completo): viaja con
+    // valor SOLO en Completo y null en Esencial y en Ritmo. tone, en
+    // cambio, SIGUE sin conocer el modo, y la razón queda escrita: es el
+    // color del semáforo de deuda (pagos contra los topes propios), cuya
+    // cara vive en los tres modos — estado honesto, no la cifra de ritmo.
+    assert.equal(e.usedPct, null, "Esencial: usedPct no viaja con valor");
+    assert.equal(r.usedPct, null, "Ritmo: usedPct no viaja con valor");
+    assert.equal(typeof c.usedPct, "number", "Completo: usedPct viaja con su valor");
     assert.equal(e.mode, "esencial"); assert.equal(r.mode, "ritmo"); assert.equal(c.mode, "completo");
   });
 

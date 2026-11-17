@@ -260,6 +260,13 @@ export function Hint({
   }, [open, data, lang]);
 
   const entry = data?.findTopic(topic) ?? null;
+  // Ola 3 (Cara C3-3): la burbuja consulta el modo como sus puentes ya
+  // hacen — si el tema duerme en el modo de la persona, su texto no se
+  // enseña como presente: el aviso de la caída («Eso vive en…», el mismo
+  // de goTopic) abre la burbuja y la explicación va debajo. La (?) de la
+  // barra del Estudio prometía «cambiar su orden» en Ritmo sin un solo
+  // botón de reordenar a la vista: una advertencia sin objeto.
+  const topicSleeps = entry && data ? !modeReaches(root.mode, data.topicMode(entry)) : false;
   const onLink = (term: string) => {
     const dest = data?.linkDest(term);
     if (!dest) return;
@@ -301,7 +308,7 @@ export function Hint({
         ? createPortal(
             <span ref={pop} className="ftip-pop hint-pop" role="dialog" aria-label={data.pick(lang, entry.title)} data-hint={topic} data-anchor="hint-bubble" onPointerDown={(e) => e.stopPropagation()}>
               <span className="hint-scroll">
-              <span className="hint-text">{richText(data.bubbleText(entry, lang, alt), data, onLink, { self: entry.id, here: (go) => isHere(go, root.ui), still })}</span>
+              <span className="hint-text">{topicSleeps ? <span className="hint-dormant">{t("mode.dormant.notice").replace("{name}", t(`mode.${data.topicMode(entry)}`))}</span> : null}{richText(data.bubbleText(entry, lang, alt), data, onLink, { self: entry.id, here: (go) => isHere(go, root.ui), still })}</span>
               {(() => { const pres0 = TOPIC_SCENES[entry.id] ?? (entry.moreId ? TOPIC_SCENES[entry.moreId] : undefined);
                 /* Los puentes siguen al modo (etapa 5): «Más en el manual» solo si el tema vive en el modo
                  * de la persona, y «Ver en la presentación» solo si el módulo del puente también vive en

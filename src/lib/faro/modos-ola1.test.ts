@@ -459,11 +459,26 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  asentada los viven en Esencial) y ya no son asientos R/C. Salen
  *  cards.add-full y tools.calculator-float porque GANARON consumidor
  *  literal: la ficha de tarjeta y la hoja de instrumentos entraron al
- *  sistema de modos (C-6/C-4). */
+ *  sistema de modos (C-6/C-4).
+ *  ENMIENDAS OLA 3 (con su razón, como la cerca manda): salen
+ *  pano.runway-patron — la PaceCard lo lee por fin en literal (BR3-1: la
+ *  puerta que mantiene el horizonte de agotamiento fuera de Ritmo) — y
+ *  salen scan.card-capture, cards.capture-add, tools.converter-send y remit.for
+ *  porque GANARON consumidor literal — la Cara III los encontró declarados
+ *  sin cablear (las puertas «Foto o captura» de Tarjetas, el «Enviar a» del
+ *  conversor y el campo «Para» del panel de envío pintaban y guardaban por
+ *  debajo de su modo) y la cura les dio su `has(...)` en el componente.
+ *  ENTRA advisor.kicker: su único consumidor literal era el mapeo de
+ *  featureForGo que mandaba el salto de la franja de oportunidad de
+ *  Central a su asiento — un mapeo falso (la franja es el resto declarado,
+ *  de Esencial; la cura C3-4 de la Cara lo retiró). El asiento queda
+ *  consumido por su canal verdadero, el de sus hermanas advisor.*: la
+ *  frase del Asesor que interpreta la cifra en el texto de consejo
+ *  (buildInsights), en superficies de Completo. */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
-  "advisor.misclass-note", "advisor.month-tone", "advisor.not-habit-note", "advisor.plan-short",
+  "advisor.kicker", "advisor.misclass-note", "advisor.month-tone", "advisor.not-habit-note", "advisor.plan-short",
   "advisor.remit-note", "advisor.start-route", "advisor.step-close-gap", "advisor.step-cushion",
   "advisor.step-debts", "advisor.step-set-aside", "advisor.step-subs", "advisor.step-wants-30",
   "advisor.subs-note", "advisor.three-parts", "advisor.top5-rich", "advisor.trend-note",
@@ -474,7 +489,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "area.setaside", "awake.destination-projection", "awake.goals-horizon", "awake.recalc-notices",
   "awake.savings-photo", "awake.stale-plan", "awake.undestined", "books.bookkit",
   "books.bubble-editor", "books.cloud", "books.multiselect", "books.shop-catalog-gear",
-  "cards.add", "cards.capture-add", "cards.edit-delete",
+  "cards.add", "cards.edit-delete",
   "cards.factory", "cards.ficha", "cards.group", "cards.pay",
   "cards.rewards-reconcile", "cards.rewards-redeem", "cards.update", "cards.usage-advice",
   "central.debt-light", "cobros.quick-list", "cobros.see-all", "cobros.timeline",
@@ -491,20 +506,20 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "nature.free-guard", "nature.overcommit", "nav.books-subs-entry",
   "nav.scale-topbar", "pano.closes", "pano.health-help",
   "pano.pillar-cushion", "pano.pillar-debt", "pano.pillar-save", "pano.pillar-spend",
-  "pano.pillar-stability", "pano.runway-patron", "patron.history-rules", "patron.learning",
+  "pano.pillar-stability", "patron.history-rules", "patron.learning",
   "patron.linear-pace", "patron.model-rules", "patron.month-rules", "patron.sayings",
   "people.add-contacts", "people.add-manual", "people.dates", "people.delete",
   "people.gift", "people.import-vcf", "people.share-in", "people.totals",
   "pres.m10-estructura", "pres.m12-pregunta", "pres.m13-totales",
   "pres.m14-colchon", "pres.m3-balance-chapter", "pres.m4-cambio", "pres.m6-ahorros",
   "pres.m7-estadisticas", "pres.m8-asesor", "pres.m9-folios-rest", "pres.my-scenes",
-  "remit.for", "remit.manage", "remit.send", "rule.category",
+  "remit.manage", "remit.send", "rule.category",
   "rule.cushion", "rule.floor", "rule.goal", "rule.insurance",
   "rule.outlier", "rule.overcommit", "rule.pace", "rule.recurring",
-  "scan.card-capture", "scan.retirement-stmt", "settings.bank-rewards-real", "settings.pin-in-card",
+  "scan.retirement-stmt", "settings.bank-rewards-real", "settings.pin-in-card",
   "settings.widget-pins", "subs.brand-detect", "subs.brand-icon-admin", "subs.cadence-machinery",
   "subs.dues-window", "subs.own-chips", "tools.calculator-use",
-  "tools.converter-chips-admin", "tools.converter-send", "tools.slip-to-category", "tools.slips-bulk",
+  "tools.converter-chips-admin", "tools.slip-to-category", "tools.slips-bulk",
   "tools.slips-reuse", "vault.delete", "vault.factory-restore", "vault.free",
   "vault.meta-plan", "vault.order-pockets", "vault.pin-block", "vault.retiro-fields",
   "vault.retiro-sheet", "vault.savings-goal-pct", "widget.face-dues", "widget.face-flow",

@@ -62,6 +62,51 @@ export function ModeGate({ lang, onChoose, onSkip }: { lang: Lang; onChoose: (mo
  * desactivar pregunta primero. Vive en la familia visual de .ask, la casa de
  * las confirmaciones.
  */
+/**
+ * La pantalla de impacto RE-PLANTEADA (ola 3, Cambios C3-1): la persona
+ * aceptó una BAJADA, pero mientras el diálogo estaba abierto su modo cambió
+ * por otra puerta (otra pestaña, la nube) y el destino ya queda ARRIBA del
+ * modo vivo — confirmar sería ejecutar una subida con palabras de bajada y
+ * sin nombrar lo destapado. El diálogo se vuelve a plantear en la dirección
+ * verdadera: dice que el modo cambió, nombra lo que la subida destapa en
+ * este libro y pide su propia confirmación («Subir a…»). Una subida jamás se
+ * aplica con el gesto de una bajada.
+ */
+export function ModeReposedDialog({ lang, target, from, unlocked, onConfirm, onCancel }: { lang: Lang; target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[]; onConfirm: () => void; onCancel: () => void }) {
+  const t = (key: string) => translate(lang, key);
+  const name = t(`mode.${target}`);
+  return (
+    <div className="ask-back" role="presentation" onMouseDown={onCancel}>
+      <div className="ask" data-anchor="modo-replanteado" role="alertdialog" aria-modal="true" aria-label={t("mode.reposed.title").replace("{name}", name)} onMouseDown={(e) => e.stopPropagation()}>
+        <h2 className="ask-title">{t("mode.reposed.title").replace("{name}", name)}</h2>
+        <div className="ask-body mode-impact-body">
+          <p>{t("mode.reposed.body").replace("{from}", t(`mode.${from}`)).replace("{name}", name)}</p>
+          {unlocked.length > 0 ? (
+            <>
+              <p>{t("mode.reposed.list")}</p>
+              <ul className="mode-impact-list">
+                {unlocked.map((g) => (
+                  <li key={g.id}>
+                    <b>{g.count}</b> {t(g.labelKey)}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+        </div>
+        <div className="ask-actions">
+          <button type="button" className="ask-btn is-quiet" data-anchor="modo-replanteado-no" onClick={onCancel}>
+            {t("cancel")}
+          </button>
+          <button type="button" className="ask-btn is-go" data-anchor="modo-replanteado-yes" autoFocus onClick={onConfirm}>
+            {t("mode.reposed.yes").replace("{name}", name)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ModeImpactDialog({ lang, target, impact, refreshed, onConfirm, onCancel }: { lang: Lang; target: Mode; impact: ModeImpact; refreshed?: boolean; onConfirm: () => void; onCancel: () => void }) {
   const t = (key: string) => translate(lang, key);
   const name = t(`mode.${target}`);

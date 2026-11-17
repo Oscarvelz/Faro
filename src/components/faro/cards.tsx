@@ -46,7 +46,7 @@ function useView() {
 /* ---------- the group ---------- */
 
 export function CardsGroup({ libros = false }: { libros?: boolean }) {
-  const { fmt, commit, confirm, lang } = useFaro();
+  const { fmt, commit, confirm, lang, has } = useFaro();
   const L = useL();
   const { ledger, view } = useView();
   const [edit, setEdit] = useState(false);
@@ -81,7 +81,10 @@ export function CardsGroup({ libros = false }: { libros?: boolean }) {
         <i /><span>{L("Tarjetas", "Cards")}</span><b>{cards.length}</b>
         {sums.known ? <strong className="num cg-total" data-anchor="cards-total">{fmt(sums.balance)}</strong> : <em className="cg-total" />}
         <span className="cg-tools">
-          <ShotButton onFiles={setShots} label={L("Foto o captura", "Photo or screen")} small />
+          {/* Ola 3 (Cara C3-1): el lector de tarjetas por foto es de Completo
+              (scan.card-capture) — la puerta gana por fin su puerta: en
+              Ritmo no se pinta y la tarjeta se añade por la forma corta. */}
+          {has("scan.card-capture") ? <ShotButton onFiles={setShots} label={L("Foto o captura", "Photo or screen")} small /> : null}
           {libros ? <button type="button" className="cg-tool" aria-label={L("Añadir tarjeta", "Add card")} data-anchor="card-add" onClick={() => setForm({ mode: "add" })}><Plus /></button> : null}
           {libros && !empty ? <button type="button" className="cg-tool" aria-pressed={edit} aria-label={L("Editar tarjetas", "Edit cards")} data-anchor="cards-edit" onClick={() => setEdit((v) => !v)}><Pencil /></button> : null}
           <Hint topic="tarjetas" />
@@ -316,7 +319,7 @@ function Spark({ card, ledger }: { card: CreditCard; ledger: LedgerState }) {
 }
 
 function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { card: CreditCard; onClose: () => void; onEdit: () => void; onManual: () => void; onShots: (f: File[]) => void; onDelete: () => void }) {
-  const { session, fmt, commit, lang } = useFaro();
+  const { session, fmt, commit, lang, has } = useFaro();
   const L = useL();
   const { view } = useView();
   const [paying, setPaying] = useState(false);
@@ -352,7 +355,11 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
         <><button type="button" className="btn secondary" onClick={() => setPaying(false)}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-pay-save" onClick={pay}>{L("Guardar", "Save")}</button></>
       ) : (
         <><button type="button" className="btn secondary" data-anchor="card-pay" onClick={() => { setPaying(true); setOn(todayIso()); }}>{L("Abonar", "Pay")}</button>
-          <ShotButton full label={L("Actualizar", "Update")} onFiles={(fl) => { onClose(); onShots(fl); }} onManual={() => { onClose(); onManual(); }} /></>
+          {/* Ola 3 (Cara C3-1): «Actualizar» por captura es scan.card-capture
+              (Completo); fuera de Completo el mismo botón lleva a la
+              actualización a mano — la puerta no abre el escáner, pero la
+              función de actualizar no desaparece: cambia de camino. */}
+          {has("scan.card-capture") ? <ShotButton full label={L("Actualizar", "Update")} onFiles={(fl) => { onClose(); onShots(fl); }} onManual={() => { onClose(); onManual(); }} /> : <button type="button" className="btn secondary cs-shot" data-anchor="cards-shot" onClick={() => { onClose(); onManual(); }}><span>{L("Actualizar", "Update")}</span></button>}</>
       )}>
       <div className="cd-hero">
         <div><em className="lab-head">{L("Saldo", "Balance")}<Hint topic="tc-saldo" /></em><strong className="num cd-bal">{f.known ? v(f.balance) : "—"}</strong></div>
@@ -556,7 +563,9 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
     <Sheet anchor="card-form" onClose={onClose} art={<CardArt card={{ ...live, art: d.art || (nameMark ? undefined : d.art || "wave") }} big />} title={title}
       foot={<><button type="button" className="btn secondary" onClick={onClose}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-form-save" onClick={save}>{L("Guardar", "Save")}</button></>}>
       <div className="form-block cobro-form is-owe card-form">
-        {isAdd && !seed?.read && full ? (
+        {/* Ola 3 (Cara C3-1): la captura al añadir lleva su propio asiento
+            (cards.capture-add, Completo) además de la forma completa. */}
+        {isAdd && !seed?.read && full && has("cards.capture-add") ? (
           <div className="cf-shot">
             <span>{L("¿Tienes una captura de tu banco?", "Got a screenshot from your bank?")}</span>
             <ShotButton label={L("Foto o captura", "Photo or screen")} onFiles={setScan} />
