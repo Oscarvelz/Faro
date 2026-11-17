@@ -68,6 +68,15 @@ function Manual({ data }: { data: ManualData }) {
    * que un modo menor ve huecos donde duermen temas — la dirección de un
    * tema nunca cambia con el modo. */
   const topicAlive = (tp: (typeof MANUAL_TOPICS)[number]) => modeReaches(mode, topicMode(tp));
+  // Ola 1 (SALIDAS-1, la guarda de la capa): si el tema abierto DUERME en el
+  // modo actual — una caída vieja, un enlace profundo, un cambio de modo con
+  // el Manual abierto — el Manual vuelve a su índice en vez de buscar para
+  // siempre una entrada que su propio filtro no pinta. Ningún llamador
+  // puede dejar a la persona sobre una explicación que no existe.
+  const currentDormant = current ? !topicAlive(current) : false;
+  useEffect(() => {
+    if (currentDormant) root.setUi({ manual: "" });
+  }, [currentDormant]);
   const chapters = useMemo(
     () => MANUAL_CHAPTERS.map((ch, ci) => ({ ch, ci, topics: ch.topics.filter((tp) => topicAlive({ ...tp, chapter: ch } as (typeof MANUAL_TOPICS)[number])) })).filter((x) => x.topics.length > 0),
     [MANUAL_CHAPTERS, mode],
@@ -194,7 +203,15 @@ function Manual({ data }: { data: ManualData }) {
   const linkFrom = (entryId: string) => (term: string) => {
     const dest = data.linkDest(term);
     if (!dest) return;
-    root.goTopic(dest.topic, dest.go, entryId);
+    // Ola 1 (SALIDAS-1): 28 enlaces [[…]] apuntaban a temas que DUERMEN en
+    // el modo de la persona; si el salto caía, goTopic abría el Manual en
+    // ese tema — que el propio Manual filtra — y la explicación prometida
+    // no existía. Si el tema destino duerme, la explicación de la caída es
+    // la entrada que se está leyendo (que sí existe); el aviso de goTopic
+    // nombra el modo donde la función vive.
+    const tp = findTopic(dest.topic);
+    const explain = tp && !topicAlive(tp) ? entryId : undefined;
+    root.goTopic(dest.topic, dest.go, entryId, explain);
   };
 
   const backLabel = (root.depth > 1 ? t("manual.back").replace("{screen}", root.backName()) : t("manual.home")).replace(/\ba el\b/, "al");

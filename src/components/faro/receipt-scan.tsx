@@ -110,7 +110,15 @@ function ScanChooser({ at, onCamera, onImages, onClose }: { at: DOMRect; onCamer
 }
 
 export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; onClose: () => void }) {
-  const { session, commit, key, lang, t } = useFaro();
+  const { session, commit, key, lang, t, has } = useFaro();
+  // Ola 1 (fallo 16): la hoja de revisión obedece al modo — la revisión
+  // completa (cambiar destino, declarar cadencia) es de Ritmo
+  // (scan.receipt-full-review); en Esencial el destino se lee como texto y
+  // la cadencia que se guarda es la que el lector leyó. La fila de
+  // recompensas es de Completo (scan.receipt-rewards-row): ni se pinta ni
+  // entra en el guardado fuera de él.
+  const fullReview = has("scan.receipt-full-review");
+  const rwOn = has("scan.receipt-rewards-row");
   const ledger = session?.ledger;
   const [items, setItems] = useState<Item[]>(() => files.map((f) => ({ name: f.name, stage: "wait", p: 0, found: 0 })));
   const [cards, setCards] = useState<Card[]>([]);
@@ -168,7 +176,7 @@ export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineK
 
   const set = (id: string, patch: Partial<Card>) => setCards((l) => l.map((c) => (c.id === id ? { ...c, ...patch, unsure: c.unsure.filter((u) => !(u in fieldsOf(patch))) } : c)));
   const ready = cards.filter((c) => c.on && c.concept.trim() && parseAmount(c.amount) != null);
-  const rwReady = rws.filter((x) => x.on && x.target && (parseAmount(x.amount) != null || parseAmount(x.earned) != null));
+  const rwReady = rwOn ? rws.filter((x) => x.on && x.target && (parseAmount(x.amount) != null || parseAmount(x.earned) != null)) : [];
   const busy = !done;
 
   function save() {
@@ -225,9 +233,9 @@ export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineK
               ))}
             </div>
           ) : null}
-          {rws.map((x) => <ScanRewardsRow key={x.id} item={x} onSet={(p) => setRws((l) => l.map((y) => (y.id === x.id ? { ...y, ...p } : y)))} onDrop={() => setRws((l) => l.filter((y) => y.id !== x.id))} />)}
+          {rwOn ? rws.map((x) => <ScanRewardsRow key={x.id} item={x} onSet={(p) => setRws((l) => l.map((y) => (y.id === x.id ? { ...y, ...p } : y)))} onDrop={() => setRws((l) => l.filter((y) => y.id !== x.id))} />) : null}
           {cards.map((c) => (
-            <DraftCard key={c.id} c={c} lang={lang} bookOpts={bookOpts} presets={presets} onSet={(p) => set(c.id, p)} onDrop={() => setCards((l) => l.filter((x) => x.id !== c.id))} />
+            <DraftCard key={c.id} c={c} lang={lang} bookOpts={bookOpts} presets={presets} full={fullReview} onSet={(p) => set(c.id, p)} onDrop={() => setCards((l) => l.filter((x) => x.id !== c.id))} />
           ))}
           {done && !cards.length && !rws.length ? <p className="scn-empty">{L(lang, "No encontré montos. Prueba otra foto.", "No amounts found. Try another photo.")}</p> : null}
           {done && (cards.length || rws.length) ? <p className="scn-note">{L(lang, "Las fotos no se guardan ni salen del teléfono.", "Photos are never kept or sent anywhere.")}</p> : null}
@@ -266,8 +274,12 @@ function toCard(d: ScanDraft, src: number, thumb: string, crop: string, from: Li
   };
 }
 
-function DraftCard({ c, lang, bookOpts, presets, onSet, onDrop }: {
+function DraftCard({ c, lang, bookOpts, presets, full, onSet, onDrop }: {
   c: Card; lang: string; bookOpts: { value: string; label: string }[]; presets: string[];
+  /** Ola 1 (fallo 16): la revisión completa — destino elegible y cadencia
+   *  declarable — solo desde Ritmo; en Esencial el destino se lee y la
+   *  cadencia guardada es la leída por el lector. */
+  full: boolean;
   onSet: (p: Partial<Card>) => void; onDrop: () => void;
 }) {
   const un = (f: ScanField) => (c.unsure.includes(f) ? " is-unsure" : "");
@@ -293,9 +305,11 @@ function DraftCard({ c, lang, bookOpts, presets, onSet, onDrop }: {
           <input className={`field num${c.currency === "NIO" ? " is-nio" : ""}`} inputMode="decimal" value={c.amount} placeholder="0.00" aria-label={L(lang, "Monto", "Amount")} onChange={(e) => onSet({ amount: e.target.value })} />
         </span>
         <span className={`scn-day${un("date")}`} aria-label={sub ? L(lang, "Próximo cobro", "Next charge") : L(lang, "Día", "Day")}><DayField value={c.date} onChange={(v) => onSet({ date: v })} /></span>
-        {recur ? <span className={`scn-freq${un("cadence")}`}><FreqPick value={c.cadence || "monthly"} presets={presets} onChange={(v) => onSet({ cadence: v })} /></span> : null}
+        {recur && full ? <span className={`scn-freq${un("cadence")}`}><FreqPick value={c.cadence || "monthly"} presets={presets} onChange={(v) => onSet({ cadence: v })} /></span> : null}
         {c.thumb ? <img className="scn-thumb" src={c.thumb} alt="" /> : null}
-        <span className="scn-book"><ThemeSelect value={c.book} options={bookOpts} onChange={(v) => onSet({ book: v as Card["book"], cadence: c.cadence || (v === "subscription" || v === "expense-fixed" ? "monthly" : "") })} /></span>
+        {full
+          ? <span className="scn-book"><ThemeSelect value={c.book} options={bookOpts} onChange={(v) => onSet({ book: v as Card["book"], cadence: c.cadence || (v === "subscription" || v === "expense-fixed" ? "monthly" : "") })} /></span>
+          : <span className="scn-book is-static">{bookOpts.find((o) => o.value === c.book)?.label ?? ""}</span>}
         <input className="field scn-notef" value={c.note} placeholder={L(lang, "Nota", "Note")} aria-label={L(lang, "Nota", "Note")} onChange={(e) => onSet({ note: e.target.value })} />
       {c.dup ? <p className="scn-dup">{L(lang, "Ya está en tus libros", "Already in your books")}</p> : null}
     </div>

@@ -264,7 +264,13 @@ export function Hint({
     const dest = data?.linkDest(term);
     if (!dest) return;
     setOpen(false);
-    root.goTopic(dest.topic, dest.go);
+    // Ola 1 (SALIDAS-1): misma cura que en el Manual — si el tema destino
+    // duerme en este modo, la explicación de la caída es el tema de ESTA
+    // burbuja (vive: la burbuja está en pantalla), no un tema que el Manual
+    // filtra y que no existe para quien toca.
+    const tp = data?.findTopic(dest.topic) ?? null;
+    const explain = tp && data && !modeReaches(root.mode, data.topicMode(tp)) ? topic : undefined;
+    root.goTopic(dest.topic, dest.go, undefined, explain);
   };
   // A bubble inside a form or sheet with typing in progress: names keep their dotted mark but do not navigate.
   const still = open && !!ref.current?.closest(STILL);

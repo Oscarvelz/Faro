@@ -150,7 +150,12 @@ describe("tres modos, etapa 1 — la pantalla de impacto cuenta de verdad", () =
   });
 
   it("subir destapa por tramos: lo que nombra el aviso posterior", () => {
-    const ids = (from: "esencial" | "ritmo" | "completo", to: "esencial" | "ritmo" | "completo") => unlockedGroups(from, to).map((g) => g.id);
+    // Ola 1 (B-4): el aviso lee el LIBRO — unlockedGroups recibe el estado y
+    // solo nombra los grupos que ESTE libro tiene (count > 0). Antes la
+    // función no recibía el libro y nombraba el tramo entero, tuviera la
+    // persona el dato o no.
+    const book = richBook();
+    const ids = (from: "esencial" | "ritmo" | "completo", to: "esencial" | "ritmo" | "completo") => unlockedGroups(book, from, to).map((g) => g.id);
     assert.ok(ids("esencial", "ritmo").includes("cuotas") && !ids("esencial", "ritmo").includes("naturalezas"));
     assert.ok(ids("ritmo", "completo").includes("naturalezas") && !ids("ritmo", "completo").includes("cuotas"));
     assert.equal(ids("completo", "completo").length, 0);

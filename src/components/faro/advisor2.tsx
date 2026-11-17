@@ -386,7 +386,10 @@ export function MonthTower({ reading, income, left, openPart, onPart, more, onMo
         <div className="a2-tower-say">
           <em className="lab-head">{short ? L(lang, "Este mes te faltan", "Short this month") : L(lang, "Este mes te quedan", "Left this month")}<Hint topic="faro-del-mes" avoid=".a2-tower-say" /></em>
           <strong className={`num serif ${short ? "bad" : ""}`}>{fmt(Math.abs(left))}</strong>
-          {!short && income > 0 ? <span className="a2-badge">{L(lang, `${pctLeft} de cada ${hundred}`, `${pctLeft} of every ${hundred}`)}</span> : null}
+          {/* Ola 1 (BR-2): en Esencial la insignia habla en DINERO, no en
+              proporción — el «de cada 100» deletreado salía igual que el
+              glifo %. La proporción vive tras el asiento pano.hundred. */}
+          {!short && income > 0 ? <span className="a2-badge">{has("pano.hundred") ? L(lang, `${pctLeft} de cada ${hundred}`, `${pctLeft} of every ${hundred}`) : L(lang, `Entraron ${fmt(income)}`, `${fmt(income)} came in`)}</span> : null}
         </div>
       </div>
       <div className="a2-sum" role="list">

@@ -181,6 +181,12 @@ export type Line = {
   lentId?: string;
   /** Removed from a pocket but kept for its money history (1.3.81): inactive and hidden from the pocket list. */
   archived?: boolean;
+  /** Birthmark of a factory preset line (ola de prejuicio 1): seedRetiro stamps
+   *  its seed with the preset's id ("primerica"). Labels (concept, icon) are
+   *  the person's to change and never touch this — so the factory series is
+   *  recognised by its birth, not by its labels, and renaming or re-iconing
+   *  the seed can never "institute" it. Only seedRetiro writes it. */
+  preset?: string;
   /** 1.3.107: a payment toward a credit card (Debo → Préstamos → Tarjetas). Always a transfer (xfer, inactive): the
    *  purchases were already spending, so paying the card lowers its balance without counting twice. See cards.ts. */
   cardId?: string;

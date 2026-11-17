@@ -213,7 +213,36 @@ export function durationLabel(mod: Module, lang: string, mode?: Mode): string {
 
 export interface ModuleProgress {
   scene: number;
+  /** Ola 1 (G-5): la IDENTIDAD de la escena de reanudación. El índice
+   *  `scene` se guarda contra la vista del modo en que se caminó; al
+   *  reanudar en OTRO modo el mismo índice cae en otra escena. La identidad
+   *  no conoce modos: la reanudación traduce por ella. Los guardados viejos
+   *  no la traen y se leen por índice, como siempre. */
+  sceneId?: string;
   done: boolean;
+}
+
+/** La escena donde una corrida guardada se reanuda EN ESTE MODO: el
+ *  principio del capítulo donde ibas (la unidad de sentada), traducido por
+ *  identidad. Si el capítulo entero duerme en este modo, la primera escena
+ *  visible después de donde ibas en el guion completo; si no hay ninguna,
+ *  el principio del módulo. */
+export function resumeSceneId(mod: Module, mode: Mode, saved: ModuleProgress): string | undefined {
+  const view = visibleScenes(mod, mode);
+  if (!view.length) return undefined;
+  if (saved.sceneId) {
+    const at = mod.scenes.find((s) => s.id === saved.sceneId);
+    if (at) {
+      const firstOfChapter = view.find((s) => s.chapter === at.chapter);
+      if (firstOfChapter) return firstOfChapter.id;
+      const pos = mod.scenes.indexOf(at);
+      const after = view.find((s) => mod.scenes.indexOf(s) > pos);
+      return (after ?? view[0]).id;
+    }
+  }
+  const at = view[saved.scene];
+  const firstOfChapter = at ? view.find((s) => s.chapter === at.chapter) : undefined;
+  return (firstOfChapter ?? view[0]).id;
 }
 
 export function overallProgress(
@@ -231,8 +260,16 @@ export function overallProgress(
     if (s.done) { walked += 1; done += 1; continue; }
     // Con modo, la fracción se mide sobre las escenas que ese modo ofrece:
     // el avance es del índice que la persona ve, no del guion entero.
+    // Ola 1 (G-5): con identidad guardada, lo caminado en ESTE modo es el
+    // número de escenas visibles que van antes de la escena de reanudación
+    // en el guion completo — el índice crudo mentía al cambiar de modo.
     const len = mode ? visibleScenes(m, mode).length : m.scenes.length;
-    const frac = len ? Math.min(1, Math.max(0, s.scene) / len) : 0;
+    let walkedScenes = s.scene;
+    if (mode && s.sceneId) {
+      const pos = m.scenes.findIndex((x) => x.id === s.sceneId);
+      if (pos >= 0) walkedScenes = visibleScenes(m, mode).filter((x) => m.scenes.indexOf(x) < pos).length;
+    }
+    const frac = len ? Math.min(1, Math.max(0, walkedScenes) / len) : 0;
     walked += frac;
     if (frac > 0) inProgress += 1;
   }

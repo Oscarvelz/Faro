@@ -9,7 +9,7 @@ import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, importToast } from "./bank-dock";
 import { ModeImpactDialog } from "./mode-gate";
-import { MODES, modeImpact, modeOf, modeRank, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
+import { MODES, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
 import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
@@ -2331,8 +2331,20 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // Etapa 3.1 (C-2): los fondos mudos de un modo sin bolsillos — el dinero que
   // suma a los totales sin tener cara en este modo (aparte, sin declarar y
   // Retiro). Lo del saldo no se cuenta aquí: ya vive dentro de las cuentas.
-  const dormantSeries = [...stock.series.entries()].filter(([, r]) => (r.cls === "aparte" || r.cls === "sin-declarar" || r.cls === "retiro") && r.minor > 0);
-  const dormantMinor = dormantSeries.reduce((acc, [, r]) => acc + r.minor, 0);
+  // Ola de prejuicio 1 (B5 de la Cara, B-5 de Cambios): la fila dice la verdad
+  // de cada fondo — mudo es solo el dinero cuyo BOLSILLO se gestiona en un
+  // modo mayor que el actual (pocketModeOf): una serie del segmento llano de
+  // Ahorros se gestiona en Esencial y NO es muda, y los bolsillos Meta,
+  // Retiro y Emergencia se gestionan en Ritmo, no en Completo. La fila
+  // nombra el modo verdadero de lo que lista, fondo por fondo.
+  const deskMode = modeOf(session.ledger.settings);
+  const muteSeries = [...stock.series.entries()].flatMap(([sid, r]) => {
+    if (!((r.cls === "aparte" || r.cls === "sin-declarar" || r.cls === "retiro") && r.minor > 0)) return [];
+    const mode = pocketModeOf(r.subId);
+    return mode !== null && modeRank(mode) > modeRank(deskMode) ? [{ sid, r, mode }] : [];
+  });
+  const dormantMinor = muteSeries.reduce((acc, x) => acc + x.r.minor, 0);
+  const muteModes = [...new Set(muteSeries.map((x) => x.mode))].sort((a, b) => modeRank(a) - modeRank(b));
   // Etapa 4 (X-26): la fila muda en su forma final — su toque ABRE la lista de
   // los fondos (modo-lista): todo se lee, nada se edita aquí. La explicación
   // de la fila viaja a la cabeza de la lista (qué es + la nota), así que la
@@ -2340,16 +2352,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const muteRow = !has("vault.meta") && dormantMinor > 0 ? (
     <div className="mute-row">
       <button type="button" className="mute-row-head" data-anchor="modo-mudos" aria-expanded={muteOpen} onClick={() => setMuteOpen((v) => !v)}>
-        <span>{t(dormantSeries.length === 1 ? "mode.mute.fund.one" : "mode.mute.fund.many").replace("{n}", String(dormantSeries.length))} <span className="faro-name">{t("mode.completo")}</span>{` · ${fmt(dormantMinor)}`}</span>
+        <span>{t(muteSeries.length === 1 ? "mode.mute.fund.one" : "mode.mute.fund.many").replace("{n}", String(muteSeries.length))} {muteModes.map((m, i) => (<span key={m}>{i > 0 ? " · " : ""}<span className="faro-name">{t(`mode.${m}`)}</span></span>))}{` · ${fmt(dormantMinor)}`}</span>
         <ChevronDown className={muteOpen ? "fold-chev is-open" : "fold-chev"} aria-hidden />
       </button>
       {muteOpen ? (
         <div className="mute-list" data-anchor="modo-lista">
-          <p className="mute-list-what">{t("mode.mute.what")}</p>
-          {dormantSeries.map(([sid, r]) => (
+          <p className="mute-list-what">{t("mode.mute.what").replace("{name}", muteModes.map((m) => t(`mode.${m}`)).join(" · "))}</p>
+          {muteSeries.map(({ sid, r, mode }) => (
             <div key={sid} className="mute-list-row">
               <span className="mute-list-name">{seriesName(session.ledger, sid) || names.sub(r.subId)}</span>
-              <span className="mute-list-cls">{t(`mode.list.cls.${r.cls}`)}</span>
+              <span className="mute-list-cls">{t(`mode.list.cls.${r.cls}`)} · {t(`mode.${mode}`)}</span>
               <strong className="num">{fmt(r.minor)}</strong>
             </div>
           ))}
@@ -2357,7 +2369,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <span className="mute-list-name">{t("mode.list.total")}</span>
             <strong className="num">{fmt(dormantMinor)}</strong>
           </div>
-          <p className="mute-list-note">{t("mode.mute.note")}</p>
+          <p className="mute-list-note">{t("mode.mute.note").replace("{name}", t(`mode.${muteModes[muteModes.length - 1]}`))}</p>
         </div>
       ) : null}
     </div>
@@ -5035,6 +5047,12 @@ export function Advisor() {
           </div>
         </MonthTower>
       </section>
+      {/* Ola 1 (BR-6): lo vencido se dice AQUÍ — una franja de la pila del
+          Asesor que el teléfono monta en los TRES modos. Su primera casa
+          (las notas dentro de la torre) vivía tras advisor.month-detail,
+          que es de Ritmo: en Esencial la nota existía y nunca se pintaba.
+          El banco en vivo lo cazó; la franja es su casa verdadera. */}
+      {reading.overdueNote ? <p className="advice-because is-notice" data-anchor="advice-overdue">{reading.overdueNote}</p> : null}
       {awakeOn && wake?.notice ? <p className="advice-because is-notice">{wake.notice}</p> : null}
       {awakeOn && wake ? wake.findings.map((item) => {
         const open = cardOn(item.id);
@@ -5291,7 +5309,7 @@ export function Settings() {
     if (modeRank(target) > modeRank(currentMode)) {
       guardPanelExit(() => {
         applyMode(target);
-        const unlocked = unlockedGroups(currentMode, target);
+        const unlocked = unlockedGroups(session.ledger, currentMode, target);
         if (unlocked.length === 0) {
           importToast({ text: t("mode.up.notice.plain").replace("{name}", t(`mode.${target}`)).replace("{line}", t(`mode.${target}.line`)) });
           return;
@@ -5615,9 +5633,11 @@ export function Settings() {
         <label className="label mt-2" data-anchor="aj-yellow"><span className="lab-head">{glueHint(t("settings.yellow"), <Hint topic="semaforo-amarillo" fitParent />)}</span>
           <input className="field num" defaultValue={settings.debtYellowPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtYellowPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "yellow")} />
         </label>
+        {has("settings.cushion-months") ? (
         <label className="label mt-2" data-anchor="aj-months"><span className="lab-head">{glueHint(t("settings.emergency"), <Hint topic="meses-colchon" fitParent />)}</span>
           <input className="field num" defaultValue={settings.emergencyMonths} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, emergencyMonths: Number(e.target.value) || 0 } }), "months")} />
         </label>
+        ) : null}
         <div className="label mt-2" data-anchor="aj-nature">
           <span className="lab-head">{glueHint(t("fund.mode.q"), <Hint topic="donde-vive" fitParent />)}</span>
           <ThemeSelect value={settings.savingsNatureMode ?? "ask"} onChange={(v) => commit((s) => ({ ...s, settings: { ...s.settings, savingsNatureMode: v as "ask" | "balance" | "separate" } }), "nature")} options={[

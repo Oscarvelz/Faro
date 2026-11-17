@@ -89,8 +89,19 @@ function factoryPrimericaUntouched(state: LedgerState, seriesId: string): boolea
     for (const line of month.lines) {
       if ((line.seriesId || line.id) !== seriesId) continue;
       saw = true;
-      if (!isPrimerica(line)) return false;
+      // Un acto de dinero instituye, venga de la línea que venga (apartado con
+      // monto, saldo anotado aunque sea C$0, historial).
       if (line.amountMinor !== 0 || line.balanceMinor != null || line.history.length > 0) return false;
+      // La serie es la de fábrica solo si CADA línea nació de la semilla: trae
+      // su marca de nacimiento (`preset`, que ningún rótulo toca) o — libros
+      // anteriores a la marca — su etiqueta intacta. Una línea que no nació
+      // de la semilla es una línea propia en la serie: la instituye.
+      // Ola de prejuicio 1 (B-3/G-7): antes el test era solo la etiqueta
+      // (concepto/icono), así que renombrar Y re-iconizar la línea de fábrica
+      // — dos gestos de aspecto, ningún centavo — la «instituía». Con la
+      // marca, los rótulos pueden cambiar todos: sin acto de dinero ni línea
+      // propia, la serie sigue siendo la de fábrica. «Apartados, no rótulos.»
+      if (line.preset !== "primerica" && !isPrimerica(line)) return false;
     }
   }
   return saw;
@@ -123,8 +134,8 @@ export const DORMANT_GROUPS: readonly DormantGroup[] = [
   { id: "cuotas", min: "ritmo", labelKey: "mode.g.cuotas", count: (s) => seriesCount(s, (l) => l.kind === "subscription") },
   { id: "prestamos", min: "ritmo", labelKey: "mode.g.prestamos", count: (s) => (s.loans ?? []).filter((l) => !l.archived).length },
   { id: "medeben", min: "ritmo", labelKey: "mode.g.medeben", count: (s) => (s.lent ?? []).filter((l) => !l.archived).length },
-  { id: "tarjetas", min: "ritmo", labelKey: "mode.g.tarjetas", count: (s) => (s.cards ?? []).length },
-  { id: "personas", min: "ritmo", labelKey: "mode.g.personas", count: (s) => (s.people ?? []).length },
+  { id: "tarjetas", min: "ritmo", labelKey: "mode.g.tarjetas", count: (s) => (s.cards ?? []).filter((c) => !c.archived).length },
+  { id: "personas", min: "ritmo", labelKey: "mode.g.personas", count: (s) => (s.people ?? []).filter((p) => !p.archived).length },
   { id: "remesas", min: "ritmo", labelKey: "mode.g.remesas", count: (s) => (s.remitPeople ?? []).length },
   { id: "bolsillos", min: "ritmo", labelKey: "mode.g.bolsillos", count: pocketSeries },
   { id: "naturalezas", min: "completo", labelKey: "mode.g.naturalezas", count: declaredSeries },
@@ -168,8 +179,16 @@ const currentKey = (): string => {
  *  5 manda — un aviso sin objeto es un cadáver. */
 export function modeImpact(state: LedgerState, target: Mode, lang: Lang): ModeImpact {
   const rank = modeRank(target);
+  // Ola de prejuicio 1 (B-1/B-2): la mitad «grupos» cruza el modo actual igual
+  // que la mitad «avisos» ya hacía — un grupo solo se anuncia si HOY está
+  // despierto y en el destino duerme. Sin el cruce, bajar de Ritmo a Esencial
+  // anunciaba como recién dormidos los grupos de Completo, que en Ritmo ya
+  // dormían: la pantalla aparecía sin objeto nuevo (principio 5). Y los
+  // conteos de cada grupo ya filtran lo archivado en su propia función: lo
+  // archivado vive en el Archivo en los tres modos y bajar no lo duerme.
+  const currentRank = modeRank(modeOf(state.settings));
   const groups = DORMANT_GROUPS
-    .filter((g) => modeRank(g.min) > rank)
+    .filter((g) => modeRank(g.min) > rank && modeRank(g.min) <= currentRank)
     .map((g) => ({ id: g.id, labelKey: g.labelKey, count: g.count(state) }))
     .filter((g) => g.count > 0);
   // 3.3 (T-5): el censo derivado en la fuente, cruzado con la verdad de cada
@@ -186,10 +205,32 @@ export function modeImpact(state: LedgerState, target: Mode, lang: Lang): ModeIm
   return { groups, alerts, total };
 }
 
-/** Los grupos que una subida de `from` a `to` destapa (para el aviso posterior:
- *  subir no pide nada, pero tampoco es silencioso — nombra lo que se abrió). */
-export function unlockedGroups(from: Mode, to: Mode): DormantGroup[] {
-  return DORMANT_GROUPS.filter((g) => modeRank(g.min) > modeRank(from) && modeRank(g.min) <= modeRank(to));
+/** Los grupos que una subida de `from` a `to` destapa EN ESTE LIBRO (para el
+ *  aviso posterior: subir no pide nada, pero tampoco es silencioso — nombra lo
+ *  que se abrió). Ola de prejuicio 1 (B-4): el aviso lee el libro igual que la
+ *  pantalla de impacto lee el suyo — un grupo solo se nombra si este libro
+ *  tiene datos suyos que de verdad se destapan; antes la función ni recibía
+ *  el libro y recitaba el catálogo entero, nombrando lo ausente y enterrando
+ *  lo único real en el «y N más». */
+export function unlockedGroups(state: LedgerState, from: Mode, to: Mode): { id: string; min: Mode; labelKey: string; count: number }[] {
+  return DORMANT_GROUPS
+    .filter((g) => modeRank(g.min) > modeRank(from) && modeRank(g.min) <= modeRank(to))
+    .map((g) => ({ id: g.id, min: g.min, labelKey: g.labelKey, count: g.count(state) }))
+    .filter((g) => g.count > 0);
+}
+
+/** El modo donde se gestiona el bolsillo al que pertenece una serie, por su
+ *  sub — o null cuando la serie vive en el segmento llano de Ahorros, que se
+ *  gestiona en Esencial (su dinero no es mudo en ningún modo). Lo usa la fila
+ *  de fondos mudos de Central para decir la verdad: nombra el modo verdadero
+ *  de cada fondo (ola de prejuicio 1, B5 de la Cara y B-5 de Cambios — la
+ *  fila decía «Completo» siempre, y contaba como mudo un fondo del segmento
+ *  de Ahorros que la persona gestiona en el modo en que ya está). */
+export function pocketModeOf(subId: string): Mode | null {
+  if (subId.endsWith(".retiro")) return FEATURES["vault.retiro"];
+  if (subId.endsWith(".meta")) return FEATURES["vault.meta"];
+  if (subId.endsWith(".emergencia")) return FEATURES["vault.emergencia"];
+  return null;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -315,17 +356,25 @@ export const FEATURES = {
   "hist.filter-amount": R, "hist.filter-recurring": R, "hist.filter-origin": C,
   "hist.filter-import-lot": C, "hist.saved-views": R, "hist.paging": E,
   "hist.search-people-cards": E,
-  /* §1.19 Folios — Archivo (fallo D-bis 15: el par se queda en los tres modos) */
+  /* §1.19 Folios — Archivo (fallo D-bis 15: el par se queda en los tres modos;
+   *  ola de prejuicio 1, B1: los verbos de los períodos apartados también son
+   *  existencia, no gestión — Fo-1 manda que el grupo entero no cambia, así
+   *  que restaurar un período y borrar lo propio viven en los tres modos) */
   "archive.rest-gate": E, "archive.hide-period": C, "archive.hide-one": C,
-  "archive.hide-selection": C, "archive.span-card": C, "archive.restore-span": C,
-  "archive.delete-span": C, "archive.delete-lines": C, "archive.restore-lent": R,
+  "archive.hide-selection": C, "archive.span-card": C, "archive.restore-span": E,
+  "archive.delete-span": E, "archive.delete-lines": E, "archive.restore-lent": R,
   "archive.restore-loan": R, "archive.restore-card": R, "archive.restore-owe": R,
   "archive.pair": E,
   /* §1.20 Importación bancaria — entera en Completo */
   "import.bank": C, "import.guides": C,
   /* §1.21 Escaneo (fallo D-bis 16: el recibo se fotografía desde Esencial, con
-   * su revisión simplificada; la revisión sigue al escaneo) */
-  "scan.receipt": E, "scan.receipt-review": E, "scan.receipt-rewards-row": C,
+   * su revisión simplificada; la revisión sigue al escaneo. Ola 1: la
+   * revisión COMPLETA — cambiar el destino y declarar la cadencia — es de
+   * Ritmo; en Esencial el destino se lee como texto y la cadencia guardada
+   * es la que el lector leyó. La hoja era ciega al modo: ningún asiento la
+   * gobernaba.) */
+  "scan.receipt": E, "scan.receipt-review": E, "scan.receipt-full-review": R,
+  "scan.receipt-rewards-row": C,
   "scan.retirement-stmt": C, "scan.card-capture": C,
   /* §1.22 Bandeja de documentos compartidos — enrutado por modo */
   "inbox.bank": C, "inbox.vcf": R, "inbox.image-card": C, "inbox.image-receipt": E,
@@ -373,7 +422,7 @@ export const FEATURES = {
   "settings.bank-rewards-table": C, "settings.bank-rewards-real": C,
   "settings.bank-sources": C, "settings.bank-paypal-pocket": C, "settings.bank-rules": C,
   "settings.import-row": C, "settings.savings-goal": R, "settings.debt-green": R,
-  "settings.debt-yellow": R, "settings.cushion-months": R, "settings.rules": R,
+  "settings.debt-yellow": R, "settings.cushion-months": C, "settings.rules": R,
   "settings.gestures": E, "settings.widget-pins": R, "settings.widget-card": E,
   "settings.pin-in-card": R, "settings.sample-row": E, "settings.templates": C,
   "settings.nature-stance": R, "settings.rate-manual": E,

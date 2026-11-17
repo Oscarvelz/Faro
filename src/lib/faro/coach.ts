@@ -9,6 +9,7 @@ import { cardFigures, cardTotals, cardsOf } from "./cards";
 import { lentOf, lentState } from "./debts";
 import { loanState, loansOf } from "./loans";
 import { savingsStock } from "./savings";
+import { duesWindow } from "./dues";
 import { perYear } from "./cadence";
 import type { Currency, Lang, LedgerState, Line } from "./types";
 
@@ -447,6 +448,20 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
       dues.push({ id: line.id, name: line.concept || catName(line.categoryId), minor: viewOf(line, display, rateE4), day: when, inDays, ...(line.kind === "subscription" && line.icon?.startsWith("sub:") ? { icon: line.icon } : {}) });
     }
   }
+  // Ola 1 (BR-5): la Agenda lee la MISMA ventana única de vencimientos
+  // (dues.ts): las tarjetas y los préstamos recibidos con fecha entran en su
+  // mundo. Antes solo miraba el nextDue de las líneas y podía afirmar «no
+  // hay pagos» con una tarjeta venciendo en seis días.
+  const todayIsoC = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  for (const e of duesWindow(state, 35, todayIsoC)) {
+    if (e.kind !== "card" && e.kind !== "loan") continue;
+    if (e.on < todayIsoC) continue;
+    const day = new Date(`${e.on}T12:00:00`);
+    const inDays = Math.round((day.getTime() - start.getTime()) / 86400000);
+    if (inDays < 0 || inDays > 35) continue;
+    if (dues.some((d) => d.id === e.id)) continue;
+    dues.push({ id: e.id, name: e.name, minor: e.amt ?? 0, day: e.on, inDays });
+  }
   dues.sort((a, b) => a.inDays - b.inDays);
 
   // Twelve months ending at this one.
@@ -582,32 +597,47 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     const stock = savingsStock(state, key);
     const dormantFunds = [...stock.series.values()].filter((r) => (r.cls === "aparte" || r.cls === "sin-declarar" || r.cls === "retiro") && r.minor > 0).length;
     const declaredFunds = [...stock.series.values()].filter((r) => (r.cls === "aparte" || r.cls === "saldo") && r.minor > 0).length;
-    const debtItems =
-      cardsOf(state).filter((c) => cardFigures(state, c).balance > 0).length +
-      loansOf(state).filter((l) => !l.archived && loanState(state, l).left > 0).length +
-      lentOf(state).filter((l) => !l.archived && lentState(state, l).left > 0).length;
+    const debtCards = cardsOf(state).filter((c) => cardFigures(state, c).balance > 0);
+    const debtLoans = loansOf(state).filter((l) => !l.archived && loanState(state, l).left > 0);
+    const debtLent = lentOf(state).filter((l) => !l.archived && lentState(state, l).left > 0);
+    const debtItems = debtCards.length + debtLoans.length + debtLent.length;
+    // Ola 1 (SOS-1, adjudicado): la sugerencia salta «en contexto, cuando el
+    // uso lo pide» (ley del diseño) — no ante la mera existencia de una
+    // deuda. Un préstamo informal único, sin fecha y sin pagos, es un HECHO
+    // que Esencial ya habla (fallo 31), no una gestión que pida Ritmo; con el
+    // gatillo viejo la sugerencia era permanente en casi todo libro real y
+    // dejaba de ser consejo. Uso = varias deudas, o alguna con fecha de
+    // vencimiento que seguir, o pagos de deuda anotados este mes o el pasado.
+    const debtHasDue = debtCards.some((c) => !!cardFigures(state, c).dueOn) || debtLoans.some((l) => !!l.dueDay) || debtLent.some((l) => !!l.dueOn);
+    const debtHasPays = [key, shiftKey(key, -1)].some((k) => (state.months[k]?.lines ?? []).some((l) => l.active && !l.rest && !!(l.loanId || l.cardId || l.lentId)));
+    const debtUsage = debtItems >= 2 || debtHasDue || debtHasPays;
     const mk = (to: BookMode, reason: string, count: number, text: string): UpgradeHint => ({ to, reason, text, sig: `${reason}:${count}` });
     if (mode === "esencial") {
-      if (debtItems > 0) return mk("ritmo", "debt", debtItems, L(lang, "Tienes deudas con saldo. En Esencial ves sus hechos; en Ritmo las sigues de cerca.", "You have debts with a balance. In Essential you see their facts; in Rhythm you follow them closely."));
+      if (debtUsage) return mk("ritmo", "debt", debtItems, L(lang, "Tienes deudas con saldo. En Esencial ves sus hechos; en Ritmo las sigues de cerca.", "You have debts with a balance. In Essential you see their facts; in Rhythm you follow them closely."));
       if (dormantFunds > 0) return mk("ritmo", "funds", dormantFunds, L(lang, "Tienes dinero en fondos que en Esencial solo se leen. En Ritmo sus bóvedas se abren y los gestionas.", "You have money in funds that in Essential are only read. In Rhythm their vaults open and you manage them."));
       if (reading.subsCount > 0) return mk("ritmo", "subs", reading.subsCount, L(lang, "Tienes cuotas que en Esencial se leen como movimientos. En Ritmo las gestionas como lo que son.", "You have subscriptions that in Essential read as plain movements. In Rhythm you manage them as what they are."));
       return null;
     }
-    if (debtItems > 0) return mk("completo", "plan", debtItems, L(lang, "Tienes deudas con saldo. En Ritmo las sigues; el plan para salir de ellas vive en Completo.", "You have debts with a balance. In Rhythm you follow them; the plan to get out of them lives in Complete."));
+    if (debtUsage) return mk("completo", "plan", debtItems, L(lang, "Tienes deudas con saldo. En Ritmo las sigues; el plan para salir de ellas vive en Completo.", "You have debts with a balance. In Rhythm you follow them; the plan to get out of them lives in Complete."));
     if (declaredFunds > 0) return mk("completo", "nature", declaredFunds, L(lang, "Tus fondos tienen naturaleza declarada. Su lectura completa — qué vive sobre tu saldo y qué es dinero aparte — vive en Completo.", "Your funds have a declared nature. Their full reading — what rides on your balance and what is money set aside — lives in Complete."));
     return null;
   })();
 
   const lines: CoachLine[] = read.map((l) => ({ id: l.id, name: l.name, minor: l.minor, category: l.category, kind: lineById.get(l.id)?.kind ?? "" }));
 
-  const glossary = [
-    { term: L(lang, "Necesidades", "Needs"), plain: buckets[0]!.hint },
-    { term: L(lang, "Gustos", "Wants"), plain: buckets[1]!.hint },
-    { term: L(lang, "Colchón", "Cushion"), plain: L(lang, "Dinero guardado solo para emergencias: si pierdes el trabajo, te enfermas o se daña algo.", "Money kept only for emergencies: losing a job, getting sick, something breaking.") },
-    { term: L(lang, "Ingreso seguro", "Steady income"), plain: L(lang, "Lo que llega casi seguro cada mes, como el salario.", "What arrives almost surely every month, like a salary.") },
-    { term: L(lang, "Compra de una vez", "One-time buy"), plain: L(lang, "Algo que no se repite cada mes, como un electrodoméstico.", "Something that doesn't repeat monthly, like an appliance.") },
-    { term: L(lang, "Regla 50/30/20", "50/30/20 rule"), plain: L(lang, "Una guía sencilla: 50 de cada 100 a necesidades, 30 a gustos y 20 al ahorro o a pagar deudas.", "A simple guide: 50 of every 100 to needs, 30 to wants, and 20 to savings or paying debt.") },
+  // Ola 1 (BR-1): el glosario se filtra por modo EN LA FUENTE, como los pasos
+  // de arriba — la regla 50/30/20 con nombre y proporción es de Ritmo (fallo
+  // 26); en Esencial ni su nombre ni su «de cada 100» existen. Antes el
+  // glosario nacía entero y solo la CARA de los pilares se filtraba.
+  const glossaryAll: { term: string; plain: string; min: BookMode }[] = [
+    { term: L(lang, "Necesidades", "Needs"), plain: buckets[0]!.hint, min: "esencial" },
+    { term: L(lang, "Gustos", "Wants"), plain: buckets[1]!.hint, min: "esencial" },
+    { term: L(lang, "Colchón", "Cushion"), plain: L(lang, "Dinero guardado solo para emergencias: si pierdes el trabajo, te enfermas o se daña algo.", "Money kept only for emergencies: losing a job, getting sick, something breaking."), min: "esencial" },
+    { term: L(lang, "Ingreso seguro", "Steady income"), plain: L(lang, "Lo que llega casi seguro cada mes, como el salario.", "What arrives almost surely every month, like a salary."), min: "esencial" },
+    { term: L(lang, "Compra de una vez", "One-time buy"), plain: L(lang, "Algo que no se repite cada mes, como un electrodoméstico.", "Something that doesn't repeat monthly, like an appliance."), min: "esencial" },
+    { term: L(lang, "Regla 50/30/20", "50/30/20 rule"), plain: L(lang, "Una guía sencilla: 50 de cada 100 a necesidades, 30 a gustos y 20 al ahorro o a pagar deudas.", "A simple guide: 50 of every 100 to needs, 30 to wants, and 20 to savings or paying debt."), min: "ritmo" },
   ];
+  const glossary = glossaryAll.filter((g) => MODE_RANK[mode] >= MODE_RANK[g.min]).map(({ term, plain }) => ({ term, plain }));
 
   return {
     currency: display,

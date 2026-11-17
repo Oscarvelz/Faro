@@ -303,7 +303,11 @@ export function Shell() {
       const vaultOk = !hit.vault || (hit.vault === "owed" ? has("cobros.owed-side") : has("cobros.owe-side"));
       if (hit.vault && !vaultOk) setUi({ section: "historial", year: y ?? ui.year, month: m ?? ui.month, query: "" });
       else if (hit.vault) { if (hit.vault === "owe") preferOweTab("loans"); setUi({ section: "income", vault: hit.vault, query: "" }); }
-      else setUi({ section: hit.section, year: y ?? ui.year, month: m ?? ui.month, highlight: hit.lineId, query: "" });
+      // Ola 1 (SALIDAS-2): el hit de COMPRA cae como su hermano del
+      // calendario (línea ~1269): si Tiendas duerme en este modo, el salto
+      // aterriza en el Historial, donde la compra sí se ve — nunca en una
+      // sección que no es su cara.
+      else setUi({ section: hit.section === "shops" && !has("books.shops") ? "historial" : hit.section, year: y ?? ui.year, month: m ?? ui.month, highlight: hit.lineId, query: "" });
     }}>
       <strong>{hit.title}</strong>
       <span className="block text-sm text-muted">{hit.subtitle}</span>

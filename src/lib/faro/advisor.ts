@@ -119,6 +119,11 @@ export type Reading = {
   remitSharePct: number | null;
   paceNote: string;
   calendarNote: string;
+  /** Ola 1 (BR-6): lo vencido de los DOS lados, dicho en la cara del Asesor
+   *  en todos los modos — antes su único hablante (el ítem owed-late de
+   *  area-advice) montaba solo en la columna de tableta. Hechos en dinero,
+   *  sin proporción: habla también en Esencial (fallo 31). */
+  overdueNote: string | null;
   compareNote: string;
   balanceGap: number;
   lines: ReadLine[];
@@ -563,6 +568,28 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
         "No hay pagos con fecha en los próximos 30 días. Ponles fecha a tus pagos fijos y te aviso antes de que venzan.",
         "No dated payments in the next 30 days. Add dates to your fixed bills and I'll warn you before they're due.",
       );
+
+  // Ola 1 (BR-6): lo vencido, de la misma ventana única — entradas con fecha
+  // pasada y saldo vivo (cobros que te deben, mínimos de tarjeta, préstamos
+  // y cuotas). La ventana ya las trae (su contrato: «lo vencido es debido»);
+  // la Reading las nombra con nombre, dinero y días, en todo modo.
+  const overdue = duesWindow(state, 0, iso(today)).filter((e) => e.on < iso(today));
+  const overdueNote = (() => {
+    if (!overdue.length) return null;
+    const daysAgo = (on: string) => Math.round((Date.parse(`${iso(today)}T12:00:00`) - Date.parse(`${on}T12:00:00`)) / 864e5);
+    const parts = [...overdue]
+      .sort((a, b) => a.on.localeCompare(b.on))
+      .slice(0, 3)
+      .map((e) => {
+        const nm = e.line ? lineName(e.line, names) : e.name;
+        const d = daysAgo(e.on);
+        const when = lang === "en" ? `${d} ${d === 1 ? "day" : "days"} ago` : `hace ${d} ${d === 1 ? "día" : "días"}`;
+        return e.amt != null ? `${nm} ${money(e.amt)} (${when})` : `${nm} (${when})`;
+      });
+    const sum = overdue.reduce((a, e) => a + (e.amt ?? 0), 0);
+    const total = sum > 0 ? (lang === "en" ? ` In all ${money(sum)}.` : ` En total ${money(sum)}.`) : "";
+    return L(lang, `Vencido: ${parts.join(", ")}.${total}`, `Overdue: ${parts.join(", ")}.${total}`);
+  })();
 
   // 1.3.117: a Cuota's cost per month and per year follows its cadence (a yearly charge is not ×12); loan installments are debt, not subscriptions.
   const rawOf = new Map(lines.map((raw) => [raw.id, raw]));
@@ -1294,6 +1321,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
     remitSharePct: rt.sharePct,
     paceNote,
     calendarNote,
+    overdueNote,
     compareNote,
     balanceGap,
     lines: read,

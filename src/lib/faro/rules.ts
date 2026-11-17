@@ -170,6 +170,26 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
           go: { kind: "book", section: "variable" },
           v: { spent, perDay, left, covered, daysLeft, atEnd, pSpent: paceRd.spentMinor, pExpected: paceRd.expectedMinor, pDelta: paceRd.deltaMinor, pProjected: paceRd.projectedMinor, pShare: paceRd.expectedSharePct, pMonths: paceRd.monthsUsed, verdict: paceRd.verdict ?? "" },
         });
+      } else if (mode === "ritmo") {
+        // Ola 1 (BR-3): en Ritmo la forma lineal DESCRIBE, no proyecta — ni
+        // saldo de cierre ni fecha de agotamiento, tampoco como cifra-teaser
+        // (la promesa de la etapa 3.2: «la descripción»). La proyección es
+        // del Patrón, y el Patrón es de Completo. Todo número aquí es un
+        // hecho de hoy: ritmo por día, gastado, días corridos y lo que queda.
+        rules.push({
+          id: "pace",
+          tone: left <= 0 ? "bad" : "calm",
+          title: L(lang, "Ritmo del mes", "Month's pace"),
+          kicker: L(lang, `${money(perDay)} al día`, `${money(perDay)} a day`),
+          num: left <= 0 ? signed(left) : money(left),
+          say: left <= 0
+            ? L(lang, `Ya no queda para el día a día: faltan ${both(-left)} y quedan ${daysLeft} días del mes.`, `Nothing is left for daily spending: ${both(-left)} short with ${daysLeft} days to go.`)
+            : L(lang, `Al ritmo de ${money(perDay)} al día, llevas ${both(spent)} en ${day} ${day === 1 ? "día" : "días"} y te quedan ${both(left)}.`, `At ${money(perDay)} a day, you have spent ${both(spent)} over ${day} ${day === 1 ? "day" : "days"} and ${both(left)} is left.`),
+          fill: Math.min(1, day / dim),
+          topic: "regla-ritmo",
+          go: { kind: "book", section: "variable" },
+          v: { spent, perDay, left, covered, daysLeft, atEnd },
+        });
       } else {
         rules.push({
           id: "pace",

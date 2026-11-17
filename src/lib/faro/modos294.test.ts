@@ -141,14 +141,14 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["hist.search-people-cards", E],
   // §1.19 Folios — Archivo
   ["archive.rest-gate", E], ["archive.hide-period", C], ["archive.hide-one", C],
-  ["archive.hide-selection", C], ["archive.span-card", C], ["archive.restore-span", C],
-  ["archive.delete-span", C], ["archive.delete-lines", C], ["archive.restore-lent", R],
+  ["archive.hide-selection", C], ["archive.span-card", C], ["archive.restore-span", E],
+  ["archive.delete-span", E], ["archive.delete-lines", E], ["archive.restore-lent", R],
   ["archive.restore-loan", R], ["archive.restore-card", R], ["archive.restore-owe", R],
   ["archive.pair", E],
   // §1.20 Importación bancaria
   ["import.bank", C], ["import.guides", C],
   // §1.21 Escaneo
-  ["scan.receipt", E], ["scan.receipt-review", E], ["scan.receipt-rewards-row", C],
+  ["scan.receipt", E], ["scan.receipt-review", E], ["scan.receipt-full-review", R], ["scan.receipt-rewards-row", C],
   ["scan.retirement-stmt", C], ["scan.card-capture", C],
   // §1.22 Bandeja de documentos compartidos
   ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E],
@@ -191,7 +191,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["settings.bank-rewards-table", C], ["settings.bank-rewards-real", C],
   ["settings.bank-sources", C], ["settings.bank-paypal-pocket", C], ["settings.bank-rules", C],
   ["settings.import-row", C], ["settings.savings-goal", R], ["settings.debt-green", R],
-  ["settings.debt-yellow", R], ["settings.cushion-months", R], ["settings.rules", R],
+  ["settings.debt-yellow", R], ["settings.cushion-months", C], ["settings.rules", R],
   ["settings.gestures", E], ["settings.widget-pins", R], ["settings.widget-card", E],
   ["settings.pin-in-card", R], ["settings.sample-row", E], ["settings.templates", C],
   ["settings.nature-stance", R], ["settings.rate-manual", E],

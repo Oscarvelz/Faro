@@ -24,7 +24,7 @@ import { STAGE_SEEDS } from "@/lib/faro/stage-seeds";
 import { buildWidgetSnapshot } from "@/lib/faro/widget";
 import { todayIso } from "@/lib/faro/loans";
 import {
-  MODULES, RESULT_MS, TOPIC_SCENES, WORDS_PER_MINUTE, chapterFirst, durationLabel, dwellMs, moduleById, moduleInMode, moduleView, overallProgress, paceOf, pick, sceneCaption, sceneInMode, scenePlace, stepMs, wordCount,
+  MODULES, RESULT_MS, TOPIC_SCENES, WORDS_PER_MINUTE, chapterFirst, durationLabel, dwellMs, moduleById, moduleInMode, moduleView, overallProgress, paceOf, pick, resumeSceneId, sceneCaption, sceneInMode, scenePlace, stepMs, wordCount,
   type Module, type Scene, type Step,
 } from "@/lib/faro/guion";
 import { modeReaches } from "@/lib/faro/mode";
@@ -47,7 +47,10 @@ const LAUNCH_KEY = "pres.launch"; // sessionStorage, fuera del namespace de dato
 const STAY_KEY = "pres.stay";
 
 type PresState = {
-  modules: Record<string, { scene: number; done: boolean }>;
+  /* Ola 1 (G-5): junto al índice viaja la identidad de la escena — ver
+   * ModuleProgress en guion.ts. readState pasa los módulos sin tocarlos,
+   * así que la identidad sobrevive a la recarga tal como se escribió. */
+  modules: Record<string, { scene: number; sceneId?: string; done: boolean }>;
   speed: number;
   mode: "auto" | "interactive";
   savedScenes: string[];
@@ -153,10 +156,11 @@ export function PresentacionesCard() {
     if (resume && saved && !saved.done) {
       // Reanudar = el PRINCIPIO del capítulo donde ibas: las escenas de un capítulo
       // dependen del estado que las anteriores dejan (un menú abierto, una vista),
-      // y el capítulo es la unidad de sentada.
-      const at = view.scenes[saved.scene];
-      const firstOfChapter = at ? view.scenes.find((s) => s.chapter === at.chapter) : undefined;
-      sceneId = firstOfChapter?.id ?? sceneId;
+      // y el capítulo es la unidad de sentada. Ola 1 (G-5): el capítulo se
+      // busca por la IDENTIDAD de la escena guardada (resumeSceneId), no
+      // por el índice crudo — el índice era de la vista del modo en que se
+      // guardó y caía en otra escena al reanudar en un modo distinto.
+      sceneId = resumeSceneId(mod, mode, saved) ?? sceneId;
     }
     launchPresentation(mod.id, sceneId);
   };
@@ -176,7 +180,10 @@ export function PresentacionesCard() {
 
   const renderMod = (mod: Module, pos: number) => {
     const saved = state.modules[mod.id];
-    const mid = !!saved && !saved.done && saved.scene > 0;
+    // Ola 1 (G-5): «a medias» también se lee por identidad — una corrida
+    // reanudable al principio de un capítulo puede guardar índice 0 en la
+    // vista y no ser una corrida sin empezar.
+    const mid = !!saved && !saved.done && (saved.scene > 0 || (!!saved.sceneId && saved.sceneId !== mod.scenes[0]?.id));
     return (
       <div key={mod.id} className="pres-mod">
         <div className="pres-mod-head">
@@ -585,7 +592,10 @@ export function Presentacion() {
 
   const saveProgress = useCallback((r: RunState, done: boolean) => {
     const prefs = readState();
-    prefs.modules[r.mod.id] = { scene: r.sceneIdx, done };
+    // Ola 1 (G-5): junto al índice se guarda la IDENTIDAD de la escena —
+    // las escenas de la vista son los mismos objetos del guion completo,
+    // así que el id es canónico y la reanudación en otro modo traduce.
+    prefs.modules[r.mod.id] = { scene: r.sceneIdx, sceneId: r.mod.scenes[r.sceneIdx]?.id, done };
     prefs.speed = r.speed;
     prefs.mode = r.mode;
     // La ficha primera: el último módulo en uso manda; al completarlo, la

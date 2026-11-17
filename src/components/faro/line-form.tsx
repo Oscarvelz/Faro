@@ -334,6 +334,10 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [to, setTo] = useState(existing?.to ?? "");
   const [icon, setIcon] = useState(existing?.icon ?? "");
   const [brandTouched, setBrandTouched] = useState(false);
+  // Ola de prejuicio 1 (G-6): si la mano no eligió icono en ESTA forma, guardar no
+  // estampa ninguno — la línea conserva el suyo, incluido el vacío (heredar el
+  // glifo de la categoría es una lectura, no un dato de la línea).
+  const [iconPicked, setIconPicked] = useState(false);
   const [bookedOn, setBookedOn] = useState(existing?.bookedOn ?? seed?.bookedOn ?? "");
   const [startedOn, setStartedOn] = useState(existing?.startedOn ?? seed?.startedOn ?? "");
   const bubbleTone = kind === "expense-fixed" || kind === "expense-variable" || kind === "subscription";
@@ -430,7 +434,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     const rcDerived = !existing?.importId && session && pay && pay !== CASH_SOURCE && (kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase")
       ? manualLineRc(importBook(session.ledger), payTarget, payLabel)
       : undefined;
-    const line: Line = {
+    const fresh: Line = {
       id: existing?.id ?? uid(),
       seriesId: existing?.seriesId ?? uid(),
       monthKey: existing?.monthKey ?? key,
@@ -470,6 +474,34 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       // card line carries the class derived above; anything else carries none (base rate / no rewards).
       ...(existing?.importId && existing.rc ? { rc: existing.rc } : rcDerived ? { rc: rcDerived } : {}),
     };
+    // EL GUARDIÁN (principio 2; ola de prejuicio 1, G-1…G-4): la línea editada
+    // parte de sí misma. El literal de arriba pinta solo lo que la forma conoce;
+    // debajo queda la línea entera, así que todo campo que la forma NO pinta
+    // sobrevive a la edición en cualquier modo y en cualquier cara que abra
+    // esta forma: los enlaces (loanId, interestMinor, lentId, cardId, rwCard),
+    // la transferencia (xfer), la identidad de importación (importId, batch,
+    // via) y las marcas del descanso y del usuario (rest, archived). Antes el
+    // literal fresco los borraba en silencio: editar el concepto de un abono
+    // resucitaba su préstamo, su tarjeta o su «me deben», y una línea importada
+    // editada perdía su llave de deduplicación.
+    const line: Line = existing ? { ...existing, ...fresh } : fresh;
+    if (existing) {
+      // Lo que la forma SÍ pinta y la mano dejó en blanco se borra de verdad:
+      // el esparcido no resucita lo que el usuario quitó a propósito.
+      if (!personId) { delete line.personId; delete line.occasionId; }
+      else if (existing.personId !== personId) delete line.occasionId;
+      if (!(to && group && session && isRemitCat(session.ledger, categoryId))) delete line.to;
+      if (!pay) delete line.sourceId;
+      if (!((existing.importId && existing.rc) || rcDerived)) delete line.rc;
+      // G-6: la forma no materializa lo que la línea no traía — ni el glifo que
+      // solo heredaba de su categoría, ni las fechas de alta vacías.
+      if (!iconPicked && !brandTouched) line.icon = existing.icon ?? "";
+      if (existing.bookedOn === undefined && line.bookedOn === "") delete line.bookedOn;
+      if (existing.startedOn === undefined && line.startedOn === "") delete line.startedOn;
+      // Sin sub de fondo a la vista, la estampa no sobrevive por el esparcido:
+      // el bloque de naturaleza la reescribe cuando el sub vive.
+      if (!fundSubNow) { delete line.fund; delete line.fundHost; }
+    }
     // El modelo de ahorros: la naturaleza se estampa en la línea al nacer (§5.1); al cambiar,
     // la serie entera se declara en el mismo commit (§5.3), tras pasar el guardia de la
     // anfitriona — un límite nunca supera el Libre de la cuenta donde vive.
@@ -493,6 +525,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         }
         line.fund = stamp.fund;
         if (stamp.fundHost) line.fundHost = stamp.fundHost;
+        else delete line.fundHost;
         if (natureChanged) declare = { nature: stamp.fund, host: stamp.fundHost };
       } else if (existing.fund) {
         // Sin tocar la pregunta, la línea conserva la estampa que ya traía.
@@ -516,7 +549,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const suggest = kind === "subscription" && plainIcon ? iconForName(concept, [], lang, off) : "";
   // The line's look lives in its identifying field (no floating pill): the editor's own look when handed one, else this
   // form's icon + colour (Fijos, Variables, Compras, Cuotas; Ingresos have no bubble colour).
-  const lookHere: Look | null = look ?? (bubbleTone || kind === "purchase" ? { glyph: icon || "Circle", color: tone, onGlyph: (n) => { setIcon(n); if (kind === "subscription") setBrandTouched(true); }, onColor: (hex) => setTone(hex) } : null);
+  const lookHere: Look | null = look ?? (bubbleTone || kind === "purchase" ? { glyph: icon || "Circle", color: tone, onGlyph: (n) => { setIcon(n); setIconPicked(true); if (kind === "subscription") setBrandTouched(true); }, onColor: (hex) => setTone(hex) } : null);
   const head = (label: string, topic: string) => <span className="lab-head">{label}<FieldTip topic={topic} /></span>;
   // A chosen name too long for half a row takes the whole row (never cut, never "…").
   const long = (name: string | undefined) => ((name ?? "").length > 12 ? " is-long" : "");
@@ -572,7 +605,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           </div>
         ) : null}
         {group && session && categoryId && isRemitCat(session.ledger, categoryId) && has("editor.for-remit") ? <RemitToField value={to} onChange={setTo} className={`label fit-f${to ? long(session.ledger.remitPeople?.find((p) => p.id === to)?.name) : ""}`} /> : null}
-        {kind === "purchase" && has("books.shops") ? (
+        {kind === "purchase" && has("editor.shop-fields") ? (
           <>
             <div className={`label fit-f${long(nameOf(structure.catalog, storeId))}`} data-f="store">
               {head(t("store"), "f-tienda-elegir")}
@@ -582,20 +615,24 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
               {head(t("category"), "f-cat-elegir")}
               <PurchaseCatPick value={categoryId} onChange={setCategoryId} />
             </div>
-            {categoryId === "ia" ? (
-              <div className={`label fit-f${long(nameOf(ais, providerId))}`} data-f="provider">
-                {head(t("provider"), "f-proveedor")}
-                <ThemeSelect value={providerId} onChange={setProviderId} options={[{ value: "", label: "—" }, ...ais.map((s) => ({ value: s.id, label: displayName(s, lang) }))]} />
-              </div>
+            {has("editor.shop-fine") ? (
+              <>
+                {categoryId === "ia" ? (
+                  <div className={`label fit-f${long(nameOf(ais, providerId))}`} data-f="provider">
+                    {head(t("provider"), "f-proveedor")}
+                    <ThemeSelect value={providerId} onChange={setProviderId} options={[{ value: "", label: "—" }, ...ais.map((s) => ({ value: s.id, label: displayName(s, lang) }))]} />
+                  </div>
+                ) : null}
+                <label className="label fit-f" data-f="code">
+                  {head(t("code"), "f-codigo")}
+                  <input className="field" value={code} onChange={(e) => setCode(e.target.value)} />
+                </label>
+                <label className="label fit-f" data-f="url">
+                  {head(t("url"), "f-enlace")}
+                  <input className="field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
+                </label>
+              </>
             ) : null}
-            <label className="label fit-f" data-f="code">
-              {head(t("code"), "f-codigo")}
-              <input className="field" value={code} onChange={(e) => setCode(e.target.value)} />
-            </label>
-            <label className="label fit-f" data-f="url">
-              {head(t("url"), "f-enlace")}
-              <input className="field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
-            </label>
           </>
         ) : null}
         {kind === "subscription" ? (
@@ -603,7 +640,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             {has("subs.brand-library") ? (
             <div className={`label fit-f${long(poolName((icon || suggest).replace(/^sub:/, ""), lang))}`} data-f="brand">
               {head(lookHere ? (lang === "en" ? "Icon, colour" : "Ícono y color") : lang === "en" ? "Brand" : "Marca", "f-icono-cuota")}
-              <BrandIconPick value={icon} suggest={suggest} look={lookHere ?? undefined} onChange={(next, name) => { setIcon(next); setBrandTouched(true); if (next && name && !concept.trim()) setConcept(name); }} />
+              <BrandIconPick value={icon} suggest={suggest} look={lookHere ?? undefined} onChange={(next, name) => { setIcon(next); setIconPicked(true); setBrandTouched(true); if (next && name && !concept.trim()) setConcept(name); }} />
             </div>
             ) : null}
             <div className={`label fit-f${long(cadenceLabel(cadence || "monthly", lang))}`} data-f="cadence">
@@ -671,7 +708,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           ) : null}
         </div>
       ) : null}
-      {recurring && kind !== "subscription" && has("editor.recurrent-toggle") ? (
+      {recurring && kind !== "subscription" && (has("editor.recurrent-toggle") || has("subs.cadence-basic")) ? (
         <div className="fit-fields fit-repeat">
           <div className="label fit-f is-day" data-f="first">
             {head(t("pot.first"), "f-primer-pago")}

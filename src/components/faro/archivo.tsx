@@ -103,11 +103,18 @@ export function ArchivoScreen() {
   // datos en todo modo y Restaurar funciona siempre (fallo 15: restaurar lo
   // propio es existencia, no gestión) — lo restaurado cae a la cara lectora
   // del modo, nunca a la superficie editable (la cara lectora vive en Libros).
-  // Los verbos de los apartados son otra familia: restaurar/borrar un período
-  // y borrar líneas son Completo (archive.restore-span / delete-span /
-  // delete-lines); fuera de Completo el grupo se lee como dato mudo, con su
-  // explicación llana, y la puerta de correo queda intacta donde vive.
+  // Ola de prejuicio 1 (B1): los verbos de los apartados NO son otra familia —
+  // la lectura gobernante de Fo-1 dice que el grupo de períodos apartados,
+  // universal, no cambia, y su borrado definitivo con puerta de correo
+  // tampoco: restaurar/borrar un período y borrar sus líneas son existencia
+  // (archive.restore-span / delete-span / delete-lines = Esencial desde la
+  // cura), así que estos dos interruptores viven encendidos en los tres
+  // modos y la nota «se hace en Completo» ya no se pinta nunca.
   const canSpanVerbs = has("archive.restore-span");
+  // Cada verbo con SU asiento: el borrado del período se puertaba por el de
+  // restaurar (la forma B2 de la ola) — hoy ambos son Esencial, pero el
+  // asiento delete-span merece su propio consumidor.
+  const canDeleteSpan = has("archive.delete-span");
   const canDeleteLines = has("archive.delete-lines");
   // El motor de selección sobre las líneas apartadas (Oscar, 2026-11-13):
   // sostener entra al modo, tocar marca, y UNA sola puerta escrita cubre la
@@ -251,10 +258,10 @@ export function ArchivoScreen() {
                   );
                 })}
               </div>
-              {canSpanVerbs ? (
+              {canSpanVerbs || canDeleteSpan ? (
               <div className="arch-acts">
-                {restoreBtn(() => askRestoreSpan(e))}
-                <button type="button" className="btn danger" data-anchor="arch-delete" onClick={() => askDeleteSpan(e)}><Trash2 aria-hidden />{t("arch.delete")}</button>
+                {canSpanVerbs ? restoreBtn(() => askRestoreSpan(e)) : null}
+                {canDeleteSpan ? <button type="button" className="btn danger" data-anchor="arch-delete" onClick={() => askDeleteSpan(e)}><Trash2 aria-hidden />{t("arch.delete")}</button> : null}
               </div>
               ) : null}
             </article>

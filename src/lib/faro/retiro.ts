@@ -30,15 +30,32 @@ export function retiroHidden(state: LedgerState): boolean {
   return Boolean(cat && sub && (cat.hidden || sub.hidden));
 }
 
+/** ¿Nació esta línea de la semilla de fábrica? Por su marca de nacimiento; en
+ *  libros anteriores a la marca, por su etiqueta intacta. */
+export const isFactorySeed = (line: Line): boolean => line.preset === "primerica" || isPrimerica(line);
+
 /** Seeds missing default presets into month `key`. Returns the same state when nothing is needed. */
 export function seedRetiro(state: LedgerState, key: string): LedgerState {
   const at = retiroSub(state);
   if (!at) return state;
   const off = new Set(state.retiroOff ?? []);
   const bucket = state.months[key] ?? { lines: [] };
-  const here = bucket.lines.filter((l) => l.subId === at.subId);
-  const add = RETIRO_PRESETS.filter((p) => !off.has(p.id) && !here.some((l) => p.id === "primerica" && isPrimerica(l)));
-  if (!add.length) return state;
+  // Curación de libros heredados: una semilla nacida antes de la marca de
+  // nacimiento, aún intacta (etiqueta reconocible y ningún acto de dinero),
+  // recibe su marca — desde ahí, renombrarla o re-iconizarla ya no la
+  // «instituye» (ola de prejuicio 1, B-3/G-7: apartados, no rótulos).
+  let healed = false;
+  const healedLines = bucket.lines.map((l) => {
+    if (l.subId === at.subId && l.preset === undefined && isPrimerica(l) && l.amountMinor === 0 && l.balanceMinor == null && l.history.length === 0) {
+      healed = true;
+      return { ...l, preset: "primerica" };
+    }
+    return l;
+  });
+  const base: LedgerState = healed ? { ...state, months: { ...state.months, [key]: { lines: healedLines } } } : state;
+  const here = healedLines.filter((l) => l.subId === at.subId);
+  const add = RETIRO_PRESETS.filter((p) => !off.has(p.id) && !here.some((l) => p.id === "primerica" && isFactorySeed(l)));
+  if (!add.length) return base;
   const display = state.settings.display;
   const fresh: Line[] = add.map((p) => {
     const id = uid();
@@ -46,10 +63,10 @@ export function seedRetiro(state: LedgerState, key: string): LedgerState {
       id, seriesId: id, monthKey: key, kind: "expense-fixed", concept: p.name, amountMinor: 0, currency: display,
       active: true, note: "", categoryId: at.catId, subId: at.subId, recurring: false, storeId: "", providerId: "",
       productCode: "", productUrl: "", cadence: "", nextDue: "", aprBps: 0, balanceMinor: null,
-      balanceCurrency: display, icon: p.icon, history: [],
+      balanceCurrency: display, icon: p.icon, history: [], preset: p.id,
     } as Line;
   });
-  return { ...state, months: { ...state.months, [key]: { lines: [...bucket.lines, ...fresh] } } };
+  return { ...base, months: { ...base.months, [key]: { lines: [...healedLines, ...fresh] } } };
 }
 
 /** Delete from the pocket: archive when the line carries money history or a balance, else remove. Presets are remembered as off. */
@@ -62,7 +79,7 @@ export function dropPocketLine(state: LedgerState, key: string, id: string): { s
     ? bucket.lines.map((l) => (l.id === id ? { ...l, active: false, archived: true } : l))
     : bucket.lines.filter((l) => l.id !== id);
   const at = retiroSub(state);
-  const preset = at && line.subId === at.subId && isPrimerica(line);
+  const preset = at && line.subId === at.subId && isFactorySeed(line);
   const retiroOff = preset ? [...new Set([...(state.retiroOff ?? []), "primerica"])] : state.retiroOff;
   return { state: { ...state, retiroOff, months: { ...state.months, [key]: { lines } } }, archived: keep };
 }
@@ -76,7 +93,7 @@ export function restoreRetiro(state: LedgerState, key: string): LedgerState {
   if (at && bucket) {
     let revived = false;
     const lines = bucket.lines.map((l) => {
-      if (revived || !l.archived || l.subId !== at.subId || !isPrimerica(l)) return l;
+      if (revived || !l.archived || l.subId !== at.subId || !isFactorySeed(l)) return l;
       revived = true;
       return { ...l, active: true, archived: false };
     });

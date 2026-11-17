@@ -187,8 +187,11 @@ export type Api = {
    *  ÚNICO punto por el que las superficies preguntan — nadie filtra por su
    *  cuenta contra el registro (cerca de grep en modos294.test.ts). */
   has: (feature: FeatureId) => boolean;
-  /** Jump to where a topic lives (screen, fold, element). `from` = the manual entry being read, so back lands on it. */
-  goTopic: (id: string, go: GoLike, from?: string) => void;
+  /** Jump to where a topic lives (screen, fold, element). `from` = the manual entry being read, so back lands on it.
+   *  `explain` = the explanation to open IF the jump falls because its destination sleeps (ola 1, SALIDAS-1):
+   *  a caller whose target TOPIC also sleeps in this mode passes a living explanation, so the fall never
+   *  opens the Manual on a topic the Manual itself filters out. Absent, the fall opens `id` as always. */
+  goTopic: (id: string, go: GoLike, from?: string, explain?: string) => void;
   /** Make the current spot a step, before an in-page jump. */
   markSpot: () => void;
 };
@@ -1266,7 +1269,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     snap();
     setUiState((u) => ({ ...u, spot: u.spot + 1 }));
   }, [snap]);
-  const goTopic = useCallback((id: string, go: GoLike, from?: string) => {
+  const goTopic = useCallback((id: string, go: GoLike, from?: string, explain?: string) => {
     const live = uiRef.current;
     const top = places.current[places.current.length - 1];
     // Reading an entry in the manual: back from the app lands on that entry, not where the manual was opened.
@@ -1290,7 +1293,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     const feature = featureForGo(go);
     const bookNow = sessionRef.current?.ledger;
     if (feature && bookNow && !hasFeature(modeOf(bookNow.settings), feature)) {
-      openManual(id);
+      // Ola 1 (SALIDAS-1): la explicación de la caída es la que el llamador
+      // declara viva (`explain`) cuando el tema destino también duerme;
+      // sin declaración, la de siempre: el propio tema del salto.
+      openManual(explain ?? id);
       importToast({ text: t("mode.dormant.notice").replace("{name}", t(`mode.${featureMinMode(feature)}`)) });
       return;
     }
