@@ -432,6 +432,12 @@ export function Presentacion() {
    * arranque limpia el hogar y la tarjeta vuelve a nacer donde va a vivir. */
   const [born, setBorn] = useState(false);
   const homeRef = useRef<React.CSSProperties | null>(null);
+  /* La altura efectiva con la que se puntuó el hogar guardado: si la
+   * tarjeta crece de forma material desde entonces (el pie envolvió más
+   * alto), el hogar está rancio y el asiento se vuelve a puntuar — la
+   * tarjeta no crece SOBRE el tema que explica (caza de asientos,
+   * 2026-11-17). */
+  const homeHRef = useRef(0);
   /* La altura real de la tarjeta, medida en su nodo: la colocación se
    * acota con ella para que la tarjeta jamás quede cortada por ningún
    * borde — con un foco alto y ancho (la lista de «Me deben»), la fórmula
@@ -1088,21 +1094,66 @@ export function Presentacion() {
    * demuestra (principio 4 reforzado). El anillo sigue enmarcando el foco.
    * Sin huella medida aún, manda el foco, como antes. */
   const clear = region ? clampHole(region) : hole;
-  const cardBelow = clear ? (window.innerHeight - (clear.top + clear.height)) > 240 : true;
   // La tarjeta mide 370 (o el ancho menos 20): el centro y el tope derecho se calculan
   // con SU ancho real — con las constantes viejas de 340 se salía hasta 18px por la
   // derecha cuando el foco vivía a la derecha (visto por Oscar en foto, 2026-11-13).
   const cardW = window.innerWidth >= 1024 ? 550 : Math.min(370, window.innerWidth - 20);
-  /* Con la altura medida, la colocación es un «top» acotado a la pantalla:
-   * el sitio deseado (bajo el foco, o sobre él) se comprime hasta caber —
-   * el aire se comprime, la tarjeta nunca se corta. Sin medida aún (el
-   * primer pintado), rigen las fórmulas de siempre. */
-  const cardStyle: React.CSSProperties = clear ? {
-    left: Math.min(Math.max(10, clear.left + clear.width / 2 - cardW / 2), window.innerWidth - cardW - 10),
-    ...(cardH > 0
-      ? { top: Math.max(10, Math.min(cardBelow ? clear.top + clear.height + 14 : clear.top - 14 - cardH, window.innerHeight - cardH - 10)) }
-      : cardBelow ? { top: clear.top + clear.height + 14 } : { bottom: window.innerHeight - clear.top + 14 }),
-  } : { left: "50%", top: "38%", transform: "translateX(-50%)" };
+  /* EL ASIENTO SE PUNTÚA, NO SE DECIDE POR UNA CONSTANTE (caza de asientos,
+   * 2026-11-17): la vieja regla — «abajo si sobran 240px, arriba si no» —
+   * sentaba la tarjeta contra una altura imaginada, y el tope a la pantalla
+   * la deslizaba de vuelta SOBRE la huella: la lección hablaba de lo que
+   * tapaba. Ahora se proponen hasta cuatro asientos — abajo, arriba y,
+   * cuando el ancho lo permite de verdad, a la derecha y a la izquierda de
+   * la huella — y cada uno se puntúa con la altura efectiva de la tarjeta,
+   * en este orden estricto: (1) quien no toca el FOCO vence a quien lo
+   * toca; (2) quien menos huella cubre; (3) el orden de preferencia —
+   * abajo, arriba, derecha, izquierda; en pantalla ancha (≥1024) con
+   * huella grande (más del 55 % del alto o del 60 % del ancho) los lados
+   * van primero, porque el aire que sobra es el horizontal. Antes de la
+   * primera medida rige una altura prudente de 240: las tarjetas medidas
+   * viven entre 160 y 200, y 240 cubre el pie de tres líneas con su
+   * contexto y su fila de velocidad sin jamás declarar la tarjeta más
+   * pequeña de lo que es — subestimarla era lo que dejaba al asiento
+   * provisional deslizarse sobre el tema. */
+  const seatH = cardH > 0 ? cardH : 240;
+  type SeatRect = { left: number; top: number; width: number; height: number };
+  const overlapOf = (a: SeatRect, b: SeatRect) => {
+    const w = Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left);
+    const h = Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top);
+    return w > 0 && h > 0 ? w * h : 0;
+  };
+  const pickSeat = (): SeatRect | null => {
+    if (!clear) return null;
+    const guard = hole ?? clear;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const centerLeft = Math.min(Math.max(10, clear.left + clear.width / 2 - cardW / 2), vw - cardW - 10);
+    const clampTop = (t: number) => Math.max(10, Math.min(t, vh - seatH - 10));
+    const seats: { name: string; rect: SeatRect }[] = [
+      { name: "below", rect: { left: centerLeft, top: clampTop(clear.top + clear.height + 14), width: cardW, height: seatH } },
+      { name: "above", rect: { left: centerLeft, top: clampTop(clear.top - 14 - seatH), width: cardW, height: seatH } },
+    ];
+    /* Los asientos laterales solo nacen cuando caben de verdad: el ancho
+     * de la tarjeta + el de la huella + los dos aires de 14 + los márgenes
+     * de 10 a cada lado, todo dentro del ancho de la pantalla. Nacen
+     * alineados con la huella y acotados a la pantalla, como los demás. */
+    if (cardW + clear.width + 2 * 14 + 2 * 10 <= vw) {
+      const latTop = clampTop(clear.top);
+      seats.push({ name: "right", rect: { left: Math.min(clear.left + clear.width + 14, vw - cardW - 10), top: latTop, width: cardW, height: seatH } });
+      seats.push({ name: "left", rect: { left: Math.max(10, clear.left - 14 - cardW), top: latTop, width: cardW, height: seatH } });
+    }
+    const bigFoot = clear.height > vh * 0.55 || clear.width > vw * 0.6;
+    const pref = vw >= 1024 && bigFoot ? ["right", "left", "below", "above"] : ["below", "above", "right", "left"];
+    let best = seats[0].rect, bestKey: [number, number, number] | null = null;
+    for (const s of seats) {
+      const key: [number, number, number] = [overlapOf(s.rect, guard) > 0 ? 1 : 0, overlapOf(s.rect, clear), pref.indexOf(s.name)];
+      if (!bestKey || key[0] < bestKey[0] || (key[0] === bestKey[0] && (key[1] < bestKey[1] || (key[1] === bestKey[1] && key[2] < bestKey[2])))) { best = s.rect; bestKey = key; }
+    }
+    return best;
+  };
+  const seatRect = pickSeat();
+  const cardStyle: React.CSSProperties = seatRect
+    ? { left: seatRect.left, top: seatRect.top }
+    : { left: "50%", top: "38%", transform: "translateX(-50%)" };
 
   /* El nacimiento de la tarjeta: la primera vez que un compás tiene SU
    * medida, ese estilo queda guardado como su hogar y la tarjeta ya nació —
@@ -1110,7 +1161,20 @@ export function Presentacion() {
    * fase de render, a propósito: tras los retornos tempranos de arriba no
    * puede vivir ningún hook (su orden cambiaría entre renders). */
   if (cardHome && hole) { homeRef.current = cardStyle; if (!born) setBorn(true); }
-  const cardPos = !cardHome && born && homeRef.current ? homeRef.current : cardStyle;
+  if (cardHome && hole) homeHRef.current = seatH;
+  /* EL HOGAR CONGELADO SE RE-EXAMINA (2026-11-17): mientras un compás
+   * espera su medida, el foco ya caminó a otra parte — si el asiento
+   * guardado, medido con la altura efectiva de ahora, cubre el foco
+   * actual, o la tarjeta creció de forma material desde que aquel asiento
+   * se puntuó, el hogar está rancio y manda el asiento recién puntuado
+   * para la huella actual. La ley de «nace donde vive» protege el asiento
+   * de un compás sentado, no uno rancio parado sobre el tema nuevo. */
+  const homeRect: SeatRect | null = homeRef.current && typeof homeRef.current.left === "number" && typeof homeRef.current.top === "number"
+    ? { left: homeRef.current.left as number, top: homeRef.current.top as number, width: cardW, height: seatH }
+    : null;
+  const homeStale = !cardHome && born && homeRect !== null && hole !== null
+    && (overlapOf(homeRect, hole) > 0 || Math.abs(seatH - homeHRef.current) > 8);
+  const cardPos = !cardHome && born && homeRef.current && !homeStale ? homeRef.current : cardStyle;
 
   const jumpToScene = (idx: number) => {
     clearTimers();

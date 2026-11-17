@@ -95,7 +95,13 @@ describe("279 · el nacimiento es solo del primer compás", () => {
       presTsx.includes("if (cardHome && hole) { homeRef.current = cardStyle; if (!born) setBorn(true); }"),
       "la primera medida del compás guarda el hogar y marca el nacimiento",
     );
-    assert.ok(presTsx.includes("const cardPos = !cardHome && born && homeRef.current ? homeRef.current : cardStyle;"));
+    // ACTUALIZADO en la caza de asientos (2026-11-17): el hogar congelado se
+    // re-examina contra el foco actual — si lo cubre, o la tarjeta creció de
+    // forma material desde que se sentó, está rancio (homeStale) y manda el
+    // asiento recién puntuado. La forma protegida es la misma con esa única
+    // guarda nueva; sin ella, la tarjeta de un compás pendiente quedaba
+    // parada sobre el tema del compás siguiente.
+    assert.ok(presTsx.includes("const cardPos = !cardHome && born && homeRef.current && !homeStale ? homeRef.current : cardStyle;"));
   });
 
   it("la tarjeta permanece visible tras nacer: la visibilidad es cardHome || born", () => {
@@ -116,8 +122,15 @@ describe("279 · la tarjeta acotada: jamás cortada por un borde", () => {
     // ACTUALIZADO en la integración de los 18 principios (2026-11-16): la tarjeta
     // se acota contra la HUELLA del compás (`clear`, principios 8 y 11), que sin
     // huella medida es el propio foco (`hole`) — la cota y su fórmula no cambian.
-    assert.ok(presTsx.includes("clear.top - 14 - cardH"), "el sitio de arriba descuenta la altura medida");
-    assert.ok(presTsx.includes("window.innerHeight - cardH - 10"), "el tope nunca sale por abajo");
+    // ACTUALIZADO en la caza de asientos (2026-11-17): la fórmula única «abajo o
+    // arriba contra la constante 240» murió — la colocación es la puntuación de
+    // asientos de pickSeat, y la cota vive en su clampTop, aplicada a CADA
+    // candidato con la altura efectiva (seatH: la medida real de la tarjeta, o
+    // la prudente de 240 antes de la primera medida). El suelo de 10 y el techo
+    // vh − seatH − 10 se conservan; el asiento de arriba descuenta la altura
+    // efectiva como antes descontaba la medida.
+    assert.ok(presTsx.includes("clear.top - 14 - seatH"), "el sitio de arriba descuenta la altura efectiva");
+    assert.ok(presTsx.includes("vh - seatH - 10"), "el tope nunca sale por abajo");
     assert.ok(presTsx.includes("Math.max(10, Math.min("), "el top se comprime hasta caber, con suelo de 10");
   });
 });
