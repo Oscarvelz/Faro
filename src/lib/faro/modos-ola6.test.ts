@@ -115,17 +115,22 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
       assert.equal(FEATURES[feature as keyof typeof FEATURES], mode, `${feature} es el asiento que lo gobierna`);
     });
   }
-  it("los conteos por modo tras el re-asiento: 117 · 107 · 130 sobre 354 (exactos)", () => {
+  it("los conteos por modo tras el re-asiento: 118 · 107 · 129 sobre 354 (exactos)", () => {
     // ENMIENDA OLA 7 (CARA-1/2/3: el tema sigue al CAMPO): f-primer-pago,
     // f-frecuencia, f-tienda-elegir y f-cat-elegir R→E; f-proveedor,
     // f-codigo y f-enlace R→C. La distribución de la ola 6 (113 · 114 ·
     // 127) se mueve a 117 · 107 · 130; la valla vive en
     // modos-ola7.test.ts §A y la enmienda gemela en modos299.test.ts.
+    // ENMIENDA OLA 9 (los asientos fantasma): cuenta-movimiento y
+    // f-cuenta-monto R→E (accounts.move); f-retiro-acumulado C→R
+    // (vault.retiro); tiendas E→R (books.shops). La distribución se
+    // mueve a 118 · 107 · 129; el censo de consumidores vive en
+    // modos-ola9.test.ts §A.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
     assert.equal(MANUAL_TOPICS.length, 354);
-    assert.equal(count("esencial"), 117);
+    assert.equal(count("esencial"), 118);
     assert.equal(count("ritmo"), 107);
-    assert.equal(count("completo"), 130);
+    assert.equal(count("completo"), 129);
   });
 });
 

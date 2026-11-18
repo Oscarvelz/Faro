@@ -326,9 +326,12 @@ export const FEATURES = {
   "accounts.panel-simple": E, "accounts.panel": R, "accounts.add": R,
   "accounts.seed-banks": E, "accounts.move": E, "accounts.opening": R,
   "accounts.reorder": C, "accounts.pin-panel": C,
-  /* §1.8 Libros por tipo */
+  /* §1.8 Libros por tipo (ENMIENDA OLA 9: shop-catalog-gear a Ritmo — el
+   * engranaje del catálogo pinta y trabaja en la tira del libro Compras,
+   * cara de Ritmo, haciendo el negocio de Ritmo; declarado en Completo,
+   * el registro mentía sin consumidor que lo desmintiera en una cara) */
   "books.income": E, "books.fixed": E, "books.variable": E, "books.shops": R,
-  "books.shop-catalog-gear": C, "books.subs": R,
+  "books.shop-catalog-gear": R, "books.subs": R,
   /* §1.9 Recurrentes y cadencias (fallo D-bis 5: la cadencia básica se declara
    * al registrar, en Esencial; la maquinaria alrededor sigue en Ritmo) */
   "subs.cuota": R, "subs.fixed-exists": E, "subs.cadence-basic": E,

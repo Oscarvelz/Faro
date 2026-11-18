@@ -227,8 +227,17 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // distribución exacta (117 · 107 · 130); estos count() son
     // acumulados por alcance (117 · 224 · 354). La valla tema↔campo
     // vive en modos-ola7.test.ts §A.
-    assert.equal(count("esencial"), 117);
-    assert.equal(count("ritmo"), 224);
+    // ENMIENDA OLA 9 (los asientos fantasma): cuenta-movimiento y
+    // f-cuenta-monto R→E (su gobernador real es accounts.move; el mapa
+    // los cruzaba contra accounts.panel, que nadie consume);
+    // f-retiro-acumulado C→R (vault.retiro; vault.retiro-fields era el
+    // segundo fantasma); tiendas E→R (books.shops: su único (?) vive
+    // en la tira de Ritmo). Neto de la ola: esencial +1, ritmo ±0,
+    // completo −1 en distribución exacta (118 · 107 · 129); estos
+    // count() son acumulados por alcance (118 · 225 · 354). La cerca
+    // del censo vive en modos-ola9.test.ts §A.
+    assert.equal(count("esencial"), 118);
+    assert.equal(count("ritmo"), 225);
     assert.equal(count("completo"), 354);
     assert.equal(MANUAL_TOPICS.length, 354);
   });

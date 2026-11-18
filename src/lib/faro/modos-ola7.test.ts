@@ -207,6 +207,23 @@ describe("ola7 · la conservación de los campos puertados, fijada por fin", () 
     assert.ok(form.includes("const [payTouched, setPayTouched] = useState(false);"),
       "si naciera en true, el aviso jamás sellaría y todo guardado «aprendería» de un pay que la mano no tocó en esta forma — también de una línea importada");
   });
+  /* OLA 9 · G9-1: la cerca crece a los testigos del ICONO. La
+   * restauración G-6 — si la mano no eligió icono ni tocó la marca, el
+   * guardado conserva el icono guardado — cuelga de DOS testigos, y la
+   * §D no fijaba el nacimiento de ninguno: el Guardián IX mutó
+   * iconPicked a nacer en true y la suite entera pasaba verde
+   * (1773/1773), con la restauración muerta en silencio (toda edición
+   * conservaría el icono recién calculado y perdería el guardado). Los
+   * dos nacimientos quedan fijados aquí, junto a los de su especie; la
+   * mutación M-B corre roja bajo estos pines. */
+  it("el testigo iconPicked nace en false (mutación M-B del Guardián IX)", () => {
+    assert.ok(form.includes("const [iconPicked, setIconPicked] = useState(false);"),
+      "si naciera en true, la restauración G-6 jamás correría: editar una línea perdería su icono guardado en cualquier modo");
+  });
+  it("el testigo brandTouched nace en false (la otra mitad de la guardia G-6)", () => {
+    assert.ok(form.includes("const [brandTouched, setBrandTouched] = useState(false);"),
+      "si naciera en true, la restauración G-6 jamás correría por la otra puerta: el icono guardado se perdería al editar");
+  });
   it("el censo de deletes de save() es cerrado: ni uno más (mutación MC)", () => {
     const tally: Record<string, number> = {};
     for (const m of form.matchAll(/delete line\.(\w+)/g)) tally[m[1]!] = (tally[m[1]!] ?? 0) + 1;

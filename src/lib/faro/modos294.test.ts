@@ -98,7 +98,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["accounts.reorder", C], ["accounts.pin-panel", C],
   // §1.8 Libros por tipo
   ["books.income", E], ["books.fixed", E], ["books.variable", E], ["books.shops", R],
-  ["books.shop-catalog-gear", C], ["books.subs", R],
+  ["books.shop-catalog-gear", R], ["books.subs", R],
   // §1.9 Recurrentes y cadencias
   ["subs.cuota", R], ["subs.fixed-exists", E], ["subs.cadence-basic", E],
   ["subs.cadence-machinery", R], ["subs.brand-library", R], ["subs.own-chips", C],

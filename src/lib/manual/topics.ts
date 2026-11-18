@@ -1432,6 +1432,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tiendas",
+        mode: "ritmo",
         depth: "tip",
         title: ["Tiendas", "Stores"],
         sum: ["Las tiendas que ves en Compras.", "The stores you see in Shopping."],
@@ -1607,6 +1608,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "cuenta-movimiento",
+        mode: "esencial",
         depth: "tip",
         title: ["Depósito y retiro", "Deposit and withdrawal"],
         sum: ["Mueve dinero dentro o fuera de una cuenta.", "Move money into or out of an account."],
@@ -1654,7 +1656,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-retiro-acumulado",
-        mode: "completo",
+        mode: "ritmo",
         depth: "tip",
         title: ["Acumulado si no se toca", "Accumulated if untouched"],
         sum: ["Lo que tendrías sin sacar nada.", "What you would have without taking any out."],
@@ -1664,6 +1666,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-cuenta-monto",
+        mode: "esencial",
         depth: "tip",
         title: ["Monto del movimiento", "Movement amount"],
         sum: ["Cuánto entra o sale.", "How much goes in or out."],

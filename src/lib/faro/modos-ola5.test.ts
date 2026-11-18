@@ -434,6 +434,27 @@ describe("ola5 · la pureza del arco declara sus límites en su coordenada", () 
  * scan.retirement-stmt, a Completo, y su función gana la puerta
  * (CARA-10). Neto de la enmienda: esencial −6, ritmo +4, completo +2
  * en distribución exacta (113 · 114 · 127 sobre 354).
+ *
+ * ENMIENDA OLA 9 (los asientos fantasma, juzgados — OLA9-CARA): el mapa
+ * nombraba dos asientos que ningún código consume, y el cruce contra
+ * ellos quedaba verde mientras la cara trabajaba en otro modo.
+ * cuenta-movimiento y f-cuenta-monto → accounts.move, a Esencial: el
+ * formulario de movimiento trabaja en Esencial (fallo 7) y su rama no
+ * conoce puerta alguna; accounts.panel no gobernaba nada (el panel se
+ * ancla en accounts.panel-simple y su desglose en nature.class-saldo).
+ * f-cuenta-nombre → accounts.add, a Ritmo: su forma SÍ lleva la puerta
+ * has("accounts.add") — la hermana se salvaba por coincidencia de
+ * modos sobre el mismo fantasma. f-retiro-acumulado → vault.retiro, a
+ * Ritmo: el campo se monta dentro de la forma de Retiro, sin puerta
+ * propia; vault.retiro-fields tampoco gobernaba nada. tiendas →
+ * books.shops, a Ritmo: su único (?) se monta en la tira del engranaje
+ * del libro Compras (cara de Ritmo) y su enseñanza de mostrar/ocultar
+ * solo es verdad allí; crear y elegir en el momento de uso lo siguen
+ * enseñando en Esencial f-tienda y f-cat-compra (settings.catalog-add).
+ * La cerca que impide el regreso es el censo de consumidores de
+ * modos-ola9 §A: todo asiento nombrado aquí tiene consumidor real o
+ * exención escrita. Neto de la enmienda: esencial +1, ritmo ±0,
+ * completo −1 en distribución exacta (118 · 107 · 129 sobre 354).
  */
 
 describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepción)", () => {
@@ -571,7 +592,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "promedio": { f: "vault.span-cut", m: "ritmo" },
     "bote": { f: null, m: "ritmo" },
     "reportar-usado": { f: null, m: "esencial" },
-    "tiendas": { f: "settings.catalog-add", m: "esencial" },
+    "tiendas": { f: "books.shops", m: "ritmo" },
     "categorias-compra": { f: "settings.catalog-add", m: "esencial" },
     "f-tienda": { f: "settings.catalog-add", m: "esencial" },
     "f-cat-compra": { f: "settings.catalog-add", m: "esencial" },
@@ -588,15 +609,15 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "ordenar-ventanas": { f: "vault.meta", m: "ritmo" },
     "fijar": { f: null, m: "ritmo" },
     "cuenta-nueva": { f: "accounts.add", m: "ritmo" },
-    "cuenta-movimiento": { f: "accounts.panel", m: "ritmo" },
+    "cuenta-movimiento": { f: "accounts.move", m: "esencial" },
     "f-bolsa-nombre": { f: "vault.meta", m: "ritmo" },
     "f-bolsa-monto": { f: "vault.meta", m: "ritmo" },
     "f-retiro-primero": { f: "vault.retiro", m: "ritmo" },
     "f-retiro-saldo": { f: "vault.retiro", m: "ritmo" },
-    "f-retiro-acumulado": { f: "vault.retiro-fields", m: "completo" },
-    "f-cuenta-monto": { f: "accounts.panel", m: "ritmo" },
+    "f-retiro-acumulado": { f: "vault.retiro", m: "ritmo" },
+    "f-cuenta-monto": { f: "accounts.move", m: "esencial" },
     "f-cuenta-inicial": { f: "accounts.opening", m: "ritmo" },
-    "f-cuenta-nombre": { f: "accounts.panel", m: "ritmo" },
+    "f-cuenta-nombre": { f: "accounts.add", m: "ritmo" },
     // — capítulo folios —
     "folios": { f: null, m: "esencial" },
     "folios-filtros": { f: null, m: "esencial" },
