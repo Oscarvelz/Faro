@@ -102,7 +102,7 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
             <button type="button" className="btn" onClick={() => run("xlsx")}>{t("export.excel")}</button>
             <button type="button" className="btn secondary" onClick={() => run("pdf")}>{t("export.pdf")}</button>
           </div>
-          <p className="export-note">{t("export.pdfNote")}</p>
+          <p className="export-note">{t(full ? "export.pdfNote" : "export.pdfNote.basic")}</p>
           {canShareFiles() ? (
             <div className="export-share">
               <button type="button" className="btn ghost" onClick={() => { void shareFile(workbookFile(session.ledger, key, lang, names, effPick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} Excel</button>

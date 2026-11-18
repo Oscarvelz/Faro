@@ -940,8 +940,13 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
     if (ui.editing && asBubble && chipRows.some((l) => l.id === ui.editing)) revealEditor(editRef.current);
   }, [ui.editing]);
 
+  // OLA 7 (CARA-9): el bloque declara su libro para que un salto «Ir allí»
+  // resalte el «+» DE ESTE libro y no el primero que el DOM ofrezca.
+  const firstKind = Array.isArray(kind) ? kind[0] : kind;
+  const bookName = firstKind?.startsWith("income") ? "income" : firstKind === "expense-fixed" ? "fixed" : firstKind === "expense-variable" ? "variable" : firstKind === "purchase" ? "shops" : firstKind === "subscription" ? "subs" : undefined;
+
   return (
-    <section className={`card income-book${menu ? " is-menu" : ""}`} data-anchor="book-card">
+    <section className={`card income-book${menu ? " is-menu" : ""}`} data-anchor="book-card" data-book={bookName}>
       <div className="row income-head" style={{ justifyContent: "space-between" }}>
         <h2 className="serif text-2xl lab-head">{title}<Hint topic="libro-categoria" fitParent /></h2>
         <span className="row">

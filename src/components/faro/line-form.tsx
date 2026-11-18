@@ -322,7 +322,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const payOptions = [{ value: "", label: lang === "en" ? "Not specified" : "Sin especificar" }, ...payAccts.map((a) => ({ value: a.id, label: payAcctLabel(a, lang), mark: <BankMark a={a} /> })), { value: CASH_SOURCE, label: lang === "en" ? "Cash" : "Efectivo", mark: <span className="pay-cash-mark"><Banknote className="size-4" /></span> }];
   // A merchant Oscar usually pays one way gets that way prefilled — visibly, and his own pick always wins.
   useEffect(() => {
-    if (existing || payTouched) return;
+    if (existing || payTouched || !has("editor.paid-with")) return;
     const led = session?.ledger;
     const hint = led ? payHintFor(importBook(led), concept) : "";
     if (pay === hintRef.current && hint !== pay) {

@@ -360,7 +360,7 @@ export function Hint({
                       <ArrowRight aria-hidden />
                     </button>
                   ) : null}
-                  {pres ? (
+                  {pres && !stageOn() ? (
                     <button type="button" className="hint-act" data-anchor="hint-pres" onClick={(e) => { e.stopPropagation(); setOpen(false); if (!stageOn()) launchScene(pres.moduleId, pres.sceneId); }}>
                       <Presentation aria-hidden />
                       <span>{lang === "en" ? "See it in the presentation" : "Ver en la presentación"}</span>

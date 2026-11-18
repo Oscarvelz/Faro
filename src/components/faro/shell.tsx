@@ -1761,6 +1761,13 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
   // debt.facts y de lo restaurado en el Archivo (Fo-1): el estado de bóveda
   // guardado se lee, no se reescribe, y su cara en Esencial es la lectora.
   const debtRo: DebtSide | null = debtRaw && !has("debt.scale") ? debtRaw : null;
+  // OLA 7 (G7-O2): la cara lectora de Cuotas (Etapa 3.1, L-2) es alcanzable
+  // solo sin la balanza. Cuando la sección es «subs» por su propio nombre —
+  // el botón «Cuotas» del riel de Esencial, un salto del Manual, un estado
+  // guardado — el panel es SubsReadOnly, no el lector de deudas que la
+  // sección derivaba. La bóveda explícita (owe/owed) sigue aterrizando en
+  // DebtsReadOnly: su cara manda sobre la derivación.
+  const subsFace = !vault && ui.section === "subs" && !has("debt.scale");
   const saveRaw = vault && vault !== "owed" && vault !== "owe" ? vault : null;
   const save = saveRaw && vaultStopVisible(saveRaw, has) ? saveRaw : null;
   const off = !!debt || !!debtRo || !!save;
@@ -1825,7 +1832,7 @@ function BooksHub({ vault, onVault, segRef, vaultRef, slideDir, onSlide, anchors
         {anchors ? <Hint topic="ahorros-tabs" className="is-tabs" corner overlay /> : null}
       </div>
       <div key={paneKey} className={`swipe-pane${save || debt || debtRo ? " is-vault" : ""}${swapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}${sideBook || sideArea ? " has-side" : ""}`} data-dir={slideDir < 0 ? "-1" : "1"}>
-        {debt ? <DebtBook side={debt} /> : debtRo ? <DebtsReadOnly side={debtRo} /> : save ? <Desk focus={save} /> : ui.section === "subs" ? <SubsReadOnly /> : ui.section === "shops" && has("books.shops") ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
+        {debt ? <DebtBook side={debt} /> : debtRo && !subsFace ? <DebtsReadOnly side={debtRo} /> : save ? <Desk focus={save} /> : ui.section === "subs" ? <SubsReadOnly /> : ui.section === "shops" && has("books.shops") ? <Shops /> : <Books mode={ui.section === "fixed" ? "fixed" : ui.section === "variable" ? "variable" : "income"} />}
         {sideArea ? <SideCol>{sideBook ? <BookSide book={sideBook} /> : null}<AreaAdvisor area={sideArea} /></SideCol> : sideBook ? <BookSide book={sideBook} /> : null}
       </div>
     </>

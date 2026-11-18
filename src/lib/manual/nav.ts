@@ -19,7 +19,7 @@ export function reduced(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export type FocusWant = { topic: string; anchor?: string; fold?: string; lens?: string; at: number };
+export type FocusWant = { topic: string; anchor?: string; fold?: string; lens?: string; screen?: string; at: number };
 let pending: FocusWant | null = null;
 
 /** Ask the next screen to open, scroll to and glow one thing. */

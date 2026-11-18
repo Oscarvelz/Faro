@@ -100,7 +100,7 @@ export function CardsGroup({ libros = false }: { libros?: boolean }) {
       {cards.map((c) => <CardRow key={c.id} card={c} edit={edit} onOpen={() => (edit ? null : setOpen(c.id))} onDelete={() => del(c)} onUpdate={() => setOpen(c.id)} />)}
       {empty ? (
         <div className="cg-empty" data-anchor="cards-empty">
-          <p><CardIcon aria-hidden />{L("Añade tus tarjetas: a mano o con una captura de tu banco.", "Add your cards: by hand or with a screenshot from your bank.")}</p>
+          <p><CardIcon aria-hidden />{has("scan.card-capture") ? L("Añade tus tarjetas: a mano o con una captura de tu banco.", "Add your cards: by hand or with a screenshot from your bank.") : L("Añade tus tarjetas a mano.", "Add your cards by hand.")}</p>
           <div className="cg-empty-acts">
             <button type="button" className="btn secondary" data-anchor="card-add-empty" onClick={() => setForm({ mode: "add" })}><Plus aria-hidden />{L("Añadir tarjeta", "Add card")}</button>
             {off.length ? <button type="button" className="btn secondary" onClick={restore}><RotateCcw aria-hidden />{L("Sugeridas", "Suggested")}</button> : null}
@@ -394,7 +394,7 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
           {rw.amount > 0 && has("cards.rewards-redeem") ? <button type="button" className="btn secondary cd-rw-go" data-anchor="card-redeem" onClick={() => setRedeem(true)}>{L("Canjear", "Redeem")}</button> : null}
         </div>
       ) : null}
-      {!card.aprBps ? <button type="button" className="cd-ask" data-anchor="card-ask-apr" onClick={onEdit}>{L("Añade la tasa para un mejor consejo", "Add the rate for better advice")}</button> : null}
+      {!card.aprBps && has("cards.add-full") ? <button type="button" className="cd-ask" data-anchor="card-ask-apr" onClick={onEdit}>{L("Añade la tasa para un mejor consejo", "Add the rate for better advice")}</button> : null}
       {paying ? (
         <div className="form-block cobro-form is-bonus">
           <div className="cobro-grid">

@@ -1446,7 +1446,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       res.open.unshift("money-aside");
     }
     const { patch, open } = res;
-    requestFocus({ topic: id, anchor: go.anchor, fold: open.join(" ") || undefined, lens: go.lens });
+    requestFocus({ topic: id, anchor: go.anchor, fold: open.join(" ") || undefined, lens: go.lens, screen: go.screen });
     snap();
     setUiState((u) => {
       const next = { ...u, ...patch, draft: null, editing: null, calcOpen: false, query: "", highlight: "" };

@@ -217,8 +217,18 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // esencial −6, ritmo +4, completo +2 en distribución exacta
     // (113 · 114 · 127); estos count() son acumulados por alcance
     // (113 · 227 · 354).
-    assert.equal(count("esencial"), 113);
-    assert.equal(count("ritmo"), 227);
+    // ENMIENDA OLA 7 (CARA-1/2/3: el tema sigue al CAMPO, no al libro):
+    // f-primer-pago, f-frecuencia, f-tienda-elegir y f-cat-elegir
+    // R→E (sus campos — subs.cadence-basic, editor.shop-fields — son
+    // de Esencial: dormían sobre campos despiertos); f-proveedor,
+    // f-codigo y f-enlace R→C (su campo, editor.shop-fine, solo
+    // Completo lo pinta: enseñaban despiertos donde su función no
+    // existe). Neto de la ola: esencial +4, ritmo −7, completo +3 en
+    // distribución exacta (117 · 107 · 130); estos count() son
+    // acumulados por alcance (117 · 224 · 354). La valla tema↔campo
+    // vive en modos-ola7.test.ts §A.
+    assert.equal(count("esencial"), 117);
+    assert.equal(count("ritmo"), 224);
     assert.equal(count("completo"), 354);
     assert.equal(MANUAL_TOPICS.length, 354);
   });

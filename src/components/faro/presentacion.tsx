@@ -40,6 +40,20 @@ const SCENE_TOPIC: Record<string, string> = Object.fromEntries(
     .map(([topic, t]) => [t.sceneId, topic]),
 );
 
+/* OLA 7 (E7-1): el puente es de la FAMILIA de la escena, no de una sola
+ * cara: las variantes de una misma ranura (la -h de Esencial y la base de
+ * Ritmo/Completo) comparten el tema del Manual. Sin esto, la escena que
+ * abre Deudas solo ofrecía «Más en el manual» en Esencial, porque
+ * TOPIC_SCENES nombra únicamente la cara -h. El mapa se construye al
+ * revés de como se lee: primero se agrupan las entradas existentes por
+ * su base, y luego cada escena del guion hereda el tema de su familia. */
+const sceneBase = (id: string) => id.replace(/-(h|c)$/, "");
+const topicByBase: Record<string, string> = {};
+for (const [sceneId, topic] of Object.entries(SCENE_TOPIC)) topicByBase[sceneBase(sceneId)] = topic;
+for (const m of MODULES) for (const s of m.scenes) {
+  if (!SCENE_TOPIC[s.id] && topicByBase[sceneBase(s.id)]) SCENE_TOPIC[s.id] = topicByBase[sceneBase(s.id)];
+}
+
 /* ============================ estado del aparato ============================ */
 
 const SEEN_KEY = "faro.seen.pres"; // prefijo compartido: estado de ESTE aparato, jamás del libro

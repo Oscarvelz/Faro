@@ -58,7 +58,23 @@ export function FocusHost() {
         let isBox = true;
         let viaMark = false;
         // `anchor` may list alternatives, best first: "desk-start|desk-list" (the first one on screen wins).
-        if (want.anchor) for (const a of want.anchor.split("|")) { target = firstVisible(`[data-anchor="${CSS.escape(a)}"]`); if (target) break; }
+        // OLA 7 (CARA-9): «book-add» existe una vez por libro, y el primer
+        // visible del DOM puede ser el de OTRO libro que aún ocupa la
+        // pantalla mientras la sección conmuta. La búsqueda se acota al
+        // libro del salto (data-book); si ese libro aún no monta y hay
+        // libros en el DOM, la encuesta ESPERA en vez de resaltar el «+»
+        // equivocado.
+        let waitingBook = false;
+        if (want.anchor) for (const a of want.anchor.split("|")) {
+          if (want.screen) {
+            target = firstVisible(`[data-book="${CSS.escape(want.screen)}"] [data-anchor="${CSS.escape(a)}"]`);
+            if (target) break;
+            if (a === "book-add" && document.querySelector("[data-book]")) { waitingBook = true; break; }
+          }
+          target = firstVisible(`[data-anchor="${CSS.escape(a)}"]`);
+          if (target) break;
+        }
+        if (waitingBook && elapsed < 8000) { timer = window.setTimeout(step, 90); return; }
         if (!target) {
           const hint = firstVisible(`[data-topic="${CSS.escape(want.topic)}"]`);
           if (hint) { target = boxOf(hint); isBox = target !== hint; }
