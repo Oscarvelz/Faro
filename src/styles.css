@@ -95,8 +95,14 @@
 .advice-basis { margin: 0 0 10px; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
 .otros-note { margin: 10px 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
 .hist-btn:disabled { opacity: 0.32; }
-.desk-grid { display: grid; grid-template-columns: repeat(2, var(--desk-col, 44px)); justify-items: center; align-items: center; column-gap: 6px; }
+/* 1.3.307: las columnas de la rejilla nacen de sus hijos (flujo por
+   columna), no de una plantilla fija de dos — sin panel de informes
+   (Esencial) el engranaje ya no hereda una columna fantasma vacía; y la
+   ranura de la cuenta queda topada a su avatar, para que su texto oculto
+   jamás empuje el engranaje fuera del borde. */
+.desk-grid { display: grid; grid-auto-flow: column; grid-auto-columns: var(--desk-col, 44px); justify-items: center; align-items: center; column-gap: 6px; }
 .account-slot:empty { display: none; }
+.account-slot { flex: none; max-width: 44px; overflow: hidden; }
 .icon-desk { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; min-height: 40px; margin-top: 10px; position: relative; }
 .icon-desk .icon-desk-tools { display: flex; align-items: center; gap: 6px; }
 .export-anchor { position: static; }
@@ -3222,6 +3228,7 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 /* Ajustes (Nov 2 2026): no naked buttons. Idioma is one segmented control (one shared frame, the chosen language filled);
    the Estructura templates are equal-width framed buttons; every other quiet (ghost) button in Ajustes gets the theme's outline. */
 .aj-seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: 12px; border: 1px solid var(--line); background: color-mix(in oklab, var(--fg) 4%, var(--surface)); }
+.aj-seg.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .aj-seg-btn { min-height: 44px; min-width: 0; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background-color .18s, color .18s; -webkit-tap-highlight-color: transparent; }
 .aj-seg-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); box-shadow: 0 1px 2px color-mix(in oklab, black 18%, transparent); }
 .aj-seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

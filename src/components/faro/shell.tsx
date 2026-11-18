@@ -1077,6 +1077,7 @@ export function Shell() {
                   <Redo2 />
                 </button>
               </div>
+              <div className="account-slot"><UserButton /></div>
               <div className="desk-grid">
                 {/* Fo-5/X-21 (etapa 3.3): el panel de informes nace en Ritmo
                     (export.panel); en Esencial la barra no lo lleva y la
@@ -1086,7 +1087,6 @@ export function Shell() {
                   <Settings className="size-4" />
                 </button>
               </div>
-              <div className="account-slot"><UserButton /></div>
             </div>
           </div>
           <div className="icon-desk" ref={deskRef}>

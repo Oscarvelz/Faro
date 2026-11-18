@@ -7,7 +7,7 @@ import { SampleRow } from "./sample-mode";
 import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
-import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, importToast } from "./bank-dock";
+import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, modeSign } from "./bank-dock";
 import { ModeImpactDialog, ModeReposedDialog } from "./mode-gate";
 import { MODES, currentRefDay, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
 import { peopleOf } from "@/lib/faro/people";
@@ -5364,25 +5364,25 @@ export function Settings() {
   const [modeReposed, setModeReposed] = useState<{ target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] } | null>(null);
   const currentMode: Mode = session ? modeOf(session.ledger.settings) : "completo";
   const applyMode = (target: Mode) => commit((s) => ({ ...s, settings: { ...s.settings, mode: target } }), target);
-  // El aviso de subida: nombra lo destapado en este libro (o la línea del
-  // modo cuando no hay datos dormidos suyos). Lo comparten pickMode y la
-  // confirmación re-planteada, para que las dos subidas hablen igual.
-  const announceUp = (from: Mode, target: Mode) => {
+  // El aviso de subida (1.3.307, palabra de Oscar): un letrero centrado con
+  // una frase breve — el nombre del modo y su línea — en vez de la tira de
+  // una sola línea cuya lista de destapados se salía de la caja en su
+  // teléfono. Lo comparten pickMode y la confirmación re-planteada, para
+  // que las dos subidas hablen igual; la bajada tiene su espejo.
+  const announceUp = (target: Mode) => {
     if (!session) return;
-    const unlocked = unlockedGroups(session.ledger, from, target);
-    if (unlocked.length === 0) {
-      importToast({ text: t("mode.up.notice.plain").replace("{name}", t(`mode.${target}`)).replace("{line}", t(`mode.${target}.line`)) });
-      return;
-    }
-    const list = unlocked.slice(0, 3).map((g) => t(g.labelKey)).join(", ") + (unlocked.length > 3 ? ` ${t("mode.andmore").replace("{n}", String(unlocked.length - 3))}` : "");
-    importToast({ text: t("mode.up.notice").replace("{name}", t(`mode.${target}`)).replace("{list}", list) });
+    modeSign({ dir: "up", mode: target });
+  };
+  const announceDown = (target: Mode) => {
+    if (!session) return;
+    modeSign({ dir: "down", mode: target });
   };
   const pickMode = (target: Mode) => {
     if (!session || target === currentMode) return;
     if (modeRank(target) > modeRank(currentMode)) {
       guardPanelExit(() => {
         applyMode(target);
-        announceUp(currentMode, target);
+        announceUp(target);
       });
       return;
     }
@@ -5391,7 +5391,7 @@ export function Settings() {
     if (impact.total === 0) {
       guardPanelExit(() => {
         applyMode(target);
-        importToast({ text: t("mode.down.notice").replace("{name}", t(`mode.${target}`)) });
+        announceDown(target);
       });
       return;
     }
@@ -5815,7 +5815,7 @@ export function Settings() {
                 // que preguntar — se aplica con su aviso, como en pickMode.
                 setModeImpactState(null);
                 applyMode(target);
-                importToast({ text: t("mode.down.notice").replace("{name}", t(`mode.${target}`)) });
+                announceDown(target);
                 return;
               }
               setModeImpactState({ ...modeImpactState, impact: fresh, refreshed: true });
@@ -5824,6 +5824,9 @@ export function Settings() {
           }
           setModeImpactState(null);
           applyMode(target);
+          // 1.3.307: la bajada confirmada también aterriza con su letrero
+          // centrado — el diálogo preguntó; el letrero confirma el aterrizaje.
+          announceDown(target);
         }}
       />
     ) : null}
@@ -5855,14 +5858,14 @@ export function Settings() {
             const impact = modeImpact(session.ledger, target, lang, refDay);
             if (impact.total === 0) {
               applyMode(target);
-              importToast({ text: t("mode.down.notice").replace("{name}", t(`mode.${target}`)) });
+              announceDown(target);
               return;
             }
             setModeImpactState({ target, impact, from: live, refDay });
             return;
           }
           applyMode(target);
-          announceUp(live, target);
+          announceUp(target);
         }}
       />
     ) : null}

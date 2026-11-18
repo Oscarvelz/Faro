@@ -24,6 +24,12 @@ const TOAST = "faro-import-toast";
 export const openImport = (files?: File[]) => window.dispatchEvent(new CustomEvent(OPEN, { detail: files ?? null }));
 export type ImportToast = { text: string; undo?: () => void };
 export const importToast = (t: ImportToast) => window.dispatchEvent(new CustomEvent(TOAST, { detail: t }));
+const SIGN = "faro-mode-sign";
+export type ModeSign = { dir: "up" | "down"; mode: "esencial" | "ritmo" | "completo" };
+/** 1.3.307 (Oscar's word): a mode change is announced by a centered card
+ * with one brief sentence — the mode's own line — never by a toast strip
+ * whose words can fall off the box. */
+export const modeSign = (s: ModeSign) => window.dispatchEvent(new CustomEvent(SIGN, { detail: s }));
 
 /** Must match public/sw.js. */
 const SHARE_CACHE = "share-inbox";
@@ -31,17 +37,21 @@ const STATEMENT_KEY = "./share-statement-inbox";
 
 /** Lives once in the shell: the sheet when open, statements shared to Faro, and the toast with Deshacer. */
 export function BankDock() {
-  const { session } = useFaro();
+  const { session, t } = useFaro();
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<File[] | null>(null);
   const [toast, setToast] = useState<ImportToast | null>(null);
+  const [sign, setSign] = useState<ModeSign | null>(null);
   useEffect(() => {
     const on = (e: Event) => { setFiles(((e as CustomEvent).detail as File[] | null) ?? null); setOpen(true); };
     let timer = 0;
     const onToast = (e: Event) => { setToast((e as CustomEvent).detail as ImportToast); window.clearTimeout(timer); timer = window.setTimeout(() => setToast(null), 9000); };
+    let signTimer = 0;
+    const onSign = (e: Event) => { setSign((e as CustomEvent).detail as ModeSign); window.clearTimeout(signTimer); signTimer = window.setTimeout(() => setSign(null), 3600); };
     window.addEventListener(OPEN, on);
     window.addEventListener(TOAST, onToast);
-    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.clearTimeout(timer); };
+    window.addEventListener(SIGN, onSign);
+    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.removeEventListener(SIGN, onSign); window.clearTimeout(timer); window.clearTimeout(signTimer); };
   }, []);
   const ready = !!session;
   useEffect(() => {
@@ -66,6 +76,14 @@ export function BankDock() {
         <div className="imp-toast" role="status">
           <span>{toast.text}</span>
           {toast.undo ? <button type="button" className="imp-toast-undo" onClick={() => { toast.undo?.(); setToast(null); }}>{L(session?.ledger.settings.lang ?? "es", "Deshacer", "Undo")}</button> : null}
+        </div>
+      ) : null}
+      {sign ? (
+        <div className="mode-sign">
+          <div className="mode-sign-card" role="status" data-anchor="mode-sign" onClick={() => setSign(null)}>
+            <p className="mode-sign-head">{t(sign.dir === "up" ? "mode.sign.up" : "mode.sign.down").replace("{name}", t(`mode.${sign.mode}`))}</p>
+            <p className="mode-sign-line">{t(`mode.${sign.mode}.line`)}.</p>
+          </div>
         </div>
       ) : null}
     </>

@@ -246,9 +246,13 @@ describe("ola4 · la confirmación del re-planteado compara premisas (C4-1)", ()
     assert.ok(block.includes("modeRank(target) < modeRank(live)"),
       "si la dirección se invirtió otra vez, la bajada se re-plantea, no se aplica");
     assert.ok(block.includes("setModeImpactState"), "la bajada verdadera se plantea con su pantalla de impacto");
-    assert.ok(block.includes("announceUp(live, target)"), "la subida se anuncia desde el modo VIVO");
-    assert.ok(!block.includes("announceUp(from, target)"),
-      "el `from` congelado al plantearse ya no anuncia ninguna mudanza");
+    // 1.3.307 (palabra de Oscar): el aviso de subida es ahora el letrero
+    // centrado, que solo nombra el destino — announceUp ya no recibe el
+    // origen, así que ninguna premisa, viva o congelada, puede colarse en
+    // el anuncio; la aplicación sigue naciendo del modo vivo re-leído.
+    assert.ok(block.includes("announceUp(target)"), "la subida se anuncia nombrando solo el destino, tras re-leer el modo vivo");
+    assert.ok(!block.includes("announceUp(live, target)") && !block.includes("announceUp(from, target)"),
+      "ningún origen — vivo o congelado — viaja ya dentro del anuncio");
   });
 });
 
