@@ -198,8 +198,18 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // R→C (esencial −1, ritmo −4) y tc-total/tc-minimo/tc-fecha, tasa,
     // convertidor y donde-vive R→E (esencial +6 netos con la gráfica).
     // El mapa tema→función vive en modos-ola4.test.ts §1.
-    assert.equal(count("esencial"), 123);
-    assert.equal(count("ritmo"), 226);
+    // ENMIENDA OLA 5 (fallo 25, la misma ley): diecisiete temas más
+    // cambian de modo por adjudicación — calendario, feriados,
+    // f-icono-cuota y filtro E→R; estudio-prestamos E→C;
+    // tarjetas-captura, rw-canjear, recompensas-tarjetas y
+    // tc-recompensas R→C; y en la dirección del precedente tc-total
+    // (la ola 4): regla-50-30-20, tu-mes, tus-100, que-se-movio,
+    // dentro-del-tope, en-que-se-va y lo-que-me-deben C→R, y
+    // palabras-claras C→E. Neto acumulado: esencial −4, ritmo +3.
+    // El mapa COMPLETO tema→función (los 354) vive en
+    // modos-ola5.test.ts §10.
+    assert.equal(count("esencial"), 119);
+    assert.equal(count("ritmo"), 229);
     assert.equal(count("completo"), 354);
     assert.equal(MANUAL_TOPICS.length, 354);
   });
@@ -209,7 +219,7 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     assert.equal(mode("exportar"), "ritmo"); // export.panel vive desde Ritmo
     assert.equal(mode("ventana-flotante"), "completo"); // H-4: duerme con su función
     assert.equal(mode("deudas-grafica"), "completo"); // OLA 4 (O4-C2): su función debt.chart es de Completo; la «cara lectora» era la montura sin puerta que la ola 3 puertabó — el tema sigue a la función
-    assert.equal(mode("estudio-prestamos"), "esencial"); // su (?) vive en «Tus préstamos, en hechos»
+    assert.equal(mode("estudio-prestamos"), "completo"); // ENMIENDA OLA 5 (O5-C3): el tema enseña el pliegue de préstamos del Estudio (study.loans, Completo) — su propio texto trae la barra y «a quién le debes más»; el (?) de «Tus préstamos, en hechos» es de la cara lectora de Cobros, no de este tema. El pin viejo fijaba la herencia del capítulo contra el fallo 25.
     assert.equal(mode("plan-pago"), "completo"); // loans.payoff-plan
     assert.equal(mode("tc-uso"), "completo"); // el detalle fino de la tarjeta
     assert.equal(mode("estructura"), "ritmo"); // settings.structure-card

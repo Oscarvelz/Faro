@@ -275,6 +275,12 @@ export function Hint({
   // espera en el Manual, en el modo donde el tema vive. El aviso largo
   // (mode.dormant.notice) queda para el salto, donde el Manual sí abre
   // en el tema explicador y su segunda frase es verdad.
+  // Ola 5 (O5-C5): la premisa se enmienda, no la brevedad — el Manual
+  // ahora abre el tema dormido COMO explicación cuando se le pide por su
+  // nombre (el puente de esta burbuja o una caída sin explicador vivo),
+  // así que la burbuja anuncia corto Y tiende el puente, como manda la
+  // Ley de Manuales. Enseñar en el sitio sigue prohibido: la burbuja no
+  // ganó ni una línea del tema.
   const topicSleeps = entry && data ? !modeReaches(root.mode, data.topicMode(entry)) : false;
   const onLink = (term: string) => {
     const dest = data?.linkDest(term);
@@ -319,13 +325,18 @@ export function Hint({
               <span className="hint-scroll">
               <span className="hint-text">{topicSleeps ? <span className="hint-dormant">{t("mode.dormant.short").replace("{name}", t(`mode.${data.topicMode(entry)}`))}</span> : richText(data.bubbleText(entry, lang, alt), data, onLink, { self: entry.id, here: (go) => isHere(go, root.ui), still })}</span>
               {(() => { const pres0 = TOPIC_SCENES[entry.id] ?? (entry.moreId ? TOPIC_SCENES[entry.moreId] : undefined);
-                /* Los puentes siguen al modo (etapa 5): «Más en el manual» solo si el tema vive en el modo
-                 * de la persona, y «Ver en la presentación» solo si el módulo del puente también vive en
-                 * él — un puente a un tema o módulo dormido sería una puerta a ninguna parte. */
-                const alive = modeReaches(root.mode, data.topicMode(entry));
+                /* Los puentes siguen al modo (etapa 5): «Ver en la presentación» solo si el módulo del
+                 * puente también vive en el modo de la persona — un puente a un módulo dormido sería
+                 * una puerta a ninguna parte.
+                 * Ola 5 (O5-C5): «Más en el manual» ya NO sigue al modo. La Ley de Manuales de la casa
+                 * manda que la burbuja (?) sea corta y cierre con «Más en el manual →» a su tema
+                 * exacto — también cuando el tema duerme: el Manual abre ese tema COMO explicación
+                 * (manual.tsx), así que el puente ya no es una puerta a ninguna parte, es la caída
+                 * con explicación que la doctrina promete. La burbuja no cambia en nada más: sigue
+                 * anunciando corto («Eso vive en…») y sin enseñar el tema dormido en el sitio. */
                 const presMod = pres0 ? moduleById(pres0.moduleId) : undefined;
                 const pres = pres0 && presMod && moduleInMode(presMod, root.mode) ? pres0 : undefined;
-                const more = entry.depth === "manual" && alive;
+                const more = entry.depth === "manual";
                 return calc || more || pres ? (
                 <span className="hint-acts">
                   {calc ? (

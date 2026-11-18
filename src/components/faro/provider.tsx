@@ -12,7 +12,7 @@ import {
 import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow } from "@/lib/faro/api";
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas, withSeguroDeVida } from "@/lib/faro/defaults";
-import { browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
+import { apartDecision, browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
 import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
@@ -789,21 +789,53 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   /**
    * C2 (1.3.166): el libro se movió en otra pestaña y ESTA tiene trabajo propio sin guardar.
    * Comportamiento honesto mínimo: el trabajo se aparta a la puerta de conflicto existente
-   * (faro.conflict.<uid> si está libre; si no, faro.conflict.<uid>.tab — Ajustes → Copias lo
-   * ofrece desde el mismo botón), el aviso persistente lo dice, y la pestaña adopta el libro
-   * vigente. Nada se pierde en silencio y nada pisa el libro nuevo.
+   * (la ranura la decide apartDecision — Ajustes → Copias lo ofrece desde el mismo botón),
+   * el aviso persistente lo dice, y la pestaña adopta el libro vigente. Nada se pierde en
+   * silencio y nada pisa el libro nuevo.
+   * Ola 5 (OBS-C5-1): el apartado exige trabajo local de verdad y el banner solo se levanta
+   * si la copia quedó guardada; ver el cuerpo de la función.
    */
   function surfaceTabConflict() {
     const cur = sessionRef.current;
-    try {
-      if (cur) {
-        const mine = JSON.stringify(cur.ledger);
-        if (!localStorage.getItem(conflictKey(userId))) localStorage.setItem(conflictKey(userId), mine);
-        else localStorage.setItem(tabConflictKey(userId), mine);
-        setHasConflict(true);
+    let kept = false;
+    let attempted = false;
+    if (cur) {
+      const mine = JSON.stringify(cur.ledger);
+      const stored = readPack(userId);
+      const storedJson = stored ? JSON.stringify(stored.ledger) : null;
+      // Ola 5 (OBS-C5-1): apartar exige trabajo local DE VERDAD — la
+      // revisión se movió de la base Y el contenido difiere del libro
+      // guardado. El veredicto entre pestañas cuenta la sesión recién
+      // sembrada como sucia (la siembra marca dirty sin trabajo de la
+      // persona): esa pestaña apartaba un libro idéntico al guardado y el
+      // banner afirmaba un trabajo que no hubo. Sin trabajo local no hay
+      // ranura ni banner: se adopta en silencio. Si el pack guardado no
+      // se puede leer, comparar es imposible y la preservación gana el
+      // empate: se aparta como siempre.
+      const hasLocalWork = storedJson === null
+        ? true
+        : mine !== storedJson && cur.ledger.revision !== baseRevRef.current;
+      if (hasLocalWork) {
+        attempted = true;
+        try {
+          // La ranura la decide apartDecision (packguard): jamás se pisa
+          // una divergencia viva; si ninguna ranura puede guardar, no se
+          // aparta y abajo se dice con palabras llanas.
+          const decision = apartDecision(mine, storedJson ?? "", localStorage.getItem(conflictKey(userId)), localStorage.getItem(tabConflictKey(userId)));
+          if (decision === "first" || decision === "reuse-first") { localStorage.setItem(conflictKey(userId), mine); kept = true; }
+          else if (decision === "second" || decision === "reuse-second") { localStorage.setItem(tabConflictKey(userId), mine); kept = true; }
+          else if (decision === "kept") kept = true;
+        } catch { kept = false; /* el apartado falló: el aviso de abajo dice la verdad */ }
       }
-    } catch { /* el aviso sigue en pie aunque el apartado falle */ }
-    setTabBanner(true);
+      try {
+        setHasConflict(Boolean(localStorage.getItem(conflictKey(userId)) || localStorage.getItem(tabConflictKey(userId))));
+      } catch { /* sin almacén no hay conflicto que anunciar */ }
+    }
+    // El banner promete que el trabajo «quedó guardado aparte»: solo se
+    // levanta cuando la copia quedó guardada de verdad. Si se intentó y
+    // no se pudo, se dice eso — ni más, ni menos.
+    if (kept) setTabBanner(true);
+    else if (attempted && cur) importToast({ text: translate(cur.ledger.settings.lang ?? "es", "pack.apartMissed") });
     adoptStoredPack();
   }
 
@@ -924,8 +956,15 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         // first slot if it is free, the second otherwise. This write used to be
         // unconditional: a second lost sync overwrote the first aparted book
         // before the user ever judged it, destroyed unoffered.
-        if (!localStorage.getItem(conflictKey(userId))) localStorage.setItem(conflictKey(userId), JSON.stringify(dirtyLocal));
-        else localStorage.setItem(tabConflictKey(userId), JSON.stringify(dirtyLocal));
+        // Ola 5 (OBS-C5-1): la protección es ahora la decisión compartida
+        // (apartDecision): una divergencia viva jamás se pisa en ninguna
+        // de las dos puertas; si ninguna ranura puede guardar la copia
+        // desplazada, se dice con palabras llanas en vez de prometer.
+        const mineJson = JSON.stringify(dirtyLocal);
+        const decision = apartDecision(mineJson, JSON.stringify(seeded.ledger), localStorage.getItem(conflictKey(userId)), localStorage.getItem(tabConflictKey(userId)));
+        if (decision === "first" || decision === "reuse-first") localStorage.setItem(conflictKey(userId), mineJson);
+        else if (decision === "second" || decision === "reuse-second") localStorage.setItem(tabConflictKey(userId), mineJson);
+        else if (decision === "blocked") importToast({ text: translate(seeded.ledger.settings.lang ?? "es", "pack.apartMissed") });
         setHasConflict(true);
         setSync("conflict");
       }

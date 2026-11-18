@@ -365,7 +365,7 @@ describe("ola1 · los saltos aterrizan", () => {
     assert.ok(provider.includes("openManual(explain ?? id)"), "la caída abre la explicación declarada, no un tema filtrado");
     const manual = SRC("../../components/faro/manual.tsx");
     assert.ok(manual.includes("!topicAlive(tp) ? entryId : undefined"), "el Manual declara su entrada viva cuando el tema destino duerme");
-    assert.ok(manual.includes("currentDormant"), "y si aun así un tema dormido queda abierto, el Manual vuelve a su índice");
+    assert.ok(manual.includes("currentDormant"), "y si aun así un tema dormido queda abierto, la guarda lo gobierna — ENMIENDA OLA 5 (O5-C5): ya no rebota al índice; el Manual lo pinta como explicación suelta (mn-entry-dormant), porque la explicación inalcanzable desde la burbuja corta era el break y la premisa del rebote (la entrada no existe) murió con la cura");
     const hint = SRC("../../components/faro/hint.tsx");
     assert.ok(hint.includes("data.topicMode(tp)"), "la burbuja declara su propio tema vivo con la misma regla");
   });

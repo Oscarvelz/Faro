@@ -141,3 +141,33 @@ export function tabVerdict(storedRev: number | null, baseRev: number | null, ses
   if (dirty || sessionRev !== baseRev) return "surface";
   return "adopt";
 }
+
+export type ApartDecision = "none" | "first" | "second" | "kept" | "reuse-first" | "reuse-second" | "blocked";
+
+/**
+ * La decisión de ranura de la puerta de conflicto (OBS-C5-1, ola 5): dónde
+ * se aparta la copia desplazada (`mine`, el libro en crudo de esta pestaña
+ * o de este aparato) cuando otra línea ganó (`winning`), dadas las dos
+ * ranuras de retención (la principal y la de la pestaña). La regla es la
+ * que el banner promete — la retención guarda la divergencia — y ninguna
+ * costumbre de puerta puede sobrescribir una divergencia viva:
+ * - `none`: mi copia ES la ganadora — no hay divergencia que apartar.
+ * - `kept`: una ranura ya guarda exactamente mi copia — ya está a salvo.
+ * - `first` / `second`: la primera ranura libre, en orden.
+ * - `reuse-first` / `reuse-second`: sin ranura libre, la que guarda
+ *   exactamente la copia GANADORA puede reutilizarse — esa copia dejó de
+ *   ser una divergencia en el momento en que su línea ganó.
+ * - `blocked`: las dos ranuras guardan divergencias vivas ajenas. NO se
+ *   aparta nada y el llamador lo dice con palabras llanas; pisar la
+ *   retención anterior en silencio es lo que la ola 5 condenó.
+ * Pura y sin almacén: las puertas (pestaña y sync) ejecutan el veredicto.
+ */
+export function apartDecision(mine: string, winning: string, first: string | null, second: string | null): ApartDecision {
+  if (mine === winning) return "none";
+  if (first === mine || second === mine) return "kept";
+  if (first === null) return "first";
+  if (second === null) return "second";
+  if (first === winning) return "reuse-first";
+  if (second === winning) return "reuse-second";
+  return "blocked";
+}

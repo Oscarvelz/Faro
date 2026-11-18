@@ -736,18 +736,38 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
   const { start, stop } = spanBounds(span, ui.year, ui.month);
   const seen = dates.filter((date) => date >= start && date <= stop);
   const each = convertMinor(line.amountMinor, line.currency, display, rate);
-  const intact = each * seen.length;
   const drawn = line.history.reduce((sum, charge) => (charge.date >= start && charge.date <= stop ? sum + convertMinor(charge.amountMinor, charge.currency, display, rate) : sum), 0);
   const seriesId = line.seriesId || line.id;
+  // Ola 5 (G5-1): el informe lee el LIBRO para el pasado y el calendario
+  // solo para el horario. El «total» proyectaba el importe de la línea
+  // abierta multiplicado por las fechas vistas: en una
+  // serie de importes variables — la Despensa de la casa: 3400/3600/3500…
+  // — el total contradecía al propio «anotado» (C$20,400 desde junio y
+  // C$21,600 desde julio contra C$21,000 anotados). Ahora cada fecha
+  // vista vale su importe ANOTADO (la misma población que suma `logged`,
+  // convertida línea a línea); el importe de la línea abierta solo
+  // estima una fecha aún sin anotar. Y la cuenta de pagos cuenta líneas
+  // anotadas hasta hoy, no las fechas que el calendario genera contra
+  // hoy (desde diciembre, payDates contaba un séptimo pago sobre las
+  // seis líneas del arco). La lista de fechas pintada no cambia: es el
+  // horario, y el horario sí es del calendario.
   let logged = 0;
+  let paysCount = 0;
+  const byDate = new Map<string, number>();
+  const nowD = new Date();
+  const todayKey = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}-${String(nowD.getDate()).padStart(2, "0")}`;
   for (const bucket of Object.values(session.ledger.months)) {
     for (const item of bucket.lines) {
       if ((item.seriesId || item.id) !== seriesId) continue;
       const on = item.bookedOn && item.bookedOn.startsWith(item.monthKey) ? item.bookedOn : `${item.monthKey}-01`;
+      const minor = convertMinor(item.amountMinor, item.currency, display, rate);
+      byDate.set(on, (byDate.get(on) ?? 0) + minor);
+      if (on <= todayKey) paysCount += 1;
       if (on < start || on > stop) continue;
-      logged += convertMinor(item.amountMinor, item.currency, display, rate);
+      logged += minor;
     }
   }
+  const intact = seen.reduce((sum, date) => sum + (byDate.get(date) ?? each), 0);
 
   function reportUse() {
     const minor = parseAmount(used);
@@ -773,7 +793,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
         </button>
         <button type="button" className="pot-chip is-now" onClick={() => setOpen((v) => !v)}>
           <em>{income ? t("pot.left") : t("pot.pays")}</em>
-          <strong className="num">{income ? fmt(intact - drawn) : String(dates.length)}</strong>
+          <strong className="num">{income ? fmt(intact - drawn) : String(paysCount)}</strong>
         </button>
       </div>
       {open ? (

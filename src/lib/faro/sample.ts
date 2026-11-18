@@ -421,6 +421,22 @@ export function buildSampleArc(ledger: LedgerState): LedgerState {
 
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/**
+ * LÍMITE DECLARADO (Guardián V, obs. 1 y 3 — declarado y cercado, no
+ * sobreconstruido): esta comparación casa por id y JSON línea a línea —
+ * NO compara multiconjuntos, ni cubos, ni orden. Un duplicado con el id
+ * intacto que sustituyera a otra línea, un cruce de cubos o una
+ * reordenación dentro del mes dejarían la casa «pura» a sus ojos, y el
+ * ascenso reescribiría esos estados. Hoy ningún camino de la app produce
+ * ninguno de los tres: no existe acción de duplicar, `upsertLine` archiva
+ * por monthKey y reemplaza en el sitio, y `relocate` nunca sale del mes.
+ * El día que un importador o una migración pueda escribir en el
+ * namespace de la muestra, esta comparación debe volverse de
+ * multiconjuntos ANTES de que ese camino aterrice. Y el ascenso deja
+ * caer los cubos de mes vacíos fuera del arco: los meses solo guardan
+ * líneas, así que no hay pérdida posible — un cubo vacío no contiene
+ * nada que perder (la cerca de la ola 5 lo fija con su espécimen).
+ */
 const linesMatch = (ledger: LedgerState, tpl: Line[]): boolean => {
   const all = allLines(ledger);
   if (all.length !== tpl.length) return false;

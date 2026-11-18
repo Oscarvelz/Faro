@@ -29,7 +29,15 @@ export function richText(text: string, data: ManualData, onLink: (term: string) 
     if (part.startsWith("[[") && part.endsWith("]]")) {
       const term = part.slice(2, -2);
       const dest = data.linkDest(term);
-      const key = dest ? `${dest.go.screen}|${dest.go.fold ?? ""}|${dest.go.anchor ?? dest.topic}` : term;
+      // Ola 5 (E5-1): la deduplicación es por TEMA, no por destino. La
+      // clave vieja (screen|fold|anchor del go) suprimía el segundo de
+      // dos temas que comparten puerta: en la entrada de Compras,
+      // «Categorías de compra» nunca nacía como enlace porque «Tiendas»
+      // ya había gastado su destino común — se leía como nombre y no
+      // saltaba, contra la doctrina de nombres de la casa (el nombre con
+      // su marca punteada SALTA a su control). Censo de la clase: ese
+      // par, en los dos idiomas, y ningún otro en todo el Manual.
+      const key = dest ? dest.topic : term;
       const plain = !dest
         || dest.topic === ctx.self
         || (selfTitle && (selfTitle[0] === term || selfTitle[1] === term))

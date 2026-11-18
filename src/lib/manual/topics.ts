@@ -196,6 +196,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "calendario",
+        mode: "ritmo",
         depth: "manual",
         title: ["Calendario y cambio de mes", "Calendar and changing month"],
         sum: ["Mira cada día del mes y salta a otro mes.", "See each day of the month and jump to another month."],
@@ -208,6 +209,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "feriados",
+        mode: "ritmo",
         depth: "manual",
         title: ["Feriados en el calendario", "Holidays on the calendar"],
         sum: ["Los feriados llevan un aro ámbar.", "Holidays carry an amber ring."],
@@ -730,6 +732,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tarjetas-captura",
+        mode: "completo",
         depth: "manual",
         title: ["Actualizar con una captura", "Update with a screenshot"],
         sum: ["Una captura de tu banco pone tus saldos al día.", "A screenshot from your bank brings balances up to date."],
@@ -783,6 +786,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-recompensas",
+        mode: "completo",
         depth: "tip",
         title: ["Recompensas en la captura", "Rewards in a screenshot"],
         sum: ["Cashback que el banco te debe.", "Cash back the bank owes you."],
@@ -868,6 +872,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "rw-canjear",
+        mode: "completo",
         depth: "tip",
         title: ["Cómo canjear", "How to redeem"],
         sum: ["Crédito al saldo o depósito al banco.", "Statement credit or bank deposit."],
@@ -921,6 +926,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "recompensas-tarjetas",
+        mode: "completo",
         depth: "manual",
         title: ["Recompensas de tarjetas", "Card rewards"],
         sum: ["El cashback de tus tarjetas es dinero que tienes.", "Your cards' cash back is money you have."],
@@ -943,7 +949,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "estudio-prestamos",
-        mode: "esencial",
+        mode: "completo",
         depth: "manual",
         title: ["Préstamos que debo", "Loans I owe"],
         sum: ["Tus préstamos en Estudio.", "Your loans in Study."],
@@ -1267,7 +1273,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         what: ["Al tocar + en un libro de gastos, [[Foto o captura]] lee una foto de un recibo o una captura de pantalla (por ejemplo tus suscripciones de Google Play) y llena el concepto, el monto, el día y la frecuencia. Una captura con varias suscripciones da una línea por cada una. Todo se lee en tu teléfono: la imagen no se sube ni se guarda.", "When you tap + in a spending book, [[Photo or screen]] reads a photo of a receipt or a screenshot (for example your Google Play subscriptions) and fills in the concept, amount, day and frequency. A screenshot with several subscriptions gives one line for each. It is all read on your phone: the picture is never uploaded or kept."],
         how: ["En [[Cuotas]], Compras, Variables o Fijos toca +, luego Foto o captura y elige Cámara para tomar la foto o Imágenes para escoger una o varias de tu galería. Faro las lee una por una; luego revisa cada tarjeta, corrige lo que esté en ámbar, apaga o borra lo que no quieras y toca Guardar. Una suscripción conocida trae su ícono de la [[Biblioteca de íconos]]; si no, Faro recorta el ícono de la app de la captura.", "In [[Plans]], Shopping, Variable or Fixed tap +, then Photo or screen and choose Camera to take the photo or Images to pick one or several from your gallery. Faro reads them one by one; then check each card, fix anything in amber, switch off or delete what you don't want and tap Save. A known subscription brings its icon from the [[Icon library]]; if not, Faro crops the app's icon from the screenshot."],
         tip: ["Ámbar marca lo que Faro tuvo que suponer, como una frecuencia anual sin la palabra «anual». Lo que ya está en tus libros sale apagado para no repetirlo. Si la imagen muestra recompensas o cashback, sale una fila de [[Recompensas de tarjetas]] con la tarjeta (en ámbar si Faro la supuso), encendida; puedes cambiarla, apagarla o quitarla.", "Amber marks what Faro had to guess, like a yearly frequency without the word \"yearly\". Anything already in your books starts switched off so it is never added twice. If the picture shows rewards or cash back, a [[Card rewards]] row appears with the card (amber when Faro guessed it), switched on; you can change it, switch it off or remove it."],
-        go: { screen: "subs", where: ["Libros → Debo → Cuotas → +", "Books → I owe → Plans → +"] },
+        go: { screen: "variable", anchor: "book-add", where: ["Libros → Variables → +", "Books → Variables → +"] },
         terms: [["Recibo", "Receipt"], ["Captura de pantalla", "Screenshot"], ["Escanear", "Scan"]],
       },
       {
@@ -1281,6 +1287,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "filtro",
+        mode: "ritmo",
         depth: "tip",
         title: ["Filtrar", "Filter"],
         sum: ["Muestra solo una categoría.", "Shows only one category."],
@@ -1771,6 +1778,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tu-mes",
+        mode: "ritmo",
         depth: "manual",
         title: ["Tu mes de un vistazo", "Month at a glance"],
         sum: ["Un anillo con a dónde fue cada parte de lo que entró.", "A ring with where each part of your income went."],
@@ -1831,6 +1839,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tus-100",
+        mode: "ritmo",
         depth: "manual",
         title: ["Tus C$100", "Your 100"],
         sum: ["De cada 100 que entran, a dónde va cada uno.", "Of every 100 that comes in, where each one goes."],
@@ -1841,6 +1850,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "en-que-se-va",
+        mode: "ritmo",
         depth: "manual",
         title: ["En qué se va el gasto", "Where spending goes"],
         sum: ["El gasto por rubro, y cada gasto adentro.", "Spending by category, and each expense inside."],
@@ -1862,6 +1872,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "regla-50-30-20",
+        mode: "ritmo",
         depth: "manual",
         title: ["La regla 50 · 30 · 20", "The 50 · 30 · 20 rule"],
         sum: ["Una guía sencilla para repartir lo que entra.", "A simple guide to split what comes in."],
@@ -1872,6 +1883,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "dentro-del-tope",
+        mode: "ritmo",
         depth: "manual",
         title: ["¿Vas dentro del tope?", "Within your limits?"],
         sum: ["Cuánto llevas de lo que te alcanza en cada grupo.", "How much of each group's room you have used."],
@@ -1883,6 +1895,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "que-se-movio",
+        mode: "ritmo",
         depth: "tip",
         title: ["Qué se movió", "What moved"],
         sum: ["Lo que subió o bajó contra el mes pasado.", "What went up or down against last month."],
@@ -1925,6 +1938,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "lo-que-me-deben",
+        mode: "ritmo",
         depth: "manual",
         title: ["Lo que me deben", "What is owed to me"],
         sum: ["Personas que te deben, aparte de tu ingreso.", "People who owe you, apart from your income."],
@@ -2198,6 +2212,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "palabras-claras",
+        mode: "esencial",
         depth: "tip",
         title: ["Palabras claras", "Plain words"],
         sum: ["Un glosario corto de términos de dinero.", "A short glossary of money words."],
@@ -3487,6 +3502,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-icono-cuota",
+        mode: "ritmo",
         depth: "manual",
         title: ["Ícono y color de la cuota", "Payment icon and colour"],
         sum: ["El logo del servicio que pagas y su color.", "The logo of the service you pay, and its colour."],

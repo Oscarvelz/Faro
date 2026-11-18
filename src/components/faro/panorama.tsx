@@ -333,8 +333,12 @@ export function PaceCard({ coach }: { coach: Coach }) {
           <em>{lang === "en" ? "A day, on average" : "Al día, en promedio"}</em>
           {/* Ola 4 (BR4-1): fuera de Completo el promedio es el de los días
               vividos (perDayLived), el mismo de la nota — la cifra y la
-              frase cuentan el mismo mes corrido. */}
-          <strong className="num serif">{fmt(full ? coach.perDay : coach.perDayLived)}</strong>
+              frase cuentan el mismo mes corrido.
+              Ola 5 (BR5-1): en un mes futuro los días vividos son 0 y no
+              hay promedio que pintar: «—», el mismo signo que Completo
+              usa cuando no hay cobertura. La nota de ese mes registra lo
+              anotado; la cifra no finge un ritmo que no ha empezado. */}
+          <strong className="num serif">{!full && elapsed === 0 ? "—" : fmt(full ? coach.perDay : coach.perDayLived)}</strong>
         </div>
         {full ? (
           <div className={extra >= 0 ? "is-good" : "is-bad"}>

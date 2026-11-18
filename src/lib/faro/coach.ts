@@ -60,7 +60,10 @@ export type Coach = {
   hasPrior: boolean;
   perDay: number;
   /** Ola 4 (BR4-1): el promedio sobre los días VIVIDOS del mes de la foto
-   *  (elapsedDays), el denominador de la cara descriptiva de Ritmo. */
+   *  (elapsedDays), el denominador de la cara descriptiva de Ritmo.
+   *  Ola 5 (BR5-1/BR5-2): el numerador es el gasto solo (lo apartado no es
+   *  gasto) y en un mes futuro — 0 días vividos — vale 0: ninguna
+   *  superficie lo pinta como promedio (la PaceCard pone «—»). */
   perDayLived: number;
   daysInMonth: number;
   coverDays: number | null;
@@ -422,7 +425,8 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   // agotamiento es anticipación, y la anticipación es del Patrón (Completo).
   // Todo número aquí es un hecho de hoy: ritmo por día, lo que ya salió,
   // los días corridos y lo que queda (o lo que falta).
-  const elapsedDays = key === `${today.getFullYear()}-${pad(today.getMonth() + 1)}` ? today.getDate() : daysInMonth;
+  const thisMonthKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+  const elapsedDays = key === thisMonthKey ? today.getDate() : key < thisMonthKey ? daysInMonth : 0;
   // Ola 4 (BR4-1): la nota de Ritmo decía «en promedio X al día» con el
   // promedio del mes ENTERO (perDay, el denominador del motor lineal de
   // Completo) y en la misma frase «en N días» con los días vividos: el
@@ -431,12 +435,35 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   // descriptiva divide entre los días VIVIDOS de la foto (perDayLived);
   // perDay y coverDays quedan intactos para el Patrón. En un mes pasado
   // elapsedDays = daysInMonth y las dos cifras coinciden.
-  const perDayLived = elapsedDays > 0 ? Math.round((spend + saved) / elapsedDays) : perDay;
+  // Ola 5 (BR5-1): la equiparación «no-en-curso = mes entero» mentía en
+  // la tercera dirección: un mes FUTURO salía con sus 31 días «vividos»
+  // («Llevas C$15,000.00 en 31 días» cuando van 0, contra el «Del mes ya
+  // van 0 días» de la misma tarjeta). El futuro cuenta 0 días vividos y
+  // su rama de la nota no promedia ni gasta: REGISTRA («Ya anotaste…»),
+  // que es lo único verdad de un mes que no ha empezado. (Con coverDays
+  // vivo hay siempre salida anotada: la rama no necesita caso vacío.)
+  // Ola 5 (BR5-2): el numerador de perDayLived es el GASTO solo. La suma
+  // mezclada (spend + saved) es legítima en el motor del Patrón — perDay
+  // proyecta disponibilidad y lo apartado sí sale de lo disponible —,
+  // pero la frase de Ritmo DESCRIBE y sus verbos dicen gasto: «Gastas en
+  // promedio C$937.50… Llevas C$15,000.00» con gasto real de C$10,000
+  // titulaba como gasto un dinero que sigue siendo de la persona («lo
+  // que guardaste sigue siendo tuyo»). La rama de sobregasto conserva
+  // «Ya salió {spend + saved}»: «salió» nombra la salida total y es
+  // verdad; lo que se corrige es el promedio y el «Llevas», que son del
+  // gasto. perDayLived es solo de esta cara (su otro consumidor es la
+  // PaceCard); con 0 días vividos vale 0 y ninguna superficie lo pinta
+  // como promedio (la PaceCard pone «—»).
+  const perDayLived = elapsedDays > 0 ? Math.round(spend / elapsedDays) : 0;
   const ritmoNote = coverDays === null
     ? linearNote
-    : left <= 0
-      ? L(lang, `Gastas en promedio ${money(perDayLived)} al día. Ya salió ${money(spend + saved)} y faltan ${money(-left)} para cerrar el mes.`, `You spend about ${money(perDayLived)} a day. ${money(spend + saved)} has gone out and ${money(-left)} is missing to close the month.`)
-      : L(lang, `Gastas en promedio ${money(perDayLived)} al día. Llevas ${money(spend + saved)} en ${elapsedDays} ${elapsedDays === 1 ? "día" : "días"} y te queda ${money(left)}.`, `You spend about ${money(perDayLived)} a day. You have spent ${money(spend + saved)} over ${elapsedDays} ${elapsedDays === 1 ? "day" : "days"} and ${money(left)} is left.`);
+    : elapsedDays === 0
+      ? left < 0
+        ? L(lang, `Ya anotaste ${money(spend + saved)} para este mes y faltan ${money(-left)} para cerrarlo.`, `You have already recorded ${money(spend + saved)} for this month and ${money(-left)} is missing to close it.`)
+        : L(lang, `Ya anotaste ${money(spend + saved)} para este mes y te queda ${money(left)}.`, `You have already recorded ${money(spend + saved)} for this month and ${money(left)} is left.`)
+      : left <= 0
+        ? L(lang, `Gastas en promedio ${money(perDayLived)} al día. Ya salió ${money(spend + saved)} y faltan ${money(-left)} para cerrar el mes.`, `You spend about ${money(perDayLived)} a day. ${money(spend + saved)} has gone out and ${money(-left)} is missing to close the month.`)
+        : L(lang, `Gastas en promedio ${money(perDayLived)} al día. Llevas ${money(spend)} en ${elapsedDays} ${elapsedDays === 1 ? "día" : "días"} y te queda ${money(left)}.`, `You spend about ${money(perDayLived)} a day. You have spent ${money(spend)} over ${elapsedDays} ${elapsedDays === 1 ? "day" : "days"} and ${money(left)} is left.`);
   // 1.3.248: en el mes en curso manda el patrón aprendido (patron.ts) — la MISMA
   // lectura que juzga la regla del Asesor y la notificación del shell. Con el
   // patrón listo, la nota ES su frase; mientras aprende, la nota lleva su aviso

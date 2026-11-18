@@ -70,13 +70,19 @@ function Manual({ data }: { data: ManualData }) {
   const topicAlive = (tp: (typeof MANUAL_TOPICS)[number]) => modeReaches(mode, topicMode(tp));
   // Ola 1 (SALIDAS-1, la guarda de la capa): si el tema abierto DUERME en el
   // modo actual — una caída vieja, un enlace profundo, un cambio de modo con
-  // el Manual abierto — el Manual vuelve a su índice en vez de buscar para
-  // siempre una entrada que su propio filtro no pinta. Ningún llamador
-  // puede dejar a la persona sobre una explicación que no existe.
+  // el Manual abierto — el Manual volvía a su índice en vez de buscar para
+  // siempre una entrada que su propio filtro no pinta.
+  // Ola 5 (O5-C5): la guarda cambia de forma, no de propósito. La entrada
+  // ahora EXISTE: el tema dormido abierto a propósito (el puente «Más en el
+  // manual →» de su burbuja, una caída sin tema vivo que la explique) se
+  // pinta como explicación suelta en el cuerpo — con su aviso («Eso vive
+  // en… Aquí tienes su explicación», y ahí la segunda frase es verdad),
+  // sin «Ir allí» (la función duerme: el botón caería en círculo) y fuera
+  // de capítulos, índice y buscador, que se siguen recomponiendo por modo.
+  // Ningún llamador deja a la persona sobre una explicación que no existe,
+  // porque ahora existe; y nadie la encuentra sin haberla pedido por su
+  // nombre.
   const currentDormant = current ? !topicAlive(current) : false;
-  useEffect(() => {
-    if (currentDormant) root.setUi({ manual: "" });
-  }, [currentDormant]);
   const chapters = useMemo(
     () => MANUAL_CHAPTERS.map((ch, ci) => ({ ch, ci, topics: ch.topics.filter((tp) => topicAlive({ ...tp, chapter: ch } as (typeof MANUAL_TOPICS)[number])) })).filter((x) => x.topics.length > 0),
     [MANUAL_CHAPTERS, mode],
@@ -287,6 +293,37 @@ function Manual({ data }: { data: ManualData }) {
             <span className="mn-cover-count">{t("manual.chapters").replace("{c}", String(chapters.length)).replace("{t}", String(visibleCount))}</span>
           </div>
         </header>
+
+        {current && currentDormant ? (
+          <article id={`mn-${current.id}`} className="mn-entry mn-entry-dormant" data-depth={current.depth} data-anchor="mn-current">
+            <p className="mn-dormant-note">{t("mode.dormant.notice").replace("{name}", t(`mode.${topicMode(current)}`))}</p>
+            <h3 className="mn-entry-title"><span className="mn-num">{current.num}</span><span>{say(current.title)}</span></h3>
+            <p className="mn-sum">{say(current.sum)}</p>
+            <dl className="mn-parts">
+              <div>
+                <dt>{t("manual.what")}</dt>
+                <dd>
+                  {(() => { const seen = new Set<string>(); return <>
+                    {richText(say(current.what), data, linkFrom(current.id), { self: current.id, seen })}
+                    {current.whatAlt ? <>{" "}{richText(say(current.whatAlt), data, linkFrom(current.id), { self: current.id, seen })}</> : null}
+                  </>; })()}
+                </dd>
+              </div>
+              {current.how ? (
+                <div>
+                  <dt>{t("manual.how")}</dt>
+                  <dd>{richText(say(current.how), data, linkFrom(current.id), { self: current.id })}</dd>
+                </div>
+              ) : null}
+              {current.tip ? (
+                <div className="mn-tip">
+                  <dt><Lightbulb aria-hidden /><span>{t("manual.tip")}</span></dt>
+                  <dd>{richText(say(current.tip), data, linkFrom(current.id), { self: current.id })}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </article>
+        ) : null}
 
         <nav className="mn-toc" aria-label={t("manual.contents")}>
           <h2 className="mn-toc-title"><BookOpen aria-hidden /><span>{t("manual.contents")}</span></h2>

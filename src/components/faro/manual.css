@@ -163,6 +163,11 @@ html.manual-open { overflow: hidden; }
 }
 .mn-ch-list button > span:last-child { min-width: 0; }
 .mn-entry { padding: 18px 0 16px; border-top: 1px solid color-mix(in oklab, var(--line) 75%, transparent); }
+/* Ola 5 (O5-C5): la explicación suelta de un tema dormido — se enmarca con
+   su aviso para que se lea como lo que es: la explicación de algo que vive
+   en otro modo, no una entrada más del índice. */
+.mn-entry-dormant { margin-top: 14px; padding: 14px 14px 16px; border: 1px solid color-mix(in oklab, var(--line) 75%, transparent); border-radius: 14px; }
+.mn-dormant-note { margin: 0 0 8px; color: var(--muted); font-size: .85rem; font-weight: 650; line-height: 1.45; }
 .mn-entry-title { display: flex; align-items: baseline; margin: 0; font-family: var(--font-serif); font-size: 1.2rem; font-weight: 560; letter-spacing: -.01em; line-height: 1.25; }
 .mn-sum { margin: 4px 0 10px; color: var(--muted); font-size: .92rem; line-height: 1.45; }
 .mn-parts { margin: 0; display: grid; gap: 10px; }
