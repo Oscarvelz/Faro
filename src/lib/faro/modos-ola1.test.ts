@@ -490,7 +490,16 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  cura puertó el botón de la hoja en cards.tsx. Sale
  *  scan.retirement-stmt porque GANÓ consumidor literal — StmtScan se
  *  montaba en Ritmo sin puerta (CARA-10) y la cura puertó su montura en
- *  screens.tsx. */
+ *  screens.tsx.
+ *  ENMIENDAS OLA 8 (con su razón, como la cerca manda): salen
+ *  editor.picker-manage y subs.brand-icon-admin porque GANARON
+ *  consumidor literal — la Cara VIII los encontró administrando desde
+ *  los selectores una planta por debajo de su asiento (CARA-2/3) y la
+ *  cura puertó el `manage` de los selectores en fit-pick.tsx. Sale
+ *  editor.icon-color porque dejó de ser un asiento R/C: asentaba en
+ *  Completo el look propio de la línea, que es dato de creación, y la
+ *  cura lo re-asentó a Esencial (CARA-2, la mentira hermana del
+ *  registro). */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
@@ -509,8 +518,8 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "cards.factory", "cards.ficha", "cards.group", "cards.pay",
   "cards.rewards-reconcile", "cards.update", "cards.usage-advice",
   "central.debt-light", "cobros.quick-list", "cobros.see-all", "cobros.timeline",
-  "debt.line-balance", "debt.total", "editor.icon-color",
-  "editor.nature", "editor.picker-manage", "import.guides",
+  "debt.line-balance", "debt.total",
+  "editor.nature", "import.guides",
   "ins.beneficiaries", "ins.change-notice", "ins.not-money", "ins.piece",
   "ins.premium-line", "lent.bulk-edit", "lent.history", "lent.no-interest",
   "loans.add", "loans.archive", "loans.bulk-edit", "loans.due-day",
@@ -533,7 +542,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "rule.cushion", "rule.floor", "rule.goal", "rule.insurance",
   "rule.outlier", "rule.overcommit", "rule.pace", "rule.recurring",
   "settings.bank-rewards-real", "settings.pin-in-card",
-  "settings.widget-pins", "subs.brand-detect", "subs.brand-icon-admin", "subs.cadence-machinery",
+  "settings.widget-pins", "subs.brand-detect", "subs.cadence-machinery",
   "subs.dues-window", "subs.own-chips", "tools.calculator-use",
   "tools.slip-to-category", "tools.slips-bulk",
   "tools.slips-reuse", "vault.delete", "vault.factory-restore", "vault.free",

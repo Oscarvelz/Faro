@@ -26,32 +26,29 @@ import { findTopic, topicMode } from "../manual/topics.ts";
 
 const SRC = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 
-/* ═══════════ §A · CARA-1/2/3: LA VALLA TEMA↔CAMPO (la que no existía) ═══════════
+/* ═══════════ §A · CARA-1/2/3 + OLA 8 CARA-1: LA VALLA TEMA↔CAMPO, DERIVADA ═══════════
  * Cada tema de campo vive en el modo del ASIENTO DE SU CAMPO — no en el del
- * libro donde el campo casualmente se abre. La cerca cruza el tema contra
- * FEATURES[asiento del campo]: mover el tema, mover el asiento o inventar
- * un campo nuevo sin cruzar rompe aquí. La familia entera del editor, no
- * solo los siete condenados: los sanos quedan como anclas de regresión. */
-describe("ola7 · CARA-1/2/3: el tema sigue al CAMPO, no al libro", () => {
-  const FIELD: [string, string][] = [
-    // los siete de la ola 7
-    ["f-primer-pago", "subs.cadence-basic"],
-    ["f-frecuencia", "subs.cadence-basic"],
-    ["f-tienda-elegir", "editor.shop-fields"],
-    ["f-cat-elegir", "editor.shop-fields"],
-    ["f-proveedor", "editor.shop-fine"],
-    ["f-codigo", "editor.shop-fine"],
-    ["f-enlace", "editor.shop-fine"],
-    // la familia sana, como ancla (ya cruzaba bien contra su campo)
-    ["f-proximo-cobro", "subs.cadence-basic"],
-    ["f-pagado-con", "editor.paid-with"],
-    ["f-activo", "editor.active-toggle"],
-    ["f-recurrente", "editor.recurrent-toggle"],
-    ["f-tasa-anual", "editor.debt-balance"],
-    ["f-saldo-deuda", "editor.debt-balance"],
-    ["f-icono-cuota", "subs.brand-library"],
-  ];
-  for (const [id, seat] of FIELD) {
+ * libro donde el campo casualmente se abre. La ola 7 la escribió como LISTA
+ * de 14 pares; la ola 8 (CARA-1) demostró con su mutación M3 que una lista
+ * no basta: re-asentar f-prestamo-monto de forma CONSISTENTE (el mapa §10 y
+ * los conteos enmendados a la vez) pasaba la suite entera, porque ningún pin
+ * cruzaba el mapa contra el CÓDIGO. Desde la ola 8 los pares se DERIVAN del
+ * mapa §10 (modos-ola5): todo tema f-* con campo declarado entra solo, y dos
+ * familias se cruzan además contra su gobernador legible en el código — las
+ * monturas del editor (tras has() en line-form.tsx) y la puerta de la forma
+ * de Cobros (el has() que abre el alta en debts.tsx). Si el mapa declara
+ * otra cosa que el campo, la cerca acusa la discrepancia mapa↔campo. */
+describe("ola7+8 · el tema sigue al CAMPO: los pares se derivan del mapa §10", () => {
+  const mapaSrc = SRC("./modos-ola5.test.ts");
+  const DECLARED = new Map<string, string>();
+  for (const m of mapaSrc.matchAll(/"(f-[a-z0-9-]+)": \{ f: "([a-z0-9.-]+)", m: "(esencial|ritmo|completo)" \}/g)) {
+    DECLARED.set(m[1]!, m[2]!);
+  }
+  it("la derivación encuentra la familia entera de campos declarados del mapa", () => {
+    assert.ok(DECLARED.size >= 45,
+      `el mapa §10 declara ${DECLARED.size} campos f-*: si el parseo cae en silencio, la cerca derivada no deriva nada`);
+  });
+  for (const [id, seat] of DECLARED) {
     it(`${id} vive en el modo de su campo (${seat})`, () => {
       const tp = findTopic(id);
       assert.ok(tp, `el tema ${id} existe`);
@@ -62,10 +59,12 @@ describe("ola7 · CARA-1/2/3: el tema sigue al CAMPO, no al libro", () => {
     });
   }
 
-  /* El cruce de fuente: la montura de cada (?) vive tras la puerta de su
-   * campo en line-form.tsx (al menos una montura gobernada por el asiento
-   * declarado; los campos de cadencia montan también en el bloque de la
-   * suscripción, donde manda la marca — subs.brand-library). */
+  /* El cruce de fuente, derivado: la montura de cada (?) del editor vive
+   * tras la puerta de su campo en line-form.tsx (al menos una montura
+   * gobernada por el asiento declarado; los campos de cadencia montan
+   * también en el bloque de la suscripción, donde manda la marca —
+   * subs.brand-library). El brazo corre sobre todo par derivado cuyo
+   * asiento se ejerce en el editor y cuyo tema monta en él: sin lista. */
   const form = SRC("../../components/faro/line-form.tsx");
   const governingSeats = (topic: string): Set<string> => {
     const out = new Set<string>();
@@ -80,12 +79,57 @@ describe("ola7 · CARA-1/2/3: el tema sigue al CAMPO, no al libro", () => {
     }
     return out;
   };
-  for (const [id, seat] of FIELD.slice(0, 7)) {
+  /* Declarada, con su razón (la disciplina del trinquete): una montura
+   * cuyo gobernador la heurística no puede nombrar. El bloque de cadencia
+   * de la suscripción no lleva has() propio — ES el editor básico del
+   * fallo 5: sus campos pintan por la rama del kind, y el asiento
+   * subs.cadence-basic se consume en el bloque gemelo de los recurrentes
+   * que no son suscripción. La heurística nombra al has() textual
+   * anterior, el del campo de la marca, que gobierna solo ese campo.
+   * La exención no puede crecer sin escribir aquí su razón. */
+  const MOUNT_SIN_GOBERNADOR_LEGIBLE: Record<string, string> = {
+    "f-proximo-cobro": "su única montura vive en el bloque de cadencia de la suscripción, sin has() propio (el editor básico del fallo 5)",
+  };
+  for (const [id, seat] of DECLARED) {
+    if (!form.includes(`has("${seat}")`) || !form.includes(`"${id}"`)) continue;
+    if (id in MOUNT_SIN_GOBERNADOR_LEGIBLE) continue;
     it(`la (?) de ${id} monta tras la puerta de su campo (${seat})`, () => {
       assert.ok(governingSeats(id).has(seat),
         `${id}: ninguna montura está gobernada por ${seat} (gobiernan: ${[...governingSeats(id)].join(", ")})`);
     });
   }
+  it("las exenciones de montura son las declaradas y de verdad carecen de gobernador legible", () => {
+    for (const id of Object.keys(MOUNT_SIN_GOBERNADOR_LEGIBLE)) {
+      assert.ok(DECLARED.has(id), `${id}: la exención nombra un tema con campo declarado en el mapa`);
+      assert.ok(!governingSeats(id).has(DECLARED.get(id)!),
+        `${id}: si su asiento ya gobierna una montura legible, la exención sobra y debe salir`);
+    }
+  });
+
+  /* La puerta de Cobros (el brazo que mata la mutación M3 de la ola 8):
+   * la forma LoanForm monta en loans.tsx, pero su ALTA la abre un has() en
+   * debts.tsx. Todo tema montado en loans.tsx con campo declarado declara
+   * ESE asiento: si el mapa lo re-asienta a otra parte — aunque enmiende
+   * también su modo y los conteos — el tema viviría en otro modo que la
+   * forma que enseña, y esta cerca lo acusa contra el código, no contra
+   * otra declaración. */
+  it("la familia de Cobros declara el asiento que abre su forma (debts.tsx)", () => {
+    const debts = SRC("../../components/faro/debts.tsx");
+    const loans = SRC("../../components/faro/loans.tsx");
+    const plus = debts.indexOf("cobro-plus");
+    assert.ok(plus > 0, "el botón de alta de Cobros existe");
+    const before = debts.slice(0, plus);
+    const g = before.lastIndexOf('has("');
+    assert.ok(g >= 0, "la puerta del alta es un has()");
+    const door = before.slice(g + 5, before.indexOf('"', g + 5));
+    const mounted = new Set([...loans.matchAll(/"(f-[a-z0-9-]+)"/g)].map((m) => m[1]!));
+    const family = [...mounted].filter((id) => DECLARED.has(id));
+    assert.ok(family.length >= 10, `la familia de Cobros con campo declarado: ${family.length} temas`);
+    for (const id of family) {
+      assert.equal(DECLARED.get(id), door,
+        `${id} monta en la forma de Cobros pero el mapa declara ${DECLARED.get(id)} y la puerta es ${door}: el tema viviría en otro modo que su forma (M3)`);
+    }
+  });
 });
 
 /* ═══════════ §B · CARA-9 (dato): el «go» de f-proveedor es de Compras ═══════════ */
@@ -140,8 +184,34 @@ describe("ola7 · la conservación de los campos puertados, fijada por fin", () 
       "el esparcido que conserva lo no pintado no se toca");
   });
   it("el sourceId solo se borra por el delete nombrado, nunca por omisión", () => {
-    assert.ok(form.includes("if (!pay) delete line.sourceId"),
-      "el borrado deliberado es el del campo despierto que la mano vació, no un efecto del modo");
+    assert.ok(form.includes("if (!payEff) delete line.sourceId"),
+      "el borrado deliberado es el del sello efectivo que la mano vació con el campo despierto, no un efecto del modo (ola 8: la condición es payEff, la guardia de la puerta de G8-4)");
+  });
+  /* OLA 8 · G8-1/2/3: la cerca crece al CENSO CERRADO. El Guardián VIII mutó
+   * tres hermanas y la suite pasaba entera: §D fijaba el inicializador de
+   * «active», no su SALIDA en el literal fresh (MA: active: true resucita
+   * toda línea pausada al editarla); el inicializador de payTouched no
+   * estaba fijado en ninguna parte (MB: nacido en true, el aviso jamás
+   * sella y todo guardado «aprende» de un pay no tocado); y el pin del
+   * delete miraba PRESENCIA, no EXCLUSIVIDAD (MC: un segundo delete de
+   * sourceId escondido entre los legítimos lo borraría en cada edición).
+   * Las tres mutaciones corren rojas bajo los tres pines de aquí abajo. */
+  it("la SALIDA del literal fresh: «active» sale del estado, no true (mutación MA)", () => {
+    const at = form.indexOf("const fresh: Line = {");
+    assert.ok(at > 0, "el literal fresh existe");
+    const block = form.slice(at, form.indexOf("const line: Line", at));
+    assert.ok(block.includes("\n      active,\n"), "el literal lleva el estado tal cual: editar una línea pausada no la resucita");
+    assert.ok(!block.includes("active: true"), "con active: true el guardado resucitaría toda línea pausada, en cualquier modo");
+  });
+  it("el testigo payTouched nace en false (mutación MB)", () => {
+    assert.ok(form.includes("const [payTouched, setPayTouched] = useState(false);"),
+      "si naciera en true, el aviso jamás sellaría y todo guardado «aprendería» de un pay que la mano no tocó en esta forma — también de una línea importada");
+  });
+  it("el censo de deletes de save() es cerrado: ni uno más (mutación MC)", () => {
+    const tally: Record<string, number> = {};
+    for (const m of form.matchAll(/delete line\.(\w+)/g)) tally[m[1]!] = (tally[m[1]!] ?? 0) + 1;
+    assert.deepEqual(tally, { personId: 1, occasionId: 2, to: 1, sourceId: 1, rc: 1, bookedOn: 1, startedOn: 1, fund: 1, fundHost: 2 },
+      "cada delete de save() es deliberado y nombrado: un delete escondido entre los legítimos borraría su campo en cada edición, en cualquier modo");
   });
 });
 
@@ -229,7 +299,7 @@ describe("ola7 · E7-1: «Más en el manual» en todas las caras de la escena", 
     // El mismo algoritmo de la cura, sobre los datos importables: si la
     // agrupación por base dejara de producir el puente de Ritmo/Completo,
     // esta cerca corre roja aunque la forma del fuente no cambie.
-    const base = (id: string) => id.replace(/-(h|c)$/, "");
+    const base = (id: string) => id.replace(/-(h|c|r)$/, "");
     const byBase: Record<string, string> = {};
     for (const [topic, t] of Object.entries(TOPIC_SCENES)) byBase[base(t.sceneId)] = topic;
     assert.equal(byBase["m19-balanza"], "deudas-hechos",

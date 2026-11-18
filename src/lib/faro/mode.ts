@@ -358,7 +358,18 @@ export const FEATURES = {
   "editor.savings-balance": E, "editor.paid-with": R, "editor.active-toggle": R,
   "editor.recurrent-toggle": R, "editor.debt-balance": R, "editor.nature": C,
   "editor.person": R, "editor.for-remit": R, "editor.shop-fields": E,
-  "editor.shop-fine": C, "editor.icon-color": C, "editor.picker-manage": C,
+  "editor.shop-fine": C,
+  /* Ola 8 (CARA-2): dos asientos salen de la deuda del registro. El look
+   * PROPIO de la línea (su ícono y su color) es dato de creación — se
+   * elige al crear, su tema f-color vive en Esencial y la cara ya lo
+   * pintaba allí: editor.icon-color baja a Esencial, porque el asiento
+   * era la mentira, no la cara. Administrar el CATÁLOGO desde el selector
+   * (renombrar, ocultar, el color de la categoría) es administrar, y el
+   * fallo de Catálogo lo da a Ritmo: editor.picker-manage baja a Ritmo y
+   * gana su consumidor en fit-pick.tsx. Administrar las marcas (borrar,
+   * restaurar de fábrica) sigue en Completo y gana el suyo allí mismo
+   * (CARA-3): subs.brand-icon-admin. */
+  "editor.icon-color": E, "editor.picker-manage": R,
   "editor.save-guard": E, "editor.draft": E,
   "selection.engine": R, "selection.delete": R, "selection.move": R,
   /* §1.14 Personas y contactos */

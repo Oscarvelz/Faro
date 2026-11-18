@@ -125,7 +125,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["editor.savings-balance", E], ["editor.paid-with", R], ["editor.active-toggle", R],
   ["editor.recurrent-toggle", R], ["editor.debt-balance", R], ["editor.nature", C],
   ["editor.person", R], ["editor.for-remit", R], ["editor.shop-fields", E],
-  ["editor.shop-fine", C], ["editor.icon-color", C], ["editor.picker-manage", C],
+  ["editor.shop-fine", C], ["editor.icon-color", E], ["editor.picker-manage", R],
   ["editor.save-guard", E], ["editor.draft", E],
   ["selection.engine", R], ["selection.delete", R], ["selection.move", R],
   // §1.14 Personas y contactos

@@ -434,6 +434,18 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     const rcDerived = !existing?.importId && session && pay && pay !== CASH_SOURCE && (kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase")
       ? manualLineRc(importBook(session.ledger), payTarget, payLabel)
       : undefined;
+    // Ola 8 (G8-4): la guardia simétrica en la puerta del guardado. El efecto
+    // del aviso ya obedecía el asiento (ola 7, G7-1), pero el guardado
+    // esparcía el estado `pay` sin mirar el modo VIGENTE: si el modo bajaba
+    // con la forma abierta (la bajada llega de otra pestaña), el campo
+    // desaparecía de la cara y el guardado sellaba igual el «Pagado con»
+    // que el modo ya no pinta — el byte exacto que el principio 2 prohíbe
+    // («lo que el modo no muestra, el modo no lo toca»). Al guardar, si el
+    // asiento no alcanza, el sello efectivo es el que la línea YA traía:
+    // editar conserva el suyo y crear nace sin sello; el aprendizaje, que
+    // aprende del efectivo, tampoco aprende de una mano que en este modo
+    // no pudo tocar el campo. Con el asiento despierto, payEff === pay.
+    const payEff = has("editor.paid-with") ? pay : (existing?.sourceId ?? "");
     const fresh: Line = {
       id: existing?.id ?? uid(),
       seriesId: existing?.seriesId ?? uid(),
@@ -469,7 +481,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       ...(personId ? { personId, ...(existing?.occasionId && existing.personId === personId ? { occasionId: existing.occasionId } : {}) } : {}),
       ...(to && group && session && isRemitCat(session.ledger, categoryId) ? { to } : {}),
       // Unspecified stays absent: the line keeps exactly the shape it had before this field existed.
-      ...(pay ? { sourceId: pay } : {}),
+      ...(payEff ? { sourceId: payEff } : {}),
       // An imported line's reward class is its statement's own — preserved untouched; a hand-entered
       // card line carries the class derived above; anything else carries none (base rate / no rewards).
       ...(existing?.importId && existing.rc ? { rc: existing.rc } : rcDerived ? { rc: rcDerived } : {}),
@@ -491,7 +503,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       if (!personId) { delete line.personId; delete line.occasionId; }
       else if (existing.personId !== personId) delete line.occasionId;
       if (!(to && group && session && isRemitCat(session.ledger, categoryId))) delete line.to;
-      if (!pay) delete line.sourceId;
+      if (!payEff) delete line.sourceId;
       if (!((existing.importId && existing.rc) || rcDerived)) delete line.rc;
       // G-6: la forma no materializa lo que la línea no traía — ni el glifo que
       // solo heredaba de su categoría, ni las fechas de alta vacías.
@@ -537,7 +549,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       const next = upsertLine(s, line);
       const withNature = declare ? declareSeries(next, line.seriesId, declare.nature, declare.host) : next;
       // Learn how he pays this merchant — only from a source he picked or changed here himself, never from an import.
-      return pay && payTouched ? { ...withNature, imports: learnPayHint(importBook(withNature), line.concept, pay) } : withNature;
+      return payEff && payTouched ? { ...withNature, imports: learnPayHint(importBook(withNature), line.concept, payEff) } : withNature;
     }, `${existing ? "Editar" : "Agregar"} ${line.concept}`);
     if (draftKey) clearReportDraft(draftKey);
     onClose();

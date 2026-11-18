@@ -506,8 +506,11 @@ export function AgendaCard({ coach }: { coach: Coach }) {
               // valiera, y a 28px su borde inferior (37px) caía sobre las
               // etiquetas (34px). La raíz cuadrada reparte el peso por área:
               // 10–18px — el mayor se sigue leyendo el mayor, sin tragarse
-              // la línea ni sus días.
-              const size = 10 + Math.sqrt((d.minor ?? 0) / peak) * 8;
+              // la línea ni sus días. (Ola 8, BR8-1: el dominio se acota —
+              // un vencimiento de importe negativo, un abono, daba NaN y
+              // su burbuja no pintaba; con la cota pinta al mínimo, como
+              // una cuota en cero.)
+              const size = 10 + Math.sqrt(Math.max(0, (d.minor ?? 0) / peak)) * 8;
               return <i key={`${d.id}-${d.day}`} style={{ left: `${(d.inDays / 35) * 100}%`, width: size, height: size }} />;
             })}
           </div>

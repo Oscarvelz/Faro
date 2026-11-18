@@ -46,8 +46,12 @@ const SCENE_TOPIC: Record<string, string> = Object.fromEntries(
  * abre Deudas solo ofrecía «Más en el manual» en Esencial, porque
  * TOPIC_SCENES nombra únicamente la cara -h. El mapa se construye al
  * revés de como se lee: primero se agrupan las entradas existentes por
- * su base, y luego cada escena del guion hereda el tema de su familia. */
-const sceneBase = (id: string) => id.replace(/-(h|c)$/, "");
+ * su base, y luego cada escena del guion hereda el tema de su familia.
+ * OLA 8 (OBS-E8-1): la familia también ata la variante -r (las caras de
+ * Ritmo del módulo «Los modos», m15-mudos-r y m15-solo-lectura-r), que la
+ * primera forma de la base dejaba fuera: el día que TOPIC_SCENES nombre
+ * la cara de Esencial, la -r perdería su puente en silencio. */
+const sceneBase = (id: string) => id.replace(/-(h|c|r)$/, "");
 const topicByBase: Record<string, string> = {};
 for (const [sceneId, topic] of Object.entries(SCENE_TOPIC)) topicByBase[sceneBase(sceneId)] = topic;
 for (const m of MODULES) for (const s of m.scenes) {
