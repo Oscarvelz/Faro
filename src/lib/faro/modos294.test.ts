@@ -126,6 +126,10 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["editor.recurrent-toggle", R], ["editor.debt-balance", R], ["editor.nature", C],
   ["editor.person", R], ["editor.for-remit", R], ["editor.shop-fields", E],
   ["editor.shop-fine", C], ["editor.icon-color", E], ["editor.picker-manage", R],
+  // 1.3.315 (fallo de Oscar, 2026-11-18 18:11): corregir un nombre mal
+  // escrito es Esencial en cualquier modo — el renombre gana su asiento
+  // propio y el manifiesto crece 497 → 498 con esta razón.
+  ["editor.picker-rename", E],
   ["editor.save-guard", E], ["editor.draft", E],
   ["selection.engine", R], ["selection.delete", R], ["selection.move", R],
   // §1.14 Personas y contactos

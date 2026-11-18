@@ -7133,8 +7133,15 @@ function CatalogEditor() {
   // su función (ins.setup, la fila del registro para armar el plan de una
   // pieza de seguro). Sin mano, la tarjeta es una ficha que se lee: ni
   // puerta, ni arrastre, ni herramientas.
+  // 1.3.315 (fallo de Oscar, 2026-11-18 18:11): corregir un nombre mal
+  // escrito es Esencial en cualquier modo — la tarjeta también es puerta
+  // en Esencial, pero su mano trae SOLO el lápiz del renombre
+  // (editor.picker-rename, el mismo asiento que gobierna los selectores:
+  // el principio es el nombre, no la superficie). El resto de la mano y
+  // el arrastre siguen a su asiento de administración.
   const canAdmin = has("settings.catalog-admin");
   const canAdminSubs = has("settings.catalog-admin-subs");
+  const canRename = has("editor.picker-rename");
   const canIns = has("ins.setup");
   const handFor = (item: CatalogItem) => (item.kind === "sub" ? canAdminSubs : canAdmin);
   const [itemName, setItemName] = useState("");
@@ -7292,7 +7299,7 @@ function CatalogEditor() {
   }, []);
   const isOpen = (item: CatalogItem) => toolsFor === item.id || renameId === item.id;
   const door = (item: CatalogItem) => (e: ReactMouseEvent) => {
-    if (!handFor(item)) return; // sin mano en este modo, la tarjeta no es puerta
+    if (!handFor(item) && !canRename) return; // sin mano ni lápiz en este modo, la tarjeta no es puerta
     if (renameId === item.id) return; // mid-rename the card is a form, not a door
     // A tool was tapped, not the card — and the membership sign (.cat-badge) is exempt too:
     // it is a sign, not a button (1.3.222), so its tap must be inert. Until 1.3.230 it fell
@@ -7552,6 +7559,7 @@ function CatalogEditor() {
               {/* The whole hand, in Oscar's order: pen · palette · eye · trash (red last). The eye
                   belongs to EVERY kind — no piece is special. */}
               <button type="button" className="icon-btn cat-act" style={{ "--i": 0 } as CSSProperties} aria-label={t("rename")} onClick={() => { setRenameId(item.id); setRenameText(displayName(item, lang)); }}><Pencil className="size-4" /></button>
+              {handFor(item) ? (<>
               <button type="button" className="icon-btn cat-act" style={{ "--i": 1 } as CSSProperties} aria-label={t("cat.replace")} aria-pressed={replaceFor === item.id} onClick={() => { setReplaceFor(replaceFor === item.id ? null : item.id); setPending(null); setReplaceCustom(""); }}><Palette className="size-4" /></button>
               <button type="button" className="icon-btn cat-act" style={{ "--i": 2 } as CSSProperties} aria-label={item.hidden ? t("show") : t("hide")} onClick={() => toggleItemVis(item)}>{item.hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}</button>
               {/* 1.3.251: el pin de Tiendas e IA, entre el ojo y la papelera — se
@@ -7571,6 +7579,7 @@ function CatalogEditor() {
                   inert by law: the door above exempts .cat-badge like a tool, so touching the
                   sign can never fold or unfold the card (Oscar's report, fixed in 1.3.230). */}
               {item.kind === "sub" ? <span className="cat-badge" style={{ "--i": 4 } as CSSProperties} aria-hidden><Repeat2 className="size-4" /></span> : null}
+              </>) : null}
             </span>
           ) : null}
         </>

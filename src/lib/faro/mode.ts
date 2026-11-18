@@ -373,6 +373,16 @@ export const FEATURES = {
    * restaurar de fábrica) sigue en Completo y gana el suyo allí mismo
    * (CARA-3): subs.brand-icon-admin. */
   "editor.icon-color": E, "editor.picker-manage": R,
+  /* Fallo de Oscar (2026-11-18 18:11 EST, revirtiendo el suyo de las
+   * 18:08): «corregir un nombre es esencial. Si algo está mal escrito,
+   * todos los usuarios deben tener la opción de corregir su nombre.»
+   * Corregir un nombre mal escrito es parte de registrar, no de
+   * administrar: el renombre sale de editor.picker-manage y gana su
+   * asiento propio, Esencial, con dos consumidores — los selectores del
+   * catálogo (fit-pick.tsx) y el editor del Catálogo de Ajustes
+   * (screens.tsx) — porque el principio es el nombre, no la superficie.
+   * Ocultar y el color siguen en Ritmo, con picker-manage. */
+  "editor.picker-rename": E,
   "editor.save-guard": E, "editor.draft": E,
   "selection.engine": R, "selection.delete": R, "selection.move": R,
   /* §1.14 Personas y contactos */

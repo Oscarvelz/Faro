@@ -3526,7 +3526,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Tienda de la compra", "Store of the purchase"],
         sum: ["Dónde compraste.", "Where you bought it."],
-        what: ["Toca el campo y elige la tienda, con su logo; el [[Ícono y color]] de la compra está en el [[Botón de paleta]] junto al lápiz. Si no está, escríbela abajo y toca +. El lápiz renombra u oculta varias de una vez. Ver [[Tiendas]].", "Tap the field and pick the store, with its logo; the purchase's [[Icon and colour]] is under the [[Palette button]] beside the pencil. If it is missing, type it below and tap +. The pencil renames or hides several at once. See [[Stores]]."],
+        what: ["Toca el campo y elige la tienda, con su logo; el [[Ícono y color]] de la compra está en el [[Botón de paleta]] junto al lápiz. Si no está, escríbela abajo y toca +. Con el lápiz corriges el nombre si quedó mal escrito; ocultar varias de una vez es de [[Ritmo]]. Ver [[Tiendas]].", "Tap the field and pick the store, with its logo; the purchase's [[Icon and colour]] is under the [[Palette button]] beside the pencil. If it is missing, type it below and tap +. With the pencil you correct the name if it was misspelled; hiding several at once belongs to [[Rhythm]]. See [[Stores]]."],
         go: { screen: "shops", anchor: "book-add", where: ["Libros → Compras → + → Tienda", "Books → Shopping → + → Store"] },
       },
       {
@@ -3534,7 +3534,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Rubro de la compra", "Group of the purchase"],
         sum: ["Qué tipo de compra es.", "What kind of purchase it is."],
-        what: ["Toca el campo y elige el rubro, con su color. Si no está, escríbelo abajo y toca +. El lápiz junto a la X cambia nombre y color, u oculta varios con una sola confirmación (como en el engranaje: las compras conservan su historial). Ver [[Categorías de compra]].", "Tap the field and pick the group, with its colour. If it is missing, type it below and tap +. The pencil beside the X changes name and colour, or hides several with one confirmation (as in the gear: purchases keep their history). See [[Purchase categories]]."],
+        what: ["Toca el campo y elige el rubro, con su color. Si no está, escríbelo abajo y toca +. El lápiz junto a la X corrige el nombre si quedó mal escrito; el color y ocultar varios con una sola confirmación son de [[Ritmo]] (las compras conservan su historial). Ver [[Categorías de compra]].", "Tap the field and pick the group, with its colour. If it is missing, type it below and tap +. The pencil beside the X corrects the name if it was misspelled; colour and hiding several with one confirmation belong to [[Rhythm]] (purchases keep their history). See [[Purchase categories]]."],
         go: { screen: "shops", anchor: "book-add", where: ["Libros → Compras → + → Categoría", "Books → Shopping → + → Category"] },
       },
       {

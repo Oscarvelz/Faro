@@ -133,9 +133,13 @@ export function IconPick({ value, color, onPick }: { value: string; color: strin
 }
 
 export type Manage = {
-  /** Many deletions, one confirmation. `word` names the things ("íconos", "categorías"). */
-  onDropMany: (ids: string[]) => void;
-  word: [string, string, string, string];
+  /** Many deletions, one confirmation. `word` names the things ("íconos", "categorías").
+   * 1.3.315: both are OPTIONAL — a manage carrying only onRename is a
+   * rename-only hand (Esencial, editor.picker-rename): the sheet then
+   * shows no tick boxes and no drop bar, because there is nothing to
+   * drop; correcting the name is all it holds. */
+  onDropMany?: (ids: string[]) => void;
+  word?: [string, string, string, string];
   onRename?: (id: string, name: string) => void;
   onColor?: (id: string, hex: string) => void;
   onRestore?: () => void;
@@ -255,7 +259,11 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
     setName("");
   };
   const dropSelected = () => {
-    if (!manage || !sel.size) return;
+    if (!manage || !manage.onDropMany || !manage.word || !sel.size) return;
+    // 1.3.315: narrowed into locals — the confirm's run closure cannot
+    // carry the guard's narrowing on its own (the one new tsc error of
+    // the piece, caught at the gate and cured here).
+    const dropMany = manage.onDropMany;
     const ids = [...sel];
     const [one, many] = lang === "en" ? [manage.word[2], manage.word[3]] : [manage.word[0], manage.word[1]];
     const verb = manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : manage.hide ? L(lang, "Ocultar", "Hide") : L(lang, "Borrar", "Delete");
@@ -265,7 +273,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
       // Only the books' sheets (1.3.115) ask in red; the editors' pickers keep their confirmation as it was.
       danger: manage.verb || manage.body ? true : undefined,
       yes: verb,
-      run: () => { manage.onDropMany(ids); setSel(new Set()); },
+      run: () => { dropMany(ids); setSel(new Set()); },
     });
   };
   const body = (
@@ -315,7 +323,9 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
               <div className="fit-grid">
                 {g.rows.map((it) => editing ? (
                   <div key={it.id} className={`fit-opt is-manage${sel.has(it.id) ? " is-sel" : ""}`} data-id={it.id}>
-                    <input type="checkbox" className="fit-check" aria-label={`${L(lang, "Elegir", "Select")} ${it.label}`} checked={sel.has(it.id)} onChange={() => toggle(it.id)} />
+                    {manage?.onDropMany || onPalette ? (
+                      <input type="checkbox" className="fit-check" aria-label={`${L(lang, "Elegir", "Select")} ${it.label}`} checked={sel.has(it.id)} onChange={() => toggle(it.id)} />
+                    ) : null}
                     {manage?.onColor ? (
                       <button type="button" className="fit-opt-mark is-paint" aria-label={L(lang, "Color", "Colour")} aria-pressed={paint === it.id} onClick={() => setPaint(paint === it.id ? null : it.id)}>{it.mark}</button>
                     ) : <span className="fit-opt-mark" aria-hidden>{it.mark}</span>}
@@ -349,10 +359,12 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
           )}
         </div>
         {editing && manage ? (
+          manage.onDropMany ? (
           <div className="fit-manage-bar">
             <label className="fit-all"><input type="checkbox" className="fit-check" data-test="manage-all" aria-label={L(lang, "Seleccionar todo", "Select all")} checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(visibleIds))} /><span className="fit-all-long">{L(lang, "Seleccionar todo", "Select all")}</span><span className="fit-all-short" aria-hidden>{L(lang, "Todo", "All")}</span></label>
             <button type="button" className="btn danger fit-drop" data-test="manage-drop" disabled={!sel.size} onClick={dropSelected}>{manage.hide ? <EyeOff /> : <Trash2 />}{manage.verb ? L(lang, manage.verb[0], manage.verb[1]) : manage.hide ? L(lang, "Ocultar", "Hide") : L(lang, "Borrar", "Delete")}{sel.size ? ` (${sel.size})` : ""}</button>
           </div>
+          ) : null
         ) : add && !lookView ? (
           <div className="fit-add">
             <input className="field" value={name} placeholder={add.placeholder} aria-label={add.placeholder} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitAdd(); } }} />
@@ -392,6 +404,8 @@ export function StorePick({ value, onChange, look }: { value: string; onChange: 
             hide: true,
             word: ["tienda", "tiendas", "store", "stores"],
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) } }), L(lang, "Tiendas", "Stores")); },
+            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } }), name),
+          } : has("editor.picker-rename") ? {
             onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } }), name),
           } : undefined}
           add={{
@@ -434,6 +448,8 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (ids.includes(p.id) ? { ...p, hidden: true } : p)) } }), L(lang, "Categorías", "Categories")); },
             onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } }), name),
             onColor: (id, hex) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, color: hex } : p)) } }), hex),
+          } : has("editor.picker-rename") ? {
+            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } }), name),
           } : undefined}
           add={{
             placeholder: t("shops.addCat"),
@@ -478,6 +494,8 @@ export function CategoryPick({ group, value, onChange }: { group: "fixed" | "var
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: markUserVis({ ...st.structure, categories: st.structure.categories.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) }, ids, true) }), L(lang, "Categorías", "Categories")); },
             onRename: (id, name) => patch([id], (c) => ({ ...c, customName: name }), name),
             onColor: (id, hex) => patch([id], (c) => ({ ...c, color: hex }), hex),
+          } : has("editor.picker-rename") ? {
+            onRename: (id, name) => patch([id], (c) => ({ ...c, customName: name }), name),
           } : undefined}
           add={{
             placeholder: L(lang, "Nueva categoría", "New category"),
@@ -518,6 +536,8 @@ export function SubPick({ categoryId, value, onChange }: { categoryId: string; v
             hide: true,
             word: ["subcategoría", "subcategorías", "subcategory", "subcategories"],
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: markUserVis({ ...st.structure, categories: st.structure.categories.map((c) => (c.id === categoryId ? { ...c, subs: c.subs.map((x) => (ids.includes(x.id) ? { ...x, hidden: true } : x)) } : c)) }, ids, true) }), t("sub")); },
+            onRename: (id, name) => patchSubs((list) => list.map((x) => (x.id === id ? { ...x, customName: name } : x)), name),
+          } : has("editor.picker-rename") ? {
             onRename: (id, name) => patchSubs((list) => list.map((x) => (x.id === id ? { ...x, customName: name } : x)), name),
           } : undefined}
           add={{
