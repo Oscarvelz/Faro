@@ -107,10 +107,10 @@
 .pano-month .btn { grid-column: 1 / -1; min-height: 40px; }
 
 /* Agenda */
-.pano-agenda { position: relative; height: 54px; margin: 4px 10px 0; }
+.pano-agenda { position: relative; height: 58px; margin: 4px 10px 0; }
 .pano-agenda > b { position: absolute; left: 0; right: 0; top: 22px; height: 2px; background: var(--line); border-radius: 2px; }
-.pano-agenda-tick { position: absolute; top: 34px; transform: translateX(-50%); font-size: 0.68rem; color: var(--faint); }
-.pano-agenda > i { position: absolute; top: 23px; transform: translate(-50%, -50%); border-radius: 999px; background: var(--warn); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--warn); opacity: 0.9; animation: pano-pop 0.4s ease both; }
+.pano-agenda-tick { position: absolute; top: 37px; transform: translateX(-50%); font-size: 0.68rem; color: var(--faint); }
+.pano-agenda > i { position: absolute; top: 23px; translate: -50% -50%; border-radius: 999px; background: var(--warn); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--warn); opacity: 0.9; animation: pano-pop 0.4s ease both; }
 .pano-due-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .pano-due-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 48px; border-top: 1px solid var(--line); }
 .pano-due-list li svg { width: 16px; height: 16px; color: var(--warn); }

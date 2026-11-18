@@ -499,7 +499,15 @@ export function AgendaCard({ coach }: { coach: Coach }) {
             <b />
             {[0, 7, 14, 21, 28, 35].map((d) => <span key={d} className="pano-agenda-tick" style={{ left: `${(d / 35) * 100}%` }}>{d === 0 ? (lang === "en" ? "today" : "hoy") : `${d}d`}</span>)}
             {coach.dues.map((d) => {
-              const size = 10 + ((d.minor ?? 0) / peak) * 18;
+              // 1.3.311 (la foto de Oscar, 2026-11-18): la burbuja mayor se
+              // veía como una alarma y tapaba su etiqueta de días. La escala
+              // lineal de diámetro (10–28px, anclada al mayor) hacía que el
+              // pago más grande SIEMPRE explotara al máximo, valiera lo que
+              // valiera, y a 28px su borde inferior (37px) caía sobre las
+              // etiquetas (34px). La raíz cuadrada reparte el peso por área:
+              // 10–18px — el mayor se sigue leyendo el mayor, sin tragarse
+              // la línea ni sus días.
+              const size = 10 + Math.sqrt((d.minor ?? 0) / peak) * 8;
               return <i key={`${d.id}-${d.day}`} style={{ left: `${(d.inDays / 35) * 100}%`, width: size, height: size }} />;
             })}
           </div>
