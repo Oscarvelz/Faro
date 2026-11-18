@@ -2493,3 +2493,5 @@ Deuda declarada de la cerca (las 12 exenciones del censo, cada una con su mecani
 No se tocó, por estar a palabra de Oscar: el SOSPECHOSO MAYOR (corregir en Esencial el nombre de la tienda recién creada), preguntado en el chat de Modos con opciones; la cura no lo prejuzga. Tampoco SOS-1, OBS-C8-1, OBS-A7-1, el avance compartido ni el sello rc.
 
 Verificación del padre, por su mano: el informe leído entero; el paquete exacto (462 líneas, 9 archivos); la raíz de la fusión intacta (el archivo no entra en el paquete). Banco del equipo: 14/14 en vivo (las burbujas de Esencial enseñan su texto, el depósito guarda, el índice del Manual lee 118/225). Gates en la copia de integración y en canon: test:faro 1789/1789 (1773 + 16 pines), unit 59/59, tsc 3, i18n 1039/1039 sin claves nuevas, candado intacto.
+
+Datos de publicación: source `91692a8a`, tag `v1.3.314`, main `309c8065` (chunks) + `7b05f016` (control); en vivo verificado a mano: sw `faro-1.3.314`, precache 25/25 con md5 idénticos a dist, rama contra dist 14/14. Entrada `index-Dj9Lhozz.js`, CSS `index-B07tboNi.css` (sin cambio).
