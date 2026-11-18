@@ -384,7 +384,14 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
         <div className="cd-rw" data-anchor="card-rw">
           <Star aria-hidden />
           <span className="cd-rw-text"><em>{L("Recompensas", "Rewards")}<Hint topic="recompensas-tarjetas" /></em><b className="num">{v(rw.amount)}</b>{rw.points != null ? <small className="num">{rw.points.toLocaleString(lang === "en" ? "en-US" : "es-NI")} {L("puntos", "points")}</small> : rw.on ? <small>{dayLabel(rw.on, lang)}</small> : null}</span>
-          {rw.amount > 0 ? <button type="button" className="btn secondary cd-rw-go" data-anchor="card-redeem" onClick={() => setRedeem(true)}>{L("Canjear", "Redeem")}</button> : null}
+          {/* Ola 6 (CARA-7 ≡ E6-1): el asiento de Canjear es Completo
+              (cards.rewards-redeem) y la hoja lo ofrecía en Ritmo sin
+              puerta — el Manual y su propio bloque decían Completo. El
+              monto sigue visible como hecho en todo modo; el botón, que
+              es gestión, nace solo donde su asiento vive. La RedeemSheet
+              queda inalcanzable bajo Completo: este es su único abridor
+              sin puerta (el del grupo ya vive tras cards.rewards-group). */}
+          {rw.amount > 0 && has("cards.rewards-redeem") ? <button type="button" className="btn secondary cd-rw-go" data-anchor="card-redeem" onClick={() => setRedeem(true)}>{L("Canjear", "Redeem")}</button> : null}
         </div>
       ) : null}
       {!card.aprBps ? <button type="button" className="cd-ask" data-anchor="card-ask-apr" onClick={onEdit}>{L("Añade la tasa para un mejor consejo", "Add the rate for better advice")}</button> : null}

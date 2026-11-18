@@ -323,7 +323,11 @@ describe("ola3 · el reconto compara premisas (Cambios C3-1/C3-2/C3-3)", () => {
 
   it("C3-3: la cuarta puerta (adoptStoredPack) anuncia el modo que llega cuando difiere", () => {
     const provider = SRC("../../components/faro/provider.tsx");
-    const start = provider.indexOf("function adoptStoredPack()");
+    // ENMIENDA OLA 6 (C6-1): la firma crece un parámetro — la puerta
+    // recibe la confesión del apartado que no cupo y la compone dentro
+    // del mismo toast de llegada. La afirmación no cambia: la adopción
+    // nombra el modo que aterriza, y solo cuando cambió.
+    const start = provider.indexOf("function adoptStoredPack(");
     const body = provider.slice(start, provider.indexOf("\n  }", start));
     assert.ok(body.includes('translate(inLang, "mode.arrived.tab")'),
       "adoptar el paquete de la otra pestaña nombra el modo que aterriza, como sus tres hermanas");

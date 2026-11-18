@@ -480,7 +480,17 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  lo encontró declarado sin cablear desde la ola 1 (O4-C1: el engranaje
  *  del conversor abría entero el panel de administración de monedas en
  *  Esencial y en Ritmo) y la cura le dio su `has(...)` en instruments.tsx:
- *  el botón del engranaje y la montura del panel viven solo en Completo. */
+ *  el botón del engranaje y la montura del panel viven solo en Completo.
+ *  ENMIENDAS OLA 6 (con su razón, como la cerca manda): salen
+ *  editor.paid-with y editor.active-toggle porque GANARON consumidor
+ *  literal — la Cara VI los encontró pintados y usables en el editor de
+ *  Esencial sin puerta alguna (CARA-1) y la cura les dio su `has(...)` en
+ *  line-form.tsx. Sale cards.rewards-redeem porque GANÓ consumidor
+ *  literal — «Canjear» operaba en Ritmo sin puerta (CARA-7 ≡ E6-1) y la
+ *  cura puertó el botón de la hoja en cards.tsx. Sale
+ *  scan.retirement-stmt porque GANÓ consumidor literal — StmtScan se
+ *  montaba en Ritmo sin puerta (CARA-10) y la cura puertó su montura en
+ *  screens.tsx. */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
@@ -497,10 +507,10 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "books.bubble-editor", "books.cloud", "books.multiselect", "books.shop-catalog-gear",
   "cards.add", "cards.edit-delete",
   "cards.factory", "cards.ficha", "cards.group", "cards.pay",
-  "cards.rewards-reconcile", "cards.rewards-redeem", "cards.update", "cards.usage-advice",
+  "cards.rewards-reconcile", "cards.update", "cards.usage-advice",
   "central.debt-light", "cobros.quick-list", "cobros.see-all", "cobros.timeline",
-  "debt.line-balance", "debt.total", "editor.active-toggle", "editor.icon-color",
-  "editor.nature", "editor.paid-with", "editor.picker-manage", "import.guides",
+  "debt.line-balance", "debt.total", "editor.icon-color",
+  "editor.nature", "editor.picker-manage", "import.guides",
   "ins.beneficiaries", "ins.change-notice", "ins.not-money", "ins.piece",
   "ins.premium-line", "lent.bulk-edit", "lent.history", "lent.no-interest",
   "loans.add", "loans.archive", "loans.bulk-edit", "loans.due-day",
@@ -522,7 +532,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "remit.manage", "remit.send", "rule.category",
   "rule.cushion", "rule.floor", "rule.goal", "rule.insurance",
   "rule.outlier", "rule.overcommit", "rule.pace", "rule.recurring",
-  "scan.retirement-stmt", "settings.bank-rewards-real", "settings.pin-in-card",
+  "settings.bank-rewards-real", "settings.pin-in-card",
   "settings.widget-pins", "subs.brand-detect", "subs.brand-icon-admin", "subs.cadence-machinery",
   "subs.dues-window", "subs.own-chips", "tools.calculator-use",
   "tools.slip-to-category", "tools.slips-bulk",

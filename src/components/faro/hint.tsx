@@ -336,7 +336,16 @@ export function Hint({
                  * anunciando corto («Eso vive en…») y sin enseñar el tema dormido en el sitio. */
                 const presMod = pres0 ? moduleById(pres0.moduleId) : undefined;
                 const pres = pres0 && presMod && moduleInMode(presMod, root.mode) ? pres0 : undefined;
-                const more = entry.depth === "manual";
+                /* Ola 6 (CARA-5): el puente dejó de ser privilegio de los temas
+                 * depth:"manual". Toda burbuja de tema DORMIDO — también las
+                 * cortas, depth:"tip" — anuncia «Eso vive en…» y tiende el
+                 * puente a su explicación: el Manual pinta toda entrada
+                 * dormida como explicación sin mirar su depth, así que la
+                 * caída existe y la burbuja ya no muere en el aviso. La clase
+                 * entera de temas tip dormibles (~83–90) cae con el mecanismo.
+                 * La burbuja despierta no cambia: sin tema dormido no hay
+                 * puente nuevo, y la burbuja sigue sin enseñar en el sitio. */
+                const more = entry.depth === "manual" || topicSleeps;
                 return calc || more || pres ? (
                 <span className="hint-acts">
                   {calc ? (

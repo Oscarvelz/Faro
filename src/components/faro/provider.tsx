@@ -760,7 +760,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   }, [userId]);
 
   /** C2 (1.3.166): adopta el libro guardado — esta pestaña se pone al día antes de seguir editando. */
-  function adoptStoredPack() {
+  function adoptStoredPack(missedText: string | null = null) {
     const stored = readPack(userId);
     if (!stored) {
       // El pack guardado no valida en profundidad: se aparta y esta pestaña deja de escribir
@@ -782,7 +782,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     setSession(blankSession(stored.ledger, stored.dirty));
     if (prevMode !== null && landedMode !== prevMode) {
       const inLang = stored.ledger.settings.lang ?? "es";
-      importToast({ text: translate(inLang, "mode.arrived.tab").replace("{name}", translate(inLang, `mode.${landedMode}`)) });
+      const arrived = translate(inLang, "mode.arrived.tab").replace("{name}", translate(inLang, `mode.${landedMode}`));
+      // Ola 6 (C6-1): si la puerta trae una confesión (el apartado no cupo),
+      // viaja DENTRO de este toast — el dock es de un solo toast y la
+      // llegada reemplazaba a la confesión antes de que se pintara. Cada
+      // frase habla el idioma del libro al que pertenece.
+      importToast({ text: missedText ? `${missedText} ${arrived}` : arrived });
+    } else if (missedText) {
+      importToast({ text: missedText });
     }
   }
 
@@ -834,9 +841,21 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // El banner promete que el trabajo «quedó guardado aparte»: solo se
     // levanta cuando la copia quedó guardada de verdad. Si se intentó y
     // no se pudo, se dice eso — ni más, ni menos.
+    // Ola 6 (C6-1): la confesión ya no se despacha como toast propio — el
+    // dock guarda un solo toast y el de la llegada (adoptStoredPack) la
+    // reemplazaba en el mismo gesto, sin llegar a pintarse jamás; ahora la
+    // confesión viaja dentro del toast de la adopción. Y el banner viejo
+    // cae: si colgaba de un apartado anterior, seguir afirmando «quedó
+    // guardado aparte» tras este blocked sería prometer la retención que
+    // acaba de fallar (la oferta de Copias sigue viva por hasConflict,
+    // que lee las ranuras, no por este banner).
+    let missedText: string | null = null;
     if (kept) setTabBanner(true);
-    else if (attempted && cur) importToast({ text: translate(cur.ledger.settings.lang ?? "es", "pack.apartMissed") });
-    adoptStoredPack();
+    else if (attempted && cur) {
+      missedText = translate(cur.ledger.settings.lang ?? "es", "pack.apartMissed");
+      setTabBanner(false);
+    }
+    adoptStoredPack(missedText);
   }
 
   useEffect(() => {
@@ -951,6 +970,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       // gesto del aviso de subida: nombrar, no bloquear.
       const prevMode = sessionRef.current ? modeOf(sessionRef.current.ledger.settings) : null;
       const landedMode = modeOf(seeded.ledger.settings);
+      // Ola 6 (C6-1): la confesión del blocked se captura, no se despacha —
+      // el toast de la llegada la reemplazaba en el dock único antes de
+      // pintarse. Abajo se compone un solo toast con las dos verdades.
+      let missedText: string | null = null;
       if (dirtyLocal) {
         // PREJUDICE PJ-8: the aparted book gets the tab door's protection — the
         // first slot if it is free, the second otherwise. This write used to be
@@ -964,7 +987,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
         const decision = apartDecision(mineJson, JSON.stringify(seeded.ledger), localStorage.getItem(conflictKey(userId)), localStorage.getItem(tabConflictKey(userId)));
         if (decision === "first" || decision === "reuse-first") localStorage.setItem(conflictKey(userId), mineJson);
         else if (decision === "second" || decision === "reuse-second") localStorage.setItem(tabConflictKey(userId), mineJson);
-        else if (decision === "blocked") importToast({ text: translate(seeded.ledger.settings.lang ?? "es", "pack.apartMissed") });
+        else if (decision === "blocked") missedText = translate(seeded.ledger.settings.lang ?? "es", "pack.apartMissed");
         setHasConflict(true);
         setSync("conflict");
       }
@@ -974,7 +997,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       setSession(blankSession(seeded.ledger, Boolean(dirtyLocal) || seeded.added));
       if (prevMode !== null && landedMode !== prevMode) {
         const inLang = seeded.ledger.settings.lang ?? "es";
-        importToast({ text: translate(inLang, "mode.arrived.notice").replace("{name}", translate(inLang, `mode.${landedMode}`)) });
+        const arrived = translate(inLang, "mode.arrived.notice").replace("{name}", translate(inLang, `mode.${landedMode}`));
+        importToast({ text: missedText ? `${missedText} ${arrived}` : arrived });
+      } else if (missedText) {
+        importToast({ text: missedText });
       }
       return true;
     } catch {
@@ -1706,9 +1732,14 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       const curMode = session ? modeOf(session.ledger.settings) : null;
       setConfirm({
         title: t("settings.conflict"),
+        // Ola 6 (C6-3): la confirmación ya no toma prestado delete.warn —
+        // ese texto promete «Puedes deshacerlo con Deshacer» y este camino
+        // pasa por blankSession: la pila de Deshacer se quema y el libro
+        // actual no queda en ninguna parte. Restaurar tiene su propio
+        // texto, y dice la verdad (pack.restoreWarn).
         body: curMode !== null && landedMode !== curMode
-          ? `${t("delete.warn")} ${t("mode.restore.names").replace("{name}", t(`mode.${landedMode}`))}`
-          : t("delete.warn"),
+          ? `${t("pack.restoreWarn")} ${t("mode.restore.names").replace("{name}", t(`mode.${landedMode}`))}`
+          : t("pack.restoreWarn"),
         danger: true,
         yes: t("yes"),
         run: () => {
@@ -1724,7 +1755,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
           } else {
             localStorage.removeItem(conflictKey(userId));
           }
-          setHasConflict(Boolean(localStorage.getItem(conflictKey(userId))));
+          // Ola 6 (OBS-C6-2): la oferta relee las DOS ranuras, como el
+          // arranque — si la .tab aún guarda una copia, Copias la sigue
+          // ofreciendo sin esperar a una recarga.
+          setHasConflict(Boolean(localStorage.getItem(conflictKey(userId)) || localStorage.getItem(tabConflictKey(userId))));
         },
       });
     },

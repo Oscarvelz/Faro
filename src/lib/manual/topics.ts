@@ -747,7 +747,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Saldo de la tarjeta", "Card balance"],
         sum: ["Lo que debes hoy en la tarjeta.", "What you owe on the card today."],
-        what: ["Saldo es lo que debes hoy en la tarjeta. Al revisar una captura, el tachado es el que tenías y el de la derecha el nuevo; la diferencia sale en ámbar si subió y en turquesa si bajó.", "Balance is what you owe on the card today. When checking a screenshot, the struck-out one is what you had and the right one is the new one; the change shows amber if it rose, teal if it fell."],
+        what: ["Saldo es lo que debes hoy en la tarjeta. De él salen tu disponible (límite menos saldo) y tu pago mínimo.", "Balance is what you owe on the card today. Your available credit (limit minus balance) and your minimum payment come from it."],
         go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards", where: ["Libros → Debo → Préstamos → Tarjetas", "Books → I owe → Loans → Cards"] },
       },
       {
@@ -763,7 +763,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         depth: "tip",
         title: ["Límite de la tarjeta", "Card limit"],
         sum: ["Lo máximo que el banco te deja deber.", "The most the bank lets you owe."],
-        what: ["Límite es lo máximo que el banco te deja deber. Si la captura no lo muestra, Faro lo calcula como saldo + disponible y lo pone en ámbar para que lo revises.", "Limit is the most the bank lets you owe. If the screenshot does not show it, Faro works it out as balance + available and shows it in amber so you can check it."],
+        what: ["Límite es lo máximo que el banco te deja deber. Tu disponible es el límite menos el saldo: lo que aún puedes gastar.", "Limit is the most the bank lets you owe. Your available credit is the limit minus the balance: what you can still spend."],
         go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards", where: ["Libros → Debo → Préstamos → Tarjetas", "Books → I owe → Loans → Cards"] },
       },
       {
@@ -795,6 +795,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-ganado",
+        mode: "completo",
         depth: "tip",
         title: ["Ganado en el año", "Earned this year"],
         sum: ["Lo que la tarjeta te dio, como información.", "What the card gave you, as info."],
@@ -831,8 +832,8 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         id: "tc-otros",
         depth: "tip",
         title: ["Otros datos", "Other figures"],
-        sum: ["Números extra de la captura, como nota.", "Extra numbers from the screenshot, as a note."],
-        what: ["Otros números que Faro encontró en la captura. Con el interruptor encendido se guardan como nota en la tarjeta; nunca cuentan como dinero.", "Other numbers Faro found in the screenshot. With the switch on they are kept as a note on the card; they never count as money at all."],
+        sum: ["Números extra guardados como nota en la tarjeta.", "Extra numbers kept as a note on the card."],
+        what: ["Otros datos guardados como nota en la tarjeta, como el puntaje FICO u otras cifras del banco. Nunca cuentan como dinero.", "Other figures kept as a note on the card, like the FICO score or other numbers from the bank. They never count as money."],
         go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards", where: ["Libros → Debo → Préstamos → Tarjetas", "Books → I owe → Loans → Cards"] },
       },
       {
@@ -855,6 +856,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "tc-promo",
+        mode: "completo",
         depth: "tip",
         title: ["0% hasta", "0% until"],
         sum: ["El fin de una promoción sin interés.", "When an interest-free offer ends."],
@@ -1540,6 +1542,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "leer-estado",
+        mode: "completo",
         depth: "manual",
         title: ["Leer estado", "Scan statement"],
         sum: ["Lee tu estado de retiro con la cámara.", "Read your retirement statement by camera."],
@@ -2266,6 +2269,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "cifras-asesor",
+        mode: "ritmo",
         depth: "tip",
         title: ["Entra, sale, gasto real y queda", "In, out, real spend and left"],
         sum: ["Las cifras del mes que usa el Asesor.", "The month's figures the Advisor uses."],
@@ -3397,6 +3401,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-pagado-con",
+        mode: "ritmo",
         depth: "tip",
         title: ["Pagado con", "Paid with"],
         sum: ["Con qué cuenta, o en efectivo.", "Which account, or cash."],
@@ -3442,6 +3447,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-activo",
+        mode: "ritmo",
         depth: "tip",
         title: ["Activo", "Active"],
         sum: ["Pausar sin borrar.", "Pause without deleting."],
@@ -3452,6 +3458,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-recurrente",
+        mode: "ritmo",
         depth: "manual",
         title: ["Recurrente", "Recurring"],
         sum: ["Se repite cada mes.", "Repeats every month."],
@@ -3493,6 +3500,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-lista",
+        mode: "ritmo",
         depth: "tip",
         title: ["Agregar de la lista", "Add from the list"],
         sum: ["Elige un servicio conocido.", "Pick a known service."],
@@ -3573,6 +3581,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-tasa-anual",
+        mode: "ritmo",
         depth: "tip",
         title: ["Tasa anual %", "Yearly rate %"],
         sum: ["El interés de la deuda.", "The debt's interest."],
@@ -3582,6 +3591,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
       },
       {
         id: "f-saldo-deuda",
+        mode: "ritmo",
         depth: "tip",
         title: ["Saldo que aún debes", "Balance still owed"],
         sum: ["Lo que falta pagar en total.", "What is left to pay in total."],

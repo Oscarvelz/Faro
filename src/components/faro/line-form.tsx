@@ -583,10 +583,19 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             <ThemeSelect value={currency} onChange={(value) => setCurrency(value as Currency)} options={[{ value: "NIO", label: "C$" }, { value: "USD", label: "$" }]} />
           </div>
         )}
+        {/* Ola 6 (CARA-1): «Pagado con» y el interruptor «Activo» son asientos
+            de Ritmo (editor.paid-with / editor.active-toggle) y el editor de
+            Esencial los pintaba y los dejaba usar sin puerta — la cara
+            excedía al registro. La puerta manda, como aguantaron
+            recurrent-toggle y debt-balance: ocultos, su estado nace del
+            registro guardado y la fusión lo conserva (pay solo se aprende
+            si payTouched; active viaja en el spread). */}
+        {has("editor.paid-with") ? (
         <div className="label fit-f" data-f="pay">
           {head(kind === "income-fixed" || kind === "income-variable" ? (lang === "en" ? "Received into" : "Recibido en") : (lang === "en" ? "Paid with" : "Pagado con"), "f-pagado-con")}
           <MarkSelect value={pay} onChange={(v) => { setPay(v); setPayTouched(true); }} options={payOptions} />
         </div>
+        ) : null}
         {(kind === "expense-fixed" || kind === "expense-variable" || kind === "purchase") && has("editor.person") ? <PersonPick value={personId} onChange={setPersonId} /> : null}
         {group ? (
           <div className={`label fit-f${long(nameOf(structure.categories, categoryId))}`} data-f="category">
@@ -687,7 +696,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           {head(t("note"), "f-nota")}
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
-        {kind === "subscription" ? (
+        {kind === "subscription" && has("editor.active-toggle") ? (
           <label className="form-toggle fit-chip is-inline">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             <span>{t("active")}</span><FieldTip topic="f-activo" />
@@ -696,10 +705,12 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       </div>
       {kind !== "subscription" ? (
         <div className="fit-toggles">
+          {has("editor.active-toggle") ? (
           <label className="form-toggle fit-chip">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             <span>{t("active")}</span><FieldTip topic="f-activo" />
           </label>
+          ) : null}
           {has("editor.recurrent-toggle") ? (
           <label className="form-toggle fit-chip">
             <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />

@@ -415,8 +415,42 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   const daysInMonth = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate() || 30;
   const perDay = Math.round((spend + saved) / daysInMonth);
   const coverDays = perDay > 0 && income > 0 ? Math.floor(income / perDay) : null;
+  // Ola 6 (BR6-1): la rama sin cobertura hablaba como si el libro estuviera
+  // vacío en las tres direcciones — «Anota ingresos y gastos…» ante un
+  // diciembre con solo el salario anotado, ante un octubre cerrado con
+  // gasto, ante el mes en curso con salida y sin ingreso. Sin cobertura no
+  // hay ritmo que ver, pero SÍ hay un estado que decir: qué lado está
+  // anotado y en qué dirección mira el mes (el modelo es la Agenda de tres
+  // estados de la ola 2). La frase del libro vacío se conserva byte a byte
+  // para el mes vacío de verdad; las dos caras (la lineal y la de Ritmo)
+  // delegan en esta rama, así que la verdad se dice una sola vez, aquí.
+  const noCoverNote = (): string => {
+    const out = spend + saved;
+    if (income === 0 && out === 0) return L(lang, "Anota ingresos y gastos para ver tu ritmo.", "Record income and spending to see your pace.");
+    const nowKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+    const when = key < nowKey ? "past" : key > nowKey ? "future" : "now";
+    if (out === 0) {
+      // Solo el ingreso está anotado: se nombra presente y se pide solo el gasto.
+      return when === "past"
+        ? L(lang, "Anotaste el ingreso de este mes, pero ningún gasto: no hay ritmo que ver.", "You recorded this month's income but no spending: there is no pace to show.")
+        : when === "future"
+          ? L(lang, "Ya anotaste el ingreso de este mes; cuando anotes gastos verás su ritmo.", "You have already recorded this month's income; once you record spending you will see its pace.")
+          : L(lang, "Ya anotaste el ingreso de este mes; anota gastos para ver tu ritmo.", "You have recorded this month's income; record spending to see your pace.");
+    }
+    if (income === 0) {
+      // Solo la salida está anotada: se nombra con su cifra (la voz «Ya
+      // salió» de la propia tarjeta) y se pide solo el ingreso.
+      return when === "past"
+        ? L(lang, `Salió ${money(out)} en este mes, pero no hay ingreso anotado: no hay ritmo que ver.`, `${money(out)} went out this month, but no income is recorded: there is no pace to show.`)
+        : when === "future"
+          ? L(lang, `Ya anotaste ${money(out)} para este mes; anota el ingreso para ver su ritmo.`, `You have already recorded ${money(out)} for this month; record the income to see its pace.`)
+          : L(lang, `Ya salió ${money(out)} este mes; anota el ingreso para ver tu ritmo.`, `${money(out)} has gone out this month; record the income to see your pace.`);
+    }
+    // Los dos lados anotados pero el promedio redondea a cero: aún no hay ritmo.
+    return L(lang, "Lo anotado en este mes aún no alcanza para ver un ritmo.", "What is recorded this month is not enough yet to show a pace.");
+  };
   const linearNote = coverDays === null
-    ? L(lang, "Anota ingresos y gastos para ver tu ritmo.", "Record income and spending to see your pace.")
+    ? noCoverNote()
     : coverDays >= daysInMonth
       ? L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra te alcanza para ${coverDays} días: el mes completo y ${coverDays - daysInMonth} más.`, `You spend about ${money(perDay)} a day. At that pace your income lasts ${coverDays} days: the whole month and ${coverDays - daysInMonth} more.`)
       : L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra se acaba el día ${coverDays} y faltan ${daysInMonth - coverDays} días.`, `You spend about ${money(perDay)} a day. At that pace your income runs out on day ${coverDays}, ${daysInMonth - coverDays} days short.`);
@@ -691,13 +725,26 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     const debtHasPays = [key, shiftKey(key, -1)].some((k) => (state.months[k]?.lines ?? []).some((l) => l.active && !l.rest && !!(l.loanId || l.cardId || l.lentId)));
     const debtUsage = debtItems >= 1 && (debtHasPays || debtFollowed);
     const mk = (to: BookMode, reason: string, count: number, text: string): UpgradeHint => ({ to, reason, text, sig: `${reason}:${count}` });
+    // Ola 6 (BR6-2): el DISPARO cuenta los prestados como objeto de gestión
+    // (adjudicado: seguir un Me deben de cerca es gestión de Ritmo), pero la
+    // FRASE vieja los llamaba deuda DEL USUARIO — «Tienes deudas con saldo»
+    // ante un único Me deben, y en Ritmo «el plan para salir de ellas» sin
+    // deuda de la que salir. La frase sigue a la composición del libro: si
+    // el uso es solo de cobros, la sugerencia dice cobros; y la rama del
+    // plan no salta, porque la oferta de Completo para deudas (el plan de
+    // pago) no tiene objeto en un libro de solo cobros — sin objeto,
+    // silencio (principio 5), y la evaluación sigue a la rama de naturaleza.
+    // Razón y firma no cambian: debt:N cuenta el uso, como siempre.
+    const lentOnly = debtCards.length + debtLoans.length === 0 && debtLent.length > 0;
     if (mode === "esencial") {
-      if (debtUsage) return mk("ritmo", "debt", debtItems, L(lang, "Tienes deudas con saldo. En Esencial ves sus hechos; en Ritmo las sigues de cerca.", "You have debts with a balance. In Essential you see their facts; in Rhythm you follow them closely."));
+      if (debtUsage) return mk("ritmo", "debt", debtItems, lentOnly
+        ? L(lang, "Te deben con saldo. En Esencial ves sus hechos; en Ritmo los sigues de cerca.", "You are owed money with a balance. In Essential you see their facts; in Rhythm you follow them closely.")
+        : L(lang, "Tienes deudas con saldo. En Esencial ves sus hechos; en Ritmo las sigues de cerca.", "You have debts with a balance. In Essential you see their facts; in Rhythm you follow them closely."));
       if (dormantFunds > 0) return mk("ritmo", "funds", dormantFunds, L(lang, "Tienes dinero en fondos que en Esencial solo se leen. En Ritmo sus bóvedas se abren y los gestionas.", "You have money in funds that in Essential are only read. In Rhythm their vaults open and you manage them."));
       if (reading.subsCount > 0) return mk("ritmo", "subs", reading.subsCount, L(lang, "Tienes cuotas que en Esencial se leen como movimientos. En Ritmo las gestionas como lo que son.", "You have subscriptions that in Essential read as plain movements. In Rhythm you manage them as what they are."));
       return null;
     }
-    if (debtUsage) return mk("completo", "plan", debtItems, L(lang, "Tienes deudas con saldo. En Ritmo las sigues; el plan para salir de ellas vive en Completo.", "You have debts with a balance. In Rhythm you follow them; the plan to get out of them lives in Complete."));
+    if (debtUsage && !lentOnly) return mk("completo", "plan", debtItems, L(lang, "Tienes deudas con saldo. En Ritmo las sigues; el plan para salir de ellas vive en Completo.", "You have debts with a balance. In Rhythm you follow them; the plan to get out of them lives in Complete."));
     if (declaredFunds > 0) return mk("completo", "nature", declaredFunds, L(lang, "Tus fondos tienen naturaleza declarada. Su lectura completa — qué vive sobre tu saldo y qué es dinero aparte — vive en Completo.", "Your funds have a declared nature. Their full reading — what rides on your balance and what is money set aside — lives in Complete."));
     return null;
   })();

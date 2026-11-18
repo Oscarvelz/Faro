@@ -208,8 +208,17 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // palabras-claras C→E. Neto acumulado: esencial −4, ritmo +3.
     // El mapa COMPLETO tema→función (los 354) vive en
     // modos-ola5.test.ts §10.
-    assert.equal(count("esencial"), 119);
-    assert.equal(count("ritmo"), 229);
+    // ENMIENDA OLA 6 (OLA6-CARA: los sospechosos del §10, juzgados):
+    // f-pagado-con, f-activo, f-recurrente, f-saldo-deuda, f-tasa-anual
+    // y f-lista E→R (sus funciones son de Ritmo; dos de sus campos
+    // ganan la puerta que les faltaba); cifras-asesor C→R (su función
+    // es advisor.month-detail); tc-ganado, tc-promo y leer-estado
+    // R→C (sus únicas superficies son de Completo). Neto de la ola:
+    // esencial −6, ritmo +4, completo +2 en distribución exacta
+    // (113 · 114 · 127); estos count() son acumulados por alcance
+    // (113 · 227 · 354).
+    assert.equal(count("esencial"), 113);
+    assert.equal(count("ritmo"), 227);
     assert.equal(count("completo"), 354);
     assert.equal(MANUAL_TOPICS.length, 354);
   });

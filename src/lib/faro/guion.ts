@@ -644,7 +644,12 @@ const BALANZA: Module = {
       { kind: "go", screen: "vault-owed" },
       { kind: "show", anchor: "debt-owed-file", caption: ["Lo saldado se archiva, no se borra: queda su historial.", "Settled debts are filed, not deleted: their history stays."] },
     ] },
-    { id: "m3-tarjetas", chapter: "balanza", anchors: ["debt-tab-loans", "debt-cards"], keys: [["tarjetas", "cards"], ["canjear", "redeem"]], steps: [
+    { id: "m3-tarjetas", chapter: "balanza", notMode: "completo", anchors: ["debt-tab-loans", "debt-cards"], keys: [["tarjetas", "cards"]], steps: [
+      { kind: "go", screen: "vault-owe" },
+      { kind: "tap", anchor: "debt-tab-loans" },
+      { kind: "show", anchor: "debt-cards", caption: ["Bajo Debo viven las tarjetas: Actualizar, su hoja.", "Under I owe live the cards: Update, their sheet."] },
+    ] },
+    { id: "m3-tarjetas-c", chapter: "balanza", mode: "completo", anchors: ["debt-tab-loans", "debt-cards"], keys: [["tarjetas", "cards"], ["canjear", "redeem"]], steps: [
       { kind: "go", screen: "vault-owe" },
       { kind: "tap", anchor: "debt-tab-loans" },
       { kind: "show", anchor: "debt-cards", caption: ["Bajo Debo viven las tarjetas: Actualizar, Canjear, su hoja.", "Under I owe live the cards: Update, Redeem, their sheet."] },
@@ -1616,7 +1621,12 @@ const DEUDAS: Module = {
       { kind: "go", screen: "vault-owe" },
       { kind: "show", anchor: "debt-loans", caption: ["Debo, como hechos: al Banco se le deben C$20,000.", "I owe, as facts: the Bank is owed C$20,000."] },
     ] },
-    { id: "m19-tarjeta", chapter: "los-hechos", minMode: "ritmo", anchors: ["debt-tab-loans", "debt-cards"], keys: [["tarjetas", "cards"], ["canjear", "redeem"]], steps: [
+    { id: "m19-tarjeta", chapter: "los-hechos", minMode: "ritmo", notMode: "completo", anchors: ["debt-tab-loans", "debt-cards"], keys: [["tarjetas", "cards"]], steps: [
+      { kind: "go", screen: "vault-owe" },
+      { kind: "tap", anchor: "debt-tab-loans" },
+      { kind: "show", anchor: "debt-cards", caption: ["Bajo Debo viven las tarjetas: Actualizar, su hoja.", "Under I owe live the cards: Update, their sheet."] },
+    ] },
+    { id: "m19-tarjeta-c", chapter: "los-hechos", mode: "completo", anchors: ["debt-tab-loans", "debt-cards"], keys: [["tarjetas", "cards"], ["canjear", "redeem"]], steps: [
       { kind: "go", screen: "vault-owe" },
       { kind: "tap", anchor: "debt-tab-loans" },
       { kind: "show", anchor: "debt-cards", caption: ["Bajo Debo viven las tarjetas: Actualizar, Canjear, su hoja.", "Under I owe live the cards: Update, Redeem, their sheet."] },

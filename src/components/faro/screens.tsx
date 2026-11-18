@@ -3603,7 +3603,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             {focus && focus !== "save" && pocketFold ? null : (
             <>
             {addFromView ? null : pocketAdd}
-            {pocketKind === "retiro" ? <StmtScan seen={stmtSeen} onSave={applyStatement} tail={
+            {/* Ola 6 (CARA-10): el escaneo del estado de Retiro es asiento de
+                Completo (scan.retirement-stmt) y se pintaba en Ritmo sin
+                puerta, despierto, con su (?) enseñándolo. La puerta cubre la
+                montura entera: su cola es el botón de restaurar la cuenta de
+                fábrica, cuyo asiento (vault.factory-restore) también es
+                Completo — dejarlo pintado por la puerta de atrás sería la
+                misma enfermedad con otro nombre. */}
+            {pocketKind === "retiro" && has("scan.retirement-stmt") ? <StmtScan seen={stmtSeen} onSave={applyStatement} tail={
               <button type="button" className="sub-gear stm-restore" data-test="retiro-restore" aria-label={t("save.restore.label")} onClick={() => confirm({
                 title: t("save.restore.title"),
                 body: t("save.restore.body"),
@@ -4236,7 +4243,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             })()}
           </div>
         )}
-        {ui.notice ? <p className="mt-2 text-sm">{ui.notice}</p> : null}
+        {/* Ola 6 (C6-2): el aviso ya no se pinta aquí. ui.notice solo nacía en
+            Desk, así que el paro de Deshacer en la frontera de modos era
+            silencio para quien estaba en Ajustes y aparecía rancio al volver
+            a Central. Ahora lo pinta el cromo global (shell.tsx), donde la
+            persona está parada; pintarlo también aquí lo duplicaría. */}
       </section>
       )}
     </div>

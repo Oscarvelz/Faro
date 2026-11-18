@@ -1469,6 +1469,11 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
             }}
           >
             {persistFailed ? <p className="persist-banner" role="alert">{t("persist.fail")}</p> : null}
+            {/* Ola 6 (C6-2): el aviso de la app (ui.notice) se pinta en el cromo,
+                junto a los demás banners globales — antes solo nacía dentro de
+                Desk y el paro de Deshacer en la frontera de modos no se
+                anunciaba donde la persona estaba parada (Ajustes incluido). */}
+            {ui.notice ? <p className="persist-banner" role="status">{ui.notice}</p> : null}
             {tabConflict ? <p className="persist-banner" role="alert">{t("pack.tabConflict")} <button type="button" onClick={dismissTabConflict}>{t("close")}</button></p> : null}
             {hub === "books" ? (
               <BooksHub vault={vault} onVault={setVault} segRef={segRef} vaultRef={vaultRef} slideDir={slideDir} onSlide={setSlideDir} anchors bar />

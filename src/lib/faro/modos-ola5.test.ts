@@ -243,8 +243,13 @@ describe("ola5 · O5-C5: desde la burbuja corta la explicación se alcanza", () 
     const hint = SRC("../../components/faro/hint.tsx");
     assert.ok(!hint.includes('entry.depth === "manual" && alive'),
       "la condición que dejaba la explicación inalcanzable salió");
-    assert.ok(hint.includes('const more = entry.depth === "manual";'),
-      "todo tema con entrada de Manual tiende su puente, despierto o dormido");
+    // ENMIENDA OLA 6 (CARA-5): la línea del mecanismo crece — el puente
+    // ya no es solo de los temas con entrada de Manual: toda burbuja de
+    // tema DORMIDO, también las cortas (depth:"tip"), tiende el suyo a su
+    // explicación. La afirmación de esta cerca — todo tema alcanzable
+    // desde una burbuja tiende su puente — queda más fuerte, no más débil.
+    assert.ok(hint.includes('const more = entry.depth === "manual" || topicSleeps;'),
+      "todo tema con entrada de Manual tiende su puente, despierto o dormido — y desde la ola 6 también el tip dormido");
     assert.ok(hint.includes('root.openManual(entry.moreId ?? entry.id)'),
       "el puente abre el Manual en el tema exacto de la burbuja");
   });
@@ -324,7 +329,10 @@ describe("ola5 · OBS-C5-1: apartDecision — la retención cumple lo que el ban
 
   it("la puerta de pestaña exige trabajo local de verdad: revisión movida Y contenido distinto", () => {
     const provider = SRC("../../components/faro/provider.tsx");
-    const door = provider.slice(provider.indexOf("function surfaceTabConflict"), provider.indexOf("function surfaceTabConflict") + 2600);
+    // ENMIENDA OLA 6 (C6-1): la ventana crece de 2600 a 3600 — la cura de
+    // la confesión que viaja en el toast alargó la función con su propio
+    // comentario y su composición; las tres afirmaciones no cambian.
+    const door = provider.slice(provider.indexOf("function surfaceTabConflict"), provider.indexOf("function surfaceTabConflict") + 3600);
     assert.ok(door.includes("revision !== baseRevRef.current"), "sin revisión movida no hay trabajo que apartar: la sesión recién sembrada adopta en silencio");
     assert.ok(door.includes("setTabBanner(true)"), "el banner existe — pero solo tras guardar de verdad (ver la decisión)");
     assert.ok(door.includes("kept"), "el banner cuelga de que la copia quedó guardada");
@@ -411,6 +419,21 @@ describe("ola5 · la pureza del arco declara sus límites en su coordenada", () 
  *   f-saldo-deuda), cifras-asesor (su go nombra un asiento de Ritmo) y
  *   los tc-* de hechos en el capítulo Cobros. Coordenadas en
  *   CURA-OLA5.md.
+ *
+ * ENMIENDA OLA 6 (los sospechosos, juzgados — OLA6-CARA): los f-* del
+ * editor siguen a sus campos: f-pagado-con → editor.paid-with,
+ * f-activo → editor.active-toggle, f-recurrente →
+ * editor.recurrent-toggle, f-saldo-deuda y f-tasa-anual →
+ * editor.debt-balance, todos a Ritmo (los dos primeros ganan su puerta
+ * en la misma ronda: CARA-1). f-lista → cobros.quick-add a Ritmo (las
+ * fichas viven en el alta rápida de Cobros; su f vieja,
+ * subs.cadence-basic, también era falsa). cifras-asesor →
+ * advisor.month-detail, a Ritmo: su función siempre fue el detalle de
+ * Ritmo. tc-ganado → scan.card-capture y tc-promo → cards.add-full, a
+ * Completo: sus únicas superficies viven allí. leer-estado →
+ * scan.retirement-stmt, a Completo, y su función gana la puerta
+ * (CARA-10). Neto de la enmienda: esencial −6, ritmo +4, completo +2
+ * en distribución exacta (113 · 114 · 127 sobre 354).
  */
 
 describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepción)", () => {
@@ -483,14 +506,14 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "tc-minimo": { f: "debt.facts", m: "esencial" },
     "tc-fecha": { f: "debt.facts", m: "esencial" },
     "tc-recompensas": { f: "cards.rewards-group", m: "completo" },
-    "tc-ganado": { f: null, m: "ritmo" },
+    "tc-ganado": { f: "scan.card-capture", m: "completo" },
     "tc-tasa": { f: "cards.ficha", m: "completo" },
     "tc-corte": { f: "cards.ficha", m: "completo" },
     "tc-ultimo-pago": { f: null, m: "ritmo" },
     "tc-otros": { f: null, m: "ritmo" },
     "tc-uso": { f: "advisor.cards-usage", m: "completo" },
     "tc-interes": { f: "cards.ficha", m: "completo" },
-    "tc-promo": { f: null, m: "ritmo" },
+    "tc-promo": { f: "cards.add-full", m: "completo" },
     "tc-total": { f: "debt.facts", m: "esencial" },
     "rw-canjear": { f: "cards.rewards-redeem", m: "completo" },
     "plan-libre": { f: "loans.payoff-plan", m: "completo" },
@@ -559,7 +582,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "donde-vive": { f: null, m: "esencial" },
     "meta": { f: "vault.meta", m: "ritmo" },
     "retiro": { f: "vault.retiro", m: "ritmo" },
-    "leer-estado": { f: "vault.retiro", m: "ritmo" },
+    "leer-estado": { f: "scan.retirement-stmt", m: "completo" },
     "retiro-primerica": { f: "vault.retiro-sheet", m: "completo" },
     "emergencia": { f: "vault.emergencia", m: "ritmo" },
     "ordenar-ventanas": { f: "vault.meta", m: "ritmo" },
@@ -632,7 +655,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "zoom-dedos": { f: "advisor.rules-frame", m: "completo" },
     "asesor-ancho": { f: null, m: "completo" },
     "faro-del-mes": { f: "advisor.rules-frame", m: "completo" },
-    "cifras-asesor": { f: null, m: "completo" },
+    "cifras-asesor": { f: "advisor.month-detail", m: "ritmo" },
     "reconciliacion": { f: null, m: "completo" },
     "horizonte-mes": { f: null, m: "completo" },
     "horizonte-90": { f: "advisor.plan-90", m: "completo" },
@@ -746,17 +769,17 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "formula-monto": { f: null, m: "ritmo" },
     "f-dia": { f: null, m: "esencial" },
     "f-moneda": { f: null, m: "esencial" },
-    "f-pagado-con": { f: null, m: "esencial" },
+    "f-pagado-con": { f: "editor.paid-with", m: "ritmo" },
     "f-categoria": { f: null, m: "esencial" },
     "f-sub": { f: null, m: "esencial" },
     "f-color": { f: null, m: "esencial" },
     "f-nota": { f: null, m: "esencial" },
-    "f-activo": { f: null, m: "esencial" },
-    "f-recurrente": { f: null, m: "esencial" },
+    "f-activo": { f: "editor.active-toggle", m: "ritmo" },
+    "f-recurrente": { f: "editor.recurrent-toggle", m: "ritmo" },
     "f-primer-pago": { f: "books.subs", m: "ritmo" },
     "f-frecuencia": { f: "books.subs", m: "ritmo" },
     "f-proximo-cobro": { f: "subs.cadence-basic", m: "esencial" },
-    "f-lista": { f: "subs.cadence-basic", m: "esencial" },
+    "f-lista": { f: "cobros.quick-add", m: "ritmo" },
     "f-icono-cuota": { f: "subs.brand-library", m: "ritmo" },
     "f-tienda-elegir": { f: "books.shops", m: "ritmo" },
     "f-cat-elegir": { f: "books.shops", m: "ritmo" },
@@ -764,8 +787,8 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "f-proveedor": { f: "books.subs", m: "ritmo" },
     "f-codigo": { f: "books.shops", m: "ritmo" },
     "f-enlace": { f: "books.shops", m: "ritmo" },
-    "f-tasa-anual": { f: null, m: "esencial" },
-    "f-saldo-deuda": { f: null, m: "esencial" },
+    "f-tasa-anual": { f: "editor.debt-balance", m: "ritmo" },
+    "f-saldo-deuda": { f: "editor.debt-balance", m: "ritmo" },
     "f-saldo-ahorro": { f: null, m: "esencial" },
     // — capítulo cuenta —
     "cuenta": { f: null, m: "esencial" },
