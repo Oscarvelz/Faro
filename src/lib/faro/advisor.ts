@@ -831,7 +831,7 @@ function readAdvisorFresh(state: LedgerState, key: string, lang: Lang, names: Na
   } else if (atypical && transferMinor > 0) {
     headline = L(
       lang,
-      `Tu día a día está bien. Lo que desbalanceó el mes ${plural(uniqueCount, "fue 1 compra grande", `fueron ${uniqueCount} compras grandes`)} y un ahorro que salió en el peor momento.`,
+      `Tu día a día está bien. Lo que desbalanceó el mes ${plural(uniqueCount, "fue 1 compra grande", `fueron ${uniqueCount} compras grandes`)} y un apartado en el peor momento.`,
       `Your everyday spending is fine. ${uniqueCount} large ${plural(uniqueCount, "purchase", "purchases")} and a transfer at the wrong moment tipped the month.`,
     );
     action = L(

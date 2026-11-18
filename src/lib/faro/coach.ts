@@ -438,22 +438,52 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
           : L(lang, "Ya anotaste el ingreso de este mes; anota gastos para ver tu ritmo.", "You have recorded this month's income; record spending to see your pace.");
     }
     if (income === 0) {
-      // Solo la salida está anotada: se nombra con su cifra (la voz «Ya
-      // salió» de la propia tarjeta) y se pide solo el ingreso.
+      // Solo la salida está anotada: se pide solo el ingreso. La frase
+      // nombra la salida PARTE A PARTE (adjudicación de Oscar, OBS-A7-1,
+      // 2026-11-18: apartar no es salir — en ninguna frase descriptiva lo
+      // apartado cuenta como «salió», porque ese dinero sigue siendo de
+      // la persona; la partición de verbos de BR5-2 queda sin efecto en
+      // esta rama). El futuro conserva su verbo de registro sobre el
+      // total («Ya anotaste…»), que no afirma ni gasto ni salida.
+      if (when === "future")
+        return L(lang, `Ya anotaste ${money(out)} para este mes; anota el ingreso para ver su ritmo.`, `You have already recorded ${money(out)} for this month; record the income to see its pace.`);
+      if (saved === 0)
+        return when === "past"
+          ? L(lang, `Salió ${money(spend)} en este mes, pero no hay ingreso anotado: no hay ritmo que ver.`, `${money(spend)} went out this month, but no income is recorded: there is no pace to show.`)
+          : L(lang, `Ya salió ${money(spend)} este mes; anota el ingreso para ver tu ritmo.`, `${money(spend)} has gone out this month; record the income to see your pace.`);
+      if (spend === 0)
+        return when === "past"
+          ? L(lang, `Apartaste ${money(saved)} en este mes, pero no hay ingreso anotado: no hay ritmo que ver.`, `You set aside ${money(saved)} this month, but no income is recorded: there is no pace to show.`)
+          : L(lang, `Apartaste ${money(saved)} este mes; anota el ingreso para ver tu ritmo.`, `You set aside ${money(saved)} this month; record the income to see your pace.`);
       return when === "past"
-        ? L(lang, `Salió ${money(out)} en este mes, pero no hay ingreso anotado: no hay ritmo que ver.`, `${money(out)} went out this month, but no income is recorded: there is no pace to show.`)
-        : when === "future"
-          ? L(lang, `Ya anotaste ${money(out)} para este mes; anota el ingreso para ver su ritmo.`, `You have already recorded ${money(out)} for this month; record the income to see its pace.`)
-          : L(lang, `Ya salió ${money(out)} este mes; anota el ingreso para ver tu ritmo.`, `${money(out)} has gone out this month; record the income to see your pace.`);
+        ? L(lang, `Salió ${money(spend)} y apartaste ${money(saved)} en este mes, pero no hay ingreso anotado: no hay ritmo que ver.`, `${money(spend)} went out and you set aside ${money(saved)} this month, but no income is recorded: there is no pace to show.`)
+        : L(lang, `Ya salió ${money(spend)} y apartaste ${money(saved)} este mes; anota el ingreso para ver tu ritmo.`, `${money(spend)} has gone out and you set aside ${money(saved)} this month; record the income to see your pace.`);
     }
     // Los dos lados anotados pero el promedio redondea a cero: aún no hay ritmo.
     return L(lang, "Lo anotado en este mes aún no alcanza para ver un ritmo.", "What is recorded this month is not enough yet to show a pace.");
   };
+  // OBS-A7-1 (adjudicación de Oscar, 2026-11-18): la cifra de gasto por
+  // día de ESTA frase es del gasto solo (perDaySpend). perDay y coverDays
+  // NO se tocan: son la aritmética de disponibilidad del motor (lo
+  // apartado sí sale de lo disponible y la cobertura la proyecta en
+  // Completo) — maquinaria, no afirmación. Pero la frase que la persona
+  // lee no titula gasto lo apartado: con apartado presente lo nombra
+  // («Contando lo que apartas…») y con gasto cero no imprime cifra de
+  // gasto por día — la frase se parte en su verdad.
+  const perDaySpend = Math.round(spend / daysInMonth);
   const linearNote = coverDays === null
     ? noCoverNote()
-    : coverDays >= daysInMonth
-      ? L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra te alcanza para ${coverDays} días: el mes completo y ${coverDays - daysInMonth} más.`, `You spend about ${money(perDay)} a day. At that pace your income lasts ${coverDays} days: the whole month and ${coverDays - daysInMonth} more.`)
-      : L(lang, `Gastas en promedio ${money(perDay)} al día. A ese ritmo, lo que entra se acaba el día ${coverDays} y faltan ${daysInMonth - coverDays} días.`, `You spend about ${money(perDay)} a day. At that pace your income runs out on day ${coverDays}, ${daysInMonth - coverDays} days short.`);
+    : (() => {
+        const lead = spend === 0
+          ? L(lang, `No gastaste: apartaste ${money(saved)}.`, `You spent nothing: you set aside ${money(saved)}.`)
+          : L(lang, `Gastas en promedio ${money(saved > 0 ? perDaySpend : perDay)} al día.`, `You spend about ${money(saved > 0 ? perDaySpend : perDay)} a day.`);
+        const link = saved > 0
+          ? L(lang, "Contando lo que apartas, lo que entra", "Counting what you set aside, your income")
+          : L(lang, "A ese ritmo, lo que entra", "At that pace your income");
+        return coverDays >= daysInMonth
+          ? `${lead} ${link} ${L(lang, `te alcanza para ${coverDays} días: el mes completo y ${coverDays - daysInMonth} más.`, `lasts ${coverDays} days: the whole month and ${coverDays - daysInMonth} more.`)}`
+          : `${lead} ${link} ${L(lang, `se acaba el día ${coverDays} y faltan ${daysInMonth - coverDays} días.`, `runs out on day ${coverDays}, ${daysInMonth - coverDays} days short.`)}`;
+      })();
   // Ola 2 (BR2-4): en Ritmo la nota DESCRIBE, como su hermana la regla pace
   // curada en la ola 1 (BR-3) — la forma lineal que anuncia el día de
   // agotamiento es anticipación, y la anticipación es del Patrón (Completo).
@@ -482,12 +512,14 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   // pero la frase de Ritmo DESCRIBE y sus verbos dicen gasto: «Gastas en
   // promedio C$937.50… Llevas C$15,000.00» con gasto real de C$10,000
   // titulaba como gasto un dinero que sigue siendo de la persona («lo
-  // que guardaste sigue siendo tuyo»). La rama de sobregasto conserva
-  // «Ya salió {spend + saved}»: «salió» nombra la salida total y es
-  // verdad; lo que se corrige es el promedio y el «Llevas», que son del
-  // gasto. perDayLived es solo de esta cara (su otro consumidor es la
-  // PaceCard); con 0 días vividos vale 0 y ninguna superficie lo pinta
-  // como promedio (la PaceCard pone «—»).
+  // que guardaste sigue siendo tuyo»). La rama de sobregasto conservó
+  // entonces «Ya salió {spend + saved}» — SUPERADO por la adjudicación
+  // de Oscar del 2026-11-18 (OBS-A7-1: apartar no es salir): la rama
+  // parte ahora la salida en su verdad, como todas las frases
+  // descriptivas; la suma sobrevive solo dentro del motor (perDay /
+  // coverDays), nunca como afirmación. perDayLived es solo de esta cara
+  // (su otro consumidor es la PaceCard); con 0 días vividos vale 0 y
+  // ninguna superficie lo pinta como promedio (la PaceCard pone «—»).
   const perDayLived = elapsedDays > 0 ? Math.round(spend / elapsedDays) : 0;
   const ritmoNote = coverDays === null
     ? linearNote
@@ -496,7 +528,11 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
         ? L(lang, `Ya anotaste ${money(spend + saved)} para este mes y faltan ${money(-left)} para cerrarlo.`, `You have already recorded ${money(spend + saved)} for this month and ${money(-left)} is missing to close it.`)
         : L(lang, `Ya anotaste ${money(spend + saved)} para este mes y te queda ${money(left)}.`, `You have already recorded ${money(spend + saved)} for this month and ${money(left)} is left.`)
       : left <= 0
-        ? L(lang, `Gastas en promedio ${money(perDayLived)} al día. Ya salió ${money(spend + saved)} y faltan ${money(-left)} para cerrar el mes.`, `You spend about ${money(perDayLived)} a day. ${money(spend + saved)} has gone out and ${money(-left)} is missing to close the month.`)
+        ? saved === 0
+          ? L(lang, `Gastas en promedio ${money(perDayLived)} al día. Ya salió ${money(spend)} y faltan ${money(-left)} para cerrar el mes.`, `You spend about ${money(perDayLived)} a day. ${money(spend)} has gone out and ${money(-left)} is missing to close the month.`)
+          : spend === 0
+            ? L(lang, `Apartaste ${money(saved)} en ${elapsedDays} ${elapsedDays === 1 ? "día" : "días"} y faltan ${money(-left)} para cerrar el mes.`, `You set aside ${money(saved)} over ${elapsedDays} ${elapsedDays === 1 ? "day" : "days"} and ${money(-left)} is missing to close the month.`)
+            : L(lang, `Gastas en promedio ${money(perDayLived)} al día. Ya salió ${money(spend)} y apartaste ${money(saved)}, y faltan ${money(-left)} para cerrar el mes.`, `You spend about ${money(perDayLived)} a day. ${money(spend)} has gone out and you set aside ${money(saved)}, and ${money(-left)} is missing to close the month.`)
         : L(lang, `Gastas en promedio ${money(perDayLived)} al día. Llevas ${money(spend)} en ${elapsedDays} ${elapsedDays === 1 ? "día" : "días"} y te queda ${money(left)}.`, `You spend about ${money(perDayLived)} a day. You have spent ${money(spend)} over ${elapsedDays} ${elapsedDays === 1 ? "day" : "days"} and ${money(left)} is left.`);
   // 1.3.248: en el mes en curso manda el patrón aprendido (patron.ts) — la MISMA
   // lectura que juzga la regla del Asesor y la notificación del shell. Con el

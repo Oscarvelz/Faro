@@ -940,8 +940,12 @@ export function buildAdvice(state: LedgerState, key: string, lang: Lang, names: 
       value: money(reading.realSpend),
       note: L(
         lang,
-        `Sin contar ahorro. En total salieron ${money(reading.outTotal)}, pero ${money(reading.transferMinor)} fueron a tu ahorro y siguen siendo tuyos.`,
-        `Without savings. In total ${money(reading.outTotal)} went out, but ${money(reading.transferMinor)} went to your savings and is still yours.`,
+        // OBS-A7-1 (Oscar, 2026-11-18: apartar no es salir): el total se
+        // nombra como MOVIMIENTO y se parte en su verdad — lo de gasto
+        // salió, lo de ahorro fue a tu ahorro; el apartado nunca viaja
+        // dentro de un «salieron».
+        `Sin contar ahorro. El mes movió ${money(reading.outTotal)} en total: ${money(reading.realSpend)} de gasto y ${money(reading.transferMinor)} a tu ahorro, que siguen siendo tuyos.`,
+        `Without savings. The month moved ${money(reading.outTotal)} in total: ${money(reading.realSpend)} of spending and ${money(reading.transferMinor)} to your savings, which is still yours.`,
       ),
     });
   }

@@ -126,8 +126,15 @@ describe("ola5 · BR5-2: el promedio «de gasto» de Ritmo no suma lo apartado",
     const c = coachOf(b, KEY, "es");
     assert.equal(c.perDayLived, 62500);
     assert.ok(!c.paceNote.includes("C$2,187.50"), `la cifra condenada no vuelve: ${c.paceNote}`);
-    assert.ok(c.paceNote.includes("Ya salió C$35,000.00"),
-      `«salió» nombra la salida total (gasto + apartado), que es verdad: ${c.paceNote}`);
+    // Pin enmendado el 2026-11-18 (1.3.316) con su razón: la absolución
+    // de BR5-2 («salió nombra la salida total, que es verdad») quedó
+    // SUPERADA por la adjudicación de Oscar de OBS-A7-1 — apartar no es
+    // salir: la rama de sobregasto parte la salida en su verdad y la
+    // suma C$35,000.00 ya no se titula «salió» en ninguna frase.
+    assert.ok(!c.paceNote.includes("Ya salió C$35,000.00"),
+      `la suma ya no se titula «salió» (OBS-A7-1): ${c.paceNote}`);
+    assert.ok(c.paceNote.includes("Ya salió C$10,000.00 y apartaste C$25,000.00"),
+      `la salida partida en su verdad: ${c.paceNote}`);
   });
 
   it("el motor del Patrón NO se toca: perDay sigue mezclando sobre el mes entero (Completo)", () => {
