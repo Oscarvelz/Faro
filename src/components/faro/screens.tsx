@@ -3384,7 +3384,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         {encounter && has("nature.undeclared-encounter") ? <EncounterDialog accountId={encounter.accountId} pending={encounter.pending} onClose={() => setEncounter(null)} /> : null}
         {focus === "save" && stock.byClass.aparte > 0 && has("vault.kept") ? (
           <div className="save-kept-head" data-anchor="vault-kept">
-            <span className="save-kept-total"><span>{t("save.kept")}</span><strong className="num">{fmt(keptTotal)}</strong></span>
+            <span className="save-kept-total"><span className="lab-head">{t("save.kept")}<Hint topic="ahorros-banda" /></span><strong className="num">{fmt(keptTotal)}</strong></span>
             <span className="save-kept-parts">
               <SourceNote
                 label={t("desk.savings.from")}
@@ -3393,9 +3393,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 formula={accountRows.map((r) => `${r.name} ${fmt(r.minor)}`).join(" · ")}
                 implication={t("save.kept.cuentas.note")}
               >
-                <span>{`${t("save.accounts")} ${fmt(stock.byClass.cuenta)}`}</span>
+                <span className="kept-part"><span className="kept-part-name">{t("save.accounts")}</span><strong className="num">{fmt(stock.byClass.cuenta)}</strong></span>
               </SourceNote>
-              <i aria-hidden>·</i>
               <SourceNote
                 label={t("desk.savings.from")}
                 title={t("save.kept.funds")}
@@ -3403,9 +3402,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 formula={[...stock.series.entries()].filter(([, r]) => r.cls === "aparte" || r.cls === "sin-declarar").map(([sid, r]) => `${seriesName(session.ledger, sid) || names.sub(r.subId)} ${fmt(r.minor)}`).join(" · ")}
                 implication={t("save.kept.aparte.note")}
               >
-                <span>{`${t("save.kept.funds")} ${fmt(stock.byClass.aparte + stock.undeclared)}`}</span>
+                <span className="kept-part"><span className="kept-part-name">{t("save.kept.funds")}</span><strong className="num">{fmt(stock.byClass.aparte + stock.undeclared)}</strong></span>
               </SourceNote>
-              <i aria-hidden>·</i>
               <SourceNote
                 label={t("desk.savings.from")}
                 title={saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")}
@@ -3413,14 +3411,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 formula={`${saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")} ${fmt(stock.byClass.retiro)}`}
                 implication={t("save.kept.retiro.note")}
               >
-                <span>{`${saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")} ${fmt(stock.byClass.retiro)}`}</span>
+                <span className="kept-part"><span className="kept-part-name">{saveSegs.find((s) => s.id.endsWith(".retiro"))?.name ?? t("vault.retiro")}</span><strong className="num">{fmt(stock.byClass.retiro)}</strong></span>
               </SourceNote>
             </span>
           </div>
         ) : null}
         {focus === "save" && stock.byClass.aparte > 0 && !has("vault.kept") ? (
           <div className="save-kept-head" data-anchor="vault-kept">
-            <span className="save-kept-total"><span>{t("save.kept")}</span><strong className="num">{fmt(keptTotal)}</strong></span>
+            <span className="save-kept-total"><span className="lab-head">{t("save.kept")}<Hint topic="ahorros-banda" /></span><strong className="num">{fmt(keptTotal)}</strong></span>
           </div>
         ) : null}
         {focus === "save" ? muteRow : null}

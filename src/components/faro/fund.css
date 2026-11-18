@@ -110,20 +110,25 @@
 }
 .save-seg strong .fund-light-wrap { vertical-align: -1px; }
 
-/* La cabecera compuesta del libro: Lo guardado con sus partes nombradas. */
-.save-kept-head { display: grid; gap: 4px; margin-bottom: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.save-kept-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+/* La cabecera compuesta del libro: Lo guardado con sus partes nombradas.
+   1.3.309 (pedido de Oscar, 2026-11-18, su foto): la caja se veía sin
+   terminar y el desglose corría como texto suelto. Ahora el panel respira
+   el color oficial del área — el morado de Ahorros que llega por --sav —
+   con el mismo acabado de sus vecinos (borde teñido y el aliento del 8%
+   desde arriba), el título lleva su (?) como las cajas de al lado, y cada
+   parte es una fila: nombre a la izquierda, cifra a la derecha, separadas
+   por filetes del mismo tinte. Los números no cambian; cada fila sigue
+   siendo su SourceNote (el toque explica la cifra). */
+.save-kept-head { display: grid; gap: 4px; margin-bottom: 10px; padding: 12px 14px; border: 1px solid color-mix(in oklab, var(--sav, #894ed6) 38%, var(--line)); border-radius: 16px; background: linear-gradient(180deg, color-mix(in oklab, var(--sav, #894ed6) 8%, transparent) 0%, transparent 46%), var(--surface); }
+.save-kept-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid color-mix(in oklab, var(--sav, #894ed6) 18%, var(--line)); }
 .save-kept-total > span { font-family: var(--font-serif); font-size: 1.02rem; }
 .save-kept-total .num { font-family: var(--font-serif); font-size: 1.25rem; }
-.save-kept-parts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; color: var(--muted); font-size: .86rem; }
+.save-kept-parts { display: grid; color: var(--muted); font-size: .86rem; }
 .save-kept-parts .save-from { margin: 0; text-align: left; }
-.save-kept-parts .save-from summary { display: inline; }
-/* The separator dot belongs to the part it introduces, never floats free:
-   as a sibling it could land at the start of a wrapped line («· Retiro» —
-   Oscar's photo, 2026-11-16). The bare <i> dots hide; each part after the
-   first carries its own. */
-.save-kept-parts > i { display: none; }
-.save-kept-parts > .save-from:not(:first-of-type)::before { content: "·"; margin-right: 6px; color: var(--faint); }
+.save-kept-parts .save-from summary { display: block; }
+.save-kept-parts > .save-from + .save-from { border-top: 1px solid color-mix(in oklab, var(--sav, #894ed6) 18%, var(--line)); }
+.kept-part { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 0; }
+.kept-part .num { color: var(--fg); }
 /* The panel wears its neighbours' corners: the flat 2px system in Cyberpunk,
    the Grid's 6px in Tron — the base 16px read foreign beside them. */
 [data-theme="cyberpunk"] .save-kept-head { border-radius: 2px; }
