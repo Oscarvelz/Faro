@@ -107,9 +107,11 @@
 .icon-desk .icon-desk-tools { display: flex; align-items: center; gap: 6px; }
 .export-anchor { position: static; }
 .export-sheet { position: absolute; top: calc(100% + 8px); right: 0; z-index: 46; width: min(320px, calc(100vw - 24px)); max-height: min(68vh, 520px); overflow: auto; padding: 12px; border-radius: 18px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); box-shadow: 0 18px 40px color-mix(in oklab, var(--fg) 18%, transparent); }
-.export-actions { display: flex; gap: 8px; margin-top: 4px; }
+.export-actions { display: flex; gap: 8px; margin-top: 12px; }
 /* 1.3.308: la pareja de formatos parte la fila en dos mitades iguales —
-   antes Excel era un botón lleno y PDF un texto fantasma sin caja. */
+   antes Excel era un botón lleno y PDF un texto fantasma sin caja.
+   1.3.310 (Oscar, su foto): la pareja respira — 12px sobre ella, para que
+   no se pegue a las burbujas de selección que lleva encima. */
 .export-actions > .btn { flex: 1 1 0; }
 .hub-line { display: inline-flex; align-items: center; gap: 8px; padding: 0 2px; }
 .hub-mark { width: 1.75rem; height: 1.75rem; flex: none; }
