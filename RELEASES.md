@@ -2712,4 +2712,4 @@ La cura de la ola 17 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 2115/2115 (2092 + 23) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. (El único rojo de la primera corrida del equipo, el espécimen M16-1, era ambiental — moría en su propio writeFileSync bajo el guarda de escritura del entorno; corre verde con el guarda abajo, y en canon corre verde.)
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-326-2026-11-19` → 76de7ac3. Source: 020ac060. Tag: v1.3.326 → 020ac060. Main: fc43ea95 (chunks) + b3e394bf (control). Entrada: index-DsapuXwZ.js.
