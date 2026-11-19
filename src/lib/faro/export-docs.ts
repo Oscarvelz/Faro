@@ -662,7 +662,7 @@ export function buildSheets(ledger: LedgerState, key: string, lang: Lang, names:
     const points = pick.scope === "all"
       ? Object.keys(ledger.months).sort().map((month) => {
           const found = yearPoints(ledger, Number(month.slice(0, 4)) || year, lang).find((point) => point.key === month);
-          return found ?? { key: month, label: month, income: 0, expense: 0 };
+          return found ?? { key: month, label: month, income: 0, expense: 0, saved: 0 };
         })
       : yearPoints(ledger, year, lang);
     const last = points.length + 2;
@@ -1119,13 +1119,13 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
     const page = openStudy(say(lang, "Estudio", "Study"));
     page.text(28, page.y, 12, say(lang, "Cómo se mueve el dinero", "How the money moves"), ink);
     page.y -= 14;
-    page.text(28, page.y, 9, say(lang, "La barra verde es lo que entra. La barra dorada es lo que sale. Si la dorada se acerca a la verde, el mes se aprieta.", "The green bar is what comes in. The gold bar is what goes out. When gold reaches green, the month gets tight."), muted);
+    page.text(28, page.y, 9, say(lang, "La barra verde es lo que entra. La barra dorada es lo que gastas. Si la dorada se acerca a la verde, el mes se aprieta.", "The green bar is what comes in. The gold bar is what you spend. When gold reaches green, the month gets tight."), muted);
     page.y -= 18;
     const year = Number(key.slice(0, 4)) || new Date().getFullYear();
     const points = pick.scope === "all"
       ? Object.keys(ledger.months).sort().map((month) => {
           const found = yearPoints(ledger, Number(month.slice(0, 4)) || year, lang).find((point) => point.key === month);
-          return found ?? { key: month, label: month, income: 0, expense: 0 };
+          return found ?? { key: month, label: month, income: 0, expense: 0, saved: 0 };
         })
       : yearPoints(ledger, year, lang);
     const max = Math.max(...points.flatMap((point) => [point.income, point.expense]), 1);

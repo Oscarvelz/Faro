@@ -77,7 +77,11 @@ export function ShortVisual({ reading }: { reading: Reading }) {
     { id: "unique", name: L(lang, "De una vez", "One-time"), minor: reading.uniqueMinor, c: "#d0837a" },
     { id: "transfer", name: L(lang, "Al ahorro", "To savings"), minor: reading.transferMinor, c: "#7fa6cf" },
   ].filter((p) => p.minor > 0);
-  const sorted = [...reading.lines].sort((a, b) => b.minor - a.minor);
+  // Ola 11 (BR11-1): la lista es «los gastos que más pesaron» — las líneas
+  // transfer (el apartado) no son gastos y no entran en ella, ni
+  // encabezando ni en el resto; el apartado ya va nombrado en la barra y
+  // en las fichas como «Al ahorro».
+  const sorted = [...reading.lines].filter((l) => l.cls !== "transfer").sort((a, b) => b.minor - a.minor);
   const rows = sorted.slice(0, 7);
   // 1.3.148: the heaviest-lines list says what its top-7 cut leaves out, like Panorama's LineList.
   const restCount = sorted.length - rows.length;
@@ -104,7 +108,7 @@ export function ShortVisual({ reading }: { reading: Reading }) {
       ) : null}
       {parts.length && has("advisor.what-happened-river") ? (
         <div className="a2-river">
-          <p className="a2-kick">{L(lang, "Todo lo que salió", "Everything that went out")} · <span className="num">{fmt(reading.outTotal)}</span></p>
+          <p className="a2-kick">{L(lang, "Todo lo que se movió", "Everything that moved")} · <span className="num">{fmt(reading.outTotal)}</span></p>
           <div className="a2-river-bar">
             {parts.map((p) => <i key={p.id} style={{ flexGrow: p.minor, background: tc(p.c) }}><b className="num">{Math.round((p.minor / total) * 100)}%</b></i>)}
           </div>

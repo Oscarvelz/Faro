@@ -39,6 +39,14 @@ export function roleOf(structure: Structure, categoryId: string): string {
   return structure.categories.find((c) => c.id === categoryId)?.role ?? "";
 }
 
+/** Ola 11 (BR11-2/3): ¿es esta línea GASTO? Una de las clases de salida y
+ * NO de rol ahorro — el apartado es movimiento a un bolsillo, no gasto.
+ * Es el predicado único de summarize.spend, del insight «Contra el mes
+ * anterior», del «Gasto por día» y (vía pointSums) de los puntos. */
+export function isSpendLine(structure: Structure, l: Line): boolean {
+  return (l.kind === "expense-fixed" || l.kind === "expense-variable" || l.kind === "purchase" || l.kind === "subscription") && roleOf(structure, l.categoryId) !== "savings";
+}
+
 export function inView(line: Line, display: Currency, rateE4: number): number {
   // La puerta anti-fuga (descanso.ts): una línea que descansa no cuenta, en ninguna lectura.
   if (!line.active || line.rest) return 0;
@@ -63,8 +71,15 @@ export function summarize(state: LedgerState, key: string, lang: Lang): Summary 
   const purchases = sum(lines, display, rateE4, (l) => l.kind === "purchase");
   const subscriptions = sum(lines, display, rateE4, (l) => l.kind === "subscription");
   const expense = fixed + variable + purchases + subscriptions;
+  // Ola 11 (BR11-2): el gasto de verdad — las mismas clases de `expense`
+  // sin las líneas de rol ahorro (la definición del coach por rol). Antes
+  // el apartado vivía dos veces en el resumen: dentro de expense y dentro
+  // de savingsFlow, y spentPct lo heredaba (un mes que apartó mucho leía
+  // «gastó el 120%»). `expense` NO se mueve: es la salida por clases de la
+  // que vive opportunity — lo libre sigue sin contar el apartado.
+  const spend = sum(lines, display, rateE4, (l) => isSpendLine(structure, l));
   const opportunity = income - expense;
-  const spentPct = income > 0 ? (expense / income) * 100 : null;
+  const spentPct = income > 0 ? (spend / income) * 100 : null;
   // Loan payments (Debo → Préstamos) count as debt in either book; a fixed one already sits in the debt category.
   const debt = sum(lines, display, rateE4, (l) => (l.kind === "expense-fixed" && roleOf(structure, l.categoryId) === "debt") || (!!l.loanId && (l.kind === "expense-fixed" || l.kind === "expense-variable")));
   const debtPct = income > 0 ? (debt / income) * 100 : null;
@@ -121,6 +136,7 @@ export function summarize(state: LedgerState, key: string, lang: Lang): Summary 
     purchases,
     subscriptions,
     expense,
+    spend,
     opportunity,
     spentPct,
     debt,
@@ -200,6 +216,18 @@ export function foldSlices(slices: Slice[], limit: number, lang: Lang, otrosColo
   return [...head, { id: "otros", name: L(lang, "Otros", "Other"), minor: tailMinor, color: otrosColor }];
 }
 
+/** Ola 11 (BR11-3): la suma de un punto — income, expense SOLO-GASTO y
+ * saved aparte (la definición del coach por rol). Antes expense era «todo
+ * lo no-ingreso» y el apartado se leía como gasto en el «Salió» de la
+ * TimeCard, en su «periodo de más gasto», en las barras del año y en la
+ * columna «Gastos» de la hoja Flujo. */
+function pointSums(lines: Line[], structure: Structure, display: Currency, rateE4: number) {
+  const income = sum(lines, display, rateE4, (l) => l.kind.startsWith("income"));
+  const expense = sum(lines, display, rateE4, (l) => !l.kind.startsWith("income") && roleOf(structure, l.categoryId) !== "savings");
+  const saved = sum(lines, display, rateE4, (l) => !l.kind.startsWith("income") && roleOf(structure, l.categoryId) === "savings");
+  return { income: income / 100, expense: expense / 100, saved: saved / 100 };
+}
+
 export function yearPoints(state: LedgerState, year: number, lang: Lang, kinds?: string[], subs?: string[]): MonthPoint[] {
   const { display, rateE4 } = state.settings;
   const fmt = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" });
@@ -207,9 +235,7 @@ export function yearPoints(state: LedgerState, year: number, lang: Lang, kinds?:
   for (let m = 1; m <= 12; m += 1) {
     const key = `${year}-${String(m).padStart(2, "0")}`;
     const lines = monthLines(state, key).filter((line) => line.active && (!kinds?.length || kinds.includes(line.kind)) && (!subs || subs.includes(line.subId)));
-    const income = sum(lines, display, rateE4, (l) => l.kind.startsWith("income"));
-    const expense = sum(lines, display, rateE4, (l) => !l.kind.startsWith("income"));
-    points.push({ key, label: fmt.format(new Date(year, m - 1, 1)), income: income / 100, expense: expense / 100 });
+    points.push({ key, label: fmt.format(new Date(year, m - 1, 1)), ...pointSums(lines, state.structure, display, rateE4) });
   }
   return points;
 }
@@ -219,10 +245,8 @@ function lineDay(line: Line): string {
   return `${line.monthKey}-01`;
 }
 
-function pair(lines: Line[], display: Currency, rateE4: number) {
-  const income = sum(lines, display, rateE4, (l) => l.kind.startsWith("income"));
-  const expense = sum(lines, display, rateE4, (l) => !l.kind.startsWith("income"));
-  return { income: income / 100, expense: expense / 100 };
+function pair(lines: Line[], display: Currency, rateE4: number, structure: Structure) {
+  return pointSums(lines, structure, display, rateE4);
 }
 
 function isoDate(d: Date): string {
@@ -248,7 +272,7 @@ export function spanPoints(state: LedgerState, year: number, month: number, span
         const on = lineDay(l);
         return on >= start && on <= stop;
       });
-      points.push({ key: start, label: `${day}–${end}`, ...pair(bucket, display, rateE4) });
+      points.push({ key: start, label: `${day}–${end}`, ...pair(bucket, display, rateE4, state.structure) });
       day = end + 1;
     }
     return points;
@@ -265,7 +289,7 @@ export function spanPoints(state: LedgerState, year: number, month: number, span
     d.setDate(monday.getDate() + i);
     const id = isoDate(d);
     const bucket = lines.filter((l) => lineDay(l) === id);
-    points.push({ key: id, label: fmt.format(d).replace(".", ""), ...pair(bucket, display, rateE4) });
+    points.push({ key: id, label: fmt.format(d).replace(".", ""), ...pair(bucket, display, rateE4, state.structure) });
   }
   return points;
 }
@@ -280,7 +304,7 @@ export function compareSpans(state: LedgerState, year: number, month: number, sp
   if (span === "year") {
     return Array.from({ length: count }, (_, index) => {
       const y = year - (count - 1 - index);
-      return { key: String(y), label: String(y), ...pair(inRange(`${y}-01-01`, `${y}-12-31`), display, rateE4) };
+      return { key: String(y), label: String(y), ...pair(inRange(`${y}-01-01`, `${y}-12-31`), display, rateE4, state.structure) };
     });
   }
   if (span === "month") {
@@ -291,7 +315,7 @@ export function compareSpans(state: LedgerState, year: number, month: number, sp
       const m = date.getMonth() + 1;
       const key = `${y}-${String(m).padStart(2, "0")}`;
       const last = String(new Date(y, m, 0).getDate()).padStart(2, "0");
-      return { key, label: fmt.format(date).replace(".", ""), ...pair(inRange(`${key}-01`, `${key}-${last}`), display, rateE4) };
+      return { key, label: fmt.format(date).replace(".", ""), ...pair(inRange(`${key}-01`, `${key}-${last}`), display, rateE4, state.structure) };
     });
   }
   const today = new Date();
@@ -307,7 +331,7 @@ export function compareSpans(state: LedgerState, year: number, month: number, sp
     end.setDate(start.getDate() + 6);
     const a = isoDate(start);
     const b = isoDate(end);
-    return { key: a, label: fmt.format(start).replace(".", ""), ...pair(inRange(a, b), display, rateE4) };
+    return { key: a, label: fmt.format(start).replace(".", ""), ...pair(inRange(a, b), display, rateE4, state.structure) };
   });
 }
 
@@ -339,13 +363,16 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   const nowD = new Date();
   const isCurrentMonth = key === `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}`;
   const burnDays = isCurrentMonth ? Math.max(1, nowD.getDate()) : days;
-  const burn = burnDays > 0 ? Math.round(s.expense / burnDays) : 0;
+  // Ola 11 (BR11-3, superficie derivada): el «Gasto por día» quema solo
+  // gasto en ambos meses — con el apartado dentro, el tablero acusaba un
+  // ritmo de gasto que era ritmo de apartado.
+  const burn = burnDays > 0 ? Math.round(s.spend / burnDays) : 0;
   const prev = previousKey(key);
   const prevLines = monthLines(state, prev);
   const hasPrev = prevLines.some((l) => l.active);
-  const prevExpense = hasPrev ? sum(prevLines, display, rateE4, (l) => !l.kind.startsWith("income")) : 0;
+  const prevSpend = hasPrev ? sum(prevLines, display, rateE4, (l) => isSpendLine(state.structure, l)) : 0;
   const prevDays = new Date(Number(prev.slice(0, 4)), Number(prev.slice(5, 7)), 0).getDate() || 30;
-  const burnPrev = hasPrev ? Math.round(prevExpense / prevDays) : null;
+  const burnPrev = hasPrev ? Math.round(prevSpend / prevDays) : null;
   const savingsRate = s.income > 0 ? ((s.income - s.expense) / s.income) * 100 : null;
   const fmtMonth = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" });
   const subs = Array.from({ length: 12 }, (_, i) => {
@@ -657,25 +684,28 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
 
   const prev = monthLines(state, previousKey(key));
   const prevIncome = sum(prev, display, rateE4, (l) => l.kind.startsWith("income"));
-  const prevExpense = sum(prev, display, rateE4, (l) => !l.kind.startsWith("income"));
+  // Ola 11 (BR11-2): la comparación es de GASTO en ambos lados (isSpendLine):
+  // con la suma ancha anterior, un mes que solo apartó más leía «Gastaste
+  // más» en tono warn — y al revés felicitaba por apartar menos.
+  const prevSpend = sum(prev, display, rateE4, (l) => isSpendLine(state.structure, l));
   const hasPrev = prev.some((l) => l.active);
   push({
     id: "mom",
     title: L(lang, "Contra el mes anterior", "Vs. last month"),
-    value: hasPrev ? (s.expense === prevExpense ? "=" : `${s.expense > prevExpense ? "+" : "-"}${money(Math.abs(s.expense - prevExpense))}`) : "—",
-    detail: hasPrev && s.expense === prevExpense
+    value: hasPrev ? (s.spend === prevSpend ? "=" : `${s.spend > prevSpend ? "+" : "-"}${money(Math.abs(s.spend - prevSpend))}`) : "—",
+    detail: hasPrev && s.spend === prevSpend
       ? L(lang, `Gastaste lo mismo que el mes pasado${s.income !== prevIncome ? `, y entró ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "más" : "menos"}` : ""}.`, `You spent the same as last month${s.income !== prevIncome ? `, and ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "more" : "less"} came in` : ""}.`)
       : hasPrev
       ? L(
           lang,
-          `Gastaste ${money(Math.abs(s.expense - prevExpense))} ${s.expense >= prevExpense ? "más" : "menos"} que el mes pasado${s.income !== prevIncome ? `, y entró ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "más" : "menos"}` : ", y entró lo mismo"}.`,
-          `You spent ${money(Math.abs(s.expense - prevExpense))} ${s.expense >= prevExpense ? "more" : "less"} than last month${s.income !== prevIncome ? `, and ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "more" : "less"} came in` : ", and the same came in"}.`,
+          `Gastaste ${money(Math.abs(s.spend - prevSpend))} ${s.spend >= prevSpend ? "más" : "menos"} que el mes pasado${s.income !== prevIncome ? `, y entró ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "más" : "menos"}` : ", y entró lo mismo"}.`,
+          `You spent ${money(Math.abs(s.spend - prevSpend))} ${s.spend >= prevSpend ? "more" : "less"} than last month${s.income !== prevIncome ? `, and ${money(Math.abs(s.income - prevIncome))} ${s.income > prevIncome ? "more" : "less"} came in` : ", and the same came in"}.`,
         )
       : L(lang, "No hay otro mes con movimientos. Una comparación con un mes vacío no dice nada.", "There is no other month with entries. A comparison with an empty month says nothing."),
-    tone: !hasPrev ? "neutral" : s.expense > prevExpense ? "warn" : "good",
-    viz: hasPrev ? { kind: "delta", now: s.expense, prev: prevExpense } : undefined,
+    tone: !hasPrev ? "neutral" : s.spend > prevSpend ? "warn" : "good",
+    viz: hasPrev ? { kind: "delta", now: s.spend, prev: prevSpend } : undefined,
     meaning: L(lang, "Diferencia de gasto y de ingreso contra el mes calendario anterior, en la vista de hoy.", "Difference in spending and income versus the previous calendar month, in today's view."),
-    formula: L(lang, "Total de este mes − total del mes anterior, misma tasa de hoy.", "This month's total − last month's total, at today's rate."),
+    formula: L(lang, "Gasto de este mes − gasto del mes anterior, misma tasa de hoy. El apartado no cuenta como gasto en ninguno de los dos meses.", "This month's spending − last month's spending, at today's rate. Set-asides count as spending in neither month."),
     implication: L(lang, "Un solo salto no es una tendencia. El gráfico del año enseña si se repite.", "One jump is not a trend. The year chart shows whether it repeats."),
   });
 

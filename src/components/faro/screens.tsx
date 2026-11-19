@@ -649,11 +649,17 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
   if (!session) return null;
   const points = spanPoints(session.ledger, ui.year, ui.month, span, lang, kinds, subs);
   const income = kinds.some((kind) => kind.startsWith("income"));
-  const total = points.reduce((sum, point) => sum + (income ? point.income : point.expense), 0);
-  const max = Math.max(...points.map((point) => (income ? point.income : point.expense)), 0.01);
+  // Ola 11 (BR11-3): el corte es una herramienta de selección, no una
+  // frase descriptiva — su total sigue siendo la suma de las líneas
+  // ELEGIDAS, que en los puntos curados vive partida en expense (gasto) y
+  // saved (apartado). Recomponerla aquí deja el total del corte
+  // exactamente como era, sin volver a llamar gasto al apartado.
+  const val = (point: (typeof points)[number]) => (income ? point.income : point.expense + point.saved);
+  const total = points.reduce((sum, point) => sum + val(point), 0);
+  const max = Math.max(...points.map(val), 0.01);
   const money = fmt(Math.round(total * 100));
   const latest = points[points.length - 1];
-  const latestValue = latest ? (income ? latest.income : latest.expense) : 0;
+  const latestValue = latest ? val(latest) : 0;
   const average = points.length ? total / points.length : 0;
   function togglePin() {
     setPinned((on) => {
@@ -709,7 +715,7 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
           <div className={`cut-lanes ${income ? "is-in" : "is-out"}`} style={{ "--a": max > 0 ? Math.min(1, average / max) : 0 } as CSSProperties}>
             {average > 0 ? <s className="cut-avg" aria-hidden /> : null}
             {points.map((point) => {
-              const value = income ? point.income : point.expense;
+              const value = val(point);
               return (
                 <span key={point.key} className={`cut-lane${value <= 0 ? " is-empty" : ""}${value > 0 && value >= max ? " is-peak" : ""}`}>
                   <i style={{ height: `${Math.max(value > 0 ? 14 : 4, (value / max) * 100)}%` }} />

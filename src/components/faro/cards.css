@@ -99,6 +99,9 @@ html:is([data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [d
 .card-sheet .scn-foot .btn { width: 100%; }
 
 .card-form .cobro-grid { margin-top: 0; }
+.cf-ghost { display: grid; gap: 8px; padding: 10px 12px; margin: 0 0 10px; border: 1px solid color-mix(in oklab, var(--fg) 28%, transparent); border-radius: 12px; }
+.cf-ghost p { margin: 0; font-size: min(.85rem, 4cqi); line-height: 1.45; }
+.cf-ghost-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .cf-shot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 10px; font-size: min(.82rem, 3.9cqi); color: var(--muted); white-space: nowrap; }
 .cf-shot > span { min-width: 0; overflow: hidden; }
 .cf-apr .lab-head { color: color-mix(in oklab, var(--scn) 70%, var(--fg)); font-weight: 700; }

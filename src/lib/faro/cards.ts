@@ -159,6 +159,31 @@ export function putCard(state: LedgerState, card: CreditCard): LedgerState {
   return { ...state, cards: next, ...(off ? { cardsOff: off } : {}) };
 }
 
+/** Ola 11 (G11-2): los campos gobernados de la ficha y su llave en el
+ * borrador de CardForm (campo de la tarjeta ← llave del borrador). El
+ * guardado de la forma FUSIONA contra el registro vigente, como la raíz
+ * de LineForm: un campo cuyo texto en el borrador es exactamente el que
+ * la forma nació leyendo (la mano no lo tocó en esta sesión) se lee del
+ * registro VIVO al guardar, no de la foto nacida o aparcada. Antes,
+ * save() componía el registro entero desde el borrador y putCard lo
+ * reemplazaba: editar solo el nombre en una pestaña borraba la tasa que
+ * otra pestaña acababa de fijar, en silencio. Lo que no vive en el
+ * borrador (snaps, rw, preset, archivado) ni siquiera pasa por aquí:
+ * viaja en la base viva sobre la que el candidato se compone. */
+export const CARD_DRAFT_MAP: ReadonlyArray<readonly [keyof CreditCard, string]> = [
+  ["name", "name"], ["issuer", "issuer"], ["mark", "mark"], ["color", "color"], ["art", "art"],
+  ["network", "network"], ["last4", "last4"], ["aprBps", "apr"], ["promoUntil", "promo"],
+  ["limitMinor", "limit"], ["dueDay", "dueDay"], ["autopay", "autopay"], ["rewards", "rewards"],
+];
+
+export function fuseCardDraft(live: CreditCard, candidate: CreditCard, draft: Record<string, string>, born: Record<string, string>): CreditCard {
+  const next: CreditCard = { ...candidate };
+  for (const [field, key] of CARD_DRAFT_MAP) {
+    if (draft[key] === born[key]) (next as Record<string, unknown>)[field] = live[field];
+  }
+  return next;
+}
+
 /** Card payment lines (transfers with cardId), oldest first. */
 export function cardPays(state: LedgerState, id: string): Line[] {
   const out: Line[] = [];

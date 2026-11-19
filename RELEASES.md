@@ -2575,3 +2575,29 @@ La foto de Oscar, en Ritmo sobre el Historial: tocaba las filas del río — Cas
 **Dos cercas enmendadas con su razón, cazadas por la propia ola.** El censo de la ola 2 acusó que bank-dock ya nombra el sistema: SALE de los exentos con su enmienda escrita (hospeda la tarjeta y despacha la petición — nombra por derecho propio). Y el censo de asientos de la etapa 2 ganó un asiento declarado: `mode-ask.ts` consume solo el tipo `Mode`, jamás el registro, y el chequeo de rango se ensanchó para cubrir la forma `import type` — la cerca salió más fuerte que como entró.
 
 Datos de publicación: rollback `rollback-pre-319-2026-11-18` → 1fabbf4d. Source: 29f409e6. Tag: v1.3.319 → 29f409e6. Main: d7c5acf8 (chunks) + 5f6a13fd (control). Entrada: index-aCk5kSu4.js.
+
+## 1.3.320 — «La undécima cura de los modos» (2026-11-18)
+
+La cura de la ola 11 de la campaña de prejuicio, construida por el equipo amigo sobre la 1.3.318 e integrada sobre la 1.3.319: siete familias, 44 pines nuevos (informe: ~/workspace/faro-modes-prejudice/CURA-OLA11.md; paquete: bench-cura11/paquete-ola11.diff, 13 archivos).
+
+**Familia 1 — el apartado fuera del censo (hija de la doctrina .316).** Nace el predicado único `isSpendLine` en engine.ts: `summarize` gana `spend` y el porcentaje gastado se calcula sobre gasto de verdad (el apartado ya no infla el «gastaste»); el insight «Contra el mes anterior» compara gasto con gasto en ambos meses y su fórmula lo dice; los puntos del Estudio llevan `expense` solo-gasto y el apartado nombrado aparte en `saved` (la TimeCard, las barras y la hoja Flujo heredan la verdad sin tocar su código; el «Gasto por día» de studyBoard, cuarta superficie cazada por el propio censo al construirse, también); el río del Asesor titula «Todo lo que se movió» y su lista de gastos ya no admite transferencias. `expense` NO se tocó: de él vive `opportunity`, y contar el apartado como libre mentiría al revés. El panel de corte recompuso su total como `expense + saved`, byte-equivalente. Cerca nueva: el censo de 36 parejas archivo×productor, cada una clasificada con su razón — una superficie descriptiva nueva sin clasificar corre roja.
+
+**Familia 2 — la prosa de los vecinos.** f-categoria y f-sub reescritos a la verdad de Esencial (el lápiz corrige en Esencial; ocultar y recolorear son de Ritmo, dicho en la misma frase), y el escaneo de doctrina ahora se DERIVA del censo de temas por piso: la cerca derivada cazó un tercer ejemplar vivo que la caza no vio — libro-herramientas enseñaba la multiselección de Ritmo sin atribuir; curado con atribución en los dos campos y los dos idiomas.
+
+**Familia 3 — el censo cuenta gobierno, no texto.** El censo de consumidores de la ola 9 ahora cuenta SITIOS DE LLAMADA (literales, constantes llamadas, concatenaciones y plantillas estáticas resueltas, tablas indexadas, el puente de featureForGo) y acusa EN VOZ ALTA toda puerta sin forma resoluble, en vez de condenar asientos por menciones fantasma. Corpus vivo: cero irresolubles.
+
+**Familia 4 — el censo de testigos cuenta llamadas.** La completitud de la §F se mide sobre las llamadas useState/useRef de LineForm, no solo sobre las declaraciones: el espécimen de la tupla en variable (M11-c3) corre rojo. La raíz de la fusión no se tocó.
+
+**Familia 5 — CardForm fusiona como LineForm.** Nace `fuseCardDraft` en cards.ts: lo que la forma no tocó se lee del registro vivo al guardar, y el testigo de toque compara contra el borrador NACIDO, que ahora viaja en el aparcamiento ({d, born}). El pin de la ola 10 que clavaba la forma vieja del aparcado se enmendó a la nueva con su razón escrita, conservando su intención.
+
+**Familia 6 — guardar sobre un fantasma no resucita en silencio.** Si la tarjeta se borró mientras se editaba, Guardar ya no inserta en silencio: la forma anuncia la verdad en su propia tarjeta («Esta tarjeta ya no existe: se borró mientras la editabas…») y ofrece las dos palabras explícitas — Guardar como tarjeta nueva (id fresco, sin historial) o Descartar. Segunda cerradura: el commit de edición sin registro vivo devuelve el estado intacto.
+
+**Familia 7 — el censo de destinos exactos, por construcción.** Los 23 puentes de TOPIC_SCENES quedan clavados con su (módulo, escena) y su razón; la cerca acusa re-apuntes, puentes nuevos sin censar y entradas muertas (MUT-J y MUT-K rojos en su pin).
+
+**Integración (verificada por mi mano).** La prístina de la cura es la .318; el delta .319 no toca ninguno de los 13 archivos salvo screens.tsx, donde el diff aplicó con un desplazamiento de una línea y el archivo resultante conserva AMBAS piezas (el SpanCut de la cura y el efecto consumidor de mode-ask de la .319) — verificado por diff contra el árbol de cura: los otros 11 archivos de código quedan byte-idénticos a la cura, y screens.tsx difiere de ella solo en las 16 líneas de la .319. package.json fusionado a mano: la lista conserva apartar, subida y susurro y añade modos-ola11 (131 archivos de cerca). El banco en vivo del equipo: 38/38 (el fantasma anuncia y no crea nada; ambos cruces de tarjetas dejan viva la tasa de la otra pestaña, aprBps 2400; la TimeCard sencilla sin el apartado; el río «Todo lo que se movió»; el insight «Gastaste lo mismo»).
+
+**No se tocó, por orden:** OBS-C11-1, SOS-1, OBS-C8-1, el avance compartido, el sello rc, la copia de mes sellada, el motor del Patrón, la raíz de la fusión de LineForm (byte a byte fuera del paquete) y la casa editada.
+
+Verificación: test:faro 1906/1906 (1862 + 44) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto.
+
+Datos de publicación: (se completa tras publicar).

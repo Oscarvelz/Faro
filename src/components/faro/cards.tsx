@@ -24,7 +24,7 @@ import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
 import {
   ART_STYLES, CARD_PRESETS, addReading, addRewards, artOf, cardFigures, cardMonthlyInterest, cardPays, cardTotals, cardsOf, dropCard, dropPresets,
-  issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardUpdate,
+  fuseCardDraft, issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardUpdate,
 } from "@/lib/faro/cards";
 import { matchCard, parseCardShot, readLimit, type CardField, type CardRead } from "@/lib/faro/cardparse";
 import { clearFlow, parkFlow, peekFlow, settleFlowParks, tornParkedKey } from "@/lib/faro/flow-park";
@@ -541,10 +541,21 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
   // — el aparcado manda sobre la ficha y la semilla, porque trae lo
   // tecleado después de abrir. Cerrar por las reglas de la forma (Guardar,
   // Cancelar, Back, ESC) retira el aparcamiento.
-  const restored = parkKey ? peekFlow<Draft>(parkKey) : undefined;
-  const [d, setD] = useState<Draft>(() => restored ?? draftOf(card, seed));
-  useEffect(() => { if (parkKey) parkFlow(parkKey, d); }, [parkKey, d]);
+  // Ola 11 (G11-2): el aparcado lleva también el borrador NACIDO. La
+  // comparación borrador/nacido es el testigo de toque de cada campo
+  // gobernado, y debe sobrevivir al aparcamiento: al guardar, lo no
+  // tocado se lee del registro vigente (fuseCardDraft), no de la foto.
+  type CardPark = { d: Draft; born: Draft };
+  const restored = parkKey ? peekFlow<CardPark>(parkKey) : undefined;
+  const [born] = useState<Draft>(() => restored?.born ?? draftOf(card, seed));
+  const [d, setD] = useState<Draft>(() => restored?.d ?? born);
+  const [bornId] = useState(() => card?.id);
+  useEffect(() => { if (parkKey) parkFlow(parkKey, { d, born }); }, [parkKey, d, born]);
   const close = () => { if (parkKey) clearFlow(parkKey); onClose(); };
+  // Ola 11 (C11-1): la tarjeta se borró con la forma abierta — al guardar,
+  // la forma anuncia la verdad y pide palabra (guardar como nueva o
+  // descartar); jamás inserta en silencio sobre el fantasma.
+  const [ghost, setGhost] = useState(false);
   const [scan, setScan] = useState<File[] | null>(null);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const upd = mode === "update";
@@ -553,6 +564,41 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
   const autoMark = isAdd ? (issuerOf(d.mark) ? d.mark : "") : d.mark;
   const live: CreditCard = { id: card?.id ?? "new", name: d.name, issuer: d.issuer, mark: autoMark, color: d.color, art: d.art || undefined, network: d.network || networkIn(d.name), last4: d.last4, currency: card?.currency ?? "USD", limitMinor: null, dueDay: 0, aprBps: 0, autopay: null, rewards: "", snaps: [] };
   const presetArt = artOf({ art: "", mark: autoMark });
+  /* Ola 11 (G11-2 + C11-1): el guardado de añadir/editar. El candidato se
+   * compone del borrador como siempre, pero DENTRO del commit y sobre el
+   * registro VIGENTE: en edición, la base es la tarjeta viva que el estado
+   * trae (no la foto con la que la forma abrió) y fuseCardDraft devuelve
+   * a esa base todo campo gobernado que la mano no tocó. Si el registro
+   * ya no existe al cometer, el guardado de edición NO compone un alta:
+   * devuelve el estado intacto (la forma ya anunció el fantasma y pidió
+   * palabra; guardar como nueva es proceed(true), una elección explícita
+   * con id fresco y sin historial). */
+  const proceed = (freshId: boolean) => {
+    const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
+    const bal = amount(d.balance);
+    const rwm = amount(d.rw);
+    const name = d.name.trim();
+    if (!name) return;
+    const pct = Number(d.apr.trim().replace(",", ".").replace("%", ""));
+    const lim = amount(d.limit);
+    const due = Number(d.dueDay);
+    commit((s) => {
+      const liveCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
+      if (!isAdd && !freshId && !liveCard) return s;
+      const candidate = {
+        ...(liveCard ?? { id: uid(), currency: "USD" as Currency, snaps: [] }),
+        name, issuer: d.issuer || issuerOf(autoMark)?.name || "", mark: autoMark, color: d.color, art: d.art || undefined, network: d.network || networkIn(name) || liveCard?.network,
+        last4: d.last4.replace(/\D/g, "").slice(-4), aprBps: Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0, promoUntil: d.promo || undefined,
+        limitMinor: lim && lim > 0 ? lim : null, dueDay: due >= 1 && due <= 31 ? Math.round(due) : 0, autopay: d.autopay === "on" ? true : d.autopay === "off" ? false : null, rewards: d.rewards.trim(),
+      } as CreditCard;
+      const next = liveCard ? fuseCardDraft(liveCard, candidate, d as unknown as Record<string, string>, born as unknown as Record<string, string>) : candidate;
+      let st = putCard(s, next);
+      if (isAdd && bal != null) st = addReading(st, next.id, { balanceMinor: bal, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, limitMinor: seed?.read ? readLimit(seed.read) : null, aprBps: seed?.read?.aprBps ?? null, src: seed?.read ? "shot" : "manual" });
+      if (isAdd && rwm != null) st = addRewards(st, next.id, { amountMinor: rwm, src: seed?.read ? "shot" : "manual" });
+      return st;
+    }, name);
+    close();
+  };
   const save = () => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
@@ -565,25 +611,12 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
       close();
       return;
     }
-    const name = d.name.trim();
-    if (!name) return;
-    const pct = Number(d.apr.trim().replace(",", ".").replace("%", ""));
-    const lim = amount(d.limit);
-    const due = Number(d.dueDay);
-    const next: CreditCard = {
-      ...(card ?? { id: uid(), currency: "USD" as Currency, snaps: [] }),
-      name, issuer: d.issuer || issuerOf(autoMark)?.name || "", mark: autoMark, color: d.color, art: d.art || undefined, network: d.network || networkIn(name) || card?.network,
-      last4: d.last4.replace(/\D/g, "").slice(-4), aprBps: Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0, promoUntil: d.promo || undefined,
-      limitMinor: lim && lim > 0 ? lim : null, dueDay: due >= 1 && due <= 31 ? Math.round(due) : 0, autopay: d.autopay === "on" ? true : d.autopay === "off" ? false : null, rewards: d.rewards.trim(),
-    } as CreditCard;
-    commit((s) => {
-      let st = putCard(s, next);
-      if (isAdd && bal != null) st = addReading(st, next.id, { balanceMinor: bal, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, limitMinor: seed?.read ? readLimit(seed.read) : null, aprBps: seed?.read?.aprBps ?? null, src: seed?.read ? "shot" : "manual" });
-      if (isAdd && rwm != null) st = addRewards(st, next.id, { amountMinor: rwm, src: seed?.read ? "shot" : "manual" });
-      return st;
-    }, name);
-    close();
+    if (!d.name.trim()) return;
+    // C11-1: en edición sin registro vivo, Guardar no guarda: anuncia.
+    if (!isAdd && !card) { setGhost(true); return; }
+    proceed(false);
   };
+  const saveAsNew = () => { setGhost(false); proceed(true); };
   const title = upd ? L("Actualizar a mano", "Update by hand") : isAdd ? L("Añadir tarjeta", "Add card") : L("Editar tarjeta", "Edit card");
   const money4 = (label: string, k: "balance" | "avail" | "min" | "limit", anchor?: string, tip?: string) => (
     <label className="label"><span className="lab-head">{label}{tip ? <FieldTip topic={tip} /> : null}</span><input className="field num" inputMode="decimal" placeholder="0.00" value={d[k]} data-anchor={anchor} onChange={(e) => set({ [k]: e.target.value } as Partial<Draft>)} /></label>
@@ -592,6 +625,18 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     <Sheet anchor="card-form" onClose={close} art={<CardArt card={{ ...live, art: d.art || (nameMark ? undefined : d.art || "wave") }} big />} title={title}
       foot={<><button type="button" className="btn secondary" onClick={close}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-form-save" onClick={save}>{L("Guardar", "Save")}</button></>}>
       <div className="form-block cobro-form is-owe card-form">
+        {/* Ola 11 (C11-1): el anuncio del fantasma — la tarjeta se borró
+            con la forma abierta; lo tecleado sigue aquí y la palabra es
+            de la persona: guardar como nueva (explícito) o descartar. */}
+        {ghost ? (
+          <div className="cf-ghost" role="alert">
+            <p>{L("Esta tarjeta ya no existe: se borró mientras la editabas. Lo que tecleaste sigue aquí, pero guardarlo crearía una tarjeta nueva, sin su historial.", "This card no longer exists: it was deleted while you were editing it. What you typed is still here, but saving it would create a new card, without its history.")}</p>
+            <div className="cf-ghost-actions">
+              <button type="button" className="btn" data-anchor="card-form-save-new" onClick={saveAsNew}>{L("Guardar como tarjeta nueva", "Save as a new card")}</button>
+              <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
+            </div>
+          </div>
+        ) : null}
         {/* Ola 3 (Cara C3-1): la captura al añadir lleva su propio asiento
             (cards.capture-add, Completo) además de la forma completa. */}
         {isAdd && !seed?.read && full && has("cards.capture-add") ? (

@@ -543,6 +543,11 @@ export type Summary = {
   purchases: number;
   subscriptions: number;
   expense: number;
+  /** Ola 11 (BR11-2): el gasto de verdad — las clases de gasto sin el rol
+   * ahorro. `expense` sigue siendo la salida por clases (de ella vive
+   * opportunity, lo libre); `spend` es lo que las superficies que dicen
+   * «gastó» deben sumar, y spentPct se calcula sobre él. */
+  spend: number;
   opportunity: number;
   spentPct: number | null;
   debt: number;
@@ -584,7 +589,11 @@ export type AdviceCard = {
   nums?: Record<string, number>;
 };
 
-export type MonthPoint = { key: string; label: string; income: number; expense: number };
+export type MonthPoint = { key: string; label: string; income: number; expense: number; saved: number };
+/* Ola 11 (BR11-3): `expense` en un punto es SOLO-GASTO (la definición del
+ * coach: lo no-ingreso sin el rol ahorro) y `saved` nombra el apartado del
+ * periodo aparte — income − expense − saved sigue siendo el neto en
+ * efectivo, derivable y verdadero en cada superficie que lee puntos. */
 
 export const DEFAULT_SHORTCUTS: Record<string, string> = {
   "nav-prev": "ArrowLeft",

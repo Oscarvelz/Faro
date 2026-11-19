@@ -49,7 +49,12 @@ const modeOf = (id: string) => {
  * estructural. El corpus excluye los tests, el propio mapa, topics.ts
  * (que nombra temas, no asientos) e i18n.ts (cuyas claves coinciden a
  * veces con nombres de asiento sin serlo), y desnuda los comentarios:
- * una mención en un comentario no consume nada. */
+ * una mención en un comentario no consume nada.
+ * ENMIENDA OLA 11 (CARA-3/4): «mención real» significa desde esta ola un
+ * SITIO DE LLAMADA (ver consumedIn): la forma anterior contaba menciones
+ * entre comillas, y el texto — regex, plantilla, cadena sin uso —
+ * resucitaba puertas muertas mientras una puerta construida era acusada
+ * de fantasma. */
 const MAPA_SRC = SRC("./modos-ola5.test.ts");
 const MAP_SEATS = new Set<string>();
 for (const m of MAPA_SRC.matchAll(/\{ f: "([a-z0-9.-]+)", m: "(esencial|ritmo|completo)" \}/g)) MAP_SEATS.add(m[1]!);
@@ -169,7 +174,142 @@ function corpus(): string {
   return out;
 }
 const CORPUS = corpus();
-const consumed = (seat: string) => CORPUS.split(`"${seat}"`).length - 1 >= 2;
+/* ── OLA 11 · CARA-3/4: EL CENSO CUENTA GOBIERNO, NO TEXTO ─────────────
+ * Hasta la ola 10, `consumed` contaba MENCIONES: el nombre del asiento
+ * entre comillas dos veces en el corpus desnudado. La caza de la ola 11
+ * probó que el texto miente en las dos direcciones: una regex
+ * (/"accounts.add"/), el texto de una plantilla y una cadena jamás
+ * llamada resucitaban una puerta muerta a 22/22 verde (M3-a/b/c); y una
+ * puerta viva construida — has(("accounts." + "add")) — era acusada de
+ * fantasma porque su nombre nunca aparece entero (M3-d). Desde esta ola
+ * el censo cuenta SITIOS DE LLAMADA:
+ *   (a) llamada directa con literal: has("x") / gate("x") /
+ *       featureForGo("x"), con cualquier comilla (la de plantilla
+ *       estática incluida);
+ *   (b) el literal dentro de los argumentos de una llamada (el
+ *       `?? "study.fold-…"` tras una tabla);
+ *   (c) el literal en el cuerpo de una TABLA que una llamada indexa
+ *       (has(TABLA[id] ?? …) — la tabla de composición de la doctrina);
+ *   (d) una constante de cadena resuelta: const X = "x" y has(X) en el
+ *       mismo corpus — la cadena sin la llamada NO consume (M3-c);
+ *   (e) la concatenación estática resuelta dentro de una llamada:
+ *       has(("accounts." + "add")) consume accounts.add (M3-d);
+ *   (f) el asiento que el mapeo de featureForGo DEVUELVE (el puente
+ *       tema→asiento es su gobierno: nav.tablet-views vive solo ahí).
+ * Una llamada de varios argumentos nunca es la puerta (has/gate toman
+ * un solo FeatureId): el `has` local de bankparse.ts no acusa ni consume.
+ * Y la dirección contraria tiene su propia cerca: toda llamada has/gate
+ * cuyo argumento no se resuelve por ninguna forma estática ACUSA EN VOZ
+ * ALTA (unresolvedGates) en vez de condenar a un asiento por fantasma —
+ * salvo los flujos de tipo FeatureId (has(f as F), el paseo genérico de
+ * shell.tsx) y el resultado de featureForGo(), que son mecanismos, no
+ * nombres. */
+const SEAT_ESC = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function gateWindows(text: string): { fn: string; win: string }[] {
+  const out: { fn: string; win: string }[] = [];
+  for (const m of text.matchAll(/(^|[^\w$.])(has|gate)\(/g)) {
+    const at = m.index! + m[0].length;
+    out.push({ fn: m[2]!, win: text.slice(at, at + 160) });
+  }
+  return out;
+}
+/* ¿La ventana es una llamada de VARIOS argumentos? Entonces no es la
+ * puerta de modo (has/gate toman un solo FeatureId): es un `has` local
+ * con el mismo nombre — el de bankparse.ts, que pregunta por cabeceras
+ * de estado de cuenta («transaction date», «post date», …). */
+function multiArg(win: string): boolean {
+  let depth = 0;
+  for (const c of win) {
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") { if (depth === 0) return false; depth--; }
+    else if (c === "," && depth === 0) return true;
+  }
+  return false;
+}
+/* El cuerpo de featureForGo: los asientos que su mapeo DEVUELVE quedan
+ * gobernados por el puente tema→asiento (nav.tablet-views vive solo ahí:
+ * registro + el retorno del mapeo para el ancla «top-view»). */
+function featureForGoBody(text: string): string {
+  const at = text.search(/function featureForGo\(/);
+  if (at < 0) return "";
+  let i = text.indexOf("{", at);
+  const start = i;
+  let depth = 0;
+  for (; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") { depth--; if (depth === 0) break; }
+  }
+  return text.slice(start, i + 1);
+}
+function tableBodies(text: string): string[] {
+  const names = new Set<string>();
+  for (const m of text.matchAll(/(?:has|gate)\(\s*([A-Za-z_$][\w$]*)\s*\[/g)) names.add(m[1]!);
+  const bodies: string[] = [];
+  for (const name of names) {
+    const at = text.search(new RegExp(`(?:const|let|var)\\s+${name}\\s*=\\s*\\{`));
+    if (at < 0) continue;
+    let i = text.indexOf("{", at);
+    const start = i;
+    let depth = 0;
+    for (; i < text.length; i++) {
+      if (text[i] === "{") depth++;
+      else if (text[i] === "}") { depth--; if (depth === 0) break; }
+    }
+    bodies.push(text.slice(start, i + 1));
+  }
+  return bodies;
+}
+function consumedIn(text: string, seat: string): boolean {
+  const esc = SEAT_ESC(seat);
+  // (a) llamada directa con literal
+  if (new RegExp(`(^|[^\\w$.])(?:has|gate|featureForGo)\\(\\s*["'\`]${esc}["'\`]`).test(text)) return true;
+  // (b) el literal dentro de los argumentos de una llamada (fallbacks ??)
+  if (new RegExp(`(^|[^\\w$.])(?:has|gate)\\([^)]*["'\`]${esc}["'\`]`).test(text)) return true;
+  // (e) concatenación / plantilla estática resuelta dentro de una llamada
+  for (const { win } of gateWindows(text)) {
+    if (multiArg(win)) continue;
+    for (const m of win.matchAll(/["']([\w.-]*)["']\s*\+\s*["']([\w.-]*)["']/g)) {
+      if (m[1]! + m[2]! === seat) return true;
+    }
+    for (const m of win.matchAll(/`([\w.-]*)\$\{\s*["']([\w.-]*)["']\s*\}`/g)) {
+      if (m[1]! + m[2]! === seat) return true;
+    }
+  }
+  // (f) el asiento que el mapeo de featureForGo devuelve: el puente lo gobierna
+  if (new RegExp(`["'\`]${esc}["'\`]`).test(featureForGoBody(text))) return true;
+  // (c) el literal en el cuerpo de una tabla indexada por una llamada
+  for (const body of tableBodies(text)) {
+    if (new RegExp(`["'\`]${esc}["'\`]`).test(body)) return true;
+  }
+  // (d) constante de cadena resuelta y LLAMADA por su nombre
+  for (const m of text.matchAll(new RegExp(`(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*["'\`]${esc}["'\`]`, "g"))) {
+    if (new RegExp(`(^|[^\\w$.])(?:has|gate)\\(\\s*${m[1]}\\s*\\)`).test(text)) return true;
+  }
+  return false;
+}
+function unresolvedGates(text: string): string[] {
+  const consts = new Set<string>();
+  for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*["'`][\w.-]*["'`]/g)) consts.add(m[1]!);
+  const out: string[] = [];
+  for (const m of text.matchAll(/(^|[^\w$.])(has|gate)\(/g)) {
+    const before = text.slice(Math.max(0, m.index! - 12), m.index!);
+    if (/function\s*$/.test(before)) continue; // la declaración, no una llamada
+    const win = text.slice(m.index! + m[0].length, m.index! + m[0].length + 160);
+    if (multiArg(win)) continue; // un `has` local de varios argumentos no es la puerta
+    const arg = win.replace(/^\s+/, "");
+    if (/^["'`][\w.-]*["'`]/.test(arg)) continue; // (a) literal (plantilla estática incluida)
+    if (/^\(?\s*["'][\w.-]*["']\s*\+/.test(arg)) continue; // (e) concatenación estática
+    if (/^[A-Za-z_$][\w$]*\s*\[/.test(arg)) continue; // (c) tabla indexada
+    if (/^[A-Za-z_$][\w$]*\s+as\s/.test(arg)) continue; // flujo FeatureId (has(f as F))
+    if (/^featureForGo\(/.test(arg)) continue; // el puente tema→asiento
+    if (/^[A-Za-z_$][\w$]*\s*:/.test(arg)) continue; // firma de una declaración
+    const idm = /^([A-Za-z_$][\w$]*)\s*\)/.exec(arg);
+    if (idm && consts.has(idm[1]!)) continue; // (d) constante resuelta
+    out.push(`${m[2]}(${win.slice(0, 60).replace(/\s+/g, " ")}…`);
+  }
+  return out;
+}
+const consumed = (seat: string) => consumedIn(CORPUS, seat);
 
 /* Las exenciones: asientos cuyo consumo es ESTRUCTURAL — la superficie
  * nace por composición (el libro, la sección, la hoja) y sus verbos
@@ -251,6 +391,63 @@ describe("ola9 · §A-bis: el desnudado de comentarios no cuenta papel ni se com
   it("la regex por contexto no se confunde con comentario ni se come la puerta", () => {
     const t = stripComments(`const ok = /^https?:\\/\\//.test(u); const g = has("tools.rate-view");`);
     assert.ok(t.includes('"tools.rate-view"'), "los \\/\\// de la regex no son un comentario de línea");
+  });
+});
+
+/* ── §A-ter (OLA 11 · CARA-3/4): EL CENSO CUENTA GOBIERNO, NO TEXTO ────
+ * Los especímenes de la caza, escenificados sobre corpus sintéticos que
+ * pasan por el MISMO desnudado que el corpus real: la declaración del
+ * asiento en el registro más UN artefacto. Con el conteo de menciones de
+ * la ola 10, M3-a/b/c volvían verde con la puerta muerta (22/22 en la
+ * copia de la caza) y M3-d corría rojo acusando de fantasma a un asiento
+ * gobernado. Aquí cada artefacto dice su verdad en las dos direcciones. */
+describe("ola9 · §A-ter: el censo cuenta sitios de llamada, no texto (OLA 11)", () => {
+  const REG = `"accounts.add": "esencial",`; // la declaración en el registro
+  const census = (artefacto: string) => stripComments(`${REG}\n${artefacto}`);
+  it("M3-a · la regex con el nombre entre comillas NO consume", () => {
+    assert.equal(consumedIn(census(`const seatRe = /"accounts.add"/;`), "accounts.add"), false);
+  });
+  it("M3-b · el nombre en el TEXTO de una plantilla NO consume", () => {
+    assert.equal(consumedIn(census("const s = `la puerta \"accounts.add\" vive en Ritmo`;"), "accounts.add"), false);
+  });
+  it("M3-c · la cadena jamás llamada NO consume", () => {
+    assert.equal(consumedIn(census(`const SEAT = "accounts.add";`), "accounts.add"), false);
+  });
+  it("M3-c′ · la misma constante, LLAMADA por su nombre, SÍ consume (es gobierno)", () => {
+    assert.equal(consumedIn(census(`const SEAT = "accounts.add"; const g = has(SEAT);`), "accounts.add"), true);
+  });
+  it("M3-d · la puerta construida por concatenación SÍ consume: su asiento no es fantasma", () => {
+    assert.equal(consumedIn(census(`const g = has(("accounts." + "add") as never);`), "accounts.add"), true);
+  });
+  it("la puerta de plantilla estática SÍ consume", () => {
+    assert.equal(consumedIn(census("const g = has(`accounts.add`);"), "accounts.add"), true);
+  });
+  it("la tabla de composición SÍ consume (la doctrina de FOLD_FEATURE)", () => {
+    const c = census(`const TABLA = { fold: "accounts.add" }; const g = has(TABLA[id] ?? "study.fold-x");`);
+    assert.equal(consumedIn(c, "accounts.add"), true);
+    assert.equal(consumedIn(c, "study.fold-x"), true); // el fallback también es llamada
+  });
+  it("la llamada directa de siempre SÍ consume (control)", () => {
+    assert.equal(consumedIn(census(`const g = has("accounts.add");`), "accounts.add"), true);
+  });
+  it("la puerta irresoluble ACUSA EN VOZ ALTA en vez de condenar a un asiento", () => {
+    const acus = unresolvedGates(census(`const g = has(algunNombre);`));
+    assert.equal(acus.length, 1);
+    assert.match(acus[0]!, /has\(algunNombre/);
+  });
+  it("ninguna forma resoluble acusa: literal, concatenación, tabla, constante, flujo FeatureId", () => {
+    const c = census([
+      `const a = has("accounts.add");`,
+      `const b = has(("accounts." + "add") as never);`,
+      "const c = has(`accounts.add`);",
+      `const TABLA = { fold: "accounts.add" }; const d = has(TABLA[id] ?? "study.fold-x");`,
+      `const SEAT = "accounts.add"; const e = has(SEAT);`,
+      `const f = has(fid as never);`,
+    ].join("\n"));
+    assert.deepEqual(unresolvedGates(c), []);
+  });
+  it("en el corpus vivo no hay ni una puerta irresoluble (CARA-4, dirección viva)", () => {
+    assert.deepEqual(unresolvedGates(CORPUS), []);
   });
 });
 

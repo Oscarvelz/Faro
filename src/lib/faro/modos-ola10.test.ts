@@ -149,11 +149,36 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
   /* err solo se pinta: lo escribe la validación al guardar y lo lee el
    * render; ninguna decisión de guardado lo consulta. */
   const MUESTRA = new Set(["err"]);
-  const hooks = () => {
+  const hooksOf = (text: string) => {
     const names = new Set<string>();
-    for (const m of form.matchAll(/const \[(\w+)(?:, [^\]]+)?\] = useState/g)) names.add(m[1]!);
-    for (const m of form.matchAll(/const (\w+) = useRef/g)) names.add(m[1]!);
+    for (const m of text.matchAll(/const \[(\w+)(?:, [^\]]+)?\] = useState/g)) names.add(m[1]!);
+    for (const m of text.matchAll(/const (\w+) = useRef/g)) names.add(m[1]!);
     return names;
+  };
+  const hooks = () => hooksOf(form);
+  /* ── OLA 11 · G11-1: LA COMPLETITUD SE MIDE SOBRE LAS LLAMADAS ──────
+   * El censo extraía DECLARACIONES con dos gramáticas (`const [x] =
+   * useState`, `const x = useRef`) — y un hook nacido por otra gramática
+   * no existía para él: la caza escenificó `const s = useState(false);
+   * const [a, b] = s;` (la tupla en variable, M11-c3) y la suite entera
+   * pasó 1844/1844 con un testigo sin clasificar dentro. Desde esta ola
+   * la completitud se mide sobre las LLAMADAS useState/useRef del tramo:
+   * toda llamada cuya declaración no se extrajo queda SIN RECLAMAR y
+   * acusa con su contexto. Una declaración reclama la primera llamada
+   * que la sigue (sus argumentos genéricos viven entre ambas). */
+  const callSites = (text: string): { at: number; ctx: string }[] => {
+    const out: { at: number; ctx: string }[] = [];
+    for (const m of text.matchAll(/\buseState\s*(?:<[^()]*>)?\s*\(|\buseRef\s*(?:<[^()]*>)?\s*\(/g)) {
+      out.push({ at: m.index!, ctx: text.slice(Math.max(0, m.index! - 30), m.index! + 30).replace(/\s+/g, " ") });
+    }
+    return out;
+  };
+  const unclaimed = (text: string): { at: number; ctx: string }[] => {
+    const decls: { start: number; end: number }[] = [];
+    for (const m of text.matchAll(/const \[(\w+)(?:, [^\]]+)?\] = useState|const (\w+) = useRef/g)) {
+      decls.push({ start: m.index!, end: m.index! + m[0].length });
+    }
+    return callSites(text).filter((c) => !decls.some((d) => d.start <= c.at && c.at <= d.end + 80));
   };
   it("cada testigo del censo nace con su valor fijado, verbatim", () => {
     for (const [name, birth] of Object.entries(TESTIGOS)) {
@@ -173,6 +198,19 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
     for (const name of [...Object.keys(TESTIGOS), ...PORTADORES, ...MUESTRA]) {
       assert.ok(names.has(name), `${name}: el censo lo nombra y el tramo ya no lo declara — censo podrido`);
     }
+  });
+  it("G11-1: toda LLAMADA useState/useRef del tramo tiene su declaración extraída", () => {
+    const calls = callSites(form);
+    assert.equal(calls.length, 31, `el tramo hace 31 llamadas de hook (${calls.length})`);
+    assert.deepEqual(unclaimed(form), [],
+      "llamadas sin declaración extraída: un hook nacido por otra gramática (la tupla en variable de M11-c3) es invisible para el censo de declaraciones");
+  });
+  it("G11-1 · el espécimen M11-c3 (la tupla en variable) corre rojo", () => {
+    const staged = `${form}\n  const s = useState(false); const [a, b] = s;\n`;
+    assert.equal(hooksOf(staged).size, 31, "la extracción por declaraciones no ve el hook escenificado");
+    const bad = unclaimed(staged);
+    assert.equal(bad.length, 1, "la medición por llamadas lo acusa exactamente una vez");
+    assert.match(bad[0]!.ctx, /const s = useState\(false\)/);
   });
 });
 
@@ -398,8 +436,14 @@ describe("ola10 · §D: el aparcamiento de flujos — la adopción no se lleva e
   });
   it("CardForm aparca su borrador entero y lo restaura; CardsGroup le pasa su llave por modo", () => {
     const cards = SRC("../../components/faro/cards.tsx");
-    assert.ok(cards.includes("useState<Draft>(() => restored ?? draftOf(card, seed))"), "la ficha restaurada nace del aparcado, no de la ficha guardada");
-    assert.ok(cards.includes("parkFlow(parkKey, d)"), "el borrador se aparca a cada cambio");
+    // ENMIENDA OLA 11 (G11-2): el aparcado lleva { d, born } — el borrador
+    // nacido es el testigo de toque de la fusión al guardar, y viaja con
+    // el borrador para que el guardado restaurado fusione como el
+    // directo. La intención de este pin queda: la ficha restaurada nace
+    // del aparcado, no de la ficha guardada, y se aparca a cada cambio.
+    assert.ok(cards.includes("useState<Draft>(() => restored?.d ?? born)"), "la ficha restaurada nace del aparcado, no de la ficha guardada");
+    assert.ok(cards.includes("useState<Draft>(() => restored?.born ?? draftOf(card, seed))"), "el nacido también nace del aparcado");
+    assert.ok(cards.includes("parkFlow(parkKey, { d, born })"), "el borrador y su nacido se aparcan a cada cambio");
     assert.ok(cards.includes('`card-form:${form.mode}:${form.id}`') && cards.includes("tornParkedKey(cardParkKeys)"), "la casa de tarjetas restaura por llave (add / edit / update)");
   });
   it("el control queda intacto: la revisión de escaneo no entra en el aparcamiento (su forma es el portal)", () => {
