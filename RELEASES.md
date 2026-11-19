@@ -2572,4 +2572,6 @@ La foto de Oscar, en Ritmo sobre el Historial: tocaba las filas del río — Cas
 
 **Deuda declarada.** El censo de otras superficies presentes cuyo toque vive más alto (candidatas a susurro) queda como frente de caza para la campaña de los modos; esta ola cablea el espécimen que Oscar tocó y deja el mecanismo listo para cada fila que el censo condene.
 
-Datos de publicación: (se completa tras publicar).
+**Dos cercas enmendadas con su razón, cazadas por la propia ola.** El censo de la ola 2 acusó que bank-dock ya nombra el sistema: SALE de los exentos con su enmienda escrita (hospeda la tarjeta y despacha la petición — nombra por derecho propio). Y el censo de asientos de la etapa 2 ganó un asiento declarado: `mode-ask.ts` consume solo el tipo `Mode`, jamás el registro, y el chequeo de rango se ensanchó para cubrir la forma `import type` — la cerca salió más fuerte que como entró.
+
+Datos de publicación: rollback `rollback-pre-319-2026-11-18` → 1fabbf4d. Source: 29f409e6. Tag: v1.3.319 → 29f409e6. Main: d7c5acf8 (chunks) + 5f6a13fd (control). Entrada: index-aCk5kSu4.js.
