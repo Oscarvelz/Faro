@@ -30,7 +30,8 @@ import { readAdvisor } from "./advisor.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
 import { buildInsights, compareSpans, roleOf, spanPoints, studyBoard, summarize, yearPoints } from "./engine.ts";
 import type { LedgerState, Line } from "./types.ts";
-import { MANUAL_TOPICS, findTopic, topicMode, type Topic } from "../manual/topics.ts";
+import { CHAPTER_MODE, MANUAL_CHAPTERS, MANUAL_TOPICS, findTopic, topicMode, type Topic } from "../manual/topics.ts";
+import { FEATURES } from "./mode.ts";
 import { MODULES, TOPIC_SCENES } from "./guion.ts";
 
 const SRC = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
@@ -204,18 +205,26 @@ describe("§A · BR11-1 — el río: el total se nombra movimiento y la lista es
  * propia: la cara que la presenta tiene su propia entrada). El censo se
  * DERIVA del árbol: escanea los sitios reales de llamada/definición de los
  * productores; una superficie nueva sin clasificar corre roja, y una
- * entrada muerta (la superficie ya no existe) también. */
+ * entrada muerta (la superficie ya no existe) también.
+ * OLA 13 (E13-1): el censo aprende a ver REBANADAS — spendCategorySlices
+ * entra en los productores y cada consumidor de rebanadas queda
+ * clasificado por el reclamo de su cara: «gasto» las que su rótulo nombra
+ * gasto (el donut del Estudio, la hoja Categorias), «movimiento» las que
+ * componen por categoría y nombran su composición (el widget, la página
+ * del Estudio en PDF, el sankey vía cashSankey), «interna» la que compone
+ * otra cara clasificada (el top del año). Un consumidor nuevo de
+ * rebanadas sin clasificar acusa como cualquier superficie. */
 describe("§A · el censo del apartado: toda superficie agregadora, clasificada", () => {
   const PRODUCERS = [
     "summarize", "yearPoints", "spanPoints", "compareSpans", "studyBoard",
     "buildInsights", "readCoach", "readAdvisor", "yearReport", "monthTotals",
-    "categorySlices", "cashSankey",
+    "categorySlices", "spendCategorySlices", "cashSankey",
   ] as const;
   type Clase = "gasto" | "movimiento" | "interna";
   const REGISTRO: Record<string, [Clase, string]> = {
     "components/faro/panorama.tsx:readCoach": ["gasto", "el coach separa el apartado por rol (monthTotals); Panorama presenta esas frases"],
     "components/faro/provider.tsx:buildInsights": ["gasto", "las notas del Asesor; «Contra el mes anterior» compara gasto con gasto tras la cura"],
-    "components/faro/provider.tsx:categorySlices": ["movimiento", "rebanadas con su nombre propio; la de ahorro se nombra ahorro"],
+    "components/faro/provider.tsx:spendCategorySlices": ["gasto", "las rebanadas del proveedor alimentan UNA cara, el donut del Estudio bajo «En qué se va el gasto»: solo-gasto desde BR13-A3"],
     "components/faro/provider.tsx:summarize": ["interna", "compone el Summary que las caras etiquetan; las etiquetas viven en las caras"],
     "components/faro/screens.tsx:cashSankey": ["movimiento", "flujos con nombre propio, el ahorro es un destino nombrado"],
     "components/faro/screens.tsx:compareSpans": ["gasto", "hereda pair: los tramos comparados suman solo-gasto y saved aparte"],
@@ -232,13 +241,15 @@ describe("§A · el censo del apartado: toda superficie agregadora, clasificada"
     "lib/faro/engine.ts:buildInsights": ["gasto", "la definición; la mom curada compara gasto con gasto"],
     "lib/faro/engine.ts:cashSankey": ["movimiento", "la definición: flujos nombrados"],
     "lib/faro/engine.ts:categorySlices": ["movimiento", "la definición: rebanadas por categoría con su nombre"],
+    "lib/faro/engine.ts:spendCategorySlices": ["gasto", "la definición (BR13-A3): la pila del gasto — sin el rol ahorro, con el corte ANTES del pliegue"],
     "lib/faro/engine.ts:compareSpans": ["gasto", "la definición sobre pair"],
     "lib/faro/engine.ts:readAdvisor": ["interna", "composición: buildInsights y studyBoard leen la Lectura"],
     "lib/faro/engine.ts:spanPoints": ["gasto", "la definición sobre pair"],
     "lib/faro/engine.ts:studyBoard": ["gasto", "la definición; el burn curado quema solo gasto"],
     "lib/faro/engine.ts:summarize": ["interna", "la definición: expense = salida por clases (de ella vive lo libre); spend = solo-gasto; spentPct = spend"],
     "lib/faro/engine.ts:yearPoints": ["gasto", "la definición: expense solo-gasto y saved aparte tras la cura"],
-    "lib/faro/export-docs.ts:categorySlices": ["movimiento", "la hoja de categorías nombra cada una; la de ahorro se nombra ahorro"],
+    "lib/faro/export-docs.ts:categorySlices": ["movimiento", "la página del Estudio en el PDF: barras nombradas por categoría bajo «A dónde se va»; la de ahorro se nombra ahorro"],
+    "lib/faro/export-docs.ts:spendCategorySlices": ["gasto", "la hoja «Categorias» («A dónde se va el gasto»): solo-gasto desde BR13-A3"],
     "lib/faro/export-docs.ts:summarize": ["movimiento", "hoja Resumen: cada clase con su nombre, sin total «gastos»; «Queda» = opportunity; «Ahorro del mes» = savingsFlow"],
     "lib/faro/export-docs.ts:yearPoints": ["gasto", "hoja «Flujo» (columna «Gastos») y las barras del Estudio, sobre los puntos curados"],
     "lib/faro/remesas.ts:summarize": ["interna", "lee remittance del resumen; no nombra gasto"],
@@ -317,64 +328,126 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
    * mano: eliminar varias, unir dos); y la absolución de CROMO juzga el
    * OBJETO del verbo ocultar — la frase que respira cromo pero oculta
    * datos acusa, y solo el objeto-cromo absuelve. */
-  const VERBOS_RITMO: [string, RegExp][] = [
-    ["ocultar datos", /ocult|escond|\bhid(e|es|ing|den)\b/i],
-    ["recolorear", /cambia nombre y color|changes name and colour|cambiar( el)? color|change (the )?colou?r|recolore\w*|recolou?r\w*/i],
-    ["borrar en masa", /borra\w* varias|elimina\w* varias|quita\w* varias|(delet|remov)\w* several/i],
-    ["fusionar", /fusiona\w*|\bmerg\w*\b(?=[^.!?]*\b(?:into one|two|several)\b)|\bjoin(s|ed|ing)?\b[^.!?]*\b(two|several|into one)\b|\bun(ir|e|es|en|ió)\b[^.!?]*\b(dos|varias|ambas|en una)\b|\bunid(as|os)\b[^.!?]*\ben un(a|o)\b/i],
+  /* OLA 13 (CARA-2): la derivación sube su tercer nivel. La ola 12 derivó
+   * los campos y las raíces y la caza volvió con cuatro formas más:
+   * (F) los campos que el RENDERIZADOR pinta sin ser pares — registros
+   * {es,en}, campos sueltos …Es/…En, arreglos de tres — no entraban;
+   * (V) la morfología viva escapaba a las raíces: «Ocúltalas» (acento y
+   * enclítico), «Suprime varias», «Combina dos», «Cámbiales el color», y
+   * ARCHIVAR no era familia; (A) la absolución miraba por una ventana de
+   * 60 caracteres y «movimientos» no era vocabulario de datos. Ahora:
+   * los campos se recogen caminando las FORMAS que el renderizador
+   * pinta; las frases se juzgan con la morfología NORMALIZADA (acentos
+   * plegados, minúsculas) y las familias se derivan de las MANOS
+   * GOBERNADAS del registro — cada familia cita sus asientos y la cerca
+   * verifica que viven en Ritmo —; la absolución juzga la FRASE ENTERA
+   * con el vocabulario de datos de la propia app; MANUAL_CHAPTERS entra
+   * al corpus con el piso de su línea (CHAPTER_MODE); y el escaneo se
+   * extiende a los PIES DE ESCENA con el piso EFECTIVO de la escena
+   * (CARA-1: m3-lapiz predicaba la mano de Ritmo en todo piso). */
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  /** Las familias de verbos gobernados y los asientos del registro que
+   * las gobiernan: la familia acusa en Esencial porque su mano vive en
+   * Ritmo, y la cerca lo verifica contra el registro, no contra una
+   * lista escrita a mano. El recolorear de la familia es el de MASA (la
+   * mano de administrar: «cámbiales», «their colour»): la paleta de UNA
+   * línea es editor.icon-color, de Esencial, y su prosa es libre. El
+   * marco de fusionar no enumera cantidades: verbo de juntar + cualquier
+   * marca de pluralidad o unidad en la frase. */
+  const FAMILIAS: { nombre: string; asientos: string[]; re: RegExp }[] = [
+    { nombre: "ocultar datos", asientos: ["editor.picker-manage"], re: /ocult\w*|escond\w*|\bhid\w*\b/i },
+    { nombre: "recolorear", asientos: ["editor.picker-manage"], re: /recolore\w*|recolou?r\w*|cambia nombre y color|changes name and colour|cambia\w*(?:les|las|los)\s+(?:el\s+)?color|chang\w*\s+(?:their|them)\s+colou?r|chang\w*\s+the\s+colou?r\s+of\s+(?:several|the ticked|the marked)/i },
+    { nombre: "borrar en masa", asientos: ["editor.picker-manage", "books.multiselect"], re: /(?:borr|elimin|quit|suprim)\w*\s+(?:\w+\s+)?(?:varias|varios|several|many)|(?:delet|remov|purg|drop)\w*\s+(?:\w+\s+)?(?:several|many|all)\b/i },
+    { nombre: "fusionar", asientos: ["editor.picker-manage"], re: /(?:\bfusion\w*\b|\bmerg\w*\b|\bcombin\w*\b|\bjoin\w*\b|\bjunt\w*\b|\bunific\w*\b|\bun(?:e|es|en|io|idas|idos|ir)\b)[^.!?]*\b(?:dos|tres|varias|varios|ambas|ambos|pair|two|three|several|couple|into one|together|en una|en un|as one|in one)\b/i },
   ];
-  const OBJETO_CROMO = /barra|\bbar\b|navegaci|navigation|monto|amount|puntos|dots|widget|pantalla|screen/i;
-  const OBJETO_DATO = /tienda|categor|subconcept|store|categor|subcategor|línea|line|persona|people|tarjeta|card|cuenta|account|libro|book|préstamo|loan|vista guardada|saved view/i;
-  const ATRIBUCION = /\[\[Ritmo\]\]|\[\[Rhythm\]\]|\bRitmo\b|\bRhythm\b/i;
+  const VERBOS_RITMO: [string, RegExp][] = FAMILIAS.map((f) => [f.nombre, f.re]);
+  /** ARCHIVAR, la familia nueva: archivar un REGISTRO (préstamo, tarjeta,
+   * persona, cuenta, línea, libro, deuda) es mano de Ritmo — sus asientos
+   * son cobros.archive, lent.archive y loans.archive, los tres R. El
+   * Archivo como LUGAR («el Archivo», con determinante) no es el verbo, y
+   * el objeto se busca en la cláusula del verbo, no en toda la frase. */
+  const ARCHIV_ASIENTOS = ["cobros.archive", "lent.archive", "loans.archive"];
+  const ARCHIV_OBJETO = /\b(?:prestamo|loan|tarjeta|card|persona|people|person|cuenta|account|linea|line|libro|book|deuda|debt)\b/i;
+  const archivarHit = (s: string): boolean => {
+    const re = /archiv\w*|\barchive\w*/gi;
+    for (const m of s.matchAll(re)) {
+      const before = s.slice(Math.max(0, m.index! - 14), m.index!);
+      if (/(?:^|\s)(?:el|la|los|las|un|una|este|esta|ese|esa|del|al|the|an|a)\s+$/.test(before)) continue; // «el Archivo» es el lugar
+      const clause = s.slice(m.index! + m[0].length).split(/[.!?;,]/)[0]!;
+      if (ARCHIV_OBJETO.test(clause)) return true;
+    }
+    return false;
+  };
+  const OBJETO_CROMO = /barra|\bbar\b|navegaci|navigation|monto|amount|cifras|figures|puntos|dots|widget|pantalla|screen|selector/i;
+  const OBJETO_DATO = /tienda|categor|subconcept|\bstores?\b|subcategor|linea|\blines?\b|persona|\bpeople\b|\bperson\b|tarjeta|\bcards?\b|cuenta|\baccounts?\b|libro|\bbooks?\b|prestamo|\bloans?\b|vista guardada|saved view|movimiento|\bmovements?\b/i;
+  const ATRIBUCION = /\[\[ritmo\]\]|\[\[rhythm\]\]|\britmo\b|\brhythm\b/i;
   const sentences = (text: string) => text.split(/(?<=[.!?])\s+/);
-  /** Todo par ES/EN que el registro PROPIO del tema lleva — derivado
-   * caminando sus valores, jamás una lista de campos. (El enlace
-   * `chapter` que el runtime añade no es prosa del tema: caminarlo
-   * arrastraría la prosa de todos sus hermanos.) */
-  const proseOf = (topic: Topic): string[] => {
+  /** Todo texto que el RENDERIZADOR puede pintar de un registro —
+   * derivado caminando sus FORMAS, jamás una lista de campos (OLA 13):
+   * el par [ES,EN], el arreglo de tres [ES,EN,«»], el registro {es,en},
+   * los campos sueltos …Es/…En y todo par anidado entran solos. Las
+   * llaves que no son prosa pintada (keys de búsqueda, anchors, id) no
+   * entran. El enlace `chapter` que el runtime añade no es prosa del
+   * tema (el capítulo entra al corpus por su propia línea); una FORMA
+   * de prosa bajo la llave chapter propia del tema sí es suya (F6). */
+  const esPar = (v: unknown): v is string[] => Array.isArray(v) && v.length >= 2 && v.length <= 3 && v.every((x) => typeof x === "string");
+  const esRegistro = (v: unknown): v is { es: string; en: string } =>
+    !!v && typeof v === "object" && typeof (v as { es?: unknown }).es === "string" && typeof (v as { en?: unknown }).en === "string";
+  const proseOf = (root: unknown): string[] => {
     const out: string[] = [];
-    const walk = (v: unknown): void => {
+    const walk = (v: unknown, key: string): void => {
+      if (key === "keys" || key === "anchors" || key === "id") return;
+      if (typeof v === "string") { if (/(Es|En)$/.test(key)) out.push(v); return; }
       if (Array.isArray(v)) {
-        if (v.length === 2 && v.every((x) => typeof x === "string")) { out.push(v[0]!, v[1]!); return; }
-        for (const x of v) walk(x);
+        if (esPar(v)) { out.push(...v.filter((x) => x.length > 0)); return; }
+        for (const x of v) walk(x, "");
         return;
       }
-      if (v && typeof v === "object") for (const x of Object.values(v as Record<string, unknown>)) walk(x);
+      if (v && typeof v === "object") {
+        if (key === "chapter") { if (esPar(v) || esRegistro(v)) walk(v, ""); return; }
+        if (esRegistro(v)) out.push(v.es, v.en);
+        for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+          if (esRegistro(v) && (k === "es" || k === "en")) continue;
+          walk(x, k);
+        }
+      }
     };
-    for (const [k, v] of Object.entries(topic)) { if (k !== "chapter") walk(v); }
+    walk(root, "");
     return out;
   };
-  /** La absolución de cromo, por OBJETO: para cada aparición del verbo
-   * ocultar, la ventana de su objeto (lo que sigue al verbo hasta la
-   * primera pausa o coordinación) decide — objeto de datos acusa aunque
-   * la frase respire cromo; solo un objeto-cromo sin dato absuelve. */
+  /** La absolución de cromo, sobre la FRASE ENTERA (OLA 13): la ventana
+   * de 60 caracteres absolvía lo que no veía — cromo primero y el dato
+   * más allá de la ventana quedaba absuelto (A1). Ahora: un objeto-dato
+   * en cualquier parte de la frase acusa; solo cromo/privacidad en toda
+   * la frase absuelve; y la enumeración desnuda («ocultar, apartar,
+   * descartar», tras dos puntos y sin objeto alguno) nombra el concepto,
+   * no enseña la mano. El vocabulario de datos es el de la propia app:
+   * «movimientos» es como la casa nombra a sus líneas (A2). */
   const ocultarAbsuelto = (s: string): boolean => {
-    const re = /ocult\w*|escond\w*|\bhid(e|es|ing|den)\b/gi;
-    let absuelto = false;
-    for (const m of s.matchAll(re)) {
-      const rest = s.slice(m.index + m[0].length);
-      const ventana = rest.split(/[,;:]|\s+y\s+(ves|ver|puedes|toca)|\s+and\s+(see|you)\b/i)[0]!.slice(0, 60);
-      if (OBJETO_DATO.test(ventana)) return false; // oculta datos: acusa, respire lo que respire la frase
-      if (OBJETO_CROMO.test(ventana)) { absuelto = true; continue; }
-      return false; // objeto no reconocido: la cerca no absuelve lo que no conoce
+    if (OBJETO_DATO.test(s)) return false; // oculta datos: acusa, respire lo que respire la frase
+    if (OBJETO_CROMO.test(s)) return true; // solo cromo/privacidad: no administra datos
+    if (/:/.test(s) && !/\b(?:de|del|la|el|las|los)\s+\w+\s+(?:se\s+)?(?:ocult|escond|hid)/i.test(s)) return true; // enumeración desnuda
+    return false; // objeto no reconocido: la cerca no absuelve lo que no conoce
+  };
+  const juzgar = (id: string, prose: string[]): string[] => {
+    const out: string[] = [];
+    for (const text of prose) {
+      for (const raw of sentences(text)) {
+        const s = norm(raw);
+        const hits = VERBOS_RITMO.filter(([, re]) => re.test(s)).map(([n]) => n);
+        if (archivarHit(s)) hits.push("archivar");
+        if (!hits.length) continue;
+        if (hits.length === 1 && hits[0] === "ocultar datos" && ocultarAbsuelto(s)) continue; // cromo/privacidad: no administra datos
+        if (ATRIBUCION.test(s)) continue; // nombrar al dueño en la frase es la atribución
+        out.push(`${id}: «${raw.trim()}» enseña ${hits.join(" + ")} en Esencial sin nombrar a Ritmo`);
+      }
     }
-    return absuelto;
+    return out;
   };
   const violaciones = (topic: Topic & { chapter?: unknown }): string[] => {
     const floor = topicMode(topic as never);
     if (floor !== "esencial") return []; // la escalera: solo los verbos de un piso SUPERIOR acusan
-    const out: string[] = [];
-    const prose = proseOf(topic as Topic);
-    for (const text of prose) {
-      for (const s of sentences(text)) {
-        const hits = VERBOS_RITMO.filter(([, re]) => re.test(s)).map(([n]) => n);
-        if (!hits.length) continue;
-        if (hits.length === 1 && hits[0] === "ocultar datos" && ocultarAbsuelto(s)) continue; // cromo/privacidad: no administra datos
-        if (ATRIBUCION.test(s)) continue; // nombrar al dueño en la frase es la atribución
-        out.push(`${topic.id}: «${s.trim()}» enseña ${hits.join(" + ")} en Esencial sin nombrar a Ritmo`);
-      }
-    }
-    return out;
+    return juzgar(topic.id, proseOf(topic));
   };
   it("ningún tema vivo enseña en su piso un verbo de un piso superior sin nombrarlo", () => {
     const all = MANUAL_TOPICS.flatMap((t) => violaciones(t as never));
@@ -430,6 +503,69 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     const t = findTopic("libro-herramientas")!;
     assert.deepEqual(violaciones(MANUAL_TOPICS.find((x) => x.id === "libro-herramientas") as never), []);
     assert.match(t.what![0], /\[\[Ritmo\]\]/);
+  });
+  /* ── OLA 13: la derivación, tercer nivel ─────────────────────────── */
+  it("las familias de verbos viven donde el registro dice: sus asientos son de Ritmo", () => {
+    for (const f of FAMILIAS) for (const seat of f.asientos) {
+      assert.equal(FEATURES[seat as keyof typeof FEATURES], "ritmo", `${f.nombre}: su asiento ${seat} declara el piso de su mano`);
+    }
+    for (const seat of ARCHIV_ASIENTOS) {
+      assert.equal(FEATURES[seat as keyof typeof FEATURES], "ritmo", `archivar: su asiento ${seat} es de Ritmo`);
+    }
+  });
+  it("los capítulos entran al corpus con el piso de su línea (CHAPTER_MODE)", () => {
+    const hits: string[] = [];
+    for (const ch of MANUAL_CHAPTERS) {
+      if ((CHAPTER_MODE[ch.id] ?? "completo") !== "esencial") continue;
+      hits.push(...juzgar(`capítulo ${ch.id}`, proseOf({ title: ch.title, intro: ch.intro })));
+    }
+    assert.deepEqual(hits, [], `la prosa de los capítulos de Esencial acusa:\n${hits.join("\n")}`);
+    // y la cerca los VE: un capítulo escenificado con la mano de Ritmo acusa
+    const staged = juzgar("capítulo escenificado", ["Oculta varias tiendas con una sola confirmación.", "Hide several stores with one confirmation."]);
+    assert.equal(staged.length, 2, "el corpus de capítulos no es decorativo: la frase fresca acusa en los dos idiomas");
+  });
+  it("los pies de escena se escanean con el piso EFECTIVO de la escena (CARA-1)", () => {
+    const ORDEN = ["esencial", "ritmo", "completo"];
+    const piso = (modMode: string, sc: { mode?: string; minMode?: string }): string => {
+      if (sc.mode) return sc.mode;
+      let f = modMode;
+      if (sc.minMode && ORDEN.indexOf(sc.minMode) > ORDEN.indexOf(f)) f = sc.minMode;
+      return f;
+    };
+    const hits: string[] = [];
+    for (const mod of MODULES) for (const sc of mod.scenes) {
+      if (piso(mod.mode ?? "completo", sc as { mode?: string; minMode?: string }) !== "esencial") continue;
+      hits.push(...juzgar(`escena ${sc.id}`, proseOf(sc)));
+    }
+    assert.deepEqual(hits, [], `una escena enseña en Esencial una mano de Ritmo:\n${hits.join("\n")}`);
+    // el espécimen de la clase, clavado: la escena partida dice la verdad de cada piso
+    const e = MODULES.flatMap((m) => m.scenes).find((s) => s.id === "m3-lapiz")!;
+    const r = MODULES.flatMap((m) => m.scenes).find((s) => s.id === "m3-lapiz-r")!;
+    assert.equal(e.mode, "esencial", "m3-lapiz es la cara de Esencial");
+    assert.equal(r.minMode, "ritmo", "m3-lapiz-r nace en Ritmo");
+    assert.deepEqual(juzgar("escena m3-lapiz", proseOf(e)), [], "el pie de Esencial solo nombra el renombre");
+    assert.match(proseOf(r).join(" "), /recolorea, borra en grupo/, "el pie de Ritmo lleva la mano entera, verdadera en su piso");
+  });
+  it("mut13-b a doctrina: las formas no-par entran, la morfología acusa, la absolución mira la frase entera", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const deudas = MANUAL_TOPICS.find((t) => t.id === "deudas")!;
+    const COND = ["El lápiz oculta varias de una vez con una confirmación.", "The pencil hides several at once with one confirmation."];
+    // CAMPOS: las cuatro formas que la cerca vieja no veía
+    assert.equal(violaciones({ ...tienda, nota: { es: COND[0], en: COND[1] } } as never).length, 2, "F2 · el registro {es,en} entra");
+    assert.equal(violaciones({ ...tienda, notaEs: COND[0], notaEn: COND[1] } as never).length, 2, "F3 · los campos sueltos …Es/…En entran");
+    assert.equal(violaciones({ ...tienda, nota: [COND[0], COND[1], ""] } as never).length, 2, "F4 · el arreglo de tres entra");
+    assert.equal(violaciones({ ...tienda, mode: "esencial", chapter: COND } as never).length, 2, "F6 · la prosa bajo la chapter PROPIA del tema entra");
+    const stage = (base: Topic, es: string, en: string) => violaciones({ ...base, what: [es, en] } as never);
+    // VERBOS: la morfología viva
+    assert.equal(stage(tienda, "Ocúltalas con una sola confirmación desde esta hoja.", "Hide them all with one confirmation from this sheet.").length, 2, "V1 · el imperativo con enclítico y acento acusa");
+    assert.equal(stage(tienda, "Suprime varias tiendas con una sola confirmación.", "Purge several stores with one confirmation.").length, 2, "V2 · suprimir/purge es la mano de borrar en masa");
+    assert.equal(stage(tienda, "Combina dos tiendas en una desde esta hoja.", "Combine two stores into one from this sheet.").length, 2, "V3 · combinar es la mano de fusionar");
+    assert.equal(stage(tienda, "Cámbiales el color desde esta hoja.", "Change their colour from this sheet.").length, 2, "V4 · el recolorear de masa acusa con su pronombre");
+    assert.equal(stage(tienda, "Fusiona dos tiendas en una desde esta hoja.", "Merge a pair of stores together from this sheet.").length, 2, "V5 · el marco de fusión no enumera cantidades: «a pair… together» acusa");
+    assert.equal(stage(deudas, "Archiva un préstamo cerrado desde esta hoja, con todo su historial.", "Archive a closed loan from this sheet, with all its history.").length, 2, "V6 · ARCHIVAR es familia: archivar un registro acusa en Esencial");
+    // ABSOLUCIÓN: la frase entera
+    assert.equal(stage(tienda, "Oculta la barra de navegación de la pantalla principal de la casa y las tiendas que ya no usas.", "Hide the navigation bar at the top of the main screen of the house and the stores you no longer use.").length, 2, "A1 · el cromo primero no absuelve el dato que la frase esconde más allá de la ventana");
+    assert.equal(stage(tienda, "Oculta la barra y los movimientos viejos desde esta hoja.", "Hide the bar and the old movements from this sheet.").length, 2, "A2 · «movimientos» es vocabulario de datos de la propia app");
   });
 });
 

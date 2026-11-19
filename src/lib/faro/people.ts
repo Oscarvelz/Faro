@@ -3,6 +3,7 @@
  * a gift is a normal expense line with `personId`. This file only reads those lines.
  */
 import { dateFmt } from "./datefmt";
+import { isSpendLine } from "./engine";
 import { convertMinor } from "./money";
 import type { Currency, Lang, LedgerState, Line, OccasionKind, Person, PersonDate } from "./types";
 import { NO_YEAR, type ImportedContact } from "./vcard";
@@ -139,18 +140,28 @@ export function personTotals(state: LedgerState, person: Person, display: Curren
   return { total, count: lines.length, byBirthday, occasions, years: [...years.entries()].map(([year, minor]) => ({ year, minor })).sort((a, b) => b.year - a.year) };
 }
 
-/** Spending by person in one calendar year (Estudio). */
+/** Spending by person in one calendar year (Estudio).
+ * Ola 13 (BR13-A1): la función deja de sumar a mano — sus dos sumas leían
+ * el mundo sin el predicado único. El denominador es Σ `isSpendLine` del año
+ * (activa y sin descansar, la semántica de `inView`: el descanso no cuenta
+ * en NINGUNA lectura, descanso.ts), y las filas cuentan como regalo solo las
+ * líneas de la persona que son gasto, filtradas por `isSpendLine` EN LA
+ * AGREGACIÓN — `personLines` no se amputa: sigue alimentando el historial
+ * de la persona, donde su línea de apartado etiquetada sí es suya y puede
+ * mostrarse como apartado. Antes, apartar mucho leía «1% de lo que
+ * gastaste» sobre una parte verdadera del 11.1%, un apartado etiquetado se
+ * imprimía como regalo dado, y lo descansado entraba en la base. */
 export function spendByPerson(state: LedgerState, year: number, display: Currency, rateE4: number) {
   const people = peopleOf(state);
   const rows = people.map((person) => {
     let minor = 0;
-    for (const line of personLines(state, person.id)) if (line.monthKey.startsWith(`${year}-`)) minor += convertMinor(line.amountMinor, line.currency, display, rateE4);
+    for (const line of personLines(state, person.id)) if (line.monthKey.startsWith(`${year}-`) && isSpendLine(state.structure, line)) minor += convertMinor(line.amountMinor, line.currency, display, rateE4);
     return { person, minor };
   }).filter((r) => r.minor !== 0).sort((a, b) => b.minor - a.minor);
   let spent = 0;
   for (const [key, bucket] of Object.entries(state.months)) {
     if (!key.startsWith(`${year}-`)) continue;
-    for (const line of bucket.lines) if (line.active && !line.kind.startsWith("income")) spent += convertMinor(line.amountMinor, line.currency, display, rateE4);
+    for (const line of bucket.lines) if (line.active && !line.rest && isSpendLine(state.structure, line)) spent += convertMinor(line.amountMinor, line.currency, display, rateE4);
   }
   return { rows, total: rows.reduce((s, r) => s + r.minor, 0), spent };
 }

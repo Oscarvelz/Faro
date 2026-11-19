@@ -1,5 +1,5 @@
 import { sampleOn } from "./samplemode";
-import { buildAdvice, categorySlices, inView, monthLines, roleOf, summarize, yearPoints } from "./engine";
+import { buildAdvice, categorySlices, inView, monthLines, roleOf, spendCategorySlices, summarize, yearPoints } from "./engine";
 import { monthName } from "./i18n";
 import { formatMoney } from "./money";
 import { loanPays, loanState, loansOf } from "./loans";
@@ -409,6 +409,15 @@ function sumItems(lines: Line[], ledger: LedgerState): number {
   return Math.round(lines.reduce((sum, line) => sum + majorOf(line, ledger), 0) * 100) / 100;
 }
 
+/** Ola 13 (BR13-A4): ¿esta línea es APARTADO? — rol ahorro y clase de
+ * salida. Un ingreso archivado en la categoría de ahorro es ingreso, no
+ * apartado (la guarda de clase de BR13-A5). El Presupuesto separa por esta
+ * línea: sus totales de gasto son gasto y el apartado va nombrado en su
+ * propia sección, como la hoja «Flujo» desde la cura 12. */
+function isSavedLine(ledger: LedgerState, line: Line): boolean {
+  return roleOf(ledger.structure, line.categoryId) === "savings" && !line.kind.startsWith("income");
+}
+
 function categoryBlocks(ledger: LedgerState, names: Names, lines: Line[], group: "fixed" | "variable", kind: Line["kind"], lang: Lang): Block[] {
   const cats = ledger.structure.categories.filter((cat) => cat.group === group && !cat.hidden).sort((a, b) => a.order - b.order);
   const used = new Set<string>();
@@ -490,17 +499,24 @@ function debtTone(pct: number | null, green: number, yellow: number): number {
 
 function budgetSheet(ledger: LedgerState, month: string, lang: Lang, names: Names, pick: ExportPick, used: Set<string>, solo: boolean): Sheet {
   const lines = monthLinesPicked(ledger, month, pick);
-  const fixedLines = lines.filter((line) => line.kind === "expense-fixed");
-  const variableLines = lines.filter((line) => line.kind === "expense-variable");
-  const purchaseLines = lines.filter((line) => line.kind === "purchase");
-  const subLines = lines.filter((line) => line.kind === "subscription");
+  // Ola 13 (BR13-A4): el reparto — las líneas de apartado salen de los
+  // bloques y totales de GASTOS y viven en su sección AHORRO; «Total de
+  // gastos» es el gasto (41% en el espécimen, no 91%) y la oportunidad
+  // conserva su valor de siempre (ingreso − gasto − apartado, la caja).
+  const savedLines = lines.filter((line) => isSavedLine(ledger, line));
+  const spendLines = lines.filter((line) => !isSavedLine(ledger, line));
+  const fixedLines = spendLines.filter((line) => line.kind === "expense-fixed");
+  const variableLines = spendLines.filter((line) => line.kind === "expense-variable");
+  const purchaseLines = spendLines.filter((line) => line.kind === "purchase");
+  const subLines = spendLines.filter((line) => line.kind === "subscription");
   const incomeFixed = lines.filter((line) => line.kind === "income-fixed");
   const incomeVariable = lines.filter((line) => line.kind === "income-variable");
   const income = sumItems([...incomeFixed, ...incomeVariable], ledger);
   const fixed = sumItems(fixedLines, ledger);
   const variable = sumItems([...variableLines, ...purchaseLines, ...subLines], ledger);
+  const saved = sumItems(savedLines, ledger);
   const expense = Math.round((fixed + variable) * 100) / 100;
-  const left = Math.round((income - expense) * 100) / 100;
+  const left = Math.round((income - expense - saved) * 100) / 100;
   const ratio = income > 0 ? Math.round((expense / income) * 1000) / 10 : 0;
   const debtLines = lines.filter((line) => roleOf(ledger.structure, line.categoryId) === "debt");
   const debt = sumItems(debtLines, ledger);
@@ -546,12 +562,12 @@ function budgetSheet(ledger: LedgerState, month: string, lang: Lang, names: Name
   rows.push([]);
   span(rows, merges, say(lang, "GASTOS", "EXPENSES"), S.section);
   span(rows, merges, say(lang, "Gastos fijos: los que haces necesariamente cada mes", "Fixed costs: what you necessarily spend each month"), S.head);
-  paintColumns(rows, stackBlocks(categoryBlocks(ledger, names, lines, "fixed", "expense-fixed", lang)));
+  paintColumns(rows, stackBlocks(categoryBlocks(ledger, names, spendLines, "fixed", "expense-fixed", lang)));
   rows.push([{ v: say(lang, "Total gastos fijos", "Total fixed expenses"), s: S.total }, { v: fixed, s: S.totalNum }]);
   rows.push([]);
   span(rows, merges, say(lang, "Gastos variables: los que haces de vez en cuando durante el mes", "Variable costs: what you spend now and then during the month"), S.head);
   const variableBlocks = [
-    ...categoryBlocks(ledger, names, lines, "variable", "expense-variable", lang),
+    ...categoryBlocks(ledger, names, spendLines, "variable", "expense-variable", lang),
     ...namedBlocks(purchaseLines, ledger, (line) => names.purchase(line.categoryId), say(lang, "Compras", "Shopping")),
     ...namedBlocks(subLines, ledger, (line) => names.catalog(line.providerId), say(lang, "Cuotas", "Subscriptions")),
   ];
@@ -560,6 +576,13 @@ function budgetSheet(ledger: LedgerState, month: string, lang: Lang, names: Name
   rows.push([]);
   rows.push([{ v: say(lang, "Total de gastos (fijos + variables)", "Total expenses (fixed + variable)"), s: S.total }, { v: expense, s: S.totalNum }]);
   rows.push([]);
+  if (saved > 0) {
+    span(rows, merges, say(lang, "AHORRO", "SAVINGS"), S.section);
+    span(rows, merges, say(lang, "Dinero que apartas: sigue siendo tuyo, no es gasto", "Money you set aside: still yours, not spending"), S.head);
+    paintColumns(rows, stackBlocks(namedBlocks(savedLines, ledger, (line) => names.cat(line.categoryId), say(lang, "Ahorro", "Savings"))));
+    rows.push([{ v: say(lang, "Total apartado", "Total set aside"), s: S.total }, { v: saved, s: S.totalNum }]);
+    rows.push([]);
+  }
   rows.push([
     { v: say(lang, "Tengo", "I have"), s: S.have },
     { v: income, s: S.haveNum },
@@ -691,7 +714,10 @@ export function buildSheets(ledger: LedgerState, key: string, lang: Lang, names:
         }),
       ],
     });
-    const slices = categorySlices(ledger, key, names, lang);
+    // Ola 13 (BR13-A3): la hoja se titula «A dónde se va el gasto» — lee las
+    // rebanadas DEL GASTO (spendCategorySlices); con la pila entera, el
+    // Ahorro salía como la primera categoría del gasto (54.9% en el espécimen).
+    const slices = spendCategorySlices(ledger, key, names, lang);
     const total = slices.reduce((sum, item) => sum + item.minor, 0);
     sheets.push({
       name: "Categorias",
@@ -952,17 +978,22 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
       y -= 22;
     };
     const lines = monthLinesPicked(ledger, month, pick);
-    const fixedLines = lines.filter((line) => line.kind === "expense-fixed");
-    const variableLines = lines.filter((line) => line.kind === "expense-variable");
-    const purchaseLines = lines.filter((line) => line.kind === "purchase");
-    const subLines = lines.filter((line) => line.kind === "subscription");
+    // Ola 13 (BR13-A4): el mismo reparto de la hoja — el apartado fuera de
+    // los totales de gasto y nombrado en su propia banda.
+    const savedLines = lines.filter((line) => isSavedLine(ledger, line));
+    const spendLines = lines.filter((line) => !isSavedLine(ledger, line));
+    const fixedLines = spendLines.filter((line) => line.kind === "expense-fixed");
+    const variableLines = spendLines.filter((line) => line.kind === "expense-variable");
+    const purchaseLines = spendLines.filter((line) => line.kind === "purchase");
+    const subLines = spendLines.filter((line) => line.kind === "subscription");
     const incomeFixed = lines.filter((line) => line.kind === "income-fixed");
     const incomeVariable = lines.filter((line) => line.kind === "income-variable");
     const income = sumItems([...incomeFixed, ...incomeVariable], ledger);
     const fixed = sumItems(fixedLines, ledger);
     const variable = sumItems([...variableLines, ...purchaseLines, ...subLines], ledger);
+    const saved = sumItems(savedLines, ledger);
     const expense = Math.round((fixed + variable) * 100) / 100;
-    const left = Math.round((income - expense) * 100) / 100;
+    const left = Math.round((income - expense - saved) * 100) / 100;
     const ratio = income > 0 ? Math.round((expense / income) * 1000) / 10 : 0;
     const debt = sumItems(lines.filter((line) => roleOf(ledger.structure, line.categoryId) === "debt"), ledger);
     const greenPct = ledger.settings.debtGreenPct;
@@ -1032,14 +1063,14 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
         y -= 12;
       }
     };
-    paint(categoryBlocks(ledger, names, lines, "fixed", "expense-fixed", lang));
+    paint(categoryBlocks(ledger, names, spendLines, "fixed", "expense-fixed", lang));
     y -= 2;
     text(28, y, 10, `${say(lang, "Total gastos fijos", "Total fixed expenses")}    ${shown(fixed)}`, gold);
     y -= 16;
     text(28, y, 8, say(lang, "Gastos variables: los que haces de vez en cuando durante el mes", "Variable costs: what you spend now and then during the month"), muted);
     y -= 14;
     paint([
-      ...categoryBlocks(ledger, names, lines, "variable", "expense-variable", lang),
+      ...categoryBlocks(ledger, names, spendLines, "variable", "expense-variable", lang),
       ...namedBlocks(purchaseLines, ledger, (line) => names.purchase(line.categoryId), say(lang, "Compras", "Shopping")),
       ...namedBlocks(subLines, ledger, (line) => names.catalog(line.providerId), say(lang, "Cuotas", "Subscriptions")),
     ]);
@@ -1048,6 +1079,15 @@ function buildPdfPages(ledger: LedgerState, key: string, lang: Lang, names: Name
     y -= 14;
     text(28, y, 10, `${say(lang, "Total de gastos", "Total expenses")}    ${shown(expense)}`, ink);
     y -= 18;
+    if (saved > 0) {
+      band(say(lang, "AHORRO", "SAVINGS"));
+      text(28, y, 8, say(lang, "Dinero que apartas: sigue siendo tuyo, no es gasto", "Money you set aside: still yours, not spending"), muted);
+      y -= 14;
+      paint(namedBlocks(savedLines, ledger, (line) => names.cat(line.categoryId), say(lang, "Ahorro", "Savings")));
+      y -= 2;
+      text(28, y, 10, `${say(lang, "Total apartado", "Total set aside")}    ${shown(saved)}`, gold);
+      y -= 18;
+    }
     need(36);
     const boxes: [string, string, string][] = [
       [say(lang, "Tengo", "I have"), shown(income), sage],

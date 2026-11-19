@@ -2623,3 +2623,23 @@ La cura de la ola 12 de la campaña de prejuicio, construida por el equipo amigo
 Verificación: test:faro 1967/1967 (1906 + 61) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. El banco en vivo del equipo: 36/36.
 
 Datos de publicación: rollback `rollback-pre-321-2026-11-19` → e23dd0c4. Source: 0601d58c. Tag: v1.3.321 → 0601d58c. Main: 6e65c48b (chunks) + 1150b87f (control). Entrada: index-CMhjtwpL.js.
+
+## 1.3.322 — «La decimotercera cura de los modos» (2026-11-19)
+
+La cura de la ola 13 de la campaña de prejuicio, construida por el equipo amigo sobre la 1.3.321 e integrada en canon (informe: ~/workspace/faro-modes-prejudice/CURA-OLA13.md; paquete: bench-cura13/paquete-ola13.diff, 17 archivos, 52 pines nuevos).
+
+**Familia 1 — las sumas a mano.** La doctrina del apartado caza las últimas sumas escritas a mano: `spendByPerson` divide por gasto verdadero en AMBOS lados de la fracción (el descanso tampoco cuenta en ninguna lectura; el espécimen de la ola 12: «1% de lo que gastaste» era 11.1%); el margen «flexible», el sobre «Día a día» y `buildBudget` leen por el predicado, y el apartado variable se NOMBRA en el detalle, como su hermana «Rigidez» nombra el fijo; las rebanadas de gasto nacen de un productor nuevo, `spendCategorySlices`, con el corte ANTES del pliegue — el apartado oculto ya no se cuela en el «Otros» de una cara de gasto (la batería dorada cazó la primera forma); la hoja Presupuesto y su gemela PDF suman gasto y ganan su sección AHORRO con «Total apartado» (el 91% del espécimen se vuelve 41%); `savingsFlow` gana la guarda de clase de las remesas (un ingreso en la categoría de ahorro entró, no se apartó).
+
+**Familia 2 — el kit de los libros (CARA-1, alta).** BookKit componía la mano entera de administrar en Esencial porque nunca nombraba el sistema. Ahora compone su mano desde `books.multiselect` — el asiento gana su primer consumidor —: entera en Ritmo; en Esencial, la mano de solo renombre de la .315 (sin casillas, sin barra, sin paleta). La escena se parte como sus hermanas: m3-lapiz (Esencial, pie de renombre) y m3-lapiz-r (Ritmo, la mano entera). Los dos trinquetes que registraban la mano vieja (ola1 y ola2) se enmendaron con su razón escrita.
+
+**Familia 3 — el par derivado del préstamo.** `LOAN_DERIVED_FROM = [["aprBps","kind"]]`: elegir «sin interés» deja la tasa en 0 en el registro y volver a «con interés» no resucita la tasa que la persona quitó — en préstamo y en «Me deben». Y la trampa de la tarjeta se cierra: la derivación real es emisor ← marca, y el par entra en CARD_DERIVED_FROM con su razón, dormido hasta que la marca tenga selector en edición.
+
+**Familia 4 — las cercas, siguiente nivel.** El censo de formas resuelve la delegación (53 rutas delegadas clasificadas con su ayudante nombrado; el Deshacer de la importación clasifica por su conducta real) y verifica la firma de conducta en el sitio; la §B camina las formas que el renderizador pinta, con morfología normalizada y las familias derivadas de los asientos del registro (ARCHIVAR entra como familia); el censo de consumidores lleva la doctrina a las plantillas, los alias locales y las raíces de tabla entre archivos; y nace el §A-quater: el censo de asientos sin mecanismo enumera DESDE EL REGISTRO (500 asientos) — 397 son adjudicaciones declarativas que el motor consume como tabla entera, así que el censo fija el universo en el registro con familias declarativas de mecanismo escrito, en vez de exigir un has() por asiento que acusaría a la tabla misma. La §D deja de caminar la llave chapter.
+
+**Juicios del equipo, verificados al integrar:** la extensión de A2 a buildBudget (misma expresión, misma enfermedad); el corte de A3 antes del pliegue (cazado por la batería dorada); el recolorear de la §B es el de masa (la paleta de una línea es Esencial por su asiento); la forma del §A-quater asentada arriba.
+
+**No se tocó, por pliego:** OBS-C13-2, OBS-C13-1, OBS-G13-2 (cura de una línea ofrecida, no aplicada), OBS-C12-1, OBS-C11-1, OBS-C8-1, el avance compartido, SOS-1, «Tasa de ahorro», el tip de «modos» y su unificación (a palabra de Oscar), el sello rc, la copia sellada, el motor del Patrón y la casa editada. La raíz de LineForm no está en el paquete (md5 a37d7987…).
+
+Verificación: test:faro 2019/2019 (1967 + 52) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. El banco en vivo del equipo: 18/19 + 4/4, con el único fallo adjudicado como localizador del propio banco y la cara leída con precisión por el segundo banco (donut: «Casa» 60% · C$8,000, ninguna fila «Ahorro»).
+
+Datos de publicación: (se completa tras publicar).

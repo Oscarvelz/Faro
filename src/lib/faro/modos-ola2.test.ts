@@ -402,7 +402,7 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // puerta de su cara madre, que sí nombra el sistema — la familia de bancos
   // e importación (bank-settings, bank-guides, bank-import,
   // bank-mark, bank-pick, rewards-real, stmt-scan: tras settings.banks /
-  // import.bank), book-kit y book-side (el kit de los libros; las caras que
+  // import.bank), book-side (la barra de los libros; las caras que
   // lo montan nombran el sistema), selection (cromo de Archivo/Historial),
   // sub-presets (editores dentro del formulario de línea),
   // remit-people y earnings (tarjetas cuyas caras madre — Cobros y Estudio
@@ -422,9 +422,13 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // exentos — dejó de ser cromo mudo del sistema: hospeda la tarjeta del
   // susurro y despacha la petición de modo por su puente (mode-ask), así
   // que nombra el sistema por derecho propio.
+  // ENMIENDA OLA 13 (CARA-1): book-kit.tsx SALE de los exentos — el kit
+  // de los libros dejó de ser cromo que las caras madre puertean: desde
+  // la cura compone su mano desde has("books.multiselect") él mismo, y
+  // nombra el sistema por derecho propio.
   const EXEMPT = [
     "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
-    "bank-settings.tsx", "battery-row.tsx", "book-kit.tsx", "book-side.tsx", "card-art.tsx",
+    "bank-settings.tsx", "battery-row.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
     "icons.tsx", "manual-text.tsx", "remit-people.tsx", "rewards-real.tsx",
     "sample-mode.tsx", "selection.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",

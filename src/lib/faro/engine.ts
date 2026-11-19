@@ -84,7 +84,12 @@ export function summarize(state: LedgerState, key: string, lang: Lang): Summary 
   const debt = sum(lines, display, rateE4, (l) => (l.kind === "expense-fixed" && roleOf(structure, l.categoryId) === "debt") || (!!l.loanId && (l.kind === "expense-fixed" || l.kind === "expense-variable")));
   const debtPct = income > 0 ? (debt / income) * 100 : null;
   const debtAllowance = roundHalfAway((income * settings.debtGreenPct) / 100);
-  const savingsFlow = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "savings");
+  // Ola 13 (BR13-A5): la guarda de clase que las remesas ya tenían (1.3.147,
+  // isRemitLine) llega al apartado — savingsFlow cuenta solo las SALIDAS hacia
+  // el ahorro: un INGRESO archivado en la categoría de ahorro (un reintegro)
+  // entró, no se apartó, y cobrarlo como flujo de apartado mentía en la nota
+  // del lente, en «Ahorro del mes» y en el avance de la meta de buildBudget.
+  const savingsFlow = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "savings" && !l.kind.startsWith("income"));
   const savingsGoal = roundHalfAway((income * settings.savingsGoalPct) / 100);
   const petty = sum(lines, display, rateE4, (l) => roleOf(structure, l.categoryId) === "petty");
   // 1.3.147: the ONE remittance predicate (remesas.ts) — expenses in a remittance category only;
@@ -174,6 +179,14 @@ function slicesFor(lines: Line[], structure: Structure, display: Currency, rateE
 
 export function categorySlices(state: LedgerState, key: string, names: Namer, lang: Lang): Slice[] {
   const raw = slicesFor(monthLines(state, key), state.structure, state.settings.display, state.settings.rateE4, names);
+  return foldCategorySlices(state, raw, lang);
+}
+
+/** El pliegue del contrato (regla 2) sobre una pila ya compuesta: el
+ * dinero de lo oculto se agrupa bajo «Otros» con el mismo monto — la suma
+ * no se mueve un centavo. Lo comparten la pila de movimiento y la del
+ * gasto. */
+function foldCategorySlices(state: LedgerState, raw: Slice[], lang: Lang): Slice[] {
   // Contrato, regla 2: nombrar sigue a la visibilidad. El dinero de las categorías (y compras)
   // ocultas se agrupa bajo «Otros» con el mismo monto — la suma no se mueve un centavo.
   const hidden = new Set<string>([
@@ -195,6 +208,25 @@ export function categorySlices(state: LedgerState, key: string, names: Namer, la
     }
   }
   return out.filter((s) => s.minor !== 0).sort((a, b) => b.minor - a.minor);
+}
+
+/**
+ * Ola 13 (BR13-A3): las rebanadas DEL GASTO — la pila sin las categorías
+ * de rol ahorro. El productor `categorySlices` compone por categoría
+ * (movimiento) y no se toca: el widget, el «top» del año y el sankey lo
+ * leen entero y nombran su composición en su propia cara. Toda cara cuyo
+ * rótulo dice «gasto» lee ESTAS — el donut del Estudio («En qué se va el
+ * gasto») y la hoja «Categorias» («A dónde se va el gasto») coronaban al
+ * Ahorro como el 55% del gasto. El corte va ANTES del pliegue (no es el
+ * filtro del pareto, que lee la pila ya plegada): el apartado oculto no
+ * entra en el «Otros» de una cara de gasto — apartar no es salir, ni
+ * siquiera plegado — y el total del donut queda idéntico entre estados
+ * de visibilidad, como manda el contrato dorado.
+ */
+export function spendCategorySlices(state: LedgerState, key: string, names: Namer, lang: Lang): Slice[] {
+  const raw = slicesFor(monthLines(state, key), state.structure, state.settings.display, state.settings.rateE4, names)
+    .filter((sl) => roleOf(state.structure, sl.id) !== "savings");
+  return foldCategorySlices(state, raw, lang);
 }
 
 /**
@@ -388,8 +420,13 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   const fixedReal = s.fixed - savingsFixed;
   const fixedOnly = s.income - fixedReal - s.subscriptions;
   const room = fixedOnly - goalLeft;
+  // Ola 13 (BR13-A2): el «actual» del sobre es gasto por el predicado único —
+  // con la suma de clases, el apartado variable entraba DOS veces en la
+  // lógica del sobre (ya encogía el plan vía savingsFlow/goalLeft y volvía
+  // como «gasto del día a día»).
+  const everyday = sum(monthLines(state, key), display, rateE4, (l) => isSpendLine(state.structure, l) && (l.kind === "expense-variable" || l.kind === "purchase"));
   const envelopes = [
-    { name: L(lang, "Día a día", "Everyday"), budget: Math.max(0, room), actual: s.variable + s.purchases },
+    { name: L(lang, "Día a día", "Everyday"), budget: Math.max(0, room), actual: everyday },
     { name: L(lang, "Créditos", "Credit"), budget: s.debtAllowance, actual: s.debt },
     { name: L(lang, "Casa", "Home"), budget: s.income > 0 ? roundHalfAway((s.income * 35) / 100) : 0, actual: s.housing },
   ].filter((row) => row.budget > 0 || row.actual > 0);
@@ -421,7 +458,9 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   ].filter((b) => b.minor > 0);
   // 1.3.147: the donut reads categorySlices (hidden money folds into «Otros», the contract's rule),
   // not the raw slicesFor that printed hidden categories under their own names.
-  const raw = categorySlices(state, key, names, lang);
+  // Ola 13 (BR13-A3): lee las rebanadas DEL GASTO (spendCategorySlices) — su
+  // rótulo es «En qué se va el gasto» y la pila entera coronaba al Ahorro.
+  const raw = spendCategorySlices(state, key, names, lang);
   const head = raw.slice(0, 6);
   const tail = raw.slice(6).reduce((acc, sl) => acc + sl.minor, 0);
   // 1.3.148: a negative tail (refunds past the head) is money too — it folds in instead of vanishing.
@@ -592,17 +631,23 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     ),
   });
 
-  const flex = s.variable + s.purchases;
+  // Ola 13 (BR13-A2): el margen se lee por el predicado único, no por la
+  // suma de clases — `s.variable + s.purchases` contaba el apartado VARIABLE
+  // como gasto (su hermana «Rigidez» resta el apartado fijo y lo nombra en
+  // la misma impresión). El apartado variable se nombra en el detalle, como
+  // la Rigidez nombra el fijo, y la tarjeta solo nace si hay gasto de verdad.
+  const flex = sum(lines, display, rateE4, (l) => isSpendLine(state.structure, l) && (l.kind === "expense-variable" || l.kind === "purchase"));
+  const flexSaved = sum(lines, display, rateE4, (l) => (l.kind === "expense-variable" || l.kind === "purchase") && roleOf(state.structure, l.categoryId) === "savings");
   const flexPct = s.income > 0 ? (flex / s.income) * 100 : null;
   push({
     id: "flex",
     title: L(lang, "Gasto con margen", "Spending with room"),
     value: money(flex),
-    detail: flexPct === null ? L(lang, "Gastos variables y compras.", "Variable spending and purchases.") : L(lang, `${formatPct(flexPct, lang)} de tu ingreso, en gastos variables y compras.`, `${formatPct(flexPct, lang)} of your income, in variable spending and purchases.`),
+    detail: flexPct === null ? L(lang, "Gastos variables y compras.", "Variable spending and purchases.") : L(lang, `${formatPct(flexPct, lang)} de tu ingreso, en gastos variables y compras${flexSaved > 0 ? `, sin contar ${money(flexSaved)} de ahorro` : ""}.`, `${formatPct(flexPct, lang)} of your income, in variable spending and purchases${flexSaved > 0 ? `, not counting ${money(flexSaved)} of savings` : ""}.`),
     tone: "neutral",
     viz: flexPct === null ? undefined : { kind: "ring", pct: flexPct },
-    meaning: L(lang, "Variables más compras. Es la zona donde un recorte de este mes sí cambia el cierre, sin tocar la renta.", "Variable spending plus purchases. This is where a cut this month actually changes the close, without touching rent."),
-    formula: L(lang, "Suma de líneas variables activas + compras activas, en la moneda de la vista.", "Sum of active variable lines + active purchases, in the view currency."),
+    meaning: L(lang, "Variables más compras, sin el ahorro: lo que apartas no es gasto, sigue siendo tuyo. Es la zona donde un recorte de este mes sí cambia el cierre, sin tocar la renta.", "Variable spending plus purchases, without savings: what you set aside is not spending, it is still yours. This is where a cut this month actually changes the close, without touching rent."),
+    formula: L(lang, "Suma de líneas variables y compras que son gasto (el apartado no entra), en la moneda de la vista.", "Sum of variable lines and purchases that are spending (set-asides do not enter), in the view currency."),
     implication: L(lang, "Si el plan de presupuesto pide recortes, salen de aquí, de mayor a menor.", "If the budget plan asks for cuts, they come from here, largest first."),
   });
 
@@ -827,7 +872,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     if (row.id === "petty") return s.petty > 0;
     if (row.id === "subs") return runRate > 0;
     if (row.id === "break") return s.income > 0 && s.expense > s.income;
-    if (row.id === "flex") return s.income > 0 && s.variable + s.purchases > 0;
+    if (row.id === "flex") return s.income > 0 && flex > 0;
     if (row.id === "cushion") return rd.essentialsMonthly > 0;
     if (row.id === "house") return s.housing > 0;
     if (row.id === "rigid") return s.income > 0;
@@ -845,11 +890,16 @@ export function buildBudget(state: LedgerState, key: string, lang: Lang, names: 
   const fixedReal = s.fixed - savingsFixed;
   const fixedOnly = s.income - fixedReal - s.subscriptions;
   const room = fixedOnly - goalLeft;
-  const variableActual = s.variable + s.purchases;
+  // Ola 13 (BR13-A2, la misma expresión en su tercera casa): el hueco y los
+  // recortes se leen por el predicado único — con la suma de clases, el
+  // apartado variable contaba como gasto del día a día y su categoría podía
+  // salir NOMBRADA en la lista de recortes («recorta tu apartado»).
+  const variableActual = sum(lines, state.settings.display, state.settings.rateE4, (l) => isSpendLine(state.structure, l) && (l.kind === "expense-variable" || l.kind === "purchase"));
   const gap = variableActual - Math.max(0, room);
   const groups = new Map<string, number>();
   for (const line of lines) {
     if (line.kind !== "expense-variable" && line.kind !== "purchase") continue;
+    if (!isSpendLine(state.structure, line)) continue;
     const name = names.cat(line.categoryId) || names.purchase(line.categoryId) || line.concept || line.kind;
     groups.set(name, (groups.get(name) ?? 0) + inView(line, state.settings.display, state.settings.rateE4));
   }

@@ -4,6 +4,9 @@
  *   defaults, and the palette in the sheet head ("Color e íconos": one colour/icon for the ticked rows, the editors'
  *   LookView, its own Back step). ✓ leaves the manage state for the list, where a tap opens that row's editor.
  *   One button in the header (not two): titles keep one line at 360r20.
+ * Ola 13 (CARA-1): the manage hand is composed BY MODE, like the editors' own — the full hand (checkboxes,
+ * palette, group drop) only where books.multiselect lives (Ritmo); in Esencial the sheet carries the
+ * rename alone, the .315 doctrine: correcting a name is essential, administering is not.
  * No parallel system: the sheet, the colour picker and the confirmation are the editors' own; deletion uses each book's
  * own rule (books: this month's line, earlier months keep theirs; savings pockets: archive when money history exists;
  * Me deben / Préstamos: Archivo, with its Restaurar). */
@@ -42,14 +45,25 @@ function Mark({ row }: { row: KitRow }) {
 }
 
 export function BookKit({ title, rows, word, onEdit, onDrop, onRename, onColor, onIcon, onRestore, verb, body, test }: Props) {
-  const { lang } = useFaro();
+  const { lang, has } = useFaro();
   const [open, setOpen] = useState(false);
   const [look, setLook] = useState<string[] | null>(null);
   const items: PickItem[] = rows.map((row) => ({ id: row.id, label: row.label, mark: <Mark row={row} />, color: row.color }));
-  const manage: Manage = { word, onDropMany: onDrop, onRename, onColor, onRestore, verb, body };
+  // Ola 13 (CARA-1, ALTA): el kit compone su mano por modo, como los
+  // editores componen la suya (fit-pick: picker-manage / picker-rename).
+  // La mano de administrar — multiselección, color, icono, borrar en
+  // grupo, la paleta — vive donde vive su asiento (books.multiselect,
+  // Ritmo): en Esencial la hoja del lápiz trae SOLO el renombre, que es
+  // de todo piso desde la .315. Antes el kit componía la mano entera sin
+  // mirar el modo y ACTUABA: en Esencial se tildaron 14 casillas, se
+  // abrió la paleta y la barra borró dos líneas del libro en vivo.
+  const canManage = has("books.multiselect");
+  const manage: Manage = canManage
+    ? { word, onDropMany: onDrop, onRename, onColor, onRestore, verb, body }
+    : { onRename };
   const lookRows = look ? rows.filter((row) => look.includes(row.id)) : [];
   const first = lookRows[0];
-  const paints = !!(onColor || onIcon);
+  const paints = canManage && !!(onColor || onIcon);
   // An empty book shows only its + (nothing to edit yet), unless it has defaults to bring back.
   if (!rows.length && !onRestore && !open) return null;
   // The sheet gives its Back entry back before the editor takes one (the editor's step must not be the one popped).

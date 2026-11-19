@@ -14,7 +14,7 @@ import { useLayer } from "@/lib/manual/back";
 import { DayField } from "./line-form";
 import { CobroSpan } from "./screens";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
-import { ISO_DAY, accruedUnpaidInterest, addLoan, archiveLoan, fuseLoanFields, interestPaidTotal, loanInterestPaid, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
+import { ISO_DAY, LOAN_DERIVED_FROM, accruedUnpaidInterest, addLoan, archiveLoan, fuseLoanFields, interestPaidTotal, loanInterestPaid, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
 
 /** Ola 12 (S2): campo gobernado del préstamo ← llave de la bolsa de la
  * forma — el mapa con el que la edición fusiona contra el registro vivo. */
@@ -439,7 +439,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         if (!loan) return null;
         return <LoanForm key={loan.id} mode="borrow" parkKey={`loan-edit:borrow:${loan.id}`} initial={{ name: loan.lender, who: loan.who, kind: loan.kind, amountMinor: loan.amountMinor, currency: loan.currency, aprBps: loan.aprBps, date: loan.takenOn, book: loan.book, dueDay: loan.dueDay ?? 0 }}
           onCancel={() => setEditFor(null)}
-          onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => { if (l.id !== loan.id) return l; const composed: Loan = { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, ...(d.dueDay ? { dueDay: d.dueDay } : {}) }; if (!d.dueDay) delete composed.dueDay; /* Ola 12 (S2): lo gobernado no tocado se lee de ESTA fila viva — la tasa que otra pestaña fijó ya no muere al guardar un nombre. */ return fuseLoanFields(l, composed, d.touched, LOAN_FIELD_MAP); }) }), d.name); setEditFor(null); }} />;
+          onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => { if (l.id !== loan.id) return l; const composed: Loan = { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, ...(d.dueDay ? { dueDay: d.dueDay } : {}) }; if (!d.dueDay) delete composed.dueDay; /* Ola 12 (S2): lo gobernado no tocado se lee de ESTA fila viva — la tasa que otra pestaña fijó ya no muere al guardar un nombre. */ return fuseLoanFields(l, composed, d.touched, LOAN_FIELD_MAP, LOAN_DERIVED_FROM); }) }), d.name); setEditFor(null); }} />;
       })()}
       {/* 1.3.113 (Oscar): Tarjetas first, then the loans and their Archivo; Libros puts Plan de pago + Deudas below them. */}
       <CardsGroup libros={libros} />

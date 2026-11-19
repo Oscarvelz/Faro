@@ -181,9 +181,16 @@ export const CARD_DRAFT_MAP: ReadonlyArray<readonly [keyof CreditCard, string]> 
  * nombre (`networkIn(name)` en proceed). Si la fusión la tratara como un
  * campo más, un renombre a un nombre clasificable perdería la red que el
  * propio renombre deriva — la fusión descartaba en silencio el fruto del
- * campo que la mano SÍ tocó. */
+ * campo que la mano SÍ tocó.
+ * Ola 13 (OBS-G13-1, la trampa se cierra hoy): el EMISOR también se deriva
+ * en la fuente — `proceed` compone `issuer: d.issuer || issuerOf(mark)?.name`
+ * cuando el texto del emisor va vacío: el emisor nace de la MARCA. Hoy la
+ * marca no tiene selector en edición, así que el par duerme; el día que
+ * nazca ese selector, tocar la marca sin tocar el emisor debe arrastrar el
+ * emisor derivado del candidato, no resucitar el de lo vivo. */
 export const CARD_DERIVED_FROM: ReadonlyArray<readonly [keyof CreditCard, keyof CreditCard]> = [
   ["network", "name"],
+  ["issuer", "mark"],
 ];
 
 export function fuseCardDraft(live: CreditCard, candidate: CreditCard, draft: Record<string, string>, born: Record<string, string>): CreditCard {

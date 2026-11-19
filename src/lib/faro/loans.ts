@@ -83,12 +83,32 @@ export function loansOf(state: LedgerState | null | undefined): Loan[] {
  * campo gobernado que la mano no tocó. `map` ata campo del registro ←
  * llave de la bolsa de la forma. Sin testigo (un llamante viejo), el
  * candidato manda entero, como antes. */
-export function fuseLoanFields<T extends object>(live: T, candidate: T, touched: ReadonlySet<string> | undefined, map: ReadonlyArray<readonly [keyof T, string]>): T {
+/** Ola 13 (G13-1): los campos DERIVADOS del préstamo y su campo fuente.
+ * La tasa se DERIVA de la clase en la forma (`aprBps: kind === "interest"
+ * ? la tasa tecleada : 0`): elegir «sin interés» compone la tasa a 0 en el
+ * candidato. Si la fusión la tratara como un campo más, el gesto de cambiar
+ * solo la clase dejaba la tasa VIVA en el registro (kind «plain» con
+ * aprBps 1800) — y al volver a «interest», la forma nacía leyendo esa tasa
+ * y la resucitaba. La misma enfermedad que la red de la tarjeta (F5, cura
+ * 12), en su segunda casa: el derivado sigue el testigo de su fuente. */
+export const LOAN_DERIVED_FROM: ReadonlyArray<readonly ["aprBps", "kind"]> = [["aprBps", "kind"]];
+
+export function fuseLoanFields<T extends object>(live: T, candidate: T, touched: ReadonlySet<string> | undefined, map: ReadonlyArray<readonly [keyof T, string]>, derivedFrom: ReadonlyArray<readonly [keyof T, keyof T]> = []): T {
   if (!touched) return candidate;
   const next: Record<string, unknown> = { ...(candidate as Record<string, unknown>) };
   const liveRec = live as Record<string, unknown>;
+  // Ola 13 (G13-1): un campo derivado cuyo campo FUENTE fue tocado (y el
+  // derivado no) no se lee de lo vivo: el valor derivado del candidato manda.
+  const bagOf = new Map(map.map(([field, bag]) => [field, bag] as const));
+  const derivedStands = new Set<string>();
+  for (const [derived, source] of derivedFrom) {
+    const dBag = bagOf.get(derived);
+    const sBag = bagOf.get(source);
+    if (dBag && sBag && touched.has(sBag) && !touched.has(dBag)) derivedStands.add(derived as string);
+  }
   for (const [field, bag] of map) {
     if (touched.has(bag)) continue;
+    if (derivedStands.has(field as string)) continue;
     const v = liveRec[field as string];
     if (v === undefined) delete next[field as string];
     else next[field as string] = v;

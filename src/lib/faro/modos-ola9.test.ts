@@ -226,6 +226,18 @@ function gateNames(text: string): string[] {
   for (const m of text.matchAll(/import\s*\{([^}]*)\}\s*from/g)) {
     for (const a of m[1]!.matchAll(/\b(has|gate|featureForGo)\s+as\s+([A-Za-z_$][\w$]*)/g)) names.add(a[2]!);
   }
+  /* OLA 13 (mut13-a T2): los alias LOCALES de puerta entran en la tabla de
+   * nombres — `const puede2 = puede` (puede = has importado con alias) ES
+   * la puerta: sin este paso la llamada era un fantasma EN SILENCIO (nadie
+   * la acusaba: gateNames no la conocía y el asiento no se consumía). Se
+   * sigue la cadena de asignaciones nombre = nombre hasta punto fijo. */
+  for (let round = 0; round < 8; round++) {
+    let grew = false;
+    for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*;/g)) {
+      if (names.has(m[2]!) && !names.has(m[1]!)) { names.add(m[1]!); grew = true; }
+    }
+    if (!grew) break;
+  }
   return [...names];
 }
 const gateAlt = (text: string, extra: string[] = []) => [...gateNames(text), ...extra].join("|");
@@ -254,14 +266,26 @@ function resolveChains(text: string): Map<string, string> {
   return out;
 }
 /** El nombre raíz de una tabla: sigue los alias nombre = nombre hasta
- * el sitio de declaración. */
+ * el sitio de declaración.
+ * OLA 13 (mut13-a T3): la raíz también sigue los ALIAS DE IMPORTACIÓN
+ * entre archivos — `import { TABLA as ALIAS }` y `has(ALIAS[id])`: la
+ * declaración vive bajo el nombre ORIGEN; sin este salto la tabla era un
+ * fantasma en silencio (ni consumía ni acusaba). */
+function importAliasRoot(text: string, name: string): string {
+  for (const m of text.matchAll(/import\s*\{([^}]*)\}\s*from/g)) {
+    for (const a of m[1]!.matchAll(/([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)/g)) {
+      if (a[2] === name) return a[1]!;
+    }
+  }
+  return name;
+}
 function tableRoot(text: string, name: string): string {
   const edge = new Map<string, string>();
   for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*;/g)) edge.set(m[1]!, m[2]!);
   const seen = new Set<string>();
-  let cur = name;
+  let cur = importAliasRoot(text, name);
   while (edge.has(cur) && !seen.has(cur)) { seen.add(cur); cur = edge.get(cur)!; }
-  return cur;
+  return importAliasRoot(text, cur);
 }
 function gateWindows(text: string): { fn: string; win: string }[] {
   const out: { fn: string; win: string }[] = [];
@@ -318,6 +342,29 @@ function tableBodies(text: string): string[] {
   }
   return bodies;
 }
+/* OLA 13 (mut13-a T1/T1b): el cuerpo de un objeto literal declarado en el
+ * texto y el literal de cadena de una de sus propiedades — la cadena por
+ * un OBJETO (`has(SEATS.add)` / `has(SEATS["add"])`) es UNA sola doctrina
+ * con dos ortografías: el punto y el corchete resuelven igual. */
+function objectBodyOf(text: string, name: string): string {
+  const at = text.search(new RegExp(`(?:const|let|var)\\s+${name}\\s*=\\s*\\{`));
+  if (at < 0) return "";
+  let i = text.indexOf("{", at);
+  const start = i;
+  let depth = 0;
+  for (; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") { depth--; if (depth === 0) break; }
+  }
+  return text.slice(start, i + 1);
+}
+function memberSeat(text: string, obj: string, prop: string): string | undefined {
+  const body = objectBodyOf(text, obj);
+  if (!body) return undefined;
+  const esc = prop.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const m = new RegExp(`(?:\\b${esc}\\b|["']${esc}["'])\\s*:\\s*["'\`]([\\w.-]*)["'\`]`).exec(body);
+  return m?.[1];
+}
 function consumedIn(text: string, seat: string): boolean {
   const esc = SEAT_ESC(seat);
   const alt = gateAlt(text, ["featureForGo"]);
@@ -349,6 +396,25 @@ function consumedIn(text: string, seat: string): boolean {
     if (lit !== seat) continue;
     if (new RegExp(`(^|[^\\w$.])(?:${alt})\\(\\s*${name}\\s*\\)`).test(text)) return true;
   }
+  /* OLA 13 (mut13-a): las dos formas que la ola 13 cazó ciegas.
+   * (g) acceso a propiedad sobre un objeto de literales: has(SEATS.add)
+   * y has(SEATS["add"]) consumen el asiento que la propiedad declara —
+   * antes la forma de punto caía en DOBLE sentencia (el asiento por
+   * fantasma y la puerta acusada a la vez).
+   * (h) plantilla con hueco RESOLUBLE: has(`accounts.${SUF}`) con SUF
+   * constante de cadena consume el asiento que la plantilla compone. */
+  for (const { win } of gateWindows(text)) {
+    if (multiArg(win)) continue;
+    const arg = win.replace(/^\s+/, "");
+    const dot = /^([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\)/.exec(arg);
+    const bracket = /^([A-Za-z_$][\w$]*)\[\s*["']([\w$-]+)["']\s*\]\s*\)/.exec(arg);
+    const member = dot ?? bracket;
+    if (member && memberSeat(text, member[1]!, member[2]!) === seat) return true;
+    for (const m of arg.matchAll(/`([\w.-]*)\$\{\s*([A-Za-z_$][\w$]*)\s*\}([\w.-]*)`/g)) {
+      const mid = chains.get(m[2]!);
+      if (mid !== undefined && m[1]! + mid + m[3]! === seat) return true;
+    }
+  }
   return false;
 }
 function unresolvedGates(text: string): string[] {
@@ -369,6 +435,17 @@ function unresolvedGates(text: string): string[] {
       if (side(concat[1]!) && side(concat[2]!)) continue;
     }
     if (/^[A-Za-z_$][\w$]*\s*\[/.test(arg)) continue; // (c) tabla indexada
+    /* OLA 13 (mut13-a T1): el acceso por PUNTO a un objeto de literales es
+     * la misma doctrina que el corchete — has(SEATS.add) no acusa: su
+     * asiento se lee en la declaración del objeto (consumedIn (g)). */
+    if (/^[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\)/.test(arg)) continue;
+    /* OLA 13 (mut13-a T4): la plantilla cuyos huecos TODOS resuelven por
+     * cadena no acusa — la que lleva un hueco irresoluble SÍ acusa, y su
+     * prefijo estático explica al asiento (explainedByAccusedGate). */
+    if (/^`/.test(arg)) {
+      const holes = [...arg.matchAll(/\$\{\s*([A-Za-z_$][\w$]*)\s*\}/g)].map((h) => h[1]!);
+      if (holes.length && holes.every((h) => chains.has(h))) continue;
+    }
     if (/^[A-Za-z_$][\w$]*\s+as\s/.test(arg)) continue; // flujo FeatureId (has(f as F))
     if (/^featureForGo\(/.test(arg)) continue; // el puente tema→asiento
     if (/^[A-Za-z_$][\w$]*\s*:/.test(arg)) continue; // firma de una declaración
@@ -392,6 +469,13 @@ function explainedByAccusedGate(text: string, seat: string): boolean {
     if (!accused.has(`${m[2]}(${win.slice(0, 60).replace(/\s+/g, " ")}…`)) continue;
     for (const lit of win.matchAll(/["'`]([\w.-]*)["'`]/g)) {
       if (lit[1] === seat) return true;
+      if (lit[1]!.length >= 4 && seat.startsWith(lit[1]!)) return true;
+    }
+    /* OLA 13 (mut13-a T4): el prefijo ESTÁTICO de una plantilla se lee
+     * como se lee un literal — `accounts.${sufijo}` explica a
+     * accounts.add aunque el hueco no resuelva: una sola sentencia,
+     * sobre la puerta. */
+    for (const lit of win.matchAll(/`([\w.-]*)\$\{/g)) {
       if (lit[1]!.length >= 4 && seat.startsWith(lit[1]!)) return true;
     }
   }
@@ -439,6 +523,95 @@ describe("ola9 · §A: el censo de consumidores — ningún asiento fantasma", (
       "accounts.panel no gobernaba nada (el panel se ancla en accounts.panel-simple y su desglose en nature.class-saldo): sus temas se re-asientan, el fantasma no se exime");
     assert.ok(!MAP_SEATS.has("vault.retiro-fields"),
       "vault.retiro-fields no gobernaba nada (la forma de Retiro no lleva puerta): su tema se re-asienta a vault.retiro");
+  });
+});
+
+/* ═══════════ §A-quater (OLA 13 · CARA-1, LA CLASE) ══════════════════
+ * El censo §A enumeraba desde el MAPA §10 (99 asientos): un asiento que
+ * el mapa no nombraba era INVISIBLE para él — books.multiselect vivía
+ * declarado en el registro, sin consumidor, sin cruce y sin exención,
+ * mientras la superficie que gobierna (la mano de administrar del kit
+ * de los libros) trabajaba sin puerta en Esencial (CARA-1). Este censo
+ * enumera DESDE EL REGISTRO (FEATURES, 500 asientos) y acusa POR SU
+ * NOMBRE a todo asiento que ningún mecanismo conoce: ni un consumidor
+ * de puerta (consumedIn), ni el mapa §10, ni una exención de la §A, ni
+ * un tema que lo nombre, ni una FAMILIA DECLARADA con su mecanismo.
+ * La medición que fija la doctrina (asentada en CURA-OLA13): 397
+ * asientos del registro son adjudicaciones declarativas — declaran el
+ * piso de superficies que nacen por composición, y el motor de modos
+ * consume la TABLA ENTERA (hasFeature sirve cualquier llave, el conteo
+ * de desbloqueos camina las familias, el espejo de modos294 clava la
+ * tabla): exigir un has() por asiento acusaría a la tabla misma, no a
+ * un fantasma. Lo que esta cerca caza es la clase de CARA-1: un
+ * gobernador que NINGÚN mecanismo nombra — y books.multiselect, su
+ * espécimen, queda clavado como consumido. */
+const FAMILIAS_REGISTRO: Record<string, string> = {
+  accounts: "sus formas se eligen por la puerta negativa de la hermana (accounts.opening gobierna la forma de apertura); la familia declara el resto de sus piezas",
+  advisor: "las lecturas del Asesor: cada lectura declara su piso en la tabla; las caras se componen en advisor2/screens y se gobiernan por los asientos de la superficie que las pinta",
+  alerts: "los vencimientos: aviso nacido por composición de la cáscara; el asiento declara el piso del aviso",
+  archive: "el Archivo: sus verbos finos llevan puerta (archive.hide-selection, archive.restore-span); la familia declara los pisos de sus vistas",
+  area: "las áreas del Estudio: superficies nacidas por composición (area-advice), gobernadas por los asientos de la cara que las presenta",
+  awake: "la foto al despertar: composición de Central; sus asientos declaran el piso de cada pieza que la compone",
+  books: "los libros: superficies por composición (BookSection y el kit); sus verbos finos llevan puerta — books.multiselect entre ellos, consumido desde la cura 13",
+  cards: "la ficha se gobierna campo a campo (cards.add-full y los asientos de captura); la familia declara los pisos de las piezas de tarjeta sin puerta propia",
+  central: "Central, la pantalla de arranque: se compone entera; sus piezas declaran su piso para el conteo de desbloqueos y los temas",
+  cobros: "el libro de Cobros ES su línea de tiempo: composición del libro, no un widget con puerta; sus lentes llevan sus asientos",
+  debt: "el lado Debo: sus caras se componen en debts.tsx y sus verbos finos llevan puerta propia",
+  desk: "el escritorio: su pieza declarada se compone con Central y declara su piso en la tabla",
+  editor: "el editor de líneas: sus manos finas llevan puerta (editor.picker-manage, editor.picker-rename, editor.icon-color); la familia declara el resto de sus piezas",
+  hist: "el Historial y el río: superficies por composición, gobernadas por los asientos de sus gestos y vistas (el Susurro entre ellos)",
+  import: "la importación nace por composición (bank-import); la familia declara los pisos de sus piezas",
+  ins: "los instrumentos: composición en instruments.tsx; sus verbos finos llevan puerta",
+  lent: "el lado Me deben: sus caras se componen en debts.tsx y sus verbos finos llevan puerta propia",
+  loans: "los préstamos: sus caras se componen en loans.tsx y sus verbos finos (pagar, archivar) llevan puerta propia",
+  manual: "el Manual: sus temas se cruzan por la §10 y por TOPIC_SCENES; la familia declara los pisos de sus superficies",
+  mode: "el propio sistema de modos: el diálogo y el Susurro se gobiernan en mode.ts y screens; la familia declara sus piezas",
+  nature: "la naturaleza de las líneas: clasificación por composición (la casa de nature); sus declaraciones y guardas llevan asiento fino donde se cruzan",
+  nav: "la cáscara (shell.tsx): navegación nacida por composición; sus verbos finos llevan puerta y la familia declara los pisos de cada pieza",
+  pano: "el Panorama: tarjetas por composición sobre monthTotals; la familia declara los pisos de sus piezas",
+  patron: "el Patrón: el motor lee sus propias reglas; la familia declara los pisos de sus avisos",
+  people: "Personas: la superficie se compone en people.tsx; sus verbos finos llevan puerta",
+  pres: "la Presentación: el guion y el teatro se componen desde guion.ts y presentacion.tsx; la familia declara los pisos de sus piezas",
+  remit: "Remesas: composición sobre remesas.ts; sus verbos finos llevan puerta",
+  rule: "las reglas del Asesor: el motor las evalúa enteras (rules.ts); la familia declara el piso de cada aviso",
+  sample: "la casa de muestra nace por composición (sample.ts); sus asientos declaran sus pisos",
+  scan: "las hojas de escaneo nacen por composición; sus filas llevan asientos finos (scan.card-capture y hermanas)",
+  settings: "Ajustes: la pantalla se compone por territorios; sus interruptores finos llevan puerta o viven en todo piso por adjudicación escrita",
+  study: "el Estudio: composición sobre studyBoard; sus caras declaran su piso y las finas llevan asiento propio donde se cruzan",
+  subs: "Cuotas: el libro existe por composición del hub (su parada gatea books.subs); la familia declara los pisos de sus cadencias y piezas",
+  tools: "las herramientas: composición en instruments.tsx; sus verbos finos llevan puerta (tools.rate-refresh y hermanas)",
+  vault: "la bóveda: composición de sus tarjetas; sus verbos finos llevan asiento donde se cruzan (vault.retiro entre ellos)",
+  widget: "el widget: su foto se compone en widget.ts sobre monthTotals; la familia declara los pisos de sus piezas",
+};
+describe("ola9 · §A-quater: el censo desde el REGISTRO — ningún gobernador sin mecanismo (OLA 13)", () => {
+  const topicsText = SRC("../manual/topics.ts");
+  const prefixOf = (seat: string) => seat.split(".")[0]!;
+  const satisfied = (seat: string): boolean =>
+    MAP_SEATS.has(seat) || seat in EXENTOS || topicsText.includes(`"${seat}"`) || prefixOf(seat) in FAMILIAS_REGISTRO || consumed(seat);
+  it("todo asiento del registro lo conoce algún mecanismo: consumidor, mapa, exención, tema o familia declarada", () => {
+    const seats = Object.keys(FEATURES);
+    assert.ok(seats.length >= 490, `el censo enumera desde el registro de verdad (${seats.length} asientos)`);
+    for (const seat of seats) {
+      assert.ok(satisfied(seat),
+        `${seat}: asiento del REGISTRO sin ningún mecanismo — ni consumidor, ni mapa §10, ni exención, ni tema, ni familia declarada: un gobernador invisible (así nació CARA-1)`);
+    }
+  });
+  it("el espécimen de la clase queda clavado: books.multiselect tiene consumidor desde la cura 13", () => {
+    assert.ok(consumed("books.multiselect"), "el kit de los libros consulta has(\"books.multiselect\"): el asiento invisible de la ola 13 ya no lo es");
+  });
+  it("espécimen: un asiento de una familia que no existe ACUSA por su nombre", () => {
+    assert.equal(satisfied("fantasma13.multiselect"), false,
+      "ni consumidor, ni mapa, ni familia: la cerca lo nombra y lo acusa — la clase de CARA-1 no vuelve en silencio");
+  });
+  it("la higiene de las familias: cada familia declarada cubre al menos un asiento que ningún otro mecanismo conoce", () => {
+    const seats = Object.keys(FEATURES);
+    for (const [prefix, mechanism] of Object.entries(FAMILIAS_REGISTRO)) {
+      assert.ok(mechanism.length > 10, `${prefix}: la familia lleva su mecanismo escrito`);
+      const mine = seats.filter((s) => prefixOf(s) === prefix);
+      assert.ok(mine.length > 0, `${prefix}: familia sin asientos en el registro — declaración podrida`);
+      assert.ok(mine.some((s) => !(MAP_SEATS.has(s) || s in EXENTOS || topicsText.includes(`"${s}"`) || consumed(s))),
+        `${prefix}: todos sus asientos ya los conoce otro mecanismo — la familia sobra y debe morir`);
+    }
   });
 });
 
@@ -570,6 +743,41 @@ describe("ola9 · §A-ter: el censo cuenta sitios de llamada, no texto (OLA 11)"
     const c = census(`const A = "accounts.add"; const B = compute(A); const g = has(B);`);
     assert.equal(consumedIn(c, "accounts.add"), false);
     assert.equal(unresolvedGates(c).length, 1, "el callejón acusa en voz alta");
+  });
+  /* OLA 13 · mut13-a entero a doctrina: ni doble sentencia ni fantasma
+   * en silencio — cada forma consume, o acusa una sola vez sobre la
+   * puerta que la doctrina nombra. */
+  it("13-T1 · la cadena por un OBJETO consume por el punto, sin acusar a la puerta", () => {
+    const c = census(`const SEATS = { add: "accounts.add" };\nconst g = has(SEATS.add);`);
+    assert.equal(consumedIn(c, "accounts.add"), true, "has(SEATS.add) consume el asiento que la propiedad declara");
+    assert.deepEqual(unresolvedGates(c), [], "ni doble sentencia: la puerta no es acusada por la forma que consume");
+  });
+  it("13-T1b · el gemelo por corchete consume igual: el punto y el corchete son la misma doctrina", () => {
+    const c = census(`const SEATS = { add: "accounts.add" };\nconst g = has(SEATS["add"]);`);
+    assert.equal(consumedIn(c, "accounts.add"), true);
+    assert.deepEqual(unresolvedGates(c), []);
+  });
+  it("13-T2 · el alias LOCAL de la puerta consume y no deja fantasma en silencio", () => {
+    const c = census(`import { has as puede } from "./mode";\nconst puede2 = puede;\nconst g = puede2("accounts.add");`);
+    assert.equal(consumedIn(c, "accounts.add"), true, "puede2 ES la puerta: la tabla de nombres sigue los alias locales");
+    assert.deepEqual(unresolvedGates(c), [], "y la llamada se ve: nadie la deja pasar en silencio");
+  });
+  it("13-T3 · la tabla invocada por ALIAS DE IMPORTACIÓN empareja con su declaración", () => {
+    const c = census(`export const TABLA = { a: "accounts.add" };\nimport { TABLA as ALIAS } from "./a";\nconst g = has(ALIAS[id]);`);
+    assert.equal(consumedIn(c, "accounts.add"), true, "la raíz sigue el alias de importación hasta el nombre declarado");
+    assert.deepEqual(unresolvedGates(c), []);
+  });
+  it("13-T4 · la plantilla con hueco resoluble consume el asiento que compone", () => {
+    const c = census("const SUF = \"add\";\nconst g = has(`accounts.${SUF}`);");
+    assert.equal(consumedIn(c, "accounts.add"), true, "el hueco resuelve por cadena y la plantilla compone el asiento");
+    assert.deepEqual(unresolvedGates(c), []);
+  });
+  it("13-T4b · la plantilla con hueco IRRESOLUBLE acusa a la puerta y su prefijo explica al asiento", () => {
+    const c = census("const g = has(`accounts.${sufijo}`);");
+    assert.equal(consumedIn(c, "accounts.add"), false);
+    assert.equal(unresolvedGates(c).length, 1, "la puerta acusa en voz alta");
+    assert.equal(explainedByAccusedGate(c, "accounts.add"), true,
+      "el prefijo estático de la plantilla se lee como un literal: el asiento queda explicado, no fantasma");
   });
 });
 

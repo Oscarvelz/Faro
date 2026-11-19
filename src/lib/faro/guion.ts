@@ -586,7 +586,10 @@ const ANOTAR: Module = {
     { id: "m3-bote", chapter: "gestionar", minMode: "ritmo", anchors: ["book-pot"], keys: [["bote", "pot"], ["informe", "report"]], steps: [
       { kind: "show", anchor: "book-pot", caption: ["El bote resume la línea: acumulado, anotado y cuántos pagos — tócalo y se abre.", "The pot sums up the line: total, logged, and payment count — tap it open."] },
     ] },
-    { id: "m3-lapiz", chapter: "gestionar", anchors: ["book-kit"], keys: [["lápiz", "pencil"], ["gestionar", "manage"]], steps: [
+    { id: "m3-lapiz", chapter: "gestionar", mode: "esencial", anchors: ["book-kit"], keys: [["lápiz", "pencil"], ["gestionar", "manage"]], steps: [
+      { kind: "show", anchor: "book-kit", caption: ["El lápiz abre la hoja del libro: ahí corriges el nombre de cada línea.", "The pencil opens the book's sheet: there you correct each line's name."] },
+    ] },
+    { id: "m3-lapiz-r", chapter: "gestionar", minMode: "ritmo", anchors: ["book-kit"], keys: [["lápiz", "pencil"], ["gestionar", "manage"]], steps: [
       { kind: "show", anchor: "book-kit", caption: ["El lápiz gestiona el libro: renombra, recolorea, borra en grupo.", "The pencil runs the book: rename, recolor, bulk delete."] },
     ] },
     { id: "m3-importar", chapter: "gestionar", minMode: "completo", anchors: ["books-import"], keys: [["importar", "import"], ["banco", "bank"]], steps: [

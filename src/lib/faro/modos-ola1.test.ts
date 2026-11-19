@@ -499,7 +499,13 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  editor.icon-color porque dejó de ser un asiento R/C: asentaba en
  *  Completo el look propio de la línea, que es dato de creación, y la
  *  cura lo re-asentó a Esencial (CARA-2, la mentira hermana del
- *  registro). */
+ *  registro).
+ *  ENMIENDA OLA 13 (con su razón, como la cerca manda): sale
+ *  books.multiselect porque GANÓ consumidor literal — la Cara XIII lo
+ *  encontró declarado desde la ola de los modos sin un solo lector,
+ *  mientras el kit de los libros componía su mano de administrar sin
+ *  mirar el modo y ACTUABA en Esencial (CARA-1, ALTA); la cura compone
+ *  la mano del kit desde su asiento en book-kit.tsx. */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
@@ -513,7 +519,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "area.plain-phrase", "area.remit-up", "area.retiro-paused", "area.rules-split",
   "area.setaside", "awake.destination-projection", "awake.goals-horizon", "awake.recalc-notices",
   "awake.savings-photo", "awake.stale-plan", "awake.undestined", "books.bookkit",
-  "books.bubble-editor", "books.cloud", "books.multiselect", "books.shop-catalog-gear",
+  "books.bubble-editor", "books.cloud", "books.shop-catalog-gear",
   "cards.add", "cards.edit-delete",
   "cards.factory", "cards.ficha", "cards.group", "cards.pay",
   "cards.rewards-reconcile", "cards.update", "cards.usage-advice",

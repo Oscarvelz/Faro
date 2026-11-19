@@ -26,7 +26,7 @@ import { RewardsGroup } from "./cards";
 import { BookKit } from "./book-kit";
 import { cardFigures, cardsOf, nextDue, rewardsTotals } from "@/lib/faro/cards";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
-import { fuseLoanFields, interestPaidTotal, loanState, loanTotals, loansOf, todayIso } from "@/lib/faro/loans";
+import { LOAN_DERIVED_FROM, fuseLoanFields, interestPaidTotal, loanState, loanTotals, loansOf, todayIso } from "@/lib/faro/loans";
 
 /** Ola 12 (S2): campo gobernado del «Me deben» ← llave de la bolsa de la
  * forma — el mapa con el que la edición fusiona contra el registro vivo. */
@@ -443,7 +443,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
         if (!row) return null;
         return <LoanForm key={row.id} mode="lend" parkKey={`loan-edit:lend:${row.id}`} initial={{ name: row.person, who: "person", kind: row.kind === "interest" ? "interest" : "plain", amountMinor: row.amountMinor, currency: row.currency, aprBps: row.aprBps, date: row.dueOn || "", book: "fixed" }}
           onCancel={() => setEditFor(null)}
-          onSave={(d) => { commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => { if (r.id !== row.id) return r; const composed: Lent = { ...r, person: d.name, kind: d.kind, amountMinor: d.amountMinor, aprBps: d.aprBps, dueOn: d.date }; /* Ola 12 (S2): la gemela fusiona igual — lo gobernado no tocado se lee de ESTA fila viva dentro del commit. */ return fuseLoanFields(r, composed, d.touched, LENT_FIELD_MAP); }) }), d.name); setEditFor(null); }} />;
+          onSave={(d) => { commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => { if (r.id !== row.id) return r; const composed: Lent = { ...r, person: d.name, kind: d.kind, amountMinor: d.amountMinor, aprBps: d.aprBps, dueOn: d.date }; /* Ola 12 (S2): la gemela fusiona igual — lo gobernado no tocado se lee de ESTA fila viva dentro del commit. */ return fuseLoanFields(r, composed, d.touched, LENT_FIELD_MAP, LOAN_DERIVED_FROM); }) }), d.name); setEditFor(null); }} />;
       })()}
       {libros ? (has("debt.chart") ? <DebtChart /> : null) : (
         <CobroSpan title={t("cobro.span")} total={sums.lent} events={all.map((r) => ({ date: r.startedOn, value: view(r.amountMinor, r.currency) }))}

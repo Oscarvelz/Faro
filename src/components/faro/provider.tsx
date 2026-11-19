@@ -19,7 +19,7 @@ import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
 import { markTornFlows } from "@/lib/faro/flow-park";
 import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
-import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
+import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, spendCategorySlices, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatMoney, formatMoneyShort, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
 import { blankSession, commit as commitSession, commitFinal as commitFinalSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
@@ -1230,7 +1230,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       insights: () => (i ??= ledgerNow ? buildInsights(ledgerNow, key, lang, names) : []),
       advice: () => (a ??= ledgerNow ? buildAdvice(ledgerNow, key, lang, names) : []),
       budget: () => (b === undefined ? (b = ledgerNow ? buildBudget(ledgerNow, key, lang, names) : null) : b),
-      slices: () => (sl ??= ledgerNow ? categorySlices(ledgerNow, key, names, lang) : []),
+      // Ola 13 (BR13-A3): las rebanadas del proveedor alimentan UNA sola cara,
+      // el donut del Estudio bajo «En qué se va el gasto» — leen las del gasto
+      // (spendCategorySlices), no la pila de movimiento entera.
+      slices: () => (sl ??= ledgerNow ? spendCategorySlices(ledgerNow, key, names, lang) : []),
     };
   }, [ledgerNow, key, lang, names]);
   const hits = session && ui.query.trim().length >= 2 ? searchLedger(session.ledger, ui.query, lang, names) : [];
