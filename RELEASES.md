@@ -2660,4 +2660,4 @@ La cura de la ola 14 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 2047/2047 (2019 + 28) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. Bancos del equipo: fantasma 11/11, diálogo de confirmación 11/11, savePlan a nivel de cierre, sondas A1/A2 en verdad. La cáscara nativa (Kotlin) viaja en el paquete; su prueba es la CI, como siempre — la web degrada con gracia en cáscaras viejas (la foto vieja cae spent := spend).
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-323-2026-11-19` → f5539bd0. Source: 7ee1939a. Tag: v1.3.323 → 7ee1939a. Main: c48866e1 (chunks) + d9eabb15 (control). Entrada: index-BoqCy2jo.js.
