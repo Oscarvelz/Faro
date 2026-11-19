@@ -9,7 +9,7 @@ import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, modeSign } from "./bank-dock";
 import { ModeImpactDialog, ModeReposedDialog } from "./mode-gate";
-import { MODES, currentRefDay, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
+import { MODES, currentRefDay, modeDialogReaction, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
 import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
@@ -5366,6 +5366,38 @@ export function Settings() {
   const [modeImpactState, setModeImpactState] = useState<{ target: Mode; impact: ModeImpact; refreshed?: boolean; from: Mode; refDay: string } | null>(null);
   const [modeReposed, setModeReposed] = useState<{ target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] } | null>(null);
   const currentMode: Mode = session ? modeOf(session.ledger.settings) : "completo";
+  // Ola 10 (C10-2): EL DIÁLOGO ABIERTO VIGILA LAS LLEGADAS. Las curas
+  // C3-1/C4-1 enseñaron a las CONFIRMACIONES a comparar premisas, pero el
+  // diálogo abierto seguía congelado: una llegada (otra pestaña, la nube)
+  // podía aterrizar en su propio destino o entre su origen y su destino
+  // y el diálogo seguía preguntando byte por byte lo mismo — y confirmar
+  // entonces no ejecutaba nada y no explicaba nada. El vigilante compara
+  // las premisas contra el modo VIVO en cuanto este se mueve (la decisión
+  // pura vive en modeDialogReaction, clavada en la §E de modos-ola10):
+  // destino alcanzado → el diálogo se cierra (la llegada se anunció por
+  // su puerta); dirección invertida → se convierte en su hermano con las
+  // premisas vivas; misma pregunta con origen o conteos movidos → se
+  // refresca con el recuento vivo. El vigilante jamás aplica un modo.
+  useEffect(() => {
+    if (!modeImpactState || !session) return;
+    const r = modeDialogReaction({
+      dialog: "impact", from: modeImpactState.from, target: modeImpactState.target, live: currentMode,
+      state: session.ledger, lang, refDay: modeImpactState.refDay, currentImpact: modeImpactState.impact,
+    });
+    if (r.kind === "close") setModeImpactState(null);
+    else if (r.kind === "to-reposed") { setModeImpactState(null); setModeReposed({ target: modeImpactState.target, from: r.from, unlocked: r.unlocked }); }
+    else if (r.kind === "refresh-impact") setModeImpactState({ target: modeImpactState.target, impact: r.impact, refreshed: true, from: r.from, refDay: modeImpactState.refDay });
+  }, [modeImpactState, session, currentMode, lang]);
+  useEffect(() => {
+    if (!modeReposed || !session) return;
+    const r = modeDialogReaction({
+      dialog: "reposed", from: modeReposed.from, target: modeReposed.target, live: currentMode,
+      state: session.ledger, lang, refDay: currentRefDay(), currentUnlocked: modeReposed.unlocked,
+    });
+    if (r.kind === "close") setModeReposed(null);
+    else if (r.kind === "to-impact") { setModeReposed(null); setModeImpactState({ target: modeReposed.target, impact: r.impact, from: r.from, refDay: currentRefDay() }); }
+    else if (r.kind === "refresh-reposed") setModeReposed({ target: modeReposed.target, from: r.from, unlocked: r.unlocked });
+  }, [modeReposed, session, currentMode, lang]);
   const applyMode = (target: Mode) => commit((s) => ({ ...s, settings: { ...s.settings, mode: target } }), target);
   // El aviso de subida (1.3.307, palabra de Oscar): un letrero centrado con
   // una frase breve — el nombre del modo y su línea — en vez de la tira de
@@ -5634,7 +5666,14 @@ export function Settings() {
       </Cluster>
       <Cluster title={lang === "en" ? "The book" : "El libro"} hint={lang === "en" ? "How your money is organized" : "Cómo se organiza tu dinero"}>
       <Fold id="structure" icon={FolderTree} sub={has("settings.structure-tree") ? (lang === "en" ? "Categories and stores" : "Categorías y tiendas") : t("settings.catalog")} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
-        {has("settings.structure-card") ? (
+        {/* Ola 10 (CARA-1): la tarjeta es de Ritmo (settings.structure-card),
+            pero las SELECCIONES de plantilla son de Completo (fallo 35,
+            settings.templates): tras la sola puerta de la tarjeta pintaban
+            — y APLICABAN la reestructura — en Ritmo, un piso por debajo de
+            su asiento, cubiertas por una exención del censo que nombraba el
+            gobernador sin mirar su piso. La cara obedece el fallo: en Ritmo
+            la tarjeta pinta entera SIN el selector; en Completo, entero. */}
+        {has("settings.structure-card") && has("settings.templates") ? (
         <div className="aj-picks" role="group" aria-label={t("settings.structure")}>
           {(["soltero", "familia", "estudiante", "negocio"] as TemplateId[]).map((id) => (
             <button key={id} type="button" className="btn ghost aj-pick" aria-pressed={session.ledger.structure.base === id} onClick={() => { const pv = templatePreview(session.ledger, id, lang); confirm({ title: t(`tpl.${id}`), body: `${templateExample(id, lang)}\n\n${pv.body}`, yes: pv.empty ? (lang === "en" ? "Got it" : "Entendido") : t("yes"), run: pv.empty ? () => {} : () => commit((s) => ({ ...s, structure: applyTemplate(s.structure, id) }), id) }); }}>

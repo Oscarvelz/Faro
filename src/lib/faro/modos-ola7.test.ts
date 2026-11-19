@@ -224,6 +224,29 @@ describe("ola7 · la conservación de los campos puertados, fijada por fin", () 
     assert.ok(form.includes("const [brandTouched, setBrandTouched] = useState(false);"),
       "si naciera en true, la restauración G-6 jamás correría por la otra puerta: el icono guardado se perdería al editar");
   });
+  it("los testigos que la ola 10 cazó sin pin nacen como deben (G10-1, G10-2 y su primo)", () => {
+    /* OLA 10: la §D fijaba los testigos que ya habían mordido, no la
+     * familia. natureDraft nació sin pin: nacido no-nulo, TODA la suite
+     * pasaba (1789/1789) mientras cada guardado de una línea de fondo
+     * quedaría bloqueado por la pregunta de naturaleza que la mano nunca
+     * tocó — la restauración del sello, muerta. El acoplamiento
+     * tone/toneStart tampoco tenía pin: tone nacido desacoplado
+     * (useState("")), la suite pasaba y cada edición de gasto o compra
+     * estamparía color: "" sobre el color elegido y guardado. Y el primo
+     * hintRef (un ref, fuera del alcance de los pines de useState):
+     * nacido desigual, la pista aprendida dejaría de rellenar «Pagado
+     * con» para siempre — función muerta, ningún byte guardado dañado.
+     * Los nacimientos quedan fijados verbatim; el censo completo de la
+     * familia, con su completitud, vive en la §F de modos-ola10. */
+    assert.ok(form.includes("const [natureDraft, setNatureDraft] = useState<{ nature: FundNature | null; host: string } | null>(null);"),
+      "natureDraft nace null: un borrador de naturaleza no-nulo al nacer bloquea cada guardado de fondo con una pregunta que la mano nunca tocó (G10-1)");
+    assert.ok(form.includes("const [tone, setTone] = useState(toneStart);"),
+      "tone nace ACOPLADO a toneStart: desacoplado, cada edición estamparía color vacío sobre el color guardado (G10-2)");
+    assert.ok(form.includes('const hintRef = useRef("");'),
+      "hintRef nace vacío: nacido con un valor, la pista aprendida no volvería a rellenar «Pagado con» jamás (OBS-G10-1)");
+    assert.ok(form.includes("const baseRef = useRef<Record<string, unknown> | null>(null);"),
+      "baseRef nace null: su nulidad sostiene el relleno perezoso que define la base del dirty — un testigo más del censo");
+  });
   it("el censo de deletes de save() es cerrado: ni uno más (mutación MC)", () => {
     const tally: Record<string, number> = {};
     for (const m of form.matchAll(/delete line\.(\w+)/g)) tally[m[1]!] = (tally[m[1]!] ?? 0) + 1;

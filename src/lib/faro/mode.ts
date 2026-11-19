@@ -235,6 +235,77 @@ export function unlockedGroups(state: LedgerState, from: Mode, to: Mode): { id: 
     .filter((g) => g.count > 0);
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * OLA 10 (C10-2) — EL DIÁLOGO ABIERTO VIGILA LAS LLEGADAS
+ *
+ * Los dos diálogos de modo (el de impacto y el repuesto) nacieron
+ * comparando premisas SOLO al confirmar (curas C3-1 y C4-1): con el
+ * diálogo abierto, una llegada — otra pestaña, la nube — podía aterrizar
+ * en su propio destino o entre su origen y su destino y el diálogo
+ * seguía preguntando con las premisas congeladas, byte por byte; y
+ * confirmar entonces no ejecutaba nada y no explicaba nada. Esta función
+ * pura decide la reacción del diálogo abierto ante el modo VIVO, con la
+ * misma geometría que sus confirmaciones ya asentadas:
+ *   · el libro ya está en el destino → CERRAR (la llegada se anunció por
+ *     su propia puerta; el diálogo ya no tiene pregunta);
+ *   · la dirección se invirtió (ir al destino ya es subir para el de
+ *     impacto, o bajar para el repuesto) → CONVERTIR al hermano, con las
+ *     premisas vivas;
+ *   · sigue siendo la misma pregunta pero el origen o los conteos se
+ *     movieron → REFRESCAR el diálogo con el recuento vivo (y si el
+ *     impacto se evaporó, total 0, la advertencia quedó sin objeto:
+ *     principio 5 — CERRAR; un toque nuevo aplica directo);
+ *   · nada cambió → QUEDARSE.
+ * El vigilante jamás aplica un cambio de modo: reacciona sobre el
+ * diálogo, no sobre el libro. ════════════════════════════════════════ */
+export type ModeDialogReaction =
+  | { kind: "stay" }
+  | { kind: "close" }
+  | { kind: "refresh-impact"; from: Mode; impact: ModeImpact }
+  | { kind: "refresh-reposed"; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] }
+  | { kind: "to-reposed"; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] }
+  | { kind: "to-impact"; from: Mode; impact: ModeImpact };
+
+const impactSignature = (i: ModeImpact): string =>
+  `${i.total}|${i.groups.map((g) => `${g.id}:${g.count}`).join(",")}|${i.alerts.map((a) => `${a.id}:${a.count}`).join(",")}`;
+const unlockedSignature = (u: { id: string; count: number }[]): string => u.map((g) => `${g.id}:${g.count}`).join(",");
+
+export function modeDialogReaction(args: {
+  dialog: "impact" | "reposed";
+  from: Mode;
+  target: Mode;
+  live: Mode;
+  state: LedgerState;
+  lang: Lang;
+  refDay?: string;
+  currentImpact?: ModeImpact;
+  currentUnlocked?: { id: string; count: number }[];
+}): ModeDialogReaction {
+  const { dialog, from, target, live, state, lang, refDay } = args;
+  if (live === target) return { kind: "close" };
+  if (dialog === "impact") {
+    if (modeRank(live) < modeRank(target)) {
+      return { kind: "to-reposed", from: live, unlocked: unlockedGroups(state, live, target) };
+    }
+    const fresh = modeImpact(state, target, lang, refDay);
+    if (fresh.total === 0) return { kind: "close" };
+    if (live !== from || !args.currentImpact || impactSignature(fresh) !== impactSignature(args.currentImpact)) {
+      return { kind: "refresh-impact", from: live, impact: fresh };
+    }
+    return { kind: "stay" };
+  }
+  if (modeRank(live) > modeRank(target)) {
+    const fresh = modeImpact(state, target, lang, refDay);
+    if (fresh.total === 0) return { kind: "close" };
+    return { kind: "to-impact", from: live, impact: fresh };
+  }
+  const freshUnlocked = unlockedGroups(state, live, target);
+  if (live !== from || unlockedSignature(freshUnlocked) !== unlockedSignature(args.currentUnlocked ?? [])) {
+    return { kind: "refresh-reposed", from: live, unlocked: freshUnlocked };
+  }
+  return { kind: "stay" };
+}
+
 /** El modo donde se gestiona el bolsillo al que pertenece una serie, por su
  *  sub — o null cuando la serie vive en el segmento llano de Ahorros, que se
  *  gestiona en Esencial (su dinero no es mudo en ningún modo). Lo usa la fila

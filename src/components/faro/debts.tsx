@@ -27,6 +27,7 @@ import { BookKit } from "./book-kit";
 import { cardFigures, cardsOf, nextDue, rewardsTotals } from "@/lib/faro/cards";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { interestPaidTotal, loanState, loanTotals, loansOf, todayIso } from "@/lib/faro/loans";
+import { settleFlowParks, tornParkedKey } from "@/lib/faro/flow-park";
 import { addLent, archiveLent, debtSeries, lentOf, lentPays, lentState, lentTotals, monthAhead, netBalance, payLent, payoffPlan, peopleOf, personKey, restoreLent, type Person } from "@/lib/faro/debts";
 import type { CardSnap, Currency, Lent } from "@/lib/faro/types";
 
@@ -360,6 +361,15 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
   const active = all.filter((r) => !r.archived);
   const filed = all.filter((r) => r.archived);
   const sums = lentTotals(ledger);
+  // Ola 10 (C10-1): la restauración del flujo rasgado por una adopción,
+  // como en el lado Debo (flow-park.ts): el alta o la edición vuelven con
+  // su borrador; la marca se consume al montar y lo no rasgado se
+  // descarta — navegar no resucita borradores.
+  const lendParkKeys = ["loan-new:lend", ...active.map((r) => `loan-edit:lend:${r.id}`)];
+  const tornLend = tornParkedKey(lendParkKeys);
+  if (tornLend === "loan-new:lend" && !draft) setDraft(true);
+  if (tornLend?.startsWith("loan-edit:lend:") && !editFor) setEditFor(tornLend.slice("loan-edit:lend:".length));
+  useEffect(() => { settleFlowParks(lendParkKeys); }, []);
   // 1.3.109: card rewards are money owed to the user (by the bank): the top figure is people + rewards, split below.
   const rwSum = rewardsTotals(ledger);
   const today = todayIso();
@@ -421,11 +431,11 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
         [`${rwSum.count} ${lang === "en" ? (rwSum.count === 1 ? "card" : "cards") : (rwSum.count === 1 ? "tarjeta" : "tarjetas")}`],
         [{ num: fmt(rwSum.total) }, lang === "en" ? "in card rewards" : "en recompensas"],
       ] : null} />
-      {draft ? <LoanForm mode="lend" onCancel={() => setDraft(false)} onSave={save} /> : null}
+      {draft ? <LoanForm mode="lend" parkKey="loan-new:lend" onCancel={() => setDraft(false)} onSave={save} /> : null}
       {(() => {
         const row = editFor ? active.find((r) => r.id === editFor) : null;
         if (!row) return null;
-        return <LoanForm key={row.id} mode="lend" initial={{ name: row.person, who: "person", kind: row.kind === "interest" ? "interest" : "plain", amountMinor: row.amountMinor, currency: row.currency, aprBps: row.aprBps, date: row.dueOn || "", book: "fixed" }}
+        return <LoanForm key={row.id} mode="lend" parkKey={`loan-edit:lend:${row.id}`} initial={{ name: row.person, who: "person", kind: row.kind === "interest" ? "interest" : "plain", amountMinor: row.amountMinor, currency: row.currency, aprBps: row.aprBps, date: row.dueOn || "", book: "fixed" }}
           onCancel={() => setEditFor(null)}
           onSave={(d) => { commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => (r.id === row.id ? { ...r, person: d.name, kind: d.kind, amountMinor: d.amountMinor, aprBps: d.aprBps, dueOn: d.date } : r)) }), d.name); setEditFor(null); }} />;
       })()}

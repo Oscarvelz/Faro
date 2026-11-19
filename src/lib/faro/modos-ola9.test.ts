@@ -54,9 +54,107 @@ const MAPA_SRC = SRC("./modos-ola5.test.ts");
 const MAP_SEATS = new Set<string>();
 for (const m of MAPA_SRC.matchAll(/\{ f: "([a-z0-9.-]+)", m: "(esencial|ritmo|completo)" \}/g)) MAP_SEATS.add(m[1]!);
 
+/* El desnudado de comentarios (OLA 10 · CARA-3): la primera forma quitaba
+ * los comentarios de bloque y las líneas que EMPIEZAN por // — pero un
+ * comentario al final de una línea de código sobrevivía entero, y su
+ * mención de un asiento entre comillas contaba como consumo: la caza
+ * escenificó una puerta muerta (has("accounts.add") convertido en true)
+ * que volvía a la vida con solo añadir `// la puerta muerta de
+ * "accounts.add" ya no se consulta` a una línea viva (la suite pasaba
+ * 14/14). Este desnudado camina el texto como un lexer mínimo: conoce las
+ * cadenas ('…' y "…"), las plantillas con sus ${} anidados, las regex por
+ * su contexto, y los comentarios de línea y de bloque EN CUALQUIER
+ * POSICIÓN. Una mención solo cuenta si vive en código o en una cadena del
+ * código — nunca en un comentario. Las comillas y las barras solo abren
+ * cadena o regex en contexto de expresión (tras un operador, un paréntesis,
+ * una palabra clave…): el apóstrofo de un texto JSX («Don't») es una letra,
+ * no el arranque de una cadena, y la barra de un cierre JSX (</div>) es
+ * texto, no una regex. Límite declarado: una regex tras `=>` sin
+ * paréntesis ni tras un `>` de comparación se leería como división — en
+ * este corpus no existe ninguna, y el censo de abajo verifica que los
+ * conteos sobre el corpus real no cambian contra la forma vieja en
+ * ningún asiento. */
+const STRIP_KEYWORDS = new Set(["return", "typeof", "case", "in", "of", "new", "delete", "void", "yield", "await", "throw", "else", "do"]);
+const STRIP_CTX = new Set([..."(,=:[!&|?{};+-*%~^"]);
+export function stripComments(src: string): string {
+  let out = "";
+  let prev = ""; // último carácter significativo emitido ("" = arranque)
+  let sig = ""; // los dos últimos, para reconocer «=>»
+  let word = ""; // identificador en curso
+  let lastWord = ""; // último identificador completado
+  type Frame = { tpl: true } | { expr: true; depth: number };
+  const stack: Frame[] = [];
+  let mode: "code" | "sq" | "dq" | "tpl" | "line" | "block" | "regex" | "regexClass" = "code";
+  const emit = (s: string) => { out += s; };
+  const note = (c: string) => { prev = c; sig = (sig + c).slice(-2); };
+  const flushWord = () => { if (word) { lastWord = word; word = ""; } };
+  const exprContext = () => prev === "" || STRIP_CTX.has(prev) || sig === "=>" || STRIP_KEYWORDS.has(lastWord);
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]!;
+    const next = src[i + 1] ?? "";
+    if (mode === "line") { if (c === "\n") { mode = "code"; emit(c); } continue; }
+    if (mode === "block") {
+      if (c === "\n") emit(c);
+      if (c === "*" && next === "/") { i++; mode = "code"; emit(" "); }
+      continue;
+    }
+    if (mode === "sq" || mode === "dq") {
+      emit(c);
+      if (c === "\\") { if (i + 1 < src.length) emit(src[++i]!); continue; }
+      if ((mode === "sq" && c === "'") || (mode === "dq" && c === '"')) { mode = "code"; note('"'); lastWord = ""; }
+      continue;
+    }
+    if (mode === "regex" || mode === "regexClass") {
+      emit(c);
+      if (c === "\\") { if (i + 1 < src.length) emit(src[++i]!); continue; }
+      if (mode === "regex" && c === "[") mode = "regexClass";
+      else if (mode === "regexClass" && c === "]") mode = "regex";
+      else if (mode === "regex" && c === "/") { mode = "code"; note('"'); lastWord = ""; }
+      continue;
+    }
+    if (mode === "tpl") {
+      emit(c);
+      if (c === "\\") { if (i + 1 < src.length) emit(src[++i]!); continue; }
+      if (c === "`") { stack.pop(); mode = "code"; note('"'); lastWord = ""; continue; }
+      if (c === "$" && next === "{") { emit(next); i++; stack.push({ expr: true, depth: 0 }); mode = "code"; note("{"); }
+      continue;
+    }
+    /* mode === "code" */
+    if (/[A-Za-z0-9_$]/.test(c)) { word += c; emit(c); note(c); continue; }
+    flushWord();
+    if (c === " " || c === "\t" || c === "\r" || c === "\n") { emit(c); continue; }
+    if (c === "/" && next === "/") { i++; mode = "line"; continue; }
+    if (c === "/" && next === "*") { i++; mode = "block"; continue; }
+    if (c === "'" || c === '"') {
+      if (exprContext()) mode = c === "'" ? "sq" : "dq";
+      emit(c); note(c); continue;
+    }
+    if (c === "`") { stack.push({ tpl: true }); mode = "tpl"; emit(c); note(c); continue; }
+    if (c === "/") {
+      if (exprContext()) mode = "regex";
+      emit(c); note(c); continue;
+    }
+    if (c === "{") {
+      const top = stack[stack.length - 1];
+      if (top && "expr" in top) top.depth++;
+      emit(c); note(c); continue;
+    }
+    if (c === "}") {
+      const top = stack[stack.length - 1];
+      if (top && "expr" in top) {
+        if (top.depth === 0) { stack.pop(); mode = "tpl"; emit(c); note(c); continue; }
+        top.depth--;
+      }
+      emit(c); note(c); continue;
+    }
+    emit(c); note(c);
+  }
+  return out;
+}
+
 function corpus(): string {
   const root = new URL("../../", import.meta.url);
-  const strip = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  const strip = stripComments;
   let out = "";
   const walk = (dir: URL, rel: string): void => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -86,7 +184,6 @@ const EXENTOS: Record<string, string> = {
   "cobros.timeline": "la línea de tiempo ES el libro de Cobros: su ordenación no es un widget con puerta, es la composición del libro (debts.tsx); sus lentes llevan sus asientos",
   "scan.receipt": "la hoja de escaneo nace por composición (share-inbox.tsx la monta; receipt-scan.tsx puertea sus filas con scan.receipt-full-review y scan.receipt-rewards-row); la entrada es de Esencial por el fallo 16",
   "settings.catalog-add": "el formulario de alta del CatalogEditor pinta sin puerta por adjudicación escrita en screens.tsx: añadir es Esencial; administrar lleva settings.catalog-admin",
-  "settings.templates": "las plantillas pintan dentro de la tarjeta de estructura, gobernada por settings.structure-card (screens.tsx); el asiento declara su adjudicación en Completo",
   "subs.fixed-exists": "la existencia del libro de Cuotas se deriva en el hub (shell.tsx: la sección y su parada gate(\"books.subs\")); el asiento declara el fallo de que los cargos fijos existen y se leen en Esencial",
   "tools.converter": "el convertidor nace en Esencial y no tiene piso inferior que ocultar (instruments.tsx); sus verbos finos llevan sus asientos (tools.converter-send, tools.converter-chips-admin)",
   "tools.rate-view": "ver la tasa es de Esencial (instruments.tsx y la tasa del escritorio); refrescarla y fijarla a mano llevan tools.rate-refresh y tools.rate-manual",
@@ -112,6 +209,48 @@ describe("ola9 · §A: el censo de consumidores — ningún asiento fantasma", (
       "accounts.panel no gobernaba nada (el panel se ancla en accounts.panel-simple y su desglose en nature.class-saldo): sus temas se re-asientan, el fantasma no se exime");
     assert.ok(!MAP_SEATS.has("vault.retiro-fields"),
       "vault.retiro-fields no gobernaba nada (la forma de Retiro no lleva puerta): su tema se re-asienta a vault.retiro");
+  });
+});
+
+/* ── §A-bis (OLA 10 · CARA-3): EL DESNUDADO, PROBADO EN SUS ESQUINAS ──
+ * El espécimen de la caza (M-c) y las esquinas que un lexer ingenuo se
+ * comería: la URL dentro de una cadena no es un comentario, el /* dentro
+ * de una cadena no abre un comentario, y el apóstrofo de un texto no
+ * abre una cadena que se trague la puerta siguiente. */
+describe("ola9 · §A-bis: el desnudado de comentarios no cuenta papel ni se come código", () => {
+  it("M-c: un comentario al final de línea con el asiento entre comillas NO cuenta como consumo", () => {
+    const muerto = `const open = true; // la puerta muerta de "accounts.add" ya no se consulta\nexport const x = open;`;
+    assert.ok(!stripComments(muerto).includes('"accounts.add"'),
+      "la mención vive en un comentario de cola: contarla resucita una puerta muerta (espécimen de la caza)");
+  });
+  it("un comentario de bloque con el asiento entre comillas tampoco cuenta, en cualquier posición", () => {
+    assert.ok(!stripComments(`const a = 1; /* "cards.ficha" */ const b = 2;`).includes('"cards.ficha"'));
+    assert.ok(!stripComments(`/* "cards.ficha" */\nconst b = 2;`).includes('"cards.ficha"'));
+  });
+  it("la puerta viva tras un comentario en la misma línea SÍ cuenta", () => {
+    const vivo = `const g = has(/* el gobernador */ "cards.ficha");`;
+    assert.ok(stripComments(vivo).includes('"cards.ficha"'), "el comentario se va; la llamada queda");
+  });
+  it("las cadenas no se desnudan: la URL y el // dentro de una cadena sobreviven", () => {
+    const t = stripComments(`const u = "https://example.com/a//b"; const g = has("tools.rate-view");`);
+    assert.ok(t.includes("https://example.com/a//b"), "una URL en una cadena no es un comentario");
+    assert.ok(t.includes('"tools.rate-view"'), "la puerta tras la cadena sigue contando");
+  });
+  it("el /* dentro de una cadena no abre un comentario que se trague la puerta", () => {
+    const t = stripComments(`const s = "/*"; const g = has("subs.fixed-exists");`);
+    assert.ok(t.includes('"subs.fixed-exists"'));
+  });
+  it("la plantilla tampoco: el // dentro de un literal de plantilla es texto", () => {
+    const t = stripComments("const s = `a//b ${1 + 1}`; const g = has(\"cards.ficha\");");
+    assert.ok(t.includes("a//b") && t.includes('"cards.ficha"'));
+  });
+  it("el apóstrofo de un texto no abre una cadena: la puerta de la misma línea sobrevive", () => {
+    const t = stripComments(`const el = <p>Don't wait</p>; const g = has("subs.fixed-exists");`);
+    assert.ok(t.includes('"subs.fixed-exists"'), "si el apóstrofo abriera cadena, la puerta quedaría dentro de ella o tras un comentario falso");
+  });
+  it("la regex por contexto no se confunde con comentario ni se come la puerta", () => {
+    const t = stripComments(`const ok = /^https?:\\/\\//.test(u); const g = has("tools.rate-view");`);
+    assert.ok(t.includes('"tools.rate-view"'), "los \\/\\// de la regex no son un comentario de línea");
   });
 });
 
@@ -221,19 +360,23 @@ describe("ola9 · §E: la familia de escenas se deriva de las banderas, no de la
     }
   });
   it("el puente es de la familia por banderas: dentro de una familia, toda variante hereda lo mismo", () => {
+    /* OLA 10 (E10-1): la familia se agrupa por base GLOBAL, no por
+     * módulo — topicByBase, el algoritmo, no conoce módulos, y medir con
+     * un ámbito más estrecho que el suyo dejaba fuera de la foto a una
+     * familia repartida entre dos módulos. Hoy ninguna base vive en dos
+     * módulos y el agrupamiento coincide con el local; la herencia
+     * cruzada en sí la acusa la §G de modos-ola10. */
     const gbase = (id: string) => id.replace(/-[a-z]$/, "");
-    for (const mod of MODULES) {
-      const fams = new Map<string, Scene[]>();
-      for (const s of mod.scenes) {
-        const g = gbase(s.id);
-        fams.set(g, [...(fams.get(g) ?? []), s]);
-      }
-      for (const [g, members] of fams) {
-        if (members.length < 2) continue;
-        const topics = new Set(members.filter(flagged).map((s) => inherited(s.id) ?? null));
-        assert.ok(topics.size <= 1,
-          `${mod.id}/${g}: las variantes de la familia heredan puentes distintos (${[...topics].join(", ")}) — una cara quedó fuera del puente de su familia`);
-      }
+    const fams = new Map<string, Scene[]>();
+    for (const mod of MODULES) for (const s of mod.scenes) {
+      const g = gbase(s.id);
+      fams.set(g, [...(fams.get(g) ?? []), s]);
+    }
+    for (const [g, members] of fams) {
+      if (members.length < 2) continue;
+      const topics = new Set(members.filter(flagged).map((s) => inherited(s.id) ?? null));
+      assert.ok(topics.size <= 1,
+        `familia ${g}: las variantes heredan puentes distintos (${[...topics].join(", ")}) — una cara quedó fuera del puente de su familia`);
     }
   });
   it("toda variante con sufijo comparte su base con una hermana de su módulo (la §F, ahora por banderas)", () => {

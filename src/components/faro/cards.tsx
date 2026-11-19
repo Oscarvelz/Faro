@@ -27,6 +27,7 @@ import {
   issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardUpdate,
 } from "@/lib/faro/cards";
 import { matchCard, parseCardShot, readLimit, type CardField, type CardRead } from "@/lib/faro/cardparse";
+import { clearFlow, parkFlow, peekFlow, settleFlowParks, tornParkedKey } from "@/lib/faro/flow-park";
 import type { CreditCard, Currency, LedgerState } from "@/lib/faro/types";
 
 const useL = () => { const { lang } = useFaro(); return (es: string, en: string) => (lang === "en" ? en : es); };
@@ -62,6 +63,19 @@ export function CardsGroup({ libros = false }: { libros?: boolean }) {
   const card = open ? cards.find((c) => c.id === open) ?? null : null;
   useEffect(() => { if (empty && edit) setEdit(false); }, [empty, edit]);
   const formCard = form?.id ? cards.find((c) => c.id === form.id) ?? null : null;
+  // Ola 10 (C10-1): la restauración del flujo de tarjeta rasgado por una
+  // adopción (flow-park.ts) — el editor vuelve con su borrador aparcado;
+  // la marca se consume al montar y lo no rasgado se descarta.
+  const cardParkKeys = ["card-form:add", ...cards.flatMap((c) => [`card-form:edit:${c.id}`, `card-form:update:${c.id}`])];
+  const tornCard = tornParkedKey(cardParkKeys);
+  if (tornCard && !form) {
+    if (tornCard === "card-form:add") setForm({ mode: "add" });
+    else {
+      const [, m, id] = tornCard.split(":");
+      if ((m === "edit" || m === "update") && id) setForm({ mode: m, id });
+    }
+  }
+  useEffect(() => { settleFlowParks(cardParkKeys); }, []);
   const del = (c: CreditCard) => confirm({
     title: L("Eliminar tarjeta", "Delete card"), danger: true, yes: L("Eliminar", "Delete"),
     body: c.snaps.length ? L(`${c.name}. Su historial se guarda; Restaurar la trae de vuelta.`, `${c.name}. Its history is kept; Restore brings it back.`) : L(`${c.name}. Puedes traerla de vuelta con Restaurar.`, `${c.name}. You can bring it back with Restore.`),
@@ -108,7 +122,7 @@ export function CardsGroup({ libros = false }: { libros?: boolean }) {
         </div>
       ) : null}
       {card ? <CardSheet card={card} onClose={() => setOpen(null)} onEdit={() => setForm({ mode: "edit", id: card.id })} onManual={() => setForm({ mode: "update", id: card.id })} onShots={setShots} onDelete={() => del(card)} /> : null}
-      {form ? <CardForm mode={form.mode} card={formCard} seed={form.seed} onClose={() => setForm(null)} /> : null}
+      {form ? <CardForm mode={form.mode} card={formCard} seed={form.seed} parkKey={form.mode === "add" ? "card-form:add" : `card-form:${form.mode}:${form.id}`} onClose={() => setForm(null)} /> : null}
       {shots ? <CardScan files={shots} onClose={() => setShots(null)} /> : null}
     </div>
   );
@@ -510,7 +524,7 @@ function draftOf(c: CreditCard | null, seed?: Partial<CreditCard> & { read?: Car
   };
 }
 
-function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "update"; card: CreditCard | null; seed?: Partial<CreditCard> & { read?: CardRead }; onClose: () => void }) {
+function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit" | "update"; card: CreditCard | null; seed?: Partial<CreditCard> & { read?: CardRead }; onClose: () => void; parkKey?: string }) {
   const { commit, session, has } = useFaro();
   // Ola 2 (C-6): la ficha entra al sistema de modos — este componente no
   // contenía ni una referencia al modo y Ritmo recibía la ficha de Completo.
@@ -522,7 +536,15 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
   // cabalga esta misma forma y nace con ella.
   const full = has("cards.add-full");
   const L = useL();
-  const [d, setD] = useState<Draft>(() => draftOf(card, seed));
+  // Ola 10 (C10-1): el borrador se aparca fuera del árbol a cada cambio y
+  // la forma nace del aparcado cuando una adopción la rasgó (flow-park.ts)
+  // — el aparcado manda sobre la ficha y la semilla, porque trae lo
+  // tecleado después de abrir. Cerrar por las reglas de la forma (Guardar,
+  // Cancelar, Back, ESC) retira el aparcamiento.
+  const restored = parkKey ? peekFlow<Draft>(parkKey) : undefined;
+  const [d, setD] = useState<Draft>(() => restored ?? draftOf(card, seed));
+  useEffect(() => { if (parkKey) parkFlow(parkKey, d); }, [parkKey, d]);
+  const close = () => { if (parkKey) clearFlow(parkKey); onClose(); };
   const [scan, setScan] = useState<File[] | null>(null);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const upd = mode === "update";
@@ -540,7 +562,7 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
       if (!card || (bal == null && rwm == null)) return;
       const u: CardUpdate = { balanceMinor: bal ?? 0, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, src: "manual" };
       commit((s) => { let st = bal != null ? addReading(s, card.id, u) : s; if (rwm != null) st = addRewards(st, card.id, { amountMinor: rwm, src: "manual" }); return st; }, card.name);
-      onClose();
+      close();
       return;
     }
     const name = d.name.trim();
@@ -560,15 +582,15 @@ function CardForm({ mode, card, seed, onClose }: { mode: "add" | "edit" | "updat
       if (isAdd && rwm != null) st = addRewards(st, next.id, { amountMinor: rwm, src: seed?.read ? "shot" : "manual" });
       return st;
     }, name);
-    onClose();
+    close();
   };
   const title = upd ? L("Actualizar a mano", "Update by hand") : isAdd ? L("Añadir tarjeta", "Add card") : L("Editar tarjeta", "Edit card");
   const money4 = (label: string, k: "balance" | "avail" | "min" | "limit", anchor?: string, tip?: string) => (
     <label className="label"><span className="lab-head">{label}{tip ? <FieldTip topic={tip} /> : null}</span><input className="field num" inputMode="decimal" placeholder="0.00" value={d[k]} data-anchor={anchor} onChange={(e) => set({ [k]: e.target.value } as Partial<Draft>)} /></label>
   );
   return (
-    <Sheet anchor="card-form" onClose={onClose} art={<CardArt card={{ ...live, art: d.art || (nameMark ? undefined : d.art || "wave") }} big />} title={title}
-      foot={<><button type="button" className="btn secondary" onClick={onClose}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-form-save" onClick={save}>{L("Guardar", "Save")}</button></>}>
+    <Sheet anchor="card-form" onClose={close} art={<CardArt card={{ ...live, art: d.art || (nameMark ? undefined : d.art || "wave") }} big />} title={title}
+      foot={<><button type="button" className="btn secondary" onClick={close}>{L("Cancelar", "Cancel")}</button><button type="button" className="btn" data-anchor="card-form-save" onClick={save}>{L("Guardar", "Save")}</button></>}>
       <div className="form-block cobro-form is-owe card-form">
         {/* Ola 3 (Cara C3-1): la captura al añadir lleva su propio asiento
             (cards.capture-add, Completo) además de la forma completa. */}

@@ -16,6 +16,7 @@ import { apartDecision, browserPackStorage, listQuarantine, packLedgerOk, quaran
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
 import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
+import { markTornFlows } from "@/lib/faro/flow-park";
 import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, summarize } from "@/lib/faro/engine";
@@ -779,6 +780,12 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // palabra dice «pestaña» porque de una pestaña viene, no de un aparato.
     const prevMode = sessionRef.current ? modeOf(sessionRef.current.ledger.settings) : null;
     const landedMode = modeOf(stored.ledger.settings);
+    // Ola 10 (C10-1): si la adopción cruza la frontera que desmonta la
+    // pantalla de Deudas (debt.scale), los flujos aparcados quedan
+    // marcados como RASGADOS antes de que la cara se recompose: su casa,
+    // al volver a pintarse, los restaura con su trabajo sin guardar en
+    // vez de perderlo en silencio (principio 8; lib/faro/flow-park.ts).
+    if (prevMode !== null && hasFeature(prevMode, "debt.scale") !== hasFeature(landedMode, "debt.scale")) markTornFlows();
     setSession(blankSession(stored.ledger, stored.dirty));
     if (prevMode !== null && landedMode !== prevMode) {
       const inLang = stored.ledger.settings.lang ?? "es";
@@ -994,6 +1001,10 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       baseRevRef.current = seeded.ledger.revision; // C2: la base de esta pestaña pasa a ser el libro aplicado
       remoteBookRef.current = true; // un libro que llega de la nube YA existe: cancela la pantalla inicial de elección
       setModeGateOpen(false);
+      // Ola 10 (C10-1): la puerta de la nube marca los flujos rasgados
+      // igual que la de la pestaña — la adopción desmonta la misma casa
+      // venga de donde venga.
+      if (prevMode !== null && hasFeature(prevMode, "debt.scale") !== hasFeature(landedMode, "debt.scale")) markTornFlows();
       setSession(blankSession(seeded.ledger, Boolean(dirtyLocal) || seeded.added));
       if (prevMode !== null && landedMode !== prevMode) {
         const inLang = seeded.ledger.settings.lang ?? "es";

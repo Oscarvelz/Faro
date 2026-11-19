@@ -21,6 +21,10 @@ import { BookKit } from "./book-kit";
 import { cardFigures, cardTotals, cardsOf } from "@/lib/faro/cards";
 import { lineDebtTotal, totalDebt } from "@/lib/faro/debts";
 import { formDirty } from "@/lib/faro/dirty";
+import { clearFlow, parkFlow, peekFlow, settleFlowParks, tornParkedKey } from "@/lib/faro/flow-park";
+
+/** El borrador del préstamo tal como la forma lo teclea (la bolsa que se aparca). */
+type LoanPark = { kind: "plain" | "interest"; who: "person" | "entity"; name: string; amount: string; currency: Currency; date: string; apr: string; book: Group; dueDay: string };
 
 export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group; /** 1.3.149 (borrow only): day of the month a payment is due, 1–31; 0/absent = no due day. */ dueDay?: number };
 
@@ -28,32 +32,51 @@ const stampOf = (iso: string) => (iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.
 const TINTS = ["#7aa2c4", "#8fb9a6", "#e7c27a", "#d7a08a", "#a9b4de"];
 
 /** The loan form. mode "lend" = Me deben (as it always was); "borrow" = Préstamos (lender kind, currency, book). */
-export function LoanForm({ mode, onCancel, onSave, initial }: { mode: "lend" | "borrow"; onCancel: () => void; onSave: (draft: LoanDraft) => void; initial?: LoanDraft }) {
+export function LoanForm({ mode, onCancel, onSave, initial, parkKey }: { mode: "lend" | "borrow"; onCancel: () => void; onSave: (draft: LoanDraft) => void; initial?: LoanDraft; parkKey?: string }) {
   const { t, session, confirm } = useFaro();
   const display = session?.ledger.settings.display ?? "USD";
   const borrow = mode === "borrow";
+  // Ola 10 (C10-1): la forma vive DENTRO de la pantalla de Deudas, y una
+  // adopción que cruza la frontera de la gestión (debt.scale) desmonta la
+  // pantalla entera con el trabajo sin guardar dentro. El borrador se
+  // aparca fuera del árbol a cada tecleo (flow-park.ts) y, si la adopción
+  // lo rasgó, la casa lo restaura al volver: la forma nace del aparcado
+  // cuando lo hay — el aparcado manda sobre `initial`, porque trae lo
+  // tecleado DESPUÉS de abrir. Guardar o salir por las reglas propias de
+  // la forma retira el aparcamiento: lo restaurado no resucita dos veces.
+  const restored = parkKey ? peekFlow<LoanPark>(parkKey) : undefined;
   // 1.3.115: the same form edits a record from Libros (Me deben / Préstamos → lápiz → tap a name).
-  const [kind, setKind] = useState<"plain" | "interest">(initial?.kind ?? "plain");
-  const [who, setWho] = useState<"person" | "entity">(initial?.who ?? "person");
-  const [name, setName] = useState(initial?.name ?? "");
-  const [amount, setAmount] = useState(initial ? (initial.amountMinor / 100).toFixed(2) : "");
-  const [currency, setCurrency] = useState<Currency>(initial?.currency ?? display);
-  const [date, setDate] = useState(initial?.date ?? (borrow ? todayIso() : ""));
-  const [apr, setApr] = useState(initial && initial.aprBps ? String(initial.aprBps / 100) : "");
-  const [book, setBook] = useState<Group>(initial?.book ?? "fixed");
-  const [dueDay, setDueDay] = useState(initial?.dueDay ? String(initial.dueDay) : "");
+  const [kind, setKind] = useState<"plain" | "interest">(restored?.kind ?? initial?.kind ?? "plain");
+  const [who, setWho] = useState<"person" | "entity">(restored?.who ?? initial?.who ?? "person");
+  const [name, setName] = useState(restored?.name ?? initial?.name ?? "");
+  const [amount, setAmount] = useState(restored?.amount ?? (initial ? (initial.amountMinor / 100).toFixed(2) : ""));
+  const [currency, setCurrency] = useState<Currency>(restored?.currency ?? initial?.currency ?? display);
+  const [date, setDate] = useState(restored?.date ?? initial?.date ?? (borrow ? todayIso() : ""));
+  const [apr, setApr] = useState(restored?.apr ?? (initial && initial.aprBps ? String(initial.aprBps / 100) : ""));
+  const [book, setBook] = useState<Group>(restored?.book ?? initial?.book ?? "fixed");
+  const [dueDay, setDueDay] = useState(restored?.dueDay ?? (initial?.dueDay ? String(initial.dueDay) : ""));
   // Oleada de botones 4 (R7): la misma política única — Cancelar pregunta solo si el
   // préstamo cambió desde que la forma abrió (la forma se monta fresca en cada apertura).
+  // Ola 10: la base del dirty es el registro (initial), no lo restaurado — un
+  // borrador restaurado ES trabajo sin guardar, y Cancelar debe preguntar por él.
   const baseRef = useRef<Record<string, unknown> | null>(null);
-  if (baseRef.current === null) baseRef.current = { kind, who, name, amount, currency, date, apr, book, dueDay };
+  if (baseRef.current === null) baseRef.current = {
+    kind: initial?.kind ?? "plain", who: initial?.who ?? "person", name: initial?.name ?? "",
+    amount: initial ? (initial.amountMinor / 100).toFixed(2) : "", currency: initial?.currency ?? display,
+    date: initial?.date ?? (borrow ? todayIso() : ""), apr: initial && initial.aprBps ? String(initial.aprBps / 100) : "",
+    book: initial?.book ?? "fixed", dueDay: initial?.dueDay ? String(initial.dueDay) : "",
+  };
   const loanDirty = formDirty(baseRef.current, { kind, who, name, amount, currency, date, apr, book, dueDay });
-  const cancel = () => { if (!loanDirty) { onCancel(); return; } confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: onCancel }); };
+  useEffect(() => { if (parkKey) parkFlow(parkKey, { kind, who, name, amount, currency, date, apr, book, dueDay }); }, [parkKey, kind, who, name, amount, currency, date, apr, book, dueDay]);
+  const leave = () => { if (parkKey) clearFlow(parkKey); onCancel(); };
+  const cancel = () => { if (!loanDirty) { leave(); return; } confirm({ title: t("entry.leave"), body: name.trim() || t("entry.this"), yes: t("entry.leave.yes"), run: leave }); };
   function save() {
     const minor = parseAmount(amount);
     const clean = name.trim();
     if (!clean || minor === null || minor <= 0) return;
     const pct = Number(apr.trim().replace(",", "."));
     const dd = Number(dueDay);
+    if (parkKey) clearFlow(parkKey);
     onSave({
       name: clean, who, kind, amountMinor: minor, currency: borrow || initial ? currency : display,
       aprBps: kind === "interest" && Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0,
@@ -344,6 +367,16 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
   const active = all.filter((l) => !l.archived);
   const filed = all.filter((l) => l.archived);
   const sums = loanTotals(ledger);
+  // Ola 10 (C10-1): si una adopción rasgó un flujo de este lado mientras
+  // la pantalla de Deudas era la cara de solo lectura, el flujo se
+  // restaura con su borrador aparcado al volver la casa (principio 8).
+  // La marca se consume al montar (settleFlowParks); un aparcamiento sin
+  // rasgar es un resto de navegación y se descarta — navegar no resucita.
+  const borrowParkKeys = ["loan-new:borrow", ...active.map((l) => `loan-edit:borrow:${l.id}`)];
+  const tornBorrow = tornParkedKey(borrowParkKeys);
+  if (tornBorrow === "loan-new:borrow" && !adding) setAdding(true);
+  if (tornBorrow?.startsWith("loan-edit:borrow:") && !editFor) setEditFor(tornBorrow.slice("loan-edit:borrow:".length));
+  useEffect(() => { settleFlowParks(borrowParkKeys); }, []);
   // 1.3.107: the top figure is everything owed here, loans + credit cards; the line under it splits it.
   // 1.3.147: the figure is the ONE total debt (debts.ts) — balances on debt-category lines count too,
   // and the split under it names them when there are any.
@@ -390,11 +423,11 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         [{ num: fmt(sums.paid) }, t("debo.sum.paid")],
         ...(lineDebt > 0 ? [lineDebtPart] : []),
       ] : lineDebt > 0 ? [lineDebtPart] : null} />
-      {adding ? <LoanForm mode="borrow" onCancel={() => setAdding(false)} onSave={save} /> : null}
+      {adding ? <LoanForm mode="borrow" parkKey="loan-new:borrow" onCancel={() => setAdding(false)} onSave={save} /> : null}
       {(() => {
         const loan = editFor ? active.find((l) => l.id === editFor) : null;
         if (!loan) return null;
-        return <LoanForm key={loan.id} mode="borrow" initial={{ name: loan.lender, who: loan.who, kind: loan.kind, amountMinor: loan.amountMinor, currency: loan.currency, aprBps: loan.aprBps, date: loan.takenOn, book: loan.book, dueDay: loan.dueDay ?? 0 }}
+        return <LoanForm key={loan.id} mode="borrow" parkKey={`loan-edit:borrow:${loan.id}`} initial={{ name: loan.lender, who: loan.who, kind: loan.kind, amountMinor: loan.amountMinor, currency: loan.currency, aprBps: loan.aprBps, date: loan.takenOn, book: loan.book, dueDay: loan.dueDay ?? 0 }}
           onCancel={() => setEditFor(null)}
           onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => { if (l.id !== loan.id) return l; const next: Loan = { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, ...(d.dueDay ? { dueDay: d.dueDay } : {}) }; if (!d.dueDay) delete next.dueDay; return next; }) }), d.name); setEditFor(null); }} />;
       })()}
