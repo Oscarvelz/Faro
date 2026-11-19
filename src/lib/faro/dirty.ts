@@ -21,3 +21,20 @@ export function formDirty(base: Record<string, unknown>, now: Record<string, unk
   }
   return false;
 }
+
+/** Ola 12 (Guardián S2/Personas): el TESTIGO DE TOQUE por campo — la misma
+ * comparación de formDirty, campo a campo. Las formas que fusionan al
+ * guardar (la tarjeta desde la cura 11; el préstamo, su gemela y las
+ * personas desde esta) lo calculan contra su borrador nacido y lo pasan
+ * al commit: lo que la mano no tocó se lee del registro vivo, y solo lo
+ * tocado manda desde el borrador. */
+export function touchedFields(base: Record<string, unknown>, now: Record<string, unknown>): Set<string> {
+  const out = new Set<string>();
+  for (const k of new Set([...Object.keys(base), ...Object.keys(now)])) {
+    const a = base[k];
+    const b = now[k];
+    if (Object.is(a, b)) continue;
+    if (JSON.stringify(a) !== JSON.stringify(b)) out.add(k);
+  }
+  return out;
+}

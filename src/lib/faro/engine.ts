@@ -541,10 +541,13 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     id: "spent",
     title: L(lang, "Cuánto del ingreso ya está comprometido", "How much of income is already committed"),
     value: formatPct(s.spentPct, lang),
-    detail: L(lang, `${money(s.expense)} de ${money(s.income)}`, `${money(s.expense)} of ${money(s.income)}`),
+    // Ola 12 (BR12-1): el detalle lee la MISMA cifra que el valor — spend,
+    // no la suma ancha. La cura 11 dejó la tarjeta incoherente: porcentaje
+    // de una cifra (90%, sobre gasto) y monto de otra (120%, sobre expense).
+    detail: L(lang, `${money(s.spend)} de ${money(s.income)}`, `${money(s.spend)} of ${money(s.income)}`),
     tone: s.spentPct === null ? "neutral" : s.spentPct > 100 ? "bad" : s.spentPct > 80 ? "warn" : "good",
     viz: s.spentPct === null ? undefined : { kind: "ring", pct: s.spentPct, mark: 80 },
-    meaning: L(lang, "Relación entre todo lo anotado como gasto este mes y todo lo anotado como ingreso.", "Ratio of everything recorded as spending this month to everything recorded as income."),
+    meaning: L(lang, "Relación entre el gasto de este mes y todo lo anotado como ingreso. Lo que apartas no cuenta como gasto: ese dinero sigue siendo tuyo.", "Ratio of this month's spending to everything recorded as income. What you set aside does not count as spending: that money is still yours."),
     formula: L(lang, "Gastos ÷ ingresos × 100. Si no hay ingreso, no hay porcentaje.", "Spending ÷ income × 100. No income, no percentage."),
     implication: L(
       lang,
@@ -639,10 +642,14 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
   });
 
   const slices = categorySlices(state, key, names, lang);
-  const expenseAbs = slices.reduce((a, sl) => a + Math.max(0, sl.minor), 0);
+  // Ola 12 (BR12-4): el pareto es DEL GASTO — numerador y denominador son
+  // gasto. Las rebanadas de rol ahorro salen de la pila: con la suma ancha,
+  // la única «categoría» que alcanzaba el 80% podía ser «Ahorro».
+  const spendSlices = slices.filter((sl) => roleOf(state.structure, sl.id) !== "savings");
+  const expenseAbs = spendSlices.reduce((a, sl) => a + Math.max(0, sl.minor), 0);
   let walk = 0;
   const pareto: string[] = [];
-  for (const sl of slices) {
+  for (const sl of spendSlices) {
     if (sl.minor <= 0) continue;
     walk += sl.minor;
     pareto.push(`${sl.name} ${money(sl.minor)}`);
@@ -654,7 +661,7 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     value: pareto.length ? String(pareto.length) : "—",
     detail: pareto.join(" · ") || L(lang, "Sin gastos activos.", "No active spending."),
     tone: "neutral",
-    viz: expenseAbs > 0 ? { kind: "parts", cut: pareto.length, parts: foldSlices(slices.filter((sl) => sl.minor > 0), 8, lang, colorFor(state.structure, "otros")).map((sl) => ({ name: sl.name, share: sl.minor / expenseAbs, color: sl.color })) } : undefined,
+    viz: expenseAbs > 0 ? { kind: "parts", cut: pareto.length, parts: foldSlices(spendSlices.filter((sl) => sl.minor > 0), 8, lang, colorFor(state.structure, "otros")).map((sl) => ({ name: sl.name, share: sl.minor / expenseAbs, color: sl.color })) } : undefined,
     meaning: L(lang, "Las categorías que, sumadas de mayor a menor, alcanzan el 80% del gasto del mes. El resto es cola.", "The categories that, added from largest to smallest, reach 80% of the month's spending. The rest is the tail."),
     formula: L(lang, "Ordenar categorías por monto descendente y acumular hasta 80% del gasto.", "Sort categories by amount descending and accumulate until 80% of spending."),
     implication: L(lang, "Si una decisión solo cabe en una categoría, que sea la primera de esta lista.", "If a decision only fits in one category, make it the first on this list."),
@@ -765,34 +772,50 @@ export function buildInsights(state: LedgerState, key: string, lang: Lang, names
     implication: L(lang, "Por encima de eso, el resto del presupuesto hereda la decisión de la vivienda.", "Above that, the rest of the budget inherits the housing decision."),
   });
 
-  const largest = [...lines].filter((l) => !l.kind.startsWith("income")).sort((a, b) => inView(b, display, rateE4) - inView(a, display, rateE4))[0];
+  // Ola 12 (BR12-2): la línea que manda es la de GASTO mayor — el apartado
+  // no compite: coronarlo aquí decía «tu mayor gasto del mes es el dinero
+  // que guardaste». El denominador de su parte es el gasto, no la suma.
+  const largest = [...lines].filter((l) => isSpendLine(state.structure, l)).sort((a, b) => inView(b, display, rateE4) - inView(a, display, rateE4))[0];
   push({
     id: "largest",
     title: L(lang, "La línea que manda", "The top line"),
     value: largest ? money(inView(largest, display, rateE4)) : "—",
     detail: largest ? largest.concept || names.cat(largest.categoryId) : L(lang, "Sin gastos.", "No spending."),
     tone: "neutral",
-    viz: largest && s.expense > 0 ? { kind: "share", pct: (inView(largest, display, rateE4) / s.expense) * 100 } : undefined,
+    viz: largest && s.spend > 0 ? { kind: "share", pct: (inView(largest, display, rateE4) / s.spend) * 100 } : undefined,
     meaning: L(lang, "El gasto activo más grande del mes, una sola línea.", "The single largest active expense this month."),
     formula: L(lang, "Máximo de los gastos convertidos a la vista.", "Maximum of expenses converted to the view."),
     implication: L(lang, "Si solo vas a revisar un número con calma, es este.", "If you only review one number carefully, review this one."),
   });
 
   const days = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate();
+  // Ola 12 (BR12-3): la alarma es del GASTO. Con la suma ancha, guardar
+  // C$15,000 anunciaba en tono bad el mismo día 25 que gastar C$35,000:
+  // la alarma no distinguía quemar el dinero de guardarlo. Ahora el día
+  // nace del gasto; si lo anotado pasa del ingreso SOLO por el apartado,
+  // la tarjeta lo dice como lo que es — guardar, no gastar — y no alarma.
   let breakDay: number | null = null;
-  if (s.income > 0 && s.expense > s.income) breakDay = Math.max(1, Math.min(days, Math.floor((s.income / s.expense) * days)));
+  if (s.income > 0 && s.spend > s.income) breakDay = Math.max(1, Math.min(days, Math.floor((s.income / s.spend) * days)));
+  const savedCross = breakDay === null && s.income > 0 && s.expense > s.income;
+  const savedInOutflow = s.expense - s.spend;
   push({
     id: "break",
     title: L(lang, "Día en que el mes no alcanza", "Day the month runs out"),
     value: breakDay ? String(breakDay) : L(lang, "Cierra", "It closes"),
     detail: breakDay
       ? L(lang, `A ritmo parejo, el ingreso se agota el día ${breakDay} de ${days}.`, `At an even pace, income runs out on day ${breakDay} of ${days}.`)
-      : L(lang, "El gasto anotado no supera al ingreso, o falta el ingreso.", "Recorded spending does not exceed income, or income is missing."),
+      : savedCross
+        ? L(lang, `El gasto no pasa del ingreso. Lo que pasa del ingreso es lo que apartaste: ${money(savedInOutflow)} — eso es guardar, no gastar.`, `Spending does not pass income. What passes income is what you set aside: ${money(savedInOutflow)} — that is saving, not spending.`)
+        : L(lang, "El gasto anotado no supera al ingreso, o falta el ingreso.", "Recorded spending does not exceed income, or income is missing."),
     tone: breakDay ? "bad" : "good",
     viz: { kind: "days", day: breakDay, days },
-    meaning: L(lang, "Supone que el gasto se reparte en partes iguales cada día. Es una alarma, no un calendario real.", "Assumes spending is spread evenly each day. It is an alarm, not a real calendar."),
-    formula: L(lang, "Día = ingreso ÷ gasto × días del mes, solo si el gasto es mayor.", "Day = income ÷ spending × days in the month, only if spending is greater."),
-    implication: L(lang, "Si aparece un día, el plan de este mes tiene que bajar gasto o subir ingreso antes de ese punto.", "If a day appears, this month's plan has to lower spending or raise income before that point."),
+    meaning: L(lang, "Supone que el gasto se reparte en partes iguales cada día. Es una alarma, no un calendario real. Lo que apartas no entra en esta cuenta: guardar no quema el ingreso.", "Assumes spending is spread evenly each day. It is an alarm, not a real calendar. What you set aside does not enter this count: saving does not burn income."),
+    formula: L(lang, "Día = ingreso ÷ gasto × días del mes, solo si el gasto es mayor. Si lo anotado pasa del ingreso solo por el apartado, no hay día de alarma.", "Day = income ÷ spending × days in the month, only if spending is greater. If what you recorded passes income only because of the set-aside, there is no alarm day."),
+    implication: breakDay
+      ? L(lang, "Si aparece un día, el plan de este mes tiene que bajar gasto o subir ingreso antes de ese punto.", "If a day appears, this month's plan has to lower spending or raise income before that point.")
+      : savedCross
+        ? L(lang, "No hay que bajar gasto: el gasto ya cabe en el ingreso. Si quieres que lo anotado no pase del ingreso, la palanca es cuánto apartas, no cuánto gastas.", "There is no spending to cut: spending already fits inside income. If you want what you recorded to stay under income, the lever is how much you set aside, not how much you spend.")
+        : L(lang, "Si aparece un día, el plan de este mes tiene que bajar gasto o subir ingreso antes de ese punto.", "If a day appears, this month's plan has to lower spending or raise income before that point."),
   });
 
   // Leave out readings that have nothing to say for this person.

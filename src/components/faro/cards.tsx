@@ -583,7 +583,15 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     const lim = amount(d.limit);
     const due = Number(d.dueDay);
     commit((s) => {
-      const liveCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
+      const storedCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
+      // Ola 12 (S1): la existencia se pregunta TAMBIÉN en cardsOf, donde
+      // el preset jamás guardado VIVE: su primera edición se compone
+      // sobre su foto virtual y putCard lo materializa, como antes de la
+      // cura 11. La guarda de la 11 buscaba solo en storedCards y trataba
+      // cada preset como un fantasma: la forma se cerraba sin una palabra
+      // y la edición entera desaparecía. El fantasma verdadero — ni
+      // guardada ni en cardsOf — sigue devolviendo el estado intacto.
+      const liveCard = storedCard ?? (!isAdd && !freshId ? cardsOf(s).find((c) => c.id === bornId) : undefined);
       if (!isAdd && !freshId && !liveCard) return s;
       const candidate = {
         ...(liveCard ?? { id: uid(), currency: "USD" as Currency, snaps: [] }),

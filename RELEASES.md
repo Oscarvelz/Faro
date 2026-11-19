@@ -2601,3 +2601,25 @@ La cura de la ola 11 de la campaña de prejuicio, construida por el equipo amigo
 Verificación: test:faro 1906/1906 (1862 + 44) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto.
 
 Datos de publicación: rollback `rollback-pre-320-2026-11-18` → 9ec8ce66. Source: 86e5ed95. Tag: v1.3.320 → 86e5ed95. Main: 222bf3f3 (chunks) + cafee2fa (control). Entrada: index-DP4gTKRS.js.
+
+## 1.3.321 — «La duodécima cura de los modos» (2026-11-19)
+
+La cura de la ola 12 de la campaña de prejuicio, construida por el equipo amigo sobre la 1.3.320 e integrada en canon (informe: ~/workspace/faro-modes-prejudice/CURA-OLA12.md; paquete: bench-cura12/paquete-ola12.diff, 22 archivos, 61 pines nuevos).
+
+**Familia 1 — el apartado en las frases, segunda vuelta.** La doctrina de la .316/.320 llega a las caras que faltaban: el insight de porcentaje lee el gasto verdadero y su explicación nombra la doctrina («Lo que apartas no cuenta como gasto: ese dinero sigue siendo tuyo»); la «línea que manda» compite solo entre gastos (un mes de solo apartado no tiene línea que manda); la alarma de quiebre nace del gasto, y si lo que pasa del ingreso es solo el apartado, la tarjeta sale en tono bueno nombrando la causa («eso es guardar, no gastar»); el pareto excluye la categoría Ahorro de numerador, denominador y dibujo; la leyenda del CashFlow lee el punto que el gráfico dibuja; la hoja «Flujo» gana la columna «Apartado» y su Neto vuelve a la caja verdadera (−6,000 en el espécimen, no +3,000). BR12-5 juzgado con su lectura contraria y asentado: el lente de Central y el «Sale» del año CONSERVAN su cifra (son aritmética de caja, todo lo que sale) y la ley se cumple nombrando la composición en la misma pantalla — la nota del lente dice cuánto es apartado, y la YearCard pinta «Gasto» y «Apartado» junto al «Sale». Cerca nueva: censo de caras por AST (65 caras, 29 agregadores clasificados). Hallazgo fuera de lista, clasificado y NO curado: `spendByPerson` suma ancha con apartado dentro — espécimen declarado para la ola 13.
+
+**Familia 2 — las formas que guardan.** La guarda del fantasma de la ola 11 pregunta también en `cardsOf`: el preset jamás guardado se materializa al editarlo, como antes (S1). Préstamo y «Me deben» fusionan con testigo (`fuseLoanFields` + `touchedFields`): la tasa de la otra pestaña sobrevive al guardar un nombre (S2). Personas compone sobre lo vivo dentro del commit (`fusePerson`): la persona añadida por otra pestaña sobrevive y su renombre no retrocede. La red derivada sigue el testigo de su fuente (`CARD_DERIVED_FROM`): renombrar a «Mastercard Oro» vuelve a dar su red (F5). Cerca de la clase en dos brazos: 52 sitios en línea + 6 escritores clasificados.
+
+**Familia 3 — los gestos mudos susurran.** El Susurro de la .319 aprende los gestos: la pulsación larga del río fuera de Completo y la de las líneas de los libros en Esencial ya no callan — susurran con su destino verdadero (Completo y Ritmo), con llaves nuevas en los dos idiomas, y el click que persigue a la presión cumplida se traga para no repetir el aviso.
+
+**Familia 4 — la prosa de la ley revertida.** El tema «modos» y la escena m15-subir enseñaban todavía la ley vieja («subir no pide nada»); reescritos a la ley .318 en ES/EN, con la mitad que faltaba: las llegadas de otro aparato anuncian, nunca preguntan. Cerca nueva: el escaneo de frases condenadas (11 patrones) camina TODO el texto de enseñanza — la próxima reversión de ley tiene una sola cerca que la caza. El tip sospechoso del tema «modos» («si nunca lo tocas, Faro se queda en Completo») quedó SIN tocar, a adjudicación de Oscar, como la caza lo asentó; declarado en el reporte de esta ola.
+
+**Familia 5 — C12-1.** El refresco del diálogo de subida conserva su naturaleza: `modeDialogReaction` devuelve el flag `fresh` cuando el modo no se movió, y la pregunta fresca ya no cae a la narración del re-planteado por un cambio de conteos; si el modo se movió de verdad, `fresh` cae y la narración del re-planteado es la verdad.
+
+**Familia 6 — las tres cercas, re-hechas por gobierno.** La §B deriva campos caminando el registro del tema y verbos por raíz con marco (la sincronización que «nada fusiona» ya no acusa; la absolución de cromo juzga el OBJETO del verbo); el censo de consumidores sigue cadenas de constantes con guarda de ciclo, alias de importación y tablas por sitio de declaración, y un asiento tras una puerta acusada se reporta explicado-por-puerta-acusada, jamás fantasma; el censo de testigos pasa a AST (genéricos con paréntesis y React.useState cuentan; comentarios y cadenas no). La raíz de la fusión de LineForm no se tocó (md5 a37d7987…).
+
+**No se tocó, por pliego:** OBS-C12-1, OBS-C11-1, OBS-C8-1, el avance compartido, SOS-1, «Tasa de ahorro», F3/F4, el sello rc, la copia sellada, el motor del Patrón y la casa editada.
+
+Verificación: test:faro 1967/1967 (1906 + 61) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. El banco en vivo del equipo: 36/36.
+
+Datos de publicación: (se completa tras publicar).

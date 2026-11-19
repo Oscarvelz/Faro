@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cake, Gift, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { formatMoney, parseAmount, uid } from "@/lib/faro/money";
 import { upsertLine } from "@/lib/faro/reducer";
-import { dayLabel, mergeContacts, nameKey, OCCASIONS, occasionName, occasionsOf, peopleAdvice, peopleOf, personLines, personName, personTotals, spendByPerson, todayIso, upcoming, type Occasion } from "@/lib/faro/people";
+import { dayLabel, fusePerson, mergeContacts, nameKey, OCCASIONS, occasionName, occasionsOf, peopleAdvice, peopleOf, personLines, personName, personTotals, spendByPerson, todayIso, upcoming, type Occasion } from "@/lib/faro/people";
 import { parseVCards, parseVDate, type ImportedContact } from "@/lib/faro/vcard";
 import { nativePickContacts } from "@/spa/native";
 import type { Currency, Lang, LedgerState, Line, LineKind, OccasionKind, Person, PersonDate } from "@/lib/faro/types";
@@ -12,7 +12,7 @@ import { Hint } from "./hint";
 import { FieldTip } from "./ui";
 import { Head } from "./panorama";
 import { DayField, ThemeSelect } from "./line-form";
-import { formDirty } from "@/lib/faro/dirty";
+import { formDirty, touchedFields } from "@/lib/faro/dirty";
 
 const L = (lang: Lang, es: string, en: string) => (lang === "en" ? en : es);
 const HUES = ["#d0679a", "#3f8fd2", "#d08a2e", "#4fa37a", "#8d6ad8", "#c9564a", "#2fa3a8", "#a8862f"];
@@ -150,12 +150,17 @@ export function PeopleBox() {
   const yearly = spendByPerson(state, year, display, rateE4);
   const yearTotal = yearly.rows.filter((r) => !r.person.archived).reduce((sum, r) => sum + r.minor, 0);
   const soon = upcoming(people, 366, today)[0];
-  const savePeople = (next: Person[], detail: string) => commit((s) => ({ ...s, people: next }), detail);
+  // Ola 12 (Guardián · Personas): savePeople ya no recibe el arreglo
+  // compuesto en el render — recibe la TRANSFORMACIÓN y la aplica dentro
+  // del commit sobre la colección VIVA (peopleOf(s)). El commit viejo
+  // escribía la foto del render sin leer s.people: la persona que otra
+  // pestaña añadía desaparecía y su renombre retrocedía en silencio.
+  const savePeople = (fn: (live: Person[]) => Person[], detail: string) => commit((s) => ({ ...s, people: fn(peopleOf(s)) }), detail);
   /** Same name as an archived person: bring them back (with their history) instead of a second copy. */
   const saveNew = (p: Person) => {
     const old = all.find((x) => x.archived && nameKey(x.name) === nameKey(p.name));
-    if (old) { savePeople(all.map((x) => (x.id === old.id ? { ...p, id: old.id, color: old.color, birthday: p.birthday || old.birthday, dates: p.dates.length ? p.dates : old.dates, note: p.note || old.note } : x)), `Volver a agregar ${p.name}`); setOpen(old.id); }
-    else { savePeople([...all, p], `Agregar persona ${p.name}`); setOpen(p.id); }
+    if (old) { savePeople((live) => live.map((x) => (x.id === old.id ? { ...p, id: old.id, color: x.color, birthday: p.birthday || x.birthday, dates: p.dates.length ? p.dates : x.dates, note: p.note || x.note } : x)), `Volver a agregar ${p.name}`); setOpen(old.id); }
+    else { savePeople((live) => [...live, p], `Agregar persona ${p.name}`); setOpen(p.id); }
     setEditing(null);
   };
   const pick = async () => {
@@ -267,7 +272,7 @@ export function PeopleBox() {
                   <span className={`pp-sum num${thisYear ? "" : " is-zero"}`} data-year={year}>{fmt(thisYear)}</span>
                 </button>
                 {isOpen && editing === p.id ? (
-                  <PersonForm lang={lang} person={p} onCancel={() => setEditing(null)} onSave={(np) => { savePeople(all.map((x) => (x.id === p.id ? np : x)), `Editar persona ${np.name}`); setEditing(null); }} />
+                  <PersonForm lang={lang} person={p} onCancel={() => setEditing(null)} onSave={(np, touched) => { savePeople((live) => live.map((x) => (x.id === p.id ? fusePerson(x, np, touched) : x)), `Editar persona ${np.name}`); setEditing(null); }} />
                 ) : isOpen && gift === p.id ? (
                   <GiftForm person={p} onDone={() => setGift(null)} />
                 ) : isOpen ? (
@@ -315,7 +320,7 @@ export function PeopleBox() {
 
 const CUSTOM = "custom";
 
-function PersonForm({ lang, person, onCancel, onSave }: { lang: Lang; person?: Person; onCancel: () => void; onSave: (p: Person) => void }) {
+function PersonForm({ lang, person, onCancel, onSave }: { lang: Lang; person?: Person; onCancel: () => void; onSave: (p: Person, touched: ReadonlySet<string>) => void }) {
   const { confirm, t } = useFaro();
   const [name, setName] = useState(person?.name ?? "");
   const [birthday, setBirthday] = useState(person?.birthday ?? "");
@@ -340,7 +345,10 @@ function PersonForm({ lang, person, onCancel, onSave }: { lang: Lang; person?: P
       id: person?.id ?? uid(), name: name.trim(), birthday, note: note.trim(),
       dates: dates.filter((d) => d.date).map((d) => ({ ...d, kind: d.kind ?? CUSTOM, label: (d.kind ?? CUSTOM) === CUSTOM ? d.label.trim() || L(lang, "Fecha", "Date") : "" })),
       ...(person?.color ? { color: person.color } : {}),
-    });
+      // Ola 12 (Personas): el testigo de toque contra el nacido (baseRef)
+      // viaja con la ficha: la fusión del commit (fusePerson) deja mandar
+      // solo lo tocado y lee lo demás de la ficha viva.
+    }, touchedFields(baseRef.current ?? {}, { name, birthday, note, dates }));
   };
   return (
     <div className="ah-form sc-form pp-form">

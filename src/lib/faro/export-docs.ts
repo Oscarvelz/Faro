@@ -668,18 +668,24 @@ export function buildSheets(ledger: LedgerState, key: string, lang: Lang, names:
     const last = points.length + 2;
     sheets.push({
       name: "Flujo",
-      widths: [18, 16, 16, 16],
-      merges: ["A1:D1"],
+      widths: [18, 16, 16, 16, 16],
+      merges: ["A1:E1"],
       bars: points.length ? [{ ref: `B3:B${last}`, color: "FF1B5E43" }, { ref: `C3:C${last}`, color: "FFC4A15A" }] : [],
       rows: [
         [{ v: say(lang, "Flujo: lo que entra y lo que sale", "Flow: what comes in and what goes out"), s: S.section }],
-        [{ v: say(lang, "Mes", "Month"), s: S.flowHead }, { v: say(lang, "Ingresos", "Income"), s: S.flowHead }, { v: say(lang, "Gastos", "Expenses"), s: S.flowHead }, { v: say(lang, "Neto", "Net"), s: S.flowHead }],
+        // Ola 12 (BR12-7): la hoja gana la columna del apartado — el punto
+        // ya la traía (saved) y la hoja la callaba, así que su «Neto»
+        // (ingresos − gastos) sumaba en silencio lo apartado como si
+        // quedara libre. Ahora Neto = ingresos − gastos − apartado: la
+        // caja que queda, con cada parte nombrada en su columna.
+        [{ v: say(lang, "Mes", "Month"), s: S.flowHead }, { v: say(lang, "Ingresos", "Income"), s: S.flowHead }, { v: say(lang, "Gastos", "Expenses"), s: S.flowHead }, { v: say(lang, "Apartado", "Set aside"), s: S.flowHead }, { v: say(lang, "Neto", "Net"), s: S.flowHead }],
         ...points.map((point) => {
-          const net = Math.round((point.income - point.expense) * 100) / 100;
+          const net = Math.round((point.income - point.expense - point.saved) * 100) / 100;
           return [
             { v: point.label, s: S.line },
             { v: point.income, s: S.haveNum },
             { v: point.expense, s: S.spendNum },
+            { v: point.saved, s: S.spendNum },
             { v: net, s: net >= 0 ? S.leftNum : S.leftBad },
           ];
         }),

@@ -73,6 +73,29 @@ export function loansOf(state: LedgerState | null | undefined): Loan[] {
   return Array.isArray(state?.loans) ? state!.loans!.filter((l) => l && typeof l.id === "string").map((l) => normalizeLoan(l, state!.settings.display)) : [];
 }
 
+/** Ola 12 (Guardián S2): la fusión de la forma de préstamo al guardar —
+ * la doctrina de la tarjeta (fuseCardDraft) en su segunda casa. La forma
+ * componía `{...vivo, ...gobernadosDelBorrador}` SIN testigo: guardar
+ * solo un nombre desde una foto vieja borraba la tasa que otra pestaña
+ * acababa de fijar. Ahora el borrador viaja con su testigo de toque
+ * (touchedFields contra el nacido, baseRef de la forma) y esta fusión,
+ * DENTRO del commit y sobre el registro vivo, devuelve a lo vivo cada
+ * campo gobernado que la mano no tocó. `map` ata campo del registro ←
+ * llave de la bolsa de la forma. Sin testigo (un llamante viejo), el
+ * candidato manda entero, como antes. */
+export function fuseLoanFields<T extends object>(live: T, candidate: T, touched: ReadonlySet<string> | undefined, map: ReadonlyArray<readonly [keyof T, string]>): T {
+  if (!touched) return candidate;
+  const next: Record<string, unknown> = { ...(candidate as Record<string, unknown>) };
+  const liveRec = live as Record<string, unknown>;
+  for (const [field, bag] of map) {
+    if (touched.has(bag)) continue;
+    const v = liveRec[field as string];
+    if (v === undefined) delete next[field as string];
+    else next[field as string] = v;
+  }
+  return next as T;
+}
+
 /** Payment lines of one loan, oldest first. */
 export function loanPays(state: LedgerState, id: string): Line[] {
   const out: Line[] = [];

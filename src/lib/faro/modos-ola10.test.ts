@@ -24,6 +24,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import ts from "typescript";
 import { createInitial } from "./defaults.ts";
 import { MODULES, TOPIC_SCENES } from "./guion.ts";
 import { FEATURES, modeDialogReaction, modeImpact, unlockedGroups, type Mode } from "./mode.ts";
@@ -149,36 +150,111 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
   /* err solo se pinta: lo escribe la validación al guardar y lo lee el
    * render; ninguna decisión de guardado lo consulta. */
   const MUESTRA = new Set(["err"]);
+  /* ── OLA 12 · G12-1: EL CENSO LEE LLAMADAS DE VERDAD (AST) ─────────
+   * La medición por llamadas de la ola 11 contaba con una regex cuyo
+   * grupo de genérico `<[^()]*>` no cruza paréntesis: un testigo nacido
+   * `useState<() => boolean>` en variable (V1), su forma con namespace
+   * (V3) y un alias de import declarado fuera del tramo (V6) corrían
+   * 213/213 VERDE con el testigo vivo dentro; y en la dirección
+   * contraria, un COMENTARIO que nombraba useState( contaba como
+   * llamada y corría la cerca roja sin hook alguno (V4). La regex
+   * contaba texto, no llamadas. Desde esta ola el censo camina el AST
+   * del tramo (el compilador de TypeScript, como la §A de la ola 12):
+   * los comentarios y las cadenas no son llamadas; los genéricos con
+   * paréntesis, el namespace React.* y los alias de import (leídos del
+   * archivo entero, porque su declaración vive fuera del tramo) SÍ.
+   * Un nombre nace del AST: el primer elemento de la desestructuración,
+   * el identificador de la variable-tupla y los nombres que de esa
+   * variable se desestructuran un salto después. */
+  const HOOKS_BASE = new Set(["useState", "useRef"]);
+  const hookAliases = (fileText: string): Set<string> => {
+    const out = new Set(HOOKS_BASE);
+    const sf = ts.createSourceFile("f.tsx", fileText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const walk = (n: ts.Node): void => {
+      if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
+        for (const el of n.importClause.namedBindings.elements) {
+          const orig = (el.propertyName ?? el.name).text;
+          if (HOOKS_BASE.has(orig)) out.add(el.name.text);
+        }
+      }
+      n.forEachChild(walk);
+    };
+    walk(sf);
+    return out;
+  };
+  const ALIASES = hookAliases(SRC("../../components/faro/line-form.tsx"));
+  const isHookCall = (n: ts.Node, aliases: Set<string>): n is ts.CallExpression => {
+    if (!ts.isCallExpression(n)) return false;
+    const e = n.expression;
+    if (ts.isIdentifier(e)) return aliases.has(e.text);
+    if (ts.isPropertyAccessExpression(e)) return HOOKS_BASE.has(e.name.text); // React.useState / React.useRef
+    return false;
+  };
+  const parseSpan = (text: string) => ts.createSourceFile("span.tsx", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const hooksOf = (text: string) => {
     const names = new Set<string>();
-    for (const m of text.matchAll(/const \[(\w+)(?:, [^\]]+)?\] = useState/g)) names.add(m[1]!);
-    for (const m of text.matchAll(/const (\w+) = useRef/g)) names.add(m[1]!);
+    const sf = parseSpan(text);
+    const tupleVars = new Map<string, ts.VariableDeclaration>();
+    const decls: ts.VariableDeclaration[] = [];
+    const collect = (n: ts.Node): void => {
+      if (ts.isVariableDeclaration(n)) decls.push(n);
+      n.forEachChild(collect);
+    };
+    collect(sf);
+    for (const d of decls) {
+      if (!d.initializer || !isHookCall(d.initializer, ALIASES)) continue;
+      if (ts.isArrayBindingPattern(d.name)) {
+        const first = d.name.elements[0];
+        if (first && ts.isBindingElement(first)) names.add(first.name.getText());
+      } else if (ts.isIdentifier(d.name)) {
+        names.add(d.name.text);
+        tupleVars.set(d.name.text, d);
+      }
+    }
+    // el salto de la tupla: const [a, b] = s — el nombre que la mano usa
+    for (const d of decls) {
+      if (!d.initializer || !ts.isIdentifier(d.initializer) || !tupleVars.has(d.initializer.text)) continue;
+      if (ts.isArrayBindingPattern(d.name)) {
+        const first = d.name.elements[0];
+        if (first && ts.isBindingElement(first)) names.add(first.name.getText());
+      }
+    }
     return names;
   };
   const hooks = () => hooksOf(form);
-  /* ── OLA 11 · G11-1: LA COMPLETITUD SE MIDE SOBRE LAS LLAMADAS ──────
-   * El censo extraía DECLARACIONES con dos gramáticas (`const [x] =
-   * useState`, `const x = useRef`) — y un hook nacido por otra gramática
-   * no existía para él: la caza escenificó `const s = useState(false);
-   * const [a, b] = s;` (la tupla en variable, M11-c3) y la suite entera
-   * pasó 1844/1844 con un testigo sin clasificar dentro. Desde esta ola
-   * la completitud se mide sobre las LLAMADAS useState/useRef del tramo:
-   * toda llamada cuya declaración no se extrajo queda SIN RECLAMAR y
-   * acusa con su contexto. Una declaración reclama la primera llamada
-   * que la sigue (sus argumentos genéricos viven entre ambas). */
   const callSites = (text: string): { at: number; ctx: string }[] => {
     const out: { at: number; ctx: string }[] = [];
-    for (const m of text.matchAll(/\buseState\s*(?:<[^()]*>)?\s*\(|\buseRef\s*(?:<[^()]*>)?\s*\(/g)) {
-      out.push({ at: m.index!, ctx: text.slice(Math.max(0, m.index! - 30), m.index! + 30).replace(/\s+/g, " ") });
-    }
+    const sf = parseSpan(text);
+    const walk = (n: ts.Node): void => {
+      if (isHookCall(n, ALIASES)) {
+        out.push({ at: n.getStart(), ctx: text.slice(Math.max(0, n.getStart() - 30), n.getStart() + 30).replace(/\s+/g, " ") });
+      }
+      n.forEachChild(walk);
+    };
+    walk(sf);
     return out;
   };
+  /* Sin reclamar = una llamada que no es el inicializador de ninguna
+   * declaración del tramo: nació fuera de la gramática de nacimiento
+   * (suelta en un cuerpo, devuelta, pasada) y el censo de nombres no la
+   * ata a nombre alguno. */
   const unclaimed = (text: string): { at: number; ctx: string }[] => {
-    const decls: { start: number; end: number }[] = [];
-    for (const m of text.matchAll(/const \[(\w+)(?:, [^\]]+)?\] = useState|const (\w+) = useRef/g)) {
-      decls.push({ start: m.index!, end: m.index! + m[0].length });
-    }
-    return callSites(text).filter((c) => !decls.some((d) => d.start <= c.at && c.at <= d.end + 80));
+    const sf = parseSpan(text);
+    const claimed = new Set<ts.Node>();
+    const collect = (n: ts.Node): void => {
+      if (ts.isVariableDeclaration(n) && n.initializer && isHookCall(n.initializer, ALIASES)) claimed.add(n.initializer);
+      n.forEachChild(collect);
+    };
+    collect(sf);
+    return callSites(text).filter((c) => {
+      let found = false;
+      const seek = (n: ts.Node): void => {
+        if (isHookCall(n, ALIASES) && n.getStart() === c.at) found = claimed.has(n);
+        n.forEachChild(seek);
+      };
+      seek(sf);
+      return !found;
+    });
   };
   it("cada testigo del censo nace con su valor fijado, verbatim", () => {
     for (const [name, birth] of Object.entries(TESTIGOS)) {
@@ -207,10 +283,60 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
   });
   it("G11-1 · el espécimen M11-c3 (la tupla en variable) corre rojo", () => {
     const staged = `${form}\n  const s = useState(false); const [a, b] = s;\n`;
-    assert.equal(hooksOf(staged).size, 31, "la extracción por declaraciones no ve el hook escenificado");
-    const bad = unclaimed(staged);
-    assert.equal(bad.length, 1, "la medición por llamadas lo acusa exactamente una vez");
-    assert.match(bad[0]!.ctx, /const s = useState\(false\)/);
+    // Ola 12: bajo el AST la tupla SÍ se ve — nace dos veces en el censo
+    // de nombres (la variable y el nombre desestructurado), sin clasificar:
+    // la acusación llega por el censo, que es donde la doctrina la quiere.
+    const names = hooksOf(staged);
+    assert.equal(names.size, 33, "la variable-tupla y su desestructuración entran al censo");
+    assert.ok(names.has("s") && names.has("a"), "los dos nombres del espécimen, censados");
+    assert.ok(!("s" in TESTIGOS) && !PORTADORES.has("s") && !MUESTRA.has("s"), "y sin clasificar: la clasificación corre roja");
+    assert.equal(callSites(staged).length, 32, "la llamada se cuenta: el conteo de completitud también acusa");
+  });
+  /* OLA 12 · G12-1: los especímenes de la caza, en sus dos direcciones —
+   * los que evadían (V1/V3/V6) ahora acusan, el que acusaba en falso
+   * (V4) ahora calla, y los que aguantaban (V2/V5/V7) siguen acusando. */
+  it("G12-1 · V1 — tupla en variable con genérico de paréntesis: el testigo acusa", () => {
+    const staged = `${form}\n  const stampFnState = useState<() => boolean>(() => false);\n  const [stampFnTouched, setStampFnTouched] = stampFnState;\n`;
+    const names = hooksOf(staged);
+    assert.ok(names.has("stampFnTouched") && names.has("stampFnState"), "el AST cruza el genérico con paréntesis y la tupla");
+    assert.equal(callSites(staged).length, 32, "la llamada cuenta: la completitud corre roja");
+    assert.ok(!PORTADORES.has("stampFnTouched") && !("stampFnTouched" in TESTIGOS), "y el nombre nace sin clasificar");
+  });
+  it("G12-1 · V3 — namespace con genérico de paréntesis: el testigo acusa", () => {
+    const staged = `${form}\n  const nsState = React.useState<() => boolean>(() => false);\n  const [nsTouched, setNsTouched] = nsState;\n`;
+    assert.ok(hooksOf(staged).has("nsTouched"), "React.useState<…> es una llamada de hook para el AST");
+    assert.equal(callSites(staged).length, 32);
+  });
+  it("G12-1 · V6 — el alias de import, declarado fuera del tramo: el testigo acusa", () => {
+    const stagedFile = `import { useState as useSt } from "react";\n${form}\n  const [aliasTouched, setAliasTouched] = useSt(false);\n`;
+    const aliases = hookAliases(stagedFile);
+    assert.ok(aliases.has("useSt"), "el alias se lee del archivo entero, no del tramo");
+    const names = new Set<string>();
+    const sf = parseSpan(stagedFile);
+    const walk = (n: ts.Node): void => {
+      if (ts.isVariableDeclaration(n) && n.initializer && isHookCall(n.initializer, aliases) && ts.isArrayBindingPattern(n.name)) {
+        const first = n.name.elements[0];
+        if (first && ts.isBindingElement(first)) names.add(first.name.getText());
+      }
+      n.forEachChild(walk);
+    };
+    walk(sf);
+    assert.ok(names.has("aliasTouched"), "la llamada aliasada es una llamada de hook");
+  });
+  it("G12-1 · V4 — un comentario que nombra useState( NO es una llamada: la cerca calla", () => {
+    const staged = `${form}\n  // (antes esto nacía de un useState(…) y hoy es derivado)\n`;
+    assert.equal(callSites(staged).length, 31, "el comentario no cuenta: el AST no lee papel");
+    assert.deepEqual(unclaimed(staged), []);
+  });
+  it("G12-1 · V2/V5/V7 — las formas que aguantaban siguen acusando", () => {
+    const v2 = `${form}\n  const [nsTouched, setNsTouched] = React.useState(false);\n`;
+    assert.equal(callSites(v2).length, 32, "V2: el namespace directo cuenta");
+    assert.ok(hooksOf(v2).has("nsTouched"));
+    const v5 = `${form}\n  const [splitTouched, setSplitTouched] =\n    useState(false);\n`;
+    assert.ok(hooksOf(v5).has("splitTouched"), "V5: la declaración partida en líneas nace igual en el AST");
+    const v7 = `${form}\n  const lazyRef = useRef<number | null>(\n    null\n  );\n`;
+    assert.ok(hooksOf(v7).has("lazyRef"), "V7: el ref con el argumento partido se extrae");
+    assert.equal(callSites(v7).length, 32);
   });
 });
 

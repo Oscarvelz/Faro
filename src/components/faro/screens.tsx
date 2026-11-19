@@ -7,7 +7,7 @@ import { SampleRow } from "./sample-mode";
 import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
-import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, modeSign } from "./bank-dock";
+import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, modeSign, modeWhisper } from "./bank-dock";
 import { ModeImpactDialog, ModeReposedDialog } from "./mode-gate";
 import { MODES, currentRefDay, modeDialogReaction, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
 import { MODE_ASK_EVENT, takeModeAsk } from "@/lib/faro/mode-ask";
@@ -889,7 +889,18 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   // the engine installed unconditionally and bulk Delete/Move committed in Esencial.
   const canSelect = has("selection.engine");
   const lp = useLongPress((id) => {
-    if (!canSelect) return;
+    // Ola 12 (BR12-2): el gesto ya no muere tras el chequeo de permiso —
+    // susurra su destino (la selección de líneas vive en Ritmo), con el
+    // modo actual nombrado y los nombres punteados, como manda el Susurro.
+    if (!canSelect) {
+      modeWhisper(
+        t("mode.whisper.hold-line")
+          .replace("{mode}", `[[${t(`mode.${session?.ledger.settings.mode ?? "completo"}`)}]]`)
+          .replace("{owner}", `[[${t("mode.ritmo")}]]`),
+        "ritmo",
+      );
+      return;
+    }
     if (selection.mode) selection.toggle(id);
     else { setUi({ editing: null, draft: null }); selection.enter(id); }
   });
@@ -1146,7 +1157,17 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
   // PREJUDICE PJ-11: same engine, same law — the Compras board asks selection.engine too.
   const canSelect = has("selection.engine");
   const lp = useLongPress((id) => {
-    if (!canSelect) return;
+    // Ola 12 (BR12-2): el mismo susurro que en las listas de Libros — el
+    // gesto no muere tras el chequeo de permiso; su destino es Ritmo.
+    if (!canSelect) {
+      modeWhisper(
+        t("mode.whisper.hold-line")
+          .replace("{mode}", `[[${t(`mode.${session?.ledger.settings.mode ?? "completo"}`)}]]`)
+          .replace("{owner}", `[[${t("mode.ritmo")}]]`),
+        "ritmo",
+      );
+      return;
+    }
     if (selection.mode) selection.toggle(id);
     else { setUi({ editing: null, draft: null }); selection.enter(id); }
   });
@@ -3317,7 +3338,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <button type="button" data-anchor="lens-spend" className={`lens is-spend${lens === "spend" ? " is-picked" : ""}`} data-lens="spend" aria-pressed={cardOn === "spend"} onClick={() => focusLens("spend")}>
             <span className="lens-kicker"><span className="lens-mark"><ArrowUpRight className="size-3" /></span><span>{t("desk.spend")}</span></span>
             <span className="lens-value num">−{fmt(summary.expense)}</span>
-            <span className="lens-note">{t("desk.spend.note")}</span>
+            {/* Ola 12 (BR12-5a): la cifra del lente es TODO lo que sale (su
+                tema «gastare» la define así y su lista focal lo confirma);
+                lo que la ley exige es que la MISMA pantalla nombre su
+                composición — cuando hay apartado, la nota lo dice con su
+                monto, para que nadie lea «gastado» lo que está guardado. */}
+            <span className="lens-note">{summary.savingsFlow > 0 ? t("desk.spend.note.saved").replace("{x}", fmt(summary.savingsFlow)) : t("desk.spend.note")}</span>
           </button>
           <button type="button" data-anchor="desk-minus" className={`lens-corner is-minus${lowCorner("minus", "spend") ? " is-low" : ""}`} aria-label={t("desk.addOut")} aria-pressed={quick === "out"} {...corner("out")}>
             <span aria-hidden>−</span>
@@ -4571,6 +4597,11 @@ export function YearCard() {
       <div className="span-facts">
         <div><em>{t("study.in")}</em><strong className="num">{fmt(r.income)}</strong></div>
         <div><em>{t("study.out")}</em><strong className="num">{fmt(r.expense)}</strong></div>
+        {/* Ola 12 (BR12-5b): con apartado en el año, la misma tarjeta nombra
+            su descomposición — Gasto + Apartado = Sale — para que el «Sale»
+            del año se pueda reconciliar sin salir de la tarjeta. */}
+        {r.savedFlow > 0 ? <div><em>{t("study.year.gasto")}</em><strong className="num">{fmt(r.spend)}</strong></div> : null}
+        {r.savedFlow > 0 ? <div><em>{t("study.year.apartado")}</em><strong className="num">{fmt(r.savedFlow)}</strong></div> : null}
         {r.remittance > 0 ? <div><em>{t("study.year.remit")}</em><strong className="num">{fmt(r.remittance)}</strong></div> : null}
         {r.interestPaid > 0 ? <div><em>{t("cobro.loan.intpaid")}</em><strong className="num">{fmt(r.interestPaid)}</strong></div> : null}
       </div>
@@ -4627,6 +4658,10 @@ export function Study() {
   const activeKey = spanEff === "year"
     ? `${ui.year}-${String(ui.month).padStart(2, "0")}`
     : (points.find((p) => p.income > 0 || p.expense > 0)?.key ?? points[0]?.key ?? "");
+  // Ola 12 (BR12-6): el punto que el gráfico marca como «ahora» — la
+  // leyenda del CashFlow lee de él, no del Summary, para que número y
+  // línea nunca cuenten dos verdades del mismo mes.
+  const activePoint = points.find((p) => p.key === activeKey);
   const board = session ? studyBoard(session.ledger, `${ui.year}-${String(ui.month).padStart(2, "0")}`, lang, names) : null;
   const sankey = session ? cashSankey(session.ledger, `${ui.year}-${String(ui.month).padStart(2, "0")}`, lang, names) : { nodes: [], links: [] };
   const parts = summary
@@ -4832,9 +4867,16 @@ export function Study() {
         }}
         copy={{
           net: t("study.net"),
-          netValue: summary ? fmt(summary.opportunity) : "—",
-          inValue: summary ? fmt(summary.income) : "",
-          outValue: summary ? fmt(summary.expense) : "",
+          // Ola 12 (BR12-6): la leyenda y la línea dibujada leen la MISMA
+          // fuente — el punto activo que el gráfico dibuja (pointSums:
+          // «Sale» sin el apartado, «Lo que queda» = entra − sale de ese
+          // punto). Antes la leyenda leía el Summary del mes (con la suma
+          // ancha) y la línea el punto: en noviembre decían 36,000/−6,000
+          // sobre una línea de 27,000/+3,000 dibujada. Sin punto activo
+          // (tramo sin cubetas) se cae al Summary de siempre.
+          netValue: activePoint ? fmt(Math.round((activePoint.income - activePoint.expense) * 100)) : summary ? fmt(summary.opportunity) : "—",
+          inValue: activePoint ? fmt(Math.round(activePoint.income * 100)) : summary ? fmt(summary.income) : "",
+          outValue: activePoint ? fmt(Math.round(activePoint.expense * 100)) : summary ? fmt(summary.expense) : "",
           now: t("study.now"),
           creepEmpty: t("study.creep.empty"),
           trend: t("study.trend"),
@@ -5400,10 +5442,15 @@ export function Settings() {
     const r = modeDialogReaction({
       dialog: "reposed", from: modeReposed.from, target: modeReposed.target, live: currentMode,
       state: session.ledger, lang, refDay: currentRefDay(), currentUnlocked: modeReposed.unlocked,
+      fresh: modeReposed.fresh,
     });
     if (r.kind === "close") setModeReposed(null);
     else if (r.kind === "to-impact") { setModeReposed(null); setModeImpactState({ target: modeReposed.target, impact: r.impact, from: r.from, refDay: currentRefDay() }); }
-    else if (r.kind === "refresh-reposed") setModeReposed({ target: modeReposed.target, from: r.from, unlocked: r.unlocked });
+    // Ola 12 (C12-1): el refresco conserva la naturaleza del diálogo —
+    // sin el flag, una llegada del mismo modo con otros conteos volvía
+    // la pregunta fresca de la .318 la narración de un cambio de modo
+    // que jamás ocurrió («Mientras mirabas, tu modo cambió…»).
+    else if (r.kind === "refresh-reposed") setModeReposed({ target: modeReposed.target, from: r.from, unlocked: r.unlocked, fresh: r.fresh });
   }, [modeReposed, session, currentMode, lang]);
   const applyMode = (target: Mode) => commit((s) => ({ ...s, settings: { ...s.settings, mode: target } }), target);
   // El aviso de subida (1.3.307, palabra de Oscar): un letrero centrado con

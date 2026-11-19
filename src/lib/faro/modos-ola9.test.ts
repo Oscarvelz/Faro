@@ -205,9 +205,67 @@ const CORPUS = corpus();
  * shell.tsx) y el resultado de featureForGo(), que son mecanismos, no
  * nombres. */
 const SEAT_ESC = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/* ── OLA 12 · CARA-3: EL CENSO SIGUE EL GOBIERNO, NO EL NOMBRE ────────
+ * La vuelta anterior resolvía formas estáticas con nombres literales:
+ * la media concatenación vestía el traje de la estática y la puerta no
+ * era acusada (12E); un `has` importado con alias era invisible para el
+ * consumo y para la acusación (12F); una tabla invocada por su alias no
+ * emparejaba con su declaración (12G2); y la cadena de dos saltos traía
+ * DOBLE sentencia — la puerta acusada por su nombre y el asiento
+ * condenado por fantasma a la vez (12H2). La cura: las constantes se
+ * resuelven por CADENA (salto a salto hasta el literal o el callejón);
+ * los alias de importación de las funciones puerta se recogen de los
+ * propios import del corpus; las tablas emparejan por su SITIO DE
+ * DECLARACIÓN siguiendo los alias; la concatenación solo exime si sus
+ * dos mitades resuelven; y un asiento al final de una puerta acusada se
+ * reporta consumido-por-puerta-acusada (defecto de la puerta), jamás
+ * fantasma: una sola sentencia, sobre el culpable que la doctrina
+ * nombra. */
+function gateNames(text: string): string[] {
+  const names = new Set(["has", "gate"]);
+  for (const m of text.matchAll(/import\s*\{([^}]*)\}\s*from/g)) {
+    for (const a of m[1]!.matchAll(/\b(has|gate|featureForGo)\s+as\s+([A-Za-z_$][\w$]*)/g)) names.add(a[2]!);
+  }
+  return [...names];
+}
+const gateAlt = (text: string, extra: string[] = []) => [...gateNames(text), ...extra].join("|");
+/** Resolución por cadena: nombre → literal final, siguiendo los saltos
+ * nombre = nombre hasta el literal o el callejón (con guarda de ciclo). */
+function resolveChains(text: string): Map<string, string> {
+  const litOf = new Map<string, string>();
+  const edge = new Map<string, string>();
+  for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*["'`]([\w.-]*)["'`]/g)) litOf.set(m[1]!, m[2]!);
+  for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*;/g)) edge.set(m[1]!, m[2]!);
+  const out = new Map<string, string>();
+  const resolve = (name: string): string | undefined => {
+    const seen = new Set<string>();
+    let cur: string | undefined = name;
+    while (cur !== undefined && !seen.has(cur)) {
+      if (litOf.has(cur)) return litOf.get(cur);
+      seen.add(cur);
+      cur = edge.get(cur);
+    }
+    return undefined;
+  };
+  for (const name of new Set([...litOf.keys(), ...edge.keys()])) {
+    const v = resolve(name);
+    if (v !== undefined) out.set(name, v);
+  }
+  return out;
+}
+/** El nombre raíz de una tabla: sigue los alias nombre = nombre hasta
+ * el sitio de declaración. */
+function tableRoot(text: string, name: string): string {
+  const edge = new Map<string, string>();
+  for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*;/g)) edge.set(m[1]!, m[2]!);
+  const seen = new Set<string>();
+  let cur = name;
+  while (edge.has(cur) && !seen.has(cur)) { seen.add(cur); cur = edge.get(cur)!; }
+  return cur;
+}
 function gateWindows(text: string): { fn: string; win: string }[] {
   const out: { fn: string; win: string }[] = [];
-  for (const m of text.matchAll(/(^|[^\w$.])(has|gate)\(/g)) {
+  for (const m of text.matchAll(new RegExp(`(^|[^\\w$.])(${gateAlt(text)})\\(`, "g"))) {
     const at = m.index! + m[0].length;
     out.push({ fn: m[2]!, win: text.slice(at, at + 160) });
   }
@@ -243,9 +301,10 @@ function featureForGoBody(text: string): string {
 }
 function tableBodies(text: string): string[] {
   const names = new Set<string>();
-  for (const m of text.matchAll(/(?:has|gate)\(\s*([A-Za-z_$][\w$]*)\s*\[/g)) names.add(m[1]!);
+  for (const m of text.matchAll(new RegExp(`(?:${gateAlt(text)})\\(\\s*([A-Za-z_$][\\w$]*)\\s*\\[`, "g"))) names.add(m[1]!);
   const bodies: string[] = [];
-  for (const name of names) {
+  for (const invoked of names) {
+    const name = tableRoot(text, invoked); // OLA 12: la tabla empareja por su sitio de declaración, no por el nombre de invocación
     const at = text.search(new RegExp(`(?:const|let|var)\\s+${name}\\s*=\\s*\\{`));
     if (at < 0) continue;
     let i = text.indexOf("{", at);
@@ -261,10 +320,11 @@ function tableBodies(text: string): string[] {
 }
 function consumedIn(text: string, seat: string): boolean {
   const esc = SEAT_ESC(seat);
-  // (a) llamada directa con literal
-  if (new RegExp(`(^|[^\\w$.])(?:has|gate|featureForGo)\\(\\s*["'\`]${esc}["'\`]`).test(text)) return true;
+  const alt = gateAlt(text, ["featureForGo"]);
+  // (a) llamada directa con literal (también bajo un alias de importación)
+  if (new RegExp(`(^|[^\\w$.])(?:${alt})\\(\\s*["'\`]${esc}["'\`]`).test(text)) return true;
   // (b) el literal dentro de los argumentos de una llamada (fallbacks ??)
-  if (new RegExp(`(^|[^\\w$.])(?:has|gate)\\([^)]*["'\`]${esc}["'\`]`).test(text)) return true;
+  if (new RegExp(`(^|[^\\w$.])(?:${alt})\\([^)]*["'\`]${esc}["'\`]`).test(text)) return true;
   // (e) concatenación / plantilla estática resuelta dentro de una llamada
   for (const { win } of gateWindows(text)) {
     if (multiArg(win)) continue;
@@ -281,33 +341,61 @@ function consumedIn(text: string, seat: string): boolean {
   for (const body of tableBodies(text)) {
     if (new RegExp(`["'\`]${esc}["'\`]`).test(body)) return true;
   }
-  // (d) constante de cadena resuelta y LLAMADA por su nombre
-  for (const m of text.matchAll(new RegExp(`(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*["'\`]${esc}["'\`]`, "g"))) {
-    if (new RegExp(`(^|[^\\w$.])(?:has|gate)\\(\\s*${m[1]}\\s*\\)`).test(text)) return true;
+  // (d) constante resuelta POR CADENA (los saltos que haya) y LLAMADA
+  // por cualquiera de sus nombres — OLA 12: la cadena de dos saltos
+  // consume a su asiento; ya no hay sentencia de fantasma sobre él.
+  const chains = resolveChains(text);
+  for (const [name, lit] of chains) {
+    if (lit !== seat) continue;
+    if (new RegExp(`(^|[^\\w$.])(?:${alt})\\(\\s*${name}\\s*\\)`).test(text)) return true;
   }
   return false;
 }
 function unresolvedGates(text: string): string[] {
-  const consts = new Set<string>();
-  for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*["'`][\w.-]*["'`]/g)) consts.add(m[1]!);
+  const chains = resolveChains(text); // OLA 12: la resolución sigue la cadena entera
   const out: string[] = [];
-  for (const m of text.matchAll(/(^|[^\w$.])(has|gate)\(/g)) {
+  for (const m of text.matchAll(new RegExp(`(^|[^\\w$.])(${gateAlt(text)})\\(`, "g"))) {
     const before = text.slice(Math.max(0, m.index! - 12), m.index!);
     if (/function\s*$/.test(before)) continue; // la declaración, no una llamada
     const win = text.slice(m.index! + m[0].length, m.index! + m[0].length + 160);
     if (multiArg(win)) continue; // un `has` local de varios argumentos no es la puerta
     const arg = win.replace(/^\s+/, "");
     if (/^["'`][\w.-]*["'`]/.test(arg)) continue; // (a) literal (plantilla estática incluida)
-    if (/^\(?\s*["'][\w.-]*["']\s*\+/.test(arg)) continue; // (e) concatenación estática
+    const concat = /^\(?\s*("[^"]*"|'[^']*'|[A-Za-z_$][\w$]*)\s*\+\s*("[^"]*"|'[^']*'|[A-Za-z_$][\w$]*)/.exec(arg);
+    if (concat) {
+      // (e) la concatenación solo exime si sus DOS mitades resuelven —
+      // la media concatenación (12E) viste el traje y ACUSA.
+      const side = (x: string) => /^["']/.test(x) || chains.has(x);
+      if (side(concat[1]!) && side(concat[2]!)) continue;
+    }
     if (/^[A-Za-z_$][\w$]*\s*\[/.test(arg)) continue; // (c) tabla indexada
     if (/^[A-Za-z_$][\w$]*\s+as\s/.test(arg)) continue; // flujo FeatureId (has(f as F))
     if (/^featureForGo\(/.test(arg)) continue; // el puente tema→asiento
     if (/^[A-Za-z_$][\w$]*\s*:/.test(arg)) continue; // firma de una declaración
     const idm = /^([A-Za-z_$][\w$]*)\s*\)/.exec(arg);
-    if (idm && consts.has(idm[1]!)) continue; // (d) constante resuelta
+    if (idm && chains.has(idm[1]!)) continue; // (d) constante resuelta por cadena
     out.push(`${m[2]}(${win.slice(0, 60).replace(/\s+/g, " ")}…`);
   }
   return out;
+}
+/** OLA 12 · la otra mitad de la doctrina: un asiento al final de una
+ * puerta ACUSADA no es un fantasma — es un defecto de la puerta. El
+ * asiento queda explicado si alguna ventana acusada lleva un literal
+ * que es prefijo de su nombre (la media concatenación que lo construía)
+ * o su nombre entero dentro de una expresión irresoluble. La sentencia
+ * es una sola y cae sobre la puerta (§A-ter la nombra en el corpus). */
+function explainedByAccusedGate(text: string, seat: string): boolean {
+  const accused = new Set(unresolvedGates(text));
+  for (const m of text.matchAll(new RegExp(`(^|[^\\w$.])(${gateAlt(text)})\\(`, "g"))) {
+    const win = text.slice(m.index! + m[0].length, m.index! + m[0].length + 160);
+    if (multiArg(win)) continue;
+    if (!accused.has(`${m[2]}(${win.slice(0, 60).replace(/\s+/g, " ")}…`)) continue;
+    for (const lit of win.matchAll(/["'`]([\w.-]*)["'`]/g)) {
+      if (lit[1] === seat) return true;
+      if (lit[1]!.length >= 4 && seat.startsWith(lit[1]!)) return true;
+    }
+  }
+  return false;
 }
 const consumed = (seat: string) => consumedIn(CORPUS, seat);
 
@@ -334,7 +422,9 @@ describe("ola9 · §A: el censo de consumidores — ningún asiento fantasma", (
   it("todo asiento nombrado por el mapa §10 tiene un consumidor real o una exención escrita", () => {
     assert.ok(MAP_SEATS.size >= 95, `el censo deriva del mapa de verdad (${MAP_SEATS.size} asientos)`);
     for (const seat of MAP_SEATS) {
-      assert.ok(consumed(seat) || seat in EXENTOS,
+      // OLA 12: un asiento al final de una puerta acusada no es fantasma —
+      // es defecto de la puerta, y la sentencia cae sobre ella (§A-ter).
+      assert.ok(consumed(seat) || seat in EXENTOS || explainedByAccusedGate(CORPUS, seat),
         `${seat}: el mapa lo nombra y nadie lo consume — un asiento fantasma (así nacieron CARA-1 y CARA-2)`);
     }
   });
@@ -448,6 +538,38 @@ describe("ola9 · §A-ter: el censo cuenta sitios de llamada, no texto (OLA 11)"
   });
   it("en el corpus vivo no hay ni una puerta irresoluble (CARA-4, dirección viva)", () => {
     assert.deepEqual(unresolvedGates(CORPUS), []);
+  });
+  /* OLA 12 · CARA-3, segunda vuelta: los cuatro disfraces de la caza
+   * corren a doctrina — consumo o acusación en voz alta sobre la puerta;
+   * jamás la sentencia muda de fantasma sobre el asiento. */
+  it("12E · la media concatenación ACUSA a la puerta y el asiento no paga la sentencia", () => {
+    const c = census(`const g = has(("accounts." + ola12Suffix) as never);`);
+    assert.equal(consumedIn(c, "accounts.add"), false, "la media concatenación no consume: su segunda mitad no resuelve");
+    const acus = unresolvedGates(c);
+    assert.equal(acus.length, 1, `la puerta es acusada en voz alta: ${acus.join(" | ")}`);
+    assert.equal(explainedByAccusedGate(c, "accounts.add"), true,
+      "el asiento al final de la puerta acusada se reporta consumido-por-puerta-acusada, no fantasma");
+  });
+  it("12F · el `has` importado con alias consume y no acusa", () => {
+    const c = census(`import { has as ola12Puede } from "./provider";\nconst g = ola12Puede("accounts.add");`);
+    assert.equal(consumedIn(c, "accounts.add"), true, "la llamada renombrada ES la puerta: el gobierno manda, no el nombre");
+    assert.deepEqual(unresolvedGates(c), []);
+  });
+  it("12G2 · la tabla invocada por su alias empareja con su sitio de declaración", () => {
+    const c = census(`const OLA12_TABLA = { fold: "accounts.add" }; const OLA12_ALIAS = OLA12_TABLA; const g = has(OLA12_ALIAS[id] ?? "study.fold-x");`);
+    assert.equal(consumedIn(c, "accounts.add"), true, "el cuerpo se lee en la declaración, se invoque como se invoque");
+    assert.equal(consumedIn(c, "study.fold-x"), true);
+    assert.deepEqual(unresolvedGates(c), []);
+  });
+  it("12H2 · la cadena de dos saltos consume a su asiento: una sola sentencia, el consumo", () => {
+    const c = census(`const OLA12_A = "accounts.add"; const OLA12_B = OLA12_A; const g = has(OLA12_B);`);
+    assert.equal(consumedIn(c, "accounts.add"), true, "la resolución sigue la cadena hasta el literal");
+    assert.deepEqual(unresolvedGates(c), [], "y la puerta no es acusada: la doble sentencia de la ola 12 no vuelve");
+  });
+  it("control · la cadena que muere en un cómputo acusa a la puerta y no consume", () => {
+    const c = census(`const A = "accounts.add"; const B = compute(A); const g = has(B);`);
+    assert.equal(consumedIn(c, "accounts.add"), false);
+    assert.equal(unresolvedGates(c).length, 1, "el callejón acusa en voz alta");
   });
 });
 

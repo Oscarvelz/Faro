@@ -306,25 +306,70 @@ describe("§A · el censo del apartado: toda superficie agregadora, clasificada"
  * asentado en la caza de la ola 11); el día que uno se declare, entra en
  * la tabla y la escalera lo aplica a los temas de Ritmo. */
 describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)", () => {
+  /* Ola 12 (CARA-2): la derivación dejó de derivar a medias — la ola 11
+   * derivó los TEMAS y dejó enumerados los verbos, los campos y la
+   * absolución, y la enfermedad subió un nivel (cuatro mutaciones de la
+   * caza corrían verdes). Ahora: los CAMPOS se recogen caminando el
+   * registro del tema (todo par ES/EN que la cara puede pintar — what,
+   * how, tip, whatAlt, sum, bubble y el que nazca mañana — entra sin
+   * lista); los VERBOS trabajan por RAÍZ en los dos idiomas, con sus
+   * formas (participios ingleses: merged/merging; sinónimos de la misma
+   * mano: eliminar varias, unir dos); y la absolución de CROMO juzga el
+   * OBJETO del verbo ocultar — la frase que respira cromo pero oculta
+   * datos acusa, y solo el objeto-cromo absuelve. */
   const VERBOS_RITMO: [string, RegExp][] = [
-    ["ocultar datos", /ocult|escond|\bhide|\bhiding/i],
-    ["recolorear", /cambia nombre y color|changes name and colour|cambiar( el)? color|change (the )?colou?r|recolore|recolou?r/i],
-    ["borrar en masa", /borrar varias|delete several/i],
-    ["fusionar", /fusiona|\bmerge\b|\bmerging\b/i],
+    ["ocultar datos", /ocult|escond|\bhid(e|es|ing|den)\b/i],
+    ["recolorear", /cambia nombre y color|changes name and colour|cambiar( el)? color|change (the )?colou?r|recolore\w*|recolou?r\w*/i],
+    ["borrar en masa", /borra\w* varias|elimina\w* varias|quita\w* varias|(delet|remov)\w* several/i],
+    ["fusionar", /fusiona\w*|\bmerg\w*\b(?=[^.!?]*\b(?:into one|two|several)\b)|\bjoin(s|ed|ing)?\b[^.!?]*\b(two|several|into one)\b|\bun(ir|e|es|en|ió)\b[^.!?]*\b(dos|varias|ambas|en una)\b|\bunid(as|os)\b[^.!?]*\ben un(a|o)\b/i],
   ];
-  const CROMO = /monto|amount|barra|\bbar\b|navigation/i;
+  const OBJETO_CROMO = /barra|\bbar\b|navegaci|navigation|monto|amount|puntos|dots|widget|pantalla|screen/i;
+  const OBJETO_DATO = /tienda|categor|subconcept|store|categor|subcategor|línea|line|persona|people|tarjeta|card|cuenta|account|libro|book|préstamo|loan|vista guardada|saved view/i;
   const ATRIBUCION = /\[\[Ritmo\]\]|\[\[Rhythm\]\]|\bRitmo\b|\bRhythm\b/i;
   const sentences = (text: string) => text.split(/(?<=[.!?])\s+/);
+  /** Todo par ES/EN que el registro PROPIO del tema lleva — derivado
+   * caminando sus valores, jamás una lista de campos. (El enlace
+   * `chapter` que el runtime añade no es prosa del tema: caminarlo
+   * arrastraría la prosa de todos sus hermanos.) */
+  const proseOf = (topic: Topic): string[] => {
+    const out: string[] = [];
+    const walk = (v: unknown): void => {
+      if (Array.isArray(v)) {
+        if (v.length === 2 && v.every((x) => typeof x === "string")) { out.push(v[0]!, v[1]!); return; }
+        for (const x of v) walk(x);
+        return;
+      }
+      if (v && typeof v === "object") for (const x of Object.values(v as Record<string, unknown>)) walk(x);
+    };
+    for (const [k, v] of Object.entries(topic)) { if (k !== "chapter") walk(v); }
+    return out;
+  };
+  /** La absolución de cromo, por OBJETO: para cada aparición del verbo
+   * ocultar, la ventana de su objeto (lo que sigue al verbo hasta la
+   * primera pausa o coordinación) decide — objeto de datos acusa aunque
+   * la frase respire cromo; solo un objeto-cromo sin dato absuelve. */
+  const ocultarAbsuelto = (s: string): boolean => {
+    const re = /ocult\w*|escond\w*|\bhid(e|es|ing|den)\b/gi;
+    let absuelto = false;
+    for (const m of s.matchAll(re)) {
+      const rest = s.slice(m.index + m[0].length);
+      const ventana = rest.split(/[,;:]|\s+y\s+(ves|ver|puedes|toca)|\s+and\s+(see|you)\b/i)[0]!.slice(0, 60);
+      if (OBJETO_DATO.test(ventana)) return false; // oculta datos: acusa, respire lo que respire la frase
+      if (OBJETO_CROMO.test(ventana)) { absuelto = true; continue; }
+      return false; // objeto no reconocido: la cerca no absuelve lo que no conoce
+    }
+    return absuelto;
+  };
   const violaciones = (topic: Topic & { chapter?: unknown }): string[] => {
     const floor = topicMode(topic as never);
     if (floor !== "esencial") return []; // la escalera: solo los verbos de un piso SUPERIOR acusan
     const out: string[] = [];
-    const prose = [...(topic.sum ?? []), ...(topic.what ?? []), ...(topic.how ?? []), ...(topic.tip ?? [])];
+    const prose = proseOf(topic as Topic);
     for (const text of prose) {
       for (const s of sentences(text)) {
         const hits = VERBOS_RITMO.filter(([, re]) => re.test(s)).map(([n]) => n);
         if (!hits.length) continue;
-        if (hits.length === 1 && hits[0] === "ocultar datos" && CROMO.test(s)) continue; // cromo/privacidad: no administra datos
+        if (hits.length === 1 && hits[0] === "ocultar datos" && ocultarAbsuelto(s)) continue; // cromo/privacidad: no administra datos
         if (ATRIBUCION.test(s)) continue; // nombrar al dueño en la frase es la atribución
         out.push(`${topic.id}: «${s.trim()}» enseña ${hits.join(" + ")} en Esencial sin nombrar a Ritmo`);
       }
@@ -347,6 +392,29 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     };
     const v = violaciones(staged as never);
     assert.equal(v.length, 2, `la cerca derivada acusa la frase fresca en ES y EN: ${v.join(" | ")}`);
+  });
+  it("las cuatro mutaciones de la ola 12 (12A–D) corren rojas bajo la cerca derivada entera", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const stage = (patch: Partial<Topic>) => violaciones({ ...tienda, ...patch } as never);
+    // 12A · la absolución ya no clavea en la palabra «monto»: ocultar
+    // TIENDAS acusa aunque la frase respire cromo.
+    const a = stage({ what: ["Desde esta hoja ocultas las tiendas que ya no usas y ves el monto de cada compra.", "From this sheet you hide the stores you no longer use and see the amount of each purchase."] });
+    assert.equal(a.length, 2, `12A acusa en ES y EN: ${a.join(" | ")}`);
+    // 12B · el participio inglés ya no escapa a la familia fusionar.
+    const b = stage({ what: ["Dos tiendas se pueden fusionar en una desde esta hoja.", "Two stores can be merged into one from this sheet."] });
+    assert.equal(b.length, 2, `12B acusa en ES y EN: ${b.join(" | ")}`);
+    // 12C · los sinónimos de la misma mano ya no escapan a la tabla.
+    const c = stage({ what: ["Con el lápiz puedes eliminar varias tiendas con una sola confirmación y unir dos en una.", "With the pencil you can remove several stores with one confirmation and join two into one."] });
+    assert.equal(c.length, 2, `12C acusa en ES y EN: ${c.join(" | ")}`);
+    // 12D · la cláusula condenada ya no se esconde en whatAlt ni en bubble:
+    // todo campo que la cara pinta está bajo el escaneo.
+    const d = stage({ whatAlt: ["El lápiz oculta varias de una vez con una confirmación.", "The pencil hides several at once with one confirmation."] });
+    assert.equal(d.length, 2, `12D (whatAlt) acusa en ES y EN: ${d.join(" | ")}`);
+    const d2 = stage({ bubble: ["El lápiz oculta varias de una vez con una confirmación.", "The pencil hides several at once with one confirmation."] });
+    assert.equal(d2.length, 2, `12D (bubble) acusa en ES y EN: ${d2.join(" | ")}`);
+    // Y el control de la absolución por objeto: ocultar CROMO sigue absuelto.
+    const chrome = stage({ what: ["Desde Ajustes ocultas la barra de navegación si te estorba.", "From Settings you hide the navigation bar if it gets in your way."] });
+    assert.deepEqual(chrome, [], "ocultar la barra (cromo) no administra datos: absuelto por su objeto");
   });
   it("las cláusulas condenadas no vuelven: f-categoria y f-sub dicen la verdad de Esencial", () => {
     const cat = findTopic("f-categoria")!;

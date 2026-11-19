@@ -176,10 +176,32 @@ export const CARD_DRAFT_MAP: ReadonlyArray<readonly [keyof CreditCard, string]> 
   ["limitMinor", "limit"], ["dueDay", "dueDay"], ["autopay", "autopay"], ["rewards", "rewards"],
 ];
 
+/** Ola 12 (F5): los campos DERIVADOS de la ficha y su campo fuente. La
+ * red no tiene campo propio en la forma: el candidato la deriva del
+ * nombre (`networkIn(name)` en proceed). Si la fusión la tratara como un
+ * campo más, un renombre a un nombre clasificable perdería la red que el
+ * propio renombre deriva — la fusión descartaba en silencio el fruto del
+ * campo que la mano SÍ tocó. */
+export const CARD_DERIVED_FROM: ReadonlyArray<readonly [keyof CreditCard, keyof CreditCard]> = [
+  ["network", "name"],
+];
+
 export function fuseCardDraft(live: CreditCard, candidate: CreditCard, draft: Record<string, string>, born: Record<string, string>): CreditCard {
   const next: CreditCard = { ...candidate };
   for (const [field, key] of CARD_DRAFT_MAP) {
     if (draft[key] === born[key]) (next as Record<string, unknown>)[field] = live[field];
+  }
+  // Ola 12 (F5): un campo derivado sigue el testigo de su campo FUENTE —
+  // si la fuente fue tocada y el derivado no (no tiene mano propia), el
+  // valor derivado del candidato entra; no se lee de lo vivo.
+  const keyOf = new Map(CARD_DRAFT_MAP.map(([field, key]) => [field, key] as const));
+  for (const [derived, source] of CARD_DERIVED_FROM) {
+    const dKey = keyOf.get(derived);
+    const sKey = keyOf.get(source);
+    if (!dKey || !sKey) continue;
+    if (draft[sKey] !== born[sKey] && draft[dKey] === born[dKey]) {
+      (next as Record<string, unknown>)[derived] = candidate[derived];
+    }
   }
   return next;
 }

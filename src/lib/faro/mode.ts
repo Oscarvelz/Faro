@@ -262,7 +262,7 @@ export type ModeDialogReaction =
   | { kind: "stay" }
   | { kind: "close" }
   | { kind: "refresh-impact"; from: Mode; impact: ModeImpact }
-  | { kind: "refresh-reposed"; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] }
+  | { kind: "refresh-reposed"; from: Mode; unlocked: { id: string; labelKey: string; count: number }[]; fresh?: boolean }
   | { kind: "to-reposed"; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] }
   | { kind: "to-impact"; from: Mode; impact: ModeImpact };
 
@@ -280,6 +280,13 @@ export function modeDialogReaction(args: {
   refDay?: string;
   currentImpact?: ModeImpact;
   currentUnlocked?: { id: string; count: number }[];
+  /** Ola 12 (C12-1): la naturaleza del diálogo abierto — true cuando la
+   * pregunta nació fresca del toque de la persona (.318). El refresco la
+   * CONSERVA solo si el modo no se movió: un refresco por conteos no
+   * puede reescribir la pregunta de subir con la narración de un cambio
+   * de modo que no ocurrió; si el modo se movió de verdad, la pregunta
+   * se re-plantea y el cuerpo del re-planteado es la verdad. */
+  fresh?: boolean;
 }): ModeDialogReaction {
   const { dialog, from, target, live, state, lang, refDay } = args;
   if (live === target) return { kind: "close" };
@@ -301,7 +308,7 @@ export function modeDialogReaction(args: {
   }
   const freshUnlocked = unlockedGroups(state, live, target);
   if (live !== from || unlockedSignature(freshUnlocked) !== unlockedSignature(args.currentUnlocked ?? [])) {
-    return { kind: "refresh-reposed", from: live, unlocked: freshUnlocked };
+    return { kind: "refresh-reposed", from: live, unlocked: freshUnlocked, fresh: args.fresh === true && live === from };
   }
   return { kind: "stay" };
 }

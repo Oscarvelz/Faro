@@ -1420,7 +1420,7 @@ const MODOS: Module = {
       { kind: "show", anchor: "aj-modo", caption: ["Completo lo interpreta y proyecta todo; nada de abajo se pierde.", "Complete interprets and projects everything; nothing below is lost."] },
     ] },
     { id: "m15-subir", chapter: "subir-bajar", anchors: ["aj-modo"], keys: [["subir", "moving up"]], steps: [
-      { kind: "do", anchor: "aj-modo", caption: ["Subir no pregunta: destapa al instante lo del modo nuevo.", "Moving up never asks: it uncovers the new mode at once."], contexto: ["Un aviso breve nombra lo que se acaba de destapar.", "A brief notice names what was just uncovered."] },
+      { kind: "do", anchor: "aj-modo", caption: ["Subir pregunta, como bajar: tocar un modo mayor abre su confirmación.", "Moving up asks, like moving down: tapping a higher mode opens its confirmation."], contexto: ["La pantalla cuenta qué se destapa; solo tu confirmar aplica, y el letrero anuncia el modo al que llegaste.", "The screen tells what opens up; only your tap confirms it, and the sign announces your new mode."] },
     ] },
     { id: "m15-impacto", chapter: "subir-bajar", mode: "ritmo", anchors: ["modo-opt-esencial", "modo-impacto", "modo-impacto-no"], keys: [["impacto", "impact"], ["bajar", "moving down"]], steps: [
       { kind: "tap", anchor: "modo-opt-esencial" },

@@ -21,6 +21,13 @@ export type YearReport = {
   /** View-currency minor units, the sum of the twelve monthly summarize figures. */
   income: number;
   expense: number;
+  /** Ola 12 (BR12-5b): el gasto del año sin el apartado (Σ spend) — la
+   *  tarjeta lo nombra junto al flujo apartado para que su «Sale» se
+   *  pueda reconciliar en la misma tarjeta (Sale = Gasto + Apartado). */
+  spend: number;
+  /** Ola 12 (BR12-5b): el flujo apartado del año (Σ savingsFlow) — distinto
+   *  del stock al 31 de diciembre que la tarjeta ya pintaba abajo. */
+  savedFlow: number;
   net: number;
   /** Remittances sent in the year (summarize's own remit figure, summed). */
   remittance: number;
@@ -36,13 +43,15 @@ export type YearReport = {
 export function yearReport(state: LedgerState, year: number, lang: Lang, names: ReturnType<typeof makeNamer>): YearReport {
   const fmt = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { month: "short" });
   const months: YearMonth[] = [];
-  let income = 0, expense = 0, remittance = 0;
+  let income = 0, expense = 0, remittance = 0, spend = 0, savedFlow = 0;
   const byCat = new Map<string, Slice>();
   for (let m = 1; m <= 12; m += 1) {
     const key = `${year}-${String(m).padStart(2, "0")}`;
     const s = summarize(state, key, lang);
     income += s.income;
     expense += s.expense;
+    spend += s.spend;
+    savedFlow += s.savingsFlow;
     remittance += s.remittance;
     months.push({
       key,
@@ -64,6 +73,8 @@ export function yearReport(state: LedgerState, year: number, lang: Lang, names: 
     year,
     income,
     expense,
+    spend,
+    savedFlow,
     net: income - expense,
     remittance,
     interestPaid: interestPaidTotal(state, year),

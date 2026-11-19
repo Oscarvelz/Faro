@@ -49,6 +49,22 @@ export function activePeople(state: LedgerState | null | undefined): Person[] {
   return peopleOf(state).filter((p) => !p.archived);
 }
 
+/** Ola 12 (Guardián · Personas): la fusión de la ficha de persona al
+ * guardar — la base es la ficha VIVA y solo los campos que la mano tocó
+ * (el testigo de PersonForm: nombre, cumpleaños, nota, fechas) entran
+ * desde lo editado. Lo demás — el color, el archivado, y cualquier campo
+ * que la forma no gobierna — se lee de lo vivo: la forma ya no compone
+ * la ficha entera desde su foto (su objeto ni siquiera traía `archived`,
+ * y el commit viejo ni leía la colección viva). */
+export function fusePerson(live: Person, edited: Person, touched: ReadonlySet<string>): Person {
+  const next: Person = { ...live };
+  if (touched.has("name")) next.name = edited.name;
+  if (touched.has("birthday")) next.birthday = edited.birthday;
+  if (touched.has("note")) next.note = edited.note;
+  if (touched.has("dates")) next.dates = edited.dates;
+  return next;
+}
+
 /** Day the line counts on: its own date, or the middle of its month. */
 export function lineDay(line: Line): string {
   return line.bookedOn && /^\d{4}-\d{2}-\d{2}/.test(line.bookedOn) ? line.bookedOn.slice(0, 10) : `${line.monthKey}-15`;

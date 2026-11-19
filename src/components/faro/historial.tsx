@@ -80,7 +80,7 @@ export type RowSel = {
   onTap: (m: Movement) => void;
 };
 
-export function StreamRow({ m, state, sel, anchor, onWhisper }: { m: Movement; state: LedgerState; sel?: RowSel; anchor?: string; onWhisper?: () => void }) {
+export function StreamRow({ m, state, sel, anchor, onWhisper, hold }: { m: Movement; state: LedgerState; sel?: RowSel; anchor?: string; onWhisper?: () => void; hold?: { bind: ReturnType<typeof useLongPress>["bind"] } }) {
   const { names, lang, t } = useFaro();
   const structure = state.structure;
   const cat = structure.categories.find((c) => c.id === m.categoryId);
@@ -111,7 +111,7 @@ export function StreamRow({ m, state, sel, anchor, onWhisper }: { m: Movement; s
       className={`hist-row is-${m.kind}${sel?.marked ? " is-selected" : ""}`}
       data-anchor={anchor}
       data-line-id={m.lineId}
-      {...(sel ? sel.bind(m.lineId) : {})}
+      {...(sel ? sel.bind(m.lineId) : hold ? hold.bind(m.lineId) : {})}
       onClick={sel ? () => { if (!sel.consumeClick()) sel.onTap(m); } : onWhisper}
       style={sel ? ({ "--selc": tone } as CSSProperties) : undefined}
     >
@@ -350,14 +350,30 @@ export function HistorialScreen() {
   // dónde vive el toque: el silencio también habla del potencial de Faro.
   const canRest = has("archive.hide-selection");
   const currentMode = state?.settings.mode ?? "completo";
-  const whisperRow = () => modeWhisper(
-    t("mode.whisper.hide-row")
+  const selection = useSelection();
+  const lp = useLongPress((id) => (selection.mode ? selection.toggle(id) : selection.enter(id)));
+  // Ola 12 (BR12-1): la pulsación larga de la misma fila también susurra —
+  // la .319 le dio voz al toque y el gesto hermano quedó mudo: mantener la
+  // fila no montaba ni el bind fuera de Completo y el DOM no se movía. Su
+  // destino verdadero es la selección para ocultar, y la frase lo nombra.
+  const whisperHoldRow = () => modeWhisper(
+    t("mode.whisper.hold-row")
       .replace("{mode}", `[[${t(`mode.${currentMode}`)}]]`)
       .replace("{owner}", `[[${t("mode.completo")}]]`),
     "completo",
   );
-  const selection = useSelection();
-  const lp = useLongPress((id) => (selection.mode ? selection.toggle(id) : selection.enter(id)));
+  const lpWhisper = useLongPress(() => whisperHoldRow());
+  const whisperRow = () => {
+    // el click que persigue a una presión larga cumplida no es un toque:
+    // la presión ya susurró; soltar no repite el susurro del toque.
+    if (lpWhisper.consumeClick()) return;
+    modeWhisper(
+      t("mode.whisper.hide-row")
+        .replace("{mode}", `[[${t(`mode.${currentMode}`)}]]`)
+        .replace("{owner}", `[[${t("mode.completo")}]]`),
+      "completo",
+    );
+  };
   const rowTap = (m: Movement) => {
     if (selection.mode) { selection.toggle(m.lineId); return; }
     confirm({
@@ -604,6 +620,7 @@ export function HistorialScreen() {
                   anchor={di === 0 && mi === 0 ? "hist-row" : undefined}
                   sel={canRest ? { mode: selection.mode, marked: selection.sel.has(m.lineId), bind: lp.bind, consumeClick: lp.consumeClick, onTap: rowTap } : undefined}
                   onWhisper={canRest ? undefined : whisperRow}
+                  hold={canRest ? undefined : { bind: lpWhisper.bind }}
                 />
               ))}
             </section>

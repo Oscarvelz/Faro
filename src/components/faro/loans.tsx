@@ -14,19 +14,26 @@ import { useLayer } from "@/lib/manual/back";
 import { DayField } from "./line-form";
 import { CobroSpan } from "./screens";
 import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
-import { ISO_DAY, accruedUnpaidInterest, addLoan, archiveLoan, interestPaidTotal, loanInterestPaid, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
+import { ISO_DAY, accruedUnpaidInterest, addLoan, archiveLoan, fuseLoanFields, interestPaidTotal, loanInterestPaid, restoreLoan, loanPays, loanState, loanTotals, loansOf, payLoan, todayIso } from "@/lib/faro/loans";
+
+/** Ola 12 (S2): campo gobernado del préstamo ← llave de la bolsa de la
+ * forma — el mapa con el que la edición fusiona contra el registro vivo. */
+const LOAN_FIELD_MAP: ReadonlyArray<readonly [keyof Loan, string]> = [
+  ["lender", "name"], ["who", "who"], ["kind", "kind"], ["amountMinor", "amount"], ["currency", "currency"],
+  ["aprBps", "apr"], ["takenOn", "date"], ["book", "book"], ["dueDay", "dueDay"],
+];
 import type { Currency, Group, Loan } from "@/lib/faro/types";
 import { CardsGroup } from "./cards";
 import { BookKit } from "./book-kit";
 import { cardFigures, cardTotals, cardsOf } from "@/lib/faro/cards";
 import { lineDebtTotal, totalDebt } from "@/lib/faro/debts";
-import { formDirty } from "@/lib/faro/dirty";
+import { formDirty, touchedFields } from "@/lib/faro/dirty";
 import { clearFlow, parkFlow, peekFlow, settleFlowParks, tornParkedKey } from "@/lib/faro/flow-park";
 
 /** El borrador del préstamo tal como la forma lo teclea (la bolsa que se aparca). */
 type LoanPark = { kind: "plain" | "interest"; who: "person" | "entity"; name: string; amount: string; currency: Currency; date: string; apr: string; book: Group; dueDay: string };
 
-export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group; /** 1.3.149 (borrow only): day of the month a payment is due, 1–31; 0/absent = no due day. */ dueDay?: number };
+export type LoanDraft = { name: string; who: "person" | "entity"; kind: "plain" | "interest"; amountMinor: number; currency: Currency; aprBps: number; date: string; book: Group; /** 1.3.149 (borrow only): day of the month a payment is due, 1–31; 0/absent = no due day. */ dueDay?: number; /** Ola 12 (S2): el testigo de toque de la forma — las llaves de su bolsa que la mano tocó contra el nacido (baseRef). Quien guarda una EDICIÓN fusiona con él (fuseLoanFields): lo no tocado se lee del registro vivo dentro del commit. */ touched?: ReadonlySet<string> };
 
 const stampOf = (iso: string) => (iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—");
 const TINTS = ["#7aa2c4", "#8fb9a6", "#e7c27a", "#d7a08a", "#a9b4de"];
@@ -82,6 +89,9 @@ export function LoanForm({ mode, onCancel, onSave, initial, parkKey }: { mode: "
       aprBps: kind === "interest" && Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0,
       date: ISO_DAY.test(date) ? date : todayIso(), book,
       dueDay: borrow && Number.isInteger(dd) && dd >= 1 && dd <= 31 ? dd : 0,
+      // Ola 12 (S2): el testigo viaja con el borrador — calculado contra
+      // el nacido (baseRef: el registro, no lo restaurado, como el dirty).
+      touched: touchedFields(baseRef.current ?? {}, { kind, who, name, amount, currency, date, apr, book, dueDay }),
     });
   }
   return (
@@ -429,7 +439,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
         if (!loan) return null;
         return <LoanForm key={loan.id} mode="borrow" parkKey={`loan-edit:borrow:${loan.id}`} initial={{ name: loan.lender, who: loan.who, kind: loan.kind, amountMinor: loan.amountMinor, currency: loan.currency, aprBps: loan.aprBps, date: loan.takenOn, book: loan.book, dueDay: loan.dueDay ?? 0 }}
           onCancel={() => setEditFor(null)}
-          onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => { if (l.id !== loan.id) return l; const next: Loan = { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, ...(d.dueDay ? { dueDay: d.dueDay } : {}) }; if (!d.dueDay) delete next.dueDay; return next; }) }), d.name); setEditFor(null); }} />;
+          onSave={(d) => { commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => { if (l.id !== loan.id) return l; const composed: Loan = { ...l, lender: d.name, who: d.who, kind: d.kind, amountMinor: d.amountMinor, currency: d.currency, aprBps: d.aprBps, takenOn: d.date, book: d.book, ...(d.dueDay ? { dueDay: d.dueDay } : {}) }; if (!d.dueDay) delete composed.dueDay; /* Ola 12 (S2): lo gobernado no tocado se lee de ESTA fila viva — la tasa que otra pestaña fijó ya no muere al guardar un nombre. */ return fuseLoanFields(l, composed, d.touched, LOAN_FIELD_MAP); }) }), d.name); setEditFor(null); }} />;
       })()}
       {/* 1.3.113 (Oscar): Tarjetas first, then the loans and their Archivo; Libros puts Plan de pago + Deudas below them. */}
       <CardsGroup libros={libros} />
