@@ -400,7 +400,7 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // en los datos de topics), folios-chips (chips de navegación cuya cara
   // madre nombra el sistema); (2) piezas cuya única montura vive tras la
   // puerta de su cara madre, que sí nombra el sistema — la familia de bancos
-  // e importación (bank-dock, bank-settings, bank-guides, bank-import,
+  // e importación (bank-settings, bank-guides, bank-import,
   // bank-mark, bank-pick, rewards-real, stmt-scan: tras settings.banks /
   // import.bank), book-kit y book-side (el kit de los libros; las caras que
   // lo montan nombran el sistema), selection (cromo de Archivo/Historial),
@@ -418,8 +418,12 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // el sistema, y la exención de la ola 2 («las caras madre filtran en la
   // fuente») era falsa para esta montura. El panel ahora lee remit.for
   // él mismo, en la pintura y en el camino de guardado.
+  // ENMIENDA 1.3.319 (EL SUSURRO DEL MODO): bank-dock.tsx SALE de los
+  // exentos — dejó de ser cromo mudo del sistema: hospeda la tarjeta del
+  // susurro y despacha la petición de modo por su puente (mode-ask), así
+  // que nombra el sistema por derecho propio.
   const EXEMPT = [
-    "bank-dock.tsx", "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
+    "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-kit.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
     "icons.tsx", "manual-text.tsx", "remit-people.tsx", "rewards-real.tsx",

@@ -22,6 +22,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, EyeOff, Search, SlidersHorizontal, X } from "lucide-react";
 import { useFaro } from "./provider";
+import { modeWhisper } from "./bank-dock";
 import { useLongPress } from "./use-longpress";
 import { SelectionBar, SelMark, useSelection } from "./selection";
 import { PiecePlate } from "./fit-pick";
@@ -79,7 +80,7 @@ export type RowSel = {
   onTap: (m: Movement) => void;
 };
 
-export function StreamRow({ m, state, sel, anchor }: { m: Movement; state: LedgerState; sel?: RowSel; anchor?: string }) {
+export function StreamRow({ m, state, sel, anchor, onWhisper }: { m: Movement; state: LedgerState; sel?: RowSel; anchor?: string; onWhisper?: () => void }) {
   const { names, lang, t } = useFaro();
   const structure = state.structure;
   const cat = structure.categories.find((c) => c.id === m.categoryId);
@@ -111,7 +112,7 @@ export function StreamRow({ m, state, sel, anchor }: { m: Movement; state: Ledge
       data-anchor={anchor}
       data-line-id={m.lineId}
       {...(sel ? sel.bind(m.lineId) : {})}
-      onClick={sel ? () => { if (!sel.consumeClick()) sel.onTap(m); } : undefined}
+      onClick={sel ? () => { if (!sel.consumeClick()) sel.onTap(m); } : onWhisper}
       style={sel ? ({ "--selc": tone } as CSSProperties) : undefined}
     >
       {sel?.mode ? <SelMark on={sel.marked} /> : null}
@@ -343,7 +344,18 @@ export function HistorialScreen() {
   // lectura pura — sin presión larga, sin toque que oculte, sin barra de
   // ocultar. Los motores quedan montados (los hooks no se condicionan); lo
   // que el modo cierra es su cable con las filas.
+  // 1.3.319 (Oscar, EL SUSURRO DEL MODO): la lectura pura ya no responde con
+  // silencio — su foto lo cazó tocando filas en Ritmo creyéndose en Completo.
+  // Tocar una fila fuera de Completo susurra en qué modo está la persona y
+  // dónde vive el toque: el silencio también habla del potencial de Faro.
   const canRest = has("archive.hide-selection");
+  const currentMode = state?.settings.mode ?? "completo";
+  const whisperRow = () => modeWhisper(
+    t("mode.whisper.hide-row")
+      .replace("{mode}", `[[${t(`mode.${currentMode}`)}]]`)
+      .replace("{owner}", `[[${t("mode.completo")}]]`),
+    "completo",
+  );
   const selection = useSelection();
   const lp = useLongPress((id) => (selection.mode ? selection.toggle(id) : selection.enter(id)));
   const rowTap = (m: Movement) => {
@@ -591,6 +603,7 @@ export function HistorialScreen() {
                   state={state}
                   anchor={di === 0 && mi === 0 ? "hist-row" : undefined}
                   sel={canRest ? { mode: selection.mode, marked: selection.sel.has(m.lineId), bind: lp.bind, consumeClick: lp.consumeClick, onTap: rowTap } : undefined}
+                  onWhisper={canRest ? undefined : whisperRow}
                 />
               ))}
             </section>

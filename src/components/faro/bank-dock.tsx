@@ -9,6 +9,7 @@ import { ChevronRight, CreditCard, FileUp } from "lucide-react";
 import { formatMoney } from "@/lib/faro/money";
 import { importBook, rcLabel, rewardsMonth } from "@/lib/faro/bankbook";
 import type { LedgerState } from "@/lib/faro/types";
+import { requestModeAsk } from "@/lib/faro/mode-ask";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { Head } from "./panorama";
@@ -24,6 +25,17 @@ const TOAST = "faro-import-toast";
 export const openImport = (files?: File[]) => window.dispatchEvent(new CustomEvent(OPEN, { detail: files ?? null }));
 export type ImportToast = { text: string; undo?: () => void };
 export const importToast = (t: ImportToast) => window.dispatchEvent(new CustomEvent(TOAST, { detail: t }));
+const WHISPER = "faro-mode-whisper";
+export type ModeWhisper = { text: string; target?: "esencial" | "ritmo" | "completo" };
+/** 1.3.319 (Oscar's word): «EL SUSURRO DEL MODO» — a surface that is present
+ * in this mode but whose touch belongs to a higher mode must not answer
+ * with silence. His refinement the same evening: not a plain toast but a
+ * small CARD with the themes' premium finish, the official names wearing
+ * their dotted underline ([[name]] marks), that hides itself — and that
+ * can be tapped to go straight to the mode it names: the tap files a mode
+ * ask (mode-ask.ts) and opens Ajustes, where the mode's own confirmation
+ * question is already waiting. The caller composes the sentence. */
+export const modeWhisper = (text: string, target?: ModeWhisper["target"]) => window.dispatchEvent(new CustomEvent(WHISPER, { detail: { text, target } satisfies ModeWhisper }));
 const SIGN = "faro-mode-sign";
 export type ModeSign = { dir: "up" | "down"; mode: "esencial" | "ritmo" | "completo" };
 /** 1.3.307 (Oscar's word): a mode change is announced by a centered card
@@ -36,11 +48,20 @@ const SHARE_CACHE = "share-inbox";
 const STATEMENT_KEY = "./share-statement-inbox";
 
 /** Lives once in the shell: the sheet when open, statements shared to Faro, and the toast with Deshacer. */
+/** The whisper's [[name]] marks become the official-name spans (dotted
+ * underline, the house law for proper names in explaining text). */
+function whisperText(text: string) {
+  return text.split(/\[\[(.+?)\]\]/g).map((part, i) =>
+    i % 2 === 1 ? <span key={i} className="faro-name">{part}</span> : <span key={i}>{part}</span>,
+  );
+}
+
 export function BankDock() {
-  const { session, t } = useFaro();
+  const { session, t, setUi } = useFaro();
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<File[] | null>(null);
   const [toast, setToast] = useState<ImportToast | null>(null);
+  const [whisper, setWhisper] = useState<ModeWhisper | null>(null);
   const [sign, setSign] = useState<ModeSign | null>(null);
   useEffect(() => {
     const on = (e: Event) => { setFiles(((e as CustomEvent).detail as File[] | null) ?? null); setOpen(true); };
@@ -48,10 +69,13 @@ export function BankDock() {
     const onToast = (e: Event) => { setToast((e as CustomEvent).detail as ImportToast); window.clearTimeout(timer); timer = window.setTimeout(() => setToast(null), 9000); };
     let signTimer = 0;
     const onSign = (e: Event) => { setSign((e as CustomEvent).detail as ModeSign); window.clearTimeout(signTimer); signTimer = window.setTimeout(() => setSign(null), 3600); };
+    let whisperTimer = 0;
+    const onWhisper = (e: Event) => { setWhisper((e as CustomEvent).detail as ModeWhisper); window.clearTimeout(whisperTimer); whisperTimer = window.setTimeout(() => setWhisper(null), 6000); };
     window.addEventListener(OPEN, on);
     window.addEventListener(TOAST, onToast);
     window.addEventListener(SIGN, onSign);
-    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.removeEventListener(SIGN, onSign); window.clearTimeout(timer); window.clearTimeout(signTimer); };
+    window.addEventListener(WHISPER, onWhisper);
+    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.removeEventListener(SIGN, onSign); window.removeEventListener(WHISPER, onWhisper); window.clearTimeout(timer); window.clearTimeout(signTimer); window.clearTimeout(whisperTimer); };
   }, []);
   const ready = !!session;
   useEffect(() => {
@@ -77,6 +101,23 @@ export function BankDock() {
           <span>{toast.text}</span>
           {toast.undo ? <button type="button" className="imp-toast-undo" onClick={() => { toast.undo?.(); setToast(null); }}>{L(session?.ledger.settings.lang ?? "es", "Deshacer", "Undo")}</button> : null}
         </div>
+      ) : null}
+      {whisper ? (
+        <button
+          type="button"
+          className="whisper-card"
+          data-anchor="mode-whisper"
+          onClick={() => {
+            if (whisper.target) {
+              requestModeAsk(whisper.target);
+              setUi({ section: "settings" });
+            }
+            setWhisper(null);
+          }}
+        >
+          <span className="whisper-text">{whisperText(whisper.text)}</span>
+          {whisper.target ? <ChevronRight className="whisper-go" aria-hidden /> : null}
+        </button>
       ) : null}
       {sign ? (
         <div className="mode-sign">

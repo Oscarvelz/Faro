@@ -501,9 +501,15 @@ describe("tres modos, etapa 2 — el registro solo se consume por su punto", () 
       "components/faro/provider.tsx", "components/faro/mode-gate.tsx", "components/faro/screens.tsx",
       "lib/faro/settings-search.ts", "lib/faro/widget.ts",
       "components/faro/presentacion.tsx", "components/faro/manual.tsx", "components/faro/hint.tsx",
+      // 1.3.319 (EL SUSURRO DEL MODO): el puente de la petición de modo
+      // consume SOLO el tipo Mode — jamás el registro, como los asientos
+      // de enseñanza; entra también en rankOnlySeats y el chequeo de abajo
+      // cubre la forma `import type`.
+      "lib/faro/mode-ask.ts",
     ]);
     const rankOnlySeats = new Set([
       "components/faro/presentacion.tsx", "components/faro/manual.tsx", "components/faro/hint.tsx",
+      "lib/faro/mode-ask.ts",
     ]);
     // Y el registro mismo (FEATURES y sus dos lectores) solo vive en tres
     // asientos: su casa, el proveedor y la búsqueda de Ajustes.
@@ -514,7 +520,7 @@ describe("tres modos, etapa 2 — el registro solo se consume por su punto", () 
       if (/from\s+"[^"]*lib\/faro\/mode"|from\s+"\.\/mode"/.test(text)) {
         assert.ok(importSeats.has(name), `${name} importa mode.ts fuera de los asientos declarados`);
         if (rankOnlySeats.has(name)) {
-          const imported = [...text.matchAll(/import\s*\{([^}]*)\}\s*from\s+"[^"]*lib\/faro\/mode"/g)].flatMap((m) => m[1]!.split(",").map((s) => s.trim().replace(/^type\s+/, "")));
+          const imported = [...text.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s+"[^"]*(?:lib\/faro\/mode"|\.\/mode")/g)].flatMap((m) => m[1]!.split(",").map((s) => s.trim().replace(/^type\s+/, "")));
           assert.ok(imported.every((s) => s === "modeReaches" || s === "Mode"), `${name} (asiento de enseñanza) importa de mode.ts algo más que el rango: ${imported.join(", ")}`);
         }
       }

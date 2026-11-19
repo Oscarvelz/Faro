@@ -10,6 +10,7 @@ import { BatteryRow } from "./battery-row";
 import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, modeSign } from "./bank-dock";
 import { ModeImpactDialog, ModeReposedDialog } from "./mode-gate";
 import { MODES, currentRefDay, modeDialogReaction, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
+import { MODE_ASK_EVENT, takeModeAsk } from "@/lib/faro/mode-ask";
 import { peopleOf } from "@/lib/faro/people";
 import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
@@ -5438,6 +5439,21 @@ export function Settings() {
     }
     guardPanelExit(() => setModeImpactState({ target, impact, from: currentMode, refDay }));
   };
+  // 1.3.319 (EL SUSURRO DEL MODO): la tarjeta del susurro, tocada, deja su
+  // petición en mode-ask y trae a la persona hasta aquí; al montar (o al
+  // oír el aviso, si Ajustes ya estaba montado) la petición se consume una
+  // sola vez y se plantea con la maquinaria de siempre — pickMode pregunta
+  // antes de subir, como manda la 1.3.318: la tarjeta lleva a la pregunta,
+  // nunca cambia el modo en silencio.
+  useEffect(() => {
+    const ask = () => {
+      const target = takeModeAsk();
+      if (target && target !== currentMode) pickMode(target);
+    };
+    ask();
+    window.addEventListener(MODE_ASK_EVENT, ask);
+    return () => window.removeEventListener(MODE_ASK_EVENT, ask);
+  });
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
   const boardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
