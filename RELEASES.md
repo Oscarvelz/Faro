@@ -2696,4 +2696,4 @@ La cura de la ola 16 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 2092/2092 (2070 + 22) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. Bancos del equipo contra la dist curada y reparada: cruce 35/35, aborto 32/32, tanda 8/9 (T3R.5 adjudicado premisa del banco).
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-325-2026-11-19` → 2555d7bc. Source: 092938c9. Tag: v1.3.325 → 092938c9. Main: 51eea956 (chunks) + c35d18d6 (control). Entrada: index-91Qtn0dx.js.
