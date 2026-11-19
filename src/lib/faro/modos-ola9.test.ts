@@ -843,11 +843,18 @@ function nodeMapsIds(root: ts.Node, mappers: Set<string>, vars: Set<string>, isR
       if (ts.isPropertyAccessExpression(cal)) {
         const nm = cal.name.text;
         if ((nm === "map" || nm === "flatMap" || nm === "reduce") && cbMapsIds(n.arguments[0])) { found = true; return; }
-        if (nm === "from" && ts.isIdentifier(cal.expression) && cal.expression.text === "Array" && (cbMapsIds(n.arguments[1]) || nodeMapsIds(n.arguments[0]!, mappers, vars, false))) { found = true; return; }
+        // OLA 17 (Cara V2): sin mapeador, el Set que guarda los ids se
+        // entrega igual — `Array.from(s)` con s atado a la construcción
+        // que produce (un new Set del mapeo, que nodeMapsIds atraviesa
+        // por la raíz) nace como sitio; la grafía hermana [...s] ya nacía.
+        if (nm === "from" && ts.isIdentifier(cal.expression) && cal.expression.text === "Array" && (cbMapsIds(n.arguments[1]) || nodeMapsIds(n.arguments[0]!, mappers, vars))) { found = true; return; }
       }
       if (ts.isIdentifier(cal) && mappers.has(cal.text)) { found = true; return; }
     }
     if (ts.isSpreadElement(n) && ts.isIdentifier(n.expression) && vars.has(n.expression.text)) { found = true; return; }
+    // OLA 17 (Cara V3): el generador que produce los ids con yield es
+    // grafía del índice — producir con `yield r.id` es producir.
+    if (ts.isYieldExpression(n) && n.expression && /\.id\b/.test(n.expression.getText())) { found = true; return; }
     ts.forEachChild(n, walk);
   };
   walk(root);
@@ -1088,26 +1095,185 @@ const reachableFrom = (root: ts.Node, sf: ts.SourceFile): Set<string> => {
   }
   return out;
 };
-/** M1: la consulta viva en el camino del código de handFn. */
-const onPathInFile = (sf: ts.SourceFile, seat: string, handFn: ts.Node | null): boolean => {
+/* OLA 17 (Cara G2): el plegado de constantes. Una consulta tras un
+ * cortocircuito con constante falsa jamás se evalúa para la
+ * composición que la cita: `const ADMIN = false` a nivel de módulo y
+ * `ADMIN && has(...)` en la entrega hacen de la consulta un cadáver
+ * con buena presencia — alcanzable en el grafo, muerta en la cara.
+ * La cerca pliega: literales booleanos, identificadores atados a un
+ * literal booleano en el archivo y la negación; una consulta en la
+ * rama que el plegado declara muerta (la derecha de un && falso o de
+ * un || verdadero, la rama no tomada de un ternario o de un if de
+ * condición constante) no gobierna porque nunca corre. */
+const boolConstsOf = (sf: ts.SourceFile): Map<string, boolean> => {
+  const out = new Map<string, boolean>();
+  const w = (n: ts.Node) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+      if (n.initializer.kind === ts.SyntaxKind.TrueKeyword) out.set(n.name.text, true);
+      else if (n.initializer.kind === ts.SyntaxKind.FalseKeyword) out.set(n.name.text, false);
+    }
+    ts.forEachChild(n, w);
+  };
+  w(sf);
+  return out;
+};
+const foldBool = (e: ts.Node, consts: Map<string, boolean>): boolean | null => {
+  if (e.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (e.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (ts.isIdentifier(e)) return consts.get(e.text) ?? null;
+  if (ts.isPrefixUnaryExpression(e) && e.operator === ts.SyntaxKind.ExclamationToken) { const v = foldBool(e.operand, consts); return v === null ? null : !v; }
+  if (ts.isParenthesizedExpression(e)) return foldBool(e.expression, consts);
+  return null;
+};
+const deadByConst = (node: ts.Node, sf: ts.SourceFile): boolean => {
+  const consts = boolConstsOf(sf);
+  let child: ts.Node = node;
+  let cur: ts.Node | undefined = node.parent;
+  while (cur && !ts.isSourceFile(cur)) {
+    if (ts.isBinaryExpression(cur)) {
+      const op = cur.operatorToken.kind;
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken && cur.right === child && foldBool(cur.left, consts) === false) return true;
+      if (op === ts.SyntaxKind.BarBarToken && cur.right === child && foldBool(cur.left, consts) === true) return true;
+    }
+    if (ts.isConditionalExpression(cur)) {
+      const v = foldBool(cur.condition, consts);
+      if (v === true && cur.whenFalse === child) return true;
+      if (v === false && cur.whenTrue === child) return true;
+    }
+    if (ts.isIfStatement(cur)) {
+      const v = foldBool(cur.expression, consts);
+      if (v === true && cur.elseStatement === child) return true;
+      if (v === false && cur.thenStatement === child) return true;
+    }
+    child = cur;
+    cur = cur.parent;
+  }
+  return false;
+};
+/** M1: la consulta viva en el camino del código de handFn.
+ * OLA 17 (Cara G1): presencia no es gobierno — la consulta debe
+ * ALIMENTAR la entrega de la mano. Hasta la ola 16 bastaba con que la
+ * atadura de la consulta se usara en alguna parte de la función que
+ * compone: «Puedes borrar líneas» pintado en una etiqueta absolvía
+ * una mano que disparaba sin condición alguna. La forma nueva sigue
+ * el VALOR de la consulta — ella misma en línea, los usos de la
+ * atadura que inicializa, o la llamada al ayudante local que la
+ * guarda — y solo lo da por gobierno si vive DENTRO de la entrega
+ * (el nodo propio de la mano o del atributo), en la CONDICIÓN que la
+ * decide (un ternario, un &&/|| o un if que contiene la entrega o
+ * nombra a la función que la contiene), en una GUARDA previa que
+ * devuelve o lanza (pasada la guarda, la consulta vale y la entrega
+ * solo se alcanza bajo ella), o — sin objetivo, el caso del hook —
+ * en la expresión que la función devuelve. Lo demás es decoración:
+ * la cita de una consulta decorativa no gobierna. (Enmienda a la ola
+ * 16: sus controles escenificados de M1 con la atadura nacida y jamás
+ * usada quedan bajo esta forma del lado de la acusación — la
+ * enmienda está escrita en la §A-quinquies.) */
+const onPathInFile = (sf: ts.SourceFile, seat: string, handFn: ts.Node | null, target: ts.Node | null = null): boolean => {
   if (!handFn) return false;
-  const calls = gateCallSites(sf, seat).filter((c) => !deadPosition(c));
+  const calls = gateCallSites(sf, seat).filter((c) => !deadPosition(c) && !deadByConst(c, sf));
   if (!calls.length) return false;
   const reachable = reachableFrom(handFn, sf);
-  for (const c of calls) {
-    const chain = fnChainOf(c);
-    if (chain.includes(handFn)) return true; // la consulta vive en la función que compone la mano (o en un cierre dentro de ella)
-    let decl: ts.Node | undefined = c;
-    while (decl && !ts.isVariableDeclaration(decl)) decl = decl.parent;
-    if (decl && ts.isIdentifier((decl as ts.VariableDeclaration).name)) {
-      const nm = ((decl as ts.VariableDeclaration).name as ts.Identifier).text;
-      let used = false;
-      const w = (n: ts.Node) => { if (ts.isIdentifier(n) && n.text === nm && n !== (decl as ts.VariableDeclaration).name) used = true; ts.forEachChild(n, w); };
-      w(handFn);
-      if (used) return true; // la atadura que la consulta inicializa gobierna la cara de la mano
+  const targetFnNames = new Set<string>();
+  if (target) {
+    for (const f of fnChainOf(target)) {
+      if (f === handFn) break;
+      const nm = fnNameOfNode(f);
+      if (nm) targetFnNames.add(nm);
     }
+  }
+  const inside = (root: ts.Node, n: ts.Node): boolean => n.getStart() >= root.getStart() && n.end <= root.end;
+  /* OLA 17 (archivo, la forma viva): la mano puede vivir en un cierre
+   * anónimo (el run de un confirm) dentro de una función NOMBRADA
+   * (askDeleteLines) cuyas entradas son las que la consulta gobierna
+   * — los nombres que cuentan son los de TODA la cadena de la entrega
+   * hasta la función que compone, no solo el eslabón más interno. */
+  const namesChainName = (root: ts.Node): boolean => {
+    if (!targetFnNames.size) return false;
+    let yes = false;
+    const w = (n: ts.Node) => { if (ts.isIdentifier(n) && targetFnNames.has(n.text)) yes = true; if (!yes) ts.forEachChild(n, w); };
+    w(root);
+    return yes;
+  };
+  const hasReturnOrThrow = (root: ts.Node): boolean => {
+    let yes = false;
+    const w = (n: ts.Node) => { if (ts.isReturnStatement(n) || ts.isThrowStatement(n)) yes = true; if (!yes) ts.forEachChild(n, w); };
+    w(root);
+    return yes;
+  };
+  const bindingUses = (declName: ts.Node, name: string): ts.Node[] => {
+    const out: ts.Node[] = [];
+    const w = (n: ts.Node) => { if (ts.isIdentifier(n) && n.text === name && n !== declName) out.push(n); ts.forEachChild(n, w); };
+    w(sf);
+    return out;
+  };
+  /* ¿El uso `u` del valor de la consulta alimenta la entrega? */
+  const useFeeds = (u: ts.Node, depth: number): boolean => {
+    if (target && inside(target, u)) return true;
+    if (!target) {
+      // sin objetivo (el hook o el ayudante importado): la función
+      // entrega su valor por el return o por su cuerpo-expresión
+      let a: ts.Node | undefined = u;
+      while (a && a !== handFn) { if (ts.isReturnStatement(a)) return true; a = a.parent; }
+      const body = (handFn as ts.ArrowFunction).body as ts.Node | undefined;
+      if (body && !ts.isBlock(body) && inside(body, u)) return true;
+    }
+    let child: ts.Node = u;
+    let cur: ts.Node | undefined = u.parent;
+    while (cur) {
+      if (ts.isConditionalExpression(cur) && child === cur.condition) {
+        if (target && (inside(cur.whenTrue, target) || inside(cur.whenFalse, target))) return true;
+        if (namesChainName(cur.whenTrue) || namesChainName(cur.whenFalse)) return true;
+      }
+      if (ts.isBinaryExpression(cur) && (cur.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || cur.operatorToken.kind === ts.SyntaxKind.BarBarToken) && child === cur.left) {
+        if (target && inside(cur.right, target)) return true;
+        if (namesChainName(cur.right)) return true;
+      }
+      if (ts.isIfStatement(cur) && child === cur.expression) {
+        if (target && (inside(cur.thenStatement, target) || (cur.elseStatement !== undefined && inside(cur.elseStatement, target)))) return true;
+        if (hasReturnOrThrow(cur.thenStatement) && (!target || cur.end < target.getStart())) return true;
+      }
+      if (ts.isVariableDeclaration(cur) && ts.isIdentifier(cur.name) && child === cur.initializer && depth < 3) {
+        if (bindingUses(cur.name, cur.name.text).some((u2) => useFeeds(u2, depth + 1))) return true;
+      }
+      if (cur === handFn) break;
+      child = cur;
+      cur = cur.parent;
+    }
+    return false;
+  };
+  const consultFeeds = (c: ts.CallExpression): boolean => {
+    // la consulta en línea se juzga por su propio sitio; la que
+    // inicializa una atadura, por los usos de la atadura
+    let p: ts.Node | undefined = c.parent;
+    while (p && (ts.isParenthesizedExpression(p) || ts.isAsExpression(p))) p = p.parent;
+    if (p && ts.isVariableDeclaration(p) && ts.isIdentifier(p.name)) {
+      return bindingUses(p.name, p.name.text).some((u) => useFeeds(u, 0));
+    }
+    return useFeeds(c, 0);
+  };
+  for (const c of calls) {
+    if (consultFeeds(c)) return true;
+    // la consulta vive en un ayudante local alcanzable desde la mano:
+    // la LLAMADA al ayudante es el uso que debe alimentar la entrega
+    const chain = fnChainOf(c);
     const enc = chain[0];
-    if (enc) { const nm = fnNameOfNode(enc); if (nm && reachable.has(nm)) return true; } // una función alcanzable desde la mano consulta
+    if (!enc || enc === handFn || chain.includes(handFn)) continue;
+    const nm = fnNameOfNode(enc);
+    if (!nm || !reachable.has(nm)) continue;
+    let fed = false;
+    const hunt = (n: ts.Node) => {
+      if (fed) return;
+      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === nm) {
+        const cc = fnChainOf(n);
+        if (cc.includes(handFn) || cc.some((f) => { const fn2 = fnNameOfNode(f); return fn2 !== null && reachable.has(fn2); })) {
+          if (useFeeds(n, 0)) fed = true;
+        }
+      }
+      if (!fed) ts.forEachChild(n, hunt);
+    };
+    hunt(sf);
+    if (fed) return true;
   }
   return false;
 };
@@ -1124,10 +1290,30 @@ const resolveSpecOla9 = (fromRel: string, spec: string, files: Map<string, strin
   return null;
 };
 const findFnIn = (sf: ts.SourceFile, name: string): ts.Node | null => localFnMap(sf).get(name) ?? null;
-/** M2: un hook/ayudante importado, llamado desde la función de la mano, consulta el asiento en su camino. */
-const governsViaImport = (siteRel: string, sf: ts.SourceFile, seat: string, handFn: ts.Node | null, files: Map<string, string>): boolean => {
-  if (!handFn) return false;
-  const called = calledNamesOf(handFn);
+/** M2: un hook/ayudante importado, llamado desde la función de la mano, consulta el asiento en su camino.
+ * OLA 17 (Cara G3): el gobierno importado a DOS saltos cuenta — la
+ * mano llama a un ayudante LOCAL y el ayudante llama al hook
+ * importado que consulta. La forma de la ola 16 solo reconocía la
+ * llamada directa al importado desde el cuerpo que compone; un
+ * intermediario local rompía la cadena y el gobierno real era
+ * sentenciado. La forma nueva expande los nombres llamados a través
+ * de los ayudantes locales (punto fijo acotado por visitados) y
+ * desciende también al gobierno que el propio importado importa
+ * (profundidad ≤ 3, con memoria de visitados): el tope no absuelve —
+ * lo que no se alcanza a ver sigue acusando, nunca al revés. */
+const governsViaImport = (siteRel: string, sf: ts.SourceFile, seat: string, handFn: ts.Node | null, files: Map<string, string>, depth = 0, seen: Set<string> = new Set()): boolean => {
+  if (!handFn || depth > 3) return false;
+  const local = localFnMap(sf);
+  const called = new Set<string>(calledNamesOf(handFn));
+  const frontier = [...called];
+  const visitedLocal = new Set<string>();
+  while (frontier.length) {
+    const nm = frontier.pop()!;
+    if (visitedLocal.has(nm)) continue;
+    visitedLocal.add(nm);
+    const b = local.get(nm);
+    if (b) for (const c2 of calledNamesOf(b)) { if (!called.has(c2)) { called.add(c2); frontier.push(c2); } }
+  }
   let yes = false;
   const visit = (n: ts.Node) => {
     if (yes) return;
@@ -1139,7 +1325,10 @@ const governsViaImport = (siteRel: string, sf: ts.SourceFile, seat: string, hand
           if (!called.has(el.name.text)) continue;
           const orig = el.propertyName?.text ?? el.name.text;
           const fnNode = findFnIn(tsf, orig);
-          if (fnNode && onPathInFile(tsf, seat, fnNode)) { yes = true; return; }
+          if (!fnNode) continue;
+          if (onPathInFile(tsf, seat, fnNode)) { yes = true; return; }
+          const key = `${target}:${orig}`;
+          if (!seen.has(key)) { seen.add(key); if (governsViaImport(target, tsf, seat, fnNode, files, depth + 1, seen)) { yes = true; return; } }
         }
       }
     }
@@ -1159,7 +1348,10 @@ const governsViaMount = (siteRel: string, sf: ts.SourceFile, seat: string, compN
   }
   if (!tag) return false;
   const local = findFnIn(sf, tag);
-  if (local && onPathInFile(sf, seat, local)) return true;
+  // OLA 17 (Cara G4): el montado gobierna también por SU propio hook
+  // importado — la pregunta desciende a los imports del montado, no
+  // se detiene en su cuerpo.
+  if (local && (onPathInFile(sf, seat, local) || governsViaImport(siteRel, sf, seat, local, files))) return true;
   // el componente importado: su cuerpo, en su archivo
   let yes = false;
   const visit = (n: ts.Node) => {
@@ -1171,7 +1363,7 @@ const governsViaMount = (siteRel: string, sf: ts.SourceFile, seat: string, compN
         if (!target || !files.has(target)) continue;
         const tsf = ts.createSourceFile(target, files.get(target)!, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
         const fnNode = findFnIn(tsf, el.propertyName?.text ?? el.name.text);
-        if (fnNode && onPathInFile(tsf, seat, fnNode)) { yes = true; return; }
+        if (fnNode && (onPathInFile(tsf, seat, fnNode) || governsViaImport(target, tsf, seat, fnNode, files))) { yes = true; return; }
       }
     }
     ts.forEachChild(n, visit);
@@ -1207,7 +1399,7 @@ function citaGobierna(site: string, seat: string, files: Map<string, string>, ki
    * funciones comparen nodos del mismo árbol. */
   const ownNode = relocateIn(sf, handNode) ?? handNode;
   const handFn = outermostFn(ownNode);
-  if (onPathInFile(sf, seat, handFn)) return null; // M1
+  if (onPathInFile(sf, seat, handFn, ownNode)) return null; // M1 (ola 17: la consulta debe ALIMENTAR la entrega — el nodo propio es el objetivo)
   if (governsViaImport(rel, sf, seat, handFn, files)) return null; // M2
   if (kind === "composition" && governsViaMount(rel, sf, seat, ownNode, files)) return null; // M3
   if (kind === "hand" && viaChannel && piso && (MODO_RANGO[piso] ?? 0) >= MODO_RANGO["ritmo"]!) {
@@ -1278,9 +1470,15 @@ const walkComponentFiles = (dir: URL, prefix: string): { rel: string; text: stri
 const censusFiles = (): Map<string, string> => {
   const files = new Map<string, string>();
   for (const f of walkComponentFiles(new URL("../../components/", import.meta.url), "components")) files.set(f.rel, f.text);
-  const libDir = new URL("../../lib/faro/", import.meta.url);
-  for (const f of readdirSync(libDir).filter((x) => x.endsWith(".ts") || x.endsWith(".tsx")).sort()) {
-    files.set(`lib/faro/${f}`, readFileSync(new URL(f, libDir), "utf8"));
+  // OLA 17 (Cara X2): el universo del censo es el ÁRBOL de src — la
+  // librería se camina RECURSIVA (una composición en lib/faro/<sub>/,
+  // la forma del chunk perezoso, nace igual que una de components/) y
+  // la raíz de src entra con su nombre desnudo (una composición en
+  // src/raiz.tsx compone el canal fuera de components/ y de lib/).
+  for (const f of walkComponentFiles(new URL("../../lib/faro/", import.meta.url), "lib/faro")) files.set(f.rel, f.text);
+  const srcDir = new URL("../../", import.meta.url);
+  for (const f of readdirSync(srcDir, { withFileTypes: true }).filter((x) => x.isFile() && (x.name.endsWith(".ts") || x.name.endsWith(".tsx"))).map((x) => x.name).sort()) {
+    files.set(f, readFileSync(new URL(f, srcDir), "utf8"));
   }
   return files;
 };
@@ -1289,7 +1487,10 @@ const mapperIndexOf = (files: Map<string, string>): Map<string, string> => {
   let known = new Set<string>();
   for (let round = 0; round < 3; round++) {
     for (const [rel, text] of files) {
-      if (!rel.startsWith("components/")) continue;
+      // OLA 17 (Cara V1): el índice recoge los mapeadores donde vivan
+      // — un idsOf de LIBRERÍA alimenta la mano igual que uno de
+      // components/; el filtro de árbol dejaba la mano comiendo de un
+      // utilitario que la cerca no veía.
       for (const [k, v] of idMapperBodies(text, known)) if (!index.has(k)) index.set(k, v);
     }
     const now = new Set(index.keys());
@@ -1359,19 +1560,40 @@ describe("ola9 · §A-quinquies: el censo de superficies — toda mano en masa n
     const mkKit = (pre: string) => new Map([["components/faro/book-kit.tsx", `export function BookKit({ rows, onDrop }: { rows: { id: string }[]; onDrop: (ids: string[]) => void }) {
       ${pre}
       const wipeAll = () => onDrop(rows.map((r) => r.id));
-      return { wipeAll };
+      return canManage ? { wipeAll } : {};
     }`]]);
     const site = "components/faro/book-kit.tsx:wipeAll#1";
     const acus = citaGobierna(site, "books.list", mkKit(""), "hand");
     assert.ok(acus && /S3\/G16/.test(acus), "el espécimen de la caza: la mano del kit clasificada citando «books.list» (Esencial, sin consulta ni mecanismo) — la cita existe y la razón pasa, y aun así no gobierna: ACUSA");
-    assert.equal(citaGobierna(site, "books.multiselect", mkKit(`const canManage = has("books.multiselect");`), "hand"), null, "la cita verdadera del kit: la consulta viva en el componente que compone la mano gobierna (M1)");
+    assert.equal(citaGobierna(site, "books.multiselect", mkKit(`const canManage = has("books.multiselect");`), "hand"), null, "la cita verdadera del kit: la consulta ALIMENTA la entrega (el return la decide) — gobierna (M1)");
+    /* ENMIENDA OLA 17 (Cara G1): la ola 16 clavó este control con la
+     * atadura nacida y JAMÁS USADA y la entrega incondicional — bajo
+     * la doctrina de la ola 17 (presencia no es gobierno) esa forma
+     * es la enfermedad misma, un grado peor que la etiqueta de G17-a:
+     * lo que no alimenta nada no gobierna nada. El control queda
+     * enmendado a la forma que alimenta (arriba) y la forma cruda de
+     * la ola 16 queda clavada aquí como acusación. */
+    const mkKitCrudo = (pre: string) => new Map([["components/faro/book-kit.tsx", `export function BookKit({ rows, onDrop }: { rows: { id: string }[]; onDrop: (ids: string[]) => void }) {
+      ${pre}
+      const wipeAll = () => onDrop(rows.map((r) => r.id));
+      return { wipeAll };
+    }`]]);
+    assert.ok(citaGobierna(site, "books.multiselect", mkKitCrudo(`const canManage = has("books.multiselect");`), "hand"),
+      "ENMIENDA OLA 17: la forma cruda de la ola 16 — la consulta nace, su atadura no se usa y la entrega es incondicional — ACUSA: presencia no es gobierno");
     const mkArchivo = (pre: string) => new Map([["components/faro/archivo.tsx", `export function Archivo({ lines, dropMany }: { lines: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      ${pre}
+      const askDeleteLines = () => dropMany(lines.map((l) => l.id));
+      return canDeleteLines ? askDeleteLines : null;
+    }`]]);
+    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", mkArchivo(`const canDeleteLines = has("archive.delete-lines");`), "hand"), null,
+      "el gobierno vivo de Esencial: el registro lo puso en Esencial y la consulta ALIMENTA la entrega de la mano — la consulta real absuelve");
+    const mkArchivoCrudo = (pre: string) => new Map([["components/faro/archivo.tsx", `export function Archivo({ lines, dropMany }: { lines: { id: string }[]; dropMany: (ids: string[]) => void }) {
       ${pre}
       const askDeleteLines = () => dropMany(lines.map((l) => l.id));
       return askDeleteLines;
     }`]]);
-    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", mkArchivo(`const canDeleteLines = has("archive.delete-lines");`), "hand"), null,
-      "el gobierno vivo de Esencial: el registro lo puso en Esencial y el componente lo consulta en el camino de la mano — la consulta real absuelve");
+    assert.ok(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", mkArchivoCrudo(`const canDeleteLines = has("archive.delete-lines");`), "hand"),
+      "ENMIENDA OLA 17: la forma cruda — atadura sin uso, entrega incondicional — ACUSA también en el archivo");
     assert.ok(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", mkArchivo(""), "hand"),
       "y el mismo asiento citado por un archivo que NO lo consulta acusa: la consulta es el gobierno, no el nombre");
   });
@@ -1535,6 +1757,19 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
     while (ts.isPropertyAccessExpression(r) || ts.isElementAccessExpression(r)) r = r.expression;
     return ts.isIdentifier(r) && r.text !== "undefined" && r.text !== "null" && !bindings.has(r.text);
   });
+  /* OLA 17 (Cara X1): la entrega por HOOK nace como composición — un
+   * manage cuyo cuerpo vive en una llamada (manage={useHojaManage()})
+   * o en una atadura atada a una llamada (const gestion =
+   * useHojaManage(); manage={gestion}) es un sitio: su gobierno lo
+   * juzga citaGobierna sobre la función que compone (M1 sigue el
+   * valor hasta la llamada; M2 desciende al hook importado). Sin esta
+   * grafía, el canal compuesto por hook escapaba entero del censo:
+   * nadie juzgaba jamás su gobierno. */
+  const byCall = (e: ts.Node): boolean => unwrap(e).some((x) => {
+    if (ts.isCallExpression(x)) return true;
+    if (ts.isIdentifier(x)) { const b = bindings.get(x.text); return b ? byCall(b) : false; }
+    return false;
+  });
   const sites = new Map<string, ts.Node>();
   const ordinals = new Map<string, number>();
   const walk = (n: ts.Node, fn: string) => {
@@ -1548,7 +1783,7 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
       const el = elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode)) ? elNode.tagName.getText() : "";
       if (attr === "onDropMany") massNode = n;
       else if (attr === "manage" && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression) {
-        if (litHas(n.initializer.expression, "onDropMany") || byReference(n.initializer.expression)) massNode = n;
+        if (litHas(n.initializer.expression, "onDropMany") || byReference(n.initializer.expression) || byCall(n.initializer.expression)) massNode = n;
       } else if (attr === "onDrop") {
         if (kitOrig.get(el) === "BookKit") massNode = n;
       }
@@ -1598,8 +1833,10 @@ const COMPOSICIONES_EN_MASA: Record<string, [string, string]> = {
 describe("ola9 · §A-sexies: el censo de composiciones — cada montaje de un canal de masa nombra su asiento (OLA 15)", () => {
   const liveCompositions = (): string[] => {
     const out: string[] = [];
+    // OLA 17 (Cara X2): sin filtro de árbol — el censo de
+    // composiciones camina el universo entero (components/, la
+    // librería con sus subdirectorios y la raíz de src).
     for (const [rel, text] of censusFiles()) {
-      if (!rel.startsWith("components/")) continue;
       out.push(...compositionSites(rel, text));
     }
     return out;
@@ -1652,6 +1889,154 @@ describe("ola9 · §A-sexies: el censo de composiciones — cada montaje de un c
     assert.equal(compositionSites("components/faro/x2.tsx", `import { BookKit as Kit } from "./book-kit";
     export function Editor() { return <Kit onDrop={() => {}} />; }`).length, 1, "X2e: el kit bajo alias de importación sigue siendo el kit");
     assert.equal(compositionSites("components/faro/x2.tsx", hoja(`manage={undefined}`)).length, 0, "control: sin canal no hay composición");
+  });
+});
+
+/* ── OLA 17 (Cara) — PRESENCIA NO ES GOBIERNO ──
+ * La caza de la ola 17 (OLA17-CARA, terrenos 2–4) probó cuatro
+ * escapes de citaGobierna y tres del censo/seguidor: la consulta que
+ * alimenta una etiqueta absolvía (G1), la consulta tras un
+ * cortocircuito con constante falsa «gobernaba» sin correr jamás
+ * (G2), el gobierno importado a dos saltos era sentenciado (G3, G4),
+ * el manage de hook no nacía (X1), el universo no era el árbol (X2)
+ * y el índice no recogía al mapeador de librería, al Set de
+ * Array.from ni al generador (V1–V3). Cada espécimen de la caza
+ * queda clavado aquí en su forma, con su control. */
+describe("ola9 · OLA 17 (Cara): la consulta alimenta la entrega — y el censo es el árbol de src", () => {
+  it("G17-a: la consulta viva que alimenta una ETIQUETA no gobierna la mano que dispara sin ella", () => {
+    const props = `{ lines, dropMany }: { lines: { id: string }[]; dropMany: (ids: string[]) => void }`;
+    const etiqueta = new Map([["components/faro/archivo.tsx", `export function Archivo(${props}) {
+      const canDeleteLines = has("archive.delete-lines");
+      const askDeleteLines = () => dropMany(lines.map((l) => l.id));
+      const ui = { nota: canDeleteLines ? "Puedes borrar líneas" : "", askDeleteLines };
+      return ui;
+    }`]]);
+    assert.ok(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", etiqueta, "hand"),
+      "G17-a: la consulta existe, es viva y está en el componente — pero alimenta una etiqueta: la mano dispara con permiso o sin él, y su cita no la gobierna");
+    const gobernada = new Map([["components/faro/archivo.tsx", `export function Archivo(${props}) {
+      const canDeleteLines = has("archive.delete-lines");
+      const askDeleteLines = () => dropMany(lines.map((l) => l.id));
+      const ui = canDeleteLines ? askDeleteLines : null;
+      return ui;
+    }`]]);
+    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", gobernada, "hand"), null,
+      "control G17-a: la misma consulta, alimentando la entrega de la mano, absuelve");
+  });
+  it("G17-b: la consulta tras un cortocircuito con constante falsa no gobierna — jamás se evalúa", () => {
+    const forma = (admin: boolean) => new Map([["components/faro/libros.tsx", `const ADMIN = ${admin};
+    export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      return <PickSheet rows={rows} manage={ADMIN && has("books.multiselect") ? { onDropMany: () => dropMany(rows.map((r) => r.id)) } : undefined} onClose={() => {}} />;
+    }`]]);
+    const muerta = forma(false);
+    const site = compositionSites("components/faro/libros.tsx", muerta.get("components/faro/libros.tsx")!)[0]!;
+    assert.ok(site, "el sitio nace: la composición entrega el canal");
+    assert.ok(citaGobierna(site, "books.multiselect", muerta, "composition"),
+      "G17-b: ADMIN es falso por constante de módulo — ningún camino real evalúa la consulta: alcanzable en el grafo, muerta en la cara, no gobierna");
+    const viva = forma(true);
+    const siteViva = compositionSites("components/faro/libros.tsx", viva.get("components/faro/libros.tsx")!)[0]!;
+    assert.equal(citaGobierna(siteViva, "books.multiselect", viva, "composition"), null,
+      "control G17-b: con la constante verdadera la misma consulta corre y decide la entrega: gobierna");
+  });
+  it("G17-c: el gobierno importado a DOS saltos (ayudante local → hook importado) cuenta", () => {
+    const files = new Map([
+      ["components/hooks/use-can.ts", `export const useCanDeleteLines = () => has("archive.delete-lines");`],
+      ["components/faro/archivo.tsx", `import { useCanDeleteLines } from "../hooks/use-can";
+      const prepara = () => useCanDeleteLines();
+      export function Archivo({ lines, dropMany }: { lines: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        const askDeleteLines = () => { if (prepara()) dropMany(lines.map((l) => l.id)); };
+        return askDeleteLines;
+      }`],
+    ]);
+    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", files, "hand"), null,
+      "G17-c: la mano llama al ayudante local prepara y prepara llama al hook importado que consulta — el gobierno llega por dos saltos y cuenta (M2 desciende)");
+  });
+  it("G17-d: el componente montado gobierna por SU propio hook importado (composición → kit → hook)", () => {
+    const files = new Map([
+      ["components/faro/hooks/use-multi.ts", `export const useMultiselect = () => has("books.multiselect");`],
+      ["components/faro/book-kit.tsx", `import { useMultiselect } from "./hooks/use-multi";
+      export function BookKit({ rows }: { rows: { id: string }[] }) { const can = useMultiselect(); return can ? rows.length : 0; }`],
+      ["components/faro/libros.tsx", `import { BookKit } from "./book-kit";
+      export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        return <BookKit rows={rows} onDrop={(ids: string[]) => dropMany(ids)} />;
+      }`],
+    ]);
+    const site = compositionSites("components/faro/libros.tsx", files.get("components/faro/libros.tsx")!)[0]!;
+    assert.ok(site, "el sitio nace: el montaje del kit es la composición");
+    assert.equal(citaGobierna(site, "books.multiselect", files, "composition"), null,
+      "G17-d: el montado no trae la consulta en su cuerpo — la trae su hook importado: M3 desciende a los imports del montado y el gobierno cuenta");
+  });
+  it("X1: el manage construido por un hook NACE como sitio — por atadura y por llamada directa", () => {
+    const hoja = (entrega: string, pre: string) => `export function Libros({ rows }: { rows: { id: string }[] }) {
+      ${pre}
+      return <PickSheet rows={rows} manage={${entrega}} onClose={() => {}} />;
+    }`;
+    assert.equal(compositionSites("components/faro/x1.tsx", hoja("gestion", "const gestion = useHojaManage();")).length, 1,
+      "X1a: const gestion = useHojaManage(); manage={gestion} — la entrega por atadura a la llamada del hook es sitio");
+    assert.equal(compositionSites("components/faro/x1.tsx", hoja("useHojaManage()", "")).length, 1,
+      "X1b: manage={useHojaManage()} — la entrega por llamada directa es sitio");
+    const gobernada = new Map([["components/faro/x1.tsx", `export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      const useHojaManage = () => has("books.multiselect") ? { onDropMany: () => dropMany(rows.map((r) => r.id)) } : undefined;
+      return <PickSheet rows={rows} manage={useHojaManage()} onClose={() => {}} />;
+    }`]]);
+    const siteG = compositionSites("components/faro/x1.tsx", gobernada.get("components/faro/x1.tsx")!)[0]!;
+    assert.equal(citaGobierna(siteG, "books.multiselect", gobernada, "composition"), null,
+      "X1c: el hook local que consulta gobierna la composición que lo entrega — M1 sigue el valor hasta la llamada");
+    const muda = new Map([["components/faro/x1.tsx", `export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      const useHojaManage = () => ({ onDropMany: () => dropMany(rows.map((r) => r.id)) });
+      return <PickSheet rows={rows} manage={useHojaManage()} onClose={() => {}} />;
+    }`]]);
+    const siteM = compositionSites("components/faro/x1.tsx", muda.get("components/faro/x1.tsx")!)[0]!;
+    assert.ok(citaGobierna(siteM, "books.multiselect", muda, "composition"),
+      "X1d: el hook que no consulta a nadie no gobierna: el sitio nacido por hook acusa como cualquier otro");
+  });
+  it("X2: el universo del censo es el ÁRBOL de src — la raíz entra y la librería se camina recursiva", () => {
+    const files = censusFiles();
+    assert.ok(files.has("router.tsx") && files.has("routeTree.gen.ts"),
+      "X2: la raíz de src entra al universo con su nombre desnudo — una composición en src/raiz.tsx ya no compone fuera del censo");
+    for (const f of walkComponentFiles(new URL("../../lib/faro/", import.meta.url), "lib/faro")) {
+      assert.ok(files.has(f.rel), `X2: el paseo recursivo de la librería está en el universo (${f.rel})`);
+    }
+    const hoja = `export function Hoja({ rows }: { rows: { id: string }[] }) {
+      return <PickSheet rows={rows} manage={{ onDropMany: () => dropMany(rows.map((r) => r.id)) }} onClose={() => {}} />;
+    }`;
+    assert.equal(compositionSites("lib/faro/sub17/hoja-perezosa.tsx", hoja).length, 1,
+      "X2: la composición en un SUBDIRECTORIO de la librería (la forma del chunk perezoso) nace como sitio");
+    assert.equal(compositionSites("raiz17.tsx", hoja).length, 1,
+      "X2: la composición en la raíz de src nace como sitio");
+  });
+  it("V1: el mapeador de LIBRERÍA entra al índice y la mano que come de él nace", () => {
+    const files = new Map([
+      ["lib/faro/ids-lib.ts", `export const idsOf = (rows: { id: string }[]) => rows.map((r) => r.id);`],
+      ["components/faro/hoja.tsx", `import { idsOf } from "../../lib/faro/ids-lib";
+      export function Hoja({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        const wipeAll = () => dropMany(idsOf(rows));
+        return { wipeAll };
+      }`],
+    ]);
+    const index = mapperIndexOf(files);
+    assert.ok(index.has("idsOf"), "V1: el índice recoge idsOf aunque viva en la librería, no bajo components/");
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", files.get("components/faro/hoja.tsx")!, index), ["components/faro/hoja.tsx:wipeAll#1"],
+      "V1: la mano que come del utilitario de librería nace como sitio y exige su asiento");
+  });
+  it("V2: el Set entregado por Array.from sin mapeador nace como sitio", () => {
+    const forma = (entrega: string) => `export function Hoja({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      const s = new Set(rows.map((r) => r.id));
+      const wipeAll = () => dropMany(${entrega});
+      return { wipeAll };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", forma("Array.from(s)")), ["components/faro/hoja.tsx:wipeAll#1"],
+      "V2: Array.from(s) sin segundo argumento entrega los ids del Set: el sitio nace");
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", forma("[...s]")), ["components/faro/hoja.tsx:wipeAll#1"],
+      "control V2: la grafía hermana [...s] sigue naciendo");
+  });
+  it("V3: el generador que produce los ids con yield es grafía del índice", () => {
+    const gen = `export function Hoja({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      function* genIds(rs: { id: string }[]) { for (const r of rs) yield r.id; }
+      const wipeAll = () => dropMany([...genIds(rows)]);
+      return { wipeAll };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", gen), ["components/faro/hoja.tsx:wipeAll#1"],
+      "V3: producir con yield es producir — la mano alimentada por el generador nace como sitio");
   });
 });
 

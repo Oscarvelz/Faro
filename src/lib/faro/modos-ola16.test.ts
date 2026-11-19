@@ -125,8 +125,14 @@ describe("ola16 · §B: el fantasma planteado vigila su premisa en los dos senti
     const backUpd = src.slice(src.indexOf("updGhost === \"back\""), src.indexOf("updGhost === \"back\"") + 1200);
     assert.ok(backUpd.includes("data-anchor=\"card-form-restore-save\" onClick={proceedBack}"),
       "la actualización convertida guarda por su salida propia, sobre el mismo ancla");
-    assert.ok(src.includes("const proceedBack = () => { setUpdGhost(null); commitUpdate(false); };"),
-      "la salida convertida de la actualización cae por la ruta ordinaria: el commit re-pregunta y la lectura aterriza sobre el registro vivo");
+    /* ENMIENDA OLA 17 (Cambios): la salida convertida sigue cayendo
+     * por la ruta ordinaria, pero ahora entra a su commit MARCADA
+     * (el segundo parámetro): la clase forjada alcanzaba también al
+     * anuncio convertido componiendo contra la foto de la sesión, y
+     * la marca hace que su commit re-pregunte contra el paquete
+     * almacenado fresco antes de componer. */
+    assert.ok(src.includes("const proceedBack = () => { setUpdGhost(null); commitUpdate(false, true); };"),
+      "la salida convertida de la actualización cae por la ruta ordinaria, marcada: el commit re-pregunta (también al paquete almacenado) y la lectura aterriza sobre el registro vivo");
   });
 
   it("la fuente: la bisagra de la conversión vive en los dos commits — con la palabra dada, el registro vivo o archivado compone", () => {
@@ -142,8 +148,16 @@ describe("ola16 · §B: el fantasma planteado vigila su premisa en los dos senti
     const seg = src.slice(src.indexOf("const commitDraft"), src.indexOf("const proceed ="));
     assert.ok(seg.includes("const freshAsked = freshId ? cardExistence(s, bornId) : null;"),
       "«Guardar como tarjeta nueva» pregunta la existencia dentro del commit, no la del planteamiento");
-    assert.ok(seg.includes("if (freshAsked && freshAsked !== \"gone\") { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }"),
-      "si la tarjeta volvió (viva o archivada), la salida no forja: devuelve el veredicto del estado fresco");
+    /* ENMIENDA OLA 17 (G17-1): la forma de la 16 — abortar ante
+     * cualquier existencia ≠ "gone" — condenaba la salida del anuncio
+     * de ARCHIVADA, cuya premisa ES "archived": su «Guardar como
+     * tarjeta nueva» moría muda (el quiebre G17-1, cazado en vivo
+     * contra la .325). El pin sigue la forma nueva: la re-pregunta
+     * compara contra lo que el anuncio DECLARÓ al ofrecer la salida
+     * (declared, capturado al toque en saveAsNew); sin declaración,
+     * lo declarado es "gone" y la conducta de la 16 queda entera. */
+    assert.ok(seg.includes("if (freshAsked && freshAsked !== (declared ?? \"gone\")) { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }"),
+      "la salida procede si la existencia viva es la declarada por su anuncio (archived incluida) y aborta solo si el mundo se movió de lo declarado");
     assert.ok(seg.indexOf("const freshAsked") < seg.indexOf("if (existence === \"gone\")"),
       "la re-pregunta de freshId va ANTES de la pregunta asentada de la ola 14: el orden es la cura");
   });

@@ -524,8 +524,32 @@ function draftOf(c: CreditCard | null, seed?: Partial<CreditCard> & { read?: Car
   };
 }
 
+/* Ola 17 (Cambios): la existencia según el PAQUETE ALMACENADO — la
+ * misma pregunta (cardExistence) hecha sobre el libro que el provider
+ * ya escribió en localStorage (`faro.pack.<userId>`, la llave de su
+ * packKey), no sobre la foto de la sesión de esta pestaña. La salida
+ * CONVERTIDA del fantasma componía contra la sesión: si otra pestaña
+ * ya había movido el mundo y escrito su paquete (revisión mayor) sin
+ * que esta sesión lo adoptara todavía, el guardado ganaba la carrera
+ * de la revisión y el movimiento ajeno se perdía en silencio. La
+ * lectura es ligera a propósito (la validación profunda es oficio de
+ * readPack en provider.tsx): cualquier duda — sin paquete, sin libro,
+ * sin revisión numérica — devuelve null y la salida cae a la pregunta
+ * de siempre sobre la sesión. El getItem pasa por el mapa de espacios
+ * de samplemode, así que lee el libro del espacio activo. */
+const storedPackExistence = (userId: string, id: string | undefined): { ex: CardExistence; revision: number } | null => {
+  try {
+    const raw = localStorage.getItem(`faro.pack.${userId}`);
+    if (!raw) return null;
+    const pack = JSON.parse(raw) as { ledger?: LedgerState };
+    const ledger = pack?.ledger;
+    if (!ledger || typeof ledger.revision !== "number") return null;
+    return { ex: cardExistence(ledger, id), revision: ledger.revision };
+  } catch { return null; }
+};
+
 function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit" | "update"; card: CreditCard | null; seed?: Partial<CreditCard> & { read?: CardRead }; onClose: () => void; parkKey?: string }) {
-  const { commit, session, has } = useFaro();
+  const { commit, session, has, userId } = useFaro();
   // Ola 2 (C-6): la ficha entra al sistema de modos — este componente no
   // contenía ni una referencia al modo y Ritmo recibía la ficha de Completo.
   // Fallo 10: en Ritmo la forma es CORTA (nombre, saldo, límite); la ficha
@@ -663,7 +687,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
    * si la respuesta del commit disiente de la de save() (la existencia
    * volteó en la ventana), el aborto RE-ANUNCIA con el estado nuevo en
    * vez de ejecutar en silencio y destruir el aparcado. */
-  const commitDraft = (freshId: boolean, unarchive: boolean) => {
+  const commitDraft = (freshId: boolean, unarchive: boolean, declared: CardExistence | null = null, converted = false) => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
     const rwm = amount(d.rw);
@@ -673,6 +697,18 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     const lim = amount(d.limit);
     const due = Number(d.dueDay);
     commit((s) => {
+      /* Ola 17 (Cambios): la salida CONVERTIDA re-pregunta contra el
+       * paquete almacenado fresco, no contra la sesión: si el paquete
+       * guardado va por delante de esta sesión (su revisión es mayor)
+       * y en él la tarjeta ya no vive, componer sobre la foto de la
+       * sesión ganaría la carrera de la revisión y perdería en
+       * silencio el movimiento de la otra pestaña. La receta aborta
+       * y el veredicto re-plantea el anuncio con la verdad del
+       * paquete; la adopción sigue siendo oficio del provider. */
+      if (converted) {
+        const stored = storedPackExistence(userId, bornId);
+        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return s; }
+      }
       /* Ola 16 (BR16-2): freshId también pregunta DENTRO de su commit.
        * «Guardar como tarjeta nueva» solo procede si la tarjeta SIGUE
        * destruida al cometer; si resucitó bajo el anuncio (viva o
@@ -680,10 +716,43 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
        * anuncio con el estado fresco — forjar una duplicada de una
        * tarjeta viva con el mismo bornId era el quiebre. Con el
        * "gone" confirmado en el commit, la nueva nace con el id del
-       * borrador (bornNewId) y hace upsert sobre él. */
+       * borrador (bornNewId) y hace upsert sobre él.
+       * Ola 17 (G17-1): la re-pregunta juzga el MOVIMIENTO, no el
+       * estado. La forma de la 16 abortaba ante cualquier existencia
+       * ≠ "gone" — incluida "archived", que es la premisa misma del
+       * anuncio de archivada: su «Guardar como tarjeta nueva» (que
+       * promete «la archivada se queda… tendrás las dos») moría muda
+       * para siempre. Ahora la salida procede cuando la existencia
+       * viva es la que el anuncio que la ofreció DECLARÓ (declared,
+       * capturado al toque): archivada declarada y archivada viva →
+       * la nueva nace por upsert sobre bornNewId y la archivada no
+       * se toca; solo si el mundo se MOVIÓ de lo declarado (resucitó
+       * o se fue del todo) la receta aborta y el veredicto
+       * re-plantea el anuncio verdadero. Sin declaración (la ruta de
+       * siempre), lo declarado es "gone", como en la 16. */
       const freshAsked = freshId ? cardExistence(s, bornId) : null;
-      if (freshAsked && freshAsked !== "gone") { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }
+      if (freshAsked && freshAsked !== (declared ?? "gone")) { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }
       const existence = !isAdd && !freshId ? cardExistence(s, bornId) : "alive";
+      /* REPARACIÓN FAMILIA 7 (ola 17): la salida CONVERTIDA juzga su
+       * premisa contra el estado del commit. La guarda del paquete de
+       * arriba comparaba REVISIONES, pero el evento que trae el
+       * paquete nuevo también dispara la adopción de esta pestaña —
+       * y la adopción se encola ANTES que este commit: al componer,
+       * la sesión ya ES el paquete y la brecha de revisión que la
+       * guarda esperaba se ha cerrado sola (T2c.2 lo cazó en vivo:
+       * la re-archivación forjada en la misma tarea del toque se
+       * perdía y la edición aterrizaba sobre ella). La promesa de
+       * «Guardarla» es caer sobre la tarjeta VIVA; si al cometer la
+       * tarjeta ya no vive — archivada otra vez o ida — la receta
+       * aborta con esa existencia y el veredicto re-plantea el
+       * anuncio verdadero, con lo tecleado intacto. La salida viaja
+       * con unarchive=true porque comparte puerta con la de
+       * restaurarla del anuncio de archivada, pero la convertida
+       * jamás ofreció restaurar: heredar esa palabra era el hueco.
+       * (La convertida de la actualización no lo hereda: viaja por
+       * la ruta ordinaria, commitUpdate(false, …), cuyas preguntas
+       * de siempre ya abortan ante archivada.) */
+      if (converted && existence !== "alive") { saveVerdict.current = { applied: false, existence }; return s; }
       if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return s; }
       if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }
       const storedCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
@@ -732,7 +801,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
    * «Restaurarla y guardar» desarchiva por su puerta nombrada
    * (restoreCard) DENTRO del mismo commit y la lectura cae sobre el
    * registro ya vivo. */
-  const commitUpdate = (unarchive: boolean) => {
+  const commitUpdate = (unarchive: boolean, converted = false) => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
     const rwm = amount(d.rw);
@@ -740,6 +809,15 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     // 1.3.109: a manual update can carry only the rewards (balance left blank = unchanged).
     const u: CardUpdate = { balanceMinor: bal ?? 0, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, src: "manual" };
     commit((s) => {
+      /* Ola 17 (Cambios): la salida convertida de la actualización
+       * re-pregunta contra el paquete almacenado fresco, como la de
+       * la edición (ver commitDraft): el paquete por delante de la
+       * sesión con la tarjeta ya no viva aborta la lectura antes de
+       * que gane la carrera de la revisión. */
+      if (converted) {
+        const stored = storedPackExistence(userId, bornId);
+        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return s; }
+      }
       const existence = cardExistence(s, bornId);
       if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return s; }
       if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }
@@ -755,10 +833,19 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
    * actualización — la tarjeta ya volvió por la llegada, así que la
    * lectura tecleada cae por la ruta ordinaria (commitUpdate(false)
    * re-pregunta dentro de su commit y compone sobre el registro vivo)
-   * y la forma cierra por el veredicto. */
-  const proceedBack = () => { setUpdGhost(null); commitUpdate(false); };
-  const proceed = (freshId: boolean) => commitDraft(freshId, false);
-  const proceedRestore = () => { setGhost(null); commitDraft(false, true); };
+   * y la forma cierra por el veredicto.
+   * Ola 17 (Cambios): la salida convertida se marca (converted) para
+   * que su commit re-pregunte también contra el paquete almacenado. */
+  const proceedBack = () => { setUpdGhost(null); commitUpdate(false, true); };
+  /* Ola 17 (G17-1): proceed lleva la existencia que el anuncio que
+   * ofrece la salida declaró — la re-pregunta de freshId juzga el
+   * movimiento desde lo declarado, no el estado a secas. */
+  const proceed = (freshId: boolean, declared: CardExistence | null = null) => commitDraft(freshId, false, declared);
+  /* Ola 17 (Cambios): la misma salida sirve al anuncio de archivada
+   * («Restaurarla y guardar») y al convertido («Guardarla»): solo el
+   * convertido re-pregunta contra el paquete almacenado, así que la
+   * marca se captura del anuncio vivo al toque. */
+  const proceedRestore = () => { const converted = ghost === "back"; setGhost(null); commitDraft(false, true, null, converted); };
   const save = () => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
@@ -796,7 +883,11 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     }
     proceed(false);
   };
-  const saveAsNew = () => { setGhost(null); proceed(true); };
+  /* Ola 17 (G17-1): «Guardar como tarjeta nueva» captura, al toque,
+   * el estado que el anuncio planteado declaró (gone o archived):
+   * la re-pregunta del commit procede si el mundo sigue como el
+   * anuncio lo dejó y re-plantea solo si se movió. */
+  const saveAsNew = () => { const declared = ghost === "gone" || ghost === "archived" ? ghost : null; setGhost(null); proceed(true, declared); };
   const title = upd ? L("Actualizar a mano", "Update by hand") : isAdd ? L("Añadir tarjeta", "Add card") : L("Editar tarjeta", "Edit card");
   const money4 = (label: string, k: "balance" | "avail" | "min" | "limit", anchor?: string, tip?: string) => (
     <label className="label"><span className="lab-head">{label}{tip ? <FieldTip topic={tip} /> : null}</span><input className="field num" inputMode="decimal" placeholder="0.00" value={d[k]} data-anchor={anchor} onChange={(e) => set({ [k]: e.target.value } as Partial<Draft>)} /></label>

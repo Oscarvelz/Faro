@@ -100,7 +100,13 @@ describe("ola15 · §A: la actualización manual pregunta la existencia (G15-2)"
   it("la fuente: la ruta de actualización pregunta en save() y dentro de su commit, con su anuncio y su salida", () => {
     const src = SRC("../../components/faro/cards.tsx");
     const seg = src.slice(src.indexOf("function CardForm"), src.indexOf("const ISS"));
-    assert.match(seg, /const commitUpdate = \(unarchive: boolean\)/, "la actualización vive en su propia ruta de commit");
+    /* ENMIENDA OLA 17 (Cambios): la salida convertida de la ruta upd
+     * marca su naturaleza en la llamada — commitUpdate gana el segundo
+     * parámetro `converted` y la salida «back» lo pasa en verdadero
+     * para re-preguntar contra el paquete almacenado. El pin sigue
+     * clavando lo suyo: la actualización vive en su propia ruta de
+     * commit y pregunta dentro de ella. */
+    assert.match(seg, /const commitUpdate = \(unarchive: boolean, converted = false\)/, "la actualización vive en su propia ruta de commit");
     const upd = seg.slice(seg.indexOf("const commitUpdate"), seg.indexOf("const proceed ="));
     assert.match(upd, /cardExistence\(s, bornId\)/, "el commit de la actualización pregunta dentro de su actualizador");
     assert.match(upd, /restoreCard\(s, bornId as string\)/, "lo archivado se restaura por su puerta nombrada dentro del mismo commit");

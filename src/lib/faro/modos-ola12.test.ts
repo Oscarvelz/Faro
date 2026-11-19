@@ -1150,7 +1150,7 @@ function scanForms(files: { rel: string; text: string }[]) {
    * ata en el ámbito que envuelve): un parche que esparce o lee la foto
    * acusa; el literal del gesto absuelve. */
   const LINE_FIELDS = new Set(["id", "seriesId", "monthKey", "kind", "concept", "amountMinor", "currency", "active", "note", "categoryId", "subId", "recurring", "storeId", "providerId", "productCode", "productUrl", "cadence", "nextDue", "aprBps", "balanceMinor", "balanceCurrency", "icon", "history", "bookedOn", "startedOn", "xfer", "cardId", "personId", "occasionId"]);
-  type PatchCtx = { idRoot: string | null; param: string | null; rooted: Set<string>; locals: Map<string, ts.ObjectLiteralExpression>; enclosingParams: Set<string>; foreign: number; rel: string; depth: number };
+  type PatchCtx = { idRoot: string | null; param: string | null; rooted: Set<string>; locals: Map<string, ts.ObjectLiteralExpression>; bindings: Map<string, ts.Node>; enclosingParams: Set<string>; foreign: number; rel: string; depth: number };
   const patchViolations = (root: ts.Node, fromRel: string, enclosingParams: Set<string>, out: string[]) => {
     /** La raíz y el primer campo de una cadena de acceso (x.a.b → raíz x, campo a). */
     const chainOf = (e: ts.Node): { root: string | null; field: string | null } => {
@@ -1162,6 +1162,228 @@ function scanForms(files: { rel: string; text: string }[]) {
       }
       return { root: ts.isIdentifier(cur) ? cur.text : null, field };
     };
+    /* OLA 17 (Guardián G17-2/G17-3): la procedencia de un argumento —
+     * la misma prueba que el brazo de llamadas de G16-1 hacía en
+     * privado, elevada al ámbito del juez para que la expansión de
+     * miembros y de llamadas-resultado la compartan. */
+    const carriesArg = (a: ts.Node, ctx: PatchCtx): boolean => {
+      if (ts.isIdentifier(a)) return a.text === ctx.idRoot || a.text === ctx.param || ctx.rooted.has(a.text) || ctx.locals.has(a.text);
+      if (ts.isPropertyAccessExpression(a) || ts.isElementAccessExpression(a)) { const r = chainOf(a).root; return r !== null && (r === ctx.idRoot || r === ctx.param || ctx.rooted.has(r)); }
+      if (ts.isSpreadElement(a) || ts.isSpreadAssignment(a)) return carriesArg(a.expression, ctx);
+      if (ts.isObjectLiteralExpression(a)) return a.properties.some((p) => carriesArg(p, ctx));
+      if (ts.isArrayLiteralExpression(a)) return a.elements.some((el) => carriesArg(el, ctx));
+      if (ts.isCallExpression(a)) return a.arguments.some((x) => carriesArg(x, ctx));
+      if (ts.isConditionalExpression(a)) return carriesArg(a.whenTrue, ctx) || carriesArg(a.whenFalse, ctx);
+      if (ts.isParenthesizedExpression(a) || ts.isAsExpression(a) || ts.isTypeAssertionExpression(a)) return carriesArg(a.expression, ctx);
+      if (ts.isPropertyAssignment(a)) return carriesArg(a.initializer, ctx);
+      if (ts.isShorthandPropertyAssignment(a)) return carriesArg(a.name, ctx);
+      return false;
+    };
+    /** Las expresiones que una función devuelve (sin bajar a las anidadas). */
+    const fnReturns = (fnNode: ts.Node): ts.Node[] => {
+      const body = (fnNode as { body?: ts.Node }).body;
+      const out2: ts.Node[] = [];
+      if (!body) return out2;
+      if (!ts.isBlock(body)) { out2.push(body); return out2; }
+      const rs = (m: ts.Node) => {
+        if (ts.isReturnStatement(m) && m.expression) out2.push(m.expression);
+        if (isFnLike(m) && m !== fnNode) return;
+        ts.forEachChild(m, rs);
+      };
+      ts.forEachChild(body, rs);
+      return out2;
+    };
+    /* OLA 17 (G17-2): una función IDENTIDAD devuelve su parámetro i
+     * tal cual en cada devolución — `identidad(fn)` ENTREGA fn, y el
+     * juez juzga el argumento, no la llamada. Devuelve el índice del
+     * parámetro devuelto, o -1 si la función no es identidad. */
+    const identityIndex = (fnNode: ts.Node): number => {
+      const fn = fnNode as ts.FunctionLikeDeclarationBase;
+      const params = fn.parameters ?? [];
+      const rets = fnReturns(fnNode);
+      if (!rets.length) return -1;
+      let idx = -1;
+      for (const ret of rets) {
+        let x: ts.Node = ret;
+        while (ts.isParenthesizedExpression(x)) x = x.expression;
+        if (!ts.isIdentifier(x)) return -1;
+        const i = params.findIndex((p) => ts.isIdentifier(p.name) && (p.name as ts.Identifier).text === (x as ts.Identifier).text);
+        if (i < 0) return -1;
+        if (idx >= 0 && idx !== i) return -1;
+        idx = i;
+      }
+      return idx;
+    };
+    /** La función-fábrica: cada devolución es el MISMO literal de función. */
+    const returnedFnLiteral = (fnNode: ts.Node): ts.Node | null => {
+      const rets = fnReturns(fnNode);
+      if (!rets.length) return null;
+      let lit: ts.Node | null = null;
+      for (const ret of rets) {
+        let x: ts.Node = ret;
+        while (ts.isParenthesizedExpression(x)) x = x.expression;
+        if (!ts.isArrowFunction(x) && !ts.isFunctionExpression(x)) return null;
+        if (lit && lit !== x) return null;
+        lit = x;
+      }
+      return lit;
+    };
+    /** Los literales-objeto que una función devuelve (vacío si alguna devolución no lo es). */
+    const returnedObjectLiterals = (fnNode: ts.Node): ts.ObjectLiteralExpression[] => {
+      const rets = fnReturns(fnNode);
+      if (!rets.length) return [];
+      const lits: ts.ObjectLiteralExpression[] = [];
+      for (const ret of rets) {
+        let x: ts.Node = ret;
+        while (ts.isParenthesizedExpression(x)) x = x.expression;
+        if (!ts.isObjectLiteralExpression(x)) return [];
+        lits.push(x);
+      }
+      return lits;
+    };
+    /* OLA 17 (G17-3): el contexto remapeado de una llamada — el mismo
+     * gesto que el brazo de llamadas de G16-1 hace para juzgar los
+     * CUERPOS devueltos, aquí para juzgar el MIEMBRO que se lee del
+     * resultado o el literal esparcido: el parámetro del ayudante toma
+     * la procedencia del argumento (la foto como raíz de id, lo vivo
+     * como raíz viva, el literal como atadura). */
+    const remapCallCtx = (call: ts.CallExpression, ctx: PatchCtx): { subCtx: PatchCtx; fnNode: ts.Node } | null => {
+      if (!ts.isIdentifier(call.expression)) return null;
+      const r = resolveHelper(call.expression.text, ctx.rel);
+      if (!r || !isFnLike(r.node)) return null;
+      const hfn = r.node as ts.FunctionLikeDeclarationBase;
+      const paramName = (i: number): string | null => {
+        const p = hfn.parameters[i];
+        return p && ts.isIdentifier(p.name) ? (p.name as ts.Identifier).text : null;
+      };
+      let subIdRoot: string | null = null;
+      let subParam: string | null = null;
+      const subRooted = new Set<string>();
+      const subLocals = new Map<string, ts.ObjectLiteralExpression>();
+      const subBindings = new Map<string, ts.Node>();
+      call.arguments.forEach((a, i) => {
+        const pn = paramName(i);
+        if (!pn) return;
+        const root = ts.isIdentifier(a) ? a.text : (ts.isPropertyAccessExpression(a) || ts.isElementAccessExpression(a)) ? chainOf(a).root : null;
+        if (root === ctx.idRoot && ctx.idRoot) subIdRoot = pn;
+        if (root !== null && root === ctx.param) { subParam = pn; subRooted.add(pn); }
+        else if (root !== null && ctx.rooted.has(root)) subRooted.add(pn);
+        if (ts.isIdentifier(a) && ctx.locals.has(a.text)) subRooted.add(pn);
+        if (ts.isObjectLiteralExpression(a)) { subLocals.set(pn, a); subBindings.set(pn, a); }
+        else if (ts.isIdentifier(a) && ctx.bindings.has(a.text)) subBindings.set(pn, ctx.bindings.get(a.text)!);
+      });
+      const subBody = (hfn as { body?: ts.Node }).body;
+      if (subBody) {
+        for (let pass = 0; pass < 6; pass++) {
+          let grew = false;
+          const scan = (n: ts.Node) => {
+            if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+              if (!subBindings.has(n.name.text)) subBindings.set(n.name.text, n.initializer);
+              if (ts.isObjectLiteralExpression(n.initializer) && !subLocals.has(n.name.text)) subLocals.set(n.name.text, n.initializer);
+              if (!subRooted.has(n.name.text)) {
+                let refs = false;
+                const walk = (m: ts.Node) => { if (ts.isIdentifier(m) && subRooted.has(m.text)) refs = true; ts.forEachChild(m, walk); };
+                walk(n.initializer);
+                if (refs) { subRooted.add(n.name.text); grew = true; }
+              }
+            }
+            if (isFnLike(n) && n !== hfn) return;
+            ts.forEachChild(n, scan);
+          };
+          scan(subBody);
+          if (!grew && pass > 0) break;
+        }
+      }
+      const subCtx: PatchCtx = { idRoot: subIdRoot, param: subParam, rooted: subRooted, locals: subLocals, bindings: subBindings, enclosingParams: ctx.enclosingParams, foreign: 0, rel: r.rel, depth: ctx.depth + 1 };
+      return { subCtx, fnNode: r.node };
+    };
+    /* OLA 17 (G17-2): una FUNCIÓN entregada como valor en posición de
+     * parche — el argumento-flecha de `identidad(...)`, el resultado
+     * de una llamada — se juzga como lo que es: una función de parche.
+     * Su parámetro es su línea viva; sus devoluciones se juzgan con el
+     * mismo juez, heredando la raíz de id y las ataduras del ámbito
+     * que la envuelve (la flecha interna cierra sobre ellas). Antes
+     * judgeExpr no tenía rama para expresiones de función: la flecha
+     * cruzaba en silencio y la foto dentro de ella con ella. */
+    const judgeDeliveredFn = (fnNode: ts.Node, baseCtx: PatchCtx): void => {
+      if (baseCtx.depth >= 4) { out.push("la función entregada como valor en posición de parche se anida más allá de lo que el censo sigue: no se certifica lo que no se ve (G17-2)"); return; }
+      const fn = fnNode as ts.FunctionLikeDeclarationBase;
+      const param = fn.parameters.length && ts.isIdentifier(fn.parameters[0]!.name) ? (fn.parameters[0]!.name as ts.Identifier).text : null;
+      const rooted = new Set<string>(baseCtx.rooted);
+      if (param) rooted.add(param);
+      const locals = new Map<string, ts.ObjectLiteralExpression>(baseCtx.locals);
+      const bindings = new Map<string, ts.Node>(baseCtx.bindings);
+      let paramUsed = false;
+      const body = (fn as { body?: ts.Node }).body;
+      if (body) {
+        for (let pass = 0; pass < 6; pass++) {
+          let grew = false;
+          const scan = (n: ts.Node) => {
+            if (ts.isIdentifier(n) && param && n.text === param) paramUsed = true;
+            if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+              if (!bindings.has(n.name.text)) bindings.set(n.name.text, n.initializer);
+              if (ts.isObjectLiteralExpression(n.initializer) && !locals.has(n.name.text)) locals.set(n.name.text, n.initializer);
+              if (!rooted.has(n.name.text)) {
+                let refs = false;
+                const walk = (m: ts.Node) => { if (ts.isIdentifier(m) && rooted.has(m.text)) refs = true; ts.forEachChild(m, walk); };
+                walk(n.initializer);
+                if (refs) { rooted.add(n.name.text); grew = true; }
+              }
+            }
+            if (isFnLike(n) && n !== fn) return;
+            ts.forEachChild(n, scan);
+          };
+          scan(body);
+          if (!grew && pass > 0) break;
+        }
+      }
+      const ctx2: PatchCtx = { idRoot: baseCtx.idRoot, param, rooted, locals, bindings, enclosingParams: baseCtx.enclosingParams, foreign: 0, rel: baseCtx.rel, depth: baseCtx.depth + 1 };
+      for (const ret of fnReturns(fnNode)) judgeExpr(ret, ctx2);
+      baseCtx.foreign += ctx2.foreign;
+      if ((!param || !paramUsed) && ctx2.foreign > 0) {
+        out.push("la función entregada como valor en posición de parche compone el parche leyendo campos de línea de fuera sin leer jamás su parámetro vivo: el parche nace de una foto (G17-2)");
+      }
+    };
+    /* OLA 17 (G17-3): la procedencia por ACCESO A MIEMBRO se sigue —
+     * `e.copia` con `e` atado a un literal (`{ copia: foto }`), a una
+     * llamada (`envolver(foto)`) o en línea (`envolver(foto).copia`)
+     * entrega el valor de esa propiedad, y ese valor se juzga. Antes
+     * el juez miraba solo la raíz de la cadena y el nombre del campo:
+     * «copia» no es un campo de línea y «e» no es la foto, así que la
+     * foto cruzaba entera dentro del miembro, en silencio. */
+    const expandMember = (e: ts.Node, ctx: PatchCtx): void => {
+      if (!ts.isPropertyAccessExpression(e)) return;
+      const prop = e.name.text;
+      let base: ts.Node = e.expression;
+      for (let guard = 0; guard < 4 && ts.isIdentifier(base); guard++) {
+        const b = ctx.bindings.get((base as ts.Identifier).text);
+        if (!b) return;
+        base = b;
+      }
+      if (ts.isIdentifier(base)) return;
+      if (ts.isObjectLiteralExpression(base)) {
+        for (const p of base.properties) {
+          if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === prop) { judgeExpr(p.initializer, ctx); return; }
+          if (ts.isShorthandPropertyAssignment(p) && p.name.text === prop) { judgeExpr(p.name, ctx); return; }
+        }
+        return;
+      }
+      if (ts.isCallExpression(base)) {
+        if (ctx.depth >= 4) { out.push(`el miembro «${prop}» de una llamada en posición de parche se anida más allá de lo que el censo sigue: no se certifica lo que no se ve (G17-3)`); return; }
+        const remapped = remapCallCtx(base, ctx);
+        if (!remapped) {
+          if (base.arguments.some((a) => carriesArg(a, ctx))) out.push(`el miembro «${prop}» se lee del resultado de una llamada que lleva la foto o lo vivo y no se resuelve a un cuerpo: el censo no certifica lo que no ve (G17-3)`);
+          return;
+        }
+        for (const lit of returnedObjectLiterals(remapped.fnNode)) {
+          for (const p of lit.properties) {
+            if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === prop) judgeExpr(p.initializer, remapped.subCtx);
+            else if (ts.isShorthandPropertyAssignment(p) && p.name.text === prop) judgeExpr(p.name, remapped.subCtx);
+          }
+        }
+        ctx.foreign += remapped.subCtx.foreign;
+      }
+    };
     const judgeExpr = (e: ts.Node, ctx: PatchCtx): void => {
       /* OLA 16 (Guardián G16-1): el identificador desnudo se juzga —
        * el parche devuelto POR NOMBRE se expande a su literal atado, y
@@ -1170,6 +1392,11 @@ function scanForms(files: { rel: string; text: string }[]) {
        * en judgePatchObject, pero un `return p` dentro de la función
        * entregada — o la foto pasada como argumento desnudo a un
        * ayudante — cruzaba sin juez. */
+      /* OLA 17 (Guardián G17-2): la expresión de función en posición
+       * de parche se juzga como función de parche entregada — sin
+       * esta rama, la flecha que `identidad(...)` devuelve cruzaba el
+       * juez entera, sin que ninguna regla mirara su cuerpo. */
+      if (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) { judgeDeliveredFn(e, ctx); return; }
       if (ts.isIdentifier(e)) {
         const lit = ctx.locals.get(e.text);
         if (lit) { judgeExpr(lit, ctx); return; }
@@ -1183,6 +1410,10 @@ function scanForms(files: { rel: string; text: string }[]) {
           else if (field && LINE_FIELDS.has(field) && !ctx.rooted.has(r)) ctx.foreign++;
           if (field === "history" && !ctx.rooted.has(r)) out.push(`el parche lee el historial de «${r}», que no es la línea viva del commit — anexar sobre la foto entierra el cruce (G15-1)`);
         }
+        /* OLA 17 (G17-3): y el VALOR del miembro se juzga — la raíz y
+         * el campo no cuentan de dónde sale `e.copia` cuando `e` es un
+         * literal o el resultado de una llamada. */
+        expandMember(e, ctx);
         return;
       }
       if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) {
@@ -1191,6 +1422,22 @@ function scanForms(files: { rel: string; text: string }[]) {
           if (ctx.idRoot && x.text === ctx.idRoot) { out.push(`el parche esparce la foto entera («...${x.text}») en vez de componer desde la línea viva (G15-1)`); return; }
           const lit = ctx.locals.get(x.text);
           if (lit) { judgeExpr(lit, ctx); return; }
+          /* OLA 17 (G17-3): el nombre atado al RESULTADO de una
+           * llamada se resuelve como el miembro: el literal que el
+           * ayudante devuelve, con su parámetro remapeado, es lo que
+           * se esparce — y se juzga. */
+          const bnd = ctx.bindings.get(x.text);
+          if (bnd && ts.isCallExpression(bnd)) {
+            if (ctx.depth >= 4) { out.push(`el parche esparce el resultado de «${x.text}», atado a una llamada anidada más allá de lo que el censo sigue: no se certifica lo que no se ve (G17-3)`); return; }
+            const remapped = remapCallCtx(bnd, ctx);
+            if (!remapped) {
+              if (bnd.arguments.some((a) => carriesArg(a, ctx))) out.push(`el parche esparce el resultado de una llamada que lleva la foto o lo vivo y no se resuelve a un cuerpo: el censo no certifica lo que no ve (G17-3)`);
+              return;
+            }
+            for (const rl of returnedObjectLiterals(remapped.fnNode)) judgeExpr(rl, remapped.subCtx);
+            ctx.foreign += remapped.subCtx.foreign;
+            return;
+          }
           if (!ctx.rooted.has(x.text) && !ctx.enclosingParams.has(x.text)) out.push(`el parche esparce «${x.text}», que no nace de la línea viva ni es un literal del gesto (G15-1)`);
           return;
         }
@@ -1201,6 +1448,24 @@ function scanForms(files: { rel: string; text: string }[]) {
       if (ts.isArrayLiteralExpression(e)) { for (const el of e.elements) judgeExpr(el, ctx); return; }
       if (ts.isCallExpression(e)) {
         if (ts.isPropertyAccessExpression(e.expression)) judgeExpr(e.expression, ctx);
+        /* OLA 17 (Guardián G17-2): la llamada IDENTIDAD entrega su
+         * argumento tal cual, y la llamada FÁBRICA entrega su literal
+         * de función — en posición de parche, el valor entregado ES
+         * ese argumento o ese literal, y es eso lo que se juzga (la
+         * flecha entregada cae en la rama de funciones de este juez).
+         * Sin este desenvuelto, `identidad(fn)` era un agujero: la
+         * llamada no lleva la procedencia según la prueba de G16-1
+         * (una flecha no «lleva» nada) y sus argumentos se juzgaban
+         * uno a uno sin rama que mirara el cuerpo de la flecha. */
+        if (ts.isIdentifier(e.expression) && !GATE_GLOBALS.has(e.expression.text) && !COLL_ACCESSORS.has(e.expression.text)) {
+          const rId = resolveHelper(e.expression.text, ctx.rel);
+          if (rId && isFnLike(rId.node)) {
+            const idx = identityIndex(rId.node);
+            if (idx >= 0 && e.arguments[idx]) { judgeExpr(e.arguments[idx]!, ctx); return; }
+            const fnLit = returnedFnLiteral(rId.node);
+            if (fnLit) { judgeExpr(fnLit, ctx); return; }
+          }
+        }
         /* OLA 16 (Guardián G16-1): una llamada en posición de parche
          * que lleva la procedencia (la foto, el parámetro vivo, un
          * local enraizado) se RESUELVE a su cuerpo y el cuerpo se juzga
@@ -1211,19 +1476,10 @@ function scanForms(files: { rel: string; text: string }[]) {
          * ola 15. Las llamadas sin procedencia se juzgan como siempre,
          * argumento a argumento. */
         if (ts.isIdentifier(e.expression) && !GATE_GLOBALS.has(e.expression.text) && !COLL_ACCESSORS.has(e.expression.text)) {
-          const carries = (a: ts.Node): boolean => {
-            if (ts.isIdentifier(a)) return a.text === ctx.idRoot || a.text === ctx.param || ctx.rooted.has(a.text) || ctx.locals.has(a.text);
-            if (ts.isPropertyAccessExpression(a) || ts.isElementAccessExpression(a)) { const r = chainOf(a).root; return r !== null && (r === ctx.idRoot || r === ctx.param || ctx.rooted.has(r)); }
-            if (ts.isSpreadElement(a) || ts.isSpreadAssignment(a)) return carries(a.expression);
-            if (ts.isObjectLiteralExpression(a)) return a.properties.some((p) => carries(p));
-            if (ts.isArrayLiteralExpression(a)) return a.elements.some((el) => carries(el));
-            if (ts.isCallExpression(a)) return a.arguments.some((x) => carries(x));
-            if (ts.isConditionalExpression(a)) return carries(a.whenTrue) || carries(a.whenFalse);
-            if (ts.isParenthesizedExpression(a) || ts.isAsExpression(a) || ts.isTypeAssertionExpression(a)) return carries(a.expression);
-            if (ts.isPropertyAssignment(a)) return carries(a.initializer);
-            if (ts.isShorthandPropertyAssignment(a)) return carries(a.name);
-            return false;
-          };
+          /* OLA 17: la prueba de procedencia vive ahora en el ámbito
+           * del juez (carriesArg) — la comparten este brazo, la
+           * expansión de miembros y el esparcido de llamadas. */
+          const carries = (a: ts.Node): boolean => carriesArg(a, ctx);
           if (e.arguments.some((a) => carries(a))) {
             const nm = e.expression.text;
             if (ctx.depth >= 4) { out.push(`la cadena de ayudantes en posición de parche («${nm}») excede lo que el censo sigue llevando la procedencia: no se certifica lo que no se ve (G16-1)`); return; }
@@ -1250,12 +1506,14 @@ function scanForms(files: { rel: string; text: string }[]) {
               if (ts.isIdentifier(a) && ctx.locals.has(a.text)) subRooted.add(pn);
             });
             const subLocals = new Map<string, ts.ObjectLiteralExpression>();
+            const subBindings = new Map<string, ts.Node>();
             const subBody = (hfn as { body?: ts.Node }).body;
             if (subBody) {
               for (let pass = 0; pass < 6; pass++) {
                 let grew = false;
                 const scan = (n: ts.Node) => {
                   if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+                    if (!subBindings.has(n.name.text)) subBindings.set(n.name.text, n.initializer);
                     if (ts.isObjectLiteralExpression(n.initializer) && !subLocals.has(n.name.text)) subLocals.set(n.name.text, n.initializer);
                     if (!subRooted.has(n.name.text)) {
                       let refs = false;
@@ -1271,7 +1529,7 @@ function scanForms(files: { rel: string; text: string }[]) {
                 if (!grew && pass > 0) break;
               }
             }
-            const subCtx: PatchCtx = { idRoot: subIdRoot, param: subParam, rooted: subRooted, locals: subLocals, enclosingParams: ctx.enclosingParams, foreign: 0, rel: r.rel, depth: ctx.depth + 1 };
+            const subCtx: PatchCtx = { idRoot: subIdRoot, param: subParam, rooted: subRooted, locals: subLocals, bindings: subBindings, enclosingParams: ctx.enclosingParams, foreign: 0, rel: r.rel, depth: ctx.depth + 1 };
             const subReturns: ts.Node[] = [];
             if (subBody) {
               if (!ts.isBlock(subBody)) subReturns.push(subBody);
@@ -1333,9 +1591,25 @@ function scanForms(files: { rel: string; text: string }[]) {
       if (!fnArg) return;
       const idArg = call.arguments[1];
       const idRoot = idArg && ts.isPropertyAccessExpression(idArg) && ts.isIdentifier(idArg.expression) ? idArg.expression.text : null;
+      /* OLA 17 (Guardián G17-2): la función entregada puede venir como
+       * RESULTADO de una llamada — `identidad(fn)` entrega fn, una
+       * fábrica entrega su literal — y se desenvuelve hasta el cuerpo
+       * entregado antes de juzgarla irresoluble. Lo que no desenvuelve
+       * a un cuerpo sigue acusando en voz alta, como en la ola 15:
+       * ni violación ni irresoluble EN SILENCIO. */
+      let fnExpr: ts.Node = fnArg;
+      for (let guard = 0; guard < 4 && ts.isCallExpression(fnExpr) && ts.isIdentifier(fnExpr.expression); guard++) {
+        const r = resolveHelper(fnExpr.expression.text, fromRel);
+        if (!r || !isFnLike(r.node)) break;
+        const idx = identityIndex(r.node);
+        if (idx >= 0 && fnExpr.arguments[idx]) { fnExpr = fnExpr.arguments[idx]!; continue; }
+        const fnLit = returnedFnLiteral(r.node);
+        if (fnLit) { fnExpr = fnLit; continue; }
+        break;
+      }
       let fnNode: ts.Node | null = null;
-      if (ts.isArrowFunction(fnArg) || ts.isFunctionExpression(fnArg)) fnNode = fnArg;
-      else if (ts.isIdentifier(fnArg)) { const r = resolveHelper(fnArg.text, fromRel); if (r) fnNode = r.node; }
+      if (ts.isArrowFunction(fnExpr) || ts.isFunctionExpression(fnExpr)) fnNode = fnExpr;
+      else if (ts.isIdentifier(fnExpr)) { const r = resolveHelper(fnExpr.text, fromRel); if (r) fnNode = r.node; }
       if (!fnNode || !(ts.isArrowFunction(fnNode) || ts.isFunctionExpression(fnNode) || ts.isFunctionDeclaration(fnNode))) {
         out.push("la función entregada a patchLineWith no se resuelve a un cuerpo: el censo no puede certificar lo que no ve (G15-1)");
         return;
@@ -1344,6 +1618,7 @@ function scanForms(files: { rel: string; text: string }[]) {
       const param = fn.parameters.length && ts.isIdentifier(fn.parameters[0]!.name) ? (fn.parameters[0]!.name as ts.Identifier).text : null;
       const rooted = new Set<string>(param ? [param] : []);
       const locals = new Map<string, ts.ObjectLiteralExpression>();
+      const bindings = new Map<string, ts.Node>();
       let paramUsed = false;
       if (fn.body) {
         for (let pass = 0; pass < 6; pass++) {
@@ -1351,6 +1626,7 @@ function scanForms(files: { rel: string; text: string }[]) {
           const scan = (n: ts.Node) => {
             if (ts.isIdentifier(n) && param && n.text === param) paramUsed = true;
             if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+              if (!bindings.has(n.name.text)) bindings.set(n.name.text, n.initializer);
               if (ts.isObjectLiteralExpression(n.initializer) && !locals.has(n.name.text)) locals.set(n.name.text, n.initializer);
               if (!rooted.has(n.name.text)) {
                 let refs = false;
@@ -1366,7 +1642,7 @@ function scanForms(files: { rel: string; text: string }[]) {
           if (!grew && pass > 0) break;
         }
       }
-      const ctx: PatchCtx = { idRoot, param, rooted, locals, enclosingParams, foreign: 0, rel: fromRel, depth: 0 };
+      const ctx: PatchCtx = { idRoot, param, rooted, locals, bindings, enclosingParams, foreign: 0, rel: fromRel, depth: 0 };
       const returns: ts.Node[] = [];
       if (fn.body) {
         if (!ts.isBlock(fn.body)) returns.push(fn.body);
@@ -1389,7 +1665,7 @@ function scanForms(files: { rel: string; text: string }[]) {
       if (!patchArg) return;
       const idArg = call.arguments[1];
       const idRoot = idArg && ts.isPropertyAccessExpression(idArg) && ts.isIdentifier(idArg.expression) ? idArg.expression.text : null;
-      const ctx: PatchCtx = { idRoot, param: null, rooted: new Set<string>(), locals: new Map(), enclosingParams, foreign: 0, rel: fromRel, depth: 0 };
+      const ctx: PatchCtx = { idRoot, param: null, rooted: new Set<string>(), locals: new Map(), bindings: new Map(), enclosingParams, foreign: 0, rel: fromRel, depth: 0 };
       if (ts.isObjectLiteralExpression(patchArg)) { judgeExpr(patchArg, ctx); return; }
       if (ts.isIdentifier(patchArg)) {
         if (enclosingParams.has(patchArg.text)) return; // el parche es un parámetro del mecanismo (paintLine): se juzga en sus llamantes, no aquí
@@ -2163,6 +2439,84 @@ describe("§B · el censo de formas que guardan: toda ruta de guardado, clasific
     assert.ok((mkPatch("", "(live) => ayudanteQueNoExiste(foto)").violations.get(key) ?? []).some((v) => /G16-1/.test(v)),
       "G16-1d: la llamada que lleva la foto y no se resuelve acusa, como la función entregada irresoluble");
   });
+  /* ── OLA 17 (Guardián G17-2): el parche entregado como RESULTADO de
+   * una llamada se resuelve — `identidad(fn)` y su familia. La caza
+   * clavó el silencio: la función entregada `(live) => identidad((l)
+   * => ({ history: [...foto.history] }))` corría la batería entera
+   * verde, porque judgeExpr no tenía rama para la flecha-argumento y
+   * la prueba de procedencia de G16-1 no veía la flecha como
+   * portadora. Ahora la llamada identidad se desenvuelve a su
+   * argumento y la flecha entregada se juzga como función de parche:
+   * ni violación ni irresoluble EN SILENCIO. ── */
+  it("espécimen G17-2: el parche tras una llamada identidad acusa por su cuerpo resuelto; el sano absuelve", () => {
+    const key = "components/faro/inventada17.tsx:save#1";
+    const mkPatch = (pre: string, fnBody: string) => scanForms([{
+      rel: "components/faro/inventada17.tsx",
+      text: [
+        "type S = { months: unknown };",
+        "const foto = { id: 'l9', history: [] as unknown[] };",
+        pre,
+        "export function Forma() {",
+        `  const save = () => commit((s: S) => patchLineWith(s, foto.id, ${fnBody}), 'x');`,
+        "  return null;",
+        "}",
+      ].join("\n"),
+    }]);
+    const ID_GEN = "const identidad = <T,>(f: T): T => f;";
+    const ID_ANK = "const identidad = (f: unknown) => f;";
+    // A2: la identidad genérica devuelve la flecha culpable — su cuerpo acusa
+    assert.ok((mkPatch(ID_GEN, "(live) => identidad((l) => ({ history: [...foto.history, { id: 'u1' }] }))").violations.get(key) ?? []).some((v) => /foto|historial/.test(v)),
+      "G17-2/A2: identidad(fn) con genéricos — la flecha resuelta lee el historial de la foto y acusa (antes: silencio total)");
+    // A2b: la identidad sin genéricos, la misma enfermedad
+    assert.ok((mkPatch(ID_ANK, "(live) => identidad((l) => ({ history: [...foto.history, { id: 'u1' }] }))").violations.get(key) ?? []).some((v) => /foto|historial/.test(v)),
+      "G17-2/A2b: identidad(fn) sin genéricos — la misma resolución, la misma acusación");
+    // la posición misma de la función entregada: patchLineWith recibe identidad(fn)
+    assert.ok((mkPatch(ID_GEN, "identidad((live) => ({ history: [...foto.history, { id: 'u1' }] }))").violations.get(key) ?? []).some((v) => /foto|historial/.test(v)),
+      "G17-2: la función entregada como resultado de la llamada se desenvuelve en judgePatchFn y su cuerpo acusa");
+    // sanos: la identidad que devuelve la flecha sana, y la identidad sobre lo vivo desnudo
+    assert.deepEqual(mkPatch(ID_GEN, "(live) => identidad((l) => ({ history: [...l.history, { id: 'u1' }] }))").violations.get(key) ?? [], [],
+      "sano: identidad(fn) donde fn compone desde su parámetro vivo absuelve — desenvolver no condena lo sano");
+    assert.deepEqual(mkPatch(ID_ANK, "(live) => identidad(live)").violations.get(key) ?? [], [],
+      "sano: identidad(live) entrega el parámetro vivo tal cual: limpio");
+    // lo que no desenvuelve a un cuerpo acusa en voz alta, jamás en silencio
+    assert.ok((mkPatch("const fabrica = (n: number) => n;", "fabrica(3)").violations.get(key) ?? []).some((v) => /no se resuelve/.test(v)),
+      "G17-2: una llamada que no entrega función ni desenvuelve acusa como irresoluble (G15-1), no pasa muda");
+  });
+  /* ── OLA 17 (Guardián G17-3): la procedencia por ACCESO A MIEMBRO —
+   * `e.copia` con `e` atado a un literal, a una llamada o en línea.
+   * La caza clavó los tres caminos en silencio (B4/B1/B2) y su control
+   * sano (B3): el juez miraba la raíz de la cadena («e») y el campo
+   * («copia», que no es campo de línea) y no veía la foto que el
+   * miembro transportaba. Ahora el miembro se expande a su valor y el
+   * valor se juzga con el parámetro remapeado. ── */
+  it("espécimen G17-3: el miembro que transporta la foto acusa por sus tres caminos; el control sano absuelve", () => {
+    const key = "components/faro/inventada17.tsx:save#1";
+    const mkPatch = (pre: string, fnBody: string) => scanForms([{
+      rel: "components/faro/inventada17.tsx",
+      text: [
+        "type S = { months: unknown };",
+        "const foto = { id: 'l9', history: [] as unknown[] };",
+        pre,
+        "export function Forma() {",
+        `  const save = () => commit((s: S) => patchLineWith(s, foto.id, ${fnBody}), 'x');`,
+        "  return null;",
+        "}",
+      ].join("\n"),
+    }]);
+    const ENV = "const envolver = (x: unknown) => ({ copia: x });";
+    // B4: el miembro de un literal atado
+    assert.ok((mkPatch("", "(live) => { const e = { copia: foto }; return { ...e.copia, concept: 'Anexo' }; }").violations.get(key) ?? []).some((v) => /foto/.test(v)),
+      "G17-3/B4: e = { copia: foto } — el miembro se expande al literal y la foto acusa");
+    // B1: el miembro de un nombre atado a una llamada
+    assert.ok((mkPatch(ENV, "(live) => { const e = envolver(foto); return { ...e.copia, concept: 'Anexo' }; }").violations.get(key) ?? []).some((v) => /foto/.test(v)),
+      "G17-3/B1: e = envolver(foto) — el miembro se resuelve por el cuerpo del ayudante con su parámetro remapeado a la foto");
+    // B2: el miembro de la llamada en línea
+    assert.ok((mkPatch(ENV, "(live) => ({ ...envolver(foto).copia, concept: 'Anexo' })").violations.get(key) ?? []).some((v) => /foto/.test(v)),
+      "G17-3/B2: envolver(foto).copia en línea — el mismo camino sin nombre intermedio");
+    // B3: el control sano — el miembro transporta lo vivo
+    assert.deepEqual(mkPatch(ENV, "(live) => { const e = envolver(live); return { ...e.copia, history: [...live.history, { id: 'u1' }] }; }").violations.get(key) ?? [], [],
+      "G17-3/B3 sano: envolver(live) y el historial anexado sobre lo vivo — la expansión remapea el parámetro y absuelve");
+  });
   /* ── OLA 16 (G16-2): el literal que recoge campos sin esparcidos ── */
   it("espécimen G16-2: el map que recoge campos sin esparcir el vivo acusa; el que esparce, absuelve", () => {
     const key = "components/faro/inventada16.tsx:run#1";
@@ -2365,6 +2719,18 @@ describe("§D · la prosa enseña la ley .318 y la familia vieja está condenada
    * título+promesa por VERBOS gobernados, no por frases de ley — la
    * promesa quedaba fuera del corpus de la ley revertida. */
   for (const md of MODULES) for (const text of pairsOf({ title: md.title, promise: md.promise })) corpus.push({ where: `módulo ${md.id}`, text });
+  /* OLA 17 (Enseñanza ENS17-1): los pares Chapter.title del GUION
+   * entran como entradas propias («capítulo del guion <id>»), el mismo
+   * gesto que MANUAL_CHAPTERS en la cura 14 y que los módulos en la
+   * 16. El corpus caminaba temas, escenas, capítulos del manual y
+   * registros de módulo — pero no los títulos de capítulo de la
+   * Presentación (MODULES[i].chapters): la frase condenada plantada
+   * SOLO en un título de capítulo del guion corría la batería entera
+   * verde (la caza la clavó: 322/322 con la frase viva). La §B de la
+   * ola 11 juzga esos títulos por verbos gobernados, no por frases de
+   * ley; la familia de la ley revertida los camina ahora por su
+   * nombre. */
+  for (const md of MODULES) for (const ch of md.chapters) for (const text of pairsOf({ title: ch.title })) corpus.push({ where: `capítulo del guion ${ch.id}`, text });
 
   const CONDENADAS: [string, RegExp][] = [
     ["subir no pide/pregunta", /\bsubir\b[^.!?]*\bno\s+(pide|pregunta)/i],
@@ -2429,6 +2795,16 @@ describe("§D · la prosa enseña la ley .318 y la familia vieja está condenada
     assert.ok(hits.length >= 2, `la intro escenificada acusa en la familia de frases: ${hits.join(", ")}`);
     // y el corpus vivo lleva los capítulos con su nombre propio
     assert.ok(corpus.some((c) => c.where.startsWith("capítulo ")), "el corpus nombra a los capítulos como entradas propias");
+  });
+  it("espécimen ola 17: la frase vieja SOLO en el título de un capítulo del GUION corre roja (la §D camina los Chapter.title)", () => {
+    const staged = { title: ["Subir no pide nada: aplica y te avisa qué se destapó.", "Moving up never asks: it uncovers the new mode at once."] };
+    const texts = pairsOf(staged);
+    assert.equal(texts.length, 2, "la recogida ve el título del capítulo del guion en los dos idiomas");
+    const hits = texts.flatMap((text) => CONDENADAS.filter(([, re]) => re.test(text)).map(([n]) => n));
+    assert.ok(hits.length >= 2, `el título de capítulo del guion acusa en la familia de frases: ${hits.join(", ")}`);
+    // y el corpus vivo lleva los capítulos del guion con su nombre propio
+    assert.ok(corpus.some((c) => c.where.startsWith("capítulo del guion ")), "el corpus nombra a los capítulos del guion como entradas propias");
+    assert.ok(corpus.filter((c) => c.where.startsWith("capítulo del guion ")).length >= 100, "el corpus recoge el título de cada capítulo del guion en los dos idiomas (55 capítulos × 2)");
   });
 });
 

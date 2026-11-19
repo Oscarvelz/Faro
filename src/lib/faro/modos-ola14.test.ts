@@ -130,8 +130,8 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
   /* EL CENSO DE LA CÁSCARA: toda superficie nativa que imprime una cifra
    * de dinero nombra su productor y su clase en este registro. Una cifra
    * nueva sin productor declarado acusa — la cáscara ya no vive fuera. */
-  const SUPERFICIES_CASCARA: [RegExp, string, string][] = [
-    // [patrón de la llamada, productor en la foto, clase]
+  const SUPERFICIES_CASCARA: [RegExp, string, string, string?][] = [
+    // [patrón de la llamada, productor en la foto, clase, sitio (archivo) si la entrada lo declara]
     [/money\(s, s\.spent\)|Fmt\.money\(s\.spent,/, "spent ← summarize.spend", "gasto"],
     [/money\(s, s\.spend\)|Fmt\.money\(s\.spend,/, "spend ← summarize.expense (la lente «Gastaré»)", "ancha nombrada"],
     [/Fmt\.money\(s\.savedOut,/, "savedOut ← spend − spent (derivado en la cáscara)", "apartado"],
@@ -149,8 +149,13 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     // la entrada vieja nombraba Fmt.money y el censo juzgaba la tasa por
     // una forma que la cara no usa. La llamada con Fmt.money es el
     // ejemplo «US$100 = …» de la línea 579: las dos nombran su sitio.
-    [/Fmt\.rate\(s\.rateE4\)/, "rateE4 ← la tasa de la foto, por Fmt.rate (FaroWidgets.kt:575)", "tasa"],
-    [/Fmt\.money\(s\.rateE4,/, "rateE4 ← la tasa leída como monto en el ejemplo «US$100 = …» (FaroWidgets.kt:579)", "tasa"],
+    // OLA 17 (Asesor M17-7): el sitio deja de ser prosa — es el cuarto
+    // campo de la entrada y la cerca lo VERIFICA: una entrada con sitio
+    // cuya llamada ya no vive en ese archivo acusa como superficie
+    // muerta, y la llamada se juzga sobre su texto RESUELTO por las
+    // ataduras (Fmt.rate(r4) con r4 = s.rateE4 ES esta llamada).
+    [/Fmt\.rate\(s\.rateE4\)/, "rateE4 ← la tasa de la foto, por Fmt.rate (FaroWidgets.kt:575)", "tasa", "FaroWidgets.kt"],
+    [/Fmt\.money\(s\.rateE4,/, "rateE4 ← la tasa leída como monto en el ejemplo «US$100 = …» (FaroWidgets.kt:579)", "tasa", "FaroWidgets.kt"],
     [/money\(s, total\)/, "total ← la suma de vencimientos en la cáscara", "suma de filas"],
     [/Fmt\.money\(s\.owed - s\.owe,/, "owed − owe ← el neto de Cobros", "derivado"],
   ];
@@ -258,19 +263,38 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     }
     return code.slice(0, start) + code.slice(start, i).replace(/[^\n]/g, " ") + code.slice(i);
   };
-  const censoCascara = (files: { name: string; text: string }[]): string[] => {
+  const censoCascara = (files: { name: string; text: string }[], sitios = false): string[] => {
     const acusadas: string[] = [];
     // paso 0: el paquete declara su doctrina — tipos y formateadores
     const tipos = new Map<string, Set<string>>(Object.entries(CASCARA_TIPOS_SEMILLA).map(([k, v]) => [k, new Set(v)]));
-    const scanned = files.map(({ name, text }) => ({ name, ...scanKt(text) }));
+    const scannedRaw = files.map(({ name, text }) => ({ name, ...scanKt(text) }));
+    // OLA 17: la casa del productor se retira UNA vez, aquí, y todo el
+    // censo (el paso de paquete y el juicio por archivo) trabaja sobre
+    // el código ya vaciado — la verificación de sitios de la §B-17 lee
+    // este mismo texto: las llamadas registradas viven fuera de Fmt.
+    const scanned = scannedRaw.map(({ name, code, literals }) => {
+      const fmtAt = code.search(/\bobject\s+Fmt\s*\{/);
+      return { name, literals, code: fmtAt >= 0 ? blankRegion(code, fmtAt, "{", "}") : code };
+    });
+    // OLA 17: los tipos de PROPIEDAD de cada clase (foto: Snap dentro
+    // de SobreM17) — la cadena se resuelve por la declaración, nazca
+    // en el archivo que nazca (M17-6b).
+    const propTypes = new Map<string, Map<string, string>>();
     for (const { code } of scanned) {
       for (const m of code.matchAll(/\bclass\s+(\w+)\s*\(([^)]*)\)/g)) {
         const fields = [...m[2]!.matchAll(/\bval\s+(\w+)\s*:\s*Long\??\b/g)].map((x) => x[1]!);
         if (fields.length) tipos.set(m[1]!, new Set([...(tipos.get(m[1]!) ?? []), ...fields]));
+        const props = new Map<string, string>();
+        for (const p of m[2]!.matchAll(/\bval\s+(\w+)\s*:\s*(\w+)\b/g)) props.set(p[1]!, p[2]!);
+        if (props.size) propTypes.set(m[1]!, props);
       }
     }
     const fmtFormatters = new Set<string>();
-    for (const { code } of scanned) {
+    // OLA 17: esta lectura va sobre el código SIN retirar la casa —
+    // scanned ya la trae retirada del paso 0 y aquí la casa es la
+    // evidencia (la primera forma de la cuarta vida la leyó sobre el
+    // código retirado y fmtFormatters nació vacío: M17-4b lo cazó).
+    for (const { code } of scannedRaw) {
       const at = code.search(/\bobject\s+Fmt\s*\{/);
       if (at < 0) continue;
       const raw = code.slice(at);
@@ -281,25 +305,207 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       }
       for (const m of raw.slice(0, end).matchAll(/\bfun\s+(\w+)\s*\(\s*\w+\s*:\s*Long\b[^)]*\)\s*:\s*String\b/g)) fmtFormatters.add(m[1]!);
     }
+    /* OLA 17 (Asesor): CUARTA VIDA — el punto fijo del valor se
+     * calcula sobre el PAQUETE antes de juzgar archivo a archivo. La
+     * tercera vida seguía el valor dentro de cada archivo y solo
+     * hacia afuera (ataduras que contienen un acceso, retornos): el
+     * ayudante construido en otro archivo (M17-2), el parámetro que
+     * ENTRA (M17-3, las dos formas), la cadena cuya declaración vive
+     * en otro archivo (M17-6b) y la atadura de identidad (M17-1)
+     * escapaban por la frontera del archivo. Aquí se derivan, una
+     * sola vez: los receptores del paquete (la unión de las
+     * declaraciones de tipo), los ayudantes del paquete y las
+     * PUERTAS de parámetro — qué parámetro de qué función recibe
+     * una cifra, por su valor por defecto o en algún sitio de
+     * llamada del paquete.
+     * La forma final lleva tres correcciones que la propia caza en
+     * vivo de esta cura impuso, y quedan escritas porque son la
+     * doctrina: (1) los nombres derivados del paquete viven POR
+     * ARCHIVO — un nombre significa lo que su archivo ata a él — y
+     * un nombre derivado usado como contenedor (n.first, n?.go) no
+     * entrega su valor; (2) los ayudantes del paquete nacen solo de
+     * funciones de NIVEL SUPERIOR (las llamables por su nombre
+     * desnudo desde otro archivo): la unión con los miembros de
+     * clase derivó media casa por colisión de nombres (parse, save,
+     * take…); (3) lo que entra por una puerta es el VALOR entregado
+     * — una selección if/else cuyas ramas son literales elige un
+     * destino, no pinta la cifra que la decidió — y el parámetro se
+     * juzga ACOTADO al cuerpo de su función, nunca inyectado al
+     * archivo entero (id, name, days acusaron sanos en la primera
+     * forma). El registro, además, ata a la llamada RESUELTA en su
+     * SITIO verificado (M17-7): la superficie muerta con su texto
+     * plantado en otro archivo acusa, y la re-expresión con el
+     * mismo productor (r4 = s.rateE4) absuelve. */
+    const receiverTypeNames = [...new Set([...tipos.keys(), ...propTypes.keys()])].join("|");
+    const pkgReceivers = new Map<string, string>();
+    for (const { code } of scanned) {
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) pkgReceivers.set(m[1]!, m[2]!);
+    }
+    const pkgAccessRe = pkgReceivers.size
+      ? new RegExp([...pkgReceivers].filter(([, t]) => (tipos.get(t)?.size ?? 0) > 0)
+        .map(([r, t]) => `\\b${r}\\.(${[...tipos.get(t)!].join("|")})\\b`).join("|"))
+      : /$^/;
+    const pkgWordIn = (n: string, t: string) => new RegExp(`(?<![\\w.])${n}\\b`).test(t);
+    type FunDecl17 = { name: string; params: { name: string; type?: string; def?: string }[]; file: number };
+    const funDecls: FunDecl17[] = [];
+    const pkgFunBodies: [string, string, number][] = [];
+    scanned.forEach(({ code }, fi) => {
+      for (const m of code.matchAll(/\bfun\s+(\w+)\s*\(([^)]*)\)/g)) {
+        const params = m[2]!.split(",").map((p) => {
+          const pm = p.trim().match(/^(\w+)\s*(?::\s*([^=]+))?(?:=\s*(.+))?$/);
+          return pm ? { name: pm[1]!, type: pm[2]?.trim(), def: pm[3] } : { name: p.trim() };
+        }).filter((p) => p.name);
+        funDecls.push({ name: m[1]!, params, file: fi });
+      }
+      /* OLA 17, segunda forma (la caza en vivo de esta misma cura):
+       * los cuerpos que siembran ayudantes de PAQUETE son solo los de
+       * las funciones de NIVEL SUPERIOR — las únicas llamables por su
+       * nombre desnudo desde otro archivo. La primera forma recogió
+       * también los miembros de clase (monthName, parse, save, take…)
+       * y el punto fijo del paquete derivó media casa: cualquier
+       * archivo que llamara a un parse(…) heredaba su «derivación».
+       * La declaración de nivel superior nace a comienzo de línea o
+       * tras un «;» (la grafía compacta de los especímenes), nunca
+       * sangrada como un miembro, y nunca private (privada de su
+       * archivo). Los miembros siguen juzgándose en su archivo por el
+       * punto fijo local, como siempre. */
+      for (const m of code.matchAll(/(?:^|;\s*)(?!private\b)(?:suspend\s+)?fun\s+(\w+)\s*\(([^)]*)\)[^{=]*=\s*([^\n]+)/gm)) pkgFunBodies.push([m[1]!, m[3]!, fi]);
+      for (const m of code.matchAll(/(?:^|;\s*)(?!private\b)(?:suspend\s+)?fun\s+(\w+)\s*\([^)]*\)[^{]*\{/gm)) {
+        const open = m.index + m[0].length - 1;
+        let depth = 0, end = code.length;
+        for (let i = open; i < code.length; i++) {
+          if (code[i] === "{") depth++;
+          else if (code[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+        }
+        pkgFunBodies.push([m[1]!, code.slice(open, end), fi]);
+      }
+    });
+    /* OLA 17, tercera forma (la misma caza en vivo): el punto fijo
+     * del paquete ata cada nombre a SU archivo — pkgDerived es por
+     * archivo, porque un nombre significa lo que su archivo ata a
+     * él (el id derivado de un archivo no deriva el id-puente de
+     * otro). Y lo que entra por una puerta es el VALOR: una
+     * selección (if/else, ?:) cuya condición mira una cifra pero
+     * cuyas ramas son literales entrega la literal, no la cifra —
+     * openIntent(ctx, if (s.owe >= s.owed) "vault-owe" else
+     * "vault-owed") no pinta dinero, elige destino. valueFlows juzga
+     * la rama que se entrega; el acceso desnudo (pinta(s.spent)) y el
+     * valor por defecto derivado siguen entrando, como clavaron
+     * M17-3a y M17-3b. */
+    const pkgDerivedByFile = new Map<number, Set<string>>();
+    const pkgSet = (fi: number): Set<string> => {
+      let s = pkgDerivedByFile.get(fi);
+      if (!s) { s = new Set(); pkgDerivedByFile.set(fi, s); }
+      return s;
+    };
+    const pkgHelpers = new Set<string>();
+    // un nombre derivado usado como CONTENEDOR (n.first, n?.go) no
+    // entrega su valor: entrega el campo final, que se juzga por su
+    // propio tipo. pkgWordValue solo cuenta el nombre cuando el
+    // carácter que lo sigue no es un acceso — el par del próximo
+    // vencimiento deriva como contenedor, y su .go (una cadena) no
+    // es la cifra que el par envuelve.
+    const pkgWordValue = (n: string, t: string): boolean => {
+      const re = new RegExp(`(?<![\\w.])${n}\\b`, "g");
+      for (const m of t.matchAll(re)) {
+        const next = t.slice(m.index + m[0].length).trimStart()[0];
+        if (next !== "." && next !== "?") return true;
+      }
+      return false;
+    };
+    const pkgExprDerived = (t: string, fi: number): boolean =>
+      pkgAccessRe.test(t) || [...pkgSet(fi)].some((n) => pkgWordValue(n, t)) || [...pkgHelpers].some((h) => new RegExp(`(?<![\\w.])${h}\\s*\\(`).test(t));
+    const splitTop = (v: string, sep: string): number => {
+      let depth = 0, inStr = false;
+      for (let i = 0; i + sep.length <= v.length; i++) {
+        const ch = v[i]!;
+        if (inStr) { if (ch === '"') inStr = false; continue; }
+        if (ch === '"') { inStr = true; continue; }
+        if (ch === "(" || ch === "{") depth++;
+        else if (ch === ")" || ch === "}") depth--;
+        else if (depth === 0 && v.startsWith(sep, i)) return i;
+      }
+      return -1;
+    };
+    const valueFlows = (t: string, fi: number): boolean => {
+      const v = t.trim();
+      const elseAt = splitTop(v, " else ");
+      if (elseAt >= 0) return valueFlows(v.slice(elseAt + 6), fi);
+      if (/^if\s*\(/.test(v) || /^when\b/.test(v)) return false;
+      const elvisAt = splitTop(v, "?:");
+      if (elvisAt >= 0) return valueFlows(v.slice(0, elvisAt), fi) || valueFlows(v.slice(elvisAt + 2), fi);
+      return pkgExprDerived(v, fi);
+    };
+    const paramFlow = new Map<string, Set<number>>();
+    const flowParam = (fn: string, i: number) => {
+      if (!paramFlow.has(fn)) paramFlow.set(fn, new Set());
+      paramFlow.get(fn)!.add(i);
+    };
+    for (let round = 0; round < 8; round++) {
+      let grew = false;
+      scanned.forEach(({ code }, fi) => {
+        for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) {
+          if (/\.toInt\(\)/.test(m[2]!) && m[2]!.includes("/")) continue; // el porcentaje tampoco deriva en el paquete
+          if (!pkgSet(fi).has(m[1]!) && pkgExprDerived(m[2]!, fi)) { pkgSet(fi).add(m[1]!); grew = true; }
+        }
+      });
+      for (const [fn, body, fi] of pkgFunBodies) {
+        if (!pkgHelpers.has(fn) && pkgExprDerived(body, fi)) { pkgHelpers.add(fn); grew = true; }
+      }
+      for (const d of funDecls) {
+        d.params.forEach((p, i) => {
+          if (p.def !== undefined && valueFlows(p.def, d.file) && !paramFlow.get(d.name)?.has(i)) { flowParam(d.name, i); grew = true; }
+        });
+        const callRe = new RegExp(`\\b${d.name}\\s*\\(([^)]*)\\)`, "g");
+        scanned.forEach(({ code }, fi) => {
+          for (const m of code.matchAll(callRe)) {
+            if (code.slice(Math.max(0, m.index - 4), m.index) === "fun ") continue; // la declaración no es un sitio de llamada
+            m[1]!.split(",").forEach((a, i) => {
+              if (i < d.params.length && valueFlows(a, fi) && !paramFlow.get(d.name)?.has(i)) { flowParam(d.name, i); grew = true; }
+            });
+          }
+        });
+      }
+      if (!grew) break;
+    }
     const typeNames = [...tipos.keys()].join("|");
-    for (const { name, code: rawCode, literals } of scanned) {
-      // la casa del productor se retira antes de juzgar
-      let code = rawCode;
-      const fmtAt = code.search(/\bobject\s+Fmt\s*\{/);
-      if (fmtAt >= 0) code = blankRegion(code, fmtAt, "{", "}");
-      // receptores por TIPO DECLARADO, no por nombre
+    for (const [fi, { name, code: rawCode, literals }] of scanned.entries()) {
+      // la casa del productor ya se retiró en el paso 0 (ola 17)
+      const code = rawCode;
+      // receptores por TIPO DECLARADO, no por nombre — el universo de
+      // tipos incluye toda clase declarada en el paquete (ola 17)
       const receivers = new Map<string, string>();
-      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${typeNames})\\b`, "g"))) receivers.set(m[1]!, m[2]!);
-      const accessRe = receivers.size
-        ? new RegExp([...receivers].map(([r, t]) => `\\b${r}\\.(${[...tipos.get(t)!].join("|")})\\b`).join("|"))
-        : /$^/;
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) receivers.set(m[1]!, m[2]!);
+      const buildAccess = (): RegExp => {
+        const pats = [...receivers].filter(([, t]) => (tipos.get(t)?.size ?? 0) > 0)
+          .map(([r, t]) => `\\b${r}\\.(${[...tipos.get(t)!].join("|")})\\b`);
+        return pats.length ? new RegExp(pats.join("|")) : /$^/;
+      };
+      // OLA 17: las cadenas se resuelven por el tipo DECLARADO de la
+      // propiedad — h.foto.spent con foto: Snap ES un acceso a la
+      // foto, nazca la declaración de SobreM17 donde nazca (M17-6/6b)
+      const buildChains = (): RegExp => {
+        const pats: string[] = [];
+        for (const [r, t] of receivers) {
+          const props = propTypes.get(t);
+          if (!props) continue;
+          for (const [f, u] of props) {
+            const fields = tipos.get(u);
+            if (fields?.size) pats.push(`\\b${r}\\.${f}\\.(${[...fields].join("|")})\\b`);
+          }
+        }
+        return pats.length ? new RegExp(pats.join("|")) : /$^/;
+      };
+      let accessRe = buildAccess();
+      let chainRe = buildChains();
       // el valor se sigue: ataduras locales y ayudantes, por punto fijo
       const derived = new Set<string>();
-      const helpers = new Set<string>();
+      const bindings = new Map<string, string>();
+      const helpers = new Set<string>(pkgHelpers);
       const conduits = new Set<string>();
       const wordIn = (n: string, t: string) => new RegExp(`(?<![\\w.])${n}\\b`).test(t);
       const exprDerived = (t: string): boolean =>
-        accessRe.test(t) || [...derived].some((n) => wordIn(n, t)) || [...helpers].some((h) => new RegExp(`\\b${h}\\s*\\(`).test(t));
+        accessRe.test(t) || chainRe.test(t) || [...derived].some((n) => wordIn(n, t)) || [...helpers].some((h) => new RegExp(`(?<![\\w.])${h}\\s*\\(`).test(t));
       const funBodies: [string, string][] = [];
       const exprBodies: [string, string][] = [];
       for (const m of code.matchAll(/\bfun\s+(\w+)\s*\(([^)]*)\)[^{=]*=\s*([^\n]+)/g)) { funBodies.push([m[1]!, m[3]!]); exprBodies.push([m[1]!, m[3]!]); }
@@ -315,6 +521,18 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       for (let round = 0; round < 8; round++) {
         let grew = false;
         for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) {
+          bindings.set(m[1]!, m[2]!.trim());
+          // OLA 17 (M17-1): la atadura de IDENTIDAD — val mismo = s —
+          // no contiene acceso alguno y no derivaba: la foto entera
+          // viajaba bajo otro nombre. El alias ES el receptor, con su
+          // tipo, y los accesos y las cadenas se reconstruyen con él.
+          const rhsName = m[2]!.trim();
+          if (/^\w+$/.test(rhsName) && receivers.has(rhsName) && !receivers.has(m[1]!)) {
+            receivers.set(m[1]!, receivers.get(rhsName)!);
+            accessRe = buildAccess();
+            chainRe = buildChains();
+            grew = true;
+          }
           // CALIBRACIÓN VIVA (ola 16): un cociente de dos cifras,
           // escalado y convertido a Int, es un PORCENTAJE, no una
           // cifra — la misma doctrina que deja fuera usedPct:
@@ -328,6 +546,11 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         }
         if (!grew) break;
       }
+      // (las puertas de M17-3 se juzgan abajo, acotadas al cuerpo de
+      // cada función: un nombre de parámetro derivado NO tiñe el
+      // archivo entero — la caza en vivo lo probó: id, name, days y
+      // hasta d pasaron a «derivar» en archivos que declaran funciones
+      // con esos parámetros, y el censo acusó superficies sanas)
       /* Un CONDUCTO es otra cosa que un ayudante que deriva: una función
        * de cuerpo-expresión que ENTREGA el valor formateado (el
        * envoltorio `money(s, minor)` de la casa) — sus llamadas se
@@ -337,13 +560,42 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       for (const [fn, body] of exprBodies) {
         if ([...fmtFormatters].some((f) => new RegExp(`Fmt\\.${f}\\s*\\(`).test(body)) || /(?<![\w.])money\s*\(/.test(body)) conduits.add(fn);
       }
+      /* OLA 17 (M17-7b): el registro ata a la llamada RESUELTA, no a
+       * su grafía — la absolución sigue la procedencia del argumento
+       * por sus ataduras: Fmt.rate(r4) con val r4 = s.rateE4 ES la
+       * llamada registrada de la tasa. La expansión sustituye solo
+       * identificadores desnudos (ni miembros tras un punto ni
+       * nombres de función) y se prueba junto al texto crudo: lo que
+       * no resuelve a una entrada sigue acusando. */
+      const expand = (t: string): string => {
+        let out = t;
+        for (let r = 0; r < 4; r++) {
+          let changed = false;
+          for (const [n, rhs] of bindings) {
+            out = out.replace(new RegExp(`(?<![\\w.])${n}(?![\\w(])`, "g"), () => { changed = true; return rhs; });
+          }
+          if (!changed) break;
+        }
+        return out;
+      };
       const judgedCall = (call: string) => {
-        if (!SUPERFICIES_CASCARA.some(([re]) => re.test(call))) acusadas.push(`${name}: ${call.slice(0, 70)}`);
+        if (!SUPERFICIES_CASCARA.some(([re]) => re.test(call) || re.test(expand(call)))) acusadas.push(`${name}: ${call.slice(0, 70)}`);
       };
       // forma 1: llamadas a formateadores — cada una nombra su productor
       for (const m of code.matchAll(/\bFmt\.(\w+)\s*\(([^)]*)\)/g)) {
         if (m[2]!.includes(":")) continue; // declaración, no superficie
         if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(m[0]);
+      }
+      // OLA 17 (M17-4): el formateador por REFERENCIA — val f =
+      // Fmt::money ES Fmt.money; sus llamadas son forma 1 con el
+      // nombre resuelto, y se juzgan como la llamada que son.
+      for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*=\s*Fmt::(\w+)\b/g)) {
+        if (!fmtFormatters.has(m[2]!)) continue;
+        const alias = m[1]!, target = m[2]!;
+        for (const c of code.matchAll(new RegExp(`(?<![\\w.])${alias}\\s*\\(([^)]*)\\)`, "g"))) {
+          if (c[1]!.includes(":")) continue;
+          judgedCall(`Fmt.${target}(${c[1]!})`);
+        }
       }
       for (const m of code.matchAll(/(?<![\w.])money\s*\(([^)]*)\)/g)) {
         if (m[1]!.includes(":")) continue; // la declaración del envoltorio local lleva tipos
@@ -366,6 +618,9 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         }
       }
       // forma 3: String.format — clásico o por extensión — con marcador numérico sobre una cifra derivada
+      // OLA 17 (M17-5b): el marcador %s entra en la lista — imprime los
+      // mismos dígitos que %d; la guarda sigue siendo el argumento
+      // derivado (la fecha sana con %04d y literales no deriva y no acusa)
       const fmtCallArgs = (from: number): string => {
         let depth = 0, j = from;
         for (; j < code.length; j++) {
@@ -376,11 +631,11 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       };
       for (const m of code.matchAll(/\bString\.format\s*\(/g)) {
         const call = fmtCallArgs(m.index + m[0].length - 1);
-        if (/%[\d,.]*[df]/.test(call) && exprDerived(call)) acusadas.push(`${name}: String.format sobre una cifra: «${call.slice(0, 60)}»`);
+        if (/%[\d,.]*[dfs]/.test(call) && exprDerived(call)) acusadas.push(`${name}: String.format sobre una cifra: «${call.slice(0, 60)}»`);
       }
       for (const m of code.matchAll(/"([^"]*)"\s*\.format\s*\(/g)) {
         const call = fmtCallArgs(m.index + m[0].length - 1);
-        if (/%[\d,.]*[df]/.test(m[1]!) && exprDerived(call)) acusadas.push(`${name}: String.format por extensión sobre una cifra: «${call.slice(0, 60)}»`);
+        if (/%[\d,.]*[dfs]/.test(m[1]!) && exprDerived(call)) acusadas.push(`${name}: String.format por extensión sobre una cifra: «${call.slice(0, 60)}»`);
       }
       // forma 4: StringBuilder/append de una cifra derivada
       for (const m of code.matchAll(/\.append\s*\(([^)]*)\)/g)) {
@@ -396,6 +651,19 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         for (const m of code.matchAll(new RegExp(`\\b${lf}\\.format\\s*\\(([^)]*)\\)`, "g"))) {
           if (exprDerived(m[1]!)) acusadas.push(`${name}: el formateador local «${lf}» imprime una cifra sin productor: «${m[0].slice(0, 60)}»`);
         }
+      }
+      // forma 7 (OLA 17, M17-5a): replace cuyo REEMPLAZO deriva de una
+      // cifra — la plantilla construida en un archivo y pintada en
+      // otro con replace("{m}", s.spent.toString()) imprime la cifra
+      // sin productor, como el append y la concatenación. Si el
+      // reemplazo lo produce un formateador, lo juzga la forma 1.
+      for (const m of code.matchAll(/\.replace\s*\(([^)]*)\)/g)) {
+        const args = m[1]!;
+        const comma = args.indexOf(",");
+        if (comma < 0) continue;
+        const repl = args.slice(comma + 1);
+        if (/\bFmt\.\w+\s*\(|(?<![\w.])money\s*\(/.test(repl)) continue;
+        if (exprDerived(repl)) acusadas.push(`${name}: replace con un reemplazo derivado sin productor: «${m[0].slice(0, 60)}»`);
       }
       // forma 6: concatenación con cadena y Log — la cifra derivada fuera de todo formateador
       const maskCalls = (line: string): string => {
@@ -434,6 +702,81 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       for (const m of code.matchAll(/\bLog\.\w+\s*\(([^)]*)\)/g)) {
         if (exprDerived(m[1]!)) acusadas.push(`${name}: una cifra derivada en un Log: «${m[0].slice(0, 60)}»`);
       }
+      /* OLA 17 (M17-3): las PUERTAS, acotadas a su cuerpo — un
+       * parámetro que recibe una cifra (en un sitio de llamada del
+       * paquete o por su valor por defecto derivado) hace derivado a
+       * ese nombre SOLO dentro del cuerpo de su función, y ahí sus
+       * usos se juzgan con las formas de la casa (la llamada al
+       * formateador la juzga judgedCall; la interpolación cruda
+       * acusa). Fuera del cuerpo el nombre no deriva: la primera
+       * forma de esta cura inyectó el parámetro al archivo entero y
+       * el árbol vivo acusó superficies sanas con nombres comunes
+       * (id, name, days, d) — la puerta es de la función, no del
+       * archivo, y esta segunda forma queda clavada por ese mismo
+       * árbol vivo, que vuelve a correr limpio. */
+      for (const d of funDecls) {
+        if (d.file !== fi) continue;
+        const flowed = paramFlow.get(d.name);
+        if (!flowed || flowed.size === 0) continue;
+        const body = funBodies.find(([n]) => n === d.name)?.[1];
+        if (!body) continue;
+        const extra = new Set(derived);
+        for (const i of flowed) {
+          const p = d.params[i];
+          if (!p) continue;
+          // un parámetro cuyo tipo declarado es una clase con cifras
+          // (Snap, Pace, Due…) es un RECEPTOR, no el valor: su nombre
+          // desnudo no deriva — sus accesos ya los juzgan accessRe y
+          // las cadenas. Solo el parámetro escalar (Long, String, sin
+          // tipo) ES la cifra que entró por la puerta.
+          const tbase = (p.type ?? "").replace(/[<>?,]/g, " ").split(/\s+/).filter(Boolean).pop();
+          if (tbase && (tipos.has(tbase) || propTypes.has(tbase))) continue;
+          extra.add(p.name);
+        }
+        const spanDerived = (e: string): boolean =>
+          accessRe.test(e) || (chainRe !== null && chainRe.test(e)) ||
+          [...extra].some((w) => new RegExp(`\\b${w}\\b`).test(e)) ||
+          [...helpers].some((fn) => new RegExp(`\\b${fn}\\s*\\(`).test(e));
+        for (const m of body.matchAll(/\bFmt\.(\w+)\s*\(([^)]*)\)/g)) {
+          if (m[2]!.includes(":")) continue;
+          if (fmtFormatters.has(m[1]!) || spanDerived(m[2]!)) judgedCall(m[0]);
+        }
+        for (const lit of scanKt(body).literals) {
+          for (const m of lit.matchAll(/\$\{([^}]*)\}|\$([A-Za-z_][\w.]*)/g)) {
+            const expr = m[1] ?? m[2] ?? "";
+            if (/\bFmt\.\w+\s*\(|(?<![\w.])money\s*\(/.test(expr)) continue;
+            if ([...conduits].some((c) => new RegExp(`\\b${c}\\s*\\(`).test(expr))) continue;
+            if (spanDerived(expr)) acusadas.push(`${name}: el parámetro de ${d.name} pinta una cifra sin productor: «${lit.slice(0, 60)}»`);
+          }
+        }
+      }
+    }
+    /* OLA 17 (M17-7a): las entradas con SITIO se verifican contra su
+     * archivo — la llamada registrada debe VIVIR ahí, en su texto
+     * crudo o resuelto por las ataduras de ese archivo (la misma
+     * resolución con que se juzga). Una superficie registrada que ya
+     * no está en su sitio acusa como superficie muerta, con la misma
+     * severidad con que la §A sentencia el asiento fantasma: borrar
+     * la línea de la tasa del widget y plantar su texto en otro
+     * archivo ya no corre verde. La verificación de sitios es del
+     * censo del PAQUETE (sitios = true): los especímenes sueltos no
+     * la invocan, salvo el que la clava (M17-7a, que la pide). */
+    if (sitios) for (const [re, productor, , sitio] of SUPERFICIES_CASCARA) {
+      if (!sitio) continue;
+      const f = scanned.find((x) => x.name === sitio);
+      if (!f) continue; // el sitio se verifica cuando su archivo está en el universo escaneado (en el paquete vivo, siempre)
+      if (re.test(f.code)) continue;
+      const binds = new Map<string, string>();
+      for (const m of f.code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) binds.set(m[1]!, m[2]!.trim());
+      let texto = f.code;
+      for (let r = 0; r < 4; r++) {
+        let changed = false;
+        for (const [n, rhs] of binds) {
+          texto = texto.replace(new RegExp(`(?<![\\w.])${n}(?![\\w(])`, "g"), () => { changed = true; return rhs; });
+        }
+        if (!changed) break;
+      }
+      if (!re.test(texto)) acusadas.push(`registro: la superficie «${productor}» ya no vive en su sitio (${sitio})`);
     }
     return acusadas;
   };
@@ -453,7 +796,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     for (const known of ["FaroNotify.kt", "FaroWidgets.kt", "MainActivity.kt", "QuickAdd.kt", "WidgetConfigActivity.kt"]) {
       assert.ok(files.some((f) => f.name === known), `el universo camina ${known}`);
     }
-    assert.deepEqual(censoCascara(files), [], "cifras sin productor declarado");
+    assert.deepEqual(censoCascara(files, true), [], "cifras sin productor declarado");
   });
   it("la semilla de tipos dice la verdad de las declaraciones vivas (los campos Long de cada tipo de la foto)", () => {
     const kt = readFileSync(new URL("../../../android/app/src/main/java/com/oscarvelz/faro/FaroWidgets.kt", import.meta.url), "utf8");
@@ -526,6 +869,59 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     const fmtDecl = { name: "Fmt.kt", text: "object Fmt { fun money(minor: Long, cur: String): String = \"\" }" };
     const acus = censoCascara([fmtDecl, ...files]);
     assert.ok(acus.some((a) => a.startsWith("sub/Sucio.kt")), `la cifra del subdirectorio acusa por su nombre: ${acus.join(" | ")}`);
+  });
+  it("especímenes M17 (ola 17): el censo sigue el valor hacia adentro, entre archivos, por parámetros y por referencia — y el registro ata a la llamada resuelta en su sitio", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\" }",
+    };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M17-1: la atadura de identidad — la foto entera bajo otro nombre
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun a(s: Snap): String { val mismo = s; return \"Debes ${mismo.spent}\" } }" }]).length >= 1,
+      "M17-1: val mismo = s ya no esconde la foto: el alias ES el receptor y su interpolación acusa");
+    // M17-2: la clase de datos intermedia construida en OTRO archivo
+    const caja = { name: "Caja.kt", text: "class CajaM17(val monto: Long); fun cajaDe(s: Snap) = CajaM17(s.spent)" };
+    const pintor = { name: "Pintor.kt", text: "class W { fun a(s: Snap): String { val c = cajaDe(s); return \"Debes ${c.monto}\" } }" };
+    assert.ok(caza([caja, pintor]).length >= 1, "M17-2: el valor que cruza dentro de un objeto construido en otro archivo acusa");
+    // M17-2c (control de la caza): la misma construcción en un solo archivo acusaba y acusa
+    assert.ok(caza([{ name: "Uno.kt", text: "class CajaM17(val monto: Long); fun cajaDe(s: Snap) = CajaM17(s.spent); class W { fun a(s: Snap): String { val c = cajaDe(s); return \"Debes ${c.monto}\" } }" }]).length >= 1,
+      "M17-2c: el control de un archivo acusa, como en la caza");
+    // M17-3a: el parámetro que entra por un sitio de llamada
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun pinta(monto: Long) = \"Debes $monto\"; fun a(s: Snap) = pinta(s.spent) }" }]).length >= 1,
+      "M17-3a: el parámetro llenado con una cifra en su llamada es puerta: el cuerpo que lo pinta acusa");
+    // M17-3b: el parámetro con valor por defecto derivado
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun b(s: Snap, monto: Long = s.spent) = \"Debes $monto\" }" }]).length >= 1,
+      "M17-3b: el valor por defecto derivado abre la misma puerta");
+    // M17-4: el formateador por referencia — juzgado como la llamada que es, en las dos direcciones
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "class W { val f = Fmt::money; fun a(s: Snap) = f(s.spent, s.cur) }" }]), [],
+      "M17-4: val f = Fmt::money y f(s.spent, …) ES la llamada registrada del gasto: absuelve por su nombre");
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { val f = Fmt::money; fun a(s: Snap) = f(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M17-4b: la misma referencia con un productor no declarado acusa");
+    // M17-5a: la plantilla pintada con replace de un reemplazo derivado
+    assert.ok(caza([
+      { name: "Plantilla.kt", text: "const val DEUDA = \"Debes {m}\"" },
+      { name: "Pintor.kt", text: "class W { fun a(s: Snap) = DEUDA.replace(\"{m}\", s.spent.toString()) }" },
+    ]).length >= 1, "M17-5a: el replace con reemplazo derivado imprime la cifra sin productor: acusa");
+    // M17-5b: String.format con %s sobre una cifra
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun a(s: Snap) = String.format(\"Debes %s\", s.spent) }" }]).length >= 1,
+      "M17-5b: el %s imprime los mismos dígitos que el %d: acusa");
+    // M17-6b: la cadena cuya declaración vive en OTRO archivo — resuelta por el tipo de la propiedad
+    assert.ok(caza([
+      { name: "Sobre.kt", text: "class SobreM17(val foto: Snap)" },
+      { name: "Pintor.kt", text: "class W { fun a(h: SobreM17) = \"Debes ${h.foto.spent}\" }" },
+    ]).length >= 1, "M17-6b: h.foto.spent se resuelve por la declaración (foto: Snap), nazca donde nazca");
+    // M17-6 (control de la caza): la misma cadena en un solo archivo acusaba y acusa — ahora por resolución
+    assert.ok(caza([{ name: "Uno.kt", text: "class SobreM17(val foto: Snap); class W { fun a(h: SobreM17) = \"Debes ${h.foto.spent}\" }" }]).length >= 1,
+      "M17-6: el control de un archivo acusa, como en la caza");
+    // M17-7b: la re-expresión inocente del mismo productor absuelve por su nombre
+    assert.deepEqual(caza([{ name: "FaroWidgets.kt", text: "class W { fun a(s: Snap): String { val r4 = s.rateE4; return Fmt.rate(r4) }; fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" }]), [],
+      "M17-7b: Fmt.rate(r4) con r4 = s.rateE4 ES la llamada registrada de la tasa: absuelve resuelta");
+    // M17-7a: la superficie muerta — su texto plantado en otro archivo no la salva
+    const sinTasa = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "class W { fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+      { name: "FaroNotify.kt", text: "class N { fun a(s: Snap) = Fmt.rate(s.rateE4) }" },
+    ], true);
+    assert.ok(sinTasa.some((a) => a.includes("ya no vive en su sitio")), `M17-7a: la entrada de la tasa acusa su sitio vacío: ${sinTasa.join(" | ")}`);
   });
   it("controles del censo nuevo: el comentario no acusa, el porcentaje no es dinero, la fecha no es cifra", () => {
     const ok = censoCascara([{ name: "FaroNotify.kt", text: [

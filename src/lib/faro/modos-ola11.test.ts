@@ -417,6 +417,25 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
           if (q === undefined) continue;
           if (FUSION_MARCA.test(q) && !FUSION_OBJETO.test(q) && !verboEn(q)) return true; // la elipsis de la 15
         }
+        // OLA 17 (Cara B4): la elipsis se recompone también a DOS
+        // proposiciones de distancia — «Fusiona las tiendas desde el
+        // menú; la lista se ordena sola; dos quedan en una»: la marca
+        // vive en la tercera y el objeto en la primera, con la misma
+        // cadena de referencia. La proposición lejana presta su marca
+        // solo si ni ella ni la INTERMEDIA traen objeto-registro ni
+        // verbo de fusión propios (la intermedia inocente no corta la
+        // cadena; la que trae su propio objeto y su propio asunto, sí).
+        // EL LÍMITE, DECLARADO: más allá de dos proposiciones, o a
+        // través de una intermedia con objeto o verbo de fusión, la
+        // elipsis NO se recompone — la cerca prefiere ese silencio
+        // escrito a condenar por proximidad en cadena (el control de
+        // contaminación de la ola 16 queda clavado junto a este).
+        for (const d of [-2, 2]) {
+          const q = props[i + d];
+          const mid = props[i + d / 2];
+          if (q === undefined || mid === undefined) continue;
+          if (FUSION_MARCA.test(q) && !FUSION_OBJETO.test(q) && !verboEn(q) && !FUSION_OBJETO.test(mid) && !verboEn(mid)) return true;
+        }
       }
     }
     return false;
@@ -470,14 +489,33 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
       // «saldrá», cerrada por el «, y» antes de «lo que anotes»: lo
       // que precede al verbo en SU cláusula son apuntes, no objeto, y
       // la frase sigue absuelta en las dos direcciones.
+      // OLA 17 (Cara B1+B2+B3): la frontera hacia atrás aprende tres
+      // cosas. (B1) La RELATIVA con cópula ya no cierra la ventana: el
+      // fragmento antes del «;» se mide SIN sus cláusulas relativas
+      // («el préstamo que es del banco» es un fragmento topicalizado
+      // con adjetiva, no una proposición con verbo propio — su «es»
+      // vive dentro de la relativa y no hace finito al fragmento).
+      // (B2) Las ADVERSATIVAS cierran la cláusula ajena como las
+      // copulativas: «, pero» / «, but» entran en la lista de
+      // fronteras — la geometría de la inocente de la ola 14 absuelve
+      // también en su forma adversativa. (B3) Y la frontera NO cierra
+      // la cláusula que COMPARTE el objeto: cuando el verbo de
+      // archivar lleva su objeto como ENCLÍTICO («archívalo»,
+      // «archive it»), el pronombre ES la cadena de referencia con el
+      // objeto de la cláusula madre — ninguna frontera (conjunción ni
+      // «;») amputa ese antecedente, porque el verbo lo nombra.
       const FINITO = /\b(?:es|son|esta|estan|tiene|tienen|hay|sale|salen|saldra|comparte|comparten|cambia|cambian|queda|quedan|sera|seran|fue|fueron|is|are|was|were|has|have|will|would|can|could|shall|should|may|might|does|did|shares?|changes?|shows?|appears?|sits?|keeps?|stays?|remains?)\b/i;
+      const RELATIVA = /\b(?:que|quien|quienes|cual|cuales|donde|cuando|that|which|who|whom|whose|where|when)\b[^,;]*/g;
+      const llevaEnclitico = /^(?:archiv|archive)/i.test(m[0]) && (/(?:lo|la|los|las|le|les)$/i.test(m[0]) || /^\s+(?:it|them)\b/i.test(s.slice(m.index! + m[0].length)));
       let backStart = 0;
-      for (const mk of s.slice(0, m.index!).matchAll(/, y |, and |: /g)) backStart = Math.max(backStart, mk.index + mk[0].length);
-      const semi = s.lastIndexOf(";", m.index!);
-      if (semi >= backStart) {
-        const frag = s.slice(backStart, semi);
-        if (FINITO.test(frag)) backStart = semi + 1; // la proposición anterior trae su verbo: es suya, la ventana empieza tras el «;»
-        // si es un fragmento sin verbo, la ventana lo recoge entero (backStart queda antes del «;»)
+      if (!llevaEnclitico) {
+        for (const mk of s.slice(0, m.index!).matchAll(/, y |, and |, pero |, but |: /g)) backStart = Math.max(backStart, mk.index + mk[0].length);
+        const semi = s.lastIndexOf(";", m.index!);
+        if (semi >= backStart) {
+          const frag = s.slice(backStart, semi).replace(RELATIVA, " ");
+          if (FINITO.test(frag)) backStart = semi + 1; // la proposición anterior trae su verbo: es suya, la ventana empieza tras el «;»
+          // si es un fragmento sin verbo, la ventana lo recoge entero (backStart queda antes del «;»)
+        }
       }
       if (ARCHIV_OBJETO.test(s.slice(backStart, m.index!))) return true;
     }
@@ -768,6 +806,37 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     assert.equal(stage("Fusiona, cuando puedas, las dos tiendas repetidas en una.", "Merge, when you can, the two repeated stores into one.").length, 2,
       "B4 · dentro de la proposición la subordinada no amputa la evidencia");
   });
+  it("B1–B4 (ola 17): la relativa no cierra, la adversativa cierra, el enclítico comparte y la elipsis llega a dos proposiciones", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const deudas = MANUAL_TOPICS.find((t) => t.id === "deudas")!;
+    const stage = (base: Topic, es: string, en: string) => violaciones({ ...base, what: [es, en] } as never);
+    // B1 · la topicalizada con relativa de cópula: el objeto antes de
+    // la relativa sigue alcanzable — la «es» de la adjetiva no hace
+    // finito al fragmento (en su forma con enclítico y sin él)
+    assert.equal(stage(deudas, "El préstamo que es del banco; archívalo cuando puedas.", "The loan that is the bank's; archive it when you can.").length, 2,
+      "B1 · la relativa con cópula no cierra la ventana hacia atrás: la topicalizada acusa en los dos idiomas");
+    assert.equal(stage(deudas, "El préstamo que es del banco; se archivará mañana.", "The loan that is the bank's; it will be archived tomorrow.").length, 2,
+      "B1 · sin enclítico, la misma recomposición: el fragmento se mide sin su relativa");
+    // B2 · la inocente de la ola 14 en forma ADVERSATIVA absuelve
+    // como en la copulativa: «, pero» / «, but» cierran la cláusula ajena
+    assert.deepEqual(stage(tienda, "La tarjeta de apuntes, pero lo que anotes se archivará en ese lugar.", "The notes card, but what you jot down will be archived in that place."), [],
+      "B2 · la geometría de la inocente con adversativa: archivar apuntes en un lugar no archiva la tarjeta — absuelta en los dos idiomas");
+    // B3 · la coordinación que COMPARTE el objeto acusa: el enclítico
+    // del verbo recoge el objeto de la cláusula madre, y ninguna
+    // frontera lo amputa (B2 y B3 son una sola cura de frontera)
+    assert.equal(stage(deudas, "Revisa el préstamo cerrado, y archívalo después.", "Check the closed loan, and archive it afterwards.").length, 2,
+      "B3 · «, y archívalo» no cierra la cláusula del objeto compartido: acusa en los dos idiomas");
+    // B4 · la elipsis a dos proposiciones se recompone…
+    assert.equal(stage(tienda, "Fusiona las tiendas desde el menú; la lista se ordena sola; dos quedan en una.", "Merge the stores from the menu; the list sorts itself; two become one.").length, 2,
+      "B4 · marca en la tercera, objeto en la primera, intermedia inocente: la evidencia partida se recompone y acusa");
+    // …y su límite declarado queda clavado: la intermedia con objeto
+    // y asunto propios corta la recomposición
+    assert.deepEqual(stage(tienda, "Fusiona las tiendas desde el menú; las dos tarjetas comparten el mismo fondo; dos quedan en una.", "Merge the stores from the menu; the two cards share the same background; two become one."), [],
+      "B4 · el límite: una proposición intermedia con su objeto-registro corta la cadena — la cerca no condena por proximidad");
+    // y la frase viva de widget-android sigue absuelta en su forma entera
+    assert.deepEqual(stage(tienda, "Al tocar el ancla, Faro pregunta primero: lo que anotes eligiéndolo se archivará en ese lugar; tu libro no cambia en nada más.", "On tapping the anchor, Faro asks first: what you note by choosing it will be archived in that place; your book changes in nothing else."), [],
+      "la inocente viva sigue absuelta bajo las fronteras nuevas: su verbo no lleva enclítico y su objeto no cruza");
+  });
 });
 
 /* ═══════════ §D · G11-2 + C11-1: CARDFORM FUSIONA Y NO RESUCITA ═══════
@@ -864,8 +933,17 @@ describe("§D · C11-1 — guardar sobre un fantasma no resucita en silencio", (
   it("guardar como nueva es una elección explícita, con su botón y su camino", () => {
     assert.ok(seg.includes("Guardar como tarjeta nueva"));
     assert.ok(seg.includes("Save as a new card"));
-    assert.match(seg, /const saveAsNew = \(\) => \{ setGhost\(null\); proceed\(true\); \};/);
-    assert.match(seg, /const proceedRestore = \(\) => \{ setGhost\(null\); commitDraft\(false, true\); \};/, "restaurarla y guardar es su propio camino explícito: un commit que desarchiva lo vivo y funde");
+    assert.match(seg, /const saveAsNew = \(\) => \{ const declared = ghost === "gone" \|\| ghost === "archived" \? ghost : null; setGhost\(null\); proceed\(true, declared\); \};/);
+    assert.match(seg, /const proceedRestore = \(\) => \{ const converted = ghost === "back"; setGhost\(null\); commitDraft\(false, true, null, converted\); \};/, "restaurarla y guardar es su propio camino explícito: un commit que desarchiva lo vivo y funde (y la salida convertida lleva su marca)");
+    // ENMIENDA OLA 17 (G17-1 + Cambios): saveAsNew captura la
+    // existencia que el anuncio PLANTEADO declaraba al tocar — la
+    // re-pregunta del commit juzga el MOVIMIENTO contra esa
+    // declaración, no el estado contra «gone» (la forma de la ola 16
+    // abortaba la salida de la archivada ante su propia premisa) — y
+    // proceedRestore marca la salida CONVERTIDA («back») para que su
+    // commit re-pregunte contra el paquete almacenado fresco, no
+    // contra la sesión. Las dos líneas crecen con su doctrina, como
+    // en las enmiendas de las olas 14, 15 y 16 sobre este mismo bloque.
   });
   it("el commit de edición sin registro vivo devuelve el estado intacto", () => {
     // ENMIENDA OLA 15 (G15-3): el aborto ahora deja su veredicto en el
