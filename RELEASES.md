@@ -2600,4 +2600,4 @@ La cura de la ola 11 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 1906/1906 (1862 + 44) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-320-2026-11-18` → 9ec8ce66. Source: 86e5ed95. Tag: v1.3.320 → 86e5ed95. Main: 222bf3f3 (chunks) + cafee2fa (control). Entrada: index-DP4gTKRS.js.
