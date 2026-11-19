@@ -2622,4 +2622,4 @@ La cura de la ola 12 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 1967/1967 (1906 + 61) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. El banco en vivo del equipo: 36/36.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-321-2026-11-19` → e23dd0c4. Source: 0601d58c. Tag: v1.3.321 → 0601d58c. Main: 6e65c48b (chunks) + 1150b87f (control). Entrada: index-CMhjtwpL.js.
