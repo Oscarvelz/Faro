@@ -2678,4 +2678,4 @@ La cura de la ola 15 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 2070/2070 (2047 + 23) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. Bancos del equipo contra la dist curada: BR15-1 11/11 y el banco nuevo del fantasma upd 28/28.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-324-2026-11-19` → 2d049fc2. Source: 53fde693. Tag: v1.3.324 → 53fde693. Main: b66764ba (chunks) + 92c4fb38 (control). Entrada: index-DRq0rkag.js.
