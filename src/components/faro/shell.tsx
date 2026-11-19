@@ -1252,11 +1252,18 @@ export function Shell() {
                             </button>
                           ))}
                         </div>
+                        {/* 1.3.318 (palabra de Oscar): el calendario vive en
+                            Esencial como calendario de PLAN — días, puntos,
+                            nombres y vencimientos — y el pie de totales del
+                            mes (entra / sale / queda) es lectura de Ritmo:
+                            su asiento es nav.calendar-totals. */}
+                        {has("nav.calendar-totals") ? (
                         <div className="cal-foot">
                           <span><em>{t("cal.in")}</em><strong className="num good">{fmt(cal.income)}</strong></span>
                           <span><em>{t("cal.out")}</em><strong className="num bad">{fmt(cal.expense)}</strong></span>
                           <span><em>{t("cal.net")}</em><strong className="num">{fmt(cal.income - cal.expense)}</strong></span>
                         </div>
+                        ) : null}
                         {calDay && calHol.get(calDay) ? <p className={`cal-hol is-${calHol.get(calDay)!.kind}`}>{calHol.get(calDay)!.name}</p> : null}
                         {calDay ? (
                           <div className="cal-pick">

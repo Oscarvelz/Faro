@@ -72,7 +72,7 @@ export function ModeGate({ lang, onChoose, onSkip }: { lang: Lang; onChoose: (mo
  * este libro y pide su propia confirmación («Subir a…»). Una subida jamás se
  * aplica con el gesto de una bajada.
  */
-export function ModeReposedDialog({ lang, target, from, unlocked, onConfirm, onCancel }: { lang: Lang; target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[]; onConfirm: () => void; onCancel: () => void }) {
+export function ModeReposedDialog({ lang, target, from, unlocked, fresh, onConfirm, onCancel }: { lang: Lang; target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[]; fresh?: boolean; onConfirm: () => void; onCancel: () => void }) {
   const t = (key: string) => translate(lang, key);
   const name = t(`mode.${target}`);
   return (
@@ -80,7 +80,11 @@ export function ModeReposedDialog({ lang, target, from, unlocked, onConfirm, onC
       <div className="ask" data-anchor="modo-replanteado" role="alertdialog" aria-modal="true" aria-label={t("mode.reposed.title").replace("{name}", name)} onMouseDown={(e) => e.stopPropagation()}>
         <h2 className="ask-title">{t("mode.reposed.title").replace("{name}", name)}</h2>
         <div className="ask-body mode-impact-body">
-          <p>{t("mode.reposed.body").replace("{from}", t(`mode.${from}`)).replace("{name}", name)}</p>
+          {/* 1.3.318: fresh = la pregunta nace del toque de la persona
+              (subir también confirma, palabra de Oscar) y su cuerpo es la
+              pregunta fresca; sin fresh es el re-planteado de siempre,
+              cuyo cuerpo cuenta que el modo cambió mientras miraba. */}
+          <p>{t(fresh ? "mode.up.body" : "mode.reposed.body").replace("{from}", t(`mode.${from}`)).replace("{name}", name)}</p>
           {unlocked.length > 0 ? (
             <>
               <p>{t("mode.reposed.list")}</p>

@@ -61,7 +61,11 @@ const C = "completo" as const;
 const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   // §1.1 Navegación y dock
   ["nav.dock", E], ["nav.books-hub", E], ["nav.books-subs-entry", R], ["nav.vault-bar", E],
-  ["nav.scale-topbar", R], ["nav.tablet-views", E], ["nav.float-window", E], ["nav.calendar", R],
+  ["nav.scale-topbar", R], ["nav.tablet-views", E], ["nav.float-window", E],
+  // 1.3.318 (palabra de Oscar, 2026-11-18 20:11): el plan es esencial —
+  // el calendario baja a Esencial con su cara de plan, y el pie de totales
+  // gana su asiento propio en Ritmo; el manifiesto crece 498 → 499.
+  ["nav.calendar", E], ["nav.calendar-totals", R],
   ["nav.global-search", E], ["nav.undo", E], ["nav.sync-light", E], ["nav.view-currency-bar", E],
   ["nav.day-night", E], ["nav.swipe", E], ["nav.ring", E], ["nav.toolsheet", E],
   // §1.2 Central

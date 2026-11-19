@@ -354,7 +354,13 @@ export const FEATURES = {
   // destino, no la lupa. Y el anillo: ya no existe como puerta única — camina
   // en todo modo con sus paradas filtradas una a una (ley N-1, modos295);
   // el asiento nombra el cromo, que es de los tres modos.
-  "nav.tablet-views": E, "nav.float-window": E, "nav.calendar": R,
+  "nav.tablet-views": E, "nav.float-window": E,
+  // 1.3.318 (palabra de Oscar, 2026-11-18): el calendario ES de Esencial —
+  // «el plan es esencial»: la persona planea lo que viene en todo modo. En
+  // Esencial el calendario presenta su cara de plan (días, puntos, nombres,
+  // vencimientos, feriados); el pie de totales del mes (entra/sale/queda)
+  // es lectura y vive en su propio asiento, de Ritmo.
+  "nav.calendar": E, "nav.calendar-totals": R,
   "nav.global-search": E, "nav.undo": E, "nav.sync-light": E, "nav.view-currency-bar": E,
   "nav.day-night": E, "nav.swipe": E, "nav.ring": E, "nav.toolsheet": E,
   /* §1.2 Central */

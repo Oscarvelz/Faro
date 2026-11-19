@@ -5364,7 +5364,7 @@ export function Settings() {
   // conteo, se refresca contra la misma fecha, para que la medianoche no
   // se disfrace de cambio del libro.
   const [modeImpactState, setModeImpactState] = useState<{ target: Mode; impact: ModeImpact; refreshed?: boolean; from: Mode; refDay: string } | null>(null);
-  const [modeReposed, setModeReposed] = useState<{ target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[] } | null>(null);
+  const [modeReposed, setModeReposed] = useState<{ target: Mode; from: Mode; unlocked: { id: string; labelKey: string; count: number }[]; fresh?: boolean } | null>(null);
   const currentMode: Mode = session ? modeOf(session.ledger.settings) : "completo";
   // Ola 10 (C10-2): EL DIÁLOGO ABIERTO VIGILA LAS LLEGADAS. Las curas
   // C3-1/C4-1 enseñaron a las CONFIRMACIONES a comparar premisas, pero el
@@ -5402,8 +5402,8 @@ export function Settings() {
   // El aviso de subida (1.3.307, palabra de Oscar): un letrero centrado con
   // una frase breve — el nombre del modo y su línea — en vez de la tira de
   // una sola línea cuya lista de destapados se salía de la caja en su
-  // teléfono. Lo comparten pickMode y la confirmación re-planteada, para
-  // que las dos subidas hablen igual; la bajada tiene su espejo.
+  // teléfono. Lo anuncia la confirmación de la subida (desde 1.3.318 toda
+  // subida local pasa por su pantalla); la bajada tiene su espejo.
   const announceUp = (target: Mode) => {
     if (!session) return;
     modeSign({ dir: "up", mode: target });
@@ -5415,10 +5415,16 @@ export function Settings() {
   const pickMode = (target: Mode) => {
     if (!session || target === currentMode) return;
     if (modeRank(target) > modeRank(currentMode)) {
-      guardPanelExit(() => {
-        applyMode(target);
-        announceUp(target);
-      });
+      // 1.3.318 (palabra de Oscar, 2026-11-18): SUBIR TAMBIÉN CONFIRMA.
+      // «De la misma forma en que confirma para bajar, tiene que
+      // confirmar para subir» — para no cambiar ni subir por error. Esto
+      // enmienda la decisión base 2 (subir no preguntaba, solo avisaba):
+      // la subida se plantea en el mismo diálogo hermano, con su cuerpo
+      // de pregunta fresca (fresh), lo que se destapa y su confirmación
+      // comparando premisas; el letrero centrado sigue anunciando el
+      // aterrizaje ya confirmado. Las llegadas (otra pestaña, la nube)
+      // no preguntan: anuncian por su puerta, como siempre.
+      guardPanelExit(() => setModeReposed({ target, from: currentMode, unlocked: unlockedGroups(session.ledger, currentMode, target), fresh: true }));
       return;
     }
     const refDay = currentRefDay();
@@ -5878,6 +5884,7 @@ export function Settings() {
         target={modeReposed.target}
         from={modeReposed.from}
         unlocked={modeReposed.unlocked}
+        fresh={modeReposed.fresh}
         onCancel={() => setModeReposed(null)}
         onConfirm={() => {
           const { target } = modeReposed;

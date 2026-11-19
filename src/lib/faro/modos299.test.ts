@@ -236,7 +236,11 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // completo −1 en distribución exacta (118 · 107 · 129); estos
     // count() son acumulados por alcance (118 · 225 · 354). La cerca
     // del censo vive en modos-ola9.test.ts §A.
-    assert.equal(count("esencial"), 118);
+    // ENMIENDA 1.3.318 (palabra de Oscar): calendario y feriados R→E
+    // (nav.calendar es de Esencial — el plan es esencial); el acumulado
+    // de Ritmo no se mueve (ambos temas quedan dentro de su alcance):
+    // acumulados 120 · 225 · 354.
+    assert.equal(count("esencial"), 120);
     assert.equal(count("ritmo"), 225);
     assert.equal(count("completo"), 354);
     assert.equal(MANUAL_TOPICS.length, 354);

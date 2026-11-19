@@ -178,8 +178,8 @@ describe("ola5 · G5-1: el total del bote es lo anotado, no la proyección de la
 describe("ola5 · los temas condenados declaran el modo de su función (fallo 25)", () => {
   const casos: [string, Mode, string][] = [
     // [tema, modo verdadero, su función]
-    ["calendario", "ritmo", "nav.calendar"],
-    ["feriados", "ritmo", "nav.calendar"],
+    ["calendario", "esencial", "nav.calendar"], // 1.3.318: su función bajó a Esencial (el plan es esencial)
+    ["feriados", "esencial", "nav.calendar"], // 1.3.318: idem
     ["f-icono-cuota", "ritmo", "subs.brand-library"],
     ["estudio-prestamos", "completo", "study.loans"],
     // Hallazgos del cruce completo de esta ronda: la misma enfermedad,
@@ -476,8 +476,8 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     "vista": { f: "nav.tablet-views", m: "esencial" },
     "ventana-flotante": { f: null, m: "completo" },
     "buscar": { f: "nav.global-search", m: "esencial" },
-    "calendario": { f: "nav.calendar", m: "ritmo" },
-    "feriados": { f: "nav.calendar", m: "ritmo" },
+    "calendario": { f: "nav.calendar", m: "esencial" }, // 1.3.318
+    "feriados": { f: "nav.calendar", m: "esencial" }, // 1.3.318
     "moneda-vista": { f: null, m: "esencial" },
     "barra-inferior": { f: null, m: "esencial" },
     "deslizar": { f: null, m: "esencial" },
@@ -862,7 +862,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 354, sin excepci�
     // y declara ritmo con su función: cualquier modo distinto rompe el
     // cruce de arriba.
     assert.deepEqual(MAPA["f-icono-cuota"], { f: "subs.brand-library", m: "ritmo" });
-    assert.deepEqual(MAPA["calendario"], { f: "nav.calendar", m: "ritmo" });
+    assert.deepEqual(MAPA["calendario"], { f: "nav.calendar", m: "esencial" }); // 1.3.318: el plan es esencial
     assert.deepEqual(MAPA["estudio-prestamos"], { f: "study.loans", m: "completo" });
   });
 });
