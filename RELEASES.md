@@ -2544,4 +2544,4 @@ Deudas declaradas del informe, que viajan: el banco en vivo de la mano del selec
 
 Verificación del padre, por mi mano: diff completo prístina↔canon .316 = solo los archivos de la .316 (ningún archivo del paquete difiere entre bases); diff cura↔prístina = exactamente los 11 archivos declarados; line-form.tsx fuera del paquete con su md5 intacto (`a37d7987…`) y la raíz verbatim en la línea 499 del árbol curado. Gates en copia de integración y en canon: test:faro **1844/1844** (1808 de la .316 + 36), unit **59/59**, tsc en sus **3**, i18n **1039/1039**, candado intacto.
 
-Datos de publicación: rollback `rollback-pre-317-2026-11-18` → 1b17f050. Source: PENDIENTE. Tag: v1.3.317. Main: PENDIENTE. Entrada: PENDIENTE.
+Datos de publicación: rollback `rollback-pre-317-2026-11-18` → 1b17f050. Source: 3cf13d0c. Tag: v1.3.317 → 3cf13d0c. Main: 9f249dbf (chunks) + fdb50540 (control). Entrada: index-BIaQ6bfJ.js.
