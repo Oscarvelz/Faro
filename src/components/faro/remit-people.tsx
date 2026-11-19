@@ -53,7 +53,7 @@ function usePeopleOps() {
 
 /** "Para" / "To": the picker for a Remesas line. Optional; empty = "Sin persona". */
 export function RemitToPick({ value, onChange, test = "rp-pick" }: { value: string; onChange: (id: string) => void; test?: string }) {
-  const { session, lang } = useFaro();
+  const { session, lang, has } = useFaro();
   const [open, setOpen] = useState(false);
   const ops = usePeopleOps();
   const people = remitPeopleOf(session?.ledger);
@@ -70,13 +70,21 @@ export function RemitToPick({ value, onChange, test = "rp-pick" }: { value: stri
           items={people.map((p) => ({ id: p.id, label: p.name, mark: <RemitFace person={p} size="sm" />, color: remitHue(p) }))}
           onClose={() => setOpen(false)}
           onPick={(id) => { onChange(id); setOpen(false); }}
-          manage={{
+          // Ola 16 (Cara G3, en vivo): el manage de esta hoja se
+          // entregaba SIN PUERTA en los tres modos — su asiento
+          // (remit.manage, Completo) existía en el registro desde su
+          // nacimiento y ninguna cara lo consultaba: la cita de los
+          // censos era prosa sin mecanismo. La entrega obedece ahora a
+          // su asiento, con la forma de los editores de fit-pick:
+          // elegir y añadir (declarar) quedan en todo piso; administrar
+          // personas (borrar, renombrar, recolorear) vive en Completo.
+          manage={has("remit.manage") ? {
             word: ["persona", "personas", "person", "people"],
             body: ops.body,
             onDropMany: (ids) => { if (ids.includes(value)) onChange(""); ops.drop(ids); },
             onRename: ops.rename,
             onColor: ops.color,
-          }}
+          } : undefined}
           add={{ placeholder: L(lang, "Nueva persona", "New person"), onAdd: (name) => { onChange(ops.add(name)); setOpen(false); } }}
         />
       ) : null}

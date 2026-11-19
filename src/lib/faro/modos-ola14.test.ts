@@ -19,7 +19,9 @@
  * Los libros son especímenes fijados a mano; jamás producción.
  */
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 
 import { cardExistence, dropCard, putCard, storedCards } from "./cards.ts";
@@ -142,7 +144,13 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     [/Fmt\.money\(projected,/, "projected ← la recta del respaldo, desde spent", "gasto proyectado"],
     [/Fmt\.money\(f\.inn,|Fmt\.money\(f\.out,|Fmt\.money\(left,/, "f.* / left ← el flujo del aviso de cierre", "flujo"],
     [/Fmt\.money\(it,|money\(s, it\)|money\(s, [a-z]\.amt\)|amt\?\.let \{ Fmt\.money\(it|amt\?\.let \{ money\(s, it\)|Fmt\.money\(minor,/, "amt/minor ← el monto de la fila/vencimiento que la superficie recibió", "monto de fila"],
-    [/Fmt\.money\(s\.rateE4,/, "rateE4 ← la tasa de la foto", "tasa"],
+    // OLA 16 (Asesor): la entrada de la tasa nombra su llamada VIVA —
+    // la superficie de la tasa es Fmt.rate(s.rateE4) (FaroWidgets.kt:575);
+    // la entrada vieja nombraba Fmt.money y el censo juzgaba la tasa por
+    // una forma que la cara no usa. La llamada con Fmt.money es el
+    // ejemplo «US$100 = …» de la línea 579: las dos nombran su sitio.
+    [/Fmt\.rate\(s\.rateE4\)/, "rateE4 ← la tasa de la foto, por Fmt.rate (FaroWidgets.kt:575)", "tasa"],
+    [/Fmt\.money\(s\.rateE4,/, "rateE4 ← la tasa leída como monto en el ejemplo «US$100 = …» (FaroWidgets.kt:579)", "tasa"],
     [/money\(s, total\)/, "total ← la suma de vencimientos en la cáscara", "suma de filas"],
     [/Fmt\.money\(s\.owed - s\.owe,/, "owed − owe ← el neto de Cobros", "derivado"],
   ];
@@ -199,43 +207,269 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     }
     return { code: out, literals };
   };
-  const DINERO_RE = /\b(?:s|pace|f)\.(?:spent|spend|have|left|pay|saveMonth|saveGoal|saveTotal|owed|owe|rateE4|savedOut|expected|projected|income|inn|out)\b/;
+  /* OLA 16 (Asesor): el censo, TERCERA VIDA — por CONSTRUCCIÓN, no por
+   * enumeración. La segunda vida caminaba el directorio pero seguía
+   * cazando por listas escritas a mano un piso más abajo: los nombres
+   * de los formateadores (Fmt.rate escapaba: M16-2), los nombres de
+   * los receptores (s|pace|f: un receptor llamado foto escapaba,
+   * M16-7), la grafía del campo (un local renombrado, un ayudante que
+   * compone, escapaban: M16-6/M16-8) y tres formas de imprimir
+   * (StringBuilder, DecimalFormat local, String.format por extensión,
+   * el log: M16-3/4/5/9) — y el universo era plano (un subdirectorio
+   * escapaba: M16-1). Ahora el censo DERIVA su doctrina del paquete:
+   *   · los campos de dinero de cada tipo de la foto son sus campos
+   *     Long declarados (la tabla-semilla de abajo se verifica contra
+   *     las declaraciones vivas de FaroWidgets.kt en su propio test, y
+   *     toda clase declarada en los archivos escaneados entra sola);
+   *   · los formateadores numéricos de Fmt son sus funciones que
+   *     devuelven String con primer parámetro Long (money, rate, y el
+   *     que nazca mañana) — leídos de la declaración de `object Fmt`;
+   *   · un receptor es dinero por su TIPO DECLARADO (Snap/Pace/Flow/…),
+   *     se llame como se llame;
+   *   · el valor se sigue por punto fijo: accesos a campos de dinero,
+   *     ataduras locales que derivan de ellos y ayudantes cuyo cuerpo
+   *     devuelve una expresión derivada (o que entregan un parámetro a
+   *     un formateador: conductos, juzgados como llamadas al
+   *     formateador);
+   *   · la casa del productor (el cuerpo de `object Fmt`) se retira
+   *     antes de juzgar: su DecimalFormat interno ES el productor
+   *     declarado;
+   *   · y TODA impresión de una cifra derivada sin productor declarado
+   *     acusa, en cualquier forma: llamada a formateador no registrada,
+   *     interpolación cruda, String.format (clásico o por extensión),
+   *     StringBuilder/append, DecimalFormat/NumberFormat local,
+   *     concatenación con cadena y Log.
+   * Los comentarios se retiran antes de juzgar (scanKt, ola 15 — no
+   * regresar). Los porcentajes no son dinero: usedPct es Int y pct()
+   * compone dos Long en un porcentaje — su resultado no deriva. */
+  const CASCARA_TIPOS_SEMILLA: Record<string, string[]> = {
+    Snap: ["have", "left", "owe", "owed", "pay", "rateE4", "saveGoal", "saveMonth", "saveTotal", "savedOut", "spend", "spent"],
+    Pace: ["expected", "income", "projected", "spent"],
+    Flow: ["inn", "out"],
+    Due: ["amt"],
+    Cat: ["amt", "prev"],
+    Pocket: ["amt"],
+  };
+  const blankRegion = (code: string, start: number, open: string, close: string): string => {
+    let depth = 0, i = start;
+    for (; i < code.length; i++) {
+      if (code[i] === open) depth++;
+      else if (code[i] === close) { depth--; if (depth === 0) { i++; break; } }
+    }
+    return code.slice(0, start) + code.slice(start, i).replace(/[^\n]/g, " ") + code.slice(i);
+  };
   const censoCascara = (files: { name: string; text: string }[]): string[] => {
     const acusadas: string[] = [];
-    for (const { name, text } of files) {
-      const { code, literals } = scanKt(text);
-      // forma 1: llamadas a formateadores — cada una nombra su productor
-      for (const m of code.matchAll(/(?:Fmt\.money|money)\(([^)]*)\)/g)) {
-        if (m[1]!.includes(":")) continue; // las declaraciones de Fmt.money/money llevan tipos (minor: Long): no son superficies
-        if (!SUPERFICIES_CASCARA.some(([re]) => re.test(m[0]))) acusadas.push(`${name}: ${m[0].slice(0, 70)}`);
+    // paso 0: el paquete declara su doctrina — tipos y formateadores
+    const tipos = new Map<string, Set<string>>(Object.entries(CASCARA_TIPOS_SEMILLA).map(([k, v]) => [k, new Set(v)]));
+    const scanned = files.map(({ name, text }) => ({ name, ...scanKt(text) }));
+    for (const { code } of scanned) {
+      for (const m of code.matchAll(/\bclass\s+(\w+)\s*\(([^)]*)\)/g)) {
+        const fields = [...m[2]!.matchAll(/\bval\s+(\w+)\s*:\s*Long\??\b/g)].map((x) => x[1]!);
+        if (fields.length) tipos.set(m[1]!, new Set([...(tipos.get(m[1]!) ?? []), ...fields]));
       }
-      // forma 2: interpolaciones crudas de campos de dinero dentro de cadenas
+    }
+    const fmtFormatters = new Set<string>();
+    for (const { code } of scanned) {
+      const at = code.search(/\bobject\s+Fmt\s*\{/);
+      if (at < 0) continue;
+      const raw = code.slice(at);
+      let depth = 0, end = raw.length;
+      for (let i = raw.indexOf("{"); i < raw.length; i++) {
+        if (raw[i] === "{") depth++;
+        else if (raw[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+      }
+      for (const m of raw.slice(0, end).matchAll(/\bfun\s+(\w+)\s*\(\s*\w+\s*:\s*Long\b[^)]*\)\s*:\s*String\b/g)) fmtFormatters.add(m[1]!);
+    }
+    const typeNames = [...tipos.keys()].join("|");
+    for (const { name, code: rawCode, literals } of scanned) {
+      // la casa del productor se retira antes de juzgar
+      let code = rawCode;
+      const fmtAt = code.search(/\bobject\s+Fmt\s*\{/);
+      if (fmtAt >= 0) code = blankRegion(code, fmtAt, "{", "}");
+      // receptores por TIPO DECLARADO, no por nombre
+      const receivers = new Map<string, string>();
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${typeNames})\\b`, "g"))) receivers.set(m[1]!, m[2]!);
+      const accessRe = receivers.size
+        ? new RegExp([...receivers].map(([r, t]) => `\\b${r}\\.(${[...tipos.get(t)!].join("|")})\\b`).join("|"))
+        : /$^/;
+      // el valor se sigue: ataduras locales y ayudantes, por punto fijo
+      const derived = new Set<string>();
+      const helpers = new Set<string>();
+      const conduits = new Set<string>();
+      const wordIn = (n: string, t: string) => new RegExp(`(?<![\\w.])${n}\\b`).test(t);
+      const exprDerived = (t: string): boolean =>
+        accessRe.test(t) || [...derived].some((n) => wordIn(n, t)) || [...helpers].some((h) => new RegExp(`\\b${h}\\s*\\(`).test(t));
+      const funBodies: [string, string][] = [];
+      const exprBodies: [string, string][] = [];
+      for (const m of code.matchAll(/\bfun\s+(\w+)\s*\(([^)]*)\)[^{=]*=\s*([^\n]+)/g)) { funBodies.push([m[1]!, m[3]!]); exprBodies.push([m[1]!, m[3]!]); }
+      for (const m of code.matchAll(/\bfun\s+(\w+)\s*\([^)]*\)[^{]*\{/g)) {
+        const open = m.index + m[0].length - 1;
+        let depth = 0, end = code.length;
+        for (let i = open; i < code.length; i++) {
+          if (code[i] === "{") depth++;
+          else if (code[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+        }
+        funBodies.push([m[1]!, code.slice(open, end)]);
+      }
+      for (let round = 0; round < 8; round++) {
+        let grew = false;
+        for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) {
+          // CALIBRACIÓN VIVA (ola 16): un cociente de dos cifras,
+          // escalado y convertido a Int, es un PORCENTAJE, no una
+          // cifra — la misma doctrina que deja fuera usedPct:
+          // `val shown = Math.round(s.saveMonth * 100.0 / s.saveGoal).toInt()`
+          // se pinta como «$shown%» y no imprime dinero alguno.
+          if (/\.toInt\(\)/.test(m[2]!) && m[2]!.includes("/")) continue;
+          if (!derived.has(m[1]!) && exprDerived(m[2]!)) { derived.add(m[1]!); grew = true; }
+        }
+        for (const [fn, body] of funBodies) {
+          if (!helpers.has(fn) && exprDerived(body)) { helpers.add(fn); grew = true; }
+        }
+        if (!grew) break;
+      }
+      /* Un CONDUCTO es otra cosa que un ayudante que deriva: una función
+       * de cuerpo-expresión que ENTREGA el valor formateado (el
+       * envoltorio `money(s, minor)` de la casa) — sus llamadas se
+       * juzgan como llamadas al formateador. Una función de bloque que
+       * llama a Fmt en sus sentencias es una SUPERFICIE, no un conducto:
+       * sus sitios de llamada no imprimen por ella. */
+      for (const [fn, body] of exprBodies) {
+        if ([...fmtFormatters].some((f) => new RegExp(`Fmt\\.${f}\\s*\\(`).test(body)) || /(?<![\w.])money\s*\(/.test(body)) conduits.add(fn);
+      }
+      const judgedCall = (call: string) => {
+        if (!SUPERFICIES_CASCARA.some(([re]) => re.test(call))) acusadas.push(`${name}: ${call.slice(0, 70)}`);
+      };
+      // forma 1: llamadas a formateadores — cada una nombra su productor
+      for (const m of code.matchAll(/\bFmt\.(\w+)\s*\(([^)]*)\)/g)) {
+        if (m[2]!.includes(":")) continue; // declaración, no superficie
+        if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(m[0]);
+      }
+      for (const m of code.matchAll(/(?<![\w.])money\s*\(([^)]*)\)/g)) {
+        if (m[1]!.includes(":")) continue; // la declaración del envoltorio local lleva tipos
+        judgedCall(m[0]);
+      }
+      for (const c of conduits) {
+        if (c === "money") continue;
+        for (const m of code.matchAll(new RegExp(`(?<![\\w.])${c}\\s*\\(([^)]*)\\)`, "g"))) {
+          if (m[1]!.includes(":")) continue;
+          judgedCall(m[0]);
+        }
+      }
+      // forma 2: interpolaciones crudas de una cifra derivada dentro de cadenas
       for (const lit of literals) {
         for (const m of lit.matchAll(/\$\{([^}]*)\}|\$([A-Za-z_][\w.]*)/g)) {
           const expr = m[1] ?? m[2] ?? "";
-          if (/(?:Fmt\.)?money\(/.test(expr)) continue; // la cifra la produce el formateador: la juzga la forma 1
-          if (DINERO_RE.test(expr)) acusadas.push(`${name}: interpolación cruda de una cifra: «${lit.slice(0, 60)}»`);
+          if (/\bFmt\.\w+\s*\(|(?<![\w.])money\s*\(/.test(expr)) continue; // la produce el formateador: la juzga la forma 1
+          if ([...conduits].some((c) => new RegExp(`\\b${c}\\s*\\(`).test(expr))) continue;
+          if (exprDerived(expr)) acusadas.push(`${name}: interpolación cruda de una cifra: «${lit.slice(0, 60)}»`);
         }
       }
-      // forma 3: String.format con marcador numérico sobre un campo de dinero
-      for (const m of code.matchAll(/String\.format\(/g)) {
-        let depth = 0, j = m.index + m[0].length - 1;
-        const start = j;
+      // forma 3: String.format — clásico o por extensión — con marcador numérico sobre una cifra derivada
+      const fmtCallArgs = (from: number): string => {
+        let depth = 0, j = from;
         for (; j < code.length; j++) {
           if (code[j] === "(") depth++;
           else if (code[j] === ")") { depth--; if (depth === 0) break; }
         }
-        const call = code.slice(start, j + 1);
-        if (/%[\d,.]*[df]/.test(call) && DINERO_RE.test(call)) acusadas.push(`${name}: String.format sobre una cifra: «${call.slice(0, 60)}»`);
+        return code.slice(from, j + 1);
+      };
+      for (const m of code.matchAll(/\bString\.format\s*\(/g)) {
+        const call = fmtCallArgs(m.index + m[0].length - 1);
+        if (/%[\d,.]*[df]/.test(call) && exprDerived(call)) acusadas.push(`${name}: String.format sobre una cifra: «${call.slice(0, 60)}»`);
+      }
+      for (const m of code.matchAll(/"([^"]*)"\s*\.format\s*\(/g)) {
+        const call = fmtCallArgs(m.index + m[0].length - 1);
+        if (/%[\d,.]*[df]/.test(m[1]!) && exprDerived(call)) acusadas.push(`${name}: String.format por extensión sobre una cifra: «${call.slice(0, 60)}»`);
+      }
+      // forma 4: StringBuilder/append de una cifra derivada
+      for (const m of code.matchAll(/\.append\s*\(([^)]*)\)/g)) {
+        if (exprDerived(m[1]!)) acusadas.push(`${name}: append de una cifra sin productor: «${m[0].slice(0, 60)}»`);
+      }
+      // forma 5: DecimalFormat/NumberFormat local (fuera de la casa de Fmt, ya retirada)
+      const localFmts = new Set<string>();
+      for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*=\s*(?:DecimalFormat|NumberFormat)\b/g)) localFmts.add(m[1]!);
+      for (const m of code.matchAll(/(?:DecimalFormat|NumberFormat)\s*\([^)]*\)\s*\.format\s*\(([^)]*)\)/g)) {
+        if (exprDerived(m[1]!)) acusadas.push(`${name}: DecimalFormat local sobre una cifra: «${m[0].slice(0, 60)}»`);
+      }
+      for (const lf of localFmts) {
+        for (const m of code.matchAll(new RegExp(`\\b${lf}\\.format\\s*\\(([^)]*)\\)`, "g"))) {
+          if (exprDerived(m[1]!)) acusadas.push(`${name}: el formateador local «${lf}» imprime una cifra sin productor: «${m[0].slice(0, 60)}»`);
+        }
+      }
+      // forma 6: concatenación con cadena y Log — la cifra derivada fuera de todo formateador
+      const maskCalls = (line: string): string => {
+        let out = line;
+        for (const m of [...line.matchAll(/\b(?:Fmt\.\w+|money)\s*\(/g)]) {
+          let depth = 0, j = m.index + m[0].length - 1;
+          for (; j < line.length; j++) {
+            if (line[j] === "(") depth++;
+            else if (line[j] === ")") { depth--; if (depth === 0) { j++; break; } }
+          }
+          out = out.slice(0, m.index) + " ".repeat(j - m.index) + out.slice(j);
+        }
+        return out;
+      };
+      for (const line of code.split("\n")) {
+        if (!line.includes('"') || !line.includes("+")) continue;
+        // la cifra debe ser OPERANDO de la concatenación, no una
+        // premisa de la línea: en la viva «if (s.rateE4 > 0) "US$100 = "
+        // + Fmt.money(…)» la tasa se COMPARA en la condición y se
+        // imprime por su formateador — la comparación no imprime.
+        const masked = maskCalls(line);
+        const tokenRes: RegExp[] = [new RegExp(accessRe.source, "g"),
+          ...[...derived].map((n) => new RegExp(`(?<![\\w.])${n}\\b`, "g")),
+          ...[...helpers].map((h) => new RegExp(`\\b${h}\\s*\\(`, "g"))];
+        let operand = false;
+        for (const re of tokenRes) {
+          for (const mm of masked.matchAll(re)) {
+            const before = masked.slice(Math.max(0, mm.index - 4), mm.index);
+            const after = masked.slice(mm.index + mm[0].length, mm.index + mm[0].length + 4);
+            if (/\+\s*$/.test(before) || /^\s*\+/.test(after)) { operand = true; break; }
+          }
+          if (operand) break;
+        }
+        if (operand) acusadas.push(`${name}: concatenación que imprime una cifra sin productor: «${line.trim().slice(0, 60)}»`);
+      }
+      for (const m of code.matchAll(/\bLog\.\w+\s*\(([^)]*)\)/g)) {
+        if (exprDerived(m[1]!)) acusadas.push(`${name}: una cifra derivada en un Log: «${m[0].slice(0, 60)}»`);
       }
     }
     return acusadas;
   };
+  const walkKtFiles = (dir: URL, prefix = ""): { name: string; text: string }[] => {
+    const out: { name: string; text: string }[] = [];
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${e.name}` : e.name;
+      if (e.isDirectory()) out.push(...walkKtFiles(new URL(`${e.name}/`, dir), rel));
+      else if (e.name.endsWith(".kt")) out.push({ name: rel, text: readFileSync(new URL(e.name, dir), "utf8") });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  };
   it("el censo de la cáscara: ninguna cifra nativa sin productor ni clase declarados, en todo el paquete y en cualquier forma", () => {
     const dir = new URL("../../../android/app/src/main/java/com/oscarvelz/faro/", import.meta.url);
-    const files = readdirSync(dir).filter((f) => f.endsWith(".kt")).map((name) => ({ name, text: readFileSync(new URL(name, dir), "utf8") }));
-    assert.ok(files.length >= 5, "el universo es el directorio entero, no una lista escrita a mano");
+    const files = walkKtFiles(dir);
+    assert.ok(files.length >= 5, "el universo es el paquete entero, caminando el árbol");
+    for (const known of ["FaroNotify.kt", "FaroWidgets.kt", "MainActivity.kt", "QuickAdd.kt", "WidgetConfigActivity.kt"]) {
+      assert.ok(files.some((f) => f.name === known), `el universo camina ${known}`);
+    }
     assert.deepEqual(censoCascara(files), [], "cifras sin productor declarado");
+  });
+  it("la semilla de tipos dice la verdad de las declaraciones vivas (los campos Long de cada tipo de la foto)", () => {
+    const kt = readFileSync(new URL("../../../android/app/src/main/java/com/oscarvelz/faro/FaroWidgets.kt", import.meta.url), "utf8");
+    for (const [tipo, semilla] of Object.entries(CASCARA_TIPOS_SEMILLA)) {
+      const at = kt.search(new RegExp(`\\bclass\\s+${tipo}\\b`));
+      assert.ok(at >= 0, `${tipo}: la clase vive en FaroWidgets.kt`);
+      // la región de la clase: hasta la siguiente declaración de clase u
+      // objeto al mismo nivel (las clases de la foto viven en columna)
+      const rest = kt.slice(at + 6);
+      const nextAt = rest.search(/\n(?:class|object)\s+\w+/);
+      const region = nextAt < 0 ? rest : rest.slice(0, nextAt);
+      const declared = new Set<string>();
+      for (const m of region.matchAll(/\bval\s+(\w+)\s*:\s*Long\??\b/g)) declared.add(m[1]!);
+      for (const m of region.matchAll(/\bval\s+(\w+)\s*:\s*Long\s+get\(\)/g)) declared.add(m[1]!);
+      assert.deepEqual([...declared].sort(), [...semilla].sort(), `${tipo}: la semilla del censo y la clase declaran los mismos campos de dinero`);
+    }
   });
   it("especímenes M15: el control acusa dentro del perímetro viejo, y los dos escapes de la ola acusan en el nuevo", () => {
     // M15-1 (control): una cifra con productor no declarado dentro de FaroNotify acusa
@@ -250,6 +484,48 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     // y String.format sobre un campo de dinero, la tercera forma
     const m4 = censoCascara([{ name: "FaroWidgets.kt", text: "class W { fun a(s: Snap) = String.format(Locale.US, \"%.2f\", s.spent / 100.0) }" }]);
     assert.equal(m4.length, 1, "String.format con marcador numérico sobre la foto acusa");
+  });
+  it("especímenes M16 (ola 16): el censo por construcción caza los nueve escapes de la caza", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\"; fun daysWord(n: Long, en: Boolean): String = \"\" }",
+    };
+    const caza = (text: string) => censoCascara([fmtDecl, { name: "Spec.kt", text }]);
+    // M16-0 (control): la forma de la ola 15 sigue acusando en el censo nuevo
+    assert.equal(caza("class W { fun a(s: Snap) = \"−C$${s.spend / 100}\" }").length, 1, "M16-0: la interpolación cruda de siempre acusa");
+    // M16-2: un formateador numérico de Fmt que la enumeración no nombraba
+    assert.ok(caza("class W { fun a(s: Snap) = Fmt.rate(s.spent) }").length >= 1, "M16-2: Fmt.rate sobre el gasto no nombra productor de tasa: acusa");
+    assert.deepEqual(caza("class W { fun a(s: Snap) = Fmt.rate(s.rateE4) }"), [], "control: la llamada viva de la tasa (FaroWidgets.kt:575) está registrada y absuelve");
+    assert.deepEqual(caza("class W { fun a(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }"), [], "control: el ejemplo «US$100 = …» (línea 579) está registrado y absuelve");
+    // M16-3: StringBuilder/append
+    assert.ok(caza("class W { fun a(s: Snap): String { val b = StringBuilder(); b.append(s.spent); return b.toString() } }").length >= 1, "M16-3: el append de una cifra acusa");
+    // M16-4: DecimalFormat local
+    assert.ok(caza("class W { fun a(s: Snap) = DecimalFormat(\"0.00\").format(s.spent / 100.0) }").length >= 1, "M16-4: el DecimalFormat local acusa");
+    assert.ok(caza("class W { val df = DecimalFormat(\"0.00\"); fun a(s: Snap) = df.format(s.spent / 100.0) }").length >= 1, "M16-4b: el formateador local con nombre acusa");
+    // M16-5: String.format por extensión
+    assert.ok(caza("class W { fun a(s: Snap) = \"%.2f\".format(s.spent / 100.0) }").length >= 1, "M16-5: el String.format por extensión acusa");
+    // M16-6: el local renombrado
+    assert.ok(caza("class W { fun a(s: Snap): String { val gastado = s.spent; return \"Gastado: $gastado\" } }").length >= 1, "M16-6: la cifra con nombre local sigue derivando de la foto: acusa");
+    // M16-7: el receptor por su tipo, no por su nombre
+    assert.ok(caza("class W { fun a(foto: Snap) = \"${foto.spent}\" }").length >= 1, "M16-7: el receptor se resuelve por su tipo declarado (Snap), se llame foto o s");
+    // M16-8: el ayudante que compone la cifra
+    assert.ok(caza("class W { fun crudo(s: Snap) = s.spent / 100; fun a(s: Snap) = \"C$${crudo(s)}\" }").length >= 1, "M16-8: el valor se sigue a través del ayudante: acusa");
+    // M16-9: la concatenación en un Log
+    assert.ok(caza("class W { fun a(s: Snap) { Log.d(\"Faro\", \"spent=\" + s.spent) } }").length >= 1, "M16-9: la cifra concatenada en un log acusa");
+    // y los sanos de siempre: el productor registrado, el porcentaje, la fecha
+    assert.deepEqual(caza("class W { fun a(s: Snap) = Fmt.money(s.spent, s.cur) }"), [], "sano: el gasto por su productor registrado absuelve");
+    assert.deepEqual(caza("class W { fun a(s: Snap) = \"${s.usedPct}%\" }"), [], "sano: el porcentaje de la foto no es una cifra de dinero");
+  });
+  it("espécimen M16-1: el universo camina el ÁRBOL — una cifra sucia en un subdirectorio acusa por su nombre", () => {
+    const root = mkdtempSync(join(tmpdir(), "faro-cascara16-"));
+    mkdirSync(join(root, "sub"), { recursive: true });
+    writeFileSync(join(root, "Limpio.kt"), "class L { fun a(s: Snap) = Fmt.money(s.spent, s.cur) }");
+    writeFileSync(join(root, "sub", "Sucio.kt"), "class S { fun a(s: Snap) = \"${s.spent}\" }");
+    const files = walkKtFiles(new URL(`file://${root}/`));
+    assert.deepEqual(files.map((f) => f.name), ["Limpio.kt", "sub/Sucio.kt"], "la caminata es recursiva y nombra la ruta entera");
+    const fmtDecl = { name: "Fmt.kt", text: "object Fmt { fun money(minor: Long, cur: String): String = \"\" }" };
+    const acus = censoCascara([fmtDecl, ...files]);
+    assert.ok(acus.some((a) => a.startsWith("sub/Sucio.kt")), `la cifra del subdirectorio acusa por su nombre: ${acus.join(" | ")}`);
   });
   it("controles del censo nuevo: el comentario no acusa, el porcentaje no es dinero, la fecha no es cifra", () => {
     const ok = censoCascara([{ name: "FaroNotify.kt", text: [

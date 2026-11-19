@@ -713,7 +713,12 @@ const FAMILIAS_REGISTRO: Record<string, { mecanismo: string; cubre: string[] }> 
   patron: { mecanismo: "el Patrón: el motor lee sus propias reglas; la familia declara los pisos de sus avisos", cubre: ["patron.learning", "patron.sayings", "patron.linear-pace", "patron.history-rules", "patron.month-rules", "patron.model-rules"] },
   people: { mecanismo: "Personas: la superficie se compone en people.tsx; sus verbos finos llevan puerta", cubre: ["people.add-contacts", "people.add-manual", "people.dates", "people.gift", "people.import-vcf", "people.share-in", "people.totals", "people.delete"] },
   pres: { mecanismo: "la Presentación: el guion y el teatro se componen desde guion.ts y presentacion.tsx; la familia declara los pisos de sus piezas", cubre: ["pres.driver", "pres.m1-mapa", "pres.m2-manual", "pres.m3-anotar", "pres.m3-balance-chapter", "pres.m4-cambio", "pres.m5-mes", "pres.m6-ahorros", "pres.m7-estadisticas", "pres.m8-asesor", "pres.m9-folios-river", "pres.m9-folios-rest", "pres.m10-estructura", "pres.m11-puertas", "pres.m12-pregunta", "pres.m13-totales", "pres.m14-colchon", "pres.my-scenes"] },
-  remit: { mecanismo: "Remesas: composición sobre remesas.ts; sus verbos finos llevan puerta", cubre: ["remit.send", "remit.manage"] },
+  // OLA 16 (Cara G3, en vivo): remit.manage SALE de la familia — su
+  // consumidor nació (RemitToPick entrega su manage bajo
+  // has("remit.manage"), remit-people.tsx): la higiene de esta tabla
+  // manda que la enumeración muera el día que el asiento gana su
+  // puerta, y ese día es hoy. La familia sigue cubriendo remit.send.
+  remit: { mecanismo: "Remesas: composición sobre remesas.ts; sus verbos finos llevan puerta", cubre: ["remit.send"] },
   rule: { mecanismo: "las reglas del Asesor: el motor las evalúa enteras (rules.ts); la familia declara el piso de cada aviso", cubre: ["rule.due", "rule.category", "rule.outlier", "rule.recurring", "rule.pace", "rule.goal", "rule.cushion", "rule.floor", "rule.overcommit", "rule.insurance"] },
   sample: { mecanismo: "la casa de muestra nace por composición (sample.ts); sus asientos declaran sus pisos", cubre: ["sample.door", "sample.house-filtered"] },
   scan: { mecanismo: "las hojas de escaneo nacen por composición; sus filas llevan asientos finos (scan.card-capture y hermanas)", cubre: ["scan.receipt-review"] },
@@ -812,21 +817,71 @@ describe("ola9 · §A-quater: el censo desde el REGISTRO — ningún gobernador 
  * clasificar es sentencia; una clasificación sin sitio, pudrición. */
 const MASS_VERBS = /drop|delete|remove|archive|wipe|erase|bulk/i;
 const MASS_CHANNEL = /^(onDrop|onDropMany|dropMany|deleteMany|removeMany|archiveMany|drop|wipe)$|Many$|Selection$/;
-/** Los cuerpos (por nombre) de un archivo que mapean ids: la materia
- * con la que la prueba de alimentación sigue el VALOR (S1, abajo). */
-function idMapperBodies(text: string): Map<string, string> {
-  const sf = ts.createSourceFile("indice.ts", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const out = new Map<string, string>();
-  const mapsIds = (t: string) => /\.map\(/.test(t) && /\.id\b/.test(t);
+/** ¿El callback produce ids? Las grafías de la casa: `.id` sobre el
+ * elemento, o el elemento DESCOMPUESO en el parámetro —
+ * `({id}) => id` — donde el id nace de la desestructuración y el
+ * cuerpo lo devuelve desnudo (la grafía que la ola 16 cazó escapando:
+ * su texto no lleva «.id» en el cuerpo, solo en el parámetro). */
+function cbMapsIds(cb: ts.Node | undefined): boolean {
+  if (!cb || !(ts.isArrowFunction(cb) || ts.isFunctionExpression(cb))) return false;
+  for (const p of cb.parameters) {
+    if (ts.isObjectBindingPattern(p.name) && p.name.elements.some((el) => (el.propertyName && !ts.isComputedPropertyName(el.propertyName) ? el.propertyName.text : ts.isIdentifier(el.name) ? el.name.text : "") === "id")) return true;
+  }
+  return /\.id\b/.test(cb.getText());
+}
+/** ¿El subárbol contiene una producción de ids? Las grafías: map,
+ * flatMap y reduce con callback productor, Array.from con mapeador, la
+ * llamada a un mapeador conocido, el esparcido de una variable-lista
+ * conocida y la cadena sobre un valor productor (la expresión unida). */
+function nodeMapsIds(root: ts.Node, mappers: Set<string>, vars: Set<string>, isRoot = true): boolean {
+  if (isRoot && ts.isIdentifier(root)) return vars.has(root.text);
+  let found = false;
   const walk = (n: ts.Node) => {
-    if (ts.isFunctionDeclaration(n) && n.name && n.body && mapsIds(n.body.getText())) out.set(n.name.text, n.body.getText());
-    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) && mapsIds(n.initializer.getText())) out.set(n.name.text, n.initializer.getText());
+    if (found) return;
+    if (ts.isCallExpression(n)) {
+      const cal = n.expression;
+      if (ts.isPropertyAccessExpression(cal)) {
+        const nm = cal.name.text;
+        if ((nm === "map" || nm === "flatMap" || nm === "reduce") && cbMapsIds(n.arguments[0])) { found = true; return; }
+        if (nm === "from" && ts.isIdentifier(cal.expression) && cal.expression.text === "Array" && (cbMapsIds(n.arguments[1]) || nodeMapsIds(n.arguments[0]!, mappers, vars, false))) { found = true; return; }
+      }
+      if (ts.isIdentifier(cal) && mappers.has(cal.text)) { found = true; return; }
+    }
+    if (ts.isSpreadElement(n) && ts.isIdentifier(n.expression) && vars.has(n.expression.text)) { found = true; return; }
+    ts.forEachChild(n, walk);
+  };
+  walk(root);
+  return found;
+}
+/** Los cuerpos (por nombre) de un archivo que mapean ids: la materia
+ * con la que la prueba de alimentación sigue el VALOR (S1, abajo).
+ * OLA 16 (Cara V): el índice aprende las grafías (map/flatMap/reduce/
+ * Array.from, la desestructuración) y el SEGUNDO SALTO — un cuerpo que
+ * llama a un mapeador conocido también mapea, por punto fijo con los
+ * mapeadores externos que el llamante ya conoce. */
+function idMapperBodies(text: string, external: Set<string> = new Set()): Map<string, string> {
+  const sf = ts.createSourceFile("indice.ts", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const bodies = new Map<string, ts.Node>();
+  const walk = (n: ts.Node) => {
+    if (ts.isFunctionDeclaration(n) && n.name && n.body) bodies.set(n.name.text, n.body);
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) bodies.set(n.name.text, n.initializer);
     ts.forEachChild(n, walk);
   };
   walk(sf);
+  const names = new Set<string>(external);
+  for (let pass = 0; pass < 6; pass++) {
+    let grew = false;
+    for (const [nm, body] of bodies) {
+      if (names.has(nm)) continue;
+      if (nodeMapsIds(body, names, new Set(), false)) { names.add(nm); grew = true; }
+    }
+    if (!grew) break;
+  }
+  const out = new Map<string, string>();
+  for (const nm of names) { const b = bodies.get(nm); if (b) out.set(nm, b.getText()); }
   return out;
 }
-function massHandSites(file: string, text: string, idMappers: Map<string, string> = new Map()): string[] {
+function massHandNodes(file: string, text: string, idMappers: Map<string, string> = new Map()): Map<string, ts.CallExpression> {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   /* OLA 15 (Cara S1) · LA MANO PARTIDA: la prueba de alimentación
    * sigue el VALOR, no la expresión. La caza partió una mano en masa
@@ -839,15 +894,23 @@ function massHandSites(file: string, text: string, idMappers: Map<string, string
    * formularios aprendió a seguir la delegación; y una variable atada
    * a esa llamada es una variable de lista como cualquier otra. */
   const localMappers = idMapperBodies(text);
-  const bodyOf = (name: string): string | undefined => localMappers.get(name) ?? idMappers.get(name);
-  const callMapsIds = (e: ts.Node): boolean => ts.isCallExpression(e) && ts.isIdentifier(e.expression) && bodyOf(e.expression.text) !== undefined;
+  const mapperNames = new Set<string>([...localMappers.keys(), ...idMappers.keys()]);
+  /* OLA 16 (Cara V): las variables-lista se recogen por punto fijo con
+   * el seguidor entero — una variable atada a una expresión productora
+   * (cualquier grafía), a la llamada de un mapeador o a OTRA
+   * variable-lista es una variable-lista (el segundo salto: A mapea,
+   * B reenvía, la mano se alimenta de B). */
   const idListVars = new Set<string>();
-  const collect = (n: ts.Node) => {
-    if (ts.isVariableDeclaration(n) && n.initializer && ts.isIdentifier(n.name) && ((/\.map\(/.test(n.initializer.getText()) && /\.id\b/.test(n.initializer.getText())) || callMapsIds(n.initializer))) idListVars.add(n.name.text);
-    ts.forEachChild(n, collect);
-  };
-  collect(sf);
-  const sites: string[] = [];
+  for (let pass = 0; pass < 6; pass++) {
+    let grew = false;
+    const collect = (n: ts.Node) => {
+      if (ts.isVariableDeclaration(n) && n.initializer && ts.isIdentifier(n.name) && !idListVars.has(n.name.text) && nodeMapsIds(n.initializer, mapperNames, idListVars)) { idListVars.add(n.name.text); grew = true; }
+      ts.forEachChild(n, collect);
+    };
+    collect(sf);
+    if (!grew) break;
+  }
+  const sites = new Map<string, ts.CallExpression>();
   const ordinals = new Map<string, number>();
   const walk = (n: ts.Node, fn: string) => {
     let cur = fn;
@@ -858,13 +921,12 @@ function massHandSites(file: string, text: string, idMappers: Map<string, string
       const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : "";
       if (name && name !== "removeEventListener" && (MASS_VERBS.test(name) || MASS_CHANNEL.test(name))) {
         for (const arg of n.arguments) {
-          const t = arg.getText();
-          const fed = (/\.map\(/.test(t) && /\.id\b/.test(t)) || (ts.isIdentifier(arg) && idListVars.has(arg.text)) || callMapsIds(arg) || MASS_CHANNEL.test(name);
+          const fed = nodeMapsIds(arg, mapperNames, idListVars) || MASS_CHANNEL.test(name);
           if (fed) {
             const k = `${file}:${cur}`;
             const ord = (ordinals.get(k) ?? 0) + 1;
             ordinals.set(k, ord);
-            sites.push(`${k}#${ord}`);
+            sites.set(`${k}#${ord}`, n);
             break;
           }
         }
@@ -875,12 +937,15 @@ function massHandSites(file: string, text: string, idMappers: Map<string, string
   walk(sf, "(raíz)");
   return sites;
 }
+function massHandSites(file: string, text: string, idMappers: Map<string, string> = new Map()): string[] {
+  return [...massHandNodes(file, text, idMappers).keys()];
+}
 const MANOS_EN_MASA: Record<string, [string, string]> = {
   "components/faro/archivo.tsx:askDeleteLines#1": ["archive.delete-lines", "el run de la confirmación de borrado de líneas apartadas: solo se alcanza bajo has(\"archive.delete-lines\") (canDeleteLines, archivo.tsx), que gobierna la entrada de la selección de borrado"],
   "components/faro/fit-pick.tsx:dropSelected#1": ["editor.picker-manage", "EL CANAL: la hoja dispara solo el onDropMany que una composición gobernada le entregó — editor.picker-manage en los editores (fit-pick), books.multiselect en el kit de libros; la composición que no gobierna (picker-rename) no lleva onDropMany"],
   "components/faro/historial.tsx:rowTap#1": ["archive.hide-selection", "el apartado de UNA fila desde su toque: la mano de apartar del Historial vive bajo has(\"archive.hide-selection\") (canRest, historial.tsx) en sus dos formas, la de una y la de la selección"],
   "components/faro/historial.tsx:askHideSel#1": ["archive.hide-selection", "el apartado de la selección entera: la misma puerta (canRest) gobierna la entrada al modo selección que alimenta la lista"],
-  "components/faro/remit-people.tsx:RemitToPick#1": ["remit.manage", "el onDropMany del manage de RemitToPick envuelve ops.drop: la hoja solo se monta desde el flujo de remesas/personas, cuya mano de administrar es este asiento; si la hoja se monta en otra superficie, esta clasificación se reescribe"],
+  "components/faro/remit-people.tsx:RemitToPick#1": ["remit.manage", "el canal: RemitToPick entrega su manage SOLO bajo has(\"remit.manage\") en el propio archivo (la cura de la ola 16 — antes la entrega no llevaba puerta y la cita era prosa); la hoja dispara solo el onDropMany que esa entrega gobernada le pasó"],
 };
 /* OLA 15 (Cara S3) · CITAR NO BASTA: la clasificación se verifica
  * contra el sitio. La caza clasificó la mano de borrado total del kit
@@ -907,34 +972,354 @@ const MANOS_EN_MASA: Record<string, [string, string]> = {
  * que manda cuando el piso no alcanza: la satisfacción por asiento
  * del §A-quater, aplicada al gobierno por sitio. */
 const MODO_RANGO: Record<string, number> = { esencial: 0, ritmo: 1, completo: 2 };
-function citaGobierna(site: string, seat: string, fileText: string): string | null {
+/* OLA 16 (Cara G1/G2/G3): CITAR NO BASTA — y gobernar se VERIFICA.
+ * La verificación de la ola 15 tenía dos mitades que la caza desnudó:
+ * el piso absolvía SOLO (un asiento de Ritmo citado por una mano que
+ * jamás lo consulta — ni en su archivo, ni por importación, ni por el
+ * componente que monta — pasaba entero: G3), y la consulta contaba
+ * sitios en el TEXTO del archivo (una consulta muerta — tras un
+ * return, en una función jamás llamada, en un componente hermano —
+ * absolvía igual: G1), mientras el gobierno verdadero entre archivos
+ * (la puerta en un hook importado) acusaba en esta cerca y contaba
+ * como consumo en la §A: los dos censos se contradecían (G2). Ahora
+ * la cita gobierna solo por un MECANISMO verificable:
+ *   M1 · LA CONSULTA EN EL CAMINO — un has(asiento) VIVO en el propio
+ *        archivo: no tras un return en su bloque, y en el camino del
+ *        código de la mano — dentro de la misma función envolvente
+ *        (el componente que compone la mano), o inicializando una
+ *        atadura que esa función usa, o dentro de una función local
+ *        alcanzable desde ella.
+ *   M2 · EL GOBIERNO IMPORTADO — la función de la mano llama a un
+ *        hook/ayudante importado cuyo cuerpo consulta el asiento en
+ *        su camino (useCanDeleteLines gobierna la mano que lo
+ *        importa): el gobierno entre archivos cuenta, y esta cerca y
+ *        la §A por fin concuerdan.
+ *   M3 · EL COMPONENTE MONTADO (composiciones) — el elemento que la
+ *        composición monta consulta el asiento en su propio cuerpo
+ *        (BookKit y su canManage): el kit ES la puerta de la entrega.
+ *   M4 · EL CANAL (manos) — la mano dispara un canal que le llega por
+ *        un prop (el manage de la hoja): gobierna si alguna
+ *        composición censada de ese componente entrega el canal bajo
+ *        este mismo asiento por M1/M2/M3 — las entregas las juzga la
+ *        §A-sexies, y el canal hereda su gobierno, no una prosa.
+ * Sin mecanismo no hay gobierno: ni el piso solo, ni la mención, ni
+ * la razón escrita absuelven. */
+const isFnOla9 = (n: ts.Node): boolean => ts.isFunctionDeclaration(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isMethodDeclaration(n) || ts.isConstructorDeclaration(n) || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n);
+const fnNameOfNode = (n: ts.Node): string | null => {
+  if (ts.isFunctionDeclaration(n) && n.name) return n.name.text;
+  const p = n.parent;
+  if (p && ts.isVariableDeclaration(p) && ts.isIdentifier(p.name)) return p.name.text;
+  return null;
+};
+const fnChainOf = (node: ts.Node): ts.Node[] => {
+  const chain: ts.Node[] = [];
+  let cur: ts.Node | undefined = node.parent;
+  while (cur && !ts.isSourceFile(cur)) { if (isFnOla9(cur)) chain.push(cur); cur = cur.parent; }
+  return chain;
+};
+const outermostFn = (node: ts.Node): ts.Node | null => { const c = fnChainOf(node); return c.length ? c[c.length - 1]! : null; };
+const deadPosition = (node: ts.Node): boolean => {
+  let child: ts.Node = node;
+  let cur: ts.Node | undefined = node.parent;
+  while (cur && !ts.isSourceFile(cur)) {
+    if (ts.isBlock(cur)) {
+      const idx = cur.statements.indexOf(child as ts.Statement);
+      if (idx > 0 && cur.statements.slice(0, idx).some((s) => ts.isReturnStatement(s) || ts.isThrowStatement(s))) return true;
+    }
+    if (isFnOla9(cur)) break;
+    child = cur;
+    cur = cur.parent;
+  }
+  return false;
+};
+const gateCallSites = (sf: ts.SourceFile, seat: string): ts.CallExpression[] => {
+  const gateNames = new Set<string>(["has"]);
+  const seatConsts = new Set<string>();
+  const visit0 = (n: ts.Node) => {
+    if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
+      for (const el of n.importClause.namedBindings.elements) if ((el.propertyName?.text ?? el.name.text) === "has") gateNames.add(el.name.text);
+    }
+    if (ts.isVariableDeclaration(n)) {
+      if (ts.isIdentifier(n.name) && n.initializer && ts.isStringLiteral(n.initializer) && n.initializer.text === seat) seatConsts.add(n.name.text);
+      if (ts.isObjectBindingPattern(n.name)) for (const el of n.name.elements) {
+        const orig = el.propertyName && !ts.isComputedPropertyName(el.propertyName) ? el.propertyName.text : (ts.isIdentifier(el.name) ? el.name.text : "");
+        if (orig === "has" && ts.isIdentifier(el.name)) gateNames.add(el.name.text);
+      }
+    }
+    ts.forEachChild(n, visit0);
+  };
+  visit0(sf);
+  const out: ts.CallExpression[] = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && gateNames.has(n.expression.text) && n.arguments.length) {
+      const a = n.arguments[0]!;
+      if (((ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) && a.text === seat) || (ts.isIdentifier(a) && seatConsts.has(a.text))) out.push(n);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return out;
+};
+const calledNamesOf = (root: ts.Node): Set<string> => {
+  const out = new Set<string>();
+  const w = (n: ts.Node) => { if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) out.add(n.expression.text); ts.forEachChild(n, w); };
+  w(root);
+  return out;
+};
+const localFnMap = (sf: ts.SourceFile): Map<string, ts.Node> => {
+  const out = new Map<string, ts.Node>();
+  const w = (n: ts.Node) => {
+    if (isFnOla9(n)) { const nm = fnNameOfNode(n); if (nm && !out.has(nm)) out.set(nm, n); }
+    ts.forEachChild(n, w);
+  };
+  w(sf);
+  return out;
+};
+const reachableFrom = (root: ts.Node, sf: ts.SourceFile): Set<string> => {
+  const fns = localFnMap(sf);
+  const out = new Set<string>();
+  let frontier = [...calledNamesOf(root)];
+  while (frontier.length) {
+    const nm = frontier.pop()!;
+    if (out.has(nm)) continue;
+    out.add(nm);
+    const b = fns.get(nm);
+    if (b) frontier.push(...calledNamesOf(b));
+  }
+  return out;
+};
+/** M1: la consulta viva en el camino del código de handFn. */
+const onPathInFile = (sf: ts.SourceFile, seat: string, handFn: ts.Node | null): boolean => {
+  if (!handFn) return false;
+  const calls = gateCallSites(sf, seat).filter((c) => !deadPosition(c));
+  if (!calls.length) return false;
+  const reachable = reachableFrom(handFn, sf);
+  for (const c of calls) {
+    const chain = fnChainOf(c);
+    if (chain.includes(handFn)) return true; // la consulta vive en la función que compone la mano (o en un cierre dentro de ella)
+    let decl: ts.Node | undefined = c;
+    while (decl && !ts.isVariableDeclaration(decl)) decl = decl.parent;
+    if (decl && ts.isIdentifier((decl as ts.VariableDeclaration).name)) {
+      const nm = ((decl as ts.VariableDeclaration).name as ts.Identifier).text;
+      let used = false;
+      const w = (n: ts.Node) => { if (ts.isIdentifier(n) && n.text === nm && n !== (decl as ts.VariableDeclaration).name) used = true; ts.forEachChild(n, w); };
+      w(handFn);
+      if (used) return true; // la atadura que la consulta inicializa gobierna la cara de la mano
+    }
+    const enc = chain[0];
+    if (enc) { const nm = fnNameOfNode(enc); if (nm && reachable.has(nm)) return true; } // una función alcanzable desde la mano consulta
+  }
+  return false;
+};
+const resolveSpecOla9 = (fromRel: string, spec: string, files: Map<string, string>): string | null => {
+  let parts: string[];
+  const dir = fromRel.split("/").slice(0, -1);
+  if (spec.startsWith("@/")) parts = ["src", ...spec.slice(2).split("/")];
+  else if (spec.startsWith(".")) {
+    parts = [...dir];
+    for (const seg of spec.split("/")) { if (seg === "..") parts.pop(); else if (seg !== ".") parts.push(seg); }
+  } else return null;
+  const base = parts.join("/");
+  for (const cand of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`, base]) if (files.has(cand)) return cand;
+  return null;
+};
+const findFnIn = (sf: ts.SourceFile, name: string): ts.Node | null => localFnMap(sf).get(name) ?? null;
+/** M2: un hook/ayudante importado, llamado desde la función de la mano, consulta el asiento en su camino. */
+const governsViaImport = (siteRel: string, sf: ts.SourceFile, seat: string, handFn: ts.Node | null, files: Map<string, string>): boolean => {
+  if (!handFn) return false;
+  const called = calledNamesOf(handFn);
+  let yes = false;
+  const visit = (n: ts.Node) => {
+    if (yes) return;
+    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
+      const target = resolveSpecOla9(siteRel, n.moduleSpecifier.text, files);
+      if (target && files.has(target)) {
+        const tsf = ts.createSourceFile(target, files.get(target)!, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+        for (const el of n.importClause.namedBindings.elements) {
+          if (!called.has(el.name.text)) continue;
+          const orig = el.propertyName?.text ?? el.name.text;
+          const fnNode = findFnIn(tsf, orig);
+          if (fnNode && onPathInFile(tsf, seat, fnNode)) { yes = true; return; }
+        }
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return yes;
+};
+/** M3: el componente que la composición monta consulta el asiento en su cuerpo. */
+const governsViaMount = (siteRel: string, sf: ts.SourceFile, seat: string, compNode: ts.Node, files: Map<string, string>): boolean => {
+  let tag: string | null = null;
+  if (ts.isJsxAttribute(compNode) || ts.isJsxSpreadAttribute(compNode)) {
+    const elNode = compNode.parent?.parent as ts.Node | undefined;
+    if (elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode))) tag = elNode.tagName.getText();
+  } else if (ts.isCallExpression(compNode) && compNode.arguments.length && ts.isIdentifier(compNode.arguments[0]!)) {
+    tag = (compNode.arguments[0] as ts.Identifier).text;
+  }
+  if (!tag) return false;
+  const local = findFnIn(sf, tag);
+  if (local && onPathInFile(sf, seat, local)) return true;
+  // el componente importado: su cuerpo, en su archivo
+  let yes = false;
+  const visit = (n: ts.Node) => {
+    if (yes) return;
+    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
+      for (const el of n.importClause.namedBindings.elements) {
+        if (el.name.text !== tag) continue;
+        const target = resolveSpecOla9(siteRel, n.moduleSpecifier.text, files);
+        if (!target || !files.has(target)) continue;
+        const tsf = ts.createSourceFile(target, files.get(target)!, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+        const fnNode = findFnIn(tsf, el.propertyName?.text ?? el.name.text);
+        if (fnNode && onPathInFile(tsf, seat, fnNode)) { yes = true; return; }
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return yes;
+};
+/** Reubica un nodo de un parseo en otro parseo del mismo texto, por
+ * posición y clase — los censos parsean su propio árbol y la
+ * identidad de nodos no cruza parseos. */
+const relocateIn = (root: ts.Node, target: ts.Node): ts.Node | null => {
+  let found: ts.Node | null = null;
+  const w = (n: ts.Node) => {
+    if (found) return;
+    if (n.kind === target.kind && n.getStart() === target.getStart() && n.end === target.end) { found = n; return; }
+    ts.forEachChild(n, w);
+  };
+  w(root);
+  return found;
+};
+function citaGobierna(site: string, seat: string, files: Map<string, string>, kind: "hand" | "composition", idMappers: Map<string, string> = new Map(), viaChannel = true): string | null {
   const piso = (FEATURES as Record<string, string>)[seat];
-  if (piso && (MODO_RANGO[piso] ?? 0) >= MODO_RANGO["ritmo"]!) return null;
-  if (consumedIn(stripComments(fileText), seat)) return null;
-  return `${site}: su asiento citado «${seat}» NO gobierna el sitio — vive en ${piso ?? "?"} y el archivo del sitio jamás lo consulta: citar no es gobernar (S3)`;
+  const rel = site.split(":")[0]!;
+  const text = files.get(rel);
+  if (text === undefined) return `${site}: su asiento citado «${seat}» no se puede verificar — el archivo del sitio no está en el universo caminado (G16)`;
+  const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let handNode: ts.Node | undefined;
+  if (kind === "hand") handNode = massHandNodes(rel, text, idMappers).get(site);
+  else handNode = compositionNodes(rel, text).get(site);
+  if (!handNode) return `${site}: el sitio no se encuentra en su archivo — la cita no se puede verificar (G16)`;
+  /* Los censos parsean su propio árbol: el nodo de la mano se reubica
+   * en ESTE parseo por posición y clase, para que las cadenas de
+   * funciones comparen nodos del mismo árbol. */
+  const ownNode = relocateIn(sf, handNode) ?? handNode;
+  const handFn = outermostFn(ownNode);
+  if (onPathInFile(sf, seat, handFn)) return null; // M1
+  if (governsViaImport(rel, sf, seat, handFn, files)) return null; // M2
+  if (kind === "composition" && governsViaMount(rel, sf, seat, ownNode, files)) return null; // M3
+  if (kind === "hand" && viaChannel && piso && (MODO_RANGO[piso] ?? 0) >= MODO_RANGO["ritmo"]!) {
+    // M4 · el canal: la mano dispara un canal que le llega por un prop;
+    // las composiciones que montan su componente y entregan ese canal
+    // bajo este asiento (por M1/M2/M3) son su gobierno verificable. El
+    // canal puede llegar desnudo (manage.onDropMany) o por una atadura
+    // local de un salto (const dropMany = manage.onDropMany, la forma
+    // viva de la hoja desde 1.3.315): la raíz se sigue igual.
+    const callee = (handNode as ts.CallExpression).expression;
+    const rootOf = (e: ts.Node): string | null => {
+      let r: ts.Node = e;
+      while (ts.isPropertyAccessExpression(r) || ts.isElementAccessExpression(r)) r = r.expression;
+      return ts.isIdentifier(r) ? r.text : null;
+    };
+    let rootId: string | null = null;
+    if (ts.isPropertyAccessExpression(callee)) rootId = rootOf(callee);
+    else if (ts.isIdentifier(callee) && handFn) {
+      const find = (n: ts.Node) => {
+        if (rootId) return;
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === (callee as ts.Identifier).text && n.initializer) rootId = rootOf(n.initializer);
+        ts.forEachChild(n, find);
+      };
+      find(handFn);
+    }
+    if (rootId && handFn) {
+      const root = { text: rootId };
+      {
+        const compName = fnNameOfNode(handFn);
+        const params = (handFn as ts.FunctionLikeDeclarationBase).parameters ?? [];
+        const isProp = params.some((p) => p.name.getText() === root.text || (ts.isObjectBindingPattern(p.name) && p.name.elements.some((el) => (ts.isIdentifier(el.name) ? el.name.text : "") === root.text)));
+        if (compName && isProp) {
+          for (const [otherRel, otherText] of files) {
+            for (const [osite, onode] of compositionNodes(otherRel, otherText)) {
+              let otag: string | null = null;
+              if (ts.isJsxAttribute(onode) || ts.isJsxSpreadAttribute(onode)) {
+                const elNode = onode.parent?.parent as ts.Node | undefined;
+                if (elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode))) otag = elNode.tagName.getText();
+              } else if (ts.isCallExpression(onode) && onode.arguments.length && ts.isIdentifier(onode.arguments[0]!)) otag = (onode.arguments[0] as ts.Identifier).text;
+              if (otag !== compName) continue;
+              const osf = ts.createSourceFile(otherRel, otherText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+              const oOwn = relocateIn(osf, onode) ?? onode;
+              const oFn = outermostFn(oOwn);
+              if (onPathInFile(osf, seat, oFn) || governsViaImport(otherRel, osf, seat, oFn, files) || governsViaMount(otherRel, osf, seat, oOwn, files)) return null;
+            }
+          }
+        }
+      }
+    }
+  }
+  return `${site}: su asiento citado «${seat}» NO gobierna el sitio — vive en ${piso ?? "?"} y ningún mecanismo verificable lo ata a la mano: ni consulta viva en su camino, ni gobierno importado, ni componente montado, ni canal gobernado: citar no es gobernar (S3/G16)`;
 }
+/* OLA 16 (Cara X1): el universo de los censos de superficies es el
+ * ÁRBOL entero de src/components — recursivo, .ts y .tsx: una
+ * superficie en un subdirectorio, en un .ts con createElement o fuera
+ * de components/faro ya no es invisible. El mapa de archivos es
+ * también el universo contra el que citaGobierna resuelve el gobierno
+ * entre archivos (M2/M3), con la librería como segundo piso. */
+const walkComponentFiles = (dir: URL, prefix: string): { rel: string; text: string }[] => {
+  const out: { rel: string; text: string }[] = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const rel = `${prefix}/${e.name}`;
+    if (e.isDirectory()) out.push(...walkComponentFiles(new URL(`${e.name}/`, dir), rel));
+    else if (e.name.endsWith(".ts") || e.name.endsWith(".tsx")) out.push({ rel, text: readFileSync(new URL(e.name, dir), "utf8") });
+  }
+  return out.sort((a, b) => a.rel.localeCompare(b.rel));
+};
+const censusFiles = (): Map<string, string> => {
+  const files = new Map<string, string>();
+  for (const f of walkComponentFiles(new URL("../../components/", import.meta.url), "components")) files.set(f.rel, f.text);
+  const libDir = new URL("../../lib/faro/", import.meta.url);
+  for (const f of readdirSync(libDir).filter((x) => x.endsWith(".ts") || x.endsWith(".tsx")).sort()) {
+    files.set(`lib/faro/${f}`, readFileSync(new URL(f, libDir), "utf8"));
+  }
+  return files;
+};
+const mapperIndexOf = (files: Map<string, string>): Map<string, string> => {
+  const index = new Map<string, string>();
+  let known = new Set<string>();
+  for (let round = 0; round < 3; round++) {
+    for (const [rel, text] of files) {
+      if (!rel.startsWith("components/")) continue;
+      for (const [k, v] of idMapperBodies(text, known)) if (!index.has(k)) index.set(k, v);
+    }
+    const now = new Set(index.keys());
+    if (now.size === known.size) break;
+    known = now;
+  }
+  return index;
+};
 describe("ola9 · §A-quinquies: el censo de superficies — toda mano en masa nombra su asiento (OLA 14)", () => {
-  const compDir = new URL("../../components/faro/", import.meta.url);
-  const fileTextOf = (site: string): string => readFileSync(new URL(site.split(":")[0]!.split("/").pop()!, compDir), "utf8");
   const liveSites = (): string[] => {
-    const files = readdirSync(compDir).filter((x) => x.endsWith(".tsx")).sort();
-    const index = new Map<string, string>();
-    for (const f of files) for (const [k, v] of idMapperBodies(readFileSync(new URL(f, compDir), "utf8"))) if (!index.has(k)) index.set(k, v);
+    const files = censusFiles();
+    const index = mapperIndexOf(files);
     const out: string[] = [];
-    for (const f of files) {
-      out.push(...massHandSites(`components/faro/${f}`, readFileSync(new URL(f, compDir), "utf8"), index));
+    for (const [rel, text] of files) {
+      if (!rel.startsWith("components/")) continue;
+      out.push(...massHandSites(rel, text, index));
     }
     return out;
   };
-  it("toda mano en masa del árbol vivo está clasificada con su asiento gobernante — y la cita GOBIERNA (S3)", () => {
+  it("toda mano en masa del árbol vivo está clasificada con su asiento gobernante — y la cita GOBIERNA (S3/G16)", () => {
     const sites = liveSites();
+    const files = censusFiles();
+    const index = mapperIndexOf(files);
     assert.ok(sites.length >= 5, `el censo camina las superficies de verdad (${sites.length} sitios)`);
     for (const site of sites) {
       const entry = MANOS_EN_MASA[site];
       assert.ok(entry, `${site}: mano en masa SIN asiento nombrado en el sitio — la clase de CARA-Q2: nace, actúa en los tres modos y ningún censo la veía`);
       assert.ok(entry[0] in FEATURES, `${site}: su asiento gobernante «${entry[0]}» no existe en el registro`);
       assert.ok(entry[1].length > 10, `${site}: la clasificación lleva su razón escrita`);
-      const acus = citaGobierna(site, entry[0], fileTextOf(site));
+      const acus = citaGobierna(site, entry[0], files, "hand", index);
       assert.equal(acus, null, acus ?? "");
     }
   });
@@ -970,17 +1355,79 @@ describe("ola9 · §A-quinquies: el censo de superficies — toda mano en masa n
     assert.deepEqual(massHandSites("components/faro/inventada14.tsx", staged), [],
       "borrar UNA línea por su id es la mano fina de siempre: el censo caza la masa, no el gesto");
   });
-  it("espécimen S3 (ola 15): la cita que no gobierna ACUSA — y las dos formas de gobierno verdadero absuelven", () => {
-    const kit = `export function BookKit() { const canManage = has("books.multiselect"); return canManage; }`;
+  it("espécimen S3 (ola 15) + G16: la cita que no gobierna ACUSA — y el gobierno verdadero absuelve por su mecanismo", () => {
+    const mkKit = (pre: string) => new Map([["components/faro/book-kit.tsx", `export function BookKit({ rows, onDrop }: { rows: { id: string }[]; onDrop: (ids: string[]) => void }) {
+      ${pre}
+      const wipeAll = () => onDrop(rows.map((r) => r.id));
+      return { wipeAll };
+    }`]]);
     const site = "components/faro/book-kit.tsx:wipeAll#1";
-    const acus = citaGobierna(site, "books.list", kit);
-    assert.ok(acus && /S3/.test(acus), "el espécimen de la caza: la mano del kit clasificada citando «books.list» (Esencial, sin consulta en el archivo) — la cita existe y la razón pasa, y aun así no gobierna: ACUSA");
-    assert.equal(citaGobierna(site, "books.multiselect", kit), null, "la cita verdadera del kit (Ritmo, consultada en el propio archivo) absuelve");
-    const archivo = `export function Archivo() { const canDeleteLines = has("archive.delete-lines"); return canDeleteLines; }`;
-    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", archivo), null,
-      "el gobierno vivo de Esencial: el registro lo puso en Esencial y el archivo del sitio lo consulta para abrir la mano — la consulta real absuelve");
-    assert.ok(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", `export function Archivo() { return null; }`),
+    const acus = citaGobierna(site, "books.list", mkKit(""), "hand");
+    assert.ok(acus && /S3\/G16/.test(acus), "el espécimen de la caza: la mano del kit clasificada citando «books.list» (Esencial, sin consulta ni mecanismo) — la cita existe y la razón pasa, y aun así no gobierna: ACUSA");
+    assert.equal(citaGobierna(site, "books.multiselect", mkKit(`const canManage = has("books.multiselect");`), "hand"), null, "la cita verdadera del kit: la consulta viva en el componente que compone la mano gobierna (M1)");
+    const mkArchivo = (pre: string) => new Map([["components/faro/archivo.tsx", `export function Archivo({ lines, dropMany }: { lines: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      ${pre}
+      const askDeleteLines = () => dropMany(lines.map((l) => l.id));
+      return askDeleteLines;
+    }`]]);
+    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", mkArchivo(`const canDeleteLines = has("archive.delete-lines");`), "hand"), null,
+      "el gobierno vivo de Esencial: el registro lo puso en Esencial y el componente lo consulta en el camino de la mano — la consulta real absuelve");
+    assert.ok(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", mkArchivo(""), "hand"),
       "y el mismo asiento citado por un archivo que NO lo consulta acusa: la consulta es el gobierno, no el nombre");
+  });
+  it("espécimen G1 (ola 16): la consulta MUERTA no absuelve — tras un return, en función jamás llamada, en componente hermano", () => {
+    const site = "components/faro/archivo.tsx:askDeleteLines#1";
+    const hand = `const askDeleteLines = () => dropMany(lines.map((l) => l.id));`;
+    const props = `{ lines, dropMany }: { lines: { id: string }[]; dropMany: (ids: string[]) => void }`;
+    const trasReturn = new Map([["components/faro/archivo.tsx", `export function Archivo(${props}) {
+      ${hand}
+      return askDeleteLines;
+      const canDeleteLines = has("archive.delete-lines");
+    }`]]);
+    assert.ok(citaGobierna(site, "archive.delete-lines", trasReturn, "hand"), "G1a: la consulta tras un return es un cadáver en el archivo: no está en el camino de la mano y no absuelve");
+    const jamasLlamada = new Map([["components/faro/archivo.tsx", `const puertaMuerta = () => has("archive.delete-lines");
+    export function Archivo(${props}) {
+      ${hand}
+      return askDeleteLines;
+    }`]]);
+    assert.ok(citaGobierna(site, "archive.delete-lines", jamasLlamada, "hand"), "G1b: la consulta en una función que nadie llama no gobierna la mano de otro");
+    const hermano = new Map([["components/faro/archivo.tsx", `export function Otro() { const canDeleteLines = has("archive.delete-lines"); return canDeleteLines; }
+    export function Archivo(${props}) {
+      ${hand}
+      return askDeleteLines;
+    }`]]);
+    assert.ok(citaGobierna(site, "archive.delete-lines", hermano, "hand"), "G1c: la consulta en un componente hermano no gobierna esta mano");
+    const viva = new Map([["components/faro/archivo.tsx", `export function Archivo(${props}) {
+      const canDeleteLines = has("archive.delete-lines");
+      ${hand}
+      const ui = canDeleteLines ? askDeleteLines : null;
+      return ui;
+    }`]]);
+    assert.equal(citaGobierna(site, "archive.delete-lines", viva, "hand"), null, "control: la consulta viva en el componente, con su atadura usada por la cara, absuelve");
+  });
+  it("espécimen G2+G3 (ola 16): el gobierno importado cuenta y los censos concuerdan; la cita sin mecanismo acusa", () => {
+    // G2: la puerta vive en un hook importado — gobierna la mano que lo llama
+    const files = new Map([
+      ["components/faro/inventada16-hooks.ts", `export const useCanDeleteLines = () => has("archive.delete-lines");`],
+      ["components/faro/archivo.tsx", `import { useCanDeleteLines } from "./inventada16-hooks";
+      export function Archivo({ lines, dropMany }: { lines: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        const canDeleteLines = useCanDeleteLines();
+        const askDeleteLines = () => dropMany(lines.map((l) => l.id));
+        const ui = canDeleteLines ? askDeleteLines : null;
+        return ui;
+      }`],
+    ]);
+    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", files, "hand"), null,
+      "G2: la puerta extraída al hook importado gobierna la mano que lo importa (M2) — la cerca vieja la sentenciaba mientras la §A la contaba consumida");
+    assert.equal(consumedIn(stripComments(files.get("components/faro/inventada16-hooks.ts")!), "archive.delete-lines"), true,
+      "y la §A cuenta el mismo consumo en el mismo corpus: los dos censos concuerdan");
+    // G3: citar un asiento de Ritmo que gobierna OTRO archivo no absuelve a la mano que no lo consulta ni por importación
+    const sinMecanismo = new Map([["components/faro/inventada16.tsx", `export function ManoNueva({ rows, onDrop }: { rows: { id: string }[]; onDrop: (ids: string[]) => void }) {
+      const wipeAll = () => onDrop(rows.map((r) => r.id));
+      return { wipeAll };
+    }`]]);
+    assert.ok(citaGobierna("components/faro/inventada16.tsx:wipeAll#1", "books.multiselect", sinMecanismo, "hand"),
+      "G3: books.multiselect gobierna el kit en book-kit.tsx — esta mano no lo consulta, no lo importa, no monta el kit: el piso solo ya no absuelve");
   });
   it("espécimen S1 (ola 15): la mano partida entre dos archivos se VE — la alimentación sigue el valor", () => {
     const ayuda = `export const preparaIds = (rows: { id: string }[]) => rows.map((r) => r.id);`;
@@ -1000,6 +1447,28 @@ export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe:
 }`;
     assert.equal(massHandSites("components/faro/inventada15-hoja.tsx", unida).length, 1, "control de la caza: la misma mano unida en una expresión se veía desde siempre");
   });
+  it("espécimen V (ola 16): el seguidor de valores aprende las grafías — segundo salto, reduce, flatMap, Array.from, desestructuración", () => {
+    const mk = (arg: string, pre = "") => `export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe: (ids: string[]) => void }) {
+      ${pre}
+      const wipeAll = () => aplicaWipe(${arg});
+      return { wipeAll };
+    }`;
+    const f = "components/faro/inventada16-hoja.tsx";
+    assert.equal(massHandSites(f, mk("ids", `const directos = rows.map((r) => r.id); const ids = [...directos];`)).length, 1,
+      "V1: el segundo salto — A mapea, B reenvía por esparcido, la mano se alimenta de B: la variable-lista se sigue por punto fijo");
+    assert.equal(massHandSites(f, mk("rows.reduce((acc: string[], r) => [...acc, r.id], [])")).length, 1,
+      "V2: el reduce que acumula ids alimenta la mano");
+    assert.equal(massHandSites(f, mk("rows.flatMap((r) => [r.id])")).length, 1,
+      "V3: el flatMap que produce ids alimenta la mano");
+    assert.equal(massHandSites(f, mk("Array.from(rows, (r) => r.id)")).length, 1,
+      "V4: Array.from con mapeador alimenta la mano");
+    assert.equal(massHandSites(f, mk("rows.map(({ id }) => id)")).length, 1,
+      "V5: la desestructuración ({id}) => id — el id nace en el parámetro y el cuerpo lo devuelve desnudo: también es la grafía canónica");
+    assert.equal(massHandSites(f, mk("rows.map(({ id }) => id).concat(otros)", `const otros: string[] = [];`)).length, 1,
+      "V6: la misma grafía como expresión unida en la mano (la cadena sobre el valor productor)");
+    assert.equal(massHandSites(f, mk("rows.map((r) => r.name)")).length, 0,
+      "control: mapear otra cosa no alimenta una mano en masa");
+  });
 });
 
 /* ═══════════ §A-sexies (OLA 15 · Cara S2): EL CENSO DE COMPOSICIONES ═
@@ -1015,75 +1484,136 @@ export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe:
  * COMPOSICIONES: cada entrega de un canal de masa como prop — un
  * `manage` que lleva onDropMany (la hoja), un onDropMany suelto, el
  * onDrop del kit (BookKit) — es un sitio que nombra su asiento
- * gobernante, y la cita se verifica con la misma regla de S3
- * (citaGobierna): piso de Ritmo o arriba, o la consulta en el archivo
- * que compone. */
-function compositionSites(file: string, text: string): string[] {
+ * gobernante, y la cita se verifica con la misma regla de S3/G16
+ * (citaGobierna): un mecanismo verificable — la consulta viva en el
+ * camino, el gobierno importado o el componente montado. Desde la
+ * ola 16 el censo camina el árbol entero y juzga también las
+ * entregas no literales (X1/X2). */
+function compositionNodes(file: string, text: string): Map<string, ts.Node> {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const sites: string[] = [];
+  /* OLA 16 (Cara X2): la entrega no literal también compone — el
+   * censo viejo solo veía el literal (o el condicional de literales)
+   * escrito en el atributo, y la caza montó la hoja de cinco formas
+   * que escapaban enteras: manage por variable, manage tras un &&, la
+   * entrega por spread de props, el montaje por spread de JSX y el kit
+   * bajo alias de importación. Ahora las ataduras del archivo se
+   * resuelven, los alias del kit se honran y createElement compone
+   * como el JSX. Una entrega por referencia irresoluble (el prop que
+   * se reenvía) también es sitio: la composición existe y nombra su
+   * asiento, o acusa por no tenerlo. */
+  const bindings = new Map<string, ts.Node>();
+  const kitOrig = new Map<string, string>([["BookKit", "BookKit"], ["PickSheet", "PickSheet"]]);
+  const collect = (n: ts.Node) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) bindings.set(n.name.text, n.initializer);
+    if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
+      for (const el of n.importClause.namedBindings.elements) {
+        const orig = el.propertyName?.text ?? el.name.text;
+        if (orig === "BookKit" || orig === "PickSheet") kitOrig.set(el.name.text, orig);
+      }
+    }
+    ts.forEachChild(n, collect);
+  };
+  collect(sf);
+  const unwrap = (e: ts.Node): ts.Node[] => {
+    if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e)) return unwrap(e.expression);
+    if (ts.isConditionalExpression(e)) return [...unwrap(e.whenTrue), ...unwrap(e.whenFalse)];
+    if (ts.isBinaryExpression(e) && (e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || e.operatorToken.kind === ts.SyntaxKind.BarBarToken)) return [...unwrap(e.left), ...unwrap(e.right)];
+    return [e];
+  };
+  const litHas = (e: ts.Node, prop: string, deep = false): boolean => unwrap(e).some((x) => {
+    if (ts.isObjectLiteralExpression(x)) {
+      return x.properties.some((p) => {
+        if (!((ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) && p.name && p.name.getText() === prop)) return false;
+        return true;
+      }) || (deep && x.properties.some((p) => ts.isPropertyAssignment(p) && litHas(p.initializer, prop, true)));
+    }
+    if (ts.isIdentifier(x)) { const b = bindings.get(x.text); return b ? litHas(b, prop, deep) : false; }
+    return false;
+  });
+  const byReference = (e: ts.Node): boolean => unwrap(e).some((x) => {
+    let r: ts.Node = x;
+    while (ts.isPropertyAccessExpression(r) || ts.isElementAccessExpression(r)) r = r.expression;
+    return ts.isIdentifier(r) && r.text !== "undefined" && r.text !== "null" && !bindings.has(r.text);
+  });
+  const sites = new Map<string, ts.Node>();
   const ordinals = new Map<string, number>();
   const walk = (n: ts.Node, fn: string) => {
     let cur = fn;
     if (ts.isFunctionDeclaration(n) && n.name) cur = n.name.text;
     if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) cur = n.name.text;
+    let massNode: ts.Node | null = null;
     if (ts.isJsxAttribute(n)) {
       const attr = n.name.getText();
-      let mass = false;
-      if (attr === "onDropMany") mass = true;
+      const elNode = n.parent?.parent as ts.Node | undefined;
+      const el = elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode)) ? elNode.tagName.getText() : "";
+      if (attr === "onDropMany") massNode = n;
       else if (attr === "manage" && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression) {
-        let e: ts.Node = n.initializer.expression;
-        while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e)) e = e.expression;
-        const lits = ts.isObjectLiteralExpression(e) ? [e] : ts.isConditionalExpression(e) ? [e.whenTrue, e.whenFalse].filter((x) => ts.isObjectLiteralExpression(x)) : [];
-        mass = lits.some((lit) => lit.properties.some((p) => (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) && p.name && p.name.getText() === "onDropMany"));
+        if (litHas(n.initializer.expression, "onDropMany") || byReference(n.initializer.expression)) massNode = n;
       } else if (attr === "onDrop") {
-        const elNode = n.parent?.parent as ts.Node | undefined;
-        const el = elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode)) ? elNode.tagName.getText() : "";
-        mass = el === "BookKit";
+        if (kitOrig.get(el) === "BookKit") massNode = n;
       }
-      if (mass) {
-        const k = `${file}:${cur}`;
-        const ord = (ordinals.get(k) ?? 0) + 1;
-        ordinals.set(k, ord);
-        sites.push(`${k}#${ord}`);
+    } else if (ts.isJsxSpreadAttribute(n)) {
+      const elNode = n.parent?.parent as ts.Node | undefined;
+      const el = elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode)) ? elNode.tagName.getText() : "";
+      const orig = kitOrig.get(el);
+      if (orig === "PickSheet" && (litHas(n.expression, "onDropMany", true) || byReference(n.expression))) massNode = n;
+      else if (orig === "BookKit" && (litHas(n.expression, "onDrop", true) || byReference(n.expression))) massNode = n;
+    } else if (ts.isCallExpression(n)) {
+      const cal = n.expression;
+      const isCE = (ts.isIdentifier(cal) && cal.text === "createElement") || (ts.isPropertyAccessExpression(cal) && cal.name.text === "createElement");
+      if (isCE && n.arguments.length >= 2 && ts.isIdentifier(n.arguments[0]!)) {
+        const orig = kitOrig.get((n.arguments[0] as ts.Identifier).text);
+        if (orig === "PickSheet" && (litHas(n.arguments[1]!, "onDropMany", true) || byReference(n.arguments[1]!))) massNode = n;
+        else if (orig === "BookKit" && (litHas(n.arguments[1]!, "onDrop", true) || byReference(n.arguments[1]!))) massNode = n;
       }
+    }
+    if (massNode) {
+      const k = `${file}:${cur}`;
+      const ord = (ordinals.get(k) ?? 0) + 1;
+      ordinals.set(k, ord);
+      sites.set(`${k}#${ord}`, massNode);
     }
     ts.forEachChild(n, (c) => walk(c, cur));
   };
   walk(sf, "(raíz)");
   return sites;
 }
+function compositionSites(file: string, text: string): string[] {
+  return [...compositionNodes(file, text).keys()];
+}
 const COMPOSICIONES_EN_MASA: Record<string, [string, string]> = {
+  "components/faro/book-kit.tsx:BookKit#1": ["books.multiselect", "el propio kit compone la hoja: su manage nace de canManage = has(\"books.multiselect\") en este mismo archivo (book-kit.tsx:60-61) y la hoja solo recibe el canal bajo esa puerta — sitio que el censo plano no veía y la caminata del árbol de la ola 16 desnudó"],
   "components/faro/debts.tsx:OwedSide#1": ["books.multiselect", "el kit de «Me deben»: su onDrop archiva la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx); la composición entrega el canal bajo esa misma puerta"],
   "components/faro/fit-pick.tsx:StorePick#1": ["editor.picker-manage", "el manage de la hoja de tiendas solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo (fit-pick.tsx:402-410); sin la puerta, la composición entrega la hoja sin manage"],
   "components/faro/fit-pick.tsx:PurchaseCatPick#1": ["editor.picker-manage", "el manage de la hoja de categorías de compra solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
   "components/faro/fit-pick.tsx:CategoryPick#1": ["editor.picker-manage", "el manage de la hoja de categorías solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
   "components/faro/fit-pick.tsx:SubPick#1": ["editor.picker-manage", "el manage de la hoja de subconceptos solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
-  "components/faro/fit-pick.tsx:BrandIconPick#1": ["editor.picker-manage", "el manage de la hoja de marcas solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
+  "components/faro/fit-pick.tsx:BrandIconPick#1": ["subs.brand-icon-admin", "CORRECCIÓN OLA 16: esta composición citaba «editor.picker-manage» y la cerca vieja la absolvía por el piso solo — el gobierno verdadero, clavado desde la ola 8, es has(\"subs.brand-icon-admin\") (Completo) en este mismo archivo (fit-pick.tsx:588): la cita ahora nombra el asiento que gobierna"],
   "components/faro/loans.tsx:DueLoans#1": ["books.multiselect", "el kit de préstamos: su onDrop archiva la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx); la composición entrega el canal bajo esa misma puerta"],
-  "components/faro/remit-people.tsx:RemitToPick#1": ["remit.manage", "el manage de la hoja de personas de remesa: la mano de administrar de este flujo es remit.manage (Completo) y la hoja solo se monta desde los editores de remesas; si se monta en otra superficie, esta clasificación se reescribe"],
+  "components/faro/remit-people.tsx:RemitToPick#1": ["remit.manage", "el manage de la hoja de personas de remesa se entrega bajo has(\"remit.manage\") en este mismo archivo y componente (la cura de la ola 16: la puerta nació aquí; antes ninguna cara consultaba el asiento)"],
   "components/faro/remit-people.tsx:RemitPeople#1": ["books.multiselect", "el kit de personas de remesa: su onDrop retira la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx)"],
   "components/faro/screens.tsx:LinesBlock#1": ["books.multiselect", "el kit del mes: su onDrop borra la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx); la composición entrega el canal bajo esa misma puerta"],
   "components/faro/screens.tsx:savKit#1": ["books.multiselect", "el kit del apartado: su onDrop aparta/archiva la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx)"],
 };
 describe("ola9 · §A-sexies: el censo de composiciones — cada montaje de un canal de masa nombra su asiento (OLA 15)", () => {
-  const compDir = new URL("../../components/faro/", import.meta.url);
   const liveCompositions = (): string[] => {
     const out: string[] = [];
-    for (const f of readdirSync(compDir).filter((x) => x.endsWith(".tsx")).sort()) {
-      out.push(...compositionSites(`components/faro/${f}`, readFileSync(new URL(f, compDir), "utf8")));
+    for (const [rel, text] of censusFiles()) {
+      if (!rel.startsWith("components/")) continue;
+      out.push(...compositionSites(rel, text));
     }
     return out;
   };
   it("toda composición viva está clasificada y su cita gobierna el montaje", () => {
     const sites = liveCompositions();
+    const files = censusFiles();
     assert.ok(sites.length >= 11, `el censo enumera las composiciones de verdad (${sites.length} sitios)`);
     for (const site of sites) {
       const entry = COMPOSICIONES_EN_MASA[site];
       assert.ok(entry, `${site}: composición de un canal de masa SIN asiento nombrado — la clase de S2: la superficie nueva monta la mano de administrar en todo piso y ningún censo la veía`);
       assert.ok(entry[0] in FEATURES, `${site}: su asiento gobernante «${entry[0]}» no existe en el registro`);
       assert.ok(entry[1].length > 10, `${site}: la clasificación lleva su razón escrita`);
-      const text = readFileSync(new URL(site.split(":")[0]!.split("/").pop()!, compDir), "utf8");
-      const acus = citaGobierna(site, entry[0], text);
+      const acus = citaGobierna(site, entry[0], files, "composition");
       assert.equal(acus, null, acus ?? "");
     }
   });
@@ -1108,6 +1638,20 @@ describe("ola9 · §A-sexies: el censo de composiciones — cada montaje de un c
       return <PickSheet title="X" items={rows} onPick={(id: string) => choose(id)} />;
     }`;
     assert.deepEqual(compositionSites("components/faro/inventada15.tsx", hojaSinMasa), [], "control: montar la hoja SIN el canal de masa no es composición en masa");
+  });
+  it("espécimen X2 (ola 16): las cinco entregas no literales COMPONEN — el censo las ve", () => {
+    const hoja = (inner: string, pre = "") => `export function Editor() {
+      ${pre}
+      return <PickSheet title="X" ${inner} />;
+    }`;
+    const cuerpo = "onDrop: () => {}, onDropMany: () => {}";
+    assert.equal(compositionSites("components/faro/x2.tsx", hoja(`manage={gestion}`, `const gestion = { ${cuerpo} };`)).length, 1, "X2a: manage entregado por variable — la atadura se resuelve y la entrega compone");
+    assert.equal(compositionSites("components/faro/x2.tsx", hoja(`manage={activo && { ${cuerpo} }}`)).length, 1, "X2b: manage tras un && — el desenvuelto llega al literal");
+    assert.equal(compositionSites("components/faro/x2.tsx", hoja(`manage={props.gestion}`)).length, 1, "X2c: manage por reenvío de prop — la entrega por referencia también es composición y nombra su asiento");
+    assert.equal(compositionSites("components/faro/x2.tsx", hoja(`{...entrega}`, `const entrega = { manage: { ${cuerpo} } };`)).length, 1, "X2d: el montaje por spread de JSX entrega el canal igual que el atributo");
+    assert.equal(compositionSites("components/faro/x2.tsx", `import { BookKit as Kit } from "./book-kit";
+    export function Editor() { return <Kit onDrop={() => {}} />; }`).length, 1, "X2e: el kit bajo alias de importación sigue siendo el kit");
+    assert.equal(compositionSites("components/faro/x2.tsx", hoja(`manage={undefined}`)).length, 0, "control: sin canal no hay composición");
   });
 });
 

@@ -5574,6 +5574,13 @@ export function Settings() {
     confirmVerdict.current = null;
     const { ctx } = v;
     if (v.verdict === "applied") {
+      /* Ola 16 (cerca de Cambios): la rama «applied» re-lee el estado
+       * vivo antes de anunciar, como moved/recount ya hacían. Era la
+       * única consumidora del canal que anunciaba a ciegas: si una
+       * llegada (otra pestaña, la nube) deshizo el aterrizaje entre la
+       * receta y este efecto, el letrero anunciaba un modo al que ya no
+       * se llegó — la llegada habla por su propia puerta. */
+      if (modeOf(session.ledger.settings) !== ctx.target) return;
       if (ctx.sign === "up") announceUp(ctx.target); else announceDown(ctx.target);
       return;
     }

@@ -569,7 +569,11 @@ describe("ola10 · §D: el aparcamiento de flujos — la adopción no se lleva e
     // del aparcado, no de la ficha guardada, y se aparca a cada cambio.
     assert.ok(cards.includes("useState<Draft>(() => restored?.d ?? born)"), "la ficha restaurada nace del aparcado, no de la ficha guardada");
     assert.ok(cards.includes("useState<Draft>(() => restored?.born ?? draftOf(card, seed))"), "el nacido también nace del aparcado");
-    assert.ok(cards.includes("parkFlow(parkKey, { d, born })"), "el borrador y su nacido se aparcan a cada cambio");
+    // ENMIENDA OLA 16 (BR16-1): el aparcado lleva también el id de
+    // nacimiento de la tarjeta nueva (newId) — nace con el borrador y
+    // sobrevive al aparcamiento, para que la tanda restaurada haga
+    // upsert sobre la misma tarjeta que la directa.
+    assert.ok(cards.includes("parkFlow(parkKey, { d, born, newId: bornNewId })"), "el borrador, su nacido y su id de nacimiento se aparcan a cada cambio");
     assert.ok(cards.includes('`card-form:${form.mode}:${form.id}`') && cards.includes("tornParkedKey(cardParkKeys)"), "la casa de tarjetas restaura por llave (add / edit / update)");
   });
   it("el control queda intacto: la revisión de escaneo no entra en el aparcamiento (su forma es el portal)", () => {

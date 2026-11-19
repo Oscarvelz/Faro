@@ -505,7 +505,14 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  encontró declarado desde la ola de los modos sin un solo lector,
  *  mientras el kit de los libros componía su mano de administrar sin
  *  mirar el modo y ACTUABA en Esencial (CARA-1, ALTA); la cura compone
- *  la mano del kit desde su asiento en book-kit.tsx. */
+ *  la mano del kit desde su asiento en book-kit.tsx.
+ *  ENMIENDA OLA 16 (con su razón, como la cerca manda): sale
+ *  remit.manage porque GANÓ consumidor literal — la Cara XVI lo
+ *  encontró declarado sin un solo lector en toda la app mientras
+ *  RemitToPick entregaba su manage (borrar/renombrar/color de
+ *  personas de remesa) sin puerta en los tres modos (la enfermedad
+ *  G3 en forma viva); la cura puertó la entrega en remit-people.tsx
+ *  con su `has("remit.manage")`, como el registro manda (Completo). */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
@@ -544,7 +551,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "pres.m10-estructura", "pres.m12-pregunta", "pres.m13-totales",
   "pres.m14-colchon", "pres.m3-balance-chapter", "pres.m4-cambio", "pres.m6-ahorros",
   "pres.m7-estadisticas", "pres.m8-asesor", "pres.m9-folios-rest", "pres.my-scenes",
-  "remit.manage", "remit.send", "rule.category",
+  "remit.send", "rule.category",
   "rule.cushion", "rule.floor", "rule.goal", "rule.insurance",
   "rule.outlier", "rule.overcommit", "rule.pace", "rule.recurring",
   "settings.bank-rewards-real", "settings.pin-in-card",

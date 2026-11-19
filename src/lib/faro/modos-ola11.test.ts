@@ -369,8 +369,7 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
   ];
   const VERBOS_RITMO: [string, RegExp][] = FAMILIAS.filter((f) => f.nombre !== "fusionar").map((f) => [f.nombre, f.re]);
   /** FUSIONAR con la disciplina de ARCHIVAR (OLA 14 · B2): el verbo de
-   * juntar acusa solo cuando LA FRASE (la que juzgar aisló — desde la
-   * ola 15 el «;» no la parte: B1) lleva a la vez una marca de
+   * juntar acusa solo cuando la frase lleva a la vez una marca de
    * pluralidad o unidad Y un objeto-REGISTRO (tiendas, categorías,
    * líneas, personas, tarjetas, cuentas, libros y sus gemelas
    * inglesas — «fondo» NO es objeto: es cromo). El objeto puede ir
@@ -388,16 +387,36 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     // LA FRASE; el punto y coma la partía en dos y la marca de
     // pluralidad caía en el segmento sin verbo ni objeto — «Fusiona
     // las tiendas repetidas; dos quedan en una.» escapaba entera, y su
-    // control sin interrupción acusaba. Verbo, marca y objeto se
-    // juzgan ahora sobre la frase completa que la cerca aisló; los
-    // escudos quedan: la absolución adverbial de junt* se mide sobre
-    // el texto que precede al verbo dentro de la frase, y el par
-    // objeto-antes-que-verbo de 12C sigue en la misma frase.
-    for (const seg of s.split(/[.!?]/)) {
-      if (!FUSION_MARCA.test(seg) || !FUSION_OBJETO.test(seg)) continue;
-      for (const m of seg.matchAll(FUSION_VERBO)) {
-        if (/^junt/i.test(m[0]) && JUNT_ADVERBIAL.test(seg.slice(0, m.index! + m[0].length))) continue; // «las muestra juntas»: adverbio, no verbo
+    // control sin interrupción acusaba.
+    // OLA 16 (Cara B4): la evidencia (verbo+marca+objeto) se exige
+    // dentro de UNA proposición — la frase entera condenaba por
+    // contaminación: «Combina los colores del tema…; las dos tiendas
+    // comparten el mismo fondo» juntaba el verbo de una proposición
+    // con la marca y el objeto de OTRA, que tiene su propio verbo y su
+    // propio asunto. La cura no amputa la de la ola 15: DENTRO de la
+    // proposición las interrupciones (la subordinada tras la coma) no
+    // amputan nada, y la elipsis clavada de la 15 sigue acusando — la
+    // proposición vecina presta su marca SOLO si no trae objeto ni
+    // verbo de fusión propios (es la continuación elíptica de esta
+    // mano: «dos quedan en una»); la vecina que trae su objeto
+    // («las dos tiendas comparten…») es otra proposición y no presta.
+    const verboEn = (p: string): boolean => {
+      for (const m of p.matchAll(FUSION_VERBO)) {
+        if (/^junt/i.test(m[0]) && JUNT_ADVERBIAL.test(p.slice(0, m.index! + m[0].length))) continue; // «las muestra juntas»: adverbio, no verbo
         return true;
+      }
+      return false;
+    };
+    for (const seg of s.split(/[.!?]/)) {
+      const props = seg.split(/;/);
+      for (let i = 0; i < props.length; i++) {
+        const p = props[i]!;
+        if (!verboEn(p) || !FUSION_OBJETO.test(p)) continue;
+        if (FUSION_MARCA.test(p)) return true;
+        for (const q of [props[i - 1], props[i + 1]]) {
+          if (q === undefined) continue;
+          if (FUSION_MARCA.test(q) && !FUSION_OBJETO.test(q) && !verboEn(q)) return true; // la elipsis de la 15
+        }
       }
     }
     return false;
@@ -410,7 +429,11 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
    * (desde la ola 15: la subordinada tras una coma no lo amputa, el «;»
    * sí lo cierra — B1). */
   const ARCHIV_ASIENTOS = ["cobros.archive", "lent.archive", "loans.archive"];
-  const ARCHIV_OBJETO = /\b(?:prestamo|loan|tarjeta|card|persona|people|person|cuenta|account|linea|line|libro|book|deuda|debt)\b/i;
+  // OLA 16 (Cara B3): cuota/due y suscripción/subscription entran en la
+  // familia de objetos — archivar una cuota o una suscripción es la
+  // misma mano de Ritmo (cobros.archive gobierna las cuotas), y la
+  // familia vieja no los nombraba: «Archiva la suscripción…» escapaba.
+  const ARCHIV_OBJETO = /\b(?:prestamo|loan|tarjeta|card|persona|people|person|cuenta|account|linea|line|libro|book|deuda|debt|cuota|due|suscripcion|subscription)\b/i;
   const archivarHit = (s: string): boolean => {
     const re = /archiv\w*|\barchive\w*/gi;
     for (const m of s.matchAll(re)) {
@@ -420,15 +443,43 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
       // PROPOSICIÓN tras el verbo, no en la cláusula hasta la primera
       // coma — la subordinada de «Archiva, cuando puedas, el préstamo
       // cerrado.» dejaba la cláusula vacía y el objeto fuera de la
-      // ventana. La coma es ruido subordinado; el «;» SÍ es frontera:
-      // tras él empieza otra proposición, y su objeto no es el del
-      // verbo (la frase viva de widget-android lo prueba: «…se
-      // archivará en ese lugar; tu libro no cambia en nada más» —
+      // ventana. La coma es ruido subordinado; el «;» SÍ es frontera
+      // HACIA ADELANTE: tras él empieza otra proposición, y su objeto
+      // no es el del verbo (la frase viva de widget-android lo prueba:
+      // «…se archivará en ese lugar; tu libro no cambia en nada más» —
       // archivar apuntes en un lugar no archiva el libro). El escudo
       // queda entero: el determinante que protege «el Archivo» el
       // lugar se mide ANTES del verbo, como siempre.
       const clause = s.slice(m.index! + m[0].length).split(/[.!?;]/)[0]!;
       if (ARCHIV_OBJETO.test(clause)) return true;
+      // OLA 16 (Cara B2): el objeto también se busca HACIA ATRÁS,
+      // dentro de la misma frase. La ventana vieja solo miraba tras el
+      // verbo, y la pasiva («El préstamo cerrado será archivado»), la
+      // topicalizada («La suscripción vieja, archívala») y el objeto
+      // antes del «;» («El préstamo cerrado; archívalo con su
+      // historial») escapaban enteras. La ventana hacia atrás tiene su
+      // propia frontera, simétrica a la de adelante: una conjunción
+      // que abre cláusula nueva («, y», «, and», «:») la cierra — el
+      // objeto de una cláusula anterior con su propio verbo no es el
+      // de este —, y el «;» se cruza solo hacia un FRAGMENTO sin verbo
+      // finito (el objeto topicalizado que la proposición del verbo
+      // recoge). CALIBRACIÓN VIVA (la frase entera de widget-android,
+      // no el extracto clavado): «…ese nombre saldrá en la tarjeta de
+      // apuntes, y lo que anotes eligiéndolo se archivará en ese
+      // lugar…» — la «tarjeta de apuntes» vive en la cláusula de
+      // «saldrá», cerrada por el «, y» antes de «lo que anotes»: lo
+      // que precede al verbo en SU cláusula son apuntes, no objeto, y
+      // la frase sigue absuelta en las dos direcciones.
+      const FINITO = /\b(?:es|son|esta|estan|tiene|tienen|hay|sale|salen|saldra|comparte|comparten|cambia|cambian|queda|quedan|sera|seran|fue|fueron|is|are|was|were|has|have|will|would|can|could|shall|should|may|might|does|did|shares?|changes?|shows?|appears?|sits?|keeps?|stays?|remains?)\b/i;
+      let backStart = 0;
+      for (const mk of s.slice(0, m.index!).matchAll(/, y |, and |: /g)) backStart = Math.max(backStart, mk.index + mk[0].length);
+      const semi = s.lastIndexOf(";", m.index!);
+      if (semi >= backStart) {
+        const frag = s.slice(backStart, semi);
+        if (FINITO.test(frag)) backStart = semi + 1; // la proposición anterior trae su verbo: es suya, la ventana empieza tras el «;»
+        // si es un fragmento sin verbo, la ventana lo recoge entero (backStart queda antes del «;»)
+      }
+      if (ARCHIV_OBJETO.test(s.slice(backStart, m.index!))) return true;
     }
     return false;
   };
@@ -678,6 +729,45 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     assert.deepEqual(stage("Al tocar el ancla, Faro pregunta primero: lo que anotes eligiéndolo se archivará en ese lugar; tu libro no cambia en nada más.", "On tapping the anchor, Faro asks first: what you note by choosing it will be archived in that place; your book changes in nothing else."), [],
       "la frase viva de widget-android: archivar apuntes EN UN LUGAR no archiva el libro — el «;» cierra la proposición del verbo y su objeto no cruza");
   });
+  it("B2+B3 (ola 16): archivar busca su objeto en las dos direcciones, y cuota/suscripción son de su familia", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const deudas = MANUAL_TOPICS.find((t) => t.id === "deudas")!;
+    const stage = (base: Topic, es: string, en: string) => violaciones({ ...base, what: [es, en] } as never);
+    // la pasiva: el objeto va ANTES del verbo
+    assert.equal(stage(deudas, "El préstamo cerrado será archivado con todo su historial.", "The closed loan will be archived with all its history.").length, 2,
+      "B2 · la pasiva acusa: el objeto precede al verbo y la ventana vieja no lo veía");
+    // la topicalizada: el objeto abre la frase y el verbo llega con enclítico
+    assert.equal(stage(deudas, "La suscripción vieja, archívala desde esta hoja.", "The old subscription — archive it from this sheet.").length, 2,
+      "B2/B3 · la topicalizada acusa, y la suscripción es objeto de la familia");
+    // el objeto antes del «;»: la proposición anterior lo trae
+    assert.equal(stage(deudas, "El préstamo cerrado; archívalo con su historial.", "The closed loan; archive it with its history.").length, 2,
+      "B2 · el objeto antes del punto y coma acusa: hacia atrás el «;» no cierra");
+    // cuota y suscripción hacia adelante (la familia vieja no las nombraba)
+    assert.equal(stage(deudas, "Archiva la cuota de este mes desde esta hoja.", "Archive this month's due from this sheet.").length, 2,
+      "B3 · la cuota es objeto de archivar");
+    assert.equal(stage(deudas, "Archiva la suscripción que ya no usas.", "Archive the subscription you no longer use.").length, 2,
+      "B3 · la suscripción es objeto de archivar");
+    // y los escudos quedan enteros bajo la ventana nueva
+    assert.deepEqual(stage(tienda, "Ve al Archivo y revisa el préstamo cerrado.", "Go to the Archive and check the closed loan."), [],
+      "el escudo de «el Archivo» el lugar sigue midiendo antes del verbo");
+    assert.deepEqual(stage(tienda, "Al tocar el ancla, Faro pregunta primero: lo que anotes eligiéndolo se archivará en ese lugar; tu libro no cambia en nada más.", "On tapping the anchor, Faro asks first: what you note by choosing it will be archived in that place; your book changes in nothing else."), [],
+      "la frase viva de widget-android sigue absuelta en las dos direcciones: hacia atrás hay apuntes, no objeto; hacia adelante el «;» cierra");
+  });
+  it("B4 (ola 16): fusionar exige su evidencia dentro de UNA proposición — la contaminación absuelve, la elipsis acusa", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const stage = (es: string, en: string) => violaciones({ ...tienda, what: [es, en] } as never);
+    // la contaminación de la caza: verbo en una proposición, marca y
+    // objeto en otra con su propio verbo — ya no condena
+    assert.deepEqual(stage("Combina los colores del tema a tu gusto; las dos tiendas comparten el mismo fondo.", "Combine the theme colours as you like; the two stores share the same background."), [],
+      "B4 · la contaminación entre proposiciones absuelve: la segunda proposición trae su objeto y su asunto, no presta su marca");
+    // la elipsis clavada de la ola 15 sigue acusando: la vecina sin
+    // objeto ni verbo propios es la continuación de la misma mano
+    assert.equal(stage("Fusiona las tiendas repetidas; dos quedan en una.", "Merge the stores you no longer need; two become one.").length, 2,
+      "B4 · la elipsis de la 15 acusa: «dos quedan en una» no trae objeto ni verbo — es esta mano, continuada");
+    // y dentro de la proposición, las interrupciones no amputan (la cura 15, entera)
+    assert.equal(stage("Fusiona, cuando puedas, las dos tiendas repetidas en una.", "Merge, when you can, the two repeated stores into one.").length, 2,
+      "B4 · dentro de la proposición la subordinada no amputa la evidencia");
+  });
 });
 
 /* ═══════════ §D · G11-2 + C11-1: CARDFORM FUSIONA Y NO RESUCITA ═══════
@@ -740,7 +830,10 @@ describe("§D · G11-2 — fuseCardDraft: lo no tocado se lee del registro vigen
   it("el nacido viaja en el aparcamiento: la forma aparca { d, born }, no solo el borrador", () => {
     const src = SRC("../../components/faro/cards.tsx");
     const seg = src.slice(src.indexOf("function CardForm"), src.indexOf("const ISS"));
-    assert.match(seg, /parkFlow\(parkKey, \{ d, born \}\)/);
+    // ENMIENDA OLA 16 (BR16-1): el aparcado lleva también el id de
+    // nacimiento de la tarjeta nueva (newId) — el id nace con el
+    // borrador y debe sobrevivir al aparcamiento como el nacido.
+    assert.match(seg, /parkFlow\(parkKey, \{ d, born, newId: bornNewId \}\)/);
     assert.match(seg, /fuseCardDraft\(liveCard, candidate, d/);
     assert.match(seg, /storedCards\(s\)\.find\(\(c\) => c\.id === bornId\)/);
   });

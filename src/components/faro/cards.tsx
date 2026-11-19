@@ -545,12 +545,21 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
   // comparación borrador/nacido es el testigo de toque de cada campo
   // gobernado, y debe sobrevivir al aparcamiento: al guardar, lo no
   // tocado se lee del registro vigente (fuseCardDraft), no de la foto.
-  type CardPark = { d: Draft; born: Draft };
+  type CardPark = { d: Draft; born: Draft; newId?: string };
   const restored = parkKey ? peekFlow<CardPark>(parkKey) : undefined;
   const [born] = useState<Draft>(() => restored?.born ?? draftOf(card, seed));
   const [d, setD] = useState<Draft>(() => restored?.d ?? born);
   const [bornId] = useState(() => card?.id);
-  useEffect(() => { if (parkKey) parkFlow(parkKey, { d, born }); }, [parkKey, d, born]);
+  /* Ola 16 (BR16-1): el id de la tarjeta NUEVA nace con el BORRADOR, no
+   * dentro de la receta del commit. La receta del alta acuñaba un uid()
+   * nuevo en cada despacho, así que el doble despacho de una tanda
+   * (dentro de un commit o en dos commits seguidos) paría DOS tarjetas
+   * del mismo tecleo. Ahora el id nace al abrir la forma, viaja en el
+   * aparcamiento como el nacido, y la receta hace upsert sobre él: la
+   * tanda pare UNA tarjeta, y sus lecturas/recompensas se deduplican
+   * contra ella como en las rutas hermanas. */
+  const [bornNewId] = useState(() => restored?.newId ?? uid());
+  useEffect(() => { if (parkKey) parkFlow(parkKey, { d, born, newId: bornNewId }); }, [parkKey, d, born, bornNewId]);
   const close = () => { if (parkKey) clearFlow(parkKey); onClose(); };
   // Ola 11 (C11-1): la tarjeta se borró con la forma abierta — al guardar,
   // la forma anuncia la verdad y pide palabra (guardar como nueva o
@@ -559,11 +568,11 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
   // (cardExistence): "gone" es el fantasma verdadero de la 11; "archived"
   // es el preset con historial que «Empezar de cero» archivó — vive en el
   // Archivo y el anuncio lo dice, con sus salidas verdaderas.
-  const [ghost, setGhost] = useState<"gone" | "archived" | null>(null);
+  const [ghost, setGhost] = useState<"gone" | "archived" | "back" | null>(null);
   const [scan, setScan] = useState<File[] | null>(null);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const upd = mode === "update";
-  const [updGhost, setUpdGhost] = useState<"gone" | "archived" | null>(null);
+  const [updGhost, setUpdGhost] = useState<"gone" | "archived" | "back" | null>(null);
   /* Ola 15 (Guardián G15-2 + G15-3): EL VEREDICTO DEL GUARDADO VIAJA.
    * Hasta la 14, commitDraft cerraba la forma sin condición tras
    * despachar el commit: cuando la receta abortaba dentro (la segunda
@@ -588,6 +597,43 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     if (v.applied) { close(); return; }
     const ex = v.existence === "alive" ? null : v.existence;
     if (upd) setUpdGhost(ex); else setGhost(ex);
+  }, [session]);
+  /* Ola 16 (BR16-2): el fantasma planteado VIGILA SU PREMISA EN LOS DOS
+   * SENTIDOS, como los diálogos de modo desde la ola 10. Hasta aquí el
+   * anuncio nacía de la pregunta de save() o del veredicto y quedaba
+   * congelado: si la tarjeta «destruida» resucitaba por una importación
+   * bajo el anuncio abierto, el anuncio seguía diciendo «ya no existe»
+   * y sus salidas obraban sobre la mentira («Guardar como tarjeta
+   * nueva» forjaba una duplicada; el Descartar de la actualización
+   * tiraba una lectura que ya tenía dónde caer). Ahora, con el anuncio
+   * planteado, cada cambio de sesión re-pregunta cardExistence: si la
+   * premisa se movió, el anuncio se re-plantea con el estado fresco —
+   * viva → el anuncio se retira y Guardar vuelve a ser la ruta; otro
+   * estado → su anuncio verdadero.
+   * REPARACIÓN AB-2.4: la retirada uniforme al subir a viva mataba la
+   * conversión del anuncio de ARCHIVADA. Su promesa tiene dos mitades
+   * («Restaurarla Y GUARDAR») y su premisa también: si la llegada
+   * desarchiva la tarjeta, la mitad restaurar ya la satisfizo la
+   * llegada y retirar el anuncio en silencio borra su salida antes del
+   * toque — lo tecleado quedaba varado en la forma, ni aplicado ni
+   * anunciado (en la .324, sin vigilante, la salida planteada convertía
+   * dentro de su commit y AB-2 aguantó entero). Ahora el anuncio de
+   * archivada CONVIERTE al estado "back" — su verdad nueva y la misma
+   * salida de guardar sobre el mismo ancla, cuyo commit aterriza lo
+   * tecleado sobre el registro vivo — y sigue vigilado: si la premisa
+   * vuelve a caer, se re-plantea. La retirada al subir queda solo para
+   * el anuncio de destruida, que no tiene mitad restaurar que
+   * convertir y cuyas salidas ya re-preguntan en su commit. */
+  useEffect(() => {
+    if (!session || mode === "add") return;
+    const posed = upd ? updGhost : ghost;
+    if (!posed) return;
+    const ex = cardExistence(session.ledger, bornId);
+    if (ex === "alive") {
+      if (posed === "archived") { if (upd) setUpdGhost("back"); else setGhost("back"); }
+      else if (posed === "gone") { if (upd) setUpdGhost(null); else setGhost(null); }
+    }
+    else if (ex !== posed) { if (upd) setUpdGhost(ex); else setGhost(ex); }
   }, [session]);
   const isAdd = mode === "add";
   const nameMark = issuerOf(d.mark)?.mark ?? "";
@@ -627,10 +673,25 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     const lim = amount(d.limit);
     const due = Number(d.dueDay);
     commit((s) => {
+      /* Ola 16 (BR16-2): freshId también pregunta DENTRO de su commit.
+       * «Guardar como tarjeta nueva» solo procede si la tarjeta SIGUE
+       * destruida al cometer; si resucitó bajo el anuncio (viva o
+       * archivada), la receta aborta y el veredicto re-plantea el
+       * anuncio con el estado fresco — forjar una duplicada de una
+       * tarjeta viva con el mismo bornId era el quiebre. Con el
+       * "gone" confirmado en el commit, la nueva nace con el id del
+       * borrador (bornNewId) y hace upsert sobre él. */
+      const freshAsked = freshId ? cardExistence(s, bornId) : null;
+      if (freshAsked && freshAsked !== "gone") { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }
       const existence = !isAdd && !freshId ? cardExistence(s, bornId) : "alive";
       if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return s; }
       if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }
       const storedCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
+      /* Ola 16 (BR16-1): la base del alta. Si una tanda anterior de
+       * ESTE borrador ya parió su tarjeta (el doble despacho), la
+       * receta la encuentra por su id de nacimiento y compone SOBRE
+       * ella: putCard hace upsert y el libro guarda UNA tarjeta. */
+      const bornCard = isAdd || freshId ? storedCards(s).find((c) => c.id === bornNewId) : undefined;
       // Ola 12 (S1): la existencia se pregunta TAMBIÉN en cardsOf, donde
       // el preset jamás guardado VIVE: su primera edición se compone
       // sobre su foto virtual y putCard lo materializa, como antes de la
@@ -640,10 +701,10 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
       // guardada ni en cardsOf — sigue devolviendo el estado intacto.
       const liveCard = existence === "archived" && storedCard
         ? { ...storedCard, archived: undefined, archivedOn: undefined }
-        : storedCard ?? (!isAdd && !freshId ? cardsOf(s).find((c) => c.id === bornId) : undefined);
+        : storedCard ?? (!isAdd && !freshId ? cardsOf(s).find((c) => c.id === bornId) : undefined) ?? bornCard;
       if (!isAdd && !freshId && !liveCard) { saveVerdict.current = { applied: false, existence: "gone" }; return s; }
       const candidate = {
-        ...(liveCard ?? { id: uid(), currency: "USD" as Currency, snaps: [] }),
+        ...(liveCard ?? { id: bornNewId, currency: "USD" as Currency, snaps: [] }),
         name, issuer: d.issuer || issuerOf(autoMark)?.name || "", mark: autoMark, color: d.color, art: d.art || undefined, network: d.network || networkIn(name) || liveCard?.network,
         last4: d.last4.replace(/\D/g, "").slice(-4), aprBps: Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0, promoUntil: d.promo || undefined,
         limitMinor: lim && lim > 0 ? lim : null, dueDay: due >= 1 && due <= 31 ? Math.round(due) : 0, autopay: d.autopay === "on" ? true : d.autopay === "off" ? false : null, rewards: d.rewards.trim(),
@@ -690,6 +751,12 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     }, card?.name ?? d.name);
   };
   const proceedUpdate = () => { setUpdGhost(null); commitUpdate(true); };
+  /* REPARACIÓN AB-2.4: la salida del anuncio convertido de la
+   * actualización — la tarjeta ya volvió por la llegada, así que la
+   * lectura tecleada cae por la ruta ordinaria (commitUpdate(false)
+   * re-pregunta dentro de su commit y compone sobre el registro vivo)
+   * y la forma cierra por el veredicto. */
+  const proceedBack = () => { setUpdGhost(null); commitUpdate(false); };
   const proceed = (freshId: boolean) => commitDraft(freshId, false);
   const proceedRestore = () => { setGhost(null); commitDraft(false, true); };
   const save = () => {
@@ -765,6 +832,20 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
             </div>
           </div>
         ) : null}
+        {/* REPARACIÓN AB-2.4: el anuncio CONVERTIDO de la archivada —
+            la tarjeta volvió por una llegada mientras el anuncio de
+            archivada estaba planteado: ya vive otra vez y no hace
+            falta restaurarla; lo tecleado se guarda sobre ella por la
+            misma salida y el mismo ancla, y Descartar sigue. */}
+        {ghost === "back" ? (
+          <div className="cf-ghost" role="alert">
+            <p>{L("La tarjeta volvió mientras la editabas: ya vive otra vez, con todo su historial. Lo que tecleaste sigue aquí y puedes guardarlo sobre ella.", "The card came back while you were editing it: it is alive again, with all its history. What you typed is still here and you can save it onto it.")}</p>
+            <div className="cf-ghost-actions">
+              <button type="button" className="btn" data-anchor="card-form-restore-save" onClick={proceedRestore}>{L("Guardarla", "Save it")}</button>
+              <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
+            </div>
+          </div>
+        ) : null}
         {/* Ola 15 (Guardián G15-2): el anuncio de la ACTUALIZACIÓN
             manual — la lectura tecleada no cae en silencio ni resucita
             nada: cada estado dice su verdad y la salida de restaurarla
@@ -784,6 +865,19 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
             <p>{L("Esta tarjeta se archivó mientras la actualizabas: vive en el Archivo, con todo su historial. Lo que tecleaste sigue aquí.", "This card was archived while you were updating it: it lives in the Archive, with all its history. What you typed is still here.")}</p>
             <div className="cf-ghost-actions">
               <button type="button" className="btn" data-anchor="card-form-restore-save" onClick={proceedUpdate}>{L("Restaurarla y guardar", "Restore it and save")}</button>
+              <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
+            </div>
+          </div>
+        ) : null}
+        {/* REPARACIÓN AB-2.4: el anuncio CONVERTIDO de la actualización
+            — la tarjeta volvió por una llegada bajo el anuncio de
+            archivada: la lectura tecleada cae sobre el registro vivo
+            por la ruta ordinaria, sin restaurar lo que ya vive. */}
+        {upd && updGhost === "back" ? (
+          <div className="cf-ghost" role="alert">
+            <p>{L("La tarjeta volvió mientras la actualizabas: ya vive otra vez. Lo que tecleaste sigue aquí y puede caer sobre ella.", "The card came back while you were updating it: it is alive again. What you typed is still here and can land on it.")}</p>
+            <div className="cf-ghost-actions">
+              <button type="button" className="btn" data-anchor="card-form-restore-save" onClick={proceedBack}>{L("Guardar", "Save")}</button>
               <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
             </div>
           </div>

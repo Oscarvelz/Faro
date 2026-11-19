@@ -698,31 +698,40 @@ function scanForms(files: { rel: string; text: string }[]) {
     defsCache.set(rel, d);
     return d;
   };
-  const importsCache = new Map<string, Map<string, string>>();
-  const importsOf = (rel: string): Map<string, string> => {
+  const resolveSpecFrom = (fromRel: string, spec: string): string | null => {
+    let parts: string[];
+    const dir = fromRel.split("/").slice(0, -1);
+    if (spec.startsWith("@/")) parts = spec.slice(2).split("/");
+    else if (spec.startsWith(".")) {
+      parts = [...dir];
+      for (const seg of spec.split("/")) { if (seg === "..") parts.pop(); else if (seg !== ".") parts.push(seg); }
+    } else return null;
+    const base = parts.join("/");
+    for (const cand of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, base]) if (byRel.has(cand)) return cand;
+    return null;
+  };
+  /* OLA 16 (Guardián G16-4): la importación nombra DOS nombres — el
+   * local (el alias con el que el archivo llama) y el ORIGINAL (el que
+   * el archivo destino declara). La resolución vieja guardaba solo el
+   * local y buscaba ese nombre en el destino: un ayudante sano
+   * importado con alias (`import { componer as c }`) o a través de un
+   * barril (`export { componer } from "…"`) quedaba IRRESOLUBLE y el
+   * árbol sano correría rojo por la cerca de lo irresoluble. Ahora la
+   * entrada lleva el nombre original y la resolución sigue las
+   * re-exportaciones por barril hasta el cuerpo. */
+  const importsCache = new Map<string, Map<string, { target: string; orig: string }>>();
+  const importsOf = (rel: string): Map<string, { target: string; orig: string }> => {
     let m = importsCache.get(rel);
     if (m) return m;
     m = new Map();
     const text = byRel.get(rel);
     if (text) {
-      const dir = rel.split("/").slice(0, -1);
-      const resolveSpec = (spec: string): string | null => {
-        let parts: string[];
-        if (spec.startsWith("@/")) parts = spec.slice(2).split("/");
-        else if (spec.startsWith(".")) {
-          parts = [...dir];
-          for (const seg of spec.split("/")) { if (seg === "..") parts.pop(); else if (seg !== ".") parts.push(seg); }
-        } else return null;
-        const base = parts.join("/");
-        for (const cand of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, base]) if (byRel.has(cand)) return cand;
-        return null;
-      };
       const visit = (n: ts.Node) => {
         if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier)) {
-          const target = resolveSpec(n.moduleSpecifier.text);
+          const target = resolveSpecFrom(rel, n.moduleSpecifier.text);
           const clause = n.importClause;
           if (target && clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-            for (const el of clause.namedBindings.elements) m!.set(el.name.text, target);
+            for (const el of clause.namedBindings.elements) m!.set(el.name.text, { target, orig: el.propertyName?.text ?? el.name.text });
           }
         }
         ts.forEachChild(n, visit);
@@ -732,11 +741,39 @@ function scanForms(files: { rel: string; text: string }[]) {
     importsCache.set(rel, m);
     return m;
   };
+  const reexportsCache = new Map<string, Map<string, { from: string; orig: string }>>();
+  const reexportsOf = (rel: string): Map<string, { from: string; orig: string }> => {
+    let m = reexportsCache.get(rel);
+    if (m) return m;
+    m = new Map();
+    const text = byRel.get(rel);
+    if (text) {
+      const visit = (n: ts.Node) => {
+        if (ts.isExportDeclaration(n) && n.moduleSpecifier && ts.isStringLiteral(n.moduleSpecifier) && n.exportClause && ts.isNamedExports(n.exportClause)) {
+          const from = resolveSpecFrom(rel, n.moduleSpecifier.text);
+          if (from) for (const el of n.exportClause.elements) m!.set(el.name.text, { from, orig: el.propertyName?.text ?? el.name.text });
+        }
+        ts.forEachChild(n, visit);
+      };
+      visit(parse(rel, text));
+    }
+    reexportsCache.set(rel, m);
+    return m;
+  };
+  const resolveExported = (name: string, rel: string, seen: Set<string>): { rel: string; node: ts.Node } | null => {
+    const d = defsOf(rel).get(name);
+    if (d) return { rel, node: d };
+    const key = `${rel}#${name}`;
+    if (seen.has(key)) return null;
+    const re = reexportsOf(rel).get(name);
+    if (!re) return null;
+    return resolveExported(re.orig, re.from, new Set([...seen, key]));
+  };
   const resolveHelper = (name: string, fromRel: string): { rel: string; node: ts.Node } | null => {
     const local = defsOf(fromRel).get(name);
     if (local) return { rel: fromRel, node: local };
-    const target = importsOf(fromRel).get(name);
-    if (target) { const d = defsOf(target).get(name); if (d) return { rel: target, node: d }; }
+    const imp = importsOf(fromRel).get(name);
+    if (imp) return resolveExported(imp.orig, imp.target, new Set());
     return null;
   };
   /** ¿El valor DERIVA de alguna de las raíces? (la composición se
@@ -745,44 +782,53 @@ function scanForms(files: { rel: string; text: string }[]) {
    * absuelve por tener un argumento enraizado — el llamado se RESUELVE
    * y su cuerpo debe devolver un valor derivado del argumento que
    * recibió enraizado (el selector con señuelo, que ignora el estado y
-   * devuelve la foto, no deriva); la recursión lleva tope de
-   * profundidad y los globales de lenguaje son mecanismo, no selector. */
-  const derivesFrom = (e: ts.Node, roots: Set<string>, fromRel: string, depth = 0): boolean => {
+   * devuelve la foto, no deriva); los globales de lenguaje son
+   * mecanismo, no selector.
+   * OLA 16 (Guardián G16-3): el TOPE DE PROFUNDIDAD murió — a los
+   * cuatro saltos la derivación abandonaba la resolución y volvía a la
+   * regla condenada (algún argumento enraizado absuelve), y un relé de
+   * cinco selectores que terminaba en la foto pasaba entero. Ahora la
+   * derivación sigue el relé HASTA SU FIN, y la seguridad ante ciclos
+   * es un conjunto de nodos ya en la cadena: re-entrar en un ayudante
+   * de la propia cadena no certifica derivación (un relé circular
+   * acusa por la llave que lo reciba, nunca absuelve por profundidad). */
+  const derivesFrom = (e: ts.Node, roots: Set<string>, fromRel: string, seen: Set<string> = new Set()): boolean => {
     if (ts.isIdentifier(e)) return roots.has(e.text);
-    if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) return derivesFrom(e.expression, roots, fromRel, depth);
-    if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) return derivesFrom(e.expression, roots, fromRel, depth);
+    if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) return derivesFrom(e.expression, roots, fromRel, seen);
+    if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) return derivesFrom(e.expression, roots, fromRel, seen);
     if (ts.isCallExpression(e)) {
-      if (ts.isPropertyAccessExpression(e.expression) && derivesFrom(e.expression.expression, roots, fromRel, depth)) return true;
+      if (ts.isPropertyAccessExpression(e.expression) && derivesFrom(e.expression.expression, roots, fromRel, seen)) return true;
       if (ts.isIdentifier(e.expression) && !COLL_ACCESSORS.has(e.expression.text) && !GATE_GLOBALS.has(e.expression.text)) {
-        const idx = e.arguments.findIndex((a) => derivesFrom(a, roots, fromRel, depth));
+        const idx = e.arguments.findIndex((a) => derivesFrom(a, roots, fromRel, seen));
         if (idx < 0) return false;
-        if (depth >= 3) return e.arguments.some((a) => derivesFrom(a, roots, fromRel, depth));
         const r = resolveHelper(e.expression.text, fromRel);
-        if (!r) return e.arguments.some((a) => derivesFrom(a, roots, fromRel, depth)); // fuera del árbol caminado: la regla vieja
-        return bodyDerives(r.node, r.rel, idx, depth + 1);
+        if (!r) return e.arguments.some((a) => derivesFrom(a, roots, fromRel, seen)); // fuera del árbol caminado: la regla vieja
+        const key = `${r.rel}#${e.expression.text}`;
+        if (seen.has(key)) return false; // el relé circular no certifica: volver a un nodo de la cadena no deriva
+        return bodyDerives(r.node, r.rel, idx, new Set([...seen, key]));
       }
-      return e.arguments.some((a) => derivesFrom(a, roots, fromRel, depth));
+      return e.arguments.some((a) => derivesFrom(a, roots, fromRel, seen));
     }
-    if (ts.isArrayLiteralExpression(e)) return e.elements.some((el) => derivesFrom(el, roots, fromRel, depth));
-    if (ts.isObjectLiteralExpression(e)) return e.properties.some((p) => ts.isSpreadAssignment(p) ? derivesFrom(p.expression, roots, fromRel, depth) : ts.isPropertyAssignment(p) ? derivesFrom(p.initializer, roots, fromRel, depth) : ts.isShorthandPropertyAssignment(p) ? roots.has(p.name.text) : false);
-    if (ts.isConditionalExpression(e)) return derivesFrom(e.whenTrue, roots, fromRel, depth) && derivesFrom(e.whenFalse, roots, fromRel, depth);
-    if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e)) return derivesFrom(e.expression, roots, fromRel, depth);
+    if (ts.isArrayLiteralExpression(e)) return e.elements.some((el) => derivesFrom(el, roots, fromRel, seen));
+    if (ts.isObjectLiteralExpression(e)) return e.properties.some((p) => ts.isSpreadAssignment(p) ? derivesFrom(p.expression, roots, fromRel, seen) : ts.isPropertyAssignment(p) ? derivesFrom(p.initializer, roots, fromRel, seen) : ts.isShorthandPropertyAssignment(p) ? roots.has(p.name.text) : false);
+    if (ts.isConditionalExpression(e)) return derivesFrom(e.whenTrue, roots, fromRel, seen) && derivesFrom(e.whenFalse, roots, fromRel, seen);
+    if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e)) return derivesFrom(e.expression, roots, fromRel, seen);
     if (ts.isBinaryExpression(e)) {
       // la selección con un literal vacío de un lado no trae foto (la
       // misma neutralidad que rooted() ya concedía): `state?.x ?? []`
       // nace del estado — sin esto, el accesor remitPeopleOf, que
       // devuelve `state?.remitPeople ?? []`, no derivaba de su estado.
       const empty = (x: ts.Node) => (ts.isArrayLiteralExpression(x) && x.elements.length === 0) || (ts.isObjectLiteralExpression(x) && x.properties.length === 0);
-      return (derivesFrom(e.left, roots, fromRel, depth) || empty(e.left)) && (derivesFrom(e.right, roots, fromRel, depth) || empty(e.right));
+      return (derivesFrom(e.left, roots, fromRel, seen) || empty(e.left)) && (derivesFrom(e.right, roots, fromRel, seen) || empty(e.right));
     }
-    if (ts.isTemplateExpression(e)) return e.templateSpans.some((sp) => derivesFrom(sp.expression, roots, fromRel, depth));
-    if (ts.isPrefixUnaryExpression(e)) return derivesFrom(e.operand, roots, fromRel, depth);
+    if (ts.isTemplateExpression(e)) return e.templateSpans.some((sp) => derivesFrom(sp.expression, roots, fromRel, seen));
+    if (ts.isPrefixUnaryExpression(e)) return derivesFrom(e.operand, roots, fromRel, seen);
     return false;
   };
   /** ¿El cuerpo de un ayudante devuelve, en TODAS sus salidas, un valor
    * derivado de su parámetro número `paramIdx`? Los locales que nacen
    * de él cuentan como raíz (fijación). */
-  const bodyDerives = (fn: ts.Node, rel: string, paramIdx: number, depth = 0): boolean => {
+  const bodyDerives = (fn: ts.Node, rel: string, paramIdx: number, seen: Set<string> = new Set()): boolean => {
     const ps = (fn as ts.FunctionLikeDeclarationBase).parameters ?? [];
     const p = ps[paramIdx];
     if (!p || !ts.isIdentifier(p.name)) return false;
@@ -792,7 +838,7 @@ function scanForms(files: { rel: string; text: string }[]) {
     for (let pass = 0; pass < 6; pass++) {
       let grew = false;
       const scan = (n: ts.Node) => {
-        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && !roots.has(n.name.text) && derivesFrom(n.initializer, roots, rel, depth)) { roots.add(n.name.text); grew = true; }
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && !roots.has(n.name.text) && derivesFrom(n.initializer, roots, rel, seen)) { roots.add(n.name.text); grew = true; }
         if (isFnLike(n) && n !== fn) return;
         ts.forEachChild(n, scan);
       };
@@ -809,7 +855,7 @@ function scanForms(files: { rel: string; text: string }[]) {
       };
       ts.forEachChild(body, rs);
     }
-    return returns.length > 0 && returns.every((r) => derivesFrom(r, roots, rel, depth));
+    return returns.length > 0 && returns.every((r) => derivesFrom(r, roots, rel, seen));
   };
   /** ¿El cuerpo de un ayudante COMPONE el libro? Toca una colección,
    * llama a un accesor o a un escritor, o asigna una llave de colección.
@@ -843,7 +889,20 @@ function scanForms(files: { rel: string; text: string }[]) {
   const mapVivoViolations = (root: ts.Node, out: string[], roots: Set<string> = new Set()) => {
     const judgeLiteral = (lit: ts.ObjectLiteralExpression, param: string, recvName: string) => {
       const spreads = lit.properties.filter((p) => ts.isSpreadAssignment(p));
-      if (!spreads.length) return;
+      /* OLA 16 (Guardián G16-2): el literal que RECOGE campos sin
+       * esparcir también reemplaza — `{ id: x.id }` construido desde el
+       * elemento vivo tira en el commit todo campo no recogido, y la
+       * firma vieja volvía en silencio cuando no había esparcidos: la
+       * muerte por recogida y la muerte por esparcido de la foto son
+       * la misma muerte. Un reemplazo que no esparce el elemento ni es
+       * una llamada de fusión acusa nazca como nazca. (Los mapas que
+       * construyen VISTAS viven fuera de las rutas de guardado — este
+       * juez solo camina updaters y ayudantes delegados de guardado,
+       * como siempre.) */
+      if (!spreads.length) {
+        out.push(`map sobre ${recvName}: el reemplazo recoge campos («${lit.getText().slice(0, 44)}») sin esparcir el elemento vivo «${param}» — lo no recogido muere en el commit (G16-2)`);
+        return;
+      }
       const ok = spreads.some((sp) => (ts.isIdentifier(sp.expression) && sp.expression.text === param) || ts.isCallExpression(sp.expression));
       if (!ok) { out.push(`map sobre ${recvName}: el reemplazo esparce «${(spreads[0]!.expression as ts.Node).getText()}» en vez del elemento vivo «${param}» — compone desde fuera del map (M-C)`); return; }
       /* OLA 15 (Guardián G15-4) · EL ESPARCIDO TESTIGO: la firma vieja
@@ -1091,7 +1150,7 @@ function scanForms(files: { rel: string; text: string }[]) {
    * ata en el ámbito que envuelve): un parche que esparce o lee la foto
    * acusa; el literal del gesto absuelve. */
   const LINE_FIELDS = new Set(["id", "seriesId", "monthKey", "kind", "concept", "amountMinor", "currency", "active", "note", "categoryId", "subId", "recurring", "storeId", "providerId", "productCode", "productUrl", "cadence", "nextDue", "aprBps", "balanceMinor", "balanceCurrency", "icon", "history", "bookedOn", "startedOn", "xfer", "cardId", "personId", "occasionId"]);
-  type PatchCtx = { idRoot: string | null; param: string | null; rooted: Set<string>; locals: Map<string, ts.ObjectLiteralExpression>; enclosingParams: Set<string>; foreign: number };
+  type PatchCtx = { idRoot: string | null; param: string | null; rooted: Set<string>; locals: Map<string, ts.ObjectLiteralExpression>; enclosingParams: Set<string>; foreign: number; rel: string; depth: number };
   const patchViolations = (root: ts.Node, fromRel: string, enclosingParams: Set<string>, out: string[]) => {
     /** La raíz y el primer campo de una cadena de acceso (x.a.b → raíz x, campo a). */
     const chainOf = (e: ts.Node): { root: string | null; field: string | null } => {
@@ -1104,6 +1163,19 @@ function scanForms(files: { rel: string; text: string }[]) {
       return { root: ts.isIdentifier(cur) ? cur.text : null, field };
     };
     const judgeExpr = (e: ts.Node, ctx: PatchCtx): void => {
+      /* OLA 16 (Guardián G16-1): el identificador desnudo se juzga —
+       * el parche devuelto POR NOMBRE se expande a su literal atado, y
+       * la foto misma devuelta por nombre ES el parche de la foto. La
+       * ola 15 juzgaba el literal en el sitio y el identificador atado
+       * en judgePatchObject, pero un `return p` dentro de la función
+       * entregada — o la foto pasada como argumento desnudo a un
+       * ayudante — cruzaba sin juez. */
+      if (ts.isIdentifier(e)) {
+        const lit = ctx.locals.get(e.text);
+        if (lit) { judgeExpr(lit, ctx); return; }
+        if (ctx.idRoot && e.text === ctx.idRoot) out.push(`el parche ES la foto («${e.text}») entregada por nombre — el registro del render reemplaza a la línea viva del commit (G16-1)`);
+        return;
+      }
       if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
         const { root: r, field } = chainOf(e);
         if (r) {
@@ -1129,6 +1201,100 @@ function scanForms(files: { rel: string; text: string }[]) {
       if (ts.isArrayLiteralExpression(e)) { for (const el of e.elements) judgeExpr(el, ctx); return; }
       if (ts.isCallExpression(e)) {
         if (ts.isPropertyAccessExpression(e.expression)) judgeExpr(e.expression, ctx);
+        /* OLA 16 (Guardián G16-1): una llamada en posición de parche
+         * que lleva la procedencia (la foto, el parámetro vivo, un
+         * local enraizado) se RESUELVE a su cuerpo y el cuerpo se juzga
+         * con el contexto remapeado — la foto como argumento desnudo a
+         * un ayudante y el segundo salto por identificador ya no
+         * cruzan sin juez, y una llamada con procedencia que no se
+         * resuelve acusa como la función entregada irresoluble de la
+         * ola 15. Las llamadas sin procedencia se juzgan como siempre,
+         * argumento a argumento. */
+        if (ts.isIdentifier(e.expression) && !GATE_GLOBALS.has(e.expression.text) && !COLL_ACCESSORS.has(e.expression.text)) {
+          const carries = (a: ts.Node): boolean => {
+            if (ts.isIdentifier(a)) return a.text === ctx.idRoot || a.text === ctx.param || ctx.rooted.has(a.text) || ctx.locals.has(a.text);
+            if (ts.isPropertyAccessExpression(a) || ts.isElementAccessExpression(a)) { const r = chainOf(a).root; return r !== null && (r === ctx.idRoot || r === ctx.param || ctx.rooted.has(r)); }
+            if (ts.isSpreadElement(a) || ts.isSpreadAssignment(a)) return carries(a.expression);
+            if (ts.isObjectLiteralExpression(a)) return a.properties.some((p) => carries(p));
+            if (ts.isArrayLiteralExpression(a)) return a.elements.some((el) => carries(el));
+            if (ts.isCallExpression(a)) return a.arguments.some((x) => carries(x));
+            if (ts.isConditionalExpression(a)) return carries(a.whenTrue) || carries(a.whenFalse);
+            if (ts.isParenthesizedExpression(a) || ts.isAsExpression(a) || ts.isTypeAssertionExpression(a)) return carries(a.expression);
+            if (ts.isPropertyAssignment(a)) return carries(a.initializer);
+            if (ts.isShorthandPropertyAssignment(a)) return carries(a.name);
+            return false;
+          };
+          if (e.arguments.some((a) => carries(a))) {
+            const nm = e.expression.text;
+            if (ctx.depth >= 4) { out.push(`la cadena de ayudantes en posición de parche («${nm}») excede lo que el censo sigue llevando la procedencia: no se certifica lo que no se ve (G16-1)`); return; }
+            const r = resolveHelper(nm, ctx.rel);
+            if (!r || !(ts.isArrowFunction(r.node) || ts.isFunctionExpression(r.node) || ts.isFunctionDeclaration(r.node))) {
+              out.push(`la llamada «${nm}» en posición de parche lleva la foto o lo vivo y no se resuelve a un cuerpo: el censo no certifica lo que no ve (G16-1)`);
+              return;
+            }
+            const hfn = r.node as ts.FunctionLikeDeclarationBase;
+            const paramName = (i: number): string | null => {
+              const p = hfn.parameters[i];
+              return p && ts.isIdentifier(p.name) ? (p.name as ts.Identifier).text : null;
+            };
+            let subIdRoot: string | null = null;
+            let subParam: string | null = null;
+            const subRooted = new Set<string>();
+            e.arguments.forEach((a, i) => {
+              const pn = paramName(i);
+              if (!pn) return;
+              const root = ts.isIdentifier(a) ? a.text : (ts.isPropertyAccessExpression(a) || ts.isElementAccessExpression(a)) ? chainOf(a).root : null;
+              if (root === ctx.idRoot && ctx.idRoot) subIdRoot = pn;
+              if (root !== null && root === ctx.param) { subParam = pn; subRooted.add(pn); }
+              else if (root !== null && ctx.rooted.has(root)) subRooted.add(pn);
+              if (ts.isIdentifier(a) && ctx.locals.has(a.text)) subRooted.add(pn);
+            });
+            const subLocals = new Map<string, ts.ObjectLiteralExpression>();
+            const subBody = (hfn as { body?: ts.Node }).body;
+            if (subBody) {
+              for (let pass = 0; pass < 6; pass++) {
+                let grew = false;
+                const scan = (n: ts.Node) => {
+                  if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+                    if (ts.isObjectLiteralExpression(n.initializer) && !subLocals.has(n.name.text)) subLocals.set(n.name.text, n.initializer);
+                    if (!subRooted.has(n.name.text)) {
+                      let refs = false;
+                      const walk = (m: ts.Node) => { if (ts.isIdentifier(m) && subRooted.has(m.text)) refs = true; ts.forEachChild(m, walk); };
+                      walk(n.initializer);
+                      if (refs) { subRooted.add(n.name.text); grew = true; }
+                    }
+                  }
+                  if (isFnLike(n) && n !== hfn) return;
+                  ts.forEachChild(n, scan);
+                };
+                scan(subBody);
+                if (!grew && pass > 0) break;
+              }
+            }
+            const subCtx: PatchCtx = { idRoot: subIdRoot, param: subParam, rooted: subRooted, locals: subLocals, enclosingParams: ctx.enclosingParams, foreign: 0, rel: r.rel, depth: ctx.depth + 1 };
+            const subReturns: ts.Node[] = [];
+            if (subBody) {
+              if (!ts.isBlock(subBody)) subReturns.push(subBody);
+              else {
+                const rs = (m: ts.Node) => {
+                  if (ts.isReturnStatement(m) && m.expression) subReturns.push(m.expression);
+                  if (isFnLike(m) && m !== hfn) return;
+                  ts.forEachChild(m, rs);
+                };
+                ts.forEachChild(subBody, rs);
+              }
+            }
+            for (const ret of subReturns) judgeExpr(ret, subCtx);
+            ctx.foreign += subCtx.foreign;
+            if (subParam && subCtx.foreign > 0) {
+              let used = false;
+              const uw = (m: ts.Node) => { if (ts.isIdentifier(m) && m.text === subParam) used = true; ts.forEachChild(m, uw); };
+              for (const ret of subReturns) uw(ret);
+              if (!used) out.push(`el ayudante «${nm}» compone el parche leyendo campos de línea de fuera sin leer jamás el valor vivo que recibió: el parche nace de una foto (G16-1)`);
+            }
+            return;
+          }
+        }
         for (const a of e.arguments) judgeExpr(a, ctx);
         return;
       }
@@ -1200,7 +1366,7 @@ function scanForms(files: { rel: string; text: string }[]) {
           if (!grew && pass > 0) break;
         }
       }
-      const ctx: PatchCtx = { idRoot, param, rooted, locals, enclosingParams, foreign: 0 };
+      const ctx: PatchCtx = { idRoot, param, rooted, locals, enclosingParams, foreign: 0, rel: fromRel, depth: 0 };
       const returns: ts.Node[] = [];
       if (fn.body) {
         if (!ts.isBlock(fn.body)) returns.push(fn.body);
@@ -1223,7 +1389,7 @@ function scanForms(files: { rel: string; text: string }[]) {
       if (!patchArg) return;
       const idArg = call.arguments[1];
       const idRoot = idArg && ts.isPropertyAccessExpression(idArg) && ts.isIdentifier(idArg.expression) ? idArg.expression.text : null;
-      const ctx: PatchCtx = { idRoot, param: null, rooted: new Set<string>(), locals: new Map(), enclosingParams, foreign: 0 };
+      const ctx: PatchCtx = { idRoot, param: null, rooted: new Set<string>(), locals: new Map(), enclosingParams, foreign: 0, rel: fromRel, depth: 0 };
       if (ts.isObjectLiteralExpression(patchArg)) { judgeExpr(patchArg, ctx); return; }
       if (ts.isIdentifier(patchArg)) {
         if (enclosingParams.has(patchArg.text)) return; // el parche es un parámetro del mecanismo (paintLine): se juzga en sus llamantes, no aquí
@@ -1960,6 +2126,121 @@ describe("§B · el censo de formas que guardan: toda ruta de guardado, clasific
     assert.deepEqual(mkW("{ ...foto, ...x }").violations.get(key) ?? [], [], "sano: la foto primero y el vivo después — el vivo domina y absuelve");
     assert.deepEqual(mkW("{ ...x, archived: true }").violations.get(key) ?? [], [], "sano: el vivo con campos del gesto absuelve");
   });
+  /* ── OLA 16 (G16-1): el juez de parches resuelve llamadas y expande
+   * identificadores — el daño del anexo que muere en el commit, en sus
+   * tres grafías, y sus sanos. ── */
+  it("espécimen G16-1: la foto como argumento desnudo, el parche devuelto por nombre y el segundo salto por identificador acusan", () => {
+    const key = "components/faro/inventada16.tsx:save#1";
+    const mkPatch = (pre: string, fnBody: string) => scanForms([{
+      rel: "components/faro/inventada16.tsx",
+      text: [
+        "type S = { months: unknown };",
+        "const foto = { id: 'l9', history: [] as unknown[] };",
+        pre,
+        "export function Forma() {",
+        `  const save = () => commit((s: S) => patchLineWith(s, foto.id, ${fnBody}), 'x');`,
+        "  return null;",
+        "}",
+      ].join("\n"),
+    }]);
+    // (a) la foto como argumento desnudo a un ayudante que la esparce —
+    // la resolución de G16-1 entrega el cuerpo y la regla de la casa
+    // (el esparcido de la foto, G15-1) condena dentro de él
+    assert.ok((mkPatch("const componer = (x: unknown) => ({ ...x, concept: 'Anexo' });", "(live) => componer(foto)").violations.get(key) ?? []).some((v) => /foto/.test(v)),
+      "G16-1a: componer(foto) — la foto desnuda entra en el ayudante y el ayudante la esparce: el anexo de la otra pestaña muere en el commit");
+    // (b) el parche devuelto por nombre
+    assert.ok((mkPatch("", "(live) => { const p = { ...foto, color: '#123456' }; return p; }").violations.get(key) ?? []).some((v) => /foto/.test(v)),
+      "G16-1b: el literal atado a un nombre y devuelto por ese nombre se expande y acusa");
+    // (c) el segundo salto por identificador: el ayudante reenvía la foto a otro
+    assert.ok((mkPatch("const dos = (y: unknown) => ({ ...y, concept: 'Anexo' }); const uno = (x: unknown) => dos(x);", "(live) => uno(foto)").violations.get(key) ?? []).some((v) => /foto/.test(v)),
+      "G16-1c: el relé por identificador sigue hasta el cuerpo que esparce la foto");
+    // sanos: el vivo viaja por el ayudante, y el literal atado es del gesto
+    assert.deepEqual(mkPatch("const componer = (l: { history: unknown[] }) => ({ history: [...l.history, { id: 'u1' }] });", "(live) => componer(live)").violations.get(key) ?? [], [],
+      "sano: el parámetro vivo viaja por el ayudante y el parche se compone desde él");
+    assert.deepEqual(mkPatch("", "(live) => { const p = { color: '#123456' }; return p; }").violations.get(key) ?? [], [],
+      "sano: el parche devuelto por nombre, cuando es literal del gesto, absuelve");
+    // la llamada con procedencia que no se resuelve acusa en voz alta
+    assert.ok((mkPatch("", "(live) => ayudanteQueNoExiste(foto)").violations.get(key) ?? []).some((v) => /G16-1/.test(v)),
+      "G16-1d: la llamada que lleva la foto y no se resuelve acusa, como la función entregada irresoluble");
+  });
+  /* ── OLA 16 (G16-2): el literal que recoge campos sin esparcidos ── */
+  it("espécimen G16-2: el map que recoge campos sin esparcir el vivo acusa; el que esparce, absuelve", () => {
+    const key = "components/faro/inventada16.tsx:run#1";
+    const mk = (inner: string) => scanForms([{
+      rel: "components/faro/inventada16.tsx",
+      text: "export function Forma(p: { id: string }) { const run = () => commit((s: never) => ({ ...s, people: peopleOf(s).map((x) => (x.id === p.id ? " + inner + " : x)) }), 'x'); return null; }",
+    }]);
+    assert.ok((mk("{ id: x.id, archived: true }").violations.get(key) ?? []).some((v) => /G16-2/.test(v)),
+      "G16-2: la recogida de campos sin esparcido tira lo no recogido — la muerte por recogida es la muerte por esparcido de la foto");
+    assert.deepEqual(mk("{ ...x, archived: true }").violations.get(key) ?? [], [],
+      "control: el reemplazo que esparce el elemento vivo absuelve, como siempre");
+  });
+  /* ── OLA 16 (G16-3): el relé de selectores sin tope — la derivación
+   * sigue hasta su fin; el relé circular acusa, nunca absuelve. ── */
+  it("espécimen G16-3: el relé de cinco selectores que termina en la foto acusa; el que termina en lo vivo absuelve; el circular acusa", () => {
+    const key = "components/faro/inventada16.tsx:save#1";
+    const mkRelay = (chain: string, last: string) => scanForms([{
+      rel: "components/faro/inventada16.tsx",
+      text: [
+        "type S = { people: unknown[] };",
+        chain,
+        `const componer = (s: S, foto: unknown[]) => ({ ...s, people: ${last} });`,
+        "export function Forma() { const save = () => commit((s: S) => componer(s, fotoDelRender), 'x'); return null; }",
+      ].join("\n"),
+    }]);
+    const five = [
+      "const r1 = (s: S, foto: unknown[]) => r2(s, foto);",
+      "const r2 = (s: S, foto: unknown[]) => r3(s, foto);",
+      "const r3 = (s: S, foto: unknown[]) => r4(s, foto);",
+      "const r4 = (s: S, foto: unknown[]) => r5(s, foto);",
+      "const r5 = (s: S, foto: unknown[]) => foto;",
+    ].join("\n");
+    assert.ok((mkRelay(five, "r1(s, foto)").violations.get(key) ?? []).length > 0,
+      "G16-3: el relé de cinco selectores que termina en la foto acusa — el tope de profundidad ya no lo absuelve (antes: verde)");
+    const fiveLive = five.replace("const r5 = (s: S, foto: unknown[]) => foto;", "const r5 = (s: S, foto: unknown[]) => s.people;");
+    assert.deepEqual(mkRelay(fiveLive, "r1(s, foto)").violations.get(key) ?? [], [],
+      "control: el relé de cinco que termina en lo vivo absuelve — seguir hasta el fin no condena lo sano");
+    const circular = [
+      "const r1 = (s: S, foto: unknown[]) => r2(s, foto);",
+      "const r2 = (s: S, foto: unknown[]) => r1(s, foto);",
+    ].join("\n");
+    assert.ok((mkRelay(circular, "r1(s, foto)").violations.get(key) ?? []).length > 0,
+      "G16-3b: el relé circular acusa — re-entrar en la cadena no certifica derivación");
+  });
+  /* ── OLA 16 (G16-4): la resolución honra alias y barriles ── */
+  it("espécimen G16-4: el ayudante sano importado con alias o vía barril resuelve y no acusa por irresoluble", () => {
+    const site = "components/faro/inventada16.tsx:save#1";
+    const ayuda = {
+      rel: "components/faro/ayuda16.ts",
+      text: "type S = { people: unknown[] }; export const componerBien = (s: S, foto: unknown[]) => ({ ...s, people: s.people.map((x) => x) });",
+    };
+    const aliased = scanForms([ayuda, {
+      rel: "components/faro/inventada16.tsx",
+      text: [
+        "import { componerBien as componer } from \"./ayuda16\";",
+        "type S = { people: unknown[] };",
+        "export function Forma() { const save = () => commit((s: S) => componer(s, fotoDelRender), 'x'); return null; }",
+      ].join("\n"),
+    }]);
+    assert.equal(aliased.delegated.get(site), "componer", "el sitio delega por su nombre local, el alias");
+    assert.deepEqual(aliased.violations.get(site) ?? [], [], "el ayudante sano importado con alias resuelve a su cuerpo: limpio");
+    assert.ok(!aliased.unresolved.has(site), "y no queda irresoluble");
+    const barril = {
+      rel: "components/faro/barril16.ts",
+      text: "export { componerBien } from \"./ayuda16\";",
+    };
+    const viaBarrel = scanForms([ayuda, barril, {
+      rel: "components/faro/inventada16.tsx",
+      text: [
+        "import { componerBien } from \"./barril16\";",
+        "type S = { people: unknown[] };",
+        "export function Forma() { const save = () => commit((s: S) => componerBien(s, fotoDelRender), 'x'); return null; }",
+      ].join("\n"),
+    }]);
+    assert.equal(viaBarrel.delegated.get(site), "componerBien", "el sitio delega por el barril");
+    assert.deepEqual(viaBarrel.violations.get(site) ?? [], [], "el ayudante sano vía barril resuelve a su cuerpo: limpio");
+    assert.ok(!viaBarrel.unresolved.has(site), "y no queda irresoluble");
+  });
   it("espécimen: un ayudante IRRESOLUBLE llamado con el estado acusa en voz alta", () => {
     const virtual = scanForms([{
       rel: "components/faro/inventada13.tsx",
@@ -2076,6 +2357,14 @@ describe("§D · la prosa enseña la ley .318 y la familia vieja está condenada
    * en la intro de un capítulo corría verde 94/94. La familia de frases
    * condenadas ahora camina también los capítulos, con su nombre. */
   for (const ch of MANUAL_CHAPTERS) for (const text of pairsOf({ title: ch.title, intro: ch.intro })) corpus.push({ where: `capítulo ${ch.id}`, text });
+  /* OLA 16 (Enseñanza ENS16-1): los registros de MÓDULO entran como
+   * entradas propias («módulo <id>», título + promesa), como los
+   * capítulos entraron en la cura 14. La frase condenada plantada SOLO
+   * en la promesa de un módulo corría la suite entera verde: la §D
+   * caminaba temas, escenas y capítulos, y la §B de la ola 11 juzga
+   * título+promesa por VERBOS gobernados, no por frases de ley — la
+   * promesa quedaba fuera del corpus de la ley revertida. */
+  for (const md of MODULES) for (const text of pairsOf({ title: md.title, promise: md.promise })) corpus.push({ where: `módulo ${md.id}`, text });
 
   const CONDENADAS: [string, RegExp][] = [
     ["subir no pide/pregunta", /\bsubir\b[^.!?]*\bno\s+(pide|pregunta)/i],
@@ -2121,6 +2410,16 @@ describe("§D · la prosa enseña la ley .318 y la familia vieja está condenada
     const viejaEn = "Moving up never asks: it uncovers the new mode at once.";
     const hitsEn = CONDENADAS.filter(([, re]) => re.test(viejaEn)).map(([n]) => n);
     assert.ok(hitsEn.length >= 2, `la frase vieja EN debe caer en la familia: ${hitsEn.join(", ")}`);
+  });
+  it("espécimen ola 16: la frase vieja SOLO en la promesa de un módulo corre roja (la §D camina los módulos)", () => {
+    const staged = { title: ["Módulo de prueba", "Test module"], promise: ["Subir no pide nada: aplica y te avisa qué se destapó.", "Moving up never asks: it uncovers the new mode at once."] };
+    const texts = pairsOf(staged);
+    assert.equal(texts.length, 4, "la recogida ve título y promesa del módulo en los dos idiomas");
+    const hits = texts.flatMap((text) => CONDENADAS.filter(([, re]) => re.test(text)).map(([n]) => n));
+    assert.ok(hits.length >= 2, `la promesa escenificada acusa en la familia de frases: ${hits.join(", ")}`);
+    // y el corpus vivo lleva los módulos con su nombre propio
+    assert.ok(corpus.some((c) => c.where.startsWith("módulo ")), "el corpus nombra a los módulos como entradas propias");
+    assert.ok(corpus.filter((c) => c.where.startsWith("módulo ")).length >= 40, "el corpus recoge título y promesa de cada módulo en los dos idiomas");
   });
   it("espécimen ola 14: la frase vieja SOLO en la intro de un capítulo corre roja (la §D camina los capítulos)", () => {
     const staged = { title: ["Capítulo de prueba", "Test chapter"], intro: ["Subir no pide nada: aplica y te avisa qué se destapó.", "Moving up never asks: it uncovers the new mode at once."] };

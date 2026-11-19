@@ -405,8 +405,8 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // import.bank), book-side (la barra de los libros; las caras que
   // lo montan nombran el sistema), selection (cromo de Archivo/Historial),
   // sub-presets (editores dentro del formulario de línea),
-  // remit-people y earnings (tarjetas cuyas caras madre — Cobros y Estudio
-  // — nombran el sistema y filtran en la fuente), slip-apply (hija de la
+  // earnings (tarjeta cuya cara madre — Estudio
+  // — nombra el sistema y filtra en la fuente), slip-apply (hija de la
   // sección de papelitos, puertabada en instruments.tsx), battery-row (una
   // fila de Ajustes; Ajustes se recompone en screens.tsx); (3) sample-mode:
   // el control de la casa de ejemplo — nombra el sistema de la CASA
@@ -426,11 +426,17 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // de los libros dejó de ser cromo que las caras madre puertean: desde
   // la cura compone su mano desde has("books.multiselect") él mismo, y
   // nombra el sistema por derecho propio.
+  // ENMIENDA OLA 16 (Cara G3): remit-people.tsx SALE de los exentos —
+  // la exención de la ola 2 («las caras madre filtran en la fuente»)
+  // era falsa para esta montura: remit.manage no tenía lector en toda
+  // la app y la hoja entregaba su manage sin puerta en los tres modos.
+  // Desde la cura, RemitToPick lee has("remit.manage") él mismo y
+  // nombra el sistema por derecho propio.
   const EXEMPT = [
     "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
-    "icons.tsx", "manual-text.tsx", "remit-people.tsx", "rewards-real.tsx",
+    "icons.tsx", "manual-text.tsx", "rewards-real.tsx",
     "sample-mode.tsx", "selection.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",
     "to-top.tsx", "ui.tsx",
   ];
