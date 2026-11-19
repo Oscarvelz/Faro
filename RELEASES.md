@@ -2525,4 +2525,4 @@ Cerca nueva `src/lib/faro/apartar.test.ts` (14 pines): los dos especímenes al c
 
 Verificación por mi mano: copia de trabajo y canon, test:faro **1808/1808** (1794 + 14), unit **59/59**, tsc en sus **3**, i18n **1039/1039** sin claves nuevas, candado intacto, la raíz del Guardián intacta (line-form.tsx fuera del paquete).
 
-Datos de publicación: rollback `rollback-pre-316-2026-11-18` → eaa238f2. Source: PENDIENTE. Tag: v1.3.316. Main: PENDIENTE. Entrada: PENDIENTE.
+Datos de publicación: rollback `rollback-pre-316-2026-11-18` → eaa238f2. Source: e7fc8e68. Tag: v1.3.316 → e7fc8e68. Main: 61d713c1 (control) + 4f4fd2e0 (chunks; el primer intento cayó con un reinicio del servicio a mitad de vuelo y se verificó en la rama antes de reintentar — no había aterrizado). Entrada: index-C5rTPpq_.js.
