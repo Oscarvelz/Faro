@@ -24,7 +24,7 @@ import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
 import {
   ART_STYLES, CARD_PRESETS, addReading, addRewards, artOf, cardFigures, cardMonthlyInterest, cardPays, cardTotals, cardsOf, dropCard, dropPresets,
-  cardExistence, fuseCardDraft, issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardUpdate,
+  cardExistence, fuseCardDraft, issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restoreCard, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardExistence, type CardUpdate,
 } from "@/lib/faro/cards";
 import { matchCard, parseCardShot, readLimit, type CardField, type CardRead } from "@/lib/faro/cardparse";
 import { clearFlow, parkFlow, peekFlow, settleFlowParks, tornParkedKey } from "@/lib/faro/flow-park";
@@ -563,6 +563,32 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
   const [scan, setScan] = useState<File[] | null>(null);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const upd = mode === "update";
+  const [updGhost, setUpdGhost] = useState<"gone" | "archived" | null>(null);
+  /* Ola 15 (Guardián G15-2 + G15-3): EL VEREDICTO DEL GUARDADO VIAJA.
+   * Hasta la 14, commitDraft cerraba la forma sin condición tras
+   * despachar el commit: cuando la receta abortaba dentro (la segunda
+   * respuesta de cardExistence disentía de la primera — la tarjeta se
+   * fue o se archivó en la ventana), el updater devolvía el estado
+   * intacto y close() borraba el aparcado y cerraba en silencio: lo
+   * tecleado moría bajo un anuncio que acababa de prometer «lo que
+   * tecleaste sigue aquí». Y la ruta de actualización manual ni siquiera
+   * preguntaba: comete contra el id del prop y cerraba pasara lo que
+   * pasara. Ahora toda receta de guardado de esta forma deja su
+   * veredicto en esta ranura (el canal que la cura de BR14-1 construyó
+   * para los diálogos de modo) y ESTE efecto realiza las consecuencias
+   * al cambiar la sesión: aplicado → cerrar; abortado → la forma NO se
+   * cierra ni pierde su aparcado — re-anuncia con el estado nuevo que el
+   * commit leyó (gone → el fantasma verdadero; archived → su anuncio,
+   * con su salida explícita de restaurarla). */
+  const saveVerdict = useRef<{ applied: boolean; existence: CardExistence } | null>(null);
+  useEffect(() => {
+    const v = saveVerdict.current;
+    if (!v || !session) return;
+    saveVerdict.current = null;
+    if (v.applied) { close(); return; }
+    const ex = v.existence === "alive" ? null : v.existence;
+    if (upd) setUpdGhost(ex); else setGhost(ex);
+  }, [session]);
   const isAdd = mode === "add";
   const nameMark = issuerOf(d.mark)?.mark ?? "";
   const autoMark = isAdd ? (issuerOf(d.mark) ? d.mark : "") : d.mark;
@@ -585,7 +611,12 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
    * commit que desarchiva el registro vivo en línea (la misma
    * transformación que restoreCard: archived/archivedOn fuera y, si es
    * preset, su llave sale de cardsOff vía putCard) y funde el borrador
-   * sobre él — ninguna ruta nueva de censo, la composición de siempre. */
+   * sobre él — ninguna ruta nueva de censo, la composición de siempre.
+   * Ola 15 (G15-3): la receta ya no cierra la forma: deja su veredicto
+   * en saveVerdict y el efecto de arriba realiza las consecuencias —
+   * si la respuesta del commit disiente de la de save() (la existencia
+   * volteó en la ventana), el aborto RE-ANUNCIA con el estado nuevo en
+   * vez de ejecutar en silencio y destruir el aparcado. */
   const commitDraft = (freshId: boolean, unarchive: boolean) => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
@@ -597,8 +628,8 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     const due = Number(d.dueDay);
     commit((s) => {
       const existence = !isAdd && !freshId ? cardExistence(s, bornId) : "alive";
-      if (existence === "gone") return s;
-      if (existence === "archived" && !unarchive) return s;
+      if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return s; }
+      if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }
       const storedCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
       // Ola 12 (S1): la existencia se pregunta TAMBIÉN en cardsOf, donde
       // el preset jamás guardado VIVE: su primera edición se compone
@@ -610,7 +641,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
       const liveCard = existence === "archived" && storedCard
         ? { ...storedCard, archived: undefined, archivedOn: undefined }
         : storedCard ?? (!isAdd && !freshId ? cardsOf(s).find((c) => c.id === bornId) : undefined);
-      if (!isAdd && !freshId && !liveCard) return s;
+      if (!isAdd && !freshId && !liveCard) { saveVerdict.current = { applied: false, existence: "gone" }; return s; }
       const candidate = {
         ...(liveCard ?? { id: uid(), currency: "USD" as Currency, snaps: [] }),
         name, issuer: d.issuer || issuerOf(autoMark)?.name || "", mark: autoMark, color: d.color, art: d.art || undefined, network: d.network || networkIn(name) || liveCard?.network,
@@ -621,10 +652,44 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
       let st = putCard(s, next);
       if (isAdd && bal != null) st = addReading(st, next.id, { balanceMinor: bal, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, limitMinor: seed?.read ? readLimit(seed.read) : null, aprBps: seed?.read?.aprBps ?? null, src: seed?.read ? "shot" : "manual" });
       if (isAdd && rwm != null) st = addRewards(st, next.id, { amountMinor: rwm, src: seed?.read ? "shot" : "manual" });
+      saveVerdict.current = { applied: true, existence };
       return st;
     }, name);
-    close();
+    // Sin close() aquí: el efecto del veredicto cierra al aplicarse (y
+    // no cierra — ni borra el aparcado — cuando el commit abortó).
   };
+  /* Ola 15 (Guardián G15-2): la actualización manual pregunta la MISMA
+   * única pregunta — cardExistence — en save() y dentro de su commit,
+   * como la edición. Era la única ruta de guardado de la casa que no la
+   * conocía: cometía addReading/addRewards contra el id del prop y
+   * cerraba pasara lo que pasara (destruida: lo tecleado se tragaba en
+   * silencio; archivada: la lectura caía y la tarjeta resucitaba por el
+   * efecto lateral de la librería, curado en su raíz en esta misma
+   * ola). Ahora la receta decide contra el estado del commit y deja su
+   * veredicto en el mismo canal: gone → estado intacto y el fantasma de
+   * la actualización; archived sin palabra → intacto y su anuncio;
+   * «Restaurarla y guardar» desarchiva por su puerta nombrada
+   * (restoreCard) DENTRO del mismo commit y la lectura cae sobre el
+   * registro ya vivo. */
+  const commitUpdate = (unarchive: boolean) => {
+    const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
+    const bal = amount(d.balance);
+    const rwm = amount(d.rw);
+    if (bal == null && rwm == null) return;
+    // 1.3.109: a manual update can carry only the rewards (balance left blank = unchanged).
+    const u: CardUpdate = { balanceMinor: bal ?? 0, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, src: "manual" };
+    commit((s) => {
+      const existence = cardExistence(s, bornId);
+      if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return s; }
+      if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }
+      let st = existence === "archived" ? restoreCard(s, bornId as string) : s;
+      if (bal != null) st = addReading(st, bornId as string, u);
+      if (rwm != null) st = addRewards(st, bornId as string, { amountMinor: rwm, src: "manual" });
+      saveVerdict.current = { applied: true, existence };
+      return st;
+    }, card?.name ?? d.name);
+  };
+  const proceedUpdate = () => { setUpdGhost(null); commitUpdate(true); };
   const proceed = (freshId: boolean) => commitDraft(freshId, false);
   const proceedRestore = () => { setGhost(null); commitDraft(false, true); };
   const save = () => {
@@ -632,11 +697,20 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     const bal = amount(d.balance);
     const rwm = amount(d.rw);
     if (upd) {
-      // 1.3.109: a manual update can carry only the rewards (balance left blank = unchanged).
-      if (!card || (bal == null && rwm == null)) return;
-      const u: CardUpdate = { balanceMinor: bal ?? 0, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, src: "manual" };
-      commit((s) => { let st = bal != null ? addReading(s, card.id, u) : s; if (rwm != null) st = addRewards(st, card.id, { amountMinor: rwm, src: "manual" }); return st; }, card.name);
-      close();
+      if (bal == null && rwm == null) return;
+      // Ola 15 (G15-2): si el prop ya cuenta la historia (la adopción lo
+      // dejó en null — el botón Guardar quedaba muerto y mudo), save()
+      // pregunta al libro con la misma pregunta del commit antes de
+      // componer nada: vive → la ruta de siempre (el commit
+      // re-verifica); archivada o ida → su anuncio, sin componer. Con
+      // el prop vivo, decide el commit y su veredicto anuncia.
+      if (!card) {
+        const ex = cardExistence(session?.ledger, bornId);
+        if (ex === "alive") { commitUpdate(false); return; }
+        setUpdGhost(ex);
+        return;
+      }
+      commitUpdate(false);
       return;
     }
     if (!d.name.trim()) return;
@@ -687,6 +761,29 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
             <div className="cf-ghost-actions">
               <button type="button" className="btn" data-anchor="card-form-restore-save" onClick={proceedRestore}>{L("Restaurarla y guardar", "Restore it and save")}</button>
               <button type="button" className="btn secondary" data-anchor="card-form-save-new" onClick={saveAsNew}>{L("Guardar como tarjeta nueva", "Save as a new card")}</button>
+              <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
+            </div>
+          </div>
+        ) : null}
+        {/* Ola 15 (Guardián G15-2): el anuncio de la ACTUALIZACIÓN
+            manual — la lectura tecleada no cae en silencio ni resucita
+            nada: cada estado dice su verdad y la salida de restaurarla
+            es explícita, como en la edición. «Guardar como tarjeta
+            nueva» no es salida aquí: una actualización no es una
+            tarjeta, y lo tecleado es una lectura, no una ficha. */}
+        {upd && updGhost === "gone" ? (
+          <div className="cf-ghost" role="alert">
+            <p>{L("Esta tarjeta ya no existe: se borró mientras la actualizabas. Lo que tecleaste no tiene dónde caer.", "This card no longer exists: it was deleted while you were updating it. What you typed has nowhere to land.")}</p>
+            <div className="cf-ghost-actions">
+              <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
+            </div>
+          </div>
+        ) : null}
+        {upd && updGhost === "archived" ? (
+          <div className="cf-ghost" role="alert">
+            <p>{L("Esta tarjeta se archivó mientras la actualizabas: vive en el Archivo, con todo su historial. Lo que tecleaste sigue aquí.", "This card was archived while you were updating it: it lives in the Archive, with all its history. What you typed is still here.")}</p>
+            <div className="cf-ghost-actions">
+              <button type="button" className="btn" data-anchor="card-form-restore-save" onClick={proceedUpdate}>{L("Restaurarla y guardar", "Restore it and save")}</button>
               <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
             </div>
           </div>

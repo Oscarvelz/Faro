@@ -406,7 +406,16 @@ export function cardTotals(state: LedgerState | null | undefined, today = todayI
 
 export type CardUpdate = { lastPayMinor?: number | null; lastPayOn?: string; notes?: { label: string; text: string }[]; aprBps?: number | null; balanceMinor: number; availMinor?: number | null; limitMinor?: number | null; minMinor?: number | null; dueOn?: string; statementMinor?: number | null; last4?: string; autopay?: boolean | null; on?: string; src: "shot" | "manual" };
 
-/** Stores one reading (never replaces an older one; an identical repeat on the same day is skipped). */
+/** Stores one reading (never replaces an older one; an identical repeat on the same day is skipped).
+ * Ola 15 (Guardián G15-2): una lectura NUNCA desarchiva. La escritura
+ * conserva el `archived` que el registro trae — antes el put escribía
+ * `archived: undefined` y TODA lectura (la forma de actualización, el
+ * guardado del escaneo, el aplicador por lotes) resucitaba la tarjeta
+ * archivada por efecto lateral, en silencio, contra la doctrina del
+ * fantasma: desarchivar viaja solo por sus puertas nombradas
+ * (restoreCard, restorePresets, la ruta restore-save de commitDraft). La
+ * lectura sobre una archivada cae en el Archivo, con su historial, y la
+ * tarjeta se queda donde la persona la dejó. */
 export function addReading(state: LedgerState, cardId: string, u: CardUpdate, today = todayIso(), now = new Date().toISOString()): LedgerState {
   const card = cardsOf(state).find((c) => c.id === cardId) ?? storedCards(state).find((c) => c.id === cardId);
   if (!card || !Number.isFinite(u.balanceMinor) || u.balanceMinor < 0) return state;
@@ -433,7 +442,7 @@ export function addReading(state: LedgerState, cardId: string, u: CardUpdate, to
   const snaps = same ? card.snaps : [...card.snaps, snap];
   const dueDay = snap.dueOn ? Number(snap.dueOn.slice(8, 10)) : card.dueDay;
   return putCard(state, {
-    ...card, snaps, dueDay, archived: undefined, archivedOn: undefined,
+    ...card, snaps, dueDay,
     ...(u.last4 && /^\d{4}$/.test(u.last4) ? { last4: u.last4 } : {}),
     ...(u.autopay != null ? { autopay: u.autopay } : {}),
     ...(u.aprBps && u.aprBps > 0 ? { aprBps: u.aprBps } : {}),
@@ -562,7 +571,10 @@ export function rewardsEarned(card: Pick<CreditCard, "rw">): { on: string; minor
 
 export type RewardsUpdate = { amountMinor?: number | null; points?: number | null; earnedMinor?: number | null; earnedSpan?: "year" | "life" | null; src: "shot" | "manual"; on?: string };
 
-/** Stores one rewards reading (never replaces an older one; the same values again on the same day are skipped). */
+/** Stores one rewards reading (never replaces an older one; the same values again on the same day are skipped).
+ * Ola 15 (Guardián G15-2): como addReading — una lectura de recompensas
+ * tampoco desarchiva; el `archived` del registro se conserva y
+ * desarchivar viaja solo por sus puertas nombradas. */
 export function addRewards(state: LedgerState, cardId: string, u: RewardsUpdate, today = todayIso(), now = new Date().toISOString()): LedgerState {
   const card = cardsOf(state).find((c) => c.id === cardId) ?? storedCards(state).find((c) => c.id === cardId);
   const amount = u.amountMinor != null && Number.isFinite(u.amountMinor) && u.amountMinor >= 0 ? Math.round(u.amountMinor) : undefined;
@@ -574,7 +586,7 @@ export function addRewards(state: LedgerState, cardId: string, u: RewardsUpdate,
   const last = rw[rw.length - 1];
   if (last && last.on === on && last.amountMinor === amount && last.points === points && last.earnedMinor === earned) return state;
   const snap = normalizeRw({ on, at: now, src: u.src, ...(amount !== undefined ? { amountMinor: amount } : {}), ...(points !== undefined ? { points } : {}), ...(earned !== undefined ? { earnedMinor: earned, earnedSpan: u.earnedSpan === "life" ? "life" : "year" } : {}) })!;
-  return putCard(state, { ...card, rw: [...rw, snap], archived: undefined, archivedOn: undefined });
+  return putCard(state, { ...card, rw: [...rw, snap] });
 }
 
 /**

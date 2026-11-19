@@ -5536,17 +5536,35 @@ export function Settings() {
     fresh?: boolean;
   };
   const confirmVerdict = useRef<{ verdict: "applied" | "already" | "moved" | "recount"; ctx: ModeConfirmCtx; recount?: ModeImpact } | null>(null);
+  /* Ola 15 (Cambios BR15-1): la ranura guarda la verdad MÁS FUERTE de
+   * su tanda, no la última escritura. Dos despachos de confirmar en la
+   * misma tarea (doble activación del botón aún montado) encolan dos
+   * recetas: la primera APLICABA y veredictaba «applied»; la segunda
+   * leía el modo ya aplicado, veredictaba «already» y PISABA la ranura
+   * — el efecto obedecía el silencio y el aterrizaje que la persona
+   * confirmó aterrizaba sin su letrero, con el registro de actividad
+   * afirmando «no aplicó» sobre la entrada de la mudanza aplicada. Una
+   * receta solo sobrescribe un veredicto más débil: «applied» jamás
+   * degrada. Y como el detalle de actividad lee esta misma ranura tras
+   * cada receta, el detalle de un commit que no aplicó nombra el
+   * aterrizaje cuando su tanda sí aplicó — la frase «no aplicó» solo
+   * se escribe cuando la tanda entera no aplicó. */
+  const VERDICT_RANK: Record<"applied" | "already" | "moved" | "recount", number> = { applied: 3, recount: 2, moved: 2, already: 1 };
+  const leaveVerdict = (v: { verdict: "applied" | "already" | "moved" | "recount"; ctx: ModeConfirmCtx; recount?: ModeImpact }) => {
+    const cur = confirmVerdict.current;
+    if (!cur || VERDICT_RANK[v.verdict] > VERDICT_RANK[cur.verdict]) confirmVerdict.current = v;
+  };
   const applyModeConfirmed = (ctx: ModeConfirmCtx) => {
     commit((s) => {
       const liveNow = modeOf(s.settings);
-      if (liveNow === ctx.target) { confirmVerdict.current = { verdict: "already", ctx }; return s; }
-      if (liveNow !== ctx.live) { confirmVerdict.current = { verdict: "moved", ctx }; return s; }
+      if (liveNow === ctx.target) { leaveVerdict({ verdict: "already", ctx }); return s; }
+      if (liveNow !== ctx.live) { leaveVerdict({ verdict: "moved", ctx }); return s; }
       if (ctx.premise && ctx.refDay) {
         const recount = modeImpact(s, ctx.target, lang, ctx.refDay);
         const holds = (recount.total === 0 && ctx.premise.total === 0) || JSON.stringify(recount) === JSON.stringify(ctx.premise);
-        if (!holds) { confirmVerdict.current = { verdict: "recount", ctx, recount }; return s; }
+        if (!holds) { leaveVerdict({ verdict: "recount", ctx, recount }); return s; }
       }
-      confirmVerdict.current = { verdict: "applied", ctx };
+      leaveVerdict({ verdict: "applied", ctx });
       return { ...s, settings: { ...s.settings, mode: ctx.target } };
     }, () => (confirmVerdict.current?.verdict === "applied" ? ctx.target : (lang === "en" ? "The confirmation did not apply: the mode had already changed" : "La confirmación no aplicó: el modo ya había cambiado")));
   };

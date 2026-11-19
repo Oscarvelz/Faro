@@ -762,6 +762,22 @@ describe("ola9 · §A-quater: el censo desde el REGISTRO — ningún gobernador 
     assert.ok(familyCovers("books.list") && satisfied("books.list"),
       "la enumeración de su familia es su mecanismo, en la §A como en la §A-quater");
   });
+  /* OLA 15 (Cara Q1-menor) · LA ADJUDICACIÓN: el mecanismo escrito de
+   * una familia nunca se contrastaba — sustituido por una mentira
+   * llana, la corrida seguía verde, porque de la prosa solo se
+   * verifica su longitud. No hay cura mecánica general para la prosa,
+   * y la caza misma lo dice: la práctica de la casa es clavar las
+   * afirmaciones que CARGAN PESO como especímenes contra el código.
+   * Esta es la afirmación viva que cargaba peso sin clavija: la
+   * exención de «subs.fixed-exists» y el mecanismo de la familia subs
+   * descansan sobre que la parada de Cuotas del hub gatea
+   * «books.subs» en shell.tsx — si esa línea se mueve o se borra, dos
+   * textos del libro mienten a la vez. Aquí queda clavada. */
+  it("Q1-menor (ola 15): la afirmación que carga peso de la familia subs está clavada contra el código", () => {
+    assert.match(CORPUS, /stop\.id === "subs"\) return gate\("books\.subs"\)/,
+      "la parada de Cuotas gatea books.subs en el despacho de paradas del hub (shell.tsx): la exención de subs.fixed-exists y el mecanismo de la familia subs dicen exactamente eso — si el código cambia, los dos textos se reescriben con él");
+    assert.ok(consumed("books.subs"), "y el asiento tiene consumidor real: la puerta del hub lo consulta");
+  });
   it("la higiene de las familias: cada asiento enumerado existe, es del prefijo y ningún otro mecanismo lo conoce", () => {
     const seats = Object.keys(FEATURES);
     for (const [prefix, fam] of Object.entries(FAMILIAS_REGISTRO)) {
@@ -796,11 +812,38 @@ describe("ola9 · §A-quater: el censo desde el REGISTRO — ningún gobernador 
  * clasificar es sentencia; una clasificación sin sitio, pudrición. */
 const MASS_VERBS = /drop|delete|remove|archive|wipe|erase|bulk/i;
 const MASS_CHANNEL = /^(onDrop|onDropMany|dropMany|deleteMany|removeMany|archiveMany|drop|wipe)$|Many$|Selection$/;
-function massHandSites(file: string, text: string): string[] {
+/** Los cuerpos (por nombre) de un archivo que mapean ids: la materia
+ * con la que la prueba de alimentación sigue el VALOR (S1, abajo). */
+function idMapperBodies(text: string): Map<string, string> {
+  const sf = ts.createSourceFile("indice.ts", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const out = new Map<string, string>();
+  const mapsIds = (t: string) => /\.map\(/.test(t) && /\.id\b/.test(t);
+  const walk = (n: ts.Node) => {
+    if (ts.isFunctionDeclaration(n) && n.name && n.body && mapsIds(n.body.getText())) out.set(n.name.text, n.body.getText());
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) && mapsIds(n.initializer.getText())) out.set(n.name.text, n.initializer.getText());
+    ts.forEachChild(n, walk);
+  };
+  walk(sf);
+  return out;
+}
+function massHandSites(file: string, text: string, idMappers: Map<string, string> = new Map()): string[] {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  /* OLA 15 (Cara S1) · LA MANO PARTIDA: la prueba de alimentación
+   * sigue el VALOR, no la expresión. La caza partió una mano en masa
+   * entre dos componentes — `preparaIds` (devuelve `rows.map(r => r.id)`)
+   * en un archivo, `aplicaWipe(preparaIds(rows))` en otro — y el censo
+   * vio CERO sitios (57/57 verde), porque la lista se recogía por
+   * archivo y el argumento debía llevar el mapa en su propio texto. Un
+   * argumento que es la llamada a un ayudante (local o importado) cuyo
+   * cuerpo mapea ids ALIMENTA la mano, igual que el censo de
+   * formularios aprendió a seguir la delegación; y una variable atada
+   * a esa llamada es una variable de lista como cualquier otra. */
+  const localMappers = idMapperBodies(text);
+  const bodyOf = (name: string): string | undefined => localMappers.get(name) ?? idMappers.get(name);
+  const callMapsIds = (e: ts.Node): boolean => ts.isCallExpression(e) && ts.isIdentifier(e.expression) && bodyOf(e.expression.text) !== undefined;
   const idListVars = new Set<string>();
   const collect = (n: ts.Node) => {
-    if (ts.isVariableDeclaration(n) && n.initializer && /\.map\(/.test(n.initializer.getText()) && /\.id\b/.test(n.initializer.getText()) && ts.isIdentifier(n.name)) idListVars.add(n.name.text);
+    if (ts.isVariableDeclaration(n) && n.initializer && ts.isIdentifier(n.name) && ((/\.map\(/.test(n.initializer.getText()) && /\.id\b/.test(n.initializer.getText())) || callMapsIds(n.initializer))) idListVars.add(n.name.text);
     ts.forEachChild(n, collect);
   };
   collect(sf);
@@ -816,7 +859,7 @@ function massHandSites(file: string, text: string): string[] {
       if (name && name !== "removeEventListener" && (MASS_VERBS.test(name) || MASS_CHANNEL.test(name))) {
         for (const arg of n.arguments) {
           const t = arg.getText();
-          const fed = (/\.map\(/.test(t) && /\.id\b/.test(t)) || (ts.isIdentifier(arg) && idListVars.has(arg.text)) || MASS_CHANNEL.test(name);
+          const fed = (/\.map\(/.test(t) && /\.id\b/.test(t)) || (ts.isIdentifier(arg) && idListVars.has(arg.text)) || callMapsIds(arg) || MASS_CHANNEL.test(name);
           if (fed) {
             const k = `${file}:${cur}`;
             const ord = (ordinals.get(k) ?? 0) + 1;
@@ -839,16 +882,51 @@ const MANOS_EN_MASA: Record<string, [string, string]> = {
   "components/faro/historial.tsx:askHideSel#1": ["archive.hide-selection", "el apartado de la selección entera: la misma puerta (canRest) gobierna la entrada al modo selección que alimenta la lista"],
   "components/faro/remit-people.tsx:RemitToPick#1": ["remit.manage", "el onDropMany del manage de RemitToPick envuelve ops.drop: la hoja solo se monta desde el flujo de remesas/personas, cuya mano de administrar es este asiento; si la hoja se monta en otra superficie, esta clasificación se reescribe"],
 };
+/* OLA 15 (Cara S3) · CITAR NO BASTA: la clasificación se verifica
+ * contra el sitio. La caza clasificó la mano de borrado total del kit
+ * citando «books.list» — asiento de Esencial, declarativo, que ningún
+ * código consulta con has() en parte alguna — y la corrida entera fue
+ * verde: la cerca comprobaba que la cita EXISTE y que su razón pasa de
+ * diez caracteres, jamás que el asiento citado GOBIERNE. La
+ * verificación tiene dos mitades, y cada una absuelve a un gobierno
+ * vivo que la otra condenaría:
+ *   (a) EL PISO: el asiento citado vive en Ritmo o arriba — el piso
+ *       doctrinal de una mano en masa (administrar es de Ritmo). Un
+ *       asiento así es una puerta de administración de verdad en el
+ *       registro, y su gobierno — por consulta o por el flujo que lo
+ *       monta — lo vigilan los censos del §A.
+ *   (b) LA CONSULTA: un asiento de Esencial solo gobierna el sitio si
+ *       el propio archivo del sitio lo consulta con has() — así
+ *       gobierna «archive.delete-lines» (Esencial en el registro,
+ *       consultado en archivo.tsx, que es quien abre la selección):
+ *       el registro manda sobre su piso, y la cerca no lo desdice
+ *       cuando la consulta es real.
+ * «books.list» no cumple ninguna: Esencial, sin consulta en el archivo
+ * que lo cita ni en parte alguna. Y donde el asiento tiene forma de
+ * consumidor (algún has() lo consume en el corpus), la mitad (b) es la
+ * que manda cuando el piso no alcanza: la satisfacción por asiento
+ * del §A-quater, aplicada al gobierno por sitio. */
+const MODO_RANGO: Record<string, number> = { esencial: 0, ritmo: 1, completo: 2 };
+function citaGobierna(site: string, seat: string, fileText: string): string | null {
+  const piso = (FEATURES as Record<string, string>)[seat];
+  if (piso && (MODO_RANGO[piso] ?? 0) >= MODO_RANGO["ritmo"]!) return null;
+  if (consumedIn(stripComments(fileText), seat)) return null;
+  return `${site}: su asiento citado «${seat}» NO gobierna el sitio — vive en ${piso ?? "?"} y el archivo del sitio jamás lo consulta: citar no es gobernar (S3)`;
+}
 describe("ola9 · §A-quinquies: el censo de superficies — toda mano en masa nombra su asiento (OLA 14)", () => {
   const compDir = new URL("../../components/faro/", import.meta.url);
+  const fileTextOf = (site: string): string => readFileSync(new URL(site.split(":")[0]!.split("/").pop()!, compDir), "utf8");
   const liveSites = (): string[] => {
+    const files = readdirSync(compDir).filter((x) => x.endsWith(".tsx")).sort();
+    const index = new Map<string, string>();
+    for (const f of files) for (const [k, v] of idMapperBodies(readFileSync(new URL(f, compDir), "utf8"))) if (!index.has(k)) index.set(k, v);
     const out: string[] = [];
-    for (const f of readdirSync(compDir).filter((x) => x.endsWith(".tsx")).sort()) {
-      out.push(...massHandSites(`components/faro/${f}`, readFileSync(new URL(f, compDir), "utf8")));
+    for (const f of files) {
+      out.push(...massHandSites(`components/faro/${f}`, readFileSync(new URL(f, compDir), "utf8"), index));
     }
     return out;
   };
-  it("toda mano en masa del árbol vivo está clasificada con su asiento gobernante", () => {
+  it("toda mano en masa del árbol vivo está clasificada con su asiento gobernante — y la cita GOBIERNA (S3)", () => {
     const sites = liveSites();
     assert.ok(sites.length >= 5, `el censo camina las superficies de verdad (${sites.length} sitios)`);
     for (const site of sites) {
@@ -856,6 +934,8 @@ describe("ola9 · §A-quinquies: el censo de superficies — toda mano en masa n
       assert.ok(entry, `${site}: mano en masa SIN asiento nombrado en el sitio — la clase de CARA-Q2: nace, actúa en los tres modos y ningún censo la veía`);
       assert.ok(entry[0] in FEATURES, `${site}: su asiento gobernante «${entry[0]}» no existe en el registro`);
       assert.ok(entry[1].length > 10, `${site}: la clasificación lleva su razón escrita`);
+      const acus = citaGobierna(site, entry[0], fileTextOf(site));
+      assert.equal(acus, null, acus ?? "");
     }
   });
   it("la higiene: ninguna clasificación sin sitio vivo", () => {
@@ -889,6 +969,145 @@ describe("ola9 · §A-quinquies: el censo de superficies — toda mano en masa n
     }`;
     assert.deepEqual(massHandSites("components/faro/inventada14.tsx", staged), [],
       "borrar UNA línea por su id es la mano fina de siempre: el censo caza la masa, no el gesto");
+  });
+  it("espécimen S3 (ola 15): la cita que no gobierna ACUSA — y las dos formas de gobierno verdadero absuelven", () => {
+    const kit = `export function BookKit() { const canManage = has("books.multiselect"); return canManage; }`;
+    const site = "components/faro/book-kit.tsx:wipeAll#1";
+    const acus = citaGobierna(site, "books.list", kit);
+    assert.ok(acus && /S3/.test(acus), "el espécimen de la caza: la mano del kit clasificada citando «books.list» (Esencial, sin consulta en el archivo) — la cita existe y la razón pasa, y aun así no gobierna: ACUSA");
+    assert.equal(citaGobierna(site, "books.multiselect", kit), null, "la cita verdadera del kit (Ritmo, consultada en el propio archivo) absuelve");
+    const archivo = `export function Archivo() { const canDeleteLines = has("archive.delete-lines"); return canDeleteLines; }`;
+    assert.equal(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", archivo), null,
+      "el gobierno vivo de Esencial: el registro lo puso en Esencial y el archivo del sitio lo consulta para abrir la mano — la consulta real absuelve");
+    assert.ok(citaGobierna("components/faro/archivo.tsx:askDeleteLines#1", "archive.delete-lines", `export function Archivo() { return null; }`),
+      "y el mismo asiento citado por un archivo que NO lo consulta acusa: la consulta es el gobierno, no el nombre");
+  });
+  it("espécimen S1 (ola 15): la mano partida entre dos archivos se VE — la alimentación sigue el valor", () => {
+    const ayuda = `export const preparaIds = (rows: { id: string }[]) => rows.map((r) => r.id);`;
+    const hoja = `import { preparaIds } from "./inventada15-ayuda";
+export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe: (ids: string[]) => void }) {
+  const wipeAll = () => aplicaWipe(preparaIds(rows));
+  return { wipeAll };
+}`;
+    assert.deepEqual(massHandSites("components/faro/inventada15-hoja.tsx", hoja), [],
+      "sin el índice de valores, la mano partida es invisible: el control que prueba que el índice es el que ve");
+    const index = idMapperBodies(ayuda);
+    assert.deepEqual(massHandSites("components/faro/inventada15-hoja.tsx", hoja, index), ["components/faro/inventada15-hoja.tsx:wipeAll#1"],
+      "con el índice, el argumento que es la llamada al ayudante que mapea ids alimenta la mano: el sitio nace y exige su asiento");
+    const unida = `export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe: (ids: string[]) => void }) {
+  const wipeAll = () => aplicaWipe(rows.map((r) => r.id));
+  return { wipeAll };
+}`;
+    assert.equal(massHandSites("components/faro/inventada15-hoja.tsx", unida).length, 1, "control de la caza: la misma mano unida en una expresión se veía desde siempre");
+  });
+});
+
+/* ═══════════ §A-sexies (OLA 15 · Cara S2): EL CENSO DE COMPOSICIONES ═
+ * El censo de superficies clasificaba el CANAL dentro de fit-pick.tsx,
+ * y su razón afirmaba de TODAS las composiciones que «la hoja dispara
+ * solo el onDropMany que una composición gobernada le entregó» — una
+ * afirmación que ningún censo verificaba composición a composición.
+ * La caza montó una superficie NUEVA con la hoja compartida y un
+ * `manage` con onDropMany sin gobernar, y la corrida amplia fue verde:
+ * el gobierno vivo es real, pero vivía clavado textualmente dentro de
+ * cada archivo que compone, y una quinta superficie quedaba fuera de
+ * todas las clavijas. Ahora el censo enumera también las
+ * COMPOSICIONES: cada entrega de un canal de masa como prop — un
+ * `manage` que lleva onDropMany (la hoja), un onDropMany suelto, el
+ * onDrop del kit (BookKit) — es un sitio que nombra su asiento
+ * gobernante, y la cita se verifica con la misma regla de S3
+ * (citaGobierna): piso de Ritmo o arriba, o la consulta en el archivo
+ * que compone. */
+function compositionSites(file: string, text: string): string[] {
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sites: string[] = [];
+  const ordinals = new Map<string, number>();
+  const walk = (n: ts.Node, fn: string) => {
+    let cur = fn;
+    if (ts.isFunctionDeclaration(n) && n.name) cur = n.name.text;
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) cur = n.name.text;
+    if (ts.isJsxAttribute(n)) {
+      const attr = n.name.getText();
+      let mass = false;
+      if (attr === "onDropMany") mass = true;
+      else if (attr === "manage" && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression) {
+        let e: ts.Node = n.initializer.expression;
+        while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e)) e = e.expression;
+        const lits = ts.isObjectLiteralExpression(e) ? [e] : ts.isConditionalExpression(e) ? [e.whenTrue, e.whenFalse].filter((x) => ts.isObjectLiteralExpression(x)) : [];
+        mass = lits.some((lit) => lit.properties.some((p) => (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) && p.name && p.name.getText() === "onDropMany"));
+      } else if (attr === "onDrop") {
+        const elNode = n.parent?.parent as ts.Node | undefined;
+        const el = elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode)) ? elNode.tagName.getText() : "";
+        mass = el === "BookKit";
+      }
+      if (mass) {
+        const k = `${file}:${cur}`;
+        const ord = (ordinals.get(k) ?? 0) + 1;
+        ordinals.set(k, ord);
+        sites.push(`${k}#${ord}`);
+      }
+    }
+    ts.forEachChild(n, (c) => walk(c, cur));
+  };
+  walk(sf, "(raíz)");
+  return sites;
+}
+const COMPOSICIONES_EN_MASA: Record<string, [string, string]> = {
+  "components/faro/debts.tsx:OwedSide#1": ["books.multiselect", "el kit de «Me deben»: su onDrop archiva la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx); la composición entrega el canal bajo esa misma puerta"],
+  "components/faro/fit-pick.tsx:StorePick#1": ["editor.picker-manage", "el manage de la hoja de tiendas solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo (fit-pick.tsx:402-410); sin la puerta, la composición entrega la hoja sin manage"],
+  "components/faro/fit-pick.tsx:PurchaseCatPick#1": ["editor.picker-manage", "el manage de la hoja de categorías de compra solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
+  "components/faro/fit-pick.tsx:CategoryPick#1": ["editor.picker-manage", "el manage de la hoja de categorías solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
+  "components/faro/fit-pick.tsx:SubPick#1": ["editor.picker-manage", "el manage de la hoja de subconceptos solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
+  "components/faro/fit-pick.tsx:BrandIconPick#1": ["editor.picker-manage", "el manage de la hoja de marcas solo se entrega bajo has(\"editor.picker-manage\") en este mismo archivo"],
+  "components/faro/loans.tsx:DueLoans#1": ["books.multiselect", "el kit de préstamos: su onDrop archiva la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx); la composición entrega el canal bajo esa misma puerta"],
+  "components/faro/remit-people.tsx:RemitToPick#1": ["remit.manage", "el manage de la hoja de personas de remesa: la mano de administrar de este flujo es remit.manage (Completo) y la hoja solo se monta desde los editores de remesas; si se monta en otra superficie, esta clasificación se reescribe"],
+  "components/faro/remit-people.tsx:RemitPeople#1": ["books.multiselect", "el kit de personas de remesa: su onDrop retira la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx)"],
+  "components/faro/screens.tsx:LinesBlock#1": ["books.multiselect", "el kit del mes: su onDrop borra la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx); la composición entrega el canal bajo esa misma puerta"],
+  "components/faro/screens.tsx:savKit#1": ["books.multiselect", "el kit del apartado: su onDrop aparta/archiva la selección que books.multiselect gobierna dentro del propio kit (canManage, book-kit.tsx)"],
+};
+describe("ola9 · §A-sexies: el censo de composiciones — cada montaje de un canal de masa nombra su asiento (OLA 15)", () => {
+  const compDir = new URL("../../components/faro/", import.meta.url);
+  const liveCompositions = (): string[] => {
+    const out: string[] = [];
+    for (const f of readdirSync(compDir).filter((x) => x.endsWith(".tsx")).sort()) {
+      out.push(...compositionSites(`components/faro/${f}`, readFileSync(new URL(f, compDir), "utf8")));
+    }
+    return out;
+  };
+  it("toda composición viva está clasificada y su cita gobierna el montaje", () => {
+    const sites = liveCompositions();
+    assert.ok(sites.length >= 11, `el censo enumera las composiciones de verdad (${sites.length} sitios)`);
+    for (const site of sites) {
+      const entry = COMPOSICIONES_EN_MASA[site];
+      assert.ok(entry, `${site}: composición de un canal de masa SIN asiento nombrado — la clase de S2: la superficie nueva monta la mano de administrar en todo piso y ningún censo la veía`);
+      assert.ok(entry[0] in FEATURES, `${site}: su asiento gobernante «${entry[0]}» no existe en el registro`);
+      assert.ok(entry[1].length > 10, `${site}: la clasificación lleva su razón escrita`);
+      const text = readFileSync(new URL(site.split(":")[0]!.split("/").pop()!, compDir), "utf8");
+      const acus = citaGobierna(site, entry[0], text);
+      assert.equal(acus, null, acus ?? "");
+    }
+  });
+  it("la higiene: ninguna clasificación sin composición viva", () => {
+    const sites = new Set(liveCompositions());
+    for (const site of Object.keys(COMPOSICIONES_EN_MASA)) {
+      assert.ok(sites.has(site), `${site}: clasificación sin composición — el montaje murió o se movió; la tabla se reescribe, no pudre`);
+    }
+  });
+  it("espécimen S2 (ola 15): la superficie nueva que monta la hoja sin gobernar NACE como sitio y no tiene asiento", () => {
+    const staged = `export function SuperficieNueva({ rows }: { rows: { id: string }[] }) {
+      return <PickSheet title="X" items={rows} manage={{ word: ["cosa", "cosas", "thing", "things"], onDropMany: (ids: string[]) => dropMany(ids), onRename: (id: string, n: string) => {} }} />;
+    }`;
+    const sites = compositionSites("components/faro/inventada15.tsx", staged);
+    assert.deepEqual(sites, ["components/faro/inventada15.tsx:SuperficieNueva#1"], "el censo de composiciones VE el montaje nuevo: la entrega del canal como prop es el sitio");
+    assert.ok(!(sites[0]! in COMPOSICIONES_EN_MASA), "y no tiene asiento nombrado: es sentencia — con la cerca vieja la corrida amplia era verde");
+    const kit = `export function KitNuevo({ rows }: { rows: { id: string }[] }) {
+      return <BookKit title="X" rows={rows} onDrop={(ids: string[]) => dropMany(ids)} />;
+    }`;
+    assert.deepEqual(compositionSites("components/faro/inventada15.tsx", kit), ["components/faro/inventada15.tsx:KitNuevo#1"], "el onDrop del kit compone el otro canal de la librería de gestos: también es sitio");
+    const hojaSinMasa = `export function SoloElegir({ rows }: { rows: { id: string }[] }) {
+      return <PickSheet title="X" items={rows} onPick={(id: string) => choose(id)} />;
+    }`;
+    assert.deepEqual(compositionSites("components/faro/inventada15.tsx", hojaSinMasa), [], "control: montar la hoja SIN el canal de masa no es composición en masa");
   });
 });
 

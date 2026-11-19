@@ -369,22 +369,31 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
   ];
   const VERBOS_RITMO: [string, RegExp][] = FAMILIAS.filter((f) => f.nombre !== "fusionar").map((f) => [f.nombre, f.re]);
   /** FUSIONAR con la disciplina de ARCHIVAR (OLA 14 · B2): el verbo de
-   * juntar acusa solo cuando SU SEGMENTO (la frase cortada en [.!?;] —
-   * la coma y los dos puntos no cortan: el objeto puede ir antes del
-   * verbo, «…tiendas… y unir dos en una») lleva a la vez una marca de
+   * juntar acusa solo cuando LA FRASE (la que juzgar aisló — desde la
+   * ola 15 el «;» no la parte: B1) lleva a la vez una marca de
    * pluralidad o unidad Y un objeto-REGISTRO (tiendas, categorías,
    * líneas, personas, tarjetas, cuentas, libros y sus gemelas
-   * inglesas — «fondo» NO es objeto: es cromo). Y el junt* ADVERBIAL
-   * se absuelve: «juntas» tras un verbo de mostrar/ver/quedar («las
-   * muestra juntas») es una al lado de otra, no la mano de unir. Sin
-   * objeto-registro no hay mano que enseñar: combinar colores es
-   * apariencia, no administración. */
+   * inglesas — «fondo» NO es objeto: es cromo). El objeto puede ir
+   * antes del verbo, «…tiendas… y unir dos en una». Y el junt*
+   * ADVERBIAL se absuelve: «juntas» tras un verbo de mostrar/ver/
+   * quedar («las muestra juntas») es una al lado de otra, no la mano
+   * de unir. Sin objeto-registro no hay mano que enseñar: combinar
+   * colores es apariencia, no administración. */
   const FUSION_VERBO = /\bfusion\w*\b|\bmerg\w*\b|\bcombin\w*\b|\bjoin\w*\b|\bjunt\w*\b|\bunific\w*\b|\bun(?:e|es|en|io|idas|idos|ir)\b/gi;
   const FUSION_MARCA = /\b(?:dos|tres|varias|varios|ambas|ambos|pair|two|three|several|couple|into one|together|en una|en un|as one|in one)\b/i;
   const FUSION_OBJETO = /\btiendas?\b|\bcategorias?\b|subcategor\w*|\blineas?\b|\bpersonas?\b|\btarjetas?\b|\bcuentas?\b|\blibros?\b|\bstores?\b|\bcategories\b|\blines?\b|\bpeople\b|\bperson\b|\bcards?\b|\baccounts?\b|\bbooks?\b/i;
   const JUNT_ADVERBIAL = /(?:muestra|muestran|ve|ven|queda|quedan|aparece|muestr\w*|shows?|appears?|sits?)\s+junt(?:o|a|os|as)$/i;
   const fusionarHit = (s: string): boolean => {
-    for (const seg of s.split(/[.!?;]/)) {
+    // OLA 15 (Cara B1): el segmento ya no corta en «;». juzgar ya aisló
+    // LA FRASE; el punto y coma la partía en dos y la marca de
+    // pluralidad caía en el segmento sin verbo ni objeto — «Fusiona
+    // las tiendas repetidas; dos quedan en una.» escapaba entera, y su
+    // control sin interrupción acusaba. Verbo, marca y objeto se
+    // juzgan ahora sobre la frase completa que la cerca aisló; los
+    // escudos quedan: la absolución adverbial de junt* se mide sobre
+    // el texto que precede al verbo dentro de la frase, y el par
+    // objeto-antes-que-verbo de 12C sigue en la misma frase.
+    for (const seg of s.split(/[.!?]/)) {
       if (!FUSION_MARCA.test(seg) || !FUSION_OBJETO.test(seg)) continue;
       for (const m of seg.matchAll(FUSION_VERBO)) {
         if (/^junt/i.test(m[0]) && JUNT_ADVERBIAL.test(seg.slice(0, m.index! + m[0].length))) continue; // «las muestra juntas»: adverbio, no verbo
@@ -397,7 +406,9 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
    * persona, cuenta, línea, libro, deuda) es mano de Ritmo — sus asientos
    * son cobros.archive, lent.archive y loans.archive, los tres R. El
    * Archivo como LUGAR («el Archivo», con determinante) no es el verbo, y
-   * el objeto se busca en la cláusula del verbo, no en toda la frase. */
+   * el objeto se busca en el resto de la proposición tras el verbo
+   * (desde la ola 15: la subordinada tras una coma no lo amputa, el «;»
+   * sí lo cierra — B1). */
   const ARCHIV_ASIENTOS = ["cobros.archive", "lent.archive", "loans.archive"];
   const ARCHIV_OBJETO = /\b(?:prestamo|loan|tarjeta|card|persona|people|person|cuenta|account|linea|line|libro|book|deuda|debt)\b/i;
   const archivarHit = (s: string): boolean => {
@@ -405,7 +416,18 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     for (const m of s.matchAll(re)) {
       const before = s.slice(Math.max(0, m.index! - 14), m.index!);
       if (/(?:^|\s)(?:el|la|los|las|un|una|este|esta|ese|esa|del|al|the|an|a)\s+$/.test(before)) continue; // «el Archivo» es el lugar
-      const clause = s.slice(m.index! + m[0].length).split(/[.!?;,]/)[0]!;
+      // OLA 15 (Cara B1): el objeto se busca en el resto de la
+      // PROPOSICIÓN tras el verbo, no en la cláusula hasta la primera
+      // coma — la subordinada de «Archiva, cuando puedas, el préstamo
+      // cerrado.» dejaba la cláusula vacía y el objeto fuera de la
+      // ventana. La coma es ruido subordinado; el «;» SÍ es frontera:
+      // tras él empieza otra proposición, y su objeto no es el del
+      // verbo (la frase viva de widget-android lo prueba: «…se
+      // archivará en ese lugar; tu libro no cambia en nada más» —
+      // archivar apuntes en un lugar no archiva el libro). El escudo
+      // queda entero: el determinante que protege «el Archivo» el
+      // lugar se mide ANTES del verbo, como siempre.
+      const clause = s.slice(m.index! + m[0].length).split(/[.!?;]/)[0]!;
       if (ARCHIV_OBJETO.test(clause)) return true;
     }
     return false;
@@ -635,6 +657,27 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     assert.equal(stage("Combina dos tiendas en una desde esta hoja.", "Combine two stores into one from this sheet.").length, 2, "V3 sigue acusando");
     assert.equal(stage("Fusiona dos tiendas en una desde esta hoja.", "Merge a pair of stores together from this sheet.").length, 2, "V5 sigue acusando");
   });
+  it("B1 (ola 15): la interrupción dentro de la frase ya no es salida — las cuatro evasiones acusan y los escudos quedan", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const stage = (es: string, en: string) => violaciones({ ...tienda, what: [es, en] } as never);
+    // las evasiones de la caza: la marca tras el «;» y el objeto tras la subordinada
+    assert.equal(stage("Fusiona las tiendas repetidas; dos quedan en una.", "Merge the stores you no longer need; two become one.").length, 2,
+      "la marca de pluralidad tras el punto y coma vuelve a la frase: fusionar acusa en los dos idiomas");
+    assert.equal(stage("Archiva, cuando puedas, el préstamo cerrado.", "Archive, when you can, the closed loan.").length, 2,
+      "el objeto tras la subordinada vuelve a la frase: archivar acusa en los dos idiomas");
+    // los controles de la caza (las mismas frases sin interrupción) acusaban ya y acusan
+    assert.equal(stage("Fusiona dos tiendas en una.", "Merge two stores into one.").length, 2, "el control de fusión acusa");
+    assert.equal(stage("Archiva el préstamo cerrado.", "Archive the closed loan.").length, 2, "el control de archivar acusa");
+    // los escudos, bajo las ventanas nuevas
+    assert.deepEqual(stage("Con dos tiendas abiertas, la hoja las muestra juntas en una sola lista.", "With two stores open, the sheet shows them together in one list."), [],
+      "la inocente del adverbio sigue absuelta con la frase entera por segmento");
+    assert.deepEqual(stage("El tema oscuro combina dos colores en una pantalla: fondo y tinta.", "The dark theme combines two colours in one screen: background and ink."), [],
+      "la inocente sin objeto-registro sigue absuelta");
+    assert.deepEqual(stage("Ve al Archivo y revisa el préstamo cerrado.", "Go to the Archive and check the closed loan."), [],
+      "«el Archivo» el lugar sigue protegido por su determinante aunque el objeto viva en el resto de la frase");
+    assert.deepEqual(stage("Al tocar el ancla, Faro pregunta primero: lo que anotes eligiéndolo se archivará en ese lugar; tu libro no cambia en nada más.", "On tapping the anchor, Faro asks first: what you note by choosing it will be archived in that place; your book changes in nothing else."), [],
+      "la frase viva de widget-android: archivar apuntes EN UN LUGAR no archiva el libro — el «;» cierra la proposición del verbo y su objeto no cruza");
+  });
 });
 
 /* ═══════════ §D · G11-2 + C11-1: CARDFORM FUSIONA Y NO RESUCITA ═══════
@@ -732,7 +775,12 @@ describe("§D · C11-1 — guardar sobre un fantasma no resucita en silencio", (
     assert.match(seg, /const proceedRestore = \(\) => \{ setGhost\(null\); commitDraft\(false, true\); \};/, "restaurarla y guardar es su propio camino explícito: un commit que desarchiva lo vivo y funde");
   });
   it("el commit de edición sin registro vivo devuelve el estado intacto", () => {
-    assert.match(seg, /if \(!isAdd && !freshId && !liveCard\) return s;/);
+    // ENMIENDA OLA 15 (G15-3): el aborto ahora deja su veredicto en el
+    // canal antes de devolver el estado intacto — la doctrina no
+    // cambia (el estado se devuelve intacto, jamás un alta muda); la
+    // forma creció con la escritura del veredicto, como en las
+    // enmiendas de las olas 12 y 14 sobre la misma línea.
+    assert.match(seg, /if \(!isAdd && !freshId && !liveCard\) \{ saveVerdict\.current = \{ applied: false, existence: "gone" \}; return s; \}/);
   });
 });
 

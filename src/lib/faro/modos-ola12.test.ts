@@ -477,9 +477,14 @@ describe("§B · S1 — la primera edición de un preset se materializa; el fant
     // cuando la tarjeta vive; lo archivado no funde y lo destruido
     // devuelve el estado intacto, como mandaba S1.
     assert.match(s, /const existence = !isAdd && !freshId \? cardExistence\(s, bornId\) : "alive";/);
-    assert.match(s, /if \(existence === "gone"\) return s;/);
+    // ENMIENDA OLA 15 (G15-3): los dos retornos intactos ahora dejan
+    // primero su veredicto en saveVerdict (el aborto re-anuncia en vez
+    // de cerrar en silencio); la doctrina que S1 clava no cambia — lo
+    // destruido y lo que no vive en ninguna casa devuelven el estado
+    // intacto dentro del commit.
+    assert.match(s, /if \(existence === "gone"\) \{ saveVerdict\.current = \{ applied: false, existence \}; return s; \}/);
     assert.match(s, /storedCard \?\? \(!isAdd && !freshId \? cardsOf\(s\)\.find\(\(c\) => c\.id === bornId\) : undefined\)/);
-    assert.match(s, /if \(!isAdd && !freshId && !liveCard\) return s;/);
+    assert.match(s, /if \(!isAdd && !freshId && !liveCard\) \{ saveVerdict\.current = \{ applied: false, existence: "gone" \}; return s; \}/);
   });
   it("el preset vive en cardsOf sin estar en storedCards, y putCard lo materializa con la edición", () => {
     const b = book({});
@@ -734,6 +739,78 @@ function scanForms(files: { rel: string; text: string }[]) {
     if (target) { const d = defsOf(target).get(name); if (d) return { rel: target, node: d }; }
     return null;
   };
+  /** ¿El valor DERIVA de alguna de las raíces? (la composición se
+   * absuelve si alguna parte nace de la raíz; la selección exige todas
+   * sus ramas). OLA 15 (G15-4): una llamada a un identificador ya no
+   * absuelve por tener un argumento enraizado — el llamado se RESUELVE
+   * y su cuerpo debe devolver un valor derivado del argumento que
+   * recibió enraizado (el selector con señuelo, que ignora el estado y
+   * devuelve la foto, no deriva); la recursión lleva tope de
+   * profundidad y los globales de lenguaje son mecanismo, no selector. */
+  const derivesFrom = (e: ts.Node, roots: Set<string>, fromRel: string, depth = 0): boolean => {
+    if (ts.isIdentifier(e)) return roots.has(e.text);
+    if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) return derivesFrom(e.expression, roots, fromRel, depth);
+    if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) return derivesFrom(e.expression, roots, fromRel, depth);
+    if (ts.isCallExpression(e)) {
+      if (ts.isPropertyAccessExpression(e.expression) && derivesFrom(e.expression.expression, roots, fromRel, depth)) return true;
+      if (ts.isIdentifier(e.expression) && !COLL_ACCESSORS.has(e.expression.text) && !GATE_GLOBALS.has(e.expression.text)) {
+        const idx = e.arguments.findIndex((a) => derivesFrom(a, roots, fromRel, depth));
+        if (idx < 0) return false;
+        if (depth >= 3) return e.arguments.some((a) => derivesFrom(a, roots, fromRel, depth));
+        const r = resolveHelper(e.expression.text, fromRel);
+        if (!r) return e.arguments.some((a) => derivesFrom(a, roots, fromRel, depth)); // fuera del árbol caminado: la regla vieja
+        return bodyDerives(r.node, r.rel, idx, depth + 1);
+      }
+      return e.arguments.some((a) => derivesFrom(a, roots, fromRel, depth));
+    }
+    if (ts.isArrayLiteralExpression(e)) return e.elements.some((el) => derivesFrom(el, roots, fromRel, depth));
+    if (ts.isObjectLiteralExpression(e)) return e.properties.some((p) => ts.isSpreadAssignment(p) ? derivesFrom(p.expression, roots, fromRel, depth) : ts.isPropertyAssignment(p) ? derivesFrom(p.initializer, roots, fromRel, depth) : ts.isShorthandPropertyAssignment(p) ? roots.has(p.name.text) : false);
+    if (ts.isConditionalExpression(e)) return derivesFrom(e.whenTrue, roots, fromRel, depth) && derivesFrom(e.whenFalse, roots, fromRel, depth);
+    if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e)) return derivesFrom(e.expression, roots, fromRel, depth);
+    if (ts.isBinaryExpression(e)) {
+      // la selección con un literal vacío de un lado no trae foto (la
+      // misma neutralidad que rooted() ya concedía): `state?.x ?? []`
+      // nace del estado — sin esto, el accesor remitPeopleOf, que
+      // devuelve `state?.remitPeople ?? []`, no derivaba de su estado.
+      const empty = (x: ts.Node) => (ts.isArrayLiteralExpression(x) && x.elements.length === 0) || (ts.isObjectLiteralExpression(x) && x.properties.length === 0);
+      return (derivesFrom(e.left, roots, fromRel, depth) || empty(e.left)) && (derivesFrom(e.right, roots, fromRel, depth) || empty(e.right));
+    }
+    if (ts.isTemplateExpression(e)) return e.templateSpans.some((sp) => derivesFrom(sp.expression, roots, fromRel, depth));
+    if (ts.isPrefixUnaryExpression(e)) return derivesFrom(e.operand, roots, fromRel, depth);
+    return false;
+  };
+  /** ¿El cuerpo de un ayudante devuelve, en TODAS sus salidas, un valor
+   * derivado de su parámetro número `paramIdx`? Los locales que nacen
+   * de él cuentan como raíz (fijación). */
+  const bodyDerives = (fn: ts.Node, rel: string, paramIdx: number, depth = 0): boolean => {
+    const ps = (fn as ts.FunctionLikeDeclarationBase).parameters ?? [];
+    const p = ps[paramIdx];
+    if (!p || !ts.isIdentifier(p.name)) return false;
+    const body = (fn as { body?: ts.Node }).body;
+    if (!body) return false;
+    const roots = new Set<string>([p.name.text]);
+    for (let pass = 0; pass < 6; pass++) {
+      let grew = false;
+      const scan = (n: ts.Node) => {
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && !roots.has(n.name.text) && derivesFrom(n.initializer, roots, rel, depth)) { roots.add(n.name.text); grew = true; }
+        if (isFnLike(n) && n !== fn) return;
+        ts.forEachChild(n, scan);
+      };
+      scan(body);
+      if (!grew) break;
+    }
+    const returns: ts.Node[] = [];
+    if (!ts.isBlock(body)) returns.push(body);
+    else {
+      const rs = (m: ts.Node) => {
+        if (ts.isReturnStatement(m) && m.expression) returns.push(m.expression);
+        if (isFnLike(m) && m !== fn) return;
+        ts.forEachChild(m, rs);
+      };
+      ts.forEachChild(body, rs);
+    }
+    return returns.length > 0 && returns.every((r) => derivesFrom(r, roots, rel, depth));
+  };
   /** ¿El cuerpo de un ayudante COMPONE el libro? Toca una colección,
    * llama a un accesor o a un escritor, o asigna una llave de colección.
    * (Lo que solo toca settings — withDeskSeedFlag — no es una forma que
@@ -768,7 +845,21 @@ function scanForms(files: { rel: string; text: string }[]) {
       const spreads = lit.properties.filter((p) => ts.isSpreadAssignment(p));
       if (!spreads.length) return;
       const ok = spreads.some((sp) => (ts.isIdentifier(sp.expression) && sp.expression.text === param) || ts.isCallExpression(sp.expression));
-      if (!ok) out.push(`map sobre ${recvName}: el reemplazo esparce «${(spreads[0]!.expression as ts.Node).getText()}» en vez del elemento vivo «${param}» — compone desde fuera del map (M-C)`);
+      if (!ok) { out.push(`map sobre ${recvName}: el reemplazo esparce «${(spreads[0]!.expression as ts.Node).getText()}» en vez del elemento vivo «${param}» — compone desde fuera del map (M-C)`); return; }
+      /* OLA 15 (Guardián G15-4) · EL ESPARCIDO TESTIGO: la firma vieja
+       * comprobaba PRESENCIA del elemento vivo, no su DOMINIO —
+       * `{ ...x, ...foto }` pasaba, y el esparcido de la foto, DESPUÉS
+       * del vivo, lo pisaba campo a campo con el mismo daño que
+       * `{ ...foto }` a secas. El esparcido de objeto del elemento vivo
+       * debe ser el ÚLTIMO esparcido de objeto del reemplazo: todo
+       * esparcido de un identificador posterior que no sea el elemento
+       * acusa. (Los esparcidos condicionales que añaden campos y las
+       * llamadas de fusión no son esparcidos de objeto y no entran.) */
+      const identSpreads = spreads.filter((sp) => ts.isIdentifier(sp.expression));
+      const lastIdent = identSpreads[identSpreads.length - 1];
+      if (lastIdent && (lastIdent.expression as ts.Identifier).text !== param) {
+        out.push(`map sobre ${recvName}: el reemplazo esparce «${(lastIdent.expression as ts.Node).getText()}» DESPUÉS del elemento vivo «${param}» — el esparcido posterior pisa al vivo campo a campo (esparcido testigo)`);
+      }
     };
     const replacements = (e: ts.Node, param: string, recvName: string) => {
       if (ts.isObjectLiteralExpression(e)) { judgeLiteral(e, param, recvName); return; }
@@ -827,7 +918,7 @@ function scanForms(files: { rel: string; text: string }[]) {
    * Deshacer: un objeto vacío que se llena desde el estado ES del
    * estado). Leer el libro ya no absuelve nada: cada llave se juzga por
    * su propio valor. */
-  const fotoViolations = (helper: ts.Node, stateParam: string | null, out: string[]) => {
+  const fotoViolations = (helper: ts.Node, stateParam: string | null, out: string[], helperRel = "") => {
     if (!stateParam) return;
     /** ¿El valor se compone DESDE el estado recibido? La composición
      * (literales, llamadas, anexos) se absuelve si ALGUNA de sus partes
@@ -842,7 +933,25 @@ function scanForms(files: { rel: string; text: string }[]) {
       if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) return rooted(e.expression, derived);
       if (ts.isCallExpression(e)) {
         if (ts.isPropertyAccessExpression(e.expression) && rooted(e.expression.expression, derived)) return true;
-        if (ts.isIdentifier(e.expression) && COLL_ACCESSORS.has(e.expression.text) && e.arguments.some((a) => rooted(a, derived))) return true;
+        if (ts.isIdentifier(e.expression)) {
+          const nm = e.expression.text;
+          if (COLL_ACCESSORS.has(nm) && e.arguments.some((a) => rooted(a, derived))) return true;
+          if (GATE_GLOBALS.has(nm)) return e.arguments.some((a) => rooted(a, derived));
+          /* OLA 15 (Guardián G15-4) · EL SELECTOR CON SEÑUELO: la
+           * regla vieja absolvía TODA llamada con algún argumento
+           * enraizado — `elegir(s, foto)`, cuyo cuerpo ignora el estado
+           * y devuelve la foto entera, pasaba por composición. Ahora el
+           * llamado se resuelve y su cuerpo debe devolver un valor
+           * derivado del argumento enraizado que recibió (bodyDerives,
+           * la resolución de G14-2 aplicada recursivamente); un llamado
+           * irresoluble con argumentos mezclados NO absuelve: el valor
+           * no nace del estado y la llave que lo reciba acusa. */
+          const idx = e.arguments.findIndex((a) => rooted(a, derived));
+          if (idx < 0) return false;
+          const r = resolveHelper(nm, helperRel);
+          if (!r) return false;
+          return bodyDerives(r.node, r.rel, idx);
+        }
         return e.arguments.some((a) => rooted(a, derived));
       }
       if (ts.isObjectLiteralExpression(e)) return e.properties.some((p) => {
@@ -965,6 +1074,175 @@ function scanForms(files: { rel: string; text: string }[]) {
     }
   };
 
+  /* ── OLA 15 (Guardián G15-1): EL CENSO DE PARCHES RESUELVE A CUERPOS ──
+   * La cura 14 resolvió el mecanismo fn-sobre-vivo a su cuerpo (G14-2),
+   * pero patchLineWith — nacido en esa misma cura — nunca recibió el
+   * tratamiento: el censo lo clasificaba «campo» por el NOMBRE del
+   * ayudante y ninguna firma miraba la flecha entregada. La mutación de
+   * la caza (reportUse componiendo su historial desde la foto del
+   * render, `line.history` en vez de `live.history`) corrió la suite
+   * entera verde con la razón clavada mintiendo. Ahora cada sitio de
+   * patchLineWith resuelve la función entregada a su cuerpo y juzga el
+   * parche devuelto: leer un campo de línea de la FOTO — el objeto cuyo
+   * id se está parchando, u otro objeto que no nace del parámetro vivo —
+   * acusa; el literal del gesto y lo compuesto desde el parámetro
+   * absuelven. Y patchLine juzga la procedencia de su objeto-parche
+   * (el literal en el sitio, o el literal al que el identificador se
+   * ata en el ámbito que envuelve): un parche que esparce o lee la foto
+   * acusa; el literal del gesto absuelve. */
+  const LINE_FIELDS = new Set(["id", "seriesId", "monthKey", "kind", "concept", "amountMinor", "currency", "active", "note", "categoryId", "subId", "recurring", "storeId", "providerId", "productCode", "productUrl", "cadence", "nextDue", "aprBps", "balanceMinor", "balanceCurrency", "icon", "history", "bookedOn", "startedOn", "xfer", "cardId", "personId", "occasionId"]);
+  type PatchCtx = { idRoot: string | null; param: string | null; rooted: Set<string>; locals: Map<string, ts.ObjectLiteralExpression>; enclosingParams: Set<string>; foreign: number };
+  const patchViolations = (root: ts.Node, fromRel: string, enclosingParams: Set<string>, out: string[]) => {
+    /** La raíz y el primer campo de una cadena de acceso (x.a.b → raíz x, campo a). */
+    const chainOf = (e: ts.Node): { root: string | null; field: string | null } => {
+      let cur = e;
+      let field: string | null = null;
+      while (ts.isPropertyAccessExpression(cur) || ts.isElementAccessExpression(cur)) {
+        if (ts.isPropertyAccessExpression(cur)) field = cur.name.text;
+        cur = cur.expression;
+      }
+      return { root: ts.isIdentifier(cur) ? cur.text : null, field };
+    };
+    const judgeExpr = (e: ts.Node, ctx: PatchCtx): void => {
+      if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
+        const { root: r, field } = chainOf(e);
+        if (r) {
+          if (ctx.idRoot && r === ctx.idRoot && r !== ctx.param) out.push(`el parche lee «${e.getText().slice(0, 44)}» de la foto cuyo id se parchea, no del parámetro vivo — el cruce de la otra pestaña muere en el commit (G15-1)`);
+          else if (field && LINE_FIELDS.has(field) && !ctx.rooted.has(r)) ctx.foreign++;
+          if (field === "history" && !ctx.rooted.has(r)) out.push(`el parche lee el historial de «${r}», que no es la línea viva del commit — anexar sobre la foto entierra el cruce (G15-1)`);
+        }
+        return;
+      }
+      if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) {
+        const x = e.expression;
+        if (ts.isIdentifier(x)) {
+          if (ctx.idRoot && x.text === ctx.idRoot) { out.push(`el parche esparce la foto entera («...${x.text}») en vez de componer desde la línea viva (G15-1)`); return; }
+          const lit = ctx.locals.get(x.text);
+          if (lit) { judgeExpr(lit, ctx); return; }
+          if (!ctx.rooted.has(x.text) && !ctx.enclosingParams.has(x.text)) out.push(`el parche esparce «${x.text}», que no nace de la línea viva ni es un literal del gesto (G15-1)`);
+          return;
+        }
+        judgeExpr(x, ctx);
+        return;
+      }
+      if (ts.isObjectLiteralExpression(e)) { for (const p of e.properties) { if (ts.isSpreadAssignment(p)) judgeExpr(p, ctx); else if (ts.isPropertyAssignment(p)) judgeExpr(p.initializer, ctx); } return; }
+      if (ts.isArrayLiteralExpression(e)) { for (const el of e.elements) judgeExpr(el, ctx); return; }
+      if (ts.isCallExpression(e)) {
+        if (ts.isPropertyAccessExpression(e.expression)) judgeExpr(e.expression, ctx);
+        for (const a of e.arguments) judgeExpr(a, ctx);
+        return;
+      }
+      if (ts.isConditionalExpression(e)) { judgeExpr(e.condition, ctx); judgeExpr(e.whenTrue, ctx); judgeExpr(e.whenFalse, ctx); return; }
+      if (ts.isBinaryExpression(e)) { judgeExpr(e.left, ctx); judgeExpr(e.right, ctx); return; }
+      if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e) || ts.isPrefixUnaryExpression(e)) { judgeExpr((e as { expression?: ts.Node; operand?: ts.Node }).expression ?? (e as { operand?: ts.Node }).operand!, ctx); return; }
+      if (ts.isTemplateExpression(e)) { for (const sp of e.templateSpans) judgeExpr(sp.expression, ctx); return; }
+    };
+    /** Los literales-objeto atados a un nombre en los ámbitos que envuelven la llamada. */
+    const findObjectBinding = (call: ts.Node, name: string): ts.ObjectLiteralExpression | null => {
+      let cur: ts.Node = call;
+      while (cur.parent) {
+        const anc = cur.parent;
+        if (isFnLike(anc) || ts.isSourceFile(anc)) {
+          let found: ts.ObjectLiteralExpression | null = null;
+          const scan = (n: ts.Node): void => {
+            if (found) return;
+            if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer && ts.isObjectLiteralExpression(n.initializer)) { found = n.initializer; return; }
+            if (isFnLike(n) && n !== anc) {
+              let has = false;
+              const w = (m: ts.Node) => { if (m === call) has = true; ts.forEachChild(m, w); };
+              w(n);
+              if (!has) return;
+            }
+            ts.forEachChild(n, scan);
+          };
+          scan((anc as { body?: ts.Node }).body ?? anc);
+          if (found) return found;
+        }
+        cur = anc;
+      }
+      return null;
+    };
+    const judgePatchFn = (call: ts.CallExpression) => {
+      const fnArg = call.arguments[2];
+      if (!fnArg) return;
+      const idArg = call.arguments[1];
+      const idRoot = idArg && ts.isPropertyAccessExpression(idArg) && ts.isIdentifier(idArg.expression) ? idArg.expression.text : null;
+      let fnNode: ts.Node | null = null;
+      if (ts.isArrowFunction(fnArg) || ts.isFunctionExpression(fnArg)) fnNode = fnArg;
+      else if (ts.isIdentifier(fnArg)) { const r = resolveHelper(fnArg.text, fromRel); if (r) fnNode = r.node; }
+      if (!fnNode || !(ts.isArrowFunction(fnNode) || ts.isFunctionExpression(fnNode) || ts.isFunctionDeclaration(fnNode))) {
+        out.push("la función entregada a patchLineWith no se resuelve a un cuerpo: el censo no puede certificar lo que no ve (G15-1)");
+        return;
+      }
+      const fn = fnNode as ts.FunctionLikeDeclarationBase;
+      const param = fn.parameters.length && ts.isIdentifier(fn.parameters[0]!.name) ? (fn.parameters[0]!.name as ts.Identifier).text : null;
+      const rooted = new Set<string>(param ? [param] : []);
+      const locals = new Map<string, ts.ObjectLiteralExpression>();
+      let paramUsed = false;
+      if (fn.body) {
+        for (let pass = 0; pass < 6; pass++) {
+          let grew = false;
+          const scan = (n: ts.Node) => {
+            if (ts.isIdentifier(n) && param && n.text === param) paramUsed = true;
+            if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+              if (ts.isObjectLiteralExpression(n.initializer) && !locals.has(n.name.text)) locals.set(n.name.text, n.initializer);
+              if (!rooted.has(n.name.text)) {
+                let refs = false;
+                const walk = (m: ts.Node) => { if (ts.isIdentifier(m) && rooted.has(m.text)) refs = true; ts.forEachChild(m, walk); };
+                walk(n.initializer);
+                if (refs) { rooted.add(n.name.text); grew = true; }
+              }
+            }
+            if (isFnLike(n) && n !== fn) return;
+            ts.forEachChild(n, scan);
+          };
+          scan(fn.body);
+          if (!grew && pass > 0) break;
+        }
+      }
+      const ctx: PatchCtx = { idRoot, param, rooted, locals, enclosingParams, foreign: 0 };
+      const returns: ts.Node[] = [];
+      if (fn.body) {
+        if (!ts.isBlock(fn.body)) returns.push(fn.body);
+        else {
+          const rs = (m: ts.Node) => {
+            if (ts.isReturnStatement(m) && m.expression) returns.push(m.expression);
+            if (isFnLike(m) && m !== fn) return;
+            ts.forEachChild(m, rs);
+          };
+          ts.forEachChild(fn.body, rs);
+        }
+      }
+      for (const ret of returns) judgeExpr(ret, ctx);
+      if ((!param || !paramUsed) && ctx.foreign > 0) {
+        out.push("la función de patchLineWith compone el parche leyendo campos de línea de fuera sin leer jamás su parámetro vivo: el parche nace de una foto (G15-1)");
+      }
+    };
+    const judgePatchObject = (call: ts.CallExpression) => {
+      const patchArg = call.arguments[2];
+      if (!patchArg) return;
+      const idArg = call.arguments[1];
+      const idRoot = idArg && ts.isPropertyAccessExpression(idArg) && ts.isIdentifier(idArg.expression) ? idArg.expression.text : null;
+      const ctx: PatchCtx = { idRoot, param: null, rooted: new Set<string>(), locals: new Map(), enclosingParams, foreign: 0 };
+      if (ts.isObjectLiteralExpression(patchArg)) { judgeExpr(patchArg, ctx); return; }
+      if (ts.isIdentifier(patchArg)) {
+        if (enclosingParams.has(patchArg.text)) return; // el parche es un parámetro del mecanismo (paintLine): se juzga en sus llamantes, no aquí
+        const lit = findObjectBinding(call, patchArg.text);
+        if (lit) judgeExpr(lit, ctx);
+        return;
+      }
+      judgeExpr(patchArg, ctx);
+    };
+    const scan = (n: ts.Node) => {
+      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && PATCH_WRITERS.has(n.expression.text)) {
+        if (n.expression.text === "patchLineWith") judgePatchFn(n);
+        else judgePatchObject(n);
+      }
+      ts.forEachChild(n, scan);
+    };
+    scan(root);
+  };
+
   for (const { rel, text } of files) {
     if (!rel.startsWith("components/")) continue;
     const sf = parse(rel, text);
@@ -1024,7 +1302,7 @@ function scanForms(files: { rel: string; text: string }[]) {
           };
           const stateParam = updater.parameters.length && ts.isIdentifier(updater.parameters[0]!.name)
             ? (updater.parameters[0]!.name as ts.Identifier).text : null;
-          const delegatedHelpers: { name: string; node: ts.Node }[] = [];
+          const delegatedHelpers: { name: string; node: ts.Node; rel: string }[] = [];
           const siteViolations: string[] = [];
           if (stateParam) {
             // valores que nacen del estado (taint): el parámetro, lo que
@@ -1127,10 +1405,10 @@ function scanForms(files: { rel: string; text: string }[]) {
               }
               const hbody = (r.node as { body?: ts.Node }).body;
               if (!hbody || !helperComposes(r.node)) continue; // lee, no compone: no es ruta de guardado
-              delegatedHelpers.push({ name, node: r.node });
+              delegatedHelpers.push({ name, node: r.node, rel: r.rel });
               const hparams = (r.node as ts.FunctionLikeDeclarationBase).parameters ?? [];
               const hState = hparams.length && ts.isIdentifier(hparams[0]!.name) ? (hparams[0]!.name as ts.Identifier).text : null;
-              fotoViolations(r.node, hState, siteViolations);
+              fotoViolations(r.node, hState, siteViolations, r.rel);
             }
           }
           /* ── los sitios, en el orden de la fuente ── */
@@ -1166,6 +1444,12 @@ function scanForms(files: { rel: string; text: string }[]) {
             };
             mapVivoViolations(body, siteViolations, paramNames(updater));
             for (const h of delegatedHelpers) mapVivoViolations(h.node, siteViolations, paramNames(h.node));
+            /* OLA 15 (G15-1): los parches dentro del sitio se juzgan
+             * por su cuerpo — la función entregada a patchLineWith se
+             * resuelve y el objeto-parche de patchLine se sigue a su
+             * literal; la llamada ya no certifica nada por su nombre. */
+            patchViolations(body, rel, params, siteViolations);
+            for (const h of delegatedHelpers) patchViolations(h.node, h.rel, paramNames(h.node), siteViolations);
             /* la firma FUSIONA: el subárbol del sitio (el updater y sus
              * ayudantes) llama a una fusión nombrada (fuse…) o aplica el
              * fn del llamante sobre un accesor vivo (la forma savePeople).
@@ -1205,21 +1489,12 @@ function scanForms(files: { rel: string; text: string }[]) {
      * parámetro de la flecha entregada (componer desde él: mapearlo,
      * esparcirlo, filtrarlo), no ser un valor de fuera. */
     if (rel.startsWith("components/")) {
-      const derives = (e: ts.Node, param: string): boolean => {
-        if (ts.isIdentifier(e)) return e.text === param;
-        if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) return derives(e.expression, param);
-        if (ts.isPropertyAccessExpression(e)) return derives(e.expression, param);
-        if (ts.isCallExpression(e)) {
-          if (ts.isPropertyAccessExpression(e.expression) && derives(e.expression.expression, param)) return true;
-          return e.arguments.some((a) => derives(a, param));
-        }
-        if (ts.isArrayLiteralExpression(e)) return e.elements.some((el) => derives(el, param));
-        if (ts.isObjectLiteralExpression(e)) return e.properties.some((p) => ts.isSpreadAssignment(p) ? derives(p.expression, param) : ts.isPropertyAssignment(p) ? derives(p.initializer, param) : false);
-        if (ts.isConditionalExpression(e)) return derives(e.whenTrue, param) && derives(e.whenFalse, param);
-        if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e)) return derives(e.expression, param);
-        if (ts.isBinaryExpression(e)) return derives(e.left, param) && derives(e.right, param);
-        return false;
-      };
+      // OLA 15: el análisis de derivación es UNO solo para toda la
+      // cerca (derivesFrom, arriba): la resolución de llamados que
+      // G15-4 trajo a rooted() es la misma que aquí juzga los cuerpos
+      // entregados — un selector que ignora lo vivo no deriva en
+      // ninguna de las dos firmas.
+      const derives = (e: ts.Node, param: string): boolean => derivesFrom(e, new Set([param]), rel);
       const mechanisms = new Map<string, number>();
       for (const [name, def] of defsOf(rel)) {
         const ps = (def as ts.FunctionLikeDeclarationBase).parameters ?? [];
@@ -1265,7 +1540,15 @@ function scanForms(files: { rel: string; text: string }[]) {
       }
     }
   }
-  return { inline, writers, delegated, violations, unresolved, fusion, fnSites };
+  /* OLA 15 (G15-5): la identidad de un ayudante es su NODO resuelto
+   * (archivo#nombre), no la cuerda de su nombre — dos cuerpos con el
+   * mismo nombre en archivos distintos son dos ayudantes, y el libro
+   * de delegadas debe poder decirlo. */
+  const resolveNode = (name: string, fromRel: string): string | null => {
+    const r = resolveHelper(name, fromRel);
+    return r ? `${r.rel}#${name}` : null;
+  };
+  return { inline, writers, delegated, violations, unresolved, fusion, fnSites, resolveNode };
 }
 
 const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
@@ -1325,8 +1608,8 @@ const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
 
 const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
   "components/faro/cards.tsx:commitDraft#1": ["fusiona", "CardForm: el candidato se fusiona (fuseCardDraft) contra el registro del commit y putCard escribe el resultado; las lecturas del alta se anexan. Ola 14: proceed se llama commitDraft — la misma ruta con su salida de restaurar (G14-5)", "addReading,addRewards,putCard"],
-  "components/faro/cards.tsx:save#1": ["anexa", "el modo update de CardForm anexa lecturas y recompensas por id sobre el registro vivo (addReading busca en cardsOf)", "addReading,addRewards"],
-  "components/faro/cards.tsx:save#2": ["anexa", "CardScan: crea la tarjeta nueva o anexa las lecturas del escaneo por id; no edita campos gobernados de la ficha", "addReading,addRewards,putCard"],
+  "components/faro/cards.tsx:commitUpdate#1": ["anexa", "ola 15 (G15-2): la actualización manual de CardForm vive en su propia ruta (commitUpdate) — pregunta cardExistence DENTRO del commit y anexa lecturas y recompensas por id sobre el registro vivo (addReading busca en cardsOf); lo archivado solo se restaura por restoreCard dentro del mismo commit, con la palabra de la persona. Antes era save#1, en línea en save()", "addReading,addRewards"],
+  "components/faro/cards.tsx:save#1": ["anexa", "CardScan: crea la tarjeta nueva o anexa las lecturas del escaneo por id; no edita campos gobernados de la ficha. (Era save#2: la ola 15 movió la ruta update de CardForm a commitUpdate y la numeración por función se recorrió.)", "addReading,addRewards,putCard"],
   "components/faro/bank-settings.tsx:editor#1": ["fusiona", "EditAcct: editAccount aplica el parche {name?, color?, bank?} sobre el registro vivo dentro del commit", "editAccount"],
   "components/faro/rewards-real.tsx:save#1": ["campo", "setRewardReal escribe la figura de la cuenta dentro del commit, sobre el libro vivo", "setRewardReal"],
   "components/faro/line-form.tsx:save#1": ["fusiona", "la raíz: upsertLine recibe la línea ya fusionada ({...existing, ...fresh} con sus testigos de toque)", "declareSeries,upsertLine"],
@@ -1513,22 +1796,81 @@ describe("§B · el censo de formas que guardan: toda ruta de guardado, clasific
     const good2 = mk("(live) => [...live, nueva]");
     assert.deepEqual(good2.fnSites, [], "anexar sobre lo vivo es la forma sana: limpia");
   });
-  /* ── OLA 14 (G14-3): la doctrina cuelga del AYUDANTE, no del sitio ── */
-  it("cada ayudante delegado tiene UNA sola doctrina en todos sus sitios (G14-3)", () => {
-    const byHelper = new Map<string, Map<string, string[]>>();
-    for (const [key, [doctrina, , helpers]] of Object.entries(FORMAS_DELEGADAS)) {
+  /* ── OLA 14 (G14-3) + OLA 15 (G15-5): la doctrina cuelga del AYUDANTE,
+   * y el ayudante es su NODO — la comprobación de la ola 14 agrupaba
+   * por la CUERDA del nombre: dos cuerpos con el mismo nombre en
+   * archivos distintos compartían etiqueta sin que ninguna firma lo
+   * notara (la resolución local-primero hace la colisión fácil de
+   * nacer: un `restoreLoan` local sombrea al de la librería y heredaba
+   * su etiqueta). Ahora la doctrina única se verifica POR NODO
+   * RESUELTO (archivo#nombre), y un nombre que resuelve a dos nodos
+   * distintos acusa — salvo que ambos nodos compartan una sola
+   * doctrina verificada, en cuyo caso la etiqueta dice la verdad de
+   * los dos. */
+  const doctrineConflicts = (book: Record<string, [Doctrina, string, string]>, resolve: (name: string, fromRel: string) => string | null): string[] => {
+    const byNode = new Map<string, Map<string, string[]>>();
+    const byName = new Map<string, Map<string, Set<string>>>();
+    const conflicts: string[] = [];
+    for (const [key, [doctrina, , helpers]] of Object.entries(book)) {
+      const siteRel = key.split(":")[0]!;
       for (const h of helpers.split(",")) {
-        if (!byHelper.has(h)) byHelper.set(h, new Map());
-        const m = byHelper.get(h)!;
+        const node = resolve(h, siteRel);
+        if (!node) { conflicts.push(`${key}: el ayudante «${h}» no se resuelve a ningún cuerpo — el libro nombra a un ayudante que no existe (G15-5)`); continue; }
+        if (!byNode.has(node)) byNode.set(node, new Map());
+        const m = byNode.get(node)!;
         if (!m.has(doctrina)) m.set(doctrina, []);
         m.get(doctrina)!.push(key);
+        if (!byName.has(h)) byName.set(h, new Map());
+        if (!byName.get(h)!.has(node)) byName.get(h)!.set(node, new Set());
+        byName.get(h)!.get(node)!.add(doctrina);
       }
     }
-    const conflicts: string[] = [];
-    for (const [h, m] of byHelper) {
-      if (m.size > 1) conflicts.push(`${h}: ${[...m.entries()].map(([d, ks]) => `«${d}» en ${ks.join(", ")}`).join(" contra ")}`);
+    for (const [node, m] of byNode) {
+      if (m.size > 1) conflicts.push(`${node}: ${[...m.entries()].map(([d, ks]) => `«${d}» en ${ks.join(", ")}`).join(" contra ")}`);
     }
-    assert.deepEqual(conflicts, [], `la doctrina es del ayudante, no del sitio — una clasificación en conflicto acusa:\n${conflicts.join("\n")}`);
+    for (const [h, nodes] of byName) {
+      if (nodes.size < 2) continue;
+      const all = new Set<string>();
+      for (const ds of nodes.values()) for (const d of ds) all.add(d);
+      if (all.size > 1) conflicts.push(`«${h}» resuelve a ${nodes.size} cuerpos distintos (${[...nodes.keys()].join(", ")}) con doctrinas distintas (${[...all].join(", ")}) — la cuerda compartía una etiqueta que no puede decir la verdad de los dos: renombra uno o unifica su doctrina (G15-5)`);
+    }
+    return conflicts;
+  };
+  it("cada ayudante delegado tiene UNA sola doctrina — por NODO resuelto, no por cuerda (G14-3 + G15-5)", () => {
+    assert.deepEqual(doctrineConflicts(FORMAS_DELEGADAS, found.resolveNode), [], "la doctrina es del cuerpo resuelto, no del sitio ni de la cuerda");
+  });
+  it("espécimen G15-5: mismo nombre, dos cuerpos — la colisión acusa si las doctrinas difieren y absuelve si coinciden", () => {
+    const mkFile = (rel: string, helper: string, call: string) => ({
+      rel,
+      text: [
+        "type S = { people: { id: string }[] };",
+        helper,
+        `export function Forma() { const save = () => commit((s: S) => ${call}, 'x'); return null; }`,
+      ].join("\n"),
+    });
+    const virtual = scanForms([
+      mkFile("components/faro/inventada15a.tsx", "const restaurar = (s: S) => ({ ...s, people: s.people.map((x) => x) });", "restaurar(s)"),
+      mkFile("components/faro/inventada15b.tsx", "const restaurar = (s: S, foto: unknown[]) => ({ ...s, people: foto });", "restaurar(s, fotoDelRender)"),
+    ]);
+    const kA = "components/faro/inventada15a.tsx:save#1";
+    const kB = "components/faro/inventada15b.tsx:save#1";
+    assert.equal(virtual.delegated.get(kA), "restaurar", "el sitio A delega en «restaurar»");
+    assert.equal(virtual.delegated.get(kB), "restaurar", "el sitio B delega en «restaurar» — la misma cuerda para otro cuerpo");
+    const nA = virtual.resolveNode("restaurar", "components/faro/inventada15a.tsx");
+    const nB = virtual.resolveNode("restaurar", "components/faro/inventada15b.tsx");
+    assert.ok(nA && nB && nA !== nB, "los dos cuerpos son dos nodos: el libro ya puede decirlo");
+    const book: Record<string, [Doctrina, string, string]> = {
+      [kA]: ["campo", "el cuerpo A compone desde el estado", "restaurar"],
+      [kB]: ["naturaleza", "el cuerpo B reemplaza por naturaleza de su objeto", "restaurar"],
+    };
+    const conflicts = doctrineConflicts(book, virtual.resolveNode);
+    assert.equal(conflicts.length, 1, "la colisión con doctrinas distintas acusa una sola vez, por el nombre");
+    assert.match(conflicts[0]!, /G15-5/);
+    const bookSame: Record<string, [Doctrina, string, string]> = {
+      [kA]: ["campo", "el cuerpo A compone desde el estado", "restaurar"],
+      [kB]: ["campo", "el cuerpo B también compone desde el estado", "restaurar"],
+    };
+    assert.deepEqual(doctrineConflicts(bookSame, virtual.resolveNode), [], "la misma doctrina verificada en los dos cuerpos: la etiqueta dice la verdad y la colisión no acusa");
   });
   it("espécimen M-B: la enfermedad DELEGADA a un ayudante se ve, se clasifica como ruta y su firma acusa la foto", () => {
     const virtual = scanForms([{
@@ -1552,6 +1894,71 @@ describe("§B · el censo de formas que guardan: toda ruta de guardado, clasific
     const key = "components/faro/inventada13.tsx:run#1";
     assert.ok(virtual.inline.has(key), "el sitio se detecta como composición en línea");
     assert.match((virtual.violations.get(key) ?? []).join(" "), /elemento vivo/, "la firma acusa el esparcido de fuera del map: la clasificación vieja ya no absuelve la doctrina nueva");
+  });
+  /* ── OLA 15 (G15-1): el censo de parches resuelve la función
+   * entregada — la mutación de la caza (reportUse componiendo desde
+   * `line.history`, la foto del render) corrió la suite entera verde;
+   * estos especímenes son esa mutación y sus sanos. ── */
+  it("espécimen G15-1: el parche se juzga por el cuerpo entregado — la foto acusa, el vivo absuelve", () => {
+    const key = "components/faro/inventada15.tsx:save#1";
+    const mkPatch = (fnBody: string) => scanForms([{
+      rel: "components/faro/inventada15.tsx",
+      text: [
+        "type S = { months: unknown };",
+        "const line = { id: 'l1', history: [] as unknown[] };",
+        "const foto = { id: 'l9', history: [] as unknown[] };",
+        "export function Forma() {",
+        `  const save = () => commit((s: S) => patchLineWith(s, line.id, ${fnBody}), 'x');`,
+        "  return null;",
+        "}",
+      ].join("\n"),
+    }]);
+    assert.deepEqual(mkPatch("(live) => ({ history: [...live.history, { id: 'u1' }] })").violations.get(key) ?? [], [], "sano: el historial se anexa sobre la línea viva del commit");
+    assert.ok((mkPatch("(live) => ({ history: [...line.history, { id: 'u1' }] })").violations.get(key) ?? []).some((v) => /G15-1/.test(v)), "la mutación de la caza: el historial leído de la foto del render acusa (antes: 75/75 verde)");
+    assert.ok((mkPatch("() => ({ history: [...foto.history, { id: 'u1' }] })").violations.get(key) ?? []).some((v) => /G15-1/.test(v)), "la función sin parámetro que lee el historial de fuera acusa");
+    const mkPatchObj = (pre: string, patchArg: string) => scanForms([{
+      rel: "components/faro/inventada15.tsx",
+      text: [
+        "type S = { months: unknown };",
+        "const fotoLine = { id: 'l9', concept: 'Foto', color: '#000000' };",
+        "export function Forma() {",
+        `  const save = () => { ${pre} commit((s: S) => patchLine(s, fotoLine.id, ${patchArg}), 'x'); };`,
+        "  return null;",
+        "}",
+      ].join("\n"),
+    }]);
+    assert.deepEqual(mkPatchObj("", "{ color: '#123456' }").violations.get(key) ?? [], [], "sano: el literal del gesto absuelve");
+    assert.ok((mkPatchObj("const patch = { ...fotoLine, color: '#123456' };", "patch").violations.get(key) ?? []).some((v) => /G15-1/.test(v)), "el parche calculado en el cierre que esparce la foto acusa por su procedencia");
+  });
+  /* ── OLA 15 (G15-4): las firmas resuelven los invocados y verifican
+   * dominio — los dos especímenes que la caza clavó como deuda (S1 el
+   * selector con señuelo, S3 el esparcido testigo) ahora acusan, y sus
+   * sanos absuelven. ── */
+  it("espécimen G15-4: el selector con señuelo acusa y el esparcido testigo acusa; los sanos absuelven", () => {
+    const key = "components/faro/inventada15.tsx:save#1";
+    const mkSel = (elegirBody: string, inner: string) => scanForms([{
+      rel: "components/faro/inventada15.tsx",
+      text: [
+        "type S = { people: unknown[] };",
+        `const elegir = ${elegirBody};`,
+        `const componer = (s: S, foto: unknown[]) => ({ ...s, people: ${inner} });`,
+        "export function Forma() { const save = () => commit((s: S) => componer(s, fotoDelRender), 'x'); return null; }",
+      ].join("\n"),
+    }]);
+    assert.ok((mkSel("(s, foto) => foto", "elegir(s, foto)").violations.get(key) ?? []).length > 0, "el selector con señuelo: recibe el estado y devuelve la foto — la resolución a cuerpos lo caza (antes absolvía)");
+    assert.ok((mkSel("(s, foto) => foto", "elegir(foto)").violations.get(key) ?? []).length > 0, "control: el selector sin el estado acusa, como antes");
+    assert.deepEqual(mkSel("(s, foto) => s.people", "elegir(s, foto)").violations.get(key) ?? [], [], "sano: el selector que deriva del argumento enraizado absuelve");
+    const mkW = (inner: string) => scanForms([{
+      rel: "components/faro/inventada15.tsx",
+      text: [
+        "type S = { people: { id: string }[] };",
+        `const editar = (s: S, foto: unknown) => ({ ...s, people: s.people.map((x) => (x.id === '1' ? ${inner} : x)) });`,
+        "export function Forma() { const save = () => commit((s: S) => editar(s, fotoDelRender), 'x'); return null; }",
+      ].join("\n"),
+    }]);
+    assert.ok((mkW("{ ...x, ...foto }").violations.get(key) ?? []).some((v) => /esparcido testigo/.test(v)), "el esparcido testigo: la foto esparcida DESPUÉS del vivo lo pisa y acusa (antes absolvía)");
+    assert.deepEqual(mkW("{ ...foto, ...x }").violations.get(key) ?? [], [], "sano: la foto primero y el vivo después — el vivo domina y absuelve");
+    assert.deepEqual(mkW("{ ...x, archived: true }").violations.get(key) ?? [], [], "sano: el vivo con campos del gesto absuelve");
   });
   it("espécimen: un ayudante IRRESOLUBLE llamado con el estado acusa en voz alta", () => {
     const virtual = scanForms([{

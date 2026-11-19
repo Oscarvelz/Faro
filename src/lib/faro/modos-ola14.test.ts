@@ -19,7 +19,7 @@
  * Los libros son especímenes fijados a mano; jamás producción.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { cardExistence, dropCard, putCard, storedCards } from "./cards.ts";
@@ -146,18 +146,120 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     [/money\(s, total\)/, "total ← la suma de vencimientos en la cáscara", "suma de filas"],
     [/Fmt\.money\(s\.owed - s\.owe,/, "owed − owe ← el neto de Cobros", "derivado"],
   ];
-  it("el censo de la cáscara: ninguna cifra nativa sin productor ni clase declarados", () => {
-    const files = ["FaroNotify.kt", "FaroWidgets.kt"];
+  /* Ola 15 (Asesor): el censo camina el PAQUETE ENTERO y juzga toda
+   * forma de imprimir una cifra. La primera vida del censo cazaba por
+   * enumeración — dos archivos nombrados y una sola forma de llamada —
+   * y la caza lo probó: una cifra en QuickAdd.kt (M15-2) y una
+   * interpolación cruda dentro del propio FaroWidgets.kt (M15-3)
+   * corrían verdes. Ahora el universo es el directorio, las formas son
+   * tres (llamadas a formateadores, interpolaciones crudas de campos
+   * de dinero de la foto dentro de cadenas, y String.format con
+   * marcador numérico sobre un campo de dinero) y el escaneo retira
+   * los comentarios antes de juzgar (una mención money() en un
+   * comentario ya no acusa en falso). El dinero se imprime por los
+   * formateadores — es lo que hace su productor declarable: una
+   * interpolación cruda de un campo de dinero no tiene productor que
+   * declarar y acusa siempre. Los porcentajes de la foto (usedPct) no
+   * son cifras de dinero y no entran. */
+  const scanKt = (kt: string): { code: string; literals: string[] } => {
+    let out = "";
+    const literals: string[] = [];
+    let i = 0;
+    const n = kt.length;
+    while (i < n) {
+      const c = kt[i]!, d = kt[i + 1] ?? "";
+      if (c === "/" && d === "/") { while (i < n && kt[i] !== "\n") { out += " "; i++; } continue; }
+      if (c === "/" && d === "*") {
+        out += "  "; i += 2;
+        while (i < n && !(kt[i] === "*" && kt[i + 1] === "/")) { out += kt[i] === "\n" ? "\n" : " "; i++; }
+        if (i < n) { out += "  "; i += 2; }
+        continue;
+      }
+      if (c === '"') {
+        let lit = "";
+        out += c; i++;
+        while (i < n && kt[i] !== '"') {
+          if (kt[i] === "\\") { lit += kt[i]! + (kt[i + 1] ?? ""); out += kt[i]! + (kt[i + 1] ?? ""); i += 2; continue; }
+          lit += kt[i]; out += kt[i]; i++;
+        }
+        if (i < n) { out += '"'; i++; }
+        literals.push(lit);
+        continue;
+      }
+      if (c === "'") {
+        out += c; i++;
+        while (i < n && kt[i] !== "'" && kt[i] !== "\n") {
+          if (kt[i] === "\\") { out += kt[i]! + (kt[i + 1] ?? ""); i += 2; continue; }
+          out += kt[i]; i++;
+        }
+        if (i < n && kt[i] === "'") { out += "'"; i++; }
+        continue;
+      }
+      out += c; i++;
+    }
+    return { code: out, literals };
+  };
+  const DINERO_RE = /\b(?:s|pace|f)\.(?:spent|spend|have|left|pay|saveMonth|saveGoal|saveTotal|owed|owe|rateE4|savedOut|expected|projected|income|inn|out)\b/;
+  const censoCascara = (files: { name: string; text: string }[]): string[] => {
     const acusadas: string[] = [];
-    for (const f of files) {
-      const kt = SRC(`../../../android/app/src/main/java/com/oscarvelz/faro/${f}`);
-      for (const m of kt.matchAll(/(?:Fmt\.money|money)\(([^)]*)\)/g)) {
-        const call = m[0];
+    for (const { name, text } of files) {
+      const { code, literals } = scanKt(text);
+      // forma 1: llamadas a formateadores — cada una nombra su productor
+      for (const m of code.matchAll(/(?:Fmt\.money|money)\(([^)]*)\)/g)) {
         if (m[1]!.includes(":")) continue; // las declaraciones de Fmt.money/money llevan tipos (minor: Long): no son superficies
-        if (!SUPERFICIES_CASCARA.some(([re]) => re.test(call))) acusadas.push(`${f}: ${call.slice(0, 70)}`);
+        if (!SUPERFICIES_CASCARA.some(([re]) => re.test(m[0]))) acusadas.push(`${name}: ${m[0].slice(0, 70)}`);
+      }
+      // forma 2: interpolaciones crudas de campos de dinero dentro de cadenas
+      for (const lit of literals) {
+        for (const m of lit.matchAll(/\$\{([^}]*)\}|\$([A-Za-z_][\w.]*)/g)) {
+          const expr = m[1] ?? m[2] ?? "";
+          if (/(?:Fmt\.)?money\(/.test(expr)) continue; // la cifra la produce el formateador: la juzga la forma 1
+          if (DINERO_RE.test(expr)) acusadas.push(`${name}: interpolación cruda de una cifra: «${lit.slice(0, 60)}»`);
+        }
+      }
+      // forma 3: String.format con marcador numérico sobre un campo de dinero
+      for (const m of code.matchAll(/String\.format\(/g)) {
+        let depth = 0, j = m.index + m[0].length - 1;
+        const start = j;
+        for (; j < code.length; j++) {
+          if (code[j] === "(") depth++;
+          else if (code[j] === ")") { depth--; if (depth === 0) break; }
+        }
+        const call = code.slice(start, j + 1);
+        if (/%[\d,.]*[df]/.test(call) && DINERO_RE.test(call)) acusadas.push(`${name}: String.format sobre una cifra: «${call.slice(0, 60)}»`);
       }
     }
-    assert.deepEqual(acusadas, [], `cifras sin productor declarado:\n${acusadas.join("\n")}`);
+    return acusadas;
+  };
+  it("el censo de la cáscara: ninguna cifra nativa sin productor ni clase declarados, en todo el paquete y en cualquier forma", () => {
+    const dir = new URL("../../../android/app/src/main/java/com/oscarvelz/faro/", import.meta.url);
+    const files = readdirSync(dir).filter((f) => f.endsWith(".kt")).map((name) => ({ name, text: readFileSync(new URL(name, dir), "utf8") }));
+    assert.ok(files.length >= 5, "el universo es el directorio entero, no una lista escrita a mano");
+    assert.deepEqual(censoCascara(files), [], "cifras sin productor declarado");
+  });
+  it("especímenes M15: el control acusa dentro del perímetro viejo, y los dos escapes de la ola acusan en el nuevo", () => {
+    // M15-1 (control): una cifra con productor no declarado dentro de FaroNotify acusa
+    const m1 = censoCascara([{ name: "FaroNotify.kt", text: "class X { fun a(s: Snap) = Fmt.money(s.owed - s.spent, s.cur) }" }]);
+    assert.equal(m1.length, 1, "M15-1: el perímetro funciona — la cifra sin productor acusa");
+    // M15-2: la misma cifra sin productor, plantada en un archivo que el censo viejo ni caminaba
+    const m2 = censoCascara([{ name: "QuickAdd.kt", text: "class Q { fun a(s: Snap) = Fmt.money(s.owed - s.spent, s.cur) }" }]);
+    assert.equal(m2.length, 1, "M15-2: el universo es el paquete — QuickAdd ya no es invisible");
+    // M15-3: la cifra impresa por interpolación cruda dentro del archivo vigilado
+    const m3 = censoCascara([{ name: "FaroWidgets.kt", text: "class W { fun a(s: Snap) = \"−C$${s.spend / 100}\" }" }]);
+    assert.equal(m3.length, 1, "M15-3: la forma nueva acusa — la interpolación cruda no tiene productor");
+    // y String.format sobre un campo de dinero, la tercera forma
+    const m4 = censoCascara([{ name: "FaroWidgets.kt", text: "class W { fun a(s: Snap) = String.format(Locale.US, \"%.2f\", s.spent / 100.0) }" }]);
+    assert.equal(m4.length, 1, "String.format con marcador numérico sobre la foto acusa");
+  });
+  it("controles del censo nuevo: el comentario no acusa, el porcentaje no es dinero, la fecha no es cifra", () => {
+    const ok = censoCascara([{ name: "FaroNotify.kt", text: [
+      "class N {",
+      "  // una mención en un comentario: Fmt.money(s.owed - s.spent, s.cur) no es una superficie",
+      "  fun a(s: Snap) = \"${s.usedPct}%\"",
+      "  fun b() = String.format(Locale.US, \"%04d-%02d\", 2026, 11)",
+      "}",
+    ].join("\n") }]);
+    assert.deepEqual(ok, [], "ni el comentario, ni el porcentaje de la foto, ni el formato de fecha acusan");
   });
 });
 
@@ -189,7 +291,11 @@ describe("ola14 · §C: la existencia en tres estados y la composición contra l
     const seg = src.slice(src.indexOf("function CardForm"), src.indexOf("const ISS"));
     assert.match(seg, /cardExistence\(session\?\.ledger, bornId\)/, "save() pregunta al libro, no a la prop del render");
     assert.match(seg, /cardExistence\(s, bornId\)/, "el commit pregunta dentro de su propio actualizador");
-    assert.match(seg, /if \(existence === "gone"\) return s;/, "destruido: el commit devuelve el estado intacto");
+    // ENMIENDA OLA 15 (G15-3): el retorno intacto ahora deja primero su
+    // veredicto en saveVerdict — la doctrina clavada no cambia (lo
+    // destruido devuelve el estado intacto); lo que la ola 15 cierra es
+    // el silencio DESPUÉS del retorno: el efecto anuncia el estado nuevo.
+    assert.match(seg, /if \(existence === "gone"\) \{ saveVerdict\.current = \{ applied: false, existence \}; return s; \}/, "destruido: el commit devuelve el estado intacto (y deja su veredicto)");
     assert.match(seg, /data-anchor="card-form-restore-save"|card-form-restore-save/, "la salida de restaurar-y-guardar existe y se nombra");
     assert.ok(seg.includes("se archivó mientras la editabas"), "el anuncio del archivado dice la verdad en ES");
     assert.ok(seg.includes("was archived while you were editing it"), "y en EN");
