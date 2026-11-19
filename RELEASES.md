@@ -2558,4 +2558,4 @@ Caza propia en el banco: el primer cuerpo llevaba `{name}` dos veces y el diálo
 
 Cerca nueva `subida.test.ts` (7 pines; rojo 5/7 sobre la .317 — los verdes son los pines de preservación: el cuerpo re-planteado y el ancla, intactos en ambas bases). Gates en copia de trabajo y en canon: test:faro **1851/1851** (1844 + 7), unit **59/59**, tsc en sus **3**, i18n **1040/1040** (una llave nueva), candado intacto, line-form.tsx fuera de la ola. Pines enmendados con su razón escrita: el manifiesto de modos294 (nav.calendar E + el asiento nuevo), el cruce de la ola 5 (los dos temas siguen a su función) y los conteos de ola6/modos299.
 
-Datos de publicación: rollback `rollback-pre-318-2026-11-18` → ceb4ecbd. Source: PENDIENTE. Tag: v1.3.318. Main: PENDIENTE. Entrada: PENDIENTE.
+Datos de publicación: rollback `rollback-pre-318-2026-11-18` → ceb4ecbd. Source: b9330948. Tag: v1.3.318 → b9330948. Main: e4cf826a (chunks) + df384213 (control). Entrada: index-BjMw6Qhp.js.
