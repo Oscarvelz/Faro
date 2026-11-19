@@ -2642,4 +2642,4 @@ La cura de la ola 13 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 2019/2019 (1967 + 52) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado intacto. El banco en vivo del equipo: 18/19 + 4/4, con el único fallo adjudicado como localizador del propio banco y la cara leída con precisión por el segundo banco (donut: «Casa» 60% · C$8,000, ninguna fila «Ahorro»).
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-322-2026-11-19` → 089bc9d3. Source: 48e660da. Tag: v1.3.322 → 48e660da. Main: 815f03ae (chunks) + de0b94b3 (control). Entrada: index-Bt_sbP5A.js.
