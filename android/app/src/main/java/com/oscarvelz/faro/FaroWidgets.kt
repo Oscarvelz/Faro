@@ -207,8 +207,18 @@ class Snap(
     /** 1.3.248: el bloque del patrón de ritmo. Una foto de una página anterior no lo
      *  trae = null, y FaroNotify.checkPace conserva su recta como respaldo exacto. */
     val pace: Pace? = null,
+    /** Ola 14 (Asesor A3): el GASTO verdadero del mes de la foto (Σ isSpendLine,
+     *  calculado por la página en widget.ts). `spend` sigue siendo la suma ancha
+     *  (gasto + apartado) que la cara «Gastaré» nombra con su lente; lo que un
+     *  aviso afirma como gasto se juzga con `spent`. Una foto de una página
+     *  anterior no lo trae: parse cae a `spend` (la conducta de hoy, solo para
+     *  esa foto). */
+    val spent: Long = spend,
 ) {
     val en get() = lang == "en"
+
+    /** Lo apartado del mes en la lente de la foto: spend − spent == savingsFlow. */
+    val savedOut: Long get() = spend - spent
 
     /** A copy with another amounts-hidden flag (the per-widget option; see WidgetCfg). All other fields as-is. */
     fun withHide(h: Boolean): Snap = Snap(
@@ -217,6 +227,7 @@ class Snap(
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
         qhIn = qhIn, qhOut = qhOut, qpIn = qpIn, qpOut = qpOut, qsOut = qsOut, curs = curs, pace = pace,
+        spent = spent,
     )
 
     companion object {
@@ -245,6 +256,7 @@ class Snap(
             qsOut = arr(o, "qsOut").map { QHome(it.optString("c"), it.optString("s"), it.optString("n"), it.optString("store")) },
             curs = (o.optJSONArray("curs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotEmpty() } } } ?: emptyList()),
             pace = o.optJSONObject("pace")?.let { Pace(it.optString("status"), it.optString("verdict"), it.optLong("spent"), it.optLong("expected"), it.optLong("projected"), it.optLong("income")) },
+            spent = if (o.has("spent")) o.optLong("spent") else o.optLong("spend"),
         )
     }
 }
@@ -409,7 +421,10 @@ object Render {
         v.setTextViewText(R.id.w_have, money(s, s.have))
         v.setTextViewText(R.id.w_spend, if (s.hide) Fmt.DOTS else "−" + Fmt.money(s.spend, s.cur))
         v.setTextViewText(R.id.w_used, if (s.hide || s.usedPct == null) "" else "${s.usedPct}%")
-        val used = if (s.have <= 0) (if (s.spend > 0) 1000 else 0) else pct(s.spend, s.have)
+        // Ola 14 (Asesor A4): la barra se llena con la MISMA cifra que su texto
+        // (usedPct = spentPct, el gasto verdadero) — antes se llenaba con la
+        // suma ancha y la cara se contradecía: texto 41%, barra 91%.
+        val used = if (s.have <= 0) (if (s.spent > 0) 1000 else 0) else pct(s.spent, s.have)
         v.setProgressBar(R.id.w_bar, 1000, used, false)
         v.setContentDescription(R.id.w_hero_box, L(s, "Queda ", "Left ") + money(s, s.left))
         v.setOnClickPendingIntent(R.id.w_hero_box, FaroWidgets.openIntent(ctx, "desk"))

@@ -27,6 +27,7 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import ts from "typescript";
 import { MODULES, TOPIC_SCENES, type Scene } from "./guion.ts";
 import { FEATURES } from "./mode.ts";
 import { MANUAL_TOPICS, topicMode } from "../manual/topics.ts";
@@ -243,7 +244,7 @@ function gateNames(text: string): string[] {
 const gateAlt = (text: string, extra: string[] = []) => [...gateNames(text), ...extra].join("|");
 /** Resolución por cadena: nombre → literal final, siguiendo los saltos
  * nombre = nombre hasta el literal o el callejón (con guarda de ciclo). */
-function resolveChains(text: string): Map<string, string> {
+function resolveChainsRaw(text: string): Map<string, string> {
   const litOf = new Map<string, string>();
   const edge = new Map<string, string>();
   for (const m of text.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*["'`]([\w.-]*)["'`]/g)) litOf.set(m[1]!, m[2]!);
@@ -263,6 +264,18 @@ function resolveChains(text: string): Map<string, string> {
     const v = resolve(name);
     if (v !== undefined) out.set(name, v);
   }
+  return out;
+}
+/* OLA 14: la resolución se memoiza por texto — los censos preguntan
+ * por cientos de asientos sobre el mismo corpus y la cadena de un
+ * texto no cambia entre preguntas (sin esto, la §A-quater tardaba
+ * minutos: cada consumed() re-resolvía el corpus entero). */
+const chainsMemo = new Map<string, Map<string, string>>();
+function resolveChains(text: string): Map<string, string> {
+  const hit = chainsMemo.get(text);
+  if (hit) return hit;
+  const out = resolveChainsRaw(text);
+  chainsMemo.set(text, out);
   return out;
 }
 /** El nombre raíz de una tabla: sigue los alias nombre = nombre hasta
@@ -287,12 +300,16 @@ function tableRoot(text: string, name: string): string {
   while (edge.has(cur) && !seen.has(cur)) { seen.add(cur); cur = edge.get(cur)!; }
   return importAliasRoot(text, cur);
 }
+const gateWindowsMemo = new Map<string, { fn: string; win: string }[]>();
 function gateWindows(text: string): { fn: string; win: string }[] {
+  const hit = gateWindowsMemo.get(text);
+  if (hit) return hit;
   const out: { fn: string; win: string }[] = [];
   for (const m of text.matchAll(new RegExp(`(^|[^\\w$.])(${gateAlt(text)})\\(`, "g"))) {
     const at = m.index! + m[0].length;
     out.push({ fn: m[2]!, win: text.slice(at, at + 160) });
   }
+  gateWindowsMemo.set(text, out);
   return out;
 }
 /* ¿La ventana es una llamada de VARIOS argumentos? Entonces no es la
@@ -323,7 +340,15 @@ function featureForGoBody(text: string): string {
   }
   return text.slice(start, i + 1);
 }
+const tableBodiesMemo = new Map<string, string[]>();
 function tableBodies(text: string): string[] {
+  const hit = tableBodiesMemo.get(text);
+  if (hit) return hit;
+  const bodies = tableBodiesRaw(text);
+  tableBodiesMemo.set(text, bodies);
+  return bodies;
+}
+function tableBodiesRaw(text: string): string[] {
   const names = new Set<string>();
   for (const m of text.matchAll(new RegExp(`(?:${gateAlt(text)})\\(\\s*([A-Za-z_$][\\w$]*)\\s*\\[`, "g"))) names.add(m[1]!);
   const bodies: string[] = [];
@@ -417,40 +442,133 @@ function consumedIn(text: string, seat: string): boolean {
   }
   return false;
 }
+/* OLA 14 (Cara A1): el argumento se juzga ENTERO. La exención (a) leía
+ * solo la CABEZA de la ventana: `has("tools.mut14-" + SUF)` vestía el
+ * traje del literal y la puerta quedaba absuelta con su segunda mitad
+ * irresoluble — y CON cast la misma forma acusaba (12E): la doctrina
+ * dependía del cast, no de la composición. La cura extrae el argumento
+ * completo (balance de paréntesis y estados de cadena/plantilla), le
+ * quita el cast de nivel superior y los paréntesis que lo envuelven, y
+ * juzga CADA PIEZA de la composición: literal, constante de la cadena,
+ * miembro de un objeto de literales, plantilla de huecos resolubles o
+ * el puente featureForGo. Una pieza irresoluble acusa a la puerta,
+ * venga con cast o sin él. */
+function extractArg(win: string): string {
+  const stack: string[] = [];
+  let quote: string | null = null;
+  for (let i = 0; i < win.length; i++) {
+    const c = win[i]!;
+    if (quote) {
+      if (c === "\\") { i++; continue; }
+      if (quote === "`" && c === "$" && win[i + 1] === "{") { stack.push("`"); quote = null; i++; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") { quote = c; continue; }
+    if (c === "(" || c === "[" || c === "{") { stack.push(c); continue; }
+    if (c === ")" || c === "]" || c === "}") {
+      if (stack.length === 0) return win.slice(0, i);
+      if (stack[stack.length - 1] === "`" && c === "}") { stack.pop(); quote = "`"; continue; }
+      stack.pop();
+      continue;
+    }
+    if (c === "," && stack.length === 0) return win.slice(0, i);
+  }
+  return win;
+}
+/** Recorre `a` llamando a `at(i, depth0)` en cada posición de nivel
+ * superior fuera de cadenas; devuelve los cortes pedidos. */
+function scanTopLevel(a: string, at: (i: number) => boolean): number[] {
+  const cuts: number[] = [];
+  const stack: string[] = [];
+  let quote: string | null = null;
+  for (let i = 0; i < a.length; i++) {
+    const c = a[i]!;
+    if (quote) {
+      if (c === "\\") { i++; continue; }
+      if (quote === "`" && c === "$" && a[i + 1] === "{") { stack.push("`"); quote = null; i++; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") { quote = c; continue; }
+    if (c === "(" || c === "[" || c === "{") { stack.push(c); continue; }
+    if (c === ")" || c === "]" || c === "}") {
+      if (stack[stack.length - 1] === "`" && c === "}") { stack.pop(); quote = "`"; continue; }
+      stack.pop();
+      continue;
+    }
+    if (stack.length === 0 && at(i)) cuts.push(i);
+  }
+  return cuts;
+}
+function stripArg(a0: string): { arg: string; cast: boolean } {
+  let a = a0.trim();
+  let cast = false;
+  const asAt = scanTopLevel(a, (i) => a.startsWith(" as ", i));
+  if (asAt.length) { a = a.slice(0, asAt[asAt.length - 1]).trim(); cast = true; }
+  for (;;) {
+    if (!a.startsWith("(")) break;
+    // ¿el primer paréntesis cierra exactamente al final?
+    let depth = 0; let closeAt = -1;
+    const stack: string[] = [];
+    let quote: string | null = null;
+    for (let i = 0; i < a.length; i++) {
+      const c = a[i]!;
+      if (quote) {
+        if (c === "\\") { i++; continue; }
+        if (quote === "`" && c === "$" && a[i + 1] === "{") { stack.push("`"); quote = null; i++; continue; }
+        if (c === quote) quote = null;
+        continue;
+      }
+      if (c === "'" || c === '"' || c === "`") { quote = c; continue; }
+      if (c === "(" || c === "[" || c === "{") { stack.push(c); if (c === "(") depth++; continue; }
+      if (c === ")" || c === "]" || c === "}") {
+        if (stack[stack.length - 1] === "`" && c === "}") { stack.pop(); quote = "`"; continue; }
+        stack.pop();
+        if (c === ")") { depth--; if (depth === 0) { closeAt = i; break; } }
+      }
+    }
+    if (closeAt === a.length - 1) { a = a.slice(1, -1).trim(); continue; }
+    break;
+  }
+  return { arg: a, cast };
+}
 function unresolvedGates(text: string): string[] {
   const chains = resolveChains(text); // OLA 12: la resolución sigue la cadena entera
+  const pieceResolves = (raw: string, outerCast = false, allowCast = false): boolean => {
+    const { arg: p, cast } = stripArg(raw);
+    if (!p) return false;
+    if (/^["'][\w.-]*["']$/.test(p)) return true; // literal
+    if (p.startsWith("`")) { // plantilla: estática, o de huecos TODOS resolubles
+      if (!p.includes("${")) return /^`[\w.-]*`$/.test(p);
+      const holes = [...p.matchAll(/\$\{\s*([A-Za-z_$][\w$]*)\s*\}/g)].map((h) => h[1]!);
+      return holes.length > 0 && holes.every((h) => chains.has(h));
+    }
+    if (/^[A-Za-z_$][\w$]*$/.test(p)) return chains.has(p) || (allowCast && (cast || outerCast)); // (d) cadena; el cast solo absuelve al argumento-identificador entero (el flujo FeatureId), nunca a una pieza de composición (12E)
+    const member = /^([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)$/.exec(p) ?? /^([A-Za-z_$][\w$]*)\[\s*["']([\w$-]+)["']\s*\]$/.exec(p);
+    if (member) return memberSeat(text, member[1]!, member[2]!) !== undefined; // la cadena por un objeto (13-T1)
+    if (/^featureForGo\(/.test(p)) return true; // el puente tema→asiento
+    if (/^[A-Za-z_$][\w$]*\s*\[/.test(p)) return true; // (c) tabla indexada: su cuerpo consume
+    return false;
+  };
+  const argResolves = (raw: string): boolean => {
+    const { arg, cast } = stripArg(raw);
+    if (/^[A-Za-z_$][\w$]*\s*:/.test(arg)) return true; // firma de una declaración
+    const cuts = scanTopLevel(arg, (i) => arg[i] === "+" && arg[i + 1] !== "+" && arg[i - 1] !== "+");
+    if (!cuts.length) return pieceResolves(arg, cast, true);
+    const pieces: string[] = [];
+    let prev = 0;
+    for (const at of cuts) { pieces.push(arg.slice(prev, at)); prev = at + 1; }
+    pieces.push(arg.slice(prev));
+    return pieces.every((p) => pieceResolves(p)); // (e) TODA pieza de la composición resuelve
+  };
   const out: string[] = [];
   for (const m of text.matchAll(new RegExp(`(^|[^\\w$.])(${gateAlt(text)})\\(`, "g"))) {
     const before = text.slice(Math.max(0, m.index! - 12), m.index!);
     if (/function\s*$/.test(before)) continue; // la declaración, no una llamada
     const win = text.slice(m.index! + m[0].length, m.index! + m[0].length + 160);
     if (multiArg(win)) continue; // un `has` local de varios argumentos no es la puerta
-    const arg = win.replace(/^\s+/, "");
-    if (/^["'`][\w.-]*["'`]/.test(arg)) continue; // (a) literal (plantilla estática incluida)
-    const concat = /^\(?\s*("[^"]*"|'[^']*'|[A-Za-z_$][\w$]*)\s*\+\s*("[^"]*"|'[^']*'|[A-Za-z_$][\w$]*)/.exec(arg);
-    if (concat) {
-      // (e) la concatenación solo exime si sus DOS mitades resuelven —
-      // la media concatenación (12E) viste el traje y ACUSA.
-      const side = (x: string) => /^["']/.test(x) || chains.has(x);
-      if (side(concat[1]!) && side(concat[2]!)) continue;
-    }
-    if (/^[A-Za-z_$][\w$]*\s*\[/.test(arg)) continue; // (c) tabla indexada
-    /* OLA 13 (mut13-a T1): el acceso por PUNTO a un objeto de literales es
-     * la misma doctrina que el corchete — has(SEATS.add) no acusa: su
-     * asiento se lee en la declaración del objeto (consumedIn (g)). */
-    if (/^[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\)/.test(arg)) continue;
-    /* OLA 13 (mut13-a T4): la plantilla cuyos huecos TODOS resuelven por
-     * cadena no acusa — la que lleva un hueco irresoluble SÍ acusa, y su
-     * prefijo estático explica al asiento (explainedByAccusedGate). */
-    if (/^`/.test(arg)) {
-      const holes = [...arg.matchAll(/\$\{\s*([A-Za-z_$][\w$]*)\s*\}/g)].map((h) => h[1]!);
-      if (holes.length && holes.every((h) => chains.has(h))) continue;
-    }
-    if (/^[A-Za-z_$][\w$]*\s+as\s/.test(arg)) continue; // flujo FeatureId (has(f as F))
-    if (/^featureForGo\(/.test(arg)) continue; // el puente tema→asiento
-    if (/^[A-Za-z_$][\w$]*\s*:/.test(arg)) continue; // firma de una declaración
-    const idm = /^([A-Za-z_$][\w$]*)\s*\)/.exec(arg);
-    if (idm && chains.has(idm[1]!)) continue; // (d) constante resuelta por cadena
+    if (argResolves(extractArg(win))) continue;
     out.push(`${m[2]}(${win.slice(0, 60).replace(/\s+/g, " ")}…`);
   }
   return out;
@@ -462,7 +580,11 @@ function unresolvedGates(text: string): string[] {
  * o su nombre entero dentro de una expresión irresoluble. La sentencia
  * es una sola y cae sobre la puerta (§A-ter la nombra en el corpus). */
 function explainedByAccusedGate(text: string, seat: string): boolean {
-  const accused = new Set(unresolvedGates(text));
+  // OLA 14: memo por texto — la satisfacción compartida (A2) pregunta
+  // por cientos de asientos sobre el mismo corpus; la respuesta de la
+  // puerta acusada no cambia entre preguntas.
+  let accused = accusedMemo.get(text);
+  if (!accused) { accused = new Set(unresolvedGates(text)); accusedMemo.set(text, accused); }
   for (const m of text.matchAll(new RegExp(`(^|[^\\w$.])(${gateAlt(text)})\\(`, "g"))) {
     const win = text.slice(m.index! + m[0].length, m.index! + m[0].length + 160);
     if (multiArg(win)) continue;
@@ -482,6 +604,7 @@ function explainedByAccusedGate(text: string, seat: string): boolean {
   return false;
 }
 const consumed = (seat: string) => consumedIn(CORPUS, seat);
+const accusedMemo = new Map<string, Set<string>>();
 
 /* Las exenciones: asientos cuyo consumo es ESTRUCTURAL — la superficie
  * nace por composición (el libro, la sección, la hoja) y sus verbos
@@ -508,7 +631,10 @@ describe("ola9 · §A: el censo de consumidores — ningún asiento fantasma", (
     for (const seat of MAP_SEATS) {
       // OLA 12: un asiento al final de una puerta acusada no es fantasma —
       // es defecto de la puerta, y la sentencia cae sobre ella (§A-ter).
-      assert.ok(consumed(seat) || seat in EXENTOS || explainedByAccusedGate(CORPUS, seat),
+      // OLA 14 (A2): la §A hereda TODAS las rutas de satisfacción de la
+      // §A-quater — un asiento que su familia ENUMERA (familyCovers) es
+      // un gobernador declarativo, no un fantasma: dos censos, una verdad.
+      assert.ok(consumed(seat) || seat in EXENTOS || explainedByAccusedGate(CORPUS, seat) || familyCovers(seat),
         `${seat}: el mapa lo nombra y nadie lo consume — un asiento fantasma (así nacieron CARA-1 y CARA-2)`);
     }
   });
@@ -544,56 +670,76 @@ describe("ola9 · §A: el censo de consumidores — ningún asiento fantasma", (
  * tabla): exigir un has() por asiento acusaría a la tabla misma, no a
  * un fantasma. Lo que esta cerca caza es la clase de CARA-1: un
  * gobernador que NINGÚN mecanismo nombra — y books.multiselect, su
- * espécimen, queda clavado como consumido. */
-const FAMILIAS_REGISTRO: Record<string, string> = {
-  accounts: "sus formas se eligen por la puerta negativa de la hermana (accounts.opening gobierna la forma de apertura); la familia declara el resto de sus piezas",
-  advisor: "las lecturas del Asesor: cada lectura declara su piso en la tabla; las caras se componen en advisor2/screens y se gobiernan por los asientos de la superficie que las pinta",
-  alerts: "los vencimientos: aviso nacido por composición de la cáscara; el asiento declara el piso del aviso",
-  archive: "el Archivo: sus verbos finos llevan puerta (archive.hide-selection, archive.restore-span); la familia declara los pisos de sus vistas",
-  area: "las áreas del Estudio: superficies nacidas por composición (area-advice), gobernadas por los asientos de la cara que las presenta",
-  awake: "la foto al despertar: composición de Central; sus asientos declaran el piso de cada pieza que la compone",
-  books: "los libros: superficies por composición (BookSection y el kit); sus verbos finos llevan puerta — books.multiselect entre ellos, consumido desde la cura 13",
-  cards: "la ficha se gobierna campo a campo (cards.add-full y los asientos de captura); la familia declara los pisos de las piezas de tarjeta sin puerta propia",
-  central: "Central, la pantalla de arranque: se compone entera; sus piezas declaran su piso para el conteo de desbloqueos y los temas",
-  cobros: "el libro de Cobros ES su línea de tiempo: composición del libro, no un widget con puerta; sus lentes llevan sus asientos",
-  debt: "el lado Debo: sus caras se componen en debts.tsx y sus verbos finos llevan puerta propia",
-  desk: "el escritorio: su pieza declarada se compone con Central y declara su piso en la tabla",
-  editor: "el editor de líneas: sus manos finas llevan puerta (editor.picker-manage, editor.picker-rename, editor.icon-color); la familia declara el resto de sus piezas",
-  hist: "el Historial y el río: superficies por composición, gobernadas por los asientos de sus gestos y vistas (el Susurro entre ellos)",
-  import: "la importación nace por composición (bank-import); la familia declara los pisos de sus piezas",
-  ins: "los instrumentos: composición en instruments.tsx; sus verbos finos llevan puerta",
-  lent: "el lado Me deben: sus caras se componen en debts.tsx y sus verbos finos llevan puerta propia",
-  loans: "los préstamos: sus caras se componen en loans.tsx y sus verbos finos (pagar, archivar) llevan puerta propia",
-  manual: "el Manual: sus temas se cruzan por la §10 y por TOPIC_SCENES; la familia declara los pisos de sus superficies",
-  mode: "el propio sistema de modos: el diálogo y el Susurro se gobiernan en mode.ts y screens; la familia declara sus piezas",
-  nature: "la naturaleza de las líneas: clasificación por composición (la casa de nature); sus declaraciones y guardas llevan asiento fino donde se cruzan",
-  nav: "la cáscara (shell.tsx): navegación nacida por composición; sus verbos finos llevan puerta y la familia declara los pisos de cada pieza",
-  pano: "el Panorama: tarjetas por composición sobre monthTotals; la familia declara los pisos de sus piezas",
-  patron: "el Patrón: el motor lee sus propias reglas; la familia declara los pisos de sus avisos",
-  people: "Personas: la superficie se compone en people.tsx; sus verbos finos llevan puerta",
-  pres: "la Presentación: el guion y el teatro se componen desde guion.ts y presentacion.tsx; la familia declara los pisos de sus piezas",
-  remit: "Remesas: composición sobre remesas.ts; sus verbos finos llevan puerta",
-  rule: "las reglas del Asesor: el motor las evalúa enteras (rules.ts); la familia declara el piso de cada aviso",
-  sample: "la casa de muestra nace por composición (sample.ts); sus asientos declaran sus pisos",
-  scan: "las hojas de escaneo nacen por composición; sus filas llevan asientos finos (scan.card-capture y hermanas)",
-  settings: "Ajustes: la pantalla se compone por territorios; sus interruptores finos llevan puerta o viven en todo piso por adjudicación escrita",
-  study: "el Estudio: composición sobre studyBoard; sus caras declaran su piso y las finas llevan asiento propio donde se cruzan",
-  subs: "Cuotas: el libro existe por composición del hub (su parada gatea books.subs); la familia declara los pisos de sus cadencias y piezas",
-  tools: "las herramientas: composición en instruments.tsx; sus verbos finos llevan puerta (tools.rate-refresh y hermanas)",
-  vault: "la bóveda: composición de sus tarjetas; sus verbos finos llevan asiento donde se cruzan (vault.retiro entre ellos)",
-  widget: "el widget: su foto se compone en widget.ts sobre monthTotals; la familia declara los pisos de sus piezas",
+ * espécimen, queda clavado como consumido.
+ * OLA 14 (Q1): la familia absolvía POR APELLIDO — cualquier asiento con
+ * el prefijo de una familia declarada pasaba, aunque el mecanismo
+ * escrito no lo cubriera: la caza escenificó books.erase-month y
+ * alerts.phantom-alert (sin consumidor, sin mención, fuera de toda
+ * enumeración) y la cerca corrió verde 48/48. La cura: la satisfacción
+ * familiar es VERIFICADA POR ASIENTO — cada familia ENUMERA en `cubre`
+ * los asientos que absuelve (los que ningún otro mecanismo conoce), la
+ * higiene exige que cada enumerado exista, sea del prefijo y no lo
+ * conozca otro mecanismo, y un asiento no enumerado exige adjudicación
+ * individual escrita. El apellido ya no absuelve a nadie. */
+const TOPICS_TEXT = SRC("../manual/topics.ts");
+const familyCovers = (seat: string): boolean => {
+  const fam = FAMILIAS_REGISTRO[seat.split(".")[0]!];
+  return !!fam && fam.cubre.includes(seat);
+};
+const FAMILIAS_REGISTRO: Record<string, { mecanismo: string; cubre: string[] }> = {
+  accounts: { mecanismo: "sus formas se eligen por la puerta negativa de la hermana (accounts.opening gobierna la forma de apertura); la familia declara el resto de sus piezas", cubre: ["accounts.panel", "accounts.seed-banks", "accounts.pin-panel"] },
+  advisor: { mecanismo: "las lecturas del Asesor: cada lectura declara su piso en la tabla; las caras se componen en advisor2/screens y se gobiernan por los asientos de la superficie que las pinta", cubre: ["advisor.verdict", "advisor.verdict-sub", "advisor.step-income", "advisor.step-name", "advisor.step-keep", "advisor.step-close-gap", "advisor.step-set-aside", "advisor.step-wants-30", "advisor.step-subs", "advisor.step-cushion", "advisor.step-debts", "advisor.headline", "advisor.diagnosis", "advisor.month-tone", "advisor.time-label", "advisor.dues-note", "advisor.rate-note", "advisor.vague-name", "advisor.method-note", "advisor.lever-keep", "advisor.lever-income", "advisor.misclass-note", "advisor.not-habit-note", "advisor.trend-note", "advisor.subs-note", "advisor.remit-note", "advisor.daily-note", "advisor.three-parts", "advisor.top5", "advisor.top5-rich", "advisor.levers-month", "advisor.plan-short", "advisor.income-stability", "advisor.income-stability-floor", "advisor.credit-note", "advisor.undestined-note", "advisor.month-done", "advisor.heaviest", "advisor.cards-card", "advisor.start-route", "advisor.rate-foot", "advisor.kicker"] },
+  alerts: { mecanismo: "los vencimientos: aviso nacido por composición de la cáscara; el asiento declara el piso del aviso", cubre: ["alerts.due"] },
+  archive: { mecanismo: "el Archivo: sus verbos finos llevan puerta (archive.hide-selection, archive.restore-span); la familia declara los pisos de sus vistas", cubre: ["archive.rest-gate", "archive.hide-one", "archive.span-card", "archive.restore-lent", "archive.restore-loan", "archive.restore-card", "archive.restore-owe", "archive.pair"] },
+  area: { mecanismo: "las áreas del Estudio: superficies nacidas por composición (area-advice), gobernadas por los asientos de la cara que las presenta", cubre: ["area.plain-phrase", "area.overdue", "area.owed-marks", "area.owed-track", "area.income-drift", "area.setaside", "area.retiro-paused", "area.remit-up", "area.meta-path", "area.emergency-months", "area.loans-path", "area.debt-free", "area.debt-stuck", "area.rules-split"] },
+  awake: { mecanismo: "la foto al despertar: composición de Central; sus asientos declaran el piso de cada pieza que la compone", cubre: ["awake.savings-photo", "awake.goals-horizon", "awake.undestined", "awake.destination-projection", "awake.recalc-notices", "awake.recalc-simple", "awake.stale-plan", "awake.materiality"] },
+  books: { mecanismo: "los libros: superficies por composición (BookSection y el kit); sus verbos finos llevan puerta — books.multiselect entre ellos, consumido desde la cura 13", cubre: ["books.list", "books.add-line", "books.edit-line", "books.currency", "books.cloud", "books.bubble-editor", "books.bookkit", "books.income", "books.fixed", "books.variable", "books.shop-catalog-gear"] },
+  cards: { mecanismo: "la ficha se gobierna campo a campo (cards.add-full y los asientos de captura); la familia declara los pisos de las piezas de tarjeta sin puerta propia", cubre: ["cards.add", "cards.update", "cards.pay", "cards.edit-delete", "cards.factory", "cards.usage-advice", "cards.rewards-reconcile"] },
+  central: { mecanismo: "Central, la pantalla de arranque: se compone entera; sus piezas declaran su piso para el conteo de desbloqueos y los temas", cubre: ["central.month-left", "central.month-used", "central.month-rate", "central.lens-have", "central.lens-spend", "central.list", "central.edit-line", "central.debt-light", "central.first-line", "central.quickadd", "central.save-band"] },
+  cobros: { mecanismo: "el libro de Cobros ES su línea de tiempo: composición del libro, no un widget con puerta; sus lentes llevan sus asientos", cubre: ["cobros.quick-list", "cobros.see-all"] },
+  debt: { mecanismo: "el lado Debo: sus caras se componen en debts.tsx y sus verbos finos llevan puerta propia", cubre: ["debt.total", "debt.line-balance"] },
+  desk: { mecanismo: "el escritorio: su pieza declarada se compone con Central y declara su piso en la tabla", cubre: ["desk.today-spend"] },
+  editor: { mecanismo: "el editor de líneas: sus manos finas llevan puerta (editor.picker-manage, editor.picker-rename, editor.icon-color); la familia declara el resto de sus piezas", cubre: ["editor.core", "editor.currency", "editor.category", "editor.note", "editor.savings-balance", "editor.nature", "editor.icon-color", "editor.save-guard", "editor.draft"] },
+  hist: { mecanismo: "el Historial y el río: superficies por composición, gobernadas por los asientos de sus gestos y vistas (el Susurro entre ellos)", cubre: ["hist.river", "hist.row-origin", "hist.lens-week-month", "hist.lens-year", "hist.nav", "hist.totals", "hist.search-text", "hist.search-global", "hist.synonyms", "hist.filter-direction", "hist.filter-category", "hist.paging", "hist.search-people-cards"] },
+  import: { mecanismo: "la importación nace por composición (bank-import); la familia declara los pisos de sus piezas", cubre: ["import.guides"] },
+  ins: { mecanismo: "los instrumentos: composición en instruments.tsx; sus verbos finos llevan puerta", cubre: ["ins.piece", "ins.premium-line", "ins.beneficiaries", "ins.start", "ins.change-notice", "ins.not-money"] },
+  lent: { mecanismo: "el lado Me deben: sus caras se componen en debts.tsx y sus verbos finos llevan puerta propia", cubre: ["lent.no-interest", "lent.history", "lent.bulk-edit"] },
+  loans: { mecanismo: "los préstamos: sus caras se componen en loans.tsx y sus verbos finos (pagar, archivar) llevan puerta propia", cubre: ["loans.add", "loans.due-day", "loans.pay", "loans.pay-split", "loans.archive", "loans.bulk-edit", "loans.payoff-params", "loans.payoff-est-rate"] },
+  manual: { mecanismo: "el Manual: sus temas se cruzan por la §10 y por TOPIC_SCENES; la familia declara los pisos de sus superficies", cubre: ["manual.ch1-arriba", "manual.topic-export", "manual.topic-float", "manual.ch2-central", "manual.ch3-cobros", "manual.topic-card-fine", "manual.ch4-libros", "manual.ch5-ahorros", "manual.topic-retiro", "manual.ch6-folios", "manual.topic-apartar", "manual.ch7-estudio", "manual.ch8-asesor", "manual.ch9-cambio", "manual.ch10-ajustes", "manual.ch11-importar", "manual.ch12-editor", "manual.ch13-cuenta"] },
+  mode: { mecanismo: "el propio sistema de modos: el diálogo y el Susurro se gobiernan en mode.ts y screens; la familia declara sus piezas", cubre: ["mode.impact-screen", "mode.gate", "mode.mute-row"] },
+  nature: { mecanismo: "la naturaleza de las líneas: clasificación por composición (la casa de nature); sus declaraciones y guardas llevan asiento fino donde se cruzan", cubre: ["nature.class-cuenta", "nature.class-undeclared", "nature.ask", "nature.declare-series", "nature.free-guard", "nature.band-migration", "nature.cushion", "nature.overcommit"] },
+  nav: { mecanismo: "la cáscara (shell.tsx): navegación nacida por composición; sus verbos finos llevan puerta y la familia declara los pisos de cada pieza", cubre: ["nav.dock", "nav.books-hub", "nav.books-subs-entry", "nav.vault-bar", "nav.scale-topbar", "nav.float-window", "nav.undo", "nav.sync-light", "nav.view-currency-bar", "nav.day-night", "nav.swipe", "nav.ring", "nav.toolsheet"] },
+  pano: { mecanismo: "el Panorama: tarjetas por composición sobre monthTotals; la familia declara los pisos de sus piezas", cubre: ["pano.closes", "pano.health-help", "pano.pillar-spend", "pano.pillar-save", "pano.pillar-debt", "pano.pillar-cushion", "pano.pillar-stability"] },
+  patron: { mecanismo: "el Patrón: el motor lee sus propias reglas; la familia declara los pisos de sus avisos", cubre: ["patron.learning", "patron.sayings", "patron.linear-pace", "patron.history-rules", "patron.month-rules", "patron.model-rules"] },
+  people: { mecanismo: "Personas: la superficie se compone en people.tsx; sus verbos finos llevan puerta", cubre: ["people.add-contacts", "people.add-manual", "people.dates", "people.gift", "people.import-vcf", "people.share-in", "people.totals", "people.delete"] },
+  pres: { mecanismo: "la Presentación: el guion y el teatro se componen desde guion.ts y presentacion.tsx; la familia declara los pisos de sus piezas", cubre: ["pres.driver", "pres.m1-mapa", "pres.m2-manual", "pres.m3-anotar", "pres.m3-balance-chapter", "pres.m4-cambio", "pres.m5-mes", "pres.m6-ahorros", "pres.m7-estadisticas", "pres.m8-asesor", "pres.m9-folios-river", "pres.m9-folios-rest", "pres.m10-estructura", "pres.m11-puertas", "pres.m12-pregunta", "pres.m13-totales", "pres.m14-colchon", "pres.my-scenes"] },
+  remit: { mecanismo: "Remesas: composición sobre remesas.ts; sus verbos finos llevan puerta", cubre: ["remit.send", "remit.manage"] },
+  rule: { mecanismo: "las reglas del Asesor: el motor las evalúa enteras (rules.ts); la familia declara el piso de cada aviso", cubre: ["rule.due", "rule.category", "rule.outlier", "rule.recurring", "rule.pace", "rule.goal", "rule.cushion", "rule.floor", "rule.overcommit", "rule.insurance"] },
+  sample: { mecanismo: "la casa de muestra nace por composición (sample.ts); sus asientos declaran sus pisos", cubre: ["sample.door", "sample.house-filtered"] },
+  scan: { mecanismo: "las hojas de escaneo nacen por composición; sus filas llevan asientos finos (scan.card-capture y hermanas)", cubre: ["scan.receipt-review"] },
+  settings: { mecanismo: "Ajustes: la pantalla se compone por territorios; sus interruptores finos llevan puerta o viven en todo piso por adjudicación escrita", cubre: ["settings.mode-selector", "settings.manual-row", "settings.presentations-row", "settings.notify", "settings.install-app", "settings.backup-auto", "settings.backup-quarantine", "settings.backup-download", "settings.backup-restore", "settings.backup-folder", "settings.backup-conflict", "settings.account", "settings.version", "settings.battery-row", "settings.hide-amounts", "settings.view-currency", "settings.bank-rewards-real", "settings.widget-pins", "settings.pin-in-card", "settings.sample-row"] },
+  study: { mecanismo: "el Estudio: composición sobre studyBoard; sus caras declaran su piso y las finas llevan asiento propio donde se cruzan", cubre: ["study.empty-rule", "study.columns"] },
+  subs: { mecanismo: "Cuotas: el libro existe por composición del hub (su parada gatea books.subs); la familia declara los pisos de sus cadencias y piezas", cubre: ["subs.cadence-machinery", "subs.own-chips", "subs.brand-detect", "subs.cadences-base", "subs.dues-window"] },
+  tools: { mecanismo: "las herramientas: composición en instruments.tsx; sus verbos finos llevan puerta (tools.rate-refresh y hermanas)", cubre: ["tools.rate-refresh", "tools.rate-manual", "tools.converter-use", "tools.calculator-use", "tools.slips-reuse", "tools.slip-to-category", "tools.slips-bulk"] },
+  vault: { mecanismo: "la bóveda: composición de sus tarjetas; sus verbos finos llevan asiento donde se cruzan (vault.retiro entre ellos)", cubre: ["vault.free", "vault.savings-goal-pct", "vault.order-pockets", "vault.pin-block", "vault.add-line", "vault.delete", "vault.factory-restore", "vault.meta-plan", "vault.retiro-fields"] },
+  widget: { mecanismo: "el widget: su foto se compone en widget.ts sobre monthTotals; la familia declara los pisos de sus piezas", cubre: ["widget.feed", "widget.quick-note", "widget.note-with-home", "widget.habit-homes", "widget.home-suggestion", "widget.hide-amounts", "widget.face-pagos", "widget.face-dues", "widget.face-savings", "widget.face-scale", "widget.face-pins", "widget.face-top5-compare", "widget.face-flow"] },
 };
 describe("ola9 · §A-quater: el censo desde el REGISTRO — ningún gobernador sin mecanismo (OLA 13)", () => {
-  const topicsText = SRC("../manual/topics.ts");
+  const topicsText = TOPICS_TEXT;
   const prefixOf = (seat: string) => seat.split(".")[0]!;
+  /* OLA 14 (A2): UNA satisfacción para los dos censos — consumidor,
+   * exención, puerta acusada que lo explica, familia que lo ENUMERA o
+   * tema que lo nombra (y el mapa §10, que es la ruta propia de esta
+   * sección). «Fantasma» queda solo para el asiento que ninguna ruta
+   * satisface: la §A y la §A-quater ya no cuentan dos verdades. */
   const satisfied = (seat: string): boolean =>
-    MAP_SEATS.has(seat) || seat in EXENTOS || topicsText.includes(`"${seat}"`) || prefixOf(seat) in FAMILIAS_REGISTRO || consumed(seat);
+    MAP_SEATS.has(seat) || seat in EXENTOS || topicsText.includes(`"${seat}"`) || familyCovers(seat) || explainedByAccusedGate(CORPUS, seat) || consumed(seat);
   it("todo asiento del registro lo conoce algún mecanismo: consumidor, mapa, exención, tema o familia declarada", () => {
     const seats = Object.keys(FEATURES);
     assert.ok(seats.length >= 490, `el censo enumera desde el registro de verdad (${seats.length} asientos)`);
     for (const seat of seats) {
       assert.ok(satisfied(seat),
-        `${seat}: asiento del REGISTRO sin ningún mecanismo — ni consumidor, ni mapa §10, ni exención, ni tema, ni familia declarada: un gobernador invisible (así nació CARA-1)`);
+        `${seat}: asiento del REGISTRO sin ningún mecanismo — ni consumidor, ni mapa §10, ni exención, ni tema, ni familia que lo enumere: un gobernador invisible (así nació CARA-1)`);
     }
   });
   it("el espécimen de la clase queda clavado: books.multiselect tiene consumidor desde la cura 13", () => {
@@ -603,15 +749,146 @@ describe("ola9 · §A-quater: el censo desde el REGISTRO — ningún gobernador 
     assert.equal(satisfied("fantasma13.multiselect"), false,
       "ni consumidor, ni mapa, ni familia: la cerca lo nombra y lo acusa — la clase de CARA-1 no vuelve en silencio");
   });
-  it("la higiene de las familias: cada familia declarada cubre al menos un asiento que ningún otro mecanismo conoce", () => {
+  it("espécimen Q1 (ola 14): la familia absuelve solo lo que ENUMERA — el apellido no absuelve", () => {
+    assert.equal(satisfied("books.erase-month"), false,
+      "books es familia declarada, pero erase-month no está enumerado ni lo nombra mecanismo alguno: con la regla del apellido corría verde; a doctrina acusa");
+    assert.equal(satisfied("alerts.phantom-alert"), false,
+      "alerts.due está enumerado; alerts.phantom-alert no existe en mecanismo alguno y acusa");
+    assert.equal(satisfied("alerts.due"), true, "el enumerado sí se satisface por su familia");
+  });
+  it("espécimen A2 (ola 14): books.list vive SOLO de su enumeración — y ningún censo lo llama fantasma", () => {
+    assert.ok(!consumed("books.list") && !MAP_SEATS.has("books.list") && !("books.list" in EXENTOS) && !topicsText.includes("\"books.list\""),
+      "ninguna otra ruta conoce a books.list: si la enumeración familiar no contara en ambos censos, un censo lo condenaría y el otro lo absolvería en la misma corrida");
+    assert.ok(familyCovers("books.list") && satisfied("books.list"),
+      "la enumeración de su familia es su mecanismo, en la §A como en la §A-quater");
+  });
+  it("la higiene de las familias: cada asiento enumerado existe, es del prefijo y ningún otro mecanismo lo conoce", () => {
     const seats = Object.keys(FEATURES);
-    for (const [prefix, mechanism] of Object.entries(FAMILIAS_REGISTRO)) {
-      assert.ok(mechanism.length > 10, `${prefix}: la familia lleva su mecanismo escrito`);
+    for (const [prefix, fam] of Object.entries(FAMILIAS_REGISTRO)) {
+      assert.ok(fam.mecanismo.length > 10, `${prefix}: la familia lleva su mecanismo escrito`);
       const mine = seats.filter((s) => prefixOf(s) === prefix);
       assert.ok(mine.length > 0, `${prefix}: familia sin asientos en el registro — declaración podrida`);
-      assert.ok(mine.some((s) => !(MAP_SEATS.has(s) || s in EXENTOS || topicsText.includes(`"${s}"`) || consumed(s))),
-        `${prefix}: todos sus asientos ya los conoce otro mecanismo — la familia sobra y debe morir`);
+      assert.ok(fam.cubre.length > 0, `${prefix}: la familia no enumera ningún asiento — una familia que no absuelve a nadie sobra y debe morir`);
+      for (const seat of fam.cubre) {
+        assert.ok(seats.includes(seat), `${seat}: ${prefix} lo enumera y el registro ya no lo nombra — enumeración podrida`);
+        assert.equal(prefixOf(seat), prefix, `${seat}: enumerado por ${prefix} sin ser de su prefijo`);
+        assert.ok(!(MAP_SEATS.has(seat) || seat in EXENTOS || topicsText.includes(`"${seat}"`) || consumed(seat) || explainedByAccusedGate(CORPUS, seat)),
+          `${seat}: otro mecanismo ya lo conoce — la enumeración sobra en este asiento y debe morir (el día que nazca su consumidor, su mapa o su tema, sale de la lista)`);
+      }
     }
+  });
+});
+
+/* ═══════════ §A-quinquies (OLA 14 · CARA-Q2): EL CENSO DE SUPERFICIES ═
+ * Todos los censos de la casa partían del registro o del mapa: ninguno
+ * caminaba las SUPERFICIES. La caza escenificó en el kit de los libros
+ * una mano de borrado total — `onDrop(rows.map(r => r.id))`, el canal
+ * genuino del kit — nacida sin asiento, sin has(), activa en los tres
+ * modos, y la suite entera corrió verde 2019/2019: la forma pura de la
+ * enfermedad de CARA-1 (allí el asiento existía sin consumidor; aquí ni
+ * el asiento existe). La cura es el espejo del censo de formas de
+ * guardado de la §B de la ola 12: el censo camina los componentes y
+ * enumera toda MANO EN MASA — una invocación de un canal de
+ * borrado/archivo/ocultado alimentada por una lista de ids mapeada, por
+ * una variable atada a esa lista, o el canal mismo (onDropMany,
+ * …Selection, drop) con el argumento que lleve — y cada sitio nombra
+ * su asiento gobernante en la tabla, con su razón. Un sitio sin
+ * clasificar es sentencia; una clasificación sin sitio, pudrición. */
+const MASS_VERBS = /drop|delete|remove|archive|wipe|erase|bulk/i;
+const MASS_CHANNEL = /^(onDrop|onDropMany|dropMany|deleteMany|removeMany|archiveMany|drop|wipe)$|Many$|Selection$/;
+function massHandSites(file: string, text: string): string[] {
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const idListVars = new Set<string>();
+  const collect = (n: ts.Node) => {
+    if (ts.isVariableDeclaration(n) && n.initializer && /\.map\(/.test(n.initializer.getText()) && /\.id\b/.test(n.initializer.getText()) && ts.isIdentifier(n.name)) idListVars.add(n.name.text);
+    ts.forEachChild(n, collect);
+  };
+  collect(sf);
+  const sites: string[] = [];
+  const ordinals = new Map<string, number>();
+  const walk = (n: ts.Node, fn: string) => {
+    let cur = fn;
+    if (ts.isFunctionDeclaration(n) && n.name) cur = n.name.text;
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) cur = n.name.text;
+    if (ts.isCallExpression(n)) {
+      const callee = n.expression;
+      const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : "";
+      if (name && name !== "removeEventListener" && (MASS_VERBS.test(name) || MASS_CHANNEL.test(name))) {
+        for (const arg of n.arguments) {
+          const t = arg.getText();
+          const fed = (/\.map\(/.test(t) && /\.id\b/.test(t)) || (ts.isIdentifier(arg) && idListVars.has(arg.text)) || MASS_CHANNEL.test(name);
+          if (fed) {
+            const k = `${file}:${cur}`;
+            const ord = (ordinals.get(k) ?? 0) + 1;
+            ordinals.set(k, ord);
+            sites.push(`${k}#${ord}`);
+            break;
+          }
+        }
+      }
+    }
+    ts.forEachChild(n, (c) => walk(c, cur));
+  };
+  walk(sf, "(raíz)");
+  return sites;
+}
+const MANOS_EN_MASA: Record<string, [string, string]> = {
+  "components/faro/archivo.tsx:askDeleteLines#1": ["archive.delete-lines", "el run de la confirmación de borrado de líneas apartadas: solo se alcanza bajo has(\"archive.delete-lines\") (canDeleteLines, archivo.tsx), que gobierna la entrada de la selección de borrado"],
+  "components/faro/fit-pick.tsx:dropSelected#1": ["editor.picker-manage", "EL CANAL: la hoja dispara solo el onDropMany que una composición gobernada le entregó — editor.picker-manage en los editores (fit-pick), books.multiselect en el kit de libros; la composición que no gobierna (picker-rename) no lleva onDropMany"],
+  "components/faro/historial.tsx:rowTap#1": ["archive.hide-selection", "el apartado de UNA fila desde su toque: la mano de apartar del Historial vive bajo has(\"archive.hide-selection\") (canRest, historial.tsx) en sus dos formas, la de una y la de la selección"],
+  "components/faro/historial.tsx:askHideSel#1": ["archive.hide-selection", "el apartado de la selección entera: la misma puerta (canRest) gobierna la entrada al modo selección que alimenta la lista"],
+  "components/faro/remit-people.tsx:RemitToPick#1": ["remit.manage", "el onDropMany del manage de RemitToPick envuelve ops.drop: la hoja solo se monta desde el flujo de remesas/personas, cuya mano de administrar es este asiento; si la hoja se monta en otra superficie, esta clasificación se reescribe"],
+};
+describe("ola9 · §A-quinquies: el censo de superficies — toda mano en masa nombra su asiento (OLA 14)", () => {
+  const compDir = new URL("../../components/faro/", import.meta.url);
+  const liveSites = (): string[] => {
+    const out: string[] = [];
+    for (const f of readdirSync(compDir).filter((x) => x.endsWith(".tsx")).sort()) {
+      out.push(...massHandSites(`components/faro/${f}`, readFileSync(new URL(f, compDir), "utf8")));
+    }
+    return out;
+  };
+  it("toda mano en masa del árbol vivo está clasificada con su asiento gobernante", () => {
+    const sites = liveSites();
+    assert.ok(sites.length >= 5, `el censo camina las superficies de verdad (${sites.length} sitios)`);
+    for (const site of sites) {
+      const entry = MANOS_EN_MASA[site];
+      assert.ok(entry, `${site}: mano en masa SIN asiento nombrado en el sitio — la clase de CARA-Q2: nace, actúa en los tres modos y ningún censo la veía`);
+      assert.ok(entry[0] in FEATURES, `${site}: su asiento gobernante «${entry[0]}» no existe en el registro`);
+      assert.ok(entry[1].length > 10, `${site}: la clasificación lleva su razón escrita`);
+    }
+  });
+  it("la higiene: ninguna clasificación sin sitio vivo", () => {
+    const sites = new Set(liveSites());
+    for (const site of Object.keys(MANOS_EN_MASA)) {
+      assert.ok(sites.has(site), `${site}: clasificación sin sitio — la mano murió o se movió; la tabla se reescribe, no pudre`);
+    }
+  });
+  it("espécimen Q2 (ola 14): el borrado total del libro por el canal del kit, sin asiento, ACUSA", () => {
+    const staged = `export function KitMalo({ rows, onDrop }: { rows: { id: string }[]; onDrop: (ids: string[]) => void }) {
+      const wipeAll = () => onDrop(rows.map((r) => r.id));
+      return { wipeAll };
+    }`;
+    const sites = massHandSites("components/faro/inventada14.tsx", staged);
+    assert.equal(sites.length, 1, "el censo VE la mano escenificada: canal de borrado alimentado por la lista mapeada de todo el libro");
+    assert.ok(!(sites[0]! in MANOS_EN_MASA), "y no tiene asiento nombrado: es sentencia — con la cerca vieja la suite corría verde entera");
+  });
+  it("espécimen Q2: la misma mano alimentada por una variable atada a la lista mapeada también se ve", () => {
+    const staged = `export function KitMalo2({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      const ids = rows.map((r) => r.id);
+      const wipeAll = () => dropMany(ids);
+      return { wipeAll };
+    }`;
+    assert.equal(massHandSites("components/faro/inventada14.tsx", staged).length, 1,
+      "la lista mapeada atada a una variable no esconde la mano del censo");
+  });
+  it("control: la mano de UNA fila (sin lista, sin canal en masa) no es mano en masa", () => {
+    const staged = `export function Fila({ line, dropLine }: { line: { id: string }; dropLine: (id: string) => void }) {
+      const tap = () => dropLine(line.id);
+      return { tap };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/inventada14.tsx", staged), [],
+      "borrar UNA línea por su id es la mano fina de siempre: el censo caza la masa, no el gesto");
   });
 });
 
@@ -778,6 +1055,23 @@ describe("ola9 · §A-ter: el censo cuenta sitios de llamada, no texto (OLA 11)"
     assert.equal(unresolvedGates(c).length, 1, "la puerta acusa en voz alta");
     assert.equal(explainedByAccusedGate(c, "accounts.add"), true,
       "el prefijo estático de la plantilla se lee como un literal: el asiento queda explicado, no fantasma");
+  });
+  /* OLA 14 · Cara A1: la media concatenación SIN cast vestía el traje
+   * del literal por la cabeza y la puerta quedaba absuelta, mientras
+   * la misma forma CON cast acusaba — la doctrina colgaba del cast.
+   * A doctrina: el argumento se juzga entero, pieza a pieza. */
+  it("14-A1 · la media concatenación SIN cast acusa igual que con cast: la doctrina es la composición, no el cast", () => {
+    const sin = census(`const SUF = computeSuffix(); const g = has("accounts." + SUF);`);
+    const con = census(`const SUF = computeSuffix(); const g = has(("accounts." + SUF) as never);`);
+    assert.equal(unresolvedGates(sin).length, 1, "sin cast: la segunda pieza no resuelve y la puerta acusa");
+    assert.equal(unresolvedGates(con).length, 1, "con cast: la misma sentencia — una sola doctrina");
+    assert.equal(explainedByAccusedGate(sin, "accounts.add"), true,
+      "y el asiento queda explicado por el prefijo de la puerta acusada: una sentencia, sobre la puerta");
+  });
+  it("14-A1 · la concatenación ENTERA sin cast no acusa: cada pieza resuelve", () => {
+    const c = census(`const SUF = "add"; const g = has("accounts." + SUF);`);
+    assert.deepEqual(unresolvedGates(c), [], "literal + constante de la cadena: composición resuelta, sin cast de por medio");
+    assert.equal(consumedIn(c, "accounts.add"), false, "consumedIn no la cuenta como consumo directo — pero la puerta no es acusada: su composición resuelve");
   });
 });
 

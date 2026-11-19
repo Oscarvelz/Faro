@@ -358,9 +358,41 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     { nombre: "ocultar datos", asientos: ["editor.picker-manage"], re: /ocult\w*|escond\w*|\bhid\w*\b/i },
     { nombre: "recolorear", asientos: ["editor.picker-manage"], re: /recolore\w*|recolou?r\w*|cambia nombre y color|changes name and colour|cambia\w*(?:les|las|los)\s+(?:el\s+)?color|chang\w*\s+(?:their|them)\s+colou?r|chang\w*\s+the\s+colou?r\s+of\s+(?:several|the ticked|the marked)/i },
     { nombre: "borrar en masa", asientos: ["editor.picker-manage", "books.multiselect"], re: /(?:borr|elimin|quit|suprim)\w*\s+(?:\w+\s+)?(?:varias|varios|several|many)|(?:delet|remov|purg|drop)\w*\s+(?:\w+\s+)?(?:several|many|all)\b/i },
-    { nombre: "fusionar", asientos: ["editor.picker-manage"], re: /(?:\bfusion\w*\b|\bmerg\w*\b|\bcombin\w*\b|\bjoin\w*\b|\bjunt\w*\b|\bunific\w*\b|\bun(?:e|es|en|io|idas|idos|ir)\b)[^.!?]*\b(?:dos|tres|varias|varios|ambas|ambos|pair|two|three|several|couple|into one|together|en una|en un|as one|in one)\b/i },
+    // OLA 14 (B2): fusionar ya no es una regex sobre la frase — es una
+    // FUNCIÓN con la disciplina de ARCHIVAR (fusionarHit, abajo): la
+    // regex vieja condenó tres frases inocentes («las muestra juntas»,
+    // «combina dos colores», "combines two colours") porque plegaba el
+    // adverbio al verbo y no exigía objeto-registro. La entrada queda
+    // en la tabla por sus asientos (la cerca de pisos los verifica);
+    // el juicio lo hace fusionarHit y su regex no casa nada.
+    { nombre: "fusionar", asientos: ["editor.picker-manage"], re: /$^/ },
   ];
-  const VERBOS_RITMO: [string, RegExp][] = FAMILIAS.map((f) => [f.nombre, f.re]);
+  const VERBOS_RITMO: [string, RegExp][] = FAMILIAS.filter((f) => f.nombre !== "fusionar").map((f) => [f.nombre, f.re]);
+  /** FUSIONAR con la disciplina de ARCHIVAR (OLA 14 · B2): el verbo de
+   * juntar acusa solo cuando SU SEGMENTO (la frase cortada en [.!?;] —
+   * la coma y los dos puntos no cortan: el objeto puede ir antes del
+   * verbo, «…tiendas… y unir dos en una») lleva a la vez una marca de
+   * pluralidad o unidad Y un objeto-REGISTRO (tiendas, categorías,
+   * líneas, personas, tarjetas, cuentas, libros y sus gemelas
+   * inglesas — «fondo» NO es objeto: es cromo). Y el junt* ADVERBIAL
+   * se absuelve: «juntas» tras un verbo de mostrar/ver/quedar («las
+   * muestra juntas») es una al lado de otra, no la mano de unir. Sin
+   * objeto-registro no hay mano que enseñar: combinar colores es
+   * apariencia, no administración. */
+  const FUSION_VERBO = /\bfusion\w*\b|\bmerg\w*\b|\bcombin\w*\b|\bjoin\w*\b|\bjunt\w*\b|\bunific\w*\b|\bun(?:e|es|en|io|idas|idos|ir)\b/gi;
+  const FUSION_MARCA = /\b(?:dos|tres|varias|varios|ambas|ambos|pair|two|three|several|couple|into one|together|en una|en un|as one|in one)\b/i;
+  const FUSION_OBJETO = /\btiendas?\b|\bcategorias?\b|subcategor\w*|\blineas?\b|\bpersonas?\b|\btarjetas?\b|\bcuentas?\b|\blibros?\b|\bstores?\b|\bcategories\b|\blines?\b|\bpeople\b|\bperson\b|\bcards?\b|\baccounts?\b|\bbooks?\b/i;
+  const JUNT_ADVERBIAL = /(?:muestra|muestran|ve|ven|queda|quedan|aparece|muestr\w*|shows?|appears?|sits?)\s+junt(?:o|a|os|as)$/i;
+  const fusionarHit = (s: string): boolean => {
+    for (const seg of s.split(/[.!?;]/)) {
+      if (!FUSION_MARCA.test(seg) || !FUSION_OBJETO.test(seg)) continue;
+      for (const m of seg.matchAll(FUSION_VERBO)) {
+        if (/^junt/i.test(m[0]) && JUNT_ADVERBIAL.test(seg.slice(0, m.index! + m[0].length))) continue; // «las muestra juntas»: adverbio, no verbo
+        return true;
+      }
+    }
+    return false;
+  };
   /** ARCHIVAR, la familia nueva: archivar un REGISTRO (préstamo, tarjeta,
    * persona, cuenta, línea, libro, deuda) es mano de Ritmo — sus asientos
    * son cobros.archive, lent.archive y loans.archive, los tres R. El
@@ -435,6 +467,7 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
       for (const raw of sentences(text)) {
         const s = norm(raw);
         const hits = VERBOS_RITMO.filter(([, re]) => re.test(s)).map(([n]) => n);
+        if (fusionarHit(s)) hits.push("fusionar");
         if (archivarHit(s)) hits.push("archivar");
         if (!hits.length) continue;
         if (hits.length === 1 && hits[0] === "ocultar datos" && ocultarAbsuelto(s)) continue; // cromo/privacidad: no administra datos
@@ -567,6 +600,41 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     assert.equal(stage(tienda, "Oculta la barra de navegación de la pantalla principal de la casa y las tiendas que ya no usas.", "Hide the navigation bar at the top of the main screen of the house and the stores you no longer use.").length, 2, "A1 · el cromo primero no absuelve el dato que la frase esconde más allá de la ventana");
     assert.equal(stage(tienda, "Oculta la barra y los movimientos viejos desde esta hoja.", "Hide the bar and the old movements from this sheet.").length, 2, "A2 · «movimientos» es vocabulario de datos de la propia app");
   });
+  /* ── OLA 14: el registro MÓDULO entra al corpus (B1) y FUSIONAR
+   * gana la disciplina de ARCHIVAR (B2) ─────────────────────────── */
+  it("B1 (ola 14): title+promise de cada módulo se juzgan con su piso efectivo", () => {
+    const hits: string[] = [];
+    for (const mod of MODULES) {
+      if ((mod.mode ?? "completo") !== "esencial") continue; // la escalera: solo el piso que no posee la mano acusa
+      hits.push(...juzgar(`módulo ${mod.id}`, proseOf({ title: mod.title, promise: mod.promise })));
+    }
+    assert.deepEqual(hits, [], `una promesa de módulo enseña en Esencial una mano de Ritmo:\n${hits.join("\n")}`);
+    // el espécimen de la caza, con la mano en su forma gobernada: la
+    // promesa de «anotar» (Esencial) predicando la multiselección acusa
+    const anotar = MODULES.find((m) => m.id === "anotar")!;
+    assert.equal(anotar.mode, "esencial");
+    const staged = juzgar("módulo anotar (escenificado)", [
+      "Al salir, borras varias líneas con el lápiz, en grupo y sin dudar.",
+      "By the end, you delete several lines with the pencil, in a group and without hesitating.",
+    ]);
+    assert.equal(staged.length, 2, `la promesa escenificada acusa en los dos idiomas: ${staged.join(" | ")}`);
+    assert.deepEqual(juzgar("módulo anotar", proseOf({ title: anotar.title, promise: anotar.promise })), [],
+      "y la promesa viva de anotar dice la verdad de su piso");
+  });
+  it("B2 (ola 14): las tres frases inocentes absuelven y las fusiones verdaderas siguen acusando", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const stage = (es: string, en: string) => violaciones({ ...tienda, what: [es, en] } as never);
+    // las inocentes de la caza: el adverbio, y combinar sin objeto-registro
+    assert.deepEqual(stage("Con dos tiendas abiertas, la hoja las muestra juntas en una sola lista.", "With two stores open, the sheet shows them together in one list."), [],
+      "«las muestra juntas» es adverbio (una al lado de otra): la raíz junt* ya no lo pliega al verbo");
+    assert.deepEqual(stage("El tema oscuro combina dos colores en una pantalla: fondo y tinta.", "The dark theme combines two colours in one screen: background and ink."), [],
+      "combinar COLORES no es fusionar registros: sin objeto-registro no hay mano que enseñar (fondo es cromo, no objeto)");
+    // las verdaderas, en sus formas clavadas de las olas 12 y 13
+    assert.equal(stage("Dos tiendas se pueden fusionar en una desde esta hoja.", "Two stores can be merged into one from this sheet.").length, 2, "12B sigue acusando");
+    assert.equal(stage("Con el lápiz puedes eliminar varias tiendas con una sola confirmación y unir dos en una.", "With the pencil you can remove several stores with one confirmation and join two into one.").length, 2, "12C sigue acusando: el objeto va antes del verbo, en el mismo segmento");
+    assert.equal(stage("Combina dos tiendas en una desde esta hoja.", "Combine two stores into one from this sheet.").length, 2, "V3 sigue acusando");
+    assert.equal(stage("Fusiona dos tiendas en una desde esta hoja.", "Merge a pair of stores together from this sheet.").length, 2, "V5 sigue acusando");
+  });
 });
 
 /* ═══════════ §D · G11-2 + C11-1: CARDFORM FUSIONA Y NO RESUCITA ═══════
@@ -644,14 +712,24 @@ describe("§D · C11-1 — guardar sobre un fantasma no resucita en silencio", (
     assert.ok(!/card \?\? \{ id: uid\(\)/.test(seg), "el alta muda sobre el fantasma está fuera");
   });
   it("Guardar en edición sin registro vivo anuncia, no guarda", () => {
-    assert.match(seg, /if \(!isAdd && !card\) \{ setGhost\(true\); return; \}/);
+    // ENMIENDA OLA 14 (G14-5): el anuncio ya no cuelga del prop del
+    // render — pregunta al libro con la pregunta única de tres estados
+    // (cardExistence): lo que vive se guarda, lo archivado y lo
+    // destruido anuncian cada uno su verdad.
+    assert.match(seg, /const ex = cardExistence\(session\?\.ledger, bornId\);/);
+    assert.match(seg, /setGhost\(ex\);/);
     assert.ok(seg.includes("Esta tarjeta ya no existe"));
     assert.ok(seg.includes("This card no longer exists"));
+    assert.ok(seg.includes("se archivó mientras la editabas"));
+    assert.ok(seg.includes("was archived while you were editing it"));
+    assert.ok(seg.includes("Restaurarla y guardar"));
+    assert.ok(seg.includes("tendrás las dos"), "guardar como nueva dice que la archivada se queda: ninguna convivencia en silencio");
   });
   it("guardar como nueva es una elección explícita, con su botón y su camino", () => {
     assert.ok(seg.includes("Guardar como tarjeta nueva"));
     assert.ok(seg.includes("Save as a new card"));
-    assert.match(seg, /const saveAsNew = \(\) => \{ setGhost\(false\); proceed\(true\); \};/);
+    assert.match(seg, /const saveAsNew = \(\) => \{ setGhost\(null\); proceed\(true\); \};/);
+    assert.match(seg, /const proceedRestore = \(\) => \{ setGhost\(null\); commitDraft\(false, true\); \};/, "restaurarla y guardar es su propio camino explícito: un commit que desarchiva lo vivo y funde");
   });
   it("el commit de edición sin registro vivo devuelve el estado intacto", () => {
     assert.match(seg, /if \(!isAdd && !freshId && !liveCard\) return s;/);

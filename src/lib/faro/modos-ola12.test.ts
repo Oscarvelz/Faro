@@ -21,7 +21,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 import { cardsOf, fuseCardDraft, putCard, storedCards } from "./cards.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
-import { MANUAL_TOPICS } from "../manual/topics.ts";
+import { MANUAL_CHAPTERS, MANUAL_TOPICS } from "../manual/topics.ts";
 import { MODULES } from "./guion.ts";
 import { modeDialogReaction, unlockedGroups } from "./mode.ts";
 import { buildInsights, summarize } from "./engine.ts";
@@ -372,6 +372,7 @@ const CARAS: Record<string, [Clase, string]> = {
   "lib/faro/today.ts:todaySpend:summarize(state, key, state.settings.lang).opportunity": ["interna", "lo libre por día («disponible»): caja repartida, jamás nombrado gasto"],
   "lib/faro/widget.ts:buildWidgetSnapshot:m.expense": ["gasto", "monthTotals del widget: expense solo-gasto"],
   "lib/faro/widget.ts:buildWidgetSnapshot:s.expense": ["movimiento", "el widget pinta entra/sale como flujos nombrados; usedPct = spentPct (solo-gasto)"],
+  "lib/faro/widget.ts:buildWidgetSnapshot:s.spend": ["gasto", "ola 14 (Asesor A3): el gasto verdadero viaja a la cáscara en la foto — FaroNotify decide y habla con él y la barra héroe se llena con él; spend (expense) sigue siendo la suma ancha que «Gastaré» nombra"],
   "lib/faro/widget.ts:buildWidgetSnapshot:s.opportunity": ["movimiento", "el widget nombra la caja como lo que queda"],
   "lib/faro/widget.ts:buildWidgetSnapshot:s.savingsFlow": ["movimiento", "el widget nombra el ahorro del mes como ahorro"],
   "lib/faro/year.ts:yearReport:s.expense": ["interna", "compone el YearReport; su cara clasificada es YearCard"],
@@ -469,7 +470,15 @@ describe("§A · E12-1 — el censo de caras y agregadores, derivado del AST", (
 describe("§B · S1 — la primera edición de un preset se materializa; el fantasma sigue intacto", () => {
   it("la guarda del commit pregunta la existencia en cardsOf, no solo en storedCards (fuente)", () => {
     const s = SRC("../../components/faro/cards.tsx");
-    assert.match(s, /const liveCard = storedCard \?\? \(!isAdd && !freshId \? cardsOf\(s\)\.find\(\(c\) => c\.id === bornId\) : undefined\);/);
+    // ENMIENDA OLA 14 (G14-5): la guarda pregunta ahora con la pregunta
+    // única de tres estados (cardExistence, en la librería): el preset
+    // virtual sigue vivo por cardsOf dentro de esa pregunta, y la
+    // composición conserva la misma caída (storedCards, luego cardsOf)
+    // cuando la tarjeta vive; lo archivado no funde y lo destruido
+    // devuelve el estado intacto, como mandaba S1.
+    assert.match(s, /const existence = !isAdd && !freshId \? cardExistence\(s, bornId\) : "alive";/);
+    assert.match(s, /if \(existence === "gone"\) return s;/);
+    assert.match(s, /storedCard \?\? \(!isAdd && !freshId \? cardsOf\(s\)\.find\(\(c\) => c\.id === bornId\) : undefined\)/);
     assert.match(s, /if \(!isAdd && !freshId && !liveCard\) return s;/);
   });
   it("el preset vive en cardsOf sin estar en storedCards, y putCard lo materializa con la edición", () => {
@@ -621,6 +630,14 @@ const COLL_ACCESSORS = new Set(["loansOf", "lentOf", "peopleOf", "storedCards", 
 const COLL_KEYS_B = new Set(["people", "loans", "lent", "cards", "debtPlan", "structure", "months", "cardsOff", "bank", "subPresets", "freqPresets", "remitPeople"]);
 const FORM_WRITERS = new Set(["putCard", "editAccount", "setRewardReal", "addReading", "addRewards"]);
 const ROOT_WRITERS = new Set(["upsertLine", "declareSeries"]);
+/* OLA 14 (G14-6): los escritores de línea entera y sus parches se miran
+ * en TODO el árbol, no solo en line-form.tsx — la cerca vieja dejaba
+ * ~15 sitios de upsertLine fuera de su único archivo vigilado, y en
+ * ellos la foto del render se escribía entera al nivel del commit.
+ * patchLine/patchLineWith entran como escritores vigilados: parchean
+ * contra lo vivo por construcción del ayudante, y cada sitio suyo se
+ * clasifica «campo» con su razón, como cualquier otra ruta. */
+const PATCH_WRITERS = new Set(["patchLine", "patchLineWith"]);
 type Doctrina = "fusiona" | "campo" | "naturaleza" | "anexa";
 
 /* ── OLA 13 (G13-2/G13-3): LA DELEGACIÓN Y LA FIRMA DE CONDUCTA ────────
@@ -657,6 +674,7 @@ function scanForms(files: { rel: string; text: string }[]) {
   const violations = new Map<string, string[]>();
   const unresolved = new Set<string>();
   const fusion = new Map<string, boolean>();
+  const fnSites: string[] = [];
   const byRel = new Map(files.map((f) => [f.rel, f.text]));
   const parse = (rel: string, text: string) => ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const defsCache = new Map<string, Map<string, ts.Node>>();
@@ -726,7 +744,7 @@ function scanForms(files: { rel: string; text: string }[]) {
       if (ts.isPropertyAccessExpression(n) && BOOK_TOUCHES.has(n.name.text)) yes = true;
       if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && COLL_KEYS_B.has(n.name.text)) yes = true;
       if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) &&
-        (COLL_ACCESSORS.has(n.expression.text) || FORM_WRITERS.has(n.expression.text) || ROOT_WRITERS.has(n.expression.text))) yes = true;
+        (COLL_ACCESSORS.has(n.expression.text) || FORM_WRITERS.has(n.expression.text) || ROOT_WRITERS.has(n.expression.text) || PATCH_WRITERS.has(n.expression.text))) yes = true;
       ts.forEachChild(n, scan);
     };
     scan(node);
@@ -738,8 +756,14 @@ function scanForms(files: { rel: string; text: string }[]) {
    * propio map (el elemento vivo) o una llamada (la fusión) — M-C
    * ({ ...p } con la foto del render) rompe la firma. Los esparcidos
    * condicionales que AÑADEN campos ({ ...l, ...(d.dueDay ? { dueDay }
-   * : {}) }) no son la base del reemplazo y no acusan. */
-  const mapVivoViolations = (root: ts.Node, out: string[]) => {
+   * : {}) }) no son la base del reemplazo y no acusan.
+   * OLA 14 (G14-4): el receptor también puede ser una CADENA DE
+   * PROPIEDADES enraizada en un parámetro de la función que contiene el
+   * map (`s.structure.catalog.map(...)`, `s.months[k].lines.map(...)`):
+   * la ola 13 solo juzgaba el receptor-llamada a un accesor, y el map
+   * que componía desde la foto sobre el catálogo vivo escapaba — era la
+   * forma exacta de savePlan antes de su cura. */
+  const mapVivoViolations = (root: ts.Node, out: string[], roots: Set<string> = new Set()) => {
     const judgeLiteral = (lit: ts.ObjectLiteralExpression, param: string, recvName: string) => {
       const spreads = lit.properties.filter((p) => ts.isSpreadAssignment(p));
       if (!spreads.length) return;
@@ -754,14 +778,22 @@ function scanForms(files: { rel: string; text: string }[]) {
         replacements(e.left, param, recvName); replacements(e.right, param, recvName);
       }
     };
+    /** La raíz de una cadena de propiedades: el identificador del que cuelga. */
+    const chainRoot = (e: ts.Node): string | null => {
+      if (ts.isIdentifier(e)) return e.text;
+      if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) return chainRoot(e.expression);
+      return null;
+    };
     const scan = (n: ts.Node) => {
       if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "map") {
         const recv = n.expression.expression;
-        if (ts.isCallExpression(recv) && ts.isIdentifier(recv.expression) && COLL_ACCESSORS.has(recv.expression.text)) {
+        const isAccessorCall = ts.isCallExpression(recv) && ts.isIdentifier(recv.expression) && COLL_ACCESSORS.has(recv.expression.text);
+        const rootName = !isAccessorCall && (ts.isPropertyAccessExpression(recv) || ts.isElementAccessExpression(recv)) ? chainRoot(recv) : null;
+        if (isAccessorCall || (rootName !== null && roots.has(rootName))) {
           const cb = n.arguments[0];
           if (cb && (ts.isArrowFunction(cb) || ts.isFunctionExpression(cb)) && cb.parameters.length && ts.isIdentifier(cb.parameters[0]!.name)) {
             const param = (cb.parameters[0]!.name as ts.Identifier).text;
-            const recvName = (recv.expression as ts.Identifier).text;
+            const recvName = isAccessorCall ? (recv.expression as ts.Identifier).text : recv.getText().slice(0, 40);
             if (cb.body) {
               if (!ts.isBlock(cb.body)) replacements(cb.body, param, recvName);
               else {
@@ -780,35 +812,157 @@ function scanForms(files: { rel: string; text: string }[]) {
     };
     scan(root);
   };
-  /** La firma FOTO sobre el cuerpo de un ayudante delegado: ninguna
-   * llave de colección se asigna desde un identificador desnudo que no
-   * nazca del estado recibido (ni literal, ni llamada, ni composición):
-   * `people: foto` acusa (M-B). Un ayudante que LEE las colecciones del
-   * estado (hidePeriod lee state.months y construye las suyas de esa
-   * lectura) compone de lo vivo por construcción: sus variables locales
-   * nacen de la lectura y la firma no las acusa. */
+  /** La firma FOTO sobre el cuerpo de un ayudante delegado, POR LLAVE y
+   * POR VALOR (OLA 14, Guardián G14-1): ninguna llave de colección se
+   * asigna desde un valor que no nazca del estado recibido, venga
+   * envuelto como venga — `people: foto` acusa, y también
+   * `foto.slice()`, `[...foto]` y `foto.map()` (la ola 13 solo acusaba
+   * el identificador desnudo, y absolvía ENTERO al ayudante que leyera
+   * el libro una vez: la mutación M14-A leyó `lent` de lo vivo y compuso
+   * `people` desde la foto con la cerca verde). La procedencia se sigue
+   * por fijación: el parámetro de estado, lo que de él se lee, las
+   * variables que nacen de valores enraizados, los patrones de
+   * desestructuración sobre valores enraizados y los acumuladores que
+   * reciben escrituras de elemento o anexos enraizados (la forma del
+   * Deshacer: un objeto vacío que se llena desde el estado ES del
+   * estado). Leer el libro ya no absuelve nada: cada llave se juzga por
+   * su propio valor. */
   const fotoViolations = (helper: ts.Node, stateParam: string | null, out: string[]) => {
     if (!stateParam) return;
-    let readsBook = false;
-    const readScan = (n: ts.Node) => {
-      if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === stateParam && BOOK_TOUCHES.has(n.name.text)) readsBook = true;
-      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && COLL_ACCESSORS.has(n.expression.text) &&
-        n.arguments.some((a) => ts.isIdentifier(a) && a.text === stateParam)) readsBook = true;
-      ts.forEachChild(n, readScan);
+    /** ¿El valor se compone DESDE el estado recibido? La composición
+     * (literales, llamadas, anexos) se absuelve si ALGUNA de sus partes
+     * nace del estado — la base viva con campos del gesto encima es la
+     * doctrina «campo» —; la SELECCIÓN (condicional, ??/||) exige que
+     * TODAS sus ramas nazcan de él: una rama que devuelve la foto
+     * entera es la foto. Un valor hecho SOLO de fuera (la foto, un
+     * parámetro-dato reemplazando la colección) no nace del estado. */
+    const rooted = (e: ts.Node, derived: Set<string>): boolean => {
+      if (ts.isIdentifier(e)) return derived.has(e.text);
+      if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) return rooted(e.expression, derived);
+      if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) return rooted(e.expression, derived);
+      if (ts.isCallExpression(e)) {
+        if (ts.isPropertyAccessExpression(e.expression) && rooted(e.expression.expression, derived)) return true;
+        if (ts.isIdentifier(e.expression) && COLL_ACCESSORS.has(e.expression.text) && e.arguments.some((a) => rooted(a, derived))) return true;
+        return e.arguments.some((a) => rooted(a, derived));
+      }
+      if (ts.isObjectLiteralExpression(e)) return e.properties.some((p) => {
+        if (ts.isSpreadAssignment(p)) return rooted(p.expression, derived);
+        if (ts.isPropertyAssignment(p)) return rooted(p.initializer, derived);
+        if (ts.isShorthandPropertyAssignment(p)) return derived.has(p.name.text);
+        return false;
+      });
+      if (ts.isArrayLiteralExpression(e)) return e.elements.some((el) => rooted(el, derived));
+      if (ts.isConditionalExpression(e)) return rooted(e.whenTrue, derived) && rooted(e.whenFalse, derived);
+      if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e)) return rooted(e.expression, derived);
+      if (ts.isBinaryExpression(e)) {
+        // la selección con un literal vacío de un lado no trae foto:
+        // `state.remitPeople ?? []` nace del estado; `foto ?? []`, no.
+        const empty = (x: ts.Node) => (ts.isArrayLiteralExpression(x) && x.elements.length === 0) || (ts.isObjectLiteralExpression(x) && x.properties.length === 0);
+        return (rooted(e.left, derived) || empty(e.left)) && (rooted(e.right, derived) || empty(e.right));
+      }
+      if (ts.isTemplateExpression(e)) return e.templateSpans.some((sp) => rooted(sp.expression, derived));
+      if (ts.isPrefixUnaryExpression(e)) return rooted(e.operand, derived);
+      return false;
     };
-    readScan(helper);
-    if (readsBook) return;
     const derived = new Set<string>([stateParam]);
-    const scan = (n: ts.Node) => {
-      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
-        if (new RegExp(`\\b${stateParam}\\b`).test(n.initializer.getText())) derived.add(n.name.text);
+    // Fijación de procedencia: repetir hasta que ninguna variable nueva nazca.
+    for (let pass = 0; pass < 8; pass++) {
+      let grew = false;
+      const scan = (n: ts.Node) => {
+        if (ts.isVariableDeclaration(n) && n.initializer) {
+          const names: string[] = [];
+          const collect = (nm: ts.BindingName) => {
+            if (ts.isIdentifier(nm)) names.push(nm.text);
+            else for (const el of nm.elements) if (ts.isBindingElement(el)) collect(el.name);
+          };
+          collect(n.name);
+          if (names.length && names.some((x) => !derived.has(x)) && rooted(n.initializer!, derived)) {
+            for (const x of names) if (!derived.has(x)) { derived.add(x); grew = true; }
+          }
+        }
+        // en el AST, la declaración de un for…of no lleva inicializador:
+        // la expresión iterada vive en la sentencia — sin esto, `bucket`
+        // de `for (const [k, bucket] of Object.entries(state.months))`
+        // nunca nace y todo lo compuesto desde él parece foto.
+        if ((ts.isForOfStatement(n) || ts.isForInStatement(n)) && ts.isVariableDeclarationList(n.initializer)) {
+          for (const d of n.initializer.declarations) {
+            const names: string[] = [];
+            const collect = (nm: ts.BindingName) => {
+              if (ts.isIdentifier(nm)) names.push(nm.text);
+              else for (const el of nm.elements) if (ts.isBindingElement(el)) collect(el.name);
+            };
+            collect(d.name);
+            if (names.length && names.some((x) => !derived.has(x)) && rooted(n.expression, derived)) {
+              for (const x of names) if (!derived.has(x)) { derived.add(x); grew = true; }
+            }
+          }
+        }
+        // el acumulador: `acc[k] = <enraizado>`, `acc.campo = <enraizado>`, `acc.push(<enraizado>)`
+        if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+          (ts.isElementAccessExpression(n.left) || ts.isPropertyAccessExpression(n.left)) &&
+          ts.isIdentifier(n.left.expression) && !derived.has(n.left.expression.text) && rooted(n.right, derived)) {
+          derived.add(n.left.expression.text); grew = true;
+        }
+        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) &&
+          (n.expression.name.text === "push" || n.expression.name.text === "add") &&
+          ts.isIdentifier(n.expression.expression) && !derived.has(n.expression.expression.text) &&
+          n.arguments.some((a) => rooted(a, derived))) {
+          derived.add(n.expression.expression.text); grew = true;
+        }
+        ts.forEachChild(n, scan);
+      };
+      scan(helper);
+      if (!grew) break;
+    }
+    /* El juez: solo las llaves de colección de los literales en POSICIÓN
+     * DE ESTADO — el cuerpo devuelto, los retornos, los inicializadores
+     * y las asignaciones (y el literal tras una llave `state` de uno de
+     * ellos, la forma { state, preserved } de los contados). Un campo
+     * anidado dentro de un registro-dato (el `bank` de una fuente nueva
+     * dentro de imports) no es la llave del estado y no se juzga aquí:
+     * su valor se juzga como parte del inicializador de SU llave. */
+    const marked = new Set<ts.ObjectLiteralExpression>();
+    const markExpr = (e: ts.Node | undefined): void => {
+      if (!e) return;
+      if (ts.isObjectLiteralExpression(e)) {
+        if (marked.has(e)) return;
+        // el envoltorio { state, … }: el literal es un REGISTRO de
+        // resultado (la forma HideResult de descanso, { state, preserved }
+        // de los contados) — se juzga el estado que envuelve, no las
+        // llaves hermanas del registro (su `months` es una lista de
+        // claves afectadas, no el mapa del libro).
+        const stateProp = e.properties.find((p) => (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) && ts.isIdentifier(p.name) && p.name.text === "state");
+        if (stateProp) {
+          if (ts.isPropertyAssignment(stateProp)) markExpr(stateProp.initializer);
+          return;
+        }
+        marked.add(e);
+        for (const p of e.properties) if (ts.isSpreadAssignment(p)) markBranches(p.expression);
+        return;
       }
-      if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && COLL_KEYS_B.has(n.name.text) && ts.isIdentifier(n.initializer)) {
-        if (!derived.has(n.initializer.text)) out.push(`la llave ${n.name.text} se asigna desde «${n.initializer.text}», que no nace del estado recibido — compone desde la foto (M-B)`);
-      }
-      ts.forEachChild(n, scan);
+      if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e)) { markExpr(e.expression); return; }
+      if (ts.isConditionalExpression(e)) { markExpr(e.whenTrue); markExpr(e.whenFalse); }
     };
-    scan(helper);
+    const markBranches = (e: ts.Node): void => {
+      if (ts.isConditionalExpression(e)) { markExpr(e.whenTrue); markExpr(e.whenFalse); return; }
+      if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e)) { markBranches(e.expression); return; }
+      markExpr(e);
+    };
+    const rootsScan = (n: ts.Node) => {
+      if (ts.isReturnStatement(n)) markExpr(n.expression);
+      if (ts.isVariableDeclaration(n)) markExpr(n.initializer);
+      if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken) markExpr(n.right);
+      if ((ts.isArrowFunction(n) || ts.isFunctionExpression(n)) && !ts.isBlock(n.body)) markExpr(n.body);
+      ts.forEachChild(n, rootsScan);
+    };
+    rootsScan(helper);
+    for (const lit of marked) {
+      for (const p of lit.properties) {
+        if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && COLL_KEYS_B.has(p.name.text)) {
+          if (!rooted(p.initializer, derived)) out.push(`la llave ${p.name.text} se asigna desde «${p.initializer.getText().slice(0, 40)}», que no nace del estado recibido — compone desde la foto (M-B)`);
+        }
+      }
+    }
   };
 
   for (const { rel, text } of files) {
@@ -849,7 +1003,7 @@ function scanForms(files: { rel: string; text: string }[]) {
                 const recv = n.expression.expression;
                 if (ts.isCallExpression(recv) && ts.isIdentifier(recv.expression) && COLL_ACCESSORS.has(recv.expression.text)) composes = true;
               }
-              if (ts.isIdentifier(n.expression) && (FORM_WRITERS.has(n.expression.text) || (rel === "components/faro/line-form.tsx" && ROOT_WRITERS.has(n.expression.text)))) called.add(n.expression.text);
+              if (ts.isIdentifier(n.expression) && (FORM_WRITERS.has(n.expression.text) || ROOT_WRITERS.has(n.expression.text) || PATCH_WRITERS.has(n.expression.text))) called.add(n.expression.text);
             }
             if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && COLL_KEYS_B.has(n.name.text)) composes = true;
             ts.forEachChild(n, scan);
@@ -962,7 +1116,7 @@ function scanForms(files: { rel: string; text: string }[]) {
             callScan(body);
             for (const { name, call } of helperCalls) {
               if (params.has(name) || GATE_GLOBALS.has(name)) continue; // un parámetro del llamante o un global: mecanismo, no ayudante
-              if (COLL_ACCESSORS.has(name) || FORM_WRITERS.has(name) || ROOT_WRITERS.has(name)) continue; // ya censados por su brazo
+              if (COLL_ACCESSORS.has(name) || FORM_WRITERS.has(name) || ROOT_WRITERS.has(name) || PATCH_WRITERS.has(name)) continue; // ya censados por su brazo
               if (!resultFlows(call)) continue; // su resultado no vuelve como estado: es una lectura
               const r = resolveHelper(name, rel);
               if (!r) {
@@ -1004,8 +1158,14 @@ function scanForms(files: { rel: string; text: string }[]) {
             siteKeys.push(key);
           }
           if (siteKeys.length) {
-            mapVivoViolations(body, siteViolations);
-            for (const h of delegatedHelpers) mapVivoViolations(h.node, siteViolations);
+            const paramNames = (fnNode: ts.Node): Set<string> => {
+              const out = new Set<string>();
+              const ps = (fnNode as ts.FunctionLikeDeclarationBase).parameters ?? [];
+              for (const p of ps) if (ts.isIdentifier(p.name)) out.add(p.name.text);
+              return out;
+            };
+            mapVivoViolations(body, siteViolations, paramNames(updater));
+            for (const h of delegatedHelpers) mapVivoViolations(h.node, siteViolations, paramNames(h.node));
             /* la firma FUSIONA: el subárbol del sitio (el updater y sus
              * ayudantes) llama a una fusión nombrada (fuse…) o aplica el
              * fn del llamante sobre un accesor vivo (la forma savePeople).
@@ -1036,8 +1196,76 @@ function scanForms(files: { rel: string; text: string }[]) {
       ts.forEachChild(node, (c) => visit(c, st, params));
     };
     visit(sf, [], new Set());
+    /* ── OLA 14 (G14-2): EL MECANISMO FN-SOBRE-VIVO SE RESUELVE A SU CUERPO ──
+     * Una función que aplica uno de sus parámetros a un accesor vivo
+     * (savePeople: `fn(peopleOf(s))`) certificaba la LLAMADA, no la
+     * función que el llamante entrega: `(live) => fotoDelRender` pasaba
+     * la firma entera. Ahora los argumentos-función de sus llamantes se
+     * resuelven a sus cuerpos: el valor devuelto debe DERIVAR del primer
+     * parámetro de la flecha entregada (componer desde él: mapearlo,
+     * esparcirlo, filtrarlo), no ser un valor de fuera. */
+    if (rel.startsWith("components/")) {
+      const derives = (e: ts.Node, param: string): boolean => {
+        if (ts.isIdentifier(e)) return e.text === param;
+        if (ts.isSpreadAssignment(e) || ts.isSpreadElement(e)) return derives(e.expression, param);
+        if (ts.isPropertyAccessExpression(e)) return derives(e.expression, param);
+        if (ts.isCallExpression(e)) {
+          if (ts.isPropertyAccessExpression(e.expression) && derives(e.expression.expression, param)) return true;
+          return e.arguments.some((a) => derives(a, param));
+        }
+        if (ts.isArrayLiteralExpression(e)) return e.elements.some((el) => derives(el, param));
+        if (ts.isObjectLiteralExpression(e)) return e.properties.some((p) => ts.isSpreadAssignment(p) ? derives(p.expression, param) : ts.isPropertyAssignment(p) ? derives(p.initializer, param) : false);
+        if (ts.isConditionalExpression(e)) return derives(e.whenTrue, param) && derives(e.whenFalse, param);
+        if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e)) return derives(e.expression, param);
+        if (ts.isBinaryExpression(e)) return derives(e.left, param) && derives(e.right, param);
+        return false;
+      };
+      const mechanisms = new Map<string, number>();
+      for (const [name, def] of defsOf(rel)) {
+        const ps = (def as ts.FunctionLikeDeclarationBase).parameters ?? [];
+        const body = (def as { body?: ts.Node }).body;
+        if (!body) continue;
+        ps.forEach((p, i) => {
+          if (!ts.isIdentifier(p.name) || mechanisms.has(name)) return;
+          const pname = p.name.text;
+          let applies = false;
+          const scan = (n: ts.Node) => {
+            if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === pname &&
+              n.arguments.some((a) => ts.isCallExpression(a) && ts.isIdentifier(a.expression) && COLL_ACCESSORS.has(a.expression.text))) applies = true;
+            ts.forEachChild(n, scan);
+          };
+          scan(body);
+          if (applies) mechanisms.set(name, i);
+        });
+      }
+      if (mechanisms.size) {
+        const callScan = (n: ts.Node) => {
+          if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && mechanisms.has(n.expression.text)) {
+            const arg = n.arguments[mechanisms.get(n.expression.text)!];
+            if (arg && (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) && arg.parameters.length && ts.isIdentifier(arg.parameters[0]!.name)) {
+              const param = (arg.parameters[0]!.name as ts.Identifier).text;
+              const returns: ts.Node[] = [];
+              if (!ts.isBlock(arg.body)) returns.push(arg.body);
+              else {
+                const rs = (m: ts.Node) => {
+                  if (ts.isReturnStatement(m) && m.expression) returns.push(m.expression);
+                  if (isFnLike(m)) return;
+                  ts.forEachChild(m, rs);
+                };
+                ts.forEachChild(arg.body, rs);
+              }
+              for (const ret of returns) {
+                if (!derives(ret, param)) fnSites.push(`${rel}: el llamante de ${n.expression.text} entrega una función que no deriva de «${param}»: «${ret.getText().slice(0, 50)}» — la firma fn-sobre-vivo certifica el cuerpo entregado, no la llamada (G14-2)`);
+              }
+            }
+          }
+          ts.forEachChild(n, callScan);
+        };
+        callScan(sf);
+      }
+    }
   }
-  return { inline, writers, delegated, violations, unresolved, fusion };
+  return { inline, writers, delegated, violations, unresolved, fusion, fnSites };
 }
 
 const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
@@ -1096,12 +1324,57 @@ const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
 };
 
 const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
-  "components/faro/cards.tsx:proceed#1": ["fusiona", "CardForm: el candidato se fusiona (fuseCardDraft) contra el registro del commit y putCard escribe el resultado; las lecturas del alta se anexan", "addReading,addRewards,putCard"],
+  "components/faro/cards.tsx:commitDraft#1": ["fusiona", "CardForm: el candidato se fusiona (fuseCardDraft) contra el registro del commit y putCard escribe el resultado; las lecturas del alta se anexan. Ola 14: proceed se llama commitDraft — la misma ruta con su salida de restaurar (G14-5)", "addReading,addRewards,putCard"],
   "components/faro/cards.tsx:save#1": ["anexa", "el modo update de CardForm anexa lecturas y recompensas por id sobre el registro vivo (addReading busca en cardsOf)", "addReading,addRewards"],
   "components/faro/cards.tsx:save#2": ["anexa", "CardScan: crea la tarjeta nueva o anexa las lecturas del escaneo por id; no edita campos gobernados de la ficha", "addReading,addRewards,putCard"],
   "components/faro/bank-settings.tsx:editor#1": ["fusiona", "EditAcct: editAccount aplica el parche {name?, color?, bank?} sobre el registro vivo dentro del commit", "editAccount"],
   "components/faro/rewards-real.tsx:save#1": ["campo", "setRewardReal escribe la figura de la cuenta dentro del commit, sobre el libro vivo", "setRewardReal"],
   "components/faro/line-form.tsx:save#1": ["fusiona", "la raíz: upsertLine recibe la línea ya fusionada ({...existing, ...fresh} con sus testigos de toque)", "declareSeries,upsertLine"],
+  /* ── OLA 14 (G14-6): el brazo B mira los escritores de línea en TODO
+   * el árbol. upsertLine solo anexa donde la línea NACE en el gesto
+   * (id fresco, composición nueva); donde la línea ya vive, el sitio
+   * parchea contra lo vivo con patchLine/patchLineWith («campo» por
+   * construcción del ayudante: busca la línea dentro del estado del
+   * commit y aplica solo el parche). */
+  "components/faro/archivo.tsx:restoreDue#1": ["campo", "el patrón sano original: busca la línea DENTRO del commit y la reactiva sobre la viva", "upsertLine"],
+  "components/faro/people.tsx:save#1": ["anexa", "el regalo nace como línea nueva (plainLine con id fresco) en el commit", "upsertLine"],
+  "components/faro/receipt-scan.tsx:save#1": ["anexa", "las líneas del escaneo nacen nuevas; el reduce las compone sobre el acumulador del propio commit", "upsertLine"],
+  "components/faro/remesas.tsx:save#1": ["anexa", "la remesa enviada nace como línea nueva (plainLine) en el commit", "upsertLine"],
+  "components/faro/slip-apply.tsx:save#1": ["anexa", "la línea aplicada desde Guardados nace nueva (plainLine) en el commit", "upsertLine"],
+  "components/faro/screens.tsx:onGlyph#1": ["campo", "el glifo de la línea se parchea contra lo vivo (patchLine por id)", "patchLine"],
+  "components/faro/screens.tsx:onColor#1": ["campo", "el color de la línea se parchea contra lo vivo (patchLine por id)", "patchLine"],
+  "components/faro/screens.tsx:reportUse#1": ["campo", "el uso del bote se anexa al historial de la línea VIVA (patchLineWith lee live.history)", "patchLineWith"],
+  "components/faro/screens.tsx:applyMove#1": ["campo", "mover líneas entre tableros parchea categoría/sub sobre cada línea viva por id", "patchLine"],
+  "components/faro/screens.tsx:applyMove#2": ["campo", "mover líneas (el segundo tablero) parchea categoría/sub sobre cada línea viva por id", "patchLine"],
+  "components/faro/screens.tsx:LinesBlock#1": ["campo", "el kit renombra la línea parcheando su concepto contra lo vivo por id", "patchLine"],
+  "components/faro/screens.tsx:LinesBlock#2": ["campo", "el kit recolorea la línea parcheando su color contra lo vivo por id", "patchLine"],
+  "components/faro/screens.tsx:LinesBlock#3": ["campo", "el kit cambia el icono de la línea parcheando contra lo vivo por id", "patchLine"],
+  "components/faro/screens.tsx:addDue#1": ["anexa", "la suscripción nueva nace como línea fresca (id nuevo) en el commit", "upsertLine"],
+  "components/faro/screens.tsx:archive#1": ["campo", "archivar la línea parchea active:false contra lo vivo por id", "patchLine"],
+  "components/faro/screens.tsx:declareInside#1": ["campo", "declareSeries compone la serie desde las líneas vivas dentro del commit", "declareSeries"],
+  "components/faro/screens.tsx:declareAparte#1": ["campo", "declareSeries compone la serie desde las líneas vivas dentro del commit", "declareSeries"],
+  "components/faro/screens.tsx:declareOne#1": ["campo", "declareSeries compone la serie desde las líneas vivas dentro del commit", "declareSeries"],
+  "components/faro/screens.tsx:Desk#1": ["anexa", "la siembra del Escritorio inserta líneas nuevas (ids frescos) sobre el estado del commit", "upsertLine"],
+  "components/faro/screens.tsx:Desk#2": ["anexa", "la siembra del Escritorio inserta líneas nuevas (ids frescos) sobre el estado del commit", "upsertLine"],
+  "components/faro/screens.tsx:Desk#3": ["anexa", "la siembra del Escritorio inserta líneas nuevas (ids frescos) sobre el estado del commit", "upsertLine"],
+  "components/faro/screens.tsx:meetFixedModes#1": ["campo", "declareSeries compone la serie desde las líneas vivas dentro del commit", "declareSeries"],
+  "components/faro/screens.tsx:meetFixedModes#2": ["campo", "declareSeries compone la serie desde las líneas vivas dentro del commit", "declareSeries"],
+  "components/faro/screens.tsx:declareFromMigration#1": ["campo", "declareSeries compone la serie desde las líneas vivas dentro del commit", "declareSeries"],
+  "components/faro/screens.tsx:savKit#1": ["campo", "el kit de Ahorros renombra el bolsillo parcheando su concepto contra lo vivo por id", "patchLine"],
+  "components/faro/screens.tsx:rekind#1": ["campo", "el cambio de tipo parchea kind contra la línea viva por id", "patchLine"],
+  "components/faro/screens.tsx:relocate#1": ["campo", "reubicar parchea categoría/sub contra la línea viva por id", "patchLine"],
+  "components/faro/screens.tsx:addAccount#1": ["anexa", "la cuenta nueva nace con su línea de apertura fresca en el mismo commit que su sub", "upsertLine"],
+  "components/faro/screens.tsx:run#1": ["campo", "el renombre del bolsillo (run de su confirmación) parchea el concepto contra lo vivo por id", "patchLine"],
+  "components/faro/screens.tsx:setOpening#1": ["campo", "el saldo de apertura de la cuenta existente se parchea desde la línea viva (patchLineWith)", "patchLineWith"],
+  "components/faro/screens.tsx:setOpening#2": ["anexa", "la cuenta sin línea nace fresca con su saldo de apertura", "upsertLine"],
+  "components/faro/screens.tsx:adjustAccount#1": ["campo", "el ajuste de la cuenta se calcula DESDE la línea viva dentro del commit (patchLineWith: base, saldo e historial)", "patchLineWith"],
+  "components/faro/screens.tsx:adjustAccount#2": ["anexa", "la cuenta sin línea nace fresca con el ajuste como saldo", "upsertLine"],
+  "components/faro/screens.tsx:addPocket#1": ["anexa", "el bolsillo nuevo nace como línea fresca (freshLine) en el commit", "upsertLine"],
+  "components/faro/screens.tsx:paintLine#1": ["campo", "paintLine aplica su parche (color/icono) contra la línea viva por id", "patchLine"],
+  "components/faro/screens.tsx:saveRetire#1": ["campo", "la línea de Retiro existente se parchea desde lo vivo (patchLineWith: arranque, cadencia y saldo leen live)", "patchLineWith"],
+  "components/faro/screens.tsx:saveRetire#2": ["anexa", "la línea de Retiro que no existe nace fresca con el arranque del formulario", "upsertLine"],
+  "components/faro/screens.tsx:applyStatement#1": ["campo", "el estado de cuenta se aplica sobre el historial VIVO de la línea de Retiro (patchLineWith)", "patchLineWith"],
+  "components/faro/screens.tsx:applyStatement#2": ["anexa", "sin línea de Retiro, el estado nace como línea fresca con su historial", "upsertLine"],
 };
 
 /* ── OLA 13 · BRAZO C: LAS RUTAS DELEGADAS (G13-2) ────────────────────
@@ -1126,6 +1399,7 @@ const FORMAS_DELEGADAS: Record<string, [Doctrina, string, string]> = {
   "components/faro/bank-settings.tsx:BankSettings#1": ["anexa", "addAccount nace la cuenta nueva sobre el vivo, dentro del commit", "addAccount"],
   "components/faro/bank-settings.tsx:run#5": ["campo", "withBook aplica la función sobre el libro de la cuenta, vivo, dentro del commit", "withBook"],
   "components/faro/bank-settings.tsx:BankSettings#2": ["campo", "withBook aplica la función sobre el libro de la cuenta, vivo, dentro del commit", "withBook"],
+  "components/faro/cards.tsx:commitDraft#1": ["fusiona", "ola 14 (G14-5): el guardado pregunta su existencia DENTRO del commit con cardExistence — la respuesta gobierna si la composición funde, restaura o devuelve el estado intacto; la composición misma es la del brazo B (fuseCardDraft + putCard)", "cardExistence"],
   "components/faro/cards.tsx:run#1": ["campo", "dropCard archiva o quita la tarjeta por id sobre el vivo (su historial decide), dentro del commit", "dropCard"],
   "components/faro/cards.tsx:run#2": ["campo", "dropPresets quita los presets marcados sobre el vivo, dentro del commit", "dropPresets"],
   "components/faro/cards.tsx:restore#1": ["campo", "restorePresets trae de vuelta los presets sobre el vivo, dentro del commit", "restorePresets"],
@@ -1212,6 +1486,49 @@ describe("§B · el censo de formas que guardan: toda ruta de guardado, clasific
       if (doctrina !== "fusiona") continue;
       assert.equal(found.fusion.get(key), true, `${key}: clasificado «fusiona» pero su subárbol no llama a ninguna fusión — la clasificación ya no describe la conducta`);
     }
+  });
+  /* ── OLA 14 (G14-2): el cuerpo entregado al mecanismo fn-sobre-vivo ── */
+  it("los cuerpos entregados a un mecanismo fn-sobre-vivo derivan de su parámetro en todo el árbol vivo", () => {
+    assert.deepEqual(found.fnSites, [], `un llamante entrega una función que no compone desde lo vivo:\n${found.fnSites.join("\n")}`);
+  });
+  it("espécimen V3: el llamante que entrega la foto acusa; el que compone desde lo vivo, limpio", () => {
+    const mk = (caller: string) => scanForms([{
+      rel: "components/faro/inventada14.tsx",
+      text: [
+        "type S = { people: unknown[] };",
+        "const peopleOf = (s: S) => s.people;",
+        "const fotoDelRender: unknown[] = [];",
+        "export function Forma() {",
+        "  const savePeople = (fn: (live: unknown[]) => unknown[], detail: string) => commit((s: S) => ({ ...s, people: fn(peopleOf(s)) }), detail);",
+        `  const save = () => savePeople(${caller}, 'x');`,
+        "  return null;",
+        "}",
+      ].join("\n"),
+    }]);
+    const bad = mk("(live) => fotoDelRender");
+    assert.equal(bad.fnSites.length, 1, "la foto entregada como valor acusa: la firma resuelve el cuerpo, no la llamada");
+    assert.match(bad.fnSites[0]!, /G14-2/);
+    const good = mk("(live) => live.map((x) => x)");
+    assert.deepEqual(good.fnSites, [], "componer desde el parámetro es la forma sana: limpia");
+    const good2 = mk("(live) => [...live, nueva]");
+    assert.deepEqual(good2.fnSites, [], "anexar sobre lo vivo es la forma sana: limpia");
+  });
+  /* ── OLA 14 (G14-3): la doctrina cuelga del AYUDANTE, no del sitio ── */
+  it("cada ayudante delegado tiene UNA sola doctrina en todos sus sitios (G14-3)", () => {
+    const byHelper = new Map<string, Map<string, string[]>>();
+    for (const [key, [doctrina, , helpers]] of Object.entries(FORMAS_DELEGADAS)) {
+      for (const h of helpers.split(",")) {
+        if (!byHelper.has(h)) byHelper.set(h, new Map());
+        const m = byHelper.get(h)!;
+        if (!m.has(doctrina)) m.set(doctrina, []);
+        m.get(doctrina)!.push(key);
+      }
+    }
+    const conflicts: string[] = [];
+    for (const [h, m] of byHelper) {
+      if (m.size > 1) conflicts.push(`${h}: ${[...m.entries()].map(([d, ks]) => `«${d}» en ${ks.join(", ")}`).join(" contra ")}`);
+    }
+    assert.deepEqual(conflicts, [], `la doctrina es del ayudante, no del sitio — una clasificación en conflicto acusa:\n${conflicts.join("\n")}`);
   });
   it("espécimen M-B: la enfermedad DELEGADA a un ayudante se ve, se clasifica como ruta y su firma acusa la foto", () => {
     const virtual = scanForms([{
@@ -1343,6 +1660,15 @@ describe("§D · la prosa enseña la ley .318 y la familia vieja está condenada
   const corpus: { where: string; text: string }[] = [];
   for (const tp of MANUAL_TOPICS) for (const text of pairsOf(tp)) corpus.push({ where: `tema ${tp.id}`, text });
   for (const md of MODULES) for (const sc of md.scenes) for (const text of pairsOf(sc)) corpus.push({ where: `escena ${sc.id}`, text });
+  /* OLA 14 (Enseñanza): los capítulos entran como entradas PROPIAS del
+   * corpus («capítulo <id>», título + intro en los dos idiomas) — la
+   * ola 13 sacó la llave `chapter` de la recogida de temas (la prosa
+   * del capítulo se contaba una vez por tema hermano) y su comentario
+   * prometió que la §B la juzga «en su propia línea», pero la §B juzga
+   * VERBOS gobernados, no frases de ley: la frase vieja inyectada SOLO
+   * en la intro de un capítulo corría verde 94/94. La familia de frases
+   * condenadas ahora camina también los capítulos, con su nombre. */
+  for (const ch of MANUAL_CHAPTERS) for (const text of pairsOf({ title: ch.title, intro: ch.intro })) corpus.push({ where: `capítulo ${ch.id}`, text });
 
   const CONDENADAS: [string, RegExp][] = [
     ["subir no pide/pregunta", /\bsubir\b[^.!?]*\bno\s+(pide|pregunta)/i],
@@ -1388,6 +1714,15 @@ describe("§D · la prosa enseña la ley .318 y la familia vieja está condenada
     const viejaEn = "Moving up never asks: it uncovers the new mode at once.";
     const hitsEn = CONDENADAS.filter(([, re]) => re.test(viejaEn)).map(([n]) => n);
     assert.ok(hitsEn.length >= 2, `la frase vieja EN debe caer en la familia: ${hitsEn.join(", ")}`);
+  });
+  it("espécimen ola 14: la frase vieja SOLO en la intro de un capítulo corre roja (la §D camina los capítulos)", () => {
+    const staged = { title: ["Capítulo de prueba", "Test chapter"], intro: ["Subir no pide nada: aplica y te avisa qué se destapó.", "Moving up never asks: it uncovers the new mode at once."] };
+    const texts = pairsOf(staged);
+    assert.equal(texts.length, 4, "la recogida ve título e intro del capítulo en los dos idiomas");
+    const hits = texts.flatMap((text) => CONDENADAS.filter(([, re]) => re.test(text)).map(([n]) => n));
+    assert.ok(hits.length >= 2, `la intro escenificada acusa en la familia de frases: ${hits.join(", ")}`);
+    // y el corpus vivo lleva los capítulos con su nombre propio
+    assert.ok(corpus.some((c) => c.where.startsWith("capítulo ")), "el corpus nombra a los capítulos como entradas propias");
   });
 });
 

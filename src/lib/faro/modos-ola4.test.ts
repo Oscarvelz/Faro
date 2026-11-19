@@ -250,8 +250,21 @@ describe("ola4 · la confirmación del re-planteado compara premisas (C4-1)", ()
     // centrado, que solo nombra el destino — announceUp ya no recibe el
     // origen, así que ninguna premisa, viva o congelada, puede colarse en
     // el anuncio; la aplicación sigue naciendo del modo vivo re-leído.
-    assert.ok(block.includes("announceUp(target)"), "la subida se anuncia nombrando solo el destino, tras re-leer el modo vivo");
-    assert.ok(!block.includes("announceUp(live, target)") && !block.includes("announceUp(from, target)"),
+    // ENMIENDA OLA 14 (BR14-1): la aplicación ya no nace de la clausura
+    // re-leída — nace DENTRO del actualizador del commit
+    // (applyModeConfirmed), que es la única lectura que compone tras una
+    // adopción encolada en la misma tarea; y el anuncio ya no cuelga del
+    // handler: lo pone el efecto del veredicto, solo cuando la receta
+    // aplicó de verdad, nombrando solo el destino. La doctrina del pin
+    // no cambia — se endurece: ningún origen viaja en el anuncio y
+    // ninguna subida se anuncia sin haberse aplicado.
+    assert.ok(block.includes("applyModeConfirmed("), "la aplicación pasa por la confirmación que decide dentro del commit");
+    assert.ok(!block.includes("applyMode(target)"), "ninguna aplicación ciega desde la clausura del render");
+    assert.ok(!block.includes("announceUp("), "el anuncio ya no cuelga del handler: vive en el efecto del veredicto");
+    const screensAll = screens;
+    assert.ok(screensAll.includes('if (ctx.sign === "up") announceUp(ctx.target); else announceDown(ctx.target);'),
+      "el efecto del veredicto anuncia solo lo aplicado, nombrando solo el destino");
+    assert.ok(!screensAll.includes("announceUp(live, target)") && !screensAll.includes("announceUp(from, target)"),
       "ningún origen — vivo o congelado — viaja ya dentro del anuncio");
   });
 });

@@ -88,6 +88,16 @@ export type WidgetSnapshot = {
    *  BR3-3, null outside Completo: in the photo its only consuming face is the pace tower), Pagos and its signal. */
   have: number;
   spend: number;
+  /** Ola 14 (Asesor A3): el GASTO verdadero del mes (Σ isSpendLine) — la
+   *  cifra con la que la cáscara decide y habla de ritmo: `spend` es la
+   *  suma ancha (gasto + apartado) que la sección de Ahorros de la foto
+   *  nombra con su lente, y NO se redefine; pero un aviso que dice «ya
+   *  gastaste» juzga con `spent`, y cuando lo que cruza el ingreso es el
+   *  apartado, el aviso lo nombra como apartado (espejo de BR12-3).
+   *  spend − spent == savingsFlow, siempre. Viaja en los tres modos,
+   *  como el trío de Central; una foto vieja no lo trae y la cáscara cae
+   *  a `spend` (la conducta de hoy) solo para esa foto. */
+  spent: number;
   left: number;
   usedPct: number | null;
   /** Etapa 4 (tres modos, X-29): «Puedes gastar hoy» — la cifra de E-1 como
@@ -330,6 +340,7 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     lock: opts.lock,
     have: s.income,
     spend: s.expense,
+    spent: s.spend,
     left: s.opportunity,
     // Ola 3 (BR3-3, SOS2-1 condenado): usedPct es spentPct, la cifra semilla
     // de la proyección que la ola 2 expulsó de la torre en palabras — en la

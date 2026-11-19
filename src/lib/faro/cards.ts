@@ -252,6 +252,30 @@ export function restoreCard(state: LedgerState, id: string): LedgerState {
   return { ...state, cards: cards.map(normalizeCard), ...(cardsOff ? { cardsOff } : {}) };
 }
 
+/** Ola 14 (Guardián G14-5): la existencia de una tarjeta en TRES estados,
+ * con UNA sola pregunta para quien la pregunte — la forma al guardar y su
+ * commit al componer leen la misma respuesta del mismo libro. Antes cada
+ * puerta preguntaba a un testigo distinto: save() al prop del render
+ * (que solo sabe que la tarjeta salió de la cara) y proceed() al estado
+ * del commit (storedCards primero) — y disentían justo en el caso que
+ * importa: el preset con historial que «Empezar de cero» ARCHIVA (no
+ * destruye: su texto promete «Restaurar la trae de vuelta») salía de
+ * cardsOf, la forma anunciaba «esta tarjeta ya no existe… sin su
+ * historial» — mentira — y «guardar como nueva» forjaba una duplicada
+ * destinada a convivir con la original restaurada, sin una palabra.
+ * - "alive": guardada y visible, o el preset virtual de cardsOf.
+ * - "archived": guardada con `archived` — vive en el Archivo, con su
+ *   historial; componer sobre ella en silencio la desarchivaría de
+ *   facto, así que el commit tampoco funde: la palabra es de la persona.
+ * - "gone": no hay registro en ninguna casa — el fantasma verdadero. */
+export type CardExistence = "alive" | "archived" | "gone";
+export function cardExistence(state: LedgerState | null | undefined, id: string | undefined): CardExistence {
+  if (!id) return "gone";
+  const stored = storedCards(state).find((c) => c.id === id);
+  if (stored) return stored.archived ? "archived" : "alive";
+  return cardsOf(state).some((c) => c.id === id) ? "alive" : "gone";
+}
+
 /** "Empezar de cero": every preset off in one step (their history archived, restorable). User cards stay. */
 export function dropPresets(state: LedgerState, today = todayIso()): LedgerState {
   return cardsOf(state).filter((c) => c.preset).reduce((s, c) => dropCard(s, c.id, today), state);

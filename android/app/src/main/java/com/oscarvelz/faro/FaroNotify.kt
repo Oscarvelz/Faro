@@ -92,22 +92,34 @@ object FaroNotify {
         val elapsed = now.get(Calendar.DAY_OF_MONTH)
         if (elapsed < 5) return
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val bad = s.spend >= s.have
+        // Ola 14 (Asesor A3): el hecho «ya gastaste» se juzga con el GASTO
+        // verdadero (spent = Σ isSpendLine de la página), no con la suma
+        // ancha: apartar mucho cruzaba el ingreso en la foto y el aviso
+        // afirmaba «Ya gastaste C$30,300» con el gasto real en 41%. Cuando
+        // lo que cruza es el apartado (la ancha pasa, el gasto no), el aviso
+        // sigue sonando — como hoy — pero nombra el apartado como lo que
+        // es: guardar, no gastar (espejo de la cura de BR12-3 en la app).
+        val bad = s.spent >= s.have
+        val wideCross = s.spend >= s.have
         val pace = s.pace
         if (pace == null) {
             // Respaldo exacto (degradación): una foto sin el bloque del patrón — una
             // página anterior a 1.3.248 — se juzga con la recta de siempre, palabra
             // por palabra, con su misma cadencia semanal y su mismo día de arranque.
+            // Ola 14: la recta también proyecta desde el gasto verdadero.
             val dim = now.getActualMaximum(Calendar.DAY_OF_MONTH)
-            val projected = s.spend * dim / elapsed
-            if (!bad && projected <= s.have) return
+            val projected = s.spent * dim / elapsed
+            if (!bad && !wideCross && projected <= s.have) return
             if (System.currentTimeMillis() - prefs.getLong("paceAt", 0L) < WEEK_MS) return
             val body = when {
-                bad && !s.hide -> L(s, "Ya gastaste ${Fmt.money(s.spend, s.cur)} de tu ingreso de ${Fmt.money(s.have, s.cur)} este mes.",
-                                       "You have already spent ${Fmt.money(s.spend, s.cur)} of this month's income of ${Fmt.money(s.have, s.cur)}.")
+                bad && !s.hide -> L(s, "Ya gastaste ${Fmt.money(s.spent, s.cur)} de tu ingreso de ${Fmt.money(s.have, s.cur)} este mes.",
+                                       "You have already spent ${Fmt.money(s.spent, s.cur)} of this month's income of ${Fmt.money(s.have, s.cur)}.")
                 bad -> L(s, "Ya pasaste tu ingreso de este mes.", "You have already passed this month's income.")
-                !s.hide -> L(s, "Vas en ${Fmt.money(s.spend, s.cur)} (${s.usedPct ?: 0}%) y el mes va en ${elapsed * 100 / dim}%. A este ritmo cerrarías en ${Fmt.money(projected, s.cur)}, sobre tu ingreso de ${Fmt.money(s.have, s.cur)}.",
-                             "You are at ${Fmt.money(s.spend, s.cur)} (${s.usedPct ?: 0}%) with the month ${elapsed * 100 / dim}% through. At this pace you would close at ${Fmt.money(projected, s.cur)}, over your income of ${Fmt.money(s.have, s.cur)}.")
+                wideCross && !s.hide -> L(s, "Este mes apartaste ${Fmt.money(s.savedOut, s.cur)}: con eso, lo que salió (${Fmt.money(s.spend, s.cur)}) pasa tu ingreso de ${Fmt.money(s.have, s.cur)}, pero tu gasto va en ${Fmt.money(s.spent, s.cur)}. Eso es guardar, no gastar.",
+                                       "This month you set aside ${Fmt.money(s.savedOut, s.cur)}: with it, what went out (${Fmt.money(s.spend, s.cur)}) passes your income of ${Fmt.money(s.have, s.cur)}, but your spending stands at ${Fmt.money(s.spent, s.cur)}. That is saving, not spending.")
+                wideCross -> L(s, "Lo que salió este mes pasa tu ingreso, pero lo que cruza es apartado, no gasto.", "What went out this month passes your income, but what crosses is set aside, not spent.")
+                !s.hide -> L(s, "Vas en ${Fmt.money(s.spent, s.cur)} (${s.usedPct ?: 0}%) y el mes va en ${elapsed * 100 / dim}%. A este ritmo cerrarías en ${Fmt.money(projected, s.cur)}, sobre tu ingreso de ${Fmt.money(s.have, s.cur)}.",
+                             "You are at ${Fmt.money(s.spent, s.cur)} (${s.usedPct ?: 0}%) with the month ${elapsed * 100 / dim}% through. At this pace you would close at ${Fmt.money(projected, s.cur)}, over your income of ${Fmt.money(s.have, s.cur)}.")
                 else -> L(s, "Tu ritmo de gasto proyecta pasar tu ingreso este mes.", "Your spending pace is on track to pass this month's income.")
             }
             post(ctx, ID_PACE, L(s, "Faro · Ritmo de gasto", "Faro · Spending pace"), body, "desk")
@@ -117,17 +129,21 @@ object FaroNotify {
         // Con el bloque (1.3.248) manda el patrón, nunca la recta. Listo: solo suena
         // si el veredicto es «over» contra su propio patrón, o si el gasto ya pasó el
         // ingreso (un hecho, con su cuerpo llano y sin cifra proyectada). Aprendiendo:
-        // silencio de ritmo — solo ese mismo hecho puede hablar.
+        // silencio de ritmo — solo ese mismo hecho puede hablar. Ola 14: el hecho es
+        // el gasto verdadero; el cruce de la suma ancha habla nombrando el apartado.
         if (pace.status == "ready") {
-            if (!bad && pace.verdict != "over") return
+            if (!bad && !wideCross && pace.verdict != "over") return
         } else {
-            if (!bad) return
+            if (!bad && !wideCross) return
         }
         if (System.currentTimeMillis() - prefs.getLong("paceAt", 0L) < WEEK_MS) return
         val body = when {
-            bad && !s.hide -> L(s, "Ya gastaste ${Fmt.money(s.spend, s.cur)} de tu ingreso de ${Fmt.money(s.have, s.cur)} este mes.",
-                                   "You have already spent ${Fmt.money(s.spend, s.cur)} of this month's income of ${Fmt.money(s.have, s.cur)}.")
+            bad && !s.hide -> L(s, "Ya gastaste ${Fmt.money(s.spent, s.cur)} de tu ingreso de ${Fmt.money(s.have, s.cur)} este mes.",
+                                   "You have already spent ${Fmt.money(s.spent, s.cur)} of this month's income of ${Fmt.money(s.have, s.cur)}.")
             bad -> L(s, "Ya pasaste tu ingreso de este mes.", "You have already passed this month's income.")
+            wideCross && !s.hide -> L(s, "Este mes apartaste ${Fmt.money(s.savedOut, s.cur)}: con eso, lo que salió (${Fmt.money(s.spend, s.cur)}) pasa tu ingreso de ${Fmt.money(s.have, s.cur)}, pero tu gasto va en ${Fmt.money(s.spent, s.cur)}. Eso es guardar, no gastar.",
+                                       "This month you set aside ${Fmt.money(s.savedOut, s.cur)}: with it, what went out (${Fmt.money(s.spend, s.cur)}) passes your income of ${Fmt.money(s.have, s.cur)}, but your spending stands at ${Fmt.money(s.spent, s.cur)}. That is saving, not spending.")
+            wideCross -> L(s, "Lo que salió este mes pasa tu ingreso, pero lo que cruza es apartado, no gasto.", "What went out this month passes your income, but what crosses is set aside, not spent.")
             !s.hide -> {
                 val close = if (pace.projected > pace.income)
                     L(s, " A este ritmo cerrarías en ${Fmt.money(pace.projected, s.cur)}, sobre tu ingreso de ${Fmt.money(pace.income, s.cur)}.",

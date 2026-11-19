@@ -419,7 +419,12 @@ export function studyBoard(state: LedgerState, key: string, lang: Lang, names: N
   const goalLeft = Math.max(0, s.savingsGoal - s.savingsFlow);
   const fixedReal = s.fixed - savingsFixed;
   const fixedOnly = s.income - fixedReal - s.subscriptions;
-  const room = fixedOnly - goalLeft;
+  // Ola 14 (Asesor A2): el cuarto debita el flujo del apartado — la meta
+  // acredita el apartado como progreso (goalLeft) pero el dinero apartado
+  // ya salió del día a día: sin el débito, el plan lo contaba dos veces
+  // (progreso de la meta Y cuarto disponible) y el sobre nacía inflado
+  // exactamente en savingsFlow.
+  const room = fixedOnly - goalLeft - s.savingsFlow;
   // Ola 13 (BR13-A2): el «actual» del sobre es gasto por el predicado único —
   // con la suma de clases, el apartado variable entraba DOS veces en la
   // lógica del sobre (ya encogía el plan vía savingsFlow/goalLeft y volvía
@@ -889,7 +894,12 @@ export function buildBudget(state: LedgerState, key: string, lang: Lang, names: 
   const goalLeft = Math.max(0, s.savingsGoal - s.savingsFlow);
   const fixedReal = s.fixed - savingsFixed;
   const fixedOnly = s.income - fixedReal - s.subscriptions;
-  const room = fixedOnly - goalLeft;
+  // Ola 14 (Asesor A2): el cuarto debita el flujo del apartado, como en
+  // studyBoard — la nota del plan imprime lo que de verdad sobra: sobre el
+  // Libro Mentira (apartado 15,000 ya acreditado a la meta) decía «Sobran
+  // C$17,700» cuando quedaban C$2,700; la sobreestimación era savingsFlow
+  // al centavo.
+  const room = fixedOnly - goalLeft - s.savingsFlow;
   // Ola 13 (BR13-A2, la misma expresión en su tercera casa): el hueco y los
   // recortes se leen por el predicado único — con la suma de clases, el
   // apartado variable contaba como gasto del día a día y su categoría podía

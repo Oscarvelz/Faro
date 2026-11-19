@@ -24,7 +24,7 @@ import { convertMinor, parseAmount, uid } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
 import {
   ART_STYLES, CARD_PRESETS, addReading, addRewards, artOf, cardFigures, cardMonthlyInterest, cardPays, cardTotals, cardsOf, dropCard, dropPresets,
-  fuseCardDraft, issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardUpdate,
+  cardExistence, fuseCardDraft, issuerIn, issuerOf, networkIn, payCard, presetsOff, promoMonths, putCard, redeemRewards, restorePresets, rewardsOf, rewardsTotals, storedCards, toThirty, utilLevel, type CardUpdate,
 } from "@/lib/faro/cards";
 import { matchCard, parseCardShot, readLimit, type CardField, type CardRead } from "@/lib/faro/cardparse";
 import { clearFlow, parkFlow, peekFlow, settleFlowParks, tornParkedKey } from "@/lib/faro/flow-park";
@@ -555,7 +555,11 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
   // Ola 11 (C11-1): la tarjeta se borró con la forma abierta — al guardar,
   // la forma anuncia la verdad y pide palabra (guardar como nueva o
   // descartar); jamás inserta en silencio sobre el fantasma.
-  const [ghost, setGhost] = useState(false);
+  // Ola 14 (G14-5): el anuncio distingue los estados que el libro conoce
+  // (cardExistence): "gone" es el fantasma verdadero de la 11; "archived"
+  // es el preset con historial que «Empezar de cero» archivó — vive en el
+  // Archivo y el anuncio lo dice, con sus salidas verdaderas.
+  const [ghost, setGhost] = useState<"gone" | "archived" | null>(null);
   const [scan, setScan] = useState<File[] | null>(null);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const upd = mode === "update";
@@ -572,8 +576,17 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
    * ya no existe al cometer, el guardado de edición NO compone un alta:
    * devuelve el estado intacto (la forma ya anunció el fantasma y pidió
    * palabra; guardar como nueva es proceed(true), una elección explícita
-   * con id fresco y sin historial). */
-  const proceed = (freshId: boolean) => {
+   * con id fresco y sin historial).
+   * Ola 14 (G14-5): la existencia se pregunta UNA vez y con la misma
+   * pregunta en save() y aquí — cardExistence sobre el estado del commit:
+   * "archived" tampoco funde (componer sobre el registro archivado lo
+   * resucitaría en silencio con la edición encima); la salida de
+   * restaurarla es explícita y viaja por commitDraft(false, true): UN
+   * commit que desarchiva el registro vivo en línea (la misma
+   * transformación que restoreCard: archived/archivedOn fuera y, si es
+   * preset, su llave sale de cardsOff vía putCard) y funde el borrador
+   * sobre él — ninguna ruta nueva de censo, la composición de siempre. */
+  const commitDraft = (freshId: boolean, unarchive: boolean) => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
     const rwm = amount(d.rw);
@@ -583,6 +596,9 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     const lim = amount(d.limit);
     const due = Number(d.dueDay);
     commit((s) => {
+      const existence = !isAdd && !freshId ? cardExistence(s, bornId) : "alive";
+      if (existence === "gone") return s;
+      if (existence === "archived" && !unarchive) return s;
       const storedCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
       // Ola 12 (S1): la existencia se pregunta TAMBIÉN en cardsOf, donde
       // el preset jamás guardado VIVE: su primera edición se compone
@@ -591,7 +607,9 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
       // cada preset como un fantasma: la forma se cerraba sin una palabra
       // y la edición entera desaparecía. El fantasma verdadero — ni
       // guardada ni en cardsOf — sigue devolviendo el estado intacto.
-      const liveCard = storedCard ?? (!isAdd && !freshId ? cardsOf(s).find((c) => c.id === bornId) : undefined);
+      const liveCard = existence === "archived" && storedCard
+        ? { ...storedCard, archived: undefined, archivedOn: undefined }
+        : storedCard ?? (!isAdd && !freshId ? cardsOf(s).find((c) => c.id === bornId) : undefined);
       if (!isAdd && !freshId && !liveCard) return s;
       const candidate = {
         ...(liveCard ?? { id: uid(), currency: "USD" as Currency, snaps: [] }),
@@ -607,6 +625,8 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     }, name);
     close();
   };
+  const proceed = (freshId: boolean) => commitDraft(freshId, false);
+  const proceedRestore = () => { setGhost(null); commitDraft(false, true); };
   const save = () => {
     const amount = (s: string) => (s.trim() ? parseAmount(s) : null);
     const bal = amount(d.balance);
@@ -621,10 +641,21 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     }
     if (!d.name.trim()) return;
     // C11-1: en edición sin registro vivo, Guardar no guarda: anuncia.
-    if (!isAdd && !card) { setGhost(true); return; }
+    // Ola 14 (G14-5): el anuncio pregunta al LIBRO con la misma pregunta
+    // del commit (cardExistence), no al prop del render: el prop solo
+    // sabe que la tarjeta salió de la cara — el libro distingue si vive
+    // archivada con su historial o si ya no existe, y cada estado tiene
+    // su anuncio y sus salidas. Si el libro dice que vive (el prop llegó
+    // viejo), se guarda por la ruta de siempre y el commit re-verifica.
+    if (!isAdd && !card) {
+      const ex = cardExistence(session?.ledger, bornId);
+      if (ex === "alive") { proceed(false); return; }
+      setGhost(ex);
+      return;
+    }
     proceed(false);
   };
-  const saveAsNew = () => { setGhost(false); proceed(true); };
+  const saveAsNew = () => { setGhost(null); proceed(true); };
   const title = upd ? L("Actualizar a mano", "Update by hand") : isAdd ? L("Añadir tarjeta", "Add card") : L("Editar tarjeta", "Edit card");
   const money4 = (label: string, k: "balance" | "avail" | "min" | "limit", anchor?: string, tip?: string) => (
     <label className="label"><span className="lab-head">{label}{tip ? <FieldTip topic={tip} /> : null}</span><input className="field num" inputMode="decimal" placeholder="0.00" value={d[k]} data-anchor={anchor} onChange={(e) => set({ [k]: e.target.value } as Partial<Draft>)} /></label>
@@ -635,12 +666,27 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
       <div className="form-block cobro-form is-owe card-form">
         {/* Ola 11 (C11-1): el anuncio del fantasma — la tarjeta se borró
             con la forma abierta; lo tecleado sigue aquí y la palabra es
-            de la persona: guardar como nueva (explícito) o descartar. */}
-        {ghost ? (
+            de la persona: guardar como nueva (explícito) o descartar.
+            Ola 14 (G14-5): el anuncio dice la verdad del estado que el
+            libro conoce — archivada con historial no es «ya no existe»:
+            vive en el Archivo, restaurarla y guardar es una sola salida,
+            y guardar como nueva dice que la archivada se queda (habrá
+            dos), nunca una convivencia en silencio. */}
+        {ghost === "gone" ? (
           <div className="cf-ghost" role="alert">
             <p>{L("Esta tarjeta ya no existe: se borró mientras la editabas. Lo que tecleaste sigue aquí, pero guardarlo crearía una tarjeta nueva, sin su historial.", "This card no longer exists: it was deleted while you were editing it. What you typed is still here, but saving it would create a new card, without its history.")}</p>
             <div className="cf-ghost-actions">
               <button type="button" className="btn" data-anchor="card-form-save-new" onClick={saveAsNew}>{L("Guardar como tarjeta nueva", "Save as a new card")}</button>
+              <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
+            </div>
+          </div>
+        ) : null}
+        {ghost === "archived" ? (
+          <div className="cf-ghost" role="alert">
+            <p>{L("Esta tarjeta se archivó mientras la editabas: vive en el Archivo, con todo su historial. Lo que tecleaste sigue aquí. Si la guardas como tarjeta nueva, la archivada se queda en el Archivo: tendrás las dos.", "This card was archived while you were editing it: it lives in the Archive, with all its history. What you typed is still here. If you save it as a new card, the archived one stays in the Archive: you will have both.")}</p>
+            <div className="cf-ghost-actions">
+              <button type="button" className="btn" data-anchor="card-form-restore-save" onClick={proceedRestore}>{L("Restaurarla y guardar", "Restore it and save")}</button>
+              <button type="button" className="btn secondary" data-anchor="card-form-save-new" onClick={saveAsNew}>{L("Guardar como tarjeta nueva", "Save as a new card")}</button>
               <button type="button" className="btn secondary" onClick={close}>{L("Descartar", "Discard")}</button>
             </div>
           </div>

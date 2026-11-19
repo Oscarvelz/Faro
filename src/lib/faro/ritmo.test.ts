@@ -150,7 +150,15 @@ describe("el shell — la costura de la notificación", () => {
     // 'your' jamás en mayúsculas en la prosa del patrón (corrección de Oscar, 2026-11-12).
     assert.ok(!notify.includes("YOUR"), "sin «YOUR» en mayúsculas");
     // Respaldo por degradación: sin bloque, la recta original sigue escrita tal cual.
-    assert.match(notify, /s\.spend \* dim \/ elapsed/);
+    // ENMIENDA OLA 14 (A3): la recta proyecta desde el gasto verdadero
+    // (s.spent), la cifra con la que checkPace decide y habla — y la
+    // degradación queda intacta porque el parseo de una foto SIN el
+    // campo spent cae a spend (FaroWidgets): en toda foto anterior a la
+    // cura, spent == spend y la recta calcula los números de siempre,
+    // palabra por palabra.
+    assert.match(notify, /s\.spent \* dim \/ elapsed/);
+    assert.match(widgets, /if \(o\.has\("spent"\)\) o\.optLong\("spent"\) else o\.optLong\("spend"\)/,
+      "la foto vieja sin spent se lee con spent = spend: la recta del respaldo no cambia un número");
     assert.ok(notify.includes("A este ritmo cerrarías en"), "la frase de la recta sobrevive como respaldo");
   });
 

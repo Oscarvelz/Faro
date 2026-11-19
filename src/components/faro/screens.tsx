@@ -51,7 +51,7 @@ import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
 import { accounts } from "@/lib/faro/bankbook";
 import { insPaid, insTiming, insTotals, monthsSince, syncInsLine } from "@/lib/faro/insurance";
-import { deleteLine, upsertLine } from "@/lib/faro/reducer";
+import { deleteLine, patchLine, patchLineWith, upsertLine } from "@/lib/faro/reducer";
 import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } from "@/lib/faro/retiro";
 import type { CatalogItem, Category, Currency, InsPlan, LedgerState, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@/lib/faro/types";
@@ -302,8 +302,8 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
         <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={picked ? swatch : undefined} dock look={{
           glyph,
           color: swatch,
-          onGlyph: (name) => { setGlyph(name); commit((s) => upsertLine(s, { ...line, icon: name }), line.concept || "icon"); },
-          onColor: (next) => { setSwatch(next); setPicked(true); commit((s) => upsertLine(s, { ...line, color: next }), line.concept || "color"); },
+          onGlyph: (name) => { setGlyph(name); commit((s) => patchLine(s, line.id, { icon: name }), line.concept || "icon"); },
+          onColor: (next) => { setSwatch(next); setPicked(true); commit((s) => patchLine(s, line.id, { color: next }), line.concept || "color"); },
         }} onClose={() => setUi({ editing: null })} />
       </div>
     </div>
@@ -780,10 +780,9 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
     const minor = parseAmount(used);
     if (minor === null) return;
     const date = /^\d{4}-\d{2}-\d{2}$/.test(when) ? when : dates[dates.length - 1] ?? "";
-    commit((s) => upsertLine(s, {
-      ...line,
-      history: [...line.history, { id: uid(), date, amountMinor: minor, currency: display, note: "" }],
-    }), line.concept);
+    commit((s) => patchLineWith(s, line.id, (live) => ({
+      history: [...live.history, { id: uid(), date, amountMinor: minor, currency: display, note: "" }],
+    })), line.concept);
     setUsed("");
   }
 
@@ -932,7 +931,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   const applyMove = () => {
     if (!movableSel.length) return;
     const targets = movableSel;
-    commit((s0) => targets.reduce((acc, l) => upsertLine(acc, { ...l, categoryId: moveCat, subId: group ? moveSub : "" }), s0), `${targets.length}`);
+    commit((s0) => targets.reduce((acc, l) => patchLine(acc, l.id, { categoryId: moveCat, subId: group ? moveSub : "" }), s0), `${targets.length}`);
     setMoveOpen(false);
     selection.exit();
   };
@@ -982,9 +981,9 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
             body={lang === "en" ? "They leave this month. Earlier months keep theirs, with all their history." : "Salen de este mes. Los meses anteriores conservan las suyas, con todo su historial."}
             onEdit={(id) => setUi({ editing: id, draft: null })}
             onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`)}
-            onRename={(id, name) => { const l = kitLine(id); if (l) commit((s0) => upsertLine(s0, { ...l, concept: name }), name); }}
-            onColor={(id, hex) => { const l = kitLine(id); if (l) commit((s0) => upsertLine(s0, { ...l, color: hex }), l.concept || "color"); }}
-            onIcon={(id, glyph) => { const l = kitLine(id); if (l) commit((s0) => upsertLine(s0, { ...l, icon: glyph }), l.concept || "icon"); }} />
+            onRename={(id, name) => { const l = kitLine(id); if (l) commit((s0) => patchLine(s0, id, { concept: name }), name); }}
+            onColor={(id, hex) => { const l = kitLine(id); if (l) commit((s0) => patchLine(s0, id, { color: hex }), l.concept || "color"); }}
+            onIcon={(id, glyph) => { const l = kitLine(id); if (l) commit((s0) => patchLine(s0, id, { icon: glyph }), l.concept || "icon"); }} />
           <button type="button" data-anchor="book-add" className="plus-mark" aria-label={t("add")} aria-pressed={ui.draft === draftKind} onClick={() => setUi({ draft: ui.draft === draftKind ? null : draftKind, editing: null })}>
             <svg viewBox="0 0 32 32" aria-hidden>
               <defs>
@@ -1192,7 +1191,7 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
   const applyMove = () => {
     if (!movableSel.length) return;
     const targets = movableSel;
-    commit((s0) => targets.reduce((acc, l) => upsertLine(acc, { ...l, categoryId: moveCat, subId: "" }), s0), `${targets.length}`);
+    commit((s0) => targets.reduce((acc, l) => patchLine(acc, l.id, { categoryId: moveCat, subId: "" }), s0), `${targets.length}`);
     setMoveOpen(false);
     selection.exit();
   };
@@ -1389,7 +1388,7 @@ function DueOwe() {
       }
     }
     saveFile([{ id: uid(), seriesId: line.seriesId || line.id, name: line.concept, maxMinor, currency: line.currency, archivedOn: todayIso(), pays }, ...filed]);
-    commit((s) => upsertLine(s, { ...line, active: false }), line.concept);
+    commit((s) => patchLine(s, line.id, { active: false }), line.concept);
   }
   return (
     <div className="cobro-swap" data-anchor="cobros-out">
@@ -2530,7 +2529,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       body={lang === "en" ? "Lines with money or history go to the archive, with all of it saved. Empty ones are removed." : "Las que tienen dinero o historial pasan al archivo, con todo guardado. Las vacías se quitan."}
       onEdit={(id) => setUi({ editing: id, draft: null })}
       onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => dropPocketLine(acc, key, id).state, s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || title) : `${ids.length}`)}
-      onRename={(id, name) => { const l = rows.find((x) => x.id === id); if (l) commit((s0) => upsertLine(s0, { ...l, concept: name }), name); }}
+      onRename={(id, name) => { const l = rows.find((x) => x.id === id); if (l) commit((s0) => patchLine(s0, id, { concept: name }), name); }}
       onColor={(id, hex) => { const l = rows.find((x) => x.id === id); if (l) paintLine(l, { color: hex }); }}
       onIcon={(id, glyph) => { const l = rows.find((x) => x.id === id); if (l) paintLine(l, { icon: glyph }); }}
       onRestore={restore} />
@@ -2613,7 +2612,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // habitación, también para las líneas que la cadena vieja ya envenenó.
     if (kind === "subscription" && (line.loanId || line.lentId || line.cardId)) return;
     if (kind === "subscription" && !has("subs.cuota")) return;
-    commit((s) => upsertLine(s, { ...line, kind }), line.concept || kind);
+    commit((s) => patchLine(s, line.id, { kind }), line.concept || kind);
   }
 
   function deskWork(line: Line) {
@@ -2642,7 +2641,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
 
   function relocate(line: (typeof lines)[number], dest: string) {
     const categoryId = dest === "rest" ? line.categoryId : (subCat.get(dest) ?? line.categoryId);
-    commit((s) => upsertLine(s, { ...line, categoryId, subId: dest === "rest" ? "" : dest }), line.concept || names.sub(dest));
+    commit((s) => patchLine(s, line.id, { categoryId, subId: dest === "rest" ? "" : dest }), line.concept || names.sub(dest));
     setMoving(null);
   }
 
@@ -2752,7 +2751,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       title: t("edit"),
       body: `${label} → ${next}`,
       yes: t("yes"),
-      run: () => commit((s) => upsertLine(s, { ...line, concept: next }), next),
+      run: () => commit((s) => patchLine(s, line.id, { concept: next }), next),
     });
   }
 
@@ -2765,10 +2764,15 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const wasEmpty = (stock.series.get(row.id)?.minor ?? 0) <= 0;
     const today = todayIso();
     const existing = lines.find((line) => line.subId === row.id);
-    const line = existing
-      ? { ...existing, concept: row.name, amountMinor: minor, balanceMinor: minor, currency: rate.display, balanceCurrency: rate.display, startedOn: existing.startedOn || today }
-      : freshLine(row.name, minor, row.id, row.categoryId, { balanceMinor: minor, icon: "vault", seriesId: row.id, startedOn: today });
-    commit((s) => upsertLine(s, line), row.name);
+    // Ola 14 (G14-6): la cuenta existente se parchea contra lo VIVO dentro
+    // del commit — el saldo y el startedOn se leen de la línea que el
+    // estado trae, no de la foto del render; la cuenta nueva nace fresca.
+    if (existing) {
+      commit((s) => patchLineWith(s, existing.id, (live) => ({ concept: row.name, amountMinor: minor, balanceMinor: minor, currency: rate.display, balanceCurrency: rate.display, startedOn: live.startedOn || today })), row.name);
+    } else {
+      const line = freshLine(row.name, minor, row.id, row.categoryId, { balanceMinor: minor, icon: "vault", seriesId: row.id, startedOn: today });
+      commit((s) => upsertLine(s, line), row.name);
+    }
     setAccountAmt("");
     setAccountSign(null);
     setAccountFocus(null);
@@ -2779,24 +2783,31 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const delta = parseAmount(accountAmt);
     if (delta === null) return;
     const existing = lines.find((line) => line.subId === row.id);
-    const base = existing
-      ? convertMinor(existing.balanceMinor ?? existing.amountMinor, existing.balanceMinor != null ? existing.balanceCurrency : existing.currency, rate.display, rate.rateE4)
-      : 0;
-    const next = Math.max(0, base + sign * Math.abs(delta));
     const today = todayIso();
-    const line = existing
-      ? {
-          ...existing,
+    // Ola 14 (G14-6): el ajuste se calcula DESDE la línea viva dentro del
+    // commit — la base, el siguiente saldo y el historial anexado leen el
+    // estado que el commit trae; antes nacían de la foto del render y su
+    // upsertLine la escribía entera.
+    if (existing) {
+      commit((s) => patchLineWith(s, existing.id, (live) => {
+        const base = convertMinor(live.balanceMinor ?? live.amountMinor, live.balanceMinor != null ? live.balanceCurrency : live.currency, rate.display, rate.rateE4);
+        const next = Math.max(0, base + sign * Math.abs(delta));
+        return {
           concept: row.name,
           amountMinor: next,
           balanceMinor: next,
           currency: rate.display,
           balanceCurrency: rate.display,
-          startedOn: existing.startedOn || today,
-          history: [...existing.history, { id: uid(), date: today, amountMinor: sign * Math.abs(delta), currency: rate.display, note: sign > 0 ? "deposito" : "retiro" }],
-        }
-      : freshLine(row.name, next, row.id, row.categoryId, { balanceMinor: next, icon: "vault", seriesId: row.id, startedOn: today });
-    commit((s) => upsertLine(s, line), row.name);
+          startedOn: live.startedOn || today,
+          history: [...live.history, { id: uid(), date: today, amountMinor: sign * Math.abs(delta), currency: rate.display, note: sign > 0 ? "deposito" : "retiro" }],
+        };
+      }), row.name);
+    } else {
+      const base = 0;
+      const next = Math.max(0, base + sign * Math.abs(delta));
+      const line = freshLine(row.name, next, row.id, row.categoryId, { balanceMinor: next, icon: "vault", seriesId: row.id, startedOn: today });
+      commit((s) => upsertLine(s, line), row.name);
+    }
     setAccountAmt("");
     setAccountFocus(null);
   }
@@ -2893,7 +2904,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }
 
   function paintLine(line: Line, patch: Partial<Line>) {
-    commit((s) => upsertLine(s, { ...line, ...patch }), line.concept || "look");
+    commit((s) => patchLine(s, line.id, patch), line.concept || "look");
   }
 
   function paintBank(row: { id: string; categoryId: string }, icon?: string, color?: string) {
@@ -2917,23 +2928,31 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const line = target === undefined ? retireLine : target;
     const nowMinor = parseAmount(retireNow);
     const start = (line && retireOpen === line.id ? retireDate : "") || line?.startedOn || retireDate || "";
-    const next: Line = line
-      ? {
-          ...line,
-          startedOn: start || line.startedOn,
-          cadence: start ? "monthly" : line.cadence,
-          recurring: start ? true : line.recurring,
-          balanceMinor: nowMinor === null ? line.balanceMinor : nowMinor,
+    // Ola 14 (G14-6): la línea de retiro existente se parchea contra lo
+    // VIVO — el arranque y los fallbacks (startedOn, cadencia,
+    // recurrencia, saldo) leen la línea del estado, no la foto; la que
+    // no existe nace fresca con el arranque del formulario.
+    if (line) {
+      commit((s) => patchLineWith(s, line.id, (live) => {
+        const st = (retireOpen === live.id ? retireDate : "") || live.startedOn || retireDate || "";
+        return {
+          startedOn: st || live.startedOn,
+          cadence: st ? "monthly" : live.cadence,
+          recurring: st ? true : live.recurring,
+          balanceMinor: nowMinor === null ? live.balanceMinor : nowMinor,
           balanceCurrency: rate.display,
-        }
-      : freshLine(openSeg.name, 0, openSeg.id, openSeg.categoryId, {
-          startedOn: start,
-          cadence: start ? "monthly" : "",
-          recurring: !!start,
-          balanceMinor: nowMinor,
-          balanceCurrency: rate.display,
-        });
-    commit((s) => upsertLine(s, next), openSeg.name);
+        };
+      }), openSeg.name);
+    } else {
+      const next: Line = freshLine(openSeg.name, 0, openSeg.id, openSeg.categoryId, {
+        startedOn: start,
+        cadence: start ? "monthly" : "",
+        recurring: !!start,
+        balanceMinor: nowMinor,
+        balanceCurrency: rate.display,
+      });
+      commit((s) => upsertLine(s, next), openSeg.name);
+    }
     setRetireNow("");
   }
 
@@ -2947,18 +2966,32 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const date = r.end || todayIso();
     const tag = `estado:${r.month || date.slice(0, 7)}:`;
     const base = retireLine ?? freshLine(openSeg.name, 0, openSeg.id, openSeg.categoryId, { balanceMinor: null, balanceCurrency: r.currency, icon: "brand:primerica" });
-    const history = base.history.filter((h) => !h.note.startsWith(tag));
-    const put = (k: string, minor: number | null, sign: 1 | -1) => {
-      if (minor == null) return;
-      history.push({ id: uid(), date, amountMinor: sign * minor, currency: r.currency, note: `${tag}${k}` });
+    const buildHistory = (from: Line["history"]): Line["history"] => {
+      const history = from.filter((h) => !h.note.startsWith(tag));
+      const put = (k: string, minor: number | null, sign: 1 | -1) => {
+        if (minor == null) return;
+        history.push({ id: uid(), date, amountMinor: sign * minor, currency: r.currency, note: `${tag}${k}` });
+      };
+      put("valor", r.value, 1);
+      put("aporte", r.contrib, 1);
+      put("cambio", r.change, 1);
+      put("retiro", r.withdraw, -1);
+      put("cargo", r.fees, -1);
+      return history;
     };
-    put("valor", r.value, 1);
-    put("aporte", r.contrib, 1);
-    put("cambio", r.change, 1);
-    put("retiro", r.withdraw, -1);
-    put("cargo", r.fees, -1);
-    const next: Line = { ...base, history, ...(r.value != null ? { balanceMinor: r.value, balanceCurrency: r.currency } : {}) };
-    commit((s) => upsertLine(s, next), openSeg.name);
+    // Ola 14 (G14-6): si la línea de retiro ya vive, su historial nuevo se
+    // compone desde el historial VIVO dentro del commit (el mes importado
+    // se reemplaza a sí mismo sobre lo que el estado trae, no sobre la
+    // foto); si no vive, nace fresca con el historial del estado traído.
+    if (retireLine) {
+      commit((s) => patchLineWith(s, base.id, (live) => ({
+        history: buildHistory(live.history),
+        ...(r.value != null ? { balanceMinor: r.value, balanceCurrency: r.currency } : {}),
+      })), openSeg.name);
+    } else {
+      const next: Line = { ...base, history: buildHistory(base.history), ...(r.value != null ? { balanceMinor: r.value, balanceCurrency: r.currency } : {}) };
+      commit((s) => upsertLine(s, next), openSeg.name);
+    }
   }
 
   function toggleAccountsPin() {
@@ -5466,6 +5499,84 @@ export function Settings() {
     if (!session) return;
     modeSign({ dir: "down", mode: target });
   };
+  /* Ola 14 (Cambios BR14-1): LA CONFIRMACIÓN DECIDE DESDE EL ESTADO VIVO.
+   * Los dos onConfirm comparaban sus premisas contra el `session` de la
+   * clausura del último render. Una llegada adoptada en la misma tarea
+   * (su setSession queda en cola) no puede refrescar esa clausura hasta
+   * el siguiente render, y un toque dentro de la ventana ejecutaba el
+   * handler viejo entero: aplicaba el modo de la pregunta ya muerta y lo
+   * anunciaba como obra propia — la mudanza confirmada de la otra
+   * pestaña quedaba revertida en silencio, una bajada ejecutada con el
+   * gesto y el letrero de una subida. La cura mueve la decisión DENTRO
+   * del actualizador del propio commit: las actualizaciones funcionales
+   * se componen en orden de despacho, así que la receta lee el estado
+   * que la adopción encolada ya escribió, y solo aplica si las premisas
+   * siguen vivas en ESE estado (el modo vivo es el que la confirmación
+   * leyó, el destino no llegó ya, y el impacto recontado contra la fecha
+   * fijada al abrir sostiene la premisa confirmada). Si se movieron, la
+   * receta devuelve el estado intacto y deja su veredicto; el efecto de
+   * abajo realiza las consecuencias: anunciar SOLO lo aplicado, silencio
+   * si el destino ya llegó por su puerta (que lo anunció), y re-plantear
+   * el diálogo con modeDialogReaction — la ley de los vigilantes — si la
+   * pregunta se convirtió. Leer el sessionRef del proveedor NO cerraba
+   * la ventana: ese ref también se alimenta en el render. El detalle de
+   * actividad es un thunk (la casa de la 1.3.170: se resuelve tras la
+   * receta): nombra el destino solo si la receta aplicó; si no aplicó,
+   * dice la verdad. */
+  type ModeConfirmCtx = {
+    dialog: "impact" | "reposed";
+    target: Mode;
+    from: Mode;
+    live: Mode;
+    sign: "up" | "down";
+    impact?: ModeImpact;
+    premise?: ModeImpact;
+    refDay?: string;
+    unlocked?: { id: string; labelKey: string; count: number }[];
+    fresh?: boolean;
+  };
+  const confirmVerdict = useRef<{ verdict: "applied" | "already" | "moved" | "recount"; ctx: ModeConfirmCtx; recount?: ModeImpact } | null>(null);
+  const applyModeConfirmed = (ctx: ModeConfirmCtx) => {
+    commit((s) => {
+      const liveNow = modeOf(s.settings);
+      if (liveNow === ctx.target) { confirmVerdict.current = { verdict: "already", ctx }; return s; }
+      if (liveNow !== ctx.live) { confirmVerdict.current = { verdict: "moved", ctx }; return s; }
+      if (ctx.premise && ctx.refDay) {
+        const recount = modeImpact(s, ctx.target, lang, ctx.refDay);
+        const holds = (recount.total === 0 && ctx.premise.total === 0) || JSON.stringify(recount) === JSON.stringify(ctx.premise);
+        if (!holds) { confirmVerdict.current = { verdict: "recount", ctx, recount }; return s; }
+      }
+      confirmVerdict.current = { verdict: "applied", ctx };
+      return { ...s, settings: { ...s.settings, mode: ctx.target } };
+    }, () => (confirmVerdict.current?.verdict === "applied" ? ctx.target : (lang === "en" ? "The confirmation did not apply: the mode had already changed" : "La confirmación no aplicó: el modo ya había cambiado")));
+  };
+  useEffect(() => {
+    const v = confirmVerdict.current;
+    if (!v || !session) return;
+    confirmVerdict.current = null;
+    const { ctx } = v;
+    if (v.verdict === "applied") {
+      if (ctx.sign === "up") announceUp(ctx.target); else announceDown(ctx.target);
+      return;
+    }
+    if (v.verdict === "already") return; // el destino llegó por su puerta y allí se anunció
+    if (v.verdict === "recount" && v.recount) {
+      const live = modeOf(session.ledger.settings);
+      setModeImpactState({ target: ctx.target, impact: v.recount, refreshed: ctx.dialog === "impact" ? true : undefined, from: live, refDay: ctx.refDay ?? currentRefDay() });
+      return;
+    }
+    // moved: la pregunta se re-plantea con la reacción de siempre — la
+    // misma ley que los vigilantes aplican a las llegadas.
+    const r = modeDialogReaction({
+      dialog: ctx.dialog, from: ctx.from, target: ctx.target, live: modeOf(session.ledger.settings),
+      state: session.ledger, lang, refDay: ctx.refDay ?? currentRefDay(),
+      currentImpact: ctx.impact, currentUnlocked: ctx.unlocked, fresh: ctx.fresh,
+    });
+    if (r.kind === "to-reposed") { setModeImpactState(null); setModeReposed({ target: ctx.target, from: r.from, unlocked: r.unlocked }); }
+    else if (r.kind === "to-impact") { setModeReposed(null); setModeImpactState({ target: ctx.target, impact: r.impact, from: r.from, refDay: ctx.refDay ?? currentRefDay() }); }
+    else if (r.kind === "refresh-impact") setModeImpactState({ target: ctx.target, impact: r.impact, refreshed: true, from: r.from, refDay: ctx.refDay ?? currentRefDay() });
+    else if (r.kind === "refresh-reposed") setModeReposed({ target: ctx.target, from: r.from, unlocked: r.unlocked, fresh: r.fresh });
+  }, [session]);
   const pickMode = (target: Mode) => {
     if (!session || target === currentMode) return;
     if (modeRank(target) > modeRank(currentMode)) {
@@ -5930,14 +6041,23 @@ export function Settings() {
               if (fresh.total === 0) {
                 // Lo que dormía ya no existe: la bajada ya no tiene impacto
                 // que preguntar — se aplica con su aviso, como en pickMode.
+                // Ola 14 (BR14-1): la aplicación pasa por la confirmación
+                // que decide desde lo vivo (applyModeConfirmed): la
+                // premisa «impacto cero» se re-verifica dentro del commit.
                 setModeImpactState(null);
-                applyMode(target);
-                announceDown(target);
+                applyModeConfirmed({ dialog: "impact", target, from: modeImpactState.from, live, sign: "down", impact: modeImpactState.impact, premise: fresh, refDay: modeImpactState.refDay });
                 return;
               }
               setModeImpactState({ ...modeImpactState, impact: fresh, refreshed: true });
               return;
             }
+            // Ola 14 (BR14-1): la foto coincide con lo confirmado — y aun
+            // así la aplicación decide dentro del commit contra el estado
+            // vivo: una llegada en la misma tarea que el toque no puede
+            // ser revertida por esta confirmación.
+            setModeImpactState(null);
+            applyModeConfirmed({ dialog: "impact", target, from: modeImpactState.from, live, sign: "down", impact: modeImpactState.impact, premise: modeImpactState.impact, refDay: modeImpactState.refDay });
+            return;
           }
           setModeImpactState(null);
           applyMode(target);
@@ -5975,15 +6095,19 @@ export function Settings() {
             const refDay = currentRefDay();
             const impact = modeImpact(session.ledger, target, lang, refDay);
             if (impact.total === 0) {
-              applyMode(target);
-              announceDown(target);
+              // Ola 14 (BR14-1): también esta aplicación decide dentro del
+              // commit — la premisa «sin impacto» se re-verifica contra el
+              // estado vivo antes de escribir el modo.
+              applyModeConfirmed({ dialog: "reposed", target, from: modeReposed.from, live, sign: "down", premise: impact, refDay, unlocked: modeReposed.unlocked, fresh: modeReposed.fresh });
               return;
             }
             setModeImpactState({ target, impact, from: live, refDay });
             return;
           }
-          applyMode(target);
-          announceUp(target);
+          // Ola 14 (BR14-1): la subida confirmada se aplica por la ruta
+          // que decide desde lo vivo; el letrero lo pone el efecto del
+          // veredicto, solo si la receta aplicó de verdad.
+          applyModeConfirmed({ dialog: "reposed", target, from: modeReposed.from, live, sign: "up", unlocked: modeReposed.unlocked, fresh: modeReposed.fresh });
         }}
       />
     ) : null}
@@ -7582,9 +7706,21 @@ function CatalogEditor() {
     const r = planFromDraft(planDraft);
     if (r.err) { setPlanErr(r.err === "timing" ? t("ins.needTiming") : t("field.required")); return; }
     const bens = cleanInsBens(planDraft.bens);
-    const updated: CatalogItem = { ...item, ins: r.plan, bens: bens.length ? bens : undefined };
     commit((s) => {
-      const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? updated : c)) } };
+      // Ola 14 (Guardián G14-4): la pieza editada se compone sobre el
+      // catálogo VIVO dentro del commit, como saveRename en este mismo
+      // editor — antes `updated` nacía de la foto del render y sustituía
+      // la pieza entera en el mapa: un renombre cruzado de otra pestaña
+      // moría al nivel del commit, sin dejar rastro. Si la pieza ya no
+      // vive en el catálogo, el guardado no la resucita: estado intacto.
+      let updated: CatalogItem | null = null;
+      const catalog = s.structure.catalog.map((c) => {
+        if (c.id !== item.id) return c;
+        updated = { ...c, ins: r.plan, bens: bens.length ? bens : undefined };
+        return updated;
+      });
+      if (!updated) return s;
+      const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog } };
       return r.plan ? syncInsLine(withPiece, updated, todayIso()) : withPiece;
     }, displayName(item, lang));
     setPlanEditing(false);

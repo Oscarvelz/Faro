@@ -103,6 +103,32 @@ export function upsertLine(state: LedgerState, line: Line): LedgerState {
   return { ...state, months: { ...state.months, [line.monthKey]: { lines } } };
 }
 
+/** Ola 14 (Guardián G14-6): el parche contra lo VIVO. upsertLine sustituye
+ * la línea entera por id: quien componía `{...lineaDelRender, campo}` y lo
+ * subía, escribía la FOTO entera — los campos que otra pestaña acababa de
+ * tocar en esa misma línea morían al nivel del commit, invisibles para el
+ * censo (su brazo B solo censaba line-form.tsx). patchLine busca la línea
+ * dentro del estado que el commit trae y aplica solo el parche sobre la
+ * línea viva; patchLineWith deja que el parche se calcule DESDE la línea
+ * viva (historiales que se anexan, saldos que se derivan). Si la línea ya
+ * no vive, el estado vuelve intacto: nadie resucita una línea desde una
+ * foto. El patrón sano ya existía en la casa (archivo.tsx busca la línea
+ * dentro de su commit); esto lo hace la ruta corta de todos. */
+export function patchLine(state: LedgerState, id: string, patch: Partial<Line>): LedgerState {
+  return patchLineWith(state, id, () => patch);
+}
+
+export function patchLineWith(state: LedgerState, id: string, patch: (live: Line) => Partial<Line>): LedgerState {
+  for (const [key, bucket] of Object.entries(state.months)) {
+    const live = bucket.lines.find((l) => l.id === id);
+    if (!live) continue;
+    const next: Line = { ...live, ...patch(live) };
+    if (next.monthKey === key) return upsertLine(state, next);
+    return upsertLine(deleteLine(state, key, id), next);
+  }
+  return state;
+}
+
 export function deleteLine(state: LedgerState, monthKey: string, id: string): LedgerState {
   const bucket = state.months[monthKey];
   if (!bucket) return state;

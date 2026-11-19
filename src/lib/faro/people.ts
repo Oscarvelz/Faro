@@ -121,7 +121,14 @@ export type PersonTotals = { total: number; count: number; years: { year: number
 
 /** Total given, and per birthday year (or per calendar year when no birthday is set), in the view currency. */
 export function personTotals(state: LedgerState, person: Person, display: Currency, rateE4: number): PersonTotals {
-  const lines = personLines(state, person.id);
+  // Ola 14 (Asesor A1): la agregación lee con el predicado de gasto, como
+  // su hermana spendByPerson curada en la ola 13 — personLines no se
+  // amputa (el historial sigue mostrando la línea de apartado como
+  // apartado), pero el apartado etiquetado a una persona NO es dinero
+  // dado: no suma al total, ni a los años, ni a las ocasiones, ni al
+  // conteo de regalos. Antes, un año cuyo único movimiento era un
+  // apartado nacía como «el cumpleaños pasado le diste…».
+  const lines = personLines(state, person.id).filter((line) => isSpendLine(state.structure, line));
   const byBirthday = /^\d{4}-\d{2}-\d{2}$/.test(person.birthday);
   const years = new Map<number, number>();
   const occ = new Map<string, number>();
@@ -192,10 +199,12 @@ export function upcoming(people: Person[], within = 45, today = todayIso()): Occ
 
 export type PeopleAdvice = { name: string; occasion: string; birthday: boolean; days: number; last: number; ready: number; weekly: number; year: number; given: number; share: number | null; kind: "soon" | "year" };
 
-/** What was given for one non-birthday occasion in a calendar year (gifts tagged to it). */
+/** What was given for one non-birthday occasion in a calendar year (gifts tagged to it).
+ * Ola 14 (Asesor A1): con el predicado de gasto, como personTotals — el
+ * apartado de esa ocasión no nace como «lo que le diste». */
 function occasionYear(state: LedgerState, person: Person, id: string, year: number, display: Currency, rateE4: number): number {
   let minor = 0;
-  for (const line of personLines(state, person.id)) if (line.occasionId === id && lineDay(line).startsWith(`${year}-`)) minor += convertMinor(line.amountMinor, line.currency, display, rateE4);
+  for (const line of personLines(state, person.id)) if (line.occasionId === id && lineDay(line).startsWith(`${year}-`) && isSpendLine(state.structure, line)) minor += convertMinor(line.amountMinor, line.currency, display, rateE4);
   return minor;
 }
 
