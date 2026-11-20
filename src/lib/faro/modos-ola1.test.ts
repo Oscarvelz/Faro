@@ -524,9 +524,16 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  gobierno vive en capture.review-full (brief §5-P4); el asiento queda
  *  declarado aquí y en la familia scan de la §A-quater como el fallo de
  *  la ruta de reversa (DraftCard, brief §8) hasta que la mesa se
- *  verifique en vivo y la reversa se retire. */
+ *  verifique en vivo y la reversa se retire.
+ *  ENMIENDA CAPTURA OLA 5A (1.3.345, con su razón): ENTRA
+ *  advisor.ask-scenarios porque NACE sin consumidor — el mapa F8 manda
+ *  declarar el asiento con la caja (preguntar = Esencial; los
+ *  escenarios encadenados y mover pagos = Completo) y su motor llega
+ *  en la ola 5b; hasta entonces el asiento gobierna nada y la caja
+ *  responde a esas preguntas con el silencio honesto de la casa. */
+
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
-  "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
+  "accounts.panel", "accounts.pin-panel", "advisor.ask-scenarios", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
   "advisor.kicker", "advisor.misclass-note", "advisor.month-tone", "advisor.not-habit-note", "advisor.plan-short",
   "advisor.remit-note", "advisor.start-route", "advisor.step-close-gap", "advisor.step-cushion",

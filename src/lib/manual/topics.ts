@@ -2206,6 +2206,17 @@ export const MANUAL_CHAPTERS: Chapter[] = [
     intro: ["Tu mes dicho en claro, con un plan concreto y pruebas sin tocar tus libros.", "Your month said plainly, with a concrete plan and tests that never touch your books."],
     topics: [
       {
+        id: "preguntar-asesor",
+        mode: "esencial",
+        depth: "manual",
+        title: ["Preguntar al Asesor", "Ask the Advisor"],
+        sum: ["Pregúntale a tu Asesor como hablas: cada respuesta es un cálculo de tu propio libro, sin inventar nada.", "Ask your Advisor the way you talk: every answer is a calculation from your own book, with nothing made up."],
+        what: ["Al tope del [[Asesor]] hay una caja para preguntar como hablas — coloquial, llano o técnico, en español o inglés: «¿puedo gastar $100 en zapatos?», «¿cuánto puedo sacar sin tocar mis ahorros?», «¿cuánto me queda para el mes?», «¿cómo voy?». La respuesta trae un veredicto en tus palabras, el efecto en dos o tres cifras de tu Lectura y, si algo se rompería, lo dice. Ninguna respuesta guarda ni mueve dinero: el botón Registrarlo deja el gasto preguntado en la [[Bandeja]] y guardar sigue pasando por la mesa de siempre.", "At the top of the [[Advisor]] there's a box for asking the way you talk — colloquial, plain or technical, in Spanish or English: “can I spend $100 on shoes?”, “how much can I take out without touching my savings?”, “how much do I have left for the month?”, “how am I doing?”. The answer brings a verdict in your own register, the effect in two or three figures from your Reading and, if something would break, it says so. No answer saves or moves money: the Record it button leaves the asked spend in the [[Tray]] and saving still goes through the usual table."],
+        bubble: ["Pregunta al tope del [[Asesor]] como hablas: «¿puedo gastar…?», «¿cuánto me queda?». Cada respuesta es un cálculo de tu libro, sin inventar nada.", "Ask at the top of the [[Advisor]] the way you talk: “can I spend…?”, “how much is left?”. Every answer is a calculation from your book."],
+        how: ["Lo que el Asesor no sabe, lo dice: responde «eso todavía no lo sé responder» y te ofrece las preguntas que sí sabe, en chips sobre la caja. Si preguntas un gasto sin el monto, no adivina: te pide el monto con chips. La pregunta por el año es una proyección y la respuesta dice su supuesto en voz alta: tu mes actual repetido en los meses que faltan. Preguntar vive en todos los modos; los escenarios encadenados — «¿y si además compro aquello?», «¿qué pasa si pago la tarjeta hoy?» — son la profundidad de Completo y llegan en su ola.", "What the Advisor doesn't know, it says: it answers “that I can't answer yet” and offers the questions it does know, as chips above the box. If you ask about a spend without the amount, it won't guess: it asks for the amount with chips. The year question is a projection and the answer states its assumption out loud: your current month repeated over the months left. Asking lives in every mode; chained scenarios — “and if I also buy that?”, “what if I pay the card today?” — are Complete's depth and arrive in their wave."],
+        go: { screen: "advice", anchor: "advisor-ask", where: ["Asesor → Pregúntale a tu Asesor", "Advisor → Ask your Advisor"] },
+      },
+      {
         id: "asesor-area",
         depth: "manual",
         title: ["Asesor de esta área", "This area's Advisor"],

@@ -12,7 +12,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ListPlus, X } from "lucide-react";
-import { addDrafts } from "@/lib/faro/drafts";
+import { addDrafts, patchDraft } from "@/lib/faro/drafts";
+import { DraftResultRow, mirrorPatch } from "./draft-row";
 import { parseList } from "@/lib/faro/textparse";
 import { uid } from "@/lib/faro/money";
 import type { Draft } from "@/lib/faro/types";
@@ -23,25 +24,15 @@ import { ReviewTable } from "./review-table";
 import "./scan.css";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
-const sym = (c: string) => (c === "USD" ? "$" : "C$");
-const fmtAmt = (minor: number, c: string) => `${sym(c)}${(minor / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const todayLocal = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-/** Las dudas del borrador, en palabras cortas — la misma honestidad de
- * la puerta de texto y de la mesa. El monto NO se repite aquí: la fila
- * ya lo dice en su posición («sin monto» donde iría la cifra). */
-function doubts(d: Draft, lang: string): string[] {
-  const out: string[] = [];
-  if (d.missing.includes("sign")) out.push(L(lang, "¿entra o sale?", "in or out?"));
-  if (d.missing.includes("currency")) out.push(L(lang, "moneda sin confirmar", "currency unconfirmed"));
-  else if (d.unsure.includes("currency")) out.push(L(lang, "moneda: la de vista", "currency: the view one"));
-  if (d.unsure.includes("book")) out.push(L(lang, "casa supuesta", "home guessed"));
-  return out;
-}
+/** Las dudas del borrador viven en la fila misma (draft-row.tsx): cada
+ * una es un botón que la corrige en el acto — útiles, no decorativas
+ * (Oscar, 2026-11-20). */
 
 export function CaptureListSheet({ onClose, onReview }: { onClose: () => void; onReview: () => void }) {
   const { session, commit, lang } = useFaro();
@@ -67,6 +58,10 @@ export function CaptureListSheet({ onClose, onReview }: { onClose: () => void; o
     if (!drafts.length) return;
     commit((s) => addDrafts(s, drafts), L(lang, `Lista ${drafts.length}`, `List ${drafts.length}`));
     setMade(drafts);
+  };
+  const fix = (d: Draft, patch: Partial<Draft>) => {
+    commit((s) => patchDraft(s, d.id, patch), d.concept || L(lang, "Bandeja", "Tray"));
+    setMade((ms) => (ms ? ms.map((x) => (x.id === d.id ? mirrorPatch(x, patch) : x)) : ms));
   };
   return createPortal(
     <div className="scn-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -98,17 +93,9 @@ export function CaptureListSheet({ onClose, onReview }: { onClose: () => void; o
           ) : (
             <div className="tray-group">
               <p className="tray-day">{L(lang, `${made.length} en la bandeja`, `${made.length} in the tray`)}</p>
-              {made.map((d) => {
-                const dd = doubts(d, lang);
-                return (
-                  <div key={d.id} className="tray-row" data-anchor="capture-list-row">
-                    <span className="tray-main">
-                      <strong>{d.concept || L(lang, "(sin concepto)", "(no concept)")}</strong>
-                      <span>{d.amountMinor != null && d.currency ? fmtAmt(d.amountMinor, d.currency) : L(lang, "sin monto", "no amount")} · {d.day}{dd.length ? ` · ${dd.join(" · ")}` : ""}</span>
-                    </span>
-                  </div>
-                );
-              })}
+              {made.map((d) => (
+                <DraftResultRow key={d.id} d={d} lang={lang} anchor="capture-list-row" onFix={fix} />
+              ))}
             </div>
           )}
         </div>

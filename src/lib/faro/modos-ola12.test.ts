@@ -350,6 +350,8 @@ const CARAS: Record<string, [Clase, string]> = {
   "lib/faro/coach.ts:readCoach:m.expense": ["gasto", "monthTotals.expense es solo-gasto por construcción (separa por rol)"],
   "lib/faro/coach.ts:readCoach:t.expense": ["gasto", "monthTotals.expense es solo-gasto por construcción (separa por rol)"],
   "lib/faro/coach.ts:readCoach:t.saved": ["movimiento", "monthTotals.saved: el apartado nombrado como apartado en el coach"],
+
+  "lib/faro/ask.ts:leftAnswer:reading.outTotal": ["movimiento", "«Salió»: el total del río nombrado como salida junto a «Entró», nunca como gasto a secas"],
   "lib/faro/engine.ts:buildAdvice:reading.outTotal": ["movimiento", "las baldosas del Asesor nombran «Sale» junto a «Gasto real» y «Al ahorro»"],
   "lib/faro/engine.ts:buildAdvice:reading.realSpend": ["gasto", "«Gasto real»: el río sin la transferencia al ahorro"],
   "lib/faro/engine.ts:buildAdvice:reading.transferMinor": ["movimiento", "«Al ahorro»: el apartado nombrado en las baldosas"],

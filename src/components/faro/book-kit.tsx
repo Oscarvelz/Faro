@@ -11,7 +11,7 @@
  * own rule (books: this month's line, earlier months keep theirs; savings pockets: archive when money history exists;
  * Me deben / Préstamos: Archivo, with its Restaurar). */
 import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { PickSheet, type Manage, type PickItem } from "./fit-pick";
 import { Glyph } from "./icons";
 import { useFaro } from "./provider";
@@ -70,8 +70,8 @@ export function BookKit({ title, rows, word, onEdit, onDrop, onRename, onColor, 
   const edit = (id: string) => { setOpen(false); if (onEdit) window.setTimeout(() => onEdit(id), 160); };
   return (
     <>
-      <button type="button" className="icon-btn kit-btn is-pen" data-anchor="book-kit" data-test={test ? `${test}-pen` : "kit-pen"} aria-pressed={open} aria-label={L(lang, "Editar", "Edit")} title={L(lang, "Editar", "Edit")} onClick={() => setOpen(true)}>
-        <Pencil aria-hidden />
+      <button type="button" className="icon-btn kit-btn is-pen" data-anchor="book-kit" data-test={test ? `${test}-pen` : "kit-pen"} aria-pressed={open} aria-label={L(lang, "Seleccionar", "Select")} title={L(lang, "Seleccionar", "Select")} onClick={() => setOpen(true)}>
+        <ListChecks aria-hidden />
       </button>
       {open ? (
         <PickSheet title={title} items={items} value="" test="kit-sheet" startEditing manage={manage}

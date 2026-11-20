@@ -42,6 +42,13 @@ export type ModeSign = { dir: "up" | "down"; mode: "esencial" | "ritmo" | "compl
  * with one brief sentence — the mode's own line — never by a toast strip
  * whose words can fall off the box. */
 export const modeSign = (s: ModeSign) => window.dispatchEvent(new CustomEvent(SIGN, { detail: s }));
+const FTOAST = "faro-filter-toast";
+export const FILTER_CLEAR = "faro-filter-clear";
+/** Oscar (2026-11-20, como en Cadence): un filtro activo se anuncia
+ * ARRIBA — el usuario no debe perder de vista su propia información
+ * por un filtro que él mismo puso y olvidó. El aviso nombra lo que se
+ * está viendo y tocarlo limpia el filtro (el aviso trae su cura). */
+export const filterToast = (text: string) => window.dispatchEvent(new CustomEvent(FTOAST, { detail: text }));
 
 /** Must match public/sw.js. */
 const SHARE_CACHE = "share-inbox";
@@ -63,6 +70,7 @@ export function BankDock() {
   const [toast, setToast] = useState<ImportToast | null>(null);
   const [whisper, setWhisper] = useState<ModeWhisper | null>(null);
   const [sign, setSign] = useState<ModeSign | null>(null);
+  const [ftoast, setFtoast] = useState<string | null>(null);
   useEffect(() => {
     const on = (e: Event) => { setFiles(((e as CustomEvent).detail as File[] | null) ?? null); setOpen(true); };
     let timer = 0;
@@ -71,11 +79,14 @@ export function BankDock() {
     const onSign = (e: Event) => { setSign((e as CustomEvent).detail as ModeSign); window.clearTimeout(signTimer); signTimer = window.setTimeout(() => setSign(null), 3600); };
     let whisperTimer = 0;
     const onWhisper = (e: Event) => { setWhisper((e as CustomEvent).detail as ModeWhisper); window.clearTimeout(whisperTimer); whisperTimer = window.setTimeout(() => setWhisper(null), 6000); };
+    let fTimer = 0;
+    const onFtoast = (e: Event) => { setFtoast((e as CustomEvent).detail as string); window.clearTimeout(fTimer); fTimer = window.setTimeout(() => setFtoast(null), 6000); };
     window.addEventListener(OPEN, on);
     window.addEventListener(TOAST, onToast);
     window.addEventListener(SIGN, onSign);
     window.addEventListener(WHISPER, onWhisper);
-    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.removeEventListener(SIGN, onSign); window.removeEventListener(WHISPER, onWhisper); window.clearTimeout(timer); window.clearTimeout(signTimer); window.clearTimeout(whisperTimer); };
+    window.addEventListener(FTOAST, onFtoast);
+    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.removeEventListener(SIGN, onSign); window.removeEventListener(WHISPER, onWhisper); window.removeEventListener(FTOAST, onFtoast); window.clearTimeout(timer); window.clearTimeout(signTimer); window.clearTimeout(whisperTimer); window.clearTimeout(fTimer); };
   }, []);
   const ready = !!session;
   useEffect(() => {
@@ -101,6 +112,11 @@ export function BankDock() {
           <span>{toast.text}</span>
           {toast.undo ? <button type="button" className="imp-toast-undo" onClick={() => { toast.undo?.(); setToast(null); }}>{L(session?.ledger.settings.lang ?? "es", "Deshacer", "Undo")}</button> : null}
         </div>
+      ) : null}
+      {ftoast ? (
+        <button type="button" className="filter-toast" data-anchor="filter-toast" onClick={() => { window.dispatchEvent(new CustomEvent(FILTER_CLEAR)); setFtoast(null); }}>
+          {ftoast}
+        </button>
       ) : null}
       {whisper ? (
         <button

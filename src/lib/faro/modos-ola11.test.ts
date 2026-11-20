@@ -234,6 +234,7 @@ describe("§A · el censo del apartado: toda superficie agregadora, clasificada"
     "components/faro/screens.tsx:yearReport": ["movimiento", "«Sale» sobre el año y la sección de lo guardado en la misma tarjeta"],
     "lib/faro/advisor.ts:readAdvisor": ["movimiento", "la definición: outTotal = movimiento, realSpend = solo-gasto, transferMinor nombrado «Al ahorro»"],
     "lib/faro/area-advice.ts:readAdvisor": ["interna", "re-presenta la Lectura ya clasificada; no agrega sumas propias"],
+    "lib/faro/ask.ts:readAdvisor": ["interna", "Preguntar al Asesor (Ola 5a) compone sus respuestas sobre la Lectura ya clasificada; no agrega sumas propias — sus piezas son campos de la Lectura o la resta nombrada de dinero libre"],
     "lib/faro/awake.ts:readAdvisor": ["interna", "despierta lecturas; no presenta sumas"],
     "lib/faro/coach.ts:monthTotals": ["gasto", "la definición doctrinal: income / expense / saved separados por rol"],
     "lib/faro/coach.ts:readAdvisor": ["interna", "el coach compone sobre la Lectura"],

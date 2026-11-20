@@ -432,10 +432,16 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // la app y la hoja entregaba su manage sin puerta en los tres modos.
   // Desde la cura, RemitToPick lee has("remit.manage") él mismo y
   // nombra el sistema por derecho propio.
+  // ENMIENDA 1.3.345 (las pastillas útiles): draft-row.tsx entra en los
+  // exentos por la familia (2) — la fila de resultado de un borrador y su
+  // menú de corrección solo viven montados dentro de las hojas de captura
+  // (texto y lista), cuyas caras madre nombran el sistema por sus asientos
+  // capture.text / capture.list; la fila no decide nada de modo: pinta el
+  // borrador y despacha el parche por el commit de su madre.
   const EXEMPT = [
     "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-side.tsx", "card-art.tsx",
-    "color-pick.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
+    "color-pick.tsx", "draft-row.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
     "icons.tsx", "manual-text.tsx", "rewards-real.tsx",
     "sample-mode.tsx", "selection.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",
     "to-top.tsx", "ui.tsx",

@@ -33,6 +33,19 @@
 // reescriben para juzgar LA LEY NUEVA; la pareja «lápiz primero, luego
 // el +» en la misma fila queda retirada por la palabra de Oscar, no por
 // un fallo.
+//
+// ENMIENDA (Oscar, 2026-11-20, sobre su foto de Gastos fijos): las
+// herramientas BAJAN una segunda vez — «para todas estas áreas que
+// incluyen el filtro y el botón de selección, deberían estar abajo de
+// la gráfica principal, puesto que cuando las toco ahí donde están, de
+// todos modos aparecen debajo de la gráfica, esté plegada o no. Pero
+// al estar abajo, entonces respiran mucho mejor y el usuario sabe que
+// esas dos opciones están ahí para ayudar con la información de las
+// burbujas, en lugar de que se confundan con la caja de las
+// estadísticas principales». La línea .book-tools sale del encabezado
+// y se sienta tras SpanCut (la gráfica), antes de su menú y de las
+// filas, en los seis libros. La ley de la esquina no se toca: el «+»
+// sigue soberano con su monedita, y la fila del título nunca envuelve.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -55,7 +68,7 @@ test("esquina: la fila del título no envuelve y el grupo de la esquina no encog
   );
   assert.ok(
     css.includes(".book-tools { display: flex; align-items: center; gap: 8px; margin-top: 8px; }"),
-    "the tools live on their own second line, left-aligned, with air above them",
+    "the tools keep their own line, left-aligned, with air above them — now below the chart",
   );
 });
 
@@ -63,21 +76,26 @@ test("esquina: las guardas de fix5 quedan — el título es el que cede", () => 
   assert.ok(css.includes(".card > .income-head h2 { min-width: 0; text-wrap: balance; }"), "the title still yields (min-width: 0) and wraps inside its own space");
 });
 
-test("esquina: UN solo encabezado compartido para los seis libros, con el «+» soberano y las herramientas en su línea", () => {
+test("esquina: UN solo encabezado compartido para los seis libros, con el «+» soberano y las herramientas bajo la gráfica", () => {
   assert.equal(count(screens, 'className="income-head"'), 1, "LinesBlock renders the one shared head");
-  const head = screens.slice(screens.indexOf('className="income-head"'), screens.indexOf('className="income-head"') + 3400);
+  const headAt = screens.indexOf('className="income-head"');
+  const head = screens.slice(headAt, headAt + 3400);
   assert.ok(head.includes('data-anchor="book-add"'), "the + lives in the head");
-  assert.ok(head.includes('className="book-tools"'), "the tools line exists in the head");
-  assert.ok(head.indexOf('data-anchor="book-add"') < head.indexOf('className="book-tools"'), "the + sits in the FIRST line, in its corner — the tools line comes after");
   // Oscar, precisión de la 01:40: la monedita se queda junto al Agregar —
-  // es pequeña y no ocupa espacio; a la segunda línea bajan SOLO el filtro
-  // y el lápiz.
+  // es pequeña y no ocupa espacio.
   assert.ok(head.indexOf('data-anchor="book-coin"') < head.indexOf('data-anchor="book-add"'), "the little coin keeps the + company in the corner: coin first, then the +");
-  const tools = head.slice(head.indexOf('className="book-tools"'));
+  // ENMIENDA 2026-11-20 (su foto): las herramientas ya NO viven en el
+  // encabezado — bajan bajo la gráfica (tras SpanCut), antes de su menú.
+  const wide = screens.slice(headAt, headAt + 5200);
+  assert.ok(wide.includes("<SpanCut"), "the chart (SpanCut) follows the head");
+  assert.ok(wide.includes('className="book-tools"'), "the tools line exists — below the chart now");
+  assert.ok(wide.indexOf('data-anchor="book-add"') < wide.indexOf("<SpanCut"), "the + sits in the head, above the chart");
+  assert.ok(wide.indexOf("<SpanCut") < wide.indexOf('className="book-tools"'), "the tools line comes AFTER the chart: that is the new seat");
+  const tools = wide.slice(wide.indexOf('className="book-tools"'));
   assert.ok(!tools.includes('data-anchor="book-coin"'), "the coin does NOT live in the tools line");
   assert.ok(tools.includes('data-anchor="book-filter"'), "the filter lives in the tools line");
-  assert.ok(tools.includes("<BookKit"), "the kit pencil lives in the tools line");
-  assert.ok(tools.indexOf('data-anchor="book-filter"') < tools.indexOf("<BookKit"), "the tools line order: filter, pencil");
+  assert.ok(tools.includes("<BookKit"), "the selection kit lives in the tools line");
+  assert.ok(tools.indexOf('data-anchor="book-filter"') < tools.indexOf("<BookKit"), "the tools line order: filter, selection");
   assert.equal(count(screens, "<LinesBlock"), 6, "the six books ride the shared head (fijos/variables de ingresos y gastos, Compras, Cuotas)");
 });
 

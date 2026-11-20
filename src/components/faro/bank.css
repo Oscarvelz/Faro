@@ -168,6 +168,14 @@
   background: var(--fg); color: var(--bg); font-size: .92rem; font-weight: 600; box-shadow: 0 10px 30px rgb(0 0 0 / 25%);
 }
 .imp-toast span { min-width: 0; overflow-wrap: break-word; line-height: 1.35; }
+/* El aviso del filtro (Oscar, 2026-11-20, como en Cadence): arriba, no
+   abajo — nombra lo que el filtro deja ver y tocarlo lo limpia. */
+.filter-toast {
+  position: fixed; z-index: 86; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 64px); transform: translateX(-50%);
+  width: max-content; max-width: min(92vw, 30rem); padding: 10px 16px; border-radius: 999px; border: 0;
+  background: var(--fg); color: var(--bg); font: inherit; font-size: .88rem; font-weight: 650; line-height: 1.35;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 25%); cursor: pointer; text-align: center;
+}
 .imp-toast-undo { min-height: 36px; padding: 0 14px; border-radius: 10px; border: 0; background: color-mix(in oklab, var(--bg) 18%, transparent); color: var(--bg); font: inherit; font-weight: 750; cursor: pointer; white-space: nowrap; }
 
 /* mode sign (1.3.307, Oscar's word): when the mode changes, the news is a

@@ -174,6 +174,8 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["capture.text", E], // 1.3.340 — Ola 2: el asiento de la puerta de texto, declarado antes que la superficie
   ["capture.list", E], // 1.3.342 — Ola 3: el asiento de la lista en bache, declarado antes que la superficie
   ["settings.guest-currency", E], // 1.3.344 — Ola 4: el asiento de la invitada, declarado antes que la superficie
+  ["advisor.ask", E], // 1.3.345 — Ola 5a: preguntar al Asesor, declarado antes que la caja
+  ["advisor.ask-scenarios", C], // 1.3.345 — Ola 5a: los escenarios del Asesor, declarados con la caja; su motor llega en 5b
   // §1.22 Bandeja de documentos compartidos
   ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E],
   // §1.23 Exportar informes

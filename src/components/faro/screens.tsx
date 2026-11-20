@@ -7,7 +7,7 @@ import { SampleRow } from "./sample-mode";
 import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { BatteryRow } from "./battery-row";
-import { BankSettings, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, hasRewards, modeSign, modeWhisper } from "./bank-dock";
+import { BankSettings, FILTER_CLEAR, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, filterToast, hasRewards, modeSign, modeWhisper } from "./bank-dock";
 import { ModeImpactDialog, ModeReposedDialog } from "./mode-gate";
 import { MODES, currentRefDay, modeDialogReaction, modeImpact, modeOf, modeRank, pocketModeOf, unlockedGroups, type Mode, type ModeImpact } from "@/lib/faro/mode";
 import { MODE_ASK_EVENT, takeModeAsk } from "@/lib/faro/mode-ask";
@@ -22,6 +22,7 @@ import { RemitCard } from "@/components/faro/remesas";
 import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
+import { AskBox } from "@/components/faro/ask-box";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
@@ -882,6 +883,19 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   const purchases = session?.ledger.structure.purchases.filter((c) => !c.hidden) ?? [];
   const [chip, setChip] = useState("all");
   const [filterOpen, setFilterOpen] = useState(false);
+  // Oscar (2026-11-20, como en Cadence): un filtro activo se anuncia
+  // ARRIBA — el usuario no debe perder su propia información por un
+  // filtro que él mismo puso y olvidó. El aviso nombra la categoría,
+  // se repite al cambiar de mes con el filtro puesto, y tocarlo limpia.
+  useEffect(() => {
+    if (chip === "all") return;
+    filterToast(lang === "en" ? `You're only seeing "${names.cat(chip)}". Tap here to see everything.` : `Solo ves «${names.cat(chip)}». Toca aquí para ver todo.`);
+  }, [chip, key]);
+  useEffect(() => {
+    const h = () => { setChip("all"); setFilterOpen(false); };
+    window.addEventListener(FILTER_CLEAR, h);
+    return () => window.removeEventListener(FILTER_CLEAR, h);
+  }, []);
   const [picked, setPicked] = useState<string | null>(null);
   // Ola 3 (Cara C3-6): el filtro por categoría es de Ritmo (books.filter-chips,
   // fallo 3) — el botón, su menú Y la fila de chips llevan la misma puerta, y
@@ -1033,28 +1047,36 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
           </button>
           </span>
         </div>
-        {(canFilter && (asCloud || asDrift) && present.length > 0) || kitRows.length > 0 ? (
-        <div className="book-tools">
-          {/* Oscar (2026-11-20): el icono de filtro no puede desaparecer de
-              Gastos Fijos/Variables cuando el mes tiene líneas de una sola
-              categoría — es residente del encabezado mientras haya qué
-              filtrar (presente ≥ 1); el menú ya servía sin la cuenta. */}
-          {canFilter && (asCloud || asDrift) && present.length > 0 ? (
-            <button type="button" data-anchor="book-filter" className="icon-btn filter-btn" aria-pressed={filterOpen || chip !== "all"} aria-label={t("filter.button")} onClick={() => setFilterOpen((v) => !v)}>
-              <Filter className="size-4" />
-            </button>
-          ) : null}
-          <BookKit title={title} rows={kitRows} word={["línea", "líneas", "line", "lines"]} test="book-kit"
-            body={lang === "en" ? "They leave this month. Earlier months keep theirs, with all their history." : "Salen de este mes. Los meses anteriores conservan las suyas, con todo su historial."}
-            onEdit={(id) => setUi({ editing: id, draft: null })}
-            onDrop={(ids) => commitGuarded((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`)}
-            onRename={(id, name) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { concept: name }), name); }}
-            onColor={(id, hex) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { color: hex }), l.concept || "color"); }}
-            onIcon={(id, glyph) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { icon: glyph }), l.concept || "icon"); }} />
-        </div>
-        ) : null}
+        {/* Las herramientas del libro ya no viven aquí (Oscar, 2026-11-20):
+            bajaron bajo la gráfica principal — ver el bloque tras SpanCut. */}
       </div>
       {has("vault.span-cut") ? <SpanCut kinds={kinds} span={span} onSpan={setSpan} /> : null}
+      {(canFilter && (asCloud || asDrift) && present.length > 0) || kitRows.length > 0 ? (
+      <div className="book-tools">
+        {/* Oscar (2026-11-20, sobre su foto): el filtro y la selección
+            viven BAJO la gráfica principal — al tocarlos, lo que abren
+            aparece de todos modos bajo la gráfica, plegada o no; abajo
+            respiran mejor y se leen como lo que son: ayudas para la
+            información de las burbujas, no parte de la caja de
+            estadísticas. La misma lógica en los seis libros.
+            Oscar (2026-11-20): el icono de filtro no puede desaparecer de
+            Gastos Fijos/Variables cuando el mes tiene líneas de una sola
+            categoría — es residente mientras haya qué filtrar
+            (presente ≥ 1); el menú ya servía sin la cuenta. */}
+        {canFilter && (asCloud || asDrift) && present.length > 0 ? (
+          <button type="button" data-anchor="book-filter" className="icon-btn filter-btn" aria-pressed={filterOpen || chip !== "all"} aria-label={t("filter.button")} onClick={() => setFilterOpen((v) => !v)}>
+            <Filter className="size-4" />
+          </button>
+        ) : null}
+        <BookKit title={title} rows={kitRows} word={["línea", "líneas", "line", "lines"]} test="book-kit"
+          body={lang === "en" ? "They leave this month. Earlier months keep theirs, with all their history." : "Salen de este mes. Los meses anteriores conservan las suyas, con todo su historial."}
+          onEdit={(id) => setUi({ editing: id, draft: null })}
+          onDrop={(ids) => commitGuarded((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`)}
+          onRename={(id, name) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { concept: name }), name); }}
+          onColor={(id, hex) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { color: hex }), l.concept || "color"); }}
+          onIcon={(id, glyph) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { icon: glyph }), l.concept || "icon"); }} />
+      </div>
+      ) : null}
       {canFilter && (asCloud || asDrift) && filterOpen ? (
         <div className="filter-menu" role="menu">
           <button type="button" aria-pressed={chip === "all"} onClick={() => { setChip("all"); setFilterOpen(false); }}>
@@ -5259,6 +5281,10 @@ export function Advisor() {
   }
   return (
     <div className="advice-stack" ref={stackRef}>
+      {/* Preguntar va primero (Oscar, 2026-11-20): la caja es una de las
+          funciones mayores del Asesor — entra en la mira al abrir la
+          pantalla, no a media página tras el héroe. */}
+      <AskBox />
       <CoachHero />
       <label className="unfold-all is-advice" data-anchor="advice-unfold" data-hello={hello || undefined}>
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />

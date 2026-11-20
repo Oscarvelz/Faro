@@ -252,10 +252,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA CAPTURA OLA 4 (1.3.344): nace moneda-invitada en Esencial
     // (su función es settings.guest-currency): esencial +1 y el total +1
     // — acumulados 124 · 229 · 358.
-    assert.equal(count("esencial"), 124);
-    assert.equal(count("ritmo"), 229);
-    assert.equal(count("completo"), 358);
-    assert.equal(MANUAL_TOPICS.length, 358);
+    // ENMIENDA CAPTURA OLA 5A (1.3.345): nace preguntar-asesor en
+    // Esencial (su función es advisor.ask): esencial +1 y el total +1
+    // — acumulados 125 · 230 · 359.
+    assert.equal(count("esencial"), 125);
+    assert.equal(count("ritmo"), 230);
+    assert.equal(count("completo"), 359);
+    assert.equal(MANUAL_TOPICS.length, 359);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

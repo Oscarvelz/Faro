@@ -347,6 +347,17 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // receta de aterrizaje que su hermana de texto — addDrafts nunca se
   // niega: añade los borradores del bache a la bandeja.
   "components/faro/capture-list.tsx|commit|addDrafts": ["aterrizaje", 1],
+  // 1.3.345 (las pastillas útiles de Oscar): cada hoja de captura gana su
+  // segundo commit — el corrector de la fila (draft-row) comete patchDraft
+  // cuando el usuario toca una pastilla de duda y elige el valor: la
+  // receta nunca se niega, parcha el borrador en la bandeja y re-deriva
+  // sus dudas. Aterrizaje, como el nacimiento del borrador.
+  "components/faro/capture-text.tsx|commit|patchDraft": ["aterrizaje", 1],
+  "components/faro/capture-list.tsx|commit|patchDraft": ["aterrizaje", 1],
+  // 1.3.345 (Captura Ola 5a): «Registrarlo» de la caja del Asesor comete
+  // por la misma receta de aterrizaje que sus hermanas de captura —
+  // addDrafts nunca se niega: deja el gasto preguntado en la bandeja.
+  "components/faro/ask-box.tsx|commit|addDrafts": ["aterrizaje", 1],
   "components/faro/remesas.tsx|commitGuarded|deleteLine": ["guardada", 1],
   "components/faro/remesas.tsx|commit|upsertLine": ["aterrizaje", 1],
   "components/faro/remit-people.tsx|commitGuarded|addRemitPerson": ["guardada", 1],

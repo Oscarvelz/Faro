@@ -468,3 +468,25 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 /* Its head wears the same skin as its sibling "Cómo va mi crédito" (accent band + accent mark), in every theme. */
 .advice-card.is-rules .advice-head { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); }
 .advice-card.is-rules .advice-mark { background: var(--accent); color: var(--accent-fg); }
+/* Preguntar al Asesor (1.3.345): la caja al tope del Asesor y su tarjeta
+   de respuesta, con el envoltorio de las tarjetas de la casa. */
+.ask-box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+.ask-head { display: flex; align-items: center; gap: 7px; font-size: .92rem; }
+.ask-ico { color: var(--accent); display: inline-flex; }
+.ask-row { display: flex; gap: 8px; }
+.ask-input { flex: 1; min-width: 0; background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); padding: 9px 11px; font: inherit; font-size: .92rem; }
+.ask-go { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 10px; padding: 0 13px; display: inline-flex; align-items: center; cursor: pointer; }
+.ask-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ask-chip { background: var(--surface2); border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 5px 10px; font-size: .8rem; cursor: pointer; text-align: left; }
+/* La respuesta vive en su propio envoltorio (Oscar, 2026-11-20: «la
+   respuesta del asesor necesita un mejor envoltorio, más belleza, para
+   que el texto no aparezca suelto») — una tarjeta dentro de la caja, con
+   el filo del acento a la izquierda: es el Asesor quien habla. */
+.ask-card { background: var(--surface2); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
+.ask-verdict { margin: 0; font-size: 1rem; font-weight: 650; line-height: 1.35; }
+.ask-pieces { display: flex; flex-direction: column; }
+.ask-piece { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: .88rem; color: var(--muted); padding: 5px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.ask-piece:first-child { border-top: 0; padding-top: 0; }
+.ask-piece strong { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ask-note { margin: 0; font-size: .84rem; color: var(--muted); line-height: 1.4; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); padding-top: 8px; }
+.ask-reg { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 9px; padding: 7px 12px; font-size: .86rem; font-weight: 600; cursor: pointer; }

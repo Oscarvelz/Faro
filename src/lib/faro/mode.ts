@@ -609,6 +609,11 @@ export const FEATURES = {
   "study.columns": E, "study.loans": C, "study.owed": R,
   /* §3.3 Asesor — héroe y pasos (el Asesor existe en los tres modos y nunca
    * calla lo esencial, fallo D-bis 26: en Esencial habla en dinero y en llano) */
+  /* §1.29 Captura Ola 5a (1.3.345): preguntar al Asesor — hablar con tu
+   * Asesor de lo esencial es de Esencial (mapa F8); los escenarios
+   * encadenados y mover pagos son la profundidad de Completo, y su
+   * asiento nace declarado con la caja aunque su motor llegue en 5b. */
+  "advisor.ask": E, "advisor.ask-scenarios": C,
   "advisor.verdict": E, "advisor.verdict-sub": R, "advisor.hero-cubes": R,
   "advisor.step-income": E, "advisor.step-name": E, "advisor.step-keep": E,
   "advisor.step-close-gap": R, "advisor.step-set-aside": R, "advisor.step-wants-30": R,
@@ -770,6 +775,7 @@ export function featureForGo(go: GoDest): FeatureId | null {
     }
   }
   if (s === "advice") {
+    if (a === "advisor-ask") return "advisor.ask";
     if (a === "coach-pillars") return "advisor.pillars";
     if (a === "advice-sim") return "advisor.scenarios";
     if (a === "advice-long") return "advisor.projection-12";

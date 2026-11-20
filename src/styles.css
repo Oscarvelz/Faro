@@ -2944,6 +2944,14 @@ html:is([data-theme="claro"], [data-theme="costa"], [data-theme="marfil"], [data
 /* La segunda línea del encabezado: la moneda, el filtro y el lápiz viven
    aquí, a la izquierda y con aire, sobre la banda del mes. */
 .book-tools { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+/* Oscar (2026-11-20): las herramientas se alinean a la DERECHA, en la
+   dirección del botón Agregar — título a la izquierda, «+» arriba a la
+   derecha, herramientas bajo la gráfica a la derecha: la lectura baja
+   en diagonal y rápida. Y la SEPARACIÓN vertical se iguala: el hueco
+   entre la caja de estadísticas y los botones de abajo es el mismo
+   que hay entre el botón de Agregar y la caja (medido: 12px arriba,
+   8px abajo — la fila baja esos 4px que le faltaban). */
+.book-tools { justify-content: flex-end; margin-top: 12px; }
 /* Line editor: the Frecuencia value ("Mensual", "Quincenal") fits beside its chevron at large text. */
 .line-edit .form-block { container-name: leform; }
 @container leform (max-width: 16.5rem) {

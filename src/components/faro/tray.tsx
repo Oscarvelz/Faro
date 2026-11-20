@@ -121,8 +121,11 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
                   <span className="tray-src">{L(lang, SOURCE_WORD[d.source][0], SOURCE_WORD[d.source][1])}</span>
                   <span className="tray-main">
                     <strong>{d.concept || L(lang, "(sin concepto)", "(no concept)")}</strong>
-                    <span>{d.amountMinor != null && d.currency ? fmtAmt(d.amountMinor, d.currency) : L(lang, "sin monto", "no amount")} · {d.day}</span>
+                    <span className="tray-meta">{d.day}</span>
                   </span>
+                  {d.amountMinor != null && d.currency
+                    ? <span className="tray-amt num">{fmtAmt(d.amountMinor, d.currency)}</span>
+                    : <span className="tray-amt is-none">{L(lang, "sin monto", "no amount")}</span>}
                   <button type="button" className={`tray-drop${armed === d.id ? " is-armed" : ""}`} aria-label={L(lang, "Descartar", "Discard")} onClick={() => drop(d)}>
                     {armed === d.id ? L(lang, "¿Descartar?", "Discard?") : <Trash2 />}
                   </button>

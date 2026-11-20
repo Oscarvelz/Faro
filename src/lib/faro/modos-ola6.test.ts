@@ -141,9 +141,12 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // ENMIENDA CAPTURA OLA 4 (1.3.344): nace moneda-invitada en Esencial
     // (modo declarado en el tema; su función es settings.guest-currency).
     // La distribución se mueve a 124 · 105 · 129 sobre 358.
+    // ENMIENDA CAPTURA OLA 5A (1.3.345): nace preguntar-asesor en Esencial
+    // (modo declarado en el tema; su función es advisor.ask).
+    // La distribución se mueve a 125 · 105 · 129 sobre 359.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 358);
-    assert.equal(count("esencial"), 124);
+    assert.equal(MANUAL_TOPICS.length, 359);
+    assert.equal(count("esencial"), 125);
     assert.equal(count("ritmo"), 105);
     assert.equal(count("completo"), 129);
   });
