@@ -2858,4 +2858,4 @@ Dos piezas de Oscar, las dos nacidas de sus capturas de esta noche.
 
 Verificación: suite Faro 2198/2198, unitarias 59/59, typecheck con solo los 3 errores preexistentes; las cercas reescritas (esquina 5/5, luz 13/13) dentro de la suite. Banco en vivo contra el dist: el encabezado medido (el «+» en la esquina de su fila, la línea de herramientas 8px debajo con el filtro y el lápiz a la izquierda, a 28px) y el medidor medido en las celdas como se cuenta arriba. La línea del Guardián en line-form.tsx intacta palabra por palabra y el candado con su md5 de siempre.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: fuente ae6d09f5 (tag v1.3.335), principal 019b542c (trozos) + bfe46579 (control). Entrada index-Dj2lAtd_.js, CSS index-B_7UHelw.css. Verificado en vivo de primera mano: sw.js sirve faro-1.3.335 y el barrido completo de precache pasa 25/25 con md5 idénticos al dist.
