@@ -2928,4 +2928,4 @@ La pasada cazó además un defecto del mecanismo, nacido en la 338 y callado has
 
 Verificación: la burbuja de los filtros rendida en la app real (banco con el libro de Oscar: tres líneas y «Más en el manual →»); suite completa 2244/2244, unitarias 59/59, typecheck con solo los 3 errores preexistentes.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: fuente ab40ea8b (asiento en este commit), tag v1.3.341, main 6e0bb275 (chunks) + 3796bdb5 (control). Verificado en vivo de primera mano: sw faro-1.3.341, precache 25/25 por md5 contra dist.
