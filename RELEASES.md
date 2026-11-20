@@ -2882,4 +2882,4 @@ La cura vive en el lector (scanrun), así que la heredan Escanear, la tarjeta y 
 
 Verificación: suite Faro 2211/2211 (la cerca nueva scanrotate, 7/7, fija el espécimen real en sus dos orientaciones y la puerta del reintento), unitarias 59/59, typecheck con solo los 3 errores preexistentes. Banco de principio a fin contra el dist: la foto de lado de Oscar entró por el selector de imágenes de Escanear y la hoja cayó en la bandeja con «$22.04 · Variables». Declarado con honestidad: el nombre del comercio salió torcido por el orden de columnas del papel girado («int. Page 1 0») — el monto y la fecha, que son el dinero, salieron exactos; el nombre se corrige en la mesa con un toque y Faro lo aprende, como con cualquier lectura.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: fuente 0e2378aa, etiqueta v1.3.337 sobre ese mismo commit; main 81bf1585 (los trozos) + 062e6f28 (index.html, precache.json, sw.js). Verificado en vivo de primera mano: sw.js sirve faro-1.3.337 y el barrido completo del precache dio 25/25 con md5 idénticos al dist. Respaldo: rollback-pre-337-2026-11-20 → d5d4661a.
