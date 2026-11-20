@@ -2954,4 +2954,4 @@ La Ola 3 de Captura Inteligente, segunda entrega (mapa F5): el importador del ba
 
 Verificación: cerca nueva captura343 (6 pruebas contra libros .xlsx reales construidos byte a byte en la prueba: zip con CRC, textos compartidos, fecha serial 44927 → 2023-01-01, una hoja deflactada, el total con fecha excluido y contado). Suite completa 2259/2259, unitarias 59/59, typecheck con solo los 3 errores preexistentes. Banco extremo a extremo en la app real: un libro de dos hojas soltado en la zona de importación abrió primero el mapa (hoja «Gastos», columnas preseleccionadas, la vista previa con las fechas ya convertidas) y la revisión mostró Leche y Pan con la nota del total fuera. La línea raíz del Guardián y la cerradura, intactas.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: código c005de79 (fuente), etiqueta v1.3.343; principal d99fc526 (paquetes) + 483de27c (control). Entrada index-hzWdxcrj.js; el lector viaja en su propio paquete perezoso xlsxread-DNiUE09g.js. Verificado en vivo de primera mano: sw faro-1.3.343 (5ª consulta), barrido precache 26/26 por md5 contra dist. Rollback: rollback-pre-343-2026-11-20 → a0c0db29.
