@@ -2740,4 +2740,4 @@ Petición de Oscar (2026-11-19 21:16 EST, con su foto de Lafise en Cyberpunk): �
 
 Verificación: test:faro 2139/2139 (2135 + 4 de cuentas328) en la copia de trabajo y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-328-2026-11-19` → 9d7ab767. Source: 4dd7b2c0. Tag: v1.3.328 → 4dd7b2c0. Main: 67068b71 (chunks) + 93cca4cf (index) + 2aa8cf7c (sw y precache). Entrada: index-CPfXwbPT.js.
