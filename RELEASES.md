@@ -2767,3 +2767,5 @@ Corrección de Oscar sobre la 1.3.329 (22:20 EST, con su foto de la tarjeta en s
 Banco (mis fotos, libro de Oscar): Cyberpunk, Tron y EN a ancho de teléfono — ya no hay línea del panel; el medidor mide 290×5 con el segmento en 164px (el 56.5% del saldo); las cifras corren como pares compactos («Ya tiene nombre C$5,250.00» / «Libre C$4,050.00»; «Already named / Free» en EN con la misma geometría); la tarjeta mide 134px.
 
 Verificación: test:faro 2140/2140 (2139 + 1 de la enmienda de cuentas328) en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.
+
+Datos de publicación: rollback `rollback-pre-330-2026-11-19` → 5cda9b9e. Source: c2750bf0. Tag: v1.3.330 → c2750bf0. Main: 258c051c (chunks) + e4531853 (control). Entrada: index-eG0aqSWi.js. En vivo verificado a mano: sw.js en faro-1.3.330, precache 25/25, md5 del JS y del CSS en vivo idénticos a dist, y blob sha de index/sw/precache/entrada/CSS en la rama idénticos a dist.
