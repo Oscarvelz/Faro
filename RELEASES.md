@@ -2790,4 +2790,4 @@ Banco (mis fotos, libro de Oscar con cuatro borradores sembrados): la tarjeta en
 
 Verificación: test:faro 2160/2160 (2140 + 20 de la batería nueva de borradores: contrato, conversión campo a campo, la reina, persistencia, el adaptador y el aprendizaje); unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos. El banco de OCR en vivo dentro de la concha sin cabeza no se corrió: la equivalencia del adaptador está cercada en la librería, campo a campo contra el guardado antiguo.
 
-Datos de publicación: (se completan al publicar).
+Datos de publicación: rollback `rollback-pre-331-2026-11-19` → c1bbe32a. Source: c9299a60. Tag: v1.3.331 → c9299a60. Main: 27184048 (chunks) + d428a44c (control). Entrada: index-BNXYGnVs.js, CSS index-BwYWoLO6.css. En vivo verificado a mano: sw.js en faro-1.3.331, precache 25/25, md5 del JS y del CSS en vivo idénticos a dist, y blob sha de index/sw/precache/entrada/CSS en la rama idénticos a dist.
