@@ -509,7 +509,21 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
       const llevaEnclitico = /^(?:archiv|archive)/i.test(m[0]) && (/(?:lo|la|los|las|le|les)$/i.test(m[0]) || /^\s+(?:it|them)\b/i.test(s.slice(m.index! + m[0].length)));
       let backStart = 0;
       if (!llevaEnclitico) {
-        for (const mk of s.slice(0, m.index!).matchAll(/, y |, and |, pero |, but |: /g)) backStart = Math.max(backStart, mk.index + mk[0].length);
+        /* OLA 18 (Cara CARA18-B1): la frontera aprende su CLASE, no
+         * solo su grafía con coma — la enumeración de la ola 17
+         * llevaba la coma puesta («, pero» / «, but») y la misma
+         * cláusula ajena escrita sin ella, o abierta por el adverbio
+         * conjuntivo («sin embargo» / «however»), cruzaba la ventana
+         * hasta el objeto vecino y la inocente clavada era acusada en
+         * sus dos grafías nuevas (A18-1/A18-2). La línea es de clase:
+         * las adversativas y los adverbios conjuntivos SOLO abren
+         * cláusula — jamás unen sintagmas — así que su frontera no
+         * depende de la coma presente; la copulativa («y»/«and»), que
+         * también une sintagmas dentro de una cláusula («el préstamo
+         * y la tarjeta se archivarán»), conserva la coma como señal
+         * de frontera, como la dejó la ola 17. El enclítico sigue por
+         * encima de toda frontera (B3, A18-3/A18-4): no se reabre. */
+        for (const mk of s.slice(0, m.index!).matchAll(/, y |, and |: |,?\s+(?:pero|but)\s+|,?\s+(?:sin embargo|however)\s*,?\s*/gi)) backStart = Math.max(backStart, mk.index + mk[0].length);
         const semi = s.lastIndexOf(";", m.index!);
         if (semi >= backStart) {
           const frag = s.slice(backStart, semi).replace(RELATIVA, " ");
@@ -837,6 +851,48 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
     assert.deepEqual(stage(tienda, "Al tocar el ancla, Faro pregunta primero: lo que anotes eligiéndolo se archivará en ese lugar; tu libro no cambia en nada más.", "On tapping the anchor, Faro asks first: what you note by choosing it will be archived in that place; your book changes in nothing else."), [],
       "la inocente viva sigue absuelta bajo las fronteras nuevas: su verbo no lleva enclítico y su objeto no cruza");
   });
+  it("OLA 18 (Cara B1+B2): la frontera sin coma y el adverbio conjuntivo juzgan como su forma con coma — y el límite de la elipsis queda clavado en sus tres caras", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const deudas = MANUAL_TOPICS.find((t) => t.id === "deudas")!;
+    const stage = (base: Topic, es: string, en: string) => violaciones({ ...base, what: [es, en] } as never);
+    // A18-1 · la inocente con ADVERBIO CONJUNTIVO absuelve como su
+    // forma con adversativa: el adverbio abre la misma cláusula ajena
+    assert.deepEqual(stage(tienda, "La tarjeta de apuntes, sin embargo, lo que anotes se archivará en ese lugar.", "The notes card, however, what you jot down will be archived in that place."), [],
+      "A18-1 · la geometría de la inocente con «sin embargo»/«however»: archivar apuntes en un lugar no archiva la tarjeta — absuelta en los dos idiomas");
+    // A18-2 · la inocente con la adversativa SIN COMA absuelve como
+    // su forma con coma (B2 de la ola 17): la frontera no la lleva puesta
+    assert.deepEqual(stage(tienda, "La tarjeta de apuntes pero lo que anotes se archivará en ese lugar.", "The notes card but what you jot down will be archived in that place."), [],
+      "A18-2 · la misma inocente con la adversativa sin su coma: absuelta en los dos idiomas");
+    // A18-3 (aguantaba) · el enclítico tras la adversativa recoge el
+    // objeto a través de la frontera: ninguna frontera lo amputa
+    assert.equal(stage(deudas, "No revises la tarjeta de apuntes, pero archívala si es la de los apuntes viejos.", "Do not check the notes card, but archive it if it is the old notes one.").length, 2,
+      "A18-3 · el objeto compartido por enclítico tras adversativa acusa en los dos idiomas — la cura de la frontera no reabre el objeto compartido");
+    // A18-4 (aguantaba) · el enclítico tras «;» con fragmento finito
+    // propio: la cadena de referencia manda sobre la frontera
+    assert.equal(stage(deudas, "El préstamo se cerró ayer; archívalo desde esta hoja.", "The loan was closed yesterday; archive it from this sheet.").length, 2,
+      "A18-4 · el enclítico recoge el préstamo a través del «;» aunque el fragmento traiga su verbo: acusa en los dos idiomas");
+    // F18-5 (CARA18-B2) · el límite declarado de la elipsis, clavado
+    // en su cara de DISTANCIA: a tres proposiciones no se recompone,
+    // en ninguna dirección
+    assert.deepEqual(stage(tienda, "Fusiona las tiendas desde el menú; la lista se ordena sola; el fondo es compartido; dos quedan en una.", "Merge the stores from the menu; the list sorts itself; the background is shared; two become one."), [],
+      "F18-5 · distancia tres hacia adelante: el límite declarado manda absolver — la cerca prefiere el silencio escrito");
+    assert.deepEqual(stage(tienda, "Dos quedan en una; el fondo es compartido; la lista se ordena sola; fusiona las tiendas desde el menú.", "Two become one; the background is shared; the list sorts itself; merge the stores from the menu."), [],
+      "F18-5 · distancia tres hacia atrás: el límite es simétrico o no es límite");
+    // F18-6 (CARA18-B2) · el límite, clavado en su cara de la
+    // INTERMEDIA DE SOLO VERBO: un verbo de fusión propio corta la cadena
+    assert.deepEqual(stage(tienda, "Fusiona las tiendas desde el menú; combina los colores a tu gusto; dos quedan en una.", "Merge the stores from the menu; combine the colours as you like; two become one."), [],
+      "F18-6 · la intermedia con verbo de fusión propio corta la cadena según el límite declarado («con objeto o verbo»): absuelve en los dos idiomas");
+    // F18-1…F18-4 (aguantaban) · la elipsis a UNA proposición acusa en
+    // sus cuatro formas: dentro de la proposición las comas no son frontera
+    assert.equal(stage(tienda, "Fusiona las tiendas, que comparten el mismo fondo, en una sola.", "Merge the stores, which share the same background, into one single store.").length, 2,
+      "F18-1 · la relativa entre el objeto y la marca no parte la proposición: acusa");
+    assert.equal(stage(tienda, "Fusiona las tiendas, la del centro y la de la esquina, en una sola.", "Merge the stores, the downtown one and the corner one, into one.").length, 2,
+      "F18-2 · la aposición entre el objeto y la marca no parte la proposición: acusa");
+    assert.equal(stage(tienda, "Las tiendas, que puedes fusionar desde el menú, quedan en una.", "The stores, which you can merge from the menu, end up as one.").length, 2,
+      "F18-3 · el verbo dentro de la relativa y la marca en la principal: una proposición, acusa");
+    assert.equal(stage(tienda, "Fusiona las tiendas que quedan en una sola lista desde el menú.", "Merge the stores that end up as one from the menu.").length, 2,
+      "F18-4 · la marca dentro de la relativa y el verbo en la principal: una proposición, acusa");
+  });
 });
 
 /* ═══════════ §D · G11-2 + C11-1: CARDFORM FUSIONA Y NO RESUCITA ═══════
@@ -945,13 +1001,19 @@ describe("§D · C11-1 — guardar sobre un fantasma no resucita en silencio", (
     // contra la sesión. Las dos líneas crecen con su doctrina, como
     // en las enmiendas de las olas 14, 15 y 16 sobre este mismo bloque.
   });
-  it("el commit de edición sin registro vivo devuelve el estado intacto", () => {
+  it("el commit de edición sin registro vivo aborta sin marco (devuelve null por la puerta guardada)", () => {
     // ENMIENDA OLA 15 (G15-3): el aborto ahora deja su veredicto en el
     // canal antes de devolver el estado intacto — la doctrina no
     // cambia (el estado se devuelve intacto, jamás un alta muda); la
     // forma creció con la escritura del veredicto, como en las
     // enmiendas de las olas 12 y 14 sobre la misma línea.
-    assert.match(seg, /if \(!isAdd && !freshId && !liveCard\) \{ saveVerdict\.current = \{ applied: false, existence: "gone" \}; return s; \}/);
+    // ENMIENDA OLA 18 (BR18-1): el aborto ya no devuelve el estado
+    // intacto POR la puerta ordinaria — devuelve null por la puerta
+    // GUARDADA (commitGuarded) y no deja marco: ni la entrada de
+    // Actividad con el nombre tecleado, ni revisión, ni Deshacer. La
+    // doctrina que este pin clava no cambia (jamás un alta muda; el
+    // veredicto se deja primero); lo que cambia es el marco del aborto.
+    assert.match(seg, /if \(!isAdd && !freshId && !liveCard\) \{ saveVerdict\.current = \{ applied: false, existence: "gone" \}; return null; \}/);
   });
 });
 

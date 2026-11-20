@@ -7389,7 +7389,7 @@ function InsFields({ draft, onChange, accts, t }: { draft: InsDraft; onChange: (
 }
 
 function CatalogEditor() {
-  const { t, lang, session, commit, confirm, has } = useFaro();
+  const { t, lang, session, commit, commitGuarded, confirm, has } = useFaro();
   // Etapa 3.3: el catálogo se recompone por modo — el alta es Esencial
   // (settings.catalog-add), la mano de administración nace en Ritmo
   // (settings.catalog-admin) y la mano sobre las piezas de suscripción es
@@ -7731,7 +7731,11 @@ function CatalogEditor() {
     const r = planFromDraft(planDraft);
     if (r.err) { setPlanErr(r.err === "timing" ? t("ins.needTiming") : t("field.required")); return; }
     const bens = cleanInsBens(planDraft.bens);
-    commit((s) => {
+    /* Ola 18 (BR18-1): la puerta guardada — si la pieza ya no vive en el
+     * catálogo, la receta aborta devolviendo null y el guardado no deja
+     * marco: ni la entrada con el nombre de la pieza, ni revisión, ni
+     * Deshacer por un plan que nunca aterrizó. */
+    commitGuarded((s) => {
       // Ola 14 (Guardián G14-4): la pieza editada se compone sobre el
       // catálogo VIVO dentro del commit, como saveRename en este mismo
       // editor — antes `updated` nacía de la foto del render y sustituía
@@ -7744,7 +7748,7 @@ function CatalogEditor() {
         updated = { ...c, ins: r.plan, bens: bens.length ? bens : undefined };
         return updated;
       });
-      if (!updated) return s;
+      if (!updated) return null;
       const withPiece: LedgerState = { ...s, structure: { ...s.structure, catalog } };
       return r.plan ? syncInsLine(withPiece, updated, todayIso()) : withPiece;
     }, displayName(item, lang));

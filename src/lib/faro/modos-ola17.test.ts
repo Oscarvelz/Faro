@@ -58,7 +58,11 @@ describe("ola17 · §A: «Guardar como tarjeta nueva» procede sobre lo declarad
   });
 
   it("la fuente: la re-pregunta compara contra lo declarado — el estado a secas ya no condena", () => {
-    assert.ok(seg.includes("if (freshAsked && freshAsked !== (declared ?? \"gone\")) { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }"),
+    /* ENMIENDA OLA 18 (BR18-1): el aborto devuelve null por la puerta
+     * GUARDADA (commitGuarded) — la comparación contra lo declarado,
+     * que es lo que este pin clava, no cambia; el marco del aborto sí:
+     * ya no escribe la entrada del guardado que no aterrizó. */
+    assert.ok(seg.includes("if (freshAsked && freshAsked !== (declared ?? \"gone\")) { saveVerdict.current = { applied: false, existence: freshAsked }; return null; }"),
       "archived declarado y archived vivo procede: la nueva nace por upsert y la archivada no se toca");
     assert.ok(!seg.includes("freshAsked !== \"gone\""),
       "la forma absoluta de la ola 16 no vuelve: era la que mataba la salida del anuncio de archivada");
@@ -120,7 +124,10 @@ describe("ola17 · §B: la salida convertida re-pregunta contra el paquete almac
   });
 
   it("la fuente: los dos commits abortan contra el paquete por delante antes de componer", () => {
-    const gate = "if (stored && stored.revision > s.revision && stored.ex !== \"alive\") { saveVerdict.current = { applied: false, existence: stored.ex }; return s; }";
+    /* ENMIENDA OLA 18 (BR18-1): la guarda es la misma y aborta en el
+     * mismo sitio; el aborto devuelve null por la puerta guardada y no
+     * deja el marco que BR18-1 cazó (entrada, revisión, Deshacer). */
+    const gate = "if (stored && stored.revision > s.revision && stored.ex !== \"alive\") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }";
     const draft = src.slice(src.indexOf("const commitDraft"), src.indexOf("const proceedUpdate"));
     assert.ok(draft.includes(gate), "el commit de la edición re-pregunta al paquete: por delante y ya no viva → veredicto con la verdad del paquete");
     assert.ok(draft.indexOf("storedPackExistence(userId, bornId)") < draft.indexOf("const freshAsked"),
@@ -133,12 +140,12 @@ describe("ola17 · §B: la salida convertida re-pregunta contra el paquete almac
 
   it("la fuente (reparación): la convertida de la edición juzga su premisa contra el estado del commit", () => {
     const draft = src.slice(src.indexOf("const commitDraft"), src.indexOf("const proceedUpdate"));
-    const premise = "if (converted && existence !== \"alive\") { saveVerdict.current = { applied: false, existence }; return s; }";
+    const premise = "if (converted && existence !== \"alive\") { saveVerdict.current = { applied: false, existence }; return null; }";
     assert.ok(draft.includes(premise),
       "«Guardarla» prometió la tarjeta viva: archivada otra vez o ida al cometer → aborta y el veredicto re-plantea el anuncio verdadero (T2c.2 verde en vivo)");
     assert.ok(draft.indexOf("storedPackExistence(userId, bornId)") < draft.indexOf(premise) && draft.indexOf(premise) < draft.indexOf("const storedCard"),
       "la premisa se juzga tras la guarda del paquete y la pregunta de existencia, antes de componer sobre registro alguno");
-    assert.ok(draft.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }"),
+    assert.ok(draft.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return null; }"),
       "la salida NO convertida del anuncio de archivada conserva su forma de siempre: restaurarla sigue procediendo sobre la archivada — la premisa es solo de la convertida");
   });
 
@@ -146,7 +153,7 @@ describe("ola17 · §B: la salida convertida re-pregunta contra el paquete almac
     const upd = src.slice(src.indexOf("const commitUpdate"), src.indexOf("const proceedUpdate"));
     assert.ok(!upd.includes("converted && existence"),
       "commitUpdate no lleva la guarda de premisa: su convertida entra con unarchive=false y las preguntas de siempre ya abortan ante archivada o ida — la asimetría es deliberada y queda escrita");
-    assert.ok(upd.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }"),
+    assert.ok(upd.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return null; }"),
       "su pregunta asentada sigue en su sitio: es la que guarda la premisa de su convertida");
   });
 });

@@ -482,9 +482,14 @@ describe("§B · S1 — la primera edición de un preset se materializa; el fant
     // de cerrar en silencio); la doctrina que S1 clava no cambia — lo
     // destruido y lo que no vive en ninguna casa devuelven el estado
     // intacto dentro del commit.
-    assert.match(s, /if \(existence === "gone"\) \{ saveVerdict\.current = \{ applied: false, existence \}; return s; \}/);
+    // ENMIENDA OLA 18 (BR18-1): esos abortos devuelven ahora null por
+    // la puerta GUARDADA (commitGuarded): el estado queda intacto y,
+    // además, sin marco — el envoltorio ordinario anteponía la entrada
+    // de Actividad con el nombre tecleado sobre un guardado que la
+    // receta acababa de negar (BR18-1). La doctrina de S1 no cambia.
+    assert.match(s, /if \(existence === "gone"\) \{ saveVerdict\.current = \{ applied: false, existence \}; return null; \}/);
     assert.match(s, /storedCard \?\? \(!isAdd && !freshId \? cardsOf\(s\)\.find\(\(c\) => c\.id === bornId\) : undefined\)/);
-    assert.match(s, /if \(!isAdd && !freshId && !liveCard\) \{ saveVerdict\.current = \{ applied: false, existence: "gone" \}; return s; \}/);
+    assert.match(s, /if \(!isAdd && !freshId && !liveCard\) \{ saveVerdict\.current = \{ applied: false, existence: "gone" \}; return null; \}/);
   });
   it("el preset vive en cardsOf sin estar en storedCards, y putCard lo materializa con la edición", () => {
     const b = book({});
@@ -1297,6 +1302,124 @@ function scanForms(files: { rel: string; text: string }[]) {
       const subCtx: PatchCtx = { idRoot: subIdRoot, param: subParam, rooted: subRooted, locals: subLocals, bindings: subBindings, enclosingParams: ctx.enclosingParams, foreign: 0, rel: r.rel, depth: ctx.depth + 1 };
       return { subCtx, fnNode: r.node };
     };
+    /* OLA 18 (Guardián G18-1): LA CAPTURA POR CIERRE — la resolución de
+     * la ola 17 seguía el canal del ARGUMENTO: todo lo que acusaba
+     * pasaba la foto (o lo vivo) como argumento de la llamada. El
+     * invocado SIN argumentos cuyo cuerpo lee una atadura de su ámbito
+     * que aliasa la foto cruzaba en silencio en cuatro especímenes
+     * (P2d: el método local sin argumentos; P3e: la ayudante desnuda
+     * leída por su miembro; P3a/P3b: el método de un literal atado, en
+     * línea o atado su resultado). Ahora la llamada sin argumentos en
+     * posición de parche ABRE el cuerpo del invocado y lo juzga con el
+     * ambiente de su ámbito de DEFINICIÓN: las ataduras visibles desde
+     * donde el invocado nace (su módulo, su función envolvente), con
+     * lo vivo capturado enraizado y la foto capturada juzgada como
+     * foto. Un cuerpo que compone el parche desde datos capturados con
+     * forma de línea acusa por las reglas de siempre; el literal puro
+     * absuelve. */
+    const scopeEnvOf = (node: ts.Node): { bindings: Map<string, ts.Node>; params: Set<string> } => {
+      const bindings = new Map<string, ts.Node>();
+      const params = new Set<string>();
+      let cur: ts.Node | undefined = node.parent;
+      while (cur) {
+        if (isFnLike(cur)) {
+          for (const p of (cur as ts.FunctionLikeDeclarationBase).parameters ?? []) if (ts.isIdentifier(p.name)) params.add(p.name.text);
+          const b = (cur as { body?: ts.Node }).body;
+          if (b && ts.isBlock(b)) for (const st of b.statements) {
+            if (ts.isVariableStatement(st)) for (const d of st.declarationList.declarations) {
+              if (ts.isIdentifier(d.name) && d.initializer && !bindings.has(d.name.text)) bindings.set(d.name.text, d.initializer);
+            }
+          }
+        }
+        if (ts.isSourceFile(cur)) {
+          for (const st of cur.statements) {
+            if (ts.isVariableStatement(st)) for (const d of st.declarationList.declarations) {
+              if (ts.isIdentifier(d.name) && d.initializer && !bindings.has(d.name.text)) bindings.set(d.name.text, d.initializer);
+            }
+          }
+        }
+        cur = cur.parent;
+      }
+      return { bindings, params };
+    };
+    const closureCtx = (fnNode: ts.Node, rel: string, ctx: PatchCtx): PatchCtx => {
+      const env = scopeEnvOf(fnNode);
+      const bindings = new Map<string, ts.Node>(env.bindings);
+      const locals = new Map<string, ts.ObjectLiteralExpression>();
+      // la foto misma NO entra en locals: su nombre se juzga como foto
+      // (la raíz de id), no se expande a su literal — expandirla la
+      // absolvería por la rama del identificador.
+      for (const [n, init] of bindings) if (n !== ctx.idRoot && ts.isObjectLiteralExpression(init)) locals.set(n, init);
+      const rooted = new Set<string>();
+      for (const p of env.params) if (p === ctx.param || ctx.rooted.has(p)) rooted.add(p);
+      const body = (fnNode as { body?: ts.Node }).body;
+      if (body) {
+        for (let pass = 0; pass < 6; pass++) {
+          let grew = false;
+          const scan = (n: ts.Node) => {
+            if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+              if (!bindings.has(n.name.text)) bindings.set(n.name.text, n.initializer);
+              if (n.name.text !== ctx.idRoot && ts.isObjectLiteralExpression(n.initializer) && !locals.has(n.name.text)) locals.set(n.name.text, n.initializer);
+            }
+            if (isFnLike(n) && n !== fnNode) return;
+            ts.forEachChild(n, scan);
+          };
+          scan(body);
+          for (const [n, init] of bindings) {
+            if (rooted.has(n)) continue;
+            let refs = false;
+            const walk = (m: ts.Node) => { if (ts.isIdentifier(m) && rooted.has(m.text)) refs = true; ts.forEachChild(m, walk); };
+            walk(init);
+            if (refs) { rooted.add(n); grew = true; }
+          }
+          if (!grew && pass > 0) break;
+        }
+      }
+      const fn = fnNode as ts.FunctionLikeDeclarationBase;
+      const param = fn.parameters?.length && ts.isIdentifier(fn.parameters[0]!.name) ? (fn.parameters[0]!.name as ts.Identifier).text : null;
+      return { idRoot: ctx.idRoot, param, rooted, locals, bindings, enclosingParams: ctx.enclosingParams, foreign: 0, rel, depth: ctx.depth + 1 };
+    };
+    /** El cuerpo detrás de una llamada: identificador (atadura local o
+     * ayudante resuelto) o método de un objeto literal alcanzable
+     * (atadura del contexto, del ámbito de la llamada o ayudante). */
+    const resolveCalleeBody = (call: ts.CallExpression, ctx: PatchCtx): { fnNode: ts.Node; rel: string } | null => {
+      if (ts.isIdentifier(call.expression)) {
+        const nm = call.expression.text;
+        const b = ctx.bindings.get(nm);
+        if (b && (ts.isArrowFunction(b) || ts.isFunctionExpression(b))) return { fnNode: b, rel: ctx.rel };
+        const r = resolveHelper(nm, ctx.rel);
+        if (r && isFnLike(r.node)) return { fnNode: r.node, rel: r.rel };
+        return null;
+      }
+      if (ts.isPropertyAccessExpression(call.expression) && ts.isIdentifier(call.expression.expression)) {
+        const objName = call.expression.expression.text;
+        const method = call.expression.name.text;
+        let objNode: ts.Node | undefined = ctx.bindings.get(objName) ?? scopeEnvOf(call).bindings.get(objName);
+        if (!objNode) {
+          const r = resolveHelper(objName, ctx.rel);
+          if (r) objNode = (r.node as { initializer?: ts.Node }).initializer ?? r.node;
+        }
+        if (objNode && ts.isObjectLiteralExpression(objNode)) {
+          for (const p of objNode.properties) {
+            if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === method &&
+              (ts.isArrowFunction(p.initializer) || ts.isFunctionExpression(p.initializer))) return { fnNode: p.initializer, rel: ctx.rel };
+            if (ts.isMethodDeclaration(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === method) return { fnNode: p, rel: ctx.rel };
+          }
+        }
+        return null;
+      }
+      return null;
+    };
+    const judgeZeroArgCall = (call: ts.CallExpression, ctx: PatchCtx): boolean => {
+      if (call.arguments.length > 0) return false;
+      const resolved = resolveCalleeBody(call, ctx);
+      if (!resolved) return false;
+      if (ctx.depth >= 4) { out.push("la llamada sin argumentos en posición de parche se anida más allá de lo que el censo sigue: no se certifica lo que no se ve (G18-1)"); return true; }
+      const subCtx = closureCtx(resolved.fnNode, resolved.rel, ctx);
+      for (const ret of fnReturns(resolved.fnNode)) judgeExpr(ret, subCtx);
+      ctx.foreign += subCtx.foreign;
+      return true;
+    };
     /* OLA 17 (G17-2): una FUNCIÓN entregada como valor en posición de
      * parche — el argumento-flecha de `identidad(...)`, el resultado
      * de una llamada — se juzga como lo que es: una función de parche.
@@ -1370,6 +1493,25 @@ function scanForms(files: { rel: string; text: string }[]) {
       }
       if (ts.isCallExpression(base)) {
         if (ctx.depth >= 4) { out.push(`el miembro «${prop}» de una llamada en posición de parche se anida más allá de lo que el censo sigue: no se certifica lo que no se ve (G17-3)`); return; }
+        /* OLA 18 (G18-1): la llamada SIN argumentos no tiene canal que
+         * remapear — aunque el nombre se resuelva, el remapeo de la
+         * ola 17 juzgaba el cuerpo solo a través de sus argumentos.
+         * Su cuerpo se abre con el ambiente de su ámbito de
+         * definición y el miembro se lee de SUS literales devueltos. */
+        if (base.arguments.length === 0) {
+          const resolved = resolveCalleeBody(base, ctx);
+          if (resolved) {
+            const subCtx = closureCtx(resolved.fnNode, resolved.rel, ctx);
+            for (const lit of returnedObjectLiterals(resolved.fnNode)) {
+              for (const p of lit.properties) {
+                if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === prop) judgeExpr(p.initializer, subCtx);
+                else if (ts.isShorthandPropertyAssignment(p) && p.name.text === prop) judgeExpr(p.name, subCtx);
+              }
+            }
+            ctx.foreign += subCtx.foreign;
+            return;
+          }
+        }
         const remapped = remapCallCtx(base, ctx);
         if (!remapped) {
           if (base.arguments.some((a) => carriesArg(a, ctx))) out.push(`el miembro «${prop}» se lee del resultado de una llamada que lleva la foto o lo vivo y no se resuelve a un cuerpo: el censo no certifica lo que no ve (G17-3)`);
@@ -1553,6 +1695,12 @@ function scanForms(files: { rel: string; text: string }[]) {
             return;
           }
         }
+        /* OLA 18 (G18-1): la llamada SIN argumentos en posición de
+         * parche — ningún argumento lleva la procedencia, así que el
+         * brazo de la ola 16 no la abría jamás: su cuerpo se juzga con
+         * el ambiente de su ámbito de definición (la captura por
+         * cierre acusa; el literal puro absuelve). */
+        if (e.arguments.length === 0 && judgeZeroArgCall(e, ctx)) return;
         for (const a of e.arguments) judgeExpr(a, ctx);
         return;
       }
@@ -1702,7 +1850,13 @@ function scanForms(files: { rel: string; text: string }[]) {
         if (fnNode.parameters) for (const p of fnNode.parameters) if (ts.isIdentifier(p.name)) ps.add(p.name.text);
         params = ps;
       }
-      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "commit") {
+      /* OLA 18 (BR18-1): el censo conoce las DOS puertas de commit de la
+       * casa — la ordinaria y la guardada (commitGuarded, cuyas recetas
+       * pueden abortar sin marco devolviendo null). Una forma que guarda
+       * por la puerta guardada es una ruta de guardado como cualquier
+       * otra: nace con la misma llave (su función envolvente) y se
+       * clasifica con la misma vara. */
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "commit" || node.expression.text === "commitGuarded")) {
         let updater = node.arguments[0];
         let delegatedVia: string | null = null;
         if (updater && ts.isIdentifier(updater)) {
@@ -2045,12 +2199,12 @@ const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
   "components/faro/screens.tsx:apply#1": ["campo", "muestra/oculta una pieza del catálogo por id dentro del commit"],
   "components/faro/screens.tsx:applyReplace#1": ["naturaleza", "reemplazar una pieza por otra es la operación entera elegida; replaceCatalogItem compone sobre el vivo"],
   "components/faro/screens.tsx:onCardPointerUp#1": ["campo", "reordena el catálogo desde el vivo en el mismo commit"],
-  "components/faro/screens.tsx:savePlan#1": ["campo", "la pieza editada se mapea sobre el catálogo vivo y su línea se sincroniza en el mismo commit"],
+  "components/faro/screens.tsx:savePlan#1": ["campo", "la pieza editada se mapea sobre el catálogo vivo y su línea se sincroniza en el mismo commit. Ola 18 (BR18-1): viaja por la puerta guardada — la pieza que ya no vive aborta sin marco"],
 };
 
 const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
-  "components/faro/cards.tsx:commitDraft#1": ["fusiona", "CardForm: el candidato se fusiona (fuseCardDraft) contra el registro del commit y putCard escribe el resultado; las lecturas del alta se anexan. Ola 14: proceed se llama commitDraft — la misma ruta con su salida de restaurar (G14-5)", "addReading,addRewards,putCard"],
-  "components/faro/cards.tsx:commitUpdate#1": ["anexa", "ola 15 (G15-2): la actualización manual de CardForm vive en su propia ruta (commitUpdate) — pregunta cardExistence DENTRO del commit y anexa lecturas y recompensas por id sobre el registro vivo (addReading busca en cardsOf); lo archivado solo se restaura por restoreCard dentro del mismo commit, con la palabra de la persona. Antes era save#1, en línea en save()", "addReading,addRewards"],
+  "components/faro/cards.tsx:commitDraft#1": ["fusiona", "CardForm: el candidato se fusiona (fuseCardDraft) contra el registro del commit y putCard escribe el resultado; las lecturas del alta se anexan. Ola 14: proceed se llama commitDraft — la misma ruta con su salida de restaurar (G14-5). Ola 18 (BR18-1): la ruta viaja por la puerta GUARDADA (commitGuarded) — sus abortos devuelven null y no dejan marco (ni entrada, ni revisión, ni Deshacer); la composición que aterriza es esta misma.", "addReading,addRewards,putCard"],
+  "components/faro/cards.tsx:commitUpdate#1": ["anexa", "ola 15 (G15-2): la actualización manual de CardForm vive en su propia ruta (commitUpdate) — pregunta cardExistence DENTRO del commit y anexa lecturas y recompensas por id sobre el registro vivo (addReading busca en cardsOf); lo archivado solo se restaura por restoreCard dentro del mismo commit, con la palabra de la persona. Antes era save#1, en línea en save(). Ola 18 (BR18-1): viaja por la puerta guardada, como commitDraft — sus abortos no dejan marco.", "addReading,addRewards"],
   "components/faro/cards.tsx:save#1": ["anexa", "CardScan: crea la tarjeta nueva o anexa las lecturas del escaneo por id; no edita campos gobernados de la ficha. (Era save#2: la ola 15 movió la ruta update de CardForm a commitUpdate y la numeración por función se recorrió.)", "addReading,addRewards,putCard"],
   "components/faro/bank-settings.tsx:editor#1": ["fusiona", "EditAcct: editAccount aplica el parche {name?, color?, bank?} sobre el registro vivo dentro del commit", "editAccount"],
   "components/faro/rewards-real.tsx:save#1": ["campo", "setRewardReal escribe la figura de la cuenta dentro del commit, sobre el libro vivo", "setRewardReal"],
@@ -2061,7 +2215,7 @@ const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
    * parchea contra lo vivo con patchLine/patchLineWith («campo» por
    * construcción del ayudante: busca la línea dentro del estado del
    * commit y aplica solo el parche). */
-  "components/faro/archivo.tsx:restoreDue#1": ["campo", "el patrón sano original: busca la línea DENTRO del commit y la reactiva sobre la viva", "upsertLine"],
+  "components/faro/archivo.tsx:restoreDue#1": ["campo", "el patrón sano original: busca la línea DENTRO del commit y la reactiva sobre la viva. Ola 18 (BR18-1): viaja por la puerta guardada — si la serie ya no vive, aborta sin marco en vez de firmar una restauración que no ocurrió", "upsertLine"],
   "components/faro/people.tsx:save#1": ["anexa", "el regalo nace como línea nueva (plainLine con id fresco) en el commit", "upsertLine"],
   "components/faro/receipt-scan.tsx:save#1": ["anexa", "las líneas del escaneo nacen nuevas; el reduce las compone sobre el acumulador del propio commit", "upsertLine"],
   "components/faro/remesas.tsx:save#1": ["anexa", "la remesa enviada nace como línea nueva (plainLine) en el commit", "upsertLine"],
@@ -2124,7 +2278,7 @@ const FORMAS_DELEGADAS: Record<string, [Doctrina, string, string]> = {
   "components/faro/bank-settings.tsx:BankSettings#1": ["anexa", "addAccount nace la cuenta nueva sobre el vivo, dentro del commit", "addAccount"],
   "components/faro/bank-settings.tsx:run#5": ["campo", "withBook aplica la función sobre el libro de la cuenta, vivo, dentro del commit", "withBook"],
   "components/faro/bank-settings.tsx:BankSettings#2": ["campo", "withBook aplica la función sobre el libro de la cuenta, vivo, dentro del commit", "withBook"],
-  "components/faro/cards.tsx:commitDraft#1": ["fusiona", "ola 14 (G14-5): el guardado pregunta su existencia DENTRO del commit con cardExistence — la respuesta gobierna si la composición funde, restaura o devuelve el estado intacto; la composición misma es la del brazo B (fuseCardDraft + putCard)", "cardExistence"],
+  "components/faro/cards.tsx:commitDraft#1": ["fusiona", "ola 14 (G14-5): el guardado pregunta su existencia DENTRO del commit con cardExistence — la respuesta gobierna si la composición funde, restaura o aborta; la composición misma es la del brazo B (fuseCardDraft + putCard). Ola 18 (BR18-1): el aborto viaja por la puerta guardada y devuelve null — «devuelve el estado intacto» se dice ahora sin marco: ni entrada, ni revisión, ni Deshacer", "cardExistence"],
   "components/faro/cards.tsx:run#1": ["campo", "dropCard archiva o quita la tarjeta por id sobre el vivo (su historial decide), dentro del commit", "dropCard"],
   "components/faro/cards.tsx:run#2": ["campo", "dropPresets quita los presets marcados sobre el vivo, dentro del commit", "dropPresets"],
   "components/faro/cards.tsx:restore#1": ["campo", "restorePresets trae de vuelta los presets sobre el vivo, dentro del commit", "restorePresets"],
@@ -2162,7 +2316,7 @@ const FORMAS_DELEGADAS: Record<string, [Doctrina, string, string]> = {
   "components/faro/screens.tsx:run#5": ["campo", "restoreRetiro trae de vuelta la línea de Retiro sobre el vivo, dentro del commit", "restoreRetiro"],
   "components/faro/screens.tsx:run#6": ["campo", "restoreDefaultCategories trae de vuelta las categorías por defecto sobre la estructura viva", "restoreDefaultCategories"],
   "components/faro/screens.tsx:addItem#1": ["campo", "syncInsLine sincroniza la línea de la pieza sobre el vivo en el mismo commit (el sitio además compone en línea)", "syncInsLine"],
-  "components/faro/screens.tsx:savePlan#1": ["campo", "syncInsLine sincroniza la línea del plan sobre el vivo en el mismo commit (el sitio además compone en línea)", "syncInsLine"],
+  "components/faro/screens.tsx:savePlan#1": ["campo", "la pieza editada se mapea sobre el catálogo vivo y su línea se sincroniza en el mismo commit. Ola 18 (BR18-1): el sitio viaja por la puerta guardada — si la pieza ya no vive, aborta sin marco", "syncInsLine"],
   "components/faro/widget-host.tsx:file#1": ["anexa", "ingestQuick ingiere las entradas como líneas nuevas sobre el vivo (upsertLine dentro del ayudante)", "ingestQuick"],
 };
 
@@ -2516,6 +2670,50 @@ describe("§B · el censo de formas que guardan: toda ruta de guardado, clasific
     // B3: el control sano — el miembro transporta lo vivo
     assert.deepEqual(mkPatch(ENV, "(live) => { const e = envolver(live); return { ...e.copia, history: [...live.history, { id: 'u1' }] }; }").violations.get(key) ?? [], [],
       "G17-3/B3 sano: envolver(live) y el historial anexado sobre lo vivo — la expansión remapea el parámetro y absuelve");
+  });
+  /* ── OLA 18 (Guardián G18-1): la captura por cierre. La resolución
+   * de la 17 seguía el canal del argumento; el invocado SIN
+   * argumentos cuyo cuerpo lee la foto capturada en su ámbito cruzaba
+   * en silencio (P2d, P3e, P3a, P3b). Ahora su cuerpo se juzga con el
+   * ambiente de su ámbito de definición. ── */
+  it("espécimen G18-1: el invocado sin argumentos que captura la foto acusa por sus cuatro caminos; los controles absuelven", () => {
+    const key = "components/faro/inventada18.tsx:save#1";
+    const mkPatch = (pre: string, fnBody: string) => scanForms([{
+      rel: "components/faro/inventada18.tsx",
+      text: [
+        "type S = { months: unknown };",
+        "const foto = { id: 'l9', history: [] as unknown[] };",
+        pre,
+        "export function Forma() {",
+        `  const save = () => commit((s: S) => patchLineWith(s, foto.id, ${fnBody}), 'x');`,
+        "  return null;",
+        "}",
+      ].join("\n"),
+    }]);
+    const acusaFoto = (r: ReturnType<typeof scanForms>) => (r.violations.get(key) ?? []).some((v) => /foto|historial/.test(v)) || r.unresolved.has(key);
+    // P2d: el método local SIN argumentos que captura la foto en su cuerpo
+    assert.ok(acusaFoto(mkPatch("const cajaLocal = { build: () => ({ history: [...foto.history, { id: 'u1' }] }) };", "(live) => cajaLocal.build()")),
+      "G18-1/P2d: cajaLocal.build() — el cuerpo del método se abre con su ambiente y la foto capturada acusa");
+    // P3e: la ayudante desnuda sin argumentos, leída por su miembro
+    assert.ok(acusaFoto(mkPatch("", "(live) => { const dame = () => ({ copia: foto }); return { ...dame().copia, concept: 'Anexo' }; }")),
+      "G18-1/P3e: dame().copia — el miembro se lee de los literales que la ayudante sin argumentos devuelve, juzgados con su cierre");
+    // P3a: el método de un literal atado, en línea
+    assert.ok(acusaFoto(mkPatch("", "(live) => { const e = { fn: () => ({ copia: foto }) }; return { ...e.fn().copia, concept: 'Anexo' }; }")),
+      "G18-1/P3a: e.fn().copia — el método del literal atado se resuelve y su captura acusa");
+    // P3b: el mismo resultado atado antes de leerse
+    assert.ok(acusaFoto(mkPatch("", "(live) => { const e = { fn: () => ({ copia: foto }) }; const r = e.fn(); return { ...r.copia, concept: 'Anexo' }; }")),
+      "G18-1/P3b: r = e.fn(); …r.copia — el nombre atado al resultado no esconde la captura");
+    // P2c (el canal del argumento, de la caza): el método local CON la foto sigue acusando
+    assert.ok(acusaFoto(mkPatch("const cajaLocal = { build: (x: { history: unknown[] }) => ({ history: [...x.history, { id: 'u1' }] }) };", "(live) => cajaLocal.build(foto)")),
+      "G18-1/P2c: el método que recibe la foto como argumento acusa, como en la caza");
+    // P3d sano: el intermedio por método que guarda LO VIVO absuelve, sin irresoluble
+    const sano = mkPatch("", "(live) => { const e = { fn: () => ({ copia: live }) }; return { ...e.fn().copia, history: [...live.history, { id: 'u1' }] }; }");
+    assert.deepEqual(sano.violations.get(key) ?? [], [], "G18-1/P3d sano: e.fn() captura el parámetro vivo del mecanismo — enraizado en su ambiente — y absuelve");
+    assert.ok(!sano.unresolved.has(key), "G18-1/P3d sano: y no queda irresoluble");
+    // sano: el invocado sin argumentos que devuelve un literal puro absuelve
+    const puro = mkPatch("", "(live) => { const dame = () => ({ copia: { color: '#123456' } }); return { ...dame().copia, concept: 'Anexo' }; }");
+    assert.deepEqual(puro.violations.get(key) ?? [], [], "G18-1 sano: la ayudante sin argumentos que devuelve un literal del gesto absuelve");
+    assert.ok(!puro.unresolved.has(key), "G18-1 sano: y no queda irresoluble");
   });
   /* ── OLA 16 (G16-2): el literal que recoge campos sin esparcidos ── */
   it("espécimen G16-2: el map que recoge campos sin esparcir el vivo acusa; el que esparce, absuelve", () => {

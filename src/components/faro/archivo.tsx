@@ -43,7 +43,7 @@ import "./hist-temas.css";
 
 export function ArchivoScreen() {
   const api = useFaro();
-  const { session, t, lang, fmt, names, commit, confirm, restoreRestingSpan, deleteRestingSpan, deleteRestingLineSelection, exportJson, recordLine, has } = api;
+  const { session, t, lang, fmt, names, commit, commitGuarded, confirm, restoreRestingSpan, deleteRestingSpan, deleteRestingLineSelection, exportJson, recordLine, has } = api;
   const user = useFaroUser();
   const state = session?.ledger ?? null;
   const [dueRows, setDueRows] = useState<DueFile[]>(() => readDueFileRows(browserPackStorage()));
@@ -170,12 +170,16 @@ export function ArchivoScreen() {
     const next = dueRows.filter((r) => r.id !== row.id);
     setDueRows(next);
     applyDueFile(browserPackStorage(), next);
-    commit((s) => {
+    /* Ola 18 (BR18-1): la puerta guardada — si la serie ya no vive en el
+     * libro, la receta aborta devolviendo null y la restauración no
+     * deja marco: ni la entrada con el nombre de la fila, ni revisión,
+     * ni Deshacer por una restauración que no ocurrió. */
+    commitGuarded((s) => {
       for (const mk of Object.keys(s.months).sort().reverse()) {
         const line = s.months[mk]?.lines.find((l) => (l.seriesId || l.id) === row.seriesId && !l.active);
         if (line) return upsertLine(s, { ...line, active: true });
       }
-      return s;
+      return null;
     }, row.name);
   };
 

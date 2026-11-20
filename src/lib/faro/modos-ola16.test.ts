@@ -137,10 +137,15 @@ describe("ola16 · §B: el fantasma planteado vigila su premisa en los dos senti
 
   it("la fuente: la bisagra de la conversión vive en los dos commits — con la palabra dada, el registro vivo o archivado compone", () => {
     const draft = src.slice(src.indexOf("const commitDraft"), src.indexOf("const proceed ="));
-    assert.ok(draft.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }"),
+    /* ENMIENDA OLA 18 (BR18-1): los abortos de las dos recetas devuelven
+     * null por la puerta GUARDADA (commitGuarded) — la bisagra no
+     * cambia (el archivado solo aborta SIN la palabra de restaurar);
+     * lo que cambia es el marco del aborto: ya no escribe la entrada
+     * de Actividad del guardado que no aterrizó (BR18-1). */
+    assert.ok(draft.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return null; }"),
       "en el commit de la edición, el archivado solo aborta SIN la palabra de restaurar: con ella — o ya viva — compone sobre el registro vivo");
     const upd = src.slice(src.indexOf("const commitUpdate"), src.indexOf("const proceedUpdate"));
-    assert.ok(upd.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }"),
+    assert.ok(upd.includes("if (existence === \"archived\" && !unarchive) { saveVerdict.current = { applied: false, existence }; return null; }"),
       "la misma bisagra en el commit de la actualización: la palabra convierte, la premisa subida no vara la lectura");
   });
 
@@ -156,7 +161,10 @@ describe("ola16 · §B: el fantasma planteado vigila su premisa en los dos senti
      * compara contra lo que el anuncio DECLARÓ al ofrecer la salida
      * (declared, capturado al toque en saveAsNew); sin declaración,
      * lo declarado es "gone" y la conducta de la 16 queda entera. */
-    assert.ok(seg.includes("if (freshAsked && freshAsked !== (declared ?? \"gone\")) { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }"),
+    /* ENMIENDA OLA 18 (BR18-1): el aborto devuelve null por la puerta
+     * guardada — la comparación contra lo declarado no cambia; el
+     * marco del aborto, sí (sin entrada, ni revisión, ni Deshacer). */
+    assert.ok(seg.includes("if (freshAsked && freshAsked !== (declared ?? \"gone\")) { saveVerdict.current = { applied: false, existence: freshAsked }; return null; }"),
       "la salida procede si la existencia viva es la declarada por su anuncio (archived incluida) y aborta solo si el mundo se movió de lo declarado");
     assert.ok(seg.indexOf("const freshAsked") < seg.indexOf("if (existence === \"gone\")"),
       "la re-pregunta de freshId va ANTES de la pregunta asentada de la ola 14: el orden es la cura");

@@ -289,6 +289,59 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         if (props.size) propTypes.set(m[1]!, props);
       }
     }
+    /* OLA 18 (Asesor): LA CAPA DE NOMBRES — la cuarta vida resolvía
+     * VALORES, no NOMBRES: ninguna parte del censo leía una declaración
+     * `import` ni una `typealias`, así que el alias de importación del
+     * formateador (M18-1), su typealias (M18-1b), el typealias del tipo
+     * foto (M18-2, que apagaba el receptor entero), el formateador
+     * guardado en una propiedad (M18-3) y el typealias dentro de la
+     * cadena entre archivos (M18-4) imprimían sin juicio — y la
+     * verificación de sitios declaraba muerta la superficie viva
+     * re-expresada por su alias (M18-5). Aquí se cosecha la capa de
+     * nombres del paquete ANTES de juzgar: los typealias (resueltos en
+     * cadena) y, por archivo, los alias de importación; todo juicio
+     * posterior trabaja con los nombres YA resueltos — el receptor se
+     * guarda por su tipo canónico y la llamada se juzga con su grafía
+     * canónica «Fmt.<fn>». */
+    const typealiasRaw = new Map<string, string>();
+    for (const { code } of scanned) {
+      for (const m of code.matchAll(/\btypealias\s+(\w+)\s*=\s*([\w.]+)/g)) typealiasRaw.set(m[1]!, m[2]!.split(".").pop()!);
+    }
+    const resolveTypeName = (n: string): string => {
+      let cur = n;
+      for (let i = 0; i < 8 && typealiasRaw.has(cur); i++) cur = typealiasRaw.get(cur)!;
+      return cur;
+    };
+    const importAliasesOf = (code: string): Map<string, string> => {
+      const out = new Map<string, string>();
+      for (const m of code.matchAll(/\bimport\s+([\w.]+)\s+as\s+(\w+)\b/g)) out.set(m[2]!, m[1]!.split(".").pop()!);
+      return out;
+    };
+    const fileImports = scanned.map(({ code }) => importAliasesOf(code));
+    const resolveWrittenType = (written: string, fi: number): string =>
+      resolveTypeName(fileImports[fi]?.get(written) ?? written);
+    const aliasSpellings = new Set<string>([...typealiasRaw.keys(), ...fileImports.flatMap((mp) => [...mp.keys()])]);
+    const escRe18 = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    /* los nombres que EN ESTE ARCHIVO son el objeto Fmt: el suyo, sus
+     * alias de importación y sus typealias — y las propiedades cuyo
+     * valor atado es uno de esos nombres (el formateador guardado). */
+    const fmtNamesOf = (fi: number): Set<string> => {
+      const names = new Set<string>(["Fmt"]);
+      for (const [alias, target] of fileImports[fi] ?? []) if (resolveTypeName(target) === "Fmt") names.add(alias);
+      for (const a of typealiasRaw.keys()) if (resolveTypeName(a) === "Fmt") names.add(a);
+      return names;
+    };
+    const fmtPropsOf = (binds: Map<string, string>, names: Set<string>): Set<string> => {
+      const props = new Set<string>();
+      for (const [n, rhs] of binds) {
+        // el valor atado, limpio de la puntuación del ámbito que lo
+        // envuelve («val fmt = Fmt }» dentro de un companion): el
+        // último segmento del nombre es la grafía que cuenta.
+        const clean = rhs.trim().replace(/[}\])\s]+$/, "");
+        if (names.has(clean) || names.has(clean.split(".").pop()!)) props.add(n);
+      }
+      return props;
+    };
     const fmtFormatters = new Set<string>();
     // OLA 17: esta lectura va sobre el código SIN retirar la casa —
     // scanned ya la trae retirada del paso 0 y aquí la casa es la
@@ -336,10 +389,10 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * SITIO verificado (M17-7): la superficie muerta con su texto
      * plantado en otro archivo acusa, y la re-expresión con el
      * mismo productor (r4 = s.rateE4) absuelve. */
-    const receiverTypeNames = [...new Set([...tipos.keys(), ...propTypes.keys()])].join("|");
+    const receiverTypeNames = [...new Set([...tipos.keys(), ...propTypes.keys(), ...aliasSpellings])].join("|");
     const pkgReceivers = new Map<string, string>();
-    for (const { code } of scanned) {
-      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) pkgReceivers.set(m[1]!, m[2]!);
+    for (const [fi, { code }] of scanned.entries()) {
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) pkgReceivers.set(m[1]!, resolveWrittenType(m[2]!, fi));
     }
     const pkgAccessRe = pkgReceivers.size
       ? new RegExp([...pkgReceivers].filter(([, t]) => (tipos.get(t)?.size ?? 0) > 0)
@@ -475,7 +528,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // receptores por TIPO DECLARADO, no por nombre — el universo de
       // tipos incluye toda clase declarada en el paquete (ola 17)
       const receivers = new Map<string, string>();
-      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) receivers.set(m[1]!, m[2]!);
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) receivers.set(m[1]!, resolveWrittenType(m[2]!, fi));
       const buildAccess = (): RegExp => {
         const pats = [...receivers].filter(([, t]) => (tipos.get(t)?.size ?? 0) > 0)
           .map(([r, t]) => `\\b${r}\\.(${[...tipos.get(t)!].join("|")})\\b`);
@@ -490,7 +543,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
           const props = propTypes.get(t);
           if (!props) continue;
           for (const [f, u] of props) {
-            const fields = tipos.get(u);
+            const fields = tipos.get(resolveTypeName(u));
             if (fields?.size) pats.push(`\\b${r}\\.${f}\\.(${[...fields].join("|")})\\b`);
           }
         }
@@ -551,6 +604,19 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // archivo entero — la caza en vivo lo probó: id, name, days y
       // hasta d pasaron a «derivar» en archivos que declaran funciones
       // con esos parámetros, y el censo acusó superficies sanas)
+      /* OLA 18 (Asesor): los nombres del formateador EN ESTE ARCHIVO —
+       * se computan aquí, con las ataduras ya cerradas por el punto
+       * fijo, porque los conductos y todas las formas los consumen.
+       * La llamada se juzga por su grafía canónica «Fmt.<fn>» venga
+       * por el nombre, por el alias, por el typealias o por la
+       * propiedad que lo guarda (directa o tras su clase: Casa.fmt). */
+      const fmtNames = fmtNamesOf(fi);
+      const fmtProps = fmtPropsOf(bindings, fmtNames);
+      const spellRe = [...fmtNames].map(escRe18).join("|");
+      const propRe = [...fmtProps].map(escRe18).join("|");
+      const fmtCallish = (t: string): boolean =>
+        new RegExp(`\\b(?:${spellRe})\\.\\w+\\s*\\(`).test(t) ||
+        (fmtProps.size > 0 && new RegExp(`(?:\\b\\w+\\.(?:${propRe})|(?<![\\w.])(?:${propRe}))\\.\\w+\\s*\\(`).test(t));
       /* Un CONDUCTO es otra cosa que un ayudante que deriva: una función
        * de cuerpo-expresión que ENTREGA el valor formateado (el
        * envoltorio `money(s, minor)` de la casa) — sus llamadas se
@@ -558,7 +624,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
        * llama a Fmt en sus sentencias es una SUPERFICIE, no un conducto:
        * sus sitios de llamada no imprimen por ella. */
       for (const [fn, body] of exprBodies) {
-        if ([...fmtFormatters].some((f) => new RegExp(`Fmt\\.${f}\\s*\\(`).test(body)) || /(?<![\w.])money\s*\(/.test(body)) conduits.add(fn);
+        if ([...fmtFormatters].some((f) => new RegExp(`\\b(?:${spellRe})\\.${f}\\s*\\(`).test(body)) || /(?<![\w.])money\s*\(/.test(body)) conduits.add(fn);
       }
       /* OLA 17 (M17-7b): el registro ata a la llamada RESUELTA, no a
        * su grafía — la absolución sigue la procedencia del argumento
@@ -582,14 +648,26 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         if (!SUPERFICIES_CASCARA.some(([re]) => re.test(call) || re.test(expand(call)))) acusadas.push(`${name}: ${call.slice(0, 70)}`);
       };
       // forma 1: llamadas a formateadores — cada una nombra su productor
-      for (const m of code.matchAll(/\bFmt\.(\w+)\s*\(([^)]*)\)/g)) {
+      // (los nombres resueltos — fmtNames/fmtProps/spellRe/fmtCallish —
+      // se computan arriba, tras el punto fijo, para todas las formas)
+      for (const m of code.matchAll(new RegExp(`\\b(?:${spellRe})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
         if (m[2]!.includes(":")) continue; // declaración, no superficie
-        if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(m[0]);
+        if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(`Fmt.${m[1]!}(${m[2]!})`);
+      }
+      if (fmtProps.size > 0) {
+        for (const m of code.matchAll(new RegExp(`(?<![\\w.])(?:${propRe})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
+          if (m[2]!.includes(":")) continue;
+          if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(`Fmt.${m[1]!}(${m[2]!})`);
+        }
+        for (const m of code.matchAll(new RegExp(`\\b\\w+\\.(?:${propRe})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
+          if (m[2]!.includes(":")) continue;
+          if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(`Fmt.${m[1]!}(${m[2]!})`);
+        }
       }
       // OLA 17 (M17-4): el formateador por REFERENCIA — val f =
       // Fmt::money ES Fmt.money; sus llamadas son forma 1 con el
       // nombre resuelto, y se juzgan como la llamada que son.
-      for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*=\s*Fmt::(\w+)\b/g)) {
+      for (const m of code.matchAll(new RegExp(`\\b(?:val|var)\\s+(\\w+)\\s*=\\s*(?:${spellRe})::(\\w+)\\b`, "g"))) {
         if (!fmtFormatters.has(m[2]!)) continue;
         const alias = m[1]!, target = m[2]!;
         for (const c of code.matchAll(new RegExp(`(?<![\\w.])${alias}\\s*\\(([^)]*)\\)`, "g"))) {
@@ -612,7 +690,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       for (const lit of literals) {
         for (const m of lit.matchAll(/\$\{([^}]*)\}|\$([A-Za-z_][\w.]*)/g)) {
           const expr = m[1] ?? m[2] ?? "";
-          if (/\bFmt\.\w+\s*\(|(?<![\w.])money\s*\(/.test(expr)) continue; // la produce el formateador: la juzga la forma 1
+          if (fmtCallish(expr) || /(?<![\w.])money\s*\(/.test(expr)) continue; // la produce el formateador: la juzga la forma 1
           if ([...conduits].some((c) => new RegExp(`\\b${c}\\s*\\(`).test(expr))) continue;
           if (exprDerived(expr)) acusadas.push(`${name}: interpolación cruda de una cifra: «${lit.slice(0, 60)}»`);
         }
@@ -662,13 +740,15 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         const comma = args.indexOf(",");
         if (comma < 0) continue;
         const repl = args.slice(comma + 1);
-        if (/\bFmt\.\w+\s*\(|(?<![\w.])money\s*\(/.test(repl)) continue;
+        if (fmtCallish(repl) || /(?<![\w.])money\s*\(/.test(repl)) continue;
         if (exprDerived(repl)) acusadas.push(`${name}: replace con un reemplazo derivado sin productor: «${m[0].slice(0, 60)}»`);
       }
       // forma 6: concatenación con cadena y Log — la cifra derivada fuera de todo formateador
       const maskCalls = (line: string): string => {
         let out = line;
-        for (const m of [...line.matchAll(/\b(?:Fmt\.\w+|money)\s*\(/g)]) {
+        const heads = [...line.matchAll(new RegExp(`\\b(?:${spellRe})\\s*\\.\\s*\\w+\\s*\\(|(?<![\\w.])money\\s*\\(`, "g")),
+          ...(fmtProps.size > 0 ? [...line.matchAll(new RegExp(`(?:\\b\\w+\\.(?:${propRe})|(?<![\\w.])(?:${propRe}))\\.\\w+\\s*\\(`, "g"))] : [])];
+        for (const m of heads) {
           let depth = 0, j = m.index + m[0].length - 1;
           for (; j < line.length; j++) {
             if (line[j] === "(") depth++;
@@ -730,21 +810,21 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
           // las cadenas. Solo el parámetro escalar (Long, String, sin
           // tipo) ES la cifra que entró por la puerta.
           const tbase = (p.type ?? "").replace(/[<>?,]/g, " ").split(/\s+/).filter(Boolean).pop();
-          if (tbase && (tipos.has(tbase) || propTypes.has(tbase))) continue;
+          if (tbase && (tipos.has(resolveTypeName(tbase)) || propTypes.has(resolveTypeName(tbase)))) continue;
           extra.add(p.name);
         }
         const spanDerived = (e: string): boolean =>
           accessRe.test(e) || (chainRe !== null && chainRe.test(e)) ||
           [...extra].some((w) => new RegExp(`\\b${w}\\b`).test(e)) ||
           [...helpers].some((fn) => new RegExp(`\\b${fn}\\s*\\(`).test(e));
-        for (const m of body.matchAll(/\bFmt\.(\w+)\s*\(([^)]*)\)/g)) {
+        for (const m of body.matchAll(new RegExp(`\\b(?:${spellRe})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
           if (m[2]!.includes(":")) continue;
-          if (fmtFormatters.has(m[1]!) || spanDerived(m[2]!)) judgedCall(m[0]);
+          if (fmtFormatters.has(m[1]!) || spanDerived(m[2]!)) judgedCall(`Fmt.${m[1]!}(${m[2]!})`);
         }
         for (const lit of scanKt(body).literals) {
           for (const m of lit.matchAll(/\$\{([^}]*)\}|\$([A-Za-z_][\w.]*)/g)) {
             const expr = m[1] ?? m[2] ?? "";
-            if (/\bFmt\.\w+\s*\(|(?<![\w.])money\s*\(/.test(expr)) continue;
+            if (fmtCallish(expr) || /(?<![\w.])money\s*\(/.test(expr)) continue;
             if ([...conduits].some((c) => new RegExp(`\\b${c}\\s*\\(`).test(expr))) continue;
             if (spanDerived(expr)) acusadas.push(`${name}: el parámetro de ${d.name} pinta una cifra sin productor: «${lit.slice(0, 60)}»`);
           }
@@ -768,7 +848,20 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       if (re.test(f.code)) continue;
       const binds = new Map<string, string>();
       for (const m of f.code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) binds.set(m[1]!, m[2]!.trim());
+      /* OLA 18 (M18-5): el sitio se lee con los nombres RESUELTOS del
+       * archivo — la superficie viva re-expresada por su alias de
+       * importación («F.rate(s.rateE4)») ES la llamada registrada; la
+       * muerta, sin llamada en ninguna grafía, sigue acusando. */
+      const fiSitio = scanned.findIndex((x) => x.name === sitio);
+      const namesSitio = fmtNamesOf(fiSitio);
+      const propsSitio = fmtPropsOf(binds, namesSitio);
       let texto = f.code;
+      for (const s of namesSitio) if (s !== "Fmt") texto = texto.replace(new RegExp(`\\b${escRe18(s)}\\.`, "g"), "Fmt.");
+      for (const p of propsSitio) {
+        texto = texto.replace(new RegExp(`\\b\\w+\\.${escRe18(p)}\\.`, "g"), "Fmt.");
+        texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(p)}\\.`, "g"), "Fmt.");
+      }
+      if (re.test(texto)) continue;
       for (let r = 0; r < 4; r++) {
         let changed = false;
         for (const [n, rhs] of binds) {
@@ -923,6 +1016,51 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     ], true);
     assert.ok(sinTasa.some((a) => a.includes("ya no vive en su sitio")), `M17-7a: la entrada de la tasa acusa su sitio vacío: ${sinTasa.join(" | ")}`);
   });
+  it("especímenes M18 (ola 18): la capa de nombres — alias de importación, typealias en cadena y el formateador en una propiedad se juzgan por su nombre resuelto", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\" }",
+    };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M18-1: el alias de importación del formateador
+    assert.ok(caza([{ name: "Spec.kt", text: "import com.oscarvelz.faro.Fmt as F\nclass W { fun a(s: Snap) = F.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M18-1: F.money(…) con F = alias de Fmt ES Fmt.money: el productor no declarado acusa por su nombre resuelto");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "import com.oscarvelz.faro.Fmt as F\nclass W { fun a(s: Snap) = F.money(s.spent, s.cur) }" }]), [],
+      "M18-1c (control): el alias con el productor registrado absuelve");
+    // M18-1b: el typealias del objeto formateador
+    assert.ok(caza([{ name: "Spec.kt", text: "typealias FmtCasa = Fmt\nclass W { fun a(s: Snap) = FmtCasa.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M18-1b: el typealias del formateador se resuelve: acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "typealias FmtCasa = Fmt\nclass W { fun a(s: Snap) = FmtCasa.money(s.spent, s.cur) }" }]), [],
+      "M18-1b-c (control): el typealias con el productor registrado absuelve");
+    // M18-2: el typealias del tipo foto — el receptor entero se apagaba
+    assert.ok(caza([{ name: "Spec.kt", text: "typealias Foto = Snap\nclass W { fun a(x: Foto) = \"Debes ${x.spent}\" }" }]).length >= 1,
+      "M18-2: x: Foto ES un receptor de la foto: su interpolación cruda acusa");
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun a(x: Snap) = \"Debes ${x.spent}\" }" }]).length >= 1,
+      "M18-2c (control de la caza): la misma geometría con el nombre canónico acusaba y acusa");
+    // M18-3: el formateador guardado en una propiedad — local y de companion
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { val fmt = Fmt; fun a(s: Snap) = fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M18-3: val fmt = Fmt hace de fmt.money una llamada al formateador: acusa");
+    assert.ok(caza([{ name: "Spec.kt", text: "class CasaM18 { companion object { val fmt = Fmt }; fun a(s: Snap) = CasaM18.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M18-3b: la propiedad del companion juzga igual a través de su clase: acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "class W { val fmt = Fmt; fun a(s: Snap) = fmt.money(s.spent, s.cur) }" }]), [],
+      "M18-3c (control): la propiedad con el productor registrado absuelve");
+    // M18-4: el typealias dentro de la cadena, entre archivos
+    assert.ok(caza([
+      { name: "Sobre.kt", text: "typealias Foto = Snap\nclass SobreM18(val foto: Foto)" },
+      { name: "Pintor.kt", text: "class W { fun a(h: SobreM18) = \"Debes ${h.foto.spent}\" }" },
+    ]).length >= 1, "M18-4: h.foto.spent se resuelve a través del typealias declarado en otro archivo: acusa");
+    // M18-5: la verificación de sitios resuelve el nombre — la superficie viva por alias absuelve…
+    const vivaAlias = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "import com.oscarvelz.faro.Fmt as F\nclass W { fun a(s: Snap) = F.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!vivaAlias.some((a) => a.includes("ya no vive en su sitio")), `M18-5: F.rate(s.rateE4) bajo su alias ES la superficie registrada en su sitio: ${vivaAlias.join(" | ")}`);
+    // …y la muerta, sin llamada en ninguna grafía, sigue acusando
+    const muerta = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "class W { fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+      { name: "FaroNotify.kt", text: "import com.oscarvelz.faro.Fmt as F\nclass N { fun a(s: Snap) = F.rate(s.rateE4) }" },
+    ], true);
+    assert.ok(muerta.some((a) => a.includes("ya no vive en su sitio")), `M18-5b: la tasa plantada en otro archivo, aunque sea por alias, no salva su sitio vacío: ${muerta.join(" | ")}`);
+  });
   it("controles del censo nuevo: el comentario no acusa, el porcentaje no es dinero, la fecha no es cifra", () => {
     const ok = censoCascara([{ name: "FaroNotify.kt", text: [
       "class N {",
@@ -967,7 +1105,11 @@ describe("ola14 · §C: la existencia en tres estados y la composición contra l
     // veredicto en saveVerdict — la doctrina clavada no cambia (lo
     // destruido devuelve el estado intacto); lo que la ola 15 cierra es
     // el silencio DESPUÉS del retorno: el efecto anuncia el estado nuevo.
-    assert.match(seg, /if \(existence === "gone"\) \{ saveVerdict\.current = \{ applied: false, existence \}; return s; \}/, "destruido: el commit devuelve el estado intacto (y deja su veredicto)");
+    // ENMIENDA OLA 18 (BR18-1): el retorno es null por la puerta
+    // GUARDADA (commitGuarded) — el estado queda intacto y sin marco:
+    // el aborto ya no escribe la entrada de Actividad que afirmaba el
+    // guardado (BR18-1). La doctrina clavada no cambia.
+    assert.match(seg, /if \(existence === "gone"\) \{ saveVerdict\.current = \{ applied: false, existence \}; return null; \}/, "destruido: el commit aborta sin marco (y deja su veredicto)");
     assert.match(seg, /data-anchor="card-form-restore-save"|card-form-restore-save/, "la salida de restaurar-y-guardar existe y se nombra");
     assert.ok(seg.includes("se archivó mientras la editabas"), "el anuncio del archivado dice la verdad en ES");
     assert.ok(seg.includes("was archived while you were editing it"), "y en EN");
@@ -977,7 +1119,11 @@ describe("ola14 · §C: la existencia en tres estados y la composición contra l
     const seg = src.slice(src.indexOf("const savePlan"), src.indexOf("const savePlan") + 1600);
     assert.match(seg, /catalog\.map\(\(c\) => \{[\s\S]*?updated = \{ \.\.\.c, ins: r\.plan, bens/,
       "updated nace de la pieza viva c dentro del map del commit — el renombre cruzado de otra pestaña sobrevive");
-    assert.match(seg, /if \(!updated\) return s;/, "la pieza que ya no vive no se resucita: estado intacto");
+    // ENMIENDA OLA 18 (BR18-1): el aborto devuelve null por la puerta
+    // guardada (commitGuarded): la pieza que ya no vive no se resucita
+    // y su guardado tampoco deja marco (ni entrada con su nombre, ni
+    // revisión, ni Deshacer).
+    assert.match(seg, /if \(!updated\) return null;/, "la pieza que ya no vive no se resucita: aborta sin marco");
     assert.ok(!/\{ \.\.\.item, ins: r\.plan/.test(seg), "la composición desde la foto del render no vuelve");
   });
   it("G14-6 · patchLine compone contra lo vivo: el cruce sobrevive, el ausente no resucita", () => {

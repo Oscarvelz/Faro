@@ -835,9 +835,61 @@ function cbMapsIds(cb: ts.Node | undefined): boolean {
  * conocida y la cadena sobre un valor productor (la expresión unida). */
 function nodeMapsIds(root: ts.Node, mappers: Set<string>, vars: Set<string>, isRoot = true): boolean {
   if (isRoot && ts.isIdentifier(root)) return vars.has(root.text);
+  /* OLA 18 (Cara V18-b2): LA PRODUCCIÓN POR ACUMULACIÓN es grafía
+   * productora — el índice reconocía map/flatMap/reduce/Array.from/
+   * yield, pero un cuerpo que ACUMULA los ids en un Set o un Array
+   * local (`rows.forEach(r => s.add(r.id)); return s`) no producía
+   * para el seguidor, y la mano alimentada por ese ayudante no nacía.
+   * La vara es la del reduce, que ya contaba: un acumulador local al
+   * cuerpo que recibe .add(/.push( del campo id de cada elemento
+   * recorrido (forEach, for…of) y es lo que el cuerpo devuelve —
+   * desnudo, esparcido o por Array.from — produce los ids. */
+  const isFnLikeNode = (n: ts.Node) => ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isFunctionDeclaration(n) || ts.isMethodDeclaration(n);
+  const accumulationProduces = (scope: ts.Block): boolean => {
+    const accs = new Set<string>();
+    const collectAcc = (n: ts.Node) => {
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+        const init = n.initializer;
+        if ((ts.isNewExpression(init) && ts.isIdentifier(init.expression) && init.expression.text === "Set") ||
+          (ts.isArrayLiteralExpression(init) && init.elements.length === 0)) accs.add(n.name.text);
+      }
+      if (isFnLikeNode(n)) return;
+      ts.forEachChild(n, collectAcc);
+    };
+    collectAcc(scope);
+    if (!accs.size) return false;
+    let adds = false;
+    const huntAdds = (n: ts.Node, inTraversal: boolean) => {
+      let trav = inTraversal;
+      if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "forEach") trav = true;
+      if (ts.isForOfStatement(n) || ts.isForStatement(n) || ts.isForInStatement(n)) trav = true;
+      if (trav && ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) &&
+        (n.expression.name.text === "add" || n.expression.name.text === "push") &&
+        ts.isIdentifier(n.expression.expression) && accs.has(n.expression.expression.text) &&
+        n.arguments.some((a) => /\.id\b/.test(a.getText()))) adds = true;
+      ts.forEachChild(n, (c) => huntAdds(c, trav));
+    };
+    huntAdds(scope, false);
+    if (!adds) return false;
+    const referencesAcc = (e: ts.Node): boolean => {
+      let yes = false;
+      const w = (n: ts.Node) => { if (ts.isIdentifier(n) && accs.has(n.text)) yes = true; if (!yes) ts.forEachChild(n, w); };
+      w(e);
+      return yes;
+    };
+    let returned = false;
+    const huntReturns = (n: ts.Node) => {
+      if (ts.isReturnStatement(n) && n.expression && referencesAcc(n.expression)) returned = true;
+      if (isFnLikeNode(n)) return;
+      ts.forEachChild(n, huntReturns);
+    };
+    huntReturns(scope);
+    return returned;
+  };
   let found = false;
   const walk = (n: ts.Node) => {
     if (found) return;
+    if (ts.isBlock(n) && accumulationProduces(n)) { found = true; return; }
     if (ts.isCallExpression(n)) {
       const cal = n.expression;
       if (ts.isPropertyAccessExpression(cal)) {
@@ -1207,16 +1259,159 @@ const onPathInFile = (sf: ts.SourceFile, seat: string, handFn: ts.Node | null, t
     w(sf);
     return out;
   };
+  /* OLA 18 (Cara G18-a): EL ÚLTIMO ESLABÓN — el valor de la consulta
+   * puede entrar en la entrega como ARGUMENTO de un constructor
+   * local (`manage={buildManage(canManage)}`): la cerca veía el valor
+   * DENTRO de la expresión de la entrega y lo daba por alimento sin
+   * descender al cuerpo que lo recibe. Ahora el alimento a través de
+   * una llamada local se juzga por el USO del parámetro en el cuerpo
+   * resuelto: el parámetro alimenta solo si DECIDE lo que el
+   * constructor devuelve — está en la condición que lo decide, en una
+   * guarda que devuelve o lanza, o es el valor mismo entregado; el
+   * parámetro que el cuerpo no lee, o lee solo para una etiqueta o un
+   * valor de propiedad, no alimenta y la cita acusa. La llamada que
+   * no se resuelve localmente conserva la vara ordinaria (el gobierno
+   * importado es de M2, no de este descenso). */
+  const fnReturnsOf = (fnNode: ts.Node): ts.Node[] => {
+    const body = (fnNode as { body?: ts.Node }).body;
+    if (!body) return [];
+    if (!ts.isBlock(body)) return [body];
+    const rets: ts.Node[] = [];
+    const rs = (n: ts.Node) => {
+      if (ts.isReturnStatement(n) && n.expression) rets.push(n.expression);
+      if (isFnOla9(n) && n !== fnNode) return;
+      ts.forEachChild(n, rs);
+    };
+    ts.forEachChild(body, rs);
+    return rets;
+  };
+  /* ¿El uso `u` del nombre `name` — dentro del cuerpo de fnNode —
+   * decide lo que fnNode devuelve? (la vara del constructor, G18-a;
+   * sirve también al canal lateral, G18-b, con el nombre del canal) */
+  const nameDecidesIn = (fnNode: ts.Node, name: string, depth: number): boolean => {
+    const body = (fnNode as { body?: ts.Node }).body;
+    if (!body || depth > 3) return false;
+    const rets = fnReturnsOf(fnNode);
+    const uses: ts.Node[] = [];
+    const w = (n: ts.Node) => {
+      if (ts.isIdentifier(n) && n.text === name) uses.push(n);
+      if (isFnOla9(n) && n !== fnNode) return; // las funciones anidadas leen su propio ámbito
+      ts.forEachChild(n, w);
+    };
+    w(body);
+    const deciding = (u: ts.Node): boolean => {
+      for (const r of rets) {
+        if (u === r) return true; // el valor mismo es la entrega
+        if (inside(r, u)) {
+          const b = callBarrier(u, r, depth + 1);
+          if (b !== null) { if (b) return true; continue; }
+          let child: ts.Node = u;
+          let cur: ts.Node | undefined = u.parent;
+          let decides = false;
+          while (cur && cur !== r) {
+            if (ts.isConditionalExpression(cur) && child === cur.condition) decides = true;
+            if (ts.isBinaryExpression(cur) && (cur.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || cur.operatorToken.kind === ts.SyntaxKind.BarBarToken) && child === cur.left) decides = true;
+            child = cur;
+            cur = cur.parent;
+          }
+          if (decides) return true;
+        }
+      }
+      // la guarda del cuerpo: if (name) { return/throw … }
+      let child: ts.Node = u;
+      let cur: ts.Node | undefined = u.parent;
+      while (cur && cur !== fnNode) {
+        if (ts.isIfStatement(cur) && child === cur.expression && hasReturnOrThrow(cur.thenStatement)) return true;
+        child = cur;
+        cur = cur.parent;
+      }
+      // la atadura intermedia: const ok = name; … ok decide
+      let p: ts.Node | undefined = u.parent;
+      while (p && (ts.isParenthesizedExpression(p) || ts.isAsExpression(p))) p = p.parent;
+      if (p && ts.isVariableDeclaration(p) && ts.isIdentifier(p.name) && p.name.text !== name) {
+        const inner = bindingUsesIn(body, p.name, p.name.text);
+        if (inner.some((u2) => nameDecidesUse(fnNode, name, u2, depth + 1))) return true;
+      }
+      return false;
+    };
+    return uses.some(deciding);
+  };
+  const bindingUsesIn = (root: ts.Node, declName: ts.Node, name: string): ts.Node[] => {
+    const out: ts.Node[] = [];
+    const w = (n: ts.Node) => { if (ts.isIdentifier(n) && n.text === name && n !== declName) out.push(n); ts.forEachChild(n, w); };
+    w(root);
+    return out;
+  };
+  const nameDecidesUse = (fnNode: ts.Node, name: string, u: ts.Node, depth: number): boolean => {
+    // un uso suelto juzgado con la misma vara (para las ataduras intermedias)
+    const rets = fnReturnsOf(fnNode);
+    for (const r of rets) {
+      if (u === r) return true;
+      if (inside(r, u)) {
+        const b = callBarrier(u, r, depth);
+        if (b !== null) { if (b) return true; continue; }
+        let child: ts.Node = u;
+        let cur: ts.Node | undefined = u.parent;
+        let decides = false;
+        while (cur && cur !== r) {
+          if (ts.isConditionalExpression(cur) && child === cur.condition) decides = true;
+          if (ts.isBinaryExpression(cur) && (cur.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || cur.operatorToken.kind === ts.SyntaxKind.BarBarToken) && child === cur.left) decides = true;
+          child = cur;
+          cur = cur.parent;
+        }
+        if (decides) return true;
+      }
+    }
+    let child: ts.Node = u;
+    let cur: ts.Node | undefined = u.parent;
+    while (cur && cur !== fnNode) {
+      if (ts.isIfStatement(cur) && child === cur.expression && hasReturnOrThrow(cur.thenStatement)) return true;
+      child = cur;
+      cur = cur.parent;
+    }
+    return false;
+  };
+  /* La barrera de la llamada: caminando de `u` hacia `boundary`, si el
+   * valor cruza como ARGUMENTO de una llamada a un constructor local
+   * resoluble, el alimento se decide por el uso del parámetro en ese
+   * cuerpo (true/false); si no cruza ninguna, o la llamada no se
+   * resuelve localmente, devuelve null y manda la vara ordinaria. */
+  const callBarrier = (u: ts.Node, boundary: ts.Node, depth: number): boolean | null => {
+    if (depth > 3) return null;
+    let child: ts.Node = u;
+    let cur: ts.Node | undefined = u.parent;
+    while (cur && cur !== boundary) {
+      if (ts.isCallExpression(cur) && child !== cur.expression && cur.arguments.some((a) => a === child)) {
+        if (!ts.isIdentifier(cur.expression)) return null;
+        const local = localFnMap(sf).get(cur.expression.text);
+        if (!local) return null;
+        const idx = cur.arguments.indexOf(child as ts.Expression);
+        const params = (local as ts.FunctionLikeDeclarationBase).parameters ?? [];
+        const p = params[idx];
+        if (!p || !ts.isIdentifier(p.name)) return null;
+        return nameDecidesIn(local, p.name.text, depth);
+      }
+      child = cur;
+      cur = cur.parent;
+    }
+    return null;
+  };
   /* ¿El uso `u` del valor de la consulta alimenta la entrega? */
   const useFeeds = (u: ts.Node, depth: number): boolean => {
-    if (target && inside(target, u)) return true;
+    if (target && inside(target, u)) {
+      const b = callBarrier(u, target, 0);
+      return b === null ? true : b;
+    }
     if (!target) {
       // sin objetivo (el hook o el ayudante importado): la función
       // entrega su valor por el return o por su cuerpo-expresión
       let a: ts.Node | undefined = u;
       while (a && a !== handFn) { if (ts.isReturnStatement(a)) return true; a = a.parent; }
       const body = (handFn as ts.ArrowFunction).body as ts.Node | undefined;
-      if (body && !ts.isBlock(body) && inside(body, u)) return true;
+      if (body && !ts.isBlock(body) && inside(body, u)) {
+        const b = callBarrier(u, body, 0);
+        return b === null ? true : b;
+      }
     }
     let child: ts.Node = u;
     let cur: ts.Node | undefined = u.parent;
@@ -1274,6 +1469,62 @@ const onPathInFile = (sf: ts.SourceFile, seat: string, handFn: ts.Node | null, t
     };
     hunt(sf);
     if (fed) return true;
+  }
+  /* OLA 18 (Cara G18-b): EL CANAL LATERAL DE ESTADO — el gobierno
+   * puede cruzar por una ASIGNACIÓN a una atadura de módulo escrita
+   * desde la consulta en el cuerpo del componente que compone
+   * (`manageFlag = has(...)` antes de entregar `buildManage()`): el
+   * modelo de la ola 17 seguía valores por expresiones y argumentos
+   * y sentenciaba ese gobierno real. Ahora M1 cosecha también las
+   * asignaciones cuyo lado derecho ES o desciende de la consulta: si
+   * un constructor local llamado EN LA ENTREGA lee esa atadura al
+   * decidir lo que devuelve, el alimento existe por el canal y la
+   * cita absuelve. La atadura fijada a un literal no desciende de
+   * ninguna consulta: sigue acusando (G18-b2). */
+  {
+    const moduleLets = new Set<string>();
+    for (const st of sf.statements) {
+      if (ts.isVariableStatement(st)) for (const d of st.declarationList.declarations) if (ts.isIdentifier(d.name)) moduleLets.add(d.name.text);
+    }
+    if (moduleLets.size && handFn) {
+      const consultNames = new Set<string>();
+      for (const c of calls) {
+        let p: ts.Node | undefined = c.parent;
+        while (p && (ts.isParenthesizedExpression(p) || ts.isAsExpression(p))) p = p.parent;
+        if (p && ts.isVariableDeclaration(p) && ts.isIdentifier(p.name)) consultNames.add(p.name.text);
+      }
+      const descends = (e: ts.Node): boolean => {
+        let yes = false;
+        const w = (n: ts.Node) => {
+          if (yes) return;
+          if (calls.some((c) => c === n)) { yes = true; return; }
+          if (ts.isIdentifier(n) && consultNames.has(n.text)) { yes = true; return; }
+          ts.forEachChild(n, w);
+        };
+        w(e);
+        return yes;
+      };
+      const channel = new Set<string>();
+      const huntAssign = (n: ts.Node) => {
+        if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(n.left) && moduleLets.has(n.left.text) && descends(n.right)) channel.add(n.left.text);
+        ts.forEachChild(n, huntAssign);
+      };
+      huntAssign(handFn);
+      if (channel.size) {
+        const region: ts.Node[] = target ? [target] : fnReturnsOf(handFn);
+        let governed = false;
+        const huntCall = (n: ts.Node) => {
+          if (governed) return;
+          if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+            const local = localFnMap(sf).get(n.expression.text);
+            if (local && [...channel].some((cn) => nameDecidesIn(local, cn, 0))) governed = true;
+          }
+          if (!governed) ts.forEachChild(n, huntCall);
+        };
+        for (const r of region) huntCall(r);
+        if (governed) return true;
+      }
+    }
   }
   return false;
 };
@@ -1770,6 +2021,47 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
     if (ts.isIdentifier(x)) { const b = bindings.get(x.text); return b ? byCall(b) : false; }
     return false;
   });
+  /* OLA 18 (Cara X18-a/X18-b): LAS PUERTAS QUE CONSTRUYEN POR LLAMADA —
+   * la grafía byCall que la ola 17 dio al atributo JSX no llegó a las
+   * otras dos puertas de montaje: `createElement(PickSheet, { manage:
+   * buildManage() })` entregaba el canal sin nacer (X18-a) y el
+   * esparcido `{...buildProps()}` tampoco nacía (X18-b), mientras su
+   * control literal (X18-d) sí. Ahora createElement juzga su objeto de
+   * props con las mismas tres grafías del atributo — el props entero
+   * (literal, referencia, llamada) y el VALOR de su prop manage (la
+   * misma vara que el atributo aplica a ese valor) — y el esparcido
+   * de una llamada se resuelve al cuerpo llamado y juzga la FORMA del
+   * objeto que devuelve: si el literal devuelto lleva la prop del
+   * canal, el sitio nace; si el cuerpo resuelto devuelve otra forma,
+   * no nace. */
+  const returnedLiterals = (fnNode: ts.Node): ts.ObjectLiteralExpression[] => {
+    const body = (fnNode as { body?: ts.Node }).body;
+    if (!body) return [];
+    const raw: ts.Node[] = [];
+    if (!ts.isBlock(body)) raw.push(body);
+    else {
+      const rs = (n: ts.Node) => {
+        if (ts.isReturnStatement(n) && n.expression) raw.push(n.expression);
+        if (isFnOla9(n) && n !== fnNode) return;
+        ts.forEachChild(n, rs);
+      };
+      ts.forEachChild(body, rs);
+    }
+    const out: ts.ObjectLiteralExpression[] = [];
+    for (const r of raw) for (const x of unwrap(r)) if (ts.isObjectLiteralExpression(x)) out.push(x);
+    return out;
+  };
+  const callShapeHas = (e: ts.Node, prop: string): boolean => unwrap(e).some((x) => {
+    if (!ts.isCallExpression(x) || !ts.isIdentifier(x.expression)) return false;
+    const fnNode = localFnMap(sf).get(x.expression.text) ?? bindings.get(x.expression.text);
+    if (!fnNode) return false;
+    return returnedLiterals(fnNode).some((lit) => litHas(lit, prop, true));
+  });
+  const manageValueHas = (props: ts.Node): boolean => unwrap(props).some((x) => {
+    if (!ts.isObjectLiteralExpression(x)) return false;
+    return x.properties.some((p) => ts.isPropertyAssignment(p) && p.name?.getText() === "manage" &&
+      (litHas(p.initializer, "onDropMany") || byReference(p.initializer) || byCall(p.initializer)));
+  });
   const sites = new Map<string, ts.Node>();
   const ordinals = new Map<string, number>();
   const walk = (n: ts.Node, fn: string) => {
@@ -1791,15 +2083,15 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
       const elNode = n.parent?.parent as ts.Node | undefined;
       const el = elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode)) ? elNode.tagName.getText() : "";
       const orig = kitOrig.get(el);
-      if (orig === "PickSheet" && (litHas(n.expression, "onDropMany", true) || byReference(n.expression))) massNode = n;
-      else if (orig === "BookKit" && (litHas(n.expression, "onDrop", true) || byReference(n.expression))) massNode = n;
+      if (orig === "PickSheet" && (litHas(n.expression, "onDropMany", true) || byReference(n.expression) || callShapeHas(n.expression, "onDropMany"))) massNode = n;
+      else if (orig === "BookKit" && (litHas(n.expression, "onDrop", true) || byReference(n.expression) || callShapeHas(n.expression, "onDrop"))) massNode = n;
     } else if (ts.isCallExpression(n)) {
       const cal = n.expression;
       const isCE = (ts.isIdentifier(cal) && cal.text === "createElement") || (ts.isPropertyAccessExpression(cal) && cal.name.text === "createElement");
       if (isCE && n.arguments.length >= 2 && ts.isIdentifier(n.arguments[0]!)) {
         const orig = kitOrig.get((n.arguments[0] as ts.Identifier).text);
-        if (orig === "PickSheet" && (litHas(n.arguments[1]!, "onDropMany", true) || byReference(n.arguments[1]!))) massNode = n;
-        else if (orig === "BookKit" && (litHas(n.arguments[1]!, "onDrop", true) || byReference(n.arguments[1]!))) massNode = n;
+        if (orig === "PickSheet" && (litHas(n.arguments[1]!, "onDropMany", true) || byReference(n.arguments[1]!) || byCall(n.arguments[1]!) || manageValueHas(n.arguments[1]!))) massNode = n;
+        else if (orig === "BookKit" && (litHas(n.arguments[1]!, "onDrop", true) || byReference(n.arguments[1]!) || byCall(n.arguments[1]!))) massNode = n;
       }
     }
     if (massNode) {
@@ -2037,6 +2329,144 @@ describe("ola9 · OLA 17 (Cara): la consulta alimenta la entrega — y el censo 
     }`;
     assert.deepEqual(massHandSites("components/faro/hoja.tsx", gen), ["components/faro/hoja.tsx:wipeAll#1"],
       "V3: producir con yield es producir — la mano alimentada por el generador nace como sitio");
+  });
+});
+
+/* ── OLA 18 (Cara) — EL ÚLTIMO ESLABÓN Y EL CANAL LATERAL ──
+ * La caza de la ola 18 probó los dos lados del alimento a través de
+ * una llamada: el constructor que recibe el booleano de la consulta
+ * y lo IGNORA era absuelto (G18-a: «alimenta» veía el valor dentro
+ * de la expresión de la entrega y no descendía al cuerpo que lo
+ * recibe), y el gobierno real por una asignación a una atadura de
+ * módulo escrita desde la consulta era sentenciado (G18-b: el canal
+ * lateral no existía para M1). Los controles de ambas direcciones
+ * (G18-a2, el constructor que decide; G18-b2, la bandera fijada a un
+ * literal) quedaban bien juzgados y quedan clavados. */
+describe("ola9 · OLA 18 (Cara): citaGobierna desciende al constructor y cosecha el canal de módulo", () => {
+  const props = `{ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }`;
+  it("G18-a: el constructor que recibe el booleano y lo IGNORA no gobierna — el valor muere en la llamada", () => {
+    const files = new Map([["components/faro/libros.tsx", `export function Libros(${props}) {
+      const buildManage = (flag: boolean) => ({ onDropMany: () => dropMany(rows.map((r) => r.id)) });
+      const canManage = has("books.multiselect");
+      return <PickSheet rows={rows} manage={buildManage(canManage)} onClose={() => {}} />;
+    }`]]);
+    const site = compositionSites("components/faro/libros.tsx", files.get("components/faro/libros.tsx")!)[0]!;
+    assert.ok(site, "el sitio nace: la composición entrega el canal por la llamada al constructor");
+    assert.ok(citaGobierna(site, "books.multiselect", files, "composition"),
+      "G18-a: buildManage recibe canManage y devuelve la mano entera con permiso o sin él — el parámetro no decide nada en su cuerpo: la cita ACUSA");
+  });
+  it("G18-a2 (control): el constructor que DECIDE con el booleano gobierna por la misma grafía", () => {
+    const files = new Map([["components/faro/libros.tsx", `export function Libros(${props}) {
+      const buildManage = (flag: boolean) => (flag ? { onDropMany: () => dropMany(rows.map((r) => r.id)) } : undefined);
+      const canManage = has("books.multiselect");
+      return <PickSheet rows={rows} manage={buildManage(canManage)} onClose={() => {}} />;
+    }`]]);
+    const site = compositionSites("components/faro/libros.tsx", files.get("components/faro/libros.tsx")!)[0]!;
+    assert.equal(citaGobierna(site, "books.multiselect", files, "composition"), null,
+      "G18-a2: la misma llamada, con el parámetro en la condición que decide la devolución, absuelve — el gobierno por llamada existe cuando el parámetro decide");
+  });
+  it("G18-b: el gobierno por la atadura de módulo fijada DESDE la consulta absuelve — el canal lateral gobierna", () => {
+    const files = new Map([["components/faro/libros.tsx", `let manageFlag = false;
+    export function Libros(${props}) {
+      const buildManage = () => (manageFlag ? { onDropMany: () => dropMany(rows.map((r) => r.id)) } : undefined);
+      manageFlag = has("books.multiselect");
+      return <PickSheet rows={rows} manage={buildManage()} onClose={() => {}} />;
+    }`]]);
+    const site = compositionSites("components/faro/libros.tsx", files.get("components/faro/libros.tsx")!)[0]!;
+    assert.ok(site, "el sitio nace: la composición entrega el canal");
+    assert.equal(citaGobierna(site, "books.multiselect", files, "composition"), null,
+      "G18-b: sin el asiento la bandera queda en falso y la mano no se entrega — la asignación escrita desde la consulta ES el gobierno, por el canal de estado");
+  });
+  it("G18-b2 (control): la bandera fijada a un LITERAL no gobierna, aunque la consulta viva en el componente", () => {
+    const files = new Map([["components/faro/libros.tsx", `let manageFlag = false;
+    export function Libros(${props}) {
+      const buildManage = () => (manageFlag ? { onDropMany: () => dropMany(rows.map((r) => r.id)) } : undefined);
+      const canManage = has("books.multiselect");
+      const nota = canManage ? "Puedes gestionar" : "";
+      manageFlag = true;
+      return <PickSheet rows={rows} manage={buildManage()} nota={nota} onClose={() => {}} />;
+    }`]]);
+    const site = compositionSites("components/faro/libros.tsx", files.get("components/faro/libros.tsx")!)[0]!;
+    assert.ok(citaGobierna(site, "books.multiselect", files, "composition"),
+      "G18-b2: la bandera se fija a un literal y la consulta solo alimenta una etiqueta — ningún canal trae el asiento a la entrega: ACUSA");
+  });
+});
+
+/* ── OLA 18 (Cara) — §A-sexies: LAS PUERTAS QUE CONSTRUYEN POR
+ * LLAMADA, Y EL SEGUIDOR QUE APRENDE LA ACUMULACIÓN ──
+ * X18-a: createElement juzgaba sus props sin byCall — el manage
+ * construido por llamada no nacía (su control literal X18-d sí).
+ * X18-b: el esparcido de una llamada `{...buildProps()}` no nacía —
+ * nadie resolvía la llamada a la forma del objeto que devuelve.
+ * V18-b2: el índice del seguidor no reconocía la producción por
+ * acumulación (forEach + add sobre un Set): la mano alimentada por
+ * ese ayudante no nacía. Sus hermanas (V18-a: el mapeador definido
+ * DESPUÉS de la mano; V18-b1: el Set construido con map) aguantaban
+ * y quedan clavadas como controles. */
+describe("ola9 · OLA 18 (Cara): §A-sexies juzga la llamada en sus tres puertas y el seguidor reconoce la acumulación", () => {
+  it("X18-a: createElement con el manage construido por LLAMADA nace — y su control literal (X18-d) sigue naciendo", () => {
+    const porLlamada = `import { createElement } from "react";
+    const buildManage = () => ({ onDropMany: (ids: string[]) => {} });
+    export const monta = () => createElement(PickSheet, { title: "X", manage: buildManage() });`;
+    assert.equal(compositionSites("lib/faro/monta18.ts", porLlamada).length, 1,
+      "X18-a: createElement(PickSheet, { manage: buildManage() }) — la misma entrega que en JSX nace: la puerta juzga el valor de manage con las tres grafías");
+    const literal = `import { createElement } from "react";
+    export const monta = () => createElement(PickSheet, { title: "X", manage: { onDropMany: (ids: string[]) => {} } });`;
+    assert.equal(compositionSites("lib/faro/monta18.ts", literal).length, 1,
+      "X18-d (control de la caza): createElement con el manage LITERAL nacía y nace");
+    const sinCanal = `import { createElement } from "react";
+    export const monta = () => createElement(PickSheet, { title: "X" });`;
+    assert.deepEqual(compositionSites("lib/faro/monta18.ts", sinCanal), [],
+      "control: createElement sin canal de masa no es composición");
+  });
+  it("X18-b: el esparcido de una llamada nace si el objeto que devuelve lleva el canal — y no nace si devuelve otra forma", () => {
+    const conCanal = `const buildProps = () => ({ manage: { onDropMany: (ids: string[]) => {} } });
+    export function Hoja() { return <PickSheet title="X" {...buildProps()} />; }`;
+    assert.equal(compositionSites("components/faro/hoja18.tsx", conCanal).length, 1,
+      "X18-b: {...buildProps()} se resuelve al cuerpo llamado y la forma devuelta lleva manage con onDropMany: el sitio nace");
+    const sinCanal = `const buildProps = () => ({ title: "X" });
+    export function Hoja() { return <PickSheet title="X" {...buildProps()} />; }`;
+    assert.deepEqual(compositionSites("components/faro/hoja18.tsx", sinCanal), [],
+      "control X18-b: el cuerpo resuelto devuelve otra forma — sin canal no hay composición, la resolución no inventa sitios");
+  });
+  it("V18-b2: la producción por ACUMULACIÓN (forEach+add, for…of+push) alimenta la mano — el índice la aprende", () => {
+    const forEachSet = `export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe: (ids: unknown) => void }) {
+      const idsDe = (rs: { id: string }[]) => { const s = new Set<string>(); rs.forEach((r) => s.add(r.id)); return s; };
+      const wipeAll = () => aplicaWipe([...idsDe(rows)]);
+      return { wipeAll };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", forEachSet), ["components/faro/hoja.tsx:wipeAll#1"],
+      "V18-b2 (el espécimen de la caza): el Set acumulado con forEach+add del campo id y devuelto ES un productor: la mano que come de idsDe nace");
+    const forOfPush = `export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe: (ids: unknown) => void }) {
+      const idsDe = (rs: { id: string }[]) => { const out: string[] = []; for (const r of rs) out.push(r.id); return out; };
+      const wipeAll = () => aplicaWipe(idsDe(rows));
+      return { wipeAll };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", forOfPush), ["components/faro/hoja.tsx:wipeAll#1"],
+      "V18-b2: el Array acumulado con for…of+push y devuelto produce igual");
+    const otroCampo = `export function Hoja({ rows, aplicaWipe }: { rows: { id: string; name: string }[]; aplicaWipe: (ids: unknown) => void }) {
+      const idsDe = (rs: { id: string; name: string }[]) => { const s = new Set<string>(); rs.forEach((r) => s.add(r.name)); return s; };
+      const wipeAll = () => aplicaWipe([...idsDe(rows)]);
+      return { wipeAll };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", otroCampo), [],
+      "control V18-b2: acumular OTRO campo (name) no produce ids: la mano no nace");
+    const noDevuelto = `export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe: (n: number) => void }) {
+      const idsDe = (rs: { id: string }[]) => { const s = new Set<string>(); rs.forEach((r) => s.add(r.id)); return rs.length; };
+      const wipeAll = () => aplicaWipe(idsDe(rows));
+      return { wipeAll };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", noDevuelto), [],
+      "control V18-b2: el acumulador que no se devuelve no entrega los ids a nadie");
+  });
+  it("V18-a (control que aguantaba): el mapeador definido DESPUÉS de la mano alimenta igual — el índice no depende del orden", () => {
+    const despues = `export function Hoja({ rows, aplicaWipe }: { rows: { id: string }[]; aplicaWipe: (ids: unknown) => void }) {
+      const wipeAll = () => aplicaWipe(preparaIds(rows));
+      const preparaIds = (rs: { id: string }[]) => rs.map((r) => r.id);
+      return { wipeAll };
+    }`;
+    assert.deepEqual(massHandSites("components/faro/hoja.tsx", despues), ["components/faro/hoja.tsx:wipeAll#1"],
+      "V18-a: la definición posterior del mapeador no esconde la mano — el punto fijo del índice lo ve");
   });
 });
 

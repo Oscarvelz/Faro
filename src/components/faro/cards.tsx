@@ -549,7 +549,7 @@ const storedPackExistence = (userId: string, id: string | undefined): { ex: Card
 };
 
 function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit" | "update"; card: CreditCard | null; seed?: Partial<CreditCard> & { read?: CardRead }; onClose: () => void; parkKey?: string }) {
-  const { commit, session, has, userId } = useFaro();
+  const { commitGuarded, session, has, userId } = useFaro();
   // Ola 2 (C-6): la ficha entra al sistema de modos — este componente no
   // contenía ni una referencia al modo y Ritmo recibía la ficha de Completo.
   // Fallo 10: en Ritmo la forma es CORTA (nombre, saldo, límite); la ficha
@@ -696,7 +696,13 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     const pct = Number(d.apr.trim().replace(",", ".").replace("%", ""));
     const lim = amount(d.limit);
     const due = Number(d.dueDay);
-    commit((s) => {
+    /* Ola 18 (BR18-1): las recetas de esta forma cometen por la puerta
+     * GUARDADA (commitGuarded): cuando abortan devuelven null y el
+     * guardado no deja marco — ni la entrada de Actividad con el nombre
+     * tecleado, ni la revisión, ni el fotograma de Deshacer que el
+     * envoltorio ordinario anteponía sin saber del aborto. El veredicto
+     * sigue viajando por saveVerdict, como desde la ola 15. */
+    commitGuarded((s) => {
       /* Ola 17 (Cambios): la salida CONVERTIDA re-pregunta contra el
        * paquete almacenado fresco, no contra la sesión: si el paquete
        * guardado va por delante de esta sesión (su revisión es mayor)
@@ -707,7 +713,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
        * paquete; la adopción sigue siendo oficio del provider. */
       if (converted) {
         const stored = storedPackExistence(userId, bornId);
-        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return s; }
+        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }
       }
       /* Ola 16 (BR16-2): freshId también pregunta DENTRO de su commit.
        * «Guardar como tarjeta nueva» solo procede si la tarjeta SIGUE
@@ -731,7 +737,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
        * re-plantea el anuncio verdadero. Sin declaración (la ruta de
        * siempre), lo declarado es "gone", como en la 16. */
       const freshAsked = freshId ? cardExistence(s, bornId) : null;
-      if (freshAsked && freshAsked !== (declared ?? "gone")) { saveVerdict.current = { applied: false, existence: freshAsked }; return s; }
+      if (freshAsked && freshAsked !== (declared ?? "gone")) { saveVerdict.current = { applied: false, existence: freshAsked }; return null; }
       const existence = !isAdd && !freshId ? cardExistence(s, bornId) : "alive";
       /* REPARACIÓN FAMILIA 7 (ola 17): la salida CONVERTIDA juzga su
        * premisa contra el estado del commit. La guarda del paquete de
@@ -752,9 +758,9 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
        * (La convertida de la actualización no lo hereda: viaja por
        * la ruta ordinaria, commitUpdate(false, …), cuyas preguntas
        * de siempre ya abortan ante archivada.) */
-      if (converted && existence !== "alive") { saveVerdict.current = { applied: false, existence }; return s; }
-      if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return s; }
-      if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }
+      if (converted && existence !== "alive") { saveVerdict.current = { applied: false, existence }; return null; }
+      if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return null; }
+      if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return null; }
       const storedCard = !isAdd && !freshId ? storedCards(s).find((c) => c.id === bornId) : undefined;
       /* Ola 16 (BR16-1): la base del alta. Si una tanda anterior de
        * ESTE borrador ya parió su tarjeta (el doble despacho), la
@@ -771,7 +777,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
       const liveCard = existence === "archived" && storedCard
         ? { ...storedCard, archived: undefined, archivedOn: undefined }
         : storedCard ?? (!isAdd && !freshId ? cardsOf(s).find((c) => c.id === bornId) : undefined) ?? bornCard;
-      if (!isAdd && !freshId && !liveCard) { saveVerdict.current = { applied: false, existence: "gone" }; return s; }
+      if (!isAdd && !freshId && !liveCard) { saveVerdict.current = { applied: false, existence: "gone" }; return null; }
       const candidate = {
         ...(liveCard ?? { id: bornNewId, currency: "USD" as Currency, snaps: [] }),
         name, issuer: d.issuer || issuerOf(autoMark)?.name || "", mark: autoMark, color: d.color, art: d.art || undefined, network: d.network || networkIn(name) || liveCard?.network,
@@ -808,7 +814,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
     if (bal == null && rwm == null) return;
     // 1.3.109: a manual update can carry only the rewards (balance left blank = unchanged).
     const u: CardUpdate = { balanceMinor: bal ?? 0, availMinor: amount(d.avail), minMinor: amount(d.min), dueOn: d.dueOn, src: "manual" };
-    commit((s) => {
+    commitGuarded((s) => {
       /* Ola 17 (Cambios): la salida convertida de la actualización
        * re-pregunta contra el paquete almacenado fresco, como la de
        * la edición (ver commitDraft): el paquete por delante de la
@@ -816,11 +822,11 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
        * que gane la carrera de la revisión. */
       if (converted) {
         const stored = storedPackExistence(userId, bornId);
-        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return s; }
+        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }
       }
       const existence = cardExistence(s, bornId);
-      if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return s; }
-      if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return s; }
+      if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return null; }
+      if (existence === "archived" && !unarchive) { saveVerdict.current = { applied: false, existence }; return null; }
       let st = existence === "archived" ? restoreCard(s, bornId as string) : s;
       if (bal != null) st = addReading(st, bornId as string, u);
       if (rwm != null) st = addRewards(st, bornId as string, { amountMinor: rwm, src: "manual" });

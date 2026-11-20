@@ -18,6 +18,10 @@ export function blankSession(ledger: LedgerState, dirty = false): Session {
 export function commit(session: Session, recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)): Session {
   const snap: LedgerState = session.ledger;
   const drafted = recipe(snap);
+  return frameCommit(session, snap, drafted, detail);
+}
+
+function frameCommit(session: Session, snap: LedgerState, drafted: LedgerState, detail: string | (() => string)): Session {
   const updatedAt = new Date().toISOString();
   const ledger: LedgerState = {
     ...drafted,
@@ -33,6 +37,46 @@ export function commit(session: Session, recipe: (s: LedgerState) => LedgerState
     future: [],
     dirty: true,
   };
+}
+
+/**
+ * Ola 18 (BR18-1): el commit que una receta puede ABORTAR sin marco.
+ * Hasta aquí, `commit` enmarcaba todo lo que la receta devolvía — también
+ * el estado intacto de un aborto: la entrada de Actividad afirmaba el
+ * guardado con el nombre tecleado, la revisión subía y un fotograma de
+ * Deshacer se apilaba, mientras la receta acababa de negarse a cometer
+ * (la línea de juicio del fantasma, la guarda del paquete, las preguntas
+ * de existencia de la forma de tarjeta). El registro mentía aunque la
+ * tarjeta y la forma dijeran la verdad.
+ *
+ * El mecanismo es la SEÑAL EXPLÍCITA, no la detección: la receta de esta
+ * puerta devuelve `null` (o, como red, el propio estado que recibió —
+ * dentro de esta puerta devolver tu entrada solo puede significar «nada
+ * que cometer») y el envoltorio devuelve la sesión SIN MARCO: ni
+ * entrada, ni revisión, ni fotograma, ni sucio. La carcasa de la sesión
+ * sí es nueva — los efectos que leen el canal del veredicto
+ * (saveVerdict) despiertan con el cambio de sesión y re-plantean su
+ * anuncio; el libro, la pila y la bandera de sucio quedan los mismos
+ * objetos.
+ *
+ * Por qué no detección por identidad en `commit` a secas: no todo
+ * aborto de la casa miente. La confirmación de modo (applyModeConfirmed)
+ * aborta devolviendo el estado intacto y su entrada es DELIBERADA y
+ * veraz — su detalle-función nombra la no-aplicación («La confirmación
+ * no aplicó…», doctrina de BR15-1) — y decenas de recetas ordinarias
+ * apoyadas en ayudantes idempotentes devuelven el estado cuando no hay
+ * nada que hacer, sin que nadie haya juzgado su marco. Borrar el marco
+ * por identidad en el envoltorio común desharía esa entrada asentada y
+ * barrería el comportamiento de toda la casa por un quiebre de una
+ * puerta. La señal explícita cura exactamente las recetas que abortan
+ * con veredicto (la forma de tarjeta, savePlan, restoreDue) y deja el
+ * resto byte a byte como estaba.
+ */
+export function commitGuarded(session: Session, recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)): Session {
+  const snap: LedgerState = session.ledger;
+  const drafted = recipe(snap);
+  if (drafted === null || drafted === snap) return { ...session };
+  return frameCommit(session, snap, drafted, detail);
 }
 
 export function undo(session: Session): Session {

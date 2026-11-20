@@ -22,7 +22,7 @@ import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, spendCategorySlices, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatMoney, formatMoneyShort, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
-import { blankSession, commit as commitSession, commitFinal as commitFinalSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
+import { blankSession, commit as commitSession, commitFinal as commitFinalSession, commitGuarded as commitGuardedSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
 import { isPureSample, stripSample, withSampleArc } from "@/lib/faro/sample";
@@ -133,6 +133,14 @@ export type Api = {
   viewLine: (line: Line) => string;
   recordLine: (line: Line) => string;
   commit: (recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => void;
+  /** Ola 18 (BR18-1): el commit cuya receta puede abortar SIN MARCO —
+   * devuelve null (o su propio estado) y no nace ni entrada de
+   * Actividad, ni revisión, ni fotograma de Deshacer. Es la puerta de
+   * las recetas que abortan con veredicto (la forma de tarjeta y sus
+   * hermanas); el commit ordinario conserva su marco siempre, incluida
+   * la entrada deliberada y veraz de la confirmación de modo que no
+   * aplicó. */
+  commitGuarded: (recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => void;
   /** El descanso (Historial → Archivo): apartar un período, mostrarlo de nuevo, borrarlo.
    *  Los únicos caminos de la UI hacia descanso.ts: la puerta anti-fuga se pone y se quita
    *  en un solo sitio, nunca a mano en una pantalla. */
@@ -1143,6 +1151,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const commit = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => {
     setSession((s) => (s ? commitSession(s, recipe, detail) : s));
   }, []);
+  // Ola 18 (BR18-1): la puerta guardada — la receta que aborta devuelve
+  // null y el guardado no deja marco (ver commitGuarded en reducer.ts).
+  const commitGuarded = useCallback((recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => {
+    setSession((s) => (s ? commitGuardedSession(s, recipe, detail) : s));
+  }, []);
   // D3: el commit sin deshacer — solo para lo que la puerta escrita ya declaró final
   // (eliminar un período apartado). La ventana dice «Esto no se puede deshacer» y el
   // código obedece a las palabras, nunca al revés.
@@ -1669,6 +1682,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     viewLine,
     recordLine,
     commit,
+    commitGuarded,
     hidePeriodRange: (from, to, label) => {
       commit((s) => hidePeriod(s, from, to, label).state, label ?? "Ocultar período");
     },
