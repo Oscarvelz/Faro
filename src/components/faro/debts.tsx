@@ -445,7 +445,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
           onCancel={() => setEditFor(null)}
           onSave={(d) => { commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => { if (r.id !== row.id) return r; const composed: Lent = { ...r, person: d.name, kind: d.kind, amountMinor: d.amountMinor, aprBps: d.aprBps, dueOn: d.date }; /* Ola 12 (S2): la gemela fusiona igual — lo gobernado no tocado se lee de ESTA fila viva dentro del commit. */ return fuseLoanFields(r, composed, d.touched, LENT_FIELD_MAP, LOAN_DERIVED_FROM); }) }), d.name); setEditFor(null); }} />;
       })()}
-      {libros ? (has("debt.chart") ? <DebtChart /> : null) : (
+      {libros ? null : (
         <CobroSpan title={t("cobro.span")} total={sums.lent} events={all.map((r) => ({ date: r.startedOn, value: view(r.amountMinor, r.currency) }))}
           facts={[[t("cobro.lent"), sums.lent], [t("cobro.paid"), sums.paid], [t("cobro.left"), sums.left]]} />
       )}
@@ -460,6 +460,9 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
         </div>
       )}
       {has("cards.rewards-group") ? <RewardsGroup /> : null}
+      {/* 1.3.333 (Oscar): la gráfica baja al fondo de Me Deben — después de las
+          listas (Con interés) y antes del Archivo, que cierra la vista. */}
+      {libros && has("debt.chart") ? <DebtChart /> : null}
       {/* 1.3.162 (Oscar): the Archive lives in Libros; Central's panel does not show it. */}
       {libros ? (
       <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>

@@ -41,7 +41,10 @@ test("esquina: las guardas de fix5 quedan — el encabezado no envuelve y el tí
 
 test("esquina: UN solo encabezado compartido para los seis libros, con la pareja en su orden asentado", () => {
   assert.equal(count(screens, 'className="row income-head"'), 1, "LinesBlock renders the one shared head");
-  const head = screens.slice(screens.indexOf('className="row income-head"'), screens.indexOf('className="row income-head"') + 2600);
+  /* 1.3.333: la ventana crece de 2600 a 3100 — la moneda del libro se unió al
+   * encabezado con su confirmación (pieza de Oscar, 2026-11-20) y el «+» quedó
+   * en el offset 2921. El orden asentado que juzga esta cerca no cambia. */
+  const head = screens.slice(screens.indexOf('className="row income-head"'), screens.indexOf('className="row income-head"') + 3100);
   assert.ok(head.includes("<BookKit"), "the kit pencil lives in the corner group");
   assert.ok(head.includes('data-anchor="book-add"'), "the + lives in the corner group");
   assert.ok(head.indexOf("<BookKit") < head.indexOf('data-anchor="book-add"'), "the settled order stands: pencil first, then the +");

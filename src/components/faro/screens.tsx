@@ -968,11 +968,29 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
         <h2 className="serif text-2xl lab-head">{title}<Hint topic="libro-categoria" fitParent /></h2>
         <span className="row">
           {ui.draft === draftKind && !ui.editing ? (
-            <button type="button" className="copper-coin" data-anchor="book-coin" aria-label={money === "USD" ? "USD" : "NIO"} onClick={() => setMoney((cur) => (cur === "USD" ? "NIO" : "USD"))}>
+            <button type="button" className="copper-coin" data-anchor="book-coin" aria-label={money === "USD" ? "USD" : "NIO"} onClick={() => {
+              // Oscar (2026-11-20): la moneda de un libro no cambia de un toque —
+              // decide en qué moneda NACE lo que se anota, así que pregunta antes,
+              // en su ventana centrada, y solo el «Cambiar» voltea la moneda.
+              const next: Currency = money === "USD" ? "NIO" : "USD";
+              const word = next === "USD" ? (lang === "en" ? "dollars" : "dólares") : (lang === "en" ? "cordobas" : "córdobas");
+              confirm({
+                title: t("book.coin.title"),
+                body: t("book.coin.body").replaceAll("{cur}", word),
+                yes: t("book.coin.yes"),
+                no: t("cancel"),
+                center: true,
+                run: () => setMoney(next),
+              });
+            }}>
               {money === "USD" ? "$" : "C$"}
             </button>
           ) : null}
-          {canFilter && (asCloud || asDrift) && present.length > 1 ? (
+          {/* Oscar (2026-11-20): el icono de filtro no puede desaparecer de
+              Gastos Fijos/Variables cuando el mes tiene líneas de una sola
+              categoría — es residente del encabezado mientras haya qué
+              filtrar (presente ≥ 1); el menú ya servía sin la cuenta. */}
+          {canFilter && (asCloud || asDrift) && present.length > 0 ? (
             <button type="button" data-anchor="book-filter" className="icon-btn filter-btn" aria-pressed={filterOpen || chip !== "all"} aria-label={t("filter.button")} onClick={() => setFilterOpen((v) => !v)}>
               <Filter className="size-4" />
             </button>
@@ -3400,7 +3418,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       </div>
       {quick ? (
         <div ref={quickRef} className="sheet-swap" data-mode={quick} data-anchor="quick-window">
-          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} onClose={(how) => { if (lens === "all" && how !== "back") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
+          {/* Oscar (2026-11-20): la puerta de Escanear también vive en los
+              widgets de Central — una función así no se queda solo en Libros. */}
+          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} scanFor={(kind) => (SCAN_KINDS.includes(kind) ? <ScanEntry from={kind} /> : undefined)} onClose={(how) => { if (lens === "all" && how !== "back") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
           {/* 1.3.108: phone Back restores the card that was active before (none stays none); only a finished entry still lights its card. */}
           {/* 1.3.108: the panel says hello in its own colour (teal +, orange −), once per opening; see styles.css "quick-hello". */}
           <QuickHello key={`qh-${quick}`} mode={quick} />
@@ -3606,7 +3626,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 <strong data-long={s.name.length > 8 ? "" : undefined}>{s.name}{has("nature.light") && s.lightCls ? <> <FundLight asSpan cls={s.lightCls} tone={tint} hostName={s.saldoHostName} /></> : null}</strong>
                 <span className="num">{fmtShort(s.keptMinor)}<span className="seg-pct">{pct}%</span></span>
                 {has("nature.class-saldo") && s.pledgedMinor > 0 ? (
-                  <span className="save-seg-sub"><FundLight asSpan cls="saldo" tone={tint} hostName={s.saldoHostName} /><span className="ss-amt">{`+ ${fmtShort(s.pledgedMinor)}`}</span><span className="ss-lab">{t("desk.savings.onBalance")}</span></span>
+                  /* Oscar (2026-11-20): el dato manda a la izquierda — la luz va
+                     a la derecha del número, no delante de él. */
+                  <span className="save-seg-sub"><span className="ss-amt">{`+ ${fmtShort(s.pledgedMinor)}`}</span><FundLight asSpan cls="saldo" tone={tint} hostName={s.saldoHostName} /><span className="ss-lab">{t("desk.savings.onBalance")}</span></span>
                 ) : null}
                 {s.id.endsWith(".retiro") && s.inflowMinor > 0 ? (
                   <span className="save-seg-sub"><span className="ss-amt">{`+ ${fmtShort(s.inflowMinor)}`}</span><span className="ss-lab">{t("desk.savings.thisMonth")}</span></span>

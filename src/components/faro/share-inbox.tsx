@@ -1,7 +1,7 @@
 /**
  * Faro for Android (1.3.111, Phase 2): screenshots or photos shared to Faro from another app (a bank app, the gallery)
  * wait in the app; once Faro is open and unlocked this asks what they are and opens the existing preview: the card
- * screenshot reader (Tarjetas) or the receipt scan (Foto o captura). Nothing is saved until he confirms in that preview.
+ * screenshot reader (Tarjetas) or the receipt scan (Escanear). Nothing is saved until he confirms in that preview.
  * Loaded lazily and only inside the Android app (shell.tsx), so the browser and the PWA never download it.
  */
 import { useEffect, useRef, useState } from "react";

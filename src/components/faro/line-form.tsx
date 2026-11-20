@@ -579,8 +579,10 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
               <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />
             </span>
           ) : <input className="field" value={concept} onChange={(e) => setConcept(e.target.value)} />}
-          {scan}
         </label>
+        {/* Oscar (2026-11-20): el botón de escaneo baja de la línea del concepto
+            a su propia fila, con aire — pegado a la gráfica de arriba no respiraba. */}
+        {scan ? <div className="fit-scan-row">{scan}</div> : null}
         <label className="label fit-f is-num" data-f="amount" data-anchor="line-amount">
           {head(t("amount"), "f-monto")}
           <input className="field num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} onFocus={() => focusAmount((n) => setAmount(n.toFixed(2)))} />
@@ -772,7 +774,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   );
 }
 
-export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose: (how?: "back") => void; jump?: { kind: LineKind; categoryId: string; title: string } | null }) {
+export function QuickAdd({ mode, onClose, jump, scanFor }: { mode: "in" | "out"; onClose: (how?: "back") => void; jump?: { kind: LineKind; categoryId: string; title: string } | null; scanFor?: (kind: LineKind) => ReactNode }) {
   const { t, session, lang, confirm, has } = useFaro();
   const structure = session?.ledger.structure;
   const [open, setOpen] = useState<string | null>(null);
@@ -941,7 +943,7 @@ export function QuickAdd({ mode, onClose, jump }: { mode: "in" | "out"; onClose:
           <ChevronLeft className="size-4" />
           <span className="serif">{pick.title}</span>
         </button>
-        <LineForm key={`${pick.kind}-${pick.categoryId}-${resume ? "keep" : "new"}`} kind={pick.kind} preset={{ categoryId: pick.categoryId }} seed={resume} draftKey={heldDegraded ? undefined : mode} draftTitle={pick.title} onClose={finish} onDirtyChange={(d) => { formDirtyRef.current = d; }} />
+        <LineForm key={`${pick.kind}-${pick.categoryId}-${resume ? "keep" : "new"}`} kind={pick.kind} preset={{ categoryId: pick.categoryId }} seed={resume} draftKey={heldDegraded ? undefined : mode} draftTitle={pick.title} scan={scanFor?.(pick.kind)} onClose={finish} onDirtyChange={(d) => { formDirtyRef.current = d; }} />
       </section>
     );
   }

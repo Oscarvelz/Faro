@@ -36,11 +36,11 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const money = (minor: number | null) => (minor == null ? "" : (minor / 100).toFixed(2));
 
 /**
- * The compact entry at the right of the editor's Concepto head (1.3.103): one "Foto o captura" pill with the aperture
- * inside, on the right. Tapping it opens a small anchored chooser with two equal options, Cámara (capture) and Imágenes
- * (one or many, the gallery where screenshots live). A desktop with a fine pointer and no camera skips the chooser and
- * opens the file picker at once. Buttons + hidden inputs, so it can sit inside the field's <label> after its input
- * without taking the label's clicks; the chooser and the sheet are portalled to <body> for the same reason.
+ * The editor's scan entry (1.3.103; renamed and re-seated 1.3.333): one "Escanear" pill with the aperture
+ * inside, on the right of its own row under the Concepto field. Tapping it opens a small anchored chooser
+ * with two equal options, Cámara (capture) and Imágenes (one or many, the gallery where screenshots live).
+ * A desktop with a fine pointer and no camera skips the chooser and opens the file picker at once.
+ * The chooser and the sheet are portalled to <body>.
  */
 export function ScanEntry({ from }: { from: LineKind }) {
   const { lang } = useFaro();
@@ -69,7 +69,7 @@ export function ScanEntry({ from }: { from: LineKind }) {
   return (
     <span className="scn-entry" onClick={(e) => e.stopPropagation()}>
       <button ref={btn} type="button" className="scn-btn" data-anchor="scan-add" aria-haspopup={hasCam ? "menu" : undefined} aria-expanded={hasCam ? !!menu : undefined} onClick={tap}>
-        <span>{L(lang, "Foto o captura", "Photo or screen")}</span>
+        <span>{L(lang, "Escanear", "Scan")}</span>
         <Aperture aria-hidden />
       </button>
       <input ref={many} className="scn-file" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
@@ -99,7 +99,7 @@ function ScanChooser({ at, onCamera, onImages, onClose }: { at: DOMRect; onCamer
   const stop = (e: MouseEvent) => e.stopPropagation();
   return (
     <div className="scn-pop-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }} onClick={stop}>
-      <div className={`scn-pop${below ? "" : " is-up"}`} role="menu" aria-label={L(lang, "Foto o captura", "Photo or screen")} style={{ left, width: W, ...pos }}>
+      <div className={`scn-pop${below ? "" : " is-up"}`} role="menu" aria-label={L(lang, "Escanear", "Scan")} style={{ left, width: W, ...pos }}>
         <button ref={first} type="button" role="menuitem" className="scn-opt" data-opt="camera" onClick={(e) => { stop(e); onCamera(); }}>
           <Camera aria-hidden /><span>{L(lang, "Cámara", "Camera")}</span>
         </button>
@@ -209,7 +209,7 @@ export function ScanSheet({ files, from, onClose, onReview }: { files: File[]; f
 
   return (
     <div className="scn-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div className="scn-sheet" role="dialog" aria-modal="true" aria-label={L(lang, "Foto o captura", "Photo or screen")}>
+      <div className="scn-sheet" role="dialog" aria-modal="true" aria-label={L(lang, "Escanear", "Scan")}>
         <div className="scn-head">
           <span className="scn-badge" aria-hidden><Camera /></span>
           <h3 className="lab-head">{busy ? L(lang, "Leyendo imágenes", "Reading pictures") : L(lang, "Listo para revisar", "Ready to review")}<Hint topic="escanear" /></h3>

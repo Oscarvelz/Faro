@@ -47,6 +47,11 @@ const BARE_OK: ReadonlyArray<readonly [string, string, 0 | 1, string, number]> =
   // saltaría al tema de los modos, que es otra cosa. Declarado en la etapa 1 de los modos,
   // cuando «Complete» entró en LINKS como nombre del modo.
   ["plantillas", "what", 1, "Complete", 1],
+  // «where Scan statement saves your account value»: «Scan statement» es el lector de
+  // ESTADOS de cuenta (Leer estado), no el [[Scan]] de recibos; marcarlo saltaría al
+  // tema de escanear recibos, que es otra función. Declarado en la 1.3.333, cuando
+  // «Scan» entró en LINKS como el nombre nuevo del botón de la cámara.
+  ["retiro-primerica", "what", 1, "Scan", 1],
 ];
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

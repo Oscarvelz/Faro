@@ -65,7 +65,7 @@ export const LINKS: Record<string, string> = {
   "Botón de paleta": "icono-color", "Palette button": "icono-color",
   "Color personalizado": "color-propio", "Custom colour": "color-propio",
   "Editor de líneas": "editor", "Line editor": "editor",
-  "Foto o captura": "escanear", "Photo or screen": "escanear",
+  "Escanear": "escanear", "Scan": "escanear",
   "Agregar de la lista": "f-lista", "Add from the list": "f-lista",
   "Biblioteca de íconos": "f-icono-cuota", "Icon library": "f-icono-cuota",
   "Otra frecuencia": "frecuencia-otra", "Other frequency": "frecuencia-otra",

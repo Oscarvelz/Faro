@@ -1,6 +1,12 @@
 /* 1.3.115: the books' palette + pencil (teal pens), their row marks, and tappable rows in Libros. */
-.kit-btn { width: 32px; min-width: 32px; height: 32px; border-radius: 10px; color: var(--accent); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); border-color: color-mix(in oklab, var(--fg) 10%, var(--line)); }
-.kit-btn svg { width: 16px; height: 16px; }
+.kit-btn { width: 28px; min-width: 28px; height: 28px; border-radius: 10px; color: var(--accent); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); border-color: color-mix(in oklab, var(--fg) 10%, var(--line)); }
+.kit-btn svg { width: 14px; height: 14px; }
+/* Las herramientas del encabezado de libro, pequeñas (Oscar, 2026-11-20): el
+   filtro vivía a 44px (la .icon-btn general) y el lápiz a 32 — «están muy
+   grandes aquí», junto a un + de 32 y una moneda menor. Ambos bajan a 28px,
+   el tamaño de herramienta menor de la casa, y se quedan parejos. */
+.icon-btn.filter-btn { width: 28px; min-width: 28px; height: 28px; }
+.icon-btn.filter-btn svg { width: 14px; height: 14px; }
 .kit-btn:disabled { opacity: .4; }
 .kit-btn[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 14%, var(--surface)); }
 [data-theme="tron"] .kit-btn { border-radius: 5px; color: #7fe9ff; border-color: rgba(63, 214, 245, .42); background: rgba(63, 214, 245, .05); }

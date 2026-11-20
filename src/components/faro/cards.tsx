@@ -98,7 +98,7 @@ export function CardsGroup({ libros = false }: { libros?: boolean }) {
           {/* Ola 3 (Cara C3-1): el lector de tarjetas por foto es de Completo
               (scan.card-capture) — la puerta gana por fin su puerta: en
               Ritmo no se pinta y la tarjeta se añade por la forma corta. */}
-          {has("scan.card-capture") ? <ShotButton onFiles={setShots} label={L("Foto o captura", "Photo or screen")} small /> : null}
+          {has("scan.card-capture") ? <ShotButton onFiles={setShots} label={L("Escanear", "Scan")} small /> : null}
           {libros ? <button type="button" className="cg-tool" aria-label={L("Añadir tarjeta", "Add card")} data-anchor="card-add" onClick={() => setForm({ mode: "add" })}><Plus /></button> : null}
           {libros && !empty ? <button type="button" className="cg-tool" aria-pressed={edit} aria-label={L("Editar tarjetas", "Edit cards")} data-anchor="cards-edit" onClick={() => setEdit((v) => !v)}><Pencil /></button> : null}
           <Hint topic="tarjetas" />
@@ -224,7 +224,7 @@ function CardRow({ card, edit, onOpen, onDelete, onUpdate }: { card: CreditCard;
 
 /* ---------- picking pictures ---------- */
 
-/** "Foto o captura" with the 1.3.103 chooser (Cámara / Imágenes), and an optional third choice (Manual). */
+/** "Escanear" with the 1.3.103 chooser (Cámara / Imágenes), and an optional third choice (Manual). */
 export function ShotButton({ onFiles, label, small = false, onManual, full = false }: { onFiles: (f: File[]) => void; label: string; small?: boolean; onManual?: () => void; full?: boolean }) {
   const L = useL();
   const [menu, setMenu] = useState<DOMRect | null>(null);
@@ -984,7 +984,7 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
         {isAdd && !seed?.read && full && has("cards.capture-add") ? (
           <div className="cf-shot">
             <span>{L("¿Tienes una captura de tu banco?", "Got a screenshot from your bank?")}</span>
-            <ShotButton label={L("Foto o captura", "Photo or screen")} onFiles={setScan} />
+            <ShotButton label={L("Escanear", "Scan")} onFiles={setScan} />
           </div>
         ) : null}
         {upd || isAdd ? <p className="cd-soft cf-cur">{L(`Montos en ${(card?.currency ?? "USD") === "USD" ? "US$" : "C$"}, como en tu banco.`, `Amounts in ${(card?.currency ?? "USD") === "USD" ? "US$" : "C$"}, as in your bank.`)}</p> : null}
@@ -1322,7 +1322,7 @@ export function CardsAdvisor({ plan }: { plan: ReturnType<typeof import("@/lib/f
   );
 }
 
-/* ---------- rewards found by the general "Foto o captura" scan (1.3.109) ---------- */
+/* ---------- rewards found by the general "Escanear" scan (1.3.109) ---------- */
 
 /** A rewards figure found in any screenshot: assumed to be credit card rewards, matched to a card or a best guess. */
 export type ScanRw = { id: string; target: string; sure: boolean; amount: string; earned: string; span: "year" | "life" | null; points: number | null; on: boolean };

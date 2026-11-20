@@ -229,7 +229,11 @@ describe("ola3 · las superficies declaradas ganan su puerta (Cara III)", () => 
     const screens = SRC("../../components/faro/screens.tsx");
     assert.ok(screens.includes('const canFilter = has("books.filter-chips")'));
     assert.ok(screens.includes('!canFilter || chip === "all"'), "el chip elegido no filtra en silencio donde su cara duerme");
-    assert.ok(screens.includes('canFilter && (asCloud || asDrift) && present.length > 1'), "el botón de la nube/drift lleva la puerta");
+    /* 1.3.333 (Oscar, 2026-11-20): la puerta del botón bajó de >1 a >0 — el
+     * filtro es residente del encabezado mientras haya qué filtrar; con una
+     * sola categoría en el mes el icono desaparecía y la función parecía no
+     * existir. La puerta (canFilter + nube/drift) no cambió; cambió la cuenta. */
+    assert.ok(screens.includes('canFilter && (asCloud || asDrift) && present.length > 0'), "el botón de la nube/drift lleva la puerta");
     assert.ok(screens.includes('canFilter && !asCloud && !asDrift && chipSource.length > 1'), "la fila de chips lleva la puerta");
   });
 

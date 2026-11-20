@@ -224,12 +224,12 @@ describe("ola5 · O5-C4: escanear salta a donde vive el escaneo (fallo 16)", () 
   it("el destino es la puerta de alta de un libro de gastos: el salto no cae en ningún modo", () => {
     const tp = findTopic("escanear")!;
     assert.equal(tp.go!.screen, "variable", "el destino es un libro de gastos, donde el propio texto del tema manda («toca + en un libro de gastos»)");
-    assert.equal(tp.go!.anchor, "book-add", "la puerta es el +, que abre el flujo donde vive «Foto o captura»");
+    assert.equal(tp.go!.anchor, "book-add", "la puerta es el +, que abre el flujo donde vive «Escanear»");
     assert.equal(featureForGo(tp.go!), null,
       "la puerta + de un libro de gastos es mueble universal (featureForGo no la sienta): el salto aterriza en Esencial, en Ritmo y en Completo — nunca cae a la nada ni confiesa un modo ajeno");
   });
 
-  it("la puerta contiene el escaneo: el botón «Foto o captura» vive en el flujo de alta", () => {
+  it("la puerta contiene el escaneo: el botón «Escanear» vive en el flujo de alta", () => {
     const scan = SRC("../../components/faro/receipt-scan.tsx");
     assert.ok(scan.includes('data-anchor="scan-add"'), "el botón de escaneo existe en el flujo de alta de los libros de gasto");
     assert.equal(FEATURES["scan.receipt"], "esencial", "el escaneo mismo es de Esencial: el salto y la función cuentan lo mismo");
