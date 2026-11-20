@@ -198,10 +198,20 @@ img.scn-mk { object-fit: cover; }
 .scn-switch.is-small { width: 34px; height: 20px; flex: none; }
 .scn-switch.is-small i { width: 14px; height: 14px; }
 .scn-switch.is-small[aria-checked="true"] i { transform: translateX(14px); }
-.rev-batch { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.rev-batch-lab { flex: none; font-size: min(.8rem, 3.7cqi); color: var(--muted); }
+/* Ola 20 (Q20-2): la barra se APILA — la etiqueta respira en su propia
+ * línea y el selector y el botón comparten la de abajo con todo el
+ * ancho. En una sola fila, etiqueta + píldora + botón no cabían a
+ * 390px: el chevron de la píldora se salía sobre «Aplicar» (ES) y el
+ * texto «Choose a home…» se salía de su píldora y chocaba con «Apply»
+ * (EN). El texto del selector, además, se corta con elipsis dentro de
+ * su píldora (el idioma de la casa en fit-form.css): una casa con
+ * nombre largo se lee cortada, jamás derramada. */
+.rev-batch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.rev-batch-lab { flex: 1 1 100%; font-size: min(.8rem, 3.7cqi); color: var(--muted); }
 .rev-batch .theme-select { flex: 1 1 auto; min-width: 0; }
 .rev-batch .theme-select-btn { width: 100%; min-height: 40px; white-space: nowrap; font-size: min(15px, 3.9cqi); }
+.rev-batch .theme-select-btn > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rev-batch .theme-select-btn .fold-chev { flex: none; }
 .rev-batch-go { flex: none; min-height: 40px; border-radius: 12px; }
 .rev-foot { grid-template-columns: 1fr 1fr; }
 .rev-totals { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: min(.84rem, 3.9cqi); color: var(--muted); }

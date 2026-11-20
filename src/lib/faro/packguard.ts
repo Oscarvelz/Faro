@@ -171,3 +171,36 @@ export function apartDecision(mine: string, winning: string, first: string | nul
   if (second === winning) return "reuse-second";
   return "blocked";
 }
+
+/**
+ * Ola 20 (§B): ¿el libro vivo guarda una entrada ANUNCIADA que el pack
+ * guardado no conoce? La entrada de un aborto declarado (commitAnnounced)
+ * es contenido del registro: nació sin mover la revisión, así que la
+ * fórmula vieja de «trabajo local» — diferencia de contenido Y revisión
+ * movida de la base — la leía como «nada que apartar» y la llegada
+ * extranjera la sobrescribía en silencio: ni ranura, ni banner, ni
+ * toast. Una diferencia de registro con revisión igual ES trabajo
+ * local cuando la diferencia es una entrada anunciada ausente del pack.
+ */
+export function announcedAbsent(mine: LedgerState, stored: LedgerState): boolean {
+  const ids = new Set(stored.audit.map((e) => e.id));
+  return mine.audit.some((e) => e.announced && !ids.has(e.id));
+}
+
+/**
+ * El veredicto de trabajo local de surfaceTabConflict, como función
+ * pura (la fórmula vive aquí desde la ola 20 para que la cerca la clave
+ * entera, no una copia):
+ * - Sin pack legible, comparar es imposible y la preservación gana el
+ *   empate: hay trabajo local (doctrina OBS-C5-1, ola 5).
+ * - Contenido idéntico al guardado: no hay trabajo, aunque la sesión se
+ *   haya sembrado sucia.
+ * - Contenido distinto: hay trabajo si la revisión se movió de la base
+ *   O si el libro guarda una entrada anunciada que el pack no conoce
+ *   (ola 20, §B: la entrada es contenido aunque la revisión no se mueva).
+ */
+export function localWorkVerdict(mineJson: string, storedJson: string | null, mine: LedgerState, stored: LedgerState | null, baseRev: number | null): boolean {
+  if (storedJson === null || stored === null) return true;
+  if (mineJson === storedJson) return false;
+  return mine.revision !== baseRev || announcedAbsent(mine, stored);
+}

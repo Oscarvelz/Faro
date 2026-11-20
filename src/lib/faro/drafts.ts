@@ -144,17 +144,29 @@ export function dropDraft(state: LedgerState, id: string): LedgerState {
 
 /** Guardar: crea las líneas de los borradores pedidos y los retira de la
  * bandeja en la misma receta. Un borrador en rojo no se convierte ni por
- * llamada directa (doble candado con draftToLine): se queda esperando. */
+ * llamada directa (doble candado con draftToLine): se queda esperando.
+ *
+ * Ola 20 (G20-1): si NINGÚN borrador se convierte — porque ya no vive
+ * (otra mano lo guardó o lo descartó) o porque sigue en rojo — el estado
+ * vuelve INTACTO, el mismo objeto. El `{...next, drafts: kept}`
+ * incondicional de antes fabricaba un objeto nuevo aunque nada se
+ * hubiera movido, y quien llamaba por la puerta ordinaria enmarcaba un
+ * guardado que no guardó nada: marco, entrada y revisión por cero
+ * líneas. La identidad es la señal con la que la mesa (puerta guardada)
+ * distingue «aterrizó» de «no pasó nada». */
 export function commitDrafts(state: LedgerState, ids: string[], ctx: DraftCtx): LedgerState {
   const want = new Set(ids);
   let next = state;
+  let moved = 0;
   const kept: Draft[] = [];
   for (const d of state.drafts ?? []) {
     if (!want.has(d.id)) { kept.push(d); continue; }
     const line = draftToLine(d, ctx);
     if (!line) { kept.push(d); continue; }
     next = upsertLine(next, line);
+    moved++;
   }
+  if (!moved) return state;
   return { ...next, drafts: kept };
 }
 

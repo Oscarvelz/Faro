@@ -47,7 +47,7 @@ const MISSING_PHRASE: Record<string, [string, string]> = {
 const targetOf = (d: Draft) => `${d.book}|${d.cat ?? ""}|${d.sub ?? ""}`;
 
 export function ReviewTable({ onClose }: { onClose: () => void }) {
-  const { session, commit, key, lang, names, has } = useFaro();
+  const { session, commitGuarded, key, lang, names, has } = useFaro();
   const ledger = session?.ledger;
   const full = has("capture.review-full");
   const tray = useMemo(() => (ledger?.drafts ?? []).filter((d) => d.kind === "line"), [ledger]);
@@ -96,28 +96,68 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
 
   function save() {
     if (!ledger || !canSave || !has("capture.review")) return;
+    /* Ola 20 (G20-1/§C + Q20-1): el guardado juzga contra LO VIVO, no
+     * contra la foto del montaje. La mesa es una foto (work/checked no
+     * se re-sincronizan): si otra mano ya guardó las filas marcadas,
+     * esta receta no mueve nada y la puerta GUARDADA lo dice sin marco
+     * — antes, la puerta ordinaria enmarcaba un «Revisión N» con cero
+     * líneas, subía la revisión y apilaba un Deshacer vacío, y el
+     * aprendizaje corría con parejas de la foto: la casa aprendía una
+     * regla de un guardado que esta mesa nunca hizo. Y el asiento de
+     * «recordar» se pregunta AL GUARDAR (fullNow), no al armar el
+     * interruptor: si el modo cayó a Esencial con la mesa abierta, la
+     * instrucción de Ritmo no se ejecuta en Esencial. */
+    const fullNow = has("capture.review-full");
     const ctx = { monthKey: key, structure: ledger.structure, lang };
     const originals = new Map(tray.map((d) => [d.id, d]));
-    const pairs = checkedRows
-      .map((d) => {
-        const line = draftToLine(d, ctx);
-        const orig = originals.get(d.id);
-        return line && orig ? { draft: orig, line, force: rememberOn(d) } : null;
-      })
-      .filter((x): x is NonNullable<typeof x> => x != null);
+    const forceWanted = new Map(work.map((d) => [d.id, rememberOn(d)]));
     const ids = checkedRows.map((d) => d.id);
-    const edited = rows.filter((d) => JSON.stringify(d) !== JSON.stringify(originals.get(d.id)));
-    commit((s) => {
+    const goneIds = [...gone];
+    let landed = 0;
+    commitGuarded((s) => {
       let next = s;
-      for (const d of edited) {
-        const { id: _i, source: _s, kind: _k, raw: _r, createdAt: _c, ...fields } = d;
-        next = patchDraft(next, d.id, fields);
+      /* (1) Los parches: solo los campos que LA PERSONA editó en esta
+       * mesa (la fila difiere de su original de montaje), aplicados
+       * sobre el borrador VIVO y solo donde lo vivo aún no trae ese
+       * valor. Una corrección concurrente a otro campo sobrevive (C3:
+       * la foto ya no repone el objeto entero), y un borrador que ya
+       * no vive no resucita (patchDraft se niega por identidad). Los
+       * campos derivados (unsure/missing/dupOf) no se parchan: los
+       * re-deriva patchDraft, como siempre. */
+      for (const d of work) {
+        const orig = originals.get(d.id);
+        if (!orig || gone.has(d.id)) continue;
+        const live = (next.drafts ?? []).find((x) => x.id === d.id);
+        if (!live) continue;
+        const patch: Partial<Draft> = {};
+        for (const k of Object.keys(d) as (keyof Draft)[]) {
+          if (k === "id" || k === "source" || k === "kind" || k === "raw" || k === "createdAt" || k === "unsure" || k === "missing" || k === "dupOf") continue;
+          if (JSON.stringify(d[k]) !== JSON.stringify(orig[k]) && JSON.stringify(d[k]) !== JSON.stringify(live[k])) (patch as Record<string, unknown>)[k] = d[k];
+        }
+        if (Object.keys(patch).length) next = patchDraft(next, d.id, patch);
       }
-      for (const id of gone) next = dropDraft(next, id);
+      /* (2) Los descartes marcados en la mesa (dropDraft se niega por
+       * identidad si otra mano ya lo retiró). */
+      for (const id of goneIds) next = dropDraft(next, id);
+      /* (3) Las parejas del aprendizaje nacen de lo VIVO ya parchado:
+       * el borrador tal como el libro lo guardaba al abrir la receta
+       * (su casa sugerida) y la línea que ESTE guardado va a crear. Un
+       * borrador que ya no vive no deja pareja: de lo que no aterriza
+       * aquí, esta mesa no aprende nada. */
+      const pairs: { draft: Draft; line: Line; force?: boolean }[] = [];
+      for (const id of ids) {
+        const liveNow = (next.drafts ?? []).find((x) => x.id === id);
+        if (!liveNow) continue;
+        const line = draftToLine(liveNow, ctx);
+        if (!line) continue;
+        const before = (s.drafts ?? []).find((x) => x.id === id) ?? liveNow;
+        pairs.push({ draft: before, line, force: fullNow && !!forceWanted.get(id) });
+      }
+      landed = pairs.length;
       next = commitDrafts(next, ids, ctx);
       next = learnFromSaved(next, pairs);
       return next;
-    }, L(lang, `Revisión ${ids.length}`, `Review ${ids.length}`));
+    }, () => L(lang, `Revisión ${landed}`, `Review ${landed}`));
     onClose();
   }
 

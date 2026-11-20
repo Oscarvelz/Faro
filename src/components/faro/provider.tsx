@@ -12,7 +12,7 @@ import {
 import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow } from "@/lib/faro/api";
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas, withSeguroDeVida } from "@/lib/faro/defaults";
-import { apartDecision, browserPackStorage, listQuarantine, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
+import { apartDecision, browserPackStorage, listQuarantine, localWorkVerdict, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
 import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
@@ -871,9 +871,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       // ranura ni banner: se adopta en silencio. Si el pack guardado no
       // se puede leer, comparar es imposible y la preservación gana el
       // empate: se aparta como siempre.
-      const hasLocalWork = storedJson === null
-        ? true
-        : mine !== storedJson && cur.ledger.revision !== baseRevRef.current;
+      // Ola 20 (§B): la fórmula vive en packguard (localWorkVerdict) y
+      // aprende que la entrada ANUNCIADA es trabajo local aunque la
+      // revisión no se haya movido: la entrada es contenido del
+      // registro, y la llegada extranjera ya no la evapora en silencio.
+      const hasLocalWork = localWorkVerdict(mine, storedJson, cur.ledger, stored?.ledger ?? null, baseRevRef.current);
       if (hasLocalWork) {
         attempted = true;
         try {

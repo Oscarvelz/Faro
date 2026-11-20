@@ -334,13 +334,24 @@ describe("ola5 · OBS-C5-1: apartDecision — la retención cumple lo que el ban
     assert.notEqual(translate("en", "pack.apartMissed"), "pack.apartMissed", "la clave existe en inglés");
   });
 
-  it("la puerta de pestaña exige trabajo local de verdad: revisión movida Y contenido distinto", () => {
+  it("la puerta de pestaña exige trabajo local de verdad: revisión movida, o una entrada anunciada que el paquete guardado no tiene", () => {
     const provider = SRC("../../components/faro/provider.tsx");
     // ENMIENDA OLA 6 (C6-1): la ventana crece de 2600 a 3600 — la cura de
     // la confesión que viaja en el toast alargó la función con su propio
     // comentario y su composición; las tres afirmaciones no cambian.
+    // ENMIENDA OLA 20 (§B de la ola 20: la entrada anunciada se evaporaba
+    // entre pestañas): el juicio ya no vive inline en la puerta — la
+    // puerta decide con la función pura localWorkVerdict (packguard.ts),
+    // la misma vara que la composición clava, y la ley se ensancha: una
+    // diferencia de registro con revisión IGUAL también es trabajo local
+    // cuando es una entrada anunciada que el paquete guardado no tiene
+    // (la entrada es contenido, no un susurro). La primera afirmación
+    // sigue al juicio a su casa nueva y clava las dos mitades de la ley.
     const door = provider.slice(provider.indexOf("function surfaceTabConflict"), provider.indexOf("function surfaceTabConflict") + 3600);
-    assert.ok(door.includes("revision !== baseRevRef.current"), "sin revisión movida no hay trabajo que apartar: la sesión recién sembrada adopta en silencio");
+    assert.ok(door.includes("localWorkVerdict("), "la puerta decide con la función pura, no con su costumbre");
+    const guard = SRC("./packguard.ts");
+    assert.ok(guard.includes("mine.revision !== baseRev"), "la mitad vieja de la ley sigue: sin revisión movida y sin entrada anunciada, no hay trabajo que apartar");
+    assert.ok(guard.includes("announcedAbsent(mine, stored)"), "la mitad nueva de la ley: la entrada anunciada ausente en el guardado ES trabajo local");
     assert.ok(door.includes("setTabBanner(true)"), "el banner existe — pero solo tras guardar de verdad (ver la decisión)");
     assert.ok(door.includes("kept"), "el banner cuelga de que la copia quedó guardada");
   });

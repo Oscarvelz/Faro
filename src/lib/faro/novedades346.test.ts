@@ -14,7 +14,11 @@ const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 test("346 · la versión vigente tiene su nota — ninguna entrega nace muda", () => {
   const mine = NEWS.find((n) => n.version === FARO_VERSION);
   assert.ok(mine, `NEWS no trae nota para ${FARO_VERSION}`);
-  assert.equal(mine!.level, "grande", "la entrega que estrena las novedades se anuncia");
+  // La 1.3.346, la entrega que estrenó las novedades, se anuncia
+  // (grande). Las entregas siguientes eligen su nivel con honestidad:
+  // la 1.3.347 es menor — una cura sin superficie nueva no se anuncia.
+  const debut = NEWS.find((n) => n.version === "1.3.346");
+  assert.equal(debut!.level, "grande", "la entrega que estrena las novedades se anuncia");
 });
 
 test("346 · las notas van de la más nueva a la más vieja, sin repetir versión", () => {

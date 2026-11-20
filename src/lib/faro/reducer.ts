@@ -39,6 +39,19 @@ function frameCommit(session: Session, snap: LedgerState, drafted: LedgerState, 
   };
 }
 
+/* Ola 20 (G20-2): EL BORDE DECLARADO DE LAS TRES PUERTAS JUZGADAS
+ * (commitGuarded, commitAnnounced, commitFinal). Las puertas juzgan lo
+ * que la receta DEVUELVE, jamás lo que TOCA: una receta que muta el
+ * estado en el sitio y devuelve ese mismo objeto aterriza su mutación
+ * sin marco, sin entrada y sin revisión — la identidad que las puertas
+ * leen es, por construcción, ciega al tacto. Es el límite declarado de
+ * la garantía escrita de la casa, no un descuido: la cerca de la ola 20
+ * (modos-ola20, especímenes M1–M3) lo clava como borde asentado, y el
+ * barrido de mutaciones de producción corre limpio (toda mutación de la
+ * casa trabaja sobre copias frescas). Si un día una receta muta en el
+ * sitio a propósito, este párrafo y su pin son lo que hay que re-juzgar
+ * — con la razón escrita, no por descubrimiento de la próxima ola. */
+
 /**
  * Ola 18 (BR18-1): el commit que una receta puede ABORTAR sin marco.
  * Hasta aquí, `commit` enmarcaba todo lo que la receta devolvía — también
@@ -105,6 +118,33 @@ export function commitGuarded(session: Session, recipe: (s: LedgerState) => Ledg
  * real y debe persistir. Lo que ya no puede pasar es que un Deshacer se
  * gaste en una no-aplicación, ni que la revisión afirme una mudanza que
  * no ocurrió.
+ *
+ * Ola 20 (§A): la entrada que esta puerta acuña nace MARCADA
+ * (`announced: true` en la entrada). Es contenido del registro, no foto
+ * del libro: Deshacer y Rehacer la preservan a través de la restauración
+ * de la pila (las entradas marcadas del libro vivo cuyos ids no están
+ * en la foto restaurada viajan con ella), y entre pestañas cuenta como
+ * trabajo local aunque la revisión no se mueva (packguard,
+ * localWorkVerdict). Sin la marca, un Deshacer vecino se la llevaba con
+ * la foto del aterrizaje anterior y una llegada extranjera la evaporaba
+ * en silencio: el registro perdía justo la línea que decía la verdad.
+ *
+ * Ola 20 (G20-3): EL LÍMITE DECLARADO DE ESTA PUERTA. La puerta está
+ * expuesta a cualquier llamante de useFaro(): quien la llame con una
+ * receta que aborta acuña una entrada de registro con el texto que
+ * quiera, y las entradas huérfanas se apilan sin deduplicar. Lo que un
+ * huérfano NO puede hacer es falsificar ni consumir el veredicto de
+ * modo: la ranura del veredicto vive en screens.tsx, fuera de esta
+ * puerta, y la entrada misma es solo registro — no mueve dinero, no
+ * cambia el modo, no toca la pila. Guardar la puerta con la ranura del
+ * veredicto como llave se pesó y se rechazó con su costo escrito:
+ * acoplaría las tres puertas del reducer al flujo de confirmación de
+ * las pantallas para defender un daño confinado al registro de
+ * Actividad. La vigilancia queda donde la casa vigila a sus llamantes:
+ * el censo permanente (modos-ola19 §B) clasifica cada sitio que llama a
+ * esta puerta — hoy tiene UN solo llamante legítimo, la confirmación de
+ * modo — y todo llamante nuevo acusa hasta ser clasificado con su
+ * razón. El límite es doctrina escrita, no silencio.
  */
 export function commitAnnounced(session: Session, recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)): Session {
   const snap: LedgerState = session.ledger;
@@ -114,9 +154,22 @@ export function commitAnnounced(session: Session, recipe: (s: LedgerState) => Le
   const ledger: LedgerState = {
     ...snap,
     updatedAt,
-    audit: [{ id: uid(), at: updatedAt, detail: typeof detail === "function" ? detail() : detail }, ...snap.audit].slice(0, 80),
+    audit: [{ id: uid(), at: updatedAt, detail: typeof detail === "function" ? detail() : detail, announced: true }, ...snap.audit].slice(0, 80),
   };
   return { ledger, past: session.past, future: session.future, dirty: true };
+}
+
+/* Ola 20 (§A): la restauración de una foto no se lleva las entradas
+ * ANUNCIADAS que la foto no conoce. La entrada anunciada es un hecho
+ * del registro («la confirmación no aplicó», con su fecha), no una
+ * pieza del estado fotografiado: nació DESPUÉS de la foto o fuera de
+ * su línea, y borrarla al restaurar era perder justo la línea que
+ * decía la verdad de la tanda. Las marcadas del libro vivo cuyos ids
+ * no están en la foto viajan al frente del registro restaurado (son
+ * las más nuevas), con el mismo tope de 80 de la casa. */
+function auditRestored(living: LedgerState, photo: LedgerState): LedgerState["audit"] {
+  const keep = living.audit.filter((e) => e.announced && !photo.audit.some((p) => p.id === e.id));
+  return keep.length ? [...keep, ...photo.audit].slice(0, 80) : photo.audit;
 }
 
 export function undo(session: Session): Session {
@@ -133,7 +186,7 @@ export function undo(session: Session): Session {
   if (modeOf(prev.settings) !== modeOf(session.ledger.settings)) return session;
   const updatedAt = new Date().toISOString();
   return {
-    ledger: { ...prev, revision: session.ledger.revision + 1, updatedAt },
+    ledger: { ...prev, revision: session.ledger.revision + 1, updatedAt, audit: auditRestored(session.ledger, prev) },
     past: session.past.slice(0, -1),
     future: [session.ledger, ...session.future].slice(0, 40),
     dirty: true,
@@ -187,7 +240,7 @@ export function redo(session: Session): Session {
   if (modeOf(next.settings) !== modeOf(session.ledger.settings)) return session;
   const updatedAt = new Date().toISOString();
   return {
-    ledger: { ...next, revision: session.ledger.revision + 1, updatedAt },
+    ledger: { ...next, revision: session.ledger.revision + 1, updatedAt, audit: auditRestored(session.ledger, next) },
     past: [...session.past, session.ledger].slice(-40),
     future: session.future.slice(1),
     dirty: true,

@@ -266,6 +266,24 @@ describe("ola19 · §A: clase C — el no-op de mapa, curado en el ayudante y en
  *     (canSave: al menos una fila marcada y ninguna roja marcada)
  *     garantiza que commitDrafts mueve ≥1 borrador de la bandeja al
  *     libro; la receta nunca devuelve su estado.
+ *
+ * RE-JUICIO OLA 20 (G20-1): la razón de arriba quedó CONDENADA por la
+ * caza XX, y se reescribe aquí porque era el corazón del quiebre:
+ * canSave juzga la FOTO del montaje, no la receta contra el estado
+ * vivo — con la bandeja ya resuelta por otra mano, la mesa enmarcaba
+ * un «Revisión N» con cero líneas y aprendía de parejas que nunca
+ * aterrizaron. La clasificación nombra desde hoy la conducta de la
+ * receta CONTRA LO VIVO: la mesa viaja por la puerta GUARDADA; su
+ * receta parchea por diferencia contra el borrador vivo, calcula las
+ * parejas del aprendizaje desde el resultado vivo y devuelve su
+ * propio estado cuando nada se movió (commitDrafts se niega por
+ * identidad cuando no convierte nada). Nada movido ⇒ sin marco, sin
+ * entrada, sin revisión — y su firma entera queda en la llave:
+ * patchDraft+dropDraft+commitDrafts+learnFromSaved.
+ * Las llaves `provider.tsx|…|ref:recipe` son la maquinaria de las
+ * puertas mismas (los envoltorios llaman a la puerta de sesión con la
+ * receta del llamante, ya clasificada en su sitio): se clasifican por
+ * la puerta que ejecutan, no como recetas nuevas.
  *   tray.tsx (el descarte) — guardada, y el sitio MIGRÓ a
  *     commitGuarded al clasificar: dropDraft se niega por identidad
  *     cuando el borrador ya no vive (otra pestaña lo resolvió), y
@@ -278,131 +296,139 @@ describe("ola19 · §A: clase C — el no-op de mapa, curado en el ayudante y en
 const PUERTAS = new Set(["commit", "commitGuarded", "commitAnnounced", "commitFinal", "commitDraft"]);
 type ClasePuerta = "guardada" | "anunciada" | "final" | "aterrizaje";
 const CENSO19: Record<string, [ClasePuerta, number]> = {
-  "components/faro/archivo.tsx|commitGuarded|restoreCard": ["guardada", 1],
-  "components/faro/archivo.tsx|commitGuarded|restoreLent": ["guardada", 1],
-  "components/faro/archivo.tsx|commitGuarded|restoreLoan": ["guardada", 1],
-  "components/faro/archivo.tsx|commitGuarded|reactivateDueSeries": ["guardada", 1],
-  "components/faro/screens.tsx|commitGuarded|reactivateDueSeries": ["guardada", 1],
-  "components/faro/bank-import.tsx|commit|applyImport": ["aterrizaje", 1],
-  "components/faro/bank-import.tsx|commit|resetGuides": ["aterrizaje", 1],
-  "components/faro/bank-import.tsx|commit|revertImportCounted": ["aterrizaje", 1],
-  "components/faro/bank-import.tsx|commit|saveGuides": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commitGuarded|restoreDefaultAccounts": ["guardada", 1],
-  "components/faro/bank-settings.tsx|commit|addAccount": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|archiveAccount": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|archiveBank": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|editAccount": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|restoreAccount": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|restoreBank": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|withBook": ["aterrizaje", 5],
-  "components/faro/cards.tsx|commitDraft|ref:expr": ["guardada", 1],
-  "components/faro/cards.tsx|commitDraft|ref:freshId": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|dropCard": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|dropPresets": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|parseAmount": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|payCard": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|redeemRewards": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|restorePresets": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|storedPackExistence": ["guardada", 2],
-  "components/faro/color-pick.tsx|commitGuarded|pushRecent": ["guardada", 1],
-  "components/faro/debts.tsx|commitGuarded|archiveLent": ["guardada", 2],
-  "components/faro/debts.tsx|commitGuarded|lentOf": ["guardada", 1],
-  "components/faro/debts.tsx|commitGuarded|payLent": ["guardada", 1],
-  "components/faro/debts.tsx|commitGuarded|restoreLent": ["guardada", 1],
-  "components/faro/debts.tsx|commit|addLent": ["aterrizaje", 1],
-  "components/faro/debts.tsx|commit|inline": ["aterrizaje", 3],
-  "components/faro/debts.tsx|commit|lentOf": ["aterrizaje", 1],
-  "components/faro/fit-pick.tsx|commitGuarded|dropFreq": ["guardada", 1],
-  "components/faro/fit-pick.tsx|commitGuarded|fn": ["guardada", 2],
-  "components/faro/fit-pick.tsx|commitGuarded|inline": ["guardada", 8],
-  "components/faro/fit-pick.tsx|commitGuarded|rememberFreq": ["guardada", 1],
-  "components/faro/fit-pick.tsx|commitGuarded|restoreLibrary": ["guardada", 1],
-  "components/faro/fit-pick.tsx|commit|inline": ["aterrizaje", 3],
-  "components/faro/fit-pick.tsx|commit|markUserVis": ["aterrizaje", 2],
-  "components/faro/instruments.tsx|commit|inline": ["aterrizaje", 1],
-  "components/faro/line-form.tsx|commit|upsertLine": ["aterrizaje", 1],
-  "components/faro/loans.tsx|commitGuarded|archiveLoan": ["guardada", 2],
-  "components/faro/loans.tsx|commitGuarded|loansOf": ["guardada", 1],
-  "components/faro/loans.tsx|commitGuarded|payLoan": ["guardada", 2],
-  "components/faro/loans.tsx|commitGuarded|restoreLoan": ["guardada", 1],
-  "components/faro/loans.tsx|commit|addLoan": ["aterrizaje", 1],
-  "components/faro/loans.tsx|commit|loansOf": ["aterrizaje", 1],
-  "components/faro/notify-row.tsx|commit|inline": ["aterrizaje", 2],
-  "components/faro/people.tsx|commitGuarded|peopleOf": ["guardada", 1],
-  "components/faro/people.tsx|commit|mergeContacts": ["aterrizaje", 1],
-  "components/faro/people.tsx|commit|upsertLine": ["aterrizaje", 1],
-  "components/faro/presentacion.tsx|commit|ref:sow": ["aterrizaje", 3],
-  "components/faro/provider.tsx|commitFinal|deleteRestingLines": ["final", 1],
-  "components/faro/provider.tsx|commitFinal|deleteSpan": ["final", 1],
-  "components/faro/provider.tsx|commitGuarded|hideLines": ["guardada", 1],
-  "components/faro/provider.tsx|commitGuarded|hidePeriod": ["guardada", 1],
-  "components/faro/provider.tsx|commitGuarded|restoreSpan": ["guardada", 1],
+  "components/faro/archivo.tsx|commitGuarded|restoreCard|restoreCard": ["guardada", 1],
+  "components/faro/archivo.tsx|commitGuarded|restoreLent|restoreLent": ["guardada", 1],
+  "components/faro/archivo.tsx|commitGuarded|restoreLoan|restoreLoan": ["guardada", 1],
+  "components/faro/archivo.tsx|commitGuarded|reactivateDueSeries|—": ["guardada", 1],
+  "components/faro/screens.tsx|commitGuarded|reactivateDueSeries|—": ["guardada", 1],
+  "components/faro/bank-import.tsx|commit|applyImport|—": ["aterrizaje", 1],
+  "components/faro/bank-import.tsx|commit|resetGuides|resetGuides": ["aterrizaje", 1],
+  "components/faro/bank-import.tsx|commit|revertImportCounted|—": ["aterrizaje", 1],
+  "components/faro/bank-import.tsx|commit|saveGuides|saveGuides": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commitGuarded|restoreDefaultAccounts|restoreDefaultAccounts": ["guardada", 1],
+  "components/faro/bank-settings.tsx|commit|addAccount|—": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|archiveAccount|archiveAccount": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|archiveBank|archiveBank": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|editAccount|editAccount": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|restoreAccount|restoreAccount": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|restoreBank|restoreBank": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|withBook|withBook": ["aterrizaje", 5],
+  "components/faro/cards.tsx|commitDraft|ref:expr|—": ["guardada", 1],
+  "components/faro/cards.tsx|commitDraft|ref:freshId|—": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|dropCard|dropCard": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|dropPresets|dropPresets": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|parseAmount|putCard+addReading+addRewards": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|payCard|payCard": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|redeemRewards|redeemRewards": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|restorePresets|restorePresets": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|storedPackExistence|putCard+addReading+addRewards": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|storedPackExistence|restoreCard+addReading+addRewards": ["guardada", 1],
+  "components/faro/color-pick.tsx|commitGuarded|pushRecent|—": ["guardada", 1],
+  "components/faro/debts.tsx|commitGuarded|archiveLent|archiveLent": ["guardada", 2],
+  "components/faro/debts.tsx|commitGuarded|lentOf|—": ["guardada", 1],
+  "components/faro/debts.tsx|commitGuarded|payLent|payLent": ["guardada", 1],
+  "components/faro/debts.tsx|commitGuarded|restoreLent|restoreLent": ["guardada", 1],
+  "components/faro/debts.tsx|commit|addLent|addLent": ["aterrizaje", 1],
+  "components/faro/debts.tsx|commit|inline|—": ["aterrizaje", 3],
+  "components/faro/debts.tsx|commit|lentOf|—": ["aterrizaje", 1],
+  "components/faro/fit-pick.tsx|commitGuarded|dropFreq|dropFreq": ["guardada", 1],
+  "components/faro/fit-pick.tsx|commitGuarded|fn|—": ["guardada", 2],
+  "components/faro/fit-pick.tsx|commitGuarded|inline|—": ["guardada", 8],
+  "components/faro/fit-pick.tsx|commitGuarded|rememberFreq|rememberFreq": ["guardada", 1],
+  "components/faro/fit-pick.tsx|commitGuarded|restoreLibrary|restoreLibrary": ["guardada", 1],
+  "components/faro/fit-pick.tsx|commit|inline|—": ["aterrizaje", 3],
+  "components/faro/fit-pick.tsx|commit|markUserVis|—": ["aterrizaje", 2],
+  "components/faro/instruments.tsx|commit|inline|—": ["aterrizaje", 1],
+  "components/faro/line-form.tsx|commit|upsertLine|upsertLine+declareSeries": ["aterrizaje", 1],
+  "components/faro/loans.tsx|commitGuarded|archiveLoan|archiveLoan": ["guardada", 2],
+  "components/faro/loans.tsx|commitGuarded|loansOf|—": ["guardada", 1],
+  "components/faro/loans.tsx|commitGuarded|payLoan|payLoan": ["guardada", 2],
+  "components/faro/loans.tsx|commitGuarded|restoreLoan|restoreLoan": ["guardada", 1],
+  "components/faro/loans.tsx|commit|addLoan|addLoan": ["aterrizaje", 1],
+  "components/faro/loans.tsx|commit|loansOf|—": ["aterrizaje", 1],
+  "components/faro/notify-row.tsx|commit|inline|—": ["aterrizaje", 2],
+  "components/faro/people.tsx|commitGuarded|peopleOf|—": ["guardada", 1],
+  "components/faro/people.tsx|commit|mergeContacts|—": ["aterrizaje", 1],
+  "components/faro/people.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
+  "components/faro/presentacion.tsx|commit|ref:sow|—": ["aterrizaje", 3],
+  "components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines": ["final", 1],
+  "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan": ["final", 1],
+  "components/faro/provider.tsx|commitFinal|ref:recipe|—": ["final", 1],
+  "components/faro/provider.tsx|commitGuarded|hideLines|hideLines": ["guardada", 1],
+  "components/faro/provider.tsx|commitGuarded|hidePeriod|hidePeriod": ["guardada", 1],
+  "components/faro/provider.tsx|commitGuarded|restoreSpan|restoreSpan": ["guardada", 1],
+  "components/faro/provider.tsx|commitGuarded|ref:recipe|—": ["guardada", 1],
+  "components/faro/provider.tsx|commitAnnounced|ref:recipe|—": ["anunciada", 1],
   // 1.3.344 (Captura Ola 4): el provider gana su octavo commit en línea —
   // el aterrizaje de la tasa pública de la invitada (fetchGuestRate), que
   // compone el estado entero con la tasa fechada o no escribe nada.
-  "components/faro/provider.tsx|commit|inline": ["aterrizaje", 8],
-  "components/faro/receipt-scan.tsx|commit|saveScanRewards": ["aterrizaje", 1],
-  "components/faro/capture-text.tsx|commit|addDrafts": ["aterrizaje", 1],
+  "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 8],
+  "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 1],
+  "components/faro/receipt-scan.tsx|commit|saveScanRewards|saveScanRewards+addDrafts": ["aterrizaje", 1],
+  "components/faro/capture-text.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
   // 1.3.342 (Captura Ola 3): la puerta de la lista comete por la misma
   // receta de aterrizaje que su hermana de texto — addDrafts nunca se
   // niega: añade los borradores del bache a la bandeja.
-  "components/faro/capture-list.tsx|commit|addDrafts": ["aterrizaje", 1],
+  "components/faro/capture-list.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
   // 1.3.345 (las pastillas útiles de Oscar): cada hoja de captura gana su
   // segundo commit — el corrector de la fila (draft-row) comete patchDraft
   // cuando el usuario toca una pastilla de duda y elige el valor: la
   // receta nunca se niega, parcha el borrador en la bandeja y re-deriva
   // sus dudas. Aterrizaje, como el nacimiento del borrador.
-  "components/faro/capture-text.tsx|commit|patchDraft": ["aterrizaje", 1],
-  "components/faro/capture-list.tsx|commit|patchDraft": ["aterrizaje", 1],
+  "components/faro/capture-text.tsx|commit|patchDraft|patchDraft": ["aterrizaje", 1],
+  "components/faro/capture-list.tsx|commit|patchDraft|patchDraft": ["aterrizaje", 1],
   // 1.3.345 (Captura Ola 5a): «Registrarlo» de la caja del Asesor comete
   // por la misma receta de aterrizaje que sus hermanas de captura —
   // addDrafts nunca se niega: deja el gasto preguntado en la bandeja.
-  "components/faro/ask-box.tsx|commit|addDrafts": ["aterrizaje", 1],
-  "components/faro/remesas.tsx|commitGuarded|deleteLine": ["guardada", 1],
-  "components/faro/remesas.tsx|commit|upsertLine": ["aterrizaje", 1],
-  "components/faro/remit-people.tsx|commitGuarded|addRemitPerson": ["guardada", 1],
-  "components/faro/remit-people.tsx|commitGuarded|colorRemitPerson": ["guardada", 1],
-  "components/faro/remit-people.tsx|commitGuarded|dropRemitPeople": ["guardada", 1],
-  "components/faro/remit-people.tsx|commitGuarded|iconRemitPerson": ["guardada", 1],
-  "components/faro/remit-people.tsx|commitGuarded|renameRemitPerson": ["guardada", 1],
-  "components/faro/rewards-real.tsx|commit|withBook": ["aterrizaje", 1],
-  "components/faro/review-table.tsx|commit|patchDraft": ["aterrizaje", 1],
-  "components/faro/sample-mode.tsx|commit|stripSample": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commitAnnounced|modeOf": ["anunciada", 1],
-  "components/faro/screens.tsx|commitGuarded|declareSeries": ["guardada", 6],
-  "components/faro/screens.tsx|commitGuarded|deleteLine": ["guardada", 3],
-  "components/faro/screens.tsx|commitGuarded|dropPocketLine": ["guardada", 2],
-  "components/faro/screens.tsx|commitGuarded|inline": ["guardada", 8],
-  "components/faro/screens.tsx|commitGuarded|patchLine": ["guardada", 13],
-  "components/faro/screens.tsx|commitGuarded|patchLineWith": ["guardada", 5],
-  "components/faro/screens.tsx|commitGuarded|restoreDefaultCategories": ["guardada", 1],
-  "components/faro/screens.tsx|commitGuarded|restoreRetiro": ["guardada", 2],
-  "components/faro/screens.tsx|commitGuarded|run": ["guardada", 1],
-  "components/faro/screens.tsx|commitGuarded|seedRetiro": ["guardada", 1],
-  "components/faro/screens.tsx|commitGuarded|syncInsLine": ["guardada", 1],
-  "components/faro/screens.tsx|commitGuarded|withDeskSeedFlag": ["guardada", 3],
-  "components/faro/screens.tsx|commit|applyCardEdits": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|applyTemplate": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|dropSubLines": ["aterrizaje", 2],
+  "components/faro/ask-box.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
+  "components/faro/remesas.tsx|commitGuarded|deleteLine|deleteLine": ["guardada", 1],
+  "components/faro/remesas.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
+  "components/faro/remit-people.tsx|commitGuarded|addRemitPerson|—": ["guardada", 1],
+  "components/faro/remit-people.tsx|commitGuarded|colorRemitPerson|colorRemitPerson": ["guardada", 1],
+  "components/faro/remit-people.tsx|commitGuarded|dropRemitPeople|dropRemitPeople": ["guardada", 1],
+  "components/faro/remit-people.tsx|commitGuarded|iconRemitPerson|iconRemitPerson": ["guardada", 1],
+  "components/faro/remit-people.tsx|commitGuarded|renameRemitPerson|renameRemitPerson": ["guardada", 1],
+  "components/faro/rewards-real.tsx|commit|withBook|withBook": ["aterrizaje", 1],
+  // Ola 20 (G20-1): la mesa RECLASIFICADA — ver el re-juicio en el
+  // encabezado de esta sección: guardada, no aterrizaje.
+  "components/faro/review-table.tsx|commitGuarded|patchDraft|patchDraft+dropDraft+commitDrafts+learnFromSaved": ["guardada", 1],
+  "components/faro/sample-mode.tsx|commit|stripSample|stripSample": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commitAnnounced|modeOf|—": ["anunciada", 1],
+  "components/faro/screens.tsx|commitGuarded|declareSeries|declareSeries": ["guardada", 6],
+  "components/faro/screens.tsx|commitGuarded|deleteLine|deleteLine": ["guardada", 3],
+  "components/faro/screens.tsx|commitGuarded|dropPocketLine|—": ["guardada", 2],
+  "components/faro/screens.tsx|commitGuarded|inline|—": ["guardada", 8],
+  "components/faro/screens.tsx|commitGuarded|patchLine|patchLine": ["guardada", 13],
+  "components/faro/screens.tsx|commitGuarded|patchLineWith|patchLineWith": ["guardada", 5],
+  "components/faro/screens.tsx|commitGuarded|restoreDefaultCategories|restoreDefaultCategories": ["guardada", 1],
+  "components/faro/screens.tsx|commitGuarded|restoreRetiro|restoreRetiro": ["guardada", 2],
+  "components/faro/screens.tsx|commitGuarded|run|—": ["guardada", 1],
+  "components/faro/screens.tsx|commitGuarded|seedRetiro|seedRetiro": ["guardada", 1],
+  "components/faro/screens.tsx|commitGuarded|syncInsLine|syncInsLine": ["guardada", 1],
+  "components/faro/screens.tsx|commitGuarded|withDeskSeedFlag|—": ["guardada", 3],
+  "components/faro/screens.tsx|commit|applyCardEdits|—": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|applyTemplate|—": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|dropSubLines|—": ["aterrizaje", 2],
   // 1.3.344 (Captura Ola 4): el pliegue de la invitada suma cuatro
   // aterrizajes en línea — elegir la moneda, fijar la tasa manual,
   // volver a la del BCE y quitar la invitada — cada uno compone los
   // campos guestCur/guestRate enteros o no escribe.
-  "components/faro/screens.tsx|commit|inline": ["aterrizaje", 20],
-  "components/faro/screens.tsx|commit|replaceCatalogItem": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|showAllStructure": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|syncInsLine": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|toggleStorePin": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|uid": ["aterrizaje", 4],
-  "components/faro/screens.tsx|commit|upsertLine": ["aterrizaje", 7],
-  "components/faro/screens.tsx|commit|vaultGlyph": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|withDeskSeedFlag": ["aterrizaje", 1],
-  "components/faro/shell.tsx|commit|inline": ["aterrizaje", 2],
-  "components/faro/slip-apply.tsx|commit|upsertLine": ["aterrizaje", 1],
-  "components/faro/tray.tsx|commitGuarded|dropDraft": ["guardada", 1],
-  "components/faro/widget-host.tsx|commit|ingestQuick": ["aterrizaje", 1],
-  "components/faro/widget-host.tsx|commit|toggleStorePin": ["aterrizaje", 2],
-  "components/faro/widget-host.tsx|commit|toggleWidgetPin": ["aterrizaje", 2],
+  "components/faro/screens.tsx|commit|inline|—": ["aterrizaje", 20],
+  "components/faro/screens.tsx|commit|replaceCatalogItem|—": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|showAllStructure|—": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|syncInsLine|syncInsLine": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|toggleStorePin|—": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|uid|upsertLine": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|uid|—": ["aterrizaje", 3],
+  "components/faro/screens.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 7],
+  "components/faro/screens.tsx|commit|vaultGlyph|upsertLine": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|withDeskSeedFlag|upsertLine": ["aterrizaje", 1],
+  "components/faro/shell.tsx|commit|inline|—": ["aterrizaje", 2],
+  "components/faro/slip-apply.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
+  "components/faro/tray.tsx|commitGuarded|dropDraft|dropDraft": ["guardada", 1],
+  "components/faro/widget-host.tsx|commit|ingestQuick|ingestQuick": ["aterrizaje", 1],
+  "components/faro/widget-host.tsx|commit|toggleStorePin|—": ["aterrizaje", 2],
+  "components/faro/widget-host.tsx|commit|toggleWidgetPin|—": ["aterrizaje", 2],
 };
 
 const walkSrc19 = (dir: URL, prefix: string): { rel: string; text: string }[] => {
@@ -426,18 +452,158 @@ const cabezaDe = (recipe: ts.Node): string => {
   return head;
 };
 
+/* ═══ ENMIENDA OLA 20 (G20-4/G20-5): LA FORMA RESUELTA Y EL CUERPO ═══
+ * La caza XX midió dos cegueras de este censo, con especímenes:
+ * (G20-4) la puerta se juzgaba por su grafía desnuda: la
+ * desestructuración renombrada (`const { commit: commitPlano } =
+ * useFaro()`), el acceso por elemento (`api["commit"]`) y la
+ * invocación por `.call` eran invisibles — y la propia casa importa
+ * las puertas del reducer CON alias (provider.tsx: `commit as
+ * commitSession`), así que la forma resuelta ya era la grafía real de
+ * la casa y el censo no la leía. (G20-5) la llave nombraba solo la
+ * CABEZA de la receta: una segunda llamada con efecto tras la cabeza
+ * (la receta que parchea y DESPUÉS oculta líneas con hideLines)
+ * pasaba bajo la clasificación de la primera.
+ *
+ * La cura, en la misma vara con que la ola 14 curó la cáscara:
+ * — Cada archivo cosecha sus nombres de puerta RESUELTOS: alias de
+ *   importación de una puerta del reducer (nivel sesión: la receta es
+ *   el segundo argumento), desestructuración de useFaro() — renombrada
+ *   o no — y ataduras a accesos por propiedad o elemento de un objeto
+ *   de useFaro() (nivel api: la receta es el primer argumento), con
+ *   las cadenas de alias resueltas a punto fijo. La invocación por
+ *   `.call` sobre un nombre resuelto también es la puerta (la receta
+ *   viaja tras el thisArg, en la posición de su nivel). Un acceso por
+ *   elemento con índice no literal sobre un objeto de useFaro() no se
+ *   puede resolver: ACUSA como forma sin resolver, jamás pasa en
+ *   silencio.
+ * — La llave juzga el CUERPO ENTERO: a la cabeza se suma la FIRMA —
+ *   la lista ordenada, sin repetición, de los ayudantes de estado que
+ *   la receta llama en todo su cuerpo. Un ayudante de estado es una
+ *   función cuyo primer parámetro es el libro (LedgerState) y cuyo
+ *   retorno es el libro o un envoltorio con `state: LedgerState`
+ *   (hideLines y su HideResult): la cosecha se hace sobre el árbol
+ *   entero, con las mismas reglas para todos. Añadir una llamada de
+ *   estado a una receta cambia su llave y exige re-clasificarla con
+ *   su razón: eso es exactamente «toda llamada relevante tras la
+ *   cabeza queda clasificada».
+ * Las cuatro llamadas `…Session(s, recipe, detail)` dentro de los
+ * envoltorios del proveedor quedan clasificadas como lo que son — la
+ * maquinaria de la puerta misma, con la receta que transportan ya
+ * clasificada en el sitio de su llamante (llaves `ref:recipe`). */
+type InfoPuerta20 = { door: string; sesion: boolean };
+let ayudantes20: Set<string> | null = null;
+const cosechaAyudantes20 = (files: { rel: string; text: string }[]): Set<string> => {
+  if (ayudantes20) return ayudantes20;
+  const envoltorios = new Set<string>();
+  const out = new Set<string>();
+  const parsed = files.map(({ rel, text }) => ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS));
+  for (const sf of parsed) {
+    const visit = (n: ts.Node) => {
+      if (ts.isTypeAliasDeclaration(n) && /state\s*:\s*LedgerState/.test(n.type.getText(sf))) envoltorios.add(n.name.text);
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  const esAyudante = (params: ts.NodeArray<ts.ParameterDeclaration>, ret: ts.Node | undefined): boolean => {
+    const p0 = params[0];
+    if (!p0?.type || p0.type.getText() !== "LedgerState") return false;
+    if (!ret) return false;
+    const rt = ret.getText();
+    return rt === "LedgerState" || envoltorios.has(rt);
+  };
+  for (const sf of parsed) {
+    const visit = (n: ts.Node) => {
+      if (ts.isFunctionDeclaration(n) && n.name && esAyudante(n.parameters, n.type)) out.add(n.name.text);
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) && esAyudante(n.initializer.parameters, n.initializer.type)) out.add(n.name.text);
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  ayudantes20 = out;
+  return out;
+};
+const firmaDe = (recipe: ts.Node, ayudantes: Set<string>): string => {
+  if (!ts.isArrowFunction(recipe) && !ts.isFunctionExpression(recipe)) return "—";
+  const seen: string[] = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n)) {
+      const callee = n.expression;
+      const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
+      if (name && ayudantes.has(name) && !seen.includes(name)) seen.push(name);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(recipe.body);
+  return seen.length ? seen.join("+") : "—";
+};
+let sinResolver20: string[] = [];
 const censoVivo19 = (): Map<string, number> => {
+  const files = walkSrc19(new URL("../../", import.meta.url), "");
+  const ayudantes = cosechaAyudantes20(files);
   const rows = new Map<string, number>();
-  for (const { rel, text } of walkSrc19(new URL("../../", import.meta.url), "")) {
+  sinResolver20 = [];
+  for (const { rel, text } of files) {
     const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    // la cosecha de nombres resueltos del archivo
+    const aliases = new Map<string, InfoPuerta20>();
+    const apiObjs = new Set<string>();
+    const visitImports = (n: ts.Node) => {
+      if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
+        for (const el of n.importClause.namedBindings.elements) {
+          const imported = (el.propertyName ?? el.name).text;
+          if (PUERTAS.has(imported)) aliases.set(el.name.text, { door: imported, sesion: true });
+        }
+      }
+      ts.forEachChild(n, visitImports);
+    };
+    visitImports(sf);
+    const decls: ts.VariableDeclaration[] = [];
+    const collect = (n: ts.Node) => { if (ts.isVariableDeclaration(n)) decls.push(n); ts.forEachChild(n, collect); };
+    collect(sf);
+    const esUseFaro = (e: ts.Expression): boolean => ts.isCallExpression(e) && ts.isIdentifier(e.expression) && e.expression.text === "useFaro";
+    for (let round = 0; round < 4; round++) {
+      for (const d of decls) {
+        if (!d.initializer) continue;
+        const init = d.initializer;
+        if (ts.isIdentifier(d.name)) {
+          const name = d.name.text;
+          if (esUseFaro(init)) { apiObjs.add(name); continue; }
+          if (aliases.has(name)) continue;
+          if (ts.isIdentifier(init) && aliases.has(init.text)) aliases.set(name, aliases.get(init.text)!);
+          else if (ts.isPropertyAccessExpression(init) && PUERTAS.has(init.name.text)) aliases.set(name, { door: init.name.text, sesion: false });
+          else if (ts.isElementAccessExpression(init) && ts.isStringLiteral(init.argumentExpression) && PUERTAS.has(init.argumentExpression.text)) aliases.set(name, { door: init.argumentExpression.text, sesion: false });
+        } else if (ts.isObjectBindingPattern(d.name)) {
+          if (!esUseFaro(init) && !(ts.isIdentifier(init) && apiObjs.has(init.text))) continue;
+          for (const el of d.name.elements) {
+            const nameNode = el.propertyName ?? el.name;
+            const prop = ts.isIdentifier(nameNode) || ts.isStringLiteral(nameNode) ? nameNode.text : null;
+            if (prop && PUERTAS.has(prop) && ts.isIdentifier(el.name)) aliases.set(el.name.text, { door: prop, sesion: false });
+          }
+        }
+      }
+    }
+    const cuenta = (info: InfoPuerta20, recipe: ts.Node | undefined) => {
+      if (!recipe) return;
+      const key = `${rel}|${info.door}|${cabezaDe(recipe)}|${firmaDe(recipe, ayudantes)}`;
+      rows.set(key, (rows.get(key) ?? 0) + 1);
+    };
     const visit = (n: ts.Node) => {
       if (ts.isCallExpression(n)) {
-        let door: string | null = null;
-        if (ts.isIdentifier(n.expression) && PUERTAS.has(n.expression.text)) door = n.expression.text;
-        else if (ts.isPropertyAccessExpression(n.expression) && PUERTAS.has(n.expression.name.text)) door = n.expression.name.text;
-        if (door && n.arguments.length >= 1) {
-          const key = `${rel}|${door}|${cabezaDe(n.arguments[0]!)}`;
-          rows.set(key, (rows.get(key) ?? 0) + 1);
+        const e = n.expression;
+        if (ts.isIdentifier(e)) {
+          if (PUERTAS.has(e.text)) cuenta({ door: e.text, sesion: aliases.get(e.text)?.sesion ?? false }, n.arguments[aliases.get(e.text)?.sesion ? 1 : 0]);
+          else if (aliases.has(e.text)) { const info = aliases.get(e.text)!; cuenta(info, n.arguments[info.sesion ? 1 : 0]); }
+        } else if (ts.isPropertyAccessExpression(e)) {
+          if (PUERTAS.has(e.name.text)) cuenta({ door: e.name.text, sesion: false }, n.arguments[0]);
+          else if (e.name.text === "call") {
+            const obj = e.expression;
+            const info = ts.isIdentifier(obj) ? (PUERTAS.has(obj.text) ? { door: obj.text, sesion: aliases.get(obj.text)?.sesion ?? false } : aliases.get(obj.text)) : ts.isPropertyAccessExpression(obj) && PUERTAS.has(obj.name.text) ? { door: obj.name.text, sesion: false } : undefined;
+            if (info) cuenta(info, n.arguments[info.sesion ? 2 : 1] ?? n.arguments[1]);
+          }
+        } else if (ts.isElementAccessExpression(e)) {
+          if (ts.isStringLiteral(e.argumentExpression) && PUERTAS.has(e.argumentExpression.text)) cuenta({ door: e.argumentExpression.text, sesion: false }, n.arguments[0]);
+          else if (ts.isIdentifier(e.expression) && apiObjs.has(e.expression.text)) sinResolver20.push(`${rel}: acceso por elemento sin índice literal sobre el objeto de useFaro() — forma de puerta sin resolver`);
         }
       }
       ts.forEachChild(n, visit);
@@ -450,6 +616,7 @@ const censoVivo19 = (): Map<string, number> => {
 describe("ola19 · §B: el censo permanente de recetas", () => {
   it("toda receta alcanzable por una puerta está clasificada, en su puerta, con su cuenta — y ninguna entrada muere", () => {
     const vivo = censoVivo19();
+    assert.deepEqual(sinResolver20, [], "ninguna forma de puerta queda sin resolver (ola 20, G20-4)");
     for (const [key, count] of vivo) {
       const entry = CENSO19[key];
       assert.ok(entry, `RECETA SIN CLASIFICAR: ${key} ×${count} — clasifícala con su razón (guardada, anunciada, final o aterrizaje)`);
@@ -471,7 +638,7 @@ describe("ola19 · §B: el censo permanente de recetas", () => {
     let total = 0, guardadas = 0;
     for (const [key, count] of vivo) { total += count; if (CENSO19[key]![0] === "guardada") guardadas += count; }
     assert.ok(guardadas >= 60, `las recetas guardadas son ${guardadas} de ${total}`);
-    const finales = [...vivo.keys()].filter((k) => k.split("|")[1] === "commitFinal");
-    assert.deepEqual(finales.sort(), ["components/faro/provider.tsx|commitFinal|deleteRestingLines", "components/faro/provider.tsx|commitFinal|deleteSpan"], "commitFinal sirve solo a los dos borrados del descanso");
+    const finales = [...vivo.keys()].filter((k) => k.split("|")[1] === "commitFinal" && !k.includes("|ref:recipe|"));
+    assert.deepEqual(finales.sort(), ["components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines", "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan"], "commitFinal sirve solo a los dos borrados del descanso (la llave ref:recipe es la maquinaria de la puerta misma, no una receta)");
   });
 });

@@ -344,10 +344,22 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * que la propia caza escribió («un nombre que algún archivo del
      * paquete ata como alias de importación, se sigue hasta su
      * destino»). Toda resolución posterior lee solo este resolvedor. */
+    /* OLA 20 (Asesor, hallazgo 4): EL TOPE SE LEVANTA, CON SU RAZÓN.
+     * El resolvedor iteraba `i < 10`: una cadena de once typealias
+     * corría verde (M20-9) y la de diez acusaba (M20-9c) — una
+     * constante sin declarar decidía qué es el formateador. Los demás
+     * resolvedores de esta misma cerca iteran a punto fijo, y las
+     * cadenas de alias son texto finito: se resuelve hasta que el
+     * nombre ya no se mueve, con el conjunto de visitados como guarda
+     * de ciclo (una cadena que se muerde la cola se detiene en el
+     * primer nombre repetido, como antes se detenía en el décimo
+     * salto — pero ahora la guarda es la estructura, no un número). */
     const resolveComposed = (written: string, fi: number): string => {
       let cur = written;
       let ctx = fi;
-      for (let i = 0; i < 10; i++) {
+      const seen = new Set<string>();
+      while (!seen.has(cur)) {
+        seen.add(cur);
         const imp = fileImports[ctx]?.get(cur);
         if (imp !== undefined) { cur = imp; continue; }
         const ta = typealiasRaw.get(cur);
@@ -376,14 +388,26 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       for (const a of typealiasRaw.keys()) if (resolveComposed(a, typealiasFile.get(a) ?? fi) === "Fmt") names.add(a);
       return names;
     };
+    /* OLA 20 (Asesor, hallazgo 1): la cosecha de propiedades itera a
+     * PUNTO FIJO — `val fmtB = fmtA` con fmtA ya cosechada ES una
+     * propiedad del formateador, en el mismo archivo (M20-3b) y, vía
+     * la cosecha de paquete, entre archivos (M20-3). La pasada única
+     * de antes solo veía el primer eslabón: la cadena imprimía en
+     * crudo con el censo verde. */
     const fmtPropsOf = (binds: Map<string, string>, names: Set<string>): Set<string> => {
       const props = new Set<string>();
-      for (const [n, rhs] of binds) {
-        // el valor atado, limpio de la puntuación del ámbito que lo
-        // envuelve («val fmt = Fmt }» dentro de un companion): el
-        // último segmento del nombre es la grafía que cuenta.
-        const clean = rhs.trim().replace(/[}\])\s]+$/, "");
-        if (names.has(clean) || names.has(clean.split(".").pop()!)) props.add(n);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const [n, rhs] of binds) {
+          if (props.has(n)) continue;
+          // el valor atado, limpio de la puntuación del ámbito que lo
+          // envuelve («val fmt = Fmt }» dentro de un companion): el
+          // último segmento del nombre es la grafía que cuenta.
+          const clean = rhs.trim().replace(/[}\])\s]+$/, "");
+          const last = clean.split(".").pop()!;
+          if (names.has(clean) || props.has(clean) || names.has(last) || props.has(last)) { props.add(n); grew = true; }
+        }
       }
       return props;
     };
@@ -431,12 +455,27 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * nombres de SU archivo). Una atadura local del mismo nombre en el
      * archivo juzgado sombrea a la de paquete: el juicio por archivo
      * solo hereda los nombres que el archivo no ata. */
+    /* OLA 20 (Asesor, hallazgos 1 y 2): la cosecha de paquete itera a
+     * punto fijo ENTRE ARCHIVOS (la cadena fmtB = fmtA con fmtA atada
+     * en otro archivo, M20-3) y conoce la atadura tras una llave — el
+     * miembro de un objeto (`object Casa { val fmt = Fmt }`, M20-6)
+     * nace tras «{», no a comienzo de línea ni tras un punto y coma, y
+     * la cosecha vieja no lo veía. */
     const pkgFmtProps = new Set<string>();
-    scanned.forEach(({ code }, fi) => {
+    const pkgTopBinds = scanned.map(({ code }) => {
       const top = new Map<string, string>();
-      for (const m of code.matchAll(/(?:^|;\s*)(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/gm)) top.set(m[1]!, m[2]!.trim());
-      for (const p of fmtPropsOf(top, fmtNamesOf(fi))) pkgFmtProps.add(p);
+      for (const m of code.matchAll(/(?:^|[;{]\s*)\s*(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/gm)) top.set(m[1]!, m[2]!.trim());
+      return top;
     });
+    for (let round = 0; round < 8; round++) {
+      let grew = false;
+      scanned.forEach((_, fi) => {
+        for (const p of fmtPropsOf(pkgTopBinds[fi]!, new Set([...fmtNamesOf(fi), ...pkgFmtProps]))) {
+          if (!pkgFmtProps.has(p)) { pkgFmtProps.add(p); grew = true; }
+        }
+      });
+      if (!grew) break;
+    }
     /* OLA 17 (Asesor): CUARTA VIDA — el punto fijo del valor se
      * calcula sobre el PAQUETE antes de juzgar archivo a archivo. La
      * tercera vida seguía el valor dentro de cada archivo y solo
@@ -512,6 +551,28 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         pkgFunBodies.push([m[1]!, code.slice(open, end), fi]);
       }
     });
+    /* OLA 20 (Asesor, hallazgo 2): EL PRODUCTOR EN POSICIÓN TIPADA.
+     * La cosecha vieja solo veía el formateador ATADO a un valor
+     * (`val fmt = Fmt`): el que entra por la firma — un parámetro
+     * `fmt: Fmt` (M20-4), el mismo por typealias (M20-4b), una
+     * propiedad de constructor `class Casa(val fmt: Fmt)` usada desde
+     * otro archivo (M20-5) — no tenía cosecha y sus llamadas
+     * imprimían sin juicio. Aquí esos nombres entran al conjunto de
+     * paquete: el tipo se pregunta al resolvedor compuesto desde el
+     * archivo que lo declara, y propTypes — que ya guardaba el tipo
+     * de cada propiedad para las cadenas de la foto — responde
+     * también por el formateador. El nombre entra solo cuando su
+     * TIPO resuelve a Fmt: es la declaración, no la grafía. */
+    for (const d of funDecls) {
+      for (const p of d.params) {
+        if (!p.type) continue;
+        const tname = p.type.trim().replace(/\?$/, "").split(/[<,]/)[0]!.trim().split(".").pop()!;
+        if (tname && resolveComposed(tname, d.file) === "Fmt") pkgFmtProps.add(p.name);
+      }
+    }
+    for (const [, props] of propTypes) {
+      for (const [pn, u] of props) if (resolveComposed(u.w, u.fi) === "Fmt") pkgFmtProps.add(pn);
+    }
     /* OLA 17, tercera forma (la misma caza en vivo): el punto fijo
      * del paquete ata cada nombre a SU archivo — pkgDerived es por
      * archivo, porque un nombre significa lo que su archivo ata a
@@ -696,7 +757,12 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // OLA 19 (M19-7): las propiedades-formateador del archivo, más
       // las de nivel de paquete que este archivo no sombrea con una
       // atadura propia del mismo nombre.
-      const fmtProps = new Set([...fmtPropsOf(bindings, fmtNames), ...[...pkgFmtProps].filter((p) => !bindings.has(p))]);
+      // OLA 20 (M20-3): la cosecha local lee TAMBIÉN los nombres de
+      // paquete como semilla — el eslabón local de una cadena entre
+      // archivos (`val fmtB = fmtA` con fmtA de paquete) se resuelve
+      // en su archivo; una atadura local con OTRO valor sigue
+      // sombreando (el filtro de abajo no la hereda).
+      const fmtProps = new Set([...fmtPropsOf(bindings, new Set([...fmtNames, ...pkgFmtProps])), ...[...pkgFmtProps].filter((p) => !bindings.has(p))]);
       // OLA 19 (M19-6): los alias de miembro de este archivo — la
       // llamada desnuda renombrada ES una llamada al formateador.
       const memberAliases = memberAliasesOf(fi);
@@ -955,12 +1021,24 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // OLA 19: el sitio se lee con la misma cosecha entera del juicio
       // (la composición de capas y las propiedades de paquete): la
       // superficie re-expresada por la cadena mixta vive (M19-8b).
-      const propsSitio = new Set([...fmtPropsOf(binds, namesSitio), ...[...pkgFmtProps].filter((p) => !binds.has(p))]);
+      const propsSitio = new Set([...fmtPropsOf(binds, new Set([...namesSitio, ...pkgFmtProps])), ...[...pkgFmtProps].filter((p) => !binds.has(p))]);
       let texto = f.code;
       for (const s of namesSitio) if (s !== "Fmt") texto = texto.replace(new RegExp(`\\b${escRe18(s)}\\.`, "g"), "Fmt.");
       for (const p of propsSitio) {
         texto = texto.replace(new RegExp(`\\b\\w+\\.${escRe18(p)}\\.`, "g"), "Fmt.");
         texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(p)}\\.`, "g"), "Fmt.");
+      }
+      /* OLA 20 (Asesor, hallazgo 3): el sitio se lee también con los
+       * alias de MIEMBRO del archivo — la superficie viva re-expresada
+       * como llamada desnuda renombrada («tasa20(s.rateE4)» por
+       * `import …Fmt.rate as tasa20`) ES la llamada registrada: el
+       * juicio ya la absolvía como llamada del productor (M19-6) y la
+       * verificación la declaraba muerta — las dos mitades se
+       * contradecían sobre la grafía que la cura 19 creó para una de
+       * ellas. La muerta de verdad, sin llamada en ninguna grafía,
+       * sigue acusando (M20-8c). */
+      for (const [bare, fn] of memberAliasesOf(fiSitio)) {
+        texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(bare)}\\s*\\(`, "g"), `Fmt.${fn}(`);
       }
       if (re.test(texto)) continue;
       for (let r = 0; r < 4; r++) {
@@ -1209,6 +1287,63 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       { name: "FaroNotify.kt", text: "import com.oscarvelz.faro.Fmt as FmtBase\ntypealias FmtCasa = FmtBase\nclass N { fun a(s: Snap) = FmtCasa.rate(s.rateE4) }" },
     ], true);
     assert.ok(muertaMixta.some((a) => a.includes("ya no vive en su sitio")), `M19-8b-c: la tasa por la cadena mixta plantada en otro archivo no salva su sitio vacío: ${muertaMixta.join(" | ")}`);
+  });
+  it("especímenes M20 (ola 20): la cadena de propiedades a punto fijo, el productor en posición tipada, el sitio que conoce el alias de miembro y el resolvedor sin tope", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\" }",
+    };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M20-3b: la cadena de propiedades en el mismo archivo — fmtB = fmtA ES el formateador
+    assert.ok(caza([{ name: "Spec.kt", text: "val fmtA = Fmt\nval fmtB = fmtA\nclass W { fun a(s: Snap) = fmtB.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M20-3b: val fmtB = fmtA hace de fmtB.money una llamada al formateador: la cosecha a punto fijo acusa");
+    // M20-3: la misma cadena entre archivos
+    assert.ok(caza([
+      { name: "Casa.kt", text: "val fmtA = Fmt" },
+      { name: "Puente.kt", text: "val fmtB = fmtA" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap) = fmtB.money(s.owed - s.spent, s.cur) }" },
+    ]).length >= 1, "M20-3: la cadena de propiedades cruza archivos a punto fijo de paquete: acusa");
+    assert.deepEqual(caza([
+      { name: "Casa.kt", text: "val fmtA = Fmt" },
+      { name: "Puente.kt", text: "val fmtB = fmtA" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap) = fmtB.money(s.spent, s.cur) }" },
+    ]), [], "M20-3c (control): la cadena con el productor registrado absuelve");
+    // M20-4: el productor como PARÁMETRO tipado
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun a(fmt: Fmt, s: Snap) = fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M20-4: fun a(fmt: Fmt, …) — el parámetro ES el formateador dentro de su función: acusa");
+    // M20-4b: el parámetro tipado por typealias
+    assert.ok(caza([{ name: "Spec.kt", text: "typealias FmtCasa = Fmt\nclass W { fun a(fmt: FmtCasa, s: Snap) = fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M20-4b: el tipo del parámetro se resuelve compuesto: acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "class W { fun a(fmt: Fmt, s: Snap) = fmt.money(s.spent, s.cur) }" }]), [],
+      "M20-4c (control): el parámetro-formateador con el productor registrado absuelve");
+    // M20-5: la propiedad de CONSTRUCTOR tipada, usada desde otro archivo
+    assert.ok(caza([
+      { name: "Casa.kt", text: "class Casa20(val fmt: Fmt)" },
+      { name: "Spec.kt", text: "class W { fun a(c: Casa20, s: Snap) = c.fmt.money(s.owed - s.spent, s.cur) }" },
+    ]).length >= 1, "M20-5: class Casa20(val fmt: Fmt) — propTypes responde también por el formateador: c.fmt.money acusa");
+    // M20-6: el miembro de un OBJETO atado al formateador
+    assert.ok(caza([
+      { name: "Casa.kt", text: "object Casa20b { val fmt = Fmt }" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap) = Casa20b.fmt.money(s.owed - s.spent, s.cur) }" },
+    ]).length >= 1, "M20-6: la atadura tras la llave del objeto se cosecha a nivel de paquete: acusa");
+    // M20-8: la verificación de sitios conoce el alias de miembro — la viva por alias absuelve en su sitio…
+    const vivaTasa = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "import com.oscarvelz.faro.Fmt.rate as tasa20\nclass W { fun a(s: Snap) = tasa20(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!vivaTasa.some((a) => a.includes("ya no vive en su sitio")), `M20-8: tasa20(s.rateE4) por su alias de miembro ES la superficie registrada en su sitio: ${vivaTasa.join(" | ")}`);
+    // …y la muerta con el alias presente sigue acusando
+    const muertaTasa = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "import com.oscarvelz.faro.Fmt.rate as tasa20\nclass W { fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+      { name: "FaroNotify.kt", text: "import com.oscarvelz.faro.Fmt.rate as tasa20\nclass N { fun a(s: Snap) = tasa20(s.rateE4) }" },
+    ], true);
+    assert.ok(muertaTasa.some((a) => a.includes("ya no vive en su sitio")), `M20-8c (control): la tasa por alias plantada en otro archivo no salva su sitio vacío: ${muertaTasa.join(" | ")}`);
+    // M20-9: la cadena de ONCE typealias — el tope levantado la resuelve entera
+    const chain = Array.from({ length: 11 }, (_, i) => "typealias A" + (i + 1) + " = " + (i === 0 ? "Fmt" : "A" + i)).join("\n");
+    const specChain = (arg: string) => chain + "\nclass W { fun a(s: Snap) = A11.money(" + arg + ", s.cur) }";
+    assert.ok(caza([{ name: "Spec.kt", text: specChain("s.owed - s.spent") }]).length >= 1,
+      "M20-9: once eslabones ya no corren verdes: el resolvedor a punto fijo llega a Fmt y acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: specChain("s.spent") }]), [],
+      "M20-9c (control): la cadena de once con el productor registrado absuelve — resuelta, no detenida");
   });
   it("controles del censo nuevo: el comentario no acusa, el porcentaje no es dinero, la fecha no es cifra", () => {
     const ok = censoCascara([{ name: "FaroNotify.kt", text: [

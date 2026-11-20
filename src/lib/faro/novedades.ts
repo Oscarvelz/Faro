@@ -29,6 +29,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.347",
+    date: "2026-11-20",
+    level: "menor",
+    title: { es: "La mesa, contra lo vivo", en: "The table, against the live books" },
+    points: {
+      es: [
+        "La mesa de revisión ahora guarda contra tus libros vivos: si corregiste algo en otro lugar con la mesa abierta, tu corrección ya no se pierde.",
+        "La barra de listas en bache ahora cabe en cualquier teléfono, y los consejos del Manual cuentan la verdad entera: los borradores viajan con tu libro y las recompensas de un escaneo entran directas a su tarjeta.",
+      ],
+      en: [
+        "The review table now saves against your live books: fix something elsewhere while the table is open, and your fix is never lost.",
+        "The batch bar now fits any phone, and the Manual's tips tell the whole truth: drafts travel with your book, and a scan's rewards go straight onto their card.",
+      ],
+    },
+  },
+  {
     version: "1.3.346",
     date: "2026-11-20",
     level: "grande",

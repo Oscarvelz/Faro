@@ -384,7 +384,7 @@ export type BankGuide = { id: string; name?: string; icon?: string; steps?: stri
 export type RewardRealFig = { amountMinor: number; asOf: string; currency: Currency };
 export type ImportBook = { sources: BankSource[]; rules: MerchantRule[]; maps: Record<string, ColumnMap>; files?: Record<string, string>; bonus?: BonusRow[]; guides?: BankGuide[]; /** 1.3.153: how Oscar usually pays each merchant (merchantKey → account id or "cash"), learned only from his own manual entries. */ payHints?: Record<string, string>; /** 1.3.155: real rewards balances he noted, per account id; the latest note replaces the previous one. */ rewardReal?: Record<string, RewardRealFig> };
 
-export type AuditEntry = { id: string; at: string; detail: string };
+export type AuditEntry = { id: string; at: string; detail: string; /** Ola 20 (§A/§B): la entrada nació de un aborto ANUNCIADO (commitAnnounced): es contenido del registro, no foto del libro — sobrevive a Deshacer/Rehacer vecinos y cuenta como trabajo local entre pestañas. */ announced?: boolean };
 
 export type Settings = {
   lang: Lang;
