@@ -189,6 +189,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Buscar", "Search"],
         sum: ["Encuentra cualquier movimiento por palabra, monto o contexto.", "Find any entry by word, amount or context."],
         what: ["La lupa busca en todos tus meses por palabra, monto o contexto, como «café» o «deuda». Busca también en [[Ajustes]] desde cualquier pantalla: escribe «huella» o «tema» y te lleva a ese ajuste.", "The magnifier searches all your months by word, amount or context, like “coffee” or “debt”. It also searches [[Settings]] from any screen: type “fingerprint” or “theme” and it takes you to that setting."],
+        bubble: ["La lupa busca en todos tus meses por palabra, monto o contexto, y también en [[Ajustes]]: escribe «tema» y te lleva a ese ajuste.", "The magnifier searches all your months by word, amount or context — and [[Settings]] too: type “theme” and it takes you to that setting."],
         how: ["Toca la lupa y escribe: los resultados salen mientras escribes. Toca un resultado: Faro abre ese mes y esa lista y marca la línea. En Ajustes, lo de ahí sale primero, bajo «En Ajustes» y con su ruta; al tocarlo se abre su tarjeta y queda marcado.", "Tap the magnifier and type: results appear as you type. Tap a result: Faro opens that month and list and marks the line. In Settings, what lives there comes first, under “In Settings” and with its path; tapping one opens its card and marks it."],
         tip: ["En teclado, Ctrl+K abre la búsqueda.", "On a keyboard, Ctrl+K opens search."],
         go: { screen: "top", anchor: "top-search", where: ["Arriba, la lupa", "Top, the magnifier"] },
@@ -201,6 +202,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Calendario y cambio de mes", "Calendar and changing month"],
         sum: ["Mira cada día del mes y salta a otro mes.", "See each day of the month and jump to another month."],
         what: ["El calendario marca con puntos los días con movimientos y te dice qué toca cada día — un cobro, una tarjeta, un feriado. Desde ahí cambias de mes y planeas lo que viene.", "The calendar marks days with entries with dots and tells you what falls on each day — a collection, a card, a holiday. From there you change month and plan what is coming."],
+        bubble: ["El calendario marca los días con movimientos y dice qué toca cada día — un cobro, una tarjeta, un feriado. Desde ahí cambias de mes.", "The calendar dots the days with entries and says what falls on each — a collection, a card, a holiday. From there you change month."],
         how: ["Toca un día para ver sus movimientos. Desliza a los lados para ir a otro mes y toca Ver mes. El nombre del mes te devuelve al actual.", "Tap a day to see its entries. Swipe sideways for another month and tap View month. The month name brings you back to the current one."],
         tip: ["Un puntito sobre el ícono avisa que no estás en el mes actual. Lo anotado sin día sale abajo como «sin día».", "A small dot on the icon tells you you are not on the current month. Entries with no day show below as “undated”."],
         go: { screen: "top", anchor: "top-cal", where: ["Arriba, el calendario", "Top, the calendar"] },
@@ -519,6 +521,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Personas", "People"],
         sum: ["A quién le regalas y cuánto le das.", "Who you give gifts to and how much."],
         what: ["Personas guarda a quién le regalas, su cumpleaños y otras fechas, como un aniversario. Muestra cuánto le diste en total y en cada fecha. Vive en el libro de [[Variables]]: un regalo es gasto variable.", "People keeps who you give gifts to, their birthday and other dates, like an anniversary. It shows what you gave in total and for each date. It lives in the [[Variable]] book: a gift is variable spending."],
+        bubble: ["A quién le regalas, su cumpleaños y sus fechas, con cuánto le diste en total y por fecha. Vive en [[Variables]]: un regalo es gasto variable.", "Who you give to, their birthday and dates, and what you gave in total and per date. Lives in [[Variable]]: a gift is variable spending."],
         how: ["Toca el botón de persona: en Android se abren tus contactos; en otros equipos eliges un archivo .vcf. Para traer cumpleaños, comparte un contacto con Faro desde la app Contactos. Escribir a mano agrega a alguien sin contactos. Toca su nombre y luego Regalo: queda como un gasto normal del mes, con su nombre.", "Tap the person button: on Android your contacts open; elsewhere you pick a .vcf file. To bring birthdays, share a contact with Faro from the Contacts app. Type it by hand adds someone without contacts. Tap their name, then Gift: it is saved as a normal expense of the month, with their name."],
         tip: ["Borrar a alguien no borra su dinero: sus regalos siguen en tus libros y en [[Estudio]], con su nombre y la marca eliminada. Si lo vuelves a agregar con el mismo nombre, regresa con su historial.", "Deleting someone does not delete their money: their gifts stay in your books and in [[Study]], with their name marked deleted. If you add them again with the same name, they come back with their history."],
         go: { screen: "variable", anchor: "book-people", where: ["Libros → Variables, Personas", "Books → Variable, People"] },
@@ -570,6 +573,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Ocasión del regalo", "Gift occasion"],
         sum: ["Para qué fecha fue el regalo.", "Which date the gift was for."],
         what: ["Opcional. Une el regalo a una fecha de la persona, como su cumpleaños o un aniversario. El total por año no cambia; al abrir a la persona ves cuánto fue para cada fecha.", "Optional. Ties the gift to one of the person's dates, like their birthday or an anniversary. The total per year stays; open the person to see what went to each date."],
+        bubble: ["Opcional: une el regalo a una fecha de la persona, como su cumpleaños. El total por año no cambia; al abrirla ves cuánto fue por fecha.", "Optional: it ties the gift to one of the person's dates, like their birthday. The total per year stays; open them to see each date's share."],
         go: { screen: "variable", anchor: "book-people", where: ["Libros → Variables, Personas", "Books → Variable, People"] },
       },
       {
@@ -687,6 +691,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Préstamos", "Loans"],
         sum: ["Lo que te prestaron y lo que falta.", "What you were lent and what is left."],
         what: ["[[Préstamos]] lista a quién le debes dinero, persona o entidad, con lo recibido y lo pendiente, y tus [[Tarjetas de crédito]]. Arriba, el total de préstamos más tarjetas.", "[[Loans]] lists who you owe money to, a person or a lender, with what you received and what is pending, plus your [[Credit cards]]. At the top, the total of loans plus cards."],
+        bubble: ["[[Préstamos]] lista a quién le debes, con lo recibido y lo pendiente, y tus [[Tarjetas de crédito]]. Arriba, el total de préstamos más tarjetas.", "[[Loans]] lists who you owe, with what you received and what is pending, plus your [[Credit cards]]. On top, loans plus cards in one total."],
         how: ["Toca + y llena quién, cuánto, en qué moneda y el día que lo recibiste. Cada vez que pagues, toca Abonar en su tarjeta: el pago entra como un gasto normal en [[Fijos]] o [[Variables]] y baja lo pendiente. Bajo el total ves cuántos préstamos tienes, el interés acumulado y lo que ya pagaste. Se guarda en tu cuenta y en tus copias, como el resto de tus libros.", "Tap + and fill in who, how much, in which currency and the day you received it. Each time you pay, tap Pay on its card: the payment goes in as a normal expense in [[Fixed]] or [[Variable]] and lowers what is pending. Under the total you see how many loans you have, the interest so far and what you already paid. It is saved in your account and your backups, like the rest of your books."],
         tip: ["Lo recibido no se suma a lo que entra: es dinero prestado, no ingreso. Si también lo anotaste como ingreso, tu mes se verá más holgado de lo que es.", "What you receive is not added to income: it is borrowed money, not earnings. If you also record it as income, your month will look roomier than it is."],
         go: { screen: "cobros", anchor: "cobros-loans", where: ["Cobros → Debo → Préstamos", "Collections → I owe → Loans"] },
@@ -699,6 +704,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Recibido en el tiempo", "Borrowed over time"],
         sum: ["Lo que te prestaron, por periodo.", "What you were lent, by period."],
         what: ["Las mismas fichas y barras de [[Cuotas]], para tus préstamos. Recibido es lo que te prestaron, Pagado lo que ya abonaste y Pendiente lo que falta, con el interés de hoy.", "The same tiles and bars as Dues, for your loans. Received is what you were lent, Paid what you already paid and Pending what is left, with today's interest."],
+        bubble: ["Las fichas y barras de [[Cuotas]], para tus préstamos: Recibido, Pagado y Pendiente, con el interés de hoy.", "The same tiles and bars as your dues, for your loans: Received, Paid and Pending, with today's interest."],
         how: ["Semana, Mes o Año cambia las barras: cada una suma lo recibido en ese periodo, también lo archivado. Las fichas solo cuentan los préstamos activos.", "Week, Month or Year changes the bars: each adds what you received in that period, archived loans too. The tiles count only active loans."],
         tip: ["Si Pendiente crece aunque abonas, el interés va más rápido que tus pagos: sube el abono o busca pagar primero el préstamo de mayor tasa.", "If Pending grows while you pay, interest is moving faster than your payments: raise the payment or pay the highest-rate loan first."],
         go: { screen: "cobros", anchor: "cobros-loans", where: ["Cobros → Debo → Préstamos", "Collections → I owe → Loans"] },
@@ -801,6 +807,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Recompensas en la captura", "Rewards in a screenshot"],
         sum: ["Cashback que el banco te debe.", "Cash back the bank owes you."],
         what: ["Recompensas son dinero que el banco te debe (cashback). Cuentan en [[Me deben]] y en el [[Balance neto]] hasta que las canjeas; no se restan de la deuda de la tarjeta.", "Rewards are money the bank owes you (cash back). They count in [[Owed to me]] and the [[Net balance]] until you redeem them; they are never taken off the card debt."],
+        bubble: ["Las recompensas son dinero que el banco te debe: cuentan en [[Me deben]] y en el [[Balance neto]] hasta que las canjeas; no bajan la deuda.", "Rewards are money the bank owes you: they count in [[Owed to me]] and the [[Net balance]] until you redeem them; they never lower the debt."],
         go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards", where: ["Libros → Debo → Préstamos → Tarjetas", "Books → I owe → Loans → Cards"] },
       },
       {
@@ -810,6 +817,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Ganado en el año", "Earned this year"],
         sum: ["Lo que la tarjeta te dio, como información.", "What the card gave you, as info."],
         what: ["Lo que la tarjeta te dio en el año (o en total), según el banco. Solo informa a [[Estudio]]: no se suma a tu dinero, porque parte ya la usaste o canjeaste.", "What the card gave you this year (or in total), as the bank says. It only informs [[Study]]: it is not added to your money, since you already used or redeemed part."],
+        bubble: ["Lo que la tarjeta te dio en el año, según el banco. Solo informa a [[Estudio]]: no se suma a tu dinero, porque parte la usaste.", "What the card gave you this year, as the bank says. It only informs [[Study]]: never added to your money — you already used part."],
         go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards", where: ["Libros → Debo → Préstamos → Tarjetas", "Books → I owe → Loans → Cards"] },
       },
       {
@@ -819,6 +827,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Tasa anual (APR)", "Yearly rate (APR)"],
         sum: ["El interés de la tarjeta en un año.", "The card's interest over a year."],
         what: ["Tasa anual (APR) es el interés que cobra la tarjeta en un año sobre el saldo que no pagas completo. Con ella Faro calcula el interés al mes y el [[Plan de pago]].", "APR is the yearly interest the card charges on the balance you do not pay in full. With it Faro works out the interest a month and the [[Payoff plan]]."],
+        bubble: ["El interés anual sobre el saldo que no pagas completo. Con ella Faro calcula el interés del mes y el [[Plan de pago]].", "The yearly interest on the balance you do not pay in full. With it Faro works out the month's interest and the [[Payoff plan]]."],
         go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-cards", where: ["Libros → Debo → Préstamos → Tarjetas", "Books → I owe → Loans → Cards"] },
       },
       {
@@ -890,6 +899,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Cómo canjear", "How to redeem"],
         sum: ["Crédito al saldo o depósito al banco.", "Statement credit or bank deposit."],
         what: ["Crédito al saldo baja la deuda de la tarjeta: no es gasto ni ingreso. Depósito al banco entra como ingreso de este mes. En los dos casos las recompensas bajan lo mismo y nada se cuenta dos veces.", "Statement credit lowers the card debt: it is neither spending nor income. Bank deposit comes in as this month's income. Either way the rewards drop by the same amount and nothing counts twice."],
+        bubble: ["A crédito al saldo, bajan la deuda sin ser gasto ni ingreso; a depósito al banco, entran como ingreso. Nada se cuenta dos veces.", "Redeeming as statement credit lowers the debt — neither spending nor income; as a bank deposit it comes in as income. Nothing counts twice."],
         go: { screen: "vault-owed", anchor: "rewards-group", where: ["Libros → Me deben → Recompensas de tarjetas", "Books → Owed to me → Card rewards"] },
       },
       {
@@ -979,6 +989,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["El año", "The year"],
         sum: ["Tu año entero, sumando tus meses.", "Your whole year, adding up your months."],
         what: ["Lo que entró, lo que salió y lo que quedó en el año; tus rubros más grandes; el interés que pagaste; y lo guardado al cerrar el año en sus tres tipos: retiro, emergencia, y metas y otros bolsillos.", "What came in, what went out and what was left in the year; your biggest categories; the interest you paid; and what was saved at year end in its three types: retirement, emergency, and goals and other pockets."],
+        bubble: ["Tus doce meses en cifras: entró, salió y quedó; tus rubros grandes, el interés pagado y lo guardado al cerrar, en sus tres tipos.", "Your twelve months in figures: in, out and left; your biggest categories, the interest paid and the savings at the close, in their three types."],
         how: ["Cada cifra sale de tus meses: el año es la suma de los doce. Abajo, cada mes muestra entró, salió y quedó; tócalo para abrir ese mes.", "Every figure comes from your months: the year is the twelve added up. Below, each month shows in, out and left over; tap it to open that month."],
         tip: ["Las flechas cambian de año solo entre años con datos. Guardado al cerrar el año es lo que tenías el 31 de diciembre, no lo que sumaste en el año.", "The arrows move only between years with data. Saved at year end is what you held on December 31, not what you added during the year."],
         go: { screen: "stats", fold: "year", anchor: "year", where: ["Estudio → El año", "Study → The year"] },
@@ -1170,6 +1181,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Tus deudas, en claro", "Your debts, plainly"],
         sum: ["Los hechos de tus deudas: saldos, vencidos y próximos vencimientos.", "The facts of your debts: balances, overdues and next due dates."],
         what: ["En [[Esencial]] tus deudas se leen como hechos: quién te debe y cuánto, qué debes y su saldo, qué ya venció y qué vence próximo, en dinero y fechas.", "In [[Essential]] your debts read as facts: who owes you and how much, what you owe and its balance, what is already overdue and what falls due next, in money and dates."],
+        bubble: ["En [[Esencial]] tus deudas se leen como hechos: quién te debe y cuánto, qué debes, qué venció y qué vence próximo — en dinero y fechas.", "In [[Essential]] your debts read as facts: who owes you and how much, what you owe, what is overdue and what falls due next."],
         how: ["Ábrelas desde [[Libros]]: Me deben y Debo muestran sus tarjetas en solo lectura. Nada se edita ahí; es la cara de mirar.", "Open them from [[Books]]: Owed to me and I owe show their cards read-only. Nothing edits there; it is the looking face."],
         tip: ["Los hechos viven en todos los modos: la mayoría de la gente debe algo, y eso se mira desde el primer día.", "The facts live in every mode: most people owe something, and that is looked at from day one."],
         go: { screen: "vault-owed", where: ["Libros → Me deben", "Books → Owed to me"] },
@@ -1237,6 +1249,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Deudas en Libros", "Debts in Books"],
         sum: ["Me deben y Debo, con su propia fila.", "Owed to me and I owe, in their own row."],
         what: ["La fila del medio es una balanza: Me deben a la izquierda, Debo a la derecha, cada uno con su total. El fiel se inclina hacia el lado que pesa más.", "The middle row is a scale: Owed to me on the left, I owe on the right, each with its total. The pivot leans toward the heavier side."],
+        bubble: ["Una balanza con su total a cada lado: [[Me deben]] a la izquierda, Debo a la derecha; el fiel se inclina al lado que pesa más.", "A scale with its total on each side: [[Owed to me]] on the left, I owe on the right; the pivot leans to the heavier side."],
         how: ["Toca un lado para abrirlo. Me deben lista a cada persona; toca su nombre para ver toda su historia. Debo tiene [[Cuotas]] y [[Préstamos]]; en Préstamos está el [[Plan de pago]]. Arriba de los dos ves el [[Balance neto]].", "Tap a side to open it. Owed to me lists each person; tap a name to see their whole history. I owe has [[Plans]] and [[Loans]]; Loans holds the [[Payoff plan]]. Above both you see the [[Net balance]]."],
         tip: ["El panel [[Cobros]] de [[Central]] sigue ahí como atajo: Ver todo te trae aquí y Atrás te devuelve. En tableta y computadora, la balanza vive en la barra de arriba, en todas las pantallas. En reposo solo se ve su emblema, que brilla suave: azul verde del lado de Me deben, ámbar del lado de Debo; el lado que tiene montos brilla más. Tócalo y Me deben y Debo salen a cada lado; tócalo otra vez, toca fuera o usa Atrás y vuelven a guardarse. Desde otra pantalla, tocar un lado te lleva a ese lado en Libros.", "The [[Collections]] panel on [[Desk]] is still there as a shortcut: See all brings you here and Back returns you. On a tablet or computer, the scale lives in the top bar on every screen. At rest only its emblem shows, glowing softly: teal on the Owed to me side, amber on the I owe side; a side with amounts glows more. Tap it and Owed to me and I owe slide out to each side; tap it again, tap outside or use Back and they tuck away. From another screen, tapping a side takes you to that side in Books."],
         go: { screen: "vault-owed", anchor: "debt-scale", where: ["Libros → fila del medio (en tableta y computadora: la balanza de la barra de arriba)", "Books → middle row (on a tablet or computer: the scale in the top bar)"] },
@@ -1248,6 +1261,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Balance neto", "Net balance"],
         sum: ["Lo que te deben menos lo que debes.", "What you are owed minus what you owe."],
         what: ["[[Me deben]] (personas y [[Recompensas de tarjetas]]) menos lo pendiente de tus préstamos y tarjetas, en una cifra. En azul verde te deben más de lo que debes; en naranja debes más.", "[[Owed to me]] (people and [[Card rewards]]) minus what is pending on your loans and cards, in one figure. Teal means you are owed more than you owe; orange means you owe more."],
+        bubble: ["[[Me deben]] menos lo pendiente de tus préstamos y tarjetas, en una cifra: azul verde, te deben más; naranja, debes más.", "[[Owed to me]] minus what is pending on your loans and cards, in one figure: teal, you are owed more; orange, you owe more."],
         how: ["Ejemplo: si te deben C$8,000 y tú debes C$5,000, tu balance neto es C$3,000 a tu favor.", "Example: if you are owed C$8,000 and you owe C$5,000, your net balance is C$3,000 in your favour."],
         go: { screen: "vault-owed", anchor: "debt-net", where: ["Libros → Me deben o Debo, arriba", "Books → Owed to me or I owe, top"] },
       },
@@ -1258,6 +1272,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Últimos 6 meses", "Last 6 months"],
         sum: ["Cómo baja tu deuda mes a mes.", "How your debt goes down month by month."],
         what: ["La línea naranja es lo que debías en préstamos al cierre de cada mes; la punteada, lo que te debían. Las dos cuentan el interés y los abonos de cada fecha.", "The orange line is what you owed on loans at the end of each month; the dotted one, what you were owed. Both count interest and payments on each date."],
+        bubble: ["La línea naranja es lo que debías en préstamos al cierre de cada mes; la punteada, lo que te debían. Cuentan interés y abonos.", "The orange line is what you owed on loans at each month's close; the dotted one, what you were owed. Both count interest and payments."],
         go: { screen: "vault-owe", fold: "debt-loans", anchor: "debt-chart", where: ["Libros → Debo → Préstamos", "Books → I owe → Loans"] },
       },
       {
@@ -1267,6 +1282,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Plan de pago", "Payoff plan"],
         sum: ["¿Cuál pago primero? Préstamos y tarjetas en orden.", "Which first? Loans and cards in order."],
         what: ["Avalancha paga primero la deuda más cara (la tasa más alta); bola de nieve, la más chica. Incluye préstamos y tarjetas. Faro te dice cuándo quedas libre, cuánto interés pagarás y cuánto ahorra un orden frente al otro.", "Avalanche pays the most costly debt first (highest rate); snowball, the smallest. It covers loans and cards. Faro tells you when you are debt-free, how much interest you will pay and what one order saves over the other."],
+        bubble: ["Dos órdenes para salir de deudas: avalancha paga primero la tasa más alta; bola de nieve, la deuda más chica. Faro dice cuándo quedas libre.", "Two orders to get out of debt: avalanche pays the highest rate first; snowball, the smallest debt. Faro tells you when you are free."],
         how: ["Pon cuánto puedes pagar y cada cuánto (Frecuencia, con Otro… para un ritmo propio). Cada pago cubre primero los mínimos de las tarjetas y el resto va a la primera de la lista; verás cuánto le toca a cada una por pago y su mes de salida. Una tarjeta sin tasa se estima al 24%: añade su tasa.", "Set how much you can pay and how often (Frequency, with Other… for your own rhythm). Each payment covers the card minimums first and the rest goes to the first on the list; you see what each gets per payment and its payoff month. A card with no rate is estimated at 24%: add its rate."],
         tip: ["Avalancha casi siempre ahorra más. Bola de nieve cierra antes una deuda, y eso a veces ayuda a seguir.", "Avalanche almost always saves more. Snowball closes a debt sooner, and that sometimes helps you keep going."],
         go: { screen: "vault-owe", fold: "debt-plan", anchor: "debt-plan", where: ["Libros → Debo → Préstamos", "Books → I owe → Loans"] },
@@ -1397,6 +1413,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Color personalizado", "Custom colour"],
         sum: ["Cualquier color, más los tuyos guardados.", "Any colour, plus the ones you saved."],
         what: ["El gotero al final de los colores abre un selector completo: arrastra en el cuadro para el brillo, en la barra para el tono, o escribe el código HEX. La burbuja de muestra cambia mientras arrastras.", "The pipette at the end of the colours opens a full picker: drag in the square for brightness, on the bar for hue, or type the HEX code. The sample bubble changes as you drag."],
+        bubble: ["El gotero abre el selector completo: arrastra para el tono y el brillo, o escribe el código HEX. La muestra cambia mientras arrastras.", "The pipette opens the full picker: drag for hue and brightness, or type the HEX code. The sample changes as you drag."],
         how: ["Toca Guardar para usarlo o Cancelar para dejarlo. Toca la burbuja de muestra para usarlo y volver al ícono. Los últimos 6 que guardaste salen en Mis colores, en todos tus equipos. Atrás cierra el selector.", "Tap Save to use it or Cancel to drop it. Tap the sample bubble to use it and go back to the icon. Your last 6 saved colours show in My colors, on all your devices. Back closes the picker."],
         tip: ["Si el color es muy oscuro o muy claro, Faro ajusta el tono del texto y del ícono para que se lea. Un color que ya tenías se queda igual.", "If the colour is very dark or very light, Faro adjusts the text and icon tone so it reads. A colour you already had stays as it is."],
         go: { screen: "fixed", anchor: "book-add", where: ["Libros → + → Ícono y color (paleta) → gotero", "Books → + → Icon and colour (palette) → pipette"] },
@@ -1605,6 +1622,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Primerica en Retiro", "Primerica in Retirement"],
         sum: ["Una cuenta lista para tus estados de retiro.", "An account ready for your retirement statements."],
         what: ["[[Retiro]] trae una cuenta Primerica en $0 con su marca azul. No es dinero real: es el lugar donde Leer estado guarda el valor de tu cuenta y cada mes del estado.", "[[Retirement]] comes with a Primerica account at $0 with its blue mark. It is not real money: it is where Scan statement saves your account value and each statement month."],
+        bubble: ["[[Retiro]] trae una cuenta Primerica en $0 con su marca azul: no es dinero real, es donde Leer estado guarda el valor de tu cuenta.", "[[Retirement]] brings a Primerica account at $0, blue mark: not real money — the place where reading a statement saves your account value."],
         how: ["Para quitarla toca el lápiz de Cuentas, márcala y toca el botón rojo (o el lápiz junto al nombre y luego borrar); Faro pide confirmar. Si ya tiene historial, sale de la lista pero el historial queda guardado. Para traerla de vuelta toca la flecha circular pequeña en la esquina de [[Retiro]] y confirma.", "To remove it tap the Accounts pencil, tick it and tap the red button (or the pencil beside the name, then delete); Faro asks you to confirm. If it already has history, it leaves the list but the history stays saved. To bring it back tap the small circular arrow in the corner of [[Retirement]] and confirm."],
         tip: ["El botón de borrar solo aparece al editar, así no se toca por error. Lo mismo vale para las otras cuentas de [[Ahorros]].", "The delete button only shows while editing, so it is never tapped by mistake. The same goes for the other [[Savings]] accounts."],
         go: { screen: "vault-retiro", where: ["Libros → Retiro", "Books → Retirement"] },
@@ -1770,6 +1788,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Los filtros del Historial", "The Historial's filters"],
         sum: ["Cada combinación de filtros responde con sus propios totales.", "Every filter combination answers with its own totals."],
         what: ["Los filtros se combinan: período, categoría, tienda o servicio, cuenta, monto, origen. Los totales de la cabecera son de lo que queda a la vista, no del mes entero: cada combinación es una pregunta con su respuesta.", "Filters combine: period, category, store or service, account, amount, origin. The totals in the header belong to what stays in view, not to the whole month: every combination is a question with its answer."],
+        bubble: ["Los filtros se combinan — período, categoría, tienda, cuenta, monto, origen — y los totales de arriba son de lo que queda a la vista.", "Filters combine — period, category, store, account, amount, origin — and the totals on top belong to what stays in view, not the whole month."],
         whatAlt: ["Una vista guardada guarda la lente y los filtros que tienes puestos, bajo el nombre que tú elijas. Tócala y el Historial vuelve a esa vista al instante; si ya no la necesitas, la borras aquí mismo.", "A saved view keeps the lens and the filters you have on, under a name you choose. Tap it and the History returns to that view at once; if you no longer need it, you delete it right here."],
         how: ["Arma tu pregunta con los filtros y lee el total. Si la vas a repetir, guárdala como vista con el nombre que tú quieras: tus nombres se quedan como los escribes.", "Build your question with the filters and read the total. If you will ask it again, save it as a view with any name you like: your names stay exactly as you write them."],
         tip: ["Los chips bajo la cabecera dicen qué filtros están puestos; un toque quita cada uno.", "The chips under the header say which filters are on; one tap lifts each one."],
@@ -1860,6 +1879,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Qué significa tu nota", "What your grade means"],
         sum: ["Las bandas de la nota y de dónde salen los puntos.", "The grade bands and where the points come from."],
         what: ["De 0 a 44 es frágil, de 45 a 64 por ajustar, de 65 a 79 bien encaminada y de 80 a 100 sólida. Gasto vale 30 puntos; ahorro, deudas y colchón 20 cada uno; estabilidad 10.", "0–44 is fragile, 45–64 needs tuning, 65–79 on track and 80–100 solid. Spending is worth 30 points; savings, debt and cushion 20 each; stability 10."],
+        bubble: ["De 0 a 100: frágil hasta 44, por ajustar hasta 64, bien encaminada hasta 79 y sólida desde 80.", "From 0 to 100: fragile to 44, needs tuning to 64, on track to 79 and solid from 80."],
         go: { screen: "stats", fold: "health", anchor: "health", where: ["Estudio → La salud de tu dinero → (?)", "Study → Your money's health → (?)"] },
         terms: [["Bandas", "Bands"], ["Puntos", "Points"]],
       },
@@ -2090,6 +2110,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Colchón real", "Real cushion"],
         sum: ["Cuántos meses de fijos cubre tu colchón.", "How many months of fixed bills your cushion covers."],
         what: ["Tu colchón — el saldo de tus cuentas que no está apartado para fondos que no son de emergencia, más tu [[Emergencia]] aparte — dividido entre los fijos de este mes. [[Retiro]] no cuenta como colchón.", "Your cushion — your accounts' balance that isn't set apart for non-emergency funds, plus your set-apart [[Emergency]] — divided by this month's fixed bills. [[Retirement]] does not count as cushion."],
+        bubble: ["Tu colchón: el saldo no apartado para fondos que no son de emergencia, más tu [[Emergencia]] aparte, dividido entre los fijos del mes.", "Your cushion: the balance not set apart for non-emergency funds, plus your set-apart [[Emergency]], divided by this month's fixed bills."],
         tip: ["Anota el saldo de tu cuenta o el de tu fondo en una línea de ahorro para verlo. Dónde vive el dinero de cada fondo — parte de tu saldo o aparte — se declara en [[Dónde vive tu ahorro]].", "Enter your account's or your fund's balance on a savings line to see it. Where each fund's money lives — part of your balance or apart — is declared in [[Where your savings live]]."],
         go: { screen: "stats", fold: "numeros", anchor: "kn-cushion", where: ["Estudio → Números clave", "Study → Key numbers"] },
       },
@@ -2131,6 +2152,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Gasto por persona", "Spending by person"],
         sum: ["Cuánto le diste a cada persona este año.", "What you gave each person this year."],
         what: ["Suma los gastos con nombre de persona del año que ves, de mayor a menor, y qué parte son de todo lo que gastaste. Quien borraste sigue aquí con su nombre.", "Adds up the expenses tagged with a person in the year on screen, largest first, and their share of all you spent. Someone you deleted stays here by name."],
+        bubble: ["Los gastos con nombre de persona del año en pantalla, de mayor a menor, y qué parte son de todo lo gastado.", "Expenses tagged with a person in the year on screen, largest first, and their share of everything you spent. Deleted people stay here by name."],
         go: { screen: "stats", anchor: "study-people", where: ["Estudio, abajo", "Study, bottom"] },
       },
       {
@@ -2190,6 +2212,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Ingreso contra tu promedio", "Income against your average"],
         sum: ["Lo que entró este mes comparado con tu promedio.", "What came in this month compared with your average."],
         what: ["El número es la diferencia entre lo que entró este mes y el promedio de los meses anteriores con ingresos (hasta cinco). Solo aparece cuando hay al menos dos meses para comparar y la diferencia es de 10% o más.", "The number is the gap between what came in this month and the average of the earlier months with income (up to five). It only shows with at least two months to compare and a gap of 10% or more."],
+        bubble: ["Lo que entró este mes contra tu promedio de meses anteriores: solo aparece con dos meses o más y una diferencia del 10% o más.", "This month's income against your average of earlier months: it only shows with two months or more and a gap of 10% or more."],
         tip: ["Si un cobro llega tarde, anótalo cuando llegue y el aviso se va solo.", "If a payment is late, add it when it arrives and the note goes away by itself."],
         go: { screen: "income", where: ["Libros → Ingresos", "Books → Income"] },
         terms: [["Ingreso contra tu promedio", "Income against your average"]],
@@ -2230,6 +2253,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Remesas contra tu promedio", "Remittances against your average"],
         sum: ["Lo que mandaste este mes comparado con tu promedio.", "What you sent this month compared with your average."],
         what: ["Suma tus líneas de [[Remesas]] este mes y la compara con el promedio de los meses anteriores con envío. Avisa cuando sube 20% o más, y dice qué parte de tu ingreso es.", "Adds your [[Remittances]] lines this month and compares them with the average of the earlier months with a transfer. It warns when it rises 20% or more, and says what share of your income it is."],
+        bubble: ["Tus [[Remesas]] del mes contra el promedio de meses anteriores con envío: avisa si suben 20% o más y dice qué parte de tu ingreso son.", "Your [[Remittances]] this month against the average of earlier months with a transfer: it warns at a 20% rise and says their share of your income."],
         tip: ["Un monto fijo al mes hace más fácil planear.", "A fixed monthly amount makes planning easier."],
         go: { screen: "fixed", where: ["Libros → Fijos", "Books → Fixed"] },
         terms: [["Remesas arriba", "Remittances up"]],
@@ -2414,6 +2438,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Consejo de Personas", "People advice"],
         sum: ["Un aviso antes de cada cumpleaños.", "A heads-up before each birthday."],
         what: ["Si un cumpleaños u otra fecha llega en 30 días, dice cuánto diste la vez pasada y cuánto apartar por semana. Si no, cuánto llevas en regalos este año.", "If a birthday or other date comes within 30 days, it says what you gave last time and how much to set aside weekly. If not, what gifts took this year."],
+        bubble: ["Si una fecha de alguien llega en 30 días, dice cuánto diste la vez pasada y cuánto apartar por semana; si no, tus regalos del año.", "If someone's date comes within 30 days, it says what you gave last time and what to set aside weekly; if not, your gifts this year."],
         go: { screen: "advice", anchor: "advice-people", where: ["Asesor, abajo", "Advisor, bottom"] },
       },
       {
@@ -2430,6 +2455,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Lo que dicen tus números", "What your numbers say"],
         sum: ["Reglas exactas sobre tus propios datos.", "Exact rules on your own data."],
         what: ["Cada fila es una regla calculada con tus libros, sin adivinar: el número que la respalda, una frase con las cifras y un toque que te lleva al lugar exacto.", "Each row is a rule worked out from your books, with no guessing: the number behind it, one sentence with the figures and one tap that takes you to the exact place."],
+        bubble: ["Cada fila es una regla calculada de tus libros, sin adivinar: su número, una frase con las cifras y un toque que te lleva al lugar.", "Each row is a rule worked out from your books, no guessing: its number, one sentence with the figures, and a tap to the exact place."],
         how: ["Toca una fila para ir a esa línea, libro o bolsa; Atrás te regresa al Asesor. El (?) de cada número explica cómo se calcula. Una regla sin historia suficiente no aparece.", "Tap a row to go to that line, book or pocket; Back returns you to the Advisor. Each number's (?) explains how it is worked out. A rule without enough history does not show."],
         tip: ["Las cifras entre paréntesis están en la otra moneda, a la tasa de [[Cambio]].", "Figures in brackets are in the other currency, at the [[Exchange]] rate."],
         go: { screen: "advice", anchor: "advice-rules|advice-tower", fold: "rules", where: ["Asesor → Lo que dicen tus números", "Advisor → What your numbers say"] },
@@ -2451,6 +2477,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Pagos en 14 días", "Due in 14 days"],
         sum: ["Lo que vence en las próximas dos semanas.", "What falls due in the next two weeks."],
         what: ["Suma los pagos con fecha de los próximos 14 días: el pago mínimo de cada tarjeta y las cuotas o cuentas con fecha. Arriba, la parte que vence en 7 días.", "Adds up the dated payments of the next 14 days: each card's minimum payment and the dated plans or bills. Above, the part due within 7 days."],
+        bubble: ["Los pagos con fecha de los próximos 14 días: el mínimo de cada tarjeta y las cuotas con fecha. Arriba, lo que vence en 7 días.", "The dated payments of the next 14 days: each card's minimum and the dated plans. Above, the part due within 7 days."],
         go: { screen: "advice", anchor: "advice-rules|advice-tower", fold: "rules", where: ["Asesor → Lo que dicen tus números", "Advisor → What your numbers say"] },
       },
       {
@@ -2459,6 +2486,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Categoría que subió", "Category that rose"],
         sum: ["Este mes contra tu promedio de 3 meses.", "This month against your 3-month average."],
         what: ["Compara cada categoría con su promedio de los 3 meses anteriores (con al menos 2 con datos). Solo avisa si subió 25% o más y más de 3% de lo que entra.", "Compares each category with its average of the 3 previous months (at least 2 with data). It only warns when it rose 25% or more and over 3% of income."],
+        bubble: ["Cada categoría contra su promedio de los 3 meses anteriores: avisa solo si subió 25% o más y más del 3% de lo que entra.", "Each category against its average of the 3 previous months: it warns only at a 25% rise that is also over 3% of income."],
         go: { screen: "advice", anchor: "advice-rules|advice-tower", fold: "rules", where: ["Asesor → Lo que dicen tus números", "Advisor → What your numbers say"] },
       },
       {
@@ -2467,6 +2495,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Fuera de lo normal", "Out of the ordinary"],
         sum: ["Una línea muy por encima de lo usual.", "One line far above its usual."],
         what: ["Compara cada línea con su mediana de los últimos 6 meses (al menos 2). Avisa si este mes es 1,5 veces lo normal o más; el número es lo que pasó de lo normal.", "Compares each line with its median of the last 6 months (at least 2). It warns when this month is 1.5 times its usual or more; the number is how much it went over."],
+        bubble: ["Cada línea contra su mediana de los últimos 6 meses: avisa si este mes llega a 1,5 veces lo normal; el número es lo que pasó.", "Each line against its median of the last 6 months: it warns when this month reaches 1.5 times the usual; the number is the excess."],
         go: { screen: "advice", anchor: "advice-rules|advice-tower", fold: "rules", where: ["Asesor → Lo que dicen tus números", "Advisor → What your numbers say"] },
       },
       {
@@ -2501,6 +2530,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Tu Asesor en Esencial", "Your Advisor in Essential"],
         sum: ["Lo que tu Asesor te dice en dinero y en llano.", "What your Advisor tells you in money and plain words."],
         what: ["En [[Esencial]] el [[Asesor]] habla de lo esencial: tu [[Puedes gastar hoy]], los vencimientos de los dos lados, los gastos que más pesaron y la ruta de su Plan. Sin maquinaria: dinero, fechas y pasos.", "In [[Essential]] the [[Advisor]] speaks of essentials: your [[What you can spend today]], due dates on both sides, the expenses that weighed most and its Plan's route. No machinery: money, dates and steps."],
+        bubble: ["En [[Esencial]] el [[Asesor]] habla de lo esencial: tu [[Puedes gastar hoy]], los vencimientos y los gastos que más pesaron, sin maquinaria.", "In [[Essential]] the [[Advisor]] speaks of essentials: your [[What you can spend today]], due dates and the expenses that weighed most. No machinery."],
         how: ["Léelo en el [[Asesor]]: cada aviso nace de un movimiento tuyo y puede mostrarte cuál. Si tu uso pide más, te sugerirá subir de modo; nunca cambia el modo por su cuenta.", "Read it in the [[Advisor]]: every notice is born from a movement of yours and can show you which. If your use asks for more, it will suggest moving up a mode; it never changes the mode by itself."],
         tip: ["Su deber no cambia con el modo: si algo es esencial, no se queda callado en ninguno.", "Its duty does not change with the mode: if something is essential, it stays silent in none."],
         go: { screen: "advice", where: ["Estudio → Asesor", "Study → Advisor"] },
@@ -2840,6 +2870,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Historial", "History"],
         sum: ["Cada envío a esa persona, del más nuevo al más viejo.", "Every transfer to that person, newest first."],
         what: ["La fecha, el concepto y el libro ([[Fijos]] o [[Variables]]); a la derecha el monto en la moneda en que lo anotaste y debajo su valor en la otra a tu tasa. El número de arriba cuenta los envíos.", "The date, the item and the book ([[Fixed]] or [[Variable]]); on the right the amount in the currency you recorded it in and below its value in the other at your rate. The number at the top counts the transfers."],
+        bubble: ["Cada envío con su fecha, concepto y libro; el monto en su moneda y debajo su valor en la otra. Arriba, cuántos envíos van.", "Each transfer with its date, item and book; the amount in its own currency and below its value in the other. On top, the count."],
         go: { screen: "variable", anchor: "book-remit|book-people", where: ["Libros → Variables, Remesas", "Books → Variable, Remittances"] },
       },
       {
@@ -2878,6 +2909,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Fecha de inicio", "Start date"],
         sum: ["Cuándo empezaste con esta aseguradora.", "When you started with this insurer."],
         what: ["La fecha en que comenzó tu seguro. Con ella, la tarjeta cuenta los meses que llevas y suma las primas que ya anotaste desde ese día. Es opcional y es tu dato: Faro no inventa ninguna.", "The date your insurance began. With it, the card counts the months you have had it and adds up the premiums you already filed since that day. It is optional and it is your data: Faro invents none."],
+        bubble: ["La fecha en que empezó tu seguro: con ella la tarjeta cuenta tus meses y suma las primas ya anotadas. Es opcional; Faro no inventa ninguna.", "The date your insurance began: with it the card counts your months and adds the premiums already filed. Optional — Faro invents none."],
         go: { screen: "settings", fold: "structure", anchor: "aj-catalog", where: ["Ajustes → Estructura → catálogo", "Settings → Structure → catalogue"] },
       },
       {
@@ -3012,6 +3044,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Copias de seguridad", "Backups"],
         sum: ["Faro guarda una copia de tus libros cada día.", "Faro saves a copy of your books every day."],
         what: ["Una vez al día Faro guarda una copia comprimida en este equipo y en la nube (tu cuenta en línea). Se guardan las de 7 días aquí y 14 en la nube.", "Once a day Faro saves a compressed copy on this device and in the cloud (your online account). It keeps 7 days here and 14 in the cloud."],
+        bubble: ["Una vez al día Faro guarda una copia comprimida en este equipo y en la nube. Se guardan 7 días aquí y 14 en la nube.", "Once a day Faro saves a compressed copy on this device and in the cloud: 7 days kept here, 14 in the cloud."],
         how: ["Guardar copia ahora hace una al momento. Toca Restaurar en una copia para volver a ella.", "Save a copy now makes one right away. Tap Restore on a copy to go back to it."],
         tip: ["Antes de restaurar, Faro guarda una copia de hoy por si cambias de idea.", "Before restoring, Faro saves today's copy in case you change your mind."],
         go: { screen: "settings", fold: "backup", anchor: "aj-backup", where: ["Ajustes → Copias de seguridad", "Settings → Backups"] },
@@ -3037,6 +3070,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Copia que no se aplicó", "Copy that was not applied"],
         sum: ["Recupera la versión que perdió en un choque.", "Recover the version that lost in a clash."],
         what: ["Si este dispositivo tenía cambios sin subir y en la nube había una versión más nueva, Faro abre la de la nube y guarda la de este dispositivo aparte. Este botón la trae de vuelta.", "If this device had changes that were not uploaded and the cloud had a newer version, Faro opens the cloud one and keeps this device's copy aside. This button brings it back."],
+        bubble: ["Si este equipo tenía cambios sin subir y la nube traía una versión más nueva, Faro guarda tu copia aparte. Este botón la trae de vuelta.", "If this device had unsent changes and the cloud held a newer version, Faro keeps your copy aside. This button brings it back."],
         how: ["El botón aparece en [[Ajustes]] → Copias de seguridad solo cuando hay una copia guardada así. Al tocarlo, Faro pregunta antes. Si dices que sí, esa copia reemplaza todos tus libros de ahora y se sube como la versión nueva.", "The button shows in [[Settings]] → Backups only when such a copy exists. When you tap it, Faro asks first. If you say yes, that copy replaces all your current books and is uploaded as the new version."],
         tip: ["Se reemplaza todo, no se mezcla: lo que anotaste después en otro dispositivo se pierde. Si dudas, toca antes Guardar copia ahora en [[Copias de seguridad]]. La copia aparte vive solo en este dispositivo.", "Everything is replaced, nothing is merged: what you entered later on another device is lost. If unsure, first tap Save a copy now in [[Backups]]. The set-aside copy lives only on this device."],
         go: { screen: "settings", fold: "backup", anchor: "aj-backup", where: ["Ajustes → Copias de seguridad", "Settings → Backups"] },
@@ -3068,6 +3102,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Importar movimientos", "Import transactions"],
         sum: ["Trae lo de tu banco sin escribirlo.", "Bring in your bank's entries without typing."],
         what: ["Trae los movimientos de tu banco desde el PDF del estado mensual o un archivo CSV, QFX, OFX o QIF. Antes de guardar ves cada uno, con duplicados y transferencias marcados.", "Brings in your bank's entries from the monthly statement PDF or a CSV, QFX, OFX or QIF file. Before saving you see each one, with duplicates and transfers marked."],
+        bubble: ["Trae los movimientos de tu banco desde el PDF o un CSV, QFX, OFX o QIF. Antes de guardar ves cada uno, con duplicados marcados.", "Brings in your bank's entries from the statement PDF or a CSV, QFX, OFX or QIF file. Before saving you see each one, duplicates marked."],
         how: ["[[Ajustes]] → Importar movimientos, o Importar del banco al final de [[Libros]]. Elige uno o varios archivos, revisa y toca Importar. En la revisión eliges la moneda de cada archivo (US$ o C$); cada monto entra en esa moneda, en el libro de su mes.", "[[Settings]] → Import transactions, or Import from bank at the end of [[Books]]. Pick one or several files, review and tap Import. In the review you pick each file's currency (US$ or C$); each amount goes in in that currency, in the book of its month."],
         tip: ["Un solo [[Deshacer]] en el aviso quita toda la importación. Si importas el mismo mes otra vez, no se agrega nada repetido.", "A single [[Undo]] on the notice removes the whole import. If you import the same month again, nothing repeated is added."],
         go: { screen: "settings", anchor: "aj-import", where: ["Ajustes → Importar movimientos", "Settings → Import transactions"] },
@@ -3098,6 +3133,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Editar los bancos", "Edit the banks"],
         sum: ["Tus bancos en el importador.", "Your banks in the importer."],
         what: ["El engranaje abre la lista: quita un banco con la X roja, ordénalos con las flechas o añade el tuyo con nombre, un ícono pequeño y sus pasos para descargar. Al tocar tu banco, Faro te muestra esos pasos.", "The gear opens the list: remove a bank with the red X, reorder with the arrows, or add your own with a name, a small icon and its download steps. Tap your bank and Faro shows those steps."],
+        bubble: ["El engranaje abre tu lista de bancos: quita con la X, ordena con las flechas o añade el tuyo con sus pasos para descargar.", "The gear opens your bank list: remove with the X, reorder with the arrows, or add your own with its download steps."],
         how: ["El botón % de un banco tuyo abre la misma ficha de Bancos y recompensas: Todo lo demás, + Categoría. Al guardar, la tarjeta queda allí con sus tasas.", "The % button on your own bank opens the same form as Banks and rewards: Everything else, + Category. On save, the card lands there with its rates."],
         tip: ["La flecha circular de la esquina vuelve a Chase, Wells Fargo y PayPal tras confirmar. Las tarjetas que creaste siguen en Bancos y recompensas.", "The circular arrow in the corner brings back Chase, Wells Fargo and PayPal after you confirm. Cards you made stay in Banks and rewards."],
         go: { screen: "settings", anchor: "aj-import", where: ["Ajustes → Importar movimientos", "Settings → Import transactions"] },
@@ -3118,6 +3154,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Descargar de Wells Fargo", "Download from Wells Fargo"],
         sum: ["El PDF de tu tarjeta Active Cash.", "The PDF of your Active Cash card."],
         what: ["En la app o en wellsfargo.com: abre la tarjeta, Estados de cuenta, elige el mes y descárgalo. Sale en PDF. Antes era el preajuste State Farm: es la misma tarjeta.", "In the app or on wellsfargo.com: open the card, Statements, pick the month and download it. It comes as a PDF. It used to be the State Farm preset: same card."],
+        bubble: ["En la app o en wellsfargo.com: la tarjeta, Estados de cuenta, el mes, y descárgalo en PDF. Antes era State Farm: la misma tarjeta.", "In the app or at wellsfargo.com: open the card, Statements, pick the month and download the PDF. It used to be State Farm: same card."],
         how: ["Su reverso es una imagen sin texto: Faro lo salta y te avisa. En la computadora, Descargar actividad también da QFX o CSV.", "Its back page is a picture with no text: Faro skips it and tells you. On a computer, Download Activity also gives QFX or CSV."],
         go: { screen: "settings", anchor: "aj-import", where: ["Ajustes → Importar movimientos", "Settings → Import transactions"] },
         terms: [["State Farm", "State Farm"], ["Active Cash", "Active Cash"]],
@@ -3296,6 +3333,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Estado de cuenta PDF", "Statement PDF"],
         sum: ["El PDF mensual, revisado contra su resumen.", "The monthly PDF, checked against its summary."],
         what: ["Faro lee el PDF mensual de Chase, Wells Fargo, PayPal y PayPal Ahorros en este equipo y suma sus filas contra el resumen del propio estado. Cuadra con el resumen: no falta ningún movimiento.", "Faro reads the monthly PDF from Chase, Wells Fargo, PayPal and PayPal Savings on this device and adds up its rows against the statement's own summary. Matches the summary: no entry is missing."],
+        bubble: ["Faro lee en tu equipo el PDF mensual de Chase, Wells Fargo, PayPal y PayPal Ahorros, y cuadra sus filas contra el resumen del estado.", "Faro reads the monthly PDF from Chase, Wells Fargo, PayPal and PayPal Savings on this device and matches its rows against the statement's own summary."],
         how: ["Una página que es imagen, sin texto, se salta con un aviso: revísala a mano. CSV o QFX siguen siendo más exactos.", "A page that is a picture, with no text, is skipped with a notice: check it by hand. CSV or QFX are still more exact."],
         go: { screen: "settings", anchor: "aj-import", where: ["Ajustes → Importar movimientos", "Settings → Import transactions"] },
         terms: [["PDF", "PDF"], ["Estado mensual", "Monthly statement"]],
@@ -3306,6 +3344,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["PayPal Ahorros", "PayPal Savings"],
         sum: ["Su saldo, en un bolsillo de Ahorros.", "Its balance, in a Savings pocket."],
         what: ["Al importar el estado de PayPal Ahorros, su saldo final va a un bolsillo morado en [[Ahorros]], con el APY en la nota. Si no existe, Faro lo crea; apaga la casilla para no llevarlo.", "When you import the PayPal Savings statement, its closing balance goes to a purple pocket in [[Savings]], with the APY in the note. If it does not exist Faro creates it; turn the box off to skip it."],
+        bubble: ["Al importar PayPal Ahorros, su saldo final va a un bolsillo morado en [[Ahorros]] con el APY en la nota. Apaga la casilla para no llevarlo.", "Importing PayPal Savings sends its closing balance to a purple pocket in [[Savings]], APY in the note. Turn the box off to skip it."],
         how: ["Mover dinero entre PayPal y Ahorros es transferencia, nunca gasto ni ingreso. Los intereses sí son ingreso.", "Moving money between PayPal and Savings is a transfer, never spending or income. The interest is income."],
         go: { screen: "settings", anchor: "aj-import", where: ["Ajustes → Importar movimientos", "Settings → Import transactions"] },
       },
@@ -3752,6 +3791,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Cuándo pide la huella", "When it asks for your fingerprint"],
         sum: ["Al abrir Faro y al volver de otra app.", "When Faro opens and when you come back from another app."],
         what: ["Faro pide la huella al abrirse y cuando vuelves después de salir más de 10 segundos. Si estabas trabajando, te da hasta 5 minutos.", "Faro asks for your fingerprint when it opens and when you come back after leaving for more than 10 seconds. If you were working, it gives you up to 5 minutes."],
+        bubble: ["Faro pide la huella al abrirse y al volver tras salir más de 10 segundos; si estabas trabajando, te da hasta 5 minutos.", "Faro asks for your fingerprint when it opens and when you return after more than 10 seconds away; if you were working, up to 5 minutes."],
         tip: ["Elegir una foto o un archivo desde Faro no cuenta como salir.", "Picking a photo or file from inside Faro does not count as leaving."],
         terms: [["Bloquear", "Lock"], ["Volver", "Come back"]],
       },
@@ -3761,6 +3801,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["App de Faro para Android", "Faro app for Android"],
         sum: ["Faro como app propia en tu teléfono o tableta Android.", "Faro as its own app on your Android phone or tablet."],
         what: ["Es el mismo Faro, siempre al día, dentro de una app con su ícono. Guarda sus datos aparte del navegador, así que borrar los datos de Chrome ya no la toca. Funciona sin internet después de abrirla una vez.", "It is the same Faro, always up to date, inside an app with its own icon. It keeps its data apart from the browser, so clearing Chrome's data no longer touches it. It works offline after you open it once."],
+        bubble: ["El mismo Faro en una app con su ícono: sus datos viven aparte del navegador y funciona sin internet tras abrirla una vez.", "The same Faro in an app with its own icon: its data lives apart from the browser and it works offline after one open."],
         how: ["En Android, abre [[Ajustes]] → Instalar app Android y descarga Faro.apk. Ábrelo e instala; Android puede pedirte permitir instalar apps de Chrome. Luego entra con tu cuenta: tus libros vuelven solos con la sincronización.", "On Android, open [[Settings]] → Install the Android app and download Faro.apk. Open it and install; Android may ask you to allow installing apps from Chrome. Then sign in: your books come back by themselves through sync."],
         tip: ["La app empieza vacía porque no comparte datos con el navegador. Antes de cambiarte, revisa que el [[Punto de sincronización]] diga En la cuenta. La huella se activa otra vez dentro de la app. Lo que exportes (Excel, PDF, copias) va a Descargas › Faro. Cuando hay una versión nueva de la app, ella misma te ofrece instalarla.", "The app starts empty because it does not share data with the browser. Before switching, check that the [[Sync dot]] says In your account. Turn fingerprint unlock on again inside the app. What you export (Excel, PDF, backups) goes to Downloads › Faro. When a new version of the app is ready, the app offers to install it."],
         terms: [["APK", "APK"], ["Instalar", "Install"], ["Teléfono", "Phone"], ["Tableta", "Tablet"]],
@@ -3784,6 +3825,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Avisos", "Notifications"],
         sum: ["Faro avisa de vencimientos, del ritmo de gasto y del cierre del mes.", "Faro warns about due dates, spending pace and the month's close."],
         what: ["Con la app de Android, Faro puede avisar en el teléfono: lo que vence pronto, si el gasto va muy rápido y cómo cerró el mes. En la web no hay avisos: llegan solo con la app.", "With the Android app, Faro can notify on the phone: what is due soon, if spending runs too fast and how the month closed. On the web there are no notifications: they come only with the app."],
+        bubble: ["Con la app de Android, Faro avisa en el teléfono: vencimientos, gasto rápido y el cierre del mes. En la web no hay avisos.", "With the Android app, Faro notifies on your phone: due dates, fast spending and the month's close. On the web there are none."],
         how: ["En [[Ajustes]] → Avisos enciendes o apagas. La línea bajo el título dice el estado real; si el teléfono no los permite todavía, toca Pedir permiso.", "In [[Settings]] → Notifications you turn them on or off. The line under the title says the real state; if the phone does not allow them yet, tap Ask permission."],
         go: { screen: "settings", anchor: "aj-notify", where: ["Ajustes → Avisos", "Settings → Notifications"] },
         terms: [["Notificaciones", "Notifications"], ["Permiso", "Permission"], ["Vencimientos", "Due dates"]],
@@ -3885,8 +3927,15 @@ export function pick(lang: string, pair: L): string {
 
 /** Bubble text: the topic's short `bubble` when it carries one; else `what`, or `whatAlt` in the alternate state. */
 export function bubbleText(topic: Topic, lang: string, alt = false): string {
+  // El texto alt es de SU asiento (p. ej. la ventana de vistas guardadas):
+  // manda en su contexto aunque el tema lleve burbuja breve. Antes la
+  // burbuja de la 1.3.338 lo tapaba en silencio en los temas con ambos
+  // campos (apartado-mes, folios-filtros, seguro-vida, widget-android);
+  // la cerca de ayudavistas266 lo cazó al entrar folios-filtros en la
+  // clase en la 1.3.341.
+  if (alt && topic.whatAlt) return pick(lang, topic.whatAlt);
   if (topic.bubble) return pick(lang, topic.bubble);
-  return pick(lang, alt && topic.whatAlt ? topic.whatAlt : topic.what);
+  return pick(lang, topic.what);
 }
 
 /** Plain text of a topic for search ([[ ]] stripped). */

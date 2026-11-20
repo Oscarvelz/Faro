@@ -39,6 +39,12 @@ const BARE_OK: ReadonlyArray<readonly [string, string, 0 | 1, string, number]> =
   ["imp-pdf", "what", 1, "Savings", 1],
   ["imp-ahorros-paypal", "what", 0, "Ahorros", 1],
   ["imp-ahorros-paypal", "what", 1, "Savings", 1],
+  // La misma razón en las burbujas breves de la 1.3.341: «PayPal Ahorros» /
+  // «PayPal Savings» es el producto del banco, no el libro de Faro.
+  ["imp-pdf", "bubble", 0, "Ahorros", 1],
+  ["imp-pdf", "bubble", 1, "Savings", 1],
+  ["imp-ahorros-paypal", "bubble", 0, "Ahorros", 1],
+  ["imp-ahorros-paypal", "bubble", 1, "Savings", 1],
   // «separated into Income and Expense»: las etiquetas de los grupos por signo de la búsqueda
   // de fijas (1.3.267), no el libro Ingresos.
   ["widget-android", "whatAlt", 1, "Income", 1],

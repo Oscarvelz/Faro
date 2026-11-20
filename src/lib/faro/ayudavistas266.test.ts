@@ -74,8 +74,12 @@ describe("la ayuda de Vistas guardadas: el tema que la cubre y su referencia", (
     assert.match(tp.whatAlt![1], /keeps the lens and the filters/, "dice qué guarda una vista (EN)");
     assert.match(tp.whatAlt![1], /returns to that view at once/, "dice que un toque la reaplica (EN)");
     assert.match(tp.whatAlt![1], /delete it right here/, "dice dónde se borra (EN)");
-    // La burbuja sin alt sigue siendo la de los filtros: el (?) de este tema en su estado base no cambia.
-    assert.equal(bubbleText(tp, "es"), tp.what[0], "sin alt, la burbuja sigue siendo el `what` de los filtros");
+    // La burbuja sin alt es la de los filtros. ENMIENDA 1.3.341: esta
+    // cerca nació cuando el tema no llevaba burbuja breve y su burbuja
+    // ERA el `what`; la segunda pasada de las ayudas breves le escribió
+    // su burbuja propia, y la sin-alt es ahora esa — el asiento alt de
+    // las vistas, intacto arriba, es el que no cambia.
+    assert.equal(bubbleText(tp, "es"), tp.bubble![0], "sin alt, la burbuja es la breve de los filtros (1.3.341)");
   });
 
   it("la referencia existe porque el tema es de manual: «Más en el manual →» aterriza en folios-filtros", () => {

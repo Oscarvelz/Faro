@@ -6,6 +6,10 @@
 // en 49 temas cuyo what pasa de 40 palabras. Esta cerca fija la clase: un
 // what largo SIN burbuja propia corre rojo al nacer, y toda burbuja es
 // breve (≤ 26 palabras por idioma, con sus marcas [[ ]] en regla).
+// ENMIENDA 1.3.341 (la segunda pasada de la misma caza): la banda 31–40
+// palabras (42 temas) ganó su burbuja escrita para la burbuja, y la línea
+// de la cerca baja de >40 a >30 — la clase que queda sin burbuja es la
+// banda 27–30, declarada como la siguiente pasada de la caza.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MANUAL_TOPICS, bubbleText } from "../manual/topics.ts";
@@ -13,8 +17,8 @@ import { MANUAL_TOPICS, bubbleText } from "../manual/topics.ts";
 const words = (s: string) => s.replace(/\[\[|\]\]/g, "").split(/\s+/).filter(Boolean).length;
 
 describe("las ayudas breves — la burbuja no lee el Manual", () => {
-  it("todo tema con un what largo (>40 palabras) lleva su burbuja breve", () => {
-    const missing = MANUAL_TOPICS.filter((tp) => Math.max(words(tp.what[0]), words(tp.what[1])) > 40 && !tp.bubble).map((tp) => tp.id);
+  it("todo tema con un what largo (>30 palabras) lleva su burbuja breve", () => {
+    const missing = MANUAL_TOPICS.filter((tp) => Math.max(words(tp.what[0]), words(tp.what[1])) > 30 && !tp.bubble).map((tp) => tp.id);
     assert.deepEqual(missing, [], `temas con el «Qué es» entero por burbuja: ${missing.join(", ")}`);
   });
 

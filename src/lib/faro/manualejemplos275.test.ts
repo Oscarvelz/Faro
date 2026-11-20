@@ -106,10 +106,13 @@ describe("manual con ejemplos: las burbujas no se tocaron (enmendado en 1.3.338)
   // burbuja propia a los temas cuyo `what` pasa de 40 palabras, y dos de
   // los 15 están en esa clase. La ley de las burbujas vive ahora en
   // ayudabreve.test.ts; aquí queda el registro: solo esos dos la llevan.
-  it("de los 15 temas, solo oportunidad y seguro-vida llevan la burbuja breve de la 338", () => {
+  // ENMIENDA 1.3.341 (la segunda pasada de la caza): la banda 31–40 ganó
+  // su burbuja y balance-neto — uno de los 15, con su what de 33 — entró
+  // en la clase; el registro crece a tres, con la misma ley.
+  it("de los 15 temas, solo oportunidad, seguro-vida y balance-neto llevan burbuja breve", () => {
     const touched = [...ADD.map(([id]) => id), ...IMPROVE.map(([id]) => id)];
     assert.equal(touched.length, 15);
     const withBubble = touched.filter((id) => findTopic(id)?.bubble);
-    assert.deepEqual(withBubble.sort(), ["oportunidad", "seguro-vida"]);
+    assert.deepEqual(withBubble.sort(), ["balance-neto", "oportunidad", "seguro-vida"]);
   });
 });
