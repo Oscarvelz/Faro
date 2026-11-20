@@ -964,9 +964,16 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
 
   return (
     <section className={`card income-book${menu ? " is-menu" : ""}`} data-anchor="book-card" data-book={bookName}>
-      <div className="row income-head" style={{ justifyContent: "space-between" }}>
-        <h2 className="serif text-2xl lab-head">{title}<Hint topic="libro-categoria" fitParent /></h2>
-        <span className="row">
+      {/* Oscar (2026-11-20, con su dibujo y su precisión de la 01:40): el
+          encabezado vive en DOS líneas — el título con el «+» soberano en su
+          esquina, acompañado SOLO por la monedita (es pequeña y no ocupa
+          espacio), y debajo una línea propia para el filtro y el lápiz, a la
+          izquierda y con aire, sobre la banda del mes. La línea de
+          herramientas solo existe cuando alguna de las dos vive. */}
+      <div className="income-head">
+        <div className="row income-head-top" style={{ justifyContent: "space-between" }}>
+          <h2 className="serif text-2xl lab-head">{title}<Hint topic="libro-categoria" fitParent /></h2>
+          <span className="row">
           {ui.draft === draftKind && !ui.editing ? (
             <button type="button" className="copper-coin" data-anchor="book-coin" aria-label={money === "USD" ? "USD" : "NIO"} onClick={() => {
               // Oscar (2026-11-20): la moneda de un libro no cambia de un toque —
@@ -986,6 +993,24 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
               {money === "USD" ? "$" : "C$"}
             </button>
           ) : null}
+          <button type="button" data-anchor="book-add" className="plus-mark" aria-label={t("add")} aria-pressed={ui.draft === draftKind} onClick={() => setUi({ draft: ui.draft === draftKind ? null : draftKind, editing: null })}>
+            <svg viewBox="0 0 32 32" aria-hidden>
+              <defs>
+                <radialGradient id={`faro-plus-${draftKind}`} cx="32%" cy="28%" r="72%">
+                  <stop offset="0%" stopColor="#fff6d8" />
+                  <stop offset="42%" stopColor="#e4c27a" />
+                  <stop offset="100%" stopColor="#8a6118" />
+                </radialGradient>
+              </defs>
+              <circle cx="16" cy="16" r="15" fill={`url(#faro-plus-${draftKind})`} />
+              <circle cx="16" cy="16" r="13.2" fill="none" stroke="#6a4c12" strokeWidth="0.6" />
+              <path d="M16 9.2v13.6M9.2 16h13.6" stroke="#3a280c" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+          </button>
+          </span>
+        </div>
+        {(canFilter && (asCloud || asDrift) && present.length > 0) || kitRows.length > 0 ? (
+        <div className="book-tools">
           {/* Oscar (2026-11-20): el icono de filtro no puede desaparecer de
               Gastos Fijos/Variables cuando el mes tiene líneas de una sola
               categoría — es residente del encabezado mientras haya qué
@@ -1002,21 +1027,8 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
             onRename={(id, name) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { concept: name }), name); }}
             onColor={(id, hex) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { color: hex }), l.concept || "color"); }}
             onIcon={(id, glyph) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { icon: glyph }), l.concept || "icon"); }} />
-          <button type="button" data-anchor="book-add" className="plus-mark" aria-label={t("add")} aria-pressed={ui.draft === draftKind} onClick={() => setUi({ draft: ui.draft === draftKind ? null : draftKind, editing: null })}>
-            <svg viewBox="0 0 32 32" aria-hidden>
-              <defs>
-                <radialGradient id={`faro-plus-${draftKind}`} cx="32%" cy="28%" r="72%">
-                  <stop offset="0%" stopColor="#fff6d8" />
-                  <stop offset="42%" stopColor="#e4c27a" />
-                  <stop offset="100%" stopColor="#8a6118" />
-                </radialGradient>
-              </defs>
-              <circle cx="16" cy="16" r="15" fill={`url(#faro-plus-${draftKind})`} />
-              <circle cx="16" cy="16" r="13.2" fill="none" stroke="#6a4c12" strokeWidth="0.6" />
-              <path d="M16 9.2v13.6M9.2 16h13.6" stroke="#3a280c" strokeWidth="1.7" strokeLinecap="round" />
-            </svg>
-          </button>
-        </span>
+        </div>
+        ) : null}
       </div>
       {has("vault.span-cut") ? <SpanCut kinds={kinds} span={span} onSpan={setSpan} /> : null}
       {canFilter && (asCloud || asDrift) && filterOpen ? (

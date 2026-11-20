@@ -149,16 +149,24 @@ describe("la luz de naturaleza (ventanas, 2026-11-16)", () => {
     assert.match(screens, /t\("desk\.savings\.thisMonth"\)/);
   });
 
-  it("la barra segmentada de Tron nace centrada: ambos extremos cortan por igual", () => {
-    // Oscar, 2026-11-16: la barra de Emergencia «está movida a la derecha de
-    // modo que pega en la caja». El patrón se anclaba a la izquierda y el
-    // sobrante del período caía entero a la derecha; pista y carga llevan el
-    // mismo centro para cortar parejo sin perder la fase entre ellas.
+  it("la barra segmentada de Tron: pista y carga comparten el ancla de la caja de contenido", () => {
+    // Oscar, 2026-11-16 y 2026-11-19: la barra de Emergencia «está movida a
+    // la derecha». La cura de entonces (background-position: center en pista
+    // y carga) era un NO-OP: en un gradiente que se repite la imagen llena el
+    // área y no hay nada que desplazar — la .332 midió la CAJA centrada y la
+    // dio por curada. Oscar la reportó por tercera vez sobre la .333
+    // (2026-11-20): la fase real acusaba a las celdas, no a la caja. La carga
+    // ancla su patrón en su borde izquierdo (= el borde de la caja de
+    // contenido); la pista anclaba en la caja de RELLENO, 3px antes — media
+    // celda fuera de fase, y la pastilla vacía nacía con la primera celda
+    // cortada. Medido en el banco a ×3: con el origen por defecto la primera
+    // celda es un filo; con background-origin: content-box nace entera, en
+    // fase con la carga. Esta cerca se reescribe para juzgar la ley nueva:
+    // el ancla compartida vive, y el «centro» fantasma no vuelve.
     const tron = read("../../components/faro/tron.css");
-    const centers = tron.match(/background-position:\s*center 0 !important/g) ?? [];
-    assert.equal(centers.length, 2, "pista y carga centran su patrón");
     const gauges = tron.slice(tron.indexOf(".save-seg b {", tron.indexOf("energy gauge")));
-    assert.ok(gauges.indexOf("background-position: center 0") > gauges.indexOf("repeating-linear-gradient"), "el centro vive en las reglas del medidor");
+    assert.ok(gauges.includes("background-origin: content-box !important"), "la pista ancla en la caja de contenido, el mismo borde que la carga (con !important: el shorthand !important de la regla pisaba la longhand normal — el recorte de la .332 nunca se aplicó)");
+    assert.ok(!gauges.includes("background-position: center 0 !important"), "el centro fantasma (un no-op en gradientes repetidos) no vive en el medidor");
   });
 
   it("nombre + luz: una unidad que no se parte a ningún ancho de tarjeta", () => {

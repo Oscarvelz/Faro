@@ -2932,15 +2932,18 @@ html:is([data-theme="claro"], [data-theme="costa"], [data-theme="marfil"], [data
 }
 /* Card heads ("Ingresos variables" + gold plus): the title wraps inside its own column instead of pushing the plus onto a
    line of its own. Only changes heads that would otherwise wrap. */
-.card > .income-head { flex-wrap: nowrap; }
-.card > .income-head > h2 { min-width: 0; text-wrap: balance; }
-/* 1.3.252: fix5 stopped the HEAD from wrapping but not the GROUP. The corner group is a generic .row span — a wrapping
-   flex container and a shrinkable flex item — so when the title claims the width it needs for its second line, the
-   shared flex shrink takes width from the group too, and the group wraps INSIDE itself: the + drops under the pencil
-   (Oscar's photos, 2026-11-13; reproduced on the bench at large-text roots, closed and with the editor open). The law:
-   the actions never leave their corner — the group is flex:none and nowrap, and the title (min-width: 0, above) is
-   the only item that yields. Same shape the house already uses for .rp-tools (remit-people.css). */
-.card > .income-head > .row { flex: none; flex-wrap: nowrap; }
+/* 1.3.335 (Oscar, 2026-11-20, con su dibujo): el encabezado dejó de ser una
+   fila con un grupo en la esquina — ahora es un bloque de dos líneas: la del
+   título, con el «+» solo y soberano en su esquina, y la de las herramientas
+   debajo. La ley de la .252 sobrevive en su forma nueva: la fila del título
+   nunca envuelve, el «+» nunca encoge (flex: none) y el título (min-width: 0)
+   es el único que cede. */
+.card > .income-head > .income-head-top { flex-wrap: nowrap; }
+.card > .income-head > .income-head-top > .row { flex: none; flex-wrap: nowrap; }
+.card > .income-head h2 { min-width: 0; text-wrap: balance; }
+/* La segunda línea del encabezado: la moneda, el filtro y el lápiz viven
+   aquí, a la izquierda y con aire, sobre la banda del mes. */
+.book-tools { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 /* Line editor: the Frecuencia value ("Mensual", "Quincenal") fits beside its chevron at large text. */
 .line-edit .form-block { container-name: leform; }
 @container leform (max-width: 16.5rem) {

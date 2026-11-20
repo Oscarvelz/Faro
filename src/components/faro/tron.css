@@ -494,24 +494,31 @@ html[data-theme="tron"][data-hidden] *, html[data-theme="tron"][data-hidden] *::
 [data-theme="tron"] .save-seg b {
   height: 22px; border-radius: 2px !important;
   background: repeating-linear-gradient(90deg, color-mix(in oklab, var(--seg) 16%, #02070a) 0 5px, #02070a 5px 7px) !important;
-  /* El patrón nace centrado (Oscar, 2026-11-16): anclado a la izquierda, el
-     sobrante del período caía entero a la derecha y la barra se leía corrida
-     contra la caja; centrado, ambos extremos cortan por igual. La carga (b i)
-     lleva el mismo centro para no perder la fase con la pista. */
-  background-position: center 0 !important;
-  /* Y las celdas flotan dentro del marco (Oscar, 2026-11-19): en su teléfono la
-     pastilla de Emergencia — la vacía, sin carga que la ancle a la vista — se
-     leía pegada al borde derecho, fundida con el marco. La caja mide centrada
-     en el banco y en los píxeles de su captura, así que en vez de cazar la
-     fase de cada motor, la pista pinta solo en la caja de contenido: 3px de
-     aire oscuro entre las celdas y el marco por los cuatro lados, en todo
-     motor. El marco (la sombra interior) no se mueve. */
-  padding: 2px 3px; background-clip: content-box;
+  /* La pista y la carga comparten ancla (Oscar, 2026-11-20, su tercer
+     reporte): la carga (b i) ancla su patrón en su propio borde izquierdo,
+     que es el borde de la caja de contenido; la pista anclaba en la caja de
+     relleno (el origen por defecto), 3px más a la izquierda — media celda
+     fuera de fase: la pastilla vacía nacía con la primera celda cortada y
+     se leía corrida contra las llenas, que nacen enteras. El remedio de la
+     .332 (pintar solo en la caja de contenido) dejó el ancla donde estaba.
+     background-origin: content-box pone el ancla de la pista en el mismo
+     borde que la carga: misma fase en todo motor y a todo ancho, probada
+     celda a celda en el banco. El «background-position: center» que vivía
+     aquí y en la carga era un no-op para gradientes que se repiten (la
+     imagen llena el área; no hay nada que desplazar): por eso la barra
+     «medía centrada» y seguía corrida. Y una capa más del mismo defecto,
+     hallada al probar esta cura en el navegador: el shorthand background
+     de esta regla es !important, así que sus valores implícitos de clip y
+     origen pisaban las longhands normales — el recorte a la caja de
+     contenido de la .332 NUNCA se aplicó; por eso clip y origen llevan
+     aquí su propio !important. Las celdas flotan dentro del marco — la
+     pintura se recorta a la caja de contenido, 3px de aire por lado — y
+     el marco (la sombra interior) no se mueve. */
+  padding: 2px 3px; background-clip: content-box !important; background-origin: content-box !important;
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 35%, transparent) !important;
 }
 [data-theme="tron"] .save-seg b i {
   background: repeating-linear-gradient(90deg, var(--seg) 0 5px, transparent 5px 7px) !important;
-  background-position: center 0 !important;
   /* La carga respira con la pista: mismos 3px de aire a los lados y abajo, y
      su techo nunca invade el aire de arriba (una carga al 100% se detiene a
      2px del marco, como la pista). */
