@@ -50,7 +50,9 @@ import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
 import WidgetHost from "./widget-host";
 import { PeopleInbox } from "./people";
-import { BankDock, importToast } from "./bank-dock";
+import { BankDock, importToast, newsCard } from "./bank-dock";
+import { FARO_VERSION } from "@/lib/faro/build-version";
+import { announcementFor } from "@/lib/faro/novedades";
 import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
 import { LockOffer } from "@/spa/lockoffer";
@@ -984,6 +986,35 @@ export function Shell() {
   useEffect(() => {
     if (ready && session) window.dispatchEvent(new Event("faro:shell-ready"));
   }, [ready, !!session]);
+
+  /* Novedades (1.3.346, Oscar): al abrir tras una actualización, la app
+   * compara su versión con la última que ESTE teléfono ya vio
+   * (faro-news-seen, estado del aparato, no del libro). Una instalación
+   * nueva se marca vista en silencio — nada es «nuevo» para quien
+   * llega. Si entre lo no visto hay una nota grande, se anuncia UNA
+   * vez con la tarjeta; las menores viven en Ajustes sin interrumpir.
+   * Funciona igual si la actualización llegó por la web, sin APK. */
+  const newsChecked = useRef(false);
+  useEffect(() => {
+    if (!ready || !session || newsChecked.current) return;
+    newsChecked.current = true;
+    let seen: string | null = null;
+    try { seen = localStorage.getItem("faro-news-seen"); } catch { /* sin almacenamiento */ }
+    if (seen == null) {
+      try { localStorage.setItem("faro-news-seen", FARO_VERSION); } catch { /* sin almacenamiento */ }
+      return;
+    }
+    const entry = announcementFor(seen, FARO_VERSION);
+    if (entry) {
+      newsCard({
+        kicker: lang === "en" ? `What's new · ${entry.version}` : `Novedades · ${entry.version}`,
+        title: entry.title[lang],
+        points: entry.points[lang],
+        ok: lang === "en" ? "Got it" : "Entendido",
+        current: FARO_VERSION,
+      });
+    }
+  }, [ready, !!session, lang]);
   // 1.3.205: the Cyberpunk city only behind the drawn screens (never the boot frame, gates or teardown).
   useEffect(() => (ready && session ? cpShellLive() : undefined), [ready, !!session]);
 

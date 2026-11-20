@@ -144,9 +144,12 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // ENMIENDA CAPTURA OLA 5A (1.3.345): nace preguntar-asesor en Esencial
     // (modo declarado en el tema; su función es advisor.ask).
     // La distribución se mueve a 125 · 105 · 129 sobre 359.
+    // ENMIENDA NOVEDADES (1.3.346): nace novedades en Esencial (modo
+    // declarado en el tema; su función es settings.news).
+    // La distribución se mueve a 126 · 105 · 129 sobre 360.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 359);
-    assert.equal(count("esencial"), 125);
+    assert.equal(MANUAL_TOPICS.length, 360);
+    assert.equal(count("esencial"), 126);
     assert.equal(count("ritmo"), 105);
     assert.equal(count("completo"), 129);
   });

@@ -24,7 +24,7 @@ import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { AskBox } from "@/components/faro/ask-box";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
@@ -50,6 +50,7 @@ import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid, GUEST_CURRENCIES, guestDef } from "@/lib/faro/money";
+import { NEWS, cmpVersion } from "@/lib/faro/novedades";
 import { accounts } from "@/lib/faro/bankbook";
 import { insPaid, insTiming, insTotals, monthsSince, syncInsLine } from "@/lib/faro/insurance";
 import { deleteLine, patchLine, patchLineWith, upsertLine } from "@/lib/faro/reducer";
@@ -5520,7 +5521,7 @@ export function FoldShell({ open, tier = "md", className, children }: { open: bo
   );
 }
 
-function Fold({ id, topic, title, sub, icon: Icon, open, onToggle, children }: { id: string; topic: string; title: string; sub: string; icon: typeof Gear; open: boolean; onToggle: () => void; children: ReactNode }) {
+function Fold({ id, topic, title, sub, icon: Icon, open, onToggle, children }: { id: string; topic: string; title: ReactNode; sub: string; icon: typeof Gear; open: boolean; onToggle: () => void; children: ReactNode }) {
   // Same row as Manual de uso / Importar movimientos: icon, bold title + (?), one-line subtitle, chevron.
   // The header is a div-button so the title's (?) can sit right after the title without nesting buttons.
   return (
@@ -5792,6 +5793,9 @@ export function Settings() {
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
   // La invitada (Captura F7): la búsqueda del selector y el texto de la tasa manual.
   const [guestQuery, setGuestQuery] = useState("");
+  /* El punto de lo nuevo (1.3.346): hay una nota sin ver si este
+   * teléfono quedó en una versión anterior a la vigente. */
+  const newsUnseen = (() => { try { const s = localStorage.getItem("faro-news-seen"); return s != null && cmpVersion(s, FARO_VERSION) < 0; } catch { return false; } })();
   const [guestRateText, setGuestRateText] = useState("");
   const boardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -6065,6 +6069,15 @@ export function Settings() {
           </div>
         </section>
       ) : null}
+      {has("settings.about") ? (
+        <Fold id="acerca" icon={Info} sub={lang === "en" ? "What Faro is and what it seeks" : "Qué es Faro y qué busca"} topic="novedades" title={lang === "en" ? "About" : "Acerca de"} open={openFold === "acerca"} onToggle={() => toggle("acerca")}>
+          <p className="about-text">{lang === "en"
+            ? "Faro is your money lighthouse: a private book where every penny has its place — your accounts, your spending, what you owe and what you're owed, your savings and your pace — so you always know where you stand and what comes next. It works offline and keeps everything on your device; the cloud only syncs what's yours, encrypted, between your devices."
+            : "Faro es tu faro del dinero: un libro privado donde cada centavo tiene su lugar — tus cuentas, tus gastos, lo que debes y lo que te deben, tu ahorro y tu ritmo — para que siempre sepas dónde estás parado y qué viene. Trabaja sin conexión y guarda todo en tu equipo; la nube solo sincroniza lo tuyo, cifrado, entre tus aparatos."}</p>
+          <p className="about-tag serif">{lang === "en" ? "“Each penny in its place.”" : "«Cada centavo en su lugar.»"}</p>
+          <p className="app-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>
+        </Fold>
+      ) : null}
       </Cluster>
       <Cluster title={lang === "en" ? "The book" : "El libro"} hint={lang === "en" ? "How your money is organized" : "Cómo se organiza tu dinero"}>
       <Fold id="structure" icon={FolderTree} sub={has("settings.structure-tree") ? (lang === "en" ? "Categories and stores" : "Categorías y tiendas") : t("settings.catalog")} topic="estructura" title={t("settings.structure")} open={openFold === "structure"} onToggle={() => toggle("structure")}>
@@ -6172,6 +6185,23 @@ export function Settings() {
         </button>
       </section>
       <PresentacionesCard />
+      {has("settings.news") ? (
+        <Fold id="novedades" icon={Sparkles} sub={lang === "en" ? "What each version brought" : "Lo que trajo cada versión"} topic="novedades" title={<>{lang === "en" ? "What's new" : "Novedades"}{newsUnseen ? <span className="news-dot" aria-hidden /> : null}</>} open={openFold === "novedades"} onToggle={() => toggle("novedades")}>
+          <div className="news-list">
+            {NEWS.map((n) => (
+              <article key={n.version} className="news-item">
+                <header className="news-head">
+                  <strong className="serif">{n.title[lang]}</strong>
+                  <span className="news-ver num">{n.version} · {n.date}</span>
+                </header>
+                <ul className="news-points">
+                  {n.points[lang].map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </Fold>
+      ) : null}
       </Cluster>
       <Cluster title={lang === "en" ? "The phone" : "El teléfono"} hint={lang === "en" ? "Faro also lives outside the app" : "Faro también vive fuera de la app"}>
       <WidgetCard open={openFold === "widget"} onToggle={() => toggle("widget")} />

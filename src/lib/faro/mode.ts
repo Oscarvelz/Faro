@@ -579,6 +579,11 @@ export const FEATURES = {
    * junto a la moneda de vista; administrar tasas en detalle sería Ritmo
    * si algún día nace, hoy no hace falta (mapa F7). */
   "settings.guest-currency": E,
+  /* §1.30 (Novedades y Acerca de, 1.3.346, orden de Oscar): leer lo
+   * nuevo y saber qué es Faro es de todos — los dos pliegues son de
+   * Esencial; la tarjeta del anuncio al abrir no conoce modo, como el
+   * letrero de cambio de modo. */
+  "settings.news": E, "settings.about": E,
   /* §2 Ajustes atados — siguen a su función (fallos D-bis 34–39 y el catálogo
    * partido: añadir en Esencial, administrar Tiendas en Ritmo, Suscripciones y
    * Seguros en Completo; la Moneda de vista gana casa en «La app») */
@@ -693,6 +698,8 @@ export function featureForGo(go: GoDest): FeatureId | null {
   const f = go.fold ?? "";
   if (s === "settings") {
     if (a === "aj-guest") return "settings.guest-currency";
+    if (a === "aj-novedades") return "settings.news";
+    if (a === "aj-acerca") return "settings.about";
     if (a === "aj-cards") return "settings.bank-sources";
     if (a === "aj-rewards") return "settings.bank-rewards-table";
     if (a === "aj-paypal-pocket") return "settings.bank-paypal-pocket";

@@ -5,7 +5,7 @@
  */
 import "./bank.css";
 import { Suspense, lazy, useEffect, useState } from "react";
-import { ChevronRight, CreditCard, FileUp } from "lucide-react";
+import { ChevronRight, CreditCard, FileUp, Sparkles } from "lucide-react";
 import { formatMoney } from "@/lib/faro/money";
 import { importBook, rcLabel, rewardsMonth } from "@/lib/faro/bankbook";
 import type { LedgerState } from "@/lib/faro/types";
@@ -49,6 +49,12 @@ export const FILTER_CLEAR = "faro-filter-clear";
  * por un filtro que él mismo puso y olvidó. El aviso nombra lo que se
  * está viendo y tocarlo limpia el filtro (el aviso trae su cura). */
 export const filterToast = (text: string) => window.dispatchEvent(new CustomEvent(FTOAST, { detail: text }));
+const NEWSCARD = "faro-news-card";
+export type NewsCard = { kicker: string; title: string; points: string[]; ok: string; current: string };
+/** 1.3.346 (Oscar's word): una actualización grande se anuncia UNA vez
+ * al abrir, en una tarjeta centrada; «Entendido» marca la versión como
+ * vista en este teléfono (faro-news-seen) y la nota queda en Ajustes. */
+export const newsCard = (n: NewsCard) => window.dispatchEvent(new CustomEvent(NEWSCARD, { detail: n }));
 
 /** Must match public/sw.js. */
 const SHARE_CACHE = "share-inbox";
@@ -71,6 +77,7 @@ export function BankDock() {
   const [whisper, setWhisper] = useState<ModeWhisper | null>(null);
   const [sign, setSign] = useState<ModeSign | null>(null);
   const [ftoast, setFtoast] = useState<string | null>(null);
+  const [news, setNews] = useState<NewsCard | null>(null);
   useEffect(() => {
     const on = (e: Event) => { setFiles(((e as CustomEvent).detail as File[] | null) ?? null); setOpen(true); };
     let timer = 0;
@@ -81,12 +88,14 @@ export function BankDock() {
     const onWhisper = (e: Event) => { setWhisper((e as CustomEvent).detail as ModeWhisper); window.clearTimeout(whisperTimer); whisperTimer = window.setTimeout(() => setWhisper(null), 6000); };
     let fTimer = 0;
     const onFtoast = (e: Event) => { setFtoast((e as CustomEvent).detail as string); window.clearTimeout(fTimer); fTimer = window.setTimeout(() => setFtoast(null), 6000); };
+    const onNews = (e: Event) => setNews((e as CustomEvent).detail as NewsCard);
     window.addEventListener(OPEN, on);
     window.addEventListener(TOAST, onToast);
     window.addEventListener(SIGN, onSign);
     window.addEventListener(WHISPER, onWhisper);
     window.addEventListener(FTOAST, onFtoast);
-    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.removeEventListener(SIGN, onSign); window.removeEventListener(WHISPER, onWhisper); window.removeEventListener(FTOAST, onFtoast); window.clearTimeout(timer); window.clearTimeout(signTimer); window.clearTimeout(whisperTimer); window.clearTimeout(fTimer); };
+    window.addEventListener(NEWSCARD, onNews);
+    return () => { window.removeEventListener(OPEN, on); window.removeEventListener(TOAST, onToast); window.removeEventListener(SIGN, onSign); window.removeEventListener(WHISPER, onWhisper); window.removeEventListener(FTOAST, onFtoast); window.removeEventListener(NEWSCARD, onNews); window.clearTimeout(timer); window.clearTimeout(signTimer); window.clearTimeout(whisperTimer); window.clearTimeout(fTimer); };
   }, []);
   const ready = !!session;
   useEffect(() => {
@@ -140,6 +149,25 @@ export function BankDock() {
           <div className="mode-sign-card" role="status" data-anchor="mode-sign" onClick={() => setSign(null)}>
             <p className="mode-sign-head">{t(sign.dir === "up" ? "mode.sign.up" : "mode.sign.down").replace("{name}", t(`mode.${sign.mode}`))}</p>
             <p className="mode-sign-line">{t(`mode.${sign.mode}.line`)}.</p>
+          </div>
+        </div>
+      ) : null}
+      {news ? (
+        <div className="news-sign">
+          <div className="news-card" role="dialog" aria-modal="false" data-anchor="news-card">
+            <div className="news-card-head">
+              <span className="news-card-ico" aria-hidden><Sparkles size={19} /></span>
+              <div className="news-card-headtext">
+                <p className="news-card-kicker">{news.kicker}</p>
+                <p className="news-card-title serif">{news.title}</p>
+              </div>
+            </div>
+            <ul className="news-card-points">
+              {news.points.map((p, i) => <li key={i}>{p}</li>)}
+            </ul>
+            <button type="button" className="news-card-ok" data-anchor="news-ok" onClick={() => { try { localStorage.setItem("faro-news-seen", news.current); } catch { /* sin almacenamiento: la nota vive en Ajustes */ } setNews(null); }}>
+              {news.ok}
+            </button>
           </div>
         </div>
       ) : null}

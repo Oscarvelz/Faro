@@ -21,6 +21,8 @@ export const LINKS: Record<string, string> = {
   Bandeja: "captura-mesa", Tray: "captura-mesa",
   "Escribir como pienso": "captura-texto", "Write it as I think it": "captura-texto",
   "Pegar una lista": "captura-lista", "Paste a list": "captura-lista",
+  "Novedades": "novedades", "What's new": "novedades",
+  "Acerca de": "novedades", "About": "novedades",
   Widget: "widget-android",
   Ingresos: "ingresos", Income: "ingresos",
   Cuotas: "cuotas", Plans: "cuotas",

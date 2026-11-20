@@ -464,7 +464,7 @@ describe("ola5 · la pureza del arco declara sus límites en su coordenada", () 
  * completo −1 en distribución exacta (118 · 107 · 129 sobre 354).
  */
 
-describe("ola5 · O5-C6: el mapa completo tema→función (los 359, sin excepción)", () => {
+describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepción)", () => {
   const MAPA: Record<string, { f: FeatureId | null; m: Mode }> = {
     // — capítulo arriba —
     "faro": { f: null, m: "esencial" },
@@ -590,6 +590,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 359, sin excepci�
     "captura-lista": { f: "capture.list", m: "esencial" }, // 1.3.342 — Ola 3: el tema de la lista en bache nace con su función
     "moneda-invitada": { f: "settings.guest-currency", m: "esencial" }, // 1.3.344 — Ola 4: el tema de la invitada nace con su función
     "preguntar-asesor": { f: "advisor.ask", m: "esencial" }, // 1.3.345 — Ola 5a: el tema de preguntar nace con su caja
+    "novedades": { f: "settings.news", m: "esencial" }, // 1.3.346 — Novedades: el tema de las notas nace con su pliegue
     "libro-categoria": { f: null, m: "esencial" },
     "filtro": { f: "books.filter-chips", m: "ritmo" },
     "agregar-linea": { f: null, m: "esencial" },
@@ -845,7 +846,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 359, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 359); // 1.3.345 — Ola 5a: nace «Preguntar al Asesor» (preguntar-asesor)
+    assert.equal(MANUAL_TOPICS.length, 360); // 1.3.346 — Novedades: nace «Novedades» (novedades); 359 en la 1.3.345
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {

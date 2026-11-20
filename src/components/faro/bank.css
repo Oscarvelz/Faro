@@ -189,6 +189,46 @@
 @keyframes mode-sign-in { from { opacity: 0; transform: scale(.96) translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .mode-sign-card { animation: none; } }
 
+/* news card (1.3.346, Oscar's word): a major update announces itself
+   ONCE — a centered card with the version's note and an «Entendido».
+   Same family as the mode sign: the wrap never traps the app, only
+   the card takes taps. After it, silence — the note lives in Settings. */
+.news-sign { position: fixed; inset: 0; z-index: 91; display: grid; place-items: center; padding: 20px; pointer-events: none; }
+/* El envoltorio manda (Oscar, sobre la primera foto): la ventana se
+   distingue del fondo por su borde — el filo mezcla el acento del tema
+   y la sombra es honda — lleva su ícono en un disco de acento, y los
+   puntos son puntos de verdad, con su marca, no texto suelto. */
+.news-card { pointer-events: auto; width: min(92vw, 380px); padding: 20px 22px 16px; border-radius: 18px; border: 1.5px solid color-mix(in oklab, var(--accent) 62%, var(--line)); background: var(--surface); color: var(--fg); box-shadow: 0 24px 60px rgb(0 0 0 / 48%), 0 4px 16px rgb(0 0 0 / 30%); font: inherit; animation: mode-sign-in .18s cubic-bezier(.22, 1, .36, 1) both; }
+.news-card-head { display: flex; align-items: center; gap: 12px; }
+.news-card-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent, #111); box-shadow: 0 4px 14px rgb(0 0 0 / 30%); }
+.news-card-headtext { min-width: 0; }
+.news-card-kicker { margin: 0; color: var(--muted); font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.news-card-title { margin: 3px 0 0; font-size: 1.25rem; font-weight: 700; line-height: 1.25; }
+.news-card-points { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.news-card-points li { position: relative; padding-left: 17px; line-height: 1.45; }
+.news-card-points li::before { content: ""; position: absolute; left: 1px; top: .52em; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); }
+.news-card-ok { margin-top: 16px; width: 100%; min-height: 44px; border: 0; border-radius: 12px; background: var(--accent); color: var(--on-accent, #111); font: inherit; font-weight: 700; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .news-card { animation: none; } }
+
+/* El destello de lo nuevo (Oscar, 2026-11-20): la estrella del disco
+   respira cuando aparece una novedad — un anillo de acento nace del
+   disco y se disuelve (la sombra crece, sin barrer un filo duro) y la
+   estrella titila suave. Tres latidos y se queda quieta: el movimiento
+   se raciona. Todo sale del acento del tema seleccionado — la regla —
+   así el destello se viste de cada tema sin repintar nada. */
+.news-card-ico { position: relative; }
+.news-card-ico::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 0 transparent; animation: news-ping 2.4s cubic-bezier(0, 0, .2, 1) 3 both; }
+@keyframes news-ping {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  12% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); }
+  70% { box-shadow: 0 0 0 15px transparent; }
+  100% { box-shadow: 0 0 0 15px transparent; }
+}
+.news-card-ico svg { animation: news-twinkle 2.4s ease-in-out 3 both; }
+@keyframes news-twinkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+[data-theme="cyberpunk"] .news-card-ico svg { animation-timing-function: steps(2, end); }
+@media (prefers-reduced-motion: reduce) { .news-card-ico::after, .news-card-ico svg { animation: none; } }
+
 /* whisper card (1.3.319, Oscar's refinement): the mode whisper is not a
    plain toast but a small card in the themes' own finish — surface, line
    border, house radius and shadow from the theme tokens, seated low over
@@ -346,6 +386,7 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .imp-row .imp-row-title strong { white-space: nowrap; }
 [data-theme="tron"] .imp-item:is([data-flow="income"], [data-flow="interest"], [data-flow="refund"]) .imp-amt b { color: #ffc23a; }
 [data-theme="tron"] .imp-pick-list { border-top-color: rgba(63, 214, 245, .2); }
+[data-theme="tron"] .news-card { border-radius: 8px; background: #071318; color: #eafcff; box-shadow: inset 0 0 0 1px rgba(63, 214, 245, .55), 0 0 24px rgba(63, 214, 245, .28); }
 
 /* ---------------------------------------------------------------- narrow sheets and large text (rem-based container queries) */
 .imp-head h3 { font-size: min(1.2rem, 5.6cqi); white-space: normal; }
