@@ -2892,4 +2892,4 @@ La cura es de contenido y de cerca. Cincuenta y un temas ganan su burbuja breve,
 
 Verificación: suite Faro 2214/2214 (ayudabreve 3/3; ayudavistas, nombres y manualejemplos verdes con ella; la primera corrida cazó además dos nombres ingleses sin destino en burbujas nuevas — «Studio» por [[Study]] y «Icon and color» por [[Icon and colour]] — corregidos contra el nombre propio de la app), unitarias 59/59, typecheck con solo los 3 errores preexistentes. Banco en la app real con el espécimen de Oscar: la foto de lado entró por Escanear, la hoja cayó lista y su (?) abre ahora la burbuja breve — tres líneas y el enlace al Manual — fotografiada contra el dist publicado.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: fuente 9d13ea73, etiqueta v1.3.338 sobre ese mismo commit; main 48cb4b9a (los trozos) + 233a65a3 (index.html, precache.json, sw.js). Verificado en vivo de primera mano: sw.js sirve faro-1.3.338 y el barrido completo del precache dio 25/25 con md5 idénticos al dist. Respaldo: rollback-pre-338-2026-11-20 → 058461c8.
