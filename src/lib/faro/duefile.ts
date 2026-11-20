@@ -29,7 +29,8 @@
  * Puro y testeable contra un almacén inyectado (PackStorage). Nada aquí toca React ni el DOM.
  */
 import type { PackStorage } from "./packguard.ts";
-import type { DueFile } from "./types.ts";
+import { upsertLine } from "./reducer.ts";
+import type { DueFile, LedgerState } from "./types.ts";
 
 /** La clave global donde vive el Archivo (la única lectora/escritora es DueOwe en screens). */
 export const DUE_FILE_KEY = "faro-due-file";
@@ -86,4 +87,21 @@ export function applyDueFile(store: PackStorage, rows: DueFile[]): boolean {
   } catch {
     return false; /* almacén lleno: el libro ya entró; el Archivo se queda como estaba */
   }
+}
+
+/**
+ * La reactivación de una serie archivada (1.3.339): la mecánica ÚNICA de
+ * reanudar una cuota, compartida por las dos puertas de su Archivo — la
+ * carpeta de la pestaña de Debo (DueOwe) y el grupo de cuotas del Archivo
+ * mayor (archivo.tsx). Busca la línea inactiva más reciente de la serie y la
+ * enciende, como DueOwe.archive la apagó. Si la serie ya no vive en el libro,
+ * devuelve null: la puerta guardada aborta y la «restauración» no deja marco,
+ * ni entrada, ni Deshacer (la doctrina de la Ola 18, BR18-1).
+ */
+export function reactivateDueSeries(state: LedgerState, seriesId: string): LedgerState | null {
+  for (const mk of Object.keys(state.months).sort().reverse()) {
+    const line = state.months[mk]?.lines.find((l) => (l.seriesId || l.id) === seriesId && !l.active);
+    if (line) return upsertLine(state, { ...line, active: true });
+  }
+  return null;
 }

@@ -2273,7 +2273,6 @@ const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
    * parchea contra lo vivo con patchLine/patchLineWith («campo» por
    * construcción del ayudante: busca la línea dentro del estado del
    * commit y aplica solo el parche). */
-  "components/faro/archivo.tsx:restoreDue#1": ["campo", "el patrón sano original: busca la línea DENTRO del commit y la reactiva sobre la viva. Ola 18 (BR18-1): viaja por la puerta guardada — si la serie ya no vive, aborta sin marco en vez de firmar una restauración que no ocurrió", "upsertLine"],
   "components/faro/people.tsx:save#1": ["anexa", "el regalo nace como línea nueva (plainLine con id fresco) en el commit", "upsertLine"],
   "components/faro/remesas.tsx:save#1": ["anexa", "la remesa enviada nace como línea nueva (plainLine) en el commit", "upsertLine"],
   "components/faro/slip-apply.tsx:save#1": ["anexa", "la línea aplicada desde Guardados nace nueva (plainLine) en el commit", "upsertLine"],
@@ -2325,6 +2324,8 @@ const FORMAS_DELEGADAS: Record<string, [Doctrina, string, string]> = {
   "components/faro/archivo.tsx:ArchivoScreen#1": ["campo", "restaura el «Me deben» archivado por id sobre el vivo, dentro del commit", "restoreLent"],
   "components/faro/archivo.tsx:ArchivoScreen#2": ["campo", "restaura el préstamo archivado por id sobre el vivo, dentro del commit", "restoreLoan"],
   "components/faro/archivo.tsx:ArchivoScreen#3": ["campo", "restaura la tarjeta archivada por id sobre el vivo, dentro del commit", "restoreCard"],
+  "components/faro/archivo.tsx:restoreDue#1": ["campo", "restaura la cuota archivada delegando en reactivateDueSeries (duefile): la mecánica única de reanudar — busca la línea inactiva más reciente de la serie DENTRO del estado del commit y la reactiva sobre la viva. Nació como el patrón sano original en línea (brazo B hasta la 1.3.338); la 1.3.339 lo mudó a la librería para que las dos puertas — este Archivo mayor y la carpeta de Cuotas de Debo — reanuden con la misma receta. Ola 18 (BR18-1): viaja por la puerta guardada — si la serie ya no vive, la receta devuelve null y aborta sin marco", "reactivateDueSeries"],
+  "components/faro/screens.tsx:moveDue#1": ["campo", "la carpeta de Cuotas de la pestaña de Debo (1.3.339): «Mover» reanuda la cuota delegando en reactivateDueSeries, la mecánica única de duefile — la misma receta que el Archivo mayor, por la puerta guardada", "reactivateDueSeries"],
   "components/faro/bank-import.tsx:save#1": ["campo", "applyImport compone el estado de la importación DESDE el s vivo dentro del commit — y captura su deshacer de ESE commit, no del render", "applyImport"],
   "components/faro/bank-import.tsx:undo#1": ["campo", "el Deshacer por delegación: revertImportCounted compone desde el s vivo que el commit le entrega (respeta las ediciones posteriores)", "revertImportCounted"],
   "components/faro/bank-settings.tsx:setSource#1": ["campo", "withBook aplica la función sobre el libro de la cuenta, vivo, dentro del commit", "withBook"],

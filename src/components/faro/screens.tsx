@@ -72,6 +72,8 @@ import type { QuarantineEntry } from "@/lib/faro/packguard";
 import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
+import { dayLabel } from "./historial";
+import { reactivateDueSeries } from "@/lib/faro/duefile";
 import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
 import { CardsAdvisor } from "./cards";
 import { cardTotals, rewardsTotals } from "@/lib/faro/cards";
@@ -1374,6 +1376,7 @@ function DueOwe() {
   const [otherFreq, setOtherFreq] = useState(false);
   const freqs = freqPresetsOf(session?.ledger);
   const [filed, setFiled] = useState<DueFile[]>(readDueFile);
+  const [fileOpen, setFileOpen] = useState(false);
   const display = session?.ledger.settings.display ?? "USD";
   const active = lines.filter((line) => line.kind === "subscription" && line.active && !line.rest);
   const sum = active.reduce((total, line) => total + convertMinor(line.amountMinor, line.currency, display, session?.ledger.settings.rateE4 ?? 0), 0);
@@ -1419,6 +1422,12 @@ function DueOwe() {
     }
     saveFile([{ id: uid(), seriesId: line.seriesId || line.id, name: line.concept, maxMinor, currency: line.currency, archivedOn: todayIso(), pays }, ...filed]);
     commitGuarded((s) => patchLine(s, line.id, { active: false }), line.concept);
+  }
+  // Reanudar desde la carpeta (1.3.339): la fila sale del archivo y la serie
+  // se reactiva con la mecánica única de duefile — la misma del Archivo mayor.
+  function moveDue(row: DueFile) {
+    saveFile(filed.filter((r) => r.id !== row.id));
+    commitGuarded((s) => reactivateDueSeries(s, row.seriesId), row.name);
   }
   return (
     <div className="cobro-swap" data-anchor="cobros-out">
@@ -1490,8 +1499,38 @@ function DueOwe() {
           </div>
         </article>
       )) : <Note>{t("cobro.owe.empty")}</Note>}
-      {/* 1.3.162 (Oscar): the dues Archive section is gone from Central's panel — the
-          filed dues and their data stay untouched; the Archive lives in Libros. */}
+      {/* 1.3.162 quitó la sección del panel de Central y el Archivo de cuotas
+          quedó solo en el Archivo mayor; el tema «Archivo de cuotas» siguió
+          describiendo esta carpeta y su ancla (cobros-out-file) sin que
+          ninguna pantalla la dibujara. 1.3.339 (Oscar): Cuotas tiene su
+          PROPIA carpeta en la pestaña de Debo, como Préstamos y Me deben —
+          mismo archivo (faro-due-file), dos puertas, y «Mover» reanuda con
+          la mecánica única de duefile. Cierra la vista, tras las tarjetas. */}
+      {has("cobros.archive") ? (
+      <div className={`cobro-file${fileOpen ? " is-open" : ""}`}>
+        <div role="button" tabIndex={0} data-anchor="cobros-out-file" className="cobro-file-head" aria-expanded={fileOpen} onClick={() => setFileOpen((on) => !on)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFileOpen((on) => !on); } }}>
+          <span className="lab-head">{t("cobro.file")}<Hint topic="archivo-cuotas" /></span>
+          <b>{filed.length}</b>
+          <ChevronDown className={fileOpen ? "fold-chev is-open" : "fold-chev"} />
+        </div>
+        {fileOpen ? (filed.length ? filed.map((row) => (
+          <article key={row.id} className="cobro-card is-file">
+            <div className="cobro-who">
+              <b>{row.name.slice(0, 1).toUpperCase()}</b>
+              <strong>{row.name}</strong>
+            </div>
+            <p className="cobro-meta">
+              {t("cobro.owe.peak")} {fmt(convertMinor(row.maxMinor, row.currency, display, session?.ledger.settings.rateE4 ?? 0))}
+              {row.archivedOn ? ` · ${dayLabel(lang, row.archivedOn)}` : ""}
+            </p>
+            {row.pays.length ? <p className="cobro-meta">{row.pays.map((p) => `${dayLabel(lang, p.date)} ${fmt(convertMinor(p.amountMinor, row.currency, display, session?.ledger.settings.rateE4 ?? 0))}`).join(" · ")}</p> : null}
+            <div className="cobro-acts">
+              <button type="button" className="btn secondary" onClick={() => moveDue(row)}>{t("cobro.owe.move")}</button>
+            </div>
+          </article>
+        )) : <Note>{t("cobro.owe.file.empty")}</Note>) : null}
+      </div>
+      ) : null}
     </div>
   );
 }

@@ -31,9 +31,8 @@ import { movementDate, restingEntries, type RestingEntry } from "@/lib/faro/desc
 import { lentOf, restoreLent } from "@/lib/faro/debts";
 import { loansOf, restoreLoan } from "@/lib/faro/loans";
 import { restoreCard, storedCards } from "@/lib/faro/cards";
-import { applyDueFile, readDueFileRows } from "@/lib/faro/duefile";
+import { applyDueFile, reactivateDueSeries, readDueFileRows } from "@/lib/faro/duefile";
 import { browserPackStorage } from "@/lib/faro/packguard";
-import { upsertLine } from "@/lib/faro/reducer";
 import { namedIconFor, subIconFor } from "@/lib/faro/faces";
 import { categoryColor, subColorFor } from "@/lib/faro/colors";
 import { convertMinor, formatMoney } from "@/lib/faro/money";
@@ -173,14 +172,10 @@ export function ArchivoScreen() {
     /* Ola 18 (BR18-1): la puerta guardada — si la serie ya no vive en el
      * libro, la receta aborta devolviendo null y la restauración no
      * deja marco: ni la entrada con el nombre de la fila, ni revisión,
-     * ni Deshacer por una restauración que no ocurrió. */
-    commitGuarded((s) => {
-      for (const mk of Object.keys(s.months).sort().reverse()) {
-        const line = s.months[mk]?.lines.find((l) => (l.seriesId || l.id) === row.seriesId && !l.active);
-        if (line) return upsertLine(s, { ...line, active: true });
-      }
-      return null;
-    }, row.name);
+     * ni Deshacer por una restauración que no ocurrió. La receta vive en
+     * duefile.ts (reactivateDueSeries) desde la 1.3.339: es la mecánica
+     * única de reanudar una cuota, la misma en las dos puertas. */
+    commitGuarded((s) => reactivateDueSeries(s, row.seriesId), row.name);
   };
 
   const groupHead = (label: string, n: number) => (

@@ -148,8 +148,15 @@ describe("ola18 · §A: la puerta guardada — abortar sin marco (BR18-1)", () =
     assert.ok(plan.includes("if (!updated) return null;"), "la pieza que ya no vive aborta en null: su plan ya no firma un aterrizaje que no ocurrió");
     const arch = SRC("../../components/faro/archivo.tsx");
     const due = arch.slice(arch.indexOf("const restoreDue"), arch.indexOf("const restoreDue") + 900);
-    assert.ok(due.includes("commitGuarded((s) => {"), "restoreDue comete por la puerta guardada");
-    assert.ok(due.includes("return null;"), "la serie ausente aborta en null: la restauración que no ocurrió ya no deja entrada con el nombre de la fila");
+    /* ENMIENDA 1.3.339: la receta de restoreDue se mudó a la librería
+     * (duefile.reactivateDueSeries) para que la carpeta de Cuotas de Debo
+     * reanude con la MISMA mecánica; el pin sigue a la receta: restoreDue
+     * comete por la puerta guardada delegando en ella, y es la receta la
+     * que devuelve null cuando la serie ya no vive. */
+    assert.ok(due.includes("commitGuarded((s) => reactivateDueSeries(s, row.seriesId)"), "restoreDue comete por la puerta guardada, con la mecánica única de duefile");
+    const duefile = SRC("../../lib/faro/duefile.ts");
+    const recipe = duefile.slice(duefile.indexOf("export function reactivateDueSeries"), duefile.indexOf("export function reactivateDueSeries") + 700);
+    assert.ok(recipe.includes("return null;"), "la serie ausente aborta en null: la restauración que no ocurrió ya no deja entrada con el nombre de la fila");
   });
 
   it("la fuente: la confirmación de modo NO migra — su aborto con entrada veraz sigue en el commit ordinario [ENMIENDA OLA 19]", () => {
