@@ -3023,4 +3023,4 @@ La petición de Oscar de esta mañana, con su ejemplo: «que la caja de texto se
 
 Verificación: suite 2311/2311, unidad 59/59, tipos con exactamente los 3 errores permanentes. Banco vivo: la caja creció a cuatro líneas con una pregunta larga — el botón de enviar sentado al pie de la caja crecida — y volvió a su línea al preguntar, con la respuesta debajo. La cerradura y la línea del Guardián, intactas.
 
-Datos de publicación: se completa tras publicar.
+Datos de publicación: código 76a67fe5 (fuente), etiqueta v1.3.348; principal ad545179 (paquetes) + 825ed574 (control). Entrada index-DiGQSXQo.js. Verificado en vivo de primera mano: sw faro-1.3.348, barrido precache 26/26 por md5 contra dist. Rollback: rollback-pre-348-2026-11-20 → 7c5611b1.
