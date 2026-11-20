@@ -2919,4 +2919,4 @@ La Ola 2 de Captura Inteligente (mapa F2 y la Puerta §4): el intérprete de len
 
 Verificación: la batería del intérprete (textparse 21/21: los especímenes del mapa, el signo con estructura, los días, y los silencios honestos de la batería de ataque) y la cerca de la puerta (captura340 4/4: el asiento, la puerta que no escribe líneas, las tres puertas en una hoja, el ancla del Manual dibujada); banco en la app real (la frase «pagué 200 de luz y 150 de agua» desde el formulario de Central: dos borradores con sus dudas dichas, y la mesa abierta con los dos); suite Faro 2244/2244, unitarias 59/59, typecheck con solo los 3 errores preexistentes.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: código 258e577f (fuente) · principal 24e24f5d (trozos) + 23a0bfef (control) · etiqueta v1.3.340 → 258e577f · reversión rollback-pre-340-2026-11-20 → 1ea392ca. Verificado en vivo de primera mano: sw.js sirve faro-1.3.340 y el barrido completo del precache coincide 25/25 por md5 con dist.
