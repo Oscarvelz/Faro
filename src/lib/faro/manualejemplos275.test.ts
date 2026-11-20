@@ -99,14 +99,17 @@ describe("manual con ejemplos: los IMPROVE quedaron redondos", () => {
   });
 });
 
-describe("manual con ejemplos: las burbujas no se tocaron", () => {
-  it("ninguno de los 15 temas tocados lleva campo bubble", () => {
+describe("manual con ejemplos: las burbujas no se tocaron (enmendado en 1.3.338)", () => {
+  // En 275 esta cerca afirmaba que ninguno de los 15 temas llevaba `bubble`:
+  // era el alcance de AQUELLA oleada (los ejemplos no tocan las burbujas).
+  // La 1.3.338 — la cura de las ayudas breves, por orden de Oscar — dio
+  // burbuja propia a los temas cuyo `what` pasa de 40 palabras, y dos de
+  // los 15 están en esa clase. La ley de las burbujas vive ahora en
+  // ayudabreve.test.ts; aquí queda el registro: solo esos dos la llevan.
+  it("de los 15 temas, solo oportunidad y seguro-vida llevan la burbuja breve de la 338", () => {
     const touched = [...ADD.map(([id]) => id), ...IMPROVE.map(([id]) => id)];
     assert.equal(touched.length, 15);
-    for (const id of touched) {
-      const tp = findTopic(id);
-      assert.ok(tp, `el tema ${id} no existe`);
-      assert.equal(tp.bubble, undefined, `${id} ganó un campo bubble: la burbuja cambió`);
-    }
+    const withBubble = touched.filter((id) => findTopic(id)?.bubble);
+    assert.deepEqual(withBubble.sort(), ["oportunidad", "seguro-vida"]);
   });
 });

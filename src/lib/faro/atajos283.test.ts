@@ -136,7 +136,10 @@ describe("atajos de Central: el botón de Pagos entra al sistema", () => {
 
 describe("atajos de Central: sin obsolescencia", () => {
   it("el tema del Manual se llama como la tarjeta y lista las claves nuevas", () => {
-    const topic = topics.slice(topics.indexOf('id: "atajos-mas-menos"'), topics.indexOf('id: "atajos-mas-menos"') + 1600);
+    // La ventana era 1600 hasta la 1.3.338: la burbuja breve de esta cura
+    // alargó el bloque del tema y las claves quedaron a 1681. La ventana
+    // cubre el bloque entero del tema, como siempre quiso.
+    const topic = topics.slice(topics.indexOf('id: "atajos-mas-menos"'), topics.indexOf('id: "atajos-mas-menos"') + 2400);
     assert.ok(topic.includes('title: ["Atajos de Central", "Central shortcuts"]'), "el título del tema es el nombre nuevo");
     assert.ok(topic.includes('"gesture.btnDue"'), "el tema lista las claves nuevas");
     assert.ok(!topic.includes("gesture.inHold"), "el tema ya no lista las claves viejas");
