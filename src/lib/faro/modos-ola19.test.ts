@@ -340,6 +340,10 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/provider.tsx|commit|inline": ["aterrizaje", 7],
   "components/faro/receipt-scan.tsx|commit|saveScanRewards": ["aterrizaje", 1],
   "components/faro/capture-text.tsx|commit|addDrafts": ["aterrizaje", 1],
+  // 1.3.342 (Captura Ola 3): la puerta de la lista comete por la misma
+  // receta de aterrizaje que su hermana de texto — addDrafts nunca se
+  // niega: añade los borradores del bache a la bandeja.
+  "components/faro/capture-list.tsx|commit|addDrafts": ["aterrizaje", 1],
   "components/faro/remesas.tsx|commitGuarded|deleteLine": ["guardada", 1],
   "components/faro/remesas.tsx|commit|upsertLine": ["aterrizaje", 1],
   "components/faro/remit-people.tsx|commitGuarded|addRemitPerson": ["guardada", 1],

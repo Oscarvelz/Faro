@@ -376,6 +376,32 @@ function draftFromSegment(seg: string, raw: string, ctx: ParseCtx, sharedSign: "
   return draft;
 }
 
+/** La lista en bache (Ola 3, mapa F4): una compra por línea, con o sin
+ * monto. Cada línea no vacía pasa por el mismo intérprete de la frase y
+ * sus borradores nacen hermanos de lista (source "list", su `raw` es la
+ * línea). La numeración y las viñetas son muebles de la lista, no del
+ * concepto: se retiran antes de interpretar. El sentido del bache lo
+ * declara quien pega la lista en la hoja, una vez: se aplica SOLO a las
+ * líneas que no traen su propio verbo — la línea con verbo conserva el
+ * suyo, como en la frase. La lista-plan no nace aquí: espera su estudio
+ * (D6); toda línea de esta puerta es un movimiento por revisar. */
+export function parseList(raw: string, ctx: ParseCtx, batchSign: "in" | "out"): Draft[] {
+  const out: Draft[] = [];
+  for (const lineRaw of raw.normalize("NFC").split(/\r?\n/)) {
+    const line = lineRaw.replace(/^\s*(?:\d{1,3}[.)]|[-*•·])\s+/, "").trim();
+    if (!line) continue;
+    for (const d of parsePhrase(line, ctx)) {
+      const stamped: Draft = { ...d, source: "list" };
+      if (stamped.sign == null) {
+        stamped.sign = batchSign;
+        stamped.missing = validateDraft(stamped).missing;
+      }
+      out.push(stamped);
+    }
+  }
+  return out;
+}
+
 /** La entrada del intérprete: una frase → uno o más borradores hermanos. */
 export function parsePhrase(raw: string, ctx: ParseCtx): Draft[] {
   // NFC primero: el teclado del teléfono compone los acentos (á = un

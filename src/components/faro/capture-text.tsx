@@ -30,10 +30,11 @@ const todayLocal = () => {
 };
 
 /** Las dudas del borrador, en palabras cortas — la misma honestidad de la
- * mesa, en la puerta: lo que el intérprete no supo se dice, no se calla. */
+ * mesa, en la puerta: lo que el intérprete no supo se dice, no se calla.
+ * El monto NO se repite aquí: la fila ya lo dice en su posición («sin
+ * monto» donde iría la cifra) — duplicarlo era decirlo dos veces. */
 function doubts(d: Draft, lang: string): string[] {
   const out: string[] = [];
-  if (d.missing.includes("amount")) out.push(L(lang, "sin monto", "no amount"));
   if (d.missing.includes("sign")) out.push(L(lang, "¿entra o sale?", "in or out?"));
   if (d.missing.includes("currency")) out.push(L(lang, "moneda sin confirmar", "currency unconfirmed"));
   else if (d.unsure.includes("currency")) out.push(L(lang, "moneda: la de vista", "currency: the view one"));

@@ -527,6 +527,11 @@ export const FEATURES = {
    * declarar, como el apunte rápido — Esencial. El intérprete jamás
    * guarda: sus borradores caen en la bandeja y solo la mesa escribe. */
   "capture.text": E,
+  /* §1.27c Captura inteligente, Ola 3 (mapa F4): pegar la lista del día
+   * es el mismo declarar, en bache — Esencial, como su bandeja. La hoja
+   * pregunta el sentido una vez por la lista; la línea con su propio
+   * verbo conserva el suyo. La lista-plan espera su estudio (D6). */
+  "capture.list": E,
   /* §1.22 Bandeja de documentos compartidos — enrutado por modo */
   "inbox.bank": C, "inbox.vcf": R, "inbox.image-card": C, "inbox.image-receipt": E,
   /* §1.23 Exportar informes (fallo D-bis 17: panel recompuesto desde Ritmo) */

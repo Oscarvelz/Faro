@@ -60,6 +60,7 @@ import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from 
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { ScanEntry } from "./receipt-scan";
 import { TextEntry } from "./capture-text";
+import { ListEntry } from "./capture-list";
 import { TrayCard } from "./tray";
 import { BookKit, type KitRow } from "./book-kit";
 import { useLongPress } from "./use-longpress";
@@ -1060,7 +1061,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
       ) : null}
       {ui.draft === draftKind && !ui.editing ? (
         <div className="mt-3" ref={draftRef}>
-          <LineForm kind={draftKind} money={money} onMoney={setMoney} glyph={lookGlyph} swatch={lookColor} dock look={{ glyph: lookGlyph, color: lookColor, onGlyph: setLookGlyph, onColor: setLookColor }} scan={SCAN_KINDS.includes(draftKind) ? <><TextEntry /><ScanEntry from={draftKind} /></> : undefined} onClose={() => setUi({ draft: null })} />
+          <LineForm kind={draftKind} money={money} onMoney={setMoney} glyph={lookGlyph} swatch={lookColor} dock look={{ glyph: lookGlyph, color: lookColor, onGlyph: setLookGlyph, onColor: setLookColor }} scan={SCAN_KINDS.includes(draftKind) ? <><TextEntry /><ListEntry /><ScanEntry from={draftKind} /></> : undefined} onClose={() => setUi({ draft: null })} />
         </div>
       ) : null}
       {chipRows.length === 0 ? <Note>{t("empty.lines")}</Note> : null}
@@ -3472,7 +3473,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         <div ref={quickRef} className="sheet-swap" data-mode={quick} data-anchor="quick-window">
           {/* Oscar (2026-11-20): la puerta de Escanear también vive en los
               widgets de Central — una función así no se queda solo en Libros. */}
-          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} scanFor={(kind) => (SCAN_KINDS.includes(kind) ? <><TextEntry /><ScanEntry from={kind} /></> : undefined)} onClose={(how) => { if (lens === "all" && how !== "back") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
+          <QuickAdd key={`${quick}-${jump?.kind ?? ""}-${jump?.categoryId ?? ""}`} mode={quick} jump={jump} scanFor={(kind) => (SCAN_KINDS.includes(kind) ? <><TextEntry /><ListEntry /><ScanEntry from={kind} /></> : undefined)} onClose={(how) => { if (lens === "all" && how !== "back") setLens(quick === "in" ? "have" : "spend"); setQuick(null); setJump(null); }} />
           {/* 1.3.108: phone Back restores the card that was active before (none stays none); only a finished entry still lights its card. */}
           {/* 1.3.108: the panel says hello in its own colour (teal +, orange −), once per opening; see styles.css "quick-hello". */}
           <QuickHello key={`qh-${quick}`} mode={quick} />

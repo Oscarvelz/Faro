@@ -16,6 +16,12 @@
 /* Ola 2: la caja de la puerta de texto y su nota, en la hoja de captura. */
 .cap-text-area { width: 100%; resize: vertical; min-height: 76px; }
 .cap-text-note { margin: 10px 2px 2px; font-size: .82rem; opacity: .75; line-height: 1.45; }
+/* Ola 3: la hoja de la lista — su caja más alta y el sentido del bache,
+   preguntado una vez por la lista, en dos píldoras hermanas. */
+.cap-list-area { min-height: 150px; }
+.cap-sign-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.cap-sign { flex: 1; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--line, rgba(128, 128, 128, .35)); background: transparent; color: inherit; font: inherit; font-size: .85rem; cursor: pointer; opacity: .7; }
+.cap-sign.is-on { opacity: 1; border-color: var(--accent, #b07d2b); font-weight: 650; }
 .tray-write { width: 100%; margin-bottom: 10px; }
 /* The running light (Oscar, 2026-11-20): a small light travels the pill's rim
    so the button can be seen — it was nearly invisible at rest. The rim only:

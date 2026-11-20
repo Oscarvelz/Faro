@@ -13,6 +13,7 @@ import { draftTotals, dropDraft } from "@/lib/faro/drafts";
 import type { Draft, DraftSource } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
 import { CaptureTextSheet } from "./capture-text";
+import { CaptureListSheet } from "./capture-list";
 import { Hint } from "./hint";
 import { useFaro } from "./provider";
 import { ReviewTable } from "./review-table";
@@ -65,8 +66,10 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
   const { session, commitGuarded, lang, has } = useFaro();
   const canTray = has("capture.tray");
   const canText = has("capture.text");
+  const canList = has("capture.list");
   const [armed, setArmed] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
+  const [listing, setListing] = useState(false);
   useLayer(true, onClose);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -105,6 +108,11 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
               {L(lang, "Escribir como pienso", "Write it as I think it")}
             </button>
           ) : null}
+          {canList ? (
+            <button type="button" className="btn secondary tray-write" data-anchor="tray-list" onClick={() => setListing(true)}>
+              {L(lang, "Pegar una lista", "Paste a list")}
+            </button>
+          ) : null}
           {groups.map(([day, ds]) => (
             <div key={day} className="tray-group">
               <p className="tray-day">{day}</p>
@@ -130,6 +138,7 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
         </div>
       </div>
       {writing ? <CaptureTextSheet onClose={() => setWriting(false)} onReview={() => { setWriting(false); onReview(); }} /> : null}
+      {listing ? <CaptureListSheet onClose={() => setListing(false)} onReview={() => { setListing(false); onReview(); }} /> : null}
     </div>,
     document.body,
   );
