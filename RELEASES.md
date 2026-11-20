@@ -2741,3 +2741,13 @@ Petición de Oscar (2026-11-19 21:16 EST, con su foto de Lafise en Cyberpunk): �
 Verificación: test:faro 2139/2139 (2135 + 4 de cuentas328) en la copia de trabajo y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.
 
 Datos de publicación: rollback `rollback-pre-328-2026-11-19` → 9d7ab767. Source: 4dd7b2c0. Tag: v1.3.328 → 4dd7b2c0. Main: 67068b71 (chunks) + 93cca4cf (index) + 2aa8cf7c (sw y precache). Entrada: index-CPfXwbPT.js.
+
+## 1.3.329 — «La tablita al borde» (2026-11-19)
+
+Corrección de Oscar sobre la 1.3.328 (22:07 EST, con su foto de la tarjeta ya en su teléfono): la tablita de la cuenta nacía sangrada 46px para sentarse bajo el nombre, y esa sangría dejaba un hueco vacío a la izquierda que rompía la tarjeta — «la parte de arriba de banco y el monto está excelente; es solo lo de abajo». La tablita ahora nace al borde izquierdo del contenido de la tarjeta, como la tabla de «Lo guardado» de encima: la anilla y «Ya tiene nombre» / «Libre» arrancan donde arranca la tarjeta, y las cifras siguen a la derecha, en la columna del saldo. La ley del texto grande se re-dijo con el mismo borde (padding-left 0). Cambio de una sola hoja (fund.css, dos líneas); ni una cifra, ni un gesto, ni una puerta se tocan.
+
+Banco (mis fotos, libro de Oscar): Cyberpunk y Tron — la etiqueta arranca en x=47 (antes 93), alineada con el borde del contenido; la tarjeta conserva sus 127px y las cifras su columna (337 contra 352).
+
+Verificación: test:faro 2139/2139 en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.
+
+Datos de publicación: (se completa tras publicar).

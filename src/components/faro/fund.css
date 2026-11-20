@@ -178,7 +178,7 @@
 .save-accounts .bank-sum { font-size: 1.07rem; font-weight: 650; letter-spacing: -.01em; }
 .save-acct-stats {
   flex: 1 0 100%; display: flex; flex-direction: column; gap: 5px;
-  margin-top: 4px; padding: 9px 4px 2px 46px;
+  margin-top: 4px; padding: 9px 4px 2px 0;
   border-top: 1px solid color-mix(in oklab, var(--sav, #c4a15a) 20%, var(--line));
 }
 .acct-stat { display: flex; align-items: center; gap: 7px; min-width: 0; width: 100%; }
@@ -189,7 +189,7 @@
 /* El texto grande conserva su ley asentada: el saldo cede y la tira se asienta. */
 @container savecard (max-width: 18.75rem) {
   .save-accounts .bank-sum { font-size: .86rem; }
-  .save-acct-stats { padding-left: 40px; gap: 6px 14px; }
+  .save-acct-stats { padding-left: 0; gap: 6px 14px; }
 }
 
 /* El Apartado partido en dos lecturas, y la sede del porcentaje en Libros. */
