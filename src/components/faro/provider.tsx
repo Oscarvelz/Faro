@@ -16,6 +16,7 @@ import { apartDecision, browserPackStorage, listQuarantine, packLedgerOk, quaran
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
 import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
+import { guardEditorExit, hasEditorExit } from "@/lib/faro/editor-exit";
 import { markTornFlows } from "@/lib/faro/flow-park";
 import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
@@ -461,6 +462,23 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // navegación se entrega a su salida — limpia, corre al momento dentro de su
     // finish; con trabajo, el aviso manda y un rechazo deja todo como estaba.
     // Las restauraciones internas (lugares, capas) usan setUiState y no pasan por aquí.
+    // 1.3.336 (Oscar, 2026-11-20): la misma puerta guarda al editor de línea
+    // abierto (editor-exit.ts) — cambiar de sección con el editor montado se
+    // lo llevaba en silencio aunque su propio Cancelar sí pregunta al salir
+    // sucio. Con un editor registrado, la navegación se entrega a su salida:
+    // limpio, se cierra y la navegación corre dentro de su finish; sucio, el
+    // aviso manda y un rechazo deja todo como estaba.
+    if (
+      patch.section !== undefined &&
+      patch.section !== uiRef.current.section &&
+      hasEditorExit()
+    ) {
+      guardEditorExit(() => {
+        if (PLACE_KEYS.some((k) => k in patch)) snap();
+        setUiState((u) => ({ ...u, ...patch }));
+      });
+      return;
+    }
     if (
       patch.section !== undefined &&
       patch.section !== uiRef.current.section &&

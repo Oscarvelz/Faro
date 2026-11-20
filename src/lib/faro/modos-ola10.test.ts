@@ -150,6 +150,19 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
   /* err solo se pinta: lo escribe la validación al guardar y lo lee el
    * render; ninguna decisión de guardado lo consulta. */
   const MUESTRA = new Set(["err"]);
+  /* 1.3.336 (Oscar, 2026-11-20): nace la cuarta clase, CONDUCTO — exitRef.
+   * No testifica al guardar (su nacimiento no conserva, borra ni estampa
+   * campo alguno), no carga un campo del borrador y no se pinta: lleva los
+   * valores VIVOS del tramo (dirty, concept, onClose, confirm, t) a un
+   * consumidor de fuera — la salida registrada del editor (editor-exit.ts),
+   * a la que la puerta única de setUi entrega la navegación que cambiaría
+   * de sección con el editor abierto, para que ninguna carpeta se lo lleve
+   * en silencio. Lo que decide no es su nacimiento sino su valor corriente
+   * en el momento de la lectura. Con su nacimiento el tramo declara 32
+   * hooks y hace 32 llamadas: los conteos de esta sección — y los de los
+   * especímenes, que son relativos a la base — se movieron con él, con
+   * esta razón escrita. */
+  const CONDUCTOS = new Set(["exitRef"]);
   /* ── OLA 12 · G12-1: EL CENSO LEE LLAMADAS DE VERDAD (AST) ─────────
    * La medición por llamadas de la ola 11 contaba con una regex cuyo
    * grupo de genérico `<[^()]*>` no cruza paréntesis: un testigo nacido
@@ -263,21 +276,21 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
   });
   it("todo hook del tramo está clasificado: un testigo nuevo fuera del censo corre rojo al nacer", () => {
     const names = hooks();
-    assert.equal(names.size, 31, `el tramo declara 31 hooks (${[...names].join(", ")})`);
+    assert.equal(names.size, 32, `el tramo declara 32 hooks (${[...names].join(", ")})`);
     for (const name of names) {
-      assert.ok(name in TESTIGOS || PORTADORES.has(name) || MUESTRA.has(name),
-        `${name}: hook sin clasificar en el tramo de LineForm — si testifica al guardar, entra en TESTIGOS con su nacimiento; si carga un campo, en PORTADORES; si solo se pinta, en MUESTRA`);
+      assert.ok(name in TESTIGOS || PORTADORES.has(name) || MUESTRA.has(name) || CONDUCTOS.has(name),
+        `${name}: hook sin clasificar en el tramo de LineForm — si testifica al guardar, entra en TESTIGOS con su nacimiento; si carga un campo, en PORTADORES; si solo se pinta, en MUESTRA; si lleva valores vivos a un consumidor de fuera, en CONDUCTOS`);
     }
   });
   it("el censo no nombra fantasmas: cada entrada existe en el tramo", () => {
     const names = hooks();
-    for (const name of [...Object.keys(TESTIGOS), ...PORTADORES, ...MUESTRA]) {
+    for (const name of [...Object.keys(TESTIGOS), ...PORTADORES, ...MUESTRA, ...CONDUCTOS]) {
       assert.ok(names.has(name), `${name}: el censo lo nombra y el tramo ya no lo declara — censo podrido`);
     }
   });
   it("G11-1: toda LLAMADA useState/useRef del tramo tiene su declaración extraída", () => {
     const calls = callSites(form);
-    assert.equal(calls.length, 31, `el tramo hace 31 llamadas de hook (${calls.length})`);
+    assert.equal(calls.length, 32, `el tramo hace 32 llamadas de hook (${calls.length})`);
     assert.deepEqual(unclaimed(form), [],
       "llamadas sin declaración extraída: un hook nacido por otra gramática (la tupla en variable de M11-c3) es invisible para el censo de declaraciones");
   });
@@ -287,10 +300,10 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
     // de nombres (la variable y el nombre desestructurado), sin clasificar:
     // la acusación llega por el censo, que es donde la doctrina la quiere.
     const names = hooksOf(staged);
-    assert.equal(names.size, 33, "la variable-tupla y su desestructuración entran al censo");
+    assert.equal(names.size, 34, "la variable-tupla y su desestructuración entran al censo");
     assert.ok(names.has("s") && names.has("a"), "los dos nombres del espécimen, censados");
     assert.ok(!("s" in TESTIGOS) && !PORTADORES.has("s") && !MUESTRA.has("s"), "y sin clasificar: la clasificación corre roja");
-    assert.equal(callSites(staged).length, 32, "la llamada se cuenta: el conteo de completitud también acusa");
+    assert.equal(callSites(staged).length, 33, "la llamada se cuenta: el conteo de completitud también acusa");
   });
   /* OLA 12 · G12-1: los especímenes de la caza, en sus dos direcciones —
    * los que evadían (V1/V3/V6) ahora acusan, el que acusaba en falso
@@ -299,13 +312,13 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
     const staged = `${form}\n  const stampFnState = useState<() => boolean>(() => false);\n  const [stampFnTouched, setStampFnTouched] = stampFnState;\n`;
     const names = hooksOf(staged);
     assert.ok(names.has("stampFnTouched") && names.has("stampFnState"), "el AST cruza el genérico con paréntesis y la tupla");
-    assert.equal(callSites(staged).length, 32, "la llamada cuenta: la completitud corre roja");
+    assert.equal(callSites(staged).length, 33, "la llamada cuenta: la completitud corre roja");
     assert.ok(!PORTADORES.has("stampFnTouched") && !("stampFnTouched" in TESTIGOS), "y el nombre nace sin clasificar");
   });
   it("G12-1 · V3 — namespace con genérico de paréntesis: el testigo acusa", () => {
     const staged = `${form}\n  const nsState = React.useState<() => boolean>(() => false);\n  const [nsTouched, setNsTouched] = nsState;\n`;
     assert.ok(hooksOf(staged).has("nsTouched"), "React.useState<…> es una llamada de hook para el AST");
-    assert.equal(callSites(staged).length, 32);
+    assert.equal(callSites(staged).length, 33);
   });
   it("G12-1 · V6 — el alias de import, declarado fuera del tramo: el testigo acusa", () => {
     const stagedFile = `import { useState as useSt } from "react";\n${form}\n  const [aliasTouched, setAliasTouched] = useSt(false);\n`;
@@ -325,18 +338,18 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
   });
   it("G12-1 · V4 — un comentario que nombra useState( NO es una llamada: la cerca calla", () => {
     const staged = `${form}\n  // (antes esto nacía de un useState(…) y hoy es derivado)\n`;
-    assert.equal(callSites(staged).length, 31, "el comentario no cuenta: el AST no lee papel");
+    assert.equal(callSites(staged).length, 32, "el comentario no cuenta: el AST no lee papel");
     assert.deepEqual(unclaimed(staged), []);
   });
   it("G12-1 · V2/V5/V7 — las formas que aguantaban siguen acusando", () => {
     const v2 = `${form}\n  const [nsTouched, setNsTouched] = React.useState(false);\n`;
-    assert.equal(callSites(v2).length, 32, "V2: el namespace directo cuenta");
+    assert.equal(callSites(v2).length, 33, "V2: el namespace directo cuenta");
     assert.ok(hooksOf(v2).has("nsTouched"));
     const v5 = `${form}\n  const [splitTouched, setSplitTouched] =\n    useState(false);\n`;
     assert.ok(hooksOf(v5).has("splitTouched"), "V5: la declaración partida en líneas nace igual en el AST");
     const v7 = `${form}\n  const lazyRef = useRef<number | null>(\n    null\n  );\n`;
     assert.ok(hooksOf(v7).has("lazyRef"), "V7: el ref con el argumento partido se extrae");
-    assert.equal(callSites(v7).length, 32);
+    assert.equal(callSites(v7).length, 33);
   });
 });
 

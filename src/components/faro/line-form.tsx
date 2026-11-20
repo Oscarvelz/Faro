@@ -16,6 +16,7 @@ import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, Store
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payAcctLabel, payHintFor, targets } from "@/lib/faro/bankbook";
 import { formDirty } from "@/lib/faro/dirty";
+import { clearEditorExit, setEditorExit, type EditorExit } from "@/lib/faro/editor-exit";
 import { declareSeries, guardFor, hostAccounts, isFundSub, isRetiroSubId, natureMode, stampFor, type FundNature } from "@/lib/faro/funds";
 import { savingsStock } from "@/lib/faro/savings";
 import { NaturePick } from "./fund-light";
@@ -301,6 +302,21 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const [apr, setApr] = useState(existing?.aprBps ? String(existing.aprBps / 100) : seed?.apr ?? "");
   const [balance, setBalance] = useState(existing?.balanceMinor !== null && existing?.balanceMinor !== undefined ? (existing.balanceMinor / 100).toFixed(2) : seed?.balance ?? "");
   const [active, setActive] = useState(existing?.active ?? true);
+  // Oscar (2026-11-20): activar o desactivar Activo/Recurrente se confirma
+  // siempre, con una nota breve de qué hace cada interruptor — «y así evitar
+  // errores». El interruptor es controlado: si la ventana se cancela, el
+  // estado nunca cambió y el interruptor vuelve solo a su sitio.
+  const askToggle = (which: "active" | "recurring", next: boolean) => {
+    const base = which === "active" ? (next ? "line.active.on" : "line.active.off") : (next ? "line.recurring.on" : "line.recurring.off");
+    confirm({
+      title: t(`${base}.title`),
+      body: t(`${base}.body`),
+      yes: t(`${base}.yes`),
+      no: t("cancel"),
+      center: true,
+      run: () => { if (which === "active") setActive(next); else setRecurring(next); },
+    });
+  };
   const [personId, setPersonId] = useState(existing?.personId ?? "");
   // 1.3.153: how this entry was paid (an account id, "cash", or "" = not specified). The import hunts duplicates with it.
   const [pay, setPay] = useState(existing?.sourceId ?? "");
@@ -376,6 +392,22 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   const hintFilled = !payTouched && pay === hintRef.current && baseBag.pay !== pay;
   const dirty = formDirty(hintFilled ? { ...baseBag, pay } : baseBag, bag());
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  // Oscar (2026-11-20): la salida registrada del editor (editor-exit.ts) — la
+  // puerta única de setUi entrega aquí toda navegación que cambiaría de
+  // sección con este editor abierto, para que ninguna carpeta se lo lleve en
+  // silencio: limpio, se cierra y la navegación sigue; sucio, manda el mismo
+  // aviso que levanta su Cancelar, y un rechazo lo deja todo como estaba.
+  const exitRef = useRef({ dirty, concept, onClose, confirm, t });
+  exitRef.current = { dirty, concept, onClose, confirm, t };
+  useEffect(() => {
+    const exit: EditorExit = (proceed) => {
+      const s = exitRef.current;
+      if (!s.dirty) { s.onClose(); proceed(); return; }
+      s.confirm({ title: s.t("entry.leave"), body: s.concept.trim() || s.t("entry.this"), yes: s.t("entry.leave.yes"), run: () => { s.onClose(); proceed(); } });
+    };
+    setEditorExit(exit);
+    return () => clearEditorExit(exit);
+  }, []);
 
   useEffect(() => {
     focusAmount((n) => setAmount(n.toFixed(2)));
@@ -618,13 +650,21 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
             {widgetSuggestion && categoryId === widgetSuggestion.c && subId === widgetSuggestion.s ? (
               <span className="fit-suggest">{t("widget.suggested")}</span>
             ) : null}
-            <button type="button" className="fit-manage" onClick={() => goTopic("arbol", { screen: "settings", fold: "structure", anchor: "aj-tree" })}>{t("cats.manage")}</button>
           </div>
         ) : null}
         {group && cat && (subs.length || subId) ? (
           <div className={`label fit-f${long(nameOf(cat.subs, subId))}`} data-f="sub">
             {head(t("sub"), "f-sub")}
             <SubPick categoryId={cat.id} value={subId} onChange={setSubId} />
+          </div>
+        ) : null}
+        {/* Oscar (2026-11-20): «Gestionar categorías» vivía dentro de la
+            columna de Categoría — centrada, subrayada y partida en dos
+            líneas, «completamente fuera de lo normal». Ahora tiene su
+            propio renglón, a la izquierda, bajo Categoría/Subconcepto. */}
+        {group ? (
+          <div className="fit-manage-row">
+            <button type="button" className="fit-manage" onClick={() => goTopic("arbol", { screen: "settings", fold: "structure", anchor: "aj-tree" })}>{t("cats.manage")}</button>
           </div>
         ) : null}
         {group && session && categoryId && isRemitCat(session.ledger, categoryId) && has("editor.for-remit") ? <RemitToField value={to} onChange={setTo} className={`label fit-f${to ? long(session.ledger.remitPeople?.find((p) => p.id === to)?.name) : ""}`} /> : null}
@@ -712,7 +752,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         </label>
         {kind === "subscription" && has("editor.active-toggle") ? (
           <label className="form-toggle fit-chip is-inline">
-            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            <input type="checkbox" checked={active} onChange={(e) => askToggle("active", e.target.checked)} />
             <span>{t("active")}</span><FieldTip topic="f-activo" />
           </label>
         ) : null}
@@ -721,13 +761,13 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
         <div className="fit-toggles">
           {has("editor.active-toggle") ? (
           <label className="form-toggle fit-chip">
-            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            <input type="checkbox" checked={active} onChange={(e) => askToggle("active", e.target.checked)} />
             <span>{t("active")}</span><FieldTip topic="f-activo" />
           </label>
           ) : null}
           {has("editor.recurrent-toggle") ? (
           <label className="form-toggle fit-chip">
-            <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
+            <input type="checkbox" checked={recurring} onChange={(e) => askToggle("recurring", e.target.checked)} />
             <span>{t("recurring")}</span><FieldTip topic="f-recurrente" />
           </label>
           ) : null}

@@ -25,6 +25,13 @@
 //    vertical mientras la marca vive;
 //  - el glide queda intacto en sus valores: la excepción solo AÑADE una
 //    entrada, como las que ya existían.
+// REFINADA en la 1.3.336 (Oscar, 2026-11-20): la excepción protege al
+// teclado, no al formulario — con un formulario abierto y NINGÚN campo
+// enfocado, el dock vuelve a obedecer al scroll (bajar lo esconde, subir lo
+// trae), porque el editor no debe quitar el acceso a la barra inferior. Con
+// un campo de texto enfocado, la excepción sigue exactamente como se fijó
+// aquí. Las cercas de la excepción juzgan desde entonces la forma acotada
+// (formOpen && kbUp()), con la razón escrita en su propio bloque.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -55,14 +62,31 @@ describe("el dock se aparta: la excepción por estado de formulario", () => {
     assert.equal(seats.length, 1, "formOpen entra en las dependencias del glide una sola vez");
   });
 
-  it("step() lleva el objetivo del dock al recorrido completo mientras el formulario vive", () => {
-    const seats = shell.match(/if \(formOpen && dock && T > 0\) dockTarget = T;/g) ?? [];
-    assert.equal(seats.length, 1, "la excepción de step() existe una sola vez");
+  // 1.3.336 (Oscar, 2026-11-20): la excepción se refinó POR SU PALABRA — con
+  // el editor abierto, la barra inferior no volvía ni subiendo, y «así como
+  // está este editor no me permite acceso a la barra inferior». La excepción
+  // protege al TECLADO, no al formulario: sigue entera mientras un campo de
+  // texto guarda el foco (kbUp()), y sin foco manda la ley del scroll. Las
+  // dos cercas de abajo juzgan la ley refinada; la protección del 2026-11-14
+  // no se retiró — se acotó a su propósito.
+  it("step() lleva el objetivo del dock al recorrido completo mientras el formulario vive CON el teclado arriba", () => {
+    const seats = shell.match(/if \(formOpen && kbUp\(\) && dock && T > 0\) dockTarget = T;/g) ?? [];
+    assert.equal(seats.length, 1, "la excepción de step() existe una sola vez, acotada al teclado");
+    const bare = shell.match(/if \(formOpen && dock && T > 0\) dockTarget = T;/g) ?? [];
+    assert.equal(bare.length, 0, "la excepción sin acotar no vuelve: sin foco, manda el scroll");
   });
 
-  it("onScroll() refleja la excepción, como la de la cabecera", () => {
-    const seats = shell.match(/if \(formOpen\) dockTarget = measureDock\(\);/g) ?? [];
-    assert.equal(seats.length, 1, "el reflejo en onScroll() existe una sola vez");
+  it("onScroll() refleja la excepción acotada, como la de la cabecera", () => {
+    const seats = shell.match(/if \(formOpen && kbUp\(\)\) dockTarget = measureDock\(\);/g) ?? [];
+    assert.equal(seats.length, 1, "el reflejo en onScroll() existe una sola vez, acotado al teclado");
+  });
+
+  it("la señal del teclado es el foco en un campo de texto, y el lazo despierta con el foco", () => {
+    assert.ok(shell.includes("const kbUp = () => {"), "kbUp() vive en el lazo del glide");
+    assert.ok(shell.includes('a.tagName === "TEXTAREA" || a.isContentEditable'), "kbUp() reconoce textarea y contentEditable");
+    assert.ok(shell.includes('ty !== "checkbox" && ty !== "radio"'), "los interruptores no cuentan como teclado: no lo abren");
+    assert.ok(shell.includes('document.addEventListener("focusin", onFocus)'), "el lazo despierta al entrar el foco");
+    assert.ok(shell.includes('document.addEventListener("focusout", onFocus)'), "el lazo despierta al salir el foco");
   });
 
   it("los valores del glide quedan intactos: la excepción añade una entrada, no retoca", () => {

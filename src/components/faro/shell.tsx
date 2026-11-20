@@ -593,6 +593,11 @@ export function Shell() {
   // the dock is driven away by state, not by however far the page happens
   // to be scrolled — Oscar's rule (2026-11-14): the dock never sits on the
   // keyboard, at any form height.
+  // 1.3.336 (Oscar, 2026-11-20): refined by its owner — the exception guards
+  // the KEYBOARD, not the form: with a form open but no field focused, the
+  // scroll law governs the dock again (down hides, up returns), because the
+  // editor must not take away access to the bottom bar. The glide below
+  // reads kbUp() for that half; formOpen still marks that a form holds.
   const [fitOpen, setFitOpen] = useState(false);
   useEffect(() => {
     const check = () => setFitOpen(!!document.querySelector(".form-block.is-fit"));
@@ -647,6 +652,18 @@ export function Shell() {
         return dockTravel;
       };
       const phoneLand = () => window.matchMedia("(orientation: landscape) and (max-height: 520px) and (max-width: 1099px)").matches;
+      // 1.3.336 (Oscar, 2026-11-20): ¿hay un teclado sobre la página? Un campo
+      // de texto con el foco — la señal que vale también en el shell Android,
+      // donde la ventana se encoge con el teclado y el viewport visual no se
+      // mueve. Los interruptores (checkbox/radio) no abren teclado.
+      const kbUp = () => {
+        const a = document.activeElement as HTMLElement | null;
+        if (!a) return false;
+        if (a.tagName === "TEXTAREA" || a.isContentEditable) return true;
+        if (a.tagName !== "INPUT") return false;
+        const ty = (a as HTMLInputElement).type;
+        return ty !== "checkbox" && ty !== "radio" && ty !== "button" && ty !== "submit";
+      };
       const step = (ts = 0) => {
         const dt = lastTs ? Math.min(34, ts - lastTs) : 16;
         lastTs = ts;
@@ -660,7 +677,12 @@ export function Shell() {
         // 1.3.282: the dock's form exception, in the overlay family of the
         // header's above — while a form holds, its target is full travel at
         // every scroll height, so the keyboard never finds it parked home.
-        if (formOpen && dock && T > 0) dockTarget = T;
+        // 1.3.336 (Oscar, 2026-11-20): la excepción protege al TECLADO, no al
+        // formulario en sí — con el editor abierto y sin teclado arriba, la
+        // ley del scroll vuelve a mandar (bajar lo esconde, subir lo trae),
+        // porque «así como está este editor no me permite acceso a la barra
+        // inferior». Con un campo enfocado, la excepción sigue entera.
+        if (formOpen && kbUp() && dock && T > 0) dockTarget = T;
         if (phoneLand()) {
           headerVisual = headerTarget;
           dockVisual = dockTarget;
@@ -700,15 +722,22 @@ export function Shell() {
         else headerTarget += dy;
         if (y <= 0) dockTarget = 0;
         else dockTarget += dy;
-        if (formOpen) dockTarget = measureDock();
+        if (formOpen && kbUp()) dockTarget = measureDock();
         if (!raf) raf = requestAnimationFrame(step);
       };
       scroller.addEventListener("scroll", onScroll, { passive: true });
+      // 1.3.336: el foco entra y sale sin scroll — el lazo se despierta con él
+      // para que la excepción del teclado se aplique y se levante al momento.
+      const onFocus = () => { if (!raf) raf = requestAnimationFrame(step); };
+      document.addEventListener("focusin", onFocus);
+      document.addEventListener("focusout", onFocus);
       const forget = () => { headerH = 0; dockTravel = 0; };
       window.visualViewport?.addEventListener("resize", forget);
       window.addEventListener("orientationchange", forget);
       return () => {
         scroller.removeEventListener("scroll", onScroll);
+        document.removeEventListener("focusin", onFocus);
+        document.removeEventListener("focusout", onFocus);
         window.visualViewport?.removeEventListener("resize", forget);
         window.removeEventListener("orientationchange", forget);
         if (raf) cancelAnimationFrame(raf);
