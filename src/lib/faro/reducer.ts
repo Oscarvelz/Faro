@@ -79,6 +79,46 @@ export function commitGuarded(session: Session, recipe: (s: LedgerState) => Ledg
   return frameCommit(session, snap, drafted, detail);
 }
 
+/**
+ * Ola 19 (BR19-1): el commit cuyo aborto es DECLARADO — deja su entrada
+ * veraz en el registro, pero no marco.
+ *
+ * La confirmación de modo (applyModeConfirmed) aborta devolviendo el
+ * estado intacto y su entrada es deliberada y veraz (su detalle-función
+ * nombra la no-aplicación, o el aterrizaje de su tanda — doctrina
+ * BR15-1). La cura 18 la excluyó de la puerta guardada por esa entrada,
+ * y acertó en la entrada; pero la exclusión calló el MARCO: por la
+ * puerta vieja, el aborto apilaba un fotograma de Deshacer idéntico y
+ * subía la revisión, así que una sola mudanza de contenido costaba
+ * revisión +2 y el primer Deshacer de la tanda se gastaba en borrar la
+ * entrada del aborto sin tocar el libro (medido en vivo, ola 19).
+ *
+ * Esta puerta separa la entrada del marco, que es lo que la doctrina
+ * siempre quiso decir: si la receta compone estado nuevo, aterriza con
+ * su marco entero (frameCommit, como commit). Si devuelve su propio
+ * estado (o null), el aborto deja SOLO su entrada: el libro gana la
+ * línea de registro con su detalle veraz y su updatedAt, y nada más —
+ * la revisión NO sube, la pila de Deshacer queda el mismo objeto, el
+ * futuro queda el mismo objeto. La sesión sí es nueva y el libro sí es
+ * un objeto nuevo (el registro cambió), así que el canal del veredicto
+ * despierta y la bandera de sucio se levanta: la entrada es contenido
+ * real y debe persistir. Lo que ya no puede pasar es que un Deshacer se
+ * gaste en una no-aplicación, ni que la revisión afirme una mudanza que
+ * no ocurrió.
+ */
+export function commitAnnounced(session: Session, recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)): Session {
+  const snap: LedgerState = session.ledger;
+  const drafted = recipe(snap);
+  if (drafted !== null && drafted !== snap) return frameCommit(session, snap, drafted, detail);
+  const updatedAt = new Date().toISOString();
+  const ledger: LedgerState = {
+    ...snap,
+    updatedAt,
+    audit: [{ id: uid(), at: updatedAt, detail: typeof detail === "function" ? detail() : detail }, ...snap.audit].slice(0, 80),
+  };
+  return { ledger, past: session.past, future: session.future, dirty: true };
+}
+
 export function undo(session: Session): Session {
   const prev = session.past[session.past.length - 1];
   if (!prev) return session;
@@ -106,10 +146,24 @@ export function undo(session: Session): Session {
  * no solo se deja de empujar: un snapshot anterior en la pila resucitaría lo borrado
  * al deshacer cualquier cosa, así que la única pila segura es la vacía — el mismo
  * corte que una restauración de copia hace con blankSession.
+ *
+ * Ola 19 (G19-1, especímenes A11/B4): la pregunta propia de esta puerta —
+ * ¿debe enmarcar, y vaciar el pasado, cuando su receta devuelve el estado
+ * intacto? NO. Sus dos recetas (borrar un período, borrar líneas apartadas)
+ * se niegan por identidad cuando el blanco ya no vive, y enmarcar esa
+ * negativa mentía dos veces: la entrada afirmaba una eliminación que no
+ * ocurrió y el pasado entero de Deshacer se vaciaba por un borrado que
+ * nunca pasó — el peor espécimen de la ola. La finalidad es de los
+ * ATERRIZAJES: si la receta devuelve su propio estado, no hay nada que
+ * hacer final, y la sesión vuelve sin marco y con su pasado intacto (la
+ * carcasa es nueva, como en la puerta guardada). La detección aquí no es
+ * la que la cura 18 rechazó para `commit`: esta puerta tiene dos
+ * recetas, ambas de borrado, y ninguna aterriza devolviendo su entrada.
  */
 export function commitFinal(session: Session, recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)): Session {
   const snap: LedgerState = session.ledger;
   const drafted = recipe(snap);
+  if (drafted === snap) return { ...session };
   const updatedAt = new Date().toISOString();
   const ledger: LedgerState = {
     ...drafted,
@@ -176,6 +230,13 @@ export function patchLineWith(state: LedgerState, id: string, patch: (live: Line
 export function deleteLine(state: LedgerState, monthKey: string, id: string): LedgerState {
   const bucket = state.months[monthKey];
   if (!bucket) return state;
+  // Ola 19 (G19-3, espécimen C2): sin la línea en el mes, no hay borrado —
+  // el estado vuelve intacto, como patchLineWith manda («nadie resucita
+  // una línea desde una foto», y nadie firma un borrado que no ocurrió).
+  // Antes el filtro componía un objeto nuevo de contenido igual y la
+  // puerta enmarcaba el intento: la entrada afirmaba el conteo intentado
+  // («2» por cero borradas) y el fotograma se apilaba por nada.
+  if (!bucket.lines.some((l) => l.id === id)) return state;
   return {
     ...state,
     months: { ...state.months, [monthKey]: { lines: bucket.lines.filter((l) => l.id !== id) } },

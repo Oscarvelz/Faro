@@ -25,6 +25,21 @@
  * de la confirmación de modo que no aplicó (doctrina BR15-1), que es
  * la razón escrita de que el mecanismo sea señal y no detección.
  *
+ * ENMIENDA OLA 19 (BR19-1): la ola 19 midió lo que esta exclusión no
+ * juzgó — el MARCO del aborto de la confirmación. La entrada era
+ * veraz y la exclusión acertó en ella; pero por la puerta ordinaria
+ * el aborto también apilaba un fotograma idéntico y subía la revisión
+ * (una mudanza costaba revisión +2 y el primer Deshacer se gastaba en
+ * la entrada del aborto). La cura 19 separa la entrada del marco: la
+ * confirmación pasa por una tercera puerta, `commitAnnounced`, que
+ * conserva su entrada deliberada y su detalle-función intactos y cuyo
+ * aborto no enmarca ni sube revisión. Los pines de la puerta nueva
+ * viven en modos-ola19.test.ts; el pin de esta sección que clavaba la
+ * NO migración queda enmendado en su sitio, y el pin del commit
+ * ordinario (que sigue enmarcando el retorno intacto: el envoltorio
+ * común sigue sin detectar) queda como estaba — lo que cambió es la
+ * puerta de la confirmación, no el envoltorio.
+ *
  * Las cercas de las demás familias viven donde viven sus censos:
  * la capa de nombres de la cáscara en modos-ola14 (Asesor), la
  * captura por cierre en modos-ola12 (Guardián G18-1), citaGobierna
@@ -137,12 +152,23 @@ describe("ola18 · §A: la puerta guardada — abortar sin marco (BR18-1)", () =
     assert.ok(due.includes("return null;"), "la serie ausente aborta en null: la restauración que no ocurrió ya no deja entrada con el nombre de la fila");
   });
 
-  it("la fuente: la confirmación de modo NO migra — su aborto con entrada veraz sigue en el commit ordinario", () => {
+  it("la fuente: la confirmación de modo NO migra — su aborto con entrada veraz sigue en el commit ordinario [ENMIENDA OLA 19]", () => {
+    /* ENMIENDA OLA 19 (BR19-1): este pin clavaba la exclusión entera
+     * de la cura 18. La ola 19 la partió en sus dos mitades: la
+     * ENTRADA sigue siendo deliberada y veraz (y este pin la sigue
+     * clavando: el veredicto se deja igual y el detalle-función nombra
+     * la no-aplicación igual), pero el MARCO ya no viaja por el commit
+     * ordinario — la confirmación comete por `commitAnnounced`, la
+     * puerta del aborto declarado, cuyo aborto escribe solo la
+     * entrada: sin fotograma y sin subida de revisión. Lo que este
+     * pin afirma ahora es la forma enmendada, no la vieja. */
     const screens = SRC("../../components/faro/screens.tsx");
-    const seg = screens.slice(screens.indexOf("const applyModeConfirmed"), screens.indexOf("const applyModeConfirmed") + 1200);
-    assert.ok(seg.includes("commit((s) => {"), "applyModeConfirmed sigue cometiendo por la puerta ordinaria");
+    const seg = screens.slice(screens.indexOf("const applyModeConfirmed"), screens.indexOf("const applyModeConfirmed") + 2400);
+    assert.ok(seg.includes("commitAnnounced((s) => {"), "applyModeConfirmed comete por la puerta del aborto declarado (ola 19): su entrada se conserva, su marco ya no miente");
     assert.ok(seg.includes("leaveVerdict({ verdict: \"already\", ctx }); return s; }"),
-      "y su aborto sigue devolviendo el estado intacto: su entrada («no aplicó») es deliberada y veraz (BR15-1), no la mentira de BR18-1");
-    assert.ok(!seg.includes("commitGuarded"), "la puerta guardada no se le impone: la distinción es la cura, no un barrido");
+      "y su aborto sigue devolviendo el estado intacto y dejando su veredicto: su entrada («no aplicó») es deliberada y veraz (BR15-1), no la mentira de BR18-1");
+    assert.ok(seg.includes("La confirmación no aplicó: el modo ya había cambiado"),
+      "el detalle-función sigue nombrando la no-aplicación con las mismas palabras");
+    assert.ok(!seg.includes("commitGuarded"), "la puerta guardada tampoco se le impone: su puerta es la del aborto declarado, que es otra señal");
   });
 });

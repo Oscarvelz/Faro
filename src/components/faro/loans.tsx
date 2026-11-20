@@ -350,7 +350,7 @@ export function DeboSum({ parts, empty, help }: { parts: Array<Array<string | { 
 
 /** Debo → Préstamos: loans received, kept in the ledger. Payments become normal lines in the loan's book. */
 export function DueLoans({ libros = false, onWho, facts, between }: { libros?: boolean; onWho?: (name: string) => void; facts?: (id: string, interestView: number) => ReactNode; between?: ReactNode } = {}) {
-  const { t, fmt, session, commit, lang, has } = useFaro();
+  const { t, fmt, session, commit, commitGuarded, lang, has } = useFaro();
   // Etapa 3.3 (S-1/S-3): la familia de interés de los préstamos es Completo
   // (loans.interest / loans.interest-paid / loans.pay-split) — en Ritmo la
   // tarjeta lee el préstamo sin tasa, sin interés devengado ni pagado y sin
@@ -411,8 +411,8 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
               body={lang === "en" ? "They move to the Archive with their payments and what was left. Restore brings them back." : "Pasan al Archivo con sus pagos y lo que faltaba. Restaurar los devuelve."}
               rows={active.map((l) => ({ id: l.id, label: l.lender }))}
               onEdit={(id) => { setAdding(false); setEditFor(id); }}
-              onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => archiveLoan(acc, id), s0), ids.length === 1 ? (active.find((l) => l.id === ids[0])?.lender ?? "") : `${ids.length}`)}
-              onRename={(id, name) => commit((s0) => ({ ...s0, loans: loansOf(s0).map((l) => (l.id === id ? { ...l, lender: name } : l)) }), name)} />
+              onDrop={(ids) => commitGuarded((s0) => ids.reduce((acc, id) => archiveLoan(acc, id), s0), ids.length === 1 ? (active.find((l) => l.id === ids[0])?.lender ?? "") : `${ids.length}`)}
+              onRename={(id, name) => commitGuarded((s0) => (loansOf(s0).some((l) => l.id === id) ? { ...s0, loans: loansOf(s0).map((l) => (l.id === id ? { ...l, lender: name } : l)) } : s0), name)} />
           </span>
         ) : null}
         <button type="button" className="cobro-plus" aria-pressed={adding} aria-label={t("cobro.loan.add")} onClick={() => { setEditFor(null); setAdding((on) => !on); }}><Plus /></button>
@@ -455,10 +455,10 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
             extra={<><p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{canInterest && f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}{loan.dueDay ? <> · {t("cobro.loan.dueday")} <b className="num">{loan.dueDay}</b></> : null}{(() => { if (!has("loans.interest-paid")) return null; const ip = loanInterestPaid(ledger, loan); if (ip <= 0) return null; const yr = new Date().getFullYear(); const ipy = loanInterestPaid(ledger, loan, yr); return <> · {t("cobro.loan.intpaid")} <b className="num">{fmt(view(ip, loan.currency))}</b>{ipy > 0 && ipy < ip ? <> · {t("cobro.loan.intpaid.year")} <b className="num">{fmt(view(ipy, loan.currency))}</b></> : null}</>; })()}</p>{facts ? facts(loan.id, view(f.interest, loan.currency)) : null}</>}
             onWho={onWho ? () => onWho(loan.lender) : undefined}
             payLabel={t("cobro.loan.pay")} paying={payFor === loan.id} onPaying={(on) => setPayFor(on ? loan.id : null)}
-            onPay={(minor, date) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line")), loan.lender)}
-            onPaySplit={canInterest && loan.kind === "interest" ? (minor, date, intDisplay) => commit((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line"), convertMinor(intDisplay, display, loan.currency, rate)), loan.lender) : undefined}
+            onPay={(minor, date) => commitGuarded((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line")), loan.lender)}
+            onPaySplit={canInterest && loan.kind === "interest" ? (minor, date, intDisplay) => commitGuarded((s) => payLoan(s, loan.id, convertMinor(minor, display, loan.currency, rate), date, uid(), t("cobro.loan.pay.line"), convertMinor(intDisplay, display, loan.currency, rate)), loan.lender) : undefined}
             prefillInterest={canInterest && loan.kind === "interest" ? (minor) => Math.min(minor, view(accruedUnpaidInterest(ledger, loan), loan.currency)) : undefined}
-            archiveBody={t("cobro.loan.archive.body")} onArchive={() => commit((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
+            archiveBody={t("cobro.loan.archive.body")} onArchive={() => commitGuarded((s) => archiveLoan(s, loan.id), loan.lender)} hint="prestamo-abono" />
         );
       }) : cardSum.count ? null : <Note>{t("cobro.loan.empty")}</Note>}
       {between}
@@ -485,7 +485,7 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
             </p>
             {loanPays(ledger, loan.id).length ? <p className="cobro-meta">{loanPays(ledger, loan.id).map((line) => `${stampOf(line.bookedOn || "")} ${fmt(view(line.amountMinor, line.currency))}`).join(" · ")}</p> : null}
             <div className="cobro-acts">
-              <button type="button" className="btn secondary" onClick={() => commit((s) => restoreLoan(s, loan.id), loan.lender)}>{t("backup.restore")}</button>
+              <button type="button" className="btn secondary" onClick={() => commitGuarded((s) => restoreLoan(s, loan.id), loan.lender)}>{t("backup.restore")}</button>
             </div>
           </article>
         )) : <Note>{t("cobro.loan.file.empty")}</Note>) : null}

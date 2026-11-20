@@ -380,7 +380,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
 /** Compras: the store, as a chip with its brand mark (or the line's icon in its colour); the sheet lists every store with
  * an inline "add", a manage state, and — when the editor hands its look — the colour and Faro icons of the line. */
 export function StorePick({ value, onChange, look }: { value: string; onChange: (id: string) => void; look?: Look }) {
-  const { t, session, commit, lang, has } = useFaro();
+  const { t, session, commit, commitGuarded, lang, has } = useFaro();
   const [open, setOpen] = useState(false);
   const stores = (session?.ledger.structure.catalog ?? []).filter((c) => c.kind === "store" && (!c.hidden || c.id === value)).sort((a, b) => a.order - b.order);
   const cur = stores.find((s) => s.id === value);
@@ -403,10 +403,10 @@ export function StorePick({ value, onChange, look }: { value: string; onChange: 
           manage={has("editor.picker-manage") ? {
             hide: true,
             word: ["tienda", "tiendas", "store", "stores"],
-            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)) } }), L(lang, "Tiendas", "Stores")); },
-            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } }), name),
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commitGuarded((st) => { const catalog = st.structure.catalog.map((c) => (ids.includes(c.id) ? { ...c, hidden: true } : c)); return catalog.some((c, i) => c !== st.structure.catalog[i]) ? { ...st, structure: { ...st.structure, catalog } } : st; }, L(lang, "Tiendas", "Stores")); },
+            onRename: (id, name) => commitGuarded((st) => (st.structure.catalog.some((c) => c.id === id) ? { ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } } : st), name),
           } : has("editor.picker-rename") ? {
-            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } }), name),
+            onRename: (id, name) => commitGuarded((st) => (st.structure.catalog.some((c) => c.id === id) ? { ...st, structure: { ...st.structure, catalog: st.structure.catalog.map((c) => (c.id === id ? { ...c, customName: name } : c)) } } : st), name),
           } : undefined}
           add={{
             placeholder: t("shops.addStore"),
@@ -425,7 +425,7 @@ export function StorePick({ value, onChange, look }: { value: string; onChange: 
 
 /** Compras: the purchase category, as a chip with its colour; picker lists them with an inline "add" and a manage state. */
 export function PurchaseCatPick({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const { t, session, commit, lang, has } = useFaro();
+  const { t, session, commit, commitGuarded, lang, has } = useFaro();
   const [open, setOpen] = useState(false);
   const cats = (session?.ledger.structure.purchases ?? []).filter((p) => !p.hidden || p.id === value).sort((a, b) => a.order - b.order);
   const cur = cats.find((p) => p.id === value);
@@ -445,11 +445,11 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
           manage={has("editor.picker-manage") ? {
             hide: true,
             word: ["categoría", "categorías", "category", "categories"],
-            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (ids.includes(p.id) ? { ...p, hidden: true } : p)) } }), L(lang, "Categorías", "Categories")); },
-            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } }), name),
-            onColor: (id, hex) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, color: hex } : p)) } }), hex),
+            onDropMany: (ids) => { if (ids.includes(value)) onChange(""); commitGuarded((st) => { const purchases = st.structure.purchases.map((p) => (ids.includes(p.id) ? { ...p, hidden: true } : p)); return purchases.some((p, i) => p !== st.structure.purchases[i]) ? { ...st, structure: { ...st.structure, purchases } } : st; }, L(lang, "Categorías", "Categories")); },
+            onRename: (id, name) => commitGuarded((st) => (st.structure.purchases.some((p) => p.id === id) ? { ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } } : st), name),
+            onColor: (id, hex) => commitGuarded((st) => (st.structure.purchases.some((p) => p.id === id) ? { ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, color: hex } : p)) } } : st), hex),
           } : has("editor.picker-rename") ? {
-            onRename: (id, name) => commit((st) => ({ ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } }), name),
+            onRename: (id, name) => commitGuarded((st) => (st.structure.purchases.some((p) => p.id === id) ? { ...st, structure: { ...st.structure, purchases: st.structure.purchases.map((p) => (p.id === id ? { ...p, customName: name } : p)) } } : st), name),
           } : undefined}
           add={{
             placeholder: t("shops.addCat"),
@@ -469,13 +469,13 @@ export function PurchaseCatPick({ value, onChange }: { value: string; onChange: 
 /** Fijos / Variables: the category (with its colour) and its subcategory, as chips; same sheet, inline add and manage
  * state as Compras. The manage action hides («Ocultar»), exactly like the eye in Ajustes → Estructura: lines keep their category and history. */
 export function CategoryPick({ group, value, onChange }: { group: "fixed" | "variable"; value: string; onChange: (id: string) => void }) {
-  const { t, session, commit, lang, has } = useFaro();
+  const { t, session, commit, commitGuarded, lang, has } = useFaro();
   const [open, setOpen] = useState(false);
   const all = (session?.ledger.structure.categories ?? []).filter((c) => c.group === group).sort((a, b) => a.order - b.order);
   const cur = all.find((c) => c.id === value);
   const dot = (c: (typeof all)[number]) => <PiecePlate small color={categoryColor(c.id, c.color)} icon={namedIconFor(c)} />;
   const patch = (ids: string[], fn: (c: (typeof all)[number]) => (typeof all)[number], label: string) =>
-    commit((st) => ({ ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (ids.includes(c.id) ? fn(c) : c)) } }), label);
+    commitGuarded((st) => { const categories = st.structure.categories.map((c) => (ids.includes(c.id) ? fn(c) : c)); return categories.some((c, i) => c !== st.structure.categories[i]) ? { ...st, structure: { ...st.structure, categories } } : st; }, label);
   return (
     <>
       <PickButton test="fcat-pick" open={open} onOpen={() => setOpen(true)} mark={cur ? dot(cur) : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
@@ -513,13 +513,19 @@ export function CategoryPick({ group, value, onChange }: { group: "fixed" | "var
 }
 
 export function SubPick({ categoryId, value, onChange }: { categoryId: string; value: string; onChange: (id: string) => void }) {
-  const { t, session, commit, lang, has } = useFaro();
+  const { t, session, commit, commitGuarded, lang, has } = useFaro();
   const [open, setOpen] = useState(false);
   const cat = session?.ledger.structure.categories.find((c) => c.id === categoryId);
   const subs = (cat?.subs ?? []).slice().sort((a, b) => a.order - b.order);
   const cur = subs.find((x) => x.id === value);
   const patchSubs = (fn: (list: typeof subs) => typeof subs, label: string) =>
-    commit((st) => ({ ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (c.id === categoryId ? { ...c, subs: fn(c.subs) } : c)) } }), label);
+    commitGuarded((st) => {
+      const cat = st.structure.categories.find((c) => c.id === categoryId);
+      if (!cat) return st;
+      const next = fn(cat.subs);
+      if (next.length === cat.subs.length && next.every((x, i) => x === cat.subs[i])) return st;
+      return { ...st, structure: { ...st.structure, categories: st.structure.categories.map((c) => (c.id === categoryId ? { ...c, subs: next } : c)) } };
+    }, label);
   return (
     <>
       <PickButton test="sub-pick" open={open} onOpen={() => setOpen(true)} mark={cur && session?.ledger.structure ? <PiecePlate small color={subColorFor(session.ledger.structure, categoryId, cur.id)} icon={subIconFor(session.ledger.structure, categoryId, cur.id)} /> : <Tag />} text={cur ? displayName(cur, lang) : ""} placeholder={L(lang, "Elegir", "Choose")} />
@@ -557,7 +563,7 @@ export function SubPick({ categoryId, value, onChange }: { categoryId: string; v
 
 /** Cuotas: "Ícono y color" — a brand from the library (`sub:<id>`) or a Faro icon, plus the line's colour. */
 export function BrandIconPick({ value, suggest, onChange, compact, look }: { value: string; suggest: string; onChange: (icon: string, label: string) => void; compact?: boolean; look?: Look }) {
-  const { session, commit, confirm, lang, has } = useFaro();
+  const { session, commit, commitGuarded, confirm, lang, has } = useFaro();
   const [open, setOpen] = useState(false);
   const lookHere: Look | undefined = look ? { ...look, onGlyph: (name) => { look.onGlyph(name); onChange(name, ""); } } : undefined;
   const off = libraryOff(session?.ledger);
@@ -587,12 +593,12 @@ export function BrandIconPick({ value, suggest, onChange, compact, look }: { val
           onLookDone={() => setOpen(false)}
           manage={has("subs.brand-icon-admin") ? {
             word: ["ícono", "íconos", "icon", "icons"],
-            onDropMany: (ids) => commit((s) => ({ ...s, subIconsOff: [...new Set([...(s.subIconsOff ?? []), ...ids.filter((x) => lib.some((r) => r[0] === x))])] }), L(lang, "Íconos", "Icons")),
+            onDropMany: (ids) => commitGuarded((s) => { const add = ids.filter((x) => lib.some((r) => r[0] === x) && !(s.subIconsOff ?? []).includes(x)); return add.length ? { ...s, subIconsOff: [...new Set([...(s.subIconsOff ?? []), ...add])] } : s; }, L(lang, "Íconos", "Icons")),
             onRestore: off.size ? () => confirm({
               title: L(lang, "Restaurar de fábrica", "Restore defaults"),
               body: L(lang, "Vuelven todos los íconos borrados. No se cambia ninguna cuota.", "Every deleted icon comes back. No payment is changed."),
               yes: L(lang, "Restaurar", "Restore"),
-              run: () => commit((s) => restoreLibrary(s), L(lang, "Íconos", "Icons")),
+              run: () => commitGuarded((s) => restoreLibrary(s), L(lang, "Íconos", "Icons")),
             }) : undefined,
           } : undefined}
         />
@@ -618,7 +624,7 @@ const UNITS: [FreqUnit, string, string][] = [["d", "días", "days"], ["w", "sema
 
 /** The frequency sheet: presets, the user's saved ones (removable in edit state) and "Otro…" with a "Cada N …" setter. */
 export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { value: string; presets: string[]; onPick: (token: string) => void; onClose: () => void; startSetter?: boolean }) {
-  const { lang, session, commit, confirm, has } = useFaro();
+  const { lang, session, commit, commitGuarded, confirm, has } = useFaro();
   // Etapa 3.1: la cadencia completa (intervalos propios, «Otro…», la lista
   // propia editable) es de Completo; fuera de él la hoja ofrece las frecuencias
   // de la casa y el valor actual de la línea se sigue LEYENDO entre las opciones.
@@ -644,7 +650,7 @@ export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { va
   const save = () => {
     const token = customToken(Number(n), unit);
     if (!token) { setErr(true); return; }
-    if (!presets.some((c) => sameCadence(c, token))) commit((s) => rememberFreq(s, token), cadenceLabel(token, lang));
+    if (!presets.some((c) => sameCadence(c, token))) commitGuarded((s) => rememberFreq(s, token), cadenceLabel(token, lang));
     onPick(presets.find((c) => sameCadence(c, token)) ?? token);
   };
   const opt = (c: string, own = false) => (
@@ -658,7 +664,7 @@ export function FreqSheet({ value, presets, onPick, onClose, startSetter }: { va
           body: L(lang, `${cadenceLabel(c, lang)} sale de la lista. Las líneas que ya la usan la conservan.`, `${cadenceLabel(c, lang)} leaves the list. Lines already using it keep it.`),
           danger: true,
           yes: L(lang, "Borrar", "Delete"),
-          run: () => commit((s) => dropFreq(s, c), cadenceLabel(c, lang)),
+          run: () => commitGuarded((s) => dropFreq(s, c), cadenceLabel(c, lang)),
         });
       }}>
       <span>{cadenceLabel(c, lang)}</span>

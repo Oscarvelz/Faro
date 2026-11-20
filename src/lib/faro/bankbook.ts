@@ -668,6 +668,13 @@ export function resetGuides(state: LedgerState): LedgerState {
 export function restoreDefaultAccounts(state: LedgerState): LedgerState {
   const base = ensureAccounts(state);
   const ids = new Set(DEFAULT_SOURCES.map((d) => idIn(d, base.structure.catalog.filter((c) => c.kind === "acct"), importBook(base).sources)));
+  // Ola 19 (G19-3): si ninguna cuenta de fábrica está quitada ni oculta,
+  // no hay nada que restaurar — el ayudante devuelve su propio estado y
+  // la puerta guardada de su sitio no deja marco.
+  const book0 = importBook(base);
+  const anyOff = book0.sources.some((x) => ids.has(x.id) && x.off);
+  const anyHidden = base.structure.catalog.some((c) => ids.has(c.id) && c.hidden);
+  if (!anyOff && !anyHidden) return state;
   const catalog = base.structure.catalog.map((c) => (ids.has(c.id) && c.hidden ? { ...c, hidden: false } : c));
   return withBook({ ...base, structure: { ...base.structure, catalog } }, (b) => ({ ...b, sources: b.sources.map((x) => { if (!ids.has(x.id) || !x.off) return x; const n = { ...x }; delete n.off; return n; }) }));
 }

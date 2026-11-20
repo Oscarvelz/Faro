@@ -456,8 +456,32 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
   const archivarHit = (s: string): boolean => {
     const re = /archiv\w*|\barchive\w*/gi;
     for (const m of s.matchAll(re)) {
+      /* OLA 19 (Cara CARA19-B1): EL ESCUDO JUZGA LA FORMA DE LA
+       * PALABRA, no solo su antes. El escudo viejo miraba los 14
+       * caracteres anteriores y absolvía si terminaban en un
+       * determinante de su lista — donde vive «al», pensado para «al
+       * archivo» (el destino) — sin mirar jamás si la palabra casada
+       * era el SUSTANTIVO o el VERBO: la construcción española
+       * ordinaria «al + infinitivo» («Al archivar un préstamo…», dos
+       * instancias vivas del Manual: prestamo-archivo y
+       * archivo-cuotas) nacía con el «al» puesto y el escudo la
+       * enterraba entera, mientras su gemela inglesa acusaba. La
+       * línea es la forma: el escudo protege SUSTANTIVOS y jamás
+       * verbos — «archivo»/«archivos» son el lugar o el fichero y ni
+       * siquiera son candidatos a verbo (la misma vara juzga la
+       * observación espejo: «bajo cada archivo ves su cuenta…» leía el
+       * sustantivo como verbo porque «cuenta» seguía en su cláusula);
+       * las formas verbales (archivar…, archivará, archivando,
+       * archivado, archived, archiving) no se protegen por ningún
+       * determinante anterior. El «archive»/«archives» inglés, que es
+       * sustantivo y verbo con la misma grafía, conserva el juicio de
+       * siempre: el determinante anterior lo lee como el lugar, y sin
+       * determinante su ventana lo juzga como el verbo. */
+      const w = m[0].toLowerCase();
+      if (w === "archivo" || w === "archivos") continue; // el sustantivo: el lugar o el fichero, jamás la mano
+      const formaVerbal = !/^(?:archive|archives)$/.test(w);
       const before = s.slice(Math.max(0, m.index! - 14), m.index!);
-      if (/(?:^|\s)(?:el|la|los|las|un|una|este|esta|ese|esa|del|al|the|an|a)\s+$/.test(before)) continue; // «el Archivo» es el lugar
+      if (!formaVerbal && /(?:^|\s)(?:el|la|los|las|un|una|este|esta|ese|esa|del|al|the|an|a)\s+$/.test(before)) continue; // «el Archivo» es el lugar
       // OLA 15 (Cara B1): el objeto se busca en el resto de la
       // PROPOSICIÓN tras el verbo, no en la cláusula hasta la primera
       // coma — la subordinada de «Archiva, cuando puedas, el préstamo
@@ -892,6 +916,39 @@ describe("§B · la doctrina derivada del censo por piso (CARA-1/2 y la clase)",
       "F18-3 · el verbo dentro de la relativa y la marca en la principal: una proposición, acusa");
     assert.equal(stage(tienda, "Fusiona las tiendas que quedan en una sola lista desde el menú.", "Merge the stores that end up as one from the menu.").length, 2,
       "F18-4 · la marca dentro de la relativa y el verbo en la principal: una proposición, acusa");
+  });
+  it("OLA 19 (Cara CARA19-B1): el escudo juzga la FORMA de la palabra — «al + infinitivo» acusa como su gemela, y el sustantivo no es el verbo", () => {
+    const tienda = MANUAL_TOPICS.find((t) => t.id === "f-tienda")!;
+    const deudas = MANUAL_TOPICS.find((t) => t.id === "deudas")!;
+    const stage = (base: Topic, es: string, en: string) => violaciones({ ...base, what: [es, en] } as never);
+    // T4-AL · la sonda de la caza, a doctrina: «al archivar» acusa; sin
+    // el «al», también; el escudo ya no entierra el infinitivo
+    assert.equal(stage(deudas, "Al archivar un préstamo cerrado, deja de contar en lo pendiente.", "When you archive a closed loan, it stops counting as pending.").length, 2,
+      "T4-AL · «al + infinitivo» no se protege por el determinante: la española acusa como su gemela inglesa");
+    assert.equal(stage(deudas, "Archivar un préstamo cerrado es definitivo desde esta hoja.", "Archiving a closed loan is final from this sheet.").length, 2,
+      "T4-AL · el infinitivo y el gerundio, sin determinante alguno, acusan igual en los dos idiomas");
+    // las DOS instancias vivas del Manual, escenificadas a piso de
+    // Esencial: acusan en los dos idiomas (en su piso vivo, Ritmo, la
+    // cerca ya las VE — clasifican como su gemela, sin acusación debida)
+    assert.equal(stage(deudas, "Al archivar un préstamo, deja de contar en lo pendiente y queda en el archivo con lo que aún debías y cada pago que hiciste.", "When you archive a loan, it stops counting as pending and stays in the archive with what you still owed and every payment you made.").length, 2,
+      "la instancia viva de prestamo-archivo, escenificada: la mitad española ya no corre invisible");
+    assert.equal(stage(deudas, "Al archivar una cuota, deja de contar y queda en el archivo con el máximo que pagaste mientras estuvo activa.", "When you archive a due, it stops counting and stays in the archive with the most you paid while it was active.").length, 2,
+      "la instancia viva de archivo-cuotas, escenificada: acusa o clasifica como su gemela inglesa");
+    // el lugar sigue protegido en su forma sustantiva: «al archivo»
+    // el destino y «el Archivo» la casa no son la mano, aunque un
+    // objeto de la familia viva en la misma frase por su propio verbo
+    assert.deepEqual(stage(tienda, "Todo queda en el archivo de la casa; el libro no cambia en nada más.", "Everything stays in the house archive; the book changes in nothing else."), [],
+      "el sustantivo tras el determinante sigue absuelto: el escudo protege el lugar en su forma");
+    // la observación espejo, juzgada con la misma vara: el sustantivo
+    // «archivo» (el fichero del banco) no es el verbo aunque «cuenta»
+    // siga en su cláusula — la frase de imp-resumen ya no es un hit
+    assert.deepEqual(stage(tienda, "Bajo cada archivo ves su cuenta y su saldo del mes.", "Under each file you see its account and its balance for the month."), [],
+      "el espejo: «bajo cada archivo ves su cuenta…» — el sustantivo no se lee como verbo; la misma vara que desentierra el infinitivo absuelve el fichero");
+    // y la inocente viva de widget-android sigue absuelta en su forma
+    // entera bajo el escudo nuevo: su verbo es forma verbal sin objeto
+    // en su proposición, en las dos direcciones
+    assert.deepEqual(stage(tienda, "Al tocar el ancla, Faro pregunta primero: lo que anotes eligiéndolo se archivará en ese lugar; tu libro no cambia en nada más.", "On tapping the anchor, Faro asks first: what you note by choosing it will be archived in that place; your book changes in nothing else."), [],
+      "la inocente viva sigue absuelta: desproteger la forma verbal no condena la frase cuyo objeto no cruza");
   });
 });
 

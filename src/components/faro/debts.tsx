@@ -339,7 +339,7 @@ function sinceText(days: number | null, L: (es: string, en: string) => string) {
 /** Me deben, from the ledger. `libros` adds the person sheets, days since the last abono and the 6-month chart. */
 export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: number }) {
   const tabletOne = useTabletOne();
-  const { t, fmt, session, commit, lang, has } = useFaro();
+  const { t, fmt, session, commit, commitGuarded, lang, has } = useFaro();
   const L = useL();
   // Etapa 3.3 (S-1/S-3): las piezas de Completo que vivían dentro de esta
   // cara de Ritmo se acotan a su modo — la gráfica (debt.chart), el grupo de
@@ -396,8 +396,8 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
         extra={libros ? <p className="cobro-meta debt-since">{sinceText(who?.days ?? null, L)}{splitInterest && f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, row.currency))}</b></> : null}</p> : undefined}
         onWho={libros ? () => openFor(row.person) : undefined}
         payLabel={t("cobro.bonus")} paying={bonusFor === row.id} onPaying={(on) => setBonusFor(on ? row.id : null)}
-        onPay={has("lent.payment") ? (minor, date) => commit((s) => payLent(s, row.id, convertMinor(minor, display, row.currency, rate), date, uid(), L("Abono", "Payment")), row.person) : undefined}
-        archiveBody={t("cobro.archive.body")} onArchive={has("lent.archive") ? () => commit((s) => archiveLent(s, row.id), row.person) : undefined} hint="bono" />
+        onPay={has("lent.payment") ? (minor, date) => commitGuarded((s) => payLent(s, row.id, convertMinor(minor, display, row.currency, rate), date, uid(), L("Abono", "Payment")), row.person) : undefined}
+        archiveBody={t("cobro.archive.body")} onArchive={has("lent.archive") ? () => commitGuarded((s) => archiveLent(s, row.id), row.person) : undefined} hint="bono" />
     );
   };
   const group = (mode: "plain" | "interest") => {
@@ -419,8 +419,8 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
               body={lang === "en" ? "They move to the Archive with their payments and what was left. Restore brings them back." : "Pasan al Archivo con sus abonos y lo que faltaba. Restaurar los devuelve."}
               rows={active.map((r) => ({ id: r.id, label: r.person }))}
               onEdit={(id) => { setDraft(false); setEditFor(id); }}
-              onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => archiveLent(acc, id), s0), ids.length === 1 ? (active.find((r) => r.id === ids[0])?.person ?? "") : `${ids.length}`)}
-              onRename={(id, name) => commit((s0) => ({ ...s0, lent: lentOf(s0).map((r) => (r.id === id ? { ...r, person: name } : r)) }), name)} />
+              onDrop={(ids) => commitGuarded((s0) => ids.reduce((acc, id) => archiveLent(acc, id), s0), ids.length === 1 ? (active.find((r) => r.id === ids[0])?.person ?? "") : `${ids.length}`)}
+              onRename={(id, name) => commitGuarded((s0) => (lentOf(s0).some((r) => r.id === id) ? { ...s0, lent: lentOf(s0).map((r) => (r.id === id ? { ...r, person: name } : r)) } : s0), name)} />
           </span>
         ) : null}
         {has("cobros.quick-add") ? <button type="button" className="cobro-plus" aria-label={t("cobro.owe.add")} aria-pressed={draft} onClick={() => { setEditFor(null); setDraft((on) => !on); }}><Plus /></button> : null}
@@ -478,7 +478,7 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
               {t("cobro.unpaid")} {fmt(view(row.unpaidMinor ?? 0, row.currency))}{" · "}{t("cobro.lent")} {fmt(view(row.amountMinor, row.currency))}{row.archivedOn ? ` · ${stampOf(row.archivedOn)}` : ""}
             </p>
             <div className="cobro-acts">
-              <button type="button" className="btn secondary" onClick={() => commit((s) => restoreLent(s, row.id), row.person)}>{t("backup.restore")}</button>
+              <button type="button" className="btn secondary" onClick={() => commitGuarded((s) => restoreLent(s, row.id), row.person)}>{t("backup.restore")}</button>
             </div>
           </article>
         )) : <Note>{t("cobro.file.empty")}</Note>) : null}

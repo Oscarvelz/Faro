@@ -44,7 +44,7 @@ function BkFold({ id, head, open, onToggle, children }: { id: string; head: Reac
 }
 
 export default function BankSettings() {
-  const { session, lang, commit, names, confirm } = useFaro();
+  const { session, lang, commit, commitGuarded, names, confirm } = useFaro();
   const [, bump] = useState(0);
   const [edit, setEdit] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -169,7 +169,7 @@ export default function BankSettings() {
         <span className="bk-h-tools" onClick={(e) => e.stopPropagation()}>
           <button type="button" className="sub-gear bk-h-restore" data-test="acct-restore" aria-label={L(lang, "Restaurar tarjetas de fábrica", "Restore factory cards")} onClick={() => confirm({ title: L(lang, "Restaurar tarjetas", "Restore cards"),
             body: L(lang, "Vuelven las tarjetas y cuentas de fábrica que quitaste. Las tuyas guardadas siguen guardadas y no se borra ningún movimiento.", "The factory cards and accounts you removed come back. Your own saved ones stay saved and no entry is deleted."),
-            yes: L(lang, "Restaurar", "Restore"), run: () => commit((s) => restoreDefaultAccounts(s), L(lang, "Tarjetas de fábrica", "Factory cards")) })}><RotateCcw /></button>
+            yes: L(lang, "Restaurar", "Restore"), run: () => commitGuarded((s) => restoreDefaultAccounts(s), L(lang, "Tarjetas de fábrica", "Factory cards")) })}><RotateCcw /></button>
           {pen}
         </span>
       </h3>

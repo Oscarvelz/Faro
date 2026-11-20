@@ -238,10 +238,15 @@ describe("selección — el cableado", () => {
     }
   });
 
-  it("el proveedor: ocultar la selección se deshace (commit); borrarla es final (commitFinal)", () => {
+  it("el proveedor: ocultar la selección se deshace (commitGuarded desde la ola 19); borrarla es final (commitFinal)", () => {
     const provider = read("components/faro/provider.tsx");
     assert.ok(provider.includes("hideLineSelection: (ids, label) => {"));
-    assert.ok(provider.includes("commit((s) => hideLines(s, ids, label).state"), "ocultar compromete deshacible, como apartar un período");
+    // ENMIENDA OLA 19 (G19-1, clase A): ocultar viaja ahora por la puerta
+    // GUARDADA — hideLines se niega por identidad cuando ninguna línea
+    // nombrada puede apartarse, y esa negativa no debe enmarcar. La
+    // doctrina de este pin no se mueve: lo que SÍ se aparta enmarca
+    // entero y se deshace igual que por commit; borrar sigue final.
+    assert.ok(provider.includes("commitGuarded((s) => hideLines(s, ids, label).state"), "ocultar compromete deshacible, como apartar un período");
     assert.ok(provider.includes("commitFinal((s) => deleteRestingLines(s, ids)"), "borrar compromete final, como borrar un período");
   });
 

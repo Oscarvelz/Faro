@@ -33,20 +33,23 @@ export function RemitFace({ person, size = "md" }: { person: RemitPerson | null;
 
 /** The people tools, shared by the field and the Libros card: add, rename, colour, icon, delete (lines stay). */
 function usePeopleOps() {
-  const { commit, lang, session } = useFaro();
+  const { commitGuarded, lang, session } = useFaro();
   return {
     /** Same name as someone already listed = that person (no second copy). */
     add: (name: string): string => {
       const same = remitPeopleOf(session?.ledger).find((p) => remitNameKey(p.name) === remitNameKey(name));
       if (same) return same.id;
       const id = `rp-${uid().slice(0, 8)}`;
-      commit((s) => addRemitPerson(s, name, id).state, L(lang, `Nueva persona ${name}`, `New person ${name}`));
+      // Ola 19 (G19-2/G19-3): estas cinco manos pasan por la puerta
+      // guardada — sus ayudantes se niegan por identidad (duplicado,
+      // nombre vacío, persona ida) y la negativa no deja marco.
+      commitGuarded((s) => addRemitPerson(s, name, id).state, L(lang, `Nueva persona ${name}`, `New person ${name}`));
       return id;
     },
-    drop: (ids: string[]) => commit((s) => dropRemitPeople(s, ids), L(lang, "Borrar personas de Remesas", "Delete remittance people")),
-    rename: (id: string, name: string) => commit((s) => renameRemitPerson(s, id, name), name),
-    color: (id: string, hex: string) => commit((s) => colorRemitPerson(s, id, hex), hex),
-    icon: (id: string, glyph: string) => commit((s) => iconRemitPerson(s, id, glyph), glyph),
+    drop: (ids: string[]) => commitGuarded((s) => dropRemitPeople(s, ids), L(lang, "Borrar personas de Remesas", "Delete remittance people")),
+    rename: (id: string, name: string) => commitGuarded((s) => renameRemitPerson(s, id, name), name),
+    color: (id: string, hex: string) => commitGuarded((s) => colorRemitPerson(s, id, hex), hex),
+    icon: (id: string, glyph: string) => commitGuarded((s) => iconRemitPerson(s, id, glyph), glyph),
     body: L(lang, "Lo que les enviaste se queda en tus libros; esas líneas pasan a Sin persona.", "What you sent them stays in your books; those lines become No person."),
   };
 }

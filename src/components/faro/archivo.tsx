@@ -286,7 +286,7 @@ export function ArchivoScreen() {
                 {t("arch.lent.meta").replace("{unpaid}", fmt(view(row.unpaidMinor ?? 0, row.currency))).replace("{lent}", fmt(view(row.amountMinor, row.currency)))}
                 {row.archivedOn ? ` · ${stamp(row.archivedOn)}` : ""}
               </p>
-              <div className="arch-acts">{restoreBtn(() => commit((s) => restoreLent(s, row.id), row.person))}</div>
+              <div className="arch-acts">{restoreBtn(() => commitGuarded((s) => restoreLent(s, row.id), row.person))}</div>
             </article>
           ))}
         </section>
@@ -305,7 +305,7 @@ export function ArchivoScreen() {
                 {t("arch.loan.meta").replace("{unpaid}", fmt(view(loan.unpaidMinor ?? 0, loan.currency))).replace("{got}", fmt(view(loan.amountMinor, loan.currency)))}
                 {loan.archivedOn ? ` · ${stamp(loan.archivedOn)}` : ""}
               </p>
-              <div className="arch-acts">{restoreBtn(() => commit((s) => restoreLoan(s, loan.id), loan.lender))}</div>
+              <div className="arch-acts">{restoreBtn(() => commitGuarded((s) => restoreLoan(s, loan.id), loan.lender))}</div>
             </article>
           ))}
         </section>
@@ -321,7 +321,7 @@ export function ArchivoScreen() {
                 <span className="arch-origin">{t("arch.cards")}</span>
               </div>
               <p className="arch-meta">{t("arch.card.meta")}{card.archivedOn ? ` · ${stamp(card.archivedOn)}` : ""}</p>
-              <div className="arch-acts">{restoreBtn(() => commit((s) => restoreCard(s, card.id), card.name))}</div>
+              <div className="arch-acts">{restoreBtn(() => commitGuarded((s) => restoreCard(s, card.id), card.name))}</div>
             </article>
           ))}
         </section>

@@ -47,7 +47,7 @@ function useView() {
 /* ---------- the group ---------- */
 
 export function CardsGroup({ libros = false }: { libros?: boolean }) {
-  const { fmt, commit, confirm, lang, has } = useFaro();
+  const { fmt, commit, commitGuarded, confirm, lang, has } = useFaro();
   const L = useL();
   const { ledger, view } = useView();
   const [edit, setEdit] = useState(false);
@@ -79,14 +79,14 @@ export function CardsGroup({ libros = false }: { libros?: boolean }) {
   const del = (c: CreditCard) => confirm({
     title: L("Eliminar tarjeta", "Delete card"), danger: true, yes: L("Eliminar", "Delete"),
     body: c.snaps.length ? L(`${c.name}. Su historial se guarda; Restaurar la trae de vuelta.`, `${c.name}. Its history is kept; Restore brings it back.`) : L(`${c.name}. Puedes traerla de vuelta con Restaurar.`, `${c.name}. You can bring it back with Restore.`),
-    run: () => { commit((s) => dropCard(s, c.id), c.name); setOpen(null); },
+    run: () => { commitGuarded((s) => dropCard(s, c.id), c.name); setOpen(null); },
   });
   const fromScratch = () => confirm({
     title: L("Empezar de cero", "Start from scratch"), danger: true, yes: L("Quitar sugeridas", "Remove suggested"),
     body: L("Quita las tarjetas sugeridas de una vez. Las que añadiste se quedan, y Restaurar trae las sugeridas con su historial.", "Removes the suggested cards at once. The ones you added stay, and Restore brings the suggested ones back with their history."),
-    run: () => commit((s) => dropPresets(s), L("Empezar de cero", "Start from scratch")),
+    run: () => commitGuarded((s) => dropPresets(s), L("Empezar de cero", "Start from scratch")),
   });
-  const restore = () => commit((s) => restorePresets(s), L("Restaurar tarjetas", "Restore cards"));
+  const restore = () => commitGuarded((s) => restorePresets(s), L("Restaurar tarjetas", "Restore cards"));
   const box = useRef<HTMLDivElement>(null);
   useFitNames(box, cards.map((c) => `${c.name}|${c.last4}|${c.snaps.length}|${c.rw?.length ?? 0}`).join("/") + (edit ? "e" : "") + (ledger?.updatedAt ?? "") + lang);
   return (
@@ -333,7 +333,7 @@ function Spark({ card, ledger }: { card: CreditCard; ledger: LedgerState }) {
 }
 
 function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { card: CreditCard; onClose: () => void; onEdit: () => void; onManual: () => void; onShots: (f: File[]) => void; onDelete: () => void }) {
-  const { session, fmt, commit, lang, has } = useFaro();
+  const { session, fmt, commit, commitGuarded, lang, has } = useFaro();
   const L = useL();
   const { view } = useView();
   const [paying, setPaying] = useState(false);
@@ -359,7 +359,7 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
     const m = parseAmount(amt);
     if (m == null || m <= 0) return;
     // Typed in the card's own currency, like every figure in this sheet's forms.
-    commit((s) => payCard(s, card.id, m, on, uid(), L("Abono", "Payment")), card.name);
+    commitGuarded((s) => payCard(s, card.id, m, on, uid(), L("Abono", "Payment")), card.name);
     setPaying(false); setAmt("");
   };
   const v = (m: number) => fmt(view(m, card.currency));
@@ -442,7 +442,7 @@ function CardSheet({ card, onClose, onEdit, onManual, onShots, onDelete }: { car
  * the same amount either way, so the money is never counted twice.
  */
 export function RedeemSheet({ card, onClose }: { card: CreditCard; onClose: () => void }) {
-  const { commit, fmt, lang } = useFaro();
+  const { commitGuarded, fmt, lang } = useFaro();
   const L = useL();
   const { view } = useView();
   const have = rewardsOf(card).amount;
@@ -453,7 +453,7 @@ export function RedeemSheet({ card, onClose }: { card: CreditCard; onClose: () =
   const ok = m != null && m > 0 && m <= have;
   const save = () => {
     if (!ok) return;
-    commit((s) => redeemRewards(s, card.id, how, m!, on, uid(), how === "credit" ? L("Canje de recompensas", "Rewards redeemed") : L("Recompensas de tarjetas", "Card rewards")), card.name);
+    commitGuarded((s) => redeemRewards(s, card.id, how, m!, on, uid(), how === "credit" ? L("Canje de recompensas", "Rewards redeemed") : L("Recompensas de tarjetas", "Card rewards")), card.name);
     onClose();
   };
   return (
@@ -1055,7 +1055,7 @@ type Pick = { key: string; src: number; on: boolean; read: CardRead; target: str
 const rwOnly = (r: CardRead) => r.balanceMinor == null && r.availMinor == null && (r.rewardsMinor != null || r.rewardsPoints != null);
 
 export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose: () => void; onAddFrom?: (read: CardRead) => void }) {
-  const { session, commit, fmt, lang } = useFaro();
+  const { session, commit, commitGuarded, fmt, lang } = useFaro();
   const L = useL();
   const { view } = useView();
   const ledger = session?.ledger;
@@ -1133,7 +1133,11 @@ export function CardScan({ files, onClose, onAddFrom }: { files: File[]; onClose
   const busy = !done;
   function save() {
     if (!ledger || !ready.length) return;
-    commit((s) => ready.reduce((st, p) => {
+    // Ola 19 (G19-1, clase A por herencia): la reducción pasa por
+    // addReading/addRewards, que se niegan por identidad sobre tarjetas
+    // idas — si ninguna lectura aterriza, la reducción devuelve el estado
+    // intacto y la puerta guardada no enmarca un guardado que no ocurrió.
+    commitGuarded((s) => ready.reduce((st, p) => {
       const amount = (x: string) => (x.trim() ? parseAmount(x) : null);
       let id = p.target;
       if (id === "new") {

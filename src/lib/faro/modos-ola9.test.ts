@@ -1095,7 +1095,19 @@ const deadPosition = (node: ts.Node): boolean => {
 const gateCallSites = (sf: ts.SourceFile, seat: string): ts.CallExpression[] => {
   const gateNames = new Set<string>(["has"]);
   const seatConsts = new Set<string>();
+  /* OLA 19 (Cara G19-a): la cosecha aprende también los OBJETOS de
+   * espacio de nombres del archivo — `import * as modo` pone la
+   * consulta tras el objeto (`modo.has(...)`) y la grafía era
+   * sentenciada entera: gateCallSites solo casaba el callee desnudo y
+   * la consulta real no existía para la cerca. El alias NOMBRADO se
+   * honraba (y se honra); el objeto es la otra grafía estándar de
+   * importar en TS y ahora tiene su cosecha: toda llamada `NS.has(...)`
+   * con NS cosechado es llamada de puerta con el nombre tras el punto. */
+  const gateNamespaces = new Set<string>();
   const visit0 = (n: ts.Node) => {
+    if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamespaceImport(n.importClause.namedBindings)) {
+      gateNamespaces.add(n.importClause.namedBindings.name.text);
+    }
     if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
       for (const el of n.importClause.namedBindings.elements) if ((el.propertyName?.text ?? el.name.text) === "has") gateNames.add(el.name.text);
     }
@@ -1111,9 +1123,16 @@ const gateCallSites = (sf: ts.SourceFile, seat: string): ts.CallExpression[] => 
   visit0(sf);
   const out: ts.CallExpression[] = [];
   const visit = (n: ts.Node) => {
-    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && gateNames.has(n.expression.text) && n.arguments.length) {
-      const a = n.arguments[0]!;
-      if (((ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) && a.text === seat) || (ts.isIdentifier(a) && seatConsts.has(a.text))) out.push(n);
+    if (ts.isCallExpression(n) && n.arguments.length) {
+      // la consulta desnuda (o por su alias nombrado) y la consulta
+      // tras el objeto de espacio de nombres cosechado (G19-a)
+      const bare = ts.isIdentifier(n.expression) && gateNames.has(n.expression.text);
+      const viaNs = ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression) &&
+        gateNamespaces.has(n.expression.expression.text) && gateNames.has(n.expression.name.text);
+      if (bare || viaNs) {
+        const a = n.arguments[0]!;
+        if (((ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) && a.text === seat) || (ts.isIdentifier(a) && seatConsts.has(a.text))) out.push(n);
+      }
     }
     ts.forEachChild(n, visit);
   };
@@ -1566,9 +1585,45 @@ const governsViaImport = (siteRel: string, sf: ts.SourceFile, seat: string, hand
     const b = local.get(nm);
     if (b) for (const c2 of calledNamesOf(b)) { if (!called.has(c2)) { called.add(c2); frontier.push(c2); } }
   }
+  /* OLA 19 (Cara G19-a, segunda mitad): el descenso por el objeto —
+   * la mano puede llamar a un miembro tras su espacio de nombres
+   * (`modo.algo(...)`) y ese miembro gobierna en su archivo. Se
+   * cosechan las llamadas NS.miembro del cuerpo de la mano y de sus
+   * ayudantes locales alcanzados, y la visita las desciende por la
+   * declaración de espacio de nombres igual que por la nombrada. */
+  const nsCalled = new Map<string, Set<string>>();
+  const scanNsCalls = (root: ts.Node) => {
+    const w = (n: ts.Node) => {
+      if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression)) {
+        const ns = n.expression.expression.text;
+        if (!nsCalled.has(ns)) nsCalled.set(ns, new Set());
+        nsCalled.get(ns)!.add(n.expression.name.text);
+      }
+      ts.forEachChild(n, w);
+    };
+    w(root);
+  };
+  scanNsCalls(handFn);
+  for (const nm of visitedLocal) { const b = local.get(nm); if (b) scanNsCalls(b); }
   let yes = false;
   const visit = (n: ts.Node) => {
     if (yes) return;
+    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.namedBindings && ts.isNamespaceImport(n.importClause.namedBindings)) {
+      const members = nsCalled.get(n.importClause.namedBindings.name.text);
+      if (members?.size) {
+        const target = resolveSpecOla9(siteRel, n.moduleSpecifier.text, files);
+        if (target && files.has(target)) {
+          const tsf = ts.createSourceFile(target, files.get(target)!, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+          for (const member of members) {
+            const fnNode = findFnIn(tsf, member);
+            if (!fnNode) continue;
+            if (onPathInFile(tsf, seat, fnNode)) { yes = true; return; }
+            const key = `${target}:${member}`;
+            if (!seen.has(key)) { seen.add(key); if (governsViaImport(target, tsf, seat, fnNode, files, depth + 1, seen)) { yes = true; return; } }
+          }
+        }
+      }
+    }
     if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
       const target = resolveSpecOla9(siteRel, n.moduleSpecifier.text, files);
       if (target && files.has(target)) {
@@ -1595,10 +1650,39 @@ const governsViaMount = (siteRel: string, sf: ts.SourceFile, seat: string, compN
   if (ts.isJsxAttribute(compNode) || ts.isJsxSpreadAttribute(compNode)) {
     const elNode = compNode.parent?.parent as ts.Node | undefined;
     if (elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode))) tag = elNode.tagName.getText();
-  } else if (ts.isCallExpression(compNode) && compNode.arguments.length && ts.isIdentifier(compNode.arguments[0]!)) {
-    tag = (compNode.arguments[0] as ts.Identifier).text;
+  } else if (ts.isCallExpression(compNode) && compNode.arguments.length && (ts.isIdentifier(compNode.arguments[0]!) || ts.isPropertyAccessExpression(compNode.arguments[0]!))) {
+    tag = compNode.arguments[0]!.getText();
   }
   if (!tag) return false;
+  /* OLA 19 (Cara G19-b): la etiqueta CALIFICADA se resuelve antes de
+   * buscar el cuerpo — `<hojas.PickSheet …/>` nombra al montado tras
+   * su objeto de espacio de nombres, y M3 tomaba la etiqueta por su
+   * texto entero: no hallaba ni la función local ni el elemento de
+   * importación, y el montado que gobierna en su cuerpo era
+   * sentenciado. Ahora el objeto cosechado en el archivo que monta
+   * resuelve la etiqueta a su miembro, y el descenso busca ese
+   * miembro en el archivo del módulo del espacio de nombres (y el
+   * alias nombrado sigue honrándose como siempre). */
+  const qualified = tag.includes(".") ? tag.split(".") : null;
+  const memberName = qualified ? qualified[qualified.length - 1]! : tag;
+  if (qualified) {
+    const nsName = qualified.slice(0, -1).join(".");
+    let nsYes = false;
+    const visitNs = (n: ts.Node) => {
+      if (nsYes) return;
+      if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.namedBindings && ts.isNamespaceImport(n.importClause.namedBindings) && n.importClause.namedBindings.name.text === nsName) {
+        const target = resolveSpecOla9(siteRel, n.moduleSpecifier.text, files);
+        if (target && files.has(target)) {
+          const tsf = ts.createSourceFile(target, files.get(target)!, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+          const fnNode = findFnIn(tsf, memberName);
+          if (fnNode && (onPathInFile(tsf, seat, fnNode) || governsViaImport(target, tsf, seat, fnNode, files))) { nsYes = true; return; }
+        }
+      }
+      ts.forEachChild(n, visitNs);
+    };
+    visitNs(sf);
+    if (nsYes) return true;
+  }
   const local = findFnIn(sf, tag);
   // OLA 17 (Cara G4): el montado gobierna también por SU propio hook
   // importado — la pregunta desciende a los imports del montado, no
@@ -1977,8 +2061,19 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
    * asiento, o acusa por no tenerlo. */
   const bindings = new Map<string, ts.Node>();
   const kitOrig = new Map<string, string>([["BookKit", "BookKit"], ["PickSheet", "PickSheet"]]);
+  /* OLA 19 (Cara X19-a/X19-b): los objetos de espacio de nombres del
+   * archivo se cosechan como los alias nombrados — la etiqueta
+   * calificada (`hojas.BookKit`) y el primer argumento calificado de
+   * createElement (`hojas.PickSheet`) se resuelven a su nombre
+   * original por el miembro tras el objeto, con la misma vara que el
+   * alias nombrado: el miembro debe ser una pieza del kit y el objeto
+   * debe ser un espacio de nombres importado en este archivo. */
+  const kitNamespaces = new Set<string>();
   const collect = (n: ts.Node) => {
     if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) bindings.set(n.name.text, n.initializer);
+    if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamespaceImport(n.importClause.namedBindings)) {
+      kitNamespaces.add(n.importClause.namedBindings.name.text);
+    }
     if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
       for (const el of n.importClause.namedBindings.elements) {
         const orig = el.propertyName?.text ?? el.name.text;
@@ -1988,6 +2083,17 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
     ts.forEachChild(n, collect);
   };
   collect(sf);
+  const kitOrigOf = (tagText: string): string | undefined => {
+    const bare = kitOrig.get(tagText);
+    if (bare) return bare;
+    const dot = tagText.lastIndexOf(".");
+    if (dot > 0) {
+      const ns = tagText.slice(0, dot);
+      const member = tagText.slice(dot + 1);
+      if (kitNamespaces.has(ns) && (member === "BookKit" || member === "PickSheet")) return member;
+    }
+    return undefined;
+  };
   const unwrap = (e: ts.Node): ts.Node[] => {
     if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e)) return unwrap(e.expression);
     if (ts.isConditionalExpression(e)) return [...unwrap(e.whenTrue), ...unwrap(e.whenFalse)];
@@ -2059,9 +2165,26 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
     return returnedLiterals(fnNode).some((lit) => litHas(lit, prop, true));
   });
   const manageValueHas = (props: ts.Node): boolean => unwrap(props).some((x) => {
+    /* OLA 19 (Cara X19-d): el props guardado en una variable se sigue
+     * por su atadura — el literal atado se juzga con las mismas varas
+     * que el literal en línea; la variable escondía solo el manage
+     * CONSTRUIDO (el literal en variable ya nacía por el litHas
+     * profundo, P19-g3), y ahora esconde ninguno. */
+    if (ts.isIdentifier(x)) { const b = bindings.get(x.text); return b ? manageValueHas(b) : false; }
     if (!ts.isObjectLiteralExpression(x)) return false;
     return x.properties.some((p) => ts.isPropertyAssignment(p) && p.name?.getText() === "manage" &&
       (litHas(p.initializer, "onDropMany") || byReference(p.initializer) || byCall(p.initializer)));
+  });
+  /* OLA 19 (Cara X19-c): la atadura DE la llamada — el esparcido de la
+   * variable que guarda el resultado (`const p = buildProps();
+   * <Hoja {...p}/>`) se juzga por callShapeHas sobre el inicializador
+   * atado: guardar el resultado en una variable antes de esparcir es
+   * la forma ordinaria de escribirlo, y la forma de la entrega es la
+   * del cuerpo llamado. */
+  const boundCallShapeHas = (e: ts.Node, prop: string): boolean => unwrap(e).some((x) => {
+    if (!ts.isIdentifier(x)) return false;
+    const b = bindings.get(x.text);
+    return b ? callShapeHas(b, prop) : false;
   });
   const sites = new Map<string, ts.Node>();
   const ordinals = new Map<string, number>();
@@ -2078,19 +2201,19 @@ function compositionNodes(file: string, text: string): Map<string, ts.Node> {
       else if (attr === "manage" && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression) {
         if (litHas(n.initializer.expression, "onDropMany") || byReference(n.initializer.expression) || byCall(n.initializer.expression)) massNode = n;
       } else if (attr === "onDrop") {
-        if (kitOrig.get(el) === "BookKit") massNode = n;
+        if (kitOrigOf(el) === "BookKit") massNode = n;
       }
     } else if (ts.isJsxSpreadAttribute(n)) {
       const elNode = n.parent?.parent as ts.Node | undefined;
       const el = elNode && (ts.isJsxOpeningElement(elNode) || ts.isJsxSelfClosingElement(elNode)) ? elNode.tagName.getText() : "";
-      const orig = kitOrig.get(el);
-      if (orig === "PickSheet" && (litHas(n.expression, "onDropMany", true) || byReference(n.expression) || callShapeHas(n.expression, "onDropMany"))) massNode = n;
-      else if (orig === "BookKit" && (litHas(n.expression, "onDrop", true) || byReference(n.expression) || callShapeHas(n.expression, "onDrop"))) massNode = n;
+      const orig = kitOrigOf(el);
+      if (orig === "PickSheet" && (litHas(n.expression, "onDropMany", true) || byReference(n.expression) || callShapeHas(n.expression, "onDropMany") || boundCallShapeHas(n.expression, "onDropMany"))) massNode = n;
+      else if (orig === "BookKit" && (litHas(n.expression, "onDrop", true) || byReference(n.expression) || callShapeHas(n.expression, "onDrop") || boundCallShapeHas(n.expression, "onDrop"))) massNode = n;
     } else if (ts.isCallExpression(n)) {
       const cal = n.expression;
       const isCE = (ts.isIdentifier(cal) && cal.text === "createElement") || (ts.isPropertyAccessExpression(cal) && cal.name.text === "createElement");
-      if (isCE && n.arguments.length >= 2 && ts.isIdentifier(n.arguments[0]!)) {
-        const orig = kitOrig.get((n.arguments[0] as ts.Identifier).text);
+      if (isCE && n.arguments.length >= 2 && (ts.isIdentifier(n.arguments[0]!) || ts.isPropertyAccessExpression(n.arguments[0]!))) {
+        const orig = kitOrigOf(n.arguments[0]!.getText());
         if (orig === "PickSheet" && (litHas(n.arguments[1]!, "onDropMany", true) || byReference(n.arguments[1]!) || byCall(n.arguments[1]!) || manageValueHas(n.arguments[1]!))) massNode = n;
         else if (orig === "BookKit" && (litHas(n.arguments[1]!, "onDrop", true) || byReference(n.arguments[1]!) || byCall(n.arguments[1]!))) massNode = n;
       }
@@ -2468,6 +2591,139 @@ describe("ola9 · OLA 18 (Cara): §A-sexies juzga la llamada en sus tres puertas
     }`;
     assert.deepEqual(massHandSites("components/faro/hoja.tsx", despues), ["components/faro/hoja.tsx:wipeAll#1"],
       "V18-a: la definición posterior del mapeador no esconde la mano — el punto fijo del índice lo ve");
+  });
+});
+
+/* ── OLA 19 (Cara) — LOS OBJETOS DE ESPACIO DE NOMBRES Y LA ATADURA
+ * DE LA LLAMADA ──
+ * La caza de la ola 19 probó la otra grafía estándar de importar en
+ * TS: el objeto entero. La consulta tras el objeto (`modo.has(…)`)
+ * era sentenciada (G19-a: gateCallSites solo casaba el callee desnudo
+ * y M2 solo caminaba NamedImports), el montado citado por su objeto
+ * era sentenciado en M3 (G19-b) y no nacía donde el censo debe
+ * nombrarlo (X19-a: la rama onDrop; X19-b: createElement con primer
+ * argumento calificado). Y la atadura DE la llamada escapaba en las
+ * dos puertas que la ola 18 había curado en línea: el esparcido de la
+ * variable que guarda el resultado (X19-c) y el props de createElement
+ * en variable con el manage construido (X19-d). Los alias NOMBRADOS
+ * aguantaban en sus dos formas (P19-b, P19-c2) y quedan clavados como
+ * controles: la ceguera era el objeto, no el alias. */
+describe("ola9 · OLA 19 (Cara): citaGobierna y §A-sexies juzgan la forma RESUELTA — el objeto de espacio de nombres y la atadura de la llamada", () => {
+  it("P19-a (G19-a): la consulta tras el objeto de espacio de nombres GOBIERNA — `modo.has(…)` alimenta la entrega y cuenta", () => {
+    const files = new Map([
+      ["components/faro/modo19.ts", `export const has = (seat: string) => seat.length > 0;`],
+      ["components/faro/x19.tsx", `import * as modo from "./modo19";
+      export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        const gestion = () => modo.has("books.multiselect") ? { onDropMany: (ids: string[]) => dropMany(ids) } : undefined;
+        return <PickSheet rows={rows} manage={gestion()} onClose={() => {}} />;
+      }`],
+    ]);
+    const site = compositionSites("components/faro/x19.tsx", files.get("components/faro/x19.tsx")!)[0]!;
+    assert.ok(site, "el sitio nace: el montaje de la hoja es la composición");
+    assert.equal(citaGobierna(site, "books.multiselect", files, "composition"), null,
+      "P19-a: la consulta vive tras el objeto importado y alimenta la entrega — el gobierno es real y la cerca ya lo ve");
+    const muda = new Map([
+      ["components/faro/modo19.ts", `export const has = (seat: string) => seat.length > 0;`],
+      ["components/faro/x19.tsx", `import * as modo from "./modo19";
+      export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        const gestion = () => ({ onDropMany: (ids: string[]) => dropMany(ids) });
+        return <PickSheet rows={rows} manage={gestion()} onClose={() => {}} />;
+      }`],
+    ]);
+    const siteM = compositionSites("components/faro/x19.tsx", muda.get("components/faro/x19.tsx")!)[0]!;
+    assert.ok(citaGobierna(siteM, "books.multiselect", muda, "composition"),
+      "control P19-a: sin la consulta tras el objeto, la misma composición acusa — la absolución es de la consulta, no de la grafía");
+  });
+  it("P19-b (control que aguantaba): el alias NOMBRADO de la consulta sigue gobernando — `has as tiene`", () => {
+    const files = new Map([
+      ["components/faro/modo19.ts", `export const has = (seat: string) => seat.length > 0;`],
+      ["components/faro/x19.tsx", `import { has as tiene } from "./modo19";
+      export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        const gestion = () => tiene("books.multiselect") ? { onDropMany: (ids: string[]) => dropMany(ids) } : undefined;
+        return <PickSheet rows={rows} manage={gestion()} onClose={() => {}} />;
+      }`],
+    ]);
+    const site = compositionSites("components/faro/x19.tsx", files.get("components/faro/x19.tsx")!)[0]!;
+    assert.equal(citaGobierna(site, "books.multiselect", files, "composition"), null,
+      "P19-b: el renombre de la consulta gobernaba y gobierna — los alias nombrados no se movieron");
+  });
+  it("P19-c (X19-a): el kit montado por su objeto (`<hojas.BookKit onDrop={…}/>`) NACE — y su alias nombrado (P19-c2) sigue naciendo", () => {
+    const porObjeto = `import * as hojas from "./kit19";
+    export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      return <hojas.BookKit rows={rows} onDrop={(ids: string[]) => dropMany(ids)} />;
+    }`;
+    assert.equal(compositionSites("components/faro/x19.tsx", porObjeto).length, 1,
+      "P19-c: la etiqueta calificada se resuelve a su nombre original: la composición nace");
+    const porAlias = `import { BookKit as Kit } from "./kit19";
+    export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+      return <Kit rows={rows} onDrop={(ids: string[]) => dropMany(ids)} />;
+    }`;
+    assert.equal(compositionSites("components/faro/x19.tsx", porAlias).length, 1,
+      "P19-c2 (control que aguantaba): el alias nombrado del kit nacía y nace");
+    const sinCanal = `import * as hojas from "./kit19";
+    export function Libros({ rows }: { rows: { id: string }[] }) {
+      return <hojas.BookKit rows={rows} />;
+    }`;
+    assert.deepEqual(compositionSites("components/faro/x19.tsx", sinCanal), [],
+      "control P19-c: el montado por su objeto SIN el canal no es composición — la resolución no inventa sitios");
+  });
+  it("P19-c3 (X19-b): createElement con primer argumento calificado (`createElement(hojas.PickSheet, …)`) NACE", () => {
+    const porObjeto = `import { createElement } from "react";
+    import * as hojas from "./kit19";
+    export const monta = () => createElement(hojas.PickSheet, { title: "X", manage: { onDropMany: (ids: string[]) => {} } });`;
+    assert.equal(compositionSites("lib/faro/monta19.ts", porObjeto).length, 1,
+      "P19-c3: el componente tras el objeto se resuelve y la puerta juzga sus props: el sitio nace");
+  });
+  it("P19-d (G19-b): el montado citado por su objeto, que gobierna en SU cuerpo, es absuelto por M3 resuelto", () => {
+    const files = new Map([
+      ["components/faro/kit19.tsx", `export function PickSheet({ rows }: { rows: { id: string }[] }) {
+        const can = has("editor.picker-manage");
+        return can ? rows.length : 0;
+      }`],
+      ["components/faro/x19.tsx", `import * as hojas from "./kit19";
+      export function Libros({ rows, dropMany }: { rows: { id: string }[]; dropMany: (ids: string[]) => void }) {
+        return <hojas.PickSheet rows={rows} manage={{ onDropMany: (ids: string[]) => dropMany(ids) }} onClose={() => {}} />;
+      }`],
+    ]);
+    const site = compositionSites("components/faro/x19.tsx", files.get("components/faro/x19.tsx")!)[0]!;
+    assert.ok(site, "el sitio nace: el atributo manage no mira la etiqueta y la composición existe");
+    assert.equal(citaGobierna(site, "editor.picker-manage", files, "composition"), null,
+      "P19-d: M3 resuelve la etiqueta calificada por el objeto cosechado y encuentra el cuerpo que gobierna: absuelve");
+    const mudo = new Map([
+      ["components/faro/kit19.tsx", `export function PickSheet({ rows }: { rows: { id: string }[] }) {
+        return rows.length;
+      }`],
+      ["components/faro/x19.tsx", files.get("components/faro/x19.tsx")!],
+    ]);
+    const siteM = compositionSites("components/faro/x19.tsx", mudo.get("components/faro/x19.tsx")!)[0]!;
+    assert.ok(citaGobierna(siteM, "editor.picker-manage", mudo, "composition"),
+      "control P19-d: el montado por su objeto que NO gobierna en su cuerpo acusa — la resolución encuentra el cuerpo y lo juzga, no lo absuelve por la grafía");
+  });
+  it("P19-e (X19-c): el esparcido de la VARIABLE que guarda la llamada NACE — la atadura de la llamada alimenta como la llamada en línea", () => {
+    const porVariable = `const buildProps = () => ({ manage: { onDropMany: (ids: string[]) => {} } });
+    export function Hoja() { const p = buildProps(); return <PickSheet title="X" {...p} />; }`;
+    assert.equal(compositionSites("components/faro/hoja19.tsx", porVariable).length, 1,
+      "P19-e: {...p} con p = buildProps() se juzga por la forma del cuerpo llamado: el sitio nace");
+    const literal = `export function Hoja() { const p = { manage: { onDropMany: (ids: string[]) => {} } }; return <PickSheet title="X" {...p} />; }`;
+    assert.equal(compositionSites("components/faro/hoja19.tsx", literal).length, 1,
+      "P19-e2 (control que aguantaba): la variable atada al LITERAL nacía y nace");
+    const otraForma = `const buildProps = () => ({ title: "X" });
+    export function Hoja() { const p = buildProps(); return <PickSheet title="X" {...p} />; }`;
+    assert.deepEqual(compositionSites("components/faro/hoja19.tsx", otraForma), [],
+      "control P19-e: la variable que guarda una llamada SIN canal no compone — la atadura se sigue y la forma manda");
+  });
+  it("P19-g (X19-d): el props de createElement en variable, con el manage CONSTRUIDO por llamada, NACE", () => {
+    const construido = `import { createElement } from "react";
+    const buildManage = () => ({ onDropMany: (ids: string[]) => {} });
+    const props = { manage: buildManage() };
+    export const monta = () => createElement(PickSheet, props);`;
+    assert.equal(compositionSites("lib/faro/monta19.ts", construido).length, 1,
+      "P19-g: createElement(PickSheet, props) con props atado y manage por llamada — el literal atado se juzga con las mismas varas que el de en línea: nace");
+    const literalEnVariable = `import { createElement } from "react";
+    const props = { manage: { onDropMany: (ids: string[]) => {} } };
+    export const monta = () => createElement(PickSheet, props);`;
+    assert.equal(compositionSites("lib/faro/monta19.ts", literalEnVariable).length, 1,
+      "P19-g3 (control que aguantaba): el props en variable con el manage LITERAL nacía y nace");
   });
 });
 

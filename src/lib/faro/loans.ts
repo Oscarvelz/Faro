@@ -231,6 +231,9 @@ export function payLoan(state: LedgerState, loanId: string, amountMinor: number,
 
 /** Archive keeps the loan and its payment lines; it records what was still pending. */
 export function archiveLoan(state: LedgerState, loanId: string, today = todayIso()): LedgerState {
+  // Ola 19 (G19-3): sin ese préstamo en el libro, el estado vuelve
+  // intacto — el mapa sin chequeo componía un no-op enmarcable.
+  if (!loansOf(state).some((l) => l.id === loanId)) return state;
   return {
     ...state,
     loans: loansOf(state).map((l) => (l.id === loanId ? { ...l, archived: true, archivedOn: today, unpaidMinor: loanState(state, l, today).left } : l)),
@@ -238,6 +241,7 @@ export function archiveLoan(state: LedgerState, loanId: string, today = todayIso
 }
 
 export function restoreLoan(state: LedgerState, loanId: string): LedgerState {
+  if (!loansOf(state).some((l) => l.id === loanId)) return state;
   return {
     ...state,
     loans: loansOf(state).map((l) => (l.id === loanId ? { ...l, archived: false, archivedOn: undefined, unpaidMinor: undefined } : l)),

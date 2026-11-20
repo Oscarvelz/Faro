@@ -86,10 +86,15 @@ export function payLent(state: LedgerState, lentId: string, amountMinor: number,
 }
 
 export function archiveLent(state: LedgerState, id: string, today = todayIso()): LedgerState {
+  // Ola 19 (G19-3, espécimen C1): sin ese cobro en el libro, no hay
+  // archivo — el estado vuelve intacto. El mapa sin chequeo componía un
+  // objeto nuevo de contenido igual y la puerta enmarcaba el no-op.
+  if (!lentOf(state).some((l) => l.id === id)) return state;
   return { ...state, lent: lentOf(state).map((l) => (l.id === id ? { ...l, archived: true, archivedOn: today, unpaidMinor: lentState(state, l, today).left } : l)) };
 }
 
 export function restoreLent(state: LedgerState, id: string): LedgerState {
+  if (!lentOf(state).some((l) => l.id === id)) return state;
   return { ...state, lent: lentOf(state).map((l) => (l.id === id ? { ...l, archived: false, archivedOn: undefined, unpaidMinor: undefined } : l)) };
 }
 

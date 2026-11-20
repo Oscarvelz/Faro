@@ -134,7 +134,7 @@ function nextLine(o: Occasion | undefined, lang: Lang) {
 }
 
 export function PeopleBox() {
-  const { session, lang, fmt, commit, confirm } = useFaro();
+  const { session, lang, fmt, commit, commitGuarded, confirm } = useFaro();
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null); // person id, or "new"
   const [gift, setGift] = useState<string | null>(null);
@@ -155,7 +155,16 @@ export function PeopleBox() {
   // del commit sobre la colección VIVA (peopleOf(s)). El commit viejo
   // escribía la foto del render sin leer s.people: la persona que otra
   // pestaña añadía desaparecía y su renombre retrocedía en silencio.
-  const savePeople = (fn: (live: Person[]) => Person[], detail: string) => commit((s) => ({ ...s, people: fn(peopleOf(s)) }), detail);
+  // Ola 19 (G19-3): la puerta juzga el resultado de la transformación —
+  // si la función devuelve la colección con cada elemento idéntico (la
+  // persona nombrada ya no vive: el mapa no tocó nada), no hubo guardado
+  // y la puerta guardada no deja marco. Un cambio real aterriza entero.
+  const savePeople = (fn: (live: Person[]) => Person[], detail: string) => commitGuarded((s) => {
+    const live = peopleOf(s);
+    const next = fn(live);
+    if (next.length === live.length && next.every((p, i) => p === live[i])) return s;
+    return { ...s, people: next };
+  }, detail);
   /** Same name as an archived person: bring them back (with their history) instead of a second copy. */
   const saveNew = (p: Person) => {
     const old = all.find((x) => x.archived && nameKey(x.name) === nameKey(p.name));
@@ -207,7 +216,7 @@ export function PeopleBox() {
     body: L(lang, "Su historial de gastos se conserva: sus regalos siguen con su nombre en tus libros y en Estudio.", "Their spending history is kept: their gifts keep their name in your books and in Study."),
     danger: true,
     yes: L(lang, "Borrar", "Delete"),
-    run: () => commit((s) => ({ ...s, people: peopleOf(s).map((x) => (x.id === p.id ? { ...x, archived: true } : x)) }), `Borrar persona ${p.name}`),
+    run: () => savePeople((live) => live.map((x) => (x.id === p.id ? { ...x, archived: true } : x)), `Borrar persona ${p.name}`),
   });
   const hand = (
     <button type="button" className="pp-hand" aria-pressed={editing === "new"} onClick={() => { setEditing(editing === "new" ? null : "new"); setOpen(null); }}>

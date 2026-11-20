@@ -22,7 +22,7 @@ import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, spendCategorySlices, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatMoney, formatMoneyShort, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
-import { blankSession, commit as commitSession, commitFinal as commitFinalSession, commitGuarded as commitGuardedSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
+import { blankSession, commit as commitSession, commitAnnounced as commitAnnouncedSession, commitFinal as commitFinalSession, commitGuarded as commitGuardedSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
 import { isPureSample, stripSample, withSampleArc } from "@/lib/faro/sample";
@@ -141,6 +141,14 @@ export type Api = {
    * la entrada deliberada y veraz de la confirmación de modo que no
    * aplicó. */
   commitGuarded: (recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => void;
+  /** Ola 19 (BR19-1): el commit cuyo aborto deja su entrada veraz pero
+   * NO marco: la receta que devuelve su propio estado (o null) escribe
+   * solo la línea de registro — sin subir la revisión y sin apilar
+   * fotograma de Deshacer. Es la puerta de la confirmación de modo, cuya
+   * entrada deliberada dice la verdad («la confirmación no aplicó») y
+   * cuyo aborto ya no cuesta un Deshacer. Un aterrizaje compone estado
+   * nuevo y enmarca entero, como siempre. */
+  commitAnnounced: (recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => void;
   /** El descanso (Historial → Archivo): apartar un período, mostrarlo de nuevo, borrarlo.
    *  Los únicos caminos de la UI hacia descanso.ts: la puerta anti-fuga se pone y se quita
    *  en un solo sitio, nunca a mano en una pantalla. */
@@ -1156,6 +1164,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const commitGuarded = useCallback((recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => {
     setSession((s) => (s ? commitGuardedSession(s, recipe, detail) : s));
   }, []);
+  // Ola 19 (BR19-1): la puerta del aborto declarado — entrada veraz sin
+  // marco (ver commitAnnounced en reducer.ts).
+  const commitAnnounced = useCallback((recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => {
+    setSession((s) => (s ? commitAnnouncedSession(s, recipe, detail) : s));
+  }, []);
   // D3: el commit sin deshacer — solo para lo que la puerta escrita ya declaró final
   // (eliminar un período apartado). La ventana dice «Esto no se puede deshacer» y el
   // código obedece a las palabras, nunca al revés.
@@ -1683,17 +1696,25 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     recordLine,
     commit,
     commitGuarded,
+    commitAnnounced,
     hidePeriodRange: (from, to, label) => {
-      commit((s) => hidePeriod(s, from, to, label).state, label ?? "Ocultar período");
+      // Ola 19 (G19-1, clase A): hidePeriod se niega por identidad cuando
+      // la ventana no aparta nada — por la puerta guardada, la negativa
+      // no deja marco ni entrada que afirme un apartado inexistente.
+      commitGuarded((s) => hidePeriod(s, from, to, label).state, label ?? "Ocultar período");
     },
     restoreRestingSpan: (spanId) => {
-      commit((s) => restoreSpan(s, spanId), "Mostrar de nuevo");
+      // Ola 19 (G19-2, clase B): restoreSpan devuelve el estado intacto
+      // cuando el período ya no vive — sin marco fantasma.
+      commitGuarded((s) => restoreSpan(s, spanId), "Mostrar de nuevo");
     },
     deleteRestingSpan: (spanId) => {
       commitFinal((s) => deleteSpan(s, spanId), "Eliminar período");
     },
     hideLineSelection: (ids, label) => {
-      commit((s) => hideLines(s, ids, label).state, label ?? "Ocultar selección");
+      // Ola 19 (G19-1, clase A): hideLines se niega por identidad cuando
+      // ninguna línea nombrada puede apartarse — sin marco.
+      commitGuarded((s) => hideLines(s, ids, label).state, label ?? "Ocultar selección");
     },
     deleteRestingLineSelection: (ids) => {
       commitFinal((s) => deleteRestingLines(s, ids), "Eliminar selección");

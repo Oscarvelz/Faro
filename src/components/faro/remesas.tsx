@@ -22,7 +22,7 @@ const todayIso = () => { const d = new Date(); return `${todayKey()}-${String(d.
 
 /** Cambio → "Enviar a": the converted amount (or the typed one) becomes one expense line in the chosen book and category, this month. */
 export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor: number; from: Currency; toMinor: number; to: Currency; onDone: () => void }) {
-  const { session, lang, names, commit, has } = useFaro();
+  const { session, lang, names, commit, commitGuarded, has } = useFaro();
   useLayer(true, onDone);
   const state = session!.ledger;
   const rate = state.settings.rateE4;
@@ -63,7 +63,7 @@ export function SendPanel({ fromMinor, from, toMinor, to, onDone }: { fromMinor:
     const sent = toName ? { ...line, to: toWho } : line;
     commit((s) => upsertLine(s, sent), L(lang, `Enviar a ${names.cat(cat)}`, `Send to ${names.cat(cat)}`));
     const book = group === "fixed" ? L(lang, "Fijos", "Fixed") : L(lang, "Variables", "Variable");
-    importToast({ text: toName ? L(lang, `Guardado en ${names.cat(cat)} · ${toName}`, `Saved to ${names.cat(cat)} · ${toName}`) : L(lang, `Guardado en ${names.cat(cat)} · ${book}`, `Saved to ${names.cat(cat)} · ${book}`), undo: () => commit((s) => deleteLine(s, monthKey, line.id), L(lang, "Deshacer envío", "Undo send")) });
+    importToast({ text: toName ? L(lang, `Guardado en ${names.cat(cat)} · ${toName}`, `Saved to ${names.cat(cat)} · ${toName}`) : L(lang, `Guardado en ${names.cat(cat)} · ${book}`, `Saved to ${names.cat(cat)} · ${book}`), undo: () => commitGuarded((s) => deleteLine(s, monthKey, line.id), L(lang, "Deshacer envío", "Undo send")) });
     onDone();
   };
   return (

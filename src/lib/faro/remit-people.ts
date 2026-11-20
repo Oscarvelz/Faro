@@ -32,20 +32,29 @@ export function addRemitPerson(state: LedgerState, name: string, id: string, col
 export function renameRemitPerson(state: LedgerState, id: string, name: string): LedgerState {
   const clean = name.trim().slice(0, 40);
   if (!clean) return state;
+  // Ola 19 (G19-3): sin esa persona en el libro, el estado vuelve
+  // intacto — el mapa sin chequeo componía un no-op enmarcable.
+  if (!remitPeopleOf(state).some((p) => p.id === id)) return state;
   return { ...state, remitPeople: remitPeopleOf(state).map((p) => (p.id === id ? { ...p, name: clean } : p)) };
 }
 
 export function colorRemitPerson(state: LedgerState, id: string, color: string): LedgerState {
+  if (!remitPeopleOf(state).some((p) => p.id === id)) return state;
   return { ...state, remitPeople: remitPeopleOf(state).map((p) => (p.id === id ? { ...p, color } : p)) };
 }
 
 export function iconRemitPerson(state: LedgerState, id: string, icon: string): LedgerState {
+  if (!remitPeopleOf(state).some((p) => p.id === id)) return state;
   return { ...state, remitPeople: remitPeopleOf(state).map((p) => (p.id === id ? { ...p, icon } : p)) };
 }
 
 /** Removes people. Their lines keep every amount and date; only the tag goes (they become "Sin persona"). */
 export function dropRemitPeople(state: LedgerState, ids: string[]): LedgerState {
   const gone = new Set(ids);
+  // Ola 19 (G19-3): si ninguna persona nombrada vive en el libro, ninguna
+  // línea puede llevar su etiqueta — no hay borrado y el estado vuelve
+  // intacto (antes se componía un objeto nuevo de contenido igual).
+  if (!remitPeopleOf(state).some((p) => gone.has(p.id))) return state;
   const months: LedgerState["months"] = {};
   for (const [k, b] of Object.entries(state.months)) {
     months[k] = b.lines.some((l) => l.to && gone.has(l.to)) ? { lines: b.lines.map((l) => (l.to && gone.has(l.to) ? untag(l) : l)) } : b;

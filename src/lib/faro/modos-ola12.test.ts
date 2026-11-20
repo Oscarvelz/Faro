@@ -597,7 +597,21 @@ describe("§B · S2 — fuseLoanFields: lo no tocado se lee del registro vivo", 
  * a Beto; A guarda su edición de Ana desde su foto — Beto desaparecía; y
  * el renombre de B retrocedía. La cura: savePeople aplica la
  * transformación dentro del commit sobre peopleOf(s), y la ficha editada
- * se fusiona por id con su testigo (fusePerson). */
+ * se fusiona por id con su testigo (fusePerson).
+ *
+ * ENMIENDA OLA 19 (G19-3): la puerta de savePeople es ahora la
+ * GUARDADA y la receta ata lo vivo antes de aplicar la transformación
+ * (`const live = peopleOf(s); const next = fn(live);`), devolviendo su
+ * propio estado cuando el resultado es elemento a elemento idéntico —
+ * la negativa de la transformación (la persona nombrada ya no vive) no
+ * deja marco. La doctrina de esta sección no se mueve: la
+ * transformación sigue corriendo dentro del commit sobre la colección
+ * viva. El pin de fuente se enmienda a la forma nueva, y los jueces de
+ * esta cerca (la firma «fusiona» y el detector de mecanismo
+ * fn-sobre-vivo) aprenden la atadura: un identificador atado a la
+ * llamada del accesor cuenta como el accesor mismo — la misma doctrina
+ * que la ola 19 trae a las cercas TS (la atadura de la llamada alimenta
+ * como la llamada en línea). La atadura a la foto sigue acusando. */
 describe("§B · Personas — el commit compone contra la colección viva y fusiona la ficha", () => {
   const ana: Person = { id: "p-ana", name: "Ana", birthday: "1990-01-01", dates: [], note: "nota de B", color: "#123456", archived: false };
   it("fusePerson: lo tocado gana; lo no tocado y lo no gobernado se lee de lo vivo", () => {
@@ -617,8 +631,14 @@ describe("§B · Personas — el commit compone contra la colección viva y fusi
   });
   it("savePeople aplica la transformación dentro del commit (fuente)", () => {
     const s = SRC("../../components/faro/people.tsx");
-    assert.match(s, /const savePeople = \(fn: \(live: Person\[\]\) => Person\[\], detail: string\) => commit\(\(s\) => \(\{ \.\.\.s, people: fn\(peopleOf\(s\)\) \}\), detail\);/);
-    assert.ok(!/people: next/.test(s), "la escritura desde la foto del render está fuera");
+    /* ENMIENDA OLA 19 (G19-3): la forma clavada es la curada — puerta
+     * guardada, lo vivo atado antes de aplicar fn, y el retorno intacto
+     * cuando la transformación no tocó nada. La prohibición vieja
+     * («people: next» fuera) apuntaba a la foto del render; aquí `next`
+     * ES el resultado de fn sobre lo vivo, y este pin certifica su
+     * origen en la atadura en vez de prohibir su nombre. */
+    assert.match(s, /const savePeople = \(fn: \(live: Person\[\]\) => Person\[\], detail: string\) => commitGuarded\(\(s\) => \{\n    const live = peopleOf\(s\);\n    const next = fn\(live\);/);
+    assert.ok(!/people: fn\(/.test(s), "ninguna escritura aplica la transformación saltándose la atadura viva");
   });
 });
 
@@ -2055,12 +2075,28 @@ function scanForms(files: { rel: string; text: string }[]) {
              * pueden compartir la cuerda «fn#n» (OwedSide#2 es la fusión
              * en línea y restoreLent en delegadas) y ninguna pisa a otra. */
             let hasFusion = false;
-            const fusionScan = (n: ts.Node) => {
-              if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
-                if (/^fuse[A-Z]/.test(n.expression.text)) hasFusion = true;
-                if (params.has(n.expression.text) && n.arguments.some((a) => ts.isCallExpression(a) && ts.isIdentifier(a.expression) && COLL_ACCESSORS.has(a.expression.text))) hasFusion = true;
-              }
-              ts.forEachChild(n, fusionScan);
+            const fusionScan = (root: ts.Node) => {
+              /* OLA 19: la atadura alimenta como la llamada en línea —
+               * `const live = peopleOf(s); fn(live)` aplica el fn del
+               * llamante sobre lo vivo igual que `fn(peopleOf(s))`: un
+               * identificador atado a una llamada de accesor de
+               * colección cuenta como el accesor mismo. La atadura a
+               * otra cosa (la foto del render) NO absuelve: fn(foto)
+               * sigue sin contar como fusión. */
+              const liveBindings = new Set<string>();
+              const bindScan = (n: ts.Node) => {
+                if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && ts.isCallExpression(n.initializer) && ts.isIdentifier(n.initializer.expression) && COLL_ACCESSORS.has(n.initializer.expression.text)) liveBindings.add(n.name.text);
+                ts.forEachChild(n, bindScan);
+              };
+              bindScan(root);
+              const scan = (n: ts.Node) => {
+                if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+                  if (/^fuse[A-Z]/.test(n.expression.text)) hasFusion = true;
+                  if (params.has(n.expression.text) && n.arguments.some((a) => (ts.isCallExpression(a) && ts.isIdentifier(a.expression) && COLL_ACCESSORS.has(a.expression.text)) || (ts.isIdentifier(a) && liveBindings.has(a.text)))) hasFusion = true;
+                }
+                ts.forEachChild(n, scan);
+              };
+              scan(root);
             };
             fusionScan(body);
             for (const h of delegatedHelpers) fusionScan(h.node);
@@ -2102,9 +2138,22 @@ function scanForms(files: { rel: string; text: string }[]) {
           if (!ts.isIdentifier(p.name) || mechanisms.has(name)) return;
           const pname = p.name.text;
           let applies = false;
+          /* OLA 19: la misma resolución de ataduras que la firma
+           * «fusiona» — un mecanismo que ata lo vivo (`const live =
+           * peopleOf(s)`) y aplica su parámetro a la atadura ES un
+           * mecanismo fn-sobre-vivo, y sus llamantes se siguen juzgando
+           * por derivación. Sin esto, la forma con atadura apagaría el
+           * detector en silencio y los cuerpos entregados dejarían de
+           * juzgarse. */
+          const liveBindings = new Set<string>();
+          const bindScan = (n: ts.Node) => {
+            if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && ts.isCallExpression(n.initializer) && ts.isIdentifier(n.initializer.expression) && COLL_ACCESSORS.has(n.initializer.expression.text)) liveBindings.add(n.name.text);
+            ts.forEachChild(n, bindScan);
+          };
+          bindScan(body);
           const scan = (n: ts.Node) => {
             if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === pname &&
-              n.arguments.some((a) => ts.isCallExpression(a) && ts.isIdentifier(a.expression) && COLL_ACCESSORS.has(a.expression.text))) applies = true;
+              n.arguments.some((a) => (ts.isCallExpression(a) && ts.isIdentifier(a.expression) && COLL_ACCESSORS.has(a.expression.text)) || (ts.isIdentifier(a) && liveBindings.has(a.text)))) applies = true;
             ts.forEachChild(n, scan);
           };
           scan(body);
@@ -2172,8 +2221,11 @@ const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
   "components/faro/loans.tsx:DueLoans#1": ["campo", "renombra por id dentro del commit, desde loansOf(s0) vivo"],
   "components/faro/loans.tsx:DueLoans#2": ["fusiona", "la edición del préstamo: fuseLoanFields con el testigo de la forma (S2)"],
   "components/faro/people.tsx:useImport#1": ["campo", "mergeContacts compone sobre peopleOf(s) vivo dentro del commit"],
-  "components/faro/people.tsx:savePeople#1": ["fusiona", "aplica la transformación sobre peopleOf(s) vivo; la ficha editada fusiona por id con su testigo (Personas)"],
-  "components/faro/people.tsx:run#1": ["campo", "archiva una persona por id con map sobre el vivo (el run de su confirmación)"],
+  "components/faro/people.tsx:savePeople#1": ["fusiona", "aplica la transformación sobre peopleOf(s) vivo; la ficha editada fusiona por id con su testigo (Personas). Ola 19 (G19-3): la puerta es la guardada y la receta devuelve su estado cuando la transformación no tocó ningún elemento — la negativa no enmarca; la fusión sobre lo vivo es la misma."],
+  // OLA 19: la entrada «components/faro/people.tsx:run#1» se retiró —
+  // el run de la confirmación de borrado ya no compone en línea: viaja
+  // por savePeople (el mecanismo fn-sobre-vivo de esta misma cerca, que
+  // juzga su cuerpo por derivación) y su puerta es la guardada.
   "components/faro/screens.tsx:DueOwe#1": ["naturaleza", "SubPresetEditor: la lista ES el registro — el editor la reescribe entera por naturaleza de su objeto"],
   "components/faro/screens.tsx:DueOwe#2": ["naturaleza", "FreqPresetEditor: la lista ES el registro — el editor la reescribe entera por naturaleza de su objeto"],
   "components/faro/screens.tsx:Desk#1": ["anexa", "siembra las bóvedas conocidas sobre la estructura viva"],

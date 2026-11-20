@@ -93,7 +93,7 @@ export function ColorPick({ value, onPick, onDraft, onConfirm, glyph, face = "bu
   face?: Face;
   label?: string;
 }) {
-  const { t, session, commit } = useFaro();
+  const { t, session, commit, commitGuarded } = useFaro();
   const current = parseHex(value) ?? "";
   const recent = session?.ledger.myColors ?? [];
   const [open, setOpen] = useState(false);
@@ -116,7 +116,14 @@ export function ColorPick({ value, onPick, onDraft, onConfirm, glyph, face = "bu
     onPick(c);
   };
   const keep = (hex: string) => {
-    commit((s) => ({ ...s, myColors: pushRecent(s.myColors, hex) }), "color");
+    // Ola 19 (G19-3): si el color ya es el reciente y la lista queda
+    // elemento a elemento igual, no hubo guardado — la puerta guardada
+    // no deja marco por re-guardar el mismo reciente.
+    commitGuarded((s) => {
+      const next = pushRecent(s.myColors, hex);
+      const cur = s.myColors ?? [];
+      return next.length === cur.length && next.every((c, i) => c === cur[i]) ? s : { ...s, myColors: next };
+    }, "color");
   };
   return (
     <div className="cp">

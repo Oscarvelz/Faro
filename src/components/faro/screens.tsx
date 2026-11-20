@@ -289,7 +289,7 @@ function BookLook({ glyph, color, onGlyph, onColor, pinned, startOpen, onClose, 
 }
 
 function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; onMoney: (value: Currency) => void }) {
-  const { setUi, session, commit, t } = useFaro();
+  const { setUi, session, commit, commitGuarded, t } = useFaro();
   const box = useRef<HTMLDivElement>(null);
   const [glyph, setGlyph] = useState(lineGlyph(line, session?.ledger.structure));
   // Opens on the colour the line shows (its own choice, else its category's: Ahorros' purple). Only a colour the user
@@ -303,8 +303,8 @@ function BubbleEditor({ line, money, onMoney }: { line: Line; money: Currency; o
         <LineForm kind={line.kind} existing={line} money={money} onMoney={onMoney} glyph={glyph} swatch={picked ? swatch : undefined} dock look={{
           glyph,
           color: swatch,
-          onGlyph: (name) => { setGlyph(name); commit((s) => patchLine(s, line.id, { icon: name }), line.concept || "icon"); },
-          onColor: (next) => { setSwatch(next); setPicked(true); commit((s) => patchLine(s, line.id, { color: next }), line.concept || "color"); },
+          onGlyph: (name) => { setGlyph(name); commitGuarded((s) => patchLine(s, line.id, { icon: name }), line.concept || "icon"); },
+          onColor: (next) => { setSwatch(next); setPicked(true); commitGuarded((s) => patchLine(s, line.id, { color: next }), line.concept || "color"); },
         }} onClose={() => setUi({ editing: null })} />
       </div>
     </div>
@@ -731,7 +731,7 @@ function SpanCut({ kinds, subs, span, onSpan, tone, pinKey, saving }: { kinds: s
 }
 
 function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year" }) {
-  const { session, fmt, t, commit, ui } = useFaro();
+  const { session, fmt, t, commit, commitGuarded, ui } = useFaro();
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState("");
   const [when, setWhen] = useState("");
@@ -780,7 +780,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
     const minor = parseAmount(used);
     if (minor === null) return;
     const date = /^\d{4}-\d{2}-\d{2}$/.test(when) ? when : dates[dates.length - 1] ?? "";
-    commit((s) => patchLineWith(s, line.id, (live) => ({
+    commitGuarded((s) => patchLineWith(s, line.id, (live) => ({
       history: [...live.history, { id: uid(), date, amountMinor: minor, currency: display, note: "" }],
     })), line.concept);
     setUsed("");
@@ -829,7 +829,7 @@ function PotReport({ line, span }: { line: Line; span: "week" | "month" | "year"
 }
 
 export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: LineKind | LineKind[]; title: string; categoryId?: string; storeId?: string; menu?: boolean }) {
-  const { lines, t, ui, setUi, viewLine, recordLine, session, confirm, commit, key, names, fmt, lang } = useFaro();
+  const { lines, t, ui, setUi, viewLine, recordLine, session, confirm, commit, commitGuarded, key, names, fmt, lang } = useFaro();
   const { has } = useFaro();
   const kinds = Array.isArray(kind) ? kind : [kind];
   const draftKind = kinds[0] ?? "income-fixed";
@@ -913,7 +913,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
       body: t("sel.lines.delete.body").replace("{month}", monthLabel),
       yes: t("sel.lines.delete.yes"),
       run: () => {
-        commit((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`);
+        commitGuarded((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`);
         selection.exit();
       },
     });
@@ -931,7 +931,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
   const applyMove = () => {
     if (!movableSel.length) return;
     const targets = movableSel;
-    commit((s0) => targets.reduce((acc, l) => patchLine(acc, l.id, { categoryId: moveCat, subId: group ? moveSub : "" }), s0), `${targets.length}`);
+    commitGuarded((s0) => targets.reduce((acc, l) => patchLine(acc, l.id, { categoryId: moveCat, subId: group ? moveSub : "" }), s0), `${targets.length}`);
     setMoveOpen(false);
     selection.exit();
   };
@@ -998,10 +998,10 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
           <BookKit title={title} rows={kitRows} word={["línea", "líneas", "line", "lines"]} test="book-kit"
             body={lang === "en" ? "They leave this month. Earlier months keep theirs, with all their history." : "Salen de este mes. Los meses anteriores conservan las suyas, con todo su historial."}
             onEdit={(id) => setUi({ editing: id, draft: null })}
-            onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`)}
-            onRename={(id, name) => { const l = kitLine(id); if (l) commit((s0) => patchLine(s0, id, { concept: name }), name); }}
-            onColor={(id, hex) => { const l = kitLine(id); if (l) commit((s0) => patchLine(s0, id, { color: hex }), l.concept || "color"); }}
-            onIcon={(id, glyph) => { const l = kitLine(id); if (l) commit((s0) => patchLine(s0, id, { icon: glyph }), l.concept || "icon"); }} />
+            onDrop={(ids) => commitGuarded((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (kitLine(ids[0]!)?.concept || title) : `${ids.length}`)}
+            onRename={(id, name) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { concept: name }), name); }}
+            onColor={(id, hex) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { color: hex }), l.concept || "color"); }}
+            onIcon={(id, glyph) => { const l = kitLine(id); if (l) commitGuarded((s0) => patchLine(s0, id, { icon: glyph }), l.concept || "icon"); }} />
           <button type="button" data-anchor="book-add" className="plus-mark" aria-label={t("add")} aria-pressed={ui.draft === draftKind} onClick={() => setUi({ draft: ui.draft === draftKind ? null : draftKind, editing: null })}>
             <svg viewBox="0 0 32 32" aria-hidden>
               <defs>
@@ -1154,7 +1154,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
 }
 
 function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Currency; onMoney: (value: Currency) => void; span: "week" | "month" | "year" }) {
-  const { names, viewLine, session, ui, setUi, confirm, commit, key, t, fmt, lang, has } = useFaro();
+  const { names, viewLine, session, ui, setUi, confirm, commit, commitGuarded, key, t, fmt, lang, has } = useFaro();
   const display = session?.ledger.settings.display ?? "NIO";
   const rate = session?.ledger.settings.rateE4 ?? 0;
   const [picked, setPicked] = useState<string | null>(null);
@@ -1201,7 +1201,7 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
       body: t("sel.lines.delete.body").replace("{month}", shopMonthLabel),
       yes: t("sel.lines.delete.yes"),
       run: () => {
-        commit((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || t("sel.lines.delete.yes")) : `${ids.length}`);
+        commitGuarded((s0) => ids.reduce((acc, id) => deleteLine(acc, key, id), s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || t("sel.lines.delete.yes")) : `${ids.length}`);
         selection.exit();
       },
     });
@@ -1209,7 +1209,7 @@ function ShopBoard({ rows, money, onMoney, span }: { rows: Line[]; money: Curren
   const applyMove = () => {
     if (!movableSel.length) return;
     const targets = movableSel;
-    commit((s0) => targets.reduce((acc, l) => patchLine(acc, l.id, { categoryId: moveCat, subId: "" }), s0), `${targets.length}`);
+    commitGuarded((s0) => targets.reduce((acc, l) => patchLine(acc, l.id, { categoryId: moveCat, subId: "" }), s0), `${targets.length}`);
     setMoveOpen(false);
     selection.exit();
   };
@@ -1340,7 +1340,7 @@ function readDueFile(): DueFile[] {
 }
 
 function DueOwe() {
-  const { t, fmt, lang, lines, session, key, commit, confirm, has } = useFaro();
+  const { t, fmt, lang, lines, session, key, commit, commitGuarded, confirm, has } = useFaro();
   const [adding, setAdding] = useState(false);
   useLayer(adding, () => setAdding(false));
   const [name, setName] = useState("");
@@ -1406,7 +1406,7 @@ function DueOwe() {
       }
     }
     saveFile([{ id: uid(), seriesId: line.seriesId || line.id, name: line.concept, maxMinor, currency: line.currency, archivedOn: todayIso(), pays }, ...filed]);
-    commit((s) => patchLine(s, line.id, { active: false }), line.concept);
+    commitGuarded((s) => patchLine(s, line.id, { active: false }), line.concept);
   }
   return (
     <div className="cobro-swap" data-anchor="cobros-out">
@@ -1776,7 +1776,7 @@ function takeLensReturn(depth: number) {
  * cuenta anfitriona, y lo que no cabe queda sin declarar, con su pregunta viva.
  */
 function EncounterDialog({ accountId, pending, onClose }: { accountId: string; pending: PendingFund[]; onClose: () => void }) {
-  const { session, commit, t, fmt, names, key } = useFaro();
+  const { session, commit, commitGuarded, t, fmt, names, key } = useFaro();
   const [each, setEach] = useState(false);
   const [picks, setPicks] = useState<Record<string, { nature: FundNature | null; host: string }>>({});
   const [guard, setGuard] = useState("");
@@ -1793,11 +1793,11 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
       setGuard(`${t("fund.guard").replace("{x}", fmt(total)).replace("{y}", fmt(libre))} ${t("fund.enc.guardNote")}`);
       return;
     }
-    commit((s) => live.reduce((acc, f) => declareSeries(acc, f.seriesId, "saldo", accountId), s), "fondos");
+    commitGuarded((s) => live.reduce((acc, f) => declareSeries(acc, f.seriesId, "saldo", accountId), s), "fondos");
     onClose();
   };
   const declareAparte = () => {
-    commit((s) => live.reduce((acc, f) => declareSeries(acc, f.seriesId, "aparte"), s), "fondos");
+    commitGuarded((s) => live.reduce((acc, f) => declareSeries(acc, f.seriesId, "aparte"), s), "fondos");
     onClose();
   };
   const declareOne = (f: PendingFund) => {
@@ -1809,7 +1809,7 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
       if (!g.fits) { setGuard(t("fund.guard").replace("{x}", fmt(f.minor)).replace("{y}", fmt(g.libre))); return; }
     }
     setGuard("");
-    commit((s) => declareSeries(s, f.seriesId, stamp.fund!, stamp.fundHost), session ? (seriesName(session.ledger, f.seriesId) || names.sub(f.subId)) : names.sub(f.subId));
+    commitGuarded((s) => declareSeries(s, f.seriesId, stamp.fund!, stamp.fundHost), session ? (seriesName(session.ledger, f.seriesId) || names.sub(f.subId)) : names.sub(f.subId));
   };
   return (
     <div className="ask-back" role="presentation" onMouseDown={onClose}>
@@ -1870,7 +1870,7 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
 }
 
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
-  const { t, summary, fmt, fmtShort, lines, copyPrev, ui, setUi, viewLine, names, session, commit, confirm, key, lang, goTopic } = useFaro();
+  const { t, summary, fmt, fmtShort, lines, copyPrev, ui, setUi, viewLine, names, session, commit, commitGuarded, confirm, key, lang, goTopic } = useFaro();
   const { depth } = useFaro();
   // Etapa 3.1: la cara se recompone por el registro, solo vía el contexto (has).
   // `mode` a secas ya es la postura de naturalezas en esta función; el modo de la
@@ -1988,7 +1988,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     if (decision === "adopt") {
       seeded.current = true;
       try { localStorage.setItem("faro-save-presets", "1"); } catch { /* ignore */ }
-      commit((s) => withDeskSeedFlag(s, "desk-banks"), "presets");
+      commitGuarded((s) => withDeskSeedFlag(s, "desk-banks"), "presets");
       return;
     }
     const cat = session.ledger.structure.categories.find((c) => c.role === "savings" && !c.hidden);
@@ -2019,7 +2019,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // ya vive por encima los recibe en esta misma pasada, como siempre.
     const pocketsPending = pockets.length > 0 && !has("vault.meta");
     const pocketsSeed = pocketsPending ? [] : pockets;
-    if (!banks.length && !pockets.length) { commit((s) => withDeskSeedFlag(withDeskSeedFlag(s, "desk-banks"), "desk-pockets"), "presets"); return; }
+    if (!banks.length && !pockets.length) { commitGuarded((s) => withDeskSeedFlag(withDeskSeedFlag(s, "desk-banks"), "desk-pockets"), "presets"); return; }
     const display = session.ledger.settings.display;
     commit((s) => {
       const categories = s.structure.categories.map((c) => c.id !== cat.id ? c : {
@@ -2098,7 +2098,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     const latest = Object.keys(session.ledger.months).every((m) => m <= key);
     if (!latest && key < `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`) return;
     if (seedRetiro(session.ledger, key) === session.ledger) return;
-    commit((s) => seedRetiro(s, key), "Primerica");
+    commitGuarded((s) => seedRetiro(s, key), "Primerica");
   }, [session, commit, key, faroMode]);
   useEffect(() => {
     if (!session) return;
@@ -2109,7 +2109,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     if (decisionNi === "done") return;
     if (decisionNi === "adopt") {
       try { localStorage.setItem("faro-save-ni", "1"); } catch { /* ignore */ }
-      commit((s) => withDeskSeedFlag(s, "desk-ni"), "ni-banks");
+      commitGuarded((s) => withDeskSeedFlag(s, "desk-ni"), "ni-banks");
       return;
     }
     const cat = session.ledger.structure.categories.find((c) => c.role === "savings" && !c.hidden);
@@ -2503,12 +2503,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   function meetFixedModes(accountId: string, pending: PendingFund[], libreAfter: number) {
     if (mode === "ask") { setEncounter({ accountId, pending }); return; }
     if (mode === "separate") {
-      commit((s) => pending.reduce((acc, f) => declareSeries(acc, f.seriesId, "aparte"), s), "fondos");
+      commitGuarded((s) => pending.reduce((acc, f) => declareSeries(acc, f.seriesId, "aparte"), s), "fondos");
       return;
     }
     const total = pending.reduce((a, f) => a + f.minor, 0);
     if (total <= libreAfter) {
-      commit((s) => pending.reduce((acc, f) => declareSeries(acc, f.seriesId, "saldo", accountId), s), "fondos");
+      commitGuarded((s) => pending.reduce((acc, f) => declareSeries(acc, f.seriesId, "saldo", accountId), s), "fondos");
     } else {
       confirm({
         title: t("fund.enc.title"),
@@ -2531,7 +2531,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         return;
       }
     }
-    commit((s) => declareSeries(s, f.seriesId, stamp.fund!, stamp.fundHost), session ? (seriesName(session.ledger, f.seriesId) || names.sub(f.subId)) : names.sub(f.subId));
+    commitGuarded((s) => declareSeries(s, f.seriesId, stamp.fund!, stamp.fundHost), session ? (seriesName(session.ledger, f.seriesId) || names.sub(f.subId)) : names.sub(f.subId));
   }
   const pocketKind = openSeg?.id.endsWith(".meta") ? "meta" : openSeg?.id.endsWith(".emergencia") ? "emergencia" : openSeg?.id.endsWith(".retiro") ? "retiro" : "";
   const retireLine = pocketKind === "retiro" ? (openLines.find((line) => line.active && isPrimerica(line)) ?? openLines.find((line) => line.startedOn || line.balanceMinor != null) ?? openLines[0] ?? null) : null;
@@ -2546,8 +2546,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       rows={rows.map((l) => ({ id: l.id, label: l.concept || names.sub(l.subId) || names.cat(l.categoryId) || "—", glyph: isPrimerica(l) && (!l.icon || l.icon === "Circle") ? "brand:primerica" : (l.icon && l.icon !== "Circle" ? l.icon : "PiggyBank"), color: chosenTone(l.color, l.categoryId) || colorForLine(session.ledger.structure, l.categoryId, l.subId) }))}
       body={lang === "en" ? "Lines with money or history go to the archive, with all of it saved. Empty ones are removed." : "Las que tienen dinero o historial pasan al archivo, con todo guardado. Las vacías se quitan."}
       onEdit={(id) => setUi({ editing: id, draft: null })}
-      onDrop={(ids) => commit((s0) => ids.reduce((acc, id) => dropPocketLine(acc, key, id).state, s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || title) : `${ids.length}`)}
-      onRename={(id, name) => { const l = rows.find((x) => x.id === id); if (l) commit((s0) => patchLine(s0, id, { concept: name }), name); }}
+      onDrop={(ids) => commitGuarded((s0) => ids.reduce((acc, id) => dropPocketLine(acc, key, id).state, s0), ids.length === 1 ? (rows.find((l) => l.id === ids[0])?.concept || title) : `${ids.length}`)}
+      onRename={(id, name) => { const l = rows.find((x) => x.id === id); if (l) commitGuarded((s0) => patchLine(s0, id, { concept: name }), name); }}
       onColor={(id, hex) => { const l = rows.find((x) => x.id === id); if (l) paintLine(l, { color: hex }); }}
       onIcon={(id, glyph) => { const l = rows.find((x) => x.id === id); if (l) paintLine(l, { icon: glyph }); }}
       onRestore={restore} />
@@ -2555,7 +2555,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const restoreRetiroAsk = () => confirm({
     title: lang === "en" ? "Restore defaults" : "Restaurar de fábrica",
     body: lang === "en" ? "Primerica comes back to Retiro at $0, or with its saved history. Nothing is deleted." : "Primerica vuelve a Retiro en $0, o con su historial guardado. No se borra nada.",
-    yes: lang === "en" ? "Restore" : "Restaurar", run: () => commit((s0) => restoreRetiro(s0, key), "Primerica") });
+    yes: lang === "en" ? "Restore" : "Restaurar", run: () => commitGuarded((s0) => restoreRetiro(s0, key), "Primerica") });
   // 1.3.115: the pocket's add form, under whichever + opened it (the board's, or the Libros view's): nothing above moves.
   const pocketAdd = !openSeg ? null : (adding && (pocketKind === "meta" || pocketKind === "emergencia") ? (
               <div className="ah-form is-pocket">
@@ -2630,7 +2630,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // habitación, también para las líneas que la cadena vieja ya envenenó.
     if (kind === "subscription" && (line.loanId || line.lentId || line.cardId)) return;
     if (kind === "subscription" && !has("subs.cuota")) return;
-    commit((s) => patchLine(s, line.id, { kind }), line.concept || kind);
+    commitGuarded((s) => patchLine(s, line.id, { kind }), line.concept || kind);
   }
 
   function deskWork(line: Line) {
@@ -2659,7 +2659,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
 
   function relocate(line: (typeof lines)[number], dest: string) {
     const categoryId = dest === "rest" ? line.categoryId : (subCat.get(dest) ?? line.categoryId);
-    commit((s) => patchLine(s, line.id, { categoryId, subId: dest === "rest" ? "" : dest }), line.concept || names.sub(dest));
+    commitGuarded((s) => patchLine(s, line.id, { categoryId, subId: dest === "rest" ? "" : dest }), line.concept || names.sub(dest));
     setMoving(null);
   }
 
@@ -2754,7 +2754,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         : `${label}. ${t("delete.warn")}`,
       danger: true,
       yes: t("yes"),
-      run: () => commit((s) => dropPocketLine(s, key, line.id).state, label),
+      run: () => commitGuarded((s) => dropPocketLine(s, key, line.id).state, label),
     });
   }
 
@@ -2769,7 +2769,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       title: t("edit"),
       body: `${label} → ${next}`,
       yes: t("yes"),
-      run: () => commit((s) => patchLine(s, line.id, { concept: next }), next),
+      run: () => commitGuarded((s) => patchLine(s, line.id, { concept: next }), next),
     });
   }
 
@@ -2786,7 +2786,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // del commit — el saldo y el startedOn se leen de la línea que el
     // estado trae, no de la foto del render; la cuenta nueva nace fresca.
     if (existing) {
-      commit((s) => patchLineWith(s, existing.id, (live) => ({ concept: row.name, amountMinor: minor, balanceMinor: minor, currency: rate.display, balanceCurrency: rate.display, startedOn: live.startedOn || today })), row.name);
+      commitGuarded((s) => patchLineWith(s, existing.id, (live) => ({ concept: row.name, amountMinor: minor, balanceMinor: minor, currency: rate.display, balanceCurrency: rate.display, startedOn: live.startedOn || today })), row.name);
     } else {
       const line = freshLine(row.name, minor, row.id, row.categoryId, { balanceMinor: minor, icon: "vault", seriesId: row.id, startedOn: today });
       commit((s) => upsertLine(s, line), row.name);
@@ -2807,7 +2807,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // estado que el commit trae; antes nacían de la foto del render y su
     // upsertLine la escribía entera.
     if (existing) {
-      commit((s) => patchLineWith(s, existing.id, (live) => {
+      commitGuarded((s) => patchLineWith(s, existing.id, (live) => {
         const base = convertMinor(live.balanceMinor ?? live.amountMinor, live.balanceMinor != null ? live.balanceCurrency : live.currency, rate.display, rate.rateE4);
         const next = Math.max(0, base + sign * Math.abs(delta));
         return {
@@ -2922,7 +2922,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }
 
   function paintLine(line: Line, patch: Partial<Line>) {
-    commit((s) => patchLine(s, line.id, patch), line.concept || "look");
+    commitGuarded((s) => patchLine(s, line.id, patch), line.concept || "look");
   }
 
   function paintBank(row: { id: string; categoryId: string }, icon?: string, color?: string) {
@@ -2951,7 +2951,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // recurrencia, saldo) leen la línea del estado, no la foto; la que
     // no existe nace fresca con el arranque del formulario.
     if (line) {
-      commit((s) => patchLineWith(s, line.id, (live) => {
+      commitGuarded((s) => patchLineWith(s, line.id, (live) => {
         const st = (retireOpen === live.id ? retireDate : "") || live.startedOn || retireDate || "";
         return {
           startedOn: st || live.startedOn,
@@ -3002,7 +3002,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     // se reemplaza a sí mismo sobre lo que el estado trae, no sobre la
     // foto); si no vive, nace fresca con el historial del estado traído.
     if (retireLine) {
-      commit((s) => patchLineWith(s, base.id, (live) => ({
+      commitGuarded((s) => patchLineWith(s, base.id, (live) => ({
         history: buildHistory(live.history),
         ...(r.value != null ? { balanceMinor: r.value, balanceCurrency: r.currency } : {}),
       })), openSeg.name);
@@ -3703,7 +3703,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <button type="button" className="sub-gear stm-restore" data-test="retiro-restore" aria-label={t("save.restore.label")} onClick={() => confirm({
                 title: t("save.restore.title"),
                 body: t("save.restore.body"),
-                yes: t("save.restore.yes"), run: () => commit((s) => restoreRetiro(s, key), "Primerica") })}><RotateCcw /></button>
+                yes: t("save.restore.yes"), run: () => commitGuarded((s) => restoreRetiro(s, key), "Primerica") })}><RotateCcw /></button>
             } /> : null}
             {openLines.length === 0 && !adding && pocketKind !== "retiro" ? <Note>{t("save.empty")}</Note> : null}
             {openLines.map((line) => {
@@ -4170,7 +4170,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   max={100}
                   defaultValue={rate.savingsGoalPct}
                   aria-label={t("settings.goal")}
-                  onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "goal")}
+                  onBlur={(e) => { const v = Math.min(100, Math.max(0, Number(e.target.value) || 0)); commitGuarded((s) => (s.settings.savingsGoalPct === v ? s : { ...s, settings: { ...s.settings, savingsGoalPct: v } }), "goal"); }}
                 />
                 <i>%</i>
               </span>
@@ -5460,7 +5460,7 @@ function clipWords(text: string, max: number): string {
 }
 
 export function Settings() {
-  const { t, lang, session, commit, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine, has } = useFaro();
+  const { t, lang, session, commit, commitGuarded, commitAnnounced, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine, has } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
   // 1.3.227 (pedido de Oscar): el catálogo gana su propio pliegue bajo
   // Estructura — nace plegado y su estado lo mandan sus toques, guardado
@@ -5589,7 +5589,16 @@ export function Settings() {
     if (!cur || VERDICT_RANK[v.verdict] > VERDICT_RANK[cur.verdict]) confirmVerdict.current = v;
   };
   const applyModeConfirmed = (ctx: ModeConfirmCtx) => {
-    commit((s) => {
+    // Ola 19 (BR19-1): la confirmación pasa por la puerta del aborto
+    // declarado (commitAnnounced). Su entrada sigue siendo deliberada y
+    // veraz — el detalle-función nombra el aterrizaje de su tanda o la
+    // no-aplicación — pero el aborto ya no apila fotograma ni sube la
+    // revisión: la cura 18 la excluyó de la puerta guardada por su
+    // entrada y acertó en la entrada; el marco era el que mentía (una
+    // mudanza costaba revisión +2 y el primer Deshacer se gastaba en la
+    // entrada del aborto). El aterrizaje compone estado nuevo y enmarca
+    // entero, como siempre.
+    commitAnnounced((s) => {
       const liveNow = modeOf(s.settings);
       if (liveNow === ctx.target) { leaveVerdict({ verdict: "already", ctx }); return s; }
       if (liveNow !== ctx.live) { leaveVerdict({ verdict: "moved", ctx }); return s; }
@@ -5980,17 +5989,17 @@ export function Settings() {
       {has("settings.savings-goal") ? (
       <Fold id="rate" icon={SlidersHorizontal} sub={lang === "en" ? "Goals, signal and rate" : "Metas, semáforo y tasa"} topic="reglas" title={t("settings.rate")} open={openFold === "rate"} onToggle={() => toggle("rate")}>
         <label className="label" data-anchor="aj-goal"><span className="lab-head">{glueHint(t("settings.goal"), <Hint topic="meta-ahorro" fitParent />)}</span>
-          <input className="field num" defaultValue={settings.savingsGoalPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, savingsGoalPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "goal")} />
+          <input className="field num" defaultValue={settings.savingsGoalPct} onBlur={(e) => { const v = Math.min(100, Math.max(0, Number(e.target.value) || 0)); commitGuarded((s) => (s.settings.savingsGoalPct === v ? s : { ...s, settings: { ...s.settings, savingsGoalPct: v } }), "goal"); }} />
         </label>
         <label className="label mt-2" data-anchor="aj-green"><span className="lab-head">{glueHint(t("settings.green"), <Hint topic="semaforo-verde" fitParent />)}</span>
-          <input className="field num" defaultValue={settings.debtGreenPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtGreenPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "green")} />
+          <input className="field num" defaultValue={settings.debtGreenPct} onBlur={(e) => { const v = Math.min(100, Math.max(0, Number(e.target.value) || 0)); commitGuarded((s) => (s.settings.debtGreenPct === v ? s : { ...s, settings: { ...s.settings, debtGreenPct: v } }), "green"); }} />
         </label>
         <label className="label mt-2" data-anchor="aj-yellow"><span className="lab-head">{glueHint(t("settings.yellow"), <Hint topic="semaforo-amarillo" fitParent />)}</span>
-          <input className="field num" defaultValue={settings.debtYellowPct} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, debtYellowPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) } }), "yellow")} />
+          <input className="field num" defaultValue={settings.debtYellowPct} onBlur={(e) => { const v = Math.min(100, Math.max(0, Number(e.target.value) || 0)); commitGuarded((s) => (s.settings.debtYellowPct === v ? s : { ...s, settings: { ...s.settings, debtYellowPct: v } }), "yellow"); }} />
         </label>
         {has("settings.cushion-months") ? (
         <label className="label mt-2" data-anchor="aj-months"><span className="lab-head">{glueHint(t("settings.emergency"), <Hint topic="meses-colchon" fitParent />)}</span>
-          <input className="field num" defaultValue={settings.emergencyMonths} onBlur={(e) => commit((s) => ({ ...s, settings: { ...s.settings, emergencyMonths: Number(e.target.value) || 0 } }), "months")} />
+          <input className="field num" defaultValue={settings.emergencyMonths} onBlur={(e) => { const v = Number(e.target.value) || 0; commitGuarded((s) => (s.settings.emergencyMonths === v ? s : { ...s, settings: { ...s.settings, emergencyMonths: v } }), "months"); }} />
         </label>
         ) : null}
         <div className="label mt-2" data-anchor="aj-nature">
@@ -6273,7 +6282,7 @@ function QuarantinePanel({ entries, onRestore }: { entries: QuarantineEntry[]; o
 }
 
 function StructureTree() {
-  const { t, lang, session, commit, confirm } = useFaro();
+  const { t, lang, session, commit, commitGuarded, confirm } = useFaro();
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   // 1.3.179: la tarjeta abierta registra aquí su única salida (exitPanel): toda
@@ -6474,7 +6483,7 @@ function StructureTree() {
               title: lang === "en" ? "Restore default categories" : "Restaurar categorías de fábrica",
               body: (lang === "en" ? "These come back: " : "Vuelven: ") + missingHere.map((c) => `${displayName(c, lang)} (${t(c.group === "fixed" ? "group.fixed" : "group.variable").toLowerCase()})`).join(", ") + (lang === "en" ? ". Your own categories and every entry stay as they are." : ". Tus categorías propias y cada movimiento quedan como están."),
               yes: lang === "en" ? "Restore" : "Restaurar",
-              run: () => commit((s) => restoreDefaultCategories(s, group), lang === "en" ? "Default categories" : "Categorías de fábrica"),
+              run: () => commitGuarded((s) => restoreDefaultCategories(s, group), lang === "en" ? "Default categories" : "Categorías de fábrica"),
             })}><RotateCcw /></button> : null}
           </div>
           <FoldShell open={groupOpen}>
@@ -6580,7 +6589,7 @@ function StructureTree() {
 }
 
 function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => void; exitRef: { current: PanelExit | null } }) {
-  const { t, lang, session, commit, confirm } = useFaro();
+  const { t, lang, session, commit, commitGuarded, confirm } = useFaro();
   const [name, setName] = useState(displayName(cat, lang));
   const [subName, setSubName] = useState("");
   const [editSub, setEditSub] = useState<string | null>(null);
@@ -7034,10 +7043,14 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     setEditSub(null);
   };
   function patch(run: (cat: Category) => Category, detail: string) {
-    commit((s) => ({
-      ...s,
-      structure: { ...s.structure, categories: s.structure.categories.map((c) => c.id === cat.id ? run(c) : c) },
-    }), detail);
+    // Ola 19 (G19-3): el mismo juicio que los parches del kit — si la
+    // categoría ya no vive o el parche no la toca, la receta devuelve su
+    // estado y la puerta guardada no deja marco.
+    commitGuarded((s) => {
+      const cats = s.structure.categories;
+      const next = cats.map((c) => (c.id === cat.id ? run(c) : c));
+      return next.every((c, i) => c === cats[i]) ? s : { ...s, structure: { ...s.structure, categories: next } };
+    }, detail);
   }
   // 1.3.178 (decisión de Oscar sobre el punto 1 del catálogo de la 1.3.177): la papelera
   // del árbol retira el subconcepto Y sus líneas — borrar es borrar, en todas las
@@ -7518,7 +7531,7 @@ function CatalogEditor() {
     const next = renameText.trim();
     setRenameId(null);
     if (!next || next === displayName(item, lang)) return;
-    commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, customName: next } : c)) } }), next);
+    commitGuarded((s) => (s.structure.catalog.some((c) => c.id === item.id) ? { ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, customName: next } : c)) } } : s), next);
   };
   // R-4: el aviso informado de la familia de la 1.3.178 — cuántas líneas nombran la pieza
   // y cuánto suman por moneda (catalogLinesSummary). El borrado NO se lleva esas líneas:
@@ -7533,7 +7546,7 @@ function CatalogEditor() {
       : `${name}. ${summary.count === 1
         ? t(`${fam}.one`).replace("{totals}", totalsText)
         : t(fam).replace("{n}", String(summary.count)).replace("{totals}", totalsText)}`;
-    confirm({ title: t("delete"), body, danger: true, yes: t("yes"), run: () => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.filter((c) => c.id !== item.id) } }), item.id) });
+    confirm({ title: t("delete"), body, danger: true, yes: t("yes"), run: () => commitGuarded((s) => (s.structure.catalog.some((c) => c.id === item.id) ? { ...s, structure: { ...s.structure, catalog: s.structure.catalog.filter((c) => c.id !== item.id) } } : s), item.id) });
   };
   // 1.3.225 (pedido de Oscar): el ojo del Catálogo era la última puerta muda de
   // la familia — la tarjeta de categoría avisa desde la 1.3.223 y este ojo
@@ -7541,7 +7554,7 @@ function CatalogEditor() {
   // de ocultar (esta casa aplica al toque: sin Guardar, su cuerpo no lo
   // promete); mostrar sigue sin preguntar, como en toda la familia.
   const toggleItemVis = (item: CatalogItem) => {
-    const apply = () => commit((s) => ({ ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } }), item.id);
+    const apply = () => commitGuarded((s) => (s.structure.catalog.some((c) => c.id === item.id) ? { ...s, structure: { ...s.structure, catalog: s.structure.catalog.map((c) => (c.id === item.id ? { ...c, hidden: !c.hidden } : c)) } } : s), item.id);
     if (!item.hidden) { confirm({ title: t("hide.title").replace("{name}", displayName(item, lang)), body: t("hide.item.body"), yes: t("hide"), run: apply }); return; }
     apply();
   };

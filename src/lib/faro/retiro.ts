@@ -86,6 +86,15 @@ export function dropPocketLine(state: LedgerState, key: string, id: string): { s
 
 /** Restore the default Retiro presets: an archived Primerica in `key` comes back with its history, else a fresh $0 one. */
 export function restoreRetiro(state: LedgerState, key: string): LedgerState {
+  // Ola 19 (G19-2/G19-3, por fuente): sin marca que soltar y sin semilla
+  // archivada que revivir, la restauración es la siembra misma — y la
+  // siembra devuelve el estado intacto cuando no falta nada. Antes el
+  // cuerpo componía siempre un objeto nuevo (el destructure de retiroOff)
+  // y la puerta enmarcaba el no-op con el libro de acuerdo.
+  const at0 = retiroSub(state);
+  const bucket0 = state.months[key];
+  const revivable = Boolean(at0 && bucket0?.lines.some((l) => l.archived && l.subId === at0.subId && isFactorySeed(l)));
+  if (state.retiroOff === undefined && !revivable) return seedRetiro(state, key);
   const at = retiroSub(state);
   const { retiroOff: _drop, ...rest } = state;
   let next: LedgerState = rest as LedgerState;

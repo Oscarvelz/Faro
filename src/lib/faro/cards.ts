@@ -283,6 +283,10 @@ export function dropPresets(state: LedgerState, today = todayIso()): LedgerState
 
 /** RotateCcw: presets come back, with their history when they had any. */
 export function restorePresets(state: LedgerState): LedgerState {
+  // Ola 19 (G19-3): sin ninguna preset archivada y sin la marca
+  // cardsOff, no hay nada que restaurar — identidad, y la puerta
+  // guardada de su sitio no deja marco.
+  if (state.cardsOff === undefined && !storedCards(state).some((c) => c.preset && c.archived)) return state;
   const cards = storedCards(state).map((c) => (c.preset && c.archived ? { ...c, archived: undefined, archivedOn: undefined } : c));
   const { cardsOff: _drop, ...rest } = state;
   return { ...(rest as LedgerState), cards: cards.map(normalizeCard) };

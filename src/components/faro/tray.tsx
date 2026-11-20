@@ -61,7 +61,7 @@ export function TrayCard() {
 }
 
 function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () => void }) {
-  const { session, commit, lang, has } = useFaro();
+  const { session, commitGuarded, lang, has } = useFaro();
   const canTray = has("capture.tray");
   const [armed, setArmed] = useState<string | null>(null);
   useLayer(true, onClose);
@@ -82,7 +82,10 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
   const drop = (d: Draft) => {
     if (!canTray) return;
     if (armed !== d.id) { setArmed(d.id); return; }
-    commit((s) => dropDraft(s, d.id), L(lang, "Descartar borrador", "Discard draft"));
+    /* Ola 19 (integración): dropDraft se niega por identidad cuando el
+     * borrador ya no vive (otra pestaña lo descartó o lo guardó) — la
+     * negativa no deja marco: puerta guardada, como manda la clase A. */
+    commitGuarded((s) => dropDraft(s, d.id), L(lang, "Descartar borrador", "Discard draft"));
     setArmed(null);
   };
   return createPortal(
