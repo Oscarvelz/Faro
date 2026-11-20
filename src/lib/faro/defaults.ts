@@ -906,6 +906,12 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   const set = s.settings;
   if (!isStrD(set.lang) || !isStrD(set.theme) || !isStrD(set.display)) return false;
   if (!isFinD(set.rateE4)) return false;
+  // guestCur / guestRate (la invitada, 1.3.344): si están, tienen su forma —
+  // la capa que pinta desreferencia guestRate.per sin red al convertir.
+  if (set.guestCur !== undefined && !isStrD(set.guestCur)) return false;
+  if (set.guestRate !== undefined) {
+    if (!isObjD(set.guestRate) || !isFinD(set.guestRate.per) || !isStrD(set.guestRate.asOf) || !isStrD(set.guestRate.source)) return false;
+  }
   // audit e imports: si están, tienen que tener su forma (su ausencia es forma vieja, válida).
   if (s.audit !== undefined && !Array.isArray(s.audit)) return false;
   // restingSpans (el descanso, descanso.ts): si está, es una lista — las entradas se leen con

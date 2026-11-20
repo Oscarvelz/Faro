@@ -249,10 +249,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA CAPTURA OLA 3 (1.3.342): nace captura-lista en Esencial
     // (capítulo libros; su función es capture.list): esencial +1 y el
     // total +1 — acumulados 123 · 228 · 357.
-    assert.equal(count("esencial"), 123);
-    assert.equal(count("ritmo"), 228);
-    assert.equal(count("completo"), 357);
-    assert.equal(MANUAL_TOPICS.length, 357);
+    // ENMIENDA CAPTURA OLA 4 (1.3.344): nace moneda-invitada en Esencial
+    // (su función es settings.guest-currency): esencial +1 y el total +1
+    // — acumulados 124 · 229 · 358.
+    assert.equal(count("esencial"), 124);
+    assert.equal(count("ritmo"), 229);
+    assert.equal(count("completo"), 358);
+    assert.equal(MANUAL_TOPICS.length, 358);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

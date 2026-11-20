@@ -29,6 +29,63 @@ export function normCurrency(c: unknown, fallback: Currency): Currency {
   return c === "USD" ? "USD" : c === "NIO" ? "NIO" : fallback;
 }
 
+/* ------------------------------------------------------------------ la invitada
+ * La moneda invitada (Captura F7): SOLO LECTURA, vive en la capa que
+ * pinta. Ninguna línea guarda invitada; la conversión triangula por el
+ * dólar con UN solo redondeo al final, para no perder centavos en el
+ * camino. convertMinor ni se toca: el par de siempre queda como estaba. */
+
+export type GuestDef = { code: string; sym: string; dec: number };
+/** Las conocidas: el euro primero (la sugerida), luego el continente y el mundo. */
+export const GUEST_CURRENCIES: GuestDef[] = [
+  { code: "EUR", sym: "€", dec: 2 },
+  { code: "GBP", sym: "£", dec: 2 },
+  { code: "MXN", sym: "$", dec: 2 },
+  { code: "CRC", sym: "₡", dec: 2 },
+  { code: "GTQ", sym: "Q", dec: 2 },
+  { code: "HNL", sym: "L", dec: 2 },
+  { code: "PAB", sym: "B/.", dec: 2 },
+  { code: "DOP", sym: "RD$", dec: 2 },
+  { code: "CAD", sym: "$", dec: 2 },
+  { code: "AUD", sym: "$", dec: 2 },
+  { code: "CHF", sym: "CHF", dec: 2 },
+  { code: "BRL", sym: "R$", dec: 2 },
+  { code: "COP", sym: "$", dec: 0 },
+  { code: "PEN", sym: "S/", dec: 2 },
+  { code: "CNY", sym: "¥", dec: 2 },
+  { code: "JPY", sym: "¥", dec: 0 },
+];
+export const guestDef = (code: string): GuestDef => GUEST_CURRENCIES.find((g) => g.code === code) ?? { code, sym: code, dec: 2 };
+
+/** De la moneda de vista (ya en minor de esa moneda) a minor de invitada:
+ * pasa por el dólar SIN redondear y redondea una sola vez al final. */
+export function toGuestMinor(displayMinor: number, display: Currency, rateE4: number, per: number, code: string): number {
+  if (!Number.isFinite(displayMinor) || !Number.isFinite(per) || per <= 0) return 0;
+  if (display === "NIO" && (!Number.isFinite(rateE4) || rateE4 <= 0)) return 0;
+  const usdMajor = display === "USD" ? displayMinor / 100 : (displayMinor / 100) / (rateE4 / 10000);
+  const dec = guestDef(code).dec;
+  return roundHalfAway(usdMajor * per * 10 ** dec);
+}
+
+/** El camino de vuelta de la batería: de minor de invitada a centavos de dólar. */
+export function fromGuestMinor(guestMinor: number, per: number, code: string): number {
+  if (!Number.isFinite(guestMinor) || !Number.isFinite(per) || per <= 0) return 0;
+  const dec = guestDef(code).dec;
+  return roundHalfAway((guestMinor / 10 ** dec) / per * 100);
+}
+
+/** Pinta un minor de invitada con su símbolo y sus decimales (€1.234,56 · ¥1.235). */
+export function formatGuest(minor: number, code: string, lang: Lang): string {
+  if (minor < 0 && Math.round(minor) !== 0) return `-${formatGuest(-minor, code, lang)}`;
+  const def = guestDef(code);
+  const value = Math.abs(minor) / 10 ** def.dec;
+  const formatted = numFmt(lang === "en" ? "en-US" : "es-NI", {
+    minimumFractionDigits: def.dec,
+    maximumFractionDigits: def.dec,
+  }).format(value);
+  return def.sym.length > 1 && /[A-Za-z]/.test(def.sym) ? `${def.sym} ${formatted}` : `${def.sym}${formatted}`;
+}
+
 /** Convert integer minor units using an integer rate (córdobas per dollar × 10_000). */
 export function convertMinor(minor: number, from: Currency, to: Currency, rateE4: number): number {
   if (!Number.isFinite(minor)) return 0;

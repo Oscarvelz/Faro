@@ -26,3 +26,14 @@
    para peligro, como manda su gramática. */
 [data-theme="cyberpunk"] .cluster { border-radius: 2px; clip-path: var(--cp-cut); background: var(--surface-2); box-shadow: inset 0 3px 0 var(--accent); }
 [data-theme="cyberpunk"] .cluster-title { color: var(--accent); }
+
+/* El selector de la moneda invitada (Captura F7, 1.3.344): una lista de
+   filas sobrias — símbolo, código, nombre — con la sugerida marcada. */
+.guest-list { display: grid; gap: 6px; margin-top: 10px; }
+.guest-pick { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.guest-pick:active { transform: scale(.98); }
+.guest-pick-sym { font-weight: 700; min-width: 28px; }
+.guest-pick-name { color: var(--muted); flex: 1; }
+.guest-pick-tag { font-style: normal; font-size: .78rem; color: var(--accent); font-weight: 600; }
+/* La doble lectura bajo la figura mayor de Central con la invitada activa. */
+.guest-sub { display: block; font-size: .78rem; font-weight: 400; color: var(--muted); margin-top: 2px; }

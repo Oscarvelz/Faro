@@ -337,7 +337,10 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/provider.tsx|commitGuarded|hideLines": ["guardada", 1],
   "components/faro/provider.tsx|commitGuarded|hidePeriod": ["guardada", 1],
   "components/faro/provider.tsx|commitGuarded|restoreSpan": ["guardada", 1],
-  "components/faro/provider.tsx|commit|inline": ["aterrizaje", 7],
+  // 1.3.344 (Captura Ola 4): el provider gana su octavo commit en línea —
+  // el aterrizaje de la tasa pública de la invitada (fetchGuestRate), que
+  // compone el estado entero con la tasa fechada o no escribe nada.
+  "components/faro/provider.tsx|commit|inline": ["aterrizaje", 8],
   "components/faro/receipt-scan.tsx|commit|saveScanRewards": ["aterrizaje", 1],
   "components/faro/capture-text.tsx|commit|addDrafts": ["aterrizaje", 1],
   // 1.3.342 (Captura Ola 3): la puerta de la lista comete por la misma
@@ -370,7 +373,11 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/screens.tsx|commit|applyCardEdits": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|applyTemplate": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|dropSubLines": ["aterrizaje", 2],
-  "components/faro/screens.tsx|commit|inline": ["aterrizaje", 16],
+  // 1.3.344 (Captura Ola 4): el pliegue de la invitada suma cuatro
+  // aterrizajes en línea — elegir la moneda, fijar la tasa manual,
+  // volver a la del BCE y quitar la invitada — cada uno compone los
+  // campos guestCur/guestRate enteros o no escribe.
+  "components/faro/screens.tsx|commit|inline": ["aterrizaje", 20],
   "components/faro/screens.tsx|commit|replaceCatalogItem": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|showAllStructure": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|syncInsLine": ["aterrizaje", 1],

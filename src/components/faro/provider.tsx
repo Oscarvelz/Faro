@@ -22,7 +22,7 @@ import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duef
 import { syncDecision } from "@/lib/faro/syncdecide";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, spendCategorySlices, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
-import { convertMinor, eventCombo, formatMoney, formatMoneyShort, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, uid } from "@/lib/faro/money";
+import { convertMinor, eventCombo, formatGuest, formatMoney, formatMoneyShort, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, toGuestMinor, uid } from "@/lib/faro/money";
 import { blankSession, commit as commitSession, commitAnnounced as commitAnnouncedSession, commitFinal as commitFinalSession, commitGuarded as commitGuardedSession, copyRecurring, redo as redoSession, undo as undoSession, type Session } from "@/lib/faro/reducer";
 import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
@@ -133,6 +133,14 @@ export type Api = {
   fmtShort: (minor: number) => string;
   viewLine: (line: Line) => string;
   recordLine: (line: Line) => string;
+  /** La invitada (Captura F7): la vista traducida está activa solo en
+   * esta sesión (D3: Faro reabre siempre en la moneda oficial). guest =
+   * la invitada configurada con su tasa, o null si no hay ninguna. */
+  guestOn: boolean;
+  guest: { code: string; per: number; asOf: string; source: string } | null;
+  toggleGuest: () => void;
+  openGuestConfig: () => void;
+  refreshGuestRate: () => void;
   commit: (recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => void;
   /** Ola 18 (BR18-1): el commit cuya receta puede abortar SIN MARCO —
    * devuelve null (o su propio estado) y no nace ni entrada de
@@ -354,6 +362,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const [wakeLog, setWakeLog] = useState<WakeLog[]>([]);
   const [goalTick, setGoalTick] = useState(0);
   const [planStale, setPlanStale] = useState(false);
+  // La vista invitada (Captura F7): SOLO de esta sesión — al reabrir,
+  // Faro amanece en su moneda oficial (fallo D3); nada de esto se guarda.
+  const [guestOn, setGuestOn] = useState(false);
   const [persistFailed, setPersistFailed] = useState(false);
   const persistFailedRef = useRef(false);
   // Oleada 2 del corazón (1.3.166): C2 — el sello de revisión que esta pestaña cargó o guardó por
@@ -1400,24 +1411,79 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     setWakeView((cur) => (cur ? { ...cur, findings: cur.findings.filter((item) => !(item.id === id && item.reason === reason)) } : cur));
   }, []);
 
+  // La invitada configurada (código + tasa con fecha y fuente), o null.
+  const guest = useMemo(() => {
+    const s = session?.ledger.settings;
+    if (!s?.guestCur || !s.guestRate || !(s.guestRate.per > 0)) return null;
+    return { code: s.guestCur, per: s.guestRate.per, asOf: s.guestRate.asOf, source: s.guestRate.source };
+  }, [session?.ledger.settings]);
+  const guestActive = guestOn && !!guest;
   const fmt = useCallback(
-    (minor: number) => formatMoney(minor, session?.ledger.settings.display ?? "NIO", lang),
-    [session?.ledger.settings.display, lang],
+    (minor: number) => {
+      const s = session?.ledger.settings;
+      if (guestActive && guest && s) return formatGuest(toGuestMinor(minor, s.display, s.rateE4, guest.per, guest.code), guest.code, lang);
+      return formatMoney(minor, s?.display ?? "NIO", lang);
+    },
+    [session?.ledger.settings, lang, guestActive, guest],
   );
   const fmtShort = useCallback(
-    (minor: number) => formatMoneyShort(minor, session?.ledger.settings.display ?? "NIO", lang),
-    [session?.ledger.settings.display, lang],
+    (minor: number) => {
+      const s = session?.ledger.settings;
+      if (guestActive && guest && s) return formatGuest(toGuestMinor(minor, s.display, s.rateE4, guest.per, guest.code), guest.code, lang);
+      return formatMoneyShort(minor, s?.display ?? "NIO", lang);
+    },
+    [session?.ledger.settings, lang, guestActive, guest],
   );
   const viewLine = useCallback(
     (line: Line) => {
       const settings = session?.ledger.settings;
       if (!settings) return "";
+      if (guestActive && guest) {
+        // La línea se triangula desde SU moneda por el dólar, un redondeo.
+        const asDisplay = line.currency === settings.display ? line.amountMinor : null;
+        const minor = asDisplay != null
+          ? toGuestMinor(asDisplay, settings.display, settings.rateE4, guest.per, guest.code)
+          : toGuestMinor(convertMinor(line.amountMinor, line.currency, "USD", settings.rateE4), "USD", settings.rateE4, guest.per, guest.code);
+        return formatGuest(minor, guest.code, lang);
+      }
       const minor = convertMinor(line.amountMinor, line.currency, settings.display, settings.rateE4);
       return formatMoney(minor, settings.display, lang);
     },
-    [session?.ledger.settings, lang],
+    [session?.ledger.settings, lang, guestActive, guest],
   );
   const recordLine = useCallback((line: Line) => formatMoney(line.amountMinor, line.currency, lang), [lang]);
+
+  const toggleGuest = useCallback(() => setGuestOn((on) => !on), []);
+  const openGuestConfig = useCallback(() => {
+    setUiState((u) => ({ ...u, section: "settings" }));
+    // El pliegue se abre cuando Ajustes ya montó (su oído faro-open vive allí).
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent<string>("faro-open", { detail: "guest" })), 60);
+  }, []);
+  // La tasa pública de la invitada (referencia del BCE vía frankfurter):
+  // se pide solo cuando falta o envejeció, jamás pisa una tasa manual, y
+  // un fallo de red no toca nada — la última tasa guardada sigue mandando.
+  const fetchGuestRate = useCallback(async (force = false) => {
+    const s = session?.ledger.settings;
+    if (!s?.guestCur || sealedOn()) return;
+    const cur = s.guestRate;
+    if (cur?.source === "manual") return;
+    if (!force && cur?.asOf) {
+      const age = Date.now() - new Date(`${cur.asOf}T12:00:00`).getTime();
+      if (Number.isFinite(age) && age < 36 * 3600 * 1000) return;
+    }
+    try {
+      const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${encodeURIComponent(s.guestCur)}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { rates?: Record<string, number>; date?: string };
+      const per = data.rates?.[s.guestCur];
+      if (!per || !(per > 0)) return;
+      commit((st) => st.settings.guestCur === s.guestCur
+        ? { ...st, settings: { ...st.settings, guestRate: { per, asOf: data.date ?? new Date().toISOString().slice(0, 10), source: "BCE" } } }
+        : st, "Tasa de la invitada");
+    } catch { /* sin conexión: manda la última tasa guardada */ }
+  }, [session?.ledger.settings, commit]);
+  useEffect(() => { void fetchGuestRate(); }, [fetchGuestRate]);
+  const refreshGuestRate = useCallback(() => { void fetchGuestRate(true); }, [fetchGuestRate]);
 
   const goSection = useCallback((delta: number) => {
     snap();
@@ -1712,6 +1778,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     fmtShort,
     viewLine,
     recordLine,
+    guestOn: guestActive,
+    guest,
+    toggleGuest,
+    openGuestConfig,
+    refreshGuestRate,
     commit,
     commitGuarded,
     commitAnnounced,

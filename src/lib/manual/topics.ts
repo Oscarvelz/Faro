@@ -3003,6 +3003,18 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         terms: [["Tasa propia", "Own rate"]],
       },
       {
+        id: "moneda-invitada",
+        mode: "esencial",
+        depth: "manual",
+        title: ["Moneda invitada", "Guest currency"],
+        sum: ["Mira tus números en otra moneda, sin tocarlos.", "See your numbers in another currency, without touching them."],
+        what: ["La invitada es una moneda de solo lectura: eliges una en [[Ajustes]] — el euro, la libra, el peso mexicano — y con un doble toque en la moneda de arriba [[Central]] y tus libros se leen traducidos. Ninguna línea se guarda en ella y ningún total cambia: es una vista, y al volver no hay nada que deshacer porque nunca se tocó nada.", "The guest is a read-only currency: you pick one in [[Settings]] — the euro, the pound, the Mexican peso — and with a double tap on the coin at the top, [[Desk]] and your books read translated. No line is ever saved in it and no total changes: it is a view, and coming back there is nothing to undo because nothing was ever touched."],
+        bubble: ["Doble toque en la moneda para mirar tus números en la moneda invitada: es solo una vista, el libro nunca cambia.", "Double-tap the coin to see your numbers in the guest currency: it is only a view, the book never changes."],
+        how: ["En Ajustes → Moneda invitada elige la tuya (el euro va primero, por popular). Faro trae su tasa de referencia del BCE cuando hay conexión y la guarda con su fecha; tu tasa escrita a mano siempre manda sobre la pública. Con la invitada puesta, doble toque en la moneda de arriba para entrar y otro doble toque para salir; con la vista activa, un toque en la moneda dice la tasa y su fecha. Ejemplo: con el euro a 0,92, tus C$9.200 se leen €230 sin dejar de ser C$9.200. Faro siempre reabre en tu moneda oficial: la invitada es de la sesión, no del libro.", "In Settings → Guest currency pick yours (the euro comes first, as the most popular). Faro fetches its ECB reference rate when there is a connection and keeps it with its date; a rate you write by hand always wins over the public one. With the guest set, double-tap the coin at the top to enter and double-tap again to leave; while the view is active, one tap on the coin says the rate and its date. Example: with the euro at 0.92, your C$9,200 reads €230 while never stopping being C$9,200. Faro always reopens in your official currency: the guest belongs to the session, not the book."],
+        go: { screen: "settings", fold: "guest", anchor: "aj-guest", where: ["Ajustes → Moneda invitada", "Settings → Guest currency"] },
+        terms: [["Invitada", "Guest"], ["Solo lectura", "Read-only"]],
+      },
+      {
         id: "atajos-teclado",
         mode: "esencial",
         depth: "manual",

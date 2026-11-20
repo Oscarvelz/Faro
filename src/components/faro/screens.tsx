@@ -48,7 +48,7 @@ import { BrandIconPick, CategoryPick, FreqSheet, IconPick, LookPick, PiecePlate,
 import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { dateFmt } from "@/lib/faro/datefmt";
-import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid } from "@/lib/faro/money";
+import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid, GUEST_CURRENCIES, guestDef } from "@/lib/faro/money";
 import { accounts } from "@/lib/faro/bankbook";
 import { insPaid, insTiming, insTotals, monthsSince, syncInsLine } from "@/lib/faro/insurance";
 import { deleteLine, patchLine, patchLineWith, upsertLine } from "@/lib/faro/reducer";
@@ -56,6 +56,26 @@ import { dropPocketLine, isPrimerica, restoreRetiro, retiroHidden, seedRetiro } 
 import type { CatalogItem, Category, Currency, InsPlan, LedgerState, Line, LineKind, SectionId, Sub, TemplateId, ThemeId } from "@/lib/faro/types";
 import { DAY_THEMES, DEFAULT_SHORTCUTS, NIGHT_THEMES, SHORTCUT_ACTIONS } from "@/lib/faro/types";
 import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
+
+/** Los nombres de las monedas invitadas (Captura F7): [es, en] por código. */
+const GUEST_NAMES: Record<string, [string, string]> = {
+  EUR: ["Euro", "Euro"],
+  GBP: ["Libra esterlina", "Pound sterling"],
+  MXN: ["Peso mexicano", "Mexican peso"],
+  CRC: ["Colón costarricense", "Costa Rican colón"],
+  GTQ: ["Quetzal", "Quetzal"],
+  HNL: ["Lempira", "Lempira"],
+  PAB: ["Balboa", "Balboa"],
+  DOP: ["Peso dominicano", "Dominican peso"],
+  CAD: ["Dólar canadiense", "Canadian dollar"],
+  AUD: ["Dólar australiano", "Australian dollar"],
+  CHF: ["Franco suizo", "Swiss franc"],
+  BRL: ["Real brasileño", "Brazilian real"],
+  COP: ["Peso colombiano", "Colombian peso"],
+  PEN: ["Sol peruano", "Peruvian sol"],
+  CNY: ["Yuan", "Yuan"],
+  JPY: ["Yen", "Yen"],
+};
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { ScanEntry } from "./receipt-scan";
@@ -1923,7 +1943,7 @@ function EncounterDialog({ accountId, pending, onClose }: { accountId: string; p
 }
 
 export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergencia" } = {}) {
-  const { t, summary, fmt, fmtShort, lines, copyPrev, ui, setUi, viewLine, names, session, commit, commitGuarded, confirm, key, lang, goTopic } = useFaro();
+  const { t, summary, fmt, fmtShort, lines, copyPrev, ui, setUi, viewLine, names, session, commit, commitGuarded, confirm, key, lang, goTopic, guestOn } = useFaro();
   const { depth } = useFaro();
   // Etapa 3.1: la cara se recompone por el registro, solo vía el contexto (has).
   // `mode` a secas ya es la postura de naturalezas en esta función; el modo de la
@@ -3390,6 +3410,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         <span data-anchor="desk-left">
           <em className="bar-head">{t("desk.bar.left")}<Hint topic="queda" className="is-bar" /></em>
           <strong className={`num ${summary.opportunity < 0 ? "bad" : ""}`}>{fmt(summary.opportunity)}</strong>
+          {/* La doble lectura de la invitada (mapa F7): con la vista activa,
+              la cifra grande va traducida y el original queda pequeño
+              debajo — solo en esta figura mayor de Central. */}
+          {guestOn && session ? <small className="guest-sub num">{formatMoney(summary.opportunity, session.ledger.settings.display, lang)}</small> : null}
         </span>
         <span data-anchor="desk-used">
           <em className="bar-head">{t("desk.bar.used")}<Hint topic="usado" alt={summary.spentPct !== null && summary.spentPct > 100} className="is-bar" avoid='.desk-bar @[data-anchor="desk-rate"]' fallback='[data-anchor="desk-used"] > strong|[data-anchor="desk-rate"]' /></em>
@@ -5513,7 +5537,7 @@ function clipWords(text: string, max: number): string {
 }
 
 export function Settings() {
-  const { t, lang, session, commit, commitGuarded, commitAnnounced, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine, has } = useFaro();
+  const { t, lang, session, commit, commitGuarded, commitAnnounced, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine, has, refreshGuestRate } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
   // 1.3.227 (pedido de Oscar): el catálogo gana su propio pliegue bajo
   // Estructura — nace plegado y su estado lo mandan sus toques, guardado
@@ -5740,6 +5764,9 @@ export function Settings() {
     return () => window.removeEventListener(MODE_ASK_EVENT, ask);
   });
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
+  // La invitada (Captura F7): la búsqueda del selector y el texto de la tasa manual.
+  const [guestQuery, setGuestQuery] = useState("");
+  const [guestRateText, setGuestRateText] = useState("");
   const boardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const root = boardRef.current;
@@ -5813,7 +5840,7 @@ export function Settings() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (["lang", "theme", "modo", "structure", "rate", "keys", "gestures", "backup", "banks", "account", "widget"].includes(id)) setOpenFold(id);
+      if (["lang", "theme", "modo", "guest", "structure", "rate", "keys", "gestures", "backup", "banks", "account", "widget"].includes(id)) setOpenFold(id);
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
@@ -5863,6 +5890,48 @@ export function Settings() {
         </div>
         <p className="aj-mode-note">{t("mode.current").replace("{name}", t(`mode.${currentMode}`)).replace("{line}", t(`mode.${currentMode}.line`))}</p>
       </Fold>
+      {has("settings.guest-currency") ? (
+      <Fold id="guest" icon={ArrowLeftRight} sub={settings.guestCur ? `${guestDef(settings.guestCur).sym} ${settings.guestCur} · ${lang === "en" ? "Read-only view" : "Vista de solo lectura"}` : lang === "en" ? "See your numbers in another currency" : "Mira tus números en otra moneda"} topic="moneda-invitada" title={lang === "en" ? "Guest currency" : "Moneda invitada"} open={openFold === "guest"} onToggle={() => toggle("guest")}>
+        {!settings.guestCur ? (
+          <>
+            <p className="aj-mode-note">{lang === "en" ? "One currency to LOOK at your numbers in — nothing is ever saved in it, and the book never changes. The euro comes first, as the most popular." : "Una moneda para MIRAR tus números — nada se guarda jamás en ella y el libro no cambia. El euro va primero, por popular."}</p>
+            <input className="field" value={guestQuery} onChange={(e) => setGuestQuery(e.target.value)} placeholder={lang === "en" ? "Search currency…" : "Buscar moneda…"} aria-label={lang === "en" ? "Search currency" : "Buscar moneda"} />
+            <div className="guest-list">
+              {GUEST_CURRENCIES.filter((g) => { const q = guestQuery.trim().toLowerCase(); return !q || g.code.toLowerCase().includes(q) || (GUEST_NAMES[g.code]?.[0] ?? "").toLowerCase().includes(q) || (GUEST_NAMES[g.code]?.[1] ?? "").toLowerCase().includes(q); }).map((g) => (
+                <button key={g.code} type="button" className="guest-pick" data-anchor={`guest-pick-${g.code}`} onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, guestCur: g.code, guestRate: undefined } }), lang === "en" ? `Guest: ${g.code}` : `Invitada: ${g.code}`)}>
+                  <span className="guest-pick-sym">{g.sym}</span>
+                  <strong>{g.code}</strong>
+                  <span className="guest-pick-name">{GUEST_NAMES[g.code]?.[lang === "en" ? 1 : 0] ?? g.code}</span>
+                  {g.code === "EUR" ? <em className="guest-pick-tag">{lang === "en" ? "Suggested" : "Sugerida"}</em> : null}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="aj-mode-note">
+              {settings.guestRate
+                ? (lang === "en"
+                  ? `1 $ = ${settings.guestRate.per.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${settings.guestCur} · rate of ${new Date(`${settings.guestRate.asOf}T12:00:00`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })} · ${settings.guestRate.source === "manual" ? "your rate" : "ECB reference"}`
+                  : `1 $ = ${settings.guestRate.per.toLocaleString("es-NI", { maximumFractionDigits: 4 })} ${settings.guestCur} · tasa del ${new Date(`${settings.guestRate.asOf}T12:00:00`).toLocaleDateString("es-NI", { day: "numeric", month: "short", year: "numeric" })} · ${settings.guestRate.source === "manual" ? "tu tasa" : "referencia del BCE"}`)
+                : (lang === "en" ? "No rate yet: Faro fetches the ECB reference when there is a connection — or write your own below." : "Aún no hay tasa: Faro trae la de referencia del BCE cuando hay conexión — o escribe la tuya aquí abajo.")}
+            </p>
+            <div className="row mt-3" data-anchor="aj-guest-rate">
+              <input className="field num" value={guestRateText} onChange={(e) => setGuestRateText(e.target.value)} placeholder={lang === "en" ? "Your rate, e.g. 0.92" : "Tu tasa, ej. 0,92"} aria-label={lang === "en" ? "Your guest rate" : "Tu tasa de la invitada"} />
+              <button type="button" className="btn" onClick={() => { const per = parseAmount(guestRateText); if (per != null && per > 0) commit((s) => ({ ...s, settings: { ...s.settings, guestRate: { per, asOf: new Date().toISOString().slice(0, 10), source: "manual" } } }), lang === "en" ? "My guest rate" : "Mi tasa de la invitada"); }}>{lang === "en" ? "Use my rate" : "Usar mi tasa"}</button>
+              <Hint topic="moneda-invitada" className="is-after" />
+            </div>
+            <div className="row mt-3">
+              {settings.guestRate?.source === "manual"
+                ? <button type="button" className="btn secondary" onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, guestRate: undefined } }), lang === "en" ? "ECB rate" : "Tasa del BCE")}>{lang === "en" ? "Back to the ECB rate" : "Volver a la tasa del BCE"}</button>
+                : <button type="button" className="btn secondary" onClick={() => refreshGuestRate()}>{lang === "en" ? "Refresh rate" : "Actualizar tasa"}</button>}
+              <button type="button" className="btn ghost" onClick={() => commit((s) => { const { guestCur: _c, guestRate: _r, ...rest } = s.settings; return { ...s, settings: rest }; }, lang === "en" ? "Guest removed" : "Invitada quitada")}>{lang === "en" ? "Remove guest" : "Quitar invitada"}</button>
+            </div>
+            <p className="aj-mode-note">{lang === "en" ? `Double-tap the coin at the top to see everything in ${settings.guestCur}; double-tap again to come back. Faro always reopens in your official currency.` : `Doble toque en la moneda de arriba para ver todo en ${settings.guestCur}; otro doble toque para volver. Faro siempre reabre en tu moneda oficial.`}</p>
+          </>
+        )}
+      </Fold>
+      ) : null}
       <Fold id="theme" icon={Palette} sub={lang === "en" ? "Day and night colors" : "Colores de día y noche"} topic="temas" title={t("settings.theme")} open={openFold === "theme"} onToggle={() => toggle("theme")}>
         {(() => {
           const night = NIGHT_THEMES.includes(settings.theme);

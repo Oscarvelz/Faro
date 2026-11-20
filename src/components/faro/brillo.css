@@ -55,6 +55,13 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
   box-shadow: inset 0 1px 0 rgb(255 255 255 / .05), 0 16px 34px -12px rgb(0 0 0 / .55);
 }
 
+/* La moneda en vista invitada (Captura F7, 1.3.344): el anillo del
+   acento del tema dice de un vistazo «estás viendo traducido» — la
+   moneda misma no cambia, solo su cerco. */
+.currency-bubble.is-guest {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 /* ---------- 2 · Bloom: the press and the living one ---------- */
 /* Free-standing tappables bloom outward while pressed. The glow is a
    state, not an animation — it arrives with the house ripple and leaves

@@ -393,6 +393,17 @@ export type Settings = {
   rateE4: number;
   rateSource: string;
   rateAsOf: string;
+  /** La moneda invitada (Captura Inteligente F7, 1.3.344): una moneda de
+   * SOLO LECTURA que vive en la capa que pinta — jamás en una línea ni en
+   * un total del libro. guestCur = su código ("EUR"…); ausente = sin
+   * invitada. guestRate.per = cuántas unidades de invitada por 1 USD, con
+   * su fecha y su fuente, la misma disciplina que rateE4/rateAsOf/
+   * rateSource para el córdoba; source "manual" = la tasa del usuario,
+   * que la fuente pública nunca pisa. El estado «estoy viendo en
+   * invitada» NO vive aquí: es del aparato y de la sesión (provider), y
+   * Faro siempre reabre en la moneda oficial (fallo D3). */
+  guestCur?: string;
+  guestRate?: { per: number; asOf: string; source: string };
   savingsGoalPct: number;
   /** La postura ante la naturaleza de los fondos NUEVOS (modelo de ahorros, 1.3.288):
    *  "ask" = preguntar en cada fondo; "balance" = todo nace como parte del saldo;

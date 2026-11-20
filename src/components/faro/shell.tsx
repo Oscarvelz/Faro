@@ -19,7 +19,7 @@ import { UserButton } from "@/lib/auth/gates";
 import { monthLines } from "@/lib/faro/engine";
 import { monthName } from "@/lib/faro/i18n";
 import { holidaysFor } from "@/lib/faro/holidays";
-import { convertMinor } from "@/lib/faro/money";
+import { convertMinor, guestDef } from "@/lib/faro/money";
 import { DAY_THEMES, NIGHT_THEMES, type LineKind, type SectionId, type ThemeId } from "@/lib/faro/types";
 import { clampSplit, isSplitSection, pairedSection, SPLIT_MAX, SPLIT_MIN, stepSection } from "@/lib/faro/split";
 import { guardPanelExit } from "@/lib/faro/panel-exit";
@@ -50,7 +50,7 @@ import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
 import WidgetHost from "./widget-host";
 import { PeopleInbox } from "./people";
-import { BankDock } from "./bank-dock";
+import { BankDock, importToast } from "./bank-dock";
 import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
 import { LockOffer } from "@/spa/lockoffer";
@@ -211,6 +211,7 @@ export function Shell() {
   // los resultados de personas y tarjetas se ofrecen en todo modo; lo que el
   // modo regula es el aterrizaje (en Esencial, Folios; la cara lectora de
   // deudas de S-1 lo recibirá en la etapa 4).
+  const coinTapAt = useRef(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchPopRef = useRef<HTMLFormElement>(null);
   const deskRef = useRef<HTMLDivElement>(null);
@@ -1022,6 +1023,28 @@ export function Shell() {
   const today = new Date();
   const onThisMonth = ui.year === today.getFullYear() && ui.month === today.getMonth() + 1;
   const display = session.ledger.settings.display;
+  // La moneda de la moneda: un toque alterna $ ⇄ C$ al instante, como
+  // siempre; el DOBLE toque salta a la invitada (o abre su configuración
+  // si aún no hay ninguna) — el segundo toque deshace el cambio del
+  // primero, así la vista oficial nunca se mueve en el salto (mapa F7).
+  const onCoin = () => {
+    const now = Date.now();
+    const dbl = now - coinTapAt.current < 320;
+    coinTapAt.current = now;
+    if (faro.guestOn) {
+      if (dbl) { faro.toggleGuest(); return; }
+      const g = faro.guest!;
+      const per = g.per.toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 4 });
+      const day = new Date(`${g.asOf}T12:00:00`).toLocaleDateString(lang === "en" ? "en-US" : "es-NI", { day: "numeric", month: "short" });
+      importToast({ text: lang === "en" ? `1 $ = ${per} ${g.code} · rate of ${day}${g.source === "manual" ? " · your rate" : ""} · double-tap the coin to go back` : `1 $ = ${per} ${g.code} · tasa del ${day}${g.source === "manual" ? " · tu tasa" : ""} · doble toque en la moneda para volver` });
+      return;
+    }
+    faro.commit((s) => ({ ...s, settings: { ...s.settings, display: s.settings.display === "NIO" ? "USD" : "NIO" } }), "Vista");
+    if (dbl) {
+      if (faro.guest) faro.toggleGuest();
+      else faro.openGuestConfig();
+    }
+  };
   const week = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-NI", { weekday: "narrow" }).format;
   const weekStart = new Date(2024, 0, 1);
 
@@ -1325,10 +1348,10 @@ export function Shell() {
                 </div>
               <button
                 type="button"
-                className="currency-bubble"
+                className={`currency-bubble${faro.guestOn ? " is-guest" : ""}`}
                 data-anchor="top-coin"
                 aria-label={t("currency.toggle")}
-                onClick={() => faro.commit((s) => ({ ...s, settings: { ...s.settings, display: s.settings.display === "NIO" ? "USD" : "NIO" } }), "Vista")}
+                onClick={onCoin}
               >
                 <svg viewBox="0 0 32 32" className="gold-coin" aria-hidden>
                   <defs>
@@ -1341,7 +1364,7 @@ export function Shell() {
                   <circle cx="16" cy="16" r="15" fill="url(#faro-coin)" />
                   <circle cx="16" cy="16" r="13.2" fill="none" stroke="#6a4c12" strokeWidth="0.6" />
                   <circle cx="16" cy="16" r="14.2" fill="none" stroke="#a47b2e" strokeWidth="1.1" strokeDasharray="0.8 1.05" />
-                  <text x="16" y="16.8" textAnchor="middle" dominantBaseline="middle">{display === "NIO" ? "C$" : "$"}</text>
+                  <text x="16" y="16.8" textAnchor="middle" dominantBaseline="middle">{faro.guestOn && faro.guest ? guestDef(faro.guest.code).sym : display === "NIO" ? "C$" : "$"}</text>
                 </svg>
               </button>
               </div>
