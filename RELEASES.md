@@ -3024,3 +3024,11 @@ La petición de Oscar de esta mañana, con su ejemplo: «que la caja de texto se
 Verificación: suite 2311/2311, unidad 59/59, tipos con exactamente los 3 errores permanentes. Banco vivo: la caja creció a cuatro líneas con una pregunta larga — el botón de enviar sentado al pie de la caja crecida — y volvió a su línea al preguntar, con la respuesta debajo. La cerradura y la línea del Guardián, intactas.
 
 Datos de publicación: código 76a67fe5 (fuente), etiqueta v1.3.348; principal ad545179 (paquetes) + 825ed574 (control). Entrada index-DiGQSXQo.js. Verificado en vivo de primera mano: sw faro-1.3.348, barrido precache 26/26 por md5 contra dist. Rollback: rollback-pre-348-2026-11-20 → 7c5611b1.
+
+## 1.3.349 — «La fila que cabe» (2026-11-20)
+
+La foto de Oscar: en su teléfono, las pastillas de Lista y Escanear se salían de la caja del editor y el borde cortaba «Lista» — «hay que hacer que quepan correctamente». La causa, medida en el banco a 360px en Tron reproduciendo su foto al píxel: la regla general del formulario (`.fit-fields > *`, mitad de ancho para cada campo) le ganaba en especificidad a la regla propia de la fila de puertas, la apretaba en media caja compartiendo línea con el Monto, y las tres pastillas — alineadas a la derecha en esa media caja — reventaban por el borde izquierdo: Lista cortada y Escribir fuera de la pantalla. La cura devuelve a la fila su línea completa con un selector más fuerte y le da el seguro de acomodarse en dos líneas dentro de su caja si un teléfono estrecho aún no la alcanza: las pastillas conservan su tamaño entero — son preciosas, en palabras de Oscar — y el Monto recupera su media fila completa, que era el remedio que él mismo apuntó. La nota menor quedó en Novedades.
+
+Verificación: banco a 360px en Tron reproduciendo la foto de Oscar al píxel antes de la cura, y con las tres pastillas enteras dentro de su caja después; cercas dirigidas 44/44 (captura342, captura343, modos-ola20, novedades346); suite completa 2311/2311; la corrida de npm test con sus 59/59; tipos con exactamente los 3 errores de siempre (provider, auth, db). La cerradura y la línea del Guardián, intactas.
+
+Datos de publicación: se completa tras publicar.

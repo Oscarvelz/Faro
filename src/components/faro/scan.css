@@ -13,6 +13,14 @@
    air above it (Oscar, 2026-11-20 — it lived squeezed against the chart on the
    concept head's line and could not breathe). The pill keeps its full size. */
 .fit-scan-row { flex: 0 0 100%; grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+/* 1.3.349 (Oscar's photo): the form's blanket rule (.fit-fields > *) outranked
+   the row's own flex and squeezed it into HALF the form, sharing the line with
+   Monto — the three pills, right-aligned in a half-box, burst out the left
+   edge (Lista clipped, Escribir off-screen; worst in Tron's wide type at
+   360px). The row takes its full line back with a stronger selector, and it
+   WRAPS inside its box if a narrow phone still can't hold the three pills:
+   they are never cut, and Monto keeps its whole half-row. */
+.form-block.is-fit .fit-fields > .fit-scan-row { flex: 1 1 100%; flex-wrap: wrap; }
 /* Ola 2: la caja de la puerta de texto y su nota, en la hoja de captura. */
 .cap-text-area { width: 100%; resize: vertical; min-height: 76px; }
 .cap-text-note { margin: 10px 2px 2px; font-size: .82rem; opacity: .75; line-height: 1.45; }

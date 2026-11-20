@@ -29,6 +29,20 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.349",
+    date: "2026-11-20",
+    level: "menor",
+    title: { es: "La fila que cabe", en: "The row that fits" },
+    points: {
+      es: [
+        "Escribir, Lista y Escanear ya caben dentro de su caja en cualquier teléfono: su fila es completa y las pastillas nunca se salen.",
+      ],
+      en: [
+        "Write, List and Scan now fit inside their box on any phone: the row is fully theirs and the pills never spill out.",
+      ],
+    },
+  },
+  {
     version: "1.3.348",
     date: "2026-11-20",
     level: "menor",
