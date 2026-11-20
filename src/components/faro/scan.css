@@ -135,4 +135,80 @@ img.scn-mk { object-fit: cover; }
 .scn-foot .btn { width: 100%; border-radius: 14px; min-height: 48px; white-space: nowrap; }
 [data-theme="tron"] .scn-sheet .scn-amt input.field.num { color: #ffc23a; text-shadow: 0 0 8px rgba(255, 194, 58, .3); }
 [data-theme="tron"] .scn-card { background: color-mix(in oklab, #1c2328 70%, var(--surface)); border-color: color-mix(in oklab, var(--scn) 22%, transparent); }
+
+/* La mesa de revisión universal (Captura Inteligente, Ola 1): la misma
+   materia y el mismo ámbar de la tarjeta del escaneo; el rojo es el de la
+   casa (--bad). Una fila por borrador, sin tarjetas infladas. */
+.rev-row {
+  display: grid; gap: 8px; padding: 10px; border-radius: 16px;
+  background: color-mix(in oklab, var(--fg) 4%, var(--surface)); border: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); transition: opacity .18s;
+}
+.rev-row.is-off { opacity: .55; }
+.rev-row.is-missing { border-color: color-mix(in oklab, var(--bad) 45%, transparent); }
+.rev-row .field { min-height: 40px; height: 40px; min-width: 0; padding: 0 10px; font-size: min(16px, 4.3cqi); }
+.rev-r1 { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rev-concept { flex: 1 1 auto; width: 100%; font-weight: 600; }
+.rev-r2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.rev-r2 > .scn-amt { flex: 1.15 1 118px; }
+.rev-r2 > .scn-day { flex: 1 1 118px; }
+.rev-r2 > .scn-freq { flex: 1 1 128px; }
+.rev-r2 .theme-select-btn, .rev-r3 .theme-select-btn { width: 100%; min-height: 40px; white-space: nowrap; font-size: min(15px, 3.9cqi); padding-inline: 10px 6px; gap: 6px; }
+.rev-r2 .scn-freq .fit-pick-btn { width: 100%; min-height: 40px; height: 40px; white-space: nowrap; font-size: min(15px, 3.9cqi); }
+.rev-r3 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rev-house { flex: 1.2 1 0; min-width: 0; }
+.rev-house .theme-select { width: 100%; }
+.rev-house.is-static { font-size: min(.82rem, 3.8cqi); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rev-note { flex: 1 1 0; color: var(--muted); font-size: min(15px, 3.8cqi) !important; }
+.rev-row .is-unsure.field, .rev-row .is-unsure .field, .rev-row .is-unsure .day-field-btn, .rev-row .is-unsure .theme-select-btn, .rev-row .is-unsure .fit-pick-btn {
+  border-color: var(--amb) !important; box-shadow: 0 0 0 1px color-mix(in oklab, var(--amb) 45%, transparent);
+}
+.rev-row .is-missing-f .field, .rev-row .is-missing-f .day-field-btn, .rev-row .field.is-missing-f {
+  border-color: var(--bad) !important; box-shadow: 0 0 0 1px color-mix(in oklab, var(--bad) 40%, transparent);
+}
+.rev-missing { margin: 0; font-size: min(.78rem, 3.7cqi); color: var(--bad); }
+.rev-dup { margin: 0; font-size: min(.78rem, 3.7cqi); color: var(--amb); }
+.rev-sign { display: inline-flex; flex: none; border: 1px solid color-mix(in oklab, var(--bad) 45%, transparent); border-radius: 11px; overflow: hidden; }
+.rev-sign button { border: 0; background: transparent; color: var(--fg); font: inherit; font-size: min(.82rem, 3.8cqi); font-weight: 580; padding: 0 12px; height: 40px; cursor: pointer; }
+.rev-sign button.is-on { background: color-mix(in oklab, var(--scn) 35%, transparent); }
+.rev-remember { display: flex; align-items: center; gap: 8px; font-size: min(.8rem, 3.7cqi); color: var(--muted); cursor: pointer; }
+.scn-switch.is-small { width: 34px; height: 20px; flex: none; }
+.scn-switch.is-small i { width: 14px; height: 14px; }
+.scn-switch.is-small[aria-checked="true"] i { transform: translateX(14px); }
+.rev-batch { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rev-batch-lab { flex: none; font-size: min(.8rem, 3.7cqi); color: var(--muted); }
+.rev-batch .theme-select { flex: 1 1 auto; min-width: 0; }
+.rev-batch .theme-select-btn { width: 100%; min-height: 40px; white-space: nowrap; font-size: min(15px, 3.9cqi); }
+.rev-batch-go { flex: none; min-height: 40px; border-radius: 12px; }
+.rev-foot { grid-template-columns: 1fr 1fr; }
+.rev-totals { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: min(.84rem, 3.9cqi); color: var(--muted); }
+.rev-totals b { color: var(--fg); font-variant-numeric: tabular-nums; }
+[data-theme="tron"] .rev-row { background: color-mix(in oklab, #1c2328 70%, var(--surface)); border-color: color-mix(in oklab, var(--scn) 22%, transparent); }
+[data-theme="cyberpunk"] .rev-row { border-radius: 3px; }
+
+/* La bandeja (Ola 1): la tarjeta de Central y su hoja — la misma materia
+   de las tarjetas de la casa, con el acento de la familia de captura. */
+.tray-card {
+  --scn: #72b4b2; display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 16px;
+  background: color-mix(in oklab, var(--fg) 4%, var(--surface)); border: 1px solid color-mix(in oklab, var(--scn) 35%, var(--line));
+  color: var(--fg); font: inherit; text-align: left; cursor: pointer; transition: transform .12s, background-color .15s;
+}
+.tray-card:active { transform: scale(.99); }
+.tray-ic { flex: none; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: color-mix(in oklab, var(--scn) 16%, transparent); color: var(--scn); }
+.tray-ic svg { width: 18px; height: 18px; }
+.tray-txt { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.tray-txt strong { font-size: min(.95rem, 4.4cqi); font-weight: 620; }
+.tray-txt span { font-size: min(.8rem, 3.8cqi); color: var(--muted); }
+.tray-total { flex: none; font-size: min(.92rem, 4.2cqi); font-weight: 620; font-variant-numeric: tabular-nums; }
+.tray-group { display: grid; gap: 6px; }
+.tray-day { margin: 2px 0 0; font-size: min(.76rem, 3.6cqi); font-weight: 620; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tray-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 13px; background: color-mix(in oklab, var(--fg) 4%, var(--surface)); border: 1px solid color-mix(in oklab, var(--fg) 9%, transparent); }
+.tray-src { flex: none; font-size: min(.74rem, 3.5cqi); font-weight: 620; color: var(--scn, #72b4b2); border: 1px solid color-mix(in oklab, var(--scn, #72b4b2) 40%, transparent); border-radius: 999px; padding: 2px 8px; }
+.tray-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 0; }
+.tray-main strong { font-size: min(.9rem, 4.2cqi); font-weight: 590; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tray-main span { font-size: min(.78rem, 3.7cqi); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tray-drop { flex: none; min-width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: min(.78rem, 3.7cqi); font-weight: 620; padding: 0 6px; }
+.tray-drop svg { width: 16px; height: 16px; }
+.tray-drop.is-armed { color: var(--bad); border: 1px solid color-mix(in oklab, var(--bad) 45%, transparent); width: auto; }
+[data-theme="cyberpunk"] .tray-card, [data-theme="cyberpunk"] .tray-row { border-radius: 3px; }
+[data-theme="cyberpunk"] .tray-ic { border-radius: 2px; }
 @media (prefers-reduced-motion: reduce) { .scn-scrim, .scn-sheet { animation: none; } .scn-switch i, .scn-pi b, .scn-btn { transition: none; } }

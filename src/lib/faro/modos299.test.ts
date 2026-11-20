@@ -240,10 +240,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // (nav.calendar es de Esencial — el plan es esencial); el acumulado
     // de Ritmo no se mueve (ambos temas quedan dentro de su alcance):
     // acumulados 120 · 225 · 354.
-    assert.equal(count("esencial"), 120);
-    assert.equal(count("ritmo"), 225);
-    assert.equal(count("completo"), 354);
-    assert.equal(MANUAL_TOPICS.length, 354);
+    // ENMIENDA CAPTURA OLA 1: nace el tema captura-mesa en Esencial
+    // (capítulo libros; su función es capture.review): esencial +1 y el
+    // total +1 — acumulados 121 · 226 · 355.
+    assert.equal(count("esencial"), 121);
+    assert.equal(count("ritmo"), 226);
+    assert.equal(count("completo"), 355);
+    assert.equal(MANUAL_TOPICS.length, 355);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

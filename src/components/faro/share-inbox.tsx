@@ -12,6 +12,7 @@ import { useLayer } from "@/lib/manual/back";
 import { useFaro } from "./provider";
 import { CardScan } from "./cards";
 import { ScanSheet } from "./receipt-scan";
+import { ReviewTable } from "./review-table";
 import "./scan.css";
 import "./share-inbox.css";
 
@@ -79,7 +80,7 @@ function Ask({ count, onCards, onReceipt, onClose }: { count: number; onCards: (
 
 export default function ShareInbox() {
   const [files, setFiles] = useState<File[] | null>(null);
-  const [mode, setMode] = useState<"ask" | "cards" | "receipt">("ask");
+  const [mode, setMode] = useState<"ask" | "cards" | "receipt" | "review">("ask");
   useEffect(() => {
     const take = () => {
       const f = pull();
@@ -92,6 +93,7 @@ export default function ShareInbox() {
   if (!files) return null;
   const close = () => { setFiles(null); setMode("ask"); };
   if (mode === "cards") return <CardScan files={files} onClose={close} />;
-  if (mode === "receipt") return createPortal(<ScanSheet files={files} from="purchase" onClose={close} />, document.body);
+  if (mode === "review") return <ReviewTable onClose={close} />;
+  if (mode === "receipt") return createPortal(<ScanSheet files={files} from="purchase" onClose={close} onReview={() => setMode("review")} />, document.body);
   return createPortal(<Ask count={files.length} onCards={() => setMode("cards")} onReceipt={() => setMode("receipt")} onClose={close} />, document.body);
 }

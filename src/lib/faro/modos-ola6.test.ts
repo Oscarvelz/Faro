@@ -115,7 +115,7 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
       assert.equal(FEATURES[feature as keyof typeof FEATURES], mode, `${feature} es el asiento que lo gobierna`);
     });
   }
-  it("los conteos por modo tras el re-asiento: 120 · 105 · 129 sobre 354 (exactos)", () => {
+  it("los conteos por modo tras el re-asiento: 121 · 105 · 129 sobre 355 (exactos)", () => {
     // ENMIENDA OLA 7 (CARA-1/2/3: el tema sigue al CAMPO): f-primer-pago,
     // f-frecuencia, f-tienda-elegir y f-cat-elegir R→E; f-proveedor,
     // f-codigo y f-enlace R→C. La distribución de la ola 6 (113 · 114 ·
@@ -130,9 +130,11 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // esencial — nav.calendar bajó a Esencial y sus dos temas lo siguen
     // (calendario y feriados R→E). La distribución se mueve a
     // 120 · 105 · 129.
+    // ENMIENDA CAPTURA OLA 1: nace captura-mesa en Esencial (capítulo
+    // libros). La distribución se mueve a 121 · 105 · 129 sobre 355.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 354);
-    assert.equal(count("esencial"), 120);
+    assert.equal(MANUAL_TOPICS.length, 355);
+    assert.equal(count("esencial"), 121);
     assert.equal(count("ritmo"), 105);
     assert.equal(count("completo"), 129);
   });

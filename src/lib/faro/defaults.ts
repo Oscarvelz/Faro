@@ -916,5 +916,19 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
     if (!isObjD(s.imports)) return false;
     if (!Array.isArray(s.imports.sources) || !Array.isArray(s.imports.rules) || !isObjD(s.imports.maps)) return false;
   }
+  // drafts (la bandeja, Ola 1 de Captura Inteligente): si está, es una lista de
+  // borradores con su forma — los campos que la mesa y los totales del bache
+  // desreferencian sin red (id, concepto, día, y los estados como listas). Un
+  // borrador dañado no manda el libro a cuarentena por más campos: los
+  // opcionales se leen con desconfianza en drafts.ts, como el descanso.
+  if (s.drafts !== undefined) {
+    if (!Array.isArray(s.drafts)) return false;
+    for (const d of s.drafts as unknown[]) {
+      if (!isObjD(d)) return false;
+      if (!isStrD(d.id) || !isStrD(d.concept) || !isStrD(d.day)) return false;
+      if (!Array.isArray(d.unsure) || !Array.isArray(d.missing)) return false;
+      if (d.amountMinor !== undefined && d.amountMinor !== null && !isFinD(d.amountMinor)) return false;
+    }
+  }
   return true;
 }

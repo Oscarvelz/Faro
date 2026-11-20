@@ -365,6 +365,44 @@ export function learnRule(rules: MerchantRule[], key: string, label: string, tar
   return [...rules, { key, label, target, ...(rc ? { rc } : {}), n: 1, at }];
 }
 
+/* ---------------------------------------------------------- el comparador de duplicados
+ * Ola 1 de Captura Inteligente (brief §5-P1): el criterio de duplicado del
+ * importador bancario vive AQUÍ, en su casa común, y el importador lo usa
+ * desde aquí — integrar, no bifurcar. Antes vivía en bankparse.ts; se mudó
+ * sin cambiar ni una regla, y bankparse lo re-exporta para sus lectores. */
+
+const matchWords = (k: string) => new Set(k.split(" ").filter((w) => w.length > 1));
+
+/**
+ * The key the FUZZY duplicate hunt compares (1.3.153). merchantKey's own aliases already turn "AMZN Mktp",
+ * "Amazon Mktpl" or "Amazon.com" into "amazon"; this adds only what it leaves behind — a bare "amzn" and
+ * "amazon mktp" — and it lives ONLY on this matching path: merchantKey itself feeds the learned merchant
+ * rules, and moving it would orphan rules Oscar already taught Faro.
+ */
+const MATCH_ALIAS: [RegExp, string][] = [
+  [/^amzn\b.*/, "amazon"],
+  [/^amazon mktp\b.*/, "amazon"],
+];
+export function canonMatch(key: string): string {
+  for (const [re, to] of MATCH_ALIAS) if (re.test(key)) return to;
+  return key;
+}
+export function matchKey(raw: string): string {
+  return canonMatch(merchantKey(raw));
+}
+export function similarKeys(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b || a.startsWith(b) || b.startsWith(a)) return true;
+  const A = matchWords(a), B = matchWords(b);
+  if (!A.size || !B.size) return false;
+  let n = 0; for (const w of A) if (B.has(w)) n++;
+  return n / Math.min(A.size, B.size) >= 0.5;
+}
+/** El día en que una línea «ocurrió»: su bookedOn si lo trae, si no el 15 de su mes. */
+export const lineDay = (l: Line): string => (l.bookedOn && /^\d{4}-\d{2}-\d{2}/.test(l.bookedOn) ? l.bookedOn.slice(0, 10) : `${l.monthKey}-15`);
+const DAY_MS = 86400000;
+export const dayGap = (a: string, b: string): number => Math.abs(new Date(`${a}T12:00:00Z`).getTime() - new Date(`${b}T12:00:00Z`).getTime()) / DAY_MS;
+
 /* ------------------------------------------------------------------ category suggestions */
 
 const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");

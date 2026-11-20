@@ -59,6 +59,7 @@ import { BrandMark, Glyph, ICON_NAMES, LOOK_ICONS } from "./icons";
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { ScanEntry } from "./receipt-scan";
+import { TrayCard } from "./tray";
 import { BookKit, type KitRow } from "./book-kit";
 import { useLongPress } from "./use-longpress";
 import { SelectionBar, SelMark, useSelection } from "./selection";
@@ -3410,6 +3411,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         </div>
       ) : null}
       {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? cobrosSide} ping={cobrosJump ? 0 : cobrosPing} wait={cobrosWait} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
+      <TrayCard />
       </>
       )}
       <section data-anchor={focus ? undefined : "desk-save"} className={`save-band${focus ? " is-records" : ""}${focus === "save" ? " is-save" : ""}${!focus || focus === "save" ? " sav-scope" : ""}`} style={!focus || focus === "save" ? { ["--sav" as string]: isTron() ? tronize(SAVINGS_PURPLE) : SAVINGS_PURPLE } : undefined} aria-label={t("desk.savings")}>

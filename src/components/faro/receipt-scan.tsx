@@ -9,13 +9,13 @@ import { createPortal } from "react-dom";
 import { Aperture, Camera, Check, Images, Trash2, X } from "lucide-react";
 import { isDuplicate, parseScan, type ScanBook, type ScanDraft, type ScanField } from "@/lib/faro/receiptparse";
 import { freqPresetsOf } from "@/lib/faro/cadence";
+import { addDrafts } from "@/lib/faro/drafts";
 import { parseAmount, uid } from "@/lib/faro/money";
-import { upsertLine } from "@/lib/faro/reducer";
-import { displayName } from "@/lib/faro/defaults";
-import { libraryOff, normName } from "@/lib/faro/subs";
+import { scanToDraft } from "@/lib/faro/scanadapter";
 import type { Currency, Line, LineKind } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
 import { useFaro } from "./provider";
+import { ReviewTable } from "./review-table";
 import { Hint } from "./hint";
 import { SubMark } from "./icons";
 import { DayField, ThemeSelect } from "./line-form";
@@ -45,6 +45,7 @@ const money = (minor: number | null) => (minor == null ? "" : (minor / 100).toFi
 export function ScanEntry({ from }: { from: LineKind }) {
   const { lang } = useFaro();
   const [files, setFiles] = useState<File[] | null>(null);
+  const [review, setReview] = useState(false);
   const [menu, setMenu] = useState<DOMRect | null>(null);
   const [hasCam, setHasCam] = useState(true);
   const btn = useRef<HTMLButtonElement>(null);
@@ -74,7 +75,8 @@ export function ScanEntry({ from }: { from: LineKind }) {
       <input ref={many} className="scn-file" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
       <input ref={cam} className="scn-file is-cam" type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
       {menu ? createPortal(<ScanChooser at={menu} onCamera={() => choose(cam)} onImages={() => choose(many)} onClose={() => setMenu(null)} />, document.body) : null}
-      {files ? createPortal(<ScanSheet files={files} from={from} onClose={() => setFiles(null)} />, document.body) : null}
+      {files ? createPortal(<ScanSheet files={files} from={from} onClose={() => setFiles(null)} onReview={() => { setFiles(null); setReview(true); }} />, document.body) : null}
+      {review ? <ReviewTable onClose={() => setReview(false)} /> : null}
     </span>
   );
 }
@@ -109,19 +111,22 @@ function ScanChooser({ at, onCamera, onImages, onClose }: { at: DOMRect; onCamer
   );
 }
 
-export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineKind; onClose: () => void }) {
-  const { session, commit, key, lang, t, has } = useFaro();
+export function ScanSheet({ files, from, onClose, onReview }: { files: File[]; from: LineKind; onClose: () => void; onReview: () => void }) {
+  const { session, commit, lang, t, has } = useFaro();
   // Ola 1 (fallo 16): la hoja de revisión obedece al modo — la revisión
   // completa (cambiar destino, declarar cadencia) es de Ritmo
   // (scan.receipt-full-review); en Esencial el destino se lee como texto y
   // la cadencia que se guarda es la que el lector leyó. La fila de
   // recompensas es de Completo (scan.receipt-rewards-row): ni se pinta ni
   // entra en el guardado fuera de él.
-  const fullReview = has("scan.receipt-full-review");
   const rwOn = has("scan.receipt-rewards-row");
   const ledger = session?.ledger;
   const [items, setItems] = useState<Item[]>(() => files.map((f) => ({ name: f.name, stage: "wait", p: 0, found: 0 })));
-  const [cards, setCards] = useState<Card[]>([]);
+  // Ola 1 de Captura Inteligente: lo leído ya no se revisa en esta hoja —
+  // cae en la bandeja como Draft y se revisa en la mesa universal. La Card
+  // sigue siendo el paso intermedio del lector (su enrutado es la conducta
+  // viva) y el adaptador scanToDraft la traduce sin tocar receiptparse.
+  const [pairs, setPairs] = useState<{ d: ScanDraft; c: Card }[]>([]);
   // 1.3.109: a rewards line in any picture is assumed to be credit card rewards (matched, or a best guess to confirm).
   const [rws, setRws] = useState<ScanRw[]>([]);
   const [done, setDone] = useState(false);
@@ -153,13 +158,13 @@ export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineK
           // The rewards figure (and the card screen around it) is not a purchase: drop drafts that are only those lines.
           const drafts = parseScan(img.lines, day).filter((d) => !(found.length && (d.amountMinor == null || d.amountMinor === 0 || rwAmounts.has(d.amountMinor)) && /reward|recompens|cash ?back|reembols|year to date|current|outstanding|balance|saldo/i.test(`${d.concept} ${d.note}`)));
           if (found.length && live) setRws((l) => [...l, ...found]);
-          const next: Card[] = [];
+          const next: { d: ScanDraft; c: Card }[] = [];
           for (const d of drafts) {
             const crop = d.type === "subscription" && !d.brand ? await run.cropIcon(img.canvas, d.box) : "";
-            next.push(toCard(d, i, run.cropThumb(img.canvas, d.box), crop, from, all));
+            next.push({ d, c: toCard(d, i, run.cropThumb(img.canvas, d.box), crop, from, all) });
           }
           if (!live) return;
-          setCards((c) => [...c, ...next]);
+          setPairs((p) => [...p, ...next]);
           setItems((l) => l.map((x, j) => (j === i ? { ...x, stage: "done", p: 1, found: drafts.length } : x)));
         } catch {
           if (!live) return;
@@ -174,32 +179,22 @@ export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineK
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const set = (id: string, patch: Partial<Card>) => setCards((l) => l.map((c) => (c.id === id ? { ...c, ...patch, unsure: c.unsure.filter((u) => !(u in fieldsOf(patch))) } : c)));
-  const ready = cards.filter((c) => c.on && c.concept.trim() && parseAmount(c.amount) != null);
   const rwReady = rwOn ? rws.filter((x) => x.on && x.target && (parseAmount(x.amount) != null || parseAmount(x.earned) != null)) : [];
   const busy = !done;
 
-  function save() {
-    if (!ledger || !(ready.length + rwReady.length)) return;
-    const st = ledger.structure;
-    const off = libraryOff(ledger);
-    const lines: Line[] = ready.map((c) => {
-      const kind = c.book as LineKind;
-      const sub = kind === "subscription";
-      const store = kind === "purchase" ? st.catalog.find((s) => s.kind === "store" && !s.hidden && normName(c.concept).includes(normName(displayName(s, lang as "es" | "en")))) : undefined;
-      const catOk = kind === "purchase" ? st.purchases.some((p) => p.id === c.category) : kind === "expense-variable" ? st.categories.some((p) => p.id === c.category && p.group === "variable") : false;
-      const icon = sub ? (c.brand && !off.has(c.brand) ? `sub:${c.brand}` : c.crop && c.useCrop ? `sub:${c.crop}` : c.generic ? `sub:${c.generic}` : "") : "";
-      return {
-        id: uid(), seriesId: uid(), monthKey: key, kind, concept: c.concept.trim(), amountMinor: parseAmount(c.amount)!, currency: c.currency,
-        active: true, note: c.note.trim(), categoryId: catOk ? c.category : "", subId: catOk && kind === "expense-variable" ? c.sub : "",
-        recurring: sub || kind === "expense-fixed", storeId: store?.id ?? "", providerId: "", productCode: "", productUrl: "",
-        cadence: sub || kind === "expense-fixed" ? (c.cadence as Line["cadence"]) || "monthly" : "", nextDue: sub ? c.date : "",
-        aprBps: 0, balanceMinor: null, balanceCurrency: c.currency, icon, history: [],
-        bookedOn: sub ? "" : c.date, startedOn: "",
-      };
-    });
-    commit((s) => saveScanRewards(lines.reduce((acc, line) => upsertLine(acc, line), s), rwReady), L(lang, `Escanear ${lines.length + rwReady.length}`, `Scan ${lines.length + rwReady.length}`));
-    onClose();
+  // El aterrizaje (Ola 1): los borradores caen en la bandeja y las
+  // recompensas confirmadas se guardan, en UN commit «Escaneo». «Luego»
+  // cierra; «Revisar ahora» abre la mesa con la bandeja entera. Cerrar la
+  // hoja sin aterrizar no guarda nada, como siempre.
+  function land(review: boolean) {
+    if (!ledger) return;
+    // El asiento de la bandeja gobierna el aterrizaje: sin bandeja no
+    // cae ningún borrador (las recompensas guardan por su camino).
+    const drafts = has("capture.tray") ? pairs.map(({ d, c }) => scanToDraft(d, c, ledger)) : [];
+    const n = drafts.length + rwReady.length;
+    if (n) commit((s) => saveScanRewards(addDrafts(s, drafts), rwReady), L(lang, `Escaneo ${n}`, `Scan ${n}`));
+    if (review) onReview();
+    else onClose();
   }
 
   const total = items.length;
@@ -210,15 +205,14 @@ export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineK
     { value: "expense-variable", label: t("nav.variable") },
     { value: "expense-fixed", label: t("nav.fixed") },
   ];
-  // The editor's own frequency sheet: the user's chips plus "Otro…" (its custom rhythms are remembered like in the editor).
-  const presets = freqPresetsOf(ledger);
+
 
   return (
     <div className="scn-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) close(); }}>
       <div className="scn-sheet" role="dialog" aria-modal="true" aria-label={L(lang, "Foto o captura", "Photo or screen")}>
         <div className="scn-head">
           <span className="scn-badge" aria-hidden><Camera /></span>
-          <h3 className="lab-head">{busy ? L(lang, "Leyendo imágenes", "Reading pictures") : L(lang, "Revisar lo leído", "Check what I read")}<Hint topic="escanear" /></h3>
+          <h3 className="lab-head">{busy ? L(lang, "Leyendo imágenes", "Reading pictures") : L(lang, "Listo para revisar", "Ready to review")}<Hint topic="escanear" /></h3>
           <button type="button" className="scn-x" aria-label={L(lang, "Cerrar", "Close")} onClick={close}><X /></button>
         </div>
         <div className="scn-body">
@@ -234,30 +228,36 @@ export function ScanSheet({ files, from, onClose }: { files: File[]; from: LineK
             </div>
           ) : null}
           {rwOn ? rws.map((x) => <ScanRewardsRow key={x.id} item={x} onSet={(p) => setRws((l) => l.map((y) => (y.id === x.id ? { ...y, ...p } : y)))} onDrop={() => setRws((l) => l.filter((y) => y.id !== x.id))} />) : null}
-          {cards.map((c) => (
-            <DraftCard key={c.id} c={c} lang={lang} bookOpts={bookOpts} presets={presets} full={fullReview} onSet={(p) => set(c.id, p)} onDrop={() => setCards((l) => l.filter((x) => x.id !== c.id))} />
+          {pairs.map(({ c }) => (
+            <div key={c.id} className="tray-row" data-anchor="scan-summary">
+              <span className="tray-src">{L(lang, "Foto", "Photo")}</span>
+              <span className="tray-main">
+                <strong>{c.concept || L(lang, "(sin concepto)", "(no concept)")}</strong>
+                <span>{c.amount ? `${c.currency === "USD" ? "$" : "C$"}${c.amount}` : L(lang, "sin monto", "no amount")} · {bookOpts.find((o) => o.value === c.book)?.label ?? ""}</span>
+              </span>
+              {c.dup ? <span className="scn-dup">{L(lang, "Duplicado", "Duplicate")}</span> : null}
+            </div>
           ))}
-          {done && !cards.length && !rws.length ? <p className="scn-empty">{L(lang, "No encontré montos. Prueba otra foto.", "No amounts found. Try another photo.")}</p> : null}
-          {done && (cards.length || rws.length) ? <p className="scn-note">{L(lang, "Las fotos no se guardan ni salen del teléfono.", "Photos are never kept or sent anywhere.")}</p> : null}
+          {done && !pairs.length && !rws.length ? <p className="scn-empty">{L(lang, "No encontré montos. Prueba otra foto.", "No amounts found. Try another photo.")}</p> : null}
+          {done && pairs.length ? <p className="scn-note">{L(lang, "Caen en la bandeja para revisarlos en la mesa.", "They land in the tray, to review at the table.")}</p> : null}
+          {done && (pairs.length || rws.length) ? <p className="scn-note">{L(lang, "Las fotos no se guardan ni salen del teléfono.", "Photos are never kept or sent anywhere.")}</p> : null}
         </div>
         <div className="scn-foot">
-          <button type="button" className="btn secondary" onClick={close}>{L(lang, "Cancelar", "Cancel")}</button>
-          <button type="button" className="btn" disabled={busy || !(ready.length + rwReady.length)} onClick={save}>
-            {busy ? `${doneN}/${total}` : L(lang, `Guardar ${ready.length + rwReady.length}`, `Save ${ready.length + rwReady.length}`)}
-          </button>
+          {busy ? (
+            <>
+              <button type="button" className="btn secondary" onClick={close}>{L(lang, "Cancelar", "Cancel")}</button>
+              <button type="button" className="btn" disabled>{`${doneN}/${total}`}</button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn secondary" onClick={() => land(false)}>{L(lang, "Luego", "Later")}</button>
+              <button type="button" className="btn" disabled={!(pairs.length + rwReady.length)} onClick={() => land(true)}>{L(lang, "Revisar ahora", "Review now")}</button>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
-}
-
-function fieldsOf(p: Partial<Card>): Record<string, true> {
-  const o: Record<string, true> = {};
-  if ("concept" in p) o.concept = true;
-  if ("amount" in p) o.amount = true;
-  if ("date" in p) o.date = true;
-  if ("cadence" in p) o.cadence = true;
-  return o;
 }
 
 function toCard(d: ScanDraft, src: number, thumb: string, crop: string, from: LineKind, all: Line[]): Card {
@@ -274,7 +274,10 @@ function toCard(d: ScanDraft, src: number, thumb: string, crop: string, from: Li
   };
 }
 
-function DraftCard({ c, lang, bookOpts, presets, full, onSet, onDrop }: {
+/** La tarjeta de revisión anterior a la mesa (Ola 1): queda en el árbol
+ * como REVERSA de la migración — si la mesa fallara en vivo, la hoja del
+ * escaneo vuelve a enrutar la revisión aquí (brief §8). */
+export function DraftCard({ c, lang, bookOpts, presets, full, onSet, onDrop }: {
   c: Card; lang: string; bookOpts: { value: string; label: string }[]; presets: string[];
   /** Ola 1 (fallo 16): la revisión completa — destino elegible y cadencia
    *  declarable — solo desde Ritmo; en Esencial el destino se lee y la

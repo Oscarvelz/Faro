@@ -70,7 +70,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 /** PREJUDICE PJ-9: the shape is not the day — 2026-13-45 and 2026-02-31 pass the
  *  regex and drained into phantom buckets no surface reads, acked as saved.
  *  A real calendar day or nothing. */
-const isRealDay = (s: string): boolean => {
+export const isRealDay = (s: string): boolean => {
   if (!DAY.test(s)) return false;
   const [y, m, d] = s.split("-").map(Number);
   if (m! < 1 || m! > 12 || d! < 1) return false;

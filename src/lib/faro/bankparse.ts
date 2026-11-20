@@ -5,7 +5,13 @@
  * Formats: OFX/QFX (SGML and XML), QIF, CSV (Chase card, Chase checking, PayPal, or any bank with column detection).
  */
 import Papa from "papaparse";
-import { accounts, bonusFor, CASH_SOURCE, ensureAccounts, findRule, guessClass, importBook, learnRule, lineReward, merchantKey, merchantLabel, splitTarget, suggestTarget, targets, type Acct, type LineReward, type Target } from "./bankbook.ts";
+import { accounts, bonusFor, canonMatch, CASH_SOURCE, dayGap, ensureAccounts, findRule, guessClass, importBook, learnRule, lineDay, lineReward, matchKey, merchantKey, merchantLabel, similarKeys, splitTarget, suggestTarget, targets, type Acct, type LineReward, type Target } from "./bankbook.ts";
+
+/** El comparador de duplicados vive en bankbook (su casa común desde la Ola 1
+ * de Captura Inteligente); este módulo lo re-exporta para sus lectores de
+ * siempre y lo usa con su nombre corto de la casa. */
+export { matchKey };
+const similar = similarKeys;
 import type { AcctKind, ColumnMap, Currency, ImportBook, LedgerState, Line, RewardClass, Structure, Sub } from "./types.ts";
 import type { PdfStatement } from "./pdfstmt.ts";
 
@@ -424,8 +430,6 @@ export type PocketOffer = { file: number; sourceId: string; name: string; endCen
 /** `dateless`: rows dropped because their date could not be read — they never reach a month (not even ""). */
 export type Review = { rows: Row[]; targets: Target[]; mods: Line[]; fallback: string; pocket?: PocketOffer; dateless: number };
 
-const DAY = 86400000;
-const dayGap = (a: string, b: string) => Math.abs(new Date(`${a}T12:00:00Z`).getTime() - new Date(`${b}T12:00:00Z`).getTime()) / DAY;
 const XFER = /(REAL TIME TRANSFER|RTP (CREDIT|DEBIT)|CCPYMT|CC PYMT|CARD PYMT|PAYPAL\s*\*.*VISA DIRECT|PAYMENT TO .*CARD ENDING|AUTOPAY|AUTOMATIC PAYMENT|AUTO PAY|PAYMENT THANK YOU|PAYMENT - THANK|PAYMENT RECEIVED|INTERNET PAYMENT|ONLINE PAYMENT|MOBILE PAYMENT|CHASE CREDIT CRD|CHASE CARD SERV|PAYMENT TO CHASE CARD|STATE ?FARM (BANK|CREDIT|CARD|PMT|PAYMENT|ONLINE)|STATEFARM|PAYPAL\s*(INST XFER|TRANSFER|ECHECK|XFER)|ONLINE TRANSFER|TRANSFER (TO|FROM)|CREDIT CARD PAYMENT|CC PAYMENT|EPAY|ACCT_XFER|LOAN_PMT|PAGO (DE )?TARJETA|TRASPASO|TRANSFERENCIA PROPIA)/;
 const PP_XFER = /(card deposit|bank deposit|add funds|withdrawal|transfer to bank|transfer from bank|currency conversion|account hold|authorization|general credit card deposit|bank transfer|move money|reserve)/i;
 
@@ -452,34 +456,6 @@ export function classify(r: RawTx, kind: AcctKind | undefined): Flow {
   return "spend";
 }
 
-const words = (k: string) => new Set(k.split(" ").filter((w) => w.length > 1));
-
-/**
- * The key the FUZZY duplicate hunt compares (1.3.153). merchantKey's own aliases already turn "AMZN Mktp",
- * "Amazon Mktpl" or "Amazon.com" into "amazon"; this adds only what it leaves behind — a bare "amzn" and
- * "amazon mktp" — and it lives ONLY on this matching path: merchantKey itself feeds the learned merchant
- * rules, and moving it would orphan rules Oscar already taught Faro.
- */
-const MATCH_ALIAS: [RegExp, string][] = [
-  [/^amzn\b.*/, "amazon"],
-  [/^amazon mktp\b.*/, "amazon"],
-];
-function canonMatch(key: string): string {
-  for (const [re, to] of MATCH_ALIAS) if (re.test(key)) return to;
-  return key;
-}
-export function matchKey(raw: string): string {
-  return canonMatch(merchantKey(raw));
-}
-function similar(a: string, b: string): boolean {
-  if (!a || !b) return false;
-  if (a === b || a.startsWith(b) || b.startsWith(a)) return true;
-  const A = words(a), B = words(b);
-  if (!A.size || !B.size) return false;
-  let n = 0; for (const w of A) if (B.has(w)) n++;
-  return n / Math.min(A.size, B.size) >= 0.5;
-}
-const lineDay = (l: Line) => (l.bookedOn && /^\d{4}-\d{2}-\d{2}/.test(l.bookedOn) ? l.bookedOn.slice(0, 10) : `${l.monthKey}-15`);
 /** What a row becomes as a line amount: spending positive, refunds negative, income positive. */
 export const lineAmount = (r: Pick<Row, "flow" | "amount">) => (r.flow === "refund" ? -Math.abs(r.amount) : Math.abs(r.amount));
 const isIncome = (f: Flow) => f === "income" || f === "interest";

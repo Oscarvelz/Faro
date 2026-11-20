@@ -110,9 +110,14 @@ describe("ola1 · la cara obedece al registro", () => {
     assert.equal(FEATURES["scan.receipt-full-review"], "ritmo", "la revisión completa — destino y cadencia — es de Ritmo");
     assert.equal(FEATURES["scan.receipt-rewards-row"], "completo");
     const scan = SRC("../../components/faro/receipt-scan.tsx");
-    assert.ok(scan.includes('has("scan.receipt-full-review")'), "la hoja pregunta por la revisión completa");
     assert.ok(scan.includes('has("scan.receipt-rewards-row")'), "la fila de recompensas se puertaba por su asiento: ni se pinta ni se guarda fuera de Completo");
-    assert.ok(scan.includes("is-static"), "en Esencial el destino se lee como texto, no se elige");
+    /* ENMIENDA CAPTURA OLA 1: la revisión ya no vive en la hoja — emigró
+     * a la mesa universal (brief §5-P4) y su gobierno simple/completa
+     * vive ahora en la mesa, bajo los asientos de la familia capture.
+     * La cerca sigue a la función, no a la hoja que la perdió. */
+    const mesa = SRC("../../components/faro/review-table.tsx");
+    assert.ok(mesa.includes('has("capture.review-full")'), "la mesa pregunta por la revisión completa");
+    assert.ok(mesa.includes("is-static"), "en Esencial el destino se lee como texto, no se elige");
   });
 
   it("B7: «Meses de colchón» deja de ser huérfano — su asiento es Completo, como todos sus lectores", () => {
@@ -512,7 +517,14 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  RemitToPick entregaba su manage (borrar/renombrar/color de
  *  personas de remesa) sin puerta en los tres modos (la enfermedad
  *  G3 en forma viva); la cura puertó la entrega en remit-people.tsx
- *  con su `has("remit.manage")`, como el registro manda (Completo). */
+ *  con su `has("remit.manage")`, como el registro manda (Completo).
+ *  ENMIENDA CAPTURA OLA 1 (con su razón, como la cerca manda): ENTRA
+ *  scan.receipt-full-review porque PERDIÓ su consumidor literal — la
+ *  revisión del escaneo emigró de la hoja a la mesa universal, cuyo
+ *  gobierno vive en capture.review-full (brief §5-P4); el asiento queda
+ *  declarado aquí y en la familia scan de la §A-quater como el fallo de
+ *  la ruta de reversa (DraftCard, brief §8) hasta que la mesa se
+ *  verifique en vivo y la reversa se retire. */
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
@@ -554,6 +566,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "remit.send", "rule.category",
   "rule.cushion", "rule.floor", "rule.goal", "rule.insurance",
   "rule.outlier", "rule.overcommit", "rule.pace", "rule.recurring",
+  "scan.receipt-full-review",
   "settings.bank-rewards-real", "settings.pin-in-card",
   "settings.widget-pins", "subs.brand-detect", "subs.cadence-machinery",
   "subs.dues-window", "subs.own-chips", "tools.calculator-use",

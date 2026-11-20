@@ -169,6 +169,8 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   // §1.21 Escaneo
   ["scan.receipt", E], ["scan.receipt-review", E], ["scan.receipt-full-review", R], ["scan.receipt-rewards-row", C],
   ["scan.retirement-stmt", C], ["scan.card-capture", C],
+  // §1.27 Captura inteligente (Ola 1)
+  ["capture.tray", E], ["capture.review", E], ["capture.review-full", R],
   // §1.22 Bandeja de documentos compartidos
   ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E],
   // §1.23 Exportar informes

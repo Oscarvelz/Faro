@@ -441,6 +441,42 @@ export type RemitPerson = { id: string; name: string; color?: string; icon?: str
 
 export type SubPreset = { id: string; name?: string; icon?: string };
 
+/** Captura Inteligente, Ola 1 (brief BRIEF-OLA-1 §4): la única forma de
+ * borrador de Faro. Todo lo que entra — foto, texto, voz, archivo — cae en la
+ * bandeja como un Draft, se revisa en la mesa universal y solo se vuelve
+ * línea por un commit del usuario. `raw` es lo que entró, tal cual, y nunca
+ * se reescribe: es la prueba. Los campos `book` e `icon` no están en el
+ * pliego original porque el pliego no miraba la conversión; tienen casa en
+ * Line (kind e icon) y sin ellos un borrador del escaneo no podría volverse
+ * la misma línea que hoy produce DraftCard — el código ganó y el brief se
+ * corrige con esta nota. */
+export type DraftSource = "text" | "voice" | "photo" | "excel" | "pdf" | "list" | "notice" | "bank";
+export type Draft = {
+  id: string;
+  source: DraftSource;
+  /** "line" = un movimiento listo para revisar; "plan" reservado (D6, llega con su diseño). */
+  kind: "line" | "plan";
+  /** Lo que entró, tal cual: la frase, la fila, el texto de la notificación. Nunca se reescribe. */
+  raw: string;
+  createdAt: string;              // ISO — cuándo cayó en la bandeja
+  day: string;                    // YYYY-MM-DD propuesto para la línea
+  sign: "in" | "out" | null;
+  amountMinor: number | null;
+  currency: Currency | null;      // solo USD/NIO — el dinero real no gana monedas (mapa §F7)
+  concept: string;
+  note: string;
+  /** El libro destino (casa en Line.kind). El adaptador del escaneo lo fija
+   *  con su enrutado de siempre; sin fijar, la conversión cae a expense-variable. */
+  book: LineKind;
+  cat?: string; sub?: string;     // la casa sugerida (ids de Estructura)
+  store?: string;                 // la pieza del catálogo, si aplica (casa en Line.storeId)
+  cadence?: string;               // solo borradores de suscripción (del escaneo)
+  icon?: string;                  // la marca ya resuelta de la suscripción (casa en Line.icon)
+  unsure: string[];               // nombres de campo adivinados → ámbar
+  missing: string[];              // nombres de campo no entendidos → rojo, con su herramienta
+  dupOf?: string;                 // id de la línea existente si parece duplicado
+};
+
 export type LedgerState = {
   v: 1;
   structure: Structure;
@@ -451,6 +487,10 @@ export type LedgerState = {
   people?: Person[];
   /** Bank import settings (Nov 2026): accounts, merchant rules, column maps. Missing in older ledgers and backups. */
   imports?: ImportBook;
+  /** Ola 1 captura inteligente: la bandeja de borradores por revisar. Vive FUERA de months:
+   *  ningún total, estudio ni lectura del Asesor puede verla — es dinero todavía no.
+   *  Ausente en libros viejos = bandeja vacía. Viaja con el libro (D1). */
+  drafts?: Draft[];
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
   /** Money the user lent (Me deben, 1.3.92; device-only before). Abonos are income lines with `lentId`. See debts.ts. */

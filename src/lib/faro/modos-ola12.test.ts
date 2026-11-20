@@ -381,12 +381,14 @@ const CARAS: Record<string, [Clase, string]> = {
   "lib/faro/year.ts:yearReport:s.spend": ["interna", "compone spend del año (BR12-5b); su cara clasificada es YearCard"],
 };
 
+/* ENMIENDA CAPTURA OLA 1: sale «receipt-scan.tsx:ScanSheet» — la hoja ya
+ * no suma partidas: enseña resúmenes de solo lectura y los borradores
+ * caen en la bandeja; la suma vive en la mesa (draftTotals, librería). */
 const AGREGADORES: Record<string, [Clase, string]> = {
   "components/faro/advisor2.tsx:ShortVisual": ["gasto", "el resto de «los gastos que más pesaron»: suma las líneas del río ya clasificadas SIN las transferencias (el apartado fuera)"],
   "components/faro/archivo.tsx:ArchivoScreen": ["interna", "suma lo archivado para la vista del Archivo, nombrado como archivo; no es una frase del mes vivo"],
   "components/faro/book-side.tsx:BookSide": ["interna", "totales por libro de la barra lateral (el saldo de cada libro), no frases de gasto del mes"],
   "components/faro/cards.tsx:CardScan": ["interna", "suma las partidas del escaneo de la tarjeta antes de guardar; no agrega el libro"],
-  "components/faro/receipt-scan.tsx:ScanSheet": ["interna", "suma las partidas del recibo escaneado en la hoja de revisión; no agrega el libro"],
   "components/faro/screens.tsx:Desk": ["interna", "subtotales por tienda de la vista elegida, nombrados por tienda; el Summary viene del proveedor"],
   "components/faro/screens.tsx:DueOwe": ["movimiento", "suma cobros y pagos por su nombre (lo que te deben / lo que debes): no es gasto"],
   "components/faro/screens.tsx:PotReport": ["movimiento", "el reporte de bolsillos suma el ahorro por bolsillo, nombrado como ahorro"],
@@ -2202,6 +2204,10 @@ const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
   "components/faro/screens.tsx:savePlan#1": ["campo", "la pieza editada se mapea sobre el catálogo vivo y su línea se sincroniza en el mismo commit. Ola 18 (BR18-1): viaja por la puerta guardada — la pieza que ya no vive aborta sin marco"],
 };
 
+/* ENMIENDA CAPTURA OLA 1: sale «receipt-scan.tsx:save#1» — el save() de
+ * la hoja murió con la migración: las líneas ya no nacen en la hoja sino
+ * en la mesa (commitDrafts), y la hoja solo aterriza borradores
+ * (addDrafts) y guarda sus recompensas por su camino de siempre. */
 const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
   "components/faro/cards.tsx:commitDraft#1": ["fusiona", "CardForm: el candidato se fusiona (fuseCardDraft) contra el registro del commit y putCard escribe el resultado; las lecturas del alta se anexan. Ola 14: proceed se llama commitDraft — la misma ruta con su salida de restaurar (G14-5). Ola 18 (BR18-1): la ruta viaja por la puerta GUARDADA (commitGuarded) — sus abortos devuelven null y no dejan marco (ni entrada, ni revisión, ni Deshacer); la composición que aterriza es esta misma.", "addReading,addRewards,putCard"],
   "components/faro/cards.tsx:commitUpdate#1": ["anexa", "ola 15 (G15-2): la actualización manual de CardForm vive en su propia ruta (commitUpdate) — pregunta cardExistence DENTRO del commit y anexa lecturas y recompensas por id sobre el registro vivo (addReading busca en cardsOf); lo archivado solo se restaura por restoreCard dentro del mismo commit, con la palabra de la persona. Antes era save#1, en línea en save(). Ola 18 (BR18-1): viaja por la puerta guardada, como commitDraft — sus abortos no dejan marco.", "addReading,addRewards"],
@@ -2217,7 +2223,6 @@ const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
    * commit y aplica solo el parche). */
   "components/faro/archivo.tsx:restoreDue#1": ["campo", "el patrón sano original: busca la línea DENTRO del commit y la reactiva sobre la viva. Ola 18 (BR18-1): viaja por la puerta guardada — si la serie ya no vive, aborta sin marco en vez de firmar una restauración que no ocurrió", "upsertLine"],
   "components/faro/people.tsx:save#1": ["anexa", "el regalo nace como línea nueva (plainLine con id fresco) en el commit", "upsertLine"],
-  "components/faro/receipt-scan.tsx:save#1": ["anexa", "las líneas del escaneo nacen nuevas; el reduce las compone sobre el acumulador del propio commit", "upsertLine"],
   "components/faro/remesas.tsx:save#1": ["anexa", "la remesa enviada nace como línea nueva (plainLine) en el commit", "upsertLine"],
   "components/faro/slip-apply.tsx:save#1": ["anexa", "la línea aplicada desde Guardados nace nueva (plainLine) en el commit", "upsertLine"],
   "components/faro/screens.tsx:onGlyph#1": ["campo", "el glifo de la línea se parchea contra lo vivo (patchLine por id)", "patchLine"],
@@ -2264,6 +2269,7 @@ const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
  * que la caza nombró — queda clasificado por su conducta real: compone
  * desde el s vivo dentro del commit. */
 const FORMAS_DELEGADAS: Record<string, [Doctrina, string, string]> = {
+  "components/faro/review-table.tsx:save#1": ["anexa", "Captura Ola 1: la mesa guarda en UN commit compuesto desde el s vivo — commitDrafts anexa las líneas nacidas de los borradores marcados, patchDraft/dropDraft resuelven los demás, y learnFromSaved aprende la regla del comercio cuya casa se corrigió (ley 9)", "learnFromSaved"],
   "components/faro/archivo.tsx:ArchivoScreen#1": ["campo", "restaura el «Me deben» archivado por id sobre el vivo, dentro del commit", "restoreLent"],
   "components/faro/archivo.tsx:ArchivoScreen#2": ["campo", "restaura el préstamo archivado por id sobre el vivo, dentro del commit", "restoreLoan"],
   "components/faro/archivo.tsx:ArchivoScreen#3": ["campo", "restaura la tarjeta archivada por id sobre el vivo, dentro del commit", "restoreCard"],
