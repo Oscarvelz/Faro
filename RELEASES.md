@@ -3031,4 +3031,4 @@ La foto de Oscar: en su teléfono, las pastillas de Lista y Escanear se salían 
 
 Verificación: banco a 360px en Tron reproduciendo la foto de Oscar al píxel antes de la cura, y con las tres pastillas enteras dentro de su caja después; cercas dirigidas 44/44 (captura342, captura343, modos-ola20, novedades346); suite completa 2311/2311; la corrida de npm test con sus 59/59; tipos con exactamente los 3 errores de siempre (provider, auth, db). La cerradura y la línea del Guardián, intactas.
 
-Datos de publicación: se completa tras publicar.
+Datos de publicación: fuente 788b7685, etiqueta v1.3.349; reversa rollback-pre-349-2026-11-20 → b268dab6; principal 1bf8a5f7 (paquetes) + 944fa717 (control); entrada index-CsirTsyi.js; verificación en vivo de primera mano: sw faro-1.3.349 y barrido completo del precache 26/26 con md5 idénticos a dist.
