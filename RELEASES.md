@@ -3015,4 +3015,4 @@ La Cura 20 de la Campaña de Modos, integrada sin reemplazar sobre la 1.3.346: e
 
 Verificación: la corrida completa sobre el árbol integrado dio 2311 pruebas con una sola roja — el sello de versión, que la construcción re-estampa — re-verificada verde tras construir (3/3); unidad 59/59; tipos con exactamente los 3 errores permanentes. Las cercas de las familias tocadas corrieron 239/239 antes de la corrida entera, y el banco vivo mostró el pliegue de Novedades con la nota menor de esta entrega acumulada en silencio, en su sitio. La cerradura y la línea del Guardián, intactas.
 
-Datos de publicación: se completa tras publicar.
+Datos de publicación: código 6fc45e67 (fuente), etiqueta v1.3.347; principal 6adea76a (paquetes) + ea167e5c (control). Entrada index-DKk2eXbA.js. Verificado en vivo de primera mano: sw faro-1.3.347 (3ª consulta), barrido precache 26/26 por md5 contra dist. Rollback: rollback-pre-347-2026-11-20 → d7fa875f.
