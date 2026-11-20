@@ -2941,4 +2941,4 @@ La Ola 3 de Captura Inteligente, primera entrega (mapa F4): el cierre del día d
 
 Verificación: cerca nueva captura342 (9 pruebas: la batería de la lista, el asiento, la receta de la puerta, el tema) y los censos enmendados con su razón escrita (modos-ola5, modos-ola6, modos299, modos294, manualejemplos275, modos-ola19 §B). Suite completa 2253/2253, unitarias 59/59, typecheck con solo los 3 errores preexistentes. Banco extremo a extremo en la app real (paquete de Oscar): la fila de captura muestra Escribir · Lista · Escanear; la lista «Leche 120 / Pan 45 / Huevos / Pagué 300 de luz» dejó cuatro borradores con sus dudas en palabras — Huevos sin monto ni moneda — y Revisar abrió la mesa con las cuatro filas. La línea raíz del Guardián y la cerradura, intactas.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: código 1f36ab1a (fuente), etiqueta v1.3.342; principal 82a92a31 (paquetes) + 13026bd5 (control). Entrada index-BVgCrMJd.js. Verificado en vivo de primera mano: sw faro-1.3.342 (5ª consulta), barrido precache 25/25 por md5 contra dist. Rollback: rollback-pre-342-2026-11-20 → 4825f356.
