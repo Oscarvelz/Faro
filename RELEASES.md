@@ -2750,4 +2750,4 @@ Banco (mis fotos, libro de Oscar): Cyberpunk y Tron — la etiqueta arranca en x
 
 Verificación: test:faro 2139/2139 en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-329-2026-11-19` → f27df5ee. Source: 4ce637d3. Tag: v1.3.329 → 4ce637d3. Main: a11779fa (chunks) + d53f1049 (control). Entrada: index-By3DVGRJ.js.
