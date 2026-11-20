@@ -50,8 +50,8 @@ const IMPROVE: ReadonlyArray<readonly [string, readonly string[]]> = [
 const OLD_FIGURES = ["38,181", "38 181", "7,636", "11,454", "36,6243", "36.6243", "3 662", "3,662"] as const;
 
 describe("manual con ejemplos: el censo", () => {
-  it("el manual sigue teniendo los temas censados (347 en 275; 348 desde la oleada 2 del modelo de ahorros, que añadió «Dónde vive tu ahorro»; 349 desde la etapa 1 de los tres modos, que añadió «Modo»; 353 desde la etapa 5, que injertó los cuatro temas de la entrega de Presentación — «Puedes gastar hoy», «Tus deudas, en claro», «Tu Asesor en Esencial», «Tu Asesor en Ritmo» — y reconcilió el quinto de la entrega, «Los modos de Faro», dentro del «Modo» ya existente: un solo tema `modos`; 354 desde la ayuda de la K 2026-11-16, que añadió «Cifras cortas»; 355 desde la Ola 1 de Captura Inteligente, que añadió «La bandeja y la mesa» (`captura-mesa`) junto a las superficies que nombra, como manda la ley del Manual)", () => {
-    assert.equal(MANUAL_TOPICS.length, 355);
+  it("el manual sigue teniendo los temas censados (347 en 275; 348 desde la oleada 2 del modelo de ahorros, que añadió «Dónde vive tu ahorro»; 349 desde la etapa 1 de los tres modos, que añadió «Modo»; 353 desde la etapa 5, que injertó los cuatro temas de la entrega de Presentación — «Puedes gastar hoy», «Tus deudas, en claro», «Tu Asesor en Esencial», «Tu Asesor en Ritmo» — y reconcilió el quinto de la entrega, «Los modos de Faro», dentro del «Modo» ya existente: un solo tema `modos`; 354 desde la ayuda de la K 2026-11-16, que añadió «Cifras cortas»; 355 desde la Ola 1 de Captura Inteligente, que añadió «La bandeja y la mesa» (`captura-mesa`) junto a las superficies que nombra, como manda la ley del Manual; 356 desde la Ola 2, que añadió «Escribir como pienso» (`captura-texto`) con la puerta que nombra)", () => {
+    assert.equal(MANUAL_TOPICS.length, 356);
   });
 });
 

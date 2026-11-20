@@ -243,10 +243,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA CAPTURA OLA 1: nace el tema captura-mesa en Esencial
     // (capítulo libros; su función es capture.review): esencial +1 y el
     // total +1 — acumulados 121 · 226 · 355.
-    assert.equal(count("esencial"), 121);
-    assert.equal(count("ritmo"), 226);
-    assert.equal(count("completo"), 355);
-    assert.equal(MANUAL_TOPICS.length, 355);
+    // ENMIENDA CAPTURA OLA 2 (1.3.340): nace captura-texto en Esencial
+    // (capítulo libros; su función es capture.text): esencial +1 y el
+    // total +1 — acumulados 122 · 227 · 356.
+    assert.equal(count("esencial"), 122);
+    assert.equal(count("ritmo"), 227);
+    assert.equal(count("completo"), 356);
+    assert.equal(MANUAL_TOPICS.length, 356);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

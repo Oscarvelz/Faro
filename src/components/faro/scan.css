@@ -12,7 +12,11 @@
 /* In the editor: its own row under the Concepto field, at the right end, with
    air above it (Oscar, 2026-11-20 — it lived squeezed against the chart on the
    concept head's line and could not breathe). The pill keeps its full size. */
-.fit-scan-row { flex: 0 0 100%; grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 6px; }
+.fit-scan-row { flex: 0 0 100%; grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+/* Ola 2: la caja de la puerta de texto y su nota, en la hoja de captura. */
+.cap-text-area { width: 100%; resize: vertical; min-height: 76px; }
+.cap-text-note { margin: 10px 2px 2px; font-size: .82rem; opacity: .75; line-height: 1.45; }
+.tray-write { width: 100%; margin-bottom: 10px; }
 /* The running light (Oscar, 2026-11-20): a small light travels the pill's rim
    so the button can be seen — it was nearly invisible at rest. The rim only:
    a conic sheen masked to a 1.5px ring, turning slowly; still under

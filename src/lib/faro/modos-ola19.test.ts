@@ -339,6 +339,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/provider.tsx|commitGuarded|restoreSpan": ["guardada", 1],
   "components/faro/provider.tsx|commit|inline": ["aterrizaje", 7],
   "components/faro/receipt-scan.tsx|commit|saveScanRewards": ["aterrizaje", 1],
+  "components/faro/capture-text.tsx|commit|addDrafts": ["aterrizaje", 1],
   "components/faro/remesas.tsx|commitGuarded|deleteLine": ["guardada", 1],
   "components/faro/remesas.tsx|commit|upsertLine": ["aterrizaje", 1],
   "components/faro/remit-people.tsx|commitGuarded|addRemitPerson": ["guardada", 1],

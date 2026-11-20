@@ -171,6 +171,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["scan.retirement-stmt", C], ["scan.card-capture", C],
   // §1.27 Captura inteligente (Ola 1)
   ["capture.tray", E], ["capture.review", E], ["capture.review-full", R],
+  ["capture.text", E], // 1.3.340 — Ola 2: el asiento de la puerta de texto, declarado antes que la superficie
   // §1.22 Bandeja de documentos compartidos
   ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E],
   // §1.23 Exportar informes

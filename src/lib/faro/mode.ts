@@ -523,6 +523,10 @@ export const FEATURES = {
    * la bandeja y la mesa simple viven en Esencial; la mesa completa —
    * reclasificar en bache y recordar la tienda — es de Ritmo.) */
   "capture.tray": E, "capture.review": E, "capture.review-full": R,
+  /* §1.27b Captura inteligente, Ola 2 (mapa F2): escribir como pienso es
+   * declarar, como el apunte rápido — Esencial. El intérprete jamás
+   * guarda: sus borradores caen en la bandeja y solo la mesa escribe. */
+  "capture.text": E,
   /* §1.22 Bandeja de documentos compartidos — enrutado por modo */
   "inbox.bank": C, "inbox.vcf": R, "inbox.image-card": C, "inbox.image-receipt": E,
   /* §1.23 Exportar informes (fallo D-bis 17: panel recompuesto desde Ritmo) */

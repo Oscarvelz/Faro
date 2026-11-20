@@ -12,6 +12,7 @@ import { Inbox, Trash2, X } from "lucide-react";
 import { draftTotals, dropDraft } from "@/lib/faro/drafts";
 import type { Draft, DraftSource } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
+import { CaptureTextSheet } from "./capture-text";
 import { Hint } from "./hint";
 import { useFaro } from "./provider";
 import { ReviewTable } from "./review-table";
@@ -63,7 +64,9 @@ export function TrayCard() {
 function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () => void }) {
   const { session, commitGuarded, lang, has } = useFaro();
   const canTray = has("capture.tray");
+  const canText = has("capture.text");
   const [armed, setArmed] = useState<string | null>(null);
+  const [writing, setWriting] = useState(false);
   useLayer(true, onClose);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -97,6 +100,11 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
           <button type="button" className="scn-x" aria-label={L(lang, "Cerrar", "Close")} onClick={onClose}><X /></button>
         </div>
         <div className="scn-body">
+          {canText ? (
+            <button type="button" className="btn secondary tray-write" data-anchor="tray-write" onClick={() => setWriting(true)}>
+              {L(lang, "Escribir como pienso", "Write it as I think it")}
+            </button>
+          ) : null}
           {groups.map(([day, ds]) => (
             <div key={day} className="tray-group">
               <p className="tray-day">{day}</p>
@@ -121,6 +129,7 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
           <button type="button" className="btn" disabled={!drafts.length} onClick={onReview}>{L(lang, "Revisar", "Review")}</button>
         </div>
       </div>
+      {writing ? <CaptureTextSheet onClose={() => setWriting(false)} onReview={() => { setWriting(false); onReview(); }} /> : null}
     </div>,
     document.body,
   );
