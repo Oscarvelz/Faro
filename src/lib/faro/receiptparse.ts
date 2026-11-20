@@ -333,6 +333,20 @@ export function parseScan(input: OcrLine[] | string, today: string): ScanDraft[]
   return r && (r.amountMinor != null || r.concept) ? [r] : [];
 }
 
+/**
+ * How strong a read is (1.3.337): the scanner scores every pass with this.
+ * Amounts are the money fact a receipt lives by — a pass with none is a
+ * failed read, however much text it holds; letters only break ties.
+ */
+export function readStrength(lines: OcrLine[]): { amounts: number; letters: number } {
+  let amounts = 0, letters = 0;
+  for (const l of lines) {
+    amounts += amountsIn(l.text).length;
+    letters += l.text.replace(/[^A-Za-zÀ-ÿ0-9]/g, "").length;
+  }
+  return { amounts, letters };
+}
+
 /** Is the draft already in the ledger (same concept, amount and day)? */
 export function isDuplicate(d: { concept: string; amountMinor: number | null; date: string }, lines: { concept: string; amountMinor: number; bookedOn?: string; nextDue?: string; active?: boolean }[]): boolean {
   if (d.amountMinor == null) return false;

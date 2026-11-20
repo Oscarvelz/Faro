@@ -4,7 +4,7 @@
  * One worker serves the whole batch (loaded once), images go one at a time, and stop() ends it at once.
  * Gives the parser lines with their boxes, and crops a small thumbnail per draft and the app-icon tile beside a block.
  */
-import type { OcrBox, OcrLine } from "./receiptparse";
+import { readStrength, type OcrBox, type OcrLine } from "./receiptparse";
 import { shrinkIcon } from "./icon";
 import { OCR_TIMEOUT_MS, withOcrTimeout } from "./ocrrun";
 
@@ -68,6 +68,22 @@ function linesOf(data: ScanData, w: number): OcrLine[] {
   return out;
 }
 
+/** The same picture, turned. A receipt lying sideways on the table is upright
+ * to the phone (no EXIF can know) and sideways to the reader: its text reads
+ * as nothing. 90 = clockwise, as a person turns the paper to read it. */
+function rotate(c: HTMLCanvasElement, deg: 90 | 180 | 270): HTMLCanvasElement {
+  const swap = deg !== 180;
+  const o = document.createElement("canvas");
+  o.width = swap ? c.height : c.width;
+  o.height = swap ? c.width : c.height;
+  const g = o.getContext("2d")!;
+  g.imageSmoothingQuality = "high";
+  g.translate(o.width / 2, o.height / 2);
+  g.rotate((deg * Math.PI) / 180);
+  g.drawImage(c, -c.width / 2, -c.height / 2);
+  return o;
+}
+
 export type Scanner = { read: (file: Blob, onProgress: (stage: ScanStage, p: number) => void) => Promise<ScanImage>; stop: () => void };
 
 /** Opens the reader once for a batch. Test hook: window.__faroScanText = ["text of image 1", …] skips the OCR. */
@@ -104,11 +120,35 @@ export async function openScanner(): Promise<Scanner> {
         return { lines, text, w: canvas.width, h: canvas.height, dark: false, canvas, ms: 0 };
       }
       if (!worker) { onProgress("load", 0); await boot(); }
-      const { blob, dark } = await forOcr(canvas);
-      onProgress("read", 0);
-      const { data } = await withOcrTimeout(worker!.recognize(blob, {}, { text: true, blocks: true }), OCR_TIMEOUT_MS, killWorker);
-      if (stopped) throw new Error("stopped");
-      return { lines: linesOf(data, canvas.width), text: data.text || "", w: canvas.width, h: canvas.height, dark, canvas, ms: Math.round(performance.now() - t0) };
+      const readCanvas = async (c: HTMLCanvasElement) => {
+        const { blob, dark } = await forOcr(c);
+        onProgress("read", 0);
+        const { data } = await withOcrTimeout(worker!.recognize(blob, {}, { text: true, blocks: true }), OCR_TIMEOUT_MS, killWorker);
+        if (stopped) throw new Error("stopped");
+        return { lines: linesOf(data, c.width), text: data.text || "", dark };
+      };
+      // 1.3.337 (Oscar, 2026-11-20): the rotation retry. His UPS receipt lay
+      // sideways in the photo — the reader found no amounts and gave up
+      // («No encontré montos») in BOTH orientations he tried, because the
+      // paper, not the phone, was turned. A pass that finds no amount has
+      // failed as a receipt read, so the picture is turned and read again —
+      // clockwise first, then counter-clockwise, then upside down — and the
+      // strongest pass wins (readStrength: amounts first, letters break
+      // ties). A readable picture never pays for the extra passes: the
+      // retry only wakes when the first pass found no amount at all. The
+      // winning canvas travels with its lines, so boxes, thumbnails and
+      // icon crops stay in the turned picture's own coordinates.
+      let best = { ...(await readCanvas(canvas)), canvas };
+      if (!readStrength(best.lines).amounts) {
+        for (const deg of [90, 270, 180] as const) {
+          const rc = rotate(canvas, deg);
+          const r = await readCanvas(rc);
+          const s = readStrength(r.lines), bs = readStrength(best.lines);
+          if (s.amounts > bs.amounts || (s.amounts === bs.amounts && s.letters > bs.letters)) best = { ...r, canvas: rc };
+          if (readStrength(best.lines).amounts) break;
+        }
+      }
+      return { lines: best.lines, text: best.text, w: best.canvas.width, h: best.canvas.height, dark: best.dark, canvas: best.canvas, ms: Math.round(performance.now() - t0) };
     },
     stop() {
       stopped = true;
