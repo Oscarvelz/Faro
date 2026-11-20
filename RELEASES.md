@@ -2727,3 +2727,17 @@ La cura de la ola 18 de la campaña de prejuicio, construida por el equipo amigo
 Verificación: test:faro 2135/2135 (2115 + 20) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre (comprobados idénticos contra la prístina); candado intacto.
 
 Datos de publicación: rollback `rollback-pre-327-2026-11-19` → 3c88380d. Source: 50c643c0. Tag: v1.3.327 → 50c643c0. Main: 90d4212e (chunks) + e77ce1a9 (control). Entrada: index-DhQwAiFh.js.
+
+## 1.3.328 — «El acabado premium de las tarjetas de cuenta» (2026-11-19)
+
+Petición de Oscar (2026-11-19 21:16 EST, con su foto de Lafise en Cyberpunk): «Estoy seguro que estas pestañas en ahorros pueden tener un acabado más premium para las cuentas, para que se vea de lo más precioso según el tema escogido por el usuario.» Pieza de presentación pura, construida por mi mano: ni una cifra, ni un gesto, ni una puerta cambian — las mismas cifras de siempre (pledgedByHost y el saldo) componen las mismas lecturas.
+
+**La tarjeta.** La fila plana es ahora una tarjeta con material: degradado de luz alta sobre la superficie, sombra suave en dos capas y filete interior, radio 18px y aire nuevo (10px 14px). **El medallón** de la cuenta crece de 24 a 36px: anillo en la tinta del ahorro (var(--sav), con el latón de reserva fuera del ámbito), fondo radial en la misma tinta y su glifo a 19px; la foto de la cuenta lo llena redondo. **El saldo** habla en voz segura: 1.07rem, peso 650, tracking cerrado — y el nombre a peso 600. **Las cifras de la cuenta** dejan de correr como frase suelta («C$5,250.00 de esta cuenta ya tiene nombre · Libre: C$4,050.00») y se sientan como una tablita bajo un filete en la tinta del ahorro: la anilla de saldo junto a «Ya tiene nombre» y «Libre» (con su anilla fantasma, para que las etiquetas alineen), cada cifra a la derecha, en la misma columna que el saldo de arriba — la lengua de la tabla de «Lo guardado» (1.3.309) llegada a la tarjeta. La llave de la frase (save.acct.named) se retiró de ambos diccionarios y nació save.acct.namedLab («Ya tiene nombre» / «Already named»); el pin de totales289 que la clavaba quedó enmendado con su razón escrita. La frase del panel (save.panel.pledged) conserva la doctrina intacta.
+
+**Cada tema firma su mano.** Tron: el anillo del medallón lleva la luz racionada del neón del ahorro y el filete respira cian como el resto de la tarjeta. Cyberpunk: la disciplina plana manda — el brillo y la sombra de la hoja base mueren, el medallón es una ficha de cama oscura con el marco de su tono a 2px y la anilla se cuadra. Sus reglas viven junto a las de las ventanas de registros (no en la cola cercada de la banda de Central — la cerca ahorros220 lo exigió y así quedó, con su razón en el comentario). El texto grande conserva su ley asentada (el saldo cede a .86rem dentro del contenedor estrecho; la tira se asienta con él).
+
+**Banco (mis fotos, libro de Oscar):** Cyberpunk y Tron, ES y EN a ancho de teléfono — la tarjeta mide 127px con su tablita, el medallón 36px, las cifras alinean a la derecha con el saldo (borde 337 contra 352 de la tarjeta), «Already named / Free» cabe con la misma geometría; el formulario de movimiento abierto se sienta dentro de la tarjeta vestida sin romperla.
+
+Verificación: test:faro 2139/2139 (2135 + 4 de cuentas328) en la copia de trabajo y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.
+
+Datos de publicación: (se completa tras publicar).

@@ -227,7 +227,12 @@ describe("totales289: los textos de la oleada (§10)", () => {
     assert.equal(translate("es", "save.kept"), "Lo guardado");
     assert.equal(translate("en", "save.kept"), "What you keep");
     assert.match(translate("es", "desk.savings.pledged"), /\{x\}/);
-    assert.match(translate("es", "save.acct.named"), /\{x\}.*\{y\}/);
+    /* ENMIENDA 1.3.328: la línea por cuenta dejó de ser la frase
+       «save.acct.named» (retirada del diccionario) y es una tira de
+       estadísticas con la etiqueta «save.acct.namedLab»; la frase del
+       panel (save.panel.pledged, línea siguiente) conserva la doctrina. */
+    assert.equal(translate("es", "save.acct.namedLab"), "Ya tiene nombre");
+    assert.equal(translate("en", "save.acct.namedLab"), "Already named");
     assert.match(translate("es", "save.panel.pledged"), /\{x\}.*\{y\}/);
     assert.match(translate("es", "save.part.of"), /\{pocket\}.*\{x\}/);
     assert.match(translate("en", "vault.aside.saldo"), /\{x\}/);

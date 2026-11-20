@@ -3971,7 +3971,18 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                     }}>{fmt(row.minor)}</button>
                   </div>
                   {has("nature.class-saldo") && (stock.pledgedByHost.get(row.id) ?? 0) > 0 ? (
-                    <p className="save-acct-line">{t("save.acct.named").replace("{x}", fmt(stock.pledgedByHost.get(row.id) ?? 0)).replace("{y}", fmt(row.minor - (stock.pledgedByHost.get(row.id) ?? 0)))}</p>
+                    <div className="save-acct-stats">
+                      <span className="acct-stat">
+                        <i className="acct-ring" aria-hidden="true" />
+                        <span className="acct-stat-lab">{t("save.acct.namedLab")}</span>
+                        <strong className="num">{fmt(stock.pledgedByHost.get(row.id) ?? 0)}</strong>
+                      </span>
+                      <span className="acct-stat">
+                        <i className="acct-ring is-ghost" aria-hidden="true" />
+                        <span className="acct-stat-lab">{t("save.free")}</span>
+                        <strong className="num">{fmt(row.minor - (stock.pledgedByHost.get(row.id) ?? 0))}</strong>
+                      </span>
+                    </div>
                   ) : null}
                   {accountFocus === row.id ? (
                     row.minor > 0 || lines.some((line) => line.subId === row.id && line.startedOn) || !has("accounts.opening") ? (
