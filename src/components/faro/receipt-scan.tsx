@@ -42,7 +42,7 @@ const money = (minor: number | null) => (minor == null ? "" : (minor / 100).toFi
  * A desktop with a fine pointer and no camera skips the chooser and opens the file picker at once.
  * The chooser and the sheet are portalled to <body>.
  */
-export function ScanEntry({ from }: { from: LineKind }) {
+export function ScanEntry({ from, bare, startRect, onSettled }: { from: LineKind; bare?: boolean; startRect?: DOMRect | null; onSettled?: () => void }) {
   const { lang } = useFaro();
   const [files, setFiles] = useState<File[] | null>(null);
   const [review, setReview] = useState(false);
@@ -51,6 +51,17 @@ export function ScanEntry({ from }: { from: LineKind }) {
   const btn = useRef<HTMLButtonElement>(null);
   const many = useRef<HTMLInputElement>(null);
   const cam = useRef<HTMLInputElement>(null);
+  // 1.3.350: born bare when a Central gesture fires the scan door — no pill of
+  // its own; the Cámara/Imágenes chooser opens at once, anchored to the corner
+  // button the finger just left (startRect), and onSettled tells the host the
+  // whole flow came back to rest so it can unmount this entry.
+  const bareStarted = useRef(false);
+  useEffect(() => {
+    if (!bare || bareStarted.current) return;
+    bareStarted.current = true;
+    if (!hasCam) { many.current?.click(); return; }
+    setMenu(startRect ?? null);
+  }, [bare, hasCam, startRect]);
   useEffect(() => {
     // Phones and tablets always offer the camera; a mouse-only device offers it only when it has one.
     const fine = typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches && !matchMedia("(any-pointer: coarse)").matches;
@@ -66,17 +77,26 @@ export function ScanEntry({ from }: { from: LineKind }) {
     setMenu((m) => (m ? null : btn.current?.getBoundingClientRect() ?? null));
   };
   const choose = (r: RefObject<HTMLInputElement | null>) => { setMenu(null); r.current?.click(); };
+  // Bare only: a camera probe that lands on "no camera" swaps the open menu for the file picker, like a tap would.
+  useEffect(() => {
+    if (bare && menu && !hasCam) { setMenu(null); many.current?.click(); }
+  }, [bare, menu, hasCam]);
+  const closeMenu = () => { setMenu(null); if (bare) onSettled?.(); };
+  const closeSheet = () => { setFiles(null); if (bare) onSettled?.(); };
+  const closeReview = () => { setReview(false); if (bare) onSettled?.(); };
   return (
     <span className="scn-entry" onClick={(e) => e.stopPropagation()}>
-      <button ref={btn} type="button" className="scn-btn" data-anchor="scan-add" aria-haspopup={hasCam ? "menu" : undefined} aria-expanded={hasCam ? !!menu : undefined} onClick={tap}>
-        <span>{L(lang, "Escanear", "Scan")}</span>
-        <Aperture aria-hidden />
-      </button>
+      {bare ? null : (
+        <button ref={btn} type="button" className="scn-btn" data-anchor="scan-add" aria-haspopup={hasCam ? "menu" : undefined} aria-expanded={hasCam ? !!menu : undefined} onClick={tap}>
+          <span>{L(lang, "Escanear", "Scan")}</span>
+          <Aperture aria-hidden />
+        </button>
+      )}
       <input ref={many} className="scn-file" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
       <input ref={cam} className="scn-file is-cam" type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
-      {menu ? createPortal(<ScanChooser at={menu} onCamera={() => choose(cam)} onImages={() => choose(many)} onClose={() => setMenu(null)} />, document.body) : null}
-      {files ? createPortal(<ScanSheet files={files} from={from} onClose={() => setFiles(null)} onReview={() => { setFiles(null); setReview(true); }} />, document.body) : null}
-      {review ? <ReviewTable onClose={() => setReview(false)} /> : null}
+      {menu ? createPortal(<ScanChooser at={menu} onCamera={() => choose(cam)} onImages={() => choose(many)} onClose={closeMenu} />, document.body) : null}
+      {files ? createPortal(<ScanSheet files={files} from={from} onClose={closeSheet} onReview={() => { setFiles(null); setReview(true); }} />, document.body) : null}
+      {review ? <ReviewTable onClose={closeReview} /> : null}
     </span>
   );
 }

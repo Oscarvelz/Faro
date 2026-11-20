@@ -29,6 +29,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.350",
+    date: "2026-11-20",
+    level: "grande",
+    title: { es: "Las puertas de Central", en: "Central's doors" },
+    points: {
+      es: [
+        "Toca el + o el − de Central y elige cómo anotar: Anotar, Escribir, Lista o Escanear — cada puerta abre directo en su modo.",
+        "Los gestos de los botones aprenden las puertas: mantener, doble toque o deslizar el dedo puede abrir Escribir, Lista o Escanear sin pasos intermedios.",
+        "Todo se asigna en Ajustes → Atajos de Central, con los botones de captura y el de Pagos bien separados; el botón de Pagos también acepta deslizar hacia Me Deben, Debo, Cuotas o Préstamos.",
+      ],
+      en: [
+        "Tap Central's + or − and choose how to add: Note it, Write, List or Scan — each door opens straight into its mode.",
+        "The buttons' gestures learn the doors: hold, double tap or swipe can open Write, List or Scan with no steps in between.",
+        "Everything is assigned in Settings → Central shortcuts, with the capture buttons and the Pagos button kept well apart; the Pagos button also takes a swipe to Owed to me, I owe, Plans or Loans.",
+      ],
+    },
+  },
+  {
     version: "1.3.349",
     date: "2026-11-20",
     level: "menor",

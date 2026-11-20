@@ -152,9 +152,11 @@ describe("atajos de Central: sin obsolescencia", () => {
     assert.ok(links.includes('"Central shortcuts": "atajos-mas-menos"'), "LINKS: Central shortcuts → atajos-mas-menos");
   });
 
-  it("la Presentación cuenta seis atajos y nombra la tarjeta nueva (m5-atajos)", () => {
-    assert.ok(guion.includes("Los seis atajos se asignan en Ajustes, «Atajos de Central»."), "el contexto de m5-atajos dice seis y el nombre nuevo");
-    assert.ok(guion.includes("The six shortcuts are assigned in Settings, “Central shortcuts”."), "el contexto EN dice seis y el nombre nuevo");
+  it("la Presentación cuenta los atajos y nombra la tarjeta nueva (m5-atajos)", () => {
+    // 1.3.350: el gesto de deslizar suma tres huecos (uno por botón) — la
+    // cuenta pasa de seis a nueve, en el guion y en esta cerca a la vez.
+    assert.ok(guion.includes("Los nueve atajos se asignan en Ajustes, «Atajos de Central»."), "el contexto de m5-atajos dice nueve y el nombre nuevo");
+    assert.ok(guion.includes("The nine shortcuts are assigned in Settings, “Central shortcuts”."), "el contexto EN dice nueve y el nombre nuevo");
     assert.ok(!guion.includes("cuatro atajos"), "ya ningún texto cuenta cuatro atajos");
   });
 });

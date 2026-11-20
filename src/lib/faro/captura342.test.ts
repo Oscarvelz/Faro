@@ -101,7 +101,9 @@ describe("ola3 · la puerta de la lista: asiento, receta y tema", () => {
   it("las tres puertas son la misma hoja (formularios ×2 y la bandeja)", () => {
     const screens = readFileSync(new URL("../../components/faro/screens.tsx", import.meta.url), "utf8");
     const tray = readFileSync(new URL("../../components/faro/tray.tsx", import.meta.url), "utf8");
-    assert.equal((screens.match(/<ListEntry \/>/g) ?? []).length, 2, "LineForm y QuickAdd llevan la puerta");
+    // 1.3.350: el selector de puertas de Central es la tercera casa de la
+    // puerta — el mismo componente, jamás uno paralelo (orden de Oscar).
+    assert.equal((screens.match(/<ListEntry \/>/g) ?? []).length, 3, "LineForm, QuickAdd y el selector de Central llevan la puerta");
     assert.match(tray, /CaptureListSheet/, "la bandeja abre la misma hoja");
     assert.match(tray, /data-anchor="tray-list"/, "con su botón propio en la hoja de la bandeja");
   });

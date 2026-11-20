@@ -81,8 +81,9 @@ const GUEST_NAMES: Record<string, [string, string]> = {
 import { StudyCharts, StatBreaks, StatFold, StatFoldProvider, StudyStack } from "./charts";
 import { LineForm, QuickAdd, DayField, ThemeSelect } from "./line-form";
 import { ScanEntry } from "./receipt-scan";
-import { TextEntry } from "./capture-text";
-import { ListEntry } from "./capture-list";
+import { CaptureTextSheet, TextEntry } from "./capture-text";
+import { CaptureListSheet, ListEntry } from "./capture-list";
+import { ReviewTable } from "./review-table";
 import { TrayCard } from "./tray";
 import { BookKit, type KitRow } from "./book-kit";
 import { useLongPress } from "./use-longpress";
@@ -1997,6 +1998,16 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [lamp, setLamp] = useState<"good" | "warn" | "bad" | null>(null);
   const [flowDir, setFlowDir] = useState(1);
   const [quick, setQuick] = useState<null | "in" | "out">(null);
+  // 1.3.350: the plain tap on + / − opens the doors chooser first (Anotar ·
+  // Escribir · Lista · Escanear); a gesture can still jump straight past it.
+  const [choose, setChoose] = useState<null | "in" | "out">(null);
+  const chooseRef = useRef<HTMLDivElement>(null);
+  // 1.3.350: a gesture fired at a capture door — the sheet the Desk hosts
+  // directly, the very one the door's own entry opens (never a parallel one).
+  const [door, setDoor] = useState<null | { which: "text" | "list" | "scan"; n: number; rect: DOMRect | null }>(null);
+  const [doorReview, setDoorReview] = useState(false);
+  const doorN = useRef(0);
+  const swipeStart = useRef<{ in?: { x: number; y: number }; out?: { x: number; y: number }; due?: { x: number; y: number } }>({});
   const [jump, setJump] = useState<null | { kind: LineKind; categoryId: string; title: string }>(null);
   const holdTimer = useRef<{ in?: number; out?: number; due?: number }>({});
   const clickTimer = useRef<{ in: number; out: number; due: number }>({ in: 0, out: 0, due: 0 });
@@ -2314,6 +2325,28 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       window.removeEventListener("faro-back", onBack, true);
     };
   }, [quick]);
+  // 1.3.350: the doors chooser obeys the quick panel's own manners — a tap
+  // outside it (or on a lens card) puts it away, and phone Back closes it first.
+  useEffect(() => {
+    if (!choose) return;
+    chooseRef.current?.scrollIntoView({ block: "nearest" });
+    const hide = (e: Event) => {
+      const target = e.target;
+      if (target instanceof Element && (chooseRef.current?.contains(target) || target.closest(".lens-corner"))) return;
+      setChoose(null);
+    };
+    const onBack = (e: Event) => {
+      if (e.defaultPrevented) return;
+      setChoose(null);
+      e.preventDefault();
+    };
+    document.addEventListener("pointerdown", hide, true);
+    window.addEventListener("faro-back", onBack, true);
+    return () => {
+      document.removeEventListener("pointerdown", hide, true);
+      window.removeEventListener("faro-back", onBack, true);
+    };
+  }, [choose]);
   // Central's ring (1.3.94): the choice picked last, a lens or a savings pocket, is where a finger swipe steps from.
   // 1.3.97: the lens list swapped by a tap or a ring step gets `is-swap` (no arrival fades inside, see debts.css); the first one keeps Tron's rez.
   const lastLens = useRef(lens);
@@ -3167,10 +3200,54 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     setLens((cur) => (cur === id && !fromFlow ? "all" : id));
   }
 
+  // 1.3.350: a gesture slot can name a capture door instead of an area —
+  // «door:text» · «door:list» · «door:scan». Resolved apart from gestureOf so
+  // a door value can never be misread as an area jump; the seat is checked at
+  // fire time, like F-4 (a sleeping door does nothing and is never erased).
+  function doorOf(slot: string, mode: "in" | "out"): "text" | "list" | "scan" | null {
+    const raw = session?.ledger.settings.gestures?.[slot];
+    if (raw === "door:text") return has("capture.text") ? "text" : null;
+    if (raw === "door:list") return has("capture.list") ? "list" : null;
+    if (raw === "door:scan") return mode === "out" ? "scan" : null;
+    return null;
+  }
+  function fireDoor(which: "text" | "list" | "scan", mode: "in" | "out") {
+    setChoose(null);
+    setJump(null);
+    setQuick(null);
+    setCobros(false);
+    const rect = which === "scan" ? document.querySelector<HTMLElement>(`[data-anchor="${mode === "in" ? "desk-plus" : "desk-minus"}"]`)?.getBoundingClientRect() ?? null : null;
+    doorN.current += 1;
+    setDoor({ which, n: doorN.current, rect });
+  }
+  // 1.3.350: the swipe watch, shared by corner() and cornerDue() — a finger
+  // that leaves the button by a clear margin (30 px, any direction) fires the
+  // slot's destination at once and swallows the tap that would follow. Only
+  // attached when the button actually has a swipe shortcut, so an unassigned
+  // button keeps its exact old touch behaviour (and its scroll).
+  function swipeWatch(key: "in" | "out" | "due", active: boolean, fire: () => void) {
+    if (!active) return {};
+    return {
+      onPointerDown: (e: { clientX: number; clientY: number }) => { swipeStart.current[key] = { x: e.clientX, y: e.clientY }; },
+      onPointerMove: (e: { clientX: number; clientY: number }) => {
+        const start = swipeStart.current[key];
+        if (!start) return;
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 30) return;
+        swipeStart.current[key] = undefined;
+        heldFlag.current[key] = true;
+        if (holdTimer.current[key]) window.clearTimeout(holdTimer.current[key]);
+        holdTimer.current[key] = undefined;
+        fire();
+      },
+      onPointerUp: () => { swipeStart.current[key] = undefined; },
+      onPointerCancel: () => { swipeStart.current[key] = undefined; },
+    };
+  }
   function gestureOf(slot: string) {
     const raw = session?.ledger.settings.gestures?.[slot];
     if (!raw) return null;
     const [kind, categoryId = ""] = raw.split(":");
+    if (kind === "door") return null;
     // F-4 (etapa 3.1): la elección guardada se resuelve contra el modo AL
     // DISPARAR — un gesto a un destino que el modo no tiene no hace nada, y
     // el valor guardado nunca se borra: vuelve solo al subir de modo.
@@ -3188,21 +3265,34 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       if (holdTimer.current[mode]) window.clearTimeout(holdTimer.current[mode]);
       holdTimer.current[mode] = undefined;
     };
+    const swipe = swipeWatch(mode, !!(doorOf(`${mode}.swipe`, mode) || gestureOf(`${mode}.swipe`)), () => {
+      const door = doorOf(`${mode}.swipe`, mode);
+      if (door) { fireDoor(door, mode); return; }
+      const hit = gestureOf(`${mode}.swipe`);
+      if (!hit) return;
+      setChoose(null);
+      setJump(hit);
+      setQuick(mode);
+    });
     return {
-      onPointerDown: () => {
+      onPointerDown: (e: { clientX: number; clientY: number }) => {
+        swipe.onPointerDown?.(e);
         heldFlag.current[mode] = false;
         clearHold();
         holdTimer.current[mode] = window.setTimeout(() => {
           heldFlag.current[mode] = true;
+          const door = doorOf(`${mode}.hold`, mode);
+          if (door) { fireDoor(door, mode); return; }
           const hit = gestureOf(`${mode}.hold`);
           if (!hit) return;
           setJump(hit);
           setQuick(mode);
         }, 1000);
       },
-      onPointerUp: clearHold,
+      onPointerMove: swipe.onPointerMove,
+      onPointerUp: () => { swipe.onPointerUp?.(); clearHold(); },
       onPointerLeave: clearHold,
-      onPointerCancel: clearHold,
+      onPointerCancel: () => { swipe.onPointerCancel?.(); clearHold(); },
       onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault(),
       onClick: () => {
         if (heldFlag.current[mode]) {
@@ -3217,7 +3307,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           if (quick && quick !== mode) (window as Window & { __faroQuickSwap?: boolean }).__faroQuickSwap = true;
           setCobros(false);
           setJump(null);
-          setQuick(mode);
+          setQuick(null);
+          setChoose(mode);
           clickTimer.current[mode] = Date.now();
           return;
         }
@@ -3229,6 +3320,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           openTimer.current[mode] = undefined;
         }
         if (doubled) {
+          const door = doorOf(`${mode}.double`, mode);
+          if (door) { fireDoor(door, mode); return; }
           const hit = gestureOf(`${mode}.double`);
           if (hit) {
             setJump(hit);
@@ -3238,10 +3331,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         }
         const open = () => {
           openTimer.current[mode] = undefined;
+          // 1.3.350: the plain tap raises the doors chooser; with its own
+          // editor already open it still just closes it, as it always did.
+          if (quick === mode) { setQuick(null); setJump(null); return; }
+          if (choose === mode) { setChoose(null); return; }
           setJump(null);
-          setQuick((cur) => (cur === mode ? null : mode));
+          setChoose(mode);
         };
-        if (!gestureOf(`${mode}.double`)) {
+        if (!gestureOf(`${mode}.double`) && !doorOf(`${mode}.double`, mode)) {
           open();
           return;
         }
@@ -3320,8 +3417,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       if (holdTimer.current.due) window.clearTimeout(holdTimer.current.due);
       holdTimer.current.due = undefined;
     };
+    const swipe = swipeWatch("due", !!dueGestureOf("due.swipe"), () => {
+      const hit = dueGestureOf("due.swipe");
+      if (hit) openCobrosAt(hit);
+    });
     return {
-      onPointerDown: () => {
+      onPointerDown: (e: { clientX: number; clientY: number }) => {
+        swipe.onPointerDown?.(e);
         heldFlag.current.due = false;
         clearHold();
         holdTimer.current.due = window.setTimeout(() => {
@@ -3331,9 +3433,10 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           openCobrosAt(hit);
         }, 1000);
       },
-      onPointerUp: clearHold,
+      onPointerMove: swipe.onPointerMove,
+      onPointerUp: () => { swipe.onPointerUp?.(); clearHold(); },
       onPointerLeave: clearHold,
-      onPointerCancel: clearHold,
+      onPointerCancel: () => { swipe.onPointerCancel?.(); clearHold(); },
       onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault(),
       onClick: () => {
         if (heldFlag.current.due) {
@@ -3477,7 +3580,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <span className="lens-value num">{fmt(summary.income)}</span>
             <span className="lens-note">{t("desk.have.note")}</span>
           </button>
-          <button type="button" data-anchor="desk-plus" className={`lens-corner is-plus${lowCorner("plus", "have") ? " is-low" : ""}`} aria-label={t("desk.addIn")} aria-pressed={quick === "in"} {...corner("in")}>
+          <button type="button" data-anchor="desk-plus" className={`lens-corner is-plus${lowCorner("plus", "have") ? " is-low" : ""}`} aria-label={t("desk.addIn")} aria-pressed={quick === "in" || choose === "in"} style={(doorOf("in.swipe", "in") || gestureOf("in.swipe")) ? { touchAction: "none" } : undefined} {...corner("in")}>
             <Plus className="size-3.5" />
           </button>
         </div>
@@ -3493,7 +3596,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 monto, para que nadie lea «gastado» lo que está guardado. */}
             <span className="lens-note">{summary.savingsFlow > 0 ? t("desk.spend.note.saved").replace("{x}", fmt(summary.savingsFlow)) : t("desk.spend.note")}</span>
           </button>
-          <button type="button" data-anchor="desk-minus" className={`lens-corner is-minus${lowCorner("minus", "spend") ? " is-low" : ""}`} aria-label={t("desk.addOut")} aria-pressed={quick === "out"} {...corner("out")}>
+          <button type="button" data-anchor="desk-minus" className={`lens-corner is-minus${lowCorner("minus", "spend") ? " is-low" : ""}`} aria-label={t("desk.addOut")} aria-pressed={quick === "out" || choose === "out"} style={(doorOf("out.swipe", "out") || gestureOf("out.swipe")) ? { touchAction: "none" } : undefined} {...corner("out")}>
             <span aria-hidden>−</span>
           </button>
         </div>
@@ -3505,7 +3608,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             <span className="lens-value num">{fmt(summary.debt)}</span>
             <span className="lens-note">{t("desk.debt.note")}</span>
           </button>
-          <button type="button" data-anchor="desk-cobro" className={`lens-corner is-cobro${lowCorner("cobro", "debt") ? " is-low" : ""}`} aria-label={t("cobro.open")} aria-pressed={btnOn === "cobro"} {...cornerDue()}>
+          <button type="button" data-anchor="desk-cobro" className={`lens-corner is-cobro${lowCorner("cobro", "debt") ? " is-low" : ""}`} aria-label={t("cobro.open")} aria-pressed={btnOn === "cobro"} style={dueGestureOf("due.swipe") ? { touchAction: "none" } : undefined} {...cornerDue()}>
             <svg viewBox="0 0 16 16" aria-hidden>
               <circle cx="5.6" cy="4.7" r="1.85" fill="none" stroke="currentColor" strokeWidth="1.5" />
               <path d="M2.5 12.5c.5-2.2 1.7-3.2 3.1-3.2s2.6 1 3.1 3.2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -3526,7 +3629,45 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <QuickHello key={`qh-${quick}`} mode={quick} />
         </div>
       ) : null}
+      {choose && !quick ? (
+        <div ref={chooseRef} className="sheet-swap" data-mode={choose} data-anchor="capture-choose">
+          <section className={`card where-sheet cap-choose${choose === "in" ? " is-in" : " is-out"}`}>
+            <div className="cap-choose-head">
+              <h2 className="serif text-xl">{t("choose.title")}</h2>
+              <Hint topic="atajos-mas-menos" />
+            </div>
+            <div className="cap-choose-row">
+              <button type="button" className="cap-choose-btn" data-anchor="choose-note" onClick={() => { const m = choose; setChoose(null); setJump(null); setQuick(m); }}>
+                <Pencil aria-hidden /><span>{t("choose.note")}</span>
+              </button>
+              <p>{t("choose.note.sub")}</p>
+            </div>
+            {has("capture.text") ? (
+              <div className="cap-choose-row">
+                <TextEntry />
+                <p>{t("choose.text.sub")}</p>
+              </div>
+            ) : null}
+            {has("capture.list") ? (
+              <div className="cap-choose-row">
+                <ListEntry />
+                <p>{t("choose.list.sub")}</p>
+              </div>
+            ) : null}
+            {choose === "out" ? (
+              <div className="cap-choose-row">
+                <ScanEntry from="expense-variable" />
+                <p>{t("choose.scan.sub")}</p>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      ) : null}
       {cobros ? <Cobros jumped={cobrosJump} startSide={cobrosBack?.side ?? cobrosSide} ping={cobrosJump ? 0 : cobrosPing} wait={cobrosWait} onClose={() => { setCobros(false); setCobrosJump(false); }} /> : null}
+      {door?.which === "text" ? <CaptureTextSheet onClose={() => setDoor(null)} onReview={() => { setDoor(null); setDoorReview(true); }} /> : null}
+      {door?.which === "list" ? <CaptureListSheet onClose={() => setDoor(null)} onReview={() => { setDoor(null); setDoorReview(true); }} /> : null}
+      {door?.which === "scan" ? <ScanEntry key={`door-scan-${door.n}`} bare startRect={door.rect} from="expense-variable" onSettled={() => setDoor(null)} /> : null}
+      {doorReview ? <ReviewTable onClose={() => setDoorReview(false)} /> : null}
       <TrayCard />
       </>
       )}
@@ -6001,7 +6142,7 @@ export function Settings() {
         ))}
         <button type="button" className="btn ghost mt-2" onClick={() => confirm({ title: t("settings.resetKeys"), body: t("settings.resetKeys.body"), danger: true, yes: t("settings.resetKeys.yes"), run: () => commit((s) => ({ ...s, settings: { ...s.settings, shortcuts: { ...DEFAULT_SHORTCUTS } } }), "keys") })}>{t("settings.resetKeys")}</button>
       </Fold>
-      <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Long or double tap" : "Toque largo o doble"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
+      <Fold id="gestures" icon={Hand} sub={lang === "en" ? "Hold, double tap or swipe" : "Toque largo, doble o deslizar"} topic="atajos-mas-menos" title={t("gesture.title")} open={openFold === "gestures"} onToggle={() => toggle("gestures")}>
         <Note kind="tip">{t("gesture.help")}</Note>
         {([
           { head: "gesture.btnIn", mode: "in" },
@@ -6017,6 +6158,9 @@ export function Settings() {
           const options = [{ value: "", label: t("gesture.none") }];
           if (mode === "in") {
             options.push({ value: "income-fixed", label: t("income.fixed") }, { value: "income-variable", label: t("income.variable") });
+            // 1.3.350: las puertas de captura también son destino de gesto.
+            if (has("capture.text")) options.push({ value: "door:text", label: t("gesture.doorText") });
+            if (has("capture.list")) options.push({ value: "door:list", label: t("gesture.doorList") });
           } else if (mode === "due") {
             options.push(
               { value: "owed", label: t("cobro.owed") },
@@ -6035,15 +6179,19 @@ export function Settings() {
               options.push({ value: `purchase:${shop.id}`, label: `${t("nav.shops")} · ${displayName(shop, lang)}` });
             }
             if (has("subs.cuota")) options.push({ value: "subscription", label: t("tab.subs") });
+            // 1.3.350: las puertas de captura también son destino de gesto (Escanear solo vive en el −).
+            if (has("capture.text")) options.push({ value: "door:text", label: t("gesture.doorText") });
+            if (has("capture.list")) options.push({ value: "door:list", label: t("gesture.doorList") });
+            options.push({ value: "door:scan", label: t("gesture.doorScan") });
           }
           return (
             <div key={mode} className="gesture-group">
               <h4 className="gesture-group-head">{t(head)}</h4>
-              {(["hold", "double"] as const).map((gesture) => {
+              {(["hold", "double", "swipe"] as const).map((gesture) => {
                 const slot = `${mode}.${gesture}`;
                 return (
                   <label key={slot} className="label mt-3">
-                    {t(gesture === "hold" ? "gesture.hold" : "gesture.double")}
+                    {t(gesture === "hold" ? "gesture.hold" : gesture === "double" ? "gesture.double" : "gesture.swipe")}
                     <ThemeSelect
                       value={settings.gestures?.[slot] ?? ""}
                       onChange={(value) => commit((s) => {
