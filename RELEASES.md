@@ -2726,4 +2726,4 @@ La cura de la ola 18 de la campaña de prejuicio, construida por el equipo amigo
 
 Verificación: test:faro 2135/2135 (2115 + 20) en la copia de integración y en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre (comprobados idénticos contra la prístina); candado intacto.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: rollback `rollback-pre-327-2026-11-19` → 3c88380d. Source: 50c643c0. Tag: v1.3.327 → 50c643c0. Main: 90d4212e (chunks) + e77ce1a9 (control). Entrada: index-DhQwAiFh.js.
