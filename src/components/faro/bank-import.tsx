@@ -7,7 +7,7 @@ import { ArrowLeftRight, Ban, Settings as Gear, Check, CopyCheck, FileImage, Fil
 import { formatMoney } from "@/lib/faro/money";
 import { GUIDE_BUILTIN, accounts, guideName, guidesOf, importBook, rcLabel, resetGuides, rowFor, saveGuides } from "@/lib/faro/bankbook";
 import { GuideEditor, GuideMark } from "./bank-guides";
-import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, lineAmount, parseFile, pickSource, remap, revertImportCounted, rewardFor, type ImportAdjustment, type ParsedFile, type Review, type Row, type Undo } from "@/lib/faro/bankparse";
+import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, fromXlsx, lineAmount, parseFile, pickSource, remap, revertImportCounted, rewardFor, xlsxSheet, type ImportAdjustment, type ParsedFile, type Review, type Row, type Undo } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
 import { translate } from "@/lib/faro/i18n";
 import type { ColumnMap, Currency, LedgerState, RewardClass } from "@/lib/faro/types";
@@ -30,12 +30,22 @@ const FULL: Record<string, string[]> = {
 const day = (iso: string, lang: string) => `${Number(iso.slice(8, 10))}\u00a0${MONTHS[lang === "en" ? "en" : "es"][Number(iso.slice(5, 7)) - 1]}`;
 
 type Over = { target: Record<string, string>; include: Record<string, boolean> };
-const ACCEPT = ".pdf,.csv,.qfx,.ofx,.qif,.txt,application/pdf,text/csv,application/x-ofx,application/vnd.intu.qfx";
+const ACCEPT = ".pdf,.csv,.qfx,.ofx,.qif,.txt,.xlsx,.xls,application/pdf,text/csv,application/x-ofx,application/vnd.intu.qfx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-/** One chosen file: a statement PDF goes to the PDF reader (loaded now, only for PDFs); anything else is text. */
+/** One chosen file: a statement PDF goes to the PDF reader, an Excel workbook to the home-grown reader (both loaded only when such a file arrives); anything else is text. */
 async function readOne(f: File, maps: Record<string, ColumnMap>, onPdf: () => void): Promise<ParsedFile> {
   const buf = await f.arrayBuffer();
   const h = new Uint8Array(buf.slice(0, 4));
+  if ((h[0] === 0x50 && h[1] === 0x4b) || /\.xlsx?$/i.test(f.name)) {
+    try {
+      const { readXlsx } = await import("@/lib/faro/xlsxread");
+      const r = await readXlsx(new Uint8Array(buf));
+      if ("error" in r) return { name: f.name, format: "xlsx", bank: "other", sig: `xlsx:${f.name}`, rows: [], error: "unreadable" };
+      return fromXlsx(f.name, r.sheets, maps);
+    } catch {
+      return { name: f.name, format: "xlsx", bank: "other", sig: `xlsx:${f.name}`, rows: [], error: "unreadable" };
+    }
+  }
   if (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) {
     onPdf();
     try {
@@ -95,6 +105,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
       const why = read[0]?.error;
       setBad(why === "pdf-image" ? L(lang, "Ese PDF es una imagen sin texto. Descarga el estado desde el sitio del banco.", "That PDF is a picture with no text. Download the statement from the bank's website.")
         : why === "pdf-unknown" ? L(lang, "Faro aún no conoce ese PDF. Prueba con el CSV o QFX de tu banco.", "Faro does not know that PDF yet. Try your bank's CSV or QFX.")
+        : read[0]?.format === "xlsx" ? L(lang, "Ese Excel no se pudo leer. Si es un .xls antiguo, guárdalo como .xlsx o CSV y vuelve a intentarlo.", "That Excel file could not be read. If it is an old .xls, save it as .xlsx or CSV and try again.")
         : L(lang, "Ese archivo no es un estado de cuenta que Faro sepa leer.", "That file is not a statement Faro knows how to read."));
       return;
     }
@@ -219,7 +230,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                 <input type="file" multiple accept={ACCEPT} hidden onChange={(e) => { void take(e.target.files); e.currentTarget.value = ""; }} />
                 <span className="imp-drop-ico" aria-hidden><FileUp /></span>
                 <strong>{busy ? L(lang, "Leyendo el PDF", "Reading the PDF") : L(lang, "Elige tus archivos", "Choose your files")}</strong>
-                <span>{L(lang, "PDF del estado, CSV, QFX, OFX o QIF", "Statement PDF, CSV, QFX, OFX or QIF")}</span>
+                <span>{L(lang, "PDF del estado, CSV, Excel, QFX, OFX o QIF", "Statement PDF, CSV, Excel, QFX, OFX or QIF")}</span>
               </label>
               <p className="imp-safe"><ShieldCheck aria-hidden /><span>{L(lang, "El archivo no se sube; tus datos sí.", "The file stays here; your data syncs.")}</span><Hint topic="imp-archivo" /></p>
               {bad ? <p className="imp-bad" role="alert">{bad}</p> : null}
@@ -245,6 +256,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
 
           {mapAt >= 0 && files[mapAt]?.csv ? (
             <MapForm lang={lang} file={files[mapAt]} onCancel={() => { const rest = files.filter((_, i) => i !== mapAt); setFiles(rest); setSources(sources.filter((_, i) => i !== mapAt)); setCurrs(currs.filter((_, i) => i !== mapAt)); setMapAt(rest.findIndex((f) => f.csv && !f.csv.auto)); }}
+              onSheet={(idx) => { const f = xlsxSheet(files[mapAt], idx, { ...importBook(state).maps, ...maps.current }); if (f !== files[mapAt]) setFiles(files.map((x, i) => (i === mapAt ? f : x))); }}
               onDone={(map) => { const f = remap(files[mapAt], map); maps.current[f.sig] = map; const all = files.map((x, i) => (i === mapAt ? f : x)); setFiles(all); setMapAt(all.findIndex((x) => x.csv && !x.csv.auto)); }} />
           ) : null}
 
@@ -260,6 +272,12 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                       <Hint topic="imp-cuenta" />
                     </div>
                     {f.pdf ? <PdfNotes lang={lang} file={f} money={money} /> : null}
+                    {f.xlsx ? (
+                      <p className="imp-pdf-note" data-anchor="imp-xlsx-note">
+                        {f.xlsx.names.length > 1 ? `${L(lang, "Hoja", "Sheet")}: ${f.xlsx.names[f.xlsx.sheet]} · ` : ""}
+                        {f.xlsx.totals ? (f.xlsx.totals === 1 ? L(lang, "1 fila de total quedó fuera: no es un gasto.", "1 total row was left out: it is not a purchase.") : L(lang, `${f.xlsx.totals} filas de total quedaron fuera: no son gastos.`, `${f.xlsx.totals} total rows were left out: they are not purchases.`)) : L(lang, "Excel leído en tu teléfono.", "Excel read on your phone.")}
+                      </p>
+                    ) : null}
                     {(() => {
                       const rec = fileRecon(rv.rows, i);
                       if (!rec.rows) return null;
@@ -403,7 +421,7 @@ function PdfNotes({ lang, file, money }: { lang: string; file: ParsedFile; money
   );
 }
 
-function MapForm({ lang, file, onCancel, onDone }: { lang: string; file: ParsedFile; onCancel: () => void; onDone: (m: ColumnMap) => void }) {
+function MapForm({ lang, file, onCancel, onDone, onSheet }: { lang: string; file: ParsedFile; onCancel: () => void; onDone: (m: ColumnMap) => void; onSheet?: (idx: number) => void }) {
   const csv = file.csv!;
   const [m, setM] = useState<ColumnMap>(csv.map);
   const [two, setTwo] = useState(csv.map.debit >= 0);
@@ -422,6 +440,12 @@ function MapForm({ lang, file, onCancel, onDone }: { lang: string; file: ParsedF
     <div className="imp-map" data-anchor="imp-map">
       <h4 className="lab-head">{L(lang, "Columnas del archivo", "File columns")}<Hint topic="imp-columnas" /></h4>
       <p className="imp-map-file">{file.name}</p>
+      {file.xlsx && file.xlsx.names.length > 1 ? (
+        <label className="imp-map-field">
+          <span className="lab-head">{L(lang, "Hoja", "Sheet")}<Hint topic="importar" /></span>
+          <ThemeSelect value={String(file.xlsx.sheet)} onChange={(v) => onSheet?.(Number(v))} options={file.xlsx.names.map((n, i) => ({ value: String(i), label: n }))} />
+        </label>
+      ) : null}
       <div className="imp-map-grid">
         {field(L(lang, "Fecha", "Date"), "imp-col-fecha", "date")}
         {field(L(lang, "Descripción", "Description"), "imp-col-desc", "desc")}

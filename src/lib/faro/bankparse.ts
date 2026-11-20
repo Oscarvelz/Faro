@@ -21,9 +21,10 @@ export type RawTx = {
   flow?: Flow; pp?: boolean; fund?: string; rc?: RewardClass; cat?: string; noReward?: boolean;
 };
 export type Bank = "chase" | "wellsfargo" | "statefarm" | "paypal" | "other";
+export type XlsxInfo = { names: string[]; tables: string[][][]; sheet: number; totals: number };
 export type ParsedFile = {
   name: string;
-  format: "ofx" | "qif" | "csv" | "pdf";
+  format: "ofx" | "qif" | "csv" | "pdf" | "xlsx";
   bank: Bank;
   kind?: AcctKind;
   tail?: string;
@@ -31,6 +32,8 @@ export type ParsedFile = {
   sig: string;
   rows: RawTx[];
   csv?: { headers: string[]; data: string[][]; map: ColumnMap; auto: boolean };
+  /** An Excel workbook (xlsxread.ts read it): every sheet's raw table, the active sheet, and the total rows excluded on mapping (counted in remap, the moment rows are built). */
+  xlsx?: XlsxInfo;
   /** A monthly statement PDF: its period, pages without text, the check against its own summary, its rewards line. */
   pdf?: Pick<PdfStatement, "issuer" | "period" | "imagePages" | "recon" | "rewards" | "begin" | "end" | "apyBps">;
   error?: string;
@@ -352,8 +355,55 @@ export function parseFile(name: string, text: string, maps: Record<string, Colum
 /** Applies a column map chosen by hand (the user's fix for a CSV Faro could not read by itself). */
 export function remap(file: ParsedFile, map: ColumnMap): ParsedFile {
   if (!file.csv) return file;
-  const rows = file.csv.data.map((r) => rowFromMap(r, map)).filter((x): x is RawTx => !!x);
-  return { ...file, rows, csv: { ...file.csv, map, auto: true } };
+  let rows = file.csv.data.map((r) => rowFromMap(r, map)).filter((x): x is RawTx => !!x);
+  let xlsx = file.xlsx;
+  if (xlsx) {
+    // Mapa F5: una fila de total de una hoja casera no es un gasto — se
+    // excluye al construir las filas y se CUENTA, para decirlo en la
+    // previa; nunca entra callada ni se importa como movimiento.
+    const kept = rows.filter((r) => !/^(total|totales|gran total|suma|saldo final|balance)\b/.test(fold(r.desc)));
+    xlsx = { ...xlsx, totals: xlsx.totals + (rows.length - kept.length) };
+    rows = kept;
+  }
+  return { ...file, rows, csv: { ...file.csv, map, auto: true }, ...(xlsx ? { xlsx } : {}) };
+}
+
+/* ------------------------------------------------------------------ Excel */
+
+/** One sheet of a workbook as a ParsedFile (Captura Ola 3, mapa F5): the
+ * same generic road as the CSV — header hunt, signature, remembered map —
+ * with ONE difference the map orders: an Excel file ALWAYS shows its
+ * column map before its rows (auto stays false even with a remembered
+ * map; the remembered map only pre-selects the columns in the form). */
+function xlsxBuild(name: string, names: string[], tables: string[][][], idx: number, maps: Record<string, ColumnMap>): ParsedFile {
+  const all = tables[idx] ?? [];
+  let hi = 0;
+  for (let i = 0; i < Math.min(all.length - 1, 15); i++) {
+    const next = all[i + 1] ?? [];
+    if (all[i].filter(Boolean).length >= 3 && !all[i].some((c) => parseDate(c)) && next.some((c) => !!parseDate(c) || !!parseDate(c, true))) { hi = i; break; }
+  }
+  let headers = all[hi] ?? [];
+  let data = all.slice(hi + 1).filter((r) => r.some(Boolean));
+  if (hi === 0 && all[0] && all[0].some((c) => !!parseDate(c) || !!parseDate(c, true)) && all[0].some((c) => parseMoney(c) !== null)
+    && !headers.some((h) => /date|fecha|amount|importe|monto|descrip|concepto|transaction|posting|details|name|nombre/i.test(fold(h)))) {
+    data = all.filter((r) => r.some(Boolean));
+    headers = all[0].map((_, i) => `c${i}`);
+  }
+  const sig = `xlsx:${headers.map(fold).join(",")}`;
+  const saved = maps[sig];
+  const guess = saved ? { map: saved, auto: false } : { ...guessColumns(headers, data), auto: false };
+  return { name, format: "xlsx", bank: "other", sig, rows: [], csv: { headers, data, map: guess.map, auto: false }, xlsx: { names, tables, sheet: idx, totals: 0 } };
+}
+
+/** A workbook read by xlsxread.ts, as a file of the import flow. */
+export function fromXlsx(name: string, sheets: { name: string; rows: string[][] }[], maps: Record<string, ColumnMap> = {}): ParsedFile {
+  return xlsxBuild(name, sheets.map((s) => s.name), sheets.map((s) => s.rows), 0, maps);
+}
+
+/** The same workbook, another sheet: its own signature, its own map. */
+export function xlsxSheet(file: ParsedFile, idx: number, maps: Record<string, ColumnMap> = {}): ParsedFile {
+  if (!file.xlsx || idx === file.xlsx.sheet || idx < 0 || idx >= file.xlsx.tables.length) return file;
+  return xlsxBuild(file.name, file.xlsx.names, file.xlsx.tables, idx, maps);
 }
 
 /* ------------------------------------------------------------------ which account */
