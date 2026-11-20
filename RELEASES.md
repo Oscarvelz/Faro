@@ -2905,4 +2905,4 @@ La orden de Oscar (2026-11-20): «Dale a cuotas en la pestaña de Debo su propia
 
 Verificación: banco en la app real (crear una cuota, archivarla, abrir su carpeta — la tarjeta con su récord y su «Mover» — y moverla de vuelta a la lista activa; el conteo de la carpeta vuelve a cero), suite Faro 2219/2219 (la cerca nueva archivo339 5/5: la carpeta con su ancla y su «Mover», la mecánica única en las dos puertas, y la receta probada — enciende la línea más reciente, no toca otra serie, devuelve null ante lo que ya no vive), unitarias 59/59, typecheck con solo los 3 errores preexistentes. Los censos de recetas de las olas 12, 18 y 19 reclasificaron el sitio con su razón escrita: la receta delegada se clasifica en su nueva casa y la carpeta nace clasificada como guardada.
 
-Datos de publicación: (se completa al publicar).
+Datos de publicación: fuente edb08a27, etiqueta v1.3.339 sobre ese mismo commit; main 19794b6c (los trozos) + 765831cb (index.html, precache.json, sw.js). Verificado en vivo de primera mano: sw.js sirve faro-1.3.339 y el barrido completo del precache dio 25/25 con md5 idénticos al dist. Respaldo: rollback-pre-339-2026-11-20 → ba488079.
