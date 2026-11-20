@@ -80,7 +80,7 @@ import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
 import { OwedSide, SeeAll, takeCobrosReturn, DebtsReadOnly } from "./debts";
 import { ringFresh, ringLit, ringShow } from "@/lib/faro/ring";
-import { asideSplit, declareSeries, freeShown, guardFor, hostAccounts, keptTotal as keptTotalOf, libreOf, natureMode, segmentAgg, seriesName, stampFor, undeclaredFunds, type FundNature, type PendingFund, type SegmentAgg } from "@/lib/faro/funds";
+import { asideSplit, declareSeries, guardFor, hostAccounts, keptTotal as keptTotalOf, libreOf, natureMode, segmentAgg, seriesName, stampFor, undeclaredFunds, type FundNature, type PendingFund, type SegmentAgg } from "@/lib/faro/funds";
 import { savingsStock } from "@/lib/faro/savings";
 import { FundLight, NaturePick } from "./fund-light";
 
@@ -3891,19 +3891,11 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             ) : null}
             {focus === "save" && banksFold ? null : !focus && !accountsOpen ? null : (
             <>
-            {has("nature.class-saldo") && stock.pledged > 0 ? (
-              <p className="save-panel-line">
-                <SourceNote
-                  label={t("desk.savings.from")}
-                  title={t("save.free")}
-                  meaning={t("save.panel.pledged.what")}
-                  formula={accountRows.filter((r) => (stock.pledgedByHost.get(r.id) ?? 0) > 0).map((r) => `${r.name} ${fmt(stock.pledgedByHost.get(r.id) ?? 0)}`).join(" · ")}
-                  implication={t("save.panel.pledged.note")}
-                >
-                  <span>{t("save.panel.pledged").replace("{x}", fmt(stock.pledged)).replace("{y}", fmt(freeShown(stock, accountTotal)))}</span>
-                </SourceNote>
-              </p>
-            ) : null}
+            {/* 1.3.330 (Oscar, 2026-11-19): la línea del panel que resumía lo
+                comprometido y lo libre MUERE — con una sola cuenta repetía,
+                palabra por palabra, las cifras de su tarjeta. La verdad vive
+                una sola vez, en cada tarjeta; la frase sobrevive solo como la
+                explicación al tocar las cifras de la tarjeta (sus .what/.note). */}
             <div className="save-accounts">
               {bankRows.map((row) => (
                 <div key={row.id} data-bank={row.id} className={`save-account${accountFocus === row.id ? " is-on" : ""}${bankRank?.[0] && bankDrag.current === row.id ? " is-drag" : ""}`}>
@@ -3972,16 +3964,27 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                   </div>
                   {has("nature.class-saldo") && (stock.pledgedByHost.get(row.id) ?? 0) > 0 ? (
                     <div className="save-acct-stats">
-                      <span className="acct-stat">
-                        <i className="acct-ring" aria-hidden="true" />
-                        <span className="acct-stat-lab">{t("save.acct.namedLab")}</span>
-                        <strong className="num">{fmt(stock.pledgedByHost.get(row.id) ?? 0)}</strong>
-                      </span>
-                      <span className="acct-stat">
-                        <i className="acct-ring is-ghost" aria-hidden="true" />
-                        <span className="acct-stat-lab">{t("save.free")}</span>
-                        <strong className="num">{fmt(row.minor - (stock.pledgedByHost.get(row.id) ?? 0))}</strong>
-                      </span>
+                      <SourceNote
+                        label={t("desk.savings.from")}
+                        title={t("save.free")}
+                        meaning={t("save.panel.pledged.what")}
+                        formula={`${row.name} ${fmt(stock.pledgedByHost.get(row.id) ?? 0)}`}
+                        implication={t("save.panel.pledged.note")}
+                      >
+                        <span className="acct-meter" aria-hidden="true"><i style={{ width: `${row.minor > 0 ? Math.max(0, Math.min(100, ((stock.pledgedByHost.get(row.id) ?? 0) / row.minor) * 100)) : 0}%` }} /></span>
+                        <span className="acct-figs">
+                          <span className="acct-pair">
+                            <i className="acct-ring" aria-hidden="true" />
+                            <span className="acct-stat-lab">{t("save.acct.namedLab")}</span>
+                            <strong className="num">{fmt(stock.pledgedByHost.get(row.id) ?? 0)}</strong>
+                          </span>
+                          <span className="acct-pair">
+                            <i className="acct-ring is-ghost" aria-hidden="true" />
+                            <span className="acct-stat-lab">{t("save.free")}</span>
+                            <strong className="num">{fmt(row.minor - (stock.pledgedByHost.get(row.id) ?? 0))}</strong>
+                          </span>
+                        </span>
+                      </SourceNote>
                     </div>
                   ) : null}
                   {accountFocus === row.id ? (

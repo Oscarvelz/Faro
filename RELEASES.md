@@ -2751,3 +2751,19 @@ Banco (mis fotos, libro de Oscar): Cyberpunk y Tron — la etiqueta arranca en x
 Verificación: test:faro 2139/2139 en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.
 
 Datos de publicación: rollback `rollback-pre-329-2026-11-19` → f27df5ee. Source: 4ce637d3. Tag: v1.3.329 → 4ce637d3. Main: a11779fa (chunks) + d53f1049 (control). Entrada: index-By3DVGRJ.js.
+
+## 1.3.330 — «Sin duplicados: la tarjeta se basta» (2026-11-19)
+
+Corrección de Oscar sobre la 1.3.329 (22:20 EST, con su foto de la tarjeta en su teléfono): la línea del panel — «C$5,250.00 de tus cuentas ya tiene nombre · Libre: C$4,050.00» — repetía literalmente las cifras que la tablita de la tarjeta ya decía («la misma información está literalmente arriba… no hay razón de ser»), y las filas a todo ancho de la tablita dejaban una brecha vacía en medio entre la etiqueta y la cifra. Dos muertes y un nacimiento:
+
+**Muere la línea del panel.** La frase save.panel.pledged se retira de ambos diccionarios (1046 → 1045 llaves) y su SourceNote desaparece del panel de cuentas: la verdad vive una sola vez, en cada tarjeta. La doctrina no se pierde — sus textos de explicación (save.panel.pledged.what/.note) sobreviven como la explicación que se abre al tocar las cifras de la tarjeta, con la fórmula de esa cuenta. Los pines de totales289 y de cuentas328 quedaron enmendados con esta razón escrita, y la cerca de cuentas328 ahora exige la ausencia de la línea y la presencia del medidor.
+
+**Muere la fila a todo ancho.** La tablita se integra: un medidor de proporción de 5px dice de un vistazo cuánto del saldo ya tiene nombre (el segmento en la tinta del ahorro sobre un riel tenue, con el ancho acotado cuando lo comprometido pasara del saldo), y las dos cifras se sientan como pares compactos — anilla, etiqueta y cifra juntas, en una línea fluida que envuelve sin dejar huecos. La tira entera es la SourceNote de sus cifras: tocarla las explica, como manda la ley del número. El encabezado de la tarjeta (medallón, nombre y saldo) no se toca: Oscar lo aprobó tal cual.
+
+**Cada tema firma su mano.** Tron: el riel respira cian tenue y el segmento lleva la luz racionada del ahorro. Cyberpunk: el medidor se cuadra (radio 0) sobre cama oscura, con el segmento en su tono; la anilla de «Libre» deja de ser invisible y lleva el anillo tenue de la tinta, para que la leyenda del medidor se lea pareja.
+
+**Nota honesta sobre la 1.3.329:** su código llegó y Oscar lo vio en su teléfono, pero su sello de versión nunca avanzó — el bump se escribió con comillas simples contra un archivo que usa comillas dobles, y el sw.js publicado conservó «faro-1.3.328» (así lo leyó el sondeo en vivo de aquella noche). Esta 1.3.330 sella bien, verificado en dist antes de publicar: los teléfonos saltan de la marca 1.3.328 a la 1.3.330.
+
+Banco (mis fotos, libro de Oscar): Cyberpunk, Tron y EN a ancho de teléfono — ya no hay línea del panel; el medidor mide 290×5 con el segmento en 164px (el 56.5% del saldo); las cifras corren como pares compactos («Ya tiene nombre C$5,250.00» / «Libre C$4,050.00»; «Already named / Free» en EN con la misma geometría); la tarjeta mide 134px.
+
+Verificación: test:faro 2140/2140 (2139 + 1 de la enmienda de cuentas328) en canon; unitarias 59/59; typecheck con los mismos 3 errores de siempre; candado y raíz de LineForm intactos.

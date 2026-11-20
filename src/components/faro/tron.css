@@ -1092,7 +1092,8 @@ html[data-hidden] .line-edit::before, html[data-hidden] .line-edit::after { anim
    del ahorro, --sav, ya tiñe su anillo desde fund.css) y el filete de las
    estadísticas respira cian como el resto de la tarjeta. */
 [data-theme="tron"] .save-accounts .look-mark { box-shadow: 0 0 12px color-mix(in oklab, var(--sav) 30%, transparent), inset 0 1px 0 rgb(255 255 255 / .12); }
-[data-theme="tron"] .save-acct-stats { border-top-color: rgba(63, 214, 245, .18); }
+[data-theme="tron"] .acct-meter { background: rgba(63, 214, 245, .14); }
+[data-theme="tron"] .acct-meter i { background: var(--sav, #3fd6f5); box-shadow: 0 0 8px color-mix(in oklab, var(--sav, #3fd6f5) 45%, transparent); }
 [data-theme="tron"] .ah-form .bank-photo-btn::before { content: none; }
 [data-theme="tron"] .ah-form .ah-go .btn { letter-spacing: .01em; }
 [data-theme="tron"] .ah-form .ah-read { letter-spacing: .06em; }

@@ -13,6 +13,14 @@
  * medallón; Cyberpunk mantiene su disciplina plana (sin brillo ni sombra,
  * marco en su tono, 2px). Ni una cifra, ni un gesto, ni una puerta cambian:
  * los mismos pledgedByHost y minor de siempre componen las dos lecturas.
+ *
+ * ENMIENDA 1.3.330 (Oscar, 2026-11-19 22:20 EST, con su foto): la línea del
+ * panel (save.panel.pledged) repetía las cifras de la tarjeta — duplicado
+ * prohibido — y las filas a todo ancho dejaban el hueco en medio. La línea
+ * del panel muere; la tira se integra: medidor de proporción + las dos
+ * cifras como pares compactos (etiqueta y cifra juntas), y la tira entera
+ * es la SourceNote que explica las cifras al tocarlas (las .what/.note del
+ * panel sobreviven ahí). Las aserciones de la tira se re-dicen a esa forma.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -36,6 +44,15 @@ describe("cuentas328: la tira de estadísticas sustituye a la frase suelta", () 
     assert.ok(!screens.includes("save.acct.named\""), "la llave de la frase ya no se consume");
   });
 
+  it("1.3.330: la línea del panel murió y la tira se integra sin huecos", () => {
+    assert.ok(!screens.includes("save-panel-line"), "la línea duplicada del panel ya no se pinta");
+    assert.ok(!screens.includes('t("save.panel.pledged")'), "la frase del panel ya no se consume como texto");
+    assert.match(screens, /className="acct-meter"/);
+    assert.match(screens, /className="acct-pair"/);
+    assert.match(screens, /t\("save\.panel\.pledged\.what"\)/, "la explicación de las cifras vive en la tira");
+    assert.ok(!i18nSrc.includes("\"save.panel.pledged\":"), "save.panel.pledged retirada de ambos diccionarios");
+  });
+
   it("el diccionario: la etiqueta vive en los dos idiomas y la frase murió", () => {
     assert.equal(translate("es", "save.acct.namedLab"), "Ya tiene nombre");
     assert.equal(translate("en", "save.acct.namedLab"), "Already named");
@@ -46,8 +63,10 @@ describe("cuentas328: la tira de estadísticas sustituye a la frase suelta", () 
     assert.match(fundCss, /\.save-accounts > \.save-account \{[^}]*linear-gradient\(180deg, rgb\(255 255 255 \/ \.05\)/);
     assert.match(fundCss, /\.save-accounts \.look-mark \{[^}]*width: 36px/);
     assert.match(fundCss, /\.save-accounts \.bank-sum \{[^}]*font-weight: 650/);
-    assert.match(fundCss, /\.save-acct-stats \{[^}]*border-top: 1px solid/);
+    assert.match(fundCss, /\.acct-meter \{[^}]*height: 5px/);
+    assert.match(fundCss, /\.acct-pair \{[^}]*display: inline-flex/);
     assert.ok(!fundCss.includes(".save-acct-line"), "la regla de la frase suelta se fue con ella");
+    assert.ok(!fundCss.includes(".save-panel-line {"), "la regla de la línea del panel se fue con ella");
   });
 
   it("cada tema firma su mano: Tron ilumina el medallón, Cyberpunk aplana", () => {

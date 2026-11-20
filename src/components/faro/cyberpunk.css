@@ -932,7 +932,8 @@ html[data-theme="cyberpunk"] .save-accounts .look-mark {
   border-color: color-mix(in oklab, var(--seg, var(--sav, #aca294)) 55%, var(--line));
 }
 html[data-theme="cyberpunk"] .save-accounts .look-mark .bank-photo { border-radius: 2px; }
-html[data-theme="cyberpunk"] .save-acct-stats { border-top-color: color-mix(in oklab, var(--seg, var(--sav, #3a332a)) 45%, var(--line)); }
+html[data-theme="cyberpunk"] .acct-meter { border-radius: 0; background: #241d15; }
+html[data-theme="cyberpunk"] .acct-meter i { background: var(--seg, var(--sav, #894ed6)); }
 html[data-theme="cyberpunk"] .save-accounts .acct-ring { border-radius: 0; }
 html[data-theme="cyberpunk"] .save-band.is-records .save-account-edit .field {
   background: #100d0a; border-color: color-mix(in oklab, var(--seg, var(--sav, #3a332a)) 55%, var(--line));

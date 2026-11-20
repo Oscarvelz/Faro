@@ -229,11 +229,16 @@ describe("totales289: los textos de la oleada (§10)", () => {
     assert.match(translate("es", "desk.savings.pledged"), /\{x\}/);
     /* ENMIENDA 1.3.328: la línea por cuenta dejó de ser la frase
        «save.acct.named» (retirada del diccionario) y es una tira de
-       estadísticas con la etiqueta «save.acct.namedLab»; la frase del
-       panel (save.panel.pledged, línea siguiente) conserva la doctrina. */
+       estadísticas con la etiqueta «save.acct.namedLab».
+       ENMIENDA 1.3.330 (Oscar, 2026-11-19): la frase del panel
+       (save.panel.pledged) repetía las cifras de cada tarjeta y muere con
+       su línea; la doctrina sobrevive en la explicación al tocar las
+       cifras de la tarjeta (save.panel.pledged.what/.note, vivas abajo en
+       su propio pin si lo hay — aquí basta su existencia). */
     assert.equal(translate("es", "save.acct.namedLab"), "Ya tiene nombre");
     assert.equal(translate("en", "save.acct.namedLab"), "Already named");
-    assert.match(translate("es", "save.panel.pledged"), /\{x\}.*\{y\}/);
+    assert.match(translate("es", "save.panel.pledged.what"), /límite/);
+    assert.match(translate("en", "save.panel.pledged.note"), /negative/);
     assert.match(translate("es", "save.part.of"), /\{pocket\}.*\{x\}/);
     assert.match(translate("en", "vault.aside.saldo"), /\{x\}/);
     assert.match(translate("en", "vault.aside.aparte"), /\{x\}/);

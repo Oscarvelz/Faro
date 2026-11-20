@@ -140,9 +140,8 @@
 .save-part-line .save-from summary { display: inline; }
 
 /* Las líneas de compromiso del panel de cuentas. */
-.save-panel-line { margin: 0 2px; color: var(--muted); font-size: .86rem; }
-.save-panel-line .save-from { margin: 0; text-align: left; }
-.save-panel-line .save-from summary { display: inline; }
+/* 1.3.330: .save-panel-line murió con la línea duplicada del panel — la
+   explicación vive ahora en la tira de cada tarjeta (save-acct-stats). */
 /* 1.3.328 — el acabado premium de las tarjetas de cuenta (petición de Oscar,
    2026-11-19): material en capas con su luz alta, el medallón de la cuenta con
    anillo en la tinta del ahorro, el saldo en voz segura, y las cifras de la
@@ -176,20 +175,32 @@
 .save-accounts .look-mark .bank-photo { width: 34px; height: 34px; border-radius: 999px; }
 .save-accounts .bank-name > button:not(.look-mark) { font-weight: 600; }
 .save-accounts .bank-sum { font-size: 1.07rem; font-weight: 650; letter-spacing: -.01em; }
-.save-acct-stats {
-  flex: 1 0 100%; display: flex; flex-direction: column; gap: 5px;
-  margin-top: 4px; padding: 9px 4px 2px 0;
-  border-top: 1px solid color-mix(in oklab, var(--sav, #c4a15a) 20%, var(--line));
+/* 1.3.330 (Oscar): la tira de la tarjeta se integra — un medidor de
+   proporción (cuánto del saldo ya tiene nombre) y las dos cifras como pares
+   compactos, etiqueta y cifra juntas. Nada de filas a todo ancho con el
+   hueco en medio; nada de repetir arriba lo que la tarjeta ya dice. La tira
+   entera es la SourceNote de sus cifras: tocarla las explica. */
+.save-acct-stats { flex: 1 0 100%; margin-top: 10px; }
+.save-acct-stats .save-from { margin: 0; text-align: left; }
+.save-acct-stats .save-from summary { display: block; cursor: pointer; }
+.acct-meter {
+  display: block; height: 5px; border-radius: 999px; overflow: hidden;
+  background: color-mix(in oklab, var(--fg) 9%, transparent);
 }
-.acct-stat { display: flex; align-items: center; gap: 7px; min-width: 0; width: 100%; }
+.acct-meter i {
+  display: block; height: 100%; border-radius: inherit;
+  background: var(--sav, #c4a15a);
+}
+.acct-figs { display: flex; flex-wrap: wrap; gap: 5px 18px; margin-top: 8px; }
+.acct-pair { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .acct-ring { width: 7px; height: 7px; flex: none; border-radius: 999px; border: 1.5px solid var(--sav, #c4a15a); }
-.acct-ring.is-ghost { border-color: transparent; }
-.acct-stat-lab { color: var(--muted); font-size: .74rem; }
-.acct-stat strong { font-size: .88rem; font-weight: 650; margin-left: auto; }
+.acct-ring.is-ghost { border-color: color-mix(in oklab, var(--fg) 30%, transparent); }
+.acct-stat-lab { color: var(--muted); font-size: .74rem; white-space: nowrap; }
+.acct-pair strong { font-size: .88rem; font-weight: 650; }
 /* El texto grande conserva su ley asentada: el saldo cede y la tira se asienta. */
 @container savecard (max-width: 18.75rem) {
   .save-accounts .bank-sum { font-size: .86rem; }
-  .save-acct-stats { padding-left: 0; gap: 6px 14px; }
+  .acct-figs { gap: 5px 12px; }
 }
 
 /* El Apartado partido en dos lecturas, y la sede del porcentaje en Libros. */
