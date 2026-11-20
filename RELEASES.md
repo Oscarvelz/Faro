@@ -3016,3 +3016,11 @@ La Cura 20 de la Campaña de Modos, integrada sin reemplazar sobre la 1.3.346: e
 Verificación: la corrida completa sobre el árbol integrado dio 2311 pruebas con una sola roja — el sello de versión, que la construcción re-estampa — re-verificada verde tras construir (3/3); unidad 59/59; tipos con exactamente los 3 errores permanentes. Las cercas de las familias tocadas corrieron 239/239 antes de la corrida entera, y el banco vivo mostró el pliegue de Novedades con la nota menor de esta entrega acumulada en silencio, en su sitio. La cerradura y la línea del Guardián, intactas.
 
 Datos de publicación: código 6fc45e67 (fuente), etiqueta v1.3.347; principal 6adea76a (paquetes) + ea167e5c (control). Entrada index-DKk2eXbA.js. Verificado en vivo de primera mano: sw faro-1.3.347 (3ª consulta), barrido precache 26/26 por md5 contra dist. Rollback: rollback-pre-347-2026-11-20 → d7fa875f.
+
+## 1.3.348 — «La caja que respira» (2026-11-20)
+
+La petición de Oscar de esta mañana, con su ejemplo: «que la caja de texto se expanda conforme se escribe el texto, como en Cadence, y que cuando se da clic a enviar o preguntar, se contraiga». La caja de Preguntar al Asesor es ahora un área de texto de una línea que crece con lo escrito — hasta cinco líneas, con su desplazamiento si la pregunta sigue — y el botón de enviar se sienta al pie de la caja crecida. Al preguntar, el texto se va, la caja vuelve a su línea y la pregunta queda viviendo en la respuesta; Enter pregunta y Mayús+Enter parte la línea, para preguntas con su propio orden. La nota menor de la entrega se acumuló en el pliegue de Novedades, en silencio, como manda la casa.
+
+Verificación: suite 2311/2311, unidad 59/59, tipos con exactamente los 3 errores permanentes. Banco vivo: la caja creció a cuatro líneas con una pregunta larga — el botón de enviar sentado al pie de la caja crecida — y volvió a su línea al preguntar, con la respuesta debajo. La cerradura y la línea del Guardián, intactas.
+
+Datos de publicación: se completa tras publicar.

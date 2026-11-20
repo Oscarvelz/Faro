@@ -29,6 +29,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.348",
+    date: "2026-11-20",
+    level: "menor",
+    title: { es: "La caja que respira", en: "The box that breathes" },
+    points: {
+      es: [
+        "La caja de Preguntar al Asesor crece con lo que escribes, para que veas tu pregunta entera.",
+        "Al preguntar, la caja vuelve a su tamaño y tu pregunta queda en la respuesta.",
+      ],
+      en: [
+        "The Ask your Advisor box grows as you write, so you can see your whole question.",
+        "When you ask, the box returns to its size and your question lives in the answer.",
+      ],
+    },
+  },
+  {
     version: "1.3.347",
     date: "2026-11-20",
     level: "menor",

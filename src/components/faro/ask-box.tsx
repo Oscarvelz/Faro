@@ -11,8 +11,13 @@
  * Lo que no sabe, lo dice: «Eso todavía no lo sé responder. Esto sí:»
  * con los chips. Y un gasto sin monto no se adivina: la tarjeta pide el
  * dato con chips de montos.
+ *
+ * 1.3.348 (Oscar): la caja CRECE con lo que se escribe — como en
+ * Cadence — para ver la pregunta entera, y al preguntar se CONTRAE:
+ * el texto se va y la pregunta queda viviendo en «asked» y en la
+ * respuesta. Enter pregunta; Mayús+Enter parte la línea.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MessageCircleQuestion, Send, Sparkles } from "lucide-react";
 import { answerQuestion, type AskResult } from "@/lib/faro/ask";
 import { addDrafts, findDup, validateDraft } from "@/lib/faro/drafts";
@@ -34,6 +39,16 @@ export function AskBox() {
   const [text, setText] = useState("");
   const [result, setResult] = useState<AskResult | null>(null);
   const [asked, setAsked] = useState("");
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // La caja respira: su alto sigue al texto (tope de cinco líneas) y
+  // vuelve a una línea cuando el texto se va.
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
+  }, [text]);
   if (!has("advisor.ask") || !session) return null;
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const chips = askChips(lang);
@@ -54,6 +69,7 @@ export function AskBox() {
     if (!clean || !session) return;
     setAsked(clean);
     setResult(answerQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal()));
+    setText(""); // al preguntar, la caja se contrae (348)
   }
 
   function register() {
@@ -81,13 +97,15 @@ export function AskBox() {
         <Hint topic="preguntar-asesor" />
       </div>
       <div className="ask-row">
-        <input
+        <textarea
+          ref={taRef}
           className="ask-input"
           data-anchor="ask-input"
+          rows={1}
           value={text}
           placeholder={L("¿Puedo gastar $100 en zapatos?", "Can I spend $100 on shoes?")}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") ask(text); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(text); } }}
         />
         <button type="button" className="ask-go" data-anchor="ask-go" onClick={() => ask(text)} aria-label={L("Preguntar", "Ask")}>
           <Send size={15} />
