@@ -499,11 +499,23 @@ html[data-theme="tron"][data-hidden] *, html[data-theme="tron"][data-hidden] *::
      contra la caja; centrado, ambos extremos cortan por igual. La carga (b i)
      lleva el mismo centro para no perder la fase con la pista. */
   background-position: center 0 !important;
+  /* Y las celdas flotan dentro del marco (Oscar, 2026-11-19): en su teléfono la
+     pastilla de Emergencia — la vacía, sin carga que la ancle a la vista — se
+     leía pegada al borde derecho, fundida con el marco. La caja mide centrada
+     en el banco y en los píxeles de su captura, así que en vez de cazar la
+     fase de cada motor, la pista pinta solo en la caja de contenido: 3px de
+     aire oscuro entre las celdas y el marco por los cuatro lados, en todo
+     motor. El marco (la sombra interior) no se mueve. */
+  padding: 2px 3px; background-clip: content-box;
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--seg) 35%, transparent) !important;
 }
 [data-theme="tron"] .save-seg b i {
   background: repeating-linear-gradient(90deg, var(--seg) 0 5px, transparent 5px 7px) !important;
   background-position: center 0 !important;
+  /* La carga respira con la pista: mismos 3px de aire a los lados y abajo, y
+     su techo nunca invade el aire de arriba (una carga al 100% se detiene a
+     2px del marco, como la pista). */
+  left: 3px; right: 3px; bottom: 2px; max-height: calc(100% - 4px);
   box-shadow: none; filter: drop-shadow(0 0 4px var(--seg));
 }
 [data-theme="tron"] .save-seg strong { font-family: var(--t-display); font-weight: 500; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: color-mix(in oklab, var(--seg) 55%, white); text-shadow: 0 0 8px color-mix(in oklab, var(--seg) 50%, transparent); }

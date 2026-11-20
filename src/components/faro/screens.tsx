@@ -397,7 +397,7 @@ function glueHint(text: string, hint: ReactNode) {
   return <>{text.slice(0, cut + 1)}<span className="hint-glue">{text.slice(cut + 1)}{hint}</span></>;
 }
 
-function VaultLever({ base, tone, storeId, baseNote }: { base: number; tone: string; storeId: string; baseNote?: string }) {
+function VaultLever({ base, tone, storeId }: { base: number; tone: string; storeId: string }) {
   const { fmt, t, session } = useFaro();
   const display = session?.ledger.settings.display ?? "USD";
   const rate = session?.ledger.settings.rateE4 ?? 0;
@@ -589,7 +589,6 @@ function VaultLever({ base, tone, storeId, baseNote }: { base: number; tone: str
               <span className="lab-head">{t("lever.if")}<Hint topic="si-apartas" /></span>
               <span className="lever-amt"><strong className="num">{fmt(shown)}</strong><em>{t("lever.each")}</em></span>
             </p>
-            {baseNote ? <p className="fund-note lever-base-note">{baseNote}</p> : null}
             <div>
               {cards.filter((card) => card.id !== "far").map((card) => (
                 <button key={card.id} type="button" className={`vault-mark${mark === card.id ? " is-on" : ""}`} aria-pressed={mark === card.id} onClick={() => pick(card.id)}>
@@ -3260,11 +3259,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // — cuentas + fondos aparte DECLARADOS (el Retiro conserva su palanca en su ventana);
   // para un libro sin declaraciones su base es la de siempre (solo cuentas), así que
   // ninguna cifra se mueve el día del aterrizaje. En la ventana de una bolsa, la base
-  // es el stock entero de la bolsa y su texto dice qué proyecta (lever.baseNote).
+  // es el stock entero de la bolsa.
   const vaultBase = focus === "save" ? accountTotal + stock.byClass.aparte : (openSeg?.minor ?? 0);
-  const leverBaseNote = focus === "save" || !openSeg
-    ? t("lever.base.apart")
-    : openSeg.pledgedMinor > 0 && openSeg.keptMinor <= 0 ? t("lever.base.pledged") : t("lever.base.apart");
   const spanNode = (
     <SpanCut
       kinds={[]}
@@ -3278,7 +3274,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       tone={vaultTone}
     />
   );
-  const leverNode = vaultStore ? <VaultLever base={vaultBase} tone={vaultTone} storeId={vaultStore} baseNote={leverBaseNote} /> : null;
+  const leverNode = vaultStore ? <VaultLever base={vaultBase} tone={vaultTone} storeId={vaultStore} /> : null;
   function blockAt(id: string) {
     const at = blockRank.indexOf(id);
     return at < 0 ? 9 : at;

@@ -214,7 +214,6 @@
 .save-flow-pct .field { width: 72px; text-align: right; }
 .save-flow-pct i { font-style: normal; color: var(--muted); }
 
-.lever-base-note { margin-top: 4px; }
 
 /* Etapa 3.1 (tres modos): la fila discreta de los fondos dormidos en Central
  * (solo lectura, con su explicación al tocarla) y la cara lectora de Cuotas.
