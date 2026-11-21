@@ -331,6 +331,10 @@ describe("ola19 · §A: clase C — el no-op de mapa, curado en el ayudante y en
 const PUERTAS = new Set(["commit", "commitGuarded", "commitAnnounced", "commitFinal", "commitDraft"]);
 type ClasePuerta = "guardada" | "anunciada" | "final" | "aterrizaje";
 const CENSO19: Record<string, [ClasePuerta, number]> = {
+  // 1.3.357 (la lista-plan, D6): el folio se reanuda y se borra por la
+  // puerta guardada, como cada ciudadano del Archivo.
+  "components/faro/archivo.tsx|commitGuarded|resumePlan|—": ["guardada", 1],
+  "components/faro/archivo.tsx|commitGuarded|dropPlan|dropPlan": ["guardada", 1],
   "components/faro/archivo.tsx|commitGuarded|restoreCard|restoreCard": ["guardada", 1],
   "components/faro/archivo.tsx|commitGuarded|restoreLent|restoreLent": ["guardada", 1],
   "components/faro/archivo.tsx|commitGuarded|restoreLoan|restoreLoan": ["guardada", 1],
@@ -403,12 +407,22 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // escribe nada (sin períodos vencidos no hay commit).
   "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 9],
   "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 1],
+  // 1.3.357 (la lista-plan): la hoja del plan comete sus marcas por
+  // aterrizaje — cada receta compone el estado entero o no escribe.
+  "components/faro/plan-sheet.tsx|commit|markPlanState|markPlanState": ["aterrizaje", 3],
+  "components/faro/plan-sheet.tsx|commit|markBought|markBought": ["aterrizaje", 2],
+  "components/faro/plan-sheet.tsx|commit|markBoughtLess|markBoughtLess": ["aterrizaje", 1],
+  "components/faro/plan-sheet.tsx|commit|closePlan|—": ["aterrizaje", 1],
+  "components/faro/plan-sheet.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
+  "components/faro/plan-sheet.tsx|commitGuarded|dropDraft|dropDraft": ["guardada", 1],
   "components/faro/receipt-scan.tsx|commit|saveScanRewards|saveScanRewards+addRewards+putCard+addDrafts": ["aterrizaje", 1],
   "components/faro/capture-text.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
   // 1.3.342 (Captura Ola 3): la puerta de la lista comete por la misma
   // receta de aterrizaje que su hermana de texto — addDrafts nunca se
   // niega: añade los borradores del bache a la bandeja.
-  "components/faro/capture-list.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
+  // 1.3.357: la puerta gana su segundo aterrizaje addDrafts — el
+  // nacimiento del plan (createPlan + las filas como borradores plan).
+  "components/faro/capture-list.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 2],
   // 1.3.345 (las pastillas útiles de Oscar): cada hoja de captura gana su
   // segundo commit — el corrector de la fila (draft-row) comete patchDraft
   // cuando el usuario toca una pastilla de duda y elige el valor: la

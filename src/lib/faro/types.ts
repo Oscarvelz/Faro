@@ -488,6 +488,21 @@ export type Draft = {
   currency: Currency | null;      // solo USD/NIO — el dinero real no gana monedas (mapa §F7)
   concept: string;
   note: string;
+  /** La lista-plan a la que pertenece la fila (solo kind "plan", D6 1.3.357):
+   *  el id de su PlanList. La agrupación vive dentro del contrato de
+   *  borradores — nada de un segundo almacén. */
+  planId?: string;
+  /** El estado de compra de la fila del plan (solo kind "plan"):
+   *  pendiente / comprado (con su monto real en amountMinor y su día real
+   *  en day) / después / no había. Vocabulario propio: una fila sin monto
+   *  es pendiente, jamás «en rojo» — el ámbar y el rojo son de la mesa. */
+  planState?: "pending" | "bought" | "later" | "gone";
+  /** El precio estimado de la fila del plan y su procedencia: el último
+   *  precio propio del mismo concepto, con su fecha en estOn (YYYY-MM-DD).
+   *  Sin estOn, el estimado lo escribió el usuario en el plan. El estimado
+   *  jamás entra a un total del libro: es dinero todavía no. */
+  estMinor?: number | null;
+  estOn?: string;
   /** El libro destino (casa en Line.kind). El adaptador del escaneo lo fija
    *  con su enrutado de siempre; sin fijar, la conversión cae a expense-variable. */
   book: LineKind;
@@ -498,6 +513,36 @@ export type Draft = {
   unsure: string[];               // nombres de campo adivinados → ámbar
   missing: string[];              // nombres de campo no entendidos → rojo, con su herramienta
   dupOf?: string;                 // id de la línea existente si parece duplicado
+};
+
+/** Una fila del folio de un plan cerrado (D6): la foto de la fila tal como
+ * quedó al cerrar — su estado final y sus dos cifras. Intocable: el folio
+ * es documento, no superficie de edición. */
+export type PlanRow = {
+  concept: string;
+  note: string;
+  state: "bought" | "later" | "gone" | "out";
+  amountMinor: number | null;
+  currency: Currency | null;
+  estMinor: number | null;
+  /** El día real de compra de la fila comprada (YYYY-MM-DD). */
+  day: string;
+};
+
+/** Una lista-plan (D6, 1.3.357): nace como índice (closedAt "") con sus
+ * filas vivas en la bandeja; al cerrarse gana su foto de filas y su
+ * resumen — el conteo completo del cierre: comprado + no había + después
+ * + fuera = filas del plan, dicho en el folio para siempre. */
+export type PlanList = {
+  id: string;
+  name: string;
+  createdAt: string;               // ISO
+  closedAt: string;                // "" mientras vive
+  rows: PlanRow[];                 // la foto al cerrar; [] mientras vive
+  summary?: {
+    bought: number; later: number; gone: number; out: number;
+    estMinor: number; realMinor: number; currency: Currency;
+  };
 };
 
 export type LedgerState = {
@@ -514,6 +559,13 @@ export type LedgerState = {
    *  ningún total, estudio ni lectura del Asesor puede verla — es dinero todavía no.
    *  Ausente en libros viejos = bandeja vacía. Viaja con el libro (D1). */
   drafts?: Draft[];
+  /** La lista-plan (D6, 1.3.357): el índice de listas y, al cerrar, su
+   *  folio. Una lista viva (closedAt "") tiene sus filas en drafts como
+   *  Draft kind "plan" con su planId; al cerrarse, las filas se escriben
+   *  en el registro como foto intocable junto a su resumen — el folio que
+   *  vive en el Archivo mayor y del que la lista se reanuda. Ausente en
+   *  libros viejos = ningún plan. Viaja con el libro, como la bandeja. */
+  plans?: PlanList[];
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
   /** Money the user lent (Me deben, 1.3.92; device-only before). Abonos are income lines with `lentId`. See debts.ts. */

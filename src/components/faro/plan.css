@@ -1,0 +1,45 @@
+/* La lista-plan (D6, 1.3.357): la cara nace del envoltorio de la bandeja —
+ * mismos huecos de 12px, el acento del tema seleccionado, ninguna sombra
+ * propia. El ámbar no aparece: sigue significando solo duda de mesa. */
+.plan-totals {
+  display: flex; flex-direction: column; gap: 4px; width: 100%;
+  padding: 10px 12px; margin-bottom: 12px; text-align: left;
+  background: var(--hatch-widget-surface, transparent);
+  border: 1px solid var(--hatch-widget-border, rgba(127, 127, 127, .25));
+  border-radius: 12px; color: inherit; cursor: pointer;
+}
+.plan-bar { display: block; height: 4px; border-radius: 2px; background: rgba(127, 127, 127, .25); overflow: hidden; }
+.plan-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s ease; }
+.plan-totals-txt { font-weight: 600; }
+.plan-cover { opacity: .65; font-size: .85em; }
+.plan-est-explain { padding: 0 12px 12px; opacity: .85; font-size: .92em; }
+.plan-est-explain p { margin: 2px 0; }
+.plan-announce { padding: 8px 12px; margin-bottom: 12px; border-left: 3px solid var(--accent); }
+.plan-rows { display: flex; flex-direction: column; gap: 6px; }
+.plan-row { border: 1px solid var(--hatch-widget-border, rgba(127, 127, 127, .2)); border-radius: 12px; padding: 6px 8px; }
+.plan-sheet.is-store .plan-row { padding: 10px 8px; }
+.plan-row-main { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: inherit; text-align: left; cursor: pointer; padding: 4px; }
+.plan-check { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border: 1.5px solid var(--hatch-widget-border, rgba(127, 127, 127, .4)); border-radius: 50%; color: var(--accent); }
+.plan-row.is-bought .plan-check { border-color: var(--accent); }
+.plan-row.is-bought .plan-main strong { text-decoration: line-through; opacity: .75; }
+.plan-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.plan-note { opacity: .6; font-size: .85em; }
+.plan-pill { flex: none; font-size: .78em; opacity: .7; border: 1px solid var(--hatch-widget-border, rgba(127, 127, 127, .3)); border-radius: 999px; padding: 2px 8px; }
+.plan-pill.is-bought { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.plan-amt { background: none; border: none; color: inherit; cursor: pointer; font-weight: 600; padding: 4px 8px; }
+.plan-menu { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 4px 2px; }
+.plan-menu button { border: 1px solid var(--hatch-widget-border, rgba(127, 127, 127, .3)); background: none; color: inherit; border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+.plan-menu-drop { display: grid; place-items: center; }
+.plan-amt-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; padding: 6px 4px 2px; }
+.plan-amt-edit label { display: flex; flex-direction: column; gap: 4px; font-size: .85em; flex: 1; min-width: 110px; }
+.plan-add { display: flex; gap: 8px; margin-top: 12px; }
+.plan-add .field { flex: 1; }
+.plan-close-line { font-weight: 600; padding: 0 4px 8px; }
+.plan-close-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--hatch-widget-border, rgba(127, 127, 127, .15)); }
+.plan-dest { display: flex; gap: 4px; flex: none; }
+.plan-dest button { border: 1px solid var(--hatch-widget-border, rgba(127, 127, 127, .3)); background: none; color: inherit; border-radius: 999px; padding: 4px 8px; font-size: .82em; cursor: pointer; }
+.plan-dest button.is-on { border-color: var(--accent); color: var(--accent); }
+.plan-close-sum { padding: 10px 4px 0; opacity: .85; }
+.tray-plan-card { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 1px solid var(--hatch-widget-border, rgba(127, 127, 127, .2)); border-radius: 12px; padding: 10px 12px; color: inherit; cursor: pointer; margin-bottom: 6px; }
+.tray-plan-card .plan-bar { flex: 1; }
+.tray-plans-head { margin: 14px 0 6px; font-weight: 600; }

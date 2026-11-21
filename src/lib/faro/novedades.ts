@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.357",
+    date: "2026-11-20",
+    level: "grande",
+    topic: "lista-plan",
+    title: { es: "La lista-plan", en: "The plan list" },
+    points: {
+      es: [
+        "La lista que escribes antes de comprar vive ahora como plan en tu bandeja (modo Ritmo): abre Lista, elige Planear, y sus filas nacen pendientes con el precio estimado de tus propios precios.",
+        "En la tienda, un toque marca lo comprado con su monto real; «No había» y «Después» nombran lo que no se compró, y «Compré menos» parte la fila.",
+        "Al cerrar, «A la mesa» lleva lo comprado a la mesa de siempre, lo que quedó elige destino, y la lista cerrada vive en el Archivo como folio: desde ahí se reanuda.",
+      ],
+      en: [
+        "The list you write before shopping now lives as a plan in your tray (Rhythm mode): open List, choose Plan, and its rows are born pending with estimates from your own prices.",
+        "In the store, one tap marks what you bought with its real amount; “Sold out” and “Later” name what you didn't buy, and “Got fewer” splits the row.",
+        "On closing, “To review” takes what you bought to the usual table, what's left chooses where it goes, and the closed list lives in the Archive as a record: from there it resumes.",
+      ],
+    },
+  },
+  {
     version: "1.3.356",
     date: "2026-11-20",
     level: "grande",

@@ -344,8 +344,14 @@ describe("ola20 · §D: la cara completa gobierna sus herramientas dentro de la 
      * rojo contra esta forma: quitar `drafts.length > 0` de cardLive
      * (la tarjeta nacería con la bandeja vacía) y quitar la condición
      * de la vista (la hoja volvería a morir en silencio). */
-    assert.match(tray, /const cardLive = has\("capture\.tray"\) && drafts\.length > 0;/,
-      "la tarjeta nace solo con borradores: quitar la condición de borradores corre rojo aquí — nada de tarjetas fantasma");
+    /* ENMIENDA LISTA-PLAN (1.3.357, D6): la tarjeta nace también con
+     * planes vivos — el diseño fallado por Oscar le da a la tarjeta una
+     * segunda línea («Planes · N en curso») y la bandeja es la casa del
+     * plan. La ley no cambia: con NADA esperando (ni borradores ni
+     * planes) la tarjeta no nace; el mutante sigue corriendo rojo si se
+     * quita la condición entera. */
+    assert.match(tray, /const cardLive = has\("capture\.tray"\) && \(drafts\.length > 0 \|\| plans\.length > 0\);/,
+      "la tarjeta nace solo con algo esperando (borradores o planes): quitar la condición corre rojo aquí — nada de tarjetas fantasma");
     assert.match(tray, /if \(!cardLive && view === "none"\) return null;/,
       "el null exige que ninguna vista esté abierta: una hoja abierta ya no muere con el guardia de su tarjeta");
   });

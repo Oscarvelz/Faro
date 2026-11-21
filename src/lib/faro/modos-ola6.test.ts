@@ -150,10 +150,14 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // ENMIENDA OLA 6 (1.3.356): nace avisos-pagos en Esencial (modo
     // declarado en el tema; su función es settings.due-alerts).
     // La distribución se mueve a 127 · 105 · 129 sobre 361.
+    // ENMIENDA LISTA-PLAN (1.3.357): nace lista-plan en Ritmo (modo
+    // declarado en el tema; su función es capture.plan — planear es
+    // administrar, fallo de Oscar). La distribución se mueve a
+    // 127 · 106 · 129 sobre 362.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 361);
+    assert.equal(MANUAL_TOPICS.length, 362);
     assert.equal(count("esencial"), 127);
-    assert.equal(count("ritmo"), 105);
+    assert.equal(count("ritmo"), 106);
     assert.equal(count("completo"), 129);
   });
 });

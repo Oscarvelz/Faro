@@ -261,10 +261,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA OLA 6 (1.3.356): nace avisos-pagos en Esencial (su
     // función es settings.due-alerts): esencial +1 y el total +1
     // — acumulados 127 · 232 · 361.
+    // ENMIENDA LISTA-PLAN (1.3.357): nace lista-plan en Ritmo (su
+    // función es capture.plan): ritmo +1 y el total +1
+    // — acumulados 127 · 233 · 362.
     assert.equal(count("esencial"), 127);
-    assert.equal(count("ritmo"), 232);
-    assert.equal(count("completo"), 361);
-    assert.equal(MANUAL_TOPICS.length, 361);
+    assert.equal(count("ritmo"), 233);
+    assert.equal(count("completo"), 362);
+    assert.equal(MANUAL_TOPICS.length, 362);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

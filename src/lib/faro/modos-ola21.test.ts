@@ -171,8 +171,8 @@ describe("ola21 · §B: fallenDrafts — la sustracción contra lo vivo, en comp
 describe("ola21 · §B: la cara — la tarjeta no es dueña de la hoja y la mesa nombra las caídas", () => {
   it("TrayCard: el guardia gobierna la tarjeta; el null exige ninguna vista abierta", () => {
     const tray = SRC("../../components/faro/tray.tsx");
-    assert.match(tray, /const cardLive = has\("capture\.tray"\) && drafts\.length > 0;/,
-      "la tarjeta sigue naciendo solo con borradores y su asiento");
+    assert.match(tray, /const cardLive = has\("capture\.tray"\) && \(drafts\.length > 0 \|\| plans\.length > 0\);/,
+      "la tarjeta sigue naciendo solo con algo esperando y su asiento (la 1.3.357 suma los planes vivos de la lista-plan, D6)");
     assert.match(tray, /if \(!cardLive && view === "none"\) return null;/,
       "con una vista abierta no hay null: la hoja y la mesa viven hasta que la persona las cierra");
     assert.match(tray, /\{cardLive \? \(\s*<button type="button" className="tray-card"/,

@@ -541,6 +541,13 @@ export const FEATURES = {
    * pregunta el sentido una vez por la lista; la línea con su propio
    * verbo conserva el suyo. La lista-plan espera su estudio (D6). */
   "capture.list": E,
+  /* §1.27d La lista-plan (D6; estudio cerrado y fallos de Oscar del
+   * 2026-11-20): planear es preparar dinero que aún no se mueve —
+   * administrar — así que la cara entera (crear, comprar, cerrar,
+   * estimados, repetir) vive en Ritmo. En Esencial no existe ni el
+   * segmento: la puerta Lista es la de siempre, sin cadáver. El asiento
+   * se declara antes que la superficie, como manda la casa. */
+  "capture.plan": R,
   /* §1.22 Bandeja de documentos compartidos — enrutado por modo */
   "inbox.bank": C, "inbox.vcf": R, "inbox.image-card": C, "inbox.image-receipt": E,
   /* §1.23 Exportar informes (fallo D-bis 17: panel recompuesto desde Ritmo) */

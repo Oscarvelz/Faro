@@ -32,6 +32,8 @@ import { lentOf, restoreLent } from "@/lib/faro/debts";
 import { loansOf, restoreLoan } from "@/lib/faro/loans";
 import { restoreCard, storedCards } from "@/lib/faro/cards";
 import { applyDueFile, reactivateDueSeries, readDueFileRows } from "@/lib/faro/duefile";
+import { closedPlans, dropPlan, resumePlan } from "@/lib/faro/plan";
+import { todayIso } from "@/lib/faro/loans";
 import { browserPackStorage } from "@/lib/faro/packguard";
 import { namedIconFor, subIconFor } from "@/lib/faro/faces";
 import { categoryColor, subColorFor } from "@/lib/faro/colors";
@@ -51,7 +53,12 @@ export function ArchivoScreen() {
   const lent = useMemo(() => (state ? lentOf(state).filter((l) => l.archived) : []), [state]);
   const loans = useMemo(() => (state ? loansOf(state).filter((l) => l.archived) : []), [state]);
   const cards = useMemo(() => (state ? storedCards(state).filter((c) => c.archived) : []), [state]);
-  const total = spans.length + lent.length + loans.length + cards.length + dueRows.length;
+  /* La lista-plan (D6): los folios de los planes cerrados — documentos
+   * intocables con su resumen; reanudar crea una lista nueva de sus
+   * restos por la receta única de plan.ts, como cada ciudadano de esta
+   * unión llama al mutador de su área. */
+  const folios = useMemo(() => (state ? closedPlans(state) : []), [state]);
+  const total = spans.length + lent.length + loans.length + cards.length + dueRows.length + folios.length;
 
   if (!state) return null;
   const display = state.settings.display;
@@ -176,6 +183,19 @@ export function ArchivoScreen() {
      * duefile.ts (reactivateDueSeries) desde la 1.3.339: es la mecánica
      * única de reanudar una cuota, la misma en las dos puertas. */
     commitGuarded((s) => reactivateDueSeries(s, row.seriesId), row.name);
+  };
+
+  const resumeFolio = (folioId: string, name: string) => {
+    commitGuarded((s) => resumePlan(s, folioId, todayIso(), new Date().toISOString()).state, name);
+  };
+  const askDeleteFolio = (folioId: string, name: string) => {
+    confirm({
+      title: t("arch.plan.del.title"),
+      body: t("arch.plan.del.body").replace("{name}", name),
+      danger: true,
+      yes: t("arch.plan.del.yes"),
+      run: () => { commitGuarded((s) => dropPlan(s, folioId), name); },
+    });
   };
 
   const groupHead = (label: string, n: number) => (
@@ -336,6 +356,50 @@ export function ArchivoScreen() {
                 {row.archivedOn ? ` · ${stamp(row.archivedOn)}` : ""}
               </p>
               <div className="arch-acts">{restoreBtn(() => restoreDue(row))}</div>
+            </article>
+          ))}
+        </section>
+      ) : null}
+      {folios.length ? (
+        <section className="arch-group">
+          {groupHead(t("arch.plans"), folios.length)}
+          {folios.map((p) => (
+            <article key={p.id} className="arch-card" data-anchor="arch-plan-card">
+              <div className="arch-card-top">
+                <strong className="arch-name">{p.name}</strong>
+                <span className="arch-origin">{t("arch.plans")}</span>
+              </div>
+              {p.summary ? (
+                <>
+                  <p className="arch-meta">
+                    {t("arch.plan.meta")
+                      .replace("{n}", String(p.rows.length))
+                      .replace("{b}", String(p.summary.bought))
+                      .replace("{g}", String(p.summary.gone))
+                      .replace("{l}", String(p.summary.later))
+                      .replace("{o}", String(p.summary.out))}
+                  </p>
+                  <p className="arch-meta">
+                    {t("arch.plan.money")
+                      .replace("{est}", formatMoney(p.summary.estMinor, p.summary.currency, lang))
+                      .replace("{real}", formatMoney(p.summary.realMinor, p.summary.currency, lang))}
+                    {" · "}{t("arch.plan.closedOn").replace("{date}", stamp(p.closedAt))}
+                  </p>
+                </>
+              ) : null}
+              <div className="arch-lines">
+                {p.rows.map((r, i) => (
+                  <p key={i} className="arch-meta">{r.concept}{r.state === "bought" && r.amountMinor != null && r.currency ? ` · ${formatMoney(r.amountMinor, r.currency, lang)}` : ""}</p>
+                ))}
+              </div>
+              <div className="arch-acts">
+                <button type="button" className="btn secondary" data-anchor="arch-plan-resume" onClick={() => resumeFolio(p.id, p.name)}>
+                  <RotateCcw aria-hidden />{t("arch.plan.resume")}
+                </button>
+                <button type="button" className="btn secondary" data-anchor="arch-plan-delete" onClick={() => askDeleteFolio(p.id, p.name)}>
+                  <Trash2 aria-hidden />{t("arch.delete")}
+                </button>
+              </div>
             </article>
           ))}
         </section>

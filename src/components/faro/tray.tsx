@@ -10,10 +10,12 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Inbox, Trash2, X } from "lucide-react";
 import { draftTotals, dropDraft } from "@/lib/faro/drafts";
+import { livePlans, planRows, planTotals } from "@/lib/faro/plan";
 import type { Draft, DraftSource } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
 import { CaptureTextSheet } from "./capture-text";
 import { CaptureListSheet } from "./capture-list";
+import { PlanSheet } from "./plan-sheet";
 import { Hint } from "./hint";
 import { useFaro } from "./provider";
 import { ReviewTable } from "./review-table";
@@ -41,6 +43,14 @@ export function TrayCard() {
     () => (session?.ledger.drafts ?? []).filter((d) => d.kind === "line"),
     [session],
   );
+  /* La lista-plan (D6): la tarjeta aprende una segunda línea SOLO cuando
+   * hay planes vivos — dos esperas distintas en una misma casa, cada una
+   * con su conteo; el widget del teléfono no las suma (mezclarlas
+   * mentiría). Sin planes, la tarjeta es la de siempre. */
+  const plans = useMemo(
+    () => (session && has("capture.plan") ? livePlans(session.ledger) : []),
+    [session, has],
+  );
   /* Ola 21 (Q21-1): el guardia anti-cadáver gobierna la TARJETA, no la
    * vida de la hoja que hospeda. Antes, el `return null` con la bandeja
    * vacía se llevaba también la hoja y la mesa abiertas cuando otra
@@ -49,10 +59,10 @@ export function TrayCard() {
    * borradores (y su asiento), y el null exige además que ninguna
    * vista esté abierta: una vista abierta vive hasta que la persona
    * la cierra — la hoja trae su palabra de vacío y la mesa, la suya. */
-  const cardLive = has("capture.tray") && drafts.length > 0;
+  const cardLive = has("capture.tray") && (drafts.length > 0 || plans.length > 0);
   if (!cardLive && view === "none") return null;
   const totals = draftTotals(drafts);
-  const allHaveAmount = drafts.every((d) => d.amountMinor != null && d.currency != null);
+  const allHaveAmount = drafts.length > 0 && drafts.every((d) => d.amountMinor != null && d.currency != null);
   return (
     <>
       {cardLive ? (
@@ -60,7 +70,10 @@ export function TrayCard() {
         <span className="tray-ic" aria-hidden><Inbox /></span>
         <span className="tray-txt">
           <strong>{L(lang, "Bandeja", "Tray")}</strong>
-          <span>{L(lang, `${drafts.length} por revisar`, `${drafts.length} to review`)}</span>
+          <span>{drafts.length ? L(lang, `${drafts.length} por revisar`, `${drafts.length} to review`) : L(lang, "Nada por revisar", "Nothing to review")}</span>
+          {plans.length ? (
+            <span>{L(lang, `Planes · ${plans.length} en curso`, `Plans · ${plans.length} under way`)}</span>
+          ) : null}
         </span>
         {allHaveAmount && totals.length ? (
           <span className="tray-total num">{totals.map((r) => fmtAmt(r.inMinor + r.outMinor, r.currency)).join(" · ")}</span>
@@ -78,9 +91,12 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
   const canTray = has("capture.tray");
   const canText = has("capture.text");
   const canList = has("capture.list");
+  const canPlan = has("capture.plan");
   const [armed, setArmed] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
   const [listing, setListing] = useState(false);
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
+  const plans = session && canPlan ? livePlans(session.ledger) : [];
   useLayer(true, onClose);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -144,7 +160,26 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
               ))}
             </div>
           ))}
-          {!drafts.length ? <p className="scn-empty">{L(lang, "La bandeja está vacía.", "The tray is empty.")}</p> : null}
+          {!drafts.length && !plans.length ? <p className="scn-empty">{L(lang, "La bandeja está vacía.", "The tray is empty.")}</p> : null}
+          {plans.length ? (
+            <div data-anchor="tray-plans">
+              <p className="tray-plans-head">{L(lang, "Planes", "Plans")}</p>
+              {plans.map((p) => {
+                const rows = session ? planRows(session.ledger, p.id) : [];
+                const t = planTotals(rows);
+                return (
+                  <button key={p.id} type="button" className="tray-plan-card" data-anchor="tray-plan-card" onClick={() => setOpenPlan(p.id)}>
+                    <span className="plan-main">
+                      <strong>{p.name}</strong>
+                      <span className="plan-note">{L(lang, `${t.bought} de ${t.total}`, `${t.bought} of ${t.total}`)}</span>
+                    </span>
+                    <span className="plan-bar" aria-hidden><span className="plan-bar-fill" style={{ width: `${t.total ? Math.round((t.bought / t.total) * 100) : 0}%` }} /></span>
+                    {t.real.length ? <span className="tray-amt num">{t.real.map((r) => fmtAmt(r.minor, r.currency)).join(" · ")}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
         <div className="scn-foot">
           <button type="button" className="btn secondary" onClick={onClose}>{L(lang, "Cerrar", "Close")}</button>
@@ -153,6 +188,7 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
       </div>
       {writing ? <CaptureTextSheet onClose={() => setWriting(false)} onReview={() => { setWriting(false); onReview(); }} /> : null}
       {listing ? <CaptureListSheet onClose={() => setListing(false)} onReview={() => { setListing(false); onReview(); }} /> : null}
+      {openPlan ? <PlanSheet planId={openPlan} onClose={() => setOpenPlan(null)} /> : null}
     </div>,
     document.body,
   );

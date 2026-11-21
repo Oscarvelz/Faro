@@ -76,10 +76,18 @@ export function draftToLine(d: Draft, ctx: DraftCtx): Line | null {
 }
 
 /** Los totales del bache para el pie de la mesa, por moneda y signo. Jamás
- * se suman a ningún total del libro: son dinero todavía no. */
+ * se suman a ningún total del libro: son dinero todavía no.
+ *
+ * EL GUARDIÁN DE KIND (D6, 1.3.357; brief §4.4): las recetas de conversión
+ * y totales de esta librería operan SOLO sobre líneas. Las filas del plan
+ * (kind "plan") tienen su propia librería (plan.ts) y su propia ceremonia;
+ * el guardián vive aquí, en la librería, no como disciplina de superficie:
+ * draftTotals las ignora, findDup no las casa y commitDrafts jamás las
+ * convierte — un plan solo se vuelve línea por la receta de su cierre. */
 export function draftTotals(ds: Draft[]): { currency: string; inMinor: number; outMinor: number }[] {
   const by = new Map<string, { inMinor: number; outMinor: number }>();
   for (const d of ds) {
+    if (d.kind !== "line") continue;
     if (d.currency == null || d.amountMinor == null) continue;
     const row = by.get(d.currency) ?? { inMinor: 0, outMinor: 0 };
     if (d.sign === "in") row.inMinor += d.amountMinor;
@@ -95,6 +103,7 @@ export function draftTotals(ds: Draft[]): { currency: string; inMinor: number; o
  * así que el camino es el del nombre, como el importador cuando la fila
  * tampoco la nombra. */
 export function findDup(d: Draft, state: LedgerState): Line | undefined {
+  if (d.kind !== "line") return undefined; // el guardián de kind: un plan no se casa con líneas
   if (d.amountMinor == null || d.currency == null || !isRealDay(d.day)) return undefined;
   const key = matchKey(d.concept);
   if (!key) return undefined;
@@ -176,6 +185,7 @@ export function commitDrafts(state: LedgerState, ids: string[], ctx: DraftCtx): 
   const kept: Draft[] = [];
   for (const d of state.drafts ?? []) {
     if (!want.has(d.id)) { kept.push(d); continue; }
+    if (d.kind !== "line") { kept.push(d); continue; } // el guardián de kind: la mesa nunca convierte un plan
     const line = draftToLine(d, ctx);
     if (!line) { kept.push(d); continue; }
     next = upsertLine(next, line);
