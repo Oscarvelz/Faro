@@ -51,11 +51,12 @@ test("346 · el anuncio: una sola tarjeta, la grande más nueva sin ver", () => 
   // Nada sin ver → silencio.
   assert.equal(announcementFor(FARO_VERSION, FARO_VERSION), null);
   // Desde la 344: lo grande sin ver más nuevo manda. Era la 346 en su ola;
-  // la sucedieron la 350 y la 1.3.351 («El Asesor, en su sitio»), grande —
-  // esta expectativa se mueve con cada nota grande nueva, a propósito.
-  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.351");
+  // la sucedieron la 350, la 1.3.351, la 1.3.353 («Una sola selección») y
+  // la 1.3.354 («Novedades que saltan»), grandes — esta expectativa se
+  // mueve con cada nota grande nueva, a propósito.
+  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.354");
   // Desde la 342 (menor): la grande más nueva del tramo es una sola, no una pila.
-  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.351");
+  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.354");
   // El tramo (seen, current] no incluye lo ya visto ni lo futuro.
   const tramo = newsBetween("1.3.340", "1.3.344").map((n) => n.version);
   assert.deepEqual(tramo, ["1.3.344", "1.3.343", "1.3.342"]);
@@ -68,7 +69,9 @@ test("346 · los asientos y las superficies existen", () => {
   const screens = read("../../components/faro/screens.tsx");
   assert.match(screens, /<Fold id="novedades"/);
   assert.match(screens, /<Fold id="acerca"/);
-  assert.match(screens, /NEWS\.map/);
+  // Hasta la 353 el pliegue rendía NEWS entero; la 354 (orden de Oscar:
+  // retiro de diez + excepción de lo no visto) rinde visibleNews.
+  assert.match(screens, /visibleNews\(newsSeen\)\.map/);
   const shell = read("../../components/faro/shell.tsx");
   assert.match(shell, /faro-news-seen/);
   assert.match(shell, /announcementFor\(seen, FARO_VERSION\)/);

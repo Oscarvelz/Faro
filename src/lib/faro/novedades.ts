@@ -23,15 +23,39 @@ export interface NewsEntry {
   level: NewsLevel;
   title: { es: string; en: string };
   points: { es: string[]; en: string[] };
+  /** La puerta de la nota (1.3.354, Oscar): el tema del Manual cuyo
+   * lugar nombra la nota. En el pliegue, la nota lleva su «Ir allí»
+   * por la vía de ese tema y atrás devuelve a Novedades. Sin tema,
+   * la nota es solo texto — nunca una puerta inventada. La tarjeta
+   * del anuncio no lleva puerta: las puertas viven en el pliegue. */
+  topic?: string;
 }
 
 /** De la más nueva a la más vieja — el orden de esta lista ES el orden
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.354",
+    date: "2026-11-20",
+    level: "grande",
+    title: { es: "Novedades que saltan", en: "What's new, with doors" },
+    topic: "novedades",
+    points: {
+      es: [
+        "Las notas de Novedades ahora llevan su puerta: cuando una nota nombra un lugar de Faro, su «Ir allí» te lleva a esa función por la misma vía del Manual, y el atrás de tu teléfono te devuelve a Novedades.",
+        "El pliegue guarda las diez notas más recientes — y una nota que aún no has visto nunca desaparece sin verse: se queda junto a las diez hasta que la veas.",
+      ],
+      en: [
+        "What's new notes now carry their door: when a note names a place in Faro, its “Go there” takes you to that function by the Manual's own route, and your phone's back brings you back to What's new.",
+        "The fold keeps the ten most recent notes — and a note you haven't seen yet never disappears unseen: it stays beside the ten until you see it.",
+      ],
+    },
+  },
+  {
     version: "1.3.353",
     date: "2026-11-20",
     level: "grande",
+    topic: "atajos-mas-menos",
     title: { es: "Una sola selección", en: "One selection at a time" },
     points: {
       es: [
@@ -52,6 +76,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.352",
     date: "2026-11-20",
     level: "menor",
+    topic: "captura-mesa",
     title: { es: "La mesa dice su foto", en: "The table tells its photo" },
     points: {
       es: [
@@ -68,6 +93,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.351",
     date: "2026-11-20",
     level: "grande",
+    topic: "preguntar-asesor",
     title: { es: "El Asesor, en su sitio", en: "The Advisor, in its place" },
     points: {
       es: [
@@ -86,6 +112,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.350",
     date: "2026-11-20",
     level: "grande",
+    topic: "atajos-mas-menos",
     title: { es: "Las puertas de Central", en: "Central's doors" },
     points: {
       es: [
@@ -118,6 +145,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.348",
     date: "2026-11-20",
     level: "menor",
+    topic: "preguntar-asesor",
     title: { es: "La caja que respira", en: "The box that breathes" },
     points: {
       es: [
@@ -134,6 +162,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.347",
     date: "2026-11-20",
     level: "menor",
+    topic: "captura-mesa",
     title: { es: "La mesa, contra lo vivo", en: "The table, against the live books" },
     points: {
       es: [
@@ -150,6 +179,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.346",
     date: "2026-11-20",
     level: "grande",
+    topic: "novedades",
     title: { es: "Novedades y Acerca de", en: "What's new and About" },
     points: {
       es: [
@@ -168,6 +198,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.345",
     date: "2026-11-20",
     level: "grande",
+    topic: "preguntar-asesor",
     title: { es: "Preguntar al Asesor", en: "Ask your Advisor" },
     points: {
       es: [
@@ -310,4 +341,17 @@ export function newsBetween(seen: string, current: string): NewsEntry[] {
 export function announcementFor(seen: string, current: string): NewsEntry | null {
   const fresh = newsBetween(seen, current);
   return fresh.find((n) => n.level === "grande") ?? null;
+}
+
+/** Cuántas notas recientes guarda el pliegue (1.3.354, Oscar). */
+export const NEWS_KEEP = 10;
+
+/** Las notas que el pliegue MUESTRA (1.3.354, Oscar): las NEWS_KEEP más
+ * recientes, en su orden — MÁS cualquier nota que el usuario aún no ha
+ * visto (su versión es mayor que la última vista en este teléfono):
+ * una nota no vista nunca desaparece sin verse; convive junto a las
+ * diez hasta que se ve. Sin marca de visto (seen null: instalación o
+ * sin almacenamiento), el pliegue muestra las diez recientes. */
+export function visibleNews(seen: string | null): NewsEntry[] {
+  return NEWS.filter((n, i) => i < NEWS_KEEP || (seen != null && cmpVersion(n.version, seen) > 0));
 }

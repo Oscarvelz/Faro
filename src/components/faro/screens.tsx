@@ -24,7 +24,7 @@ import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { AskBox } from "@/components/faro/ask-box";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
@@ -50,7 +50,7 @@ import { FreqPresetEditor, PresetMark, SubPresetEditor } from "./sub-presets";
 import { cadenceLabel, customFreqsFor, freqPresetsOf, nextDueFrom } from "@/lib/faro/cadence";
 import { dateFmt } from "@/lib/faro/datefmt";
 import { formatMoney, formatRate, convertMinor, fxRateBroken, parseAmount, payDates, productHref, uid, GUEST_CURRENCIES, guestDef } from "@/lib/faro/money";
-import { NEWS, cmpVersion } from "@/lib/faro/novedades";
+import { cmpVersion, visibleNews } from "@/lib/faro/novedades";
 import { accounts } from "@/lib/faro/bankbook";
 import { insPaid, insTiming, insTotals, monthsSince, syncInsLine } from "@/lib/faro/insurance";
 import { deleteLine, patchLine, patchLineWith, upsertLine } from "@/lib/faro/reducer";
@@ -96,6 +96,7 @@ import type { BackupInfo } from "@/spa/vault";
 import type { QuarantineEntry } from "@/lib/faro/packguard";
 import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
+import { findTopic } from "@/lib/manual/topics";
 import { Hint } from "./hint";
 import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import { dayLabel } from "./historial";
@@ -5764,7 +5765,7 @@ function clipWords(text: string, max: number): string {
 }
 
 export function Settings() {
-  const { t, lang, session, commit, commitGuarded, commitAnnounced, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine, has, refreshGuestRate } = useFaro();
+  const { t, lang, session, commit, commitGuarded, commitAnnounced, ui, setUi, exportJson, importFile, pickFolder, restoreConflict, hasConflict, saveRate, confirm, backups, backupNow, restoreBackup, openManual, quarantined, restoreQuarantine, has, refreshGuestRate, goTopic } = useFaro();
   const [openFold, setOpenFold] = useState<string | null>(null);
   // 1.3.227 (pedido de Oscar): el catálogo gana su propio pliegue bajo
   // Estructura — nace plegado y su estado lo mandan sus toques, guardado
@@ -5997,6 +5998,9 @@ export function Settings() {
   /* El punto de lo nuevo (1.3.346): hay una nota sin ver si este
    * teléfono quedó en una versión anterior a la vigente. */
   const newsUnseen = (() => { try { const s = localStorage.getItem("faro-news-seen"); return s != null && cmpVersion(s, FARO_VERSION) < 0; } catch { return false; } })();
+  /* La última versión vista en este teléfono (1.3.354): el pliegue
+   * muestra las diez notas recientes más las que aún no se han visto. */
+  const newsSeen = (() => { try { return localStorage.getItem("faro-news-seen"); } catch { return null; } })();
   const [guestRateText, setGuestRateText] = useState("");
   const boardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -6396,7 +6400,16 @@ export function Settings() {
       {has("settings.news") ? (
         <Fold id="novedades" icon={Sparkles} sub={lang === "en" ? "What each version brought" : "Lo que trajo cada versión"} topic="novedades" title={<>{lang === "en" ? "What's new" : "Novedades"}{newsUnseen ? <span className="news-dot" aria-hidden /> : null}</>} open={openFold === "novedades"} onToggle={() => toggle("novedades")}>
           <div className="news-list">
-            {NEWS.map((n) => (
+            {visibleNews(newsSeen).map((n) => {
+              /* La puerta de la nota (1.3.354): el tema que la nota
+               * nombra, resuelto contra el Manual vivo. Sin tema o sin
+               * lugar en el tema, la nota queda solo texto. El salto va
+               * por goTopic — la vía del Manual — así atrás devuelve
+               * aquí, y si la función duerme en el modo, cae a su
+               * explicación como todo salto de la casa. */
+              const tp = n.topic ? findTopic(n.topic) : null;
+              const go = tp?.go ?? null;
+              return (
               <article key={n.version} className="news-item">
                 <header className="news-head">
                   <strong className="serif">{n.title[lang]}</strong>
@@ -6405,8 +6418,18 @@ export function Settings() {
                 <ul className="news-points">
                   {n.points[lang].map((p, i) => <li key={i}>{p}</li>)}
                 </ul>
+                {tp && go ? (
+                  <div className="news-go-row">
+                    <button type="button" className="news-go" data-anchor="news-go" onClick={() => goTopic(tp.id, go, "novedades")}>
+                      <span>{t("manual.go")}</span>
+                      <ArrowRight aria-hidden />
+                    </button>
+                    <span className="news-where">{go.where[lang === "en" ? 1 : 0]}</span>
+                  </div>
+                ) : null}
               </article>
-            ))}
+              );
+            })}
           </div>
         </Fold>
       ) : null}

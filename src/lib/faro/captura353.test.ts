@@ -140,9 +140,12 @@ describe("353 · la búsqueda: la tinta del tema, no blanco sobre amarillo", () 
 });
 
 describe("353 · la nota de la versión", () => {
-  it("la 1.3.353 encabeza Novedades como grande, en los dos idiomas", () => {
-    assert.equal(NEWS[0].version, "1.3.353");
-    assert.equal(NEWS[0].level, "grande");
-    assert.ok(NEWS[0].points.es.length >= 3 && NEWS[0].points.en.length >= 3);
+  it("la nota de la 1.3.353 es grande y rica, en los dos idiomas", () => {
+    // En su ola encabezaba Novedades; desde la 354 la cabecera es de la
+    // nota nueva (la cerca de la cabecera vive en novedades354).
+    const mine = NEWS.find((n) => n.version === "1.3.353");
+    assert.ok(mine, "la nota de la 353 existe");
+    assert.equal(mine!.level, "grande");
+    assert.ok(mine!.points.es.length >= 3 && mine!.points.en.length >= 3);
   });
 });
