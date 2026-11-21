@@ -15,6 +15,7 @@ import { FEATURES } from "./mode";
 import { findTopic } from "../manual/topics";
 import { NEWS } from "./novedades";
 import { createInitial } from "./defaults";
+import { readFileSync } from "node:fs";
 import type { LedgerState, Line } from "./types";
 
 const TODAY = "2026-11-21";
@@ -151,4 +152,36 @@ test("366 · el paquete anti-huérfanas: tema del Manual y nota de Novedades", (
   assert.ok(note);
   assert.equal(note!.level, "grande");
   assert.equal(note!.topic, "cambios-precio");
+});
+
+test("368 · el pulido de Oscar: la tarjeta lleva su envoltorio y la gráfica se lee", () => {
+  const src = readFileSync(new URL("../../components/faro/price-watch.tsx", import.meta.url), "utf8");
+  // La raíz del estudio es una .card de la casa con su h2 primero — el mismo
+  // anatomía que las demás carpetas: envoltorio con bordes, el (?) en el
+  // título y el padding-right de la casa que aparta el título (y el texto)
+  // del pin y la flecha, que ya no flotan sobre nada.
+  assert.ok(src.includes('className="card pw-study"'), "la raíz es la tarjeta de la casa");
+  assert.ok(src.includes('<h2 className="serif text-2xl lab-head">'), "la tarjeta abre con su título");
+  assert.ok(src.includes('<Hint topic="cambios-precio" />'), "el (?) vive en el título");
+  // La gráfica marca cada vértice de la escalera: valor y fecha por escalón.
+  assert.ok(src.includes("const verts = pts.filter("), "los vértices se calculan de la serie");
+  assert.ok(src.includes('className="pw-grid"'), "las guías de nivel dan la definición");
+});
+
+test("368 · la línea del modo cabe en una sola línea (los tres modos, es y en)", () => {
+  const i18n = readFileSync(new URL("./i18n.ts", import.meta.url), "utf8");
+  const grab = (key: string): string[] =>
+    [...i18n.matchAll(new RegExp(`"${key}": "([^"]*)"`, "g"))].map((m) => m[1]!);
+  const templates = grab("mode.current");
+  assert.equal(templates.length, 2);
+  // El orden del archivo es es primero, en después; cada clave (nombre,
+  // línea) se compone con su plantilla y debe caber holgada en una línea.
+  for (const [li, tpl] of templates.entries()) {
+    for (const mode of ["esencial", "ritmo", "completo"] as const) {
+      const names = grab(`mode.${mode}`);
+      const lines = grab(`mode.${mode}.line`);
+      const composed = tpl.replace("{name}", names[li]!).replace("{line}", lines[li]!);
+      assert.ok(composed.length <= 36, `«${composed}» debe caber en una línea (mide ${composed.length})`);
+    }
+  }
 });

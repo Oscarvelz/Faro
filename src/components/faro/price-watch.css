@@ -21,6 +21,7 @@
 .pw-study { display: flex; flex-direction: column; gap: 8px; }
 .pw-intro { font-size: .88rem; opacity: .85; margin: 0; }
 .pw-chart { width: 100%; height: auto; display: block; }
+.pw-grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
 .pw-step { stroke: var(--accent); stroke-width: 2; }
 .pw-dot { fill: var(--accent); }
 .pw-chart-amt { font-size: 10px; fill: var(--fg); font-weight: 600; }

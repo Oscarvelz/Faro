@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.368",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "Pulido: la línea del modo y la tarjeta de precios", en: "Polish: the mode line and the price card" },
+    points: {
+      es: [
+        "La línea del modo en Ajustes cabe ahora en una sola línea, en los tres modos.",
+        "La tarjeta de cambios de precio de Estudio estrena su envoltorio acabado, con sus bordes, y su gráfica marca cada escalón con su valor y su fecha.",
+      ],
+      en: [
+        "The mode line in Settings now fits on a single line, in all three modes.",
+        "The price-changes card in Study gains its finished wrapper, with its borders, and its chart now marks each step with its value and its date.",
+      ],
+    },
+  },
+  {
     version: "1.3.367",
     date: "2026-11-21",
     level: "grande",

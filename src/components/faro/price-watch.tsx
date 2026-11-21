@@ -105,10 +105,10 @@ function StepChart({ lang, c }: { lang: string; c: PriceChange }) {
   const pts = c.series;
   if (pts.length < 2) return null;
   const W = 320;
-  const H = 104;
+  const H = 122;
   const PADX = 8;
-  const PADTOP = 16;
-  const PADBOT = 20;
+  const PADTOP = 20;
+  const PADBOT = 22;
   const t0 = Date.parse(pts[0]!.on);
   const t1 = Date.parse(pts[pts.length - 1]!.on);
   const span = Math.max(1, t1 - t0);
@@ -123,16 +123,33 @@ function StepChart({ lang, c }: { lang: string; c: PriceChange }) {
   }
   d += ` H ${(W - PADX).toFixed(1)}`;
   const lg = lang === "en" ? "en" : "es";
+  // Los vértices de la escalera: el primer punto, cada punto donde el precio
+  // CAMBIA y el último. Solo ellos llevan rótulo — valor arriba, fecha abajo —
+  // para que la gráfica se lea sin adivinar (Oscar, 2026-11-21).
+  const verts = pts.filter((p, i) => i === 0 || i === pts.length - 1 || p.minor !== pts[i - 1]!.minor);
+  const levels = [...new Set(verts.map((p) => p.minor))];
+  const anchorOf = (p: (typeof pts)[number], i: number): "start" | "middle" | "end" =>
+    i === 0 ? "start" : i === verts.length - 1 ? "end" : "middle";
+  const labelX = (p: (typeof pts)[number], i: number): number => {
+    const raw = x(p.on);
+    if (anchorOf(p, i) === "middle") return Math.min(W - 34, Math.max(34, raw));
+    return raw;
+  };
   return (
     <svg className="pw-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={c.name}>
+      {levels.map((lv) => (
+        <line key={lv} x1={PADX} x2={W - PADX} y1={y(lv)} y2={y(lv)} className="pw-grid" />
+      ))}
       <path d={d} className="pw-step" fill="none" />
       {pts.map((p, i) => (
         <circle key={`${p.on}-${i}`} cx={x(p.on)} cy={y(p.minor)} r={3} className="pw-dot" />
       ))}
-      <text x={PADX} y={11} className="pw-chart-amt">{formatMoney(pts[0]!.minor, c.currency, lg)}</text>
-      <text x={W - PADX} y={11} textAnchor="end" className="pw-chart-amt">{formatMoney(pts[pts.length - 1]!.minor, c.currency, lg)}</text>
-      <text x={PADX} y={H - 4} className="pw-chart-day">{dayLabel(lang, pts[0]!.on)}</text>
-      <text x={W - PADX} y={H - 4} textAnchor="end" className="pw-chart-day">{dayLabel(lang, pts[pts.length - 1]!.on)}</text>
+      {verts.map((p, i) => (
+        <text key={`a-${p.on}-${i}`} x={labelX(p, i)} y={Math.max(11, y(p.minor) - 7)} textAnchor={anchorOf(p, i)} className="pw-chart-amt">{formatMoney(p.minor, c.currency, lg)}</text>
+      ))}
+      {verts.map((p, i) => (
+        <text key={`d-${p.on}-${i}`} x={labelX(p, i)} y={Math.min(H - 4, y(p.minor) + 15)} textAnchor={anchorOf(p, i)} className="pw-chart-day">{dayLabel(lang, p.on)}</text>
+      ))}
     </svg>
   );
 }
@@ -160,12 +177,15 @@ export function PriceWatchStudy() {
     return lang === "en" ? `${per} per purchase${pct}` : `${per} por compra${pct}`;
   };
   return (
-    <div className="pw-study" data-anchor="study-prices">
+    <section className="card pw-study" data-anchor="study-prices">
+      <h2 className="serif text-2xl lab-head">
+        {L(lang, "Cambios de precio", "Price changes")}
+        <Hint topic="cambios-precio" />
+      </h2>
       <p className="pw-intro">
         {L(lang,
           "Qué cambió de precio en los últimos 12 meses, lo de mayor efecto primero. Toca un cambio para ver su escalera.",
           "What changed price in the last 12 months, biggest effect first. Tap a change to see its steps.")}
-        <Hint topic="cambios-precio" />
       </p>
       <StepChart lang={lang} c={current} />
       <ul className="pw-rows">
@@ -203,6 +223,6 @@ export function PriceWatchStudy() {
             : `Y ${watch.hidden} ${watch.hidden === 1 ? "cambio menor" : "cambios menores"} debajo de estos.`}
         </p>
       ) : null}
-    </div>
+    </section>
   );
 }
