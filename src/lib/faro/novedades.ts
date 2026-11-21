@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.365",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "saldo-proyectado",
+    title: { es: "Tu saldo, día a día", en: "Your balance, day by day" },
+    points: {
+      es: [
+        "El Asesor ahora camina tu saldo día a día hasta el fin del mes que viene, solo con lo que ya está comprometido: tus cuotas en su fecha, tus tarjetas con el pago del mes pasado y tus fijos de cada mes.",
+        "El veredicto se lee sobre lo libre — tu saldo menos lo apartado — y si un día aprieta más que los demás, queda marcado en el camino. Toca una cifra y el camino se abre: cada evento con su fuente dicha.",
+        "También puedes preguntarle: «¿llego al día 20?», «¿cómo llego a fin de mes?», «¿cuál es mi día más apretado?» — responde del mismo camino.",
+      ],
+      en: [
+        "The Advisor now walks your balance day by day to the end of next month, with only what is already committed: your installments on their date, your cards at last month's payment and your every-month fixed charges.",
+        "The verdict reads on the free balance — your balance minus what you set aside — and if one day squeezes tighter than the rest, it stays marked along the way. Tap a figure and the way opens: every event with its source stated.",
+        "You can also ask it: “will I make it to day 20?”, “how do I get to the end of the month?”, “what's my tightest day?” — it answers from the same walk.",
+      ],
+    },
+  },
+  {
     version: "1.3.364",
     date: "2026-11-21",
     level: "menor",

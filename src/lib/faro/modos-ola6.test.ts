@@ -106,6 +106,9 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     ["tc-ganado", "completo", "scan.card-capture"],
     ["tc-promo", "completo", "cards.add-full"],
     ["leer-estado", "completo", "scan.retirement-stmt"],
+    // 1.3.365 — el saldo proyectado (§19.1): el tema nace con su
+    // asiento declarado; interpretar es de Completo.
+    ["saldo-proyectado", "completo", "advisor.projection"],
   ];
   for (const [id, mode, feature] of SEATS) {
     it(`${id}: el tema vive en ${mode}, el modo de ${feature}`, () => {
@@ -166,11 +169,15 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // account.name — corregir el propio nombre es esencial, precedente
     // de los renombres). La distribución se mueve a
     // 130 · 106 · 129 sobre 365.
+    // ENMIENDA SALDO PROYECTADO (1.3.365): nace saldo-proyectado en
+    // Completo (su función es advisor.projection — interpretar el
+    // libro con fechas). La distribución se mueve a
+    // 130 · 106 · 130 sobre 366.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 365);
+    assert.equal(MANUAL_TOPICS.length, 366);
     assert.equal(count("esencial"), 130);
     assert.equal(count("ritmo"), 106);
-    assert.equal(count("completo"), 129);
+    assert.equal(count("completo"), 130);
   });
 });
 

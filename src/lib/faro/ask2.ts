@@ -70,7 +70,7 @@ export type BankFamilyId =
 
 export type BankPiece = { label: string; minor: number };
 export type BankResult =
-  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null }
+  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null }
   | { kind: "ask-back"; family: "cuenta-origen"; verdict: string; options: (BankPiece & { id: string })[]; source: string[] }
   | { kind: "need-amount"; family: BankFamilyId }
   | { kind: "unknown" };
@@ -680,6 +680,23 @@ export function answerBankQuestion(
   // cuentas que cubren, la pregunta de vuelta manda antes de calcular.
   if (/(si sacara|si saco|si retiro|que impacto|what if i (take|took|withdraw)|if i (take|took|withdraw))/.test(folded)) {
     return cuentaOrigenAnswer(c, raw, parseCtx, pin?.accountId);
+  }
+  // 0b · EL CAMINO (§19.1, 1.3.365): «¿llego al día X?», «¿cómo llego
+  // a fin de mes?», «¿cuál es mi día más apretado?» son del saldo
+  // proyectado — se juzgan aquí, antes que las familias del banco,
+  // porque su frase roza a varias (futuro, agenda) y su verdad es una
+  // sola: la caminata de projection.ts, la misma de la lectura del
+  // Asesor. Responde el delegado de ask.ts, con su piso declarado.
+  if (parseQuestion(raw, parseCtx)?.intent === "reach") {
+    const base: AskResult = answerQuestion(state, key, lang, names, raw, parseCtx, today, c.mode);
+    if (base.kind === "answer") {
+      return {
+        kind: "answer", family: "reach", verdict: base.verdict,
+        pieces: base.pieces, note: base.note, draft: base.draft,
+        source: ["asesor.lectura"], lines: 0,
+      };
+    }
+    return { kind: "unknown" };
   }
   // 1 · AHORROS antes que todo lo genérico (la cura del desvío) — pero
   // «sin tocar mis ahorros» es free: su trampa manda sobre la palabra.

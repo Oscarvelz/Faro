@@ -32,6 +32,7 @@ type Namer = {
 import { duesWindow } from "./dues.ts";
 import { cushionOf } from "./funds.ts";
 import { parseQuestion, type ParsedQuestion, type Register } from "./lexicon.ts";
+import { dayName, freeAt, readProjection } from "./projection.ts";
 import { convertMinor, formatMoney } from "./money.ts";
 import { savingsStock } from "./savings.ts";
 import type { ParseCtx } from "./textparse.ts";
@@ -71,6 +72,7 @@ export const ASK_FLOORS = {
   "loans.payoff-plan": "completo",
   "remit.manage": "completo",
   "study.remit": "completo",
+  "advisor.projection": "completo",
 } as const satisfies Record<string, BookMode>;
 export type AskFeature = keyof typeof ASK_FLOORS;
 
@@ -120,6 +122,7 @@ export function answerQuestion(
   switch (q.intent) {
     case "spend": return spendAnswer(q, reading, state, display, rateE4, lang, money, today);
     case "free": return freeAnswer(q, state, key, today, display, lang, money, modeNow);
+    case "reach": return reachAnswer(q, state, lang, money, today, modeNow);
     case "left": return leftAnswer(q, reading, key, lang, money);
     case "how": return {
       kind: "answer", intent: "how", register: q.register,
@@ -198,6 +201,119 @@ function freeAnswer(
       { label: L(lang, "Colchón por cubrir", "Cushion still to cover") + pieceFloor(lang, mode, "nature.cushion"), minor: -colchon },
     ],
     note: null,
+    draft: null,
+  };
+}
+
+/** El día del mes preguntado, resuelto a fecha: este mes si aún viene,
+ * el que viene si ya pasó (¿llego al día 20? un 21 pregunta por el 20
+ * del mes siguiente). */
+function resolveAskedDay(today: string, dayNum: number): string {
+  const mk = (y: number, m0: number) => {
+    const last = new Date(y, m0 + 1, 0, 12).getDate();
+    return `${y}-${String(m0 + 1).padStart(2, "0")}-${String(Math.min(dayNum, last)).padStart(2, "0")}`;
+  };
+  const y = Number(today.slice(0, 4));
+  const m0 = Number(today.slice(5, 7)) - 1;
+  const thisMonth = mk(y, m0);
+  if (thisMonth >= today) return thisMonth;
+  const next = new Date(y, m0 + 1, 1, 12);
+  return mk(next.getFullYear(), next.getMonth());
+}
+
+/**
+ * La familia del camino (§19.1, 1.3.365): ¿llego al día X?, ¿cómo
+ * llego a fin de mes?, ¿cuál es mi día más apretado? — del MISMO motor
+ * que la lectura del Asesor (projection.ts): una sola verdad entre la
+ * tarjeta y la respuesta (cerca 6 del brief). El veredicto se lee
+ * sobre lo libre, y el supuesto va dicho en la nota: solo entra lo ya
+ * comprometido; lo variable no entra hasta que se anota.
+ */
+function reachAnswer(
+  q: ParsedQuestion, state: LedgerState, lang: Lang, money: (n: number) => string, today: string, mode: BookMode,
+): AskResult {
+  if (!askReaches(mode, "advisor.projection")) {
+    return {
+      kind: "answer", intent: "reach", register: q.register,
+      verdict: L(lang,
+        "Eso lo lee tu saldo proyectado, día a día — y vive en Completo.",
+        "Your day-by-day projected balance reads that — and it lives in Complete."),
+      pieces: [], note: null, draft: null,
+    };
+  }
+  const p = readProjection(state, lang, today);
+  const assumption = L(lang,
+    "El supuesto, dicho: solo entra lo ya comprometido — cuotas, tarjetas con el pago del mes pasado, tus fijos de cada mes y tu ingreso seguro. Lo variable no entra hasta que se anota.",
+    "The assumption, stated: only what is already committed counts — installments, cards at last month's payment, your every-month fixed charges and your steady income. Variable income doesn't count until it's recorded.");
+  if (!p.hasBase) {
+    return { kind: "answer", intent: "reach", register: q.register, verdict: p.verdict, pieces: [], note: null, draft: null };
+  }
+  const startPieces: AskPiece[] = [
+    { label: L(lang, "Saldo en cuentas hoy", "Balance in accounts today"), minor: p.startMinor },
+    { label: L(lang, "Apartado del saldo", "Set aside from the balance"), minor: -p.pledgedMinor },
+  ];
+  if (q.tightest) {
+    if (!p.tightest || !p.events.length) {
+      return {
+        kind: "answer", intent: "reach", register: q.register,
+        verdict: L(lang,
+          `Sin vencimientos en el camino, tu día más apretado es hoy: te quedan ${money(p.endFree)} libres.`,
+          `With nothing due along the way, your tightest day is today: ${money(p.endFree)} free left.`),
+        pieces: [...startPieces, { label: L(lang, "Libre hoy", "Free today"), minor: p.endFree }],
+        note: assumption, draft: null,
+      };
+    }
+    return {
+      kind: "answer", intent: "reach", register: q.register,
+      verdict: p.tightestText ?? p.verdict,
+      pieces: [...startPieces, { label: L(lang, `Libre ${dayName(lang, p.tightest.day, today)}`, `Free on ${dayName(lang, p.tightest.day, today)}`), minor: p.tightest.free }],
+      note: assumption, draft: null,
+    };
+  }
+  const target = q.day != null ? resolveAskedDay(today, q.day) : p.monthEnd;
+  const targetName = dayName(lang, target, today);
+  // La frase de destino en la voz de la respuesta: «al día 20», «al 3 de
+  // diciembre», «a fin de mes» — nunca «a el».
+  const MONTHS_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const targetPhrase = q.day == null
+    ? L(lang, "a fin de mes", "to the end of the month")
+    : target.slice(0, 7) === today.slice(0, 7)
+      ? L(lang, `al día ${Number(target.slice(8, 10))}`, `to day ${Number(target.slice(8, 10))}`)
+      : L(lang, `al ${Number(target.slice(8, 10))} de ${MONTHS_ES[Number(target.slice(5, 7)) - 1]}`, `to ${MONTHS_EN[Number(target.slice(5, 7)) - 1]} ${Number(target.slice(8, 10))}`);
+  if (target > p.horizonEnd) {
+    return {
+      kind: "answer", intent: "reach", register: q.register,
+      verdict: L(lang,
+        `Mi camino llega hasta ${dayName(lang, p.horizonEnd, today)}: ese día te quedan ${money(p.endFree)} libres. Más allá no camino todavía.`,
+        `My walk reaches ${dayName(lang, p.horizonEnd, today)}: that day you have ${money(p.endFree)} free. I don't walk further yet.`),
+      pieces: [...startPieces, { label: L(lang, `Libre ${dayName(lang, p.horizonEnd, today)}`, `Free on ${dayName(lang, p.horizonEnd, today)}`), minor: p.endFree }],
+      note: assumption, draft: null,
+    };
+  }
+  const at = freeAt(p, target);
+  const free = at?.free ?? p.endFree;
+  const balance = at?.balance ?? p.endBalance;
+  let verdict: string;
+  if (p.firstBalanceNegative && p.firstBalanceNegative <= target) {
+    const bad = freeAt(p, p.firstBalanceNegative);
+    verdict = L(lang,
+      `No llegas ${targetPhrase}: ${dayName(lang, p.firstBalanceNegative, today)} el saldo cae a ${money(bad?.balance ?? 0)}.`,
+      `You don't make it ${targetPhrase}: on ${dayName(lang, p.firstBalanceNegative, today)} the balance falls to ${money(bad?.balance ?? 0)}.`);
+  } else if (p.firstFreeNegative && p.firstFreeNegative <= target) {
+    const bad = freeAt(p, p.firstFreeNegative);
+    verdict = L(lang,
+      `Llegas ${targetPhrase}, pero tocando lo apartado: ${dayName(lang, p.firstFreeNegative, today)} lo libre cae a ${money(bad?.free ?? 0)}.`,
+      `You make it ${targetPhrase}, but touching what you set aside: on ${dayName(lang, p.firstFreeNegative, today)} the free balance falls to ${money(bad?.free ?? 0)}.`);
+  } else {
+    verdict = L(lang,
+      `Llegas ${targetPhrase}: te quedan ${money(free)} libres (saldo ${money(balance)}).`,
+      `You make it ${targetPhrase}: ${money(free)} free left (balance ${money(balance)}).`);
+  }
+  return {
+    kind: "answer", intent: "reach", register: q.register, verdict,
+    pieces: [...startPieces, { label: L(lang, `Libre ${targetName}`, `Free on ${targetName}`), minor: free }],
+    note: p.tightestText && p.tightest && p.tightest.day !== target ? `${p.tightestText} ${assumption}` : assumption,
     draft: null,
   };
 }

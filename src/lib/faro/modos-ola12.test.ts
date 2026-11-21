@@ -420,6 +420,7 @@ const AGREGADORES: Record<string, [Clase, string]> = {
   "lib/faro/remesas.ts:remitTrend": ["movimiento", "remesas por mes, nombradas como remesas"],
   "lib/faro/sample.ts:countSampleRows": ["interna", "cuenta filas de la casa de muestra: no suma dinero"],
   "lib/faro/savings.ts:savingsStock": ["interna", "stock de ahorro (saldos a una fecha), no flujo del mes: su cara lo nombra «guardado»"],
+  "lib/faro/projection.ts:projectWalk": ["interna", "la caminata del saldo proyectado (§19.1, 1.3.365): suma solo obligaciones futuras ya comprometidas (series, tarjetas, patrones) sobre el stock de savingsStock — no re-suma el libro ni alimenta ningún total del mes; su cara lo nombra «proyectado»"],
 };
 
 describe("§A · E12-1 — el censo de caras y agregadores, derivado del AST", () => {

@@ -26,6 +26,7 @@ import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { AskBox } from "@/components/faro/ask-box";
 import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
+import { ProjectionSection } from "@/components/faro/projection";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
@@ -5547,6 +5548,10 @@ export function Advisor() {
           que es de Ritmo: en Esencial la nota existía y nunca se pintaba.
           El banco en vivo lo cazó; la franja es su casa verdadera. */}
       {reading.overdueNote ? <p className="advice-because is-notice" data-anchor="advice-overdue">{reading.overdueNote}</p> : null}
+      {/* El saldo proyectado (§19.1, 1.3.365): la caminata de lo
+          comprometido, tras la torre — su asiento (Completo) manda
+          dentro de la sección; sin él, ni la tarjeta. */}
+      <ProjectionSection />
       {awakeOn && wake?.notice ? <p className="advice-because is-notice">{wake.notice}</p> : null}
       {awakeOn && wake ? wake.findings.map((item) => {
         const open = cardOn(item.id);

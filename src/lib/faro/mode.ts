@@ -642,6 +642,10 @@ export const FEATURES = {
    * encadenados y mover pagos son la profundidad de Completo, y su
    * asiento nace declarado con la caja aunque su motor llegue en 5b. */
   "advisor.ask": E, "advisor.ask-scenarios": C, "advisor.waitlist": E,
+  /* §19.1 El saldo proyectado, día a día (1.3.365): interpretar es de
+   * Completo por el criterio de la casa — la caminata de lo ya
+   * comprometido lee el libro entero con fechas, no declara nada. */
+  "advisor.projection": C,
   "advisor.verdict": E, "advisor.verdict-sub": R, "advisor.hero-cubes": R,
   "advisor.step-income": E, "advisor.step-name": E, "advisor.step-keep": E,
   "advisor.step-close-gap": R, "advisor.step-set-aside": R, "advisor.step-wants-30": R,

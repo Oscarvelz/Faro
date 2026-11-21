@@ -31,6 +31,7 @@ export const LINKS: Record<string, string> = {
   "Libros → Me deben": "deudas", "Books → Owed to me": "deudas",
   "Plan de pago": "plan-pago", "Payoff plan": "plan-pago",
   "Tarjetas de crédito": "tarjetas", "Credit cards": "tarjetas",
+  "Preguntar al Asesor": "preguntar-asesor", "Ask the Advisor": "preguntar-asesor",
   "Fecha de pago": "tc-fecha", "Due date": "tc-fecha",
   "Actualizar con una captura": "tarjetas-captura", "Update with a screenshot": "tarjetas-captura",
   "Recompensas de tarjetas": "recompensas-tarjetas", "Card rewards": "recompensas-tarjetas",

@@ -273,10 +273,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA PIEZA 0 (1.3.363): nace nombre en Esencial (su función
     // es account.name): esencial +1 y el total +1
     // — acumulados 130 · 236 · 365.
+    // ENMIENDA SALDO PROYECTADO (1.3.365): nace saldo-proyectado en
+    // Completo (su función es advisor.projection): completo +1 y el
+    // total +1 — acumulados 130 · 236 · 366.
     assert.equal(count("esencial"), 130);
     assert.equal(count("ritmo"), 236);
-    assert.equal(count("completo"), 365);
-    assert.equal(MANUAL_TOPICS.length, 365);
+    assert.equal(count("completo"), 366);
+    assert.equal(MANUAL_TOPICS.length, 366);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

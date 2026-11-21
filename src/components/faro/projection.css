@@ -1,0 +1,32 @@
+/* El saldo proyectado (§19.1): el camino como lista sobria — el día a
+   la izquierda, el evento con su fuente, la cifra a la derecha. El día
+   más apretado se marca con el acento del tema, nunca con rojo ni
+   verde: el futuro no se pinta, se lee. */
+.proj-card { display: flex; flex-direction: column; gap: 8px; }
+.proj-tight { font-size: .92rem; margin: 0; opacity: .9; }
+.proj-figs { display: flex; align-items: stretch; gap: 8px; }
+.proj-fig {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+  align-items: flex-start; text-align: left; cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line));
+  border-radius: 12px; padding: 9px 12px;
+  background: var(--surface); color: var(--fg);
+  font: inherit;
+}
+.proj-fig em { font-style: normal; font-size: .78rem; opacity: .7; }
+.proj-fig strong { font-size: 1.05rem; }
+.proj-figs .fold-chev { align-self: center; flex: none; }
+.proj-parts { font-size: .84rem; opacity: .75; margin: 0; }
+.proj-path { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; }
+.proj-row {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 7px 8px; border-radius: 8px;
+}
+.proj-row.is-tight { background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.proj-day { flex: none; width: 44px; font-size: .86rem; opacity: .75; }
+.proj-what { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.proj-name { font-size: .94rem; }
+.proj-src { font-size: .8rem; opacity: .65; }
+.proj-amt { flex: none; font-size: .94rem; }
+.proj-amt.is-in { color: var(--accent); }
+.proj-none { font-size: .9rem; opacity: .7; margin: 0; }

@@ -31,7 +31,7 @@
 import { parsePhrase, type ParseCtx } from "./textparse.ts";
 import type { Currency } from "./types.ts";
 
-export type AskIntent = "spend" | "free" | "left" | "how";
+export type AskIntent = "spend" | "free" | "left" | "how" | "reach";
 export type Register = "coloquial" | "llano" | "tecnico";
 
 export type ParsedQuestion = {
@@ -44,6 +44,10 @@ export type ParsedQuestion = {
   concept: string;
   /** Solo para left: true cuando la pregunta es por el año. */
   year: boolean;
+  /** Solo para reach: el día del mes preguntado (null = fin de mes). */
+  day: number | null;
+  /** Solo para reach: true cuando pregunta por su día más apretado. */
+  tightest: boolean;
 };
 
 const FOLD_MAP: Record<string, string> = {
@@ -73,6 +77,26 @@ export const INTENT_FAMILIES: { intent: AskIntent; patterns: RegExp[] }[] = [
       /without touching (my |the )?(savings|set[- ]aside)/,
       /what('s| is) left over/,
       /spare cash/,
+    ],
+  },
+  {
+    // El saldo proyectado (§19.1, 1.3.365): llegar a un día con lo ya
+    // comprometido. Va ANTES que left y que spend: «¿llego al día 20?»
+    // no pregunta la queda del mes ni un gasto — pregunta el camino.
+    intent: "reach",
+    patterns: [
+      /llego al dia \d{1,2}/,
+      /llegare al dia \d{1,2}/,
+      /llego a fin de mes/,
+      /como llego/,
+      /dia mas apretado/,
+      /cual es mi dia/,
+      /el dia que mas aprieta/,
+      /will i make it to (day \d{1,2}|the end)/,
+      /do i make it to (day \d{1,2}|the end)/,
+      /make it to day \d{1,2}/,
+      /tightest day/,
+      /how do i get to the end of the month/,
     ],
   },
   {
@@ -159,6 +183,7 @@ export function parseQuestion(raw: string, ctx: ParseCtx): ParsedQuestion | null
       concept = d.concept;
     }
   }
+  const dayMatch = intent === "reach" ? folded.match(/(?:dia|day) (\d{1,2})/) : null;
   return {
     intent,
     register: registerOf(folded),
@@ -166,6 +191,8 @@ export function parseQuestion(raw: string, ctx: ParseCtx): ParsedQuestion | null
     currency,
     concept,
     year: intent === "left" && /\bano\b|\byear\b/.test(folded),
+    day: dayMatch ? Math.min(31, Math.max(1, Number(dayMatch[1]))) : null,
+    tightest: intent === "reach" && /apretado|aprieta|tightest/.test(folded),
   };
 }
 
