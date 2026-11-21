@@ -264,10 +264,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA LISTA-PLAN (1.3.357): nace lista-plan en Ritmo (su
     // función es capture.plan): ritmo +1 y el total +1
     // — acumulados 127 · 233 · 362.
-    assert.equal(count("esencial"), 127);
-    assert.equal(count("ritmo"), 233);
-    assert.equal(count("completo"), 362);
-    assert.equal(MANUAL_TOPICS.length, 362);
+    // ENMIENDA LISTA DE ESPERA (1.3.360): nace lista-espera en Esencial
+    // (su función es advisor.waitlist): esencial +1 y el total +1
+    // — acumulados 128 · 234 · 363.
+    assert.equal(count("esencial"), 128);
+    assert.equal(count("ritmo"), 234);
+    assert.equal(count("completo"), 363);
+    assert.equal(MANUAL_TOPICS.length, 363);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

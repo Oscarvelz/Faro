@@ -603,7 +603,7 @@ export const FEATURES = {
    * nuevo y saber qué es Faro es de todos — los dos pliegues son de
    * Esencial; la tarjeta del anuncio al abrir no conoce modo, como el
    * letrero de cambio de modo. */
-  "settings.news": E, "settings.about": E,
+  "settings.news": E, "settings.about": E, "settings.wait-time": R,
   /* §2 Ajustes atados — siguen a su función (fallos D-bis 34–39 y el catálogo
    * partido: añadir en Esencial, administrar Tiendas en Ritmo, Suscripciones y
    * Seguros en Completo; la Moneda de vista gana casa en «La app») */
@@ -638,7 +638,7 @@ export const FEATURES = {
    * Asesor de lo esencial es de Esencial (mapa F8); los escenarios
    * encadenados y mover pagos son la profundidad de Completo, y su
    * asiento nace declarado con la caja aunque su motor llegue en 5b. */
-  "advisor.ask": E, "advisor.ask-scenarios": C,
+  "advisor.ask": E, "advisor.ask-scenarios": C, "advisor.waitlist": E,
   "advisor.verdict": E, "advisor.verdict-sub": R, "advisor.hero-cubes": R,
   "advisor.step-income": E, "advisor.step-name": E, "advisor.step-keep": E,
   "advisor.step-close-gap": R, "advisor.step-set-aside": R, "advisor.step-wants-30": R,
@@ -718,6 +718,7 @@ export function featureForGo(go: GoDest): FeatureId | null {
   const f = go.fold ?? "";
   if (s === "settings") {
     if (a === "aj-guest") return "settings.guest-currency";
+    if (a === "aj-wait") return "settings.wait-time";
     if (a === "aj-novedades") return "settings.news";
     if (a === "aj-acerca") return "settings.about";
     if (a === "aj-cards") return "settings.bank-sources";
@@ -803,6 +804,7 @@ export function featureForGo(go: GoDest): FeatureId | null {
   }
   if (s === "advice") {
     if (a === "advisor-ask") return "advisor.ask";
+    if (a === "advisor-waitlist") return "advisor.waitlist";
     if (a === "coach-pillars") return "advisor.pillars";
     if (a === "advice-sim") return "advisor.scenarios";
     if (a === "advice-long") return "advisor.projection-12";

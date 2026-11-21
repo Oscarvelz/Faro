@@ -34,6 +34,7 @@ const SOURCE_WORD: Record<DraftSource, [string, string]> = {
   pdf: ["PDF", "PDF"],
   list: ["Lista", "List"],
   notice: ["Aviso", "Notice"],
+  wish: ["Espera", "Wait"],
 };
 
 export function TrayCard() {

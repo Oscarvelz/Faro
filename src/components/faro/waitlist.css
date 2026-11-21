@@ -1,0 +1,44 @@
+/* La lista de espera (5c): tarjetas en cuarentena con su anillo de
+   cuenta atrás — la firma de esta lista. El color es del tema
+   (var(--accent)); la forma es de la espera. Nada de casillas ni barras:
+   eso es la lista-plan. */
+.wl-section { display: flex; flex-direction: column; gap: 10px; }
+.wl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wl-title { display: inline-flex; align-items: center; gap: 6px; font-size: 1.15rem; }
+.wl-sub { font-size: .86rem; opacity: .75; margin: 0; }
+.wl-empty { font-size: .9rem; opacity: .65; margin: 0; }
+.wl-card {
+  display: flex; gap: 14px; align-items: flex-start;
+  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+  border-radius: 14px; padding: 14px;
+  background: var(--surface); color: var(--fg);
+}
+.wl-ring-wrap { position: relative; width: 64px; height: 64px; flex: none; }
+.wl-ring { width: 64px; height: 64px; transform: rotate(-90deg); }
+.wl-ring-bg { fill: none; stroke: rgba(127,127,127,.25); stroke-width: 5; }
+.wl-ring-fg { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset .4s ease; }
+.wl-ring-ico { position: absolute; inset: 0; margin: auto; width: 20px; height: 20px; opacity: .7; }
+.wl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.wl-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.wl-concept { font-size: 1.02rem; }
+.wl-price { font-size: 1rem; margin: 0; }
+.wl-store { opacity: .7; font-size: .88rem; }
+.wl-left { font-size: .86rem; opacity: .75; margin: 0; }
+.wl-noprice-note { font-size: .86rem; opacity: .8; margin: 0 0 6px; }
+.wl-price-form { display: flex; gap: 6px; align-items: center; }
+.wl-price-form .field { width: auto; }
+.wl-price-form input.field { flex: 1; min-width: 0; }
+.wl-fields { display: flex; gap: 10px; }
+.wl-fields .label { flex: 1; }
+.wl-scenario-btn { align-self: flex-start; }
+.wl-scenario { border-left: 3px solid var(--accent); padding: 4px 0 4px 10px; display: flex; flex-direction: column; gap: 4px; }
+.wl-scenario p { margin: 0; font-size: .9rem; }
+.wl-ask { border-top: 1px dashed rgba(127,127,127,.35); padding-top: 10px; }
+.wl-ask-q { font-size: 1rem; font-weight: 600; margin: 0 0 8px; }
+.wl-ask-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.wl-year { border-top: 1px solid rgba(127,127,127,.25); padding-top: 8px; }
+.wl-year-btn { background: none; border: none; padding: 0; font: inherit; font-size: .92rem; cursor: pointer; color: inherit; }
+.wl-pieces { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.wl-pieces li { display: flex; gap: 8px; align-items: baseline; font-size: .88rem; flex-wrap: wrap; }
+.wl-piece-tag { opacity: .65; font-size: .8rem; }
+.wl-piece-date { opacity: .55; font-size: .8rem; margin-left: auto; }

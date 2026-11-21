@@ -25,6 +25,7 @@ import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { AskBox } from "@/components/faro/ask-box";
+import { WaitlistSection, WishEntry } from "@/components/faro/waitlist";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
@@ -3693,6 +3694,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 <p>{t("choose.scan.sub")}</p>
               </div>
             ) : null}
+            {choose === "out" && has("advisor.waitlist") ? (
+              <div className="cap-choose-row">
+                <WishEntry />
+                <p>{t("choose.wish.sub")}</p>
+              </div>
+            ) : null}
               </>
             ) : (
               <>
@@ -5491,6 +5498,7 @@ export function Advisor() {
           claras — y después la pregunta, debajo de las Palabras claras. */}
       <CoachHero />
       <AskBox />
+      <WaitlistSection />
       <label className="unfold-all is-advice" data-anchor="advice-unfold" data-hello={hello || undefined}>
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />
         <span>{t("study.unfold")}</span>
@@ -6387,6 +6395,17 @@ export function Settings() {
           ]} />
           <p className="aj-nature-note">{t("fund.mode.note")}</p>
         </div>
+        {has("settings.wait-time") ? (
+        <div className="label mt-2" data-anchor="aj-wait">
+          <span className="lab-head">{glueHint(t("settings.wait"), <Hint topic="lista-espera" fitParent />)}</span>
+          <ThemeSelect value={String(settings.waitHours ?? 48)} onChange={(v) => commit((s) => (s.settings.waitHours === Number(v) ? s : { ...s, settings: { ...s.settings, waitHours: Number(v) } }), "wait")} options={[
+            { value: "24", label: lang === "en" ? "24 hours" : "24 horas" },
+            { value: "48", label: lang === "en" ? "48 hours" : "48 horas" },
+            { value: "72", label: lang === "en" ? "72 hours" : "72 horas" },
+            { value: "168", label: lang === "en" ? "One week" : "Una semana" },
+          ]} />
+        </div>
+        ) : null}
         {rateRow}
       </Fold>
       ) : null}

@@ -485,6 +485,20 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/shell.tsx|commit|inline|—": ["aterrizaje", 2],
   "components/faro/slip-apply.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
   "components/faro/tray.tsx|commitGuarded|dropDraft|dropDraft": ["guardada", 1],
+  // 1.3.360 (5c, la lista de espera): las recetas de la espera viajan por
+  // la puerta ordinaria — ninguna puede negarse: anotar, poner precio,
+  // sellar la pregunta, renovar, dejar, comprar (nace el borrador) y
+  // borrar son idempotentes o nacen del estado vivo en el acto.
+  "components/faro/waitlist.tsx|commit|addWish|—": ["aterrizaje", 1],
+  "components/faro/waitlist.tsx|commit|askStamp|askStamp+patchWish": ["aterrizaje", 1],
+  "components/faro/waitlist.tsx|commit|buyWish|—": ["aterrizaje", 1],
+  "components/faro/waitlist.tsx|commit|dropWish|dropWish": ["aterrizaje", 1],
+  "components/faro/waitlist.tsx|commit|leaveWish|leaveWish+patchWish": ["aterrizaje", 1],
+  "components/faro/waitlist.tsx|commit|renewWish|renewWish+patchWish": ["aterrizaje", 1],
+  "components/faro/waitlist.tsx|commit|setWishPrice|setWishPrice+patchWish": ["aterrizaje", 1],
+  // 1.3.360: el ajuste «Tiempo de espera» compone settings.waitHours en
+  // línea (la cabeza derivada es Number, la conversión del paso elegido).
+  "components/faro/screens.tsx|commit|Number|—": ["aterrizaje", 1],
   "components/faro/widget-host.tsx|commit|ingestQuick|ingestQuick+upsertLine": ["aterrizaje", 1],
   "components/faro/widget-host.tsx|commit|toggleStorePin|—": ["aterrizaje", 2],
   "components/faro/widget-host.tsx|commit|toggleWidgetPin|—": ["aterrizaje", 2],

@@ -259,6 +259,7 @@ describe("§A · el censo del apartado: toda superficie agregadora, clasificada"
     "lib/faro/remesas.ts:summarize": ["interna", "lee remittance del resumen; no nombra gasto"],
     "lib/faro/rules.ts:readAdvisor": ["interna", "las reglas leen la Lectura; no presentan sumas"],
     "lib/faro/today.ts:summarize": ["interna", "lee opportunity (lo libre); no nombra gasto"],
+    "lib/faro/waitlist.ts:readAdvisor": ["interna", "el escenario de la lista de espera (5c, 1.3.360) compone sobre la Lectura ya clasificada; no agrega sumas propias — sus frases son campos de la Lectura o la resta nombrada del precio del deseo"],
     "lib/faro/widget.ts:categorySlices": ["movimiento", "rebanadas del widget con su nombre"],
     "lib/faro/widget.ts:summarize": ["movimiento", "flujos entra/sale del widget; usedPct = spentPct, solo-gasto tras la cura"],
     "lib/faro/year.ts:categorySlices": ["interna", "compone el top del año; la cara clasificada es YearCard (screens:yearReport)"],

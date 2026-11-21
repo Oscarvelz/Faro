@@ -936,5 +936,11 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (d.amountMinor !== undefined && d.amountMinor !== null && !isFinD(d.amountMinor)) return false;
     }
   }
+  // wishes (la lista de espera, 5c): si está, es una lista — las entradas se
+  // leen con desconfianza en waitlist.ts, así que aquí no se exige más forma
+  // y un deseo dañado jamás manda el libro entero a cuarentena.
+  if (s.wishes !== undefined && !Array.isArray(s.wishes)) return false;
+  // waitHours (el plazo de la espera): si está, es un número finito.
+  if (set.waitHours !== undefined && !isFinD(set.waitHours)) return false;
   return true;
 }

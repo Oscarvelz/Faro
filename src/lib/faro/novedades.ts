@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.360",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "lista-espera",
+    title: { es: "La lista de espera: el freno de impulso", en: "The waiting list: the impulse brake" },
+    points: {
+      es: [
+        "¿Un gusto que todavía no decides comprar? Anótalo en la lista de espera del Asesor, con su precio y su tienda: espera 48 horas (el plazo se cambia en Ajustes) con su cuenta atrás a la vista.",
+        "Mientras espera, su botón «¿Qué pasaría si lo compro?» corre el escenario sobre tu mes real. Al vencer el plazo, Faro te pregunta una vez si todavía lo quieres: comprarlo lo manda a la bandeja ya rellenado; dejarlo suma a lo que la espera te ahorró este año.",
+      ],
+      en: [
+        "A treat you have not decided to buy? Note it on the Advisor's waiting list, with its price and store: it waits 48 hours (the time can be changed in Settings) with its countdown in view.",
+        "While it waits, its “What if I buy it?” button runs the scenario over your real month. When the time is up, Faro asks once if you still want it: buying sends it to the tray already filled in; leaving it adds to what the wait saved you this year.",
+      ],
+    },
+  },
+  {
     version: "1.3.359",
     date: "2026-11-21",
     level: "menor",

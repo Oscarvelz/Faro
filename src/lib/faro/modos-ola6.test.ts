@@ -154,9 +154,13 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // declarado en el tema; su función es capture.plan — planear es
     // administrar, fallo de Oscar). La distribución se mueve a
     // 127 · 106 · 129 sobre 362.
+    // ENMIENDA LISTA DE ESPERA (1.3.360): nace lista-espera en Esencial
+    // (modo declarado en el tema, capítulo del Asesor; su función es
+    // advisor.waitlist — anotar un deseo es declarar, fallo de Oscar).
+    // La distribución se mueve a 128 · 106 · 129 sobre 363.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 362);
-    assert.equal(count("esencial"), 127);
+    assert.equal(MANUAL_TOPICS.length, 363);
+    assert.equal(count("esencial"), 128);
     assert.equal(count("ritmo"), 106);
     assert.equal(count("completo"), 129);
   });

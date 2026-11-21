@@ -336,6 +336,7 @@ const CARAS: Record<string, [Clase, string]> = {
   "components/faro/screens.tsx:Study:summary.opportunity": ["interna", "el mismo repliegue para «Lo que queda» cuando no hay punto activo"],
   "components/faro/screens.tsx:Study:summary.savingsFlow": ["movimiento", "el apartado del mes nombrado en el Estudio como ahorro"],
   "components/faro/screens.tsx:YearCard:m.expense": ["movimiento", "la rejilla de meses pinta entra/sale/neto: sale es la salida y neto la caja, coherentes"],
+  "components/faro/waitlist.tsx:WaitlistSection:year.saved": ["interna", "la cuenta del año de la lista de espera (5c, 1.3.360): suma los precios de los deseos DEJADOS — dinero no gastado, derivado de los deseos y no de líneas del libro; su cara lo nombra «la espera te ahorró»"],
   "components/faro/screens.tsx:YearCard:r.expense": ["movimiento", "«Sale» del año: la misma tarjeta nombra Gasto y Apartado cuando los hay (BR12-5b)"],
   "components/faro/screens.tsx:YearCard:r.spend": ["gasto", "el «Gasto» del año, nombrado junto al «Apartado» en la misma tarjeta (BR12-5b)"],
   "components/faro/screens.tsx:val:point.expense": ["interna", "el panel de corte recompone el total de herramienta sumando saved; sin etiqueta descriptiva propia"],

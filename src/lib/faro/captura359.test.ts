@@ -8,7 +8,7 @@ import { applyImport, buildReview, counts, fromFaroPdf, pickSource } from "./ban
 import { accounts, importBook } from "./bankbook.ts";
 import { makeNamer } from "./defaults.ts";
 import { pdfFile, type ExportPick } from "./export-docs.ts";
-import { FARO_ATTACHMENT, canonical, parseFaroPdf, parsePrintedFaro, type FaroPdf } from "./faropdf.ts";
+import { FARO_ATTACHMENT, canonical, parseFaroPdf, parsePrintedFaro, type FaroPdf, type FaroRow } from "./faropdf.ts";
 import { detectPdf, parsePdfStatement, type PdfDoc } from "./pdfstmt.ts";
 import type { Category, LedgerState, Line } from "./types.ts";
 
@@ -64,7 +64,7 @@ async function extract(buf: ArrayBuffer): Promise<PdfDoc & { attachments?: Recor
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   (pdfjs as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc =
     new URL("../../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).pathname;
-  const task = (pdfjs as { getDocument: (o: object) => { promise: Promise<never> } }).getDocument({ data: new Uint8Array(buf), disableFontFace: true, useSystemFonts: false, verbosity: 0 });
+  const task = (pdfjs as unknown as { getDocument: (o: object) => { promise: Promise<never> } }).getDocument({ data: new Uint8Array(buf), disableFontFace: true, useSystemFonts: false, verbosity: 0 });
   const doc = (await task.promise) as unknown as {
     numPages: number;
     getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str?: string; transform: number[] }[] }>; cleanup: () => void }>;
@@ -98,7 +98,7 @@ async function extract(buf: ArrayBuffer): Promise<PdfDoc & { attachments?: Recor
 
 async function exported() {
   const state = ledger(LINES);
-  const names = makeNamer(state.structure);
+  const names = makeNamer(state.structure, "es");
   const file = pdfFile(state, "2026-11", "es", names, PICK);
   const buf = await file.arrayBuffer();
   const doc = await extract(buf);
@@ -108,7 +108,7 @@ async function exported() {
 const review = (state: LedgerState, faro: FaroPdf) => {
   const f = fromFaroPdf("Faro_2026-11.pdf", faro);
   const srcs = [pickSource(f, importBook(state), accounts(state))];
-  const rv = buildReview(state, [f], srcs, makeNamer(state.structure), "es");
+  const rv = buildReview(state, [f], srcs, makeNamer(state.structure, "es"), "es");
   return { f, rv, srcs };
 };
 
@@ -122,7 +122,7 @@ describe("F11 · la copia de datos", () => {
     assert.equal(faro.copy, "exact");
     assert.equal(faro.rows.length, LINES.length);
     for (const src of LINES) {
-      const row = faro.rows.find((r) => r.line?.id === src.id);
+      const row: FaroRow | undefined = faro.rows.find((r) => r.line?.id === src.id);
       assert.ok(row, `la línea ${src.concept} vuelve`);
       assert.equal(canonical(row.line), canonical(src), `${src.concept}: campo a campo`);
     }
@@ -165,7 +165,7 @@ describe("F11 · la copia de datos", () => {
     const { doc } = await exported();
     const base = ledger([]);
     const other: LedgerState = { ...base, months: { "2026-10": { lines: [line({ kind: "expense-fixed", concept: "Otro mes", amountMinor: 100, monthKey: "2026-10", bookedOn: "2026-10-02" })] } } };
-    const names = makeNamer(other.structure);
+    const names = makeNamer(other.structure, "es");
     const otherDoc = await extract(await pdfFile(other, "2026-10", "es", names, { ...PICK }).arrayBuffer());
     const faro = parseFaroPdf(doc, otherDoc.attachments![FARO_ATTACHMENT])!;
     assert.equal(faro.copy, "broken");

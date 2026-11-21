@@ -412,6 +412,13 @@ export type Settings = {
    * Faro siempre reabre en la moneda oficial (fallo D3). */
   guestCur?: string;
   guestRate?: { per: number; asOf: string; source: string };
+  /** La lista de espera (5c, 1.3.360): el plazo que rige para los deseos
+   * NUEVOS, en horas — pasos cerrados 24 / 48 / 72 / 168 (una semana);
+   * ausente = 48. Cada deseo guarda su propio plazo al nacer (su foto del
+   * ajuste): cambiar esto jamás mueve una espera en curso. El ajuste vive
+   * en Ajustes (asiento settings.wait-time, Ritmo); la lista, en el
+   * Asesor (advisor.waitlist, Esencial). */
+  waitHours?: number;
   savingsGoalPct: number;
   /** La postura ante la naturaleza de los fondos NUEVOS (modelo de ahorros, 1.3.288):
    *  "ask" = preguntar en cada fondo; "balance" = todo nace como parte del saldo;
@@ -473,7 +480,7 @@ export type SubPreset = { id: string; name?: string; icon?: string };
  * Line (kind e icon) y sin ellos un borrador del escaneo no podría volverse
  * la misma línea que hoy produce DraftCard — el código ganó y el brief se
  * corrige con esta nota. */
-export type DraftSource = "text" | "voice" | "photo" | "excel" | "pdf" | "list" | "notice" | "bank";
+export type DraftSource = "text" | "voice" | "photo" | "excel" | "pdf" | "list" | "notice" | "bank" | "wish";
 export type Draft = {
   id: string;
   source: DraftSource;
@@ -529,6 +536,33 @@ export type PlanRow = {
   day: string;
 };
 
+/** Un deseo de la lista de espera (5c, 1.3.360): un gusto no esencial en
+ * cuarentena. Vive FUERA de months — ningún total, estudio ni lectura lo
+ * ve: es dinero todavía no, como la bandeja. Su plazo es SUYO (waitHours,
+ * la foto del ajuste al nacer): dueAt manda, y cambiar el ajuste jamás lo
+ * mueve. askedAt sella la pregunta «¿Todavía lo quieres?» — una vez por
+ * plazo. renewals cuenta las renovaciones: la primera rearma el plazo;
+ * la segunda lo hace permanent (sin más preguntas). status: waiting en
+ * cuarentena; left = dinero no gastado (suma a la cuenta del año);
+ * bought = salió por la captura prerrellenada (su rastro queda en la
+ * misma cuenta, sin sumar a lo ahorrado). Sin precio (amountMinor null)
+ * no hay escenario ni cuenta — la tarjeta lo dice y trae su herramienta. */
+export type Wish = {
+  id: string;
+  concept: string;
+  amountMinor: number | null;
+  currency: Currency;
+  store: string;
+  createdAt: string;               // ISO
+  waitHours: number;               // su plazo prometido (24/48/72/168)
+  dueAt: string;                   // ISO — cuándo vence la espera en curso
+  askedAt: string;                 // "" = la pregunta no ha llegado
+  renewals: number;
+  permanent: boolean;              // sin más preguntas
+  status: "waiting" | "left" | "bought";
+  closedAt: string;                // ISO al dejarse o comprarse; "" en espera
+};
+
 /** Una lista-plan (D6, 1.3.357): nace como índice (closedAt "") con sus
  * filas vivas en la bandeja; al cerrarse gana su foto de filas y su
  * resumen — el conteo completo del cierre: comprado + no había + después
@@ -566,6 +600,10 @@ export type LedgerState = {
    *  vive en el Archivo mayor y del que la lista se reanuda. Ausente en
    *  libros viejos = ningún plan. Viaja con el libro, como la bandeja. */
   plans?: PlanList[];
+  /** La lista de espera (5c, 1.3.360): los deseos en cuarentena y su
+   * historia (la cuenta del año se deriva de aquí, nunca se almacena).
+   * Ausente en libros viejos = ningún deseo. Viaja con el libro (D1). */
+  wishes?: Wish[];
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
   /** Money the user lent (Me deben, 1.3.92; device-only before). Abonos are income lines with `lentId`. See debts.ts. */

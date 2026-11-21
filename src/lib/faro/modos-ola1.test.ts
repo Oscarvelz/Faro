@@ -530,10 +530,15 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  declarar el asiento con la caja (preguntar = Esencial; los
  *  escenarios encadenados y mover pagos = Completo) y su motor llega
  *  en la ola 5b; hasta entonces el asiento gobierna nada y la caja
- *  responde a esas preguntas con el silencio honesto de la casa. */
+ *  responde a esas preguntas con el silencio honesto de la casa.
+ *  ENMIENDA 5C (1.3.360, con su razón): SALE advisor.ask-scenarios —
+ *  ganó su consumidor literal: la capa de cobertura del escenario de
+ *  la lista de espera (waitlist.tsx) se gobierna por
+ *  has("advisor.ask-scenarios"), el día que la cerca de la ola 9
+ *  anunció («el día que nazca su consumidor… sale de la lista»). */
 
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
-  "accounts.panel", "accounts.pin-panel", "advisor.ask-scenarios", "advisor.credit-note", "advisor.daily-note",
+  "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
   "advisor.diagnosis", "advisor.income-stability", "advisor.income-stability-floor", "advisor.levers-month",
   "advisor.kicker", "advisor.misclass-note", "advisor.month-tone", "advisor.not-habit-note", "advisor.plan-short",
   "advisor.remit-note", "advisor.start-route", "advisor.step-close-gap", "advisor.step-cushion",
