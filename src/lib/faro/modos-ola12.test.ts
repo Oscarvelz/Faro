@@ -407,6 +407,7 @@ const AGREGADORES: Record<string, [Clase, string]> = {
   "lib/faro/area-advice.ts:areaPicture": ["interna", "compone la foto del área sobre areaMonths y el resumen; sin suma descriptiva propia nueva"],
   "lib/faro/area-advice.ts:pocketStock": ["interna", "stock de un bolsillo (saldos a una fecha), no flujo del mes ni frase de gasto"],
   "lib/faro/awake.ts:savingsPicture": ["movimiento", "la foto al despertar nombra lo guardado como guardado: es la superficie del apartado"],
+  "lib/faro/autopay.ts:settleAutopay": ["interna", "mecánica de asentamiento de la Ola 6 (1.3.356): anota las instancias vencidas de las cuotas con pago automático; no presenta sumas — los cargos que crea los clasifican los motores de siempre"],
   "lib/faro/bankbook.ts:rewardsMonth": ["interna", "suma recompensas de tarjetas (ganadas y perdidas), no gasto ni salida del mes"],
   "lib/faro/bankparse.ts:buildReview": ["interna", "compone la revisión de la importación: partidas por archivo y cuenta, con su nombre en la revisión"],
   "lib/faro/defaults.ts:sumLines": ["interna", "resumen de líneas de la casa semilla (saldos arrastrados), no frases del libro vivo"],

@@ -147,9 +147,12 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // ENMIENDA NOVEDADES (1.3.346): nace novedades en Esencial (modo
     // declarado en el tema; su función es settings.news).
     // La distribución se mueve a 126 · 105 · 129 sobre 360.
+    // ENMIENDA OLA 6 (1.3.356): nace avisos-pagos en Esencial (modo
+    // declarado en el tema; su función es settings.due-alerts).
+    // La distribución se mueve a 127 · 105 · 129 sobre 361.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 360);
-    assert.equal(count("esencial"), 126);
+    assert.equal(MANUAL_TOPICS.length, 361);
+    assert.equal(count("esencial"), 127);
     assert.equal(count("ritmo"), 105);
     assert.equal(count("completo"), 129);
   });

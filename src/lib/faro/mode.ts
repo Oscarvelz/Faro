@@ -384,6 +384,9 @@ export const FEATURES = {
      hechos de DebtsReadOnly); la gestión — pista con importes, lista rápida,
      alta rápida, archivo y el puente a Libros — queda en Ritmo, como el
      propio fallo 31 la acota. */
+  /* Ola 6 (1.3.356): la tarjeta de Central con los pagos que se acercan
+   * es información esencial — ver lo que va a salir es Esencial. */
+  "central.due-alerts": E,
   "debt.facts": E, "cobros.owed-side": E, "cobros.owe-side": E, "cobros.timeline": R,
   "cobros.quick-list": R, "cobros.quick-add": R, "cobros.archive": R, "cobros.see-all": R,
   /* §1.4 Libros — máquina común (el escaneo al añadir es scan.receipt) */
@@ -443,6 +446,12 @@ export const FEATURES = {
    * la compra bajan a Esencial; la selección múltiple entera vive en Ritmo) */
   "editor.core": E, "editor.currency": E, "editor.category": E, "editor.note": E,
   "editor.savings-balance": E, "editor.paid-with": R, "editor.active-toggle": R,
+  /* Ola 6 (1.3.356): el pago automático se configura en el editor de la
+   * cuota — asiento de la familia del editor, como editor.paid-with
+   * (la cerca B2 de la ola 1 prohíbe que un asiento de libro puerte un
+   * bloque del editor). El asentamiento mismo es cerebro: corre en
+   * todos los modos aunque la cara no se vea en Esencial. */
+  "editor.autopay": R,
   "editor.recurrent-toggle": R, "editor.debt-balance": R, "editor.nature": C,
   "editor.person": R, "editor.for-remit": R, "editor.shop-fields": E,
   "editor.shop-fine": C,
@@ -569,6 +578,10 @@ export const FEATURES = {
   /* §2 Ajustes universales — nunca se esconden (mínimo Esencial) */
   "settings.lang": E, "settings.theme": E, "settings.mode-selector": E,
   "settings.manual-row": E, "settings.presentations-row": E, "settings.notify": E,
+  /* Ola 6 (1.3.356): los avisos de pagos que se acercan viven en la
+   * misma bandeja de Ajustes que los del teléfono — leer tus avisos es
+   * Esencial, como settings.notify. */
+  "settings.due-alerts": E,
   "settings.install-app": E, "settings.backup-auto": E, "settings.backup-quarantine": E,
   "settings.backup-download": E, "settings.backup-restore": E, "settings.backup-folder": E,
   "settings.backup-conflict": E, "settings.account": E, "settings.version": E,

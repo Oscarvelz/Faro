@@ -250,7 +250,10 @@ describe("ola7 · la conservación de los campos puertados, fijada por fin", () 
   it("el censo de deletes de save() es cerrado: ni uno más (mutación MC)", () => {
     const tally: Record<string, number> = {};
     for (const m of form.matchAll(/delete line\.(\w+)/g)) tally[m[1]!] = (tally[m[1]!] ?? 0) + 1;
-    assert.deepEqual(tally, { personId: 1, occasionId: 2, to: 1, sourceId: 1, rc: 1, bookedOn: 1, startedOn: 1, fund: 1, fundHost: 2 },
+    // ENMIENDA OLA 6 (1.3.356): el pago automático entra al censo con
+    // sus dos deletes — apagarlo (o dejarlo sin cuenta) lo borra entero,
+    // como sourceId: el esparcido del guardián no lo resucita.
+    assert.deepEqual(tally, { personId: 1, occasionId: 2, to: 1, sourceId: 1, rc: 1, bookedOn: 1, startedOn: 1, fund: 1, fundHost: 2, autopay: 1, autopayAccountId: 1 },
       "cada delete de save() es deliberado y nombrado: un delete escondido entre los legítimos borraría su campo en cada edición, en cualquier modo");
   });
 });

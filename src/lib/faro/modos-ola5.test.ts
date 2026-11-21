@@ -602,6 +602,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "moneda-invitada": { f: "settings.guest-currency", m: "esencial" }, // 1.3.344 — Ola 4: el tema de la invitada nace con su función
     "preguntar-asesor": { f: "advisor.ask", m: "esencial" }, // 1.3.345 — Ola 5a: el tema de preguntar nace con su caja
     "novedades": { f: "settings.news", m: "esencial" }, // 1.3.346 — Novedades: el tema de las notas nace con su pliegue
+    "avisos-pagos": { f: "settings.due-alerts", m: "esencial" }, // 1.3.356 — Ola 6: el tema de los avisos nace con su interruptor
     "libro-categoria": { f: null, m: "esencial" },
     "filtro": { f: "books.filter-chips", m: "ritmo" },
     "agregar-linea": { f: null, m: "esencial" },
@@ -857,7 +858,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 360); // 1.3.346 — Novedades: nace «Novedades» (novedades); 359 en la 1.3.345
+    assert.equal(MANUAL_TOPICS.length, 361); // 1.3.356 — Ola 6: nace «avisos-pagos»; 360 en la 1.3.346
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {

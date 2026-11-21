@@ -38,6 +38,7 @@ import { readY, requestFocus, writeY } from "@/lib/manual/nav";
 import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual/places";
 import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { todayIso } from "@/lib/faro/loans";
+import { settleAutopay } from "@/lib/faro/autopay";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void; /** La puerta de GitHub (Oscar, chat de ventanas, 2026-11-10): la ventana más irreversible exige ESCRIBIR este texto exacto para armar el botón de confirmar — que el usuario demuestre que sabe lo que está haciendo, no solo que tocó dos veces. Vive SOLO en «Eliminar cuenta»: cerrar sesión es ida y vuelta y no la merece (su corrección del 2026-11-11). */ typeText?: string; /** Una salida amable DENTRO de la ventana, antes del punto de no retorno (p. ej. «Descargar mi libro» al eliminar la cuenta): corre sin cerrar la ventana. */ extraLabel?: string; extraRun?: () => void };
@@ -1431,6 +1432,27 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     }, wakeBase.current ? 450 : 0);
     return () => window.clearTimeout(wakeTimer.current);
   }, [session?.ledger.revision, session?.ledger.updatedAt, key, goalTick, awakeOn]);
+
+  // Ola 6 (1.3.356): el pago automático se asienta al abrir — una vez
+  // por día y libro real (nunca en libros de ejemplo o escenario). Lo
+  // asentado entra por el commit ordinario: queda en el historial y
+  // Deshacer lo deshace como cualquier anotación. La marca del día hace
+  // que un Deshacer aguante el resto del día; la serie se apaga en su
+  // cuota, no borrando cargos (el tema del Manual lo dice).
+  const autopayDay = useRef("");
+  useEffect(() => {
+    if (!session || dataMode() !== "real") return;
+    const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
+    if (autopayDay.current === today) return;
+    autopayDay.current = today;
+    const { state, settled } = settleAutopay(session.ledger, today);
+    if (!settled.length) return;
+    const en = session.ledger.settings.lang === "en";
+    const label = settled.length === 1
+      ? (en ? `Autopay: ${settled[0]!.concept}` : `Pago automático: ${settled[0]!.concept}`)
+      : (en ? `Autopay: ${settled.length} payments` : `Pago automático: ${settled.length} pagos`);
+    commit(() => state, label);
+  }, [session, commit]);
 
   const setAwakeOn = useCallback((on: boolean) => {
     if (!on) return;

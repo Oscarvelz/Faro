@@ -380,6 +380,9 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/loans.tsx|commit|addLoan|addLoan": ["aterrizaje", 1],
   "components/faro/loans.tsx|commit|loansOf|—": ["aterrizaje", 1],
   "components/faro/notify-row.tsx|commit|inline|—": ["aterrizaje", 2],
+  // 1.3.356 (Ola 6): la fila hermana de los avisos de pagos — los mismos
+  // dos aterrizajes en línea (encender al toque; apagar tras la ventana).
+  "components/faro/due-alerts-row.tsx|commit|inline|—": ["aterrizaje", 2],
   "components/faro/people.tsx|commitGuarded|peopleOf|—": ["guardada", 1],
   "components/faro/people.tsx|commit|mergeContacts|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
@@ -395,7 +398,10 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // 1.3.344 (Captura Ola 4): el provider gana su octavo commit en línea —
   // el aterrizaje de la tasa pública de la invitada (fetchGuestRate), que
   // compone el estado entero con la tasa fechada o no escribe nada.
-  "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 8],
+  // 1.3.356 (Ola 6): el noveno — el asentamiento del pago automático al
+  // abrir, que compone el estado entero que settleAutopay devuelve o no
+  // escribe nada (sin períodos vencidos no hay commit).
+  "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 9],
   "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 1],
   "components/faro/receipt-scan.tsx|commit|saveScanRewards|saveScanRewards+addRewards+putCard+addDrafts": ["aterrizaje", 1],
   "components/faro/capture-text.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],

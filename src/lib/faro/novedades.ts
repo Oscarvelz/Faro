@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.356",
+    date: "2026-11-20",
+    level: "grande",
+    title: { es: "Avisos y pago automático", en: "Payment notices and autopay" },
+    topic: "avisos-pagos",
+    points: {
+      es: [
+        "Central avisa cuando un pago se acerca — tres días antes, o si ya venció — aunque el banco lo cobre automáticamente en línea; cada aviso es la puerta a ese pago, a tiempo de cambiar el monto, la fecha o la cuenta.",
+        "Una cuota puede pagarse sola: enciende el pago automático en la cuota, elige la cuenta, y Faro anota el cargo en su fecha al abrir la app — y te lo dice.",
+        "El aviso se apaga en Ajustes → Avisos de pagos; el pago automático se apaga en la propia cuota.",
+      ],
+      en: [
+        "Central warns when a payment is coming up — three days ahead, or if it is already overdue — even if the bank charges it automatically online; each warning is the door to that payment, in time to change the amount, the date or the account.",
+        "A cuota can pay itself: turn autopay on in the cuota, choose the account, and Faro books the charge on its date when you open the app — and tells you.",
+        "The warning turns off in Settings → Payment notices; autopay turns off on the cuota itself.",
+      ],
+    },
+  },
+  {
     version: "1.3.355",
     date: "2026-11-20",
     level: "grande",

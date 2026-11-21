@@ -179,6 +179,14 @@ export type Line = {
   interestMinor?: number;
   /** A payment received toward money the user lent (Libros → Me deben, 1.3.92). An income line. See debts.ts. */
   lentId?: string;
+  /** Pago automático (Ola 6, 1.3.356; orden de Oscar 2026-11-20): en una
+   * cuota, Faro anota solo el cargo de cada período en su fecha, desde la
+   * cuenta elegida. Vive en la instancia más reciente de la serie y las
+   * instancias que el asentamiento crea lo heredan. Ver autopay.ts. */
+  autopay?: boolean;
+  /** La cuenta (ítem del catálogo de clase "acct") de la que sale el pago
+   * automático: viaja como sourceId de las instancias asentadas. */
+  autopayAccountId?: string;
   /** Removed from a pocket but kept for its money history (1.3.81): inactive and hidden from the pocket list. */
   archived?: boolean;
   /** Birthmark of a factory preset line (ola de prejuicio 1): seedRetiro stamps
@@ -428,6 +436,10 @@ export type Settings = {
   gestures?: Record<string, string>;
   /** 1.3.148: the phone notifications (Android app) on/off as the user set it in Ajustes. Missing = on. */
   notify?: boolean;
+  /** Ola 6 (1.3.356): los avisos DENTRO de la app de los pagos que se
+   * acercan (Central los muestra con su puerta). Missing = on, como
+   * notify: un libro que ya existe no pierde el aviso el día que nace. */
+  dueAlerts?: boolean;
   /** One-time seeds already applied (e.g. "remesas"), so a default the user deleted is not added again. */
   seeds?: string[];
   /** 1.3.246: las categorías fijas del widget — los pares (categoría, sub) que la tarjeta

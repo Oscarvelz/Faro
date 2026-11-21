@@ -258,10 +258,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA NOVEDADES (1.3.346): nace novedades en Esencial (su
     // función es settings.news): esencial +1 y el total +1
     // — acumulados 126 · 231 · 360.
-    assert.equal(count("esencial"), 126);
-    assert.equal(count("ritmo"), 231);
-    assert.equal(count("completo"), 360);
-    assert.equal(MANUAL_TOPICS.length, 360);
+    // ENMIENDA OLA 6 (1.3.356): nace avisos-pagos en Esencial (su
+    // función es settings.due-alerts): esencial +1 y el total +1
+    // — acumulados 127 · 232 · 361.
+    assert.equal(count("esencial"), 127);
+    assert.equal(count("ritmo"), 232);
+    assert.equal(count("completo"), 361);
+    assert.equal(MANUAL_TOPICS.length, 361);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

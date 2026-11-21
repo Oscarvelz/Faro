@@ -1,11 +1,13 @@
 import { AreaAdvisor } from "./area-advisor";
 import { useTabletOne as useTabletOneAA } from "./book-side";
+import { DueAlertsCard } from "./due-alerts";
 import type { AreaId } from "@/lib/faro/area-advice";
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
 import { ActivityLog, Note } from "./finish";
 import { SampleRow } from "./sample-mode";
 import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
+import { DueAlertsRow } from "./due-alerts-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, FILTER_CLEAR, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, filterToast, hasRewards, modeSign, modeWhisper } from "./bank-dock";
 import { ModeImpactDialog, ModeReposedDialog } from "./mode-gate";
@@ -3647,6 +3649,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         </div>
         ) : null}
       </div>
+      <DueAlertsCard />
       {quick ? (
         <div ref={quickRef} className="sheet-swap" data-mode={quick} data-anchor="quick-window">
           {/* Oscar (2026-11-20): la puerta de Escanear también vive en los
@@ -6437,6 +6440,7 @@ export function Settings() {
       <Cluster title={lang === "en" ? "The phone" : "El teléfono"} hint={lang === "en" ? "Faro also lives outside the app" : "Faro también vive fuera de la app"}>
       <WidgetCard open={openFold === "widget"} onToggle={() => toggle("widget")} />
       <NotifyRow />
+      <DueAlertsRow />
       <BatteryRow />
       {androidBrowser() ? (
         <section className="card manual-card" data-anchor="aj-android" data-topic-box="app-android">

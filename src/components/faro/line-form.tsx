@@ -321,6 +321,13 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   // 1.3.153: how this entry was paid (an account id, "cash", or "" = not specified). The import hunts duplicates with it.
   const [pay, setPay] = useState(existing?.sourceId ?? "");
   const [payTouched, setPayTouched] = useState(false);
+  // Ola 6 (1.3.356): el pago automático de la cuota — Faro anota solo el
+  // cargo en su fecha, desde la cuenta elegida. Asiento editor.autopay
+  // (Ritmo): sin el asiento, el guardado conserva el de la línea, con el
+  // mismo patrón que payEff (principio 2: lo que el modo no muestra, el
+  // modo no lo toca).
+  const [autopay, setAutopay] = useState(existing?.autopay ?? false);
+  const [autopayAcct, setAutopayAcct] = useState(existing?.autopayAccountId ?? existing?.sourceId ?? "");
   const hintRef = useRef("");
   // The accounts the picker offers: the live ones, plus the line's own when it points at one since removed.
   const payAccts = (() => {
@@ -385,7 +392,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   // contenido (dirty.ts). El «Pagado con» que el sistema rellena solo desde el aviso
   // del comercio no cuenta como toque: la cuenta sigue el aviso vigente si la mano
   // nunca la tocó.
-  const bag = () => ({ concept, amount, currency, note, categoryId, subId, recurring, storeId, providerId, code, url, cadence, nextDue, apr, balance, active, personId, pay, to, icon, bookedOn, startedOn, tone, natureKey: fundSubNow ? `${nature ?? ""}|${host}` : "" });
+  const bag = () => ({ concept, amount, currency, note, categoryId, subId, recurring, storeId, providerId, code, url, cadence, nextDue, apr, balance, active, personId, pay, autopay, autopayAcct, to, icon, bookedOn, startedOn, tone, natureKey: fundSubNow ? `${nature ?? ""}|${host}` : "" });
   const baseRef = useRef<Record<string, unknown> | null>(null);
   if (baseRef.current === null) baseRef.current = bag();
   const baseBag = baseRef.current;
@@ -478,6 +485,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     // aprende del efectivo, tampoco aprende de una mano que en este modo
     // no pudo tocar el campo. Con el asiento despierto, payEff === pay.
     const payEff = has("editor.paid-with") ? pay : (existing?.sourceId ?? "");
+    const autopayEff = has("editor.autopay") ? autopay : (existing?.autopay ?? false);
+    const autopayAcctEff = has("editor.autopay") ? autopayAcct : (existing?.autopayAccountId ?? "");
     const fresh: Line = {
       id: existing?.id ?? uid(),
       seriesId: existing?.seriesId ?? uid(),
@@ -514,6 +523,9 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       ...(to && group && session && isRemitCat(session.ledger, categoryId) ? { to } : {}),
       // Unspecified stays absent: the line keeps exactly the shape it had before this field existed.
       ...(payEff ? { sourceId: payEff } : {}),
+      // Ola 6: el pago automático solo existe entero — interruptor y cuenta;
+      // a medias no se guarda (y el borrado de abajo no lo resucita).
+      ...(autopayEff && autopayAcctEff ? { autopay: true, autopayAccountId: autopayAcctEff } : {}),
       // An imported line's reward class is its statement's own — preserved untouched; a hand-entered
       // card line carries the class derived above; anything else carries none (base rate / no rewards).
       ...(existing?.importId && existing.rc ? { rc: existing.rc } : rcDerived ? { rc: rcDerived } : {}),
@@ -536,6 +548,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       else if (existing.personId !== personId) delete line.occasionId;
       if (!(to && group && session && isRemitCat(session.ledger, categoryId))) delete line.to;
       if (!payEff) delete line.sourceId;
+      if (!(autopayEff && autopayAcctEff)) { delete line.autopay; delete line.autopayAccountId; }
       if (!((existing.importId && existing.rc) || rcDerived)) delete line.rc;
       // G-6: la forma no materializa lo que la línea no traía — ni el glifo que
       // solo heredaba de su categoría, ni las fechas de alta vacías.
@@ -718,6 +731,22 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
               {head(t("due"), "f-proximo-cobro")}
               <DayField value={nextDue} onChange={setNextDue} />
             </div>
+            {has("editor.autopay") ? (
+            <div className="label fit-f is-wide" data-f="autopay">
+              {head(lang === "en" ? "Autopay" : "Pago automático", "avisos-pagos")}
+              <label className="form-toggle fit-chip is-inline">
+                <input type="checkbox" checked={autopay} onChange={(e) => setAutopay(e.target.checked)} />
+                <span>{lang === "en" ? "Faro books it on its date" : "Faro lo anota solo en su fecha"}</span>
+              </label>
+              {autopay ? (
+                payAccts.length ? (
+                  <MarkSelect value={autopayAcct} onChange={setAutopayAcct} options={payAccts.map((a) => ({ value: a.id, label: payAcctLabel(a, lang), mark: <BankMark a={a} /> }))} />
+                ) : (
+                  <p className="fund-note">{lang === "en" ? "Add an account first and Faro can pay from it." : "Agrega primero una cuenta y Faro podrá pagar desde ella."}</p>
+                )
+              ) : null}
+            </div>
+            ) : null}
           </>
         ) : null}
         {role === "debt" && has("editor.debt-balance") ? (
