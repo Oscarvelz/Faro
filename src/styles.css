@@ -828,6 +828,9 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .lens-corner.is-cobro svg { width: 13px; height: 13px; }
 .lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #c98a82 42%, transparent); }
 .lens-corner[aria-pressed="true"] { outline: none; }
+.lens-wrap:has(.is-have) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #8aab9a, 0 0 12px color-mix(in oklab, #8aab9a 65%, transparent); }
+.lens-wrap:has(.is-spend) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #c6ae86, 0 0 12px color-mix(in oklab, #c6ae86 65%, transparent); }
+.lens-wrap:has(.is-debt) .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #c98a82, 0 0 12px color-mix(in oklab, #c98a82 65%, transparent); }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"], [data-theme="cyberpunk"]) .lens-wrap:has(.is-have) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #6d9a84 46%, transparent); }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"], [data-theme="cyberpunk"]) .lens-wrap:has(.is-spend) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #b08958 46%, transparent); }
 html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"], [data-theme="cyberpunk"]) .lens-wrap:has(.is-debt) .lens-corner { box-shadow: 0 0 0 2px color-mix(in oklab, #c98a82 46%, transparent); }
@@ -1572,7 +1575,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .sheet-swap { animation: sheet-swap .22s cubic-bezier(.16, 1, .3, 1); }
 /* 1.3.108: starts at .45, never a blank first frame (1.3.97 rule). */
 @keyframes sheet-swap { from { opacity: .45; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.where-sheet.is-in, .where-sheet.is-out {
+.where-sheet.is-in, .where-sheet.is-out, .where-sheet.is-due {
   padding: 14px 12px 12px;
   border-radius: 26px;
   box-shadow: inset 0 1px 0 color-mix(in oklab, white 28%, transparent), 0 18px 34px color-mix(in oklab, var(--fg) 8%, transparent);
@@ -1584,6 +1587,10 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .where-sheet.is-out {
   border: 1px solid color-mix(in oklab, #b08958 55%, var(--line));
   background: radial-gradient(110% 70% at 0% 0%, color-mix(in oklab, #e7c27a 26%, transparent), transparent 48%), linear-gradient(165deg, color-mix(in oklab, #6b5434 28%, var(--surface)), var(--surface) 70%);
+}
+.where-sheet.is-due {
+  border: 1px solid color-mix(in oklab, #c98a82 55%, var(--line));
+  background: radial-gradient(110% 70% at 0% 0%, color-mix(in oklab, #e0918a 26%, transparent), transparent 48%), linear-gradient(165deg, color-mix(in oklab, #6e2a24 28%, var(--surface)), var(--surface) 70%);
 }
 .where-sheet.is-in .where-fold, .where-sheet.is-out .where-fold {
   background:

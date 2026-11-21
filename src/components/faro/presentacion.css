@@ -357,7 +357,7 @@
   border: 1px solid var(--line); background: var(--surface); color: var(--fg);
   border-radius: 999px; padding: 7px 12px; font: inherit; font-size: .82rem; cursor: pointer; min-height: 36px;
 }
-.pres-hit-see { background: var(--accent); border-color: var(--accent); color: var(--accent-ink, #fff); font-weight: 600; }
+.pres-hit-see { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
 
 /* --------------------- la tarjeta en pantalla ancha ---------------------
  * Ley de flota (Oscar, vía Cadence, 2026-11-14): la tarjeta se mide para la

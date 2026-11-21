@@ -188,6 +188,7 @@ html[data-theme="tron"] .lens-corner.is-plus { background: radial-gradient(circl
 html[data-theme="tron"] .lens-corner.is-minus { background: radial-gradient(circle at 35% 30%, #fff1d6, #ff9d2a 55%, #8a4300) !important; box-shadow: 0 0 0 1px #ffe2b0, 0 0 12px rgba(255, 140, 0, .7) !important; }
 html[data-theme="tron"] .lens-corner.is-cobro { background: radial-gradient(circle at 35% 30%, #ffd6d0, #ff2a2a 55%, #7a0505) !important; box-shadow: 0 0 0 1px #ffc0b8, 0 0 12px rgba(255, 42, 42, .7) !important; }
 html[data-theme="tron"] .lens-corner.is-cobro svg { color: #fff !important; stroke: #fff; }
+html[data-theme="tron"] .lens-corner[aria-pressed="true"] { box-shadow: 0 0 0 2px #ffffff, 0 0 18px rgba(255, 255, 255, .55) !important; }
 
 /* ---------- Switches and the dock: only the gliding pill lights up ---------- */
 [data-theme="tron"] .seg:not(.is-follow) button { color: #9cc9d4; background: #071014; border-color: rgba(120, 225, 250, .25); }

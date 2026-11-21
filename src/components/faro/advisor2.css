@@ -489,6 +489,9 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
    respuesta del asesor necesita un mejor envoltorio, más belleza, para
    que el texto no aparezca suelto») — una tarjeta dentro de la caja, con
    el filo del acento a la izquierda: es el Asesor quien habla. */
+.ask-q { background: color-mix(in oklab, var(--accent) 6%, var(--surface)); border: 1px dashed color-mix(in oklab, var(--accent) 40%, var(--line)); border-radius: 12px; padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; }
+.ask-q-label { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ask-q-text { margin: 0; font-size: .95rem; font-weight: 600; line-height: 1.35; color: var(--ink); }
 .ask-card { background: var(--surface2); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
 .ask-verdict { margin: 0; font-size: 1rem; font-weight: 650; line-height: 1.35; }
 .ask-pieces { display: flex; flex-direction: column; }

@@ -21,6 +21,11 @@
  * Cadence — para ver la pregunta entera, y al preguntar se CONTRAE:
  * el texto se va y la pregunta queda viviendo en «asked» y en la
  * respuesta. Enter pregunta; Mayús+Enter parte la línea.
+ *
+ * 1.3.353 (Oscar): «asked» ahora también SE VE — la pregunta hecha vive
+ * en su propia tarjeta sobre la respuesta, aunque la caja ya se haya
+ * vaciado, para que la respuesta nunca quede sin su contexto; cada
+ * pregunta nueva reemplaza la tarjeta, sin historia.
  */
 import { useEffect, useRef, useState } from "react";
 import { MessageCircleQuestion, Send, Sparkles } from "lucide-react";
@@ -121,6 +126,12 @@ export function AskBox() {
           {chips.map((c) => (
             <button key={c} type="button" className="ask-chip" data-anchor="ask-chip" onClick={() => { setText(c); ask(c); }}>{c}</button>
           ))}
+        </div>
+      ) : null}
+      {result && asked ? (
+        <div className="ask-q" data-anchor="ask-q">
+          <span className="ask-q-label">{L("Tu pregunta", "Your question")}</span>
+          <p className="ask-q-text">{asked}</p>
         </div>
       ) : null}
       {result?.kind === "unknown" ? (

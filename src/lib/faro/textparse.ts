@@ -109,7 +109,11 @@ const wordNumbers = (seg: string): { minor: number; from: number; to: number }[]
 const CUR_WORDS: [RegExp, Currency | "EUR"][] = [
   [/\b(dolares|dollar|dollars|usd|us\$)\b/, "USD"],
   [/\b(cordobas|nio|c\$)\b/, "NIO"],
-  [/\bpesos\s+nicaragu\w*|\bpesos de nicaragua\b/, "NIO"],
+  // Oscar (2026-11-20): en Nicaragua «pesos» ES el córdoba en el habla
+  // diaria («me compré 200 pesos de caramelo»). Faro solo procesa USD y
+  // NIO, así que «pesos» a secas — con o sin «nicaragüenses» — es NIO;
+  // sin esta regla la palabra desconocida se tragaba hasta el monto.
+  [/\bpesos\b/, "NIO"],
   [/\b(euros?|eur)\b/, "EUR"],
 ];
 
@@ -132,13 +136,13 @@ function moneyIn(seg: string, folded: string): MoneyHit[] {
     push({ minor: v, currency: /c\$/i.test(m[1]) ? "NIO" : "USD", from: m.index ?? 0, to: (m.index ?? 0) + m[0].length, signed: true });
   }
   // 2 · número seguido de nombre de moneda: 300 dólares · 500 cordobas · 20 euros
-  for (const m of seg.matchAll(new RegExp(String.raw`(${NUM})\s*(d[oó]lares|dollars?|usd|c[oó]rdobas|nio|euros?|eur|pesos\s+nicaragu\w*)\b`, "gi"))) {
+  for (const m of seg.matchAll(new RegExp(String.raw`(${NUM})\s*(d[oó]lares|dollars?|usd|c[oó]rdobas|nio|euros?|eur|pesos(\s+nicaragu\w*)?)\b`, "gi"))) {
     const v = toMinor(m[1]); if (v == null) continue;
     const cur = CUR_WORDS.find(([re]) => re.test(fold(m[2])))?.[1] ?? "";
     push({ minor: v, currency: cur, from: m.index ?? 0, to: (m.index ?? 0) + m[0].length, signed: true });
   }
   // 3 · nombre de moneda antes del número: dólares 300
-  for (const m of seg.matchAll(/\b(d[oó]lares|dollars?|c[oó]rdobas|euros?)\s+(\d[\d.,\s]*\d|\d)/gi)) {
+  for (const m of seg.matchAll(/\b(d[oó]lares|dollars?|c[oó]rdobas|euros?|pesos)\s+(\d[\d.,\s]*\d|\d)/gi)) {
     const v = toMinor(m[2]); if (v == null) continue;
     const cur = CUR_WORDS.find(([re]) => re.test(fold(m[1])))?.[1] ?? "";
     push({ minor: v, currency: cur, from: m.index ?? 0, to: (m.index ?? 0) + m[0].length, signed: true });
@@ -285,7 +289,7 @@ function cleanConcept(seg: string, cuts: [number, number][], verb: string): stri
     .replace(/^((en|de|del|a|por|para|con|of|on|in|at|for)\s+)?(el|la|los|las|un|una|the)\s+/i, "")
     .replace(/^(en|de|del|a|por|para|con|of|on|in|at|for)\s+/i, "")
     .replace(/\s+(en|de|del|por|para|con)\s*$/i, "")
-    .replace(new RegExp(`${LB}(${wordRe("cordobas")}|${wordRe("dolares")}|dollars?|euros?|pesos\\s+nicaragu\\w*)${RB}`, "gi"), " ")
+    .replace(new RegExp(`${LB}(${wordRe("cordobas")}|${wordRe("dolares")}|dollars?|euros?|pesos(\\s+nicaragu\\w*)?)${RB}`, "gi"), " ")
     .replace(/\s+/g, " ")
     .replace(FILLER_EDGE, "")
     .trim();
