@@ -40,7 +40,7 @@ import { findTopic } from "@/lib/manual/topics";
 import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual/places";
 import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { todayIso } from "@/lib/faro/loans";
-import { autopaySealedOn, sealAutopayDay, settleAutopay, type AutopaySealStorage } from "@/lib/faro/autopay";
+import { autopaySealedOn, autopaySealedSeries, sealAutopayDay, settleAutopay, type AutopaySealStorage } from "@/lib/faro/autopay";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void; /** La puerta de GitHub (Oscar, chat de ventanas, 2026-11-10): la ventana más irreversible exige ESCRIBIR este texto exacto para armar el botón de confirmar — que el usuario demuestre que sabe lo que está haciendo, no solo que tocó dos veces. Vive SOLO en «Eliminar cuenta»: cerrar sesión es ida y vuelta y no la merece (su corrección del 2026-11-11). */ typeText?: string; /** Una salida amable DENTRO de la ventana, antes del punto de no retorno (p. ej. «Descargar mi libro» al eliminar la cuenta): corre sin cerrar la ventana. */ extraLabel?: string; extraRun?: () => void };
@@ -1448,7 +1448,15 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   // no vive en el libro. Si el aparato no guarda (localStorage cerrado),
   // el sello degrada a esta sesión con el ref de abajo — declarado, y el
   // motor sigue idempotente por construcción.
-  const autopayDayRef = useRef("");
+  // Cura de la ola 24 (G24-2): el sello ya no es todo-o-nada — guarda
+  // QUÉ series asentaron hoy. El pase corre con el conjunto sellado como
+  // exclusión (el motor no camina las series selladas) y sella solo las
+  // recién asentadas: la serie que despierta al mediodía — activada,
+  // restaurada o adoptada tras el asentamiento de otra — asienta a su
+  // siguiente apertura el mismo día; la deshecha no re-asienta, porque
+  // su serie quedó en el conjunto. La forma legada del sello (el día
+  // entero sellado) sigue deteniendo el pase, como antes.
+  const autopaySealRef = useRef<{ day: string; series: Set<string> }>({ day: "", series: new Set() });
   useEffect(() => {
     if (!session || dataMode() !== "real") return;
     const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
@@ -1456,8 +1464,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       read: (k) => localStorage.getItem(k),
       write: (k, v) => { localStorage.setItem(k, v); },
     };
-    if (autopayDayRef.current === today || autopaySealedOn(sealStorage, userId, today)) return;
-    const { state, settled } = settleAutopay(session.ledger, today);
+    if (autopaySealedOn(sealStorage, userId, today)) return;
+    const sessionSeal = autopaySealRef.current;
+    if (sessionSeal.day !== today) { sessionSeal.day = today; sessionSeal.series = new Set(); }
+    const sealedSeries = new Set<string>([...autopaySealedSeries(sealStorage, userId, today), ...sessionSeal.series]);
+    const { state, settled } = settleAutopay(session.ledger, today, sealedSeries);
     if (!settled.length) return;
     // El sello se escribe SOLO cuando el pase asienta (cierre de la
     // cura 23, medido en vivo): sellar también el pase vacío dejaba
@@ -1467,8 +1478,9 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // la conducta de siempre era asentar a la siguiente apertura. El
     // sello existe para que un Deshacer aguante el resto del día, y
     // donde nada se asentó no hay nada que aguantar.
-    autopayDayRef.current = today;
-    sealAutopayDay(sealStorage, userId, today);
+    const settledSeries = [...new Set(settled.map((s) => s.seriesId))];
+    for (const id of settledSeries) sessionSeal.series.add(id);
+    sealAutopayDay(sealStorage, userId, today, settledSeries);
     const en = session.ledger.settings.lang === "en";
     const label = settled.length === 1
       ? (en ? `Autopay: ${settled[0]!.concept}` : `Pago automático: ${settled[0]!.concept}`)

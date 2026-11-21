@@ -962,10 +962,39 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (p.rows !== undefined && !Array.isArray(p.rows)) return false;
     }
   }
-  // wishes (la lista de espera, 5c): si está, es una lista — las entradas se
-  // leen con desconfianza en waitlist.ts, así que aquí no se exige más forma
-  // y un deseo dañado jamás manda el libro entero a cuarentena.
-  if (s.wishes !== undefined && !Array.isArray(s.wishes)) return false;
+  // wishes (la lista de espera, 5c): la puerta juzga la FORMA ENTERA del
+  // deseo — cada campo que waitlist.ts desreferencia sin red (cura de la
+  // ola 24, G24-1). La delegación anterior («se leen con desconfianza en
+  // waitlist.ts») era más estrecha que las desreferencias reales: un deseo
+  // sin closedAt tumbaba la cuenta del año al pintar (closedAt.slice), sin
+  // waitHours rompía renewWish (RangeError) y pintaba NaN en el anillo,
+  // sin renewals corrompía su contador a NaN y perdía el camino a
+  // permanent para siempre — y todo deseo que el filtro wishesOf no
+  // reconocía SE EVAPORABA del libro en la primera mutación vecina que
+  // reescribía la lista desde el filtro. La clase de evaporación muere
+  // aquí, en la puerta: lo que la puerta no reconoce no entra. El juicio
+  // sigue la vara de la casa (la familia 9 de la cura 23): los campos que
+  // el tipo Wish exige se exigen con su tipo; los opcionales (link, look)
+  // se juzgan cuando están. Una entrada que NO es objeto (nula, un número)
+  // no porta dato alguno: wishesOf la filtra al leer y ningún lector la
+  // desreferencia — se tolera, como el control W5 de Guardián clavó; un
+  // OBJETO con forma rota sí es daño, porque los lectores lo desreferencian.
+  if (s.wishes !== undefined) {
+    if (!Array.isArray(s.wishes)) return false;
+    for (const w of s.wishes as unknown[]) {
+      if (!isObjD(w)) continue;
+      if (!isStrD(w.id) || !isStrD(w.concept) || !isStrD(w.store) || !isStrD(w.currency)) return false;
+      if (!isStrD(w.createdAt) || !isStrD(w.dueAt) || !isStrD(w.askedAt) || !isStrD(w.closedAt)) return false;
+      if (w.amountMinor !== null && !isFinD(w.amountMinor)) return false;
+      if (!isFinD(w.waitHours) || !isFinD(w.renewals)) return false;
+      if (typeof w.permanent !== "boolean") return false;
+      if (w.status !== "waiting" && w.status !== "left" && w.status !== "bought") return false;
+      if (w.link !== undefined && !isStrD(w.link)) return false;
+      if (w.look !== undefined) {
+        if (!isObjD(w.look) || !isFinD(w.look.priceMinor) || !isStrD(w.look.currency) || !isStrD(w.look.at) || !isStrD(w.look.forDue)) return false;
+      }
+    }
+  }
   // waitHours (el plazo de la espera): si está, es un número finito.
   if (set.waitHours !== undefined && !isFinD(set.waitHours)) return false;
   return true;

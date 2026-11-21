@@ -438,7 +438,12 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // por la misma receta de aterrizaje que sus hermanas de captura —
   // addDrafts nunca se niega: deja el gasto preguntado en la bandeja.
   "components/faro/ask-box.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
-  "components/faro/remesas.tsx|commitGuarded|deleteLine|deleteLine": ["guardada", 1],
+  // CURA OLA 24 (familia 2, G24-3): deleteLine aprendió a migrar la
+  // configuración del autopay de la serie a su instancia más nueva
+  // restante (upsertLine dentro de la misma receta), así que su firma
+  // crece a deleteLine+upsertLine en sus dos puertas. La clase no
+  // cambia: la receta sigue viajando guardada, con la misma cuenta.
+  "components/faro/remesas.tsx|commitGuarded|deleteLine|deleteLine+upsertLine": ["guardada", 1],
   "components/faro/remesas.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
   "components/faro/remit-people.tsx|commitGuarded|addRemitPerson|—": ["guardada", 1],
   "components/faro/remit-people.tsx|commitGuarded|colorRemitPerson|colorRemitPerson": ["guardada", 1],
@@ -458,7 +463,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/sample-mode.tsx|commit|stripSample|stripSample": ["aterrizaje", 1],
   "components/faro/screens.tsx|commitAnnounced|modeOf|—": ["anunciada", 1],
   "components/faro/screens.tsx|commitGuarded|declareSeries|declareSeries": ["guardada", 6],
-  "components/faro/screens.tsx|commitGuarded|deleteLine|deleteLine": ["guardada", 3],
+  "components/faro/screens.tsx|commitGuarded|deleteLine|deleteLine+upsertLine": ["guardada", 3],
   "components/faro/screens.tsx|commitGuarded|dropPocketLine|—": ["guardada", 2],
   "components/faro/screens.tsx|commitGuarded|inline|—": ["guardada", 8],
   "components/faro/screens.tsx|commitGuarded|patchLine|patchLine+patchLineWith+upsertLine+deleteLine": ["guardada", 13],
@@ -510,7 +515,14 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // La cuarta puerta (guardar la tienda) compone la pieza del catálogo en
   // línea, encabezada por su uid: nace como cualquier pieza a mano.
   "components/faro/share-product.tsx|commit|uid|—": ["aterrizaje", 1],
-  "components/faro/waitlist.tsx|commit|askStamp|askStamp+patchWish": ["aterrizaje", 1],
+  // CURA OLA 24 (familia 1, Q24-C1): la entrada del sello de la pregunta
+  // (waitlist.tsx|commit|askStamp|askStamp+patchWish) se RETIRA, como
+  // manda este censo para las entradas muertas: la receta ya no existe —
+  // el efecto de la sección dejó de commitear al mostrarse y la marca de
+  // «ya preguntado por este plazo» vive en el aparato, fuera del libro
+  // (waitlist.ts: wishAskMarks), donde el Deshacer no la reescribe. El
+  // hecho del libro (askedAt, escrito por la respuesta de la persona)
+  // sigue en el libro; el candado, no.
   "components/faro/waitlist.tsx|commit|buyWish|—": ["aterrizaje", 1],
   "components/faro/waitlist.tsx|commit|dropWish|dropWish": ["aterrizaje", 1],
   "components/faro/waitlist.tsx|commit|leaveWish|leaveWish+patchWish": ["aterrizaje", 1],

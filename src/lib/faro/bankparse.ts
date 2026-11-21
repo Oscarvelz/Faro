@@ -663,11 +663,15 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
   // resemblance. Still identical → an exact duplicate. Edited since the export →
   // a duplicate by identity whose saving would restore the backup over the edit:
   // it is born OFF like every duplicate, and the user's own hand turns it on.
+  // La identidad se juzga por el CONTENIDO (canonicalLineIdentity): los campos
+  // de procedencia no acusan — la restauración sobrescribe el lote de la línea
+  // que ella misma trajo, y con el juicio viejo la segunda vuelta juzgaba
+  // «editada» la línea que la primera restauró (cura de la ola 24, §F3).
   for (const r of rows) {
     if (!r.exact) continue;
     const live = all.find((l) => l.id === r.exact!.id);
     if (!live) continue;
-    r.dup = canonicalLine(live) === canonicalLine(r.exact) ? "exact" : "fuzzy";
+    r.dup = canonicalLineIdentity(live) === canonicalLineIdentity(r.exact) ? "exact" : "fuzzy";
     if (!live.rest) r.dupOf = { concept: live.concept, day: lineDay(live) };
   }
 
@@ -962,6 +966,22 @@ function canonicalLine(v: unknown): string {
     return `{${Object.keys(o).filter((k) => o[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonicalLine(o[k])}`).join(",")}}`;
   }
   return JSON.stringify(v) ?? "null";
+}
+
+/** Los campos de PROCEDENCIA de una línea (cura de la ola 24, §F3), escritos
+ * en el código como manda la casa: `batch` — el lote que la escribió, que la
+ * propia restauración sobrescribe al volver ({...exact, batch}) — e
+ * `importId` — los ids de extracto que la trajeron, que la maquinaria pliega
+ * y anota. Los dos los escribe la maquinaria de importación; la mano de la
+ * persona jamás los edita. La IDENTIDAD de una línea se juzga por su
+ * contenido declarado: todo lo demás. El deshacer por procedencia
+ * (revertImportCounted) NO usa esta forma: su juicio es «sigue idéntica a lo
+ * que el lote escribió», y ahí el lote SÍ es parte de lo comparado. */
+const LINE_PROVENANCE_FIELDS = new Set(["batch", "importId"]);
+function canonicalLineIdentity(l: Line): string {
+  const o: Record<string, unknown> = { ...(l as unknown as Record<string, unknown>) };
+  for (const k of LINE_PROVENANCE_FIELDS) delete o[k];
+  return canonicalLine(o);
 }
 
 /**

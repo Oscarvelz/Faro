@@ -150,7 +150,10 @@ describe("356 · las superficies y sus cercas", () => {
 
   it("(9) el proveedor asienta al abrir, solo en libros reales", () => {
     const src = readFileSync(new URL("../../components/faro/provider.tsx", import.meta.url), "utf8");
-    assert.ok(src.includes("settleAutopay(session.ledger, today)"), "el asentamiento corre al abrir");
+    // CURA OLA 24 (familia 3, G24-2): la llamada gana el conjunto de
+    // series selladas — el pase corre con el sello por serie, no con el
+    // día entero. El comportamiento clavado no cambia: asienta al abrir.
+    assert.ok(src.includes("settleAutopay(session.ledger, today, sealedSeries)"), "el asentamiento corre al abrir");
     assert.ok(src.includes('dataMode() !== "real"'), "nunca en libros de ejemplo o escenario");
   });
 

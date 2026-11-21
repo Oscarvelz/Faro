@@ -215,7 +215,12 @@ export function closePlan(state: LedgerState, planId: string, destOf: Record<str
         planState: undefined,
         estMinor: undefined,
         estOn: undefined,
-        note: [d.note, `del plan: ${plan.name}`].filter(Boolean).join(" · "),
+        // La procedencia se compone en el idioma del libro (cura de la
+        // ola 24, Q24-C1 de Cara): la palabra queda escrita en los datos
+        // de la persona, y su puerta hermana buyWish ya componía la suya
+        // con el idioma. La cura es al nacer — las notas ya escritas en
+        // libros vivos no se reescriben.
+        note: [d.note, state.settings.lang === "en" ? `from the plan: ${plan.name}` : `del plan: ${plan.name}`].filter(Boolean).join(" · "),
         missing: [],
       };
       // La duda se deriva, no se decreta: una fila comprada sin monto

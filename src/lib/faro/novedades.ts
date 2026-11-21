@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.364",
+    date: "2026-11-21",
+    level: "menor",
+    topic: "lista-espera",
+    title: { es: "La lista de espera y los pagos automáticos, afinados", en: "The waiting list and automatic payments, tuned" },
+    points: {
+      es: [
+        "La pregunta de la lista de espera ya no escribe nada en tu libro al aparecer: el Deshacer ahora alcanza todo, siempre, aunque la lista esté abierta.",
+        "Si una serie despierta a mitad del día, su pago automático se asienta ese mismo día; y borrar una anotación vieja ya no apaga la instrucción de su serie: pasa a la anotación más nueva que quede.",
+        "Los libros de versiones anteriores ya no anuncian como vencido un período que ya pagaste.",
+      ],
+      en: [
+        "The waiting list's question no longer writes anything into your book when it appears: Undo now reaches everything, always, even while the list is open.",
+        "If a series wakes up mid-day, its automatic payment settles that same day; and deleting an old note no longer switches off its series' instruction: it moves to the newest note that remains.",
+        "Books from earlier versions no longer announce a period you already paid as overdue.",
+      ],
+    },
+  },
+  {
     version: "1.3.363",
     date: "2026-11-21",
     level: "menor",

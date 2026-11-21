@@ -11,8 +11,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, Hourglass, Trash2, X } from "lucide-react";
 import {
-  addWish, askStamp, buyWish, dropWish, isRipe, leaveWish, lookWish, remainingFraction,
-  remainingMs, renewWish, setWishPrice, waitingWishes, wishScenario, yearAccount,
+  addWish, buyWish, dropWish, isRipe, leaveWish, lookWish, markWishAsked, remainingFraction,
+  remainingMs, renewWish, setWishPrice, waitingWishes, wishAskedFor, wishScenario, yearAccount,
+  type WishAskStorage,
 } from "@/lib/faro/waitlist";
 import { parseAmount } from "@/lib/faro/money";
 import { todayIso } from "@/lib/faro/loans";
@@ -284,22 +285,34 @@ function WishCard({ w, now }: { w: Wish; now: Date }) {
 
 /** La sección del Asesor: las tarjetas en espera y la cuenta del año. */
 export function WaitlistSection() {
-  const { session, commit, lang, has } = useFaro();
+  const { session, userId, lang, has } = useFaro();
   const [adding, setAdding] = useState(false);
   const [showPieces, setShowPieces] = useState(false);
   const now = useMemo(() => new Date(), []);
   const ledger = session?.ledger;
   const waiting = ledger ? waitingWishes(ledger) : [];
   const year = ledger ? yearAccount(ledger, now.getFullYear()) : { saved: [], pieces: [] as Wish[] };
-  // La pregunta se sella al mostrarse: una vez por plazo (cerca 4).
-  const unasked = waiting.filter((w) => isRipe(w, now) && !w.askedAt).map((w) => w.id).join(",");
+  // OLA 24 (Q24-C1 de Cambios): la pregunta se MARCA al mostrarse, una
+  // vez por plazo — pero la marca vive en el APARATO, atada al libro
+  // (faro-wish-asked.<uid>; waitlist.ts declara la casa y la doctrina),
+  // no en el libro: mostrar la lista no escribe ningún commit, la
+  // revisión no se mueve, ninguna entrada nace en el registro y el
+  // Deshacer conserva su alcance entero. Antes este efecto sellaba
+  // askedAt con un commit ordinario por deseo mostrado, y con la
+  // pantalla abierta peleaba contra el Deshacer de la persona: cada
+  // Deshacer desellaba el sello de arriba y el efecto montado lo
+  // resellaba con marca nueva — la pila bajo los sellos, inalcanzable.
+  const ripeKey = waiting.filter((w) => isRipe(w, now)).map((w) => `${w.id}@${w.dueAt}`).join(",");
   useEffect(() => {
-    if (!unasked) return;
-    for (const id of unasked.split(",")) {
-      commit((s) => askStamp(s, id, new Date()), L(lang, "La espera pregunta", "The wait asks"));
-    }
+    if (!ripeKey) return;
+    const storage: WishAskStorage = {
+      read: (k) => localStorage.getItem(k),
+      write: (k, v) => { localStorage.setItem(k, v); },
+    };
+    const fresh = waiting.filter((w) => isRipe(w, now) && !wishAskedFor(storage, userId, w));
+    if (fresh.length) markWishAsked(storage, userId, fresh);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unasked]);
+  }, [ripeKey]);
   if (!has("advisor.waitlist") || !ledger) return null;
   return (
     <section className="wl-section" data-anchor="advisor-waitlist">

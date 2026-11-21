@@ -68,6 +68,33 @@ export function duesWindow(state: LedgerState, days: number, today = todayIso())
   const end = addDays(today, Math.max(0, days));
   const out: DueEntry[] = [];
 
+  // Cobertura por bookedOn (cura de la ola 24, G24-4): el juicio que la
+  // cura 23 declaró para el ASENTAMIENTO — un período anotado como pagado
+  // por la instancia nacida del autopay (bookedOn = el período) está
+  // cubierto — manda también en el ANUNCIO, sobre lo ya nacido. Los
+  // libros asentados con la forma vieja (.356–.360) llevan la instancia
+  // con nextDue = su fecha ya pagada, y esta ventana la anunciaba vencida
+  // por el resto del mes: la regla P4 (que el mes ruede) era la única
+  // cura. Ahora: un período que una instancia `auto-…` de la serie anota
+  // pagado con su bookedOn NO se anuncia — salvo que una instancia de la
+  // PROPIA persona anote el mismo período, porque su papel manda sobre la
+  // anotación de la máquina. La instancia que cubre debe ser un papel de
+  // pago vivo (activa, no apartada), con los mismos filtros con que la
+  // caminata lee a sus candidatos. Toda superficie lee ESTA ventana
+  // (avisos, Asesor, Preguntar), así que la verdad se hereda entera.
+  const autoCovered = new Set<string>();
+  const personCovered = new Set<string>();
+  for (const bucket of Object.values(state.months)) {
+    for (const l of bucket.lines) {
+      if (!l.active || l.rest) continue;
+      const booked = (l.bookedOn || "").slice(0, 10);
+      if (!ISO_DAY.test(booked)) continue;
+      const sig = `${l.seriesId || l.id}@${booked}`;
+      if (l.id.startsWith("auto-")) autoCovered.add(sig);
+      else personCovered.add(sig);
+    }
+  }
+
   // Cuotas / subscriptions: dated outgoing lines in the buckets the window spans (rules.ts' old
   // isOut test: active, not a transfer, not income, not a savings move), deduplicated by series+day
   // exactly as the 14-day rule always did.
@@ -90,6 +117,7 @@ export function duesWindow(state: LedgerState, days: number, today = todayIso())
       const sig = `${l.seriesId || l.id}@${on}`;
       if (seen.has(sig)) continue;
       seen.add(sig);
+      if (autoCovered.has(sig) && !personCovered.has(sig)) continue; // pagado y anotado: no se anuncia
       out.push({ kind: "cuota", name: (l.concept || "").trim() || "—", on, amt: view(l.amountMinor, l.currency), id: l.id, line: l });
     }
   }

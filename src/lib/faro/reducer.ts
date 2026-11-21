@@ -2,6 +2,7 @@ import { uid } from "./money.ts";
 import { FREQ_DEFAULT, intervalOf, nextDueFrom } from "./cadence.ts";
 import { ISO_DAY } from "./loans.ts";
 import { modeOf } from "./mode.ts";
+import { seriesAutopayConfig } from "./autopay.ts";
 import type { LedgerState, Line } from "./types";
 
 export type Session = {
@@ -290,10 +291,48 @@ export function deleteLine(state: LedgerState, monthKey: string, id: string): Le
   // puerta enmarcaba el intento: la entrada afirmaba el conteo intentado
   // («2» por cero borradas) y el fotograma se apilaba por nada.
   if (!bucket.lines.some((l) => l.id === id)) return state;
-  return {
+  const without: LedgerState = {
     ...state,
     months: { ...state.months, [monthKey]: { lines: bucket.lines.filter((l) => l.id !== id) } },
   };
+  // OLA 24 (G24-3 de Guardián): LA CONFIGURACIÓN DEL PAGO AUTOMÁTICO
+  // SOBREVIVE A SU PAPEL. La instrucción de una serie (seriesAutopay-
+  // Config, en autopay.ts: la única resolución de la casa) vive en la
+  // instancia que la menciona — y borrar esa anotación del Historial
+  // apagaba la serie para siempre, en silencio: borrar un papel no es
+  // revocar una instrucción permanente. Aquí, dentro de la misma receta
+  // de borrado, si la instrucción resuelta de la serie CAMBIA al quitar
+  // la línea, la instrucción de antes se estampa en la instancia más
+  // nueva restante: encendida con su cuenta, o el apagado explícito —
+  // en las dos direcciones, lo que la serie tenía dicho queda dicho.
+  // Sin serie, sin mención o sin cambio, el borrado es el de siempre.
+  // (El movimiento de mes de patchLineWith compone este borrado con el
+  // upsert de la MISMA línea: si una estampa nace, es copia de la misma
+  // instrucción que la línea que vuelve trae, y la resolución — de la
+  // más nueva a la más vieja — lee la misma palabra.)
+  const target = bucket.lines.find((l) => l.id === id)!;
+  if (target.kind !== "subscription") return without;
+  const seriesKey = target.seriesId || target.id;
+  const all: Line[] = [];
+  const remaining: Line[] = [];
+  for (const b of Object.values(state.months)) {
+    for (const l of b.lines) {
+      if (l.kind !== "subscription" || (l.seriesId || l.id) !== seriesKey) continue;
+      all.push(l);
+      if (l.id !== id) remaining.push(l);
+    }
+  }
+  if (!remaining.length) return without;
+  const before = seriesAutopayConfig(all);
+  if (!before) return without;
+  const after = seriesAutopayConfig(remaining);
+  if (after && after.on === before.on && after.accountId === before.accountId) return without;
+  const day = (l: Line): string => l.bookedOn || l.nextDue || `${l.monthKey}-01`;
+  const newest = [...remaining].sort((a, b) => day(a).localeCompare(day(b)))[remaining.length - 1]!;
+  const stamped: Line = before.on
+    ? { ...newest, autopay: true, autopayAccountId: before.accountId }
+    : { ...newest, autopay: false };
+  return upsertLine(without, stamped);
 }
 
 export function copyRecurring(state: LedgerState, from: string, to: string): { state: LedgerState; count: number } {

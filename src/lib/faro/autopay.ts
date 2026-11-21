@@ -24,6 +24,13 @@
  *    la línea que lo traía encendido) detiene la búsqueda: apagar manda
  *    sobre heredar. Las instancias asentadas heredan la configuración
  *    del portador: la serie sigue sola.
+ *  - La configuración SOBREVIVE A SU PAPEL (cura de la ola 24, G24-3):
+ *    la instrucción resuelta es de la SERIE, no de la anotación que la
+ *    porta. Borrar del Historial la instancia portadora no revoca una
+ *    instrucción permanente: la receta de borrado (deleteLine, en
+ *    reducer.ts) migra la instrucción resuelta a la instancia más
+ *    nueva restante dentro de la misma receta, usando ESTA misma
+ *    resolución — una sola lectura para el motor y para el borrado.
  *  - La caminata juzga cada período POR SU PROPIA FECHA (cura de la ola
  *    23, G23-1): recorre la parrilla de la serie desde su primera fecha,
  *    no hacia adelante desde la última instancia — una instancia futura
@@ -80,12 +87,32 @@ function addDays(iso: string, days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** La instrucción permanente de una serie, resuelta desde sus
+ * instancias: de la más nueva a la más vieja, la primera que MENCIONA
+ * el pago automático manda — encendido con su cuenta, o apagado
+ * explícito (autopay === false, la señal del editor). Las que no lo
+ * mencionan no dicen nada. Devuelve null si ninguna lo menciona. Es LA
+ * resolución de la casa: la lee el asentamiento y la lee el borrado
+ * (deleteLine migra con ella lo que un papel se llevaría, G24-3). */
+export function seriesAutopayConfig(instances: Line[]): { on: boolean; accountId: string } | null {
+  const sorted = [...instances].sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    const l = sorted[i]!;
+    if (l.autopay === false) return { on: false, accountId: "" };
+    if (l.autopay && l.autopayAccountId) return { on: true, accountId: l.autopayAccountId };
+  }
+  return null;
+}
+
 /**
  * Asienta los períodos vencidos de las cuotas con pago automático.
  * Puro: devuelve el estado nuevo (el mismo objeto si nada se asentó) y
- * la lista de lo asentado, en orden de fecha.
+ * la lista de lo asentado, en orden de fecha. `skipSeries` (cura de la
+ * ola 24, G24-2): las series que el sello del aparato ya asentó hoy en
+ * este aparato no se caminan — el proveedor las pasa desde el sello;
+ * sin el parámetro, el motor no tiene memoria, como siempre.
  */
-export function settleAutopay(state: LedgerState, today: string = todayIso()): { state: LedgerState; settled: SettledPayment[] } {
+export function settleAutopay(state: LedgerState, today: string = todayIso(), skipSeries?: ReadonlySet<string>): { state: LedgerState; settled: SettledPayment[] } {
   const windowStart = addDays(today, -AUTOPAY_SETTLE_WINDOW_DAYS);
   const series = new Map<string, Line[]>();
   for (const month of Object.values(state.months)) {
@@ -100,22 +127,15 @@ export function settleAutopay(state: LedgerState, today: string = todayIso()): {
   let months = state.months;
   let touched = false;
   for (const [seriesId, instances] of series) {
+    if (skipSeries?.has(seriesId)) continue;
     const sorted = [...instances].sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
     const latest = sorted[sorted.length - 1]!;
     if (!latest.active || latest.rest) continue;
-    // LA CONFIGURACIÓN SE RESUELVE DESDE LA SERIE (Q23-C2): de la
-    // instancia más nueva a la más vieja, la primera que MENCIONA el
-    // pago automático manda — encendido con su cuenta, o apagado
-    // explícito. Las instancias que no lo mencionan (las manuales, las
-    // viejas) no dicen nada: ni encienden ni apagan.
-    let carrier: Line | null = null;
-    for (let i = sorted.length - 1; i >= 0; i -= 1) {
-      const l = sorted[i]!;
-      if (l.autopay === false) { carrier = null; break; }
-      if (l.autopay && l.autopayAccountId) { carrier = l; break; }
-    }
-    if (!carrier) continue;
-    const accountId = carrier.autopayAccountId;
+    // LA CONFIGURACIÓN SE RESUELVE DESDE LA SERIE (Q23-C2), por la
+    // única resolución de la casa (seriesAutopayConfig, arriba).
+    const config = seriesAutopayConfig(instances);
+    if (!config || !config.on) continue;
+    const accountId = config.accountId;
     if (!accountId) continue; // la resolución solo nombra portadora a quien trae su cuenta; esto lo deja dicho para el tipo
     if (!intervalOf(latest.cadence)) continue;
     const anchor = Number((latest.nextDue || "").slice(8, 10)) || Number(dayOf(latest).slice(8, 10)) || 1;
@@ -216,6 +236,21 @@ export function settleAutopay(state: LedgerState, today: string = todayIso()): {
  * convergencia es del motor, no del sello. Y Deshacer NO borra el sello:
  * deshacer el cargo es un acto sobre el libro; el día, en este aparato,
  * ya pasó por su apertura.
+ *
+ * EL SELLO GUARDA QUÉ SERIES ASENTARON (cura de la ola 24, G24-2,
+ * enmienda de esta doctrina): el sello todo-o-nada de la cura 23
+ * bloqueaba también a la serie que despertaba DESPUÉS del asentamiento
+ * de otra — activada al mediodía venciendo hoy, no asentaba a su
+ * siguiente apertura y asentaba mañana, en silencio, contra la promesa
+ * del párrafo anterior. Desde esta cura el sello guarda el CONJUNTO de
+ * series asentadas hoy en este aparato: el pase corre cuando existe
+ * una serie con vencimientos debidos que NO está en el conjunto (el
+ * proveedor pasa el conjunto al motor como skipSeries y el motor no
+ * camina las selladas); asentar añade la serie al conjunto; y Deshacer
+ * NO la saca — por serie, la misma doctrina de siempre: el sello hace
+ * que el Deshacer de ESA serie aguante el resto del día. La forma
+ * legada (el valor = la fecha, escrita por la .361) se lee como lo que
+ * era: el día sellado entero.
  */
 export interface AutopaySealStorage {
   read(key: string): string | null;
@@ -226,17 +261,60 @@ export function autopaySealKey(userId: string): string {
   return `faro-autopay-day.${userId}`;
 }
 
-export function autopaySealedOn(storage: AutopaySealStorage, userId: string, today: string): boolean {
+/** La lectura del sello, con sus dos formas: la legada (la fecha a
+ * secas = el día entero sellado) y la de la ola 24 (el registro del
+ * día con su conjunto de series). Cualquier otra cosa no es un sello. */
+function readSeal(storage: AutopaySealStorage, userId: string): { day: string; all: boolean; series: string[] } | null {
+  let raw: string | null;
   try {
-    return storage.read(autopaySealKey(userId)) === today;
+    raw = storage.read(autopaySealKey(userId));
   } catch {
-    return false;
+    return null;
+  }
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { day: raw, all: true, series: [] };
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const o = parsed as Record<string, unknown>;
+    if (typeof o.day !== "string") return null;
+    const series = Array.isArray(o.series) ? o.series.filter((x): x is string => typeof x === "string") : [];
+    return { day: o.day, all: false, series };
+  } catch {
+    return null;
   }
 }
 
-export function sealAutopayDay(storage: AutopaySealStorage, userId: string, today: string): void {
+/** ¿Está el DÍA entero sellado en este aparato? (La forma legada, o un
+ * sellado sin lista: sellar sin series sella el día, como siempre.) */
+export function autopaySealedOn(storage: AutopaySealStorage, userId: string, today: string): boolean {
+  const seal = readSeal(storage, userId);
+  return !!seal && seal.day === today && seal.all;
+}
+
+/** Las series que este aparato ya asentó hoy (vacío si el sello es de
+ * otro día o no existe; si el día está sellado entero, el proveedor ni
+ * llega aquí: autopaySealedOn ya lo detuvo). */
+export function autopaySealedSeries(storage: AutopaySealStorage, userId: string, today: string): Set<string> {
+  const seal = readSeal(storage, userId);
+  if (!seal || seal.day !== today) return new Set();
+  return new Set(seal.series);
+}
+
+/** Sellar: sin lista de series, el día entero (la forma de siempre);
+ * con lista, el conjunto de series asentadas hoy crece con ellas — el
+ * día queda sellado POR SERIE, no en bloque (G24-2). */
+export function sealAutopayDay(storage: AutopaySealStorage, userId: string, today: string, seriesIds?: string[]): void {
   try {
-    storage.write(autopaySealKey(userId), today);
+    if (!seriesIds) {
+      storage.write(autopaySealKey(userId), today);
+      return;
+    }
+    const prev = readSeal(storage, userId);
+    if (prev && prev.day === today && prev.all) return; // el día ya está sellado entero
+    const set = new Set(prev && prev.day === today ? prev.series : []);
+    for (const id of seriesIds) set.add(id);
+    storage.write(autopaySealKey(userId), JSON.stringify({ day: today, series: [...set] }));
   } catch {
     /* El aparato no guarda (modo privado, cuota): el sello degrada a la
      * sesión en el proveedor, declarado allí. El motor sigue siendo

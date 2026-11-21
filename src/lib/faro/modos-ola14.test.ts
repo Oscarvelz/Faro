@@ -298,6 +298,37 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         if (props.size) propTypes.set(m[1]!, props);
       }
     }
+    /* OLA 24 (M24-4g): LA EXPRESIÓN ENTERA DE LA PROPIEDAD — la
+     * cosecha de arriba guarda el tipo de la propiedad como UNA
+     * palabra (`\w+`): `caja: Caja<Fmt>` entraba como «Caja» y el
+     * argumento `<Fmt>` se perdía en la cosecha misma, antes de que
+     * ningún caminante pudiera sustituirlo. Aquí se cosecha, para la
+     * misma declaración, la expresión completa del tipo de cada
+     * propiedad del constructor — partida con su anidamiento, como
+     * parseTipoExpr parte las expresiones — para que el caminante de
+     * cadenas siga la expresión declarada en CADA salto, no solo en
+     * la raíz. */
+    const propExprs = new Map<string, Map<string, { e: string; fi: number }>>();
+    for (const [fi, { code }] of scanned.entries()) {
+      for (const m of code.matchAll(/\bclass\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/g)) {
+        const params = m[2]!;
+        const exprs = new Map<string, { e: string; fi: number }>();
+        for (const vm of params.matchAll(/\bval\s+(\w+)\s*:\s*/g)) {
+          let i = vm.index + vm[0].length;
+          let depth = 0, expr = "";
+          while (i < params.length) {
+            const ch = params[i]!;
+            if (ch === "<") depth++;
+            if (ch === ">") depth--;
+            if (depth === 0 && (ch === "," || ch === ")")) break;
+            expr += ch; i++;
+          }
+          const e = expr.trim();
+          if (e) exprs.set(vm[1]!, { e, fi });
+        }
+        if (exprs.size) propExprs.set(m[1]!, exprs);
+      }
+    }
     /* OLA 22 (M22-2): EL DUEÑO GENÉRICO — los parámetros de tipo de
      * cada clase y las propiedades declaradas CON un parámetro: una
      * propiedad `fmt: T` en `class Caja<T>` no es de Fmt ni de Otro
@@ -451,10 +482,48 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       if (cur.trim()) args.push(cur.trim());
       return { clase: t.slice(0, lt).split(".").pop()!, args };
     };
-    const resuelveExprTipo = (expr: string, fi: number): string => {
+    /* OLA 24 (M24-3): EL RETORNO DECLARADO DE LAS FUNCIONES — la
+     * cosecha de tipos nunca consultaba el retorno de una función,
+     * aunque la mitad de valores ata fábricas desde la ola 22: un
+     * argumento genérico que ES una fábrica (`Caja<MakeFmt>` con
+     * `fun MakeFmt(): Fmt`) quedaba como un nombre sin resolver y la
+     * cadena entera corría sin juicio. Aquí se cosecha la expresión
+     * de retorno declarada de cada función del paquete, con la
+     * unanimidad de la casa: un nombre es fábrica-de-un-tipo solo si
+     * TODAS sus declaraciones devuelven la misma expresión (en
+     * crudo, tras recortar — la grafía distinta del mismo tipo no
+     * ata: la dirección segura es no resolver). El resolvedor de
+     * expresiones la consulta cuando un nombre desnudo no es clase
+     * ni nombre de la capa de alias: la fábrica se resuelve por su
+     * retorno, en cadena y con guarda de ciclo. */
+    const funReturnExprs = new Map<string, { e: string; fi: number }>();
+    {
+      const raw = new Map<string, { e: string; fi: number }[]>();
+      scanned.forEach(({ code }, fi) => {
+        for (const m of code.matchAll(/\bfun\s+(\w+)\s*\([^)]*\)\s*:\s*([A-Za-z_][\w.]*(?:\s*<[^={;]*>)?)/g)) {
+          const arr = raw.get(m[1]!) ?? [];
+          arr.push({ e: m[2]!.trim(), fi });
+          raw.set(m[1]!, arr);
+        }
+      });
+      for (const [n, arr] of raw) {
+        const first = arr[0]!;
+        if (arr.every((x) => x.e === first.e)) funReturnExprs.set(n, first);
+      }
+    }
+    const resuelveExprTipo = (expr: string, fi: number, seen: ReadonlySet<string> = new Set()): string => {
       const p = parseTipoExpr(expr);
+      // OLA 24 (M24-3): el nombre desnudo que es una FÁBRICA se
+      // resuelve por el retorno declarado de la función — solo si la
+      // capa de nombres no lo mueve (no es alias ni typealias) y no
+      // es una clase declarada del paquete: la clase manda como tipo.
+      if (!p.args.length && !seen.has(p.clase) && resolveComposed(p.clase, fi) === p.clase
+        && !propTypes.has(p.clase) && !tipos.has(p.clase)) {
+        const fr = funReturnExprs.get(p.clase);
+        if (fr) return resuelveExprTipo(fr.e, fr.fi, new Set([...seen, p.clase]));
+      }
       const head = resolveComposed(p.clase, fi);
-      return p.args.length ? `${head}<${p.args.map((a) => resuelveExprTipo(a, fi)).join(", ")}>` : head;
+      return p.args.length ? `${head}<${p.args.map((a) => resuelveExprTipo(a, fi, seen)).join(", ")}>` : head;
     };
     /* El juicio por dueño sobre una CADENA de receptor: el tipo del
      * primer segmento (el declarado, o la clase misma si el segmento
@@ -481,8 +550,17 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
           tipo = p.clase;
           args = p.args;
         } else {
-          tipo = resolveComposed(u.w, u.fi);
-          args = undefined;
+          // OLA 24 (M24-4g): el salto sigue la EXPRESIÓN DECLARADA
+          // ENTERA de la propiedad (propExprs), no su primera palabra:
+          // `caja: Caja<Fmt>` a mitad de cadena entra a Caja CON su
+          // argumento, y el parámetro de la propiedad siguiente se
+          // sustituye como en la raíz. Antes este salto dejaba los
+          // argumentos en undefined y la cadena moría bloqueada un
+          // paso antes de su formateador.
+          const pe = propExprs.get(tipo)?.get(segs[i]!);
+          const p = parseTipoExpr(pe ? resuelveExprTipo(pe.e, pe.fi) : resolveComposed(u.w, u.fi));
+          tipo = p.clase;
+          args = p.args.length ? p.args : undefined;
         }
       }
       const u = propTypes.get(tipo)?.get(prop);
@@ -492,7 +570,11 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         const arg = args?.[params.indexOf(u.w)];
         return arg === undefined || arg !== "Fmt";
       }
-      return resolveComposed(u.w, u.fi) !== "Fmt";
+      // OLA 24: la propiedad final también se juzga por su expresión
+      // entera resuelta — su cabeza manda (una fábrica por nombre se
+      // resuelve por su retorno, como en cada salto).
+      const pe = propExprs.get(tipo)?.get(prop);
+      return (pe ? parseTipoExpr(resuelveExprTipo(pe.e, pe.fi)).clase : resolveComposed(u.w, u.fi)) !== "Fmt";
     };
     const aliasSpellings = new Set<string>([...typealiasRaw.keys(), ...fileImports.flatMap((mp) => [...mp.keys()])]);
     const escRe18 = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1957,6 +2039,93 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     ], true);
     assert.ok(!sitioCadenaReal.some((a) => a.includes("ya no vive en su sitio")),
       `M23-4s-c (control): c.fmt.rate por la cadena ES la superficie registrada en su sitio: ${sitioCadenaReal.join(" | ")}`);
+  });
+  it("especímenes M24 (ola 24): la identidad que vuelve, la unanimidad de tres, la fábrica como argumento genérico y el genérico a mitad de cadena", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\"; val rateFn: (Long) -> String = { \"\" } }",
+    };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M24-1: la identidad cruza archivos Y VUELVE (A→B→A)
+    const vuelta = [
+      { name: "A.kt", text: "val r = Fmt::rate\nval u = t" },
+      { name: "B.kt", text: "val t = r" },
+    ];
+    assert.ok(caza([...vuelta, { name: "Spec.kt", text: "class W { fun a(s: Snap) = u(s.spent) }" }]).length >= 1,
+      "M24-1: r→t→u con vuelta al archivo A — u(s.spent) ES Fmt.rate sin productor: acusa");
+    assert.deepEqual(caza([...vuelta, { name: "Spec.kt", text: "class W { fun a(s: Snap) = u(s.rateE4) }" }]), [],
+      "M24-1c (control): la vuelta con el productor registrado absuelve");
+    const vivaVuelta = censoCascara([fmtDecl, ...vuelta,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap) = u(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!vivaVuelta.some((a) => a.includes("ya no vive en su sitio")),
+      `M24-1s: la superficie deletreada por la vuelta vive en su sitio: ${vivaVuelta.join(" | ")}`);
+    const muertaVuelta = censoCascara([fmtDecl, ...vuelta,
+      { name: "FaroWidgets.kt", text: "class W { fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+      { name: "FaroNotify.kt", text: "class N { fun a(s: Snap) = u(s.rateE4) }" },
+    ], true);
+    assert.ok(muertaVuelta.some((a) => a.includes("ya no vive en su sitio")),
+      "M24-1s-c (control): la vuelta plantada fuera del sitio no salva el sitio vacío");
+    // M24-2: la unanimidad de TRES archivos y la sombra del que ata
+    const tres = [
+      { name: "E1.kt", text: "val t = Fmt::rate" },
+      { name: "E2.kt", text: "val t = Fmt::rate" },
+      { name: "E3.kt", text: "val t = Fmt::rate" },
+    ];
+    assert.ok(caza([...tres, { name: "Spec.kt", text: "class W { fun a(s: Snap) = t(s.spent) }" }]).length >= 1,
+      "M24-2a: tres archivos unánimes atan como uno: acusa");
+    assert.deepEqual(caza([...tres, { name: "Spec.kt", text: "class W { fun a(s: Snap) = t(s.rateE4) }" }]), [],
+      "M24-2d (control): la unanimidad de tres con el productor absuelve");
+    assert.ok(caza([
+      { name: "Otro.kt", text: "object Otro { fun rate(e4: Long): String = \"\" }" },
+      { name: "E1.kt", text: "val t = Fmt::rate" },
+      { name: "E2.kt", text: "val t = Fmt::rate" },
+      { name: "E3.kt", text: "val t = Otro::rate" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap) = t(s.spent) }" },
+    ]).length >= 1,
+      "M24-2b: con desacuerdo, el juicio lee la atadura de Fmt que existe: acusa (el desacuerdo no ciega)");
+    const sombra = censoCascara([fmtDecl,
+      { name: "Otro.kt", text: "object Otro { fun rate(e4: Long): String = \"\" }" },
+      { name: "E1.kt", text: "val t = Fmt::rate" },
+      { name: "FaroWidgets.kt", text: "val t = Otro::rate\nclass W { fun a(s: Snap) = t(s.spent); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!sombra.some((a) => a.includes("Fmt.rate(s.spent)")),
+      `M24-2f: el archivo que ata sombrea — su t es de Otro y no se juzga como Fmt.rate: ${sombra.join(" | ")}`);
+    assert.ok(sombra.some((a) => a.includes("ya no vive en su sitio")),
+      "M24-2f-c: y su sitio acusa la muerte verdadera (Fmt.rate no se usa ahí)");
+    // M24-3: el genérico cuyo argumento es una FÁBRICA
+    const cajaFab = { name: "Caja.kt", text: "class Caja<T>(val fmt: T)\nfun MakeFmt(): Fmt = Fmt\nclass Otro { fun money(x: Long, c: String): String = \"\" }" };
+    assert.ok(caza([cajaFab, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M24-3: Caja<MakeFmt> — el argumento-fábrica se resuelve por el retorno declarado de la función: acusa");
+    assert.deepEqual(caza([cajaFab, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.money(s.spent, s.cur) }" }]), [],
+      "M24-3c (control): la fábrica como argumento con el productor absuelve");
+    assert.ok(caza([cajaFab, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Caja<MakeFmt>>) = c.fmt.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M24-3n: el anidado con fábrica dentro se resuelve entero: acusa");
+    const sitioFab = censoCascara([fmtDecl, cajaFab,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!sitioFab.some((a) => a.includes("ya no vive en su sitio")),
+      `M24-3s: la superficie deletreada por Caja<MakeFmt> vive en su sitio: ${sitioFab.join(" | ")}`);
+    // M24-4g: el dueño genérico a MITAD de cadena (tipo declarado de una propiedad)
+    const cajaCasa = [
+      { name: "Caja.kt", text: "class Caja<T>(val fmt: T)" },
+      { name: "Casa.kt", text: "class Casa(val caja: Caja<Fmt>)" },
+    ];
+    assert.ok(caza([...cajaCasa, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Casa) = c.caja.fmt.rateFn(s.spent) }" }]).length >= 1,
+      "M24-4g: c.caja.fmt.rateFn — el genérico se entra también a mitad de cadena, por el tipo de la propiedad: acusa");
+    assert.ok(caza([...cajaCasa, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Casa) = c.caja.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M24-4g-b: la misma cadena compuesta con money sin productor acusa");
+    assert.ok(caza([
+      { name: "Caja.kt", text: "class Caja<T>(val fmt: T)" },
+      { name: "Casa2.kt", text: "class Casa2(val f: Fmt)" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Casa2>) = c.fmt.f.rateFn(s.spent) }" },
+    ]).length >= 1,
+      "M24-4g-c (borde que ya aguantaba): con el genérico en la raíz, la cadena sigue acusando tras el salto llano");
+    const sitioCompuesta = censoCascara([fmtDecl, ...cajaCasa,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, c: Casa) = c.caja.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!sitioCompuesta.some((a) => a.includes("ya no vive en su sitio")),
+      `M24-4gs: la superficie deletreada por la cadena compuesta vive en su sitio: ${sitioCompuesta.join(" | ")}`);
   });
 });
 

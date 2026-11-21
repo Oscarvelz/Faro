@@ -7,8 +7,12 @@
  * todavía no, como la bandeja, y viajan con el libro (D1). Cada deseo
  * guarda SU plazo (la foto del ajuste al nacer): cambiar el ajuste jamás
  * mueve una espera en curso. Cumplido el plazo, el Asesor pregunta una
- * vez «¿Todavía lo quieres?» — sellada en askedAt, una por plazo; la
- * primera renovación rearma, la segunda hace el deseo permanente.
+ * vez «¿Todavía lo quieres?» — una por plazo: la MARCA de ya preguntado
+ * vive en el aparato, atada al libro (abajo, la casa de la marca); el
+ * hecho puede sellarse en el libro (askedAt) por un acto deliberado,
+ * pero ninguna pantalla lo escribe al mostrarse y el candado no vive
+ * en el libro (cura de la ola 24, Q24-C1); la primera renovación
+ * rearma, la segunda hace el deseo permanente.
  *
  * El escenario («¿Qué pasaría si lo compro?») se calcula con los motores
  * de siempre — readAdvisor para el mes y savingsStock para el colchón —
@@ -120,11 +124,74 @@ function patchWish(state: LedgerState, id: string, patch: Partial<Wish>): Ledger
   return { ...state, wishes: wishesOf(state).map((w) => (w.id === id ? { ...w, ...patch } : w)) };
 }
 
-/** La pregunta se sella al mostrarse: una vez por plazo (cerca 4). */
+/** El HECHO de la pregunta, en el libro: «se preguntó el día X» (askedAt).
+ * Es un dato, no un candado: lo estampa un acto deliberado que lo quiera
+ * registrar, y Deshacer puede retirarlo como retira cualquier anotación.
+ * Ninguna pantalla lo escribe al mostrarse — hasta la cura de la ola 24
+ * la sección lo sellaba con un commit ordinario desde su efecto, y el
+ * Deshacer peleaba contra el efecto montado: deshacía el sello de
+ * arriba y el efecto lo resellaba con marca nueva, con la pila entera
+ * bajo los sellos inalcanzable (Q24-C1 de Cambios). El candado — «ya
+ * preguntado por ESTE plazo» — vive en el aparato, en la casa de abajo. */
 export function askStamp(state: LedgerState, id: string, now: Date): LedgerState {
   const w = wishesOf(state).find((x) => x.id === id);
   if (!w || w.askedAt) return state;
   return patchWish(state, id, { askedAt: now.toISOString() });
+}
+
+/* ═══ OLA 24 (Q24-C1): LA MARCA DE LA PREGUNTA VIVE EN EL APARATO ═══
+ * La misma casa que la cura 23 eligió para el sello del autopay: fuera
+ * del libro, en el almacenamiento del aparato, atada al libro por su
+ * uid — el Deshacer reescribe el libro y no toca esta casa, así que la
+ * marca aguanta lo que el Deshacer haga y ningún efecto pelea con él.
+ * La marca guarda, por deseo, el PLAZO (su dueAt) por el que ya se
+ * preguntó: renovar cambia el dueAt y la pregunta se rearma sola, sin
+ * que nadie tenga que desmarcar nada. Mostrar la lista escribe SOLO
+ * esta marca — jamás un commit — y la pregunta se hace una vez por
+ * plazo. Si el aparato no guarda la marca, la pregunta puede repetirse
+ * en otra visita: un daño menor y dicho, nunca una pila bloqueada. */
+export interface WishAskStorage {
+  read: (key: string) => string | null;
+  write: (key: string, value: string) => void;
+}
+
+export function wishAskKey(userId: string): string {
+  return `faro-wish-asked.${userId}`;
+}
+
+/** Las marcas del libro, leídas con desconfianza: mapa deseo → dueAt. */
+export function wishAskMarks(storage: WishAskStorage, userId: string): Record<string, string> {
+  try {
+    const raw = storage.read(wishAskKey(userId));
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === "string") out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** ¿Ya se preguntó por ESTE deseo en ESTE plazo? */
+export function wishAskedFor(storage: WishAskStorage, userId: string, wish: Wish): boolean {
+  return wishAskMarks(storage, userId)[wish.id] === wish.dueAt;
+}
+
+/** Marcar los deseos como ya preguntados por su plazo actual. */
+export function markWishAsked(storage: WishAskStorage, userId: string, wishes: Wish[]): void {
+  if (!wishes.length) return;
+  const marks = wishAskMarks(storage, userId);
+  for (const w of wishes) marks[w.id] = w.dueAt;
+  try {
+    storage.write(wishAskKey(userId), JSON.stringify(marks));
+  } catch {
+    /* El aparato no guarda: la marca degrada a esta visita (declarado
+     * en la doctrina de arriba); el libro jamás se entera. */
+  }
 }
 
 /** «Dame más tiempo»: la primera renovación rearma el plazo (con SU
