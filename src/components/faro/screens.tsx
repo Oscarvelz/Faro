@@ -111,6 +111,8 @@ import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
 import { CardsAdvisor } from "./cards";
 import { cardTotals, rewardsTotals } from "@/lib/faro/cards";
 import { EarningsStudy, hasEarnings } from "./earnings";
+import { hasPriceWatch } from "@/lib/faro/prices";
+import { PriceNotice, PriceWatchStudy } from "./price-watch";
 import { payoffPlan } from "@/lib/faro/debts";
 import { loanTotals, todayIso } from "@/lib/faro/loans";
 import { lentOf, lentState } from "@/lib/faro/debts";
@@ -5129,6 +5131,10 @@ export function Study() {
   // 1.3.109: earnings by source (card rewards as their own source).
   const earnAny = hasEarnings(session?.ledger, ui.year);
   if (earnAny) visible.push("earnings");
+  // 1.3.366 (§19.3): los cambios de precio — su carpeta existe solo si
+  // la serie trae algún cambio en la ventana de 12 meses.
+  const pricesAny = session ? hasPriceWatch(session.ledger, todayIso()) : false;
+  if (pricesAny) visible.push("prices");
   // 1.3.273 (Oscar): el seguro de vida se cuenta al final de Estadísticas —
   // es dinero que corre en el fondo. Solo se anuncia cuando ya se anotó una
   // prima: sin hechos, la carpeta no existe, como sus vecinas.
@@ -5147,6 +5153,7 @@ export function Study() {
     waffle: "pano.hundred", where: "study.where", rule: "pano.rule-503020", movers: "pano.movers", time: "study.flow-simple",
     cushion: "study.month-jar", plan: "study.budget-caps", numeros: "study.key-numbers", sankey: "study.sankey",
     owed: "study.owed", loans: "study.loans", people: "study.people", remesas: "study.remit", earnings: "study.income-sources",
+    prices: "study.prices",
     year: "study.income-sources", rewards: "cards.rewards", seguro: "ins.premiums-paid",
   } as const;
   const modeVisible = visible.filter((id) => has(FOLD_FEATURE[id as keyof typeof FOLD_FEATURE] ?? "study.fold-shell"));
@@ -5158,7 +5165,7 @@ export function Study() {
       sortLabel={t("study.sort")}
       moveUpLabel={t("study.sort.up")}
       moveDownLabel={t("study.sort.down")}
-      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "remesas", "rewards", "rule", "movers", "time", "earnings", "cushion", "plan", "owed", "loans"].filter((id) => has(FOLD_FEATURE[id as keyof typeof FOLD_FEATURE] ?? "study.fold-shell"))}
+      openByDefault={["pulse", "health", "pace", "agenda", "waffle", "where", "people", "remesas", "rewards", "rule", "movers", "time", "earnings", "prices", "cushion", "plan", "owed", "loans"].filter((id) => has(FOLD_FEATURE[id as keyof typeof FOLD_FEATURE] ?? "study.fold-shell"))}
       items={[
         { id: "pulse", label: es ? "Tu mes de un vistazo" : "Month at a glance", section: "now" },
         { id: "health", label: es ? "La salud de tu dinero" : "Your money's health", section: "now" },
@@ -5175,6 +5182,7 @@ export function Study() {
         { id: "movers", label: es ? "Qué se movió" : "What moved", section: "general" },
         { id: "time", label: es ? "Entra, sale y queda" : "In, out and left", section: "time" },
         { id: "earnings", label: es ? "De dónde viene tu dinero" : "Where your money comes from", section: "time" },
+        { id: "prices", label: es ? "Cambios de precio" : "Price changes", section: "time" },
         { id: "year", label: es ? "El año" : "The year", section: "time" },
         { id: "cushion", label: es ? "Ahorro y colchón" : "Savings and cushion", section: "save" },
         { id: "owed", label: t("study.owed.title"), section: "owed" },
@@ -5212,6 +5220,7 @@ export function Study() {
       <StatFold id="time"><TimeCard points={points} span={spanEff} onSpan={setSpan} activeKey={activeKey} /></StatFold>
       {has("study.income-sources") ? <StatFold id="year"><YearCard /></StatFold> : null}
       {earnAny && has("study.income-sources") ? <StatFold id="earnings"><EarningsStudy /></StatFold> : null}
+      {pricesAny && has("study.prices") ? <StatFold id="prices"><PriceWatchStudy /></StatFold> : null}
       {board?.envelopes.length && has("study.budget-caps") ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
       {numerosAny && has("study.key-numbers") ? <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold> : null}
       <StudyCharts
@@ -5552,6 +5561,10 @@ export function Advisor() {
           comprometido, tras la torre — su asiento (Completo) manda
           dentro de la sección; sin él, ni la tarjeta. */}
       <ProjectionSection />
+      {/* El vigilante de fijos (§19.3, 1.3.366): el aviso de un fijo que
+          cambió de monto, tras el saldo proyectado — su asiento
+          (Completo) y el mes en curso mandan dentro de la sección. */}
+      <PriceNotice />
       {awakeOn && wake?.notice ? <p className="advice-because is-notice">{wake.notice}</p> : null}
       {awakeOn && wake ? wake.findings.map((item) => {
         const open = cardOn(item.id);

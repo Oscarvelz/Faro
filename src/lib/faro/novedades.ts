@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.366",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "cambios-precio",
+    title: { es: "El vigilante de fijos", en: "The fixed-charge watch" },
+    points: {
+      es: [
+        "Si un cargo fijo — la renta, el internet, una suscripción — llega con un monto distinto al de siempre, el Asesor te lo dice una vez, con las dos anotaciones que lo prueban. El monto nuevo se vuelve el patrón desde ese momento.",
+        "En Estudio, la carpeta Cambios de precio guarda la evidencia de los últimos 12 meses: qué cambió, de cuánto a cuánto y cuándo, ordenado por su efecto, con su gráfica de escalones.",
+        "De los precios de tienda no hay aviso: solo entran a la evidencia cuando una compra salta 5% o más contra la anterior del mismo producto en la misma tienda.",
+      ],
+      en: [
+        "If a fixed charge — rent, internet, a subscription — arrives at a different amount than usual, the Advisor tells you once, with the two entries that prove it. The new amount becomes the pattern from that moment on.",
+        "In Study, the Price changes fold keeps the last 12 months of evidence: what changed, from how much to how much and when, ordered by its effect, with its step chart.",
+        "There is no notice for store prices: they enter the evidence only when a purchase jumps 5% or more against the previous one of the same product at the same store.",
+      ],
+    },
+  },
+  {
     version: "1.3.365",
     date: "2026-11-21",
     level: "grande",

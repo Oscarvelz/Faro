@@ -276,10 +276,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA SALDO PROYECTADO (1.3.365): nace saldo-proyectado en
     // Completo (su función es advisor.projection): completo +1 y el
     // total +1 — acumulados 130 · 236 · 366.
+    // ENMIENDA VIGILANTE DE FIJOS (1.3.366): nace cambios-precio en
+    // Completo (su función es study.prices): completo +1 y el
+    // total +1 — acumulados 130 · 236 · 367.
     assert.equal(count("esencial"), 130);
     assert.equal(count("ritmo"), 236);
-    assert.equal(count("completo"), 366);
-    assert.equal(MANUAL_TOPICS.length, 366);
+    assert.equal(count("completo"), 367);
+    assert.equal(MANUAL_TOPICS.length, 367);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

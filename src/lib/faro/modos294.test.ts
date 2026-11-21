@@ -186,6 +186,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["settings.wait-time", R], // 1.3.360 — 5c: el plazo de la espera se configura en Ajustes; configurar es administrar (Ritmo)
   ["account.name", E], // 1.3.363 — Pieza 0: la fila «Cómo te nombra Faro» del pliegue Cuenta; corregir el propio nombre es esencial (precedente 1.3.315)
   ["advisor.projection", C], // 1.3.365 — §19.1: el saldo proyectado, día a día; interpretar el libro con fechas es de Completo, declarado con la lectura
+  ["advisor.price-watch", C], // 1.3.366 — §19.3: el aviso del vigilante de fijos en el Asesor; interpretar precios con fechas es de Completo, declarado con el aviso
   // §1.22 Bandeja de documentos compartidos
   ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E], ["inbox.link", E],
   // §1.23 Exportar informes
@@ -243,6 +244,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["study.where-top", R], ["study.where-stores", C], ["study.runway", C],
   ["study.committed", C], ["study.cushion-dial", C], ["study.key-numbers", C],
   ["study.sankey", C], ["study.people", C], ["study.remit", C], ["study.income-sources", C],
+  ["study.prices", C], // 1.3.366 — §19.3: el espacio de cambios de precio en Estudio; la evidencia ordenada por impacto es de Completo
   ["study.empty-rule", E], ["study.fold-shell", E], ["study.reorder", C],
   ["study.columns", E], ["study.loans", C], ["study.owed", R],
   // §3.3 Asesor — héroe y pasos

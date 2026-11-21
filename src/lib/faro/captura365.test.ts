@@ -54,7 +54,7 @@ function line(partial: Partial<Line> & Pick<Line, "id" | "kind" | "concept" | "a
 const CARD: CreditCard = {
   id: "card-1", name: "Visa Banco", issuer: "", mark: "", color: "", last4: "1234",
   currency: "USD", limitMinor: null, dueDay: 10, aprBps: 0, autopay: null, rewards: "",
-  snaps: [{ on: "2026-11-01", at: "2026-11-01T10:00:00.000Z", balanceMinor: 50000 }],
+  snaps: [{ on: "2026-11-01", at: "2026-11-01T10:00:00.000Z", balanceMinor: 50000, src: "manual" }],
 };
 
 /** El libro de la aceptación: una cuenta con $1,000 y $200 apartados

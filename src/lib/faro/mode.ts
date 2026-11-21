@@ -633,6 +633,7 @@ export const FEATURES = {
   "study.where-top": R, "study.where-stores": C, "study.runway": C,
   "study.committed": C, "study.cushion-dial": C, "study.key-numbers": C,
   "study.sankey": C, "study.people": C, "study.remit": C, "study.income-sources": C,
+  "study.prices": C,
   "study.empty-rule": E, "study.fold-shell": E, "study.reorder": C,
   "study.columns": E, "study.loans": C, "study.owed": R,
   /* §3.3 Asesor — héroe y pasos (el Asesor existe en los tres modos y nunca
@@ -645,7 +646,7 @@ export const FEATURES = {
   /* §19.1 El saldo proyectado, día a día (1.3.365): interpretar es de
    * Completo por el criterio de la casa — la caminata de lo ya
    * comprometido lee el libro entero con fechas, no declara nada. */
-  "advisor.projection": C,
+  "advisor.projection": C, "advisor.price-watch": C,
   "advisor.verdict": E, "advisor.verdict-sub": R, "advisor.hero-cubes": R,
   "advisor.step-income": E, "advisor.step-name": E, "advisor.step-keep": E,
   "advisor.step-close-gap": R, "advisor.step-set-aside": R, "advisor.step-wants-30": R,
@@ -796,6 +797,7 @@ export function featureForGo(go: GoDest): FeatureId | null {
       case "cushion": return "study.cushion-dial";
       case "numeros": return "study.key-numbers";
       case "earnings": return "study.income-sources";
+      case "prices": return "study.prices";
       case "loans": return "study.loans";
       case "owed": return "study.owed";
       case "agenda": return "pano.next-dues-reduced";

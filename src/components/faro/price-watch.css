@@ -1,0 +1,43 @@
+/* El vigilante de fijos (§19.3): el aviso en el Asesor y la evidencia
+   en Estudio. Sin colores de alarma — un precio que se mueve no es una
+   emergencia —: la marca es el acento del tema y la tipografía. */
+.pw-card { display: flex; flex-direction: column; gap: 6px; }
+.pw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pw-line {
+  width: 100%; text-align: left; cursor: pointer; font: inherit;
+  background: none; border: none; color: var(--fg);
+  padding: 7px 8px; border-radius: 8px;
+}
+.pw-line:hover { background: color-mix(in oklab, var(--accent) 8%, transparent); }
+.pw-sentence { font-size: .95rem; }
+.pw-proof {
+  margin: 0 8px 6px; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line));
+  background: var(--surface);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.pw-proof p { margin: 0; display: flex; justify-content: space-between; gap: 12px; font-size: .88rem; }
+.pw-proof .pw-note { display: block; font-size: .82rem; opacity: .75; }
+.pw-study { display: flex; flex-direction: column; gap: 8px; }
+.pw-intro { font-size: .88rem; opacity: .85; margin: 0; }
+.pw-chart { width: 100%; height: auto; display: block; }
+.pw-step { stroke: var(--accent); stroke-width: 2; }
+.pw-dot { fill: var(--accent); }
+.pw-chart-amt { font-size: 10px; fill: var(--fg); font-weight: 600; }
+.pw-chart-day { font-size: 9px; fill: var(--fg); opacity: .65; }
+.pw-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pw-row {
+  width: 100%; display: flex; align-items: baseline; gap: 10px;
+  text-align: left; cursor: pointer; font: inherit;
+  background: none; border: none; color: var(--fg);
+  padding: 8px; border-radius: 10px;
+}
+.pw-row.is-picked { background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.pw-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pw-row-name { font-size: .94rem; }
+.pw-row-store { opacity: .7; }
+.pw-row-sub { font-size: .8rem; opacity: .65; }
+.pw-row-figs { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.pw-row-figs .num { font-size: .92rem; }
+.pw-row-impact { font-size: .8rem; opacity: .7; }
+.pw-more { font-size: .84rem; opacity: .7; margin: 0; }
