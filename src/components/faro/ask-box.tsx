@@ -37,10 +37,18 @@
  * esa cuenta — y la PUERTA de «Faro mismo»: la respuesta que nombra una
  * función con tema enrutado (askmap.FUNCTION_TOPIC) lleva su «Ir allí»
  * por la vía del Manual.
+ *
+ * 1.3.369 (PREGUNTAS PREDETERMINADAS — el conflicto de Oscar): la fila
+ * «A la mano» vive SIEMPRE en la caja, también tras una respuesta — la
+ * fija del sistema («¿Qué puedes hacer?», cuya respuesta se genera del
+ * banco en el momento) y las preguntas que la persona guardó, EN SU
+ * ORDEN. El engranaje de la cabecera (con su asiento, Ritmo) lleva al
+ * pliegue de Ajustes donde la lista se administra.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, MessageCircleQuestion, Send, Sparkles } from "lucide-react";
+import { ArrowRight, MessageCircleQuestion, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, bankChips, type BankResult } from "@/lib/faro/ask2";
+import { askPresetsOf, capabilityQuestions, FIXED_PRESET_Q } from "@/lib/faro/askpresets";
 import { FUNCTION_TOPIC } from "@/lib/faro/askmap";
 import { addDrafts, findDup, validateDraft } from "@/lib/faro/drafts";
 import type { Draft } from "@/lib/faro/types";
@@ -61,6 +69,7 @@ export function AskBox() {
   const [text, setText] = useState("");
   const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
+  const [caps, setCaps] = useState(false);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
   // La caja respira: su alto sigue al texto (tope de cinco líneas) y
@@ -89,6 +98,7 @@ export function AskBox() {
   function ask(q: string, pin?: { accountId: string }) {
     const clean = q.trim();
     if (!clean || !session) return;
+    setCaps(false);
     setAsked(clean);
     // Ola 23 (A23-1/2/3/5): la caja enhebra el modo vigente al motor —
     // el Asesor responde en el piso de la persona, no en el de la app.
@@ -118,8 +128,23 @@ export function AskBox() {
     commit((s) => addDrafts(s, [draft]), L("Pregunta al Asesor", "Asked the Advisor"));
     importToast({ text: L("Quedó en la bandeja, para revisar.", "It's in the tray, ready to review.") });
     setResult(null);
+    setCaps(false);
     setText("");
   }
+
+  // La fija del sistema: «¿Qué puedes hacer?» — su respuesta no pasa por
+  // el motor de preguntas: es el inventario generado del banco en el
+  // momento (askpresets.capabilityQuestions), rendido como tarjeta con
+  // las preguntas mismas por chips; tocar una la pregunta de verdad.
+  function showCaps() {
+    setResult(null);
+    setAsked(FIXED_PRESET_Q[lang]);
+    setCaps(true);
+    setText("");
+  }
+
+  const presets = askPresetsOf(session.ledger);
+  const presetsTopic = findTopic("preguntas-a-la-mano");
 
   // La puerta de «Faro mismo»: la función nombrada, si su tema del mapa
   // trae ruta, se abre por la vía del Manual (atrás vuelve a la caja).
@@ -133,6 +158,11 @@ export function AskBox() {
         <span className="ask-ico" aria-hidden><MessageCircleQuestion size={16} /></span>
         <strong>{L("Pregúntale a tu Asesor", "Ask your Advisor")}</strong>
         <Hint topic="preguntar-asesor" />
+        {has("settings.ask-presets") && presetsTopic?.go ? (
+          <button type="button" className="ask-gear" data-anchor="ask-presets-gear" aria-label={L("Ajustar las preguntas a la mano", "Adjust the questions at hand")} onClick={() => goTopic(presetsTopic.id, presetsTopic.go!, "preguntar-asesor")}>
+            <Settings size={15} />
+          </button>
+        ) : null}
       </div>
       <div className="ask-row">
         <textarea
@@ -149,17 +179,40 @@ export function AskBox() {
           <Send size={15} />
         </button>
       </div>
-      {!result ? (
+      {/* LA FILA «A LA MANO» (1.3.369): vive SIEMPRE — también tras una
+          respuesta, que era el conflicto: no había vuelta a verlas. La
+          fija del sistema va primera; después, las de la persona EN SU
+          ORDEN. Un toque pregunta al instante. */}
+      <div className="ask-presets" data-anchor="ask-presets">
+        <span className="ask-presets-label">{L("A la mano", "At hand")}</span>
+        <div className="ask-chips">
+          <button type="button" className="ask-chip is-fixed" data-anchor="ask-preset-fixed" onClick={showCaps}>{FIXED_PRESET_Q[lang]}</button>
+          {presets.map((p) => (
+            <button key={p.id} type="button" className="ask-chip" data-anchor="ask-preset" onClick={() => ask(p.text)}>{p.text}</button>
+          ))}
+        </div>
+      </div>
+      {!result && !caps ? (
         <div className="ask-chips">
           {chips.map((c) => (
             <button key={c} type="button" className="ask-chip" data-anchor="ask-chip" onClick={() => { setText(c); ask(c); }}>{c}</button>
           ))}
         </div>
       ) : null}
-      {result && asked ? (
+      {(result || caps) && asked ? (
         <div className="ask-q" data-anchor="ask-q">
           <span className="ask-q-label">{L("Tu pregunta", "Your question")}</span>
           <p className="ask-q-text">{asked}</p>
+        </div>
+      ) : null}
+      {caps ? (
+        <div className="ask-card" data-anchor="ask-card">
+          <p className="ask-verdict">{L("Esto es lo que sé responder. Toca una pregunta y te la respondo:", "This is what I know how to answer. Tap a question and I'll answer it:")}</p>
+          <div className="ask-chips">
+            {capabilityQuestions(lang).map((q) => (
+              <button key={q} type="button" className="ask-chip" data-anchor="ask-cap-chip" onClick={() => ask(q)}>{q}</button>
+            ))}
+          </div>
         </div>
       ) : null}
       {result?.kind === "unknown" ? (

@@ -648,6 +648,16 @@ export type Logbook = {
   editions: Record<string, LogEdition>;
 };
 
+/** Una pregunta predeterminada del Asesor (1.3.369): el texto tal como la
+ * persona lo eligió del catálogo del banco o lo escribió ella. El ORDEN
+ * de la lista es el orden de la persona — la caja las pinta en ese orden
+ * y jamás desaparecen tras una respuesta. La fija del sistema («¿Qué
+ * puedes hacer?») NO vive aquí: la pinta la caja misma, siempre primera. */
+export type AskPreset = {
+  id: string;
+  text: string;
+};
+
 export type LedgerState = {
   v: 1;
   structure: Structure;
@@ -680,6 +690,10 @@ export type LedgerState = {
    * historia. Ausente en libros viejos = ninguna bitácora. Viaja con el
    * libro (D1). */
   logbook?: Logbook;
+  /** Las preguntas predeterminadas del Asesor (1.3.369): la lista de la
+   * persona, en SU orden, fuera de months — ningún total la lee. Ausente
+   * en libros viejos = ninguna guardada. Viaja con el libro (D1). */
+  askPresets?: AskPreset[];
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
   /** Money the user lent (Me deben, 1.3.92; device-only before). Abonos are income lines with `lentId`. See debts.ts. */

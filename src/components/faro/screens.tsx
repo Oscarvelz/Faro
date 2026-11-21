@@ -26,6 +26,7 @@ import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { AskBox } from "@/components/faro/ask-box";
+import { AskPresetsManager } from "@/components/faro/ask-presets";
 import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
 import { ProjectionSection } from "@/components/faro/projection";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
@@ -6113,7 +6114,7 @@ export function Settings() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (["lang", "theme", "modo", "guest", "structure", "rate", "keys", "gestures", "backup", "banks", "account", "widget"].includes(id)) setOpenFold(id);
+      if (["lang", "theme", "modo", "guest", "structure", "rate", "keys", "gestures", "backup", "banks", "account", "widget", "askpresets"].includes(id)) setOpenFold(id);
     };
     window.addEventListener("faro-open", onOpen);
     return () => window.removeEventListener("faro-open", onOpen);
@@ -6163,6 +6164,11 @@ export function Settings() {
         </div>
         <p className="aj-mode-note">{t("mode.current").replace("{name}", t(`mode.${currentMode}`)).replace("{line}", t(`mode.${currentMode}.line`))}</p>
       </Fold>
+      {has("settings.ask-presets") ? (
+      <Fold id="askpresets" icon={ListChecks} sub={lang === "en" ? "Your questions, first in the Advisor's box" : "Tus preguntas, primeras en la caja del Asesor"} topic="preguntas-a-la-mano" title={lang === "en" ? "Questions at hand" : "Preguntas a la mano"} open={openFold === "askpresets"} onToggle={() => toggle("askpresets")}>
+        <AskPresetsManager />
+      </Fold>
+      ) : null}
       {has("settings.guest-currency") ? (
       <Fold id="guest" icon={ArrowLeftRight} sub={settings.guestCur ? `${guestDef(settings.guestCur).sym} ${settings.guestCur} · ${lang === "en" ? "Read-only view" : "Vista de solo lectura"}` : lang === "en" ? "See your numbers in another currency" : "Mira tus números en otra moneda"} topic="moneda-invitada" title={lang === "en" ? "Guest currency" : "Moneda invitada"} open={openFold === "guest"} onToggle={() => toggle("guest")}>
         {!settings.guestCur ? (

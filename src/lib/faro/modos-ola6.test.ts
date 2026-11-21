@@ -180,10 +180,14 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // ENMIENDA BITÁCORA (1.3.367): nace bitacora en Esencial (su
     // función es folios.logbook — leer la propia historia). La
     // distribución se mueve a 131 · 106 · 131 sobre 368.
+    // ENMIENDA PREGUNTAS A LA MANO (1.3.369): nace preguntas-a-la-mano
+    // en Ritmo (su función es settings.ask-presets — administrar la
+    // lista; usar las preguntas es de Esencial, advisor.ask). La
+    // distribución se mueve a 131 · 107 · 131 sobre 369.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 368);
+    assert.equal(MANUAL_TOPICS.length, 369);
     assert.equal(count("esencial"), 131);
-    assert.equal(count("ritmo"), 106);
+    assert.equal(count("ritmo"), 107);
     assert.equal(count("completo"), 131);
   });
 });

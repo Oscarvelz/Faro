@@ -1008,5 +1008,16 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
     if (s.logbook.months !== undefined && !isObjD(s.logbook.months)) return false;
     if (s.logbook.editions !== undefined && !isObjD(s.logbook.editions)) return false;
   }
+  // askPresets (las preguntas predeterminadas, 1.3.369): si está, es una
+  // lista de entradas con id y texto de texto — la caja las pinta sin red
+  // en su fila, así que la forma se juzga entera, como los planes. El
+  // lector (askPresetsOf) además filtra con desconfianza.
+  if (s.askPresets !== undefined) {
+    if (!Array.isArray(s.askPresets)) return false;
+    for (const p of s.askPresets as unknown[]) {
+      if (!isObjD(p)) return false;
+      if (!isStrD(p.id) || !isStrD(p.text)) return false;
+    }
+  }
   return true;
 }

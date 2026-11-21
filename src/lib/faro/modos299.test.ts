@@ -282,10 +282,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA BITÁCORA (1.3.367): nace bitacora en Esencial (su
     // función es folios.logbook): esencial +1 y el total +1
     // — acumulados 131 · 237 · 368.
+    // ENMIENDA PREGUNTAS A LA MANO (1.3.369): nace preguntas-a-la-mano
+    // en Ritmo (su función es settings.ask-presets): ritmo +1 y el
+    // total +1 — acumulados 131 · 238 · 369.
     assert.equal(count("esencial"), 131);
-    assert.equal(count("ritmo"), 237);
-    assert.equal(count("completo"), 368);
-    assert.equal(MANUAL_TOPICS.length, 368);
+    assert.equal(count("ritmo"), 238);
+    assert.equal(count("completo"), 369);
+    assert.equal(MANUAL_TOPICS.length, 369);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

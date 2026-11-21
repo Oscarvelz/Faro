@@ -1,0 +1,98 @@
+/**
+ * ask-presets.tsx — EL ADMINISTRADOR DE LAS PREGUNTAS A LA MANO (1.3.369).
+ *
+ * Vive en el pliegue de Ajustes «Preguntas a la mano» (asiento
+ * settings.ask-presets, Ritmo — administrar es de Ritmo, como los pines
+ * de widgets; usar las preguntas es de Esencial). Tres piezas:
+ *   · TU LISTA, en tu orden: subir, bajar, quitar — el orden se guarda
+ *     en el libro y la caja lo pinta tal cual.
+ *   · EL CATÁLOGO: las preguntas canónicas del banco, por familia —
+ *     solo de familias que el motor responde hoy (vivas y heredadas).
+ *   · LA TUYA: una pregunta escrita por ti, tal como la escribas.
+ * La fija del sistema («¿Qué puedes hacer?») no se administra: siempre
+ * estará primera en la caja, y el pliegue lo dice.
+ */
+import { useState } from "react";
+import { Check, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { addAskPreset, askPresetsOf, FIXED_PRESET_Q, moveAskPreset, presetCatalog, removeAskPreset } from "@/lib/faro/askpresets";
+import { useFaro } from "./provider";
+
+export function AskPresetsManager() {
+  const { session, lang, commit, has } = useFaro();
+  const [own, setOwn] = useState("");
+  if (!has("settings.ask-presets") || !session) return null;
+  const L = (es: string, en: string) => (lang === "en" ? en : es);
+  const list = askPresetsOf(session.ledger);
+  const catalog = presetCatalog(lang);
+  const inList = (q: string) => list.some((p) => p.text.trim().toLowerCase() === q.trim().toLowerCase());
+
+  function addOwn() {
+    const clean = own.trim();
+    if (!clean) return;
+    commit((s) => addAskPreset(s, clean), L("Pregunta guardada", "Question saved"));
+    setOwn("");
+  }
+
+  return (
+    <div className="ap-wrap" data-anchor="ask-presets-manager">
+      <p className="ap-note">
+        {L(
+          `La primera es de Faro y no se quita: «${FIXED_PRESET_Q.es}». Después van las tuyas, en tu orden — un toque en la caja del Asesor y la respuesta llega al instante.`,
+          `The first one is Faro's and can't be removed: “${FIXED_PRESET_Q.en}”. Then come yours, in your order — one tap in the Advisor's box and the answer comes at once.`,
+        )}
+      </p>
+      {list.length ? (
+        <div className="ap-list">
+          {list.map((p, i) => (
+            <div key={p.id} className="ap-row" data-anchor="ap-row">
+              <span className="ap-text">{p.text}</span>
+              <span className="ap-tools">
+                <button type="button" className="ap-btn" data-anchor="ap-up" disabled={i === 0} aria-label={L("Subir", "Move up")} onClick={() => commit((s) => moveAskPreset(s, p.id, -1), L("Orden de preguntas", "Question order"))}><ChevronUp size={14} /></button>
+                <button type="button" className="ap-btn" data-anchor="ap-down" disabled={i === list.length - 1} aria-label={L("Bajar", "Move down")} onClick={() => commit((s) => moveAskPreset(s, p.id, 1), L("Orden de preguntas", "Question order"))}><ChevronDown size={14} /></button>
+                <button type="button" className="ap-btn" data-anchor="ap-remove" aria-label={L("Quitar", "Remove")} onClick={() => commit((s) => removeAskPreset(s, p.id), L("Pregunta quitada", "Question removed"))}><X size={14} /></button>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="ap-note">{L("Todavía no guardas ninguna: elige del catálogo o escribe la tuya.", "You haven't saved any yet: pick from the catalog or write your own.")}</p>
+      )}
+      <div className="ap-own">
+        <input
+          className="field ap-own-input"
+          data-anchor="ap-own-input"
+          value={own}
+          onChange={(e) => setOwn(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOwn(); } }}
+          placeholder={L("Escribe tu pregunta…", "Write your question…")}
+          aria-label={L("Tu pregunta", "Your question")}
+        />
+        <button type="button" className="ap-add" data-anchor="ap-own-add" onClick={addOwn} disabled={!own.trim()}>
+          <Plus size={14} /> {L("Añadir", "Add")}
+        </button>
+      </div>
+      <div className="ap-catalog">
+        {catalog.map((g) => (
+          <div key={g.family} className="ap-group">
+            <span className="ap-group-name">{g.family}</span>
+            {g.questions.map((q) => {
+              const added = inList(q);
+              return (
+                <div key={q} className="ap-row">
+                  <span className="ap-text">{q}</span>
+                  {added ? (
+                    <span className="ap-added" data-anchor="ap-added"><Check size={14} /> {L("Guardada", "Saved")}</span>
+                  ) : (
+                    <button type="button" className="ap-add" data-anchor="ap-cat-add" onClick={() => commit((s) => addAskPreset(s, q), L("Pregunta guardada", "Question saved"))}>
+                      <Plus size={14} /> {L("Añadir", "Add")}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

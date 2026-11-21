@@ -610,6 +610,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "saldo-proyectado": { f: "advisor.projection", m: "completo" }, // 1.3.365 — el saldo proyectado (§19.1): el tema nace con su asiento, en Completo — interpretar es su oficio
     "cambios-precio": { f: "study.prices", m: "completo" }, // 1.3.366 — el vigilante de fijos (§19.3): el tema nace con su asiento (la evidencia en Estudio; su otra llave es advisor.price-watch, también Completo) — interpretar precios es su oficio
     "bitacora": { f: "folios.logbook", m: "esencial" }, // 1.3.367 — la Bitácora: el tema nace con su asiento, en Esencial como la sección que nombra (leer la propia historia es esencial)
+    "preguntas-a-la-mano": { f: "settings.ask-presets", m: "ritmo" }, // 1.3.369 — las preguntas predeterminadas: el tema nace con su asiento, en Ritmo como el pliegue que nombra (administrar la lista es de Ritmo; usarla, de Esencial)
     "libro-categoria": { f: null, m: "esencial" },
     "filtro": { f: "books.filter-chips", m: "ritmo" },
     "agregar-linea": { f: null, m: "esencial" },
@@ -865,7 +866,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 368); // 1.3.367 — nace «bitacora» (la Bitácora); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
+    assert.equal(MANUAL_TOPICS.length, 369); // 1.3.369 — nace «preguntas-a-la-mano»; 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {

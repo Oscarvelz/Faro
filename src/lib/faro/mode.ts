@@ -606,7 +606,7 @@ export const FEATURES = {
    * nuevo y saber qué es Faro es de todos — los dos pliegues son de
    * Esencial; la tarjeta del anuncio al abrir no conoce modo, como el
    * letrero de cambio de modo. */
-  "settings.news": E, "settings.about": E, "settings.wait-time": R,
+  "settings.news": E, "settings.about": E, "settings.wait-time": R, "settings.ask-presets": R,
   /* §2 Ajustes atados — siguen a su función (fallos D-bis 34–39 y el catálogo
    * partido: añadir en Esencial, administrar Tiendas en Ritmo, Suscripciones y
    * Seguros en Completo; la Moneda de vista gana casa en «La app») */

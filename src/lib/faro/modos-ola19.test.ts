@@ -334,6 +334,12 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // 1.3.367 (la Bitácora): cerrar la serie anota que la edición fue
   // vista — el aterrizaje de la propia lectura; nada que confirmar.
   "components/faro/bitacora.tsx|commit|markEditionSeen|markEditionSeen": ["aterrizaje", 1],
+  // 1.3.369 (las preguntas a la mano): la persona guarda SU lista —
+  // añadir (del catálogo o escrita), reordenar y quitar aterrizan por
+  // la puerta ordinaria, como los guardados de Ajustes de screens.
+  "components/faro/ask-presets.tsx|commit|addAskPreset|addAskPreset": ["aterrizaje", 2],
+  "components/faro/ask-presets.tsx|commit|moveAskPreset|moveAskPreset": ["aterrizaje", 2],
+  "components/faro/ask-presets.tsx|commit|removeAskPreset|removeAskPreset": ["aterrizaje", 1],
   // 1.3.357 (la lista-plan, D6): el folio se reanuda y se borra por la
   // puerta guardada, como cada ciudadano del Archivo.
   "components/faro/archivo.tsx|commitGuarded|resumePlan|—": ["guardada", 1],

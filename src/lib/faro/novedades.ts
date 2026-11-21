@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.369",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "preguntas-a-la-mano",
+    title: { es: "Tus preguntas, a la mano", en: "Your questions, at hand" },
+    points: {
+      es: [
+        "La caja del Asesor trae ahora una fila que nunca se esconde: «A la mano». Tus preguntas están ahí también tras una respuesta.",
+        "La primera es de Faro: «¿Qué puedes hacer?» — su respuesta es todo lo que el Asesor sabe responder, y tocar una pregunta la pregunta de verdad.",
+        "Guarda las tuyas desde el engranaje de la caja o en Ajustes → Preguntas a la mano: elige del catálogo o escribe la tuya, y ordénalas como quieras.",
+      ],
+      en: [
+        "The Advisor's box now carries a row that never hides: “At hand”. Your questions are there even after an answer.",
+        "The first one is Faro's: “What can you do?” — its answer is everything the Advisor knows how to answer, and tapping a question really asks it.",
+        "Save yours from the gear in the box or in Settings → Questions at hand: pick from the catalog or write your own, and order them as you like.",
+      ],
+    },
+  },
+  {
     version: "1.3.368",
     date: "2026-11-21",
     level: "menor",
