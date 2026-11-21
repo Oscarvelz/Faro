@@ -162,9 +162,13 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // declarado en el tema; su función es inbox.link — recibir y
     // declarar, como su puerta). La distribución se mueve a
     // 129 · 106 · 129 sobre 364.
+    // ENMIENDA PIEZA 0 (1.3.363): nace nombre en Esencial (su función es
+    // account.name — corregir el propio nombre es esencial, precedente
+    // de los renombres). La distribución se mueve a
+    // 130 · 106 · 129 sobre 365.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 364);
-    assert.equal(count("esencial"), 129);
+    assert.equal(MANUAL_TOPICS.length, 365);
+    assert.equal(count("esencial"), 130);
     assert.equal(count("ritmo"), 106);
     assert.equal(count("completo"), 129);
   });

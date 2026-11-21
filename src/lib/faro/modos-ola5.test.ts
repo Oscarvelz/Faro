@@ -606,6 +606,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "lista-plan": { f: "capture.plan", m: "ritmo" }, // 1.3.357 — la lista-plan (D6): el tema nace con su asiento, en Ritmo por fallo de Oscar
     "lista-espera": { f: "advisor.waitlist", m: "esencial" }, // 1.3.360 — la lista de espera (5c): el tema nace con su asiento, en Esencial por fallo de Oscar
     "compartir": { f: "inbox.link", m: "esencial" }, // 1.3.362 — las puertas de compartir (§18): el tema nace con su asiento, en Esencial como su puerta
+    "nombre": { f: "account.name", m: "esencial" }, // 1.3.363 — la Pieza 0 (§19.5): el tema nace con su asiento, en Esencial como la fila que nombra (corregir el propio nombre es esencial)
     "libro-categoria": { f: null, m: "esencial" },
     "filtro": { f: "books.filter-chips", m: "ritmo" },
     "agregar-linea": { f: null, m: "esencial" },
@@ -861,7 +862,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 364); // 1.3.362 — nace «compartir»; 363 en la lista de espera
+    assert.equal(MANUAL_TOPICS.length, 365); // 1.3.363 — nace «nombre» (Pieza 0); 364 en las puertas de compartir (1.3.362)
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {

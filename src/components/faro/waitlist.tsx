@@ -21,6 +21,8 @@ import type { Currency, Wish } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
 import { useFaro } from "./provider";
+import { useFaroUser } from "@/spa/gates";
+import { chosenNameOf, waitQuestion } from "@/lib/faro/personname";
 import "./waitlist.css";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
@@ -153,6 +155,10 @@ export function WishEntry() {
 
 function WishCard({ w, now }: { w: Wish; now: Date }) {
   const { session, commit, lang, names, key, has } = useFaro();
+  // Pieza 0 (1.3.363): la pregunta única se dirige a la persona por su
+  // nombre — uno de los umbrales de la lista cerrada; sin nombre, la
+  // pregunta de siempre, intacta.
+  const personName = chosenNameOf(useFaroUser());
   const [scenario, setScenario] = useState<string[] | null>(null);
   const [showScenario, setShowScenario] = useState(false);
   const [armed, setArmed] = useState(false);
@@ -260,7 +266,7 @@ function WishCard({ w, now }: { w: Wish; now: Date }) {
         ) : null}
         {ripe ? (
           <div className="wl-ask" data-anchor="wish-ask">
-            <p className="wl-ask-q">{L(lang, "¿Todavía lo quieres?", "Do you still want it?")}</p>
+            <p className="wl-ask-q">{waitQuestion(lang, personName)}</p>
             <div className="wl-ask-row">
               <button type="button" className="btn" data-anchor="wish-buy" onClick={() => setBuying(true)}>{L(lang, "Lo compro", "I'll buy it")}</button>
               <button type="button" className="btn secondary" data-anchor="wish-leave" onClick={() => commit((s) => leaveWish(s, w.id, new Date()), L(lang, "Deseo dejado", "Wish left"))}>{L(lang, "Lo dejo", "I'll leave it")}</button>

@@ -38,14 +38,20 @@ export const supabase = createClient(CLOUD_READY ? SUPABASE_URL : "https://place
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "faro-auth", storage: authStorage },
 });
 
-export type FaroUser = { id: string; email: string; name: string };
+export type FaroUser = { id: string; email: string; name: string; given?: string | null };
 
 export function rememberUser(s: Session | null): FaroUser | null {
   if (!s?.user) return null;
+  // Pieza 0 (1.3.363): `given` guarda el nombre TAL COMO quedó escrito en la
+  // cuenta, sin el repuesto del correo — es lo único que el lector del nombre
+  // propio (lib/faro/personname.ts) acepta como nombre elegido. `name` sigue
+  // siendo la etiqueta del registro, con su caída al correo de siempre.
+  const given = (s.user.user_metadata?.name as string | undefined) || (s.user.user_metadata?.full_name as string | undefined) || null;
   const u: FaroUser = {
     id: s.user.id,
     email: s.user.email ?? "",
-    name: (s.user.user_metadata?.name as string | undefined) || (s.user.user_metadata?.full_name as string | undefined) || s.user.email || "",
+    name: given || s.user.email || "",
+    given,
   };
   // 1.3.257 (la oferta de huella): este es el único momento en que las huellas del
   // aparato todavía distinguen un registro genuino — después, las marcas de abajo
@@ -118,6 +124,23 @@ export async function deleteAccountForever(): Promise<boolean> {
     const { error } = await supabase.rpc("faro_delete_account");
     return !error;
   } catch { return false; }
+}
+
+/**
+ * Pieza 0 (1.3.363): guardar el nombre elegido en la CUENTA (user_metadata),
+ * nunca en un libro — viaja con la cuenta entre aparatos y renombrarlo no
+ * reescribe ninguna firma ya guardada. Devuelve el usuario fresco (ya
+ * emitido) o null si la nube no confirmó: sin confirmación no se finge.
+ */
+export async function saveChosenName(name: string): Promise<FaroUser | null> {
+  try {
+    const { error } = await supabase.auth.updateUser({ data: { name: name.trim() } });
+    if (error) return null;
+    const { data } = await supabase.auth.getSession();
+    const u = rememberUser(data.session);
+    if (u) emitUser(u);
+    return u;
+  } catch { return null; }
 }
 
 export async function signOutEverywhereLocal() {

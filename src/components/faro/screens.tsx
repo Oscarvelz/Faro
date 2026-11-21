@@ -30,7 +30,9 @@ import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
 import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
-import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
+import { AccountLocalNote, NameRow, UserButton } from "@/lib/auth/gates";
+import { useFaroUser } from "@/spa/gates";
+import { addressHeadline, chosenNameOf } from "@/lib/faro/personname";
 import { applyCardEdits, applyTemplate, catalogLinesSummary, displayName, dropSubLines, lineListVisible, missingDefaults, replaceCandidates, replaceCatalogItem, restoreDefaultCategories, showAllExample, showAllPreview, showAllStructure, structureStatusLine, subLinesSummary, templateExample, templatePreview, treeSubLine, type CardEdits, type ReplaceTarget, type SubLinesSummary } from "@/lib/faro/defaults";
 import { hasStorePin, hasWidgetPin, toggleStorePin, toggleWidgetPin } from "@/lib/faro/quickadd";
 import { sampleOn } from "@/lib/faro/samplemode";
@@ -5378,6 +5380,11 @@ function DeferredCard({ force, children }: { force?: boolean; children: ReactNod
 let advisorFolded = false;
 export function Advisor() {
   const { t, advice, budget, fmt, summary, session, lang, names, key, ui, awakeOn, wake, notePlanCopied, dismissFinding, planStale, confirm, has } = useFaro();
+  // Pieza 0 (1.3.363): la apertura de la lectura se dirige a la persona por
+  // su nombre — solo aquí, al presentarla; el Reading no lo conoce, así que
+  // ni Preguntar ni ninguna otra cara de la lectura lo hereda.
+  const faroUser = useFaroUser();
+  const personName = chosenNameOf(faroUser);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [openPart, setOpenPart] = useState<string | null>(null);
@@ -5509,7 +5516,7 @@ export function Advisor() {
         <MonthTower reading={reading} income={summary.income} left={summary.opportunity} openPart={openPart} onPart={(id) => setOpenPart((cur) => (cur === id ? null : id))} more={more} onMore={() => setMore((on) => !on)}>
           <div className="a2-notes">
             {[
-              { id: "month", tone: "calm", Icon: CalendarDays, text: reading.headline },
+              { id: "month", tone: "calm", Icon: CalendarDays, text: addressHeadline(reading.headline, personName) },
               { id: "alert", tone: "warn", Icon: ArrowLeftRight, text: reading.alert },
               { id: "credit", tone: "calm", Icon: CreditCard, text: reading.creditBlurb },
               { id: "remit", tone: "calm", Icon: Send, text: reading.remitNote },
@@ -6494,6 +6501,7 @@ export function Settings() {
       </Fold>
       <Fold id="account" icon={UserRound} sub={lang === "en" ? "Login, sync, fingerprint" : "Sesión, nube y huella"} topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />
+        {has("account.name") ? <NameRow /> : null}
         <AccountLocalNote />
       </Fold>
       </Cluster>

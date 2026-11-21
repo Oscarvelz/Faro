@@ -1,6 +1,7 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authEnabled, signIn, signOut } from "./client";
+import { authClient, GROK_PROVIDERS, authEnabled, signIn, signOut } from "./client";
+import { chosenNameOf } from "@/lib/faro/personname";
 import { hasGateSessionMarker } from "./gate-session-marker";
 import { resolveSignInGateState } from "./sign-in-gate";
 import { useCurrentUser, useCurrentUserState } from "./use-current-user";
@@ -144,4 +145,71 @@ export function AccountLocalNote() {
   let lang: "es" | "en" = "es";
   try { lang = localStorage.getItem("faro-lang") === "en" ? "en" : "es"; } catch { /* keep es */ }
   return <p className="text-sm text-muted">{translate(lang, "account.local")}</p>;
+}
+
+/**
+ * Pieza 0 (1.3.363) — twin of the SPA gates' NameRow (censo R3): la fila
+ * «Cómo te nombra Faro» del pliegue Cuenta en el mundo de rutas. El nombre
+ * elegido es el `name` de la cuenta cuando no es el repuesto del correo
+ * (la misma doctrina del lector, lib/faro/personname.ts); guardar lo
+ * escribe en la cuenta con updateUser, nunca en un libro.
+ */
+export function NameRow() {
+  const { user, isPending } = useCurrentUserState();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  if (isPending || !user || user.isDevFallback) return null;
+  let lang: "es" | "en" = "es";
+  try { lang = localStorage.getItem("faro-lang") === "en" ? "en" : "es"; } catch { /* keep es */ }
+  const t = (k: string) => translate(lang, k);
+  const name = chosenNameOf({ name: user.displayName, email: user.primaryEmail });
+  const save = async (value: string) => {
+    setBusy(true);
+    setMsg("");
+    try {
+      const { error } = await authClient.updateUser({ name: value.trim() });
+      if (error) throw error;
+      setOpen(false);
+    } catch {
+      setMsg(t("name.failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="grid gap-1" data-anchor="aj-name">
+      <span className="text-sm font-medium lab-head">{t("name.row")}</span>
+      {open ? (
+        <div className="grid gap-2">
+          <input
+            className="field"
+            value={draft}
+            maxLength={60}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={name ?? ""}
+            aria-label={t("name.row")}
+          />
+          <span className="text-sm text-muted">{t("name.note")}</span>
+          <div className="flex gap-2">
+            <button type="button" className="btn" disabled={busy} onClick={() => void save(draft)}>{t("name.save")}</button>
+            {name ? (
+              <button type="button" className="btn secondary" disabled={busy} onClick={() => void save("")}>{t("name.remove")}</button>
+            ) : null}
+            <button type="button" className="btn secondary" disabled={busy} onClick={() => setOpen(false)}>{t("name.cancel")}</button>
+          </div>
+          {msg ? <span className="text-sm text-bad">{msg}</span> : null}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn secondary"
+          onClick={() => { setDraft(name ?? ""); setMsg(""); setOpen(true); }}
+        >
+          {name ?? t("name.none")}
+        </button>
+      )}
+    </div>
+  );
 }

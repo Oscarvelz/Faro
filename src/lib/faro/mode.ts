@@ -592,6 +592,9 @@ export const FEATURES = {
   "settings.install-app": E, "settings.backup-auto": E, "settings.backup-quarantine": E,
   "settings.backup-download": E, "settings.backup-restore": E, "settings.backup-folder": E,
   "settings.backup-conflict": E, "settings.account": E, "settings.version": E,
+  // Pieza 0 (1.3.363): corregir el propio nombre es esencial (precedente de
+  // los renombres, 1.3.315) — la fila vive en el pliegue Cuenta.
+  "account.name": E,
   "settings.battery-row": E, "settings.shortcuts": E, "settings.activity": E,
   "settings.hide-amounts": E, "settings.view-currency": E,
   /* §1.28 (Captura Inteligente F7, 1.3.344): la moneda invitada se

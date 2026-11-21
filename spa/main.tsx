@@ -9,7 +9,7 @@ import { Mark } from "@/components/faro/icons";
 import { CLOUD_READY, emitUser, keepSignedIn, lastUser, rememberUser, setSessionGone, supabase } from "@/spa/cloud";
 import { bookUidForKeys, bootDecision, readExplicitOut, readOwnerMark } from "@/lib/faro/door";
 import { browserPackStorage } from "@/lib/faro/packguard";
-import { useFaroUser } from "@/spa/gates";
+import { NameAsk, useFaroUser } from "@/spa/gates";
 import { Login } from "@/spa/login";
 import { lockCredential, unlock } from "@/spa/lock";
 import { w } from "@/spa/words";
@@ -272,6 +272,9 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
   return (
     <FaroProvider key={epoch} userId={user.id}>
       <Shell />
+      {/* Pieza 0 (1.3.363): la pregunta del nombre, una sola vez, tras la
+          cuenta y antes del primer libro — se decide sola (NameAsk). */}
+      <NameAsk />
     </FaroProvider>
   );
 }

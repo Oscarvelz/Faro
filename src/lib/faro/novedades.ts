@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.363",
+    date: "2026-11-21",
+    level: "menor",
+    topic: "nombre",
+    title: { es: "Tu nombre en Faro", en: "Your name in Faro" },
+    points: {
+      es: [
+        "Faro ya puede nombrarte: el Asesor te habla por tu nombre al abrir su lectura, y la lista de espera también al preguntarte por un deseo vencido.",
+        "El nombre vive en tu cuenta: ponlo, cámbialo o quítalo en Ajustes → Cuenta → «Cómo te nombra Faro». Sin nombre, Faro te habla como siempre.",
+      ],
+      en: [
+        "Faro can now call you by name: the Advisor uses it as its reading opens, and the waiting list does too when it asks about a wish that came due.",
+        "The name lives in your account: add it, change it or remove it in Settings → Account → “How Faro names you”. With no name, Faro speaks to you as it always has.",
+      ],
+    },
+  },
+  {
     version: "1.3.362",
     date: "2026-11-21",
     level: "grande",
