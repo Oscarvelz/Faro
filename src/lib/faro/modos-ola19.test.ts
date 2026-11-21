@@ -444,7 +444,13 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/rewards-real.tsx|commit|withBook|withBook+ensureAccounts": ["aterrizaje", 1],
   // Ola 20 (G20-1): la mesa RECLASIFICADA — ver el re-juicio en el
   // encabezado de esta sección: guardada, no aterrizaje.
-  "components/faro/review-table.tsx|commitGuarded|patchDraft|patchDraft+dropDraft+commitDrafts+upsertLine+learnFromSaved": ["guardada", 1],
+  /* Ola 22 (G22-2): la receta de la mesa firma ahora por applyTableEdits
+   * — el paseo de parches salió de save() a drafts.ts y la firma lo
+   * nombra como cabeza; la clasificación no cambia (guardada: la mesa
+   * aterriza por la puerta guardada) ni la cuenta (1). La llave vieja
+   * (cabeza patchDraft) murió con el bucle en línea que la enfermedad
+   * G22-2 habitaba. */
+  "components/faro/review-table.tsx|commitGuarded|applyTableEdits|dropDraft+commitDrafts+upsertLine+learnFromSaved": ["guardada", 1],
   "components/faro/sample-mode.tsx|commit|stripSample|stripSample": ["aterrizaje", 1],
   "components/faro/screens.tsx|commitAnnounced|modeOf|—": ["anunciada", 1],
   "components/faro/screens.tsx|commitGuarded|declareSeries|declareSeries": ["guardada", 6],
@@ -557,25 +563,68 @@ const registraCuerpo21 = (name: string, body: ts.Node | undefined) => {
   arr.push(body);
   cuerpos21.set(name, arr);
 };
-let ayudantes20: Set<string> | null = null;
+/* Ola 22 (G22-1): la cosecha aprende el ALIAS LLANO del libro. La
+ * firma transitiva era un cierre sobre grafías: un delegado tipado
+ * con un alias declarado del libro (`type Libro22 = LedgerState`)
+ * jamás se cosechaba, porque esAyudante exigía el texto exacto
+ * «LedgerState» en el parámetro y el retorno. Ahora todo alias de
+ * tipo declarado se resuelve por sustitución de palabra entera, y
+ * el juicio lee el texto RESUELTO; el envoltorio sigue exigiendo que
+ * el retorno ESCRITO sea un nombre (un literal de objeto en línea no
+ * es un envoltorio con nombre). La guarda de terminación es el
+ * conjunto de alias ya expandidos en ESTA resolución: cada nombre se
+ * expande una sola vez por cadena, así el alias que cicla (A = B,
+ * B = A) se detiene sobre su propio nombre y el alias recursivo
+ * (un árbol que se contiene) no crece sin fin — terminación
+ * estructural, no un tope numérico (la lección de M20-9/M22-4).
+ * Y la memoización se ata a la FIRMA de los archivos pedidos (rutas
+ * y largos): la primera-llamada-gana de antes devolvía la cosecha
+ * del árbol real a cualquier espécimen sintético que cosechara
+ * después, cerrándole la puerta a clavar esta misma cura. */
+let memo20: { clave: string; out: Set<string> } | null = null;
 const cosechaAyudantes20 = (files: { rel: string; text: string }[]): Set<string> => {
-  if (ayudantes20) return ayudantes20;
-  const envoltorios = new Set<string>();
+  const clave = files.map((f) => `${f.rel}:${f.text.length}`).join("|");
+  if (memo20 && memo20.clave === clave) return memo20.out;
+  const aliasDe = new Map<string, string>();
   const out = new Set<string>();
   const parsed = files.map(({ rel, text }) => ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS));
   for (const sf of parsed) {
     const visit = (n: ts.Node) => {
-      if (ts.isTypeAliasDeclaration(n) && /state\s*:\s*LedgerState/.test(n.type.getText(sf))) envoltorios.add(n.name.text);
+      if (ts.isTypeAliasDeclaration(n)) aliasDe.set(n.name.text, n.type.getText(sf));
       ts.forEachChild(n, visit);
     };
     visit(sf);
   }
+  const escapa = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  /* «LedgerState» NO se expande: es el nombre terminal del libro (su
+   * declaración en types.ts es el objeto mismo), no un alias más —
+   * expandirlo convertiría cada parámetro bien tipado en un literal
+   * de objeto y la cosecha entera se vaciaría. */
+  const nombresAlias = [...aliasDe.keys()].filter((n) => n !== "LedgerState");
+  const patronAlias = nombresAlias.length ? new RegExp(`\\b(${nombresAlias.map(escapa).join("|")})\\b`, "g") : null;
+  const resuelveTipo = (texto: string): string => {
+    if (!patronAlias) return texto;
+    let cur = texto;
+    const expandidos = new Set<string>();
+    for (;;) {
+      let toco = false;
+      const next = cur.replace(patronAlias, (m) => {
+        if (expandidos.has(m)) return m;
+        expandidos.add(m);
+        toco = true;
+        return aliasDe.get(m) ?? m;
+      });
+      if (!toco || next === cur) return next;
+      cur = next;
+    }
+  };
   const esAyudante = (params: ts.NodeArray<ts.ParameterDeclaration>, ret: ts.Node | undefined): boolean => {
     const p0 = params[0];
-    if (!p0?.type || p0.type.getText() !== "LedgerState") return false;
+    if (!p0?.type || resuelveTipo(p0.type.getText()) !== "LedgerState") return false;
     if (!ret) return false;
     const rt = ret.getText();
-    return rt === "LedgerState" || envoltorios.has(rt);
+    if (resuelveTipo(rt) === "LedgerState") return true;
+    return /^[A-Za-z_$][\w$]*$/.test(rt) && /state\s*:\s*LedgerState/.test(resuelveTipo(rt));
   };
   for (const sf of parsed) {
     const visit = (n: ts.Node) => {
@@ -585,7 +634,7 @@ const cosechaAyudantes20 = (files: { rel: string; text: string }[]): Set<string>
     };
     visit(sf);
   }
-  ayudantes20 = out;
+  memo20 = { clave, out };
   return out;
 };
 /* ═══ OLA 21 (G21-1): LA FIRMA A PUNTO FIJO ═══
@@ -601,7 +650,15 @@ const expandir21 = (body: ts.Node, ayudantes: Set<string>, seen: string[], guard
   const visit = (n: ts.Node) => {
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
-      const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
+      /* Ola 22 (G22-1): la grafía `.call`/`.apply` sobre un
+       * identificador llama a ESE identificador — la puerta conoce la
+       * grafía desde la ola 20, pero la expansión tomaba el nombre de
+       * la propiedad («call») y el ayudante llamado así dentro de un
+       * delegado escapaba de la firma de su llamante. */
+      const name = ts.isIdentifier(callee) ? callee.text
+        : ts.isPropertyAccessExpression(callee)
+          ? (callee.name.text === "call" || callee.name.text === "apply") && ts.isIdentifier(callee.expression) ? callee.expression.text : callee.name.text
+          : null;
       if (name && ayudantes.has(name)) {
         if (!seen.includes(name)) seen.push(name);
         if (!guard.has(name)) {
@@ -915,5 +972,56 @@ describe("ola19 · §B-bis (ola 21, G21-1): la firma es transitiva, el ciclo no 
     assert.deepEqual(seen, ["cicloA21", "cicloB21", "upsertLine"], "el cierre termina y nombra el ciclo entero una sola vez");
     cuerpos21.delete("cicloA21");
     cuerpos21.delete("cicloB21");
+  });
+});
+
+describe("ola19 · §B-ter (ola 22, G22-1): la firma aprende el alias llano y la grafía .call dentro del delegado", () => {
+  const cuerpoDe = (src: string): ts.Node => {
+    const sf = ts.createSourceFile("planta22.ts", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    let body: ts.Node | undefined;
+    const visit = (n: ts.Node) => {
+      if (!body && ts.isFunctionDeclaration(n) && n.body) body = n.body;
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+    return body!;
+  };
+  it("un delegado tipado con un alias llano del libro SE COSECHA como si dijera LedgerState (la planta A de Guardián)", () => {
+    const files = [{ rel: "planta22.ts", text: `
+      export type Libro22 = LedgerState;
+      export type LibroBis22 = Libro22;
+      export type Caja22 = { state: LedgerState; n: number };
+      export function delegadoAlias22(s: Libro22): Libro22 { return hideLines(s, [], null).state; }
+      export function delegadoCadena22(s: LibroBis22): LibroBis22 { return s; }
+      export function delegadoEnvuelto22(s: LedgerState): Caja22 { return { state: s, n: 0 }; }
+      export function noAyudante22(s: string): string { return s; }
+    ` }];
+    const ayudantes = cosechaAyudantes20(files);
+    assert.ok(ayudantes.has("delegadoAlias22"), "el alias llano se resuelve: el delegado es ayudante");
+    assert.ok(ayudantes.has("delegadoCadena22"), "la cadena de alias (alias de alias) también se resuelve");
+    assert.ok(ayudantes.has("delegadoEnvuelto22"), "el envoltorio nombrado por alias sigue contando como ayudante");
+    assert.ok(!ayudantes.has("noAyudante22"), "y lo que no toca el libro no se cosecha");
+    const seen: string[] = [];
+    expandir21(cuerpoDe("export function recetaAlias22(s: LedgerState): LedgerState { return delegadoAlias22(s); }"), new Set([...ayudantes, "hideLines"]), seen, new Set());
+    assert.deepEqual(seen, ["delegadoAlias22", "hideLines"],
+      "el cuerpo del delegado cosechado por alias quedó registrado: la firma de su llamante nombra al delegado Y a su efecto — plantar el efecto cambia la llave");
+  });
+  it("la invocación .call/.apply de un ayudante dentro de un delegado entra en la firma (la planta B de Guardián)", () => {
+    const ayudantes = new Set(["delegadoCall22", "hideLines", "upsertLine"]);
+    cuerpos21.set("delegadoCall22", [cuerpoDe("export function delegadoCall22(s: LedgerState): LedgerState { const t = hideLines.call(null, s, [], null) as LedgerState; return upsertLine.apply(null, [t, null as never]) as LedgerState; }")]);
+    const seen: string[] = [];
+    expandir21(cuerpoDe("export function recetaCall22(s: LedgerState): LedgerState { return delegadoCall22(s); }"), ayudantes, seen, new Set());
+    assert.deepEqual(seen, ["delegadoCall22", "hideLines", "upsertLine"],
+      "las dos grafías nombran a su ayudante: el efecto llamado con .call ya no escapa de la firma");
+    cuerpos21.delete("delegadoCall22");
+  });
+  it("el alias que cicla no cuelga la cosecha: la guarda es el nombre ya expandido, no un tope", () => {
+    const files = [{ rel: "ciclo22.ts", text: `
+      export type A22 = B22;
+      export type B22 = A22;
+      export function delegadoCiclo22(s: A22): A22 { return s; }
+    ` }];
+    const ayudantes = cosechaAyudantes20(files);
+    assert.ok(!ayudantes.has("delegadoCiclo22"), "el ciclo se resuelve sobre sí mismo: no es el libro, y la cosecha terminó");
   });
 });

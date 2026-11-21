@@ -26,7 +26,7 @@ import { createPortal } from "react-dom";
 import { ClipboardList, Trash2, X } from "lucide-react";
 import { splitTarget, targets } from "@/lib/faro/bankbook";
 import { freqPresetsOf } from "@/lib/faro/cadence";
-import { commitDrafts, draftToLine, draftTotals, dropDraft, fallenDrafts, learnFromSaved, patchDraft, validateDraft } from "@/lib/faro/drafts";
+import { applyTableEdits, changedDrafts, commitDrafts, draftToLine, draftTotals, dropDraft, fallenDrafts, learnFromSaved, patchDraft, validateDraft } from "@/lib/faro/drafts";
 import { parseAmount } from "@/lib/faro/money";
 import type { Draft, Line } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
@@ -57,8 +57,15 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
   const full = has("capture.review-full");
   const tray = useMemo(() => (ledger?.drafts ?? []).filter((d) => d.kind === "line"), [ledger]);
   const [work, setWork] = useState<Draft[]>(() => tray);
+  /* Ola 22 (G22-2): los originales DE MONTAJE — la bandeja tal como
+   * estaba cuando la foto nació. La atribución del guardado compara
+   * contra ESTE mapa, jamás contra la bandeja leída al guardar: esa
+   * era la enfermedad (la corrección concurrente se le atribuía a la
+   * persona y su guardado la deshacía en silencio). */
+  const [mountOriginals] = useState(() => new Map(tray.map((d) => [d.id, d])));
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
   const [fallen, setFallen] = useState<string[]>([]);
+  const [changed, setChanged] = useState<string[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(tray.map((d) => [d.id, !d.dupOf])));
   const [amountText, setAmountText] = useState<Record<string, string>>(() => Object.fromEntries(tray.map((d) => [d.id, money(d.amountMinor)])));
   const [remember, setRemember] = useState<Record<string, boolean>>({});
@@ -93,6 +100,23 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
     // y amountText solo se leen a través de las filas que quedan.
   }, [tray, work, gone, lang]);
 
+  /* Ola 22 (G22-2): la mesa nombra también el cuerpo cambiado: si un
+   * borrador vivo ya no es el de la foto en un campo que la persona no
+   * editó (la otra mano corrigió, o el id renació con otro cuerpo), la
+   * nota lo dice — con el concepto de la copia de la persona, el nombre
+   * que ella reconoce — y el nombre queda dicho toda la sesión de la
+   * hoja, como el de las caídas. Nombrar no bloquea nada: al guardar,
+   * la corrección ajena manda en su campo (applyTableEdits). */
+  useEffect(() => {
+    const names = changedDrafts(work, tray, mountOriginals, gone).map((d) => d.concept || L(lang, "(sin concepto)", "(no concept)"));
+    if (!names.length) return;
+    setChanged((prev) => {
+      const next = [...prev];
+      for (const n of names) if (!next.includes(n)) next.push(n);
+      return next.length === prev.length ? prev : next;
+    });
+  }, [tray, work, gone, lang, mountOriginals]);
+
   const houseOpts = useMemo(() => (ledger ? targets(ledger.structure, names) : []), [ledger, names]);
   const houseLabel = (d: Draft) => houseOpts.find((o) => o.value === targetOf(d))?.label
     ?? houseOpts.find((o) => o.value === `${d.book}|${d.cat ?? ""}|`)?.label
@@ -115,7 +139,12 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
     setAmountText((a) => ({ ...a, [id]: text }));
     patch(id, { amountMinor: parseAmount(text) });
   };
-  const rememberOn = (d: Draft) => remember[d.id] ?? (targetOf(d) !== targetOf(tray.find((x) => x.id === d.id) ?? d));
+  // Ola 22 (G22-2): el «recordar» también se juzga contra el MONTAJE —
+  // su interruptor nace encendido solo si LA PERSONA movió la casa en
+  // esta mesa; compararlo contra la bandeja viva encendía el forzado
+  // con la corrección de la otra mano y la casa aprendía de un guardado
+  // que la persona no hizo.
+  const rememberOn = (d: Draft) => remember[d.id] ?? (targetOf(d) !== targetOf(mountOriginals.get(d.id) ?? d));
   const checkedRows = rows.filter((d) => checked[d.id]);
   // El concepto vacío también bloquea: una línea sin nombre no nace (la
   // misma puerta del editor y del antiguo «ready» del escaneo).
@@ -135,10 +164,23 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
      * regla de un guardado que esta mesa nunca hizo. Y el asiento de
      * «recordar» se pregunta AL GUARDAR (fullNow), no al armar el
      * interruptor: si el modo cayó a Esencial con la mesa abierta, la
-     * instrucción de Ritmo no se ejecuta en Esencial. */
+     * instrucción de Ritmo no se ejecuta en Esencial.
+     *
+     * Ola 22 (G22-2): y la ATRIBUCIÓN de los parches se juzga contra
+     * los originales DE MONTAJE (mountOriginals), no contra la bandeja
+     * de este instante. La receta anterior construía `originals` desde
+     * la bandeja AL GUARDAR mientras `work` es la foto del montaje:
+     * toda diferencia bajo un id vivo — incluida la corrección que la
+     * otra mano hizo mientras tanto — se le atribuía a la persona, y
+     * el parche la deshacía volviendo al valor de la foto (la
+     * corrección concurrente moría en silencio; el borrador renacido
+     * con otro cuerpo renacía como la foto). El paseo vive ahora en
+     * drafts.ts (applyTableEdits): campo de la persona solo si su
+     * copia difiere del montaje, aplicado solo donde lo vivo aún es
+     * el valor de montaje; el tercer valor — la corrección ajena —
+     * no se toca: la corrección manda. */
     const fullNow = has("capture.review-full");
     const ctx = { monthKey: key, structure: ledger.structure, lang };
-    const originals = new Map(tray.map((d) => [d.id, d]));
     const forceWanted = new Map(work.map((d) => [d.id, rememberOn(d)]));
     const ids = checkedRows.map((d) => d.id);
     const goneIds = [...gone];
@@ -146,25 +188,18 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
     commitGuarded((s) => {
       let next = s;
       /* (1) Los parches: solo los campos que LA PERSONA editó en esta
-       * mesa (la fila difiere de su original de montaje), aplicados
-       * sobre el borrador VIVO y solo donde lo vivo aún no trae ese
-       * valor. Una corrección concurrente a otro campo sobrevive (C3:
-       * la foto ya no repone el objeto entero), y un borrador que ya
-       * no vive no resucita (patchDraft se niega por identidad). Los
-       * campos derivados (unsure/missing/dupOf) no se parchan: los
-       * re-deriva patchDraft, como siempre. */
-      for (const d of work) {
-        const orig = originals.get(d.id);
-        if (!orig || gone.has(d.id)) continue;
-        const live = (next.drafts ?? []).find((x) => x.id === d.id);
-        if (!live) continue;
-        const patch: Partial<Draft> = {};
-        for (const k of Object.keys(d) as (keyof Draft)[]) {
-          if (k === "id" || k === "source" || k === "kind" || k === "raw" || k === "createdAt" || k === "unsure" || k === "missing" || k === "dupOf") continue;
-          if (JSON.stringify(d[k]) !== JSON.stringify(orig[k]) && JSON.stringify(d[k]) !== JSON.stringify(live[k])) (patch as Record<string, unknown>)[k] = d[k];
-        }
-        if (Object.keys(patch).length) next = patchDraft(next, d.id, patch);
-      }
+       * mesa (su fila difiere de su original DE MONTAJE), aplicados
+       * sobre el borrador VIVO y solo donde lo vivo aún es el valor
+       * de montaje. Una corrección concurrente a otro campo sobrevive
+       * — y también una al MISMO campo: si lo vivo ya es un tercer
+       * valor, es de la otra mano y no se toca (C3, ahora sí: la foto
+       * ya no repone ni el objeto entero ni el campo). Un borrador
+       * que ya no vive no resucita. Los campos derivados
+       * (unsure/missing/dupOf) no se parchan: los re-deriva
+       * patchDraft, como siempre. La regla vive en applyTableEdits
+       * (drafts.ts), clavada por la cerca de la ola 22 en composición
+       * con la forma de llamada de producción. */
+      next = applyTableEdits(next, work, mountOriginals, gone).state;
       /* (2) Los descartes marcados en la mesa (dropDraft se niega por
        * identidad si otra mano ya lo retiró). */
       for (const id of goneIds) next = dropDraft(next, id);
@@ -209,6 +244,11 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
           {fallen.length ? (
             <p className="rev-fallen" data-anchor="rev-fallen" role="status">
               {L(lang, `Ya no están en la bandeja: ${fallen.join(", ")}.`, `No longer in the tray: ${fallen.join(", ")}.`)}
+            </p>
+          ) : null}
+          {changed.length ? (
+            <p className="rev-fallen" data-anchor="rev-changed" role="status">
+              {L(lang, `Cambió mientras tanto: ${changed.join(", ")}.`, `Changed meanwhile: ${changed.join(", ")}.`)}
             </p>
           ) : null}
           {full && checkedRows.length > 0 ? (

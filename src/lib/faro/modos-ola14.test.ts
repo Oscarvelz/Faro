@@ -286,7 +286,11 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     // en la declaración escapaba entera.
     const propTypes = new Map<string, Map<string, { w: string; fi: number }>>();
     for (const [fi, { code }] of scanned.entries()) {
-      for (const m of code.matchAll(/\bclass\s+(\w+)\s*\(([^)]*)\)/g)) {
+      // OLA 22 (M22-2): la regex de clase admite el grupo genérico —
+      // `class Caja<T>(val fmt: T)` ni siquiera casaba (el grupo
+      // `<T>` rompía el patrón) y la clase entera era invisible: ni
+      // sus campos Long ni el tipo de sus propiedades entraban.
+      for (const m of code.matchAll(/\bclass\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/g)) {
         const fields = [...m[2]!.matchAll(/\bval\s+(\w+)\s*:\s*Long\??\b/g)].map((x) => x[1]!);
         if (fields.length) tipos.set(m[1]!, new Set([...(tipos.get(m[1]!) ?? []), ...fields]));
         const props = new Map<string, { w: string; fi: number }>();
@@ -294,6 +298,26 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         if (props.size) propTypes.set(m[1]!, props);
       }
     }
+    /* OLA 22 (M22-2): EL DUEÑO GENÉRICO — los parámetros de tipo de
+     * cada clase y las propiedades declaradas CON un parámetro: una
+     * propiedad `fmt: T` en `class Caja<T>` no es de Fmt ni de Otro
+     * en la declaración — es del ARGUMENTO con que el receptor se
+     * declara en su sitio de uso (`Caja<Fmt>` la ata a Fmt;
+     * `Caja<Otro>` la bloquea). El juicio por dueño (bloqueadaPor-
+     * Dueno y su gemela del sitio) sustituye el argumento declarado
+     * del receptor antes de juzgar. Una propiedad genérica que
+     * NINGUNA clase declara jamás con un tipo que resuelva a Fmt
+     * (genericOnlyProps) no juzga por su nombre desnudo donde el
+     * dueño no se conoce: su nombre solo no promete el formateador. */
+    const classTypeParams = new Map<string, string[]>();
+    for (const { code } of scanned) {
+      for (const m of code.matchAll(/\bclass\s+(\w+)\s*<([^>]*)>\s*\(/g)) {
+        classTypeParams.set(m[1]!, m[2]!.split(",").map((p) => p.trim().split(/\s+/).pop()!));
+      }
+    }
+    // (genericProps/genericOnlyProps se computan tras el resolvedor
+    // compuesto, que vive unas líneas más abajo: la propiedad genérica
+    // se distingue de la que alguna clase declara con tipo Fmt.)
     /* OLA 18 (Asesor): LA CAPA DE NOMBRES — la cuarta vida resolvía
      * VALORES, no NOMBRES: ninguna parte del censo leía una declaración
      * `import` ni una `typealias`, así que el alias de importación del
@@ -384,6 +408,20 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     };
     const resolveTypeName = (n: string): string => resolveComposed(n, typealiasFile.get(n) ?? -1);
     const resolveWrittenType = (written: string, fi: number): string => resolveComposed(written, fi);
+    /* OLA 22 (M22-2): las propiedades GENÉRICAS del paquete — las que
+     * alguna clase declara con un parámetro de tipo por tipo — y las
+     * PURAMENTE genéricas: ninguna clase las declara jamás con un
+     * tipo que resuelva a Fmt. */
+    const genericProps = new Set<string>();
+    const fmtTypedProps22 = new Set<string>();
+    for (const [clase, props] of propTypes) {
+      const params = classTypeParams.get(clase);
+      for (const [pn, u] of props) {
+        if (params?.includes(u.w)) genericProps.add(pn);
+        if (resolveComposed(u.w, u.fi) === "Fmt") fmtTypedProps22.add(pn);
+      }
+    }
+    const genericOnlyProps = new Set([...genericProps].filter((p) => !fmtTypedProps22.has(p)));
     const aliasSpellings = new Set<string>([...typealiasRaw.keys(), ...fileImports.flatMap((mp) => [...mp.keys()])]);
     const escRe18 = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     /* los nombres que EN ESTE ARCHIVO son el objeto Fmt: el suyo, sus
@@ -406,13 +444,18 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * la cosecha de paquete, entre archivos (M20-3). La pasada única
      * de antes solo veía el primer eslabón: la cadena imprimía en
      * crudo con el censo verde. */
-    const fmtPropsOf = (binds: Map<string, string>, names: Set<string>): Set<string> => {
+    const fmtPropsOf = (binds: Map<string, string>, names: Set<string>, factories?: ReadonlySet<string>): Set<string> => {
       const props = new Set<string>();
       let grew = true;
       while (grew) {
         grew = false;
         for (const [n, rhs] of binds) {
           if (props.has(n)) continue;
+          // OLA 22 (M22-3): el valor que ES una llamada a una fábrica
+          // ata al formateador por la firma de la llamada, aunque el
+          // texto del valor no nombre a Fmt en ninguna parte.
+          const callM = rhs.trim().match(/^(\w+)\s*\(/);
+          if (callM && factories?.has(callM[1]!)) { props.add(n); grew = true; continue; }
           // el valor atado, limpio de la puntuación del ámbito que lo
           // envuelve («val fmt = Fmt }» dentro de un companion): el
           // último segmento del nombre es la grafía que cuenta.
@@ -438,6 +481,16 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         else if (raw[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
       }
       for (const m of raw.slice(0, end).matchAll(/\bfun\s+(\w+)\s*\(\s*\w+\s*:\s*Long\b[^)]*\)\s*:\s*String\b/g)) fmtFormatters.add(m[1]!);
+      /* OLA 22 (M22-5): la casa también declara formateadores como
+       * PROPIEDADES DE TIPO FUNCIÓN — `val rateFn: (Long) -> String`
+       * dentro de `object Fmt` ES un formateador (primer parámetro
+       * Long, devuelve String), pero la cosecha solo leía
+       * declaraciones `fun`: su alias de miembro era invisible para
+       * memberAliasesOf mientras su llamada directa acusaba — las
+       * dos grafías de la misma función se juzgaban distinto. Desde
+       * hoy la propiedad-función entra en el mismo registro que sus
+       * hermanas `fun`, y el alias acusa como la llamada directa. */
+      for (const m of raw.slice(0, end).matchAll(/\bval\s+(\w+)\s*:\s*\(\s*(?:\w+\s*:\s*)?Long\b[^)]*\)\s*->\s*String\b/g)) fmtFormatters.add(m[1]!);
     }
     /* OLA 19 (Asesor, hallazgo 3): LAS TRES GRAFÍAS QUE LA COSECHA NO
      * CONOCÍA. (ii) El alias de importación de un MIEMBRO —
@@ -459,6 +512,30 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       }
       return out;
     };
+    /* OLA 22 (M22-3): LAS FÁBRICAS — el formateador entregado por una
+     * LLAMADA. La cosecha leía el valor atado solo si nombraba al
+     * formateador (`val f = Fmt`) o si el tipo declarado lo decía
+     * (M21-6): `val f = makeFmt()` y `val f = wrap(Fmt)` ataban f a
+     * Fmt por la FIRMA de la función llamada y corrían invisibles.
+     * Aquí se cosecha el tipo de RETORNO declarado de cada función
+     * del paquete: un nombre es fábrica si TODAS sus declaraciones
+     * resuelven su retorno (compuesto, desde su archivo) a Fmt — la
+     * unanimidad guarda contra la colisión de un nombre desnudo que
+     * en otro archivo devuelva otra cosa. fmtPropsOf aprende la
+     * grafía con este registro: una atadura cuyo valor ES una llamada
+     * a una fábrica ata al formateador. */
+    const fmtFactories = new Set<string>();
+    {
+      const retornos = new Map<string, string[]>();
+      scanned.forEach(({ code }, fi) => {
+        for (const m of code.matchAll(/\bfun\s+(\w+)\s*\([^)]*\)\s*:\s*([\w.]+)\??/g)) {
+          const arr = retornos.get(m[1]!) ?? [];
+          arr.push(resolveComposed(m[2]!.split(".").pop()!, fi));
+          retornos.set(m[1]!, arr);
+        }
+      });
+      for (const [n, rs] of retornos) if (rs.length > 0 && rs.every((r) => r === "Fmt")) fmtFactories.add(n);
+    }
     /* (iii) El formateador guardado en una propiedad atada a NIVEL DE
      * PAQUETE en otro archivo (M19-7): `val fmtCasa = Fmt` en la cima
      * de un archivo es visible en todo el paquete, como un typealias —
@@ -496,7 +573,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     for (;;) {
       let grew = false;
       scanned.forEach((_, fi) => {
-        for (const p of fmtPropsOf(pkgTopBinds[fi]!, new Set([...fmtNamesOf(fi), ...pkgFmtProps]))) {
+        for (const p of fmtPropsOf(pkgTopBinds[fi]!, new Set([...fmtNamesOf(fi), ...pkgFmtProps]), fmtFactories)) {
           if (!pkgFmtProps.has(p)) { pkgFmtProps.add(p); grew = true; }
         }
       });
@@ -714,7 +791,15 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // receptores por TIPO DECLARADO, no por nombre — el universo de
       // tipos incluye toda clase declarada en el paquete (ola 17)
       const receivers = new Map<string, string>();
-      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) receivers.set(m[1]!, resolveWrittenType(m[2]!, fi));
+      // OLA 22 (M22-2): el receptor guarda también sus ARGUMENTOS de
+      // tipo declarados (`c: Caja<Fmt>`), resueltos desde su archivo —
+      // son la sustitución que el juicio por dueño aplica a las
+      // propiedades genéricas de su clase.
+      const receiverArgs = new Map<string, string[]>();
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<([^>]*)>)?`, "g"))) {
+        receivers.set(m[1]!, resolveWrittenType(m[2]!, fi));
+        if (m[3] !== undefined) receiverArgs.set(m[1]!, m[3].split(",").map((a) => resolveWrittenType(a.trim().split(".").pop()!.replace(/\?$/, ""), fi)));
+      }
       const buildAccess = (): RegExp => {
         const pats = [...receivers].filter(([, t]) => (tipos.get(t)?.size ?? 0) > 0)
           .map(([r, t]) => `\\b${r}\\.(${[...tipos.get(t)!].join("|")})\\b`);
@@ -811,7 +896,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // archivos (`val fmtB = fmtA` con fmtA de paquete) se resuelve
       // en su archivo; una atadura local con OTRO valor sigue
       // sombreando (el filtro de abajo no la hereda).
-      const fmtProps = new Set([...fmtPropsOf(bindings, new Set([...fmtNames, ...pkgFmtProps])), ...[...pkgFmtProps].filter((p) => !bindings.has(p))]);
+      const fmtProps = new Set([...fmtPropsOf(bindings, new Set([...fmtNames, ...pkgFmtProps]), fmtFactories), ...[...pkgFmtProps].filter((p) => !bindings.has(p))]);
       // OLA 21 (M21-6): las ataduras tipadas de ESTE archivo entran por
       // su declaración, aunque el filtro de paquete las excluya por
       // sombra de nombre (están atadas aquí, y su valor no nombra al
@@ -826,6 +911,15 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       const memberAliases = memberAliasesOf(fi);
       const spellRe = [...fmtNames].map(escRe18).join("|");
       const propRe = [...fmtProps].map(escRe18).join("|");
+      /* OLA 22 (M22-2): el candidato ANCHO de la forma receptor.
+       * propiedad.función — las propiedades genéricas entran como
+       * candidatas y la puerta es bloqueadaPorDueno, que sustituye
+       * el argumento del receptor: `Caja<Fmt>` juzga, `Caja<Otro>`
+       * bloquea, y sin dueño conocido la puramente genérica no
+       * juzga por su nombre. La forma desnuda (sin receptor) sigue
+       * con propRe: sin receptor no hay sustitución posible. */
+      const propReAncho = [...new Set([...fmtProps, ...genericProps])].map(escRe18).join("|");
+      const hayPropsAnchas = fmtProps.size > 0 || genericProps.size > 0;
       /* OLA 21 (M21-5): LA PROPIEDAD LLEVA SU TIPO DUEÑO. El conjunto
        * de propiedades era un conjunto de NOMBRES desnudos: la
        * propiedad homónima de una clase ajena (`class SinFmt(val fmt:
@@ -842,13 +936,28 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
        * donde el dueño está declarado. */
       const bloqueadaPorDueno = (recv: string, prop: string): boolean => {
         const t = receivers.get(recv) ?? (propTypes.has(recv) ? recv : undefined);
-        if (!t) return false;
+        // OLA 22 (M22-2): sin dueño conocido, una propiedad PURAMENTE
+        // genérica no juzga por su nombre desnudo — su nombre solo no
+        // promete el formateador en ninguna clase.
+        if (!t) return genericOnlyProps.has(prop);
         const u = propTypes.get(t)?.get(prop);
-        return !!u && resolveComposed(u.w, u.fi) !== "Fmt";
+        if (!u) return false;
+        /* OLA 22 (M22-2): si el tipo declarado de la propiedad es un
+         * PARÁMETRO de la clase dueña, manda el argumento con que el
+         * receptor se declaró: `Caja<Fmt>` la ata a Fmt y la llamada
+         * se juzga; `Caja<Otro>` la bloquea; sin argumento declarado
+         * no se puede jurar que sea Fmt y se bloquea. */
+        const params = classTypeParams.get(t);
+        if (params?.includes(u.w)) {
+          const arg = receiverArgs.get(recv)?.[params.indexOf(u.w)];
+          return arg === undefined || arg !== "Fmt";
+        }
+        return resolveComposed(u.w, u.fi) !== "Fmt";
       };
       const propCallish = (t: string): boolean => {
+        if (!hayPropsAnchas) return false;
+        for (const m of t.matchAll(new RegExp(`\\b(\\w+)\\.(${propReAncho})\\.\\w+\\s*\\(`, "g"))) if (!bloqueadaPorDueno(m[1]!, m[2]!)) return true;
         if (fmtProps.size === 0) return false;
-        for (const m of t.matchAll(new RegExp(`\\b(\\w+)\\.(${propRe})\\.\\w+\\s*\\(`, "g"))) if (!bloqueadaPorDueno(m[1]!, m[2]!)) return true;
         return new RegExp(`(?<![\\w.])(?:${propRe})\\.\\w+\\s*\\(`).test(t);
       };
       const fmtCallish = (t: string): boolean =>
@@ -906,10 +1015,15 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
           if (m[2]!.includes(":")) continue;
           if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(`Fmt.${m[1]!}(${m[2]!})`);
         }
-        for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\.(${propRe})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
+      }
+      if (hayPropsAnchas) {
+        for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\.(${propReAncho})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
           if (m[3]!.includes(":")) continue;
           // OLA 21 (M21-5): el receptor cuya clase declara la
           // propiedad con otro tipo no llama a Fmt por esa propiedad.
+          // OLA 22 (M22-2): y si el tipo declarado es un parámetro de
+          // la clase, manda el argumento del receptor — la misma
+          // puerta resuelve las dos.
           if (bloqueadaPorDueno(m[1]!, m[2]!)) continue;
           if (fmtFormatters.has(m[3]!) || exprDerived(m[4]!)) judgedCall(`Fmt.${m[3]!}(${m[4]!})`);
         }
@@ -917,10 +1031,30 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // OLA 17 (M17-4): el formateador por REFERENCIA — val f =
       // Fmt::money ES Fmt.money; sus llamadas son forma 1 con el
       // nombre resuelto, y se juzgan como la llamada que son.
+      /* OLA 22 (M22-4): LA REFERENCIA SE CIERRA SOBRE LA IDENTIDAD.
+       * El mapa de referencias se resuelve a punto fijo sobre las
+       * ataduras del archivo: `val t = r` con r ya resuelto HEREDA
+       * el destino de r, en cadena — la grafía re-atada ya no escapa
+       * del juicio (antes el mapa solo nacía de la atadura directa y
+       * `t(…)` corría sin juzgar mientras el sitio declaraba muerta
+       * la superficie viva deletreada `t(…)`: las dos mitades se
+       * contradecían sobre la misma identidad, la lección de
+       * M20-8/M21-7 que esta ola cierra en las dos a la vez). */
+      const refsResueltas = new Map<string, string>();
       for (const m of code.matchAll(new RegExp(`\\b(?:val|var)\\s+(\\w+)\\s*=\\s*(?:${spellRe})::(\\w+)\\b`, "g"))) {
-        if (!fmtFormatters.has(m[2]!)) continue;
-        const alias = m[1]!, target = m[2]!;
-        for (const c of code.matchAll(new RegExp(`(?<![\\w.])${alias}\\s*\\(([^)]*)\\)`, "g"))) {
+        if (fmtFormatters.has(m[2]!)) refsResueltas.set(m[1]!, m[2]!);
+      }
+      for (;;) {
+        let grew = false;
+        for (const [n, rhs] of bindings) {
+          if (refsResueltas.has(n)) continue;
+          const clean = rhs.trim();
+          if (/^\w+$/.test(clean) && refsResueltas.has(clean)) { refsResueltas.set(n, refsResueltas.get(clean)!); grew = true; }
+        }
+        if (!grew) break;
+      }
+      for (const [alias, target] of refsResueltas) {
+        for (const c of code.matchAll(new RegExp(`(?<![\\w.])${escRe18(alias)}\\s*\\(([^)]*)\\)`, "g"))) {
           if (c[1]!.includes(":")) continue;
           judgedCall(`Fmt.${target}(${c[1]!})`);
         }
@@ -1107,7 +1241,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // OLA 19: el sitio se lee con la misma cosecha entera del juicio
       // (la composición de capas y las propiedades de paquete): la
       // superficie re-expresada por la cadena mixta vive (M19-8b).
-      const propsSitio = new Set([...fmtPropsOf(binds, new Set([...namesSitio, ...pkgFmtProps])), ...[...pkgFmtProps].filter((p) => !binds.has(p))]);
+      const propsSitio = new Set([...fmtPropsOf(binds, new Set([...namesSitio, ...pkgFmtProps]), fmtFactories), ...[...pkgFmtProps].filter((p) => !binds.has(p))]);
       let texto = f.code;
       for (const s of namesSitio) if (s !== "Fmt") texto = texto.replace(new RegExp(`\\b${escRe18(s)}\\.`, "g"), "Fmt.");
       /* OLA 21 (M21-5): la reescritura del sitio respeta el mismo
@@ -1116,16 +1250,37 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
        * registrada no vive en una llamada de la clase ajena, y
        * declararla viva por la homónima era la absolución falsa. */
       const receiversSitio = new Map<string, string>();
-      for (const m of f.code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) receiversSitio.set(m[1]!, resolveWrittenType(m[2]!, fiSitio));
+      // OLA 22 (M22-2): el sitio guarda los argumentos del receptor,
+      // como el juicio — la sustitución genérica es la misma.
+      const receiverArgsSitio = new Map<string, string[]>();
+      for (const m of f.code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<([^>]*)>)?`, "g"))) {
+        receiversSitio.set(m[1]!, resolveWrittenType(m[2]!, fiSitio));
+        if (m[3] !== undefined) receiverArgsSitio.set(m[1]!, m[3].split(",").map((a) => resolveWrittenType(a.trim().split(".").pop()!.replace(/\?$/, ""), fiSitio)));
+      }
       const bloqueadaSitio = (r: string, prop: string): boolean => {
         const t = receiversSitio.get(r) ?? (propTypes.has(r) ? r : undefined);
-        if (!t) return false;
+        if (!t) return genericOnlyProps.has(prop);
         const u = propTypes.get(t)?.get(prop);
-        return !!u && resolveComposed(u.w, u.fi) !== "Fmt";
+        if (!u) return false;
+        const params = classTypeParams.get(t);
+        if (params?.includes(u.w)) {
+          const arg = receiverArgsSitio.get(r)?.[params.indexOf(u.w)];
+          return arg === undefined || arg !== "Fmt";
+        }
+        return resolveComposed(u.w, u.fi) !== "Fmt";
       };
       for (const p of propsSitio) {
         texto = texto.replace(new RegExp(`\\b(\\w+)\\.${escRe18(p)}\\.`, "g"), (whole: string, r: string) => (bloqueadaSitio(r, p) ? whole : "Fmt."));
         texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(p)}\\.`, "g"), "Fmt.");
+      }
+      /* OLA 22 (M22-2): la superficie deletreada por una propiedad
+       * GENÉRICA vive si el argumento de su receptor la ata a Fmt —
+       * la reescritura pasa por la misma puerta del dueño (con
+       * `Caja<Otro>` la llamada queda como está y no salva el
+       * sitio). Sin receptor no hay reescritura: la forma desnuda
+       * de una propiedad genérica no promete a Fmt. */
+      for (const p of genericProps) {
+        texto = texto.replace(new RegExp(`\\b(\\w+)\\.${escRe18(p)}\\.`, "g"), (whole: string, r: string) => (bloqueadaSitio(r, p) ? whole : "Fmt."));
       }
       /* OLA 20 (Asesor, hallazgo 3): el sitio se lee también con los
        * alias de MIEMBRO del archivo — la superficie viva re-expresada
@@ -1151,8 +1306,27 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
        * referencia). La muerta sin llamada en ninguna grafía sigue
        * acusando. */
       const spellSitio = [...namesSitio].map(escRe18).join("|");
+      /* OLA 22 (M22-4): el sitio cierra la referencia sobre la
+       * identidad, como el juicio — el mapa directo más la cadena
+       * `val t = r` a punto fijo sobre las ataduras del archivo, y
+       * cada nombre resuelto reescribe sus llamadas a la canónica:
+       * la superficie viva deletreada por la cadena vive, y juicio y
+       * verificación dejan de contradecirse sobre la misma grafía. */
+      const refsSitio = new Map<string, string>();
       for (const m of f.code.matchAll(new RegExp(`\\b(?:val|var)\\s+(\\w+)\\s*=\\s*(?:${spellSitio})::(\\w+)\\b`, "g"))) {
-        texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(m[1]!)}\\s*\\(`, "g"), `Fmt.${m[2]!}(`);
+        refsSitio.set(m[1]!, m[2]!);
+      }
+      for (;;) {
+        let grew = false;
+        for (const [n, rhs] of binds) {
+          if (refsSitio.has(n)) continue;
+          const clean = rhs.trim();
+          if (/^\w+$/.test(clean) && refsSitio.has(clean)) { refsSitio.set(n, refsSitio.get(clean)!); grew = true; }
+        }
+        if (!grew) break;
+      }
+      for (const [alias, target] of refsSitio) {
+        texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(alias)}\\s*\\(`, "g"), `Fmt.${target}(`);
       }
       if (re.test(texto)) continue;
       for (let r = 0; r < 4; r++) {
@@ -1520,6 +1694,55 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     ], true);
     assert.ok(muertaRef.some((a) => a.includes("ya no vive en su sitio")),
       "M21-7c (control): la tasa por referencia plantada en otro archivo no salva su sitio vacío");
+  });
+  it("especímenes M22 (ola 22): la identidad cerrada en las dos mitades, la fábrica por su retorno, el dueño genérico en su sitio de uso y la propiedad-función de la casa", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\"; val rateFn: (Long) -> String = { \"\" } }",
+    };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M22-4 (juicio): la cadena de identidad sobre la referencia —
+    // `val t = r` hereda lo que r ata, y sus llamadas se juzgan.
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { val r = Fmt::rate; val t = r; fun a(s: Snap) = t(s.spent) }" }]).length >= 1,
+      "M22-4: val t = r hereda la referencia — t(s.spent) ES Fmt.rate sin productor de tasa: acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "class W { val r = Fmt::rate; val t = r; fun a(s: Snap) = t(s.rateE4) }" }]), [],
+      "M22-4c (control): la misma cadena con el productor registrado absuelve");
+    // M22-4 (sitio): la superficie viva deletreada por la cadena vive en su sitio…
+    const vivaCadena = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "class W { val r = Fmt::rate; val t = r; fun a(s: Snap) = t(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!vivaCadena.some((a) => a.includes("ya no vive en su sitio")),
+      `M22-4s: t(s.rateE4) por la cadena de identidad ES la superficie registrada en su sitio — las dos mitades coinciden: ${vivaCadena.join(" | ")}`);
+    // …y la muerta con la cadena plantada en otro archivo sigue acusando
+    const muertaCadena = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "class W { fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+      { name: "FaroNotify.kt", text: "class N { val r = Fmt::rate; val t = r; fun a(s: Snap) = t(s.rateE4) }" },
+    ], true);
+    assert.ok(muertaCadena.some((a) => a.includes("ya no vive en su sitio")),
+      "M22-4s-c (control): la tasa por la cadena en otro archivo no salva su sitio vacío");
+    // M22-3: la fábrica y el envoltorio atan por su RETORNO declarado
+    assert.ok(caza([{ name: "Spec.kt", text: "fun makeFmt(): Fmt = Fmt\nclass W { val f = makeFmt(); fun a(s: Snap) = f.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M22-3: val f = makeFmt() ata f a Fmt por el retorno declarado de la fábrica: acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "fun makeFmt(): Fmt = Fmt\nclass W { val f = makeFmt(); fun a(s: Snap) = f.money(s.spent, s.cur) }" }]), [],
+      "M22-3c (control): la fábrica con el productor registrado absuelve");
+    assert.ok(caza([{ name: "Spec.kt", text: "fun wrap(f: Fmt): Fmt = f\nclass W { val f = wrap(Fmt); fun a(s: Snap) = f.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M22-3b: val f = wrap(Fmt) — el envoltorio devuelve Fmt por su firma: acusa");
+    // M22-2: el dueño genérico se resuelve en el sitio de uso
+    const cajaGen = { name: "Caja.kt", text: "class Caja<T>(val fmt: T)\nclass Otro { fun money(x: Long, c: String): String = \"\" }" };
+    assert.ok(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Fmt>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M22-2: Caja<Fmt> ata la propiedad al registro de Fmt: c.fmt.money sin productor acusa");
+    assert.deepEqual(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Fmt>) = c.fmt.money(s.spent, s.cur) }" }]), [],
+      "M22-2c (control): Caja<Fmt> con el productor registrado absuelve");
+    assert.deepEqual(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Otro>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]), [],
+      "M22-2b: Caja<Otro> bloquea — la llamada es de la clase ajena y el registro de Fmt no la juzga");
+    // M22-5: la propiedad de tipo función de la casa, por su alias de
+    // miembro, acusa exactamente como su llamada directa
+    assert.ok(caza([{ name: "Spec.kt", text: "import com.oscarvelz.faro.Fmt.rateFn as tasa\nclass W { fun a(s: Snap) = tasa(s.spent) }" }]).length >= 1,
+      "M22-5: el alias de la propiedad-función (tasa = Fmt.rateFn) imprime el gasto sin productor: acusa");
+    assert.ok(caza([{ name: "Spec.kt", text: "import com.oscarvelz.faro.Fmt.rateFn as tasa\nclass W { fun a(s: Snap) = tasa(s.rateE4) }" }]).length >= 1,
+      "M22-5b: ni con la tasa absuelve — rateFn no es la superficie registrada de Fmt.rate, en ninguna grafía");
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun a(s: Snap) = Fmt.rateFn(s.rateE4) }" }]).length >= 1,
+      "M22-5c (control de la caza): la llamada directa a la propiedad-función acusaba y acusa igual — alias y directa por fin coinciden");
   });
   it("controles del censo nuevo: el comentario no acusa, el porcentaje no es dinero, la fecha no es cifra", () => {
     const ok = censoCascara([{ name: "FaroNotify.kt", text: [

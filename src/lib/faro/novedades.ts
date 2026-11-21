@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.358",
+    date: "2026-11-21",
+    level: "menor",
+    topic: "captura-mesa",
+    title: { es: "La mesa juzga contra su foto", en: "The table judges against its photo" },
+    points: {
+      es: [
+        "La mesa de revisión ahora compara contra la foto de cuando la abriste: si una fila cambió mientras tanto en otra pestaña, la mesa lo nombra — «Cambió mientras tanto: …» — y al guardar, la corrección más nueva manda en lo suyo y lo tuyo en lo tuyo. Nada se pisa en silencio.",
+        "La ayuda de los botones + y − decía una cosa que no era: el de + abre el mismo selector que el de −, sin Escanear, porque Faro no escanea ingresos. El texto ya dice la verdad en los dos idiomas.",
+      ],
+      en: [
+        "The review table now compares against the photo from when you opened it: if a row changed meanwhile in another tab, the table names it — “Changed meanwhile: …” — and on saving, the newest correction rules its fields and yours rule yours. Nothing is overwritten in silence.",
+        "The help for the + and − buttons said something untrue: the + opens the same chooser as the −, without Scan, because Faro does not scan income. The text now tells the truth in both languages.",
+      ],
+    },
+  },
+  {
     version: "1.3.357",
     date: "2026-11-20",
     level: "grande",

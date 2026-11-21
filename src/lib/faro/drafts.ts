@@ -166,6 +166,73 @@ export function fallenDrafts(work: Draft[], live: Draft[], gone: ReadonlySet<str
   return work.filter((d) => !liveIds.has(d.id) && !gone.has(d.id));
 }
 
+/** Los campos que la mesa puede atribuir a una mano: los que trae el
+ * borrador menos su identidad y sus derivados (unsure/missing/dupOf los
+ * re-deriva patchDraft; id/source/kind/raw/createdAt no son de nadie). */
+const TABLE_SKIP: ReadonlySet<string> = new Set(["id", "source", "kind", "raw", "createdAt", "unsure", "missing", "dupOf"]);
+function tableFields(w: Draft): (keyof Draft)[] {
+  return (Object.keys(w) as (keyof Draft)[]).filter((k) => !TABLE_SKIP.has(k));
+}
+
+/** Ola 22 (G22-2): EL PARSEO DE LA MESA CONTRA SU PROPIA FOTO. La línea
+ * base de la atribución son los originales DE MONTAJE — la bandeja tal
+ * como estaba cuando la foto (`work`) nació — nunca la bandeja leída al
+ * guardar: con la base al guardar, toda diferencia bajo un id vivo se
+ * le atribuía a la persona, y su guardado parcheaba de vuelta al valor
+ * de la foto también lo que OTRA mano había corregido mientras tanto
+ * (el espécimen C3 de la ola 21, dado por muerto, vivo: la corrección
+ * concurrente moría en silencio y el borrador renacido con otro cuerpo
+ * renacía como la foto). La regla por campo: un campo es de la persona
+ * solo si su copia difiere del montaje; el parche se aplica únicamente
+ * donde lo VIVO aún es el valor de montaje (si lo vivo ya es el valor
+ * de la persona, no hay nada que aplicar); si lo vivo es un TERCER
+ * valor, es la corrección de la otra mano y ese campo NO se toca — la
+ * corrección manda, como C3 prometía. Las parejas devueltas son los
+ * borradores vivos que este paseo movió de verdad (antes/después), la
+ * materia honesta del aprendizaje. Pura: la mesa la llama dentro de su
+ * puerta guardada y la cerca la clava en composición con la forma de
+ * llamada de producción — bandeja viva y originales de montaje como
+ * objetos DISTINTOS y divergentes (la lección del banco de la ola 21:
+ * pasarle la bandeja de montaje como bandeja viva está prohibido). */
+export function applyTableEdits(state: LedgerState, work: Draft[], originals: Map<string, Draft>, gone: ReadonlySet<string>): { state: LedgerState; pairs: { before: Draft; after: Draft }[] } {
+  let next = state;
+  const pairs: { before: Draft; after: Draft }[] = [];
+  for (const w of work) {
+    if (gone.has(w.id)) continue;
+    const o = originals.get(w.id);
+    const live = (next.drafts ?? []).find((d) => d.id === w.id);
+    if (!o || !live) continue;
+    const patch: Partial<Draft> = {};
+    for (const k of tableFields(w)) {
+      if (JSON.stringify(w[k]) === JSON.stringify(o[k])) continue;
+      if (JSON.stringify(live[k]) === JSON.stringify(o[k])) (patch as Record<string, unknown>)[k] = w[k];
+    }
+    if (Object.keys(patch).length) {
+      pairs.push({ before: live, after: { ...live, ...patch } });
+      next = patchDraft(next, w.id, patch);
+    }
+  }
+  return { state: next, pairs };
+}
+
+/** Ola 22 (G22-2): los borradores VIVOS cuyo cuerpo ya no es el de la
+ * foto en algún campo que la persona NO editó — otra mano los corrigió
+ * (o el id renació con otro cuerpo) mientras la mesa respiraba. La
+ * mesa los NOMBRA en su nota, como nombra las caídas, con el concepto
+ * de la copia de la persona; nombrar no bloquea el guardado de lo
+ * demás: al guardar, la corrección ajena manda en su campo y lo de la
+ * persona aterriza en los suyos (applyTableEdits). */
+export function changedDrafts(work: Draft[], live: Draft[], originals: Map<string, Draft>, gone: ReadonlySet<string>): Draft[] {
+  const byId = new Map(live.map((d) => [d.id, d]));
+  return work.filter((w) => {
+    if (gone.has(w.id)) return false;
+    const o = originals.get(w.id);
+    const l = byId.get(w.id);
+    if (!o || !l) return false;
+    return tableFields(w).some((k) => JSON.stringify(l[k]) !== JSON.stringify(o[k]) && JSON.stringify(l[k]) !== JSON.stringify(w[k]));
+  });
+}
+
 /** Guardar: crea las líneas de los borradores pedidos y los retira de la
  * bandeja en la misma receta. Un borrador en rojo no se convierte ni por
  * llamada directa (doble candado con draftToLine): se queda esperando.

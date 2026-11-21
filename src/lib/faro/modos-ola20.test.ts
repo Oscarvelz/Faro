@@ -109,8 +109,11 @@ describe("ola20 · §A: commitDrafts se niega por identidad y la mesa no enmarca
     assert.ok(!save.includes("commit((s)"), "la puerta ordinaria ya no enmarca el guardado de la mesa");
     assert.ok(save.includes("const before = (s.drafts ?? []).find((x) => x.id === id) ?? liveNow;"), "la pareja del aprendizaje nace del libro que la receta recibió (s), no de la foto");
     assert.ok(save.includes("const line = draftToLine(liveNow, ctx);"), "la línea se convierte desde el borrador VIVO ya parchado");
-    assert.ok(save.includes("JSON.stringify(d[k]) !== JSON.stringify(orig[k]) && JSON.stringify(d[k]) !== JSON.stringify(live[k])"),
-      "el parche es por diferencia contra el original Y contra lo vivo: la corrección concurrente a otro campo sobrevive (C3)");
+    assert.ok(save.includes("next = applyTableEdits(next, work, mountOriginals, gone).state;"),
+      "el parcheo vive en applyTableEdits (drafts.ts) contra los originales DE MONTAJE — ola 22 (G22-2): la línea base construida al guardar era la enfermedad, y este pin se re-apunta a la forma curada conservando su intención");
+    const draftsSrc = SRC("./drafts.ts");
+    assert.ok(draftsSrc.includes("if (JSON.stringify(live[k]) === JSON.stringify(o[k])) (patch as Record<string, unknown>)[k] = w[k];"),
+      "el parche se aplica solo donde lo vivo aún es el valor de montaje: la corrección concurrente — a otro campo o al mismo — sobrevive (C3, cumplido por fin en la base de montaje)");
     assert.ok(save.includes("`Revisión ${landed}`"), "el detalle nombra las líneas que ESTE guardado creó, no las de la foto");
   });
 
@@ -422,33 +425,78 @@ describe("ola20 · §E: los tips de Captura enseñan la verdad de cada modo", ()
  * en un tema ajeno a la familia (cuotas) y en uno que la lista vieja
  * no nombraba (captura-lista) acusa; la frase curada, plantada, no. */
 type TemaMin21 = { id: string; sum?: readonly string[]; what?: readonly string[]; how?: readonly string[]; tip?: readonly string[]; bubble?: readonly string[] };
-const AFIRMA_CASA_ES21 = /corrig\w+ la casa de (una|un) (tienda|comercio)/;
-const AFIRMA_CASA_EN21 = /fix (a )?(store|merchant)'s home/;
-const AFIRMA_RECOMPENSAS_ES21 = /fila de \[\[Recompensas de tarjetas\]\]/;
-const AFIRMA_RECOMPENSAS_EN21 = /\[\[Card rewards\]\] row appears/;
 const CLAUSULA_FALSA21: readonly [string, string] = ["antes de que caiga en la bandeja", "before anything lands in the tray"];
-const pecadosDePiso21 = (temas: readonly TemaMin21[]): string[] => {
+/* ═══ ENMIENDA OLA 22 (F22-1): LA VARA TAN ANCHA COMO SU TÍTULO ═══
+ * La enmienda de la ola 21 enumeró el corpus entero, pero su vara
+ * seguía fraseando a mano: leía las afirmaciones solo en el campo
+ * `tip` y solo en dos frases patrón por idioma. La caza XXII plantó
+ * cuatro formas terceras de la misma afirmación y las cuatro
+ * corrieron en verde: el verbo cambiado («le cambias la casa»), la
+ * contracción («la casa del comercio», «fix the merchant's home»),
+ * la fila de recompensas en otras palabras («sale su fila con la
+ * tarjeta», "shows a [[Card rewards]] row") y la frase exacta de la
+ * cerca mudada a una `bubble`. La vara nueva reconoce la afirmación
+ * POR SUS PARTES, en TODOS los campos de texto del tema (tip,
+ * bubble, sum, what, how) y en el mismo campo:
+ *   · la corrección de casa = un verbo de corrección (corregir o
+ *     cambiar / fix o change) + la casa del comercio (con sus
+ *     artículos y su contracción «del» / the merchant's home) + la
+ *     cláusula de nacimiento (ya nace… / is born…): las tres partes
+ *     en un campo lo obligan a nombrar [[Ritmo]]/[[Rhythm]] ahí.
+ *   · la fila de recompensas = «recompensas» + «fila» (ES) o el
+ *     enlace [[Card rewards]] + «row» (EN) en un campo: lo obligan
+ *     a nombrar [[Completo]]/[[Complete]] ahí.
+ * La cláusula falsa se sigue barriendo de todo campo, como nació. */
+const VERBO_CASA_ES22 = /corrig\w+|cambi\w+/i;
+const CASA_ES22 = /la casa (?:de |del |a )(?:un |una |el |la )?(?:tienda|comercio)/i;
+const NACE_ES22 = /ya nace|nace clasificada|nace en su casa/i;
+const VERBO_CASA_EN22 = /\b(?:fix|change)\w*/i;
+const CASA_EN22 = /(?:store|merchant)'s home/i;
+const NACE_EN22 = /born classified|is born/i;
+const afirmaCasa22 = (texto: string, lang: "es" | "en"): boolean =>
+  lang === "es"
+    ? VERBO_CASA_ES22.test(texto) && CASA_ES22.test(texto) && NACE_ES22.test(texto)
+    : VERBO_CASA_EN22.test(texto) && CASA_EN22.test(texto) && NACE_EN22.test(texto);
+/* La afirmación de recompensas se lee POR ORACIÓN y con la fila en
+ * su forma poseída o nombrada («su fila», «la fila», «fila de
+ * recompensas»): un `how` largo puede co-mencionar «recompensas» y
+ * «una fila» de números sin prometer la fila de recompensas de
+ * nadie (así corre limpio el how de tarjetas-captura), y la promesa
+ * de la planta — «trae recompensas… sale su fila» — vive entera en
+ * su oración. La excepción de la bandeja, en cambio, SÍ afirma la
+ * fila (la de la hoja de escaneo, en Completo): su texto se curó en
+ * esta misma ola nombrando [[Completo]] en la oración, y la vara lo
+ * verifica como a cualquier campo. */
+const afirmaRecompensas22 = (texto: string, lang: "es" | "en"): boolean => {
+  const oraciones = texto.split(/[.!?…]+/);
+  return oraciones.some((o) => (lang === "es"
+    ? /recompensas/i.test(o) && /(?:su|la) fila\b|fila de (?:\[\[)?recompensas/i.test(o)
+    : /\[\[Card rewards\]\]/.test(o) && /\brow\b/i.test(o)));
+};
+const CAMPOS22: readonly (keyof TemaMin21)[] = ["tip", "bubble", "sum", "what", "how"];
+const pecadosDePiso22 = (temas: readonly TemaMin21[]): string[] => {
   const out: string[] = [];
   for (const t of temas) {
-    const tipEs = t.tip?.[0] ?? "";
-    const tipEn = t.tip?.[1] ?? "";
-    if (AFIRMA_CASA_ES21.test(tipEs) && !tipEs.includes("[[Ritmo]]")) out.push(`${t.id}: el tip promete el aprendizaje de la mesa sin nombrar [[Ritmo]] (ES)`);
-    if (AFIRMA_CASA_EN21.test(tipEn) && !tipEn.includes("[[Rhythm]]")) out.push(`${t.id}: the tip promises the table's learning without naming [[Rhythm]] (EN)`);
-    if (AFIRMA_RECOMPENSAS_ES21.test(tipEs) && !tipEs.includes("[[Completo]]")) out.push(`${t.id}: el tip anuncia la fila de recompensas sin nombrar [[Completo]] (ES)`);
-    if (AFIRMA_RECOMPENSAS_EN21.test(tipEn) && !tipEn.includes("[[Complete]]")) out.push(`${t.id}: the tip announces the rewards row without naming [[Complete]] (EN)`);
-    for (const campo of [t.what, t.how, t.tip, t.bubble, t.sum] as const) {
-      if (!campo) continue;
-      if ((campo[0] ?? "").includes(CLAUSULA_FALSA21[0])) out.push(`${t.id}: la cláusula falsa de la bandeja vive en un campo (ES)`);
-      if ((campo[1] ?? "").includes(CLAUSULA_FALSA21[1])) out.push(`${t.id}: la cláusula falsa de la bandeja vive en un campo (EN)`);
+    for (const campo of CAMPOS22) {
+      const par = t[campo];
+      if (!par) continue;
+      const es = par[0] ?? "";
+      const en = par[1] ?? "";
+      if (afirmaCasa22(es, "es") && !es.includes("[[Ritmo]]")) out.push(`${t.id}: el campo ${campo} promete el aprendizaje de la mesa sin nombrar [[Ritmo]] (ES)`);
+      if (afirmaCasa22(en, "en") && !en.includes("[[Rhythm]]")) out.push(`${t.id}: the ${campo} field promises the table's learning without naming [[Rhythm]] (EN)`);
+      if (afirmaRecompensas22(es, "es") && !es.includes("[[Completo]]")) out.push(`${t.id}: el campo ${campo} anuncia la fila de recompensas sin nombrar [[Completo]] (ES)`);
+      if (afirmaRecompensas22(en, "en") && !en.includes("[[Complete]]")) out.push(`${t.id}: the ${campo} field announces the rewards row without naming [[Complete]] (EN)`);
+      if (es.includes(CLAUSULA_FALSA21[0])) out.push(`${t.id}: la cláusula falsa de la bandeja vive en un campo (ES)`);
+      if (en.includes(CLAUSULA_FALSA21[1])) out.push(`${t.id}: la cláusula falsa de la bandeja vive en un campo (EN)`);
     }
   }
   return out;
 };
 
-describe("ola20 · §E-bis (enmienda ola 21): el barrido de afirmaciones cubre el Manual entero", () => {
-  it("F21-1: el corpus vivo no tiene ningún pecado de piso ni la cláusula falsa en ningún campo", () => {
-    assert.deepEqual(pecadosDePiso21(MANUAL_TOPICS), [],
-      "todo tip que promete el aprendizaje de la mesa nombra su piso, y la bandeja falsa no vive en ningún campo de los 360 temas");
+describe("ola20 · §E-bis (enmiendas olas 21–22): el barrido reconoce la afirmación POR SUS PARTES en todos los campos de texto de cada tema", () => {
+  it("F21-1+F22-1: el corpus vivo no tiene ningún pecado de piso ni la cláusula falsa en ningún campo", () => {
+    assert.deepEqual(pecadosDePiso22(MANUAL_TOPICS), [],
+      "toda afirmación de aprendizaje por corrección o de fila de recompensas, en cualquier campo de los 360 temas, nombra su piso en ese campo — y la bandeja falsa no vive en ninguno");
   });
 
   it("F21-1: el pecado plantado en un tema AJENO a la familia acusa — la lista a mano ya no manda", () => {
@@ -457,7 +505,7 @@ describe("ola20 · §E-bis (enmienda ola 21): el barrido de afirmaciones cubre e
       "And when you fix a store's home at the table and save, the next phrase naming that store is born classified.",
     ];
     const plantado = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: pecado } : t));
-    const fallos = pecadosDePiso21(plantado);
+    const fallos = pecadosDePiso22(plantado);
     assert.ok(fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(ES)")) && fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(EN)")),
       "inyectado en cuotas, la cerca acusa en los dos idiomas: ningún tema nace fuera del barrido");
   });
@@ -468,7 +516,7 @@ describe("ola20 · §E-bis (enmienda ola 21): el barrido de afirmaciones cubre e
       "On saving, if you fix a store's home at the table, the next list is born classified.",
     ];
     const plantado = MANUAL_TOPICS.map((t) => (t.id === "captura-lista" ? { ...t, tip: pecado } : t));
-    assert.ok(pecadosDePiso21(plantado).some((p) => p.startsWith("captura-lista:")),
+    assert.ok(pecadosDePiso22(plantado).some((p) => p.startsWith("captura-lista:")),
       "la familia ya no se enumera: la afirmación es la llave, y captura-lista cae bajo ella");
   });
 
@@ -478,13 +526,13 @@ describe("ola20 · §E-bis (enmienda ola 21): el barrido de afirmaciones cubre e
       "And in [[Rhythm]], when you fix a store's home at the table and save, the next phrase naming that store is born classified.",
     ];
     const plantada = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: curada } : t));
-    assert.deepEqual(pecadosDePiso21(plantada), [], "con el piso nombrado, la misma promesa es honesta en cualquier tema");
+    assert.deepEqual(pecadosDePiso22(plantada), [], "con el piso nombrado, la misma promesa es honesta en cualquier tema");
     const recompensa: [string, string] = [
       "Al guardar sale una fila de [[Recompensas de tarjetas]] con la tarjeta.",
       "On saving, a [[Card rewards]] row appears with the card.",
     ];
     const plantada2 = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: recompensa } : t));
-    assert.ok(pecadosDePiso21(plantada2).filter((p) => p.startsWith("cuotas:")).length >= 2,
+    assert.ok(pecadosDePiso22(plantada2).filter((p) => p.startsWith("cuotas:")).length >= 2,
       "la fila de recompensas sin [[Completo]]/[[Complete]] acusa en los dos idiomas");
   });
 
@@ -492,8 +540,58 @@ describe("ola20 · §E-bis (enmienda ola 21): el barrido de afirmaciones cubre e
     const plantado = MANUAL_TOPICS.map((t) => (t.id === "cuotas"
       ? { ...t, what: ["El pago espera en la mesa antes de que caiga en la bandeja.", "The payment waits at the table before anything lands in the tray."] as [string, string] }
       : t));
-    assert.ok(pecadosDePiso21(plantado).filter((p) => p.startsWith("cuotas:") && p.includes("cláusula falsa")).length === 2,
+    assert.ok(pecadosDePiso22(plantado).filter((p) => p.startsWith("cuotas:") && p.includes("cláusula falsa")).length === 2,
       "la cláusula que la §E vieja solo miraba en dos temas ahora se barre del Manual entero");
+  });
+
+  it("F22-1 planta A: el verbo cambiado («le cambias la casa») acusa — la afirmación se reconoce por partes, no por frase", () => {
+    const planta: [string, string] = [
+      "Y cuando en la mesa le cambias la casa a una tienda y guardas, su próximo recibo ya nace en su casa.",
+      "And when you change a store's home at the table and save, its next receipt is born in its home.",
+    ];
+    const plantado = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: planta } : t));
+    const fallos = pecadosDePiso22(plantado);
+    assert.ok(fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(ES)")) && fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(EN)")),
+      "cambiar es corregir a efectos de la promesa: verbo + casa + nacimiento, sin piso, acusa en los dos idiomas");
+  });
+
+  it("F22-1 planta D: la contracción («la casa del comercio», «fix the merchant's home») acusa", () => {
+    const planta: [string, string] = [
+      "Y cuando corriges la casa del comercio en la mesa y guardas, la próxima frase con ese comercio ya nace clasificada.",
+      "And when you fix the merchant's home at the table and save, the next phrase naming that merchant is born classified.",
+    ];
+    const plantado = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: planta } : t));
+    const fallos = pecadosDePiso22(plantado);
+    assert.ok(fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(ES)")) && fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(EN)")),
+      "«del» y «the» ya no son la puerta de escape de la misma afirmación");
+  });
+
+  it("F22-1 planta B: la fila de recompensas en otras palabras («sale su fila», \"shows a row\") acusa", () => {
+    const planta: [string, string] = [
+      "Si la imagen trae recompensas, al guardar sale su fila con la tarjeta, encendida.",
+      "If the picture brings rewards, saving shows a [[Card rewards]] row with the card, switched on.",
+    ];
+    const plantado = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: planta } : t));
+    const fallos = pecadosDePiso22(plantado);
+    assert.ok(fallos.some((p) => p.startsWith("cuotas:") && p.includes("[[Completo]]")) && fallos.some((p) => p.startsWith("cuotas:") && p.includes("[[Complete]]")),
+      "recompensas + fila en el mismo campo, sin el piso de Completo, acusa en los dos idiomas");
+  });
+
+  it("F22-1 planta C: la frase exacta de la cerca, mudada a una `bubble`, acusa — el barrido lee también las burbujas", () => {
+    const planta: [string, string] = [
+      "Y cuando corriges la casa de un comercio en la mesa y guardas, la próxima frase con ese comercio ya nace clasificada.",
+      "And when you fix a store's home at the table and save, the next phrase naming that store is born classified.",
+    ];
+    const plantado = MANUAL_TOPICS.map((t) => (t.id === "captura-lista" ? { ...t, bubble: planta } : t));
+    const fallos = pecadosDePiso22(plantado);
+    assert.ok(fallos.some((p) => p.startsWith("captura-lista:") && p.includes("bubble")),
+      "la burbuja es la forma que el lector ve sin abrir el Manual: también es un campo que enseña");
+    const curada: [string, string] = [
+      "Y en [[Ritmo]], cuando corriges la casa de un comercio en la mesa y guardas, la próxima frase con ese comercio ya nace clasificada.",
+      "And in [[Rhythm]], when you fix a store's home at the table and save, the next phrase naming that store is born classified.",
+    ];
+    const plantada2 = MANUAL_TOPICS.map((t) => (t.id === "captura-lista" ? { ...t, bubble: curada } : t));
+    assert.deepEqual(pecadosDePiso22(plantada2), [], "la misma frase en la burbuja, con su piso nombrado en ella, es honesta");
   });
 });
 
