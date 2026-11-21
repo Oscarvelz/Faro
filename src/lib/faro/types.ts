@@ -480,7 +480,7 @@ export type SubPreset = { id: string; name?: string; icon?: string };
  * Line (kind e icon) y sin ellos un borrador del escaneo no podría volverse
  * la misma línea que hoy produce DraftCard — el código ganó y el brief se
  * corrige con esta nota. */
-export type DraftSource = "text" | "voice" | "photo" | "excel" | "pdf" | "list" | "notice" | "bank" | "wish";
+export type DraftSource = "text" | "voice" | "photo" | "excel" | "pdf" | "list" | "notice" | "bank" | "wish" | "share";
 export type Draft = {
   id: string;
   source: DraftSource;
@@ -561,6 +561,16 @@ export type Wish = {
   permanent: boolean;              // sin más preguntas
   status: "waiting" | "left" | "bought";
   closedAt: string;                // ISO al dejarse o comprarse; "" en espera
+  /** Las puertas de compartir (mapa §18, 1.3.362): el enlace del producto
+   * cuando el deseo nació de uno compartido — es la puerta de vuelta al
+   * producto y la dirección del precio mirado de nuevo. Ausente = el
+   * deseo nació a mano o del catálogo, sin enlace. */
+  link?: string;
+  /** El precio mirado de nuevo (diseño 5c §3.3): UNA lectura en línea del
+   * enlace, guardada con su fecha y atada a su dueAt (forDue) — renovar
+   * la espera la rearma. Es una lectura etiquetada, jamás un precio
+   * sellado: la hoja de compra lo ofrece y la persona lo corrige. */
+  look?: { priceMinor: number; currency: Currency; at: string; forDue: string };
 };
 
 /** Una lista-plan (D6, 1.3.357): nace como índice (closedAt "") con sus

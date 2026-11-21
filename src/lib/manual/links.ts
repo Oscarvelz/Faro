@@ -101,6 +101,7 @@ export const LINKS: Record<string, string> = {
   Plantillas: "plantillas", Templates: "plantillas",
   "Categorías y subconceptos": "arbol", "Categories and subcategories": "arbol",
   "Tiendas y servicios": "catalogo", "Stores and services": "catalogo",
+  "Compartir con Faro": "compartir", "Sharing with Faro": "compartir",
   "Seguro de vida": "seguro-vida", "Life insurance": "seguro-vida",
   Reglas: "reglas", Rules: "reglas",
   "Meta de ahorro": "meta-ahorro", "Savings goal": "meta-ahorro",

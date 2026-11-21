@@ -246,16 +246,19 @@ const DOC_CH = 512 * 1024;
  * until the mode rises. Classification mirrors sharedDocKind's name/type rules;
  * the content sniff still runs on the real pull, where it belongs.
  */
-export function nativePeekDocKinds(): ("contact" | "statement")[] {
+export function nativePeekDocKinds(): ("contact" | "statement" | "shared-text")[] {
   const n = native();
   if (!n?.docCount || !n.docInfo) return [];
-  const out: ("contact" | "statement")[] = [];
+  const out: ("contact" | "statement" | "shared-text")[] = [];
   const count = Math.min(12, Number(n.docCount()) || 0);
   for (let i = 0; i < count; i++) {
     let info: { name?: string; type?: string } = {};
     try { info = JSON.parse(n.docInfo(i) || "{}"); } catch { /* keep defaults */ }
     const type = (info.type || "").trim().toLowerCase();
     const name = (info.name || "").trim();
+    // 1.3.362: the shell's own name for a streamless text share (a store
+    // link, a receipt's text) — its doors are Esencial, not the bank's.
+    if (/compartido\.txt$/i.test(name)) { out.push("shared-text"); continue; }
     out.push(type === "text/vcard" || type === "text/x-vcard" || /\.vcf$/i.test(name) ? "contact" : "statement");
   }
   return out;

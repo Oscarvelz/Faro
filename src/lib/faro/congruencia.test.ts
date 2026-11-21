@@ -115,9 +115,13 @@ describe("the membership sign: a sign, tap-inert, never a door", () => {
     // el pin nombra su conjunto en positivo (Tiendas e IA). La ley de esta
     // cerca no cambia: toda herramienta de la mano es un botón de verdad y la
     // insignia de membresía no lo es.
+    // RE-FIJADO en 1.3.362: la mano crece una séptima herramienta SOLO para
+    // las Tiendas y solo con el asiento de la lista de espera (el reloj de
+    // arena que nace un deseo desde la pieza, la puerta del catálogo de
+    // §2c). La ley de esta cerca no cambia.
     const hand = screens.slice(screens.indexOf("cat-tools"), screens.indexOf('className="cat-badge"'));
     const buttons = hand.match(/<button type="button"/g) ?? [];
-    assert.equal(buttons.length, 6);
+    assert.equal(buttons.length, 7);
     assert.match(hand, /\(item\.kind === "store" \|\| item\.kind === "ai"\) \? <button type="button" className="icon-btn cat-act pin-btn"/,
       "el pin es herramienta solo de Tiendas e IA");
   });

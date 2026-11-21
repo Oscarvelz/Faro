@@ -20,6 +20,7 @@ import { guardEditorExit, hasEditorExit } from "@/lib/faro/editor-exit";
 import { markTornFlows } from "@/lib/faro/flow-park";
 import { applyDueFile, dueFileSectionOf, snapshotDueFile } from "@/lib/faro/duefile";
 import { syncDecision } from "@/lib/faro/syncdecide";
+import { shouldAutoRate } from "@/lib/faro/sharelink";
 import { buildAdvice, buildBudget, buildInsights, categorySlices, monthLines, spendCategorySlices, summarize } from "@/lib/faro/engine";
 import { monthName, translate } from "@/lib/faro/i18n";
 import { convertMinor, eventCombo, formatGuest, formatMoney, formatMoneyShort, formatRate, isTypingTarget, monthKey as toKey, parseRate, productHref, shiftMonth, toGuestMinor, uid } from "@/lib/faro/money";
@@ -1473,6 +1474,29 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       ? (en ? `Autopay: ${settled[0]!.concept}` : `Pago automático: ${settled[0]!.concept}`)
       : (en ? `Autopay: ${settled.length} payments` : `Pago automático: ${settled.length} pagos`);
     commit(() => state, label);
+  }, [session, commit]);
+
+  // La tasa se trae sola (mapa §18.5 — 1.3.362): al abrir un libro real,
+  // si la tasa guardada no es la manual del usuario y no es de hoy, se
+  // trae la pública una vez y se guarda CON su fuente y su fecha. La
+  // manual manda siempre (shouldAutoRate lo cerca en sharelink.ts). Sin
+  // red, fetchOfficialRate cae a su respaldo BCN y, si el valor no
+  // cambia, ni siquiera se anota: el piso offline queda intacto y el
+  // historial sin ruido.
+  const rateDayRef = useRef("");
+  useEffect(() => {
+    if (!session || dataMode() !== "real") return;
+    const todayISO = new Date().toISOString().slice(0, 10);
+    if (rateDayRef.current === todayISO) return;
+    if (!shouldAutoRate(session.ledger.settings, todayISO)) { rateDayRef.current = todayISO; return; }
+    rateDayRef.current = todayISO;
+    void fetchOfficialRate().then((rate) => {
+      commit((s) => {
+        if (!shouldAutoRate(s.settings, todayISO)) return s;
+        if (s.settings.rateE4 === rate.rateE4 && s.settings.rateAsOf === rate.asOf) return s;
+        return { ...s, settings: { ...s.settings, rateE4: rate.rateE4, rateSource: rate.source, rateAsOf: rate.asOf } };
+      }, `Tasa ${rate.source} ${formatRate(rate.rateE4)}`);
+    }).catch(() => { /* sin red: la tasa guardada sigue mandando */ });
   }, [session, commit]);
 
   const setAwakeOn = useCallback((on: boolean) => {

@@ -25,9 +25,9 @@ import { RemitPeopleBox } from "@/components/faro/remit-people";
 import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { AskBox } from "@/components/faro/ask-box";
-import { WaitlistSection, WishEntry } from "@/components/faro/waitlist";
+import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, UserButton } from "@/lib/auth/gates";
@@ -7906,6 +7906,9 @@ function CatalogEditor() {
   // Congruency pass (Oscar, 2026-11-11): at rest a row carries only the little pen on its name and ONE
   // fold icon at the far right; the tools (eye, replace, trash) unfold from it — one row open at a time.
   const [toolsFor, setToolsFor] = useState<string | null>(null);
+  // 1.3.362 (§2c/§18): la puerta del catálogo a la lista de espera — la
+  // hoja del deseo nace con la tienda puesta desde su pieza.
+  const [wishFor, setWishFor] = useState<CatalogItem | null>(null);
   const [replaceFor, setReplaceFor] = useState<string | null>(null);
   const [replaceCustom, setReplaceCustom] = useState("");
   const [pending, setPending] = useState<{ item: CatalogItem; target: ReplaceTarget; targetName: string; count: number } | null>(null);
@@ -8327,6 +8330,10 @@ function CatalogEditor() {
                   1.3.260: antes de escribir, la ventana de la casa lo confirma
                   (toggleStorePinFor) — el guardado vive dentro de su run. */}
               {(item.kind === "store" || item.kind === "ai") ? <button type="button" className="icon-btn cat-act pin-btn" style={{ "--i": 3 } as CSSProperties} aria-label={storePinned(item) ? t("widget.pin.on") : t("widget.pin")} aria-pressed={storePinned(item)} onClick={() => toggleStorePinFor(item)}><Pin className="size-4" fill={storePinned(item) ? "currentColor" : "none"} /></button> : null}
+              {/* 1.3.362: la puerta del catálogo — desde la pieza de una
+                  tienda nace un deseo con la tienda puesta (asiento de la
+                  lista de espera; sin él, la puerta no se ofrece). */}
+              {item.kind === "store" && has("advisor.waitlist") ? <button type="button" className="icon-btn cat-act" style={{ "--i": 4 } as CSSProperties} aria-label={t("cat.wish")} onClick={() => setWishFor(item)}><Hourglass className="size-4" /></button> : null}
               {/* 1.3.271: en el asiento donde iría el pin, el seguro lleva su
                   plan — no se puede fijar, como las suscripciones (la nota de
                   la tarjeta Widget sigue siendo verdad), y su botón abre el
@@ -8383,6 +8390,7 @@ function CatalogEditor() {
           ejemplo y la foto del widget enseña el real (la trampa de pinsdiag-257). */}
       {sampleOn() ? <p className="tree-hint">{t("widget.pin.sample")}</p> : null}
       {groups.map(renderGroup)}
+      {wishFor ? <WishSheet initial={{ store: displayName(wishFor, lang) }} onClose={() => setWishFor(null)} /> : null}
       <div className="ah-form sc-form is-item">
         <div className="ah-grid">
           <label className="label is-wide">

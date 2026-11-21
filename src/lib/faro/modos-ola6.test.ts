@@ -158,9 +158,13 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // (modo declarado en el tema, capítulo del Asesor; su función es
     // advisor.waitlist — anotar un deseo es declarar, fallo de Oscar).
     // La distribución se mueve a 128 · 106 · 129 sobre 363.
+    // ENMIENDA COMPARTIR (1.3.362): nace compartir en Esencial (modo
+    // declarado en el tema; su función es inbox.link — recibir y
+    // declarar, como su puerta). La distribución se mueve a
+    // 129 · 106 · 129 sobre 364.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 363);
-    assert.equal(count("esencial"), 128);
+    assert.equal(MANUAL_TOPICS.length, 364);
+    assert.equal(count("esencial"), 129);
     assert.equal(count("ritmo"), 106);
     assert.equal(count("completo"), 129);
   });

@@ -404,14 +404,35 @@ class MainActivity : Activity() {
         val docDir = File(cacheDir, "shared-docs").apply { mkdirs() }
         if (uris.isEmpty()) {
             // Some Contacts apps put the vCard itself in EXTRA_TEXT instead of a stream (the
-            // PWA's sw.js sorts those by content too). That text is a file for Faro; any other
-            // streamless share is not, and ends here as it always did.
-            val text = i.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.contains("BEGIN:VCARD", ignoreCase = true) } ?: return
-            val f = File(docDir, "0-contacto.vcf")
+            // PWA's sw.js sorts those by content too). That text is a file for Faro.
+            val rawText = i.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() } ?: return
+            if (rawText.contains("BEGIN:VCARD", ignoreCase = true)) {
+                val f = File(docDir, "0-contacto.vcf")
+                runCatching {
+                    f.writeText(rawText)
+                    if (f.length() > 0) {
+                        synchronized(sharedDocs) { sharedDocs.clear(); docDir.listFiles()?.forEach { if (it != f) it.delete() }; sharedDocs.add(SharedPic(f, "contacto.vcf", "text/vcard")) }
+                        if (pageReady) dispatch("dispatchEvent(new Event('faronative-docs'))")
+                    }
+                }
+                return
+            }
+            // 1.3.362 (mapa §18): any other streamless text share — a store link, a digital
+            // receipt's text — is a file for Faro too, in the same doc tray, under its own
+            // name so it replaces only its own kind and never a waiting statement. The web
+            // side routes it by content: a URL goes to the product doors, plain text to the
+            // receipt door. The share's title rides as the first line when it adds anything.
+            val title = i.getStringExtra(Intent.EXTRA_TITLE)?.trim().orEmpty()
+            val body = if (title.isNotEmpty() && !rawText.contains(title)) "$title\n$rawText" else rawText
+            val f = File(docDir, "0-compartido.txt")
             runCatching {
-                f.writeText(text)
+                f.writeText(body)
                 if (f.length() > 0) {
-                    synchronized(sharedDocs) { sharedDocs.clear(); docDir.listFiles()?.forEach { if (it != f) it.delete() }; sharedDocs.add(SharedPic(f, "contacto.vcf", "text/vcard")) }
+                    synchronized(sharedDocs) {
+                        docDir.listFiles()?.forEach { if (it.name.endsWith("-compartido.txt")) it.delete() }
+                        sharedDocs.removeAll { it.name == "compartido.txt" }
+                        sharedDocs.add(SharedPic(f, "compartido.txt", "text/plain"))
+                    }
                     if (pageReady) dispatch("dispatchEvent(new Event('faronative-docs'))")
                 }
             }

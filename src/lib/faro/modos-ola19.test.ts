@@ -405,6 +405,10 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // 1.3.356 (Ola 6): el noveno — el asentamiento del pago automático al
   // abrir, que compone el estado entero que settleAutopay devuelve o no
   // escribe nada (sin períodos vencidos no hay commit).
+  // 1.3.362 (§18.5): la tasa que se trae sola al abrir — la composición
+  // se encabeza con su propia cerca (shouldAutoRate: la manual jamás) y
+  // solo escribe si el valor o la fecha cambian; aterrizaje idempotente.
+  "components/faro/provider.tsx|commit|shouldAutoRate|—": ["aterrizaje", 1],
   "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 9],
   "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 1],
   // 1.3.357 (la lista-plan): la hoja del plan comete sus marcas por
@@ -490,6 +494,22 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // sellar la pregunta, renovar, dejar, comprar (nace el borrador) y
   // borrar son idempotentes o nacen del estado vivo en el acto.
   "components/faro/waitlist.tsx|commit|addWish|—": ["aterrizaje", 1],
+  // 1.3.362 (§18.3): la mirada de nuevo del precio al vencer la espera —
+  // nace del estado vivo y solo escribe si el deseo sigue esperando sin
+  // mirada para este vencimiento; aterrizaje como sus hermanas.
+  "components/faro/waitlist.tsx|commit|lookWish|lookWish": ["aterrizaje", 1],
+  // 1.3.362 (§2c): el recibo digital compartido cae en la bandeja por la
+  // puerta ordinaria de borradores — aterrizaje, como todo lo que la
+  // bandeja recibe (la mesa juzga después).
+  "components/faro/link-inbox.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
+  // 1.3.362 (§18.1): las puertas de la hoja del producto comparten por la
+  // puerta ordinaria de cada casa — el deseo nace como en su lista, el
+  // plan como en su hoja, la compra cae en la bandeja: aterrizaje todo.
+  "components/faro/share-product.tsx|commit|addWish|—": ["aterrizaje", 1],
+  "components/faro/share-product.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 2],
+  // La cuarta puerta (guardar la tienda) compone la pieza del catálogo en
+  // línea, encabezada por su uid: nace como cualquier pieza a mano.
+  "components/faro/share-product.tsx|commit|uid|—": ["aterrizaje", 1],
   "components/faro/waitlist.tsx|commit|askStamp|askStamp+patchWish": ["aterrizaje", 1],
   "components/faro/waitlist.tsx|commit|buyWish|—": ["aterrizaje", 1],
   "components/faro/waitlist.tsx|commit|dropWish|dropWish": ["aterrizaje", 1],

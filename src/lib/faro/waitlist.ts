@@ -76,7 +76,7 @@ function wishId(now: Date): string {
 
 export function addWish(
   state: LedgerState,
-  input: { concept: string; amountMinor: number | null; currency: Currency; store: string },
+  input: { concept: string; amountMinor: number | null; currency: Currency; store: string; link?: string },
   now: Date,
 ): { state: LedgerState; wish: Wish } {
   const hours = waitHoursOf(state);
@@ -94,8 +94,26 @@ export function addWish(
     permanent: false,
     status: "waiting",
     closedAt: "",
+    ...(input.link ? { link: input.link } : {}),
   };
   return { state: { ...state, wishes: [...wishesOf(state), wish] }, wish };
+}
+
+/** El precio mirado de nuevo (5c §3.3): guarda UNA lectura en línea por
+ * espera — atada a su dueAt; una segunda lectura para la misma espera no
+ * pisa la primera, y renovar (dueAt nuevo) la rearma sola. Sin enlace o
+ * sin espera viva, no hay nada que mirar. */
+export function lookWish(
+  state: LedgerState,
+  id: string,
+  look: { priceMinor: number; currency: Currency; at: string },
+): LedgerState {
+  const list = wishesOf(state);
+  const w = list.find((x) => x.id === id);
+  if (!w || !w.link || w.status !== "waiting") return state;
+  if (w.look && w.look.forDue === w.dueAt) return state;
+  const next = { ...w, look: { ...look, forDue: w.dueAt } };
+  return { ...state, wishes: list.map((x) => (x.id === id ? next : x)) };
 }
 
 function patchWish(state: LedgerState, id: string, patch: Partial<Wish>): LedgerState {

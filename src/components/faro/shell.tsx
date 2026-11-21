@@ -64,6 +64,7 @@ mountCpCity(); // 1.3.201: the Cyberpunk city layers (display:none outside that 
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
 const ShareInbox = lazy(() => import("./share-inbox"));
 const DocInbox = lazy(() => import("./doc-inbox"));
+const LinkInbox = lazy(() => import("./link-inbox"));
 
 const ManualLayer = lazy(() => import("./manual"));
 
@@ -1102,6 +1103,7 @@ export function Shell() {
     <>
     <PeopleInbox />
     <BankDock />
+    <Suspense fallback={null}><LinkInbox /></Suspense>
     <div ref={frameRef} className={`app-frame${split ? " is-split" : ""}${wide && split && splitAxis === "col" ? " is-cols" : ""}${dragging ? " is-dragging" : ""}${dockClass}`}>
       <nav ref={railRef} className="rail" aria-label={t("nav.desk")}>
         <div className="dock-face">

@@ -42,3 +42,7 @@
 .wl-pieces li { display: flex; gap: 8px; align-items: baseline; font-size: .88rem; flex-wrap: wrap; }
 .wl-piece-tag { opacity: .65; font-size: .8rem; }
 .wl-piece-date { opacity: .55; font-size: .8rem; margin-left: auto; }
+
+/* 1.3.362: el enlace del deseo y el precio mirado de nuevo, en la tarjeta. */
+.wl-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+.wl-link svg { width: 13px; height: 13px; vertical-align: -2px; margin-left: 3px; }

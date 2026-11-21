@@ -549,7 +549,7 @@ export const FEATURES = {
    * se declara antes que la superficie, como manda la casa. */
   "capture.plan": R,
   /* §1.22 Bandeja de documentos compartidos — enrutado por modo */
-  "inbox.bank": C, "inbox.vcf": R, "inbox.image-card": C, "inbox.image-receipt": E,
+  "inbox.bank": C, "inbox.vcf": R, "inbox.image-card": C, "inbox.image-receipt": E, "inbox.link": E,
   /* §1.23 Exportar informes (fallo D-bis 17: panel recompuesto desde Ritmo) */
   "export.panel": R, "export.full-sheets": C,
   /* §1.24 Modo de ejemplo (fallo D-bis 18: la casa se mira con la cara del modo) */

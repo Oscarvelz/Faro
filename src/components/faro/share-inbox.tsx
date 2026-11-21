@@ -6,13 +6,14 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CreditCard, Images, ReceiptText, X } from "lucide-react";
+import { CreditCard, Images, Package, ReceiptText, X } from "lucide-react";
 import { native } from "@/spa/native";
 import { useLayer } from "@/lib/manual/back";
 import { useFaro } from "./provider";
 import { CardScan } from "./cards";
 import { ScanSheet } from "./receipt-scan";
 import { ReviewTable } from "./review-table";
+import { ProductSheet } from "./share-product";
 import "./scan.css";
 import "./share-inbox.css";
 
@@ -44,7 +45,7 @@ function pull(): File[] {
   return out;
 }
 
-function Ask({ count, onCards, onReceipt, onClose }: { count: number; onCards: () => void; onReceipt: () => void; onClose: () => void }) {
+function Ask({ count, onCards, onReceipt, onProduct, onClose }: { count: number; onCards: () => void; onReceipt: () => void; onProduct: () => void; onClose: () => void }) {
   const { lang, has } = useFaro();
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const first = useRef<HTMLButtonElement>(null);
@@ -73,6 +74,14 @@ function Ask({ count, onCards, onReceipt, onClose }: { count: number; onCards: (
             <ReceiptText aria-hidden /><span>{L("Recibo o gasto", "Receipt or expense")}</span>
           </button>
         ) : null}
+        {/* 1.3.362 (§2c): la captura como producto — la imagen gana las
+            puertas del enlace (espera, plan, compra), con el precio leído
+            de la imagen cuando se ve. */}
+        {has("inbox.link") ? (
+          <button type="button" className="scn-opt" data-opt="product" onClick={onProduct}>
+            <Package aria-hidden /><span>{L("Es un producto", "It is a product")}</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -80,7 +89,7 @@ function Ask({ count, onCards, onReceipt, onClose }: { count: number; onCards: (
 
 export default function ShareInbox() {
   const [files, setFiles] = useState<File[] | null>(null);
-  const [mode, setMode] = useState<"ask" | "cards" | "receipt" | "review">("ask");
+  const [mode, setMode] = useState<"ask" | "cards" | "receipt" | "review" | "product">("ask");
   useEffect(() => {
     const take = () => {
       const f = pull();
@@ -94,6 +103,7 @@ export default function ShareInbox() {
   const close = () => { setFiles(null); setMode("ask"); };
   if (mode === "cards") return <CardScan files={files} onClose={close} />;
   if (mode === "review") return <ReviewTable onClose={close} />;
+  if (mode === "product") return <ProductSheet product={{ title: "", store: "", url: "", priceMinor: null, currency: "USD", priceFrom: null }} imageFile={files[0]} onClose={close} />;
   if (mode === "receipt") return createPortal(<ScanSheet files={files} from="purchase" onClose={close} onReview={() => setMode("review")} />, document.body);
-  return createPortal(<Ask count={files.length} onCards={() => setMode("cards")} onReceipt={() => setMode("receipt")} onClose={close} />, document.body);
+  return createPortal(<Ask count={files.length} onCards={() => setMode("cards")} onReceipt={() => setMode("receipt")} onProduct={() => setMode("product")} onClose={close} />, document.body);
 }

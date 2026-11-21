@@ -2261,6 +2261,7 @@ const FORMAS_INLINE: Record<string, [Doctrina, string]> = {
   "components/faro/screens.tsx:applyReplace#1": ["naturaleza", "reemplazar una pieza por otra es la operación entera elegida; replaceCatalogItem compone sobre el vivo"],
   "components/faro/screens.tsx:onCardPointerUp#1": ["campo", "reordena el catálogo desde el vivo en el mismo commit"],
   "components/faro/screens.tsx:savePlan#1": ["campo", "la pieza editada se mapea sobre el catálogo vivo y su línea se sincroniza en el mismo commit. Ola 18 (BR18-1): viaja por la puerta guardada — la pieza que ya no vive aborta sin marco"],
+  "components/faro/share-product.tsx:toStore#1": ["anexa", "1.3.362 (§18.1): la cuarta puerta de la hoja del producto compone la pieza de la tienda EN LÍNEA y la anexa al catálogo vivo dentro del commit — la pieza nace con la forma de cualquier pieza a mano de Tiendas y servicios; ninguna línea ni total se toca"],
 };
 
 /* ENMIENDA CAPTURA OLA 1: sale «receipt-scan.tsx:save#1» — el save() de

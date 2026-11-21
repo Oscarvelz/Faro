@@ -7,14 +7,16 @@
  * la pregunta «¿Todavía lo quieres?» llega una vez por plazo; comprar
  * entra por la captura prerrellenada a la bandeja y la mesa decide.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Hourglass, Trash2, X } from "lucide-react";
+import { ExternalLink, Hourglass, Trash2, X } from "lucide-react";
 import {
-  addWish, askStamp, buyWish, dropWish, isRipe, leaveWish, remainingFraction,
+  addWish, askStamp, buyWish, dropWish, isRipe, leaveWish, lookWish, remainingFraction,
   remainingMs, renewWish, setWishPrice, waitingWishes, wishScenario, yearAccount,
 } from "@/lib/faro/waitlist";
 import { parseAmount } from "@/lib/faro/money";
+import { todayIso } from "@/lib/faro/loans";
+import { fetchProductMeta } from "./share-product";
 import type { Currency, Wish } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
@@ -39,13 +41,25 @@ function leftText(w: Wish, lang: string, now: Date): string {
 }
 
 /** La hoja del deseo: anotar uno nuevo, o la compra prerrellenada. */
-export function WishSheet({ onClose, buyId }: { onClose: () => void; buyId?: string }) {
+export function WishSheet({ onClose, buyId, initial }: {
+  onClose: () => void;
+  buyId?: string;
+  /** El prerrelleno de una puerta (el catálogo de Tiendas, 1.3.362). */
+  initial?: { concept?: string; store?: string };
+}) {
   const { session, commit, lang } = useFaro();
   const existing = buyId ? (session?.ledger.wishes ?? []).find((w) => w.id === buyId) : undefined;
-  const [concept, setConcept] = useState(existing?.concept ?? "");
-  const [amount, setAmount] = useState(existing?.amountMinor != null ? String(existing.amountMinor / 100) : "");
-  const [currency, setCurrency] = useState<Currency>(existing?.currency ?? session?.ledger.settings.display ?? "USD");
-  const [store, setStore] = useState(existing?.store ?? "");
+  // La compra nace con el precio MIRADO DE NUEVO cuando lo hay (§3.3):
+  // es la lectura en línea de esta espera, dicha en la hoja; la persona
+  // lo corrige como corrige cualquier precio.
+  const look = existing?.look && existing.look.forDue === existing.dueAt ? existing.look : undefined;
+  const [concept, setConcept] = useState(existing?.concept ?? initial?.concept ?? "");
+  const [amount, setAmount] = useState(
+    look != null ? String(look.priceMinor / 100)
+    : existing?.amountMinor != null ? String(existing.amountMinor / 100) : "",
+  );
+  const [currency, setCurrency] = useState<Currency>(look?.currency ?? existing?.currency ?? session?.ledger.settings.display ?? "USD");
+  const [store, setStore] = useState(existing?.store ?? initial?.store ?? "");
   useLayer(true, onClose);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -95,6 +109,12 @@ export function WishSheet({ onClose, buyId }: { onClose: () => void; buyId?: str
             <span className="lab-head">{L(lang, "Tienda (opcional)", "Store (optional)")}</span>
             <input className="field" data-anchor="wish-store" value={store} onChange={(e) => setStore(e.target.value)} placeholder={L(lang, "Ej.: Amazon", "E.g.: Amazon")} />
           </label>
+          {look && existing ? (
+            <p className="cap-text-note">
+              {L(lang, `Precio mirado de nuevo el ${look.at}: ${fmtAmt(look.priceMinor, look.currency)}${existing.amountMinor != null && look.currency === existing.currency ? ` — lo anotaste a ${fmtAmt(existing.amountMinor, existing.currency)}` : ""}. Es una lectura de la página: corrígelo si la tienda dice otra cosa.`,
+                `Price looked up again on ${look.at}: ${fmtAmt(look.priceMinor, look.currency)}${existing.amountMinor != null && look.currency === existing.currency ? ` — you noted it at ${fmtAmt(existing.amountMinor, existing.currency)}` : ""}. It is a reading of the page: fix it if the store says otherwise.`)}
+            </p>
+          ) : null}
           <p className="cap-text-note">
             {buyId
               ? L(lang, "Entra a la bandeja como borrador: la mesa lo revisa antes de guardarlo en el libro.", "It goes to the tray as a draft: the review table checks it before it is saved to the book.")
@@ -142,6 +162,26 @@ function WishCard({ w, now }: { w: Wish; now: Date }) {
   const ripe = isRipe(w, now);
   const frac = remainingFraction(w, now);
   const C = 2 * Math.PI * 26;
+  // El precio mirado de nuevo (§3.3): al vencer una espera CON enlace, la
+  // tarjeta lee la página UNA vez por plazo y guarda la lectura en el
+  // deseo. Sin red o sin precio publicado, no pasa nada: la pregunta
+  // llega como siempre.
+  const lookTried = useRef("");
+  const needsLook = ripe && !!w.link && (!w.look || w.look.forDue !== w.dueAt);
+  useEffect(() => {
+    if (!needsLook || !w.link) return;
+    const stamp = `${w.id}:${w.dueAt}`;
+    if (lookTried.current === stamp) return;
+    lookTried.current = stamp;
+    let live = true;
+    void fetchProductMeta(w.link).then((meta) => {
+      if (!live || !meta || meta.priceMinor == null) return;
+      commit((s) => lookWish(s, w.id, { priceMinor: meta.priceMinor!, currency: meta.currency ?? w.currency, at: todayIso() }),
+        L(lang, "Precio mirado de nuevo", "Price looked up again"));
+    });
+    return () => { live = false; };
+  }, [needsLook, w.id, w.dueAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const look = w.look && w.look.forDue === w.dueAt ? w.look : undefined;
   const runScenario = () => {
     if (!session) return;
     setScenario(wishScenario(session.ledger, key, w, lang, names, now, has("advisor.ask-scenarios")));
@@ -188,6 +228,22 @@ function WishCard({ w, now }: { w: Wish; now: Date }) {
               </div>
             </div>
           )}
+        {w.link ? (
+          <p className="wl-left">
+            <a className="wl-link" href={w.link} target="_blank" rel="noreferrer">{L(lang, "Ver el producto", "See the product")}<ExternalLink aria-hidden /></a>
+          </p>
+        ) : null}
+        {look ? (
+          <p className="wl-left" data-anchor="wish-look">
+            {look.currency === w.currency && w.amountMinor != null
+              ? look.priceMinor < w.amountMinor
+                ? L(lang, `Precio mirado de nuevo hoy: bajó a ${fmtAmt(look.priceMinor, look.currency)}; lo anotaste a ${fmtAmt(w.amountMinor, w.currency)}.`, `Price looked up again today: down to ${fmtAmt(look.priceMinor, look.currency)}; you noted it at ${fmtAmt(w.amountMinor, w.currency)}.`)
+                : look.priceMinor > w.amountMinor
+                  ? L(lang, `Precio mirado de nuevo hoy: subió a ${fmtAmt(look.priceMinor, look.currency)}; lo anotaste a ${fmtAmt(w.amountMinor, w.currency)}.`, `Price looked up again today: up to ${fmtAmt(look.priceMinor, look.currency)}; you noted it at ${fmtAmt(w.amountMinor, w.currency)}.`)
+                  : L(lang, `Precio mirado de nuevo hoy: sigue a ${fmtAmt(look.priceMinor, look.currency)}.`, `Price looked up again today: still ${fmtAmt(look.priceMinor, look.currency)}.`)
+              : L(lang, `Precio mirado de nuevo hoy: ${fmtAmt(look.priceMinor, look.currency)}.`, `Price looked up again today: ${fmtAmt(look.priceMinor, look.currency)}.`)}
+          </p>
+        ) : null}
         {!ripe && !w.permanent ? <p className="wl-left">{leftText(w, lang, now)}</p> : null}
         {w.permanent ? <p className="wl-left">{L(lang, "En tu lista, sin más preguntas.", "On your list, with no more questions.")}</p> : null}
         {w.amountMinor != null ? (

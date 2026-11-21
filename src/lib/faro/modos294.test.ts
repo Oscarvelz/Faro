@@ -185,7 +185,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["advisor.waitlist", E], // 1.3.360 — 5c: la lista de espera del Asesor; anotar y decidir un deseo es declarar, declarado antes que la superficie
   ["settings.wait-time", R], // 1.3.360 — 5c: el plazo de la espera se configura en Ajustes; configurar es administrar (Ritmo)
   // §1.22 Bandeja de documentos compartidos
-  ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E],
+  ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E], ["inbox.link", E],
   // §1.23 Exportar informes
   ["export.panel", R], ["export.full-sheets", C],
   // §1.24 Modo de ejemplo

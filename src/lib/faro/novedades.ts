@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.362",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "compartir",
+    title: { es: "Compartir con Faro", en: "Sharing with Faro" },
+    points: {
+      es: [
+        "Comparte un enlace de una tienda con Faro y elige su puerta: a la lista de espera, a un plan, anotarlo como compra o guardar la tienda — con lo leído ya puesto y la puerta sugerida marcada.",
+        "El correo de una compra en línea se lee como recibo digital, sin foto y con su texto exacto; y una captura puede ser un producto, con el precio leído de la imagen cuando se ve.",
+        "Al vencer la espera de un deseo con enlace, Faro mira su precio otra vez en la página y lo dice junto a la pregunta. La tasa del dólar también se trae sola al abrir, con su fuente y su fecha — la manual siempre manda.",
+      ],
+      en: [
+        "Share a store link with Faro and choose its door: to the waiting list, to a plan, noted as a purchase, or save the store — with what was read already filled in and the suggested door marked.",
+        "An online purchase's email reads as a digital receipt, no photo and with its exact text; and a screenshot can be a product, with the price read from the picture when it shows.",
+        "When a linked wish's wait is up, Faro looks at its price again on the page and says it next to the question. The dollar rate also fetches itself on opening, with its source and date — the manual one always rules.",
+      ],
+    },
+  },
+  {
     version: "1.3.361",
     date: "2026-11-21",
     level: "menor",
