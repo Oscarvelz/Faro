@@ -177,9 +177,12 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // Completo (su función es study.prices — la evidencia de Estudio;
     // su otra llave, advisor.price-watch, también es Completo). La
     // distribución se mueve a 130 · 106 · 131 sobre 367.
+    // ENMIENDA BITÁCORA (1.3.367): nace bitacora en Esencial (su
+    // función es folios.logbook — leer la propia historia). La
+    // distribución se mueve a 131 · 106 · 131 sobre 368.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 367);
-    assert.equal(count("esencial"), 130);
+    assert.equal(MANUAL_TOPICS.length, 368);
+    assert.equal(count("esencial"), 131);
     assert.equal(count("ritmo"), 106);
     assert.equal(count("completo"), 131);
   });

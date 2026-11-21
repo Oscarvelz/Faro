@@ -21,7 +21,7 @@ export type PlacePatch = {
   manual?: null;
 };
 
-const SECTIONS: SectionId[] = ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice", "settings", "historial", "archivo"];
+const SECTIONS: SectionId[] = ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice", "settings", "historial", "archivo", "bitacora"];
 
 /** Provider patch for a topic's `go`, plus the `faro-open` id to fire once the screen is there. */
 export function screenPatch(go: GoLike): { patch: PlacePatch; open: string[] } {
@@ -53,6 +53,7 @@ const NAMES: Record<string, Pair> = {
   settings: ["Ajustes", "Settings"],
   historial: ["Historial", "History"],
   archivo: ["Archivo", "Archive"],
+  bitacora: ["Bitácora", "Logbook"],
   save: ["Ahorros", "Savings"],
   meta: ["Meta", "Goal"],
   retiro: ["Retiro", "Retirement"],

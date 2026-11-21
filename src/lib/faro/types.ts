@@ -59,13 +59,16 @@ export const SECTIONS = [
   // ellos y el arranque puede volver a ellos, como a cualquier página principal.
   "archivo",
   "historial",
+  // La Bitácora (1.3.367): la tercera pastilla de Folios — el registro
+  // callado de los meses y las ediciones anuales encuadernadas.
+  "bitacora",
 ] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
 /** Sections the finger can loop through. Settings stays out of the swipe.
  *  Las pastillas de Folios van juntas y en su orden interno (historial → archivo):
  *  un deslizamiento sencillo va de la una a la otra (Oscar, 2026-11-13). */
-export const SWIPE_SECTIONS: SectionId[] = ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice", "historial", "archivo"];
+export const SWIPE_SECTIONS: SectionId[] = ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice", "historial", "archivo", "bitacora"];
 
 export type Named = {
   id: string;
@@ -589,6 +592,62 @@ export type PlanList = {
   };
 };
 
+/** Un texto de la Bitácora, congelado en los dos idiomas: la edición se
+ * contó una vez y se lee para siempre tal como se contó. */
+export type LogText = { es: string; en: string };
+
+/** Una tarjeta de la serie anual. Tres tipos con cifra (big, compare,
+ * trend) y dos de relato (cover, close) — la gramática fija del estudio.
+ * Las cifras se congelan como monto + su moneda del día: la edición no se
+ * convierte ni se recalcula al reabrirla. */
+export type LogCard = {
+  kind: "cover" | "big" | "compare" | "trend" | "close";
+  title: LogText;
+  figure?: { minor: number; currency: Currency };
+  figureLabel?: LogText;
+  before?: { minor: number; currency: Currency };
+  context: LogText;
+  explain: { what: LogText; how: LogText; so: LogText };
+  /** trend: los 12 valores del año (en la moneda de la edición). */
+  points?: number[];
+  /** trend: el mes protagonista, 0–11. */
+  mark?: number;
+};
+
+/** La edición anual encuadernada: el documento «Tu año en Faro». */
+export type LogEdition = {
+  year: number;
+  /** El día en que se contó (ISO): el pie de la edición. */
+  countedOn: string;
+  /** Año parcial (el libro nació a mitad de año): la apertura lo declara. */
+  partial: boolean;
+  /** El primer mes con registro ("2025-08") cuando es parcial. */
+  since: string;
+  /** La moneda de lectura del día en que se contó. */
+  currency: Currency;
+  cards: LogCard[];
+  /** "" hasta que la serie se cierra por primera vez (retira el anuncio). */
+  seenAt: string;
+};
+
+/** La foto callada de un mes cerrado: el registro vivo del año en curso. */
+export type LogMonth = {
+  month: string; // "2026-10"
+  countedOn: string;
+  currency: Currency;
+  income: number;
+  expense: number;
+  net: number;
+  savedFlow: number;
+  topName: LogText | null;
+  topMinor: number;
+};
+
+export type Logbook = {
+  months: Record<string, LogMonth>;
+  editions: Record<string, LogEdition>;
+};
+
 export type LedgerState = {
   v: 1;
   structure: Structure;
@@ -614,6 +673,13 @@ export type LedgerState = {
    * historia (la cuenta del año se deriva de aquí, nunca se almacena).
    * Ausente en libros viejos = ningún deseo. Viaja con el libro (D1). */
   wishes?: Wish[];
+  /** La Bitácora (1.3.367): las fotos congeladas de los meses cerrados y
+   * las ediciones anuales encuadernadas de «Tu año en Faro». Vive FUERA de
+   * months y ningún total la lee: es un documento, no dinero. Una edición
+   * guardada jamás se recalcula — corregir el libro no reescribe la
+   * historia. Ausente en libros viejos = ninguna bitácora. Viaja con el
+   * libro (D1). */
+  logbook?: Logbook;
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
   /** Money the user lent (Me deben, 1.3.92; device-only before). Abonos are income lines with `lentId`. See debts.ts. */

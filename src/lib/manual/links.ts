@@ -23,6 +23,8 @@ export const LINKS: Record<string, string> = {
   "Pegar una lista": "captura-lista", "Paste a list": "captura-lista",
   "Lista-plan": "lista-plan", "Plan list": "lista-plan",
   "Lista de espera": "lista-espera", "Waiting list": "lista-espera",
+  "Bitácora": "bitacora", Logbook: "bitacora",
+  "Tu año en Faro": "bitacora", "Your year in Faro": "bitacora",
   "Novedades": "novedades", "What's new": "novedades",
   "Acerca de": "novedades", "About": "novedades",
   Widget: "widget-android",

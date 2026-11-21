@@ -220,7 +220,7 @@ describe("selección — el cableado", () => {
 
   it("S1: goSection recorre el bucle de Folios, como el par de Estudio recorre el suyo", () => {
     const provider = read("components/faro/provider.tsx");
-    assert.ok(provider.includes('const folios = ["historial", "archivo"] as const;'), "el bucle de Folios existe en el proveedor");
+    assert.ok(provider.includes('const folios = ["historial", "archivo", "bitacora"] as const;'), "el bucle de Folios existe en el proveedor");
     const go = provider.slice(provider.indexOf("const goSection"), provider.indexOf("const goSection") + 1600);
     assert.ok(go.includes('const study = ["stats", "advice"] as const;'), "el par de Estudio sigue en su bucle");
     assert.ok(go.includes("(folios as readonly string[]).includes(u.section)"), "goSection consulta el bucle de Folios");

@@ -36,6 +36,7 @@ export type Screen =
   | "advice" //     Estudio → Asesor
   | "historial" //  Folios → Historial
   | "archivo" //    Folios → Archivo
+  | "bitacora" //   Folios → Bitácora
   | "tools" //      Mesa de cambio (sheet on phone, aside on wide screens)
   | "settings"; //  Ajustes
 
@@ -1807,15 +1808,15 @@ export const MANUAL_CHAPTERS: Chapter[] = [
     // y por qué cada fila lleva puesta su procedencia.
     id: "folios",
     title: ["Folios", "Folios"],
-    intro: ["El diario de tu dinero por tiempo y el lugar donde descansa lo apartado: dos cuartos separados.", "Your money's journal by time and the place where what you set aside rests: two separate rooms."],
+    intro: ["El diario de tu dinero por tiempo, el lugar donde descansa lo apartado y el registro de tus meses y años: tres cuartos separados.", "Your money's journal by time, the place where what you set aside rests, and the record of your months and years: three separate rooms."],
     topics: [
       {
         id: "folios",
         depth: "manual",
         title: ["Folios", "Folios"],
-        sum: ["Dos cuartos con un solo techo: el diario y el descanso, sin mezclarse.", "Two rooms under one roof: the journal and the resting place, never mixed."],
-        what: ["Folios guarda dos cuartos separados: el Historial, el diario de cada movimiento en orden de tiempo, y el Archivo, donde descansa lo que apartas. El Historial nunca muestra lo que descansa, y nada de lo que descansa cuenta en una cifra, en el [[Asesor]] o en un aviso.", "Folios holds two separate rooms: the History, the journal of every movement in time order, and the Archive, where what you set aside rests. The History never shows what rests, and nothing that rests counts in any figure, in the [[Advisor]] or in a notification."],
-        bubble: ["Dos cuartos con un solo techo: el Historial, diario de cada movimiento, y el Archivo, donde descansa lo apartado. Nunca se mezclan.", "Two rooms under one roof: the History, a diary of every movement, and the Archive, where set-aside things rest. They never mix."],
+        sum: ["Tres cuartos con un solo techo: el diario, el descanso y el registro, sin mezclarse.", "Three rooms under one roof: the journal, the resting place and the record, never mixed."],
+        what: ["Folios guarda tres cuartos separados: el Historial, el diario de cada movimiento en orden de tiempo; el Archivo, donde descansa lo que apartas; y la [[Bitácora]], el registro de tus meses y tus años. El Historial nunca muestra lo que descansa, y nada de lo que descansa cuenta en una cifra, en el [[Asesor]] o en un aviso.", "Folios holds three separate rooms: the History, the journal of every movement in time order; the Archive, where what you set aside rests; and the [[Logbook]], the record of your months and years. The History never shows what rests, and nothing that rests counts in any figure, in the [[Advisor]] or in a notification."],
+        bubble: ["Tres cuartos con un solo techo: el Historial, el Archivo y la [[Bitácora]]. Nunca se mezclan.", "Three rooms under one roof: the History, the Archive and the [[Logbook]]. They never mix."],
         how: ["Toca Folios abajo, entre [[Libros]] y [[Estudio]]. Adentro, salta de un cuarto al otro con los chips de arriba o con un deslizamiento. Folios recuerda el último cuarto que visitaste.", "Tap Folios at the bottom, between [[Books]] and [[Study]]. Inside, jump from one room to the other with the chips at the top or with a swipe. Folios remembers the last room you visited."],
         go: { screen: "historial", anchor: "nav-folios", where: ["Abajo, entre Libros y Estudio", "At the bottom, between Books and Study"] },
         terms: [["Historial", "History"], ["Archivo", "Archive"], ["Diario", "Journal"]],
@@ -1856,6 +1857,19 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         tip: ["Así, bajando por el río a velocidad, nunca pierdes de vista de dónde nació cada dato.", "That way, running down the river at speed, you never lose sight of where each piece of data was born."],
         go: { screen: "historial", where: ["Folios → Historial", "Folios → History"] },
         terms: [["Procedencia", "Provenance"], ["Origen", "Origin"]],
+      },
+      {
+        id: "bitacora",
+        keys: ["folios.logbook"],
+        depth: "manual",
+        title: ["La Bitácora y Tu año en Faro", "The Logbook and Your year in Faro"],
+        sum: ["Tus meses se guardan callados; al cerrar el año se encuadernan en una edición que jamás se recalcula.", "Your months are kept quietly; when the year closes they are bound into an edition that is never recalculated."],
+        what: ["La [[Bitácora]] es el registro de tu tiempo en Faro. Cada mes que cierra guarda aquí su foto, callada. Al cerrar el año, esos meses se encuadernan en [[Tu año en Faro]]: una serie de tarjetas que cuenta el año con tus propios números — lo que entró y salió, lo apartado, los préstamos, dónde se fue más, los meses que marcaron el año, el precio que subió y el dinero que la espera te ahorró. [[Central]] la anuncia una vez, con una tarjeta; la edición queda guardada aquí para siempre.", "The [[Logbook]] is the record of your time in Faro. Each month that closes quietly keeps its photo here. When the year closes, those months are bound into [[Your year in Faro]]: a series of cards that tells the year with your own numbers — what came in and went out, what you set aside, your loans, where most of it went, the months that marked the year, the price that rose and the money the wait saved you. [[Central]] announces it once, with a card; the edition stays saved here for good."],
+        bubble: ["Cada mes cerrado guarda su foto en la [[Bitácora]]; al cerrar el año, los meses se encuadernan en [[Tu año en Faro]], que jamás se recalcula.", "Each closed month keeps its photo in the [[Logbook]]; when the year closes, the months are bound into [[Your year in Faro]], which is never recalculated."],
+        how: ["Toca una edición para recorrerla tarjeta a tarjeta, sin prisa: cada una espera a su lector, y si sales a mitad, la serie recuerda dónde ibas en este aparato. En una pantalla ancha, el índice de la derecha orienta, salta y resume.", "Tap an edition to walk it card by card, in no hurry: each one waits for its reader, and if you leave midway, the series remembers where you were on this device. On a wide screen, the index on the right guides, jumps and sums up."],
+        tip: ["La edición es un documento congelado: lleva su pie — «Contado el… con los datos de ese día» — y corregir el libro después no la reescribe. Comparar años es oficio de [[Estudio]], no de la bitácora.", "The edition is a frozen document: it carries its foot — “Counted on… with that day's data” — and correcting the book later does not rewrite it. Comparing years is [[Study]]'s work, not the logbook's."],
+        go: { screen: "bitacora", anchor: "logbook", where: ["Folios → Bitácora", "Folios → Logbook"] },
+        terms: [["Bitácora", "Logbook"], ["Tu año en Faro", "Your year in Faro"], ["Encuadernar", "Binding"]],
       },
     ],
   },

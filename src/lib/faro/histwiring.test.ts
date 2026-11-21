@@ -69,8 +69,9 @@ describe("el dock: cuatro ciudadanos, Folios entre Libros y Estudio", () => {
 });
 
 describe("el contenedor: hubOf, el nombre y los chips de Folios", () => {
-  it("hubOf devuelve «folios» para las dos pastillas y el encabezado lo nombra", () => {
-    assert.match(shell, /if \(section === "archivo" \|\| section === "historial"\) return "folios";/);
+  it("hubOf devuelve «folios» para las pastillas y el encabezado lo nombra", () => {
+    // 1.3.367: el trío — la Bitácora es la tercera pastilla del mismo hub.
+    assert.match(shell, /if \(section === "archivo" \|\| section === "historial" \|\| section === "bitacora"\) return "folios";/);
     assert.match(shell, /hub === "folios" \? t\("nav\.folios"\)/);
     // El (?) del hub lee el tema «folios» del manual (su capítulo propio).
     assert.match(shell, /hub === "folios" \? "folios"/);
@@ -81,7 +82,7 @@ describe("el contenedor: hubOf, el nombre y los chips de Folios", () => {
     // la vuelta Archivo → Historial caía «demasiado fuerte». La intención queda
     // intacta y más fuerte: ambas superficies pintan la pastilla por el mismo
     // camino, y ahora también la sientan por el mismo camino.
-    const renders = shell.match(/hub === "folios" \? \(<><FoliosChips \/>\{ui\.section === "archivo" \? <ArchivoScreen \/> : <HistorialScreen \/>\}<\/>\) : null/g) ?? [];
+    const renders = shell.match(/hub === "folios" \? \(<><FoliosChips \/>\{ui\.section === "archivo" \? <ArchivoScreen \/> : ui\.section === "bitacora" \? <BitacoraScreen \/> : <HistorialScreen \/>\}<\/>\) : null/g) ?? [];
     assert.equal(renders.length, 2, "ambas superficies deben pintar la pastilla por el mismo camino");
   });
 
@@ -103,8 +104,8 @@ describe("el contenedor: hubOf, el nombre y los chips de Folios", () => {
     assert.match(chips, /role="tablist"/);
     assert.match(chips, /aria-current=\{ui\.section === id \? "page" : undefined\}/);
     assert.match(chips, /t\(`nav\.\$\{id\}`\)/);
-    // El orden interno del contenedor: historial primero, archivo después.
-    assert.match(chips, /\["historial", "archivo"\]/);
+    // El orden interno del contenedor: historial, archivo y bitácora (1.3.367).
+    assert.match(chips, /\["historial", "archivo", "bitacora"\]/);
   });
 
   it("las claves del contenedor existen en ES y en EN (Folios no se traduce)", () => {
@@ -243,11 +244,11 @@ describe("el manual: el capítulo de Folios (Oscar, 2026-11-13)", () => {
     const ch = MANUAL_CHAPTERS[at]!;
     assert.equal(ch.title[0], "Folios");
     assert.equal(ch.title[1], "Folios");
-    assert.deepEqual(ch.topics.map((tp) => tp.id), ["folios", "folios-filtros", "folios-apartar", "folios-procedencia"]);
+    assert.deepEqual(ch.topics.map((tp) => tp.id), ["folios", "folios-filtros", "folios-apartar", "folios-procedencia", "bitacora"]);
   });
 
   it("cada tema habla en los dos idiomas y lleva su destino (go) a su pastilla", () => {
-    for (const id of ["folios", "folios-filtros", "folios-apartar", "folios-procedencia"]) {
+    for (const id of ["folios", "folios-filtros", "folios-apartar", "folios-procedencia", "bitacora"]) {
       const tp = findTopic(id);
       assert.ok(tp, `el tema ${id} existe`);
       for (const f of ["title", "sum", "what"] as const) {
@@ -260,6 +261,7 @@ describe("el manual: el capítulo de Folios (Oscar, 2026-11-13)", () => {
     assert.equal(screenPatch(findTopic("folios-filtros")!.go!).patch.section, "historial");
     assert.equal(screenPatch(findTopic("folios-procedencia")!.go!).patch.section, "historial");
     assert.equal(screenPatch(findTopic("folios-apartar")!.go!).patch.section, "archivo");
+    assert.equal(screenPatch(findTopic("bitacora")!.go!).patch.section, "bitacora");
   });
 
   it("el tema mayor dice la ley anti-fuga en palabras llanas, en los dos idiomas", () => {

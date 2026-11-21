@@ -367,6 +367,7 @@ const SECTION_ICON: Record<string, LucideIcon> = {
   settings: Settings,
   archivo: Archive,
   historial: History,
+  bitacora: BookOpen,
 };
 
 export function SectionIcon({ id, className }: { id: string; className?: string }) {

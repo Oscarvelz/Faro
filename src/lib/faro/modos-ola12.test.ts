@@ -348,6 +348,15 @@ const CARAS: Record<string, [Clase, string]> = {
   "components/faro/study2.tsx:TimeCard:p.expense": ["gasto", "los puntos de la TimeCard son solo-gasto: su «Salió» es gasto"],
   "components/faro/study2.tsx:TimeCard:sel.expense": ["gasto", "el punto seleccionado de la TimeCard: solo-gasto"],
   "components/faro/study2.tsx:TimeCard:top.expense": ["gasto", "el punto mayor del tramo: solo-gasto"],
+  "lib/faro/bitacora.ts:logbookOf:v.expense": ["interna", "el lector defensivo de la Bitácora (1.3.367) valida la forma de la foto mensual congelada; no presenta ni suma — la cifra ya vive contada en la foto"],
+  "lib/faro/bitacora.ts:monthSnap:s.expense": ["movimiento", "la foto del mes de la Bitácora (1.3.367) congela el «sale» del resumen — la salida del mes con su nombre de movimiento — y la edición lo presenta como salidas, nunca como gasto a secas"],
+  "lib/faro/bitacora.ts:monthSnap:s.opportunity": ["movimiento", "la foto del mes de la Bitácora (1.3.367) congela lo que quedó del mes — la caja, ingreso menos salida — y su fila lo presenta como la cifra del mes, jamás como gasto"],
+  "lib/faro/bitacora.ts:monthSnap:s.savingsFlow": ["movimiento", "la foto del mes de la Bitácora (1.3.367) congela el apartado del mes nombrado como apartado; la edición lo suma en su tarjeta «Lo que apartaste»"],
+  "lib/faro/bitacora.ts:composeYearEdition:rep.expense": ["movimiento", "la tarjeta «El año en una cifra» de la edición (1.3.367) lo presenta como «salieron», junto a «entraron» y la diferencia como «te quedó»"],
+  "lib/faro/bitacora.ts:composeYearEdition:rep.spend": ["gasto", "el solo-gasto del año en la edición (1.3.367): es el denominador de «Dónde se fue más» («9 de cada 10 que gastaste») y la vara del dinero no gastado"],
+  "lib/faro/bitacora.ts:composeYearEdition:m.expense": ["movimiento", "la salida de cada mes del informe anual en la edición (1.3.367): alimenta la comparación entre meses y la gráfica de la tarjeta del mes con precedente — la misma familia entra/sale del informe"],
+  "lib/faro/bitacora.ts:composeYearEdition:x.expense": ["movimiento", "la serie de salidas mensuales que dibuja la tarjeta del mes con precedente de la edición (1.3.367): la forma del año en salidas, nombrada como el mes"],
+  "lib/faro/bitacora.ts:composeYearEdition:ya.saved": ["interna", "las piezas guardadas al cerrar el año en la edición (1.3.367): vara interna para pesar la tarjeta del dinero no gastado; la tarjeta presenta las piezas dejadas, no esta cifra"],
   "lib/faro/coach.ts:readCoach:m.expense": ["gasto", "monthTotals.expense es solo-gasto por construcción (separa por rol)"],
   "lib/faro/coach.ts:readCoach:t.expense": ["gasto", "monthTotals.expense es solo-gasto por construcción (separa por rol)"],
   "lib/faro/coach.ts:readCoach:t.saved": ["movimiento", "monthTotals.saved: el apartado nombrado como apartado en el coach"],
@@ -410,6 +419,8 @@ const AGREGADORES: Record<string, [Clase, string]> = {
   "lib/faro/awake.ts:savingsPicture": ["movimiento", "la foto al despertar nombra lo guardado como guardado: es la superficie del apartado"],
   "lib/faro/autopay.ts:settleAutopay": ["interna", "mecánica de asentamiento de la Ola 6 (1.3.356): anota las instancias vencidas de las cuotas con pago automático; no presenta sumas — los cargos que crea los clasifican los motores de siempre"],
   "lib/faro/bankbook.ts:rewardsMonth": ["interna", "suma recompensas de tarjetas (ganadas y perdidas), no gasto ni salida del mes"],
+  "lib/faro/bitacora.ts:recordedSpan": ["interna", "el tramo registrado de la Bitácora (1.3.367): recorre las líneas para hallar el primer y el último día con registro; no suma dinero"],
+  "lib/faro/bitacora.ts:yearPrices": ["interna", "la serie de precios del año de la Bitácora (1.3.367): sigue el precio de cada concepto y fijo a lo largo del año para su tarjeta; no suma totales del libro — su cara nombra el precio"],
   "lib/faro/bankparse.ts:buildReview": ["interna", "compone la revisión de la importación: partidas por archivo y cuenta, con su nombre en la revisión"],
   "lib/faro/defaults.ts:sumLines": ["interna", "resumen de líneas de la casa semilla (saldos arrastrados), no frases del libro vivo"],
   "lib/faro/descanso.ts:hideLines": ["interna", "mecánica de ocultar: suma entra/sale del tramo para su confirmación, nombrados como el tramo oculto"],
@@ -2329,6 +2340,7 @@ const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
  * que la caza nombró — queda clasificado por su conducta real: compone
  * desde el s vivo dentro del commit. */
 const FORMAS_DELEGADAS: Record<string, [Doctrina, string, string]> = {
+  "components/faro/bitacora.tsx:close#1": ["campo", "la Bitácora (1.3.367): al cerrar la serie, markEditionSeen anota el seenAt de la edición sobre el libro vivo dentro del commit — la foto no se toca, solo la marca de leída", "markEditionSeen"],
   "components/faro/review-table.tsx:save#1": ["anexa", "Captura Ola 1: la mesa guarda en UN commit compuesto desde el s vivo — commitDrafts anexa las líneas nacidas de los borradores marcados, patchDraft/dropDraft resuelven los demás, y learnFromSaved aprende la regla del comercio cuya casa se corrigió (ley 9)", "learnFromSaved"],
   "components/faro/archivo.tsx:ArchivoScreen#1": ["campo", "restaura el «Me deben» archivado por id sobre el vivo, dentro del commit", "restoreLent"],
   "components/faro/archivo.tsx:ArchivoScreen#2": ["campo", "restaura el préstamo archivado por id sobre el vivo, dentro del commit", "restoreLoan"],

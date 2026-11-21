@@ -317,7 +317,9 @@ describe("1.3.271 — no se puede fijar; Libros no gana nada", () => {
     assert.ok(a.qsOut.every((q) => q.store !== "segandina"), "la pieza de seguro nunca sale en el widget");
   });
   it("SECTIONS queda byte a byte: ninguna lente ni sección nueva en Libros", () => {
-    assert.deepEqual([...SECTIONS], ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice", "settings", "archivo", "historial"]);
+    // 1.3.367: SECTIONS gana «bitacora» al final — una sección de Folios,
+    // no una lente de Libros; la cerca de la 271 sigue guardando Libros.
+    assert.deepEqual([...SECTIONS], ["desk", "income", "fixed", "variable", "shops", "subs", "stats", "advice", "settings", "archivo", "historial", "bitacora"]);
   });
 });
 

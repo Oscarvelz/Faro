@@ -32,7 +32,7 @@ import { useFaro } from "./provider";
 import { SectionIcon } from "./icons";
 import type { SectionId } from "@/lib/faro/types";
 
-const PASTILLAS: readonly SectionId[] = ["historial", "archivo"];
+const PASTILLAS: readonly SectionId[] = ["historial", "archivo", "bitacora"];
 
 export function FoliosChips() {
   const { ui, setUi, t } = useFaro();
@@ -62,7 +62,7 @@ export function FoliosChips() {
     <div className="seg is-follow is-pair fol-chips" ref={rootRef} role="tablist" aria-label={t("nav.folios")} data-anchor="folios-chips">
       <i className="seg-pill" aria-hidden />
       {PASTILLAS.map((id) => (
-        <button key={id} type="button" role="tab" data-anchor={id === "archivo" ? "folios-tab-archivo" : undefined} aria-selected={ui.section === id} aria-current={ui.section === id ? "page" : undefined} onClick={() => setUi({ section: id })}>
+        <button key={id} type="button" role="tab" data-anchor={id === "archivo" ? "folios-tab-archivo" : id === "bitacora" ? "folios-tab-bitacora" : undefined} aria-selected={ui.section === id} aria-current={ui.section === id ? "page" : undefined} onClick={() => setUi({ section: id })}>
           <span className="seg-ico" aria-hidden><SectionIcon id={id} className="size-3.5" /></span>
           <span className="seg-label">{t(`nav.${id}`)}</span>
         </button>

@@ -647,6 +647,10 @@ export const FEATURES = {
    * Completo por el criterio de la casa — la caminata de lo ya
    * comprometido lee el libro entero con fechas, no declara nada. */
   "advisor.projection": C, "advisor.price-watch": C,
+  /* La Bitácora (1.3.367): leer la propia historia es de Esencial — la
+   * tercera pastilla de Folios y sus ediciones no administran ni
+   * interpretan nada nuevo: cuentan lo ya contado. */
+  "folios.logbook": E,
   "advisor.verdict": E, "advisor.verdict-sub": R, "advisor.hero-cubes": R,
   "advisor.step-income": E, "advisor.step-name": E, "advisor.step-keep": E,
   "advisor.step-close-gap": R, "advisor.step-set-aside": R, "advisor.step-wants-30": R,

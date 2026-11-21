@@ -997,5 +997,16 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   }
   // waitHours (el plazo de la espera): si está, es un número finito.
   if (set.waitHours !== undefined && !isFinD(set.waitHours)) return false;
+  // logbook (la Bitácora, 1.3.367): un documento congelado, no dinero —
+  // ningún motor lo desreferencia para calcular, así que la puerta juzga
+  // solo la forma del contenedor (objeto con sus dos registros como
+  // objetos). Las entradas se leen con desconfianza en bitacora.ts
+  // (logbookOf filtra lo que no reconoce): una foto dañada jamás manda
+  // el libro entero a cuarentena, como el descanso.
+  if (s.logbook !== undefined) {
+    if (!isObjD(s.logbook)) return false;
+    if (s.logbook.months !== undefined && !isObjD(s.logbook.months)) return false;
+    if (s.logbook.editions !== undefined && !isObjD(s.logbook.editions)) return false;
+  }
   return true;
 }

@@ -41,6 +41,7 @@ import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual
 import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { todayIso } from "@/lib/faro/loans";
 import { autopaySealedOn, autopaySealedSeries, sealAutopayDay, settleAutopay, type AutopaySealStorage } from "@/lib/faro/autopay";
+import { settleLogbook } from "@/lib/faro/bitacora";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void; /** La puerta de GitHub (Oscar, chat de ventanas, 2026-11-10): la ventana más irreversible exige ESCRIBIR este texto exacto para armar el botón de confirmar — que el usuario demuestre que sabe lo que está haciendo, no solo que tocó dos veces. Vive SOLO en «Eliminar cuenta»: cerrar sesión es ida y vuelta y no la merece (su corrección del 2026-11-11). */ typeText?: string; /** Una salida amable DENTRO de la ventana, antes del punto de no retorno (p. ej. «Descargar mi libro» al eliminar la cuenta): corre sin cerrar la ventana. */ extraLabel?: string; extraRun?: () => void };
@@ -1488,6 +1489,22 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     commit(() => state, label);
   }, [session, commit]);
 
+  // La Bitácora se asienta al abrir (1.3.367): los meses cerrados ganan
+  // su foto callada y los años cerrados con registro se encuadernan en
+  // su edición — sin ceremonia alguna (F-B1: la mensual no se anuncia;
+  // la anual se anuncia con su tarjeta en Central, no aquí). El pase es
+  // idempotente: asentado el libro, devuelve el mismo estado y no hay
+  // confirmación; un Deshacer de la encuadernación la re-asienta a la
+  // siguiente apertura, como el autopay re-asienta su día.
+  useEffect(() => {
+    if (!session || dataMode() !== "real") return;
+    const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
+    const { state, changed } = settleLogbook(session.ledger, today);
+    if (!changed) return;
+    const en = session.ledger.settings.lang === "en";
+    commit(() => state, en ? "Logbook settled" : "Bitácora asentada");
+  }, [session, commit]);
+
   // La tasa se trae sola (mapa §18.5 — 1.3.362): al abrir un libro real,
   // si la tasa guardada no es la manual del usuario y no es de hoy, se
   // trae la pública una vez y se guarda CON su fuente y su fecha. La
@@ -1609,7 +1626,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       // bucle de dos, EXACTAMENTE como el par de Estudio — deslizar el dedo en la
       // pantalla salta de la una a la otra. Sin este bucle, el gesto caía al bucle
       // de Central y el deslizamiento expulsaba al dueño de Folios.
-      const folios = ["historial", "archivo"] as const;
+      const folios = ["historial", "archivo", "bitacora"] as const;
       const loop = (books as readonly string[]).includes(u.section)
         ? books
         : (study as readonly string[]).includes(u.section)

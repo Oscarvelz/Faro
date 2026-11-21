@@ -331,6 +331,9 @@ describe("ola19 · §A: clase C — el no-op de mapa, curado en el ayudante y en
 const PUERTAS = new Set(["commit", "commitGuarded", "commitAnnounced", "commitFinal", "commitDraft"]);
 type ClasePuerta = "guardada" | "anunciada" | "final" | "aterrizaje";
 const CENSO19: Record<string, [ClasePuerta, number]> = {
+  // 1.3.367 (la Bitácora): cerrar la serie anota que la edición fue
+  // vista — el aterrizaje de la propia lectura; nada que confirmar.
+  "components/faro/bitacora.tsx|commit|markEditionSeen|markEditionSeen": ["aterrizaje", 1],
   // 1.3.357 (la lista-plan, D6): el folio se reanuda y se borra por la
   // puerta guardada, como cada ciudadano del Archivo.
   "components/faro/archivo.tsx|commitGuarded|resumePlan|—": ["guardada", 1],
@@ -409,7 +412,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // se encabeza con su propia cerca (shouldAutoRate: la manual jamás) y
   // solo escribe si el valor o la fecha cambian; aterrizaje idempotente.
   "components/faro/provider.tsx|commit|shouldAutoRate|—": ["aterrizaje", 1],
-  "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 9],
+  "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 10], // 1.3.367: +1 — el asentamiento de la Bitácora al abrir (settleLogbook en línea, como el del autopay)
   "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 1],
   // 1.3.357 (la lista-plan): la hoja del plan comete sus marcas por
   // aterrizaje — cada receta compone el estado entero o no escribe.

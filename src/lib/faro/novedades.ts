@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.367",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "bitacora",
+    title: { es: "La Bitácora: tu año, contado una vez", en: "The Logbook: your year, counted once" },
+    points: {
+      es: [
+        "Folios gana un tercer cuarto: la [[Bitácora]]. Cada mes que cierra guarda ahí su foto, callada.",
+        "Al cerrar el año, tus meses se encuadernan en [[Tu año en Faro]]: una serie de tarjetas con tus propios números, que Central anuncia una vez.",
+        "La edición queda congelada tal como se contó: corregir el libro después no reescribe tu historia.",
+      ],
+      en: [
+        "Folios gains a third room: the [[Logbook]]. Each month that closes quietly keeps its photo there.",
+        "When the year closes, your months are bound into [[Your year in Faro]]: a series of cards with your own numbers, which Central announces once.",
+        "The edition stays frozen exactly as counted: correcting the book later does not rewrite your history.",
+      ],
+    },
+  },
+  {
     version: "1.3.366",
     date: "2026-11-21",
     level: "grande",

@@ -1,6 +1,7 @@
 import { AreaAdvisor } from "./area-advisor";
 import { useTabletOne as useTabletOneAA } from "./book-side";
 import { DueAlertsCard } from "./due-alerts";
+import { YearAnnouncementCard } from "./bitacora";
 import type { AreaId } from "@/lib/faro/area-advice";
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
 import { ActivityLog, Note } from "./finish";
@@ -3656,6 +3657,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         ) : null}
       </div>
       <DueAlertsCard />
+      <YearAnnouncementCard />
       {quick ? (
         <div ref={quickRef} className="sheet-swap" data-mode={quick} data-anchor="quick-window">
           {/* Oscar (2026-11-20): la puerta de Escanear también vive en los

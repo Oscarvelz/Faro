@@ -129,6 +129,7 @@ describe("1.3.270 — el icono de Ingresos (la clave se parte)", () => {
       settings: "Settings",
       archivo: "Archive",
       historial: "History",
+      bitacora: "BookOpen", // 1.3.367 — la Bitácora nace con su glifo (el libro abierto)
     });
   });
 

@@ -32,7 +32,7 @@ test("pastillas: ninguna pantalla de Folios renderiza ya el par (la píldora ren
 });
 
 test("pastillas: shell.tsx sienta el par en el padre persistente, en sus dos <main>, abriendo la rama folios", () => {
-  const branch = '<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />}</>';
+  const branch = '<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : ui.section === "bitacora" ? <BitacoraScreen /> : <HistorialScreen />}</>';
   assert.equal(count(shell, branch), 2, "both mains (Shell + SectionView) seat the chips before the swapping screen");
   assert.ok(shell.includes('import { FoliosChips } from "./folios-chips";'), "the shell imports the pair");
 });
@@ -40,7 +40,7 @@ test("pastillas: shell.tsx sienta el par en el padre persistente, en sus dos <ma
 test("pastillas: el par conserva su identidad — las mismas clases, el mismo rol, las mismas dos secciones", () => {
   assert.ok(chips.includes('className="seg is-follow is-pair fol-chips"'), "the chips keep their settled dress");
   assert.ok(chips.includes('role="tablist"'), "the chips keep their tablist role");
-  assert.ok(chips.includes('["historial", "archivo"]'), "the pair is still Historial + Archivo");
+  assert.ok(chips.includes('["historial", "archivo", "bitacora"]'), "the trio is Historial + Archivo + Bitácora (1.3.367)");
   assert.ok(chips.includes('<i className="seg-pill" aria-hidden />'), "the follower pill is still the pair's own");
 });
 

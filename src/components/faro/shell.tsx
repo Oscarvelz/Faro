@@ -27,6 +27,7 @@ import { installModalityGate } from "@/lib/faro/modality";
 import { Advisor, Books, Desk, Help, Settings as SettingsScreen, Shops, Study, SubsReadOnly } from "./screens";
 import { HistorialScreen } from "./historial";
 import { ArchivoScreen } from "./archivo";
+import { BitacoraScreen } from "./bitacora";
 import { FoliosChips } from "./folios-chips";
 import { BookSide, useTabletOne, type SideBook } from "./book-side";
 import { AreaAdvisor, SideCol } from "./area-advisor";
@@ -202,7 +203,7 @@ function hubOf(section: SectionId) {
   // Folios (Oscar, 2026-11-13): Historial y Archivo son UN hub — el contenedor con
   // dos pastillas, sin conexión de datos entre ellas. Ningún otro hub las disfraza
   // (el Historial no es un cuarto de Libros; el Archivo no es Libros tampoco).
-  if (section === "archivo" || section === "historial") return "folios";
+  if (section === "archivo" || section === "historial" || section === "bitacora") return "folios";
   if ((STUDY as readonly string[]).includes(section)) return "study";
   if ((BOOKS as readonly string[]).includes(section)) return "books";
   return "desk";
@@ -227,7 +228,7 @@ export function Shell() {
   // Folios (2026-11-13): la última pastilla visitada — el riel aterriza en ella,
   // como el ciudadano del dock (DockNav guarda la suya).
   const lastPastilla = useRef<SectionId>("historial");
-  if (ui.section === "historial" || ui.section === "archivo") lastPastilla.current = ui.section;
+  if (ui.section === "historial" || ui.section === "archivo" || ui.section === "bitacora") lastPastilla.current = ui.section;
   useScreenEntrance(mainRef, `${ui.section}`);
   const [calOpen, setCalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1588,7 +1589,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
             ) : null}
             {hub === "desk" ? <Desk /> : null}
             {hub === "settings" ? <SettingsScreen /> : null}
-            {hub === "folios" ? (<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />}</>) : null}
+            {hub === "folios" ? (<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : ui.section === "bitacora" ? <BitacoraScreen /> : <HistorialScreen />}</>) : null}
           </main>
           <aside ref={moneyPanel} className={`aside${moneyOpen ? " is-open" : ""}`}>
             {moneyOpen ? <button type="button" className="money-resize" aria-label={lang === "en" ? "Resize" : "Tamaño"} onPointerDown={resizeMoney} /> : null}
@@ -1707,7 +1708,7 @@ function DockNav({ section, onSection }: { section: SectionId; onSection: (id: S
   // recuerda la última pastilla visitada en la sesión y aterriza en ella; sin
   // visita previa, aterriza en el Historial, el cuarto principal.
   const lastPastilla = useRef<SectionId>("historial");
-  if (section === "historial" || section === "archivo") lastPastilla.current = section;
+  if (section === "historial" || section === "archivo" || section === "bitacora") lastPastilla.current = section;
   return (
     <nav className={`dock${hubs.length === 3 ? " is-3" : ""}`} data-anchor="nav-dock" style={{ ["--dock" as string]: Math.max(0, hubs.indexOf(hub as (typeof hubs)[number])) }} aria-label={t("nav.desk")}>
       <i className="dock-glide" aria-hidden><i key={hub} className="dock-sheen" /></i>
@@ -2052,7 +2053,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
       ) : null}
       {hub === "desk" ? <Desk /> : null}
       {hub === "settings" ? <SettingsScreen /> : null}
-      {hub === "folios" ? (<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : <HistorialScreen />}</>) : null}
+      {hub === "folios" ? (<><FoliosChips />{ui.section === "archivo" ? <ArchivoScreen /> : ui.section === "bitacora" ? <BitacoraScreen /> : <HistorialScreen />}</>) : null}
     </main>
   );
 }

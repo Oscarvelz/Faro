@@ -18,6 +18,7 @@ import { describe, it } from "node:test";
 
 const REGISTRY: Record<string, "center" | "rides" | "anchored" | "button" | "state"> = {
   "ask-back": "center",
+  "lg-scrim": "center", // 1.3.367 — la serie de «Tu año en Faro»: telón de ventana centrada
   "xp-scrim": "center",
   "fit-scrim": "center",
   "imp-scrim": "center",
