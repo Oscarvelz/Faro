@@ -26,15 +26,27 @@
  * en su propia tarjeta sobre la respuesta, aunque la caja ya se haya
  * vaciado, para que la respuesta nunca quede sin su contexto; cada
  * pregunta nueva reemplaza la tarjeta, sin historia.
+ *
+ * 1.3.355 (LA FUSIÓN, decisión de Oscar): la caja pregunta al BANCO
+ * (ask2.ts — la rama del banco del Asesor como columna, con el motor de
+ * la 5a intacto dentro como delegado). Los chips son las preguntas
+ * canónicas del banco. Dos injertos de la candidata viven aquí: la
+ * PREGUNTA DE VUELTA rendida — cuando un escenario («si sacara $20…»)
+ * se puede sacar de varias cuentas, la tarjeta pregunta de cuál, con
+ * chips que traen la cuenta y su libre, y el toque recalcula clavado en
+ * esa cuenta — y la PUERTA de «Faro mismo»: la respuesta que nombra una
+ * función con tema enrutado (askmap.FUNCTION_TOPIC) lleva su «Ir allí»
+ * por la vía del Manual.
  */
 import { useEffect, useRef, useState } from "react";
-import { MessageCircleQuestion, Send, Sparkles } from "lucide-react";
-import { answerQuestion, type AskResult } from "@/lib/faro/ask";
+import { ArrowRight, MessageCircleQuestion, Send, Sparkles } from "lucide-react";
+import { answerBankQuestion, bankChips, type BankResult } from "@/lib/faro/ask2";
+import { FUNCTION_TOPIC } from "@/lib/faro/askmap";
 import { addDrafts, findDup, validateDraft } from "@/lib/faro/drafts";
 import type { Draft } from "@/lib/faro/types";
-import { askChips } from "@/lib/faro/lexicon";
 import { uid } from "@/lib/faro/money";
 import type { ParseCtx } from "@/lib/faro/textparse";
+import { findTopic } from "@/lib/manual/topics";
 import { Hint } from "./hint";
 import { importToast } from "./bank-dock";
 import { useFaro } from "./provider";
@@ -45,9 +57,9 @@ function todayLocal(): string {
 }
 
 export function AskBox() {
-  const { session, lang, names, key, commit, has, fmt } = useFaro();
+  const { session, lang, names, key, commit, has, fmt, goTopic } = useFaro();
   const [text, setText] = useState("");
-  const [result, setResult] = useState<AskResult | null>(null);
+  const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -61,7 +73,7 @@ export function AskBox() {
   }, [text]);
   if (!has("advisor.ask") || !session) return null;
   const L = (es: string, en: string) => (lang === "en" ? en : es);
-  const chips = askChips(lang);
+  const chips = bankChips(lang);
 
   function ctx(): ParseCtx {
     return {
@@ -74,12 +86,20 @@ export function AskBox() {
     };
   }
 
-  function ask(q: string) {
+  function ask(q: string, pin?: { accountId: string }) {
     const clean = q.trim();
     if (!clean || !session) return;
     setAsked(clean);
-    setResult(answerQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal()));
+    setResult(answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin));
     setText(""); // al preguntar, la caja se contrae (348)
+  }
+
+  // La vuelta de la pregunta: la tarjeta preguntó de qué cuenta sale y
+  // la persona tocó una — la MISMA pregunta se recalcula con la cuenta
+  // clavada; la tarjeta de la pregunta no cambia (sigue siendo la suya).
+  function askBack(accountId: string) {
+    if (!asked) return;
+    ask(asked, { accountId });
   }
 
   function register() {
@@ -98,6 +118,12 @@ export function AskBox() {
     setResult(null);
     setText("");
   }
+
+  // La puerta de «Faro mismo»: la función nombrada, si su tema del mapa
+  // trae ruta, se abre por la vía del Manual (atrás vuelve a la caja).
+  const doorTopic = result?.kind === "answer" && result.family === "faro-mismo"
+    ? (() => { const tid = FUNCTION_TOPIC[result.source[0] ?? ""]; const tp = tid ? findTopic(tid) : null; return tp?.go ? tp : null; })()
+    : null;
 
   return (
     <section className="ask-box" data-anchor="advisor-ask">
@@ -154,6 +180,18 @@ export function AskBox() {
           </div>
         </div>
       ) : null}
+      {result?.kind === "ask-back" ? (
+        <div className="ask-card" data-anchor="ask-card">
+          <p className="ask-verdict">{result.verdict}</p>
+          <div className="ask-chips">
+            {result.options.map((o) => (
+              <button key={o.id} type="button" className="ask-chip" data-anchor="ask-back-chip" onClick={() => askBack(o.id)}>
+                {o.label} · {fmt(o.minor)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {result?.kind === "answer" ? (
         <div className="ask-card" data-anchor="ask-card">
           <p className="ask-verdict">{result.verdict}</p>
@@ -166,6 +204,14 @@ export function AskBox() {
             ))}
           </div>
           {result.note ? <p className="ask-note">{result.note}</p> : null}
+          {doorTopic ? (
+            <div className="ask-door-row">
+              <button type="button" className="ask-door" data-anchor="ask-door" onClick={() => goTopic(doorTopic.id, doorTopic.go!, "preguntar-asesor")}>
+                {L("Ir allí", "Go there")} <ArrowRight size={13} />
+              </button>
+              <span className="ask-door-where">{doorTopic.go!.where[lang === "en" ? 1 : 0]}</span>
+            </div>
+          ) : null}
           {result.draft ? (
             <button type="button" className="ask-reg" data-anchor="ask-register" onClick={register}>
               <Sparkles size={14} /> {L("Registrarlo", "Record it")}

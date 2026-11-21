@@ -192,7 +192,11 @@ describe("captura345 · la puerta", () => {
     const topics = readFileSync(new URL("../manual/topics.ts", import.meta.url), "utf8");
     const at = topics.indexOf('id: "preguntar-asesor"');
     assert.ok(at >= 0);
-    const block = topics.slice(at, at + 4600);
+    // El bloque se corta en el SIGUIENTE tema, no en una ventana fija:
+    // la ventana de 4600 quedó corta cuando la 1.3.355 contó la batería
+    // en el tema — el localizador mejora, las aserciones son las mismas.
+    const next = topics.indexOf('\n        id: "', at + 10);
+    const block = topics.slice(at, next > at ? next : at + 4600);
     assert.ok(block.includes("bubble:"));
     assert.ok(block.includes('anchor: "advisor-ask"'));
   });
