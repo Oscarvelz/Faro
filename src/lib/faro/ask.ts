@@ -19,7 +19,7 @@
  * supuesto), how. Las de escenarios (encadenado, pagar hoy o no, ahorro
  * que sigue) llegan en 5b sobre el asiento advisor.ask-scenarios.
  */
-import { readAdvisor, type Reading } from "./advisor.ts";
+import { bookMode, readAdvisor, type BookMode, type Reading } from "./advisor.ts";
 
 // El mismo Namer local del Asesor (advisor.ts lo declara en casa; aquí
 // se espeja su forma exacta — cat/sub/purchase/catalog).
@@ -48,6 +48,59 @@ function L(lang: Lang, es: string, en: string): string {
   return lang === "en" ? en : es;
 }
 
+/** El nombre de un modo en la voz de las respuestas (la caja rinde
+ * texto plano: el piso se nombra en palabras, no con el subrayado
+ * punteado de las superficies). */
+export function modeWord(lang: Lang, m: BookMode): string {
+  return m === "esencial" ? L(lang, "Esencial", "Essential") : m === "ritmo" ? L(lang, "Ritmo", "Rhythm") : L(lang, "Completo", "Complete");
+}
+
+/** LOS PISOS DE LAS CASAS QUE ESTE MOTOR CITA (cura de la ola 23,
+ * A23-1/2/3/5). Los motores no importan el registro (la cerca de
+ * asientos de la etapa 2 reserva mode.ts a sus asientos declarados):
+ * leen el modo del propio libro (bookMode de advisor.ts) y juzgan el
+ * alcance contra ESTA tabla declarada, que la cerca de modos-ola23
+ * verifica contra el registro asiento por asiento — la misma
+ * doctrina que las tablas espejo del Asesor en modos296. Si el
+ * registro mueve una de estas casas, la cerca se pone roja y la
+ * tabla se corrige con su razón, nunca al revés. */
+export const ASK_FLOORS = {
+  "nature.class-saldo": "completo",
+  "nature.cushion": "completo",
+  "vault.monthly-setaside": "ritmo",
+  "loans.payoff-plan": "completo",
+  "remit.manage": "completo",
+  "study.remit": "completo",
+} as const satisfies Record<string, BookMode>;
+export type AskFeature = keyof typeof ASK_FLOORS;
+
+const ASK_RANK: Record<BookMode, number> = { esencial: 0, ritmo: 1, completo: 2 };
+/** ¿El modo de la persona ALCANZA la casa citada? (el alcance de los
+ * motores: la tabla de arriba es la única ley que consultan). */
+export function askReaches(mode: BookMode, feature: AskFeature): boolean {
+  return ASK_RANK[mode] >= ASK_RANK[ASK_FLOORS[feature]];
+}
+/** El mismo alcance contra un piso DECLARADO como dato (el minMode
+ * del mapa de funciones de Faro mismo, askmap.ts): el mapa declara el
+ * piso junto a la función y la cerca lo verifica contra el registro. */
+export function askReachesFloor(mode: BookMode, floor: BookMode): boolean {
+  return ASK_RANK[mode] >= ASK_RANK[floor];
+}
+
+/** LA ETIQUETA DE PISO de una pieza (cura de la ola 23, A23-3): vacía
+ * si el modo de la persona MUESTRA la casa de la pieza; si la casa
+ * duerme, la pieza nombra su piso en su propia etiqueta. La resta del
+ * dinero libre sigue entera y verdadera en cada modo — ninguna pieza
+ * se cae, porque la resta sin una pieza mentiría el total — pero
+ * ninguna cifra se entrega muda sobre una cara que el modo no enseña:
+ * lo que duerme se nombra, que es la convención de la casa (la del
+ * Manual y la del susurro). */
+export function pieceFloor(lang: Lang, mode: BookMode, feature: AskFeature): string {
+  if (askReaches(mode, feature)) return "";
+  const floor = modeWord(lang, ASK_FLOORS[feature]);
+  return L(lang, ` · vive en ${floor}`, ` · lives in ${floor}`);
+}
+
 export function answerQuestion(
   state: LedgerState,
   key: string,
@@ -56,15 +109,17 @@ export function answerQuestion(
   raw: string,
   ctx: ParseCtx,
   today: string,
+  mode?: BookMode,
 ): AskResult {
   const q = parseQuestion(raw, ctx);
   if (!q) return { kind: "unknown" };
   const { display, rateE4 } = state.settings;
   const reading = readAdvisor(state, key, lang, names, { today: new Date(`${today}T12:00:00`) });
   const money = (minor: number) => formatMoney(minor, reading.currency, lang);
+  const modeNow = mode ?? bookMode(state);
   switch (q.intent) {
     case "spend": return spendAnswer(q, reading, state, display, rateE4, lang, money, today);
-    case "free": return freeAnswer(q, state, key, today, display, lang, money);
+    case "free": return freeAnswer(q, state, key, today, display, lang, money, modeNow);
     case "left": return leftAnswer(q, reading, key, lang, money);
     case "how": return {
       kind: "answer", intent: "how", register: q.register,
@@ -114,7 +169,7 @@ function spendAnswer(
 
 function freeAnswer(
   q: ParsedQuestion, state: LedgerState, key: string, today: string,
-  display: Currency, lang: Lang, money: (n: number) => string,
+  display: Currency, lang: Lang, money: (n: number) => string, mode: BookMode,
 ): AskResult {
   void display;
   const stock = savingsStock(state, key);
@@ -138,9 +193,9 @@ function freeAnswer(
     kind: "answer", intent: "free", register: q.register, verdict,
     pieces: [
       { label: L(lang, "Saldo en cuentas", "Balance in accounts"), minor: saldo },
-      { label: L(lang, "Apartado del saldo", "Set aside from the balance"), minor: -apartados },
+      { label: L(lang, "Apartado del saldo", "Set aside from the balance") + pieceFloor(lang, mode, "nature.class-saldo"), minor: -apartados },
       { label: L(lang, "Vence en 14 días", "Due within 14 days"), minor: -dues },
-      { label: L(lang, "Colchón por cubrir", "Cushion still to cover"), minor: -colchon },
+      { label: L(lang, "Colchón por cubrir", "Cushion still to cover") + pieceFloor(lang, mode, "nature.cushion"), minor: -colchon },
     ],
     note: null,
     draft: null,

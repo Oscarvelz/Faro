@@ -26,7 +26,7 @@ import { createPortal } from "react-dom";
 import { ClipboardList, Trash2, X } from "lucide-react";
 import { splitTarget, targets } from "@/lib/faro/bankbook";
 import { freqPresetsOf } from "@/lib/faro/cadence";
-import { applyTableEdits, changedDrafts, commitDrafts, draftToLine, draftTotals, dropDraft, fallenDrafts, learnFromSaved, patchDraft, validateDraft } from "@/lib/faro/drafts";
+import { applyTableEdits, changedDrafts, commitDrafts, draftToLine, draftTotals, dropDraft, fallenDrafts, learnFromSaved, patchDraft, rebornDrafts, validateDraft } from "@/lib/faro/drafts";
 import { parseAmount } from "@/lib/faro/money";
 import type { Draft, Line } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
@@ -65,6 +65,7 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
   const [mountOriginals] = useState(() => new Map(tray.map((d) => [d.id, d])));
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
   const [fallen, setFallen] = useState<string[]>([]);
+  const [reborn, setReborn] = useState<string[]>([]);
   const [changed, setChanged] = useState<string[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(tray.map((d) => [d.id, !d.dupOf])));
   const [amountText, setAmountText] = useState<Record<string, string>>(() => Object.fromEntries(tray.map((d) => [d.id, money(d.amountMinor)])));
@@ -99,6 +100,24 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
     // Las marcas y los textos de las caídas mueren con su fila: checked
     // y amountText solo se leen a través de las filas que quedan.
   }, [tray, work, gone, lang]);
+
+  /* Ola 23 (G23-3): la mesa distingue el RENACIMIENTO de la
+   * corrección. Si el id murió y renació con otro cuerpo entero
+   * mientras la persona editaba la foto (firma declarada en
+   * drafts.ts: toda su mano bloqueada y vida ajena fuera de sus
+   * campos), la fila se retira de la foto como una caída — sus
+   * ediciones no aterrizan sobre un cuerpo que ella nunca vio y
+   * Guardar no lo convierte — y la nota lo nombra como lo que es,
+   * con el nombre del cuerpo VIVO: el nombre ajeno que tiene que
+   * reconocer como ajeno, no su palabra. El cuerpo renacido queda
+   * intacto en la bandeja para la próxima apertura de la mesa. */
+  useEffect(() => {
+    const born = rebornDrafts(work, tray, mountOriginals, gone);
+    if (!born.length) return;
+    const ids = new Set(born.map((d) => d.id));
+    setReborn((r) => [...r, ...born.map((d) => d.concept || L(lang, "(sin concepto)", "(no concept)"))]);
+    setWork((w) => w.filter((d) => !ids.has(d.id)));
+  }, [tray, work, gone, lang, mountOriginals]);
 
   /* Ola 22 (G22-2): la mesa nombra también el cuerpo cambiado: si un
    * borrador vivo ya no es el de la foto en un campo que la persona no
@@ -249,6 +268,11 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
           {changed.length ? (
             <p className="rev-fallen" data-anchor="rev-changed" role="status">
               {L(lang, `Cambió mientras tanto: ${changed.join(", ")}.`, `Changed meanwhile: ${changed.join(", ")}.`)}
+            </p>
+          ) : null}
+          {reborn.length ? (
+            <p className="rev-fallen" data-anchor="rev-reborn" role="status">
+              {L(lang, `Reemplazado mientras tanto: ${reborn.join(", ")}.`, `Replaced meanwhile: ${reborn.join(", ")}.`)}
             </p>
           ) : null}
           {full && checkedRows.length > 0 ? (

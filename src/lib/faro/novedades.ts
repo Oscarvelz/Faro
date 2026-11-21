@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.361",
+    date: "2026-11-21",
+    level: "menor",
+    topic: "avisos-pagos",
+    title: { es: "Pagos y mesa, juzgados con justicia", en: "Payments and the tray, judged fairly" },
+    points: {
+      es: [
+        "El pago automático camina ahora todo su calendario: un vencimiento lejano ya no frena los que vienen después, y deshacer un asiento no lo vuelve a cobrar el mismo día.",
+        "La tarjeta de pagos ya no anuncia como vencido lo que ya pagaste, la mesa distingue una corrección de un reemplazo hecho en otra parte, y el Asesor dice en cada modo hasta dónde llegan sus respuestas.",
+      ],
+      en: [
+        "Autopay now walks its whole calendar: a far-off due date no longer stalls the ones after it, and undoing an entry does not charge it again the same day.",
+        "The payments card no longer shows as overdue what you already paid, the review table tells a correction apart from a replacement made elsewhere, and the Advisor says in each mode how far its answers reach.",
+      ],
+    },
+  },
+  {
     version: "1.3.360",
     date: "2026-11-21",
     level: "grande",

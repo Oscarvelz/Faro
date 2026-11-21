@@ -599,51 +599,93 @@ let memo20: { clave: string; out: Set<string> } | null = null;
 const cosechaAyudantes20 = (files: { rel: string; text: string }[]): Set<string> => {
   const clave = files.map((f) => `${f.rel}:${f.text.length}`).join("|");
   if (memo20 && memo20.clave === clave) return memo20.out;
-  const aliasDe = new Map<string, string>();
   const out = new Set<string>();
   const parsed = files.map(({ rel, text }) => ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS));
+  /* ═══ OLA 23 (G23-5): EL ALIAS SE RESUELVE POR (NOMBRE, CONTEXTO) ═══
+   * La cosecha de la ola 22 guardaba los alias en UN mapa global por
+   * nombre desnudo, último-en-orden-de-caminata-gana: un cebo inocente
+   * en otro rincón del árbol (`type Libro23 = { otra: number }` en
+   * src/spa/) REDEFINÍA el alias del libro para todo el censo y el
+   * delegado real escapaba con la cerca en verde — la enfermedad que
+   * la cáscara curó en M21-2c/M21-5, viva en la cerca JS. Ahora cada
+   * archivo declara SUS alias y sus importaciones de tipo, y un nombre
+   * se resuelve donde se USA: primero el alias declarado en ese
+   * archivo; si no, el nombre que ese archivo IMPORTA como tipo,
+   * resuelto en el archivo de origen con su nombre original; si
+   * ninguno, el nombre queda como está — un nombre de ninguna parte no
+   * es el libro. El texto de una definición se expande en el contexto
+   * del archivo que la DECLARÓ: un alias significa lo que su casa dice.
+   * La terminación sigue siendo estructural: la cadena de (archivo,
+   * nombre) ya expandidos en esta resolución detiene el ciclo sobre su
+   * propio nombre. */
+  const conocidos = new Set(files.map((f) => f.rel));
+  const aliasEn = new Map<string, Map<string, string>>();
+  const tipoImportsEn = new Map<string, Map<string, { targetRel: string; imported: string }>>();
   for (const sf of parsed) {
+    const rel = sf.fileName;
+    const am = new Map<string, string>();
+    const im = new Map<string, { targetRel: string; imported: string }>();
     const visit = (n: ts.Node) => {
-      if (ts.isTypeAliasDeclaration(n)) aliasDe.set(n.name.text, n.type.getText(sf));
+      if (ts.isTypeAliasDeclaration(n)) am.set(n.name.text, n.type.getText(sf));
+      if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier)) {
+        const targetRel = resuelveModulo21(rel, n.moduleSpecifier.text, conocidos);
+        const bindings = n.importClause?.namedBindings;
+        if (targetRel && bindings && ts.isNamedImports(bindings)) {
+          for (const el of bindings.elements) {
+            if (!(n.importClause?.isTypeOnly || el.isTypeOnly)) continue;
+            im.set(el.name.text, { targetRel, imported: el.propertyName?.text ?? el.name.text });
+          }
+        }
+      }
       ts.forEachChild(n, visit);
     };
     visit(sf);
+    aliasEn.set(rel, am);
+    tipoImportsEn.set(rel, im);
   }
   const escapa = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   /* «LedgerState» NO se expande: es el nombre terminal del libro (su
    * declaración en types.ts es el objeto mismo), no un alias más —
    * expandirlo convertiría cada parámetro bien tipado en un literal
    * de objeto y la cosecha entera se vaciaría. */
-  const nombresAlias = [...aliasDe.keys()].filter((n) => n !== "LedgerState");
-  const patronAlias = nombresAlias.length ? new RegExp(`\\b(${nombresAlias.map(escapa).join("|")})\\b`, "g") : null;
-  const resuelveTipo = (texto: string): string => {
-    if (!patronAlias) return texto;
-    let cur = texto;
-    const expandidos = new Set<string>();
-    for (;;) {
-      let toco = false;
-      const next = cur.replace(patronAlias, (m) => {
-        if (expandidos.has(m)) return m;
-        expandidos.add(m);
-        toco = true;
-        return aliasDe.get(m) ?? m;
-      });
-      if (!toco || next === cur) return next;
-      cur = next;
+  const defExpandida = (name: string, rel: string, cadena: Set<string>): string | null => {
+    const marca = `${rel}::${name}`;
+    if (cadena.has(marca)) return name;
+    const local = aliasEn.get(rel)?.get(name);
+    if (local !== undefined) {
+      cadena.add(marca);
+      return expandeTexto(local, rel, cadena);
     }
+    const imp = tipoImportsEn.get(rel)?.get(name);
+    if (imp) {
+      cadena.add(marca);
+      return defExpandida(imp.imported, imp.targetRel, cadena) ?? name;
+    }
+    return null;
   };
-  const esAyudante = (params: ts.NodeArray<ts.ParameterDeclaration>, ret: ts.Node | undefined): boolean => {
+  const expandeTexto = (texto: string, rel: string, cadena: Set<string>): string => {
+    const visibles = new Set<string>([
+      ...(aliasEn.get(rel)?.keys() ?? []),
+      ...(tipoImportsEn.get(rel)?.keys() ?? []),
+    ]);
+    visibles.delete("LedgerState");
+    if (!visibles.size) return texto;
+    const patron = new RegExp(`\\b(${[...visibles].map(escapa).join("|")})\\b`, "g");
+    return texto.replace(patron, (m) => defExpandida(m, rel, new Set(cadena)) ?? m);
+  };
+  const resuelveTipo = (texto: string, rel: string): string => expandeTexto(texto, rel, new Set());
+  const esAyudante = (params: ts.NodeArray<ts.ParameterDeclaration>, ret: ts.Node | undefined, rel: string): boolean => {
     const p0 = params[0];
-    if (!p0?.type || resuelveTipo(p0.type.getText()) !== "LedgerState") return false;
+    if (!p0?.type || resuelveTipo(p0.type.getText(), rel) !== "LedgerState") return false;
     if (!ret) return false;
     const rt = ret.getText();
-    if (resuelveTipo(rt) === "LedgerState") return true;
-    return /^[A-Za-z_$][\w$]*$/.test(rt) && /state\s*:\s*LedgerState/.test(resuelveTipo(rt));
+    if (resuelveTipo(rt, rel) === "LedgerState") return true;
+    return /^[A-Za-z_$][\w$]*$/.test(rt) && /state\s*:\s*LedgerState/.test(resuelveTipo(rt, rel));
   };
   for (const sf of parsed) {
     const visit = (n: ts.Node) => {
-      if (ts.isFunctionDeclaration(n) && n.name && esAyudante(n.parameters, n.type)) { out.add(n.name.text); registraCuerpo21(n.name.text, n.body); }
-      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) && esAyudante(n.initializer.parameters, n.initializer.type)) { out.add(n.name.text); registraCuerpo21(n.name.text, n.initializer.body); }
+      if (ts.isFunctionDeclaration(n) && n.name && esAyudante(n.parameters, n.type, sf.fileName)) { out.add(n.name.text); registraCuerpo21(n.name.text, n.body); }
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) && esAyudante(n.initializer.parameters, n.initializer.type, sf.fileName)) { out.add(n.name.text); registraCuerpo21(n.name.text, n.initializer.body); }
       ts.forEachChild(n, visit);
     };
     visit(sf);
@@ -1037,5 +1079,75 @@ describe("ola19 · §B-ter (ola 22, G22-1): la firma aprende el alias llano y la
     ` }];
     const ayudantes = cosechaAyudantes20(files);
     assert.ok(!ayudantes.has("delegadoCiclo22"), "el ciclo se resuelve sobre sí mismo: no es el libro, y la cosecha terminó");
+  });
+});
+
+describe("ola19 · §B-quater (ola 23, G23-5): el alias se resuelve en SU archivo — el cebo de otra carpeta no redefine el libro", () => {
+  const cuerpoDe = (src: string): ts.Node => {
+    const sf = ts.createSourceFile("planta23.ts", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    let body: ts.Node | undefined;
+    const visit = (n: ts.Node) => {
+      if (!body && ts.isFunctionDeclaration(n) && n.body) body = n.body;
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+    return body!;
+  };
+  it("el alias declarado en OTRO archivo y traído con import type se cosecha en su origen (C1/C2 de Guardián)", () => {
+    const files = [
+      { rel: "tipos23.ts", text: `
+        export type Libro23 = LedgerState;
+        export type LibroBis23 = Libro23;
+        export type Caja23 = { state: LedgerState; n: number };
+      ` },
+      { rel: "delegado23.ts", text: `
+        import type { Libro23, LibroBis23, Caja23 } from "./tipos23";
+        export function delegadoCruzado23(s: Libro23): Libro23 { return hideLines(s, [], null).state; }
+        export function delegadoCadenaCruzada23(s: LibroBis23): LibroBis23 { return s; }
+        export function delegadoEnvueltoCruzado23(s: LedgerState): Caja23 { return { state: s, n: 0 }; }
+      ` },
+    ];
+    const ayudantes = cosechaAyudantes20(files);
+    assert.ok(ayudantes.has("delegadoCruzado23"), "el alias vive en otro archivo: se resuelve donde se declaró y el delegado es ayudante");
+    assert.ok(ayudantes.has("delegadoCadenaCruzada23"), "la cadena de alias también cruza archivos");
+    assert.ok(ayudantes.has("delegadoEnvueltoCruzado23"), "el envoltorio nombrado por alias importado sigue contando");
+    cuerpos21.set("delegadoCruzado23", [cuerpoDe("export function delegadoCruzado23(s: LedgerState): LedgerState { return hideLines(s, [], null).state; }")]);
+    const seen: string[] = [];
+    expandir21(cuerpoDe("export function recetaCruzada23(s: LedgerState): LedgerState { return delegadoCruzado23(s); }"), new Set([...ayudantes, "hideLines"]), seen, new Set());
+    assert.deepEqual(seen, ["delegadoCruzado23", "hideLines"], "la firma del llamante nombra al delegado cruzado Y a su efecto");
+    cuerpos21.delete("delegadoCruzado23");
+  });
+  it("el cebo con el mismo nombre en otra carpeta NO redefine el alias del libro (la planta C3 de Guardián, la rotura de la ola 23)", () => {
+    const files = [
+      { rel: "tipos23.ts", text: `export type Libro23 = LedgerState;` },
+      { rel: "delegado23.ts", text: `
+        import type { Libro23 } from "./tipos23";
+        export function delegadoCebo23(s: Libro23): Libro23 { return hideLines(s, [], null).state; }
+      ` },
+      // el cebo: inocente en su carpeta, último en el orden de caminata —
+      // con el mapa global de la ola 22 era la definición que ganaba.
+      { rel: "spa/cebo23.ts", text: `export type Libro23 = { otra: number };` },
+    ];
+    const ayudantes = cosechaAyudantes20(files);
+    assert.ok(ayudantes.has("delegadoCebo23"),
+      "el nombre se resuelve en el archivo que lo USA, por su importación: el cebo de src/spa no toca al delegado de la librería");
+    cuerpos21.set("delegadoCebo23", [cuerpoDe("export function delegadoCebo23(s: LedgerState): LedgerState { return hideLines(s, [], null).state; }")]);
+    const seen: string[] = [];
+    expandir21(cuerpoDe("export function recetaCebo23(s: LedgerState): LedgerState { return delegadoCebo23(s); }"), new Set([...ayudantes, "hideLines"]), seen, new Set());
+    assert.deepEqual(seen, ["delegadoCebo23", "hideLines"], "el efecto real del delegado entra en la firma de su llamante: plantar el efecto cambia la llave");
+    cuerpos21.delete("delegadoCebo23");
+  });
+  it("la declaración LOCAL sombrea al nombre importado: el contexto del archivo manda en los dos sentidos", () => {
+    const files = [
+      { rel: "tipos23b.ts", text: `export type Libro23b = LedgerState;` },
+      { rel: "sombra23.ts", text: `
+        import type { Libro23b } from "./tipos23b";
+        export type Libro23b = { otra: number };
+        export function delegadoSombra23(s: Libro23b): Libro23b { return s; }
+      ` },
+    ];
+    const ayudantes = cosechaAyudantes20(files);
+    assert.ok(!ayudantes.has("delegadoSombra23"),
+      "el archivo declara su propio Libro23b (otra cosa): su declaración manda sobre la importada y el delegado no es ayudante");
   });
 });

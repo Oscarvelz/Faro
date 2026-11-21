@@ -927,13 +927,39 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   // desreferencian sin red (id, concepto, día, y los estados como listas). Un
   // borrador dañado no manda el libro a cuarentena por más campos: los
   // opcionales se leen con desconfianza en drafts.ts, como el descanso.
+  // KIND (cura de la ola 23, G23-4): el kind se juzga como el id — el tipo
+  // lo exige desde antes de que los planes existieran (nació «reservado»)
+  // y todo productor lo estampa, así que un borrador sin kind no es forma
+  // vieja: es daño. Sin este juicio, los lectores de igualdad estricta
+  // (draftTotals, la bandeja, la mesa, planRows) lo evaporaban de AMBAS
+  // librerías en silencio: el paquete entraba y el borrador no existía.
   if (s.drafts !== undefined) {
     if (!Array.isArray(s.drafts)) return false;
     for (const d of s.drafts as unknown[]) {
       if (!isObjD(d)) return false;
       if (!isStrD(d.id) || !isStrD(d.concept) || !isStrD(d.day)) return false;
+      if (d.kind !== "line" && d.kind !== "plan") return false;
       if (!Array.isArray(d.unsure) || !Array.isArray(d.missing)) return false;
       if (d.amountMinor !== undefined && d.amountMinor !== null && !isFinD(d.amountMinor)) return false;
+    }
+  }
+  // plans (la lista-plan, 1.3.357): si está, es una lista de registros con
+  // su forma — el juicio es de FORMA, no de presencia (cura de la ola 23,
+  // G23-4): cada plan es un objeto con id de texto; closedAt, si está, es
+  // texto (su AUSENCIA no es daño ni se lee como cerrado: cerrado se lee
+  // de una fecha real, y ese juicio vive en los predicados de plan.ts);
+  // name/createdAt, si están, son texto; rows, si está, es una lista. Una
+  // entrada nula o sin id sí es daño: livePlans la desreferenciaba sin red
+  // y tumbaba la bandeja entera al pintarla.
+  if (s.plans !== undefined) {
+    if (!Array.isArray(s.plans)) return false;
+    for (const p of s.plans as unknown[]) {
+      if (!isObjD(p)) return false;
+      if (!isStrD(p.id)) return false;
+      if (p.closedAt !== undefined && !isStrD(p.closedAt)) return false;
+      if (p.name !== undefined && !isStrD(p.name)) return false;
+      if (p.createdAt !== undefined && !isStrD(p.createdAt)) return false;
+      if (p.rows !== undefined && !Array.isArray(p.rows)) return false;
     }
   }
   // wishes (la lista de espera, 5c): si está, es una lista — las entradas se

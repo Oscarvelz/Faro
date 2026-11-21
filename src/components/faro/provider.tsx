@@ -28,17 +28,18 @@ import { searchLedger, type Hit } from "@/lib/faro/search";
 import { deleteRestingLines, deleteSpan, hideLines, hidePeriod, restoreSpan } from "@/lib/faro/descanso";
 import { isPureSample, stripSample, withSampleArc } from "@/lib/faro/sample";
 import { dataMode, sampleOn, sealedOn, stageOn, takeSwitchRemount } from "@/lib/faro/samplemode";
-import { featureForGo, featureMinMode, hasFeature, isMode, modeOf, type FeatureId, type Mode } from "@/lib/faro/mode";
+import { featureForGo, featureMinMode, hasFeature, isMode, modeOf, modeReaches, type FeatureId, type Mode } from "@/lib/faro/mode";
 import { ModeGate } from "./mode-gate";
 import { importToast } from "./bank-dock";
 import { autoBackup, backupBlob, gunzip, listBackups, readBackup, type BackupInfo } from "@/spa/vault";
 import type { Lang, LedgerState, Line, SectionId, TemplateId, ThemeId } from "@/lib/faro/types";
 import "@/lib/manual/back";
 import { readY, requestFocus, writeY } from "@/lib/manual/nav";
+import { findTopic } from "@/lib/manual/topics";
 import { placeName, screenPatch, type GoLike, type VaultTab } from "@/lib/manual/places";
 import { moveCobros, lentOf } from "@/lib/faro/debts";
 import { todayIso } from "@/lib/faro/loans";
-import { settleAutopay } from "@/lib/faro/autopay";
+import { autopaySealedOn, sealAutopayDay, settleAutopay, type AutopaySealStorage } from "@/lib/faro/autopay";
 import { DEFAULT_SHORTCUTS, NIGHT_THEMES, THEME_IDS } from "@/lib/faro/types";
 
 type ConfirmOpts = { title: string; body: string; danger?: boolean; yes?: string; no?: string; center?: boolean; run: () => void; /** La puerta de GitHub (Oscar, chat de ventanas, 2026-11-10): la ventana más irreversible exige ESCRIBIR este texto exacto para armar el botón de confirmar — que el usuario demuestre que sabe lo que está haciendo, no solo que tocó dos veces. Vive SOLO en «Eliminar cuenta»: cerrar sesión es ida y vuelta y no la merece (su corrección del 2026-11-11). */ typeText?: string; /** Una salida amable DENTRO de la ventana, antes del punto de no retorno (p. ej. «Descargar mi libro» al eliminar la cuenta): corre sin cerrar la ventana. */ extraLabel?: string; extraRun?: () => void };
@@ -1439,14 +1440,34 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   // Deshacer lo deshace como cualquier anotación. La marca del día hace
   // que un Deshacer aguante el resto del día; la serie se apaga en su
   // cuota, no borrando cargos (el tema del Manual lo dice).
-  const autopayDay = useRef("");
+  // Cura de la ola 23 (G23-2): la marca YA NO es un useRef — moría con
+  // el montaje y Deshacer + reabrir el mismo día re-asentaba en silencio
+  // lo deshecho. El sello vive en el aparato, atado al libro por su uid
+  // (autopay.ts declara la doctrina entera); Deshacer no lo borra porque
+  // no vive en el libro. Si el aparato no guarda (localStorage cerrado),
+  // el sello degrada a esta sesión con el ref de abajo — declarado, y el
+  // motor sigue idempotente por construcción.
+  const autopayDayRef = useRef("");
   useEffect(() => {
     if (!session || dataMode() !== "real") return;
     const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
-    if (autopayDay.current === today) return;
-    autopayDay.current = today;
+    const sealStorage: AutopaySealStorage = {
+      read: (k) => localStorage.getItem(k),
+      write: (k, v) => { localStorage.setItem(k, v); },
+    };
+    if (autopayDayRef.current === today || autopaySealedOn(sealStorage, userId, today)) return;
     const { state, settled } = settleAutopay(session.ledger, today);
     if (!settled.length) return;
+    // El sello se escribe SOLO cuando el pase asienta (cierre de la
+    // cura 23, medido en vivo): sellar también el pase vacío dejaba
+    // sin asentamiento hasta mañana a la serie que despertaba el
+    // mismo día — una cuota creada o activada tras la primera
+    // apertura, un libro restaurado o adoptado al mediodía — cuando
+    // la conducta de siempre era asentar a la siguiente apertura. El
+    // sello existe para que un Deshacer aguante el resto del día, y
+    // donde nada se asentó no hay nada que aguantar.
+    autopayDayRef.current = today;
+    sealAutopayDay(sealStorage, userId, today);
     const en = session.ledger.settings.lang === "en";
     const label = settled.length === 1
       ? (en ? `Autopay: ${settled[0]!.concept}` : `Pago automático: ${settled[0]!.concept}`)
@@ -1620,6 +1641,24 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       openManual(explain ?? id);
       importToast({ text: t("mode.dormant.notice").replace("{name}", t(`mode.${featureMinMode(feature)}`)) });
       return;
+    }
+    // Cura de la ola 23 (§N-23-1): un destino que featureForGo devuelve
+    // universal (el escritorio entero es «mueble universal»: null) no
+    // puede esconder que la FUNCIÓN del tema duerme. El tema sigue a su
+    // función (fallo 25) y declara su modo: si la persona no lo alcanza,
+    // el salto cae a la explicación por la misma puerta de arriba,
+    // nombrando ese modo. El espécimen: la nota de la lista-plan saltaba
+    // en Esencial a una Central cuya bandeja no muestra Planes, y la
+    // única palabra era el toast genérico de foco — sin nombrar el plan,
+    // la Bandeja ni Ritmo. En Ritmo la misma puerta aterriza en su
+    // tarjeta, como siempre.
+    if (!feature && bookNow) {
+      const topicMode = findTopic(id)?.mode;
+      if (topicMode && !modeReaches(modeOf(bookNow.settings), topicMode)) {
+        openManual(explain ?? id);
+        importToast({ text: t("mode.dormant.notice").replace("{name}", t(`mode.${topicMode}`)) });
+        return;
+      }
     }
     const res = screenPatch(go);
     // Wide screens show Cambio as a side panel, not the phone sheet.

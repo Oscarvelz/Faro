@@ -54,7 +54,7 @@ describe("atajos de Central: las palabras", () => {
 
   it("la ayuda ancla la escena: tres tarjetas, tres botones, su esquina", () => {
     assert.ok(i18n.includes("+ en Tengo, − en Gastaré y el de Pagos"), "la ayuda ES nombra los tres botones");
-    assert.ok(i18n.includes("+ on Tengo, − on Gastaré, and the Pagos button"), "la ayuda EN nombra los tres botones");
+    assert.ok(i18n.includes("+ on Have, − on Spending, and the Payments button"), "la ayuda EN nombra los tres botones — con los nombres de la cara inglesa (cura de la ola 23, Q23-1: esta cerca clavaba los nombres españoles que la caza condenó)");
   });
 
   it("ninguna superficie sigue llamando a la tarjeta por el nombre viejo", () => {

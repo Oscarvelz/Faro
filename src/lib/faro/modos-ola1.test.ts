@@ -535,7 +535,14 @@ describe("ola1 · el registro contra la cara — ningún asiento R/C pierde a su
  *  ganó su consumidor literal: la capa de cobertura del escenario de
  *  la lista de espera (waitlist.tsx) se gobierna por
  *  has("advisor.ask-scenarios"), el día que la cerca de la ola 9
- *  anunció («el día que nazca su consumidor… sale de la lista»). */
+ *  anunció («el día que nazca su consumidor… sale de la lista»).
+ *  ENMIENDA OLA 23 (con su razón, como la cerca manda): SALE
+ *  nature.cushion porque GANÓ consumidor literal — la cura de A23-3
+ *  le dio a la respuesta de ahorros del banco de preguntas su etiqueta
+ *  de piso: ask.ts/ask2.ts nombran «nature.cushion» en la tabla de
+ *  pisos del motor (ASK_FLOORS, cercada contra el registro en
+ *  modos-ola23) y la pieza «Colchón por cubrir» nombra su piso donde
+ *  se cita en vez de entregarse muda en Esencial. */
 
 const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "accounts.panel", "accounts.pin-panel", "advisor.credit-note", "advisor.daily-note",
@@ -564,7 +571,7 @@ const SIN_CONSUMIDOR_LITERAL: readonly string[] = [
   "manual.ch10-ajustes", "manual.ch11-importar", "manual.ch3-cobros", "manual.ch5-ahorros",
   "manual.ch7-estudio", "manual.ch8-asesor", "manual.ch9-cambio", "manual.topic-apartar",
   "manual.topic-card-fine", "manual.topic-export", "manual.topic-float", "manual.topic-retiro",
-  "nature.band-migration", "nature.class-cuenta", "nature.cushion", "nature.declare-series",
+  "nature.band-migration", "nature.class-cuenta", "nature.declare-series",
   "nature.free-guard", "nature.overcommit", "nav.books-subs-entry",
   "nav.scale-topbar", "pano.closes", "pano.health-help",
   "pano.pillar-cushion", "pano.pillar-debt", "pano.pillar-save", "pano.pillar-spend",

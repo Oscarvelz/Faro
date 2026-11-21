@@ -29,12 +29,28 @@ import type { Currency, Draft, LedgerState, PlanList, PlanRow } from "./types.ts
 
 /* ------------------------------------------------------------- lecturas */
 
+/** CERRADO se lee de una fecha real, no de la ausencia (cura de la ola
+ * 23, G23-4): un plan está cerrado si y solo si su closedAt es un texto
+ * no vacío. La lectura anterior (`closedAt !== ""`) leía un closedAt
+ * AUSENTE como cerrado: el plan desaparecía de los vivos y sus filas
+ * quedaban huérfanas en silencio. Y las entradas que no son objetos se
+ * saltan con desconfianza, como leen los lectores de drafts.ts: la
+ * puerta de paquetes (defaults.ts) ya rechaza esos paquetes, y esto es
+ * la segunda red, no la única. */
+export function planIsClosed(p: PlanList): boolean {
+  return !!p && typeof p === "object" && typeof p.closedAt === "string" && p.closedAt !== "";
+}
+
+export function planIsLive(p: PlanList): boolean {
+  return !!p && typeof p === "object" && !planIsClosed(p);
+}
+
 export function livePlans(state: LedgerState): PlanList[] {
-  return (state.plans ?? []).filter((p) => p.closedAt === "");
+  return (state.plans ?? []).filter((p) => planIsLive(p));
 }
 
 export function closedPlans(state: LedgerState): PlanList[] {
-  return (state.plans ?? []).filter((p) => p.closedAt !== "");
+  return (state.plans ?? []).filter((p) => planIsClosed(p));
 }
 
 export function planRows(state: LedgerState, planId: string): Draft[] {
@@ -178,7 +194,7 @@ export type CloseDest = "next" | "archive" | "out";
  * Devuelve el estado nuevo y cuántas líneas nacieron a la mesa. */
 export function closePlan(state: LedgerState, planId: string, destOf: Record<string, CloseDest>, today: string, now: string):
   { state: LedgerState; born: number; nextPlanId: string | null } {
-  const plan = (state.plans ?? []).find((p) => p.id === planId && p.closedAt === "");
+  const plan = (state.plans ?? []).find((p) => p.id === planId && planIsLive(p));
   if (!plan) return { state, born: 0, nextPlanId: null };
   const rows = planRows(state, planId);
   const keptDrafts: Draft[] = (state.drafts ?? []).filter((d) => !(d.kind === "plan" && d.planId === planId));
@@ -246,7 +262,7 @@ export function closePlan(state: LedgerState, planId: string, destOf: Record<str
  * había vuelven como pendientes, con su estimado. El folio no se toca:
  * sigue siendo el documento de aquel cierre. */
 export function resumePlan(state: LedgerState, folioId: string, today: string, now: string): { state: LedgerState; planId: string | null } {
-  const folio = (state.plans ?? []).find((p) => p.id === folioId && p.closedAt !== "");
+  const folio = (state.plans ?? []).find((p) => p.id === folioId && planIsClosed(p));
   if (!folio) return { state, planId: null };
   const np: PlanList = { id: uid(), name: folio.name, createdAt: now, closedAt: "", rows: [] };
   const rows: Draft[] = folio.rows
@@ -267,6 +283,6 @@ export function resumePlan(state: LedgerState, folioId: string, today: string, n
  * (la superficie pide su confirmación). Solo folios cerrados. */
 export function dropPlan(state: LedgerState, planId: string): LedgerState {
   const cur = state.plans ?? [];
-  if (!cur.some((p) => p.id === planId && p.closedAt !== "")) return state;
+  if (!cur.some((p) => p.id === planId && planIsClosed(p))) return state;
   return { ...state, plans: cur.filter((p) => p.id !== planId) };
 }

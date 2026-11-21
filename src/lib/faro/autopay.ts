@@ -15,8 +15,21 @@
  * pago automático cuya fecha ya llegó y cuyo período aún no tiene
  * instancia queda anotada — la instancia del período, con su fecha y su
  * cuenta (sourceId) — y Faro lo DICE. Reglas de la casa:
- *  - La configuración vive en la instancia más reciente de la serie y las
- *    instancias asentadas la heredan: la serie sigue sola.
+ *  - La configuración se resuelve DESDE LA SERIE (cura de la ola 23,
+ *    Q23-C2): manda la instancia más reciente QUE LA LLEVA, no la última.
+ *    Una instancia manual — que nace sin los campos, porque las recetas
+ *    de siempre no los escriben — ya no apaga el pago automático de su
+ *    serie. Y el apagado es un acto con señal: una instancia con
+ *    autopay === false explícito (lo escribe el editor al apagar sobre
+ *    la línea que lo traía encendido) detiene la búsqueda: apagar manda
+ *    sobre heredar. Las instancias asentadas heredan la configuración
+ *    del portador: la serie sigue sola.
+ *  - La caminata juzga cada período POR SU PROPIA FECHA (cura de la ola
+ *    23, G23-1): recorre la parrilla de la serie desde su primera fecha,
+ *    no hacia adelante desde la última instancia — una instancia futura
+ *    creada por adelantado ya no deja el período debido fuera. Los
+ *    períodos anteriores a la ventana se saltan sin asentarse (la
+ *    ventana honesta manda) y sin consumir presupuesto de asentamiento.
  *  - Idempotente por construcción: el id de la instancia asentada es
  *    determinista (serie + fecha) y un período con instancia no se toca.
  *  - Solo se asienta lo reciente (62 días): un período más viejo se le
@@ -32,6 +45,14 @@ import type { LedgerState, Line } from "./types.ts";
 export const DUE_ALERT_HORIZON_DAYS = 3;
 /** Cuánto hacia atrás asienta el pago automático al abrir. */
 export const AUTOPAY_SETTLE_WINDOW_DAYS = 62;
+/** Techo de pasos de la caminata de una serie. NO es política — la
+ * política es la ventana de 62 días — : es el seguro anti-bucle de la
+ * casa (el mismo 4000 de cadence.ts) ante una cadencia corrupta. A la
+ * cadencia más fina (diaria) cubre unos 11 años de vencimientos, muy
+ * por encima de cualquier libro real; la guarda anterior de 64 pasos sí
+ * era política disfrazada y quemaba el presupuesto en los vencimientos
+ * anteriores a la ventana (G23-1). */
+export const AUTOPAY_WALK_MAX_STEPS = 4000;
 
 /** Los pagos que se acercan: cuotas y tarjetas de la ventana única,
  * ordenados por fecha (la ventana ya ordena). Préstamos fuera: su importe
@@ -81,44 +102,144 @@ export function settleAutopay(state: LedgerState, today: string = todayIso()): {
   for (const [seriesId, instances] of series) {
     const sorted = [...instances].sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
     const latest = sorted[sorted.length - 1]!;
-    if (!latest.autopay || !latest.autopayAccountId || !latest.active || latest.rest) continue;
+    if (!latest.active || latest.rest) continue;
+    // LA CONFIGURACIÓN SE RESUELVE DESDE LA SERIE (Q23-C2): de la
+    // instancia más nueva a la más vieja, la primera que MENCIONA el
+    // pago automático manda — encendido con su cuenta, o apagado
+    // explícito. Las instancias que no lo mencionan (las manuales, las
+    // viejas) no dicen nada: ni encienden ni apagan.
+    let carrier: Line | null = null;
+    for (let i = sorted.length - 1; i >= 0; i -= 1) {
+      const l = sorted[i]!;
+      if (l.autopay === false) { carrier = null; break; }
+      if (l.autopay && l.autopayAccountId) { carrier = l; break; }
+    }
+    if (!carrier) continue;
+    const accountId = carrier.autopayAccountId;
+    if (!accountId) continue; // la resolución solo nombra portadora a quien trae su cuenta; esto lo deja dicho para el tipo
     if (!intervalOf(latest.cadence)) continue;
     const anchor = Number((latest.nextDue || "").slice(8, 10)) || Number(dayOf(latest).slice(8, 10)) || 1;
     // Un período está cubierto por FECHA, no por mes: una cadencia
     // semanal vive varias veces en el mismo mes. Cada instancia cubre
     // su fecha de cargo y su fecha anotada (un pago tardío anota la
     // segunda y debe la primera: ambas cuentan como el mismo período).
+    // EXCEPCIÓN DECLARADA (cura de la ola 23, Q23-C1 de Cara): el
+    // nextDue de una instancia NACIDA de este asentamiento (su id
+    // determinista la nombra) no cubre — en su forma, nextDue es el
+    // período SIGUIENTE, todavía debido (abajo, al nacer); su período
+    // pagado lo cubre su bookedOn. Las instancias de la forma vieja
+    // (nextDue = su propia fecha = bookedOn) quedan cubiertas por el
+    // bookedOn igualmente: ninguna se re-asienta.
     const covered = new Set<string>();
     for (const l of instances) {
-      if (/^\d{4}-\d{2}-\d{2}/.test(l.nextDue || "")) covered.add(l.nextDue.slice(0, 10));
+      const bornHere = l.id.startsWith(`auto-${seriesId}-`);
+      if (!bornHere && /^\d{4}-\d{2}-\d{2}/.test(l.nextDue || "")) covered.add(l.nextDue.slice(0, 10));
       if (/^\d{4}-\d{2}-\d{2}/.test(l.bookedOn || "")) covered.add(l.bookedOn!.slice(0, 10));
     }
-    let due = stepDate(latest.nextDue || dayOf(latest), latest.cadence, anchor);
-    for (let guard = 0; guard < 64 && due <= today; guard += 1) {
+    // LA CAMINATA (G23-1): la parrilla se recorre desde la PRIMERA
+    // fecha de la serie y cada período se juzga por su propia fecha.
+    // El primer período es el de la primera instancia (cubierto por
+    // construcción); los anteriores a la ventana se saltan sin asentar
+    // y sin gastar el techo de pasos en vano — el techo solo acota el
+    // total, nunca decide qué se asienta.
+    const first = sorted[0]!;
+    let due = /^\d{4}-\d{2}-\d{2}/.test(first.nextDue || "") ? first.nextDue.slice(0, 10) : dayOf(first);
+    for (let step = 0; step < AUTOPAY_WALK_MAX_STEPS && due <= today; step += 1) {
       const key = due.slice(0, 7);
       if (due >= windowStart && !covered.has(due)) {
         // La instancia nueva hereda la serie, no la identidad del papel:
         // las claves de importación y el lote de la última instancia no
         // se duplican jamás (una clave repetida corrompería Deshacer).
+        // El cuerpo es el de la instancia más reciente; la configuración
+        // es la del PORTADOR de la serie, que puede ser otra instancia.
         const { importId: _imp, batch: _batch, ...base } = latest;
         const instance: Line = {
           ...base,
           id: `auto-${seriesId}-${due}`,
           monthKey: key,
           bookedOn: due,
-          nextDue: due,
-          sourceId: latest.autopayAccountId,
+          // LA FORMA DE LA INSTANCIA ASENTADA (cura de la ola 23,
+          // Q23-C1 de Cara): su nextDue es el período SIGUIENTE, no el
+          // que acaba de pagar. La ventana única (dues.ts) lee nextDue
+          // como la obligación que la línea anuncia — con la forma
+          // vieja (nextDue = su propia fecha, ya pasada, en el cubo del
+          // mes corriente) la instancia se anunciaba a sí misma como
+          // vencida en Central, y la fila falsa renacía cada mes. El
+          // período pagado vive en bookedOn, que es donde la cobertura
+          // de arriba lo juzga.
+          nextDue: stepDate(due, latest.cadence, anchor),
+          autopay: true,
+          autopayAccountId: accountId,
+          sourceId: accountId,
           history: [],
         };
         const bucket = months[key] ?? { lines: [] };
         months = { ...months, [key]: { lines: [...bucket.lines, instance] } };
         covered.add(due);
         touched = true;
-        settled.push({ seriesId, concept: latest.concept, amountMinor: latest.amountMinor, currency: latest.currency, on: due, accountId: latest.autopayAccountId });
+        settled.push({ seriesId, concept: latest.concept, amountMinor: latest.amountMinor, currency: latest.currency, on: due, accountId });
       }
       due = stepDate(due, latest.cadence, anchor);
     }
   }
   settled.sort((a, b) => a.on.localeCompare(b.on));
   return { state: touched ? { ...state, months } : state, settled };
+}
+
+/* ------------------------------------------------------- el sello del día */
+
+/**
+ * EL SELLO DEL DÍA (cura de la ola 23, G23-2 = Q23-C1 de Cambios): la
+ * marca de «ya corrí el asentamiento de hoy». Antes era un useRef del
+ * proveedor: moría con el montaje, y Deshacer + reabrir (o una segunda
+ * pestaña) el mismo día re-asentaba en silencio los períodos que la
+ * persona acababa de deshacer — contra la promesa escrita del propio
+ * efecto («la marca del día hace que un Deshacer aguante el resto del
+ * día») y del Manual («al período siguiente»).
+ *
+ * LA CASA DEL SELLO ES EL APARATO, con su razón: el sello no es un hecho
+ * del libro — no dice qué se asentó, dice que ESTE aparato ya asentó
+ * hoy. (El proveedor lo escribe solo cuando el pase asienta: un pase
+ * vacío no sella, para que la serie que despierta el mismo día — creada,
+ * activada, restaurada o adoptada tras la primera apertura — conserve
+ * la conducta de siempre y asiente a la siguiente apertura; el sello
+ * existe para aguantar un Deshacer, y sin asentamiento no hay nada
+ * que aguantar.) Dentro del libro moriría con Deshacer (la
+ * foto restaurada lo traería sin sellar: la enfermedad misma), y un
+ * hecho de dinero no es: ningún total lo lee. Vive en una clave durable
+ * del aparato atada al libro por su uid, como la clave del paquete
+ * (faro.pack.<uid>) y con la convención de las claves del aparato de la
+ * casa (faro-news-seen es estado del aparato por diseño declarado). Que
+ * dos aparatos del mismo libro corran su pasada el mismo día no cobra
+ * dos veces: los ids asentados son deterministas y el que adopta el
+ * libro ya asentado no re-asienta (medido, ola 23 Cambios A5) — la
+ * convergencia es del motor, no del sello. Y Deshacer NO borra el sello:
+ * deshacer el cargo es un acto sobre el libro; el día, en este aparato,
+ * ya pasó por su apertura.
+ */
+export interface AutopaySealStorage {
+  read(key: string): string | null;
+  write(key: string, value: string): void;
+}
+
+export function autopaySealKey(userId: string): string {
+  return `faro-autopay-day.${userId}`;
+}
+
+export function autopaySealedOn(storage: AutopaySealStorage, userId: string, today: string): boolean {
+  try {
+    return storage.read(autopaySealKey(userId)) === today;
+  } catch {
+    return false;
+  }
+}
+
+export function sealAutopayDay(storage: AutopaySealStorage, userId: string, today: string): void {
+  try {
+    storage.write(autopaySealKey(userId), today);
+  } catch {
+    /* El aparato no guarda (modo privado, cuota): el sello degrada a la
+     * sesión en el proveedor, declarado allí. El motor sigue siendo
+     * idempotente por construcción. */
+  }
 }

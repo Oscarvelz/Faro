@@ -34,9 +34,18 @@
  *     misma respuesta.
  */
 
+import type { BookMode } from "./advisor.ts";
+
 export type FunctionEntry = {
   /** Id estable de la función (lo citan las familias del banco). */
   id: string;
+  /** El modo mínimo en que las CARAS de esta función viven (cura de la
+   * ola 23, A23-5): solo se declara donde una ola lo midió — la familia
+   * «Faro mismo» no dice su fórmula («ahí ves las mismas cifras que yo
+   * uso») de una cara que el modo de la persona no muestra; nombra el
+   * piso. Sin declaración, la función se presume visible en todo modo
+   * (las presunciones del mapa no se inventan: se miden). */
+  minMode?: BookMode;
   /** Área / capítulo del Manual al que pertenece. */
   area: string;
   /** Nombre de la función en la voz de la app. */
@@ -167,6 +176,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "cobros.plan",
+    minMode: "completo",
     area: "Cobros",
     name: { es: "Plan de pago de deudas", en: "Debt payoff plan" },
     screen: { es: "Cobros → Plan de pago", en: "Collections → Payoff plan" },
@@ -217,6 +227,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "estudio.flujo",
+    minMode: "ritmo",
     area: "Estudio",
     name: { es: "Recorrido del dinero y en qué se va", en: "Cash flow and where it goes" },
     screen: { es: "Estudio → Recorrido · En qué se va el gasto", en: "Study → Flow" },
@@ -247,6 +258,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "asesor.escenarios",
+    minMode: "completo",
     area: "Asesor",
     name: { es: "¿Qué pasa si…? (escenarios)", en: "What if…? (scenarios)" },
     screen: { es: "Asesor → ¿Qué pasa si…?", en: "Advisor → What if…?" },

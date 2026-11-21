@@ -548,7 +548,17 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       else if (existing.personId !== personId) delete line.occasionId;
       if (!(to && group && session && isRemitCat(session.ledger, categoryId))) delete line.to;
       if (!payEff) delete line.sourceId;
-      if (!(autopayEff && autopayAcctEff)) { delete line.autopay; delete line.autopayAccountId; }
+      if (!(autopayEff && autopayAcctEff)) {
+        delete line.autopayAccountId;
+        // Cura de la ola 23 (Q23-C2): la configuración se resuelve desde
+        // la serie (autopay.ts), así que apagar sobre la línea que lo
+        // traía encendido deja la señal EXPLÍCITA — autopay: false — y
+        // la resolución la lee como «apagado», sin resucitar la
+        // configuración de una instancia asentada más vieja. Una línea
+        // que nunca lo trajo no gana ningún campo: el borrado de siempre.
+        if (existing.autopay) line.autopay = false;
+        else delete line.autopay;
+      }
       if (!((existing.importId && existing.rc) || rcDerived)) delete line.rc;
       // G-6: la forma no materializa lo que la línea no traía — ni el glifo que
       // solo heredaba de su categoría, ni las fechas de alta vacías.

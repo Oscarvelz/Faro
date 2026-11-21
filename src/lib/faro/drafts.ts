@@ -197,8 +197,9 @@ function tableFields(w: Draft): (keyof Draft)[] {
 export function applyTableEdits(state: LedgerState, work: Draft[], originals: Map<string, Draft>, gone: ReadonlySet<string>): { state: LedgerState; pairs: { before: Draft; after: Draft }[] } {
   let next = state;
   const pairs: { before: Draft; after: Draft }[] = [];
+  const rebornIds = new Set(rebornDrafts(work, state.drafts ?? [], originals, gone).map((d) => d.id));
   for (const w of work) {
-    if (gone.has(w.id)) continue;
+    if (gone.has(w.id) || rebornIds.has(w.id)) continue;
     const o = originals.get(w.id);
     const live = (next.drafts ?? []).find((d) => d.id === w.id);
     if (!o || !live) continue;
@@ -221,16 +222,73 @@ export function applyTableEdits(state: LedgerState, work: Draft[], originals: Ma
  * mesa los NOMBRA en su nota, como nombra las caídas, con el concepto
  * de la copia de la persona; nombrar no bloquea el guardado de lo
  * demás: al guardar, la corrección ajena manda en su campo y lo de la
- * persona aterriza en los suyos (applyTableEdits). */
+ * persona aterriza en los suyos (applyTableEdits).
+ *
+ * Ola 23 (G23-3): los RENACIDOS ya no se nombran aquí — tienen su
+ * propia nota (rebornDrafts), con el nombre del cuerpo vivo. Esta
+ * lista los excluye por construcción: nombrar un renacido como
+ * «cambiado» con la palabra de la persona era la mitad del daño. */
 export function changedDrafts(work: Draft[], live: Draft[], originals: Map<string, Draft>, gone: ReadonlySet<string>): Draft[] {
   const byId = new Map(live.map((d) => [d.id, d]));
+  const rebornIds = new Set(rebornDrafts(work, live, originals, gone).map((d) => d.id));
   return work.filter((w) => {
-    if (gone.has(w.id)) return false;
+    if (gone.has(w.id) || rebornIds.has(w.id)) return false;
     const o = originals.get(w.id);
     const l = byId.get(w.id);
     if (!o || !l) return false;
     return tableFields(w).some((k) => JSON.stringify(l[k]) !== JSON.stringify(o[k]) && JSON.stringify(l[k]) !== JSON.stringify(w[k]));
   });
+}
+
+/** Ola 23 (G23-3): EL RENACIMIENTO, distinguido de la corrección. La
+ * regla del tercer valor (ola 22) juzga campo a campo, y hay un cuerpo
+ * al que no le alcanza: el id que MURIÓ y RENACIÓ con otro cuerpo
+ * entero (una restauración en otra pestaña) mientras la persona
+ * editaba la foto — clásicamente, la fila en rojo cuyo concepto vacío
+ * la obligaba a escribir. Sus ediciones no aterrizaban (todo campo
+ * editado guardaba un tercer valor), pero Guardar CONVERTÍA el cuerpo
+ * vivo que ella nunca vio, y la nota lo nombraba con SU palabra, como
+ * si su tecleo hubiera aterrizado en él: dinero y firma.
+ *
+ * LA FIRMA DEL RENACIMIENTO, declarada — un borrador vivo es renacido
+ * si y solo si:
+ *  (1) la persona editó al menos un campo de la mesa (su copia difiere
+ *      del montaje en ese campo);
+ *  (2) TODO campo que ella editó está bloqueado: lo vivo no es ni el
+ *      valor de montaje ni el suyo (su mano no puede aterrizar en
+ *      ninguno — si uno solo aterriza, es corrección y manda la regla
+ *      de la ola 22, campo a campo);
+ *  (3) lo vivo difiere del montaje en al menos un campo que ella NO
+ *      editó (el cuerpo nuevo trae vida propia fuera de su mano: sin
+ *      esto, un tercer valor solitario en su único campo editado es
+ *      una corrección rival, no un cuerpo nuevo).
+ * Sin ediciones de la persona no hay renacimiento que proteger (el
+ * cuerpo renacido sin tocar se convierte tal cual, doctrina de la
+ * ola 22, espécimen B4): renacer solo duele cuando una mano muere.
+ *
+ * Devuelve los borradores VIVOS (no las copias): la mesa los retira de
+ * su foto como a las caídas — el cuerpo renacido queda intacto en la
+ * bandeja, fuera de este guardado — y los nombra con el nombre del
+ * cuerpo VIVO, que es el que la persona tiene que reconocer como
+ * ajeno. Pura, como sus hermanas. */
+export function rebornDrafts(work: Draft[], live: Draft[], originals: Map<string, Draft>, gone: ReadonlySet<string>): Draft[] {
+  const byId = new Map(live.map((d) => [d.id, d]));
+  const out: Draft[] = [];
+  for (const w of work) {
+    if (gone.has(w.id)) continue;
+    const o = originals.get(w.id);
+    const l = byId.get(w.id);
+    if (!o || !l) continue;
+    const fields = tableFields(w);
+    const edited = fields.filter((k) => JSON.stringify(w[k]) !== JSON.stringify(o[k]));
+    if (!edited.length) continue;
+    const allBlocked = edited.every((k) => JSON.stringify(l[k]) !== JSON.stringify(o[k]) && JSON.stringify(l[k]) !== JSON.stringify(w[k]));
+    if (!allBlocked) continue;
+    const foreignLife = fields.some((k) => !edited.includes(k) && JSON.stringify(l[k]) !== JSON.stringify(o[k]));
+    if (!foreignLife) continue;
+    out.push(l);
+  }
+  return out;
 }
 
 /** Guardar: crea las líneas de los borradores pedidos y los retira de la

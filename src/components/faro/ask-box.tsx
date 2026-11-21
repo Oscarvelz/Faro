@@ -57,7 +57,7 @@ function todayLocal(): string {
 }
 
 export function AskBox() {
-  const { session, lang, names, key, commit, has, fmt, goTopic } = useFaro();
+  const { session, lang, names, key, commit, has, mode, fmt, goTopic } = useFaro();
   const [text, setText] = useState("");
   const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
@@ -90,7 +90,9 @@ export function AskBox() {
     const clean = q.trim();
     if (!clean || !session) return;
     setAsked(clean);
-    setResult(answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin));
+    // Ola 23 (A23-1/2/3/5): la caja enhebra el modo vigente al motor —
+    // el Asesor responde en el piso de la persona, no en el de la app.
+    setResult(answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode));
     setText(""); // al preguntar, la caja se contrae (348)
   }
 

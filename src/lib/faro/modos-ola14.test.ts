@@ -422,6 +422,78 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       }
     }
     const genericOnlyProps = new Set([...genericProps].filter((p) => !fmtTypedProps22.has(p)));
+    /* OLA 23 (M23-3b): LAS EXPRESIONES DE TIPO CON ANIDAMIENTO — la
+     * captura de argumentos `<([^>]*)>` moría en el primer «>»:
+     * `Caja<Caja<Fmt>>` se leía como dueño «Caja» con argumento
+     * «Caja<Fmt», y la cadena c.fmt.fmt ni siquiera entraba al juicio
+     * por dueño. Aquí la expresión se parte con su anidamiento (una
+     * clase y sus argumentos de nivel superior, partidos por comas de
+     * nivel superior), se resuelve por su cabeza en el archivo que la
+     * escribe, y el juicio por dueño camina la CADENA de propiedades
+     * sustituyendo el argumento en cada salto: el tipo tras una
+     * propiedad cuyo tipo declarado es un parámetro es el argumento
+     * del receptor — que puede ser a su vez una aplicación genérica, y
+     * se vuelve a partir. Lo que muere no es un salto: es la resolución
+     * del argumento compuesto, y se cura resolviéndolo. */
+    const parseTipoExpr = (expr: string): { clase: string; args: string[] } => {
+      const t = expr.trim().replace(/\?$/, "");
+      const lt = t.indexOf("<");
+      if (lt < 0) return { clase: t.split(".").pop()!, args: [] };
+      const inner = t.slice(lt + 1, t.lastIndexOf(">"));
+      const args: string[] = [];
+      let depth = 0, cur = "";
+      for (const ch of inner) {
+        if (ch === "<") depth++;
+        if (ch === ">") depth--;
+        if (ch === "," && depth === 0) { args.push(cur.trim()); cur = ""; continue; }
+        cur += ch;
+      }
+      if (cur.trim()) args.push(cur.trim());
+      return { clase: t.slice(0, lt).split(".").pop()!, args };
+    };
+    const resuelveExprTipo = (expr: string, fi: number): string => {
+      const p = parseTipoExpr(expr);
+      const head = resolveComposed(p.clase, fi);
+      return p.args.length ? `${head}<${p.args.map((a) => resuelveExprTipo(a, fi)).join(", ")}>` : head;
+    };
+    /* El juicio por dueño sobre una CADENA de receptor: el tipo del
+     * primer segmento (el declarado, o la clase misma si el segmento
+     * nombra una clase), caminando cada propiedad intermedia con la
+     * sustitución de su clase, hasta juzgar la propiedad final con la
+     * regla de siempre. Sin dueño conocido manda la regla de la
+     * propiedad puramente genérica, como en el juicio de un salto. */
+    const bloqueadaPorCadenaEn = (
+      receivers: Map<string, string>, receiverArgs: Map<string, string[]>,
+      path: string, prop: string,
+    ): boolean => {
+      const segs = path.split(".");
+      let tipo: string | undefined = receivers.get(segs[0]!) ?? (propTypes.has(segs[0]!) ? segs[0]! : undefined);
+      if (!tipo) return genericOnlyProps.has(prop);
+      let args: string[] | undefined = receiverArgs.get(segs[0]!);
+      for (let i = 1; i < segs.length; i++) {
+        const u = propTypes.get(tipo)?.get(segs[i]!);
+        if (!u) return false;
+        const params = classTypeParams.get(tipo);
+        if (params?.includes(u.w)) {
+          const arg = args?.[params.indexOf(u.w)];
+          if (arg === undefined) return true;
+          const p = parseTipoExpr(arg);
+          tipo = p.clase;
+          args = p.args;
+        } else {
+          tipo = resolveComposed(u.w, u.fi);
+          args = undefined;
+        }
+      }
+      const u = propTypes.get(tipo)?.get(prop);
+      if (!u) return false;
+      const params = classTypeParams.get(tipo);
+      if (params?.includes(u.w)) {
+        const arg = args?.[params.indexOf(u.w)];
+        return arg === undefined || arg !== "Fmt";
+      }
+      return resolveComposed(u.w, u.fi) !== "Fmt";
+    };
     const aliasSpellings = new Set<string>([...typealiasRaw.keys(), ...fileImports.flatMap((mp) => [...mp.keys()])]);
     const escRe18 = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     /* los nombres que EN ESTE ARCHIVO son el objeto Fmt: el suyo, sus
@@ -578,6 +650,57 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         }
       });
       if (!grew) break;
+    }
+    /* OLA 23 (M23-2): LA REFERENCIA CRUZA ARCHIVOS, COMO EL VALOR. La
+     * cosecha de valores de la ola 20/21 es del paquete entero (la
+     * cadena fmtB = fmtA entre archivos se cosecha a punto fijo entre
+     * archivos), pero la de REFERENCIAS (M22-4) se quedó por archivo:
+     * el mapa refsResueltas nacía y se cerraba dentro de cada archivo,
+     * así que una cadena de identidad con UN eslabón en otro archivo
+     * corría verde en el juicio (`val r = Fmt::rate` en E1, `val t = r`
+     * en E2, `u(t)` en Spec: u jamás se resolvía) — y la verificación
+     * de sitios declaraba muerta la superficie viva deletreada por esa
+     * misma cadena, porque su mapa gemelo tampoco cruzaba. Las dos
+     * mitades erraban en direcciones opuestas sobre la misma identidad.
+     * Aquí la resolución se hace UNA vez para el paquete: las semillas
+     * son las ataduras directas `val x = <Fmt>::<fn>` de cada archivo
+     * (con las grafías de SU archivo), y la cadena se cierra a punto
+     * fijo sobre la unión de ataduras del paquete. La unanimidad manda,
+     * como en las fábricas: una semilla con dos destinos, o un eslabón
+     * con dos valores distintos en el paquete, es ambiguo y NO resuelve
+     * por paquete (el archivo que lo ata manda en su juicio, como la
+     * sombra de las propiedades de paquete). El juicio y el sitio
+     * heredan de este mapa solo los nombres que su archivo no ata. */
+    const pkgRefsResueltas = new Map<string, string>();
+    {
+      const ambiguas = new Set<string>();
+      const todosBinds = new Map<string, Set<string>>();
+      scanned.forEach(({ code }, fi) => {
+        const spell = [...fmtNamesOf(fi)].map(escRe18).join("|");
+        if (spell) {
+          for (const m of code.matchAll(new RegExp(`\\b(?:val|var)\\s+(\\w+)\\s*=\\s*(?:${spell})::(\\w+)\\b`, "g"))) {
+            if (!fmtFormatters.has(m[2]!)) continue;
+            const prev = pkgRefsResueltas.get(m[1]!);
+            if (prev === undefined) pkgRefsResueltas.set(m[1]!, m[2]!);
+            else if (prev !== m[2]!) ambiguas.add(m[1]!);
+          }
+        }
+        for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) {
+          const s = todosBinds.get(m[1]!) ?? new Set<string>();
+          s.add(m[2]!.trim());
+          todosBinds.set(m[1]!, s);
+        }
+      });
+      for (const a of ambiguas) pkgRefsResueltas.delete(a);
+      for (;;) {
+        let grew = false;
+        for (const [n, rhss] of todosBinds) {
+          if (pkgRefsResueltas.has(n) || ambiguas.has(n) || rhss.size !== 1) continue;
+          const rhs = [...rhss][0]!;
+          if (/^\w+$/.test(rhs) && pkgRefsResueltas.has(rhs)) { pkgRefsResueltas.set(n, pkgRefsResueltas.get(rhs)!); grew = true; }
+        }
+        if (!grew) break;
+      }
     }
     /* OLA 17 (Asesor): CUARTA VIDA — el punto fijo del valor se
      * calcula sobre el PAQUETE antes de juzgar archivo a archivo. La
@@ -796,9 +919,13 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // son la sustitución que el juicio por dueño aplica a las
       // propiedades genéricas de su clase.
       const receiverArgs = new Map<string, string[]>();
-      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<([^>]*)>)?`, "g"))) {
+      // OLA 23 (M23-3b): la captura de argumentos admite UN nivel de
+      // anidamiento (`Caja<Caja<Fmt>>`) y cada argumento se resuelve
+      // como EXPRESIÓN completa desde su archivo — la captura vieja
+      // moría en el primer «>» y el argumento anidado entraba roto.
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<((?:[^<>]|<[^<>]*>)*)>)?`, "g"))) {
         receivers.set(m[1]!, resolveWrittenType(m[2]!, fi));
-        if (m[3] !== undefined) receiverArgs.set(m[1]!, m[3].split(",").map((a) => resolveWrittenType(a.trim().split(".").pop()!.replace(/\?$/, ""), fi)));
+        if (m[3] !== undefined) receiverArgs.set(m[1]!, parseTipoExpr(`X<${m[3]}>`).args.map((a) => resuelveExprTipo(a, fi)));
       }
       const buildAccess = (): RegExp => {
         const pats = [...receivers].filter(([, t]) => (tipos.get(t)?.size ?? 0) > 0)
@@ -934,26 +1061,19 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
        * la propiedad de paquete, la del companion, la local sin tipo:
        * la cosecha de nombres no se debilita, se le añade el dueño
        * donde el dueño está declarado. */
-      const bloqueadaPorDueno = (recv: string, prop: string): boolean => {
-        const t = receivers.get(recv) ?? (propTypes.has(recv) ? recv : undefined);
-        // OLA 22 (M22-2): sin dueño conocido, una propiedad PURAMENTE
-        // genérica no juzga por su nombre desnudo — su nombre solo no
-        // promete el formateador en ninguna clase.
-        if (!t) return genericOnlyProps.has(prop);
-        const u = propTypes.get(t)?.get(prop);
-        if (!u) return false;
-        /* OLA 22 (M22-2): si el tipo declarado de la propiedad es un
-         * PARÁMETRO de la clase dueña, manda el argumento con que el
-         * receptor se declaró: `Caja<Fmt>` la ata a Fmt y la llamada
-         * se juzga; `Caja<Otro>` la bloquea; sin argumento declarado
-         * no se puede jurar que sea Fmt y se bloquea. */
-        const params = classTypeParams.get(t);
-        if (params?.includes(u.w)) {
-          const arg = receiverArgs.get(recv)?.[params.indexOf(u.w)];
-          return arg === undefined || arg !== "Fmt";
-        }
-        return resolveComposed(u.w, u.fi) !== "Fmt";
-      };
+      /* OLA 22 (M22-2): si el tipo declarado de la propiedad es un
+       * PARÁMETRO de la clase dueña, manda el argumento con que el
+       * receptor se declaró: `Caja<Fmt>` la ata a Fmt y la llamada
+       * se juzga; `Caja<Otro>` la bloquea; sin argumento declarado
+       * no se puede jurar que sea Fmt y se bloquea. Sin dueño
+       * conocido, una propiedad PURAMENTE genérica no juzga por su
+       * nombre desnudo — su nombre solo no promete el formateador
+       * en ninguna clase.
+       * OLA 23 (M23-3b): el juicio vive en bloqueadaPorCadenaEn — el
+       * caminante de cadenas del censo: este delegado de un salto es
+       * su caso más corto, y la forma ancha de abajo lo invoca con el
+       * camino entero del receptor (c.fmt.fmt.…). */
+      const bloqueadaPorDueno = (recv: string, prop: string): boolean => bloqueadaPorCadenaEn(receivers, receiverArgs, recv, prop);
       const propCallish = (t: string): boolean => {
         if (!hayPropsAnchas) return false;
         for (const m of t.matchAll(new RegExp(`\\b(\\w+)\\.(${propReAncho})\\.\\w+\\s*\\(`, "g"))) if (!bloqueadaPorDueno(m[1]!, m[2]!)) return true;
@@ -1017,14 +1137,19 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         }
       }
       if (hayPropsAnchas) {
-        for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\.(${propReAncho})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
-          if (m[3]!.includes(":")) continue;
+        // OLA 23 (M23-3b): el receptor de la forma ancha es un CAMINO
+        // (c.fmt.fmt.money): la propiedad que nombra la llamada es la
+        // última antes de la función, y el dueño se juzga caminando
+        // el camino entero con la sustitución de cada salto. Con un
+        // solo salto es exactamente el juicio de antes.
+        for (const m of code.matchAll(new RegExp(`\\b(\\w+(?:\\.\\w+)*)\\.(${propReAncho})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
+          if (m[4]!.includes(":")) continue;
           // OLA 21 (M21-5): el receptor cuya clase declara la
           // propiedad con otro tipo no llama a Fmt por esa propiedad.
           // OLA 22 (M22-2): y si el tipo declarado es un parámetro de
           // la clase, manda el argumento del receptor — la misma
           // puerta resuelve las dos.
-          if (bloqueadaPorDueno(m[1]!, m[2]!)) continue;
+          if (bloqueadaPorCadenaEn(receivers, receiverArgs, m[1]!, m[2]!)) continue;
           if (fmtFormatters.has(m[3]!) || exprDerived(m[4]!)) judgedCall(`Fmt.${m[3]!}(${m[4]!})`);
         }
       }
@@ -1043,6 +1168,14 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       const refsResueltas = new Map<string, string>();
       for (const m of code.matchAll(new RegExp(`\\b(?:val|var)\\s+(\\w+)\\s*=\\s*(?:${spellRe})::(\\w+)\\b`, "g"))) {
         if (fmtFormatters.has(m[2]!)) refsResueltas.set(m[1]!, m[2]!);
+      }
+      // OLA 23 (M23-2): la herencia de paquete — un nombre que este
+      // archivo NO ata puede venir resuelto de la cosecha del paquete
+      // (la cadena con un eslabón en otro archivo); el cierre de abajo
+      // lo compone con las ataduras locales. Una atadura local del
+      // mismo nombre sombrea: no se hereda lo que el archivo ata.
+      for (const [n, fn] of pkgRefsResueltas) {
+        if (!bindings.has(n) && !refsResueltas.has(n)) refsResueltas.set(n, fn);
       }
       for (;;) {
         let grew = false;
@@ -1253,22 +1386,13 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // OLA 22 (M22-2): el sitio guarda los argumentos del receptor,
       // como el juicio — la sustitución genérica es la misma.
       const receiverArgsSitio = new Map<string, string[]>();
-      for (const m of f.code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<([^>]*)>)?`, "g"))) {
+      for (const m of f.code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<((?:[^<>]|<[^<>]*>)*)>)?`, "g"))) {
         receiversSitio.set(m[1]!, resolveWrittenType(m[2]!, fiSitio));
-        if (m[3] !== undefined) receiverArgsSitio.set(m[1]!, m[3].split(",").map((a) => resolveWrittenType(a.trim().split(".").pop()!.replace(/\?$/, ""), fiSitio)));
+        if (m[3] !== undefined) receiverArgsSitio.set(m[1]!, parseTipoExpr(`X<${m[3]}>`).args.map((a) => resuelveExprTipo(a, fiSitio)));
       }
-      const bloqueadaSitio = (r: string, prop: string): boolean => {
-        const t = receiversSitio.get(r) ?? (propTypes.has(r) ? r : undefined);
-        if (!t) return genericOnlyProps.has(prop);
-        const u = propTypes.get(t)?.get(prop);
-        if (!u) return false;
-        const params = classTypeParams.get(t);
-        if (params?.includes(u.w)) {
-          const arg = receiverArgsSitio.get(r)?.[params.indexOf(u.w)];
-          return arg === undefined || arg !== "Fmt";
-        }
-        return resolveComposed(u.w, u.fi) !== "Fmt";
-      };
+      // OLA 23 (M23-3b): el sitio juzga al dueño por la MISMA cadena
+      // que el juicio — un solo caminante para las dos mitades.
+      const bloqueadaSitio = (r: string, prop: string): boolean => bloqueadaPorCadenaEn(receiversSitio, receiverArgsSitio, r, prop);
       for (const p of propsSitio) {
         texto = texto.replace(new RegExp(`\\b(\\w+)\\.${escRe18(p)}\\.`, "g"), (whole: string, r: string) => (bloqueadaSitio(r, p) ? whole : "Fmt."));
         texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(p)}\\.`, "g"), "Fmt.");
@@ -1280,7 +1404,10 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
        * sitio). Sin receptor no hay reescritura: la forma desnuda
        * de una propiedad genérica no promete a Fmt. */
       for (const p of genericProps) {
-        texto = texto.replace(new RegExp(`\\b(\\w+)\\.${escRe18(p)}\\.`, "g"), (whole: string, r: string) => (bloqueadaSitio(r, p) ? whole : "Fmt."));
+        // OLA 23 (M23-3b): la reescritura camina el camino entero del
+        // receptor, como el juicio — `c.fmt.fmt.` con c: Caja<Caja<Fmt>>
+        // ES la superficie del formateador en su sitio.
+        texto = texto.replace(new RegExp(`\\b(\\w+(?:\\.\\w+)*)\\.${escRe18(p)}\\.`, "g"), (whole: string, r: string) => (bloqueadaSitio(r, p) ? whole : "Fmt."));
       }
       /* OLA 20 (Asesor, hallazgo 3): el sitio se lee también con los
        * alias de MIEMBRO del archivo — la superficie viva re-expresada
@@ -1315,6 +1442,13 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       const refsSitio = new Map<string, string>();
       for (const m of f.code.matchAll(new RegExp(`\\b(?:val|var)\\s+(\\w+)\\s*=\\s*(?:${spellSitio})::(\\w+)\\b`, "g"))) {
         refsSitio.set(m[1]!, m[2]!);
+      }
+      // OLA 23 (M23-2): la herencia de paquete, también en el sitio —
+      // la superficie deletreada por una cadena con un eslabón en otro
+      // archivo vive; la que no tiene llamada en ninguna grafía ni
+      // cadena sigue acusando, como siempre.
+      for (const [n, fn] of pkgRefsResueltas) {
+        if (!binds.has(n) && !refsSitio.has(n)) refsSitio.set(n, fn);
       }
       for (;;) {
         let grew = false;
@@ -1753,6 +1887,76 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       "}",
     ].join("\n") }]);
     assert.deepEqual(ok, [], "ni el comentario, ni el porcentaje de la foto, ni el formato de fecha acusan");
+  });
+  it("especímenes M23 (ola 23): lo compuesto — el envoltorio de la fábrica, la identidad de tres eslabones entre archivos, el genérico anidado y la propiedad-función por cadena", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\"; val rateFn: (Long) -> String = { \"\" } }",
+    };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M23-1a: la fábrica devuelve el ENVOLTORIO nullable — `Fmt?`
+    assert.ok(caza([{ name: "Spec.kt", text: "fun makeFmt(): Fmt? = Fmt\nclass W { val f = makeFmt()!!; fun a(s: Snap) = f.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M23-1a: fun makeFmt(): Fmt? — el retorno envuelto en nullable ata igual: f.money sin productor acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "fun makeFmt(): Fmt? = Fmt\nclass W { val f = makeFmt(); fun a(s: Snap) = f.money(s.spent, s.cur) }" }]), [],
+      "M23-1a-c (control): el envoltorio nullable con el productor registrado absuelve");
+    // M23-1b: la fábrica devuelve un ALIAS de Fmt
+    assert.ok(caza([{ name: "Spec.kt", text: "typealias FmtEnv = Fmt\nfun makeFmt(): FmtEnv = Fmt\nclass W { val f = makeFmt(); fun a(s: Snap) = f.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M23-1b: fun makeFmt(): FmtEnv (alias de Fmt) — el retorno por alias ata igual: acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "typealias FmtEnv = Fmt\nfun makeFmt(): FmtEnv = Fmt\nclass W { val f = makeFmt(); fun a(s: Snap) = f.money(s.spent, s.cur) }" }]), [],
+      "M23-1b-c (control): el retorno por alias con el productor registrado absuelve");
+    // M23-2: la cadena de identidad de TRES eslabones con archivos de por medio
+    const eslabones = [
+      { name: "E1.kt", text: "val r = Fmt::rate" },
+      { name: "E2.kt", text: "val t = r" },
+    ];
+    assert.ok(caza([...eslabones, { name: "Spec.kt", text: "val u = t\nclass W { fun a(s: Snap) = u(s.spent) }" }]).length >= 1,
+      "M23-2: r → t → u entre tres archivos — u(s.spent) ES Fmt.rate sin productor: acusa");
+    assert.deepEqual(caza([...eslabones, { name: "Spec.kt", text: "val u = t\nclass W { fun a(s: Snap) = u(s.rateE4) }" }]), [],
+      "M23-2c (control): la cadena de tres con el productor registrado absuelve");
+    const vivaTres = censoCascara([fmtDecl,
+      { name: "E2.kt", text: "val t = r" },
+      { name: "E3.kt", text: "val u = t" },
+      { name: "FaroWidgets.kt", text: "class W { val r = Fmt::rate; fun a(s: Snap) = u(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!vivaTres.some((a) => a.includes("ya no vive en su sitio")),
+      `M23-2s: u(s.rateE4) por la cadena de tres entre archivos ES la superficie en su sitio — las dos mitades coinciden: ${vivaTres.join(" | ")}`);
+    const muertaTres = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "class W { fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+      { name: "E1.kt", text: "val r = Fmt::rate" },
+      { name: "E2.kt", text: "val t = r" },
+      { name: "FaroNotify.kt", text: "class N { val u = t; fun a(s: Snap) = u(s.rateE4) }" },
+    ], true);
+    assert.ok(muertaTres.some((a) => a.includes("ya no vive en su sitio")),
+      "M23-2s-c (control): la cadena de tres plantada fuera del sitio no salva el sitio vacío");
+    // M23-3a: el argumento genérico que es a su vez un ALIAS
+    const cajaGen = { name: "Caja.kt", text: "typealias MiFmt = Fmt\nclass Caja<T>(val fmt: T)\nclass Otro { fun money(x: Long, c: String): String = \"\" }" };
+    assert.ok(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MiFmt>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M23-3a: Caja<MiFmt> — el argumento-alias se resuelve en el sitio de uso: acusa");
+    assert.deepEqual(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MiFmt>) = c.fmt.money(s.spent, s.cur) }" }]), [],
+      "M23-3a-c (control): Caja<MiFmt> con el productor registrado absuelve");
+    // M23-3b: el dueño genérico ANIDADO — Caja<Caja<Fmt>>
+    assert.ok(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Caja<Fmt>>) = c.fmt.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M23-3b: Caja<Caja<Fmt>> — la cadena c.fmt.fmt llega a Fmt y se juzga: acusa");
+    assert.deepEqual(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Caja<Fmt>>) = c.fmt.fmt.money(s.spent, s.cur) }" }]), [],
+      "M23-3b-c (control): el anidado con el productor registrado absuelve");
+    assert.deepEqual(caza([cajaGen, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Caja<Otro>>) = c.fmt.fmt.money(s.owed - s.spent, s.cur) }" }]), [],
+      "M23-3b-x (control): Caja<Caja<Otro>> bloquea entero — la clase ajena anidada no la juzga el registro de Fmt");
+    // M23-4: la propiedad-función alcanzada por CADENA de receptores
+    const casaFmt = { name: "Casa.kt", text: "class Casa(val fmt: Fmt)" };
+    assert.ok(caza([casaFmt, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Casa) = c.fmt.rateFn(s.spent) }" }]).length >= 1,
+      "M23-4: c.fmt.rateFn por la cadena de receptores imprime el gasto: acusa como la directa");
+    assert.ok(caza([casaFmt, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Casa) = c.fmt.rateFn(s.rateE4) }" }]).length >= 1,
+      "M23-4b: ni con la tasa absuelve por la cadena — rateFn no es Fmt.rate en ninguna grafía");
+    const sitioCadenaFn = censoCascara([fmtDecl, casaFmt,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, c: Casa) = c.fmt.rateFn(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(sitioCadenaFn.some((a) => a.includes("ya no vive en su sitio")),
+      `M23-4s: la tasa «viva» solo por c.fmt.rateFn no salva su sitio — la cadena no cambia la doctrina: ${sitioCadenaFn.join(" | ")}`);
+    const sitioCadenaReal = censoCascara([fmtDecl, casaFmt,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, c: Casa) = c.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!sitioCadenaReal.some((a) => a.includes("ya no vive en su sitio")),
+      `M23-4s-c (control): c.fmt.rate por la cadena ES la superficie registrada en su sitio: ${sitioCadenaReal.join(" | ")}`);
   });
 });
 

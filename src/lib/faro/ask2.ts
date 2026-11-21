@@ -29,12 +29,19 @@
  *    (los ids de askmap de donde salió cada número) y `lines` (cuántas
  *    líneas componen la cifra) — la ley «todo número se explica» (§17.3)
  *    empieza aquí, en el dato, no en la pantalla.
+ *  · EL MODO VIAJA EN LA RESPUESTA (cura de la ola 23, A23-1/2/3/5): el
+ *    Asesor solo habla de lo que puede mostrar (principio 6). Una
+ *    familia cuyas cifras viven sobre el modo de la persona no las
+ *    entrega: dice dónde viven, nombrando el piso; una pieza de una
+ *    resta cuya casa duerme nombra su piso en su etiqueta, sin caerse
+ *    de la resta. El espejo también es ley: ninguna respuesta que el
+ *    modo sí puede mostrar cae en silencio falso.
  *  · Las familias DECLARADAS del banco (ausencia, identidad,
  *    seguimiento) NO se responden aquí: devolverían unknown, el
  *    silencio honesto, hasta que su motor nazca.
  */
-import { readAdvisor } from "./advisor.ts";
-import { answerQuestion, type AskResult } from "./ask.ts";
+import { bookMode, readAdvisor, type BookMode } from "./advisor.ts";
+import { answerQuestion, askReaches, askReachesFloor, modeWord, pieceFloor, type AskResult } from "./ask.ts";
 import { functionOfQuestion, FARO_FUNCTION_MAP } from "./askmap.ts";
 import { cardFigures, cardsOf } from "./cards.ts";
 import { payoffPlan, monthAhead, peopleOf } from "./debts.ts";
@@ -81,6 +88,11 @@ type Ctx = {
   display: Currency;
   rateE4: number;
   money: (n: number) => string;
+  /** El modo vigente (cura de la ola 23, A23-1/2/3/5): el motor no
+   * recibía el modo y la caja imprimía la respuesta entera en los tres
+   * modos — cifras de Completo dichas en Esencial sin nombrar su piso.
+   * Ahora cada familia juzga las casas de sus piezas contra este modo. */
+  mode: BookMode;
 };
 
 function roleOf(state: LedgerState, categoryId: string): string {
@@ -133,9 +145,20 @@ function ahorrosAnswer(c: Ctx, folded: string): BankResult {
   let headLabel = L(c.lang, "Ahorros en total", "Savings in total");
   if (cls(/retiro|retirement/)) { head = stock.retirement; headLabel = L(c.lang, "Retiro", "Retirement"); }
   else if (cls(/emergencia|emergency/)) { head = stock.emergency; headLabel = L(c.lang, "Emergencia", "Emergency"); }
-  else if (cls(/apartad|set aside/)) { head = stock.kept + stock.pledged; headLabel = L(c.lang, "Apartado (guardado + del saldo)", "Set aside (kept + from balances)"); }
+  else if (cls(/apartad|set aside/)) { head = stock.kept + stock.pledged; headLabel = L(c.lang, "Apartado (guardado + del saldo)", "Set aside (kept + from balances)") + pieceFloor(c.lang, c.mode, "nature.class-saldo"); }
+  // A23-3 (cura de la ola 23): el total, las cuentas y lo guardado viven
+  // en Esencial y se dicen enteros; el apartado del saldo (su rendición
+  // cuelga de nature.class-saldo, Completo) y el colchón (todas sus
+  // caras son de Completo) nombran su piso en la propia pieza, y el
+  // flujo del mes (vault.monthly-setaside, Ritmo) nombra el suyo en su
+  // frase — en el veredicto cuando el veredicto ES el flujo, y en la
+  // nota cuando la nota lo trae. Ninguna pieza se cae: las piezas suman
+  // el total que el veredicto dice, y una resta coja mentiría.
+  const flowFloor = askReaches(c.mode, "vault.monthly-setaside")
+    ? ""
+    : L(c.lang, ` Su lectura vive en ${modeWord(c.lang, "ritmo")}.`, ` Its reading lives in ${modeWord(c.lang, "ritmo")}.`);
   const verdict = cls(/mes|month/) && cls(/apart|set aside/)
-    ? L(c.lang, `Este mes apartaste ${c.money(sum.savingsFlow)}.`, `This month you set aside ${c.money(sum.savingsFlow)}.`)
+    ? L(c.lang, `Este mes apartaste ${c.money(sum.savingsFlow)}.`, `This month you set aside ${c.money(sum.savingsFlow)}.`) + flowFloor
     : L(c.lang, `En ahorros tienes ${c.money(stock.total)}.`, `You have ${c.money(stock.total)} in savings.`);
   return {
     kind: "answer", family: "ahorros", verdict,
@@ -143,11 +166,11 @@ function ahorrosAnswer(c: Ctx, folded: string): BankResult {
       { label: headLabel, minor: head },
       { label: L(c.lang, "En cuentas", "In accounts"), minor: stock.byClass.cuenta ?? 0 },
       { label: L(c.lang, "Guardado aparte", "Kept apart"), minor: stock.kept },
-      { label: L(c.lang, "Apartado del saldo", "Set aside from balances"), minor: stock.pledged },
-      { label: L(c.lang, "Colchón por cubrir", "Cushion still to cover"), minor: -cushion.floorShortfall },
+      { label: L(c.lang, "Apartado del saldo", "Set aside from balances") + pieceFloor(c.lang, c.mode, "nature.class-saldo"), minor: stock.pledged },
+      { label: L(c.lang, "Colchón por cubrir", "Cushion still to cover") + pieceFloor(c.lang, c.mode, "nature.cushion"), minor: -cushion.floorShortfall },
     ],
     note: sum.savingsFlow > 0
-      ? L(c.lang, `Este mes el flujo hacia el ahorro fue ${c.money(sum.savingsFlow)}.`, `This month's flow into savings was ${c.money(sum.savingsFlow)}.`)
+      ? L(c.lang, `Este mes el flujo hacia el ahorro fue ${c.money(sum.savingsFlow)}.`, `This month's flow into savings was ${c.money(sum.savingsFlow)}.`) + flowFloor
       : null,
     source: ["ahorros.stock", "ahorros.colchon", "ahorros.mes"],
     lines: stock.series.size,
@@ -167,9 +190,9 @@ function freeSubtraction(c: Ctx): { libre: number; pieces: BankPiece[] } {
     libre,
     pieces: [
       { label: L(c.lang, "Saldo en cuentas", "Balance in accounts"), minor: saldo },
-      { label: L(c.lang, "Apartado del saldo", "Set aside from the balance"), minor: -stock.pledged },
+      { label: L(c.lang, "Apartado del saldo", "Set aside from the balance") + pieceFloor(c.lang, c.mode, "nature.class-saldo"), minor: -stock.pledged },
       { label: L(c.lang, "Vence en 14 días", "Due within 14 days"), minor: -dues },
-      { label: L(c.lang, "Colchón por cubrir", "Cushion still to cover"), minor: -colchon },
+      { label: L(c.lang, "Colchón por cubrir", "Cushion still to cover") + pieceFloor(c.lang, c.mode, "nature.cushion"), minor: -colchon },
     ],
   };
 }
@@ -502,6 +525,20 @@ function remesasAnswer(c: Ctx): BankResult {
       pieces: [], note: null, source: ["remesas.personas"], lines: 0,
     };
   }
+  // A23-2 (cura de la ola 23): el patrón por persona tiene sus dos casas
+  // en Completo (remit.manage en Ajustes, study.remit en Estudio) — en
+  // Esencial ni la tarjeta de Libros vive, y en Ritmo la Lectura habla
+  // de remesas mes contra mes, que es OTRA pieza y no se toca. Debajo de
+  // Completo la respuesta no entrega el patrón: dice dónde vive,
+  // nombrando el piso. (El «no hay remesas» de arriba no entrega cifra
+  // ninguna y se dice igual en todo modo: es la ausencia, no el patrón.)
+  if (!askReaches(c.mode, "remit.manage") && !askReaches(c.mode, "study.remit")) {
+    return {
+      kind: "answer", family: "remesas",
+      verdict: L(c.lang, `El patrón de tus remesas vive en ${modeWord(c.lang, "completo")}: en Estudio → Remesas y en Ajustes → Remesas ves a quién envías, cuánto y con qué ritmo.`, `Your remittance pattern lives in ${modeWord(c.lang, "completo")}: in Study → Remittances and Settings → Remittances you see who you send to, how much, and at what pace.`),
+      pieces: [], note: null, source: ["remesas.personas"], lines: 0,
+    };
+  }
   const displayPair = (r: (typeof rows)[number]) => (c.display === "USD" ? r.all.usd : r.all.nio);
   const top = withMoney[0];
   const hist = remitHistory(c.state, top.id);
@@ -550,6 +587,25 @@ function futuroAnswer(c: Ctx, folded: string): BankResult | null {
         pieces: [], note: null, source: ["cobros.plan"], lines: 0,
       };
     }
+    // A23-1 (cura de la ola 23): las dos cifras del veredicto — la fecha
+    // de quedar libre y el interés del camino — son del plan de pagos, y
+    // TODAS las caras del plan son de Completo (loans.payoff-plan,
+    // loans.payoff-params, advisor.plan-90). JUICIO SOBRE RITMO, con su
+    // razón: la nota corta (advisor.plan-short, Ritmo) NO puede
+    // responder esta pregunta con sus cifras — es el paso sugerido de
+    // ESTE mes dentro de la Lectura, no la proyección de salida (meses
+    // e interés total del orden elegido); ninguna cara de Ritmo enseña
+    // esas dos cifras. Así que en Esencial y en Ritmo la respuesta no
+    // las entrega: dice dónde vive el plan, nombrando Completo. (El
+    // «todavía no puedo proyectarlo» de arriba no entrega cifra del
+    // plan — es ausencia honesta y se dice igual en todo modo.)
+    if (!askReaches(c.mode, "loans.payoff-plan")) {
+      return {
+        kind: "answer", family: "futuro",
+        verdict: L(c.lang, `El plan para salir de deudas vive en ${modeWord(c.lang, "completo")}: ahí ves la fecha en que quedas libre y el interés del camino, con su supuesto dicho.`, `The debt payoff plan lives in ${modeWord(c.lang, "completo")}: there you see the date you're debt-free and the interest along the way, with its assumption stated.`),
+        pieces: [], note: null, source: ["cobros.plan"], lines: 0,
+      };
+    }
     const when = monthAhead(plan.chosen.months, c.today);
     return {
       kind: "answer", family: "futuro",
@@ -568,6 +624,21 @@ function futuroAnswer(c: Ctx, folded: string): BankResult | null {
 function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
   const f = functionOfQuestion(folded);
   if (!f) return null;
+  // A23-5 (cura de la ola 23): la fórmula «ahí ves las mismas cifras
+  // que yo uso» no se dice de una cara que el modo no muestra. Cuando
+  // el mapa declara el piso de la función (minMode, declarado solo
+  // donde una ola lo midió) y la persona está debajo, el veredicto
+  // nombra el piso y no promete las cifras — como la puerta de
+  // cobros.plan ya hacía al caer a su explicación. La nota sigue
+  // nombrando el tema: la explicación del Manual es el destino honesto.
+  if (f.minMode && !askReachesFloor(c.mode, f.minMode)) {
+    return {
+      kind: "answer", family: "faro-mismo",
+      verdict: L(c.lang, `Eso es «${f.name.es}», en el área de ${f.area} (${f.screen.es}). Vive en ${modeWord(c.lang, f.minMode)}: en ${modeWord(c.lang, c.mode)} no ves esas cifras.`, `That's "${f.name.en}", in the ${f.area} area (${f.screen.en}). It lives in ${modeWord(c.lang, f.minMode)}: in ${modeWord(c.lang, c.mode)} you don't see those figures.`),
+      pieces: [], note: L(c.lang, `Su tema en el Manual es «${f.name.es}».`, `Its Manual topic is "${f.name.en}".`),
+      source: [f.id], lines: 0,
+    };
+  }
   return {
     kind: "answer", family: "faro-mismo",
     verdict: L(c.lang, `Eso vive en ${f.screen.es}: es «${f.name.es}», en el área de ${f.area}. Ahí ves las mismas cifras que yo uso para responderte.`, `That lives on ${f.screen.en}: it's "${f.name.en}", in the ${f.area} area. There you see the same figures I use to answer you.`),
@@ -588,6 +659,7 @@ export function answerBankQuestion(
   parseCtx: ParseCtx,
   today: string,
   pin?: { accountId: string },
+  mode?: BookMode,
 ): BankResult {
   const folded = foldQ(raw);
   const { display, rateE4 } = state.settings;
@@ -595,6 +667,11 @@ export function answerBankQuestion(
   const c: Ctx = {
     state, key, lang, names, today, display, rateE4,
     money: (n: number) => formatMoney(n, reading.currency, lang),
+    // El modo lo enhebra la caja (ask-box) desde la sesión; sin
+    // enhebrar, se lee del propio libro — el mismo valor por la misma
+    // fuente (modeOf sobre settings), para que ningún llamador pueda
+    // responder en un modo que el libro no tiene.
+    mode: mode ?? bookMode(state),
   };
 
   // 0 · EL ESCENARIO (injerto de la fusión, 1.3.355): «si sacara $X, ¿qué
@@ -647,7 +724,9 @@ export function answerBankQuestion(
     if (r) return r;
   }
   // 13 · Lo heredado de la Ola 5a, intacto: spend / free / left / how.
-  const base: AskResult = answerQuestion(state, key, lang, names, raw, parseCtx, today);
+  // El modo viaja también al delegado: su familia free trae las mismas
+  // piezas de la resta (apartado, colchón) y nombran el mismo piso.
+  const base: AskResult = answerQuestion(state, key, lang, names, raw, parseCtx, today, c.mode);
   if (base.kind === "answer") {
     return {
       kind: "answer", family: base.intent, verdict: base.verdict,
