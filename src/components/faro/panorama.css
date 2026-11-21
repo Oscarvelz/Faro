@@ -176,9 +176,14 @@
 .coach-words { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 0 2px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--fg); font: inherit; font-weight: 600; }
 .coach-words svg { width: 16px; height: 16px; transition: transform 0.2s; }
 .coach-words svg.is-open { transform: rotate(180deg); }
-.coach-glossary { margin: 0; display: grid; gap: 10px; animation: pano-in 0.2s ease both; }
-.coach-glossary dt { font-weight: 650; font-size: 0.88rem; }
-.coach-glossary dd { margin: 2px 0 0; font-size: 0.85rem; line-height: 1.45; color: var(--muted); }
+/* 1.3.351: las Palabras claras dejan de ser texto suelto — cada término
+   vive en su propia pieza con el acabado de la casa (superficie hundida,
+   borde y la raya del acento, la misma familia que la tarjeta de
+   respuesta de Preguntar). */
+.coach-glossary { margin: 0; display: grid; gap: 8px; animation: pano-in 0.2s ease both; }
+.coach-glossary > div { background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid color-mix(in oklab, var(--accent) 55%, transparent); border-radius: 12px; padding: 10px 12px; }
+.coach-glossary dt { font-weight: 680; font-size: 0.9rem; }
+.coach-glossary dd { margin: 3px 0 0; font-size: 0.85rem; line-height: 1.45; color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) {
   .pano-seg, .pano-waffle button, .pano-rule-track b, .pano-days i, .pano-mover-track b, .pano-hbar-fill, .pano-agenda > i, .pano-dial-arc, .pano-pillar-track b, .coach-bar i, .coach-steps li, .pano-pick { animation: none; }

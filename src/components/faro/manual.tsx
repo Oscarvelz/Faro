@@ -9,6 +9,7 @@ import { modeReaches } from "@/lib/faro/mode";
 import { Mark } from "./icons";
 import { useFaroRoot } from "./provider";
 import { richText } from "./manual-text";
+import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import "./manual.css";
 
 /** Wrap the query words in <mark>, accent- and case-blind. */
@@ -58,6 +59,7 @@ function Manual({ data }: { data: ManualData }) {
   const findRef = useRef<HTMLInputElement>(null);
   const [findOn, setFindOn] = useState(false);
   const [needle, setNeedle] = useState("");
+  useIdleClear(needle, () => setNeedle(""));
   const [openCh, setOpenCh] = useState<string[]>(() => (current ? [current.chapter.id] : []));
   const words = useMemo(() => queryWords(needle), [needle]);
   /* El Manual se recompone por modo (fallo 25 + T-2, etapa 5): un tema cuya
@@ -244,6 +246,7 @@ function Manual({ data }: { data: ManualData }) {
               value={needle}
               placeholder={t("manual.search")}
               aria-label={t("manual.searchLabel")}
+              onFocus={selectAllOnFocus}
               onChange={(e) => setNeedle(e.target.value)}
             />
             <button type="button" className="mn-find-x" aria-label={t("manual.clear")} onClick={shutFind}><X aria-hidden /></button>

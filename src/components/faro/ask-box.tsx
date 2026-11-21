@@ -1,12 +1,17 @@
 /**
  * ask-box.tsx — la caja de Preguntar al Asesor (Captura Inteligente,
- * mapa F8; Ola 5a, 1.3.345). Vive al TOPE de la pantalla del Asesor, no
- * en una pestaña nueva: una caja de pregunta, los chips que enseñan lo
- * que el Asesor sí sabe, y la tarjeta de respuesta con la anatomía del
- * mapa — veredicto en el registro del usuario, el efecto en 2–3 piezas,
- * qué se rompería, y «Registrarlo», que deja el gasto preguntado en la
- * BANDEJA (guardar sigue pasando por la mesa de siempre; la respuesta
- * nunca guarda ni mueve dinero).
+ * mapa F8; Ola 5a, 1.3.345). Vive en la pantalla del Asesor, no en una
+ * pestaña nueva: una caja de pregunta, los chips que enseñan lo que el
+ * Asesor sí sabe, y la tarjeta de respuesta con la anatomía del mapa —
+ * veredicto en el registro del usuario, el efecto en 2–3 piezas, qué se
+ * rompería, y «Registrarlo», que deja el gasto preguntado en la BANDEJA
+ * (guardar sigue pasando por la mesa de siempre; la respuesta nunca
+ * guarda ni mueve dinero).
+ *
+ * 1.3.351 (Oscar): la caja vuelve DEBAJO de las Palabras claras — primero
+ * el consejo general, después la pregunta — y su envoltorio sube al
+ * material del héroe del Coach (el resplandor del acento, el medallón):
+ * la capacidad no se toca; lo que sube es el marco.
  *
  * Lo que no sabe, lo dice: «Eso todavía no lo sé responder. Esto sí:»
  * con los chips. Y un gasto sin monto no se adivina: la tarjeta pide el

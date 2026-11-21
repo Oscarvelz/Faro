@@ -21,6 +21,7 @@ import { FREQ_BOUNDS, cadenceLabel, customFreqsFor, customToken, dropFreq, inter
 import { BrandMark, Glyph, LOOK_ICONS, SubMark } from "./icons";
 import { ColorPick, LookGem } from "./color-pick";
 import { useFaro } from "./provider";
+import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import "./fit-form.css";
 
 export type PickItem = { id: string; label: string; mark: ReactNode; group?: string; color?: string };
@@ -115,12 +116,13 @@ export function PiecePlate({ color, icon, small, onClick, label }: { color: stri
 export function IconPick({ value, color, onPick }: { value: string; color: string; onPick: (name: string) => void }) {
   const { lang } = useFaro();
   const [q, setQ] = useState("");
+  useIdleClear(q, () => setQ(""));
   const needle = normName(q);
   const icons = needle ? LOOK_ICONS.filter((name) => normName(iconWords(name, lang)).includes(needle)) : LOOK_ICONS;
   const wash = washForInk(color);
   return (
     <div className="icon-pick">
-      <input className="field" value={q} placeholder={L(lang, "Buscar ícono", "Search icons")} aria-label={L(lang, "Buscar ícono", "Search icons")} onChange={(e) => setQ(e.target.value)} />
+      <input className="field" value={q} placeholder={L(lang, "Buscar ícono", "Search icons")} aria-label={L(lang, "Buscar ícono", "Search icons")} onFocus={selectAllOnFocus} onChange={(e) => setQ(e.target.value)} />
       {icons.length ? (
         <div className="look-icons icon-pick-grid">
           {icons.map((name) => (
@@ -176,6 +178,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
 }) {
   const { lang, confirm } = useFaro();
   const [q, setQ] = useState("");
+  useIdleClear(q, () => setQ(""));
   const [editing, setEditing] = useState(!!startEditing);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [paint, setPaint] = useState<string | null>(null);
@@ -304,7 +307,7 @@ export function PickSheet({ title, items, groups, value, onPick, onClose, add, m
         {lookView || items.length > 8 ? (
           <label className="fit-search">
             <Search aria-hidden />
-            <input value={q} data-test="pick-search" placeholder={lookView ? L(lang, "Buscar ícono", "Search icon") : L(lang, "Buscar", "Search")} aria-label={L(lang, "Buscar", "Search")} onChange={(e) => setQ(e.target.value)} />
+            <input value={q} data-test="pick-search" placeholder={lookView ? L(lang, "Buscar ícono", "Search icon") : L(lang, "Buscar", "Search")} aria-label={L(lang, "Buscar", "Search")} onFocus={selectAllOnFocus} onChange={(e) => setQ(e.target.value)} />
           </label>
         ) : null}
         <div className={`fit-sheet-list${scrolled ? " is-scrolled" : ""}`} ref={listRef} data-view={lookView ? "look" : "list"} onScroll={(e) => { const v = e.currentTarget.scrollTop > 2; if (v !== scrolled) setScrolled(v); }}>

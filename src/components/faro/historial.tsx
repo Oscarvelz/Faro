@@ -24,6 +24,7 @@ import { ChevronLeft, ChevronRight, EyeOff, Search, SlidersHorizontal, X } from 
 import { useFaro } from "./provider";
 import { modeWhisper } from "./bank-dock";
 import { useLongPress } from "./use-longpress";
+import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import { SelectionBar, SelMark, useSelection } from "./selection";
 import { PiecePlate } from "./fit-pick";
 import { Note } from "./finish";
@@ -149,6 +150,7 @@ export function HistorialScreen() {
   // Los filtros del dueño (sin from/to: eso lo pone la lente).
   const [f, setF] = useState<StreamFilters>({});
   const [text, setText] = useState("");
+  useIdleClear(text, () => setText(""));
   const [minText, setMinText] = useState("");
   const [maxText, setMaxText] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -479,7 +481,7 @@ export function HistorialScreen() {
         <div className="hist-tools">
           <label className="search-pill hist-search">
             <Search className="size-4" aria-hidden />
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t("hist.search")} aria-label={t("hist.search")} />
+            <input value={text} onFocus={selectAllOnFocus} onChange={(e) => setText(e.target.value)} placeholder={t("hist.search")} aria-label={t("hist.search")} />
             {text ? <button type="button" className="hist-x" aria-label={t("hist.clearFilters")} onClick={() => setText("")}><X className="size-4" /></button> : null}
           </label>
           <button type="button" className={`btn secondary hist-tool-btn${filtersOpen ? " is-on" : ""}`} data-anchor="hist-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((on) => !on)}>

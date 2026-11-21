@@ -97,6 +97,7 @@ import type { QuarantineEntry } from "@/lib/faro/packguard";
 import { Explain, FieldTip, Modal } from "./ui";
 import { useLayer } from "@/lib/manual/back";
 import { Hint } from "./hint";
+import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import { dayLabel } from "./historial";
 import { reactivateDueSeries } from "@/lib/faro/duefile";
 import { DeboSide, DeboSum, LoanCard, LoanForm, LoansStudy } from "./loans";
@@ -5423,11 +5424,12 @@ export function Advisor() {
   }
   return (
     <div className="advice-stack" ref={stackRef}>
-      {/* Preguntar va primero (Oscar, 2026-11-20): la caja es una de las
-          funciones mayores del Asesor — entra en la mira al abrir la
-          pantalla, no a media página tras el héroe. */}
-      <AskBox />
+      {/* Preguntar va tras el consejo (Oscar, 2026-11-20, su palabra
+          posterior manda sobre la de la mañana): primero el consejo
+          general del Coach — el héroe, los chequeos y las Palabras
+          claras — y después la pregunta, debajo de las Palabras claras. */}
       <CoachHero />
+      <AskBox />
       <label className="unfold-all is-advice" data-anchor="advice-unfold" data-hello={hello || undefined}>
         <input type="checkbox" checked={allOpen} onChange={toggleAll} />
         <span>{t("study.unfold")}</span>
@@ -5934,6 +5936,7 @@ export function Settings() {
   const [rateText, setRateText] = useState(session ? formatRate(session.ledger.settings.rateE4) : "");
   // La invitada (Captura F7): la búsqueda del selector y el texto de la tasa manual.
   const [guestQuery, setGuestQuery] = useState("");
+  useIdleClear(guestQuery, () => setGuestQuery(""));
   /* El punto de lo nuevo (1.3.346): hay una nota sin ver si este
    * teléfono quedó en una versión anterior a la vigente. */
   const newsUnseen = (() => { try { const s = localStorage.getItem("faro-news-seen"); return s != null && cmpVersion(s, FARO_VERSION) < 0; } catch { return false; } })();
@@ -6066,7 +6069,7 @@ export function Settings() {
         {!settings.guestCur ? (
           <>
             <p className="aj-mode-note">{lang === "en" ? "One currency to LOOK at your numbers in — nothing is ever saved in it, and the book never changes. The euro comes first, as the most popular." : "Una moneda para MIRAR tus números — nada se guarda jamás en ella y el libro no cambia. El euro va primero, por popular."}</p>
-            <input className="field" value={guestQuery} onChange={(e) => setGuestQuery(e.target.value)} placeholder={lang === "en" ? "Search currency…" : "Buscar moneda…"} aria-label={lang === "en" ? "Search currency" : "Buscar moneda"} />
+            <input className="field" value={guestQuery} onFocus={selectAllOnFocus} onChange={(e) => setGuestQuery(e.target.value)} placeholder={lang === "en" ? "Search currency…" : "Buscar moneda…"} aria-label={lang === "en" ? "Search currency" : "Buscar moneda"} />
             <div className="guest-list">
               {GUEST_CURRENCIES.filter((g) => { const q = guestQuery.trim().toLowerCase(); return !q || g.code.toLowerCase().includes(q) || (GUEST_NAMES[g.code]?.[0] ?? "").toLowerCase().includes(q) || (GUEST_NAMES[g.code]?.[1] ?? "").toLowerCase().includes(q); }).map((g) => (
                 <button key={g.code} type="button" className="guest-pick" data-anchor={`guest-pick-${g.code}`} onClick={() => commit((s) => ({ ...s, settings: { ...s.settings, guestCur: g.code, guestRate: undefined } }), lang === "en" ? `Guest: ${g.code}` : `Invitada: ${g.code}`)}>

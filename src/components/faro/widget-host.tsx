@@ -40,6 +40,7 @@ import { buildWidgetSnapshot, parseWidgetPushRecord, widgetHide, WIDGET_HIDE_KEY
 import { hasStorePin, hasWidgetPin, ingestQuick, parseQuickEntries, pinGroups, searchPinCandidates, toggleStorePin, toggleWidgetPin, type PinCandidate, type QuickEntry } from "@/lib/faro/quickadd";
 import { BrandMark, Glyph } from "./icons";
 import type { GoLike } from "@/lib/manual/places";
+import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import "./sample-mode.css";
 
 export const WIDGET_REFRESH = "faro-widget-refresh";
@@ -473,6 +474,7 @@ function WidgetPinsSection() {
   const { t, session, commit, names, confirm, has } = useFaro();
   const { lang } = useFaroRoot();
   const [q, setQ] = useState("");
+  useIdleClear(q, () => setQ(""));
   const ledger = session?.ledger ?? null;
   if (!ledger) return null;
   const pins = ledger.settings.widgetPins ?? [];
@@ -619,7 +621,7 @@ function WidgetPinsSection() {
       {canSearch ? (
       <label className="search-pill wpin-search">
         <Search className="size-4" aria-hidden />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("settings.widgetpins.search")} aria-label={t("settings.widgetpins.search")} />
+        <input value={q} onFocus={selectAllOnFocus} onChange={(e) => setQ(e.target.value)} placeholder={t("settings.widgetpins.search")} aria-label={t("settings.widgetpins.search")} />
         {q ? <button type="button" className="wpin-x" aria-label={t("hist.clearFilters")} onClick={() => setQ("")}><X className="size-4" /></button> : null}
       </label>
       ) : null}

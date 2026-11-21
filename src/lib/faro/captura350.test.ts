@@ -91,7 +91,10 @@ describe("puertas de Central: deslizar, el tercer gesto", () => {
     assert.ok(topic.includes("selector de puertas"), "el tema nombra el selector");
     assert.ok(topic.includes("deslizar el dedo"), "el tema nombra el gesto de deslizar");
     assert.ok(topic.includes('"gesture.swipe"'), "el tema lista la clave nueva");
-    const head = novedades.slice(novedades.indexOf("export const NEWS"), novedades.indexOf("export const NEWS") + 400);
-    assert.ok(head.includes('"1.3.350"') && head.includes('"grande"'), "la nota mayor de la 1.3.350 abre el registro");
+    // La 351 sucedió a la 350 en la cabeza del registro (su propia cerca
+    // fija la cabeza vigente); aquí queda el hecho permanente de la 350:
+    // su nota existe y es grande.
+    const at350 = novedades.indexOf('"1.3.350"');
+    assert.ok(at350 >= 0 && novedades.slice(at350, at350 + 200).includes('"grande"'), "la nota mayor de la 1.3.350 vive en el registro");
   });
 });

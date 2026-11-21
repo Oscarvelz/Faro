@@ -177,7 +177,9 @@ describe("captura345 · la puerta", () => {
     assert.equal(FEATURES["advisor.ask"], FEATURES["capture.tray"]);
   });
 
-  it("la caja vive al tope del Asesor, gobernada por su asiento", () => {
+  // La 351 movió la caja bajo las Palabras claras (palabra posterior de
+  // Oscar); el orden exacto lo fija captura351. Aquí queda su asiento.
+  it("la caja vive en el Asesor, gobernada por su asiento", () => {
     const box = readFileSync(new URL("../../components/faro/ask-box.tsx", import.meta.url), "utf8");
     assert.ok(box.includes('has("advisor.ask")'));
     assert.ok(box.includes('data-anchor="advisor-ask"'));

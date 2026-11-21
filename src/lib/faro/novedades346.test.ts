@@ -51,11 +51,11 @@ test("346 · el anuncio: una sola tarjeta, la grande más nueva sin ver", () => 
   // Nada sin ver → silencio.
   assert.equal(announcementFor(FARO_VERSION, FARO_VERSION), null);
   // Desde la 344: lo grande sin ver más nuevo manda. Era la 346 en su ola;
-  // la 1.3.350 («Las puertas de Central») es grande y la sucede — esta
-  // expectativa se mueve con cada nota grande nueva, a propósito.
-  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.350");
+  // la sucedieron la 350 y la 1.3.351 («El Asesor, en su sitio»), grande —
+  // esta expectativa se mueve con cada nota grande nueva, a propósito.
+  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.351");
   // Desde la 342 (menor): la grande más nueva del tramo es una sola, no una pila.
-  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.350");
+  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.351");
   // El tramo (seen, current] no incluye lo ya visto ni lo futuro.
   const tramo = newsBetween("1.3.340", "1.3.344").map((n) => n.version);
   assert.deepEqual(tramo, ["1.3.344", "1.3.343", "1.3.342"]);

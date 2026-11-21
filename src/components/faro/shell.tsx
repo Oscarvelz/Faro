@@ -58,6 +58,7 @@ import { inAndroidApp } from "@/spa/native";
 import { LockOffer } from "@/spa/lockoffer";
 import { Presentacion, PresOffer, launchScene } from "./presentacion";
 import { TOPIC_SCENES, moduleById, moduleInMode, pick, sceneInMode, scenePlace, searchScenes } from "@/lib/faro/guion";
+import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 
 mountCpCity(); // 1.3.201: the Cyberpunk city layers (display:none outside that theme)
 // Faro for Android only (1.3.111): pictures shared from other apps. Never loaded in the browser or the PWA.
@@ -209,6 +210,7 @@ function hubOf(section: SectionId) {
 export function Shell() {
   const faro = useFaro();
   const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, fmt, persistFailed, tabConflict, dismissTabConflict, has } = faro;
+  useIdleClear(ui.query, () => setUi({ query: "" }));
   // N-3 (etapa 3.1) con el fallo 14 de Oscar: la búsqueda no conoce el modo —
   // los resultados de personas y tarjetas se ofrecen en todo modo; lo que el
   // modo regula es el aterrizaje (en Esencial, Folios; la cara lectora de
@@ -1411,7 +1413,7 @@ export function Shell() {
               >
                 <div className="search-pill">
                   <Search className="size-4" aria-hidden />
-                  <input id="faro-search" type="search" enterKeyHint="search" value={ui.query} placeholder={t("search")} autoFocus onChange={(e) => setUi({ query: e.target.value })} />
+                  <input id="faro-search" type="search" enterKeyHint="search" value={ui.query} placeholder={t("search")} autoFocus onFocus={selectAllOnFocus} onChange={(e) => setUi({ query: e.target.value })} />
                 </div>
                 {ui.query.trim().length >= 2 ? (
                   <div className="hits" role="listbox">
