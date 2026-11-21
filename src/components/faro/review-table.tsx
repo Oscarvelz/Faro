@@ -15,13 +15,18 @@
  * Forma simple (Esencial, capture.review): confirmar, corregir lo
  * esencial, descartar. Forma completa (Ritmo, capture.review-full):
  * reclasificar en bache y «recordar esta tienda así» sin salir de la mesa.
+ *
+ * Ola 21 (Q21-1): la mesa dice su foto — si otra mano resuelve parte
+ * de la bandeja bajo la mesa abierta, las filas caídas se retiran de
+ * la foto y se nombran en la hoja; la tarjeta de la bandeja ya no es
+ * dueña de la vida de esta hoja (tray.tsx).
  */
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ClipboardList, Trash2, X } from "lucide-react";
 import { splitTarget, targets } from "@/lib/faro/bankbook";
 import { freqPresetsOf } from "@/lib/faro/cadence";
-import { commitDrafts, draftToLine, draftTotals, dropDraft, learnFromSaved, patchDraft, validateDraft } from "@/lib/faro/drafts";
+import { commitDrafts, draftToLine, draftTotals, dropDraft, fallenDrafts, learnFromSaved, patchDraft, validateDraft } from "@/lib/faro/drafts";
 import { parseAmount } from "@/lib/faro/money";
 import type { Draft, Line } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
@@ -53,6 +58,7 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
   const tray = useMemo(() => (ledger?.drafts ?? []).filter((d) => d.kind === "line"), [ledger]);
   const [work, setWork] = useState<Draft[]>(() => tray);
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
+  const [fallen, setFallen] = useState<string[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(tray.map((d) => [d.id, !d.dupOf])));
   const [amountText, setAmountText] = useState<Record<string, string>>(() => Object.fromEntries(tray.map((d) => [d.id, money(d.amountMinor)])));
   const [remember, setRemember] = useState<Record<string, boolean>>({});
@@ -63,6 +69,29 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
+  /* Ola 21 (Q21-1): la mesa DICE su foto. La foto del montaje (work)
+   * se re-sincroniza contra la bandeja viva por sustracción: cuando
+   * otra mano resuelve un borrador bajo la mesa abierta (una adopción
+   * lo trae ya resuelto), la fila cae de la foto y la hoja la NOMBRA
+   * en la nota de caídas, con el concepto de la copia de la persona —
+   * el nombre que ella reconoce. Las copias de las filas vivas jamás
+   * se reponen desde lo vivo: lo tecleado se conserva tal cual, y la
+   * corrección concurrente sigue mandando al guardar por la receta de
+   * la ola 20. El botón cuenta solo las filas vivas, porque las
+   * marcadas se derivan de la foto ya sustraída. Antes de esta cura la
+   * mesa callaba en los dos desenlaces: si la bandeja se resolvía
+   * entera, el guardia de la tarjeta desmontaba la hoja sin una
+   * palabra (tray.tsx ya no es dueño de su vida); si se resolvía en
+   * parte, el botón prometía «Guardar 2» y aterrizaba 1 en silencio. */
+  useEffect(() => {
+    const fell = fallenDrafts(work, tray, gone);
+    if (!fell.length) return;
+    const ids = new Set(fell.map((d) => d.id));
+    setFallen((f) => [...f, ...fell.map((d) => d.concept || L(lang, "(sin concepto)", "(no concept)"))]);
+    setWork((w) => w.filter((d) => !ids.has(d.id)));
+    // Las marcas y los textos de las caídas mueren con su fila: checked
+    // y amountText solo se leen a través de las filas que quedan.
+  }, [tray, work, gone, lang]);
 
   const houseOpts = useMemo(() => (ledger ? targets(ledger.structure, names) : []), [ledger, names]);
   const houseLabel = (d: Draft) => houseOpts.find((o) => o.value === targetOf(d))?.label
@@ -177,6 +206,11 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
           <button type="button" className="scn-x" aria-label={L(lang, "Cerrar", "Close")} onClick={onClose}><X /></button>
         </div>
         <div className="scn-body">
+          {fallen.length ? (
+            <p className="rev-fallen" data-anchor="rev-fallen" role="status">
+              {L(lang, `Ya no están en la bandeja: ${fallen.join(", ")}.`, `No longer in the tray: ${fallen.join(", ")}.`)}
+            </p>
+          ) : null}
           {full && checkedRows.length > 0 ? (
             <div className="rev-batch">
               <span className="rev-batch-lab">{L(lang, "Casa para las marcadas", "Home for the checked rows")}</span>

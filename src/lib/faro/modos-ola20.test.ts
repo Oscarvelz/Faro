@@ -334,8 +334,20 @@ describe("ola20 · §D: la cara completa gobierna sus herramientas dentro de la 
 
   it("C20-2: la tarjeta de la bandeja no nace con la bandeja vacía — su guardia tiene pin", () => {
     const tray = SRC("../../components/faro/tray.tsx");
-    assert.match(tray, /if \(!has\("capture\.tray"\) \|\| drafts\.length === 0\) return null;/,
-      "TrayCard devuelve null sin borradores: retirar `|| drafts.length === 0` corre rojo aquí — nada de tarjetas fantasma");
+    /* ENMIENDA OLA 21 (Q21-1): la forma del guardia cambió, su ley no.
+     * La caza XXI midió que el `return null` con la bandeja vacía se
+     * llevaba la hoja y la mesa abiertas cuando otra mano resolvía la
+     * bandeja: el guardia anti-cadáver era dueño de la vida de la
+     * superficie que hospedaba. Desde la cura 21 el guardia vive en
+     * `cardLive` y gobierna SOLO la tarjeta; el null exige además que
+     * ninguna vista esté abierta. Los dos mutantes de siempre corren
+     * rojo contra esta forma: quitar `drafts.length > 0` de cardLive
+     * (la tarjeta nacería con la bandeja vacía) y quitar la condición
+     * de la vista (la hoja volvería a morir en silencio). */
+    assert.match(tray, /const cardLive = has\("capture\.tray"\) && drafts\.length > 0;/,
+      "la tarjeta nace solo con borradores: quitar la condición de borradores corre rojo aquí — nada de tarjetas fantasma");
+    assert.match(tray, /if \(!cardLive && view === "none"\) return null;/,
+      "el null exige que ninguna vista esté abierta: una hoja abierta ya no muere con el guardia de su tarjeta");
   });
 });
 
@@ -353,6 +365,14 @@ describe("ola20 · §E: los tips de Captura enseñan la verdad de cada modo", ()
     assert.ok(t.tip?.[1].includes("in [[Rhythm]]"), "EN: the Rhythm act names its floor");
     assert.ok(!t.tip?.[0].includes("cuando corriges la casa de una tienda y guardas, Faro lo recuerda"),
       "la frase vieja — que enseñaba en Esencial un acto de Ritmo sin nombrarlo — ya no está");
+  });
+
+  it("Q21-1: el tip de captura-texto — el hermano que nació después de la caza XX — nombra [[Ritmo]] por fin", () => {
+    const t = topic("captura-texto");
+    assert.ok(t.tip?.[0].includes("en [[Ritmo]], cuando corriges la casa de un comercio en la mesa"),
+      "ES: el aprendizaje por corrección de casa nombra su piso en el tip del texto, como en el de la mesa");
+    assert.ok(t.tip?.[1].includes("in [[Rhythm]], when you fix a store's home at the table"),
+      "EN: the home-fixing learning names its floor in the text topic's tip too");
   });
 
   it("Q2+Q3: el tip de escanear nombra [[Completo]] y la cláusula falsa de la bandeja murió", () => {
@@ -377,6 +397,97 @@ describe("ola20 · §E: los tips de Captura enseñan la verdad de cada modo", ()
     assert.ok(t.what[1].includes("Drafts travel with the book"), "EN: Oscar's D1 ruling, said in the tray topic");
     assert.ok(t.how?.[0].includes("la descarta"), "ES: el verbo descartar se enseña en su tema");
     assert.ok(t.how?.[1].includes("discards it"), "EN: the discard verb is taught in its topic");
+  });
+});
+
+/* ═══════════ ENMIENDA OLA 21 (F21-1): LA §E ENUMERA POR CONSTRUCCIÓN ═══════════
+ * La §E nació clavando dos temas con nombre propio — y la caza XXI
+ * halló el pecado de Q1 vivo en un tercer tip (captura-texto, nacido
+ * en la .340, después de la base de aquella caza) con esta cerca en
+ * verde delante. La lección es la de la casa: una cerca que enumera a
+ * mano envejece con cada tema que nace. Esta enmienda cambia la
+ * llave: no se busca el TEMA, se busca la AFIRMACIÓN, nazca donde
+ * nazca. Todo tip que prometa el aprendizaje por corrección de casa
+ * en la mesa exige su piso nombrado en el mismo tip y el mismo
+ * idioma; todo tip que anuncie la fila de recompensas exige el suyo;
+ * y la cláusula falsa de la bandeja queda barrida de todo campo de
+ * todo tema (su ausencia ya no depende de dos `what` concretos).
+ * Los especímenes plantados en memoria lo prueban: el pecado inyectado
+ * en un tema ajeno a la familia (cuotas) y en uno que la lista vieja
+ * no nombraba (captura-lista) acusa; la frase curada, plantada, no. */
+type TemaMin21 = { id: string; sum?: readonly string[]; what?: readonly string[]; how?: readonly string[]; tip?: readonly string[]; bubble?: readonly string[] };
+const AFIRMA_CASA_ES21 = /corrig\w+ la casa de (una|un) (tienda|comercio)/;
+const AFIRMA_CASA_EN21 = /fix (a )?(store|merchant)'s home/;
+const AFIRMA_RECOMPENSAS_ES21 = /fila de \[\[Recompensas de tarjetas\]\]/;
+const AFIRMA_RECOMPENSAS_EN21 = /\[\[Card rewards\]\] row appears/;
+const CLAUSULA_FALSA21: readonly [string, string] = ["antes de que caiga en la bandeja", "before anything lands in the tray"];
+const pecadosDePiso21 = (temas: readonly TemaMin21[]): string[] => {
+  const out: string[] = [];
+  for (const t of temas) {
+    const tipEs = t.tip?.[0] ?? "";
+    const tipEn = t.tip?.[1] ?? "";
+    if (AFIRMA_CASA_ES21.test(tipEs) && !tipEs.includes("[[Ritmo]]")) out.push(`${t.id}: el tip promete el aprendizaje de la mesa sin nombrar [[Ritmo]] (ES)`);
+    if (AFIRMA_CASA_EN21.test(tipEn) && !tipEn.includes("[[Rhythm]]")) out.push(`${t.id}: the tip promises the table's learning without naming [[Rhythm]] (EN)`);
+    if (AFIRMA_RECOMPENSAS_ES21.test(tipEs) && !tipEs.includes("[[Completo]]")) out.push(`${t.id}: el tip anuncia la fila de recompensas sin nombrar [[Completo]] (ES)`);
+    if (AFIRMA_RECOMPENSAS_EN21.test(tipEn) && !tipEn.includes("[[Complete]]")) out.push(`${t.id}: the tip announces the rewards row without naming [[Complete]] (EN)`);
+    for (const campo of [t.what, t.how, t.tip, t.bubble, t.sum] as const) {
+      if (!campo) continue;
+      if ((campo[0] ?? "").includes(CLAUSULA_FALSA21[0])) out.push(`${t.id}: la cláusula falsa de la bandeja vive en un campo (ES)`);
+      if ((campo[1] ?? "").includes(CLAUSULA_FALSA21[1])) out.push(`${t.id}: la cláusula falsa de la bandeja vive en un campo (EN)`);
+    }
+  }
+  return out;
+};
+
+describe("ola20 · §E-bis (enmienda ola 21): el barrido de afirmaciones cubre el Manual entero", () => {
+  it("F21-1: el corpus vivo no tiene ningún pecado de piso ni la cláusula falsa en ningún campo", () => {
+    assert.deepEqual(pecadosDePiso21(MANUAL_TOPICS), [],
+      "todo tip que promete el aprendizaje de la mesa nombra su piso, y la bandeja falsa no vive en ningún campo de los 360 temas");
+  });
+
+  it("F21-1: el pecado plantado en un tema AJENO a la familia acusa — la lista a mano ya no manda", () => {
+    const pecado: [string, string] = [
+      "Y cuando corriges la casa de un comercio en la mesa y guardas, la próxima frase con ese comercio ya nace clasificada.",
+      "And when you fix a store's home at the table and save, the next phrase naming that store is born classified.",
+    ];
+    const plantado = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: pecado } : t));
+    const fallos = pecadosDePiso21(plantado);
+    assert.ok(fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(ES)")) && fallos.some((p) => p.startsWith("cuotas:") && p.endsWith("(EN)")),
+      "inyectado en cuotas, la cerca acusa en los dos idiomas: ningún tema nace fuera del barrido");
+  });
+
+  it("F21-1: el pecado plantado en captura-lista — el tema que la lista vieja no nombraba — acusa igual", () => {
+    const pecado: [string, string] = [
+      "Al guardar, si corriges la casa de una tienda en la mesa, la lista siguiente ya nace clasificada.",
+      "On saving, if you fix a store's home at the table, the next list is born classified.",
+    ];
+    const plantado = MANUAL_TOPICS.map((t) => (t.id === "captura-lista" ? { ...t, tip: pecado } : t));
+    assert.ok(pecadosDePiso21(plantado).some((p) => p.startsWith("captura-lista:")),
+      "la familia ya no se enumera: la afirmación es la llave, y captura-lista cae bajo ella");
+  });
+
+  it("F21-1: la frase CURADA plantada no acusa, y el anuncio de recompensas sin piso sí", () => {
+    const curada: [string, string] = [
+      "Y en [[Ritmo]], cuando corriges la casa de un comercio en la mesa y guardas, la próxima frase con ese comercio ya nace clasificada.",
+      "And in [[Rhythm]], when you fix a store's home at the table and save, the next phrase naming that store is born classified.",
+    ];
+    const plantada = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: curada } : t));
+    assert.deepEqual(pecadosDePiso21(plantada), [], "con el piso nombrado, la misma promesa es honesta en cualquier tema");
+    const recompensa: [string, string] = [
+      "Al guardar sale una fila de [[Recompensas de tarjetas]] con la tarjeta.",
+      "On saving, a [[Card rewards]] row appears with the card.",
+    ];
+    const plantada2 = MANUAL_TOPICS.map((t) => (t.id === "cuotas" ? { ...t, tip: recompensa } : t));
+    assert.ok(pecadosDePiso21(plantada2).filter((p) => p.startsWith("cuotas:")).length >= 2,
+      "la fila de recompensas sin [[Completo]]/[[Complete]] acusa en los dos idiomas");
+  });
+
+  it("F21-1: la cláusula falsa plantada en un `what` cualquiera acusa — el barrido cubre todos los campos", () => {
+    const plantado = MANUAL_TOPICS.map((t) => (t.id === "cuotas"
+      ? { ...t, what: ["El pago espera en la mesa antes de que caiga en la bandeja.", "The payment waits at the table before anything lands in the tray."] as [string, string] }
+      : t));
+    assert.ok(pecadosDePiso21(plantado).filter((p) => p.startsWith("cuotas:") && p.includes("cláusula falsa")).length === 2,
+      "la cláusula que la §E vieja solo miraba en dos temas ahora se barre del Manual entero");
   });
 });
 

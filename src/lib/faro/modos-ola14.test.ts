@@ -354,12 +354,24 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * de ciclo (una cadena que se muerde la cola se detiene en el
      * primer nombre repetido, como antes se detenía en el décimo
      * salto — pero ahora la guarda es la estructura, no un número). */
+    /* OLA 21 (M21-2c): LA GUARDA DE CICLO SE CLAVA POR (NOMBRE,
+     * CONTEXTO) — la guarda vieja era por nombre desnudo: una cadena
+     * que aterrizaba en un nombre ya visitado EN OTRO ARCHIVO se
+     * detenía un salto antes de su tipo, aunque en ese archivo el
+     * nombre significara otra cosa (el sombreado por importación
+     * fabricaba un ciclo falso: X en el archivo B, alias de Snap,
+     * moría porque X ya se había visitado en el archivo A, donde era
+     * un typealias). El par (nombre, archivo en contexto) es la
+     * identidad verdadera de cada salto: la cadena se detiene solo
+     * cuando vuelve al mismo nombre EN el mismo contexto, y los
+     * pares son finitos, así que el punto fijo sigue terminando por
+     * estructura. */
     const resolveComposed = (written: string, fi: number): string => {
       let cur = written;
       let ctx = fi;
       const seen = new Set<string>();
-      while (!seen.has(cur)) {
-        seen.add(cur);
+      while (!seen.has(`${ctx}|${cur}`)) {
+        seen.add(`${ctx}|${cur}`);
         const imp = fileImports[ctx]?.get(cur);
         if (imp !== undefined) { cur = imp; continue; }
         const ta = typealiasRaw.get(cur);
@@ -460,14 +472,28 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * en otro archivo, M20-3) y conoce la atadura tras una llave — el
      * miembro de un objeto (`object Casa { val fmt = Fmt }`, M20-6)
      * nace tras «{», no a comienzo de línea ni tras un punto y coma, y
-     * la cosecha vieja no lo veía. */
+     * la cosecha vieja no lo veía.
+     * OLA 21 (M21-4): EL TOPE MUERE TAMBIÉN AQUÍ. Este bucle iteraba
+     * `round < 8` con la señal `grew` ya calculada: una cadena de
+     * propiedades de NUEVE archivos en orden inverso corría verde — el
+     * noveno eslabón nunca se cosechaba y su superficie imprimía sin
+     * juicio. Es la enfermedad de M20-9 en el bucle que la propia cura
+     * 20 escribió. Desde hoy los tres bucles de derivación de esta
+     * cerca (esta cosecha, el punto fijo de valores del paquete y el
+     * local por archivo) iteran MIENTRAS la señal crece: los conjuntos
+     * solo crecen y los nombres son texto finito, así que el punto
+     * fijo termina por estructura, no por un número. (Las expansiones
+     * por sustitución de texto — `expand` y la del sitio — conservan
+     * su guarda de 4: no derivan conocimiento, reescriben texto, y una
+     * pareja de ataduras cíclica oscilaría para siempre; su guarda es
+     * de ciclo, no de conocimiento.) */
     const pkgFmtProps = new Set<string>();
     const pkgTopBinds = scanned.map(({ code }) => {
       const top = new Map<string, string>();
       for (const m of code.matchAll(/(?:^|[;{]\s*)\s*(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/gm)) top.set(m[1]!, m[2]!.trim());
       return top;
     });
-    for (let round = 0; round < 8; round++) {
+    for (;;) {
       let grew = false;
       scanned.forEach((_, fi) => {
         for (const p of fmtPropsOf(pkgTopBinds[fi]!, new Set([...fmtNamesOf(fi), ...pkgFmtProps]))) {
@@ -573,6 +599,23 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     for (const [, props] of propTypes) {
       for (const [pn, u] of props) if (resolveComposed(u.w, u.fi) === "Fmt") pkgFmtProps.add(pn);
     }
+    /* OLA 21 (M21-6): LA COSECHA TIPADA LEE TAMBIÉN LA ATADURA `val`.
+     * La ola 20 cosechó el productor en posición tipada de la FIRMA
+     * (parámetros) y del CONSTRUCTOR (propTypes), pero una atadura con
+     * tipo declarado y valor opaco escapaba entera: `val f: Fmt =
+     * makeFmt()`, `val f: MiFmt = …` (por typealias) y el miembro
+     * tipado de un objeto solo se salvaban si el VALOR nombraba al
+     * formateador — la declaración, que es lo que el tipo promete, no
+     * se leía. Aquí toda atadura `val`/`var` con tipo declarado cuyo
+     * tipo resuelve (compuesto, desde su archivo) a Fmt entra al
+     * conjunto de paquete por su nombre, nazca a nivel superior, como
+     * miembro de clase o dentro de un objeto: es la misma doctrina de
+     * la ola 20 — manda la declaración, no la grafía del valor. */
+    for (const [fi, { code }] of scanned.entries()) {
+      for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*:\s*([\w.]+)\??\s*(?:=|get\b)/g)) {
+        if (resolveComposed(m[2]!.split(".").pop()!, fi) === "Fmt") pkgFmtProps.add(m[1]!);
+      }
+    }
     /* OLA 17, tercera forma (la misma caza en vivo): el punto fijo
      * del paquete ata cada nombre a SU archivo — pkgDerived es por
      * archivo, porque un nombre significa lo que su archivo ata a
@@ -634,7 +677,10 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       if (!paramFlow.has(fn)) paramFlow.set(fn, new Set());
       paramFlow.get(fn)!.add(i);
     };
-    for (let round = 0; round < 8; round++) {
+    // OLA 21 (M21-4): sin tope — itera mientras `grew`, como sus dos
+    // hermanos (ver la nota en la cosecha de paquete): el conjunto de
+    // derivados y el de puertas son finitos y solo crecen.
+    for (;;) {
       let grew = false;
       scanned.forEach(({ code }, fi) => {
         for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) {
@@ -695,6 +741,9 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       let accessRe = buildAccess();
       let chainRe = buildChains();
       // el valor se sigue: ataduras locales y ayudantes, por punto fijo
+      // OLA 21 (M21-4): por punto fijo DE VERDAD — el `round < 8` mudo
+      // que truncaba esta derivación muere con sus hermanos (la nota
+      // entera vive en la cosecha de paquete).
       const derived = new Set<string>();
       const bindings = new Map<string, string>();
       const helpers = new Set<string>(pkgHelpers);
@@ -714,7 +763,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         }
         funBodies.push([m[1]!, code.slice(open, end)]);
       }
-      for (let round = 0; round < 8; round++) {
+      for (;;) {
         let grew = false;
         for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*(?::\s*[\w?<>,. ]+?)?=\s*([^\n;]+)/g)) {
           bindings.set(m[1]!, m[2]!.trim());
@@ -763,14 +812,48 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // en su archivo; una atadura local con OTRO valor sigue
       // sombreando (el filtro de abajo no la hereda).
       const fmtProps = new Set([...fmtPropsOf(bindings, new Set([...fmtNames, ...pkgFmtProps])), ...[...pkgFmtProps].filter((p) => !bindings.has(p))]);
+      // OLA 21 (M21-6): las ataduras tipadas de ESTE archivo entran por
+      // su declaración, aunque el filtro de paquete las excluya por
+      // sombra de nombre (están atadas aquí, y su valor no nombra al
+      // formateador): el tipo declarado del propio archivo manda sobre
+      // su sombra. La cosecha gemela a nivel de paquete vive junto a
+      // la cosecha tipada de la ola 20.
+      for (const m of code.matchAll(/\b(?:val|var)\s+(\w+)\s*:\s*([\w.]+)\??\s*(?:=|get\b)/g)) {
+        if (resolveComposed(m[2]!.split(".").pop()!, fi) === "Fmt") fmtProps.add(m[1]!);
+      }
       // OLA 19 (M19-6): los alias de miembro de este archivo — la
       // llamada desnuda renombrada ES una llamada al formateador.
       const memberAliases = memberAliasesOf(fi);
       const spellRe = [...fmtNames].map(escRe18).join("|");
       const propRe = [...fmtProps].map(escRe18).join("|");
+      /* OLA 21 (M21-5): LA PROPIEDAD LLEVA SU TIPO DUEÑO. El conjunto
+       * de propiedades era un conjunto de NOMBRES desnudos: la
+       * propiedad homónima de una clase ajena (`class SinFmt(val fmt:
+       * Otro)`) acusaba y absolvía por el registro de Fmt — una
+       * llamada `w.fmt.money(…)` con w de esa clase se juzgaba como
+       * llamada al formateador aunque su `fmt` es Otro. Desde hoy,
+       * cuando el receptor tiene tipo declarado conocido y ESE tipo
+       * declara la propiedad con un tipo que no resuelve a Fmt, la
+       * llamada es de la clase ajena: ni acusa ni absuelve por el
+       * registro de Fmt (otras formas juzgarán lo que imprima). El
+       * nombre desnudo sigue mandando donde el dueño no se conoce —
+       * la propiedad de paquete, la del companion, la local sin tipo:
+       * la cosecha de nombres no se debilita, se le añade el dueño
+       * donde el dueño está declarado. */
+      const bloqueadaPorDueno = (recv: string, prop: string): boolean => {
+        const t = receivers.get(recv) ?? (propTypes.has(recv) ? recv : undefined);
+        if (!t) return false;
+        const u = propTypes.get(t)?.get(prop);
+        return !!u && resolveComposed(u.w, u.fi) !== "Fmt";
+      };
+      const propCallish = (t: string): boolean => {
+        if (fmtProps.size === 0) return false;
+        for (const m of t.matchAll(new RegExp(`\\b(\\w+)\\.(${propRe})\\.\\w+\\s*\\(`, "g"))) if (!bloqueadaPorDueno(m[1]!, m[2]!)) return true;
+        return new RegExp(`(?<![\\w.])(?:${propRe})\\.\\w+\\s*\\(`).test(t);
+      };
       const fmtCallish = (t: string): boolean =>
         new RegExp(`\\b(?:${spellRe})\\.\\w+\\s*\\(`).test(t) ||
-        (fmtProps.size > 0 && new RegExp(`(?:\\b\\w+\\.(?:${propRe})|(?<![\\w.])(?:${propRe}))\\.\\w+\\s*\\(`).test(t)) ||
+        propCallish(t) ||
         [...memberAliases.keys()].some((b) => new RegExp(`(?<![\\w.])${escRe18(b)}\\s*\\(`).test(t));
       /* Un CONDUCTO es otra cosa que un ayudante que deriva: una función
        * de cuerpo-expresión que ENTREGA el valor formateado (el
@@ -823,9 +906,12 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
           if (m[2]!.includes(":")) continue;
           if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(`Fmt.${m[1]!}(${m[2]!})`);
         }
-        for (const m of code.matchAll(new RegExp(`\\b\\w+\\.(?:${propRe})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
-          if (m[2]!.includes(":")) continue;
-          if (fmtFormatters.has(m[1]!) || exprDerived(m[2]!)) judgedCall(`Fmt.${m[1]!}(${m[2]!})`);
+        for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\.(${propRe})\\.(\\w+)\\s*\\(([^)]*)\\)`, "g"))) {
+          if (m[3]!.includes(":")) continue;
+          // OLA 21 (M21-5): el receptor cuya clase declara la
+          // propiedad con otro tipo no llama a Fmt por esa propiedad.
+          if (bloqueadaPorDueno(m[1]!, m[2]!)) continue;
+          if (fmtFormatters.has(m[3]!) || exprDerived(m[4]!)) judgedCall(`Fmt.${m[3]!}(${m[4]!})`);
         }
       }
       // OLA 17 (M17-4): el formateador por REFERENCIA — val f =
@@ -1024,8 +1110,21 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       const propsSitio = new Set([...fmtPropsOf(binds, new Set([...namesSitio, ...pkgFmtProps])), ...[...pkgFmtProps].filter((p) => !binds.has(p))]);
       let texto = f.code;
       for (const s of namesSitio) if (s !== "Fmt") texto = texto.replace(new RegExp(`\\b${escRe18(s)}\\.`, "g"), "Fmt.");
+      /* OLA 21 (M21-5): la reescritura del sitio respeta el mismo
+       * dueño que el juicio — `w.fmt.` con w declarado de una clase
+       * cuya `fmt` es Otro NO se reescribe a «Fmt.»: la superficie
+       * registrada no vive en una llamada de la clase ajena, y
+       * declararla viva por la homónima era la absolución falsa. */
+      const receiversSitio = new Map<string, string>();
+      for (const m of f.code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) receiversSitio.set(m[1]!, resolveWrittenType(m[2]!, fiSitio));
+      const bloqueadaSitio = (r: string, prop: string): boolean => {
+        const t = receiversSitio.get(r) ?? (propTypes.has(r) ? r : undefined);
+        if (!t) return false;
+        const u = propTypes.get(t)?.get(prop);
+        return !!u && resolveComposed(u.w, u.fi) !== "Fmt";
+      };
       for (const p of propsSitio) {
-        texto = texto.replace(new RegExp(`\\b\\w+\\.${escRe18(p)}\\.`, "g"), "Fmt.");
+        texto = texto.replace(new RegExp(`\\b(\\w+)\\.${escRe18(p)}\\.`, "g"), (whole: string, r: string) => (bloqueadaSitio(r, p) ? whole : "Fmt."));
         texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(p)}\\.`, "g"), "Fmt.");
       }
       /* OLA 20 (Asesor, hallazgo 3): el sitio se lee también con los
@@ -1039,6 +1138,21 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
        * sigue acusando (M20-8c). */
       for (const [bare, fn] of memberAliasesOf(fiSitio)) {
         texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(bare)}\\s*\\(`, "g"), `Fmt.${fn}(`);
+      }
+      /* OLA 21 (M21-7): el sitio aprende la grafía de REFERENCIA — el
+       * juicio absolvía `val r = Fmt::rate; r(s.rateE4)` como la
+       * llamada registrada desde la ola 17 (M17-4), pero la
+       * verificación de sitios nunca aprendió esa grafía y declaraba
+       * muerta la superficie viva re-expresada por referencia: la
+       * contradicción de M20-8, una grafía más allá. Aquí toda atadura
+       * `val x = <Fmt>::<fn>` del archivo del sitio reescribe las
+       * llamadas de x a su llamada canónica, y juicio y verificación
+       * coinciden en las cuatro grafías (nombre, alias, miembro,
+       * referencia). La muerta sin llamada en ninguna grafía sigue
+       * acusando. */
+      const spellSitio = [...namesSitio].map(escRe18).join("|");
+      for (const m of f.code.matchAll(new RegExp(`\\b(?:val|var)\\s+(\\w+)\\s*=\\s*(?:${spellSitio})::(\\w+)\\b`, "g"))) {
+        texto = texto.replace(new RegExp(`(?<![\\w.])${escRe18(m[1]!)}\\s*\\(`, "g"), `Fmt.${m[2]!}(`);
       }
       if (re.test(texto)) continue;
       for (let r = 0; r < 4; r++) {
@@ -1344,6 +1458,68 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       "M20-9: once eslabones ya no corren verdes: el resolvedor a punto fijo llega a Fmt y acusa");
     assert.deepEqual(caza([{ name: "Spec.kt", text: specChain("s.spent") }]), [],
       "M20-9c (control): la cadena de once con el productor registrado absuelve — resuelta, no detenida");
+  });
+  it("especímenes M21 (ola 21): el tope muerto en los tres bucles, la referencia en el sitio, el tipo declarado de la atadura, el ciclo por (nombre, contexto) y la propiedad con dueño", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\" }",
+    };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M21-4: la cadena de propiedades de NUEVE archivos en orden inverso —
+    // el bucle de paquete iteraba `round < 8` con `grew` ya calculado: el
+    // noveno eslabón nunca se cosechaba y su superficie corría verde.
+    const links: { name: string; text: string }[] = [];
+    for (let i = 9; i >= 1; i--) links.push({ name: `L${i}.kt`, text: `val f${i} = ${i === 1 ? "Fmt" : `f${i - 1}`}` });
+    const specF9 = (arg: string) => ({ name: "Spec.kt", text: `class W { fun a(s: Snap) = f9.money(${arg}, s.cur) }` });
+    assert.ok(caza([specF9("s.owed - s.spent"), ...links]).length >= 1,
+      "M21-4: nueve eslabones entre archivos se cosechan enteros: f9.money sin productor acusa");
+    assert.deepEqual(caza([specF9("s.spent"), ...links]), [],
+      "M21-4c (control): la misma cadena de nueve con el productor registrado absuelve");
+    // M21-4b: el bucle LOCAL de valores, la misma enfermedad — nueve
+    // ataduras en orden inverso dentro de un archivo.
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { fun a(s: Snap): String { val v9 = v8; val v8 = v7; val v7 = v6; val v6 = v5; val v5 = v4; val v4 = v3; val v3 = v2; val v2 = v1; val v1 = s.spent; return \"Debes $v9\" } }" }]).length >= 1,
+      "M21-4b: la derivación local itera a punto fijo: la novena atadura inversa deriva y su interpolación acusa");
+    // M21-6: la atadura con TIPO DECLARADO y valor opaco ES el formateador
+    assert.ok(caza([{ name: "Spec.kt", text: "class W { val f: Fmt = makeFmt(); fun a(s: Snap) = f.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M21-6: val f: Fmt = makeFmt() — manda la declaración, no el valor: f.money sin productor acusa");
+    assert.deepEqual(caza([{ name: "Spec.kt", text: "class W { val f: Fmt = makeFmt(); fun a(s: Snap) = f.money(s.spent, s.cur) }" }]), [],
+      "M21-6c (control): la atadura tipada con el productor registrado absuelve");
+    assert.ok(caza([{ name: "Spec.kt", text: "typealias MiFmt = Fmt\nclass W { val f: MiFmt = makeFmt(); fun a(s: Snap) = f.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M21-6b: el tipo declarado se resuelve compuesto (MiFmt = Fmt): acusa");
+    assert.ok(caza([
+      { name: "Casa.kt", text: "object Casa21 { val f: Fmt = makeFmt() }" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap) = Casa21.f.money(s.owed - s.spent, s.cur) }" },
+    ]).length >= 1, "M21-6d: el miembro tipado de un objeto se cosecha a nivel de paquete: Casa21.f.money acusa desde otro archivo");
+    // M21-2c: la guarda de ciclo por (nombre, contexto) — X en el archivo B
+    // es alias de Snap; la cadena que llega a X desde el archivo A no muere
+    // por haber visitado X en A, donde era un typealias.
+    assert.ok(caza([
+      { name: "A.kt", text: "import com.oscarvelz.faro.Z as Y\ntypealias X = Y\nclass W { fun a(q: X) = \"Debes ${q.spent}\" }" },
+      { name: "B.kt", text: "import com.oscarvelz.faro.Snap as X\ntypealias Z = X" },
+    ]).length >= 1, "M21-2c: la cadena X→Y→Z→X(B)→Snap se resuelve en el contexto de cada archivo: el receptor ES la foto y su interpolación acusa");
+    // M21-5: la propiedad homónima de una clase ajena ni acusa ni absuelve
+    const casas = { name: "Casa.kt", text: "class Otro { fun money(x: Long, c: String): String = \"\"; fun rate(e4: Long): String = \"\" }\nclass SinFmt(val fmt: Otro)\nclass CasaFmt(val fmt: Fmt)" };
+    assert.deepEqual(caza([casas, { name: "Spec.kt", text: "class W { fun a(s: Snap, w: SinFmt) = w.fmt.money(s.owed - s.spent, s.cur) }" }]), [],
+      "M21-5: w.fmt.money con w: SinFmt (fmt: Otro) NO es una llamada a Fmt: el registro de Fmt no acusa a la clase ajena");
+    assert.ok(caza([casas, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: CasaFmt) = c.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M21-5c (control): la misma grafía con el dueño verdadero (fmt: Fmt) sigue juzgándose: acusa");
+    const sitioAjeno = censoCascara([fmtDecl, casas,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, w: SinFmt) = w.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(sitioAjeno.some((a) => a.includes("ya no vive en su sitio")),
+      `M21-5b: la tasa «viva» solo por la propiedad homónima ajena no salva su sitio: ${sitioAjeno.join(" | ")}`);
+    // M21-7: la verificación de sitios conoce la grafía de referencia
+    const vivaRef = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "class W { val r = Fmt::rate; fun a(s: Snap) = r(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!vivaRef.some((a) => a.includes("ya no vive en su sitio")),
+      `M21-7: val r = Fmt::rate; r(s.rateE4) ES la superficie registrada en su sitio — juicio y verificación coinciden: ${vivaRef.join(" | ")}`);
+    const muertaRef = censoCascara([fmtDecl,
+      { name: "FaroWidgets.kt", text: "class W { fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+      { name: "FaroNotify.kt", text: "class N { val r = Fmt::rate; fun a(s: Snap) = r(s.rateE4) }" },
+    ], true);
+    assert.ok(muertaRef.some((a) => a.includes("ya no vive en su sitio")),
+      "M21-7c (control): la tasa por referencia plantada en otro archivo no salva su sitio vacío");
   });
   it("controles del censo nuevo: el comentario no acusa, el porcentaje no es dinero, la fecha no es cifra", () => {
     const ok = censoCascara([{ name: "FaroNotify.kt", text: [

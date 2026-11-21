@@ -292,6 +292,41 @@ describe("ola19 · §A: clase C — el no-op de mapa, curado en el ayudante y en
  *     la .327: la migración de Captura conservó su cabeza, su puerta
  *     y su cuenta — el aterrizaje sigue aterrizando (su compuerta
  *     `if (n)` solo llama cuando cae ≥1 borrador o recompensa).
+ *
+ * ENMIENDA OLA 21 (G21-1): LA FIRMA A PUNTO FIJO. La caza XXI plantó
+ * un efecto real dentro de `dropDraft` — un ayudante DELEGADO de la
+ * receta de la mesa — y este censo corrió verde 71/71: la firma de la
+ * ola 20 firmaba el cuerpo de la RECETA, y el cuerpo de un delegado
+ * no era de nadie. Desde esta cura la firma es TRANSITIVA: cada
+ * ayudante cosechado entra con su cuerpo, y la firma de una receta es
+ * el cierre de los ayudantes que alcanza, con guarda de ciclo (la
+ * lección de la cáscara: un grafo de ayudantes puede ciclar, y el
+ * cierre no puede colgar). Un efecto nuevo dentro de un delegado
+ * cambia la llave de su receta y exige re-clasificarla — la planta de
+ * la caza XXI corre rojo aquí, verificado en mutante.
+ * Las recetas por referencia firman A TRAVÉS de la referencia: una
+ * atadura local a una función firma su cuerpo; una atadura a un
+ * elemento de una tabla importada (los sembrados de la Presentación:
+ * `const sow = STAGE_SEEDS[st.seed]`) firma la unión de los cuerpos
+ * de la tabla, en el otro archivo. Lo único que conserva la firma
+ * vacía es el PARÁMETRO (el `recipe` de los envoltorios del
+ * proveedor): la maquinaria de la puerta misma, cuya carga ya se
+ * clasifica en el sitio de su llamante — y una referencia que no se
+ * resuelve a ningún cuerpo ACUSA como forma sin resolver, jamás pasa
+ * con la firma vacía en silencio.
+ * Y el censo aprendió el SOMBREADO: una llamada con nombre desnudo
+ * solo es la puerta si el archivo ata ese nombre a la puerta (import,
+ * desestructuración, alias) o a su envoltorio — el envoltorio que
+ * reenvía a la puerta de sesión ES la puerta (los cuatro del
+ * proveedor), y sus llamantes internos cuentan como siempre. Las dos
+ * llaves viejas `cards.tsx|commitDraft|ref:…` se RETIRAN con su
+ * razón: no eran la puerta — eran llamadas a la función LOCAL
+ * `commitDraft` de CardForm (cards.tsx), cuyo cuerpo comete por
+ * commitGuarded en sus sitios propios, ya clasificados; el censo
+ * contaba una sombra como si fuera la puerta y firmaba su «receta»
+ * (un booleano, un id) con la firma vacía. Una función local, una
+ * atadura local o un parámetro con el nombre de una puerta — que no
+ * sea su envoltorio — ya no cuentan como la puerta.
  * ════════════════════════════════════════════════════════════════════ */
 const PUERTAS = new Set(["commit", "commitGuarded", "commitAnnounced", "commitFinal", "commitDraft"]);
 type ClasePuerta = "guardada" | "anunciada" | "final" | "aterrizaje";
@@ -302,27 +337,25 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/archivo.tsx|commitGuarded|reactivateDueSeries|—": ["guardada", 1],
   "components/faro/screens.tsx|commitGuarded|reactivateDueSeries|—": ["guardada", 1],
   "components/faro/bank-import.tsx|commit|applyImport|—": ["aterrizaje", 1],
-  "components/faro/bank-import.tsx|commit|resetGuides|resetGuides": ["aterrizaje", 1],
+  "components/faro/bank-import.tsx|commit|resetGuides|resetGuides+withBook+ensureAccounts": ["aterrizaje", 1],
   "components/faro/bank-import.tsx|commit|revertImportCounted|—": ["aterrizaje", 1],
-  "components/faro/bank-import.tsx|commit|saveGuides|saveGuides": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commitGuarded|restoreDefaultAccounts|restoreDefaultAccounts": ["guardada", 1],
+  "components/faro/bank-import.tsx|commit|saveGuides|saveGuides+withBook+ensureAccounts": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commitGuarded|restoreDefaultAccounts|restoreDefaultAccounts+ensureAccounts+withBook": ["guardada", 1],
   "components/faro/bank-settings.tsx|commit|addAccount|—": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|archiveAccount|archiveAccount": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|archiveBank|archiveBank": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|editAccount|editAccount": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|restoreAccount|restoreAccount": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|restoreBank|restoreBank": ["aterrizaje", 1],
-  "components/faro/bank-settings.tsx|commit|withBook|withBook": ["aterrizaje", 5],
-  "components/faro/cards.tsx|commitDraft|ref:expr|—": ["guardada", 1],
-  "components/faro/cards.tsx|commitDraft|ref:freshId|—": ["guardada", 1],
+  "components/faro/bank-settings.tsx|commit|archiveAccount|archiveAccount+withBook+ensureAccounts": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|archiveBank|archiveBank+withBook+ensureAccounts": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|editAccount|editAccount+ensureAccounts": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|restoreAccount|restoreAccount+withBook+ensureAccounts": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|restoreBank|restoreBank+withBook+ensureAccounts": ["aterrizaje", 1],
+  "components/faro/bank-settings.tsx|commit|withBook|withBook+ensureAccounts": ["aterrizaje", 5],
   "components/faro/cards.tsx|commitGuarded|dropCard|dropCard": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|dropPresets|dropPresets": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|dropPresets|dropPresets+dropCard": ["guardada", 1],
   "components/faro/cards.tsx|commitGuarded|parseAmount|putCard+addReading+addRewards": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|payCard|payCard": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|redeemRewards|redeemRewards": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|payCard|payCard+putCard": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|redeemRewards|redeemRewards+putCard": ["guardada", 1],
   "components/faro/cards.tsx|commitGuarded|restorePresets|restorePresets": ["guardada", 1],
   "components/faro/cards.tsx|commitGuarded|storedPackExistence|putCard+addReading+addRewards": ["guardada", 1],
-  "components/faro/cards.tsx|commitGuarded|storedPackExistence|restoreCard+addReading+addRewards": ["guardada", 1],
+  "components/faro/cards.tsx|commitGuarded|storedPackExistence|restoreCard+addReading+putCard+addRewards": ["guardada", 1],
   "components/faro/color-pick.tsx|commitGuarded|pushRecent|—": ["guardada", 1],
   "components/faro/debts.tsx|commitGuarded|archiveLent|archiveLent": ["guardada", 2],
   "components/faro/debts.tsx|commitGuarded|lentOf|—": ["guardada", 1],
@@ -350,7 +383,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/people.tsx|commitGuarded|peopleOf|—": ["guardada", 1],
   "components/faro/people.tsx|commit|mergeContacts|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
-  "components/faro/presentacion.tsx|commit|ref:sow|—": ["aterrizaje", 3],
+  "components/faro/presentacion.tsx|commit|ref:sow|sow+addLent+addLoan+putCard+addReading+hidePeriod+sowBanco+hideFactoryVaults": ["aterrizaje", 3],
   "components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines": ["final", 1],
   "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan": ["final", 1],
   "components/faro/provider.tsx|commitFinal|ref:recipe|—": ["final", 1],
@@ -364,7 +397,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // compone el estado entero con la tasa fechada o no escribe nada.
   "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 8],
   "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 1],
-  "components/faro/receipt-scan.tsx|commit|saveScanRewards|saveScanRewards+addDrafts": ["aterrizaje", 1],
+  "components/faro/receipt-scan.tsx|commit|saveScanRewards|saveScanRewards+addRewards+putCard+addDrafts": ["aterrizaje", 1],
   "components/faro/capture-text.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
   // 1.3.342 (Captura Ola 3): la puerta de la lista comete por la misma
   // receta de aterrizaje que su hermana de texto — addDrafts nunca se
@@ -388,23 +421,23 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/remit-people.tsx|commitGuarded|dropRemitPeople|dropRemitPeople": ["guardada", 1],
   "components/faro/remit-people.tsx|commitGuarded|iconRemitPerson|iconRemitPerson": ["guardada", 1],
   "components/faro/remit-people.tsx|commitGuarded|renameRemitPerson|renameRemitPerson": ["guardada", 1],
-  "components/faro/rewards-real.tsx|commit|withBook|withBook": ["aterrizaje", 1],
+  "components/faro/rewards-real.tsx|commit|withBook|withBook+ensureAccounts": ["aterrizaje", 1],
   // Ola 20 (G20-1): la mesa RECLASIFICADA — ver el re-juicio en el
   // encabezado de esta sección: guardada, no aterrizaje.
-  "components/faro/review-table.tsx|commitGuarded|patchDraft|patchDraft+dropDraft+commitDrafts+learnFromSaved": ["guardada", 1],
+  "components/faro/review-table.tsx|commitGuarded|patchDraft|patchDraft+dropDraft+commitDrafts+upsertLine+learnFromSaved": ["guardada", 1],
   "components/faro/sample-mode.tsx|commit|stripSample|stripSample": ["aterrizaje", 1],
   "components/faro/screens.tsx|commitAnnounced|modeOf|—": ["anunciada", 1],
   "components/faro/screens.tsx|commitGuarded|declareSeries|declareSeries": ["guardada", 6],
   "components/faro/screens.tsx|commitGuarded|deleteLine|deleteLine": ["guardada", 3],
   "components/faro/screens.tsx|commitGuarded|dropPocketLine|—": ["guardada", 2],
   "components/faro/screens.tsx|commitGuarded|inline|—": ["guardada", 8],
-  "components/faro/screens.tsx|commitGuarded|patchLine|patchLine": ["guardada", 13],
-  "components/faro/screens.tsx|commitGuarded|patchLineWith|patchLineWith": ["guardada", 5],
+  "components/faro/screens.tsx|commitGuarded|patchLine|patchLine+patchLineWith+upsertLine+deleteLine": ["guardada", 13],
+  "components/faro/screens.tsx|commitGuarded|patchLineWith|patchLineWith+upsertLine+deleteLine": ["guardada", 5],
   "components/faro/screens.tsx|commitGuarded|restoreDefaultCategories|restoreDefaultCategories": ["guardada", 1],
-  "components/faro/screens.tsx|commitGuarded|restoreRetiro|restoreRetiro": ["guardada", 2],
+  "components/faro/screens.tsx|commitGuarded|restoreRetiro|restoreRetiro+seedRetiro": ["guardada", 2],
   "components/faro/screens.tsx|commitGuarded|run|—": ["guardada", 1],
   "components/faro/screens.tsx|commitGuarded|seedRetiro|seedRetiro": ["guardada", 1],
-  "components/faro/screens.tsx|commitGuarded|syncInsLine|syncInsLine": ["guardada", 1],
+  "components/faro/screens.tsx|commitGuarded|syncInsLine|syncInsLine+ensureInsSeat": ["guardada", 1],
   "components/faro/screens.tsx|commitGuarded|withDeskSeedFlag|—": ["guardada", 3],
   "components/faro/screens.tsx|commit|applyCardEdits|—": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|applyTemplate|—": ["aterrizaje", 1],
@@ -416,7 +449,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/screens.tsx|commit|inline|—": ["aterrizaje", 20],
   "components/faro/screens.tsx|commit|replaceCatalogItem|—": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|showAllStructure|—": ["aterrizaje", 1],
-  "components/faro/screens.tsx|commit|syncInsLine|syncInsLine": ["aterrizaje", 1],
+  "components/faro/screens.tsx|commit|syncInsLine|syncInsLine+ensureInsSeat": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|toggleStorePin|—": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|uid|upsertLine": ["aterrizaje", 1],
   "components/faro/screens.tsx|commit|uid|—": ["aterrizaje", 3],
@@ -426,7 +459,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/shell.tsx|commit|inline|—": ["aterrizaje", 2],
   "components/faro/slip-apply.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
   "components/faro/tray.tsx|commitGuarded|dropDraft|dropDraft": ["guardada", 1],
-  "components/faro/widget-host.tsx|commit|ingestQuick|ingestQuick": ["aterrizaje", 1],
+  "components/faro/widget-host.tsx|commit|ingestQuick|ingestQuick+upsertLine": ["aterrizaje", 1],
   "components/faro/widget-host.tsx|commit|toggleStorePin|—": ["aterrizaje", 2],
   "components/faro/widget-host.tsx|commit|toggleWidgetPin|—": ["aterrizaje", 2],
 };
@@ -492,6 +525,18 @@ const cabezaDe = (recipe: ts.Node): string => {
  * maquinaria de la puerta misma, con la receta que transportan ya
  * clasificada en el sitio de su llamante (llaves `ref:recipe`). */
 type InfoPuerta20 = { door: string; sesion: boolean };
+/* Ola 21 (G21-1): la cosecha guarda también el CUERPO de cada
+ * ayudante — la firma transitiva los expande. El mapa es por nombre
+ * desnudo, como el conjunto: si dos archivos declaran el mismo
+ * ayudante, la firma toma la unión de sus cuerpos (la dirección
+ * segura para una firma: más sensibilidad, nunca menos). */
+const cuerpos21 = new Map<string, ts.Node[]>();
+const registraCuerpo21 = (name: string, body: ts.Node | undefined) => {
+  if (!body) return;
+  const arr = cuerpos21.get(name) ?? [];
+  arr.push(body);
+  cuerpos21.set(name, arr);
+};
 let ayudantes20: Set<string> | null = null;
 const cosechaAyudantes20 = (files: { rel: string; text: string }[]): Set<string> => {
   if (ayudantes20) return ayudantes20;
@@ -514,8 +559,8 @@ const cosechaAyudantes20 = (files: { rel: string; text: string }[]): Set<string>
   };
   for (const sf of parsed) {
     const visit = (n: ts.Node) => {
-      if (ts.isFunctionDeclaration(n) && n.name && esAyudante(n.parameters, n.type)) out.add(n.name.text);
-      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) && esAyudante(n.initializer.parameters, n.initializer.type)) out.add(n.name.text);
+      if (ts.isFunctionDeclaration(n) && n.name && esAyudante(n.parameters, n.type)) { out.add(n.name.text); registraCuerpo21(n.name.text, n.body); }
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) && esAyudante(n.initializer.parameters, n.initializer.type)) { out.add(n.name.text); registraCuerpo21(n.name.text, n.initializer.body); }
       ts.forEachChild(n, visit);
     };
     visit(sf);
@@ -523,19 +568,152 @@ const cosechaAyudantes20 = (files: { rel: string; text: string }[]): Set<string>
   ayudantes20 = out;
   return out;
 };
-const firmaDe = (recipe: ts.Node, ayudantes: Set<string>): string => {
-  if (!ts.isArrowFunction(recipe) && !ts.isFunctionExpression(recipe)) return "—";
-  const seen: string[] = [];
+/* ═══ OLA 21 (G21-1): LA FIRMA A PUNTO FIJO ═══
+ * expandir21 camina un cuerpo y recoge los ayudantes que llama, y
+ * por cada uno expande SU cuerpo a su vez: la firma de una receta es
+ * el CIERRE TRANSITIVO de los ayudantes que alcanza. La guarda de
+ * ciclo es un conjunto visitado por firma: un ayudante se expande una
+ * sola vez, así un grafo que cicla (a→b→a) termina — la lección de la
+ * cáscara, que un cierre sin guarda cuelga. El orden es el de
+ * descubrimiento, como la firma plana de la ola 20, de la que esta es
+ * prefijo cuando los ayudantes no llaman a otros ayudantes. */
+const expandir21 = (body: ts.Node, ayudantes: Set<string>, seen: string[], guard: Set<string>): void => {
   const visit = (n: ts.Node) => {
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
       const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
-      if (name && ayudantes.has(name) && !seen.includes(name)) seen.push(name);
+      if (name && ayudantes.has(name)) {
+        if (!seen.includes(name)) seen.push(name);
+        if (!guard.has(name)) {
+          guard.add(name);
+          for (const b of cuerpos21.get(name) ?? []) expandir21(b, ayudantes, seen, guard);
+        }
+      }
     }
     ts.forEachChild(n, visit);
   };
-  visit(recipe.body);
+  visit(body);
+};
+
+/* El entorno de un archivo para resolver referencias: sus
+ * declaraciones por nombre (el nodo de la función o el inicializador
+ * de la atadura), sus importaciones resueltas al archivo destino, y —
+ * llenados en la segunda pasada — sus alias de puerta y sus sombras. */
+type Env21 = {
+  rel: string;
+  decls: Map<string, ts.Node>;
+  imports: Map<string, { imported: string; targetRel: string }>;
+  aliases: Map<string, InfoPuerta20>;
+  sombras: Set<string>;
+};
+const archivos21 = new Map<string, Env21>();
+const resuelveModulo21 = (desdeRel: string, spec: string, conocidos: ReadonlySet<string>): string | null => {
+  let base: string | null = null;
+  if (spec.startsWith("@/")) base = spec.slice(2);
+  else if (spec.startsWith(".")) {
+    const dir = desdeRel.split("/").slice(0, -1);
+    for (const parte of spec.split("/")) {
+      if (parte === "." || parte === "") continue;
+      else if (parte === "..") dir.pop();
+      else dir.push(parte);
+    }
+    base = dir.join("/");
+  }
+  if (base === null) return null;
+  for (const cand of [base, `${base}.ts`, `${base}.tsx`]) if (conocidos.has(cand)) return cand;
+  return null;
+};
+type MiembroTabla21 = ts.ArrowFunction | ts.FunctionExpression | ts.MethodDeclaration;
+const miembrosDeTabla21 = (node: ts.Node): MiembroTabla21[] | null => {
+  if (!ts.isObjectLiteralExpression(node)) return null;
+  const out: MiembroTabla21[] = [];
+  for (const pr of node.properties) {
+    if (ts.isPropertyAssignment(pr) && (ts.isArrowFunction(pr.initializer) || ts.isFunctionExpression(pr.initializer))) out.push(pr.initializer);
+    else if (ts.isMethodDeclaration(pr)) out.push(pr);
+  }
+  return out.length ? out : null;
+};
+const resuelveTabla21 = (name: string, env: Env21): MiembroTabla21[] | null => {
+  const local = env.decls.get(name);
+  if (local) { const m = miembrosDeTabla21(local); if (m) return m; }
+  const imp = env.imports.get(name);
+  if (imp) {
+    const d = archivos21.get(imp.targetRel)?.decls.get(imp.imported);
+    if (d) return miembrosDeTabla21(d);
+  }
+  return null;
+};
+const firmaDeNodo21 = (node: ts.Node, env: Env21, ayudantes: Set<string>, visitados: ReadonlySet<string>): string | null => {
+  if (ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
+    if (!node.body) return null;
+    const seen: string[] = [];
+    expandir21(node.body, ayudantes, seen, new Set());
+    return seen.length ? seen.join("+") : "—";
+  }
+  if (ts.isIdentifier(node)) return firmaReferencia21(node.text, node, env, ayudantes, visitados);
+  if (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression)) {
+    const tabla = resuelveTabla21(node.expression.text, env);
+    if (!tabla) return null;
+    const seen: string[] = [];
+    const guard = new Set<string>();
+    for (const cuerpo of tabla) { if (cuerpo.body) expandir21(cuerpo.body, ayudantes, seen, guard); }
+    return seen.length ? seen.join("+") : "—";
+  }
+  return null;
+};
+/* Firmar a través de un nombre: un parámetro del envoltorio es la
+ * maquinaria (su carga se clasifica en el sitio del llamante) y firma
+ * «—» con esa razón; una atadura local o importada firma su cuerpo;
+ * lo que no se resuelve a ningún cuerpo devuelve null y el llamante
+ * ACUSA — la firma vacía en silencio es exactamente el hueco G21-1. */
+const firmaReferencia21 = (name: string, site: ts.Node, env: Env21, ayudantes: Set<string>, visitados: ReadonlySet<string>): string | null => {
+  if (visitados.has(name)) return null;
+  let p: ts.Node | undefined = site.parent;
+  while (p && !ts.isSourceFile(p)) {
+    if (ts.isFunctionLike(p) && p.parameters.some((q) => ts.isIdentifier(q.name) && q.name.text === name)) return "—";
+    p = p.parent;
+  }
+  const next = new Set([...visitados, name]);
+  const local = env.decls.get(name);
+  if (local) return firmaDeNodo21(local, env, ayudantes, next);
+  const imp = env.imports.get(name);
+  if (imp) {
+    const destino = archivos21.get(imp.targetRel);
+    const d = destino?.decls.get(imp.imported);
+    if (destino && d) return firmaDeNodo21(d, destino, ayudantes, next);
+  }
+  return null;
+};
+const firmaDe = (recipe: ts.Node, ayudantes: Set<string>, env: Env21): string => {
+  if (!ts.isArrowFunction(recipe) && !ts.isFunctionExpression(recipe)) {
+    if (ts.isIdentifier(recipe)) {
+      const f = firmaReferencia21(recipe.text, recipe, env, ayudantes, new Set());
+      if (f === null) {
+        sinResolver20.push(`${env.rel}: la receta por referencia «${recipe.text}» no se resuelve a ningún cuerpo firmable — forma de puerta sin resolver (ola 21, G21-1)`);
+        return "—";
+      }
+      return f;
+    }
+    return "—";
+  }
+  const seen: string[] = [];
+  expandir21(recipe.body, ayudantes, seen, new Set());
   return seen.length ? seen.join("+") : "—";
+};
+/* El sombreado: un nombre desnudo solo es la puerta si el archivo lo
+ * ata a la puerta. Una función local, una atadura local o un
+ * parámetro con el nombre de una puerta la SOMBREN — la llamada es a
+ * la sombra, no a la puerta (las dos «recetas» de commitDraft en
+ * cards.tsx eran la función local de CardForm). */
+const sombreada21 = (name: string, site: ts.Node, env: Env21): boolean => {
+  if (env.aliases.has(name)) return false;
+  if (env.sombras.has(name)) return true;
+  let p: ts.Node | undefined = site.parent;
+  while (p && !ts.isSourceFile(p)) {
+    if (ts.isFunctionLike(p) && p.parameters.some((q) => ts.isIdentifier(q.name) && q.name.text === name)) return true;
+    p = p.parent;
+  }
+  return false;
 };
 let sinResolver20: string[] = [];
 const censoVivo19 = (): Map<string, number> => {
@@ -543,10 +721,34 @@ const censoVivo19 = (): Map<string, number> => {
   const ayudantes = cosechaAyudantes20(files);
   const rows = new Map<string, number>();
   sinResolver20 = [];
+  /* PASADA 1 (ola 21): los entornos de todos los archivos — la firma
+   * por referencia cruza archivos (la tabla de sembrados vive en
+   * stage-seeds.ts y se firma desde presentacion.tsx), así que ningún
+   * conteo empieza hasta que cada archivo tiene su entorno. */
+  archivos21.clear();
+  const conocidos = new Set(files.map((f) => f.rel));
+  const parsed = new Map<string, ts.SourceFile>();
   for (const { rel, text } of files) {
     const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-    // la cosecha de nombres resueltos del archivo
-    const aliases = new Map<string, InfoPuerta20>();
+    parsed.set(rel, sf);
+    const env: Env21 = { rel, decls: new Map(), imports: new Map(), aliases: new Map(), sombras: new Set() };
+    const collect = (n: ts.Node) => {
+      if (ts.isFunctionDeclaration(n) && n.name && !env.decls.has(n.name.text)) env.decls.set(n.name.text, n);
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && !env.decls.has(n.name.text)) env.decls.set(n.name.text, n.initializer);
+      if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
+        const targetRel = resuelveModulo21(rel, n.moduleSpecifier.text, conocidos);
+        if (targetRel) for (const el of n.importClause.namedBindings.elements) env.imports.set(el.name.text, { imported: (el.propertyName ?? el.name).text, targetRel });
+      }
+      ts.forEachChild(n, collect);
+    };
+    collect(sf);
+    archivos21.set(rel, env);
+  }
+  /* PASADA 2: alias resueltos, sombras y conteo, archivo a archivo. */
+  for (const { rel } of files) {
+    const sf = parsed.get(rel)!;
+    const env = archivos21.get(rel)!;
+    const aliases = env.aliases;
     const apiObjs = new Set<string>();
     const visitImports = (n: ts.Node) => {
       if (ts.isImportDeclaration(n) && n.importClause?.namedBindings && ts.isNamedImports(n.importClause.namedBindings)) {
@@ -583,16 +785,36 @@ const censoVivo19 = (): Map<string, number> => {
         }
       }
     }
+    /* Las sombras del archivo (ola 21): todo nombre de puerta que el
+     * archivo declara como función o atadura local sin resolverlo a la
+     * puerta sombrea la puerta en ese archivo — SALVO el envoltorio
+     * que reenvía a la puerta de sesión: ese ES la puerta (los cuatro
+     * envoltorios del proveedor), y sus llamantes internos cometen por
+     * la puerta con su receta, como siempre contó este censo. */
+    const esEnvoltorioPuerta21 = (node: ts.Node): boolean => {
+      let fn: ts.Node | undefined = node;
+      if (ts.isCallExpression(node)) fn = node.arguments.find((a) => ts.isArrowFunction(a) || ts.isFunctionExpression(a));
+      if (!fn || !(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn) || ts.isFunctionDeclaration(fn)) || !fn.body) return false;
+      let found = false;
+      const visit = (n: ts.Node) => {
+        if (found) return;
+        if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && aliases.get(n.expression.text)?.sesion) found = true;
+        ts.forEachChild(n, visit);
+      };
+      visit(fn.body);
+      return found;
+    };
+    for (const [name, node] of env.decls) if (PUERTAS.has(name) && !aliases.has(name) && !esEnvoltorioPuerta21(node)) env.sombras.add(name);
     const cuenta = (info: InfoPuerta20, recipe: ts.Node | undefined) => {
       if (!recipe) return;
-      const key = `${rel}|${info.door}|${cabezaDe(recipe)}|${firmaDe(recipe, ayudantes)}`;
+      const key = `${rel}|${info.door}|${cabezaDe(recipe)}|${firmaDe(recipe, ayudantes, env)}`;
       rows.set(key, (rows.get(key) ?? 0) + 1);
     };
     const visit = (n: ts.Node) => {
       if (ts.isCallExpression(n)) {
         const e = n.expression;
         if (ts.isIdentifier(e)) {
-          if (PUERTAS.has(e.text)) cuenta({ door: e.text, sesion: aliases.get(e.text)?.sesion ?? false }, n.arguments[aliases.get(e.text)?.sesion ? 1 : 0]);
+          if (PUERTAS.has(e.text)) { if (!sombreada21(e.text, n, env)) cuenta({ door: e.text, sesion: aliases.get(e.text)?.sesion ?? false }, n.arguments[aliases.get(e.text)?.sesion ? 1 : 0]); }
           else if (aliases.has(e.text)) { const info = aliases.get(e.text)!; cuenta(info, n.arguments[info.sesion ? 1 : 0]); }
         } else if (ts.isPropertyAccessExpression(e)) {
           if (PUERTAS.has(e.name.text)) cuenta({ door: e.name.text, sesion: false }, n.arguments[0]);
@@ -640,5 +862,38 @@ describe("ola19 · §B: el censo permanente de recetas", () => {
     assert.ok(guardadas >= 60, `las recetas guardadas son ${guardadas} de ${total}`);
     const finales = [...vivo.keys()].filter((k) => k.split("|")[1] === "commitFinal" && !k.includes("|ref:recipe|"));
     assert.deepEqual(finales.sort(), ["components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines", "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan"], "commitFinal sirve solo a los dos borrados del descanso (la llave ref:recipe es la maquinaria de la puerta misma, no una receta)");
+  });
+});
+
+describe("ola19 · §B-bis (ola 21, G21-1): la firma es transitiva, el ciclo no cuelga, la referencia firma", () => {
+  const cuerpoDe = (src: string): ts.Node => {
+    const sf = ts.createSourceFile("planta21.ts", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    let body: ts.Node | undefined;
+    const visit = (n: ts.Node) => {
+      if (!body && ts.isFunctionDeclaration(n) && n.body) body = n.body;
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+    return body!;
+  };
+  it("un efecto dentro de un DELEGADO entra en la firma de quien lo llama (la planta de Guardián, en sintético)", () => {
+    const files = walkSrc19(new URL("../../", import.meta.url), "");
+    const ayudantes = new Set([...cosechaAyudantes20(files), "delegadoPlanta21"]);
+    cuerpos21.set("delegadoPlanta21", [cuerpoDe("export function delegadoPlanta21(s: LedgerState): LedgerState { return hideLines(s, [], null).state; }")]);
+    const seen: string[] = [];
+    expandir21(cuerpoDe("export function recetaPlanta21(s: LedgerState): LedgerState { return delegadoPlanta21(s); }"), ayudantes, seen, new Set());
+    assert.deepEqual(seen, ["delegadoPlanta21", "hideLines"],
+      "la firma nombra al delegado Y al efecto que el delegado esconde: plantar un efecto en un ayudante cambia la llave de su receta");
+    cuerpos21.delete("delegadoPlanta21");
+  });
+  it("el grafo de ayudantes puede ciclar sin colgar el cierre: a→b→a se expande una vez", () => {
+    const ayudantes = new Set(["cicloA21", "cicloB21", "upsertLine"]);
+    cuerpos21.set("cicloA21", [cuerpoDe("export function cicloA21(s: LedgerState): LedgerState { return cicloB21(s); }")]);
+    cuerpos21.set("cicloB21", [cuerpoDe("export function cicloB21(s: LedgerState): LedgerState { const t = cicloA21(s); return upsertLine(t, null as never); }")]);
+    const seen: string[] = [];
+    expandir21(cuerpoDe("export function recetaCiclo21(s: LedgerState): LedgerState { return cicloA21(s); }"), ayudantes, seen, new Set());
+    assert.deepEqual(seen, ["cicloA21", "cicloB21", "upsertLine"], "el cierre termina y nombra el ciclo entero una sola vez");
+    cuerpos21.delete("cicloA21");
+    cuerpos21.delete("cicloB21");
   });
 });

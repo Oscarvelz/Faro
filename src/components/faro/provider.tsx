@@ -12,7 +12,7 @@ import {
 import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow } from "@/lib/faro/api";
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas, withSeguroDeVida } from "@/lib/faro/defaults";
-import { apartDecision, browserPackStorage, listQuarantine, localWorkVerdict, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
+import { announcedAbsent, apartDecision, browserPackStorage, listQuarantine, localWorkVerdict, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
 import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
@@ -930,7 +930,22 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       surfaceTabConflict(); // el pack guardado ya no se puede leer: jamás se pisa a ciegas
       return;
     }
-    const verdict = tabVerdict(storedRevision(storedRaw), baseRevRef.current, session.ledger.revision, session.dirty);
+    // Ola 21 (§B-21): el veredicto recibe también el CONTENIDO — en la
+    // ventana de igual revisión, un pack que conoce una entrada
+    // anunciada que esta pestaña no conoce no se pisa: la puerta de
+    // conflicto aparta esta copia y adopta el pack, y las dos entradas
+    // sobreviven (la suya en el libro, la de aquí en la ranura). El
+    // libro guardado se lee del mismo crudo ya en la mano; si no valida
+    // en profundidad, el contenido es null y el veredicto juzga solo
+    // por el sello, como siempre.
+    let storedLedger: LedgerState | null = null;
+    if (storedRaw) {
+      try {
+        const p = JSON.parse(storedRaw) as { ledger?: unknown };
+        storedLedger = isLedgerDeep(p.ledger) ? (p.ledger as LedgerState) : null;
+      } catch { storedLedger = null; }
+    }
+    const verdict = tabVerdict(storedRevision(storedRaw), baseRevRef.current, session.ledger.revision, session.dirty, { mine: session.ledger, stored: storedLedger });
     if (verdict === "surface") { surfaceTabConflict(); return; }
     if (verdict === "adopt") { adoptStoredPack(); return; }
     // 1.3.146: a failed write (full storage) must not pass as saved — the shell shows a banner until a write lands.
@@ -979,7 +994,26 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       if (e.key !== packKey(userId) || tabBlockedRef.current) return;
       const storedRev = storedRevision(e.newValue);
       const base = baseRevRef.current;
-      if (storedRev === null || base === null || storedRev <= base) return;
+      if (storedRev === null || base === null) return;
+      if (storedRev <= base) {
+        // Ola 21 (§B-21): a igual revisión el guardado ajeno puede traer
+        // una entrada ANUNCIADA que esta pestaña no conoce — el único
+        // contenido que cambia el libro sin mover el sello. Si esta
+        // pestaña está limpia (sin trabajo y en su base), adopta en
+        // silencio: los registros de las dos pestañas convergen en vida
+        // y el próximo guardado real de esta pestaña llevará la entrada
+        // consigo, en vez de pisarla al escribir. Si esta pestaña tiene
+        // trabajo (o su propia entrada pendiente), no se toca nada: su
+        // propia puerta de escritura juzgará el contenido al guardar.
+        if (storedRev === base) {
+          const cur = sessionRef.current;
+          if (cur && !cur.dirty && cur.ledger.revision === base) {
+            const stored = readPack(userId);
+            if (stored && announcedAbsent(stored.ledger, cur.ledger)) adoptStoredPack();
+          }
+        }
+        return;
+      }
       const cur = sessionRef.current;
       if (!cur) return;
       if (!cur.dirty && cur.ledger.revision === base) adoptStoredPack();

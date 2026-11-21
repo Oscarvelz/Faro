@@ -142,6 +142,21 @@ export function dropDraft(state: LedgerState, id: string): LedgerState {
   return { ...state, drafts: cur.filter((d) => d.id !== id) };
 }
 
+/** Ola 21 (Q21-1): las filas de la mesa abierta que YA NO VIVEN en la
+ * bandeja — otra mano las guardó o las descartó mientras la mesa
+ * respiraba. La mesa trabaja sobre la foto de su montaje; esta es la
+ * sustracción con la que se re-sincroniza contra lo vivo: una fila de
+ * la foto cayó si su borrador no está en la bandeja viva Y la persona
+ * no la descartó en esta misma mesa (las de `gone` ya las retiró ella:
+ * nombrarlas otra vez sería decir dos veces la misma salida). Lo que
+ * llega de nuevo NO cae ni entra: la mesa revisa lo que abrió, y la
+ * tarjeta — cuyo conteo sí es vivo — lo cuenta al cerrar. Pura: la
+ * mesa la usa en su efecto y la cerca la clava en composición. */
+export function fallenDrafts(work: Draft[], live: Draft[], gone: ReadonlySet<string>): Draft[] {
+  const liveIds = new Set(live.map((d) => d.id));
+  return work.filter((d) => !liveIds.has(d.id) && !gone.has(d.id));
+}
+
 /** Guardar: crea las líneas de los borradores pedidos y los retira de la
  * bandeja en la misma receta. Un borrador en rojo no se convierte ni por
  * llamada directa (doble candado con draftToLine): se queda esperando.

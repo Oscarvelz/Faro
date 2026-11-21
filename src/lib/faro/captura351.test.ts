@@ -73,10 +73,14 @@ describe("351 · la ley de las barras de búsqueda", () => {
 });
 
 describe("351 · Novedades", () => {
-  it("la nota grande de la 351 abre el registro", () => {
+  it("la nota grande de la 351 vive en el registro, con su nivel", () => {
+    // ENMIENDA OLA 352: la 351 abría el registro en su entrega; la 352
+    // («La mesa dice su foto», menor) la sucede en la cabeza. Lo que
+    // esta cerca clava no cambia: la nota de la 351 existe y es grande.
     const news = read("./novedades.ts");
-    const head = news.slice(news.indexOf("export const NEWS"), news.indexOf("export const NEWS") + 400);
-    assert.ok(head.includes('"1.3.351"'));
-    assert.ok(head.includes('"grande"'));
+    const at = news.indexOf('"1.3.351"');
+    assert.ok(at >= 0, "la nota de la 351 vive en el registro");
+    const block = news.slice(at, at + 400);
+    assert.ok(block.includes('"grande"'), "y sigue siendo grande");
   });
 });

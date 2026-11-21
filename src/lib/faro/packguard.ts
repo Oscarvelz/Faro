@@ -134,10 +134,34 @@ export type TabVerdict = "write" | "adopt" | "surface";
  *     guardado antes de seguir editando;
  *   - esta pestaña tiene trabajo propio (dirty, o su sesión ya avanzó del sello base) →
  *     "surface": no se escribe nada; el trabajo se aparta a la puerta de conflicto y se avisa.
+ *
+ * Ola 21 (§B-21): la ventana de IGUAL revisión aprende el contenido. La
+ * entrada anunciada es el único contenido de la casa que cambia el libro
+ * sin mover la revisión, y este veredicto — como el listener — solo
+ * despertaba por revisión: dos pestañas que acuñaban su entrada dentro
+ * de la misma ventana se pisaban por turnos en el pack durable, y la
+ * entrada de la que no escribió última moría sin ranura, sin banner y
+ * sin confesión (la cura 20 guardó la puerta RECEPTORA — localWorkVerdict
+ * — y dejó esta compuerta juzgando solo por el sello que la entrada, por
+ * diseño, no mueve). Con el contenido en la mano (`content`), si el
+ * almacén está EXACTAMENTE en la base y mi sesión también (mi escritura
+ * no avanzaría la revisión: mi única divergencia posible es de registro)
+ * y el pack conoce una entrada anunciada que mi libro no conoce, el
+ * veredicto es "surface": la puerta de conflicto aparta mi copia — con
+ * mi entrada — y adopta el pack — con la suya. Ninguna pisa a la otra.
+ * La ventana es exacta a propósito: si mi sesión avanzó de la base
+ * (sessionRev > baseRev), mi escritura SÍ mueve la revisión y manda —
+ * una línea de registro no desplaza trabajo real; la entrada ajena se
+ * protege en su propia pestaña por la puerta receptora de la ola 20
+ * cuando mi guardado le llegue. Sin `content` (las llamadas de la
+ * oleada 2), el veredicto es el C2 original, byte a byte.
  */
-export function tabVerdict(storedRev: number | null, baseRev: number | null, sessionRev: number, dirty: boolean): TabVerdict {
+export function tabVerdict(storedRev: number | null, baseRev: number | null, sessionRev: number, dirty: boolean, content?: { mine: LedgerState; stored: LedgerState | null }): TabVerdict {
   if (storedRev === null || baseRev === null) return "write";
-  if (storedRev <= baseRev) return "write";
+  if (storedRev <= baseRev) {
+    if (content?.stored && storedRev === baseRev && sessionRev === baseRev && announcedAbsent(content.stored, content.mine)) return "surface";
+    return "write";
+  }
   if (dirty || sessionRev !== baseRev) return "surface";
   return "adopt";
 }

@@ -41,11 +41,21 @@ export function TrayCard() {
     () => (session?.ledger.drafts ?? []).filter((d) => d.kind === "line"),
     [session],
   );
-  if (!has("capture.tray") || drafts.length === 0) return null;
+  /* Ola 21 (Q21-1): el guardia anti-cadáver gobierna la TARJETA, no la
+   * vida de la hoja que hospeda. Antes, el `return null` con la bandeja
+   * vacía se llevaba también la hoja y la mesa abiertas cuando otra
+   * mano resolvía la bandeja bajo ellas: la superficie moría en
+   * silencio con lo tecleado dentro. Ahora la tarjeta nace solo con
+   * borradores (y su asiento), y el null exige además que ninguna
+   * vista esté abierta: una vista abierta vive hasta que la persona
+   * la cierra — la hoja trae su palabra de vacío y la mesa, la suya. */
+  const cardLive = has("capture.tray") && drafts.length > 0;
+  if (!cardLive && view === "none") return null;
   const totals = draftTotals(drafts);
   const allHaveAmount = drafts.every((d) => d.amountMinor != null && d.currency != null);
   return (
     <>
+      {cardLive ? (
       <button type="button" className="tray-card" data-anchor="capture-tray" onClick={() => setView("sheet")}>
         <span className="tray-ic" aria-hidden><Inbox /></span>
         <span className="tray-txt">
@@ -56,6 +66,7 @@ export function TrayCard() {
           <span className="tray-total num">{totals.map((r) => fmtAmt(r.inMinor + r.outMinor, r.currency)).join(" · ")}</span>
         ) : null}
       </button>
+      ) : null}
       {view === "sheet" ? <TraySheet onClose={() => setView("none")} onReview={() => setView("table")} /> : null}
       {view === "table" ? <ReviewTable onClose={() => setView("none")} /> : null}
     </>
