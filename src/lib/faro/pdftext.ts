@@ -11,8 +11,9 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export const isPdf = (head: Uint8Array) => head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46; // "%PDF"
 
-/** Words with their position on each page. A page with no words is a scanned image (no OCR here). */
-export async function readPdf(data: ArrayBuffer): Promise<PdfDoc> {
+/** Words with their position on each page. A page with no words is a scanned image (no OCR here).
+ * F11: the document's embedded files ride along (Faro's own PDFs carry their data copy there). */
+export async function readPdf(data: ArrayBuffer): Promise<PdfDoc & { attachments?: Record<string, Uint8Array> }> {
   const task = pdfjs.getDocument({ data: new Uint8Array(data), disableFontFace: true, useSystemFonts: false, verbosity: 0 });
   const doc = await task.promise;
   const pages: PdfDoc["pages"] = [];
@@ -28,8 +29,24 @@ export async function readPdf(data: ArrayBuffer): Promise<PdfDoc> {
       pages.push(words);
       page.cleanup();
     }
+    let attachments: Record<string, Uint8Array> | undefined;
+    try {
+      // pdf.js splits the listing (names only) from the bytes: fetch each
+      // attachment's content explicitly, keyed by its file name.
+      const atts = await doc.getAttachments();
+      if (atts) {
+        const entries = (atts instanceof Map ? [...atts.entries()] : Object.entries(atts)) as [string, { filename?: string }][];
+        for (const [id, att] of entries) {
+          try {
+            const full = (await doc.getAttachmentContent(id)) as { content?: Uint8Array } | Uint8Array;
+            const content = full instanceof Uint8Array ? full : full?.content;
+            if (content) (attachments ??= {})[att?.filename || id] = content;
+          } catch { /* one unreadable attachment does not sink the others */ }
+        }
+      }
+    } catch { /* a document without readable attachments simply has none */ }
+    return { pages, ...(attachments ? { attachments } : {}) };
   } finally {
     await task.destroy();
   }
-  return { pages };
 }

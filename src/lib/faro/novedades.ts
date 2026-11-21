@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.359",
+    date: "2026-11-21",
+    level: "menor",
+    topic: "importar",
+    title: { es: "El PDF de Faro vuelve a casa", en: "Faro's PDF comes home" },
+    points: {
+      es: [
+        "El PDF que exportas de Faro ahora puede volver por Importar: Faro lo reconoce como suyo. Desde esta versión el PDF trae una copia de datos invisible, y cada línea regresa exacta, a su mes y a su casa.",
+        "Los PDF exportados antes vuelven por lo impreso: mes, tipo, nombre y monto. Lo que el papel no guarda — el día exacto, la nota — cada fila lo declara en la revisión, sin inventar nada.",
+      ],
+      en: [
+        "The PDF you export from Faro can now come back through Import: Faro recognizes it as its own. From this version on, the PDF carries an invisible data copy, and every line returns exact, to its month and its house.",
+        "PDFs exported earlier return by the print: month, kind, name and amount. What paper does not keep — the exact day, the note — each row declares in the review, inventing nothing.",
+      ],
+    },
+  },
+  {
     version: "1.3.358",
     date: "2026-11-21",
     level: "menor",

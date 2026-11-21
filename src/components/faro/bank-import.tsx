@@ -7,7 +7,7 @@ import { ArrowLeftRight, Ban, Settings as Gear, Check, CopyCheck, FileImage, Fil
 import { formatMoney } from "@/lib/faro/money";
 import { GUIDE_BUILTIN, accounts, guideName, guidesOf, importBook, rcLabel, resetGuides, rowFor, saveGuides } from "@/lib/faro/bankbook";
 import { GuideEditor, GuideMark } from "./bank-guides";
-import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromPdf, fromXlsx, lineAmount, parseFile, pickSource, remap, revertImportCounted, rewardFor, xlsxSheet, type ImportAdjustment, type ParsedFile, type Review, type Row, type Undo } from "@/lib/faro/bankparse";
+import { applyImport, buildReview, counts, detectedCurrency, fileRecon, fromFaroPdf, fromPdf, fromXlsx, lineAmount, parseFile, pickSource, remap, revertImportCounted, rewardFor, xlsxSheet, type ImportAdjustment, type ParsedFile, type Review, type Row, type Undo } from "@/lib/faro/bankparse";
 import { parsePdfStatement } from "@/lib/faro/pdfstmt";
 import { translate } from "@/lib/faro/i18n";
 import type { ColumnMap, Currency, LedgerState, RewardClass } from "@/lib/faro/types";
@@ -51,6 +51,11 @@ async function readOne(f: File, maps: Record<string, ColumnMap>, onPdf: () => vo
     try {
       const { readPdf } = await import("@/lib/faro/pdftext");
       const doc = await readPdf(buf);
+      // F11: Faro's own document is tried FIRST, by its own signature — no bank
+      // statement carries that signature, and no Faro PDF is a bank statement.
+      const { parseFaroPdf, FARO_ATTACHMENT } = await import("@/lib/faro/faropdf");
+      const faro = parseFaroPdf(doc, doc.attachments?.[FARO_ATTACHMENT]);
+      if (faro) return fromFaroPdf(f.name, faro);
       const st = parsePdfStatement(doc);
       if (st) return fromPdf(f.name, st);
       const blank = doc.pages.every((p) => !p.some((w) => w.s.trim()));
@@ -272,6 +277,7 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                       <Hint topic="imp-cuenta" />
                     </div>
                     {f.pdf ? <PdfNotes lang={lang} file={f} money={money} /> : null}
+                    {f.faro ? <FaroNotes lang={lang} file={f} /> : null}
                     {f.xlsx ? (
                       <p className="imp-pdf-note" data-anchor="imp-xlsx-note">
                         {f.xlsx.names.length > 1 ? `${L(lang, "Hoja", "Sheet")}: ${f.xlsx.names[f.xlsx.sheet]} · ` : ""}
@@ -358,6 +364,9 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
                               {r.include && r.reward?.missed && r.reward.best ? (
                                 <p className="imp-miss">{L(lang, `Con ${r.reward.best.name}: +`, `With ${r.reward.best.name}: +`)}<b className="num">{money(r.reward.missed)}</b></p>
                               ) : null}
+                              {r.loss?.length ? (
+                                <p className="imp-loss" data-anchor="imp-loss">{r.loss.map((code) => lossText(lang, code)).filter(Boolean).join(" · ")}</p>
+                              ) : null}
                             </div>
                             <div className="imp-amt">
                               <b className="num">{amt}</b>
@@ -392,6 +401,44 @@ export default function BankImport({ initial, onClose }: { initial: File[] | nul
             onPick={(v) => { setOver({ ...over, target: { ...over.target, [pickRow.key]: v } }); setPick(null); }} onClose={() => setPick(null)} />
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/** F11: what a row of an old Faro PDF declares it could not bring back (the print does not carry it). */
+function lossText(lang: string, code: string): string {
+  switch (code) {
+    case "dia": return L(lang, "sin el día exacto: el PDF solo imprime el mes", "no exact day: the PDF prints only the month");
+    case "nota": return L(lang, "la nota no se imprime", "the note is not printed");
+    case "casa": return L(lang, "su casa no viene impresa: dale casa con la ficha", "its house is not printed: give it one with the chip");
+    case "bolsillo": return L(lang, "el bolsillo no se imprime", "the pocket is not printed");
+    case "recorte": return L(lang, "el nombre puede venir cortado", "the name may be cut off");
+    default: return "";
+  }
+}
+
+/** Under a Faro PDF's account: where the file comes from and how its return travels. */
+function FaroNotes({ lang, file }: { lang: string; file: ParsedFile }) {
+  const f = file.faro!;
+  const names = FULL[lang === "en" ? "en" : "es"];
+  const months = f.months.map((mk) => `${names[Number(mk.slice(5, 7)) - 1]} ${mk.slice(0, 4)}`).join(", ");
+  return (
+    <div className="imp-pdf" data-anchor="imp-faro">
+      <p className="imp-pdf-row">
+        <span className="imp-pdf-period">{L(lang, "PDF de Faro", "Faro PDF")}</span>
+        <span className="imp-pdf-tail">
+          {f.copy === "exact" ? <span className="imp-pdf-check"><Check aria-hidden />{L(lang, "Con copia de datos", "With data copy")}</span> : null}
+          <Hint topic="importar" />
+        </span>
+      </p>
+      <p className="imp-pdf-note">
+        {f.copy === "exact"
+          ? L(lang, "Trae su copia de datos: cada línea vuelve tal como salió, a su mes y su casa.", "It carries its data copy: every line comes back exactly as it left, to its month and its house.")
+          : f.copy === "broken"
+            ? L(lang, "Su copia de datos venía dañada o no cuadraba con lo impreso: manda lo impreso, y cada fila declara lo que no se imprime.", "Its data copy was damaged or disagreed with the print: the print rules, and each row declares what is not printed.")
+            : L(lang, "Es de los de antes de la copia de datos: vuelve lo impreso, y cada fila declara lo que no se imprime.", "It predates the data copy: the print comes back, and each row declares what is not printed.")}
+      </p>
+      {months ? <p className="imp-pdf-note">{L(lang, "Meses", "Months")}: {months}</p> : null}
     </div>
   );
 }

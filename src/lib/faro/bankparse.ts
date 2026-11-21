@@ -14,11 +14,15 @@ export { matchKey };
 const similar = similarKeys;
 import type { AcctKind, ColumnMap, Currency, ImportBook, LedgerState, Line, RewardClass, Structure, Sub } from "./types.ts";
 import type { PdfStatement } from "./pdfstmt.ts";
+import type { FaroPdf } from "./faropdf.ts";
 
 export type RawTx = {
   date: string; amount: number; desc: string; memo?: string; id?: string; type?: string; category?: string; balance?: number; ref?: string; status?: string; currency?: string; name?: string; fundedByCard?: boolean;
   /** Set by PDF parsers, which know the statement's sections: the row's flow, "went through PayPal", reward class, kind of spending. */
   flow?: Flow; pp?: boolean; fund?: string; rc?: RewardClass; cat?: string; noReward?: boolean;
+  /** F11 (a Faro PDF read back): the printed section's kind, the house as the document names it,
+   * what the print does not carry (loss codes, declared per line), and — generation 2 — the line itself. */
+  kindHint?: Line["kind"]; catName?: string; loss?: string[]; line?: Line;
 };
 export type Bank = "chase" | "wellsfargo" | "statefarm" | "paypal" | "other";
 export type XlsxInfo = { names: string[]; tables: string[][][]; sheet: number; totals: number };
@@ -36,8 +40,21 @@ export type ParsedFile = {
   xlsx?: XlsxInfo;
   /** A monthly statement PDF: its period, pages without text, the check against its own summary, its rewards line. */
   pdf?: Pick<PdfStatement, "issuer" | "period" | "imagePages" | "recon" | "rewards" | "begin" | "end" | "apyBps">;
+  /** F11: a PDF Faro itself exported — how its return travels (exact data copy, the print alone, or a broken copy the print overruled). */
+  faro?: { copy: "exact" | "none" | "broken"; months: string[] };
   error?: string;
 };
+
+/** A Faro PDF read back (faropdf.ts did the reading; this only reshapes it into the house's file). */
+export function fromFaroPdf(name: string, f: FaroPdf): ParsedFile {
+  const rows: RawTx[] = f.rows.map((r) => ({
+    date: r.line ? lineDay(r.line) : r.date, amount: r.amount, desc: r.desc,
+    ...(r.currency ? { currency: r.currency } : {}), flow: r.flow,
+    ...(r.kindHint ? { kindHint: r.kindHint } : {}), ...(r.catName ? { catName: r.catName } : {}),
+    ...(r.loss ? { loss: r.loss } : {}), ...(r.line ? { line: r.line } : {}),
+  }));
+  return { name, format: "pdf", bank: "other", sig: "faropdf:v1", rows, faro: { copy: f.copy, months: f.months } };
+}
 
 /** A parsed statement PDF as a file of rows (pdfstmt.ts reads the PDF; this only reshapes it). */
 export function fromPdf(name: string, st: PdfStatement): ParsedFile {
@@ -473,6 +490,10 @@ export type Row = {
   xpair: string;
   /** Cancelled by a reversal in the same statement (both rows stay out). */
   voided: boolean;
+  /** F11: what the printed page does not carry, declared on the row itself (loss codes). */
+  loss?: string[];
+  /** F11 generation 2: the book line this row restores, verbatim, when it is saved as-is. */
+  exact?: Line;
 };
 
 /** A savings statement's ending balance, offered as a pocket in Ahorros (created on import when missing). */
@@ -580,15 +601,39 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
       if (isIncome(flow)) target = flow === "income" && (r.cat === "payroll" || /\b(payroll|nomina|salary)\b/.test(key)) ? "income-fixed||" : "income-variable||";
       else if (rule) { target = rule.target; how = "rule"; }
       else { const s = suggestTarget(list, guess.chase); if (s) { target = s; how = "seed"; } }
+      // F11: a Faro row knows its printed kind, and often its house by name. The kind
+      // is the print's; the house is matched by name against the living structure —
+      // a name with no match keeps its doubt (the "casa" loss) and the chip as its tool.
+      const rowLoss: string[] | undefined = r.loss ? [...r.loss] : undefined;
+      if (f.faro && r.line) {
+        // Generation 2: the row's house is the line's own — the review starts from
+        // the backup's truth, and only the user's own re-housing moves it.
+        target = `${r.line.kind}|${r.line.categoryId}|${r.line.subId ?? ""}`;
+        how = "rule";
+      }
+      if (f.faro && r.kindHint) {
+        if (r.kindHint.startsWith("income")) target = `${r.kindHint}||`;
+        else if (r.catName) {
+          const foldName = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          const want = foldName(r.catName);
+          const byName = list.filter((t) => !t.sub && foldName(t.cat) === want);
+          const hit = byName.find((t) => t.value.startsWith(`${r.kindHint}|`)) ?? byName.find((t) => t.value.startsWith("purchase|")) ?? byName[0];
+          if (hit) {
+            target = hit.value.startsWith("purchase|") ? hit.value : `${r.kindHint}|${hit.value.split("|")[1]}|`;
+            how = "seed";
+          } else if (rowLoss && !rowLoss.includes("casa")) rowLoss.push("casa");
+        }
+      }
       // PayPal's transaction ids are the same in its CSV and its PDF: one scheme, so either file finds the other's rows.
       const ppId = f.bank === "paypal" && (f.format === "csv" || (f.format === "pdf" && kind === "paypal"));
       const id = r.id ? (ppId ? `pp:${r.id}` : `${f.format === "qif" ? "qif" : f.format === "pdf" ? "pdf" : "ofx"}:${src?.id ?? f.sig}:${r.id}`) : "";
       // A PayPal row funded by the PayPal card is that card's purchase (PayPal keeps the store's name).
       const fundCard = kind === "paypal" && r.pp && /mastercard/i.test(r.fund ?? "") ? accts.find((a) => a.kind === "card" && a.bank === "paypal") : undefined;
       rows.push({
-        uid: `r${n++}`, file: fi, date: r.date, month: r.date.slice(0, 7), raw, label: flow === "interest" ? (en ? "Interest" : "Intereses") : ppName || merchantLabel(raw), key, amount: r.amount, flow, target, how,
-        rc: (r.rc ?? rule?.rc ?? (kind === "paypal" && (f.format !== "pdf" || r.pp) ? "online" : guess.rc)) as RewardClass, elig: !!rule?.elig, id, sourceId: fundCard?.id ?? src?.id ?? "", via: fundCard && src ? src.id : "", dup: "", paired: "", pairs: "", include: false, currency: fileCur, reward: null, balance: r.balance,
+        uid: `r${n++}`, file: fi, date: r.date, month: r.date.slice(0, 7), raw, label: f.faro ? raw : flow === "interest" ? (en ? "Interest" : "Intereses") : ppName || merchantLabel(raw), key, amount: r.amount, flow, target, how,
+        rc: (r.rc ?? rule?.rc ?? (kind === "paypal" && (f.format !== "pdf" || r.pp) ? "online" : guess.rc)) as RewardClass, elig: !!rule?.elig, id, sourceId: fundCard?.id ?? src?.id ?? "", via: fundCard && src ? src.id : "", dup: "", paired: "", pairs: "", include: false, currency: f.faro && r.currency ? (r.currency as Currency) : fileCur, reward: null, balance: r.balance,
         pp: !!r.pp, noReward: !!r.noReward, xpair: "", voided: false,
+        ...(rowLoss ? { loss: rowLoss } : {}), ...(r.line ? { exact: r.line } : {}),
       });
     }
     // PayPal funding rows ("General Card Deposit") are transfers; the purchase they paid stays.
@@ -614,11 +659,23 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
     else inFile.set(k, r);
   }
 
+  // 1c. F11 generation 2: an exact row IS a book line or it is not — identity, not
+  // resemblance. Still identical → an exact duplicate. Edited since the export →
+  // a duplicate by identity whose saving would restore the backup over the edit:
+  // it is born OFF like every duplicate, and the user's own hand turns it on.
+  for (const r of rows) {
+    if (!r.exact) continue;
+    const live = all.find((l) => l.id === r.exact!.id);
+    if (!live) continue;
+    r.dup = canonicalLine(live) === canonicalLine(r.exact) ? "exact" : "fuzzy";
+    if (!live.rest) r.dupOf = { concept: live.concept, day: lineDay(live) };
+  }
+
   // 2. PayPal ↔ card: the same purchase seen from both sides is counted once, under the PayPal name.
   const mods = new Map<string, Line>();
   const fileKind = (r: Row) => accts.find((a) => a.id === sources[r.file])?.kind ?? files[r.file].kind;
   const buyish = (f: Flow) => f === "spend" || f === "refund";
-  const isCardCopy = (r: Row) => fileKind(r) !== "paypal" && (r.pp || /paypal|^pp\b/i.test(r.raw)) && buyish(r.flow);
+  const isCardCopy = (r: Row) => !files[r.file].faro && fileKind(r) !== "paypal" && (r.pp || /paypal|^pp\b/i.test(r.raw)) && buyish(r.flow);
   const ppBuys = rows.filter((r) => fileKind(r) === "paypal" && buyish(r.flow) && !r.dup);
   for (const card of rows.filter((r) => isCardCopy(r) && !r.dup)) {
     const pp = ppBuys.filter((p) => !p.pairs && p.flow === card.flow && p.amount === card.amount && dayGap(p.date, card.date) <= 4).sort((a, b) => dayGap(a.date, card.date) - dayGap(b.date, card.date))[0];
@@ -644,7 +701,7 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
     if (b) { a.xpair = b.uid; b.xpair = a.uid; }
   }
   // 2c. A reversal cancels the charge it names (same statement, same amount, within 10 days): neither is spending.
-  for (const rev of rows.filter((r) => /^reversal\b|^reverso\b/i.test(r.raw) && r.amount > 0)) {
+  for (const rev of rows.filter((r) => !files[r.file].faro && /^reversal\b|^reverso\b/i.test(r.raw) && r.amount > 0)) {
     const orig = rows.find((o) => o.file === rev.file && !o.voided && o.amount === -rev.amount && o.date <= rev.date && dayGap(o.date, rev.date) <= 10 && similar(o.key, merchantKey(rev.raw.replace(/^(reversal|reverso):?\s*/i, ""))));
     if (orig) { orig.voided = rev.voided = true; orig.flow = rev.flow = "skip"; }
   }
@@ -657,7 +714,7 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
   // match through its account, and a line born from the same statement feed is only ever an exact match.
   const used = new Set<string>();
   for (const r of rows) {
-    if (r.dup || r.paired || r.flow === "skip") continue;
+    if (r.dup || r.paired || r.flow === "skip" || r.exact) continue;
     const amt = lineAmount(r);
     const sch = r.id ? scheme(r.id) : "";
     const rowAcct = sources[r.file] ?? "";
@@ -679,9 +736,24 @@ export function buildReview(state: LedgerState, files: ParsedFile[], sources: st
   }
   const taken = new Set<string>();
   for (const r of rows) {
-    if (r.dup || r.paired || r.flow === "skip") continue;
+    if (r.dup || r.paired || r.flow === "skip" || r.exact) continue;
     const twin = rows.find((o) => o !== r && o.file < r.file && !taken.has(o.uid) && !o.paired && o.sourceId === r.sourceId && o.amount === r.amount && dayGap(o.date, r.date) <= 4 && similar(o.key, r.key));
     if (twin) { r.dup = "fuzzy"; taken.add(twin.uid); }
+  }
+  // 3b. F11 generation 1: a printed row carries only its month (the day is not
+  // printed), so its duplicate is judged by month + amount + currency + side +
+  // name — the day window of the statement passes would let a whole reimport
+  // of an old backup slip past whenever the line sits late in its month.
+  for (const r of rows) {
+    if (r.dup || r.paired || r.exact || !files[r.file].faro) continue;
+    const amt = lineAmount(r);
+    const rk = canonMatch(r.key);
+    const hit = all.find((l) => {
+      if (used.has(l.id) || !l.active || l.monthKey !== r.month) return false;
+      if (!(l.currency === r.currency && l.amountMinor === amt && (l.kind.startsWith("income") === isIncome(r.flow)))) return false;
+      return similar(matchKey(l.concept), rk) || l.concept === r.label;
+    });
+    if (hit) { r.dup = "fuzzy"; if (!hit.rest) r.dupOf = { concept: hit.concept, day: lineDay(hit) }; used.add(hit.id); }
   }
 
   for (const r of rows) {
@@ -798,7 +870,15 @@ export function applyImport(state: LedgerState, rv: Review, files: ParsedFile[],
     if (old) { before.push(old); put(m); }
   }
   let added = 0;
-  for (const r of rv.rows) if (r.include && r.month) { put(newLine(r, batch)); added++; }
+  for (const r of rv.rows) if (r.include && r.month) {
+    // F11 generation 2: a row the user left as the backup wrote it restores the
+    // line verbatim (only the batch is new). If the user re-housed the row in the
+    // review, their choice wins and the row is built like any other.
+    const t = r.exact ? splitTarget(r.target) : null;
+    const verbatim = r.exact && t && t.kind === r.exact.kind && t.categoryId === r.exact.categoryId && (t.subId ?? "") === (r.exact.subId ?? "");
+    put(verbatim ? { ...r.exact!, batch } : newLine(r, batch));
+    added++;
+  }
   // Reconciliation adjustments confirmed in the review (1.3.153): ONE normal line per file for the standing
   // difference, in this same batch (the import's Undo takes it out with the rest). Sign: a positive
   // difference means the statement shows more spending than the books took in → an expense line on the

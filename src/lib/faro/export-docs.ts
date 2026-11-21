@@ -8,6 +8,7 @@ import { lentOf, lentPays, lentState, monthAhead, netBalance, payoffPlan, totalD
 import { visibleNamer } from "./defaults";
 import { remitTrend } from "./remesas";
 import { recipientName, remitByPerson } from "./remit-people";
+import { FARO_ATTACHMENT, encodeDataCopy, makeDataCopy } from "./faropdf";
 import type { Lang, LedgerState, Line, LineKind } from "./types";
 import type { makeNamer } from "./defaults";
 
@@ -277,7 +278,7 @@ function pdfText(value: string): string {
   return out;
 }
 
-function pdfBlob(pages: string[], landscape = false): Blob {
+function pdfBlob(pages: string[], landscape = false, embed?: { name: string; data: string }): Blob {
   const enc = new TextEncoder();
   const objects: string[] = [];
   const box = landscape ? "0 0 792 612" : "0 0 612 792";
@@ -295,6 +296,17 @@ function pdfBlob(pages: string[], landscape = false): Blob {
     id += 2;
   }
   objects[1] = `<< /Type /Pages /Count ${pages.length} /Kids [${kids.join(" ")}] >>`;
+  // F11 (1.3.359): the data copy rides as a standard embedded file — invisible,
+  // it alters no printed line, and it survives sharing the file as it lies.
+  // Its bytes are ASCII by construction (encodeDataCopy), so the char-counted
+  // offsets below stay byte-exact.
+  if (embed) {
+    const fsId = id;
+    const efId = id + 1;
+    objects.push(`<< /Type /Filespec /F (${embed.name}) /EF << /F ${efId} 0 R >> >>`);
+    objects.push(`<< /Type /EmbeddedFile /Params << /Size ${embed.data.length} >> /Length ${embed.data.length} >>\nstream\n${embed.data}\nendstream`);
+    objects[0] = `<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(${embed.name}) ${fsId} 0 R] >> >> >>`;
+  }
   let body = "%PDF-1.4\n";
   const offsets: number[] = [0];
   objects.forEach((object, index) => {
@@ -1278,7 +1290,15 @@ function workbookBlob(ledger: LedgerState, key: string, lang: Lang, names: Names
 
 function pdfBlobFor(ledger: LedgerState, key: string, lang: Lang, names: Names, pick: ExportPick): Blob {
   const pages = buildPdfPages(ledger, key, lang, names, pick);
-  return pdfBlob(pages.length ? pages : ["BT /F1 12 Tf 40 740 Td (Faro) Tj ET"], true);
+  // F11: the copy carries exactly the lines this document prints (same months,
+  // same mode-adjusted pick, same per-month filter) — so on return, the copy
+  // and the print can be checked against each other.
+  const modePick = pickForMode(pick, bookModeOf(ledger));
+  const printed = budgetMonths(ledger, key, modePick.scope).flatMap((month) => monthLinesPicked(ledger, month, modePick));
+  const embed = printed.length
+    ? { name: FARO_ATTACHMENT, data: encodeDataCopy(makeDataCopy(printed, ledger.settings.display, new Date().toISOString())) }
+    : undefined;
+  return pdfBlob(pages.length ? pages : ["BT /F1 12 Tf 40 740 Td (Faro) Tj ET"], true, embed);
 }
 
 /** 1.3.148: the same documents as Files, for the share sheet (download stays the default elsewhere). */

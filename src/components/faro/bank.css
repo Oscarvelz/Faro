@@ -124,6 +124,7 @@
 .imp-chip svg { flex: none; width: 13px; height: 13px; color: var(--accent); }
 .imp-chip.is-seed { border-style: dashed; background: transparent; }
 .imp-miss { margin: 0; font-size: .78rem; font-weight: 650; color: var(--warn); line-height: 1.25; }
+.imp-loss { margin: 0; font-size: .74rem; color: var(--muted); line-height: 1.3; }
 .imp-amt { display: grid; justify-items: end; gap: 3px; padding-top: 1px; }
 .imp-amt b { font-size: .98rem; font-weight: 700; white-space: nowrap; }
 .imp-item[data-flow="income"] .imp-amt b, .imp-item[data-flow="interest"] .imp-amt b, .imp-item[data-flow="refund"] .imp-amt b { color: var(--good); }
