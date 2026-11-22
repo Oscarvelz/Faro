@@ -82,6 +82,9 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["books.list", E], ["books.add-line", E], ["books.edit-line", E], ["books.currency", E],
   ["books.filter-chips", R], ["books.cloud", C], ["books.bubble-editor", C], ["books.bookkit", C],
   ["books.multiselect", R], ["books.vault-order", C],
+  // ENMIENDA LIBRO COMPARTIDO C5 (1.3.395): books.share-admin nace en
+  // Ritmo — administrar la membresía del libro compartido.
+  ["books.share-admin", R],
   // §1.5 Bóveda de ahorros
   ["central.save-band", E], ["vault.save", E], ["vault.meta", R], ["vault.retiro", R],
   ["vault.retiro-sheet", C], ["vault.emergencia", R], ["vault.segments", C], ["vault.kept", C],

@@ -9,6 +9,7 @@ import { SampleRow } from "./sample-mode";
 import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { NoticesFold } from "./notices-fold";
+import { ShareMesa } from "./share-mesa";
 import { DueAlertsRow } from "./due-alerts-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, FILTER_CLEAR, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, filterToast, hasRewards, modeSign, modeWhisper } from "./bank-dock";
@@ -32,7 +33,7 @@ import { AskLearnedManager } from "@/components/faro/ask-learned";
 import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
 import { ProjectionSection } from "@/components/faro/projection";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, Users, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, NameRow, UserButton } from "@/lib/auth/gates";
@@ -6560,6 +6561,11 @@ export function Settings() {
         {has("account.name") ? <NameRow /> : null}
         <AccountLocalNote />
       </Fold>
+      {has("books.share-admin") ? (
+        <Fold id="share" icon={Users} sub={lang === "en" ? "Invite, with the preview through their eyes" : "Invita, con la vista previa por sus ojos"} topic="libro-compartido" title={lang === "en" ? "The shared book" : "El libro compartido"} open={openFold === "share"} onToggle={() => toggle("share")}>
+          <ShareMesa />
+        </Fold>
+      ) : null}
       </Cluster>
     </div>
     <p className="app-version" data-anchor="aj-version">{t("app.version").replace("{v}", FARO_VERSION)}</p>

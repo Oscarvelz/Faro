@@ -289,10 +289,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // Esencial (su función es capture.notices — escuchar es capturar):
     // esencial +1, ritmo +1 por alcance y el total +1 — acumulados
     // 132 · 239 · 370.
+    // ENMIENDA LIBRO COMPARTIDO C5 (1.3.395): nace libro-compartido
+    // en Ritmo (books.share-admin): ritmo +1 por alcance y el total
+    // +1 — acumulados 132 · 240 · 371.
     assert.equal(count("esencial"), 132);
-    assert.equal(count("ritmo"), 239);
-    assert.equal(count("completo"), 370);
-    assert.equal(MANUAL_TOPICS.length, 370);
+    assert.equal(count("ritmo"), 240);
+    assert.equal(count("completo"), 371);
+    assert.equal(MANUAL_TOPICS.length, 371);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

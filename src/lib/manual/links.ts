@@ -107,6 +107,7 @@ export const LINKS: Record<string, string> = {
   "Tiendas y servicios": "catalogo", "Stores and services": "catalogo",
   "Compartir con Faro": "compartir", "Sharing with Faro": "compartir",
   "Cómo te nombra Faro": "nombre", "How Faro names you": "nombre",
+  "El libro compartido": "libro-compartido", "The shared book": "libro-compartido",
   "Seguro de vida": "seguro-vida", "Life insurance": "seguro-vida",
   Reglas: "reglas", Rules: "reglas",
   "Meta de ahorro": "meta-ahorro", "Savings goal": "meta-ahorro",

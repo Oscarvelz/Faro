@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.395",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El libro compartido: la mesa de invitación", en: "The shared book: the invitation mesa" },
+    points: {
+      es: [
+        "En Ajustes → El libro compartido puedes invitar a alguien a tu libro: eliges quién, qué verá y si puede anotar o solo mirar, en el orden que quieras.",
+        "Ninguna invitación sale sin la vista previa por los ojos del otro: qué verá, qué podrá hacer, qué no verá y quién financia cada área. Y en «Quiénes están en este libro» queda tu «qué compartí», verificable cuando quieras.",
+      ],
+      en: [
+        "In Settings → The shared book you can invite someone to your book: you choose who, what they will see, and whether they can note or only look, in any order you like.",
+        "No invitation leaves without the preview through the other person's eyes: what they will see, what they can do, what they will not see and who funds each area. And in “Who is in this book” your “what I shared” stays, checkable whenever you like.",
+      ],
+    },
+  },
+  {
     version: "1.3.394",
     date: "2026-11-22",
     level: "menor",

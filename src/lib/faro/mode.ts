@@ -393,6 +393,10 @@ export const FEATURES = {
   "books.list": E, "books.add-line": E, "books.edit-line": E, "books.currency": E,
   "books.filter-chips": R, "books.cloud": C, "books.bubble-editor": C, "books.bookkit": C,
   "books.multiselect": R, "books.vault-order": C,
+  /* El Libro Compartido (Pieza C5, 1.3.395): administrar la membresía
+   * — invitar, ver quiénes están, retirar — es asiento de Ritmo;
+   * anotar en el libro compartido será Esencial cuando se abra (C7). */
+  "books.share-admin": R,
   /* §1.5 Bóveda de ahorros (la barra de Central: lectura del censo; X-3 se falla en 3.1) */
   "central.save-band": E, "vault.save": E, "vault.meta": R, "vault.retiro": R,
   "vault.retiro-sheet": C, "vault.emergencia": R, "vault.segments": C, "vault.kept": C,

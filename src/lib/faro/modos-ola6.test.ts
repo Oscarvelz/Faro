@@ -188,10 +188,14 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // Esencial (modo declarado en el tema; su función es
     // capture.notices — escuchar es capturar). La distribución se
     // mueve a 132 · 107 · 131 sobre 370.
+    // ENMIENDA LIBRO COMPARTIDO C5 (1.3.395): nace libro-compartido
+    // en Ritmo (su función es books.share-admin — administrar la
+    // membresía). La distribución se mueve a 132 · 108 · 131
+    // sobre 371.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 370);
+    assert.equal(MANUAL_TOPICS.length, 371);
     assert.equal(count("esencial"), 132);
-    assert.equal(count("ritmo"), 107);
+    assert.equal(count("ritmo"), 108);
     assert.equal(count("completo"), 131);
   });
 });
