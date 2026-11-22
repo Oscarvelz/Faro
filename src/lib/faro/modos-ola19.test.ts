@@ -459,6 +459,26 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // por la misma receta de aterrizaje que sus hermanas de captura —
   // addDrafts nunca se niega: deja el gasto preguntado en la bandeja.
   "components/faro/ask-box.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
+  // 1.3.383 (la integración del banco, Olas 11/17): la caja del Asesor
+  // escribe los patrones aprendidos por la puerta ordinaria — el
+  // olvido que el usuario ordenó («olvida…», la señal forgetWord del
+  // banco puro) y el aprendizaje del toque confirmado en su pregunta
+  // de vuelta (learnAlias ya calculado fuera de la receta). Ninguna de
+  // las dos se niega: son la palabra del usuario sobre su propio
+  // almacén, como el guardado de sus predeterminadas.
+  "components/faro/ask-box.tsx|commit|inline|—": ["aterrizaje", 2],
+  // 1.3.383 (Ola 17): el conteo de usos de un patrón que disparó —
+  // touchAlias dentro de la receta de la caja. Contar un uso jamás se
+  // niega ni crea un patrón: mide la vida de uno ya confirmado.
+  "components/faro/ask-box.tsx|commit|touchAlias|—": ["aterrizaje", 1],
+  // 1.3.383 (Ola 17): la propuesta aceptada — la pregunta propuesta
+  // entra en las predeterminadas de la persona por addAskPreset, la
+  // misma receta de aterrizaje que su pliegue de Ajustes.
+  "components/faro/ask-box.tsx|commit|addAskPreset|addAskPreset": ["aterrizaje", 1],
+  // 1.3.383 (Ola 11): el pliegue «Lo que tu Asesor ha aprendido»
+  // borra un patrón por forgetAlias dentro de su receta — la orden
+  // del usuario sobre su almacén, por la puerta ordinaria.
+  "components/faro/ask-learned.tsx|commit|forgetAlias|—": ["aterrizaje", 1],
   // CURA OLA 24 (familia 2, G24-3): deleteLine aprendió a migrar la
   // configuración del autopay de la serie a su instancia más nueva
   // restante (upsertLine dentro de la misma receta), así que su firma

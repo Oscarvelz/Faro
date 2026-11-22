@@ -54,8 +54,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Compass, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, type AskFrame, type BankResult } from "@/lib/faro/ask2";
-import { askPresetsOf, capabilitiesText, FIXED_PRESET_Q, nextAskEntry, suggestionTrio } from "@/lib/faro/askpresets";
+import { aliasIn, askPatternsOf, forgetAlias, learnAlias, touchAlias } from "@/lib/faro/asklearn";
+import { foldQ } from "@/lib/faro/lexicon";
+import { askPresetsOf, addAskPreset, capabilitiesText, FIXED_PRESET_Q, nextAskEntry, suggestionTrio } from "@/lib/faro/askpresets";
 import { FUNCTION_TOPIC } from "@/lib/faro/askmap";
+import { MANUAL_TOPICS } from "@/lib/manual/topics";
 import { addDrafts, findDup, validateDraft } from "@/lib/faro/drafts";
 import type { Draft } from "@/lib/faro/types";
 import { uid } from "@/lib/faro/money";
@@ -64,6 +67,39 @@ import { findTopic } from "@/lib/manual/topics";
 import { Hint } from "./hint";
 import { importToast } from "./bank-dock";
 import { useFaro } from "./provider";
+
+/** LA PALABRA DEL USUARIO PARA SU CUENTA (Ola 11, integración
+ * 1.3.383): de la pregunta que trajo la vuelta («¿cuánto me queda en
+ * mi chequera?»), la frase con que la persona nombró a su cuenta tras
+ * el posesivo o el artículo. Solo se aprende si la frase NO es
+ * vocabulario genérico (cuenta, ahorros, banco…), NO contiene el
+ * nombre oficial de la tarjeta tocada y NO trae dígitos — cualquier
+ * otra cosa sería adivinar, y adivinar no es aprender. */
+const ACCOUNT_GENERIC = new Set(["cuenta", "cuentas", "ahorro", "ahorros", "account", "accounts", "saving", "savings", "banco", "bank", "dinero", "money", "saldo", "balance", "fondo", "fondos", "fund", "corriente", "debito", "credito", "checking", "debit", "credit"]);
+function accountWordOf(q: string, officialLabel: string): string | null {
+  const f = foldQ(q);
+  const m = /(?:^|\s)(?:de\s+|en\s+|from\s+|in\s+)?(?:mi|mis|my)\s+([a-z ]{2,24}?)(?=\s+(?:de|del|en|para|con|por)\b|[?.,]|$)/.exec(f)
+    ?? /(?:^|\s)(?:la|el|los|las|the)\s+([a-z ]{2,24}?)(?=\s+(?:de|del|en|para|con|por)\b|[?.,]|$)/.exec(f);
+  if (!m) return null;
+  const w = m[1].trim().replace(/\s+/g, " ");
+  if (!w || /\d/.test(w)) return null;
+  if (w.split(" ").every((x) => ACCOUNT_GENERIC.has(x))) return null;
+  const off = foldQ(officialLabel);
+  if (off.includes(w) || w.includes(off)) return null;
+  return w;
+}
+
+/** EL DESTINO DE UNA ACCIÓN (Olas 5/10/12): el target es un id del
+ * mapa de funciones; su puerta es el tema del Manual que lo declara —
+ * por FUNCTION_TOPIC o por las llaves del propio tema. Una acción sin
+ * tema con ruta no se pinta: un botón que no lleva a ningún lado es
+ * peor que ningún botón. */
+function topicForAction(target: string) {
+  const tid = FUNCTION_TOPIC[target];
+  const byMap = tid ? findTopic(tid) : null;
+  if (byMap?.go) return byMap;
+  return MANUAL_TOPICS.find((t) => t.go && (t.keys ?? []).includes(target)) ?? null;
+}
 
 function todayLocal(): string {
   const d = new Date();
@@ -82,6 +118,11 @@ export function AskBox() {
   // jamás entra al libro ni viaja con él, y muere al cerrar la
   // respuesta o cuando una respuesta nueva abre el suyo.
   const [frame, setFrame] = useState<AskFrame | null>(null);
+  // Ola 17 (1.3.383): la propuesta de predeterminada que la respuesta
+  // trae («esta palabra la usas mucho: ¿te dejo su pregunta a la
+  // mano?») se descarta con «Ahora no» — y la caja lo recuerda solo
+  // para ESTA respuesta: la próxima propuesta vuelve a ofrecerse.
+  const [proposalOff, setProposalOff] = useState(false);
   // 1.3.376: cada montaje de la caja es una entrada al Asesor; el
   // número de entrada elige el trío de sugerencias del banco.
   const [entry] = useState(() => nextAskEntry());
@@ -129,6 +170,7 @@ export function AskBox() {
     if (!clean || !session) return;
     setCaps(false);
     setAsked(clean);
+    setProposalOff(false);
     // Ola 23 (A23-1/2/3/5): la caja enhebra el modo vigente al motor —
     // el Asesor responde en el piso de la persona, no en el de la app.
     // §20 (1.3.380): con marco vivo, el seguimiento se intenta ANTES
@@ -136,10 +178,25 @@ export function AskBox() {
     // resuelve, la cascada sirve la pregunta como fresca y su
     // respuesta abre el marco nuevo (L-S4): cada respuesta con marco
     // lo reemplaza; una respuesta sin marco cierra el hilo.
+    // EL APRENDIZAJE (Olas 11/17 del banco, integrado en 1.3.383): la
+    // caja enhebra los patrones confirmados del libro al motor, y
+    // aplica sus dos señales — «olvida…» (forgetWord: la orden del
+    // usuario, que el banco puro no ejecuta) y el conteo de usos
+    // (touchAlias: el patrón disparó y la respuesta salió por él).
+    const patterns = askPatternsOf(session.ledger);
     const fu = pin ? null : answerFollowUp(session.ledger, key, lang, names, clean, ctx(), todayLocal(), frame, mode);
-    const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode);
+    const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode, patterns);
     setResult(r);
-    if (r.kind === "answer") setFrame(r.frame ?? null);
+    if (r.kind === "answer") {
+      setFrame(r.frame ?? null);
+      if (r.forgetWord) {
+        const next = forgetAlias(patterns, r.forgetWord);
+        if (next.length !== patterns.length) commit((s) => ({ ...s, askPatterns: next }), L("Pregunta al Asesor", "Asked the Advisor"));
+      } else {
+        const hit = aliasIn(patterns, foldQ(clean));
+        if (hit) commit((s) => ({ ...s, askPatterns: touchAlias(askPatternsOf(s), hit.word) }), L("Pregunta al Asesor", "Asked the Advisor"));
+      }
+    }
     setText(""); // al preguntar, la caja se contrae (348)
   }
   seedRef.current = ask;
@@ -147,9 +204,32 @@ export function AskBox() {
   // La vuelta de la pregunta: la tarjeta preguntó de qué cuenta sale y
   // la persona tocó una — la MISMA pregunta se recalcula con la cuenta
   // clavada; la tarjeta de la pregunta no cambia (sigue siendo la suya).
-  function askBack(accountId: string) {
-    if (!asked) return;
-    ask(asked, { accountId });
+  // EL APRENDIZAJE (Ola 11, integrado en 1.3.383): ese toque ES el
+  // evento confirmado del que el Asesor aprende — si la pregunta trae
+  // una palabra SUYA para la cuenta («mi chequera»), distinta del
+  // nombre oficial y sin dígitos, la palabra queda aprendida para esa
+  // cuenta. Sin palabra propia no se aprende nada: el toque confirma
+  // la cuenta, no una palabra inventada.
+  function askBack(o: { id: string; label: string }) {
+    if (!asked || !session) return;
+    const word = accountWordOf(asked, o.label);
+    if (word) {
+      const patterns = askPatternsOf(session.ledger);
+      const next = learnAlias(patterns, word, o.id, "account", "card-tap");
+      if (next !== patterns) commit((s) => ({ ...s, askPatterns: next }), L("Pregunta al Asesor", "Asked the Advisor"));
+    }
+    ask(asked, { accountId: o.id });
+  }
+
+  // La propuesta aceptada (Ola 17): la pregunta propuesta entra en
+  // las predeterminadas de la persona, en su lista y su orden — la
+  // misma escritura que el pliegue de Ajustes usa (addAskPreset).
+  function acceptProposal() {
+    if (!session || result?.kind !== "answer" || !result.proposal) return;
+    const q = result.proposal.question;
+    commit((s) => addAskPreset(s, q), L("Pregunta al Asesor", "Asked the Advisor"));
+    importToast({ text: L("Quedó entre tus preguntas a la mano.", "It's among your questions at hand.") });
+    setProposalOff(true);
   }
 
   function register() {
@@ -284,7 +364,7 @@ export function AskBox() {
           <p className="ask-verdict">{result.verdict}</p>
           <div className="ask-chips">
             {result.options.map((o) => (
-              <button key={o.id} type="button" className="ask-chip" data-anchor="ask-back-chip" onClick={() => askBack(o.id)}>
+              <button key={o.id} type="button" className="ask-chip" data-anchor="ask-back-chip" onClick={() => askBack(o)}>
                 {o.label} · {fmt(o.minor)}
               </button>
             ))}
@@ -303,6 +383,40 @@ export function AskBox() {
             ))}
           </div>
           {result.note ? <p className="ask-note">{result.note}</p> : null}
+          {/* LAS ACCIONES DE LA RESPUESTA (Olas 5/10/12, integración
+              1.3.383): la respuesta PROPONE — la puerta a donde su
+              cifra vive (El Puente) y los verbos que implica — y el
+              toque DISPONE: cada acción abre el flujo de la app por
+              la vía del Manual, con su vuelta atrás, y nada se
+              ejecuta solo. En el orden que el motor declara (VER ·
+              HACER · SEGUIR), tope tres. */}
+          {result.actions?.length ? (
+            <div className="ask-actions" data-anchor="ask-actions">
+              {result.actions.slice(0, 3).map((a) => {
+                const tp = topicForAction(a.target);
+                if (!tp) return null;
+                return (
+                  <button key={`${a.id}-${a.target}`} type="button" className={`ask-action${a.id === "goto" ? " is-door" : ""}`} data-anchor="ask-action" onClick={() => goTopic(tp.id, tp.go!, "preguntar-asesor")}>
+                    {a.label} <ArrowRight size={13} />
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          {/* LA PROPUESTA (Ola 17): la frecuencia propone una
+              predeterminada; la tarjeta la ofrece y la persona
+              dispone — Guardar la deja entre sus preguntas a la
+              mano; «Ahora no» la descarta para esta respuesta. */}
+          {result.proposal && !proposalOff ? (
+            <div className="ask-proposal" data-anchor="ask-proposal">
+              <p className="ask-note">{L(`«${result.proposal.word}» es una palabra que usas mucho. ¿Te dejo su pregunta entre tus preguntas a la mano, lista para tocarla?`, `"${result.proposal.word}" is a word you use a lot. Shall I leave its question among your questions at hand, ready to tap?`)}</p>
+              <p className="ask-proposal-q">{result.proposal.question}</p>
+              <div className="ask-chips">
+                <button type="button" className="ask-chip is-fixed" data-anchor="ask-proposal-yes" onClick={acceptProposal}>{L("Guardarla", "Save it")}</button>
+                <button type="button" className="ask-chip" data-anchor="ask-proposal-no" onClick={() => setProposalOff(true)}>{L("Ahora no", "Not now")}</button>
+              </div>
+            </div>
+          ) : null}
           {doorTopic ? (
             <div className="ask-door-row">
               <button type="button" className="ask-door" data-anchor="ask-door" onClick={() => goTopic(doorTopic.id, doorTopic.go!, "preguntar-asesor")}>

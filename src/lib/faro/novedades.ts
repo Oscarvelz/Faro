@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.383",
+    date: "2026-11-22",
+    level: "grande",
+    topic: "preguntar-asesor",
+    title: { es: "El Asesor, con todo su banco", en: "The Advisor, with its whole bank" },
+    points: {
+      es: [
+        "La batería completa llegó: dos preguntas en una, el ensayo de un pago contra tu plan, el reparto entre personas, tu mes más fuerte y la calculadora en tus palabras.",
+        "Debajo de muchas respuestas van sus acciones: la puerta a donde la cifra vive y el verbo que sugiere — la respuesta propone y tú dispones.",
+        "El Asesor aprende tus palabras — solo las que confirmas con un toque — y en Ajustes las ves y las borras cuando quieras.",
+      ],
+      en: [
+        "The whole battery is here: two questions in one, trying a payment against your plan, splitting among people, your strongest month and the calculator in your words.",
+        "Under many answers ride their actions: the door to where the figure lives and the verb it suggests — the answer proposes, you decide.",
+        "The Advisor learns your words — only the ones you confirm with a tap — and in Settings you see them and delete them whenever you like.",
+      ],
+    },
+  },
+  {
     version: "1.3.382",
     date: "2026-11-22",
     level: "grande",

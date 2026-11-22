@@ -1,3 +1,5 @@
+import type { LearnedAlias } from "./asklearn.ts";
+
 export type Lang = "es" | "en";
 export type Currency = "NIO" | "USD";
 export type ThemeId = "claro" | "lino" | "costa" | "marfil" | "niebla" | "piedra" | "ion" | "oscuro" | "oled" | "naturaleza" | "oceano" | "sunset" | "tinta" | "bosque" | "humo" | "ion-noche" | "tron" | "cyberpunk";
@@ -707,6 +709,12 @@ export type LedgerState = {
    * persona, en SU orden, fuera de months — ningún total la lee. Ausente
    * en libros viejos = ninguna guardada. Viaja con el libro (D1). */
   askPresets?: AskPreset[];
+  /** Los patrones aprendidos del Asesor (Ola 11 del banco, integrados
+   * en 1.3.383): las palabras del usuario para sus cosas, confirmadas
+   * por su toque o su corrección — palabra → ciudadano, jamás una
+   * cifra. Fuera de months: ningún total los lee. Ausente en libros
+   * viejos = nada aprendido. Viaja con el libro (D1). */
+  askPatterns?: LearnedAlias[];
   /** Loans received (Nov 2026). Missing in older ledgers and backups (= none). */
   loans?: Loan[];
   /** Money the user lent (Me deben, 1.3.92; device-only before). Abonos are income lines with `lentId`. See debts.ts. */

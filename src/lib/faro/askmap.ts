@@ -293,6 +293,23 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     keys: ["que pasa si", "escenario", "what if", "scenario"],
   },
   {
+    // OLA 17 del banco, adoptada en la integración (1.3.383): la
+    // familia aprendizaje cita esta función como su fuente — nace con
+    // su fold de Ajustes («Lo que tu Asesor ha aprendido», asiento
+    // settings.ask-learned, Ritmo: administrar; el aprendizaje mismo
+    // funciona en todo modo, como mandó la Ola 11).
+    id: "asesor.aprender",
+    minMode: "ritmo",
+    area: "Asesor",
+    name: { es: "Lo que tu Asesor ha aprendido", en: "What your Advisor has learned" },
+    does: { es: "Guarda tus palabras para tus cosas — solo las que tú confirmaste — y te deja verlas y borrarlas.", en: "It keeps your words for your things — only the ones you confirmed — and lets you see and delete them." },
+    screen: { es: "Ajustes → Lo que tu Asesor ha aprendido", en: "Settings → What your Advisor has learned" },
+    engine: "asklearn.ts · learnAlias/forgetAlias/touchAlias + el almacén askPatterns del libro",
+    figures: ["la lista de tus patrones: palabra → cosa"],
+    counts: "El Asesor aprende solo de eventos confirmados (el toque en su pregunta de vuelta, una corrección tuya) y los dígitos jamás se aprenden: cada cifra sale del libro al responder. Los patrones viven con el libro, fuera de los meses — ningún total los lee.",
+    keys: ["aprendido", "aprender", "patrones", "mis palabras", "learned", "patterns", "my words", "lo que has aprendido"],
+  },
+  {
     id: "historial.stream",
     area: "Folios",
     name: { es: "El Historial (Folios): todo movimiento", en: "Historial: every movement" },
@@ -455,6 +472,7 @@ export const FUNCTION_TOPIC: Record<string, string> = {
   "estudio.regla": "estudio",
   "asesor.lectura": "asesor",
   "asesor.escenarios": "asesor",
+  "asesor.aprender": "preguntar-asesor",
   "account.name": "nombre",
   "inbox.link": "compartir",
   "ajustes.exportar": "exportar",

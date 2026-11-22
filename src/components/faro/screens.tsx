@@ -27,10 +27,11 @@ import { remitTrend } from "@/lib/faro/remesas";
 import { LongVisual, MediumVisual, MonthTower, PlanRoute, RulesCard, ShortVisual, adviceTeaser, useRules } from "@/components/faro/advisor2";
 import { AskBox } from "@/components/faro/ask-box";
 import { AskPresetsManager } from "@/components/faro/ask-presets";
+import { AskLearnedManager } from "@/components/faro/ask-learned";
 import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
 import { ProjectionSection } from "@/components/faro/projection";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, NameRow, UserButton } from "@/lib/auth/gates";
@@ -6169,6 +6170,11 @@ export function Settings() {
       {has("settings.ask-presets") ? (
       <Fold id="askpresets" icon={ListChecks} sub={lang === "en" ? "Your questions, first in the Advisor's box" : "Tus preguntas, primeras en la caja del Asesor"} topic="preguntas-a-la-mano" title={lang === "en" ? "Questions at hand" : "Preguntas a la mano"} open={openFold === "askpresets"} onToggle={() => toggle("askpresets")}>
         <AskPresetsManager />
+      </Fold>
+      ) : null}
+      {has("settings.ask-learned") ? (
+      <Fold id="asklearned" icon={GraduationCap} sub={lang === "en" ? "Only the words you confirmed" : "Solo las palabras que tú confirmaste"} topic="preguntar-asesor" title={lang === "en" ? "What your Advisor has learned" : "Lo que tu Asesor ha aprendido"} open={openFold === "asklearned"} onToggle={() => toggle("asklearned")}>
+        <AskLearnedManager />
       </Fold>
       ) : null}
       {has("settings.guest-currency") ? (

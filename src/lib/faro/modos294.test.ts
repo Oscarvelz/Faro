@@ -189,6 +189,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["advisor.price-watch", C], // 1.3.366 — §19.3: el aviso del vigilante de fijos en el Asesor; interpretar precios con fechas es de Completo, declarado con el aviso
   ["folios.logbook", E], // 1.3.367 — la Bitácora: la tercera pastilla de Folios y leer sus ediciones; leer la propia historia es esencial, declarado antes que la superficie
   ["settings.ask-presets", R], // 1.3.369 — las preguntas a la mano: administrar la lista en su pliegue de Ajustes es de Ritmo (el precedente de los pines); usarlas en la caja es de Esencial (advisor.ask)
+  ["settings.ask-learned", R], // 1.3.383 — lo que el Asesor ha aprendido (Ola 11/17 del banco): administrar los patrones en su pliegue es de Ritmo; el aprendizaje mismo funciona en todo modo, como el de las predeterminadas
   // §1.22 Bandeja de documentos compartidos
   ["inbox.bank", C], ["inbox.vcf", R], ["inbox.image-card", C], ["inbox.image-receipt", E], ["inbox.link", E],
   // §1.23 Exportar informes

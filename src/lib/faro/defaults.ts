@@ -1053,5 +1053,23 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (!isStrD(p.id) || !isStrD(p.text)) return false;
     }
   }
+  // askPatterns (los patrones aprendidos del Asesor, 1.3.383): si
+  // está, es una lista de patrones palabra → ciudadano con su conteo;
+  // la forma se juzga entera, como las predeterminadas, y el lector
+  // (askPatternsOf) además filtra con desconfianza. Un patrón con
+  // dígitos en la palabra jamás pasa: la cerca de asklearn vive
+  // también aquí, en la puerta del libro.
+  if (s.askPatterns !== undefined) {
+    if (!Array.isArray(s.askPatterns)) return false;
+    for (const p of s.askPatterns as unknown[]) {
+      if (!isObjD(p)) return false;
+      if (!isStrD(p.word) || /\d/.test(p.word as string)) return false;
+      if (!isStrD(p.targetId)) return false;
+      if (p.kind !== "sub" && p.kind !== "cat" && p.kind !== "person" && p.kind !== "account") return false;
+      if (typeof p.hits !== "number") return false;
+      if (p.learnedFrom !== "card-tap" && p.learnedFrom !== "correction") return false;
+      if (p.uses !== undefined && typeof p.uses !== "number") return false;
+    }
+  }
   return true;
 }

@@ -18,9 +18,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { FARO_FUNCTION_MAP } from "./askmap.ts";
-import { answerBankQuestion, bankChips } from "./ask2.ts";
+import { answerBankQuestion, bankChips, bankSourceIds, classifyBankQuestion } from "./ask2.ts";
+import { describeLearned, forgetAlias, frequentAliases, learnAlias, maskShape, touchAlias, type LearnedAlias } from "./asklearn.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
 import { addLent } from "./debts.ts";
+import { addReading } from "./cards.ts";
 import { duesWindow } from "./dues.ts";
 import { formatMoney } from "./money.ts";
 import { QUESTION_BANK, liveFamilies } from "./questionbank.ts";
@@ -168,6 +170,867 @@ describe("banco · los especímenes de Oscar responden", () => {
     if (r.kind !== "answer") return;
     assert.equal(r.family, "comparar");
     assert.equal(r.pieces.length, 2);
+  });
+});
+
+describe("banco · ola 2: los especímenes del 2026-11-21", () => {
+  const ledger = fixture();
+
+  it("CONTEO: «¿cuántas cuotas estoy pagando?» cuenta las series vivas y suma por cobro", () => {
+    for (const q of ["¿Cuántas cuotas tengo?", "¿Cuántas cuotas estoy pagando?"]) {
+      const r = ask(ledger, q);
+      assert.equal(r.kind, "answer", q);
+      if (r.kind !== "answer") return;
+      assert.equal(r.family, "conteo", q);
+      assert.ok(r.verdict.includes("1 cuota"), r.verdict);
+      assert.ok(r.verdict.includes(formatMoney(4999, "USD", "es")), r.verdict);
+      assert.ok(r.source.includes("cobros.cuotas"));
+    }
+  });
+
+  it("CONTEO se generaliza: personas que deben y cuentas con saldo", () => {
+    const p = ask(ledger, "¿Cuántas personas me deben?");
+    assert.equal(p.kind, "answer");
+    if (p.kind === "answer") { assert.equal(p.family, "conteo"); assert.ok(p.verdict.includes("2"), p.verdict); }
+    const en = ask(ledger, "How many dues am I paying?", "en");
+    assert.equal(en.kind, "answer");
+    if (en.kind === "answer") assert.equal(en.family, "conteo");
+  });
+
+  it("EXTREMOS: el gasto más grande y el más pequeño salen del stream, sin el rol ahorro", () => {
+    const big = ask(ledger, "¿Cuál ha sido el gasto más grande que he hecho?");
+    assert.equal(big.kind, "answer");
+    if (big.kind === "answer") {
+      assert.equal(big.family, "extremos");
+      // La remesa ($170) es el gasto mayor; el apartado a PayPal (rol ahorro) NO compite.
+      assert.ok(big.verdict.includes("Remesa"), big.verdict);
+      assert.ok(big.verdict.includes(formatMoney(17000, "USD", "es")), big.verdict);
+    }
+    const small = ask(ledger, "¿Cuál ha sido el gasto más pequeño que he hecho?");
+    assert.equal(small.kind, "answer");
+    if (small.kind === "answer") {
+      assert.equal(small.family, "extremos");
+      assert.ok(small.verdict.includes(formatMoney(2457, "USD", "es")), small.verdict);
+    }
+    const buy = ask(ledger, "¿Cuál fue mi compra más grande?");
+    assert.equal(buy.kind, "answer");
+    if (buy.kind === "answer") { assert.equal(buy.family, "extremos"); assert.ok(buy.verdict.includes("Zapatos"), buy.verdict); }
+    const en = ask(ledger, "What has been my biggest expense?", "en");
+    assert.equal(en.kind, "answer");
+    if (en.kind === "answer") assert.equal(en.family, "extremos");
+  });
+
+  it("RECENCIA de cuota y RECENCIA AMPLIA: la última vez que pagué una cuota / pagué zapatos", () => {
+    const cuota = ask(ledger, "¿Cuándo fue la última vez que pagué una cuota?");
+    assert.equal(cuota.kind, "answer");
+    if (cuota.kind === "answer") { assert.equal(cuota.family, "recencia"); assert.ok(cuota.verdict.includes("Internet"), cuota.verdict); }
+    const amplia = ask(ledger, "¿Cuál fue la última vez que pagué zapatos?");
+    assert.equal(amplia.kind, "answer");
+    if (amplia.kind === "answer") { assert.equal(amplia.family, "recencia"); assert.ok(amplia.verdict.includes("Zapatos"), amplia.verdict); }
+  });
+});
+
+describe("banco · ola 3: el Asesor se describe, honesto", () => {
+  const ledger = fixture();
+
+  it("CAPACIDADES: la lista sale del banco — nombra familias vivas y ninguna declarada como capaz", () => {
+    const r = ask(ledger, "¿Qué puedes hacer?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "capacidades");
+    const labels = r.pieces.map((p) => p.label).join(" · ");
+    assert.ok(labels.includes("Ahorros") || labels.toLowerCase().includes("ahorr"), labels);
+    // Las declaradas (ausencia/identidad/seguimiento) NO se venden como capacidad.
+    const live = liveFamilies();
+    assert.equal(r.pieces.length, live.length);
+  });
+
+  it("LÍMITES: nombra lo que no puede — opinar, inventar, guardar solo — y las declaradas como «todavía no»", () => {
+    for (const q of ["¿Qué no puedes hacer?", "¿Qué no puedo hacer?"]) {
+      const r = ask(ledger, q);
+      assert.equal(r.kind, "answer", q);
+      if (r.kind !== "answer") return;
+      assert.equal(r.family, "limites", q);
+      const labels = r.pieces.map((p) => p.label).join(" · ");
+      assert.ok(labels.includes("Todavía no"), labels);
+      assert.ok(/inventar/i.test(labels), labels);
+    }
+    const en = ask(ledger, "What can you do?", "en");
+    assert.equal(en.kind, "answer");
+    if (en.kind === "answer") assert.equal(en.family, "capacidades");
+  });
+});
+
+describe("banco · ola 4: hipotéticos y calculadora (capturas del 2026-11-21)", () => {
+  const ledger = fixture();
+
+  it("CALCULADORA suma pura: 300 de cumpleaños + 200 de aumento + 150 de mamá = 650, sin tocar el libro", () => {
+    const r = ask(ledger, "Si me regalaron 300 dólares de cumpleaños, 200 de aumento en mi salario y mamá me dio 150, ¿cuánto sería?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes(formatMoney(65000, "USD", "es")), r.verdict);
+    assert.equal(r.pieces.length, 3);
+  });
+
+  it("CALCULADORA reparto: 1500 en tres partes = 500 cada una", () => {
+    const r = ask(ledger, "Si divido 1500 dólares en tres partes, ¿cómo me quedaría?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes(formatMoney(50000, "USD", "es")), r.verdict);
+  });
+
+  it("CALCULADORA porcentaje: el 20% de 1500 = 300", () => {
+    const r = ask(ledger, "¿Cuánto es el 20% de 1500 dólares?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes(formatMoney(30000, "USD", "es")), r.verdict);
+  });
+
+  it("HIPOTÉTICO sobre la cuenta: la base es el saldo en cuentas y el supuesto se dice", () => {
+    const r = ask(ledger, "Si por un vuelo a Madrid pago 200 dólares, la estadía 300 y por comida 500, ¿cuánto dinero me quedaría en mi cuenta?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    const stock = savingsStock(ledger, KEY);
+    const expected = (stock.byClass.cuenta ?? 0) - 100000;
+    assert.ok(r.verdict.includes(formatMoney(expected, "USD", "es")), r.verdict);
+    assert.ok(/supuesto|si\b/i.test(r.note ?? ""), r.note ?? "");
+  });
+
+  it("HIPOTÉTICO en pesos (= córdobas): la suma se convierte y se resta de la Queda", () => {
+    const r = ask(ledger, "Si gasto 30 pesos en golosinas, 50 en comida y 30 en arroz, ¿cuánto me queda?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    assert.equal(r.pieces.length, 4); // la base + los tres gastos
+    assert.ok(r.source.includes("central.queda"));
+  });
+});
+
+describe("banco · ola 5: acciones sugeridas (idea de Oscar, 2026-11-21)", () => {
+  const ledger = fixture();
+
+  it("«Quiero enviarle dinero a mamá» propone la remesa y la conversión, sin monto todavía", () => {
+    const r = ask(ledger, "Quiero enviarle dinero a mamá");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "acciones");
+    assert.ok(r.actions?.some((a) => a.target === "remesas.personas"), JSON.stringify(r.actions));
+    assert.ok(r.actions?.some((a) => a.target === "cambio.mesa"));
+    assert.ok(r.actions?.every((a) => bankSourceIds().has(a.target)));
+  });
+
+  it("«Envío 50 a mamá, 30 para los niños, 40 para resolver y 10 para la comida» hace la cuenta y propone", () => {
+    const r = ask(ledger, "Envío 50 a mamá, 30 para los niños, 40 para resolver y 10 para la comida");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "acciones");
+    assert.ok(r.verdict.includes(formatMoney(13000, "USD", "es")), r.verdict);
+    assert.equal(r.pieces.length, 4);
+    assert.ok(r.actions?.length === 3);
+  });
+
+  it("el patrón de remesas sigue siendo pregunta, no acción: «¿cuándo envías remesas y a quién?»", () => {
+    const r = ask(ledger, "¿Cuándo envías remesas y a quién?");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "remesas");
+  });
+});
+
+describe("banco · ola 6: el contexto se pide con tarjetitas", () => {
+  function twoAccounts(): LedgerState {
+    const ledger = fixture();
+    const ahorro = ledger.structure.categories.find((c) => c.id === "f-ahorro");
+    if (!ahorro) throw new Error("missing savings");
+    ahorro.subs.push({ id: "f.ahorro.banco", nameKey: "f.ahorro.banco", customName: "Banco", icon: "vault:bank", hidden: false, order: 11 });
+    ledger.months[KEY].lines.push(line({ id: "banco1", kind: "expense-fixed" as LineKind, concept: "Banco", amountMinor: 50000, categoryId: "f-ahorro", subId: "f.ahorro.banco" }));
+    return ledger;
+  }
+
+  it("«Si uso 300 dólares, ¿cuánto me queda en mi cuenta?» con DOS cuentas: pregunta de vuelta con las dos", () => {
+    const ledger = twoAccounts();
+    const r = ask(ledger, "Si uso 300 dólares, ¿cuánto dinero me queda en mi cuenta?");
+    assert.equal(r.kind, "ask-back");
+    if (r.kind !== "ask-back") return;
+    assert.equal(r.family, "hipotetico");
+    assert.equal(r.options.length, 2);
+  });
+
+  it("clavada en la cuenta elegida: la respuesta es de ESA cuenta (saldo y libre)", () => {
+    const ledger = twoAccounts();
+    const r = answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"),
+      "Si uso 300 dólares, ¿cuánto dinero me queda en mi cuenta?", ctx(ledger), TODAY, { accountId: "f.ahorro.paypal" });
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    assert.ok(r.verdict.includes("PayPal"), r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(129900 - 30000, "USD", "es")), r.verdict);
+  });
+});
+
+describe("banco · ola 7: la caja de herramientas", () => {
+  const ledger = fixture();
+
+  it("CONVERSOR: 100 dólares en córdobas con la tasa del libro; el euro se rehúsa honesto", () => {
+    const r = ask(ledger, "¿Cuánto es 100 dólares en córdobas?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "conversor");
+    // La cifra sale de convertMinor con el rateE4 del propio libro.
+    assert.ok(r.source.includes("cambio.mesa"));
+    const eur = ask(ledger, "¿Cuánto es 100 euros en dólares?");
+    assert.equal(eur.kind, "answer");
+    if (eur.kind === "answer") { assert.equal(eur.family, "conversor"); assert.ok(/invitada|guest/i.test(eur.verdict), eur.verdict); }
+  });
+
+  it("CALENDARIO: días hasta la cuota nombrada y hasta el día N", () => {
+    const r = ask(ledger, "¿En cuántos días vence mi Internet?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calendario");
+    assert.ok(r.verdict.includes("6 día"), r.verdict); // 22 → 28 de octubre
+    const d = ask(ledger, "¿Cuántos días faltan para el día 15?");
+    assert.equal(d.kind, "answer");
+    if (d.kind === "answer") { assert.equal(d.family, "calendario"); assert.ok(d.verdict.includes("2026-11-15"), d.verdict); }
+  });
+
+  it("RITMO dentro de la calculadora: 50 a la semana al mes, con su supuesto", () => {
+    const r = ask(ledger, "¿Cuánto es 50 dólares a la semana al mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes(formatMoney(Math.round((5000 * 52) / 12), "USD", "es")), r.verdict);
+  });
+});
+
+describe("banco · ola 8: contrafactual, colchón y meta inversa", () => {
+  const ledger = fixture();
+
+  it("CONTRAFACTUAL medido: dejar de pagar el Internet junta su promedio × 12", () => {
+    const r = ask(ledger, "Si dejo de pagar el internet, ¿cuánto junto en un año?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "contrafactual");
+    // El promedio medido del fixture: Internet 4999 en 2 meses con libro.
+    const avg = Math.round(4999 / 2);
+    assert.ok(r.verdict.includes(formatMoney(avg * 12, "USD", "es")), r.verdict);
+    assert.ok(/medido|MEDIDO|measured/i.test(r.note ?? ""), r.note ?? "");
+  });
+
+  it("COLCHÓN: lo guardado dura sus meses al ritmo medido del gasto", () => {
+    const stock = savingsStock(ledger, KEY);
+    const r = ask(ledger, "¿Cuántos meses me dura lo que tengo?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "respaldo");
+    assert.ok(r.verdict.includes(formatMoney(stock.total, "USD", "es")), r.verdict);
+    assert.ok(/medida|measure/i.test(r.note ?? ""), r.note ?? "");
+  });
+
+  it("META INVERSA: (meta − lo guardado) ÷ meses, con las tres piezas", () => {
+    const stock = savingsStock(ledger, KEY);
+    const r = ask(ledger, "¿Cuánto tengo que ahorrar al mes para llegar a 2000 dólares en 10 meses?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "meta");
+    const perMonth = Math.ceil((200000 - stock.total) / 10);
+    assert.ok(r.verdict.includes(formatMoney(perMonth, "USD", "es")), r.verdict);
+    assert.equal(r.pieces.length, 3);
+  });
+});
+
+describe("banco · ola 9: las curas de la caza (espécimen por clase)", () => {
+  const ledger = fixture();
+  const stock = savingsStock(ledger, KEY);
+
+  it("PERÍODO NOMBRADO (cazas TIEMPO/DIARIA): «¿Cuánto gasté en septiembre?» responde SEPTIEMBRE", () => {
+    const r = ask(ledger, "¿Cuánto gasté en septiembre?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "historia");
+    assert.ok(r.verdict.includes(formatMoney(5000, "USD", "es")), r.verdict); // la Camisa de septiembre
+    assert.ok(/septiembre/i.test(r.verdict), r.verdict);
+  });
+
+  it("RECENCIA CON DIRECCIÓN (CAZA-DIARIA C1): la última cosa PAGADA jamás es un ingreso", () => {
+    const r = ask(ledger, "¿Cuál fue la última cosa que pagué?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "recencia");
+    assert.ok(r.verdict.includes("Zapatos"), r.verdict);
+    assert.ok(!/Negocio/.test(r.verdict), r.verdict);
+  });
+
+  it("SIGNO Y ESCALA (CAZA-TRAMPAS 1): −200 resta y «2 mil» son 2000", () => {
+    const r = ask(ledger, "Si me regalaron 300 dólares y tuve -200 de aumento, ¿cuánto sería?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes(formatMoney(10000, "USD", "es")), r.verdict);
+    const s = ask(ledger, "¿Cuánto sería 2 mil dólares más 500 dólares en total?");
+    assert.equal(s.kind, "answer");
+    if (s.kind === "answer") assert.ok(s.verdict.includes(formatMoney(250000, "USD", "es")), s.verdict);
+  });
+
+  it("CONVERSOR SIN SECUESTRO (CAZA-TRAMPAS 2): el 20% de 1500 «en córdobas» es porcentaje, no conversión del 20", () => {
+    const r = ask(ledger, "¿El 20% de 1500 dólares en córdobas?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes(formatMoney(30000, "USD", "es")), r.verdict);
+  });
+
+  it("CALENDARIO ALCANZABLE (cazas TIEMPO/DIARIA C7): «¿Cuándo vence mi Internet?» responde su fecha", () => {
+    const r = ask(ledger, "¿Cuándo vence mi Internet?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calendario");
+    assert.ok(r.verdict.includes("2026-10-28"), r.verdict);
+  });
+
+  it("YA-PAGUÉ CRUZADO (CAZA-TRAMPAS 3): no inventa el día y nombra el próximo cobro de la ventana", () => {
+    const r = ask(ledger, "¿Ya pagué el Internet?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ya-pague");
+    assert.ok(!r.verdict.includes("2026-10-01"), r.verdict);
+    assert.ok((r.note ?? "").includes("2026-10-28"), r.note ?? "");
+  });
+
+  it("META SOBRE RITMO (CAZA-TIEMPO 2): ahorrar a la semana para llegar a una meta es META", () => {
+    const r = ask(ledger, "¿Cuánto tengo que ahorrar a la semana para llegar a 2000 dólares en 10 meses?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "meta");
+    assert.ok(r.verdict.includes(formatMoney(Math.ceil((200000 - stock.total) / 10), "USD", "es")), r.verdict);
+  });
+
+  it("GUARDA DE HORIZONTE (CAZA-TIEMPO 4, doctrina ola 12): el futuro no se responde con el stock de hoy — se PROYECTA con el ritmo y el supuesto dicho; sin horizonte legible, silencio", () => {
+    const r = ask(ledger, "¿Cuánto tendré ahorrado en 6 meses si sigo así?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    // La proyección: hoy 129900 + ritmo (129900 ÷ 2 meses anotados =
+    // 64950) × 6 = 519600. Jamás el stock de hoy a secas.
+    assert.ok(r.verdict.includes(formatMoney(519600, "USD", "es")), r.verdict);
+    assert.ok(!r.verdict.startsWith("En ahorros tienes"), r.verdict);
+    const noHorizon = ask(ledger, "¿Cuánto tendré ahorrado?");
+    assert.equal(noHorizon.kind, "unknown");
+  });
+
+  it("DEUDAS PLANAS (CAZA-DIARIA C5): por persona, el total y la contradicción de dirección", () => {
+    const r = ask(ledger, "¿Cuánto me debe Carlos?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "deudas");
+    assert.ok(r.verdict.includes(formatMoney(30000, "USD", "es")), r.verdict);
+    const rev = ask(ledger, "¿Cuánto le debo a Carlos?");
+    assert.equal(rev.kind, "answer");
+    if (rev.kind === "answer") { assert.equal(rev.family, "deudas"); assert.ok(/Al revés/.test(rev.verdict), rev.verdict); }
+    const who = ask(ledger, "¿Quién me debe?");
+    assert.equal(who.kind, "answer");
+    if (who.kind === "answer") assert.equal(who.family, "deudas");
+  });
+
+  it("HISTORIA EN PRESENTE (CAZA-DIARIA C4): «¿Cuánto pago de Internet?» responde la cuota del mes", () => {
+    const r = ask(ledger, "¿Cuánto pago de Internet?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "historia");
+    assert.ok(r.verdict.includes(formatMoney(4999, "USD", "es")), r.verdict);
+  });
+
+  it("CONFIRMACIÓN (CAZA-TRAMPAS 4): la premisa falsa se corrige con la cifra real", () => {
+    const r = ask(ledger, "Mis ahorros son 500, ¿verdad?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "confirmacion");
+    assert.ok(r.verdict.startsWith("No:"), r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(stock.total, "USD", "es")), r.verdict);
+    const cmp = ask(ledger, "¿Ana me debe más que Carlos?");
+    assert.equal(cmp.kind, "answer");
+    if (cmp.kind === "answer") { assert.equal(cmp.family, "confirmacion"); assert.ok(cmp.verdict.startsWith("No:"), cmp.verdict); }
+  });
+
+  it("ACCIONES SIN SECUESTRO (CAZA-DIARIA C9): una consulta con verbo de envío no es una acción", () => {
+    const r = ask(ledger, "¿A quién mando dinero normalmente?");
+    if (r.kind === "answer") assert.notEqual(r.family, "acciones");
+  });
+
+  it("SÍNTESIS (doctrina de Oscar): a estas alturas y el cierre comparado, con sus dos tiempos nombrados", () => {
+    const r = ask(ledger, "¿Estoy gastando más rápido que el mes pasado a estas alturas?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "sintesis");
+    assert.ok(r.verdict.includes(formatMoney(32456, "USD", "es")), r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(5000, "USD", "es")), r.verdict);
+    const close = ask(ledger, "¿Cómo terminaré el mes comparado con el pasado?");
+    assert.equal(close.kind, "answer");
+    if (close.kind !== "answer") return;
+    assert.equal(close.family, "sintesis");
+    const projected = Math.round((32456 / 22) * 31);
+    assert.ok(close.verdict.includes(formatMoney(projected, "USD", "es")), close.verdict);
+    assert.ok(/supuesto/i.test(close.note ?? ""), close.note ?? "");
+  });
+});
+
+describe("banco · ola 10: el puente a lo ya reportado", () => {
+  const ledger = fixture();
+
+  it("la respuesta de historia lleva su puerta a Estudio · Flujo, con el target en el mapa", () => {
+    const r = ask(ledger, "¿Cuánto gasté el último mes en tiendas?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    const door = (r.actions ?? []).find((a) => a.id === "goto");
+    assert.ok(door, "la puerta viaja en la respuesta");
+    assert.equal(door?.target, "estudio.flujo");
+    assert.ok(bankSourceIds().has(door?.target ?? ""), "el destino existe en el mapa");
+  });
+
+  it("la síntesis también: su cifra vive en Estudio", () => {
+    const r = ask(ledger, "¿Estoy gastando más rápido que el mes pasado a estas alturas?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok((r.actions ?? []).some((a) => a.target === "estudio.flujo"));
+  });
+
+  it("la calculadora NO lleva puerta: su cifra no vive en ningún área", () => {
+    const r = ask(ledger, "¿Cuánto sería 300 dólares más 200 dólares en total?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(!(r.actions ?? []).some((a) => a.id === "goto"));
+  });
+});
+
+describe("banco · ola 11: el aprendizaje (patrones reales, dígitos jamás)", () => {
+  const ledger = fixture();
+
+  it("la forma se enmascara: ningún dígito sobrevive en lo que se guarda", () => {
+    const shape = maskShape("¿Cuánto gasté 300 dólares en la luz el 15 de octubre?");
+    assert.ok(!/\d/.test(shape), shape);
+    // Y un «patrón» con dígitos se rechaza entero, por construcción.
+    const store = learnAlias([], "cuenta 42", "f.casa.servicios", "sub", "card-tap");
+    assert.equal(store.length, 0);
+  });
+
+  it("el toque en la tarjeta enseña: «la luz» pasa a ser los servicios, y la pregunta ya responde por él", () => {
+    const store = learnAlias([], "la luz", "f.casa.servicios", "sub", "card-tap");
+    assert.equal(store.length, 1);
+    const r = answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"),
+      "¿Cuánto gasté en la luz este mes?", ctx(ledger), TODAY, undefined, undefined, store);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "historia");
+    assert.ok(r.verdict.includes(formatMoney(2457, "USD", "es")), r.verdict); // solo la línea de servicios
+  });
+
+  it("sin confirmación no hay patrón: la misma pregunta sin enseñar no resuelve «la luz» a servicios", () => {
+    const r = ask(ledger, "¿Cuánto gasté en la luz este mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    // Sin alias, «la luz» no es filtro: responde el gasto entero del mes.
+    assert.ok(!r.verdict.includes(formatMoney(2457, "USD", "es")) || r.verdict.includes(formatMoney(32456, "USD", "es")), r.verdict);
+  });
+
+  it("la corrección manda: re-enseñar la palabra a otro ciudadano reemplaza el patrón", () => {
+    let store = learnAlias([], "la luz", "f.casa.servicios", "sub", "card-tap");
+    store = learnAlias(store, "la luz", "f.casa.internet", "sub", "correction");
+    assert.equal(store.length, 1);
+    assert.equal(store[0].targetId, "f.casa.internet");
+    assert.equal(store[0].hits, 1);
+    store = forgetAlias(store, "la luz");
+    assert.equal(store.length, 0);
+  });
+});
+
+describe("banco · ola 12: la batería del mundo (81 preguntas, 0 silencios)", () => {
+  const ledger = fixture();
+
+  it("la dirección ingreso habla el idioma del mundo: «he ganado», «ha entrado»", () => {
+    const r = ask(ledger, "¿Cuánto he ganado este mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes(formatMoney(96864, "USD", "es")), r.verdict); // 57041 + 39823
+    assert.ok(!r.verdict.includes("gastaste"), r.verdict);
+  });
+
+  it("el filtro caza conceptos libres y clases; lo que no existe se nombra, no se disfraza", () => {
+    const sup = ask(ledger, "¿Cuánto gasto en suscripciones?");
+    assert.equal(sup.kind, "answer");
+    if (sup.kind === "answer") assert.ok(sup.verdict.includes(formatMoney(4999, "USD", "es")), sup.verdict);
+    const stray = ask(ledger, "¿Cuánto gasto en comida?");
+    assert.equal(stray.kind, "answer");
+    if (stray.kind === "answer") assert.ok(stray.verdict.includes("«comida»"), stray.verdict);
+  });
+
+  it("el promedio es la media medida, no el mes en curso; el ritmo diario divide por los días corridos", () => {
+    const r = ask(ledger, "¿Cuánto gasto al mes en promedio?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "promedio");
+    // (32456 de octubre + 5000 de septiembre) ÷ 2 meses = 18728
+    assert.ok(r.verdict.includes(formatMoney(18728, "USD", "es")), r.verdict);
+  });
+
+  it("el fondo de emergencia se mide contra la meta del propio Asesor", () => {
+    const r = ask(ledger, "¿Tengo fondo de emergencia suficiente?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(/fondo de emergencia/.test(r.verdict), r.verdict);
+  });
+
+  it("la cuenta nombrada responde su saldo: «¿Cuánto tengo en PayPal?»", () => {
+    const r = ask(ledger, "¿Cuánto tengo en PayPal?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("PayPal") && r.verdict.includes(formatMoney(129900, "USD", "es")), r.verdict);
+  });
+
+  it("el precio del tiempo: los zapatos de $80 en días de trabajo, con el supuesto dicho", () => {
+    const r = ask(ledger, "¿Cuántos días de trabajo me cuestan los zapatos de 80 dólares?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "precio-tiempo");
+    assert.ok(/supuesto/.test(r.note ?? ""), r.note ?? "");
+  });
+
+  it("la frecuencia cuenta y cadencia: veces del mes y cada cuántos días", () => {
+    const r = ask(ledger, "¿Qué suscripciones tengo?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "frecuencia");
+    assert.ok(r.verdict.includes("Internet"), r.verdict);
+  });
+
+  it("el relator cuenta el mes con sus piezas y su puerta", () => {
+    const r = ask(ledger, "¿Cómo fue mi mes pasado?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "relator");
+    assert.ok((r.actions ?? []).some((a) => a.target === "estudio.flujo"));
+  });
+
+  it("comparar: el ingreso contra el gasto, y dos meses nombrados", () => {
+    const r = ask(ledger, "¿Estoy gastando más de lo que gano?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "comparar");
+    const two = ask(ledger, "¿En qué mes gasté más, en agosto o en septiembre?");
+    assert.equal(two.kind, "answer");
+  });
+
+  it("la tasa a secas: «¿a cómo está el cambio?» responde la tasa del libro", () => {
+    const r = ask(ledger, "¿A cómo está el cambio?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "conversor");
+  });
+});
+
+describe("banco · ola 13: la puerta generosa (el oído de la referencia, §21)", () => {
+  const ledger = fixture();
+  const CASES: Array<[string, string | null]> = [
+    ["¿Cuánto me queda en ahorros?", "ahorros"],
+    ["¿Cuánto tengo para gastar en gustos?", "gustos"],
+    ["¿De qué cuenta saco $20 para la remesa?", "cuenta-origen"],
+    ["¿Qué puedes hacer?", "capacidades"],
+    ["¿Qué no puedes hacer?", "limites"],
+    ["¿Cuántas cuotas tengo?", "conteo"],
+    ["¿Cuál ha sido mi gasto más grande?", "extremos"],
+    ["¿Cuándo fue la última vez que pagué una cuota?", "recencia"],
+    ["¿Cuánto gasté en septiembre?", "historia"],
+    ["¿Cuánto he ganado este mes?", "historia"],
+    ["¿Cuánto le debo a Carlos?", "deudas"],
+    ["¿Quién me debe más?", "ranking"],
+    ["¿Cuánto son 100 dólares en córdobas?", "conversor"],
+    ["¿A cómo está el cambio?", "conversor"],
+    ["Si gasto 30 en golosinas y 50 en comida, ¿cuánto me queda?", "hipotetico"],
+    ["Si divido 1500 dólares en tres partes, ¿cómo me quedaría?", "calculadora"],
+    ["¿Cuánto necesito ahorrar al mes para tener 2000 en diciembre?", "meta"],
+    ["¿Cuánto tendré ahorrado en 6 meses si sigo así?", "ahorros"],
+    ["¿Cuándo termino de pagar la tarjeta?", "futuro"],
+    ["¿Cómo fue mi mes pasado?", "relator"],
+    ["¿En qué gasto más?", "relator"],
+    ["¿Qué suscripciones tengo?", "frecuencia"],
+    ["¿Cuántos días de trabajo me cuestan los zapatos de 80 dólares?", "precio-tiempo"],
+    ["¿Estoy dentro de la regla 50/30/20?", "regla"],
+    ["Mis ahorros son 500, ¿verdad?", "confirmacion"],
+    ["¿Cuánto gasto al mes en promedio?", "promedio"],
+    ["¿Cuánto puedo gastar hoy sin descuadrarme?", "promedio"],
+    ["Quiero enviarle dinero a mamá", "acciones"],
+    ["¿Cuánto me dura lo ahorrado si me quedo sin trabajo?", "respaldo"],
+    ["PayPal", null],
+    ["internet", null],
+  ];
+
+  it("el oído nombra la puerta sin calcular: forma y familia por pregunta", () => {
+    for (const [q, fam] of CASES) {
+      const c = classifyBankQuestion(q);
+      if (fam === null) {
+        assert.equal(c.isQuestion, false, `«${q}» no es pregunta`);
+      } else {
+        assert.equal(c.isQuestion, true, `«${q}» es pregunta`);
+        assert.equal(c.family, fam, `«${q}» → ${fam}, no ${c.family}`);
+      }
+    }
+  });
+
+  it("CERCA DE CONSISTENCIA: donde el motor responde con familia, el oído nombra la misma", () => {
+    for (const [q, fam] of CASES) {
+      if (!fam) continue;
+      const r = ask(ledger, q);
+      if (r.kind === "answer") assert.equal(r.family, fam, `«${q}»: el motor dice ${r.family}, el oído ${fam}`);
+    }
+  });
+
+  it("el oído no recibe el libro: su firma es solo texto (compila sin estado)", () => {
+    assert.equal(classifyBankQuestion.length, 1);
+  });
+});
+
+describe("banco · ola 14: la segunda mitad (la doble intención)", () => {
+  const ledger = fixture();
+
+  it("dos preguntas, dos respuestas: la compuesta trae ambas patas con sus fuentes", () => {
+    const r = ask(ledger, "¿Cuánto gasté en zapatos y cuánto me debe Carlos?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes(formatMoney(8000, "USD", "es")), r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(30000, "USD", "es")), r.verdict);
+    assert.ok(r.source.length >= 2, r.source.join(","));
+  });
+
+  it("la pata que no se puede responder se NOMBRA, no se pierde en silencio", () => {
+    const r = ask(ledger, "¿Cuánto gasté en zapatos y cuándo es mi cumpleaños?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes(formatMoney(8000, "USD", "es")), r.verdict);
+    assert.ok((r.note ?? "").includes("cumpleaños"), r.note ?? "");
+    assert.ok(/no la pierdo en silencio/.test(r.note ?? ""), r.note ?? "");
+  });
+
+  it("la conjunción dentro de UNA pregunta no la parte: «comida y bebida» sigue entera", () => {
+    const r = ask(ledger, "¿Cuánto gasté en comida y bebida?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(!(r.note ?? "").includes("otra pregunta"), r.note ?? "");
+  });
+});
+
+describe("banco · ola 15: el simulador y la estacionalidad", () => {
+  const withCard = () => addReading(fixture(), "card-chase", { balanceMinor: 100000, src: "manual", on: "2026-10-05" }, "2026-10-05");
+
+  it("el extra ensayado corre por el motor del Plan: meses, término y el supuesto dicho", () => {
+    const r = ask(withCard(), "Si abono 50 dólares más al mes a mi tarjeta, ¿cuándo termino?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "simulador");
+    assert.ok(/sales de deudas en \d+ mes/.test(r.verdict), r.verdict);
+    assert.ok(/supuesto/.test(r.note ?? ""), r.note ?? "");
+    assert.ok((r.actions ?? []).some((a) => a.target === "cobros.plan"));
+  });
+
+  it("sin deudas anotadas, el simulador lo dice y no inventa una", () => {
+    const r = ask(fixture(), "Si abono 50 dólares más al mes a mi tarjeta, ¿cuándo termino?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(/No tienes deudas anotadas/.test(r.verdict), r.verdict);
+  });
+
+  it("FRONTERA: «¿puedo pagarlo el día D?» NO es del banco — la delegación spend de canon la responde (el futuro con fecha tiene un solo proyector)", () => {
+    const r = ask(fixture(), "¿Puedo pagar 100 dólares el día 28?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "spend");
+  });
+
+  it("la estacionalidad nombra el mes mayor y la media", () => {
+    const r = ask(fixture(), "¿En qué mes gasto más?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "estacionalidad");
+    assert.ok(r.verdict.includes("octubre 2026"), r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(32456, "USD", "es")), r.verdict);
+  });
+});
+
+describe("banco · ola 16: el reparto entre personas", () => {
+  it("los repartos nombrados se suman, se nombran y cuadran con el total", () => {
+    const r = ask(fixture(), "Reparte los 120 dólares: 40 para mamá, 30 para Carlos y 50 para mí");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "reparto");
+    assert.equal(r.pieces.length, 3);
+    assert.ok(r.pieces.some((p) => p.label === "Mamá" && p.minor === 4000), JSON.stringify(r.pieces));
+    assert.ok(r.pieces.some((p) => p.label === "Tú" && p.minor === 5000), JSON.stringify(r.pieces));
+    assert.ok((r.actions ?? []).some((a) => a.target === "remesas.personas"));
+  });
+
+  it("el reparto igual entre la lista nombrada divide el total y declara el centavo", () => {
+    const r = ask(fixture(), "La cuenta fue de 90 dólares, reparte entre mamá, Carlos y yo");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "reparto");
+    assert.equal(r.pieces.length, 3);
+    assert.ok(r.pieces.every((p) => p.minor === 3000), JSON.stringify(r.pieces));
+  });
+
+  it("la contradicción se dice: los repartos no pueden sumar más que el total", () => {
+    const r = ask(fixture(), "Reparte los 100 dólares: 60 para mamá y 60 para Carlos");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "reparto");
+    assert.ok(/se pasan/.test(r.verdict), r.verdict);
+  });
+
+  it("el reparto ANÓNIMO sigue siendo de la calculadora — nada se roba", () => {
+    const r = ask(fixture(), "Si divido 1500 dólares en tres partes, ¿cómo me quedaría?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+  });
+});
+
+describe("banco · ola 17: el aprendizaje que se cuenta y que propone", () => {
+  const ledger = fixture();
+  const askL = (raw: string, store: LearnedAlias[]) => answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), raw, ctx(ledger), TODAY, undefined, undefined, store);
+
+  it("el uso se cuenta sin aprender nada nuevo: touchAlias mide, no crea", () => {
+    let store = learnAlias([], "la luz", "f.casa.servicios", "sub", "card-tap");
+    store = touchAlias(store, "la luz");
+    store = touchAlias(store, "la luz");
+    assert.equal(store.length, 1);
+    assert.equal(store[0].uses, 2);
+    assert.equal(frequentAliases(store).length, 0);
+    store = touchAlias(store, "la luz");
+    assert.equal(frequentAliases(store).length, 1);
+    assert.equal(store[0].hits, 1); // las confirmaciones no se inflan con usos
+  });
+
+  it("«¿qué has aprendido?» cuenta la lista legible — y con 3+ usos, PROPONE la predeterminada", () => {
+    let store = learnAlias([], "la luz", "f.casa.servicios", "sub", "card-tap");
+    store = touchAlias(touchAlias(touchAlias(store, "la luz"), "la luz"), "la luz");
+    const r = askL("¿Qué has aprendido de mí?", store);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "aprendizaje");
+    assert.ok(r.verdict.includes("«la luz»"), r.verdict);
+    assert.ok(r.proposal && r.proposal.word === "la luz", JSON.stringify(r.proposal));
+  });
+
+  it("sin patrones, el vacío honesto: cómo se aprende, sin lista inventada", () => {
+    const r = askL("¿Qué has aprendido de mí?", []);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "aprendizaje");
+    assert.ok(/Todavía no he aprendido/.test(r.verdict), r.verdict);
+    assert.equal(r.proposal, undefined);
+  });
+
+  it("«olvida el patrón de la luz» viaja como señal: la caja aplica el olvido", () => {
+    const store = learnAlias([], "la luz", "f.casa.servicios", "sub", "card-tap");
+    const r = askL("Olvida el patrón de la luz", store);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "aprendizaje");
+    assert.equal(r.forgetWord, "la luz");
+  });
+
+  it("el alias de PERSONA manda en la acción de remesa: «mami» propone a Mamá", () => {
+    const store = learnAlias([], "mami", "mama", "person", "correction");
+    const r = askL("Quiero enviarle 50 dólares a mami", store);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "acciones");
+    assert.ok((r.actions ?? []).some((a) => /Mamá/.test(a.label)), JSON.stringify(r.actions));
+  });
+
+  it("describeLearned da la lista como dato: palabra → ciudadano, con sus conteos", () => {
+    const store = learnAlias([], "la luz", "f.casa.servicios", "sub", "card-tap");
+    const rows = describeLearned(store, (id) => (id === "f.casa.servicios" ? "Servicios" : id));
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].word, "la luz");
+    assert.equal(rows[0].name, "Servicios");
+    assert.equal(rows[0].uses, 0);
+  });
+});
+
+describe("banco · ola 18: la batería del mundo II (el habla real, las clases cazadas)", () => {
+  const withCard = () => addReading(fixture(), "card-chase", { balanceMinor: 100000, src: "manual", on: "2026-10-05" }, "2026-10-05");
+
+  it("el simulador oye la calle: «le meto», «pagando», «if I pay»", () => {
+    const r = ask(withCard(), "si le meto 50 mas al mes a la tarjeta cuando termino");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "simulador");
+    const r2 = ask(withCard(), "pagando 100 al mes de mis deudas en cuanto salgo");
+    assert.equal(r2.kind, "answer");
+    if (r2.kind === "answer") assert.equal(r2.family, "simulador");
+  });
+
+  it("la estacionalidad oye «se me va» — y comparar ya no la disfraza de «mejor mes»", () => {
+    const r = ask(fixture(), "en que mes se me va mas dinero");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "estacionalidad");
+    const r2 = ask(fixture(), "which month do i spend the most");
+    assert.equal(r2.kind, "answer");
+    if (r2.kind === "answer") assert.equal(r2.family, "estacionalidad");
+  });
+
+  it("el reparto oye «éramos» y oye los repartos sin verbo", () => {
+    const r = ask(fixture(), "la cuenta fue de 60, eramos mama, carlos y yo, cuanto nos toca");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "reparto");
+    assert.ok(r.pieces.every((p) => p.minor === 2000), JSON.stringify(r.pieces));
+    const r2 = ask(fixture(), "40 para mama, 30 para carlos y 50 para mi, cuanto es el total");
+    assert.equal(r2.kind, "answer");
+    if (r2.kind !== "answer") return;
+    assert.equal(r2.family, "reparto");
+    assert.ok(r2.verdict.includes(formatMoney(12000, "USD", "es")), r2.verdict);
+  });
+
+  it("«mi tarjeta cuanto debo» — la preposición se busca como palabra entera, no dentro de «tarjeta»", () => {
+    const r = ask(fixture(), "mi tarjeta cuanto debo");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "deudas");
+  });
+
+  it("el calendario oye «cuando me toca pagar» y el día a secas trae su día de la semana", () => {
+    const r = ask(fixture(), "cuando me toca pagar el internet");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "calendario");
+    const r2 = ask(fixture(), "que dia cae el 28");
+    assert.equal(r2.kind, "answer");
+    if (r2.kind !== "answer") return;
+    assert.equal(r2.family, "calendario");
+    assert.ok(r2.verdict.includes("miércoles"), r2.verdict); // 2026-10-28
+  });
+
+  it("la calculadora oye las fracciones en palabras: la mitad, el doble", () => {
+    const r = ask(fixture(), "cuanto es la mitad de 90 dolares");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes(formatMoney(4500, "USD", "es")), r.verdict);
+  });
+
+  it("«¿gasté mucho?» se responde con medidas, no con un adjetivo vendido", () => {
+    const r = ask(fixture(), "gaste mucho este mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "comparar");
+    assert.ok(/no te vendo un adjetivo/.test(r.verdict), r.verdict);
+  });
+
+  it("la premisa sin «si» se separa del dato: consta hoy X, con tu premisa serían Y", () => {
+    const r = ask(fixture(), "me entraron 200 mas, cuanto tengo en ahorros ahora");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    assert.ok(r.verdict.includes(formatMoney(149900, "USD", "es")), r.verdict);
   });
 });
 

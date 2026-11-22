@@ -365,6 +365,16 @@ const CARAS: Record<string, [Clase, string]> = {
   "lib/faro/ask2.ts:ahorrosAnswer:sum.savingsFlow": ["movimiento", "la nota de ahorros del banco nombra el flujo como «flujo hacia el ahorro»: el apartado nombrado en la respuesta"],
   "lib/faro/ask2.ts:compararAnswer:a.spend": ["gasto", "la comparación de gastos del banco lee el spend de cada lado: solo-gasto en ambos lados"],
   "lib/faro/ask2.ts:compararAnswer:b.spend": ["gasto", "el otro lado de la misma comparación: solo-gasto, simétrico"],
+  // 1.3.383 (la integración del banco): la comparación canónica del
+  // banco nombra su lado presente «now» — la misma vara solo-gasto.
+  "lib/faro/ask2.ts:compararAnswer:now.spend": ["gasto", "el lado presente de la comparación del banco (Ola 2–18): solo-gasto, la misma vara que a/b"],
+  "lib/faro/ask2.ts:compararAnswer:before.spend": ["gasto", "el lado pasado de la comparación del banco (Ola 2–18): solo-gasto, simétrico de now"],
+  "lib/faro/ask2.ts:compararAnswer:s.spend": ["gasto", "el resumen corrido de la comparación del banco al desplazar el eje (§20 sobre la pieza): solo-gasto, la misma vara"],
+  "lib/faro/ask2.ts:compararAnswer:sum.spend": ["gasto", "el resumen de cada lado en la comparación de categorías del banco: solo-gasto, la misma vara"],
+  "lib/faro/ask2.ts:compararAnswer:summarize(c.state, k1, c.lang).spend": ["gasto", "un lado de la comparación del banco leído directo del productor: solo-gasto"],
+  "lib/faro/ask2.ts:compararAnswer:summarize(c.state, k2, c.lang).spend": ["gasto", "el otro lado de la misma comparación, simétrico: solo-gasto"],
+  "lib/faro/ask2.ts:promedioAnswer:sum.spend": ["gasto", "el promedio verdadero del banco divide el spend del productor entre sus meses: solo-gasto"],
+  "lib/faro/ask2.ts:reglaAnswer:sum.spend": ["gasto", "la regla 50·30·20 del banco reparte el spend del productor en sus tres cubos: solo-gasto, nombrado por cubo"],
   "lib/faro/ask2.ts:totalOf:summarize(c.state, k, c.lang).spend": ["gasto", "el desplazamiento del seguimiento (§20, 1.3.380) relee el spend de cada mes de la ventana corrida: solo-gasto, la misma vara de compararAnswer"],
   "lib/faro/ask2.ts:proyectarSeguimiento:summarize(c.state, c.key, c.lang).spend": ["gasto", "la proyección del seguimiento (§20, 1.3.380) repite el ritmo del mes en curso: el spend nombrado como ritmo, con su supuesto dicho en la nota"],
   "lib/faro/engine.ts:buildAdvice:reading.outTotal": ["movimiento", "las baldosas del Asesor nombran «Sale» junto a «Gasto real» y «Al ahorro»"],
@@ -418,6 +428,13 @@ const AGREGADORES: Record<string, [Clase, string]> = {
   "lib/faro/area-advice.ts:areaMonths": ["movimiento", "barras por área: cada área se nombra a sí misma y el área de ahorro es ahorro a la vista"],
   "lib/faro/area-advice.ts:areaPicture": ["interna", "compone la foto del área sobre areaMonths y el resumen; sin suma descriptiva propia nueva"],
   "lib/faro/area-advice.ts:pocketStock": ["interna", "stock de un bolsillo (saldos a una fecha), no flujo del mes ni frase de gasto"],
+  // 1.3.383 (la integración del banco): savInMonth suma las líneas
+  // del mes cuyo papel es AHORRO — el apartado nombrado como ahorro
+  // en cada una de sus caras (el porcentaje guardado, el ritmo).
+  "lib/faro/ask2.ts:savInMonth": ["movimiento", "suma solo líneas de papel ahorro del mes: es el apartado, y sus caras lo nombran ahorro"],
+  "lib/faro/ask2.ts:estacionalidadAnswer": ["gasto", "la estacionalidad del banco (Ola 15) suma el gasto de cada mes anotado para hallar el más fuerte y la media: solo-gasto, nombrado como gasto"],
+  "lib/faro/ask2.ts:contrafactualAnswer": ["gasto", "el contrafactual del banco (Ola 9) suma el gasto histórico del filtro nombrado para medir cuánto se juntaría sin él: solo-gasto, nombrado como gasto"],
+  "lib/faro/ask2.ts:frecuenciaAnswer": ["gasto", "la frecuencia del banco (Ola 9) cuenta cada concepto y suma su gasto para acompañar el conteo: solo-gasto, nombrado por concepto"],
   "lib/faro/awake.ts:savingsPicture": ["movimiento", "la foto al despertar nombra lo guardado como guardado: es la superficie del apartado"],
   "lib/faro/autopay.ts:settleAutopay": ["interna", "mecánica de asentamiento de la Ola 6 (1.3.356): anota las instancias vencidas de las cuotas con pago automático; no presenta sumas — los cargos que crea los clasifican los motores de siempre"],
   "lib/faro/bankbook.ts:rewardsMonth": ["interna", "suma recompensas de tarjetas (ganadas y perdidas), no gasto ni salida del mes"],
