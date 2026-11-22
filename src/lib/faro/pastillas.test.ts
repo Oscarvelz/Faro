@@ -40,7 +40,7 @@ test("pastillas: shell.tsx sienta el par en el padre persistente, en sus dos <ma
 test("pastillas: el par conserva su identidad — las mismas clases, el mismo rol, las mismas dos secciones", () => {
   assert.ok(chips.includes('className="seg is-follow is-pair fol-chips"'), "the chips keep their settled dress");
   assert.ok(chips.includes('role="tablist"'), "the chips keep their tablist role");
-  assert.ok(chips.includes('["historial", "archivo", "bitacora"]'), "the trio is Historial + Archivo + Bitácora (1.3.367)");
+  assert.ok(chips.includes('["bitacora", "historial", "archivo"]'), "the trio in Oscar's order (1.3.370): Bitácora · Historial · Archivo — Historial sits next to Archivo by function; the Logbook opens");
   assert.ok(chips.includes('<i className="seg-pill" aria-hidden />'), "the follower pill is still the pair's own");
 });
 

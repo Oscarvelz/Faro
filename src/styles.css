@@ -1184,6 +1184,16 @@ html[data-theme="ion"] .save-band { background: linear-gradient(180deg, #f3f7f4 
 .seg.is-follow.is-pair .seg-pill { border-radius: 999px; }
 .seg.is-follow.is-pair .seg-ico,
 .seg.is-follow.is-pair .seg-ico svg { width: 18px; height: 18px; }
+/* 1.3.370 — Folios tiene TRES pastillas (fallo de Oscar, 2026-11-21):
+   la rejilla del par era de dos columnas y la tercera caía a una
+   segunda fila, partiendo la línea. La fila de Folios es de tres
+   columnas y una sola línea a cualquier ancho: cada pastilla cede
+   relleno y un punto de letra antes que partir la fila, y la etiqueta
+   jamás se quiebra (nowrap es ya la ley de .seg-label). */
+.seg.is-follow.fol-chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.seg.is-follow.fol-chips button { padding: 0 6px; gap: 6px; font-size: 0.9rem; }
+.seg.is-follow.fol-chips .seg-ico,
+.seg.is-follow.fol-chips .seg-ico svg { width: 17px; height: 17px; }
 .unfold-all { margin: 2px 0 16px; }
 .seg.is-follow button { width: 100%; min-width: 0; height: 34px; min-height: 34px; padding: 0 4px; gap: 3px; font-size: 0.66rem; font-weight: 620; letter-spacing: -0.02em; line-height: 1; justify-content: center; color: var(--muted); background: transparent; border-color: transparent; box-shadow: none; }
 .seg.is-follow .seg-ico, .seg.is-follow .seg-ico svg { width: 13px; height: 13px; }

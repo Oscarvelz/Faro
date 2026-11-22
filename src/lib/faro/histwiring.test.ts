@@ -104,8 +104,10 @@ describe("el contenedor: hubOf, el nombre y los chips de Folios", () => {
     assert.match(chips, /role="tablist"/);
     assert.match(chips, /aria-current=\{ui\.section === id \? "page" : undefined\}/);
     assert.match(chips, /t\(`nav\.\$\{id\}`\)/);
-    // El orden interno del contenedor: historial, archivo y bitácora (1.3.367).
-    assert.match(chips, /\["historial", "archivo", "bitacora"\]/);
+    // El orden interno del contenedor: bitácora, historial y archivo
+    // (1.3.370, fallo de Oscar: la Bitácora abre; Historial y Archivo,
+    // vecinos en función, quedan juntos).
+    assert.match(chips, /\["bitacora", "historial", "archivo"\]/);
   });
 
   it("las claves del contenedor existen en ES y en EN (Folios no se traduce)", () => {

@@ -23,6 +23,7 @@ import { formatMoney } from "@/lib/faro/money";
 import type { LogCard, LogEdition, LogMonth } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
 import { Explain } from "./ui";
+import { Note } from "./finish";
 import { useFaro } from "./provider";
 import "./bitacora.css";
 
@@ -310,15 +311,21 @@ export function BitacoraScreen() {
         </div>
       </header>
 
-      <p className="lg-binding-note">
+      {/* El acabado de la casa (Oscar, 2026-11-21: «¿Dónde está el acabado
+          de envoltorio? Sigues creando textos sueltos»): el aviso de
+          encuadernación y el estado vacío visten la Note de la casa —
+          icono, marco y tinte del tema — como sus hermanas Historial y
+          Archivo, nunca párrafos sueltos ni cajas a medio hacer. */}
+      <Note kind="tip">
         {W(lg, "Al cerrar el año, tus meses se encuadernan en «Tu año en Faro»: los folios sueltos se vuelven capítulos del tomo, y la edición lo dice en su primera línea.",
           "When the year closes, your months are bound into “Your year in Faro”: the loose folios become chapters of the volume, and the edition says so in its first line.")}
-      </p>
+      </Note>
 
       {empty ? (
-        <div className="lg-empty" data-anchor="log-empty">
-          <p>{W(lg, "Tu primera bitácora llegará al cerrar tu primer año con registro.", "Your first logbook will arrive when your first recorded year closes.")}</p>
-          <p className="lg-empty-sub">{W(lg, "Cada mes cerrado guarda aquí su foto, callada. Con menos de unas seis semanas de registro todavía no hay edición: un estado vacío explicado vale más que una serie vacía.", "Each closed month quietly keeps its photo here. With less than about six weeks of record there is no edition yet: an explained empty state is worth more than an empty series.")}</p>
+        <div data-anchor="log-empty">
+          <Note kind="empty">
+            {W(lg, "Tu primera bitácora llegará al cerrar tu primer año con registro. Cada mes cerrado guarda aquí su foto, callada. Con menos de unas seis semanas de registro todavía no hay edición: un estado vacío explicado vale más que una serie vacía.", "Your first logbook will arrive when your first recorded year closes. Each closed month quietly keeps its photo here. With less than about six weeks of record there is no edition yet: an explained empty state is worth more than an empty series.")}
+          </Note>
         </div>
       ) : null}
 

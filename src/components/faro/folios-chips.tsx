@@ -32,7 +32,12 @@ import { useFaro } from "./provider";
 import { SectionIcon } from "./icons";
 import type { SectionId } from "@/lib/faro/types";
 
-const PASTILLAS: readonly SectionId[] = ["historial", "archivo", "bitacora"];
+/* El orden (Oscar, 2026-11-21 17:29, corrigiendo su propio orden de las
+ * 17:20): Bitácora · Historial · Archivo — porque Historial está más
+ * cerca en función de Archivo que la Bitácora de Archivo; la Bitácora es
+ * otra cosa y abre la fila. Y las tres en UNA línea, sin quiebres: la
+ * rejilla de tres columnas vive en styles.css (.fol-chips). */
+const PASTILLAS: readonly SectionId[] = ["bitacora", "historial", "archivo"];
 
 export function FoliosChips() {
   const { ui, setUi, t } = useFaro();

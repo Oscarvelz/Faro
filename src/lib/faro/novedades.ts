@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.370",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "Folios en armonía", en: "Folios in harmony" },
+    points: {
+      es: [
+        "Las pastillas de Folios van ahora en una sola línea y en su orden: Bitácora · Historial · Archivo.",
+        "La Bitácora estrena el acabado de la casa en su aviso y en su estado vacío: nada de textos sueltos.",
+      ],
+      en: [
+        "The Folios chips now sit on a single line and in their order: Logbook · History · Archive.",
+        "The Logbook gains the house finish on its notice and its empty state: no more loose text.",
+      ],
+    },
+  },
+  {
     version: "1.3.369",
     date: "2026-11-21",
     level: "grande",
