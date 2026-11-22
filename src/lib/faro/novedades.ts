@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.421",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Lo desplegado lleva su nombre", en: "What opens carries its name" },
+    points: {
+      es: [
+        "La lista de un lente se abre con su nombre por cabecera: Tengo, Gastaré o Pagos.",
+        "La vista de un bolsillo de Ahorros se encabeza con el nombre del bolsillo, no con su clase.",
+      ],
+      en: [
+        "A lens's list now opens with its name as the header: Have, Spending or Payments.",
+        "A savings pocket's view is headed by the pocket's own name, not its kind.",
+      ],
+    },
+    topic: "lentes",
+  },
+  {
     version: "1.3.420",
     date: "2026-11-22",
     level: "grande",

@@ -4188,7 +4188,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             {vaultSort ? blockArrows("view") : null}
           <div className="save-view" style={{ ["--seg" as string]: saveTints[Math.max(0, saveSegs.findIndex((s) => s.id === openSeg.id)) % saveTints.length] }}>
             <div className="save-ledger-head">
-              <strong>{pocketKind === "meta" ? t("vault.projects") : pocketKind === "retiro" ? t("vault.retirements") : t("vault.emergencies")}</strong>
+              <strong>{openSeg.name}</strong>
               <span className="row kit-row">
                 <span className="num">{fmt(openSeg.minor)}</span>
                 {savKit(openLines, openSeg.name, pocketKind === "retiro" ? restoreRetiroAsk : undefined)}
@@ -4536,6 +4536,15 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       {!focus && tabletOneAA && has("area.bars-6m") ? <AreaAdvisor area={deskArea} label={deskArea === "subs" ? (lang === "en" ? "Payments" : "Pagos") : undefined} onLeave={() => { lensReturn = lens === "all" ? null : { depth, lens }; }} /> : null}
       {focus ? null : (
       <section key={lens} data-anchor="desk-list" className={`card span-all swipe-pane${lensSwapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={flowDir < 0 ? "-1" : "1"}>
+        {/* 1.3.421 (Oscar, con fotos): el espacio desplegado lleva el nombre
+            de su ficha por cabecera — la lista de un lente se abre con
+            «Tengo» / «Gastaré» / «Pagos», no con una descripción suelta. */}
+        {lensMode !== "all" ? (
+          <p className="desk-focus-head" data-anchor="desk-focus-head">
+            <span className={`desk-focus-bar is-${lensMode}${lensMode === "debt" ? ` tone-${summary.tone}` : ""}`} aria-hidden />
+            <strong>{t(lensMode === "have" ? "desk.have" : lensMode === "debt" ? "desk.debt" : "desk.spend")}</strong>
+          </p>
+        ) : null}
         {lensMode === "debt" ? (
           <div className="debt-lamp" data-anchor="desk-semaforo">
             {(() => {

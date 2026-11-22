@@ -3622,3 +3622,12 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
 .year-srow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 2px; }
 .year-srow + .year-srow { border-top: 1px solid color-mix(in oklab, var(--line) 55%, transparent); }
 .year-srow.is-total { font-weight: 600; }
+/* 1.3.421: el espacio desplegado lleva el nombre de su ficha por cabecera
+   (la barra viste el tono propio de la ficha, como en su tarjeta). */
+.desk-focus-head { display: flex; align-items: center; gap: 9px; margin: 0 0 10px; }
+.desk-focus-head strong { font-size: 1.06rem; font-weight: 700; letter-spacing: .01em; }
+.desk-focus-bar { flex: none; width: 5px; height: 20px; border-radius: 99px; background: var(--fg); }
+.desk-focus-bar.is-have { background: var(--accent); }
+.desk-focus-bar.is-debt.tone-good { background: var(--good); }
+.desk-focus-bar.is-debt.tone-warn { background: var(--warn); }
+.desk-focus-bar.is-debt.tone-bad { background: var(--bad); }
