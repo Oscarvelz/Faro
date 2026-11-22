@@ -95,6 +95,14 @@ export const INTENT_FAMILIES: { intent: AskIntent; patterns: RegExp[] }[] = [
       /will i make it to (day \d{1,2}|the end)/,
       /do i make it to (day \d{1,2}|the end)/,
       /make it to day \d{1,2}/,
+      // OLA 28 (Familia 2, E28-2): el verbo «reach» mismo y el
+      // ordinal inglés («the 20th») — la canónica «Do I reach the
+      // 20th?» no casaba con ninguna forma del camino y moría fuera,
+      // cuando el motor del camino ya caminaba hasta ese día.
+      /do i reach/,
+      /will i reach/,
+      /reach (the|day) \d{1,2}/,
+      /reach the end/,
       /tightest day/,
       /how do i get to the end of the month/,
     ],

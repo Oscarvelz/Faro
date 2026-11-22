@@ -103,7 +103,11 @@ describe("381 · la tarjeta arriba y su quitar por ahora", () => {
     assert.equal(off.settings.notify, true, "los avisos del teléfono quedan intactos");
     assert.equal(off.settings.notifyKinds, st.settings.notifyKinds, "y sus tipos también");
     const src = readFileSync(new URL("../../components/faro/due-alerts.tsx", import.meta.url), "utf8");
-    assert.ok(src.includes("dueAlertsDismissed: { sig: dueAlertsSig(alerts), day: today }"), "la ✕ escribe solo su campo");
+    // OLA 28 (Familia 9): la ✕ ya no firma la FOTO (`alerts`) — firma
+    // el conjunto VIVO dentro de la receta: un pago que entra entre
+    // la foto y la confirmación queda dentro del descarte. La forma
+    // clavada es la nueva; el resto del espécimen no se mueve.
+    assert.ok(src.includes("dueAlertsDismissed: { sig: dueAlertsSig(dueAlerts(s, today)), day: today }"), "la ✕ escribe solo su campo, firmado desde lo vivo");
     assert.ok(src.includes('data-anchor="due-alerts-dismiss"'), "la opción de quitar vive en la tarjeta");
     assert.ok(src.includes("los avisos de tu teléfono no se tocan"), "la ventana lo dice en llano (ES)");
     assert.ok(src.includes("your phone notices are untouched"), "y en inglés (EN)");

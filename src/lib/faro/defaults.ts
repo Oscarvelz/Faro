@@ -9,6 +9,7 @@ import type {
   LedgerState,
   Line,
   Named,
+  NoticeRule,
   PurchaseCat,
   Settings,
   Structure,
@@ -888,8 +889,39 @@ const isDateStrD = (v: unknown): v is string => typeof v === "string" && v !== "
  * lectores suponen: prefijo AAAA-MM-DD y fecha real. Los deseos de la
  * casa nacen ISO (`toISOString()` en waitlist.ts), así que toda forma
  * buena, en cualquier estado del deseo, sigue entrando entera. */
-const isIsoDateStrD = (v: unknown): v is string =>
-  typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) && !Number.isNaN(new Date(v).getTime());
+const isIsoDateStrD = (v: unknown): v is string => {
+  if (typeof v !== "string") return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if (!m) return false;
+  if (Number.isNaN(new Date(v).getTime())) return false;
+  // OLA 28 (Familia 8, G28-7): LA IDA Y VUELTA. «Fecha real» no es
+  // «texto que Date acepta»: Date NORMALIZA lo imposible (el 30 de
+  // febrero se lee como 2 de marzo y pasaba la puerta, para luego
+  // ordenarse y contarse como si fuera el 30). El juicio recompone
+  // la fecha desde sus piezas y exige que vuelva la misma: el 30 de
+  // febrero y el 29 de febrero de un año no bisiesto mueren aquí; el
+  // 29 bisiesto y toda fecha verdadera pasan enteros.
+  const back = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return back.getUTCFullYear() === Number(m[1]) && back.getUTCMonth() === Number(m[2]) - 1 && back.getUTCDate() === Number(m[3]);
+};
+/** OLA 28 (Familia 7, G28-6): EL JUEZ ÚNICO DE LA REGLA DE AVISOS —
+ * la ley entera de la forma de una NoticeRule, en un solo sitio,
+ * para que la puerta del libro (isLedgerDeep, abajo) y el lector
+ * (noticeRulesOf en notices.ts) juzguen lo mismo. La puerta vieja
+ * juzgaba el TEXTO (cuatro `typeof string`) y el lector juzgaba la
+ * IDENTIDAD a medias (dos campos): la regla TODA VACÍA pasaba la
+ * puerta y vivía en el libro sin poder ser de nadie, y un `at` que
+ * no es fecha pasaba sin juicio. La ley: llave y app presentes (no
+ * vacías — una regla sin llave ni app no silencia nada y no es de
+ * nadie), etiqueta texto, y `at` juzgado COMO FECHA (la dimensión de
+ * quien lo escribió: learnNoticeRule lo acuña del reloj ISO). */
+export function noticeRuleShapeOk(r: unknown): r is NoticeRule {
+  if (!isObjD(r)) return false;
+  if (!isStrD(r.key) || r.key === "" || !isStrD(r.app) || r.app === "") return false;
+  if (!isStrD(r.label)) return false;
+  if (!isDateStrD(r.at)) return false;
+  return true;
+}
 /** OLA 25 (G25-3): las horas de espera caben en su aritmética — la
  * desreferencia suma `waitHours * 3600_000` al ahora y llama a
  * `toISOString()` (renewWish): fuera del rango de Date (±8.64e15 ms)
@@ -1114,11 +1146,15 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   // está, es una lista de reglas con su llave, su app y su etiqueta —
   // la forma se juzga entera y el lector (noticeRulesOf) además filtra
   // con desconfianza.
+  // OLA 28 (Familia 7, G28-6): la forma la juzga EL JUEZ ÚNICO
+  // (noticeRuleShapeOk, arriba) — la misma ley que el lector aplica:
+  // los cuatro campos en su dimensión, la regla toda vacía fuera y
+  // `at` como fecha. Esta puerta juzgaba antes cuatro `typeof` y
+  // dejaba vivir en el libro una regla que no era de nadie.
   if (s.noticeRules !== undefined) {
     if (!Array.isArray(s.noticeRules)) return false;
     for (const r of s.noticeRules as unknown[]) {
-      if (!isObjD(r)) return false;
-      if (!isStrD(r.key) || !isStrD(r.app) || !isStrD(r.label) || !isStrD(r.at)) return false;
+      if (!noticeRuleShapeOk(r)) return false;
     }
   }
   // tombstones (las lápidas del libro compartido, Pieza C3): si está,

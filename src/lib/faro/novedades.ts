@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.394",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La Cura de la Ola 28, integrada", en: "The Wave 28 Cure, integrated" },
+    points: {
+      es: [
+        "El Asesor resuelve a las personas con una sola ley: ya no confunde a una persona con otra de nombre parecido, ni responde de alguien cuando le preguntan por un desconocido.",
+        "Las preguntas del banco pasan ahora por el turno real de conversación, y las formas aprendidas de avisos agrupan mejor: menos borradores repetidos por la misma compra.",
+      ],
+      en: [
+        "The Advisor resolves people under one law: it no longer confuses one person with a similar-named other, nor answers about someone when asked about a stranger.",
+        "The bank's questions now run through the real conversation turn, and learned notice shapes group better: fewer duplicate drafts for the same purchase.",
+      ],
+    },
+  },
+  {
     version: "1.3.393",
     date: "2026-11-22",
     level: "menor",

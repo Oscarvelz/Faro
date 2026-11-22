@@ -47,16 +47,52 @@ export type LearnedAlias = {
   uses?: number;
 };
 
+/** El pliegue de acentos de la casa — el mismo de lexicon.foldQ,
+ * escrito aquí porque este módulo no importa a nadie: áéíóúüñ se
+ * pliegan a aeioun, y la palabra guardada vive en el mismo alfabeto
+ * que la pregunta plegada donde debe disparar. */
+const SHAPE_FOLD: Record<string, string> = { "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ü": "u", "ñ": "n" };
+
 /** La forma de una pregunta, sin un solo dígito: cada corrida de
  * dígitos (con sus separadores y su símbolo de moneda) se vuelve «#».
- * Es la única representación de la pregunta que el aprendizaje toca. */
+ * Es la única representación de la pregunta que el aprendizaje toca.
+ *
+ * OLA 28 (G28-4): la forma también PLIEGA LOS ACENTOS, como foldQ
+ * pliega la pregunta. Sin el pliegue, «café» pasaba las dos puertas
+ * (su forma era «su forma») y jamás disparaba: la pregunta llega
+ * plegada («cafe») y el alias guardado con acento no casa con nada —
+ * un zombi con las dos puertas abiertas. Con el pliegue, la palabra
+ * se acuña ya en el alfabeto de la pregunta: o dispara o no entra. */
 export function maskShape(raw: string): string {
   return raw
     .replace(/[$€]\s*/g, " ")
     .replace(/\d[\d.,]*/g, "#")
     .replace(/\s+/g, " ")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[áéíóúüñ]/g, (ch) => SHAPE_FOLD[ch] ?? ch);
+}
+
+/** OLA 28 (G28-2): EL RELLENO NO ES APRENDIBLE. Las palabras de
+ * función — artículos, preposiciones, posesivos, demostrativos: el
+ * mismo relleno que el lado de la pregunta trata como vacío
+ * (REMIT_PERSON_STOP y STRAY_STOP en ask2) — no nombran a ningún
+ * ciudadano: una «palabra» hecha SOLO de relleno («la») no se aprende
+ * en la puerta del escritor ni pasa en la del lector, porque al
+ * desreferenciarla casaría con cualquier pregunta que la contenga y
+ * respondería por un ciudadano que el usuario nunca nombró. Una
+ * frase con sustancia («la luz») sí se aprende: el relleno solo
+ * muere cuando es TODO lo que la palabra trae. */
+const FILLER_WORDS = new Set([
+  "la", "el", "los", "las", "un", "una", "unos", "unas", "de", "del", "a", "al", "en", "con", "sin", "por", "para",
+  "mi", "mis", "tu", "tus", "su", "sus", "lo",
+  "esto", "esta", "este", "eso", "esa", "ese", "estos", "estas", "esos", "esas",
+  "the", "an", "of", "to", "in", "on", "at", "my", "his", "her", "its", "our", "their",
+  "this", "that", "these", "those",
+]);
+export function isFillerShape(w: string): boolean {
+  const toks = w.split(/\s+/).filter(Boolean);
+  return toks.length > 0 && toks.every((t) => FILLER_WORDS.has(t));
 }
 
 /** ¿Contiene la forma algún dígito? La cerca que lo impide todo: un
@@ -87,6 +123,9 @@ export function learnAlias(
   if (hasDigits(word)) return store;
   const w = maskShape(word);
   if (!w || w.length < 2) return store;
+  // OLA 28 (G28-2): el relleno puro no se aprende — la misma ley que
+  // aliasShapeOk juzga en las dos puertas (ver isFillerShape).
+  if (isFillerShape(w)) return store;
   const existing = store.find((a) => a.word === w);
   if (existing && existing.targetId === targetId) {
     return store.map((a) => (a.word === w ? { ...a, hits: a.hits + 1 } : a));
@@ -159,16 +198,31 @@ export function aliasIn(store: LearnedAlias[], folded: string): LearnedAlias | n
  * largo mínimo, sin dígitos; el ciudadano presente; y los contadores
  * finitos y no negativos — un conteo no puede ser negativo sin dejar
  * de ser un conteo. */
+/** OLA 28 (G28-3): EL TECHO DE UN CONTEO. hits y uses cuentan actos
+ * de una persona — confirmaciones y usos de sus propias palabras — y
+ * se juzgan en ESA dimensión: enteros, finitos y no mayores que
+ * 10⁹, un conteo que ninguna vida produce pero que ninguna notación
+ * de máquina disfraza (1e21 se imprimía «1e+21 veces» en la respuesta
+ * del aprendizaje). Más allá del techo no hay un conteo: hay un dato
+ * de otra especie, y no entra por ninguna de las dos puertas. */
+export const COUNT_CEILING = 1_000_000_000;
+const countOk = (v: unknown): v is number =>
+  typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= COUNT_CEILING;
+
 export function aliasShapeOk(p: unknown): p is LearnedAlias {
   if (!p || typeof p !== "object") return false;
   const o = p as Record<string, unknown>;
   if (typeof o.word !== "string" || /\d/.test(o.word)) return false;
   if (o.word !== maskShape(o.word) || o.word.length < 2) return false;
+  // OLA 28 (G28-2): la palabra de puro relleno tampoco pasa aquí —
+  // el juez único juzga lo mismo en la puerta del libro y en el
+  // lector, como manda su propia doctrina.
+  if (isFillerShape(o.word)) return false;
   if (typeof o.targetId !== "string" || !o.targetId) return false;
   if (o.kind !== "sub" && o.kind !== "cat" && o.kind !== "person" && o.kind !== "account") return false;
-  if (typeof o.hits !== "number" || !Number.isFinite(o.hits) || o.hits < 0) return false;
+  if (!countOk(o.hits)) return false;
   if (o.learnedFrom !== "card-tap" && o.learnedFrom !== "correction") return false;
-  if (o.uses !== undefined && (typeof o.uses !== "number" || !Number.isFinite(o.uses) || o.uses < 0)) return false;
+  if (o.uses !== undefined && !countOk(o.uses)) return false;
   return true;
 }
 

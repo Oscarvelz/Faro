@@ -376,6 +376,8 @@ const CARAS: Record<string, [Clase, string]> = {
   "lib/faro/ask2.ts:promedioAnswer:sum.spend": ["gasto", "el promedio verdadero del banco divide el spend del productor entre sus meses: solo-gasto"],
   "lib/faro/ask2.ts:reglaAnswer:sum.spend": ["gasto", "la regla 50·30·20 del banco reparte el spend del productor en sus tres cubos: solo-gasto, nombrado por cubo"],
   "lib/faro/ask2.ts:totalOf:summarize(c.state, k, c.lang).spend": ["gasto", "el desplazamiento del seguimiento (§20, 1.3.380) relee el spend de cada mes de la ventana corrida: solo-gasto, la misma vara de compararAnswer"],
+  "lib/faro/ask2.ts:ensanchar:summarize(c.state, f.monthA, c.lang).spend": ["gasto", "el ensanche del seguimiento (Ola 28, Familia 2) relee el mes del marco SIN el filtro, con el resumen entero del productor: solo-gasto, la misma vara de totalOf"],
+  "lib/faro/ask2.ts:ensanchar:summarize(c.state, f.monthB, c.lang).spend": ["gasto", "el otro mes del marco comparado en el mismo ensanche, simétrico: solo-gasto"],
   "lib/faro/ask2.ts:proyectarSeguimiento:summarize(c.state, c.key, c.lang).spend": ["gasto", "la proyección del seguimiento (§20, 1.3.380) repite el ritmo del mes en curso: el spend nombrado como ritmo, con su supuesto dicho en la nota"],
   "lib/faro/engine.ts:buildAdvice:reading.outTotal": ["movimiento", "las baldosas del Asesor nombran «Sale» junto a «Gasto real» y «Al ahorro»"],
   "lib/faro/engine.ts:buildAdvice:reading.realSpend": ["gasto", "«Gasto real»: el río sin la transferencia al ahorro"],

@@ -27,7 +27,7 @@ import { findRule, importBook, merchantKey, splitTarget } from "./bankbook.ts";
 import { findDup, validateDraft } from "./drafts.ts";
 import { suggestHome } from "./quickadd.ts";
 import { normName } from "./subs.ts";
-import { displayName } from "./defaults.ts";
+import { displayName, noticeRuleShapeOk } from "./defaults.ts";
 import type { Currency, Draft, LedgerState, NoticeRule } from "./types.ts";
 import type { ParseCtx } from "./textparse.ts";
 
@@ -71,8 +71,36 @@ export function isCodeNotice(raw: string): boolean {
 }
 
 /** La llave de una forma: la app y el texto con las cifras plegadas —
- *  el mismo aviso con otro monto u otra hora cae en la misma llave. */
+ *  el mismo aviso con otro monto u otra hora cae en la misma llave.
+ *
+ *  OLA 28 (Familia 6; G28-5 + Q28-C1 de Cara): LA LLAVE ES SU
+ *  IDENTIDAD DECLARADA, ENTERA. La identidad dice «el mismo aviso
+ *  con otro monto»: un monto AGRUPADO («1,200», «1.200,50») dejaba
+ *  antes un esqueleto distinto («#,#», «#.#,#») que el mismo aviso
+ *  sin agrupar («999» → «#») — la regla enseñada con un monto no
+ *  silenciaba al hermano con otro, y la forma quedaba partida por su
+ *  grafía. Ahora toda corrida de cifras con sus separadores de
+ *  agrupación se pliega a UN «#»: cualquier agrupamiento cae en la
+ *  misma llave. Y la llave ya no se TRUNCA a 90: dos avisos largos
+ *  que solo difieren tras el carácter 90 compartían llave, y
+ *  silenciar uno silenciaba al otro — una colisión en la dirección
+ *  peligrosa (el silencio falso). La identidad es la forma entera. */
 export function noticeShapeKey(item: NoticeItem): string {
+  const shape = fold(`${item.title} ${item.text}`)
+    .replace(/\d+/g, "#")
+    .replace(/#(?:[.,:]#)+/g, "#")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${item.pkg}|${shape}`;
+}
+
+/** La llave VIEJA (cifras plegadas sin agrupar, truncada a 90), solo
+ *  para LEER: las reglas que la mesa enseñó antes de la Ola 28 llevan
+ *  esta llave, y lo enseñado no se desenseña por una cura — el
+ *  intérprete honra las dos llaves al silenciar, y solo escribe la
+ *  nueva. Cuando la última regla vieja se olvide, esta función
+ *  sobra; mientras una viva, quitarla sería evaporar una enseñanza. */
+function legacyNoticeShapeKey(item: NoticeItem): string {
   const shape = fold(`${item.title} ${item.text}`)
     .replace(/\d+/g, "#")
     .replace(/\s+/g, " ")
@@ -81,9 +109,15 @@ export function noticeShapeKey(item: NoticeItem): string {
   return `${item.pkg}|${shape}`;
 }
 
+/** OLA 28 (Familia 7, G28-6): el lector juzga la regla ENTERA con el
+ *  juez compartido de defaults.ts (noticeRuleShapeOk) — los cuatro
+ *  campos en su dimensión, `at` como fecha. Este lector juzgaba dos
+ *  campos por su tipo y dejaba pasar la regla toda vacía y el `at`
+ *  que no es fecha: la puerta del texto y la puerta de la identidad
+ *  discrepan nunca más, porque son la misma ley. */
 export function noticeRulesOf(state: LedgerState): NoticeRule[] {
   if (!Array.isArray(state.noticeRules)) return [];
-  return state.noticeRules.filter((r) => r && typeof r.key === "string" && typeof r.app === "string");
+  return state.noticeRules.filter((r) => noticeRuleShapeOk(r));
 }
 
 export function learnNoticeRule(state: LedgerState, item: NoticeItem, nowIso: string): LedgerState {
@@ -146,7 +180,12 @@ function merchantOf(item: NoticeItem): string {
 export function interpretNotice(item: NoticeItem, ctx: ParseCtx): Draft | null {
   const raw = `${item.title} ${item.text}`.trim();
   if (isCodeNotice(raw)) return null;
-  if (noticeRulesOf(ctx.ledger).some((r) => r.key === noticeShapeKey(item))) return null;
+  // OLA 28 (Familia 6): el silencio honra las DOS llaves — la nueva,
+  // que es la identidad declarada, y la vieja, con la que la mesa
+  // enseñó antes de esta cura (continuidad: ver legacyNoticeShapeKey).
+  const shapeKey = noticeShapeKey(item);
+  const legacyKey = legacyNoticeShapeKey(item);
+  if (noticeRulesOf(ctx.ledger).some((r) => r.key === shapeKey || r.key === legacyKey)) return null;
   const folded = fold(raw);
   const amt = amountOf(item.text) ?? amountOf(item.title);
   if (!amt) return null;

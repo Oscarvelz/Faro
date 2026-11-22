@@ -50,8 +50,19 @@ export function DueAlertsCard() {
         "La tarjeta vuelve mañana, o en cuanto cambie un pago. Esto solo la quita de Central: los avisos de tu teléfono no se tocan.",
         "The card comes back tomorrow, or as soon as a payment changes. This only removes it from Central: your phone notices are untouched."),
       yes: L(lang, "Quitar por ahora", "Remove for now"),
+      // OLA 28 (Familia 9, Q28-C1 de Cambios): LA FIRMA SE CALCULA
+      // DE LO VIVO, DENTRO DE LA RECETA. La firma cerraba sobre
+      // `alerts` — la FOTO del render — y entre el toque en la ✕ y
+      // la confirmación un pago podía entrar en la ventana: el acto
+      // confirmado firmaba un conjunto que ya no era el vivo, la
+      // firma nacía vieja y el descarte no quitaba nada, en silencio.
+      // La receta recibe el estado vivo del commit y firma
+      // dueAlerts(ese estado, hoy): lo que se descarta es lo que hay
+      // al confirmar, como la Familia 8 de la Cura 27 re-lee dentro
+      // de sus recetas. (`today` es el día del acto, no un dato del
+      // libro: la foto del día es la correcta para firmar.)
       run: () => commit(
-        (s) => ({ ...s, settings: { ...s.settings, dueAlertsDismissed: { sig: dueAlertsSig(alerts), day: today } } }),
+        (s) => ({ ...s, settings: { ...s.settings, dueAlertsDismissed: { sig: dueAlertsSig(dueAlerts(s, today)), day: today } } }),
         L(lang, "Tarjeta quitada de Central por ahora", "Card removed from Central for now")),
     });
   };

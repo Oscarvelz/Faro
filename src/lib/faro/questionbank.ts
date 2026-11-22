@@ -425,8 +425,8 @@ export const QUESTION_BANK: BankFamily[] = [
     source: ["estudio.flujo", "asesor.lectura"],
     axes: ["destino (Estudio × la casa de la cifra en el Asesor × Remesas) — transversal a las familias cuya cifra ya está reportada"],
     canonical: {
-      es: ["¿Cuánto gasté el último mes en tiendas? (y su puerta: Verlo en Estudio)", "¿Cuál es mi patrón de remesas? (y su puerta: Verlo en Remesas)"],
-      en: ["How much did I spend last month in stores? (and its door: See it in Study)"],
+      es: ["¿Cuánto gasté el último mes en tiendas?", "¿Cuál es mi patrón de remesas?"],
+      en: ["How much did I spend last month in stores?"],
     },
     answerShape: "IDEA DE OSCAR (2026-11-21): cuando la pregunta casa con información que la app YA reporta (una estadística de Estudio, una sección del propio Asesor), la respuesta no termina en el número: lleva su PUERTA directa a esa área — el mismo gesto con que las ayudas (?) llevan al tema exacto del Manual — y la vuelta es la lógica de atrás de la app (atrás del teléfono / ESC), con la pregunta y la respuesta intactas al volver. La puerta viaja como acción con target = el id de askmap del área que reporta la cifra: la misma fuente que la respuesta declara.",
     contradiction: "Si el área destino no puede mostrar la cifra en el modo de la persona, la puerta nombra su piso como cualquier respuesta del banco — jamás una puerta a una pared.",
