@@ -22,7 +22,8 @@ const NEVER: Record<string, [string, string]> = {
 
 /** La cuenta de la vista previa, en palabras: la misma que se ve al
  * invitar y al verificar «qué compartí» (una sola función la compone). */
-function PreviewBody({ pv, names, lang }: { pv: SharePreview; names: { cat: (id: string) => string }; lang: string }) {
+function PreviewBody({ pv, names, lang, fundLabel }: { pv: SharePreview; names: { cat: (id: string) => string }; lang: string; fundLabel?: (by: string) => string }) {
+  const fund = (by: string) => by === "owner" ? L(lang, "tus cuentas", "your accounts") : (fundLabel?.(by) ?? L(lang, "de un miembro", "a member's money"));
   return (
     <div className="sm-prev">
       <div className="sm-group">
@@ -41,7 +42,7 @@ function PreviewBody({ pv, names, lang }: { pv: SharePreview; names: { cat: (id:
       <div className="sm-group">
         <span className="sm-glab">{L(lang, "Quién financia cada área", "Who funds each area")}</span>
         {pv.fundedBy.map((f) => (
-          <span key={f.cat} className="sm-line">{names.cat(f.cat)} · {L(lang, "tus cuentas", "your accounts")}</span>
+          <span key={f.cat} className="sm-line">{names.cat(f.cat)} · {fund(f.by)}</span>
         ))}
       </div>
     </div>
@@ -159,7 +160,7 @@ export function ShareMesa() {
           <p className="sm-note">{L(lang, "Completa los tres pasos: la invitación solo existe después de mirar.", "Complete the three steps: the invitation only exists after you look.")}</p>
         ) : previewCurrent && pv ? (
           <>
-            <PreviewBody pv={pv} names={names} lang={lang} />
+            <PreviewBody pv={pv} names={names} lang={lang} fundLabel={(by) => members?.find((x) => x.member === by)?.email ?? L(lang, "de un miembro", "a member's money")} />
             <button type="button" className="sm-send" data-anchor="share-send" disabled={busy} onClick={() => void send()}>
               <Send aria-hidden /> {L(lang, `Invitar a ${mesa.email.trim()}`, `Invite ${mesa.email.trim()}`)}
             </button>
@@ -191,7 +192,7 @@ export function ShareMesa() {
                 <button type="button" className="sm-mini" data-anchor="share-what" onClick={() => setOpenShared(openShared === m.id ? null : m.id)}>{L(lang, "Qué compartí", "What I shared")}</button>
                 <button type="button" className="sm-mini is-danger" data-anchor="share-remove" aria-label={L(lang, "Cancelar o retirar", "Cancel or remove")} onClick={() => act(m)}><X aria-hidden /></button>
               </div>
-              {openShared === m.id ? <PreviewBody pv={mpv} names={names} lang={lang} /> : null}
+              {openShared === m.id ? <PreviewBody pv={mpv} names={names} lang={lang} fundLabel={(by) => by === m.member ? L(lang, "su dinero", "their money") : (members?.find((x) => x.member === by)?.email ?? L(lang, "de un miembro", "a member's money"))} /> : null}
             </div>
           );
         })}

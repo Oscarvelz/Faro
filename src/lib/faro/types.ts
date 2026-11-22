@@ -170,6 +170,24 @@ export type Line = {
    * libro personal y todo libro viejo). Ver sign.ts. */
   by?: string;
   byName?: string;
+  /** El dinero de la línea (Pieza C6, 1.3.396): la cuenta de la
+   * persona cuyo dinero la pagó, cuando NO es el dinero del dueño.
+   * Ausente = dinero del dueño (lo no marcado). Una línea financiada
+   * por un miembro no mueve ninguna cuenta de la casa: su accountId
+   * no nombra cuentas del dueño. Ver funding.ts. */
+  fundedBy?: string;
+  /** La declaración (Pieza C6): true cuando la línea es la
+   * DECLARACIÓN firmada de un pago esporádico de un miembro en un
+   * área del dueño — Faro presenta declaraciones firmadas, nunca
+   * hechos verificados. declaredAccount guarda el nombre que ELLA
+   * da a su cuenta (texto suyo, no una cuenta de la casa). */
+  declaration?: boolean;
+  declaredAccount?: string;
+  /** El reflejo (Pieza C6): en el libro de quien financió, la línea
+   * que refleja una línea del libro compartido — enlazada a su
+   * origen {book, line} y deduplicada por ese enlace. Si la línea
+   * compartida se borra, el reflejo queda como línea suya. */
+  mirrorOf?: { book: string; line: string };
   /** Optional: which of that person's occasions the gift was for ("birthday" or a PersonDate id). */
   occasionId?: string;
   /** Bank import (Nov 2026). Exact statement keys ("ofx:<acct>:<FITID>", "pp:<Transaction ID>"), several joined by "|". */
@@ -768,6 +786,12 @@ export type LedgerState = {
    * lee, y el historial conserva el hecho, nunca la línea. Ausente en
    * libros viejos y personales = ninguna lápida. */
   tombstones?: Tombstone[];
+  /** El mapa de financiación del libro compartido (Pieza C6,
+   * 1.3.396): categoría → cuenta de la persona que la financia de
+   * pie. Ausente (el mapa o la entrada) = financia el dueño desde su
+   * cuenta predeterminada. Financiar de pie NO es una aportación: es
+   * quién pone el dinero de esa área. Ver funding.ts. */
+  funding?: Record<string, string>;
   /** Los patrones aprendidos del Asesor (Ola 11 del banco, integrados
    * en 1.3.383): las palabras del usuario para sus cosas, confirmadas
    * por su toque o su corrección — palabra → ciudadano, jamás una

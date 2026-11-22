@@ -15,6 +15,7 @@
  *   después en «Quiénes están en este libro» como «qué compartí»:
  *   una sola función (previewFor) para componer y para verificar. */
 import type { LedgerState } from "./types";
+import { funderOf } from "./funding";
 
 export type ShareScope = { all: true } | { cats: string[] };
 export type ShareRole = "note" | "view";
@@ -66,9 +67,10 @@ export interface SharePreview {
   /** Lo que jamás viaja a su copia, ni con alcance total (la ley de
    * la Pieza C2): ajustes, auditoría y borradores del dueño. */
   neverTravels: string[];
-  /** Quién financia cada área visible: hoy, las cuentas del dueño
-   * (el dinero del invitado por área llega con la Pieza C6). */
-  fundedBy: { cat: string; by: "owner" }[];
+  /** Quién financia cada área visible: el mapa de financiación de
+   * la Pieza C6 manda — «owner» o la cuenta de la persona que la
+   * financia de pie. */
+  fundedBy: { cat: string; by: string }[];
 }
 
 /** La cuenta de la vista previa: pura, desde el libro y el trato. La
@@ -86,6 +88,6 @@ export function previewFor(state: LedgerState, scope: ShareScope, role: ShareRol
     notSeesCats,
     canDo,
     neverTravels: ["settings", "audit", "drafts"],
-    fundedBy: seesCats.map((cat) => ({ cat, by: "owner" as const })),
+    fundedBy: seesCats.map((cat) => ({ cat, by: funderOf(state, cat) ?? "owner" })),
   };
 }

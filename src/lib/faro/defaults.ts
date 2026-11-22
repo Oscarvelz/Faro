@@ -950,6 +950,11 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       // La firma de la Pieza C4: si está, es texto (la cuenta y el nombre congelado).
       if (l.by !== undefined && !isStrD(l.by)) return false;
       if (l.byName !== undefined && !isStrD(l.byName)) return false;
+      // El dinero y el reflejo (Pieza C6, 1.3.396): si están, su forma.
+      if (l.fundedBy !== undefined && !isStrD(l.fundedBy)) return false;
+      if (l.declaredAccount !== undefined && !isStrD(l.declaredAccount)) return false;
+      if (l.declaration !== undefined && typeof l.declaration !== "boolean") return false;
+      if (l.mirrorOf !== undefined && (!isObjD(l.mirrorOf) || !isStrD((l.mirrorOf as { book?: unknown }).book) || !isStrD((l.mirrorOf as { line?: unknown }).line))) return false;
     }
   }
   // structure: las categorías que nombran y ordenan todo lo demás.
@@ -1166,6 +1171,12 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (!isObjD(t)) return false;
       if (!isStrD(t.id) || !isStrD(t.at) || !isStrD(t.by)) return false;
     }
+  }
+  // funding (el mapa de financiación, Pieza C6): si está, es un mapa
+  // categoría → cuenta de persona, y nada más.
+  if (s.funding !== undefined) {
+    if (!isObjD(s.funding)) return false;
+    for (const v of Object.values(s.funding as Record<string, unknown>)) if (!isStrD(v)) return false;
   }
   return true;
 }

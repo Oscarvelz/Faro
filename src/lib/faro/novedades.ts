@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.396",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El libro compartido: el dinero de cada área", en: "The shared book: each area's money" },
+    points: {
+      es: [
+        "Cada área del libro compartido tiene quién la financia: tú desde tus cuentas, o una persona del libro con su dinero. La vista previa de la invitación ahora lo dice área por área, leyendo ese mapa.",
+        "La línea pagada por un invitado nace marcada como dinero suyo y no mueve tus cuentas; en su propio libro queda su reflejo, contado una sola vez. Y un pago suelto suyo en un área tuya entra como lo que es: una declaración firmada, nunca un hecho verificado.",
+      ],
+      en: [
+        "Each area of the shared book has its funder: you from your accounts, or a person in the book with their money. The invitation preview now says so area by area, reading that map.",
+        "A line paid by a guest is born marked as their money and moves none of your accounts; in their own book its reflection stays, counted once. And a one-off payment of theirs in one of your areas enters as what it is: a signed declaration, never a verified fact.",
+      ],
+    },
+  },
+  {
     version: "1.3.395",
     date: "2026-11-22",
     level: "menor",
