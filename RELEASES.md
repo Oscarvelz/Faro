@@ -3543,4 +3543,4 @@ La línea de Modos cazó nueve familias contra la 1.3.386 y su paquete (md5 b406
 
 Verificación (de primera mano): la cerca nueva modos-ola27 pasa entera y la suite completa marca **2822/2822** (2789 + 33 exactos de la cerca); `tsc` con exactamente los 3 errores permanentes. Banco vivo a 390×844: «¿Qué puedes hacer?» responde «44 clases de preguntas» — la Familia 4 visible. El candado no se tocó (md5 40a3b9bf…).
 
-Datos de publicación: PENDIENTE.
+Datos de publicación: fuente 5a2a228360be00a6e65d66713cebcd1572db1c6f (15 archivos), etiqueta v1.3.389, rollback rollback-pre-389-2026-11-22 → 46b1c88f85db5d3666e1b91354359187673417fb. Rama main: d43b4017bf8e60cf7047ce5ab8c38d0805a9fdbd + 57d2e632e6f46a16a2aaf54e7f4de1d96e0d8279 (index.html, precache.json, sw.js; el lote de pdf.worker y ocr es byte-idéntico al de la 1.3.388). Entrada index-D09syiTm.js; sw vivo faro-1.3.389; barrido vivo del precache 28/28 con md5 idénticos a la foto local (~/workspace/faro-389-dist-snapshot); el index vivo referencia la entrada nueva.
