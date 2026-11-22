@@ -3675,4 +3675,4 @@ La cura: la cáscara de la tarjeta se monta **una vez** (su entrada corre solo a
 
 Verificación: suite completa 3091/3091, EXIT 0 (la nota menor de la versión entra en Novedades, como manda la cerca). Banco renderizado a ancho de teléfono con la serie real (vistos hasta la 1.3.382 → tarjetas 400 y 383): al paginar, la cáscara NO se remonta — una marca puesta sobre ella sobrevive al pase —, el contenido entra con la animación direccional (`news-page-in`, `data-dir` 1 al avanzar y −1 al volver) y el contador camina 1 de 2 → 2 de 2 → 1 de 2.
 
-Datos de publicación: se completa en el commit de cierre.
+Datos de publicación: fuente e470a93c704404072cf39791e14c86ce5b633a35; principal 12eec66c50bf3764088c6bbc26880042d4fa94af + 662975fd8624d428a324dfc96f1b5068640bf8e3 + 67a30542f29e42f9d2210192ea0fe961b5d63013 + e43b887c09a929fb05ee3948b5d750b6471e71c4; etiqueta v1.3.401; barrido en vivo 28/28 idénticos; sw en vivo faro-1.3.401; entrada index-BvwCPPrU.js.
