@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.418",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El botón de añadir, a su medida", en: "The add button, at its right size" },
+    points: {
+      es: [
+        "El botón «+ Añadir» de «Preguntas a la mano» baja a su medida: menos relleno, la palabra y el signo más pequeños.",
+        "Con el ancho que el botón suelta, muchas preguntas del catálogo ahora caben en una sola línea y cada tarjeta se ordena mejor.",
+      ],
+      en: [
+        "The \"+ Add\" button in \"Questions at hand\" comes down to its right size: less padding, the word and the plus sign smaller.",
+        "With the width the button gives back, many catalog questions now fit on a single line and each card arranges itself better.",
+      ],
+    },
+    topic: "preguntas-a-la-mano",
+  },
+  {
     version: "1.3.417",
     date: "2026-11-22",
     level: "menor",

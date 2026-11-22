@@ -74,7 +74,7 @@ export function AskPresetsManager() {
           aria-label={L("Tu pregunta", "Your question")}
         />
         <button type="button" className="ap-add" data-anchor="ap-own-add" onClick={addOwn} disabled={!own.trim()}>
-          <Plus size={14} /> {L("Añadir", "Add")}
+          <Plus size={12} /> {L("Añadir", "Add")}
         </button>
       </div>
       <div className="ap-catalog">
@@ -96,7 +96,7 @@ export function AskPresetsManager() {
                         <span className="ap-added" data-anchor="ap-added"><Check size={14} /> {L("Guardada", "Saved")}</span>
                       ) : (
                         <button type="button" className="ap-add" data-anchor="ap-cat-add" onClick={() => commit((s) => addAskPreset(s, q), L("Pregunta guardada", "Question saved"))}>
-                          <Plus size={14} /> {L("Añadir", "Add")}
+                          <Plus size={12} /> {L("Añadir", "Add")}
                         </button>
                       )}
                     </div>

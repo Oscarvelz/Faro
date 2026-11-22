@@ -514,7 +514,9 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .ap-btn:not(:disabled):hover { color: var(--ink); border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
 .ap-own { display: flex; gap: 8px; }
 .ap-own-input { flex: 1; min-width: 0; }
-.ap-add { display: inline-flex; align-items: center; gap: 5px; flex: none; background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 9px; padding: 7px 11px; font-size: .84rem; font-weight: 600; cursor: pointer; }
+/* 1.3.418 (Oscar): el botón de añadir, a su medida — la palabra y el +
+   caben pequeños; el ancho que suelta deja a las preguntas en una línea. */
+.ap-add { display: inline-flex; align-items: center; gap: 4px; flex: none; background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 8px; padding: 4px 9px; font-size: .78rem; font-weight: 600; cursor: pointer; }
 .ap-add:disabled { opacity: .45; cursor: default; }
 .ap-added { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: .8rem; font-weight: 600; color: var(--accent); }
 /* La respuesta vive en su propio envoltorio (Oscar, 2026-11-20: «la
