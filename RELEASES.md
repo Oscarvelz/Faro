@@ -3551,4 +3551,4 @@ La primera pieza del Libro Compartido (BRIEF-LIBRO-COMPARTIDO.md), y es cimiento
 
 Verificación (de primera mano): libro390 8/8 (el papel clavado forma por forma: tabla, policy de lectura sin escrituras directas, las siete RPC con su security definer y sus grants, el tope, el enlace que no es llave, la transferencia en dos pasos); suite completa **2830/2830**; `tsc` con exactamente los 3 errores permanentes; banco de arranque limpio sobre la build. El candado no se tocó (md5 40a3b9bf…). NOTA HONESTA: la pieza de servidor vive cuando Oscar pegue `memberships.sql` en Supabase; hasta entonces la costura duerme sin mentir, como quedó diseñada.
 
-Datos de publicación: PENDIENTE.
+Datos de publicación: fuente 95da98509ae8cda95047ecbdc5ca929110610d15 (etiqueta v1.3.390); main 764ab4dc6592ecbd641674cb992b2fdd01159e2c + 0a82c93d9ef86ce34d3a9ba39841d1b143d309e9 (pdf.worker y ocr idénticos a los de la 1.3.389, no reenviados); barrido en vivo 28/28 idénticos, sw faro-1.3.390.
