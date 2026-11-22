@@ -3954,3 +3954,17 @@ La regla 50 · 30 · 20 deja de estar tallada: pasa a ser un ajuste del libro. O
 
 **Datos de publicación.** Fuente `5974a9b2` (13 archivos); principal: 43 archivos, cola `45d4a076`; barrido del precache vivo 28/28 idéntico; sw vivo `faro-1.3.422`. Snapshot `~/workspace/faro-422-dist-snapshot`.
 
+
+## 1.3.423 — «El detalle de precio respira» (2026-11-22)
+
+Dos curas de acabado, las dos de fotos de Oscar del mismo día.
+
+**El detalle respira (17:33).** En el detalle de un cambio de precio, el efecto («≈ C$200.00 / más al mes») pegaba en el borde derecho de la tarjeta y se cortaba: la fila de números (`.pw-detail-nums`) era un flex sin envolver y el efecto, empujado por `margin-left: auto`, montaba sobre el relleno. La fila ahora envuelve (`flex-wrap: wrap`, `row-gap: 2px`): cuando no cabe, el efecto baja a su propia línea, alineado a la derecha DENTRO del relleno de la tarjeta; con precios cortos, la fila sigue en una línea como hoy. En banco a 320 px de ancho el efecto bajó y su borde derecho quedó a 15 px del borde de la tarjeta — exactamente su relleno (14 + 1 de borde): respira como el texto de abajo, que era su medida.
+
+**Consistencia en la cabecera (rider, 18:02).** La cabecera que nombra el lente desplegado (1.3.421) llevaba el color de su ficha solo en la barrita; el nombre iba en el color común. Por el principio de Consistencia que Oscar añadió ese día a la ley de envoltorio — lo que es verdad en un sitio debe serlo en otro si se habla de lo mismo de la misma forma — el nombre viste ahora el color exacto que su ficha lleva al seleccionarla en Central: «Tengo» el acento, «Gastaré» el frente, «Pagos» el color de su semáforo. La cabecera entera lleva la clase de su lente y su tono (`is-${lensMode}` + `tone-*`), y las reglas del nombre espejan las de la barrita, que no se tocó.
+
+**Lo que el banco cazó.** Con el libro de banco, el tono de Pagos sale «neutral» (sin señal de deuda): la primera versión no tenía regla para ese caso y el nombre heredaba el color del tema, distinto de la barrita por un pelo (blanco puro contra el frente del tema). La ficha en neutral tampoco lleva tinte — su forma es el frente — así que la cura es la regla base: el nombre de Pagos viste `var(--fg)` y los tres tonos la sobrescriben. Re-banco: en los tres lentes el color computado del nombre es idéntico al fondo de la barrita.
+
+**Verificación.** Focalizadas 25/25 (423 + 421 + 411 + 417 + novedades346 + captura379) y la base de Pagos quedó clavada en la cerca 423. Banco `scenario-423a`: HAVE nombre = barrita = acento del tema; SPEND nombre = barrita = frente; DEBT (neutral) nombre = barrita = frente. Banco `scenario-423b` a 320 px: `flex-wrap: wrap` computado, el efecto envuelto en su línea y a 15 px dentro del borde. Suite completa: 3,237/3,237 en verde (suite423.log, SUITE_EXIT=0; el delta sobre la 422 son los 3 its de captura423). tsc: los 3 errores de siempre. Build: entry `index-Dwfc7vPS.js`.
+
+**Datos de publicación.** Dist publicado en `main`: 43 archivos, cola `ab23f55be9798e8de37a1f3daa8f0620f2bff92f`. Barrido del precache vivo: 28/28 idénticos; sw vivo `faro-1.3.423`. Fuente: `5909b3621fbbfe44ca5183b9a8b87915ebd0d02a`. Snapshot: `~/workspace/faro-423-dist-snapshot`.
