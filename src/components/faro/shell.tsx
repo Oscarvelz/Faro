@@ -1233,6 +1233,31 @@ export function Shell() {
               >
                 {NIGHT_THEMES.includes(session.ledger.settings.theme) ? <Sun className="size-4" /> : <Moon className="size-4" />}
               </button>
+              {/* El acceso al Asesor vive en este hueco desde la 1.3.372
+                  (era el del icono de Vista; las vistas bajaron al botón
+                  flotante permanente). Su marca es la brújula desde la
+                  1.3.374: la burbuja con interrogación no le convencía a
+                  Oscar y nada en Faro debe leerse como «IA», porque no lo
+                  es. La 1.3.374 lo mudó dentro de la rejilla (tema ·
+                  calendario · Asesor · lupa · moneda) y la 1.3.375 lo
+                  devuelve a este asiento por su revocación de la misma
+                  noche (2026-11-21 20:51): «hay un espacio necesario
+                  entre el calendario y la lupa» — la rejilla guarda ese
+                  aire; todo lo demás de la 374 queda. */}
+              <button
+                type="button"
+                className="icon-btn theme-toggle cal-launch"
+                data-anchor="top-ask"
+                aria-label={lang === "en" ? "Ask your Advisor" : "Pregúntale a tu Asesor"}
+                onClick={goAsk}
+              >
+                <Compass className="size-4" />
+              </button>
+              <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
+                <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}>
+                  <Search className="size-4" />
+                </button>
+              </div>
               <div className="desk-grid">
                 <div className="cal-anchor" ref={calRef} data-anchor="top-cal">
                   {has("nav.calendar") ? (
@@ -1369,29 +1394,6 @@ export function Shell() {
                       </div>
                     </div>
                   ) : null}
-                </div>
-                {/* 1.3.374 (orden de Oscar, 2026-11-21 20:22): la barra se
-                    lee tema · calendario · Asesor · lupa · moneda — la lupa
-                    al lugar del calendario, el calendario al del Asesor y
-                    el Asesor al de la lupa: tercero leído de derecha a
-                    izquierda. El icono del Asesor es la brújula, su marca
-                    en la casa: la burbuja con interrogación no le convencía
-                    y nada en Faro debe leerse como «IA», porque no lo es.
-                    (En este hueco vivía el icono de Vista hasta la 1.3.372;
-                    las vistas bajaron al botón flotante permanente.) */}
-                <button
-                  type="button"
-                  className="icon-btn theme-toggle cal-launch"
-                  data-anchor="top-ask"
-                  aria-label={lang === "en" ? "Ask your Advisor" : "Pregúntale a tu Asesor"}
-                  onClick={goAsk}
-                >
-                  <Compass className="size-4" />
-                </button>
-                <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
-                  <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}>
-                    <Search className="size-4" />
-                  </button>
                 </div>
               <button
                 type="button"

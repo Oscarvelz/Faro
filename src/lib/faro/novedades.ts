@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.375",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "La barra vuelve a su orden", en: "The bar returns to its order" },
+    points: {
+      es: [
+        "La barra superior vuelve a leerse como antes: tema, Asesor, lupa, calendario y moneda. Entre el calendario y la lupa queda el espacio que la rejilla les guarda.",
+        "Todo lo demás de la nota anterior queda: la brújula del Asesor, el aterrizaje en la caja entera, los botones más pequeños y su esquina sobre el Manual.",
+      ],
+      en: [
+        "The top bar reads as it did before: theme, Advisor, search, calendar and the coin. Between the calendar and the search there is the space the grid keeps for them.",
+        "Everything else from the previous note stays: the Advisor's compass, the landing on the whole box, the smaller buttons and their corner over the Manual.",
+      ],
+    },
+  },
+  {
     version: "1.3.374",
     date: "2026-11-21",
     level: "menor",

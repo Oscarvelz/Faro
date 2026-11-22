@@ -39,13 +39,19 @@ const floatCss = read("../../components/faro/float.css");
 const advisorCss = read("../../components/faro/advisor2.css");
 const topicsSrc = read("../manual/topics.ts");
 
-test("374-1 · el orden de la barra: tema · calendario · Asesor · lupa · moneda", () => {
+test("374-1 · el orden de la barra (re-fijado por la 1.3.375: la revocación de Oscar)", () => {
+  // La 1.3.374 ordenó la barra tema · calendario · Asesor · lupa ·
+  // moneda por su palabra de las 20:22; la misma noche (20:51) la
+  // revocó él mismo: «hay un espacio necesario entre el calendario y
+  // la lupa». El orden vuelve a su asiento anterior y esta cerca lo
+  // clava así; lo demás de la 374 (brújula, aterrizaje, 31 px, la
+  // esquina) queda intacto y cercado abajo.
   const at = (anchor: string) => shellSrc.indexOf(`data-anchor="${anchor}"`);
   const theme = at("top-theme"), cal = at("top-cal"), ask = at("top-ask"), search = at("top-search"), coin = at("top-coin");
-  assert.ok(theme > 0 && cal > theme, "el calendario toma el lugar del Asesor, tras el tema");
-  assert.ok(ask > cal, "el Asesor toma el lugar de la lupa, tras el calendario");
-  assert.ok(search > ask, "la lupa toma el lugar del calendario, tras el Asesor");
-  assert.ok(coin > search, "la moneda cierra la fila, como siempre");
+  assert.ok(theme > 0 && ask > theme, "el Asesor vuelve a su hueco tras el tema");
+  assert.ok(search > ask, "la lupa sigue al Asesor, fuera de la rejilla");
+  assert.ok(cal > search, "el calendario vive en la rejilla, tras la lupa — el espacio entre ambos es el de la rejilla");
+  assert.ok(coin > cal, "la moneda cierra la fila, como siempre");
 });
 
 test("374-2 · una sola cara para el Asesor: la brújula, en la barra y en la caja", () => {
