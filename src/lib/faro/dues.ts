@@ -78,15 +78,28 @@ export function duesWindow(state: LedgerState, days: number, today = todayIso())
   // cura. Ahora: un período que una instancia `auto-…` de la serie anota
   // pagado con su bookedOn NO se anuncia — salvo que una instancia de la
   // PROPIA persona anote el mismo período, porque su papel manda sobre la
-  // anotación de la máquina. La instancia que cubre debe ser un papel de
-  // pago vivo (activa, no apartada), con los mismos filtros con que la
-  // caminata lee a sus candidatos. Toda superficie lee ESTA ventana
-  // (avisos, Asesor, Preguntar), así que la verdad se hereda entera.
+  // anotación de la máquina. Toda superficie lee ESTA ventana (avisos,
+  // Asesor, Preguntar), así que la verdad se hereda entera.
+  // OLA 25 (G25-4): LA COBERTURA NO FILTRA POR DESCANSO. La forma de la
+  // ola 24 recogía la cobertura solo de papeles vivos (activos Y no
+  // apartados) y su comentario afirmaba que eran «los mismos filtros con
+  // que la caminata lee a sus candidatos» — falso: el bucle de cobertura
+  // del asentamiento (autopay.ts) no filtra ni actividad ni descanso, y
+  // apartar la instancia que pagó revivía la fila falsa en el anuncio
+  // mientras el motor, cubierto por el mismo bookedOn, no re-asentaba.
+  // Apartar no es salir (ley de Oscar): el papel apartado sigue siendo
+  // el pago que fue — su descanso es de lecturas, no de verdad — así
+  // que su bookedOn cubre el anuncio igual que cubre el asentamiento.
+  // (La cobertura solo SUPRIME un anuncio: jamás nombra ni suma el
+  // papel apartado, así que la puerta anti-fuga no se abre.) El filtro
+  // que sí queda es el de ACTIVIDAD, y queda declarado como diferencia:
+  // la instancia DESACTIVADA que pagó tiene dos lecturas ante Oscar
+  // (T5-e de la ola 25) y esta cura no la toca.
   const autoCovered = new Set<string>();
   const personCovered = new Set<string>();
   for (const bucket of Object.values(state.months)) {
     for (const l of bucket.lines) {
-      if (!l.active || l.rest) continue;
+      if (!l.active) continue;
       const booked = (l.bookedOn || "").slice(0, 10);
       if (!ISO_DAY.test(booked)) continue;
       const sig = `${l.seriesId || l.id}@${booked}`;

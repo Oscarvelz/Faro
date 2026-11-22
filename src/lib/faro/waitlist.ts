@@ -149,7 +149,19 @@ export function askStamp(state: LedgerState, id: string, now: Date): LedgerState
  * que nadie tenga que desmarcar nada. Mostrar la lista escribe SOLO
  * esta marca — jamás un commit — y la pregunta se hace una vez por
  * plazo. Si el aparato no guarda la marca, la pregunta puede repetirse
- * en otra visita: un daño menor y dicho, nunca una pila bloqueada. */
+ * en otra visita: un daño menor y dicho, nunca una pila bloqueada.
+ *
+ * OLA 25 (la misma cura que el sello, G25-2): cada deseo marca bajo su
+ * PROPIA llave. La forma de la ola 24 guardaba todas las marcas en UN
+ * JSON y marcar era leer–mezclar–escribir ese JSON: dos pestañas que
+ * marcaban deseos distintos desde la misma foto perdían una marca (la
+ * ola 25 lo midió con daño cero — la marca no gobierna ninguna cara y
+ * la perdida se reescribe en la siguiente visita — pero la forma era
+ * la de la carrera del sello, y la casa no guarda dos veces la misma
+ * cerradura rota). Marcar ya no lee nada: cada deseo escribe su llave
+ * (`faro-wish-asked.<uid>.<deseo>` = su dueAt), y dos pestañas no
+ * comparten ningún valor que pisarse. El mapa legado bajo la llave
+ * del libro se sigue leyendo como lo que era. */
 export interface WishAskStorage {
   read: (key: string) => string | null;
   write: (key: string, value: string) => void;
@@ -159,7 +171,16 @@ export function wishAskKey(userId: string): string {
   return `faro-wish-asked.${userId}`;
 }
 
-/** Las marcas del libro, leídas con desconfianza: mapa deseo → dueAt. */
+/** La llave PROPIA de un deseo (cura de la ola 25): su valor es el
+ * dueAt por el que ya se preguntó. */
+export function wishAskMarkKey(userId: string, wishId: string): string {
+  return `${wishAskKey(userId)}.${wishId}`;
+}
+
+/** Las marcas LEGADAS del libro (el mapa único de la forma de la ola
+ * 24), leídas con desconfianza: mapa deseo → dueAt. La forma viva
+ * desde la ola 25 vive en las llaves por deseo, que wishAskedFor lee
+ * primero; este mapa solo se consulta como lo que era. */
 export function wishAskMarks(storage: WishAskStorage, userId: string): Record<string, string> {
   try {
     const raw = storage.read(wishAskKey(userId));
@@ -176,21 +197,28 @@ export function wishAskMarks(storage: WishAskStorage, userId: string): Record<st
   }
 }
 
-/** ¿Ya se preguntó por ESTE deseo en ESTE plazo? */
+/** ¿Ya se preguntó por ESTE deseo en ESTE plazo? La llave propia del
+ * deseo manda; el mapa legado responde por las marcas que nacieron
+ * con la forma vieja. */
 export function wishAskedFor(storage: WishAskStorage, userId: string, wish: Wish): boolean {
+  try {
+    if (storage.read(wishAskMarkKey(userId, wish.id)) === wish.dueAt) return true;
+  } catch {
+    /* Sin lectura no hay marca que valga: se cae al mapa legado. */
+  }
   return wishAskMarks(storage, userId)[wish.id] === wish.dueAt;
 }
 
-/** Marcar los deseos como ya preguntados por su plazo actual. */
+/** Marcar los deseos como ya preguntados por su plazo actual: cada
+ * uno bajo su propia llave, sin leer nada (cura de la ola 25). */
 export function markWishAsked(storage: WishAskStorage, userId: string, wishes: Wish[]): void {
-  if (!wishes.length) return;
-  const marks = wishAskMarks(storage, userId);
-  for (const w of wishes) marks[w.id] = w.dueAt;
-  try {
-    storage.write(wishAskKey(userId), JSON.stringify(marks));
-  } catch {
-    /* El aparato no guarda: la marca degrada a esta visita (declarado
-     * en la doctrina de arriba); el libro jamás se entera. */
+  for (const w of wishes) {
+    try {
+      storage.write(wishAskMarkKey(userId, w.id), w.dueAt);
+    } catch {
+      /* El aparato no guarda: la marca degrada a esta visita (declarado
+       * en la doctrina de arriba); el libro jamás se entera. */
+    }
   }
 }
 

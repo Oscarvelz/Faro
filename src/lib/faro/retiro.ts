@@ -4,6 +4,7 @@
  * Removing a line with money history archives it (inactive, hidden, history kept); a line without history is deleted.
  * Old ledgers (no retiroOff, no archived) load unchanged.
  */
+import { migrateAutopayConfig } from "./autopay.ts";
 import { uid } from "./money.ts";
 import type { LedgerState, Line } from "./types";
 
@@ -81,7 +82,13 @@ export function dropPocketLine(state: LedgerState, key: string, id: string): { s
   const at = retiroSub(state);
   const preset = at && line.subId === at.subId && isFactorySeed(line);
   const retiroOff = preset ? [...new Set([...(state.retiroOff ?? []), "primerica"])] : state.retiroOff;
-  return { state: { ...state, retiroOff, months: { ...state.months, [key]: { lines } } }, archived: keep };
+  // OLA 25 (G25-1): también esta puerta compone el paso de migración —
+  // sus líneas son de fábrica (expense-fixed del bolsillo: ninguna
+  // portadora puede vivir ahí), así que el paso no estampa nada; se
+  // compone para que la universal sea verdad por construcción y no
+  // una excepción argumentada.
+  const next: LedgerState = { ...state, retiroOff, months: { ...state.months, [key]: { lines } } };
+  return { state: migrateAutopayConfig(state, next), archived: keep };
 }
 
 /** Restore the default Retiro presets: an archived Primerica in `key` comes back with its history, else a fresh $0 one. */

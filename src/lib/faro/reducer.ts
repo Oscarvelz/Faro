@@ -2,7 +2,7 @@ import { uid } from "./money.ts";
 import { FREQ_DEFAULT, intervalOf, nextDueFrom } from "./cadence.ts";
 import { ISO_DAY } from "./loans.ts";
 import { modeOf } from "./mode.ts";
-import { seriesAutopayConfig } from "./autopay.ts";
+import { migrateAutopayConfig } from "./autopay.ts";
 import type { LedgerState, Line } from "./types";
 
 export type Session = {
@@ -300,39 +300,21 @@ export function deleteLine(state: LedgerState, monthKey: string, id: string): Le
   // Config, en autopay.ts: la única resolución de la casa) vive en la
   // instancia que la menciona — y borrar esa anotación del Historial
   // apagaba la serie para siempre, en silencio: borrar un papel no es
-  // revocar una instrucción permanente. Aquí, dentro de la misma receta
-  // de borrado, si la instrucción resuelta de la serie CAMBIA al quitar
-  // la línea, la instrucción de antes se estampa en la instancia más
-  // nueva restante: encendida con su cuenta, o el apagado explícito —
-  // en las dos direcciones, lo que la serie tenía dicho queda dicho.
-  // Sin serie, sin mención o sin cambio, el borrado es el de siempre.
-  // (El movimiento de mes de patchLineWith compone este borrado con el
-  // upsert de la MISMA línea: si una estampa nace, es copia de la misma
-  // instrucción que la línea que vuelve trae, y la resolución — de la
-  // más nueva a la más vieja — lee la misma palabra.)
-  const target = bucket.lines.find((l) => l.id === id)!;
-  if (target.kind !== "subscription") return without;
-  const seriesKey = target.seriesId || target.id;
-  const all: Line[] = [];
-  const remaining: Line[] = [];
-  for (const b of Object.values(state.months)) {
-    for (const l of b.lines) {
-      if (l.kind !== "subscription" || (l.seriesId || l.id) !== seriesKey) continue;
-      all.push(l);
-      if (l.id !== id) remaining.push(l);
-    }
-  }
-  if (!remaining.length) return without;
-  const before = seriesAutopayConfig(all);
-  if (!before) return without;
-  const after = seriesAutopayConfig(remaining);
-  if (after && after.on === before.on && after.accountId === before.accountId) return without;
-  const day = (l: Line): string => l.bookedOn || l.nextDue || `${l.monthKey}-01`;
-  const newest = [...remaining].sort((a, b) => day(a).localeCompare(day(b)))[remaining.length - 1]!;
-  const stamped: Line = before.on
-    ? { ...newest, autopay: true, autopayAccountId: before.accountId }
-    : { ...newest, autopay: false };
-  return upsertLine(without, stamped);
+  // revocar una instrucción permanente.
+  // OLA 25 (G25-1): la migración ya no vive SOLO en esta receta. La
+  // cura 24 la enunció como universal («todas las puertas de borrado
+  // componen deleteLine») y era falsa en el Archivo: deleteResting-
+  // Lines y deleteSpan borraban la portadora apartada sin migrar, y la
+  // serie moría igual. Desde esta cura la migración es el paso único
+  // de autopay.ts (migrateAutopayConfig), que ESTA receta compone
+  // sobre su resultado — como lo componen las puertas del Archivo, el
+  // bolsillo de Retiro y el retiro por subcategoría: una sola
+  // implementación para todo borrado, censada por la cerca de la ola
+  // 25. (El movimiento de mes de patchLineWith compone este borrado
+  // con el upsert de la MISMA línea: si una estampa nace, es copia de
+  // la misma instrucción que la línea que vuelve trae, y la resolución
+  // — de la más nueva a la más vieja — lee la misma palabra.)
+  return migrateAutopayConfig(state, without);
 }
 
 export function copyRecurring(state: LedgerState, from: string, to: string): { state: LedgerState; count: number } {

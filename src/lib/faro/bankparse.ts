@@ -12,6 +12,7 @@ import { accounts, bonusFor, canonMatch, CASH_SOURCE, dayGap, ensureAccounts, fi
  * siempre y lo usa con su nombre corto de la casa. */
 export { matchKey };
 const similar = similarKeys;
+import { migrateAutopayConfig } from "./autopay.ts";
 import type { AcctKind, ColumnMap, Currency, ImportBook, LedgerState, Line, RewardClass, Structure, Sub } from "./types.ts";
 import type { PdfStatement } from "./pdfstmt.ts";
 import type { FaroPdf } from "./faropdf.ts";
@@ -1024,7 +1025,11 @@ export function revertImportCounted(state: LedgerState, u: Undo): { state: Ledge
   }
   const next: LedgerState = { ...state, months, ...(u.structure ? { structure: { ...state.structure, categories: u.structure.categories } } : {}) };
   if (u.book) next.imports = u.book; else delete next.imports;
-  return { state: next, preserved };
+  // CURA OLA 25 (G25-1): el deshacer también quita líneas del libro — si
+  // entre ellas iba la portadora de una serie (una línea importada que la
+  // persona armó después con la mesa), la instrucción migra al componer,
+  // como en toda receta que borra.
+  return { state: migrateAutopayConfig(state, next), preserved };
 }
 
 /** Deshacer: takes the batch's lines out, puts back the lines it changed and the import settings as they were. */
@@ -1035,5 +1040,5 @@ export function revertImport(state: LedgerState, u: Undo): LedgerState {
   for (const [k, b] of Object.entries(state.months)) months[k] = { lines: b.lines.filter((l) => l.batch !== u.batch || back.has(l.id)).map((l) => back.get(l.id) ?? l) };
   const next: LedgerState = { ...state, months, ...(u.structure ? { structure: { ...state.structure, categories: u.structure.categories } } : {}) };
   if (u.book) next.imports = u.book; else delete next.imports;
-  return next;
+  return migrateAutopayConfig(state, next); // CURA OLA 25 (G25-1): también esta puerta compone la migración
 }

@@ -106,7 +106,11 @@ function bookWishes(wishes: unknown): LedgerState {
 
 function memStorage(): AutopaySealStorage & { map: Map<string, string> } {
   const map = new Map<string, string>();
-  return { map, read: (k) => map.get(k) ?? null, write: (k, v) => { map.set(k, v); } };
+  // OLA 25: el contrato del almacenamiento creció una enumeración
+  // (la casa del sello lista sus llaves por serie, como el
+  // localStorage del aparato siempre pudo); el doble la cumple sobre
+  // su mapa, sin cambiar lo que esta cerca mide.
+  return { map, read: (k) => map.get(k) ?? null, write: (k, v) => { map.set(k, v); }, keys: (p) => [...map.keys()].filter((k) => k.startsWith(p)) };
 }
 
 function memWishStorage(): WishAskStorage & { map: Map<string, string> } {

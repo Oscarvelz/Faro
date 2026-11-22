@@ -403,8 +403,13 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/people.tsx|commit|mergeContacts|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
   "components/faro/presentacion.tsx|commit|ref:sow|sow+addLent+addLoan+putCard+addReading+hidePeriod+sowBanco+hideFactoryVaults": ["aterrizaje", 3],
-  "components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines": ["final", 1],
-  "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan": ["final", 1],
+  // CURA OLA 25 (familia 1, G25-1): las dos puertas del Archivo
+  // componen ahora el paso único de migración del autopay
+  // (migrateAutopayConfig, en autopay.ts), así que sus firmas crecen
+  // con su nombre. La clase no cambia: siguen siendo los dos borrados
+  // finales del descanso, por la misma puerta y con la misma cuenta.
+  "components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines+migrateAutopayConfig": ["final", 1],
+  "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan+migrateAutopayConfig": ["final", 1],
   "components/faro/provider.tsx|commitFinal|ref:recipe|—": ["final", 1],
   "components/faro/provider.tsx|commitGuarded|hideLines|hideLines": ["guardada", 1],
   "components/faro/provider.tsx|commitGuarded|hidePeriod|hidePeriod": ["guardada", 1],
@@ -455,7 +460,12 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // restante (upsertLine dentro de la misma receta), así que su firma
   // crece a deleteLine+upsertLine en sus dos puertas. La clase no
   // cambia: la receta sigue viajando guardada, con la misma cuenta.
-  "components/faro/remesas.tsx|commitGuarded|deleteLine|deleteLine+upsertLine": ["guardada", 1],
+  // CURA OLA 25 (familia 1, G25-1): la migración salió de deleteLine
+  // al paso único de autopay.ts (migrateAutopayConfig) que toda
+  // receta de borrado compone; la firma de deleteLine lo nombra ahora
+  // a él en vez del upsertLine con que la cura 24 estampaba. La clase
+  // no cambia: guardada, con la misma cuenta en sus dos puertas.
+  "components/faro/remesas.tsx|commitGuarded|deleteLine|deleteLine+migrateAutopayConfig": ["guardada", 1],
   "components/faro/remesas.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],
   "components/faro/remit-people.tsx|commitGuarded|addRemitPerson|—": ["guardada", 1],
   "components/faro/remit-people.tsx|commitGuarded|colorRemitPerson|colorRemitPerson": ["guardada", 1],
@@ -475,11 +485,15 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/sample-mode.tsx|commit|stripSample|stripSample": ["aterrizaje", 1],
   "components/faro/screens.tsx|commitAnnounced|modeOf|—": ["anunciada", 1],
   "components/faro/screens.tsx|commitGuarded|declareSeries|declareSeries": ["guardada", 6],
-  "components/faro/screens.tsx|commitGuarded|deleteLine|deleteLine+upsertLine": ["guardada", 3],
+  "components/faro/screens.tsx|commitGuarded|deleteLine|deleteLine+migrateAutopayConfig": ["guardada", 3],
   "components/faro/screens.tsx|commitGuarded|dropPocketLine|—": ["guardada", 2],
   "components/faro/screens.tsx|commitGuarded|inline|—": ["guardada", 8],
-  "components/faro/screens.tsx|commitGuarded|patchLine|patchLine+patchLineWith+upsertLine+deleteLine": ["guardada", 13],
-  "components/faro/screens.tsx|commitGuarded|patchLineWith|patchLineWith+upsertLine+deleteLine": ["guardada", 5],
+  // CURA OLA 25 (familia 1, G25-1): la firma es transitiva — el paso
+  // de migración que deleteLine compone entra también en la firma de
+  // quienes componen deleteLine (patchLine y patchLineWith, en su
+  // movimiento de mes). La clase no cambia: guardadas, mismas cuentas.
+  "components/faro/screens.tsx|commitGuarded|patchLine|patchLine+patchLineWith+upsertLine+deleteLine+migrateAutopayConfig": ["guardada", 13],
+  "components/faro/screens.tsx|commitGuarded|patchLineWith|patchLineWith+upsertLine+deleteLine+migrateAutopayConfig": ["guardada", 5],
   "components/faro/screens.tsx|commitGuarded|restoreDefaultCategories|restoreDefaultCategories": ["guardada", 1],
   "components/faro/screens.tsx|commitGuarded|restoreRetiro|restoreRetiro+seedRetiro": ["guardada", 2],
   "components/faro/screens.tsx|commitGuarded|run|—": ["guardada", 1],
@@ -1038,7 +1052,7 @@ describe("ola19 · §B: el censo permanente de recetas", () => {
     for (const [key, count] of vivo) { total += count; if (CENSO19[key]![0] === "guardada") guardadas += count; }
     assert.ok(guardadas >= 60, `las recetas guardadas son ${guardadas} de ${total}`);
     const finales = [...vivo.keys()].filter((k) => k.split("|")[1] === "commitFinal" && !k.includes("|ref:recipe|"));
-    assert.deepEqual(finales.sort(), ["components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines", "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan"], "commitFinal sirve solo a los dos borrados del descanso (la llave ref:recipe es la maquinaria de la puerta misma, no una receta)");
+    assert.deepEqual(finales.sort(), ["components/faro/provider.tsx|commitFinal|deleteRestingLines|deleteRestingLines+migrateAutopayConfig", "components/faro/provider.tsx|commitFinal|deleteSpan|deleteSpan+migrateAutopayConfig"], "commitFinal sirve solo a los dos borrados del descanso (la llave ref:recipe es la maquinaria de la puerta misma, no una receta)");
   });
 });
 

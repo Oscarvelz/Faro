@@ -1,3 +1,4 @@
+import { migrateAutopayConfigMonths } from "./autopay.ts";
 import { BCN_AS_OF, BCN_RATE_E4 } from "./money";
 import type {
   CatalogItem,
@@ -372,7 +373,14 @@ export function lineListVisible(structure: Structure, line: Line): boolean {
  * 1.3.178, by the Estructura tree bin, so both controls retire exactly the same set.
  */
 export function dropSubLines(months: LedgerState["months"], subId: string): LedgerState["months"] {
-  return Object.fromEntries(Object.entries(months).map(([month, bucket]) => [month, { lines: bucket.lines.filter((line) => line.subId !== subId) }]));
+  const after = Object.fromEntries(Object.entries(months).map(([month, bucket]) => [month, { lines: bucket.lines.filter((line) => line.subId !== subId) }]));
+  // OLA 25 (G25-1): el retiro por subcategoría también compone el paso
+  // de migración (en su forma de meses): si entre las líneas retiradas
+  // iba la portadora de una serie cuya otra instancia vive bajo otra
+  // subcategoría, la instrucción de la serie queda estampada en ella —
+  // ninguna ruta que quita líneas deja la migración a la memoria de
+  // quien la escribe.
+  return migrateAutopayConfigMonths(months, after);
 }
 
 export type SubLinesSummary = { count: number; totals: { currency: Currency; minor: number }[] };
@@ -865,6 +873,18 @@ export function isLedger(x: unknown): x is LedgerState {
 const isObjD = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const isStrD = (v: unknown): v is string => typeof v === "string";
 const isFinD = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+/** OLA 25 (G25-3): una fecha JUZGADA COMO FECHA — el mismo parser que la
+ * desreferencia (`new Date(v)` en waitlist.ts) debe poder leerla: un
+ * texto que el parser no entiende entraba como «texto válido» y salía
+ * como NaN en el anillo y en el «quedan N horas». */
+const isDateStrD = (v: unknown): v is string => typeof v === "string" && v !== "" && !Number.isNaN(new Date(v).getTime());
+/** OLA 25 (G25-3): las horas de espera caben en su aritmética — la
+ * desreferencia suma `waitHours * 3600_000` al ahora y llama a
+ * `toISOString()` (renewWish): fuera del rango de Date (±8.64e15 ms)
+ * eso es un RangeError, no una fecha. «Finito» era más débil que la
+ * desreferencia; el juicio deja sitio al propio ahora que se suma. */
+const isWaitHoursD = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v) && Math.abs(v * 3600_000) < 8.64e15 - Date.now();
 
 export function isLedgerDeep(x: unknown): x is LedgerState {
   if (!isLedger(x)) return false;
@@ -964,7 +984,9 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   }
   // wishes (la lista de espera, 5c): la puerta juzga la FORMA ENTERA del
   // deseo — cada campo que waitlist.ts desreferencia sin red (cura de la
-  // ola 24, G24-1). La delegación anterior («se leen con desconfianza en
+  // ola 24, G24-1), y en la DIMENSIÓN en que se desreferencia (cura de
+  // la ola 25, G25-3: las fechas como fechas, las horas de espera en el
+  // rango de su aritmética — ver el juicio dentro del bucle). La delegación anterior («se leen con desconfianza en
   // waitlist.ts») era más estrecha que las desreferencias reales: un deseo
   // sin closedAt tumbaba la cuenta del año al pintar (closedAt.slice), sin
   // waitHours rompía renewWish (RangeError) y pintaba NaN en el anillo,
@@ -985,8 +1007,20 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (!isObjD(w)) continue;
       if (!isStrD(w.id) || !isStrD(w.concept) || !isStrD(w.store) || !isStrD(w.currency)) return false;
       if (!isStrD(w.createdAt) || !isStrD(w.dueAt) || !isStrD(w.askedAt) || !isStrD(w.closedAt)) return false;
+      // OLA 25 (G25-3): el juicio sube a la DIMENSIÓN de la desreferencia.
+      // dueAt y createdAt se leen como FECHAS (isRipe/remainingMs hacen
+      // `new Date(w.dueAt).getTime()`; la cuenta del año corta y compara
+      // closedAt como fecha): un texto no parseable pasaba como texto y
+      // producía NaN pintado y una pregunta que jamás llegaba. closedAt
+      // admite su forma viva del deseo que espera — la cadena vacía —
+      // o una fecha parseable. Y waitHours se desreferencia como
+      // aritmética de fechas que termina en toISOString(): debe caber
+      // en el rango de Date (isWaitHoursD), no solo ser finito — 3e9
+      // horas es finito y rompía renewWish con RangeError.
+      if (!isDateStrD(w.createdAt) || !isDateStrD(w.dueAt)) return false;
+      if (w.closedAt !== "" && !isDateStrD(w.closedAt)) return false;
       if (w.amountMinor !== null && !isFinD(w.amountMinor)) return false;
-      if (!isFinD(w.waitHours) || !isFinD(w.renewals)) return false;
+      if (!isWaitHoursD(w.waitHours) || !isFinD(w.renewals)) return false;
       if (typeof w.permanent !== "boolean") return false;
       if (w.status !== "waiting" && w.status !== "left" && w.status !== "bought") return false;
       if (w.link !== undefined && !isStrD(w.link)) return false;

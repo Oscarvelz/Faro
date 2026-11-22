@@ -347,6 +347,36 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     counts: "La puerta de Faro es permanente: entrar sin internet, trabajar, guardar local y sincronizar al volver la conexión. Ninguna respuesta del Asesor depende de la red.",
     keys: ["cuenta", "sincron", "sin internet", "offline", "copia de seguridad", "backup", "account"],
   },
+  {
+    // OLA 25 (Q25-1): la función nació en la .363 (Pieza 0) con tema y
+    // asiento (account.name, Esencial) y el mapa no la aprendió: sus
+    // preguntas caían en silencio — y la de «¿cómo cambio mi nombre?»
+    // caía PEOR, en la mesa de cambio, por la palabra «cambio». La
+    // entrada existe desde esta cura; el desempate contra la mesa lo
+    // manda el patrón del nombre propio en ask2 (faroMismoAnswer).
+    id: "account.name",
+    area: "Cuenta",
+    name: { es: "Tu nombre en Faro", en: "Your name in Faro" },
+    screen: { es: "Ajustes → Cuenta → Cómo te nombra Faro", en: "Settings → Account → How Faro names you" },
+    engine: "personname.ts · chosenNameOf (el lector único del nombre)",
+    figures: ["el nombre con el que Faro te nombra"],
+    counts: "El nombre vive en la CUENTA, nunca en un libro, y se gasta solo en dos umbrales de lista cerrada: la apertura de la Lectura del Asesor y la pregunta de la lista de espera cuando un deseo vence. Nunca aparece en una cifra, en un aviso ni en una respuesta de Preguntar. El correo jamás se lee como nombre.",
+    keys: ["mi nombre", "cambio mi nombre", "cambiar mi nombre", "como me llama", "como me llamo", "nombre con que me saluda", "my name", "change my name", "faro call me"],
+  },
+  {
+    // OLA 25 (Q25-1): compartir nació en la .362 con tema y asiento
+    // (inbox.link, Esencial) y el mapa tampoco la aprendió — sus
+    // preguntas caían en silencio en los dos motores. Esta es su
+    // entrada, con su puerta al tema «compartir».
+    id: "inbox.link",
+    area: "Captura",
+    name: { es: "Compartir con Faro", en: "Sharing with Faro" },
+    screen: { es: "La hoja de Compartir, al compartir desde otra app (sus puertas caen en Central)", en: "The Share sheet, when you share from another app (its doors land on the Desk)" },
+    engine: "sharelink.ts + link-inbox.tsx / share-product.tsx (la hoja y sus puertas)",
+    figures: ["lo leído del enlace o la captura: nombre, tienda y precio si venía"],
+    counts: "Compartir trae, la persona decide: nada entra a los libros sin pasar por la mesa. La hoja ofrece sus puertas (la espera, un plan en Ritmo, la compra en la bandeja, guardar la tienda) y el precio jamás se inventa: si la página no lo publica, el campo nace vacío.",
+    keys: ["compartir", "comparto", "compartieron", "compartido", "share", "shared with me"],
+  },
 ];
 
 /** LA PUERTA DE CADA FUNCIÓN (injerto de la fusión, 1.3.355): el tema
@@ -372,6 +402,8 @@ export const FUNCTION_TOPIC: Record<string, string> = {
   "estudio.regla": "estudio",
   "asesor.lectura": "asesor",
   "asesor.escenarios": "asesor",
+  "account.name": "nombre",
+  "inbox.link": "compartir",
 };
 
 /** Busca la función del mapa que un usuario nombra al preguntar por la

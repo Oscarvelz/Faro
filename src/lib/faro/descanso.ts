@@ -77,8 +77,15 @@
  *    que se queda sin líneas se va con ellas. Es la única puerta que borra líneas
  *    sueltas: solo acepta líneas que descansan (lo demás no es asunto del Archivo).
  *
+ * OLA 25 (G25-1): las dos puertas de borrado de este módulo componen el paso de
+ * migración del pago automático (migrateAutopayConfig, en autopay.ts), como toda
+ * receta que quita líneas de `months`: una portadora apartada que sale por el
+ * Archivo deja su instrucción estampada en la instancia más nueva restante de su
+ * serie — borrar un papel, también aquí, no es revocar una instrucción.
+ *
  * Puro: ninguna función muta el estado que recibe.
  */
+import { migrateAutopayConfig } from "./autopay.ts";
 import { convertMinor, uid } from "./money.ts";
 import type { LedgerState, Line, RestingSpan } from "./types.ts";
 
@@ -269,7 +276,12 @@ export function deleteRestingLines(state: LedgerState, ids: Iterable<string>): L
     // Solo se va el registro que ESTE borrado vació; uno que ya estaba vacío no es
     // nuestro para enterrar (D2).
     .filter((s) => !(s && typeof s.id === "string" && emptied.has(s.id)));
-  return { ...state, months, restingSpans };
+  // OLA 25 (G25-1): el Archivo compone el paso de migración, como toda
+  // receta que quita líneas — una portadora del pago automático puede
+  // llegar apartada hasta esta puerta (hidePeriod aparta cualquier
+  // línea activa del rango, la portadora incluida), y borrarla sin
+  // migrar apagaba su serie para siempre, en silencio.
+  return migrateAutopayConfig(state, { ...state, months, restingSpans });
 }
 
 /** Mostrar de nuevo: las líneas del período vuelven a contar y el registro se va. */
@@ -308,7 +320,10 @@ export function deleteSpan(state: LedgerState, spanId: string): LedgerState {
       : bucket;
   }
   // D2: el registro que se escribe es el crudo, filtrado solo por id (ver hidePeriod).
-  return { ...state, months, restingSpans: (state.restingSpans ?? []).filter((s) => s?.id !== spanId) };
+  // OLA 25 (G25-1): y compone el paso de migración, como su gemela de
+  // arriba — borrar el período entero tampoco revoca la instrucción
+  // de una serie cuya portadora descansaba en él.
+  return migrateAutopayConfig(state, { ...state, months, restingSpans: (state.restingSpans ?? []).filter((s) => s?.id !== spanId) });
 }
 
 export type RestingEntry = {

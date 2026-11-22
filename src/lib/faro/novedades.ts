@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.378",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "Lo que se borra ya no se lleva el pago automático", en: "Deleting no longer takes the autopay with it" },
+    points: {
+      es: [
+        "Si borras la línea que llevaba el pago automático de una serie — también desde el Archivo o deshaciendo una importación —, la instrucción pasa a la instancia más nueva que quede: la serie sigue pagándose sola.",
+        "Preguntar «¿Cómo cambio mi nombre?» ahora lleva a su sitio: el Asesor conoce «Tu nombre en Faro» y «Compartir con Faro», sin confundirlos con la mesa de cambio.",
+      ],
+      en: [
+        "If you delete the line that carried a series' autopay — from the Archive or by undoing an import, too — the instruction moves to the newest remaining instance: the series keeps paying itself.",
+        "Asking “How do I change my name?” now leads to its place: the Advisor knows “Your name in Faro” and “Sharing with Faro”, without mistaking them for the exchange desk.",
+      ],
+    },
+  },
+  {
     version: "1.3.377",
     date: "2026-11-21",
     level: "menor",

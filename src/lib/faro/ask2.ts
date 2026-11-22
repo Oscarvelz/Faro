@@ -622,7 +622,24 @@ function futuroAnswer(c: Ctx, folded: string): BankResult | null {
 /* FARO MISMO — la respuesta sale del mapa, con su pantalla.          */
 /* ------------------------------------------------------------------ */
 function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
-  const f = functionOfQuestion(folded);
+  // OLA 25 (Q25-1): EL NOMBRE PROPIO GANA A LA MESA, a nivel de
+  // patrón — no de puntaje. «¿Cómo cambio mi nombre?» casaba con
+  // cambio.mesa por la palabra «cambio» (puntaje por claves
+  // contenidas) y la persona recibía la puerta de la conversión de
+  // moneda, con la fórmula de las cifras, por preguntar cómo la
+  // nombra Faro: un desvío es peor que el silencio honesto. Cuando la
+  // pregunta nombra el nombre propio — mi nombre, cómo me llama
+  // Faro — la función es account.name, diga lo que diga el puntaje;
+  // las preguntas verdaderas de cambio de moneda no nombran ningún
+  // nombre y siguen llegando a su mesa por el puntaje de siempre
+  // (espécimen de control en la cerca de la ola 25). Las dos
+  // funciones son Esencial: su origen se ve en todo modo, así que la
+  // forma de la respuesta no debe nombrar ningún piso (la vara de LA
+  // FRONTERA, addendum A23-4 de la Síntesis).
+  const propia = /(mi nombre|my name|me llamo|me llama|el nombre con que|faro call me|faro calls me)/.test(folded)
+    ? FARO_FUNCTION_MAP.find((x) => x.id === "account.name") ?? null
+    : null;
+  const f = propia ?? functionOfQuestion(folded);
   if (!f) return null;
   // A23-5 (cura de la ola 23): la fórmula «ahí ves las mismas cifras
   // que yo uso» no se dice de una cara que el modo no muestra. Cuando
@@ -736,7 +753,12 @@ export function answerBankQuestion(
   const fut = futuroAnswer(c, folded);
   if (fut) return fut;
   // 12 · FARO MISMO (dónde veo / cómo hago).
-  if (/(donde (veo|esta|encuentro)|como (hago|importo|cambio|veo)|where (do|can) i|how do i)/.test(folded)) {
+  // OLA 25 (Q25-1): la puerta aprende los verbos de las dos funciones
+  // que el mapa aprende en la misma cura — «¿cómo comparto…?»,
+  // «¿cómo me llama Faro?» y «¿dónde cambio el nombre…?» no casaban
+  // con ninguna forma de la puerta y caían en silencio antes de
+  // llegar al mapa.
+  if (/(donde (veo|esta|encuentro|cambio)|como (hago|importo|cambio|veo|comparto)|como me (llama|llamo)|where (do|can) i|how do i)/.test(folded)) {
     const r = faroMismoAnswer(c, folded);
     if (r) return r;
   }

@@ -1457,6 +1457,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   // siguiente apertura el mismo día; la deshecha no re-asienta, porque
   // su serie quedó en el conjunto. La forma legada del sello (el día
   // entero sellado) sigue deteniendo el pase, como antes.
+  // Cura de la ola 25 (G25-2 + Q25-C1): cada serie sella bajo su PROPIA
+  // llave — el conjunto ya no es un JSON que se lee-mezcla-escribe, así
+  // que dos pestañas desfasadas no pueden perderse sellos entre sí, y el
+  // Deshacer de una serie aguanta el resto del día también bajo ese
+  // intercalado (la doctrina entera vive en autopay.ts).
   const autopaySealRef = useRef<{ day: string; series: Set<string> }>({ day: "", series: new Set() });
   useEffect(() => {
     if (!session || dataMode() !== "real") return;
@@ -1464,6 +1469,16 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     const sealStorage: AutopaySealStorage = {
       read: (k) => localStorage.getItem(k),
       write: (k, v) => { localStorage.setItem(k, v); },
+      // OLA 25 (G25-2): el conjunto de series selladas se lee
+      // enumerando las llaves por serie del propio sello.
+      keys: (prefix) => {
+        const out: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(prefix)) out.push(k);
+        }
+        return out;
+      },
     };
     if (autopaySealedOn(sealStorage, userId, today)) return;
     const sessionSeal = autopaySealRef.current;

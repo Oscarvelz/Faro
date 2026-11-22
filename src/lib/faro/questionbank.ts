@@ -272,7 +272,7 @@ export const QUESTION_BANK: BankFamily[] = [
     name: { es: "Faro mismo: dónde se ve y cómo se hace", en: "Faro itself: where and how" },
     cap: { es: "dónde se ve cada cosa en Faro y cómo se hace", en: "where each thing lives in Faro and how to do it" },
     status: "viva",
-    source: ["captura.bandeja", "captura.escribir", "ajustes.estructura", "cuenta.sync", "central.queda", "ahorros.stock", "cobros.tarjetas", "cambio.mesa"],
+    source: ["captura.bandeja", "captura.escribir", "ajustes.estructura", "cuenta.sync", "central.queda", "ahorros.stock", "cobros.tarjetas", "cambio.mesa", "account.name", "inbox.link"],
     axes: ["función (todo el askmap) × tipo (dónde veo × cómo hago)"],
     canonical: {
       es: ["¿Dónde veo mis recompensas?", "¿Cómo importo mi banco?", "¿Dónde está mi colchón?", "¿Cómo cambio el modo?"],

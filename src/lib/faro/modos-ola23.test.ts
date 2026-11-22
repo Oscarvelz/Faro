@@ -138,7 +138,11 @@ describe("ola23 · §A: la caminata alcanza su ventana y la instancia asentada n
 describe("ola23 · §A-2: el sello del día es del APARATO y sobrevive al Deshacer y al remontaje (G23-2)", () => {
   const fakeStorage = (): AutopaySealStorage & { map: Map<string, string> } => {
     const map = new Map<string, string>();
-    return { map, read: (k) => map.get(k) ?? null, write: (k, v) => { map.set(k, v); } };
+    // OLA 25: el contrato del almacenamiento creció una enumeración
+    // (la casa del sello lista sus llaves por serie, como el
+    // localStorage del aparato siempre pudo); el doble la cumple
+    // sobre su mapa, sin cambiar lo que esta cerca mide.
+    return { map, read: (k) => map.get(k) ?? null, write: (k, v) => { map.set(k, v); }, keys: (p) => [...map.keys()].filter((k) => k.startsWith(p)) };
   };
   it("sellar → remontar (otro montaje, la misma clave durable) → no re-asienta; al día siguiente, sí", () => {
     const st = book({ "2026-10": [cuota("n-oct", "2026-10", "2026-10-15", "monthly", AUTO)] });

@@ -24,13 +24,16 @@
  *    la línea que lo traía encendido) detiene la búsqueda: apagar manda
  *    sobre heredar. Las instancias asentadas heredan la configuración
  *    del portador: la serie sigue sola.
- *  - La configuración SOBREVIVE A SU PAPEL (cura de la ola 24, G24-3):
- *    la instrucción resuelta es de la SERIE, no de la anotación que la
- *    porta. Borrar del Historial la instancia portadora no revoca una
- *    instrucción permanente: la receta de borrado (deleteLine, en
- *    reducer.ts) migra la instrucción resuelta a la instancia más
- *    nueva restante dentro de la misma receta, usando ESTA misma
- *    resolución — una sola lectura para el motor y para el borrado.
+ *  - La configuración SOBREVIVE A SU PAPEL (cura de la ola 24, G24-3;
+ *    universal de verdad desde la cura de la ola 25, G25-1): la
+ *    instrucción resuelta es de la SERIE, no de la anotación que la
+ *    porta. Borrar la instancia portadora no revoca una instrucción
+ *    permanente, POR NINGUNA puerta: la migración es un paso único de
+ *    este módulo (migrateAutopayConfig, abajo) que toda receta que
+ *    quita líneas de `months` compone sobre su resultado — el borrado
+ *    del Historial, las dos puertas del Archivo, el bolsillo de Retiro
+ *    y el retiro por subcategoría — usando ESTA misma resolución: una
+ *    sola lectura para el motor y para todo borrado.
  *  - La caminata juzga cada período POR SU PROPIA FECHA (cura de la ola
  *    23, G23-1): recorre la parrilla de la serie desde su primera fecha,
  *    no hacia adelante desde la última instancia — una instancia futura
@@ -102,6 +105,75 @@ export function seriesAutopayConfig(instances: Line[]): { on: boolean; accountId
     if (l.autopay && l.autopayAccountId) return { on: true, accountId: l.autopayAccountId };
   }
   return null;
+}
+
+/**
+ * OLA 25 (G25-1): LA MIGRACIÓN ES UN PASO, NO UN GESTO REPETIDO. La
+ * cura de la ola 24 (G24-3) dejó la migración DENTRO de deleteLine y la
+ * enunció como universal («la receta que todas las puertas de borrado
+ * componen») — y la frase era falsa: las puertas del Archivo
+ * (deleteRestingLines y deleteSpan, en descanso.ts) borran líneas por
+ * filtro sin componer deleteLine, y una portadora apartada con
+ * hidePeriod salía por ahí sin migrar: la serie perdía su instrucción
+ * y no asentaba nunca más, en silencio. La cura no es copiar el gesto
+ * en cada puerta: es ESTE paso único, que toda receta que quita líneas
+ * de `months` compone sobre su resultado — deleteLine (reducer.ts),
+ * las dos puertas del Archivo (descanso.ts), el bolsillo de Retiro
+ * (retiro.ts) y el retiro por subcategoría (defaults.ts, en su forma
+ * de meses) — y que la cerca de la ola 25 censa puerta por puerta.
+ *
+ * El paso, por serie que perdió algún papel entre `before` y `after`:
+ * si la instrucción resuelta CAMBIA al quitar los papeles, la de antes
+ * se estampa en la instancia más nueva restante — encendida con su
+ * cuenta, o el apagado explícito, en las dos direcciones. Si la serie
+ * entera salió, no queda papel que porte su palabra y no hay estampa.
+ * Sin pérdida o sin cambio, el paso devuelve los mismos meses que
+ * recibió (la misma referencia): componerlo no cuesta nada donde no
+ * hay nada que migrar.
+ */
+export function migrateAutopayConfigMonths(
+  before: LedgerState["months"],
+  after: LedgerState["months"],
+): LedgerState["months"] {
+  const beforeBySeries = new Map<string, Line[]>();
+  for (const bucket of Object.values(before)) {
+    for (const l of bucket.lines) {
+      if (l.kind !== "subscription") continue;
+      const key = l.seriesId || l.id;
+      const arr = beforeBySeries.get(key);
+      if (arr) arr.push(l); else beforeBySeries.set(key, [l]);
+    }
+  }
+  let result = after;
+  for (const [seriesKey, beforeLines] of beforeBySeries) {
+    const remaining: Line[] = [];
+    for (const bucket of Object.values(result)) {
+      for (const l of bucket.lines) {
+        if (l.kind === "subscription" && (l.seriesId || l.id) === seriesKey) remaining.push(l);
+      }
+    }
+    if (remaining.length === beforeLines.length) continue; // esta serie no perdió ningún papel
+    if (!remaining.length) continue; // la serie entera salió: no queda papel que porte su palabra
+    const beforeCfg = seriesAutopayConfig(beforeLines);
+    if (!beforeCfg) continue;
+    const afterCfg = seriesAutopayConfig(remaining);
+    if (afterCfg && afterCfg.on === beforeCfg.on && afterCfg.accountId === beforeCfg.accountId) continue;
+    const newest = [...remaining].sort((a, b) => dayOf(a).localeCompare(dayOf(b)))[remaining.length - 1]!;
+    const stamped: Line = beforeCfg.on
+      ? { ...newest, autopay: true, autopayAccountId: beforeCfg.accountId }
+      : { ...newest, autopay: false };
+    const bucket = result[newest.monthKey];
+    if (!bucket) continue;
+    result = { ...result, [newest.monthKey]: { lines: bucket.lines.map((l) => (l.id === newest.id ? stamped : l)) } };
+  }
+  return result;
+}
+
+/** El paso de migración sobre estados enteros (la forma que componen
+ * las recetas que devuelven un LedgerState). */
+export function migrateAutopayConfig(before: LedgerState, after: LedgerState): LedgerState {
+  const months = migrateAutopayConfigMonths(before.months, after.months);
+  return months === after.months ? after : { ...after, months };
 }
 
 /**
@@ -251,19 +323,53 @@ export function settleAutopay(state: LedgerState, today: string = todayIso(), sk
  * que el Deshacer de ESA serie aguante el resto del día. La forma
  * legada (el valor = la fecha, escrita por la .361) se lee como lo que
  * era: el día sellado entero.
+ *
+ * CADA SERIE SELLA BAJO SU PROPIA LLAVE (cura de la ola 25, G25-2 +
+ * Q25-C1 de Cambios): la forma de la ola 24 guardaba el conjunto como
+ * UN JSON bajo la llave del día, y sellar era leer–mezclar–escribir
+ * ese JSON. localStorage no es atómico entre pestañas: una pestaña que
+ * sellaba calculando sobre una lectura tomada antes de la escritura de
+ * otra pisaba su mezcla, y la serie de la primera SALÍA del conjunto
+ * duradero — tras deshacer su asentamiento, re-asentaba a la siguiente
+ * apertura: el Deshacer no aguantaba el resto del día, la promesa
+ * exacta que este sello existe para guardar. Desde esta cura NO HAY
+ * FUSIÓN: cada serie sella bajo su propia llave
+ * (`faro-autopay-day.<uid>.<serie>` = el día), y el camino de escritura
+ * no lee nada — dos pestañas no pueden perderse sellos entre sí porque
+ * no comparten ningún valor que pisar. El conjunto se lee enumerando
+ * las llaves propias del sello (el almacenamiento de la casa sabe
+ * listar las suyas). Y el Deshacer aguanta el resto del día TAMBIÉN
+ * bajo intercalado entre pestañas desfasadas: esa es la doctrina que
+ * este párrafo promete desde hoy. Las formas legadas se siguen leyendo
+ * como lo que eran: la fecha a secas (la .361) = el día entero
+ * sellado, y el JSON del conjunto (la forma de la ola 24) = las series
+ * que nombra, selladas ese día.
  */
 export interface AutopaySealStorage {
   read(key: string): string | null;
   write(key: string, value: string): void;
+  /** Las llaves del aparato que empiezan por el prefijo — la casa del
+   * sello sabe listar las suyas: el conjunto de series selladas se lee
+   * enumerando las llaves por serie (cura de la ola 25). */
+  keys(prefix: string): string[];
 }
 
 export function autopaySealKey(userId: string): string {
   return `faro-autopay-day.${userId}`;
 }
 
-/** La lectura del sello, con sus dos formas: la legada (la fecha a
- * secas = el día entero sellado) y la de la ola 24 (el registro del
- * día con su conjunto de series). Cualquier otra cosa no es un sello. */
+/** La llave PROPIA de una serie (cura de la ola 25): cada serie sella
+ * bajo la suya, con el día por valor — sin ningún valor compartido que
+ * dos pestañas puedan pisarse. */
+export function autopaySeriesSealKey(userId: string, seriesId: string): string {
+  return `${autopaySealKey(userId)}.${seriesId}`;
+}
+
+/** La lectura de las formas LEGADAS del sello, bajo la llave del día:
+ * la fecha a secas (la .361 = el día entero sellado) y el JSON del
+ * conjunto (la forma de la ola 24 = las series que nombra). Cualquier
+ * otra cosa no es un sello. La forma viva desde la ola 25 no vive
+ * aquí: vive en las llaves por serie, que autopaySealedSeries enumera. */
 function readSeal(storage: AutopaySealStorage, userId: string): { day: string; all: boolean; series: string[] } | null {
   let raw: string | null;
   try {
@@ -292,29 +398,41 @@ export function autopaySealedOn(storage: AutopaySealStorage, userId: string, tod
   return !!seal && seal.day === today && seal.all;
 }
 
-/** Las series que este aparato ya asentó hoy (vacío si el sello es de
- * otro día o no existe; si el día está sellado entero, el proveedor ni
- * llega aquí: autopaySealedOn ya lo detuvo). */
+/** Las series que este aparato ya asentó hoy (vacío si no hay sello de
+ * hoy; si el día está sellado entero, el proveedor ni llega aquí:
+ * autopaySealedOn ya lo detuvo). El conjunto une las dos lecturas: las
+ * llaves por serie de la forma viva (cada una vale su día) y las series
+ * que la forma legada en JSON aún nombra para hoy — un aparato que
+ * selló con la forma vieja no pierde sus sellos al actualizar. */
 export function autopaySealedSeries(storage: AutopaySealStorage, userId: string, today: string): Set<string> {
+  const out = new Set<string>();
   const seal = readSeal(storage, userId);
-  if (!seal || seal.day !== today) return new Set();
-  return new Set(seal.series);
+  if (seal && seal.day === today) for (const id of seal.series) out.add(id);
+  const prefix = `${autopaySealKey(userId)}.`;
+  try {
+    for (const key of storage.keys(prefix)) {
+      if (storage.read(key) === today) out.add(key.slice(prefix.length));
+    }
+  } catch {
+    /* Sin enumeración no hay conjunto por serie que leer: quedan las
+     * formas legadas de arriba, y el sello degrada como degrada. */
+  }
+  return out;
 }
 
-/** Sellar: sin lista de series, el día entero (la forma de siempre);
- * con lista, el conjunto de series asentadas hoy crece con ellas — el
- * día queda sellado POR SERIE, no en bloque (G24-2). */
+/** Sellar: sin lista de series, el día entero (la forma de siempre,
+ * bajo la llave del día); con lista, CADA serie sella bajo su propia
+ * llave con el día por valor (cura de la ola 25) — el camino de
+ * escritura no lee nada, así que no hay fusión que una pestaña
+ * desfasada pueda pisar: sellar dos series en dos pestañas deja los
+ * dos sellos, siempre. */
 export function sealAutopayDay(storage: AutopaySealStorage, userId: string, today: string, seriesIds?: string[]): void {
   try {
     if (!seriesIds) {
       storage.write(autopaySealKey(userId), today);
       return;
     }
-    const prev = readSeal(storage, userId);
-    if (prev && prev.day === today && prev.all) return; // el día ya está sellado entero
-    const set = new Set(prev && prev.day === today ? prev.series : []);
-    for (const id of seriesIds) set.add(id);
-    storage.write(autopaySealKey(userId), JSON.stringify({ day: today, series: [...set] }));
+    for (const id of seriesIds) storage.write(autopaySeriesSealKey(userId, id), today);
   } catch {
     /* El aparato no guarda (modo privado, cuota): el sello degrada a la
      * sesión en el proveedor, declarado allí. El motor sigue siendo
