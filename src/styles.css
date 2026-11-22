@@ -2256,6 +2256,11 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
    respuesta del Asesor conservan su fila flexible, que es suya. */
 .ask .ask-actions, .mode-gate .ask-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
 .ask-btn { min-height: 50px; border-radius: 16px; font: inherit; font-weight: 600; font-size: 1rem; border: 1px solid transparent; padding: 0 12px; transition: transform .15s cubic-bezier(.22, 1, .36, 1), filter .15s; }
+/* 1.3.410 (ojo de Oscar, 2026-11-22): el botón que recibe el foco al abrir
+   la ventana (autoFocus) no lleva el marco blanco del navegador alrededor;
+   el foco de teclado conserva su anillo, en el acento del tema. */
+.ask-btn:focus { outline: none; }
+.ask-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ask-btn:active { transform: scale(0.97); }
 .ask-btn.is-quiet { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); border-color: var(--line); }
 .ask-btn.is-go { background: var(--accent); color: var(--accent-fg); }

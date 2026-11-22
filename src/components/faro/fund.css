@@ -60,7 +60,12 @@
    apiladas desperdiciaban la mitad de la tarjeta y dejaban el hueco a la
    derecha. Cada una lleva su luz por seña: el aro (saldo) y el disco (aparte),
    la misma forma que la luz de naturaleza habla en toda la casa. */
-.fund-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+/* 1.3.410 (fallo de Oscar, 2026-11-22): en el teléfono las dos tarjetas
+   van una SOBRE la otra — a todo el ancho el texto corre horizontal y se
+   lee de una vez; lado a lado solo en tableta (la línea de la casa,
+   768px), donde el ancho sobra. */
+.fund-opts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: stretch; }
+@media (min-width: 768px) { .fund-opts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .fund-opt {
   display: grid; gap: 4px; align-content: start; text-align: left; padding: 12px; cursor: pointer;
   background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 12px;

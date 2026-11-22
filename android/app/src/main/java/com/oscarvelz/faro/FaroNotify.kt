@@ -180,7 +180,10 @@ object FaroNotify {
             val body = if (s.hide) L(s, "Tu reporte de $name está listo en Estudio.", "Your $name report is ready in Stats.")
             else L(s, "Entró ${Fmt.money(f.inn, s.cur)} · salió ${Fmt.money(f.out, s.cur)} · quedó ${Fmt.money(left, s.cur)}",
                       "In ${Fmt.money(f.inn, s.cur)} · out ${Fmt.money(f.out, s.cur)} · left ${Fmt.money(left, s.cur)}")
-            post(ctx, key.hashCode(), L(s, "Faro · Cierre de $name", "Faro · $name close"), body, "stats")
+            // 1.3.410: el toque lleva SU mes («close|<yyyy-MM>») — antes decía
+            // solo «stats» y el toque dejaba a la persona en la puerta de
+            // Estudio a buscar el reporte por su cuenta.
+            post(ctx, key.hashCode(), L(s, "Faro · Cierre de $name", "Faro · $name close"), body, "close|${f.key}")
             prefs.edit().putBoolean(key, true).apply()
         }
     }

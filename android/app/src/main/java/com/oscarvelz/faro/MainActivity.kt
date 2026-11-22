@@ -894,7 +894,10 @@ class MainActivity : Activity() {
     /** A tap on a home-screen widget: remember where it goes until the page asks (after the lock, if any). */
     private fun takeWidget(i: Intent?): Boolean {
         if (i?.action != FaroWidgets.ACTION_OPEN) return false
-        val go = i.getStringExtra(FaroWidgets.EXTRA_GO)?.takeIf { Regex("^[a-z-]{2,24}$").matches(it) } ?: return false
+        // 1.3.410: además de los destinos de siempre, la ruta del aviso de
+        // cierre trae su mes: «close|<yyyy-MM>» — la página la lee con
+        // takeOpen() y abre Estudio con ese mes marcado.
+        val go = i.getStringExtra(FaroWidgets.EXTRA_GO)?.takeIf { Regex("^([a-z-]{2,24}|close\\|\\d{4}-\\d{2})$").matches(it) } ?: return false
         widgetGo = go
         return true
     }

@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.410",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El aviso de cierre te lleva a su mes", en: "The close notice takes you to its month" },
+    points: {
+      es: [
+        "Tocar el aviso de cierre de un mes ya no te deja en la puerta de Estudio: Faro abre puesto en ese mes, con «Entra, sale y queda» abierto en él — su Entró, su Salió y su Quedó a la vista.",
+        "El aviso nombra un mes, y ahora el toque llega a ese mes.",
+        "Y dos retoques de la ola pasada: en el teléfono, las tarjetas de dónde vive el dinero de un fondo van una sobre la otra, a todo el ancho — lado a lado queda para la tableta —; y el botón principal de las ventanas de confirmación ya no lleva el marco blanco que el navegador le ponía alrededor.",
+      ],
+      en: [
+        "Tapping a month's close notice no longer leaves you at the door of Stats: Faro opens set on that month, with \"In, out and left\" open on it — its In, its Out and its Left in view.",
+        "The notice names a month, and now the tap arrives at that month.",
+        "And two touches from the last wave: on the phone, the cards for where a fund's money lives now stack one above the other, full width — side by side is for the tablet —; and the confirmation windows' main button no longer wears the white frame the browser put around it.",
+      ],
+    },
+    topic: "avisos-app",
+  },
+  {
     version: "1.3.409",
     date: "2026-11-22",
     level: "menor",

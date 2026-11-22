@@ -22,7 +22,7 @@ import { formDirty } from "@/lib/faro/dirty";
 import { clearPanelExit, guardPanelExit, setPanelExit, type PanelExit } from "@/lib/faro/panel-exit";
 import { hasKeyNumbers } from "@/lib/faro/keynumbers";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type CSSProperties } from "react";
-import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, useCoach } from "@/components/faro/panorama";
+import { AgendaCard, CoachHero, HealthCard, MoversCard, PaceCard, PulseCard, RuleCard, WaffleCard, takeHistoryMonth, useCoach } from "@/components/faro/panorama";
 import { CushionCard, KeyNumbers, LimitsCard, TimeCard } from "@/components/faro/study2";
 import { RemitCard } from "@/components/faro/remesas";
 import { RemitPeopleBox } from "@/components/faro/remit-people";
@@ -5058,6 +5058,29 @@ export function Study() {
   // carpeta ausente por modo se comporta exactamente como una ausente por
   // datos. En Esencial la tarjeta de tiempo vive en su forma simple (la
   // semana), así que el tramo efectivo es "week".
+  // 1.3.410: el mes que el aviso de cierre nombró, recogido al llegar — el
+  // Estudio se pone en ese mes (su asiento de siempre), el tramo vuelve al
+  // año para que el mes se lea entero, y «Entra, sale y queda» se abre en
+  // él y se pone a la vista: su Entró, su Salió y su Quedó, sin buscarlos.
+  useEffect(() => {
+    const apply = () => {
+      const k = takeHistoryMonth();
+      if (!k || !session?.ledger.months[k]) return;
+      const year = Number(k.slice(0, 4));
+      const month = Number(k.slice(5, 7));
+      if (!year || !month) return;
+      setSpan("year");
+      setUi({ year, month });
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("faro-open", { detail: "time" }));
+        document.querySelector('[data-anchor="time"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+    };
+    apply();
+    const onEvt = () => apply();
+    window.addEventListener("faro-history-month", onEvt);
+    return () => window.removeEventListener("faro-history-month", onEvt);
+  }, [session, setUi]);
   const spanEff: "year" | "month" | "week" = has("study.flow") ? span : "week";
   const points = session ? spanPoints(session.ledger, ui.year, ui.month, spanEff, lang) : [];
   const compare = session ? compareSpans(session.ledger, ui.year, ui.month, spanEff, spanEff === "week" ? 4 : spanEff === "month" ? 6 : 3, lang) : [];

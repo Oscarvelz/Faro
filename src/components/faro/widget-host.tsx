@@ -29,6 +29,7 @@ import { useFaro, useFaroRoot } from "./provider";
 import { FoldShell } from "./screens";
 import { Hint } from "./hint";
 import { preferOweTab } from "./debts";
+import { preferHistoryMonth } from "./panorama";
 import { inAndroidApp, native } from "@/spa/native";
 import { lastUser } from "@/spa/cloud";
 import { lockCredential } from "@/spa/lock";
@@ -230,6 +231,15 @@ export default function WidgetHost() {
     const take = () => {
       let go = "";
       try { go = n.takeOpen?.() ?? ""; } catch { go = ""; }
+      // 1.3.410: el aviso de cierre trae su mes («close|<yyyy-MM>») — el toque
+      // abre Estudio puesto en ese mes, con «Entra, sale y queda» abierto en
+      // él: el aviso nombra un mes y el toque llega a ese mes.
+      const closeM = /^close\|(\d{4}-\d{2})$/.exec(go);
+      if (closeM) {
+        preferHistoryMonth(closeM[1]);
+        goTopic("estudio", { screen: "stats" });
+        return;
+      }
       let place = (WIDGET_PLACES as Record<string, GoLike>)[go];
       if (!place) return;
       // Etapa 3.3 (T-1): sin la escala de deudas (Esencial), los destinos del

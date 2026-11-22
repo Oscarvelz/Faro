@@ -397,6 +397,21 @@ export function MoversCard({ coach }: { coach: Coach }) {
   );
 }
 
+/* 1.3.410: el toque del aviso de cierre trae su mes — el anfitrión del
+   widget lo deja aquí (el mismo gesto que preferOweTab en Cobros) y el
+   Estudio lo recoge al montar: pone su mes en ese mes y abre «Entra,
+   sale y queda» en él. Un solo uso: recogido, se olvida. */
+let nextHistoryMonth: string | null = null;
+export function preferHistoryMonth(key: string) {
+  nextHistoryMonth = key;
+  try { window.dispatchEvent(new CustomEvent("faro-history-month", { detail: key })); } catch { /* sin ventana */ }
+}
+export function takeHistoryMonth(): string | null {
+  const k = nextHistoryMonth;
+  nextHistoryMonth = null;
+  return k;
+}
+
 /* 6 · Twelve months of closing balance. */
 export function HistoryCard({ coach }: { coach: Coach }) {
   const { fmt, lang, setUi } = useFaro();
