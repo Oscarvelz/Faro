@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.423",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El detalle de precio respira", en: "The price detail breathes" },
+    points: {
+      es: [
+        "En el detalle de un cambio de precio, el efecto («más al mes») ya no se corta contra el borde: si no cabe, baja a su propia línea dentro de la tarjeta.",
+        "La cabecera que nombra el lente en Central ahora viste el color de su ficha: «Tengo» con el acento, «Gastaré» con el frente y «Pagos» con el color de su semáforo.",
+      ],
+      en: [
+        "In a price change's detail, the effect (“more per month”) no longer clips against the edge: if it does not fit, it drops to its own line inside the card.",
+        "The header naming the lens on Central now wears its tile's color: “Have” in the accent, “Will spend” in the foreground and “Payments” in its semaphore color.",
+      ],
+    },
+    topic: "cambios-precio",
+  },
+  {
     version: "1.3.422",
     date: "2026-11-22",
     level: "menor",

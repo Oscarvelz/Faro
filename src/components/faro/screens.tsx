@@ -4540,7 +4540,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             de su ficha por cabecera — la lista de un lente se abre con
             «Tengo» / «Gastaré» / «Pagos», no con una descripción suelta. */}
         {lensMode !== "all" ? (
-          <p className="desk-focus-head" data-anchor="desk-focus-head">
+          <p className={`desk-focus-head is-${lensMode}${lensMode === "debt" ? ` tone-${summary.tone}` : ""}`} data-anchor="desk-focus-head">
             <span className={`desk-focus-bar is-${lensMode}${lensMode === "debt" ? ` tone-${summary.tone}` : ""}`} aria-hidden />
             <strong>{t(lensMode === "have" ? "desk.have" : lensMode === "debt" ? "desk.debt" : "desk.spend")}</strong>
           </p>

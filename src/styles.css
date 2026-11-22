@@ -3631,3 +3631,13 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
 .desk-focus-bar.is-debt.tone-good { background: var(--good); }
 .desk-focus-bar.is-debt.tone-warn { background: var(--warn); }
 .desk-focus-bar.is-debt.tone-bad { background: var(--bad); }
+/* 1.3.423 (Oscar, 18:02 — CONSISTENCIA, principio de la ley de
+   envoltorio): el NOMBRE de la cabecera viste el mismo color que su
+   ficha lleva al seleccionarla en Central — la cabecera entera refleja
+   la ficha elegida, no solo la barrita. */
+.desk-focus-head.is-have strong { color: var(--accent); }
+.desk-focus-head.is-spend strong { color: var(--fg); }
+.desk-focus-head.is-debt strong { color: var(--fg); }
+.desk-focus-head.is-debt.tone-good strong { color: var(--good); }
+.desk-focus-head.is-debt.tone-warn strong { color: var(--warn); }
+.desk-focus-head.is-debt.tone-bad strong { color: var(--bad); }
