@@ -79,6 +79,32 @@ export function richText(text: string, data: ManualData, onLink: (term: string) 
   return out;
 }
 
+/**
+ * Un texto del Manual, con su forma (1.3.379 — la forma moldea la
+ * utilidad): los bloques se separan con línea en blanco y cada bloque
+ * es un párrafo; un bloque de varias líneas es una enumeración — la
+ * primera línea presenta y cada línea siguiente es un renglón de la
+ * lista, con su marca del tema. Ningún tramo sin estructura pasa de
+ * unas pocas frases: el texto suelto y larguísimo es un defecto del
+ * envoltorio, no del contenido (fallo de Oscar, 2026-11-21).
+ */
+export function richBlocks(text: string, data: ManualData, onLink: (term: string) => void, ctx: TermCtx = {}): ReactNode {
+  const blocks = text.split(/\n\n+/).map((b) => b.trim()).filter(Boolean);
+  return blocks.map((block, bi) => {
+    const lines = block.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (lines.length <= 1) return <p key={bi} className="mn-p">{richText(lines[0] ?? "", data, onLink, ctx)}</p>;
+    const [lead, ...items] = lines;
+    return (
+      <Fragment key={bi}>
+        <p className="mn-p">{richText(lead!, data, onLink, ctx)}</p>
+        <ul className="mn-list">
+          {items.map((it, ii) => <li key={ii}>{richText(it, data, onLink, ctx)}</li>)}
+        </ul>
+      </Fragment>
+    );
+  });
+}
+
 const cache = new Map<string, RegExp>();
 function namesRe(names: readonly string[]): RegExp {
   const key = names.join("|");

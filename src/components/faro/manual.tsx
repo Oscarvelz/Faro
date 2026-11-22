@@ -8,7 +8,7 @@ import type { L, Numbered } from "@/lib/manual/topics";
 import { modeReaches } from "@/lib/faro/mode";
 import { Mark } from "./icons";
 import { useFaroRoot } from "./provider";
-import { richText } from "./manual-text";
+import { richBlocks } from "./manual-text";
 import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import "./manual.css";
 
@@ -307,21 +307,21 @@ function Manual({ data }: { data: ManualData }) {
                 <dt>{t("manual.what")}</dt>
                 <dd>
                   {(() => { const seen = new Set<string>(); return <>
-                    {richText(say(current.what), data, linkFrom(current.id), { self: current.id, seen })}
-                    {current.whatAlt ? <>{" "}{richText(say(current.whatAlt), data, linkFrom(current.id), { self: current.id, seen })}</> : null}
+                    {richBlocks(say(current.what), data, linkFrom(current.id), { self: current.id, seen })}
+                    {current.whatAlt ? richBlocks(say(current.whatAlt), data, linkFrom(current.id), { self: current.id, seen }) : null}
                   </>; })()}
                 </dd>
               </div>
               {current.how ? (
                 <div>
                   <dt>{t("manual.how")}</dt>
-                  <dd>{richText(say(current.how), data, linkFrom(current.id), { self: current.id })}</dd>
+                  <dd>{richBlocks(say(current.how), data, linkFrom(current.id), { self: current.id })}</dd>
                 </div>
               ) : null}
               {current.tip ? (
                 <div className="mn-tip">
                   <dt><Lightbulb aria-hidden /><span>{t("manual.tip")}</span></dt>
-                  <dd>{richText(say(current.tip), data, linkFrom(current.id), { self: current.id })}</dd>
+                  <dd>{richBlocks(say(current.tip), data, linkFrom(current.id), { self: current.id })}</dd>
                 </div>
               ) : null}
             </dl>
@@ -373,21 +373,21 @@ function Manual({ data }: { data: ManualData }) {
                               <dt>{t("manual.what")}</dt>
                               <dd>
                                 {(() => { const seen = new Set<string>(); return <>
-                                  {richText(say(tp.what), data, linkFrom(tp.id), { self: tp.id, seen })}
-                                  {tp.whatAlt ? <>{" "}{richText(say(tp.whatAlt), data, linkFrom(tp.id), { self: tp.id, seen })}</> : null}
+                                  {richBlocks(say(tp.what), data, linkFrom(tp.id), { self: tp.id, seen })}
+                                  {tp.whatAlt ? richBlocks(say(tp.whatAlt), data, linkFrom(tp.id), { self: tp.id, seen }) : null}
                                 </>; })()}
                               </dd>
                             </div>
                             {tp.how ? (
                               <div>
                                 <dt>{t("manual.how")}</dt>
-                                <dd>{richText(say(tp.how), data, linkFrom(tp.id), { self: tp.id })}</dd>
+                                <dd>{richBlocks(say(tp.how), data, linkFrom(tp.id), { self: tp.id })}</dd>
                               </div>
                             ) : null}
                             {tp.tip ? (
                               <div className="mn-tip">
                                 <dt><Lightbulb aria-hidden /><span>{t("manual.tip")}</span></dt>
-                                <dd>{richText(say(tp.tip), data, linkFrom(tp.id), { self: tp.id })}</dd>
+                                <dd>{richBlocks(say(tp.tip), data, linkFrom(tp.id), { self: tp.id })}</dd>
                               </div>
                             ) : null}
                           </dl>

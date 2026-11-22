@@ -552,14 +552,18 @@ describe("ola24 · (7) las dos enseñanzas y la completitud F11 (Q24-1, E24-1, O
     assert.ok(how[0].includes("son la profundidad de Completo"), "la forma de la cláusula es la de su propio how (control intacto)");
   });
 
+  // Re-fijado en la 1.3.379 (reestructuración del Manual): las cinco
+  // pérdidas viven ahora como grupo con renglón propio, así que cada
+  // fragmento abre su línea con mayúscula — las mismas cinco, con las
+  // mismas palabras; lo que la cerca protege (que se nombren) no cambió.
   it("importar: el párrafo F11 nombra las CINCO pérdidas y la rama de la copia dañada, ES/EN", () => {
     const t = findTopic("importar")!;
     assert.ok(t, "el tema existe");
     const es = t.how![0], en = t.how![1];
-    for (const frag of ["sin el día exacto", "la nota no se imprime", "el bolsillo no se imprime", "el nombre puede venir cortado", "su casa no viene impresa"])
+    for (const frag of ["Sin el día exacto", "La nota no se imprime", "El bolsillo no se imprime", "El nombre puede venir cortado", "Su casa no viene impresa"])
       assert.ok(es.includes(frag), `ES nombra la pérdida: ${frag}`);
     assert.ok(es.includes("manda lo impreso"), "ES enseña la rama de la copia dañada");
-    for (const frag of ["no exact day", "the note is not printed", "the pocket is not printed", "the name may be cut off", "its house is not printed"])
+    for (const frag of ["No exact day", "The note is not printed", "The pocket is not printed", "The name may be cut off", "Its house is not printed"])
       assert.ok(en.includes(frag), `EN names the loss: ${frag}`);
     assert.ok(en.includes("the print rules"), "EN teaches the damaged-copy branch");
   });

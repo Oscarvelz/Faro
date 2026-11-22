@@ -173,6 +173,13 @@ html.manual-open { overflow: hidden; }
 .mn-parts { margin: 0; display: grid; gap: 10px; }
 .mn-parts dt { display: flex; align-items: center; gap: 5px; margin: 0 0 2px; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 .mn-parts dd { margin: 0; font-size: .95rem; line-height: 1.55; }
+/* 1.3.379: la forma del texto — párrafos de una idea y enumeraciones
+   como grupos con renglón propio; la marca viste el acento del tema. */
+.mn-p { margin: 0 0 9px; }
+.mn-p:last-child { margin-bottom: 0; }
+.mn-list { list-style: none; margin: 1px 0 10px; padding: 0; display: grid; gap: 5px; }
+.mn-list li { position: relative; padding-left: 17px; }
+.mn-list li::before { content: ""; position: absolute; left: 1px; top: .52em; width: 6px; height: 6px; background: var(--accent); }
 .mn-tip { padding-left: 10px; border-left: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); }
 .mn-tip dt svg { width: 13px; height: 13px; color: var(--accent); }
 .mn-go-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 14px; }

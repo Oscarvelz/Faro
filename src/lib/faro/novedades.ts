@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.379",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "manual",
+    title: { es: "El Manual, con forma", en: "The Manual, given form" },
+    points: {
+      es: [
+        "Todo el Manual se reescribió en su presentación: párrafos cortos, de una sola idea, y las listas como grupos con su renglón — la información es la misma, ya no abruma.",
+        "Cada enumeración se lee en su propio renglón, con la marca del color de tu tema: la forma se adapta a tu tema, no impone la suya.",
+        "Y queda la cerca: ningún texto del Manual puede volver a crecer como un muro de párrafo.",
+      ],
+      en: [
+        "The whole Manual was rewritten in its presentation: short paragraphs, one idea each, and lists as groups with their own line — the information is the same, it no longer overwhelms.",
+        "Every enumeration reads on its own line, marked with your theme's colour: the form adapts to your theme, it doesn't impose its own.",
+        "And the fence stays: no Manual text can ever grow back into a paragraph wall.",
+      ],
+    },
+  },
+  {
     version: "1.3.378",
     date: "2026-11-21",
     level: "menor",
