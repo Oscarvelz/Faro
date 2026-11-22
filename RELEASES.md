@@ -3559,4 +3559,4 @@ La segunda pieza del Libro Compartido: la cerca 1 del brief hecha papel. (a) `sh
 
 Verificación (de primera mano): libro391 6/6 (puerta única con su security definer, null sin membresía, el filtro por categoryId y el mes vacío, el recorte de categorías/tiendas/compras, lo que nunca viaja, la costura); suite completa **2836/2836** (una primera corrida de puertas murió por SIGTERM del entorno a mitad y se repitió entera: 2836/2836 EXIT 0); `tsc` con exactamente los 3 errores permanentes. El candado no se tocó (md5 40a3b9bf…). NOTA HONESTA: como la C1, la pieza vive cuando Oscar pegue `shared.sql` en Supabase tras `memberships.sql`; hasta entonces la costura duerme sin mentir.
 
-Datos de publicación: PENDIENTE.
+Datos de publicación: fuente b26e7627f4fe9459196832b477c6346d75eb1e7f (etiqueta v1.3.391); main 850d01ca6a6e49861b0c9dbc73eca858c52b22cb + b49661addce2d4bd078e80db0af71e214244fb7b (pdf.worker y ocr idénticos a los de la 1.3.390, no reenviados); barrido en vivo 28/28 idénticos, sw faro-1.3.391.
