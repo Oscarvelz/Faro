@@ -35,6 +35,26 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.374",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "La barra, en su orden; el aterrizaje, completo", en: "The bar, in its order; the landing, whole" },
+    points: {
+      es: [
+        "La barra superior se lee ahora: tema, calendario, Asesor, lupa y moneda. El acceso al Asesor lleva la brújula, su marca en Faro.",
+        "Tocar ese acceso te lleva a la caja de preguntas entera — cabecera, campo, sugeridas y tus preguntas a la mano — no a un pedazo de ella.",
+        "El botón flotante de Vista y el de subir miden menos: otro 13 % más pequeños, sin cambiar su forma de viajar con la barra.",
+        "Con el Manual abierto, los dos botones bajan a su esquina — no hay barra que sostenerlos — y el de Vista vive también sobre el Manual: eliges una vista y el Manual se cierra con tu vista delante.",
+      ],
+      en: [
+        "The top bar now reads: theme, calendar, Advisor, search and the coin. The Advisor shortcut wears the compass, its mark in Faro.",
+        "Tapping that shortcut takes you to the whole question box — header, field, suggestions and your questions at hand — not to a piece of it.",
+        "The floating View button and the back-to-top button are smaller: another 13 % down, with their way of travelling with the bar unchanged.",
+        "With the Manual open, both buttons settle into their corner — there is no bar to hold them up — and the View button lives over the Manual too: pick a view and the Manual closes with your view in front.",
+      ],
+    },
+  },
+  {
     version: "1.3.373",
     date: "2026-11-21",
     level: "menor",

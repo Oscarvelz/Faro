@@ -2,7 +2,7 @@ import { useScreenEntrance } from "./entrance";
 import { createPortal } from "react-dom";
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { SampleEdge, SamplePill } from "./sample-mode";
-import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, MessageCircleQuestion, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
+import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Compass, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
 import "./float.css";
 import "./tron.css";
 import "./cyberpunk.css";
@@ -606,6 +606,9 @@ export function Shell() {
     return () => mo.disconnect();
   }, []);
   const formOpen = ui.draft != null || ui.editing != null || fitOpen;
+  // 1.3.374: el Manual abierto es una capa sin escritorio debajo — el
+  // deslizamiento lo lee como escritorio ausente (ver el paso del lazo).
+  const manualOpen = ui.manual !== null;
 
   useEffect(() => {
     const frame = topPaneRef.current?.closest<HTMLElement>(".app-frame");
@@ -682,6 +685,12 @@ export function Shell() {
         // porque «así como está este editor no me permite acceso a la barra
         // inferior». Con un campo enfocado, la excepción sigue entera.
         if (formOpen && kbUp() && dock && T > 0) dockTarget = T;
+        // 1.3.374 (Oscar, 2026-11-21 20:28): con el Manual abierto no hay
+        // escritorio debajo — la capa lo cubre entero — y los flotantes
+        // deben bajar a su esquina natural, no quedarse como si el
+        // escritorio existiera: el objetivo es el recorrido completo
+        // mientras la capa vive, y la ley del scroll vuelve al cerrarla.
+        if (manualOpen && dock && T > 0) dockTarget = T;
         if (phoneLand()) {
           headerVisual = headerTarget;
           dockVisual = dockTarget;
@@ -732,6 +741,7 @@ export function Shell() {
         if (y <= 0) dockTarget = 0;
         else dockTarget += dy;
         if (formOpen && kbUp()) dockTarget = measureDock();
+        if (manualOpen) dockTarget = measureDock();
         if (!raf) raf = requestAnimationFrame(step);
       };
       scroller.addEventListener("scroll", onScroll, { passive: true });
@@ -784,7 +794,7 @@ export function Shell() {
       delete frame.dataset.kb;
       cleanups.forEach((fn) => fn());
     };
-  }, [split, searchOpen, calOpen, exportOpen, formOpen, ready, !!session]);
+  }, [split, searchOpen, calOpen, exportOpen, formOpen, manualOpen, ready, !!session]);
 
   useEffect(() => {
     const onBack = (e: Event) => {
@@ -1094,11 +1104,18 @@ export function Shell() {
   // 1.3.372 (fallo de Oscar, 2026-11-21 17:31): el hueco que dejan las
   // vistas en la barra superior lo ocupa el acceso directo a Preguntar al
   // Asesor — un toque lleva a la caja y le da el foco, listo para escribir.
+  // 1.3.374 (su teléfono, 2026-11-21 20:22): el aterrizaje enmarca la CAJA
+  // ENTERA — cabecera, campo, sugeridas y la fila «A la mano» — como en su
+  // segunda foto, no el campo centrado que la dejaba partida. Por eso el
+  // desplazamiento va a la caja con block:"start" y el foco llega con
+  // preventScroll, para que el teclado no vuelva a partir el encuadre.
   const goAsk = () => {
     guardPanelExit(() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "advice" }); });
     window.setTimeout(() => {
+      const box = document.querySelector<HTMLElement>('[data-anchor="advisor-ask"]');
       const el = document.querySelector<HTMLElement>('[data-anchor="ask-input"]');
-      if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); }
+      box?.scrollIntoView({ block: "start" });
+      el?.focus({ preventScroll: true });
     }, 450);
   };
   const toggleFloat = () => {
@@ -1216,24 +1233,6 @@ export function Shell() {
               >
                 {NIGHT_THEMES.includes(session.ledger.settings.theme) ? <Sun className="size-4" /> : <Moon className="size-4" />}
               </button>
-              {/* 1.3.372: en este hueco vivía el icono de Vista; por fallo de
-                  Oscar (2026-11-21 17:31) lo ocupa el acceso directo a
-                  Preguntar al Asesor, y las vistas bajan a un botón
-                  flotante permanente (ViewFloat, junto a Subir). */}
-              <button
-                type="button"
-                className="icon-btn theme-toggle cal-launch"
-                data-anchor="top-ask"
-                aria-label={lang === "en" ? "Ask your Advisor" : "Pregúntale a tu Asesor"}
-                onClick={goAsk}
-              >
-                <MessageCircleQuestion className="size-4" />
-              </button>
-              <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
-                <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}>
-                  <Search className="size-4" />
-                </button>
-              </div>
               <div className="desk-grid">
                 <div className="cal-anchor" ref={calRef} data-anchor="top-cal">
                   {has("nav.calendar") ? (
@@ -1370,6 +1369,29 @@ export function Shell() {
                       </div>
                     </div>
                   ) : null}
+                </div>
+                {/* 1.3.374 (orden de Oscar, 2026-11-21 20:22): la barra se
+                    lee tema · calendario · Asesor · lupa · moneda — la lupa
+                    al lugar del calendario, el calendario al del Asesor y
+                    el Asesor al de la lupa: tercero leído de derecha a
+                    izquierda. El icono del Asesor es la brújula, su marca
+                    en la casa: la burbuja con interrogación no le convencía
+                    y nada en Faro debe leerse como «IA», porque no lo es.
+                    (En este hueco vivía el icono de Vista hasta la 1.3.372;
+                    las vistas bajaron al botón flotante permanente.) */}
+                <button
+                  type="button"
+                  className="icon-btn theme-toggle cal-launch"
+                  data-anchor="top-ask"
+                  aria-label={lang === "en" ? "Ask your Advisor" : "Pregúntale a tu Asesor"}
+                  onClick={goAsk}
+                >
+                  <Compass className="size-4" />
+                </button>
+                <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
+                  <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}>
+                    <Search className="size-4" />
+                  </button>
                 </div>
               <button
                 type="button"
@@ -1659,10 +1681,11 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
       wide={wide}
       floatOn={floatOn}
       floatMin={floatMin}
-      onOne={() => setSplit(false)}
-      onCols={() => { const fresh = !split; setSplitAxis("col"); if (fresh) { setSplitRatio(50); openLower(); } setSplit(true); }}
-      onRows={() => { const fresh = !split; setSplitAxis("row"); if (fresh) openLower(); setSplit(true); }}
-      onToggleFloat={toggleFloat}
+      overManual={manualOpen}
+      onOne={() => { setSplit(false); if (manualOpen) setUi({ manual: null }); }}
+      onCols={() => { const fresh = !split; setSplitAxis("col"); if (fresh) { setSplitRatio(50); openLower(); } setSplit(true); if (manualOpen) setUi({ manual: null }); }}
+      onRows={() => { const fresh = !split; setSplitAxis("row"); if (fresh) openLower(); setSplit(true); if (manualOpen) setUi({ manual: null }); }}
+      onToggleFloat={() => { toggleFloat(); if (manualOpen) setUi({ manual: null }); }}
       onCloseFloat={() => { setFloatOn(false); setFloatMin(false); }}
     />
     {inAndroidApp() ? <Suspense fallback={null}><ShareInbox /></Suspense> : null}
@@ -1683,7 +1706,7 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
  * publica el deslizamiento del cromo). ~10 % más pequeño que antes, como
  * su pareja. El ancla sigue llamándose top-view: el mapa de saltos y las
  * escenas de la Presentación apuntan al control, viva donde viva. */
-function ViewFloat({ split, splitAxis, wide, floatOn, floatMin, onOne, onCols, onRows, onToggleFloat, onCloseFloat }: {
+function ViewFloat({ split, splitAxis, wide, floatOn, floatMin, onOne, onCols, onRows, onToggleFloat, onCloseFloat, overManual }: {
   split: boolean;
   splitAxis: "row" | "col";
   wide: boolean;
@@ -1694,6 +1717,7 @@ function ViewFloat({ split, splitAxis, wide, floatOn, floatMin, onOne, onCols, o
   onRows: () => void;
   onToggleFloat: () => void;
   onCloseFloat: () => void;
+  overManual: boolean;
 }) {
   const { t } = useFaro();
   const [open, setOpen] = useState(false);
@@ -1708,7 +1732,7 @@ function ViewFloat({ split, splitAxis, wide, floatOn, floatMin, onOne, onCols, o
   useLayer(open, () => setOpen(false));
   const close = (fn: () => void) => () => { fn(); setOpen(false); };
   return (
-    <div className="view-fab-anchor" ref={ref}>
+    <div className={`view-fab-anchor${overManual ? " is-over-manual" : ""}`} ref={ref}>
       <button
         type="button"
         className={`view-fab${split || floatOn ? " is-on" : ""}`}
@@ -1718,7 +1742,7 @@ function ViewFloat({ split, splitAxis, wide, floatOn, floatMin, onOne, onCols, o
         aria-label={t("view.title")}
         onClick={() => setOpen((o) => !o)}
       >
-        {floatOn && !split ? <PictureInPicture2 size={18} /> : wide && split && splitAxis === "col" ? <Columns2 size={18} /> : <Rows2 size={18} />}
+        {floatOn && !split ? <PictureInPicture2 size={16} /> : wide && split && splitAxis === "col" ? <Columns2 size={16} /> : <Rows2 size={16} />}
       </button>
       {open ? (
         <div className="view-menu is-fab" role="menu" aria-label={t("view.title")} data-anchor="view-menu">

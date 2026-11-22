@@ -14,6 +14,10 @@
  *     cazado en el banco), y Subir y el botón de Vista consumen la
  *     misma variable — nunca dos mediciones.
  *  4. Ambos botones miden 36px (el ~10 % menos que falló Oscar).
+ *     → RE-FIJADO por la 1.3.374: en su teléfono seguían grandes; otro
+ *     13 % menos (36 → 31). La cerca 372-4 verifica el 31 vigente y la
+ *     374 guarda el orden nuevo de la barra, el aterrizaje completo y
+ *     la brújula.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -28,12 +32,16 @@ const floatCss = read("../../components/faro/float.css");
 
 test("372-1 · la barra lleva el acceso directo al Asesor, no el menú de Vista", () => {
   assert.ok(shellSrc.includes('data-anchor="top-ask"'), "el acceso directo existe");
-  assert.ok(shellSrc.includes("MessageCircleQuestion"), "lleva la marca de la caja de preguntas");
+  // 1.3.374: la marca del Asesor es la brújula (su marca en la casa); la
+  // burbuja con interrogación no convenció a Oscar y nada debe leerse
+  // como «IA». El orden exacto de la barra lo guarda la cerca 374.
+  assert.ok(shellSrc.includes("Compass"), "lleva la brújula, la marca del Asesor");
+  assert.ok(!shellSrc.includes("MessageCircleQuestion"), "la burbuja con interrogación se fue");
   assert.ok(shellSrc.includes("const goAsk"), "un toque lleva a la caja y le da el foco");
   const toolsAt = shellSrc.indexOf('className="icon-desk-tools"');
   const askAt = shellSrc.indexOf('data-anchor="top-ask"');
   const searchAt = shellSrc.indexOf('data-anchor="top-search"');
-  assert.ok(toolsAt > 0 && askAt > toolsAt && askAt < searchAt, "el acceso ocupa el hueco de Vista, entre el tema y la lupa");
+  assert.ok(toolsAt > 0 && askAt > toolsAt && askAt < searchAt, "el acceso vive en la barra, antes de la lupa");
   assert.equal(featureForGo({ screen: "top", anchor: "top-ask" }), "advisor.ask", "el salto mapea a preguntar, Esencial");
 });
 
@@ -55,8 +63,9 @@ test("372-3 · un solo reloj para la barra: --dock-drop lo publica el cromo y lo
   assert.ok(toTopSrc.includes("offsetHeight"), "Subir mide su casa sin el deslizamiento (offsetHeight no siente el transform)");
 });
 
-test("372-4 · ambos botones, ~10 % más pequeños: 36px", () => {
-  assert.ok(/\.to-top \{[^}]*width: 36px; height: 36px/.test(toTopCss), "Subir mide 36");
-  assert.ok(/\.view-fab \{[^}]*width: 36px; height: 36px/.test(floatCss), "Vista mide 36");
+test("372-4 · ambos botones pequeños: 31px (36 de la 372, menos el 13 % que pidió Oscar en la 374)", () => {
+  assert.ok(/\.to-top \{[^}]*width: 31px; height: 31px/.test(toTopCss), "Subir mide 31");
+  assert.ok(/\.view-fab \{[^}]*width: 31px; height: 31px/.test(floatCss), "Vista mide 31");
   assert.ok(!/\.to-top \{[^}]*width: 40px/.test(toTopCss), "el 40 viejo no queda");
+  assert.ok(!/\.view-fab \{[^}]*width: 36px/.test(floatCss), "el 36 de la 372 tampoco queda en Vista");
 });

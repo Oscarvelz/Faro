@@ -155,16 +155,23 @@ html[data-theme="tron"] .float-size.is-se i { border-color: color-mix(in oklab, 
 /* View menu (split + floating, from one icon) */
 .view-anchor { position: relative; }
 /* 1.3.372 — el botón de Vista, flotante permanente abajo a la izquierda
-   (familia de Subir: misma piel, mismo tamaño 36, mismo reloj de la
-   barra por --dock-drop / --dock-travel). */
+   (familia de Subir: misma piel, mismo tamaño, mismo reloj de la
+   barra por --dock-drop / --dock-travel).
+   1.3.374 (Oscar, 2026-11-21 20:22): 36 todavía era grande en su
+   teléfono — otro 13 % menos (36 → 31), a la par con Subir. */
 .view-fab-anchor {
   position: fixed; z-index: 32;
   left: calc(12px + env(safe-area-inset-left, 0px));
   bottom: max(calc(var(--dock-travel, 0px) + 12px), calc(16px + env(safe-area-inset-bottom, 0px)));
   translate: 0 var(--dock-drop, 0px);
 }
+/* 1.3.374 (Oscar, 2026-11-21 20:29): sobre el Manual el botón también
+   vive — en su esquina — porque de dónde dividir la pantalla se decide
+   desde donde se esté, también leyendo el Manual. La capa vive en 80;
+   el botón se sienta uno por encima, como Subir. */
+.view-fab-anchor.is-over-manual { z-index: 81; }
 .view-fab {
-  width: 36px; height: 36px; padding: 0; border-radius: 999px;
+  width: 31px; height: 31px; padding: 0; border-radius: 999px;
   display: grid; place-items: center; cursor: pointer;
   color: var(--muted);
   background: color-mix(in oklab, var(--surface) 90%, transparent);

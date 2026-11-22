@@ -58,7 +58,11 @@ describe("el dock se aparta: la excepción por estado de formulario", () => {
   });
 
   it("el glide recibe formOpen entre sus entradas, junto a las excepciones existentes", () => {
-    const seats = shell.match(/\}, \[split, searchOpen, calOpen, exportOpen, formOpen, ready, !!session\]\);/g) ?? [];
+    // 1.3.374: la lista crece con una excepción más de la misma familia —
+    // manualOpen (sin escritorio bajo el Manual, los flotantes bajan a la
+    // esquina; palabra de Oscar, 2026-11-21 20:28). formOpen sigue
+    // entrando una sola vez, junto a las demás.
+    const seats = shell.match(/\}, \[split, searchOpen, calOpen, exportOpen, formOpen, manualOpen, ready, !!session\]\);/g) ?? [];
     assert.equal(seats.length, 1, "formOpen entra en las dependencias del glide una sola vez");
   });
 

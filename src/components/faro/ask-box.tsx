@@ -52,7 +52,7 @@
  * respuesta y las preguntas sugeridas del banco reaparecen.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, MessageCircleQuestion, Send, Settings, Sparkles } from "lucide-react";
+import { ArrowRight, Compass, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, bankChips, type BankResult } from "@/lib/faro/ask2";
 import { askPresetsOf, capabilitiesText, FIXED_PRESET_Q } from "@/lib/faro/askpresets";
 import { FUNCTION_TOPIC } from "@/lib/faro/askmap";
@@ -171,7 +171,7 @@ export function AskBox() {
   return (
     <section className="ask-box" data-anchor="advisor-ask">
       <div className="ask-head">
-        <span className="ask-ico" aria-hidden><MessageCircleQuestion size={16} /></span>
+        <span className="ask-ico" aria-hidden><Compass size={16} /></span>
         <strong>{L("Pregúntale a tu Asesor", "Ask your Advisor")}</strong>
         <Hint topic="preguntar-asesor" />
         {has("settings.ask-presets") && presetsTopic?.go ? (

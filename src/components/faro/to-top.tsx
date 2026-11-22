@@ -36,6 +36,7 @@ export function ToTop({ lang }: { lang: string }) {
       // aporta la variable --dock-drop que publica el cromo, consumida por
       // la propiedad translate — así Subir y el botón de Vista se mueven en
       // un solo reloj, exactamente con la barra.
+      // 1.3.374: el botón mide 31 (otro 13 % menos, palabra de Oscar).
       if (vis(dock) && (dock as HTMLElement).offsetHeight > 0) {
         const extra = parseFloat(getComputedStyle(dock).bottom);
         const travel = (dock as HTMLElement).offsetHeight + (Number.isFinite(extra) ? Math.max(0, extra) : 0);
@@ -50,8 +51,8 @@ export function ToTop({ lang }: { lang: string }) {
       const bub = document.querySelector(".float-bubble");
       if (vis(bub)) {
         const r = bub.getBoundingClientRect();
-        const ax = W - right - 36;
-        const ay = H - bottom - 36;
+        const ax = W - right - 31;
+        const ay = H - bottom - 31;
         if (r.left < W - right && r.right > ax && r.top < H - bottom && r.bottom > ay) bottom = H - r.top + 10;
       }
       let z = 32;
