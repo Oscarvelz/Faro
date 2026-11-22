@@ -147,8 +147,18 @@ b.num.is-out { color: color-mix(in oklab, #c8742a 85%, var(--fg)); }
 .plan-budget > span:first-child { white-space: nowrap; font-weight: 640; }
 .plan-input { flex: 0 1 140px; min-width: 96px; }
 .plan-input .field { width: 100%; text-align: right; min-height: 38px; }
-.plan-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 6px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); border-bottom: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+.plan-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 12px; border-radius: 12px; background: color-mix(in oklab, var(--bg) 34%, transparent); box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 5%, transparent); }
 .plan-facts span { display: grid; gap: 1px; min-width: 0; }
+/* 1.3.404 (Oscar): el Plan de pago gana su color amigo de base — el acento del
+   tema, suave, bajo toda la tarjeta — y su explicación deja de flotar: va
+   sobre una bandeja con su riel de acento. La gráfica hermana no se toca. */
+.debt-plan { background: color-mix(in oklab, var(--accent) 5%, color-mix(in oklab, var(--surface) 92%, var(--bg))); border-color: color-mix(in oklab, var(--accent) 20%, var(--line)); }
+.debt-plan .plan-why { padding: 8px 10px; border-radius: 0 10px 10px 0; border-left: 2px solid color-mix(in oklab, var(--accent) 55%, transparent); background: color-mix(in oklab, var(--bg) 30%, transparent); }
+/* 1.3.404: la bandeja de hechos de la tarjeta de préstamo (loans.tsx) — los
+   hechos respiran en filas separadas sobre una superficie hundida del tema. */
+.cobro-card .loan-facts { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in oklab, var(--bg) 34%, transparent); box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 5%, transparent); display: grid; gap: 7px; }
+.cobro-card .loan-facts .cobro-meta { margin: 0; }
+.cobro-card .loan-facts .cobro-meta + .cobro-meta { border-top: 1px solid color-mix(in oklab, var(--fg) 6%, transparent); padding-top: 7px; }
 .plan-facts span:nth-child(2) { text-align: center; }
 .plan-facts span:last-child { text-align: right; }
 .plan-facts em { font-style: normal; font-size: .66rem; color: var(--faint); white-space: nowrap; }
@@ -281,8 +291,8 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
    Central's Cobros panel keeps its silver cards: everything here is scoped to .debt-book. */
 .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate, .cobro-file),
 .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) {
-  border-radius: 18px; border: 1px solid color-mix(in oklab, var(--fg) 9%, var(--line));
-  background: color-mix(in oklab, var(--surface) 86%, var(--bg));
+  border-radius: 18px; border: 1px solid color-mix(in oklab, var(--accent) 16%, var(--line));
+  background: color-mix(in oklab, var(--accent) 4%, color-mix(in oklab, var(--surface) 86%, var(--bg)));
   box-shadow: inset 0 1px 0 color-mix(in oklab, white 14%, transparent);
 }
 .debt-book .cobro-swap .cobro-group > h3 { gap: 7px; color: color-mix(in oklab, var(--fg) 82%, var(--muted)); letter-spacing: .09em; }
@@ -299,7 +309,7 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
 .debt-book .cobro-swap .cobro-file .fold-chev { color: var(--faint); }
 /* Night themes: charcoal panels (never black, never brown). */
 html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
-html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) { background: color-mix(in oklab, #1d2227 70%, var(--surface)); }
+html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) { background: color-mix(in oklab, var(--accent) 5%, var(--surface)); }
 /* Tron: dark graphite panel, the scale's hairline, a teal (or amber) firefly. */
 [data-theme="tron"] .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
 [data-theme="tron"] .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) {

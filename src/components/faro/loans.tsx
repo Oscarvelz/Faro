@@ -209,14 +209,19 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
         )}
         <strong className="num">{fmt(leftView)}</strong>
       </div>
-      <p className="cobro-meta">
-        {amountLabel} {fmt(amountView)}
-        {" · "}
-        {stampOf(dateIso)}
-        {rate && aprBps > 0 ? ` · ${(aprBps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%` : ""}
-      </p>
-      {extra}
-      {pays.length ? <p className="cobro-meta">{pays.map((p) => `${stampOf(p.date)} ${fmt(p.view)}`).join(" · ")}</p> : null}
+      {/* 1.3.404 (Oscar): los hechos de la tarjeta viven en su bandeja — una
+          superficie hundida con los tokens del tema y sus filas separadas;
+          ya no son tres líneas sueltas flotando sobre el gris. */}
+      <div className="loan-facts">
+        <p className="cobro-meta">
+          {amountLabel} {fmt(amountView)}
+          {" · "}
+          {stampOf(dateIso)}
+          {rate && aprBps > 0 ? ` · ${(aprBps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%` : ""}
+        </p>
+        {extra}
+        {pays.length ? <p className="cobro-meta">{pays.map((p) => `${stampOf(p.date)} ${fmt(p.view)}`).join(" · ")}</p> : null}
+      </div>
       {paying ? (
         <div className="form-block cobro-form is-bonus">
           <div className="cobro-grid">

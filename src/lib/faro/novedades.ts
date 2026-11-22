@@ -35,6 +35,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.404",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Debo, con acabado", en: "I owe, finished" },
+    points: {
+      es: [
+        "La tarjeta de cada préstamo deja el gris que no era de ningún tema: su base y su borde nacen ahora del color de tu tema, como el resto de la casa.",
+        "Los hechos del préstamo (lo recibido, el interés, el día de pago, cuándo quedas libre) ya no flotan sueltos: viven ordenados en su bandeja, fila por fila.",
+        "El Plan de pago gana un color amigo de base — el de tu tema — y sus tres cifras y su explicación se sientan en bandejas propias: ya no se ve plano.",
+      ],
+      en: [
+        "Each loan's card drops the grey that belonged to no theme: its base and border now come from your theme's color, like the rest of the house.",
+        "The loan's facts (what you received, the interest, the payment day, when you're free) no longer float loose: they live in order in their own tray, row by row.",
+        "The Payoff plan gains a friendly base color — your theme's — and its three figures and its explanation sit in trays of their own: it no longer looks flat.",
+      ],
+    },
+  },
+  {
     version: "1.3.403",
     date: "2026-11-22",
     level: "menor",
