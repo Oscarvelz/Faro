@@ -448,13 +448,18 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // libro compartido, cuya cara madre (screens) nombra el sistema por
   // su asiento books.share-admin; la vista no decide nada de modo:
   // lee membresías, recorta la copia por el alcance y la pinta.
+  // ENMIENDA 1.3.398 (Pieza C8): passive-folios.tsx entra por la misma
+  // familia — la sección del Archivo que lee los registros pasivos;
+  // su cara madre (archivo) nombra el sistema por sus asientos, y la
+  // sección no decide nada de modo: pinta folios de historia y ofrece
+  // su borrado con la confirmación de la casa.
   const EXEMPT = [
     "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "draft-row.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
     "icons.tsx", "manual-text.tsx", "rewards-real.tsx",
     "sample-mode.tsx", "selection.tsx", "shared-view.tsx", "signature.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",
-    "to-top.tsx", "ui.tsx",
+    "passive-folios.tsx", "to-top.tsx", "ui.tsx",
   ];
   const NAMES_SYSTEM = /has\("|hasFeature|modeOf|modeReaches|featureForGo|topicMode|bookMode|modeRank|modeImpact|unlockedGroups|settings\.mode|lib\/faro\/mode/;
 

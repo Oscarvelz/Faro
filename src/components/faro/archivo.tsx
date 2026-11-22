@@ -25,6 +25,8 @@ import { useFaroUser } from "@/spa/gates";
 import { Note } from "./finish";
 import { PiecePlate } from "./fit-pick";
 import { bookLabel, dayLabel, shortDay } from "./historial";
+import { PassiveFolios } from "./passive-folios";
+import { passiveRecordsOf } from "@/lib/faro/exit";
 import { SaveNote } from "./fund-light";
 import { fundOfLine, saveKindOf } from "@/lib/faro/funds";
 import { movementDate, restingEntries, type RestingEntry } from "@/lib/faro/descanso";
@@ -58,7 +60,8 @@ export function ArchivoScreen() {
    * restos por la receta única de plan.ts, como cada ciudadano de esta
    * unión llama al mutador de su área. */
   const folios = useMemo(() => (state ? closedPlans(state) : []), [state]);
-  const total = spans.length + lent.length + loans.length + cards.length + dueRows.length + folios.length;
+  const passives = useMemo(() => (state ? passiveRecordsOf(state).length : 0), [state]);
+  const total = spans.length + lent.length + loans.length + cards.length + dueRows.length + folios.length + passives;
 
   if (!state) return null;
   const display = state.settings.display;
@@ -404,6 +407,7 @@ export function ArchivoScreen() {
           ))}
         </section>
       ) : null}
+      <PassiveFolios />
       {canDeleteLines && selection.mode ? (
         <SelectionBar count={selection.count} onExit={selection.exit}>
           <button

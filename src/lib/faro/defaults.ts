@@ -1178,5 +1178,16 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
     if (!isObjD(s.funding)) return false;
     for (const v of Object.values(s.funding as Record<string, unknown>)) if (!isStrD(v)) return false;
   }
+  // passiveRecords (los registros pasivos de las salidas, Pieza C8):
+  // si está, es una lista de folios congelados con su forma completa;
+  // uno malformado no pasa.
+  if (s.passiveRecords !== undefined) {
+    if (!Array.isArray(s.passiveRecords)) return false;
+    for (const r of s.passiveRecords as unknown[]) {
+      if (!isObjD(r)) return false;
+      if (!isStrD(r.id) || (r.id as string) === "" || !isStrD(r.at) || !isStrD(r.owner)) return false;
+      if (!isObjD(r.months) || !Array.isArray(r.categories)) return false;
+    }
+  }
   return true;
 }

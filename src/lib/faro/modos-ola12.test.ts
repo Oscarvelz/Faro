@@ -414,6 +414,7 @@ const CARAS: Record<string, [Clase, string]> = {
  * no suma partidas: enseña resúmenes de solo lectura y los borradores
  * caen en la bandeja; la suma vive en la mesa (draftTotals, librería). */
 const AGREGADORES: Record<string, [Clase, string]> = {
+  "lib/faro/exit.ts:passiveMonths": ["interna", "la lectura del registro pasivo (Pieza C8, 1.3.398): suma las líneas CONGELADAS de un folio de historia en el Archivo; no es una cifra del libro vivo — ningún motor la compone con el presente, y su cara la nombra historia"],
   "components/faro/advisor2.tsx:ShortVisual": ["gasto", "el resto de «los gastos que más pesaron»: suma las líneas del río ya clasificadas SIN las transferencias (el apartado fuera)"],
   "components/faro/archivo.tsx:ArchivoScreen": ["interna", "suma lo archivado para la vista del Archivo, nombrado como archivo; no es una frase del mes vivo"],
   "components/faro/book-side.tsx:BookSide": ["interna", "totales por libro de la barra lateral (el saldo de cada libro), no frases de gasto del mes"],

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Eye, Send, UserPlus, X } from "lucide-react";
 import { useFaro } from "./provider";
 import { canInvite, emptyMesa, mesaKey, plausibleEmail, previewFor, previewStale, type MesaState, type SharePreview, type ShareScope } from "@/lib/faro/share";
-import { cancelInvite, inviteMember, listMemberships, removeMember, type Membership } from "@/spa/cloud";
+import { cancelInvite, inviteMember, listMemberships, offerTransfer, removeMember, type Membership } from "@/spa/cloud";
 import "./share-mesa.css";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
@@ -190,6 +190,15 @@ export function ShareMesa() {
                 <span className="sm-memail">{m.email}</span>
                 <span className="sm-mtag">{m.status === "pending" ? L(lang, "Invitación pendiente", "Invitation pending") : L(lang, "En el libro", "In the book")} · {m.role === "note" ? L(lang, "anota", "notes") : L(lang, "solo mira", "view only")}</span>
                 <button type="button" className="sm-mini" data-anchor="share-what" onClick={() => setOpenShared(openShared === m.id ? null : m.id)}>{L(lang, "Qué compartí", "What I shared")}</button>
+                {m.status === "active" && m.role === "note" && !m.transferTo ? (
+                  <button type="button" className="sm-mini" data-anchor="share-offer" onClick={() => confirm({
+                    title: L(lang, "¿Ofrecerle este libro?", "Offer them this book?"),
+                    body: L(lang, "Si acepta, el libro pasa a ser suyo y tú quedas como miembro que anota, con todo el alcance. Nada se mueve hasta que acepte.", "If they accept, the book becomes theirs and you stay on as a member who can note, with full scope. Nothing moves until they accept."),
+                    yes: L(lang, "Ofrecer", "Offer"),
+                    run: () => { void (async () => { if (await offerTransfer(m.id)) void load(); })(); },
+                  })}>{L(lang, "Ofrecer el libro", "Offer the book")}</button>
+                ) : null}
+                {m.transferTo ? <span className="sm-mtag">{L(lang, "Traspaso ofrecido", "Transfer offered")}</span> : null}
                 <button type="button" className="sm-mini is-danger" data-anchor="share-remove" aria-label={L(lang, "Cancelar o retirar", "Cancel or remove")} onClick={() => act(m)}><X aria-hidden /></button>
               </div>
               {openShared === m.id ? <PreviewBody pv={mpv} names={names} lang={lang} fundLabel={(by) => by === m.member ? L(lang, "su dinero", "their money") : (members?.find((x) => x.member === by)?.email ?? L(lang, "de un miembro", "a member's money"))} /> : null}

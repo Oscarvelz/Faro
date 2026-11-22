@@ -613,6 +613,14 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // línea son ajustes que aterrizan (interruptor, apps, y el apagado
   // confirmado), y olvidar una forma silenciada aterriza por su ayuda.
   "components/faro/notices-fold.tsx|commit|inline|—": ["aterrizaje", 3],
+  // 1.3.398 (Pieza C8): las dos recetas de las salidas del libro
+  // compartido — guardar el registro pasivo en el libro propio al
+  // salir (la ceremonia lee la copia antes, el commit solo aterriza
+  // el folio) y borrarlo desde el Archivo tras la confirmación de la
+  // casa. Ninguna puede ser negada por el guardián de identidad: no
+  // tocan líneas ni ciudadanos del libro.
+  "components/faro/shared-view.tsx|commit|withPassiveRecord|withPassiveRecord": ["aterrizaje", 1],
+  "components/faro/passive-folios.tsx|commit|withoutPassiveRecord|withoutPassiveRecord": ["aterrizaje", 1],
   "components/faro/notices-fold.tsx|commit|forgetNoticeRule|forgetNoticeRule": ["aterrizaje", 1],
   "components/faro/widget-host.tsx|commit|toggleStorePin|—": ["aterrizaje", 2],
   "components/faro/widget-host.tsx|commit|toggleWidgetPin|—": ["aterrizaje", 2],

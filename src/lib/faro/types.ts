@@ -729,6 +729,24 @@ export type Tombstone = {
   by: string;
 };
 
+/** El registro pasivo de una salida (Pieza C8, 1.3.398): la copia
+ * congelada del alcance de quien se fue, guardada en SU libro como
+ * folio de historia. Trae los meses y las categorías de su alcance —
+ * nada más: ni ajustes, ni cuentas, ni auditoría. Las líneas guardan
+ * sus firmas y sus marcas de dinero tal como quedaron. */
+export type PassiveRecord = {
+  /** El id del registro (propio, no el de la membresía). */
+  id: string;
+  /** Cuándo se tomó el registro (ISO). */
+  at: string;
+  /** La cuenta dueña del libro del que se salió. */
+  owner: string;
+  /** Los meses del alcance, congelados. */
+  months: Record<string, { lines: Line[] }>;
+  /** Las categorías del alcance (id y nombre tal como se veían). */
+  categories: { id: string; name: string }[];
+};
+
 export type NoticeRule = {
   key: string;
   app: string;
@@ -792,6 +810,12 @@ export type LedgerState = {
    * cuenta predeterminada. Financiar de pie NO es una aportación: es
    * quién pone el dinero de esa área. Ver funding.ts. */
   funding?: Record<string, string>;
+  /** Los registros pasivos de libros compartidos que la persona dejó
+   * (Pieza C8, 1.3.398): la copia congelada de su alcance al salir —
+   * un folio de HISTORIA en su Archivo. No es un libro: ningún motor
+   * lo escribe, ninguna cuenta se toca con él, y borrarlo no toca el
+   * libro del dueño. Ausente = ningún registro. Ver exit.ts. */
+  passiveRecords?: PassiveRecord[];
   /** Los patrones aprendidos del Asesor (Ola 11 del banco, integrados
    * en 1.3.383): las palabras del usuario para sus cosas, confirmadas
    * por su toque o su corrección — palabra → ciudadano, jamás una

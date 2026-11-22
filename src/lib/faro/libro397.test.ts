@@ -79,9 +79,16 @@ test("libro397 · la adopción en la mesa: con autor, el borrador nace firmado Y
   assert.equal(line!.fundedBy, "cuenta-maria"); // el sello del dinero, en la misma puerta
 });
 
-test("libro397 · la vista compartida es de lectura: recorta antes de abrir y no guarda nada", () => {
+test("libro397 · la vista compartida no escribe en el libro ajeno: recorta antes de abrir", () => {
   const src = readFileSync(new URL("../../components/faro/shared-view.tsx", import.meta.url), "utf8");
   assert.ok(src.includes("scopeFilter(raw, m.scope)"), "la copia se recorta por el alcance antes de abrirse");
-  assert.ok(!src.includes("commit("), "ningún camino de guardado pasa por la vista");
-  assert.ok(!src.includes("commitGuarded("), "ni guardado con guardián");
+  assert.ok(!src.includes("upsertLine"), "ninguna línea del libro compartido se escribe desde la vista");
+  assert.ok(!src.includes("commitDrafts"), "la mesa de borradores no se toca desde la vista");
+  // ENMIENDA 1.3.398 (Pieza C8): la vista ganó UN commit legítimo —
+  // guardar el registro pasivo en el libro PROPIO de quien se va, por
+  // la puerta de exit.ts. La ley afinada: ese es el único commit, y
+  // pasa por withPassiveRecord.
+  const commits = src.match(/commit\(/g) ?? [];
+  assert.equal(commits.length, 1, "un solo commit en la vista: el registro pasivo de la salida");
+  assert.ok(src.includes("withPassiveRecord"), "y pasa por la puerta de las salidas");
 });

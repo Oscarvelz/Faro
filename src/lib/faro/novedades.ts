@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.398",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Salir de un libro compartido, con serenidad", en: "Leaving a shared book, calmly" },
+    points: {
+      es: [
+        "En «Compartidos conmigo», salir no pide razones: tu acceso termina, la copia se retira de tu teléfono y lo que anotaste queda en el libro, con tu firma.",
+        "Al salir eliges qué hacer con tu copia: guardarla como registro en tu Archivo — historia que se lee, no toca ninguna cuenta y se borra cuando quieras sin tocar el libro de su dueño —, exportarla como archivo, o no llevarte nada. Y si te ofrecen un libro en traspaso, aceptarlo también vive ahí; ofrecerlo vive en la mesa del dueño.",
+      ],
+      en: [
+        "Under “Shared with me”, leaving asks for no reasons: your access ends, the copy is withdrawn from your phone and what you noted stays in the book, with your signature.",
+        "When you leave you choose what to do with your copy: keep it as a record in your Archive — history that reads, touches no account and can be deleted whenever you like without touching its owner's book —, export it as a file, or take nothing. And if a book is offered to you in transfer, accepting it lives there too; offering it lives on the owner's mesa.",
+      ],
+    },
+  },
+  {
     version: "1.3.397",
     date: "2026-11-22",
     level: "menor",

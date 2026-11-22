@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { BookOpen, X } from "lucide-react";
 import { useFaro } from "./provider";
 import { Signature } from "./signature";
-import { acceptInvite, fetchSharedBook, listMemberships, type Membership } from "@/spa/cloud";
+import { acceptInvite, acceptTransfer, fetchSharedBook, leaveMembership, listMemberships, type Membership } from "@/spa/cloud";
 import { makeNamer } from "@/lib/faro/defaults";
 import { categoryTotal, explainLines, scopeFilter } from "@/lib/faro/world";
+import { makePassiveRecord, withPassiveRecord } from "@/lib/faro/exit";
+import { uid } from "@/lib/faro/money";
 import type { LedgerState } from "@/lib/faro/types";
 import "./share-mesa.css";
 
@@ -35,13 +37,14 @@ function asBook(x: unknown): LedgerState | null {
  * y el servidor lo comprueba — la ley de la C1).
  */
 export function SharedWithMe() {
-  const { lang, userId, fmt } = useFaro();
+  const { lang, userId, fmt, commit } = useFaro();
   const [rows, setRows] = useState<Membership[] | null | undefined>(undefined);
   const [open, setOpen] = useState<OpenBook | null>(null);
   const [month, setMonth] = useState<string>("");
   const [cat, setCat] = useState<string | null>(null);
   const [code, setCode] = useState("");
-  const [note, setNote] = useState<"accepted" | "bad-code" | "no-book" | null>(null);
+  const [ceremony, setCeremony] = useState<string | null>(null);
+  const [note, setNote] = useState<"accepted" | "bad-code" | "no-book" | "left" | "leave-failed" | "copy-failed" | "transferred" | null>(null);
 
   const load = useCallback(async () => {
     const all = await listMemberships();
@@ -67,6 +70,44 @@ export function SharedWithMe() {
     if (ok) { setCode(""); void load(); }
   };
 
+  /* La ceremonia de salida (Pieza C8): serena, sin razones. La copia
+   * se lee ANTES de salir (mientras el acceso vive); si no se puede
+   * leer, la salida con copia no se ofrece como hecha — la persona
+   * decide sabiéndolo. Salir cierra la membresía en el servidor: el
+   * acceso muere ahí, y la vista abierta se retira con ella. Lo que
+   * anotó queda en el libro, firmado. */
+  const leave = async (m: Membership, kind: "export" | "passive" | "nothing") => {
+    let scoped: LedgerState | null = null;
+    if (kind !== "nothing") {
+      const raw = asBook(await fetchSharedBook(m.bookOwner));
+      if (!raw) { setNote("copy-failed"); return; }
+      scoped = scopeFilter(raw, m.scope);
+    }
+    const ok = await leaveMembership(m.id);
+    if (!ok) { setNote("leave-failed"); return; }
+    if (kind === "passive" && scoped) {
+      const record = makePassiveRecord(scoped, m.bookOwner, lang === "en" ? "en" : "es", new Date().toISOString(), uid());
+      commit((s) => withPassiveRecord(s, record), L(lang, "Registro del libro compartido guardado", "Shared-book record kept"));
+    }
+    if (kind === "export" && scoped) {
+      const blob = new Blob([JSON.stringify(scoped, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "faro-libro-compartido.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    if (open?.owner === m.bookOwner) setOpen(null);
+    setCeremony(null);
+    setNote("left");
+    void load();
+  };
+
+  const takeTransfer = async (m: Membership) => {
+    const ok = await acceptTransfer(m.id);
+    if (ok) { setNote("transferred"); void load(); }
+  };
+
   const names = open ? makeNamer(open.book.structure, lang === "en" ? "en" : "es") : null;
   const months = open ? Object.keys(open.book.months).sort().reverse() : [];
   const figure = open && cat ? explainLines(open.book, month, cat) : null;
@@ -78,9 +119,29 @@ export function SharedWithMe() {
       {rows === null ? <p className="sm-note">{L(lang, "La lista no se pudo leer ahora; el código de una invitación sí se puede intentar.", "The list could not be read right now; an invitation code can still be tried.")}</p> : null}
       {rows !== undefined && rows !== null && rows.length === 0 && !open ? <p className="sm-note">{L(lang, "Nadie ha compartido un libro contigo todavía.", "No one has shared a book with you yet.")}</p> : null}
       {!open && rows ? rows.map((m) => (
-        <div key={m.id} className="sm-mrow">
-          <span className="sm-mtag">{m.role === "note" ? L(lang, "Puedes anotar", "You can note") : L(lang, "Solo mirar", "View only")} · {"all" in m.scope && m.scope.all ? L(lang, "todo el libro", "the whole book") : L(lang, "algunas áreas", "some areas")}</span>
-          <button type="button" className="sm-mini" data-anchor="shared-open" onClick={() => void openBook(m)}>{L(lang, "Abrir", "Open")}</button>
+        <div key={m.id}>
+          <div className="sm-mrow">
+            <span className="sm-mtag">{m.role === "note" ? L(lang, "Puedes anotar", "You can note") : L(lang, "Solo mirar", "View only")} · {"all" in m.scope && m.scope.all ? L(lang, "todo el libro", "the whole book") : L(lang, "algunas áreas", "some areas")}</span>
+            <button type="button" className="sm-mini" data-anchor="shared-open" onClick={() => void openBook(m)}>{L(lang, "Abrir", "Open")}</button>
+            <button type="button" className="sm-mini" data-anchor="shared-leave" onClick={() => setCeremony(ceremony === m.id ? null : m.id)}>{L(lang, "Salir", "Leave")}</button>
+          </div>
+          {m.transferTo === userId ? (
+            <div className="sm-prev">
+              <span className="sm-line">{L(lang, "Te han ofrecido quedarte con este libro: pasaría a ser tuyo y su dueño quedaría como miembro que anota.", "You have been offered this book: it would become yours and its owner would stay on as a member who can note.")}</span>
+              <button type="button" className="sm-mini" data-anchor="shared-take-transfer" onClick={() => void takeTransfer(m)}>{L(lang, "Aceptar el traspaso", "Accept the transfer")}</button>
+            </div>
+          ) : null}
+          {ceremony === m.id ? (
+            <div className="sm-prev">
+              <span className="sm-line">{L(lang, "Al salir, tu acceso a este libro termina y la copia que ves aquí se retira de este teléfono. Lo que anotaste queda en el libro, con tu firma. ¿Qué quieres hacer con tu copia de tu alcance?", "When you leave, your access to this book ends and the copy you see here is withdrawn from this phone. What you noted stays in the book, with your signature. What do you want to do with your copy of your scope?")}</span>
+              <div className="sm-opts">
+                <button type="button" className="sm-opt" data-anchor="leave-passive" onClick={() => void leave(m, "passive")}>{L(lang, "Guardarla como registro en mi Archivo", "Keep it as a record in my Archive")}</button>
+                <button type="button" className="sm-opt" data-anchor="leave-export" onClick={() => void leave(m, "export")}>{L(lang, "Exportarla como archivo", "Export it as a file")}</button>
+                <button type="button" className="sm-opt" data-anchor="leave-nothing" onClick={() => void leave(m, "nothing")}>{L(lang, "No llevarme nada", "Take nothing")}</button>
+              </div>
+              <p className="sm-note">{L(lang, "El registro guardado es historia: se lee en tu Archivo, no toca ninguna cuenta, y puedes borrarlo cuando quieras sin tocar el libro de su dueño.", "The kept record is history: it reads in your Archive, touches no account, and you can delete it whenever you like without touching its owner's book.")}</p>
+            </div>
+          ) : null}
         </div>
       )) : null}
       {!open ? (
@@ -92,6 +153,10 @@ export function SharedWithMe() {
       {note === "accepted" ? <p className="sm-ok">{L(lang, "Invitación aceptada: el libro ya está en tu lista.", "Invitation accepted: the book is now in your list.")}</p> : null}
       {note === "bad-code" ? <p className="sm-warn">{L(lang, "Ese código no abrió ninguna invitación para tu correo.", "That code opened no invitation for your email.")}</p> : null}
       {note === "no-book" ? <p className="sm-warn">{L(lang, "El libro no se pudo abrir ahora.", "The book could not be opened right now.")}</p> : null}
+      {note === "left" ? <p className="sm-ok">{L(lang, "Saliste del libro. Tu acceso terminó.", "You left the book. Your access has ended.")}</p> : null}
+      {note === "leave-failed" ? <p className="sm-warn">{L(lang, "La salida no se pudo completar ahora; sigues dentro del libro.", "Leaving could not be completed right now; you are still in the book.")}</p> : null}
+      {note === "copy-failed" ? <p className="sm-warn">{L(lang, "Tu copia no se pudo leer ahora, así que no saliste: sin copia en la mano, la salida con registro o archivo no se hace a ciegas.", "Your copy could not be read right now, so you did not leave: leaving with a record or a file is not done blind.")}</p> : null}
+      {note === "transferred" ? <p className="sm-ok">{L(lang, "El libro ahora es tuyo.", "The book is now yours.")}</p> : null}
 
       {open && names ? (
         <div className="sm-view">
