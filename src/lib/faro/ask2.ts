@@ -80,7 +80,8 @@ export type BankFamilyId =
   | "contrafactual" | "respaldo" | "meta"
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
-  | "simulador" | "estacionalidad" | "reparto" | "aprendizaje";
+  | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
+  | "porque" | "falta" | "series";
 
 export type BankPiece = { label: string; minor: number };
 /** UNA ACCIÓN SUGERIDA (ola 5): la puerta que la respuesta propone
@@ -90,7 +91,7 @@ export type BankPiece = { label: string; minor: number };
  * PROPONE; el toque del usuario dispone (R2: nada se guarda solo). */
 export type BankAction = { id: string; label: string; target: string };
 export type BankResult =
-  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null; actions?: BankAction[]; proposal?: { word: string; question: string } | null; forgetWord?: string | null; frame?: AskFrame }
+  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null; actions?: BankAction[]; proposal?: { word: string; question: string } | null; forgetWord?: string | null; frame?: AskFrame; convo?: ConvoFrame | null }
   | { kind: "ask-back"; family: BankFamilyId; verdict: string; options: (BankPiece & { id: string })[]; source: string[] }
   | { kind: "need-amount"; family: BankFamilyId }
   | { kind: "unknown" };
@@ -858,22 +859,44 @@ function extremosAnswer(c: Ctx, folded: string): BankResult | null {
 /* ------------------------------------------------------------------ */
 /* AGENDA — lo que viene, desde la misma ventana de Cobros.           */
 /* ------------------------------------------------------------------ */
-function agendaAnswer(c: Ctx): BankResult {
-  const dues = duesWindow(c.state, 31, c.today).slice().sort((a, b) => a.on.localeCompare(b.on));
+function agendaAnswer(c: Ctx, folded = ""): BankResult {
+  // OLA 20 (el instrumento cazó el silencio): la agenda oía «pagos
+  // vienen» pero no «¿qué tengo que pagar mañana?» — y su ventana era
+  // siempre 31 días, así que el horizonte NOMBRADO manda: mañana es
+  // mañana, esta semana cierra el domingo, este mes cierra el mes.
+  // Responder «mañana» con la lista de 31 días sería un disfraz de
+  // horizonte; la ventana se dice en el veredicto.
+  let days = 31;
+  let winEs = "los próximos 31 días";
+  let winEn = "the next 31 days";
+  const prox = folded.match(/proximos (\d+) dias|next (\d+) days/);
+  if (/\bmanana\b|tomorrow/.test(folded)) { days = 1; winEs = "mañana"; winEn = "tomorrow"; }
+  else if (/\bhoy\b|today/.test(folded)) { days = 0; winEs = "hoy"; winEn = "today"; }
+  else if (/esta semana|this week/.test(folded)) {
+    const dow = new Date(`${c.today}T12:00:00`).getDay();
+    days = (7 - dow) % 7;
+    winEs = "esta semana"; winEn = "this week";
+  } else if (/este mes|fin de mes|this month|end of (the )?month/.test(folded)) {
+    const dayN = Number(c.today.slice(8, 10));
+    const daysIn = new Date(Number(c.key.slice(0, 4)), Number(c.key.slice(5, 7)), 0).getDate();
+    days = Math.max(0, daysIn - dayN);
+    winEs = "de aquí a fin de mes"; winEn = "from here to month's end";
+  } else if (prox) { days = Number(prox[1] ?? prox[2]); winEs = `los próximos ${days} días`; winEn = `the next ${days} days`; }
+  const dues = duesWindow(c.state, days, c.today).slice().sort((a, b) => a.on.localeCompare(b.on));
   if (!dues.length) {
     return {
       kind: "answer", family: "agenda",
-      verdict: L(c.lang, "No viene ninguna cuota en los próximos 31 días: la ventana de Cobros está vacía.", "No dues come up in the next 31 days: the Collections window is empty."),
+      verdict: L(c.lang, `En ${winEs} no viene ningún pago: la ventana de Cobros está vacía en ese horizonte.`, `In ${winEn} no payment comes up: the Collections window is empty on that horizon.`),
       pieces: [], note: null, source: ["cobros.cuotas", "central.gastare"], lines: 0,
     };
   }
   const first = dues.slice(0, 5);
   return {
     kind: "answer", family: "agenda",
-    verdict: L(c.lang, `Lo primero que viene es «${first[0].name}», el ${first[0].on}, por ${c.money(first[0].amt ?? 0)}.`, `The first thing ahead is "${first[0].name}", on ${first[0].on}, for ${c.money(first[0].amt ?? 0)}.`),
+    verdict: L(c.lang, `En ${winEs}: lo primero que viene es «${first[0].name}», el ${first[0].on}, por ${c.money(first[0].amt ?? 0)}.`, `In ${winEn}: the first thing ahead is "${first[0].name}", on ${first[0].on}, for ${c.money(first[0].amt ?? 0)}.`),
     pieces: first.map((d) => ({ label: `${d.name} · ${d.on}`, minor: d.amt ?? 0 })),
     note: dues.length > first.length
-      ? L(c.lang, `Y ${dues.length - first.length} más dentro de los 31 días.`, `And ${dues.length - first.length} more within the 31 days.`)
+      ? L(c.lang, `Y ${dues.length - first.length} más en ese horizonte.`, `And ${dues.length - first.length} more on that horizon.`)
       : null,
     source: ["cobros.cuotas", "central.gastare"], lines: 0,
   };
@@ -978,6 +1001,46 @@ function periodOf(c: Ctx, folded: string): Period {
   }
   if (/\bano\b|este ano|this year/.test(folded)) {
     return { kind: "year", year: c.key.slice(0, 4), label: L(c.lang, "este año", "this year") };
+  }
+  // OLA 23 · LA QUINCENA — el período propio del mundo que cobra por
+  // quincena: días 1–15 y 16–fin del mes (ciclo de CALENDARIO, no un
+  // ciclo de 14 días — la investigación lo dejó claro). «Esta» es la
+  // mitad en curso; «la pasada», la mitad anterior (que puede vivir
+  // en el mes anterior); «primera/segunda», la mitad nombrada del mes
+  // en curso. Nace como rango de fechas: la heredan todas las
+  // familias que consumen periodOf (historia, conteo, frecuencia,
+  // comparar). La fecha de una línea sin día anotado es la convención
+  // del motor (lineDate la pone el día 1) y la quincena la hereda.
+  if (/quincena|quincenal|pay period|half month/.test(folded)) {
+    const y = Number(c.key.slice(0, 4));
+    const m = Number(c.key.slice(5, 7));
+    const dayN = Number(c.today.slice(8, 10));
+    const daysIn = new Date(y, m, 0).getDate();
+    const halfOf = (yy: number, mm: number, second: boolean) => {
+      const di = new Date(yy, mm, 0).getDate();
+      const base = `${yy}-${String(mm).padStart(2, "0")}`;
+      return second
+        ? { from: `${base}-16`, to: `${base}-${String(di).padStart(2, "0")}` }
+        : { from: `${base}-01`, to: `${base}-15` };
+    };
+    const inSecond = dayN > 15;
+    let range: { from: string; to: string };
+    let lbl: string;
+    if (/primera quincena|first half/.test(folded)) {
+      range = halfOf(y, m, false);
+      lbl = L(c.lang, "la primera quincena (del 1 al 15)", "the first half (the 1st to the 15th)");
+    } else if (/segunda quincena|second half/.test(folded)) {
+      range = halfOf(y, m, true);
+      lbl = L(c.lang, `la segunda quincena (del 16 al ${daysIn})`, `the second half (the 16th to the ${daysIn}th)`);
+    } else if (/quincena pasada|last pay period/.test(folded)) {
+      if (inSecond) range = halfOf(y, m, false);
+      else { const pk = prevKey(c.key); range = halfOf(Number(pk.slice(0, 4)), Number(pk.slice(5, 7)), true); }
+      lbl = L(c.lang, `la quincena pasada (del ${range.from.slice(8)} al ${range.to.slice(8)})`, `last pay period (${range.from} to ${range.to})`);
+    } else {
+      range = halfOf(y, m, inSecond);
+      lbl = L(c.lang, `esta quincena (del ${range.from.slice(8)} al ${range.to.slice(8)})`, `this pay period (${range.from} to ${range.to})`);
+    }
+    return { kind: "range", ...range, label: lbl };
   }
   return { kind: "month", key: c.key, label: L(c.lang, "este mes", "this month") };
 }
@@ -1097,7 +1160,7 @@ function filterOf(c: Ctx, folded: string): ((l: Line) => boolean) | null {
   return filterHitOf(c, folded)?.fn ?? null;
 }
 
-const STRAY_STOP = new Set(["mes", "ano", "semana", "dia", "dias", "total", "eso", "esto", "esta", "este", "promedio", "pasado", "pasada", "ultimo", "ultima", "general", "cuenta", "month", "year", "week", "day", "average", "last", "the", "una", "uno", "del", "las", "los", "que", "como", "cuando", "donde", "cual", "quien", "todo", "toda", "todos", "hace", "desde", "entre", "sobre", "para", "con", "sin", "por", "mis", "tus", "sus", "fue", "era", "son", "mas", "menos", "muy", "tan", "hoy", "ayer", "manana", "siempre", "nunca", "veces", "vez", "parte", "mitad", "doble", "resto", "otros", "otras", "otro", "otra", "cada", "mismo", "misma", "solo", "sola", "bien", "mal", "mejor", "peor", "antes", "despues", "ahora", "luego", "pronto", "tarde", "temprano", "casi", "mucho", "poco", "nada", "algo", "alguien", "nadie", "ningun", "ninguna", "cualquier", "cualquiera", "demas", "propio", "propia", "cierto", "cierta", "seguro", "segura", "posible", "favor", "gracias", "hola", "bueno", "buena", "buenos", "buenas", "dia"]);
+const STRAY_STOP = new Set(["mes", "ano", "semana", "dia", "dias", "total", "eso", "esto", "esta", "este", "promedio", "pasado", "pasada", "ultimo", "ultima", "general", "cuenta", "month", "year", "week", "day", "average", "last", "the", "una", "uno", "del", "las", "los", "que", "como", "cuando", "donde", "cual", "quien", "todo", "toda", "todos", "hace", "desde", "entre", "sobre", "para", "con", "sin", "por", "mis", "tus", "sus", "fue", "era", "son", "mas", "menos", "muy", "tan", "hoy", "ayer", "manana", "siempre", "nunca", "veces", "vez", "parte", "mitad", "doble", "resto", "otros", "otras", "otro", "otra", "cada", "mismo", "misma", "solo", "sola", "bien", "mal", "mejor", "peor", "antes", "despues", "ahora", "luego", "pronto", "tarde", "temprano", "casi", "mucho", "poco", "nada", "algo", "alguien", "nadie", "ningun", "ninguna", "cualquier", "cualquiera", "demas", "propio", "propia", "cierto", "cierta", "seguro", "segura", "posible", "favor", "gracias", "hola", "bueno", "buena", "buenos", "buenas", "dia", "primera", "segunda", "quincena", "quincenal"]);
 
 /** OLA 12 — LA HONESTIDAD DEL FILTRO: la palabra que la pregunta pone
  * en forma de filtro («en comida», «de juguetes») y que no casa con
@@ -1648,6 +1711,37 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       source: ["ahorros.stock"], lines: 0,
       actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
     };
+  }
+  // OLA 24 · LA SENSIBILIDAD DE UNA VARIABLE (el What-If de Excel):
+  // «¿y si el internet sube a 60?» / «¿y si la casa sube 10 dólares?»
+  // — UNA línea nombrada cambia y el mes se recalcula con esa línea
+  // sustituida; la diferencia se dice. «Sube a X» trae el valor nuevo;
+  // «sube X» trae el delta (el signo lo pone el verbo).
+  {
+    const filter = filterOf(c, folded);
+    const verb = /(sube|subiera|subiese|baja|bajara|bajase|aumenta|aumentara|cuesta|cueste|costara|valiera|fuera|seria|bajaria|subiria)/.test(folded);
+    if (filter && verb && /\bsi\b|\bif\b/.test(folded)) {
+      const monthLines = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
+      const named = monthLines.filter((l) => filter(l));
+      if (named.length) {
+        const line = named[0];
+        const oldV = view(c, line);
+        const amt = disp(amounts[0]);
+        const absolute = /(a|hasta|en)\s*$/.test(folded.slice(0, folded.search(/\d/))) || /(cuesta|cueste|costara|valiera|fuera|seria)/.test(folded);
+        const newV = absolute ? amt : /(baja|bajara|bajase|bajaria)/.test(folded) ? oldV - amt : oldV + amt;
+        const spendNow = monthLines.reduce((a, l) => a + view(c, l), 0);
+        const spendNew = spendNow - oldV + newV;
+        const diff = newV - oldV;
+        return {
+          kind: "answer", family: "hipotetico",
+          verdict: L(c.lang, `Si «${line.concept}» costara ${c.money(newV)} en vez de ${c.money(oldV)}, este mes gastarías ${c.money(spendNew)} en vez de ${c.money(spendNow)}: ${diff >= 0 ? `${c.money(diff)} más` : `${c.money(-diff)} menos`}.`, `If "${line.concept}" cost ${c.money(newV)} instead of ${c.money(oldV)}, this month you'd spend ${c.money(spendNew)} instead of ${c.money(spendNow)}: ${diff >= 0 ? `${c.money(diff)} more` : `${c.money(-diff)} less`}.`),
+          pieces: [{ label: line.concept, minor: oldV }, { label: L(c.lang, "El mes con el cambio", "The month with the change"), minor: spendNew }],
+          note: L(c.lang, "El supuesto, dicho: solo cambia esa línea — todo lo demás queda como está anotado, y nada se movió en tu libro.", "The assumption, stated: only that line changes — everything else stays as recorded, and nothing moved in your book."),
+          source: ["libros.lineas"], lines: named.length,
+          actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio", "See it in Study"),
+        };
+      }
+    }
   }
   const wantsLeft = /(cuanto[^?]{0,24}(quedaria|queda|quedaba|tendria)|how much would i (have|be) left|how much would be left)/.test(folded);
   if (!wantsLeft) return null;
@@ -2396,30 +2490,10 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
       note: null, source: ["libros.lineas"], lines: dups.reduce((a, g) => a + g.length, 0),
     };
   }
-  if (/(ha subido|subio (el precio|de precio)|subieron los precios|aumento (el precio|de precio)|price (increase|went up|raise)|prices went up|han subido)/.test(folded)) {
-    const series = new Map<string, { name: string; byMonth: Map<string, number> }>();
-    for (const l of allLines(c)) {
-      if (!l.active || l.kind !== "subscription") continue;
-      const cur = series.get(l.subId || l.concept) ?? { name: l.concept, byMonth: new Map<string, number>() };
-      cur.byMonth.set(l.monthKey, view(c, l));
-      series.set(l.subId || l.concept, cur);
-    }
-    const rises: string[] = [];
-    for (const s of series.values()) {
-      const months = [...s.byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-      if (months.length >= 2 && months[months.length - 1][1] > months[0][1]) {
-        rises.push(`«${s.name}»: de ${c.money(months[0][1])} a ${c.money(months[months.length - 1][1])}`);
-      }
-    }
-    return {
-      kind: "answer", family: "frecuencia",
-      verdict: rises.length
-        ? L(c.lang, `Sí, hay subidas anotadas en tus suscripciones: ${rises.join("; ")}.`, `Yes, there are recorded rises among your subscriptions: ${rises.join("; ")}.`)
-        : L(c.lang, "Ninguna de tus suscripciones anotadas ha subido de precio entre el primer mes y el último que tengo: los montos se mantienen.", "None of your recorded subscriptions has gone up in price between the first and last month I have: the amounts hold."),
-      pieces: [], note: L(c.lang, "La comparación es entre el primer y el último mes anotados de cada suscripción, con el monto de su línea.", "The comparison is between the first and last recorded month of each subscription, at its line's amount."),
-      source: ["libros.lineas", "cobros.cuotas"], lines: 0,
-    };
-  }
+  // OLA 22: la rama de subidas que vivía aquí (primer mes contra
+  // último) se RETIRA — la medida nueva vive en seriesAnswer, que la
+  // cascada sirve antes (paso 4b2): el último cobro contra la MEDIANA
+  // de la propia serie, cercado por su variación.
   const filter = filterOf(c, folded);
   if (!filter) return null;
   if (/(cuantas veces|how many times)/.test(folded)) {
@@ -2444,6 +2518,97 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
       pieces: [{ label: L(c.lang, "Cada (días)", "Every (days)"), minor: gap }, { label: L(c.lang, "Veces medidas", "Times measured"), minor: dates.length }],
       note: L(c.lang, "La cadencia se mide de tus fechas reales, no de un plan: si un mes vas más, la media se mueve.", "The cadence is measured from your real dates, not a plan: go more one month and the mean moves."),
       source: ["libros.lineas"], lines: dates.length,
+    };
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* OLA 22 · LAS SERIES RECURRENTES (los algoritmos publicados de      */
+/* detección de recurrentes de fin-infra y BankSync): la serie como    */
+/* objeto — las líneas de suscripción agrupadas por su ciudadano       */
+/* (subId, o el concepto), con sus cobros ordenados y su línea del     */
+/* mes en curso. Tres preguntas sobre el objeto: la subida medida      */
+/* contra la MEDIANA de la propia serie, la cuota que no llegó (la     */
+/* ausencia EN EL LIBRO, jamás una afirmación sobre la compañía) y el  */
+/* costo anualizado con su ritmo dicho.                                */
+/* ------------------------------------------------------------------ */
+type RecurringSeries = { name: string; points: Array<{ date: string; minor: number }>; current: Line | null };
+function seriesOf(c: Ctx): RecurringSeries[] {
+  const byKey = new Map<string, RecurringSeries>();
+  for (const l of allLines(c)) {
+    if (!l.active || l.kind !== "subscription") continue;
+    const k = l.subId || foldQ(l.concept);
+    const s = byKey.get(k) ?? { name: l.concept, points: [], current: null };
+    s.points.push({ date: lineDate(l), minor: view(c, l) });
+    if (l.monthKey === c.key) s.current = l;
+    byKey.set(k, s);
+  }
+  for (const s of byKey.values()) s.points.sort((a, b) => a.date.localeCompare(b.date));
+  return [...byKey.values()];
+}
+const medianOf = (xs: number[]): number => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length % 2 ? s[Math.floor(s.length / 2)] : Math.round((s[s.length / 2 - 1] + s[s.length / 2]) / 2);
+};
+
+function seriesAnswer(c: Ctx, folded: string): BankResult | null {
+  const series = seriesOf(c);
+  // LA SUBIDA, medida contra la propia serie.
+  if (/(ha subido|subieron|han subido|price (increase|went up|raise)|prices went up|went up|go up|gone up|going up)/.test(folded)
+    || (/(subio|aumento|encareci)/.test(folded) && /(suscripcion|precio|cuota)/.test(folded))) {
+    const rises: Array<{ name: string; from: number; to: number }> = [];
+    for (const s of series) {
+      if (s.points.length < 2) continue;
+      const prev = s.points.slice(0, -1).map((p) => p.minor);
+      const med = medianOf(prev);
+      const noise = prev.reduce((a, v) => Math.max(a, Math.abs(v - med)), 0);
+      const last = s.points[s.points.length - 1].minor;
+      if (last > med && last - med > noise) rises.push({ name: s.name, from: med, to: last });
+    }
+    return {
+      kind: "answer", family: "series",
+      verdict: rises.length
+        ? L(c.lang, `Sí: ${rises.map((r) => `«${r.name}» subió — su monto típico era ${c.money(r.from)} y el último cobro es ${c.money(r.to)}.`).join(" ")}`, `Yes: ${rises.map((r) => `"${r.name}" went up — its typical amount was ${c.money(r.from)} and the latest charge is ${c.money(r.to)}.`).join(" ")}`)
+        : L(c.lang, "Ninguna suscripción anotada subió por encima de su propia variación: los últimos cobros están en su monto típico.", "No recorded subscription rose above its own variation: the latest charges sit at their typical amount."),
+      pieces: rises.map((r) => ({ label: r.name, minor: r.to })),
+      note: L(c.lang, "La medida: el último cobro contra la MEDIANA de los anteriores, y solo llamo subida a lo que supera la variación que la propia serie ya mostraba — una serie que siempre baila no acusa por bailar.", "The measure: the latest charge against the MEDIAN of the previous ones, and I only call it a rise when it beats the variation the series itself already showed — a series that always dances doesn't get accused for dancing."),
+      source: ["libros.lineas", "cobros.cuotas"], lines: 0,
+      actions: reportDoor(c, "cobros.cuotas", "Verlo en Cobros", "See it in Payments"),
+    };
+  }
+  // LA CUOTA QUE NO LLEGÓ: la fecha pasó y no hay cobro nuevo anotado.
+  if (/(no se (cobro|cargo)|no (llego|vino) (el|mi|un|ningun)|que (suscripcion|pago|cuota) no|falta (un|algun) (pago|cobro)|no me cobraron|sin cobrar|missed|didn'?t (charge|come through))/.test(folded)) {
+    const missed = series.filter((s) => s.current?.nextDue && s.current.nextDue < c.today)
+      .map((s) => ({ name: s.name, due: s.current!.nextDue as string, days: daysBetween(s.current!.nextDue as string, c.today), minor: view(c, s.current!) }));
+    return {
+      kind: "answer", family: "series",
+      verdict: missed.length
+        ? L(c.lang, `Hay ${missed.length} cuota${missed.length === 1 ? "" : "s"} cuya fecha ya pasó sin cobro nuevo anotado: ${missed.map((m) => `«${m.name}» — vencía el ${m.due}, hace ${m.days} día${m.days === 1 ? "" : "s"}, por ${c.money(m.minor)}`).join("; ")}.`, `There ${missed.length === 1 ? "is 1 due charge" : `are ${missed.length} due charges`} whose date passed with no new charge recorded: ${missed.map((m) => `"${m.name}" — due ${m.due}, ${m.days} day${m.days === 1 ? "" : "s"} ago, for ${c.money(m.minor)}`).join("; ")}.`)
+        : L(c.lang, "Nada falta por cobrarse hasta hoy: toda suscripción con fecha pasada tiene su cobro anotado o su fecha sigue adelante.", "Nothing is missing up to today: every subscription with a past date has its charge recorded or its date still ahead."),
+      pieces: missed.map((m) => ({ label: m.name, minor: m.minor })),
+      note: L(c.lang, "Reporto la ausencia en TU libro — que no haya un cobro anotado; si la compañía cobró y no lo anotaste, anótalo y la ausencia se cierra.", "I'm reporting the absence in YOUR book — that no charge is recorded; if the company did charge and you didn't record it, record it and the absence closes."),
+      source: ["cobros.cuotas"], lines: missed.length,
+      actions: reportDoor(c, "cobros.cuotas", "Verlo en Cobros", "See it in Payments"),
+    };
+  }
+  // EL COSTO ANUALIZADO: cada serie por su ritmo, y el conjunto.
+  if (/(al ano|por ano|anual|a year|per year|yearly|annual)/.test(folded) && /(suscripcion|cuesta|cuestan|pago|pagar|sale|salen|cost)/.test(folded)) {
+    const factor = (l: Line): number => /ano|year/.test(l.cadence ?? "") ? 1 : /semana|week/.test(l.cadence ?? "") ? 52 : /quincena/.test(l.cadence ?? "") ? 24 : 12;
+    const filter = filterOf(c, folded);
+    const rows = series.filter((s) => s.current && (!filter || filter(s.current)))
+      .map((s) => ({ name: s.name, monthly: view(c, s.current!), annual: view(c, s.current!) * factor(s.current!) }));
+    if (!rows.length) return null;
+    const total = rows.reduce((a, r) => a + r.annual, 0);
+    return {
+      kind: "answer", family: "series",
+      verdict: rows.length === 1
+        ? L(c.lang, `«${rows[0].name}» te cuesta ${c.money(rows[0].monthly)} al mes: al año son ${c.money(rows[0].annual)}.`, `"${rows[0].name}" costs you ${c.money(rows[0].monthly)} a month: over a year that's ${c.money(rows[0].annual)}.`)
+        : L(c.lang, `Tus suscripciones suman ${c.money(total)} al año: ${rows.map((r) => `«${r.name}» ${c.money(r.annual)}`).join(" · ")}.`, `Your subscriptions add up to ${c.money(total)} a year: ${rows.map((r) => `"${r.name}" ${c.money(r.annual)}`).join(" · ")}.`),
+      pieces: rows.map((r) => ({ label: r.name, minor: r.annual })),
+      note: L(c.lang, "El año se calcula del monto actual por el ritmo de cada línea (mensual si la línea no dice otro); si una sube, el año se mueve con ella.", "The year is computed from the current amount at each line's own pace (monthly when the line says no other); if one rises, the year moves with it."),
+      source: ["cobros.cuotas", "libros.lineas"], lines: rows.length,
+      actions: reportDoor(c, "cobros.cuotas", "Verlo en Cobros", "See it in Payments"),
     };
   }
   return null;
@@ -2546,6 +2711,19 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
   if (/(cual|which|what)\b[^?]{0,24}(cuenta|tarjeta|account|card)/.test(folded) && /(mas|most)/.test(folded)) return null;
   const owed = peopleOf(c.state, "owed", c.today); // ellos me deben
   const owe = peopleOf(c.state, "owe", c.today);   // yo les debo
+  // OLA 20 (el instrumento cazó el disfraz): «no quiero saber cuánto
+  // debo, quiero saber cuánto me deben» respondía el lado RECHAZADO
+  // («No debes nada») porque la rama «cuanto debo» disparaba primero.
+  // Con marca de contraste, manda el lado de la cláusula afirmativa:
+  // el marcador que aparece ÚLTIMO. Sin marca, el orden de siempre.
+  if (/(no quiero|no me importa|no necesito|quiero saber|en vez de|mejor dime|instead|i don'?t want|don'?t tell me)/.test(folded)) {
+    const owedPos = Math.max(folded.lastIndexOf("me deben"), folded.lastIndexOf("me debe"));
+    const owePos = Math.max(folded.lastIndexOf("cuanto debo"), folded.lastIndexOf("le debo"), folded.lastIndexOf("debo a"), folded.lastIndexOf("cuanto le debo"));
+    if (owedPos >= 0 && owedPos > owePos) {
+      if (!owed.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, "Nadie te debe nada anotado: no hay préstamos dados vivos.", "Nobody owes you anything recorded: there are no live loans given."), pieces: [], note: null, source: ["cobros.mideben"], lines: 0 };
+      return { kind: "answer", family: "deudas", verdict: L(c.lang, `Te deben ${owed.length} persona${owed.length === 1 ? "" : "s"}: en total ${c.money(owed.reduce((a, p) => a + p.left, 0))}. El mayor: ${owed[0].name}, ${c.money(owed[0].left)}.`, `${owed.length} ${owed.length === 1 ? "person owes" : "people owe"} you: ${c.money(owed.reduce((a, p) => a + p.left, 0))} in total. The biggest: ${owed[0].name}, ${c.money(owed[0].left)}.`), pieces: owed.slice(0, 4).map((p) => ({ label: p.name, minor: p.left })), note: null, source: ["cobros.mideben"], lines: owed.reduce((a, p) => a + p.active, 0) };
+    }
+  }
   const findIn = (rows: typeof owed) => rows.find((p) => {
     const f = foldQ(p.name);
     return f.length >= 3 && (folded.includes(f) || f.split(/\s+/).some((w) => w.length >= 4 && folded.includes(w)));
@@ -3358,6 +3536,249 @@ export function answerFollowUp(
 // puede responder, la respuesta lo NOMBRA — la mitad perdida se dice,
 // no se entierra. Ante la duda no se parte: partir mal es peor que no
 // partir, y la pregunta entera cae a la cascada como siempre.
+/* ------------------------------------------------------------------ */
+/* OLA 19 · EL MARCO QUE QUEDA (GUS, Bobrow et al. 1977; Frames, El   */
+/* Asri et al. 2017; la taxonomía 5IDER de reescrituras). En canon el  */
+/* nombre AskFrame ya lo lleva el marco del seguimiento §20, así que   */
+/* este marco conversacional se llama ConvoFrame: cada respuesta del   */
+/* banco nace con él — la pregunta plegada que la produjo, su familia, */
+/* sus ejes detectados (período, persona, cuenta) y su procedencia     */
+/* (piezas y fuente: exactamente lo que el «¿por qué?» de la Ola 21    */
+/* despliega). El seguimiento corto («¿y el mes pasado?», «¿y Ana?»,   */
+/* «no, en septiembre») se reescribe sustituyendo UN eje de la         */
+/* pregunta guardada y se responde con el motor de siempre; la nota    */
+/* hace eco del eje cambiado. La caja guarda el último marco y lo      */
+/* devuelve en la próxima pregunta: el banco sigue puro. Sin marco,    */
+/* el seguimiento solo sigue en su silencio honesto de siempre.        */
+/* ------------------------------------------------------------------ */
+export type ConvoFrame = {
+  question: string;
+  family: string;
+  periodPhrase?: string;
+  personName?: string;
+  accountName?: string;
+  pieces: BankPiece[];
+  source: string[];
+  verdict: string;
+};
+
+const FRAME_PERIODS = [
+  "el mes pasado", "la semana pasada", "la quincena pasada", "el ano pasado",
+  "este mes", "esta semana", "esta quincena", "este ano", "mes pasado", "ano pasado",
+  "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
+  "hoy", "ayer", "today", "yesterday", "last month", "this month", "last week", "this week",
+];
+function periodPhraseIn(folded: string): string | null {
+  for (const p of FRAME_PERIODS) if (new RegExp(`(^|[^a-z0-9])${p}([^a-z0-9]|$)`).test(folded)) return p;
+  return null;
+}
+function framePersonIn(state: LedgerState, folded: string, today = ""): string | null {
+  const people: Array<{ name: string }> = [...peopleOf(state, "owed", today || undefined), ...peopleOf(state, "owe", today || undefined), ...(state.remitPeople ?? [])];
+  for (const p of people) {
+    const f = foldQ(p.name);
+    if (f.length >= 3 && folded.includes(f)) return f;
+    const first = f.split(/\s+/)[0];
+    if (first.length >= 4 && new RegExp(`(^|[^a-z0-9])${first}([^a-z0-9]|$)`).test(folded)) return first;
+  }
+  return null;
+}
+function frameAccountIn(state: LedgerState, names: Namer, key: string, folded: string): string | null {
+  const stock = savingsStock(state, key);
+  for (const h of hostAccounts(state, key, stock)) {
+    const nm = foldQ(names.sub(h.id) || h.id);
+    if (nm.length >= 3 && folded.includes(nm)) return nm;
+  }
+  return null;
+}
+
+function buildConvoFrame(state: LedgerState, key: string, names: Namer, raw: string, today: string, result: Extract<BankResult, { kind: "answer" }>): ConvoFrame {
+  const folded = foldQ(raw);
+  return {
+    question: folded,
+    family: String(result.family),
+    periodPhrase: periodPhraseIn(folded) ?? undefined,
+    personName: framePersonIn(state, folded, today) ?? undefined,
+    accountName: frameAccountIn(state, names, key, folded) ?? undefined,
+    pieces: result.pieces.slice(0, 5),
+    source: result.source,
+    verdict: result.verdict,
+  };
+}
+
+/** LA COSTURA §20↔BANCO (integración 1.3.400): cuando el seguimiento
+ * §20 responde, la cifra de la pantalla es LA SUYA — el marco
+ * conversacional debe describir ESA respuesta, o el «¿por qué?»
+ * siguiente desplegaría la cuenta anterior, no la que el usuario
+ * mira. El marco nuevo se construye del previo: la pregunta citada
+ * es la original con el eje de período sustituido (la semántica de
+ * la reescritura de la Ola 19) y las piezas, la fuente y el veredicto
+ * son los de la respuesta §20. */
+export function convoAfterFollowUp(state: LedgerState, key: string, names: Namer, prev: ConvoFrame | null, raw: string, today: string, result: Extract<BankResult, { kind: "answer" }>): ConvoFrame {
+  if (!prev) return buildConvoFrame(state, key, names, raw, today, result);
+  const folded = foldQ(raw);
+  const newPeriod = periodPhraseIn(folded);
+  let question = prev.question;
+  if (newPeriod && prev.periodPhrase && question.includes(prev.periodPhrase)) {
+    question = question.replace(prev.periodPhrase, newPeriod);
+  } else if (newPeriod && !prev.periodPhrase) {
+    question = `${question} (${newPeriod})`;
+  }
+  return {
+    question,
+    family: String(result.family),
+    periodPhrase: newPeriod ?? prev.periodPhrase,
+    personName: framePersonIn(state, folded, today) ?? prev.personName,
+    accountName: frameAccountIn(state, names, key, folded) ?? prev.accountName,
+    pieces: result.pieces.slice(0, 5),
+    source: result.source,
+    verdict: result.verdict,
+  };
+}
+
+const FOLLOWUP_STOP = new Set(["y", "no", "en", "de", "a", "el", "la", "los", "las", "un", "una", "que", "tal", "comparado", "comparada", "con", "por", "favor", "oye", "oiga", "and", "what", "about", "the"]);
+function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, lang: Lang, today: string): { question: string; echo: string } | null {
+  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (f.split(/\s+/).length > 7 && !/^no\b/.test(f)) return null;
+  const p2 = periodPhraseIn(f);
+  const person2 = p2 ? null : framePersonIn(state, f, today);
+  const acct2 = !p2 && !person2 ? frameAccountIn(state, names, key, f) : null;
+  const axisPhrase = p2 ?? person2 ?? acct2;
+  if (!axisPhrase) return null;
+  // La forma debe ser SOLO el eje: quitado el eje y las muletillas, no
+  // puede quedar una pregunta nueva escondida en el seguimiento.
+  const rest = f.replace(axisPhrase, " ").split(/\s+/).filter((w) => w && !FOLLOWUP_STOP.has(w));
+  if (rest.length) return null;
+  if (p2) {
+    const q = frame.periodPhrase ? frame.question.replace(frame.periodPhrase, p2) : `${frame.question} ${p2}`;
+    return { question: q, echo: L(lang, `cambié solo el período, a «${p2}»`, `I changed only the period, to "${p2}"`) };
+  }
+  if (person2) {
+    if (!frame.personName) return null;
+    return { question: frame.question.replace(frame.personName, person2), echo: L(lang, `cambié solo la persona, a «${person2}»`, `I changed only the person, to "${person2}"`) };
+  }
+  if (acct2) {
+    if (!frame.accountName) return null;
+    return { question: frame.question.replace(frame.accountName, acct2), echo: L(lang, `cambié solo la cuenta, a «${acct2}»`, `I changed only the account, to "${acct2}"`) };
+  }
+  return null;
+}
+
+/* OLA 24 · EL OÍDO FINO — el normalizador morfológico del español de
+ * la calle (Snowball ES y la morfología productiva, vía la
+ * investigación). Se aplica sobre la pregunta PLEGADA a la entrada de
+ * la cascada del banco y del oído de la referencia — nunca sobre los
+ * datos del libro, que se pliegan tal cual. Tres capas por palabra:
+ * (1) el voseo por paradigma finito (tenés → tienes); (2) los
+ * enclíticos se separan del verbo (pagándolo → pagando, decímelo →
+ * di); (3) el diminutivo se despoja con su reversión ortográfica
+ * (platita → plata, poquito → poco) y su LISTA DE EXCEPCIONES que
+ * jamás se tocan: donde -ito es raíz (crédito, necesito) o la palabra
+ * ya es otra (zapatilla NO es zapato). El argot NO se siembra aquí:
+ * entra solo por el aprendizaje confirmado de la Ola 11 — la colisión
+ * «luz» (dinero en Honduras, servicios en el libro) es la prueba. */
+const NORM_EXCEPTIONS = new Set([
+  "credito", "debito", "merito", "necesito", "necesita", "necesitan", "necesite",
+  "favorito", "favorita", "zapatilla", "zapatillas", "palillo", "palillos",
+  "manzanilla", "ventanilla", "ventanillas", "tobillo", "tobillos",
+  "escrito", "descrito", "bonito", "bonita", "maldito", "maldita", "bendito", "bendita",
+  "requisito", "infinito", "infinita",
+]);
+const VOSEO_MAP: Record<string, string> = { tenes: "tienes", queres: "quieres", podes: "puedes", venis: "vienes", decis: "dices", deci: "di" };
+function normalizeEsWord(w: string): string {
+  if (NORM_EXCEPTIONS.has(w)) return w;
+  let x = w
+    .replace(/(ando|endo|iendo)(melo|mela|telo|tela|selo|sela)$/, "$1")
+    .replace(/(ando|endo|iendo)(me|te|se|lo|la|los|las|nos)$/, "$1")
+    .replace(/^([a-z]{2,})(melo|mela|telo|tela|selo|sela)$/, "$1")
+    // El infinitivo + clítico exige el infinitivo entero (≥5 letras)
+    // y un clítico de tercera persona: «pagarlo», «decirlo» se
+    // despojan; «reparte» (imperativo pelado) y «Carlos» (un nombre)
+    // NO son infinitivo+clítico y la primera corrida lo probó.
+    .replace(/^([a-z]{3,}(?:ar|er|ir))(lo|la|los|las|le|les|se|nos)$/, "$1");
+  x = VOSEO_MAP[x] ?? x;
+  if (NORM_EXCEPTIONS.has(x)) return x;
+  if (/(ecito|ecita)$/.test(x) || /^(pobre|cafe|te|mama|papa)(cito|cita)$/.test(x)) x = x.slice(0, -4);
+  else {
+    const m = x.match(/^(.{3,}?)(itos|itas|ito|ita)$/);
+    if (m) {
+      let stem = m[1];
+      if (stem.endsWith("qu")) stem = `${stem.slice(0, -2)}c`;
+      else if (stem.endsWith("gu")) stem = `${stem.slice(0, -2)}g`;
+      x = stem + (m[2] === "ito" ? "o" : m[2] === "ita" ? "a" : m[2] === "itos" ? "os" : "as");
+    }
+  }
+  return NORM_EXCEPTIONS.has(x) ? w : x;
+}
+export function normalizeEs(folded: string): string {
+  return folded.split(/(\s+)/).map((tok) => (/^[a-z]+$/.test(tok) ? normalizeEsWord(VOSEO_MAP[tok] ?? tok) : tok)).join("");
+}
+
+/* OLA 21 · ¿POR QUÉ? — el despliegue de la procedencia. El marco de la
+ * Ola 19 ya guarda las piezas y la fuente de la última respuesta: esta
+ * familia solo las abre. Sin marco, lo dice: primero la cifra, luego
+ * su porqué — y conserva el marco nulo para no fabricarse uno. */
+function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang): BankResult {
+  if (!frame) {
+    return {
+      kind: "answer", family: "porque",
+      verdict: L(lang, "Todavía no hay una cifra que explicar en esta conversación: pregúntame primero la cifra y te enseño de dónde sale, pieza por pieza.", "There's no figure to explain yet in this conversation: ask me the figure first and I'll show you where it comes from, piece by piece."),
+      pieces: [], note: null, source: [], lines: 0, convo: null,
+    };
+  }
+  const disp = state.settings.display;
+  const counted = frame.pieces.length
+    ? frame.pieces.map((p) => `${p.label} ${formatMoney(p.minor, disp, lang)}`).join(" · ")
+    : frame.verdict;
+  return {
+    kind: "answer", family: "porque",
+    verdict: L(lang, `Sale de tu pregunta «${frame.question}», contando estas piezas: ${counted}.`, `It comes from your question "${frame.question}", counting these pieces: ${counted}.`),
+    pieces: frame.pieces,
+    note: frame.source.length
+      ? L(lang, `Su fuente en tu libro: ${frame.source.join(", ")} — la misma que reporta la pantalla de su área; si la cifra estuviera mal, ahí se vería.`, `Its source in your book: ${frame.source.join(", ")} — the same one its area's screen reports; if the figure were wrong, that's where you'd see it.`)
+      : null,
+    source: frame.source, lines: frame.pieces.length,
+    ...(frame.source[0] ? { actions: [{ id: "goto", label: L(lang, "Ver su fuente", "See its source"), target: frame.source[0] }] } : {}),
+    convo: frame,
+  };
+}
+
+/* OLA 21 · QUÉ DATO TE FALTA — el metaconocimiento (la categoría que
+ * la encuesta NLIDB ya nombraba): cuando la pregunta pide un cálculo
+ * cuyo dato el libro NO guarda, la respuesta no es el silencio ni la
+ * invención: es la parte que SÍ se puede contar, el dato que falta
+ * nombrado, y lo que ese dato desbloquearía. Solo entran las formas
+ * medidas en silencio al construir la ola. */
+function faltaAnswer(c: Ctx, folded: string): BankResult | null {
+  if (/(patrimonio|valor neto|cuanto valgo|cuanto vale lo mio|net worth|what am i worth)/.test(folded)) {
+    const stock = savingsStock(c.state, c.key);
+    const owePeople = peopleOf(c.state, "owe", c.today).reduce((a, p) => a + p.left, 0);
+    const cardBal = cardsOf(c.state).reduce((a, card) => a + cardFigures(c.state, card, c.today).balance, 0);
+    const debts = owePeople + cardBal;
+    return {
+      kind: "answer", family: "falta",
+      verdict: L(c.lang, `De lo que tu libro sí guarda: tienes ${c.money(stock.total)} en ahorros y debes ${c.money(debts)} — eso da ${c.money(stock.total - debts)}. Pero tu patrimonio entero suma también el valor de tus bienes (tu casa, tu carro, lo que tengas), y tu libro no guarda valores de bienes: si me dijeras cuánto valen, te doy tu patrimonio neto completo.`, `From what your book does hold: you have ${c.money(stock.total)} in savings and you owe ${c.money(debts)} — that gives ${c.money(stock.total - debts)}. But your whole net worth also adds the value of your things (your house, your car, whatever you own), and your book doesn't hold values for things: tell me what they're worth and I'll give you your full net worth.`),
+      pieces: [{ label: L(c.lang, "En ahorros", "In savings"), minor: stock.total }, { label: L(c.lang, "Lo que debes", "What you owe"), minor: debts }],
+      note: L(c.lang, "El dato que falta tiene nombre: el valor de tus bienes. Sin él, cualquier «patrimonio» cerrado que te diera sería una invención.", "The missing datum has a name: the value of your things. Without it, any closed 'net worth' I gave you would be an invention."),
+      source: ["ahorros.stock", "cobros.debo"], lines: 0,
+      actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
+    };
+  }
+  if (/(puntaje|score|historial crediticio)/.test(folded) && /(credito|credit)/.test(folded)) {
+    const owePeople = peopleOf(c.state, "owe", c.today).reduce((a, p) => a + p.left, 0);
+    const cardBal = cardsOf(c.state).reduce((a, card) => a + cardFigures(c.state, card, c.today).balance, 0);
+    const debts = owePeople + cardBal;
+    return {
+      kind: "answer", family: "falta",
+      verdict: L(c.lang, `Tu puntaje de crédito no vive en tu libro: lo calculan los burós de crédito con tu historial de pagos, y Faro no lo guarda ni lo inventa. Lo que tu libro sí sabe de tu deuda: ${debts > 0 ? `debes ${c.money(debts)} en total` : "no debes nada anotado"}.`, `Your credit score doesn't live in your book: the credit bureaus compute it from your payment history, and Faro neither holds it nor invents it. What your book does know about your debt: ${debts > 0 ? `you owe ${c.money(debts)} in total` : "you owe nothing recorded"}.`),
+      pieces: debts > 0 ? [{ label: L(c.lang, "Lo que debes", "What you owe"), minor: debts }] : [],
+      note: L(c.lang, "Si un día lo anotas como dato, te lo recuerdo tal cual; calcularlo no es cosa de este libro.", "If you ever record it as a datum, I'll remind you of it as-is; computing it isn't this book's business."),
+      source: ["cobros.debo"], lines: 0,
+    };
+  }
+  return null;
+}
+
 function splitCompound(raw: string): [string, string] | null {
   const legOk = (side: string): boolean => {
     const c = classifyBankQuestion(side);
@@ -3391,7 +3812,35 @@ export function answerBankQuestion(
   pin?: { accountId: string },
   mode?: BookMode,
   learned?: LearnedAlias[],
+  convo?: ConvoFrame | null,
 ): BankResult {
+  const withConvo = (r: BankResult, sourceRaw: string): BankResult =>
+    r.kind === "answer" && !("convo" in r) ? { ...r, convo: buildConvoFrame(state, key, names, sourceRaw, today, r) } : r;
+  // OLA 21 · ¿POR QUÉ? — la procedencia se despliega (MYCIN: WHY/HOW).
+  // Se juzga ANTES del seguimiento: «¿por qué?» no cambia un eje,
+  // interroga la cuenta anterior. La puerta es estrecha a propósito:
+  // exige la anáfora (eso/ese número/dices/sale) o la pregunta desnuda
+  // — «¿por qué medio pagué?» no es esto y sigue su camino.
+  if (!pin) {
+    const bare = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+    if (/^(y )?(por que|porque)$/.test(bare)
+      || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(foldQ(raw))) {
+      return porqueResult(state, convo ?? null, lang);
+    }
+  }
+  // OLA 19: el seguimiento se reescribe sobre el marco ANTES que
+  // cualquier otra lectura — es una pregunta sobre la pregunta
+  // anterior, no una pregunta nueva.
+  if (!pin && convo) {
+    const rw = followUpRewrite(state, key, names, convo, raw, lang, today);
+    if (rw) {
+      const r = answerSingle(state, key, lang, names, rw.question, parseCtx, today, undefined, mode, learned);
+      if (r.kind === "answer") {
+        const echo = L(lang, `Viene de tu pregunta anterior: ${rw.echo}.`, `From your previous question: ${rw.echo}.`);
+        return { ...r, note: r.note ? `${echo} ${r.note}` : echo, convo: buildConvoFrame(state, key, names, rw.question, today, r) };
+      }
+    }
+  }
   if (!pin) {
     const legs = splitCompound(raw);
     if (legs) {
@@ -3399,7 +3848,7 @@ export function answerBankQuestion(
       const b = answerSingle(state, key, lang, names, legs[1], parseCtx, today, undefined, mode, learned);
       if (a.kind === "answer" && b.kind === "answer") {
         const actions = [...(a.actions ?? []), ...(b.actions ?? [])].slice(0, 3);
-        return {
+        return withConvo({
           kind: "answer", family: a.family,
           verdict: `${a.verdict} ${b.verdict}`,
           pieces: [...a.pieces, ...b.pieces].slice(0, 5),
@@ -3407,7 +3856,7 @@ export function answerBankQuestion(
           source: [...new Set([...a.source, ...b.source])],
           lines: a.lines + b.lines,
           ...(actions.length ? { actions } : {}),
-        };
+        }, raw);
       }
       const good = a.kind === "answer" ? a : b.kind === "answer" ? b : null;
       if (good && good.kind === "answer") {
@@ -3415,12 +3864,12 @@ export function answerBankQuestion(
         const named = L(lang,
           `De tu otra pregunta — «${lost}» — no tengo cómo responderla con lo que tu libro guarda; no la pierdo en silencio.`,
           `Your other question — "${lost}" — I have no way to answer from what your book holds; I won't lose it in silence.`);
-        return { ...good, note: good.note ? `${good.note} ${named}` : named };
+        return withConvo({ ...good, note: good.note ? `${good.note} ${named}` : named }, raw);
       }
       // Ninguna pata respondió: la pregunta entera merece su oportunidad.
     }
   }
-  return answerSingle(state, key, lang, names, raw, parseCtx, today, pin, mode, learned);
+  return withConvo(answerSingle(state, key, lang, names, raw, parseCtx, today, pin, mode, learned), raw);
 }
 
 function answerSingle(
@@ -3435,7 +3884,7 @@ function answerSingle(
   mode?: BookMode,
   learned?: LearnedAlias[],
 ): BankResult {
-  const folded = foldQ(raw);
+  const folded = normalizeEs(foldQ(raw));
   const { display, rateE4 } = state.settings;
   const reading = readAdvisor(state, key, lang, names, { today: new Date(`${today}T12:00:00`) });
   const c: Ctx = {
@@ -3643,6 +4092,14 @@ function answerSingle(
     const r = conteoAnswer(c, folded);
     if (r) return r;
   }
+  // 4b2 · LAS SERIES (ola 22): la subida medida contra la mediana de
+  // la propia serie, la cuota que no llegó y el costo anualizado —
+  // antes de frecuencia, cuya rama vieja de subidas (primer vs último
+  // mes) era la medida que esta ola reemplaza.
+  {
+    const r = seriesAnswer(c, folded);
+    if (r) return r;
+  }
   // 4b2 · FRECUENCIA (ola 12): «¿cuántas veces…?», «¿cada cuánto…?»,
   // «¿qué suscripciones tengo?» — el conteo y la cadencia de un filtro.
   {
@@ -3729,7 +4186,7 @@ function answerSingle(
   // OLA 28 (Familia 2, E28-2): «when do my dues fall» entra — la
   // agenda oía «when do i pay» y «what … due», pero no la forma con
   // «my dues»: la canónica inglesa de la familia moría en la puerta.
-  if (/(primeras cuotas|fechas en las que pago|que vence|cuando pago mis|what.*due|when do i pay|when do my dues|dues (fall|are due)|pagos vienen|viene esta semana|proximos pagos|pagos de esta semana|payments (coming|due)|proximo pago|next payment|next due)/.test(folded)) return agendaAnswer(c);
+  if (/(primeras cuotas|fechas en las que pago|que vence|cuando pago mis|what.*due|when do i pay|when do my dues|dues (fall|are due)|pagos vienen|viene esta semana|proximos pagos|pagos de esta semana|payments (coming|due)|proximo pago|next payment|next due|que tengo que pagar|que hay que pagar|what do i have to pay)/.test(folded)) return agendaAnswer(c, folded);
   // 6c · LA ESTACIONALIDAD (ola 15) antes que el relator: «¿en qué MES
   // gasto más?» es el año, no la categoría del mes.
   {
@@ -3829,6 +4286,14 @@ function answerSingle(
     const r = faroMismoAnswer(c, folded);
     if (r) return r;
   }
+  // 12.5 · QUÉ DATO TE FALTA (ola 21): las formas cuyo cálculo pide un
+  // dato que el libro no guarda — antes del delegado heredado, porque
+  // su respuesta (la parte contable + el dato nombrado) es mejor que
+  // cualquier lectura genérica de esas frases.
+  {
+    const r = faltaAnswer(c, folded);
+    if (r) return r;
+  }
   // 13 · Lo heredado de la Ola 5a, intacto: spend / free / left / how.
   // El modo viaja también al delegado: su familia free trae las mismas
   // piezas de la resta (apartado, colchón) y nombran el mismo piso.
@@ -3862,13 +4327,15 @@ function answerSingle(
 // el motor la cerca el banco: donde el motor responde con familia, el
 // oído no puede nombrar otra.
 export function classifyBankQuestion(raw: string): { isQuestion: boolean; family: BankFamilyId | "aprendizaje" | null } {
-  const folded = foldQ(raw);
+  const folded = normalizeEs(foldQ(raw));
   const isQuestion = /[¿?]/.test(raw)
     || /\b(cuanto|cuanta|cuantos|cuantas|cuando|donde|cual|cuales|quien|quienes|como|por que|para que|puedo|puedes|puede|debo|hay|tengo|quiero|necesito|sabes|dime|muestrame|ensename)\b/.test(folded)
     || /^(si |if )/.test(folded);
   if (!isQuestion) return { isQuestion: false, family: null };
   const hasDigit = /\d/.test(folded);
   const G: Array<[RegExp, BankFamilyId | "aprendizaje"]> = [
+    [/(por que (dices|dijiste|sale|es)|de donde (sale|viene) (ese|esa|el|la|este|esta)|como calculaste|why do you say|where does (that|the) (number|figure|total) come from)/, "porque"],
+    [/(patrimonio|valor neto|net worth|puntaje de credito|score de credito|credit score)/, "falta"],
     [/(que no (puedes|puedo)|no (puedes|podrias) hacer|tus limites|limitaciones|what can'?t you)/, "limites"],
     [/(que (puedes|puedo) hacer|que sabes hacer|para que sirves|what can you do|tus funciones|que funciones tienes)/, "capacidades"],
     [/(que has aprendido|lo que has aprendido|tus patrones|aprendido de mi)/, "aprendizaje"],
@@ -3883,6 +4350,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(gustos|antojos|puedo gastar|darme el gusto|capricho)/, "gustos"],
     [/(cuantas|cuantos) (cuotas|tarjetas|cuentas|prestamos|deudas|suscripciones)/, "conteo"],
     [/(ultima vez|cuando fue la ultima|la ultima (cosa|compra|vez)|ultima remesa|last time|last (remittance|amount|send|sent)|last (get|got) paid)/, "recencia"],
+    [/(ha subido|subio de precio|subieron los precios|(subio|subieron).{0,24}suscripcion|no se cobro|no me cobraron|al ano en suscripciones|cuanto.*al ano.*suscripcion|subscription.{0,24}(go up|went up|goes up)|which subscription|didnt charge|did not charge|subscriptions? cost)/, "series"],
     [/(cuantas veces|cada cuanto|cada cuantos|que suscripciones tengo|mas frecuente|duplicad|ha subido|subio de precio|que dia (gasto|compro) mas)/, "frecuencia"],
     [/(dias de trabajo|horas de trabajo|por (dia|hora) de trabajo|cuesta.{0,30}de trabajo)/, "precio-tiempo"],
     [/(como (fue|va|me fue)|en que se me va|en que gasto mas|resumen de|como cerro|mi mes (pasado|anterior))/, "relator"],

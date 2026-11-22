@@ -35,6 +35,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.400",
+    date: "2026-11-22",
+    level: "grande",
+    title: { es: "El Asesor recuerda la conversación", en: "The Advisor remembers the conversation" },
+    points: {
+      es: [
+        "Cada respuesta del Asesor nace ahora con su marco: pregúntale «¿y el mes pasado?» o «¿y Ana?» y cambia solo ese eje, diciéndote qué cambió. Y si le preguntas «¿por qué?», te enseña la cuenta anterior pieza por pieza, con su fuente.",
+        "Si una cuenta pide un dato que tu libro no guarda — tu patrimonio entero, tu puntaje de crédito — el Asesor cuenta la parte que sí puede y nombra el dato que falta, en vez de inventar una cifra.",
+        "Las suscripciones se miden contra sí mismas: una subida se compara con la mediana de la propia serie, la cuota que no llegó se reporta como ausencia en tu libro, y el costo al año dice su ritmo. La quincena (del 1 al 15 y del 16 al fin) es ya un período con nombre propio, y el oído entiende el voseo, los diminutivos y los verbos con su «lo» pegado.",
+      ],
+      en: [
+        "Every Advisor answer is now born with its frame: ask “and last month?” or “and Ana?” and it changes only that axis, telling you what changed. And if you ask “why?”, it shows you the previous reckoning piece by piece, with its source.",
+        "If a reckoning needs a datum your book doesn't hold — your whole net worth, your credit score — the Advisor counts the part it can and names the missing datum, instead of inventing a figure.",
+        "Subscriptions are measured against themselves: a rise is compared with the series' own median, a charge that didn't arrive is reported as an absence in your book, and the yearly cost states its pace. The pay period (the 1st–15th and the 16th–end) is now a period with its own name, and the ear understands voseo, diminutives and verbs with their clitics attached.",
+      ],
+    },
+  },
+  {
     version: "1.3.399",
     date: "2026-11-22",
     level: "menor",

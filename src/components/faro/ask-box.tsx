@@ -53,7 +53,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Compass, Send, Settings, Sparkles } from "lucide-react";
-import { answerBankQuestion, answerFollowUp, bankChips, type AskFrame, type BankResult } from "@/lib/faro/ask2";
+import { answerBankQuestion, answerFollowUp, bankChips, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
 import { aliasIn, askPatternsOf, forgetAlias, learnAlias, touchAlias } from "@/lib/faro/asklearn";
 import { foldQ } from "@/lib/faro/lexicon";
 import { askPresetsOf, addAskPreset, capabilitiesText, FIXED_PRESET_Q, nextAskEntry, suggestionTrio } from "@/lib/faro/askpresets";
@@ -118,6 +118,11 @@ export function AskBox() {
   // jamás entra al libro ni viaja con él, y muere al cerrar la
   // respuesta o cuando una respuesta nueva abre el suyo.
   const [frame, setFrame] = useState<AskFrame | null>(null);
+  // OLA 19 (banco, Plan de Avance II): el marco conversacional viaja
+  // junto al marco §20 — la caja lo guarda tras cada respuesta del
+  // banco y lo devuelve como undécimo argumento en la próxima
+  // pregunta de la misma conversación. Es dato puro serializable.
+  const [convo, setConvo] = useState<ConvoFrame | null>(null);
   // Ola 17 (1.3.383): la propuesta de predeterminada que la respuesta
   // trae («esta palabra la usas mucho: ¿te dejo su pregunta a la
   // mano?») se descarta con «Ahora no» — y la caja lo recuerda solo
@@ -187,10 +192,16 @@ export function AskBox() {
     // OLA 27 (Familia 9, F27-2): el seguimiento recibe LOS MISMOS
     // patrones que la cascada — su ctx ya no nace con learned vacío.
     const fu = pin ? null : answerFollowUp(session.ledger, key, lang, names, clean, ctx(), todayLocal(), frame, mode, patterns);
-    const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode, patterns);
+    const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode, patterns, convo);
     setResult(r);
     if (r.kind === "answer") {
       setFrame(r.frame ?? null);
+      // El marco conversacional describe SIEMPRE la respuesta de la
+      // pantalla: la del banco trae el suyo; la del seguimiento §20
+      // lo renueva por la costura (convoAfterFollowUp) — si no, el
+      // «¿por qué?» siguiente desplegaría la cuenta anterior.
+      if (fu) setConvo(convoAfterFollowUp(session.ledger, key, names, convo, clean, todayLocal(), r));
+      else setConvo(r.convo ?? null);
       if (r.forgetWord) {
         // OLA 27 (Familia 8, Q27-C1 de Cambios): el olvido RE-LEE el
         // almacén DENTRO de su commit, como sus hermanas (el toque del

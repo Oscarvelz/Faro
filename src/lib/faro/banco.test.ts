@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { FARO_FUNCTION_MAP } from "./askmap.ts";
-import { answerBankQuestion, bankChips, bankSourceIds, classifyBankQuestion } from "./ask2.ts";
+import { answerBankQuestion, answerFollowUp, bankChips, bankSourceIds, classifyBankQuestion, convoAfterFollowUp } from "./ask2.ts";
 import { describeLearned, forgetAlias, frequentAliases, learnAlias, maskShape, touchAlias, type LearnedAlias } from "./asklearn.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
 import { addLent } from "./debts.ts";
@@ -1031,6 +1031,332 @@ describe("banco · ola 18: la batería del mundo II (el habla real, las clases c
     if (r.kind !== "answer") return;
     assert.equal(r.family, "hipotetico");
     assert.ok(r.verdict.includes(formatMoney(149900, "USD", "es")), r.verdict);
+  });
+});
+
+describe("banco · ola 19: el marco que queda (el seguimiento por sustitución de eje)", () => {
+  const ledger = fixture();
+  const askF = (raw: string, convo?: import("./ask2.ts").ConvoFrame | null) =>
+    answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), raw, ctx(ledger), TODAY, undefined, undefined, undefined, convo ?? undefined);
+
+  it("toda respuesta nace con su marco: pregunta, familia y ejes detectados", () => {
+    const r = askF("¿Cuánto gasté este mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.convo, "sin marco");
+    assert.equal(r.convo?.periodPhrase, "este mes");
+    assert.equal(r.convo?.family, r.family);
+  });
+
+  it("«¿y el mes pasado?» sustituye SOLO el período y hace eco del cambio", () => {
+    const first = askF("¿Cuánto gasté este mes?");
+    assert.equal(first.kind, "answer");
+    if (first.kind !== "answer") return;
+    const r = askF("¿Y el mes pasado?", first.convo);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, first.family);
+    assert.ok(r.verdict.includes(formatMoney(5000, "USD", "es")), r.verdict); // septiembre: la camisa
+    assert.ok(/cambié solo el período/.test(r.note ?? ""), r.note ?? "");
+    // Y la cadena sigue: el marco nuevo trae la pregunta reescrita.
+    assert.ok((r.convo?.question ?? "").includes("mes pasado"), r.convo?.question);
+  });
+
+  it("«¿y Ana?» sustituye solo la persona; «no, en septiembre» repara el período", () => {
+    const first = askF("¿Cuánto me debe Carlos?");
+    assert.equal(first.kind, "answer");
+    if (first.kind !== "answer") return;
+    assert.equal(first.convo?.personName, "carlos");
+    const r = askF("¿Y Ana?", first.convo);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes(formatMoney(10000, "USD", "es")), r.verdict);
+    const g = askF("¿Cuánto gasté este mes?");
+    assert.equal(g.kind, "answer");
+    if (g.kind !== "answer") return;
+    const rep = askF("No, en septiembre", g.convo);
+    assert.equal(rep.kind, "answer");
+    if (rep.kind === "answer") assert.ok(rep.verdict.includes(formatMoney(5000, "USD", "es")), rep.verdict);
+  });
+
+  it("sin marco, el seguimiento solo sigue en silencio honesto — nada se inventa", () => {
+    assert.equal(askF("¿Y el mes pasado?").kind, "unknown");
+    assert.equal(askF("¿Y Ana?").kind, "unknown");
+  });
+
+  it("una pregunta NUEVA con forma de seguimiento no se secuestra: el resto tras el eje la delata", () => {
+    const first = askF("¿Cuánto gasté este mes?");
+    assert.equal(first.kind, "answer");
+    if (first.kind !== "answer") return;
+    const r = askF("¿Y en septiembre cuánto me debe Carlos?", first.convo);
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "deudas");
+  });
+});
+
+describe("banco · ola 20: las dos cazas del instrumento (horizonte y contraste)", () => {
+  const ledger = fixture();
+
+  it("la agenda oye «¿qué tengo que pagar…?» y el horizonte nombrado manda sobre la ventana", () => {
+    const manana = ask(ledger, "¿Qué tengo que pagar mañana?");
+    assert.equal(manana.kind, "answer");
+    if (manana.kind === "answer") {
+      assert.equal(manana.family, "agenda");
+      assert.ok(!manana.pieces.some((p) => p.label.includes("Internet")), manana.verdict);
+      assert.ok(/mañana/.test(manana.verdict), manana.verdict);
+    }
+    const mes = ask(ledger, "¿Qué tengo que pagar este mes?");
+    assert.equal(mes.kind, "answer");
+    if (mes.kind === "answer") assert.ok(mes.pieces.some((p) => p.label.includes("Internet")), mes.verdict);
+  });
+
+  it("el contraste manda: «no quiero saber cuánto debo, quiero saber cuánto me deben» responde el lado pedido", () => {
+    const r = ask(ledger, "No quiero saber cuánto debo, quiero saber cuánto me deben");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "deudas");
+    assert.ok(r.verdict.includes(formatMoney(40000, "USD", "es")), r.verdict); // Carlos 300 + Ana 100
+    assert.ok(!/No debes nada/.test(r.verdict), r.verdict);
+  });
+});
+
+describe("banco · ola 21: qué dato te falta + ¿por qué?", () => {
+  const ledger = fixture();
+  const askF = (raw: string, convo?: import("./ask2.ts").ConvoFrame | null) =>
+    answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), raw, ctx(ledger), TODAY, undefined, undefined, undefined, convo ?? undefined);
+
+  it("el patrimonio: cuenta la parte que el libro sí guarda y NOMBRA el dato que falta", () => {
+    const r = ask(ledger, "¿Cuál es mi patrimonio neto?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "falta");
+    assert.ok(r.verdict.includes(formatMoney(129900, "USD", "es")), r.verdict); // el stock
+    assert.ok(/valor de tus bienes/.test(r.note ?? ""), r.note ?? "");
+  });
+
+  it("el puntaje: no vive en el libro, y se dice dónde vive", () => {
+    const r = ask(ledger, "¿Cuál es mi puntaje de crédito?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "falta");
+    assert.ok(/burós/.test(r.verdict), r.verdict);
+  });
+
+  it("el «¿por qué?» despliega las piezas y la fuente del marco — y el marco sobrevive", () => {
+    const first = askF("¿Cuánto gasté este mes?");
+    assert.equal(first.kind, "answer");
+    if (first.kind !== "answer") return;
+    const r = askF("¿De dónde sale ese número?", first.convo);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "porque");
+    assert.ok(r.verdict.includes(formatMoney(32456, "USD", "es")), r.verdict);
+    assert.ok((r.source ?? []).includes("libros.lineas"), JSON.stringify(r.source));
+    // El marco sobrevive al porqué: el seguimiento sigue funcionando.
+    const fu = askF("¿Y el mes pasado?", r.convo);
+    assert.equal(fu.kind, "answer");
+  });
+
+  it("la costura §20↔banco: tras un seguimiento §20, el «¿por qué?» despliega la respuesta DE LA PANTALLA", () => {
+    // La caja viva, imitada paso a paso: la primera respuesta trae
+    // los dos marcos; el §20 responde el seguimiento; la costura
+    // renueva el marco conversacional con ESA respuesta; el porqué
+    // despliega las piezas del seguimiento, no las de la primera.
+    const first = askF("¿Cuánto gasté este mes?");
+    assert.equal(first.kind, "answer");
+    if (first.kind !== "answer") return;
+    const names = makeNamer(ledger.structure, "es");
+    const fu = answerFollowUp(ledger, KEY, "es", names, "¿Y el mes pasado?", ctx(ledger), TODAY, first.frame ?? null, undefined, undefined);
+    assert.ok(fu && fu.kind === "answer", "el §20 responde el seguimiento");
+    if (!fu || fu.kind !== "answer") return;
+    const convo2 = convoAfterFollowUp(ledger, KEY, names, first.convo ?? null, "¿Y el mes pasado?", TODAY, fu);
+    const r = askF("¿Por qué?", convo2);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "porque");
+    assert.ok(r.verdict.includes("el mes pasado"), r.verdict);
+    for (const p of fu.pieces) assert.ok(r.pieces.some((x) => x.minor === p.minor), r.verdict);
+  });
+
+  it("el «¿por qué?» sin marco no inventa una cuenta: pide la cifra primero", () => {
+    const r = askF("¿Por qué dices eso?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "porque");
+    assert.ok(/pregúntame primero la cifra/.test(r.verdict), r.verdict);
+  });
+
+  it("la puerta estrecha: «¿por qué medio…?» NO es el porqué de la procedencia", () => {
+    const first = askF("¿Cuánto gasté este mes?");
+    assert.equal(first.kind, "answer");
+    if (first.kind !== "answer") return;
+    const r = askF("¿Por qué medio pagué el internet?", first.convo);
+    if (r.kind === "answer") assert.notEqual(r.family, "porque");
+  });
+
+  it("el oído nombra las dos familias nuevas", () => {
+    assert.equal(classifyBankQuestion("¿Cuál es mi patrimonio neto?").family, "falta");
+    assert.equal(classifyBankQuestion("¿De dónde sale ese número?").family, "porque");
+  });
+});
+
+describe("banco · ola 22: las series recurrentes", () => {
+  it("la subida se mide contra la MEDIANA de la serie, no contra el primer precio", () => {
+    const ledger = fixture();
+    ledger.months["2026-08"] = { lines: [line({ id: "cuotaA", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4599, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, bookedOn: "2026-08-28", monthKey: "2026-08" })] };
+    const r = ask(ledger, "¿Me subió alguna suscripción?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "series");
+    assert.ok(r.verdict.includes("Internet"), r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(4999, "USD", "es")), r.verdict);
+  });
+
+  it("una serie que siempre baila no acusa por bailar: su variación es la cerca", () => {
+    const ledger = fixture();
+    ledger.months["2026-08"] = { lines: [line({ id: "cuotaA", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, bookedOn: "2026-08-28", monthKey: "2026-08" })] };
+    ledger.months[PREV].lines.push(line({ id: "cuotaS", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 5199, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, bookedOn: "2026-09-28", monthKey: PREV }));
+    const r = ask(ledger, "¿Ha subido el precio de algo que pago?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "series");
+    assert.ok(/Ninguna suscripción anotada subió/.test(r.verdict), r.verdict);
+  });
+
+  it("la cuota que no llegó: la fecha pasó y no hay cobro nuevo anotado — la ausencia se reporta, no se afirma", () => {
+    const ledger = fixture();
+    const cuota = ledger.months[KEY].lines.find((l) => l.id === "cuota1");
+    if (cuota) cuota.nextDue = "2026-10-10";
+    const r = ask(ledger, "¿Qué suscripción no se cobró?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "series");
+    assert.ok(r.verdict.includes("Internet"), r.verdict);
+    assert.ok(/hace 12 días/.test(r.verdict), r.verdict);
+    const clean = ask(fixture(), "¿Qué suscripción no se cobró?");
+    assert.equal(clean.kind, "answer");
+    if (clean.kind === "answer") assert.ok(/Nada falta por cobrarse/.test(clean.verdict), clean.verdict);
+  });
+
+  it("el costo anualizado: por serie nombrada y el conjunto, con el ritmo dicho", () => {
+    const ledger = fixture();
+    const one = ask(ledger, "¿Cuánto me cuesta el internet al año?");
+    assert.equal(one.kind, "answer");
+    if (one.kind === "answer") {
+      assert.equal(one.family, "series");
+      assert.ok(one.verdict.includes(formatMoney(59988, "USD", "es")), one.verdict);
+    }
+    const all = ask(ledger, "¿Cuánto me cuestan mis suscripciones al año?");
+    assert.equal(all.kind, "answer");
+    if (all.kind === "answer") assert.ok(all.verdict.includes(formatMoney(59988, "USD", "es")), all.verdict);
+  });
+
+  it("el oído nombra la familia series", () => {
+    assert.equal(classifyBankQuestion("¿Me subió alguna suscripción?").family, "series");
+  });
+});
+
+describe("banco · ola 23: la quincena, período propio", () => {
+  const ledger = fixture(); // hoy = 22 de octubre: la quincena en curso es la segunda (16–31)
+
+  it("la primera quincena suma SOLO sus días (la línea sin día del mes vive el día 1, la convención de lineDate)", () => {
+    const r = ask(ledger, "¿Cuánto gasté en la primera quincena?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "historia");
+    // casa (día 1) + internet (su fecha cae el día 1 por convención) +
+    // remesa (10) + zapatos (15) = el mes entero en este fixture, pero
+    // por la ventana 1–15, no por el mes: la segunda mitad da cero.
+    assert.ok(r.verdict.includes(formatMoney(32456, "USD", "es")), r.verdict);
+    assert.ok(/primera quincena/.test(r.verdict), r.verdict);
+  });
+
+  it("esta quincena (16–31) y la pasada (1–15) NO son la misma ventana — ni el mes disfrazado", () => {
+    const esta = ask(ledger, "¿Cuánto gasté esta quincena?");
+    const pasada = ask(ledger, "¿Cuánto gasté la quincena pasada?");
+    assert.equal(esta.kind, "answer");
+    assert.equal(pasada.kind, "answer");
+    if (esta.kind === "answer" && pasada.kind === "answer") {
+      assert.ok(esta.verdict.includes(formatMoney(0, "USD", "es")), esta.verdict);
+      assert.ok(/esta quincena/.test(esta.verdict), esta.verdict);
+      assert.ok(pasada.verdict.includes(formatMoney(32456, "USD", "es")), pasada.verdict);
+    }
+  });
+
+  it("una línea del día 20 cae SOLO en la segunda quincena: la ventana corta de verdad", () => {
+    const local = fixture();
+    local.months[KEY].lines.push(line({ id: "tarde", kind: "purchase" as LineKind, concept: "Libros", amountMinor: 3000, categoryId: "f-otros", bookedOn: "2026-10-20" }));
+    const esta = ask(local, "¿Cuánto gasté esta quincena?");
+    const primera = ask(local, "¿Cuánto gasté en la primera quincena?");
+    assert.equal(esta.kind, "answer");
+    assert.equal(primera.kind, "answer");
+    if (esta.kind === "answer") assert.ok(esta.verdict.includes(formatMoney(3000, "USD", "es")), esta.verdict);
+    if (primera.kind === "answer") assert.ok(!primera.verdict.includes(formatMoney(35456, "USD", "es")), primera.verdict);
+  });
+
+  it("el marco hereda la quincena: el seguimiento cambia de mitad", () => {
+    const askF = (raw: string, convo?: import("./ask2.ts").ConvoFrame | null) =>
+      answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), raw, ctx(ledger), TODAY, undefined, undefined, undefined, convo ?? undefined);
+    const first = askF("¿Cuánto gasté la quincena pasada?");
+    assert.equal(first.kind, "answer");
+    if (first.kind !== "answer") return;
+    assert.equal(first.convo?.periodPhrase, "la quincena pasada");
+    const r = askF("¿Y esta quincena?", first.convo);
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.ok(r.verdict.includes(formatMoney(0, "USD", "es")), r.verdict);
+  });
+});
+
+describe("banco · ola 24: el oído fino + la sensibilidad", () => {
+  const ledger = fixture();
+
+  it("el diminutivo se oye: «zapatitos» encuentra los Zapatos del libro", () => {
+    const r = ask(ledger, "¿Cuánto gasté en zapatitos este mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "historia");
+    assert.ok(r.verdict.includes(formatMoney(8000, "USD", "es")), r.verdict);
+  });
+
+  it("la excepción manda: «zapatillas» NO son los Zapatos — la palabra lexicalizada no se toca", () => {
+    const r = ask(ledger, "¿Cuánto gasté en zapatillas este mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(/zapatillas/.test(r.verdict), r.verdict); // la cerca de lo no anotado, con su nombre intacto
+  });
+
+  it("la excepción raíz: «necesito» no se despoja — la meta sigue oyéndose", () => {
+    const r = ask(ledger, "¿Cuánto necesito ahorrar al mes para tener 2000 en diciembre?");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "meta");
+  });
+
+  it("el enclítico se separa: «dejándolo de gastar» oye el contrafactual", () => {
+    const r = ask(ledger, "¿Cuánto ahorraría dejándolo de gastar en zapatos?");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.equal(r.family, "contrafactual");
+  });
+
+  it("el voseo se oye: «¿cuánto tenés en ahorros?» llega a su familia", () => {
+    const r = ask(ledger, "¿Cuánto tenés en ahorros?");
+    assert.equal(r.kind, "answer");
+    if (r.kind === "answer") assert.ok(r.verdict.includes(formatMoney(129900, "USD", "es")), r.verdict);
+  });
+
+  it("la sensibilidad absoluta: «si el internet sube a 60» recalcula el mes con esa línea sustituida", () => {
+    const r = ask(ledger, "¿Y si el internet sube a 60 dólares?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    assert.ok(r.verdict.includes(formatMoney(33457, "USD", "es")), r.verdict); // 32456 − 4999 + 6000
+    assert.ok(r.verdict.includes(formatMoney(1001, "USD", "es")), r.verdict);
+  });
+
+  it("la sensibilidad delta: «si la casa sube 10 dólares» suma el delta, no sustituye el precio", () => {
+    const r = ask(ledger, "¿Y si la casa sube 10 dólares?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes(formatMoney(33456, "USD", "es")), r.verdict); // 32456 + 1000
   });
 });
 
