@@ -453,11 +453,16 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // su cara madre (archivo) nombra el sistema por sus asientos, y la
   // sección no decide nada de modo: pinta folios de historia y ofrece
   // su borrado con la confirmación de la casa.
+  // ENMIENDA 1.3.420 (El Manual premium): manual-figure.tsx entra por
+  // la familia (1) — cromo presentacional del Manual: dibuja la figura
+  // de un tema con los números del libro (el coach) y nada decide de
+  // modo; el filtro por modo vive en su cara madre, manual.tsx, que sí
+  // nombra el sistema.
   const EXEMPT = [
     "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "draft-row.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
-    "icons.tsx", "manual-text.tsx", "rewards-real.tsx",
+    "icons.tsx", "manual-figure.tsx", "manual-text.tsx", "rewards-real.tsx",
     "sample-mode.tsx", "selection.tsx", "shared-view.tsx", "signature.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",
     "passive-folios.tsx", "to-top.tsx", "ui.tsx",
   ];

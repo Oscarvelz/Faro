@@ -88,21 +88,63 @@ export function richText(text: string, data: ManualData, onLink: (term: string) 
  * unas pocas frases: el texto suelto y larguísimo es un defecto del
  * envoltorio, no del contenido (fallo de Oscar, 2026-11-21).
  */
+/* 1.3.420 — la forma premium: la sub-entrada con su título. Cuando un
+ * renglón de enumeración trae su rótulo («Lugares: …», «Tasa — …»), el
+ * rótulo sale en negritas y sin color, como título de su tarjetita; el
+ * resto del renglón queda de texto. Sin rótulo claro, el renglón va
+ * entero: nunca se inventa un título que el texto no trae. */
+const MINI_LEAD = /^([^:—\n]{2,42}?)([:—])\s+(.+)$/s;
+function miniItem(text: string, data: ManualData, onLink: (term: string) => void, ctx: TermCtx): ReactNode {
+  const m = MINI_LEAD.exec(text);
+  if (m && !m[1]!.includes("[[") && !/[.!?]$/.test(m[1]!)) {
+    return (
+      <>
+        <span className="mn-mini-t">{richText(`${m[1]}${m[2]}`, data, onLink, ctx)}</span>
+        {richText(m[3]!, data, onLink, ctx)}
+      </>
+    );
+  }
+  return richText(text, data, onLink, ctx);
+}
+
+/* 1.3.420 — el ejemplo gana su asiento: la marca de la casa («Ejemplo:» /
+ * "Example:", la de la ola 275) deja de vivir cosida en el párrafo y se
+ * pinta en su propia tarjeta, con la marca por rótulo. La extracción va
+ * de la marca al fin del bloque; el texto que la precede queda de
+ * párrafo, intacto. */
+const EXAMPLE_MARK = /(^|\.\s+)(Ejemplo:|Example:)\s+/;
+function blockNodes(block: string, bi: number, data: ManualData, onLink: (term: string) => void, ctx: TermCtx): ReactNode {
+  const lines = block.split("\n").map((s) => s.trim()).filter(Boolean);
+  if (lines.length <= 1) return <p key={bi} className="mn-p">{richText(lines[0] ?? "", data, onLink, ctx)}</p>;
+  const [lead, ...items] = lines;
+  return (
+    <Fragment key={bi}>
+      <p className="mn-p">{richText(lead!, data, onLink, ctx)}</p>
+      <ul className="mn-list">
+        {items.map((it, ii) => <li key={ii}>{miniItem(it, data, onLink, ctx)}</li>)}
+      </ul>
+    </Fragment>
+  );
+}
+
 export function richBlocks(text: string, data: ManualData, onLink: (term: string) => void, ctx: TermCtx = {}): ReactNode {
   const blocks = text.split(/\n\n+/).map((b) => b.trim()).filter(Boolean);
-  return blocks.map((block, bi) => {
-    const lines = block.split("\n").map((s) => s.trim()).filter(Boolean);
-    if (lines.length <= 1) return <p key={bi} className="mn-p">{richText(lines[0] ?? "", data, onLink, ctx)}</p>;
-    const [lead, ...items] = lines;
-    return (
-      <Fragment key={bi}>
-        <p className="mn-p">{richText(lead!, data, onLink, ctx)}</p>
-        <ul className="mn-list">
-          {items.map((it, ii) => <li key={ii}>{richText(it, data, onLink, ctx)}</li>)}
-        </ul>
-      </Fragment>
+  const out: ReactNode[] = [];
+  blocks.forEach((block, bi) => {
+    const m = EXAMPLE_MARK.exec(block);
+    if (!m) { out.push(blockNodes(block, bi, data, onLink, ctx)); return; }
+    const cut = m.index + m[1]!.length;
+    const head = block.slice(0, cut).trim();
+    const example = block.slice(cut + m[2]!.length).trim();
+    if (head) out.push(blockNodes(head, bi, data, onLink, ctx));
+    out.push(
+      <div key={`${bi}-ex`} className="mn-example">
+        <p className="mn-example-k">{m[2]!.slice(0, -1)}</p>
+        <p className="mn-example-p">{richText(example, data, onLink, ctx)}</p>
+      </div>,
     );
   });
+  return out;
 }
 
 const cache = new Map<string, RegExp>();

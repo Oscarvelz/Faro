@@ -60,15 +60,16 @@ test("346 · el anuncio: una sola tarjeta, la grande más nueva sin ver", () => 
   // 1.3.379 («El Manual, con forma»), la 1.3.380 («El Asesor sigue
   // la conversación»), la 1.3.382 («Buscar encuentra; preguntar, al
   // Asesor») y la 1.3.383 («El Asesor, con todo su banco») y la
-  // 1.3.400 («El Asesor recuerda la conversación») y la 1.3.408
-  // («La cámara del widget»), grandes —
+  // 1.3.400 («El Asesor recuerda la conversación»), la 1.3.408
+  // («La cámara del widget») y la 1.3.420 («El Manual, con forma
+  // nueva y su primera figura»), grandes —
   // esta expectativa se
   // mueve con cada nota grande nueva, a propósito. (La 408 la dejó
   // desactualizada en silencio: su suite corrió con el sello en 1.3.407 y
   // la expectativa vieja pasaba por el tope; la enfocada de la 409 la cazó.)
-  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.408");
+  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.420");
   // Desde la 342 (menor): la grande más nueva del tramo es una sola, no una pila.
-  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.408");
+  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.420");
   // El tramo (seen, current] no incluye lo ya visto ni lo futuro.
   const tramo = newsBetween("1.3.340", "1.3.344").map((n) => n.version);
   assert.deepEqual(tramo, ["1.3.344", "1.3.343", "1.3.342"]);

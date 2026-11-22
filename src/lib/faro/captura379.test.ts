@@ -66,8 +66,16 @@ test("379-2 · las enumeraciones viven como grupos, no cosidas", () => {
 test("379-3 · el render pinta bloques y grupos con la marca del tema", () => {
   assert.ok(textSrc.includes("export function richBlocks"), "manual-text exporta el pintor de bloques");
   assert.ok(textSrc.includes('className="mn-list"') && textSrc.includes('className="mn-p"'), "los grupos salen como lista y los párrafos como párrafo");
-  assert.equal(manualSrc.split("richBlocks(").length - 1, 8, "las ocho superficies de cuerpo pintan por bloques (tema e índice, cuatro campos)");
-  assert.ok(cssSrc.includes(".mn-list li::before") && cssSrc.includes("background: var(--accent)"), "la marca del renglón nace del acento del tema elegido, nunca de un color propio");
+  // ENMIENDA 1.3.420: el cuerpo de la entrada es UN componente compartido
+  // (EntryBody) que pinta los cuatro campos por bloques — la entrada del
+  // capítulo y la del tema dormido son el mismo cuerpo. El conteo pasa de
+  // 8 llamadas (dos copias) a 4 (una sola fuente).
+  assert.equal(manualSrc.split("richBlocks(").length - 1, 4, "el cuerpo compartido pinta los cuatro campos por bloques");
+  // ENMIENDA 1.3.420: en la forma premium (maqueta a6, aprobada después)
+  // cada renglón de enumeración es una tarjetita con su PUNTO NEUTRO — el
+  // acento vive en las cabeceras de bandeja, no en cada renglón. La marca
+  // sigue naciendo de los tokens del tema, nunca de un color propio.
+  assert.ok(cssSrc.includes(".mn-list li::before") && cssSrc.includes("background: var(--muted)"), "el punto del renglón es neutro y nace de los tokens del tema");
 });
 
 test("379-4 · la convención de forma vive escrita donde viven los datos", () => {

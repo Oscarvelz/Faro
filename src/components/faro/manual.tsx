@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, BookOpen, ChevronDown, ChevronLeft, Lightbulb, ListOrdered, Search, SearchX, X } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronDown, ChevronLeft, Info, Lightbulb, ListChecks, ListOrdered, Search, SearchX, X } from "lucide-react";
 import { useLayer } from "@/lib/manual/back";
 import { loadManual, manualNow, type ManualData } from "@/lib/manual/load";
 import { glow, justPopped, reduced } from "@/lib/manual/nav";
@@ -8,7 +8,8 @@ import type { L, Numbered } from "@/lib/manual/topics";
 import { modeReaches } from "@/lib/faro/mode";
 import { Mark } from "./icons";
 import { useFaroRoot } from "./provider";
-import { richBlocks } from "./manual-text";
+import { richBlocks, richText } from "./manual-text";
+import { ManualFigure } from "./manual-figure";
 import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import "./manual.css";
 
@@ -26,6 +27,69 @@ function marked(text: string, words: string[]): ReactNode {
   });
   if (at < chars.length) out.push(chars.slice(at).join(""));
   return out;
+}
+
+/* 1.3.420 — LA FORMA PREMIUM DEL MANUAL (diseño cerrado con Oscar el
+ * 2026-11-22, maquetas a6/a7): cada entrada es una tarjeta de cabecera
+ * (placa con su número, el capítulo por rótulo, el título en serif y su
+ * suma) y cada parte vive en su propia bandeja hundida, cuya cabecera —
+ * la ÚNICA en el acento del tema — lleva su ícono y la línea dorada que
+ * se apaga tras su nombre. Dentro: la figura del tema si la declara, y
+ * la idea clave en su tarjeta ✦ con el arranque en negritas del acento.
+ * El Manual viste los tokens del tema, como toda superficie. */
+function IdeaCard({ text, data, onLink, self }: { text: string; data: ManualData; onLink: (term: string) => void; self: string }) {
+  const m = /^([^:]{2,42}):\s+(.+)$/s.exec(text);
+  return (
+    <div className="mn-idea">
+      <span className="mn-idea-star" aria-hidden>✦</span>
+      <p className="mn-idea-p">
+        {m && !m[1]!.includes("[[")
+          ? <><b className="mn-idea-lead">{richText(`${m[1]}:`, data, onLink, { self })}</b> {richText(m[2]!, data, onLink, { self })}</>
+          : richText(text, data, onLink, { self })}
+      </p>
+    </div>
+  );
+}
+
+function EntryBody({ tp, say, data, linkFrom, t, lang }: {
+  tp: Numbered;
+  say: (pair: L) => string;
+  data: ManualData;
+  linkFrom: (entryId: string) => (term: string) => void;
+  t: (key: string) => string;
+  lang: "es" | "en";
+}) {
+  const onLink = linkFrom(tp.id);
+  return (
+    <>
+      <header className="mn-head">
+        <p className="mn-kick"><span className="mn-plate">{tp.num}</span><span className="mn-kick-ch">{say(tp.chapter.title)}</span></p>
+        <h3 className="mn-entry-title">{say(tp.title)}</h3>
+        <p className="mn-sum">{say(tp.sum)}</p>
+      </header>
+      <section className="mn-tray">
+        <h4 className="mn-tray-h"><Info aria-hidden /><span>{t("manual.what")}</span></h4>
+        {(() => { const seen = new Set<string>(); return <>
+          {richBlocks(say(tp.what), data, onLink, { self: tp.id, seen })}
+          {tp.whatAlt ? richBlocks(say(tp.whatAlt), data, onLink, { self: tp.id, seen }) : null}
+        </>; })()}
+        <ManualFigure topicId={tp.id} lang={lang} />
+        {tp.idea ? <IdeaCard text={say(tp.idea)} data={data} onLink={onLink} self={tp.id} /> : null}
+      </section>
+      {tp.how ? (
+        <section className="mn-tray">
+          <h4 className="mn-tray-h"><ListChecks aria-hidden /><span>{t("manual.how")}</span></h4>
+          {richBlocks(say(tp.how), data, onLink, { self: tp.id })}
+        </section>
+      ) : null}
+      {tp.tip ? (
+        <section className="mn-tray">
+          <h4 className="mn-tray-h"><Lightbulb aria-hidden /><span>{t("manual.tip")}</span></h4>
+          {richBlocks(say(tp.tip), data, onLink, { self: tp.id })}
+        </section>
+      ) : null}
+    </>
+  );
 }
 
 /** Bring an element under the sticky top row of the manual: a long way snaps most of it, the last stretch glides. */
@@ -266,7 +330,7 @@ function Manual({ data }: { data: ManualData }) {
           ) : (
             <ul className="mn-hits">
               {results.map((tp) => {
-                const body = [tp.sum, tp.what, tp.whatAlt, tp.how, tp.tip].filter(Boolean).map((p) => plain(say(p as L)));
+                const body = [tp.sum, tp.what, tp.whatAlt, tp.how, tp.tip, tp.idea].filter(Boolean).map((p) => plain(say(p as L)));
                 const hit = body.find((b) => hitRanges(b, words).length) ?? body[0]!;
                 return (
                   <li key={tp.id}>
@@ -300,31 +364,7 @@ function Manual({ data }: { data: ManualData }) {
         {current && currentDormant ? (
           <article id={`mn-${current.id}`} className="mn-entry mn-entry-dormant" data-depth={current.depth} data-anchor="mn-current">
             <p className="mn-dormant-note">{t("mode.dormant.notice").replace("{name}", t(`mode.${topicMode(current)}`))}</p>
-            <h3 className="mn-entry-title"><span className="mn-num">{current.num}</span><span>{say(current.title)}</span></h3>
-            <p className="mn-sum">{say(current.sum)}</p>
-            <dl className="mn-parts">
-              <div>
-                <dt>{t("manual.what")}</dt>
-                <dd>
-                  {(() => { const seen = new Set<string>(); return <>
-                    {richBlocks(say(current.what), data, linkFrom(current.id), { self: current.id, seen })}
-                    {current.whatAlt ? richBlocks(say(current.whatAlt), data, linkFrom(current.id), { self: current.id, seen }) : null}
-                  </>; })()}
-                </dd>
-              </div>
-              {current.how ? (
-                <div>
-                  <dt>{t("manual.how")}</dt>
-                  <dd>{richBlocks(say(current.how), data, linkFrom(current.id), { self: current.id })}</dd>
-                </div>
-              ) : null}
-              {current.tip ? (
-                <div className="mn-tip">
-                  <dt><Lightbulb aria-hidden /><span>{t("manual.tip")}</span></dt>
-                  <dd>{richBlocks(say(current.tip), data, linkFrom(current.id), { self: current.id })}</dd>
-                </div>
-              ) : null}
-            </dl>
+            <EntryBody tp={current} say={say} data={data} linkFrom={linkFrom} t={t} lang={lang} />
           </article>
         ) : null}
 
@@ -366,31 +406,7 @@ function Manual({ data }: { data: ManualData }) {
                       const tp = findTopic(tp0.id)!;
                       return (
                         <article key={tp.id} id={`mn-${tp.id}`} className={`mn-entry${current?.id === tp.id ? " is-current" : ""}`} data-depth={tp.depth} data-anchor={current?.id === tp.id ? "mn-current" : undefined}>
-                          <h3 className="mn-entry-title"><span className="mn-num">{tp.num}</span><span>{say(tp.title)}</span></h3>
-                          <p className="mn-sum">{say(tp.sum)}</p>
-                          <dl className="mn-parts">
-                            <div>
-                              <dt>{t("manual.what")}</dt>
-                              <dd>
-                                {(() => { const seen = new Set<string>(); return <>
-                                  {richBlocks(say(tp.what), data, linkFrom(tp.id), { self: tp.id, seen })}
-                                  {tp.whatAlt ? richBlocks(say(tp.whatAlt), data, linkFrom(tp.id), { self: tp.id, seen }) : null}
-                                </>; })()}
-                              </dd>
-                            </div>
-                            {tp.how ? (
-                              <div>
-                                <dt>{t("manual.how")}</dt>
-                                <dd>{richBlocks(say(tp.how), data, linkFrom(tp.id), { self: tp.id })}</dd>
-                              </div>
-                            ) : null}
-                            {tp.tip ? (
-                              <div className="mn-tip">
-                                <dt><Lightbulb aria-hidden /><span>{t("manual.tip")}</span></dt>
-                                <dd>{richBlocks(say(tp.tip), data, linkFrom(tp.id), { self: tp.id })}</dd>
-                              </div>
-                            ) : null}
-                          </dl>
+                          <EntryBody tp={tp} say={say} data={data} linkFrom={linkFrom} t={t} lang={lang} />
                           {tp.go ? (
                             <div className="mn-go-row">
                               <button type="button" className="mn-go" data-go={tp.id} onClick={() => goThere(tp)}>

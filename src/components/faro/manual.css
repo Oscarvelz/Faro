@@ -168,20 +168,65 @@ html.manual-open { overflow: hidden; }
    en otro modo, no una entrada más del índice. */
 .mn-entry-dormant { margin-top: 14px; padding: 14px 14px 16px; border: 1px solid color-mix(in oklab, var(--line) 75%, transparent); border-radius: 14px; }
 .mn-dormant-note { margin: 0 0 8px; color: var(--muted); font-size: .85rem; font-weight: 650; line-height: 1.45; }
-.mn-entry-title { display: flex; align-items: baseline; margin: 0; font-family: var(--font-serif); font-size: 1.2rem; font-weight: 560; letter-spacing: -.01em; line-height: 1.25; }
-.mn-sum { margin: 4px 0 10px; color: var(--muted); font-size: .92rem; line-height: 1.45; }
-.mn-parts { margin: 0; display: grid; gap: 10px; }
-.mn-parts dt { display: flex; align-items: center; gap: 5px; margin: 0 0 2px; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
-.mn-parts dd { margin: 0; font-size: .95rem; line-height: 1.55; }
+.mn-entry-title { margin: 10px 0 0; font-family: var(--font-serif); font-size: 1.34rem; font-weight: 560; letter-spacing: -.01em; line-height: 1.25; }
+.mn-sum { margin: 6px 0 0; color: var(--muted); font-size: .95rem; line-height: 1.5; }
+/* 1.3.420 — LA FORMA PREMIUM (maquetas a6/a7, tokens del tema): la
+   cabecera es una tarjeta con su placa y su rótulo de capítulo; cada
+   parte vive en su bandeja hundida y su cabecera es la ÚNICA en el
+   acento, con ícono y la línea que se apaga tras el nombre. */
+.mn-head { border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line)); border-radius: 16px; padding: 14px 15px 13px; background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 7%, transparent), color-mix(in oklab, var(--fg) 2%, transparent)); box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 6%, transparent); }
+.mn-kick { display: flex; align-items: center; gap: 8px; margin: 0; }
+.mn-plate { background: var(--accent); color: var(--accent-fg); font-weight: 800; font-size: .76rem; border-radius: 7px; padding: 2px 7px; font-variant-numeric: tabular-nums; }
+.mn-kick-ch { color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.mn-tray { margin-top: 12px; border: 1px solid color-mix(in oklab, var(--line) 80%, transparent); border-radius: 16px; background: color-mix(in oklab, var(--fg) 3%, transparent); box-shadow: inset 0 2px 8px rgba(0, 0, 0, .18); padding: 12px 14px 14px; font-size: .95rem; line-height: 1.55; }
+.mn-tray-h { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.mn-tray-h svg { width: 16px; height: 16px; flex: none; }
+.mn-tray-h::after { content: ""; flex: 1; height: 1px; margin-left: 6px; background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 45%, transparent), color-mix(in oklab, var(--accent) 4%, transparent)); }
+/* La idea clave: su tarjeta teñida, la ✦ y el arranque en el acento. */
+.mn-idea { display: flex; gap: 10px; margin-top: 12px; border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--line)); background: color-mix(in oklab, var(--accent) 8%, transparent); border-radius: 12px; padding: 11px 13px; }
+.mn-idea-star { color: var(--accent); font-size: .95rem; line-height: 1.35; flex: none; }
+.mn-idea-p { margin: 0; font-size: .9rem; line-height: 1.5; }
+.mn-idea-lead { color: color-mix(in oklab, var(--accent) 72%, var(--fg)); }
+/* El ejemplo, en su asiento: tarjeta propia con la marca por rótulo. */
+.mn-example { margin: 10px 0; border: 1px dashed color-mix(in oklab, var(--accent) 40%, var(--line)); border-radius: 12px; padding: 9px 12px 10px; background: color-mix(in oklab, var(--fg) 2%, transparent); }
+.mn-example-k { margin: 0 0 3px; color: var(--accent); font-size: .68rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.mn-example-p { margin: 0; font-size: .92rem; line-height: 1.5; }
+/* La figura del tema: la explicación dibujada con los números del libro. */
+.mn-fig { margin: 12px 0 2px; border: 1px solid color-mix(in oklab, var(--line) 85%, transparent); border-radius: 12px; background: color-mix(in oklab, var(--fg) 2%, transparent); padding: 12px 13px 11px; }
+.mn-fig-cap { margin: 0 0 8px; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.mn-fig-scale { position: relative; display: flex; gap: 3px; padding-top: 22px; }
+.mn-fig-band { display: grid; gap: 3px; min-width: 0; flex: 1 1 0; align-content: start; text-align: center; opacity: .55; }
+.mn-fig-band.is-here { opacity: 1; }
+.mn-fig-band i { display: block; height: 8px; border-radius: 4px; }
+.mn-fig-band.is-bad i { background: var(--bad); }
+.mn-fig-band.is-warn i { background: var(--warn); }
+.mn-fig-band.is-good i { background: var(--good); }
+.mn-fig-band:last-child i { background: color-mix(in oklab, var(--good) 75%, var(--fg)); }
+.mn-fig-band em { font-style: normal; font-size: .66rem; font-weight: 600; line-height: 1.15; }
+.mn-fig-band small { font-size: .62rem; color: var(--muted); }
+.mn-fig-scale > b { position: absolute; top: 0; transform: translateX(-50%); font-size: .72rem; line-height: 1; padding: 3px 6px; border-radius: 999px; background: var(--fg); color: var(--bg); }
+.mn-fig-scale > b::after { content: ""; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%); border: 4px solid transparent; border-bottom: 0; border-top-color: var(--fg); }
+.mn-fig-bars { list-style: none; margin: 11px 0 0; padding: 11px 0 0; border-top: 1px solid color-mix(in oklab, var(--line) 70%, transparent); display: grid; gap: 7px; }
+.mn-fig-bars li { display: grid; grid-template-columns: minmax(0, 6.5em) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: .84rem; }
+.mn-fig-track { height: 6px; border-radius: 3px; background: var(--surface2, color-mix(in oklab, var(--fg) 8%, transparent)); overflow: hidden; }
+.mn-fig-track i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.mn-fig-track i.is-good { background: var(--good); }
+.mn-fig-track i.is-warn { background: var(--warn); }
+.mn-fig-track i.is-bad { background: var(--bad); }
+.mn-fig-track i.is-neutral { background: var(--muted); }
+.mn-fig-pt { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mn-fig-note { margin: 10px 0 0; font-size: .86rem; line-height: 1.45; color: var(--muted); }
+.mn-fig-note b { color: var(--fg); }
 /* 1.3.379: la forma del texto — párrafos de una idea y enumeraciones
-   como grupos con renglón propio; la marca viste el acento del tema. */
+   como grupos con renglón propio. 1.3.420: cada renglón de enumeración
+   es una tarjetita con su punto neutro y, si el texto lo trae, su
+   título en negritas sin color (la forma premium, maqueta a6). */
 .mn-p { margin: 0 0 9px; }
 .mn-p:last-child { margin-bottom: 0; }
-.mn-list { list-style: none; margin: 1px 0 10px; padding: 0; display: grid; gap: 5px; }
-.mn-list li { position: relative; padding-left: 17px; }
-.mn-list li::before { content: ""; position: absolute; left: 1px; top: .52em; width: 6px; height: 6px; background: var(--accent); }
-.mn-tip { padding-left: 10px; border-left: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); }
-.mn-tip dt svg { width: 13px; height: 13px; color: var(--accent); }
+.mn-list { list-style: none; margin: 1px 0 10px; padding: 0; display: grid; gap: 8px; }
+.mn-list li { position: relative; border: 1px solid color-mix(in oklab, var(--line) 80%, transparent); border-radius: 12px; background: color-mix(in oklab, var(--fg) 3%, transparent); padding: 9px 12px 10px 24px; }
+.mn-list li::before { content: ""; position: absolute; left: 11px; top: 1.02em; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.mn-mini-t { display: block; font-weight: 700; color: var(--fg); margin-bottom: 1px; }
 .mn-go-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 14px; }
 .mn-go {
   display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0;
@@ -247,8 +292,8 @@ html.manual-open { overflow: hidden; }
 [data-theme="tron"] .mn-entry-title { font-size: 1.05rem; }
 [data-theme="tron"] .mn-ch, [data-theme="tron"] .mn-ch:last-child { border-color: rgba(63, 214, 245, .2); }
 [data-theme="tron"] .mn-entry, [data-theme="tron"] .mn-hit { border-color: rgba(63, 214, 245, .14); }
-[data-theme="tron"] .mn-ch-num, [data-theme="tron"] .mn-az-letter, [data-theme="tron"] .mn-mark, [data-theme="tron"] .mn-tip dt svg { color: #3fd6f5; }
-[data-theme="tron"] .mn-tip { border-left-color: rgba(63, 214, 245, .5); }
+[data-theme="tron"] .mn-ch-num, [data-theme="tron"] .mn-az-letter, [data-theme="tron"] .mn-mark, [data-theme="tron"] .mn-tray-h svg { color: #3fd6f5; }
+[data-theme="tron"] .mn-idea { border-color: rgba(63, 214, 245, .5); }
 [data-theme="tron"] .mn-go { background: transparent; color: #3fd6f5; border: 1px solid rgba(63, 214, 245, .6); box-shadow: 0 0 12px -4px rgba(63, 214, 245, .6); border-radius: 6px; }
 [data-theme="tron"] .mn-btn { background: #050c0f; border-color: rgba(63, 214, 245, .35); color: #d7eef4; border-radius: 6px; }
 [data-theme="tron"] .mn-layer mark { background: rgba(63, 214, 245, .26); color: #eafcff; }
@@ -387,8 +432,8 @@ label.label[data-anchor^="aj-"] > .lab-head .hint { margin-left: 4px; margin-blo
    Entry numbers, the Tip bulb and its rule, the open chapter's number, the A–Z letters and a short tick under the top bar.
    Teal keeps links, "Ir allí", search and marks. No animation. #ffb347 on #02060c ≈ 11:1. */
 [data-theme="tron"] .mn-layer :is(.mn-entry-title, .mn-hit-title) .mn-num { color: #ffb347; text-shadow: 0 0 6px rgba(255, 179, 71, .35); } /* entry numbers only; the contents lists stay quiet */
-[data-theme="tron"] .mn-layer .mn-tip { border-left-color: rgba(255, 179, 71, .55); }
-[data-theme="tron"] .mn-layer .mn-tip dt svg { color: #ffb347; filter: drop-shadow(0 0 3px rgba(255, 179, 71, .45)); }
+[data-theme="tron"] .mn-layer .mn-idea { border-color: rgba(255, 179, 71, .55); }
+[data-theme="tron"] .mn-layer .mn-tray-h svg { color: #ffb347; filter: drop-shadow(0 0 3px rgba(255, 179, 71, .45)); }
 [data-theme="tron"] .mn-layer .mn-ch.is-open .mn-ch-num { color: #ffb347; text-shadow: 0 0 6px rgba(255, 179, 71, .35); }
 [data-theme="tron"] .mn-layer .mn-az-letter { color: #ffb347; text-shadow: 0 0 6px rgba(255, 179, 71, .3); }
 [data-theme="tron"] .mn-top::after {
@@ -473,7 +518,7 @@ label.label[data-anchor^="aj-"] > .lab-head .hint { margin-left: 4px; margin-blo
   .mn-ch.is-open .mn-ch-railhead .mn-ch-num { flex: none; min-width: 22px; }
   .mn-ch.is-open .mn-ch-intro { margin-top: 10px; font-size: .86rem; }
   .mn-ch.is-open .mn-ch-list button { min-height: 34px; padding: 6px 0; font-size: .88rem; line-height: 1.35; }
-  .mn-ch.is-open .mn-ch-entries .mn-parts dd { font-size: 1rem; line-height: 1.6; }
+  .mn-ch.is-open .mn-ch-entries .mn-tray { font-size: 1rem; line-height: 1.6; }
   /* Search: results in two columns at the page width. */
   .mn-hits { max-width: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; }
   .mn-hit { height: 100%; align-items: start; }

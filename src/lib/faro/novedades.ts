@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.420",
+    date: "2026-11-22",
+    level: "grande",
+    title: { es: "El Manual, con forma nueva y su primera figura", en: "The Manual, in a new form with its first figure" },
+    points: {
+      es: [
+        "Cada tema del Manual se abre ahora con su tarjeta de cabecera — su número en placa, su capítulo y su título — y cada parte (Qué es, Cómo, Consejo) vive en su propia bandeja, con su ícono y la línea dorada tras su nombre.",
+        "La idea clave de un tema gana su tarjeta ✦, los ejemplos de la casa salen de en medio del párrafo a su propio asiento, y cada renglón de una enumeración lleva su tarjetita con su título en negritas.",
+        "Y el Manual dibuja por primera vez: el tema «La salud de tu dinero» trae tu nota en su escala, con las barras de cada parte sumando tu nota y el nombre de donde más te falta — con los números de tu libro, no una ilustración.",
+      ],
+      en: [
+        "Every Manual topic now opens with its own head card — its number on a plate, its chapter and its title — and each part (What it is, How, Tip) lives in its own tray, with its icon and the golden line fading after its name.",
+        "A topic's key idea gains its ✦ card, the house examples step out of the middle of the paragraph into their own seat, and every row of a list carries its little card with its title in bold.",
+        "And the Manual draws for the first time: the topic \"Your money's health\" brings your grade on its scale, with each part's bars adding up to your grade and the name of where you have most to gain — with your book's numbers, not an illustration.",
+      ],
+    },
+    topic: "salud",
+  },
+  {
     version: "1.3.419",
     date: "2026-11-22",
     level: "menor",
