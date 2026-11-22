@@ -777,11 +777,39 @@ class QuickAddActivity : Activity() {
 
     /** "12.3" → 1230 centavos; null si no es un monto válido dentro del techo. */
     private fun parseMinor(text: String): Long? {
-        val t = text.trim().replace(",", "")
-        if (t.isEmpty()) return null
+        val t = normalizeAmount(text.trim()) ?: return null
         return runCatching {
             val minor = BigDecimal(t).movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValueExact()
             if (minor in 1..QuickAdd.MAX_MINOR) minor else null
         }.getOrNull()
+    }
+
+    /**
+     * 1.3.408: la coma decimal ya no infla el monto ×100. El campo acepta el
+     * punto decimal del teclado, y en un teclado en español la tecla dice
+     * «,»: antes «68,26» perdía la coma y se archivaba como $6,826.00. La
+     * regla: con los dos separadores, el ÚLTIMO manda (el otro es de miles);
+     * con solo comas, una coma seguida de 1–2 dígitos es decimal («68,26»,
+     * «0,5») y cualquier otra forma es de miles («1,234»); con solo puntos,
+     * como siempre. Lo que no encaja en ninguna forma no es un monto.
+     */
+    private fun normalizeAmount(raw: String): String? {
+        if (raw.isEmpty()) return null
+        val hasDot = raw.contains('.')
+        val hasComma = raw.contains(',')
+        return when {
+            hasDot && hasComma ->
+                if (raw.lastIndexOf(',') > raw.lastIndexOf('.')) raw.replace(".", "").replace(',', '.')
+                else raw.replace(",", "")
+            hasComma -> {
+                val parts = raw.split(',')
+                when {
+                    parts.size == 2 && parts[1].length in 1..2 && parts.all { it.all { c -> c.isDigit() } } -> raw.replace(',', '.')
+                    parts.all { it.isNotEmpty() && it.all { c -> c.isDigit() } } -> raw.replace(",", "")
+                    else -> null
+                }
+            }
+            else -> raw
+        }
     }
 }

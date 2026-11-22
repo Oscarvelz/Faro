@@ -46,13 +46,17 @@ object FaroWidgets {
     const val EXTRA_GO = "go"
     const val ACTION_TICK = "com.oscarvelz.faro.WIDGET_TICK"
 
-    fun save(ctx: Context, json: String) {
+    /** 1.3.408: el veredicto vuelve — antes un JSON que no pasaba la puerta
+     *  (v != 1) se tragaba en silencio y la página registraba el empujón como
+     *  enviado. true = la foto quedó guardada (o vaciada a propósito). */
+    fun save(ctx: Context, json: String): Boolean {
         val clean = json.trim()
         val ok = clean.isEmpty() || runCatching { JSONObject(clean).optInt("v") == 1 }.getOrDefault(false)
-        if (!ok) return
+        if (!ok) return false
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, clean).apply()
         refreshAll(ctx)
         FaroNotify.onSnapshot(ctx)
+        return true
     }
 
     fun load(ctx: Context): Snap? {
@@ -109,6 +113,17 @@ object FaroWidgets {
             .setData(Uri.parse("faro-widget://quick/$sign"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return PendingIntent.getActivity(ctx, sign.hashCode(), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    /** 1.3.408: la cámara del widget — el tercer botón de la cabecera. Levanta
+     *  CapturePhotoActivity (una isla sin interfaz, como la tarjeta rápida):
+     *  la cámara del teléfono hace la foto y la foto entra por la bandeja de
+     *  siempre como un recibo, directa a su preview de revisión. */
+    fun cameraIntent(ctx: Context): PendingIntent {
+        val i = Intent(ctx, CapturePhotoActivity::class.java)
+            .setData(Uri.parse("faro-widget://camera"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(ctx, "camera".hashCode(), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 }
 
@@ -387,6 +402,7 @@ object Render {
         val v = RemoteViews(ctx.packageName, R.layout.w_dues)
         val list = s.dues.mapNotNull { d -> Fmt.daysLeft(d.on)?.let { d to it } }.filter { it.second <= 31 }.sortedBy { it.second }
         v.setTextViewText(R.id.w_dues_title, L(s, "Vencimientos", "Due dates"))
+        v.setTextViewText(R.id.w_stamp, Fmt.clock(s.at, s.en))
         val first = list.firstOrNull()
         v.setTextViewText(R.id.w_dues_sum, first?.let { Fmt.daysWord(it.second, s.en) } ?: "")
         v.setTextColor(R.id.w_dues_sum, ctx.getColor(if (first == null) R.color.w_muted else if (first.second < 0) R.color.w_bad else if (first.second <= 3) R.color.w_amber else R.color.w_muted))
@@ -441,12 +457,21 @@ object Render {
         v.setOnClickPendingIntent(R.id.w_hero_box, FaroWidgets.openIntent(ctx, "desk"))
         v.setOnClickPendingIntent(R.id.w_add_in, FaroWidgets.quickIntent(ctx, "in"))
         v.setOnClickPendingIntent(R.id.w_add_out, FaroWidgets.quickIntent(ctx, "out"))
+        // 1.3.408: el tercer botón — la cámara — y la hora de la foto también en
+        // el teléfono (el sello vivía solo en el Panel; sin él no había manera
+        // de saber si la foto era de ahora o de ayer). En los tamaños sin
+        // cabecera (el S) el sello no cabe: verdad de tamaño, como su − solo.
+        v.setOnClickPendingIntent(R.id.w_add_cam, FaroWidgets.cameraIntent(ctx))
+        v.setTextViewText(R.id.w_stamp, Fmt.clock(s.at, s.en))
         v.setOnClickPendingIntent(R.id.w_lamp, FaroWidgets.openIntent(ctx, "desk"))
     }
 
-    /** First due from today on (the phone's "Próximo pago"). */
+    /** The most urgent due (the phone's "Próximo pago"). 1.3.408: lo vencido
+     *  manda — antes el filtro `>= 0` escondía todo pago vencido y la celda
+     *  leía «Nada en 31 días» con la Central mostrando vencidos. El menor
+     *  número de días gana: el vencido más viejo primero, luego el que viene. */
     private fun nextDue(s: Snap): Pair<Due, Int>? =
-        s.dues.mapNotNull { d -> Fmt.daysLeft(d.on)?.let { d to it } }.filter { it.second >= 0 }.minByOrNull { it.second }
+        s.dues.mapNotNull { d -> Fmt.daysLeft(d.on)?.let { d to it } }.minByOrNull { it.second }
 
     private fun pay(ctx: Context, v: RemoteViews, s: Snap, withAmount: Boolean) {
         v.setTextViewText(R.id.w_pay_k, L(s, "Próximo pago", "Next payment"))
@@ -459,7 +484,7 @@ object Render {
             val (d, days) = n
             v.setTextViewText(R.id.w_pay_name, d.name)
             v.setTextViewText(R.id.w_pay_days, Fmt.daysWord(days, s.en))
-            v.setTextColor(R.id.w_pay_days, ctx.getColor(if (days <= 3) R.color.w_amber else R.color.w_muted))
+            v.setTextColor(R.id.w_pay_days, ctx.getColor(if (days < 0) R.color.w_bad else if (days <= 3) R.color.w_amber else R.color.w_muted))
             if (withAmount) v.setTextViewText(R.id.w_pay_amt, d.amt?.let { money(s, it) } ?: "")
         }
         v.setOnClickPendingIntent(R.id.w_c_pay, FaroWidgets.openIntent(ctx, n?.first?.go ?: "pagos"))
@@ -581,7 +606,6 @@ object Render {
     internal fun panelV(ctx: Context, s: Snap, layout: Int): RemoteViews {
         val v = RemoteViews(ctx.packageName, layout)
         hero(ctx, v, s)
-        v.setTextViewText(R.id.w_stamp, Fmt.clock(s.at, s.en))
         v.setTextViewText(R.id.w_rate_k, L(s, "Tasa", "Rate"))
         v.setTextViewText(R.id.w_rate, Fmt.rate(s.rateE4))
         v.setOnClickPendingIntent(R.id.w_rate_box, FaroWidgets.openIntent(ctx, "tools"))

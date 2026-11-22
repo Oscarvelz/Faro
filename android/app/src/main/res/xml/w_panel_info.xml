@@ -8,7 +8,7 @@
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="10800000"
     android:initialLayout="@layout/w_empty"
-    android:previewLayout="@layout/w_panel_l"
+    android:previewLayout="@layout/w_preview_panel"
     android:previewImage="@drawable/w_preview_panel"
     android:description="@string/w_panel_desc"
     android:configure="com.oscarvelz.faro.WidgetConfigActivity" />

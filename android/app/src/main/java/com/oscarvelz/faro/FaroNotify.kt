@@ -38,7 +38,6 @@ object FaroNotify {
     private const val PREFS = "faro-notify"
     private const val CHANNEL = "faro-avisos"
     private const val ID_PACE = 9001
-    private const val ID_CLOSE = 9002
     private const val WEEK_MS = 7L * 86_400_000L
 
     /** A fresh snapshot arrived (FaroWidgets.save): re-check all three kinds and (re)arm the daily tick. */
@@ -69,7 +68,12 @@ object FaroNotify {
         for (d in s.dues) {
             val days = Fmt.daysLeft(d.on) ?: continue
             if (days > 2) continue
-            val key = "due|${d.name}|${d.on}"
+            // 1.3.408: la llave lleva la ETAPA — antes «due|nombre|fecha» era un
+            // booleano para siempre: un pago avisado como «Vence pronto» jamás
+            // volvía a avisar al caer en vencido, que es cuando más importa.
+            // Cada etapa (pronto · hoy · vencido) avisa una vez, la suya.
+            val stage = when { days < 0 -> "over"; days == 0 -> "today"; else -> "soon" }
+            val key = "due|${d.name}|${d.on}|$stage"
             if (prefs.contains(key)) continue
             val amt = if (s.hide) null else d.amt
             val body = listOf(d.name, Fmt.daysWord(days, s.en), amt?.let { Fmt.money(it, s.cur) } ?: "")
@@ -162,18 +166,23 @@ object FaroNotify {
 
     private fun checkClose(ctx: Context, s: Snap) {
         if (!enabled(ctx) || !s.notify || !s.notifyClose) return
-        val prev = monthKey(-1)
-        val f = s.flow.firstOrNull { it.key == prev } ?: return
+        // 1.3.408: se juzga TODO mes cerrado que la foto traiga y aún no se
+        // haya reportado, del más viejo al más nuevo — antes solo se miraba
+        // el mes anterior contra la foto de hoy: saltarse un cambio de mes
+        // sin abrir Faro perdía ese cierre para siempre.
+        val now = monthKey(0)
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val key = "close|$prev"
-        if (prefs.contains(key)) return
-        val name = monthName(prev, s.en)
-        val left = f.inn - f.out
-        val body = if (s.hide) L(s, "Tu reporte de $name está listo en Estudio.", "Your $name report is ready in Stats.")
-        else L(s, "Entró ${Fmt.money(f.inn, s.cur)} · salió ${Fmt.money(f.out, s.cur)} · quedó ${Fmt.money(left, s.cur)}",
-                  "In ${Fmt.money(f.inn, s.cur)} · out ${Fmt.money(f.out, s.cur)} · left ${Fmt.money(left, s.cur)}")
-        post(ctx, ID_CLOSE, L(s, "Faro · Cierre de $name", "Faro · $name close"), body, "stats")
-        prefs.edit().putBoolean(key, true).apply()
+        for (f in s.flow.filter { it.key < now }.sortedBy { it.key }) {
+            val key = "close|${f.key}"
+            if (prefs.contains(key)) continue
+            val name = monthName(f.key, s.en)
+            val left = f.inn - f.out
+            val body = if (s.hide) L(s, "Tu reporte de $name está listo en Estudio.", "Your $name report is ready in Stats.")
+            else L(s, "Entró ${Fmt.money(f.inn, s.cur)} · salió ${Fmt.money(f.out, s.cur)} · quedó ${Fmt.money(left, s.cur)}",
+                      "In ${Fmt.money(f.inn, s.cur)} · out ${Fmt.money(f.out, s.cur)} · left ${Fmt.money(left, s.cur)}")
+            post(ctx, key.hashCode(), L(s, "Faro · Cierre de $name", "Faro · $name close"), body, "stats")
+            prefs.edit().putBoolean(key, true).apply()
+        }
     }
 
     /* ---------- plumbing ---------- */

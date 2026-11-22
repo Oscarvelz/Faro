@@ -25,6 +25,7 @@
     <string name="w_empty_sub">Tus números del mes aparecen aquí.</string>
     <string name="w_add_in">Sumar ingreso</string>
     <string name="w_add_out">Anotar gasto</string>
+    <string name="w_add_cam">Fotografiar un recibo</string>
     <string name="w_hidden">Montos ocultos · toca para abrir</string>
     <string name="w_rate_sub">BCN · 6 nov</string>
 </resources>

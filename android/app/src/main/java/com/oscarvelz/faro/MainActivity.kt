@@ -71,6 +71,11 @@ class MainActivity : Activity() {
     private var lastBack = 0L
     /** 1.3.121: where a widget tap wants to land ("desk", "pagos", "add-out"…); the page takes it with takeOpen(). */
     @Volatile private var widgetGo: String? = null
+
+    /** 1.3.408: la pista de la última entrega a la bandeja ("receipt" cuando la
+     *  foto vino del botón de cámara del widget). La página la lee con
+     *  FaroNative.shareHint() al recoger la bandeja; sharedClear la borra. */
+    @Volatile private var shareHint: String? = null
     private val saves = ConcurrentHashMap<String, Save>()
     private val shared = java.util.Collections.synchronizedList(ArrayList<SharedPic>())
     /** 1.3.172: shared files that are not pictures (a vCard, a bank statement), in their own tray —
@@ -394,6 +399,7 @@ class MainActivity : Activity() {
 
     private fun takeShare(i: Intent?) {
         if (i == null) return
+        if (i.getStringExtra(CapturePhotoActivity.EXTRA_HINT) == "receipt") shareHint = "receipt"
         val uris: List<Uri> = when (i.action) {
             Intent.ACTION_SEND -> listOfNotNull(streamOne(i))
             Intent.ACTION_SEND_MULTIPLE -> streamMany(i)
@@ -678,10 +684,20 @@ class MainActivity : Activity() {
             }.getOrDefault("")
         }
 
-        /** 1.3.121: the widgets' snapshot (JSON from src/lib/faro/widget.ts; "" = signed out). Kept app-private. */
-        @JavascriptInterface fun setWidgetData(json: String) {
-            if (!trusted) return
-            runCatching { FaroWidgets.save(applicationContext, json) }
+        /** 1.3.121: the widgets' snapshot (JSON from src/lib/faro/widget.ts; "" = signed out). Kept app-private.
+         *  1.3.408: devuelve el veredicto del shell — "ok" cuando la foto quedó
+         *  guardada, "rejected" cuando la puerta la rechazó (v != 1): antes el
+         *  rechazo se tragaba en silencio y el parte del empujón mentía. */
+        @JavascriptInterface fun setWidgetData(json: String): String {
+            if (!trusted) return ""
+            return if (runCatching { FaroWidgets.save(applicationContext, json) }.getOrDefault(false)) "ok" else "rejected"
+        }
+
+        /** 1.3.408: la pista de la bandeja ("receipt" = la foto vino del botón
+         *  de cámara del widget y se abre directa en el escaneo de recibos). */
+        @JavascriptInterface fun shareHint(): String {
+            if (!trusted) return ""
+            return shareHint ?: ""
         }
 
         /** 1.3.121: the target of the last widget tap, once ("" when none). */
@@ -715,6 +731,7 @@ class MainActivity : Activity() {
 
         @JavascriptInterface fun sharedClear() {
             if (!trusted) return
+            shareHint = null
             synchronized(shared) { shared.forEach { it.file.delete() }; shared.clear() }
         }
 

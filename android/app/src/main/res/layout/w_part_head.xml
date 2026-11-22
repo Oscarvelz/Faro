@@ -6,6 +6,8 @@
     <ImageView android:id="@+id/w_lamp" android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_lamp" android:importantForAccessibility="no" />
     <TextView android:id="@+id/w_month" style="@style/W.Text" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
         android:layout_marginStart="7dp" android:textSize="13dp" android:textColor="@color/w_muted" android:fontFamily="sans-serif-medium" android:text="@string/w_month_sample" />
-    <ImageView android:id="@+id/w_add_in" android:layout_width="30dp" android:layout_height="30dp" android:background="@drawable/w_btn_in" android:src="@drawable/w_ic_plus" android:padding="7dp" android:contentDescription="@string/w_add_in" />
+    <TextView android:id="@+id/w_stamp" style="@style/W.Kick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:textSize="10.5dp" android:text="" />
+    <ImageView android:id="@+id/w_add_in" android:layout_width="30dp" android:layout_height="30dp" android:layout_marginStart="8dp" android:background="@drawable/w_btn_in" android:src="@drawable/w_ic_plus" android:padding="7dp" android:contentDescription="@string/w_add_in" />
     <ImageView android:id="@+id/w_add_out" android:layout_width="30dp" android:layout_height="30dp" android:layout_marginStart="8dp" android:background="@drawable/w_btn_out" android:src="@drawable/w_ic_minus" android:padding="7dp" android:contentDescription="@string/w_add_out" />
+    <ImageView android:id="@+id/w_add_cam" android:layout_width="30dp" android:layout_height="30dp" android:layout_marginStart="8dp" android:background="@drawable/w_btn_cam" android:src="@drawable/w_ic_cam" android:padding="7dp" android:contentDescription="@string/w_add_cam" />
 </LinearLayout>

@@ -25,6 +25,7 @@
     <string name="w_empty_sub">Your month’s numbers show up here.</string>
     <string name="w_add_in">Add income</string>
     <string name="w_add_out">Add expense</string>
+    <string name="w_add_cam">Photograph a receipt</string>
     <string name="w_hidden">Amounts hidden · tap to open</string>
     <string name="w_rate_sub">BCN · Nov 6</string>
 </resources>

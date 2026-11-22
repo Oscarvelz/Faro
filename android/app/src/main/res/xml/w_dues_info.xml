@@ -10,6 +10,6 @@
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="10800000"
     android:initialLayout="@layout/w_empty"
-    android:previewLayout="@layout/w_dues"
+    android:previewLayout="@layout/w_preview_dues"
     android:description="@string/w_dues_desc"
     android:configure="com.oscarvelz.faro.WidgetConfigActivity" />

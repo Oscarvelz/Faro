@@ -15,6 +15,7 @@
             </LinearLayout>
             <ImageView android:id="@+id/w_add_in" android:layout_width="32dp" android:layout_height="32dp" android:layout_marginStart="6dp" android:background="@drawable/w_btn_in" android:src="@drawable/w_ic_plus" android:padding="7dp" android:contentDescription="@string/w_add_in" />
             <ImageView android:id="@+id/w_add_out" android:layout_width="32dp" android:layout_height="32dp" android:layout_marginStart="10dp" android:background="@drawable/w_btn_out" android:src="@drawable/w_ic_minus" android:padding="7dp" android:contentDescription="@string/w_add_out" />
+            <ImageView android:id="@+id/w_add_cam" android:layout_width="32dp" android:layout_height="32dp" android:layout_marginStart="10dp" android:background="@drawable/w_btn_cam" android:src="@drawable/w_ic_cam" android:padding="7dp" android:contentDescription="@string/w_add_cam" />
         </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:layout_marginTop="14dp">
         <LinearLayout android:layout_width="0dp" android:layout_weight="1.15" android:layout_height="match_parent" android:orientation="vertical">
