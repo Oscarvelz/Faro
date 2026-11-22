@@ -7,6 +7,10 @@
  * evidencia: la escalera del precio y la lista por impacto de los
  * últimos 12 meses, con su corte declarado. El color es del tema.
  * Asientos: Completo (advisor.price-watch / study.prices).
+ * 1.3.411 (dirección A de Oscar): la escalera vive en su bandeja hundida
+ * con el relleno del acento, el tramo del cambio elegido va encendido y
+ * su tarjeta de detalle responde debajo; la selección es de doble vía —
+ * el renglón de la lista y el escalón de la escalera son el mismo toque.
  */
 import { useMemo, useState } from "react";
 import { currentFixedChanges, priceWatch, type PriceChange } from "@/lib/faro/prices";
@@ -101,7 +105,15 @@ export function PriceNotice() {
 
 /* -------------------------------------------------- el espacio en Estudio */
 
-function StepChart({ lang, c }: { lang: string; c: PriceChange }) {
+/** Cuánto lleva el precio nuevo sentado: la frase de la tarjeta de detalle. */
+function monthsAt(lang: string, toOn: string, today: string): string {
+  let n = (Number(today.slice(0, 4)) - Number(toOn.slice(0, 4))) * 12 + (Number(today.slice(5, 7)) - Number(toOn.slice(5, 7)));
+  if (Number(today.slice(8, 10)) < Number(toOn.slice(8, 10))) n -= 1;
+  if (n <= 0) return L(lang, "a este precio desde este mes", "at this price since this month");
+  return lang === "en" ? `at this price for ${n} month${n === 1 ? "" : "s"}` : `lleva ${n} ${n === 1 ? "mes" : "meses"} a este precio`;
+}
+
+function StepChart({ lang, c, sel, endsAt, onPick }: { lang: string; c: PriceChange; sel: PriceChange; endsAt: Map<string, string>; onPick: (id: string) => void }) {
   const pts = c.series;
   if (pts.length < 2) return null;
   const W = 320;
@@ -135,15 +147,43 @@ function StepChart({ lang, c }: { lang: string; c: PriceChange }) {
     if (anchorOf(p, i) === "middle") return Math.min(W - 34, Math.max(34, raw));
     return raw;
   };
+  // 1.3.411: el tramo del cambio elegido va encendido — el escalón en su
+  // fecha y el nivel nuevo corriendo hasta el punto siguiente: donde el
+  // precio nuevo vive. Y el relleno suave del acento bajo la escalera.
+  const selIdx = pts.findIndex((p) => p.on === sel.to.on && p.minor === sel.to.minor);
+  const litD = selIdx > 0
+    ? `M ${x(sel.to.on).toFixed(1)} ${y(sel.from.minor).toFixed(1)} V ${y(sel.to.minor).toFixed(1)} H ${(selIdx + 1 < pts.length ? x(pts[selIdx + 1]!.on) : W - PADX).toFixed(1)}`
+    : null;
+  const areaD = `${d} L ${(W - PADX).toFixed(1)} ${(H - PADBOT).toFixed(1)} L ${PADX.toFixed(1)} ${(H - PADBOT).toFixed(1)} Z`;
+  const isSel = (p: (typeof pts)[number]) => p.on === sel.to.on && p.minor === sel.to.minor;
   return (
     <svg className="pw-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={c.name}>
       {levels.map((lv) => (
         <line key={lv} x1={PADX} x2={W - PADX} y1={y(lv)} y2={y(lv)} className="pw-grid" />
       ))}
+      <path d={areaD} className="pw-area" />
       <path d={d} className="pw-step" fill="none" />
+      {litD ? <path d={litD} className="pw-step-lit" /> : null}
       {pts.map((p, i) => (
-        <circle key={`${p.on}-${i}`} cx={x(p.on)} cy={y(p.minor)} r={3} className="pw-dot" />
+        <circle key={`${p.on}-${i}`} cx={x(p.on)} cy={y(p.minor)} r={isSel(p) ? 4.5 : 3} className={isSel(p) ? "pw-dot-sel" : "pw-dot"} />
       ))}
+      {pts.map((p, i) => {
+        if (i === 0 || p.minor === pts[i - 1]!.minor) return null;
+        const id = endsAt.get(`${p.on}|${p.minor}`);
+        if (!id || id === sel.id) return null;
+        return (
+          <circle
+            key={`h-${p.on}-${i}`}
+            cx={x(p.on)}
+            cy={y(p.minor)}
+            r={13}
+            className="pw-hit"
+            role="button"
+            aria-label={`${c.name}: ${formatMoney(p.minor, c.currency, lg)}`}
+            onClick={() => onPick(id)}
+          />
+        );
+      })}
       {verts.map((p, i) => (
         <text key={`a-${p.on}-${i}`} x={labelX(p, i)} y={Math.max(11, y(p.minor) - 7)} textAnchor={anchorOf(p, i)} className="pw-chart-amt">{formatMoney(p.minor, c.currency, lg)}</text>
       ))}
@@ -167,6 +207,21 @@ export function PriceWatchStudy() {
   if (!ledger || watch.rows.length === 0) return null;
   const lg = lang === "en" ? "en" : "es";
   const current = watch.rows.find((r) => r.id === pick) ?? watch.rows[0]!;
+  // Los cambios del mismo grupo que la escalera pinta: cada vértice donde
+  // el precio se movió sabe qué cambio termina en él (la doble vía).
+  const endsAt = new Map<string, string>();
+  for (const r of watch.rows) if (r.groupId === current.groupId) endsAt.set(`${r.to.on}|${r.to.minor}`, r.id);
+  const detailFx = (c: PriceChange): { main: string; sub: string } => {
+    if (c.cls === "fixed") {
+      return {
+        main: `≈ ${formatMoney(Math.round(c.monthlyMinor), c.currency, lg)}`,
+        sub: c.deltaMinor > 0 ? L(lang, "más al mes", "more a month") : L(lang, "menos al mes", "less a month"),
+      };
+    }
+    const pct = c.deltaBp === null ? "" : ` (${c.deltaBp > 0 ? "+" : "−"}${(Math.abs(c.deltaBp) / 100).toFixed(1)}%)`;
+    return { main: formatMoney(Math.abs(c.deltaMinor), c.currency, lg), sub: `${L(lang, "por compra", "per purchase")}${pct}` };
+  };
+  const fx = detailFx(current);
   const impactOf = (c: PriceChange): string => {
     if (c.cls === "fixed") {
       const per = formatMoney(Math.round(c.monthlyMinor), c.currency, lg);
@@ -184,10 +239,31 @@ export function PriceWatchStudy() {
       </h2>
       <p className="pw-intro">
         {L(lang,
-          "Qué cambió de precio en los últimos 12 meses, lo de mayor efecto primero. Toca un cambio para ver su escalera.",
-          "What changed price in the last 12 months, biggest effect first. Tap a change to see its steps.")}
+          "Qué cambió de precio en los últimos 12 meses, lo de mayor efecto primero. Toca un cambio, o un escalón de su escalera, para ver su detalle.",
+          "What changed price in the last 12 months, biggest effect first. Tap a change, or a step on its staircase, to see its detail.")}
       </p>
-      <StepChart lang={lang} c={current} />
+      <div className="pw-plot">
+        <StepChart lang={lang} c={current} sel={current} endsAt={endsAt} onPick={setPick} />
+      </div>
+      <div className="pw-detail">
+        <p className="pw-detail-name">
+          {current.name}
+          {current.cls === "product" && current.storeId ? <span className="pw-row-store"> · {names.catalog(current.storeId) || current.storeId}</span> : null}
+        </p>
+        <div className="pw-detail-nums">
+          <span className="pw-detail-old num">{formatMoney(current.from.minor, current.currency, lg)}</span>
+          <span className="pw-detail-arr">→</span>
+          <span className="pw-detail-new num">{formatMoney(current.to.minor, current.currency, lg)}</span>
+          <span className="pw-detail-fx">{fx.main}<small>{fx.sub}</small></span>
+        </div>
+        <p className="pw-detail-meta">
+          {current.cls === "fixed" ? L(lang, "Fijo", "Fixed") : L(lang, "Producto", "Product")}
+          {" · "}
+          {L(lang, "desde el", "since")} {dayLabel(lang, current.to.on)}
+          {" · "}
+          {monthsAt(lang, current.to.on, today)}
+        </p>
+      </div>
       <ul className="pw-rows">
         {watch.rows.map((c) => (
           <li key={c.id}>

@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.411",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La escalera de precios, con su detalle", en: "The price staircase, with its detail" },
+    points: {
+      es: [
+        "En Estudio, «Cambios de precio» estrena su acabado: la escalera vive en su bandeja, con el tramo del cambio elegido encendido.",
+        "Bajo la escalera, una tarjeta de detalle responde por el cambio: de cuánto a cuánto, qué suma o resta al mes y cuánto lleva a ese precio.",
+        "Y la selección es de doble vía: tocar el renglón de la lista o el escalón mismo en la escalera es el mismo toque.",
+      ],
+      en: [
+        "In Study, \"Price changes\" gets its finish: the staircase lives in its tray, with the chosen change's stretch lit.",
+        "Under the staircase, a detail card answers for the change: from how much to how much, what it adds or takes per month, and how long it has sat at that price.",
+        "And the selection runs both ways: tapping the row in the list or the step itself on the staircase is the same tap.",
+      ],
+    },
+    topic: "cambios-precio",
+  },
+  {
     version: "1.3.410",
     date: "2026-11-22",
     level: "menor",
