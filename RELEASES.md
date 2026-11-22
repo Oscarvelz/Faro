@@ -3575,4 +3575,4 @@ La cuarta pieza del Libro Compartido: quién anotó qué, firmado para siempre. 
 
 Verificación (de primera mano): libro393 8/8; suite completa **2860/2860**; `tsc` con exactamente los 3 errores permanentes; banco renderizado a ancho de teléfono en ES y EN con un libro sembrado de firmas: la burbuja de la Renta lee «Renta · −$900.00 · María», el río del Historial muestra «Faro, María» y la actividad de Ajustes «add · María» — y donde no hay firma no se pinta nada. El candado no se tocó (md5 40a3b9bf…).
 
-Datos de publicación: PENDIENTE.
+Datos de publicación: fuente 0c9800392e676acd2b9754271b00084502566d81 (etiqueta v1.3.393); main 12f67ad0d13e33b9b1832236a47bc6e1917a5b3c + eb25d775cf939c13eac6bccb01d7168fb020c065 (pdf.worker y ocr idénticos a los de la 1.3.392, no reenviados); barrido en vivo 28/28 idénticos, sw faro-1.3.393.
