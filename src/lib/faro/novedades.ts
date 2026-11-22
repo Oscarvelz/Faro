@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.422",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La guía es tuya", en: "The guide is yours" },
+    points: {
+      es: [
+        "La regla 50 · 30 · 20 ya no es fija: en su tarjeta de Estudio tocas «Ajustar mi guía» y repartes tus propios porcentajes.",
+        "El título, las rayitas y los veredictos de la tarjeta — y la respuesta del Asesor — se recalculan con tu guía.",
+        "Con «Volver a la clásica» regresas al 50 · 30 · 20 cuando quieras.",
+      ],
+      en: [
+        "The 50 · 30 · 20 rule is no longer fixed: on its Study card you tap \"Adjust my guide\" and split your own percentages.",
+        "The card's title, ticks and verdicts — and the Advisor's answer — recalculate with your guide.",
+        "\"Back to the classic\" returns you to 50 · 30 · 20 whenever you want.",
+      ],
+    },
+    topic: "regla-50-30-20",
+  },
+  {
     version: "1.3.421",
     date: "2026-11-22",
     level: "menor",

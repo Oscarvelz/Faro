@@ -468,6 +468,15 @@ export type Settings = {
   mode?: "esencial" | "ritmo" | "completo";
   debtGreenPct: number;
   debtYellowPct: number;
+  /** 1.3.422 (Oscar): la guía del libro — el reparto de la regla 50·30·20
+   *  cuando el usuario pone la suya. Los tres campos nacen AUSENTES:
+   *  ausentes (o sin sumar 100) manda la clásica 50/30/20, que es el
+   *  punto de partida y no un default escrito. La lectura canónica es
+   *  `guideOf` en lib/faro/coach.ts; la escribe solo el editor de la
+   *  tarjeta en Estudio (o su «Volver a la clásica», que los borra). */
+  guideNeedsPct?: number;
+  guideWantsPct?: number;
+  guideSavePct?: number;
   emergencyMonths: number;
   shortcuts: Record<string, string>;
   gestures?: Record<string, string>;

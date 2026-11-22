@@ -254,17 +254,18 @@ export function WaffleCard({ coach }: { coach: Coach }) {
   );
 }
 
-/* 3 · The 50/30/20 guide. */
+/* 3 · The guide — classic 50/30/20 by birth, the user's own when they set it (1.3.422). */
 export function RuleCard({ coach }: { coach: Coach }) {
-  const { lang, fmt } = useFaro();
+  const { lang, fmt, commitGuarded } = useFaro();
   const needs = coach.buckets.find((b) => b.id === "needs")!;
   const wants = coach.buckets.find((b) => b.id === "wants")!;
   const save = coach.buckets.find((b) => b.id === "save")!;
   const debt = coach.buckets.find((b) => b.id === "debt")!;
+  const g = coach.guide;
   const rows = [
-    { id: "needs", label: needs.label, pct: needs.pct, minor: needs.minor, ideal: 50, more: false, color: needs.color },
-    { id: "wants", label: wants.label, pct: wants.pct, minor: wants.minor, ideal: 30, more: false, color: wants.color },
-    { id: "future", label: lang === "en" ? "Savings + debt" : "Ahorro + deudas", pct: save.pct + debt.pct, minor: save.minor + debt.minor, ideal: 20, more: true, color: save.color },
+    { id: "needs", label: needs.label, pct: needs.pct, minor: needs.minor, ideal: needs.ideal ?? g.needs, more: false, color: needs.color },
+    { id: "wants", label: wants.label, pct: wants.pct, minor: wants.minor, ideal: wants.ideal ?? g.wants, more: false, color: wants.color },
+    { id: "future", label: lang === "en" ? "Savings + debt" : "Ahorro + deudas", pct: save.pct + debt.pct, minor: save.minor + debt.minor, ideal: g.save, more: true, color: save.color },
   ];
   const peak = Math.max(100, ...rows.map((r) => r.pct));
   const verdict = (r: (typeof rows)[number]) => {
@@ -273,13 +274,37 @@ export function RuleCard({ coach }: { coach: Coach }) {
     if (diff <= 0) return lang === "en" ? "Within the guide" : "Dentro de la guía";
     return lang === "en" ? `${diff} points over` : `${diff} puntos arriba`;
   };
+  // El editor de la guía (1.3.422): tres campos que deben sumar 100; si no
+  // suman, la tarjeta lo dice y no guarda. «Volver a la clásica» borra el
+  // trío del libro y guideOf vuelve a la 50·30·20.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<[string, string, string]>(["50", "30", "20"]);
+  const nums = draft.map((d) => (/^\d{1,3}$/.test(d.trim()) ? Number(d.trim()) : NaN)) as [number, number, number];
+  const sum = nums.reduce((a, n) => a + (Number.isFinite(n) ? n : 0), 0);
+  const valid = nums.every((n) => Number.isFinite(n) && n >= 0 && n <= 100) && sum === 100;
+  const openEditor = () => { setDraft([String(g.needs), String(g.wants), String(g.save)]); setEditing(true); };
+  const saveGuide = () => {
+    if (!valid) return;
+    const [n, w, s] = nums;
+    commitGuarded((st) => ({ ...st, settings: { ...st.settings, guideNeedsPct: n, guideWantsPct: w, guideSavePct: s } }), "guide");
+    setEditing(false);
+  };
+  const backToClassic = () => {
+    commitGuarded((st) => {
+      const settings = { ...st.settings };
+      delete settings.guideNeedsPct; delete settings.guideWantsPct; delete settings.guideSavePct;
+      return { ...st, settings };
+    }, "guide");
+    setEditing(false);
+  };
+  const fieldLabels = [needs.label, wants.label, lang === "en" ? "Your future" : "Tu futuro"];
   return (
     <section className="card pano-card">
-      <Head kicker={lang === "en" ? "A simple guide" : "Una guía sencilla"} title={lang === "en" ? "The 50 · 30 · 20 rule" : "La regla 50 · 30 · 20"} />
+      <Head kicker={g.custom ? (lang === "en" ? "Your guide" : "Tu guía") : (lang === "en" ? "A simple guide" : "Una guía sencilla")} title={lang === "en" ? `The ${g.needs} · ${g.wants} · ${g.save} rule` : `La regla ${g.needs} · ${g.wants} · ${g.save}`} />
       <p className="pano-lead">
         {lang === "en"
-          ? "Of every 100 that come in: 50 for needs, 30 for wants, 20 for your future. The tick is the guide; the bar is you."
-          : "De cada 100 que entran: 50 para lo necesario, 30 para gustos y 20 para tu futuro. La rayita es la guía; la barra eres tú."}
+          ? `Of every 100 that come in: ${g.needs} for needs, ${g.wants} for wants, ${g.save} for your future. The tick is the guide; the bar is you.`
+          : `De cada 100 que entran: ${g.needs} para lo necesario, ${g.wants} para gustos y ${g.save} para tu futuro. La rayita es la guía; la barra eres tú.`}
       </p>
       <div className="pano-rule">
         {rows.map((r) => {
@@ -302,6 +327,33 @@ export function RuleCard({ coach }: { coach: Coach }) {
           );
         })}
       </div>
+      {editing ? (
+        <div className="pano-guide-edit" data-anchor="guide-edit">
+          <div className="pano-guide-fields">
+            {fieldLabels.map((label, i) => (
+              <label key={label} className="pano-guide-field">
+                <span>{label}</span>
+                <span className="pano-guide-input"><input inputMode="numeric" value={draft[i]} aria-label={label} onChange={(e) => setDraft((d) => { const next = [...d] as [string, string, string]; next[i] = e.target.value.replace(/[^\d]/g, "").slice(0, 3); return next; })} /><em>%</em></span>
+              </label>
+            ))}
+          </div>
+          <p className={valid ? "pano-guide-sum ok" : "pano-guide-sum"}>
+            {valid
+              ? (lang === "en" ? "They add up to 100." : "Suman 100.")
+              : (lang === "en" ? `They add up to ${sum} — the three must add up to 100.` : `Suman ${sum} — los tres deben sumar 100.`)}
+          </p>
+          <div className="pano-guide-actions">
+            <button type="button" className="pano-guide-save" disabled={!valid} onClick={saveGuide}>{lang === "en" ? "Save my guide" : "Guardar mi guía"}</button>
+            {g.custom ? <button type="button" className="pano-guide-quiet" onClick={backToClassic}>{lang === "en" ? "Back to the classic" : "Volver a la clásica"}</button> : null}
+            <button type="button" className="pano-guide-quiet" onClick={() => setEditing(false)}>{lang === "en" ? "Cancel" : "Cancelar"}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="pano-guide-foot">
+          <button type="button" className="pano-guide-open" data-anchor="guide-edit-open" onClick={openEditor}>{lang === "en" ? "Adjust my guide" : "Ajustar mi guía"}</button>
+          {g.custom ? <span>{lang === "en" ? "The classic is 50 · 30 · 20." : "La clásica es 50 · 30 · 20."}</span> : null}
+        </div>
+      )}
     </section>
   );
 }

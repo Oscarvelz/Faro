@@ -52,6 +52,8 @@ export type Coach = {
   verdictSub: string;
   base100: "income" | "spend";
   buckets: Bucket[];
+  /** 1.3.422: la guía vigente del libro (la del usuario o la clásica). */
+  guide: Guide;
   per100: Cell[];
   per100Line: string;
   pillars: Pillar[];
@@ -147,8 +149,28 @@ function toHundred(parts: { minor: number }[], whole: number): number[] {
   return floor;
 }
 
+/* 1.3.422 (Oscar): LA GUÍA ES TUYA — la regla 50·30·20 deja de estar
+ * tallada en el motor. El libro puede guardar su propio reparto
+ * (Settings.guideNeedsPct/WantsPct/SavePct); guideOf es la única lectura:
+ * el trío manda SOLO si está entero, cada parte entre 0 y 100 y la suma
+ * es 100 — cualquier otra forma cae a la clásica, que es el punto de
+ * partida. Toda superficie de la guía (los cubos del coach, la tarjeta
+ * de Estudio, el glosario y la respuesta «regla» del Asesor) lee de aquí,
+ * para que la app nunca se desdiga. */
+export type Guide = { needs: number; wants: number; save: number; custom: boolean };
+export const CLASSIC_GUIDE: Guide = { needs: 50, wants: 30, save: 20, custom: false };
+export function guideOf(settings: LedgerState["settings"]): Guide {
+  const n = settings.guideNeedsPct, w = settings.guideWantsPct, s = settings.guideSavePct;
+  if (typeof n === "number" && typeof w === "number" && typeof s === "number"
+    && [n, w, s].every((v) => Number.isFinite(v) && v >= 0 && v <= 100) && n + w + s === 100) {
+    return { needs: n, wants: w, save: s, custom: !(n === 50 && w === 30 && s === 20) };
+  }
+  return CLASSIC_GUIDE;
+}
+
 export function readCoach(state: LedgerState, key: string, lang: Lang, names: Namer, today: Date = new Date()): Coach {
   const { display, rateE4, savingsGoalPct, debtGreenPct, debtYellowPct, emergencyMonths } = state.settings;
+  const guide = guideOf(state.settings);
   // 3.2: el coach nace acotado al modo (registro §3.3/§3.5) — veredicto y
   // pasos se componen solo con lo que el modo puede mostrar.
   const mode = bookMode(state);
@@ -177,10 +199,10 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
   const share = (n: number) => (base > 0 ? (n / base) * 100 : 0);
 
   const buckets: Bucket[] = [
-    { id: "needs", label: L(lang, "Necesidades", "Needs"), hint: L(lang, "Casa, comida, transporte, salud, familia: lo que no se puede dejar de pagar.", "Home, food, transport, health, family: what you can't stop paying."), minor: needs, pct: share(needs), ideal: 50, color: PALETTE.needs, lineIds: idsOf(isNeed) },
-    { id: "wants", label: L(lang, "Gustos", "Wants"), hint: L(lang, "Lo que eliges: salidas, compras, plataformas, antojos.", "What you choose: outings, shopping, streaming, treats."), minor: wants, pct: share(wants), ideal: 30, color: PALETTE.wants, lineIds: idsOf(isWant) },
+    { id: "needs", label: L(lang, "Necesidades", "Needs"), hint: L(lang, "Casa, comida, transporte, salud, familia: lo que no se puede dejar de pagar.", "Home, food, transport, health, family: what you can't stop paying."), minor: needs, pct: share(needs), ideal: guide.needs, color: PALETTE.needs, lineIds: idsOf(isNeed) },
+    { id: "wants", label: L(lang, "Gustos", "Wants"), hint: L(lang, "Lo que eliges: salidas, compras, plataformas, antojos.", "What you choose: outings, shopping, streaming, treats."), minor: wants, pct: share(wants), ideal: guide.wants, color: PALETTE.wants, lineIds: idsOf(isWant) },
     { id: "debt", label: L(lang, "Deudas", "Debt"), hint: L(lang, "Cuotas de tarjetas y préstamos.", "Card and loan payments."), minor: debt, pct: share(debt), ideal: null, color: PALETTE.debt, lineIds: idsOf(isDebt) },
-    { id: "save", label: L(lang, "Ahorro", "Savings"), hint: L(lang, "Lo que mandaste a tus bolsas de ahorro.", "What you moved into your savings pockets."), minor: saved, pct: share(saved), ideal: 20, color: PALETTE.save, lineIds: idsOf(isSave) },
+    { id: "save", label: L(lang, "Ahorro", "Savings"), hint: L(lang, "Lo que mandaste a tus bolsas de ahorro.", "What you moved into your savings pockets."), minor: saved, pct: share(saved), ideal: guide.save, color: PALETTE.save, lineIds: idsOf(isSave) },
     { id: "free", label: L(lang, "Te queda", "Left over"), hint: L(lang, "Lo que todavía no tiene destino.", "Money that has no job yet."), minor: free, pct: share(free), ideal: null, color: PALETTE.free, lineIds: [] },
   ];
 
@@ -797,7 +819,9 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     { term: L(lang, "Colchón", "Cushion"), plain: L(lang, "Dinero guardado solo para emergencias: si pierdes el trabajo, te enfermas o se daña algo.", "Money kept only for emergencies: losing a job, getting sick, something breaking."), min: "esencial" },
     { term: L(lang, "Ingreso seguro", "Steady income"), plain: L(lang, "Lo que llega casi seguro cada mes, como el salario.", "What arrives almost surely every month, like a salary."), min: "esencial" },
     { term: L(lang, "Compra de una vez", "One-time buy"), plain: L(lang, "Algo que no se repite cada mes, como un electrodoméstico.", "Something that doesn't repeat monthly, like an appliance."), min: "esencial" },
-    { term: L(lang, "Regla 50/30/20", "50/30/20 rule"), plain: L(lang, "Una guía sencilla: 50 de cada 100 a necesidades, 30 a gustos y 20 al ahorro o a pagar deudas.", "A simple guide: 50 of every 100 to needs, 30 to wants, and 20 to savings or paying debt."), min: "ritmo" },
+    { term: L(lang, `Regla ${guide.needs}/${guide.wants}/${guide.save}`, `${guide.needs}/${guide.wants}/${guide.save} rule`), plain: guide.custom
+      ? L(lang, `Tu guía: ${guide.needs} de cada 100 a necesidades, ${guide.wants} a gustos y ${guide.save} al ahorro o a pagar deudas. La clásica es 50/30/20; la tuya es la que manda en tu libro.`, `Your guide: ${guide.needs} of every 100 to needs, ${guide.wants} to wants and ${guide.save} to savings or paying debt. The classic is 50/30/20; yours is the one in charge in your book.`)
+      : L(lang, "Una guía sencilla: 50 de cada 100 a necesidades, 30 a gustos y 20 al ahorro o a pagar deudas.", "A simple guide: 50 of every 100 to needs, 30 to wants, and 20 to savings or paying debt."), min: "ritmo" },
   ];
   const glossary = glossaryAll.filter((g) => MODE_RANK[mode] >= MODE_RANK[g.min]).map(({ term, plain }) => ({ term, plain }));
 
@@ -814,6 +838,7 @@ export function readCoach(state: LedgerState, key: string, lang: Lang, names: Na
     verdictSub,
     base100,
     buckets,
+    guide,
     per100,
     per100Line,
     pillars,

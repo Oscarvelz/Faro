@@ -47,6 +47,7 @@
  *    seguía contando entre las no nacidas.)
  */
 import { bookMode, readAdvisor, type BookMode } from "./advisor.ts";
+import { guideOf } from "./coach.ts";
 import { aliasIn, describeLearned, frequentAliases, type LearnedAlias } from "./asklearn.ts";
 import { answerQuestion, askReaches, askReachesFloor, modeWord, pieceFloor, type AskResult } from "./ask.ts";
 import { functionOfQuestion, FARO_FUNCTION_MAP } from "./askmap.ts";
@@ -2943,10 +2944,16 @@ function reglaAnswer(c: Ctx, folded: string): BankResult | null {
   const saved = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && roleOf(c.state, l.categoryId) === "savings").reduce((a, l) => a + view(c, l), 0);
   const wants = Math.max(0, sum.spend - needs);
   const pct = (n: number) => Math.round((n / sum.income) * 100);
-  const inside = pct(needs) <= 50 && pct(wants) <= 30;
+  // 1.3.422: la respuesta mide contra LA GUÍA DEL LIBRO (guideOf) — si el
+  // usuario puso la suya, la respuesta la nombra como suya; la clásica
+  // conserva su texto de siempre, palabra por palabra.
+  const guide = guideOf(c.state.settings);
+  const inside = pct(needs) <= guide.needs && pct(wants) <= guide.wants;
   return {
     kind: "answer", family: "regla",
-    verdict: L(c.lang, `Contra la regla 50·30·20, este mes vas: necesidades ${c.money(needs)} (el ${pct(needs)}%, la regla dice 50%), gustos ${c.money(wants)} (el ${pct(wants)}%, dice 30%) y apartado ${c.money(saved)} (el ${pct(saved)}%, dice 20%). ${inside ? "Estás dentro en necesidades y gustos." : "Hay cubos por encima de su número: abajo están las tres restas."}`, `Against the 50·30·20 rule, this month you're at: needs ${c.money(needs)} (${pct(needs)}%, the rule says 50%), wants ${c.money(wants)} (${pct(wants)}%, it says 30%) and set aside ${c.money(saved)} (${pct(saved)}%, it says 20%). ${inside ? "You're inside on needs and wants." : "Some buckets sit above their number: the three splits are below."}`),
+    verdict: guide.custom
+      ? L(c.lang, `Contra tu guía ${guide.needs}·${guide.wants}·${guide.save}, este mes vas: necesidades ${c.money(needs)} (el ${pct(needs)}%, tu guía dice ${guide.needs}%), gustos ${c.money(wants)} (el ${pct(wants)}%, dice ${guide.wants}%) y apartado ${c.money(saved)} (el ${pct(saved)}%, dice ${guide.save}%). ${inside ? "Estás dentro en necesidades y gustos." : "Hay cubos por encima de su número: abajo están las tres restas."}`, `Against your ${guide.needs}·${guide.wants}·${guide.save} guide, this month you're at: needs ${c.money(needs)} (${pct(needs)}%, your guide says ${guide.needs}%), wants ${c.money(wants)} (${pct(wants)}%, it says ${guide.wants}%) and set aside ${c.money(saved)} (${pct(saved)}%, it says ${guide.save}%). ${inside ? "You're inside on needs and wants." : "Some buckets sit above their number: the three splits are below."}`)
+      : L(c.lang, `Contra la regla 50·30·20, este mes vas: necesidades ${c.money(needs)} (el ${pct(needs)}%, la regla dice 50%), gustos ${c.money(wants)} (el ${pct(wants)}%, dice 30%) y apartado ${c.money(saved)} (el ${pct(saved)}%, dice 20%). ${inside ? "Estás dentro en necesidades y gustos." : "Hay cubos por encima de su número: abajo están las tres restas."}`, `Against the 50·30·20 rule, this month you're at: needs ${c.money(needs)} (${pct(needs)}%, the rule says 50%), wants ${c.money(wants)} (${pct(wants)}%, it says 30%) and set aside ${c.money(saved)} (${pct(saved)}%, it says 20%). ${inside ? "You're inside on needs and wants." : "Some buckets sit above their number: the three splits are below."}`),
     pieces: [
       { label: L(c.lang, "Necesidades", "Needs"), minor: needs },
       { label: L(c.lang, "Gustos (el resto del gasto)", "Wants (the rest of spending)"), minor: wants },

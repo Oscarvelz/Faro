@@ -1047,6 +1047,13 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   const set = s.settings;
   if (!isStrD(set.lang) || !isStrD(set.theme) || !isStrD(set.display)) return false;
   if (!isFinD(set.rateE4)) return false;
+  // guideNeedsPct / guideWantsPct / guideSavePct (la guía del libro,
+  // 1.3.422): si están, son números finitos — la suma y el reparto los
+  // juzga guideOf al leer, nunca la puerta (un trío que no suma 100 cae
+  // a la clásica al leerse, sin mandar el libro a cuarentena).
+  if (set.guideNeedsPct !== undefined && !isFinD(set.guideNeedsPct)) return false;
+  if (set.guideWantsPct !== undefined && !isFinD(set.guideWantsPct)) return false;
+  if (set.guideSavePct !== undefined && !isFinD(set.guideSavePct)) return false;
   // guestCur / guestRate (la invitada, 1.3.344): si están, tienen su forma —
   // la capa que pinta desreferencia guestRate.per sin red al convertir.
   if (set.guestCur !== undefined && !isStrD(set.guestCur)) return false;

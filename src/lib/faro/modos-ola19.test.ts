@@ -518,6 +518,12 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/review-table.tsx|commitGuarded|applyTableEdits|dropDraft+commitDrafts+upsertLine+learnFromSaved": ["guardada", 1],
   // 1.3.388 (Ola 8): «esto no es un movimiento» — la mesa enseña la
   // forma y descarta el borrador en el mismo acto guardado.
+  // ENMIENDA 1.3.422 («La guía es tuya»): el editor de la guía en la
+  // tarjeta de la regla (panorama.tsx) escribe el trío de porcentajes
+  // — y lo borra al volver a la clásica — por la puerta guardada, con
+  // recetas inline que componen el ajuste, la misma especie que los
+  // ajustes de screens.tsx: guardada ×2.
+  "components/faro/panorama.tsx|commitGuarded|inline|—": ["guardada", 2],
   "components/faro/review-table.tsx|commitGuarded|dropDraft|dropDraft+learnNoticeRule": ["guardada", 1],
   "components/faro/sample-mode.tsx|commit|stripSample|stripSample": ["aterrizaje", 1],
   "components/faro/screens.tsx|commitAnnounced|modeOf|—": ["anunciada", 1],
