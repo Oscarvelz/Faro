@@ -53,7 +53,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Compass, Send, Settings, Sparkles } from "lucide-react";
-import { answerBankQuestion, bankChips, type BankResult } from "@/lib/faro/ask2";
+import { answerBankQuestion, answerFollowUp, bankChips, type AskFrame, type BankResult } from "@/lib/faro/ask2";
 import { askPresetsOf, capabilitiesText, FIXED_PRESET_Q, nextAskEntry, suggestionTrio } from "@/lib/faro/askpresets";
 import { FUNCTION_TOPIC } from "@/lib/faro/askmap";
 import { addDrafts, findDup, validateDraft } from "@/lib/faro/drafts";
@@ -76,6 +76,12 @@ export function AskBox() {
   const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
   const [caps, setCaps] = useState(false);
+  // §20 (1.3.380): EL MARCO del seguimiento — estado de diálogo de la
+  // caja: lo que la última respuesta dejó para que la siguiente
+  // pregunta viva de ella. Vive solo aquí, en la sesión de la caja:
+  // jamás entra al libro ni viaja con él, y muere al cerrar la
+  // respuesta o cuando una respuesta nueva abre el suyo.
+  const [frame, setFrame] = useState<AskFrame | null>(null);
   // 1.3.376: cada montaje de la caja es una entrada al Asesor; el
   // número de entrada elige el trío de sugerencias del banco.
   const [entry] = useState(() => nextAskEntry());
@@ -111,7 +117,15 @@ export function AskBox() {
     setAsked(clean);
     // Ola 23 (A23-1/2/3/5): la caja enhebra el modo vigente al motor —
     // el Asesor responde en el piso de la persona, no en el de la app.
-    setResult(answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode));
+    // §20 (1.3.380): con marco vivo, el seguimiento se intenta ANTES
+    // de la cascada — el hilo manda (L-S1). Si ningún verbo lo
+    // resuelve, la cascada sirve la pregunta como fresca y su
+    // respuesta abre el marco nuevo (L-S4): cada respuesta con marco
+    // lo reemplaza; una respuesta sin marco cierra el hilo.
+    const fu = pin ? null : answerFollowUp(session.ledger, key, lang, names, clean, ctx(), todayLocal(), frame, mode);
+    const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode);
+    setResult(r);
+    if (r.kind === "answer") setFrame(r.frame ?? null);
     setText(""); // al preguntar, la caja se contrae (348)
   }
 
@@ -137,6 +151,7 @@ export function AskBox() {
     commit((s) => addDrafts(s, [draft]), L("Pregunta al Asesor", "Asked the Advisor"));
     importToast({ text: L("Quedó en la bandeja, para revisar.", "It's in the tray, ready to review.") });
     setResult(null);
+    setFrame(null);
     setCaps(false);
     setText("");
   }
@@ -148,6 +163,7 @@ export function AskBox() {
   // preguntas — la honestidad misma es la respuesta.
   function showCaps() {
     setResult(null);
+    setFrame(null);
     setAsked(FIXED_PRESET_Q[lang]);
     setCaps(true);
     setText("");
@@ -158,6 +174,7 @@ export function AskBox() {
   // preguntas sugeridas del banco reaparecen (viven solo sin respuesta).
   function closeAnswer() {
     setResult(null);
+    setFrame(null);
     setCaps(false);
     setAsked("");
   }

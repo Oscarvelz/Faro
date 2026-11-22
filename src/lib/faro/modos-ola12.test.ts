@@ -365,6 +365,8 @@ const CARAS: Record<string, [Clase, string]> = {
   "lib/faro/ask2.ts:ahorrosAnswer:sum.savingsFlow": ["movimiento", "la nota de ahorros del banco nombra el flujo como «flujo hacia el ahorro»: el apartado nombrado en la respuesta"],
   "lib/faro/ask2.ts:compararAnswer:a.spend": ["gasto", "la comparación de gastos del banco lee el spend de cada lado: solo-gasto en ambos lados"],
   "lib/faro/ask2.ts:compararAnswer:b.spend": ["gasto", "el otro lado de la misma comparación: solo-gasto, simétrico"],
+  "lib/faro/ask2.ts:totalOf:summarize(c.state, k, c.lang).spend": ["gasto", "el desplazamiento del seguimiento (§20, 1.3.380) relee el spend de cada mes de la ventana corrida: solo-gasto, la misma vara de compararAnswer"],
+  "lib/faro/ask2.ts:proyectarSeguimiento:summarize(c.state, c.key, c.lang).spend": ["gasto", "la proyección del seguimiento (§20, 1.3.380) repite el ritmo del mes en curso: el spend nombrado como ritmo, con su supuesto dicho en la nota"],
   "lib/faro/engine.ts:buildAdvice:reading.outTotal": ["movimiento", "las baldosas del Asesor nombran «Sale» junto a «Gasto real» y «Al ahorro»"],
   "lib/faro/engine.ts:buildAdvice:reading.realSpend": ["gasto", "«Gasto real»: el río sin la transferencia al ahorro"],
   "lib/faro/engine.ts:buildAdvice:reading.transferMinor": ["movimiento", "«Al ahorro»: el apartado nombrado en las baldosas"],

@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.380",
+    date: "2026-11-21",
+    level: "grande",
+    topic: "preguntar-asesor",
+    title: { es: "El Asesor sigue la conversación", en: "The Advisor follows the conversation" },
+    points: {
+      es: [
+        "Ahora puedes seguir preguntando sobre la respuesta que acabas de recibir: «¿en qué gasté más?», «¿y en comida?», «¿y el mes anterior?» — el Asesor recuerda el hilo.",
+        "Cada respuesta de seguimiento nombra su hilo en la primera línea, y la cuenta cierra exacta: las subidas menos las bajadas dan la diferencia.",
+        "El hilo vive solo en la caja de preguntas: no entra en tu libro ni viaja con él.",
+      ],
+      en: [
+        "Now you can keep asking about the answer you just got: “what did I spend the most on?”, “and on food?”, “and the month before?” — the Advisor remembers the thread.",
+        "Every follow-up answer names its thread in the first line, and the account closes exactly: the rises minus the falls give the difference.",
+        "The thread lives only in the ask box: it never enters your book or travels with it.",
+      ],
+    },
+  },
+  {
     version: "1.3.379",
     date: "2026-11-21",
     level: "grande",

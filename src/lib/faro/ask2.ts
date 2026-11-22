@@ -36,9 +36,11 @@
  *    resta cuya casa duerme nombra su piso en su etiqueta, sin caerse
  *    de la resta. El espejo también es ley: ninguna respuesta que el
  *    modo sí puede mostrar cae en silencio falso.
- *  · Las familias DECLARADAS del banco (ausencia, identidad,
- *    seguimiento) NO se responden aquí: devolverían unknown, el
- *    silencio honesto, hasta que su motor nazca.
+ *  · Las familias DECLARADAS del banco (ausencia, identidad) NO se
+ *    responden aquí: devolverían unknown, el silencio honesto, hasta
+ *    que su motor nazca. La tercera declarada, SEGUIMIENTO, sí nace
+ *    (§20, 1.3.380): vive en answerFollowUp, al final de este archivo
+ *    — la caja lo intenta contra el marco vivo antes que la cascada.
  */
 import { bookMode, readAdvisor, type BookMode } from "./advisor.ts";
 import { answerQuestion, askReaches, askReachesFloor, modeWord, pieceFloor, type AskResult } from "./ask.ts";
@@ -46,7 +48,7 @@ import { functionOfQuestion, FARO_FUNCTION_MAP } from "./askmap.ts";
 import { cardFigures, cardsOf } from "./cards.ts";
 import { payoffPlan, monthAhead, peopleOf } from "./debts.ts";
 import { duesWindow } from "./dues.ts";
-import { summarize } from "./engine.ts";
+import { inView, isSpendLine, monthLines, summarize } from "./engine.ts";
 import { cushionOf, hostAccounts, libreOf } from "./funds.ts";
 import { periodRange } from "./historial.ts";
 import { foldQ, parseQuestion } from "./lexicon.ts";
@@ -70,10 +72,30 @@ export type BankFamilyId =
 
 export type BankPiece = { label: string; minor: number };
 export type BankResult =
-  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null }
+  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null; frame?: AskFrame }
   | { kind: "ask-back"; family: "cuenta-origen"; verdict: string; options: (BankPiece & { id: string })[]; source: string[] }
   | { kind: "need-amount"; family: BankFamilyId }
   | { kind: "unknown" };
+
+/* ------------------------------------------------------------------ */
+/* EL MARCO DEL SEGUIMIENTO (§20, 1.3.380): lo que una respuesta deja  */
+/* para que la siguiente pregunta viva de ella. Estado de diálogo:    */
+/* la caja lo guarda en su sesión — jamás entra al libro, no viaja,   */
+/* muere con la caja o con el tema. El marco solo ENRUTA: cada cifra  */
+/* de un seguimiento sale de los motores de siempre (summarize, el    */
+/* pool de historia), nunca del marco mismo.                          */
+/* ------------------------------------------------------------------ */
+export type AskFrameFilter =
+  | { kind: "category"; id: string; label: string }
+  | { kind: "sub"; id: string; label: string }
+  | { kind: "store"; id: string; label: string }
+  | { kind: "purchase-cat"; id: string; label: string }
+  | { kind: "remit"; label: string }
+  | { kind: "tiendas"; label: string };
+
+export type AskFrame =
+  | { kind: "compare2"; monthA: string; monthB: string; labelA: string; labelB: string; totalA: number; totalB: number; filter: AskFrameFilter | null }
+  | { kind: "period1"; period: Period; income: boolean; filter: AskFrameFilter | null; total: number };
 
 function L(lang: Lang, es: string, en: string): string {
   return lang === "en" ? en : es;
@@ -441,7 +463,7 @@ function rankingAnswer(c: Ctx, folded: string): BankResult | null {
 /* ------------------------------------------------------------------ */
 /* HISTORIA — período × filtro, sumando líneas; $0 también responde.  */
 /* ------------------------------------------------------------------ */
-type Period = { kind: "month"; key: string; label: string } | { kind: "range"; from: string; to: string; label: string } | { kind: "year"; year: string; label: string };
+export type Period = { kind: "month"; key: string; label: string } | { kind: "range"; from: string; to: string; label: string } | { kind: "year"; year: string; label: string };
 function periodOf(c: Ctx, folded: string): Period {
   if (/mes pasado|el ultimo mes|last month/.test(folded)) {
     const k = prevKey(c.key);
@@ -471,31 +493,52 @@ function inPeriod(c: Ctx, l: Line, p: Period): boolean {
 }
 
 /** El filtro dónde/quién de historia y comparar: una categoría, una
- * tienda, el rol de remesas, o «tiendas» = todas las compras. */
-function filterOf(c: Ctx, folded: string): ((l: Line) => boolean) | null {
-  if (/tiendas|stores/.test(folded)) return (l) => l.kind === "purchase";
-  if (/remesa/.test(folded)) return (l) => roleOf(c.state, l.categoryId) === "remittance";
-  let best: { len: number; fn: (l: Line) => boolean } | null = null;
-  const consider = (label: string, fn: (l: Line) => boolean) => {
+ * tienda, el rol de remesas, o «tiendas» = todas las compras. Devuelve
+ * el predicado Y su descriptor (§20): el marco del seguimiento guarda
+ * el descriptor — dato, no cierre — y reconstruye el predicado cuando
+ * un seguimiento lo estrecha. */
+type FilterHit = { fn: (l: Line) => boolean; desc: AskFrameFilter };
+function filterDescOf(c: Ctx, folded: string): FilterHit | null {
+  if (/tiendas|stores/.test(folded)) return { fn: (l) => l.kind === "purchase", desc: { kind: "tiendas", label: L(c.lang, "tiendas", "stores") } };
+  if (/remesa/.test(folded)) return { fn: (l) => roleOf(c.state, l.categoryId) === "remittance", desc: { kind: "remit", label: L(c.lang, "remesas", "remittances") } };
+  let best: { len: number; hit: FilterHit } | null = null;
+  const consider = (label: string, hit: FilterHit) => {
     const f = foldQ(label).trim();
     // Palabra ENTERA, jamás subcadena: «gas» vive dentro de «gasté» y
     // casar por subcadena convierte cada pregunta de gasto en un filtro
     // de gas (la trampa cazada por el banco de esta rama, 2026-11-20).
     const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
-    if (f.length >= 3 && whole.test(folded) && (!best || f.length > best.len)) best = { len: f.length, fn };
+    if (f.length >= 3 && whole.test(folded) && (!best || f.length > best.len)) best = { len: f.length, hit };
   };
   for (const cat of c.state.structure.categories) {
-    consider(c.names.cat(cat.id), (l) => l.categoryId === cat.id);
-    for (const s of cat.subs) consider(c.names.sub(s.id), (l) => l.subId === s.id);
+    consider(c.names.cat(cat.id), { fn: (l) => l.categoryId === cat.id, desc: { kind: "category", id: cat.id, label: c.names.cat(cat.id) } });
+    for (const s of cat.subs) consider(c.names.sub(s.id), { fn: (l) => l.subId === s.id, desc: { kind: "sub", id: s.id, label: c.names.sub(s.id) } });
   }
-  for (const p of c.state.structure.purchases) consider(c.names.purchase(p.id), (l) => l.kind === "purchase" && l.categoryId === p.id);
-  for (const item of c.state.structure.catalog) consider(c.names.catalog(item.id), (l) => l.storeId === item.id);
-  return best ? (best as { fn: (l: Line) => boolean }).fn : null;
+  for (const p of c.state.structure.purchases) consider(c.names.purchase(p.id), { fn: (l) => l.kind === "purchase" && l.categoryId === p.id, desc: { kind: "purchase-cat", id: p.id, label: c.names.purchase(p.id) } });
+  for (const item of c.state.structure.catalog) consider(c.names.catalog(item.id), { fn: (l) => l.storeId === item.id, desc: { kind: "store", id: item.id, label: c.names.catalog(item.id) } });
+  return best ? (best as { hit: FilterHit }).hit : null;
+}
+
+function filterOf(c: Ctx, folded: string): ((l: Line) => boolean) | null {
+  return filterDescOf(c, folded)?.fn ?? null;
+}
+
+/** El predicado de un descriptor guardado en un marco (§20). */
+function filterFromDesc(c: Ctx, d: AskFrameFilter): (l: Line) => boolean {
+  switch (d.kind) {
+    case "category": return (l) => l.categoryId === d.id;
+    case "sub": return (l) => l.subId === d.id;
+    case "store": return (l) => l.storeId === d.id;
+    case "purchase-cat": return (l) => l.kind === "purchase" && l.categoryId === d.id;
+    case "remit": return (l) => roleOf(c.state, l.categoryId) === "remittance";
+    case "tiendas": return (l) => l.kind === "purchase";
+  }
 }
 
 function historiaAnswer(c: Ctx, folded: string): BankResult {
   const p = periodOf(c, folded);
-  const filter = filterOf(c, folded);
+  const hit = filterDescOf(c, folded);
+  const filter = hit?.fn ?? null;
   const income = /entro|ingres|recibi|earned|came in/.test(folded);
   const pool = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
   const total = pool.reduce((a, l) => a + view(c, l), 0);
@@ -509,6 +552,9 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
       ? L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.")
       : null,
     source: ["libros.lineas", "historial.stream", "estudio.flujo"], lines: pool.length,
+    // §20: la respuesta deja su marco — período, dirección y filtro —
+    // para que un «¿en qué?» o un «¿y en comida?» vivan de ella.
+    frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total },
   };
 }
 
@@ -569,6 +615,9 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
         { label: L(c.lang, "Mes pasado", "Last month"), minor: b.spend },
       ],
       note: null, source: ["libros.lineas", "libros.neto"], lines: 0,
+      // §20: la comparación deja su marco — los dos meses y sus
+      // totales — para que «¿en qué gasté más?» viva de ella.
+      frame: { kind: "compare2", monthA: c.key, monthB: prevKey(c.key), labelA: L(c.lang, "este mes", "this month"), labelB: L(c.lang, "el mes pasado", "last month"), totalA: a.spend, totalB: b.spend, filter: null },
     };
   }
   return null;
@@ -662,6 +711,314 @@ function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
     pieces: [], note: L(c.lang, `Su tema en el Manual es «${f.name.es}».`, `Its Manual topic is "${f.name.en}".`),
     source: [f.id], lines: 0,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* EL SEGUIMIENTO (§20, 1.3.380) — los cinco verbos contra el marco.  */
+/* La caja guarda el marco que cada respuesta deja y, antes de la     */
+/* cascada, intenta resolver la pregunta nueva contra él. Si ningún   */
+/* verbo la resuelve, devuelve null y la cascada la sirve como        */
+/* pregunta fresca (L-S4: el tema nuevo abre su propio marco y nada   */
+/* del viejo se filtra). Toda respuesta de seguimiento NOMBRA su      */
+/* marco en la primera línea (L-S2) y calcula con los motores de      */
+/* siempre: el marco enruta, jamás calcula (cerca 1 del brief).       */
+/* ------------------------------------------------------------------ */
+
+const MONTHS_ES_F = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const MONTHS_EN_F = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** El nombre de un mes para nombrar un marco: relativo si es este o
+ * el pasado; su nombre (y su año si no es el de hoy) si es más viejo. */
+function monthNameF(c: Ctx, key: string): string {
+  if (key === c.key) return L(c.lang, "este mes", "this month");
+  if (key === prevKey(c.key)) return L(c.lang, "el mes pasado", "last month");
+  const m = Number(key.slice(5, 7)) - 1;
+  const y = key.slice(0, 4);
+  const name = c.lang === "en" ? MONTHS_EN_F[m] : MONTHS_ES_F[m];
+  return y === c.today.slice(0, 4) ? name : L(c.lang, `${name} de ${y}`, `${name} ${y}`);
+}
+
+/** El nombre de una categoría para una pieza del seguimiento: una
+ * línea sin categoría (o de una categoría ya fuera de la estructura)
+ * se nombra «Sin categoría», como la casa la nombra — jamás en blanco. */
+function catLabel(c: Ctx, id: string): string {
+  return c.names.cat(id) || L(c.lang, "Sin categoría", "Uncategorized");
+}
+
+/** El gasto de un mes por categoría, del MISMO pool de summarize
+ * (monthLines ∧ isSpendLine, valuado con inView): la descomposición
+ * de una comparación cierra exacta contra summarize.spend porque es
+ * una partición de su misma suma. */
+function spendByCategory(c: Ctx, monthKey: string, filter?: ((l: Line) => boolean) | null): { map: Map<string, number>; lines: number } {
+  const map = new Map<string, number>();
+  let lines = 0;
+  for (const l of monthLines(c.state, monthKey)) {
+    if (!isSpendLine(c.state.structure, l)) continue;
+    if (filter && !filter(l)) continue;
+    const v = inView(l, c.display, c.rateE4);
+    if (v === 0) continue;
+    lines++;
+    map.set(l.categoryId, (map.get(l.categoryId) ?? 0) + v);
+  }
+  return { map, lines };
+}
+
+/** El total de historia de un período (el pool de historiaAnswer,
+ * intacto) — lo que desplazar y estrechar recomputan sobre el marco. */
+function historiaPool(c: Ctx, p: Period, income: boolean, filter: ((l: Line) => boolean) | null): { total: number; lines: number; byCat: Map<string, number> } {
+  const pool = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
+  const byCat = new Map<string, number>();
+  let total = 0;
+  for (const l of pool) {
+    const v = view(c, l);
+    total += v;
+    if (v !== 0) byCat.set(l.categoryId, (byCat.get(l.categoryId) ?? 0) + v);
+  }
+  return { total, lines: pool.length, byCat };
+}
+
+type CatDiff = { id: string; d: number };
+function compareDiffs(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): { diffs: CatDiff[]; ups: CatDiff[]; downs: CatDiff[]; lines: number } {
+  const fn = f.filter ? filterFromDesc(c, f.filter) : null;
+  const a = spendByCategory(c, f.monthA, fn);
+  const b = spendByCategory(c, f.monthB, fn);
+  const ids = new Set([...a.map.keys(), ...b.map.keys()]);
+  const diffs = [...ids].map((id) => ({ id, d: (a.map.get(id) ?? 0) - (b.map.get(id) ?? 0) })).filter((x) => x.d !== 0);
+  return {
+    diffs,
+    ups: diffs.filter((x) => x.d > 0).sort((x, y) => y.d - x.d),
+    downs: diffs.filter((x) => x.d < 0).sort((x, y) => x.d - y.d),
+    lines: a.lines + b.lines,
+  };
+}
+
+/** La nota que cierra la aritmética de una descomposición: el otro
+ * lado nombrado y la cuenta exacta — subidas − bajadas = diferencia. */
+function closeNote(c: Ctx, ups: CatDiff[], downs: CatDiff[], diff: number): string {
+  const sum = (xs: CatDiff[]) => xs.reduce((a, x) => a + Math.abs(x.d), 0);
+  const names = (xs: CatDiff[]) => xs.map((x) => `${catLabel(c, x.id)} ${c.money(x.d)}`).join(", ");
+  const close = L(c.lang, `La cuenta cierra: subidas ${c.money(sum(ups))} − bajadas ${c.money(sum(downs))} = ${c.money(diff)}.`, `The account closes: rises ${c.money(sum(ups))} − falls ${c.money(sum(downs))} = ${c.money(diff)}.`);
+  if (diff > 0) {
+    return downs.length
+      ? `${L(c.lang, `También bajó: ${names(downs)}.`, `It also fell: ${names(downs)}.`)} ${close}`
+      : `${L(c.lang, "Nada bajó: el aumento es subida entera.", "Nothing fell: the increase is all rise.")} ${close}`;
+  }
+  if (diff < 0) {
+    return ups.length
+      ? `${L(c.lang, `También subió: ${names(ups)}.`, `It also rose: ${names(ups)}.`)} ${close}`
+      : `${L(c.lang, "Nada subió: la bajada es entera.", "Nothing rose: the drop is all fall.")} ${close}`;
+  }
+  return close;
+}
+
+function descomponerCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): BankResult {
+  const { ups, downs, lines } = compareDiffs(c, f);
+  const diff = f.totalA - f.totalB;
+  const frameHead = L(c.lang, `Siguiendo tu comparación — ${f.labelA} contra ${f.labelB}`, `Following your comparison — ${f.labelA} vs ${f.labelB}`);
+  if (!ups.length && !downs.length) {
+    return { kind: "answer", family: "comparar", verdict: `${frameHead} — ${L(c.lang, "por categoría los dos meses son idénticos: no hay diferencia que repartir.", "by category the two months are identical: there's no difference to break down.")}`, pieces: [], note: null, source: ["libros.lineas", "libros.neto"], lines, frame: f };
+  }
+  const main = diff >= 0 ? ups : downs;
+  return {
+    kind: "answer", family: "comparar",
+    verdict: diff > 0
+      ? `${frameHead} — ${L(c.lang, `el aumento de ${c.money(diff)} vino sobre todo de:`, `the ${c.money(diff)} increase came mostly from:`)}`
+      : diff < 0
+        ? `${frameHead} — ${L(c.lang, `la bajada de ${c.money(-diff)} vino sobre todo de:`, `the ${c.money(-diff)} drop came mostly from:`)}`
+        : `${frameHead} — ${L(c.lang, "en total quedaron iguales: lo que subió en unas categorías bajó en otras.", "the totals came out equal: what rose in some categories fell in others.")}`,
+    pieces: (diff === 0 ? [...ups, ...downs].sort((x, y) => Math.abs(y.d) - Math.abs(x.d)) : main).slice(0, 4).map((x) => ({ label: catLabel(c, x.id), minor: x.d })),
+    note: closeNote(c, ups, downs, diff),
+    source: ["libros.lineas", "libros.neto"], lines, frame: f,
+  };
+}
+
+function explicarCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): BankResult {
+  const { ups, downs, lines } = compareDiffs(c, f);
+  const diff = f.totalA - f.totalB;
+  const frameHead = L(c.lang, `Siguiendo tu comparación — ${f.labelA} contra ${f.labelB}`, `Following your comparison — ${f.labelA} vs ${f.labelB}`);
+  if (diff === 0) {
+    return { kind: "answer", family: "comparar", verdict: `${frameHead} — ${L(c.lang, "no hay diferencia que explicar: los dos meses suman lo mismo.", "there's no difference to explain: the two months add up the same.")}`, pieces: [], note: null, source: ["libros.lineas", "libros.neto"], lines, frame: f };
+  }
+  const movers = [...ups, ...downs].sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 4);
+  return {
+    kind: "answer", family: "comparar",
+    verdict: diff > 0
+      ? `${frameHead} — ${L(c.lang, `${f.labelA} gastó ${c.money(diff)} más sobre todo porque:`, `${f.labelA} spent ${c.money(diff)} more mostly because:`)}`
+      : `${frameHead} — ${L(c.lang, `${f.labelA} gastó ${c.money(-diff)} menos sobre todo porque:`, `${f.labelA} spent ${c.money(-diff)} less mostly because:`)}`,
+    pieces: movers.map((x) => ({ label: catLabel(c, x.id), minor: x.d })),
+    note: closeNote(c, ups, downs, diff),
+    source: ["libros.lineas", "libros.neto"], lines, frame: f,
+  };
+}
+
+function descomponerPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>): BankResult {
+  const fn = f.filter ? filterFromDesc(c, f.filter) : null;
+  const { byCat, lines } = historiaPool(c, f.period, f.income, fn);
+  const rows = [...byCat.entries()].map(([id, minor]) => ({ id, minor })).filter((x) => x.minor !== 0).sort((a, b) => b.minor - a.minor);
+  const head = L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}${f.filter ? `, en ${f.filter.label}` : ""}`, `Following your question — in ${f.period.label}${f.filter ? `, on ${f.filter.label}` : ""}`);
+  if (!rows.length) {
+    return { kind: "answer", family: "historia", verdict: `${head} — ${L(c.lang, "no hay líneas que repartir en ese período.", "there are no lines to break down in that period.")}`, pieces: [], note: null, source: ["libros.lineas", "historial.stream"], lines, frame: f };
+  }
+  return {
+    kind: "answer", family: "historia",
+    verdict: `${head} — ${f.income ? L(c.lang, "así entró:", "this is how it came in:") : L(c.lang, "así se reparte:", "this is how it breaks down:")}`,
+    pieces: rows.slice(0, 5).map((x) => ({ label: catLabel(c, x.id), minor: x.minor })),
+    note: null, source: ["libros.lineas", "historial.stream"], lines, frame: f,
+  };
+}
+
+function desplazarCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): BankResult {
+  const monthA = f.monthB;
+  const monthB = prevKey(f.monthB);
+  const fn = f.filter ? filterFromDesc(c, f.filter) : null;
+  const totalOf = (k: string) => fn
+    ? [...spendByCategory(c, k, fn).map.values()].reduce((a, v) => a + v, 0)
+    : summarize(c.state, k, c.lang).spend;
+  const totalA = totalOf(monthA);
+  const totalB = totalOf(monthB);
+  const labelA = monthNameF(c, monthA);
+  const labelB = monthNameF(c, monthB);
+  const nf: AskFrame = { kind: "compare2", monthA, monthB, labelA, labelB, totalA, totalB, filter: f.filter };
+  const more = totalA >= totalB;
+  return {
+    kind: "answer", family: "comparar",
+    verdict: L(c.lang, `Siguiendo tu comparación, un mes más atrás — ${labelA} contra ${labelB}: gastaste ${more ? "más" : "menos"} en ${more ? labelA : labelB}: ${c.money(totalA)} contra ${c.money(totalB)} (diferencia de ${c.money(Math.abs(totalA - totalB))}).`, `Following your comparison, one month further back — ${labelA} vs ${labelB}: you spent ${more ? "more" : "less"} in ${more ? labelA : labelB}: ${c.money(totalA)} vs ${c.money(totalB)} (a difference of ${c.money(Math.abs(totalA - totalB))}).`),
+    pieces: [{ label: labelA, minor: totalA }, { label: labelB, minor: totalB }],
+    note: null, source: ["libros.lineas", "libros.neto"], lines: 0, frame: nf,
+  };
+}
+
+function desplazarPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>): BankResult | null {
+  if (f.period.kind !== "month") return null;
+  const nk = prevKey(f.period.key);
+  const label = monthNameF(c, nk);
+  const period: Period = { kind: "month", key: nk, label };
+  const fn = f.filter ? filterFromDesc(c, f.filter) : null;
+  const { total, lines } = historiaPool(c, period, f.income, fn);
+  const nf: AskFrame = { kind: "period1", period, income: f.income, filter: f.filter, total };
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `Siguiendo tu pregunta — en ${label} ${f.income ? "entraron" : "gastaste"} ${c.money(total)}${f.filter ? ` en ${f.filter.label}` : ""} — de ${lines} líneas.`, `Following your question — in ${label} ${f.income ? `${c.money(total)} came in` : `you spent ${c.money(total)}`}${f.filter ? ` on ${f.filter.label}` : ""} — from ${lines} lines.`),
+    pieces: [{ label, minor: total }],
+    note: null, source: ["libros.lineas", "historial.stream"], lines, frame: nf,
+  };
+}
+
+function estrechar(c: Ctx, f: AskFrame, hit: FilterHit): BankResult {
+  if (f.kind === "compare2") {
+    const sum = (k: string) => [...spendByCategory(c, k, hit.fn).map.values()].reduce((a, v) => a + v, 0);
+    const totalA = sum(f.monthA);
+    const totalB = sum(f.monthB);
+    const nf: AskFrame = { ...f, totalA, totalB, filter: hit.desc };
+    return {
+      kind: "answer", family: "comparar",
+      verdict: L(c.lang, `Siguiendo tu comparación — ${f.labelA} contra ${f.labelB} — solo en ${hit.desc.label}: ${c.money(totalA)} contra ${c.money(totalB)} (diferencia de ${c.money(Math.abs(totalA - totalB))}).`, `Following your comparison — ${f.labelA} vs ${f.labelB} — only on ${hit.desc.label}: ${c.money(totalA)} vs ${c.money(totalB)} (a difference of ${c.money(Math.abs(totalA - totalB))}).`),
+      pieces: [{ label: `${hit.desc.label} · ${f.labelA}`, minor: totalA }, { label: `${hit.desc.label} · ${f.labelB}`, minor: totalB }],
+      note: null, source: ["libros.lineas", "libros.neto"], lines: 0, frame: nf,
+    };
+  }
+  const { total, lines } = historiaPool(c, f.period, f.income, hit.fn);
+  const nf: AskFrame = { ...f, filter: hit.desc, total };
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, solo en ${hit.desc.label}: ${c.money(total)}.`, `Following your question — in ${f.period.label}, only on ${hit.desc.label}: ${c.money(total)}.`),
+    pieces: [{ label: hit.desc.label, minor: total }],
+    note: null, source: ["libros.lineas", "historial.stream"], lines, frame: nf,
+  };
+}
+
+function proyectarSeguimiento(c: Ctx, f: AskFrame): BankResult {
+  const head = f.kind === "compare2" ? L(c.lang, "Siguiendo tu comparación", "Following your comparison") : L(c.lang, "Siguiendo tu pregunta", "Following your question");
+  if (!askReaches(c.mode, "advisor.projection")) {
+    return {
+      kind: "answer", family: "futuro",
+      verdict: `${head}: ${L(c.lang, `lo que viene se lee en tu saldo proyectado, día a día — y vive en ${modeWord(c.lang, "completo")}.`, `what's coming is read in your day-by-day projected balance — and it lives in ${modeWord(c.lang, "completo")}.`)}`,
+      pieces: [], note: null, source: ["asesor.lectura"], lines: 0, frame: f,
+    };
+  }
+  const pace = summarize(c.state, c.key, c.lang).spend;
+  return {
+    kind: "answer", family: "futuro",
+    verdict: `${head}: ${L(c.lang, `si el mes que viene repite el ritmo de este mes, gastarías ${c.money(pace)}.`, `if next month repeats this month's pace, you'd spend ${c.money(pace)}.`)}`,
+    pieces: [{ label: L(c.lang, "Ritmo de este mes", "This month's pace"), minor: pace }],
+    note: L(c.lang, "El supuesto, dicho: el gasto de este mes repetido el que viene. Es una proyección, no una promesa: un mes distinto mueve la cifra.", "The assumption, stated: this month's spend repeated next month. It's a projection, not a promise: a different month moves the figure."),
+    source: ["asesor.lectura", "libros.neto"], lines: 0,
+  };
+}
+
+const RE_DECOMP_F = /(en que (gaste|se me fue|se fue|gasto)|donde se (me )?fue|cual (fue|es) (el|la|mi) mayor|que fue lo (que )?mas|por categoria|desglos|what did i spend (the )?most|where did (it|my money) go|in what did i spend|by categor)/;
+const RE_EXPLAIN_F = /(por que|a que se debe|why|what (caused|made))/;
+const RE_SHIFT_F = /(y el mes anterior|y el anterior|el mes anterior|mes antes de ese|el de antes|and the month before|the month before|the one before|^y el mes pasado|^and last month|y el ano pasado|el ano anterior)/;
+const RE_PROJECT_F = /(mes que viene|proximo mes|mes siguiente|next month|si sigo asi|sigo asi|seguir asi|keep (going|spending) like this|will i keep)/;
+const RE_ANCHOR_F = /(este mes|mes pasado|esta semana|semana pasada|este ano|this month|last month|this week|last week|this year)/;
+
+/** EL RESOLVEDOR DEL SEGUIMIENTO: la caja lo intenta contra el marco
+ * vivo ANTES de la cascada. Devuelve la respuesta de seguimiento o
+ * null — null significa «esto no es un seguimiento»: la cascada sirve
+ * la pregunta como fresca y su respuesta abre el marco nuevo (L-S4).
+ * Sin marco, solo DESCOMPONER tiene lectura sola legítima (L-S1): «¿en
+ * qué gasté más?» en caja fresca es la mayor categoría del mes en
+ * curso, nombrada como tal — jamás una comparación inventada. */
+export function answerFollowUp(
+  state: LedgerState,
+  key: string,
+  lang: Lang,
+  names: Namer,
+  raw: string,
+  parseCtx: ParseCtx,
+  today: string,
+  frame: AskFrame | null,
+  mode?: BookMode,
+): BankResult | null {
+  void parseCtx;
+  const folded = foldQ(raw);
+  const words = folded.split(/\s+/).filter(Boolean).length;
+  const { display, rateE4 } = state.settings;
+  const reading = readAdvisor(state, key, lang, names, { today: new Date(`${today}T12:00:00`) });
+  const c: Ctx = {
+    state, key, lang, names, today, display, rateE4,
+    money: (n: number) => formatMoney(n, reading.currency, lang),
+    mode: mode ?? bookMode(state),
+  };
+  if (frame) {
+    // Proyectar y desplazar traen su propio ancla: van primero.
+    if (RE_PROJECT_F.test(folded) && !(frame.kind === "period1" && frame.income)) return proyectarSeguimiento(c, frame);
+    if (RE_SHIFT_F.test(folded)) {
+      const r = frame.kind === "compare2" ? desplazarCompare(c, frame) : desplazarPeriod(c, frame);
+      if (r) return r;
+    }
+    // Explicar solo vive sobre una comparación (L-S3: su lectura
+    // principal es la descomposición leída como causa).
+    if (frame.kind === "compare2" && RE_EXPLAIN_F.test(folded)) return explicarCompare(c, frame);
+    // Una pregunta con su propio ancla de período no es seguimiento:
+    // la cascada la sirve fresca (L-S4).
+    if (RE_ANCHOR_F.test(folded)) return null;
+    if (RE_DECOMP_F.test(folded)) {
+      return frame.kind === "compare2" ? descomponerCompare(c, frame) : descomponerPeriod(c, frame);
+    }
+    // Estrechar: nombra un sujeto y no trae ni monto ni ancla propia.
+    if (!/cuanto|how much/.test(folded) && (words <= 7 || /^y /.test(folded) || /solo|only/.test(folded))) {
+      const hit = filterDescOf(c, folded);
+      if (hit && hit.desc.label !== frame.filter?.label) return estrechar(c, frame, hit);
+    }
+    return null;
+  }
+  // Sin marco (L-S1): la lectura sola de descomponer, corta y elíptica.
+  if (RE_DECOMP_F.test(folded) && words <= 7 && !RE_ANCHOR_F.test(folded)) {
+    const { map, lines } = spendByCategory(c, key);
+    const rows = [...map.entries()].map(([id, minor]) => ({ id, minor })).filter((x) => x.minor !== 0).sort((a, b) => b.minor - a.minor);
+    if (!rows.length) return null;
+    const total = rows.reduce((a, x) => a + x.minor, 0);
+    const period: Period = { kind: "month", key, label: L(lang, "este mes", "this month") };
+    return {
+      kind: "answer", family: "historia",
+      verdict: L(lang, `Este mes, tu mayor gasto es ${catLabel(c, rows[0].id)}: ${c.money(rows[0].minor)}.`, `This month, your biggest spend is ${catLabel(c, rows[0].id)}: ${c.money(rows[0].minor)}.`),
+      pieces: rows.slice(0, 4).map((x) => ({ label: catLabel(c, x.id), minor: x.minor })),
+      note: null, source: ["libros.lineas", "historial.stream"], lines,
+      frame: { kind: "period1", period, income: false, filter: null, total },
+    };
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ */
