@@ -3665,4 +3665,4 @@ La pieza del banco de preguntas construida desde la investigación que Oscar apr
 
 Verificación: la batería porteada 158/158 antes de cerrar el porte (banco 128 con el espécimen de la costura + checklist 11 + cobertura 20, dentro de la suite); suite completa 3091/3091, EXIT 0; typecheck con exactamente los 3 errores de siempre. Banco renderizado a ancho de teléfono sobre el libro espécimen, la cadena entera en la caja viva: «¿Cuánto gasté este mes?» → $1,208.30; «¿Y el mes pasado?» → seguimiento con su eco, $1,220.00; «¿Por qué?» → la procedencia de LA RESPUESTA DE LA PANTALLA (tras la cura de la costura); «¿Y en septiembre?» → la cadena sigue, $1,005.00, con su eco.
 
-Datos de publicación: se completa en el commit de cierre.
+Datos de publicación: fuente 368374da91f6ddf1da8066f47f2b1d23db5d8df2; principal e41f549613f5c6f17a6e34cd27f94aabbb25fdda + 9976c5c52c800b08f2ae45f627fd8b43edc786cd + fc9f6a6e1c5a8085ee4ddfb12e1ff59747815cc3 + e9e7efc69da24a24ea36b9abc93219078aadec04; etiqueta v1.3.400; barrido en vivo 28/28 idénticos; sw en vivo faro-1.3.400; entrada index-B16a50dl.js.
