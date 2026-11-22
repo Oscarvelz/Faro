@@ -88,12 +88,20 @@ function Ask({ count, onCards, onReceipt, onProduct, onClose }: { count: number;
 }
 
 export default function ShareInbox() {
+  const { has } = useFaro();
   const [files, setFiles] = useState<File[] | null>(null);
   const [mode, setMode] = useState<"ask" | "cards" | "receipt" | "review" | "product">("ask");
   useEffect(() => {
     const take = () => {
+      // 1.3.408: la pista se lee ANTES de recoger — pull() vacía la bandeja y
+      // el shell borra la pista con ella. «receipt» = la foto vino del botón
+      // de cámara del widget: ese botón ya dijo lo que es, así que la foto
+      // abre directa en el escaneo de recibos, sin la pregunta «¿Qué son?».
+      // Si la puerta del recibo no vive en su modo, la pregunta queda.
+      let hint = "";
+      try { hint = native()?.shareHint?.() ?? ""; } catch { /* shells viejos: sin pista */ }
       const f = pull();
-      if (f.length) { setFiles(f); setMode("ask"); }
+      if (f.length) { setFiles(f); setMode(hint === "receipt" && has("inbox.image-receipt") ? "receipt" : "ask"); }
     };
     take();
     window.addEventListener("faronative-share", take);

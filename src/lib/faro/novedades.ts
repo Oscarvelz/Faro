@@ -35,6 +35,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.408",
+    date: "2026-11-22",
+    level: "grande",
+    title: { es: "La cámara del widget, y widgets que no prometen de más", en: "The widget camera, and widgets that promise nothing extra" },
+    points: {
+      es: [
+        "El widget gana un tercer botón junto a + y −: la cámara. Abre la cámara del teléfono, la foto entra como un recibo y cae en la revisión de siempre — verificas, corriges, eliges la categoría y pones la nota antes de guardar. Llega con la próxima actualización de la app.",
+        "El widget ya no esconde nada: «Próximo pago» nombra el pago vencido, en su color, en vez de decir «Nada en 31 días»; si un pago pasa de «vence pronto» a vencido, vuelve a avisar — cada etapa avisa la suya —; y el cierre de un mes ya no se pierde si te saltas un cambio de mes sin abrir Faro: al volver, se reporta.",
+        "La cara honesta: el widget del teléfono ahora dice a qué hora llegó su foto, como el Panel y el de Vencimientos; en el selector del teléfono, las vistas previas ya no inventan cifras — enseñan la cara de montos ocultos —; y la tarjeta rápida ya lee bien la coma decimal: «68,26» se anota como $68.26, no cien veces más.",
+        "La lucecita de tus fondos se achica un poco y se pega a la palabra, como un signo de grado; el lápiz también se achica y queda alineado con ella, un escalón abajo. En las píldoras de los bolsillos la luz se separa un poco y sube, y las letras de los nombres crecen un poco, con aire.",
+      ],
+      en: [
+        "The widget gains a third button beside + and −: the camera. It opens the phone's camera, the photo comes in as a receipt and lands in the usual review — you check it, fix it, pick the category and add the note before saving. It arrives with the next app update.",
+        "The widget hides nothing now: \"Next payment\" names the overdue payment, in its colour, instead of reading \"Nothing in 31 days\"; if a payment moves from \"due soon\" to overdue, it announces again — each stage announces its own —; and a month's close is no longer lost if you skip a month turn without opening Faro: when you return, it is reported.",
+        "The honest face: the phone widget now says when its photo arrived, like the Panel and the Due dates widget; in the phone's widget picker, the previews no longer invent figures — they show the hidden-amounts face —; and the quick card now reads the decimal comma right: \"68,26\" is noted as $68.26, not a hundred times more.",
+        "Your funds' little light shrinks a bit and hugs the word, like a degree sign; the pencil shrinks too and lines up with it, one step below. On the pocket pills the light moves a little away and rises, and the names' letters grow a bit, with room to breathe.",
+      ],
+    },
+    topic: "widget-android",
+  },
+  {
     version: "1.3.407",
     date: "2026-11-22",
     level: "menor",

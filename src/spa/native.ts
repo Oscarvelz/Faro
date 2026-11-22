@@ -38,9 +38,14 @@ export type FaroNativeBridge = {
   docInfo?(i: number): string;
   docChunk?(i: number, offset: number, length: number): string;
   docClear?(): void;
-  /** 1.3.121 home-screen widgets: the snapshot (lib/faro/widget.ts) as JSON ("" clears it); the target of a widget tap. */
-  setWidgetData?(json: string): void;
+  /** 1.3.121 home-screen widgets: the snapshot (lib/faro/widget.ts) as JSON ("" clears it); the target of a widget tap.
+   *  1.3.408: the shell answers its verdict — "ok" stored, "rejected" refused at the door; shells
+   *  before 1.3.408 answer undefined and the push record simply carries no verdict. */
+  setWidgetData?(json: string): string;
   takeOpen?(): string;
+  /** 1.3.408: why the shared tray's pictures arrived — "receipt" when they came from the widget's
+   *  camera button (the inbox opens them straight in the receipt scan). Absent on older shells. */
+  shareHint?(): string;
   /** Apuntes rápidos del widget (línea de ventanas, 2026-11-12): la cola que los botones + / −
    *  del widget llenan sin abrir la app; la página la recoge (y el shell la vacía) al abrir. */
   takeQuickEntries?(): string;

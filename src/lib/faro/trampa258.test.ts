@@ -73,11 +73,15 @@ describe("el parte del empujón (1.3.258)", () => {
   it("cada rama del empujón deja su parte — ninguna salida es muda", () => {
     assert.ok(host.includes("recordPush({ branch: \"sample\", sent: false, why: \"nopack\" })"), "sin paquete real: parte de nopack");
     assert.ok(host.includes("recordPush({ branch: \"sample\", sent: false, why: \"pack\" })"), "paquete que no pasa la comprobación: parte de pack");
-    assert.ok(host.includes("recordPush({ branch: \"sample\", sent: true })"), "la rama de ejemplo también dice cuándo SÍ salió");
+    // ENMIENDA (1.3.408): las ramas con envío llevan ahora el veredicto de la
+    // carcasa — recordPush({ branch, ...verdictFields(verdict) }) — y el
+    // veredicto mapea «sin respuesta» a sent: true (ver captura408). El
+    // contrato de la 258 sigue: ninguna salida es muda.
+    assert.ok(host.includes("recordPush({ branch: \"sample\", ...verdictFields(verdict) })"), "la rama de ejemplo también dice cuándo SÍ salió");
     assert.ok(host.includes("recordPush({ branch: \"sample\", sent: false, why: \"error\" })"), "el error de la rama de ejemplo deja parte");
-    assert.ok(host.includes("recordPush({ branch: \"real\", sent: true })"), "la rama real registra su envío");
+    assert.ok(host.includes("recordPush({ branch: \"real\", ...verdictFields(verdict) })"), "la rama real registra su envío");
     assert.ok(host.includes("recordPush({ branch: \"real\", sent: false, why: \"error\" })"), "el error de la rama real deja parte");
-    assert.ok(host.includes("recordPush({ branch: \"out\", sent: true })"), "el vaciado al cerrar sesión es un envío y se cuenta");
+    assert.ok(host.includes("recordPush({ branch: \"out\", ...verdictFields(verdict) })"), "el vaciado al cerrar sesión es un envío y se cuenta");
     // El parte viaja por el canal crudo: el modo de ejemplo no puede esconderlo.
     assert.ok(host.includes("personalSet(WIDGET_LASTPUSH_KEY"), "el parte se escribe por el canal crudo");
     assert.ok(host.includes("parseWidgetPushRecord(personalGet(WIDGET_LASTPUSH_KEY))"), "la tarjeta lo lee por el mismo canal");

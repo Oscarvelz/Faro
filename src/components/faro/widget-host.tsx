@@ -66,6 +66,19 @@ function recordPush(rec: Omit<WidgetPushRecord, "at">) {
   try { personalSet(WIDGET_LASTPUSH_KEY, JSON.stringify({ ...rec, at: new Date().toISOString() })); } catch { /* el parte nunca rompe la foto */ }
 }
 
+/**
+ * 1.3.408: el veredicto del shell entra en el parte. Antes setWidgetData no
+ * devolvía nada y una foto rechazada en la puerta del shell (v != 1) se
+ * registraba como enviada. "rejected" convierte el envío en no-enviado con
+ * su porqué («shell»); un shell anterior a la 1.3.408 no contesta (undefined)
+ * y el parte queda como siempre, sin veredicto — nunca se inventa uno.
+ */
+function verdictFields(v: string | undefined): { sent: boolean; why?: "shell"; shell?: "ok" | "rejected" } {
+  if (v === "rejected") return { sent: false, why: "shell", shell: "rejected" };
+  if (v === "ok") return { sent: true, shell: "ok" };
+  return { sent: true };
+}
+
 export const WIDGET_PLACES: Record<WidgetGo, GoLike> = {
   desk: { screen: "desk" },
   pagos: { screen: "desk", lens: "debt" },
@@ -166,8 +179,8 @@ export default function WidgetHost() {
           const snap = buildWidgetSnapshot(real, real.settings.lang === "en" ? "en" : "es", {
             today: todayIso(), hide: widgetHide(personalGet(WIDGET_HIDE_KEY), lock), lock,
           });
-          n.setWidgetData?.(JSON.stringify(snap));
-          recordPush({ branch: "sample", sent: true });
+          const verdict = n.setWidgetData?.(JSON.stringify(snap));
+          recordPush({ branch: "sample", ...verdictFields(verdict) });
           had.current = true;
         } catch { recordPush({ branch: "sample", sent: false, why: "error" }); /* la foto queda como está */ }
         return;
@@ -177,7 +190,7 @@ export default function WidgetHost() {
         // 1.3.258: el vaciado también es un envío y deja su parte; sin nada que
         // vaciar no pasó nada que contar y el último parte queda como está.
         if (had.current) {
-          try { n.setWidgetData?.(""); recordPush({ branch: "out", sent: true }); }
+          try { const verdict = n.setWidgetData?.(""); recordPush({ branch: "out", ...verdictFields(verdict) }); }
           catch { recordPush({ branch: "out", sent: false, why: "error" }); /* ignore */ }
           had.current = false;
         }
@@ -186,8 +199,8 @@ export default function WidgetHost() {
       try {
         const lock = lockOn();
         const snap = buildWidgetSnapshot(l, lg, { today: todayIso(), hide: widgetHide(hidePref(), lock), lock });
-        n.setWidgetData?.(JSON.stringify(snap));
-        recordPush({ branch: "real", sent: true });
+        const verdict = n.setWidgetData?.(JSON.stringify(snap));
+        recordPush({ branch: "real", ...verdictFields(verdict) });
         had.current = true;
       } catch { recordPush({ branch: "real", sent: false, why: "error" }); /* a widget never breaks the app */ }
     };
@@ -431,7 +444,7 @@ export function WidgetCard({ open, onToggle }: { open: boolean; onToggle: () => 
   // (widget.last-push) — fuera de ese modo la línea no se pinta; el parte sigue
   // registrándose en el equipo y reaparece al volver.
   const pushLine = !has("widget.last-push") || !pushRec ? null : !pushRec.sent
-    ? t(pushRec.why === "pack" ? "widget.push.fail.pack" : pushRec.why === "nopack" ? "widget.push.fail.nopack" : "widget.push.fail.error")
+    ? t(pushRec.why === "pack" ? "widget.push.fail.pack" : pushRec.why === "nopack" ? "widget.push.fail.nopack" : pushRec.why === "shell" ? "widget.push.fail.shell" : "widget.push.fail.error")
     : (() => {
         const mins = Math.max(0, Math.floor((Date.now() - Date.parse(pushRec.at)) / 60000));
         const when = mins < 1 ? t("widget.push.now")

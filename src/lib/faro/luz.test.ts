@@ -58,10 +58,12 @@ describe("la luz de naturaleza (ventanas, 2026-11-16)", () => {
     assert.ok(!/position:\s*absolute/.test(pop), "el pop no vuelve a vivir dentro de su anfitrión");
   });
 
-  it("el signo queda en 6px y su toque crece por halo, no por tamaño", () => {
+  it("el signo queda en 5.5px y su toque crece por halo, no por tamaño", () => {
+    // ENMIENDA (1.3.408, Oscar 2026-11-22): su veredicto nuevo — «por lo menos
+    // un 8%» menos — sustituye al de 6px del 2026-11-16: 5.5px (−8.3%).
     const light = rule(fundCss, ".fund-light {");
-    assert.match(light, /width:\s*6px/);
-    assert.match(light, /height:\s*6px/);
+    assert.match(light, /width:\s*5\.5px/);
+    assert.match(light, /height:\s*5\.5px/);
     const halo = rule(fundCss, ".fund-light::after");
     assert.match(halo, /inset:\s*-11px/);
   });
@@ -171,7 +173,12 @@ describe("la luz de naturaleza (ventanas, 2026-11-16)", () => {
 
   it("nombre + luz: una unidad que no se parte a ningún ancho de tarjeta", () => {
     const strong = rule(styles, ".save-seg > strong { white-space: nowrap;");
-    assert.match(strong, /font-size:\s*clamp\(\.62rem, 10\.5cqi, \.95rem\)/);
+    // ENMIENDA (1.3.408): Oscar vio el nombre «más pequeño» y ordenó subirlo
+    // (2026-11-22) — el suelo .62rem era el tamaño al ancho telefónico
+    // (9.9px medidos en el banco). Suben suelo y tasa; la forma (nowrap +
+    // clamp cqi, sin escalón [data-long]) — la mitad que esta cerca protege —
+    // queda intacta.
+    assert.match(strong, /font-size:\s*clamp\(\.74rem, 13cqi, \.98rem\)/);
     assert.ok(
       !/strong\[data-long\]\s*\{\s*font-size/.test(styles),
       "el escalón [data-long] ≤90px no vuelve: dejaba caer la luz en el ancho corriente",

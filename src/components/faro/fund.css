@@ -9,16 +9,18 @@
   /* 6px since Oscar's second photo verdict (2026-11-16 18:17): at 11px the mark
      read as a ball and at 8px it still read as a big button on his phone — his
      order was «por lo menos un 20%» smaller, and 6px is 25% under 8px. The same
-     size everywhere the light appears (band, panel rows, Folios, migration). */
+     size everywhere the light appears (band, panel rows, Folios, migration).
+     1.3.408 (Oscar, 2026-11-22, foto de Casa/Viaje): su veredicto nuevo manda
+     «por lo menos un 8%» menos — 5.5px (−8.3%) — y sustituye al de 2026-11-16. */
   position: relative;
-  width: 6px; height: 6px; border-radius: 50%; padding: 0; cursor: pointer;
+  width: 5.5px; height: 5.5px; border-radius: 50%; padding: 0; cursor: pointer;
   background: var(--fl, var(--accent)); border: none; flex: none;
 }
 /* El blanco de toque crece sin crecer el signo: un halo invisible que lleva el
    toque a 28px alrededor de los 6px visibles — tocable sin cacería de
    precisión, sin robarle su toque a la tarjeta más allá de la vecindad de la luz. */
 .fund-light::after { content: ""; position: absolute; inset: -11px; border-radius: 50%; }
-.fund-light.is-saldo { background: transparent; border: 1.25px solid var(--fl, var(--accent)); }
+.fund-light.is-saldo { background: transparent; border: 1.15px solid var(--fl, var(--accent)); }
 .fund-light.is-sin-declarar { background: var(--faint); opacity: .75; }
 /* 1.3.407 (Oscar, dos fotos): la luz deja de flotar a media palabra apretada
    contra el lápiz — sube a la esquina alta de la palabra, como el signo de
@@ -27,9 +29,16 @@
    El mismo asiento en las píldoras de los bolsillos, donde la luz también
    colgaba de la palabra. En las filas de lectura (save-view) la luz es marca
    de fila antes de la cifra, no ornamento de la palabra: no se mueve. */
-.save-account-name .fund-light-wrap { align-self: flex-start; margin-top: 1px; margin-left: -5px; }
-.save-account-name .bank-pencil { margin-left: 3px; }
-.save-seg strong .fund-light-wrap { position: relative; top: -0.3em; margin-left: -2px; }
+/* 1.3.408 (Oscar, 2026-11-22, fotos de Casa/Viaje y de las píldoras): el
+   refinamiento de los asientos de la 407 — la luz un 8% más pequeña y un
+   poco más pegada a la palabra en las filas (−6px: el abrazo pasa de 3px a
+   2px), el lápiz un 6% más pequeño y ACERCADO en diagonal hasta quedar
+   alineado con la luz (la misma distancia de la letra, un escalón abajo);
+   en las píldoras, al contrario: la luz se separa un poco de la palabra
+   (1px) y sube un poco más (−0.45em), también un 8% más pequeña (abajo). */
+.save-account-name .fund-light-wrap { align-self: flex-start; margin-top: 1px; margin-left: -6px; }
+.save-account-name .bank-pencil { margin-left: -2px; }
+.save-seg strong .fund-light-wrap { position: relative; top: -0.45em; margin-left: 1px; }
 /* La explicación vive en la capa superior (portal al cuerpo, como las tarjetas
    de la casa): posición fija anclada a su luz, y ninguna tarjeta, banda ni
    panel puede recortarla. Habla SIEMPRE con la letra de lectura de la casa —
@@ -128,8 +137,9 @@
 .save-seg strong .fund-light-wrap { vertical-align: -1px; }
 /* Oscar (2026-11-20): en estas tarjetas la luz respira más pequeña — 5px, un
    16% menos que los 6px de la casa — tanto el disco lleno como el aro. Solo
-   aquí: el resto de la casa conserva sus 6px de la orden del 2026-11-16. */
-.save-seg .fund-light { width: 5px; height: 5px; }
+   aquí: el resto de la casa conserva sus 6px de la orden del 2026-11-16.
+   1.3.408 (2026-11-22): su «un 8% más pequeña» también llega aquí — 4.6px. */
+.save-seg .fund-light { width: 4.6px; height: 4.6px; }
 
 /* La cabecera compuesta del libro: Lo guardado con sus partes nombradas.
    1.3.309 (pedido de Oscar, 2026-11-18, su foto): la caja se veía sin

@@ -616,7 +616,7 @@ html[data-theme="cyberpunk"] .bank-sign.is-on:not(.is-save) { background: #3a2c1
 .save-seg .num { font-family: var(--font-serif); font-size: 1.05rem; }
 .save-seg small { color: var(--muted); font-size: 0.72rem; justify-self: start; }
 .save-segs { display: grid; gap: 8px; }
-.save-seg { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 6px 4px 4px; border: 1.5px solid color-mix(in oklab, var(--seg, var(--accent)) 72%, var(--line)); border-radius: 14px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; user-select: none; transition: background-color .2s var(--ease), box-shadow .2s var(--ease), transform .18s var(--ease); }
+.save-seg { display: grid; align-content: start; gap: 5px; min-width: 0; padding: 6px 4px 4px; border: 1.5px solid color-mix(in oklab, var(--seg, var(--accent)) 72%, var(--line)); border-radius: 14px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; user-select: none; transition: background-color .2s var(--ease), box-shadow .2s var(--ease), transform .18s var(--ease); }
 .save-seg.is-on { background: color-mix(in oklab, var(--seg, var(--accent)) 42%, transparent); border-color: var(--seg, var(--accent)); box-shadow: 0 0 0 1px var(--seg, var(--accent)), 0 8px 22px -10px var(--seg, var(--accent)); }
 .save-seg.is-on strong { color: var(--seg, var(--accent)); }
 .save-seg:active { transform: scale(0.98); }
@@ -649,8 +649,10 @@ html .save-band.is-records .save-ledger.is-manage .save-ledger-head strong,
 .bank-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
 .bank-name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bank-sum { margin-left: auto; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
-.bank-pencil { width: 12px; height: 12px; margin-left: 0; padding: 0; border: 0; background: transparent; color: color-mix(in oklab, var(--fg) 36%, transparent); display: inline-grid; justify-items: start; align-items: end; flex: none; align-self: flex-end; transform: translateY(2px); }
-.bank-pencil svg { width: 8.5px; height: 8.5px; }
+/* 1.3.408 (Oscar, 2026-11-22): el lápiz un 6% más pequeño — 11.3px y su glifo
+   a 8px — aquí y donde sea que esté: esta es la única clase del lápiz. */
+.bank-pencil { width: 11.3px; height: 11.3px; margin-left: 0; padding: 0; border: 0; background: transparent; color: color-mix(in oklab, var(--fg) 36%, transparent); display: inline-grid; justify-items: start; align-items: end; flex: none; align-self: flex-end; transform: translateY(2px); }
+.bank-pencil svg { width: 8px; height: 8px; }
 .bank-rename { width: 7.4rem; min-height: 28px; padding: 0 6px; border-radius: 8px; border: 1px solid color-mix(in oklab, var(--fg) 14%, var(--line)); background: transparent; color: inherit; font: inherit; }
 .save-account .icon-btn { width: 32px; height: 32px; min-width: 32px; }
 .brand-paypal .brand-plate { fill: #003087; }
@@ -1193,6 +1195,8 @@ html[data-theme="piedra"] .save-band,
 html[data-theme="ion"] .save-band { background: linear-gradient(180deg, #f3f7f4 0%, var(--surface) 42%); box-shadow: inset 0 1px 0 #fff; }
 .save-head h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; }
 .save-head em { justify-self: start; text-align: left; font-size: 0.74rem; }
+/* 1.3.408 (Oscar, 2026-11-22): las letras de las píldoras se veían más
+   pequeñas de lo que debían — suben un poco (0.83 → 0.89rem), sin pasarse. */
 .save-seg strong { font-size: 0.83rem; }
 .save-seg b { background: color-mix(in oklab, var(--seg, var(--line)) 18%, var(--surface)); box-shadow: inset 0 -3px 0 var(--seg, var(--line)), inset 0 1px 0 rgb(255 255 255 / 45%); }
 
@@ -2312,8 +2316,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 .unfold-all:has(input:checked) span { color: var(--fg); }
 @media (prefers-reduced-motion: reduce) { .unfold-all input, .unfold-all input::after { transition: none; } }
 
-/* Polish 1.2.5 */
-.save-seg { padding: 6px 6px 10px; }
+/* Polish 1.2.5 — 1.3.408: un respiro más (7px/11px) para que las letras
+   crecidas de la píldora quepan sin apretar la información de abajo. */
+.save-seg { padding: 7px 6px 11px; }
 .save-seg > strong, .save-seg > .num, .save-seg > small { padding-inline: 6px; }
 .save-seg > .num { overflow: hidden; white-space: nowrap; }
 /* Nombre + luz, una sola unidad (ventanas, 2026-11-16): el nombre jamás suelta
@@ -2322,7 +2327,13 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
    antigua regla [data-long] solo actuaba en tarjetas de ≤90px y dejaba caer la
    luz precisamente en el ancho telefónico corriente. Tron conserva su propia
    regla (su cara corre más ancha y su techo es menor). */
-.save-seg > strong { white-space: nowrap; font-size: clamp(.62rem, 10.5cqi, .95rem); }
+.save-seg > strong { white-space: nowrap; font-size: clamp(.74rem, 13cqi, .98rem); }
+/* Corrección de asiento (1.3.408): al ancho telefónico corriente el suelo
+   .62rem ERA el tamaño — el nombre vivía en 9.9px y Oscar lo vio «más
+   pequeño» (2026-11-22). El suelo sube a .74rem y la tasa a 13cqi: el
+   nombre crece sin dejar de caber con su luz en una línea. Las reglas
+   .save-seg strong de arriba (:615/:1200) NO mandan sobre el hijo directo:
+   manda esta, y su gemela de contenedor estrecho va con el mismo suelo. */
 /* El porcentaje conserva su cajita, pero en miniatura (Oscar, 2026-11-16): la
    pastilla vieja era un widget rectangular con su fila entera para ella sola;
    la nueva abraza al número — tan pequeña como el número — y vive junto a la
@@ -2926,7 +2937,7 @@ html[data-theme="lino"] .cobros .cobro-group h3 b { border-color: color-mix(in o
 /* Savings segments: long names ("Emergencia") shrink to fit narrow segments at large text instead of being cut. */
 .save-seg { container-type: inline-size; }
 @container (max-width: 5.15rem) {
-  html:not([data-theme="tron"]) .save-seg > strong { padding-inline: 2px; font-size: .68rem; letter-spacing: -.01em; }
+  html:not([data-theme="tron"]) .save-seg > strong { padding-inline: 2px; font-size: .74rem; letter-spacing: -.01em; }
 }
 /* Cobros "Prestado en el tiempo": at large text it may use two balanced lines instead of an ellipsis. */
 @container (max-width: 18.5rem) {

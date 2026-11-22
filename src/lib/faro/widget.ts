@@ -460,8 +460,8 @@ export function widgetHide(pref: string | null, lockOn: boolean): boolean {
 export const WIDGET_LASTPUSH_KEY = "faro-widget-lastpush";
 
 export type WidgetPushBranch = "real" | "sample" | "out";
-export type WidgetPushWhy = "nopack" | "pack" | "error";
-export type WidgetPushRecord = { at: string; branch: WidgetPushBranch; sent: boolean; why?: WidgetPushWhy };
+export type WidgetPushWhy = "nopack" | "pack" | "error" | "shell";
+export type WidgetPushRecord = { at: string; branch: WidgetPushBranch; sent: boolean; why?: WidgetPushWhy; shell?: "ok" | "rejected" };
 
 /** Lee un parte guardado sin fiarse de su forma: cualquier cosa rara no es un parte. */
 export function parseWidgetPushRecord(raw: string | null): WidgetPushRecord | null {
@@ -471,7 +471,8 @@ export function parseWidgetPushRecord(raw: string | null): WidgetPushRecord | nu
     if (typeof r.at !== "string" || Number.isNaN(Date.parse(r.at))) return null;
     if (r.branch !== "real" && r.branch !== "sample" && r.branch !== "out") return null;
     if (typeof r.sent !== "boolean") return null;
-    if (r.why !== undefined && r.why !== "nopack" && r.why !== "pack" && r.why !== "error") return null;
-    return { at: r.at, branch: r.branch, sent: r.sent, ...(r.why ? { why: r.why } : {}) };
+    if (r.why !== undefined && r.why !== "nopack" && r.why !== "pack" && r.why !== "error" && r.why !== "shell") return null;
+    if (r.shell !== undefined && r.shell !== "ok" && r.shell !== "rejected") return null;
+    return { at: r.at, branch: r.branch, sent: r.sent, ...(r.why ? { why: r.why } : {}), ...(r.shell ? { shell: r.shell } : {}) };
   } catch { return null; }
 }
