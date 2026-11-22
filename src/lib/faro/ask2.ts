@@ -4439,7 +4439,7 @@ function answerSingle(
   // OLA 28 (Familia 2, E28-2): «What do you know how to do?» entra —
   // la forma inglesa plena de la capacidad no casaba con ninguna
   // alternativa de la puerta y la canónica moría en silencio.
-  if (/(que puedes hacer|que sabes hacer|para que sirves|que puede hacer|what can you do|what do you do|what do you know how to do)/.test(folded)) return capacidadesAnswer(c);
+  if (/(que puedes hacer|que sabes hacer|para que sirves|que puede hacer|what can you do|what can the advisor do|what do you do|what do you know how to do)/.test(folded)) return capacidadesAnswer(c);
   // 12 · FARO MISMO (dónde veo / cómo hago).
   // OLA 25 (Q25-1) — la puerta, re-cosida en la integración (1.3.383):
   // «¿cómo comparto…?», «¿cómo me llama Faro?» y «¿dónde cambio el
@@ -4516,7 +4516,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(por que (dices|dijiste|sale|es)|de donde (sale|viene) (ese|esa|el|la|este|esta)|como calculaste|why do you say|where does (that|the) (number|figure|total) come from)/, "porque"],
     [/(patrimonio|valor neto|net worth|puntaje de credito|score de credito|credit score)/, "falta"],
     [/(que no (puedes|puedo)|no (puedes|podrias) hacer|tus limites|limitaciones|what can'?t you)/, "limites"],
-    [/(que (puedes|puedo) hacer|que sabes hacer|para que sirves|what can you do|tus funciones|que funciones tienes)/, "capacidades"],
+    [/(que (puedes|puedo|puede) hacer|que sabes hacer|para que sirves|what can you do|what can the advisor do|tus funciones|que funciones tienes)/, "capacidades"],
     [/(que has aprendido|lo que has aprendido|tus patrones|aprendido de mi)/, "aprendizaje"],
     [/(si (dejo|dejara|dejas) de|si no (gastara|comprara|fuera|gastase)|dejara de gastar)/, "contrafactual"],
     [/(cuanto (me dura|dura) (mi|el|lo)|meses (puedo vivir|de respaldo)|sin trabajo|sin ingresos|me despiden|pierdo mi trabajo|fondo de emergencia|mi colchon)/, "respaldo"],

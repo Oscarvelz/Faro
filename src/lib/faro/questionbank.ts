@@ -41,8 +41,9 @@ export type BankFamily = {
   id: string;
   name: { es: string; en: string };
   /** La capacidad en una frase de prosa, para la descripción honesta de
-   * «¿Qué puedes hacer?» (1.3.371): se lee dentro de una enumeración
-   * («Puedo decirte: …»), en minúscula y sin punto final. */
+   * «¿Qué puede hacer el asesor?» (1.3.371; renombrada en 1.3.405): se lee
+   * dentro de una enumeración («Puedo decirte: …»), en minúscula y sin
+   * punto final. */
   cap: { es: string; en: string };
   status: BankStatus;
   /** Ids de askmap.ts: de dónde sale cada número y dónde se reporta. */
@@ -560,8 +561,8 @@ export const QUESTION_BANK: BankFamily[] = [
     source: ["asesor.lectura"],
     axes: ["el banco entero, leído como lista"],
     canonical: {
-      es: ["¿Qué puedes hacer?", "¿Qué sabes hacer?", "¿Para qué sirves?"],
-      en: ["What can you do?", "What do you know how to do?"],
+      es: ["¿Qué puede hacer el asesor?", "¿Qué puedes hacer?", "¿Qué sabes hacer?", "¿Para qué sirves?"],
+      en: ["What can the Advisor do?", "What can you do?", "What do you know how to do?"],
     },
     answerShape: "La lista GENERADA de las familias vivas del propio banco (nombre por familia): la descripción no puede prometer lo que el banco no tiene, porque sale del banco.",
     contradiction: "Si una familia deja de ser viva, desaparece de esta lista en la misma corrida — la lista nunca miente por vieja.",

@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.405",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Me deben, con el acabado de su lugar", en: "Owed to me, finished like its place" },
+    points: {
+      es: [
+        "La tarjeta de cada persona en Me deben respira: tiene aire a los dos lados y una superficie propia con el color de su lugar — ya no queda cortada contra el borde de su grupo, y en Cyberpunk ya no se pinta del panel café de ese tema.",
+        "La pregunta fija del Asesor se llama ahora «¿Qué puede hacer el asesor?», sin ambigüedad — en la ficha de Preguntas a la mano y cuando la escribes tú mismo.",
+      ],
+      en: [
+        "Each person's card in Owed to me breathes: it has air on both sides and a surface of its own in its place's color — it no longer sits cut against its group's edge, and in Cyberpunk it no longer wears that theme's brown panel.",
+        "The Advisor's fixed question is now “What can the Advisor do?”, with no ambiguity — on the At-hand questions chip and when you type it yourself.",
+      ],
+    },
+  },
+  {
     version: "1.3.404",
     date: "2026-11-22",
     level: "menor",

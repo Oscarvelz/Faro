@@ -9,6 +9,12 @@
  * y conserva el orden, mover/quitar obedecen, la puerta de carga juzga
  * la forma, y la respuesta a «¿Qué puedes hacer?» se genera SOLO de
  * familias que el motor responde (vivas y heredadas — jamás declaradas).
+ *
+ * ENMIENDA 1.3.405 (Oscar, 2026-11-22): la pregunta fija se renombra a
+ * «¿Qué puede hacer el asesor?» / “What can the Advisor do?” — la forma
+ * vieja era ambigua. La cerca 369-1 clava la forma NUEVA; el reconocimiento
+ * de la escrita a mano sigue oyendo las dos (ask2), y la canónica del
+ * banco lleva la nueva primero.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -29,8 +35,8 @@ function book(presets?: unknown): LedgerState {
 
 test("369-1 el asiento: administrar es de Ritmo; la fija existe en las dos lenguas", () => {
   assert.equal(FEATURES["settings.ask-presets"], "ritmo");
-  assert.equal(FIXED_PRESET_Q.es, "¿Qué puedes hacer?");
-  assert.equal(FIXED_PRESET_Q.en, "What can you do?");
+  assert.equal(FIXED_PRESET_Q.es, "¿Qué puede hacer el asesor?");
+  assert.equal(FIXED_PRESET_Q.en, "What can the Advisor do?");
 });
 
 test("369-2 la fila «A la mano» vive siempre: no cuelga del resultado", () => {

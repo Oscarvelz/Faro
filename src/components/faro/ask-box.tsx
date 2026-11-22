@@ -40,8 +40,8 @@
  *
  * 1.3.369 (PREGUNTAS PREDETERMINADAS — el conflicto de Oscar): la fila
  * «A la mano» vive SIEMPRE en la caja, también tras una respuesta — la
- * fija del sistema («¿Qué puedes hacer?», cuya respuesta se genera del
- * banco en el momento) y las preguntas que la persona guardó, EN SU
+ * fija del sistema («¿Qué puede hacer el asesor?», cuya respuesta se
+ * genera del banco en el momento) y las preguntas que la persona guardó, EN SU
  * ORDEN. El engranaje de la cabecera (con su asiento, Ritmo) lleva al
  * pliegue de Ajustes donde la lista se administra.
  *
@@ -285,7 +285,7 @@ export function AskBox() {
     setText("");
   }
 
-  // La fija del sistema: «¿Qué puedes hacer?» — su respuesta no pasa por
+  // La fija del sistema: «¿Qué puede hacer el asesor?» — su respuesta no pasa por
   // el motor de preguntas: es la descripción honesta generada del banco
   // en el momento (askpresets.capabilitiesText), rendida como tarjeta de
   // prosa. Corrección de Oscar (2026-11-21 18:46): nada de un folio de

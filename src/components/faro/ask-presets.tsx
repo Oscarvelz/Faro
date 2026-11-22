@@ -9,8 +9,9 @@
  *   · EL CATÁLOGO: las preguntas canónicas del banco, por familia —
  *     solo de familias que el motor responde hoy (vivas y heredadas).
  *   · LA TUYA: una pregunta escrita por ti, tal como la escribas.
- * La fija del sistema («¿Qué puedes hacer?») no se administra: siempre
- * estará primera en la caja, y el pliegue lo dice.
+ * La fija del sistema («¿Qué puede hacer el asesor?», renombrada en
+ * 1.3.405) no se administra: siempre estará primera en la caja, y el
+ * pliegue lo dice.
  */
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Plus, X } from "lucide-react";

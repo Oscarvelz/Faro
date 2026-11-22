@@ -28,10 +28,12 @@ import { QUESTION_BANK } from "./questionbank";
 import type { AskPreset, Lang, LedgerState } from "./types";
 import { uid } from "./money";
 
-/** La pregunta fija del sistema, en la lengua de la persona. */
+/** La pregunta fija del sistema, en la lengua de la persona.
+ *  1.3.405 (Oscar, 2026-11-22): se nombra al Asesor — «¿Qué puedes hacer?»
+ *  era ambiguo (¿a quién se le pregunta?); la forma nueva no admite duda. */
 export const FIXED_PRESET_Q: Record<Lang, string> = {
-  es: "¿Qué puedes hacer?",
-  en: "What can you do?",
+  es: "¿Qué puede hacer el asesor?",
+  en: "What can the Advisor do?",
 };
 
 /** Las predeterminadas del libro, leídas con desconfianza: solo entran

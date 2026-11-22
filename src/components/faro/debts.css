@@ -310,6 +310,16 @@ html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [da
 /* Night themes: charcoal panels (never black, never brown). */
 html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
 html:is([data-theme="ion"], [data-theme="ion-noche"], [data-theme="oscuro"], [data-theme="oled"], [data-theme="tinta"], [data-theme="humo"], [data-theme="bosque"], [data-theme="oceano"], [data-theme="naturaleza"], [data-theme="sunset"], [data-theme="cyberpunk"]) .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) { background: color-mix(in oklab, var(--accent) 5%, var(--surface)); }
+/* 1.3.405: la misma cura dentro de los grupos del libro — la tarjeta de la
+   persona lleva superficie propia con el acento del libro y queda fuera del
+   chaflán de Cyberpunk, por la misma razón que en Cobros. */
+.debt-book .cobro-swap .cobro-group > .cobro-card {
+  padding: 12px; border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--accent) 20%, var(--line));
+  background: color-mix(in oklab, var(--accent) 4%, var(--surface-2));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+  clip-path: none; filter: none;
+}
 /* Tron: dark graphite panel, the scale's hairline, a teal (or amber) firefly. */
 [data-theme="tron"] .debt-book .cobro-swap :is(.cobro-group, .cobro-group.is-rate),
 [data-theme="tron"] .debt-book .debt-loans .cobro-swap > .cobro-card:not(.is-file) {
@@ -523,11 +533,24 @@ html body .cobros .cobro-swap .cobro-file::before { background: linear-gradient(
 html body .cobros .cobro-swap > .span-cut { margin-top: 0; }
 html body .cobros .cobro-swap > .span-cut > .span-fold-bar { min-height: 58px; padding: 8px 8px 8px 14px; gap: 6px; }
 html body .cobros .cobro-swap > .span-cut.is-open > .span-fold-bar { padding-left: 8px; }
-html body .cobros .cobro-swap .cobro-group { gap: 4px; padding: 8px 8px 10px 14px; align-content: start; }
-html body .cobros .cobro-swap .cobro-group > h3 { min-height: 40px; gap: 8px; }
+html body .cobros .cobro-swap .cobro-group { gap: 8px; padding: 8px 10px 10px; align-content: start; }
+html body .cobros .cobro-swap .cobro-group > h3 { min-height: 40px; gap: 8px; padding-left: 4px; }
 html body .cobros .cobro-swap .cobro-file { gap: 4px; padding: 8px; }
 html body .cobros .cobro-swap .cobro-file-head { min-height: 40px; padding: 0 0 0 6px; gap: 8px; }
-html body .cobros .cobro-swap .cobro-group > .cobro-card { padding-left: 0; padding-right: 6px; }
+/* 1.3.405 (Oscar, 2026-11-22, dos fotos): la tarjeta de la persona dentro del
+   grupo respira y viste el lugar — superficie propia con el tono del lado,
+   aire simétrico a los dos lados y borde propio, como en el widget de
+   Me deben. En Cyberpunk queda fuera del panel de chaflán: la regla de ese
+   tema declara que solo entran superficies cuyo relleno supera el corte de
+   12px, y esta tarjeta vive dentro de otra — el chaflán la cortaba a la
+   izquierda y su panel café no era el color del lugar. */
+html body .cobros .cobro-swap .cobro-group > .cobro-card {
+  padding: 12px; border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--tone) 22%, var(--line));
+  background: color-mix(in oklab, var(--tone) 5%, var(--surface-2));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+  clip-path: none; filter: none;
+}
 
 /* labels: one style for the three heads */
 html body .cobros .cobro-swap :is(.span-fold-main > span, .cobro-group > h3 > span, .cobro-file-head > .lab-head) {
