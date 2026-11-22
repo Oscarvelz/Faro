@@ -858,6 +858,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "widget-android": { f: "settings.widget-card", m: "esencial" },
     "avisos-app": { f: null, m: "esencial" },
     "bateria-app": { f: null, m: "esencial" },
+    "billetera-notificaciones": { f: "capture.notices", m: "esencial" }, // 1.3.388 — Ola 8: el tema nace con su asiento (escuchar es capturar, Esencial; elegir apps y administrar formas es capture.notices-admin, Ritmo)
     "cerrar-sesion": { f: null, m: "esencial" },
     "sin-red": { f: null, m: "esencial" },
     "actualizacion": { f: null, m: "esencial" },
@@ -866,7 +867,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 369); // 1.3.369 — nace «preguntas-a-la-mano»; 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
+    assert.equal(MANUAL_TOPICS.length, 370); // 1.3.388 — nace «billetera-notificaciones» (Ola 8); 369 en las preguntas a la mano (1.3.369); 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {

@@ -174,6 +174,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["capture.text", E], // 1.3.340 — Ola 2: el asiento de la puerta de texto, declarado antes que la superficie
   ["capture.list", E], // 1.3.342 — Ola 3: el asiento de la lista en bache, declarado antes que la superficie
   ["capture.plan", R], // 1.3.357 — la lista-plan (D6): planear es administrar; la cara entera en Ritmo, declarado antes que la superficie
+  ["capture.notices", E], ["capture.notices-admin", R], // 1.3.388 — Ola 8: escuchar es capturar (Esencial); elegir apps y administrar las formas silenciadas es administrar (Ritmo)
   ["settings.guest-currency", E], // 1.3.344 — Ola 4: el asiento de la invitada, declarado antes que la superficie
   ["settings.news", E], // 1.3.346 — Novedades: leer lo nuevo es de todos
   ["settings.about", E], // 1.3.346 — Acerca de: qué es Faro, de todos

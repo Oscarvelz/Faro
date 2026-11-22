@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.388",
+    date: "2026-11-22",
+    level: "menor",
+    topic: "billetera-notificaciones",
+    title: { es: "La billetera por notificaciones", en: "The wallet by notifications" },
+    points: {
+      es: [
+        "Solo en la app de Android: si lo activas en Ajustes, Faro escucha los avisos de pago de Samsung Wallet y Google Wallet.",
+        "Cada aviso con forma de movimiento se vuelve un borrador en la bandeja, con su origen dicho: nada se anota sin tu mesa.",
+        "Los códigos de verificación se ignoran por construcción — no se leen, no se guardan, no llegan a la bandeja.",
+      ],
+      en: [
+        "Android app only: if you turn it on in Settings, Faro listens to Samsung Wallet and Google Wallet payment notices.",
+        "Every notice with a movement's shape becomes a draft in the tray, with its origin stated: nothing is noted without your table.",
+        "Verification codes are ignored by construction — never read, never kept, never reaching the tray.",
+      ],
+    },
+  },
+  {
     version: "1.3.387",
     date: "2026-11-22",
     level: "menor",

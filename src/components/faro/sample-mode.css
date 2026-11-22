@@ -78,3 +78,12 @@
 .notify-kinds .aj-sub { white-space: normal; }
 .notify-kind-row[aria-disabled="true"] { opacity: .45; }
 @media (prefers-reduced-motion: reduce) { .notify-chev svg { transition: none; } }
+
+/* Ola 8 (1.3.388): la hoja de la billetera por notificaciones en Ajustes. */
+.aj-body { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 8px; }
+.aj-note { color: var(--muted); font-size: .86rem; line-height: 1.45; margin: 0; }
+.aj-row-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.aj-check { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: .92rem; }
+.aj-title-line { font-weight: 600; }
+[data-anchor="aj-notices"] .manual-row > svg { transition: transform .18s ease; }
+[data-anchor="aj-notices"] .manual-row > svg.is-open { transform: rotate(180deg); }

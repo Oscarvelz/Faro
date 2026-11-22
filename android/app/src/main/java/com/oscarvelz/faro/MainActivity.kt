@@ -494,6 +494,35 @@ class MainActivity : Activity() {
             }
         }
 
+        // Ola 8 (1.3.388): la billetera por notificaciones. noticesState lee el permiso de
+        // escucha del sistema (jamás se supone); requestNotices abre la pantalla del sistema
+        // que lo concede; listenApps guarda la elección de la página (interruptor + apps) que
+        // el oyente obedece; peek/ack son la entrega en dos fases de la cola de avisos.
+        @JavascriptInterface fun noticesState(): String {
+            if (!trusted) return "denied"
+            return if (FaroNotices.granted(this@MainActivity)) "granted" else "denied"
+        }
+
+        @JavascriptInterface fun requestNotices() {
+            if (!trusted) return
+            runOnUiThread { FaroNotices.openSettings(this@MainActivity) }
+        }
+
+        @JavascriptInterface fun listenApps(json: String) {
+            if (!trusted) return
+            FaroNotices.setChoice(this@MainActivity, json)
+        }
+
+        @JavascriptInterface fun peekNotices(): String {
+            if (!trusted) return ""
+            return FaroNotices.peek(this@MainActivity)
+        }
+
+        @JavascriptInterface fun ackNotices(idsJson: String) {
+            if (!trusted) return
+            FaroNotices.ack(this@MainActivity, idsJson)
+        }
+
         // 1.3.150: the Ajustes → battery card. battExempt reads the phone's real battery-optimisation state;
         // battAsk walks three doors in order — the direct exemption dialog, the battery-optimisation list,
         // the app's own system page. The bridge runs on a binder thread: the intents launch on the UI thread

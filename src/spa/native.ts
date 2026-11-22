@@ -50,6 +50,16 @@ export type FaroNativeBridge = {
    *  a takeQuickEntries, como en 1.3.233. */
   peekQuickEntries?(): string;
   ackQuickEntries?(idsJson: string): void;
+  /** Ola 8 (1.3.388): la billetera por notificaciones — el estado real del permiso de escucha
+   *  (del sistema: "granted" | "denied"), la puerta a la pantalla del sistema que lo concede,
+   *  la elección de la página (interruptor + apps, JSON {on, apps}) que la cáscara obedece, y
+   *  la cola de avisos con la entrega en dos fases de la casa. Ausentes en cáscaras anteriores:
+   *  la hoja de Ajustes lo declara y no promete nada. */
+  noticesState?(): string;
+  requestNotices?(): void;
+  listenApps?(json: string): void;
+  peekNotices?(): string;
+  ackNotices?(idsJson: string): void;
   /** 1.3.148: the Ajustes → Avisos row — the phone's real notification-permission state, and re-asking for it. */
   notifyState?(): string;
   requestNotify?(): void;

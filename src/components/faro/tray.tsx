@@ -151,6 +151,9 @@ function TraySheet({ onClose, onReview }: { onClose: () => void; onReview: () =>
                   <span className="tray-main">
                     <strong>{d.concept || L(lang, "(sin concepto)", "(no concept)")}</strong>
                     <span className="tray-meta">{d.day}</span>
+                    {d.source === "notice" && d.fromApp ? (
+                      <span className="tray-meta">{L(lang, `De la notificación de ${d.fromApp} · ${d.createdAt.slice(11, 16)}`, `From ${d.fromApp}'s notification · ${d.createdAt.slice(11, 16)}`)}</span>
+                    ) : null}
                   </span>
                   {d.amountMinor != null && d.currency
                     ? <span className="tray-amt num">{fmtAmt(d.amountMinor, d.currency)}</span>

@@ -548,6 +548,13 @@ export const FEATURES = {
    * segmento: la puerta Lista es la de siempre, sin cadáver. El asiento
    * se declara antes que la superficie, como manda la casa. */
   "capture.plan": R,
+  /* §1.27e Captura inteligente, Ola 8 (la billetera por notificaciones;
+   * diseño DISENO-OLA-8-BILLETERA): escuchar y recibir sus borradores
+   * es capturar — Esencial, como toda la familia; elegir qué apps se
+   * escuchan y administrar las formas silenciadas es administrar —
+   * Ritmo. Solo Android, por construcción: iOS no deja a ninguna app
+   * leer los avisos de otras. */
+  "capture.notices": E, "capture.notices-admin": R,
   /* §1.22 Bandeja de documentos compartidos — enrutado por modo */
   "inbox.bank": C, "inbox.vcf": R, "inbox.image-card": C, "inbox.image-receipt": E, "inbox.link": E,
   /* §1.23 Exportar informes (fallo D-bis 17: panel recompuesto desde Ritmo) */

@@ -8,6 +8,7 @@ import { ActivityLog, Note } from "./finish";
 import { SampleRow } from "./sample-mode";
 import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
+import { NoticesFold } from "./notices-fold";
 import { DueAlertsRow } from "./due-alerts-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, FILTER_CLEAR, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, filterToast, hasRewards, modeSign, modeWhisper } from "./bank-dock";
@@ -6518,6 +6519,7 @@ export function Settings() {
       <Cluster title={lang === "en" ? "The phone" : "El teléfono"} hint={lang === "en" ? "Faro also lives outside the app" : "Faro también vive fuera de la app"}>
       <WidgetCard open={openFold === "widget"} onToggle={() => toggle("widget")} />
       <NotifyRow />
+      <NoticesFold />
       <DueAlertsRow />
       <BatteryRow />
       {androidBrowser() ? (

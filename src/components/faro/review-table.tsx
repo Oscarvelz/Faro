@@ -23,10 +23,11 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ClipboardList, Trash2, X } from "lucide-react";
+import { ClipboardList, Trash2, X, BellOff } from "lucide-react";
 import { splitTarget, targets } from "@/lib/faro/bankbook";
 import { freqPresetsOf } from "@/lib/faro/cadence";
 import { applyTableEdits, changedDrafts, commitDrafts, draftToLine, draftTotals, dropDraft, fallenDrafts, learnFromSaved, patchDraft, rebornDrafts, validateDraft } from "@/lib/faro/drafts";
+import { learnNoticeRule } from "@/lib/faro/notices";
 import { parseAmount } from "@/lib/faro/money";
 import type { Draft, Line } from "@/lib/faro/types";
 import { useLayer } from "@/lib/manual/back";
@@ -294,6 +295,11 @@ export function ReviewTable({ onClose }: { onClose: () => void }) {
                   <button type="button" role="switch" className="scn-switch" aria-checked={!!checked[d.id]} aria-label={L(lang, "Incluir", "Include")} onClick={() => setChecked((c) => ({ ...c, [d.id]: !c[d.id] }))}><i /></button>
                   <input className={`field rev-concept${un("concept")}${missing.includes("concept") ? " is-missing-f" : ""}`} value={d.concept} placeholder={L(lang, "Concepto", "Concept")} aria-label={L(lang, "Concepto", "Concept")} onChange={(e) => patch(d.id, { concept: e.target.value })} />
                   <button type="button" className="scn-del" aria-label={L(lang, "Descartar", "Discard")} onClick={() => setGone((g) => new Set(g).add(d.id))}><Trash2 /></button>
+                  {d.source === "notice" ? (
+                    <button type="button" className="scn-del" data-anchor="rev-notmovement" aria-label={L(lang, "Esto no es un movimiento", "This is not a movement")} title={L(lang, "Esto no es un movimiento: esta forma deja de producir borradores", "This is not a movement: this shape stops producing drafts")} onClick={() => {
+                      commitGuarded((s) => dropDraft(learnNoticeRule(s, { id: d.id, pkg: d.fromPkg ?? "", title: "", text: d.raw, at: d.createdAt }, new Date().toISOString()), d.id), () => L(lang, "No es un movimiento", "Not a movement"));
+                    }}><BellOff /></button>
+                  ) : null}
                 </div>
                 <div className="rev-r2">
                   <span className={`scn-amt${un("amount")}${missing.includes("amount") ? " is-missing-f" : ""}`}>

@@ -285,10 +285,14 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA PREGUNTAS A LA MANO (1.3.369): nace preguntas-a-la-mano
     // en Ritmo (su función es settings.ask-presets): ritmo +1 y el
     // total +1 — acumulados 131 · 238 · 369.
-    assert.equal(count("esencial"), 131);
-    assert.equal(count("ritmo"), 238);
-    assert.equal(count("completo"), 369);
-    assert.equal(MANUAL_TOPICS.length, 369);
+    // ENMIENDA OLA 8 (1.3.388): nace billetera-notificaciones en
+    // Esencial (su función es capture.notices — escuchar es capturar):
+    // esencial +1, ritmo +1 por alcance y el total +1 — acumulados
+    // 132 · 239 · 370.
+    assert.equal(count("esencial"), 132);
+    assert.equal(count("ritmo"), 239);
+    assert.equal(count("completo"), 370);
+    assert.equal(MANUAL_TOPICS.length, 370);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

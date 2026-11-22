@@ -379,6 +379,22 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     keys: ["importar", "banco", "excel", "import", "bank file"],
   },
   {
+    // Ola 8 (1.3.388): la billetera por notificaciones nace con su
+    // entrada en el índice (L-B7), su tema («billetera-notificaciones»)
+    // y sus asientos (capture.notices Esencial, capture.notices-admin
+    // Ritmo). Solo Android, por construcción.
+    id: "captura.billetera",
+    minMode: "esencial",
+    area: { es: "Captura", en: "Capture" },
+    name: { es: "La billetera por notificaciones", en: "The wallet by notifications" },
+    does: { es: "Escucha los avisos de pago de Samsung Wallet y Google Wallet y redacta borradores en la bandeja. Solo Android.", en: "Listens to Samsung Wallet and Google Wallet payment notices and drafts entries in the tray. Android only." },
+    screen: { es: "Ajustes → Billetera por notificaciones", en: "Settings → Wallet by notifications" },
+    engine: "notices.ts · interpretNotice (la cáscara escucha; la página interpreta; solo la mesa escribe)",
+    figures: ["borradores de avisos", "formas silenciadas"],
+    counts: "Los códigos de verificación se ignoran por construcción, antes de todo patrón. Sin forma de movimiento no hay borrador. El aviso crudo muere con el borrador: el libro guarda la línea, nunca la notificación.",
+    keys: ["billetera", "notificaciones", "samsung wallet", "google wallet", "wallet", "avisos de pago", "escuchar"],
+  },
+  {
     id: "cambio.mesa",
     area: { es: "Mesa de cambio", en: "Exchange desk" },
     name: { es: "Mesa de cambio: tasa, conversión y moneda invitada", en: "Exchange desk: rate, converter, guest currency" },
@@ -582,6 +598,7 @@ export const FUNCTION_TOPIC: Record<string, string> = {
   "advisor.price-watch": "cambios-precio",
   "folios.logbook": "bitacora",
   "settings.ask-presets": "preguntas-a-la-mano",
+  "captura.billetera": "billetera-notificaciones",
 };
 
 /** Busca la función del mapa que un usuario nombra al preguntar por la

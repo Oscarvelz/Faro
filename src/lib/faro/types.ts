@@ -454,6 +454,13 @@ export type Settings = {
    * pierde ningún tipo el día que nacen. El maestro (notify) manda sobre
    * todos: apagado él, ningún tipo llega. */
   notifyKinds?: { dues?: boolean; pace?: boolean; close?: boolean };
+  /** Ola 8 (1.3.388): la escucha de la billetera por notificaciones —
+   * su interruptor (ausente = apagada: escuchar es una elección, nunca
+   * un defecto) y las apps elegidas por paquete (ausente = ninguna
+   * elegida todavía). La cáscara lee ambas por el puente; el permiso es
+   * del sistema y se lee de él, jamás se guarda aquí. */
+  noticesListen?: boolean;
+  noticesApps?: string[];
   /** Ola 6 (1.3.356): los avisos DENTRO de la app de los pagos que se
    * acercan (Central los muestra con su puerta). Missing = on, como
    * notify: un libro que ya existe no pierde el aviso el día que nace. */
@@ -531,6 +538,15 @@ export type Draft = {
   /** El libro destino (casa en Line.kind). El adaptador del escaneo lo fija
    *  con su enrutado de siempre; sin fijar, la conversión cae a expense-variable. */
   book: LineKind;
+  /** La app que puso la notificación (solo source "notice", Ola 8): su
+   *  nombre legible — «Samsung Wallet» — para que la bandeja y la mesa
+   *  digan el origen. La notificación cruda vive en `raw` y muere con el
+   *  borrador al guardar o descartar: el libro guarda la línea, nunca la
+   *  notificación. */
+  fromApp?: string;
+  /** El paquete de esa app (solo source "notice"): la llave con la que
+   *  la mesa enseña «esto no es un movimiento» para esa forma. */
+  fromPkg?: string;
   cat?: string; sub?: string;     // la casa sugerida (ids de Estructura)
   store?: string;                 // la pieza del catálogo, si aplica (casa en Line.storeId)
   cadence?: string;               // solo borradores de suscripción (del escaneo)
@@ -673,6 +689,17 @@ export type AskPreset = {
   text: string;
 };
 
+/** Una forma silenciada de la billetera por notificaciones (Ola 8):
+ * la llave es app + forma del texto con las cifras plegadas, para que
+ * el mismo aviso con otro monto también calle; la etiqueta es lo que
+ * Ajustes muestra (la app y el principio del aviso, legible). */
+export type NoticeRule = {
+  key: string;
+  app: string;
+  label: string;
+  at: string;
+};
+
 export type LedgerState = {
   v: 1;
   structure: Structure;
@@ -709,6 +736,13 @@ export type LedgerState = {
    * persona, en SU orden, fuera de months — ningún total la lee. Ausente
    * en libros viejos = ninguna guardada. Viaja con el libro (D1). */
   askPresets?: AskPreset[];
+  /** Las formas que la mesa enseñó que NO son un movimiento (Ola 8,
+   * 1.3.388): «esto no es un movimiento» sobre un borrador de aviso
+   * guarda la forma (app + texto con las cifras plegadas) y esa forma
+   * deja de producir borradores. Viven en el libro, se administran en
+   * Ajustes (Ritmo) y se borran una a una. Fuera de months: ningún
+   * total las lee. */
+  noticeRules?: NoticeRule[];
   /** Los patrones aprendidos del Asesor (Ola 11 del banco, integrados
    * en 1.3.383): las palabras del usuario para sus cosas, confirmadas
    * por su toque o su corrección — palabra → ciudadano, jamás una

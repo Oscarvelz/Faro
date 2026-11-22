@@ -38,6 +38,9 @@ import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, parseWidgetPushRecord, widgetHide, WIDGET_HIDE_KEY, WIDGET_LASTPUSH_KEY, type WidgetGo, type WidgetPushRecord } from "@/lib/faro/widget";
 import { hasStorePin, hasWidgetPin, ingestQuick, parseQuickEntries, pinGroups, searchPinCandidates, toggleStorePin, toggleWidgetPin, type PinCandidate, type QuickEntry } from "@/lib/faro/quickadd";
+import { interpretNotice, parseNotices } from "@/lib/faro/notices";
+import { addDrafts } from "@/lib/faro/drafts";
+import { uid } from "@/lib/faro/money";
 import { BrandMark, Glyph } from "./icons";
 import type { GoLike } from "@/lib/manual/places";
 import { selectAllOnFocus, useIdleClear } from "./search-behavior";
@@ -130,6 +133,10 @@ function pressCorner(anchor: "desk-plus" | "desk-minus") {
 export default function WidgetHost() {
   const { session, lang, goTopic, commit, userId } = useFaroRoot();
   const { has } = useFaro();
+  // Ola 8: el drenaje de avisos interpreta contra el libro VIVO en el
+  // momento de recoger, no contra la foto del montaje del efecto.
+  const sessionLive = useRef(session);
+  sessionLive.current = session;
   const ledger = session?.ledger ?? null;
   const live = useRef({ ledger, lang });
   live.current = { ledger, lang };
@@ -268,6 +275,51 @@ export default function WidgetHost() {
     window.addEventListener("faronative-open", drain);
     // 1.3.234: el shell avisa al volver a la app (onResume) — la recogida ya no depende solo
     // de que el WebView surfacee foco/visibilidad al resumir una página que nunca se recargó.
+    window.addEventListener("faronative-resume", drain);
+    window.addEventListener("focus", drain);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("faronative-open", drain);
+      window.removeEventListener("faronative-resume", drain);
+      window.removeEventListener("focus", drain);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [hasSession, commit, lang]);
+
+  // La billetera por notificaciones (Ola 8, 1.3.388): la cáscara guarda los avisos de las
+  // apps elegidas en su cola y aquí se recogen por el camino de la familia — el intérprete
+  // (lib/faro/notices) descarta los códigos antes de todo patrón, calla las formas que la
+  // mesa enseñó y redacta UN borrador por aviso con forma de movimiento. Nada toca el libro
+  // salvo la bandeja. La entrega es en dos fases, como los apuntes: se confirma (ack) todo
+  // lo procesado — archivado o descartado por el intérprete — y lo mal formado nunca se
+  // confirma. En modo de ejemplo no se recoge: la cola espera al libro real.
+  useEffect(() => {
+    const n = native();
+    if (!n?.peekNotices || !n?.ackNotices || !hasSession) return;
+    const drain = () => {
+      if (sealedOn()) return;
+      try {
+        if (!n.peekNotices || !n.ackNotices) return;
+        const items = parseNotices(n.peekNotices() ?? "");
+        if (!items.length) return;
+        const live = sessionLive.current;
+        const drafts = items
+          .map((item) => live ? interpretNotice(item, {
+            ledger: live.ledger,
+            lang,
+            today: todayIso(),
+            display: live.ledger.settings.display ?? "USD",
+            makeId: uid,
+            now: new Date().toISOString(),
+          }) : null)
+          .filter((d): d is NonNullable<typeof d> => d !== null);
+        if (drafts.length) commit((s) => addDrafts(s, drafts), lang === "en" ? "Wallet notice" : "Aviso de billetera");
+        n.ackNotices(JSON.stringify(items.map((i) => i.id)));
+      } catch { /* la cola espera a la próxima recogida */ }
+    };
+    drain();
+    const onVis = () => { if (document.visibilityState === "visible") drain(); };
+    window.addEventListener("faronative-open", drain);
     window.addEventListener("faronative-resume", drain);
     window.addEventListener("focus", drain);
     document.addEventListener("visibilitychange", onVis);

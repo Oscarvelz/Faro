@@ -184,9 +184,13 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // en Ritmo (su función es settings.ask-presets — administrar la
     // lista; usar las preguntas es de Esencial, advisor.ask). La
     // distribución se mueve a 131 · 107 · 131 sobre 369.
+    // ENMIENDA OLA 8 (1.3.388): nace billetera-notificaciones en
+    // Esencial (modo declarado en el tema; su función es
+    // capture.notices — escuchar es capturar). La distribución se
+    // mueve a 132 · 107 · 131 sobre 370.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 369);
-    assert.equal(count("esencial"), 131);
+    assert.equal(MANUAL_TOPICS.length, 370);
+    assert.equal(count("esencial"), 132);
     assert.equal(count("ritmo"), 107);
     assert.equal(count("completo"), 131);
   });

@@ -1101,5 +1101,16 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (p.uses !== undefined && typeof p.uses !== "number") return false;
     }
   }
+  // noticeRules (las formas silenciadas de la billetera, Ola 8): si
+  // está, es una lista de reglas con su llave, su app y su etiqueta —
+  // la forma se juzga entera y el lector (noticeRulesOf) además filtra
+  // con desconfianza.
+  if (s.noticeRules !== undefined) {
+    if (!Array.isArray(s.noticeRules)) return false;
+    for (const r of s.noticeRules as unknown[]) {
+      if (!isObjD(r)) return false;
+      if (!isStrD(r.key) || !isStrD(r.app) || !isStrD(r.label) || !isStrD(r.at)) return false;
+    }
+  }
   return true;
 }

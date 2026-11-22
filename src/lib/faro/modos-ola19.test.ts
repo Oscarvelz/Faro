@@ -506,6 +506,9 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
    * (cabeza patchDraft) murió con el bucle en línea que la enfermedad
    * G22-2 habitaba. */
   "components/faro/review-table.tsx|commitGuarded|applyTableEdits|dropDraft+commitDrafts+upsertLine+learnFromSaved": ["guardada", 1],
+  // 1.3.388 (Ola 8): «esto no es un movimiento» — la mesa enseña la
+  // forma y descarta el borrador en el mismo acto guardado.
+  "components/faro/review-table.tsx|commitGuarded|dropDraft|dropDraft+learnNoticeRule": ["guardada", 1],
   "components/faro/sample-mode.tsx|commit|stripSample|stripSample": ["aterrizaje", 1],
   "components/faro/screens.tsx|commitAnnounced|modeOf|—": ["anunciada", 1],
   "components/faro/screens.tsx|commitGuarded|declareSeries|declareSeries": ["guardada", 6],
@@ -592,6 +595,15 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // línea (la cabeza derivada es Number, la conversión del paso elegido).
   "components/faro/screens.tsx|commit|Number|—": ["aterrizaje", 1],
   "components/faro/widget-host.tsx|commit|ingestQuick|ingestQuick+upsertLine": ["aterrizaje", 1],
+  // 1.3.388 (Ola 8): el drenaje de avisos aterriza sus borradores por
+  // la misma puerta ordinaria que toda la captura — addDrafts jamás
+  // se niega: la bandeja recibe, la mesa decide.
+  "components/faro/widget-host.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
+  // 1.3.388 (Ola 8): la hoja de la billetera — sus tres recetas en
+  // línea son ajustes que aterrizan (interruptor, apps, y el apagado
+  // confirmado), y olvidar una forma silenciada aterriza por su ayuda.
+  "components/faro/notices-fold.tsx|commit|inline|—": ["aterrizaje", 3],
+  "components/faro/notices-fold.tsx|commit|forgetNoticeRule|forgetNoticeRule": ["aterrizaje", 1],
   "components/faro/widget-host.tsx|commit|toggleStorePin|—": ["aterrizaje", 2],
   "components/faro/widget-host.tsx|commit|toggleWidgetPin|—": ["aterrizaje", 2],
 };
