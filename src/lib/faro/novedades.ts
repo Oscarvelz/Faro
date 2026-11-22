@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.387",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Tus vencimientos, a tu calendario", en: "Your dues, to your calendar" },
+    points: {
+      es: [
+        "En Exportar, «Al calendario» saca los vencimientos del mes que estás viendo en un archivo estándar para el calendario de tu aparato.",
+        "Es una foto fechada, no una sincronía: si un vencimiento cambia después en Faro, tu calendario no lo sigue — la nota lo dice en el mismo panel.",
+        "El Manual anuncia la pantalla grande en el tema de la bandeja: la mesa se trabaja también en el navegador de una computadora, con tu misma cuenta.",
+      ],
+      en: [
+        "In Export, “To calendar” takes the dues of the month you're viewing out in a standard file for your device's calendar.",
+        "It's a dated photo, not a sync: if a due changes in Faro later, your calendar won't follow it — the note says so in the same panel.",
+        "The Manual announces the big screen in the tray topic: the table can also be worked in a computer's browser, with your same account.",
+      ],
+    },
+    topic: "exportar",
+  },
+  {
     version: "1.3.386",
     date: "2026-11-22",
     level: "menor",

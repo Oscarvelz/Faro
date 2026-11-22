@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Download, Share2 } from "lucide-react";
+import { CalendarPlus, Download, Share2 } from "lucide-react";
 import { EXPORT_KINDS, canShareFiles, exportPdf, exportWorkbook, pdfFile, pickForMode, shareFile, workbookFile, type ExportPick, type ExportScope } from "@/lib/faro/export-docs";
+import { exportDuesCalendar } from "@/lib/faro/calendar-export";
 import type { LineKind } from "@/lib/faro/types";
 import { useFaro } from "./provider";
 
@@ -103,6 +104,10 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
             <button type="button" className="btn secondary" onClick={() => run("pdf")}>{t("export.pdf")}</button>
           </div>
           <p className="export-note">{t(full ? "export.pdfNote" : "export.pdfNote.basic")}</p>
+          <div className="export-actions">
+            <button type="button" className="btn ghost" data-anchor="export-calendar" onClick={() => { exportDuesCalendar(session.ledger, key, lang); onOpenChange(false); }}><CalendarPlus className="size-4" aria-hidden />{t("export.calendar")}</button>
+          </div>
+          <p className="export-note">{t("export.calendarNote")}</p>
           {canShareFiles() ? (
             <div className="export-share">
               <button type="button" className="btn ghost" onClick={() => { void shareFile(workbookFile(session.ledger, key, lang, names, effPick)); onOpenChange(false); }}><Share2 className="size-4" aria-hidden />{t("export.share")} Excel</button>
