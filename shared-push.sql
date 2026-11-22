@@ -78,6 +78,31 @@ begin
   );
 end $$;
 
+-- ── El juez de la lápida, una sola vez (Ola 30, Familia 4, G30-2) ─────────
+-- La misma ley que el cliente (tombstoneShapeOk en defaults.ts): id y
+-- firmante no vacíos, y «at» una fecha ISO real — prefijo AAAA-MM-DD con
+-- su fecha verdadera (la ida y vuelta: el 30 de febrero muere en el
+-- cast) y el instante parseable. Devuelve el INSTANTE de la lápida, o
+-- null si la lápida no pasa el juicio: una lápida desnuda ({id}) o
+-- vacía ({}) no tiene instante, no entra en la unión y no mata líneas.
+create or replace function public.faro_stone_at(t jsonb)
+returns timestamptz language plpgsql immutable as $$
+declare
+  at_txt text := t ->> 'at';
+  d date;
+  ts timestamptz;
+begin
+  if coalesce(t ->> 'id', '') = '' or coalesce(t ->> 'by', '') = '' then return null; end if;
+  if at_txt is null or at_txt !~ '^\d{4}-\d{2}-\d{2}' then return null; end if;
+  begin
+    d := substring(at_txt from 1 for 10)::date;
+    ts := at_txt::timestamptz;
+  exception when others then
+    return null;
+  end;
+  return ts;
+end $$;
+
 -- ── La lectura de la C2, sobre el mismo filtro ─────────────────────────────
 create or replace function public.faro_shared_book(p_owner uuid)
 returns text language plpgsql security definer set search_path = public as $$
@@ -110,6 +135,8 @@ declare
   scope_all boolean;
   cats jsonb;
   stones jsonb;
+  stones_ok jsonb := '[]'::jsonb;
+  unioned jsonb;
   out_months jsonb := '{}'::jsonb;
   mk text;
   kept jsonb;
@@ -125,7 +152,12 @@ begin
     return query select null::text, null::bigint, false;
     return;
   end if;
-  select data_json, l.revision into cur, cur_rev from public.faro_ledgers l where l.user_id = p_owner;
+  -- OLA 30 (Familia 4, G30-2a): la columna va CALIFICADA — el parámetro
+  -- OUT data_json de esta función colisiona con la columna
+  -- faro_ledgers.data_json y el «select data_json …» sin calificar moría
+  -- al correr («column reference is ambiguous»): la función, tal como
+  -- estaba pegada en el repo, no corría; su hermana de lectura sí.
+  select l.data_json, l.revision into cur, cur_rev from public.faro_ledgers l where l.user_id = p_owner;
   if cur is null then
     return query select null::text, null::bigint, false;
     return;
@@ -138,6 +170,14 @@ begin
   scope_all := coalesce((m_scope ->> 'all')::boolean, false);
   cats := coalesce(m_scope -> 'cats', '[]'::jsonb);
   stones := coalesce(incoming -> 'tombstones', '[]'::jsonb);
+  -- OLA 30 (Familia 4, G30-2b): las lápidas entrantes se juzgan ANTES
+  -- de usarse (faro_stone_at): el predicado de muerte del empalme corre
+  -- sobre stones_ok, no sobre el crudo — antes casaba solo por id, y
+  -- una lápida desnuda ({id}) o vacía ({}) borraba líneas entrantes y
+  -- se guardaba tal cual en el libro.
+  select coalesce(jsonb_agg(t), '[]'::jsonb) into stones_ok
+    from jsonb_array_elements(stones) t
+    where public.faro_stone_at(t) is not null;
 
   -- El empalme, mes a mes sobre la unión de meses de ambos lados.
   for mk in
@@ -148,7 +188,7 @@ begin
     if scope_all then
       select coalesce(jsonb_agg(l), '[]'::jsonb) into spliced
         from jsonb_array_elements(coalesce(incoming -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
-        where not exists (select 1 from jsonb_array_elements(stones) st where st ->> 'id' = l ->> 'id');
+        where not exists (select 1 from jsonb_array_elements(stones_ok) st where st ->> 'id' = l ->> 'id');
     else
       select coalesce(jsonb_agg(l), '[]'::jsonb) into kept
         from jsonb_array_elements(coalesce(cur -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
@@ -156,7 +196,7 @@ begin
       select coalesce(jsonb_agg(l), '[]'::jsonb) into mine
         from jsonb_array_elements(coalesce(incoming -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
         where (cats ? (l ->> 'categoryId'))
-          and not exists (select 1 from jsonb_array_elements(stones) st where st ->> 'id' = l ->> 'id')
+          and not exists (select 1 from jsonb_array_elements(stones_ok) st where st ->> 'id' = l ->> 'id')
           and not exists (select 1 from jsonb_array_elements(kept) k where k ->> 'id' = l ->> 'id');
       spliced := kept || mine;
     end if;
@@ -172,26 +212,32 @@ begin
   if incoming ->> 'updatedAt' is not null then
     new_book := jsonb_set(new_book, '{updatedAt}', to_jsonb(incoming ->> 'updatedAt'));
   end if;
-  -- Las lápidas se unen (por id queda la más reciente); con alcance de
-  -- categorías, una lápida sobre una línea fuera del alcance — que
-  -- sigue viva en el libro — no se guarda.
-  new_book := jsonb_set(new_book, '{tombstones}', (
-    select coalesce(jsonb_agg(t), '[]'::jsonb) from (
-      select distinct on (u.t ->> 'id') u.t
-        from (
-          select t from jsonb_array_elements(coalesce(cur -> 'tombstones', '[]'::jsonb)) t
-          union all
-          select t from jsonb_array_elements(stones) t
-            where scope_all
-               or not exists (
-                 select 1
-                   from jsonb_each(coalesce(cur -> 'months', '{}'::jsonb)) mm,
-                        jsonb_array_elements(mm.value -> 'lines') l
-                   where l ->> 'id' = t ->> 'id' and not (cats ? (l ->> 'categoryId')))
-        ) u
-        order by u.t ->> 'id', u.t ->> 'at' desc
-    ) g
-  ));
+  -- Las lápidas se unen: por id queda la del INSTANTE MAYOR, como el
+  -- cliente curado — y solo entran las que pasan el juez (faro_stone_at),
+  -- de AMBOS lados: lo que se guarda es solo lo que la puerta del cliente
+  -- honra. OLA 30 (Familia 4, G30-2b): la unión vieja no juzgaba nada y
+  -- ordenaba por el TEXTO de «at» descendente — «zzzz» ganaba a la
+  -- lápida legítima y, entre dos fechas reales con husos distintos,
+  -- quedaba el instante MENOR (el texto mayor), exactamente al revés
+  -- del cliente. Con alcance de categorías, una lápida sobre una línea
+  -- fuera del alcance — que sigue viva en el libro — no se guarda.
+  select coalesce(jsonb_agg(t), '[]'::jsonb) into unioned from (
+    select distinct on (u.t ->> 'id') u.t
+      from (
+        select t from jsonb_array_elements(coalesce(cur -> 'tombstones', '[]'::jsonb)) t
+        union all
+        select t from jsonb_array_elements(stones_ok) t
+          where scope_all
+             or not exists (
+               select 1
+                 from jsonb_each(coalesce(cur -> 'months', '{}'::jsonb)) mm,
+                      jsonb_array_elements(mm.value -> 'lines') l
+                 where l ->> 'id' = t ->> 'id' and not (cats ? (l ->> 'categoryId')))
+      ) u
+      where public.faro_stone_at(u.t) is not null
+      order by u.t ->> 'id', public.faro_stone_at(u.t) desc
+  ) g;
+  new_book := jsonb_set(new_book, '{tombstones}', unioned);
 
   update public.faro_ledgers
     set data_json = new_book, revision = new_rev, updated_at = now()

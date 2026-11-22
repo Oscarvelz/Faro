@@ -136,6 +136,32 @@ export function fuseBooks(base: LedgerState, server: FuseSide, local: FuseSide):
   const laterIsLocal = local.updatedAt > server.updatedAt;
   const surviving = new Map<string, Line>();
   const minted: Tombstone[] = [];
+  // OLA 30 (Familia 3, G30-1): la fusión acuña con LA LEY DEL
+  // ESCRITOR — cada lápida que acuña pasa por el juez único
+  // (tombstoneShapeOk), como withTombstone desde la Ola 29. La
+  // fusión era el segundo acuñador y no heredó la ley: acuñaba con
+  // el updatedAt crudo del lado que borró, juzgado en la puerta como
+  // texto desnudo — con «basura», «» o «2026-02-30» la fusión
+  // entregaba un libro que SU PROPIA PUERTA rehúsa (cuarentena al
+  // abrir) y el hecho ni siquiera llegaba a la Actividad; y si no
+  // moría en cuarentena, la lápida se evaporaba en silencio en el
+  // próximo withTombstone. LA DECISIÓN, escrita: si el instante del
+  // lado que borró no es una fecha real, el borrado SE QUEDA (la
+  // línea muere en esta fusión, como siempre) pero NO se acuña
+  // lápida — la casa jamás inventa una firma ni una fecha (la
+  // doctrina de sign.ts: la firma nace del autor y de su instante, o
+  // no nace), y acuñar con el instante de la fusión fabricaría el
+  // momento del borrado; llevar el hecho a la auditoría del ganador
+  // contradiría la ley declarada de este archivo (la auditoría no se
+  // fusiona). Es el patrón ya declarado de «sin autor»: sin instante
+  // juzgable, la fusión borra igual pero no acuña. El invariante
+  // clavado en la cerca: la salida de fuseBooks pasa siempre
+  // isLedgerDeep.
+  const mint = (id: string, at: string, by: string | undefined) => {
+    if (!by) return;
+    const stone: Tombstone = { id, at, by };
+    if (tombstoneShapeOk(stone)) minted.push(stone);
+  };
 
   const ids = new Set<string>([...bIdx.keys(), ...sIdx.keys(), ...lIdx.keys()]);
   for (const id of ids) {
@@ -146,11 +172,11 @@ export function fuseBooks(base: LedgerState, server: FuseSide, local: FuseSide):
     if (b && !sv && !lc) continue; // borrada en ambos
     if (b && !sv && lc) {
       // El servidor la borró: definitiva, aunque el local la editara.
-      if (server.by) minted.push({ id, at: server.updatedAt, by: server.by });
+      mint(id, server.updatedAt, server.by);
       continue;
     }
     if (b && sv && !lc) {
-      if (local.by) minted.push({ id, at: local.updatedAt, by: local.by });
+      mint(id, local.updatedAt, local.by);
       continue;
     }
     if (!b && sv && !lc) { surviving.set(id, clone(sv)); continue; }

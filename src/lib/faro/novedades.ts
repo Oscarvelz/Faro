@@ -35,6 +35,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.403",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El Asesor oye las remesas por período", en: "The Advisor hears remittances by period" },
+    points: {
+      es: [
+        "Nueva pregunta viva en el Asesor: «¿Cuánto mandé esta semana?» — y este mes, el mes pasado, la semana pasada o una quincena — responde con la cifra de ese período, en los tres modos.",
+        "Si nombras a la persona y el período («¿cuánto le mandé a Rosa este mes?»), la suma es de esa persona en ese período; y si la frase no deja claro a quién, el Asesor lo dice en vez de darte la remesa de todos disfrazada.",
+        "La fusión de libros compartidos y los registros guardados al salir de un libro compartido juzgan ahora su contenido con la misma vara que el resto del libro: nada entra a pedazos.",
+      ],
+      en: [
+        "A new live question in the Advisor: “How much did I send this week?” — or this month, last month, last week or a fortnight — answered with that period's figure, in all three modes.",
+        "If you name the person and the period (“how much did I send Rosa this month?”), the sum is that person's within that period; and if the phrasing leaves the person unclear, the Advisor says so instead of handing you everyone's remittance in disguise.",
+        "Shared-book merging and the records kept when leaving a shared book now judge their content by the same measure as the rest of the book: nothing gets in piecemeal.",
+      ],
+    },
+  },
+  {
     version: "1.3.402",
     date: "2026-11-22",
     level: "menor",
@@ -44,13 +62,13 @@ export const NEWS: NewsEntry[] = [
         "El botón de Pagos abre Cobros directo: la pantalla intermedia que preguntaba a qué parte ir ya no está — las cuatro partes se ven dentro de Cobros, más sencillo.",
         "Al abrir el selector, el editor o Cobros desde las fichas de Tengo, Gastaré y Pagos, la pantalla sube y la hoja se despliega desde arriba, no desde el medio.",
         "La tarjeta «Pagos que se acercan» ahora se pliega: cerrada muestra solo el resumen — cuántos pagos vencieron y cuántos vienen — y el detalle aparece al desplegarla. Central gana espacio.",
-        "La primera puerta del selector cambió de ícono: una lista con su signo de suma, para no confundirla con Escribir.",
+        "La primera puerta del selector cambió de ícono: una hoja con renglones, para no confundirla con Escribir.",
       ],
       en: [
         "The Payments button now opens Collections directly: the in-between screen that asked which part you wanted is gone — the four parts are right there in Collections, simpler.",
         "Opening the chooser, the editor or Collections from the Have, Spending and Payments tiles, the screen rises and the sheet unfolds from the top, not from the middle.",
         "The “Payments coming up” card now folds: closed it shows only the summary — how many payments are overdue and how many are coming — and the detail appears when you unfold it. Central gains room.",
-        "The chooser's first door has a new icon: a list with its plus sign, so it is no longer confused with Write.",
+        "The chooser's first door has a new icon: a sheet with rows, so it is no longer confused with Write.",
       ],
     },
   },

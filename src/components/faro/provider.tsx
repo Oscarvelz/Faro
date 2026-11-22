@@ -12,7 +12,7 @@ import {
 import { CLOUD_READY, fetchOfficialRate, pullLedger, pushLedger, type RemoteRow } from "@/lib/faro/api";
 import { advicePrints, readStoredGoals, wake, type WakeLog, type WakeResult } from "@/lib/faro/awake";
 import { applyTemplate, createInitial, isLedger, isLedgerDeep, makeNamer, moveNamed, withRemesas, withSeguroDeVida } from "@/lib/faro/defaults";
-import { announcedAbsent, apartDecision, browserPackStorage, listQuarantine, localWorkVerdict, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
+import { announcedAbsent, apartDecision, browserPackStorage, listQuarantine, localWorkVerdict, packLedgerOk, quarantinePack, readQuarantine, storedRevision, tabConflictOutcome, tabVerdict, type QuarantineEntry } from "@/lib/faro/packguard";
 import { applyDeviceLayer, deviceSectionOf, snapshotDeviceLayer } from "@/lib/faro/devicelayer";
 import { bootPlace, isMainSection, lastMainPlace, readPlace, writePlace } from "@/lib/faro/navplace";
 import { guardPanelExit, hasPanelExit } from "@/lib/faro/panel-exit";
@@ -809,15 +809,19 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     }
   }, [userId]);
 
-  /** C2 (1.3.166): adopta el libro guardado — esta pestaña se pone al día antes de seguir editando. */
-  function adoptStoredPack(missedText: string | null = null) {
+  /** C2 (1.3.166): adopta el libro guardado — esta pestaña se pone al día antes de seguir editando.
+   * Ola 30 (Familia 7, Q30-C1): devuelve su DESENLACE — true si la adopción
+   * aterrizó, false si el pack no validó y la pestaña quedó bloqueada. El
+   * llamante que anuncia la puesta al día (surfaceTabConflict) decide su
+   * banner con este veredicto: anunciar sin aterrizar era el quiebre. */
+  function adoptStoredPack(missedText: string | null = null): boolean {
     const stored = readPack(userId);
     if (!stored) {
       // El pack guardado no valida en profundidad: se aparta y esta pestaña deja de escribir
       // hasta que el usuario resuelva (restaurar una copia o recargar). Nunca se pisa.
       quarantineCorruptPack(userId, true);
       tabBlockedRef.current = true;
-      return;
+      return false;
     }
     baseRevRef.current = stored.ledger.revision;
     tabAdoptRevRef.current = stored.ledger.revision;
@@ -847,6 +851,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     } else if (missedText) {
       importToast({ text: missedText });
     }
+    return true;
   }
 
   /**
@@ -908,12 +913,26 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // acaba de fallar (la oferta de Copias sigue viva por hasConflict,
     // que lee las ranuras, no por este banner).
     let missedText: string | null = null;
-    if (kept) setTabBanner(true);
-    else if (attempted && cur) {
+    if (!kept && attempted && cur) {
       missedText = translate(cur.ledger.settings.lang ?? "es", "pack.apartMissed");
+    }
+    // Ola 30 (Familia 7, Q30-C1): el banner se decide DESPUÉS de la
+    // adopción y con su desenlace en la mano (la fórmula vive en
+    // packguard: tabConflictOutcome). Antes el banner se levantaba
+    // por el apartado — que sí aterrizó — y la adopción caía después
+    // en su rama de fallo sin decir nada: el banner afirmaba «ya se
+    // puso al día» sobre una pestaña bloqueada con su libro viejo.
+    // Sin aterrizaje: el banner cae y se levanta el aviso de copia
+    // dañada, el mismo que el arranque pone ante el mismo hecho.
+    const landed = adoptStoredPack(missedText);
+    const outcome = tabConflictOutcome(kept, landed);
+    if (outcome === "banner") setTabBanner(true);
+    else if (outcome === "notice-corrupt") {
+      setTabBanner(false);
+      setUi({ notice: translate(cur?.ledger.settings.lang ?? "es", "pack.corrupt") });
+    } else if (missedText) {
       setTabBanner(false);
     }
-    adoptStoredPack(missedText);
   }
 
   useEffect(() => {

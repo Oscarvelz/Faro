@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { activityOf, signatureName, signatureOf, stampLine, FARO_AUTHOR } from "./sign.ts";
+import { createInitial, isLedgerDeep } from "./defaults.ts";
 import { commitDrafts, type DraftCtx } from "./drafts.ts";
 import { buildStream } from "./historial.ts";
 import type { Draft, LedgerState, Line, Structure } from "./types.ts";
@@ -102,7 +103,6 @@ describe("firmas · el tratamiento y sus asientos", () => {
   const screens = readFileSync(new URL("../../components/faro/screens.tsx", import.meta.url), "utf8");
   const historial = readFileSync(new URL("../../components/faro/historial.tsx", import.meta.url), "utf8");
   const finish = readFileSync(new URL("../../components/faro/finish.tsx", import.meta.url), "utf8");
-  const defaults = readFileSync(new URL("./defaults.ts", import.meta.url), "utf8");
 
   it("un solo tratamiento: color derivado del acento del tema, sin hex propio", () => {
     assert.match(css, /\.sig \{/);
@@ -118,8 +118,22 @@ describe("firmas · el tratamiento y sus asientos", () => {
     assert.match(screens, /by: a\.by, byName: a\.byName/);
   });
 
+  // OLA 30 (Familia 6, G30-F1) — ENMIENDA CON SU RAZÓN: este `it`
+  // clavaba el juez de la firma con dos regex sobre el TEXTO de
+  // defaults.ts (presencia, no juicio). Con el juicio vaciado en un
+  // mutante — un «sanitizador» que convertía by/byName no-texto en
+  // undefined dejando las líneas clavadas textualmente intactas — la
+  // cerca corría 8/8 verde mientras la puerta del mutante ADMITÍA
+  // by: 42, que la puerta prístina rehúsa. La enmienda de la Cura 29
+  // a libro392 (la puerta de lápidas se corre contra lápidas
+  // malformadas, no contra una regex) se extiende aquí: la conducta
+  // contra isLedgerDeep es la cerca; el texto ya no clava nada.
   it("el cargador juzga la firma si está: texto o no pasa", () => {
-    assert.match(defaults, /if \(l\.by !== undefined && !isStrD\(l\.by\)\) return false/);
-    assert.match(defaults, /if \(l\.byName !== undefined && !isStrD\(l\.byName\)\) return false/);
+    const base = createInitial("es");
+    const conLinea = (over: Partial<Line>): LedgerState => ({ ...base, months: { "2026-11": { lines: [line("firmada", over)] } } });
+    assert.equal(isLedgerDeep(conLinea({ by: "cuenta-1", byName: "María" })), true, "la firma bien formada pasa la puerta");
+    assert.equal(isLedgerDeep(conLinea({})), true, "sin firma también pasa: la firma es opcional, no exigida");
+    assert.equal(isLedgerDeep(conLinea({ by: 42 as never })), false, "un by que no es texto no pasa la puerta");
+    assert.equal(isLedgerDeep(conLinea({ byName: 42 as never })), false, "un byName que no es texto no pasa la puerta");
   });
 });

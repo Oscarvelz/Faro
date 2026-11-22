@@ -300,7 +300,14 @@ function libroMarias(): LedgerState {
 describe("ola28 · F1 la resolución de personas (Q28-1..Q28-5 + Q28-C2)", () => {
   it("Q28-1 · «semana» no es Ana: la pregunta global no recibe la suma de una persona", () => {
     const r = ask(libroRemesasB(), "es", "¿Cuánto mandé en remesas la semana pasada?");
-    assert.ok(r.kind === "answer" && r.family === "remesas", `sirve el patrón, no la persona: ${r.kind}${r.kind !== "unknown" ? "/" + r.family : ""}`);
+    // OLA 30 (Familia 2, Q30-2) — ENMIENDA CON SU RAZÓN: la pregunta ES
+    // una suma de remesas con período («la semana pasada»), y la
+    // familia remesas-periodo que nace en la Cura 30 la sirve como tal
+    // — antes la servía el patrón con el agregado de siempre. El
+    // propósito de la cerca no se mueve: la cifra es la del PERÍODO y
+    // no se viste con el nombre de Ana (abajo), y la pregunta por Ana
+    // sigue dando SU suma (el control, intacto).
+    assert.ok(r.kind === "answer" && r.family === "remesas-periodo", `sirve el período, no la persona: ${r.kind}${r.kind !== "unknown" ? "/" + r.family : ""}`);
     if (r.kind === "answer") assert.ok(!/A Ana le has mandado/.test(r.verdict), "el veredicto no viste la cifra global con el nombre de Ana");
     const control = ask(libroRemesasB(), "es", "¿Cuánto le mandé a Ana?");
     assert.ok(control.kind === "answer" && control.pieces[0]?.minor === 7500, "la pregunta por Ana sí da su suma ($75)");

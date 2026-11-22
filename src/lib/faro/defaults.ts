@@ -10,6 +10,7 @@ import type {
   Line,
   Named,
   NoticeRule,
+  PassiveRecord,
   PurchaseCat,
   Settings,
   Structure,
@@ -947,6 +948,49 @@ export function tombstoneShapeOk(r: unknown): r is Tombstone {
   if (!isStrD(r.by) || r.by === "") return false;
   return true;
 }
+/** OLA 30 (Familia 5, G30-3) — EL JUEZ ÚNICO DEL REGISTRO PASIVO: la
+ * Pieza C8 juzgaba el CONTENEDOR y la cara desreferenciaba el
+ * CONTENIDO: la puerta pedía months como objeto y categories como
+ * lista, y dentro cabía todo — un mes con lines «corrupt» pasaba las
+ * dos puertas (la del libro y el lector de exit.ts, que además
+ * discrepan: months como LISTA moría en la puerta y vivía en el
+ * lector) y passiveMonths llamaba .reduce sobre el texto (TypeError
+ * al pintar); una línea null rompía igual; un amountMinor de texto
+ * nacía el total del folio como TEXTO («0100»); una categoría null
+ * rompía la expresión de la cara; un at basura rompía dayLabel. La
+ * ley: el juez juzga LO QUE LA CARA DESREFERENCIA, con la vara de la
+ * casa — months como MAPA (objeto, no lista: la puerta y el lector
+ * dicen lo mismo porque son el mismo juez), cada mes un objeto con
+ * lines como lista de líneas juzgadas con la vara de las líneas del
+ * libro (id/kind/concept/currency texto, amountMinor finito, y los
+ * opcionales en su dimensión), las categorías como objetos con id y
+ * nombre, y at con la ida y vuelta de la ley única de fecha. Lo usan
+ * las tres puertas: la del libro (isLedgerDeep, abajo), el lector
+ * (passiveRecordsOf en exit.ts) y el escritor (withPassiveRecord
+ * rehúsa guardar lo que la puerta rehusaría). */
+export function passiveRecordShapeOk(r: unknown): r is PassiveRecord {
+  if (!isObjD(r)) return false;
+  if (!isStrD(r.id) || r.id === "" || !isStrD(r.owner)) return false;
+  if (!isIsoDateStrD(r.at)) return false;
+  if (!isObjD(r.months)) return false;
+  for (const bucket of Object.values(r.months as Record<string, unknown>)) {
+    if (!isObjD(bucket) || !Array.isArray(bucket.lines)) return false;
+    for (const l of bucket.lines as unknown[]) {
+      if (!isObjD(l)) return false;
+      if (!isStrD(l.id) || !isStrD(l.kind) || !isStrD(l.concept) || !isStrD(l.currency)) return false;
+      if (!isFinD(l.amountMinor)) return false;
+      if (l.balanceMinor !== undefined && l.balanceMinor !== null && !isFinD(l.balanceMinor)) return false;
+      if (l.aprBps !== undefined && !isFinD(l.aprBps)) return false;
+      if (l.by !== undefined && !isStrD(l.by)) return false;
+      if (l.byName !== undefined && !isStrD(l.byName)) return false;
+    }
+  }
+  if (!Array.isArray(r.categories)) return false;
+  for (const cat of r.categories as unknown[]) {
+    if (!isObjD(cat) || !isStrD(cat.id) || !isStrD(cat.name)) return false;
+  }
+  return true;
+}
 /** OLA 25 (G25-3): las horas de espera caben en su aritmética — la
  * desreferencia suma `waitHours * 3600_000` al ahora y llama a
  * `toISOString()` (renewWish): fuera del rango de Date (±8.64e15 ms)
@@ -1208,14 +1252,16 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
     for (const v of Object.values(s.funding as Record<string, unknown>)) if (!isStrD(v)) return false;
   }
   // passiveRecords (los registros pasivos de las salidas, Pieza C8):
-  // si está, es una lista de folios congelados con su forma completa;
-  // uno malformado no pasa.
+  // si está, es una lista de folios congelados juzgados por su
+  // CONTENIDO. OLA 30 (Familia 5, G30-3): la forma la juzga EL JUEZ
+  // ÚNICO (passiveRecordShapeOk, arriba) — la misma ley que el lector
+  // y el escritor aplican: esta puerta juzgaba el contenedor con
+  // cuatro comprobaciones y dejaba vivir dentro lo que la cara luego
+  // rompía al desreferenciar.
   if (s.passiveRecords !== undefined) {
     if (!Array.isArray(s.passiveRecords)) return false;
     for (const r of s.passiveRecords as unknown[]) {
-      if (!isObjD(r)) return false;
-      if (!isStrD(r.id) || (r.id as string) === "" || !isStrD(r.at) || !isStrD(r.owner)) return false;
-      if (!isObjD(r.months) || !Array.isArray(r.categories)) return false;
+      if (!passiveRecordShapeOk(r)) return false;
     }
   }
   return true;

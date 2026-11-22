@@ -628,6 +628,21 @@ export const QUESTION_BANK: BankFamily[] = [
     silences: ["El último envío a UNA persona es recencia con filtro de remesa, aunque comparta motor."],
   },
   {
+    id: "remesas-periodo",
+    name: { es: "Remesas por período: cuánto mandé en un tiempo", en: "Remittances by period: how much I sent in a span" },
+    cap: { es: "cuánto mandaste en remesas en un período: esta semana, este mes, el mes pasado", en: "how much you sent in remittances over a period: this week, this month, last month" },
+    status: "viva",
+    source: ["remesas.personas"],
+    axes: ["cuándo (semana × mes × año × mes nombrado × quincena) × cuánto (la suma de las líneas de remesa del período)"],
+    canonical: {
+      es: ["¿Cuánto mandé esta semana?", "¿Cuánto mandé el mes pasado?"],
+      en: ["How much did I send this week?", "How much did I send last month?"],
+    },
+    answerShape: "La suma viva de las líneas de remesa del período nombrado, con el período por su nombre y el conteo de envíos. En los tres modos: preguntar por los propios envíos es básico.",
+    contradiction: "Un período sin envíos se dice vacío («no mandaste remesas en ese período») — jamás se rellena con el agregado de todos los tiempos.",
+    silences: ["Sin período nombrado no es esta familia: sirve el patrón de remesas.", "Con persona nombrada manda la suma por persona con su período, no esta.", "«¿Cuánto gasté en remesas…?» con verbo de gasto es historia: su puerta va primero."],
+  },
+  {
     id: "ya-pague",
     name: { es: "¿Ya pagué…? (contradicción de premisa)", en: "Did I already pay…?" },
     cap: { es: "si algo ya lo pagaste — y corregirte si partes de un dato falso", en: "whether you already paid something — and correcting you if you start from a false premise" },

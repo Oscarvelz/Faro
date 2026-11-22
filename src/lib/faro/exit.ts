@@ -20,18 +20,19 @@
  * fue. Nace de la copia YA recortada por el alcance (world.ts): lo
  * que nunca fue suyo nunca entra en su registro. */
 import type { LedgerState, PassiveRecord } from "./types";
-import { displayName } from "./defaults";
+import { displayName, passiveRecordShapeOk } from "./defaults";
 
-/** Los registros pasivos del libro, leídos con desconfianza: solo
- * entran los que traen la forma completa. */
+/** Los registros pasivos del libro, leídos con desconfianza.
+ * OLA 30 (Familia 5, G30-3): el lector juzga con EL JUEZ ÚNICO
+ * (passiveRecordShapeOk en defaults.ts) — la misma ley que la puerta
+ * del libro y el escritor: este lector juzgaba el contenedor con
+ * `typeof` y discrepanba de la puerta (months como lista vivía aquí
+ * y moría allí), y dejaba pasar el contenido que la cara rompía al
+ * desreferenciar. */
 export function passiveRecordsOf(state: LedgerState): PassiveRecord[] {
   const raw = (state as LedgerState).passiveRecords;
   if (!Array.isArray(raw)) return [];
-  return raw.filter((r): r is PassiveRecord =>
-    !!r && typeof r === "object" &&
-    typeof r.id === "string" && r.id !== "" &&
-    typeof r.at === "string" && typeof r.owner === "string" &&
-    !!r.months && typeof r.months === "object" && Array.isArray(r.categories));
+  return raw.filter((r): r is PassiveRecord => passiveRecordShapeOk(r));
 }
 
 /** El registro nace de la copia del alcance: una copia PROFUNDA y
@@ -50,8 +51,12 @@ export function makePassiveRecord(scoped: LedgerState, owner: string, lang: "es"
 }
 
 /** Guardar el registro en el libro de quien se va (su propio libro:
- * el único sitio donde el registro vive). */
+ * el único sitio donde el registro vive). OLA 30 (Familia 5, G30-3):
+ * el escritor rehúsa guardar lo que la puerta rehusaría — guardaba
+ * sin juzgar, incluido un registro que su propia puerta del libro
+ * rechazaba al abrir. El estado vuelve intacto. */
 export function withPassiveRecord(state: LedgerState, record: PassiveRecord): LedgerState {
+  if (!passiveRecordShapeOk(record)) return state;
   return { ...state, passiveRecords: [...passiveRecordsOf(state), record] };
 }
 

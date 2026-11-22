@@ -128,21 +128,34 @@ describe("ola29 · F1 la caminata aprende el idioma (Q29-1 + Q29-2 + Q29-C1)", (
     assert.ok(r.kind === "answer" && r.family === "recencia" && /don't know who "rosa"/.test(r.verdict),
       `la caminata sigue tras «dr» hasta «rosa»: ${r.kind === "answer" ? r.verdict.slice(0, 70) : r.kind}`);
   });
+  // OLA 30 (Familia 2, Q30-2) — ENMIENDA CON SU RAZÓN: estos tres `it`
+  // clavaban el unknown honesto de las preguntas de período porque en
+  // la .399 NINGUNA familia las servía (la honestidad sin puerta era
+  // lo que la Cura 29 construyó, y su propio comentario lo declaraba:
+  // «unknown honesto hoy»). La Cura 30 hace nacer la familia
+  // remesas-periodo, que las sirve con su cifra viva: las aserciones
+  // de unknown se enmiendan a la respuesta de la familia nueva, y el
+  // propósito de la cerca se conserva entero — ni «esta»/«este»/"last"
+  // acusados como personas, ni la cifra vestida con el nombre de otro:
+  // el veredicto nombra el PERÍODO y suma SUS remesas.
   it("Q29-C1 · «¿Cuánto mandé esta semana?» no acusa a «esta» ni viste la cifra con otro nombre", () => {
     const r = ask(libroPrimo(), "es", "¿Cuánto mandé esta semana?");
-    assert.ok(r.kind === "unknown", `sin candidata no nace negativa: cae a su camino (unknown honesto): ${r.kind}${r.kind === "answer" ? "/" + r.family + " — " + r.verdict.slice(0, 60) : ""}`);
+    assert.ok(r.kind === "answer" && r.family === "remesas-periodo" && r.pieces[0]?.minor === 5000 && !/«esta»/.test(r.verdict),
+      `la familia del período sirve la semana de Primo ($50, la suya, sin acusar a «esta»): ${r.kind}${r.kind === "answer" ? "/" + r.family + " — " + r.verdict.slice(0, 60) : ""}`);
   });
   it("Q29-C1 · «este mes» y «el mes pasado» tampoco nacen como personas", () => {
     const a = ask(libroPrimo(), "es", "¿Cuánto mandé este mes?");
     assert.ok(!(a.kind === "answer" && /«este»/.test(a.verdict)), `«este» no es una persona: ${a.kind}`);
     const b = ask(libroPrimo(), "es", "¿Cuánto mandé el mes pasado?");
-    assert.equal(b.kind, "unknown", `el período sigue su camino: ${b.kind}`);
+    assert.ok(b.kind === "answer" && b.family === "remesas-periodo" && b.pieces.length === 0,
+      `el período vacío lo sirve su familia como ausencia, no como persona ni como unknown: ${b.kind}${b.kind === "answer" ? "/" + b.family : ""}`);
   });
   it("Q29-C1 · EN «last month» / «this week» no acusan a «last» ni a «this»", () => {
     const a = ask(libroPrimoEn(), "en", "How much did I send last month?");
     assert.ok(!(a.kind === "answer" && /"last"/.test(a.verdict)), `«last» no es una persona: ${a.kind}`);
     const b = ask(libroPrimoEn(), "en", "How much did I send this week?");
-    assert.equal(b.kind, "unknown", `el período sigue su camino: ${b.kind}`);
+    assert.ok(b.kind === "answer" && b.family === "remesas-periodo" && b.pieces[0]?.minor === 5000,
+      `la semana la sirve su familia con su cifra ($50): ${b.kind}${b.kind === "answer" ? "/" + b.family : ""}`);
   });
   it("control · si Pérez SÍ está en el libro, «al doctor Pérez» lo resuelve (manda el escaneo)", () => {
     const con = libroPrimo();

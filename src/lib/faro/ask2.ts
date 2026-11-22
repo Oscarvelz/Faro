@@ -74,7 +74,7 @@ type Namer = {
 
 export type BankFamilyId =
   | "ahorros" | "gustos" | "ya-pague" | "cuenta-origen" | "recencia"
-  | "agenda" | "ranking" | "remesas" | "historia" | "comparar"
+  | "agenda" | "ranking" | "remesas" | "remesas-periodo" | "historia" | "comparar"
   | "futuro" | "faro-mismo" | "conteo" | "extremos" | "capacidades" | "limites"
   | "hipotetico" | "calculadora" | "acciones" | "conversor" | "calendario"
   | "contrafactual" | "respaldo" | "meta"
@@ -544,6 +544,34 @@ function remitPersonOf(c: Ctx, folded: string) {
   for (const p of people) {
     const f = foldQ(p.name).trim();
     if (f.length >= 3 && wholeAt(f)) consider(p, f.length);
+    // OLA 30 (Familia 1, Q30-1): el nombre exacto de DOS letras también
+    // casa — pero SOLO en posición de persona: tras un apertor o el
+    // verbo de envío, y cerrando la frase (tras él solo cabe
+    // vocabulario de función). «Al» está en el libro y la pregunta
+    // «¿cuándo fue la última remesa a Al?» entregaba la remesa de
+    // Primo como si fuera «la última», sin nombrar a nadie: el piso de
+    // 3 letras dejaba invisible al nombre corto. El libro arbitra: si
+    // el nombre está, resuelve; el apertor «al» cede ante el acierto
+    // del escaneo — si el nombre ES la palabra del apertor («al»),
+    // solo casa como ÚLTIMA palabra tras apertor, verbo o tratamiento
+    // («mande a Al»), jamás como el apertor que abre («al banco»: ahí
+    // «al» trabaja de apertor y «banco» es la candidata). La caída de
+    // la palabra suelta conserva su piso de 3: una palabra de 2 letras
+    // de un nombre largo no resuelve a la ligera.
+    else if (f.length === 2 && wholeAt(f)) {
+      const toks = folded.split(/[^a-z0-9]+/).filter(Boolean);
+      const preceded = (t: string | undefined) =>
+        t !== undefined && (REMIT_OPENERS.has(t) || REMIT_SEND_VERBS.has(t) || REMIT_PERSON_TITLES.has(t) || REMIT_KINSHIP.has(t) || REMIT_PERSON_STOP.has(t));
+      const closesPhrase = (i: number) =>
+        toks.slice(i + 1).every((t) => REMIT_PERSON_STOP.has(t) || REMIT_PERIOD_WORDS.has(t));
+      const isOpenerWord = REMIT_OPENERS.has(f);
+      for (let i = 0; i < toks.length; i++) {
+        if (toks[i] !== f || !preceded(toks[i - 1]) || !closesPhrase(i)) continue;
+        if (isOpenerWord && i !== toks.length - 1) continue;
+        consider(p, f.length);
+        break;
+      }
+    }
   }
   if (best) return (best as { person: (typeof people)[number] }).person;
   return people.find((p) => foldQ(p.name).split(/\s+/).some((w) => w.length >= 3 && wholeAt(w)));
@@ -579,8 +607,37 @@ const REMIT_OPENERS = new Set(["a", "al", "para", "to"]);
  * inglés sin «to» («How much did I send Rigoberto?») captura el
  * nombre solo cuando la palabra no es de esta lista ni de relleno. */
 const REMIT_BARE_STOP = new Set(["money", "it", "more", "them", "him", "her", "us", "you", "me", "that", "this", "back", "home", "today", "yesterday", "again", "dinero", "eso", "esto", "mas", "otra", "otro"]);
-/** La palabra-persona tras un apertor en una pregunta de remesas, si
- * la hay y no es una palabra del idioma: el nombre que no se resolvió.
+/** Los verbos de envío que abren el camino desnudo (sin apertor). */
+const REMIT_SEND_VERBS = new Set(["mande", "envie", "enviado", "sent", "send"]);
+/** OLA 30 (Familia 1): las FRASES preposicionales hechas — se consumen
+ * como UNA pieza, no como palabras sueltas a coleccionar: la especie
+ * de Q30-3 volvía cada ola con la palabra nueva de turno («través»,
+ * «medio», «favor») porque la caminata coleccionaba palabras; una
+ * frase hecha es una clase cerrada del idioma, y lo que no es clase
+ * ni palabra de función NO se consume — ver la ley de abajo. */
+const REMIT_PHRASES: string[][] = [
+  ["a", "traves", "de"],
+  ["por", "medio", "de"],
+  ["a", "favor", "de"],
+  ["a", "nombre", "de"],
+  ["on", "behalf", "of"],
+];
+/** OLA 30 (Familia 1): los parentescos — como los tratamientos, solo
+ * se consumen EN POSICIÓN DE TÍTULO (cuando tras ellos viene el
+ * nombre: «al padre Pérez» camina hasta «perez»); como resto final
+ * SON la candidata («mande al padre» nombra a «padre»: es el eco
+ * honesto de lo que el usuario dijo). */
+const REMIT_KINSHIP = new Set(["padre", "madre", "hermano", "hermana", "hijo", "hija", "abuelo", "abuela", "primo", "prima", "sobrino", "sobrina", "nieto", "nieta", "brother", "sister", "father", "mother", "son", "daughter", "husband", "wife", "grandpa", "grandma"]);
+/** El resto del vocabulario de función suelto que la caminata consume
+ * palabra a palabra (las preposiciones y partículas que no forman
+ * frase hecha, y los determinantes que REMIT_PERSON_STOP no trae). */
+const REMIT_FUNCTION_WORDS = new Set(["de", "del", "por", "con", "sin", "en", "of", "by", "for", "from", "through", "via", "it", "un", "an", "its", "our", "their"]);
+
+/** La puntería de una pregunta de remesas: a quién nombra sin
+ * resolverlo. Devuelve la candidata (la palabra que la negativa
+ * nombra), o la marca de AMBIGUO (la caminata no pudo consumir todo
+ * el camino: no nace negativa — silencio honesto antes que un nombre
+ * falso), o nada (la pregunta no apunta a nadie).
  *
  * OLA 28 (Familia 1, Q28-3 + Q28-C2): la búsqueda CAMINA tras la
  * preposición — salta el relleno y los tratamientos en vez de
@@ -595,66 +652,111 @@ const REMIT_BARE_STOP = new Set(["money", "it", "more", "them", "him", "her", "u
  * OLA 29 (Familia 1, Q29-1 + Q29-2 + Q29-C1) — LA CAMINATA APRENDE EL
  * IDIOMA. La caminata de la Ola 28 era más estrecha que el idioma que
  * juzga, y la especie volvió por sus tres rendijas: «al» y «para» no
- * abrían («al doctor Pérez» y «para la niña Rosa» entregaban la remesa
- * global de Primo como si fuera la preguntada); una captura de menos
- * de 3 letras CERRABA la búsqueda ("to Dr. Rosa" moría en «dr» en vez
- * de seguir hasta «rosa»); y la negativa nombraba palabras que no son
- * la persona («doctora», «para», «nina», «esta», «este», «last»)
- * porque los tratamientos nuevos y las palabras de período no estaban
- * en ningún conjunto del camino desnudo. LA LEY DE LA FAMILIA, una
- * sola para los dos caminos (el del apertor y el desnudo tras el
- * verbo): la caminata salta TODO lo que en su posición no puede ser
- * el nombre — apertores, relleno, tratamientos, palabras de período y
- * piezas de menos de 3 letras — y devuelve la primera palabra que sí
- * puede serlo; la negativa nombra SOLO una candidata que la caminata
- * entera no pudo resolver a persona ni a palabra del idioma. Ante la
- * duda entre palabra común y nombre manda el escaneo del libro
- * (remitPersonOf corre ANTES en los dos llamantes: si está en el
- * libro, es persona — «¿cuánto mandé a Semana?» con una Semana en el
- * libro resuelve a Semana; sin ella, «semana» es período y la
- * pregunta sigue a su familia verdadera). */
-function remitPersonWordOf(folded: string): string | null {
+ * abrían; una captura de menos de 3 letras CERRABA la búsqueda; y la
+ * negativa nombraba palabras que no son la persona («doctora»,
+ * «para», «nina», «esta», «este», «last»).
+ *
+ * OLA 30 (Familia 1, Q30-3) — LA LEY SE INVIERTE. La caminata de la
+ * Ola 29 seguía curando por lista, y la especie volvió por tercera
+ * vez con palabras nuevas («través», «medio», «favor», «padre»,
+ * «hermano», «hermana», "through", "via", "sister"): cada palabra
+ * común que la lista no traía era acusada como si fuera la persona.
+ * LA LEY NUEVA, estructural y una sola para los dos caminos (el del
+ * apertor y el desnudo tras el verbo): la negativa SOLO nace si la
+ * caminata consumió TODAS las palabras entre el verbo y la candidata
+ * como vocabulario de función conocido — apertores, artículos y
+ * relleno, tratamientos y parentescos EN POSICIÓN DE TÍTULO, y las
+ * frases preposicionales hechas como clases — Y la candidata es el
+ * resto final (1–2 piezas, ya sin vocabulario de función dentro,
+ * con el período que la siga recortado). Si queda una palabra común
+ * sin consumir entre el apertor y la candidata, NO nace negativa:
+ * la puntería es AMBIGUA y quien llama responde el silencio honesto
+ * sin nombre y sin cifras — antes que acusar a una palabra que no es
+ * la persona. Curar por lista traería «pastor» y "brother" en la
+ * siguiente ola; la forma no colecciona: exige el camino entero
+ * consumido. Ante la duda entre palabra común y nombre manda el
+ * escaneo del libro (remitPersonOf corre ANTES en los dos llamantes:
+ * si está en el libro, es persona). */
+type RemitAim = { word: string | null; ambiguous: boolean };
+const NO_AIM: RemitAim = { word: null, ambiguous: false };
+function remitPersonAimOf(folded: string): RemitAim {
   const tokens = folded.split(/[^a-z0-9]+/).filter(Boolean);
-  // La caminata misma, compartida por los dos caminos: desde un
-  // índice, avanza saltando lo que no puede ser el nombre y devuelve
-  // la primera palabra que sí puede serlo (o null si el idioma se
-  // acaba antes: sin candidata no nace negativa alguna).
-  const walk = (from: number): string | null => {
-    let j = from;
-    while (j < tokens.length) {
-      const w = tokens[j];
+  const isFunction = (w: string) =>
+    REMIT_OPENERS.has(w) || REMIT_PERSON_STOP.has(w) || REMIT_PERIOD_WORDS.has(w) || REMIT_FUNCTION_WORDS.has(w);
+  // El análisis de un tramo: consume vocabulario de función desde el
+  // frente y juzga el resto. El tramo INCLUYE su pieza de apertura
+  // (el apertor o la primera palabra de la frase), para que las
+  // frases hechas casen enteras desde su primera palabra.
+  const analyze = (seg: string[]): RemitAim => {
+    let j = 0;
+    while (j < seg.length) {
       // El demostrativo con su nombre se nombra como frase («esa
       // persona»): es lo que el usuario dijo, no una candidata.
-      if (REMIT_PERSON_DEM.has(w) && (tokens[j + 1] === "persona" || tokens[j + 1] === "person")) return `${w} ${tokens[j + 1]}`;
-      if (
-        w.length < 3 ||
-        w === "por" ||
-        REMIT_OPENERS.has(w) ||
-        REMIT_PERSON_STOP.has(w) ||
-        REMIT_PERSON_TITLES.has(w) ||
-        REMIT_PERIOD_WORDS.has(w)
-      ) { j++; continue; }
-      return w;
+      if (REMIT_PERSON_DEM.has(seg[j]) && (seg[j + 1] === "persona" || seg[j + 1] === "person")) return { word: `${seg[j]} ${seg[j + 1]}`, ambiguous: false };
+      const phrase = REMIT_PHRASES.find((p) => p.every((w, k) => seg[j + k] === w));
+      if (phrase) { j += phrase.length; continue; }
+      const w = seg[j];
+      // Tratamiento o parentesco: se consume solo en posición de
+      // título — si es la última pieza, ES la candidata.
+      if (isFunction(w) || ((REMIT_PERSON_TITLES.has(w) || REMIT_KINSHIP.has(w)) && j < seg.length - 1)) { j++; continue; }
+      break;
     }
-    return null;
+    // El resto final: el período que sigue al nombre no es parte de
+    // la candidata («a Rosa esta semana» nombra a «rosa»).
+    let end = seg.length;
+    while (end > j && (REMIT_PERSON_STOP.has(seg[end - 1]) || REMIT_PERIOD_WORDS.has(seg[end - 1]))) end--;
+    const rem = seg.slice(j, end);
+    if (rem.length === 0) return NO_AIM;
+    if (rem.length <= 2 && rem.every((w) => !isFunction(w))) return { word: rem.join(" "), ambiguous: false };
+    return { word: null, ambiguous: true };
   };
   for (let i = 0; i < tokens.length; i++) {
     if (!REMIT_OPENERS.has(tokens[i])) continue;
-    const w = walk(i + 1);
-    if (w !== null) return w;
+    const aim = analyze(tokens.slice(i));
+    if (aim.word !== null || aim.ambiguous) return aim;
   }
-  const bareAt = tokens.findIndex((t) => t === "sent" || t === "send" || t === "mande" || t === "envie" || t === "enviado");
+  // Las frases hechas también abren camino sin apertor suelto
+  // («por medio de Rosa», "on behalf of Rosa", "through Rosa").
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] === "through" || tokens[i] === "via" || REMIT_PHRASES.some((p) => p.every((w, k) => tokens[i + k] === w))) {
+      const aim = analyze(tokens.slice(i));
+      if (aim.word !== null || aim.ambiguous) return aim;
+    }
+  }
+  const bareAt = tokens.findIndex((t) => REMIT_SEND_VERBS.has(t));
   if (bareAt >= 0) {
-    const w = walk(bareAt + 1);
-    if (w !== null && !REMIT_BARE_STOP.has(w)) return w;
+    const aim = analyze(tokens.slice(bareAt + 1));
+    if (aim.word !== null && REMIT_BARE_STOP.has(aim.word.split(" ")[0])) return NO_AIM;
+    return aim;
   }
-  return null;
+  return NO_AIM;
+}
+
+/** La candidata que la negativa nombra, si la hay (compatibilidad:
+ * quien solo pregunta por la palabra recibe la palabra; la marca de
+ * ambiguo la leen los llamantes con remitPersonAimOf). */
+function remitPersonWordOf(folded: string): string | null {
+  return remitPersonAimOf(folded).word;
 }
 
 function remitUnknownPerson(c: Ctx, word: string, family: BankFamilyId): BankResult {
   return {
     kind: "answer", family,
     verdict: L(c.lang, `No sé quién es «${word}» en tu libro: entre tus personas de remesas no hay nadie con ese nombre, y no voy a darte la remesa de otra persona como si fuera la suya.`, `I don't know who "${word}" is in your book: there's no remittance person by that name, and I won't hand you someone else's remittance as if it were theirs.`),
+    pieces: [], note: null, source: ["remesas.personas"], lines: 0,
+  };
+}
+
+/** OLA 30 (Familia 1, Q30-3): la puntería AMBIGUA — la caminata no
+ * pudo consumir todo el camino entre el verbo y el nombre, así que
+ * no hay candidata que nombrar sin riesgo de acusar a una palabra
+ * común. La respuesta es el silencio honesto CON PALABRAS: no nombra
+ * a nadie, no entrega cifra alguna (jamás la remesa global disfrazada)
+ * y dice qué necesita para responder. */
+function remitUnclearPerson(c: Ctx, family: BankFamilyId): BankResult {
+  return {
+    kind: "answer", family,
+    verdict: L(c.lang, `No sé a quién te refieres: entre el verbo y el nombre hay palabras que no reconozco como parte de la pregunta ni como un nombre, y no voy a darte la remesa de otra persona como si fuera la suya. Si me dices el nombre tal como está en tu libro, te respondo al momento.`, `I can't tell who you mean: between the verb and the name there are words I don't recognize as part of the question or as a name, and I won't hand you someone else's remittance as if it were theirs. Tell me the name as it stands in your book and I'll answer right away.`),
     pieces: [], note: null, source: ["remesas.personas"], lines: 0,
   };
 }
@@ -678,8 +780,9 @@ function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
     // la negativa nombrada en inglés era inalcanzable.
     const person = remitPersonOf(c, folded);
     if (!person) {
-      const word = remitPersonWordOf(folded);
-      if (word) return remitUnknownPerson(c, word, "recencia");
+      const aim = remitPersonAimOf(folded);
+      if (aim.word) return remitUnknownPerson(c, aim.word, "recencia");
+      if (aim.ambiguous) return remitUnclearPerson(c, "recencia");
     }
     pool = lines.filter((l) => roleOf(c.state, l.categoryId) === "remittance" && (!person || recipientName(c.state, l) === person.name || l.to === person.id));
     // OLA 28 (Familia 1, Q28-4): la persona que existe y no ha
@@ -1246,8 +1349,33 @@ function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(mande|envie|enviado|enviando|remesa|remittance|sent|send)/.test(folded)) return null;
   const person = remitPersonOf(c, folded);
   if (!person) {
-    const word = remitPersonWordOf(folded);
-    return word ? remitUnknownPerson(c, word, "remesas") : null;
+    const aim = remitPersonAimOf(folded);
+    if (aim.word) return remitUnknownPerson(c, aim.word, "remesas");
+    if (aim.ambiguous) return remitUnclearPerson(c, "remesas");
+    return null;
+  }
+  // OLA 30 (Familia 2, Q30-2): persona Y período — si la pregunta trae
+  // un período que no es el año ni el mes en curso (esos los acotan
+  // las filas de remitByPerson, abajo), la persona manda CON SU
+  // período: sus envíos dentro del período, sumados de las líneas
+  // vivas. Sin envíos suyos en ese período, la contradicción se dice
+  // acotada al período — no se rellena con su total de siempre.
+  if (REMIT_PERIOD_MARKER.test(folded) && !/este ano|this year|este mes|this month/.test(folded)) {
+    const p = periodOf(c, folded);
+    const mine = allLines(c).filter((l) => roleOf(c.state, l.categoryId) === "remittance" && inPeriod(c, l, p) && (recipientName(c.state, l) === person.name || l.to === person.id));
+    const total = mine.reduce((a, l) => a + view(c, l), 0);
+    if (!mine.length) {
+      return {
+        kind: "answer", family: "remesas",
+        verdict: L(c.lang, `No hay envíos a ${person.name} anotados en ${p.label}: en tu libro no hay ni una remesa suya en ese período.`, `No sends to ${person.name} are recorded in ${p.label}: your book doesn't hold a single remittance of theirs in that period.`),
+        pieces: [], note: null, source: ["remesas.personas"], lines: 0,
+      };
+    }
+    return {
+      kind: "answer", family: "remesas",
+      verdict: L(c.lang, `A ${person.name} le has mandado ${c.money(total)} en ${p.label}: ${mine.length} envío${mine.length === 1 ? "" : "s"}.`, `You've sent ${person.name} ${c.money(total)} in ${p.label}: ${mine.length} send${mine.length === 1 ? "" : "s"}.`),
+      pieces: [{ label: person.name, minor: total }], note: null, source: ["remesas.personas"], lines: mine.length,
+    };
   }
   const { rows } = remitByPerson(c.state, c.key);
   const row = rows.find((r) => r.id === person.id);
@@ -1270,6 +1398,48 @@ function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
     pieces: [{ label: person.name, minor: disp(pair) }],
     note: scope === "all" ? L(c.lang, `Este año van ${c.money(disp(row.year))} y este mes ${c.money(disp(row.month))}.`, `This year it's ${c.money(disp(row.year))} and this month ${c.money(disp(row.month))}.`) : null,
     source: ["remesas.personas"], lines: row.count,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* LA SUMA DEL PERÍODO (Ola 30, Familia 2, Q30-2): «¿cuánto mandé    */
+/* esta semana?» no la servía NINGÚN camino — la suma por persona     */
+/* exigía persona y el patrón entregaba el agregado de siempre        */
+/* declarando «en total», así que el período quedaba sin servidor y   */
+/* la pregunta moría en unknown o recibía la cifra de otro tiempo.    */
+/* Nace la familia remesas-periodo: las líneas de remesa del período  */
+/* nombrado, sumadas vivas, con el período por su nombre. El          */
+/* marcador exige el período EXPLÍCITO: sin marcador no es esta       */
+/* familia (sirve el patrón, como siempre). Con persona nombrada      */
+/* manda la suma por persona con su período (paso 7b, arriba). Con    */
+/* verbo de gasto («¿cuánto gasté en remesas…?») es historia: su      */
+/* puerta va primero en la cascada y esta familia solo oye los verbos */
+/* de envío. Se sirve en los TRES modos: preguntar por los propios    */
+/* envíos es básico (la vara de A23-4), como la recencia y la suma    */
+/* por persona, que tampoco conocen piso. El período vacío se         */
+/* responde como ausencia — jamás rellenado con el total de siempre.  */
+/* ------------------------------------------------------------------ */
+const REMIT_PERIOD_MARKER = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december|hace (\d+|dos|tres|cuatro|cinco|seis|ocho|doce)|months? ago|mes pasado|el ultimo mes|last month|semana pasada|last week|semana|week|este mes|this month|este ano|this year|\bano\b|quincena|pay period|half month)/;
+function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(cuanto|how much)/.test(folded)) return null;
+  if (!/(mande|envie|enviado|enviando|sent|send)/.test(folded)) return null;
+  if (!REMIT_PERIOD_MARKER.test(folded)) return null;
+  const p = periodOf(c, folded);
+  const pool = allLines(c).filter((l) => roleOf(c.state, l.categoryId) === "remittance" && inPeriod(c, l, p));
+  const total = pool.reduce((a, l) => a + view(c, l), 0);
+  const cap = p.label.charAt(0).toUpperCase() + p.label.slice(1);
+  if (!pool.length) {
+    return {
+      kind: "answer", family: "remesas-periodo",
+      verdict: L(c.lang, `${cap} no mandaste remesas: no hay ni un envío anotado en ese período.`, `${cap} you sent no remittances: not a single send is recorded in that period.`),
+      pieces: [], note: null, source: ["remesas.personas"], lines: 0,
+    };
+  }
+  return {
+    kind: "answer", family: "remesas-periodo",
+    verdict: L(c.lang, `${cap} mandaste ${c.money(total)} en remesas: ${pool.length} envío${pool.length === 1 ? "" : "s"}.`, `${cap} you sent ${c.money(total)} in remittances: ${pool.length} send${pool.length === 1 ? "" : "s"}.`),
+    pieces: [{ label: L(c.lang, "Remesas", "Remittances"), minor: total }],
+    note: null, source: ["remesas.personas"], lines: pool.length,
   };
 }
 
@@ -4222,6 +4392,15 @@ function answerSingle(
     const r = remesaPersonaAnswer(c, folded);
     if (r) return r;
   }
+  // 7c · LA SUMA DEL PERÍODO (ola 30, Familia 2, Q30-2): sin persona
+  // nombrada, el período manda — «¿cuánto mandé esta semana?» suma las
+  // remesas del período y lo nombra. Tras la suma por persona (la
+  // persona manda con su período) y antes del patrón (que sin período
+  // sirve como siempre con su agregado declarado).
+  {
+    const r = remesaPeriodoAnswer(c, folded);
+    if (r) return r;
+  }
   // 8 · REMESAS como patrón (cuándo y a quién / cuánto envío en remesas).
   // OLA 28 (Familia 2, E28-2): «¿cuál es mi patrón de remesas?» entra
   // — la puerta no oía ni «cuál» ni «patrón», y la canónica del
@@ -4364,6 +4543,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(mas (grande|caro|alto)|menor (gasto|compra|ingreso)|mayor (gasto|compra|ingreso)|biggest|largest|smallest|gasto mas (grande|caro)|compra mas (grande|cara))/, "extremos"],
     [/(mas que|menos que|diferencia (entre|de)|mejor (mes|que)|peor (mes|que)|comparad|versus)/, "comparar"],
     [/(ahorr|tendre ahorrado|tendria ahorrado|cuanto tengo en|mi cuenta de ahorros)/, "ahorros"],
+    [/(cuanto (mande|envie|enviado|enviando)|how much did i (send|sent)).{0,40}(semana|mes|ano|week|month|year|quincena)/, "remesas-periodo"],
     [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
   ];
   // La confirmación exige su cifra: sin dígito no hay afirmación que juzgar.

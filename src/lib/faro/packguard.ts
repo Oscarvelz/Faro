@@ -228,3 +228,27 @@ export function localWorkVerdict(mineJson: string, storedJson: string | null, mi
   if (mineJson === storedJson) return false;
   return mine.revision !== baseRev || announcedAbsent(mine, stored);
 }
+
+export type TabConflictOutcome = "banner" | "notice-corrupt" | "none";
+
+/**
+ * Ola 30 (Familia 7, Q30-C1): el desenlace de surfaceTabConflict, como
+ * función pura — el banner «Esta ya se puso al día» promete que esta
+ * pestaña ADOPTÓ el libro vigente, y solo puede levantarse si la
+ * adopción ATERRIZÓ. La puerta fuerte de la Ola 29 creó el estado que
+ * el llamante no conocía: un pack que la puerta rehúsa (una lápida
+ * injuzgable de la pestaña hermana) apartaba el trabajo local, el
+ * banner se levantaba (porque el apartado sí aterrizó) y DESPUÉS la
+ * adopción caía en su rama de fallo — cuarentena y pestaña bloqueada
+ * — sin devolver veredicto ni decir nada: el banner afirmaba una
+ * puesta al día que nunca sucedió, y la pestaña quedaba bloqueada con
+ * su libro viejo mientras el banner sonreía. La ley: sin aterrizaje
+ * no hay banner — hay el aviso de copia dañada, el mismo que el
+ * arranque levanta, y la pestaña bloqueada lo sabe por su aviso, no
+ * por un banner que miente. Con aterrizaje, el banner sigue exigiendo
+ * el apartado guardado de verdad (la ley de la Ola 5, intacta).
+ */
+export function tabConflictOutcome(kept: boolean, landed: boolean): TabConflictOutcome {
+  if (!landed) return "notice-corrupt";
+  return kept ? "banner" : "none";
+}

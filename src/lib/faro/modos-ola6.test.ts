@@ -374,7 +374,13 @@ describe("ola6 · C6-1: apartMissed viaja dentro del toast de llegada y el banne
     assert.ok(adopt.includes("mode.arrived.tab"), "la llegada sigue nombrándose en el mismo toast");
   });
   it("cuando se intentó y no se pudo, el banner viejo cae", () => {
-    const door = provider.slice(provider.indexOf("function surfaceTabConflict"), provider.indexOf("function surfaceTabConflict") + 3400);
+    // ENMIENDA OLA 30 (Familia 7, Q30-C1): la ventana crece de 3400 a
+    // 4400 — la cura del banner veraz movió la caída del banner al
+    // desenlace de la adopción (tabConflictOutcome), al final de la
+    // función. La afirmación no cambia y su propósito se ENSANCHA con
+    // la cura: el banner viejo cae tras un intento blocked Y también
+    // cuando la adopción no aterriza, que era el banner que mentía.
+    const door = provider.slice(provider.indexOf("function surfaceTabConflict"), provider.indexOf("function surfaceTabConflict") + 4400);
     assert.ok(door.includes("setTabBanner(false)"), "dentro de la puerta de pestaña: tras un intento blocked, el banner no sigue afirmando la retención vieja");
   });
   it("la puerta de sync compone igual: la confesión blocked y la llegada en un solo toast", () => {

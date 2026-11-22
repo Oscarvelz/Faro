@@ -347,13 +347,21 @@ describe("ola5 · OBS-C5-1: apartDecision — la retención cumple lo que el ban
     // cuando es una entrada anunciada que el paquete guardado no tiene
     // (la entrada es contenido, no un susurro). La primera afirmación
     // sigue al juicio a su casa nueva y clava las dos mitades de la ley.
-    const door = provider.slice(provider.indexOf("function surfaceTabConflict"), provider.indexOf("function surfaceTabConflict") + 3600);
+    // ENMIENDA OLA 30 (Familia 7, Q30-C1): la ventana crece de 3600 a
+    // 4400 — la cura del banner veraz alargó la función con su
+    // comentario y su desenlace (la adopción ahora devuelve si aterrizó
+    // y el banner se decide con tabConflictOutcome DESPUÉS de adoptar).
+    // Las afirmaciones no cambian y se suma la del desenlace: el banner
+    // ya no cuelga solo de `kept` — cuelga de kept Y de landed, que es
+    // la ley nueva entera.
+    const door = provider.slice(provider.indexOf("function surfaceTabConflict"), provider.indexOf("function surfaceTabConflict") + 4400);
     assert.ok(door.includes("localWorkVerdict("), "la puerta decide con la función pura, no con su costumbre");
     const guard = SRC("./packguard.ts");
     assert.ok(guard.includes("mine.revision !== baseRev"), "la mitad vieja de la ley sigue: sin revisión movida y sin entrada anunciada, no hay trabajo que apartar");
     assert.ok(guard.includes("announcedAbsent(mine, stored)"), "la mitad nueva de la ley: la entrada anunciada ausente en el guardado ES trabajo local");
     assert.ok(door.includes("setTabBanner(true)"), "el banner existe — pero solo tras guardar de verdad (ver la decisión)");
     assert.ok(door.includes("kept"), "el banner cuelga de que la copia quedó guardada");
+    assert.ok(door.includes("tabConflictOutcome(kept, landed)"), "y de que la adopción aterrizó: sin aterrizaje no hay banner (Ola 30)");
   });
 });
 
