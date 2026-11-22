@@ -192,6 +192,33 @@ export function presetCatalog(lang: Lang): { family: string; questions: string[]
   return out;
 }
 
+/** 1.3.416 (Oscar): el catálogo por territorio — las tarjetas del
+ * administrador. Los mismos seis territorios de la descripción de
+ * capacidades (CAP_GROUPS), cada uno con las preguntas canónicas de
+ * sus familias, sin repetir dentro de la tarjeta: el administrador
+ * deja la lista interminable por familia y se lee como un mapa. */
+export function presetCatalogByGroup(lang: Lang): { title: string; questions: string[] }[] {
+  const byId = new Map<string, string[]>();
+  for (const f of QUESTION_BANK) {
+    if (f.status !== "viva" && f.status !== "heredada") continue;
+    const qs = f.canonical[lang].filter((q) => q.trim());
+    if (qs.length) byId.set(f.id, qs);
+  }
+  return CAP_GROUPS.map((g) => {
+    const seen = new Set<string>();
+    const questions: string[] = [];
+    for (const id of g.families) {
+      for (const q of byId.get(id) ?? []) {
+        const k = q.trim().toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        questions.push(q);
+      }
+    }
+    return { title: g.title[lang], questions };
+  }).filter((g) => g.questions.length > 0);
+}
+
 /** LAS SUGERENCIAS DEL BANCO (1.3.376; fallo de Oscar, 2026-11-21
  * 21:07): en la caja en reposo el banco ofrece SOLO TRES sugerencias,
  * bajo su propio rótulo y DEBAJO de «A la mano» — las preguntas de la

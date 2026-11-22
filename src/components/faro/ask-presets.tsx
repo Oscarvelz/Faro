@@ -12,19 +12,24 @@
  * La fija del sistema («¿Qué puede hacer el asesor?», renombrada en
  * 1.3.405) no se administra: siempre estará primera en la caja, y el
  * pliegue lo dice.
+ * 1.3.416 (Oscar): el catálogo deja la lista interminable por familia —
+ * vive en tarjetas por territorio, con títulos cortos, cerradas al
+ * llegar y una abierta a la vez, como las de la descripción (1.3.412);
+ * dentro de su tarjeta, añadir sigue a un toque.
  */
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-import { addAskPreset, askPresetsOf, FIXED_PRESET_Q, moveAskPreset, presetCatalog, removeAskPreset } from "@/lib/faro/askpresets";
+import { addAskPreset, askPresetsOf, FIXED_PRESET_Q, moveAskPreset, presetCatalogByGroup, removeAskPreset } from "@/lib/faro/askpresets";
 import { useFaro } from "./provider";
 
 export function AskPresetsManager() {
   const { session, lang, commit, has } = useFaro();
   const [own, setOwn] = useState("");
+  const [openGroup, setOpenGroup] = useState(-1);
   if (!has("settings.ask-presets") || !session) return null;
   const L = (es: string, en: string) => (lang === "en" ? en : es);
   const list = askPresetsOf(session.ledger);
-  const catalog = presetCatalog(lang);
+  const catalog = presetCatalogByGroup(lang);
   const inList = (q: string) => list.some((p) => p.text.trim().toLowerCase() === q.trim().toLowerCase());
 
   function addOwn() {
@@ -73,24 +78,32 @@ export function AskPresetsManager() {
         </button>
       </div>
       <div className="ap-catalog">
-        {catalog.map((g) => (
-          <div key={g.family} className="ap-group">
-            <span className="ap-group-name">{g.family}</span>
-            {g.questions.map((q) => {
-              const added = inList(q);
-              return (
-                <div key={q} className="ap-row">
-                  <span className="ap-text">{q}</span>
-                  {added ? (
-                    <span className="ap-added" data-anchor="ap-added"><Check size={14} /> {L("Guardada", "Saved")}</span>
-                  ) : (
-                    <button type="button" className="ap-add" data-anchor="ap-cat-add" onClick={() => commit((s) => addAskPreset(s, q), L("Pregunta guardada", "Question saved"))}>
-                      <Plus size={14} /> {L("Añadir", "Add")}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+        {catalog.map((g, gi) => (
+          <div key={g.title} className="ap-cat-card">
+            <button type="button" className="ap-cat-head" data-anchor="ap-cat-head" aria-expanded={openGroup === gi} onClick={() => setOpenGroup((v) => (v === gi ? -1 : gi))}>
+              <span className="ap-cat-title">{g.title}</span>
+              <span className="ap-cat-count">{g.questions.length}</span>
+              <ChevronDown size={15} className="ap-cat-chev" aria-hidden />
+            </button>
+            {openGroup === gi ? (
+              <div className="ap-cat-body">
+                {g.questions.map((q) => {
+                  const added = inList(q);
+                  return (
+                    <div key={q} className="ap-row">
+                      <span className="ap-text">{q}</span>
+                      {added ? (
+                        <span className="ap-added" data-anchor="ap-added"><Check size={14} /> {L("Guardada", "Saved")}</span>
+                      ) : (
+                        <button type="button" className="ap-add" data-anchor="ap-cat-add" onClick={() => commit((s) => addAskPreset(s, q), L("Pregunta guardada", "Question saved"))}>
+                          <Plus size={14} /> {L("Añadir", "Add")}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

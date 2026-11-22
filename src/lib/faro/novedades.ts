@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.416",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El catálogo de preguntas, en tarjetas", en: "The question catalog, in cards" },
+    points: {
+      es: [
+        "En «Preguntas a la mano», el catálogo de sugerencias deja la lista interminable: ahora vive en tarjetas por territorio — tu mes, tus movimientos, tus cuotas y deudas — con títulos cortos y su conteo a la vista.",
+        "Las tarjetas llegan cerradas y se abre una a la vez: eliges el territorio, ves sus preguntas y añades las tuyas a un toque, como siempre.",
+      ],
+      en: [
+        "In \"Questions at hand\", the suggestions catalog leaves the endless list behind: it now lives in cards by territory — your month, your movements, your dues and debts — with short titles and their count in view.",
+        "The cards arrive closed and only one opens at a time: you pick the territory, see its questions and add yours in one tap, as always.",
+      ],
+    },
+    topic: "preguntas-a-la-mano",
+  },
+  {
     version: "1.3.412",
     date: "2026-11-22",
     level: "menor",
