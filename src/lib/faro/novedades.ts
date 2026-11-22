@@ -27,13 +27,37 @@ export interface NewsEntry {
    * lugar nombra la nota. En el pliegue, la nota lleva su «Ir allí»
    * por la vía de ese tema y atrás devuelve a Novedades. Sin tema,
    * la nota es solo texto — nunca una puerta inventada. La tarjeta
-   * del anuncio no lleva puerta: las puertas viven en el pliegue. */
+   * del anuncio no lleva puerta: las puertas viven en el pliegue.
+   * OLA 31 (Familia 9): la nota que ANUNCIA una pregunta o una
+   * función lleva su puerta como las de la .382/.383 — la de la
+   * .403 anunciaba la pregunta nueva del Asesor sin topic y la de
+   * la .400 hacía lo mismo con el «¿por qué?»: el mecanismo es uno,
+   * y la cerca de modos-ola31 lo clava. */
   topic?: string;
 }
 
 /** De la más nueva a la más vieja — el orden de esta lista ES el orden
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
+  {
+    version: "1.3.419",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Remesas más certeras, salidas verificadas", en: "Truer remittance answers, verified exits" },
+    points: {
+      es: [
+        "El Asesor entiende mejor tus preguntas de remesas: «esta quincena», «en agosto», «a Al en octubre» — la persona y el período ya no se confunden, y cuando un nombre no está en tu libro lo dice sin inventar cifras.",
+        "Al salir de un libro compartido, el registro de tu tiempo en él solo se anuncia cuando de verdad quedó guardado; y el empalme del servidor ahora juzga cada línea que guarda, como la puerta de la app.",
+        "Las novedades de la 1.3.400 y la 1.3.403 ya llevan su puerta: tocan y abren el tema del Asesor en el Manual.",
+      ],
+      en: [
+        "The Advisor reads your remittance questions better: \"this pay period\", \"in August\", \"to Al in October\" — the person and the period no longer blur, and when a name is not in your book it says so without inventing figures.",
+        "When you leave a shared book, the record of your time in it is only announced once it truly landed; and the server's splice now judges every line it stores, just like the app's own gate.",
+        "The 1.3.400 and 1.3.403 news entries now carry their door: tap them and they open the Advisor's topic in the Manual.",
+      ],
+    },
+    topic: "preguntar-asesor",
+  },
   {
     version: "1.3.418",
     date: "2026-11-22",
@@ -256,6 +280,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.403",
     date: "2026-11-22",
     level: "menor",
+    topic: "preguntar-asesor",
     title: { es: "El Asesor oye las remesas por período", en: "The Advisor hears remittances by period" },
     points: {
       es: [
@@ -304,6 +329,7 @@ export const NEWS: NewsEntry[] = [
     version: "1.3.400",
     date: "2026-11-22",
     level: "grande",
+    topic: "preguntar-asesor",
     title: { es: "El Asesor recuerda la conversación", en: "The Advisor remembers the conversation" },
     points: {
       es: [

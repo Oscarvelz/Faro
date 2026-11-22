@@ -17,6 +17,12 @@
  *     LÁPIDA firmada por el lado que borró (si el llamante dice quién
  *     es cada lado), para que ninguna copia vieja la resucite jamás.
  *   — con lápida en cualquiera de los lados → muerta, sin examen.
+ *     Y la unión de lápidas se siembra también desde la BASE (Ola
+ *     31, G31-5): la lápida que solo la base conserva manda igual —
+ *     contra la copia vieja que la perdió existe la lápida.
+ * · LOS REGISTROS PASIVOS se componen como las lápidas (Ola 31,
+ *   G31-4): la unión por id de ambos lados, con el lado ganador
+ *   mandando a igual id — no son mobiliario del ganador.
  * · ESTRUCTURA, AJUSTES Y EL RESTO DEL MOBILIARIO — gana la revisión
  *   mayor, como manda el estudio; a igual revisión y contenido
  *   distinto, la fusión devuelve conflict=true y la palabra la tiene
@@ -28,9 +34,10 @@
  *
  * Todo es puro y desconfiado: las lápidas se leen filtradas y ninguna
  * línea entra sin id. */
-import type { LedgerState, Line, Tombstone } from "./types";
+import type { LedgerState, Line, PassiveRecord, Tombstone } from "./types";
 import { migrateAutopayConfig } from "./autopay.ts";
 import { tombstoneShapeOk } from "./defaults.ts";
+import { passiveRecordsOf } from "./exit.ts";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -124,8 +131,19 @@ export function fuseBooks(base: LedgerState, server: FuseSide, local: FuseSide):
   // único filtrando en el lector, toda lápida que llega aquí trae una
   // fecha real, y el orden alfabético ya no decide nada (una «zzzz»
   // jamás vuelve a ganarle a una fecha verdadera).
+  // OLA 31 (Familia 8, G31-5): LA UNIÓN SE SIEMBRA TAMBIÉN DESDE LA
+  // BASE — la unión vieja leía solo los dos lados, y una línea
+  // borrada con su lápida en la base RESUCITABA si ambos lados
+  // perdían la lápida (una copia vieja, de antes de la Pieza C3, o un
+  // respaldo antiguo que vuelve): el fusionado salía con la línea
+  // viva y sin ninguna lápida — el hecho de borrado desaparecía del
+  // libro. La lápida existe exactamente contra esa copia; la base es
+  // el último estado común y sus hechos firmados son de la unión como
+  // los de cualquier lado. La base se siembra la ÚLTIMA: a igual
+  // instante manda el orden de siempre (el lado ya asentado), y la
+  // base solo aporta lo que ningún lado trae o el instante mayor.
   const stoneBy = new Map<string, Tombstone>();
-  for (const t of [...tombstonesOf(server.state), ...tombstonesOf(local.state)]) {
+  for (const t of [...tombstonesOf(server.state), ...tombstonesOf(local.state), ...tombstonesOf(base)]) {
     const prev = stoneBy.get(t.id);
     if (!prev || Date.parse(t.at) > Date.parse(prev.at)) stoneBy.set(t.id, t);
   }
@@ -228,5 +246,22 @@ export function fuseBooks(base: LedgerState, server: FuseSide, local: FuseSide):
   const state = clone(winner.state);
   state.months = months;
   state.tombstones = [...stoneBy.values()].sort((a, z) => Date.parse(a.at) - Date.parse(z.at));
+  // OLA 31 (Familia 8, G31-4): LOS REGISTROS PASIVOS SE COMPONEN —
+  // la fusión componía el estado como clon del lado ganador y solo
+  // recomponía meses y lápidas: los registros pasivos, nacidos en la
+  // .398 (después de la ley de la fusión, que jamás los nombró), se
+  // evaporaban en silencio si vivían en el lado que perdía la
+  // revisión. No son mobiliario: son la historia congelada de quien
+  // salió de otro libro, y se componen como las lápidas — la UNIÓN
+  // por id, leída con el juez único (passiveRecordsOf); a igual id,
+  // la copia del lado ganador manda, como el resto del estado. Si
+  // ningún lado trae el campo, el campo no nace.
+  if (Array.isArray(server.state.passiveRecords) || Array.isArray(local.state.passiveRecords)) {
+    const loser = winner === server ? local : server;
+    const recordsBy = new Map<string, PassiveRecord>();
+    for (const r of passiveRecordsOf(loser.state)) recordsBy.set(r.id, r);
+    for (const r of passiveRecordsOf(winner.state)) recordsBy.set(r.id, r);
+    state.passiveRecords = [...recordsBy.values()];
+  }
   return { state, conflict };
 }

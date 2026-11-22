@@ -558,16 +558,42 @@ function remitPersonOf(c: Ctx, folded: string) {
     // «al» trabaja de apertor y «banco» es la candidata). La caída de
     // la palabra suelta conserva su piso de 3: una palabra de 2 letras
     // de un nombre largo no resuelve a la ligera.
+    // OLA 31 (Familia 2, Q31-1): la cláusula de ÚLTIMA palabra quedó
+    // enmendada por su propia closesPhrase — el guardia vetaba «a Al
+    // ayer» y «a Al en octubre», donde el nombre va precedido de OTRO
+    // apertor y seguido solo de cierres: la ley vigente es la del
+    // guardia reconciliado junto al bucle (el nombre-apertor resuelve
+    // precedido de otro apertor o cerrando la frase; «al banco» y
+    // «al mes pasado» siguen fuera) y el cierre se juzga con el oído
+    // de periodOf (REMIT_CLOSING_WORDS).
     else if (f.length === 2 && wholeAt(f)) {
       const toks = folded.split(/[^a-z0-9]+/).filter(Boolean);
       const preceded = (t: string | undefined) =>
         t !== undefined && (REMIT_OPENERS.has(t) || REMIT_SEND_VERBS.has(t) || REMIT_PERSON_TITLES.has(t) || REMIT_KINSHIP.has(t) || REMIT_PERSON_STOP.has(t));
+      // OLA 31 (Familia 2, Q31-1): el cierre se juzga con el oído de
+      // periodOf (REMIT_CLOSING_WORDS, abajo): tras el nombre caben
+      // las paradas, las palabras y los nombres de período y las
+      // preposiciones que los introducen — la versión vieja
+      // desconocía «en + mes» para todo nombre de dos letras.
       const closesPhrase = (i: number) =>
-        toks.slice(i + 1).every((t) => REMIT_PERSON_STOP.has(t) || REMIT_PERIOD_WORDS.has(t));
+        toks.slice(i + 1).every((t) => REMIT_CLOSING_WORDS.has(t));
       const isOpenerWord = REMIT_OPENERS.has(f);
       for (let i = 0; i < toks.length; i++) {
         if (toks[i] !== f || !preceded(toks[i - 1]) || !closesPhrase(i)) continue;
-        if (isOpenerWord && i !== toks.length - 1) continue;
+        // OLA 31 (Familia 2, Q31-1): el guardia de ÚLTIMO token vetaba
+        // también la posición legítima — «a Al ayer», «a Al en
+        // octubre» — contradiciendo el permiso de cierre de la propia
+        // closesPhrase, y el nombre más corto del libro quedaba fuera
+        // de casi toda pregunta que continuara. La ley reconciliada:
+        // el nombre que ES palabra de apertura resuelve cuando no es
+        // el apertor que abre — cuando su token va precedido de OTRO
+        // apertor («a Al», «para Al», "to Al": ahí hay dos piezas, el
+        // apertor y el nombre) o cuando cierra la frase (nada sigue
+        // que el token pudiera abrir). «Mande al banco» y «mande al
+        // mes pasado» quedan fuera, como manda la cura de la Ola 30:
+        // ahí «al» ES el apertor — lo precede el verbo, no un
+        // apertor — y trabaja de contracción, no de nombre.
+        if (isOpenerWord && i !== toks.length - 1 && !REMIT_OPENERS.has(toks[i - 1])) continue;
         consider(p, f.length);
         break;
       }
@@ -598,6 +624,29 @@ const REMIT_PERSON_DEM = new Set(["esa", "ese", "eso", "esas", "esos", "esta", "
  * REMIT_PERSON_STOP. Una palabra de período se salta y la caminata
  * sigue: si tras ella hay un nombre, el nombre manda. */
 const REMIT_PERIOD_WORDS = new Set(["esta", "este", "esa", "ese", "eso", "esto", "estas", "estos", "esas", "esos", "this", "that", "these", "those", "last", "next", "pasado", "pasada", "pasados", "pasadas", "ultimo", "ultima", "ultimos", "ultimas"]);
+/** OLA 31 (Familia 1, Q31-1 de Cara): LOS NOMBRES DE PERÍODO — los
+ * doce meses, la quincena y el «pay period» — son vocabulario de la
+ * pregunta: el mismo que periodOf suma y REMIT_PERIOD_MARKER oye. La
+ * caminata no los conocía y los acusaba como personas («¿cuánto
+ * mandé en agosto?» → «no sé quién es «agosto»»; "this pay period"
+ * acusado entero), y la familia remesas-periodo — nacida para esas
+ * preguntas — nunca las recibía: la cascada preguntaba a la persona
+ * (7b) antes que al período (7c) y la premisa falsa mataba la
+ * pregunta. EL VOCABULARIO DE PERÍODO ES UNO: lo que el motor
+ * reconoce como período en cualquier puerta, la caminata lo reconoce
+ * en la suya — una palabra de período jamás es candidata a persona,
+ * la ley de Q29-C1 extendida a todo el vocabulario que periodOf
+ * habla. */
+const REMIT_MONTH_WORDS = new Set(["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "setiembre", "octubre", "noviembre", "diciembre", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]);
+const REMIT_PERIOD_NOUNS = new Set([...REMIT_MONTH_WORDS, "quincena", "pay", "period"]);
+/** OLA 31 (Familia 2, Q31-1 del Asesor): EL CIERRE DE LA FRASE DE
+ * PERSONA se juzga con el oído de periodOf — tras un nombre de dos
+ * letras solo cabe vocabulario de función: las paradas, las palabras
+ * y los nombres de período, y las preposiciones que los introducen
+ * («en octubre», "in august"). La closesPhrase vieja desconocía la
+ * construcción «en + mes» para TODO nombre corto: «a Ed en octubre»
+ * caía en el silencio ambiguo y «a Al en octubre» acusaba al mes. */
+const REMIT_CLOSING_WORDS = new Set([...REMIT_PERSON_STOP, ...REMIT_PERIOD_WORDS, ...REMIT_PERIOD_NOUNS, "en", "in"]);
 /** OLA 29 (Familia 1, Q29-1): los apertores del dativo — la caminata
  * abre en cualquiera de ellos y los salta si aparecen dentro del
  * camino («al» es «a» + «el» contraídos: la forma natural de «a el
@@ -630,8 +679,10 @@ const REMIT_PHRASES: string[][] = [
 const REMIT_KINSHIP = new Set(["padre", "madre", "hermano", "hermana", "hijo", "hija", "abuelo", "abuela", "primo", "prima", "sobrino", "sobrina", "nieto", "nieta", "brother", "sister", "father", "mother", "son", "daughter", "husband", "wife", "grandpa", "grandma"]);
 /** El resto del vocabulario de función suelto que la caminata consume
  * palabra a palabra (las preposiciones y partículas que no forman
- * frase hecha, y los determinantes que REMIT_PERSON_STOP no trae). */
-const REMIT_FUNCTION_WORDS = new Set(["de", "del", "por", "con", "sin", "en", "of", "by", "for", "from", "through", "via", "it", "un", "an", "its", "our", "their"]);
+ * frase hecha, y los determinantes que REMIT_PERSON_STOP no trae).
+ * OLA 31 (Familia 1): «in» entra — "in august" viajaba entero dentro
+ * del nombre acusado porque la preposición inglesa no era de nadie. */
+const REMIT_FUNCTION_WORDS = new Set(["de", "del", "por", "con", "sin", "en", "in", "of", "by", "for", "from", "through", "via", "it", "un", "an", "its", "our", "their"]);
 
 /** La puntería de una pregunta de remesas: a quién nombra sin
  * resolverlo. Devuelve la candidata (la palabra que la negativa
@@ -681,8 +732,12 @@ type RemitAim = { word: string | null; ambiguous: boolean };
 const NO_AIM: RemitAim = { word: null, ambiguous: false };
 function remitPersonAimOf(folded: string): RemitAim {
   const tokens = folded.split(/[^a-z0-9]+/).filter(Boolean);
+  // OLA 31 (Familia 1, Q31-1 de Cara): la caminata consume también
+  // los NOMBRES de período (REMIT_PERIOD_NOUNS) — son vocabulario de
+  // la pregunta, no candidatas: «esta quincena», «en agosto», "this
+  // pay period" se caminan enteros y la pregunta llega a su familia.
   const isFunction = (w: string) =>
-    REMIT_OPENERS.has(w) || REMIT_PERSON_STOP.has(w) || REMIT_PERIOD_WORDS.has(w) || REMIT_FUNCTION_WORDS.has(w);
+    REMIT_OPENERS.has(w) || REMIT_PERSON_STOP.has(w) || REMIT_PERIOD_WORDS.has(w) || REMIT_FUNCTION_WORDS.has(w) || REMIT_PERIOD_NOUNS.has(w);
   // El análisis de un tramo: consume vocabulario de función desde el
   // frente y juzga el resto. El tramo INCLUYE su pieza de apertura
   // (el apertor o la primera palabra de la frase), para que las
@@ -702,9 +757,11 @@ function remitPersonAimOf(folded: string): RemitAim {
       break;
     }
     // El resto final: el período que sigue al nombre no es parte de
-    // la candidata («a Rosa esta semana» nombra a «rosa»).
+    // la candidata («a Rosa esta semana» nombra a «rosa»). OLA 31
+    // (Familia 1): el recorte oye el vocabulario entero del período
+    // — también «a Rosa en agosto» nombra a «rosa», no a «agosto».
     let end = seg.length;
-    while (end > j && (REMIT_PERSON_STOP.has(seg[end - 1]) || REMIT_PERIOD_WORDS.has(seg[end - 1]))) end--;
+    while (end > j && (REMIT_PERSON_STOP.has(seg[end - 1]) || REMIT_PERIOD_WORDS.has(seg[end - 1]) || REMIT_PERIOD_NOUNS.has(seg[end - 1]) || seg[end - 1] === "en" || seg[end - 1] === "in")) end--;
     const rem = seg.slice(j, end);
     if (rem.length === 0) return NO_AIM;
     if (rem.length <= 2 && rem.every((w) => !isFunction(w))) return { word: rem.join(" "), ambiguous: false };
@@ -737,6 +794,36 @@ function remitPersonAimOf(folded: string): RemitAim {
  * ambiguo la leen los llamantes con remitPersonAimOf). */
 function remitPersonWordOf(folded: string): string | null {
   return remitPersonAimOf(folded).word;
+}
+
+/** OLA 31 (Familia 1, Q31-1 del Asesor): EL NOMBRE COMIDO COMO
+ * APERTOR — la última costura de la degradación por el período. La
+ * caminata consume «al» como vocabulario (lo es: es la contracción),
+ * así que la pregunta que nombra a una persona llamada «Al» que el
+ * escaneo no resolvió (no está en el libro) no deja ni candidata ni
+ * marca de ambiguo: deja NADA, y la familia del período servía la
+ * suma global como si nadie hubiera sido nombrado. La sonda detecta
+ * la puntería sin acusar a nadie: el token «al» en POSICIÓN DE
+ * PERSONA — precedido de otro apertor o del verbo de envío, seguido
+ * solo de vocabulario de cierre — que NO introduce él mismo el
+ * período: si lo que sigue a «al» es el nombre del período («al mes
+ * pasado», «al año»), «al» trabaja de apertor del tiempo y no hay
+ * persona que proteger. Con la sonda positiva, el paso 7c responde
+ * el silencio honesto (remitUnclearPerson): la persona nombrada
+ * manda sobre el período presente, aunque su nombre sea
+ * indistinguible de la contracción. */
+const REMIT_PERIOD_HEADS = new Set([...REMIT_PERIOD_NOUNS, "mes", "semana", "ano", "month", "week", "year"]);
+function remitConsumedName(folded: string): boolean {
+  const toks = folded.split(/[^a-z0-9]+/).filter(Boolean);
+  for (let i = 0; i < toks.length; i++) {
+    if (toks[i] !== "al") continue;
+    const prev = toks[i - 1];
+    if (prev === undefined || !(REMIT_OPENERS.has(prev) || REMIT_SEND_VERBS.has(prev))) continue;
+    const next = toks[i + 1];
+    if (next !== undefined && REMIT_PERIOD_HEADS.has(next)) continue;
+    if (toks.slice(i + 1).every((t) => REMIT_CLOSING_WORDS.has(t))) return true;
+  }
+  return false;
 }
 
 function remitUnknownPerson(c: Ctx, word: string, family: BankFamilyId): BankResult {
@@ -1424,6 +1511,23 @@ function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(cuanto|how much)/.test(folded)) return null;
   if (!/(mande|envie|enviado|enviando|sent|send)/.test(folded)) return null;
   if (!REMIT_PERIOD_MARKER.test(folded)) return null;
+  // OLA 31 (Familia 1, Q31-1 del Asesor): LA PERSONA NOMBRADA MANDA
+  // SOBRE EL PERÍODO PRESENTE — esta familia sirve la suma del
+  // período solo cuando nadie fue nombrado. Si el escaneo resuelve
+  // una persona, su suma con su período es del paso 7b (que corre
+  // antes) y esta familia calla; si la caminata nombró una candidata
+  // o declaró la puntería ambigua, la negativa o el silencio con
+  // palabras ya nacieron en 7b y el período no los viste de suma
+  // global. Y la costura que la caminata no puede ver — el nombre
+  // comido como apertor (remitConsumedName) — recibe el silencio
+  // honesto: «¿cuánto le mandé a Al en el mes pasado?», con «Al»
+  // fuera del libro, recibía los $280 de todos como si nadie
+  // hubiera sido nombrado: la degradación silenciosa misma, con la
+  // ropa de la familia nueva. La persona manda; el período espera.
+  if (remitPersonOf(c, folded)) return null;
+  const aim = remitPersonAimOf(folded);
+  if (aim.word || aim.ambiguous) return null;
+  if (remitConsumedName(folded)) return remitUnclearPerson(c, "remesas");
   const p = periodOf(c, folded);
   const pool = allLines(c).filter((l) => roleOf(c.state, l.categoryId) === "remittance" && inPeriod(c, l, p));
   const total = pool.reduce((a, l) => a + view(c, l), 0);
@@ -3565,6 +3669,16 @@ function proyectarSeguimiento(c: Ctx, f: AskFrame): BankResult {
     pieces: [{ label: L(c.lang, "Ritmo de este mes", "This month's pace"), minor: pace }],
     note: L(c.lang, "El supuesto, dicho: el gasto de este mes repetido el que viene. Es una proyección, no una promesa: un mes distinto mueve la cifra.", "The assumption, stated: this month's spend repeated next month. It's a projection, not a promise: a different month moves the figure."),
     source: ["asesor.lectura", "libros.neto"], lines: 0,
+    // OLA 31 (Familia 5, Q31-3 de Cara): LA PROYECCIÓN SERVIDA DEJA
+    // SU MARCO — la rama de piso lo devolvía y esta no: la caja
+    // reemplaza su marco con el de cada respuesta, así que tras una
+    // proyección servida el marco quedaba en null y todo el
+    // seguimiento posterior caía fuera del hilo («¿y el mes que
+    // viene?» otra vez → «todavía no lo sé»; DESCOMPONER → la
+    // lectura sola). El verbo que carga el hilo no lo corta: las
+    // dos ramas devuelven el marco, como la ley cercada del
+    // veredicto de piso ya cumplía.
+    frame: f,
   };
 }
 
@@ -3743,13 +3857,29 @@ function periodPhraseIn(folded: string): string | null {
   for (const p of FRAME_PERIODS) if (new RegExp(`(^|[^a-z0-9])${p}([^a-z0-9]|$)`).test(folded)) return p;
   return null;
 }
+/** OLA 31 (Familia 4, Q31-3 del Asesor): LA PALABRA ENTERA, TAMBIÉN
+ * EN EL MARCO — los detectores del ConvoFrame casaban por SUBCADENA
+ * (`folded.includes(f)`): «¿cuánto mandé esta semana?» paría un
+ * marco con personName «ana» (de sem**ana**), el seguimiento «¿Y
+ * Ana?» re-servía la suma global con el eco falso «cambié solo la
+ * persona» y «¿Y Rosa?» cosía «sem**rosa**» y acusaba a una palabra
+ * fabricada por la propia reescritura. Es la especie Q28-1, que el
+ * escaneo (remitPersonOf) curó en la Ola 28 y el marco nuevo no
+ * heredó: la cura llega aquí — todo detector del marco casa por
+ * palabra entera, la persona y la cuenta. El eco «cambié solo la
+ * persona» solo se dice cuando la persona cambió de verdad: sin
+ * personName verdadero en el marco, la reescritura de persona no
+ * nace (followUpRewrite ya lo exige) y el seguimiento cae a la
+ * cascada fresca, que sirve a la persona nombrada o calla honesto. */
+const wholeWordIn = (folded: string, needle: string): boolean =>
+  new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded);
 function framePersonIn(state: LedgerState, folded: string, today = ""): string | null {
   const people: Array<{ name: string }> = [...peopleOf(state, "owed", today || undefined), ...peopleOf(state, "owe", today || undefined), ...(state.remitPeople ?? [])];
   for (const p of people) {
     const f = foldQ(p.name);
-    if (f.length >= 3 && folded.includes(f)) return f;
+    if (f.length >= 3 && wholeWordIn(folded, f)) return f;
     const first = f.split(/\s+/)[0];
-    if (first.length >= 4 && new RegExp(`(^|[^a-z0-9])${first}([^a-z0-9]|$)`).test(folded)) return first;
+    if (first.length >= 4 && wholeWordIn(folded, first)) return first;
   }
   return null;
 }
@@ -3757,7 +3887,7 @@ function frameAccountIn(state: LedgerState, names: Namer, key: string, folded: s
   const stock = savingsStock(state, key);
   for (const h of hostAccounts(state, key, stock)) {
     const nm = foldQ(names.sub(h.id) || h.id);
-    if (nm.length >= 3 && folded.includes(nm)) return nm;
+    if (nm.length >= 3 && wholeWordIn(folded, nm)) return nm;
   }
   return null;
 }
@@ -3884,17 +4014,74 @@ export function normalizeEs(folded: string): string {
   return folded.split(/(\s+)/).map((tok) => (/^[a-z]+$/.test(tok) ? normalizeEsWord(VOSEO_MAP[tok] ?? tok) : tok)).join("");
 }
 
+/** OLA 31 (Familia 3, Q31-2): EL PISO DE LA FAMILIA DEL MARCO — el
+ * porqué re-juzga, al turno en que se pide, los pisos que el camino
+ * fresco de cada familia YA juzga: el patrón de remesas (remit.manage
+ * / study.remit), el plan de salida de deudas (loans.payoff-plan) y
+ * la proyección (advisor.projection). Se distingue por la familia y
+ * su fuente: la suma por persona y la recencia también son «remesas»
+ * por familia, pero su fuente es solo «remesas.personas» y no conocen
+ * piso — preguntar por los propios envíos es básico en los tres
+ * modos, y su porqué despliega en cualquier modo. Una familia sin
+ * piso juzgado en su camino fresco no gana ninguno aquí: el porqué
+ * no inventa pisos, hereda los de la casa. */
+function convoFrameFloor(frame: ConvoFrame): { reached: (m: BookMode) => boolean; verdict: (lang: Lang) => string } | null {
+  if (frame.family === "remesas" && frame.source.includes("asesor.lectura")) {
+    return {
+      reached: (m) => askReaches(m, "remit.manage") || askReaches(m, "study.remit"),
+      verdict: (lang) => L(lang, `Esa cuenta es el patrón de tus remesas, y vive en ${modeWord(lang, "completo")}: en Estudio → Remesas y en Ajustes → Remesas ves a quién envías, cuánto y con qué ritmo. En tu modo de ahora no despliego sus piezas; si subes a ${modeWord(lang, "completo")}, te enseño de dónde salen.`, `That reckoning is your remittance pattern, and it lives in ${modeWord(lang, "completo")}: in Study → Remittances and Settings → Remittances you see who you send to, how much, and at what pace. In your current mode I won't unfold its pieces; if you go up to ${modeWord(lang, "completo")}, I'll show you where they come from.`),
+    };
+  }
+  if (frame.family === "futuro" && frame.source.includes("cobros.plan")) {
+    return {
+      reached: (m) => askReaches(m, "loans.payoff-plan"),
+      verdict: (lang) => L(lang, `Esa cuenta es el plan para salir de deudas, y vive en ${modeWord(lang, "completo")}: ahí ves la fecha en que quedas libre y el interés del camino, con su supuesto dicho. En tu modo de ahora no despliego sus piezas; si subes a ${modeWord(lang, "completo")}, te enseño de dónde salen.`, `That reckoning is the debt payoff plan, and it lives in ${modeWord(lang, "completo")}: there you see the date you're debt-free and the interest along the way, with its assumption stated. In your current mode I won't unfold its pieces; if you go up to ${modeWord(lang, "completo")}, I'll show you where they come from.`),
+    };
+  }
+  if (frame.family === "futuro") {
+    return {
+      reached: (m) => askReaches(m, "advisor.projection"),
+      verdict: (lang) => L(lang, `Esa cuenta es tu saldo proyectado, día a día, y vive en ${modeWord(lang, "completo")}. En tu modo de ahora no despliego sus piezas; si subes a ${modeWord(lang, "completo")}, te enseño de dónde salen.`, `That reckoning is your projected balance, day by day, and it lives in ${modeWord(lang, "completo")}. In your current mode I won't unfold its pieces; if you go up to ${modeWord(lang, "completo")}, I'll show you where they come from.`),
+    };
+  }
+  return null;
+}
+
 /* OLA 21 · ¿POR QUÉ? — el despliegue de la procedencia. El marco de la
  * Ola 19 ya guarda las piezas y la fuente de la última respuesta: esta
  * familia solo las abre. Sin marco, lo dice: primero la cifra, luego
  * su porqué — y conserva el marco nulo para no fabricarse uno. */
-function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang): BankResult {
+function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, mode?: BookMode): BankResult {
   if (!frame) {
     return {
       kind: "answer", family: "porque",
       verdict: L(lang, "Todavía no hay una cifra que explicar en esta conversación: pregúntame primero la cifra y te enseño de dónde sale, pieza por pieza.", "There's no figure to explain yet in this conversation: ask me the figure first and I'll show you where it comes from, piece by piece."),
       pieces: [], note: null, source: [], lines: 0, convo: null,
     };
+  }
+  // OLA 31 (Familia 3, Q31-2): EL PORQUÉ RE-JUZGA EL PISO AL TURNO EN
+  // QUE SE PIDE — la ley que la Ola 27 selló para el §20 y el
+  // ConvoFrame, nacido en la .400 después de la ley, no heredó:
+  // porqueResult ni siquiera recibía el modo, y bajar a Esencial o
+  // Ritmo con la conversación abierta desplegaba las piezas
+  // congeladas de Completo (el patrón con sus personas, la
+  // proyección con su ritmo) mientras la pregunta fresca en esos
+  // modos nombraba el piso sin una cifra. Lo que el piso niega a la
+  // pregunta directa, el porqué no lo entrega un turno después: si
+  // el piso ya no alcanza, el porqué NOMBRA el piso en vez de
+  // desplegar — y el marco se conserva, para que al volver a subir
+  // el despliegue siga vivo (el modo gobierna lo que la cara
+  // muestra; el hilo no muere por bajar).
+  {
+    const floor = convoFrameFloor(frame);
+    if (floor && !floor.reached(mode ?? bookMode(state))) {
+      return {
+        kind: "answer", family: "porque",
+        verdict: floor.verdict(lang),
+        pieces: [], note: null, source: frame.source, lines: 0,
+        convo: frame,
+      };
+    }
   }
   const disp = state.settings.display;
   const counted = frame.pieces.length
@@ -3995,7 +4182,7 @@ export function answerBankQuestion(
     const bare = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
     if (/^(y )?(por que|porque)$/.test(bare)
       || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(foldQ(raw))) {
-      return porqueResult(state, convo ?? null, lang);
+      return porqueResult(state, convo ?? null, lang, mode);
     }
   }
   // OLA 19: el seguimiento se reescribe sobre el marco ANTES que

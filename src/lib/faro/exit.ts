@@ -50,6 +50,23 @@ export function makePassiveRecord(scoped: LedgerState, owner: string, lang: "es"
   };
 }
 
+/** OLA 31 (Familia 7, G31-3): EL REGISTRO SE JUZGA ANTES DE LA
+ * CEREMONIA — la copia de la que el registro nace pasa por la puerta
+ * (el juez único, sobre el registro que nacería de ella) ANTES de
+ * que la superficie cierre nada ni anuncie nada. La ceremonia vieja
+ * leía la copia con la forma mínima y el alcance, cerraba la
+ * membresía en el servidor primero y anunciaba «guardado» sin mirar
+ * el desenlace: con una línea injuzgable en la copia (la que el
+ * empalme del servidor siembra cuando no juzga las líneas), el
+ * escritor rehusaba el registro y nadie lo sabía — la persona
+ * salía, su copia se retiraba y el folio no estaba en su Archivo.
+ * Esta es la puerta de la ceremonia: registro juzgado o null, y la
+ * superficie decide con el desenlace en la mano. */
+export function passiveRecordFromCopy(scoped: LedgerState, owner: string, lang: "es" | "en", atIso: string, id: string): PassiveRecord | null {
+  const record = makePassiveRecord(scoped, owner, lang, atIso, id);
+  return passiveRecordShapeOk(record) ? record : null;
+}
+
 /** Guardar el registro en el libro de quien se va (su propio libro:
  * el único sitio donde el registro vive). OLA 30 (Familia 5, G30-3):
  * el escritor rehúsa guardar lo que la puerta rehusaría — guardaba

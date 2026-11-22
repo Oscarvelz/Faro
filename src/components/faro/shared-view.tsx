@@ -5,7 +5,7 @@ import { Signature } from "./signature";
 import { acceptInvite, acceptTransfer, fetchSharedBook, leaveMembership, listMemberships, type Membership } from "@/spa/cloud";
 import { makeNamer } from "@/lib/faro/defaults";
 import { categoryTotal, explainLines, scopeFilter } from "@/lib/faro/world";
-import { makePassiveRecord, withPassiveRecord } from "@/lib/faro/exit";
+import { passiveRecordFromCopy, withPassiveRecord } from "@/lib/faro/exit";
 import { uid } from "@/lib/faro/money";
 import type { LedgerState } from "@/lib/faro/types";
 import "./share-mesa.css";
@@ -44,7 +44,7 @@ export function SharedWithMe() {
   const [cat, setCat] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [ceremony, setCeremony] = useState<string | null>(null);
-  const [note, setNote] = useState<"accepted" | "bad-code" | "no-book" | "left" | "leave-failed" | "copy-failed" | "transferred" | null>(null);
+  const [note, setNote] = useState<"accepted" | "bad-code" | "no-book" | "left" | "leave-failed" | "copy-failed" | "record-failed" | "transferred" | null>(null);
 
   const load = useCallback(async () => {
     const all = await listMemberships();
@@ -83,12 +83,28 @@ export function SharedWithMe() {
       if (!raw) { setNote("copy-failed"); return; }
       scoped = scopeFilter(raw, m.scope);
     }
-    const ok = await leaveMembership(m.id);
-    if (!ok) { setNote("leave-failed"); return; }
+    // OLA 31 (Familia 7, G31-3): LA CEREMONIA ANUNCIA SOLO LO
+    // VERIFICADO — el registro se construye y pasa por la puerta
+    // (passiveRecordFromCopy) ANTES de cerrar la membresía, y
+    // aterriza en el Archivo de quien se va ANTES de que el acceso
+    // muera. La orden vieja cerraba la membresía en el servidor
+    // primero y despachaba el commit con su «guardado» sin mirar el
+    // desenlace: si el escritor rehusaba el registro (una línea
+    // injuzgable en la copia), la persona salía, su copia se
+    // retiraba y el folio no estaba en su Archivo — pérdida en
+    // silencio con anuncio falso. Ahora: si el registro no pasa la
+    // puerta, la salida con registro NO se hace (la persona sigue
+    // dentro y lo sabe, como con la copia que no se pudo leer); si
+    // pasa, su «guardado» se anuncia porque ya aterrizó; y si la
+    // salida falla después, el folio queda guardado y la nota dice
+    // la verdad de la salida.
     if (kind === "passive" && scoped) {
-      const record = makePassiveRecord(scoped, m.bookOwner, lang === "en" ? "en" : "es", new Date().toISOString(), uid());
+      const record = passiveRecordFromCopy(scoped, m.bookOwner, lang === "en" ? "en" : "es", new Date().toISOString(), uid());
+      if (!record) { setNote("record-failed"); return; }
       commit((s) => withPassiveRecord(s, record), L(lang, "Registro del libro compartido guardado", "Shared-book record kept"));
     }
+    const ok = await leaveMembership(m.id);
+    if (!ok) { setNote("leave-failed"); return; }
     if (kind === "export" && scoped) {
       const blob = new Blob([JSON.stringify(scoped, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
@@ -156,6 +172,7 @@ export function SharedWithMe() {
       {note === "left" ? <p className="sm-ok">{L(lang, "Saliste del libro. Tu acceso terminó.", "You left the book. Your access has ended.")}</p> : null}
       {note === "leave-failed" ? <p className="sm-warn">{L(lang, "La salida no se pudo completar ahora; sigues dentro del libro.", "Leaving could not be completed right now; you are still in the book.")}</p> : null}
       {note === "copy-failed" ? <p className="sm-warn">{L(lang, "Tu copia no se pudo leer ahora, así que no saliste: sin copia en la mano, la salida con registro o archivo no se hace a ciegas.", "Your copy could not be read right now, so you did not leave: leaving with a record or a file is not done blind.")}</p> : null}
+      {note === "record-failed" ? <p className="sm-warn">{L(lang, "Tu copia trae una línea que no se puede guardar como registro, así que no saliste: un registro no se anuncia guardado sin estarlo. Puedes intentarlo de nuevo o salir sin llevarte nada.", "Your copy holds a line that cannot be kept as a record, so you did not leave: a record is never announced as kept unless it is. You can try again or leave taking nothing.")}</p> : null}
       {note === "transferred" ? <p className="sm-ok">{L(lang, "El libro ahora es tuyo.", "The book is now yours.")}</p> : null}
 
       {open && names ? (

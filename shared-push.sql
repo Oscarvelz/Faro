@@ -85,22 +85,83 @@ end $$;
 -- cast) y el instante parseable. Devuelve el INSTANTE de la lápida, o
 -- null si la lápida no pasa el juicio: una lápida desnuda ({id}) o
 -- vacía ({}) no tiene instante, no entra en la unión y no mata líneas.
+--
+-- OLA 31 (Familia 6, G31-2): EL ESPEJO JUZGA EL TIPO ANTES QUE EL
+-- TEXTO. El juez leía id/by con «->>», que CONVIERTE a texto cualquier
+-- valor JSON: un id numérico, un by numérico, un id booleano o un by
+-- objeto «pasaban», se guardaban verbatim y MATABAN (la línea "42"
+-- murió por la lápida 42) — y el libro guardado no pasaba la puerta
+-- del cliente, que exige typeof string. Y el «at» con un espacio al
+-- borde pasaba el cast de Postgres mientras new Date del cliente lo
+-- rehúsa. La ley espejo, entera: id, by y at se leen como JSON
+-- (t -> 'campo') y deben SER texto antes de leerse como texto; el
+-- «at» no lleva espacios al borde; y la ida y vuelta del cliente
+-- incluye su trampa de años — Date.UTC lee los años 0–99 como
+-- 1900+, así que un año menor que 100 jamás vuelve igual y muere en
+-- las dos casas. La tabla de bordes (25 casos) firma 25/25 contra
+-- PGlite en el banco de la cura.
 create or replace function public.faro_stone_at(t jsonb)
 returns timestamptz language plpgsql immutable as $$
 declare
-  at_txt text := t ->> 'at';
+  at_txt text;
   d date;
   ts timestamptz;
 begin
-  if coalesce(t ->> 'id', '') = '' or coalesce(t ->> 'by', '') = '' then return null; end if;
-  if at_txt is null or at_txt !~ '^\d{4}-\d{2}-\d{2}' then return null; end if;
+  -- «is distinct from», no «<>»: con el campo AUSENTE, jsonb_typeof
+  -- devuelve null y un «<>» no dispara (la lógica de tres valores
+  -- dejaba pasar la lápida sin id) — el espejo juzga también la
+  -- ausencia, como el cliente, que lee undefined y rehúsa.
+  if jsonb_typeof(t -> 'id') is distinct from 'string' or (t ->> 'id') = '' then return null; end if;
+  if jsonb_typeof(t -> 'by') is distinct from 'string' or (t ->> 'by') = '' then return null; end if;
+  if jsonb_typeof(t -> 'at') is distinct from 'string' then return null; end if;
+  at_txt := t ->> 'at';
+  if at_txt <> btrim(at_txt) then return null; end if;
+  if at_txt !~ '^\d{4}-\d{2}-\d{2}' then return null; end if;
   begin
     d := substring(at_txt from 1 for 10)::date;
     ts := at_txt::timestamptz;
   exception when others then
     return null;
   end;
+  if extract(year from d) < 100 then return null; end if;
   return ts;
+end $$;
+
+-- ── El juez de la línea, una sola vez (Ola 31, Familia 6, G31-1) ────────
+-- El empalme juzgaba las lápidas que guarda y NO las líneas: una línea
+-- con amountMinor de texto se empalma verbatim y el libro guardado no
+-- pasa la puerta del cliente (isLedgerDeep) — el servidor fabricaba el
+-- libro que el dueño no puede abrir. Este juez es el espejo campo a
+-- campo del juicio de líneas de isLedgerDeep (defaults.ts): la línea
+-- es un objeto; id, kind, concept y currency SON texto (se leen como
+-- JSON, no convertidos); amountMinor es número; y los opcionales, en
+-- su dimensión — balanceMinor ausente, nulo o número; aprBps ausente
+-- o número (nulo NO: el cliente lo rehúsa); by, byName, fundedBy y
+-- declaredAccount ausentes o texto; declaration ausente o booleano;
+-- mirrorOf ausente u objeto con book y line de texto.
+create or replace function public.faro_line_ok(l jsonb)
+returns boolean language plpgsql immutable as $$
+begin
+  if jsonb_typeof(l) is distinct from 'object' then return false; end if;
+  -- Los requeridos van con «is distinct from»: con el campo ausente,
+  -- jsonb_typeof devuelve null y un «<>» jamás dispararía — la
+  -- ausencia se juzga, como en el cliente (undefined no es string).
+  if jsonb_typeof(l -> 'id') is distinct from 'string' or jsonb_typeof(l -> 'kind') is distinct from 'string'
+     or jsonb_typeof(l -> 'concept') is distinct from 'string' or jsonb_typeof(l -> 'currency') is distinct from 'string' then
+    return false;
+  end if;
+  if jsonb_typeof(l -> 'amountMinor') is distinct from 'number' then return false; end if;
+  if l -> 'balanceMinor' is not null and jsonb_typeof(l -> 'balanceMinor') not in ('null', 'number') then return false; end if;
+  if l -> 'aprBps' is not null and jsonb_typeof(l -> 'aprBps') is distinct from 'number' then return false; end if;
+  if l -> 'by' is not null and jsonb_typeof(l -> 'by') is distinct from 'string' then return false; end if;
+  if l -> 'byName' is not null and jsonb_typeof(l -> 'byName') is distinct from 'string' then return false; end if;
+  if l -> 'fundedBy' is not null and jsonb_typeof(l -> 'fundedBy') is distinct from 'string' then return false; end if;
+  if l -> 'declaredAccount' is not null and jsonb_typeof(l -> 'declaredAccount') is distinct from 'string' then return false; end if;
+  if l -> 'declaration' is not null and jsonb_typeof(l -> 'declaration') is distinct from 'boolean' then return false; end if;
+  if l -> 'mirrorOf' is not null and (jsonb_typeof(l -> 'mirrorOf') is distinct from 'object'
+     or jsonb_typeof(l -> 'mirrorOf' -> 'book') is distinct from 'string'
+     or jsonb_typeof(l -> 'mirrorOf' -> 'line') is distinct from 'string') then return false; end if;
+  return true;
 end $$;
 
 -- ── La lectura de la C2, sobre el mismo filtro ─────────────────────────────
@@ -180,6 +241,13 @@ begin
     where public.faro_stone_at(t) is not null;
 
   -- El empalme, mes a mes sobre la unión de meses de ambos lados.
+  -- OLA 31 (Familia 6, G31-1): cada línea que el empalme GUARDA pasa
+  -- por el juez espejo (faro_line_ok) — una línea que la puerta del
+  -- cliente rehusaría NO se guarda: el empuje gana sin ella, como con
+  -- las lápidas que no pasan su juez (que no entran ni matan), y el
+  -- desenlace lo dice en el libro devuelto, donde la línea no está.
+  -- Las líneas ya guardadas (kept) no se re-juzgan aquí: no son de
+  -- este empuje.
   for mk in
     select key from jsonb_each(coalesce(cur -> 'months', '{}'::jsonb))
     union
@@ -188,7 +256,8 @@ begin
     if scope_all then
       select coalesce(jsonb_agg(l), '[]'::jsonb) into spliced
         from jsonb_array_elements(coalesce(incoming -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
-        where not exists (select 1 from jsonb_array_elements(stones_ok) st where st ->> 'id' = l ->> 'id');
+        where public.faro_line_ok(l)
+          and not exists (select 1 from jsonb_array_elements(stones_ok) st where st ->> 'id' = l ->> 'id');
     else
       select coalesce(jsonb_agg(l), '[]'::jsonb) into kept
         from jsonb_array_elements(coalesce(cur -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
@@ -196,6 +265,7 @@ begin
       select coalesce(jsonb_agg(l), '[]'::jsonb) into mine
         from jsonb_array_elements(coalesce(incoming -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
         where (cats ? (l ->> 'categoryId'))
+          and public.faro_line_ok(l)
           and not exists (select 1 from jsonb_array_elements(stones_ok) st where st ->> 'id' = l ->> 'id')
           and not exists (select 1 from jsonb_array_elements(kept) k where k ->> 'id' = l ->> 'id');
       spliced := kept || mine;
