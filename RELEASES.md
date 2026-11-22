@@ -3869,3 +3869,12 @@ Orden de Oscar (2026-11-22 15:36, sobre la foto de la 1.3.411): bajo la tarjeta 
 Verificación: batería completa 3.190 pruebas, 3.190 en verde; tipos, solo los tres errores de siempre. Banco a 390px con el libro de la 411: el renglón elegido computa opacidad plena y borde de 1px; los demás computan atenuados al 66%, cada uno con su borde — y la selección de dos vías de la 411 (renglón y escalón) sigue intacta. La foto lo muestra: la tarjetita elegida encendida en el acento, las demás apagadas en su borde.
 
 Datos de publicación: entrada index-DrTqhYZI.js. Fuente 02b70389675b9490ea1699ee52238b7693d7ee3c; principal en 3 tandas, cola 9e68409f9485afc0d54ab39d8e83f0f2e2417e22 (43 ficheros). Barrido de precarga en vivo: 28/28 idénticos. (Un reinicio del servicio cortó el primer intento de cierre: la publicación ya estaba en vivo y el barrido se repitió limpio; el asiento registra el hecho.)
+## 1.3.418 — El botón de añadir, a su medida
+
+Corrección de Oscar (2026-11-22 15:52, sobre la foto de la 1.3.416): los botones «+ Añadir» del catálogo estaban demasiado grandes innecesariamente — el botón amarillo se comía el ancho del renglón y obligaba a la pregunta a partirse en dos líneas. Sus palabras: la palabra y el ícono de más pueden caber siendo más pequeños, para que las preguntas se ordenen mejor; muchas ni siquiera requieren dos líneas.
+
+**La cura.** El botón baja a su medida en sus dos asientos — el catálogo y el de la pregunta propia, que lo comparten —: menos relleno (de 7×11 a 4×9), la palabra más pequeña (de .84 a .78rem), la esquina a juego y el signo más de 14 a 12px. El ancho que el botón suelta vuelve a las preguntas: las que cabían justas ahora corren en una sola línea, y cada tarjeta del catálogo se ordena sin que el botón mande sobre el texto.
+
+Verificación: batería completa 3.192 pruebas, 3.192 en verde; tipos, solo los tres errores de siempre. Banco a 390px con la tarjeta «Tu mes» abierta: el botón computa 75×27px (antes, con su relleno y su letra, rondaba 95×34) y ya no domina el renglón — las preguntas cortas respiran en una línea y las largas conservan sus dos por su propio texto, no por el ancho que el botón les quitaba. La foto lo muestra.
+
+Datos de publicación: entrada index-BPWPAisS.js. Fuente a949e7e08f33314b84819bba270593399d5f7a49; principal en 3 tandas, cola 3ddd715823a281c49f5e7c35f311844af712fb8f (43 ficheros). Barrido de precarga en vivo: 28/28 idénticos.
