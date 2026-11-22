@@ -82,7 +82,10 @@ test("346 · los asientos y las superficies existen", () => {
   assert.match(screens, /visibleNews\(newsSeen\)\.map/);
   const shell = read("../../components/faro/shell.tsx");
   assert.match(shell, /faro-news-seen/);
-  assert.match(shell, /announcementFor\(seen, FARO_VERSION\)/);
+  // ENMIENDA 1.3.385: el shell anuncia con announcementsFor (la SERIE
+  // completa de grandes sin ver); announcementFor sigue existiendo
+  // como la primera de la serie y su espécimen de arriba no cambia.
+  assert.match(shell, /announcementsFor\(seen, FARO_VERSION\)/);
   const dock = read("../../components/faro/bank-dock.tsx");
   assert.match(dock, /data-anchor="news-card"/);
   assert.match(dock, /localStorage\.setItem\("faro-news-seen", news\.current\)/);

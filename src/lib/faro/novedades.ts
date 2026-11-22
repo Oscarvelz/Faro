@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.385",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El anuncio trae todas las novedades", en: "The announcement brings every major note" },
+    points: {
+      es: [
+        "Si te perdiste más de una actualización importante, el anuncio ahora las presenta todas, una tras otra: puedes pasar de una a la siguiente y cada una lleva su puerta.",
+        "Cerrar el anuncio sin terminar no marca nada como visto: las notas siguen esperándote en Ajustes → Novedades.",
+      ],
+      en: [
+        "If you missed more than one major update, the announcement now presents them all, one after another: you can move from one to the next and each carries its door.",
+        "Closing the announcement unfinished marks nothing as seen: the notes keep waiting for you in Settings → What's new.",
+      ],
+    },
+    topic: "novedades",
+  },
+  {
     version: "1.3.384",
     date: "2026-11-22",
     level: "menor",
@@ -871,6 +888,16 @@ export function newsBetween(seen: string, current: string): NewsEntry[] {
 export function announcementFor(seen: string, current: string): NewsEntry | null {
   const fresh = newsBetween(seen, current);
   return fresh.find((n) => n.level === "grande") ?? null;
+}
+
+/** TODAS las notas grandes sin ver (1.3.385, Oscar): el anuncio las
+ * ofrece como SERIE — de la más nueva a la más vieja, cada una con su
+ * puerta — en vez de anunciar solo la más nueva y dejar las demás
+ * mudas en el pliegue. announcementFor sigue siendo la primera de
+ * esta lista (su cerca lo clava); la serie es la que la tarjeta
+ * presenta. Las menores nunca entran en el anuncio: viven en Ajustes. */
+export function announcementsFor(seen: string, current: string): NewsEntry[] {
+  return newsBetween(seen, current).filter((n) => n.level === "grande");
 }
 
 /** Cuántas notas recientes guarda el pliegue (1.3.354, Oscar). */

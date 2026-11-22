@@ -55,7 +55,7 @@ import WidgetHost from "./widget-host";
 import { PeopleInbox } from "./people";
 import { BankDock, importToast, newsCard } from "./bank-dock";
 import { FARO_VERSION } from "@/lib/faro/build-version";
-import { announcementFor } from "@/lib/faro/novedades";
+import { announcementsFor } from "@/lib/faro/novedades";
 import { ToTop } from "./to-top";
 import { inAndroidApp } from "@/spa/native";
 import { LockOffer } from "@/spa/lockoffer";
@@ -1130,13 +1130,24 @@ export function Shell() {
       try { localStorage.setItem("faro-news-seen", FARO_VERSION); } catch { /* sin almacenamiento */ }
       return;
     }
-    const entry = announcementFor(seen, FARO_VERSION);
-    if (entry) {
+    const entries = announcementsFor(seen, FARO_VERSION);
+    if (entries.length) {
+      // 1.3.385: el anuncio ofrece TODAS las grandes sin ver como
+      // serie (antes solo la más nueva); cada tarjeta lleva su puerta
+      // cuando su nota nombra un lugar. Terminar la serie — o tomar
+      // una puerta — marca la versión como vista; cerrarla sin
+      // terminar no marca nada.
       newsCard({
-        kicker: lang === "en" ? `What's new · ${entry.version}` : `Novedades · ${entry.version}`,
-        title: entry.title[lang],
-        points: entry.points[lang],
+        cards: entries.map((entry) => ({
+          kicker: lang === "en" ? `What's new · ${entry.version}` : `Novedades · ${entry.version}`,
+          title: entry.title[lang],
+          points: entry.points[lang],
+          topic: entry.topic,
+        })),
         ok: lang === "en" ? "Got it" : "Entendido",
+        next: lang === "en" ? "Next" : "Siguiente",
+        back: lang === "en" ? "Back" : "Atrás",
+        of: lang === "en" ? "of" : "de",
         current: FARO_VERSION,
       });
     }

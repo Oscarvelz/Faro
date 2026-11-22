@@ -4,12 +4,13 @@
  * load on demand (bank-import.tsx, bank-settings.tsx) together with the parsers.
  */
 import "./bank.css";
-import { Suspense, lazy, useEffect, useState } from "react";
-import { ChevronRight, CreditCard, FileUp, Sparkles } from "lucide-react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, CreditCard, FileUp, Sparkles, X } from "lucide-react";
 import { formatMoney } from "@/lib/faro/money";
 import { importBook, rcLabel, rewardsMonth } from "@/lib/faro/bankbook";
 import type { LedgerState } from "@/lib/faro/types";
 import { requestModeAsk } from "@/lib/faro/mode-ask";
+import { findTopic } from "@/lib/manual/topics";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { Head } from "./panorama";
@@ -50,7 +51,13 @@ export const FILTER_CLEAR = "faro-filter-clear";
  * está viendo y tocarlo limpia el filtro (el aviso trae su cura). */
 export const filterToast = (text: string) => window.dispatchEvent(new CustomEvent(FTOAST, { detail: text }));
 const NEWSCARD = "faro-news-card";
-export type NewsCard = { kicker: string; title: string; points: string[]; ok: string; current: string };
+export type NewsCardItem = { kicker: string; title: string; points: string[]; topic?: string };
+/** 1.3.385: el anuncio es una SERIE — todas las notas grandes sin ver,
+ * una tras otra (deslizar o con sus flechas), cada una con su puerta
+ * cuando su nota nombra un lugar. Terminar la serie o tomar una
+ * puerta marca la versión como vista; cerrarla sin terminar (la ✕)
+ * no marca nada: las notas siguen sin verse y el pliegue las guarda. */
+export type NewsCard = { cards: NewsCardItem[]; ok: string; next: string; back: string; of: string; current: string };
 /** 1.3.346 (Oscar's word): una actualización grande se anuncia UNA vez
  * al abrir, en una tarjeta centrada; «Entendido» marca la versión como
  * vista en este teléfono (faro-news-seen) y la nota queda en Ajustes. */
@@ -70,7 +77,7 @@ function whisperText(text: string) {
 }
 
 export function BankDock() {
-  const { session, t, setUi } = useFaro();
+  const { session, t, setUi, lang, goTopic } = useFaro();
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<File[] | null>(null);
   const [toast, setToast] = useState<ImportToast | null>(null);
@@ -78,6 +85,8 @@ export function BankDock() {
   const [sign, setSign] = useState<ModeSign | null>(null);
   const [ftoast, setFtoast] = useState<string | null>(null);
   const [news, setNews] = useState<NewsCard | null>(null);
+  const [newsIdx, setNewsIdx] = useState(0);
+  const newsTouchX = useRef<number | null>(null);
   useEffect(() => {
     const on = (e: Event) => { setFiles(((e as CustomEvent).detail as File[] | null) ?? null); setOpen(true); };
     let timer = 0;
@@ -88,7 +97,7 @@ export function BankDock() {
     const onWhisper = (e: Event) => { setWhisper((e as CustomEvent).detail as ModeWhisper); window.clearTimeout(whisperTimer); whisperTimer = window.setTimeout(() => setWhisper(null), 6000); };
     let fTimer = 0;
     const onFtoast = (e: Event) => { setFtoast((e as CustomEvent).detail as string); window.clearTimeout(fTimer); fTimer = window.setTimeout(() => setFtoast(null), 6000); };
-    const onNews = (e: Event) => setNews((e as CustomEvent).detail as NewsCard);
+    const onNews = (e: Event) => { setNews((e as CustomEvent).detail as NewsCard); setNewsIdx(0); };
     window.addEventListener(OPEN, on);
     window.addEventListener(TOAST, onToast);
     window.addEventListener(SIGN, onSign);
@@ -152,25 +161,72 @@ export function BankDock() {
           </div>
         </div>
       ) : null}
-      {news ? (
-        <div className="news-sign">
-          <div className="news-card" role="dialog" aria-modal="false" data-anchor="news-card">
-            <div className="news-card-head">
-              <span className="news-card-ico" aria-hidden><Sparkles size={19} /></span>
-              <div className="news-card-headtext">
-                <p className="news-card-kicker">{news.kicker}</p>
-                <p className="news-card-title serif">{news.title}</p>
+      {news ? (() => {
+        const item = news.cards[Math.min(newsIdx, news.cards.length - 1)];
+        const idx = Math.min(newsIdx, news.cards.length - 1);
+        const last = idx >= news.cards.length - 1;
+        const markSeen = () => { try { localStorage.setItem("faro-news-seen", news.current); } catch { /* sin almacenamiento: la nota vive en Ajustes */ } };
+        const doorTopic = item.topic ? findTopic(item.topic) : null;
+        const doorGo = doorTopic?.go;
+        return (
+          <div className="news-sign">
+            <div
+              className="news-card"
+              role="dialog"
+              aria-modal="false"
+              data-anchor="news-card"
+              key={idx}
+              onTouchStart={(e) => { newsTouchX.current = e.touches[0]?.clientX ?? null; }}
+              onTouchEnd={(e) => {
+                if (newsTouchX.current == null) return;
+                const dx = (e.changedTouches[0]?.clientX ?? newsTouchX.current) - newsTouchX.current;
+                newsTouchX.current = null;
+                if (dx <= -40 && !last) setNewsIdx(idx + 1);
+                else if (dx >= 40 && idx > 0) setNewsIdx(idx - 1);
+              }}
+            >
+              <button type="button" className="news-card-x" data-anchor="news-close" aria-label={L(lang, "Cerrar sin marcar como visto", "Close without marking as seen")} onClick={() => setNews(null)}>
+                <X size={16} aria-hidden />
+              </button>
+              <div className="news-card-head">
+                <span className="news-card-ico" aria-hidden><Sparkles size={19} /></span>
+                <div className="news-card-headtext">
+                  <p className="news-card-kicker">{item.kicker}</p>
+                  <p className="news-card-title serif">{item.title}</p>
+                </div>
               </div>
+              <ul className="news-card-points">
+                {item.points.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+              {doorTopic && doorGo ? (
+                <button
+                  type="button"
+                  className="news-card-door"
+                  data-anchor="news-door"
+                  onClick={() => { markSeen(); setNews(null); goTopic(doorTopic.id, doorGo, "news"); }}
+                >
+                  {L(lang, "Ir allí", "Go there")}
+                  <ChevronRight size={16} aria-hidden />
+                </button>
+              ) : null}
+              {news.cards.length > 1 ? (
+                <div className="news-card-nav">
+                  <button type="button" className="news-card-arrow" data-anchor="news-prev" disabled={idx === 0} aria-label={news.back} onClick={() => setNewsIdx(idx - 1)}>
+                    <ChevronLeft size={17} aria-hidden />
+                  </button>
+                  <span className="news-card-count" data-anchor="news-count">{idx + 1} {news.of} {news.cards.length}</span>
+                  <button type="button" className="news-card-arrow" data-anchor="news-next" disabled={last} aria-label={news.next} onClick={() => setNewsIdx(idx + 1)}>
+                    <ChevronRight size={17} aria-hidden />
+                  </button>
+                </div>
+              ) : null}
+              <button type="button" className="news-card-ok" data-anchor="news-ok" onClick={() => { if (last) { markSeen(); setNews(null); } else setNewsIdx(idx + 1); }}>
+                {last ? news.ok : news.next}
+              </button>
             </div>
-            <ul className="news-card-points">
-              {news.points.map((p, i) => <li key={i}>{p}</li>)}
-            </ul>
-            <button type="button" className="news-card-ok" data-anchor="news-ok" onClick={() => { try { localStorage.setItem("faro-news-seen", news.current); } catch { /* sin almacenamiento: la nota vive en Ajustes */ } setNews(null); }}>
-              {news.ok}
-            </button>
           </div>
-        </div>
-      ) : null}
+        );
+      })() : null}
     </>
   );
 }
