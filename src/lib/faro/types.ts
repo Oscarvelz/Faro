@@ -163,6 +163,13 @@ export type Line = {
   color?: string;
   /** Optional tag: the person this spending was for (a gift). See people.ts. */
   personId?: string;
+  /** La firma de autoría del libro compartido (Pieza C4, 1.3.393): la
+   * cuenta que anotó la línea y su nombre de la Pieza 0 CONGELADO al
+   * anotar — renombrarse después no reescribe ninguna firma. Los actos
+   * automáticos firman by = "faro". Ausente = línea sin firma (todo
+   * libro personal y todo libro viejo). Ver sign.ts. */
+  by?: string;
+  byName?: string;
   /** Optional: which of that person's occasions the gift was for ("birthday" or a PersonDate id). */
   occasionId?: string;
   /** Bank import (Nov 2026). Exact statement keys ("ofx:<acct>:<FITID>", "pp:<Transaction ID>"), several joined by "|". */
@@ -397,7 +404,7 @@ export type BankGuide = { id: string; name?: string; icon?: string; steps?: stri
 export type RewardRealFig = { amountMinor: number; asOf: string; currency: Currency };
 export type ImportBook = { sources: BankSource[]; rules: MerchantRule[]; maps: Record<string, ColumnMap>; files?: Record<string, string>; bonus?: BonusRow[]; guides?: BankGuide[]; /** 1.3.153: how Oscar usually pays each merchant (merchantKey → account id or "cash"), learned only from his own manual entries. */ payHints?: Record<string, string>; /** 1.3.155: real rewards balances he noted, per account id; the latest note replaces the previous one. */ rewardReal?: Record<string, RewardRealFig> };
 
-export type AuditEntry = { id: string; at: string; detail: string; /** Ola 20 (§A/§B): la entrada nació de un aborto ANUNCIADO (commitAnnounced): es contenido del registro, no foto del libro — sobrevive a Deshacer/Rehacer vecinos y cuenta como trabajo local entre pestañas. */ announced?: boolean };
+export type AuditEntry = { id: string; at: string; detail: string; /** Ola 20 (§A/§B): la entrada nació de un aborto ANUNCIADO (commitAnnounced): es contenido del registro, no foto del libro — sobrevive a Deshacer/Rehacer vecinos y cuenta como trabajo local entre pestañas. */ announced?: boolean; /** La firma de la Pieza C4 (1.3.393): la cuenta del acto y su nombre congelado, en los libros compartidos. Ver sign.ts. */ by?: string; byName?: string };
 
 export type Settings = {
   lang: Lang;

@@ -17,13 +17,14 @@ import { uid } from "./money.ts";
 import { isRealDay } from "./quickadd.ts";
 import { upsertLine } from "./reducer.ts";
 import { normName } from "./subs.ts";
+import { stampLine, type Author } from "./sign.ts";
 import type { Cadence, Draft, Lang, LedgerState, Line, Structure } from "./types.ts";
 
 /** El contexto que la conversión necesita y el estado no lleva: el mes
  * abierto al guardar (la conducta viva del escaneo: la línea cae en el mes
  * en curso con su bookedOn en el día del movimiento), la Estructura para
  * validar la casa y el idioma para casar la tienda por su nombre visible. */
-export type DraftCtx = { monthKey: string; structure: Structure; lang: Lang };
+export type DraftCtx = { monthKey: string; structure: Structure; lang: Lang; /** La firma de la Pieza C4 (1.3.393): en una sesión de libro compartido, la mesa pasa el autor de la sesión y cada línea nace firmada con su nombre congelado. Sin autor (libro personal), ninguna línea se firma. */ author?: Author };
 
 /** La fuente única de los estados. `missing` se deriva de los valores:
  * monto nulo o ≤ 0, moneda nula, signo nulo, día no real (la regla de
@@ -311,8 +312,9 @@ export function commitDrafts(state: LedgerState, ids: string[], ctx: DraftCtx): 
   for (const d of state.drafts ?? []) {
     if (!want.has(d.id)) { kept.push(d); continue; }
     if (d.kind !== "line") { kept.push(d); continue; } // el guardián de kind: la mesa nunca convierte un plan
-    const line = draftToLine(d, ctx);
-    if (!line) { kept.push(d); continue; }
+    const raw = draftToLine(d, ctx);
+    if (!raw) { kept.push(d); continue; }
+    const line = ctx.author ? stampLine(raw, ctx.author) : raw;
     next = upsertLine(next, line);
     moved++;
   }

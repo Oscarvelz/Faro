@@ -1,0 +1,41 @@
+/* ═══ LA FIRMA (Pieza C4 del libro compartido, 1.3.393).
+ *
+ * El tratamiento visual de la firma es una pieza nombrada propia, con
+ * la ley visual fallada (F-C3): bien integrada y proporcionada — fácil
+ * de encontrar, con su color específico adaptado al tema, sin
+ * sobresalir de más ni ocultarse de menos, y UN solo tratamiento en
+ * líneas, historial y Folios, que nunca compite con la cifra.
+ *
+ * El color se deriva del acento del tema (color-mix con la tinta): la
+ * firma viste el tema como toda superficie, con su propia mezcla — ni
+ * el acento pleno de los controles ni el gris de los metadatos. */
+.sig {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.34em;
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--accent) 68%, var(--ink));
+  white-space: nowrap;
+}
+.sig::before {
+  content: "";
+  align-self: center;
+  width: 0.42em;
+  height: 0.42em;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 68%, var(--ink));
+  opacity: 0.75;
+  flex: none;
+}
+/* Sobre la burbuja de gasto (su lavado claro y su tinta forzada): la
+ * misma tipografía, con la tinta del suelo que la hospeda. */
+.sig.is-bubble {
+  color: inherit;
+  font-size: 0.78rem;
+  opacity: 0.82;
+}
+.sig.is-bubble::before {
+  background: currentColor;
+}

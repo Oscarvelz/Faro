@@ -98,6 +98,7 @@ import { TrayCard } from "./tray";
 import { BookKit, type KitRow } from "./book-kit";
 import { useLongPress } from "./use-longpress";
 import { SelectionBar, SelMark, useSelection } from "./selection";
+import { Signature } from "./signature";
 /** Books whose + editor offers Escanear (1.3.101). */
 const SCAN_KINDS: LineKind[] = ["subscription", "purchase", "expense-variable", "expense-fixed"];
 import { StmtScan, type StmtSave } from "./stmt-scan";
@@ -1156,6 +1157,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
                   <i className="spend-mark" aria-hidden><Glyph name={lineGlyph(line, session?.ledger.structure)} /></i>
                   <strong>{line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId)}</strong>
                   <span className="num">{draftKind.startsWith("income") ? "" : "−"}{viewLine(line)}</span>
+                  {line.by ? <Signature by={line.by} byName={line.byName} lang={lang} bubble /> : null}
                 </button>
                 </div>
               );
@@ -1181,7 +1183,7 @@ export function LinesBlock({ kind, title, categoryId, storeId, menu }: { kind: L
               {selection.mode ? <SelMark on={selection.sel.has(line.id)} /> : null}
               <div className="min-w-0">
                 <strong className="block">{keepTail(line.concept || names.cat(line.categoryId) || names.purchase(line.categoryId), true)}</strong>
-                <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).join(" · ")}</span>
+                <span className="block text-sm text-muted">{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).join(" · ")}{line.by ? <>{[names.cat(line.categoryId), names.sub(line.subId), names.catalog(line.storeId)].filter(Boolean).length ? " · " : ""}<Signature by={line.by} byName={line.byName} lang={lang} /></> : null}</span>
               </div>
               {moneyRow(line, outView(line, viewLine), recordLine(line), display)}
               {ui.editing === line.id ? <div className="line-edit"><p className="line-edit-head"><span aria-hidden><Pencil /></span>{t("edit")}<Hint topic="editor" className="is-head" /><b>{line.concept}</b></p><LineForm kind={line.kind} existing={line} money={money} onMoney={setMoney} onClose={() => setUi({ editing: null })} /></div> : null}
@@ -6551,7 +6553,7 @@ export function Settings() {
           {hasConflict ? <button type="button" className="btn" onClick={restoreConflict}>{t("settings.conflict")}</button> : null}
         </div>
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-activity">{t("settings.activity")}<Hint topic="actividad" /></h2>
-        <ActivityLog lang={lang} items={session.ledger.audit.slice(0, 8).map((a) => ({ id: a.id, at: a.at, label: auditLabel(lang, a.detail) }))} />
+        <ActivityLog lang={lang} items={session.ledger.audit.slice(0, 8).map((a) => ({ id: a.id, at: a.at, label: auditLabel(lang, a.detail), by: a.by, byName: a.byName }))} />
       </Fold>
       <Fold id="account" icon={UserRound} sub={lang === "en" ? "Login, sync, fingerprint" : "Sesión, nube y huella"} topic="cuenta" title={t("account")} open={openFold === "account"} onToggle={() => toggle("account")}>
         <UserButton />

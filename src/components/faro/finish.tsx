@@ -1,5 +1,6 @@
 // 1.3.88 "forgotten areas" finish: one shared look for loose notes, empty states and the activity log.
 import "./finish.css";
+import { Signature } from "./signature";
 import { mountTronFloor } from "./tron-floor";
 import type { ReactNode } from "react";
 import { CalendarClock, Hourglass, Inbox, Lightbulb, PenLine, type LucideIcon } from "lucide-react";
@@ -21,7 +22,7 @@ export function Note({ kind = "empty", children, className = "" }: { kind?: Note
 }
 
 /** Activity log: dot + label, short date at the right, hairline between rows. */
-export function ActivityLog({ items, lang }: { items: { id: string; at: string; label: string }[]; lang: string }) {
+export function ActivityLog({ items, lang }: { items: { id: string; at: string; label: string; by?: string; byName?: string }[]; lang: string }) {
   if (!items.length) return <Note kind="empty">{lang === "en" ? "No activity yet." : "Sin actividad aún."}</Note>;
   const fmt = (at: string) => { const d = new Date(at); return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(lang === "en" ? "en-US" : "es-ES", { day: "numeric", month: "short" }); };
   return (
@@ -29,7 +30,7 @@ export function ActivityLog({ items, lang }: { items: { id: string; at: string; 
       {items.map((a, i) => (
         <li key={a.id} style={{ animationDelay: `${i * 40}ms` }}>
           <i aria-hidden />
-          <span>{a.label}</span>
+          <span>{a.label}{a.by ? <> · <Signature by={a.by} byName={a.byName} lang={lang === "en" ? "en" : "es"} /></> : null}</span>
           <time className="num" dateTime={a.at}>{fmt(a.at)}</time>
         </li>
       ))}

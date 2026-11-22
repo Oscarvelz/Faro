@@ -27,6 +27,7 @@ import { useLongPress } from "./use-longpress";
 import { selectAllOnFocus, useIdleClear } from "./search-behavior";
 import { SelectionBar, SelMark, useSelection } from "./selection";
 import { PiecePlate } from "./fit-pick";
+import { Signature } from "./signature";
 import { Note } from "./finish";
 import { Hint } from "./hint";
 import { SaveNote } from "./fund-light";
@@ -132,6 +133,7 @@ export function StreamRow({ m, state, sel, anchor, onWhisper, hold }: { m: Movem
         ) : null}
       </div>
       {m.origin !== "manual" ? <span className="hist-badge">{t(`hist.origin.${m.origin}`)}</span> : null}
+      {m.by ? <Signature by={m.by} byName={m.byName} lang={lang} /> : null}
       <strong className={`hist-row-amt num ${m.kind === "in" ? "is-in" : m.kind === "xfer" ? "is-xfer" : ""}`}>
         {m.kind === "in" ? "+" : m.kind === "out" ? "−" : ""}{formatMoney(m.amountMinor, m.currency, lang)}
       </strong>

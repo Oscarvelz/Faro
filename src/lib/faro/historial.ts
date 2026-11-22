@@ -81,6 +81,11 @@ export type Movement = {
   saveKind?: SaveKind;
   fund?: "saldo" | "aparte";
   fundHost?: string;
+  /** La firma de autoría de la línea (Pieza C4, 1.3.393), levantada de
+   * la línea como accountId y leída con desconfianza: el río la pinta
+   * con su tratamiento y jamás suma ni declara nada con ella. */
+  by?: string;
+  byName?: string;
 };
 
 export type StreamFilters = {
@@ -160,6 +165,7 @@ function toMovement(state: LedgerState, monthKey: string, l: Line): Movement {
     group: groupOf(state, l),
     ...(l.storeId || l.providerId ? { merchantId: l.storeId || l.providerId } : {}),
     ...(l.sourceId || l.cardId ? { accountId: l.sourceId || l.cardId } : {}),
+    ...(typeof l.by === "string" && l.by !== "" ? { by: l.by, ...(typeof l.byName === "string" ? { byName: l.byName } : {}) } : {}),
     origin,
     ...(origin === "import" && l.batch ? { batchId: l.batch } : {}),
     amountMinor: l.amountMinor,

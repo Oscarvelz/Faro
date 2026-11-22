@@ -438,12 +438,17 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // (texto y lista), cuyas caras madre nombran el sistema por sus asientos
   // capture.text / capture.list; la fila no decide nada de modo: pinta el
   // borrador y despacha el parche por el commit de su madre.
+  // ENMIENDA 1.3.393 (Pieza C4): signature.tsx entra en los exentos por
+  // la familia (1) — cromo puro presentacional: pinta el nombre de una
+  // firma y nada más; no decide nada de modo y solo vive montado dentro
+  // de caras que nombran el sistema (la fila de línea de screens, el río
+  // de historial, el registro de finish).
   const EXEMPT = [
     "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "draft-row.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
     "icons.tsx", "manual-text.tsx", "rewards-real.tsx",
-    "sample-mode.tsx", "selection.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",
+    "sample-mode.tsx", "selection.tsx", "signature.tsx", "slip-apply.tsx", "stmt-scan.tsx", "sub-presets.tsx",
     "to-top.tsx", "ui.tsx",
   ];
   const NAMES_SYSTEM = /has\("|hasFeature|modeOf|modeReaches|featureForGo|topicMode|bookMode|modeRank|modeImpact|unlockedGroups|settings\.mode|lib\/faro\/mode/;

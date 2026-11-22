@@ -915,6 +915,9 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       // pocket; debts.ts multiplies aprBps raw). Present = null or a finite number.
       if (l.balanceMinor !== undefined && l.balanceMinor !== null && !isFinD(l.balanceMinor)) return false;
       if (l.aprBps !== undefined && !isFinD(l.aprBps)) return false;
+      // La firma de la Pieza C4: si está, es texto (la cuenta y el nombre congelado).
+      if (l.by !== undefined && !isStrD(l.by)) return false;
+      if (l.byName !== undefined && !isStrD(l.byName)) return false;
     }
   }
   // structure: las categorías que nombran y ordenan todo lo demás.

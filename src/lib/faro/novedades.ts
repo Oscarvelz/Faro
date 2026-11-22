@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.393",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El libro compartido: las firmas", en: "The shared book: signatures" },
+    points: {
+      es: [
+        "Cuarta pieza del cimiento: cada línea de un libro compartido podrá decir quién la anotó, con el nombre que esa persona tenía al anotar — renombrarse después no reescribe ninguna firma.",
+        "Lo que Faro anota solo firma «Faro», y la firma se ve igual en las líneas, en el Historial y en la actividad: discreta, en el color del tema, sin competir con la cifra.",
+      ],
+      en: [
+        "Fourth piece of the foundation: every line in a shared book will be able to say who noted it, with the name that person had when noting — renaming later rewrites no signature.",
+        "What Faro notes on its own signs «Faro», and the signature looks the same on lines, in History and in activity: quiet, in the theme's colour, never competing with the figure.",
+      ],
+    },
+  },
+  {
     version: "1.3.392",
     date: "2026-11-22",
     level: "menor",
