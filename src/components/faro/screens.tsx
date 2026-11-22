@@ -10,6 +10,7 @@ import { PresentacionesCard } from "./presentacion";
 import { NotifyRow } from "./notify-row";
 import { NoticesFold } from "./notices-fold";
 import { ShareMesa } from "./share-mesa";
+import { SharedWithMe } from "./shared-view";
 import { DueAlertsRow } from "./due-alerts-row";
 import { BatteryRow } from "./battery-row";
 import { BankSettings, FILTER_CLEAR, ImportDoor, ImportRow, RewardsAdvice, RewardsStudy, filterToast, hasRewards, modeSign, modeWhisper } from "./bank-dock";
@@ -6564,6 +6565,7 @@ export function Settings() {
       {has("books.share-admin") ? (
         <Fold id="share" icon={Users} sub={lang === "en" ? "Invite, with the preview through their eyes" : "Invita, con la vista previa por sus ojos"} topic="libro-compartido" title={lang === "en" ? "The shared book" : "El libro compartido"} open={openFold === "share"} onToggle={() => toggle("share")}>
           <ShareMesa />
+          <SharedWithMe />
         </Fold>
       ) : null}
       </Cluster>

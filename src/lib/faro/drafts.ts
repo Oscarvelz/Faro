@@ -18,6 +18,7 @@ import { isRealDay } from "./quickadd.ts";
 import { upsertLine } from "./reducer.ts";
 import { normName } from "./subs.ts";
 import { stampLine, type Author } from "./sign.ts";
+import { stampFunding } from "./funding.ts";
 import type { Cadence, Draft, Lang, LedgerState, Line, Structure } from "./types.ts";
 
 /** El contexto que la conversión necesita y el estado no lleva: el mes
@@ -314,7 +315,10 @@ export function commitDrafts(state: LedgerState, ids: string[], ctx: DraftCtx): 
     if (d.kind !== "line") { kept.push(d); continue; } // el guardián de kind: la mesa nunca convierte un plan
     const raw = draftToLine(d, ctx);
     if (!raw) { kept.push(d); continue; }
-    const line = ctx.author ? stampLine(raw, ctx.author) : raw;
+    const signed = ctx.author ? stampLine(raw, ctx.author) : raw;
+    // Con autor (un libro compartido abierto), el dinero también se
+    // sella al nacer según el mapa de financiación (Piezas C6/C7).
+    const line = ctx.author ? stampFunding(signed, state) : signed;
     next = upsertLine(next, line);
     moved++;
   }

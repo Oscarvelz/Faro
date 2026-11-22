@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.397",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El libro compartido se abre: tu mundo, y solo tu mundo", en: "The shared book opens: your world, and only your world" },
+    points: {
+      es: [
+        "En Ajustes → El libro compartido, «Compartidos conmigo» abre los libros donde eres miembro: ves solo tu alcance — la copia se recorta en el servidor y otra vez en tu teléfono antes de enseñar una línea.",
+        "Al tocar una cifra ves su composición: qué líneas la forman, quién las anotó y de quién fue el dinero, con las declaraciones marcadas como lo que son. Aceptar una invitación pide su código; el enlace solo no es una llave.",
+      ],
+      en: [
+        "In Settings → The shared book, “Shared with me” opens the books where you are a member: you see only your scope — the copy is trimmed on the server and again on your phone before a single line is shown.",
+        "Tapping a figure shows its composition: which lines form it, who noted them and whose money it was, with declarations marked as what they are. Accepting an invitation asks for its code; the link alone is not a key.",
+      ],
+    },
+  },
+  {
     version: "1.3.396",
     date: "2026-11-22",
     level: "menor",

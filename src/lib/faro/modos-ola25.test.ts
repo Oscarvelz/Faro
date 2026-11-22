@@ -228,6 +228,12 @@ describe("ola25 · (1) toda puerta que borra compone la migración", () => {
       "lib/faro/defaults.ts": "compone",
       "lib/faro/bankparse.ts": "compone",
       "lib/faro/fuse.ts": "compone",
+      // 1.3.397 (Pieza C7): world.ts filtra líneas para fabricar la
+      // VISTA de lectura del mundo de quien mira (el segundo candado
+      // del alcance y la unión para los motores); la vista jamás se
+      // escribe en un libro — ningún camino de guardado la recibe
+      // (cerca de libro397).
+      "lib/faro/world.ts": "lectura",
       "lib/faro/sample.ts": "construcción",
       "lib/faro/area-advice.ts": "lectura",
       "lib/faro/advisor.ts": "lectura",
