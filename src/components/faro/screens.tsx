@@ -2050,6 +2050,22 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [accountsPin, setAccountsPin] = useState(() => {
     try { return localStorage.getItem("faro-save-accounts") === "1"; } catch { return false; }
   });
+  // 1.3.386 (Oscar, 2026-11-21 07:05): UNA A LA VEZ entre las cuatro del
+  // widget (Ahorro · Meta · Retiro · Emergencia). Hoy el bloque de
+  // Ahorro (Tus cuentas) podía aparecer DEBAJO de la tarjeta abierta de
+  // cualquiera de las otras tres; su orden: Ahorro se presenta PRIMERO,
+  // ocultando cualquier tarjeta abierta — y a la inversa, abrir una
+  // tarjeta cierra el bloque de Ahorro, salvo que esté fijado con su
+  // chincheta (la fijación es su orden permanente y manda sobre el toque).
+  const accountsPinLive = useRef(accountsPin);
+  accountsPinLive.current = accountsPin;
+  function toggleAccounts() {
+    if (!accountsOpen) { setOpenSave(null); setSaveOn(null); }
+    setAccountsOpen((v) => !v);
+  }
+  function closeAccountsForPocket() {
+    if (!accountsPinLive.current) setAccountsOpen(false);
+  }
   const [banksPin, setBanksPin] = useState(() => {
     try { return localStorage.getItem("faro-vault-banks") === "1"; } catch { return false; }
   });
@@ -2422,6 +2438,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         setLens("all");
         setSaveOn(id); setEditId(null); setAdding(false); setMoving(null);
         setOpenSave(id);
+        closeAccountsForPocket();
         window.setTimeout(() => { ringLit(document.querySelector(".save-seg.is-on")); ringShow(ledgerRef.current); }, 60);
       }
     };
@@ -2755,12 +2772,13 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     setMoving(null);
     if (repeat) {
       setOpenSave(id);
+      closeAccountsForPocket();
       window.setTimeout(() => ledgerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 40);
       return;
     }
     setOpenSave((cur) => {
       const next = cur === id ? null : id;
-      if (next) window.setTimeout(() => ledgerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 40);
+      if (next) { closeAccountsForPocket(); window.setTimeout(() => ledgerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 40); }
       return next;
     });
   }
@@ -3839,7 +3857,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         <>
         <div className="save-head">
           <div className="save-name">
-            <button type="button" data-anchor="desk-accounts" className="icon-btn bank-tap" aria-label={t("save.accounts")} aria-expanded={accountsOpen} onClick={() => setAccountsOpen((v) => !v)}>
+            <button type="button" data-anchor="desk-accounts" className="icon-btn bank-tap" aria-label={t("save.accounts")} aria-expanded={accountsOpen} onClick={toggleAccounts}>
               <svg viewBox="0 0 32 32" className="bank-mark" aria-hidden>
                 <path d="M16 3.4 3.2 10.4h2.1L16 5.6l10.7 4.8h2.1L16 3.4Z" />
                 <path d="M5.2 11.2h21.6v2.1H5.2z" />
@@ -3852,7 +3870,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
               <button
                 type="button"
                 className={`save-word${accountsOpen ? " is-gold" : ""}`}
-                onClick={() => setAccountsOpen((v) => !v)}
+                onClick={toggleAccounts}
               >
                 {t("desk.savings")}
               </button>
@@ -3929,7 +3947,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 aria-pressed={on}
                 aria-expanded={openSave === s.id}
                 onClick={() => pickSeg(s.id)}
-                onDoubleClick={() => { setSaveOn(s.id); setOpenSave(s.id); setEditId(null); setAdding(false); setMoving(null); }}
+                onDoubleClick={() => { setSaveOn(s.id); setOpenSave(s.id); closeAccountsForPocket(); setEditId(null); setAdding(false); setMoving(null); }}
               >
                 {(() => {
                   // Tron keeps its own segmented energy gauge.
@@ -4208,7 +4226,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           <div className={focus === "save" ? "vault-block" : "vault-pass"} style={focus === "save" ? { order: blockAt("accounts") } : undefined}>
             {focus === "save" && vaultSort ? blockArrows("accounts") : null}
           <div data-anchor="vault-accounts" className={`save-more${focus === "save" && banksFold ? " is-folded" : ""}`} onClick={() => { if (focus === "save" && banksFold) toggleBanksFold(); }}>
-            <div className={`save-ledger-head${focus === "save" ? " is-tab" : ""}`} onClick={(event) => { if (focus === "save") { event.stopPropagation(); toggleBanksFold(); } else if (!focus) setAccountsOpen((v) => !v); }}>
+            <div className={`save-ledger-head${focus === "save" ? " is-tab" : ""}`} onClick={(event) => { if (focus === "save") { event.stopPropagation(); toggleBanksFold(); } else if (!focus) toggleAccounts(); }}>
               <strong className="lab-head">{focusedAccount ? focusedAccount.name : !focus ? t("save.accounts.band") : t("save.accounts.all")}<Hint topic="cuentas" /></strong>
               <span className="row">
                 {!focus ? (

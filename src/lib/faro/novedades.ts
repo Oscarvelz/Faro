@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.386",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Ahorros: la elegida se lee, y una a la vez", en: "Savings: the chosen one reads, one at a time" },
+    points: {
+      es: [
+        "La tarjeta de ahorros elegida — Meta, Retiro, Emergencia o una cuenta — se marca con más fuerza: su color llena más, la rodea un aro y su nombre va en su color.",
+        "Al pasar de una parada de ahorros a otra, la nueva se presenta primero: la tarjeta abierta de la anterior se cierra sola.",
+      ],
+      en: [
+        "The chosen savings card — Goal, Retirement, Emergency or an account — now marks itself more strongly: its color fills more, a ring surrounds it and its name wears its color.",
+        "Moving from one savings stop to another, the new one presents first: the previous stop's open card closes on its own.",
+      ],
+    },
+    topic: "ahorros-tabs",
+  },
+  {
     version: "1.3.385",
     date: "2026-11-22",
     level: "menor",

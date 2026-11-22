@@ -610,7 +610,8 @@ html[data-theme="cyberpunk"] .bank-sign.is-on:not(.is-save) { background: #3a2c1
 .save-seg small { color: var(--muted); font-size: 0.72rem; justify-self: start; }
 .save-segs { display: grid; gap: 8px; }
 .save-seg { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 6px 4px 4px; border: 1.5px solid color-mix(in oklab, var(--seg, var(--accent)) 72%, var(--line)); border-radius: 14px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; user-select: none; transition: background-color .2s var(--ease), box-shadow .2s var(--ease), transform .18s var(--ease); }
-.save-seg.is-on { background: color-mix(in oklab, var(--seg, var(--accent)) 28%, transparent); border-color: var(--seg, var(--accent)); box-shadow: none; }
+.save-seg.is-on { background: color-mix(in oklab, var(--seg, var(--accent)) 42%, transparent); border-color: var(--seg, var(--accent)); box-shadow: 0 0 0 1px var(--seg, var(--accent)), 0 8px 22px -10px var(--seg, var(--accent)); }
+.save-seg.is-on strong { color: var(--seg, var(--accent)); }
 .save-seg:active { transform: scale(0.98); }
 .save-seg b { display: block; height: 28px; border-radius: 8px; background: linear-gradient(180deg, color-mix(in oklab, white 55%, var(--seg, var(--accent))), color-mix(in oklab, var(--seg, var(--accent)) 42%, var(--surface))); position: relative; overflow: hidden; box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--seg, var(--accent)) 70%, transparent); }
 .save-seg.is-on b { background: linear-gradient(180deg, color-mix(in oklab, white 28%, var(--seg, var(--accent))), color-mix(in oklab, var(--seg, var(--accent)) 78%, var(--surface))); }
