@@ -143,6 +143,83 @@ export async function saveChosenName(name: string): Promise<FaroUser | null> {
   } catch { return null; }
 }
 
+/* ═══ EL LIBRO COMPARTIDO — Pieza C1 (1.3.390): la costura de la
+ * membresía. La verdad vive en el servidor (memberships.sql: tabla
+ * faro_memberships + RPC); aquí solo se pide y se cree lo que el
+ * servidor confirma. Si la pieza SQL aún no se aplicó en Supabase, o no
+ * hay red, cada función degrada con gracia (null / false) y ninguna
+ * superficie finge que el libro se comparte. Las superficies — la mesa
+ * de invitación y la hoja de miembros — son la Pieza C5. ═══ */
+
+export interface Membership {
+  id: string;
+  bookOwner: string;
+  member: string | null;
+  email: string;
+  scope: { all: true } | { cats: string[] };
+  role: "note" | "view";
+  status: "pending" | "active";
+  transferTo: string | null;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+}
+
+function membershipOf(row: Record<string, unknown>): Membership | null {
+  if (typeof row.id !== "string" || typeof row.book_owner !== "string" || typeof row.email !== "string") return null;
+  if (row.role !== "note" && row.role !== "view") return null;
+  if (row.status !== "pending" && row.status !== "active") return null;
+  const scope = (row.scope ?? { all: true }) as { all?: unknown; cats?: unknown };
+  return {
+    id: row.id,
+    bookOwner: row.book_owner,
+    member: typeof row.member === "string" ? row.member : null,
+    email: row.email,
+    scope: Array.isArray(scope.cats) ? { cats: scope.cats.filter((x): x is string => typeof x === "string") } : { all: true },
+    role: row.role,
+    status: row.status,
+    transferTo: typeof row.transfer_to === "string" ? row.transfer_to : null,
+    createdAt: String(row.created_at ?? ""),
+    expiresAt: String(row.expires_at ?? ""),
+    acceptedAt: typeof row.accepted_at === "string" ? row.accepted_at : null,
+  };
+}
+
+/** Las membresías que me tocan: los libros que comparto y los libros en
+ * los que estoy. null = la nube no confirmó (sin pieza SQL, sin red…). */
+export async function listMemberships(): Promise<Membership[] | null> {
+  try {
+    const { data, error } = await supabase.from("faro_memberships").select("*").order("created_at", { ascending: true });
+    if (error || !Array.isArray(data)) return null;
+    return data.map((r) => membershipOf(r as Record<string, unknown>)).filter((m): m is Membership => m !== null);
+  } catch { return null; }
+}
+
+/** Invitar al correo de una cuenta. Devuelve el id de la membresía o
+ * null si el servidor no lo confirmó (tope, duplicado, sin pieza…). */
+export async function inviteMember(email: string, scope: Membership["scope"], role: "note" | "view"): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc("faro_invite", { p_email: email.trim(), p_scope: scope, p_role: role });
+    return error || typeof data !== "string" ? null : data;
+  } catch { return null; }
+}
+
+async function membershipCall(fn: string, id: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc(fn, { p_id: id });
+    return !error && data === true;
+  } catch { return false; }
+}
+
+/** Aceptar una invitación: solo vale si la sesión ES la cuenta del
+ * correo invitado — el enlace no es llave (el servidor lo comprueba). */
+export const acceptInvite = (id: string) => membershipCall("faro_accept", id);
+export const cancelInvite = (id: string) => membershipCall("faro_cancel_invite", id);
+export const leaveMembership = (id: string) => membershipCall("faro_leave", id);
+export const removeMember = (id: string) => membershipCall("faro_remove", id);
+export const offerTransfer = (id: string) => membershipCall("faro_offer_transfer", id);
+export const acceptTransfer = (id: string) => membershipCall("faro_accept_transfer", id);
+
 export async function signOutEverywhereLocal() {
   try { await supabase.auth.signOut({ scope: "local" }); } catch { /* offline: still clear locally */ }
   try { localStorage.removeItem("faro-auth"); sessionStorage.removeItem("faro-auth"); } catch { /* ignore */ }

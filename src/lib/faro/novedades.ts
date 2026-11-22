@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.390",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Los cimientos del libro compartido", en: "The shared book's foundation" },
+    points: {
+      es: [
+        "El libro compartido empieza por su base: la membresía ya puede vivir en el servidor — invitar a una cuenta, aceptar, salir, remover y pasar la batuta, con su vencimiento de 30 días y su tope de 10 personas.",
+        "Todavía no hay botones nuevos: la mesa de invitación, con su previa, es la siguiente pieza. Esto es el cimiento, puesto y verificado.",
+      ],
+      en: [
+        "The shared book starts with its base: membership can now live on the server — invite an account, accept, leave, remove and hand over the book, with its 30-day expiry and its 10-people cap.",
+        "No new buttons yet: the invitation desk, with its preview, is the next piece. This is the foundation, laid and verified.",
+      ],
+    },
+  },
+  {
     version: "1.3.389",
     date: "2026-11-22",
     level: "menor",
