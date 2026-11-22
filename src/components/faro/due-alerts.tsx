@@ -1,4 +1,5 @@
-import { BellRing, ChevronRight, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { BellRing, ChevronDown, ChevronRight, X } from "lucide-react";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { dueAlerts, dueAlertsHidden, dueAlertsSig } from "@/lib/faro/autopay";
@@ -26,6 +27,14 @@ const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
  */
 export function DueAlertsCard() {
   const { session, fmt, lang, goTopic, has, confirm, commit } = useFaro();
+  // 1.3.402 (Oscar, 2026-11-22): la tarjeta es DESPLEGABLE — plegada
+  // ocupa una línea con el resumen real (cuántos vencidos, cuántos por
+  // venir) y el detalle vive tras el despliegue, para que Central no
+  // crezca en altura con cada pago que se acerca. Su estado se recuerda
+  // en el equipo, como los demás pliegues de la casa.
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem("faro-due-alerts-open") === "1"; } catch { return false; }
+  });
   if (!session || !has("central.due-alerts")) return null;
   if (session.ledger.settings.dueAlerts === false) return null;
   const today = todayIso();
@@ -34,11 +43,22 @@ export function DueAlertsCard() {
   if (dueAlertsHidden(session.ledger, today)) return null;
   const shown = alerts.slice(0, 3);
   const more = alerts.length - shown.length;
+  const toggle = () => {
+    setOpen((v) => {
+      try { localStorage.setItem("faro-due-alerts-open", v ? "0" : "1"); } catch { /* ignore */ }
+      return !v;
+    });
+  };
   const days = (on: string) => Math.round((new Date(`${on}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime()) / 864e5);
   const when = (on: string) => {
     const d = days(on);
     return d < 0 ? L(lang, `venció hace ${-d} d`, `${-d} d overdue`) : d === 0 ? L(lang, "hoy", "today") : d === 1 ? L(lang, "mañana", "tomorrow") : L(lang, `en ${d} días`, `in ${d} days`);
   };
+  const overdue = alerts.filter((a) => days(a.on) < 0).length;
+  const upcoming = alerts.length - overdue;
+  const sumParts: ReactNode[] = [];
+  if (overdue > 0) sumParts.push(<span key="bad" className="due-alerts-sum-bad">{L(lang, `${overdue} vencido${overdue === 1 ? "" : "s"}`, `${overdue} overdue`)}</span>);
+  if (upcoming > 0) sumParts.push(<span key="up">{L(lang, `${upcoming} por venir`, `${upcoming} coming up`)}</span>);
   const door = (kind: string) => {
     const tp = findTopic(kind === "card" ? "tarjetas" : "cuotas");
     if (tp?.go) goTopic(tp.id, tp.go, "central");
@@ -76,17 +96,29 @@ export function DueAlertsCard() {
           <X aria-hidden />
         </button>
       </div>
-      <div className="due-alerts-rows">
-        {shown.map((a) => (
-          <button key={`${a.kind}-${a.id}-${a.on}`} type="button" className="due-alert-row" data-anchor="due-alert-row" onClick={() => door(a.kind)}>
-            <span className="due-alert-name">{a.name}</span>
-            <span className="due-alert-when" data-tone={days(a.on) < 0 ? "bad" : days(a.on) <= 1 ? "warn" : undefined}>{when(a.on)}</span>
-            <b className="num">{a.amt != null ? fmt(a.amt) : "—"}</b>
-            <ChevronRight aria-hidden />
-          </button>
-        ))}
-      </div>
-      {more > 0 ? <p className="due-alerts-more">{L(lang, `y ${more} más en Cobros`, `and ${more} more in Collections`)}</p> : null}
+      <button type="button" className="due-alerts-toggle" data-anchor="due-alerts-toggle" aria-expanded={open} onClick={toggle}>
+        <span className="due-alerts-sum">
+          {sumParts.map((p, i) => (
+            <span key={i}>{i > 0 ? " · " : ""}{p}</span>
+          ))}
+        </span>
+        <ChevronDown className={open ? "fold-chev is-open" : "fold-chev"} aria-hidden />
+      </button>
+      {open ? (
+        <>
+          <div className="due-alerts-rows">
+            {shown.map((a) => (
+              <button key={`${a.kind}-${a.id}-${a.on}`} type="button" className="due-alert-row" data-anchor="due-alert-row" onClick={() => door(a.kind)}>
+                <span className="due-alert-name">{a.name}</span>
+                <span className="due-alert-when" data-tone={days(a.on) < 0 ? "bad" : days(a.on) <= 1 ? "warn" : undefined}>{when(a.on)}</span>
+                <b className="num">{a.amt != null ? fmt(a.amt) : "—"}</b>
+                <ChevronRight aria-hidden />
+              </button>
+            ))}
+          </div>
+          {more > 0 ? <p className="due-alerts-more">{L(lang, `y ${more} más en Cobros`, `and ${more} more in Collections`)}</p> : null}
+        </>
+      ) : null}
     </section>
   );
 }

@@ -35,6 +35,26 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.402",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Central, directa y con aire", en: "Central, direct and with room" },
+    points: {
+      es: [
+        "El botón de Pagos abre Cobros directo: la pantalla intermedia que preguntaba a qué parte ir ya no está — las cuatro partes se ven dentro de Cobros, más sencillo.",
+        "Al abrir el selector, el editor o Cobros desde las fichas de Tengo, Gastaré y Pagos, la pantalla sube y la hoja se despliega desde arriba, no desde el medio.",
+        "La tarjeta «Pagos que se acercan» ahora se pliega: cerrada muestra solo el resumen — cuántos pagos vencieron y cuántos vienen — y el detalle aparece al desplegarla. Central gana espacio.",
+        "La primera puerta del selector cambió de ícono: una lista con su signo de suma, para no confundirla con Escribir.",
+      ],
+      en: [
+        "The Payments button now opens Collections directly: the in-between screen that asked which part you wanted is gone — the four parts are right there in Collections, simpler.",
+        "Opening the chooser, the editor or Collections from the Have, Spending and Payments tiles, the screen rises and the sheet unfolds from the top, not from the middle.",
+        "The “Payments coming up” card now folds: closed it shows only the summary — how many payments are overdue and how many are coming — and the detail appears when you unfold it. Central gains room.",
+        "The chooser's first door has a new icon: a list with its plus sign, so it is no longer confused with Write.",
+      ],
+    },
+  },
+  {
     version: "1.3.401",
     date: "2026-11-22",
     level: "menor",

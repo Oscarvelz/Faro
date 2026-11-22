@@ -34,7 +34,7 @@ import { AskLearnedManager } from "@/components/faro/ask-learned";
 import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
 import { ProjectionSection } from "@/components/faro/projection";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, Users, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, ClipboardList, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, Users, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, NameRow, UserButton } from "@/lib/auth/gates";
@@ -1737,7 +1737,8 @@ function Cobros({ onClose, jumped = false, ping = 0, startSide = "out", wait = f
   const box = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    box.current?.scrollIntoView({ block: "nearest" });
+    // 1.3.402 (Oscar): Cobros también se despliega desde arriba.
+    revealEditor(box.current);
   }, []);
   // Opened (or called back on screen) by Central's corner button: it grows out of that button and its frame pulses once.
   const firstPing = useRef(ping);
@@ -1747,7 +1748,7 @@ function Cobros({ onClose, jumped = false, ping = 0, startSide = "out", wait = f
     const btn = document.querySelector<HTMLElement>('[data-anchor="desk-cobro"]')?.getBoundingClientRect();
     const r = el.getBoundingClientRect();
     if (btn && r.width) el.style.setProperty("--arrive-x", `${Math.round(Math.min(Math.max(btn.left + btn.width / 2 - r.left, 0), r.width))}px`);
-    if (ping !== firstPing.current) el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    if (ping !== firstPing.current) revealEditor(el);
   }, [ping]);
   // Cobros owns a history entry (pushed in the tap that opened it), and so do its forms: phone back closes the form, then
   // Cobros, then steps to the screen under it, with no re-push from popstate (Chrome marks those entries skippable, which
@@ -2018,7 +2019,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const [quick, setQuick] = useState<null | "in" | "out">(null);
   // 1.3.350: the plain tap on + / − opens the doors chooser first (Anotar ·
   // Escribir · Lista · Escanear); a gesture can still jump straight past it.
-  const [choose, setChoose] = useState<null | "in" | "out" | "due">(null);
+  const [choose, setChoose] = useState<null | "in" | "out">(null);
   const chooseRef = useRef<HTMLDivElement>(null);
   // 1.3.350: a gesture fired at a capture door — the sheet the Desk hosts
   // directly, the very one the door's own entry opens (never a parallel one).
@@ -2337,7 +2338,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   }, [lens, openSave, editId, adding, moving, renameId, accountsOpen, accountsPin, deskLine, focus]);
   useEffect(() => {
     if (!quick) return;
-    quickRef.current?.scrollIntoView({ block: "nearest" });
+    // 1.3.402 (Oscar): la pantalla SUBE — la hoja se despliega desde
+    // arriba, bajo la franja, no desde el medio (antes: «nearest»).
+    revealEditor(quickRef.current);
     const hide = (e: Event) => {
       const target = e.target;
       // 1.3.353: las hojas de captura viven en un portal SOBRE la ventana
@@ -2366,7 +2369,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // outside it (or on a lens card) puts it away, and phone Back closes it first.
   useEffect(() => {
     if (!choose) return;
-    chooseRef.current?.scrollIntoView({ block: "nearest" });
+    // 1.3.402 (Oscar): como la ventana rápida — desde arriba.
+    revealEditor(chooseRef.current);
     const hide = (e: Event) => {
       const target = e.target;
       // 1.3.353: la misma exención del portal que en la ventana rápida —
@@ -3456,19 +3460,15 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     setCobrosLit(true);
     setCobrosPing((n) => n + 1);
   }
-  // 1.3.353 (Oscar): el toque sencillo de Pagos abre SU selector — Me
-  // deben, Debo, Cuotas, Préstamos — el mismo sistema de una sola
-  // selección que el + y el −; hasta la .352 Pagos vivía fuera de ese
-  // sistema y por eso se combinaba con lo que hubiera abierto. Con
-  // Cobros ya abierto, el toque conserva el baile de cobroTap; sin el
-  // asiento del panel, cae al toque de siempre.
+  // 1.3.402 (Oscar, 2026-11-22): el intermediario de Pagos MUERE — su
+  // selector («¿A qué parte de Pagos?», nacido en la 353) era una
+  // pantalla de más: las cuatro partes ya viven dentro de Cobros y se
+  // ven más sencillo ahí. El toque sencillo abre Cobros DIRECTO, como
+  // antes de la 353 (el baile entero de cobroTap). Los GESTOS de
+  // Ajustes (doble, mantener, deslizar) no se tocan: siguen pudiendo
+  // aterrizar en una parte exacta vía openCobrosAt.
   function dueTap() {
-    if (cobros) { cobroTap(); return; }
-    if (!has("central.cobros-panel")) { cobroTap(); return; }
-    if (choose === "due") { setChoose(null); return; }
-    setJump(null);
-    setQuick(null);
-    setChoose("due");
+    cobroTap();
   }
   // The same timing as corner() (1 s hold, 170 ms double window, the tap waits out the double window only
   // when a double shortcut exists); what a gesture fires is a Cobros landing instead of a QuickAdd jump.
@@ -3583,7 +3583,7 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   // (with its own button). Everything else goes low-profile (cards via aria-pressed=false, buttons via .is-low).
   // 1.3.353: el selector TAMBIÉN enciende su botón — una sola selección
   // en toda la fila: editor, selector o Cobros, nunca dos a la vez.
-  const btnOn: null | "plus" | "minus" | "cobro" = quick === "in" ? "plus" : quick === "out" ? "minus" : choose === "in" ? "plus" : choose === "out" ? "minus" : choose === "due" ? "cobro" : cobros && cobrosLit ? "cobro" : null;
+  const btnOn: null | "plus" | "minus" | "cobro" = quick === "in" ? "plus" : quick === "out" ? "minus" : choose === "in" ? "plus" : choose === "out" ? "minus" : cobros && cobrosLit ? "cobro" : null;
   const cardOn = btnOn ? null : lensMode === "all" ? null : lensMode;
   const lowCorner = (btn: "plus" | "minus" | "cobro", card: "have" | "spend" | "debt") => (btnOn ? btnOn !== btn : cardOn ? cardOn !== card : false);
   // 1.3.148: the first-run offer says only what is true — "bring recurring" needs an earlier month with
@@ -3697,16 +3697,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       ) : null}
       {choose && !quick ? (
         <div ref={chooseRef} className="sheet-swap" data-mode={choose} data-anchor="capture-choose">
-          <section className={`card where-sheet cap-choose${choose === "in" ? " is-in" : choose === "due" ? " is-due" : " is-out"}`}>
+          <section className={`card where-sheet cap-choose${choose === "in" ? " is-in" : " is-out"}`}>
             <div className="cap-choose-head">
-              <h2 className="serif text-xl">{choose === "due" ? t("choose.due.title") : t("choose.title")}</h2>
+              <h2 className="serif text-xl">{t("choose.title")}</h2>
               <Hint topic="atajos-mas-menos" />
             </div>
-            {choose !== "due" ? (
-              <>
             <div className="cap-choose-row">
               <button type="button" className="cap-choose-btn" data-anchor="choose-note" onClick={() => { const m = choose; setChoose(null); setJump(null); setQuick(m); }}>
-                <Pencil aria-hidden /><span>{t("choose.note")}</span>
+                <ClipboardList aria-hidden /><span>{t("choose.note")}</span>
               </button>
               <p>{t("choose.note.sub")}</p>
             </div>
@@ -3734,35 +3732,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
                 <p>{t("choose.wish.sub")}</p>
               </div>
             ) : null}
-              </>
-            ) : (
-              <>
-                <div className="cap-choose-row">
-                  <button type="button" className="cap-choose-btn" data-anchor="choose-due-owed" onClick={() => { setChoose(null); openCobrosAt("owed"); }}>
-                    <ArrowDownLeft aria-hidden /><span>{t("cobro.owed")}</span>
-                  </button>
-                  <p>{t("choose.due.owed.sub")}</p>
-                </div>
-                <div className="cap-choose-row">
-                  <button type="button" className="cap-choose-btn" data-anchor="choose-due-owe" onClick={() => { setChoose(null); openCobrosAt("owe"); }}>
-                    <ArrowUpRight aria-hidden /><span>{t("cobro.owe")}</span>
-                  </button>
-                  <p>{t("choose.due.owe.sub")}</p>
-                </div>
-                <div className="cap-choose-row">
-                  <button type="button" className="cap-choose-btn" data-anchor="choose-due-dues" onClick={() => { setChoose(null); openCobrosAt("dues"); }}>
-                    <CalendarDays aria-hidden /><span>{t("cobro.tab.dues")}</span>
-                  </button>
-                  <p>{t("choose.due.dues.sub")}</p>
-                </div>
-                <div className="cap-choose-row">
-                  <button type="button" className="cap-choose-btn" data-anchor="choose-due-loans" onClick={() => { setChoose(null); openCobrosAt("loans"); }}>
-                    <Landmark aria-hidden /><span>{t("cobro.tab.loans")}</span>
-                  </button>
-                  <p>{t("choose.due.loans.sub")}</p>
-                </div>
-              </>
-            )}
           </section>
         </div>
       ) : null}

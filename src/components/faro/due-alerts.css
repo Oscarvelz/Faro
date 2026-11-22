@@ -5,6 +5,17 @@
 .due-alerts-head { display: flex; align-items: center; gap: 8px; }
 .due-alerts-head svg { width: 18px; height: 18px; color: var(--accent); }
 .due-alerts-head h2 { font-size: 17px; margin: 0; flex: 1; }
+/* 1.3.402: el despliegue — una línea de resumen real (vencidos en su
+ * tono de aviso, por venir en el texto) y la flecha de la casa. */
+.due-alerts-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 2px 1px; background: none; border: none; cursor: pointer;
+  color: inherit; text-align: left; font: inherit;
+}
+.due-alerts-sum { flex: 1; font-size: 13.5px; opacity: 0.85; }
+.due-alerts-sum-bad { color: #e5484d; font-weight: 700; opacity: 1; }
+.due-alerts-toggle .fold-chev { width: 16px; height: 16px; opacity: 0.6; transition: transform .22s cubic-bezier(.22, 1, .36, 1); }
+.due-alerts-toggle .fold-chev.is-open { transform: rotate(180deg); }
 .due-alerts-rows { display: flex; flex-direction: column; margin-top: 6px; }
 .due-alert-row {
   display: flex; align-items: center; gap: 10px; width: 100%;

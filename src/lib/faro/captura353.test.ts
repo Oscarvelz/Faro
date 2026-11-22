@@ -5,6 +5,13 @@
  * ya no expulsa a nadie de su hoja y «pesos» es córdobas; la pregunta
  * del Asesor vive en su tarjeta sobre la respuesta; y el botón de la
  * presentación en la búsqueda toma la tinta del tema.
+ *
+ * ENMIENDA 1.3.402 (Oscar, 2026-11-22): el selector de Pagos MUERE por
+ * su orden — «elimina el intermediario en pagos, es innecesario; el
+ * usuario ya tiene acceso a estas cuatro partes y mucho más sencillo
+ * de ver». El toque de Pagos abre Cobros directo; los gestos de
+ * Ajustes que aterrizan en una parte exacta quedan intactos. La
+ * sección «Pagos tiene su selector» se reescribe como su contrario.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -72,7 +79,9 @@ describe("353 · Escribir no expulsa: el portal no es «fuera»", () => {
 
 describe("353 · una sola selección en Central", () => {
   it("el botón encendido (btnOn) cuenta también el selector, no solo el editor", () => {
-    assert.match(screens, /choose === "in" \? "plus" : choose === "out" \? "minus" : choose === "due" \? "cobro"/);
+    // Enmienda 1.3.402: el segmento «due» del selector murió con él.
+    assert.match(screens, /choose === "in" \? "plus" : choose === "out" \? "minus" : cobros && cobrosLit \? "cobro"/);
+    assert.ok(!screens.includes('choose === "due"'), "ningún resto del selector de Pagos");
   });
 
   it("abrir Cobros retira editor y selector (openCobrosAt y cobroTap)", () => {
@@ -88,36 +97,37 @@ describe("353 · una sola selección en Central", () => {
   });
 });
 
-describe("353 · Pagos tiene su selector", () => {
-  it("el estado del selector admite «due» y el toque de Pagos pasa por dueTap", () => {
-    assert.match(screens, /useState<null \| "in" \| "out" \| "due">/);
-    assert.match(screens, /function dueTap\(\)/);
-    assert.ok((screens.match(/dueTap\(\);/g) ?? []).length >= 2, "el toque sencillo y el temporizado abren el selector");
+describe("353 · Pagos SIN intermediario (enmienda 1.3.402, orden de Oscar)", () => {
+  it("el estado del selector ya no admite «due» y el toque de Pagos abre Cobros directo", () => {
+    assert.match(screens, /useState<null \| "in" \| "out">\(null\)/);
+    assert.match(screens, /function dueTap\(\) \{\s*cobroTap\(\);\s*\}/);
+    assert.ok((screens.match(/dueTap\(\);/g) ?? []).length >= 2, "el toque sencillo y el temporizado entran directo");
+    assert.ok(!screens.includes("choose-due-"), "ninguna fila del selector muerto");
+    assert.ok(!screens.includes("choose.due"), "ninguna palabra del selector muerto en la pantalla");
   });
 
-  it("el selector de Pagos ofrece sus cuatro destinos hacia Cobros", () => {
+  it("los gestos de Ajustes conservan sus cuatro destinos hacia Cobros", () => {
+    // Los gestos resuelven su destino en dueGestureOf (que admite
+    // exactamente los cuatro) y disparan openCobrosAt(hit).
     for (const dest of ["owed", "owe", "dues", "loans"]) {
-      assert.ok(screens.includes(`openCobrosAt("${dest}")`), `destino ${dest}`);
-      assert.ok(screens.includes(`data-anchor="choose-due-${dest}"`), `ancla ${dest}`);
+      assert.ok(screens.includes(`raw === "${dest}"`), `destino ${dest}`);
     }
-    assert.match(styles, /\.where-sheet\.is-due \{/);
+    assert.ok((screens.match(/openCobrosAt\(hit\)/g) ?? []).length >= 3, "los tres gestos aterrizan vía openCobrosAt");
+    assert.ok(!styles.includes(".where-sheet.is-due"), "el acabado del selector muerto también se fue");
   });
 
-  it("las palabras del selector viven en los dos idiomas", () => {
+  it("las palabras del selector salieron de los dos idiomas", () => {
     const i18n = read("./i18n.ts");
-    assert.ok(i18n.includes('"choose.due.title": "¿A qué parte de Pagos?"'));
-    assert.ok(i18n.includes('"choose.due.title": "Which part of Payments?"'));
-    for (const k of ["owed", "owe", "dues", "loans"]) {
-      assert.ok(i18n.includes(`"choose.due.${k}.sub"`), `sub ${k}`);
-    }
+    assert.ok(!i18n.includes('"choose.due.title"'), "sin título del intermediario");
+    assert.ok(!i18n.includes('"choose.due.'), "sin subtítulos del intermediario");
   });
 
-  it("el tema de atajos cuenta el selector de Pagos, ya no la apertura directa", () => {
+  it("el tema de atajos cuenta la apertura directa, ya no el selector", () => {
     const topics = read("../manual/topics.ts");
     const at = topics.indexOf('id: "atajos-mas-menos"');
     const block = topics.slice(at, at + 2400);
-    assert.ok(block.includes("un toque en [[Pagos]] abre el suyo"));
-    assert.ok(block.includes("a tap on [[Payments]] opens its own"));
+    assert.ok(block.includes("un toque en [[Pagos]] abre [[Cobros]] directo"));
+    assert.ok(block.includes("a tap on [[Payments]] opens [[Collections]] directly"));
   });
 });
 
