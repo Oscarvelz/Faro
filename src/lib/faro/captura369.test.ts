@@ -90,16 +90,21 @@ test("369-5 el lector filtra lo dañado y la puerta juzga la forma entera", () =
 
 test("369-6 «¿Qué puedes hacer?» describe solo lo que el motor responde (texto corregido en la .371)", () => {
   // La forma original (el inventario de canónicas) la corrigió Oscar el
-  // 2026-11-21 18:46: la respuesta es una DESCRIPCIÓN en prosa generada
-  // del banco — lo que sí, lo que todavía no, y los límites. La ley de
-  // fondo no cambia: ninguna declarada se promete como capacidad.
+  // 2026-11-21 18:46: la respuesta es una DESCRIPCIÓN generada del
+  // banco — lo que sí, lo que todavía no, y los límites. La FORMA la
+  // volvió a corregir el 2026-11-21 19:42 (1.3.373): ya no es un
+  // párrafo (areas) sino grupos con renglón propio; esta aserción se
+  // re-fijó a la forma nueva. La ley de fondo no cambia: ninguna
+  // declarada se promete como capacidad.
   const text = capabilitiesText("es");
+  const items = text.groups.flatMap((g) => g.items);
+  const has = (xs: string[], cap: string) => xs.some((it) => it.toLowerCase().includes(cap.toLowerCase()));
   const liveCaps = QUESTION_BANK.filter((f) => f.status === "viva" || f.status === "heredada").map((f) => f.cap.es);
-  for (const c of liveCaps) assert.ok(text.areas.includes(c), "cada capacidad viva se cuenta en la descripción");
+  for (const c of liveCaps) assert.ok(has(items, c), "cada capacidad viva se cuenta en la descripción");
   const declaredCaps = QUESTION_BANK.filter((f) => f.status === "declarada").map((f) => f.cap.es);
   for (const d of declaredCaps) {
-    assert.ok(!text.areas.includes(d), "ninguna declarada se promete como capacidad");
-    assert.ok(text.notYet.includes(d), "cada declarada se nombra como lo que todavía no se sabe");
+    assert.ok(!has(items, d), "ninguna declarada se promete como capacidad");
+    assert.ok(has(text.notYet, d), "cada declarada se nombra como lo que todavía no se sabe");
   }
   assert.ok(liveCaps.length >= 10, "la descripción es real");
   const liveFirsts = QUESTION_BANK.filter((f) => f.status === "viva" || f.status === "heredada").map((f) => f.canonical.es[0]);

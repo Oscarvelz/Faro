@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.373",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "La descripción, ordenada; la pregunta, cierra", en: "The description, in order; the question, closes" },
+    points: {
+      es: [
+        "La respuesta a «¿Qué puedes hacer?» se presenta ahora en grupos — tu mes, tus movimientos, tus cuotas, tus ahorros — con una línea corta por capacidad, en vez de un solo párrafo.",
+        "Tocar la tarjeta «Tu pregunta» cierra la respuesta y vuelven a aparecer las preguntas sugeridas.",
+      ],
+      en: [
+        "The answer to “What can you do?” now comes in groups — your month, your movements, your dues, your savings — with one short line per capability, instead of a single paragraph.",
+        "Tapping the “Your question” card closes the answer and brings the suggested questions back.",
+      ],
+    },
+  },
+  {
     version: "1.3.372",
     date: "2026-11-21",
     level: "menor",

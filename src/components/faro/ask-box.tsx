@@ -44,6 +44,12 @@
  * banco en el momento) y las preguntas que la persona guardó, EN SU
  * ORDEN. El engranaje de la cabecera (con su asiento, Ritmo) lleva al
  * pliegue de Ajustes donde la lista se administra.
+ *
+ * 1.3.373 (Oscar, 2026-11-21 19:42): dos correcciones sobre la .371 en
+ * su teléfono — la descripción de la fija se presenta en GRUPOS con
+ * renglón propio (la prosa cosida con punto y coma se leía como texto
+ * suelto), y la tarjeta de la pregunta es un botón: tocarla CIERRA la
+ * respuesta y las preguntas sugeridas del banco reaparecen.
  */
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, MessageCircleQuestion, Send, Settings, Sparkles } from "lucide-react";
@@ -144,6 +150,15 @@ export function AskBox() {
     setText("");
   }
 
+  // 1.3.373 (Oscar, 2026-11-21 19:42): tocar la tarjeta de la pregunta
+  // CIERRA la respuesta — la tarjeta se va, la respuesta se va, y las
+  // preguntas sugeridas del banco reaparecen (viven solo sin respuesta).
+  function closeAnswer() {
+    setResult(null);
+    setCaps(false);
+    setAsked("");
+  }
+
   const presets = askPresetsOf(session.ledger);
   const presetsTopic = findTopic("preguntas-a-la-mano");
 
@@ -188,17 +203,30 @@ export function AskBox() {
         </div>
       ) : null}
       {(result || caps) && asked ? (
-        <div className="ask-q" data-anchor="ask-q">
+        <button type="button" className="ask-q" data-anchor="ask-q" onClick={closeAnswer} aria-label={L("Cerrar la respuesta", "Close the answer")}>
           <span className="ask-q-label">{L("Tu pregunta", "Your question")}</span>
-          <p className="ask-q-text">{asked}</p>
-        </div>
+          <span className="ask-q-text">{asked}</span>
+        </button>
       ) : null}
       {caps ? (
         <div className="ask-card" data-anchor="ask-card">
           {(() => { const c = capabilitiesText(lang); return (<>
             <p className="ask-verdict">{c.intro}</p>
-            <p className="ask-caps-body">{c.areas}</p>
-            <p className="ask-caps-body">{c.notYet}</p>
+            {c.groups.map((g) => (
+              <div key={g.title} className="ask-caps-group">
+                <span className="ask-caps-kicker">{g.title}</span>
+                <ul className="ask-caps-list">
+                  {g.items.map((it) => (<li key={it}>{it}</li>))}
+                </ul>
+              </div>
+            ))}
+            <div className="ask-caps-group">
+              <span className="ask-caps-kicker">{c.notYetTitle}</span>
+              <ul className="ask-caps-list">
+                {c.notYet.map((it) => (<li key={it}>{it}</li>))}
+              </ul>
+              <p className="ask-caps-note">{c.notYetNote}</p>
+            </div>
             <p className="ask-note">{c.limits}</p>
           </>); })()}
         </div>

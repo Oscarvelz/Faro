@@ -89,31 +89,61 @@ export function removeAskPreset(state: LedgerState, id: string): LedgerState {
 }
 
 /** La respuesta a «¿Qué puedes hacer?» (corrección de Oscar, 2026-11-21
- * 18:46): una DESCRIPCIÓN honesta en prosa, generada del banco en el
- * momento — nunca un folio de preguntas, porque ni siquiera son las
- * únicas que el motor contiene. Cuatro piezas: la apertura (leo tu libro
- * y respondo con tus números), lo que SÍ sabe (la frase `cap` de cada
- * familia viva o heredada, en el orden del banco), lo que TODAVÍA NO
- * (las declaradas, nombradas como límite — reconocerlas es la
- * honestidad que se pidió), y los límites de siempre. Cuando una
- * familia declarada se vuelva viva, esta misma descripción lo contará
- * sola: se mudará de párrafo sin que nadie reescriba el texto. */
-export function capabilitiesText(lang: Lang): { intro: string; areas: string; notYet: string; limits: string } {
-  const capsOf = (ok: (s: string) => boolean) => QUESTION_BANK.filter((f) => ok(f.status)).map((f) => f.cap[lang]);
-  const join = (xs: string[]) => (lang === "en" ? xs.join("; ") : xs.join("; "));
-  const live = capsOf((s) => s === "viva" || s === "heredada");
-  const pending = capsOf((s) => s === "declarada");
+ * 18:46): una DESCRIPCIÓN honesta generada del banco en el momento —
+ * nunca un folio de preguntas, porque ni siquiera son las únicas que
+ * el motor contiene.
+ *
+ * 1.3.373 (Oscar, 2026-11-21 19:42, sobre la .371 en su teléfono): la
+ * descripción en prosa seguida — un párrafo cosido con punto y coma —
+ * se leía como TEXTO SUELTO: «no hay orden… debería presentarse de
+ * una forma mucho más ordenada y más concreta». La descripción se
+ * presenta ahora en GRUPOS con renglón propio: cada capacidad viva o
+ * heredada es UNA línea bajo el kicker de su territorio, sin cadena
+ * de punto y coma. Los grupos son de presentación; el contenido sigue
+ * saliendo del banco en el momento (la frase `cap` de cada familia),
+ * y la cerca exige que toda familia viva o heredada viva en
+ * exactamente un grupo: una capacidad nueva sin grupo rompe la
+ * cerca, no se esconde. Lo que todavía no (las declaradas) va en su
+ * propio grupo, con su nota; y los límites de siempre cierran, en la
+ * forma que a Oscar le gustó tal cual. */
+const CAP_GROUPS: { title: { es: string; en: string }; families: string[] }[] = [
+  { title: { es: "Tu mes", en: "Your month" }, families: ["how", "left", "free", "spend", "gustos"] },
+  { title: { es: "Tus movimientos", en: "Your movements" }, families: ["recencia", "historia", "comparar"] },
+  { title: { es: "Tus cuotas y deudas", en: "Your dues and debts" }, families: ["agenda", "ya-pague", "ranking"] },
+  { title: { es: "Tus ahorros y envíos", en: "Your savings and remittances" }, families: ["ahorros", "cuenta-origen", "remesas"] },
+  { title: { es: "Faro y tu futuro", en: "Faro and your future" }, families: ["faro-mismo", "futuro"] },
+];
+
+export function capabilitiesText(lang: Lang): {
+  intro: string;
+  groups: { title: string; items: string[] }[];
+  notYetTitle: string;
+  notYet: string[];
+  notYetNote: string;
+  limits: string;
+} {
+  const sentence = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const capOf = (id: string) => QUESTION_BANK.find((f) => f.id === id)?.cap[lang];
+  const groups = CAP_GROUPS.map((g) => ({
+    title: g.title[lang],
+    items: g.families.map(capOf).filter((x): x is string => !!x).map(sentence),
+  })).filter((g) => g.items.length > 0);
+  const notYet = QUESTION_BANK.filter((f) => f.status === "declarada").map((f) => sentence(f.cap[lang]));
   return lang === "en"
     ? {
         intro: "I read your book and answer with your own numbers. This is what I know how to do — and what I don't, yet.",
-        areas: `I can tell you: ${join(live)}.`,
-        notYet: `What I still can't do: ${join(pending)}. When I learn it, this same description will say so on its own.`,
+        groups,
+        notYetTitle: "What I still can't do",
+        notYet,
+        notYetNote: "When I learn it, this same description will say so on its own.",
         limits: "My limits, stated plainly: I only use what's written in your book — if something isn't there, I tell you instead of making it up. I don't give advice or opinions on what to do with your money. And if I can't answer a question, I say so.",
       }
     : {
         intro: "Leo tu libro y respondo con tus propios números. Esto es lo que sé hacer — y lo que todavía no.",
-        areas: `Puedo decirte: ${join(live)}.`,
-        notYet: `Lo que todavía no sé: ${join(pending)}. Cuando lo aprenda, esta misma descripción lo contará sola.`,
+        groups,
+        notYetTitle: "Lo que todavía no sé",
+        notYet,
+        notYetNote: "Cuando lo aprenda, esta misma descripción lo contará sola.",
         limits: "Mis límites, dichos claros: solo uso lo que está anotado en tu libro — si algo no está, te lo digo en vez de inventarlo. No doy consejos ni opiniones sobre qué hacer con tu dinero. Y si una pregunta no la sé responder, te lo digo.",
       };
 }
