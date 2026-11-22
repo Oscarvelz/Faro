@@ -154,6 +154,43 @@ html[data-theme="tron"] .float-size.is-se i { border-color: color-mix(in oklab, 
 
 /* View menu (split + floating, from one icon) */
 .view-anchor { position: relative; }
+/* 1.3.372 — el botón de Vista, flotante permanente abajo a la izquierda
+   (familia de Subir: misma piel, mismo tamaño 36, mismo reloj de la
+   barra por --dock-drop / --dock-travel). */
+.view-fab-anchor {
+  position: fixed; z-index: 32;
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  bottom: max(calc(var(--dock-travel, 0px) + 12px), calc(16px + env(safe-area-inset-bottom, 0px)));
+  translate: 0 var(--dock-drop, 0px);
+}
+.view-fab {
+  width: 36px; height: 36px; padding: 0; border-radius: 999px;
+  display: grid; place-items: center; cursor: pointer;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--surface) 90%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line));
+  box-shadow: 0 6px 18px color-mix(in oklab, var(--fg) 14%, transparent), inset 0 1px 0 color-mix(in oklab, white 55%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transition: color .15s, border-color .15s, transform .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.view-fab.is-on { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 55%, var(--line)); }
+.view-fab:hover, .view-fab:focus-visible { color: var(--fg); border-color: color-mix(in oklab, var(--accent) 55%, var(--line)); }
+.view-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.view-fab:active { transform: scale(.93); }
+.view-menu.is-fab { position: absolute; top: auto; bottom: calc(100% + 8px); left: 0; right: auto; }
+[data-theme="tron"] .view-fab {
+  color: var(--t-teal);
+  background: linear-gradient(180deg, rgba(22, 36, 42, .94), rgba(5, 10, 13, .96));
+  border-color: rgba(63, 214, 245, .55);
+  box-shadow: 0 0 10px rgba(63, 214, 245, .28), inset 0 0 6px rgba(63, 214, 245, .14), 0 6px 18px rgba(0, 0, 0, .5);
+}
+[data-theme="tron"] .view-fab svg { filter: drop-shadow(0 0 3px rgba(63, 214, 245, .7)); }
+[data-theme="tron"] .view-fab:hover, [data-theme="tron"] .view-fab:focus-visible { color: var(--t-teal-hot); border-color: var(--t-teal); box-shadow: 0 0 14px rgba(63, 214, 245, .45), inset 0 0 8px rgba(63, 214, 245, .2), 0 6px 18px rgba(0, 0, 0, .5); }
+@media (prefers-reduced-motion: reduce) {
+  .view-fab { transition: none; }
+  .view-fab:active { transform: none; }
+}
 .view-menu {
   position: absolute; top: calc(100% + 8px); right: -40px; z-index: 70; width: 248px;
   padding: 12px; border-radius: 20px; display: grid; gap: 10px;

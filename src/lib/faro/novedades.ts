@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.372",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "El Asesor en la barra; las vistas, flotantes", en: "The Advisor in the bar; the views, floating" },
+    points: {
+      es: [
+        "El icono de la pregunta en la barra superior te lleva directo a Preguntar al Asesor, con la caja lista para escribir.",
+        "Las vistas (una pantalla, dos pisos, ventana flotante) viven ahora en un botón flotante abajo a la izquierda: se sienta sobre la barra inferior y se hunde con ella cuando la barra se oculta, junto al botón de subir. Ambos son un poco más pequeños.",
+      ],
+      en: [
+        "The question icon in the top bar takes you straight to Ask the Advisor, with the box ready to type in.",
+        "The views (one screen, two floors, floating window) now live in a floating button at the bottom left: it sits above the bottom bar and sinks with it when the bar hides, together with the back-to-top button. Both are a little smaller.",
+      ],
+    },
+  },
+  {
     version: "1.3.371",
     date: "2026-11-21",
     level: "menor",

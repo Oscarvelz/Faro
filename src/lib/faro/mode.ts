@@ -759,6 +759,7 @@ export function featureForGo(go: GoDest): FeatureId | null {
     if (a === "top-export") return "export.panel";
     if (a === "top-cal") return "nav.calendar";
     if (a === "top-view") return "nav.tablet-views";
+    if (a === "top-ask") return "advisor.ask";
     if (a === "top-search") return "nav.global-search";
     return null;
   }

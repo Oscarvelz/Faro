@@ -2,7 +2,7 @@ import { useScreenEntrance } from "./entrance";
 import { createPortal } from "react-dom";
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { SampleEdge, SamplePill } from "./sample-mode";
-import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
+import { Blend, CalendarDays, ChevronLeft, ChevronRight, Coins, Columns2, Flag, Hourglass, Landmark, Maximize2, MessageCircleQuestion, Minus, Moon, PictureInPicture2, Redo2, Rows2, Search, Settings, Shield, Sun, Undo2, X } from "lucide-react";
 import "./float.css";
 import "./tron.css";
 import "./cyberpunk.css";
@@ -416,16 +416,8 @@ export function Shell() {
       localStorage.setItem("faro-float-section", floatSection);
     } catch { /* ignore */ }
   }, [floatOn, floatMin, floatSection]);
-  const [viewOpen, setViewOpen] = useState(false);
-  const viewRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!viewOpen) return;
-    const off = (e: PointerEvent) => { if (!viewRef.current?.contains(e.target as Node)) setViewOpen(false); };
-    document.addEventListener("pointerdown", off);
-    return () => { document.removeEventListener("pointerdown", off); };
-  }, [viewOpen]);
-  // Esc and phone back close the Vista menu only.
-  useLayer(viewOpen, () => setViewOpen(false));
+  // 1.3.372: el menú de Vista vive ahora en el botón flotante (ViewFloat,
+  // abajo) — su estado abierto/cerrado se mudó con él.
   // 1.3.174: the tools aside is a layer too — Esc and phone back close it, like every other sheet.
   useLayer(moneyOpen, () => setMoneyOpen(false));
   const stackRef = useRef<HTMLDivElement>(null);
@@ -709,6 +701,16 @@ export function Shell() {
           if (host) host.style.setProperty("--dock-h", `${T}px`);
           dock.style.transform = dockVisual > 0.2 ? `translate3d(0,${dockVisual.toFixed(2)}px,0)` : "";
           dock.classList.toggle("is-away", T > 0 && dockVisual >= T - 0.5);
+          // 1.3.372: los flotantes (Subir y el botón de Vista) viajan con la
+          // barra en UN solo reloj — este paso publica el descenso visual y
+          // el recorrido total en la RAÍZ del documento, y ambos botones lo
+          // consumen por la variable (la lección de Brizna: si cada uno
+          // mide por su cuenta, aterrizan el uno sobre el otro). Va en la
+          // raíz y no en el marco porque los dos botones viven FUERA del
+          // marco: publicada en el marco, la variable nunca les llegaba y
+          // el botón de Vista no se hundía (cazado en el banco de la 372).
+          document.documentElement.style.setProperty("--dock-drop", `${dockVisual.toFixed(2)}px`);
+          document.documentElement.style.setProperty("--dock-travel", `${dock.offsetHeight > 0 ? T : 0}px`);
         }
         if (Math.abs(headerTarget - headerVisual) > 0.2 || Math.abs(dockTarget - dockVisual) > 0.2) raf = requestAnimationFrame(step);
         else { raf = 0; lastTs = 0; }
@@ -756,6 +758,8 @@ export function Shell() {
           dock.style.transform = "";
           dock.classList.remove("is-away");
         }
+        document.documentElement.style.removeProperty("--dock-drop");
+        document.documentElement.style.removeProperty("--dock-travel");
         host?.style.removeProperty("--chrome-h");
         host?.style.removeProperty("--dock-h");
       };
@@ -1087,6 +1091,16 @@ export function Shell() {
   const dockClass = !split ? (homeSide === "left" ? " is-hide-right" : " is-hide-left") : "";
 
   const openLower = () => setLower((cur) => (cur === ui.section ? pairedSection(ui.section) : cur));
+  // 1.3.372 (fallo de Oscar, 2026-11-21 17:31): el hueco que dejan las
+  // vistas en la barra superior lo ocupa el acceso directo a Preguntar al
+  // Asesor — un toque lleva a la caja y le da el foco, listo para escribir.
+  const goAsk = () => {
+    guardPanelExit(() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "advice" }); });
+    window.setTimeout(() => {
+      const el = document.querySelector<HTMLElement>('[data-anchor="ask-input"]');
+      if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); }
+    }, 450);
+  };
   const toggleFloat = () => {
     if (!floatOn) {
       const taken = new Set<SectionId>([ui.section, ...(split ? [lower] : [])]);
@@ -1202,44 +1216,19 @@ export function Shell() {
               >
                 {NIGHT_THEMES.includes(session.ledger.settings.theme) ? <Sun className="size-4" /> : <Moon className="size-4" />}
               </button>
-              <div className="cal-anchor view-anchor" ref={viewRef} data-anchor="top-view">
-                <button
-                  type="button"
-                  className={`icon-btn theme-toggle cal-launch${split || floatOn ? " is-on" : ""}`}
-                  aria-haspopup="menu"
-                  aria-expanded={viewOpen}
-                  aria-label={t("view.title")}
-                  onClick={() => setViewOpen((o) => !o)}
-                >
-                  {floatOn && !split ? <PictureInPicture2 className="size-4" /> : wide && split && splitAxis === "col" ? <Columns2 className="size-4" /> : <Rows2 className="size-4" />}
-                </button>
-                {viewOpen ? (
-                  <div className="view-menu" role="menu" aria-label={t("view.title")} data-anchor="view-menu">
-                    <p className="view-menu-kicker">{t("view.title")}</p>
-                    <div className="view-menu-row">
-                      <button type="button" role="menuitemradio" data-anchor="view-one" aria-checked={!split} onClick={() => { setSplit(false); setViewOpen(false); }}>
-                        <i className="view-glyph is-one" aria-hidden><b /></i>
-                        <span>{t("split.one")}</span>
-                      </button>
-                      {wide ? (
-                        <button type="button" role="menuitemradio" aria-checked={split && splitAxis === "col"} onClick={() => { const fresh = !split; setSplitAxis("col"); if (fresh) { setSplitRatio(50); openLower(); } setSplit(true); setViewOpen(false); }}>
-                          <i className="view-glyph is-col" aria-hidden><b /><b /></i>
-                          <span>{t("view.cols")}</span>
-                        </button>
-                      ) : null}
-                      <button type="button" role="menuitemradio" data-anchor="view-rows" aria-checked={split && (!wide || splitAxis === "row")} onClick={() => { const fresh = !split; setSplitAxis("row"); if (fresh) openLower(); setSplit(true); setViewOpen(false); }}>
-                        <i className="view-glyph is-row" aria-hidden><b /><b /></i>
-                        <span>{t("view.rows")}</span>
-                      </button>
-                    </div>
-                    <button type="button" className="view-float" role="menuitemcheckbox" aria-checked={floatOn} onClick={() => { toggleFloat(); setViewOpen(false); }}>
-                      <PictureInPicture2 className="size-4" />
-                      <span>{floatOn ? (floatMin ? t("float.unfold") : t("float.fold")) : t("float")}</span>
-                      {floatOn ? <X className="size-3.5 view-float-x" aria-label={t("float.close")} onClick={(e) => { e.stopPropagation(); setFloatOn(false); setFloatMin(false); setViewOpen(false); }} /> : null}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              {/* 1.3.372: en este hueco vivía el icono de Vista; por fallo de
+                  Oscar (2026-11-21 17:31) lo ocupa el acceso directo a
+                  Preguntar al Asesor, y las vistas bajan a un botón
+                  flotante permanente (ViewFloat, junto a Subir). */}
+              <button
+                type="button"
+                className="icon-btn theme-toggle cal-launch"
+                data-anchor="top-ask"
+                aria-label={lang === "en" ? "Ask your Advisor" : "Pregúntale a tu Asesor"}
+                onClick={goAsk}
+              >
+                <MessageCircleQuestion className="size-4" />
+              </button>
               <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
                 <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}>
                   <Search className="size-4" />
@@ -1664,6 +1653,18 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
     {ui.manual !== null ? <Suspense fallback={<div className="mn-layer is-loading" />}><ManualLayer /></Suspense> : null}
     <FocusHost />
     <ToTop lang={lang} />
+    <ViewFloat
+      split={split}
+      splitAxis={splitAxis}
+      wide={wide}
+      floatOn={floatOn}
+      floatMin={floatMin}
+      onOne={() => setSplit(false)}
+      onCols={() => { const fresh = !split; setSplitAxis("col"); if (fresh) { setSplitRatio(50); openLower(); } setSplit(true); }}
+      onRows={() => { const fresh = !split; setSplitAxis("row"); if (fresh) openLower(); setSplit(true); }}
+      onToggleFloat={toggleFloat}
+      onCloseFloat={() => { setFloatOn(false); setFloatMin(false); }}
+    />
     {inAndroidApp() ? <Suspense fallback={null}><ShareInbox /></Suspense> : null}
     {inAndroidApp() ? <Suspense fallback={null}><DocInbox /></Suspense> : null}
     {inAndroidApp() ? <WidgetHost /> : null}
@@ -1671,6 +1672,81 @@ if (swipeBlocked(e.currentTarget, e.target as Element)) return;
     <Presentacion />
     <PresOffer />
     </>
+  );
+}
+
+/** 1.3.372 (fallo de Oscar, 2026-11-21 17:31): el botón de Vista — una
+ * pantalla, dos pisos, ventana flotante — vive ahora flotante y
+ * permanente abajo a la izquierda, en la familia de Subir: se sienta
+ * sobre la barra inferior y se hunde a la esquina con ella cuando la
+ * barra se oculta, en el mismo reloj (--dock-drop / --dock-travel, que
+ * publica el deslizamiento del cromo). ~10 % más pequeño que antes, como
+ * su pareja. El ancla sigue llamándose top-view: el mapa de saltos y las
+ * escenas de la Presentación apuntan al control, viva donde viva. */
+function ViewFloat({ split, splitAxis, wide, floatOn, floatMin, onOne, onCols, onRows, onToggleFloat, onCloseFloat }: {
+  split: boolean;
+  splitAxis: "row" | "col";
+  wide: boolean;
+  floatOn: boolean;
+  floatMin: boolean;
+  onOne: () => void;
+  onCols: () => void;
+  onRows: () => void;
+  onToggleFloat: () => void;
+  onCloseFloat: () => void;
+}) {
+  const { t } = useFaro();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("pointerdown", off);
+    return () => { document.removeEventListener("pointerdown", off); };
+  }, [open ]);
+  // Esc and phone back close the Vista menu only.
+  useLayer(open, () => setOpen(false));
+  const close = (fn: () => void) => () => { fn(); setOpen(false); };
+  return (
+    <div className="view-fab-anchor" ref={ref}>
+      <button
+        type="button"
+        className={`view-fab${split || floatOn ? " is-on" : ""}`}
+        data-anchor="top-view"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t("view.title")}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {floatOn && !split ? <PictureInPicture2 size={18} /> : wide && split && splitAxis === "col" ? <Columns2 size={18} /> : <Rows2 size={18} />}
+      </button>
+      {open ? (
+        <div className="view-menu is-fab" role="menu" aria-label={t("view.title")} data-anchor="view-menu">
+          <p className="view-menu-kicker">{t("view.title")}</p>
+          <div className="view-menu-row">
+            <button type="button" role="menuitemradio" data-anchor="view-one" aria-checked={!split} onClick={close(onOne)}>
+              <i className="view-glyph is-one" aria-hidden><b /></i>
+              <span>{t("split.one")}</span>
+            </button>
+            {wide ? (
+              <button type="button" role="menuitemradio" aria-checked={split && splitAxis === "col"} onClick={close(onCols)}>
+                <i className="view-glyph is-col" aria-hidden><b /><b /></i>
+                <span>{t("view.cols")}</span>
+              </button>
+            ) : null}
+            <button type="button" role="menuitemradio" data-anchor="view-rows" aria-checked={split && (!wide || splitAxis === "row")} onClick={close(onRows)}>
+              <i className="view-glyph is-row" aria-hidden><b /><b /></i>
+              <span>{t("view.rows")}</span>
+            </button>
+          </div>
+          <button type="button" className="view-float" role="menuitemcheckbox" aria-checked={floatOn} onClick={close(onToggleFloat)}>
+            <PictureInPicture2 className="size-4" />
+            <span>{floatOn ? (floatMin ? t("float.unfold") : t("float.fold")) : t("float")}</span>
+            {floatOn ? <X className="size-3.5 view-float-x" aria-label={t("float.close")} onClick={(e) => { e.stopPropagation(); onCloseFloat(); setOpen(false); }} /> : null}
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

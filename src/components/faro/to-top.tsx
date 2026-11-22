@@ -31,7 +31,16 @@ export function ToTop({ lang }: { lang: string }) {
       let bottom = 16;
       let right = 12;
       const dock = document.querySelector(".dock");
-      if (vis(dock)) bottom = Math.max(bottom, H - dock.getBoundingClientRect().top + 12);
+      // 1.3.372: la altura de casa se mide SIN el deslizamiento (offsetHeight
+      // y el bottom del CSS no sienten el transform): el descenso mismo lo
+      // aporta la variable --dock-drop que publica el cromo, consumida por
+      // la propiedad translate — así Subir y el botón de Vista se mueven en
+      // un solo reloj, exactamente con la barra.
+      if (vis(dock) && (dock as HTMLElement).offsetHeight > 0) {
+        const extra = parseFloat(getComputedStyle(dock).bottom);
+        const travel = (dock as HTMLElement).offsetHeight + (Number.isFinite(extra) ? Math.max(0, extra) : 0);
+        bottom = Math.max(bottom, travel + 12);
+      }
       document.querySelectorAll(".side-dock .dock-face, .dock-recall").forEach((e) => {
         if (!vis(e)) return;
         const r = e.getBoundingClientRect();
@@ -41,8 +50,8 @@ export function ToTop({ lang }: { lang: string }) {
       const bub = document.querySelector(".float-bubble");
       if (vis(bub)) {
         const r = bub.getBoundingClientRect();
-        const ax = W - right - 40;
-        const ay = H - bottom - 40;
+        const ax = W - right - 36;
+        const ay = H - bottom - 36;
         if (r.left < W - right && r.right > ax && r.top < H - bottom && r.bottom > ay) bottom = H - r.top + 10;
       }
       let z = 32;
