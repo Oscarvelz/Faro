@@ -182,6 +182,13 @@ class Snap(
     val owed: Long, val owe: Long, val dues: List<Due>, val cats: List<Cat>, val flow: List<Flow>,
     /** 1.3.148: the user's Avisos switch (Ajustes); snapshots from older web builds don't carry it = on. */
     val notify: Boolean = true,
+    /** 1.3.377: los tipos de notificación, ya compuestos con el maestro por
+     * la página (notifyKindsOf). Una foto de una página anterior no los trae
+     * = siguen al maestro, como hoy; FaroNotify juzga cada aviso contra su
+     * tipo solo cuando la foto los trae. */
+    val notifyDues: Boolean = true,
+    val notifyPace: Boolean = true,
+    val notifyClose: Boolean = true,
     /** Apuntes rápidos: las casas que la tarjeta ofrece por signo. Una foto escrita por una
      *  página anterior a las casas no las trae = ninguna; desde 1.3.237 la página renueva la
      *  foto del libro real en CADA apertura (también con el ejemplo en pantalla), así que el
@@ -226,6 +233,7 @@ class Snap(
         hide = h, have = have, spend = spend, left = left, usedPct = usedPct, pay = pay, tone = tone,
         saveMonth = saveMonth, saveGoal = saveGoal, saveTotal = saveTotal, pockets = pockets,
         owed = owed, owe = owe, dues = dues, cats = cats, flow = flow, notify = notify,
+        notifyDues = notifyDues, notifyPace = notifyPace, notifyClose = notifyClose,
         qhIn = qhIn, qhOut = qhOut, qpIn = qpIn, qpOut = qpOut, qsOut = qsOut, curs = curs, pace = pace,
         spent = spent,
     )
@@ -240,6 +248,9 @@ class Snap(
             rateSrc = o.optString("rateSrc"), rateAsOf = o.optString("rateAsOf"),
             month = o.optString("month"), monthLabel = o.optString("monthLabel"), hide = o.optBoolean("hide"),
             notify = o.optBoolean("notify", true),
+            notifyDues = o.optBoolean("notifyDues", o.optBoolean("notify", true)),
+            notifyPace = o.optBoolean("notifyPace", o.optBoolean("notify", true)),
+            notifyClose = o.optBoolean("notifyClose", o.optBoolean("notify", true)),
             have = o.optLong("have"), spend = o.optLong("spend"), left = o.optLong("left"),
             usedPct = if (o.isNull("usedPct") || !o.has("usedPct")) null else o.optInt("usedPct"),
             pay = o.optLong("pay"), tone = o.optString("tone", "neutral"),

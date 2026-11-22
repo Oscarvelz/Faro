@@ -35,7 +35,10 @@ test("desactivar: el apagado de Avisos vive SOLO dentro del run, por el camino d
   assert.equal(nflip.split("notify: false").length - 1, 1, "exactly one off-write in the toggle");
   const run = nflip.slice(nflip.indexOf("run:"));
   assert.ok(run.includes("notify: false"), "the confirmed run writes notify off");
-  assert.ok(run.includes('"Avisos apagados"'), "the run keeps the same commit label as before the gate");
+  // 1.3.377: la etiqueta lleva el nombre nuevo — «Notificaciones»,
+  // renombradas por fallo expreso de Oscar (2026-11-21 21:26); la ley
+  // que la cerca guarda (la misma etiqueta de siempre en el run) no cambia.
+  assert.ok(run.includes('"Notificaciones apagadas"'), "the run keeps the same commit label as before the gate");
 });
 
 test("desactivar: encender Avisos nunca pregunta — el camino directo sigue desnudo", () => {
@@ -46,7 +49,9 @@ test("desactivar: encender Avisos nunca pregunta — el camino directo sigue des
 
 test("desactivar: la ventana de Avisos dice lo que se pierde, en palabras sencillas y en los dos idiomas", () => {
   for (const s of [
-    '"Desactivar avisos"', '"Turn off notifications"',
+    // 1.3.377: el título lleva el nombre nuevo («Notificaciones»); el
+    // resto de la ventana — qué se pierde, en los dos idiomas — intacto.
+    '"Desactivar notificaciones"', '"Turn off notifications"',
     '"Desactivar"', '"Turn off"',
     "Faro deja de avisarte de los vencimientos, el ritmo de gasto y el cierre del mes. Puedes volver a activarlos cuando quieras, aquí mismo.",
     "Faro will stop reminding you about due dates, your spending pace and the month-end close. You can turn them back on any time, right here.",

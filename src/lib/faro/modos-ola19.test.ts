@@ -392,7 +392,10 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   "components/faro/loans.tsx|commitGuarded|restoreLoan|restoreLoan": ["guardada", 1],
   "components/faro/loans.tsx|commit|addLoan|addLoan": ["aterrizaje", 1],
   "components/faro/loans.tsx|commit|loansOf|—": ["aterrizaje", 1],
-  "components/faro/notify-row.tsx|commit|inline|—": ["aterrizaje", 2],
+  // 1.3.377: la fila de Notificaciones gana su tercer aterrizaje en línea —
+  // el interruptor de cada tipo (flipKind), que compone notifyKinds o no
+  // escribe; el maestro conserva sus dos y su ventana de confirmación.
+  "components/faro/notify-row.tsx|commit|inline|—": ["aterrizaje", 3],
   // 1.3.356 (Ola 6): la fila hermana de los avisos de pagos — los mismos
   // dos aterrizajes en línea (encender al toque; apagar tras la ventana).
   "components/faro/due-alerts-row.tsx|commit|inline|—": ["aterrizaje", 2],

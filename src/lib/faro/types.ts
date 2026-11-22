@@ -446,6 +446,12 @@ export type Settings = {
   gestures?: Record<string, string>;
   /** 1.3.148: the phone notifications (Android app) on/off as the user set it in Ajustes. Missing = on. */
   notify?: boolean;
+  /** 1.3.377 (Oscar, 2026-11-21): los tipos de notificación, uno por uno —
+   * la fila de Ajustes se despliega y cada tipo lleva su interruptor.
+   * Missing por tipo = encendido, como notify: un libro que ya existe no
+   * pierde ningún tipo el día que nacen. El maestro (notify) manda sobre
+   * todos: apagado él, ningún tipo llega. */
+  notifyKinds?: { dues?: boolean; pace?: boolean; close?: boolean };
   /** Ola 6 (1.3.356): los avisos DENTRO de la app de los pagos que se
    * acercan (Central los muestra con su puerta). Missing = on, como
    * notify: un libro que ya existe no pierde el aviso el día que nace. */

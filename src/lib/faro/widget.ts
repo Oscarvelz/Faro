@@ -82,6 +82,12 @@ export type WidgetSnapshot = {
   hide: boolean;
   /** 1.3.148: the user's Avisos switch from Ajustes — FaroNotify posts nothing while this is false. */
   notify: boolean;
+  /** 1.3.377: los tipos, ya compuestos con el maestro (tipo encendido =
+   * maestro encendido y el tipo no apagado). FaroNotify juzga cada aviso
+   * contra su tipo; una carcasa vieja no los trae y sigue al maestro. */
+  notifyDues: boolean;
+  notifyPace: boolean;
+  notifyClose: boolean;
   /** The fingerprint lock is on for this device. */
   lock: boolean;
   /** Central: Tengo, Gastaré, Queda (Tengo − Gastaré), Usado % (null with no income — and, ola 3
@@ -222,6 +228,16 @@ const goOfPocket = (id: string): WidgetGo => (id.endsWith(".meta") ? "vault-meta
 export type WidgetOptions = { today: string; hide: boolean; lock: boolean; now?: string };
 
 /** The snapshot for the calendar month of `today` (YYYY-MM-DD), whatever month the screen is showing. */
+/** 1.3.377: los tipos de notificación EFECTIVOS de un libro — el maestro
+ * (settings.notify, ausente = encendido) compuesto con cada tipo
+ * (settings.notifyKinds, ausente por tipo = encendido). Función pura:
+ * la foto la lleva a la carcasa y la cerca la ejecuta sin pantalla. */
+export function notifyKindsOf(settings: LedgerState["settings"]): { dues: boolean; pace: boolean; close: boolean } {
+  const master = settings.notify !== false;
+  const k = settings.notifyKinds;
+  return { dues: master && k?.dues !== false, pace: master && k?.pace !== false, close: master && k?.close !== false };
+}
+
 export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: WidgetOptions): WidgetSnapshot {
   const { today } = opts;
   const key = today.slice(0, 7);
@@ -337,6 +353,9 @@ export function buildWidgetSnapshot(state: LedgerState, lang: Lang, opts: Widget
     monthLabel: longMonth.charAt(0).toUpperCase() + longMonth.slice(1),
     hide: opts.hide,
     notify: state.settings.notify !== false,
+    notifyDues: notifyKindsOf(state.settings).dues,
+    notifyPace: notifyKindsOf(state.settings).pace,
+    notifyClose: notifyKindsOf(state.settings).close,
     lock: opts.lock,
     have: s.income,
     spend: s.expense,

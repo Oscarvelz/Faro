@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.377",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "Notificaciones, a tu manera", en: "Notifications, your way" },
+    points: {
+      es: [
+        "Avisos se llama ahora Notificaciones, y su tarjeta se despliega: eliges qué tipos quieres recibir — vencimientos, ritmo de gasto y cierre del mes — cada uno con su interruptor.",
+        "«Avisos de pagos», la tarjeta de Central, conserva su nombre.",
+      ],
+      en: [
+        "Notices are now called Notifications, and their card unfolds: you choose which kinds you want — due dates, spending pace and the month's close — each with its own switch.",
+        "“Payment notices”, the Desk card, keeps its name.",
+      ],
+    },
+  },
+  {
     version: "1.3.376",
     date: "2026-11-21",
     level: "menor",
