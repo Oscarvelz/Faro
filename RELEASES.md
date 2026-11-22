@@ -3647,4 +3647,4 @@ El paquete de la línea de Modos (`bench-cura29/paquete-ola29.diff`, 6 archivos,
 
 Verificación: suite completa 3024/3024, EXIT 0 (3001 de la 1.3.398 + 23 cercas nuevas exactas, cero rojos nuevos); typecheck con exactamente los 3 errores de siempre; las cercas focales sobre el árbol curado (modos-ola29 + libro392 enmendado + libro398 + captura388) 50/50 antes de la copia.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: fuente d2525d92bc6883f2f280ba9fbc913c88d0211637; principal 0f93b8c743364ffeff8dd7cc6600e222bb9076d9 + ef86b2050ec7167cbd505f10f7ca748e6e4642b4 + 6e762721bc5e93ad8c8809b52aff27224530854d + 1d9d81b4298913b9f63b5807d9ff2a4a130839b1; etiqueta v1.3.399; barrido en vivo 28/28 idénticos; sw en vivo faro-1.3.399; entrada index-D8yPGsac.js.
