@@ -3599,4 +3599,4 @@ La sexta pieza del Libro Compartido (brief §C6): el modelo del dinero, con sus 
 
 Verificación (de primera mano): cerca libro396 5/5 (la primera corrida cazó un campo propio — Author.id, no personId — corregido en la ola); suite completa **2991/2991**; `tsc` con exactamente los 3 errores permanentes. Banco renderizado a ancho de teléfono con un libro sembrado con el mapa (Casa la financia un miembro): la vista previa lee «Casa · de un miembro» y «tus cuentas» en todas las demás áreas. El candado no se tocó (md5 40a3b9bf…).
 
-Datos de publicación: PENDIENTE.
+Datos de publicación: fuente 30aad8f733284e9f4b0f9715ebb6f95c25332973 (etiqueta v1.3.396); main 0de4f3d390997635603e9ed5cb384c38824c3a59 + 5c6876a902eef5fd3d7c555e13fd8d4fdb441a08 (pdf.worker y ocr idénticos a los de la 1.3.395, no reenviados); barrido en vivo 28/28 idénticos, sw faro-1.3.396.
