@@ -3567,4 +3567,4 @@ La tercera pieza del Libro Compartido: que dos personas anoten en el mismo libro
 
 Verificación (de primera mano): libro392 16/16 (los once especímenes de fusión + el papel y la costura); la cerca de la ola 25 con su censo enmendado en la misma ola; suite completa **2852/2852**; `tsc` con exactamente los 3 errores permanentes. El candado no se tocó (md5 40a3b9bf…). NOTA HONESTA: como las piezas hermanas, la mitad de servidor vive cuando Oscar pegue `shared-push.sql` en Supabase, tras los dos papeles anteriores.
 
-Datos de publicación: PENDIENTE.
+Datos de publicación: fuente 2582af2fc147643f805c0b503e6b392909b52cbd (etiqueta v1.3.392); main 731d5f09a11641c91b64037b3a7cd379b6b0db17 + fc7b6ff15d9f4728513acbafcc2ab9368a43b20a (pdf.worker y ocr idénticos a los de la 1.3.391, no reenviados); barrido en vivo 28/28 idénticos, sw faro-1.3.392.
