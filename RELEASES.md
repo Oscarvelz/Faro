@@ -3878,3 +3878,30 @@ Corrección de Oscar (2026-11-22 15:52, sobre la foto de la 1.3.416): los botone
 Verificación: batería completa 3.192 pruebas, 3.192 en verde; tipos, solo los tres errores de siempre. Banco a 390px con la tarjeta «Tu mes» abierta: el botón computa 75×27px (antes, con su relleno y su letra, rondaba 95×34) y ya no domina el renglón — las preguntas cortas respiran en una línea y las largas conservan sus dos por su propio texto, no por el ancho que el botón les quitaba. La foto lo muestra.
 
 Datos de publicación: entrada index-BPWPAisS.js. Fuente a949e7e08f33314b84819bba270593399d5f7a49; principal en 3 tandas, cola 3ddd715823a281c49f5e7c35f311844af712fb8f (43 ficheros). Barrido de precarga en vivo: 28/28 idénticos.
+## 1.3.419 — La Cura de la Ola 31, integrada
+
+La línea de Modos cazó su Ola 31 sobre el canon 1.3.405 y entregó la cura en paquete sellado (`paquete-ola31.diff`, md5 86258a337a394eff1a9905746dd966a3, 8 ficheros) con su informe CURA-OLA31.md. Esta ola la cose a canon: de los 8 ficheros, 7 entran byte a byte (la aplicación sobre una copia del canon vivo solo rehusó package.json, cuya cadena de pruebas creció desde la base — la cerca modos-ola31 se cose a mano sobre la cadena viva, tras modos-ola30). Nueve familias:
+
+**El vocabulario de período es uno.** La caminata de remesas aprende lo que periodOf ya sabía: los meses y «quincena»/"pay period" son palabras de función, jamás candidatas a persona; «¿Cuánto mandé esta quincena?» y "in August?" llegan a su familia con su cifra. Y la degradación silenciosa muere: si una persona resolvió, el paso del período calla; si un nombre de dos letras se lo comió el apertor («a Al en el mes pasado» sin Al en el libro), la respuesta es la negativa honesta sin cifras — y la sonda no dispara con «al mes pasado», donde no hubo nombre.
+
+**«Al» con continuación.** El cierre de frase se prueba token a token contra el vocabulario entero (persona, período, meses, «en»): «a Al en octubre» sirve lo de Al en octubre; «a Al ayer», su última remesa — la de Al, no la global sin nombre. «Al banco» y «al mes pasado» siguen fuera, acusados con su nombre.
+
+**El «¿por qué?» re-juzga el piso.** porqueResult recibe el modo y el nuevo juez lee el piso DEL MARCO: bajo el piso, el porqué nombra el piso sin desplegar las piezas y CONSERVA el marco — al volver a subir, el despliegue revive. La suma por persona y la recencia no ganan piso: preguntar básico (A23-4), clavado como control. OBS31-C3 no se toca: la síntesis sigue sin piso, por el fallo de Oscar.
+
+**El marco casa por palabra entera.** framePersonIn y frameAccountIn casan con bordes no-alfanuméricos: «semana» ya no pare «ana», y tras «a Rosa esta semana» el marco nace con «rosa» — antes la subcadena ganaba y el turno servía a Rosa con el eco falso «a ana».
+
+**La proyección servida deja su marco.** La rama de Completo de proyectarSeguimiento devuelve `frame: f` como la de piso ya hacía: tras una proyección, el hilo §20 sigue vivo y DESCOMPONER conserva su marco.
+
+**El empalme del servidor juzga las líneas y los tipos.** En shared-push.sql: faro_stone_at juzga el TIPO antes que el texto (id, by, at deben SER texto; la trampa de años de JS muere; los juicios van con `is distinct from` para que la AUSENCIA también se juzgue), y nace faro_line_ok, espejo campo a campo de isLedgerDeep, exigido en las dos ramas del empalme para cada línea que se guarda: la línea que la puerta rehusaría no se guarda, y el libro devuelto lo dice. El papel corregido entra en su forma nueva a la lista de pegado de Oscar (memberships → shared → shared-push) y el fichero de pegado único se regenera con él.
+
+**La ceremonia anuncia solo lo verificado.** Nace passiveRecordFromCopy en exit.ts: el registro que nacería de la copia pasa por el juez único ANTES de la ceremonia. Copia injuzgable → la salida con registro no se hace («record-failed», su texto honesto ES/EN) y la persona sigue dentro; copia sana → el registro aterriza PRIMERO y la membresía se cierra después. El «guardado» ya no se anuncia sin mirar el desenlace.
+
+**La fusión compone los registros pasivos y lee la base.** La unión de lápidas se siembra también desde la base — la línea borrada con su lápida solo en la base ya no resucita — y los registros pasivos se componen como las lápidas: unión por id con el juez único, el ganador mandando; si ningún lado trae el campo, el campo no nace.
+
+**La novedad anuncia con su puerta.** Las entradas 1.3.400 y 1.3.403 llevan `topic: "preguntar-asesor"`, como las de la .382/.383, y la ley queda escrita en el comentario del campo.
+
+NO TOCADO, por mandato: OBS31-C3 (cerrado por el fallo), OBS-29-A1, OBS-29-C1, OBS-28-G1/C1, OBS-27-G1, F27-3, H27-1, OBS-C8-1, la coexistencia declarada línea+lápida, OBS-C31-1, el empate posicional, A23-4, el tip de modos, la línea del Manual por familia.
+
+Verificación: las cercas enfocadas de la cura y sus vecinas firman 339/339 sobre canon (modos-ola31 con sus 30 its, olas 25–30, libro392/393/397/398, novedades346, captura385). El banco SQL de la línea (cura31-sql-espejo, PGlite) corrido contra el shared-push.sql DE CANON firma 36 PASS · 0 FAIL — con una precisión honesta: en la primera corrida salió 35/36 por UNA divergencia de instante en la fecha «2026-11-21» (el servidor la leía a las 05:00 UTC, el cliente a las 00:00): era la zona horaria de esta máquina (EST) colándose en la sesión de Postgres; con TZ=UTC ambos jueces firman el mismo instante y la tabla de bordes cierra 25/25. El veredicto (la lápida pasa) coincidía en ambas corridas; lo que difería era solo el reloj del banco, no el papel. Batería completa: 3.222 pruebas, 3.222 en verde — el delta sobre la 418 es exactamente los 30 its de la cerca nueva. Tipos: solo los tres errores de siempre.
+
+Datos de publicación: entrada index-DcldCCSa.js. Fuente 9b327801203ceba1ab574597223266ee694ad23b; principal en 3 tandas, cola 66a10526b3403855fe0fb37ff4838ab25790c9a4 (43 ficheros). Barrido de precarga en vivo: 28/28 idénticos. El fichero de pegado único de Supabase se regeneró con el shared-push.sql nuevo: 31.827 bytes (memberships → shared → shared-push).
