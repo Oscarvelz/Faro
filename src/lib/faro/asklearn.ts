@@ -143,27 +143,62 @@ export function aliasIn(store: LearnedAlias[], folded: string): LearnedAlias | n
   return best;
 }
 
+/** OLA 27 (Familia 1; G27-1 + G27-3 + G27-4 + G27-5): EL JUEZ ÚNICO
+ * DE LA FORMA DE UN PATRÓN — la ley entera del escritor, en un solo
+ * sitio, para que las dos puertas (la del libro en defaults.ts y el
+ * lector de abajo) juzguen lo mismo y jamás discrepen. La Ola 27 cazó
+ * las dos puertas juzgando la palabra en una dimensión más débil que
+ * su desreferencia: la palabra vacía pasaba y su regex casaba en
+ * cualquier borde de puntuación (un ciudadano fantasma clavado en el
+ * Asesor entero); «La Luz» sin plegar pasaba y jamás podía disparar
+ * (zombi); `targetId` vacío entraba por una puerta y no por la otra;
+ * y los contadores se juzgaban con `typeof`, dejando pasar NaN,
+ * Infinity y negativos donde los campos vecinos se miden con la
+ * finitud de la casa. La ley del escritor es la vara: la palabra ya
+ * plegada por maskShape (así la acuña learnAlias), no vacía, con su
+ * largo mínimo, sin dígitos; el ciudadano presente; y los contadores
+ * finitos y no negativos — un conteo no puede ser negativo sin dejar
+ * de ser un conteo. */
+export function aliasShapeOk(p: unknown): p is LearnedAlias {
+  if (!p || typeof p !== "object") return false;
+  const o = p as Record<string, unknown>;
+  if (typeof o.word !== "string" || /\d/.test(o.word)) return false;
+  if (o.word !== maskShape(o.word) || o.word.length < 2) return false;
+  if (typeof o.targetId !== "string" || !o.targetId) return false;
+  if (o.kind !== "sub" && o.kind !== "cat" && o.kind !== "person" && o.kind !== "account") return false;
+  if (typeof o.hits !== "number" || !Number.isFinite(o.hits) || o.hits < 0) return false;
+  if (o.learnedFrom !== "card-tap" && o.learnedFrom !== "correction") return false;
+  if (o.uses !== undefined && (typeof o.uses !== "number" || !Number.isFinite(o.uses) || o.uses < 0)) return false;
+  return true;
+}
+
 /** EL LECTOR DEL ALMACÉN (integración 1.3.383): lee los patrones del
  * libro con desconfianza, como la casa lee cada campo que viaja — una
  * entrada malformada se descarta en silencio y una palabra con
  * dígitos jamás pasa (la cerca de la Ola 11 en la puerta de lectura).
- * Vive aquí, junto al tipo, para que asklearn no importe a nadie. */
+ * Vive aquí, junto al tipo, para que asklearn no importe a nadie.
+ *
+ * OLA 27 (Familia 1, G27-3): el lector además resuelve las palabras
+ * duplicadas con la ley del escritor — la corrección, la última,
+ * manda: cada entrada válida desplaza a la anterior de su misma
+ * palabra y toma su sitio al final, exactamente como learnAlias
+ * acuña. Así el almacén que sale de aquí tiene UN ciudadano por
+ * palabra (aliasIn ya no puede ganar «la primera» contra la ley) y
+ * un solo olvido borra exactamente un ciudadano. La puerta del libro
+ * juzga la FORMA de cada entrada (aliasShapeOk) y no la unicidad: un
+ * libro con una palabra repetida no está dañado, está por corregir —
+ * y corregirlo es oficio de este lector, no motivo de cuarentena. */
 export function askPatternsOf(state: { askPatterns?: unknown }): LearnedAlias[] {
   const raw = state.askPatterns;
   if (!Array.isArray(raw)) return [];
-  const out: LearnedAlias[] = [];
+  let out: LearnedAlias[] = [];
   for (const p of raw as unknown[]) {
-    if (!p || typeof p !== "object") continue;
-    const o = p as Record<string, unknown>;
-    if (typeof o.word !== "string" || /\d/.test(o.word)) continue;
-    if (typeof o.targetId !== "string" || !o.targetId) continue;
-    if (o.kind !== "sub" && o.kind !== "cat" && o.kind !== "person" && o.kind !== "account") continue;
-    if (typeof o.hits !== "number") continue;
-    if (o.learnedFrom !== "card-tap" && o.learnedFrom !== "correction") continue;
-    out.push({
-      word: o.word, targetId: o.targetId, kind: o.kind, hits: o.hits, learnedFrom: o.learnedFrom,
-      ...(typeof o.uses === "number" ? { uses: o.uses } : {}),
-    });
+    if (!aliasShapeOk(p)) continue;
+    const entry: LearnedAlias = {
+      word: p.word, targetId: p.targetId, kind: p.kind, hits: p.hits, learnedFrom: p.learnedFrom,
+      ...(p.uses !== undefined ? { uses: p.uses } : {}),
+    };
+    out = [...out.filter((a) => a.word !== entry.word), entry];
   }
   return out;
 }

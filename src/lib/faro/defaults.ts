@@ -1,3 +1,4 @@
+import { aliasShapeOk } from "./asklearn.ts";
 import { migrateAutopayConfigMonths } from "./autopay.ts";
 import { BCN_AS_OF, BCN_RATE_E4 } from "./money";
 import type {
@@ -1089,16 +1090,21 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   // (askPatternsOf) además filtra con desconfianza. Un patrón con
   // dígitos en la palabra jamás pasa: la cerca de asklearn vive
   // también aquí, en la puerta del libro.
+  // OLA 27 (Familia 1): la forma la juzga EL JUEZ ÚNICO de asklearn
+  // (aliasShapeOk) — la ley entera del escritor: palabra ya plegada,
+  // no vacía, con su largo; ciudadano presente; contadores finitos y
+  // no negativos. Esta puerta juzgaba antes con `typeof` y dejaba
+  // pasar la palabra vacía (cuyo regex casa en cualquier borde), la
+  // palabra sin plegar (zombi que jamás dispara) y el `targetId`
+  // vacío que el lector sí rechazaba: las dos puertas discrepan
+  // nunca más, porque son la misma ley. La unicidad de la palabra NO
+  // se juzga aquí: la resuelve el lector con la ley del escritor (la
+  // última corrección manda) — un libro con una palabra repetida no
+  // está dañado, y la preservación gana a la cuarentena.
   if (s.askPatterns !== undefined) {
     if (!Array.isArray(s.askPatterns)) return false;
     for (const p of s.askPatterns as unknown[]) {
-      if (!isObjD(p)) return false;
-      if (!isStrD(p.word) || /\d/.test(p.word as string)) return false;
-      if (!isStrD(p.targetId)) return false;
-      if (p.kind !== "sub" && p.kind !== "cat" && p.kind !== "person" && p.kind !== "account") return false;
-      if (typeof p.hits !== "number") return false;
-      if (p.learnedFrom !== "card-tap" && p.learnedFrom !== "correction") return false;
-      if (p.uses !== undefined && typeof p.uses !== "number") return false;
+      if (!aliasShapeOk(p)) return false;
     }
   }
   // noticeRules (las formas silenciadas de la billetera, Ola 8): si

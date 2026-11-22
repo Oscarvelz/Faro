@@ -157,11 +157,13 @@ export function searchLedger(state: LedgerState, query: string, lang: Lang, name
  * una ausencia). Un lugar es una categoría de la estructura o una casa
  * de compras; su puerta es su casa (Estructura / Tiendas), por el tema
  * del Manual como todas las puertas de la casa. Sin cifras: un lugar se
- * nombra, no se calcula (L-B1).
+ * nombra, no se calcula (L-B1). (Ola 27, Familia 6: también es lugar
+ * la tienda del catálogo con presencia viva en el libro — ver el paseo
+ * del catálogo en searchPlaces.)
  */
 export type PlaceHit = {
   id: string;
-  kind: "cat" | "purchase";
+  kind: "cat" | "purchase" | "store";
   title: string;
   /** Su casa, en la voz de la app: «Categoría · Estructura». */
   where: string;
@@ -185,6 +187,24 @@ export function searchPlaces(state: LedgerState, query: string, lang: Lang, name
   for (const p of state.structure.purchases) {
     if (p.hidden) continue;
     push("purchase", p.id, names.purchase(p.id), lang === "en" ? "Shop · Shops" : "Tienda · Tiendas");
+  }
+  // OLA 27 (Familia 6, Q27-C1 de Cara): LAS TIENDAS DEL CATÁLOGO
+  // TAMBIÉN SON LUGARES. El paseo caminaba categorías y clases de
+  // compra, pero jamás el catálogo (structure.catalog): una tienda
+  // con compras vivas en el libro («Shein», con su línea encontrada
+  // por la misma búsqueda) no se ofrecía como lugar, y la persona se
+  // quedaba con la línea suelta sin la puerta de la tienda. Una tienda
+  // del catálogo es lugar cuando tiene presencia viva en el libro —
+  // alguna línea no apartada la nombra (storeId): el catálogo puede
+  // registrar tiendas que el libro aún no ha usado, y una tienda sin
+  // una sola compra no es un lugar del libro todavía. Su casa es la de
+  // las tiendas, y su puerta también: la cáscara manda a «tiendas»
+  // todo lugar que no es categoría.
+  const liveStores = new Set<string>();
+  for (const b of Object.values(state.months)) for (const l of b.lines) if (l.storeId && !l.rest) liveStores.add(l.storeId);
+  for (const item of state.structure.catalog) {
+    if (item.kind !== "store" || item.hidden || !liveStores.has(item.id)) continue;
+    push("store", item.id, names.catalog(item.id), lang === "en" ? "Store · Shops" : "Tienda · Tiendas");
   }
   // El nombre exacto (o que empieza por la sustancia) manda sobre la
   // coincidencia parcial: el lugar NOMBRADO va primero.

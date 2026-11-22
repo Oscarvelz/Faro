@@ -466,7 +466,17 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // de vuelta (learnAlias ya calculado fuera de la receta). Ninguna de
   // las dos se niega: son la palabra del usuario sobre su propio
   // almacén, como el guardado de sus predeterminadas.
-  "components/faro/ask-box.tsx|commit|inline|—": ["aterrizaje", 2],
+  // CURA OLA 27 (familia 8, Q27-C1 de Cambios): esas dos recetas
+  // calculaban la lista desde la FOTO del render y la instalaban
+  // entera — todo patrón que el estado vivo hubiera ganado después de
+  // la foto moría en el commit. Ahora RE-LEEN el almacén dentro de la
+  // receta (su firma nombra askPatternsOf, la re-lectura) y viajan
+  // por la puerta GUARDADA: cada una puede negarse — si el estado vivo
+  // ya no trae la palabra, o learnAlias rehúsa la forma, no hay cambio
+  // y no se deja marco por un no-acto. La clase cambia de aterrizaje
+  // a guardada por esa negativa nueva, no por mudanza de casa: siguen
+  // siendo la palabra del usuario sobre su propio almacén.
+  "components/faro/ask-box.tsx|commitGuarded|askPatternsOf|—": ["guardada", 2],
   // 1.3.383 (Ola 17): el conteo de usos de un patrón que disparó —
   // touchAlias dentro de la receta de la caja. Contar un uso jamás se
   // niega ni crea un patrón: mide la vida de uno ya confirmado.

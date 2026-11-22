@@ -532,6 +532,26 @@ export function settleLogbook(state: LedgerState, today: string): { state: Ledge
   let changed = false;
   const curYear = today.slice(0, 4);
   const curMonth = today.slice(0, 7);
+  // OLA 27 (Familia 2, G27-2): LOS SITIOS QUE EL CRUDO TIENE OCUPADOS
+  // Y EL FILTRO NO RECONOCE. La Familia 9 conservaba lo no reconocido
+  // solo donde la receta no escribía: una edición congelada con una
+  // tarjeta que cardOk rehúsa es invisible entera para logbookOf, y
+  // si su año tenía líneas vivas el asentamiento creía el sitio vacío
+  // y componía encima — la edición desaparecía, su countedOn pasaba a
+  // ser hoy y su seenAt se perdía (el año resurgía como edición «sin
+  // ver» y Central la anunciaba como nueva): la evaporación del fallo
+  // de Oscar alcanzada por sobreescritura, no por filtro. La doctrina
+  // se completa: el asentamiento no compite por un sitio que el crudo
+  // tiene ocupado — lo no reconocido manda sobre el hueco aparente,
+  // aquí en la composición igual que en persistedLogbook al persistir.
+  // La edición ilegible queda tal cual (ni se recompone, ni se anuncia:
+  // pendingEdition lee del filtro, que no la reconoce), y el folio
+  // malformado de un mes con líneas vivas, igual.
+  const rawBook = state.logbook as unknown as Record<string, unknown> | undefined;
+  const rawMonths = isObj(rawBook?.months) ? (rawBook.months as Record<string, unknown>) : {};
+  const rawEditions = isObj(rawBook?.editions) ? (rawBook.editions as Record<string, unknown>) : {};
+  const occupiedMonths = new Set(Object.keys(rawMonths).filter((k) => !(k in book.months)));
+  const occupiedEditions = new Set(Object.keys(rawEditions).filter((k) => !(k in book.editions)));
 
   const years = new Set<number>();
   for (const key of Object.keys(state.months)) {
@@ -539,7 +559,7 @@ export function settleLogbook(state: LedgerState, today: string): { state: Ledge
     if (Number.isInteger(y) && y > 0) years.add(y);
   }
   for (const y of [...years].sort((a, b) => a - b)) {
-    if (String(y) >= curYear || editions[String(y)]) continue;
+    if (String(y) >= curYear || editions[String(y)] || occupiedEditions.has(String(y))) continue;
     const span = recordedSpan(state, y);
     if (span.monthsWithLines < 2 && span.days < 42) continue; // menos de ~6 semanas: no hay edición
     const boundCount = Object.keys(months).filter((k) => k.startsWith(`${y}-`)).length;
@@ -550,7 +570,7 @@ export function settleLogbook(state: LedgerState, today: string): { state: Ledge
     changed = true;
   }
   for (const mk of Object.keys(state.months).sort()) {
-    if (mk >= curMonth || months[mk] || editions[mk.slice(0, 4)]) continue;
+    if (mk >= curMonth || months[mk] || editions[mk.slice(0, 4)] || occupiedMonths.has(mk)) continue;
     if ((state.months[mk]?.lines.length ?? 0) === 0) continue;
     months[mk] = monthSnap(state, mk, today);
     changed = true;

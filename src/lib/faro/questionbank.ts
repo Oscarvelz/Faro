@@ -747,14 +747,23 @@ export const QUESTION_BANK: BankFamily[] = [
     id: "seguimiento",
     name: { es: "Seguimiento: la misma pregunta, un eje cambiado", en: "Follow-up: same question, one axis changed" },
     cap: { es: "seguir una respuesta cambiando un solo eje — otro mes, otra cuenta", en: "following up on an answer by changing one axis — another month, another account" },
-    status: "declarada",
+    // OLA 27 (Familia 4, Q27-2/E27-1): VIVA desde que su motor nació
+    // (§20, 1.3.380: answerFollowUp y sus cinco verbos), pero el banco
+    // la siguió declarando «declarada» — y la descripción generada de
+    // capacidades, fiel al banco, la contaba entre «Lo que todavía no
+    // sé» mientras el motor la servía y el Manual la enseñaba viva:
+    // el dato viejo entró con la re-cosida del banco en la .383. La
+    // familia es viva, con su cap en «Faro y tu futuro» (CAP_GROUPS de
+    // askpresets), junto a reach y puente: seguir una respuesta es
+    // conversar con el propio libro hacia adelante, no una cifra más.
+    status: "viva",
     source: ["asesor.lectura", "historial.stream"],
     axes: ["eje cambiado (cuándo × dónde × quién)"],
     canonical: {
       es: ["¿Y el mes pasado?", "¿Y en tiendas?", "¿Y en total?"],
       en: ["And last month?", "And in stores?"],
     },
-    answerShape: "(Declarada — §17.1) La caja recuerda la última familia y sus ranuras; el seguimiento re-ejecuta la misma familia cambiando UN eje. Sin pregunta previa, un seguimiento suelto es silencio honesto.",
+    answerShape: "(Viva — §20) La caja recuerda la última familia y sus ranuras; el seguimiento re-ejecuta la misma familia cambiando UN eje. Sin pregunta previa, un seguimiento suelto es silencio honesto.",
     contradiction: "—",
     silences: ["Sin contexto previo no dispara: «¿y en tiendas?» como primera pregunta no significa nada y no se adivina."],
   },

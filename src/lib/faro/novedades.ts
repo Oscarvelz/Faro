@@ -35,6 +35,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.389",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El Asesor, más justo con tus palabras", en: "The Advisor, fairer with your words" },
+    points: {
+      es: [
+        "Si preguntas cuánto le mandaste a una persona, el Asesor suma los envíos de esa persona — y si el nombre no está en tu libro, lo dice en vez de darte la remesa de otro.",
+        "Tus palabras aprendidas ahora también sirven al seguir una respuesta («¿y solo en…?»), y olvidar o aprender una palabra ya no puede pisar otra aprendida después.",
+        "La descripción de lo que el Asesor sabe hacer ya cuenta el seguimiento de respuestas, que llevaba vivo desde la 1.3.380 sin ser nombrado.",
+      ],
+      en: [
+        "Ask how much you sent to a person and the Advisor adds up that person's sends — and if the name isn't in your book, it says so instead of handing you someone else's remittance.",
+        "Your learned words now also serve when you follow up on an answer (\"and only in…?\"), and forgetting or learning a word can no longer overwrite one learned later.",
+        "The description of what the Advisor can do now names follow-ups, alive since 1.3.380 but never counted.",
+      ],
+    },
+  },
+  {
     version: "1.3.388",
     date: "2026-11-22",
     level: "menor",

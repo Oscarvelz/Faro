@@ -107,7 +107,7 @@ function todayLocal(): string {
 }
 
 export function AskBox() {
-  const { session, lang, names, key, commit, has, mode, fmt, goTopic } = useFaro();
+  const { session, lang, names, key, commit, commitGuarded, has, mode, fmt, goTopic } = useFaro();
   const [text, setText] = useState("");
   const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
@@ -184,14 +184,27 @@ export function AskBox() {
     // usuario, que el banco puro no ejecuta) y el conteo de usos
     // (touchAlias: el patrón disparó y la respuesta salió por él).
     const patterns = askPatternsOf(session.ledger);
-    const fu = pin ? null : answerFollowUp(session.ledger, key, lang, names, clean, ctx(), todayLocal(), frame, mode);
+    // OLA 27 (Familia 9, F27-2): el seguimiento recibe LOS MISMOS
+    // patrones que la cascada — su ctx ya no nace con learned vacío.
+    const fu = pin ? null : answerFollowUp(session.ledger, key, lang, names, clean, ctx(), todayLocal(), frame, mode, patterns);
     const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode, patterns);
     setResult(r);
     if (r.kind === "answer") {
       setFrame(r.frame ?? null);
       if (r.forgetWord) {
-        const next = forgetAlias(patterns, r.forgetWord);
-        if (next.length !== patterns.length) commit((s) => ({ ...s, askPatterns: next }), L("Pregunta al Asesor", "Asked the Advisor"));
+        // OLA 27 (Familia 8, Q27-C1 de Cambios): el olvido RE-LEE el
+        // almacén DENTRO de su commit, como sus hermanas (el toque del
+        // alias aquí abajo y el pliegue de Ajustes) — la receta vieja
+        // calculaba la lista desde la FOTO del render (`patterns`) y
+        // la instalaba entera: todo patrón que el estado vivo hubiera
+        // ganado después de la foto moría en ese commit. Y va por la
+        // puerta guardada: si el estado vivo ya no trae la palabra, no
+        // hay cambio y no se deja marco por un no-acto.
+        commitGuarded((s) => {
+          const live = askPatternsOf(s);
+          const next = forgetAlias(live, r.forgetWord!);
+          return next.length !== live.length ? { ...s, askPatterns: next } : null;
+        }, L("Pregunta al Asesor", "Asked the Advisor"));
       } else {
         const hit = aliasIn(patterns, foldQ(clean));
         if (hit) commit((s) => ({ ...s, askPatterns: touchAlias(askPatternsOf(s), hit.word) }), L("Pregunta al Asesor", "Asked the Advisor"));
@@ -214,9 +227,19 @@ export function AskBox() {
     if (!asked || !session) return;
     const word = accountWordOf(asked, o.label);
     if (word) {
-      const patterns = askPatternsOf(session.ledger);
-      const next = learnAlias(patterns, word, o.id, "account", "card-tap");
-      if (next !== patterns) commit((s) => ({ ...s, askPatterns: next }), L("Pregunta al Asesor", "Asked the Advisor"));
+      // OLA 27 (Familia 8, Q27-C1 de Cambios): el aprendizaje de la
+      // vuelta RE-LEE el almacén DENTRO de su commit, como sus
+      // hermanas — la receta vieja calculaba desde la foto del render
+      // y la instalaba entera, perdiendo todo patrón ganado después
+      // de la foto. Por la puerta guardada: learnAlias devuelve la
+      // misma referencia cuando rehúsa (dígitos, palabra corta) y una
+      // lista nueva cuando aprende o re-confirma — sin cambio no hay
+      // marco.
+      commitGuarded((s) => {
+        const live = askPatternsOf(s);
+        const next = learnAlias(live, word, o.id, "account", "card-tap");
+        return next !== live ? { ...s, askPatterns: next } : null;
+      }, L("Pregunta al Asesor", "Asked the Advisor"));
     }
     ask(asked, { accountId: o.id });
   }

@@ -39,9 +39,12 @@
  *    resta cuya casa duerme nombra su piso en su etiqueta, sin caerse
  *    de la resta. El espejo también es ley: ninguna respuesta que el
  *    modo sí puede mostrar cae en silencio falso.
- *  · Las familias DECLARADAS del banco (ausencia, identidad,
- *    seguimiento) NO se responden aquí: devolverían unknown, el
- *    silencio honesto, hasta que su motor nazca.
+ *  · Las familias DECLARADAS del banco (ausencia, identidad) NO se
+ *    responden aquí: devolverían unknown, el silencio honesto, hasta
+ *    que su motor nazca. (Seguimiento salió de esta lista en la Ola
+ *    27: su motor nació con §20 en la 1.3.380 — answerFollowUp — y el
+ *    banco la declara viva desde la misma cura; la frase vieja la
+ *    seguía contando entre las no nacidas.)
  */
 import { bookMode, readAdvisor, type BookMode } from "./advisor.ts";
 import { aliasIn, describeLearned, frequentAliases, type LearnedAlias } from "./asklearn.ts";
@@ -490,6 +493,42 @@ function cuentaOrigenAnswer(c: Ctx, raw: string, parseCtx: ParseCtx, pinId?: str
 }
 
 /* ------------------------------------------------------------------ */
+/* LA PERSONA DE REMESAS QUE LA PREGUNTA NOMBRA (Ola 27, Familia 5,  */
+/* Q27-3): el ciudadano `person` de los patrones manda primero — la   */
+/* palabra confirmada del usuario («mami») resuelve a su ciudadano    */
+/* como accionesAnswer ya hacía — y el escaneo de nombres verdaderos  */
+/* es la caída. Y LA NEGATIVA NOMBRADA: una pregunta de remesas que   */
+/* nombra a una persona que no se resuelve JAMÁS degrada en silencio  */
+/* a «la última» global ni a la suma de otra persona: dice que no     */
+/* sabe de quién. (La degradación silenciosa cazada en la Ola 27:     */
+/* «¿cuándo fue la última remesa a mami?» recibía la remesa de Primo  */
+/* sin nombrarlo.)                                                    */
+/* ------------------------------------------------------------------ */
+function remitPersonOf(c: Ctx, folded: string) {
+  const people = c.state.remitPeople ?? [];
+  const learnedPerson = aliasIn(c.learned, folded);
+  return (learnedPerson?.kind === "person" ? people.find((p) => p.id === learnedPerson.targetId) : undefined)
+    ?? people.find((p) => folded.includes(foldQ(p.name)) || foldQ(p.name).split(/\s+/).some((w) => w.length >= 3 && folded.includes(w)));
+}
+
+const REMIT_PERSON_STOP = new Set(["la", "el", "los", "las", "una", "uno", "mi", "su", "tu", "the", "my", "his", "her", "nombre", "name", "tiempo", "time", "casa", "cuenta", "account", "vez"]);
+/** La palabra-persona tras «a»/«to» en una pregunta de remesas, si la
+ * hay y no es una palabra de relleno: el nombre que no se resolvió. */
+function remitPersonWordOf(folded: string): string | null {
+  const m = folded.match(/\b(?:a|to)\s+([a-z]{3,})\b/);
+  if (!m) return null;
+  return REMIT_PERSON_STOP.has(m[1]) ? null : m[1];
+}
+
+function remitUnknownPerson(c: Ctx, word: string, family: BankFamilyId): BankResult {
+  return {
+    kind: "answer", family,
+    verdict: L(c.lang, `No sé quién es «${word}» en tu libro: entre tus personas de remesas no hay nadie con ese nombre, y no voy a darte la remesa de otra persona como si fuera la suya.`, `I don't know who "${word}" is in your book: there's no remittance person by that name, and I won't hand you someone else's remittance as if it were theirs.`),
+    pieces: [], note: null, source: ["remesas.personas"], lines: 0,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* RECENCIA — una sola máquina: la línea más reciente con el filtro.  */
 /* ------------------------------------------------------------------ */
 function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
@@ -500,8 +539,14 @@ function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
     pool = lines.filter((l) => l.kind.startsWith("income"));
     what = L(c.lang, "el último ingreso", "the last income");
   } else if (/remesa|envie|mande|sent/.test(folded)) {
-    const people = c.state.remitPeople ?? [];
-    const person = people.find((p) => folded.includes(foldQ(p.name)) || foldQ(p.name).split(/\s+/).some((w) => w.length >= 3 && folded.includes(w)));
+    // OLA 27 (Familia 5, Q27-3): la persona se resuelve TAMBIÉN por su
+    // alias aprendido (remitPersonOf), y la que no se resuelve se
+    // nombra — jamás se degrada en silencio a la última remesa global.
+    const person = remitPersonOf(c, folded);
+    if (!person) {
+      const word = remitPersonWordOf(folded);
+      if (word) return remitUnknownPerson(c, word, "recencia");
+    }
     pool = lines.filter((l) => roleOf(c.state, l.categoryId) === "remittance" && (!person || recipientName(c.state, l) === person.name || l.to === person.id));
     what = person ? L(c.lang, `la última remesa a ${person.name}`, `the last remittance to ${person.name}`) : L(c.lang, "la última remesa", "the last remittance");
   } else if (/cuota/.test(folded)) {
@@ -952,6 +997,56 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
     // seguimiento — en ese caso no hay marco y el seguimiento cae a
     // su lectura sola legítima (L-S1), nombrada como tal.
     ...(!hit || hit.desc ? { frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total } as AskFrame } : {}),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* LA SUMA POR PERSONA (Ola 27, Familia 5, Q27-3): «¿cuánto le mandé */
+/* a X?» — la pregunta canónica que la propia familia aprendizaje     */
+/* declara — no la servía ningún camino: ni el patrón de remesas (que */
+/* exige la palabra «remesa» y entrega el agregado) ni recencia (que  */
+/* entrega una línea). Se sirve aquí, por su camino, con el alias     */
+/* aprendido y con el nombre verdadero (remitPersonOf), con las       */
+/* cifras vivas de remitByPerson y en los TRES modos: no es el        */
+/* patrón por persona de Completo, es la suma de los envíos de la     */
+/* persona a SU persona — preguntar básico sobre lo propio (la vara   */
+/* de A23-4), como la recencia de remesas, que tampoco conoce piso.   */
+/* Alcance dicho en la pregunta: «este año» / «este mes» acotan; sin  */
+/* alcance, el total de siempre con el año y el mes al lado. Una      */
+/* persona nombrada que no se resuelve recibe la negativa nombrada    */
+/* (remitUnknownPerson); una que existe y no ha recibido nada, la     */
+/* contradicción declarada del banco: «no hay envíos a esa persona».  */
+/* Sin persona nombrada devuelve null: el patrón (paso 8) sirve.      */
+/* ------------------------------------------------------------------ */
+function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(cuanto|how much)/.test(folded)) return null;
+  if (!/(mande|envie|enviado|enviando|remesa|remittance|sent|send)/.test(folded)) return null;
+  const person = remitPersonOf(c, folded);
+  if (!person) {
+    const word = remitPersonWordOf(folded);
+    return word ? remitUnknownPerson(c, word, "remesas") : null;
+  }
+  const { rows } = remitByPerson(c.state, c.key);
+  const row = rows.find((r) => r.id === person.id);
+  const disp = (p: { usd: number; nio: number }) => (c.display === "USD" ? p.usd : p.nio);
+  if (!row || row.count === 0) {
+    return {
+      kind: "answer", family: "remesas",
+      verdict: L(c.lang, `No hay envíos a ${person.name} anotados: en tu libro no hay ni una remesa con su nombre.`, `No sends to ${person.name} are recorded: your book doesn't hold a single remittance under their name.`),
+      pieces: [], note: null, source: ["remesas.personas"], lines: 0,
+    };
+  }
+  const scope = /este ano|this year/.test(folded) ? "year" : /este mes|this month/.test(folded) ? "month" : "all";
+  const pair = scope === "year" ? row.year : scope === "month" ? row.month : row.all;
+  const scopeWord = scope === "year" ? L(c.lang, "este año", "this year") : scope === "month" ? L(c.lang, "este mes", "this month") : L(c.lang, "en total", "in total");
+  return {
+    kind: "answer", family: "remesas",
+    verdict: scope === "all"
+      ? L(c.lang, `A ${person.name} le has mandado ${c.money(disp(pair))} en total: ${row.count} envío${row.count === 1 ? "" : "s"} anotados, el último el ${row.last}.`, `You've sent ${person.name} ${c.money(disp(pair))} in total: ${row.count} recorded send${row.count === 1 ? "" : "s"}, the last on ${row.last}.`)
+      : L(c.lang, `A ${person.name} le has mandado ${c.money(disp(pair))} ${scopeWord}. Su último envío fue el ${row.last}.`, `You've sent ${person.name} ${c.money(disp(pair))} ${scopeWord}. Their last send was on ${row.last}.`),
+    pieces: [{ label: person.name, minor: disp(pair) }],
+    note: scope === "all" ? L(c.lang, `Este año van ${c.money(disp(row.year))} y este mes ${c.money(disp(row.month))}.`, `This year it's ${c.money(disp(row.year))} and this month ${c.money(disp(row.month))}.`) : null,
+    source: ["remesas.personas"], lines: row.count,
   };
 }
 
@@ -2572,7 +2667,17 @@ function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
     : /(aviso de precio|price alert|precio subio|subio de precio|price went up)/.test(folded)
       ? FARO_FUNCTION_MAP.find((x) => x.id === "advisor.price-watch") ?? null
       : null;
-  const f = propia ?? proyectado ?? precios ?? functionOfQuestion(folded);
+  // OLA 27 (Familia 7, F27-1): LA COSTURA DEL COMPARTIR QUE CAE. «¿Dónde
+  // cae lo que comparto desde otra app?» nombra el objeto entero de
+  // inbox.link — lo compartido HACIA Faro y dónde aterriza — y la
+  // función es la suya a nivel de patrón, como las precedencias de
+  // arriba. El «dónde cae» a secas NO se abre: en el dialecto de la
+  // casa, lo que «cae» sin objeto de compartir es un pago, y su
+  // pregunta es de calendario («¿qué día cae?»), no de lugar.
+  const compartido = /(donde cae lo que comparto|lo que comparto desde|comparto desde otra|lo que me comparten)/.test(folded)
+    ? FARO_FUNCTION_MAP.find((x) => x.id === "inbox.link") ?? null
+    : null;
+  const f = propia ?? proyectado ?? precios ?? compartido ?? functionOfQuestion(folded);
   if (!f) return null;
   // OLA 26 (Familia 5, Q26-2 de Cara): LA GUARDA DE OBJETO DEL
   // COMPARTIR. «¿Cómo comparto mi libro?» casaba con inbox.link por
@@ -2721,8 +2826,18 @@ function closeNote(c: Ctx, ups: CatDiff[], downs: CatDiff[], diff: number): stri
 }
 
 function descomponerCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): BankResult {
-  const { ups, downs, lines } = compareDiffs(c, f);
-  const diff = f.totalA - f.totalB;
+  const { diffs, ups, downs, lines } = compareDiffs(c, f);
+  // OLA 27 (Familia 3, Q27-1): EL TITULAR SALE DE LAS PIEZAS VIVAS,
+  // no del marco congelado. El marco guarda los totales del turno en
+  // que la comparación nació; si el libro cambia entre turnos, las
+  // piezas se recomputan aquí pero el titular salía de `f.totalA -
+  // f.totalB` — y la identidad impresa («subidas X − bajadas Y = Z»)
+  // era aritméticamente falsa contra sus propias piezas. La diferencia
+  // es la suma de las diferencias vivas que compareDiffs ya calculó:
+  // subidas − bajadas por construcción, y el cierre cierra exacto.
+  // (Desplazar, estrechar y descomponer-historia ya recomputaban: son
+  // el control de esta cura.)
+  const diff = diffs.reduce((a, x) => a + x.d, 0);
   const frameHead = L(c.lang, `Siguiendo tu comparación — ${f.labelA} contra ${f.labelB}`, `Following your comparison — ${f.labelA} vs ${f.labelB}`);
   if (!ups.length && !downs.length) {
     return { kind: "answer", family: "comparar", verdict: `${frameHead} — ${L(c.lang, "por categoría los dos meses son idénticos: no hay diferencia que repartir.", "by category the two months are identical: there's no difference to break down.")}`, pieces: [], note: null, source: ["libros.lineas", "libros.neto"], lines, frame: f };
@@ -2742,8 +2857,12 @@ function descomponerCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>):
 }
 
 function explicarCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): BankResult {
-  const { ups, downs, lines } = compareDiffs(c, f);
-  const diff = f.totalA - f.totalB;
+  const { diffs, ups, downs, lines } = compareDiffs(c, f);
+  // OLA 27 (Familia 3, Q27-1): la misma ley que en descomponerCompare
+  // — la diferencia se deriva de las piezas vivas del turno, jamás de
+  // los totales congelados del marco; el «no hay diferencia que
+  // explicar» de abajo dispara solo cuando los meses son iguales HOY.
+  const diff = diffs.reduce((a, x) => a + x.d, 0);
   const frameHead = L(c.lang, `Siguiendo tu comparación — ${f.labelA} contra ${f.labelB}`, `Following your comparison — ${f.labelA} vs ${f.labelB}`);
   if (diff === 0) {
     return { kind: "answer", family: "comparar", verdict: `${frameHead} — ${L(c.lang, "no hay diferencia que explicar: los dos meses suman lo mismo.", "there's no difference to explain: the two months add up the same.")}`, pieces: [], note: null, source: ["libros.lineas", "libros.neto"], lines, frame: f };
@@ -2813,6 +2932,39 @@ function desplazarPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>): Ban
   };
 }
 
+/** OLA 27 (Familia 9, F27-2): ESTRECHAR HACIA UNA PALABRA APRENDIDA.
+ * El filtro de la palabra confirmada no tiene descriptor fiel (§20:
+ * la partición exacta manda — un descriptor inventado mentiría el
+ * pool del marco), así que el estrechamiento se compone como la
+ * pregunta completa lo serviría — el mismo predicado que filterHitOf
+ * aplica en la cascada — y el marco vuelve INTACTO: la palabra no se
+ * puede nombrar en el idioma de descriptores del marco, y fingir un
+ * marco estrechado sería perder el marco verdadero. El seguimiento
+ * nombra su marco y la palabra del usuario, que ES el nombre de ese
+ * ciudadano en su libro. */
+function estrecharAprendido(c: Ctx, f: AskFrame, learned: LearnedAlias): BankResult {
+  const fn = learned.kind === "sub" ? (l: Line) => l.subId === learned.targetId : (l: Line) => l.categoryId === learned.targetId;
+  const oficial = learned.kind === "sub" ? c.names.sub(learned.targetId) : c.names.cat(learned.targetId);
+  if (f.kind === "compare2") {
+    const sum = (k: string) => [...spendByCategory(c, k, fn).map.values()].reduce((a, v) => a + v, 0);
+    const totalA = sum(f.monthA);
+    const totalB = sum(f.monthB);
+    return {
+      kind: "answer", family: "comparar",
+      verdict: L(c.lang, `Siguiendo tu comparación — ${f.labelA} contra ${f.labelB} — solo en «${learned.word}»: ${c.money(totalA)} contra ${c.money(totalB)} (diferencia de ${c.money(Math.abs(totalA - totalB))}).`, `Following your comparison — ${f.labelA} vs ${f.labelB} — only on "${learned.word}": ${c.money(totalA)} vs ${c.money(totalB)} (a difference of ${c.money(Math.abs(totalA - totalB))}).`),
+      pieces: [{ label: `${oficial} · ${f.labelA}`, minor: totalA }, { label: `${oficial} · ${f.labelB}`, minor: totalB }],
+      note: null, source: ["libros.lineas", "libros.neto"], lines: 0, frame: f,
+    };
+  }
+  const { total, lines } = historiaPool(c, f.period, f.income, fn);
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, solo en «${learned.word}»: ${c.money(total)}.`, `Following your question — in ${f.period.label}, only on "${learned.word}": ${c.money(total)}.`),
+    pieces: [{ label: oficial, minor: total }],
+    note: null, source: ["libros.lineas", "historial.stream"], lines, frame: f,
+  };
+}
+
 function estrechar(c: Ctx, f: AskFrame, hit: FilterHit): BankResult {
   if (f.kind === "compare2") {
     const sum = (k: string) => [...spendByCategory(c, k, hit.fn).map.values()].reduce((a, v) => a + v, 0);
@@ -2878,6 +3030,7 @@ export function answerFollowUp(
   today: string,
   frame: AskFrame | null,
   mode?: BookMode,
+  learned?: LearnedAlias[],
 ): BankResult | null {
   void parseCtx;
   const folded = foldQ(raw);
@@ -2888,7 +3041,12 @@ export function answerFollowUp(
     state, key, lang, names, today, display, rateE4,
     money: (n: number) => formatMoney(n, reading.currency, lang),
     mode: mode ?? bookMode(state),
-    learned: [],
+    // OLA 27 (Familia 9, F27-2): el ctx del seguimiento ya no nace con
+    // los patrones vacíos por ley — la caja los enhebra (ask-box pasa
+    // los mismos que entrega a la cascada) y estrechar hacia una
+    // palabra aprendida compone como la pregunta completa la serviría.
+    // Sin el argumento, el comportamiento es el de siempre ([]).
+    learned: learned ?? [],
   };
   if (frame) {
     // Proyectar y desplazar traen su propio ancla: van primero.
@@ -2910,6 +3068,13 @@ export function answerFollowUp(
     if (!/cuanto|how much/.test(folded) && (words <= 7 || /^y /.test(folded) || /solo|only/.test(folded))) {
       const hit = filterDescOf(c, folded);
       if (hit && hit.desc.label !== frame.filter?.label) return estrechar(c, frame, hit);
+      // OLA 27 (Familia 9, F27-2): la palabra APRENDIDA también
+      // estrecha — con los patrones enhebrados en el ctx, el ciudadano
+      // confirmado (sub/categoría, como en filterHitOf) estrecha el
+      // marco sin descriptor: estrecharAprendido compone la respuesta
+      // y el marco sobrevive el turno intacto.
+      const learnedHit = aliasIn(c.learned, folded);
+      if (learnedHit && (learnedHit.kind === "sub" || learnedHit.kind === "cat")) return estrecharAprendido(c, frame, learnedHit);
     }
     return null;
   }
@@ -3116,7 +3281,19 @@ function answerSingle(
   // 1 · AHORROS antes que todo lo genérico (la cura del desvío) — pero
   // «sin tocar mis ahorros» es free: su trampa manda sobre la palabra.
   const isFreeTrap = /sin (tocar|afectar|mover|usar).{0,24}(ahorro|apartad|guardad)|without touching/.test(folded);
-  if (!isFreeTrap && ((/(ahorr|guardad|apartad|colchon|fondo|savings|save|set aside|cushion|emergency fund)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded))) {
+  // OLA 27 (Familia 7, Q27-C2 de Cara): LA GUARDA DE OBJETO DE
+  // AHORROS. En inglés «save» también guarda PREGUNTAS: «How do I save
+  // a question?» y «Where do I see my saved questions?» casaban con el
+  // verbo de ahorrar y recibían el saldo de ahorros con todas sus
+  // cifras, una pantalla antes de la puerta de faro-mismo donde vive
+  // su función (settings.ask-presets). La especie de «guardo» de la
+  // Ola 26 con el idioma cambiado: la guarda mira el OBJETO — si lo
+  // que se guarda o se busca es una pregunta (o la fila «questions at
+  // hand» misma), la captura de ahorros cede y la pregunta sigue su
+  // camino hasta el mapa. Guardar DINERO no nombra ninguna pregunta:
+  // los controles de ahorros no se mueven.
+  const esGuardarPregunta = /(save[sd]?|saving)\b[^?]{0,24}\bquestions?\b|\bquestions? at hand\b/.test(folded);
+  if (!isFreeTrap && !esGuardarPregunta && ((/(ahorr|guardad|apartad|colchon|fondo|savings|save|set aside|cushion|emergency fund)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded))) {
     // LA GUARDA DE HORIZONTE (ola 9, CAZA-TIEMPO clase 4; doctrina de
     // Oscar 2026-11-21: los tres tiempos no se mezclan sin intención).
     // «¿Cuánto tendré ahorrado en 6 meses si sigo así?» recibía el stock
@@ -3280,6 +3457,14 @@ function answerSingle(
     const r = rankingAnswer(c, folded);
     if (r) return r;
   }
+  // 7b · LA SUMA POR PERSONA (ola 27, Familia 5, Q27-3): «¿cuánto le
+  // mandé a X?» se juzga ANTES del patrón — el patrón entrega el
+  // agregado y esta pregunta nombra a su persona. Sin persona nombrada
+  // el camino devuelve null y el patrón sirve como siempre.
+  {
+    const r = remesaPersonaAnswer(c, folded);
+    if (r) return r;
+  }
   // 8 · REMESAS como patrón (cuándo y a quién / cuánto envío en remesas).
   if (/(remesa|remittance)/.test(folded) && /(cuando|quien|cuanto|ritmo|when|who|how much)/.test(folded)) return remesasAnswer(c);
   // 8b · ACCIONES (ola 5): la intención de enviar propone la acción —
@@ -3321,7 +3506,16 @@ function answerSingle(
   // OLA 26 (Familia 5): la puerta aprende «guardo» — «¿cómo guardo
   // una pregunta?» y «¿dónde guardo mis preguntas?» son de la fila a
   // la mano que el mapa aprende en la misma cura.
-  if (/(donde (veo|esta|encuentro|cambio|guardo)|como (hago|importo|cambio|veo|comparto|guardo)|como me (llama|llamo)|where (do|can) i|how do i)/.test(folded)) {
+  // OLA 27 (Familia 7, F27-1 + Q27-C2): la puerta aprende «exporto» —
+  // «¿dónde exporto mis números?» y «¿cómo exporto…?» morían antes de
+  // llegar al mapa, cuya entrada (ajustes.exportar, Ritmo) existía
+  // desde la .382 sin que su verbo entrara jamás por la puerta (la
+  // especie de Q25-1); el inglés pasaba por «where do i» y el
+  // español, no. Y aprende las formas de la fila a la mano en inglés
+  // («questions at hand», su nombre de cara) y la del compartir que
+  // cae («¿dónde cae lo que comparto…?», cuya precedencia vive en
+  // faroMismoAnswer).
+  if (/(donde (veo|esta|encuentro|cambio|guardo|exporto)|como (hago|importo|cambio|veo|comparto|guardo|exporto)|como me (llama|llamo)|donde cae lo que comparto|questions at hand|preguntas a la mano|where (do|can) i|how do i)/.test(folded)) {
     const r = faroMismoAnswer(c, folded);
     if (r) return r;
   }
