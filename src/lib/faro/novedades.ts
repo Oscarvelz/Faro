@@ -35,6 +35,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.406",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La pantalla sube a enseñar", en: "The screen rises to show you" },
+    points: {
+      es: [
+        "Tocar una ficha de Central — Tengo, Gastaré o Pagos — ahora sube la pantalla a enseñarte su lista, como ya hacían las bolsas de Ahorros. También suben la lista de cuentas al abrirla, el editor de cada cuenta y el panel de retiro.",
+        "El botoncito para volver arriba aparece antes: a media pantalla de bajada, no casi al fondo.",
+        "El panel de retiro de una cuenta vive ahora en su bandeja, con su explicación separada por un filete, y la ventana del color de la burbuja ocupa el ancho entero de su fila.",
+      ],
+      en: [
+        "Tapping a Central tile — I have, I'll spend or Payments — now raises the screen to show you its list, just as the savings pockets already did. The accounts list rising to meet you, each account's editor and the retirement panel rise too.",
+        "The back-to-top button appears sooner: halfway down the screen, not near the bottom.",
+        "An account's retirement panel now lives in its own tray, with its explanation set off by a rule, and the bubble colour window spans the full width of its row.",
+      ],
+    },
+  },
+  {
     version: "1.3.405",
     date: "2026-11-22",
     level: "menor",

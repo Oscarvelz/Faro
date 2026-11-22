@@ -70,8 +70,9 @@ export function ToTop({ lang }: { lang: string }) {
       if (s && !s.isConnected) target.current = null;
       const t = topOf(target.current);
       const vh = viewOf(target.current);
-      // Far down to appear (about a screen), near the top to go: no flicker in between.
-      const next = shown.current ? t > Math.min(240, vh * 0.3) : t > Math.max(480, vh * 0.9);
+      // 1.3.406 (Oscar): aparecía demasiado tarde — casi una pantalla entera
+      // de bajada. Ahora nace a media pantalla; la histéresis se conserva.
+      const next = shown.current ? t > Math.min(180, vh * 0.25) : t > Math.max(300, vh * 0.5);
       if (next !== shown.current) { shown.current = next; setShow(next); }
       if (next) place();
     };

@@ -2066,7 +2066,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
   const accountsPinLive = useRef(accountsPin);
   accountsPinLive.current = accountsPin;
   function toggleAccounts() {
-    if (!accountsOpen) { setOpenSave(null); setSaveOn(null); }
+    if (!accountsOpen) {
+      setOpenSave(null); setSaveOn(null);
+      // 1.3.406 (censo de subidas): la lista de cuentas se abre hacia abajo;
+      // la pantalla sube a enseñar su banda, como las demás aperturas.
+      window.setTimeout(() => revealEditor(document.querySelector<HTMLElement>('[data-anchor="vault-accounts"]')), 60);
+    }
     setAccountsOpen((v) => !v);
   }
   function closeAccountsForPocket() {
@@ -2792,6 +2797,21 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     });
   }
 
+  // 1.3.406 (censo de subidas): el editor de una cuenta se abre dentro de su
+  // fila, hacia abajo — la pantalla sube a enseñar la fila, no lo deja
+  // nacer bajo el borde. El panel de retiro de Central, igual.
+  useEffect(() => {
+    if (!accountFocus) return;
+    const id = accountFocus;
+    const t = window.setTimeout(() => revealEditor(document.querySelector<HTMLElement>(`[data-bank="${id}"]`)), 60);
+    return () => window.clearTimeout(t);
+  }, [accountFocus]);
+  useEffect(() => {
+    if (!retireDeskOpen) return;
+    const t = window.setTimeout(() => revealEditor(document.querySelector<HTMLElement>(".ah-form.is-retire")), 60);
+    return () => window.clearTimeout(t);
+  }, [retireDeskOpen]);
+
   function rekind(line: Line, kind: LineKind) {
     if (line.kind === kind) return;
     // Ola 2 (G2-1): dos negativas en la raíz del conmutador. (1) Ninguna
@@ -3243,6 +3263,12 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
     setCobrosLit(false);
     // Leaving a corner flow by tapping a card lights that card; otherwise a second tap on the lit card lets go.
     setLens((cur) => (cur === id && !fromFlow ? "all" : id));
+    // 1.3.406 (Oscar): la ficha encendida abre su lista hacia abajo y la
+    // pantalla sube a enseñarla, como ya hacían las bolsas de Ahorros —
+    // antes la lista cambiaba lejos de la vista y había que bajar a mano.
+    if (!(lens === id && !fromFlow)) {
+      window.setTimeout(() => revealEditor(document.querySelector<HTMLElement>('[data-anchor="desk-list"]')), 60);
+    }
   }
 
   // 1.3.350: a gesture slot can name a capture door instead of an area —
