@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.371",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "La fija describe; la respuesta, arriba", en: "The fixed one describes; the answer, on top" },
+    points: {
+      es: [
+        "«¿Qué puedes hacer?» ya no entrega una lista de preguntas: describe con honestidad lo que tu Asesor sabe hacer, lo que todavía no, y sus límites. La descripción se actualiza sola cuando el Asesor aprende algo nuevo.",
+        "La fila «A la mano» vive ahora debajo de la respuesta: primero tu pregunta y su respuesta; tus preguntas guardadas, después, siempre a la vista.",
+      ],
+      en: [
+        "“What can you do?” no longer hands you a list of questions: it honestly describes what your Advisor knows how to do, what it doesn't yet, and its limits. The description updates itself when the Advisor learns something new.",
+        "The “At hand” row now lives below the answer: first your question and its answer; your saved questions after, always in sight.",
+      ],
+    },
+  },
+  {
     version: "1.3.370",
     date: "2026-11-21",
     level: "menor",

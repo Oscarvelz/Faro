@@ -13,7 +13,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { addAskPreset, askPresetsOf, capabilityQuestions, FIXED_PRESET_Q, moveAskPreset, presetCatalog, removeAskPreset } from "./askpresets";
+import { addAskPreset, askPresetsOf, capabilitiesText, FIXED_PRESET_Q, moveAskPreset, presetCatalog, removeAskPreset } from "./askpresets";
 import { createInitial, isLedgerDeep } from "./defaults";
 import { FEATURES } from "./mode";
 import { QUESTION_BANK } from "./questionbank";
@@ -36,11 +36,15 @@ test("369-1 el asiento: administrar es de Ritmo; la fija existe en las dos lengu
 test("369-2 la fila «A la mano» vive siempre: no cuelga del resultado", () => {
   assert.ok(boxSrc.includes('data-anchor="ask-presets"'), "la fila existe en la caja");
   assert.ok(boxSrc.includes('data-anchor="ask-preset-fixed"'), "la fija se pinta en la caja");
-  assert.ok(boxSrc.includes("onClick={showCaps}"), "la fija abre su inventario");
-  // La fila se rinde ANTES de los bloques de respuesta y sin condición de resultado:
+  assert.ok(boxSrc.includes("onClick={showCaps}"), "la fija abre su descripción");
+  // La fila se rinde sin condición de resultado. SU SITIO lo corrigió
+  // Oscar (2026-11-21 18:46, la .371): la respuesta sepultada bajo las
+  // predeterminadas «se ve horrible» — la fila vive ahora DESPUÉS de los
+  // bloques de respuesta; lo que la .369 cura (que nunca desaparezca)
+  // no cambia.
   const rowAt = boxSrc.indexOf('data-anchor="ask-presets"');
   const answerAt = boxSrc.indexOf('{result?.kind === "answer" ? (');
-  assert.ok(rowAt > 0 && answerAt > rowAt, "la fila precede a la tarjeta de respuesta");
+  assert.ok(rowAt > 0 && rowAt > answerAt, "la fila sigue a la tarjeta de respuesta (fallo de las 18:46)");
   const rowBlock = boxSrc.slice(boxSrc.lastIndexOf("{/*", rowAt), rowAt);
   assert.ok(!rowBlock.includes("!result") && !rowBlock.includes("result ?"), "la fila no está condicionada al resultado");
 });
@@ -84,13 +88,21 @@ test("369-5 el lector filtra lo dañado y la puerta juzga la forma entera", () =
   assert.equal(isLedgerDeep(real(undefined)), true, "ausente es forma vieja, válida");
 });
 
-test("369-6 «¿Qué puedes hacer?» se genera solo de familias que el motor responde", () => {
-  const caps = capabilityQuestions("es");
+test("369-6 «¿Qué puedes hacer?» describe solo lo que el motor responde (texto corregido en la .371)", () => {
+  // La forma original (el inventario de canónicas) la corrigió Oscar el
+  // 2026-11-21 18:46: la respuesta es una DESCRIPCIÓN en prosa generada
+  // del banco — lo que sí, lo que todavía no, y los límites. La ley de
+  // fondo no cambia: ninguna declarada se promete como capacidad.
+  const text = capabilitiesText("es");
+  const liveCaps = QUESTION_BANK.filter((f) => f.status === "viva" || f.status === "heredada").map((f) => f.cap.es);
+  for (const c of liveCaps) assert.ok(text.areas.includes(c), "cada capacidad viva se cuenta en la descripción");
+  const declaredCaps = QUESTION_BANK.filter((f) => f.status === "declarada").map((f) => f.cap.es);
+  for (const d of declaredCaps) {
+    assert.ok(!text.areas.includes(d), "ninguna declarada se promete como capacidad");
+    assert.ok(text.notYet.includes(d), "cada declarada se nombra como lo que todavía no se sabe");
+  }
+  assert.ok(liveCaps.length >= 10, "la descripción es real");
   const liveFirsts = QUESTION_BANK.filter((f) => f.status === "viva" || f.status === "heredada").map((f) => f.canonical.es[0]);
-  assert.deepEqual(caps, liveFirsts, "una canónica por familia viva o heredada, en el orden del banco");
-  const declaredFirsts = QUESTION_BANK.filter((f) => f.status === "declarada").map((f) => f.canonical.es[0]);
-  for (const d of declaredFirsts) assert.ok(!caps.includes(d), "ninguna declarada se promete");
-  assert.ok(caps.length >= 10, "el inventario es real");
   const cat = presetCatalog("en");
   assert.ok(cat.length === liveFirsts.length, "el catálogo del pliegue cubre las mismas familias");
   assert.ok(cat.every((g) => g.questions.length > 0), "ningún grupo vacío");

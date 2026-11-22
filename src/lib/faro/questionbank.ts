@@ -40,6 +40,10 @@ export type BankStatus = "viva" | "heredada" | "declarada";
 export type BankFamily = {
   id: string;
   name: { es: string; en: string };
+  /** La capacidad en una frase de prosa, para la descripción honesta de
+   * «¿Qué puedes hacer?» (1.3.371): se lee dentro de una enumeración
+   * («Puedo decirte: …»), en minúscula y sin punto final. */
+  cap: { es: string; en: string };
   status: BankStatus;
   /** Ids de askmap.ts: de dónde sale cada número y dónde se reporta. */
   source: string[];
@@ -59,6 +63,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "spend",
     name: { es: "¿Puedo gastar…? (chequeo de un gasto)", en: "Can I spend…?" },
+    cap: { es: "si un gasto cabe en tu mes, antes de hacerlo", en: "whether a purchase fits your month, before you make it" },
     status: "heredada",
     source: ["asesor.lectura", "cobros.cuotas"],
     axes: ["monto × concepto", "registro (coloquial/llano/técnico)"],
@@ -73,6 +78,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "free",
     name: { es: "Dinero libre (sin tocar lo apartado)", en: "Free money" },
+    cap: { es: "cuánto dinero tienes libre sin tocar lo apartado", en: "how much money is free without touching what's set aside" },
     status: "heredada",
     source: ["central.tengo", "ahorros.stock", "ahorros.colchon", "cobros.cuotas"],
     axes: ["sin ranuras: la resta es fija"],
@@ -87,6 +93,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "left",
     name: { es: "¿Cuánto me queda? (mes / año)", en: "How much is left?" },
+    cap: { es: "cuánto te queda del mes o del año", en: "how much is left of the month or the year" },
     status: "heredada",
     source: ["central.queda"],
     axes: ["período (mes × año)"],
@@ -101,6 +108,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "how",
     name: { es: "¿Cómo voy?", en: "How am I doing?" },
+    cap: { es: "cómo vas, en una lectura honesta de tu mes", en: "how you're doing, in an honest read of your month" },
     status: "heredada",
     source: ["asesor.lectura"],
     axes: ["sin ranuras"],
@@ -112,6 +120,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "ahorros",
     name: { es: "Ahorros: cuánto hay, dónde y a qué ritmo", en: "Savings: how much, where, at what pace" },
+    cap: { es: "cuánto tienes ahorrado, dónde está y a qué ritmo crece", en: "how much you've saved, where it sits and how fast it grows" },
     status: "viva",
     source: ["ahorros.stock", "ahorros.colchon", "ahorros.mes"],
     axes: ["qué (total × clase: cuenta/retiro/aparte/emergencia/meta) × cuándo (hoy × este mes)"],
@@ -126,6 +135,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "gustos",
     name: { es: "Gustos: cuánto hay para antojos", en: "Wants: how much room for treats" },
+    cap: { es: "cuánto tienes para gustos sin romper el mes", en: "how much room you have for treats without breaking the month" },
     status: "viva",
     source: ["estudio.regla", "asesor.lectura", "cobros.cuotas"],
     axes: ["monto (chequeo) × sin monto (capacidad)"],
@@ -140,6 +150,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "recencia",
     name: { es: "Lo último que… (recencia)", en: "The last time I… (recency)" },
+    cap: { es: "lo último que pasó: pagos, compras y registros", en: "the latest thing that happened: payments, purchases and entries" },
     status: "viva",
     source: ["historial.stream", "remesas.personas", "cobros.cuotas"],
     axes: ["qué (ingreso × registro × compra × tienda × remesa a persona × pago de cuota) × quién/dónde (persona, tienda)"],
@@ -154,6 +165,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "agenda",
     name: { es: "Lo que viene: cuotas y fechas de pago", en: "What's ahead: dues and paydays" },
+    cap: { es: "qué cuotas vienen y en qué fechas", en: "which dues are coming and on what dates" },
     status: "viva",
     source: ["cobros.cuotas", "central.gastare"],
     axes: ["ventana (este mes × próximos 14/30 días) × clase (cuota/tarjeta/préstamo)"],
@@ -168,6 +180,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "ranking",
     name: { es: "Quién / cuál más (superlativos)", en: "Who / which most (rankings)" },
+    cap: { es: "quién o cuál es el mayor: deudas, gastos, envíos", en: "who or what is biggest: debts, spending, remittances" },
     status: "viva",
     source: ["cobros.mideben", "cobros.debo", "cobros.tarjetas", "estudio.flujo"],
     axes: ["lado (me deben × debo) × objeto (persona × cuenta/tarjeta × categoría)"],
@@ -182,6 +195,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "historia",
     name: { es: "Historia: totales por período × lugar/categoría", en: "History: totals by period × place/category" },
+    cap: { es: "totales por período, categoría o lugar", en: "totals by period, category or place" },
     status: "viva",
     source: ["libros.lineas", "estudio.flujo", "historial.stream"],
     axes: ["qué (gasto × ingreso) × cuándo (hoy/semana/mes/año, este/pasado) × dónde (categoría × tienda × persona × cuenta)"],
@@ -196,6 +210,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "remesas",
     name: { es: "Remesas: patrón de envíos", en: "Remittances: sending pattern" },
+    cap: { es: "tu patrón de remesas: cuánto, a quién y cada cuánto", en: "your remittance pattern: how much, to whom and how often" },
     status: "viva",
     source: ["remesas.personas", "asesor.lectura"],
     axes: ["quién (persona × todas) × cuándo (este mes × año × siempre)"],
@@ -210,6 +225,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "ya-pague",
     name: { es: "¿Ya pagué…? (contradicción de premisa)", en: "Did I already pay…?" },
+    cap: { es: "si algo ya lo pagaste — y corregirte si partes de un dato falso", en: "whether you already paid something — and correcting you if you start from a false premise" },
     status: "viva",
     source: ["cobros.cuotas", "libros.lineas"],
     axes: ["objeto (cuota × servicio × tarjeta × préstamo)"],
@@ -224,6 +240,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "comparar",
     name: { es: "Comparar: esto contra aquello", en: "Compare: this vs that" },
+    cap: { es: "comparaciones: este mes contra el pasado, esto contra aquello", en: "comparisons: this month against the last, this against that" },
     status: "viva",
     source: ["estudio.flujo", "libros.lineas", "libros.neto"],
     axes: ["objeto A × objeto B (categoría × período × tienda)"],
@@ -238,6 +255,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "cuenta-origen",
     name: { es: "¿De qué cuenta lo saco? (el Asesor pregunta)", en: "Which account should it come from?" },
+    cap: { es: "de qué cuenta conviene sacar un dinero", en: "which account a sum should come from" },
     status: "viva",
     source: ["central.tengo", "ahorros.stock"],
     axes: ["monto × cuentas con saldo"],
@@ -252,6 +270,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "faro-mismo",
     name: { es: "Faro mismo: dónde se ve y cómo se hace", en: "Faro itself: where and how" },
+    cap: { es: "dónde se ve cada cosa en Faro y cómo se hace", en: "where each thing lives in Faro and how to do it" },
     status: "viva",
     source: ["captura.bandeja", "captura.escribir", "ajustes.estructura", "cuenta.sync", "central.queda", "ahorros.stock", "cobros.tarjetas", "cambio.mesa"],
     axes: ["función (todo el askmap) × tipo (dónde veo × cómo hago)"],
@@ -266,6 +285,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "futuro",
     name: { es: "Futuro: proyecciones con supuesto dicho", en: "Future: projections with the assumption stated" },
+    cap: { es: "proyecciones a futuro, con el supuesto dicho en voz alta", en: "projections into the future, with the assumption stated out loud" },
     status: "viva",
     source: ["cobros.plan", "ahorros.mes", "asesor.escenarios"],
     axes: ["qué (deuda × ahorro × queda) × horizonte (meses × fecha)"],
@@ -280,6 +300,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "ausencia",
     name: { es: "Ausencia: lo que no está también es dato", en: "Absence: what's missing is data too" },
+    cap: { es: "lo que falta: meses sin registro y huecos en tu libro", en: "what's missing: unrecorded months and gaps in your book" },
     status: "declarada",
     source: ["cobros.cuotas", "historial.stream"],
     axes: ["qué falta (pago × categoría × ingreso) × período"],
@@ -294,6 +315,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "identidad",
     name: { es: "Identidad / similitud: ¿qué es este cargo?", en: "Identity / similarity: what is this charge?" },
+    cap: { es: "qué es un cargo que no reconoces", en: "what an unrecognized charge is" },
     status: "declarada",
     source: ["historial.stream", "estudio.flujo"],
     axes: ["monto × concepto"],
@@ -308,6 +330,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "seguimiento",
     name: { es: "Seguimiento: la misma pregunta, un eje cambiado", en: "Follow-up: same question, one axis changed" },
+    cap: { es: "seguir una respuesta cambiando un solo eje — otro mes, otra cuenta", en: "following up on an answer by changing one axis — another month, another account" },
     status: "declarada",
     source: ["asesor.lectura", "historial.stream"],
     axes: ["eje cambiado (cuándo × dónde × quién)"],

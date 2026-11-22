@@ -48,7 +48,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, MessageCircleQuestion, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, bankChips, type BankResult } from "@/lib/faro/ask2";
-import { askPresetsOf, capabilityQuestions, FIXED_PRESET_Q } from "@/lib/faro/askpresets";
+import { askPresetsOf, capabilitiesText, FIXED_PRESET_Q } from "@/lib/faro/askpresets";
 import { FUNCTION_TOPIC } from "@/lib/faro/askmap";
 import { addDrafts, findDup, validateDraft } from "@/lib/faro/drafts";
 import type { Draft } from "@/lib/faro/types";
@@ -133,9 +133,10 @@ export function AskBox() {
   }
 
   // La fija del sistema: «¿Qué puedes hacer?» — su respuesta no pasa por
-  // el motor de preguntas: es el inventario generado del banco en el
-  // momento (askpresets.capabilityQuestions), rendido como tarjeta con
-  // las preguntas mismas por chips; tocar una la pregunta de verdad.
+  // el motor de preguntas: es la descripción honesta generada del banco
+  // en el momento (askpresets.capabilitiesText), rendida como tarjeta de
+  // prosa. Corrección de Oscar (2026-11-21 18:46): nada de un folio de
+  // preguntas — la honestidad misma es la respuesta.
   function showCaps() {
     setResult(null);
     setAsked(FIXED_PRESET_Q[lang]);
@@ -179,19 +180,6 @@ export function AskBox() {
           <Send size={15} />
         </button>
       </div>
-      {/* LA FILA «A LA MANO» (1.3.369): vive SIEMPRE — también tras una
-          respuesta, que era el conflicto: no había vuelta a verlas. La
-          fija del sistema va primera; después, las de la persona EN SU
-          ORDEN. Un toque pregunta al instante. */}
-      <div className="ask-presets" data-anchor="ask-presets">
-        <span className="ask-presets-label">{L("A la mano", "At hand")}</span>
-        <div className="ask-chips">
-          <button type="button" className="ask-chip is-fixed" data-anchor="ask-preset-fixed" onClick={showCaps}>{FIXED_PRESET_Q[lang]}</button>
-          {presets.map((p) => (
-            <button key={p.id} type="button" className="ask-chip" data-anchor="ask-preset" onClick={() => ask(p.text)}>{p.text}</button>
-          ))}
-        </div>
-      </div>
       {!result && !caps ? (
         <div className="ask-chips">
           {chips.map((c) => (
@@ -207,12 +195,12 @@ export function AskBox() {
       ) : null}
       {caps ? (
         <div className="ask-card" data-anchor="ask-card">
-          <p className="ask-verdict">{L("Esto es lo que sé responder. Toca una pregunta y te la respondo:", "This is what I know how to answer. Tap a question and I'll answer it:")}</p>
-          <div className="ask-chips">
-            {capabilityQuestions(lang).map((q) => (
-              <button key={q} type="button" className="ask-chip" data-anchor="ask-cap-chip" onClick={() => ask(q)}>{q}</button>
-            ))}
-          </div>
+          {(() => { const c = capabilitiesText(lang); return (<>
+            <p className="ask-verdict">{c.intro}</p>
+            <p className="ask-caps-body">{c.areas}</p>
+            <p className="ask-caps-body">{c.notYet}</p>
+            <p className="ask-note">{c.limits}</p>
+          </>); })()}
         </div>
       ) : null}
       {result?.kind === "unknown" ? (
@@ -274,6 +262,22 @@ export function AskBox() {
           ) : null}
         </div>
       ) : null}
+      {/* LA FILA «A LA MANO» (1.3.369; sitio corregido en la 1.3.371):
+          vive SIEMPRE — también tras una respuesta, que era el
+          conflicto: no había vuelta a verlas — pero DEBAJO de la
+          respuesta, como falló Oscar en su teléfono (2026-11-21 18:46):
+          primero la pregunta y su respuesta; las predeterminadas,
+          después. La fija del sistema va primera; después, las de la
+          persona EN SU ORDEN. Un toque pregunta al instante. */}
+      <div className="ask-presets" data-anchor="ask-presets">
+        <span className="ask-presets-label">{L("A la mano", "At hand")}</span>
+        <div className="ask-chips">
+          <button type="button" className="ask-chip is-fixed" data-anchor="ask-preset-fixed" onClick={showCaps}>{FIXED_PRESET_Q[lang]}</button>
+          {presets.map((p) => (
+            <button key={p.id} type="button" className="ask-chip" data-anchor="ask-preset" onClick={() => ask(p.text)}>{p.text}</button>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

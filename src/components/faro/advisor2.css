@@ -523,4 +523,7 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .ask-piece:first-child { border-top: 0; padding-top: 0; }
 .ask-piece strong { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ask-note { margin: 0; font-size: .84rem; color: var(--muted); line-height: 1.4; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); padding-top: 8px; }
+/* 1.3.371 — el cuerpo de la descripción honesta de la fija: prosa
+   seguida, ni chips ni folio. */
+.ask-caps-body { margin: 0; font-size: .92rem; line-height: 1.5; }
 .ask-reg { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 9px; padding: 7px 12px; font-size: .86rem; font-weight: 600; cursor: pointer; }
