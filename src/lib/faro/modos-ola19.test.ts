@@ -399,6 +399,10 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // 1.3.356 (Ola 6): la fila hermana de los avisos de pagos — los mismos
   // dos aterrizajes en línea (encender al toque; apagar tras la ventana).
   "components/faro/due-alerts-row.tsx|commit|inline|—": ["aterrizaje", 2],
+  // 1.3.381: la tarjeta de Central gana su aterrizaje — la ✕ que la
+  // quita «por ahora» compone dueAlertsDismissed con la firma del
+  // conjunto (dueAlertsSig); un ajuste ordinario, sin negativa posible.
+  "components/faro/due-alerts.tsx|commit|dueAlertsSig|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commitGuarded|peopleOf|—": ["guardada", 1],
   "components/faro/people.tsx|commit|mergeContacts|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],

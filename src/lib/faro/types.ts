@@ -456,6 +456,13 @@ export type Settings = {
    * acercan (Central los muestra con su puerta). Missing = on, como
    * notify: un libro que ya existe no pierde el aviso el día que nace. */
   dueAlerts?: boolean;
+  /** 1.3.381 (Oscar, 2026-11-21): la tarjeta de Central quitada «por
+   * ahora» — la firma del conjunto de pagos que se mostraba y el día
+   * en que se quitó. La tarjeta vuelve mañana, o en cuanto el conjunto
+   * cambie (un pago nuevo entra en la ventana, o uno se paga y sale):
+   * quitarla de Central es momentáneo y JAMÁS toca dueAlerts ni los
+   * avisos del teléfono. Missing = la tarjeta se muestra. */
+  dueAlertsDismissed?: { sig: string; day: string };
   /** One-time seeds already applied (e.g. "remesas"), so a default the user deleted is not added again. */
   seeds?: string[];
   /** 1.3.246: las categorías fijas del widget — los pares (categoría, sub) que la tarjeta

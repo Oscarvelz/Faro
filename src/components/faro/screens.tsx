@@ -3610,6 +3610,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
           </SourceNote>
         </div>
       ) : null}
+      {/* 1.3.381 (Oscar): la tarjeta de pagos que se acercan vive ARRIBA
+          de las fichas, para que estas se desplieguen normalmente. */}
+      <DueAlertsCard />
       <div className="lenses" data-focus={btnOn ?? cardOn ?? undefined}>
         <div className="lens-wrap">
           <Hint topic="tengo" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
@@ -3657,7 +3660,6 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
         </div>
         ) : null}
       </div>
-      <DueAlertsCard />
       <YearAnnouncementCard />
       {quick ? (
         <div ref={quickRef} className="sheet-swap" data-mode={quick} data-anchor="quick-window">

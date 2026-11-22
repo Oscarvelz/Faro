@@ -1,7 +1,7 @@
-import { BellRing, ChevronRight } from "lucide-react";
+import { BellRing, ChevronRight, X } from "lucide-react";
 import { useFaro } from "./provider";
 import { Hint } from "./hint";
-import { dueAlerts } from "@/lib/faro/autopay";
+import { dueAlerts, dueAlertsHidden, dueAlertsSig } from "@/lib/faro/autopay";
 import { findTopic } from "@/lib/manual/topics";
 import { todayIso } from "@/lib/faro/loans";
 import "./due-alerts.css";
@@ -15,14 +15,23 @@ const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
  * cambios: cada fila ES la puerta al lugar del pago (la vía del Manual,
  * como las puertas de Novedades y del Asesor). Se apaga en Ajustes
  * (settings.dueAlerts); sin pagos cerca, la tarjeta no nace.
+ *
+ * 1.3.381 (Oscar, 2026-11-21): la tarjeta vive ARRIBA de
+ * Tengo · Gastaré · Pagos, para que las fichas se desplieguen
+ * normalmente debajo de ella, y su ✕ la quita de Central SOLO por
+ * ahora — tras confirmación: vuelve mañana o en cuanto cambie un
+ * pago, y jamás toca los avisos del teléfono (la ventana lo dice).
+ * Si las cuotas se pagan, el conjunto se vacía y la tarjeta — con su
+ * opción de quitar — desaparece sola.
  */
 export function DueAlertsCard() {
-  const { session, fmt, lang, goTopic, has } = useFaro();
+  const { session, fmt, lang, goTopic, has, confirm, commit } = useFaro();
   if (!session || !has("central.due-alerts")) return null;
   if (session.ledger.settings.dueAlerts === false) return null;
   const today = todayIso();
   const alerts = dueAlerts(session.ledger, today);
   if (!alerts.length) return null;
+  if (dueAlertsHidden(session.ledger, today)) return null;
   const shown = alerts.slice(0, 3);
   const more = alerts.length - shown.length;
   const days = (on: string) => Math.round((new Date(`${on}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime()) / 864e5);
@@ -34,12 +43,27 @@ export function DueAlertsCard() {
     const tp = findTopic(kind === "card" ? "tarjetas" : "cuotas");
     if (tp?.go) goTopic(tp.id, tp.go, "central");
   };
+  const dismiss = () => {
+    confirm({
+      title: L(lang, "Quitar de Central por ahora", "Remove from Central for now"),
+      body: L(lang,
+        "La tarjeta vuelve mañana, o en cuanto cambie un pago. Esto solo la quita de Central: los avisos de tu teléfono no se tocan.",
+        "The card comes back tomorrow, or as soon as a payment changes. This only removes it from Central: your phone notices are untouched."),
+      yes: L(lang, "Quitar por ahora", "Remove for now"),
+      run: () => commit(
+        (s) => ({ ...s, settings: { ...s.settings, dueAlertsDismissed: { sig: dueAlertsSig(alerts), day: today } } }),
+        L(lang, "Tarjeta quitada de Central por ahora", "Card removed from Central for now")),
+    });
+  };
   return (
     <section className="card due-alerts" data-anchor="due-alerts">
       <div className="due-alerts-head">
         <BellRing aria-hidden />
         <h2 className="serif">{L(lang, "Pagos que se acercan", "Payments coming up")}</h2>
         <Hint topic="avisos-pagos" />
+        <button type="button" className="due-alerts-x" data-anchor="due-alerts-dismiss" aria-label={L(lang, "Quitar de Central por ahora", "Remove from Central for now")} onClick={dismiss}>
+          <X aria-hidden />
+        </button>
       </div>
       <div className="due-alerts-rows">
         {shown.map((a) => (

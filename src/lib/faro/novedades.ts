@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.381",
+    date: "2026-11-22",
+    level: "menor",
+    topic: "avisos-pagos",
+    title: { es: "«Pagos que se acercan», arriba y a tu mano", en: "“Payments coming up”, up top and at hand" },
+    points: {
+      es: [
+        "La tarjeta vive ahora arriba de Tengo · Gastaré · Pagos, para que las fichas se desplieguen normalmente.",
+        "Su ✕ la quita de Central solo por ahora, tras preguntarte: vuelve mañana, o en cuanto cambie un pago. Los avisos de tu teléfono no se tocan.",
+      ],
+      en: [
+        "The card now sits above I have · I will spend · Payments, so the tiles unfold normally below it.",
+        "Its ✕ removes it from Central only for now, after asking you: it comes back tomorrow, or as soon as a payment changes. Your phone notices are untouched.",
+      ],
+    },
+  },
+  {
     version: "1.3.380",
     date: "2026-11-21",
     level: "grande",

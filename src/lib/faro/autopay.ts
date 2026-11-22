@@ -71,6 +71,24 @@ export function dueAlerts(state: LedgerState, today: string = todayIso()): DueEn
   return duesWindow(state, DUE_ALERT_HORIZON_DAYS, today).filter((e) => e.kind === "cuota" || e.kind === "card");
 }
 
+/** 1.3.381: la firma de un conjunto de pagos que se acercan — el
+ * mismo triple que la tarjeta usa de llave de fila (tipo, serie,
+ * fecha). Si el conjunto cambia en lo que sea, la firma cambia. */
+export function dueAlertsSig(alerts: DueEntry[]): string {
+  return alerts.map((a) => `${a.kind}-${a.id}-${a.on}`).join("|");
+}
+
+/** 1.3.381 (Oscar): ¿la tarjeta está quitada «por ahora»? Solo si la
+ * quitó HOY y del conjunto EXACTO que sigue en la ventana: mañana
+ * vuelve, y también vuelve en cuanto un pago entre o salga. Quitarla
+ * no toca ningún interruptor — ni dueAlerts ni los del teléfono. */
+export function dueAlertsHidden(state: LedgerState, today: string = todayIso()): boolean {
+  const d = state.settings.dueAlertsDismissed;
+  if (!d) return false;
+  if (d.day !== today) return false;
+  return d.sig === dueAlertsSig(dueAlerts(state, today));
+}
+
 export type SettledPayment = {
   seriesId: string;
   concept: string;
