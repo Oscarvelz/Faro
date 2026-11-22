@@ -878,6 +878,17 @@ const isFinD = (v: unknown): v is number => typeof v === "number" && Number.isFi
  * texto que el parser no entiende entraba como «texto válido» y salía
  * como NaN en el anillo y en el «quedan N horas». */
 const isDateStrD = (v: unknown): v is string => typeof v === "string" && v !== "" && !Number.isNaN(new Date(v).getTime());
+/** OLA 26 (G26-2): una fecha juzgada en la DIMENSIÓN DE SUS LECTORES.
+ * Los lectores de las fechas del deseo no «parsean» en abstracto: la
+ * cuenta del año CORTA el texto (`closedAt.slice(0, 4)` contra el año)
+ * y las comparaciones ordenan por el prefijo ISO — una fecha parseable
+ * pero no ISO («Nov 21, 2026») pasaba la puerta vieja y desaparecía de
+ * su cuenta del año en silencio. El juicio exige la forma que los
+ * lectores suponen: prefijo AAAA-MM-DD y fecha real. Los deseos de la
+ * casa nacen ISO (`toISOString()` en waitlist.ts), así que toda forma
+ * buena, en cualquier estado del deseo, sigue entrando entera. */
+const isIsoDateStrD = (v: unknown): v is string =>
+  typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) && !Number.isNaN(new Date(v).getTime());
 /** OLA 25 (G25-3): las horas de espera caben en su aritmética — la
  * desreferencia suma `waitHours * 3600_000` al ahora y llama a
  * `toISOString()` (renewWish): fuera del rango de Date (±8.64e15 ms)
@@ -1017,8 +1028,12 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       // aritmética de fechas que termina en toISOString(): debe caber
       // en el rango de Date (isWaitHoursD), no solo ser finito — 3e9
       // horas es finito y rompía renewWish con RangeError.
-      if (!isDateStrD(w.createdAt) || !isDateStrD(w.dueAt)) return false;
-      if (w.closedAt !== "" && !isDateStrD(w.closedAt)) return false;
+      // OLA 26 (G26-2): createdAt, dueAt y closedAt se juzgan como
+      // fechas ISO (isIsoDateStrD), la forma que sus lectores cortan y
+      // comparan — «Nov 21, 2026» ya no entra, y la cuenta del año no
+      // vuelve a perder un deseo por su grafía.
+      if (!isIsoDateStrD(w.createdAt) || !isIsoDateStrD(w.dueAt)) return false;
+      if (w.closedAt !== "" && !isIsoDateStrD(w.closedAt)) return false;
       if (w.amountMinor !== null && !isFinD(w.amountMinor)) return false;
       if (!isWaitHoursD(w.waitHours) || !isFinD(w.renewals)) return false;
       if (typeof w.permanent !== "boolean") return false;
@@ -1034,9 +1049,24 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   // logbook (la Bitácora, 1.3.367): un documento congelado, no dinero —
   // ningún motor lo desreferencia para calcular, así que la puerta juzga
   // solo la forma del contenedor (objeto con sus dos registros como
-  // objetos). Las entradas se leen con desconfianza en bitacora.ts
-  // (logbookOf filtra lo que no reconoce): una foto dañada jamás manda
-  // el libro entero a cuarentena, como el descanso.
+  // objetos): una foto dañada jamás manda el libro entero a cuarentena,
+  // como el descanso. Las entradas se leen con desconfianza en
+  // bitacora.ts (logbookOf filtra lo que no reconoce) — y lo que el
+  // filtro no reconoce NO SE PINTA, pero TAMPOCO SALE DEL LIBRO.
+  // OLA 26 (Familia 9; fallo de Oscar, 2026-11-21 23:41 EST: «No, esa
+  // intención no vale. Hay que curarla. ¿Cómo vamos a perder algo en
+  // silencio? Eso va en contra de nuestras reglas.»): la redacción
+  // anterior de este comentario declaraba diseño la evaporación — las
+  // recetas que reescriben el logbook (settleLogbook, markEditionSeen)
+  // lo reconstruían DESDE el filtro y toda entrada tolerada-no-
+  // reconocida desaparecía del libro persistido en el primer
+  // asentamiento vecino (medido por el Guardián, OBS-26-G1). Esa
+  // declaración queda rechazada por el fallo: desde esta cura las
+  // recetas parten del libro crudo y conservan lo no reconocido
+  // intacto y en su sitio, la misma doctrina que la puerta de deseos
+  // desde la Cura 24 (G24-1: nada se evapora al reescribir). Tolerar
+  // en la puerta y perder al reescribir eran dos doctrinas en guerra;
+  // manda la de conservar.
   if (s.logbook !== undefined) {
     if (!isObjD(s.logbook)) return false;
     if (s.logbook.months !== undefined && !isObjD(s.logbook.months)) return false;

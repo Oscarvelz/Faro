@@ -275,7 +275,20 @@ export function patchLineWith(state: LedgerState, id: string, patch: (live: Line
     const live = bucket.lines.find((l) => l.id === id);
     if (!live) continue;
     const next: Line = { ...live, ...patch(live) };
-    if (next.monthKey === key) return upsertLine(state, next);
+    // OLA 26 (G26-1): CONVERTIR TAMBIÉN COMPONE. La ruta del mismo mes
+    // devolvía el upsert a secas: un parche que cambia el `kind` de la
+    // portadora (rekind) la sacaba de la membresía de su serie sin
+    // componer la migración, y la serie perdía su instrucción en
+    // silencio — la universal de la ola 25 («toda receta que saque una
+    // línea de su serie compone migrateAutopayConfig») era falsa en la
+    // conversión, porque el censo clasificaba ARCHIVOS y reducer.ts ya
+    // «componía» por deleteLine. Desde esta cura la composición vive en
+    // ESTA receta: todo camino que sale de patchLineWith con la línea
+    // modificada pasa por la migración (sin pérdida ni cambio de
+    // resolución, el paso es la misma referencia — componer no cuesta
+    // nada donde nada se pierde). El movimiento de mes ya componía por
+    // deleteLine; la conversión del mismo mes compone aquí.
+    if (next.monthKey === key) return migrateAutopayConfig(state, upsertLine(state, next));
     return upsertLine(deleteLine(state, key, id), next);
   }
   return state;

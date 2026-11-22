@@ -99,7 +99,13 @@ describe("ola17 · §A: «Guardar como tarjeta nueva» procede sobre lo declarad
  * prometió caer sobre la tarjeta viva, y si al cometer ya no
  * vive, la receta aborta y el anuncio verdadero se re-plantea.
  * La guarda del paquete queda como primera puerta (el paquete
- * por delante de una sesión que no adoptó). */
+ * por delante de una sesión que no adoptó).
+ * ENMIENDA OLA 26 (Q26-C1): la caza de la ola 26 midió el
+ * intercalado que esta forma no cubría — la adopción aterriza
+ * DURANTE el commit, entre el juicio de la premisa y la escritura,
+ * y la salida firmó OTRA (espécimen J2.1). La guarda del paquete
+ * pierde su compuerta de revisión y juzga siempre: es la primera
+ * puerta y ya no pide que el paquete vaya por delante. */
 describe("ola17 · §B: la salida convertida re-pregunta contra el paquete almacenado (Cambios)", () => {
   const src = SRC("../../components/faro/cards.tsx");
 
@@ -123,13 +129,26 @@ describe("ola17 · §B: la salida convertida re-pregunta contra el paquete almac
       "la salida de restaurarla de la actualización no se marca: su palabra ya re-pregunta en su commit");
   });
 
-  it("la fuente: los dos commits abortan contra el paquete por delante antes de componer", () => {
+  it("la fuente: los dos commits abortan contra el paquete que dice no-viva antes de componer", () => {
     /* ENMIENDA OLA 18 (BR18-1): la guarda es la misma y aborta en el
      * mismo sitio; el aborto devuelve null por la puerta guardada y no
-     * deja el marco que BR18-1 cazó (entrada, revisión, Deshacer). */
-    const gate = "if (stored && stored.revision > s.revision && stored.ex !== \"alive\") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }";
+     * deja el marco que BR18-1 cazó (entrada, revisión, Deshacer).
+     * ENMIENDA OLA 26 (Q26-C1): la compuerta de revisión MUERE. La
+     * guarda vieja solo abortaba si el paquete iba POR DELANTE en
+     * revisión, y la carrera medida en la ola 26 (espécimen J2.1 de
+     * Cambios: la primera firma OTRA en seis olas de su banco)
+     * aterriza en la rendija — la adopción de la llegada cae durante
+     * el commit, la brecha de revisión se cierra sola y la guarda
+     * callaba justo en su ventana: la edición aterrizó sobre la
+     * tarjeta ya archivada. Desde la cura, la salida convertida
+     * re-juzga la existencia contra el paquete almacenado SIEMPRE
+     * que el paquete exista y diga otra cosa que «viva», digan lo
+     * que digan los sellos; la pregunta de la sesión sigue como
+     * segundo juez. El título de este test se enmienda con la misma
+     * razón: ya no es «el paquete por delante» — es el paquete. */
+    const gate = "if (stored && stored.ex !== \"alive\") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }";
     const draft = src.slice(src.indexOf("const commitDraft"), src.indexOf("const proceedUpdate"));
-    assert.ok(draft.includes(gate), "el commit de la edición re-pregunta al paquete: por delante y ya no viva → veredicto con la verdad del paquete");
+    assert.ok(draft.includes(gate), "el commit de la edición re-pregunta al paquete: si el paquete dice que ya no vive → veredicto con la verdad del paquete");
     assert.ok(draft.indexOf("storedPackExistence(userId, bornId)") < draft.indexOf("const freshAsked"),
       "la pregunta al paquete precede a toda composición de la receta");
     const upd = src.slice(src.indexOf("const commitUpdate"), src.indexOf("const proceedUpdate"));

@@ -36,18 +36,38 @@ export const FIXED_PRESET_Q: Record<Lang, string> = {
 
 /** Las predeterminadas del libro, leídas con desconfianza: solo entran
  * entradas con id y texto de texto; el orden del libro se respeta tal
- * cual — es el orden de la persona. */
+ * cual — es el orden de la persona.
+ * OLA 26 (Familia 11; fallo de Oscar, 2026-11-21 23:43 EST: dos
+ * preguntas con el mismo id son «la misma enfermedad de tener dos
+ * datos innecesarios que dicen lo mismo»): EL RE-LLAVEO. Un libro que
+ * LLEGA con un id duplicado (una restauración, una adopción) no pierde
+ * ninguna pregunta: el lector deja cada una con un id propio — la
+ * primera ocurrencia conserva el suyo; las siguientes reciben el
+ * mismo id con su número (~2, ~3…), derivado determinista, así que
+ * toda lectura del mismo libro crudo produce la misma lista y la
+ * identidad es estable hasta que una receta la persiste (toda receta
+ * de esta lista escribe desde este lector: la primera que toca el
+ * libro lo deja re-llaveado). Ni el texto ni el orden se tocan, y
+ * quitar una quita exactamente esa. */
 export function askPresetsOf(state: LedgerState): AskPreset[] {
   const raw = state.askPresets;
   if (!Array.isArray(raw)) return [];
   const out: AskPreset[] = [];
+  const seen = new Set<string>();
   for (const p of raw as unknown[]) {
     if (!p || typeof p !== "object") continue;
     const o = p as Record<string, unknown>;
     if (typeof o.id !== "string" || typeof o.text !== "string") continue;
     const text = o.text.trim();
     if (!text) continue;
-    out.push({ id: o.id, text });
+    let id = o.id;
+    if (seen.has(id)) {
+      let n = 2;
+      while (seen.has(`${id}~${n}`)) n++;
+      id = `${id}~${n}`;
+    }
+    seen.add(id);
+    out.push({ id, text });
   }
   return out;
 }
@@ -63,7 +83,16 @@ export function addAskPreset(state: LedgerState, text: string): LedgerState {
   if (!clean) return state;
   const list = askPresetsOf(state);
   if (list.some((p) => normQ(p.text) === normQ(clean))) return state;
-  return { ...state, askPresets: [...list, { id: uid(), text: clean }] };
+  // OLA 26 (Familia 11): EL NACIMIENTO NUNCA REPITE UN ID VIVO. La
+  // acuñación se juzga contra los ids que el libro ya tiene, no solo
+  // contra el azar de uid(): si el candidato ya vive en la lista, se
+  // acuña de nuevo con su número hasta hallar uno libre — la pregunta
+  // nueva jamás nace gemela de otra (dos ids iguales eran dos datos
+  // diciendo lo mismo, y quitar una quitaba las dos).
+  const taken = new Set(list.map((p) => p.id));
+  let id = uid();
+  for (let n = 2; taken.has(id); n++) id = `${uid()}~${n}`;
+  return { ...state, askPresets: [...list, { id, text: clean }] };
 }
 
 /** Mueve una pregunta un paso en la dirección dada (−1 sube, +1 baja);
@@ -112,7 +141,7 @@ const CAP_GROUPS: { title: { es: string; en: string }; families: string[] }[] = 
   { title: { es: "Tus cuotas y deudas", en: "Your dues and debts" }, families: ["agenda", "ya-pague", "ranking", "conteo", "deudas", "simulador"] },
   { title: { es: "Tus ahorros y envíos", en: "Your savings and remittances" }, families: ["ahorros", "cuenta-origen", "remesas", "respaldo", "meta", "reparto", "acciones"] },
   { title: { es: "Cuentas y fechas", en: "Math and dates" }, families: ["calculadora", "hipotetico", "contrafactual", "conversor", "calendario", "precio-tiempo", "regla"] },
-  { title: { es: "Faro y tu futuro", en: "Faro and your future" }, families: ["faro-mismo", "futuro", "puente", "aprendizaje", "compuesta", "capacidades", "limites"] },
+  { title: { es: "Faro y tu futuro", en: "Faro and your future" }, families: ["faro-mismo", "futuro", "reach", "puente", "aprendizaje", "compuesta", "capacidades", "limites"] },
 ];
 
 export function capabilitiesText(lang: Lang): {

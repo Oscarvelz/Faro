@@ -381,7 +381,16 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * cosecha ENTERO (hasta el fin de su línea, con su anidamiento) y
      * el resolvedor de expresiones lo expande donde el nombre desnudo
      * se juzga como tipo: el alias vale su expresión, no su cabeza. */
-    const typealiasExprs = new Map<string, { e: string; fi: number }>();
+    /* OLA 26 (M26-A7): LAS DECLARACIONES SE GUARDAN POR (NOMBRE,
+     * ARCHIVO) — la cosecha vieja guardaba UNA por nombre desnudo y
+     * el último archivo escaneado pisaba al anterior: dos typealias
+     * homónimos (`MiCaja = Caja<Fmt>` en A.kt, `= Caja<Otro>` en
+     * B.kt) daban veredictos opuestos según el orden de escaneo. La
+     * Cura 25 le dio a las fábricas la doctrina (nombre, archivo) y
+     * la capa de alias — la otra mitad de la misma cura — quedó con
+     * el mapa de nombre solo. Aquí la cosecha guarda la lista y la
+     * lectura manda en typealiasExprFor, junto a funReturnFor. */
+    const typealiasExprs = new Map<string, { e: string; fi: number }[]>();
     scanned.forEach(({ code }, fi) => {
       for (const m of code.matchAll(/\btypealias\s+(\w+)\s*=\s*/g)) {
         let i = m.index + m[0].length;
@@ -394,7 +403,11 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
           expr += ch; i++;
         }
         const e = expr.trim();
-        if (e) typealiasExprs.set(m[1]!, { e, fi });
+        if (e) {
+          const arr = typealiasExprs.get(m[1]!) ?? [];
+          arr.push({ e, fi });
+          typealiasExprs.set(m[1]!, arr);
+        }
       }
     });
     const importAliasesOf = (code: string): Map<string, string> => {
@@ -403,6 +416,24 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       return out;
     };
     const fileImports = scanned.map(({ code }) => importAliasesOf(code));
+    /* OLA 26 (M26-B): LA ATADURA ENTERA Y EL PAQUETE DE CADA
+     * ARCHIVO. La cosecha de alias guarda solo el último segmento del
+     * destino (`a.MakeFmt` → «MakeFmt»): dos fábricas homónimas en
+     * paquetes distintos eran indistinguibles y el uso que ligaba por
+     * importación con renombre jamás se leía como atadura — el paso
+     * de fábrica se saltaba y la cadena moría en verde (y el sitio
+     * declaraba muerta la superficie viva deletreada por el renombre).
+     * Aquí se cosecha también la ruta ENTERA de cada importación con
+     * renombre y la declaración `package` de cada archivo: la atadura
+     * sabe de qué archivo viene su nombre (factoryOriginFor, junto al
+     * resolvedor de expresiones). */
+    const importPathsOf = (code: string): Map<string, string> => {
+      const out = new Map<string, string>();
+      for (const m of code.matchAll(/\bimport\s+([\w.]+)\s+as\s+(\w+)\b/g)) out.set(m[2]!, m[1]!);
+      return out;
+    };
+    const fileImportPaths = scanned.map(({ code }) => importPathsOf(code));
+    const filePackages: (string | null)[] = scanned.map(({ code }) => /^\s*package\s+([\w.]+)/m.exec(code)?.[1] ?? null);
     // el mapa de alias de importación del PAQUETE (el primer archivo que
     // ata el nombre manda): el tercer paso de la resolución compuesta.
     const pkgImports = new Map<string, string>();
@@ -492,10 +523,27 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
      * del receptor — que puede ser a su vez una aplicación genérica, y
      * se vuelve a partir. Lo que muere no es un salto: es la resolución
      * del argumento compuesto, y se cura resolviéndolo. */
+    /* OLA 26 (M26-C): EL CALIFICADOR SE JUZGA, NO SE TIRA. El
+     * partidor viejo hacía `split(".").pop()` — el calificador se
+     * descartaba ANTES de que ninguna capa lo viera, y `widgets.Fmt`
+     * era «Fmt» para la cerca: una fábrica que devuelve el Fmt de
+     * OTRO paquete acusaba como si devolviera el de la casa (y su
+     * superficie se contaba viva en el sitio). La grafía que la cura
+     * 25 quiso unir era solo la raíz de la casa: `faro.Fmt` ≡ `Fmt`
+     * (y su forma entera, com.oscarvelz.faro.Fmt) — el mismo tipo con
+     * su paquete. Todo otro calificador nombra otro tipo con el mismo
+     * nombre corto, y la clase conserva su calificador entero para
+     * que ninguna capa lo confunda con el de la casa. */
+    const claseDeExpr = (head: string): string => {
+      const segs = head.split(".");
+      if (segs.length === 1) return head;
+      if (segs[segs.length - 2] === "faro") return segs[segs.length - 1]!;
+      return head;
+    };
     const parseTipoExpr = (expr: string): { clase: string; args: string[] } => {
       const t = expr.trim().replace(/\?$/, "");
       const lt = t.indexOf("<");
-      if (lt < 0) return { clase: t.split(".").pop()!, args: [] };
+      if (lt < 0) return { clase: claseDeExpr(t), args: [] };
       const inner = t.slice(lt + 1, t.lastIndexOf(">"));
       const args: string[] = [];
       let depth = 0, cur = "";
@@ -506,7 +554,7 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
         cur += ch;
       }
       if (cur.trim()) args.push(cur.trim());
-      return { clase: t.slice(0, lt).split(".").pop()!, args };
+      return { clase: claseDeExpr(t.slice(0, lt)), args };
     };
     /* OLA 24 (M24-3): EL RETORNO DECLARADO DE LAS FUNCIONES — la
      * cosecha de tipos nunca consultaba el retorno de una función,
@@ -566,6 +614,53 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       if (pool.every((d) => normalizaRetorno(d.e, d.fi) === n0)) return first;
       return pool.find((d) => normalizaRetorno(d.e, d.fi) === "Fmt");
     };
+    /* OLA 26 (M26-A7): EL ALIAS QUE UN NOMBRE ES, VISTO DESDE EL
+     * ARCHIVO DEL USO — la doctrina (nombre, archivo) de funReturnFor
+     * aplicada a la capa de alias: manda la declaración del propio
+     * archivo del uso; sin ella, la lectura de paquete — las
+     * declaraciones que concuerdan tras normalizar la grafía atan
+     * como una, y en desacuerdo manda la atadura de Fmt que exista
+     * (la expresión que ata al formateador, en su cabeza o en sus
+     * argumentos). Sin acuerdo y sin atadura de Fmt, el nombre no se
+     * resuelve: la dirección segura queda solo para ese rincón, como
+     * en las fábricas. El veredicto ya no depende del orden de
+     * escaneo: depende del archivo que usa el nombre. */
+    const normalizaExprAliada = (e: string, fi: number): string => {
+      const p = parseTipoExpr(e);
+      const head = resolveComposed(p.clase, fi);
+      return p.args.length ? `${head}<${p.args.map((a) => normalizaExprAliada(a, fi)).join(", ")}>` : head;
+    };
+    const exprAtaFmt = (e: string, fi: number): boolean =>
+      normalizaExprAliada(e, fi).split(/[^A-Za-z0-9_]+/).includes("Fmt");
+    const typealiasExprFor = (name: string, useFi: number): { e: string; fi: number } | undefined => {
+      const decls = typealiasExprs.get(name);
+      if (!decls?.length) return undefined;
+      const own = decls.filter((d) => d.fi === useFi);
+      const pool = own.length ? own : decls;
+      const first = pool[0]!;
+      const n0 = normalizaExprAliada(first.e, first.fi);
+      if (pool.every((d) => normalizaExprAliada(d.e, d.fi) === n0)) return first;
+      return pool.find((d) => exprAtaFmt(d.e, d.fi));
+    };
+    /* OLA 26 (M26-B): EL ORIGEN DE UNA ATADURA POR IMPORTACIÓN. El
+     * nombre que un archivo liga con renombre (`import a.MakeFmt as
+     * Fabrica`) conserva su origen completo: el nombre destino y el
+     * archivo cuyo paquete la ruta nombra — entre los archivos de ese
+     * paquete, el que DECLARA el nombre como fábrica; si ninguno lo
+     * declara, el primero del paquete. Sin ruta o sin paquete en el
+     * censo, no hay origen: el paso de fábrica cae a su lectura de
+     * siempre (la dirección segura de ese rincón). */
+    const factoryOriginFor = (name: string, fi: number): { name: string; fi: number } | undefined => {
+      const path = fileImportPaths[fi]?.get(name)
+        ?? fileImportPaths.map((mp) => mp.get(name)).find((x) => x !== undefined);
+      if (!path) return undefined;
+      const target = path.split(".").pop()!;
+      const pkg = path.slice(0, path.length - target.length - 1);
+      const candidates = scanned.map((_, i) => i).filter((i) => filePackages[i] === pkg);
+      if (!candidates.length) return undefined;
+      const declaring = candidates.find((i) => (funReturnDecls.get(target) ?? []).some((d) => d.fi === i));
+      return { name: target, fi: declaring ?? candidates[0]! };
+    };
     const resuelveExprTipo = (expr: string, fi: number, seen: ReadonlySet<string> = new Set()): string => {
       const p = parseTipoExpr(expr);
       // OLA 25 (M25-2b): el nombre desnudo que es un ALIAS de una
@@ -576,7 +671,9 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // resuelve desde el archivo que declara el alias, con la
       // guarda de ciclo de siempre.
       if (!p.args.length && !seen.has(p.clase)) {
-        const ta = typealiasExprs.get(p.clase);
+        // OLA 26 (M26-A7): el alias se lee con typealiasExprFor —
+        // la declaración del archivo del uso manda (ver la cosecha).
+        const ta = typealiasExprFor(p.clase, fi);
         if (ta && parseTipoExpr(ta.e).args.length) return resuelveExprTipo(ta.e, ta.fi, new Set([...seen, p.clase]));
       }
       // OLA 24 (M24-3): el nombre desnudo que es una FÁBRICA se
@@ -586,10 +683,24 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // OLA 25 (M25-3): el retorno se lee con funReturnFor — la
       // declaración del archivo del uso manda, y el desacuerdo del
       // paquete no apaga el nombre (la doctrina vive en la cosecha).
-      if (!p.args.length && !seen.has(p.clase) && resolveComposed(p.clase, fi) === p.clase
-        && !propTypes.has(p.clase) && !tipos.has(p.clase)) {
-        const fr = funReturnFor(p.clase, fi);
-        if (fr) return resuelveExprTipo(fr.e, fr.fi, new Set([...seen, p.clase]));
+      // OLA 26 (M26-B): la atadura por importación con renombre
+      // también entra al paso — el nombre SÍ se mueve bajo la capa de
+      // nombres (Fabrica → MakeFmt), y la forma vieja se saltaba el
+      // paso entero: la fábrica ligada así corría verde en el juicio
+      // y su superficie se declaraba muerta en el sitio. Con origen
+      // conocido, el paso lee la fábrica por su nombre destino y
+      // desde su archivo de origen (factoryOriginFor): la declaración
+      // que la atadura nombra es la que manda. Sin origen, la forma
+      // de siempre: el paso solo corre si el nombre no se mueve.
+      if (!p.args.length && !seen.has(p.clase)) {
+        const origin = factoryOriginFor(p.clase, fi);
+        const fname = origin?.name ?? p.clase;
+        const fctx = origin?.fi ?? fi;
+        if ((origin !== undefined || resolveComposed(p.clase, fi) === p.clase)
+          && !propTypes.has(fname) && !tipos.has(fname)) {
+          const fr = funReturnFor(fname, fctx);
+          if (fr) return resuelveExprTipo(fr.e, fr.fi, new Set([...seen, p.clase]));
+        }
       }
       const head = resolveComposed(p.clase, fi);
       return p.args.length ? `${head}<${p.args.map((a) => resuelveExprTipo(a, fi, seen)).join(", ")}>` : head;
@@ -1074,16 +1185,48 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // anidamiento (`Caja<Caja<Fmt>>`) y cada argumento se resuelve
       // como EXPRESIÓN completa desde su archivo — la captura vieja
       // moría en el primer «>» y el argumento anidado entraba roto.
-      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<((?:[^<>]|<[^<>]*>)*)>)?`, "g"))) {
+      // OLA 26 (M26-A5): ese «un nivel» era el límite declarado de la
+      // M23-3b y su espécimen lo falsó, como la «dirección segura» de
+      // la M25-3 en la ola 25: la captura ahora camina el anidamiento
+      // entero (ver el cuerpo del bucle).
+      for (const m of code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) {
         receivers.set(m[1]!, resolveWrittenType(m[2]!, fi));
-        if (m[3] !== undefined) receiverArgs.set(m[1]!, parseTipoExpr(`X<${m[3]}>`).args.map((a) => resuelveExprTipo(a, fi)));
+        // OLA 26 (M26-A5): LOS ARGUMENTOS SE COSECHAN CAMINANDO EL
+        // ANIDAMIENTO ENTERO — la captura vieja era una regex que
+        // admitía UN nivel (`Caja<Caja<Fmt>>`) y al segundo nivel los
+        // argumentos no se cosechaban: la caminata por dueño llegaba
+        // al primer parámetro sin atadura y absolvía por defecto,
+        // ciega a la forma entera (`Caja<Par<Doble<MiCaja>>>` corría
+        // verde con Fmt al fondo). Aquí, desde el fin de la grafía
+        // del tipo, se camina el `<…>` contando profundidad — el
+        // mismo caminar de las cosechas de expresiones de esta cerca
+        // — y el texto interior se parte con parseTipoExpr, que ya
+        // admitía anidamiento arbitrario: la captura era la que no.
+        let argsText: string | null = null;
+        {
+          let i = m.index + m[0].length;
+          while (i < code.length && /\s/.test(code[i]!)) i++;
+          if (code[i] === "<") {
+            let depth = 0, inner = "";
+            for (; i < code.length; i++) {
+              const ch = code[i]!;
+              if (ch === "<") { depth++; if (depth > 1) inner += ch; continue; }
+              if (ch === ">") { depth--; if (depth === 0) break; inner += ch; continue; }
+              inner += ch;
+            }
+            argsText = inner;
+          }
+        }
+        if (argsText !== null) receiverArgs.set(m[1]!, parseTipoExpr(`X<${argsText}>`).args.map((a) => resuelveExprTipo(a, fi)));
         // OLA 25 (M25-2b): el receptor declarado con el alias de una
         // aplicación (`c: MiCaja`) hereda los argumentos del VALOR del
         // alias — su cabeza ya se resolvió arriba; sin sus argumentos,
         // la propiedad genérica del dueño se juzgaba sin atadura y la
         // cadena corría verde.
-        if (m[3] === undefined) {
-          const ta = typealiasExprs.get(m[2]!);
+        // OLA 26 (M26-A7): el alias se lee con typealiasExprFor —
+        // la declaración del archivo del uso manda.
+        if (argsText === null) {
+          const ta = typealiasExprFor(m[2]!, fi);
           if (ta) { const pa = parseTipoExpr(resuelveExprTipo(ta.e, ta.fi)); if (pa.args.length) receiverArgs.set(m[1]!, pa.args); }
         }
       }
@@ -1546,14 +1689,36 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
       // OLA 22 (M22-2): el sitio guarda los argumentos del receptor,
       // como el juicio — la sustitución genérica es la misma.
       const receiverArgsSitio = new Map<string, string[]>();
-      for (const m of f.code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b\\s*(?:<((?:[^<>]|<[^<>]*>)*)>)?`, "g"))) {
+      for (const m of f.code.matchAll(new RegExp(`\\b(\\w+)\\s*:\\s*(${receiverTypeNames})\\b`, "g"))) {
         receiversSitio.set(m[1]!, resolveWrittenType(m[2]!, fiSitio));
-        if (m[3] !== undefined) receiverArgsSitio.set(m[1]!, parseTipoExpr(`X<${m[3]}>`).args.map((a) => resuelveExprTipo(a, fiSitio)));
+        // OLA 26 (M26-A5/A7): la cosecha del sitio camina el mismo
+        // anidamiento entero que la del juicio y lee el alias con la
+        // misma doctrina (nombre, archivo) — un solo caminante para
+        // las dos mitades, también en las formas de esta ola: la
+        // captura de un nivel y el alias de último-escaneo quedaban
+        // vivos en esta copia y las dos mitades habrían vuelto a
+        // discrepar sobre la misma identidad.
+        let argsTextSitio: string | null = null;
+        {
+          let i = m.index + m[0].length;
+          while (i < f.code.length && /\s/.test(f.code[i]!)) i++;
+          if (f.code[i] === "<") {
+            let depth = 0, inner = "";
+            for (; i < f.code.length; i++) {
+              const ch = f.code[i]!;
+              if (ch === "<") { depth++; if (depth > 1) inner += ch; continue; }
+              if (ch === ">") { depth--; if (depth === 0) break; inner += ch; continue; }
+              inner += ch;
+            }
+            argsTextSitio = inner;
+          }
+        }
+        if (argsTextSitio !== null) receiverArgsSitio.set(m[1]!, parseTipoExpr(`X<${argsTextSitio}>`).args.map((a) => resuelveExprTipo(a, fiSitio)));
         // OLA 25 (M25-2b): el sitio hereda los argumentos del valor
         // del alias, como el juicio — un solo caminante para las dos
         // mitades, también en esta cosecha.
-        if (m[3] === undefined) {
-          const ta = typealiasExprs.get(m[2]!);
+        if (argsTextSitio === null) {
+          const ta = typealiasExprFor(m[2]!, fiSitio);
           if (ta) { const pa = parseTipoExpr(resuelveExprTipo(ta.e, ta.fi)); if (pa.args.length) receiverArgsSitio.set(m[1]!, pa.args); }
         }
       }
@@ -2263,6 +2428,93 @@ describe("ola14 · §B: la cáscara decide y pinta con la cifra del gasto (A3/A4
     ];
     assert.ok(caza([...grafia25, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
       "M25-3c: Fmt y faro.Fmt son el mismo tipo tras la capa de nombres: la fábrica ata: acusa");
+  });
+  it("especímenes M26 (ola 26): el anidamiento de dos niveles, el alias con (nombre, archivo), la fábrica por renombre y el calificador juzgado", () => {
+    const fmtDecl = {
+      name: "Fmt.kt",
+      text: "object Fmt { fun money(minor: Long, cur: String): String = \"\"; fun rate(e4: Long): String = \"\" }",
+    };
+    const otroDecl = { name: "Otro.kt", text: "object Otro { fun money(x: Long, c: String): String = \"\"; fun rate(e4: Long): String = \"\" }" };
+    const caza = (files: { name: string; text: string }[]) => censoCascara([fmtDecl, ...files]);
+    // M26-A5: el anidamiento de DOS niveles en la declaración del
+    // receptor — la captura de argumentos admite el anidamiento entero
+    const prof26 = [
+      { name: "Caja.kt", text: "class Caja<T>(val fmt: T)" },
+      { name: "Par.kt", text: "class Par<U>(val caja: U)" },
+      { name: "Doble.kt", text: "class Doble<V>(val caja: V)" },
+      { name: "Alias.kt", text: "typealias MiCaja = Caja<Fmt>" },
+    ];
+    assert.ok(caza([...prof26, { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Par<Doble<MiCaja>>>) = c.fmt.caja.caja.fmt.rateFn(s.spent) }" }]).length >= 1,
+      "M26-A5: Caja<Par<Doble<MiCaja>>> — la cadena camina los dos niveles y llega a Fmt: acusa");
+    const sitioProfundo = censoCascara([fmtDecl, ...prof26,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, c: Caja<Par<Doble<MiCaja>>>) = c.fmt.caja.caja.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!sitioProfundo.some((a) => a.includes("ya no vive en su sitio")),
+      `M26-A5s: la superficie deletreada por la cadena de dos niveles vive en su sitio (la cosecha del sitio camina lo mismo): ${sitioProfundo.join(" | ")}`);
+    assert.deepEqual(caza([
+      { name: "Caja.kt", text: "class Caja<T>(val fmt: T)" },
+      { name: "Par.kt", text: "class Par<U>(val caja: U)" },
+      { name: "Doble.kt", text: "class Doble<V>(val caja: V)" },
+      { name: "Alias.kt", text: "typealias MiCaja = Caja<Otro>" },
+      otroDecl,
+      { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<Par<Doble<MiCaja>>>) = c.fmt.caja.caja.fmt.rateFn(s.spent) }" },
+    ]), [], "M26-A5c (control): el mismo anidamiento hondo con Otro al fondo absuelve — el juicio no acierta de suerte");
+    // M26-A7: dos typealias homónimos — el veredicto no depende del
+    // orden de escaneo (la doctrina (nombre, archivo) de las fábricas)
+    const aliasA = { name: "A.kt", text: "typealias MiCaja = Caja<Fmt>" };
+    const aliasB = { name: "B.kt", text: "typealias MiCaja = Caja<Otro>" };
+    const cajaDecl = { name: "Caja.kt", text: "class Caja<T>(val fmt: T)" };
+    const usoAlias = { name: "Spec.kt", text: "class W { fun a(s: Snap, c: MiCaja) = c.fmt.rateFn(s.spent) }" };
+    assert.ok(caza([cajaDecl, aliasA, aliasB, otroDecl, usoAlias]).length >= 1,
+      "M26-A7-AB: MiCaja homónimo escaneado en orden AB — la atadura de Fmt que existe manda: acusa");
+    assert.ok(caza([cajaDecl, aliasB, aliasA, otroDecl, usoAlias]).length >= 1,
+      "M26-A7-BA: el mismo paquete en orden BA — el mismo veredicto: acusa (sin suerte de orden)");
+    const sitioAliasHomonimo = censoCascara([fmtDecl, cajaDecl, aliasA, aliasB, otroDecl,
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, c: MiCaja) = c.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!sitioAliasHomonimo.some((a) => a.includes("ya no vive en su sitio")),
+      `M26-A7s: la superficie deletreada por el alias homónimo vive en su sitio en el orden AB: ${sitioAliasHomonimo.join(" | ")}`);
+    // M26-B: la fábrica ligada por importación con renombre conserva
+    // su origen — la atadura nombra la declaración que manda
+    const fabA = { name: "A.kt", text: "package a\nfun MakeFmt(): Fmt = Fmt" };
+    const fabB = { name: "B.kt", text: "package b\nfun MakeFmt(): Otro = Otro" };
+    assert.ok(caza([cajaDecl, fabA, fabB, otroDecl,
+      { name: "Spec.kt", text: "import a.MakeFmt as Fabrica\nclass W { fun a(s: Snap, c: Caja<Fabrica>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M26-B1: import a.MakeFmt as Fabrica — la atadura ata a la fábrica de Fmt: acusa");
+    assert.deepEqual(caza([cajaDecl, fabA, fabB, otroDecl,
+      { name: "Spec.kt", text: "import b.MakeFmt as Fabrica\nclass W { fun a(s: Snap, c: Caja<Fabrica>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]), [],
+      "M26-B2 (control): import b.MakeFmt as Fabrica — la atadura ata a la de Otro: absuelve (las dos ataduras ya se distinguen)");
+    assert.deepEqual(caza([cajaDecl, fabA, fabB, otroDecl,
+      { name: "Spec.kt", text: "import a.MakeFmt as Fabrica\nclass W { fun a(s: Snap, c: Caja<Fabrica>) = c.fmt.money(s.spent, s.cur) }" }]), [],
+      "M26-B1c (control): la misma atadura de Fmt con el productor registrado absuelve");
+    const sitioRenombre = censoCascara([fmtDecl, cajaDecl, fabA, fabB, otroDecl,
+      { name: "FaroWidgets.kt", text: "import a.MakeFmt as Fabrica\nclass W { fun a(s: Snap, c: Caja<Fabrica>) = c.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(!sitioRenombre.some((a) => a.includes("ya no vive en su sitio")),
+      `M26-B3s: la superficie deletreada por Caja<Fabrica> vive en su sitio: ${sitioRenombre.join(" | ")}`);
+    // M26-C: el calificador se juzga — widgets.Fmt NO es Fmt; faro.Fmt sí
+    assert.deepEqual(caza([cajaDecl,
+      { name: "A.kt", text: "fun MakeFmt(): widgets.Fmt = Fmt" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]), [],
+      "M26-C2: una sola fábrica que devuelve widgets.Fmt — otro tipo con el mismo nombre corto: absuelve");
+    assert.deepEqual(caza([cajaDecl,
+      { name: "A.kt", text: "fun MakeFmt(): Fmt = Fmt" },
+      { name: "Spec.kt", text: "fun MakeFmt(): widgets.Fmt = Fmt\nclass W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]), [],
+      "M26-C3: la declaración del PROPIO archivo del uso devuelve widgets.Fmt — manda la del uso: absuelve");
+    assert.deepEqual(caza([cajaDecl,
+      { name: "A.kt", text: "fun MakeFmt(): Caja<widgets.Fmt> = Caja(Fmt)" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.fmt.money(s.owed - s.spent, s.cur) }" }]), [],
+      "M26-C4: el calificador largo en el ARGUMENTO del retorno (Caja<widgets.Fmt>): absuelve");
+    assert.ok(caza([cajaDecl,
+      { name: "A.kt", text: "fun MakeFmt(): faro.Fmt = Fmt" },
+      { name: "Spec.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.money(s.owed - s.spent, s.cur) }" }]).length >= 1,
+      "M26-C5c (control): faro.Fmt ES Fmt por la raíz de la casa — la fábrica ata: acusa");
+    const sitioAjeno = censoCascara([fmtDecl, cajaDecl,
+      { name: "A.kt", text: "fun MakeFmt(): widgets.Fmt = Fmt" },
+      { name: "FaroWidgets.kt", text: "class W { fun a(s: Snap, c: Caja<MakeFmt>) = c.fmt.rate(s.rateE4); fun b(s: Snap) = Fmt.money(s.rateE4, \"NIO\") }" },
+    ], true);
+    assert.ok(sitioAjeno.some((a) => a.includes("ya no vive en su sitio")),
+      `M26-C2s: la superficie deletreada por la fábrica de widgets.Fmt NO es la superficie de Fmt — su sitio acusa: ${sitioAjeno.join(" | ")}`);
   });
 });
 

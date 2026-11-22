@@ -46,8 +46,22 @@ export type FunctionEntry = {
    * piso. Sin declaración, la función se presume visible en todo modo
    * (las presunciones del mapa no se inventan: se miden). */
   minMode?: BookMode;
-  /** Área / capítulo del Manual al que pertenece. */
-  area: string;
+  /** Área / capítulo del Manual al que pertenece, en los dos idiomas.
+   * OLA 26 (Familia 10; fallo de Oscar, 2026-11-21 23:42 EST: «No es
+   * Spanglish. Cada idioma preserva su autoría»): era una cadena única
+   * en español y el veredicto EN de Faro mismo nombraba «Cuenta»,
+   * «Mesa de cambio» y «Captura» en un libro en inglés. Cada entrada
+   * declara el nombre de su zona en cada idioma — el de la cara viva
+   * de la app en ese idioma (Desk, Collections, Exchange desk,
+   * Account…), jamás una traducción que la app no muestre. */
+  area: { es: string; en: string };
+  /** OLA 26 (Familia 5, Q26-1 de Cara): la función cuya casa NO guarda
+   * cifras — el nombre, el compartir, la fila de preguntas. La fórmula
+   * «ahí ves las mismas cifras que yo uso para responderte» se dice
+   * SOLO donde el destino guarda cifras; las entradas con esta marca
+   * componen su veredicto sin la fórmula, también bajo su piso. Solo
+   * se declara donde una ola lo midió. */
+  sinCifras?: boolean;
   /** Nombre de la función en la voz de la app. */
   name: { es: string; en: string };
   /** §21 (1.3.382): qué hace, en UNA línea y en la voz del usuario —
@@ -71,7 +85,7 @@ export type FunctionEntry = {
 export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   {
     id: "central.queda",
-    area: "Central",
+    area: { es: "Central", en: "Desk" },
     name: { es: "La Queda de Central", en: "Desk's Left" },
     does: { es: "Lo que queda del mes: lo que entró menos lo que salió.", en: "What's left this month: what came in minus what went out." },
     screen: { es: "Central, cifra mayor", en: "Desk, headline figure" },
@@ -82,7 +96,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "central.tengo",
-    area: "Central",
+    area: { es: "Central", en: "Desk" },
     name: { es: "Tengo (saldos y cuentas)", en: "Have (balances and accounts)" },
     does: { es: "Tus saldos por cuenta y el total que tienes.", en: "Your balances by account and your total." },
     screen: { es: "Central, ficha Tengo", en: "Desk, Have chip" },
@@ -93,7 +107,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "central.gastare",
-    area: "Central",
+    area: { es: "Central", en: "Desk" },
     name: { es: "Gastaré (lo que viene del mes)", en: "Spending (what's ahead this month)" },
     does: { es: "Lo que el mes todavía te va a pedir: cuotas y fijos por venir.", en: "What the month will still ask of you: dues and fixed costs ahead." },
     screen: { es: "Central, ficha Gastaré", en: "Desk, Spending chip" },
@@ -104,7 +118,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "central.pagos",
-    area: "Central",
+    area: { es: "Central", en: "Desk" },
     name: { es: "Pagos (Me deben · Debo · Cuotas · Préstamos)", en: "Payments" },
     does: { es: "Lo que te deben, lo que debes, tus cuotas y préstamos, cada lado en su sitio.", en: "What you're owed, what you owe, your dues and loans, each in its place." },
     screen: { es: "Central, ficha Pagos → Cobros", en: "Desk, Payments chip → Collections" },
@@ -115,7 +129,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "central.hoy",
-    area: "Central",
+    area: { es: "Central", en: "Desk" },
     name: { es: "Puedes gastar hoy", en: "What you can spend today" },
     does: { es: "Cuánto puedes gastar hoy sin romper el ritmo del mes.", en: "How much you can spend today without breaking the month's pace." },
     screen: { es: "Central, lente del día", en: "Desk, today's lens" },
@@ -126,7 +140,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "libros.lineas",
-    area: "Libros",
+    area: { es: "Libros", en: "Books" },
     name: { es: "Los libros del mes (Ingresos · Fijos · Variables · Compras)", en: "The month's books" },
     does: { es: "Tus ingresos, fijos, variables y compras del mes, libro por libro.", en: "Your income, fixed, variable and purchases this month, book by book." },
     screen: { es: "Libros, las cuatro tarjetas", en: "Books, the four cards" },
@@ -137,7 +151,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "libros.neto",
-    area: "Libros",
+    area: { es: "Libros", en: "Books" },
     name: { es: "Balance neto y últimos 6 meses", en: "Net balance and last 6 months" },
     does: { es: "Tu balance neto y cómo viene la serie de los últimos 6 meses.", en: "Your net balance and the last 6 months' trend." },
     screen: { es: "Libros, balance neto", en: "Books, net balance" },
@@ -148,7 +162,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "cobros.mideben",
-    area: "Cobros",
+    area: { es: "Cobros", en: "Collections" },
     name: { es: "Me deben (préstamos dados)", en: "Owed to me" },
     does: { es: "Quién te debe, cuánto queda por persona y cuándo abonaron.", en: "Who owes you, what's left per person and when they last paid." },
     screen: { es: "Cobros → Me deben", en: "Collections → Owed to me" },
@@ -159,7 +173,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "cobros.debo",
-    area: "Cobros",
+    area: { es: "Cobros", en: "Collections" },
     name: { es: "Debo (préstamos recibidos)", en: "I owe (loans received)" },
     does: { es: "Tus préstamos recibidos: cuánto queda y cuánto interés llevas.", en: "Your loans received: what's left and the interest so far." },
     screen: { es: "Cobros → Debo → Préstamos", en: "Collections → I owe → Loans" },
@@ -170,7 +184,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "cobros.tarjetas",
-    area: "Cobros",
+    area: { es: "Cobros", en: "Collections" },
     name: { es: "Tarjetas de crédito", en: "Credit cards" },
     does: { es: "Tus tarjetas: saldo, disponible, mínimo, fecha de pago y recompensas.", en: "Your cards: balance, available, minimum, due date and rewards." },
     screen: { es: "Cobros → Debo → Tarjetas", en: "Collections → I owe → Cards" },
@@ -181,7 +195,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "cobros.cuotas",
-    area: "Cobros",
+    area: { es: "Cobros", en: "Collections" },
     name: { es: "Cuotas y suscripciones", en: "Dues and subscriptions" },
     does: { es: "Tus cuotas y suscripciones: próximo pago, fecha y monto.", en: "Your dues and subscriptions: next payment, date and amount." },
     screen: { es: "Cobros → Cuotas · Central → Pagos", en: "Collections → Dues" },
@@ -193,7 +207,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   {
     id: "cobros.plan",
     minMode: "completo",
-    area: "Cobros",
+    area: { es: "Cobros", en: "Collections" },
     name: { es: "Plan de pago de deudas", en: "Debt payoff plan" },
     does: { es: "Un plan para salir de deudas: meses que faltan e interés por cada orden.", en: "A plan to get out of debt: months left and interest per order." },
     screen: { es: "Cobros → Plan de pago", en: "Collections → Payoff plan" },
@@ -204,7 +218,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "ahorros.stock",
-    area: "Ahorros",
+    area: { es: "Ahorros", en: "Savings" },
     name: { es: "El ahorro total y sus clases", en: "Total savings and its classes" },
     does: { es: "Tu ahorro total y sus clases: cuenta, retiro, emergencia y apartado.", en: "Your total savings and its classes: account, retirement, emergency and set-aside." },
     screen: { es: "Ahorros · Central, banda de ahorros", en: "Savings · Desk savings band" },
@@ -215,7 +229,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "ahorros.colchon",
-    area: "Ahorros",
+    area: { es: "Ahorros", en: "Savings" },
     name: { es: "El colchón", en: "The cushion" },
     does: { es: "Tu colchón: cuántos meses de esenciales cubre lo guardado.", en: "Your cushion: how many months of essentials your savings cover." },
     screen: { es: "Estudio → Colchón real · Asesor", en: "Study → Real cushion" },
@@ -226,7 +240,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "ahorros.mes",
-    area: "Ahorros",
+    area: { es: "Ahorros", en: "Savings" },
     name: { es: "Apartado del mes y ritmo de la meta", en: "Set aside this month and goal pace" },
     does: { es: "Lo que apartaste este mes y cómo va el ritmo hacia tu meta.", en: "What you set aside this month and the pace toward your goal." },
     screen: { es: "Central → Si apartas · Asesor", en: "Desk → If you set aside" },
@@ -237,7 +251,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "estudio.salud",
-    area: "Estudio",
+    area: { es: "Estudio", en: "Study" },
     name: { es: "La salud de tu dinero (nota y cinco chequeos)", en: "Your money's health" },
     does: { es: "La nota de tu dinero y sus cinco chequeos.", en: "Your money's grade and its five checks." },
     screen: { es: "Estudio, primera tarjeta", en: "Study, first card" },
@@ -249,7 +263,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   {
     id: "estudio.flujo",
     minMode: "ritmo",
-    area: "Estudio",
+    area: { es: "Estudio", en: "Study" },
     name: { es: "Recorrido del dinero y en qué se va", en: "Cash flow and where it goes" },
     does: { es: "El recorrido de tu dinero y en qué se va el gasto.", en: "Your money's flow and where the spending goes." },
     screen: { es: "Estudio → Recorrido · En qué se va el gasto", en: "Study → Flow" },
@@ -260,7 +274,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "estudio.regla",
-    area: "Estudio",
+    area: { es: "Estudio", en: "Study" },
     name: { es: "La regla 50·30·20 y los números clave", en: "The 50·30·20 rule and key numbers" },
     does: { es: "La regla 50·30·20 con tus números y los números clave del mes.", en: "The 50·30·20 rule with your numbers, and the month's key numbers." },
     screen: { es: "Estudio → Regla · Números clave", en: "Study → Rule · Key numbers" },
@@ -271,7 +285,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "asesor.lectura",
-    area: "Asesor",
+    area: { es: "Asesor", en: "Advisor" },
     name: { es: "La Lectura del Asesor", en: "The Advisor's Reading" },
     does: { es: "La lectura completa de tu mes, con sus escenarios y palancas.", en: "Your month's full reading, with its scenarios and levers." },
     screen: { es: "Asesor, la tarjeta mayor", en: "Advisor, the main card" },
@@ -283,7 +297,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   {
     id: "asesor.escenarios",
     minMode: "completo",
-    area: "Asesor",
+    area: { es: "Asesor", en: "Advisor" },
     name: { es: "¿Qué pasa si…? (escenarios)", en: "What if…? (scenarios)" },
     does: { es: "Qué pasaría con tu queda si quitaras gastos o repitieras el mes.", en: "What would happen to what's left if you cut spending or repeated the month." },
     screen: { es: "Asesor → ¿Qué pasa si…?", en: "Advisor → What if…?" },
@@ -300,7 +314,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     // funciona en todo modo, como mandó la Ola 11).
     id: "asesor.aprender",
     minMode: "ritmo",
-    area: "Asesor",
+    area: { es: "Asesor", en: "Advisor" },
     name: { es: "Lo que tu Asesor ha aprendido", en: "What your Advisor has learned" },
     does: { es: "Guarda tus palabras para tus cosas — solo las que tú confirmaste — y te deja verlas y borrarlas.", en: "It keeps your words for your things — only the ones you confirmed — and lets you see and delete them." },
     screen: { es: "Ajustes → Lo que tu Asesor ha aprendido", en: "Settings → What your Advisor has learned" },
@@ -311,7 +325,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "historial.stream",
-    area: "Folios",
+    area: { es: "Folios", en: "Folios" },
     name: { es: "El Historial (Folios): todo movimiento", en: "Historial: every movement" },
     does: { es: "Todo movimiento de todos tus meses, con filtros.", en: "Every movement from all your months, with filters." },
     screen: { es: "Folios / Historial, con sus filtros", en: "Folios / Historial" },
@@ -322,7 +336,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "remesas.personas",
-    area: "Ajustes",
+    area: { es: "Ajustes", en: "Settings" },
     name: { es: "Remesas por persona", en: "Remittances by person" },
     does: { es: "Cuánto enviaste a cada persona, este mes, el año y en total.", en: "How much you sent each person, this month, this year and in total." },
     screen: { es: "Ajustes → Remesas · Estudio → Remesas", en: "Settings → Remittances" },
@@ -333,7 +347,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "captura.bandeja",
-    area: "Captura",
+    area: { es: "Captura", en: "Capture" },
     name: { es: "La bandeja y la mesa de revisión", en: "The tray and the review table" },
     does: { es: "Tus borradores por revisar antes de que sean líneas.", en: "Your drafts waiting for review before they become lines." },
     screen: { es: "Libros → La bandeja y la mesa", en: "Books → The tray and the table" },
@@ -344,7 +358,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "captura.escribir",
-    area: "Captura",
+    area: { es: "Captura", en: "Capture" },
     name: { es: "Escribir como pienso / Pegar una lista / Escanear", en: "Write it as I think it / Paste a list / Scan" },
     does: { es: "Anotar escribiendo como piensas, pegando una lista o escaneando.", en: "Jot entries by writing as you think, pasting a list or scanning." },
     screen: { es: "Hoja de Captura (+ / −)", en: "Capture sheet (+ / −)" },
@@ -355,7 +369,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "captura.importar",
-    area: "Captura",
+    area: { es: "Captura", en: "Capture" },
     name: { es: "Importar (banco, Excel, PDF de Faro)", en: "Import (bank, Excel, Faro's own PDF)" },
     does: { es: "Traer movimientos de tu banco, de Excel o de un PDF de Faro.", en: "Bring entries from your bank, Excel or a Faro PDF." },
     screen: { es: "Importar del banco · Hoja de Importar", en: "Import from your bank" },
@@ -366,7 +380,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "cambio.mesa",
-    area: "Mesa de cambio",
+    area: { es: "Mesa de cambio", en: "Exchange desk" },
     name: { es: "Mesa de cambio: tasa, conversión y moneda invitada", en: "Exchange desk: rate, converter, guest currency" },
     does: { es: "La tasa dólar–córdoba, el conversor y la moneda invitada.", en: "The dollar–córdoba rate, the converter and the guest currency." },
     screen: { es: "Mesa de cambio · píldora de moneda", en: "Exchange desk · currency pill" },
@@ -377,7 +391,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "ajustes.estructura",
-    area: "Ajustes",
+    area: { es: "Ajustes", en: "Settings" },
     name: { es: "Estructura, modos y reglas", en: "Structure, modes and rules" },
     does: { es: "Tus categorías, el modo del libro y las reglas aprendidas.", en: "Your categories, the book's mode and the learned rules." },
     screen: { es: "Ajustes → Estructura · Modo", en: "Settings → Structure · Mode" },
@@ -395,7 +409,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     // L-B7 — ninguna función sin su entrada en el índice.
     id: "ajustes.exportar",
     minMode: "ritmo",
-    area: "Ajustes",
+    area: { es: "Ajustes", en: "Settings" },
     name: { es: "Exportar", en: "Export" },
     does: { es: "Saca tus números a Excel o PDF: eliges el período y qué incluir.", en: "Take your numbers out to Excel or PDF: you pick the period and what to include." },
     screen: { es: "Arriba a la derecha, el panel de Exportar", en: "Top right, the Export panel" },
@@ -406,7 +420,7 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
   },
   {
     id: "cuenta.sync",
-    area: "Cuenta",
+    area: { es: "Cuenta", en: "Account" },
     name: { es: "Cuenta, sincronía y sin internet", en: "Account, sync and offline" },
     does: { es: "Tu cuenta, la sincronía y trabajar sin internet.", en: "Your account, sync and working offline." },
     screen: { es: "Barra de arriba (punto de sincronía) · Ajustes → Cuenta", en: "Top bar (sync dot)" },
@@ -423,7 +437,8 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     // entrada existe desde esta cura; el desempate contra la mesa lo
     // manda el patrón del nombre propio en ask2 (faroMismoAnswer).
     id: "account.name",
-    area: "Cuenta",
+    sinCifras: true,
+    area: { es: "Cuenta", en: "Account" },
     name: { es: "Tu nombre en Faro", en: "Your name in Faro" },
     does: { es: "El nombre con el que Faro te nombra, y cambiarlo.", en: "The name Faro calls you, and changing it." },
     screen: { es: "Ajustes → Cuenta → Cómo te nombra Faro", en: "Settings → Account → How Faro names you" },
@@ -438,7 +453,8 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     // preguntas caían en silencio en los dos motores. Esta es su
     // entrada, con su puerta al tema «compartir».
     id: "inbox.link",
-    area: "Captura",
+    sinCifras: true,
+    area: { es: "Captura", en: "Capture" },
     name: { es: "Compartir con Faro", en: "Sharing with Faro" },
     does: { es: "Lo que compartes con Faro desde otra app, y sus puertas.", en: "What you share with Faro from another app, and its doors." },
     screen: { es: "La hoja de Compartir, al compartir desde otra app (sus puertas caen en Central)", en: "The Share sheet, when you share from another app (its doors land on the Desk)" },
@@ -446,6 +462,91 @@ export const FARO_FUNCTION_MAP: FunctionEntry[] = [
     figures: ["lo leído del enlace o la captura: nombre, tienda y precio si venía"],
     counts: "Compartir trae, la persona decide: nada entra a los libros sin pasar por la mesa. La hoja ofrece sus puertas (la espera, un plan en Ritmo, la compra en la bandeja, guardar la tienda) y el precio jamás se inventa: si la página no lo publica, el campo nace vacío.",
     keys: ["compartir", "comparto", "compartieron", "compartido", "share", "shared with me"],
+  },
+  {
+    // OLA 26 (Familia 5, Q26-1 de Asesor): el saldo proyectado nació en
+    // la .365 (el Camino, §19) con tema («saldo-proyectado») y piso
+    // (advisor.projection, Completo) y el mapa no lo aprendió: «¿dónde
+    // veo mi saldo proyectado?» caía en la ficha Tengo de Central con
+    // la fórmula de las mismas cifras — una casa sin ninguna proyección
+    // diaria. La precedencia de patrón en ask2 («saldo proyectado»
+    // gana a central.tengo) acompaña a esta entrada.
+    id: "advisor.projection",
+    minMode: "completo",
+    area: { es: "Asesor", en: "Advisor" },
+    name: { es: "El saldo proyectado, día a día", en: "The projected balance, day by day" },
+    does: { es: "Tu saldo proyectado día a día, tu día más apretado y el primer día en rojo.", en: "Your projected balance day by day, your tightest day and the first day in the red." },
+    screen: { es: "Asesor → Saldo proyectado, día a día", en: "Advisor → Projected balance, day by day" },
+    engine: "projection.ts · projectWalk/readProjection (la caminata del saldo, día a día)",
+    figures: ["saldo proyectado por día", "día más apretado", "primer día en rojo"],
+    counts: "La caminata parte del saldo de hoy y aplica lo que viene con su fecha (cuotas, tarjetas, préstamos, apartados): es la misma caminata de la familia reach y de la Lectura — una sola. Lo que no tiene fecha no se finge.",
+    keys: ["saldo proyectado", "projected balance", "proyeccion", "projection", "dia mas apretado", "tightest day"],
+  },
+  {
+    // OLA 26 (Familia 5, Q26-2 de Asesor): los cambios de precio viven
+    // en Estudio desde la .372 (tema «cambios-precio», piso Completo)
+    // y el mapa no los aprendió: «¿dónde veo los cambios de precio?»
+    // caía en la Mesa de cambio por la palabra «cambio» — la puerta de
+    // la conversión por preguntar por la memoria de precios del libro.
+    id: "study.prices",
+    minMode: "completo",
+    area: { es: "Estudio", en: "Study" },
+    name: { es: "Los cambios de precio", en: "Price changes" },
+    does: { es: "Los productos cuyo precio cambió, con el precio de antes y el de ahora.", en: "The products whose price changed, with the price before and the price now." },
+    screen: { es: "Estudio → Con el tiempo → Cambios de precio", en: "Study → Over time → Price changes" },
+    engine: "prices.ts · currentFixedChanges (la memoria de precios del propio libro)",
+    figures: ["precio anterior y precio nuevo por producto", "fecha del cambio"],
+    counts: "La memoria sale de las compras del libro: cada producto con su precio de antes y el de ahora, leídos de las líneas mismas — ningún precio se trae de fuera.",
+    keys: ["cambios de precio", "cambios de precios", "cambio de precio", "price changes", "price change"],
+  },
+  {
+    // OLA 26 (Familia 5, Q26-2 de Asesor): el Vigilante — el aviso
+    // cuando un precio se mueve del precio fijo que la persona fijó
+    // (asiento advisor.price-watch, Completo) — comparte motor y tema
+    // con los cambios de precio, pero su pregunta es otra («¿dónde veo
+    // el aviso de precio?»): el mapa lo nombra por su cuenta.
+    id: "advisor.price-watch",
+    minMode: "completo",
+    area: { es: "Asesor", en: "Advisor" },
+    name: { es: "El aviso de precio (el Vigilante)", en: "The price alert (the Watchman)" },
+    does: { es: "El aviso cuando un precio se mueve del precio fijo que fijaste.", en: "The alert when a price moves from the fixed price you set." },
+    screen: { es: "Asesor → el aviso cuando un precio se mueve", en: "Advisor → the alert when a price moves" },
+    engine: "prices.ts · priceWatch/hasPriceWatch (el precio fijo de la persona contra el precio de hoy)",
+    figures: ["precio fijado", "precio de hoy del producto", "aviso pendiente"],
+    counts: "El Vigilante compara el precio fijo que la persona fijó contra el precio más reciente del mismo producto en su libro: si no se movió, no hay aviso — jamás se avisa de un precio que no cambió.",
+    keys: ["aviso de precio", "price alert", "precio subio", "subio de precio", "price went up", "vigilante", "price watch"],
+  },
+  {
+    // OLA 26 (Familia 5, completitud): la Bitácora nació en la .367
+    // (tema «bitacora», sin piso: vive en Esencial) y el mapa no la
+    // aprendió: sus preguntas caían en silencio en los tres modos.
+    id: "folios.logbook",
+    area: { es: "Folios", en: "Folios" },
+    name: { es: "La Bitácora y Tu año en Faro", en: "The Logbook and Your year in Faro" },
+    does: { es: "La foto de cada mes al cerrar y la edición de tu año en tarjetas.", en: "Each month's snapshot at close and your year's edition in cards." },
+    screen: { es: "Folios → Bitácora", en: "Folios → Logbook" },
+    engine: "bitacora.ts · logbookOf/settleLogbook (las fotos del mes y la edición del año)",
+    figures: ["foto del mes (entró, salió, neto, apartado)", "la edición del año en tarjetas"],
+    counts: "Las fotos se congelan al cerrar el mes y la edición se encuaderna al cerrar el año, desde los motores de siempre: es un documento contado una sola vez, no un cálculo vivo.",
+    keys: ["bitacora", "logbook", "ano en faro", "year in faro", "edicion del ano", "year edition", "tu ano"],
+  },
+  {
+    // OLA 26 (Familia 5, completitud): la fila de preguntas a la mano
+    // nació en la .369 (tema «preguntas-a-la-mano»; administrarla es de
+    // Ritmo, settings.ask-presets) y el mapa no la aprendió: el Asesor
+    // no podía explicar la fila de su propia caja. Su casa no guarda
+    // cifras (sinCifras): el veredicto nombra el piso sin la fórmula.
+    id: "settings.ask-presets",
+    minMode: "ritmo",
+    sinCifras: true,
+    area: { es: "Ajustes", en: "Settings" },
+    name: { es: "Tus preguntas a la mano", en: "Your questions at hand" },
+    does: { es: "Tu lista de preguntas guardadas, en tu orden, y administrarla.", en: "Your list of saved questions, in your order, and managing it." },
+    screen: { es: "Ajustes → Preguntas a la mano · la fila bajo la caja de Preguntar", en: "Settings → Questions at hand · the row under the Ask box" },
+    engine: "askpresets.ts · askPresetsOf (la lista de la persona, en su orden)",
+    figures: ["la lista de preguntas guardadas, en el orden de la persona"],
+    counts: "La lista es de la persona: sus preguntas, en su orden, un toque = respuesta al instante. Administrarla vive en Ajustes; usarla, en la caja de Preguntar.",
+    keys: ["a la mano", "preguntas guardadas", "saved questions", "mis preguntas", "my questions", "guardo una pregunta", "save a question", "preguntas predeterminadas", "preset questions"],
   },
 ];
 
@@ -476,6 +577,11 @@ export const FUNCTION_TOPIC: Record<string, string> = {
   "account.name": "nombre",
   "inbox.link": "compartir",
   "ajustes.exportar": "exportar",
+  "advisor.projection": "saldo-proyectado",
+  "study.prices": "cambios-precio",
+  "advisor.price-watch": "cambios-precio",
+  "folios.logbook": "bitacora",
+  "settings.ask-presets": "preguntas-a-la-mano",
 };
 
 /** Busca la función del mapa que un usuario nombra al preguntar por la

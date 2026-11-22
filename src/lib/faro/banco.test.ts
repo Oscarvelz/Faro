@@ -1092,7 +1092,10 @@ describe("banco · las cercas del mapa y del banco", () => {
   });
 
   it("el mapa cubre las trece áreas de Faro", () => {
-    const areas = new Set(FARO_FUNCTION_MAP.map((f) => f.area));
+    // OLA 26 (Familia 10): el área es un par {es, en} desde esta cura;
+    // la cobertura se sigue juzgando sobre el nombre español, y la
+    // completitud de los dos nombres la clava la cerca de la ola 26.
+    const areas = new Set(FARO_FUNCTION_MAP.map((f) => f.area.es));
     for (const a of ["Central", "Libros", "Cobros", "Ahorros", "Estudio", "Asesor", "Folios", "Captura", "Mesa de cambio", "Ajustes", "Cuenta"]) {
       assert.ok(areas.has(a), a);
     }

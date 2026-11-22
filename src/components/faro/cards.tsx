@@ -713,7 +713,23 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
        * paquete; la adopción sigue siendo oficio del provider. */
       if (converted) {
         const stored = storedPackExistence(userId, bornId);
-        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }
+        // OLA 26 (Q26-C1): LA EXISTENCIA SE RE-JUZGA AL ESCRIBIR, SIN
+        // LA COMPUERTA DE REVISIÓN. La guarda de la ola 17 solo
+        // abortaba cuando el paquete almacenado iba POR DELANTE en
+        // revisión — y la carrera medida en la ola 26 (Cambios,
+        // espécimen J2.1: la primera firma OTRA en seis olas de este
+        // banco) aterriza exactamente en la rendija: la adopción de la
+        // llegada cae DURANTE el commit, la brecha de revisión se
+        // cierra sola (la sesión ya ES el paquete) o la lectura corre
+        // antes de la adopción, y la guarda calla justo en la ventana
+        // para la que existe — la edición aterrizó sobre la tarjeta ya
+        // archivada, renombrada bajo la forma abierta que anunciaba
+        // «lo que tecleaste sigue aquí». La promesa de la salida
+        // convertida es caer sobre la tarjeta VIVA: se juzga contra el
+        // paquete almacenado siempre que ese paquete exista y diga
+        // otra cosa, digan lo que digan los sellos. Si el paquete dice
+        // «viva», el juicio de la sesión (abajo) sigue mandando.
+        if (stored && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }
       }
       /* Ola 16 (BR16-2): freshId también pregunta DENTRO de su commit.
        * «Guardar como tarjeta nueva» solo procede si la tarjeta SIGUE
@@ -822,7 +838,12 @@ function CardForm({ mode, card, seed, onClose, parkKey }: { mode: "add" | "edit"
        * que gane la carrera de la revisión. */
       if (converted) {
         const stored = storedPackExistence(userId, bornId);
-        if (stored && stored.revision > s.revision && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }
+        // OLA 26 (Q26-C1): el mismo re-juicio al escribir que en
+        // commitDraft — la salida convertida de la actualización
+        // juzga el paquete almacenado SIN la compuerta de revisión:
+        // si el paquete dice que la tarjeta ya no vive, la lectura no
+        // cae sobre el papel archivado (ver la razón entera arriba).
+        if (stored && stored.ex !== "alive") { saveVerdict.current = { applied: false, existence: stored.ex }; return null; }
       }
       const existence = cardExistence(s, bornId);
       if (existence === "gone") { saveVerdict.current = { applied: false, existence }; return null; }

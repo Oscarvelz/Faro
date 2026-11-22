@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.384",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El Asesor conoce más casas de Faro", en: "The Advisor knows more of Faro's homes" },
+    points: {
+      es: [
+        "Preguntar ya sabe dónde viven el saldo proyectado, los cambios de precio, el aviso de precio, la Bitácora y tus preguntas a la mano — y te lleva a su casa.",
+        "En inglés, cada respuesta nombra su área en inglés (Desk, Study, Account…): nada de Spanglish.",
+        "La Bitácora ya no pierde lo que no reconoce: lo guarda intacto, aunque no lo pinte.",
+      ],
+      en: [
+        "Ask now knows where the projected balance, price changes, the price alert, the Logbook and your questions at hand live — and takes you to their home.",
+        "In English, every answer names its area in English (Desk, Study, Account…): no Spanglish.",
+        "The Logbook no longer loses what it doesn't recognize: it keeps it intact, even when it doesn't paint it.",
+      ],
+    },
+    topic: "preguntar-asesor",
+  },
+  {
     version: "1.3.383",
     date: "2026-11-22",
     level: "grande",

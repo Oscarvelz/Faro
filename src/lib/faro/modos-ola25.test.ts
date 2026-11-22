@@ -501,15 +501,33 @@ describe("ola25 · (5) faro-mismo: el nombre gana a la mesa; compartir responde;
 
   it("compartir responde por inbox.link en Esencial, ES y EN", () => {
     for (const [raw, lang] of [
-      ["¿Cómo comparto mi libro?", "es"],
       ["¿Dónde veo lo que me compartieron?", "es"],
-      ["How do I share my book?", "en"],
+      ["¿Cómo comparto un recibo con Faro?", "es"],
+      ["How do I share a link with Faro?", "en"],
     ] as const) {
       const r = ask(fixture(), raw, lang);
       assert.equal(r.kind, "answer", `«${raw}» responde`);
       if (r.kind !== "answer") return;
       assert.equal(r.family, "faro-mismo");
       assert.deepEqual(r.source, ["inbox.link"], `«${raw}» → inbox.link`);
+    }
+  });
+
+  it("OLA 26 (Q26-2 de Cara): compartir EL LIBRO ya no cae en la puerta contraria — la guarda de objeto", () => {
+    // La cura 25 clavó aquí «¿Cómo comparto mi libro?» → inbox.link,
+    // tratando el compartir como una sola puerta. La ola 26 lo falsó:
+    // inbox.link es compartir HACIA DENTRO (lo que otras apps le
+    // mandan a Faro) y la pregunta nombra EL LIBRO hacia fuera —
+    // ninguna función del mapa es dueña de esa superficie todavía,
+    // así que la guarda de objeto de ask2 cierra la puerta equivocada
+    // y la pregunta cae en el silencio honesto de la familia. La ruta
+    // de recibir (el test de arriba) no se toca.
+    for (const [raw, lang] of [
+      ["¿Cómo comparto mi libro?", "es"],
+      ["How do I share my book?", "en"],
+    ] as const) {
+      const r = ask(fixture(), raw, lang);
+      assert.equal(r.kind, "unknown", `«${raw}» no aterriza en el compartir contrario: silencio honesto`);
     }
   });
 

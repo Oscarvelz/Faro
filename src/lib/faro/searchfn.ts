@@ -96,7 +96,10 @@ const entryWords = (e: FunctionEntry, lang: Lang): string[] => {
   const bag = new Set<string>();
   const add = (s: string) => fold(s).split(/[^a-z0-9]+/).filter((w) => w.length > 1).forEach((w) => bag.add(w));
   add(e.name[lang]); add(e.name[lang === "es" ? "en" : "es"]);
-  add(e.does[lang]); add(e.area); add(e.screen[lang]);
+  // OLA 26 (Familia 10, en la integración): el área del mapa es un par
+  // {es, en} — el índice caza por el nombre de la zona en los dos
+  // idiomas, como caza por el nombre de la función en los dos.
+  add(e.does[lang]); add(e.area.es); add(e.area.en); add(e.screen[lang]);
   for (const k of e.keys) add(k);
   return [...bag];
 };
@@ -131,7 +134,7 @@ export function searchFunctions(query: string, lang: Lang, mode: BookMode): Func
     id: e.id,
     name: e.name[lang],
     does: e.does[lang],
-    path: `${e.area} › ${e.screen[lang]}`,
+    path: `${e.area[lang]} › ${e.screen[lang]}`,
     floor: e.minMode && modeRank(mode) < modeRank(e.minMode) ? e.minMode : undefined,
     topic: FUNCTION_TOPIC[e.id],
   }));

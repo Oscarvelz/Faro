@@ -600,7 +600,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "remesas",
     name: { es: "Remesas: patrón de envíos", en: "Remittances: sending pattern" },
-    cap: { es: "tu patrón de remesas: cuánto, a quién y cada cuánto", en: "your remittance pattern: how much, to whom and how often" },
+    cap: { es: "tu patrón de remesas: cuánto, a quién y cada cuánto — en Completo", en: "your remittance pattern: how much, to whom and how often — in Complete" },
     status: "viva",
     source: ["remesas.personas", "asesor.lectura"],
     axes: ["quién (persona × todas) × cuándo (este mes × año × siempre)"],
@@ -662,7 +662,7 @@ export const QUESTION_BANK: BankFamily[] = [
     name: { es: "Faro mismo: dónde se ve y cómo se hace", en: "Faro itself: where and how" },
     cap: { es: "dónde se ve cada cosa en Faro y cómo se hace", en: "where each thing lives in Faro and how to do it" },
     status: "viva",
-    source: ["captura.bandeja", "captura.escribir", "ajustes.estructura", "cuenta.sync", "central.queda", "ahorros.stock", "cobros.tarjetas", "cambio.mesa"],
+    source: ["captura.bandeja", "captura.escribir", "ajustes.estructura", "cuenta.sync", "central.queda", "ahorros.stock", "cobros.tarjetas", "cambio.mesa", "advisor.projection", "study.prices", "advisor.price-watch", "folios.logbook", "settings.ask-presets"],
     axes: ["función (todo el askmap) × tipo (dónde veo × cómo hago)"],
     canonical: {
       es: ["¿Dónde veo mis recompensas?", "¿Cómo importo mi banco?", "¿Dónde está mi colchón?", "¿Cómo cambio el modo?"],
@@ -675,7 +675,7 @@ export const QUESTION_BANK: BankFamily[] = [
   {
     id: "futuro",
     name: { es: "Futuro: proyecciones con supuesto dicho", en: "Future: projections with the assumption stated" },
-    cap: { es: "proyecciones a futuro, con el supuesto dicho en voz alta", en: "projections into the future, with the assumption stated out loud" },
+    cap: { es: "proyecciones a futuro, con el supuesto dicho en voz alta — en Completo", en: "projections into the future, with the assumption stated out loud — in Complete" },
     status: "viva",
     source: ["cobros.plan", "ahorros.mes", "asesor.escenarios"],
     axes: ["qué (deuda × ahorro × queda) × horizonte (meses × fecha)"],
@@ -686,6 +686,32 @@ export const QUESTION_BANK: BankFamily[] = [
     answerShape: "La cifra del motor de proyección (payoffPlan, ritmo de apartado) CON el supuesto en la misma respuesta (R7): presupuesto usado o ritmo real, y qué lo movería.",
     contradiction: "Sin plan ni ritmo (ningún abono en 90 días), no hay proyección: se dice qué falta para poder proyectar.",
     silences: ["«¿Debería invertir?» NO es futuro: es opinión, fuera del núcleo dinero/app — silencio honesto hasta que Oscar diga otra cosa."],
+  },
+  {
+    // OLA 26 (Familia 6, E26-2): EL CAMINO ENTRA EN EL INVENTARIO. La
+    // familia reach responde desde la .365 (ask2 la delega en su paso
+    // 0b) y el banco no la llevaba: la descripción que «crece sola»
+    // jamás contaba el alcance día a día — su capacidad principal
+    // bajo Completo. Entra como familia viva, con su línea cap en su
+    // grupo («Faro y tu futuro», en askpresets.ts). Y su cap nombra su
+    // piso desde el nacimiento, como mandan las líneas de profundidad
+    // Completo desde esta misma cura (Q26-3 de Asesor: el patrón de
+    // remesas y las proyecciones nombran «— en Completo» en su texto,
+    // para que la descripción — que sigue siendo una — no prometa en
+    // presente lo que el modo vigente no entrega).
+    id: "reach",
+    name: { es: "El Camino: ¿llego a un día?", en: "The Path: do I reach a day?" },
+    cap: { es: "si llegas a un día: tu saldo proyectado día a día y tu día más apretado — en Completo", en: "whether you reach a day: your projected balance day by day and your tightest day — in Complete" },
+    status: "viva",
+    source: ["advisor.projection", "asesor.lectura"],
+    axes: ["día destino (fin de mes × un día nombrado)"],
+    canonical: {
+      es: ["¿Llego a fin de mes?", "¿Cuál es mi día más apretado?", "¿Llego al día 20?"],
+      en: ["Do I make it to the end of the month?", "What's my tightest day?", "Do I reach the 20th?"],
+    },
+    answerShape: "La caminata del saldo proyectado (projectWalk): el saldo de cada día con lo que entra y lo que sale, y el día más apretado nombrado. Bajo Completo, el delegado nombra el piso sin cifras (la familia modelo de LA FRONTERA).",
+    contradiction: "Si el día nombrado ya pasó, se dice: la caminata es hacia adelante, no una foto del ayer.",
+    silences: ["«¿Cuánto me queda?» sin día ni fin de mes no es reach: es left.", "«¿Cuándo termino de pagar?» no es reach: es futuro."],
   },
   {
     id: "ausencia",

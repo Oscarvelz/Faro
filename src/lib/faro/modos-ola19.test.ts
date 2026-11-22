@@ -516,8 +516,18 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // de migración que deleteLine compone entra también en la firma de
   // quienes componen deleteLine (patchLine y patchLineWith, en su
   // movimiento de mes). La clase no cambia: guardadas, mismas cuentas.
-  "components/faro/screens.tsx|commitGuarded|patchLine|patchLine+patchLineWith+upsertLine+deleteLine+migrateAutopayConfig": ["guardada", 13],
-  "components/faro/screens.tsx|commitGuarded|patchLineWith|patchLineWith+upsertLine+deleteLine+migrateAutopayConfig": ["guardada", 5],
+  // ENMIENDA OLA 26 (familia 1, G26-1): patchLineWith compone la
+  // migración TAMBIÉN en su ruta del mismo mes (la conversión), y la
+  // firma lo descubre en su orden nuevo — migrateAutopayConfig camina
+  // justo tras patchLineWith en la cadena de patchLine. La llave se
+  // re-clasifica con su razón, como manda la ley de este censo: la
+  // clase no cambia (guardada: la puerta de la forma) ni la cuenta.
+  "components/faro/screens.tsx|commitGuarded|patchLine|patchLine+patchLineWith+migrateAutopayConfig+upsertLine+deleteLine": ["guardada", 13],
+  // ENMIENDA OLA 26 (familia 1, G26-1): la misma re-clasificación
+  // para la cabeza directa — patchLineWith compone la migración en
+  // las dos rutas y su firma la nombra en su orden nuevo. Clase y
+  // cuenta intactas.
+  "components/faro/screens.tsx|commitGuarded|patchLineWith|patchLineWith+migrateAutopayConfig+upsertLine+deleteLine": ["guardada", 5],
   "components/faro/screens.tsx|commitGuarded|restoreDefaultCategories|restoreDefaultCategories": ["guardada", 1],
   "components/faro/screens.tsx|commitGuarded|restoreRetiro|restoreRetiro+seedRetiro": ["guardada", 2],
   "components/faro/screens.tsx|commitGuarded|run|—": ["guardada", 1],

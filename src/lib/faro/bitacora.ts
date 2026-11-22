@@ -35,10 +35,32 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 const isFin = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const isText = (v: unknown): v is LogText => isObj(v) && typeof v.es === "string" && typeof v.en === "string";
 
+/** La forma de cifra congelada que la cara desreferencia sin red
+ * (figure.minor, before.minor al pintar): objeto con minor finito y
+ * la moneda de la unión. */
+const isFrozenMoney = (v: unknown): boolean =>
+  isObj(v) && isFin(v.minor) && (v.currency === "NIO" || v.currency === "USD");
+
 function cardOk(c: unknown): c is LogCard {
   if (!isObj(c) || !isText(c.title) || !isText(c.context)) return false;
   if (c.kind !== "cover" && c.kind !== "big" && c.kind !== "compare" && c.kind !== "trend" && c.kind !== "close") return false;
   if (!isObj(c.explain) || !isText(c.explain.what) || !isText(c.explain.how) || !isText(c.explain.so)) return false;
+  // OLA 26 (G26-3): LA PUERTA JUZGA LOS OPCIONALES QUE LA CARA
+  // DESREFERENCIA. cardOk solo juzgaba los campos requeridos y los
+  // opcionales entraban sin juicio: `points: 42` llegaba al esparcido
+  // de TrendChart y la edición entera se volvía inabrible con un
+  // TypeError al pintar; `figure: 42` pintaba NaN. Desde esta cura,
+  // un opcional presente se juzga en la dimensión de su lectura:
+  // points como el arreglo de números finitos que la aritmética del
+  // gráfico lee, figure/before como la cifra congelada que se
+  // desreferencia, figureLabel como texto, mark como número finito.
+  // La tarjeta malformada no entra — y con la Familia 9, «no entra»
+  // significa «no se pinta»: el libro la conserva intacta.
+  if (c.figure !== undefined && !isFrozenMoney(c.figure)) return false;
+  if (c.before !== undefined && !isFrozenMoney(c.before)) return false;
+  if (c.figureLabel !== undefined && !isText(c.figureLabel)) return false;
+  if (c.points !== undefined && (!Array.isArray(c.points) || !c.points.every(isFin))) return false;
+  if (c.mark !== undefined && !isFin(c.mark)) return false;
   return true;
 }
 
@@ -459,6 +481,42 @@ export function composeYearEdition(state: LedgerState, year: number, today: stri
   return { year, countedOn: today, partial, since, currency: display, cards: trimmed, seenAt: "" };
 }
 
+/* ---------- la conservación de lo no reconocido (Familia 9) ---------- */
+
+/** OLA 26 (Familia 9; fallo de Oscar, 2026-11-21 23:41 EST): LA
+ * BITÁCORA CONSERVA LO QUE NO RECONOCE. Toda receta que reescribe el
+ * logbook componía el libro persistido DESDE el filtro (logbookOf):
+ * una entrada tolerada por la puerta pero no reconocida por el lector
+ * desaparecía del libro en el primer asentamiento que tocara cualquier
+ * otra cosa (OBS-26-G1: la foto dañada de 2025-10 se evaporó al
+ * asentarse la de 2026-10). La casa lo había declarado diseño en
+ * defaults.ts; el fallo lo rechazó: «¿Cómo vamos a perder algo en
+ * silencio? Eso va en contra de nuestras reglas.» Desde esta cura el
+ * libro que persiste se compone así: lo reconocido sale del filtro y
+ * de la lógica de la receta (que obra solo sobre lo reconocido:
+ * asienta, encuaderna, marca); lo que el filtro NO reconoce se
+ * arrastra del libro crudo, intacto y en su sitio — no se pinta,
+ * porque pintar lo manda el filtro al leer, pero jamás sale del
+ * libro. La misma doctrina que la puerta de deseos desde la Cura 24
+ * (G24-1: nada se evapora al reescribir). */
+function persistedLogbook(
+  state: LedgerState,
+  book: Logbook,
+  months: Record<string, LogMonth>,
+  editions: Record<string, LogEdition>,
+): Logbook {
+  const raw = state.logbook as unknown as Record<string, unknown> | undefined;
+  const rawMonths = isObj(raw?.months) ? (raw.months as Record<string, unknown>) : {};
+  const rawEditions = isObj(raw?.editions) ? (raw.editions as Record<string, unknown>) : {};
+  const outMonths: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(rawMonths)) if (!(k in book.months)) outMonths[k] = v;
+  for (const [k, v] of Object.entries(months)) outMonths[k] = v;
+  const outEditions: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(rawEditions)) if (!(k in book.editions)) outEditions[k] = v;
+  for (const [k, v] of Object.entries(editions)) outEditions[k] = v;
+  return { ...(raw ?? {}), months: outMonths, editions: outEditions } as unknown as Logbook;
+}
+
 /* ---------- el asentamiento callado (al abrir, como el autopay) ---------- */
 
 /**
@@ -501,7 +559,10 @@ export function settleLogbook(state: LedgerState, today: string): { state: Ledge
     if (editions[k.slice(0, 4)]) { delete months[k]; changed = true; }
   }
   if (!changed) return { state, changed: false };
-  return { state: { ...state, logbook: { months, editions } }, changed: true };
+  // Familia 9: el libro que persiste conserva lo no reconocido
+  // (persistedLogbook) — el asentamiento obra sobre lo reconocido y
+  // no evapora nada más.
+  return { state: { ...state, logbook: persistedLogbook(state, book, months, editions) }, changed: true };
 }
 
 /** Marca la edición como vista (la serie se cerró por primera vez). */
@@ -509,7 +570,10 @@ export function markEditionSeen(state: LedgerState, year: number, today: string)
   const book = logbookOf(state);
   const ed = book.editions[String(year)];
   if (!ed || ed.seenAt) return state;
-  return { ...state, logbook: { months: book.months, editions: { ...book.editions, [String(year)]: { ...ed, seenAt: today } } } };
+  // Familia 9: marcar vista reescribe el libro — y conserva lo no
+  // reconocido, como todo asentamiento (persistedLogbook).
+  const editions = { ...book.editions, [String(year)]: { ...ed, seenAt: today } };
+  return { ...state, logbook: persistedLogbook(state, book, book.months, editions) };
 }
 
 /** La edición más reciente aún no vista: la que Central anuncia. */

@@ -2554,8 +2554,39 @@ function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
   const propia = /(mi nombre|my name|me llamo|me llama|el nombre con que|faro call me|faro calls me)/.test(folded)
     ? FARO_FUNCTION_MAP.find((x) => x.id === "account.name") ?? null
     : null;
-  const f = propia ?? functionOfQuestion(folded);
+  // OLA 26 (Familia 5, Q26-1/Q26-2 de Asesor): LAS PRECEDENCIAS DEL
+  // MAPA NUEVO, al mismo nivel de patrón que la del nombre. «Saldo
+  // proyectado» ganaba la ficha Tengo por puntaje («saldo» es clave de
+  // central.tengo) y la persona recibía los saldos de hoy por la
+  // caminata diaria; «cambios de precio» ganaba la Mesa de cambio por
+  // la palabra «cambio». Cuando la pregunta nombra la proyección o
+  // los precios, la función es la suya, diga lo que diga el puntaje;
+  // las preguntas verdaderas de saldos y de conversión no nombran ni
+  // «proyectado» ni «precio» y siguen llegando a su casa por el
+  // puntaje de siempre (controles en la cerca de la ola 26).
+  const proyectado = /(saldo proyectado|projected balance)/.test(folded)
+    ? FARO_FUNCTION_MAP.find((x) => x.id === "advisor.projection") ?? null
+    : null;
+  const precios = /(cambios de precio|cambios de precios|price changes)/.test(folded)
+    ? FARO_FUNCTION_MAP.find((x) => x.id === "study.prices") ?? null
+    : /(aviso de precio|price alert|precio subio|subio de precio|price went up)/.test(folded)
+      ? FARO_FUNCTION_MAP.find((x) => x.id === "advisor.price-watch") ?? null
+      : null;
+  const f = propia ?? proyectado ?? precios ?? functionOfQuestion(folded);
   if (!f) return null;
+  // OLA 26 (Familia 5, Q26-2 de Cara): LA GUARDA DE OBJETO DEL
+  // COMPARTIR. «¿Cómo comparto mi libro?» casaba con inbox.link por
+  // el verbo «comparto» y la persona recibía la puerta CONTRARIA —
+  // compartir HACIA DENTRO (lo que otras apps le mandan a Faro) por
+  // preguntar cómo comparte SU libro hacia fuera. Ninguna función del
+  // mapa es dueña todavía de compartir el libro (la superficie no ha
+  // nacido), así que la guarda cierra la puerta equivocada y la
+  // pregunta cae en el silencio honesto de la familia: un desvío es
+  // peor que el silencio. La ruta de recibir no se toca: sin el
+  // objeto «libro», inbox.link responde como siempre (control en la
+  // cerca). Cuando la superficie de compartir el libro nazca, su
+  // entrada del mapa será la dueña de esta pregunta.
+  if (f.id === "inbox.link" && /(compart|share)/.test(folded) && /(mi libro|el libro|my book|the book)/.test(folded)) return null;
   // A23-5 (cura de la ola 23): la fórmula «ahí ves las mismas cifras
   // que yo uso» no se dice de una cara que el modo no muestra. Cuando
   // el mapa declara el piso de la función (minMode, declarado solo
@@ -2563,17 +2594,28 @@ function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
   // nombra el piso y no promete las cifras — como la puerta de
   // cobros.plan ya hacía al caer a su explicación. La nota sigue
   // nombrando el tema: la explicación del Manual es el destino honesto.
+  // OLA 26 (Familias 5 y 10): el área se compone en el idioma del
+  // libro (f.area trae los dos nombres desde esta cura — en un libro
+  // EN ninguna respuesta nombra «Cuenta» ni «Captura»), y las
+  // funciones sin cifras (sinCifras: el nombre, el compartir, la fila
+  // a la mano) componen su veredicto sin la fórmula ni su sombra —
+  // bajo su piso nombran el piso y nada más: su casa no guarda cifras
+  // que esconder.
   if (f.minMode && !askReachesFloor(c.mode, f.minMode)) {
     return {
       kind: "answer", family: "faro-mismo",
-      verdict: L(c.lang, `Eso es «${f.name.es}», en el área de ${f.area} (${f.screen.es}). Vive en ${modeWord(c.lang, f.minMode)}: en ${modeWord(c.lang, c.mode)} no ves esas cifras.`, `That's "${f.name.en}", in the ${f.area} area (${f.screen.en}). It lives in ${modeWord(c.lang, f.minMode)}: in ${modeWord(c.lang, c.mode)} you don't see those figures.`),
+      verdict: f.sinCifras
+        ? L(c.lang, `Eso es «${f.name.es}», en el área de ${f.area.es} (${f.screen.es}). Vive en ${modeWord(c.lang, f.minMode)}.`, `That's "${f.name.en}", in the ${f.area.en} area (${f.screen.en}). It lives in ${modeWord(c.lang, f.minMode)}.`)
+        : L(c.lang, `Eso es «${f.name.es}», en el área de ${f.area.es} (${f.screen.es}). Vive en ${modeWord(c.lang, f.minMode)}: en ${modeWord(c.lang, c.mode)} no ves esas cifras.`, `That's "${f.name.en}", in the ${f.area.en} area (${f.screen.en}). It lives in ${modeWord(c.lang, f.minMode)}: in ${modeWord(c.lang, c.mode)} you don't see those figures.`),
       pieces: [], note: L(c.lang, `Su tema en el Manual es «${f.name.es}».`, `Its Manual topic is "${f.name.en}".`),
       source: [f.id], lines: 0,
     };
   }
   return {
     kind: "answer", family: "faro-mismo",
-    verdict: L(c.lang, `Eso vive en ${f.screen.es}: es «${f.name.es}», en el área de ${f.area}. Ahí ves las mismas cifras que yo uso para responderte.`, `That lives on ${f.screen.en}: it's "${f.name.en}", in the ${f.area} area. There you see the same figures I use to answer you.`),
+    verdict: f.sinCifras
+      ? L(c.lang, `Eso vive en ${f.screen.es}: es «${f.name.es}», en el área de ${f.area.es}.`, `That lives on ${f.screen.en}: it's "${f.name.en}", in the ${f.area.en} area.`)
+      : L(c.lang, `Eso vive en ${f.screen.es}: es «${f.name.es}», en el área de ${f.area.es}. Ahí ves las mismas cifras que yo uso para responderte.`, `That lives on ${f.screen.en}: it's "${f.name.en}", in the ${f.area.en} area. There you see the same figures I use to answer you.`),
     pieces: [], note: L(c.lang, `Su tema en el Manual es «${f.name.es}».`, `Its Manual topic is "${f.name.en}".`),
     source: [f.id], lines: 0,
   };
@@ -3276,7 +3318,10 @@ function answerSingle(
   // «¿cómo comparto…?», «¿cómo me llama Faro?» y «¿dónde cambio el
   // nombre…?» no casaban con ninguna forma de la puerta del banco y
   // caían en silencio antes de llegar al mapa.
-  if (/(donde (veo|esta|encuentro|cambio)|como (hago|importo|cambio|veo|comparto)|como me (llama|llamo)|where (do|can) i|how do i)/.test(folded)) {
+  // OLA 26 (Familia 5): la puerta aprende «guardo» — «¿cómo guardo
+  // una pregunta?» y «¿dónde guardo mis preguntas?» son de la fila a
+  // la mano que el mapa aprende en la misma cura.
+  if (/(donde (veo|esta|encuentro|cambio|guardo)|como (hago|importo|cambio|veo|comparto|guardo)|como me (llama|llamo)|where (do|can) i|how do i)/.test(folded)) {
     const r = faroMismoAnswer(c, folded);
     if (r) return r;
   }
