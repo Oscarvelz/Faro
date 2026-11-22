@@ -227,6 +227,7 @@ describe("ola25 · (1) toda puerta que borra compone la migración", () => {
       "lib/faro/retiro.ts": "compone",
       "lib/faro/defaults.ts": "compone",
       "lib/faro/bankparse.ts": "compone",
+      "lib/faro/fuse.ts": "compone",
       "lib/faro/sample.ts": "construcción",
       "lib/faro/area-advice.ts": "lectura",
       "lib/faro/advisor.ts": "lectura",
@@ -260,6 +261,9 @@ describe("ola25 · (1) toda puerta que borra compone la migración", () => {
     const bankparse = srcOf("./bankparse.ts");
     assert.ok(bodyOf(bankparse, "export function revertImportCounted").includes("migrateAutopayConfig("));
     assert.ok(bodyOf(bankparse, "export function revertImport(state").includes("migrateAutopayConfig("));
+    // La puerta de la lápida del libro compartido (Pieza C3, 1.3.392)
+    // borra y compone el paso, como toda puerta que borra.
+    assert.ok(bodyOf(srcOf("./fuse.ts"), "export function withTombstone").includes("migrateAutopayConfig("));
   });
 });
 

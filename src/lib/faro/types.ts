@@ -693,6 +693,17 @@ export type AskPreset = {
  * la llave es app + forma del texto con las cifras plegadas, para que
  * el mismo aviso con otro monto también calle; la etiqueta es lo que
  * Ajustes muestra (la app y el principio del aviso, legible). */
+/** La lápida de una línea borrada en un libro compartido (Pieza C3,
+ * 1.3.392): el hecho, firmado — nunca la línea. Ver LedgerState. */
+export type Tombstone = {
+  /** El id de la línea borrada. */
+  id: string;
+  /** Cuándo se borró (ISO). */
+  at: string;
+  /** La cuenta que la borró. */
+  by: string;
+};
+
 export type NoticeRule = {
   key: string;
   app: string;
@@ -743,6 +754,13 @@ export type LedgerState = {
    * Ajustes (Ritmo) y se borran una a una. Fuera de months: ningún
    * total las lee. */
   noticeRules?: NoticeRule[];
+  /** Las lápidas del libro compartido (Pieza C3, 1.3.392): el hecho
+   * firmado de que una línea se borró — su id, cuándo y quién — para
+   * que ninguna copia vieja la resucite en la fusión (F-C2: lo borrado
+   * se borra definitivamente). Vive FUERA de months: ningún total la
+   * lee, y el historial conserva el hecho, nunca la línea. Ausente en
+   * libros viejos y personales = ninguna lápida. */
+  tombstones?: Tombstone[];
   /** Los patrones aprendidos del Asesor (Ola 11 del banco, integrados
    * en 1.3.383): las palabras del usuario para sus cosas, confirmadas
    * por su toque o su corrección — palabra → ciudadano, jamás una

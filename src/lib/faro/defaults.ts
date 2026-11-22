@@ -1118,5 +1118,15 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
       if (!isStrD(r.key) || !isStrD(r.app) || !isStrD(r.label) || !isStrD(r.at)) return false;
     }
   }
+  // tombstones (las lápidas del libro compartido, Pieza C3): si está,
+  // es una lista de hechos firmados — id, cuándo, quién — y nada más;
+  // la fusión las lee con desconfianza además de esta puerta.
+  if (s.tombstones !== undefined) {
+    if (!Array.isArray(s.tombstones)) return false;
+    for (const t of s.tombstones as unknown[]) {
+      if (!isObjD(t)) return false;
+      if (!isStrD(t.id) || !isStrD(t.at) || !isStrD(t.by)) return false;
+    }
+  }
   return true;
 }

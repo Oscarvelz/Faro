@@ -237,6 +237,32 @@ export async function fetchSharedBook(ownerId: string): Promise<unknown | null> 
   } catch { return null; }
 }
 
+/**
+ * Pieza C3 (1.3.392): empujar MI copia del libro compartido siendo
+ * miembro que anota. El servidor empalma (shared-push.sql): lo fuera
+ * de mi alcance queda intacto, lo mío se reemplaza, mis lápidas
+ * borran. Si la revisión ya se movió, won=false y el libro que vuelve
+ * es mi copia fresca de lo que hay — fusiono (fuse.ts) y reintento.
+ * null = sin pieza, sin red o sin membresía: nada se fingió guardado.
+ */
+export async function pushSharedBook(ownerId: string, book: unknown, baseRevision: number): Promise<{ won: boolean; revision: number; book: unknown } | null> {
+  try {
+    const { data, error } = await supabase.rpc("faro_shared_push", {
+      p_owner: ownerId,
+      p_data: JSON.stringify(book),
+      p_base_revision: baseRevision,
+    });
+    if (error || !Array.isArray(data) || data.length === 0) return null;
+    const row = data[0] as Record<string, unknown>;
+    if (typeof row.data_json !== "string" || typeof row.won !== "boolean") return null;
+    return {
+      won: row.won,
+      revision: typeof row.revision === "number" ? row.revision : baseRevision,
+      book: JSON.parse(row.data_json) as unknown,
+    };
+  } catch { return null; }
+}
+
 export async function signOutEverywhereLocal() {
   try { await supabase.auth.signOut({ scope: "local" }); } catch { /* offline: still clear locally */ }
   try { localStorage.removeItem("faro-auth"); sessionStorage.removeItem("faro-auth"); } catch { /* ignore */ }

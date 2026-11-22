@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.392",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El libro compartido: dos personas, un solo libro", en: "The shared book: two people, one book" },
+    points: {
+      es: [
+        "Tercera pieza del cimiento: ya existe el motor que compone lo que dos personas anotan a la vez en el mismo libro — sin duplicados, y lo borrado no resucita desde ningún teléfono.",
+        "Si los dos tocan la misma línea, se compone campo a campo; la estructura sigue ganando por revisión, con la puerta de conflicto de siempre si hiciera falta.",
+      ],
+      en: [
+        "Third piece of the foundation: the engine now exists that composes what two people note at the same time in the same book — no duplicates, and what is deleted never comes back from any phone.",
+        "If both touch the same line, it composes field by field; structure still wins by revision, with the usual conflict door if it is ever needed.",
+      ],
+    },
+  },
+  {
     version: "1.3.391",
     date: "2026-11-22",
     level: "menor",
