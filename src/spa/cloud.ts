@@ -220,6 +220,23 @@ export const removeMember = (id: string) => membershipCall("faro_remove", id);
 export const offerTransfer = (id: string) => membershipCall("faro_offer_transfer", id);
 export const acceptTransfer = (id: string) => membershipCall("faro_accept_transfer", id);
 
+/**
+ * Pieza C2 (1.3.391): leer el libro de un dueño SIENDO su miembro. La
+ * única puerta es la función faro_shared_book (shared.sql), que cumple
+ * el alcance EN EL SERVIDOR y devuelve una copia ya filtrada: fuera de
+ * alcance no llega nada, ni las categorías ni las tiendas. Devuelve el
+ * JSON crudo (unknown): cargarlo con desconfianza es trabajo de la
+ * Pieza C3/C7, cuando el libro compartido se abra en la app. null = sin
+ * acceso, sin pieza aplicada o sin red — indistinguibles a propósito.
+ */
+export async function fetchSharedBook(ownerId: string): Promise<unknown | null> {
+  try {
+    const { data, error } = await supabase.rpc("faro_shared_book", { p_owner: ownerId });
+    if (error || typeof data !== "string") return null;
+    return JSON.parse(data) as unknown;
+  } catch { return null; }
+}
+
 export async function signOutEverywhereLocal() {
   try { await supabase.auth.signOut({ scope: "local" }); } catch { /* offline: still clear locally */ }
   try { localStorage.removeItem("faro-auth"); sessionStorage.removeItem("faro-auth"); } catch { /* ignore */ }

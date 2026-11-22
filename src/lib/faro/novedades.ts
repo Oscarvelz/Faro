@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.391",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El libro compartido: el alcance se cumple en el servidor", en: "The shared book: scope is enforced on the server" },
+    points: {
+      es: [
+        "Segunda pieza del cimiento: quien comparta solo algunas categorías, su invitado recibirá del servidor únicamente esas líneas — las demás nunca salen del servidor, ni sus categorías ni sus tiendas.",
+        "Y hay cosas que no viajan nunca, ni compartiendo el libro entero: tus ajustes, tu auditoría y tu bandeja son de tu cuenta, no del libro.",
+      ],
+      en: [
+        "Second piece of the foundation: if you share only some categories, your guest will receive only those lines from the server — the rest never leaves the server, nor their categories or stores.",
+        "And some things never travel, not even when sharing the whole book: your settings, your audit and your tray belong to your account, not to the book.",
+      ],
+    },
+  },
+  {
     version: "1.3.390",
     date: "2026-11-22",
     level: "menor",
