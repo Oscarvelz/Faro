@@ -35,6 +35,16 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.401",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Las novedades pasan suaves", en: "The news cards glide now" },
+    points: {
+      es: ["Al pasar de una tarjeta de novedades a la otra, el contenido entra suave desde el lado hacia el que vas — sin el parpadeo de antes."],
+      en: ["Moving from one news card to the next, the content now glides in from the side you're heading to — no more flicker."],
+    },
+  },
+  {
     version: "1.3.400",
     date: "2026-11-22",
     level: "grande",

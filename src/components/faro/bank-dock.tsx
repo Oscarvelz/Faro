@@ -86,6 +86,7 @@ export function BankDock() {
   const [ftoast, setFtoast] = useState<string | null>(null);
   const [news, setNews] = useState<NewsCard | null>(null);
   const [newsIdx, setNewsIdx] = useState(0);
+  const [newsDir, setNewsDir] = useState(1);
   const newsTouchX = useRef<number | null>(null);
   useEffect(() => {
     const on = (e: Event) => { setFiles(((e as CustomEvent).detail as File[] | null) ?? null); setOpen(true); };
@@ -165,6 +166,9 @@ export function BankDock() {
         const item = news.cards[Math.min(newsIdx, news.cards.length - 1)];
         const idx = Math.min(newsIdx, news.cards.length - 1);
         const last = idx >= news.cards.length - 1;
+        // 1.3.401: paginar recuerda la dirección — el contenido nuevo
+        // entra desde el lado hacia el que se va (ver .news-page).
+        const goTo = (n: number) => { setNewsDir(n > idx ? 1 : -1); setNewsIdx(n); };
         const markSeen = () => { try { localStorage.setItem("faro-news-seen", news.current); } catch { /* sin almacenamiento: la nota vive en Ajustes */ } };
         const doorTopic = item.topic ? findTopic(item.topic) : null;
         const doorGo = doorTopic?.go;
@@ -175,19 +179,19 @@ export function BankDock() {
               role="dialog"
               aria-modal="false"
               data-anchor="news-card"
-              key={idx}
               onTouchStart={(e) => { newsTouchX.current = e.touches[0]?.clientX ?? null; }}
               onTouchEnd={(e) => {
                 if (newsTouchX.current == null) return;
                 const dx = (e.changedTouches[0]?.clientX ?? newsTouchX.current) - newsTouchX.current;
                 newsTouchX.current = null;
-                if (dx <= -40 && !last) setNewsIdx(idx + 1);
-                else if (dx >= 40 && idx > 0) setNewsIdx(idx - 1);
+                if (dx <= -40 && !last) goTo(idx + 1);
+                else if (dx >= 40 && idx > 0) goTo(idx - 1);
               }}
             >
               <button type="button" className="news-card-x" data-anchor="news-close" aria-label={L(lang, "Cerrar sin marcar como visto", "Close without marking as seen")} onClick={() => setNews(null)}>
                 <X size={16} aria-hidden />
               </button>
+              <div className="news-page" key={idx} data-dir={newsDir}>
               <div className="news-card-head">
                 <span className="news-card-ico" aria-hidden><Sparkles size={19} /></span>
                 <div className="news-card-headtext">
@@ -209,18 +213,19 @@ export function BankDock() {
                   <ChevronRight size={16} aria-hidden />
                 </button>
               ) : null}
+              </div>
               {news.cards.length > 1 ? (
                 <div className="news-card-nav">
-                  <button type="button" className="news-card-arrow" data-anchor="news-prev" disabled={idx === 0} aria-label={news.back} onClick={() => setNewsIdx(idx - 1)}>
+                  <button type="button" className="news-card-arrow" data-anchor="news-prev" disabled={idx === 0} aria-label={news.back} onClick={() => goTo(idx - 1)}>
                     <ChevronLeft size={17} aria-hidden />
                   </button>
                   <span className="news-card-count" data-anchor="news-count">{idx + 1} {news.of} {news.cards.length}</span>
-                  <button type="button" className="news-card-arrow" data-anchor="news-next" disabled={last} aria-label={news.next} onClick={() => setNewsIdx(idx + 1)}>
+                  <button type="button" className="news-card-arrow" data-anchor="news-next" disabled={last} aria-label={news.next} onClick={() => goTo(idx + 1)}>
                     <ChevronRight size={17} aria-hidden />
                   </button>
                 </div>
               ) : null}
-              <button type="button" className="news-card-ok" data-anchor="news-ok" onClick={() => { if (last) { markSeen(); setNews(null); } else setNewsIdx(idx + 1); }}>
+              <button type="button" className="news-card-ok" data-anchor="news-ok" onClick={() => { if (last) { markSeen(); setNews(null); } else goTo(idx + 1); }}>
                 {last ? news.ok : news.next}
               </button>
             </div>

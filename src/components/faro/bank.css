@@ -216,6 +216,16 @@
 .news-card-arrow { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--fg); cursor: pointer; }
 .news-card-arrow:disabled { opacity: .35; cursor: default; }
 .news-card-count { color: var(--muted); font-size: .85rem; font-weight: 700; }
+/* 1.3.401 (Oscar: el pase entre tarjetas parpadeaba): la cáscara de
+   la tarjeta se monta UNA vez — su animación de entrada corre solo
+   al abrir — y al paginar solo se mueve el contenido (.news-page),
+   que entra suave desde el lado hacia el que se va, con la misma
+   curva de la casa. La navegación y el botón quedan fijos. */
+.news-page { animation: news-page-in .34s cubic-bezier(.22, 1, .36, 1) both; }
+.news-page[data-dir="-1"] { animation-name: news-page-in-back; }
+@keyframes news-page-in { from { opacity: 0; transform: translateX(18px); } }
+@keyframes news-page-in-back { from { opacity: 0; transform: translateX(-18px); } }
+@media (prefers-reduced-motion: reduce) { .news-page { animation-duration: .01s; } }
 @media (prefers-reduced-motion: reduce) { .news-card { animation: none; } }
 
 /* El destello de lo nuevo (Oscar, 2026-11-20): la estrella del disco

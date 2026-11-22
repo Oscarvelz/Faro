@@ -3666,3 +3666,13 @@ La pieza del banco de preguntas construida desde la investigación que Oscar apr
 Verificación: la batería porteada 158/158 antes de cerrar el porte (banco 128 con el espécimen de la costura + checklist 11 + cobertura 20, dentro de la suite); suite completa 3091/3091, EXIT 0; typecheck con exactamente los 3 errores de siempre. Banco renderizado a ancho de teléfono sobre el libro espécimen, la cadena entera en la caja viva: «¿Cuánto gasté este mes?» → $1,208.30; «¿Y el mes pasado?» → seguimiento con su eco, $1,220.00; «¿Por qué?» → la procedencia de LA RESPUESTA DE LA PANTALLA (tras la cura de la costura); «¿Y en septiembre?» → la cadena sigue, $1,005.00, con su eco.
 
 Datos de publicación: fuente 368374da91f6ddf1da8066f47f2b1d23db5d8df2; principal e41f549613f5c6f17a6e34cd27f94aabbb25fdda + 9976c5c52c800b08f2ae45f627fd8b43edc786cd + fc9f6a6e1c5a8085ee4ddfb12e1ff59747815cc3 + e9e7efc69da24a24ea36b9abc93219078aadec04; etiqueta v1.3.400; barrido en vivo 28/28 idénticos; sw en vivo faro-1.3.400; entrada index-B16a50dl.js.
+
+## 1.3.401 — Novedades: el pase entre tarjetas, suave (2026-11-22)
+
+La foto y la palabra de Oscar (2026-11-22 08:28): al pasar de una tarjeta de novedades a la otra hay un parpadeo — «no pasa o transiciona de una tarjeta a la otra de forma orgánica y suave». El diagnóstico, en el código: la tarjeta llevaba `key={idx}`, así que cada pase REMONTABA la tarjeta entera y repetía su animación de entrada (el pop de .18s con escala) — un corte con salto, no un pase.
+
+La cura: la cáscara de la tarjeta se monta **una vez** (su entrada corre solo al abrir la serie) y al paginar se mueve solo el contenido — un `.news-page` interior que entra en ≈⅓ de segundo con fundido y un deslizamiento corto **desde el lado hacia el que se va**: al avanzar entra desde la derecha; al retroceder, desde la izquierda. La dirección la recuerda un `goTo` único por el que pasan las flechas, el botón principal y el gesto de deslizar el dedo. La ✕, las flechas y el contador quedan fijos, como parte de la cáscara. Con «reducir movimiento» activado en el sistema, el pase es instantáneo.
+
+Verificación: suite completa 3091/3091, EXIT 0 (la nota menor de la versión entra en Novedades, como manda la cerca). Banco renderizado a ancho de teléfono con la serie real (vistos hasta la 1.3.382 → tarjetas 400 y 383): al paginar, la cáscara NO se remonta — una marca puesta sobre ella sobrevive al pase —, el contenido entra con la animación direccional (`news-page-in`, `data-dir` 1 al avanzar y −1 al volver) y el contador camina 1 de 2 → 2 de 2 → 1 de 2.
+
+Datos de publicación: se completa en el commit de cierre.
