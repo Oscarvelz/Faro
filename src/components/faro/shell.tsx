@@ -47,6 +47,8 @@ import { FaroPane, useFaro, type Api } from "./provider";
 import { useLayer } from "@/lib/manual/back";
 import { loadManual, manualNow, prefetchManual, type ManualData } from "@/lib/manual/load";
 import { searchSettings } from "@/lib/faro/settings-search";
+import { searchPlaces } from "@/lib/faro/search";
+import { looksVerbal, referenceFor, searchFunctions } from "@/lib/faro/searchfn";
 import { Hint } from "./hint";
 import { FocusHost } from "./focus-host";
 import WidgetHost from "./widget-host";
@@ -211,7 +213,7 @@ function hubOf(section: SectionId) {
 
 export function Shell() {
   const faro = useFaro();
-  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, fmt, persistFailed, tabConflict, dismissTabConflict, has } = faro;
+  const { ready, session, ui, setUi, sync, t, lang, hits, undo, redo, canUndo, canRedo, goSection, goTopic, fmt, persistFailed, tabConflict, dismissTabConflict, has, names, key } = faro;
   useIdleClear(ui.query, () => setUi({ query: "" }));
   // N-3 (etapa 3.1) con el fallo 14 de Oscar: la búsqueda no conoce el modo —
   // los resultados de personas y tarjetas se ofrecen en todo modo; lo que el
@@ -264,6 +266,112 @@ export function Shell() {
     }),
     [ui.query, faro.mode],
   );
+  // §21 (1.3.382): LA BÚSQUEDA EN SU NATURALEZA. La referencia: si el
+  // texto tiene forma de pregunta, la puerta vestida de brújula lo
+  // lleva — verbatim — a la caja del Asesor; la búsqueda no calcula ni
+  // muestra cifra alguna del Asesor (L-B1). El viaje guarda la
+  // búsqueda (texto y sección) y el retorno atrás la restaura íntegra
+  // (L-B5): los resultados se derivan del texto, así que vuelven
+  // idénticos. Los lugares y las funciones son grupos propios de la
+  // buscadora: destinos primero, y la clase Funciones desde el
+  // registro real (searchfn), con su piso nombrado cuando lo hay.
+  const [searchBack, setSearchBack] = useState<{ q: string; section: SectionId } | null>(null);
+  const [lineFilter, setLineFilter] = useState<"all" | "month" | "in" | "out">("all");
+  const reference = useMemo(() => (ui.query.trim().length >= 2 ? referenceFor(ui.query) : null), [ui.query]);
+  const placeHits = useMemo(
+    () => (session && ui.query.trim().length >= 2 ? searchPlaces(session.ledger, ui.query, lang, names) : []),
+    [session, ui.query, lang, names],
+  );
+  const fnHits = useMemo(
+    () => (ui.query.trim().length >= 2 ? searchFunctions(ui.query, lang, faro.mode) : []),
+    [ui.query, lang, faro.mode],
+  );
+  const verbal = useMemo(() => looksVerbal(ui.query), [ui.query]);
+  const shownHits = useMemo(() => hits.filter((h) =>
+    lineFilter === "all" ? true
+    : lineFilter === "month" ? h.monthKey === key
+    : lineFilter === "in" ? h.section === "income" || h.vault === "owed"
+    : h.section === "fixed" || h.section === "variable" || h.section === "shops" || h.section === "subs" || h.vault === "owe",
+  ), [hits, lineFilter, key]);
+  useEffect(() => {
+    if (!searchBack || ui.section === "advice" || ui.section !== searchBack.section) return;
+    const q = searchBack.q;
+    setSearchBack(null);
+    setUi({ query: q });
+    setSearchOpen(true);
+  }, [ui.section, searchBack, setUi]);
+  const goReference = () => {
+    if (!reference) return;
+    const q = reference.question;
+    setSearchBack({ q: ui.query, section: ui.section });
+    setSearchOpen(false);
+    guardPanelExit(() => { setRecall(false); setMoneyOpen(false); setVault(null); setUi({ section: "advice", query: "" }); });
+    window.setTimeout(() => {
+      const box = document.querySelector<HTMLElement>('[data-anchor="advisor-ask"]');
+      box?.scrollIntoView({ block: "start" });
+      window.dispatchEvent(new CustomEvent("faro-ask-seed", { detail: q }));
+    }, 500);
+  };
+  const goDoor = (topicId: string | undefined) => {
+    const tp = topicId ? manualData?.MANUAL_TOPICS.find((x) => x.id === topicId) : undefined;
+    if (!tp?.go) return;
+    setSearchOpen(false);
+    goTopic(tp.id, tp.go);
+    setUi({ query: "" });
+  };
+  const renderReference = () => reference ? (
+    <button type="button" className="hit search-ref" data-anchor="search-ref" onClick={goReference}>
+      <span className="search-ref-ico" aria-hidden><Compass className="size-4" /></span>
+      <span className="search-ref-text">
+        <strong>{lang === "en" ? "Ask the Advisor" : "Preguntar al Asesor"}</strong>
+        <span className="block text-sm text-muted">{reference.question}</span>
+      </span>
+    </button>
+  ) : null;
+  const renderPlaceHits = () => placeHits.map((hit) => (
+    <button key={hit.id} type="button" className="hit" data-anchor="search-place" onClick={() => goDoor(hit.kind === "cat" ? "estructura" : "tiendas")}>
+      <strong>{hit.title}</strong>
+      <span className="block text-sm text-muted">{hit.where}</span>
+    </button>
+  ));
+  const renderFnHits = () => fnHits.map((hit) => {
+    const inner = (
+      <>
+        <strong>{hit.name}</strong>
+        <span className="block text-sm">{hit.does}</span>
+        <span className="block text-sm text-muted">{hit.path}{hit.floor ? ` · ${lang === "en" ? "Lives in" : "Vive en"} ${hit.floor === "ritmo" ? (lang === "en" ? "Rhythm" : "Ritmo") : (lang === "en" ? "Complete" : "Completo")}` : ""}</span>
+      </>
+    );
+    return hit.topic && manualData ? (
+      <button key={`fn-${hit.id}`} type="button" className="hit" data-anchor="search-fn" onClick={() => goDoor(hit.topic)}>{inner}</button>
+    ) : (
+      <div key={`fn-${hit.id}`} className="hit" data-anchor="search-fn">{inner}</div>
+    );
+  });
+  const renderLineFilters = () => hits.length ? (
+    <div className="search-chips" role="group" aria-label={lang === "en" ? "Narrow the lines" : "Estrechar las líneas"}>
+      {([
+        ["all", lang === "en" ? "All" : "Todo"],
+        ["month", lang === "en" ? "This month" : "Este mes"],
+        ["in", lang === "en" ? "Income" : "Ingresos"],
+        ["out", lang === "en" ? "Spending" : "Gastos"],
+      ] as const).map(([id, label]) => (
+        <button key={id} type="button" className={`search-chip${lineFilter === id ? " is-on" : ""}`} aria-pressed={lineFilter === id} onClick={() => setLineFilter(id)}>{label}</button>
+      ))}
+    </div>
+  ) : null;
+  const renderPlaceGroup = () => placeHits.length ? (
+    <>
+      <p className="hit-group">{lang === "en" ? "Places" : "Lugares"}</p>
+      {renderPlaceHits()}
+    </>
+  ) : null;
+  const renderFnGroup = () => fnHits.length ? (
+    <>
+      <p className="hit-group">{lang === "en" ? "Functions" : "Funciones"}</p>
+      {renderFnHits()}
+    </>
+  ) : null;
   // El tema de una escena (para la caída a la explicación de goTopic): el
   // inverso del mapa de puentes, la misma derivación que SCENE_TOPIC.
   const topicOfScene = (sceneId: string): string =>
@@ -303,7 +411,7 @@ export function Shell() {
       <span className="block text-sm text-muted">{hit.where}</span>
     </button>
   ));
-  const renderBookHits = () => hits.map((hit) => (
+  const renderBookHits = () => shownHits.map((hit) => (
     <button key={hit.id} type="button" className="hit" onClick={() => {
       const [y, m] = hit.monthKey.split("-").map(Number);
       setSearchOpen(false);
@@ -1254,7 +1362,7 @@ export function Shell() {
                 <Compass className="size-4" />
               </button>
               <div className="cal-anchor search-anchor" ref={searchRef} data-anchor="top-search">
-                <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}>
+                <button type="button" className="icon-btn theme-toggle cal-launch" aria-label={t("search")} aria-expanded={searchOpen} onClick={() => { setSearchBack(null); setSearchOpen((v) => !v); }}>
                   <Search className="size-4" />
                 </button>
               </div>
@@ -1433,7 +1541,8 @@ export function Shell() {
                 </div>
                 {ui.query.trim().length >= 2 ? (
                   <div className="hits" role="listbox">
-                    {hits.length === 0 && settingHits.length === 0 && sceneHits.length === 0 && (manualData || manualGaveUp) ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
+                    {hits.length === 0 && settingHits.length === 0 && sceneHits.length === 0 && placeHits.length === 0 && fnHits.length === 0 && !reference && (manualData || manualGaveUp) ? <p className="p-3 text-sm">{t("search.empty")}</p> : null}
+                    {renderReference()}
                     {/* 1.3.142 order inside Ajustes: settings first, books under their own header. From anywhere
                         else (1.3.148) the books lead as they always did and the settings follow under theirs. */}
                     {inSettings ? (
@@ -1447,6 +1556,13 @@ export function Shell() {
                       </>
                     ) : (
                       <>
+                        {/* §21 (1.3.382): los grupos de la buscadora — con
+                            forma de verbo manda Funciones; con sustantivo,
+                            Lugares. Las líneas declaran su orden en el
+                            rótulo: coincidencia primero, luego lo reciente. */}
+                        {verbal ? <>{renderFnGroup()}{renderPlaceGroup()}</> : <>{renderPlaceGroup()}{renderFnGroup()}</>}
+                        {hits.length ? <p className="hit-group">{lang === "en" ? "Lines · best match, then newest" : "Líneas · coincidencia y fecha"}</p> : null}
+                        {renderLineFilters()}
                         {renderBookHits()}
                         {settingHits.length ? <p className="hit-group">{lang === "en" ? "In Settings" : "En Ajustes"}</p> : null}
                         {renderSettingHits()}

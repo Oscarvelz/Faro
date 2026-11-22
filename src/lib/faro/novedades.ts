@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.382",
+    date: "2026-11-22",
+    level: "grande",
+    topic: "buscar",
+    title: { es: "Buscar encuentra; preguntar, al Asesor", en: "Search finds; questions go to the Advisor" },
+    points: {
+      es: [
+        "La lupa ahora encuentra en grupos: Lugares, Funciones y Líneas — tus cuentas y categorías primero cuando las nombras, y las funciones de la app con una línea de qué hacen y dónde viven.",
+        "Si escribes una pregunta en la lupa, su puerta con la brújula la lleva al Asesor tal como la escribiste: la búsqueda no calcula respuestas, y al volver atrás tu búsqueda te espera intacta.",
+        "Escribe como hablas: las palabras de relleno ya no estorban, y los chips bajo las líneas estrechan por mes, ingresos o gastos sin salir de la búsqueda.",
+      ],
+      en: [
+        "The magnifier now finds in groups: Places, Functions and Lines — your accounts and categories first when you name them, and the app's functions with one line on what they do and where they live.",
+        "If you type a question into the magnifier, its compass door takes it to the Advisor exactly as you wrote it: search does not compute answers, and going back, your search waits for you untouched.",
+        "Type the way you talk: filler words no longer get in the way, and the chips under the lines narrow by month, income or spending without leaving search.",
+      ],
+    },
+  },
+  {
     version: "1.3.381",
     date: "2026-11-22",
     level: "menor",

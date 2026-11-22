@@ -40,13 +40,37 @@ export type Hit = {
   vault?: "owed" | "owe";
 };
 
+/**
+ * §21 (1.3.382) — LA ENTRADA NATURAL: las palabras de función (artículos,
+ * preposiciones, muletillas interrogativas) no son sustancia de búsqueda:
+ * se despojan antes de tokenizar, y la búsqueda caza lo que queda («¿cuánto
+ * me queda en ahorros?» → queda, ahorros). Es tokenización, no
+ * interpretación: encuentra mejor; no entiende ni responde nada (L-B1).
+ * Si la consulta es SOLO muletillas, no queda sustancia y no hay tokens:
+ * la búsqueda se comporta como con una consulta vacía, nunca peor (L-B4).
+ */
+const STOP = new Set([
+  "el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "en", "y", "o", "a", "con", "por", "para",
+  "mi", "me", "se", "que", "es", "al", "lo", "su", "sus", "tu", "tus", "este", "esta", "esto", "cuando", "cuanto",
+  "cuanta", "cuantos", "donde", "como", "cual", "quien", "hay", "fue", "son", "mas", "muy", "sin", "sobre", "entre",
+  "hasta", "desde", "tambien", "puedo", "tengo",
+  "the", "a", "an", "of", "in", "on", "at", "to", "for", "my", "me", "is", "are", "was", "were", "do", "does",
+  "did", "have", "has", "had", "what", "when", "where", "how", "much", "many", "who", "which", "this", "that",
+  "it", "its", "and", "or", "with", "from", "by", "about", "into", "over", "under", "can", "could", "should",
+  "would", "you", "they",
+]);
+
 function expand(q: string): string[] {
-  const tokens = q
+  const raw = q
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .split(/[^a-z0-9.$]+/)
-    .filter((t) => t.length > 1);
+    .filter((t) => t.length > 1 && !STOP.has(t));
+  // La sustancia también en singular: la gente pregunta en plural
+  // («ahorros») y la casa nombra en singular («Ahorro») — la forma
+  // recortada entra como token más, sin quitar el plural.
+  const tokens = [...new Set([...raw, ...raw.filter((t) => t.length > 3 && t.endsWith("s")).map((t) => t.slice(0, -1))])];
   const all = new Set(tokens);
   for (const t of tokens) {
     for (const s of SYN[t] ?? []) all.add(s.normalize("NFD").replace(/\p{Diacritic}/gu, ""));
@@ -114,5 +138,60 @@ export function searchLedger(state: LedgerState, query: string, lang: Lang, name
       subtitle: `${p.vault === "owed" ? (lang === "en" ? "Owed to me" : "Me deben") : (lang === "en" ? "I owe" : "Debo")} · ${formatMoney(p.amountMinor, p.currency, lang)}${p.archived ? (lang === "en" ? " · archived" : " · archivado") : ""}`,
     });
   }
+  // §21 (1.3.382): dentro de Líneas manda la RELEVANCIA y luego la
+  // RECENCIA — una coincidencia en el título de la línea pesa más que
+  // una en su contexto, y a igual peso gana el mes más nuevo. El rótulo
+  // del grupo lo declara en la superficie; aquí solo se ordena.
+  const titleHit = (h: Hit) => {
+    const t = norm(h.title);
+    return tokens.some((x) => t.includes(x)) ? 1 : 0;
+  };
+  hits.sort((a, b) => titleHit(b) - titleHit(a) || (a.monthKey < b.monthKey ? 1 : a.monthKey > b.monthKey ? -1 : 0));
   return hits;
+}
+
+/**
+ * §21 (1.3.382) — LOS LUGARES: las cuentas y categorías que la consulta
+ * NOMBRA van antes que las líneas sueltas (el espécimen fundador: con
+ * «ahorros», la cuenta Ahorros debió ser el primer lugar encontrado, no
+ * una ausencia). Un lugar es una categoría de la estructura o una casa
+ * de compras; su puerta es su casa (Estructura / Tiendas), por el tema
+ * del Manual como todas las puertas de la casa. Sin cifras: un lugar se
+ * nombra, no se calcula (L-B1).
+ */
+export type PlaceHit = {
+  id: string;
+  kind: "cat" | "purchase";
+  title: string;
+  /** Su casa, en la voz de la app: «Categoría · Estructura». */
+  where: string;
+};
+
+export function searchPlaces(state: LedgerState, query: string, lang: Lang, names: Parameters<typeof lineLabel>[1]): PlaceHit[] {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const tokens = expand(q);
+  if (!tokens.length) return [];
+  const out: PlaceHit[] = [];
+  const push = (kind: PlaceHit["kind"], id: string, title: string, where: string) => {
+    const t = title.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    if (!tokens.some((x) => t.includes(x))) return;
+    out.push({ id: `${kind}:${id}`, kind, title, where });
+  };
+  for (const c of state.structure.categories) {
+    if (c.hidden) continue;
+    push("cat", c.id, names.cat(c.id), lang === "en" ? "Category · Structure" : "Categoría · Estructura");
+  }
+  for (const p of state.structure.purchases) {
+    if (p.hidden) continue;
+    push("purchase", p.id, names.purchase(p.id), lang === "en" ? "Shop · Shops" : "Tienda · Tiendas");
+  }
+  // El nombre exacto (o que empieza por la sustancia) manda sobre la
+  // coincidencia parcial: el lugar NOMBRADO va primero.
+  const exact = (h: PlaceHit) => {
+    const t = h.title.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    return tokens.some((x) => t === x || t.startsWith(x)) ? 1 : 0;
+  };
+  out.sort((a, b) => exact(b) - exact(a));
+  return out.slice(0, 4);
 }

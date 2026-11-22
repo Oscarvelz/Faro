@@ -86,6 +86,20 @@ export function AskBox() {
   // número de entrada elige el trío de sugerencias del banco.
   const [entry] = useState(() => nextAskEntry());
   const taRef = useRef<HTMLTextAreaElement | null>(null);
+  // §21 (1.3.382): LA REFERENCIA — la búsqueda despacha la pregunta del
+  // usuario (verbatim) por «faro-ask-seed» y la caja la instala y la
+  // envía como si la hubiera escrito aquí: el hilo del Seguimiento
+  // nace de ese turno como de cualquier otro. La referencia vive en un
+  // ref porque ask() se redefine en cada pintada.
+  const seedRef = useRef<(q: string) => void>(() => {});
+  useEffect(() => {
+    const onSeed = (e: Event) => {
+      const q = (e as CustomEvent<string>).detail;
+      if (typeof q === "string" && q.trim()) seedRef.current(q);
+    };
+    window.addEventListener("faro-ask-seed", onSeed);
+    return () => window.removeEventListener("faro-ask-seed", onSeed);
+  }, []);
 
   // La caja respira: su alto sigue al texto (tope de cinco líneas) y
   // vuelve a una línea cuando el texto se va.
@@ -128,6 +142,7 @@ export function AskBox() {
     if (r.kind === "answer") setFrame(r.frame ?? null);
     setText(""); // al preguntar, la caja se contrae (348)
   }
+  seedRef.current = ask;
 
   // La vuelta de la pregunta: la tarjeta preguntó de qué cuenta sale y
   // la persona tocó una — la MISMA pregunta se recalcula con la cuenta
