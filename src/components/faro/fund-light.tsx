@@ -185,13 +185,11 @@ export function NaturePick({
       <span className="lab-head">{t("fund.q")}<Hint topic="donde-vive" /></span>
       <div className="fund-opts" role="group">
         <button type="button" data-anchor="nature-saldo" className={`fund-opt${value === "saldo" ? " is-on" : ""}`} aria-pressed={value === "saldo"} onClick={() => onPick("saldo")}>
-          <span className="fund-opt-mark is-saldo" aria-hidden />
-          <strong>{t("fund.q.saldo")}</strong>
+          <span className="fund-opt-head"><span className="fund-opt-mark is-saldo" aria-hidden /><strong>{t("fund.q.saldo")}</strong></span>
           <small>{t("fund.q.saldo.how")}</small>
         </button>
         <button type="button" data-anchor="nature-aparte" className={`fund-opt${value === "aparte" ? " is-on" : ""}`} aria-pressed={value === "aparte"} onClick={() => onPick("aparte")}>
-          <span className="fund-opt-mark is-aparte" aria-hidden />
-          <strong>{t("fund.q.aparte")}</strong>
+          <span className="fund-opt-head"><span className="fund-opt-mark is-aparte" aria-hidden /><strong>{t("fund.q.aparte")}</strong></span>
           <small>{t("fund.q.aparte.how")}</small>
         </button>
       </div>

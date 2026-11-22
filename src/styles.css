@@ -2246,7 +2246,15 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .app-frame *::-webkit-scrollba
 /* 1.3.191: the pair stands exactly as designed — one full row, side by side.
    (1.3.185's centered group and the exit stack were reverted in full at
    Oscar's word: the dialog design was never his complaint.) */
-.ask-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+/* 1.3.409 (Oscar, con su foto de «¿Salir de Faro?»): la pareja de botones del
+   diálogo salía compacta y pegada a la izquierda, con todo el hueco a la
+   derecha — la regla de rejilla de esta casa quedaba tapada por la regla
+   flexible de las acciones del Asesor (advisor2.css), que comparte el nombre
+   .ask-actions y ganaba por orden. La pareja igual y a todo el ancho — el
+   diseño que finish.css ya declaraba — manda ahora con su alcance propio:
+   el diálogo de confirmación y la puerta de modos; las acciones de la
+   respuesta del Asesor conservan su fila flexible, que es suya. */
+.ask .ask-actions, .mode-gate .ask-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
 .ask-btn { min-height: 50px; border-radius: 16px; font: inherit; font-weight: 600; font-size: 1rem; border: 1px solid transparent; padding: 0 12px; transition: transform .15s cubic-bezier(.22, 1, .36, 1), filter .15s; }
 .ask-btn:active { transform: scale(0.97); }
 .ask-btn.is-quiet { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); border-color: var(--line); }
@@ -3038,7 +3046,7 @@ section.save-band { container: savecard / inline-size; }
    account) speak the line editor / Cobros language: labels with "?", two columns where fields pair, one tint and no inner
    frames, Cancelar | Guardar on the columns. Every selector is under .ah-form, which only these forms carry. ==== */
 .ah-form { --ah-acc: var(--seg, var(--accent)); --ah-ink: #1c1408; container-type: inline-size; display: grid; gap: 14px; min-width: 0; font-size: 1rem; }
-.save-ledger .ah-form { margin: 2px 0 10px; padding: 14px 14px 16px; border-radius: 20px; background: color-mix(in oklab, var(--ah-acc) 11%, var(--surface)); }
+.save-ledger .ah-form { margin: 2px 0 10px; padding: 14px 14px 16px; border-radius: 20px; background: color-mix(in oklab, var(--ah-acc) 11%, var(--surface)); border: 1px solid color-mix(in oklab, var(--ah-acc) 18%, var(--line)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), inset 0 2px 10px rgba(0, 0, 0, .16), 0 1px 3px rgba(0, 0, 0, .18); }
 .ah-form > .book-look { margin-bottom: -2px; justify-items: start; }
 .save-account .ah-form { --ah-acc: #c4a15a; flex: 1 0 100%; margin: 2px 0 4px; padding: 12px 4px 6px; border-top: 1px solid color-mix(in oklab, #c4a15a 32%, var(--line)); }
 /* 1.3.406: la ventana de la burbuja ocupa el ancho entero de su fila, como
@@ -3051,7 +3059,10 @@ section.save-band { container: savecard / inline-size; }
 .ah-grid > .is-wide { grid-column: 1 / -1; }
 .ah-form .label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: .64rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
 .ah-form .lab-head { white-space: nowrap; min-width: 0; gap: 5px; }
-.ah-form :is(.field, .day-field-btn) { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: var(--surface); color: var(--fg); font: inherit; font-size: .95rem; font-weight: 500; letter-spacing: 0; text-transform: none; box-shadow: none; }
+/* 1.3.409 — el relieve de los formularios (Oscar: «dejan de verse planos»): el
+   campo se hunde en el panel con su sombra interior y su labio de luz abajo —
+   la receta de las bandejas de la casa — en vez del box-shadow: none heredado. */
+.ah-form :is(.field, .day-field-btn) { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: var(--surface); color: var(--fg); font: inherit; font-size: .95rem; font-weight: 500; letter-spacing: 0; text-transform: none; box-shadow: inset 0 2px 6px rgba(0, 0, 0, .26), inset 0 -1px 0 rgba(255, 255, 255, .05); }
 .ah-form .field.num, .ah-form .field.num::placeholder { font-family: inherit; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .ah-form .field.num { font-size: 1.05rem; font-weight: 700; }
 .ah-form .field::placeholder { color: var(--faint); font-weight: 500; font-size: .95rem; text-transform: none; letter-spacing: 0; }

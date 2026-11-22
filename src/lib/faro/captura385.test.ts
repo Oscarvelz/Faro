@@ -23,7 +23,7 @@ const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 test("385 · la serie ofrece TODAS las grandes sin ver, en orden", () => {
   const serie = announcementsFor("1.3.344", FARO_VERSION);
   assert.ok(serie.length > 3, `la serie trae la pila entera (${serie.length})`);
-  assert.equal(serie[0].version, "1.3.400"); // la más nueva primero (1.3.400, la grande del Plan de Avance II)
+  assert.equal(serie[0].version, "1.3.408"); // la más nueva primero (1.3.408, la grande de la cámara del widget; antes la 1.3.400 — la expectativa se mueve con cada grande, y la de la 408 quedó desactualizada en silencio hasta que la suite de la 409 corrió con el sello ya en 1.3.408)
   assert.ok(serie.every((n) => n.level === "grande"), "solo grandes: las menores viven en Ajustes");
   const vs = serie.map((n) => n.version);
   assert.deepEqual(vs, [...vs].sort().reverse(), "de la más nueva a la más vieja");
@@ -33,9 +33,9 @@ test("385 · la serie ofrece TODAS las grandes sin ver, en orden", () => {
   // Nada sin ver → serie vacía (silencio).
   assert.deepEqual(announcementsFor(FARO_VERSION, FARO_VERSION), []);
   // Una sola grande sin ver → serie de una (la tarjeta de siempre).
-  // (Desde la 1.3.383 vista: la única grande sin ver es la 1.3.400.)
-  const una = announcementsFor("1.3.383", FARO_VERSION);
-  assert.deepEqual(una.map((n) => n.version), ["1.3.400"]);
+  // (Desde la 1.3.400 vista: la única grande sin ver es la 1.3.408.)
+  const una = announcementsFor("1.3.400", FARO_VERSION);
+  assert.deepEqual(una.map((n) => n.version), ["1.3.408"]);
 });
 
 test("385 · las superficies: el shell anuncia la serie; el dock la rinde entera", () => {

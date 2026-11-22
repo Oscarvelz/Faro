@@ -35,6 +35,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.409",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Las cajas del fondo, más bajas; los formularios, con relieve", en: "The fund boxes, lower; the forms, with relief" },
+    points: {
+      es: [
+        "En la pregunta de dónde vive el dinero de un fondo, la lucecita de cada tarjeta ya no ocupa su propio renglón: se achica y vive en la misma línea del título — «Parte de mi saldo» y «Dinero aparte» se leen de una vez, y las cajas quedan más bajas.",
+        "Los formularios de añadir y editar dejan de verse planos: el panel se asienta como una bandeja y cada campo se hunde en él con su sombra, como las demás superficies de la casa.",
+        "Y esta misma ventana ya no se estira fuera de la pantalla cuando una novedad es larga: guarda sus límites y el texto se desliza por dentro.",
+        "La ventana de confirmación — la de «¿Salir de Faro?» y sus hermanas — compone mejor: su texto se centra y sus dos botones llenan la fila, sin dejar la derecha hueca.",
+      ],
+      en: [
+        "In the question of where a fund's money lives, each card's little light no longer takes a line of its own: it shrinks and lives on the title's line — \"Part of my balance\" and \"Money set aside\" read at a glance, and the boxes sit lower.",
+        "The add and edit forms no longer look flat: the panel settles in like a tray and each field sinks into it with its shadow, like the house's other surfaces.",
+        "And this very window no longer stretches off the screen when an announcement runs long: it keeps its bounds and the text scrolls inside.",
+        "The confirmation window — the \"Leave Faro?\" one and its sisters — composes better: its text centres and its two buttons fill the row, leaving no hollow on the right.",
+      ],
+    },
+    topic: "donde-vive",
+  },
+  {
     version: "1.3.408",
     date: "2026-11-22",
     level: "grande",

@@ -52,7 +52,11 @@
 .ask > .ask-seal svg { width: 23px; height: 23px; }
 .ask > .ask-title { grid-column: 2; grid-row: 1; font-size: 1.38rem; }
 .ask > .ask-body, .ask > .ask-actions, .ask > .ask-extra, .ask > .ask-type-hint, .ask > .ask-type { grid-column: 1 / -1; }
-.ask > .ask-body { max-width: none; margin-top: 6px; }
+/* 1.3.409 (Oscar, la misma foto): el cuerpo, justificado a la izquierda,
+   dejaba la derecha hueca en los diálogos de una línea; el cuerpo se centra
+   bajo la fila del sello y el título — que no se mueven — y la pareja de
+   botones llena su fila (la regla con alcance en styles.css). */
+.ask > .ask-body { max-width: none; margin-top: 6px; text-align: center; }
 .ask > .ask-actions { margin-top: 14px; }
 .ask > .ask-glow { left: 42px; top: -110px; }
 .ask > .ask-actions .ask-btn { white-space: nowrap; padding: 0 10px; }
