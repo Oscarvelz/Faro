@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.376",
+    date: "2026-11-21",
+    level: "menor",
+    title: { es: "Tus preguntas, primeras de verdad", en: "Your questions, truly first" },
+    points: {
+      es: [
+        "En la caja del Asesor, tus preguntas a la mano van primeras, como promete Ajustes; las sugerencias del banco van debajo, con su propio rótulo.",
+        "Las sugerencias son solo tres, y cambian cada vez que entras al Asesor.",
+      ],
+      en: [
+        "In the Advisor's box, your questions at hand come first, as Settings promises; the bank's suggestions sit below them, under their own label.",
+        "The suggestions are only three, and they change every time you enter the Advisor.",
+      ],
+    },
+  },
+  {
     version: "1.3.375",
     date: "2026-11-21",
     level: "menor",

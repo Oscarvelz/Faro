@@ -54,7 +54,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Compass, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, bankChips, type BankResult } from "@/lib/faro/ask2";
-import { askPresetsOf, capabilitiesText, FIXED_PRESET_Q } from "@/lib/faro/askpresets";
+import { askPresetsOf, capabilitiesText, FIXED_PRESET_Q, nextAskEntry, suggestionTrio } from "@/lib/faro/askpresets";
 import { FUNCTION_TOPIC } from "@/lib/faro/askmap";
 import { addDrafts, findDup, validateDraft } from "@/lib/faro/drafts";
 import type { Draft } from "@/lib/faro/types";
@@ -76,6 +76,9 @@ export function AskBox() {
   const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
   const [caps, setCaps] = useState(false);
+  // 1.3.376: cada montaje de la caja es una entrada al Asesor; el
+  // número de entrada elige el trío de sugerencias del banco.
+  const [entry] = useState(() => nextAskEntry());
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
   // La caja respira: su alto sigue al texto (tope de cinco líneas) y
@@ -195,13 +198,6 @@ export function AskBox() {
           <Send size={15} />
         </button>
       </div>
-      {!result && !caps ? (
-        <div className="ask-chips">
-          {chips.map((c) => (
-            <button key={c} type="button" className="ask-chip" data-anchor="ask-chip" onClick={() => { setText(c); ask(c); }}>{c}</button>
-          ))}
-        </div>
-      ) : null}
       {(result || caps) && asked ? (
         <button type="button" className="ask-q" data-anchor="ask-q" onClick={closeAnswer} aria-label={L("Cerrar la respuesta", "Close the answer")}>
           <span className="ask-q-label">{L("Tu pregunta", "Your question")}</span>
@@ -290,13 +286,18 @@ export function AskBox() {
           ) : null}
         </div>
       ) : null}
-      {/* LA FILA «A LA MANO» (1.3.369; sitio corregido en la 1.3.371):
-          vive SIEMPRE — también tras una respuesta, que era el
-          conflicto: no había vuelta a verlas — pero DEBAJO de la
-          respuesta, como falló Oscar en su teléfono (2026-11-21 18:46):
-          primero la pregunta y su respuesta; las predeterminadas,
-          después. La fija del sistema va primera; después, las de la
-          persona EN SU ORDEN. Un toque pregunta al instante. */}
+      {/* LA FILA «A LA MANO» (1.3.369; sitio corregido en la 1.3.371;
+          orden fallado en la 1.3.376): vive SIEMPRE — también tras una
+          respuesta, que era el conflicto: no había vuelta a verlas —
+          pero DEBAJO de la respuesta, como falló Oscar en su teléfono
+          (2026-11-21 18:46): primero la pregunta y su respuesta; las
+          predeterminadas, después. Y entre las preguntas ofrecidas, las
+          de la persona son LAS PRIMERAS (1.3.376, su captura de las
+          21:07: Ajustes lo promete — «tus preguntas, primeras en la
+          caja» — y la caja lo cumple): en reposo la fila abre las
+          preguntas, y las sugerencias del banco van debajo de ella.
+          La fija del sistema va primera; después, las de la persona EN
+          SU ORDEN. Un toque pregunta al instante. */}
       <div className="ask-presets" data-anchor="ask-presets">
         <span className="ask-presets-label">{L("A la mano", "At hand")}</span>
         <div className="ask-chips">
@@ -306,6 +307,20 @@ export function AskBox() {
           ))}
         </div>
       </div>
+      {/* LAS SUGERENCIAS DEL BANCO (1.3.376): solo en reposo, solo
+          TRES, con su propio rótulo — como «A la mano» lleva el suyo —
+          y DEBAJO de las preguntas de la persona. El trío rota en cada
+          entrada a la caja (askpresets.suggestionTrio). */}
+      {!result && !caps ? (
+        <div className="ask-presets" data-anchor="ask-suggest">
+          <span className="ask-presets-label">{L("Sugerencias", "Suggestions")}</span>
+          <div className="ask-chips">
+            {suggestionTrio(chips, entry).map((c) => (
+              <button key={c} type="button" className="ask-chip" data-anchor="ask-chip" onClick={() => { setText(c); ask(c); }}>{c}</button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -159,3 +159,25 @@ export function presetCatalog(lang: Lang): { family: string; questions: string[]
   }
   return out;
 }
+
+/** LAS SUGERENCIAS DEL BANCO (1.3.376; fallo de Oscar, 2026-11-21
+ * 21:07): en la caja en reposo el banco ofrece SOLO TRES sugerencias,
+ * bajo su propio rótulo y DEBAJO de «A la mano» — las preguntas de la
+ * persona son las primeras, como promete Ajustes — y el trío cambia en
+ * cada entrada al Asesor: la entrada n sirve el trío que empieza en
+ * (3n) mód el tamaño de la bolsa, envolviendo al final, así las
+ * visitas recorren la bolsa entera sin repetir un trío hasta agotar
+ * el ciclo. Función pura: la cerca la ejecuta sin pantalla. */
+export function suggestionTrio(pool: string[], entry: number): string[] {
+  if (pool.length <= 3) return [...pool];
+  const start = ((entry * 3) % pool.length + pool.length) % pool.length;
+  return [0, 1, 2].map((i) => pool[(start + i) % pool.length]);
+}
+
+/** El contador de entradas a la caja vive fuera del libro y fuera de
+ * React: es estado de la sesión de pantalla, como el marco del
+ * Seguimiento — nace y muere con la app abierta. */
+let askEntryCount = 0;
+export function nextAskEntry(): number {
+  return askEntryCount++;
+}
