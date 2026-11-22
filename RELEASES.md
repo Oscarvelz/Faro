@@ -3635,4 +3635,4 @@ Salir de un libro compartido es una ceremonia serena: no se piden razones ni se 
 
 Verificación: cerca nueva `libro398` 5/5 (el registro nace congelado y sin nada ajeno; vive y muere solo en el libro de quien se va; la lectura con desconfianza y la puerta de carga; el folio se lee como historia; las ceremonias en la fuente — la copia se lee antes de salir y el traspaso tiene sus dos puertas). Suite completa 3001/3001, EXIT 0; typecheck con exactamente los 3 errores de siempre. Banco renderizado: el Archivo muestra el folio — «Registros de libros compartidos · Tu copia de un libro que dejaste, guardada el Viernes, 20 de noviembre. Es historia: no toca ninguna cuenta. · 2026-11 · 1 líneas · $123.45» — con su puerta de borrado.
 
-Datos de publicación: (se completa tras publicar).
+Datos de publicación: fuente 9619625654fd83379366cfbed6cb2962908a1a39; principal ad23f5b8abdf5d87b723f4371cb21b399c974207 + c682c8b9ef16f2814ee93d1b0b0b8771ad3702c6 + 2520607ebc333fa00c12bd75f808dd6cee249e06 + 9a6d172294f0ae4406607eec47a5c4d2c7246357; etiqueta v1.3.398; barrido en vivo 28/28 idénticos; sw en vivo faro-1.3.398; entrada index-WbZBTK6G.js.
