@@ -3583,4 +3583,4 @@ La cura de la Ola 28 de la vía de Modos (informe CURA-OLA28.md, paquete de 11 a
 
 Verificación (de primera mano): la cerca nueva modos-ola28 y las cercas tocadas, 207/207 sobre el árbol curado antes de copiar; suite completa **2981/2981** (2860 de la 393 + 121 de la cerca nueva, reconciliado); `tsc` con exactamente los 3 errores permanentes. El candado no se tocó (md5 40a3b9bf…).
 
-Datos de publicación: PENDIENTE.
+Datos de publicación: fuente 4c18f8a75d3cd0a72799c231a2690ffcc9d287c4 (etiqueta v1.3.394); main 61724e8c26b15f94da0afbdc852a37af9c76636d + d809fdff48e20f46bb2e92167f04b8aab555568c (pdf.worker y ocr idénticos a los de la 1.3.393, no reenviados); barrido en vivo 28/28 idénticos, sw faro-1.3.394.
