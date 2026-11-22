@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.407",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La luz, como un grado", en: "The light, like a degree sign" },
+    points: {
+      es: [
+        "La lucecita de color que dice dónde vive cada bolsa ya no flota a media palabra, apretada contra el lápiz: sube a la esquina de arriba de la palabra, como el signo de grado, y el lápiz se queda con el asiento de abajo — la fila se balancea.",
+        "Las píldoras de los bolsillos llevan la luz en el mismo asiento nuevo, junto a su nombre.",
+      ],
+      en: [
+        "The small coloured light that says where each pocket lives no longer floats mid-word, crowded against the pencil: it rises to the word's top corner, like a degree sign, and the pencil keeps the lower seat — the row balances.",
+        "The pocket pills wear the light in the same new seat, beside their name.",
+      ],
+    },
+  },
+  {
     version: "1.3.406",
     date: "2026-11-22",
     level: "menor",
