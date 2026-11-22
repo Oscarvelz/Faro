@@ -52,7 +52,7 @@
  * respuesta y las preguntas sugeridas del banco reaparecen.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Compass, Send, Settings, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, Compass, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
 import { aliasIn, askPatternsOf, forgetAlias, learnAlias, touchAlias } from "@/lib/faro/asklearn";
 import { foldQ } from "@/lib/faro/lexicon";
@@ -112,6 +112,9 @@ export function AskBox() {
   const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
   const [caps, setCaps] = useState(false);
+  // 1.3.412: el acordeón de la descripción — qué grupo está abierto
+  // (-1 = ninguno: la descripción llega con todas sus tarjetas cerradas).
+  const [capsOpen, setCapsOpen] = useState(-1);
   // §20 (1.3.380): EL MARCO del seguimiento — estado de diálogo de la
   // caja: lo que la última respuesta dejó para que la siguiente
   // pregunta viva de ella. Vive solo aquí, en la sesión de la caja:
@@ -295,6 +298,7 @@ export function AskBox() {
     setFrame(null);
     setAsked(FIXED_PRESET_Q[lang]);
     setCaps(true);
+    setCapsOpen(-1);
     setText("");
   }
 
@@ -306,6 +310,7 @@ export function AskBox() {
     setFrame(null);
     setCaps(false);
     setAsked("");
+    setCapsOpen(-1);
   }
 
   const presets = askPresetsOf(session.ledger);
@@ -354,20 +359,35 @@ export function AskBox() {
         <div className="ask-card" data-anchor="ask-card">
           {(() => { const c = capabilitiesText(lang); return (<>
             <p className="ask-verdict">{c.intro}</p>
-            {c.groups.map((g) => (
-              <div key={g.title} className="ask-caps-group">
-                <span className="ask-caps-kicker">{g.title}</span>
-                <ul className="ask-caps-list">
-                  {g.items.map((it) => (<li key={it}>{it}</li>))}
-                </ul>
+            {/* 1.3.412 (Oscar): la descripción deja la lista interminable —
+                cada grupo es una tarjeta desplegable, una abierta a la vez,
+                todas cerradas al llegar. El texto no cambia: sale del banco. */}
+            <div className="ask-caps">
+              {c.groups.map((g, i) => (
+                <div key={g.title} className="ask-caps-group">
+                  <button type="button" className="ask-caps-head" aria-expanded={capsOpen === i} onClick={() => setCapsOpen((v) => (v === i ? -1 : i))}>
+                    <span className="ask-caps-kicker">{g.title}</span>
+                    <ChevronDown size={15} className="ask-caps-chev" aria-hidden />
+                  </button>
+                  {capsOpen === i ? (
+                    <ul className="ask-caps-list">
+                      {g.items.map((it) => (<li key={it}>{it}</li>))}
+                    </ul>
+                  ) : null}
+                </div>
+              ))}
+              <div className="ask-caps-group">
+                <button type="button" className="ask-caps-head" aria-expanded={capsOpen === c.groups.length} onClick={() => setCapsOpen((v) => (v === c.groups.length ? -1 : c.groups.length))}>
+                  <span className="ask-caps-kicker">{c.notYetTitle}</span>
+                  <ChevronDown size={15} className="ask-caps-chev" aria-hidden />
+                </button>
+                {capsOpen === c.groups.length ? (<>
+                  <ul className="ask-caps-list">
+                    {c.notYet.map((it) => (<li key={it}>{it}</li>))}
+                  </ul>
+                  <p className="ask-caps-note">{c.notYetNote}</p>
+                </>) : null}
               </div>
-            ))}
-            <div className="ask-caps-group">
-              <span className="ask-caps-kicker">{c.notYetTitle}</span>
-              <ul className="ask-caps-list">
-                {c.notYet.map((it) => (<li key={it}>{it}</li>))}
-              </ul>
-              <p className="ask-caps-note">{c.notYetNote}</p>
             </div>
             <p className="ask-note">{c.limits}</p>
           </>); })()}

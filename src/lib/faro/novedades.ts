@@ -35,6 +35,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.412",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Lo que sé hacer, en tarjetas", en: "What I can do, in cards" },
+    points: {
+      es: [
+        "La respuesta a «¿Qué puede hacer el asesor?» deja la lista interminable: cada territorio — tu mes, tus movimientos, tus cuotas y deudas — es ahora una tarjeta que se abre al tocarla.",
+        "Las tarjetas llegan cerradas y se abre una a la vez: lees el mapa de un vistazo y abres solo lo que te interesa.",
+        "El texto es el mismo de siempre, generado de lo que el Asesor sabe hacer en el momento — cambia la forma, no la honestidad.",
+      ],
+      en: [
+        "The answer to \"What can the Advisor do?\" leaves the endless list behind: each territory — your month, your movements, your dues and debts — is now a card that opens when tapped.",
+        "The cards arrive closed and only one opens at a time: you read the map at a glance and open only what interests you.",
+        "The text is the same as always, generated from what the Advisor can do at that moment — the form changes, not the honesty.",
+      ],
+    },
+    topic: "preguntar-asesor",
+  },
+  {
     version: "1.3.411",
     date: "2026-11-22",
     level: "menor",

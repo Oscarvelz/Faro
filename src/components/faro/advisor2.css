@@ -529,12 +529,19 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
    renglón propio: un kicker por territorio y una línea corta por
    capacidad, con su marca del acento del tema. La nota de límites
    (.ask-note) no se toca: su fuente y su forma le gustaron tal cual. */
-.ask-caps-group { display: flex; flex-direction: column; gap: 4px; }
-.ask-caps-kicker { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.ask-caps-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+/* 1.3.412: cada grupo de la descripción es una tarjeta desplegable —
+   el acordeón de la casa para esta respuesta: borde, cabecera al toque
+   con su flecha, y la lista dentro solo cuando su tarjeta está abierta. */
+.ask-caps { display: flex; flex-direction: column; gap: 8px; }
+.ask-caps-group { border: 1px solid var(--line); border-radius: 12px; background: color-mix(in oklab, var(--fg) 3%, transparent); overflow: hidden; }
+.ask-caps-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: none; border: none; cursor: pointer; font: inherit; color: var(--fg); text-align: left; }
+.ask-caps-kicker { flex: 1; font-size: .92rem; font-weight: 650; color: var(--fg); }
+.ask-caps-chev { flex: none; color: var(--muted); transition: transform .18s ease; }
+.ask-caps-head[aria-expanded="true"] .ask-caps-chev { transform: rotate(180deg); }
+.ask-caps-list { list-style: none; margin: 0; padding: 0 12px 11px; display: flex; flex-direction: column; gap: 3px; }
 .ask-caps-list li { position: relative; font-size: .92rem; line-height: 1.45; padding-left: 15px; }
 .ask-caps-list li::before { content: ""; position: absolute; left: 0; top: .5em; width: 6px; height: 6px; border-radius: 2px; background: color-mix(in oklab, var(--accent) 55%, transparent); }
-.ask-caps-note { margin: 0; font-size: .84rem; color: var(--muted); line-height: 1.4; }
+.ask-caps-note { margin: 0; padding: 0 12px 11px; font-size: .84rem; color: var(--muted); line-height: 1.4; }
 .ask-reg { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 9px; padding: 7px 12px; font-size: .86rem; font-weight: 600; cursor: pointer; }
 /* 1.3.383 (Olas 5/10/12 del banco) — LAS ACCIONES DE LA RESPUESTA: la
    fila de puertas y verbos que la respuesta propone (VER · HACER ·
