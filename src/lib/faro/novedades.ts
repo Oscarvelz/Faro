@@ -35,6 +35,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.417",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Cada cambio de precio, en su tarjetita", en: "Each price change, in its own little card" },
+    points: {
+      es: [
+        "En «Cambios de precio», la lista de cambios ya no es texto suelto: cada cambio lleva su propia tarjetita, con su borde y su superficie.",
+        "Las tarjetitas permanecen apagadas — atenuadas — hasta que tocas una: la elegida se enciende con el acento del tema, a juego con su detalle y su escalón en la escalera.",
+      ],
+      en: [
+        "In \"Price changes\", the list of changes is no longer loose text: each change carries its own little card, with its border and its surface.",
+        "The little cards stay dimmed until you tap one: the chosen one lights up with the theme's accent, matching its detail and its step on the staircase.",
+      ],
+    },
+    topic: "cambios-precio",
+  },
+  {
     version: "1.3.416",
     date: "2026-11-22",
     level: "menor",
