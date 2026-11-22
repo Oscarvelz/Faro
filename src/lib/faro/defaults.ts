@@ -17,6 +17,7 @@ import type {
   Sub,
   TemplateId,
   ThemeId,
+  Tombstone,
 } from "./types";
 import { DEFAULT_SHORTCUTS } from "./types";
 
@@ -875,11 +876,12 @@ export function isLedger(x: unknown): x is LedgerState {
 const isObjD = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const isStrD = (v: unknown): v is string => typeof v === "string";
 const isFinD = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-/** OLA 25 (G25-3): una fecha JUZGADA COMO FECHA — el mismo parser que la
- * desreferencia (`new Date(v)` en waitlist.ts) debe poder leerla: un
- * texto que el parser no entiende entraba como «texto válido» y salía
- * como NaN en el anillo y en el «quedan N horas». */
-const isDateStrD = (v: unknown): v is string => typeof v === "string" && v !== "" && !Number.isNaN(new Date(v).getTime());
+/** OLA 29 (Familia 3, G29-2) — el parser de fecha viejo (`isDateStrD`, de
+ * G25-3: «lo que new Date entiende») se RETIRA: su único consumidor que
+ * quedaba era noticeRuleShapeOk, y la casa juzga ya TODA fecha con la ida
+ * y vuelta de isIsoDateStrD — un 30 de febrero, que Date normaliza sin
+ * quejarse, no pasa ninguna puerta (ni deseos, ni reglas de avisos, ni
+ * lápidas). Un parser menos, una sola ley de fecha. */
 /** OLA 26 (G26-2): una fecha juzgada en la DIMENSIÓN DE SUS LECTORES.
  * Los lectores de las fechas del deseo no «parsean» en abstracto: la
  * cuenta del año CORTA el texto (`closedAt.slice(0, 4)` contra el año)
@@ -913,13 +915,36 @@ const isIsoDateStrD = (v: unknown): v is string => {
  * puerta y vivía en el libro sin poder ser de nadie, y un `at` que
  * no es fecha pasaba sin juicio. La ley: llave y app presentes (no
  * vacías — una regla sin llave ni app no silencia nada y no es de
- * nadie), etiqueta texto, y `at` juzgado COMO FECHA (la dimensión de
- * quien lo escribió: learnNoticeRule lo acuña del reloj ISO). */
+ * nadie), etiqueta texto, y `at` juzgado como fecha. OLA 29 (Familia 3,
+ * G29-2): el juicio de `at` es la IDA Y VUELTA de isIsoDateStrD — la
+ * misma ley que los deseos y las lápidas; antes este juez usaba el
+ * parser viejo (isDateStrD, retirado con esta cura) y un 30 de febrero
+ * pasaba las dos puertas de las reglas mientras moría en un deseo. */
 export function noticeRuleShapeOk(r: unknown): r is NoticeRule {
   if (!isObjD(r)) return false;
   if (!isStrD(r.key) || r.key === "" || !isStrD(r.app) || r.app === "") return false;
   if (!isStrD(r.label)) return false;
-  if (!isDateStrD(r.at)) return false;
+  if (!isIsoDateStrD(r.at)) return false;
+  return true;
+}
+/** OLA 29 (Familia 2, G29-1) — EL JUEZ ÚNICO DE LA LÁPIDA: la ley entera
+ * de la forma de una Tombstone, en un solo sitio, para que ninguna puerta
+ * pueda discrepar con otra. Antes la puerta del libro y el lector
+ * juzgaban id/at/by con tres «typeof string»: una lápida con at «basura»
+ * o «zzzz» pasaba las dos puertas y ganaba la unión de la fusión por
+ * orden de TEXTO contra la lápida legítima, y una con by «» seguía activa
+ * y mataba la línea editada por su dueño. La forma: id no vacío, by no
+ * vacío (una lápida sin firmante no es un hecho firmado — es un rumor) y
+ * at juzgado como fecha real con la ida y vuelta de la Familia 8 de la
+ * Ola 28 (el 30 de febrero y el texto libre mueren; el ISO completo del
+ * reloj pasa). Lo usan las tres puertas: la del libro (isLedgerDeep,
+ * abajo), el lector (tombstonesOf en fuse.ts) y el escritor
+ * (withTombstone rehúsa acuñar lo que la puerta rehusaría). */
+export function tombstoneShapeOk(r: unknown): r is Tombstone {
+  if (!isObjD(r)) return false;
+  if (!isStrD(r.id) || r.id === "") return false;
+  if (!isIsoDateStrD(r.at)) return false;
+  if (!isStrD(r.by) || r.by === "") return false;
   return true;
 }
 /** OLA 25 (G25-3): las horas de espera caben en su aritmética — la
@@ -1164,12 +1189,16 @@ export function isLedgerDeep(x: unknown): x is LedgerState {
   }
   // tombstones (las lápidas del libro compartido, Pieza C3): si está,
   // es una lista de hechos firmados — id, cuándo, quién — y nada más;
-  // la fusión las lee con desconfianza además de esta puerta.
+  // la fusión las lee con desconfianza además de esta puerta. OLA 29
+  // (Familia 2, G29-1): la puerta juzga con el juez único
+  // tombstoneShapeOk — id y firmante no vacíos y la fecha con ida y
+  // vuelta; juzgarlas con tres «typeof string» dejaba pasar lápidas
+  // con at «basura» que ganaban la unión por orden de texto y lápidas
+  // sin firmante que seguían matando líneas.
   if (s.tombstones !== undefined) {
     if (!Array.isArray(s.tombstones)) return false;
     for (const t of s.tombstones as unknown[]) {
-      if (!isObjD(t)) return false;
-      if (!isStrD(t.id) || !isStrD(t.at) || !isStrD(t.by)) return false;
+      if (!tombstoneShapeOk(t)) return false;
     }
   }
   // funding (el mapa de financiación, Pieza C6): si está, es un mapa

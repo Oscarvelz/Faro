@@ -30,20 +30,21 @@
  * línea entra sin id. */
 import type { LedgerState, Line, Tombstone } from "./types";
 import { migrateAutopayConfig } from "./autopay.ts";
+import { tombstoneShapeOk } from "./defaults.ts";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
-/** Las lápidas de un libro, leídas con desconfianza. */
+/** Las lápidas de un libro, leídas con desconfianza. OLA 29 (Familia 2,
+ * G29-1): el lector juzga con el MISMO juez único que la puerta del
+ * libro (tombstoneShapeOk en defaults.ts) — antes este lector pedía solo
+ * el id no vacío y dejaba pasar fechas basura y lápidas sin firmante que
+ * la desreferencia luego trataba como hechos firmados. */
 export function tombstonesOf(s: LedgerState): Tombstone[] {
   if (!Array.isArray(s.tombstones)) return [];
   const out: Tombstone[] = [];
   for (const t of s.tombstones as unknown[]) {
-    if (typeof t !== "object" || t === null) continue;
-    const r = t as Record<string, unknown>;
-    if (typeof r.id === "string" && r.id !== "" && typeof r.at === "string" && typeof r.by === "string") {
-      out.push({ id: r.id, at: r.at, by: r.by });
-    }
+    if (tombstoneShapeOk(t)) out.push({ id: t.id, at: t.at, by: t.by });
   }
   return out;
 }
@@ -55,6 +56,13 @@ export function tombstonesOf(s: LedgerState): Tombstone[] {
  * (la ley de la ola 25): si la línea era la instancia que portaba la
  * instrucción de su serie, la instrucción migra a la más nueva viva. */
 export function withTombstone(state: LedgerState, lineId: string, by: string, at: string): LedgerState {
+  // OLA 29 (Familia 2, G29-1): el escritor rehúsa acuñar lo que la
+  // puerta rehusaría — una lápida sin firmante o con una fecha que no es
+  // fecha no se escribe, y el acto entero no sucede: borrar «sin firmar»
+  // quitaría la línea de este libro y la dejaría resucitar en la
+  // próxima fusión, porque ninguna puerta honraría su lápida. El estado
+  // vuelve intacto.
+  if (!tombstoneShapeOk({ id: lineId, at, by })) return state;
   const removed = clone(state);
   for (const mk of Object.keys(removed.months)) {
     const month = removed.months[mk];
@@ -111,11 +119,15 @@ function fuseLine(base: Line | undefined, sv: Line, lc: Line, laterIsLocal: bool
 }
 
 export function fuseBooks(base: LedgerState, server: FuseSide, local: FuseSide): { state: LedgerState; conflict: boolean } {
-  // Las lápidas: la unión manda; por id queda la más reciente.
+  // Las lápidas: la unión manda; por id queda la más reciente. OLA 29
+  // (Familia 2): se comparan los INSTANTES, no el texto — con el juez
+  // único filtrando en el lector, toda lápida que llega aquí trae una
+  // fecha real, y el orden alfabético ya no decide nada (una «zzzz»
+  // jamás vuelve a ganarle a una fecha verdadera).
   const stoneBy = new Map<string, Tombstone>();
   for (const t of [...tombstonesOf(server.state), ...tombstonesOf(local.state)]) {
     const prev = stoneBy.get(t.id);
-    if (!prev || t.at > prev.at) stoneBy.set(t.id, t);
+    if (!prev || Date.parse(t.at) > Date.parse(prev.at)) stoneBy.set(t.id, t);
   }
 
   const bIdx = lineIndex(base);
@@ -189,6 +201,6 @@ export function fuseBooks(base: LedgerState, server: FuseSide, local: FuseSide):
   }
   const state = clone(winner.state);
   state.months = months;
-  state.tombstones = [...stoneBy.values()].sort((a, z) => (a.at < z.at ? -1 : a.at > z.at ? 1 : 0));
+  state.tombstones = [...stoneBy.values()].sort((a, z) => Date.parse(a.at) - Date.parse(z.at));
   return { state, conflict };
 }

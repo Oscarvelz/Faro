@@ -551,15 +551,35 @@ function remitPersonOf(c: Ctx, folded: string) {
 const REMIT_PERSON_STOP = new Set(["la", "el", "los", "las", "una", "uno", "mi", "su", "tu", "the", "my", "his", "her", "nombre", "name", "tiempo", "time", "casa", "cuenta", "account", "vez", "persona", "person", "alguien", "someone", "nadie", "anyone", "mes", "month", "semana", "week", "ano", "year", "dia", "day", "hoy", "today", "ayer", "yesterday", "manana", "tomorrow", "meses", "months", "semanas", "weeks", "dias", "days", "total", "todo", "toda", "todos", "todas", "cada", "each", "every", "vez", "veces", "times", "remesa", "remittance", "remittances", "remesas", "dinero", "money"]);
 /** Los tratamientos que preceden a un nombre tras «a»: no son la
  * persona ni detienen la búsqueda — se saltan («a la señora Pérez»
- * encuentra a Pérez tras «la» y «señora»). */
-const REMIT_PERSON_TITLES = new Set(["senor", "senora", "senorita", "don", "dona", "mr", "mrs", "ms", "miss", "aunt", "uncle", "tia", "tio"]);
+ * encuentra a Pérez tras «la» y «señora»). OLA 29 (Familia 1, Q29-2):
+ * la lista aprende los tratamientos que la caza encontró acusados —
+ * doctor/doctora y sus abreviaturas plegadas (dr/dra), y niño/niña
+ * como tratamiento («para la niña Rosa»): la caminata pasa DE ELLOS
+ * hasta el nombre, y la negativa acusa al nombre, nunca al trato. */
+const REMIT_PERSON_TITLES = new Set(["senor", "senora", "senorita", "don", "dona", "mr", "mrs", "ms", "miss", "aunt", "uncle", "tia", "tio", "doctor", "doctora", "dr", "dra", "nino", "nina"]);
 const REMIT_PERSON_DEM = new Set(["esa", "ese", "eso", "esas", "esos", "esta", "este", "esto", "that", "this", "those", "these"]);
+/** OLA 29 (Familia 1, Q29-1 + Q29-C1): LAS PALABRAS DE PERÍODO que
+ * periodOf reconoce — los demostrativos (el conjunto DEM entero) y los
+ * relativos de tiempo (last/next, pasado, último) — NUNCA son
+ * candidatas a persona en su posición: «¿Cuánto mandé esta semana?»
+ * acusaba a «esta», «este mes» a «este» y "last month" a "last",
+ * porque la caminata vieja solo excluía los demostrativos de la
+ * PRIMERA posición y del camino desnudo no excluía ninguno. Los
+ * nombres de período (semana/mes/año, week/month/year) ya viven en
+ * REMIT_PERSON_STOP. Una palabra de período se salta y la caminata
+ * sigue: si tras ella hay un nombre, el nombre manda. */
+const REMIT_PERIOD_WORDS = new Set(["esta", "este", "esa", "ese", "eso", "esto", "estas", "estos", "esas", "esos", "this", "that", "these", "those", "last", "next", "pasado", "pasada", "pasados", "pasadas", "ultimo", "ultima", "ultimos", "ultimas"]);
+/** OLA 29 (Familia 1, Q29-1): los apertores del dativo — la caminata
+ * abre en cualquiera de ellos y los salta si aparecen dentro del
+ * camino («al» es «a» + «el» contraídos: la forma natural de «a el
+ * doctor Pérez» en español, y la caminata vieja no lo conocía). */
+const REMIT_OPENERS = new Set(["a", "al", "para", "to"]);
 /** Lo que tras «send»/«sent»/«mandé» NO es una persona: el dativo
  * inglés sin «to» («How much did I send Rigoberto?») captura el
  * nombre solo cuando la palabra no es de esta lista ni de relleno. */
 const REMIT_BARE_STOP = new Set(["money", "it", "more", "them", "him", "her", "us", "you", "me", "that", "this", "back", "home", "today", "yesterday", "again", "dinero", "eso", "esto", "mas", "otra", "otro"]);
-/** La palabra-persona tras «a»/«to» en una pregunta de remesas, si la
- * hay y no es una palabra de relleno: el nombre que no se resolvió.
+/** La palabra-persona tras un apertor en una pregunta de remesas, si
+ * la hay y no es una palabra del idioma: el nombre que no se resolvió.
  *
  * OLA 28 (Familia 1, Q28-3 + Q28-C2): la búsqueda CAMINA tras la
  * preposición — salta el relleno y los tratamientos en vez de
@@ -569,22 +589,64 @@ const REMIT_BARE_STOP = new Set(["money", "it", "more", "them", "him", "her", "u
  * nombre («esa persona») se nombra como frase en la negativa, que es
  * lo que el usuario dijo. Y el dativo inglés sin «to» («send
  * Rigoberto») se captura por el verbo cuando no hay preposición:
- * resuelve por el escaneo o se rehúsa nombrando — nunca la global. */
+ * resuelve por el escaneo o se rehúsa nombrando — nunca la global.
+ *
+ * OLA 29 (Familia 1, Q29-1 + Q29-2 + Q29-C1) — LA CAMINATA APRENDE EL
+ * IDIOMA. La caminata de la Ola 28 era más estrecha que el idioma que
+ * juzga, y la especie volvió por sus tres rendijas: «al» y «para» no
+ * abrían («al doctor Pérez» y «para la niña Rosa» entregaban la remesa
+ * global de Primo como si fuera la preguntada); una captura de menos
+ * de 3 letras CERRABA la búsqueda ("to Dr. Rosa" moría en «dr» en vez
+ * de seguir hasta «rosa»); y la negativa nombraba palabras que no son
+ * la persona («doctora», «para», «nina», «esta», «este», «last»)
+ * porque los tratamientos nuevos y las palabras de período no estaban
+ * en ningún conjunto del camino desnudo. LA LEY DE LA FAMILIA, una
+ * sola para los dos caminos (el del apertor y el desnudo tras el
+ * verbo): la caminata salta TODO lo que en su posición no puede ser
+ * el nombre — apertores, relleno, tratamientos, palabras de período y
+ * piezas de menos de 3 letras — y devuelve la primera palabra que sí
+ * puede serlo; la negativa nombra SOLO una candidata que la caminata
+ * entera no pudo resolver a persona ni a palabra del idioma. Ante la
+ * duda entre palabra común y nombre manda el escaneo del libro
+ * (remitPersonOf corre ANTES en los dos llamantes: si está en el
+ * libro, es persona — «¿cuánto mandé a Semana?» con una Semana en el
+ * libro resuelve a Semana; sin ella, «semana» es período y la
+ * pregunta sigue a su familia verdadera). */
 function remitPersonWordOf(folded: string): string | null {
   const tokens = folded.split(/[^a-z0-9]+/).filter(Boolean);
+  // La caminata misma, compartida por los dos caminos: desde un
+  // índice, avanza saltando lo que no puede ser el nombre y devuelve
+  // la primera palabra que sí puede serlo (o null si el idioma se
+  // acaba antes: sin candidata no nace negativa alguna).
+  const walk = (from: number): string | null => {
+    let j = from;
+    while (j < tokens.length) {
+      const w = tokens[j];
+      // El demostrativo con su nombre se nombra como frase («esa
+      // persona»): es lo que el usuario dijo, no una candidata.
+      if (REMIT_PERSON_DEM.has(w) && (tokens[j + 1] === "persona" || tokens[j + 1] === "person")) return `${w} ${tokens[j + 1]}`;
+      if (
+        w.length < 3 ||
+        w === "por" ||
+        REMIT_OPENERS.has(w) ||
+        REMIT_PERSON_STOP.has(w) ||
+        REMIT_PERSON_TITLES.has(w) ||
+        REMIT_PERIOD_WORDS.has(w)
+      ) { j++; continue; }
+      return w;
+    }
+    return null;
+  };
   for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i] !== "a" && tokens[i] !== "to") continue;
-    let j = i + 1;
-    while (j < tokens.length && (REMIT_PERSON_STOP.has(tokens[j]) || REMIT_PERSON_TITLES.has(tokens[j]))) j++;
-    if (j >= tokens.length) return null;
-    const w = tokens[j];
-    if (w.length < 3) return null;
-    if (REMIT_PERSON_DEM.has(w) && (tokens[j + 1] === "persona" || tokens[j + 1] === "person")) return `${w} ${tokens[j + 1]}`;
-    if (REMIT_PERSON_STOP.has(w)) return null;
-    return w;
+    if (!REMIT_OPENERS.has(tokens[i])) continue;
+    const w = walk(i + 1);
+    if (w !== null) return w;
   }
-  const bare = folded.match(/\b(?:sent|send|mande|envie|enviado)\s+([a-z]{3,})\b/);
-  if (bare && !REMIT_PERSON_STOP.has(bare[1]) && !REMIT_BARE_STOP.has(bare[1]) && !REMIT_PERSON_TITLES.has(bare[1])) return bare[1];
+  const bareAt = tokens.findIndex((t) => t === "sent" || t === "send" || t === "mande" || t === "envie" || t === "enviado");
+  if (bareAt >= 0) {
+    const w = walk(bareAt + 1);
+    if (w !== null && !REMIT_BARE_STOP.has(w)) return w;
+  }
   return null;
 }
 

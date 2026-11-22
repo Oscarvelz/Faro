@@ -35,6 +35,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.399",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La Cura de la Ola 29, integrada", en: "The Wave 29 Cure, integrated" },
+    points: {
+      es: [
+        "El Asesor sigue la conversación de remesas con el idioma entero: «al doctor Pérez» y «para la niña Rosa» ya nombran a su persona, y cuando una negativa nombra a alguien, nombra a la persona de verdad.",
+        "Las lápidas del libro compartido se juzgan ahora con un solo juez en la puerta, en el lector y en el escritor — una fecha imposible ya no pasa — y la unión compara instantes, no textos. Las cercas del banco de preguntas barren ahora los 12 chips y el mapa entero por el turno real.",
+      ],
+      en: [
+        "The Advisor now follows remittance talk in the full language: “al doctor Pérez” and “para la niña Rosa” name their person, and when a refusal names someone, it names the real person.",
+        "Shared-book tombstones are now judged by one judge at the gate, in the reader and in the writer — an impossible date no longer passes — and fusion compares instants, not text. The question-bank fences now sweep all 12 chips and the whole map through the real turn.",
+      ],
+    },
+  },
+  {
     version: "1.3.398",
     date: "2026-11-22",
     level: "menor",

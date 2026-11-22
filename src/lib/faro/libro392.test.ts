@@ -13,6 +13,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { createInitial, isLedgerDeep } from "./defaults.ts";
 import { fuseBooks, tombstonesOf, withTombstone } from "./fuse.ts";
 import type { LedgerState, Line } from "./types.ts";
 
@@ -157,7 +158,6 @@ describe("libro compartido · C3: el papel del servidor y la costura", () => {
   const sql = readFileSync(new URL("../../../shared-push.sql", import.meta.url), "utf8");
   const shared = readFileSync(new URL("../../../shared.sql", import.meta.url), "utf8");
   const cloud = readFileSync(new URL("../../spa/cloud.ts", import.meta.url), "utf8");
-  const defaults = readFileSync(new URL("./defaults.ts", import.meta.url), "utf8");
 
   it("el filtro de alcance es UNA implementación: faro_scoped, y la lectura lo usa", () => {
     assert.match(sql, /function public\.faro_scoped\(book jsonb, m_scope jsonb\)/);
@@ -183,9 +183,29 @@ describe("libro compartido · C3: el papel del servidor y la costura", () => {
     assert.match(sql, /jsonb_array_elements\(kept\) k where k ->> 'id' = l ->> 'id'/);
   });
 
-  it("la costura pushSharedBook y la puerta del cargador para las lápidas", () => {
+  it("la costura pushSharedBook", () => {
     assert.match(cloud, /export async function pushSharedBook\(ownerId: string, book: unknown, baseRevision: number\)/);
     assert.match(cloud, /supabase\.rpc\("faro_shared_push"/);
-    assert.match(defaults, /if \(s\.tombstones !== undefined\)/);
+  });
+
+  // OLA 29 (Familia 4, G29-3): esta cerca clavaba la puerta de las
+  // lápidas con una regex sobre el TEXTO de defaults.ts (presencia de
+  // la sección, no su juicio) — por eso la puerta pudo juzgar con tres
+  // «typeof string» una ola entera con la cerca en verde. La puerta se
+  // clava ahora por CONDUCTA: libros enteros con lápidas malformadas
+  // pasan (o no) por isLedgerDeep, la puerta misma del cargador.
+  it("la puerta del cargador JUZGA las lápidas: conducta, no texto", () => {
+    const conPiedra = (t: unknown): unknown => {
+      const b = createInitial("es", "oscuro") as unknown as Record<string, unknown>;
+      b.tombstones = [t];
+      return b;
+    };
+    assert.equal(isLedgerDeep(createInitial("es", "oscuro")), true, "el libro sin lápidas pasa");
+    assert.equal(isLedgerDeep(conPiedra({ id: "l1", at: "2026-11-22T10:00:00.000Z", by: "cuenta-a" })), true, "la lápida bien formada pasa");
+    assert.equal(isLedgerDeep(conPiedra({ id: "l1", at: "basura", by: "cuenta-a" })), false, "at libre muere en la puerta");
+    assert.equal(isLedgerDeep(conPiedra({ id: "l1", at: "", by: "cuenta-a" })), false, "at vacío muere en la puerta");
+    assert.equal(isLedgerDeep(conPiedra({ id: "l1", at: "2026-02-30", by: "cuenta-a" })), false, "el 30 de febrero muere en la puerta");
+    assert.equal(isLedgerDeep(conPiedra({ id: "l1", at: "2026-11-22T10:00:00.000Z", by: "" })), false, "la lápida sin firmante muere en la puerta");
+    assert.equal(isLedgerDeep(conPiedra({ id: "", at: "2026-11-22T10:00:00.000Z", by: "cuenta-a" })), false, "la lápida sin id muere en la puerta");
   });
 });
