@@ -4023,3 +4023,11 @@ Segunda de la cadena. La tarjeta que Oscar eligió — la C, «La historia en l�
 **Verificación.** La cerca `captura429` y las de Novedades/versión, verdes sobre el build (20/20 focalizadas); la suite completa de la cadena firmó 3.492/3.492 en la corrida de reanudación. Build: entry `index-DzBcvjJg.js`, sin `pack.json`.
 
 **Datos de publicación.** Fuente `9cbf198a` (Novedades + sello; el código viajó en la fuente integrada `5b4cf44b`). Rama principal: 43 archivos, cola `7becdfe3`. Barrido en vivo: 28/28 idénticos; el sw vivo lee `faro-1.3.429` y el índice vivo referencia `index-DzBcvjJg.js`; la rama confirma los mismos datos por la API de contenidos. Snapshot: `~/workspace/faro-429-dist-snapshot`.
+---
+## 1.3.430 — «El candadito de las proyecciones» (2026-11-23)
+
+Tercera de la cadena. Oscar (2026-11-22 17:45, foto de la palanca «Si apartas» con su candado dibujado en rojo bajo el riel): bajo la palanca de monto de las proyecciones importantes va un candadito; un toque lo pone o lo quita; puesto, la palanca no se mueve por accidente, y tocarla enseña una ventana corta que lo explica. El censo de palancas: la «Si apartas» de Central — en sus dos formas, el riel vertical desplegado y el riel plano — y la «¿Y si apartara cada mes…?» de Estudio; el selector de color no proyecta dinero y el monto del Plan de pago se teclea, así que quedan fuera, dicho en la cerca para que el censo sea honesto. El candado se recuerda por libro. Novedades 430 menor, con su puerta al tema «si-apartas».
+
+**Verificación.** La cerca `captura430` y las de Novedades/versión, verdes sobre el build (14/14 focalizadas); la suite completa de la cadena firmó 3.492/3.492 en la corrida de reanudación. Build: entry `index-C0b8wbk4.js`, sin `pack.json`.
+
+**Datos de publicación.** Fuente `3e6705b8` (Novedades + sello; el código viajó en la fuente integrada `5b4cf44b`). Rama principal: 43 archivos, cola `bba5da56`. Barrido en vivo: 28/28 idénticos; el sw vivo lee `faro-1.3.430` y el índice vivo referencia `index-C0b8wbk4.js`; la rama confirma los mismos datos por la API de contenidos. Snapshot: `~/workspace/faro-430-dist-snapshot`.
