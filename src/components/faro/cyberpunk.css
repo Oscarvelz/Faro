@@ -207,6 +207,11 @@
   clip-path: var(--cp-cut);
   filter: drop-shadow(0 14px 22px rgb(0 0 0 / .5));
 }
+/* 1.3.435: dentro de Estudio, estas superficies visten la línea subida de
+   la pila (--line-study: la misma mezcla de tokens que manda en los demás
+   temas) — la presencia de bordes que Oscar pidió para todo Estudio llega
+   también a este tema, sin tocar el resto de la app. */
+[data-theme="cyberpunk"] .study-stack :is(.card, .ridge, .cs-card, .cobro-card, .form-block) { border-color: var(--line-study); }
 [data-theme="cyberpunk"] :is(.lens, .cal-pop, .hits, .fit-sheet) {
   border-radius: 2px;
   clip-path: var(--cp-cut-sm);

@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.435",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "Bordes que se ven, en todo Estudio", en: "Borders you can see, across Study" },
+    points: {
+      es: [
+        "Todos los bordes de Estudio ganan presencia a la vez — las tarjetas, sus filetes y sus rieles se leen con claridad en cualquier tema, sin que nada cambie de sitio ni de orden.",
+        "La burbuja de ayuda — la de «¿Qué significa mi nota?» y sus hermanas — lleva ahora el borde más claro de la casa, casado con el color de tu tema, y se despega de su tarjeta con una sombra suave.",
+      ],
+      en: [
+        "Every border in Study gains presence at once — the cards, their hairlines and their rails read clearly in any theme, with nothing moving or changing order.",
+        "The help bubble — the one behind \"What does my score mean?\" and its sisters — now wears the clearest border in the house, married to your theme's color, and lifts off its card with a soft shadow.",
+      ],
+    },
+  },
+  {
     version: "1.3.434",
     date: "2026-11-23",
     level: "menor",
