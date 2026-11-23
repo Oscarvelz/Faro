@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.433",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "Seguir preguntando, sin perder el hilo", en: "Asking on, without losing the thread" },
+    points: {
+      es: [
+        "Los seguimientos respetan tus exclusiones: si preguntas «sin» alguien o «sin» una cuenta, el Asesor mantiene esa exclusión al estrechar, al desplazar y al descomponer la cifra — nunca la convierte en su contrario.",
+        "El Asesor oye más tiempo y más nombres: «el año pasado», «hace tres meses» y «the week» sirven su período, y un nombre completo manda sobre su primer nombre («Ana María» gana a «ana») al resolver de quién hablas.",
+      ],
+      en: [
+        "Follow-ups respect your exclusions: if you ask \"without\" someone or \"without\" an account, the Advisor keeps that exclusion when narrowing, shifting and breaking down the figure — it never turns it into its opposite.",
+        "The Advisor hears more time and more names: \"last year\", \"three months ago\" and \"the week\" serve their period, and a full name beats its first name (\"Ana María\" wins over \"ana\") when resolving who you mean.",
+      ],
+    },
+  },
+  {
     version: "1.3.432",
     date: "2026-11-23",
     level: "menor",
