@@ -41,7 +41,9 @@ test("430 · el candado vive bajo el riel desplegado y junto al riel plano", () 
   assert.ok(side.includes("vault-lever-rail"), "la columna lleva el riel");
   assert.ok(side.includes("{lockBtn}"), "y el candado debajo, como lo dibujó");
   assert.ok(styles.includes(".vault-lever-side {"), "la columna tiene su forma");
-  assert.ok(styles.includes(".lever-lock { width: 24px; height: 24px;"), "el candado es chiquito — Oscar, 2026-11-22: «muy grande… tiene que ser más chiquito»");
+  // ENMIENDA 1.3.434 (Oscar, 2026-11-23): «más pequeño todavía» — el
+  // marco baja de 24 a 20px (el detalle vive en captura434).
+  assert.ok(styles.includes(".lever-lock { width: 20px; height: 20px;"), "el candado es chiquito — Oscar, 2026-11-22: «muy grande… tiene que ser más chiquito»; 2026-11-23: más pequeño todavía");
   assert.ok(styles.includes(".lever-lock.is-on {"), "puesto, el candado viste el tono de la palanca");
   assert.ok(styles.includes(".lever-note {"), "la nota corta tiene su forma");
 });

@@ -61,16 +61,21 @@ export function ProjectionSection() {
     const y = (v: number) => TOP + ((max - v) * (BOT - TOP)) / (max - min);
     const points = days.map((d, i) => `${x(i).toFixed(1)},${y(d.free).toFixed(1)}`).join(" ");
     const zeroY = min < 0 && max > 0 ? y(0) : null;
-    let tight: { x: number; y: number; labelX: number; labelY: number; label: string } | null = null;
+    let tight: { x: number; y: number; labelX: number; labelY: number; labelW: number; label: string } | null = null;
     if (reading.tightest && reading.events.length) {
       const ti = days.findIndex((d) => d.day === reading.tightest!.day);
       if (ti >= 0) {
         const tx = x(ti), ty = y(days[ti].free);
+        const label = `${shortDay(lang, days[ti].day, today)} · ${fmt(days[ti].free)}`;
+        // 1.3.434 (Oscar, 2026-11-23): la etiqueta viaja en su pastilla —
+        // la línea ya no la cruza ni la tapa; la pastilla se mide por su
+        // texto y se queda dentro del dibujo.
+        const labelW = Math.ceil(label.length * 5.6) + 14;
         tight = {
-          x: tx, y: ty,
-          labelX: Math.min(Math.max(tx, 52), W - 52),
-          labelY: ty > TOP + 26 ? ty - 9 : ty + 15,
-          label: `${shortDay(lang, days[ti].day, today)} · ${fmt(days[ti].free)}`,
+          x: tx, y: ty, labelW,
+          labelX: Math.min(Math.max(tx, labelW / 2 + 2), W - labelW / 2 - 2),
+          labelY: ty > TOP + 26 ? ty - 10 : ty + 16,
+          label,
         };
       }
     }
@@ -98,8 +103,13 @@ export function ProjectionSection() {
           <Hint topic="saldo-proyectado" />
         </span>
       </p>
-      <p className="advice-lead"><strong>{lead}</strong>{rest ? <span> {rest}</span> : null}</p>
-      {reading.hasBase && reading.tightestText ? <p className="proj-tight">{reading.tightestText}</p> : null}
+      {/* 1.3.434 (Oscar, 2026-11-23): el texto del veredicto vive en su
+          propia tarjeta — el orden del texto NO cambia (él lo ama así);
+          lo que cambia es el acabado: ya no está suelto ni pegado. */}
+      <div className="proj-verdict">
+        <p className="advice-lead"><strong>{lead}</strong>{rest ? <span> {rest}</span> : null}</p>
+        {reading.hasBase && reading.tightestText ? <p className="proj-tight">{reading.tightestText}</p> : null}
+      </div>
       {reading.hasBase ? (
         <>
           <div className="proj-figs">
@@ -111,7 +121,13 @@ export function ProjectionSection() {
               <em>{L(lang, "Libre", "Free")} · {dayName(lang === "en" ? "en" : "es", reading.horizonEnd, today)}</em>
               <strong className="num">{fmt(reading.endFree)}</strong>
             </button>
-            <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} aria-hidden />
+            {/* 1.3.434 (Oscar, 2026-11-23): la flechita suelta no
+                reaccionaba al tocarla — no tenía propósito. Ahora es un
+                botón de verdad, con su marco redondo, y despliega el
+                mismo camino que despliegan las cifras. */}
+            <button type="button" className="proj-fold-btn" aria-expanded={open} aria-label={L(lang, "El camino, día a día", "The path, day by day")} onClick={() => setOpen((v) => !v)}>
+              <ChevronDown className={open ? "size-4 fold-chev is-open" : "size-4 fold-chev"} aria-hidden />
+            </button>
           </div>
           <p className="proj-parts">
             {L(lang, "Parte de", "Starts from")} {fmt(reading.startMinor)}
@@ -123,8 +139,11 @@ export function ProjectionSection() {
               <polyline className="proj-chart-line" points={chart.points} />
               {chart.tight ? (
                 <>
+                  <g className="proj-chart-chip">
+                    <rect x={chart.tight.labelX - chart.tight.labelW / 2} y={chart.tight.labelY - 9} width={chart.tight.labelW} height={14} rx={7} />
+                    <text className="proj-chart-tight" x={chart.tight.labelX} y={chart.tight.labelY} textAnchor="middle">{chart.tight.label}</text>
+                  </g>
                   <circle className="proj-chart-dot" cx={chart.tight.x} cy={chart.tight.y} r="3.5" />
-                  <text className="proj-chart-tight" x={chart.tight.labelX} y={chart.tight.labelY} textAnchor="middle">{chart.tight.label}</text>
                 </>
               ) : null}
               <text className="proj-chart-day" x="8" y="101">{chart.first}</text>

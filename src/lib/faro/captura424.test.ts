@@ -25,11 +25,15 @@ const projCss = read("../../components/faro/projection.css");
 const styles = read("../../styles.css");
 
 test("424 · la Lista de espera vive en su bandeja, no suelta sobre el fondo", () => {
-  const sec = wlCss.slice(wlCss.indexOf(".wl-section {"), wlCss.indexOf(".wl-section {") + 320);
-  assert.ok(sec.includes("border: 1px solid var(--line)"), "la sección lleva su borde");
+  const sec = wlCss.slice(wlCss.indexOf(".wl-section {"), wlCss.indexOf(".wl-section {") + 420);
   assert.ok(sec.includes("border-radius: 14px"), "y su radio de tarjeta");
   assert.ok(sec.includes("padding: 14px"), "y su relleno");
-  assert.ok(sec.includes("color-mix(in oklab, var(--fg) 3%, transparent)"), "bandeja hundida: las tarjetas se levantan sobre ella");
+  // ENMIENDA 1.3.434 (Oscar, 2026-11-23): la bandeja hundida de la 424
+  // «se lavaba contra el fondo — no tiene contraste». La sección es
+  // ahora una tarjeta plena: superficie, borde con la tinta del
+  // acento y sombra. La cerca de la 434 clava el detalle.
+  assert.ok(sec.includes("background: var(--surface)"), "tarjeta plena: su superficie ya no se lava");
+  assert.ok(sec.includes("box-shadow:"), "y su sombra la levanta del fondo");
 });
 
 test("424 · las filas del año respiran dentro de la tabla", () => {

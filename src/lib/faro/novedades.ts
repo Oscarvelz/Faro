@@ -40,6 +40,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.434",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "El acabado que pediste, foto a foto", en: "The finish you asked for, photo by photo" },
+    points: {
+      es: [
+        "El candadito de la palanca «Si apartas» es más pequeño y subió a la altura de la tarjeta del año; las tarjetas de tus bolsillos — Casa, Viaje y las demás — ya no se tocan: cada una respira con su hueco.",
+        "La Lista de espera se lee de un vistazo: su título y su botón caben en una sola línea, y su tarjeta ganó el contraste y la presencia de las demás.",
+        "El Saldo proyectado, día a día, conserva el orden de su texto y gana el acabado: el veredicto en su propia tarjeta, la cifra del día más apretado en su pastilla — la línea ya no la cruza —, la flecha que no respondía ahora despliega el camino, y cada día del camino y cada renglón del año van en su tarjetita.",
+      ],
+      en: [
+        "The little lock on the \"If you set aside\" lever is smaller and rose to the height of the year card; your pocket cards — Casa, Viaje and the rest — no longer touch: each one breathes with its own gap.",
+        "The Waiting list reads at a glance: its title and its button each fit on a single line, and its card gained the contrast and presence of the others.",
+        "The Projected balance, day by day, keeps its text order and gains the finish: the verdict in its own card, the tightest day's figure in its pill — the line no longer crosses it —, the arrow that never answered now unfolds the path, and every day of the path and every row of the year sits in its own little card.",
+      ],
+    },
+  },
+  {
     version: "1.3.433",
     date: "2026-11-23",
     level: "menor",

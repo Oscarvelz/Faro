@@ -6,28 +6,39 @@
    de la casa — el título, el subtítulo y el estado vacío ya no quedan
    sueltos sobre el fondo; las tarjetas de deseos, con su superficie
    propia, se levantan sobre la bandeja. */
+/* 1.3.434 (Oscar, 2026-11-23): la bandeja hundida SE LAVABA contra el
+   fondo — «no tiene contraste… que se pare un poco más, con un mejor
+   diseño de tarjeta, a la altura de las demás». La sección es ahora
+   una tarjeta de verdad: superficie plena, borde con la tinta de su
+   acento y su sombra suave. El texto y su distribución no cambian. */
 .wl-section {
   display: flex; flex-direction: column; gap: 10px;
-  border: 1px solid var(--line); border-radius: 14px; padding: 14px;
-  background: color-mix(in oklab, var(--fg) 3%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 26%, var(--line)); border-radius: 14px; padding: 14px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--fg) 5%, transparent), 0 12px 26px -14px color-mix(in oklab, var(--fg) 22%, transparent);
 }
 .wl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* 1.3.434 (Oscar, 2026-11-23): «sin corte de frase» — el título y el
+   botón caben cada uno en UNA línea, mejor enmarcados: el título baja
+   un punto, el botón se aprieta y ninguno de los dos se parte. */
+.wl-head > .btn { flex: none; white-space: nowrap; padding: 0 12px; font-size: .9rem; }
 /* 1.3.428 (Oscar, 2026-11-22): la sección gana su CARA — el medallón
    del reloj de arena que su propia hoja de anotar ya lleva, en la
    forma de aquella insignia y el acento de esta lista (el de su anillo
    y sus tarjetas). Y el estado vacío deja de ser una línea suelta:
    vive en su tarjetita apagada, como manda la ley de cada renglón. */
-.wl-face { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.wl-face { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .wl-badge { width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center; background: color-mix(in oklab, var(--accent) 16%, var(--surface)); color: var(--accent); }
 .wl-badge svg { width: 17px; height: 17px; }
-.wl-title { display: inline-flex; align-items: center; gap: 6px; font-size: 1.15rem; }
+.wl-title { display: inline-flex; align-items: center; gap: 6px; font-size: 1.02rem; white-space: nowrap; }
 .wl-sub { font-size: .86rem; opacity: .75; margin: 0; }
 .wl-empty-card { font-size: .9rem; margin: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in oklab, var(--fg) 3%, transparent); opacity: .65; }
 .wl-card {
   display: flex; gap: 14px; align-items: flex-start;
-  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
   border-radius: 14px; padding: 14px;
-  background: var(--surface); color: var(--fg);
+  background: color-mix(in oklab, var(--accent) 5%, var(--surface)); color: var(--fg);
+  box-shadow: 0 8px 18px -12px color-mix(in oklab, var(--fg) 25%, transparent);
 }
 .wl-ring-wrap { position: relative; width: 64px; height: 64px; flex: none; }
 .wl-ring { width: 64px; height: 64px; transform: rotate(-90deg); }
