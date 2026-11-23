@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.432",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "Faro escucha mejor tus avisos de pago", en: "Faro hears your payment alerts better" },
+    points: {
+      es: [
+        "Cuando compartes un aviso de pago de tu billetera o de tu banco, Faro lo lee con más cuidado: si el aviso nombra la tarjeta, el comercio se busca en el cuerpo del aviso, y el código de tienda que lo sigue se ignora como ruido.",
+        "Si el aviso trae dos montos, el movimiento es el que pagaste — el saldo disponible nunca nace como gasto —, y cuando la billetera y el emisor avisan del mismo pago, Faro lo recoge una sola vez, como un solo movimiento.",
+      ],
+      en: [
+        "When you share a payment alert from your wallet or your bank, Faro reads it more carefully: if the alert names the card, the store is looked for in the alert's body, and the store code after it is ignored as noise.",
+        "If the alert carries two amounts, the movement is the one you paid — the available balance is never born as spending —, and when the wallet and the issuer both report the same payment, Faro picks it up once, as a single movement.",
+      ],
+    },
+  },
+  {
     version: "1.3.431",
     date: "2026-11-23",
     level: "menor",
