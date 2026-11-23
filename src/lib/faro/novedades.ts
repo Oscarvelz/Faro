@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.429",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "Me deben, como una historia", en: "Owed to you, told as a story" },
+    points: {
+      es: [
+        "La tarjeta de un préstamo en «Me deben» ahora se lee como su historia: lo prestado con su fecha, cada abono con su fecha y cuánto va cobrado hasta él, y hoy, con lo que queda por cobrar.",
+        "Al abrir el préstamo ves LA CUENTA tal como la llevas a mano: el saldo inicial, menos cada abono con su fecha, hasta el saldo de hoy. «Préstamos» cuenta la misma historia con sus nombres.",
+      ],
+      en: [
+        "A loan's card in \"Owed to you\" now reads as its story: what was lent with its date, each payment with its date and how much has been collected by then, and today, with what is still owed.",
+        "Opening the loan shows THE ACCOUNT just as you keep it by hand: the starting balance, minus each payment with its date, down to today's balance. \"Loans\" tells the same story with its own names.",
+      ],
+    },
+    topic: "me-deben",
+  },
+  {
     version: "1.3.428",
     date: "2026-11-22",
     level: "menor",
