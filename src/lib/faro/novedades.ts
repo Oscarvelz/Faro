@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.430",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "El candadito de las proyecciones", en: "The little lock for projections" },
+    points: {
+      es: [
+        "Bajo la palanca de «Si apartas» — y junto a la de «¿Y si apartara cada mes…?» en Estudio — vive ahora un candadito: un toque lo pone o lo quita.",
+        "Con el candado puesto, la palanca no se mueve por accidente al tocarla o arrastrarla; en su lugar, una nota corta te recuerda que está asegurada. Faro recuerda tu elección en cada libro.",
+      ],
+      en: [
+        "Under the \"If you set aside\" lever — and beside the \"What if I set aside each month…?\" lever in Study — there is now a little lock: one tap sets it or releases it.",
+        "With the lock on, the lever will not move by accident when touched or dragged; instead, a short note reminds you it is secured. Faro remembers your choice in each ledger.",
+      ],
+    },
+    topic: "si-apartas",
+  },
+  {
     version: "1.3.429",
     date: "2026-11-23",
     level: "menor",
