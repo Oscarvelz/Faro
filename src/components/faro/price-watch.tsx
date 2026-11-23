@@ -206,11 +206,20 @@ export function PriceWatchStudy() {
   );
   if (!ledger || watch.rows.length === 0) return null;
   const lg = lang === "en" ? "en" : "es";
-  const current = watch.rows.find((r) => r.id === pick) ?? watch.rows[0]!;
+  // OLA 32 (Familia 10, Q32-2 de Cara): LA TARJETITA NACE APAGADA —
+  // sin toque no hay fila encendida: la ley anunciada de la .417
+  // («cada renglón su tarjetita, apagada hasta que se selecciona») y
+  // la ley permanente de Oscar (2026-11-22) mandan que la tarjeta
+  // nazca atenuada y se encienda AL SELECCIONARSE; el respaldo
+  // «?? rows[0]» encendía la de mayor efecto antes de cualquier
+  // toque. Sin elección no hay sujeto: el detalle no se abre con la
+  // primera fila prestada — su asiento muestra la invitación, y el
+  // toque (en la lista o en un escalón) trae su sujeto.
+  const current = pick ? watch.rows.find((r) => r.id === pick) ?? null : null;
   // Los cambios del mismo grupo que la escalera pinta: cada vértice donde
   // el precio se movió sabe qué cambio termina en él (la doble vía).
   const endsAt = new Map<string, string>();
-  for (const r of watch.rows) if (r.groupId === current.groupId) endsAt.set(`${r.to.on}|${r.to.minor}`, r.id);
+  if (current) for (const r of watch.rows) if (r.groupId === current.groupId) endsAt.set(`${r.to.on}|${r.to.minor}`, r.id);
   const detailFx = (c: PriceChange): { main: string; sub: string } => {
     if (c.cls === "fixed") {
       return {
@@ -221,7 +230,7 @@ export function PriceWatchStudy() {
     const pct = c.deltaBp === null ? "" : ` (${c.deltaBp > 0 ? "+" : "−"}${(Math.abs(c.deltaBp) / 100).toFixed(1)}%)`;
     return { main: formatMoney(Math.abs(c.deltaMinor), c.currency, lg), sub: `${L(lang, "por compra", "per purchase")}${pct}` };
   };
-  const fx = detailFx(current);
+  const fx = current ? detailFx(current) : null;
   const impactOf = (c: PriceChange): string => {
     if (c.cls === "fixed") {
       const per = formatMoney(Math.round(c.monthlyMinor), c.currency, lg);
@@ -242,35 +251,47 @@ export function PriceWatchStudy() {
           "Qué cambió de precio en los últimos 12 meses, lo de mayor efecto primero. Toca un cambio, o un escalón de su escalera, para ver su detalle.",
           "What changed price in the last 12 months, biggest effect first. Tap a change, or a step on its staircase, to see its detail.")}
       </p>
-      <div className="pw-plot">
-        <StepChart lang={lang} c={current} sel={current} endsAt={endsAt} onPick={setPick} />
-      </div>
-      <div className="pw-detail">
-        <p className="pw-detail-name">
-          {current.name}
-          {current.cls === "product" && current.storeId ? <span className="pw-row-store"> · {names.catalog(current.storeId) || current.storeId}</span> : null}
-        </p>
-        <div className="pw-detail-nums">
-          <span className="pw-detail-old num">{formatMoney(current.from.minor, current.currency, lg)}</span>
-          <span className="pw-detail-arr">→</span>
-          <span className="pw-detail-new num">{formatMoney(current.to.minor, current.currency, lg)}</span>
-          <span className="pw-detail-fx">{fx.main}<small>{fx.sub}</small></span>
+      {current && fx ? (
+        <>
+          <div className="pw-plot">
+            <StepChart lang={lang} c={current} sel={current} endsAt={endsAt} onPick={setPick} />
+          </div>
+          <div className="pw-detail">
+            <p className="pw-detail-name">
+              {current.name}
+              {current.cls === "product" && current.storeId ? <span className="pw-row-store"> · {names.catalog(current.storeId) || current.storeId}</span> : null}
+            </p>
+            <div className="pw-detail-nums">
+              <span className="pw-detail-old num">{formatMoney(current.from.minor, current.currency, lg)}</span>
+              <span className="pw-detail-arr">→</span>
+              <span className="pw-detail-new num">{formatMoney(current.to.minor, current.currency, lg)}</span>
+              <span className="pw-detail-fx">{fx.main}<small>{fx.sub}</small></span>
+            </div>
+            <p className="pw-detail-meta">
+              {current.cls === "fixed" ? L(lang, "Fijo", "Fixed") : L(lang, "Producto", "Product")}
+              {" · "}
+              {L(lang, "desde el", "since")} {dayLabel(lang, current.to.on)}
+              {" · "}
+              {monthsAt(lang, current.to.on, today)}
+            </p>
+          </div>
+        </>
+      ) : (
+        <div className="pw-detail pw-idle">
+          <p className="pw-detail-name">
+            {L(lang,
+              "Sin elegir todavía: toca un cambio de la lista y aquí verás su escalera y su detalle.",
+              "Nothing picked yet: tap a change in the list and its staircase and detail will show here.")}
+          </p>
         </div>
-        <p className="pw-detail-meta">
-          {current.cls === "fixed" ? L(lang, "Fijo", "Fixed") : L(lang, "Producto", "Product")}
-          {" · "}
-          {L(lang, "desde el", "since")} {dayLabel(lang, current.to.on)}
-          {" · "}
-          {monthsAt(lang, current.to.on, today)}
-        </p>
-      </div>
+      )}
       <ul className="pw-rows">
         {watch.rows.map((c) => (
           <li key={c.id}>
             <button
               type="button"
-              className={`pw-row${c.id === current.id ? " is-picked" : ""}`}
-              aria-pressed={c.id === current.id}
+              className={`pw-row${current && c.id === current.id ? " is-picked" : ""}`}
+              aria-pressed={Boolean(current && c.id === current.id)}
               onClick={() => setPick(c.id)}
             >
               <span className="pw-row-main">

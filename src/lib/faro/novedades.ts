@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.428",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La espera con su cara, el saldo con su línea", en: "The wait with its face, the balance with its line" },
+    points: {
+      es: [
+        "La Lista de espera estrena cara: su título lleva el medallón del reloj de arena, como su hoja de anotar, y cuando no hay deseos en espera, el aviso vive en su propia tarjetita apagada, no en una línea suelta.",
+        "El Saldo proyectado ahora dibuja su camino: una línea con lo libre de cada día, y tu día más apretado marcado sobre ella con su cifra.",
+      ],
+      en: [
+        "The Waiting list has a face now: its title wears the hourglass medallion, like its note-a-wish sheet, and when no wishes are waiting, the notice lives in its own dimmed little card, not in a loose line.",
+        "The Projected balance now draws its path: a line with each day's free balance, and your tightest day marked on it with its figure.",
+      ],
+    },
+    topic: "saldo-proyectado",
+  },
+  {
     version: "1.3.427",
     date: "2026-11-22",
     level: "menor",

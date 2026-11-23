@@ -147,13 +147,13 @@ function spendAnswer(
     ? q.register === "coloquial"
       ? yes ? `Yes, you've got it — ${money(leftAfter)} to spare for the month.` : `It comes up short: you'd be ${money(-leftAfter)} under to close the month.`
       : q.register === "tecnico"
-        ? yes ? `Viable: the projected close stays at ${money(leftAfter)}.` : `Not viable: the projected close falls to ${money(leftAfter)}.`
-        : yes ? `Yes. After that spend, ${money(leftAfter)} is left for the month.` : `No: that spend leaves the month at ${money(leftAfter)}.`
+        ? yes ? `Viable: the projected close stays at ${money(leftAfter)}.` : `Not viable: the projected close falls into negative (${money(leftAfter)}: more would go out than came in).`
+        : yes ? `Yes. After that spend, ${money(leftAfter)} is left for the month.` : `No: that spend leaves the month in negative (${money(leftAfter)}: more would go out than came in${reading.left < 0 ? "; the month already ran negative before this spend" : ""}).`
     : q.register === "coloquial"
       ? yes ? `Sí, te alcanza — y te sobran ${money(leftAfter)} para cerrar el mes.` : `No te alcanza: te faltarían ${money(-leftAfter)} para cerrar el mes.`
       : q.register === "tecnico"
-        ? yes ? `Viable: el cierre proyectado queda en ${money(leftAfter)}.` : `No viable: el cierre proyectado cae a ${money(leftAfter)}.`
-        : yes ? `Sí. Después de ese gasto te quedan ${money(leftAfter)} del mes.` : `No: ese gasto deja el mes en ${money(leftAfter)}.`;
+        ? yes ? `Viable: el cierre proyectado queda en ${money(leftAfter)}.` : `No viable: el cierre proyectado cae a negativo (${money(leftAfter)}: saldría más de lo que entró).`
+        : yes ? `Sí. Después de ese gasto te quedan ${money(leftAfter)} del mes.` : `No: ese gasto deja el mes en negativo (${money(leftAfter)}: saldría más de lo que entró${reading.left < 0 ? "; el mes ya venía en negativo antes de este gasto" : ""}).`;
   const duesSoon = duesWindow(state, 7, today).reduce((a, d) => a + (d.amt ?? 0), 0);
   return {
     kind: "answer", intent: "spend", register: q.register, verdict,
@@ -324,7 +324,12 @@ function leftAnswer(
   if (!q.year) {
     return {
       kind: "answer", intent: "left", register: q.register,
-      verdict: L(lang, `Te quedan ${money(reading.left)} para cerrar el mes.`, `You have ${money(reading.left)} left to close the month.`),
+      // OLA 26 (U1, la forma del delegado): la queda en negativo no se
+      // imprime cruda («Te quedan −$654.92») — se dice como lo que es,
+      // con su causa en palabras: salió más de lo que entró.
+      verdict: reading.left < 0
+        ? L(lang, `Este mes tu queda va en negativo (${money(reading.left)}): salió ${money(reading.outTotal)} y entró ${money(reading.income)}. Es la resta del mes tal como va — no un castigo.`, `This month your left runs negative (${money(reading.left)}): ${money(reading.outTotal)} went out and ${money(reading.income)} came in. It's the month's subtraction as it stands — not a punishment.`)
+        : L(lang, `Te quedan ${money(reading.left)} para cerrar el mes.`, `You have ${money(reading.left)} left to close the month.`),
       pieces: [
         { label: L(lang, "Entró", "Came in"), minor: reading.income },
         { label: L(lang, "Salió", "Went out"), minor: -reading.outTotal },

@@ -1,7 +1,8 @@
 // Estudio 2: the cards that replaced the overlapping charts (time, cushion, limits, key numbers).
 import "./study2.css";
 import { Note } from "./finish";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Lock, LockOpen } from "lucide-react";
 import { useFaro } from "@/components/faro/provider";
 import { Head } from "@/components/faro/panorama";
 import { Explain } from "@/components/faro/ui";
@@ -133,6 +134,18 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
   const step = Math.max(100, Math.round(need / 2000) * 100);
   const top = Math.max(step * 4, Math.round(Math.max(coach.left, goal, need / 2) * 1.5 / step) * step);
   const [per, setPer] = useState(() => Math.min(top, Math.max(step, Math.round((goal || need / 4) / step) * step)));
+  // 1.3.430 (Oscar): el candadito también guarda esta palanca — puesto,
+  // el arrastre no la mueve por accidente y tocarla enseña la nota.
+  const [perLocked, setPerLocked] = useState(() => { try { return localStorage.getItem("faro-lever-lock:whatif") === "1"; } catch { return false; } });
+  const [perLockNote, setPerLockNote] = useState(false);
+  useEffect(() => { if (!perLockNote) return; const id = window.setTimeout(() => setPerLockNote(false), 3600); return () => window.clearTimeout(id); }, [perLockNote]);
+  const togglePerLock = () => {
+    setPerLocked((on) => {
+      const next = !on;
+      try { localStorage.setItem("faro-lever-lock:whatif", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const runs = per > 0 && missing > 0 ? Math.ceil(missing / per) : 0;
   const land = new Date(today.getFullYear(), today.getMonth() + runs, 1);
   // Voyage geometry (viewBox 320 × 120).
@@ -255,7 +268,13 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
         <div className="s2-whatif" data-anchor="whatif">
           <p className="s2-whatif-q"><span className="lab-head">{L(lang, "¿Y si apartara cada mes…?", "What if I saved each month…?")}<Hint topic="y-si-apartara" avoid=".s2-whatif" /></span></p>
           <div className="s2-whatif-amt num serif">{fmt(per)}</div>
-          <input type="range" min={step} max={top} step={step} value={per} onChange={(e) => setPer(Number(e.target.value))} aria-label={L(lang, "Ahorro al mes", "Monthly saving")} style={{ ["--p" as string]: `${((per - step) / Math.max(1, top - step)) * 100}%` }} />
+          <input type="range" min={step} max={top} step={step} value={per} onPointerDown={() => { if (perLocked) setPerLockNote(true); }} onChange={(e) => { if (perLocked) { setPerLockNote(true); return; } setPer(Number(e.target.value)); }} aria-label={L(lang, "Ahorro al mes", "Monthly saving")} style={{ ["--p" as string]: `${((per - step) / Math.max(1, top - step)) * 100}%` }} />
+          <div className="s2-whatif-lockrow">
+            <button type="button" className={`lever-lock${perLocked ? " is-on" : ""}`} data-anchor="whatif-lock" aria-pressed={perLocked} aria-label={L(lang, perLocked ? "Desbloquear la palanca" : "Bloquear la palanca", perLocked ? "Unlock the lever" : "Lock the lever")} onClick={togglePerLock}>
+              {perLocked ? <Lock /> : <LockOpen />}
+            </button>
+            {perLockNote ? <p className="lever-note" role="note">{L(lang, "La palanca está bloqueada: toca el candado para moverla.", "The lever is locked: tap the lock to move it.")}</p> : null}
+          </div>
           <div className="s2-whatif-dots" aria-hidden>
             {Array.from({ length: Math.min(runs, 36) }, (_, i) => <i key={i} style={{ animationDelay: `${i * 18}ms` }} />)}
             {runs > 36 ? <b className="num">+{runs - 36}</b> : null}

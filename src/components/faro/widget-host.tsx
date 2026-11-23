@@ -39,7 +39,7 @@ import type { LedgerState, WidgetPin } from "@/lib/faro/types";
 import { todayIso } from "@/lib/faro/loans";
 import { buildWidgetSnapshot, parseWidgetPushRecord, widgetHide, WIDGET_HIDE_KEY, WIDGET_LASTPUSH_KEY, type WidgetGo, type WidgetPushRecord } from "@/lib/faro/widget";
 import { hasStorePin, hasWidgetPin, ingestQuick, parseQuickEntries, pinGroups, searchPinCandidates, toggleStorePin, toggleWidgetPin, type PinCandidate, type QuickEntry } from "@/lib/faro/quickadd";
-import { interpretNotice, parseNotices } from "@/lib/faro/notices";
+import { interpretNotices, parseNotices } from "@/lib/faro/notices";
 import { addDrafts } from "@/lib/faro/drafts";
 import { uid } from "@/lib/faro/money";
 import { BrandMark, Glyph } from "./icons";
@@ -326,16 +326,17 @@ export default function WidgetHost() {
         const items = parseNotices(n.peekNotices() ?? "");
         if (!items.length) return;
         const live = sessionLive.current;
-        const drafts = items
-          .map((item) => live ? interpretNotice(item, {
-            ledger: live.ledger,
-            lang,
-            today: todayIso(),
-            display: live.ledger.settings.display ?? "USD",
-            makeId: uid,
-            now: new Date().toISOString(),
-          }) : null)
-          .filter((d): d is NonNullable<typeof d> => d !== null);
+        // La recogida interpreta la cola ENTERA de una vez: la pareja
+        // billetera+emisor del mismo pago es UN movimiento (la cerca
+        // de colisión del banco del oyente vive en interpretNotices).
+        const drafts = live ? interpretNotices(items, {
+          ledger: live.ledger,
+          lang,
+          today: todayIso(),
+          display: live.ledger.settings.display ?? "USD",
+          makeId: uid,
+          now: new Date().toISOString(),
+        }) : [];
         if (drafts.length) commit((s) => addDrafts(s, drafts), lang === "en" ? "Wallet notice" : "Aviso de billetera");
         n.ackNotices(JSON.stringify(items.map((i) => i.id)));
       } catch { /* la cola espera a la próxima recogida */ }

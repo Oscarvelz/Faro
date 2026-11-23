@@ -45,6 +45,38 @@ export function ProjectionSection() {
   const rest = cut > 0 ? reading.verdict.slice(cut + 1).trim() : "";
   const tightDay = reading.tightest?.day ?? "";
 
+  // 1.3.428 (Oscar, 2026-11-22): el camino también se DIBUJA — la línea
+  // de lo libre, día a día, con el día más apretado marcado sobre ella
+  // y su cifra en la etiqueta. El significado de esta tarjeta ES una
+  // forma (el valor explicativo): la lista de eventos sigue debajo,
+  // tras las cifras, como la procedencia de la línea.
+  const chart = (() => {
+    const days = reading.days;
+    if (!reading.hasBase || days.length < 2) return null;
+    const W = 320, TOP = 20, BOT = 88;
+    let min = Math.min(...days.map((d) => d.free));
+    let max = Math.max(...days.map((d) => d.free));
+    if (max - min < 1) { max += 1; min -= 1; }
+    const x = (i: number) => 8 + (i * (W - 16)) / (days.length - 1);
+    const y = (v: number) => TOP + ((max - v) * (BOT - TOP)) / (max - min);
+    const points = days.map((d, i) => `${x(i).toFixed(1)},${y(d.free).toFixed(1)}`).join(" ");
+    const zeroY = min < 0 && max > 0 ? y(0) : null;
+    let tight: { x: number; y: number; labelX: number; labelY: number; label: string } | null = null;
+    if (reading.tightest && reading.events.length) {
+      const ti = days.findIndex((d) => d.day === reading.tightest!.day);
+      if (ti >= 0) {
+        const tx = x(ti), ty = y(days[ti].free);
+        tight = {
+          x: tx, y: ty,
+          labelX: Math.min(Math.max(tx, 52), W - 52),
+          labelY: ty > TOP + 26 ? ty - 9 : ty + 15,
+          label: `${shortDay(lang, days[ti].day, today)} · ${fmt(days[ti].free)}`,
+        };
+      }
+    }
+    return { points, zeroY, tight, first: shortDay(lang, days[0].day, today), last: shortDay(lang, days[days.length - 1].day, today) };
+  })();
+
   const rowFor = (e: ProjEvent) => (
     <li key={`${e.day}|${e.kind}|${e.name}|${e.minor}`} className={`proj-row${e.day === tightDay ? " is-tight" : ""}`}>
       <span className="proj-day">{shortDay(lang, e.day, today)}</span>
@@ -85,6 +117,20 @@ export function ProjectionSection() {
             {L(lang, "Parte de", "Starts from")} {fmt(reading.startMinor)}
             {reading.pledgedMinor > 0 ? L(lang, ` en cuentas; ${fmt(reading.pledgedMinor)} apartados no son libres.`, ` in accounts; ${fmt(reading.pledgedMinor)} set aside is not free.`) : L(lang, " en cuentas.", " in accounts.")}
           </p>
+          {chart ? (
+            <svg className="proj-chart" viewBox="0 0 320 104" role="img" aria-label={L(lang, "El camino de tu saldo libre, día a día", "Your free balance path, day by day")}>
+              {chart.zeroY != null ? <line className="proj-chart-zero" x1="8" x2="312" y1={chart.zeroY} y2={chart.zeroY} /> : null}
+              <polyline className="proj-chart-line" points={chart.points} />
+              {chart.tight ? (
+                <>
+                  <circle className="proj-chart-dot" cx={chart.tight.x} cy={chart.tight.y} r="3.5" />
+                  <text className="proj-chart-tight" x={chart.tight.labelX} y={chart.tight.labelY} textAnchor="middle">{chart.tight.label}</text>
+                </>
+              ) : null}
+              <text className="proj-chart-day" x="8" y="101">{chart.first}</text>
+              <text className="proj-chart-day" x="312" y="101" textAnchor="end">{chart.last}</text>
+            </svg>
+          ) : null}
           {open ? (
             reading.events.length ? (
               <ol className="proj-path">

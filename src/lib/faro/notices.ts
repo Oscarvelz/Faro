@@ -157,21 +157,99 @@ export function parseNotices(raw: string): NoticeItem[] {
 const IN_WORDS = ["recibiste", "recibido", "te enviaron", "deposito", "reembolso", "you received", "received", "refund", "deposit", "credited"];
 const OUT_WORDS = ["compra", "pago", "pagaste", "cargo", "retiro", "aprobada", "aprobado", "purchase", "paid", "payment", "charged", "you sent", "sent"];
 
+const BALANCE_WORDS = ["saldo", "balance", "disponible", "available", "te quedan", "quedan", "remaining", "restante"];
+
+/** OLA 8 · EL BANCO DEL OYENTE (2026-11-22, especímenes reales de
+ *  Oscar): el monto del MOVIMIENTO, jamás el del saldo. Un aviso del
+ *  emisor trae dos montos — «Usted pagó $25.70 USD… Ahora su saldo
+ *  disponible es $45.45 USD» — y el primero que cruza no manda: manda
+ *  el de la cláusula con verbo de movimiento; el de la cláusula con
+ *  palabra de saldo (saldo/disponible/balance…) no es un movimiento
+ *  y, si es el único monto del aviso, el aviso no pare nada — el
+ *  saldo jamás nace como borrador. La cláusula se corta en la coma,
+ *  el punto y el punto y coma: los sobres separan así sus frases. */
 function amountOf(t: string): { minor: number; currency: Currency | null } | null {
-  const m = /(us\$|c\$|\$)\s?(\d[\d.,]*)/i.exec(t) ?? /(\d[\d.,]*)\s?(usd|nio|cordobas|dolares|dollars)\b/i.exec(t);
-  if (!m) return null;
-  const rawNum = (m[2] ?? m[1]).replace(/,/g, "");
-  const value = Number.parseFloat(rawNum);
-  if (!Number.isFinite(value) || value <= 0) return null;
-  const mark = (m[1] ?? m[2]).toLowerCase();
-  const currency: Currency | null = mark === "c$" || mark === "nio" || mark === "cordobas" ? "NIO" : mark === "$" ? null : "USD";
-  return { minor: Math.round(value * 100), currency };
+  const re = /(us\$|c\$|\$)\s?(\d[\d.,]*)(?:\s?(usd|nio|cordobas|dolares|dollars)\b)?|(\d[\d.,]*)\s?(usd|nio|cordobas|dolares|dollars)\b/gi;
+  const found: { minor: number; currency: Currency | null; at: number }[] = [];
+  for (const m of t.matchAll(re)) {
+    const rawNum = (m[2] ?? m[4]).replace(/,/g, "");
+    const value = Number.parseFloat(rawNum);
+    if (!Number.isFinite(value) || value <= 0) continue;
+    // La palabra de moneda, si el aviso la trae pegada («$25.70 USD»),
+    // manda sobre el signo solo: el $ firmado no cae en ámbar.
+    const word = (m[3] ?? m[5])?.toLowerCase();
+    const mark = m[1]?.toLowerCase();
+    const currency: Currency | null = word === "nio" || word === "cordobas" || mark === "c$" ? "NIO"
+      : word === "usd" || word === "dolares" || word === "dollars" || mark === "us$" ? "USD"
+      : mark === "$" ? null : null;
+    found.push({ minor: Math.round(value * 100), currency, at: m.index });
+  }
+  if (!found.length) return null;
+  const clauseOf = (idx: number): string => {
+    const before = t.slice(0, idx);
+    const after = t.slice(idx);
+    const start = Math.max(before.lastIndexOf(","), before.lastIndexOf(";"), before.lastIndexOf("."), before.lastIndexOf("\n"), before.lastIndexOf("·"));
+    const endM = /[,;.·\n]/.exec(after);
+    return fold(t.slice(start + 1, endM ? idx + endM.index : undefined));
+  };
+  const judged = found.map((f) => {
+    const clause = clauseOf(f.at);
+    return { ...f, balance: BALANCE_WORDS.some((w) => clause.includes(w)), move: MOVE_WORDS.some((w) => clause.includes(w)) };
+  });
+  const pick = judged.find((f) => f.move && !f.balance) ?? judged.find((f) => !f.balance);
+  return pick ? { minor: pick.minor, currency: pick.currency } : null;
+}
+
+/** El código de tienda al final del nombre es RUIDO, no el comercio:
+ *  «MARATHON 170803», «SUBWAY 24131-0», «BURGER KING #8296» — la
+ *  tienda se llama MARATHON, SUBWAY, BURGER KING. Se retira el token
+ *  final cuando es un código (#seguido de dígitos, o 3+ dígitos con
+ *  guion opcional); un número corto (1–2 dígitos) puede ser parte
+ *  del nombre y se queda. */
+function stripStoreCode(name: string): string {
+  const parts = name.split(/\s+/);
+  if (parts.length < 2) return name;
+  const last = parts[parts.length - 1];
+  if (/^#\d+$/.test(last) || /^\d{3,}(?:-\d+)?$/.test(last) || /^\d+-\d+$/.test(last)) {
+    return parts.slice(0, -1).join(" ").trim();
+  }
+  return name;
 }
 
 function merchantOf(item: NoticeItem): string {
   const body = `${item.text}`;
-  const m = /\b(?:en|at)\s+([^.,\n·|]{2,40})/i.exec(body);
-  if (m) return m[1].trim().replace(/\s+/g, " ");
+  const m = /\b(?:en|at)\s+/i.exec(body);
+  if (m) {
+    // El nombre tras «en/at» se corta en la puntuación, en el monto,
+    // en el verbo de movimiento o en el pronombre que lo sigue
+    // («en MARATHON 170803 Usted pagó $25.70» — el comercio es
+    // MARATHON, y si el run trae su código, nada tras el código es
+    // nombre). Sin este corte, la captura se comía la frase entera.
+    const rest = body.slice(m.index + m[0].length);
+    const stopAt = rest.search(/[,;.·\n]|\b(?:us\$|c\$|\$)\s?\d/i);
+    const words = (stopAt >= 0 ? rest.slice(0, stopAt) : rest).trim().split(/\s+/).slice(0, 5);
+    const kept: string[] = [];
+    for (const w of words) {
+      const f = fold(w);
+      if (MOVE_WORDS.some((mw) => f === mw) || f === "usted" || f === "you") break;
+      kept.push(w);
+      if (/^#\d+$/.test(w) || /^\d{3,}(?:-\d+)?$/.test(w) || /^\d+-\d+$/.test(w)) break;
+    }
+    const name = stripStoreCode(kept.join(" ").trim());
+    if (name.length >= 2) return name;
+  }
+  // LA FORMA DE LA BILLETERA QUE NOMBRA LA TARJETA (banco del oyente):
+  // el título es la TARJETA usada («Chase Freedom Unlimited») — jamás
+  // el comercio — y el comercio ABRE el cuerpo, antes del monto:
+  // «BURGER KING #8296 $18.06». Si lo que abre el cuerpo es un verbo
+  // de movimiento («Compra aprobada…»), no hay comercio legible y el
+  // borrador nace con el concepto en rojo: la mesa decide.
+  const amtIdx = body.search(/(us\$|c\$|\$|\b\d[\d.,]*\s?(?:usd|nio)\b)/i);
+  if (amtIdx > 0) {
+    const head = stripStoreCode(body.slice(0, amtIdx).replace(/[:·|–-]+$/, "").trim().replace(/\s+/g, " "));
+    const letters = head.replace(/[^a-záéíóúüñ]/gi, "").length;
+    if (head.length >= 2 && head.length <= 40 && letters >= 2 && !/\d{3,}/.test(head) && !MOVE_WORDS.some((w) => fold(head).includes(w))) return head;
+  }
   return "";
 }
 
@@ -238,4 +316,30 @@ export function interpretNotice(item: NoticeItem, ctx: ParseCtx): Draft | null {
   if (dup) draft.dupOf = dup.id;
   draft.missing = validateDraft(draft).missing;
   return draft;
+}
+
+/** LA COLISIÓN BILLETERA+EMISOR (banco del oyente, Adenda 3): el
+ *  mismo pago puede llegar en DOS sobres — la billetera que nombra
+ *  la tarjeta y la app del emisor — y la pareja es UN movimiento, no
+ *  dos borradores. Al recoger la cola, los borradores con el mismo
+ *  comercio, el mismo monto y la misma moneda, a diez minutos o
+ *  menos entre sí, se quedan en el primero que llegó. Sin comercio
+ *  legible no hay colisión que juzgar: dos avisos sin comercio nunca
+ *  se pisan. Es una clase de forma, no de apps: cualquier pareja de
+ *  sobres del mismo pago cae en la misma cerca. */
+export function interpretNotices(items: NoticeItem[], ctx: ParseCtx): Draft[] {
+  const out: Draft[] = [];
+  const kept: { key: string; at: number }[] = [];
+  for (const item of items) {
+    const d = interpretNotice(item, ctx);
+    if (!d) continue;
+    if (d.concept) {
+      const key = `${merchantKey(d.concept)}|${d.amountMinor}|${d.currency}|${d.day}`;
+      const at = Date.parse(item.at) || 0;
+      if (kept.some((k) => k.key === key && Math.abs(k.at - at) <= 10 * 60 * 1000)) continue;
+      kept.push({ key, at });
+    }
+    out.push(d);
+  }
+  return out;
 }

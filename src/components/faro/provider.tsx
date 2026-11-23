@@ -162,6 +162,13 @@ export type Api = {
    * cuyo aborto ya no cuesta un Deshacer. Un aterrizaje compone estado
    * nuevo y enmarca entero, como siempre. */
   commitAnnounced: (recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => void;
+  /** Ola 32 (Familia 9, Q32-1 de Cara): el commit que espera su
+   * escritura — la promesa se resuelve cuando el pack en disco cumple
+   * la prueba (proof), o falso si la escritura no aterriza. Para los
+   * actos cuyo siguiente paso exige que ESTE cambio ya sea durable
+   * (la ceremonia de salida: el folio en disco antes de cerrar la
+   * membresía en el servidor). */
+  commitFlushed: (recipe: (s: LedgerState) => LedgerState, detail: string | (() => string), proof: (l: LedgerState) => boolean) => Promise<boolean>;
   /** El descanso (Historial → Archivo): apartar un período, mostrarlo de nuevo, borrarlo.
    *  Los únicos caminos de la UI hacia descanso.ts: la puerta anti-fuga se pone y se quita
    *  en un solo sitio, nunca a mano en una pantalla. */
@@ -457,6 +464,24 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const sessionRef = useRef<Session | null>(null);
   const syncing = useRef(false);
   sessionRef.current = session;
+  // OLA 32 (Familia 9, Q32-1 de Cara): LOS QUE ESPERAN LA ESCRITURA —
+  // commitFlushed registra aquí su prueba, y el efecto de
+  // persistencia asienta la lista: verdad cuando el pack escrito en
+  // disco cumple la prueba; falso cuando el camino de esta sesión ya
+  // no puede escribirla (pestaña bloqueada, conflicto que aparta la
+  // copia, adopción del pack guardado, fallo de escritura). El
+  // desenlace siempre se dice — nadie espera en silencio.
+  const flushWaitersRef = useRef<{ proof: (l: LedgerState) => boolean; resolve: (ok: boolean) => void }[]>([]);
+  const settleFlush = (written: LedgerState | null, ok: boolean) => {
+    if (!flushWaitersRef.current.length) return;
+    const rest: { proof: (l: LedgerState) => boolean; resolve: (ok: boolean) => void }[] = [];
+    for (const w of flushWaitersRef.current) {
+      if (!ok) w.resolve(false);
+      else if (written && w.proof(written)) w.resolve(true);
+      else rest.push(w);
+    }
+    flushWaitersRef.current = rest;
+  };
 
   const places = useRef<Place[]>([]);
   /** Before the view changes, write down where the current place is scrolled to. */
@@ -946,10 +971,11 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     // Oleada 2 del corazón (1.3.166, C2): antes de escribir, esta pestaña comprueba que el
     // libro no se haya movido en otra pestaña/ventana. Con el veredicto "write" el camino es
     // EXACTAMENTE el de siempre (incluido el banner de fallo de escritura, intacto).
-    if (tabBlockedRef.current) return;
+    if (tabBlockedRef.current) { settleFlush(null, false); return; }
     let storedRaw: string | null = null;
     try { storedRaw = localStorage.getItem(packKey(userId)); } catch { storedRaw = null; }
     if (storedRaw && baseRevRef.current !== null && storedRevision(storedRaw) === null) {
+      settleFlush(null, false);
       surfaceTabConflict(); // el pack guardado ya no se puede leer: jamás se pisa a ciegas
       return;
     }
@@ -969,15 +995,19 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
       } catch { storedLedger = null; }
     }
     const verdict = tabVerdict(storedRevision(storedRaw), baseRevRef.current, session.ledger.revision, session.dirty, { mine: session.ledger, stored: storedLedger });
-    if (verdict === "surface") { surfaceTabConflict(); return; }
-    if (verdict === "adopt") { adoptStoredPack(); return; }
+    if (verdict === "surface") { settleFlush(null, false); surfaceTabConflict(); return; }
+    if (verdict === "adopt") { settleFlush(null, false); adoptStoredPack(); return; }
     // 1.3.146: a failed write (full storage) must not pass as saved — the shell shows a banner until a write lands.
     try {
       localStorage.setItem(packKey(userId), JSON.stringify({ ledger: session.ledger, dirty: session.dirty }));
       baseRevRef.current = session.ledger.revision;
       if (tabAdoptRevRef.current !== null && session.ledger.revision > tabAdoptRevRef.current) setTabBanner(false);
       if (persistFailedRef.current) { persistFailedRef.current = false; setPersistFailed(false); }
+      // OLA 32 (Familia 9): el pack quedó en disco — los que esperaban
+      // ESTA escritura se asientan contra el libro escrito.
+      settleFlush(session.ledger, true);
     } catch {
+      settleFlush(null, false);
       if (!persistFailedRef.current) { persistFailedRef.current = true; setPersistFailed(true); }
     }
     const shown = session.ledger.settings.theme === "ion" ? "ion-noche" : session.ledger.settings.theme;
@@ -1247,6 +1277,32 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
   const commit = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string | (() => string)) => {
     setSession((s) => (s ? commitSession(s, recipe, detail) : s));
   }, []);
+  // OLA 32 (Familia 9, Q32-1 de Cara): EL COMMIT QUE ESPERA SU
+  // ESCRITURA — despacha el commit ordinario y devuelve la promesa
+  // de su persistencia REAL: verdad cuando el pack escrito en disco
+  // cumple la prueba del llamador; falso cuando la escritura no
+  // aterriza. Nace para la ceremonia de salida del libro compartido:
+  // su ley («el folio aterriza PRIMERO») valía en orden de programa
+  // pero no en orden de disco — el commit es estado de React y la
+  // escritura del pack corre en el efecto posterior (~200 ms
+  // después en la medición de la caza); cerrar la membresía en el
+  // servidor dentro de esa ventana dejaba a la persona fuera y sin
+  // folio si la app moría en ella. La red de los 10 s: si ningún
+  // camino asienta la espera, se resuelve falso — un desenlace
+  // dicho, jamás una espera muda.
+  const commitFlushed = useCallback((recipe: (s: LedgerState) => LedgerState, detail: string | (() => string), proof: (l: LedgerState) => boolean): Promise<boolean> => {
+    if (!sessionRef.current || tabBlockedRef.current) return Promise.resolve(false);
+    const p = new Promise<boolean>((resolve) => {
+      const w = { proof, resolve };
+      flushWaitersRef.current.push(w);
+      window.setTimeout(() => {
+        const i = flushWaitersRef.current.indexOf(w);
+        if (i >= 0) { flushWaitersRef.current.splice(i, 1); resolve(false); }
+      }, 10000);
+    });
+    commit(recipe, detail);
+    return p;
+  }, [commit]);
   // Ola 18 (BR18-1): la puerta guardada — la receta que aborta devuelve
   // null y el guardado no deja marco (ver commitGuarded en reducer.ts).
   const commitGuarded = useCallback((recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => {
@@ -1970,6 +2026,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     commit,
     commitGuarded,
     commitAnnounced,
+    commitFlushed,
     hidePeriodRange: (from, to, label) => {
       // Ola 19 (G19-1, clase A): hidePeriod se niega por identidad cuando
       // la ventana no aparta nada — por la puerta guardada, la negativa

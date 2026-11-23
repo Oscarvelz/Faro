@@ -1,7 +1,31 @@
 import { Trash2 } from "lucide-react";
 import { useFaro } from "./provider";
 import { passiveMonths, passiveRecordsOf, withoutPassiveRecord } from "@/lib/faro/exit";
+import { ISO_DAY, todayIso } from "@/lib/faro/loans";
 import { dayLabel } from "./historial";
+
+/** OLA 33 (Familia 8, Q33-1-Cara): EL FOLIO FECHA EN EL DÍA DE LA
+ * CASA — la tarjeta pintaba el corte UTC del instante de salida
+ * (r.at.slice(0, 10)): quien salió entre las 19:00 y las 24:00 de
+ * su día veía su registro fechado MAÑANA, mientras el resto de la
+ * casa fecha cada instante en el día local de quien mira. La fecha
+ * del folio es el día local del instante, por el mismo todayIso de
+ * la casa; el corte crudo queda solo como respaldo de un instante
+ * ilegible. */
+const folioDay = (at: string): string => {
+  // OLA 34 (Familia 9, G34-1): LA FORMA DE SOLO DÍA SE DEVUELVE
+  // TAL CUAL — el juez único de la casa admite también el «at» que
+  // nombra un día sin hora («2026-11-22»), y esa forma no denota un
+  // instante: denota el día que escribe. Pasar TODO por new Date
+  // la leía como la medianoche UTC y al oeste de UTC la tarjeta
+  // pintaba el día ANTERIOR — el espejo exacto del Q33-1 que esta
+  // función nació para cerrar. Solo los instantes pasan por
+  // todayIso; el día escrito se pinta como se escribió, en toda
+  // zona, como dayLabel trata toda cadena-día de la casa.
+  if (ISO_DAY.test(at)) return at;
+  const d = new Date(at);
+  return Number.isNaN(d.getTime()) ? at.slice(0, 10) : todayIso(d);
+};
 
 /**
  * Los registros pasivos en el Archivo (Pieza C8, 1.3.398): el folio
@@ -37,7 +61,7 @@ export function PassiveFolios() {
             <strong className="arch-name">{r.categories.map((c) => c.name).join(" · ") || t("arch.passive")}</strong>
             <span className="arch-origin">{t("arch.passive")}</span>
           </div>
-          <p className="arch-meta">{t("arch.passive.meta").replace("{date}", r.at ? dayLabel(lang, r.at.slice(0, 10)) : "")}</p>
+          <p className="arch-meta">{t("arch.passive.meta").replace("{date}", r.at ? dayLabel(lang, folioDay(r.at)) : "")}</p>
           <div className="arch-lines">
             {passiveMonths(r).map((m) => (
               <p key={m.monthKey} className="arch-meta">

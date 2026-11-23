@@ -35,7 +35,7 @@ import { AskLearnedManager } from "@/components/faro/ask-learned";
 import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
 import { ProjectionSection } from "@/components/faro/projection";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, ClipboardList, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, Users, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, Lock, LockOpen, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, ClipboardList, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, Users, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, NameRow, UserButton } from "@/lib/auth/gates";
@@ -454,6 +454,13 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
   const [yearDraft, setYearDraft] = useState<string | null>(null);
   const [pinned, setPinned] = useState(() => readLeverOpen(storeId).pin);
   const [open, setOpen] = useState(() => readLeverOpen(storeId).open);
+  // 1.3.430 (Oscar, 2026-11-22): el candadito de la palanca — un toque
+  // lo pone o lo quita; puesto, la palanca no se mueve por accidente
+  // (ni arrastrando ni con las flechas), y tocarla enseña la nota corta
+  // que lo explica. Vive por libro, como el monto de la palanca.
+  const [locked, setLocked] = useState(() => readVaultPref("faro-vault-lever-lock", storeId) === "1");
+  const [lockNote, setLockNote] = useState(false);
+  useEffect(() => { if (!lockNote) return; const id = window.setTimeout(() => setLockNote(false), 3600); return () => window.clearTimeout(id); }, [lockNote]);
   const [seen, setSeen] = useState(storeId);
   if (seen !== storeId) {
     const remembered = readLeverOpen(storeId);
@@ -464,6 +471,7 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
     setYearDraft(null);
     setPinned(remembered.pin);
     setOpen(remembered.open);
+    setLocked(readVaultPref("faro-vault-lever-lock", storeId) === "1");
   }
   useEffect(() => {
     const sync = () => {
@@ -477,11 +485,19 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
       if (Number.isInteger(yearsN) && yearsN >= 1 && yearsN <= 80) setYears(yearsN);
       const chosen = readVaultPref("faro-vault-lever-mark", storeId);
       if (chosen === "week" || chosen === "month" || chosen === "year" || chosen === "far") setMark(chosen);
+      setLocked(readVaultPref("faro-vault-lever-lock", storeId) === "1");
     };
     window.addEventListener("faro-awake-goal", sync);
     return () => window.removeEventListener("faro-awake-goal", sync);
   }, [storeId]);
   const shown = convertMinor(usdMinor, "USD", display, rate);
+  const toggleLock = () => {
+    setLocked((on) => {
+      const next = !on;
+      try { writeVaultPref("faro-vault-lever-lock", storeId, next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const keep = (next: number) => {
     const clamped = Math.max(0, Math.min(maxUsd, next));
     setUsdMinor(clamped);
@@ -496,6 +512,7 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
   const down = (e: ReactPointerEvent<HTMLDivElement>, axis: "x" | "y") => {
     e.stopPropagation();
     e.preventDefault();
+    if (locked) { setLockNote(true); return; }
     const pointerId = e.pointerId;
     try { e.currentTarget.setPointerCapture(pointerId); } catch { /* the window listener still follows the finger */ }
     const read = (ev: { clientX: number; clientY: number }) => {
@@ -551,6 +568,12 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
     setMark(next);
     try { writeVaultPref("faro-vault-lever-mark", storeId, next); } catch { /* ignore */ }
   };
+  const lockBtn = (
+    <button type="button" className={`lever-lock${locked ? " is-on" : ""}`} data-anchor="lever-lock" aria-pressed={locked} aria-label={t(locked ? "lever.unlock" : "lever.lock")} onClick={toggleLock}>
+      {locked ? <Lock /> : <LockOpen />}
+    </button>
+  );
+  const lockNoteEl = lockNote ? <p className="lever-note" role="note">{t("lever.locked.note")}</p> : null;
   const yearSkip = useRef(false);
   const commitYears = (raw: string) => {
     if (!raw.trim()) { setYearDraft(null); return; }
@@ -579,6 +602,7 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
     <button type="button" className="vault-year-btn" data-anchor="lever-years" onClick={() => setYearDraft(String(years))}>{yearLabel}</button>
   );
   const keys = (e: { key: string }) => {
+    if (locked) { setLockNote(true); return; }
     if (e.key === "ArrowUp" || e.key === "ArrowRight") keep(usdMinor + 500);
     if (e.key === "ArrowDown" || e.key === "ArrowLeft") keep(usdMinor - 500);
   };
@@ -614,20 +638,23 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
       <button type="button" className="fold-chev" data-anchor="lever-open" aria-label={t("study.fold")} aria-expanded={open} onClick={toggleOpen}><ChevronDown /></button>
       {open ? (
         <>
-          <div
-            className="vault-lever-rail"
-            ref={rail}
-            role="slider"
-            tabIndex={0}
-            aria-valuemin={0}
-            aria-valuemax={maxUsd}
-            aria-valuenow={usdMinor}
-            aria-label={t("lever.if")}
-            onPointerDown={(e) => down(e, "y")}
-            onKeyDown={keys}
-          >
-            <i />
-            <b style={{ bottom: `calc(10.5px + (100% - 38px) * ${usdMinor / maxUsd})` }} />
+          <div className="vault-lever-side">
+            <div
+              className="vault-lever-rail"
+              ref={rail}
+              role="slider"
+              tabIndex={0}
+              aria-valuemin={0}
+              aria-valuemax={maxUsd}
+              aria-valuenow={usdMinor}
+              aria-label={t("lever.if")}
+              onPointerDown={(e) => down(e, "y")}
+              onKeyDown={keys}
+            >
+              <i />
+              <b style={{ bottom: `calc(10.5px + (100% - 38px) * ${usdMinor / maxUsd})` }} />
+            </div>
+            {lockBtn}
           </div>
           <div className="vault-lever-read">
             <p>
@@ -665,10 +692,12 @@ function VaultLever({ base, tone, storeId }: { base: number; tone: string; store
             <i />
             <b style={{ left: `calc(19px + (100% - 38px) * ${usdMinor / maxUsd})` }} />
           </div>
+          {lockBtn}
           {mark === "far" ? yearControl : <span className="vault-year-btn">{chosen.label}</span>}
           <strong className="num">{fmt(chosen.value)}</strong>
         </div>
       )}
+      {lockNoteEl}
     </div>
   );
 }
@@ -5086,6 +5115,28 @@ export function Study() {
       if (!year || !month) return;
       setSpan("year");
       setUi({ year, month });
+      // OLA 32 (Familia 11, Q32-3 de Cara): LA RUTA NOMBRA SU PISO EN
+      // ESENCIAL — sin study.flow el tramo efectivo cae a la semana y
+      // el mes que el aviso nombró no se enseñaba ni se nombraba: la
+      // ruta prometía un destino y entregaba otro en silencio (la
+      // especie exacta de LA FRONTERA). La preferencia ya sobrevivía
+      // en el estado (al subir, el mes aparece solo — medido en la
+      // caza); lo que faltaba era DECIRLO al llegar. La forma es la
+      // del Susurro del modo (la cura eligió el susurro: la cara de
+      // Esencial no gana una segunda forma de mes — su tarjeta de
+      // tiempo simple ES su ley — y el aviso nombra el mes y el piso
+      // donde vive entero, con los nombres punteados de la casa;
+      // tocarlo deja la petición de modo archivada y abre Ajustes
+      // con la pregunta ya puesta, como todo susurro).
+      if (!has("study.flow")) {
+        modeWhisper(
+          t("mode.whisper.history-month")
+            .replace("{mode}", `[[${t(`mode.${session?.ledger.settings.mode ?? "completo"}`)}]]`)
+            .replace("{owner}", `[[${t("mode.ritmo")}]]`)
+            .replace("{month}", `${monthName(lang, month)} ${year}`),
+          "ritmo",
+        );
+      }
       window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent("faro-open", { detail: "time" }));
         document.querySelector('[data-anchor="time"]')?.scrollIntoView({ behavior: "smooth", block: "start" });

@@ -35,6 +35,27 @@ export function passiveRecordsOf(state: LedgerState): PassiveRecord[] {
   return raw.filter((r): r is PassiveRecord => passiveRecordShapeOk(r));
 }
 
+/** El nombre de una categoría de la copia, leído con desconfianza.
+ * OLA 32 (Familia 7, G32-3): la puerta del libro juzga de las
+ * categorías el id y los subs — NO nameKey/customName — así que una
+ * categoría en forma vieja (id y subs, sin nombre) es un libro
+ * VÁLIDO, y displayName desreferenciaba customName.trim() sin red:
+ * el constructor moría antes de que el juez viera nada y la puerta
+ * de la ceremonia EXPLOTABA en vez de rehusar o construir. El
+ * constructor defiende lo suyo: el nombre se lee con la forma que
+ * haya (texto o nada), y la escalera de displayName cae como
+ * siempre — nombre propio, etiqueta, la clave, y al final el id,
+ * que es el nombre que el registro ya usaba de respaldo. El folio
+ * de una categoría sin nombre se guarda con su id por nombre: sus
+ * cifras son las de la copia, y el nombre es pinta, no cifra. */
+function passiveCategoryName(c: { id: string; nameKey?: unknown; customName?: unknown }, lang: "es" | "en"): string {
+  const item = {
+    nameKey: typeof c.nameKey === "string" ? c.nameKey : "",
+    customName: typeof c.customName === "string" ? c.customName : "",
+  };
+  return displayName(item, lang) || c.id;
+}
+
 /** El registro nace de la copia del alcance: una copia PROFUNDA y
  * congelada — tocar el registro jamás toca el libro de origen, ni al
  * revés. Las categorías guardan el nombre tal como se veía en el
@@ -46,7 +67,7 @@ export function makePassiveRecord(scoped: LedgerState, owner: string, lang: "es"
     at: atIso,
     owner,
     months: frozen,
-    categories: scoped.structure.categories.map((c) => ({ id: c.id, name: displayName(c, lang) || c.id })),
+    categories: scoped.structure.categories.map((c) => ({ id: c.id, name: passiveCategoryName(c, lang) })),
   };
 }
 
@@ -63,7 +84,21 @@ export function makePassiveRecord(scoped: LedgerState, owner: string, lang: "es"
  * Esta es la puerta de la ceremonia: registro juzgado o null, y la
  * superficie decide con el desenlace en la mano. */
 export function passiveRecordFromCopy(scoped: LedgerState, owner: string, lang: "es" | "en", atIso: string, id: string): PassiveRecord | null {
-  const record = makePassiveRecord(scoped, owner, lang, atIso, id);
+  // OLA 32 (Familia 7, G32-3): EL CONTRATO ES REGISTRO O NULL, JAMÁS
+  // UNA EXCEPCIÓN — la puerta prometía «registro juzgado o null» y
+  // el constructor podía morir antes del juez (la categoría sin
+  // nombre, arriba; cualquier desreferencia de una copia de forma
+  // inesperada, en general): la superficie llamaba sin red y el
+  // toque no hacía nada visible. La construcción va guardada: lo
+  // que no se puede construir se rehúsa como lo que no pasa el
+  // juez — null, y la superficie muestra el desenlace
+  // («record-failed»: no saliste) con la membresía intacta.
+  let record: PassiveRecord;
+  try {
+    record = makePassiveRecord(scoped, owner, lang, atIso, id);
+  } catch {
+    return null;
+  }
   return passiveRecordShapeOk(record) ? record : null;
 }
 

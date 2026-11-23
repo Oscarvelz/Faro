@@ -166,11 +166,20 @@ export function LoanForm({ mode, onCancel, onSave, initial, parkKey }: { mode: "
   );
 }
 
-/** One loan's card: who, pending, amount · date · rate, its payments, then Pay/Bono and Archive. Amounts arrive in the view currency. */
-export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIso, aprBps, pays, payLabel, paying, onPaying, onPay, onPaySplit, prefillInterest, archiveBody, onArchive, hint, extra, onWho }: {
+/** One loan's card: who, pending, amount · date · rate, its payments, then Pay/Bono and Archive. Amounts arrive in the view currency.
+ * 1.3.429 (Oscar, 2026-11-22): la cara D que él eligió para «Me deben»
+ * («LA D! All the way!») — los tres hechos en tres celdas con nombre
+ * dentro de la bandeja (lo puesto con su fecha · lo cobrado/pagado en
+ * porcentaje con su barra · el último abono con su fecha), la pastilla
+ * de la edad («hace 39 días») DENTRO de la esquina inferior derecha de
+ * la bandeja, y LA CUENTA: el detalle como en su cuaderno — el saldo
+ * inicial, cada abono restando con su fecha, hasta lo que queda hoy.
+ * La tarjeta es una sola para prestar y para deber (la ley de la casa),
+ * así que Préstamos viste la misma cara con sus nombres. */
+export function LoanCard({ name, rate, leftView, leftLabel, amountView, amountLabel, startIso, aprBps, pays, storyKind, payWord, emptyPays, interestView, payLabel, paying, onPaying, onPay, onPaySplit, prefillInterest, archiveBody, onArchive, hint, extra, onWho }: {
   onWho?: () => void;
-  name: string; rate: boolean; leftView: number; amountView: number; amountLabel: string; dateIso: string; aprBps: number;
-  pays: { date: string; view: number }[]; payLabel: string; paying: boolean; onPaying: (on: boolean) => void;
+  name: string; rate: boolean; leftView: number; leftLabel: string; amountView: number; amountLabel: string; startIso: string; aprBps: number;
+  pays: { date: string; view: number }[]; storyKind: "lend" | "borrow"; payWord: string; emptyPays: string; interestView?: number; payLabel: string; paying: boolean; onPaying: (on: boolean) => void;
   /** PREJUDICE PJ-12: both hands are optional — a side whose mode does not reach the
    *  verb's registry row passes no handler and the card renders without that hand. */
   onPay?: (displayMinor: number, date: string) => void; archiveBody: string; onArchive?: () => void; hint: string; extra?: ReactNode;
@@ -180,9 +189,11 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
   prefillInterest?: (displayMinor: number) => number;
 }) {
   const { t, fmt, lang, confirm } = useFaro();
+  const L = (es: string, en: string) => (lang === "en" ? en : es);
   const [amt, setAmt] = useState("");
   const [on, setOn] = useState("");
   const [intAmt, setIntAmt] = useState("");
+  const [tallyOpen, setTallyOpen] = useState(false);
   const intAuto = useRef(true);
   // Oleada de botones 4 (R7): el abono sigue la misma política — la línea base es la
   // forma recién abierta (vacía, con la fecha de hoy) y Cancelar pregunta solo si cambió.
@@ -192,6 +203,31 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
   const amtMinor = parseAmount(amt);
   const intMinor = onPaySplit ? Math.min(Math.max(0, parseAmount(intAmt) ?? 0), amtMinor ?? 0) : 0;
   const tint = TINTS[name.charCodeAt(0) % 5];
+  // La cuenta de hoy: solo cuentan los abonos que hoy cuentan (la misma
+  // cota de lentState/loanState — uno fechado el mes que viene no baja
+  // la cifra de hoy, y uno que descansa tampoco).
+  const today = todayIso();
+  const counted = pays.filter((p) => p.date <= today).slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const paidView = counted.reduce((s, p) => s + p.view, 0);
+  const totalView = amountView + (interestView ?? 0);
+  // La historia en línea (la C): cada abono lleva cuánto va cobrado
+  // HASTA ÉL, calculado sobre las cifras tal como se enseñan (ya
+  // redondeadas a centavos), nunca sobre los flotantes de la
+  // conversión — la cifra es la que el usuario comprueba a mano:
+  // 81.91 de 218.43 es 37.4994%, y se enseña 37%.
+  let runPaid = 0;
+  const storyRows = counted.map((p) => {
+    runPaid += p.view;
+    const pct = totalView > 0 ? Math.min(100, Math.max(0, Math.round((Math.round(runPaid) / Math.max(1, Math.round(totalView))) * 100))) : 0;
+    return { date: p.date, view: p.view, pct };
+  });
+  const lastPay = counted.length ? counted[counted.length - 1] : null;
+  const ageDays = lastPay ? Math.round((Date.parse(`${today}T12:00:00`) - Date.parse(`${lastPay.date}T12:00:00`)) / 86400000) : null;
+  const ageNode = ageDays === null ? emptyPays : ageDays <= 0 ? L("hoy", "today")
+    : lang === "en" ? <><strong>{ageDays} {ageDays === 1 ? "day" : "days"}</strong> ago</>
+    : <>hace <strong>{ageDays} {ageDays === 1 ? "día" : "días"}</strong></>;
+  let runBal = amountView;
+  const tallyRows = counted.map((p) => { runBal -= p.view; return { date: p.date, view: p.view, after: runBal }; });
   return (
     <article className={`cobro-card${rate ? " is-rate" : ""}`}>
       <div className="cobro-row">
@@ -207,21 +243,65 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
             <strong>{name}</strong>
           </div>
         )}
-        <strong className="num">{fmt(leftView)}</strong>
+        <span className="cobro-left"><small>{leftLabel}</small><strong className="num">{fmt(leftView)}</strong></span>
       </div>
       {/* 1.3.404 (Oscar): los hechos de la tarjeta viven en su bandeja — una
           superficie hundida con los tokens del tema y sus filas separadas;
-          ya no son tres líneas sueltas flotando sobre el gris. */}
+          ya no son tres líneas sueltas flotando sobre el gris.
+          1.3.429: dentro de la bandeja, la cara C — «La historia en
+          línea» (la que Oscar eligió; su «LA D» fue un desliz que él
+          mismo corrigió: «Sorry. Era el C»): el préstamo se lee como
+          una historia sobre su línea — prestado, cada abono con su
+          fecha y cuánto va cobrado, y hoy con su punto abierto. */}
       <div className="loan-facts">
-        <p className="cobro-meta">
-          {amountLabel} {fmt(amountView)}
-          {" · "}
-          {stampOf(dateIso)}
-          {rate && aprBps > 0 ? ` · ${(aprBps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%` : ""}
-        </p>
+        <ol className="loan-story">
+          <li className="loan-ev">
+            <span className="loan-ev-main"><small>{amountLabel}</small><strong className="num">{fmt(amountView)}</strong></span>
+            <span className="loan-ev-date">{stampOf(startIso)}</span>
+          </li>
+          {storyRows.map((r, i) => (
+            <li className="loan-ev" key={`${r.date}|${i}`}>
+              <span className="loan-ev-main"><small>{payWord}</small><strong className="num">{fmt(r.view)} <span className="loan-ev-pct">· {storyKind === "lend" ? L(`cobrado el ${r.pct}%`, `${r.pct}% collected`) : L(`pagado el ${r.pct}%`, `${r.pct}% paid`)}</span></strong></span>
+              <span className="loan-ev-date">{stampOf(r.date)}</span>
+            </li>
+          ))}
+          <li className="loan-ev is-now">
+            <span className="loan-ev-main"><small>{L("Hoy", "Today")}</small></span>
+            <span className="loan-ev-date">{lang === "en" ? `${fmt(leftView)} left` : `quedan ${fmt(leftView)}`}</span>
+          </li>
+        </ol>
         {extra}
-        {pays.length ? <p className="cobro-meta">{pays.map((p) => `${stampOf(p.date)} ${fmt(p.view)}`).join(" · ")}</p> : null}
+        <div className="loan-tray-foot">
+          <span className="loan-foot-note">
+            {rate && aprBps > 0 ? <>{(aprBps / 100).toLocaleString(lang === "en" ? "en-US" : "es-NI", { maximumFractionDigits: 2 })}%</> : null}
+          </span>
+          <span className="loan-age">{ageNode}</span>
+        </div>
       </div>
+      {/* La cuenta vive FUERA de la bandeja (Oscar, 2026-11-22: la D que
+          eligió trae la bandeja limpia — celdas y pastilla, nada más);
+          su botón abre el detalle debajo de la bandeja, al abrir el
+          préstamo, como en su cuaderno. */}
+      {counted.length ? (
+        <div className="loan-cuenta">
+          <button type="button" className="loan-cuenta-btn" aria-expanded={tallyOpen} onClick={() => setTallyOpen((v) => !v)}>
+            <span>{L("La cuenta", "The tally")}</span>
+            <ChevronDown className={tallyOpen ? "size-4 fold-chev is-open" : "size-4 fold-chev"} aria-hidden />
+          </button>
+          {tallyOpen ? (
+            <ol className="loan-tally">
+              <li><span className="loan-tally-day">{stampOf(startIso)}</span><span className="loan-tally-what">{amountLabel}</span><span /><strong className="num">{fmt(amountView)}</strong></li>
+              {tallyRows.map((r, i) => (
+                <li key={`${r.date}|${i}`}><span className="loan-tally-day">{stampOf(r.date)}</span><span className="loan-tally-what">{payWord}</span><span className="loan-tally-less num">−{fmt(r.view)}</span><strong className="num">{fmt(r.after)}</strong></li>
+              ))}
+              {(interestView ?? 0) > 0 ? (
+                <li><span className="loan-tally-day">{stampOf(today)}</span><span className="loan-tally-what">{t("cobro.loan.interest")}</span><span className="loan-tally-less num">+{fmt(interestView ?? 0)}</span><strong className="num">{fmt(amountView - paidView + (interestView ?? 0))}</strong></li>
+              ) : null}
+              <li className="is-now"><span className="loan-tally-day">{stampOf(today)}</span><span className="loan-tally-what">{L("Queda", "Left")}</span><span /><strong className="num">{fmt(leftView)}</strong></li>
+            </ol>
+          ) : null}
+        </div>
+      ) : null}
       {paying ? (
         <div className="form-block cobro-form is-bonus">
           <div className="cobro-grid">
@@ -265,7 +345,7 @@ export function LoanCard({ name, rate, leftView, amountView, amountLabel, dateIs
         </div>
       ) : (
         <div className="cobro-acts">
-          {onPay || onPaySplit ? <button type="button" className="btn secondary" onClick={() => onPaying(true)}>{payLabel}</button> : null}
+          {onPay || onPaySplit ? <button type="button" className="btn" onClick={() => onPaying(true)}>{payLabel}</button> : null}
           {onArchive ? <button type="button" className="btn secondary" onClick={() => confirm({ title: t("cobro.archive"), body: `${name}. ${archiveBody} ${fmt(leftView)}`, yes: t("cobro.archive"), run: onArchive })}>{t("cobro.archive")}</button> : null}
           <Hint topic={hint} className="is-acts" corner />
         </div>
@@ -454,9 +534,10 @@ export function DueLoans({ libros = false, onWho, facts, between }: { libros?: b
       {ledger && active.length ? active.map((loan) => {
         const f = loanState(ledger, loan);
         return (
-          <LoanCard key={loan.id} name={loan.lender} rate={canInterest && loan.kind === "interest"} leftView={view(f.left, loan.currency)}
-            amountView={view(loan.amountMinor, loan.currency)} amountLabel={t("cobro.loan.got")} dateIso={loan.takenOn} aprBps={canInterest ? loan.aprBps : 0}
+          <LoanCard key={loan.id} name={loan.lender} rate={canInterest && loan.kind === "interest"} leftView={view(f.left, loan.currency)} leftLabel={lang === "en" ? "You owe" : "Debes"}
+            amountView={view(loan.amountMinor, loan.currency)} amountLabel={t("cobro.loan.got")} startIso={loan.takenOn} aprBps={canInterest ? loan.aprBps : 0}
             pays={loanPays(ledger, loan.id).map((line) => ({ date: line.bookedOn || `${line.monthKey}-01`, view: view(line.amountMinor, line.currency) }))}
+            storyKind="borrow" payWord={lang === "en" ? "Payment" : "Pago"} emptyPays={lang === "en" ? "no payments" : "sin pagos"} interestView={view(f.interest, loan.currency)}
             extra={<><p className="cobro-meta loan-book">{t(loan.who === "entity" ? "cobro.loan.who.entity" : "cobro.loan.who.person")} · {t(loan.book === "variable" ? "cobro.loan.book.variable" : "cobro.loan.book.fixed")}{canInterest && f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, loan.currency))}</b></> : null}{loan.dueDay ? <> · {t("cobro.loan.dueday")} <b className="num">{loan.dueDay}</b></> : null}{(() => { if (!has("loans.interest-paid")) return null; const ip = loanInterestPaid(ledger, loan); if (ip <= 0) return null; const yr = new Date().getFullYear(); const ipy = loanInterestPaid(ledger, loan, yr); return <> · {t("cobro.loan.intpaid")} <b className="num">{fmt(view(ip, loan.currency))}</b>{ipy > 0 && ipy < ip ? <> · {t("cobro.loan.intpaid.year")} <b className="num">{fmt(view(ipy, loan.currency))}</b></> : null}</>; })()}</p>{facts ? facts(loan.id, view(f.interest, loan.currency)) : null}</>}
             onWho={onWho ? () => onWho(loan.lender) : undefined}
             payLabel={t("cobro.loan.pay")} paying={payFor === loan.id} onPaying={(on) => setPayFor(on ? loan.id : null)}

@@ -194,7 +194,10 @@ describe("ola31 · F2 — «Al» con continuación", () => {
     assert.equal(family(r), "recencia");
     assert.match(verdict(r), /última remesa a Al/);
     assert.match(verdict(r), /\$90\.00/);
-    assert.match(verdict(r), /2026-10-06/);
+    // ENMIENDA (integración de la Ola 26·U6 del banco): la recencia
+    // dice las fechas EN PALABRAS (fmtFecha) — «el 6 de octubre de
+    // 2026», no la ISO. El hecho fijado es el mismo.
+    assert.match(verdict(r), /6 de octubre de 2026/);
   });
   it("controles: «al banco» sigue acusado con su nombre y «al pastor Rosa» sirve a Rosa limpia", () => {
     const c = new Convo(libro());

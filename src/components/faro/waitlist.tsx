@@ -317,7 +317,10 @@ export function WaitlistSection() {
   return (
     <section className="wl-section" data-anchor="advisor-waitlist">
       <div className="wl-head">
-        <h2 className="serif wl-title">{L(lang, "Lista de espera", "Waiting list")}<Hint topic="lista-espera" /></h2>
+        <span className="wl-face">
+          <span className="wl-badge" aria-hidden><Hourglass /></span>
+          <h2 className="serif wl-title">{L(lang, "Lista de espera", "Waiting list")}<Hint topic="lista-espera" /></h2>
+        </span>
         <button type="button" className="btn secondary" data-anchor="wish-add" onClick={() => setAdding(true)}>
           {L(lang, "Anotar un deseo", "Note a wish")}
         </button>
@@ -325,7 +328,7 @@ export function WaitlistSection() {
       <p className="wl-sub">{L(lang, "Aquí dejas un gusto que todavía no decides comprar. Espera su plazo; mientras tanto puedes ver qué pasaría con tu mes si lo compras.", "Here you leave a treat you have not decided to buy. It waits its time; meanwhile you can see what would happen to your month if you buy it.")}</p>
       {waiting.length
         ? waiting.map((w) => <WishCard key={w.id} w={w} now={now} />)
-        : <p className="wl-empty">{L(lang, "Ningún deseo en espera.", "No wishes waiting.")}</p>}
+        : <p className="wl-empty-card">{L(lang, "Ningún deseo en espera.", "No wishes waiting.")}</p>}
       {year.saved.length ? (
         <div className="wl-year">
           <button type="button" className="wl-year-btn" data-anchor="wish-year" onClick={() => setShowPieces((v) => !v)} aria-expanded={showPieces}>

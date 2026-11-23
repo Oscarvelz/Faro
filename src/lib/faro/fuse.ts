@@ -256,11 +256,38 @@ export function fuseBooks(base: LedgerState, server: FuseSide, local: FuseSide):
   // por id, leída con el juez único (passiveRecordsOf); a igual id,
   // la copia del lado ganador manda, como el resto del estado. Si
   // ningún lado trae el campo, el campo no nace.
-  if (Array.isArray(server.state.passiveRecords) || Array.isArray(local.state.passiveRecords)) {
+  // OLA 32 (Familia 8, G32-4): LA UNIÓN DE PASIVOS LEE TAMBIÉN LA
+  // BASE — la composición de la Ola 31 era a DOS lados y la ausencia
+  // no componía: el folio que el lado ganador borró en su Archivo
+  // resucitaba desde el perdedor (la unión componía presencia, jamás
+  // ausencia), y el registro que solo la base traía se evaporaba
+  // cuando los dos lados eran copias de formato viejo, sin el campo
+  // — en la misma fusión en que la lápida de la base sí mandaba. La
+  // composición es la de las líneas, a tres lados, sin lápidas: la
+  // base es el último estado común, y contra ella la ausencia se
+  // juzga — un lado que TRAE el campo y ya no trae un registro de la
+  // base lo borró, y su borrado manda como manda el de una línea;
+  // un lado que NO trae el campo no dice nada de registros (su
+  // formato es de antes de que existieran: la ausencia del campo no
+  // es un borrado), así que el registro que solo la base trae
+  // sobrevive cuando ningún lado trae el campo. A igual id y sin
+  // borrado, la copia del lado ganador manda, como escribió la
+  // Ola 31; y si ningún lado trae el campo ni la base trae
+  // registros, el campo no nace.
+  const baseRecords = passiveRecordsOf(base);
+  const serverCarries = Array.isArray(server.state.passiveRecords);
+  const localCarries = Array.isArray(local.state.passiveRecords);
+  if (serverCarries || localCarries || baseRecords.length) {
     const loser = winner === server ? local : server;
+    const baseIds = new Set(baseRecords.map((r) => r.id));
+    const serverIds = new Set(passiveRecordsOf(server.state).map((r) => r.id));
+    const localIds = new Set(passiveRecordsOf(local.state).map((r) => r.id));
+    const deleted = (id: string): boolean =>
+      baseIds.has(id) && ((serverCarries && !serverIds.has(id)) || (localCarries && !localIds.has(id)));
     const recordsBy = new Map<string, PassiveRecord>();
-    for (const r of passiveRecordsOf(loser.state)) recordsBy.set(r.id, r);
-    for (const r of passiveRecordsOf(winner.state)) recordsBy.set(r.id, r);
+    for (const r of passiveRecordsOf(loser.state)) if (!deleted(r.id)) recordsBy.set(r.id, r);
+    for (const r of passiveRecordsOf(winner.state)) if (!deleted(r.id)) recordsBy.set(r.id, r);
+    for (const r of baseRecords) if (!deleted(r.id) && !recordsBy.has(r.id)) recordsBy.set(r.id, r);
     state.passiveRecords = [...recordsBy.values()];
   }
   return { state, conflict };

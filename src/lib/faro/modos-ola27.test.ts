@@ -316,13 +316,17 @@ describe("ola27 · (5) el alias de persona enruta en las remesas", () => {
     assert.equal(r.family, "recencia");
     assert.ok(r.verdict.includes("Mamá"), r.verdict);
     assert.ok(r.verdict.includes(moneyEs(32000)), "su remesa: $320.00 del 2026-10-12");
-    assert.ok(r.verdict.includes("2026-10-12"), r.verdict);
+    // ENMIENDA (integración de la Ola 26·U6 del banco): la recencia
+    // dice las fechas EN PALABRAS (fmtFecha) — «el 12 de octubre de
+    // 2026», no la ISO. La cerca sigue fijando el mismo hecho: la
+    // remesa de Mamá, de $320.00, en su fecha.
+    assert.ok(r.verdict.includes("12 de octubre de 2026"), r.verdict);
     assert.ok(!r.verdict.includes("Primo"), "jamás la de otra persona disfrazada");
   });
 
   it("control: con el nombre verdadero, la misma respuesta", () => {
     const r = answer(ask(remitBook(true), "¿Cuándo fue la última remesa a Mamá?"));
-    assert.ok(r.verdict.includes(moneyEs(32000)) && r.verdict.includes("2026-10-12"), r.verdict);
+    assert.ok(r.verdict.includes(moneyEs(32000)) && r.verdict.includes("12 de octubre de 2026"), r.verdict);
   });
 
   it("Q27-3: la persona que no se resuelve se NOMBRA — nunca degrada a la última global", () => {

@@ -234,6 +234,11 @@ describe("ola25 · (1) toda puerta que borra compone la migración", () => {
       // escribe en un libro — ningún camino de guardado la recibe
       // (cerca de libro397).
       "lib/faro/world.ts": "lectura",
+      // Integración de la Ola 30 del banco: incomeKit mide el ingreso
+      // de cada mes (`.lines` filtradas en una LECTURA) para la
+      // mediana, el piso y el excedente. ask2.ts es el motor de
+      // respuestas del banco: jamás escribe el libro con eso.
+      "lib/faro/ask2.ts": "lectura",
       "lib/faro/sample.ts": "construcción",
       "lib/faro/area-advice.ts": "lectura",
       "lib/faro/advisor.ts": "lectura",

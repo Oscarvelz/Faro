@@ -28,6 +28,38 @@
 -- ============================================================================
 
 -- ── El filtro de alcance, una sola vez ─────────────────────────────────────
+-- ── El predicado de alcance, una sola vez (Ola 33, Familia 7, G33-2) ──
+-- El empalme casaba la categoría por TEXTO: «kept», «mine», la
+-- guarda de lápidas y faro_scoped leían «l ->> 'categoryId'», que
+-- CONVIERTE a texto cualquier valor JSON, mientras el cliente lee
+-- la IDENTIDAD (scopeFilter con un Set estricto, las caminatas con
+-- ===): la línea guardada con categoryId NUMÉRICO 42 se evaporaba
+-- ante el empuje fiel de su miembro (su texto «42» casaba con el
+-- alcance en «kept» y el miembro jamás la trajo en «mine»), y la
+-- entrante con 42 aterrizaba en una categoría fantasma que ningún
+-- filtro del cliente le atribuye — la especie de G31-2 («el tipo
+-- antes que el texto») en el único campo que quedaba sin juicio
+-- de tipo. La ley: el predicado juzga el TIPO antes que el texto —
+-- el categoryId que no ES texto no está en el alcance de nadie:
+-- cuenta como fuera de alcance en «kept» (la línea se queda,
+-- intacta), no entra en «mine», no guarda su lápida como dentro, y
+-- faro_scoped no lo enseña. La ausencia sigue contando como fuera
+-- de alcance, como la Cura 32 falló (los llamantes envuelven el
+-- predicado en el mismo coalesce de siempre donde la lógica de
+-- tres valores lo pide). Y la razón de que el juicio viva AQUÍ y
+-- no en faro_line_ok: ese juez es el espejo campo a campo del
+-- juicio de líneas de isLedgerDeep, y la puerta del cliente NO
+-- juzga categoryId — un espejo más estricto que su casa mataría
+-- en el empalme líneas que la puerta del dueño admite (y las
+-- guardadas jamás se re-juzgan: el remedio de la guardada no es
+-- un juez nuevo, es que el alcance deje de atribuírsela a quien
+-- no puede verla). Lo que se juzga es la ATRIBUCIÓN, no la línea.
+create or replace function public.faro_cat_in(cats jsonb, l jsonb)
+returns boolean language plpgsql immutable as $$
+begin
+  return jsonb_typeof(l -> 'categoryId') = 'string' and cats ? (l ->> 'categoryId');
+end $$;
+
 create or replace function public.faro_scoped(book jsonb, m_scope jsonb)
 returns jsonb language plpgsql immutable as $$
 declare
@@ -45,7 +77,7 @@ begin
   for mk, mv in select key, value from jsonb_each(coalesce(book -> 'months', '{}'::jsonb)) loop
     select coalesce(jsonb_agg(l), '[]'::jsonb) into filtered
       from jsonb_array_elements(coalesce(mv -> 'lines', '[]'::jsonb)) l
-      where cats ? (l ->> 'categoryId');
+      where public.faro_cat_in(cats, l);
     if jsonb_array_length(filtered) > 0 then
       out_months := out_months || jsonb_build_object(mk, jsonb_build_object('lines', filtered));
     end if;
@@ -74,7 +106,7 @@ begin
       'purchases', (
         select coalesce(jsonb_agg(p), '[]'::jsonb)
           from jsonb_array_elements(coalesce(book -> 'structure' -> 'purchases', '[]'::jsonb)) p
-          where cats ? (p ->> 'categoryId')))
+          where public.faro_cat_in(cats, p)))
   );
 end $$;
 
@@ -127,6 +159,50 @@ begin
   return ts;
 end $$;
 
+-- ── El juez del número, una sola vez (Ola 32, Familia 5, G32-1) ───────
+-- El espejo juzgaba el TIPO del número, no su FINITUD: un numeric de
+-- jsonb vive en precisión arbitraria y un double de JS muere en
+-- ~1.8e308 — el literal 1e999 es un número válido para Postgres e
+-- Infinity para el cliente, cuya puerta (isFinD) lo rehúsa. El
+-- empalme lo guardaba y el libro guardado no pasaba isLedgerDeep.
+-- Este juez lee el número COMO LO LEERÍA JS: el cast a float8 lo
+-- delata — fuera del rango del double, el cast mismo muere (y un
+-- valor dentro del rango jamás vuelve infinito de un numeric), así
+-- que cast posible = finito en las dos casas, cast imposible = no
+-- finito en la del cliente. Lo usan los tres campos numéricos de la
+-- línea, en las dos ramas del empalme (pasan todos por faro_line_ok).
+--
+-- OLA 33 (Familia 6, G33-1): EL ESPEJO ES EXACTO TAMBIÉN POR ABAJO.
+-- La premisa de la Ola 32 miraba solo hacia arriba: el cast muere
+-- TAMBIÉN por underflow — Postgres rehúsa con «out of range» todo
+-- numeric NO NULO que el double redondea a cero (1e-999, 1e-400,
+-- 1e-324, 2e-324 y sus negativos), mientras JS lee esos mismos
+-- literales como 0 — finito — y la puerta del cliente los admite:
+-- el empalme perdía la línea en silencio, la dirección contraria
+-- a G32-1. La franja se juzga ANTES del cast, sobre el numeric
+-- mismo (que nunca muere): lo no nulo cuyo valor absoluto queda
+-- bajo la mitad del subnormal mínimo del double (~2.47e-324) es,
+-- en la lectura de JS, cero — finito en las dos casas. Sobre esa
+-- franja el cast ya no muere (3e-324 vuelve 5e-324) y su veredicto
+-- manda como siempre; el cero exacto con exponente imposible
+-- (0e-999) sigue pasando por el cast, que lo lee 0.
+create or replace function public.faro_num_ok(v jsonb)
+returns boolean language plpgsql immutable as $$
+declare
+  f float8;
+  n numeric;
+begin
+  if jsonb_typeof(v) is distinct from 'number' then return false; end if;
+  n := (v #>> '{}')::numeric;
+  if n <> 0 and abs(n) < '2.5e-324'::numeric then return true; end if;
+  begin
+    f := (v #>> '{}')::float8;
+  exception when others then
+    return false;
+  end;
+  return f > '-Infinity'::float8 and f < 'Infinity'::float8;
+end $$;
+
 -- ── El juez de la línea, una sola vez (Ola 31, Familia 6, G31-1) ────────
 -- El empalme juzgaba las lápidas que guarda y NO las líneas: una línea
 -- con amountMinor de texto se empalma verbatim y el libro guardado no
@@ -139,6 +215,8 @@ end $$;
 -- o número (nulo NO: el cliente lo rehúsa); by, byName, fundedBy y
 -- declaredAccount ausentes o texto; declaration ausente o booleano;
 -- mirrorOf ausente u objeto con book y line de texto.
+-- OLA 32 (Familia 5, G32-1): los tres campos numéricos se juzgan con
+-- faro_num_ok — número Y finito en la lectura de JS, como isFinD.
 create or replace function public.faro_line_ok(l jsonb)
 returns boolean language plpgsql immutable as $$
 begin
@@ -150,9 +228,10 @@ begin
      or jsonb_typeof(l -> 'concept') is distinct from 'string' or jsonb_typeof(l -> 'currency') is distinct from 'string' then
     return false;
   end if;
-  if jsonb_typeof(l -> 'amountMinor') is distinct from 'number' then return false; end if;
-  if l -> 'balanceMinor' is not null and jsonb_typeof(l -> 'balanceMinor') not in ('null', 'number') then return false; end if;
-  if l -> 'aprBps' is not null and jsonb_typeof(l -> 'aprBps') is distinct from 'number' then return false; end if;
+  if not public.faro_num_ok(l -> 'amountMinor') then return false; end if;
+  if l -> 'balanceMinor' is not null and jsonb_typeof(l -> 'balanceMinor') is distinct from 'null'
+     and not public.faro_num_ok(l -> 'balanceMinor') then return false; end if;
+  if l -> 'aprBps' is not null and not public.faro_num_ok(l -> 'aprBps') then return false; end if;
   if l -> 'by' is not null and jsonb_typeof(l -> 'by') is distinct from 'string' then return false; end if;
   if l -> 'byName' is not null and jsonb_typeof(l -> 'byName') is distinct from 'string' then return false; end if;
   if l -> 'fundedBy' is not null and jsonb_typeof(l -> 'fundedBy') is distinct from 'string' then return false; end if;
@@ -259,12 +338,21 @@ begin
         where public.faro_line_ok(l)
           and not exists (select 1 from jsonb_array_elements(stones_ok) st where st ->> 'id' = l ->> 'id');
     else
+      -- OLA 32 (Familia 6, G32-2): «kept» juzga la AUSENCIA como
+      -- fuera de alcance — con categoryId ausente, «cats ? null» es
+      -- NULL y «not NULL» es NULL: la línea sin categoría no era
+      -- «kept» ni «mine» y se evaporaba del libro guardado, contra
+      -- la promesa de la cabecera («las líneas fuera de su alcance
+      -- se quedan como están, intactas») y contra la puerta del
+      -- cliente, que admite la línea sin categoría. La ausencia
+      -- cuenta como fuera de alcance: lo que el miembro no puede
+      -- ver, se queda.
       select coalesce(jsonb_agg(l), '[]'::jsonb) into kept
         from jsonb_array_elements(coalesce(cur -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
-        where not (cats ? (l ->> 'categoryId'));
+        where coalesce(public.faro_cat_in(cats, l), false) is not true;
       select coalesce(jsonb_agg(l), '[]'::jsonb) into mine
         from jsonb_array_elements(coalesce(incoming -> 'months' -> mk -> 'lines', '[]'::jsonb)) l
-        where (cats ? (l ->> 'categoryId'))
+        where public.faro_cat_in(cats, l)
           and public.faro_line_ok(l)
           and not exists (select 1 from jsonb_array_elements(stones_ok) st where st ->> 'id' = l ->> 'id')
           and not exists (select 1 from jsonb_array_elements(kept) k where k ->> 'id' = l ->> 'id');
@@ -291,6 +379,10 @@ begin
   -- quedaba el instante MENOR (el texto mayor), exactamente al revés
   -- del cliente. Con alcance de categorías, una lápida sobre una línea
   -- fuera del alcance — que sigue viva en el libro — no se guarda.
+  -- OLA 32 (Familia 6): la guarda de esa lápida juzga la categoría
+  -- ausente como fuera de alcance, con el mismo coalesce de «kept» —
+  -- sin él, la lápida sobre la línea sin categoría se guardaba JUNTO
+  -- a la línea que el empalme conserva intacta.
   select coalesce(jsonb_agg(t), '[]'::jsonb) into unioned from (
     select distinct on (u.t ->> 'id') u.t
       from (
@@ -302,7 +394,7 @@ begin
                select 1
                  from jsonb_each(coalesce(cur -> 'months', '{}'::jsonb)) mm,
                       jsonb_array_elements(mm.value -> 'lines') l
-                 where l ->> 'id' = t ->> 'id' and not (cats ? (l ->> 'categoryId')))
+                 where l ->> 'id' = t ->> 'id' and coalesce(public.faro_cat_in(cats, l), false) is not true)
       ) u
       where public.faro_stone_at(u.t) is not null
       order by u.t ->> 'id', public.faro_stone_at(u.t) desc

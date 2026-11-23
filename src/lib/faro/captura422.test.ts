@@ -58,7 +58,12 @@ test("422 · la tarjeta se nombra y se edita desde la guía", () => {
 
 test("422 · el Asesor mide contra la misma guía y el Manual la cuenta", () => {
   assert.ok(ask2.includes("guideOf(c.state.settings)"), "reglaAnswer lee la guía del libro");
-  assert.ok(ask2.includes("pct(needs) <= guide.needs"), "el «dentro» se juzga con la guía");
+  // ENMIENDA (integración de la Ola 26·U2 del banco): el juicio ya no
+  // es un ternario suelto — cap(p, target) juzga CADA cubo contra el
+  // número de la guía activa y la frase «En palabras:» lo dice. La
+  // cerca sigue exigiendo lo mismo que exigía: que el «dentro» de
+  // necesidades se juzgue contra guide.needs, en su forma nueva.
+  assert.ok(ask2.includes("cap(pct(needs), guide.needs)"), "el «dentro» se juzga con la guía");
   const topic = topics.slice(topics.indexOf('id: "regla-50-30-20"'), topics.indexOf('id: "regla-50-30-20"') + 1600);
   assert.ok(topic.includes("Ajustar mi guía"), "el Manual nombra el editor de la tarjeta");
   assert.ok(topic.includes("la guía puede ser la tuya"), "el Manual dice que la guía puede ser del usuario");

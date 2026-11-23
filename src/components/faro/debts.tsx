@@ -388,12 +388,12 @@ export function OwedSide({ libros = false, dir }: { libros?: boolean; dir?: numb
   const card = (row: Lent) => {
     if (!ledger) return null;
     const f = lentState(ledger, row);
-    const who = people.find((p) => p.key === personKey(row.person));
     return (
-      <LoanCard key={row.id} name={row.person} rate={row.kind === "interest"} leftView={view(f.left, row.currency)}
-        amountView={view(row.amountMinor, row.currency)} amountLabel={t("cobro.lent")} dateIso={row.dueOn || row.startedOn} aprBps={row.aprBps}
+      <LoanCard key={row.id} name={row.person} rate={row.kind === "interest"} leftView={view(f.left, row.currency)} leftLabel={L("Te debe", "Owes you")}
+        amountView={view(row.amountMinor, row.currency)} amountLabel={t("cobro.lent")} startIso={row.startedOn} aprBps={row.aprBps}
         pays={lentPays(ledger, row.id).map((line) => ({ date: line.bookedOn || `${line.monthKey}-01`, view: view(line.amountMinor, line.currency) }))}
-        extra={libros ? <p className="cobro-meta debt-since">{sinceText(who?.days ?? null, L)}{splitInterest && f.interest > 0 ? <> · {t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, row.currency))}</b></> : null}</p> : undefined}
+        storyKind="lend" payWord={L("Abono", "Payment")} emptyPays={L("sin abonos", "no payments")} interestView={view(f.interest, row.currency)}
+        extra={libros && splitInterest && f.interest > 0 ? <p className="cobro-meta debt-since">{t("cobro.loan.interest")} <b className="num">{fmt(view(f.interest, row.currency))}</b></p> : undefined}
         onWho={libros ? () => openFor(row.person) : undefined}
         payLabel={t("cobro.bonus")} paying={bonusFor === row.id} onPaying={(on) => setBonusFor(on ? row.id : null)}
         onPay={has("lent.payment") ? (minor, date) => commitGuarded((s) => payLent(s, row.id, convertMinor(minor, display, row.currency, rate), date, uid(), L("Abono", "Payment")), row.person) : undefined}

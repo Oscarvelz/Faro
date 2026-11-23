@@ -159,6 +159,37 @@ b.num.is-out { color: color-mix(in oklab, #c8742a 85%, var(--fg)); }
 .cobro-card .loan-facts { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in oklab, var(--bg) 34%, transparent); box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 5%, transparent); display: grid; gap: 7px; }
 .cobro-card .loan-facts .cobro-meta { margin: 0; }
 .cobro-card .loan-facts .cobro-meta + .cobro-meta { border-top: 1px solid color-mix(in oklab, var(--fg) 6%, transparent); padding-top: 7px; }
+/* 1.3.429 (Oscar): la cara D de la tarjeta de préstamo — la cifra que
+   falta lleva su nombre («Te debe» / «Debes»), los tres hechos en tres
+   celdas separadas por filetes dentro de la bandeja, la pastilla de la
+   edad dentro de la esquina inferior derecha de la bandeja, y la
+   cuenta del cuaderno que se abre bajo su botón. */
+.cobro-left { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.cobro-left small { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; opacity: .55; font-weight: 600; }
+/* 1.3.429 · LA HISTORIA EN LÍNEA (la C de Oscar): el préstamo se lee
+   sobre su línea — cada evento con su punto, el de hoy abierto. */
+.loan-story { list-style: none; margin: 0; padding: 2px 2px 0; position: relative; display: grid; gap: 13px; }
+.loan-story::before { content: ""; position: absolute; left: 8px; top: 13px; bottom: 13px; width: 2px; border-radius: 2px; background: color-mix(in oklab, var(--accent) 32%, transparent); }
+.loan-ev { position: relative; padding-left: 25px; display: flex; align-items: flex-start; gap: 10px; }
+.loan-ev::before { content: ""; position: absolute; left: 3px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent); }
+.loan-ev.is-now::before { background: transparent; border: 2px solid var(--accent); box-shadow: none; width: 10px; height: 10px; left: 4px; top: 3px; }
+.loan-ev-main { display: grid; gap: 1px; margin-right: auto; min-width: 0; }
+.loan-ev-main small { font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; opacity: .55; font-weight: 700; }
+.loan-ev-main strong { font-size: 1rem; font-weight: 800; white-space: nowrap; }
+.loan-ev-pct { font-size: .78rem; font-weight: 600; opacity: .62; }
+.loan-ev-date { font-size: .8rem; opacity: .62; font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; }
+.loan-ev.is-now .loan-ev-date { opacity: 1; font-weight: 700; }
+.loan-tray-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.loan-foot-note { font-size: .78rem; opacity: .65; }
+.loan-age { font-size: .72rem; padding: 2px 8px; border-radius: 99px; border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); color: var(--accent); white-space: nowrap; }
+.loan-cuenta { margin-top: 10px; }
+.loan-cuenta-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; font: inherit; font-size: .84rem; font-weight: 600; color: var(--accent); cursor: pointer; }
+.loan-tally { list-style: none; margin: 7px 0 0; padding: 0; display: grid; gap: 4px; }
+.loan-tally li { display: grid; grid-template-columns: 52px 1fr auto auto; gap: 8px; align-items: baseline; font-size: .84rem; }
+.loan-tally-day { opacity: .65; font-size: .78rem; white-space: nowrap; }
+.loan-tally-what { opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loan-tally-less { opacity: .75; }
+.loan-tally li.is-now { border-top: 1px solid color-mix(in oklab, var(--fg) 12%, transparent); padding-top: 5px; font-weight: 700; }
 .plan-facts span:nth-child(2) { text-align: center; }
 .plan-facts span:last-child { text-align: right; }
 .plan-facts em { font-style: normal; font-size: .66rem; color: var(--faint); white-space: nowrap; }

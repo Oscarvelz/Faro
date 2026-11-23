@@ -328,7 +328,13 @@ describe("ola19 · §A: clase C — el no-op de mapa, curado en el ayudante y en
  * atadura local o un parámetro con el nombre de una puerta — que no
  * sea su envoltorio — ya no cuentan como la puerta.
  * ════════════════════════════════════════════════════════════════════ */
-const PUERTAS = new Set(["commit", "commitGuarded", "commitAnnounced", "commitFinal", "commitDraft"]);
+const PUERTAS = new Set(["commit", "commitGuarded", "commitAnnounced", "commitFinal", "commitDraft", "commitFlushed"]);
+// OLA 32 (Familia 9, Q32-1 de Cara): commitFlushed es el quinto
+// envoltorio del proveedor — despacha la receta del llamante por la
+// puerta llana (commit) y solo añade la ESPERA de su escritura en
+// disco; la receta aterriza con la semántica de commit, sin marco
+// nuevo ni juicio propio. Se clasifica, como toda la maquinaria de
+// las puertas, por la puerta que ejecuta: aterrizaje.
 type ClasePuerta = "guardada" | "anunciada" | "final" | "aterrizaje";
 const CENSO19: Record<string, [ClasePuerta, number]> = {
   // 1.3.367 (la Bitácora): cerrar la serie anota que la edición fue
@@ -431,7 +437,7 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // solo escribe si el valor o la fecha cambian; aterrizaje idempotente.
   "components/faro/provider.tsx|commit|shouldAutoRate|—": ["aterrizaje", 1],
   "components/faro/provider.tsx|commit|inline|—": ["aterrizaje", 10], // 1.3.367: +1 — el asentamiento de la Bitácora al abrir (settleLogbook en línea, como el del autopay)
-  "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 1],
+  "components/faro/provider.tsx|commit|ref:recipe|—": ["aterrizaje", 2], // OLA 32: +1 — commitFlushed reenvía la receta del llamante a la puerta llana (su maquinaria, clasificada aquí)
   // 1.3.357 (la lista-plan): la hoja del plan comete sus marcas por
   // aterrizaje — cada receta compone el estado entero o no escribe.
   "components/faro/plan-sheet.tsx|commit|markPlanState|markPlanState": ["aterrizaje", 3],
@@ -625,7 +631,11 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // el folio) y borrarlo desde el Archivo tras la confirmación de la
   // casa. Ninguna puede ser negada por el guardián de identidad: no
   // tocan líneas ni ciudadanos del libro.
-  "components/faro/shared-view.tsx|commit|withPassiveRecord|withPassiveRecord": ["aterrizaje", 1],
+  // OLA 32 (Familia 9): la ceremonia viaja por commitFlushed — la
+  // misma receta, la misma puerta llana, con la espera de la
+  // escritura en disco antes de cerrar la membresía; la llave sigue
+  // al envoltorio que la despacha.
+  "components/faro/shared-view.tsx|commitFlushed|withPassiveRecord|withPassiveRecord": ["aterrizaje", 1],
   "components/faro/passive-folios.tsx|commit|withoutPassiveRecord|withoutPassiveRecord": ["aterrizaje", 1],
   "components/faro/notices-fold.tsx|commit|forgetNoticeRule|forgetNoticeRule": ["aterrizaje", 1],
   "components/faro/widget-host.tsx|commit|toggleStorePin|—": ["aterrizaje", 2],
@@ -1113,7 +1123,14 @@ describe("ola19 · §B: el censo permanente de recetas", () => {
       if (clase === "guardada") assert.ok(door === "commitGuarded" || door === "commitDraft", `${key}: clasificada guardada pero viaja por ${door}`);
       if (clase === "anunciada") assert.equal(door, "commitAnnounced", `${key}: la clase anunciada es solo de commitAnnounced`);
       if (clase === "final") assert.equal(door, "commitFinal", `${key}: la clase final es solo de commitFinal`);
-      if (clase === "aterrizaje") assert.equal(door, "commit", `${key}: un aterrizaje viaja por la puerta ordinaria`);
+      // OLA 32 (Familia 9): commitFlushed ES la puerta ordinaria con
+      // espera — despacha por commit y solo aguarda la escritura en
+      // disco; un aterrizaje puede viajar por ella como la guardada
+      // viaja por commitGuarded o commitDraft (dos nombres, una
+      // puerta). Lo que la concordancia prohíbe sigue prohibido: un
+      // aterrizaje jamás viaja por una puerta con otro aterrizaje
+      // (guardada, anunciada o final).
+      if (clase === "aterrizaje") assert.ok(door === "commit" || door === "commitFlushed", `${key}: un aterrizaje viaja por la puerta ordinaria`);
     }
   });
   it("la casa curada en números: la mayoría de las recetas con negativa posible ya viaja guardada, y commitFinal guarda solo los dos borrados", () => {

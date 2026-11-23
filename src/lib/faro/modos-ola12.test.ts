@@ -414,6 +414,12 @@ const CARAS: Record<string, [Clase, string]> = {
  * no suma partidas: enseña resúmenes de solo lectura y los borradores
  * caen en la bandeja; la suma vive en la mesa (draftTotals, librería). */
 const AGREGADORES: Record<string, [Clase, string]> = {
+  "lib/faro/ask2.ts:incomeKit": ["movimiento", "el kit del ingreso volátil (Ola 30 del banco) suma las líneas de ingreso de cada mes anotado para medir mediana, piso y excedente: lee movimientos de ingreso; no gasta, no escribe"],
+  "lib/faro/ask2.ts:ausenciaAnswer": ["movimiento", "la ausencia (Ola 35 del banco) recorre las líneas de los meses anotados para medir el ritmo propio de cada categoría (meses con historia y día típico de primera aparición) y nombrar la que este mes no llegó: lee movimientos; no gasta, no escribe"],
+  "lib/faro/ask2.ts:monthOut": ["gasto", "el mes de gasto de la vara del ahorro (Ola 41 del banco): suma las salidas activas de UN mes anotado, fuera el apartado, para medir el mes típico contra el que se juzga el ahorro: es gasto medido del libro; no escribe"],
+  "lib/faro/ask2.ts:monthIn": ["movimiento", "el mes de ingreso de la vara del ahorro (Ola 41 del banco): suma las entradas activas de UN mes anotado para medir el ingreso típico contra el que se juzga el ahorro: lee movimientos de ingreso; no gasta, no escribe"],
+  "lib/faro/ask2.ts:anoContraAnoAnswer": ["movimiento", "el año contra el año (Ola 47 del banco): suma las líneas de los dos tramos anuales que compara (enero al mes en curso, este año y el pasado) para decir la diferencia con su porcentaje: lee movimientos de los dos años; no gasta, no escribe"],
+  "lib/faro/ask2.ts:deudasAnswer": ["movimiento", "las deudas contadas de la fuente única (Ola 44 del banco): suma los saldos vivos por persona y las piezas del total (netBalance de debts.ts) para decir cuánto se debe y cuánto te deben: lee movimientos de deuda; no gasta, no escribe"],
   "lib/faro/exit.ts:passiveMonths": ["interna", "la lectura del registro pasivo (Pieza C8, 1.3.398): suma las líneas CONGELADAS de un folio de historia en el Archivo; no es una cifra del libro vivo — ningún motor la compone con el presente, y su cara la nombra historia"],
   "components/faro/advisor2.tsx:ShortVisual": ["gasto", "el resto de «los gastos que más pesaron»: suma las líneas del río ya clasificadas SIN las transferencias (el apartado fuera)"],
   "components/faro/archivo.tsx:ArchivoScreen": ["interna", "suma lo archivado para la vista del Archivo, nombrado como archivo; no es una frase del mes vivo"],

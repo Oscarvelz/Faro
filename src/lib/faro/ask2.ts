@@ -52,9 +52,10 @@ import { aliasIn, describeLearned, frequentAliases, type LearnedAlias } from "./
 import { answerQuestion, askReaches, askReachesFloor, modeWord, pieceFloor, type AskResult } from "./ask.ts";
 import { functionOfQuestion, FARO_FUNCTION_MAP } from "./askmap.ts";
 import { cardFigures, cardsOf } from "./cards.ts";
-import { payoffPlan, monthAhead, peopleOf, lentOf, simulatePlan } from "./debts.ts";
-import { loansOf } from "./loans.ts";
+import { payoffPlan, monthAhead, peopleOf, lentOf, simulatePlan, planDebts, netBalance, totalDebt, lineDebtLines, type PlanRun } from "./debts.ts";
+import { loansOf, loanState } from "./loans.ts";
 import { duesWindow } from "./dues.ts";
+import { intervalOf, stepDate } from "./cadence.ts";
 import { inView, isSpendLine, monthLines, summarize } from "./engine.ts";
 import { cushionOf, hostAccounts, libreOf } from "./funds.ts";
 import { periodRange } from "./historial.ts";
@@ -82,9 +83,36 @@ export type BankFamilyId =
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
   | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
-  | "porque" | "falta" | "series";
+  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total";
 
 export type BankPiece = { label: string; minor: number };
+/* OLA 27 · EL GRAFO QUE EXPLICA (investigación II, mecanismos #1 y
+ * #11; integrado del banco en esta línea): las respuestas compuestas
+ * declaran su trabajo como un grafo de nodos tipados — cada cifra
+ * lleva (moneda, tiempo, stock o flujo) y el tipo se propaga: ningún
+ * nodo puede decirse «medido» si come de un proyectado, y un stock y
+ * un flujo no se suman sin que el nodo declare el cruce en su
+ * supuesto. `sign` es el signo con que el nodo entra en su padre (+1
+ * suma, −1 resta). `assumption.origin` dice de dónde salió el
+ * supuesto: del usuario (lo trajo en su pregunta), del libro (una
+ * cifra anotada) o de una regla (la definición misma del cálculo).
+ * El ¿por qué? de la Ola 21 se vuelve recursivo sobre este grafo, y
+ * la ablación («¿y sin ese supuesto?») lo recalcula sin el nodo del
+ * supuesto. En el canon el grafo viaja en el ConvoFrame (el marco
+ * conversacional), no en el marco §20. */
+export type AskTense = "medido" | "stock" | "proyectado";
+export type AskNode = {
+  id: string;
+  label: string;
+  minor: number;
+  tense: AskTense;
+  flow: "stock" | "flujo";
+  currency: Currency;
+  sign?: 1 | -1;
+  unit?: string;
+  assumption?: { text: string; origin: "usuario" | "libro" | "regla" };
+  children?: AskNode[];
+};
 /** UNA ACCIÓN SUGERIDA (ola 5): la puerta que la respuesta propone
  * debajo de sí misma. `target` es un id de askmap — la misma casa que
  * alimenta a faro-mismo y sus puertas del Manual — así que la caja
@@ -92,7 +120,7 @@ export type BankPiece = { label: string; minor: number };
  * PROPONE; el toque del usuario dispone (R2: nada se guarda solo). */
 export type BankAction = { id: string; label: string; target: string };
 export type BankResult =
-  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null; actions?: BankAction[]; proposal?: { word: string; question: string } | null; forgetWord?: string | null; frame?: AskFrame; convo?: ConvoFrame | null }
+  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null; actions?: BankAction[]; proposal?: { word: string; question: string } | null; forgetWord?: string | null; frame?: AskFrame; convo?: ConvoFrame | null; graph?: AskNode[] }
   | { kind: "ask-back"; family: BankFamilyId; verdict: string; options: (BankPiece & { id: string })[]; source: string[] }
   | { kind: "need-amount"; family: BankFamilyId }
   | { kind: "unknown" };
@@ -114,9 +142,17 @@ export type AskFrameFilter =
   | { kind: "remit"; label: string }
   | { kind: "tiendas"; label: string };
 
+/** OLA 34 (Familia 1, Q34-1): LA EXCLUSIÓN TAMBIÉN ES DEL MARCO —
+ * el ciudadano que la respuesta fresca dejó fuera, como dato (su
+ * nombre plegado y su rótulo), para que el seguimiento lo respete:
+ * el predicado se reconstruye con citizenByName, como el filtro se
+ * reconstruye de su descriptor. Sin esta ranura, §20 no podía ni
+ * guardar la exclusión que la respuesta acababa de aplicar. */
+export type AskFrameExclusion = { folded: string; display: string };
+
 export type AskFrame =
   | { kind: "compare2"; monthA: string; monthB: string; labelA: string; labelB: string; totalA: number; totalB: number; filter: AskFrameFilter | null }
-  | { kind: "period1"; period: Period; income: boolean; filter: AskFrameFilter | null; total: number };
+  | { kind: "period1"; period: Period; income: boolean; filter: AskFrameFilter | null; total: number; exclusion?: AskFrameExclusion | null };
 
 function L(lang: Lang, es: string, en: string): string {
   return lang === "en" ? en : es;
@@ -166,6 +202,22 @@ export function lineDate(l: Line): string {
   return l.bookedOn && l.bookedOn.startsWith(l.monthKey) ? l.bookedOn : `${l.monthKey}-01`;
 }
 
+/* LA FECHA EN PALABRAS (traída con la integración de la Ola 25;
+ * la forma es de la Ola 26 · U6): la fecha que se le muestra al
+ * usuario se dice en palabras («28 de octubre de 2026» / «October 28,
+ * 2026»), no en formato de registro («2026-10-28»). El ISO queda
+ * para las claves y las comparaciones; la cara es esta. La Ola 26
+ * la extenderá a todos los veredictos que muestran una fecha. */
+const MONTH_WORDS_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const MONTH_WORDS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function fmtFecha(c: Ctx, iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  if (!m) return iso;
+  const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1) return iso;
+  return c.lang === "en" ? `${MONTH_WORDS_EN[mo - 1]} ${d}, ${y}` : `${d} de ${MONTH_WORDS_ES[mo - 1]} de ${y}`;
+}
+
 function view(c: Ctx, l: Line): number {
   if (!l.active || l.rest || l.xfer) return 0;
   return convertMinor(l.amountMinor, l.currency, c.display, c.rateE4);
@@ -196,7 +248,7 @@ function prevKey(key: string): string {
 /* ------------------------------------------------------------------ */
 /* AHORROS — la cura del desvío: sus palabras pesan más que «how».     */
 /* ------------------------------------------------------------------ */
-function ahorrosAnswer(c: Ctx, folded: string): BankResult {
+function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
   // OLA 12 — EL AHORRO DEL MUNDO NO ES SOLO «¿cuánto tengo?»: la
   // batería mostró las formas ordinarias (el fondo, el ritmo, el
   // porcentaje, la cuenta nombrada) cayendo todas en el stock a secas
@@ -272,6 +324,107 @@ function ahorrosAnswer(c: Ctx, folded: string): BankResult {
       note: L(c.lang, "Es lo que tus líneas de ahorro suman, no lo que el mes dejó libre: apartar es un acto, no un residuo.", "It's what your savings lines add up to, not what the month left over: setting aside is an act, not a residue."),
       source: ["ahorros.mes", "ahorros.stock"], lines: 0,
     };
+  }
+  /* OLA 41 · EL AHORRO CON SU VARA (la caza del centro, clase 4):
+   * las preguntas del ahorro que se juzgan — debería, bien, falta,
+   * sacar, o-deudas — caían en el stock a secas o en silencio. La
+   * vara nunca es una regla de afuera: es la meta que el usuario
+   * fijó en Ajustes (sus meses de colchón) contra sus meses
+   * medidos. */
+  {
+    const reading41 = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+    const monthsGoal = c.state.settings.emergencyMonths || 3;
+    const targetCushion = reading41.cushionMinor;
+    const haveCushion = reading41.cushionStock;
+    const essentialMonth = monthsGoal > 0 ? Math.round(targetCushion / monthsGoal) : 0;
+    const monthOut = (k: string) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings").reduce((a, l) => a + view(c, l), 0);
+    const monthIn = (k: string) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && /^income/.test(l.kind)).reduce((a, l) => a + view(c, l), 0);
+    const medianOf = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
+    const typicalOut = medianOf(monthKeys.map(monthOut));
+    const typicalIn = medianOf(monthKeys.map(monthIn));
+    const typicalNet = medianOf(monthKeys.map((k) => monthIn(k) - monthOut(k) - savInMonth(k)));
+    const covered = essentialMonth > 0 ? haveCushion / essentialMonth : 0;
+    const fmtM = (x: number) => (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
+    const doorCushion = reportDoor(c, "ahorros.colchon", "Verlo en Ahorros · Colchón", "See it in Savings · Cushion");
+
+    /* SACAR DE LOS AHORROS: la premisa se camina contra el stock y
+     * contra el colchón — no contra el mes. */
+    const amounts41 = amountsIn(raw);
+    if (/(sacar|retirar|saco|retiro|take out|withdraw)/.test(folded) && amounts41.length >= 1 && /(ahorr|savings)/.test(folded)) {
+      const amt = convertMinor(amounts41[0].minor, amounts41[0].currency, c.display, c.rateE4);
+      const total = stock0.total;
+      if (amt > total) {
+        return { kind: "answer", family: "ahorros", verdict: L(c.lang, `No, con lo anotado: tienes ${c.money(total)} guardados en total — sacar ${c.money(amt)} es más de lo que hay. La cifra no sale de otro lado: lo guardado es lo guardado.`, `No, on what's recorded: you have ${c.money(total)} saved in total — taking out ${c.money(amt)} is more than there is. The figure doesn't come from anywhere else: what's saved is what's saved.`), pieces: [{ label: L(c.lang, "Guardado en total", "Saved in total"), minor: total }], note: null, source: ["ahorros.stock"], lines: 0 };
+      }
+      const after = total - amt;
+      const coverAfter = essentialMonth > 0 ? Math.max(0, haveCushion - amt) / essentialMonth : 0;
+      return {
+        kind: "answer", family: "ahorros",
+        verdict: L(c.lang, `Sí: sacar ${c.money(amt)} te deja ${c.money(after)} guardados. Si sale de tu colchón, el colchón pasa de ${fmtM(covered)} a ${fmtM(coverAfter)} meses de lo esencial (tu meta: ${monthsGoal}). Nada se movió en tu libro: es la cuenta de tu pregunta.`, `Yes: taking out ${c.money(amt)} leaves you ${c.money(after)} saved. If it comes out of your cushion, the cushion goes from ${fmtM(covered)} to ${fmtM(coverAfter)} months of essentials (your target: ${monthsGoal}). Nothing moved in your book: it's the math of your question.`),
+        pieces: [{ label: L(c.lang, "Guardado hoy", "Saved today"), minor: total }, { label: L(c.lang, "El retiro", "The withdrawal"), minor: -amt }, { label: L(c.lang, "Quedaría guardado", "Would stay saved"), minor: after }],
+        note: null, source: ["ahorros.stock", "ahorros.colchon"], lines: 0, actions: doorCushion,
+      };
+    }
+
+    /* ¿CUÁNTO DEBERÍA?: la vara es su meta, no una regla importada. */
+    if (/(cuanto deberia|cuanto debo (ahorrar|guardar|apartar)|deberia (estar )?(ahorrando|guardando|apartando)|how much should i (be saving|save|set aside))/.test(folded)) {
+      const gap = Math.max(0, targetCushion - haveCushion);
+      return {
+        kind: "answer", family: "ahorros",
+        verdict: gap <= 0
+          ? L(c.lang, `Con tu propia vara ya estás: tu meta de Ajustes — ${monthsGoal} meses de colchón, ${c.money(targetCushion)} — está cubierta con ${c.money(haveCushion)}. Apartas en promedio ${c.money(savAvg)} al mes; lo que apartes de más ya es otra meta, no esta.`, `By your own measure you're already there: your Settings target — ${monthsGoal} months of cushion, ${c.money(targetCushion)} — is covered with ${c.money(haveCushion)}. You set aside ${c.money(savAvg)} a month on average; anything beyond that is another goal, not this one.`)
+          : L(c.lang, `El «debería» se mide con tu propia vara: la meta que fijaste en Ajustes — ${monthsGoal} meses de colchón = ${c.money(targetCushion)}. Hoy tu colchón suma ${c.money(haveCushion)}: te faltan ${c.money(gap)}. Apartas en promedio ${c.money(savAvg)} al mes${savAvg > 0 ? ` — a ese ritmo, la meta se cierra en ${Math.ceil(gap / savAvg)} meses` : " — sin ritmo de apartado medido, la meta no tiene fecha"}. Y tu mes típico deja ${c.money(typicalNet)} libres después de todo${typicalNet > gap ? "" : typicalNet > 0 ? `: si apartaras todo lo libre, la meta se cerraría en ${Math.ceil(gap / typicalNet)} meses` : ""}. Ninguna regla de afuera: son tus números contra tu meta.`, `The "should" is measured with your own yardstick: the target you set in Settings — ${monthsGoal} months of cushion = ${c.money(targetCushion)}. Today your cushion adds up to ${c.money(haveCushion)}: you're ${c.money(gap)} short. You set aside ${c.money(savAvg)} a month on average${savAvg > 0 ? ` — at that pace, the target closes in ${Math.ceil(gap / savAvg)} months` : " — with no measured set-aside pace, the target has no date"}. And your typical month leaves ${c.money(typicalNet)} free after everything${typicalNet > 0 && typicalNet !== savAvg ? `: setting aside everything free, the target would close in ${Math.ceil(gap / typicalNet)} months` : ""}. No outside rule: it's your numbers against your target.`),
+        pieces: [{ label: L(c.lang, "Tu meta de colchón", "Your cushion target"), minor: targetCushion }, { label: L(c.lang, "Tu colchón hoy", "Your cushion today"), minor: haveCushion }, ...(gap > 0 ? [{ label: L(c.lang, "Te falta", "Still to go"), minor: -gap }] : []), { label: L(c.lang, "Apartas al mes", "You set aside a month"), minor: savAvg }],
+        note: L(c.lang, "La meta es la de tu Asesor: tus meses de colchón de Ajustes por tu gasto esencial medido — la misma vara del fondo de emergencia, no un porcentaje importado.", "The target is your own Advisor's: your cushion months from Settings times your measured essentials — the same yardstick as the emergency fund, not an imported percentage."),
+        source: ["ahorros.colchon", "ahorros.mes", "asesor.lectura"], lines: 0, actions: doorCushion,
+      };
+    }
+
+    /* ¿ESTOY AHORRANDO BIEN?: el juicio contra su vara, en cifras. */
+    if (/(estoy ahorrando bien|ahorro bien|ahorrando bien|voy bien (con )?(mis )?ahorros|am i saving (well|enough|ok)|saving enough)/.test(folded)) {
+      const pctSav = typicalIn > 0 ? Math.round((savAvg / typicalIn) * 1000) / 10 : null;
+      const rateTxt = pctSav !== null ? L(c.lang, `, el ${pctSav}% de tu ingreso típico`, `, ${pctSav}% of your typical income`) : "";
+      return {
+        kind: "answer", family: "ahorros",
+        verdict: covered >= monthsGoal && monthsGoal > 0
+          ? L(c.lang, `Por tu vara, sí: tu colchón cubre ${fmtM(covered)} meses de lo esencial y tu meta son ${monthsGoal} (${c.money(haveCushion)} de ${c.money(targetCushion)}). Apartas en promedio ${c.money(savAvg)} al mes${rateTxt}.`, `By your measure, yes: your cushion covers ${fmtM(covered)} months of essentials and your target is ${monthsGoal} (${c.money(haveCushion)} of ${c.money(targetCushion)}). You set aside ${c.money(savAvg)} a month on average${rateTxt}.`)
+          : covered > 0
+            ? L(c.lang, `Vas en camino, y el camino se mide: tu colchón cubre ${fmtM(covered)} de tus ${monthsGoal} meses de meta (${c.money(haveCushion)} de ${c.money(targetCushion)}), y apartas en promedio ${c.money(savAvg)} al mes${rateTxt}. Si eso es «bien» lo dice tu vara: la meta es tuya, y vas a ${fmtM(covered)} de ${monthsGoal} de ella.`, `You're on the way, and the way is measured: your cushion covers ${fmtM(covered)} of your ${monthsGoal} target months (${c.money(haveCushion)} of ${c.money(targetCushion)}), and you set aside ${c.money(savAvg)} a month on average${rateTxt}. Whether that's "well" is your yardstick's call: the target is yours, and you're at ${fmtM(covered)} of ${monthsGoal} of it.`)
+            : L(c.lang, `Por tu vara, todavía no: tu colchón está en ${c.money(haveCushion)} y tu meta son ${monthsGoal} meses de lo esencial (${c.money(targetCushion)}). El primer peldaño es un mes de lo esencial: ${c.money(essentialMonth)}. Apartas en promedio ${c.money(savAvg)} al mes${rateTxt} — el camino existe; la vara solo dice dónde estás en él.`, `By your measure, not yet: your cushion stands at ${c.money(haveCushion)} and your target is ${monthsGoal} months of essentials (${c.money(targetCushion)}). The first step is one month of essentials: ${c.money(essentialMonth)}. You set aside ${c.money(savAvg)} a month on average${rateTxt} — the path exists; the yardstick only says where you are on it.`),
+        pieces: [{ label: L(c.lang, "Tu colchón hoy", "Your cushion today"), minor: haveCushion }, { label: L(c.lang, "Tu meta de colchón", "Your cushion target"), minor: targetCushion }, { label: L(c.lang, "Apartas al mes", "You set aside a month"), minor: savAvg }],
+        note: null, source: ["ahorros.colchon", "ahorros.mes", "asesor.lectura"], lines: 0, actions: doorCushion,
+      };
+    }
+
+    /* ¿CUÁNTO ME FALTA PARA UN MES DE GASTOS?: el peldaño de un mes
+     * entero de gasto típico, no solo el fondo con su nombre. */
+    if (/(cuanto me falta|cuanto necesito|que me falta|how much (do i need|is left)).{0,50}(un mes de gastos|mes de gastos|one month of expenses|a month of expenses)/.test(folded)
+      || (/(para tener|para juntar|para completar|para guardar)/.test(folded) && /(un mes|one month)/.test(folded) && /(gasto|expenses)/.test(folded))) {
+      const gap1 = typicalOut - stock0.total;
+      const gapGoal = Math.max(0, targetCushion - haveCushion);
+      return {
+        kind: "answer", family: "ahorros",
+        verdict: gap1 > 0
+          ? L(c.lang, `Un mes de tus gastos suma ${c.money(typicalOut)} — tu mes típico de gasto, medido de tu libro. Guardado tienes ${c.money(stock0.total)}: te faltan ${c.money(gap1)} para tener ese mes entero guardado. Y para tu meta completa — la de Ajustes, ${monthsGoal} meses de lo esencial (${c.money(targetCushion)}) — el colchón pide ${c.money(gapGoal)} más.`, `One month of your expenses adds up to ${c.money(typicalOut)} — your typical spending month, measured from your book. You have ${c.money(stock0.total)} saved: you're ${c.money(gap1)} short of holding that whole month saved. And for your full target — the Settings one, ${monthsGoal} months of essentials (${c.money(targetCushion)}) — the cushion asks ${c.money(gapGoal)} more.`)
+          : L(c.lang, `Ya lo tienes: un mes de tus gastos suma ${c.money(typicalOut)} y guardado tienes ${c.money(stock0.total)} — ese mes entero ya está guardado. Para tu meta completa de Ajustes (${monthsGoal} meses de lo esencial, ${c.money(targetCushion)}) el colchón pide ${c.money(gapGoal)} más.`, `You already have it: one month of your expenses adds up to ${c.money(typicalOut)} and you have ${c.money(stock0.total)} saved — that whole month is already held. For your full Settings target (${monthsGoal} months of essentials, ${c.money(targetCushion)}) the cushion asks ${c.money(gapGoal)} more.`),
+        pieces: [{ label: L(c.lang, "Un mes de gastos", "One month of expenses"), minor: typicalOut }, { label: L(c.lang, "Guardado hoy", "Saved today"), minor: stock0.total }, ...(gap1 > 0 ? [{ label: L(c.lang, "Te falta para el mes", "Short of the month"), minor: -gap1 }] : [])],
+        note: null, source: ["ahorros.stock", "ahorros.colchon", "asesor.lectura"], lines: 0, actions: doorCushion,
+      };
+    }
+
+    /* AHORROS O DEUDAS: los dos lados con sus números, sin escoger. */
+    if (/((ahorr|guardar|apartar|save|saving).{0,45}(o|or).{0,35}(deuda|pagar|debt|pay))|((deuda|pagar|debt|pay).{0,45}(o|or).{0,35}(ahorr|guardar|apartar|save|saving))/.test(folded)) {
+      const debts41 = planDebts(c.state, c.today);
+      const interest = debts41.reduce((a, d) => a + d.monthlyInterest, 0);
+      return {
+        kind: "answer", family: "ahorros",
+        verdict: debts41.length
+          ? L(c.lang, `Los dos lados, con sus números — la decisión es tuya: tus deudas te cuestan ${c.money(interest)} al mes en intereses, a las tasas anotadas — cada peso que las baja deja de producir ese interés. Tu colchón hoy cubre ${fmtM(covered)} de tus ${monthsGoal} meses de meta (${c.money(haveCushion)} de ${c.money(targetCushion)}) — cada peso que entra ahí acerca ese colchón. Y el dato que suele pesar: con el colchón vacío, un gasto sorpresa se paga con deuda nueva, y la deuda nueva nace a la tasa más cara que tengas.`, `Both sides, with their numbers — the decision is yours: your debts cost you ${c.money(interest)} a month in interest, at the recorded rates — every peso that lowers them stops producing that interest. Your cushion today covers ${fmtM(covered)} of your ${monthsGoal} target months (${c.money(haveCushion)} of ${c.money(targetCushion)}) — every peso that lands there brings that cushion closer. And the fact that usually weighs in: with an empty cushion, a surprise expense is paid with new debt, and new debt is born at the most expensive rate you carry.`)
+          : L(c.lang, `Sin deudas anotadas no hay dos lados que pesar: tu colchón hoy cubre ${fmtM(covered)} de tus ${monthsGoal} meses de meta (${c.money(haveCushion)} de ${c.money(targetCushion)}), así que lo que apartes va entero a esa meta — no hay interés corriendo en contra.`, `With no recorded debts there aren't two sides to weigh: your cushion today covers ${fmtM(covered)} of your ${monthsGoal} target months (${c.money(haveCushion)} of ${c.money(targetCushion)}), so what you set aside goes whole to that target — there's no interest running against you.`),
+        pieces: [{ label: L(c.lang, "Interés de tus deudas al mes", "Your debts' monthly interest"), minor: interest }, { label: L(c.lang, "Tu colchón hoy", "Your cushion today"), minor: haveCushion }, { label: L(c.lang, "Tu meta de colchón", "Your cushion target"), minor: targetCushion }],
+        note: null, source: ["ahorros.colchon", "cobros.tarjetas"], lines: 0, actions: doorCushion,
+      };
+    }
   }
   const stock = savingsStock(c.state, c.key);
   const cushion = cushionOf(stock);
@@ -384,7 +537,7 @@ function yaPagueAnswer(c: Ctx, folded: string): BankResult {
         : L(c.lang, `Sí: «${hit.concept}» está pagado — ${c.money(view(c, hit))}, anotado en ${hit.monthKey} (la línea no guarda el día).`, `Yes: "${hit.concept}" is paid — ${c.money(view(c, hit))}, recorded in ${hit.monthKey} (the line keeps no day).`),
       pieces: [{ label: hit.concept, minor: view(c, hit) }],
       note: dueAhead
-        ? L(c.lang, `Ojo: la ventana de Cobros muestra «${dueAhead.name}» venciendo el ${dueAhead.on} — si es el mismo cobro en su próximo ciclo, ese sigue por pagar.`, `Note: the Collections window shows "${dueAhead.name}" due on ${dueAhead.on} — if that's the same charge in its next cycle, that one is still to pay.`)
+        ? L(c.lang, `Ojo: la ventana de Cobros muestra «${dueAhead.name}» venciendo el ${fmtFecha(c, dueAhead.on)} — si es el mismo cobro en su próximo ciclo, ese sigue por pagar.`, `Note: the Collections window shows "${dueAhead.name}" due on ${fmtFecha(c, dueAhead.on)} — if that's the same charge in its next cycle, that one is still to pay.`)
         : null,
       source: ["libros.lineas", "cobros.cuotas"], lines: 1,
     };
@@ -396,7 +549,7 @@ function yaPagueAnswer(c: Ctx, folded: string): BankResult {
   if (due) {
     return {
       kind: "answer", family: "ya-pague",
-      verdict: L(c.lang, `Todavía no: «${due.name}» sigue por pagar — ${c.money(due.amt ?? 0)}, vence el ${due.on}.`, `Not yet: "${due.name}" is still to pay — ${c.money(due.amt ?? 0)}, due ${due.on}.`),
+      verdict: L(c.lang, `Todavía no: «${due.name}» sigue por pagar — ${c.money(due.amt ?? 0)}, vence el ${fmtFecha(c, due.on)}.`, `Not yet: "${due.name}" is still to pay — ${c.money(due.amt ?? 0)}, due ${fmtFecha(c, due.on)}.`),
       pieces: [{ label: due.name, minor: due.amt ?? 0 }],
       note: null, source: ["cobros.cuotas"], lines: 0,
     };
@@ -639,7 +792,107 @@ const REMIT_PERIOD_WORDS = new Set(["esta", "este", "esa", "ese", "eso", "esto",
  * la ley de Q29-C1 extendida a todo el vocabulario que periodOf
  * habla. */
 const REMIT_MONTH_WORDS = new Set(["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "setiembre", "octubre", "noviembre", "diciembre", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]);
-const REMIT_PERIOD_NOUNS = new Set([...REMIT_MONTH_WORDS, "quincena", "pay", "period"]);
+const REMIT_PERIOD_NOUNS = new Set([...REMIT_MONTH_WORDS, "quincena", "pay", "period", "trimestre", "semestre", "bimestre", "quarter", "fortnight"]);
+/** OLA 32 (Familia 1, Q32-1): LAS FRASES DE LA QUINCENA SALEN DE UNA
+ * SOLA FUENTE — la Cura 31 unió las PALABRAS de período, pero
+ * periodOf habla la quincena en FRASES («la primera quincena»,
+ * "the first half", "this half month") y esas palabras quedaron
+ * fuera de la caminata: «¿cuánto mandé la primera quincena?» acusaba
+ * a «primera», "the first half" se acusaba entero y "this half
+ * month" acusaba a «half» — la familia que sirve esas quincenas
+ * nunca recibía la pregunta, contra la ley escrita de la propia
+ * cura («lo que el motor reconoce como período en cualquier puerta,
+ * la caminata lo reconoce en la suya»). La fuente es UNA: estas
+ * listas alimentan las regex de la rama de la quincena de periodOf
+ * Y las frases que la caminata consume como clase; y los ordinales
+ * que las abren son vocabulario de período en la caminata, en el
+ * cierre y en el recorte de cola — jamás una candidata.
+ * Y en REMIT_PERIOD_NOUNS entraron los nombres de período que
+ * NINGUNA puerta sirve («trimestre», «semestre», «bimestre»,
+ * "quarter", "fortnight"): periodOf no los oye y el marcador
+ * tampoco, así que conocerlos no sirve la pregunta — lo que hace
+ * es que la pregunta muera en el silencio honesto o en el unknown,
+ * no acusando a un nombre de tiempo como si fuera una persona. La
+ * clase es cerrada y pequeña, y el escaneo sigue arbitrando
+ * primero: una persona real con ese nombre en el libro resuelve
+ * por el escaneo antes de que la caminata opine. */
+const PERIOD_HALF_PHRASES = {
+  first: ["primera quincena", "first half"],
+  second: ["segunda quincena", "second half"],
+  last: ["quincena pasada", "last pay period"],
+  head: ["quincena", "quincenal", "pay period", "half month"],
+} as const;
+/** Las frases de la quincena como piezas de tokens, para la
+ * caminata: la misma fuente, en la forma que el camino consume. */
+const REMIT_PERIOD_PHRASES: string[][] = [
+  ...PERIOD_HALF_PHRASES.first, ...PERIOD_HALF_PHRASES.second,
+  ...PERIOD_HALF_PHRASES.last, ...PERIOD_HALF_PHRASES.head,
+].map((p) => p.split(" "));
+/** Los ordinales que abren las frases de la quincena: vocabulario
+ * de período, nunca candidatas (la ley de la Familia 1 de la Ola 31
+ * extendida a la frase entera que periodOf habla). */
+const REMIT_PERIOD_ORDINALS = new Set(["primera", "segunda", "first", "second", "half"]);
+/** OLA 33 (Familia 3, Q33-3): LOS MODIFICADORES DE LA QUINCENA QUE
+ * NINGUNA PUERTA SIRVE — «próxima»/«siguiente» (la quincena que
+ * viene) y las abreviaturas ordinales («1ra», «2da», «1a», «2a»)
+ * no son vocabulario de ninguna puerta: periodOf no oye una
+ * quincena futura ni la abreviatura ordinal, y la caminata los
+ * dejaba como resto final de la pieza, así que la negativa los
+ * ACUSABA como personas («No sé quién es «proxima»», «…«1ra»») —
+ * la especie de Q32-1 en su tercer anillo. EL ALCANCE, escrito:
+ * el modificador es vocabulario de período SOLO cuando acompaña
+ * a su nombre — pegado a una cabeza de la quincena, delante
+ * («la próxima quincena», «la 1ra quincena», "next pay period") o
+ * detrás («la quincena próxima») —; suelto, sin la quincena en la
+ * pregunta, la caminata no lo toca, y el escaneo sigue arbitrando
+ * primero, como con todo el vocabulario de período: una persona
+ * real con ese nombre en el libro resuelve por el escaneo antes
+ * de que la caminata opine. Consumido el modificador, la pregunta
+ * muere en el silencio honesto del grado B de la Familia 1: sin
+ * acusación y sin la quincena en curso disfrazada — la guarda de
+ * remesaPeriodoAnswer rehúsa servir el período que periodOf
+ * leería por la cabecera. En las demás familias el calificador
+ * que periodOf no casa se cae con su etiqueta honesta (la especie
+ * de OBS-33-A2, registrada, que no es esta cura), y con persona
+ * resuelta el paso 7b conserva esa misma lectura. */
+const REMIT_PERIOD_MODIFIERS = new Set(["proxima", "proximas", "proximo", "proximos", "siguiente", "siguientes", "1ra", "2da", "1a", "2a"]);
+/** Las cabezas de la quincena como piezas: la primera palabra y la
+ * última de cada frase de la fuente, para juzgar la compañía del
+ * modificador (delante manda la primera; detrás, la última). */
+const REMIT_HALF_HEAD_FIRST = new Set(["quincena", "quincenal", "pay", "half"]);
+const REMIT_HALF_HEAD_LAST = new Set(["quincena", "quincenal", "period", "month"]);
+const isHalfModifierWord = (w: string): boolean => REMIT_PERIOD_MODIFIERS.has(w) || w === "next";
+/** El modificador monta sobre la quincena en ESTA posición de la
+ * pregunta plegada: la cabeza empieza justo después, o terminó
+ * justo antes. Sin cabeza al lado, no es palabra de período. */
+function remitHalfModifierAt(toks: string[], i: number): boolean {
+  if (!isHalfModifierWord(toks[i])) return false;
+  const next = toks[i + 1];
+  const prev = toks[i - 1];
+  return (next !== undefined && REMIT_HALF_HEAD_FIRST.has(next)) || (prev !== undefined && REMIT_HALF_HEAD_LAST.has(prev));
+}
+/** La pregunta trae un modificador sin puerta montado en la
+ * quincena: la familia del período no sirve esa pregunta (su
+ * muerte es el silencio honesto, no la quincena en curso). */
+function remitHalfModifierUnserved(folded: string): boolean {
+  const toks = folded.split(/[^a-z0-9]+/).filter(Boolean);
+  for (let i = 0; i < toks.length; i++) {
+    if (remitHalfModifierAt(toks, i)) return true;
+  }
+  return false;
+}
+/** La regex de una lista de frases de la fuente única, para las
+ * puertas que leen la pregunta plegada entera (periodOf). */
+const periodHalfRe = (ps: readonly string[]): RegExp => new RegExp(ps.join("|"));
+/** La familia entera de la quincena, plana: la oyen la puerta de
+ * periodOf, el marcador de la familia remesas-periodo y el paso
+ * persona×período — tres oídos, una fuente (Ola 32, Familia 1: el
+ * marcador oía solo la cabecera y "first half" moría en unknown
+ * con la puerta ya abierta). */
+const PERIOD_HALF_ALL: readonly string[] = [
+  ...PERIOD_HALF_PHRASES.head, ...PERIOD_HALF_PHRASES.first,
+  ...PERIOD_HALF_PHRASES.second, ...PERIOD_HALF_PHRASES.last,
+];
 /** OLA 31 (Familia 2, Q31-1 del Asesor): EL CIERRE DE LA FRASE DE
  * PERSONA se juzga con el oído de periodOf — tras un nombre de dos
  * letras solo cabe vocabulario de función: las paradas, las palabras
@@ -647,7 +900,7 @@ const REMIT_PERIOD_NOUNS = new Set([...REMIT_MONTH_WORDS, "quincena", "pay", "pe
  * («en octubre», "in august"). La closesPhrase vieja desconocía la
  * construcción «en + mes» para TODO nombre corto: «a Ed en octubre»
  * caía en el silencio ambiguo y «a Al en octubre» acusaba al mes. */
-const REMIT_CLOSING_WORDS = new Set([...REMIT_PERSON_STOP, ...REMIT_PERIOD_WORDS, ...REMIT_PERIOD_NOUNS, "en", "in"]);
+const REMIT_CLOSING_WORDS = new Set([...REMIT_PERSON_STOP, ...REMIT_PERIOD_WORDS, ...REMIT_PERIOD_NOUNS, ...REMIT_PERIOD_ORDINALS, "en", "in"]);
 /** OLA 29 (Familia 1, Q29-1): los apertores del dativo — la caminata
  * abre en cualquiera de ellos y los salta si aparecen dentro del
  * camino («al» es «a» + «el» contraídos: la forma natural de «a el
@@ -738,7 +991,15 @@ function remitPersonAimOf(folded: string): RemitAim {
   // la pregunta, no candidatas: «esta quincena», «en agosto», "this
   // pay period" se caminan enteros y la pregunta llega a su familia.
   const isFunction = (w: string) =>
-    REMIT_OPENERS.has(w) || REMIT_PERSON_STOP.has(w) || REMIT_PERIOD_WORDS.has(w) || REMIT_FUNCTION_WORDS.has(w) || REMIT_PERIOD_NOUNS.has(w);
+    REMIT_OPENERS.has(w) || REMIT_PERSON_STOP.has(w) || REMIT_PERIOD_WORDS.has(w) || REMIT_FUNCTION_WORDS.has(w) || REMIT_PERIOD_NOUNS.has(w) || REMIT_PERIOD_ORDINALS.has(w);
+  // OLA 34 (Familia 4, Q34-4): LOS NÚMEROS DE LA FRASE «HACE N
+  // MESES» — el juego exacto de periodOf (cifra, o su lista de
+  // palabras: dos, tres, cuatro, cinco, seis, ocho, doce). La
+  // frase es vocabulario de período de la casa — periodOf la suma
+  // y REMIT_PERIOD_MARKER la oye — y la caminata no la conocía:
+  // «¿cuánto mandé hace dos meses?» acusaba a «hace dos» como
+  // persona y la familia del período nunca recibía la pregunta.
+  const haceNum = (w: string | undefined): boolean => !!w && (/^\d+$/.test(w) || w === "dos" || w === "tres" || w === "cuatro" || w === "cinco" || w === "seis" || w === "ocho" || w === "doce");
   // El análisis de un tramo: consume vocabulario de función desde el
   // frente y juzga el resto. El tramo INCLUYE su pieza de apertura
   // (el apertor o la primera palabra de la frase), para que las
@@ -749,12 +1010,27 @@ function remitPersonAimOf(folded: string): RemitAim {
       // El demostrativo con su nombre se nombra como frase («esa
       // persona»): es lo que el usuario dijo, no una candidata.
       if (REMIT_PERSON_DEM.has(seg[j]) && (seg[j + 1] === "persona" || seg[j + 1] === "person")) return { word: `${seg[j]} ${seg[j + 1]}`, ambiguous: false };
-      const phrase = REMIT_PHRASES.find((p) => p.every((w, k) => seg[j + k] === w));
+      const phrase = REMIT_PHRASES.find((p) => p.every((w, k) => seg[j + k] === w))
+        ?? REMIT_PERIOD_PHRASES.find((p) => p.every((w, k) => seg[j + k] === w));
       if (phrase) { j += phrase.length; continue; }
+      // OLA 34 (Familia 4): la frase de tiempo se consume ENTERA
+      // desde el frente — «hace N meses» con el juego de números
+      // de periodOf, y su forma inglesa servida («2 months ago»,
+      // con cifra). La de palabra inglesa ("two months ago") no
+      // la sirve ninguna puerta: no se consume y su negativa
+      // ambigua queda como está, declarada en la cura.
+      if (seg[j] === "hace" && haceNum(seg[j + 1]) && (seg[j + 2] === "mes" || seg[j + 2] === "meses")) { j += 3; continue; }
+      if (/^\d+$/.test(seg[j]) && (seg[j + 1] === "month" || seg[j + 1] === "months") && seg[j + 2] === "ago") { j += 3; continue; }
       const w = seg[j];
       // Tratamiento o parentesco: se consume solo en posición de
       // título — si es la última pieza, ES la candidata.
-      if (isFunction(w) || ((REMIT_PERSON_TITLES.has(w) || REMIT_KINSHIP.has(w)) && j < seg.length - 1)) { j++; continue; }
+      // OLA 33 (Familia 3, Q33-3): el modificador de la quincena
+      // pegado a su cabeza (delante o detrás) se consume como
+      // vocabulario de período — jamás es la candidata.
+      // OLA 34 (Familia 4): un año suelto («2025») es vocabulario
+      // de tiempo, jamás una candidata — «¿cuánto mandé en el
+      // 2025?» lo acusaba como persona.
+      if (isFunction(w) || /^\d{4}$/.test(w) || remitHalfModifierAt(seg, j) || ((REMIT_PERSON_TITLES.has(w) || REMIT_KINSHIP.has(w)) && j < seg.length - 1)) { j++; continue; }
       break;
     }
     // El resto final: el período que sigue al nombre no es parte de
@@ -762,7 +1038,24 @@ function remitPersonAimOf(folded: string): RemitAim {
     // (Familia 1): el recorte oye el vocabulario entero del período
     // — también «a Rosa en agosto» nombra a «rosa», no a «agosto».
     let end = seg.length;
-    while (end > j && (REMIT_PERSON_STOP.has(seg[end - 1]) || REMIT_PERIOD_WORDS.has(seg[end - 1]) || REMIT_PERIOD_NOUNS.has(seg[end - 1]) || seg[end - 1] === "en" || seg[end - 1] === "in")) end--;
+    let tailHead = false;
+    while (end > j) {
+      // OLA 34 (Familia 4): la frase «hace N meses» se recorta de
+      // la cola ENTERA, antes que palabra a palabra («a Rosa hace
+      // dos meses» nombra a «rosa»: el período que sigue al nombre
+      // no es parte de la candidata, como manda la ley del recorte).
+      if (end - j >= 3 && seg[end - 3] === "hace" && haceNum(seg[end - 2]) && (seg[end - 1] === "mes" || seg[end - 1] === "meses")) { end -= 3; continue; }
+      const w = seg[end - 1];
+      if (REMIT_PERSON_STOP.has(w) || REMIT_PERIOD_WORDS.has(w) || REMIT_PERIOD_NOUNS.has(w) || REMIT_PERIOD_ORDINALS.has(w) || /^\d{4}$/.test(w) || w === "en" || w === "in") {
+        if (REMIT_HALF_HEAD_LAST.has(w)) tailHead = true;
+        end--; continue;
+      }
+      // OLA 33 (Familia 3): el modificador pegado a la cabeza que
+      // el recorte ya quitó («a Rosa próxima quincena») se recorta
+      // con ella — vocabulario de período, no parte del nombre.
+      if (tailHead && isHalfModifierWord(w)) { end--; continue; }
+      break;
+    }
     const rem = seg.slice(j, end);
     if (rem.length === 0) return NO_AIM;
     if (rem.length <= 2 && rem.every((w) => !isFunction(w))) return { word: rem.join(" "), ambiguous: false };
@@ -927,10 +1220,14 @@ function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
   // lineDate (la línea no trae día dentro de su mes), se dice el MES —
   // jamás un día inventado por la caída (la misma cura que ya-pagué).
   const exactDay = !!(last.bookedOn && last.bookedOn.startsWith(last.monthKey));
-  const when = exactDay ? lineDate(last) : last.monthKey;
+  // OLA 26 (U6): la fecha se dice en palabras — el día entero cuando la
+  // línea lo trae, y el mes en palabras cuando no (nunca «2026-09»).
+  const when = exactDay
+    ? L(c.lang, `el ${fmtFecha(c, lineDate(last))}`, `on ${fmtFecha(c, lineDate(last))}`)
+    : L(c.lang, `en ${MONTH_WORDS_ES[Number(last.monthKey.slice(5, 7)) - 1]} de ${last.monthKey.slice(0, 4)}`, `in ${MONTH_WORDS_EN[Number(last.monthKey.slice(5, 7)) - 1]} ${last.monthKey.slice(0, 4)}`);
   const verdict = store && /tienda|store/.test(folded)
-    ? L(c.lang, `Tu última tienda fue ${store}: «${last.concept}», ${c.money(view(c, last))}, el ${when}.`, `Your last store was ${store}: "${last.concept}", ${c.money(view(c, last))}, on ${when}.`)
-    : L(c.lang, `Esto fue ${what}: «${last.concept}», ${c.money(view(c, last))}, el ${when}.`, `This was ${what}: "${last.concept}", ${c.money(view(c, last))}, on ${when}.`);
+    ? L(c.lang, `Tu última tienda fue ${store}: «${last.concept}», ${c.money(view(c, last))}, ${when}.`, `Your last store was ${store}: "${last.concept}", ${c.money(view(c, last))}, ${when}.`)
+    : L(c.lang, `Esto fue ${what}: «${last.concept}», ${c.money(view(c, last))}, ${when}.`, `This was ${what}: "${last.concept}", ${c.money(view(c, last))}, ${when}.`);
   return {
     kind: "answer", family: "recencia", verdict,
     pieces: [{ label: last.concept, minor: view(c, last) }],
@@ -1038,10 +1335,12 @@ function extremosAnswer(c: Ctx, folded: string): BankResult | null {
   const scope = /este mes|this month/.test(folded) ? L(c.lang, "este mes", "this month") : /este ano|this year/.test(folded) ? L(c.lang, "este año", "this year") : L(c.lang, "en todo tu historial", "in your whole history");
   return {
     kind: "answer", family: "extremos",
-    verdict: L(c.lang, `Tu ${noun} ${max ? "más grande" : "más pequeño"} ${scope} fue «${pick.concept}»: ${c.money(view(c, pick))}, el ${lineDate(pick)}.`, `Your ${max ? "biggest" : "smallest"} ${noun} ${scope} was "${pick.concept}": ${c.money(view(c, pick))}, on ${lineDate(pick)}.`),
+    verdict: L(c.lang, `Tu ${noun} ${max ? "más grande" : "más pequeño"} ${scope} fue «${pick.concept}»: ${c.money(view(c, pick))}, el ${fmtFecha(c, lineDate(pick))}.`, `Your ${max ? "biggest" : "smallest"} ${noun} ${scope} was "${pick.concept}": ${c.money(view(c, pick))}, on ${fmtFecha(c, lineDate(pick))}.`),
     pieces: [
       { label: pick.concept, minor: view(c, pick) },
-      ...(runner ? [{ label: L(c.lang, max ? "El segundo" : "El siguiente", max ? "The runner-up" : "The next one"), minor: view(c, runner) }] : []),
+      // OLA 26 (U3): el segundo también tiene nombre — una pieza que
+      // dice «El segundo» sin decir de qué no le sirve a nadie.
+      ...(runner ? [{ label: L(c.lang, `${max ? "El segundo" : "El siguiente"}: ${runner.concept}`, `${max ? "The runner-up" : "The next one"}: ${runner.concept}`), minor: view(c, runner) }] : []),
     ],
     note: null, source: ["historial.stream", "libros.lineas"], lines: valued.length,
   };
@@ -1084,8 +1383,8 @@ function agendaAnswer(c: Ctx, folded = ""): BankResult {
   const first = dues.slice(0, 5);
   return {
     kind: "answer", family: "agenda",
-    verdict: L(c.lang, `En ${winEs}: lo primero que viene es «${first[0].name}», el ${first[0].on}, por ${c.money(first[0].amt ?? 0)}.`, `In ${winEn}: the first thing ahead is "${first[0].name}", on ${first[0].on}, for ${c.money(first[0].amt ?? 0)}.`),
-    pieces: first.map((d) => ({ label: `${d.name} · ${d.on}`, minor: d.amt ?? 0 })),
+    verdict: L(c.lang, `En ${winEs}: lo primero que viene es «${first[0].name}», el ${fmtFecha(c, first[0].on)}, por ${c.money(first[0].amt ?? 0)}.`, `In ${winEn}: the first thing ahead is "${first[0].name}", on ${fmtFecha(c, first[0].on)}, for ${c.money(first[0].amt ?? 0)}.`),
+    pieces: first.map((d) => ({ label: `${d.name} · ${fmtFecha(c, d.on)}`, minor: d.amt ?? 0 })),
     note: dues.length > first.length
       ? L(c.lang, `Y ${dues.length - first.length} más en ese horizonte.`, `And ${dues.length - first.length} more on that horizon.`)
       : null,
@@ -1108,7 +1407,13 @@ function rankingAnswer(c: Ctx, folded: string): BankResult | null {
     };
   }
   if (/debo|cuenta|tarjeta|i owe|card|account/.test(folded)) {
-    const cards = cardsOf(c.state).map((card) => ({ name: card.name, bal: cardFigures(c.state, card, c.today).balance }))
+    /* OLA 44 (D1): el ranking lee TAMBIÉN los saldos anotados en
+     * líneas de deuda — la misma fuente única del total (debts.ts
+     * la llama totalDebt: préstamos + tarjetas + líneas). Una
+     * tarjeta que vive como línea con saldo no puede ser invisible
+     * aquí y visible en el interés. */
+    const lineCards = lineDebtLines(c.state, c.today).map((line) => ({ name: line.concept || "Créditos", bal: convertMinor(line.balanceMinor as number, line.balanceCurrency || line.currency, c.display, c.rateE4) })).filter((x) => x.bal > 0);
+    const cards = [...cardsOf(c.state).map((card) => ({ name: card.name, bal: cardFigures(c.state, card, c.today).balance })), ...lineCards]
       .filter((x) => x.bal > 0).sort((a, b) => b.bal - a.bal);
     const lenders = peopleOf(c.state, "owe", c.today).filter((p) => p.left > 0);
     if (cards.length && (!lenders.length || cards[0].bal >= (lenders[0]?.left ?? 0))) {
@@ -1190,6 +1495,19 @@ function periodOf(c: Ctx, folded: string): Period {
     const r = periodRange("week", c.today, 1);
     return { kind: "range", ...r, label: L(c.lang, "esta semana", "this week") };
   }
+  // OLA 34 (Familia 5, Q34-5): EL AÑO PASADO TIENE SU PUERTA — la
+  // rama del año oía «ano» dentro de «ano pasado» y servía ESTE
+  // año con su etiqueta, en remesas y en historia: se preguntaba
+  // por 2025 y se recibía 2026 sin una palabra. FRAME_PERIODS ya
+  // listaba la frase (el marco creía que el eje existía) y ninguna
+  // puerta la servía. La puerta va ANTES de la del año en curso y
+  // sirve el año anterior con su nombre, en las dos lenguas y con
+  // su forma hermana («año anterior», la que el desplazamiento del
+  // §20 ya nombraba).
+  if (/ano (pasado|anterior)|last year/.test(folded)) {
+    const y = String(Number(c.key.slice(0, 4)) - 1);
+    return { kind: "year", year: y, label: L(c.lang, "el año pasado", "last year") };
+  }
   if (/\bano\b|este ano|this year/.test(folded)) {
     return { kind: "year", year: c.key.slice(0, 4), label: L(c.lang, "este año", "this year") };
   }
@@ -1202,7 +1520,14 @@ function periodOf(c: Ctx, folded: string): Period {
   // familias que consumen periodOf (historia, conteo, frecuencia,
   // comparar). La fecha de una línea sin día anotado es la convención
   // del motor (lineDate la pone el día 1) y la quincena la hereda.
-  if (/quincena|quincenal|pay period|half month/.test(folded)) {
+  // OLA 32 (Familia 1): LA PUERTA OYE LA FAMILIA ENTERA — la puerta
+  // vieja solo oía las frases de cabecera (quincena/pay period/half
+  // month), así que "first half"/"second half" jamás entraban a la
+  // rama que ya sabía servirlas por dentro: la frase existía en el
+  // vocabulario y era inalcanzable en la puerta. La puerta prueba
+  // ahora la fuente única completa, y por dentro cada subfamilia
+  // sigue decidiendo su mitad.
+  if (periodHalfRe(PERIOD_HALF_ALL).test(folded)) {
     const y = Number(c.key.slice(0, 4));
     const m = Number(c.key.slice(5, 7));
     const dayN = Number(c.today.slice(8, 10));
@@ -1217,13 +1542,13 @@ function periodOf(c: Ctx, folded: string): Period {
     const inSecond = dayN > 15;
     let range: { from: string; to: string };
     let lbl: string;
-    if (/primera quincena|first half/.test(folded)) {
+    if (periodHalfRe(PERIOD_HALF_PHRASES.first).test(folded)) {
       range = halfOf(y, m, false);
       lbl = L(c.lang, "la primera quincena (del 1 al 15)", "the first half (the 1st to the 15th)");
-    } else if (/segunda quincena|second half/.test(folded)) {
+    } else if (periodHalfRe(PERIOD_HALF_PHRASES.second).test(folded)) {
       range = halfOf(y, m, true);
       lbl = L(c.lang, `la segunda quincena (del 16 al ${daysIn})`, `the second half (the 16th to the ${daysIn}th)`);
-    } else if (/quincena pasada|last pay period/.test(folded)) {
+    } else if (periodHalfRe(PERIOD_HALF_PHRASES.last).test(folded)) {
       if (inSecond) range = halfOf(y, m, false);
       else { const pk = prevKey(c.key); range = halfOf(Number(pk.slice(0, 4)), Number(pk.slice(5, 7)), true); }
       lbl = L(c.lang, `la quincena pasada (del ${range.from.slice(8)} al ${range.to.slice(8)})`, `last pay period (${range.from} to ${range.to})`);
@@ -1321,14 +1646,16 @@ function filterHitOf(c: Ctx, folded: string): { fn: (l: Line) => boolean; desc: 
         : { fn: (l) => l.categoryId === learned.targetId, desc: null };
     }
   }
-  let best: { len: number; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } } | null = null;
+  const cands: { len: number; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } }[] = [];
+  const citizens: { label: string; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } }[] = [];
   const consider = (label: string, hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null }) => {
+    citizens.push({ label, hit });
     const f = foldQ(label).trim();
     // Palabra ENTERA, jamás subcadena: «gas» vive dentro de «gasté» y
     // casar por subcadena convierte cada pregunta de gasto en un filtro
     // de gas (la trampa cazada por el banco de esta rama, 2026-11-20).
     const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
-    if (f.length >= 3 && whole.test(folded) && (!best || f.length > best.len)) best = { len: f.length, hit };
+    if (f.length >= 3 && whole.test(folded)) cands.push({ len: f.length, hit });
   };
   for (const cat of c.state.structure.categories) {
     consider(c.names.cat(cat.id), { fn: (l) => l.categoryId === cat.id, desc: { kind: "category", id: cat.id, label: c.names.cat(cat.id) } });
@@ -1344,11 +1671,116 @@ function filterHitOf(c: Ctx, folded: string): { fn: (l: Line) => boolean; desc: 
   for (const l of allLines(c)) {
     if (l.concept) consider(l.concept, { fn: (x) => x.concept === l.concept, desc: null });
   }
-  return best ? (best as { hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } }).hit : null;
+  /* OLA 45 (D2) · EL OÍDO QUE DOBLA — la pasada de flexión, que
+   * SOLO gana cuando la exacta no tiene ningún candidato VIVO (con
+   * líneas): «seguros» encuentra a «Seguro del carro» por su
+   * primera palabra flexionada; «regalos» a «Regalo». Y la pasada
+   * débil solo devuelve ciudadanos VIVOS: una flexión es una
+   * apuesta, y una apuesta sin líneas no puede tapar ni el puente
+   * de sinónimos ni el nombrar la ausencia (la primera versión
+   * dejaba que «Comidas» — una compra de la estructura sin una
+   * sola línea — tapara a Alimentos y a la ausencia nombrada).
+   * Sin prefijos («gas» jamás encuentra «gasolina»: la trampa de
+   * la subcadena sigue muerta), sin palabras cortas (<4 letras no
+   * doblan), y las cabezas genéricas (pago, cuenta, gasto…) no
+   * abren nombre compuesto. Orden de mando: exacta viva > débil
+   * viva > exacta sin líneas (la ausencia se sigue nombrando).
+   * ADAPTACIÓN DE CANON: la pasada viaja sobre los ciudadanos de
+   * filterHitOf y devuelve el hit entero — su desc (la cara del
+   * marco §20) viaja con el filtro, como en la pasada exacta. */
+  const weakLiveFilter = (): { fn: (l: Line) => boolean; desc: AskFrameFilter | null } | null => {
+    const HEAD_STOP = new Set(["pago", "pagos", "cuenta", "cargo", "gasto", "gastos", "compra", "compras", "deuda", "deudas", "linea", "lineas"]);
+    const flex = (t: string, w: string): boolean => t === w || t === `${w}s` || w === `${t}s` || t === `${w}es` || w === `${t}es`;
+    const qTokens = folded.split(/[^a-z0-9]+/).filter(Boolean);
+    const weak: { len: number; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } }[] = [];
+    for (const cz of citizens) {
+      const f = foldQ(cz.label).trim();
+      const toks = f.split(/[^a-z0-9]+/).filter(Boolean);
+      if (!toks.length) continue;
+      let hit = false;
+      if (toks.length === 1) {
+        if (toks[0].length >= 4 && qTokens.some((t) => flex(t, toks[0]))) hit = true;
+      } else {
+        for (let i = 0; i + toks.length <= qTokens.length && !hit; i++) {
+          if (toks.every((w, j) => flex(qTokens[i + j], w))) hit = true;
+        }
+        const head = toks[0];
+        if (!hit && head.length >= 4 && !HEAD_STOP.has(head) && qTokens.some((t) => flex(t, head))) hit = true;
+      }
+      if (hit) weak.push({ len: f.length, hit: cz.hit });
+    }
+    const linesW = allLines(c);
+    const liveW = weak.filter((x) => linesW.some((l) => l.active && x.hit.fn(l)));
+    if (!liveW.length) return null;
+    let bestW: { len: number; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } } | null = null;
+    for (const x of liveW) if (!bestW || x.len > bestW.len) bestW = x;
+    return bestW ? bestW.hit : null;
+  };
+  // OLA 38 · EL ARBITRAJE QUE MIRA EL LIBRO (integrada de la copia
+  // del banco): un nombre de la estructura que ninguna línea del
+  // libro lleva («Renta» como sub, cuando la renta vive como
+  // concepto libre) NO puede tapar al ciudadano que sí tiene líneas
+  // — el arbitraje viejo coronaba al primero de igual largo y el
+  // filtro ganador no casaba con nada: la sensibilidad del
+  // hipotético callaba y la guarda de la capacidad dejaba pasar la
+  // premisa que reemplaza, que se contaba dos veces (la caza del
+  // centro, 2026-11-22). Entre los candidatos que casan con alguna
+  // línea activa manda el más largo; solo si ninguno casa se
+  // conserva el arbitraje de siempre (la ausencia se sigue pudiendo
+  // nombrar).
+  const linesAll = allLines(c);
+  const live = cands.filter((x) => linesAll.some((l) => l.active && x.hit.fn(l)));
+  if (!live.length) {
+    const weakHit = weakLiveFilter();
+    if (weakHit) return weakHit;
+  }
+  const pool = live.length ? live : cands;
+  let best: { len: number; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } } | null = null;
+  for (const x of pool) if (!best || x.len > best.len) best = x;
+  return best ? best.hit : null;
 }
 
 function filterOf(c: Ctx, folded: string): ((l: Line) => boolean) | null {
   return filterHitOf(c, folded)?.fn ?? null;
+}
+
+/* OLA 28 · EL CIUDADANO POR SU NOMBRE — el escaneo inverso de
+ * filterOf para UN nombre hablado: devuelve el ciudadano (concepto,
+ * sub, categoría, compra o tienda) cuyo rótulo abre el segmento, con
+ * su filtro. Los conceptos mandan sobre las categorías a igual
+ * rótulo: «la casa» hablada es primero la línea Casa que la partida
+ * entera — y el veredicto nombra lo excluido con su cifra, así que
+ * la lectura queda a la vista. */
+function citizenByName(state: LedgerState, names: Namer, word: string): { display: string; folded: string; fn: (l: Line) => boolean } | null {
+  const seg = foldQ(word).trim();
+  if (seg.length < 3) return null;
+  const cands: Array<{ display: string; folded: string; fn: (l: Line) => boolean }> = [];
+  for (const m of Object.values(state.months)) for (const l of m.lines) {
+    if (l.concept) cands.push({ display: l.concept, folded: foldQ(l.concept), fn: (x) => x.concept === l.concept });
+  }
+  for (const cat of state.structure.categories) {
+    for (const s of cat.subs) cands.push({ display: names.sub(s.id), folded: foldQ(names.sub(s.id)), fn: (x) => x.subId === s.id });
+    cands.push({ display: names.cat(cat.id), folded: foldQ(names.cat(cat.id)), fn: (x) => x.categoryId === cat.id });
+  }
+  for (const p of state.structure.purchases) cands.push({ display: names.purchase(p.id), folded: foldQ(names.purchase(p.id)), fn: (x) => x.kind === "purchase" && x.categoryId === p.id });
+  for (const item of state.structure.catalog) cands.push({ display: names.catalog(item.id), folded: foldQ(names.catalog(item.id)), fn: (x) => x.storeId === item.id });
+  let best: { display: string; folded: string; fn: (l: Line) => boolean } | null = null;
+  for (const cand of cands) {
+    if (!cand.folded || cand.folded.length < 3) continue;
+    if ((seg === cand.folded || seg.startsWith(`${cand.folded} `)) && (!best || cand.folded.length > best.folded.length)) best = cand;
+  }
+  return best;
+}
+/** La exclusión hablada: «sin la casa», «sin el carro» — el segmento
+ * tras «sin» resuelto a un ciudadano del libro. Sin ciudadano, no hay
+ * exclusión (un «sin» suelto no excluye nada). */
+function exclusionIn(state: LedgerState, names: Namer, folded: string): { display: string; folded: string; fn: (l: Line) => boolean; strip: string } | null {
+  const m = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
+  if (!m) return null;
+  const hit = citizenByName(state, names, m[1]);
+  if (!hit) return null;
+  const at = m[0].indexOf(hit.folded);
+  return { ...hit, strip: at >= 0 ? m[0].slice(0, at + hit.folded.length) : m[0] };
 }
 
 const STRAY_STOP = new Set(["mes", "ano", "semana", "dia", "dias", "total", "eso", "esto", "esta", "este", "promedio", "pasado", "pasada", "ultimo", "ultima", "general", "cuenta", "month", "year", "week", "day", "average", "last", "the", "una", "uno", "del", "las", "los", "que", "como", "cuando", "donde", "cual", "quien", "todo", "toda", "todos", "hace", "desde", "entre", "sobre", "para", "con", "sin", "por", "mis", "tus", "sus", "fue", "era", "son", "mas", "menos", "muy", "tan", "hoy", "ayer", "manana", "siempre", "nunca", "veces", "vez", "parte", "mitad", "doble", "resto", "otros", "otras", "otro", "otra", "cada", "mismo", "misma", "solo", "sola", "bien", "mal", "mejor", "peor", "antes", "despues", "ahora", "luego", "pronto", "tarde", "temprano", "casi", "mucho", "poco", "nada", "algo", "alguien", "nadie", "ningun", "ninguna", "cualquier", "cualquiera", "demas", "propio", "propia", "cierto", "cierta", "seguro", "segura", "posible", "favor", "gracias", "hola", "bueno", "buena", "buenos", "buenas", "dia", "primera", "segunda", "quincena", "quincenal"]);
@@ -1359,20 +1791,117 @@ const STRAY_STOP = new Set(["mes", "ano", "semana", "dia", "dias", "total", "eso
  * gasto ENTERO disfrazado de respuesta al filtro — la mentira más
  * ordinaria de la batería del mundo. Con ella, el Asesor dice que no
  * tiene nada anotado con ese nombre: el silencio con nombre propio. */
-function strayFilterWord(c: Ctx, folded: string): string | null {
+function strayFilterWord(c: Ctx, folded: string, skip?: ReadonlySet<string>): string | null {
   const months = new Set(Object.keys(MONTH_NAMES));
-  const re = /(?:^|\s)(?:en|de|on|in)\s+(?:el\s+|la\s+|los\s+|las\s+|the\s+)?([a-z]{3,})/g;
+  // OLA 26: «al» también presenta un filtro («fui al súper»), y el
+  // llamador puede saltar los verbos de su propio marco («de gastar»
+  // en el contrafactual no es el filtro: es el verbo de la pregunta).
+  const re = /(?:^|\s)(?:en|de|on|in|al)\s+(?:el\s+|la\s+|los\s+|las\s+|the\s+)?([a-z]{3,})/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(folded)) !== null) {
     const w = m[1];
-    if (!STRAY_STOP.has(w) && !months.has(w)) return w;
+    if (!STRAY_STOP.has(w) && !months.has(w) && !(skip?.has(w))) return w;
   }
   return null;
 }
 
+/* OLA 47 (F5) · EL AÑO CONTRA EL AÑO — la comparación anual caía
+ * a la historia de un solo año y su mitad comparativa se perdía
+ * en silencio. La comparación justa es por el MISMO tramo: los
+ * meses que este año lleva (de enero al mes en curso) contra los
+ * mismos meses del año pasado — comparar el año corrido contra
+ * el año entero, sin decirlo, sería una comparación coja. La
+ * dirección la manda el verbo (gasté × gané); sin dirección, o
+ * con las dos, no es esta forma. Sin segundo lado (del año
+ * pasado no hay nada anotado en el tramo), la ausencia se
+ * nombra y la cifra de este año se da igual. */
+function anoContraAnoAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(comparad|contra el ano|versus|vs\.|que el ano pasado|than last year|compared (to|with)|ano contra ano)/.test(folded)) return null;
+  if (!/(este ano|ano pasado|this year|last year)/.test(folded)) return null;
+  const income = /gane|gano|ganad|ingres|entro|entraron|earned|earn|came in/.test(folded);
+  const spend = /gaste|gasto|gastad|gastar|gastando|spent|spend|salio|salieron/.test(folded);
+  if (income === spend) return null;
+  const Y = Number(c.today.slice(0, 4));
+  const lastMonth = Number(c.today.slice(5, 7));
+  const MONTHS_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const monthName = (c.lang === "es" ? MONTHS_ES : MONTHS_EN)[lastMonth - 1];
+  const poolOf = (y: number): Line[] => {
+    const out: Line[] = [];
+    for (let m = 1; m <= lastMonth; m++) {
+      const k = `${y}-${String(m).padStart(2, "0")}`;
+      for (const l of c.state.months[k]?.lines ?? []) {
+        if (!l.active) continue;
+        if (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") out.push(l);
+      }
+    }
+    return out;
+  };
+  const curPool = poolOf(Y);
+  const prevPool = poolOf(Y - 1);
+  const cur = curPool.reduce((a, l) => a + view(c, l), 0);
+  const prev = prevPool.reduce((a, l) => a + view(c, l), 0);
+  const span = L(c.lang, `de enero a ${monthName}`, `from January to ${monthName}`);
+  const verb = income ? L(c.lang, "ganaste", "you earned") : L(c.lang, "gastaste", "you spent");
+  if (!prevPool.length) {
+    return {
+      kind: "answer", family: "historia",
+      verdict: L(c.lang, `La comparación no tiene segundo lado: del año pasado no tienes nada anotado ${span}. Este año, en ese mismo tramo, ${verb} ${c.money(cur)}. Cuando el año pasado exista en tu libro, los dos lados se comparan solos.`, `The comparison has no second side: from last year you have nothing recorded ${span}. This year, over that same span, ${verb} ${c.money(cur)}. When last year exists in your book, the two sides compare on their own.`),
+      pieces: [{ label: L(c.lang, `Este año (${span})`, `This year (${span})`), minor: cur }],
+      note: null, source: ["libros.lineas", "historial.stream"], lines: curPool.length,
+    };
+  }
+  const diff = cur - prev;
+  const pctTxt = prev > 0 && diff !== 0 ? L(c.lang, ` (un ${Math.abs(Math.round((diff / prev) * 100))}% ${diff > 0 ? "más" : "menos"})`, ` (${Math.abs(Math.round((diff / prev) * 100))}% ${diff > 0 ? "more" : "less"})`) : "";
+  const diffTxt = diff === 0
+    ? L(c.lang, "van iguales", "they're level")
+    : L(c.lang, `${c.money(Math.abs(diff))} ${diff > 0 ? "más" : "menos"} que el año pasado`, `${c.money(Math.abs(diff))} ${diff > 0 ? "more" : "less"} than last year`);
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `Comparados por el mismo tramo — ${span}, los meses que este año lleva —: este año ${verb} ${c.money(cur)}; en los mismos meses del año pasado, ${c.money(prev)}: ${diffTxt}${pctTxt}.`, `Compared over the same span — ${span}, the months this year has run —: this year ${verb} ${c.money(cur)}; over the same months last year, ${c.money(prev)}: ${diffTxt}${pctTxt}.`),
+    pieces: [{ label: L(c.lang, `Este año (${span})`, `This year (${span})`), minor: cur }, { label: L(c.lang, `El año pasado (${span})`, `Last year (${span})`), minor: prev }],
+    note: L(c.lang, "Comparo tramo contra tramo, no el año corrido contra el año entero: lo que queda de este año todavía no pasa.", "I compare span against span, not the running year against the whole one: what's left of this year hasn't happened yet."),
+    source: ["libros.lineas", "historial.stream"], lines: curPool.length + prevPool.length,
+  };
+}
+
 function historiaAnswer(c: Ctx, folded: string): BankResult {
   const p = periodOf(c, folded);
-  const hit = filterHitOf(c, folded);
+  // OLA 28: la exclusión se lee ANTES que el filtro y se retira del
+  // texto que el filtro escanea — «sin la casa» no es un filtro de
+  // casa: es su contrario. El total sale sin ese ciudadano, y el
+  // veredicto lo nombra con su cifra (la resta a la vista, A23-3).
+  const excl = exclusionIn(c.state, c.names, folded);
+  // OLA 34 (Familia 2, Q34-2): LA EXCLUSIÓN FRESCA QUE NO RESUELVE
+  // TAMBIÉN MUERE NOMBRADA — el seguimiento con «sin Juan»
+  // irresoluble moría en la reparación honesta, pero la pregunta
+  // FRESCA caía en silencio y servía el total ENTERO, con Juan
+  // Pérez dentro, como si la cláusula no existiera: dos varas para
+  // la misma exclusión. Si tras «sin» hay un segmento y ningún
+  // ciudadano lo reclama, la puerta nombra su cabeza (hasta dos
+  // piezas, cortadas por el vocabulario de período) y rehúsa el
+  // total disfrazado — la misma honestidad del filtro perdido.
+  if (!excl) {
+    const exclM = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
+    if (exclM) {
+      const named: string[] = [];
+      for (const t of exclM[1].split(/\s+/).filter(Boolean)) {
+        if (named.length && (REMIT_CLOSING_WORDS.has(t) || t === "y" || t === "and" || t === "o")) break;
+        named.push(t);
+        if (named.length === 2) break;
+      }
+      if (named.length) {
+        const word = named.join(" ");
+        return {
+          kind: "answer", family: "historia",
+          verdict: L(c.lang, `Me pides el total sin «${word}», pero no tengo nada anotado con ese nombre: ninguna categoría, concepto ni tienda de tu libro se llama así, así que no te doy el total entero como si la exclusión no estuviera. Si lo anotas con otro nombre, pregúntame por ese.`, `You're asking for the total without "${word}", but I have nothing recorded under that name: no category, concept or store in your book is called that, so I won't hand you the whole total as if the exclusion weren't there. If you record it under another name, ask me by that one.`),
+          pieces: [], note: null, source: ["libros.lineas"], lines: 0,
+        };
+      }
+    }
+  }
+  const foldedClean = excl ? folded.replace(excl.strip, " ") : folded;
+  const hit = filterHitOf(c, foldedClean);
   const filter = hit?.fn ?? null;
   // OLA 12: la dirección INGRESO habla el idioma del mundo — «gané»,
   // «gano», «cobré», «mi salario» — no solo «entró/ingresó». Sin estas
@@ -1380,7 +1909,7 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   // cruzada, peor que el silencio.
   const income = /entr|ingres|recibi|gana|gano|gane|cobr|salario|sueldo|earned|came in|salary|wage/.test(folded);
   if (!filter && !income) {
-    const stray = strayFilterWord(c, folded);
+    const stray = strayFilterWord(c, foldedClean);
     if (stray) {
       return {
         kind: "answer", family: "historia",
@@ -1389,14 +1918,19 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
       };
     }
   }
-  const pool = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
+  const poolAll = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
+  const exclLines = excl ? poolAll.filter((l) => excl.fn(l)) : [];
+  const exclSum = exclLines.reduce((a, l) => a + view(c, l), 0);
+  const pool = excl ? poolAll.filter((l) => !excl.fn(l)) : poolAll;
   const total = pool.reduce((a, l) => a + view(c, l), 0);
+  const exclText = excl ? L(c.lang, ` Sin contar «${excl.display}» (${c.money(exclSum)}).`, ` Not counting "${excl.display}" (${c.money(exclSum)}).`) : "";
   return {
     kind: "answer", family: "historia",
     verdict: income
-      ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filter ? " por ese filtro" : ""} — de ${pool.length} líneas.`, `${c.money(total)} came in ${p.label}${filter ? " under that filter" : ""} — from ${pool.length} lines.`)
-      : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} líneas.`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} lines.`),
-    pieces: [{ label: p.label, minor: total }],
+      // OLA 26 (U4): la frase concuerda — «de 1 línea», no «de 1 líneas».
+      ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filter ? " por ese filtro" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `${c.money(total)} came in ${p.label}${filter ? " under that filter" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`)
+      : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`),
+    pieces: [{ label: p.label, minor: total }, ...(excl ? [{ label: L(c.lang, `Fuera de la cuenta: ${excl.display}`, `Left out: ${excl.display}`), minor: -exclSum }] : [])],
     note: pool.length === 0
       ? L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.")
       : null,
@@ -1410,7 +1944,11 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
     // marco con el pool cambiado mentiría la partición del
     // seguimiento — en ese caso no hay marco y el seguimiento cae a
     // su lectura sola legítima (L-S1), nombrada como tal.
-    ...(!hit || hit.desc ? { frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total } as AskFrame } : {}),
+    // OLA 34 (Familia 1): el marco nace CON su exclusión — la
+    // respuesta fresca la aplicó y la nombró; si el marco no la
+    // guarda, el seguimiento la pierde en silencio (el total bruto
+    // del desplazamiento) o la lee al revés (el estrechamiento).
+    ...(!hit || hit.desc ? { frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total, exclusion: excl ? { folded: excl.folded, display: excl.display } : null } as AskFrame } : {}),
   };
 }
 
@@ -1435,6 +1973,13 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
 function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(cuanto|how much)/.test(folded)) return null;
   if (!/(mande|envie|enviado|enviando|remesa|remittance|sent|send)/.test(folded)) return null;
+  // OLA 34 (enmienda de canon): la voz del COSTO («¿cuánto me cuesta
+  // la remesa a Mamá?») no es la suma por persona — es la remesa
+  // descompuesta, que vive en remesasAnswer (el paso 8 ya oye
+  // «cuesta» en su puerta). En la copia ambas viven en la misma
+  // función y la descompuesta se juzga primero; en canon la suma
+  // por persona es servidora aparte y se la tragaba.
+  if (/(cuesta|cuestan|costo|margen|comision|fee|cost|margin|what arrives|cuanto llega|cuanto le llega)/.test(folded)) return null;
   const person = remitPersonOf(c, folded);
   if (!person) {
     const aim = remitPersonAimOf(folded);
@@ -1448,14 +1993,19 @@ function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
   // período: sus envíos dentro del período, sumados de las líneas
   // vivas. Sin envíos suyos en ese período, la contradicción se dice
   // acotada al período — no se rellena con su total de siempre.
-  if (REMIT_PERIOD_MARKER.test(folded) && !/este ano|this year|este mes|this month/.test(folded)) {
+  if ((REMIT_PERIOD_MARKER.test(folded) || periodHalfRe(PERIOD_HALF_ALL).test(folded)) && !/este ano|this year|este mes|this month/.test(folded)) {
     const p = periodOf(c, folded);
     const mine = allLines(c).filter((l) => roleOf(c.state, l.categoryId) === "remittance" && inPeriod(c, l, p) && (recipientName(c.state, l) === person.name || l.to === person.id));
     const total = mine.reduce((a, l) => a + view(c, l), 0);
     if (!mine.length) {
+      // OLA 26 (U8, el contrato): el período vacío dice su cero CON el
+      // total al lado — el cero a secas dejaba al usuario sin la cifra
+      // que sí existe. (La fila se lee aquí; abajo se reusa.)
+      const rowEarly = remitByPerson(c.state, c.key).rows.find((r) => r.id === person.id);
+      const totalAll = rowEarly ? (c.display === "USD" ? rowEarly.all.usd : rowEarly.all.nio) : 0;
       return {
         kind: "answer", family: "remesas",
-        verdict: L(c.lang, `No hay envíos a ${person.name} anotados en ${p.label}: en tu libro no hay ni una remesa suya en ese período.`, `No sends to ${person.name} are recorded in ${p.label}: your book doesn't hold a single remittance of theirs in that period.`),
+        verdict: L(c.lang, `No hay envíos a ${person.name} anotados en ${p.label}: en tu libro no hay ni una remesa suya en ese período.${totalAll > 0 ? ` En total le van ${c.money(totalAll)}.` : ""}`, `No sends to ${person.name} are recorded in ${p.label}: your book doesn't hold a single remittance of theirs in that period.${totalAll > 0 ? ` The all-time total stands at ${c.money(totalAll)}.` : ""}`),
         pieces: [], note: null, source: ["remesas.personas"], lines: 0,
       };
     }
@@ -1478,11 +2028,15 @@ function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
   const scope = /este ano|this year/.test(folded) ? "year" : /este mes|this month/.test(folded) ? "month" : "all";
   const pair = scope === "year" ? row.year : scope === "month" ? row.month : row.all;
   const scopeWord = scope === "year" ? L(c.lang, "este año", "this year") : scope === "month" ? L(c.lang, "este mes", "this month") : L(c.lang, "en total", "in total");
+  // OLA 26 (U8): el alcance también dice su CUENTA de envíos, como el
+  // total la dice — y la fecha del último se dice en palabras (U6).
+  const histP = remitHistory(c.state, person.id);
+  const scopeCount = scope === "year" ? histP.filter((h) => h.monthKey.startsWith(c.key.slice(0, 4))).length : scope === "month" ? histP.filter((h) => h.monthKey === c.key).length : row.count;
   return {
     kind: "answer", family: "remesas",
     verdict: scope === "all"
-      ? L(c.lang, `A ${person.name} le has mandado ${c.money(disp(pair))} en total: ${row.count} envío${row.count === 1 ? "" : "s"} anotados, el último el ${row.last}.`, `You've sent ${person.name} ${c.money(disp(pair))} in total: ${row.count} recorded send${row.count === 1 ? "" : "s"}, the last on ${row.last}.`)
-      : L(c.lang, `A ${person.name} le has mandado ${c.money(disp(pair))} ${scopeWord}. Su último envío fue el ${row.last}.`, `You've sent ${person.name} ${c.money(disp(pair))} ${scopeWord}. Their last send was on ${row.last}.`),
+      ? L(c.lang, `A ${person.name} le has mandado ${c.money(disp(pair))} en total: ${row.count} envío${row.count === 1 ? "" : "s"} anotados, el último el ${row.last ? fmtFecha(c, row.last) : "—"}.`, `You've sent ${person.name} ${c.money(disp(pair))} in total: ${row.count} recorded send${row.count === 1 ? "" : "s"}, the last on ${row.last ? fmtFecha(c, row.last) : "—"}.`)
+      : L(c.lang, `A ${person.name} le has mandado ${c.money(disp(pair))} ${scopeWord} (${scopeCount} envío${scopeCount === 1 ? "" : "s"}). Su último envío fue el ${row.last ? fmtFecha(c, row.last) : "—"}.`, `You've sent ${person.name} ${c.money(disp(pair))} ${scopeWord} (${scopeCount} send${scopeCount === 1 ? "" : "s"}). Their last send was on ${row.last ? fmtFecha(c, row.last) : "—"}.`),
     pieces: [{ label: person.name, minor: disp(pair) }],
     note: scope === "all" ? L(c.lang, `Este año van ${c.money(disp(row.year))} y este mes ${c.money(disp(row.month))}.`, `This year it's ${c.money(disp(row.year))} and this month ${c.money(disp(row.month))}.`) : null,
     source: ["remesas.personas"], lines: row.count,
@@ -1507,11 +2061,15 @@ function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
 /* por persona, que tampoco conocen piso. El período vacío se         */
 /* responde como ausencia — jamás rellenado con el total de siempre.  */
 /* ------------------------------------------------------------------ */
-const REMIT_PERIOD_MARKER = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december|hace (\d+|dos|tres|cuatro|cinco|seis|ocho|doce)|months? ago|mes pasado|el ultimo mes|last month|semana pasada|last week|semana|week|este mes|this month|este ano|this year|\bano\b|quincena|pay period|half month)/;
+const REMIT_PERIOD_MARKER = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december|hace (\d+|dos|tres|cuatro|cinco|seis|ocho|doce)|months? ago|mes pasado|el ultimo mes|last month|semana pasada|last week|semana|week|este mes|this month|este ano|this year|last year|\bano\b|quincena|pay period|half month)/;
 function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(cuanto|how much)/.test(folded)) return null;
   if (!/(mande|envie|enviado|enviando|sent|send)/.test(folded)) return null;
-  if (!REMIT_PERIOD_MARKER.test(folded)) return null;
+  // OLA 32 (Familia 1): el marcador oye también la familia entera de
+  // la quincena desde la fuente única — su oído viejo (quincena /
+  // pay period / half month) dejaba "first half" y "second half"
+  // fuera de la familia aunque periodOf ya supiera servirlas.
+  if (!REMIT_PERIOD_MARKER.test(folded) && !periodHalfRe(PERIOD_HALF_ALL).test(folded)) return null;
   // OLA 31 (Familia 1, Q31-1 del Asesor): LA PERSONA NOMBRADA MANDA
   // SOBRE EL PERÍODO PRESENTE — esta familia sirve la suma del
   // período solo cuando nadie fue nombrado. Si el escaneo resuelve
@@ -1529,6 +2087,16 @@ function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
   const aim = remitPersonAimOf(folded);
   if (aim.word || aim.ambiguous) return null;
   if (remitConsumedName(folded)) return remitUnclearPerson(c, "remesas");
+  // OLA 33 (Familia 3, Q33-3): EL MODIFICADOR SIN PUERTA MANDA
+  // SOBRE LA QUINCENA NOMBRADA — «la próxima quincena», «la 1ra
+  // quincena»: la caminata ya no acusa al modificador (es
+  // vocabulario de período en su compañía), pero periodOf leería
+  // la cabecera y serviría la quincena EN CURSO con su etiqueta,
+  // que no es la que el usuario nombró. La familia calla y la
+  // pregunta muere en el silencio honesto de la cascada (el
+  // unknown), como los nombres de período sin puerta del grado B
+  // — sin acusación y sin cifra de otro tiempo disfrazada.
+  if (remitHalfModifierUnserved(folded)) return null;
   const p = periodOf(c, folded);
   const pool = allLines(c).filter((l) => roleOf(c.state, l.categoryId) === "remittance" && inPeriod(c, l, p));
   const total = pool.reduce((a, l) => a + view(c, l), 0);
@@ -1551,7 +2119,7 @@ function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
 /* ------------------------------------------------------------------ */
 /* REMESAS — el patrón: a quién, cuánto y con qué frecuencia.         */
 /* ------------------------------------------------------------------ */
-function remesasAnswer(c: Ctx): BankResult {
+function remesasAnswer(c: Ctx, folded = ""): BankResult {
   const { rows, all } = remitByPerson(c.state, c.key);
   const withMoney = rows.filter((r) => r.all.usd + r.all.nio > 0 || r.count > 0);
   if (!withMoney.length) {
@@ -1574,6 +2142,93 @@ function remesasAnswer(c: Ctx): BankResult {
       verdict: L(c.lang, `El patrón de tus remesas vive en ${modeWord(c.lang, "completo")}: en Estudio → Remesas y en Ajustes → Remesas ves a quién envías, cuánto y con qué ritmo.`, `Your remittance pattern lives in ${modeWord(c.lang, "completo")}: in Study → Remittances and Settings → Remittances you see who you send to, how much, and at what pace.`),
       pieces: [], note: null, source: ["remesas.personas"], lines: 0,
     };
+  }
+  // OLA 34 · LA REMESA DESCOMPUESTA: lo que el libro SÍ trae es lo
+  // enviado y la tasa anotada del usuario; lo que NO trae es lo que
+  // llegó ni la tasa que aplicó el corredor — así que la respuesta
+  // da la equivalencia a SU tasa y nombra el dato que falta para el
+  // margen exacto. Los promedios de corredor están prohibidos en el
+  // veredicto: la única vara es la tasa del usuario.
+  if (folded && /(cuesta|cuestan|costo|margen|se pierde|pierdo|comision|cuanto llega|cuanto le llega|fee|cost|margin|what arrives)/.test(folded)) {
+    const namedRow2 = rows.find((r) => {
+      if (!r.person) return false;
+      const f = foldQ(r.person.name).trim();
+      return f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded);
+    });
+    const useRows = namedRow2 ? [namedRow2] : withMoney;
+    const entries = useRows.flatMap((r) => remitHistory(c.state, r.id));
+    const sentUsd = entries.reduce((a, e) => a + e.usd, 0);
+    const who = namedRow2?.person ? L(c.lang, `a ${namedRow2.person.name}`, `to ${namedRow2.person.name}`) : L(c.lang, "en tus remesas", "in your remittances");
+    if (!entries.length || sentUsd <= 0 || !(c.rateE4 > 0)) {
+      return {
+        kind: "answer", family: "remesas",
+        verdict: L(c.lang, "Para descomponer lo que cuesta una remesa me faltan dos cosas en tu libro: envíos anotados y tu tasa de cambio anotada en Ajustes. Sin tu tasa no hay vara, y no uso el promedio de ningún corredor.", "To break down what a remittance costs I need two things in your book: recorded sends and your exchange rate recorded in Settings. Without your rate there's no yardstick, and I don't use any corridor's average."),
+        pieces: [], note: null, source: ["remesas.personas", "cambio.mesa"], lines: 0,
+      };
+    }
+    const equivNio = convertMinor(sentUsd, "USD", "NIO", c.rateE4);
+    const refTxt = `C$${(c.rateE4 / 10000).toFixed(2)}`;
+    const sentDisp = convertMinor(sentUsd, "USD", c.display, c.rateE4);
+    return {
+      kind: "answer", family: "remesas",
+      verdict: L(c.lang, `En ${entries.length} envío${entries.length === 1 ? "" : "s"} ${who} salieron ${c.money(sentDisp)}. A TU tasa anotada (${refTxt} por dólar) eso equivale a ${formatMoney(equivNio, "NIO", c.lang)}: esa es la cuenta que tu libro sí puede hacer. Lo que el camino se quedó — la cuota y el diferencial del corredor — NO está en tu libro: no anotas lo que llegó ni la tasa que te aplicaron, y sin ese dato el margen exacto no existe; no lo relleno con promedios de corredor.`, `Across ${entries.length} send${entries.length === 1 ? "" : "s"} ${who}, ${c.money(sentDisp)} went out. At YOUR recorded rate (${refTxt} per dollar) that's ${formatMoney(equivNio, "NIO", c.lang)}: that's the math your book can do. What the road kept — the fee and the corridor's spread — is NOT in your book: you don't record what arrived or the rate you were given, and without that the exact margin doesn't exist; I don't fill it with corridor averages.`),
+      pieces: [
+        { label: L(c.lang, "Lo enviado", "Sent"), minor: sentDisp },
+      ],
+      note: L(c.lang, "Si anotaras por envío lo que llegó (o la tasa aplicada), la descomposición saldría exacta de tu libro: salieron tanto, llegaron tanto, el camino se quedó con la diferencia y su porcentaje.", "If you recorded per send what arrived (or the applied rate), the breakdown would come out exact from your book: this much left, this much arrived, the road kept the difference and its percentage."),
+      source: ["remesas.personas", "cambio.mesa"], lines: entries.length,
+    };
+  }
+  // OLA 26 (U8): la pregunta persona × período — «¿cuánto he enviado
+  // a mamá este año?» — no es el patrón: es la suma de ESA persona en
+  // ESE período, con el total de contexto. Su propia canónica moría
+  // en silencio porque la puerta pedía la palabra «remesa» y la
+  // familia solo sabía contar el patrón. El período sin nombrar es el
+  // total; el período vacío dice su cero con el total al lado.
+  if (folded && /(cuanto|how much)/.test(folded) && !/(patron|ritmo|cuando|a quien|frecuencia|pattern|pace|when|who)/.test(folded)) {
+    const namedRow = rows.find((r) => {
+      if (!r.person) return false;
+      const f = foldQ(r.person.name).trim();
+      return f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded);
+    });
+    if (namedRow?.person) {
+      const name = namedRow.person.name;
+      const p = periodOf(c, folded);
+      const explicit = /(ano|year|mes|month|semana|week|quincena|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december|hace|ago|pasado|pasada|ultimo|ultima|last)/.test(folded);
+      const pairOf = (pair: { usd: number; nio: number }) => (c.display === "USD" ? pair.usd : pair.nio);
+      const hist = remitHistory(c.state, namedRow.id);
+      const sumHist = (hs: typeof hist) => hs.reduce((a, h) => a + (c.display === "USD" ? h.usd : h.nio), 0);
+      let sum = 0;
+      let count = 0;
+      if (!explicit) { sum = pairOf(namedRow.all); count = namedRow.count; }
+      else if (p.kind === "year") {
+        const hs = hist.filter((h) => h.monthKey.startsWith(p.year));
+        sum = p.year === c.key.slice(0, 4) ? pairOf(namedRow.year) : sumHist(hs);
+        count = hs.length;
+      } else if (p.kind === "month") {
+        const hs = hist.filter((h) => h.monthKey === p.key);
+        sum = p.key === c.key ? pairOf(namedRow.month) : sumHist(hs);
+        count = hs.length;
+      } else {
+        const hs = hist.filter((h) => h.date >= p.from && h.date <= p.to);
+        sum = sumHist(hs);
+        count = hs.length;
+      }
+      const totalAll = pairOf(namedRow.all);
+      const envios = count === 1 ? L(c.lang, "1 envío", "1 send") : L(c.lang, `${count} envíos`, `${count} sends`);
+      return {
+        kind: "answer", family: "remesas",
+        verdict: !explicit
+          ? L(c.lang, `A ${name} le has enviado ${c.money(totalAll)} en total (${envios})${namedRow.last ? ` — el último fue el ${fmtFecha(c, namedRow.last)}` : ""}.`, `You've sent ${name} ${c.money(totalAll)} in total (${envios})${namedRow.last ? ` — the last one was on ${fmtFecha(c, namedRow.last)}` : ""}.`)
+          : sum > 0
+            ? L(c.lang, `En ${p.label} le has enviado a ${name} ${c.money(sum)} (${envios}).`, `In ${p.label} you've sent ${name} ${c.money(sum)} (${envios}).`)
+            : L(c.lang, `En ${p.label} no le has enviado nada a ${name} — en total le van ${c.money(totalAll)}.`, `In ${p.label} you haven't sent ${name} anything — the all-time total stands at ${c.money(totalAll)}.`),
+        pieces: [{ label: name, minor: explicit ? sum : totalAll }],
+        note: explicit && totalAll !== sum ? L(c.lang, `En total, a ${name} le has enviado ${c.money(totalAll)}.`, `In total, you've sent ${name} ${c.money(totalAll)}.`) : null,
+        source: ["remesas.personas", "asesor.lectura"], lines: count,
+        actions: reportDoor(c, "remesas.personas", "Verlo en Remesas", "See it in Remittances"),
+      };
+    }
   }
   const displayPair = (r: (typeof rows)[number]) => (c.display === "USD" ? r.all.usd : r.all.nio);
   const top = withMoney[0];
@@ -1598,14 +2253,34 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
   // sin segundo término nombrado — el término es su propio ingreso y
   // su propio pasado. Se responde con las dos medidas, sin adjetivos
   // inventados: el porcentaje de lo que entró y el mes pasado al lado.
-  if (/(gaste|gastando|gasto|gastar|gastos) (mucho|poco|demasiado)|es mucho lo que (gasto|gaste)|spend (a lot|too much)|spending (a lot|too much)/.test(folded)) {
+  if (/(gaste|gastando|gasto|gastar|gastos|gastado) (mucho|poco|demasiado)|he gastado (mucho|de mas)|es mucho lo que (gasto|gaste)|spend (a lot|too much)|spending (a lot|too much)|have i spent (a lot|too much)|did i spend (a lot|too much)|spent (a lot|too much)/.test(folded)) {
     const now = summarize(c.state, c.key, c.lang);
     const before = summarize(c.state, prevKey(c.key), c.lang);
     const pct = now.income > 0 ? Math.round((now.spend / now.income) * 100) : null;
+    /* OLA 43: la tercera medida — el mes típico del propio usuario.
+     * A mitad de mes, el gasto corrido se PROYECTA al mes entero y
+     * se compara contra su mediana: el juicio es contra su vara,
+     * no contra un adjetivo. */
+    const keysJ = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
+    let typicalTxt = "";
+    const piecesJ: Array<{ label: string; minor: number }> = [
+      { label: L(c.lang, "Este mes", "This month"), minor: now.spend },
+      { label: L(c.lang, "Mes pasado", "Last month"), minor: before.spend },
+    ];
+    if (keysJ.length >= 2) {
+      const outs = keysJ.map((k) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings").reduce((a, l) => a + view(c, l), 0)).sort((a, b) => a - b);
+      const typical = outs[Math.floor((outs.length - 1) / 2)];
+      const dayN = Number(c.today.slice(8, 10));
+      const daysIn = new Date(Number(c.key.slice(0, 4)), Number(c.key.slice(5, 7)), 0).getDate();
+      const projected = dayN > 0 ? Math.round((now.spend / dayN) * daysIn) : now.spend;
+      const gap = projected - typical;
+      typicalTxt = L(c.lang, ` Y contra tu propia vara: tu mes típico de gasto es ${c.money(typical)}; a día ${dayN} vas en ${c.money(now.spend)}, que a este ritmo cierra el mes en unos ${c.money(projected)} — ${gap === 0 ? "justo en tu típico" : gap > 0 ? `${c.money(gap)} por encima de tu típico` : `${c.money(-gap)} por debajo de tu típico`}.`, ` And against your own yardstick: your typical spending month is ${c.money(typical)}; on day ${dayN} you're at ${c.money(now.spend)}, which at this pace closes the month at about ${c.money(projected)} — ${gap === 0 ? "right at your typical" : gap > 0 ? `${c.money(gap)} above your typical` : `${c.money(-gap)} below your typical`}.`);
+      piecesJ.push({ label: L(c.lang, "Tu mes típico", "Your typical month"), minor: typical });
+    }
     return {
       kind: "answer", family: "comparar",
-      verdict: L(c.lang, `Este mes has gastado ${c.money(now.spend)}${pct !== null ? ` — el ${pct}% de los ${c.money(now.income)} que entraron` : ""}. El mes pasado gastaste ${c.money(before.spend)}: ${now.spend === before.spend ? "van parejos" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} más` : `${c.money(before.spend - now.spend)} menos`}. Si es mucho o poco, con esas dos medidas lo juzgas tú: yo no te vendo un adjetivo.`, `This month you've spent ${c.money(now.spend)}${pct !== null ? ` — ${pct}% of the ${c.money(now.income)} that came in` : ""}. Last month you spent ${c.money(before.spend)}: ${now.spend === before.spend ? "they're tied" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} more` : `${c.money(before.spend - now.spend)} less`}. Whether that's a lot or a little, with those two measures you judge it: I won't sell you an adjective.`),
-      pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: now.spend }, { label: L(c.lang, "Mes pasado", "Last month"), minor: before.spend }],
+      verdict: L(c.lang, `Este mes has gastado ${c.money(now.spend)}${pct !== null ? ` — el ${pct}% de los ${c.money(now.income)} que entraron` : ""}. El mes pasado gastaste ${c.money(before.spend)}: ${now.spend === before.spend ? "van parejos" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} más` : `${c.money(before.spend - now.spend)} menos`}.${typicalTxt} Si es mucho o poco, con esas medidas lo juzgas tú: yo no te vendo un adjetivo.`, `This month you've spent ${c.money(now.spend)}${pct !== null ? ` — ${pct}% of the ${c.money(now.income)} that came in` : ""}. Last month you spent ${c.money(before.spend)}: ${now.spend === before.spend ? "they're tied" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} more` : `${c.money(before.spend - now.spend)} less`}.${typicalTxt} Whether that's a lot or a little, with those measures you judge it: I won't sell you an adjective.`),
+      pieces: piecesJ,
       note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
     };
@@ -1620,19 +2295,54 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
     if (halves.length === 2 && /(gast|spend|compr|pago|se fue|se me fue|went|\bgo\b)/.test(folded)) {
       const f1 = filterOf(c, halves[0]);
       const f2 = filterOf(c, halves[1]);
-      if (f1 && f2) {
-        const t = (f: (l: Line) => boolean) => allLines(c).filter((l) => l.monthKey === c.key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && f(l)).reduce((a, l) => a + view(c, l), 0);
-        const [t1, t2] = [t(f1), t(f2)];
-        if (t1 + t2 > 0) {
-          return {
-            kind: "answer", family: "comparar",
-            verdict: L(c.lang, `Este mes: el primer lado suma ${c.money(t1)} y el segundo ${c.money(t2)} — ${t1 === t2 ? "van parejos" : `gana el ${t1 > t2 ? "primero" : "segundo"} por ${c.money(Math.abs(t1 - t2))}`}.`, `This month: the first side adds up to ${c.money(t1)} and the second ${c.money(t2)} — ${t1 === t2 ? "they're tied" : `the ${t1 > t2 ? "first" : "second"} wins by ${c.money(Math.abs(t1 - t2))}`}.`),
-            pieces: [{ label: L(c.lang, "Primer lado", "First side"), minor: t1 }, { label: L(c.lang, "Segundo lado", "Second side"), minor: t2 }],
-            note: L(c.lang, "Cada lado es el filtro que su nombre resuelve en tu libro; si un nombre no es el que esperabas, pregúntame por el otro.", "Each side is the filter its name resolves to in your book; if a name isn't the one you meant, ask me by the other."),
-            source: ["libros.lineas", "estudio.flujo"], lines: 0,
-            actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
-          };
-        }
+      const t = (f: ((l: Line) => boolean) | null) => f ? allLines(c).filter((l) => l.monthKey === c.key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && f(l)).reduce((a, l) => a + view(c, l), 0) : 0;
+      const [t1, t2] = [t(f1), t(f2)];
+      const w1 = strayFilterWord(c, halves[0]);
+      const w2 = strayFilterWord(c, halves[1]);
+      // OLA 26 (U5): la comparación clásica — dos lados con gasto — se
+      // queda como estaba. Todo lo demás (un lado sin resolver, un
+      // lado en cero con nombre, los dos en cero) ya no cae en
+      // silencio: el lado vacío va en $0 DICHO y con su nombre.
+      const wordedZero = (t1 === 0 && !!w1) || (t2 === 0 && !!w2);
+      if (f1 && f2 && t1 + t2 > 0 && !wordedZero) {
+        return {
+          kind: "answer", family: "comparar",
+          verdict: L(c.lang, `Este mes: el primer lado suma ${c.money(t1)} y el segundo ${c.money(t2)} — ${t1 === t2 ? "van parejos" : `gana el ${t1 > t2 ? "primero" : "segundo"} por ${c.money(Math.abs(t1 - t2))}`}.`, `This month: the first side adds up to ${c.money(t1)} and the second ${c.money(t2)} — ${t1 === t2 ? "they're tied" : `the ${t1 > t2 ? "first" : "second"} wins by ${c.money(Math.abs(t1 - t2))}`}.`),
+          pieces: [{ label: L(c.lang, "Primer lado", "First side"), minor: t1 }, { label: L(c.lang, "Segundo lado", "Second side"), minor: t2 }],
+          note: L(c.lang, "Cada lado es el filtro que su nombre resuelve en tu libro; si un nombre no es el que esperabas, pregúntame por el otro.", "Each side is the filter its name resolves to in your book; if a name isn't the one you meant, ask me by the other."),
+          source: ["libros.lineas", "estudio.flujo"], lines: 0,
+          actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+        };
+      }
+      if (!f1 && !f2 && w1 && w2) {
+        return {
+          kind: "answer", family: "comparar",
+          verdict: L(c.lang, `No tienes gasto anotado ni en «${w1}» ni en «${w2}»: los dos lados van en $0, así que no hay un «más» que declarar. Si los anotas con otro nombre, pregúntame por ese.`, `You have no recorded spending on "${w1}" or "${w2}": both sides sit at $0, so there's no "more" to declare. If you record them under another name, ask me by that one.`),
+          pieces: [], note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        };
+      }
+      const zeroSide = t1 === 0 && w1 ? 1 : t2 === 0 && w2 ? 2 : !f1 && w1 ? 1 : !f2 && w2 ? 2 : 0;
+      if (zeroSide) {
+        const known = zeroSide === 1 ? t2 : t1;
+        const knownWord = zeroSide === 1 ? w2 : w1;
+        const missing = (zeroSide === 1 ? w1 : w2) as string;
+        return {
+          kind: "answer", family: "comparar",
+          verdict: known > 0
+            ? L(c.lang, `Este mes: ${knownWord ? `en «${knownWord}» van ${c.money(known)}` : `el otro lado suma ${c.money(known)}`} y en «${missing}» no tienes nada anotado ($0) — ${knownWord ? `gana «${knownWord}»` : "gana el otro lado"} por ${c.money(known)}.`, `This month: ${knownWord ? `"${knownWord}" is at ${c.money(known)}` : `the other side adds up to ${c.money(known)}`} and on "${missing}" you have nothing recorded ($0) — ${knownWord ? `"${knownWord}" wins` : "the other side wins"} by ${c.money(known)}.`)
+            : L(c.lang, `En «${missing}» no tienes nada anotado${knownWord ? `, y en «${knownWord}» tampoco hay gasto anotado este mes` : ", y el otro lado también va en $0 este mes"}: no hay un «más» que declarar.`, `On "${missing}" you have nothing recorded${knownWord ? `, and on "${knownWord}" there's no recorded spending this month either` : ", and the other side is also at $0 this month"}: there's no "more" to declare.`),
+          pieces: [{ label: w1 ?? L(c.lang, "Primer lado", "First side"), minor: t1 }, { label: w2 ?? L(c.lang, "Segundo lado", "Second side"), minor: t2 }],
+          note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+          actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+        };
+      }
+      if (f1 && f2 && t1 + t2 === 0) {
+        return {
+          kind: "answer", family: "comparar",
+          verdict: L(c.lang, "Este mes ninguno de los dos lados tiene gasto anotado: van parejos en $0.", "This month neither side has recorded spending: they're tied at $0."),
+          pieces: [{ label: L(c.lang, "Primer lado", "First side"), minor: 0 }, { label: L(c.lang, "Segundo lado", "Second side"), minor: 0 }],
+          note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        };
       }
     }
     const filterT = filterOf(c, folded);
@@ -1863,7 +2573,20 @@ function amountsIn(raw: string): FoundAmount[] {
     // y sin la etiqueta la parte quedaba anónima y el reparto moría.
     // La etiqueta solo la consume repartoAnswer (su Forma 1).
     const concept = (rest.match(/^\s*(?:en|de|para|por|a|for)\s+([a-záéíóúñ ]{2,24}?)(?=[,.]|\s+y\s|\s*\d|\?|$)/i)?.[1] ?? "").trim();
-    out.push({ minor: Math.round(value * 100), currency, label: concept });
+    // OLA 26 (U3): el rótulo también vive ATRÁS — «mamá me dio 150»:
+    // el lector solo buscaba hacia adelante y la pieza salía «Monto
+    // 3». Atrás solo se acepta una PERSONA en palabras llanas (la
+    // lista de parentesco, o un nombre propio con su verbo de dar):
+    // un verbo suelto («gasto 300») no es un rótulo.
+    let label = concept;
+    if (!label) {
+      const before = raw.slice(Math.max(0, m.index - 48), m.index);
+      const seg = before.split(/,|;|\s+y\s+|\s+e\s+/).pop() ?? "";
+      const kin = seg.match(/(mamá|mami|madre|papá|papi|padre|hermano|hermana|abuelo|abuela|esposo|esposa|hijo|hija|primo|prima|tío|tía|sobrino|sobrina|novio|novia)\b/i)?.[1];
+      const named = seg.match(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,})\s+(?:me\s+)?(?:dio|regaló|regalo|pasó|paso|prestó|presto|mandó|mando|envió|envio)\b/i)?.[1];
+      label = (kin ?? named ?? "").toLowerCase();
+    }
+    out.push({ minor: Math.round(value * 100), currency, label });
   }
   return out;
 }
@@ -1971,6 +2694,11 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   if (amounts.length < 1) return null;
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   const sum = amounts.reduce((a, x) => a + disp(x), 0);
+  // OLA 25: el nombre propio de la pieza de un monto traído — su
+  // rótulo si lo trae, su cifra en SU moneda si es extranjera, y
+  // «Monto N» solo como último recurso, nunca como primera opción.
+  const amountLabel = (a: FoundAmount, i: number): string => a.label
+    || (a.currency !== c.display ? formatMoney(a.minor, a.currency, c.lang) : L(c.lang, `Monto ${i + 1}`, `Amount ${i + 1}`));
   // OLA 18 (batería II): la premisa sin «si» — «me entraron 200 más,
   // ¿cuánto tengo en ahorros ahora?» trae el escenario como un hecho
   // dicho, no como hipótesis. La respuesta separa los dos tiempos sin
@@ -1983,6 +2711,14 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       verdict: L(c.lang, `En tu libro, hoy constan ${c.money(stock.total)} en ahorros. Con los ${c.money(sum)} que dices que te entraron, serían ${c.money(stock.total + sum)} — si entraron a tus ahorros y aún no están anotados.`, `In your book, today shows ${c.money(stock.total)} in savings. With the ${c.money(sum)} you say came in, it would be ${c.money(stock.total + sum)} — if they landed in your savings and aren't recorded yet.`),
       pieces: [{ label: L(c.lang, "Consta hoy", "Recorded today"), minor: stock.total }, { label: L(c.lang, "Con la premisa", "With the premise"), minor: stock.total + sum }],
       note: L(c.lang, "El supuesto, dicho: la premisa es tuya — el libro no la trae todavía. Anótala y la cifra pasa a ser la de hoy.", "The assumption, stated: the premise is yours — the book doesn't carry it yet. Record it and the figure becomes today's."),
+      graph: [{
+        id: "con-premisa", label: L(c.lang, "Con la premisa", "With the premise"), minor: stock.total + sum, tense: "proyectado", flow: "stock", currency: c.display,
+        assumption: { text: L(c.lang, "la premisa que trajiste: que ese dinero entró a tus ahorros", "the premise you brought: that this money landed in your savings"), origin: "usuario" },
+        children: [
+          { id: "consta", label: L(c.lang, "Consta hoy", "Recorded today"), minor: stock.total, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+          { id: "premisa", label: L(c.lang, "Lo que dices que entró", "What you say came in"), minor: sum, tense: "proyectado", flow: "flujo", currency: c.display, sign: 1, assumption: { text: L(c.lang, "la premisa que trajiste: que ese dinero entró a tus ahorros", "the premise you brought: that this money landed in your savings"), origin: "usuario" } },
+        ],
+      }],
       source: ["ahorros.stock"], lines: 0,
       actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
     };
@@ -2002,7 +2738,12 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
         const line = named[0];
         const oldV = view(c, line);
         const amt = disp(amounts[0]);
-        const absolute = /(a|hasta|en)\s*$/.test(folded.slice(0, folded.search(/\d/))) || /(cuesta|cueste|costara|valiera|fuera|seria)/.test(folded);
+        // OLA 38: el «a» de «sube a $550» queda separado de la cifra
+        // por el signo de moneda — sin admitir el «$» en el corte, el
+        // valor nuevo se leía como DELTA y la renta de $450 «subía a
+        // $550» costando $1,000 (la caza del centro lo cazó: la forma
+        // del centro trae el signo, la de la Ola 24 no lo traía).
+        const absolute = /(a|hasta|en|to)\s*\$?\s*$/.test(folded.slice(0, folded.search(/\d/))) || /(cuesta|cueste|costara|valiera|fuera|seria)/.test(folded);
         const newV = absolute ? amt : /(baja|bajara|bajase|bajaria)/.test(folded) ? oldV - amt : oldV + amt;
         const spendNow = monthLines.reduce((a, l) => a + view(c, l), 0);
         const spendNew = spendNow - oldV + newV;
@@ -2044,7 +2785,7 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
           verdict: L(c.lang, `En ${nameOf(host.id)}: si usaras ${c.money(sum)}, el saldo quedaría en ${c.money(after)} y lo libre en ${c.money(libre - sum)} — lo apartado no se toca salvo que lo libre no alcance.`, `In ${nameOf(host.id)}: if you used ${c.money(sum)}, the balance would be ${c.money(after)} and the free part ${c.money(libre - sum)} — what's set aside stays untouched unless the free part falls short.`),
           pieces: [
             { label: nameOf(host.id), minor: host.minor },
-            ...amounts.map((a, i) => ({ label: a.label || L(c.lang, `Monto ${i + 1}`, `Amount ${i + 1}`), minor: -disp(a) })),
+            ...amounts.map((a, i) => ({ label: amountLabel(a, i), minor: -disp(a) })),
             { label: L(c.lang, "Quedaría el saldo", "The balance would be"), minor: after },
           ],
           note: L(c.lang, "El supuesto, dicho: es un «si» — nada se movió de esa cuenta ni de ninguna.", "The assumption, stated: it's a hypothetical — nothing moved from that account or any other."),
@@ -2074,17 +2815,45 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   const base = onAccount ? (stock.byClass.cuenta ?? 0) : reading.left;
   const baseLabel = onAccount ? L(c.lang, "Hoy en tus cuentas", "In your accounts today") : L(c.lang, "Tu queda de hoy", "Your left-for-the-month today");
   const result = incomeSide ? base + sum : base - sum;
+  // OLA 25 (espécimen de Oscar en su teléfono, 2026-11-22): el
+  // veredicto viejo decía «tu base de hoy… menos los $8.19 del «si»»
+  // y Oscar no lo pudo descifrar — «base» es jerga, el «si» es clave
+  // interna, y los $8.19 jamás dijeron que eran sus 300 PESOS al
+  // cambio. La cura: la base se nombra por su naturaleza, el monto
+  // traído se nombra en SU moneda con la conversión dicha, y cada
+  // cifra de la respuesta se explica sola. La rama del negativo que
+  // se traduce es de la Ola 26 (U1) y llega en la misma expresión.
+  const baseText = base < 0
+    ? L(c.lang, `hoy tu queda ya va en negativo (${c.money(base)}: salió más de lo que entró)`, `today your left already runs negative (${c.money(base)}: more went out than came in)`)
+    : onAccount
+      ? L(c.lang, `lo que hoy tienes en tus cuentas (${c.money(base)})`, `what you hold in your accounts today (${c.money(base)})`)
+      : L(c.lang, `lo que te queda hoy (${c.money(base)})`, `what you have left today (${c.money(base)})`);
+  const foreignOne = amounts.length === 1 && amounts[0].currency !== c.display ? amounts[0] : null;
+  const sumText = foreignOne
+    ? L(c.lang, `tus ${formatMoney(foreignOne.minor, foreignOne.currency, c.lang)} (que son ${c.money(sum)} con la tasa de tu Mesa de cambio)`, `your ${formatMoney(foreignOne.minor, foreignOne.currency, c.lang)} (which is ${c.money(sum)} at your Exchange desk's rate)`)
+    : incomeSide
+      ? L(c.lang, `los ${c.money(sum)} que entrarían`, `the ${c.money(sum)} coming in`)
+      : L(c.lang, `los ${c.money(sum)} que gastarías`, `the ${c.money(sum)} you'd spend`);
   return {
     kind: "answer", family: "hipotetico",
     verdict: incomeSide
-      ? L(c.lang, `Si eso pasara, tendrías ${c.money(result)}: tu base de hoy (${c.money(base)}) más los ${c.money(sum)} del «si».`, `If that happened, you'd have ${c.money(result)}: today's base (${c.money(base)}) plus the hypothetical ${c.money(sum)}.`)
-      : L(c.lang, `Si gastaras eso, te quedarían ${c.money(result)}: tu base de hoy (${c.money(base)}) menos los ${c.money(sum)} del «si».`, `If you spent that, you'd have ${c.money(result)} left: today's base (${c.money(base)}) minus the hypothetical ${c.money(sum)}.`),
+      ? L(c.lang, `Si eso pasara, tendrías ${c.money(result)}: ${baseText} más ${sumText}.`, `If that happened, you'd have ${c.money(result)}: ${baseText} plus ${sumText}.`)
+      : L(c.lang, `Si gastaras eso, te quedarían ${c.money(result)}: ${baseText} menos ${sumText}.`, `If you spent that, you'd have ${c.money(result)} left: ${baseText} minus ${sumText}.`),
     pieces: [
       { label: baseLabel, minor: base },
-      ...amounts.map((a, i) => ({ label: a.label || L(c.lang, `Monto ${i + 1}`, `Amount ${i + 1}`), minor: incomeSide ? disp(a) : -disp(a) })),
+      ...amounts.map((a, i) => ({ label: amountLabel(a, i), minor: incomeSide ? disp(a) : -disp(a) })),
     ],
     note: L(c.lang, "El supuesto, dicho: es un «si» — nada de esto está anotado ni se guarda; tu libro queda como está.", "The assumption, stated: it's a hypothetical — none of this is recorded or saved; your book stays as it is."),
+    graph: [{
+      id: "quedaria", label: L(c.lang, "Lo que quedaría", "What would be left"), minor: result, tense: "proyectado", flow: "stock", currency: c.display,
+      assumption: { text: L(c.lang, "el «si» que trajiste en tu pregunta: nada de esto está anotado", "the 'if' you brought in your question: none of this is recorded"), origin: "usuario" },
+      children: [
+        { id: "base", label: baseLabel, minor: base, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+        ...amounts.map((a, i): AskNode => ({ id: `si-${i}`, label: amountLabel(a, i), minor: disp(a), tense: "proyectado", flow: "flujo", currency: c.display, sign: incomeSide ? 1 : -1, assumption: { text: L(c.lang, "el «si» que trajiste en tu pregunta: nada de esto está anotado", "the 'if' you brought in your question: none of this is recorded"), origin: "usuario" } })),
+      ],
+    }],
     source: onAccount ? ["central.tengo", "ahorros.stock"] : ["central.queda", "asesor.lectura"], lines: 0,
+    actions: onAccount ? undefined : reportDoor(c, "central.queda", "Ver mi Queda en Central", "See my Left in Central"),
   };
 }
 
@@ -2148,10 +2917,10 @@ function calendarioAnswer(c: Ctx, folded: string): BankResult | null {
       return {
         kind: "answer", family: "calendario",
         verdict: days < 0
-          ? L(c.lang, `«${due.name}» cayó el ${due.on} (hace ${-days} día${days === -1 ? "" : "s"}).`, `"${due.name}" fell on ${due.on} (${-days} day${days === -1 ? "" : "s"} ago).`)
+          ? L(c.lang, `«${due.name}» cayó el ${fmtFecha(c, due.on)} (hace ${-days} día${days === -1 ? "" : "s"}).`, `"${due.name}" fell on ${fmtFecha(c, due.on)} (${-days} day${days === -1 ? "" : "s"} ago).`)
           : days === 0
-            ? L(c.lang, `«${due.name}» cae HOY (${due.on}).`, `"${due.name}" falls TODAY (${due.on}).`)
-            : L(c.lang, `«${due.name}» cae el ${due.on} — en ${days} día${days === 1 ? "" : "s"}.`, `"${due.name}" falls on ${due.on} — in ${days} day${days === 1 ? "" : "s"}.`),
+            ? L(c.lang, `«${due.name}» cae HOY (${fmtFecha(c, due.on)}).`, `"${due.name}" falls TODAY (${fmtFecha(c, due.on)}).`)
+            : L(c.lang, `«${due.name}» cae el ${fmtFecha(c, due.on)} — en ${days} día${days === 1 ? "" : "s"}.`, `"${due.name}" falls on ${fmtFecha(c, due.on)} — in ${days} day${days === 1 ? "" : "s"}.`),
         pieces: [{ label: due.name, minor: due.amt ?? 0 }],
         note: null, source: ["cobros.cuotas"], lines: 0,
       };
@@ -2174,7 +2943,7 @@ function calendarioAnswer(c: Ctx, folded: string): BankResult | null {
       const days = daysBetween(c.today, target);
       return {
         kind: "answer", family: "calendario",
-        verdict: L(c.lang, `El día ${day} cae ${names[wd]} — el ${target}, ${days === 0 ? "hoy mismo" : `en ${days} día${days === 1 ? "" : "s"}`}.`, `Day ${day} falls on a ${names[wd]} — ${target}, ${days === 0 ? "today itself" : `in ${days} day${days === 1 ? "" : "s"}`}.`),
+        verdict: L(c.lang, `El día ${day} cae ${names[wd]} — el ${fmtFecha(c, target)}, ${days === 0 ? "hoy mismo" : `en ${days} día${days === 1 ? "" : "s"}`}.`, `Day ${day} falls on a ${names[wd]} — ${fmtFecha(c, target)}, ${days === 0 ? "today itself" : `in ${days} day${days === 1 ? "" : "s"}`}.`),
         pieces: [], note: null, source: ["cobros.cuotas"], lines: 0,
       };
     }
@@ -2187,10 +2956,10 @@ function calendarioAnswer(c: Ctx, folded: string): BankResult | null {
       return {
         kind: "answer", family: "calendario",
         verdict: days < 0
-          ? L(c.lang, `«${due.name}» venció hace ${-days} día${days === -1 ? "" : "s"} (el ${due.on}).`, `"${due.name}" was due ${-days} day${days === -1 ? "" : "s"} ago (${due.on}).`)
+          ? L(c.lang, `«${due.name}» venció hace ${-days} día${days === -1 ? "" : "s"} (el ${fmtFecha(c, due.on)}).`, `"${due.name}" was due ${-days} day${days === -1 ? "" : "s"} ago (${fmtFecha(c, due.on)}).`)
           : days === 0
-            ? L(c.lang, `«${due.name}» vence HOY (${due.on}).`, `"${due.name}" is due TODAY (${due.on}).`)
-            : L(c.lang, `A «${due.name}» le faltan ${days} día${days === 1 ? "" : "s"}: vence el ${due.on}.`, `"${due.name}" is ${days} day${days === 1 ? "" : "s"} away: due ${due.on}.`),
+            ? L(c.lang, `«${due.name}» vence HOY (${fmtFecha(c, due.on)}).`, `"${due.name}" is due TODAY (${fmtFecha(c, due.on)}).`)
+            : L(c.lang, `A «${due.name}» le faltan ${days} día${days === 1 ? "" : "s"}: vence el ${fmtFecha(c, due.on)}.`, `"${due.name}" is ${days} day${days === 1 ? "" : "s"} away: due ${fmtFecha(c, due.on)}.`),
         pieces: [{ label: due.name, minor: due.amt ?? 0 }],
         note: null, source: ["cobros.cuotas"], lines: 0,
       };
@@ -2209,7 +2978,7 @@ function calendarioAnswer(c: Ctx, folded: string): BankResult | null {
       const days = daysBetween(c.today, target);
       return {
         kind: "answer", family: "calendario",
-        verdict: L(c.lang, `Para el día ${day} faltan ${days} día${days === 1 ? "" : "s"}: cae el ${target}.`, `Day ${day} is ${days} day${days === 1 ? "" : "s"} away: it falls on ${target}.`),
+        verdict: L(c.lang, `Para el día ${day} faltan ${days} día${days === 1 ? "" : "s"}: cae el ${fmtFecha(c, target)}.`, `Day ${day} is ${days} day${days === 1 ? "" : "s"} away: it falls on ${fmtFecha(c, target)}.`),
         pieces: [], note: null, source: ["cobros.cuotas"], lines: 0,
       };
     }
@@ -2227,7 +2996,7 @@ function calendarioAnswer(c: Ctx, folded: string): BankResult | null {
     const iso = d.toISOString().slice(0, 10);
     return {
       kind: "answer", family: "calendario",
-      verdict: L(c.lang, `En ${n} ${unit} será el ${iso}.`, `In ${n} ${unit} it will be ${iso}.`),
+      verdict: L(c.lang, `En ${n} ${unit} será el ${fmtFecha(c, iso)}.`, `In ${n} ${unit} it will be ${fmtFecha(c, iso)}.`),
       pieces: [], note: null, source: ["cobros.cuotas"], lines: 0,
     };
   }
@@ -2252,6 +3021,329 @@ function monthlyAvgSpend(c: Ctx, filter: ((l: Line) => boolean) | null): { avg: 
 
 // ── OLA 15 · EL SIMULADOR — el futuro se ensaya antes de vivirse ────
 //
+/* OLA 40 · LAS PRIORIDADES Y EL INTERÉS (la caza del centro,
+ * clase 3): cinco preguntas de cada mes que callaban enteras, y una
+ * que se desviaba. El interés del mes no vive anotado como gasto —
+ * vive en los saldos y las tasas del libro, y se CALCULA de ahí,
+ * nombrado como cálculo. Las prioridades se responden con hechos
+ * ordenados (el orden de vencimiento es el único orden que el
+ * libro conoce), nunca con recomendación: la respuesta propone el
+ * orden de los hechos y el toque dispone, como en el comparador. */
+function prioridadesAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  const money = c.money;
+  const debts = planDebts(c.state, c.today);
+  const src = ["cobros.debo", "cobros.tarjetas"];
+  const doorPlan = reportDoor(c, "cobros.plan", "Ver el plan en Cobros · Plan de pago", "See the plan in Payments · Payoff plan");
+  const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 2)}%`;
+
+  /* EL INTERÉS DEL MES: «¿cuánto pago de intereses?» — la historia
+   * lo desviaba («nada anotado como intereses») porque el interés
+   * no es una línea: es saldo × tasa, y el libro trae los dos. */
+  const interesVoice = /(interes|interest)/.test(folded)
+    && /(cuanto (pago|es lo que pago|me sale|cuesta|hay)|cuanto de interes|how much (do i pay|interest|is my interest))/.test(folded)
+    && !/(pasado|pague|pagado|last month|el mes pasado)/.test(folded);
+  if (interesVoice) {
+    if (!debts.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, "No tienes deudas anotadas: sin saldos ni tasas, no hay interés que sumar.", "You have no recorded debts: with no balances or rates, there's no interest to add up."), pieces: [], note: null, source: src, lines: 0 };
+    const withInt = debts.filter((d) => d.monthlyInterest > 0);
+    const total = withInt.reduce((a, d) => a + d.monthlyInterest, 0);
+    if (!withInt.length) {
+      return { kind: "answer", family: "deudas", verdict: L(c.lang, `Tus deudas anotadas (${debts.map((d) => `«${d.name}», ${money(d.left)}`).join("; ")}) no traen tasa: sin tasa en el libro, el interés no se puede sumar — ese es el dato que falta, y no lo invento.`, `Your recorded debts (${debts.map((d) => `"${d.name}", ${money(d.left)}`).join("; ")}) carry no rate: with no rate in the book, the interest can't be added up — that's the missing fact, and I won't invent it.`), pieces: debts.map((d) => ({ label: d.name, minor: d.left })), note: null, source: src, lines: 0 };
+    }
+    const parts = withInt.map((d) => L(c.lang, `«${d.name}»: ${money(d.monthlyInterest)} al mes (${pct(d.aprBps)} anual sobre ${money(d.left)})`, `"${d.name}": ${money(d.monthlyInterest)} a month (${pct(d.aprBps)} a year on ${money(d.left)})`)).join("; ");
+    return {
+      kind: "answer", family: "deudas",
+      verdict: L(c.lang, `En intereses pagas unos ${money(total)} al mes, a las tasas anotadas en tu libro: ${parts}. No es un gasto que anotes línea a línea — es lo que tus saldos y tus tasas producen cada mes mientras los saldos no bajen.`, `In interest you pay about ${money(total)} a month, at the rates recorded in your book: ${parts}. It isn't an expense you record line by line — it's what your balances and your rates produce every month while the balances don't fall.`),
+      pieces: [...withInt.map((d) => ({ label: d.name, minor: d.monthlyInterest })), { label: L(c.lang, "Interés del mes", "The month's interest"), minor: total }],
+      note: L(c.lang, "El cálculo, dicho: saldo × tasa anual ÷ 12, deuda por deuda, con las tasas que tu libro trae — si una tasa cambia y no se anota, esta cifra envejece con ella.", "The math, stated: balance × annual rate ÷ 12, debt by debt, with the rates your book carries — if a rate changes and isn't recorded, this figure ages with it."),
+      source: src, lines: 0, actions: doorPlan,
+      graph: [{ id: "interes-mes", label: L(c.lang, "Tu interés de cada mes", "Your monthly interest"), minor: total, tense: "proyectado", flow: "stock", currency: c.display, assumption: { text: L(c.lang, "los saldos y las tasas tal como están anotados hoy", "the balances and rates exactly as recorded today"), origin: "libro" }, children: withInt.map((d) => ({ id: `int-${d.id}`, label: d.name, minor: d.monthlyInterest, tense: "proyectado" as const, flow: "flujo" as const, currency: c.display, sign: 1 as const })) }],
+    };
+  }
+
+  /* LA DEUDA MÁS CARA: dos lecturas honestas — en dólares al mes y
+   * en tasa — y se nombran las dos cuando no coinciden. */
+  const caraVoice = /((cual|que) (deuda|tarjeta|prestamo|credito)|which debt|which card).{0,40}(cara|costosa|cuesta mas|sale mas|most expensive|costs (me )?(the )?most)/.test(folded)
+    || /(deuda|tarjeta) mas (cara|costosa)/.test(folded);
+  if (caraVoice) {
+    if (!debts.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, "No tienes deudas anotadas: no hay una más cara que nombrar.", "You have no recorded debts: there's no costliest one to name."), pieces: [], note: null, source: src, lines: 0 };
+    if (debts.length === 1) return { kind: "answer", family: "deudas", verdict: L(c.lang, `Solo tienes una deuda anotada: «${debts[0].name}», ${money(debts[0].left)}${debts[0].monthlyInterest > 0 ? ` — te cuesta ${money(debts[0].monthlyInterest)} al mes en interés (${pct(debts[0].aprBps)} anual)` : " — y no trae tasa anotada, así que su interés no se puede sumar"}.`, `You have only one recorded debt: "${debts[0].name}", ${money(debts[0].left)}${debts[0].monthlyInterest > 0 ? ` — it costs you ${money(debts[0].monthlyInterest)} a month in interest (${pct(debts[0].aprBps)} a year)` : " — and it carries no recorded rate, so its interest can't be added up"}.`), pieces: [{ label: debts[0].name, minor: debts[0].left }], note: null, source: src, lines: 0 };
+    const byDollars = [...debts].sort((a, b) => b.monthlyInterest - a.monthlyInterest)[0];
+    const byRate = [...debts].sort((a, b) => b.aprBps - a.aprBps)[0];
+    return {
+      kind: "answer", family: "deudas",
+      verdict: byDollars.id === byRate.id
+        ? L(c.lang, `La que más te cuesta es «${byDollars.name}»: ${money(byDollars.monthlyInterest)} al mes en interés, y también es la de la tasa más alta (${pct(byDollars.aprBps)} anual sobre ${money(byDollars.left)}). Las dos lecturas — el dinero y la tasa — señalan la misma.`, `The one that costs you most is "${byDollars.name}": ${money(byDollars.monthlyInterest)} a month in interest, and it's also the highest rate (${pct(byDollars.aprBps)} a year on ${money(byDollars.left)}). Both readings — the money and the rate — point at the same one.`)
+        : L(c.lang, `Depende de la lectura, y te doy las dos: en dinero, la que más te cuesta es «${byDollars.name}» — ${money(byDollars.monthlyInterest)} al mes en interés (${pct(byDollars.aprBps)} sobre ${money(byDollars.left)}). En tasa, la más cara es «${byRate.name}» — ${pct(byRate.aprBps)} anual — pero su saldo es menor (${money(byRate.left)}), así que en dinero cuesta ${money(byRate.monthlyInterest)} al mes.`, `It depends on the reading, and here are both: in money, the costliest is "${byDollars.name}" — ${money(byDollars.monthlyInterest)} a month in interest (${pct(byDollars.aprBps)} on ${money(byDollars.left)}). By rate, the most expensive is "${byRate.name}" — ${pct(byRate.aprBps)} a year — but its balance is smaller (${money(byRate.left)}), so in money it costs ${money(byRate.monthlyInterest)} a month.`),
+      pieces: [{ label: byDollars.name, minor: byDollars.monthlyInterest }, ...(byRate.id !== byDollars.id ? [{ label: byRate.name, minor: byRate.monthlyInterest }] : [])],
+      note: null, source: src, lines: 0, actions: doorPlan,
+    };
+  }
+
+  /* COMPLETA O MÍNIMO: los dos caminos de UNA tarjeta, corridos por
+   * el motor del plan — meses e interés de cada uno, sin recomendar.
+   * La tarjeta se reconoce también por su línea (saldo anotado):
+   * planDebts no siempre marca revolving/card en las deudas que
+   * nacen de una línea con balance. */
+  const lineById = (id: string) => allLines(c).find((l) => l.id === id);
+  const isCardDebt = (d: (typeof debts)[number]) => !!(d.revolving || d.card || (lineById(d.id)?.balanceMinor ?? null) !== null);
+  const minimoVoice = /((completa|completo|full|pay (it|the card|the balance) off).{0,50}(minimo|minimum))|((minimo|minimum).{0,50}(completa|completo|full))/.test(folded);
+  if (minimoVoice) {
+    const card = debts.find((d) => isCardDebt(d)) ?? (debts.length === 1 ? debts[0] : null);
+    if (!card) {
+      /* CIERRE DEL CENTRO: la pregunta presupone una tarjeta que el
+       * libro no trae — la ausencia se nombra, no se calla. */
+      return { kind: "answer", family: "deudas", verdict: L(c.lang, "Completa o mínimo es una pregunta de tarjetas, y en tu libro no hay ninguna tarjeta con saldo anotada: ese camino no tiene qué correr. Si pagas una tarjeta que no está anotada, anótala con su saldo y su tasa y los dos caminos salen en el acto.", "Full or minimum is a credit-card question, and your book has no card with a recorded balance: that path has nothing to run on. If you pay a card that isn't recorded, record it with its balance and rate and both paths come out on the spot."), pieces: [], note: null, source: src, lines: 0 };
+    }
+    if (!isCardDebt(card)) {
+      return { kind: "answer", family: "deudas", verdict: L(c.lang, `Lo único que traes es «${card.name}» — un préstamo, no una tarjeta: completa-o-mínimo es una pregunta de tarjetas (el mínimo es cosa de tarjetas). De préstamos sí puedo correrte el plan de pagos completo, si quieres.`, `The only thing you carry is "${card.name}" — a loan, not a card: full-or-minimum is a credit-card question (the minimum is a card thing). For loans I can run you the full payment plan, if you want.`), pieces: [{ label: card.name, minor: card.left }], note: null, source: src, lines: 0 };
+    }
+    const full = simulatePlan([card], card.left + card.monthlyInterest, "avalanche");
+    const minFromLine = card.min === undefined ? (lineById(card.id)?.amountMinor ?? 0) : 0;
+    const minAmt = card.min ?? minFromLine;
+    const minRun = minAmt > card.monthlyInterest ? simulatePlan([card], minAmt, "avalanche") : null;
+    const fullTxt = full ? L(c.lang, `pagarla completa hoy: sales en ${full.months} mes${full.months === 1 ? "" : "es"} y el interés que aún corre es ${money(full.interest)}`, `paying it in full today: you're out in ${full.months} month${full.months === 1 ? "" : "s"} and the interest still running is ${money(full.interest)}`) : L(c.lang, "pagarla completa hoy: sales de una vez", "paying it in full today: you're out at once");
+    const minTxt = minRun
+      ? L(c.lang, `al mínimo de ${money(minAmt)} al mes: ${minRun.months} meses y ${money(minRun.interest)} de interés`, `at the ${money(minAmt)} monthly minimum: ${minRun.months} months and ${money(minRun.interest)} in interest`)
+      : minAmt > 0
+        ? L(c.lang, `al mínimo de ${money(minAmt)}: la deuda no baja — el interés del mes (${money(card.monthlyInterest)}) se come el pago entero`, `at the ${money(minAmt)} minimum: the debt doesn't fall — the month's interest (${money(card.monthlyInterest)}) eats the whole payment`)
+        : L(c.lang, `al mínimo: no traes la cuota mínima anotada de esta tarjeta, así que ese camino no se puede correr — el dato que falta es su mínimo`, `at the minimum: you don't carry this card's recorded minimum, so that path can't be run — the missing fact is its minimum`);
+    const diff = full && minRun ? L(c.lang, ` La diferencia entre los dos caminos: ${money(minRun.interest - full.interest)} de interés y ${minRun.months - full.months} meses.`, ` The difference between the two paths: ${money(minRun.interest - full.interest)} of interest and ${minRun.months - full.months} months.`) : "";
+    return {
+      kind: "answer", family: "deudas",
+      verdict: L(c.lang, `Con «${card.name}» (saldo ${money(card.left)}, ${pct(card.aprBps)} anual), los dos caminos, sin recomendarte ninguno: ${fullTxt}; ${minTxt}.${diff} Cuál pesa más es tu decisión: yo te enseño los caminos.`, `With "${card.name}" (balance ${money(card.left)}, ${pct(card.aprBps)} a year), the two paths, recommending none: ${fullTxt}; ${minTxt}.${diff} Which weighs more is your decision: I show you the paths.`),
+      pieces: [{ label: L(c.lang, "El saldo", "The balance"), minor: card.left }, ...(full ? [{ label: L(c.lang, "Interés pagándola completa", "Interest paying it in full"), minor: full.interest }] : []), ...(minRun ? [{ label: L(c.lang, "Interés al mínimo", "Interest at the minimum"), minor: minRun.interest }] : [])],
+      note: card.minGuess
+        ? L(c.lang, "El mínimo que usé es el estimado del libro para esta tarjeta — no traes su cuota anotada; con la cuota real, el camino del mínimo se recalcula.", "The minimum I used is the book's estimate for this card — you don't carry its recorded installment; with the real one, the minimum path is recomputed.")
+        : card.min === undefined && minFromLine > 0
+          ? L(c.lang, `El pago mensual que caminé en el camino del mínimo es la cuota anotada de la tarjeta (${money(minFromLine)}) — si tu mínimo real es otro, ese camino se recalcula con él.`, `The monthly payment I walked on the minimum path is the card's recorded installment (${money(minFromLine)}) — if your real minimum is different, that path is recomputed with it.`)
+          : null,
+      source: src, lines: 0, actions: doorPlan,
+    };
+  }
+
+  /* SI NO PAGO: el costo de saltarse un mes, con su dato ausente
+   * nombrado (la multa no vive en el libro). */
+  const skipVoice = /(que pasa|que pasaria|que ocurre|what if|what happens).{0,50}(no pago|dejo de pagar|me salto|no pagara|no la pago|no lo pago|miss|skip)/.test(folded)
+    && /(tarjeta|deuda|prestamo|credito|card|debt|loan)/.test(folded);
+  if (skipVoice) {
+    if (!debts.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, "No tienes deudas anotadas: no hay un pago que saltarse en tu libro.", "You have no recorded debts: there's no payment in your book to skip."), pieces: [], note: null, source: src, lines: 0 };
+    const wantsCard = /(tarjeta|card)/.test(folded);
+    const d = (wantsCard ? debts.find((x) => isCardDebt(x)) : null) ?? debts.find((x) => x.monthlyInterest > 0) ?? debts[0];
+    return {
+      kind: "answer", family: "deudas",
+      verdict: L(c.lang, `Si no pagas «${d.name}» este mes, el pago no desaparece — se mueve: el saldo crece a ${money(d.left + d.monthlyInterest)} con el interés del mes (${money(d.monthlyInterest)}, a su tasa del ${pct(d.aprBps)} anual), y el mes que viene el pago se junta con el siguiente. Lo que tu libro no trae es la multa por atraso de esta cuenta: ese costo existe en el contrato, no en tus notas, y no lo invento.`, `If you don't pay "${d.name}" this month, the payment doesn't disappear — it moves: the balance grows to ${money(d.left + d.monthlyInterest)} with the month's interest (${money(d.monthlyInterest)}, at its ${pct(d.aprBps)} annual rate), and next month the payment lands together with the following one. What your book doesn't carry is this account's late fee: that cost lives in the contract, not in your notes, and I won't invent it.`),
+      pieces: [{ label: d.name, minor: d.left }, { label: L(c.lang, "El interés del mes saltado", "The skipped month's interest"), minor: d.monthlyInterest }],
+      note: null, source: src, lines: 0, actions: doorPlan,
+    };
+  }
+
+  /* ESTO O AQUELLO: dos obligaciones nombradas — el paseo del mes
+   * dice si caben las dos y en qué orden vencen; si una es guardar,
+   * la reserva se descuenta del cierre y se dice. Las obligaciones
+   * se resuelven contra la ventana de vencimientos y las líneas del
+   * mes (nombre entero o su primera palabra: «la tarjeta» nombra a
+   * «Tarjeta Visa»); si alguna no se resuelve, no es esta forma. */
+  const eitherM = /^(.*?)\s+(?:o|or)\s+(.*)$/.exec(folded);
+  if (eitherM && /(pago|pagar|guardo|guardar|ahorro|ahorrar|pay|save)/.test(folded) && !/(avalancha|bola de nieve|avalanche|snowball)/.test(folded)) {
+    const nameHit = (seg: string, name: string): boolean => {
+      const f = foldQ(name).trim();
+      if (f.length < 3) return false;
+      const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`(^|[^a-z0-9])${esc(f)}([^a-z0-9]|$)`).test(seg)) return true;
+      const first = f.split(" ")[0];
+      return first.length >= 4 && new RegExp(`(^|[^a-z0-9])${esc(first)}([^a-z0-9]|$)`).test(seg);
+    };
+    const obligation = (seg: string): { display: string; amt: number; on: string | null } | null => {
+      for (const d of duesWindow(c.state, 40, c.today)) {
+        if (d.amt !== null && d.amt > 0 && d.kind !== "lent" && nameHit(seg, d.name)) return { display: d.name, amt: d.amt, on: d.on };
+      }
+      for (const l of c.state.months[c.key]?.lines ?? []) {
+        if (l.active && isOut(l) && nameHit(seg, l.concept)) return { display: l.concept, amt: view(c, l), on: null };
+      }
+      return null;
+    };
+    const obA = obligation(eitherM[1]);
+    const obB = obligation(eitherM[2]);
+    if (obA && obB && obA.display !== obB.display) {
+      const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+      const start = reading.left;
+      const endIso = monthEndIso(c.today);
+      const { events, counted } = scheduledEvents(c, daysBetweenIso(c.today, endIso));
+      const w = walkEvents(start, events, endIso);
+      const saveB = /(guard|ahorr|save)/.test(eitherM[2]);
+      const closeAfter = saveB ? w.end - obB.amt : w.end;
+      const bothFit = closeAfter >= 0 && w.min >= 0;
+      const facts = L(c.lang, `Los hechos: «${obA.display}» pide ${money(obA.amt)}${obA.on ? ` y vence el ${fmtFecha(c, obA.on)}` : ""}; «${obB.display}» pide ${money(obB.amt)}${obB.on ? ` y vence el ${fmtFecha(c, obB.on)}` : ""}.`, `The facts: "${obA.display}" asks ${money(obA.amt)}${obA.on ? ` and falls on ${fmtFecha(c, obA.on)}` : ""}; "${obB.display}" asks ${money(obB.amt)}${obB.on ? ` and falls on ${fmtFecha(c, obB.on)}` : ""}.`);
+      return {
+        kind: "answer", family: "deudas",
+        verdict: bothFit
+          ? L(c.lang, `Con lo anotado caben las dos: caminando todo lo programado, el mes cierra en ${money(closeAfter)}${saveB ? ` — ya guardados los ${money(obB.amt)} de «${obB.display}»` : ""} y ningún día queda en negativo. ${facts} No hay que escoger: el libro alcanza para ambas, en su orden.`, `On what's recorded both fit: walking everything scheduled, the month closes at ${money(closeAfter)}${saveB ? ` — with the ${money(obB.amt)} for "${obB.display}" already set aside` : ""} and no day goes negative. ${facts} There's no choice to make: the book covers both, in their order.`)
+          : L(c.lang, `Enteras, las dos no caben este mes: caminando lo programado el mes cierra en ${money(w.end)}${w.conflict ? ` y el primer tropiezo es «${w.conflict.ev.name}» el ${fmtFecha(c, w.conflict.ev.on)}, que te deja en ${money(w.conflict.bal)}` : ""}. ${facts} Cuál va primero es tu decisión — yo te enseño las fechas y las cifras.`, `Whole, the two don't fit this month: walking what's scheduled the month closes at ${money(w.end)}${w.conflict ? ` and the first stumble is "${w.conflict.ev.name}" on ${fmtFecha(c, w.conflict.ev.on)}, leaving you at ${money(w.conflict.bal)}` : ""}. ${facts} Which goes first is your decision — I show you the dates and the figures.`),
+        pieces: [{ label: L(c.lang, "Queda de hoy", "Left today"), minor: start }, { label: L(c.lang, "Cierre del mes", "Month close"), minor: closeAfter }],
+        note: counted.length ? L(c.lang, `Lo de este mes (${[...new Set(counted)].join(", ")}) ya está contado en tu queda de hoy: el paseo camina lo que aún no está en ella, para no restar nada dos veces.`, `This month's (${[...new Set(counted)].join(", ")}) is already counted in today's left: the walk covers what isn't in it yet, so nothing is subtracted twice.`) : null,
+        source: ["libros.lineas", "cobros.cuotas", "central.queda"], lines: 0,
+        actions: reportDoor(c, "central.pagos", "Ver los pagos que se acercan", "See the payments coming up"),
+      };
+    }
+    /* CIERRE DEL CENTRO: NINGÚN lado se resuelve con esos nombres
+     * (ni la tarjeta ni «la renta» — su vivienda se anota «Casa»):
+     * la ausencia doble se nombra y se enseña lo que sí vence. */
+    if (!obA && !obB && /(tarjeta|card|deuda|debt|prestamo|loan|renta|rent)/.test(folded)) {
+      const upcoming = duesWindow(c.state, 40, c.today).filter((d) => d.amt !== null && d.amt > 0 && d.kind !== "lent").slice(0, 2);
+      const upTxt = upcoming.length ? L(c.lang, ` Lo que sí tienes anotado que vence: ${upcoming.map((d) => `«${d.name}» ${money(d.amt!)} el ${fmtFecha(c, d.on)}`).join(" y ")}. Con los nombres de tu libro, la comparación se camina en el acto.`, ` What you do have recorded coming due: ${upcoming.map((d) => `"${d.name}" ${money(d.amt!)} on ${fmtFecha(c, d.on)}`).join(" and ")}. With your book's own names, the comparison gets walked on the spot.`) : "";
+      return {
+        kind: "answer", family: "deudas",
+        verdict: L(c.lang, `Ninguno de los dos lados está en tu libro con ese nombre: no tienes una tarjeta anotada, ni una línea llamada «renta» — con esos nombres la comparación no se puede caminar.${upTxt}`, `Neither side is in your book under that name: you have no recorded card, and no line called "rent" — under those names the comparison can't be walked.${upTxt}`),
+        pieces: upcoming.map((d) => ({ label: d.name, minor: d.amt! })),
+        note: null, source: ["libros.lineas", "cobros.cuotas"], lines: 0,
+      };
+    }
+    /* CIERRE DEL CENTRO: un lado nombra una deuda que el libro no
+     * trae («la tarjeta» sin tarjeta anotada) — la ausencia se
+     * nombra y el lado que sí está se enseña con su cifra. */
+    if ((obA && !obB) || (!obA && obB)) {
+      const missingSeg = obA ? eitherM[2] : eitherM[1];
+      const found = (obA ?? obB)!;
+      if (/(tarjeta|card|deuda|debt|prestamo|loan|credito|credit)/.test(missingSeg)) {
+        const what = /(tarjeta|card)/.test(missingSeg) ? L(c.lang, "una tarjeta", "a card") : L(c.lang, "esa deuda", "that debt");
+        return {
+          kind: "answer", family: "deudas",
+          verdict: L(c.lang, `Un lado de tu pregunta no está en tu libro: no tienes ${what} anotada, así que ese lado no se puede caminar — la pregunta la trae, tu libro no. El otro lado sí está: «${found.display}» pide ${money(found.amt)}${found.on ? ` y vence el ${fmtFecha(c, found.on)}` : ""}. Si esa cuenta existe fuera del libro, anótala y los dos lados se caminan juntos.`, `One side of your question isn't in your book: you have no ${what} recorded, so that side can't be walked — your question brings it, your book doesn't. The other side is there: "${found.display}" asks ${money(found.amt)}${found.on ? ` and falls on ${fmtFecha(c, found.on)}` : ""}. If that account exists outside the book, record it and both sides get walked together.`),
+          pieces: [{ label: found.display, minor: found.amt }],
+          note: null, source: ["libros.lineas", "cobros.cuotas"], lines: 0,
+        };
+      }
+    }
+  }
+
+  /* ¿QUÉ PAGO PRIMERO?: el orden de vencimiento, con la queda
+   * caminando detrás de cada pago — el único orden que el libro
+   * conoce, enseñado como hechos. */
+  const primeroVoice = /((que|qué|cual) (pago|debo pagar|pagar|sale) primero|what (should|do) i pay first|which (bill|payment|debt) (first|do i pay first))/.test(folded);
+  if (primeroVoice) {
+    const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+    const start = reading.left;
+    const dues = duesWindow(c.state, 35, c.today).filter((d) => d.amt !== null && d.amt > 0 && d.kind !== "lent");
+    if (!dues.length) {
+      return { kind: "answer", family: "deudas", verdict: L(c.lang, `No tienes pagos con fecha y monto en los próximos 35 días: sin vencimientos anotados no hay un «primero» que ordenar. Tu queda de hoy es ${money(start)}.`, `You have no dated payments with amounts in the next 35 days: with no recorded dues there's no "first" to order. Your left today is ${money(start)}.`), pieces: [{ label: L(c.lang, "Queda de hoy", "Left today"), minor: start }], note: null, source: ["cobros.cuotas", "central.queda"], lines: 0 };
+    }
+    let bal = start;
+    const steps: string[] = [];
+    const pieces: BankPiece[] = [{ label: L(c.lang, "Queda de hoy", "Left today"), minor: start }];
+    let breakAt = -1;
+    dues.slice(0, 6).forEach((d, i) => {
+      bal -= d.amt ?? 0;
+      if (bal < 0 && breakAt < 0) breakAt = i;
+      steps.push(L(c.lang, `${i + 1}. «${d.name}», el ${fmtFecha(c, d.on)}: ${money(d.amt ?? 0)} — te quedan ${money(bal)}`, `${i + 1}. "${d.name}", on ${fmtFecha(c, d.on)}: ${money(d.amt ?? 0)} — leaving you ${money(bal)}`));
+      pieces.push({ label: d.name, minor: -(d.amt ?? 0) });
+    });
+    const more = dues.length > 6 ? L(c.lang, ` Y siguen ${dues.length - 6} más en la ventana.`, ` And ${dues.length - 6} more follow in the window.`) : "";
+    return {
+      kind: "answer", family: "deudas",
+      verdict: L(c.lang, `El orden en que vencen — el único orden que tu libro conoce — con tu queda caminando detrás de cada uno. Partes de ${money(start)}: ${steps.join("; ")}.${more}${breakAt >= 0 ? ` Ojo: hasta el ${breakAt + 1}.º alcanza; «${dues[breakAt].name}» ya te deja en negativo — ahí es donde el mes pide una decisión, y es tuya.` : " Con lo anotado, todos caben en su orden."}`, `The order they fall due — the only order your book knows — with your left walking behind each one. You start from ${money(start)}: ${steps.join("; ")}.${more}${breakAt >= 0 ? ` Mind you: your money reaches through #${breakAt}; "${dues[breakAt].name}" already leaves you negative — that's where the month asks for a decision, and it's yours.` : " On what's recorded, they all fit in their order."}`),
+      pieces, note: L(c.lang, "El orden es el de las fechas anotadas, no una recomendación: si una cuenta cobrara más interés que otra, ese es otro dato — pregúntame cuál deuda te sale más cara y lo ponemos al lado.", "The order is the recorded dates', not a recommendation: if one account charged more interest than another, that's a different fact — ask me which debt costs you most and we'll set it alongside."),
+      source: ["cobros.cuotas", "central.queda"], lines: 0,
+      actions: reportDoor(c, "central.pagos", "Ver los pagos que se acercan", "See the payments coming up"),
+    };
+  }
+
+  return null;
+}
+
+/* OLA 31 · EL COMPARADOR DE DEUDAS (investigación II, mecanismo
+ * #5): avalancha y bola de nieve corridas por el MISMO motor del
+ * plan (simulatePlan), enseñadas lado a lado — meses, interés
+ * total, primera cuenta que cierra y cierres al mes 6 — SIN
+ * recomendar ninguna. El teorema manda la forma: la ventaja de un
+ * orden sobre otro es función del desacuerdo entre el orden por
+ * saldo y el orden por tasa; si con TUS deudas los dos órdenes son
+ * el mismo camino, la ventaja es CERO y se dice cero. Lo que la
+ * nieve gana cuando gana no es dinero: cierra cuentas antes, y
+ * cerrar cuentas es lo que predice terminar (Gal & McShane 2012)
+ * — se reporta como dato, jamás como consejo. El HÍBRIDO (la más
+ * pequeña primero y luego por tasa) se corre por el mismo motor
+ * subiendo la tasa de ordenación de la más pequeña SOLO cuando
+ * esa deuda no es revolvente (su interés no depende de la tasa de
+ * ordenación); si la más pequeña es una tarjeta, su cifra no se
+ * inventa: la nota declara la costura. */
+function comparadorAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  if (!/(avalancha|bola de nieve|avalanche|snowball|que orden|en que orden|cual orden|orden de pago|orden para pagar)/.test(folded)) return null;
+  const debts = planDebts(c.state, c.today);
+  const src = ["cobros.plan", "cobros.debo"];
+  if (!debts.length) {
+    return { kind: "answer", family: "deudas", verdict: L(c.lang, "No tienes deudas anotadas: sin deudas no hay órdenes que comparar.", "You have no recorded debts: with no debts there are no orders to compare."), pieces: [], note: null, source: src, lines: 0 };
+  }
+  if (debts.length === 1) {
+    return { kind: "answer", family: "deudas", verdict: L(c.lang, `Solo tienes una deuda anotada («${debts[0].name}», ${c.money(debts[0].left)}): con una sola cuenta no hay orden que comparar — todo el plan va a ella.`, `You have only one recorded debt (\"${debts[0].name}\", ${c.money(debts[0].left)}): with a single account there's no order to compare — the whole plan goes to it.`), pieces: [{ label: debts[0].name, minor: debts[0].left }], note: null, source: src, lines: 0 };
+  }
+  const brought = amountsIn(raw);
+  const plan = payoffPlan(c.state, c.today);
+  const budget = brought.length ? Math.max(...brought.map((a) => convertMinor(a.minor, a.currency, c.display, c.rateE4))) : plan.budget;
+  if (budget <= 0) {
+    return { kind: "answer", family: "deudas", verdict: L(c.lang, "Para comparar los dos órdenes necesito el monto mensual del plan — y no traes uno en la pregunta ni hay un plan guardado o un ritmo reciente de pagos. Dime «con $300 al mes» y te enseño los dos caminos.", "To compare the two orders I need the plan's monthly amount — and you brought none in the question, and there's no saved plan or recent payment pace. Tell me \\\"with $300 a month\\\" and I'll show you both paths."), pieces: [], note: null, source: src, lines: 0 };
+  }
+  const av = simulatePlan(debts, budget, "avalanche");
+  const sb = simulatePlan(debts, budget, "snowball");
+  if (!av || !sb) {
+    const monthlyInterest = debts.reduce((s, d) => s + d.monthlyInterest, 0);
+    return { kind: "answer", family: "deudas", verdict: L(c.lang, `Con ${c.money(budget)} al mes ninguno de los dos caminos corre: el interés de tus deudas suma ${c.money(monthlyInterest)} al mes y el presupuesto no lo pasa — la deuda crecería en vez de bajar. La comparación pide un monto mayor.`, `With ${c.money(budget)} a month neither path runs: your debts' interest adds up to ${c.money(monthlyInterest)} a month and the budget doesn't clear it — the debt would grow instead of shrink. The comparison needs a larger amount.`), pieces: [], note: null, source: src, lines: 0 };
+  }
+  const nameOf = (id: string) => debts.find((d) => d.id === id)?.name ?? id;
+  const orderNames = (run: PlanRun) => (run ? run.order.map(nameOf).join(", ") : "");
+  const firstClose = (run: PlanRun): { name: string; month: number } | null => {
+    if (!run) return null;
+    let best: { name: string; month: number } | null = null;
+    for (const [id, m] of Object.entries(run.finish)) if (!best || m < best.month) best = { name: nameOf(id), month: m };
+    return best;
+  };
+  const closures6 = (run: PlanRun) => (run ? Object.values(run.finish).filter((m) => m <= 6).length : 0);
+  const monthName = (m: number) => { const k = monthAhead(m, c.today); return `${MONTH_LABELS[k.slice(5, 7).replace(/^0/, "")][c.lang === "en" ? 1 : 0]} ${k.slice(0, 4)}`; };
+  const sameOrder = av.order.join("|") === sb.order.join("|");
+  // El híbrido: la más pequeña primero (por ordenación), luego tasa.
+  const smallest = [...debts].sort((a, b) => a.left - b.left)[0];
+  const hybrid: PlanRun = smallest.revolving
+    ? null
+    : simulatePlan(debts.map((d) => (d.id === smallest.id ? { ...d, aprBps: 9_999_999, freeMonths: 0 } : d)), budget, "avalanche");
+  const budgetNote = brought.length
+    ? L(c.lang, `El monto del plan es el que trajiste: ${c.money(budget)} al mes.`, `The plan amount is the one you brought: ${c.money(budget)} a month.`)
+    : L(c.lang, `El monto del plan es ${c.money(budget)} al mes${plan.fromUser ? ", el de tu plan guardado" : ", tu ritmo medido de pagos recientes"}.`, `The plan amount is ${c.money(budget)} a month${plan.fromUser ? ", from your saved plan" : ", your measured pace of recent payments"}.`);
+  const hybridNote = smallest.revolving
+    ? L(c.lang, "El camino intermedio (la más pequeña primero y luego por tasa) no te lo numero: tu deuda más pequeña es una tarjeta y su interés depende de la tasa, así que moverla en el orden movería su cifra — el motor de planes ordena de dos maneras y no invento la tercera.", "The middle path (smallest first, then by rate) I won't put a number on: your smallest debt is a card and its interest depends on its rate, so moving it in the order would move its figure — the plan engine orders two ways and I won't invent the third.")
+    : null;
+  const note = [budgetNote, hybridNote].filter(Boolean).join(" ");
+  const runLine = (label: string, run: PlanRun): string => {
+    const fc = firstClose(run);
+    return L(c.lang, `${label} (${orderNames(run)}): terminas en ${run!.months} meses, pagas ${c.money(run!.interest)} de interés, la primera cuenta que cierra es «${fc?.name}» en ${monthName(fc?.month ?? 0)} y al mes 6 llevas ${closures6(run)} cerrada${closures6(run) === 1 ? "" : "s"}.`, `${label} (${orderNames(run)}): you're done in ${run!.months} months, you pay ${c.money(run!.interest)} in interest, the first account to close is \"${fc?.name}\" in ${monthName(fc?.month ?? 0)} and by month 6 you have ${closures6(run)} closed.`);
+  };
+  if (sameOrder) {
+    return {
+      kind: "answer", family: "deudas",
+      verdict: L(c.lang, `Con tus deudas, la avalancha y la bola de nieve son EL MISMO camino — el orden por tasa y el orden por saldo coinciden, así que la ventaja de uno sobre otro es cero, y se dice cero. ${runLine(L(c.lang, "El camino", "The path"), av)}`, `With your debts, avalanche and snowball are THE SAME path — the order by rate and the order by balance agree, so one's advantage over the other is zero, and zero is what's said. ${runLine("The path", av)}`),
+      pieces: [{ label: L(c.lang, "Interés total del camino", "The path's total interest"), minor: av.interest }],
+      note, source: src, lines: 0,
+      actions: reportDoor(c, "cobros.plan", "Ver el plan en Cobros · Plan de pago", "See the plan in Payments · Payoff plan"),
+    };
+  }
+  const dInterest = sb.interest - av.interest;
+  const dMonths = sb.months - av.months;
+  const fcSb = firstClose(sb);
+  const fcAv = firstClose(av);
+  const hybridLine = hybrid
+    ? L(c.lang, ` El intermedio (primero «${smallest.name}», la más pequeña, y luego por tasa): terminas en ${hybrid.months} meses y pagas ${c.money(hybrid.interest)} de interés.`, ` The middle path (\"${smallest.name}\" first, the smallest, then by rate): you're done in ${hybrid.months} months and pay ${c.money(hybrid.interest)} in interest.`)
+    : "";
+  return {
+    kind: "answer", family: "deudas",
+    verdict: L(c.lang, `Con ${c.money(budget)} al mes, los caminos, sin recomendarte ninguno. ${runLine("Avalancha — la tasa más alta primero", av)} ${runLine("Bola de nieve — el saldo más chico primero", sb)}${hybridLine} La diferencia en dinero: la avalancha paga ${c.money(Math.abs(dInterest))} ${dInterest >= 0 ? "menos" : "más"} de interés${dMonths !== 0 ? ` y termina ${Math.abs(dMonths)} mes${Math.abs(dMonths) === 1 ? "" : "es"} ${dMonths > 0 ? "antes" : "después"}` : " y terminan el mismo mes"}. Lo que la bola de nieve gana no es dinero: cierra su primera cuenta en ${monthName(fcSb?.month ?? 0)} (la avalancha, en ${monthName(fcAv?.month ?? 0)}), y cerrar cuentas pronto es lo que la investigación asocia con llegar hasta el final. Cuál pesa más es tu decisión: yo te enseño los caminos.`, `With ${c.money(budget)} a month, the paths, recommending none. ${runLine("Avalanche — highest rate first", av)} ${runLine("Snowball — smallest balance first", sb)}${hybridLine} The money difference: avalanche pays ${c.money(Math.abs(dInterest))} ${dInterest >= 0 ? "less" : "more"} interest${dMonths !== 0 ? ` and finishes ${Math.abs(dMonths)} month${Math.abs(dMonths) === 1 ? "" : "s"} ${dMonths > 0 ? "sooner" : "later"}` : " and they finish in the same month"}. What snowball wins isn't money: it closes its first account in ${monthName(fcSb?.month ?? 0)} (avalanche, in ${monthName(fcAv?.month ?? 0)}), and closing accounts early is what research links to seeing it through. Which weighs more is your decision: I show you the paths.`),
+    pieces: [
+      { label: L(c.lang, "Avalancha · interés total", "Avalanche · total interest"), minor: av.interest },
+      { label: L(c.lang, "Bola de nieve · interés total", "Snowball · total interest"), minor: sb.interest },
+      ...(hybrid ? [{ label: L(c.lang, "Intermedio · interés total", "Middle path · total interest"), minor: hybrid.interest }] : []),
+    ],
+    note, source: src, lines: 0,
+    actions: reportDoor(c, "cobros.plan", "Ver el plan en Cobros · Plan de pago", "See the plan in Payments · Payoff plan"),
+  };
+}
+
 // El plan de deudas de la app ya tiene su motor (simulatePlan, el mismo
 // que corre la pantalla del Plan): el Asesor no inventa otro — le pone
 // la pregunta encima. La forma: el usuario trae un monto (un pago total
@@ -2439,6 +3531,21 @@ function estacionalidadAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(en que mes|que mes|cual mes|which month|mes (mas caro|de mas gasto|mas fuerte)|gasto por mes|estacional|temporada)/.test(folded)) return null;
   if (!/(gasto|gasta|gaste|gastar|compro|compra|se me va|se va|spend|spent|dinero|sale|salio)/.test(folded)) return null;
   const filter = filterOf(c, folded);
+  // OLA 26 (U5, el disfraz): el filtro que no resuelve NO se ignora —
+  // la versión anterior respondía el mes TOTAL a «¿en qué mes gasto
+  // más en el súper?», una cifra real para otra pregunta. Sin filtro y
+  // con una palabra que el libro no conoce, la ausencia se nombra,
+  // como la nombra historia; con filtro y sin un solo mes, también.
+  if (!filter) {
+    const stray = strayFilterWord(c, folded);
+    if (stray) {
+      return {
+        kind: "answer", family: "estacionalidad",
+        verdict: L(c.lang, `No tengo nada anotado como «${stray}»: sin gasto con ese nombre no hay mes fuerte que buscar. Si lo anotas con otro nombre, pregúntame por ese.`, `I have nothing recorded as "${stray}": with no spending under that name there's no strongest month to find. If you record it under another name, ask me by that one.`),
+        pieces: [], note: null, source: ["historial.stream"], lines: 0,
+      };
+    }
+  }
   const byMonth = new Map<string, number>();
   for (const mk of Object.keys(c.state.months)) {
     let sum = 0;
@@ -2449,7 +3556,16 @@ function estacionalidadAnswer(c: Ctx, folded: string): BankResult | null {
     }
     if (sum > 0) byMonth.set(mk, sum);
   }
-  if (!byMonth.size) return null;
+  if (!byMonth.size) {
+    if (filter) {
+      return {
+        kind: "answer", family: "estacionalidad",
+        verdict: L(c.lang, "No tienes gasto anotado en eso en ningún mes: no hay mes fuerte que nombrar.", "You have no recorded spending on that in any month: there's no strongest month to name."),
+        pieces: [], note: null, source: ["historial.stream"], lines: 0,
+      };
+    }
+    return null;
+  }
   const rows = [...byMonth.entries()].sort((a, b) => b[1] - a[1]);
   const avg = Math.round(rows.reduce((a, r) => a + r[1], 0) / rows.length);
   const label = (mk: string) => { const [y, m] = mk.split("-").map(Number); return `${MONTH_LABELS[m][c.lang === "en" ? 1 : 0]} ${y}`; };
@@ -2461,6 +3577,124 @@ function estacionalidadAnswer(c: Ctx, folded: string): BankResult | null {
     actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
   };
 }
+
+/* OLA 43 · EL INGRESO QUE SE MUEVE (la caza del centro, clase 6):
+ * la sensibilidad y el contrafactual existían solo para el GASTO.
+ * El ingreso también se mueve — baja el sueldo, no entra el
+ * negocio — y esas preguntas callaban enteras. Las dos formas
+ * nuevas miden el ingreso con las mismas reglas: el escenario se
+ * declara, la cifra se camina contra el mes, nada se ejecuta. */
+function ingresoConcepto(c: Ctx, folded: string): { name: string; thisMonth: number; typical: number } | null {
+  const byConcept = new Map<string, { byMonth: Map<string, number> }>();
+  for (const l of allLines(c)) {
+    if (!l.active || !/^income/.test(l.kind) || !l.concept) continue;
+    if (!byConcept.has(l.concept)) byConcept.set(l.concept, { byMonth: new Map() });
+    const e = byConcept.get(l.concept)!;
+    e.byMonth.set(l.monthKey, (e.byMonth.get(l.monthKey) ?? 0) + view(c, l));
+  }
+  if (!byConcept.size) return null;
+  const medianOf = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
+  const build = (name: string) => {
+    const e = byConcept.get(name)!;
+    const months = [...e.byMonth.entries()].filter(([k]) => k <= c.key).map(([, v]) => v);
+    return { name, thisMonth: e.byMonth.get(c.key) ?? 0, typical: medianOf(months) };
+  };
+  // El nombrado en la pregunta manda; si no, el sueldo/salario.
+  for (const name of byConcept.keys()) if (foldQ(name).length >= 3 && new RegExp(`(^|[^a-z0-9])${foldQ(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded)) return build(name);
+  // «No vendo nada» y «the business» hablan del ingreso que se
+  // vende — el variable — y mandan sobre la preferencia por el
+  // sueldo: la pregunta nombra la fuente por su naturaleza.
+  if (/(vendo|vender|venta|ventas|sell|selling|sales|business|negocio)/.test(folded)) {
+    for (const l of allLines(c)) if (l.active && l.kind === "income-variable" && l.concept && byConcept.has(l.concept)) return build(l.concept);
+  }
+  for (const name of byConcept.keys()) if (/(sueldo|salario|salary|paycheck|wage)/i.test(name)) return build(name);
+  if (byConcept.size === 1) return build([...byConcept.keys()][0]);
+  return null;
+}
+
+function ingresoSensibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  if (!/(bajan|baja|bajara|recort|reduc|drops?|drop|cut|lower|reduced?)/.test(folded)) return null;
+  if (!/(sueldo|salario|ingreso|salary|paycheck|income|wage|paga)/.test(folded)) return null;
+  const src = ingresoConcepto(c, folded);
+  if (!src) return null;
+  const base = src.thisMonth > 0 ? src.thisMonth : src.typical;
+  if (base <= 0) return null;
+  const pctM = folded.match(/(\d+(?:[.,]\d+)?)\s?%/);
+  const amounts = amountsIn(raw);
+  let newAmt: number | null = null;
+  let pctTxt = "";
+  if (pctM) {
+    const pct = Number(pctM[1].replace(",", "."));
+    if (pct > 0 && pct < 100) { newAmt = Math.round(base * (1 - pct / 100)); pctTxt = ` (−${pct}%)`; }
+  } else if (amounts.length) {
+    const a = convertMinor(amounts[0].minor, amounts[0].currency, c.display, c.rateE4);
+    if (a < base) newAmt = a;
+    else {
+      /* CIERRE DEL CENTRO: el monto traído no es una baja contra lo
+       * anotado — es una subida, y se dice con su dirección. */
+      const readingR = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+      const bookedR = src.thisMonth > 0;
+      const notSalary = /(sueldo|salario|salary|paycheck)/.test(folded) && !/(sueldo|salario|salary|paycheck)/i.test(src.name);
+      return {
+        kind: "answer", family: "hipotetico",
+        verdict: L(c.lang, `Eso no es una baja: en tu libro, ${src.name} — tu ingreso anotado${notSalary ? " (no traes un sueldo anotado como tal)" : ""} — es de ${c.money(base)}${bookedR ? " este mes" : " en el mes típico"}; ${c.money(a)} sería una subida de ${c.money(a - base)}. ${bookedR ? `Con esa subida, este mes cerraría en ${c.money(readingR.left + (a - base))} en vez de ${c.money(readingR.left)}.` : "Con esa subida, tu mes típico ganaría ese margen."} Lo digo porque la pregunta traía una baja: con los números de tu libro, la dirección es la otra.`, `That's not a cut: in your book, ${src.name} — your recorded income${notSalary ? " (you don't carry a salary recorded as such)" : ""} — is ${c.money(base)}${bookedR ? " this month" : " in the typical month"}; ${c.money(a)} would be a raise of ${c.money(a - base)}. ${bookedR ? `With that raise, this month would close at ${c.money(readingR.left + (a - base))} instead of ${c.money(readingR.left)}.` : "With that raise, your typical month would gain that much room."} I'm saying it because the question brought a cut: with your book's numbers, the direction is the other one.`),
+        pieces: [{ label: L(c.lang, `${src.name} hoy`, `${src.name} today`), minor: base }, { label: L(c.lang, "El monto de tu pregunta", "Your question's amount"), minor: a }],
+        note: null, source: ["asesor.lectura", "libros.lineas"], lines: 0,
+      };
+    }
+  }
+  if (newAmt === null) return null;
+  const delta = base - newAmt;
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const booked = src.thisMonth > 0;
+  const closeNow = booked ? reading.left : null;
+  const closeNew = booked ? reading.left - delta : null;
+  return {
+    kind: "answer", family: "hipotetico",
+    verdict: booked
+      ? L(c.lang, `Si ${src.name} baja de ${c.money(base)} a ${c.money(newAmt)}${pctTxt}, este mes cierra en ${c.money(closeNew!)} en vez de ${c.money(closeNow!)}: ${closeNew! >= 0 ? `sigue cerrando en positivo, con ${c.money(closeNew!)} de margen` : `el mes pasa a negativo por ${c.money(-closeNew!)}`}. El supuesto, dicho: la baja corre el mes entero y todo lo demás queda igual — es el escenario de tu pregunta, no un hecho anotado.`, `If ${src.name} drops from ${c.money(base)} to ${c.money(newAmt)}${pctTxt}, this month closes at ${c.money(closeNew!)} instead of ${c.money(closeNow!)}: ${closeNew! >= 0 ? `it still closes positive, with ${c.money(closeNew!)} of room` : `the month goes negative by ${c.money(-closeNew!)}`}. The assumption, stated: the cut runs the whole month and everything else stays the same — it's your question's scenario, not a recorded fact.`)
+      : L(c.lang, `Si ${src.name} baja de ${c.money(base)} a ${c.money(newAmt)}${pctTxt}, tu mes típico perdería ${c.money(delta)} de entrada: es la resta de tu escenario, con todo lo demás igual. Este mes esa entrada aún no está anotada, así que la cuenta corre sobre tu mes típico, no sobre el mes en curso.`, `If ${src.name} drops from ${c.money(base)} to ${c.money(newAmt)}${pctTxt}, your typical month would lose ${c.money(delta)} of income: that's your scenario's subtraction, with everything else the same. That income isn't recorded yet this month, so the math runs on your typical month, not the current one.`),
+    pieces: [{ label: L(c.lang, `${src.name} hoy`, `${src.name} today`), minor: base }, { label: L(c.lang, "Con la baja", "With the cut"), minor: newAmt }, ...(closeNew !== null ? [{ label: L(c.lang, "El mes cerraría", "The month would close"), minor: closeNew }] : [{ label: L(c.lang, "Lo que se pierde al mes", "Lost per month"), minor: -delta }])],
+    note: null, source: ["asesor.lectura", "libros.lineas"], lines: 0,
+  };
+}
+
+function ingresoContrafactualAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(no me entra|no entra|no me entrara|no entrara|no me llega|no llega|no vendo|no vendiera|si no (me )?(entra|vendo)|doesn'?t come in|does not come in|don'?t get (paid|my))/.test(folded)) return null;
+  if (!/(negocio|sueldo|salario|ingreso|trabajo|business|salary|paycheck|income|job|venta|vendo|vender|ventas|sell|selling|sales)/.test(folded)) return null;
+  const src = ingresoConcepto(c, folded);
+  if (!src || src.typical <= 0) return null;
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const stock = savingsStock(c.state, c.key);
+  const keys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
+  const medianOf = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
+  const typicalIn = medianOf(keys.map((k) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && /^income/.test(l.kind)).reduce((a, l) => a + view(c, l), 0)));
+  const typicalOut = medianOf(keys.map((k) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings").reduce((a, l) => a + view(c, l), 0)));
+  const gapMonth = typicalOut - (typicalIn - src.typical);
+  const ongoing = gapMonth > 0
+    ? L(c.lang, ` Y si fuera todos los meses, el hueco sería ${c.money(gapMonth)} al mes: tu colchón y lo guardado (${c.money(stock.total)}) lo cubren ${stock.total > 0 ? `unas ${Math.max(1, Math.floor(stock.total / gapMonth))} veces` : "cero veces — no hay nada guardado"}.`, ` And if it were every month, the hole would be ${c.money(gapMonth)} a month: your cushion and savings (${c.money(stock.total)}) cover it ${stock.total > 0 ? `about ${Math.max(1, Math.floor(stock.total / gapMonth))} times over` : "zero times — there's nothing saved"}.`)
+    : L(c.lang, ` Y ni siquiera sería un hueco mensual: tus otros ingresos típicos (${c.money(typicalIn - src.typical)}) cubren tu gasto típico (${c.money(typicalOut)}) aun sin ${src.name}.`, ` And it wouldn't even be a monthly hole: your other typical income (${c.money(typicalIn - src.typical)}) covers your typical spending (${c.money(typicalOut)}) even without ${src.name}.`);
+  if (src.thisMonth > 0) {
+    const without = reading.left - src.thisMonth;
+    return {
+      kind: "answer", family: "contrafactual",
+      verdict: L(c.lang, `Si este mes no entra ${src.name}: de ahí suelen entrar ${c.money(src.typical)} al mes, y este mes ya entraron ${c.money(src.thisMonth)}. Sin eso, el mes iría en ${c.money(without)} en vez de ${c.money(reading.left)}: ${without >= 0 ? "seguiría cerrando en positivo" : `quedaría en negativo por ${c.money(-without)}`}.${ongoing}`, `If ${src.name} doesn't come in this month: ${c.money(src.typical)} a month usually comes in from there, and ${c.money(src.thisMonth)} already came in this month. Without it, the month would stand at ${c.money(without)} instead of ${c.money(reading.left)}: ${without >= 0 ? "it would still close positive" : `it would be negative by ${c.money(-without)}`}.${ongoing}`),
+      pieces: [{ label: L(c.lang, `Entra de ${src.name}, al mes`, `From ${src.name}, a month`), minor: src.typical }, { label: L(c.lang, "El mes, sin eso", "The month, without it"), minor: without }],
+      note: L(c.lang, "Es el escenario de tu pregunta corrido sobre tu libro: nada se borró ni se movió.", "It's your question's scenario run over your book: nothing was erased or moved."),
+      source: ["asesor.lectura", "libros.lineas", "ahorros.stock"], lines: 0,
+    };
+  }
+  const typClose = typicalIn - typicalOut;
+  const typWithout = typClose - src.typical;
+  return {
+    kind: "answer", family: "contrafactual",
+    verdict: L(c.lang, `Si no entra ${src.name}: de ahí entran ${c.money(src.typical)} en el mes típico. Este mes esa entrada aún no está anotada, así que la cuenta corre sobre tu mes típico: sin eso, el mes típico cerraría en ${c.money(typWithout)} en vez de ${c.money(typClose)}.${ongoing}`, `If ${src.name} doesn't come in: ${c.money(src.typical)} comes in from there in the typical month. That income isn't recorded yet this month, so the math runs on your typical month: without it, the typical month would close at ${c.money(typWithout)} instead of ${c.money(typClose)}.${ongoing}`),
+    pieces: [{ label: L(c.lang, `Entra de ${src.name}, al mes`, `From ${src.name}, a month`), minor: src.typical }, { label: L(c.lang, "El mes típico, sin eso", "The typical month, without it"), minor: typWithout }],
+    note: L(c.lang, "Es el escenario de tu pregunta corrido sobre tu libro: nada se borró ni se movió.", "It's your question's scenario run over your book: nothing was erased or moved."),
+    source: ["asesor.lectura", "libros.lineas", "ahorros.stock"], lines: 0,
+  };
+}
+
 
 function contrafactualAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   if (!/(si (dejo|dejara|dejase|quito|elimino|no gast)|dejando de|sin gastar en|dejar de gastar|if i (stop|quit|stopped)|stop spending)/.test(folded)) return null;
@@ -2494,7 +3728,32 @@ function contrafactualAnswer(c: Ctx, folded: string, raw: string): BankResult | 
       monthly = /(al ano|por ano|per year|yearly)/.test(folded) ? Math.round(d / 12) : d;
     }
   }
-  if (monthly == null || monthly <= 0) return null;
+  if (monthly == null || monthly <= 0) {
+    // OLA 26 (U5): el filtro vacío no calla — «si dejo de gastar en
+    // comida rápida» sin una línea de eso recibía silencio, donde
+    // historia nombra la ausencia. Sin monto traído: si el nombre no
+    // resuelve, se nombra; si resuelve pero no hay gasto medido, el
+    // cero se dice. Con monto traído la forma es otra y no se toca.
+    if (!amountsIn(raw).length) {
+      if (!filter) {
+        const stray = strayFilterWord(c, folded, new Set(["gastar", "gasto", "gastos", "dejar", "dejo", "dejara", "comprar", "compra", "pagar", "pago", "spend", "spending", "stop"]));
+        if (stray) {
+          return {
+            kind: "answer", family: "contrafactual",
+            verdict: L(c.lang, `No tienes gasto anotado como «${stray}»: dejar de gastar en eso juntaría $0 — no hay nada que dejar. Si lo anotas con otro nombre, pregúntame por ese.`, `You have no recorded spending as "${stray}": stopping it would keep $0 — there's nothing to stop. If you record it under another name, ask me by that one.`),
+            pieces: [], note: null, source: ["historial.stream"], lines: 0,
+          };
+        }
+      } else {
+        return {
+          kind: "answer", family: "contrafactual",
+          verdict: L(c.lang, "No tienes gasto anotado en eso: dejar de gastarlo juntaría $0 — no hay nada que dejar.", "You have no recorded spending on that: stopping it would keep $0 — there's nothing to stop."),
+          pieces: [], note: null, source: ["historial.stream"], lines: 0,
+        };
+      }
+    }
+    return null;
+  }
   const year = monthly * 12;
   return {
     kind: "answer", family: "contrafactual",
@@ -2513,7 +3772,7 @@ function contrafactualAnswer(c: Ctx, folded: string, raw: string): BankResult | 
 }
 
 function respaldoAnswer(c: Ctx, folded: string): BankResult | null {
-  if (!/(cuantos meses (me dura|me dura|aguanta|de respaldo|de colchon|me alcanza)|meses de (respaldo|colchon|emergencia)|para cuantos meses me (alcanza|dura)|cuanto tiempo (me dura|aguanta) (lo|mi)|how many months (would|of|can)|runway|emergency fund lasts|sin trabajo|sin ingresos|me despiden|quedo sin|puedo vivir|vivir sin|no tuviera ingresos|pierdo mi trabajo|without (a job|income|work)|lost my job)/.test(folded)) return null;
+  if (!/(cuantos meses (me dura|me dura|aguanta|de respaldo|de colchon|me alcanza)|meses de (respaldo|colchon|emergencia)|para cuantos meses me (alcanza|dura)|cuanto tiempo (me dura|aguanta) (lo|mi)|how many months (would|of|can)|runway|emergency fund lasts|sin trabajo|sin ingresos|me despiden|quedo sin|puedo vivir|vivir sin|no tuviera ingresos|pierdo mi trabajo|without (a job|income|work)|lost my job|lose my job|losing my job|how long (could|can|would) i (go|last|survive)|cuanto tiempo aguanto|cuanto aguanto sin|aguanto sin|sin (ningun )?ingreso|no income at all)/.test(folded)) return null;
   const stock = savingsStock(c.state, c.key);
   const m = monthlyAvgSpend(c, null);
   if (m.avg <= 0) {
@@ -2538,11 +3797,160 @@ function respaldoAnswer(c: Ctx, folded: string): BankResult | null {
   };
 }
 
+/* OLA 30 · EL KIT DEL INGRESO VOLÁTIL: el ingreso de cada mes
+ * anotado, medido entero. La mediana es la vara central; el PISO
+ * es el percentil 25 por rango más cercano, declarado como tal;
+ * el excedente de los meses buenos (lo que pasó de la mediana) se
+ * suma APARTE — es sobra, no ritmo. Con menos de dos meses no hay
+ * piso que medir y se dice. */
+function incomeKit(c: Ctx): { months: Array<{ key: string; total: number }>; median: number; floor: number; best: number; worst: number; surplus: number; atOrBelowFloor: number } | null {
+  const keys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
+  const months = keys
+    .map((k) => ({ key: k, total: (c.state.months[k]?.lines ?? []).filter((l) => l.active && l.kind.startsWith("income")).reduce((a, l) => a + view(c, l), 0), lines: (c.state.months[k]?.lines ?? []).length }))
+    .filter((m) => m.lines > 0)
+    .map(({ key, total }) => ({ key, total }));
+  if (!months.length) return null;
+  const sorted = months.map((m) => m.total).sort((a, b) => a - b);
+  const n = sorted.length;
+  const median = n % 2 ? sorted[(n - 1) / 2] : Math.round((sorted[n / 2 - 1] + sorted[n / 2]) / 2);
+  const floor = sorted[Math.max(0, Math.ceil(0.25 * n) - 1)];
+  const surplus = months.reduce((a, m) => a + Math.max(0, m.total - median), 0);
+  return { months, median, floor, best: sorted[n - 1], worst: sorted[0], surplus, atOrBelowFloor: sorted.filter((v) => v <= floor).length };
+}
+
+/* OLA 48 (F2) · LA CADENCIA DEL INGRESO — «¿cada cuánto me
+ * pagan?»: el patrón de fechas del ingreso se mide de los
+ * bookedOn anotados, nunca se supone. Manda el concepto de
+ * ingreso con más pagos (el sueldo, casi siempre); los huecos
+ * entre pagos consecutivos dan la mediana, y la mediana se
+ * nombra en su cadencia (semanal, quincenal, mensual) o en días
+ * si no calza con ninguna. Si los huecos bailan (el mayor duplica
+ * al menor), el patrón se dice irregular con su rango. Con menos
+ * de tres pagos no hay patrón que medir y se dice. El próximo
+ * pago esperado se proyecta del último + la mediana, declarado
+ * como proyección. */
+function cadenciaIngresoAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(cada cuanto (me pagan|me entra|recibo|cobro|pagan)|cada cuanto es mi pago|con que frecuencia me pagan|how often do i get paid|how often am i paid|how often do i get pay)/.test(folded)) return null;
+  const byConcept = new Map<string, string[]>();
+  for (const l of allLines(c)) {
+    if (!l.active || !l.kind.startsWith("income")) continue;
+    const d = lineDate(l);
+    if (!d || d > c.today) continue;
+    const name = (l.concept || "").trim();
+    if (!name) continue;
+    const arr = byConcept.get(name) ?? [];
+    arr.push(d);
+    byConcept.set(name, arr);
+  }
+  let bestName = "";
+  let bestDates: string[] = [];
+  for (const [name, dates] of byConcept) {
+    const sorted = [...new Set(dates)].sort();
+    if (sorted.length > bestDates.length) { bestName = name; bestDates = sorted; }
+  }
+  if (bestDates.length < 3) {
+    return { kind: "answer", family: "ingreso", verdict: L(c.lang, `Todavía no hay patrón que medir: de tu ingreso tengo ${bestDates.length} fecha${bestDates.length === 1 ? "" : "s"} anotada${bestDates.length === 1 ? "" : "s"}${bestName ? ` de «${bestName}»` : ""}, y un ritmo se mide con tres pagos o más. Cuando se junten, la cadencia sale de tus propias fechas.`, `There's no pattern to measure yet: I have ${bestDates.length} recorded date${bestDates.length === 1 ? "" : "s"} for your income${bestName ? ` from "${bestName}"` : ""}, and a rhythm takes three payments or more to measure. Once they add up, the cadence comes from your own dates.`), pieces: [], note: null, source: ["libros.lineas"], lines: bestDates.length };
+  }
+  const gaps: number[] = [];
+  for (let i = 1; i < bestDates.length; i++) gaps.push(daysBetweenIso(bestDates[i - 1], bestDates[i]));
+  const sortedGaps = [...gaps].sort((a, b) => a - b);
+  const median = sortedGaps[Math.floor(sortedGaps.length / 2)];
+  const minGap = sortedGaps[0];
+  const maxGap = sortedGaps[sortedGaps.length - 1];
+  const cadName = median <= 8 ? L(c.lang, "semanal", "weekly") : median <= 17 ? L(c.lang, "quincenal", "every two weeks") : median <= 33 ? L(c.lang, "mensual", "monthly") : L(c.lang, `cada ${median} días`, `every ${median} days`);
+  const irregular = maxGap > 2 * Math.max(minGap, 1);
+  const last = bestDates[bestDates.length - 1];
+  const next = addDaysIso(last, median);
+  return {
+    kind: "answer", family: "ingreso",
+    verdict: irregular
+      ? L(c.lang, `Tu ingreso «${bestName}» no trae un ritmo fijo: entre pago y pago han pasado de ${minGap} a ${maxGap} días (la mediana es ${median}). El último entró el ${fmtFecha(c, last)}; si la mediana mandara, el siguiente caería cerca del ${fmtFecha(c, next)} — pero con huecos así de desiguales, tómalo como una sombra, no como una fecha.`, `Your income "${bestName}" has no fixed rhythm: between payments it has gone from ${minGap} to ${maxGap} days (the median is ${median}). The last one came in on ${fmtFecha(c, last)}; if the median ruled, the next would land near ${fmtFecha(c, next)} — but with gaps this uneven, take that as a shadow, not a date.`)
+      : L(c.lang, `Te pagan con ritmo ${cadName}: entre pago y pago de «${bestName}» pasan ${median} días (medido de ${bestDates.length} pagos anotados). El último entró el ${fmtFecha(c, last)}; el siguiente, si el ritmo sigue, cae cerca del ${fmtFecha(c, next)}.`, `You're paid on a ${cadName} rhythm: between payments of "${bestName}" there are ${median} days (measured from ${bestDates.length} recorded payments). The last one came in on ${fmtFecha(c, last)}; the next, if the rhythm holds, lands near ${fmtFecha(c, next)}.`),
+    pieces: [],
+    note: L(c.lang, "El ritmo sale de las fechas anotadas de tus pagos, no de ninguna regla de nómina.", "The rhythm comes from your payments' recorded dates, not from any payroll rule."),
+    source: ["libros.lineas"], lines: bestDates.length,
+  };
+}
+
+/* OLA 48 (F3) · EL GASTO POR UMBRAL — el gasto hormiga y sus
+ * primos («¿cuánto he gastado en cosas de menos de $20?»): agregar
+ * por umbral de monto es una forma entera que no existía. La vara
+ * la trae el usuario en su pregunta; si pregunta por el «gasto
+ * hormiga» sin monto, la vara es $20 y la respuesta lo DECLARA
+ * como supuesto, invitando a cambiarla — jamás una vara escondida.
+ * La bolsa es la de la historia (el gasto sin el apartado) en el
+ * período que la pregunta nombre, y la respuesta da el conteo,
+ * la suma y la parte del gasto del período: lo chico también
+ * suma, y aquí se ve cuánto. */
+function umbralAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  const hormiga = /(gasto hormiga|gastos hormiga|ant (spending|expenses)|small (purchases|spending|expenses)|gastos (chicos|pequenos|menores))/.test(folded);
+  const thresholdVoice = /(menos de|menores de|debajo de|no mas de|under|less than|below)\s*\$?\s*\d/.test(folded);
+  if (!hormiga && !thresholdVoice) return null;
+  if (!/(gast|compr|salio|spend|spent|purchas|buy|bought)/.test(folded) && !hormiga) return null;
+  const amounts = amountsIn(raw);
+  let threshold: number;
+  let declared = false;
+  if (amounts.length) {
+    const a = amounts[amounts.length - 1];
+    threshold = convertMinor(a.minor, a.currency, c.display, c.rateE4);
+  } else if (hormiga) {
+    threshold = convertMinor(2000, "USD", c.display, c.rateE4);
+    declared = true;
+  } else return null;
+  if (threshold <= 0) return null;
+  const p = periodOf(c, folded);
+  const poolAll = allLines(c).filter((l) => inPeriod(c, l, p) && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
+  const small = poolAll.filter((l) => view(c, l) < threshold);
+  const sumSmall = small.reduce((a, l) => a + view(c, l), 0);
+  const sumAll = poolAll.reduce((a, l) => a + view(c, l), 0);
+  const pct = sumAll > 0 ? Math.round((sumSmall / sumAll) * 100) : 0;
+  const varaTxt = declared
+    ? L(c.lang, `Cuento como hormiga todo gasto de menos de ${c.money(threshold)} — esa es la vara que uso si no me das otra: si tu hormiga es otro monto, dímelo y lo mido con ese. `, `I count as ant-spending every expense under ${c.money(threshold)} — that's the yardstick I use if you don't give me another: if your ant is a different amount, tell me and I'll measure with that one. `)
+    : "";
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `${varaTxt}En ${p.label}, los gastos de menos de ${c.money(threshold)} son ${small.length}: suman ${c.money(sumSmall)}, el ${pct}% de todo lo que gastaste en ese período (${c.money(sumAll)}).`, `${varaTxt}In ${p.label}, expenses under ${c.money(threshold)} number ${small.length}: they add up to ${c.money(sumSmall)}, ${pct}% of everything you spent in that period (${c.money(sumAll)}).`),
+    pieces: [{ label: L(c.lang, `Gastos de menos de ${c.money(threshold)}`, `Expenses under ${c.money(threshold)}`), minor: sumSmall }],
+    note: small.length === 0 ? L(c.lang, "Ningún gasto del período cae bajo esa vara: el cero también es la respuesta del libro.", "No expense in the period falls under that yardstick: the zero is the book's answer too.") : null,
+    source: ["libros.lineas", "historial.stream"], lines: small.length,
+  };
+}
+
+function ingresoVolatilAnswer(c: Ctx, folded: string): BankResult | null {
+  // ENMIENDA DE CANON (integración de la Ola 30): la voz inglesa del
+  // ingreso también dice «make» («what do I make in a bad month?») y
+  // la española «hago» — la segunda puerta (piso, mes malo, estable…)
+  // sigue mandando, así que la palabra ancha no roba nada.
+  if (!/(ingreso|gano|sueldo|salario|income|salary|hago|make)/.test(folded)) return null;
+  if (!/(piso|estable|volatil|varia|mes malo|peor mes|mejor mes|cuanto baja|floor|stable|volatile|worst month|bad month)/.test(folded)) return null;
+  const kit = incomeKit(c);
+  const src = ["libros.lineas", "asesor.lectura"];
+  if (!kit) {
+    return { kind: "answer", family: "ingreso", verdict: L(c.lang, "No hay meses con ingreso anotado en tu libro: sin meses medidos no hay piso que calcular, y no lo invento.", "There are no months with recorded income in your book: without measured months there's no floor to compute, and I won't invent one."), pieces: [], note: null, source: src, lines: 0 };
+  }
+  if (kit.months.length < 2) {
+    return { kind: "answer", family: "ingreso", verdict: L(c.lang, `Solo hay un mes anotado con ingreso (${c.money(kit.months[0].total)}): el piso y la mediana piden al menos dos meses medidos — con uno, cualquier piso sería inventado.`, `Only one month of income is recorded (${c.money(kit.months[0].total)}): a floor and a median need at least two measured months — with one, any floor would be invented.`), pieces: [{ label: L(c.lang, "El único mes", "The only month"), minor: kit.months[0].total }], note: null, source: src, lines: 0 };
+  }
+  const n = kit.months.length;
+  return {
+    kind: "answer", family: "ingreso",
+    verdict: L(c.lang, `Tu ingreso, medido de tus ${n} meses anotados: la mediana es ${c.money(kit.median)} al mes y tu piso es ${c.money(kit.floor)} — el percentil 25, declarado: ${kit.atOrBelowFloor} de tus ${n} meses quedaron en ese nivel o bajo él. Tu mejor mes fue ${c.money(kit.best)} y el peor, ${c.money(kit.worst)}. Los meses buenos dejaron ${c.money(kit.surplus)} por encima de la mediana en total: ese excedente es aparte, no es tu ritmo. Por eso las metas se juzgan contra el piso y no contra el promedio: el promedio promete lo que un mes malo no da.`, `Your income, measured from your ${n} recorded months: the median is ${c.money(kit.median)} a month and your floor is ${c.money(kit.floor)} — the 25th percentile, stated: ${kit.atOrBelowFloor} of your ${n} months landed at that level or below. Your best month was ${c.money(kit.best)} and the worst, ${c.money(kit.worst)}. Good months left ${c.money(kit.surplus)} above the median in total: that surplus is separate, not your pace. That's why goals are judged against the floor and not the average: the average promises what a bad month doesn't deliver.`),
+    pieces: [
+      { label: L(c.lang, "Mediana del ingreso", "Income median"), minor: kit.median },
+      { label: L(c.lang, "Piso (percentil 25)", "Floor (25th percentile)"), minor: kit.floor },
+      { label: L(c.lang, "Mejor mes", "Best month"), minor: kit.best },
+      { label: L(c.lang, "Peor mes", "Worst month"), minor: kit.worst },
+      { label: L(c.lang, "Excedente de los meses buenos", "Good months' surplus"), minor: kit.surplus },
+    ],
+    note: null, source: src, lines: 0,
+    actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+  };
+}
+
 function metaAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   const tardaria = /(tardaria|tardare|cuanto tiempo|how long)/.test(folded) && /(juntar|ahorrar|reunir|save up|reach|get to)/.test(folded);
   if (!tardaria && !/(cuanto (tengo|debo|necesito|hay) que (ahorrar|guardar)|cuanto (debo|necesito) ahorrar|cuanto ahorrar|how much (do i|should i|would i) (need to )?save|how much to save)/.test(folded)) return null;
   const amounts = amountsIn(raw);
-  if (!amounts.length) return null;
   // OLA 28 (Familia 2, E28-2): el plazo oye «in» además de «en» —
   // la regex traía «(meses|months)» bilingüe tras un «en» solo
   // español, y «in 10 months» no casaba: la meta inglesa moría con
@@ -2567,6 +3975,23 @@ function metaAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
     }
   }
   const months = plazo ? (Number(plazo[1]) || WORD_NUM[plazo[1]] || 0) : (namedMonths ?? 0);
+  /* OLA 41 · LA META SIN MONTO PIDE EL MONTO: «¿Cuánto tengo que
+   * guardar al mes para el viaje de diciembre?» callaba porque la
+   * puerta exigía la cifra. Con el plazo legible, la respuesta pide
+   * el único dato que falta y ya cuenta los meses — no calla. */
+  if (!amounts.length) {
+    if (months > 0) {
+      const stockM = savingsStock(c.state, c.key);
+      return {
+        kind: "answer", family: "meta",
+        verdict: L(c.lang, `Para decirte el apartado me falta un solo dato: el monto de la meta — ¿cuánto cuesta eso que quieres juntar? El plazo ya lo tengo: de aquí a tu fecha hay ${months} mes${months === 1 ? "" : "es"} de apartado, y guardado ya tienes ${c.money(stockM.total)}. Con el monto, el apartado sale en el acto: (monto − lo guardado) ÷ ${months}.`, `To give you the set-aside I'm missing one datum: the goal's amount — how much does the thing you want to save up for cost? The deadline I do have: from here to your date there are ${months} month${months === 1 ? "" : "s"} of setting aside, and you already have ${c.money(stockM.total)} saved. With the amount, the set-aside comes out on the spot: (amount − what's saved) ÷ ${months}.`),
+        pieces: [{ label: L(c.lang, "Guardado hoy", "Saved today"), minor: stockM.total }],
+        note: L(c.lang, "No te pido el plazo dos veces ni invento el monto: la meta es tuya y su precio no está en tu libro.", "I'm not asking for the deadline twice or inventing the amount: the goal is yours and its price isn't in your book."),
+        source: ["ahorros.stock", "ahorros.mes"], lines: 0,
+      };
+    }
+    return null;
+  }
   if (!months) {
     if (!tardaria) return null;
     // «¿Cuánto tardaría en juntar X?» — sin plazo: el tiempo sale de tu
@@ -2592,17 +4017,63 @@ function metaAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
       note: null, source: ["ahorros.stock"], lines: 0,
     };
   }
-  const perMonth = Math.ceil(missing / months);
+  /* OLA 30 · EL FONDO DE AMORTIZACIÓN: la meta se despeja hacia
+   * atrás. Si la pregunta trae una tasa («al 5%»), lo ya guardado
+   * CRECE a esa tasa y el apartado es el de la fórmula del fondo:
+   * PMT = (G − S(1+i)ⁿ)·i / ((1+i)ⁿ − 1). Sin tasa traída ni anotada
+   * (el libro no guarda tasa para los ahorros), i = 0 — y el caso
+   * degenerado se DECLARA: la fórmula se reduce a la cuenta recta.
+   * Y el apartado se juzga contra el PISO del ingreso (percentil 25,
+   * el kit de arriba), no contra el promedio: un plan que solo cabe
+   * en los meses buenos no es un plan. */
+  const rateM = raw.match(/(\d+(?:[.,]\d+)?)\s*(%|por ciento|percent)/i);
+  const ratePct = rateM ? Number.parseFloat(rateM[1].replace(",", ".")) : 0;
+  const i = ratePct > 0 && Number.isFinite(ratePct) ? ratePct / 100 / 12 : 0;
+  const fv = Math.round(stock.total * Math.pow(1 + i, months));
+  if (i > 0 && fv >= target) {
+    return {
+      kind: "answer", family: "meta",
+      verdict: L(c.lang, `Ni siquiera necesitas apartar más: con el interés que trajiste (${ratePct}% al año), lo que ya tienes (${c.money(stock.total)}) crece a ${c.money(fv)} en ${months} meses — y tu meta era ${c.money(target)}.`, `You don't even need to set aside more: at the interest you brought (${ratePct}% a year), what you already have (${c.money(stock.total)}) grows to ${c.money(fv)} in ${months} months — and your goal was ${c.money(target)}.`),
+      pieces: [
+        { label: L(c.lang, "La meta", "The goal"), minor: target },
+        { label: L(c.lang, "Ya tienes", "You already have"), minor: stock.total },
+        { label: L(c.lang, "Crece a", "It grows to"), minor: fv },
+      ],
+      note: L(c.lang, "El interés es el que trajiste en tu pregunta — tu libro no anota tasa para tus ahorros, y no la invento.", "The interest is the one you brought in your question — your book records no rate for your savings, and I won't invent one."),
+      source: ["ahorros.stock"], lines: 0,
+    };
+  }
+  const perMonth = i > 0
+    ? Math.ceil(((target - fv) * i) / (Math.pow(1 + i, months) - 1))
+    : Math.ceil(missing / months);
+  const kit = incomeKit(c);
+  const floorTxt = kit && kit.months.length >= 2 && kit.floor > 0
+    ? L(c.lang, ` Ese apartado es el ${Math.round((perMonth / kit.floor) * 100)}% de tu ingreso piso (${c.money(kit.floor)}, el percentil 25 de tus ${kit.months.length} meses) y el ${Math.round((perMonth / kit.median) * 100)}% de tu mediana (${c.money(kit.median)}).${perMonth > kit.floor ? " Ojo: supera tu piso entero — en un mes malo no saldría del ingreso de ese mes." : ""}`, ` That set-aside is ${Math.round((perMonth / kit.floor) * 100)}% of your income floor (${c.money(kit.floor)}, the 25th percentile of your ${kit.months.length} months) and ${Math.round((perMonth / kit.median) * 100)}% of your median (${c.money(kit.median)}).${perMonth > kit.floor ? " Mind you: it exceeds your whole floor — in a bad month it wouldn't come out of that month's income." : ""}`)
+    : "";
   return {
     kind: "answer", family: "meta",
-    verdict: L(c.lang, `Para llegar a ${c.money(target)} en ${months} meses, ahorra ${c.money(perMonth)} al mes: ya tienes ${c.money(stock.total)} y te faltan ${c.money(missing)}.`, `To reach ${c.money(target)} in ${months} months, save ${c.money(perMonth)} a month: you already have ${c.money(stock.total)} and ${c.money(missing)} is missing.`),
+    verdict: i > 0
+      ? L(c.lang, `Para llegar a ${c.money(target)} en ${months} meses con el interés que trajiste (${ratePct}% al año), ahorra ${c.money(perMonth)} al mes: ya tienes ${c.money(stock.total)}, que a ese interés crece a ${c.money(fv)} en el plazo, y el apartado cubre el resto.${floorTxt}`, `To reach ${c.money(target)} in ${months} months at the interest you brought (${ratePct}% a year), save ${c.money(perMonth)} a month: you already have ${c.money(stock.total)}, which at that interest grows to ${c.money(fv)} over the term, and the set-aside covers the rest.${floorTxt}`)
+      : L(c.lang, `Para llegar a ${c.money(target)} en ${months} meses, ahorra ${c.money(perMonth)} al mes: ya tienes ${c.money(stock.total)} y te faltan ${c.money(missing)}.${floorTxt}`, `To reach ${c.money(target)} in ${months} months, save ${c.money(perMonth)} a month: you already have ${c.money(stock.total)} and ${c.money(missing)} is missing.${floorTxt}`),
     pieces: [
       { label: L(c.lang, "La meta", "The goal"), minor: target },
       { label: L(c.lang, "Ya tienes", "You already have"), minor: stock.total },
+      ...(i > 0 ? [{ label: L(c.lang, "Crece a", "It grows to"), minor: fv }] : []),
       { label: L(c.lang, "Al mes", "Per month"), minor: perMonth },
     ],
-    note: L(c.lang, "El supuesto, dicho: sin intereses y sin contar lo que ya apartas cada mes — es la cuenta recta de tu meta contra tu libro.", "The assumption, stated: no interest, and not counting what you already set aside each month — it's the straight math of your goal against your book."),
+    note: i > 0
+      ? L(c.lang, "El interés es el que trajiste en tu pregunta — tu libro no anota tasa para tus ahorros, y no la invento.", "The interest is the one you brought in your question — your book records no rate for your savings, and I won't invent one.")
+      : L(c.lang, "El supuesto, dicho: sin interés — tu libro no anota tasa para tus ahorros y no trajiste una; a interés cero la fórmula del fondo se reduce a la cuenta recta: lo que falta, entre los meses.", "The assumption, stated: no interest — your book records no rate for your savings and you brought none; at zero interest the sinking-fund formula reduces to the straight math: what's missing, over the months."),
     source: ["ahorros.stock"], lines: 0,
+    graph: [{
+      id: "apartado-al-mes", label: L(c.lang, "El apartado al mes para tu meta", "The monthly set-aside for your goal"), minor: perMonth, tense: "proyectado", flow: "flujo", currency: c.display, unit: L(c.lang, "al mes", "a month"),
+      assumption: i > 0
+        ? { text: L(c.lang, `el interés que trajiste: ${ratePct}% al año`, `the interest you brought: ${ratePct}% a year`), origin: "usuario" }
+        : { text: L(c.lang, "sin interés: la cuenta recta", "no interest: the straight math"), origin: "regla" },
+      children: [
+        { id: "falta", label: L(c.lang, "Lo que falta por juntar", "What's still to gather"), minor: target - fv, tense: "proyectado", flow: "stock", currency: c.display, sign: 1 },
+      ],
+    }],
   };
 }
 
@@ -2623,18 +4094,1576 @@ function avgMonthlyWhere(c: Ctx, pred: (l: Line) => boolean): { avg: number; mon
 
 /* PROMEDIO — el gasto por día, el promedio al mes y el gasto seguro
  * de hoy: tres formas ordinarias del ritmo, medidas, no estimadas. */
+/* LA VERIFICACIÓN (OLA 25, espécimen de Oscar en su teléfono,
+ * 2026-11-22; integrada al canon con la Ola 25): «¿Tengo $20 para
+ * gastar hoy?» caía en silencio — el usuario TRAE el monto y pide el
+ * veredicto, no la cifra. Dos varas, las dos dichas en la respuesta:
+ * el ritmo seguro de hoy (la queda repartida entre los días que
+ * quedan) y la queda entera del mes. Con dirección: si el monto pasa
+ * el ritmo, la respuesta dice a cuánto baja el ritmo desde mañana.
+ * No es el hipotético (no hay «si») ni el promedio (no pide el
+ * número: lo trae). Los gustos quedan fuera — su familia los atiende,
+ * como en el clasificador. (Los grafos de la copia llegan con la
+ * Ola 27, que trae el tipo AskNode al canon.) */
+function verificacionAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  if (/(gustos|antojos|capricho|treats)/.test(folded)) return null;
+  if (/\bsi\b/.test(folded)) return null;
+  if (!/(tengo|puedo|me alcanza|alcanza|hay|have|can i)\b/.test(folded)) return null;
+  const amounts = amountsIn(raw);
+  // LA FORMA NOMBRADA (la misma caza, minutos después): «¿me alcanza
+  // para pagar el Internet?» no trae monto — lo trae EL LIBRO, y el
+  // delegado respondía need-amount, pidiéndole al usuario la cifra
+  // que su propio libro sabe. Si la pregunta nombra una cuota viva
+  // con cifra, esa es la vara.
+  if (amounts.length === 0 && /(pagar|pay|para (el|la|los|las)\b)/.test(folded)) {
+    const named = duesWindow(c.state, 92, c.today).find((d) => d.amt !== null && foldQ(d.name).split(/\s+/).some((w) => w.length >= 4 && folded.includes(w)));
+    if (!named || named.amt === null) return null;
+    const readingN = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+    const leftN = Math.max(0, readingN.left);
+    const dayN = Number(c.today.slice(8, 10));
+    const daysInN = new Date(Number(c.key.slice(0, 4)), Number(c.key.slice(5, 7)), 0).getDate();
+    const perN = leftN > 0 ? Math.floor(leftN / Math.max(1, daysInN - dayN + 1)) : 0;
+    const amtN = named.amt;
+    const verdictN = amtN <= leftN
+      ? L(c.lang, `Sí: «${named.name}» son ${c.money(amtN)} y vence el ${fmtFecha(c, named.on)} — del mes te quedan ${c.money(leftN)}, así que pagándolo te quedan ${c.money(leftN - amtN)}${amtN > perN ? ` (eso sí: pasa tu ritmo seguro de hoy, ${c.money(perN)})` : ""}.`, `Yes: "${named.name}" is ${c.money(amtN)}, due ${fmtFecha(c, named.on)} — ${c.money(leftN)} of the month is left, so paying it leaves you ${c.money(leftN - amtN)}${amtN > perN ? ` (mind you: it passes today's safe pace, ${c.money(perN)})` : ""}.`)
+      : L(c.lang, `No alcanza: «${named.name}» son ${c.money(amtN)} (vence el ${fmtFecha(c, named.on)}) y del mes te quedan ${c.money(leftN)} — te faltan ${c.money(amtN - leftN)}.`, `It doesn't reach: "${named.name}" is ${c.money(amtN)} (due ${fmtFecha(c, named.on)}) and ${c.money(leftN)} of the month is left — you're ${c.money(amtN - leftN)} short.`);
+    return {
+      kind: "answer", family: "promedio",
+      verdict: verdictN,
+      pieces: [
+        { label: named.name, minor: amtN },
+        { label: L(c.lang, "Queda del mes", "Left this month"), minor: leftN },
+        { label: L(c.lang, "Tu ritmo seguro de hoy", "Your safe pace today"), minor: perN },
+      ],
+      note: L(c.lang, "La cifra de la cuota es la anotada en tu libro, con su fecha — no la inventé ni te la pedí: ya la sabías tú, estaba en tu Agenda.", "The due's figure is the one recorded in your book, with its date — I didn't invent it or ask you for it: you already knew it, it was in your Agenda."),
+      graph: [{
+        id: "queda-tras", label: L(c.lang, "Lo que te quedaría del mes", "What you'd have left of the month"), minor: leftN - amtN, tense: "proyectado", flow: "stock", currency: c.display,
+        assumption: { text: L(c.lang, "pagar esa cuota, como preguntaste", "paying that due, as you asked"), origin: "usuario" },
+        children: [
+          { id: "queda", label: L(c.lang, "Queda del mes", "Left this month"), minor: leftN, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+          { id: "cuota", label: named.name, minor: amtN, tense: "medido", flow: "flujo", currency: c.display, sign: -1, assumption: { text: L(c.lang, "pagar esa cuota, como preguntaste", "paying that due, as you asked"), origin: "usuario" } },
+        ],
+      }],
+      source: ["asesor.lectura", "central.pagos"], lines: 0,
+      actions: reportDoor(c, "central.pagos", "Verlo en la Agenda", "See it in the Agenda"),
+    };
+  }
+  if (!/(para gastar|para hoy|gastar.{0,24}hoy|hoy.{0,24}gastar|to spend|spend.{0,24}today)/.test(folded)) return null;
+  if (amounts.length !== 1) return null;
+  const a = amounts[0];
+  const amt = convertMinor(a.minor, a.currency, c.display, c.rateE4);
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const left = Math.max(0, reading.left);
+  const day = Number(c.today.slice(8, 10));
+  const daysIn = new Date(Number(c.key.slice(0, 4)), Number(c.key.slice(5, 7)), 0).getDate();
+  const leftDays = Math.max(1, daysIn - day + 1);
+  const per = left > 0 ? Math.floor(left / leftDays) : 0;
+  const convNote = a.currency !== c.display
+    ? L(c.lang, `Tus ${formatMoney(a.minor, a.currency, c.lang)} son ${c.money(amt)} con la tasa de tu Mesa de cambio. `, `Your ${formatMoney(a.minor, a.currency, c.lang)} is ${c.money(amt)} at your Exchange desk's rate. `)
+    : "";
+  let verdict: string;
+  if (amt <= per) {
+    verdict = L(c.lang, `Sí: hoy puedes gastar hasta ${c.money(per)} sin pasarte, y esos ${c.money(amt)} caben — si los gastas, del mes te quedan ${c.money(left - amt)}.`, `Yes: today you can spend up to ${c.money(per)} without going over, and that ${c.money(amt)} fits — spend it and ${c.money(left - amt)} of the month is left.`);
+  } else if (amt <= left) {
+    const worth = per > 0 ? Math.max(2, Math.round(amt / per)) : 0;
+    const newPer = leftDays > 1 ? Math.floor((left - amt) / (leftDays - 1)) : 0;
+    verdict = L(c.lang, `Los tienes — del mes te quedan ${c.money(left)} — pero ${c.money(amt)} pasa tu ritmo seguro de hoy (${c.money(per)}): es gastar de una vez lo de unos ${worth} días. Si lo haces, desde mañana tu ritmo baja a ${c.money(newPer)} al día.`, `You have it — ${c.money(left)} of the month is left — but ${c.money(amt)} passes today's safe pace (${c.money(per)}): it's spending about ${worth} days' worth at once. Do it, and from tomorrow your pace drops to ${c.money(newPer)} a day.`);
+  } else {
+    verdict = L(c.lang, `No alcanza: del mes te quedan ${c.money(left)}, y para ${c.money(amt)} te faltan ${c.money(amt - left)}.`, `It doesn't reach: ${c.money(left)} of the month is left, and you're ${c.money(amt - left)} short of ${c.money(amt)}.`);
+  }
+  return {
+    kind: "answer", family: "promedio",
+    verdict,
+    pieces: [
+      { label: L(c.lang, "Queda del mes", "Left this month"), minor: left },
+      { label: L(c.lang, "Tu ritmo seguro de hoy", "Your safe pace today"), minor: per },
+      { label: L(c.lang, "Lo que quieres gastar", "What you want to spend"), minor: amt },
+    ],
+    note: `${convNote}${L(c.lang, "El supuesto, dicho: la queda se reparte parejo entre los días que quedan; un día fuerte pide días más ligeros después.", "The assumption, stated: what's left is spread evenly over the remaining days; a heavy day asks for lighter days after.")}`,
+    graph: [
+      {
+        id: "queda-tras", label: L(c.lang, "Lo que te quedaría del mes", "What you'd have left of the month"), minor: left - amt, tense: "proyectado", flow: "stock", currency: c.display,
+        assumption: { text: L(c.lang, "el gasto que trajiste en tu pregunta", "the spending you brought in your question"), origin: "usuario" },
+        children: [
+          { id: "queda", label: L(c.lang, "Queda del mes", "Left this month"), minor: left, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+          { id: "traido", label: L(c.lang, "Lo que quieres gastar", "What you want to spend"), minor: amt, tense: "proyectado", flow: "flujo", currency: c.display, sign: -1, assumption: { text: L(c.lang, "el gasto que trajiste en tu pregunta", "the spending you brought in your question"), origin: "usuario" } },
+        ],
+      },
+      {
+        id: "ritmo", label: L(c.lang, "Tu ritmo seguro de hoy", "Your safe pace today"), minor: per, tense: "proyectado", flow: "flujo", currency: c.display, unit: L(c.lang, "al día", "a day"),
+        assumption: { text: L(c.lang, "la queda de hoy se reparte parejo entre los días que quedan del mes", "today's left is spread evenly over the days remaining in the month"), origin: "regla" },
+        children: [
+          { id: "queda", label: L(c.lang, "Queda del mes", "Left this month"), minor: left, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+        ],
+      },
+    ],
+    source: ["asesor.lectura", "central.queda"], lines: 0,
+    actions: reportDoor(c, "central.queda", "Ver mi Queda en Central", "See my Left in Central"),
+  };
+}
+
+/* OLA 29 · LA FACTIBILIDAD — la prueba sobre lo anotado (investigación
+ * II, mecanismo #3: la red de restricciones temporales de Dechter,
+ * Meiri y Pearl, en su forma llana; y el punto bajo de 13 semanas).
+ * «¿Me alcanza el mes?» caía en silencio (la caza de lo obvio de la
+ * Ola 25 lo dejó asignado aquí): no pide una cifra, pide una PRUEBA —
+ * si la cadena de obligaciones con fecha cabe en la queda de hoy. La
+ * prueba camina los eventos en orden de fecha desde la queda y
+ * nombra el conflicto cuando lo hay: qué obligación, qué día, por
+ * cuánto no cabe — y distingue el problema del DÍA del problema del
+ * MES (lo que te deben después puede tapar el bache: se dice). Lo que
+ * el libro sabe fechado pero sin monto (un préstamo) no se inventa:
+ * se nombra fuera de la prueba. Y el gasto al ritmo jamás se mezcla
+ * con lo programado sin declararse: dos varas, dos frases. */
+type SchedEvent = { on: string; name: string; delta: number; known: boolean };
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function monthEndIso(iso: string): string {
+  const d = new Date(`${iso.slice(0, 7)}-01T12:00:00`);
+  d.setMonth(d.getMonth() + 1, 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function daysBetweenIso(a: string, b: string): number {
+  return Math.round((new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) / 86400000);
+}
+/** Los eventos con fecha hasta `days` días desde hoy: la ventana de
+ * vencimientos, EXPANDIDA por cadencia — una cuota mensual no vence
+ * una vez en 13 semanas: vuelve, con su fecha. Lo debido (lent) entra
+ * en positivo; lo sin monto entra marcado como no modelado. LA REGLA
+ * DE LA CASA (la nota del propio delegado en ask.ts): las cuotas de
+ * ESTE mes ya están contadas en la queda — su primera ocurrencia no
+ * camina (sería restarla dos veces); sus vueltas futuras sí, porque
+ * la queda de hoy no las trae. Las contadas se devuelven aparte para
+ * nombrarlas, no para esconderlas. */
+function scheduledEvents(c: Ctx, days: number): { events: SchedEvent[]; counted: string[] } {
+  const end = addDaysIso(c.today, days);
+  const out: SchedEvent[] = [];
+  const counted: string[] = [];
+  for (const d of duesWindow(c.state, days, c.today)) {
+    if (d.amt === null) { out.push({ on: d.on, name: d.name, delta: 0, known: false }); continue; }
+    const signed = d.kind === "lent" ? d.amt : -d.amt;
+    if (d.kind === "cuota" && d.line?.monthKey === c.key) counted.push(d.name);
+    else out.push({ on: d.on, name: d.name, delta: signed, known: true });
+    const cad = d.kind === "cuota" ? (d.line?.cadence || (d.line?.recurring ? "monthly" : "")) : d.kind === "card" ? "monthly" : "";
+    if (cad && intervalOf(cad)) {
+      let prev = d.on;
+      let next = stepDate(prev, cad, Number(d.on.slice(8, 10)));
+      let guard = 0;
+      while (next > prev && next <= end && guard++ < 30) {
+        out.push({ on: next, name: d.name, delta: signed, known: true });
+        prev = next;
+        next = stepDate(prev, cad, Number(d.on.slice(8, 10)));
+      }
+    }
+  }
+  return { events: out.sort((a, b) => a.on.localeCompare(b.on)), counted };
+}
+function walkEvents(start: number, events: SchedEvent[], upto: string): { end: number; min: number; minOn: string; conflict: { ev: SchedEvent; bal: number } | null; applied: SchedEvent[] } {
+  let bal = start;
+  let min = start;
+  let minOn = "";
+  let conflict: { ev: SchedEvent; bal: number } | null = null;
+  const applied = events.filter((e) => e.on <= upto);
+  for (const e of applied) {
+    if (!e.known) continue;
+    bal += e.delta;
+    if (bal < min) { min = bal; minOn = e.on; }
+    if (bal < 0 && !conflict) conflict = { ev: e, bal };
+  }
+  return { end: bal, min, minOn, conflict, applied };
+}
+/* OLA 33 · LA DERIVA QUE AVISA (investigación II, mecanismo #7):
+ * la proactividad como CANDIDATAS EN DATOS — la superficie que
+ * las presenta es de canon; el banco calcula, ordena y redacta.
+ * Tres detectores, cada uno con su vara declarada:
+ *  - DERIVA (CUSUM de Page, 1954): la suma paciente de los
+ *    excesos sobre la base — S = Σ máx(0, x − μ − 0.5σ) de los
+ *    dos últimos meses — avisa cuando pasa 4σ Y el nivel reciente
+ *    supera la base en 15% (la materialidad: una deriva verdadera
+ *    pero de centavos no merece un aviso; la aritmética de la
+ *    tasa base manda — con avisos baratos, casi todo aviso sería
+ *    falso).
+ *  - SALTO (la cerca de Tukey): el último mes pasa Q3 + 1.5·IQR
+ *    de la base y el mes anterior NO pasaba — un salto es de un
+ *    mes; si los dos meses recientes están altos, es deriva.
+ *  - AUSENCIA (la completación del patrón): una serie regular
+ *    (≥3 veces, con su paso medido entre las dos últimas) cuya
+ *    última aparición lleva más de 1.5 pasos + 3 días sin volver.
+ * El presupuesto de avisos: como máximo TRES candidatas por
+ * episodio, ordenadas por impacto × evidencia. La histéresis es
+ * el período: el id del episodio lleva el mes — la misma deriva
+ * el mes que viene es un episodio nuevo, y dentro del mes la
+ * misma candidata no se duplica. El descarte del usuario viaja
+ * como supresión confirmada: quien llama puede pasar los ids
+ * suprimidos y no vuelven. */
+export type AskAlert = {
+  id: string;
+  kind: "deriva" | "salto" | "ausencia";
+  concept: string;
+  detail: string;
+  amountMinor: number;
+  evidence: number;
+  score: number;
+};
+
+export function driftCandidates(state: LedgerState, key: string, lang: Lang, names: Namer, today: string, suppressed?: ReadonlySet<string>): AskAlert[] {
+  const { display, rateE4 } = state.settings;
+  const reading = readAdvisor(state, key, lang, names, { today: new Date(`${today}T12:00:00`) });
+  const money = (n: number) => formatMoney(n, reading.currency, lang);
+  const keys = Object.keys(state.months).filter((k) => k <= key).sort();
+  const viewLine = (l: Line) => convertMinor(l.amountMinor, l.currency, display, rateE4);
+  const fechaDe = (iso: string): string => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+    if (!m) return iso;
+    const mo = Number(m[2]); const d = Number(m[3]);
+    if (mo < 1 || mo > 12 || d < 1) return iso;
+    return lang === "en" ? `${MONTH_WORDS_EN[mo - 1]} ${d}, ${m[1]}` : `${d} de ${MONTH_WORDS_ES[mo - 1]} de ${m[1]}`;
+  };
+  const out: AskAlert[] = [];
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  const sd = (xs: number[]) => { const m = mean(xs); return Math.sqrt(mean(xs.map((x) => (x - m) * (x - m)))); };
+  const detect = (concept: string, series: number[], down: boolean): void => {
+    const n = series.length;
+    if (n < 5) return;
+    const base = series.slice(0, n - 2);
+    const mu = mean(base);
+    if (mu <= 0) return;
+    const sigma = Math.max(sd(base), mu * 0.02);
+    const sgn = down ? -1 : 1;
+    const dev = (x: number) => sgn * (x - mu);
+    const cusum = series.slice(n - 2).reduce((a, x) => a + Math.max(0, dev(x) - 0.5 * sigma), 0);
+    const recent = mean(series.slice(n - 2));
+    const sorted = [...base].sort((a, b) => a - b);
+    const q = (p: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(p * sorted.length)))];
+    const fence = q(0.75) + 1.5 * (q(0.75) - q(0.25));
+    const last = series[n - 1];
+    const prev = series[n - 2];
+    const isSalto = !down && last > fence && prev <= fence && last > mu * 1.3;
+    const pct = Math.round((Math.abs(recent - mu) / mu) * 100);
+    if (isSalto) {
+      const impact = last - mu;
+      out.push({
+        id: `salto|${foldQ(concept)}|${key}`, kind: "salto", concept,
+        detail: L(lang, `«${concept}» saltó este mes: ${money(last)} contra su base de ${money(Math.round(mu))} al mes — pasa la cerca de lo típico y el mes pasado no pasaba.`, `"${concept}" jumped this month: ${money(last)} against its base of ${money(Math.round(mu))} a month — it clears the fence of the typical and last month it didn't.`),
+        amountMinor: impact, evidence: n, score: Math.abs(impact) * n,
+      });
+      return;
+    }
+    if (cusum > 4 * sigma && sgn * (recent - mu) > mu * 0.15) {
+      const impact = Math.round(recent - mu);
+      out.push({
+        id: `deriva|${foldQ(concept)}|${key}`, kind: "deriva", concept,
+        detail: down
+          ? L(lang, `Tu ingreso viene bajando de a poco: los últimos dos meses promedian ${money(Math.round(recent))} contra tu base de ${money(Math.round(mu))} al mes (−${pct}%). La suma paciente de las bajas (CUSUM) ya pasó la vara: no es un solo mes malo.`, `Your income has been drifting down: the last two months average ${money(Math.round(recent))} against your base of ${money(Math.round(mu))} a month (−${pct}%). The patient sum of the drops (CUSUM) has cleared the bar: it isn't a single bad month.`)
+          : L(lang, `«${concept}» viene subiendo de a poco: los últimos dos meses promedian ${money(Math.round(recent))} contra su base de ${money(Math.round(mu))} al mes (+${pct}%). La suma paciente de los excesos (CUSUM) ya pasó la vara: no es un solo mes caro.`, `"${concept}" has been drifting up: the last two months average ${money(Math.round(recent))} against its base of ${money(Math.round(mu))} a month (+${pct}%). The patient sum of the excesses (CUSUM) has cleared the bar: it isn't a single expensive month.`),
+        amountMinor: impact, evidence: n, score: Math.abs(impact) * n,
+      });
+    }
+  };
+  // El gasto por categoría (sin ahorro: apartar más no es deriva).
+  const catIds = new Set<string>();
+  for (const k of keys) for (const l of state.months[k]?.lines ?? []) if (l.active && isOut(l) && roleOf(state, l.categoryId) !== "savings") catIds.add(l.categoryId);
+  for (const catId of catIds) {
+    const series = keys.map((k) => (state.months[k]?.lines ?? []).filter((l) => l.active && isOut(l) && l.categoryId === catId).reduce((a, l) => a + viewLine(l), 0));
+    if (series.filter((x) => x > 0).length < 4) continue;
+    detect(names.cat(catId), series, false);
+  }
+  // El ingreso total, a la baja.
+  const incomeSeries = keys.map((k) => (state.months[k]?.lines ?? []).filter((l) => l.active && l.kind.startsWith("income")).reduce((a, l) => a + viewLine(l), 0));
+  if (incomeSeries.filter((x) => x > 0).length >= 4) detect(L(lang, "Tu ingreso", "Your income"), incomeSeries, true);
+  // La ausencia: series regulares cuya última aparición venció.
+  const bySeries = new Map<string, Line[]>();
+  for (const k of keys) for (const l of state.months[k]?.lines ?? []) {
+    if (!l.active || !isOut(l) || roleOf(state, l.categoryId) === "savings") continue;
+    const sid = l.seriesId || l.id;
+    bySeries.set(sid, [...(bySeries.get(sid) ?? []), l]);
+  }
+  for (const [, ls] of bySeries) {
+    if (ls.length < 3) continue;
+    const dated = ls.map((l) => ({ l, on: lineDate(l) })).filter((x) => x.on).sort((a, b) => (a.on < b.on ? -1 : 1));
+    if (dated.length < 3) continue;
+    const gap = daysBetweenIso(dated[dated.length - 2].on, dated[dated.length - 1].on);
+    if (gap <= 0) continue;
+    const since = daysBetweenIso(dated[dated.length - 1].on, today);
+    if (since <= gap * 1.5 + 3) continue;
+    const amounts = dated.map((x) => viewLine(x.l)).sort((a, b) => a - b);
+    const median = amounts[Math.floor(amounts.length / 2)];
+    const name = dated[dated.length - 1].l.concept || names.cat(dated[dated.length - 1].l.categoryId);
+    out.push({
+      id: `ausencia|${foldQ(name)}|${key}`, kind: "ausencia", concept: name,
+      detail: L(lang, `La cuota de «${name}» no llegó: solía caer cada ~${gap} días y la última fue el ${fechaDe(dated[dated.length - 1].on)} — lleva ${since} días contra su propio ritmo. Su monto típico es ${money(median)}.`, `The "${name}" payment didn't arrive: it used to land every ~${gap} days and the last one was ${fechaDe(dated[dated.length - 1].on)} — it's ${since} days against its own rhythm. Its typical amount is ${money(median)}.`),
+      amountMinor: median, evidence: dated.length, score: median * dated.length,
+    });
+  }
+  return out
+    .filter((a) => !(suppressed && suppressed.has(a.id)))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
+function derivaAnswer(c: Ctx, folded: string): BankResult | null {
+  // ENMIENDA DE CANON (integración de la Ola 33): la canónica inglesa
+  // «Did anything change…?» no entraba por la puerta («anything
+  // change» no era «anything new/off/unusual» ni «what changed») —
+  // el barrido F2 de canon la caza; la copia no tenía ese barrido.
+  if (!/(algo (cambio|raro|nuevo)|que cambio|que hay de nuevo|deberia saber|hay (avisos|algo)|avisos|what changed|anything (new|off|unusual|change|changed)|heads up|should i know)/.test(folded)) return null;
+  const alerts = driftCandidates(c.state, c.key, c.lang, c.names, c.today);
+  const src = ["libros.lineas", "asesor.lectura"];
+  if (!alerts.length) {
+    return {
+      kind: "answer", family: "deriva",
+      verdict: L(c.lang, "Nada que avisar: corrí la deriva sobre tu libro y ningún gasto viene subiendo de a poco, ningún salto pasa la cerca de lo típico, tu ingreso no viene bajando y no falta ninguna cuota esperada. Un mes raro solo no dispara un aviso en esta casa.", "Nothing to flag: I ran the drift check over your book and no spending is creeping up, no jump clears the fence of the typical, your income isn't drifting down and no expected payment is missing. A single odd month doesn't raise a flag in this house."),
+      pieces: [],
+      note: L(c.lang, "La vara, dicha: la deriva se nombra cuando la suma paciente de los excesos (CUSUM, k = ½σ) pasa 4σ con el nivel reciente 15% sobre la base; el salto, cuando un mes pasa la cerca de Tukey y el anterior no pasaba. Cuando hay avisos, enseño hasta tres, ordenados por monto y evidencia.", "The bar, stated: drift is named when the patient sum of excesses (CUSUM, k = ½σ) passes 4σ with the recent level 15% above base; a jump, when one month clears the Tukey fence and the previous one didn't. When there are flags, I show at most three, ranked by amount and evidence."),
+      source: src, lines: 0,
+    };
+  }
+  return {
+    kind: "answer", family: "deriva",
+    verdict: L(c.lang, `Hay ${alerts.length === 1 ? "una cosa" : `${alerts.length} cosas`} que avisar de tu libro, en orden de peso: ${alerts.map((a) => a.detail).join(" ")}`, `There ${alerts.length === 1 ? "is one thing" : `are ${alerts.length} things`} to flag in your book, in order of weight: ${alerts.map((a) => a.detail).join(" ")}`),
+    pieces: alerts.map((a) => ({ label: a.concept, minor: a.amountMinor })),
+    note: L(c.lang, "Son candidatas medidas de tu libro, no predicciones. La vara, dicha: la deriva se nombra cuando la suma paciente de los excesos (CUSUM, k = ½σ) pasa 4σ con el nivel reciente 15% sobre la base; el salto, cuando un mes pasa la cerca de Tukey y el anterior no pasaba; la ausencia, cuando una serie regular lleva más de paso y medio sin volver. El presupuesto: hasta tres avisos, por monto × evidencia.", "These are measured candidates from your book, not predictions. The bar, stated: drift is named when the patient sum of excesses (CUSUM, k = ½σ) passes 4σ with the recent level 15% above base; a jump, when one month clears the Tukey fence and the previous one didn't; an absence, when a regular series is more than a step and a half overdue. The budget: at most three flags, by amount × evidence."),
+    source: src, lines: 0,
+  };
+}
+
+/* OLA 34 · LOS OBJETOS QUE FALTABAN (investigación II, mecanismo
+ * #8 y las vetas de la §8). Cuatro piezas honestas sobre lo que el
+ * libro es y lo que no es todavía. */
+
+/** LA TANDA: el libro no tiene el objeto — FALTA lo nombra con su
+ * especificación en palabras, jamás disfrazada de suscripción ni de
+ * ahorro. La especificación completa para canon va en TANDA-SPEC.md. */
+function tandaAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/\b(tanda|rosca)\b/.test(folded)) return null;
+  return {
+    kind: "answer", family: "falta",
+    verdict: L(c.lang, "De la tanda no te puedo contar nada todavía: Faro no lleva tandas — el objeto no existe en tu libro, y no lo disfrazo de suscripción ni de ahorro porque no es ninguna de las dos cosas. Una tanda es un turno compartido: se pone una cuota fija por turno entre varias personas, el bote entero le toca a una en cada turno, y tu posición en el orden decide cuándo te toca recibir.", "About the tanda I can't tell you anything yet: Faro doesn't track tandas — the object doesn't exist in your book, and I won't dress it up as a subscription or as savings because it's neither. A tanda is a shared rotation: everyone puts in a fixed amount each turn, the whole pot goes to one person per turn, and your position in the order decides when you receive."),
+    pieces: [],
+    note: L(c.lang, "Lo que haría falta anotar para contarla de verdad: la cuota por turno, cuántas personas son, tu posición en el orden, cuándo empezó y si ya recibiste tu turno. Con eso, el asesor podría decir cuánto llevas puesto, cuánto falta para tu turno y cuánto has puesto contra lo que el bote te daría. La especificación completa quedó escrita para quien construya el objeto.", "What would need recording to tell it truly: the amount per turn, how many people there are, your position in the order, when it started and whether you've already received your turn. With that, the advisor could say how much you've put in, how long until your turn, and what you've put in against what the pot would give you. The full specification is written down for whoever builds the object."),
+    source: ["libros.lineas"], lines: 0,
+  };
+}
+
+/** LA ANTIGÜEDAD DE LAS DEUDAS: cubetas del libro (0 / 1–30 /
+ * 31–60 / 61–90 / más de 90 días desde el inicio anotado), sin
+ * adjetivos. Lo que no trae fecha de inicio se nombra aparte con
+ * su monto: jamás se le inventa una edad. */
+function antiguedadAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(que tan viej|antiguedad|desde cuando|cuanto tiempo.{0,24}(deud|debo|prestam)|how old|age of (my|the) debt|how long.{0,20}(owed|debt))/.test(folded)) return null;
+  const loans = loansOf(c.state).filter((l) => !l.archived);
+  type Row = { name: string; left: number; on: string; days: number };
+  const rows: Row[] = [];
+  for (const l of loans) {
+    const f = loanState(c.state, l, c.today);
+    const left = convertMinor(f.left, l.currency, c.display, c.rateE4);
+    if (left <= 0) continue;
+    if (l.takenOn) rows.push({ name: l.lender, left, on: l.takenOn, days: Math.max(0, daysBetweenIso(l.takenOn, c.today)) });
+  }
+  const loanIds = new Set(loans.map((l) => l.id));
+  const undated = planDebts(c.state, c.today).filter((d) => !loanIds.has(d.id)).reduce((a, d) => a + d.left, 0)
+    + loans.filter((l) => !l.takenOn).reduce((a, l) => a + convertMinor(loanState(c.state, l, c.today).left, l.currency, c.display, c.rateE4), 0);
+  const src = ["cobros.debo"];
+  if (!rows.length && undated <= 0) {
+    return { kind: "answer", family: "deudas", verdict: L(c.lang, "No debes nada anotado: sin préstamos vivos no hay antigüedad que contar.", "You owe nothing recorded: with no live loans there's no age to tell."), pieces: [], note: null, source: src, lines: 0 };
+  }
+  if (!rows.length) {
+    return { kind: "answer", family: "deudas", verdict: L(c.lang, `Tus deudas suman ${c.money(undated)}, pero ninguna trae fecha de inicio anotada: su antigüedad no se puede medir sin inventarla, y no la invento.`, `Your debts total ${c.money(undated)}, but none carries a recorded start date: their age can't be measured without inventing it, and I don't invent it.`), pieces: [{ label: L(c.lang, "Sin fecha de inicio anotada", "No recorded start date"), minor: undated }], note: null, source: src, lines: 0 };
+  }
+  const buckets: Array<{ label: string; test: (d: number) => boolean }> = [
+    { label: L(c.lang, "De hoy", "From today"), test: (d) => d <= 0 },
+    { label: L(c.lang, "De 1 a 30 días", "1 to 30 days old"), test: (d) => d >= 1 && d <= 30 },
+    { label: L(c.lang, "De 31 a 60 días", "31 to 60 days old"), test: (d) => d >= 31 && d <= 60 },
+    { label: L(c.lang, "De 61 a 90 días", "61 to 90 days old"), test: (d) => d >= 61 && d <= 90 },
+    { label: L(c.lang, "De más de 90 días", "Over 90 days old"), test: (d) => d > 90 },
+  ];
+  const pieces: BankPiece[] = [];
+  const parts: string[] = [];
+  for (const b of buckets) {
+    const inB = rows.filter((r) => b.test(r.days));
+    if (!inB.length) continue;
+    const sum = inB.reduce((a, r) => a + r.left, 0);
+    pieces.push({ label: b.label, minor: sum });
+    parts.push(L(c.lang, `${b.label.toLowerCase()}: ${c.money(sum)} (${inB.map((r) => `«${r.name}»`).join(", ")})`, `${b.label}: ${c.money(sum)} (${inB.map((r) => `"${r.name}"`).join(", ")})`));
+  }
+  const oldest = rows.reduce((a, r) => (r.days > a.days ? r : a), rows[0]);
+  return {
+    kind: "answer", family: "deudas",
+    verdict: L(c.lang, `Tus deudas con fecha de inicio, por edad — cubetas de tu libro, sin adjetivos: ${parts.join("; ")}. La de más tiempo: «${oldest.name}», empezó el ${fmtFecha(c, oldest.on)}, hace ${oldest.days} días, y quedan ${c.money(oldest.left)}.`, `Your debts with a recorded start, by age — buckets from your book, no adjectives: ${parts.join("; ")}. The longest-running: "${oldest.name}", started ${fmtFecha(c, oldest.on)}, ${oldest.days} days ago, with ${c.money(oldest.left)} left.`),
+    pieces,
+    note: undated > 0 ? L(c.lang, `Aparte: ${c.money(undated)} en deudas sin fecha de inicio anotada — su antigüedad no se puede medir y no se les inventa una.`, `Separately: ${c.money(undated)} in debts with no recorded start date — their age can't be measured and none is invented for them.`) : null,
+    source: src, lines: 0,
+  };
+}
+
+/** LAS RELACIONES DE ALLEN SOBRE LOS EXTREMOS DEL LIBRO: dos
+ * ciudadanos nombrados, sus intervalos [primera, última aparición]
+ * y la relación en palabras llanas — antes (con su hueco), se
+ * tocan (el mismo día), se solapan, empiezan el mismo día. */
+function allenAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(antes o despues|que (fue|paso) primero|which came first|before or after)/.test(folded)) return null;
+  type Citizen = { label: string; folded: string; test: (l: Line) => boolean; at: number };
+  const found: Citizen[] = [];
+  const push = (label: string, test: (l: Line) => boolean) => {
+    const f = foldQ(label).trim();
+    if (f.length < 3 || found.some((x) => x.folded === f)) return;
+    const at = folded.search(new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`));
+    if (at >= 0) found.push({ label, folded: f, test, at });
+  };
+  const concepts = new Set<string>();
+  for (const mk of Object.keys(c.state.months)) for (const l of c.state.months[mk]?.lines ?? []) if (l.concept) concepts.add(l.concept);
+  for (const concept of concepts) push(concept, (l) => l.concept === concept);
+  for (const cat of c.state.structure.categories) push(c.names.cat(cat.id), (l) => l.categoryId === cat.id);
+  found.sort((a, b) => a.at - b.at);
+  if (found.length < 2) return null;
+  const [A, B] = [found[0], found[1]];
+  const span = (ct: Citizen): { first: string; last: string } | null => {
+    const dates: string[] = [];
+    for (const mk of Object.keys(c.state.months)) {
+      if (mk > c.key) continue;
+      for (const l of c.state.months[mk]?.lines ?? []) {
+        if (!l.active || !ct.test(l)) continue;
+        const d = lineDate(l);
+        if (d && d <= c.today) dates.push(d);
+      }
+    }
+    if (!dates.length) return null;
+    dates.sort();
+    return { first: dates[0], last: dates[dates.length - 1] };
+  };
+  const sa = span(A); const sb = span(B);
+  if (!sa || !sb) return null;
+  let relation: string;
+  if (sa.last < sb.first) {
+    const gap = daysBetweenIso(sa.last, sb.first);
+    relation = L(c.lang, `«${A.label}» va ANTES: su última aparición (${fmtFecha(c, sa.last)}) queda ${gap} días antes de la primera de «${B.label}» — entre los dos hay un hueco sin ninguno.`, `"${A.label}" comes BEFORE: its last appearance (${fmtFecha(c, sa.last)}) sits ${gap} days before the first of "${B.label}" — between the two there's a gap with neither.`);
+  } else if (sb.last < sa.first) {
+    const gap = daysBetweenIso(sb.last, sa.first);
+    relation = L(c.lang, `«${A.label}» va DESPUÉS: «${B.label}» terminó el ${fmtFecha(c, sb.last)}, ${gap} días antes de que «${A.label}» empezara.`, `"${A.label}" comes AFTER: "${B.label}" ended ${fmtFecha(c, sb.last)}, ${gap} days before "${A.label}" began.`);
+  } else if (sa.last === sb.first) {
+    relation = L(c.lang, `Se TOCAN: el último día de «${A.label}» es el primer día de «${B.label}» — ${fmtFecha(c, sa.last)}.`, `They MEET: the last day of "${A.label}" is the first day of "${B.label}" — ${fmtFecha(c, sa.last)}.`);
+  } else if (sb.last === sa.first) {
+    relation = L(c.lang, `Se TOCAN: el último día de «${B.label}» es el primer día de «${A.label}» — ${fmtFecha(c, sb.last)}.`, `They MEET: the last day of "${B.label}" is the first day of "${A.label}" — ${fmtFecha(c, sb.last)}.`);
+  } else if (sa.first === sb.first) {
+    relation = L(c.lang, `Empiezan el MISMO día — ${fmtFecha(c, sa.first)} — y conviven desde ahí.`, `They start the SAME day — ${fmtFecha(c, sa.first)} — and run together from there.`);
+  } else {
+    relation = L(c.lang, `Se SOLAPAN: el primero de «${B.label}» (${fmtFecha(c, sb.first)}) cae dentro del tiempo de «${A.label}» (del ${fmtFecha(c, sa.first)} al ${fmtFecha(c, sa.last)}), y conviven.`, `They OVERLAP: the first of "${B.label}" (${fmtFecha(c, sb.first)}) falls inside the span of "${A.label}" (${fmtFecha(c, sa.first)} to ${fmtFecha(c, sa.last)}), and they run together.`);
+  }
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `«${A.label}» aparece por primera vez el ${fmtFecha(c, sa.first)} y «${B.label}» el ${fmtFecha(c, sb.first)}. ${relation}`, `"${A.label}" first appears ${fmtFecha(c, sa.first)} and "${B.label}" ${fmtFecha(c, sb.first)}. ${relation}`),
+    pieces: [],
+    note: null,
+    source: ["libros.lineas", "historial.stream"],
+    lines: 0,
+    actions: reportDoor(c, "historial.stream", "Verlos en el Historial", "See them in History"),
+  };
+}
+
+/* OLA 35 · LA COLA LARGA CON CENSO (investigación II, mecanismo
+ * #9 — BANKING77: la mayoría de las preguntas reales no piden un
+ * cálculo, piden ESTADO, AUSENCIA e IDENTIDAD: «¿ya pagué?»,
+ * «¿qué me falta?», «¿qué es este cargo?»). Tres familias con
+ * plantillas sin vergüenza (Moorhouse 2023): la forma llana se
+ * construye, no se aparta por no ser cálculo. */
+
+/** LA AUSENCIA EN EL LIBRO: lo que debería estar y no está —
+ * las series que no llegaron (las candidatas de ausencia de la
+ * Ola 33) y el gasto que desapareció (una categoría con historia
+ * cuyo mes en curso va en cero y que solía empezar antes de hoy).
+ * La ausencia se dice DEL LIBRO, no del mundo: si fue a
+ * propósito, no falta nada — y la respuesta lo admite. */
+function ausenciaAnswer(c: Ctx, folded: string): BankResult | null {
+  // ENMIENDA DE CANON (integración de la Ola 35): la canónica inglesa
+  // «What hasn't shown up?» no entraba por la puerta («what haven»
+  // no oye «hasn») — el barrido F2 de canon lo cazó; la copia no
+  // barría sus propias canónicas.
+  if (!/(que (me )?falta|que no (he|ha) |que no aparece|que gasto no|falta por (pagar|anotar)|what('s| is) missing|what (haven|hasn)|anything missing|shown up)/.test(folded)) return null;
+  const parts: string[] = [];
+  const pieces: BankPiece[] = [];
+  for (const a of driftCandidates(c.state, c.key, c.lang, c.names, c.today).filter((x) => x.kind === "ausencia")) {
+    parts.push(a.detail);
+    pieces.push({ label: a.concept, minor: a.amountMinor });
+  }
+  const keys = Object.keys(c.state.months).filter((k) => k < c.key).sort();
+  const todayDay = Number(c.today.slice(8, 10));
+  for (const cat of c.state.structure.categories) {
+    if (roleOf(c.state, cat.id) === "savings" || roleOf(c.state, cat.id) === "debt") continue;
+    let monthsWith = 0;
+    let total = 0;
+    const firstDays: number[] = [];
+    for (const mk of keys) {
+      const ls = (c.state.months[mk]?.lines ?? []).filter((l) => l.active && isOut(l) && l.categoryId === cat.id);
+      if (!ls.length) continue;
+      monthsWith++;
+      total += ls.reduce((a, l) => a + view(c, l), 0);
+      const ds = ls.map((l) => lineDate(l)).filter(Boolean).sort();
+      if (ds.length) firstDays.push(Number(ds[0].slice(8, 10)));
+    }
+    if (monthsWith < 4 || total <= 0) continue;
+    const cur = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && l.categoryId === cat.id);
+    if (cur.length) continue;
+    firstDays.sort((a, b) => a - b);
+    const medFirst = firstDays[Math.floor(firstDays.length / 2)];
+    if (!(medFirst < todayDay)) continue;
+    const typical = Math.round(total / monthsWith);
+    parts.push(L(c.lang, `De «${c.names.cat(cat.id)}» no aparece nada este mes, y solía empezar hacia el día ${medFirst}: su mes típico es ${c.money(typical)}.`, `Nothing shows under "${c.names.cat(cat.id)}" this month, and it used to start around day ${medFirst}: its typical month is ${c.money(typical)}.`));
+    pieces.push({ label: c.names.cat(cat.id), minor: typical });
+  }
+  const src = ["libros.lineas", "cobros.cuotas"];
+  if (!parts.length) {
+    return {
+      kind: "answer", family: "ausencia",
+      verdict: L(c.lang, "No falta nada que tu libro eche en falta: las series que espero han llegado a su ritmo y ninguna categoría con historia va en cero este mes. La ausencia se juzga contra el ritmo del propio libro, no contra un calendario inventado.", "Nothing is missing that your book misses: the series I expect have landed on their rhythm and no category with a history is sitting at zero this month. Absence is judged against the book's own rhythm, not an invented calendar."),
+      pieces: [], note: null, source: src, lines: 0,
+    };
+  }
+  return {
+    kind: "answer", family: "ausencia",
+    verdict: L(c.lang, `Lo que tu libro echa en falta: ${parts.join(" ")}`, `What your book is missing: ${parts.join(" ")}`),
+    pieces,
+    note: L(c.lang, "Ojo: esto es ausencia EN EL LIBRO, no en el mundo — si lo pagaste sin anotarlo, o si este mes fue a propósito, no falta nada. La vara es el ritmo del propio libro: la serie que solía llegar y la categoría que solía empezar antes de hoy.", "Note: this is absence IN THE BOOK, not in the world — if you paid it without recording it, or this month was on purpose, nothing is missing. The bar is the book's own rhythm: the series that used to land and the category that used to start before today."),
+    source: src, lines: 0,
+  };
+}
+
+/** LA IDENTIDAD: «¿qué es este cargo?» — candidatas con la
+ * evidencia dicha y el criterio declarado, nunca una adivinanza.
+ * Si hay varias, se listan con el dato que las distingue. */
+function identidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  // Dos formas: con determinante («¿qué es este cargo?») y desnuda
+  // («¿qué es Internet?») — la desnuda solo entra si un ciudadano
+  // del libro resuelve en la pregunta; un «¿qué es…?» sin ciudadano
+  // no es de esta familia (la caza de la ola 35).
+  const detForm = /(que es (este|ese|esta|un|una)|what is (this|that))/.test(folded);
+  let named: { display: string; folded: string; fn: (l: Line) => boolean } | null = null;
+  if (!detForm) {
+    // ENMIENDA DE CANON (integración de la Ola 35): el dato que vive
+    // en los burós no es un ciudadano del libro — «What is my credit
+    // score?» resolvía la categoría «Credit» por la palabra suelta y
+    // la identidad se tragaba la canónica inglesa de FALTA (el
+    // barrido F2 de canon lo cazó; la copia no barría esa canónica).
+    if (/(patrimonio|valor neto|net worth|puntaje|credit score|score de credito)/.test(folded)) return null;
+    if (!/^[¿¡\s]*(que es|what is)\b/.test(folded)) return null;
+    for (const w of folded.split(/[^a-z0-9]+/).filter((x) => x.length >= 4)) {
+      named = citizenByName(c.state, c.names, w);
+      if (named) break;
+    }
+    if (!named) return null;
+  }
+  type Hit = { l: Line; mk: string };
+  const all: Hit[] = [];
+  for (const mk of Object.keys(c.state.months)) {
+    if (mk > c.key) continue;
+    for (const l of c.state.months[mk]?.lines ?? []) if (l.active) all.push({ l, mk });
+  }
+  let hits: Hit[] = [];
+  const amts = amountsIn(raw);
+  if (amts.length) {
+    const targets = amts.map((a) => convertMinor(a.minor, a.currency, c.display, c.rateE4));
+    hits = all.filter((h) => targets.some((t) => Math.abs(view(c, h.l) - t) <= 1));
+  } else if (named) {
+    hits = all.filter((h) => named!.fn(h.l));
+  } else {
+    const words = folded.split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+    for (const w of words) {
+      const ct = citizenByName(c.state, c.names, w);
+      if (ct) { hits = all.filter((h) => ct.fn(h.l)); if (hits.length) break; }
+    }
+  }
+  const src = ["libros.lineas", "historial.stream"];
+  if (!hits.length) {
+    return {
+      kind: "answer", family: "identidad",
+      verdict: L(c.lang, "No encuentro ningún cargo así en tu libro: ni por el monto ni por el nombre que trajiste. Si me das el monto exacto o el nombre tal cual aparece, lo busco de nuevo — no adivino cuál podría ser.", "I can't find any charge like that in your book: not by the amount, not by the name you brought. Give me the exact amount or the name as it appears and I'll look again — I don't guess which one it might be."),
+      pieces: [], note: null, source: src, lines: 0,
+    };
+  }
+  const byKey = new Map<string, Hit[]>();
+  for (const h of hits) {
+    const k = h.l.seriesId || h.l.concept || h.l.id;
+    byKey.set(k, [...(byKey.get(k) ?? []), h]);
+  }
+  const groups = [...byKey.values()].sort((a, b) => b.length - a.length);
+  const describeGroup = (g: Hit[]): string => {
+    const dates = g.map((h) => lineDate(h.l)).filter(Boolean).sort();
+    const amounts = g.map((h) => view(c, h.l)).sort((a, b) => a - b);
+    const median = amounts[Math.floor(amounts.length / 2)];
+    const first = g[0].l;
+    const name = first.concept || c.names.cat(first.categoryId);
+    const catTxt = c.names.cat(first.categoryId) + (first.subId ? ` · ${c.names.sub(first.subId)}` : "");
+    const kindTxt = first.kind === "subscription"
+      ? L(c.lang, "una suscripción", "a subscription")
+      : first.kind.startsWith("income") ? L(c.lang, "un ingreso", "an income") : L(c.lang, "un gasto", "a charge");
+    return L(c.lang, `«${name}» es ${kindTxt} de ${catTxt}: ${g.length} ${g.length === 1 ? "vez anotada" : "veces anotadas"}${dates.length ? `, del ${fmtFecha(c, dates[0])} al ${fmtFecha(c, dates[dates.length - 1])}` : ""}, con monto típico de ${c.money(median)}.`, `"${name}" is ${kindTxt} under ${catTxt}: recorded ${g.length} time${g.length === 1 ? "" : "s"}${dates.length ? `, from ${fmtFecha(c, dates[0])} to ${fmtFecha(c, dates[dates.length - 1])}` : ""}, with a typical amount of ${c.money(median)}.`);
+  };
+  if (groups.length > 1) {
+    return {
+      kind: "answer", family: "identidad",
+      verdict: L(c.lang, `Hay ${groups.length} candidatas en tu libro y no elijo por ti: ${groups.slice(0, 3).map(describeGroup).join(" ")} El dato que las distingue está en cada una: su fecha y su monto típico.`, `There are ${groups.length} candidates in your book and I won't pick for you: ${groups.slice(0, 3).map(describeGroup).join(" ")} The telling detail is in each: its dates and its typical amount.`),
+      pieces: [], note: null, source: src, lines: hits.length,
+      actions: reportDoor(c, "historial.stream", "Verlas en el Historial", "See them in History"),
+    };
+  }
+  return {
+    kind: "answer", family: "identidad",
+    verdict: describeGroup(groups[0]),
+    pieces: [],
+    note: L(c.lang, "Lo identifico por la evidencia dicha — el nombre o el monto tal cual está anotado, su ritmo de apariciones y su monto típico — no por parecido: si no es ese, el dato que lo distingue lo separa.", "I identify it by the stated evidence — the name or amount exactly as recorded, its rhythm of appearances and its typical amount — not by resemblance: if it isn't that one, the telling detail separates it."),
+    source: src, lines: hits.length,
+    actions: reportDoor(c, "historial.stream", "Verlo en el Historial", "See it in History"),
+  };
+}
+
+/** EL ESTADO DEL ÍTEM: «¿cómo va el préstamo de Carlos?» — la
+ * extensión de ya-pagué a la foto completa del ítem: lo puesto,
+ * lo devuelto con su porcentaje, lo que queda y el último
+ * movimiento con su fecha. */
+function estadoAnswer(c: Ctx, folded: string): BankResult | null {
+  // «¿A cómo está el cambio?» NO es estado: es el conversor — la
+  // tasa jamás se disfraza de ítem (la caza de la ola 35).
+  if (/(cambio|tasa|dolar|euro|exchange|rate)/.test(folded)) return null;
+  if (!/(como va|como esta|estado de|how is|status of|how's)/.test(folded)) return null;
+  const persons = [...peopleOf(c.state, "owed", c.today), ...peopleOf(c.state, "owe", c.today)];
+  const p = persons.find((x) => {
+    const f = foldQ(x.name).trim();
+    return f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded);
+  });
+  if (p) {
+    const lent = p.events.filter((e) => e.kind === "loan").reduce((a, e) => a + e.view, 0);
+    const paid = p.events.filter((e) => e.kind === "pay").reduce((a, e) => a + e.view, 0);
+    const pct = lent > 0 ? Math.round((paid / lent) * 100) : 0;
+    const firstLoan = p.events.find((e) => e.kind === "loan");
+    const owed = p.side === "owed";
+    return {
+      kind: "answer", family: "ya-pague",
+      verdict: owed
+        ? L(c.lang, `El préstamo de «${p.name}» va así: prestaste ${c.money(lent)}${firstLoan ? ` desde el ${fmtFecha(c, firstLoan.date)}` : ""}, te han devuelto ${c.money(paid)} (el ${pct}%), y quedan ${c.money(p.left)}. ${p.lastPay ? `El último pago fue el ${fmtFecha(c, p.lastPay)}${p.days !== null ? ` — hace ${p.days} días` : ""}.` : "Sin pagos anotados todavía."}`, `The loan to "${p.name}" stands like this: you lent ${c.money(lent)}${firstLoan ? ` starting ${fmtFecha(c, firstLoan.date)}` : ""}, you've been repaid ${c.money(paid)} (${pct}%), and ${c.money(p.left)} is left. ${p.lastPay ? `The last payment was ${fmtFecha(c, p.lastPay)}${p.days !== null ? ` — ${p.days} days ago` : ""}.` : "No payments recorded yet."}`)
+        : L(c.lang, `Tu deuda con «${p.name}» va así: recibiste ${c.money(lent)}${firstLoan ? ` desde el ${fmtFecha(c, firstLoan.date)}` : ""}, has pagado ${c.money(paid)} (el ${pct}%), y quedan ${c.money(p.left)}. ${p.lastPay ? `El último pago fue el ${fmtFecha(c, p.lastPay)}${p.days !== null ? ` — hace ${p.days} días` : ""}.` : "Sin pagos anotados todavía."}`, `Your debt to "${p.name}" stands like this: you received ${c.money(lent)}${firstLoan ? ` starting ${fmtFecha(c, firstLoan.date)}` : ""}, you've paid ${c.money(paid)} (${pct}%), and ${c.money(p.left)} is left. ${p.lastPay ? `The last payment was ${fmtFecha(c, p.lastPay)}${p.days !== null ? ` — ${p.days} days ago` : ""}.` : "No payments recorded yet."}`),
+      pieces: [
+        { label: owed ? L(c.lang, "Prestado", "Lent") : L(c.lang, "Recibido", "Received"), minor: lent },
+        { label: owed ? L(c.lang, "Devuelto", "Repaid") : L(c.lang, "Pagado", "Paid"), minor: paid },
+        { label: L(c.lang, "Quedan", "Left"), minor: p.left },
+      ],
+      note: null,
+      source: [owed ? "cobros.mideben" : "cobros.debo"],
+      lines: p.events.length,
+    };
+  }
+  const loan = loansOf(c.state).find((l) => !l.archived && foldQ(l.lender).length >= 3 && folded.includes(foldQ(l.lender)));
+  if (loan) {
+    const f = loanState(c.state, loan, c.today);
+    const borrowed = convertMinor(loan.amountMinor, loan.currency, c.display, c.rateE4);
+    const paidD = convertMinor(f.paid, loan.currency, c.display, c.rateE4);
+    const leftD = convertMinor(f.left, loan.currency, c.display, c.rateE4);
+    const pct = borrowed > 0 ? Math.round((paidD / borrowed) * 100) : 0;
+    return {
+      kind: "answer", family: "ya-pague",
+      verdict: L(c.lang, `El préstamo de «${loan.lender}» va así: recibiste ${c.money(borrowed)} el ${fmtFecha(c, loan.takenOn)}, has pagado ${c.money(paidD)} (el ${pct}%), y quedan ${c.money(leftD)}${f.interest > 0 ? `, con ${c.money(convertMinor(f.interest, loan.currency, c.display, c.rateE4))} de interés contado por el libro` : ""}.`, `The loan from "${loan.lender}" stands like this: you received ${c.money(borrowed)} on ${fmtFecha(c, loan.takenOn)}, you've paid ${c.money(paidD)} (${pct}%), and ${c.money(leftD)} is left${f.interest > 0 ? `, with ${c.money(convertMinor(f.interest, loan.currency, c.display, c.rateE4))} of interest counted by the book` : ""}.`),
+      pieces: [
+        { label: L(c.lang, "Recibido", "Received"), minor: borrowed },
+        { label: L(c.lang, "Pagado", "Paid"), minor: paidD },
+        { label: L(c.lang, "Quedan", "Left"), minor: leftD },
+      ],
+      note: null, source: ["cobros.debo"], lines: 0,
+    };
+  }
+  return null;
+}
+
+
+/* OLA 37 · LA CAPACIDAD Y SUS VOCES (la caza de Oscar, 2026-11-22):
+ * «Si me compro un boleto por $500 y rento una casa por $1200,
+ * ¿podría asumir el gasto?» — las compras podrían ser cualquier
+ * cosa: lo que la pregunta trae son MONTOS, unos de una vez y otros
+ * que se repiten, y pide un veredicto de capacidad. Antes de esta
+ * ola la familia entera caía en silencio («asumir», «podría con»,
+ * «aguanta», «¿cuánto gastaría en total?») o en el delegado, que
+ * tomaba SOLO el primer monto y decía «sí» a un plan de $1,700 con
+ * $750 en la queda — un sí mentiroso, peor que el silencio. La
+ * forma: cada monto se lee en su cláusula (lo que se renta se
+ * repite; lo que se compra, una vez), la suma se camina contra la
+ * queda y lo programado del mes, y si hay gasto que se repite se
+ * juzga también el ritmo de los meses que vienen contra el mes
+ * típico medido. El cruce de tiempos se DECLARA en la nota.
+ * Fronteras: el pago en su día sigue siendo de la forma del día; el
+ * «¿puedo gastar $X hoy?» de un solo monto sigue en la verificación;
+ * la sensibilidad («si la renta sube a…» sobre una línea del libro)
+ * sigue en el hipotético; el «me da para X» de un solo monto simple
+ * sigue en el delegado. */
+function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  // La sensibilidad sobre una línea del libro es del hipotético.
+  if (/(sube|baja|aumenta|cuesta)/.test(folded)) {
+    const filter = filterOf(c, folded);
+    if (filter && (c.state.months[c.key]?.lines ?? []).some((l) => l.active && isOut(l) && filter(l))) return null;
+  }
+  if (/(me entraron|me depositaron|acabo de recibir)/.test(folded)) return null;
+  // ENMIENDA DE CANON (integración de la Ola 38): la premisa de
+  // INGRESO hipotética («si me regalaran 300, ¿cuánto tendría?») es
+  // del hipotético — su canónica cercada en canon — y el verbo
+  // social «regalar» la secuestraba como si fuera un gasto.
+  if (/(me regalaran|me regalaren|me dieran|me diesen|me pagaran)/.test(folded)) return null;
+  // ENMIENDA DE CANON (integración de la Ola 38): «¿cuánto es lo
+  // más que puedo GASTAR HOY?» es el ritmo seguro del promedio —
+  // canónica viva de canon — no el tope de un gasto que se repite:
+  // la voz del máximo cede cuando el gasto es el de hoy.
+  if (/(cuanto es lo (maximo|mas)|lo mas que (puedo|podria)|most i (can|could))/.test(folded) && /(gastar|spend)/.test(folded) && /\b(hoy|today)\b/.test(folded)) return null;
+  // ENMIENDA DE CANON (integración de la Ola 37): el contrafactual
+  // es familia cercada de canon («si dejara de gastar $40 al mes en
+  // golosinas, ¿cuánto sería en un año?») y el fuego por premisa
+  // recurrente de esta forma lo secuestraba — la capacidad cede con
+  // la misma voz con que el contrafactual oye.
+  if (/(si (dejo|dejara|dejase|quito|elimino|no gast)|dejando de|sin gastar en|dejar de gastar|if i (stop|quit|stopped)|stop spending)/.test(folded)) return null;
+  // El retiro de una cuenta nombrada es del escenario cuenta-origen.
+  if (/(sacara|saco|retiro|retirara|retirase|de mi cuenta|de mis ahorros|what if i (take|withdraw)|if i (take|took|withdraw))/.test(folded)) return null;
+  // Las formas cercadas de los vecinos: la división y el porcentaje
+  // son de la calculadora; la conversión pura («¿cuánto es X a la
+  // semana al mes?») del conversor; la meta con plazo, de la meta
+  // inversa; el monto en OTRA moneda, del hipotético (que nombra la
+  // conversión en su moneda — esta forma no convierte en silencio);
+  // y el «quedaría en mi cuenta» con saldo en cuentas, del
+  // hipotético sobre la cuenta (su base es el saldo, no el mes).
+  if (/(divid|repart|en (dos|tres|cuatro|cinco|seis|\d+) partes|entre \d+|split)/.test(folded)) return null;
+  if (/%|por ciento|porcentaje/.test(folded)) return null;
+  if (/(ahorrar|juntar|reunir|guardar).{0,40}(para|en \d+ meses)|para (llegar|juntar|reunir|ahorrar)/.test(folded)) return null;
+  // La suma de INGRESOS traídos («me regalaron…, me dio…») es de la
+  // calculadora; el abono a una deuda nombrada, del simulador.
+  if (/(regalaron|me regalo|me dio|me dieron|me pagaron|bono de|aumento de)/.test(folded) && !/(compr|gast|rent|alquil)/.test(folded)) return null;
+  if (/(tarjeta|deuda|prestamo|credito|debt|loan|card)/.test(folded) && /(abono|abonar|pagar|pago|meto|meter|extra|pay)/.test(folded)) return null;
+  // El día nombrado también se lee como monto («el 28» → $28): se
+  // retira del texto antes de leer las cifras, como hace la prueba.
+  const dayM = /(?:el dia|el)\s*(\d{1,2})\b/.exec(folded);
+  const rawForAmounts = dayM ? raw.replace(new RegExp(`(el\\s+d[ií]a\\s*|el\\s+)${dayM[1]}\\b`, "i"), " ") : raw;
+  const amounts = amountsIn(rawForAmounts);
+  if (amounts.some((a) => a.currency !== c.display)) return null;
+  // «Cambiar» con moneda nombrada es conversión, no capacidad.
+  if (/(cambiar|cambio|change|convert)/.test(folded) && /(cordobas|dolares|euros|pesos|lempiras|quetzales|dollars)/.test(folded)) return null;
+  if (/(en mi cuenta|en la cuenta|en mis cuentas|in my account)/.test(folded) && savingsStock(c.state, c.key).total > 0) return null;
+  const hasAmt = amounts.length >= 1;
+  // OLA 38: «da para» SOLO como palabra entera — como subcadena vive
+  // dentro de «queDA PARA» y secuestraba el «¿cuánto me queda para
+  // el resto del mes?», que es de la familia de la queda, no de la
+  // capacidad (la caza del centro la cazó pidiendo un monto).
+  const asumirVerb = /(asumir|podria con|puedo con|aguanta|\bme da para\b|\bda para\b|puedo darme|darme el gusto|darse el gusto|dar el gusto|el gusto de|permitirme|can i afford|could i afford|afford)/.test(folded);
+  // OLA 38 · LA CAPACIDAD SOCIAL: la vida también presta, ayuda,
+  // invita, regala y cambia — verbos de premisa con monto que el
+  // delegado no oye (silencio en la caza del centro) y que se juzgan
+  // caminando el mes, como cualquier gasto traído.
+  // ENMIENDA DE CANON (integración de la Ola 38): «treat» entra solo
+  // como VERBO con persona («treat my brother») — «a treat» a secas
+  // es el gusto de canon («Can I spend $30 on a treat?» es canónica
+  // de gustos) y el verbo suelto la secuestraba.
+  const socialVerb = /(prestar|prestara|prestaria|preste|prestarle|ayudar|ayudara|ayudaria|invitar|invitara|invitaria|regalar|regalara|cambiar|cambiaria|lend|treating|treat (my|him|her|them|us|you|someone))/.test(folded);
+  const buyVerb = /(puedo|podria|podre) (comprar|comprarme|gastar|rentar|alquilar)/.test(folded);
+  const quedaVoice = /(cuanto (me )?(quedaria|quedara|sobraria|restaria)|me quedaria|cuanto (tendre|tendria) (despues|si))/.test(folded);
+  const llegaVoice = /(con cuanto (llegaria|llego|llegare)|cuanto (llegaria|llego) a fin de mes|cuanto (me )?(quedaria|quedara|sobraria) a fin de mes|how much would i have left|what would i have left)/.test(folded);
+  const totalVoice = /(cuanto (gastaria|gastare|seria|es) (en total|el gasto|de gasto)|gasto total|cuanto (suma|suman))/.test(folded);
+  // OLA 38 · EL MÁXIMO SIN PREMISA y EL PRÓXIMO PAGO: dos voces sin
+  // monto que la caza del centro cazó desviadas — el máximo caía en
+  // gustos pidiendo un monto, y el próximo pago en la agenda, que
+  // lista lo que viene pero no juzga si se llega. Se definen aquí,
+  // antes de la guarda de la conversión pura, porque el máximo
+  // también empieza con «¿cuánto es…?».
+  const maxVoice = /(cuanto es lo (maximo|mas)|maximo que (puedo|podria)|lo mas que (puedo|podria)|most i (can|could) pay|what'?s the most i (can|could))/.test(folded);
+  const paydayVoice = /(hasta el proximo pago|hasta que (me paguen|entre el)|aguanto hasta|me alcanza hasta|me dura hasta|until (my )?(next )?(payday|paycheck)|until i get paid|last until payday)/.test(folded);
+  // El pago en su día (un monto, verbo de pago, día nombrado) es de
+  // la forma del día de esta misma familia — no de la capacidad.
+  const dayPayShape = amounts.length === 1 && /(pagar|pago|pay)\b/.test(folded) && (/((el dia|el)\s*\d{1,2}\b)/.test(folded) || /\bmanana\b/.test(folded));
+  if (dayPayShape) return null;
+  // Los montos por cláusula: lo que se renta se repite cada mes.
+  const clauses = rawForAmounts.split(/[,;](?!\d)|\s+y\s+|\s+e\s+|\s+and\s+/i).map((s) => s.trim()).filter(Boolean);
+  let oneTime = 0;
+  let recurring = 0;
+  let clauseSum = 0;
+  for (const cl of clauses) {
+    const clAmt = amountsIn(cl).reduce((a, x) => a + convertMinor(x.minor, x.currency, c.display, c.rateE4), 0);
+    clauseSum += clAmt;
+    if (clAmt <= 0) continue;
+    if (/(rent|alquil|mensual|cada mes|al mes|por mes|suscrip|cuota|membres)/.test(normalizeEs(foldQ(cl)))) recurring += clAmt;
+    else oneTime += clAmt;
+  }
+  const wholeSum = amounts.reduce((a, x) => a + convertMinor(x.minor, x.currency, c.display, c.rateE4), 0);
+  if (Math.abs(clauseSum - wholeSum) > 1) { oneTime = wholeSum; recurring = 0; }
+  const multiOrRecur = amounts.length >= 2 || recurring > 0;
+  // Varios montos solos no bastan (la suma pura y el envío repartido
+  // también los traen): hace falta el contexto de capacidad — una
+  // premisa, un verbo de gasto o el «me alcanza».
+  const premiseVerb = /\bsi\b|compr|gast|rent|alquil|pagar|alcanza|quiero|pienso|voy a/.test(folded);
+  if (/(cuanto (es|son)\b)/.test(folded) && !totalVoice && !maxVoice) return null;
+  const hoySingle = hasAmt && amounts.length === 1 && recurring === 0 && /\bhoy\b/.test(folded) && !asumirVerb && !quedaVoice && !llegaVoice;
+  if (hoySingle) return null;
+  // El «¿cuánto me quedaría si gasto…?» simple sigue siendo del
+  // hipotético (su forma cercada, con su parseo de signo y escala);
+  // la capacidad solo lo toma cuando el hipotético respondería MAL:
+  // cuando algo se repite (lo trataría como gasto de una vez) o
+  // cuando nombra la cuenta y el libro no tiene cuentas (su base
+  // sería $0.00).
+  const quedaMine = quedaVoice && hasAmt && (recurring > 0 || /(en mi cuenta|en la cuenta|en mis cuentas|in my account)/.test(folded));
+  // El «si gasto X y Y, ¿cuánto me queda?» a secas es del hipotético;
+  // la capacidad entra ahí solo vía quedaMine (renta o cuenta vacía).
+  const plainQuedaAsk = /(cuanto (me )?(queda|quedaria|quedara|sobraria|restaria))/.test(folded);
+  // El «¿puedo gastar/comprar $X?» simple, en presente y de un solo
+  // monto, es del delegado spend (su forma cercada); la capacidad
+  // toma el comprar/gastar en condicional («¿podría comprarme…?» —
+  // el delegado no lo oye) o cuando hay varios montos o repetición.
+  const buyMine = buyVerb && (amounts.length >= 2 || recurring > 0 || /(podria|podre)/.test(folded));
+  // ENMIENDA DE CANON (integración de la Ola 37, ajustada en la 38):
+  // la forma simple del delegado spend — un solo monto, nada que se
+  // repita, en presente y sin condicional, con la voz que el
+  // delegado sí oye («Can I afford $50 for gas?», «¿Puedo gastar
+  // $100 en zapatos?» — sus canónicas cercadas en canon) — sigue
+  // siendo del delegado: la capacidad solo toma el comprar con
+  // varios montos, con repetición o en condicional. El «me da para»
+  // NO entra en la cesión: el delegado de canon no lo oye (su
+  // canónica no existe) y la capacidad lo sirve, como manda la Ola
+  // 38; los verbos sociales tampoco ceden (el delegado no los oye).
+  if (hasAmt && amounts.length === 1 && recurring === 0 && !/(podria|podre|could)/.test(folded) && !quedaVoice && !llegaVoice && !totalVoice && !socialVerb && (buyVerb || /can i afford/.test(folded))) return null;
+  const fire = llegaVoice || totalVoice || quedaMine || maxVoice || paydayVoice || (hasAmt && (asumirVerb || socialVerb || buyMine || (multiOrRecur && premiseVerb && !plainQuedaAsk))) || (!hasAmt && asumirVerb);
+  if (!fire) return null;
+
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const start = reading.left;
+  const money = c.money;
+  const src = ["libros.lineas", "cobros.cuotas", "central.queda"];
+  const door = reportDoor(c, "central.pagos", "Ver los pagos que se acercan", "See the payments coming up");
+
+  if (!hasAmt && !llegaVoice && !maxVoice && !paydayVoice) {
+    return {
+      kind: "answer", family: "factibilidad",
+      verdict: totalVoice
+        ? L(c.lang, `Para decirte el total me faltan los montos — tu queda de hoy es ${money(start)}. Dime «$500 y $1,200 de renta» y te lo sumo con su cierre de mes.`, `To give you the total I need the amounts — your left today is ${money(start)}. Tell me "$500 and $1,200 of rent" and I'll add it up with its month close.`)
+        : L(c.lang, `Para decirte si puedes con ese gasto me falta el monto — tu queda de hoy es ${money(start)}. Dime «$500», o «$500 y $1,200 de renta», y lo camino contra lo que ya tienes programado.`, `To tell you whether you can take that expense on I need the amount — your left today is ${money(start)}. Tell me "$500", or "$500 and $1,200 of rent", and I'll walk it against what's already scheduled.`),
+      pieces: [{ label: L(c.lang, "Queda de hoy", "Left today"), minor: start }],
+      note: L(c.lang, "Sin monto no hay prueba: no juzgo un gasto que no me enseñaste.", "With no amount there is no proof: I won't judge an expense you haven't shown me."),
+      source: src, lines: 0, actions: door,
+    };
+  }
+
+  const endIso = monthEndIso(c.today);
+  const { events, counted } = scheduledEvents(c, daysBetweenIso(c.today, endIso));
+  const w = walkEvents(start, events, endIso);
+  const w2 = walkEvents(start - oneTime - recurring, events, endIso);
+  const closeSin = w.end;
+  const close = w2.end;
+  const low = w2.min;
+  const fits = close >= 0 && low >= 0;
+  const dips = close >= 0 && low < 0;
+
+  // El ritmo de los meses que vienen: el mes típico medido del libro.
+  let surplus: number | null = null;
+  let monthCount = 0;
+  if (recurring > 0) {
+    const byMonth = new Map<string, number>();
+    for (const l of allLines(c)) {
+      if (!l.active || l.monthKey > c.key) continue;
+      const v = view(c, l);
+      const net = /^income/.test(l.kind) ? v : isOut(l) && roleOf(c.state, l.categoryId) !== "savings" ? -v : 0;
+      if (net !== 0) byMonth.set(l.monthKey, (byMonth.get(l.monthKey) ?? 0) + net);
+    }
+    monthCount = byMonth.size;
+    if (monthCount >= 2) {
+      const nets = [...byMonth.values()].sort((a, b) => a - b);
+      surplus = nets[Math.floor((nets.length - 1) / 2)];
+    }
+  }
+  // OLA 38 · EL MÁXIMO SIN PREMISA: «¿cuánto es lo máximo que puedo
+  // pagar de renta?» no trae monto porque PIDE el monto — el tope de
+  // un gasto que se repite es lo que hoy ocupa ese mismo gasto más
+  // lo libre del mes típico (o del cierre de este mes, si el libro
+  // aún no tiene meses para una mediana).
+  if (!hasAmt && !llegaVoice && maxVoice) {
+    const byMonth = new Map<string, number>();
+    for (const l of allLines(c)) {
+      if (!l.active || l.monthKey > c.key) continue;
+      const v = view(c, l);
+      const net = /^income/.test(l.kind) ? v : isOut(l) && roleOf(c.state, l.categoryId) !== "savings" ? -v : 0;
+      if (net !== 0) byMonth.set(l.monthKey, (byMonth.get(l.monthKey) ?? 0) + net);
+    }
+    const nets = [...byMonth.values()].sort((a, b) => a - b);
+    const typical = byMonth.size >= 2 ? nets[Math.floor((nets.length - 1) / 2)] : null;
+    const base = typical ?? closeSin;
+    const filter = filterOf(c, folded);
+    const monthOut = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
+    const named = filter ? monthOut.filter((l) => filter(l)) : [];
+    const existing = named.length ? view(c, named[0]) : 0;
+    const tope = existing + Math.max(0, base);
+    const nameTxt = named.length ? L(c.lang, `de «${named[0].concept}»`, `for "${named[0].concept}"`) : L(c.lang, "como gasto que se repite cada mes", "as an expense repeating every month");
+    return {
+      kind: "answer", family: "factibilidad",
+      verdict: L(c.lang,
+        `Lo máximo que podrías pagar ${nameTxt}: ${money(tope)} al mes. ${named.length ? `Hoy eso te ocupa ${money(existing)} y tu ` : "Tu "}${typical !== null ? `mes típico deja ${money(base)} libres (la mediana de tus ${byMonth.size} meses)` : `cierre de este mes deja ${money(base)} libres`} — sumados dan el tope. De una vez, sin que ningún día quede en negativo, tu margen es ${money(Math.max(0, low))}.`,
+        `The most you could pay ${nameTxt}: ${money(tope)} a month. ${named.length ? `Today that takes ${money(existing)} and your ` : "Your "}${typical !== null ? `typical month leaves ${money(base)} free (the median of your ${byMonth.size} months)` : `close this month leaves ${money(base)} free`} — together they make the cap. As a one-time expense, with no day going negative, your margin is ${money(Math.max(0, low))}.`),
+      pieces: [
+        { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+        ...(existing > 0 ? [{ label: L(c.lang, "Lo que hoy ocupa", "What it takes today"), minor: existing }] : []),
+        { label: L(c.lang, "El tope al mes", "The monthly cap"), minor: tope },
+      ],
+      note: L(c.lang, "El supuesto, dicho: el tope supone que el gasto empieza el mes que viene y se sostiene con tu mes típico; este mes, sin tocar nada, cierras en " + money(closeSin) + ".", "The assumption, stated: the cap assumes the expense starts next month and is carried by your typical month; this month, changing nothing, you close at " + money(closeSin) + "."),
+      source: src, lines: 0, actions: door,
+      graph: [{ id: "tope", label: L(c.lang, "El tope al mes", "The monthly cap"), minor: tope, tense: "proyectado", flow: "stock", currency: c.display, assumption: { text: L(c.lang, "el tope se sostiene con el mes típico del libro", "the cap is carried by the book's typical month"), origin: "libro" }, children: [
+        ...(existing > 0 ? [{ id: "ocupa", label: L(c.lang, "Lo que hoy ocupa", "What it takes today"), minor: existing, tense: "stock", flow: "stock", currency: c.display, sign: 1 } as AskNode] : []),
+        { id: "libre", label: L(c.lang, "Lo libre del mes típico", "The typical month's free part"), minor: Math.max(0, base), tense: "proyectado", flow: "flujo", currency: c.display, sign: 1 } as AskNode,
+      ] }],
+    };
+  }
+  // OLA 38 · EL PRÓXIMO PAGO: «¿me alcanza hasta el próximo pago?»
+  // se camina hasta el día en que el ingreso fijo se anota (su día
+  // patrón en el libro), no hasta fin de mes — y se dice si se llega.
+  if (!hasAmt && !llegaVoice && paydayVoice) {
+    const days: number[] = [];
+    for (const l of allLines(c)) if (l.active && l.kind === "income-fixed" && l.bookedOn) days.push(Number(l.bookedOn.slice(8, 10)));
+    if (!days.length) {
+      return {
+        kind: "answer", family: "factibilidad",
+        verdict: L(c.lang, `No te lo puedo caminar: en tu libro no veo un ingreso fijo con un día que se repita, así que no sé cuándo es tu próximo pago. Tu queda de hoy es ${money(start)} y lo programado de este mes te deja en ${money(closeSin)} a fin de mes.`, `I can't walk that for you: your book shows no fixed income with a repeating day, so I don't know when your next payday is. Your left today is ${money(start)} and this month's scheduled items leave you at ${money(closeSin)} at month's end.`),
+        pieces: [{ label: L(c.lang, "Queda de hoy", "Left today"), minor: start }, { label: L(c.lang, "Cierre del mes", "Month close"), minor: closeSin }],
+        note: L(c.lang, "El dato que falta se nombra: un ingreso fijo anotado con su día — con eso, el camino hasta el pago se camina entero.", "The missing fact is named: a fixed income recorded with its day — with that, the path to payday walks in full."),
+        source: src, lines: 0, actions: door,
+      };
+    }
+    const freq = new Map<number, number>();
+    for (const d of days) freq.set(d, (freq.get(d) ?? 0) + 1);
+    const payDay = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const [ty, tm] = c.today.split("-").map(Number);
+    const dim = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+    let py = ty, pm = tm;
+    if (Math.min(payDay, dim(py, pm)) <= Number(c.today.slice(8, 10))) { pm += 1; if (pm > 12) { pm = 1; py += 1; } }
+    const paydayIso = `${py}-${String(pm).padStart(2, "0")}-${String(Math.min(payDay, dim(py, pm))).padStart(2, "0")}`;
+    const evs = scheduledEvents(c, daysBetweenIso(c.today, paydayIso));
+    const wp = walkEvents(start, evs.events, paydayIso);
+    const arrives = wp.end >= 0 && wp.min >= 0;
+    return {
+      kind: "answer", family: "factibilidad",
+      verdict: arrives
+        ? L(c.lang, `Sí: llegas a tu próximo pago, el ${fmtFecha(c, paydayIso)}, con ${money(wp.end)}. Tu queda de hoy es ${money(start)} y lo programado hasta ese día suma ${money(wp.end - start)}.`, `Yes: you reach your next payday, ${fmtFecha(c, paydayIso)}, with ${money(wp.end)}. Your left today is ${money(start)} and what's scheduled until that day adds up to ${money(wp.end - start)}.`)
+        : L(c.lang, `No llegas con lo programado: el ${wp.minOn ? fmtFecha(c, wp.minOn) : ""} bajas a ${money(wp.min)} — te faltan ${money(-wp.min)} para llegar al ${fmtFecha(c, paydayIso)}. Tu queda de hoy es ${money(start)}.`, `You don't make it with what's scheduled: on ${wp.minOn ? fmtFecha(c, wp.minOn) : ""} you dip to ${money(wp.min)} — you're ${money(-wp.min)} short of reaching ${fmtFecha(c, paydayIso)}. Your left today is ${money(start)}.`),
+      pieces: [
+        { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+        ...(wp.end !== start ? [{ label: L(c.lang, "Lo programado hasta el pago", "Scheduled until payday"), minor: wp.end - start }] : []),
+        { label: L(c.lang, "Al próximo pago", "At the next payday"), minor: wp.end },
+      ],
+      note: L(c.lang, `El supuesto, dicho: tu próximo pago cae el día ${payDay} de cada mes — es el día en que tu ingreso fijo se ha venido anotando — y caminé solo lo que el libro trae con fecha hasta ese día.`, `The assumption, stated: your next payday falls on day ${payDay} of each month — the day your fixed income has been recorded on — and I only walked what the book carries with a date up to that day.`),
+      source: src, lines: 0, actions: door,
+    };
+  }
+  const forwardTxt = recurring <= 0 ? "" : surplus !== null
+    ? recurring <= surplus
+      ? L(c.lang, ` Y mes a mes también cabe: tu mes típico deja ${money(surplus)} libres (la mediana de tus ${monthCount} meses) y el gasto que se repite pide ${money(recurring)}.`, ` And month to month it also fits: your typical month leaves ${money(surplus)} free (the median of your ${monthCount} months) and the repeating expense asks ${money(recurring)}.`)
+      : L(c.lang, ` Pero mes a mes no cabe: tu mes típico deja ${money(surplus)} libres y el gasto que se repite pide ${money(recurring)} — te faltarían ${money(recurring - surplus)} cada mes, saliendo de algún otro lado.`, ` But month to month it does not fit: your typical month leaves ${money(surplus)} free and the repeating expense asks ${money(recurring)} — you'd be short ${money(recurring - surplus)} every month, coming out of somewhere else.`)
+    : L(c.lang, ` De los meses que vienen no te juzgo todavía: tu libro trae ${monthCount} ${monthCount === 1 ? "mes" : "meses"} con movimientos, y el gasto que se repite — esta prueba caminó solo este mes.`, ` I won't judge the coming months yet: your book holds ${monthCount} ${monthCount === 1 ? "month" : "months"} with activity, and the expense repeats — this proof only walked this month.`);
+
+  const partsList = [
+    oneTime > 0 ? L(c.lang, `el gasto de una vez (${money(oneTime)})`, `the one-time expense (${money(oneTime)})`) : null,
+    recurring > 0 ? L(c.lang, `el gasto que se repite, contado este mes (${money(recurring)})`, `the repeating expense, counted this month (${money(recurring)})`) : null,
+  ].filter(Boolean).join(L(c.lang, " y ", " and "));
+  const closeTxt = close >= 0 ? money(close) : L(c.lang, `${money(close)} (te faltan ${money(-close)})`, `${money(close)} (you're short ${money(-close)})`);
+  const walkTxt = oneTime + recurring === 0
+    ? L(c.lang, `Tu queda de hoy es ${money(start)} y lo programado del mes te deja en ${money(closeSin)} a fin de mes${low < closeSin && w2.minOn ? `, con tu punto más bajo en ${money(low)} el ${fmtFecha(c, w2.minOn)}` : ""}.`, `Your left today is ${money(start)} and what's scheduled this month leaves you at ${money(closeSin)} at the end of the month${low < closeSin && w2.minOn ? `, with your low point at ${money(low)} on ${fmtFecha(c, w2.minOn)}` : ""}.`)
+    : L(c.lang, `Tu queda de hoy es ${money(start)}; lo programado del mes te deja en ${money(closeSin)}; con ${partsList} el mes cierra en ${closeTxt}${low < close && w2.minOn ? `, y tu punto más bajo es ${money(low)} el ${fmtFecha(c, w2.minOn)}` : ""}.`, `Your left today is ${money(start)}; what's scheduled this month leaves you at ${money(closeSin)}; with ${partsList} the month closes at ${closeTxt}${low < close && w2.minOn ? `, and your low point is ${money(low)} on ${fmtFecha(c, w2.minOn)}` : ""}.`);
+
+  let verdict: string;
+  if (totalVoice) {
+    const split = [
+      oneTime > 0 ? L(c.lang, `${money(oneTime)} de una vez`, `${money(oneTime)} once`) : null,
+      recurring > 0 ? L(c.lang, `${money(recurring)} que se repiten cada mes`, `${money(recurring)} repeating every month`) : null,
+    ].filter(Boolean).join(L(c.lang, " y ", " and "));
+    verdict = L(c.lang, `En total son ${money(oneTime + recurring)}: ${split}. ${walkTxt}`, `In total it's ${money(oneTime + recurring)}: ${split}. ${walkTxt}`);
+  } else if (quedaVoice || llegaVoice) {
+    verdict = (close >= 0
+      ? L(c.lang, `Llegarías a fin de mes con ${money(close)}. `, `You'd reach the end of the month with ${money(close)}. `)
+      : L(c.lang, `Llegarías a fin de mes debiendo ${money(-close)}. `, `You'd reach the end of the month owing ${money(-close)}. `)) + walkTxt;
+  } else if (fits) {
+    verdict = L(c.lang, `Sí, puedes con ese gasto. `, `Yes, you can take that expense on. `) + walkTxt;
+  } else if (dips) {
+    verdict = L(c.lang, `El mes cierra, pero el camino no. `, `The month closes, but the path doesn't. `) + walkTxt;
+  } else {
+    verdict = L(c.lang, `No, con lo anotado no puedes con ese gasto. `, `No, with what's recorded you can't take that expense on. `) + walkTxt;
+  }
+  verdict += forwardTxt;
+  if (fits) {
+    verdict += L(c.lang, ` Tu margen de seguridad: podrías gastar hasta ${money(low)} más en el mes sin que ningún día quede en negativo.`, ` Your safety margin: you could spend up to ${money(low)} more in the month without any day going negative.`);
+  } else {
+    const flips: string[] = [];
+    if (oneTime > 0) {
+      const maxOne = closeSin - recurring;
+      if (maxOne >= 0 && maxOne < oneTime) flips.push(L(c.lang, `que el gasto de una vez baje a ${money(maxOne)}`, `the one-time expense dropping to ${money(maxOne)}`));
+    }
+    if (recurring > 0) {
+      const maxRent = closeSin - oneTime;
+      if (maxRent >= 0 && maxRent < recurring) flips.push(L(c.lang, `que el gasto que se repite fuera de ${money(maxRent)} o menos`, `the repeating expense being ${money(maxRent)} or less`));
+    }
+    if (low < 0) flips.push(w2.minOn
+      ? L(c.lang, `que entren ${money(-low)} más antes del ${fmtFecha(c, w2.minOn)}`, `${money(-low)} more coming in before ${fmtFecha(c, w2.minOn)}`)
+      : L(c.lang, `que entren ${money(-low)} más en el mes`, `${money(-low)} more coming in during the month`));
+    verdict += flips.length
+      ? L(c.lang, ` El menú de vueltas — lo mínimo que tendría que cambiar: ${flips.join("; ")}.`, ` The flip menu — the least that would have to change: ${flips.join("; ")}.`)
+      : L(c.lang, ` Y no hay vuelta corta: ya sin el gasto, lo programado te deja en ${money(closeSin)}.`, ` And there is no short flip: even without the expense, what's scheduled leaves you at ${money(closeSin)}.`);
+  }
+
+  const unknownNames = [...new Set(events.filter((e) => !e.known).map((e) => e.name))];
+  // OLA 38 · LA LECTURA DECLARADA: si la pregunta suena a CAMBIO de
+  // un gasto que ya se paga («si la renta sube a…») pero el libro no
+  // trae ese gasto con ese nombre, la capacidad camina el monto como
+  // gasto nuevo — y lo DICE, para que la lectura no pase por la
+  // respuesta a otra pregunta (la caza del centro, libro irregular).
+  const replFilter = filterOf(c, folded);
+  const replUnmatched = recurring > 0 && /(sube|subiera|baja|bajara|aumenta)/.test(folded) && (!replFilter || !(c.state.months[c.key]?.lines ?? []).some((l) => l.active && isOut(l) && replFilter(l)));
+  const noteParts = [
+    recurring > 0
+      ? L(c.lang, `Cruzo los tiempos y lo digo: la queda es de hoy, lo programado es el flujo de lo que queda del mes, y el gasto que se repite lo conté como gasto de cada mes empezando este — si empezara el mes que viene, este mes cerrarías en ${money(closeSin - oneTime)}.`, `I'm crossing tenses and saying so: the left is today's, the scheduled part is this month's remaining flow, and the repeating expense I counted as an expense of every month starting this one — if it started next month, this month you'd close at ${money(closeSin - oneTime)}.`)
+      : L(c.lang, "El gasto traído se contó hoy, contra tu queda y lo programado del mes — nada se anotó en tu libro.", "The expense you brought was counted today, against your left and this month's scheduled items — nothing was recorded in your book."),
+    counted.length ? L(c.lang, `Lo de este mes (${[...new Set(counted)].join(", ")}) ya está contado en tu queda de hoy: la prueba camina lo que aún no está en ella, para no restar nada dos veces.`, `This month's (${[...new Set(counted)].join(", ")}) is already counted in today's left: the proof walks what isn't in it yet, so nothing is subtracted twice.`) : null,
+    replUnmatched ? L(c.lang, "Ojo con la lectura: tu pregunta suena a cambio de un gasto que ya pagas, pero en tu libro no encontré ese gasto con ese nombre — caminé el monto como un gasto nuevo que se repite, no como el cambio de uno anotado.", "Mind the reading: your question sounds like changing an expense you already pay, but your book holds no expense under that name — I walked the amount as a new repeating expense, not as a change to a recorded one.") : null,
+    unknownNames.length ? L(c.lang, `Fuera de esta prueba: ${unknownNames.join(", ")} — el libro sabe su fecha pero no el monto de su cuota, y no lo invento.`, `Outside this proof: ${unknownNames.join(", ")} — the book knows its date but not its installment amount, and I won't invent it.`) : null,
+  ].filter(Boolean);
+
+  const pieces: BankPiece[] = [
+    { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+    { label: L(c.lang, "Cierre sin el gasto", "Close without the expense"), minor: closeSin },
+  ];
+  if (oneTime > 0) pieces.push({ label: L(c.lang, "El gasto de una vez", "The one-time expense"), minor: -oneTime });
+  if (recurring > 0) pieces.push({ label: L(c.lang, "El gasto que se repite (este mes)", "The repeating expense (this month)"), minor: -recurring });
+  pieces.push({ label: L(c.lang, "Cierre con el gasto", "Close with the expense"), minor: close });
+
+  const kids: AskNode[] = [
+    { id: "queda", label: L(c.lang, "Queda de hoy", "Left today"), minor: start, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+    { id: "programado", label: L(c.lang, "Lo programado del mes", "This month's scheduled items"), minor: Math.abs(closeSin - start), tense: "proyectado", flow: "flujo", currency: c.display, sign: closeSin - start >= 0 ? 1 : -1 },
+  ];
+  if (oneTime > 0) kids.push({ id: "gasto-vez", label: L(c.lang, "El gasto de una vez", "The one-time expense"), minor: oneTime, tense: "proyectado", flow: "flujo", currency: c.display, sign: -1, assumption: { text: L(c.lang, "la premisa que trajiste en tu pregunta", "the premise you brought in your question"), origin: "usuario" } });
+  if (recurring > 0) kids.push({ id: "gasto-repite", label: L(c.lang, "El gasto que se repite", "The repeating expense"), minor: recurring, tense: "proyectado", flow: "flujo", currency: c.display, sign: -1, unit: L(c.lang, "al mes", "a month"), assumption: { text: L(c.lang, "la premisa que trajiste: se repite cada mes, empezando este", "the premise you brought: it repeats every month, starting this one"), origin: "usuario" } });
+
+  return {
+    kind: "answer", family: "factibilidad",
+    verdict, pieces,
+    note: noteParts.length ? noteParts.join(" ") : null,
+    source: src, lines: 0, actions: door,
+    graph: [{ id: "cierre-con-gasto", label: L(c.lang, "El mes con el gasto", "The month with the expense"), minor: close, tense: "proyectado", flow: "stock", currency: c.display, assumption: { text: L(c.lang, "las premisas que trajiste en tu pregunta", "the premises you brought in your question"), origin: "usuario" }, children: kids }],
+  };
+}
+function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  const isLow = /(punto (mas )?bajo|semana (mas )?baja|quedo mas bajo|lowest (point|week)|low point)/.test(folded);
+  const dayM = /(?:el dia|el)\s*(\d{1,2})\b/.exec(folded)
+    // ENMIENDA DE CANON (integración de la Ola 29): el día inglés se
+    // nombra «on the 28th» — la copia no lo oía y su canónica caía al
+    // delegado de spend; la forma es la misma, el oído es bilingüe.
+    ?? /\b(?:on the|the)\s*(\d{1,2})(?:st|nd|rd|th)\b/.exec(folded);
+  // El día también se lee como monto («el 28» → $28): se retira del
+  // texto antes de leer los montos, o la puerta contaría dos cifras.
+  const rawForAmounts = dayM ? raw.replace(new RegExp(`(el\\s+d[ií]a\\s*|el\\s+|on the\\s+|the\\s+)${dayM[1]}(?:st|nd|rd|th)?\\b`, "i"), " ") : raw;
+  const amounts = amountsIn(rawForAmounts);
+  const isDayPay = amounts.length === 1 && /(pagar|pago|pay)\b/.test(folded) && (!!dayM || /\bmanana\b/.test(folded) || /fin de mes/.test(folded));
+  const isMonth = (!isDayPay && /(alcanza|alcanzo)/.test(folded) && /\bmes\b/.test(folded) && !/(pagar|pay)\b/.test(folded))
+    || /(llego a fin de mes|make it (to|through)|last the month|reach the end of the month)/.test(folded);
+  /* OLA 39 · EL DÍA DEL CERO Y EL CIERRE: tres voces del mismo
+   * paseo que la caza del centro cazó en silencio — el signo del
+   * cierre («¿voy a terminar el mes en negativo?»), el día del cero
+   * («¿cuándo se me acaba el dinero?») y el faltante para terminar
+   * («¿cuánto necesito para terminar el mes?»). La de la meta
+   * («necesito ahorrar/juntar…») NO es esta: se excluye por nombre. */
+  const negVoice = /(negativo|en rojo|bajo cero|in the red|end (up|the month) (in )?negative|go negative)/.test(folded);
+  const runOutVoice = /(cuando (se me |me )?(acaba|acabara|termina|terminara) (el dinero|la plata|el saldo)|cuando (me quedo|quedare|quedaria) (en cero|sin dinero|sin nada)|que dia (me quedo|quedare)|cuando me quedo (en cero|sin)|when do i run out|when (will|would) i run out|run out of money|what day do i (hit|reach) zero)/.test(folded);
+  const needVoice = /(cuanto necesito|cuanto me (falta|hace falta)|how much do i need|how much more do i need)/.test(folded)
+    && /(terminar|cerrar|llegar|pasar|finish|end|get through)/.test(folded) && /\b(mes|month)\b/.test(folded)
+    && !/(ahorrar|juntar|guardar|reunir|save|savings)/.test(folded);
+  const isClose = negVoice || runOutVoice || needVoice;
+  if (!isLow && !isDayPay && !isMonth && !isClose) return null;
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const start = reading.left;
+  const money = c.money;
+  const src = ["libros.lineas", "cobros.cuotas", "central.queda"];
+  const door = reportDoor(c, "central.pagos", "Ver los pagos que se acercan", "See the payments coming up");
+  const unknownNote = (events: SchedEvent[]): string | null => {
+    const names = [...new Set(events.filter((e) => !e.known).map((e) => e.name))];
+    return names.length ? L(c.lang, `Fuera de esta prueba: ${names.join(", ")} — el libro sabe su fecha pero no el monto de su cuota, y no lo invento.`, `Outside this proof: ${names.join(", ")} — the book knows its date but not its installment amount, and I won't invent it.`) : null;
+  };
+  const noteOf = (events: SchedEvent[], counted: string[]): string | null => {
+    const parts = [
+      counted.length ? L(c.lang, `Lo de este mes (${[...new Set(counted)].join(", ")}) ya está contado en tu queda de hoy: la prueba camina lo que aún no está en ella, para no restar nada dos veces.`, `This month's (${[...new Set(counted)].join(", ")}) is already counted in today's left: the proof walks what isn't in it yet, so nothing is subtracted twice.`) : null,
+      unknownNote(events),
+    ].filter(Boolean);
+    return parts.length ? parts.join(" ") : null;
+  };
+  const graphOf = (rootId: string, rootLabel: string, rootMinor: number, events: SchedEvent[], extra?: AskNode): AskNode[] => {
+    const kids: AskNode[] = [{ id: "queda", label: L(c.lang, "Queda de hoy", "Left today"), minor: start, tense: "stock", flow: "stock", currency: c.display, sign: 1 }];
+    const known = events.filter((e) => e.known);
+    for (const e of known.slice(0, 5)) kids.push({ id: `ev-${e.on}-${kids.length}`, label: `${e.name} · ${fmtFecha(c, e.on)}`, minor: Math.abs(e.delta), tense: "proyectado", flow: "flujo", currency: c.display, sign: e.delta >= 0 ? 1 : -1 });
+    if (known.length > 5) {
+      const rest = known.slice(5).reduce((a, e) => a + e.delta, 0);
+      kids.push({ id: "ev-resto", label: L(c.lang, `y ${known.length - 5} eventos más`, `and ${known.length - 5} more events`), minor: Math.abs(rest), tense: "proyectado", flow: "flujo", currency: c.display, sign: rest >= 0 ? 1 : -1 });
+    }
+    if (extra) kids.push(extra);
+    return [{ id: rootId, label: rootLabel, minor: rootMinor, tense: "proyectado", flow: "stock", currency: c.display, assumption: { text: L(c.lang, "solo lo anotado con fecha, caminado en su orden", "only what's recorded with a date, walked in its order"), origin: "regla" }, children: kids }];
+  };
+
+  /* EL PUNTO BAJO DE 13 SEMANAS: lo programado solo, semana a
+   * semana; y aparte, con su vara declarada, el mismo camino si el
+   * gasto sigue al ritmo medido de este mes. */
+  if (isLow) {
+    const { events, counted } = scheduledEvents(c, 91);
+    const ends: number[] = [];
+    for (let i = 0; i < 13; i++) ends.push(walkEvents(start, events, addDaysIso(c.today, (i + 1) * 7 - 1)).end);
+    let lowIdx = 0;
+    for (let i = 1; i < 13; i++) if (ends[i] < ends[lowIdx]) lowIdx = i;
+    const spent = allLines(c).filter((l) => l.monthKey === c.key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && lineDate(l) <= c.today).reduce((a, l) => a + view(c, l), 0);
+    const elapsed = Math.max(1, Number(c.today.slice(8, 10)));
+    const paceWeek = Math.round((spent / elapsed) * 7);
+    const rEnds = ends.map((e, i) => e - paceWeek * (i + 1));
+    let rLow = 0;
+    for (let i = 1; i < 13; i++) if (rEnds[i] < rEnds[rLow]) rLow = i;
+    const wFrom = addDaysIso(c.today, lowIdx * 7);
+    const wTo = addDaysIso(c.today, (lowIdx + 1) * 7 - 1);
+    const driver = events.filter((e) => e.known && e.delta < 0 && e.on >= wFrom && e.on <= wTo).sort((a, b) => a.delta - b.delta)[0];
+    return {
+      kind: "answer", family: "factibilidad",
+      verdict: L(c.lang, `Contando SOLO lo programado (cuotas, tarjetas y lo que te deben, con sus fechas y su cadencia), tu semana más baja de las próximas 13 es la ${lowIdx + 1} (del ${fmtFecha(c, wFrom)} al ${fmtFecha(c, wTo)}): cierras en ${money(ends[lowIdx])}${driver ? ` — esa semana cae «${driver.name}» (${money(-driver.delta)})` : ""}. Si además gastas a tu ritmo medido de este mes (${money(paceWeek)} por semana), la más baja sería la ${rLow + 1}, con ${money(rEnds[rLow])}. No conté ingresos futuros: es tu queda de hoy contra lo que ya tiene fecha.`, `Counting ONLY what's scheduled (dues, cards and what you're owed, with their dates and cadence), your lowest week of the next 13 is week ${lowIdx + 1} (${fmtFecha(c, wFrom)} to ${fmtFecha(c, wTo)}): you close at ${money(ends[lowIdx])}${driver ? ` — "${driver.name}" (${money(-driver.delta)}) falls that week` : ""}. If you also spend at this month's measured pace (${money(paceWeek)} a week), the lowest would be week ${rLow + 1}, at ${money(rEnds[rLow])}. I counted no future income: it's today's left against what already has a date.`),
+      pieces: [
+        { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+        { label: L(c.lang, `Semana ${lowIdx + 1} (solo lo programado)`, `Week ${lowIdx + 1} (scheduled only)`), minor: ends[lowIdx] },
+        { label: L(c.lang, "Tu ritmo de gasto por semana", "Your spending pace per week"), minor: -paceWeek },
+      ],
+      note: noteOf(events, counted),
+      source: src, lines: 0,
+      actions: door,
+      graph: graphOf("punto-bajo", L(c.lang, "Tu punto más bajo (solo lo programado)", "Your low point (scheduled only)"), ends[lowIdx], events.filter((e) => e.on <= addDaysIso(c.today, 90))),
+    };
+  }
+
+  /* EL PAGO EN SU DÍA: la prueba camina hasta el día D y entonces
+   * cobra el pago traído. */
+  if (isDayPay) {
+    const a = amounts[0];
+    const amt = convertMinor(a.minor, a.currency, c.display, c.rateE4);
+    let D: string | null = null;
+    if (/pasado manana/.test(folded)) D = addDaysIso(c.today, 2);
+    else if (/\bmanana\b/.test(folded)) D = addDaysIso(c.today, 1);
+    else if (/fin de mes/.test(folded)) D = monthEndIso(c.today);
+    else if (dayM) {
+      const dnum = Number(dayM[1]);
+      if (dnum < 1 || dnum > 31) return null;
+      const y = Number(c.today.slice(0, 4));
+      const mo = Number(c.today.slice(5, 7));
+      const mk = (yy: number, mm: number) => {
+        const last = new Date(yy, mm, 0).getDate();
+        return `${yy}-${String(mm).padStart(2, "0")}-${String(Math.min(dnum, last)).padStart(2, "0")}`;
+      };
+      const cand = mk(y, mo);
+      D = cand >= c.today ? cand : mk(mo === 12 ? y + 1 : y, mo === 12 ? 1 : mo + 1);
+    }
+    if (!D) return null;
+    const { events, counted } = scheduledEvents(c, daysBetweenIso(c.today, D));
+    const w = walkEvents(start, events, D);
+    const after = w.end - amt;
+    const outSum = -events.filter((e) => e.known && e.delta < 0 && e.on <= D).reduce((a, e) => a + e.delta, 0);
+    const conflictTxt = w.conflict ? L(c.lang, ` Ojo: antes de ese día, el ${fmtFecha(c, w.conflict.ev.on)}, «${w.conflict.ev.name}» ya te deja en ${money(w.conflict.bal)}.`, ` Mind you: before that day, on ${fmtFecha(c, w.conflict.ev.on)}, "${w.conflict.ev.name}" already leaves you at ${money(w.conflict.bal)}.`) : "";
+    /* OLA 32 · EL MENÚ DE VUELTAS de este día: si cabe, el margen
+     * (lo máximo que ese día aguanta); si no cabe, las vueltas
+     * mínimas RECALCULADAS — pagar menos (la cifra exacta que sí
+     * cabe) o pagar el día que entra lo debido (re-caminado). */
+    let vueltaTxt = "";
+    if (after >= 0) {
+      vueltaTxt = L(c.lang, ` Tu margen de seguridad ese día: podrías pagar hasta ${money(w.end)} y no quedarías en negativo.`, ` Your safety margin that day: you could pay up to ${money(w.end)} and not go negative.`);
+    } else {
+      const flips: string[] = [];
+      if (w.end > 0) flips.push(L(c.lang, `pagando ${money(w.end)} ese día sí cabe`, `paying ${money(w.end)} that day does fit`));
+      const monthEvents = scheduledEvents(c, daysBetweenIso(c.today, monthEndIso(c.today))).events;
+      const inflow = monthEvents.filter((e) => e.known && e.delta > 0 && e.on > D).sort((a, b) => (a.on < b.on ? -1 : 1))[0];
+      if (inflow) {
+        const w2 = walkEvents(start, monthEvents, inflow.on);
+        if (w2.end - amt >= 0) flips.push(L(c.lang, `pagarlo el ${fmtFecha(c, inflow.on)}, cuando entra «${inflow.name}» (${money(inflow.delta)}): ese día sí cabe`, `paying it on ${fmtFecha(c, inflow.on)}, when "${inflow.name}" (${money(inflow.delta)}) comes in: that day it fits`));
+      }
+      vueltaTxt = flips.length
+        ? L(c.lang, ` El menú de vueltas — lo mínimo que tendría que cambiar: ${flips.join("; ")}.`, ` The flip menu — the least that would have to change: ${flips.join("; ")}.`)
+        : L(c.lang, ` Y ese día no hay vuelta corta: lo programado por sí solo ya te deja en ${money(w.end)}.`, ` And that day has no short flip: the scheduled payments alone already leave you at ${money(w.end)}.`);
+    }
+    return {
+      kind: "answer", family: "factibilidad",
+      verdict: after >= 0
+        ? L(c.lang, `Sí, con lo anotado: el ${fmtFecha(c, D)}, tras pagar lo programado hasta ese día (${money(outSum)}), te quedan ${money(w.end)} — y pagando ${money(amt)} te quedan ${money(after)}.${conflictTxt}${vueltaTxt}`, `Yes, on what's recorded: on ${fmtFecha(c, D)}, after the scheduled payments up to that day (${money(outSum)}), you'd have ${money(w.end)} — and paying ${money(amt)} leaves you ${money(after)}.${conflictTxt}${vueltaTxt}`)
+        : L(c.lang, `No, con lo anotado: el ${fmtFecha(c, D)} lo programado te deja en ${money(w.end)}, y pagar ${money(amt)} te dejaría en ${money(after)} — te faltan ${money(-after)}.${conflictTxt}${vueltaTxt}`, `No, on what's recorded: on ${fmtFecha(c, D)} the scheduled payments leave you at ${money(w.end)}, and paying ${money(amt)} would leave you at ${money(after)} — you're ${money(-after)} short.${conflictTxt}${vueltaTxt}`),
+      pieces: [
+        { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+        { label: L(c.lang, `Tras lo programado · ${fmtFecha(c, D)}`, `After the scheduled · ${fmtFecha(c, D)}`), minor: w.end },
+        { label: L(c.lang, "El pago", "The payment"), minor: -amt },
+      ],
+      note: noteOf(events, counted),
+      source: src, lines: 0,
+      actions: door,
+      graph: graphOf("saldo-tras-pago", L(c.lang, "Tu saldo tras ese pago", "Your balance after that payment"), after, events.filter((e) => e.on <= D), { id: "pago", label: L(c.lang, "El pago que traes", "The payment you bring"), minor: amt, tense: "proyectado", flow: "flujo", currency: c.display, sign: -1, assumption: { text: L(c.lang, "pagar esa cantidad ese día, como preguntaste", "paying that amount that day, as you asked"), origin: "usuario" } }),
+    };
+  }
+
+  /* EL MES: la prueba entera hasta el último día. */
+  const end = monthEndIso(c.today);
+  const { events, counted } = scheduledEvents(c, daysBetweenIso(c.today, end));
+  const w = walkEvents(start, events, end);
+  const known = events.filter((e) => e.known);
+  const outSum = -known.filter((e) => e.delta < 0).reduce((a, e) => a + e.delta, 0);
+  const inSum = known.filter((e) => e.delta > 0).reduce((a, e) => a + e.delta, 0);
+  /* OLA 39 · EL DÍA DEL CERO Y EL CIERRE: las tres voces leen el
+   * MISMO paseo del mes — el signo, el faltante y el día del cero —
+   * cada una con su veredicto propio. */
+  if (isClose) {
+    const close = w.end;
+    if (negVoice) {
+      return {
+        kind: "answer", family: "factibilidad",
+        verdict: close < 0
+          ? L(c.lang, `Sí: con lo programado terminas el mes en negativo — cierras en ${money(close)} (te faltan ${money(-close)})${w.conflict ? `, y el primer día en rojo es el ${fmtFecha(c, w.conflict.ev.on)}, cuando «${w.conflict.ev.name}» te deja en ${money(w.conflict.bal)}` : ""}.`, `Yes: with what's scheduled you end the month in negative — you close at ${money(close)} (you're ${money(-close)} short)${w.conflict ? `, and the first day in the red is ${fmtFecha(c, w.conflict.ev.on)}, when "${w.conflict.ev.name}" leaves you at ${money(w.conflict.bal)}` : ""}.`)
+          : w.min < 0
+            ? L(c.lang, `El mes cierra en positivo (${money(close)}), pero el camino toca negativo: el ${w.minOn ? fmtFecha(c, w.minOn) : ""} bajas a ${money(w.min)}. Cerrar bien no es lo mismo que no bajar de cero en el camino.`, `The month closes positive (${money(close)}), but the path dips negative: on ${w.minOn ? fmtFecha(c, w.minOn) : ""} you go down to ${money(w.min)}. Closing well is not the same as never dipping below zero on the way.`)
+            : L(c.lang, `No: con lo programado cierras el mes en ${money(close)} y tu punto más bajo es ${money(w.min)} — ningún día en negativo.`, `No: with what's scheduled you close the month at ${money(close)} and your low point is ${money(w.min)} — no day in negative.`),
+        pieces: [
+          { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+          { label: L(c.lang, "Cierre del mes", "Month close"), minor: close },
+          ...(w.min < close ? [{ label: L(c.lang, "Punto más bajo", "Low point"), minor: w.min }] : []),
+        ],
+        note: noteOf(events, counted),
+        source: src, lines: 0, actions: door,
+        graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+      };
+    }
+    if (needVoice) {
+      const needClose = close < 0 ? -close : 0;
+      const needPath = w.min < 0 ? -w.min : 0;
+      return {
+        kind: "answer", family: "factibilidad",
+        verdict: needClose > 0
+          ? L(c.lang, `Para terminar el mes en cero necesitas ${money(needClose)} más: con lo programado cierras en ${money(close)}.${needPath > needClose && w.minOn ? ` Y para no bajar de cero en el camino harían falta ${money(needPath)} antes del ${fmtFecha(c, w.minOn)}.` : ""}`, `To end the month at zero you need ${money(needClose)} more: with what's scheduled you close at ${money(close)}.${needPath > needClose && w.minOn ? ` And to never dip below zero on the way you'd need ${money(needPath)} before ${fmtFecha(c, w.minOn)}.` : ""}`)
+          : needPath > 0
+            ? L(c.lang, `Para TERMINAR el mes no necesitas nada más: cierras en ${money(close)}. Pero el camino baja de cero — el ${w.minOn ? fmtFecha(c, w.minOn) : ""} llegas a ${money(w.min)} — así que para no tocar negativo en el camino harían falta ${money(needPath)} antes de ese día.`, `To END the month you need nothing more: you close at ${money(close)}. But the path dips below zero — on ${w.minOn ? fmtFecha(c, w.minOn) : ""} you reach ${money(w.min)} — so to never touch negative on the way you'd need ${money(needPath)} before that day.`)
+            : L(c.lang, `No necesitas nada más para terminar el mes: con lo programado cierras en ${money(close)} y tu punto más bajo es ${money(w.min)} — llegas entero, sin faltante.`, `You need nothing more to finish the month: with what's scheduled you close at ${money(close)} and your low point is ${money(w.min)} — you arrive whole, with no shortfall.`),
+        pieces: [
+          { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+          { label: L(c.lang, "Cierre del mes", "Month close"), minor: close },
+          ...(needClose > 0 ? [{ label: L(c.lang, "Lo que falta", "What's missing"), minor: -needClose }] : []),
+        ],
+        note: noteOf(events, counted),
+        source: src, lines: 0, actions: door,
+        graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+      };
+    }
+    // runOutVoice: el día del cero — por lo programado si cruza
+    // este mes; si no, por el ritmo medido, con su vara declarada.
+    if (start < 0) {
+      return {
+        kind: "answer", family: "factibilidad",
+        verdict: L(c.lang, `Ya estás por debajo de cero hoy: tu queda es ${money(start)}. No es un día que viene — es el punto de partida, y con lo programado el mes cierra en ${money(close)}.`, `You're already below zero today: your left is ${money(start)}. It isn't a day that's coming — it's the starting point, and with what's scheduled the month closes at ${money(close)}.`),
+        pieces: [{ label: L(c.lang, "Queda de hoy", "Left today"), minor: start }, { label: L(c.lang, "Cierre del mes", "Month close"), minor: close }],
+        note: noteOf(events, counted),
+        source: src, lines: 0, actions: door,
+        graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+      };
+    }
+    const spent = allLines(c).filter((l) => l.monthKey === c.key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && lineDate(l) <= c.today).reduce((a, l) => a + view(c, l), 0);
+    const elapsed = Math.max(1, Number(c.today.slice(8, 10)));
+    const paceDay = Math.round(spent / elapsed);
+    const ev92 = scheduledEvents(c, 92).events;
+    let paceCross: string | null = null;
+    if (paceDay > 0) {
+      for (let d = 1; d <= 92; d++) {
+        const t = addDaysIso(c.today, d);
+        if (walkEvents(start, ev92, t).end - paceDay * d < 0) { paceCross = t; break; }
+      }
+    }
+    const schedCross = w.conflict ? w.conflict.ev.on : null;
+    const cross = schedCross && paceCross ? (schedCross <= paceCross ? schedCross : paceCross) : schedCross ?? paceCross;
+    const byPace = cross !== null && cross === paceCross && cross !== schedCross;
+    return {
+      kind: "answer", family: "factibilidad",
+      verdict: cross
+        ? byPace
+          ? L(c.lang, `A tu ritmo medido de gasto (${money(paceDay)} por día), te quedas en cero el ${fmtFecha(c, cross)} — conté lo programado con fecha y NO conté ingresos futuros: si entra tu ingreso de siempre, ese día se mueve. Este mes, solo con lo programado, cierras en ${money(close)}.`, `At your measured spending pace (${money(paceDay)} a day), you run out on ${fmtFecha(c, cross)} — I counted what's scheduled with a date and did NOT count future income: if your usual income lands, that day moves. This month, on scheduled items alone, you close at ${money(close)}.`)
+          : L(c.lang, `Con lo programado, te quedas en cero el ${fmtFecha(c, cross)}: «${w.conflict!.ev.name}» te deja en ${money(w.conflict!.bal)}. No hace falta proyectar tu ritmo — el día ya está en el libro, con su nombre.`, `On what's scheduled, you run out on ${fmtFecha(c, cross)}: "${w.conflict!.ev.name}" leaves you at ${money(w.conflict!.bal)}. No need to project your pace — the day is already in the book, with its name on it.`)
+        : L(c.lang, `Con lo anotado no se te acaba: este mes cierras en ${money(close)} sin tocar cero${paceDay > 0 ? `, y ni a tu ritmo medido de gasto (${money(paceDay)} por día) cruzas cero en los próximos tres meses — sin contar ingresos futuros, que solo empujarían el día más lejos` : `, y sin ritmo medido en tu libro no proyecto un día que el libro no sostiene`}.`, `On what's recorded it doesn't run out: this month you close at ${money(close)} without touching zero${paceDay > 0 ? `, and not even at your measured spending pace (${money(paceDay)} a day) do you cross zero in the next three months — not counting future income, which would only push the day further out` : `, and with no measured pace in your book I won't project a day the book can't support`}.`),
+      pieces: [
+        { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+        { label: L(c.lang, "Cierre del mes", "Month close"), minor: close },
+        ...(paceDay > 0 ? [{ label: L(c.lang, "Tu ritmo por día", "Your pace per day"), minor: -paceDay }] : []),
+      ],
+      note: noteOf(events, counted),
+      source: src, lines: 0, actions: door,
+      graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+    };
+  }
+  /* OLA 32 · EL MENÚ DE VUELTAS del mes (investigación II, #6):
+   * para cada «no», el cambio MÍNIMO por eje que lo voltea,
+   * probado por construcción sobre el mismo paseo — mover la
+   * obligación que rompe al último día solo puede subir los
+   * saldos intermedios y el cierre no cambia; entrar el faltante
+   * antes del conflicto lo tapa exactamente; bajar la obligación
+   * en el faltante deja el punto del conflicto en cero. Orden
+   * tornado: primero la vuelta sin monto (la fecha), luego las de
+   * monto. Para cada «sí», el MARGEN: el punto más bajo del paseo
+   * es lo máximo que se puede gastar de más sin romper la cadena. */
+  let menuTxt = "";
+  if (w.conflict) {
+    const short = -w.conflict.bal;
+    const flips: string[] = [];
+    if (w.end >= 0) flips.push(L(c.lang, `que «${w.conflict.ev.name}» se pague el ${fmtFecha(c, end)} en vez del ${fmtFecha(c, w.conflict.ev.on)} — el mes cierra en ${money(w.end)} igual, pero ningún día queda en negativo`, `that "${w.conflict.ev.name}" is paid on ${fmtFecha(c, end)} instead of ${fmtFecha(c, w.conflict.ev.on)} — the month still closes at ${money(w.end)}, but no day goes negative`));
+    flips.push(L(c.lang, `que entren ${money(short)} más antes del ${fmtFecha(c, w.conflict.ev.on)}`, `${money(short)} more coming in before ${fmtFecha(c, w.conflict.ev.on)}`));
+    flips.push(L(c.lang, `que «${w.conflict.ev.name}» baje ${money(short)}`, `that "${w.conflict.ev.name}" drops by ${money(short)}`));
+    menuTxt = L(c.lang, ` El menú de vueltas — lo mínimo que tendría que cambiar para que sí quepa: ${flips.join("; ")}.`, ` The flip menu — the least that would have to change for it all to fit: ${flips.join("; ")}.`);
+  }
+  const marginTxt = !w.conflict && start >= 0 && known.length
+    ? (w.min > 0
+      ? L(c.lang, ` Tu margen de seguridad: podrías gastar hasta ${money(w.min)} más en el mes sin romper la cadena — eso es tu punto más bajo.`, ` Your safety margin: you could spend up to ${money(w.min)} more in the month without breaking the chain — that's your lowest point.`)
+      : L(c.lang, ` Sin margen: tu punto más bajo toca cero — cualquier gasto nuevo rompería la cadena.`, ` No margin: your lowest point touches zero — any new spending would break the chain.`))
+    : "";
+  let verdict: string;
+  if (start < 0) {
+    verdict = L(c.lang, `No, y no por lo que viene: tu queda de hoy ya va en ${money(start)} — salió más de lo que entró.${known.length ? ` Lo programado de aquí a fin de mes (${money(outSum)} en pagos${inSum ? `, contra ${money(inSum)} que te deben y entran` : ""}) lo dejaría en ${money(w.end)}.` : " Y no queda nada programado por caminar este mes: así cierra, si no gastas más."}`, `No, and not because of what's coming: today's left already stands at ${money(start)} — more went out than came in.${known.length ? ` What's scheduled from here to month's end (${money(outSum)} in payments${inSum ? `, against ${money(inSum)} you're owed coming in` : ""}) would leave it at ${money(w.end)}.` : " And there's nothing scheduled left to walk this month: that's where it closes, if you spend no more."}`);
+  } else if (!known.length && !events.some((e) => !e.known)) {
+    verdict = L(c.lang, `De aquí a fin de mes no hay nada programado por caminar — lo de este mes ya está contado en tu queda, y no viene nada más con fecha. Con tu queda de hoy, ${money(start)}, y sin ningún gasto nuevo, el mes cierra en eso mismo: la prueba corre sobre lo anotado.`, `From here to month's end there's nothing scheduled left to walk — this month's is already counted in your left, and nothing else dated is coming. With today's left, ${money(start)}, and no new spending, the month closes right there: the proof runs over what's recorded.`);
+  } else if (w.conflict) {
+    verdict = L(c.lang, `No, con lo anotado no cabe todo: el ${fmtFecha(c, w.conflict.ev.on)}, «${w.conflict.ev.name}» (${money(-w.conflict.ev.delta)}) te deja en ${money(w.conflict.bal)} — ahí te faltan ${money(-w.conflict.bal)}.${w.end >= 0 ? ` Lo que te deben después lo tapa y el mes cierra en ${money(w.end)}: tu problema es el día, no el mes.` : ` Y el mes cierra en ${money(w.end)}.`}${menuTxt}`, `No, on what's recorded it doesn't all fit: on ${fmtFecha(c, w.conflict.ev.on)}, "${w.conflict.ev.name}" (${money(-w.conflict.ev.delta)}) leaves you at ${money(w.conflict.bal)} — there you're ${money(-w.conflict.bal)} short.${w.end >= 0 ? ` What you're owed later covers it and the month closes at ${money(w.end)}: your problem is the day, not the month.` : ` And the month closes at ${money(w.end)}.`}${menuTxt}`);
+  } else {
+    verdict = L(c.lang, `Sí, con lo anotado sí: pagando todo lo programado de aquí a fin de mes (${money(outSum)} en ${known.filter((e) => e.delta < 0).length} pagos${inSum ? `, y contando ${money(inSum)} que te deben y entran` : ""}) el mes cierra en ${money(w.end)}, y tu punto más bajo es el ${fmtFecha(c, w.minOn || c.today)} con ${money(w.min)}.${marginTxt}`, `Yes, on what's recorded it fits: paying everything scheduled from here to month's end (${money(outSum)} in ${known.filter((e) => e.delta < 0).length} payments${inSum ? `, and counting ${money(inSum)} you're owed coming in` : ""}) the month closes at ${money(w.end)}, and your lowest point is ${fmtFecha(c, w.minOn || c.today)} at ${money(w.min)}.${marginTxt}`);
+  }
+  return {
+    kind: "answer", family: "factibilidad",
+    verdict,
+    pieces: [
+      { label: L(c.lang, "Queda de hoy", "Left today"), minor: start },
+      ...known.slice(0, 4).map((e) => ({ label: `${e.name} · ${fmtFecha(c, e.on)}`, minor: e.delta })),
+      { label: L(c.lang, "Cierre del mes", "Month's close"), minor: w.end },
+    ],
+    note: noteOf(events, counted),
+    source: src, lines: 0,
+    actions: door,
+    graph: graphOf("cierre-del-mes", L(c.lang, "El cierre del mes, sobre lo anotado", "The month's close, on what's recorded"), w.end, events),
+  };
+}
+/* OLA 46 (F1) · EL TOTAL DE TODO — «¿cuánto dinero tengo en
+ * total?»: las piezas vivían sueltas (la queda de hoy, el stock de
+ * ahorros, lo que me deben) y nadie sumaba el todo. La suma no
+ * duplica: lo apartado YA salió de la queda (readAdvisor cuenta el
+ * ahorro como salida), así que queda + ahorros + lo que me deben
+ * son tres bolsas distintas. Y la respuesta declara su borde: es
+ * el dinero que el LIBRO conoce — no cuenta efectivo fuera del
+ * libro ni bienes, y NO resta lo que debes (eso es el patrimonio,
+ * la pregunta de la familia falta). */
+function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(cuanto (dinero )?tengo en total|todo mi dinero|how much money do i have in total|how much do i have in total)/.test(folded)) return null;
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const stock = savingsStock(c.state, c.key);
+  const nb = netBalance(c.state, c.today);
+  const left = reading.left;
+  const total = left + stock.total + nb.owed;
+  const pieces: BankPiece[] = [];
+  if (left !== 0) pieces.push({ label: L(c.lang, "Tu queda de hoy", "Your left today"), minor: left });
+  if (stock.total !== 0) pieces.push({ label: L(c.lang, "En ahorros", "In savings"), minor: stock.total });
+  if (nb.owed !== 0) pieces.push({ label: L(c.lang, "Que te deben", "Owed to you"), minor: nb.owed });
+  if (!pieces.length) {
+    return { kind: "answer", family: "total", verdict: L(c.lang, "En total, tu libro no guarda dinero en ningún lado todavía: ni queda del mes, ni ahorros, ni préstamos dados por cobrar. Lo que se anote, se suma aquí.", "In total, your book doesn't hold money anywhere yet: no month's left, no savings, and no loans given to collect. Whatever gets recorded adds up here."), pieces: [], note: null, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0 };
+  }
+  return {
+    kind: "answer", family: "total",
+    verdict: L(c.lang, `En total tienes ${c.money(total)}: ${c.money(left)} de queda de hoy, ${c.money(stock.total)} en ahorros y ${c.money(nb.owed)} que te deben. Es todo el dinero que tu libro conoce — no cuenta efectivo fuera del libro ni el valor de tus bienes, y no resta lo que debes: eso ya es tu patrimonio, otra pregunta.`, `In total you have ${c.money(total)}: ${c.money(left)} of today's left, ${c.money(stock.total)} in savings and ${c.money(nb.owed)} owed to you. It's all the money your book knows — it doesn't count cash outside the book or the value of your things, and it doesn't subtract what you owe: that's your net worth, a different question.`),
+    pieces,
+    note: null, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0,
+    actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
+  };
+}
+
+/* OLA 42 · EL COSTO DE VIDA Y LAS PROPORCIONES (la caza del centro,
+ * clase 5): las preguntas del mes entero como forma de vida —
+ * «¿cuánto necesito para vivir?», «¿qué parte de lo que gano se va
+ * en…?», «¿cuánto me cuesta X al mes?», «¿me alcanza con lo que
+ * gano?» — callaban enteras o caían en el need-amount de gustos.
+ * Todas se miden sobre el MES TÍPICO (la mediana de los meses
+ * anotados), nunca sobre el mes en curso disfrazado, y las partes
+ * se dicen en frecuencias naturales, con su denominador nombrado
+ * («de cada $100 que ganas…»), como manda la batería de utilidad. */
+function costoVidaAnswer(c: Ctx, folded: string): BankResult | null {
+  const keys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
+  if (!keys.length) return null;
+  const monthOut = (k: string) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings").reduce((a, l) => a + view(c, l), 0);
+  const monthIn = (k: string) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && /^income/.test(l.kind)).reduce((a, l) => a + view(c, l), 0);
+  const medianOf = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
+  const typicalOut = medianOf(keys.map(monthOut));
+  const typicalIn = medianOf(keys.map(monthIn));
+  const nMonths = keys.length;
+  /* El rótulo del ciudadano filtrado: si UN concepto suma todo el
+   * filtro, ese concepto nombra («la renta»); si el filtro abarca
+   * varios conceptos, nombra la categoría que los junta («la
+   * casa») — decir «Renta» por una cifra que incluye el Internet
+   * sería un rótulo mentiroso. */
+  const labelFor = (filter: (l: Line) => boolean): string => {
+    const pool = allLines(c).filter((l) => filter(l));
+    if (!pool.length) return "";
+    const total = pool.reduce((a, l) => a + view(c, l), 0);
+    const byConcept = new Map<string, number>();
+    const byCat = new Map<string, number>();
+    for (const l of pool) {
+      if (l.concept) byConcept.set(l.concept, (byConcept.get(l.concept) ?? 0) + view(c, l));
+      if (l.categoryId) byCat.set(l.categoryId, (byCat.get(l.categoryId) ?? 0) + view(c, l));
+    }
+    const top = [...byConcept.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (top && top[1] === total) return top[0];
+    const topCat = [...byCat.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (topCat) return c.names.cat(topCat[0]);
+    return top ? top[0] : "";
+  };
+  /* El puente de sinónimos hablados: «comida» ES la categoría
+   * Alimentos de la estructura — el usuario la nombra por su
+   * nombre de la calle, y el filtro por nombre no la oye. Solo
+   * pares que son el mismo ciudadano con dos nombres. */
+  const synonymFilter = (): ((l: Line) => boolean) | null => {
+    const SYN: Array<[RegExp, RegExp]> = [
+      [/\b(comida|supermercado|super|groceries|food)\b/, /^(alimentos|food|groceries)$/],
+    ];
+    for (const [spoken, catName] of SYN) {
+      if (!spoken.test(folded)) continue;
+      for (const cat of c.state.structure.categories) {
+        if (catName.test(foldQ(c.names.cat(cat.id)))) return (l: Line) => l.categoryId === cat.id;
+      }
+    }
+    return null;
+  };
+
+  /* ¿ME ALCANZA CON LO QUE GANO?: ingreso típico contra gasto
+   * típico, con el veredicto que la resta manda. */
+  if (/(me alcanza con lo que gano|alcanza (con|mi|el) (lo que gano|sueldo|salario)|mi (sueldo|salario) alcanza|(sueldo|salario) me alcanza|is my (salary|paycheck|income) enough|does my (salary|paycheck|income) cover)/.test(folded)) {
+    if (typicalIn <= 0) {
+      return { kind: "answer", family: "promedio", verdict: L(c.lang, `No puedo juzgarlo: en tu libro no hay ingreso anotado en los meses que miro, y sin ingreso medido «lo que gano» no tiene cifra. Tu gasto típico sí se mide: ${c.money(typicalOut)} al mes.`, `I can't judge it: your book has no recorded income in the months I can see, and without a measured income "what I earn" has no figure. Your typical spending does measure: ${c.money(typicalOut)} a month.`), pieces: [{ label: L(c.lang, "Gasto típico al mes", "Typical monthly spend"), minor: typicalOut }], note: null, source: ["asesor.lectura", "historial.stream"], lines: 0 };
+    }
+    const diff = typicalIn - typicalOut;
+    return {
+      kind: "answer", family: "promedio",
+      verdict: diff >= 0
+        ? L(c.lang, `Sí, con lo que ganas alcanza — medido, no a ojo: tu ingreso típico es ${c.money(typicalIn)} al mes y tu gasto típico ${c.money(typicalOut)}; te quedan ${c.money(diff)} libres en el mes típico. Es la mediana de tus ${nMonths} meses anotados: un mes caro no es el típico, y esta cuenta lo sabe.`, `Yes, what you earn covers it — measured, not eyeballed: your typical income is ${c.money(typicalIn)} a month and your typical spending ${c.money(typicalOut)}; ${c.money(diff)} stay free in the typical month. It's the median of your ${nMonths} recorded months: an expensive month isn't the typical one, and this math knows it.`)
+        : L(c.lang, `Con lo que ganas, medido, no alcanza: tu ingreso típico es ${c.money(typicalIn)} al mes y tu gasto típico ${c.money(typicalOut)} — el gasto pasa del ingreso por ${c.money(-diff)} en el mes típico. No es un mes malo suelto: es la mediana de tus ${nMonths} meses anotados.`, `On what's measured, what you earn doesn't cover it: your typical income is ${c.money(typicalIn)} a month and your typical spending ${c.money(typicalOut)} — spending passes income by ${c.money(-diff)} in the typical month. It's not one bad month: it's the median of your ${nMonths} recorded months.`),
+      pieces: [{ label: L(c.lang, "Ingreso típico al mes", "Typical monthly income"), minor: typicalIn }, { label: L(c.lang, "Gasto típico al mes", "Typical monthly spend"), minor: typicalOut }, { label: L(c.lang, "La diferencia", "The difference"), minor: diff }],
+      note: null, source: ["asesor.lectura", "historial.stream"], lines: 0,
+      actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+    };
+  }
+
+  /* LAS PROPORCIONES: «¿qué parte de lo que gano se va en X?» — la
+   * parte se dice en su porcentaje Y en frecuencia natural. */
+  const parteVoice = /(que (porcentaje|parte|fraccion)|cuanto por ciento|que porciento|what (percentage|share|fraction)|how much of (my|mi))/.test(folded)
+    && /(gano|sueldo|salario|ingreso|income|salary|paycheck|earn)/.test(folded);
+  if (parteVoice) {
+    const filter = filterOf(c, folded) ?? synonymFilter();
+    if (!filter) {
+      const stray = strayFilterWord(c, folded, new Set(["gano", "ganas", "sueldo", "salario", "ingreso", "ingresos", "parte", "porcentaje", "income", "salary", "paycheck", "earn", "earnings"]));
+      if (stray) {
+        return { kind: "answer", family: "promedio", verdict: L(c.lang, `De «${stray}» no tengo nada anotado en tu libro, así que su parte de lo que ganas es cero — no por poco, sino porque no aparece: si lo pagas con otro nombre, ese nombre es el que hay que mirar.`, `I have nothing recorded as "${stray}" in your book, so its share of what you earn is zero — not because it's small, but because it never appears: if you pay it under another name, that name is the one to look at.`), pieces: [], note: null, source: ["libros.lineas"], lines: 0 };
+      }
+      return null;
+    }
+    const m = monthlyAvgSpend(c, filter);
+    if (m.lines === 0) {
+      /* El nombre resolvió a un ciudadano sin líneas (un sub vacío,
+       * o el nombre en el otro idioma): la parte medida es cero y
+       * se dice como ausencia, no como porcentaje vacío. */
+      return { kind: "answer", family: "promedio", verdict: L(c.lang, `Bajo ese nombre no se mueve dinero en tu libro: no trae gasto anotado en los meses que miro, así que su parte de lo que ganas, medida, es 0% — no porque sea poco, sino porque ahí no hay nada anotado. Si lo pagas con otro nombre, ese es el nombre que hay que mirar.`, `No money moves under that name in your book: it carries no recorded spending in the months I can see, so its measured share of what you earn is 0% — not because it's small, but because there's nothing recorded there. If you pay it under another name, that's the name to look at.`), pieces: [{ label: L(c.lang, "Ingreso típico al mes", "Typical monthly income"), minor: typicalIn }], note: null, source: ["libros.lineas", "asesor.lectura"], lines: 0 };
+    }
+    if (typicalIn <= 0) {
+      return { kind: "answer", family: "promedio", verdict: L(c.lang, `Eso suma ${c.money(m.avg)} al mes en promedio, pero tu libro no trae un ingreso medido con qué compararlo: sin ingreso anotado, la parte de lo que ganas no tiene denominador — y sin denominador no hay porcentaje honesto.`, `That adds up to ${c.money(m.avg)} a month on average, but your book carries no measured income to compare it with: with no recorded income, the share of what you earn has no denominator — and without a denominator there's no honest percentage.`), pieces: [{ label: L(c.lang, "Eso, al mes", "That, a month"), minor: m.avg }], note: null, source: ["historial.stream", "asesor.lectura"], lines: m.lines };
+    }
+    const pct = Math.round((m.avg / typicalIn) * 1000) / 10;
+    const per100 = Math.round((m.avg / typicalIn) * 100);
+    const name = labelFor(filter);
+    return {
+      kind: "answer", family: "promedio",
+      verdict: L(c.lang, `En ${name} se va el ${pct}% de lo que ganas: de cada $100 que entran, $${per100} van a ${name}. Son ${c.money(m.avg)} al mes en promedio, contra un ingreso típico de ${c.money(typicalIn)} — medido sobre tus ${nMonths} meses anotados.`, `${name} takes ${pct}% of what you earn: of every $100 that comes in, $${per100} go to ${name}. That's ${c.money(m.avg)} a month on average, against a typical income of ${c.money(typicalIn)} — measured over your ${nMonths} recorded months.`),
+      pieces: [{ label: L(c.lang, `${name}, al mes`, `${name}, a month`), minor: m.avg }, { label: L(c.lang, "Ingreso típico al mes", "Typical monthly income"), minor: typicalIn }],
+      note: null, source: ["historial.stream", "asesor.lectura"], lines: m.lines,
+      actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+    };
+  }
+
+  /* ¿CUÁNTO ME CUESTA X / CUÁNTO GASTAMOS EN X AL MES?: el promedio
+   * mensual de ese ciudadano, medido — la puerta del promedio no oía
+   * «cuesta» ni «gastamos». */
+  const cuestaVoice = /(cuanto (me |nos |se )?(cuesta|cuestan)|cuanto gastamos en|cuanto gasto en|cuanto se (me |nos )?va en|how much does .{1,30} cost|how much do we spend on)/.test(folded)
+    && /(al mes|por mes|mensual|per month|monthly|a month)/.test(folded);
+  if (cuestaVoice) {
+    const filter = filterOf(c, folded) ?? synonymFilter();
+    if (!filter) {
+      const nm = folded.match(/(?:cuesta|cuestan|cost)\s+(?:el |la |los |las |un |una |the |a |an )?([a-záéíóúñ]{3,})/);
+      const word = nm && !STRAY_STOP.has(nm[1]) ? nm[1] : strayFilterWord(c, folded);
+      if (word) {
+        return { kind: "answer", family: "promedio", verdict: L(c.lang, `De «${word}» no tengo nada anotado en tu libro: su costo al mes, con lo anotado, es $0.00 — no porque cueste nada, sino porque no aparece. Si lo pagas con otro nombre, dime el nombre y lo mido.`, `I have nothing recorded as "${word}" in your book: its monthly cost, on what's recorded, is $0.00 — not because it costs nothing, but because it never appears. If you pay it under another name, tell me the name and I'll measure it.`), pieces: [], note: null, source: ["libros.lineas"], lines: 0 };
+      }
+      return null;
+    }
+    const m = monthlyAvgSpend(c, filter);
+    const name = labelFor(filter);
+    if (m.lines === 0) {
+      return { kind: "answer", family: "promedio", verdict: L(c.lang, `${name} está en tu estructura, pero no trae gasto anotado en los meses que miro: su costo medido es $0.00 al mes.`, `${name} is in your structure, but it carries no recorded spending in the months I can see: its measured cost is $0.00 a month.`), pieces: [], note: null, source: ["libros.lineas"], lines: 0 };
+    }
+    const thisMonth = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && filter(l)).reduce((a, l) => a + view(c, l), 0);
+    return {
+      kind: "answer", family: "promedio",
+      verdict: L(c.lang, `${name} te cuesta ${c.money(m.avg)} al mes en promedio — medido sobre ${m.months} mes${m.months === 1 ? "" : "es"} anotados, no solo este. Este mes van ${c.money(thisMonth)}.`, `${name} costs you ${c.money(m.avg)} a month on average — measured over ${m.months} recorded month${m.months === 1 ? "" : "s"}, not just this one. This month it's at ${c.money(thisMonth)}.`),
+      pieces: [{ label: L(c.lang, `${name}, al mes`, `${name}, a month`), minor: m.avg }, { label: L(c.lang, "Este mes", "This month"), minor: thisMonth }],
+      note: null, source: ["historial.stream"], lines: m.lines,
+      actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+    };
+  }
+
+  /* EL COSTO DE VIVIR: el mes típico entero, con lo esencial
+   * separado de lo que se mueve. */
+  if (/(cuanto necesito (al mes |para vivir|mensual)|necesito para vivir|cuanto (me )?cuesta vivir|costo de vida|cuanto necesito al mes|how much do i need (to live|for living|per month)|what does it cost (me )?to live|need to live on|cost of living)/.test(folded)) {
+    if (typicalOut <= 0) {
+      return { kind: "answer", family: "promedio", verdict: L(c.lang, `No puedo medirlo: tu libro no trae gasto anotado en los meses que miro, y el costo de vivir se mide de lo que gastas — no se importa de ninguna tabla.`, `I can't measure it: your book carries no recorded spending in the months I can see, and the cost of living is measured from what you spend — it's not imported from any table.`), pieces: [], note: null, source: ["historial.stream"], lines: 0 };
+    }
+    const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+    const monthsGoal = c.state.settings.emergencyMonths || 3;
+    const essential = monthsGoal > 0 ? Math.min(typicalOut, Math.round(reading.cushionMinor / monthsGoal)) : 0;
+    const rest = typicalOut - essential;
+    const diff = typicalIn - typicalOut;
+    return {
+      kind: "answer", family: "promedio",
+      verdict: L(c.lang, `Vivir te cuesta ${c.money(typicalOut)} al mes — tu mes típico de gasto, la mediana de tus ${nMonths} meses anotados. De eso, lo esencial — lo que no se puede apagar — suma ${c.money(essential)}; los otros ${c.money(rest)} son lo que se mueve mes a mes.${typicalIn > 0 ? (diff >= 0 ? ` Tu ingreso típico es ${c.money(typicalIn)}: vivir te deja ${c.money(diff)} libres en el mes típico.` : ` Tu ingreso típico es ${c.money(typicalIn)}: vivir pasa de él por ${c.money(-diff)} en el mes típico.`) : ""}`, `Living costs you ${c.money(typicalOut)} a month — your typical spending month, the median of your ${nMonths} recorded months. Of that, the essentials — what can't be switched off — add up to ${c.money(essential)}; the other ${c.money(rest)} are what moves month to month.${typicalIn > 0 ? (diff >= 0 ? ` Your typical income is ${c.money(typicalIn)}: living leaves you ${c.money(diff)} free in the typical month.` : ` Your typical income is ${c.money(typicalIn)}: living passes it by ${c.money(-diff)} in the typical month.`) : ""}`),
+      pieces: [{ label: L(c.lang, "Tu mes típico", "Your typical month"), minor: typicalOut }, { label: L(c.lang, "Lo esencial", "The essentials"), minor: essential }, ...(rest > 0 ? [{ label: L(c.lang, "Lo que se mueve", "What moves"), minor: rest }] : []), ...(typicalIn > 0 ? [{ label: L(c.lang, "Ingreso típico", "Typical income"), minor: typicalIn }] : [])],
+      note: L(c.lang, "Lo esencial es la misma medida de tu colchón: el gasto que no se puede apagar, medido de tu libro — no una tabla de afuera.", "The essentials are the same measure as your cushion: the spending that can't be switched off, measured from your book — not an outside table."),
+      source: ["asesor.lectura", "historial.stream"], lines: 0,
+      actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+    };
+  }
+  return null;
+}
+
+
 function promedioAnswer(c: Ctx, folded: string): BankResult | null {
   const day = Number(c.today.slice(8, 10));
   const daysIn = new Date(Number(c.key.slice(0, 4)), Number(c.key.slice(5, 7)), 0).getDate();
-  if (/(lo mas que puedo gastar hoy|cuanto puedo gastar hoy|puedo gastar hoy|cuanto puedo gastar al dia|how much can i spend today)/.test(folded)) {
+  // OLA 25 (la caza de lo obvio): la forma desnuda «¿cuánto puedo
+  // gastar?» — sin «hoy» — recibía need-amount del delegado: el
+  // usuario pide LA cifra y el sistema le pedía una cifra. Sin
+  // período nombrado, «puedo gastar» se lee como hoy (la lectura
+  // natural); con período nombrado que no es hoy, esta rama calla.
+  // Los gustos quedan fuera: su familia los atiende.
+  if (/(lo mas que puedo gastar|cuanto puedo gastar|puedo gastar hoy|how much can i spend today|how much can i spend|tengo dinero para hoy|dinero para hoy)/.test(folded)
+    && !/(gustos|antojos|capricho|treats)/.test(folded)
+    && !(!/hoy|today/.test(folded) && /(al mes|este mes|al ano|esta semana|por semana|this month|this week)/.test(folded))) {
     const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
     const leftDays = Math.max(1, daysIn - day + 1);
     const per = reading.left > 0 ? Math.floor(reading.left / leftDays) : 0;
     return {
       kind: "answer", family: "promedio",
-      verdict: L(c.lang, `Hoy puedes gastar hasta ${c.money(per)} sin pasarte: es lo que te queda del mes (${c.money(Math.max(0, reading.left))}) repartido entre los ${leftDays} días que quedan, hoy incluido.`, `Today you can spend up to ${c.money(per)} without going over: it's what's left of your month (${c.money(Math.max(0, reading.left))}) spread over the ${leftDays} days remaining, today included.`),
+      // OLA 26 (U1, en la misma expresión): con la queda en negativo,
+      // «hasta $0» sin causa era la cifra muda — el cero se traduce:
+      // el mes ya salió por encima de lo que entró, y por eso no hay
+      // margen hoy.
+      verdict: reading.left < 0
+        ? L(c.lang, `Hoy no hay margen: este mes ya salió ${c.money(-reading.left)} más de lo que entró, así que tu ritmo seguro de hoy es $0 — no es un castigo, es la resta del mes tal como va.`, `Today there's no room: this month ${c.money(-reading.left)} more has gone out than came in, so your safe pace today is $0 — it's not a punishment, it's the month's subtraction as it stands.`)
+        : L(c.lang, `Hoy puedes gastar hasta ${c.money(per)} sin pasarte: es lo que te queda del mes (${c.money(Math.max(0, reading.left))}) repartido entre los ${leftDays} días que quedan, hoy incluido.`, `Today you can spend up to ${c.money(per)} without going over: it's what's left of your month (${c.money(Math.max(0, reading.left))}) spread over the ${leftDays} days remaining, today included.`),
       pieces: [{ label: L(c.lang, "Queda del mes", "Left this month"), minor: Math.max(0, reading.left) }, { label: L(c.lang, "Por día, desde hoy", "Per day, from today"), minor: per }],
       note: L(c.lang, "El supuesto, dicho: lo que queda se reparte parejo; un día de gasto fuerte pide días más ligeros después.", "The assumption, stated: what's left is spread evenly; a heavy day asks for lighter days after."),
+      graph: [{
+        id: "ritmo", label: L(c.lang, "Tu ritmo seguro de hoy", "Your safe pace today"), minor: per, tense: "proyectado", flow: "flujo", currency: c.display, unit: L(c.lang, "al día", "a day"),
+        assumption: { text: L(c.lang, "lo que queda se reparte parejo entre los días que quedan", "what's left is spread evenly over the remaining days"), origin: "regla" },
+        children: [
+          { id: "queda", label: L(c.lang, "Queda del mes", "Left this month"), minor: Math.max(0, reading.left), tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+        ],
+      }],
       source: ["asesor.lectura"], lines: 0,
     };
   }
@@ -2666,7 +5695,7 @@ function promedioAnswer(c: Ctx, folded: string): BankResult | null {
  * el relato de un período compuesto de las piezas de siempre (entró,
  * salió, la mayor partida, la línea mayor), con su puerta a Estudio. */
 function relatorAnswer(c: Ctx, folded: string): BankResult | null {
-  const whereGoes = /(en que se me va|a donde (se )?va mi dinero|en que gasto mas|where does my money go|what do i spend (the )?most)/.test(folded);
+  const whereGoes = /(en que se me va|a donde (se )?va mi dinero|en que gasto mas|where does my money go|what do i spend (the )?most|en que se me (esta|va) (yendo|escapando)|se me esta yendo el dinero|where is my money going|where'?s my money going)/.test(folded);
   const howWas = /(como fue|como estuvo|como me fue|resumen de|how was)/.test(folded);
   if (!whereGoes && !howWas) return null;
   const p = periodOf(c, folded);
@@ -2705,7 +5734,7 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
     return {
       kind: "answer", family: "frecuencia",
       verdict: subs.length
-        ? L(c.lang, `Tienes ${subs.length} suscripci${subs.length === 1 ? "ón anotada" : "ones anotadas"}: ${subs.map((s) => `«${s.concept}» (${c.money(view(c, s))}${s.nextDue ? `, vence el ${s.nextDue}` : ""})`).join(", ")}.`, `You have ${subs.length} recorded subscription${subs.length === 1 ? "" : "s"}: ${subs.map((s) => `"${s.concept}" (${c.money(view(c, s))}${s.nextDue ? `, due ${s.nextDue}` : ""})`).join(", ")}.`)
+        ? L(c.lang, `Tienes ${subs.length} suscripci${subs.length === 1 ? "ón anotada" : "ones anotadas"}: ${subs.map((s) => `«${s.concept}» (${c.money(view(c, s))}${s.nextDue ? `, vence el ${fmtFecha(c, s.nextDue)}` : ""})`).join(", ")}.`, `You have ${subs.length} recorded subscription${subs.length === 1 ? "" : "s"}: ${subs.map((s) => `"${s.concept}" (${c.money(view(c, s))}${s.nextDue ? `, due ${fmtFecha(c, s.nextDue)}` : ""})`).join(", ")}.`)
         : L(c.lang, "No tienes suscripciones anotadas.", "You have no recorded subscriptions."),
       pieces: subs.slice(0, 5).map((s) => ({ label: s.concept, minor: view(c, s) })),
       note: null, source: ["cobros.cuotas"], lines: subs.length,
@@ -2770,7 +5799,23 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
   // cascada sirve antes (paso 4b2): el último cobro contra la MEDIANA
   // de la propia serie, cercado por su variación.
   const filter = filterOf(c, folded);
-  if (!filter) return null;
+  if (!filter) {
+    // OLA 26 (U5): «¿cuántas veces fui al súper?» callaba — la palabra
+    // no resuelve a ningún ciudadano y la frecuencia se iba en
+    // silencio, donde historia nombra la ausencia. Con forma de
+    // frecuencia y palabra suelta, la ausencia se nombra aquí también.
+    if (/(cuantas veces| cada cuanto|con que frecuencia|how many times|how often)/.test(folded)) {
+      const stray = strayFilterWord(c, folded);
+      if (stray) {
+        return {
+          kind: "answer", family: "frecuencia",
+          verdict: L(c.lang, `No tengo nada anotado como «${stray}»: sin líneas con ese nombre no hay veces que contar. Si lo anotas con otro nombre, pregúntame por ese.`, `I have nothing recorded as "${stray}": with no lines under that name there are no times to count. If you record it under another name, ask me by that one.`),
+          pieces: [], note: null, source: ["libros.lineas"], lines: 0,
+        };
+      }
+    }
+    return null;
+  }
   if (/(cuantas veces|how many times)/.test(folded)) {
     const p = periodOf(c, folded);
     const pool = allLines(c).filter((l) => inPeriod(c, l, p) && isOut(l) && filter(l));
@@ -2789,7 +5834,7 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
     const gap = Math.max(1, Math.round(span / (dates.length - 1)));
     return {
       kind: "answer", family: "frecuencia",
-      verdict: L(c.lang, `Vas cada ${gap} días, en promedio: ${dates.length} veces entre el ${dates[0]} y el ${dates[dates.length - 1]}.`, `You go every ${gap} days on average: ${dates.length} times between ${dates[0]} and ${dates[dates.length - 1]}.`),
+      verdict: L(c.lang, `Vas cada ${gap} días, en promedio: ${dates.length} veces entre el ${fmtFecha(c, dates[0])} y el ${fmtFecha(c, dates[dates.length - 1])}.`, `You go every ${gap} days on average: ${dates.length} times between ${fmtFecha(c, dates[0])} and ${fmtFecha(c, dates[dates.length - 1])}.`),
       pieces: [{ label: L(c.lang, "Cada (días)", "Every (days)"), minor: gap }, { label: L(c.lang, "Veces medidas", "Times measured"), minor: dates.length }],
       note: L(c.lang, "La cadencia se mide de tus fechas reales, no de un plan: si un mes vas más, la media se mueve.", "The cadence is measured from your real dates, not a plan: go more one month and the mean moves."),
       source: ["libros.lineas"], lines: dates.length,
@@ -2936,7 +5981,22 @@ function precioTiempoAnswer(c: Ctx, folded: string, raw: string): BankResult | n
  * a Estudio · Regla, donde la regla vive dibujada. */
 function reglaAnswer(c: Ctx, folded: string): BankResult | null {
   if (/(gustos|antojos|treats|wants)/.test(folded)) return null; // los gustos con regla son de la familia gustos
-  if (!/(regla|50 ?30 ?20|necesidades|should go to needs|on needs)/.test(folded)) return null;
+  // OLA 33 (Familia 5, Q33-5): LA PUERTA OYE SU NOMBRE ENTERO — el
+  // numeral solo entraba en su forma con espacios («50 30 20») y el
+  // nombre solo en español («regla»): las grafías que el mundo
+  // escribe — «50/30/20», «50-30-20» y «50·30·20», la que el propio
+  // veredicto EN de esta familia imprime («Against the 50·30·20
+  // rule…») — morían en unknown en los dos idiomas, y «rule» no
+  // estaba en la puerta, así que "How am I doing with the 50/30/20
+  // rule?" la servía la familia de otra pregunta sin nombrar la
+  // regla. El numeral oye cualquier separador (o ninguno, o
+  // espacios) y el nombre oye los dos idiomas.
+  // OLA 34 (Familia 8, Q34-8): LA COMA TAMBIÉN ES SEPARADOR —
+  // «50,30,20» y «50, 30, 20» (como se escribe una lista de tres
+  // números) quedaban fuera de la clase y, sin la palabra «regla»,
+  // la pregunta caía en la familia how, que jamás nombra la regla:
+  // el daño de Q33-5 con un separador más fuera.
+  if (!/(regla|rule|50 ?[/\-·.,]? ?30 ?[/\-·.,]? ?20|necesidades|should go to needs|on needs)/.test(folded)) return null;
   const sum = summarize(c.state, c.key, c.lang);
   if (sum.income <= 0) return { kind: "answer", family: "regla", verdict: L(c.lang, "Este mes no entró ingreso anotado: la regla reparte el ingreso, y sin ingreso no hay reparto que medir.", "No income was recorded this month: the rule splits income, and with no income there's no split to measure."), pieces: [], note: null, source: ["estudio.regla"], lines: 0 };
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
@@ -2948,12 +6008,26 @@ function reglaAnswer(c: Ctx, folded: string): BankResult | null {
   // usuario puso la suya, la respuesta la nombra como suya; la clásica
   // conserva su texto de siempre, palabra por palabra.
   const guide = guideOf(c.state.settings);
-  const inside = pct(needs) <= guide.needs && pct(wants) <= guide.wants;
+  // OLA 26 (U2): cada cubo se JUZGA en palabras — la versión anterior
+  // reportaba el contraste y solo juzgaba dos cubos, dejando el más
+  // ruidoso (el apartado por encima de su número) sin interpretar. En
+  // el apartado, por encima juega A FAVOR, y la respuesta lo dice. El
+  // juicio mide contra la guía ACTIVA del libro (la de 1.3.422): con
+  // la clásica, las palabras son las de la copia, número por número.
+  const cap = (p: number, target: number) => p > target
+    ? L(c.lang, "por encima de su número", "above its number")
+    : p === target
+      ? L(c.lang, "justo en su número", "right at its number")
+      : L(c.lang, "por debajo de su número", "below its number");
+  const savedWord = pct(saved) > guide.save
+    ? L(c.lang, "por encima de su número — y en este cubo, por encima juega a tu favor", "above its number — and in this bucket, above plays in your favor")
+    : cap(pct(saved), guide.save);
+  const judged = L(c.lang, `En palabras: necesidades ${cap(pct(needs), guide.needs)}, gustos ${cap(pct(wants), guide.wants)} y apartado ${savedWord}.`, `In words: needs ${cap(pct(needs), guide.needs)}, wants ${cap(pct(wants), guide.wants)} and set aside ${savedWord}.`);
   return {
     kind: "answer", family: "regla",
     verdict: guide.custom
-      ? L(c.lang, `Contra tu guía ${guide.needs}·${guide.wants}·${guide.save}, este mes vas: necesidades ${c.money(needs)} (el ${pct(needs)}%, tu guía dice ${guide.needs}%), gustos ${c.money(wants)} (el ${pct(wants)}%, dice ${guide.wants}%) y apartado ${c.money(saved)} (el ${pct(saved)}%, dice ${guide.save}%). ${inside ? "Estás dentro en necesidades y gustos." : "Hay cubos por encima de su número: abajo están las tres restas."}`, `Against your ${guide.needs}·${guide.wants}·${guide.save} guide, this month you're at: needs ${c.money(needs)} (${pct(needs)}%, your guide says ${guide.needs}%), wants ${c.money(wants)} (${pct(wants)}%, it says ${guide.wants}%) and set aside ${c.money(saved)} (${pct(saved)}%, it says ${guide.save}%). ${inside ? "You're inside on needs and wants." : "Some buckets sit above their number: the three splits are below."}`)
-      : L(c.lang, `Contra la regla 50·30·20, este mes vas: necesidades ${c.money(needs)} (el ${pct(needs)}%, la regla dice 50%), gustos ${c.money(wants)} (el ${pct(wants)}%, dice 30%) y apartado ${c.money(saved)} (el ${pct(saved)}%, dice 20%). ${inside ? "Estás dentro en necesidades y gustos." : "Hay cubos por encima de su número: abajo están las tres restas."}`, `Against the 50·30·20 rule, this month you're at: needs ${c.money(needs)} (${pct(needs)}%, the rule says 50%), wants ${c.money(wants)} (${pct(wants)}%, it says 30%) and set aside ${c.money(saved)} (${pct(saved)}%, it says 20%). ${inside ? "You're inside on needs and wants." : "Some buckets sit above their number: the three splits are below."}`),
+      ? L(c.lang, `Contra tu guía ${guide.needs}·${guide.wants}·${guide.save}, este mes vas: necesidades ${c.money(needs)} (el ${pct(needs)}%, tu guía dice ${guide.needs}%), gustos ${c.money(wants)} (el ${pct(wants)}%, dice ${guide.wants}%) y apartado ${c.money(saved)} (el ${pct(saved)}%, dice ${guide.save}%). ${judged}`, `Against your ${guide.needs}·${guide.wants}·${guide.save} guide, this month you're at: needs ${c.money(needs)} (${pct(needs)}%, your guide says ${guide.needs}%), wants ${c.money(wants)} (${pct(wants)}%, it says ${guide.wants}%) and set aside ${c.money(saved)} (${pct(saved)}%, it says ${guide.save}%). ${judged}`)
+      : L(c.lang, `Contra la regla 50·30·20, este mes vas: necesidades ${c.money(needs)} (el ${pct(needs)}%, la regla dice 50%), gustos ${c.money(wants)} (el ${pct(wants)}%, dice 30%) y apartado ${c.money(saved)} (el ${pct(saved)}%, dice 20%). ${judged}`, `Against the 50·30·20 rule, this month you're at: needs ${c.money(needs)} (${pct(needs)}%, the rule says 50%), wants ${c.money(wants)} (${pct(wants)}%, it says 30%) and set aside ${c.money(saved)} (${pct(saved)}%, it says 20%). ${judged}`),
     pieces: [
       { label: L(c.lang, "Necesidades", "Needs"), minor: needs },
       { label: L(c.lang, "Gustos (el resto del gasto)", "Wants (the rest of spending)"), minor: wants },
@@ -3027,9 +6101,16 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
   // total que decir (la batería del mundo la cazó: era el último
   // silencio de 81).
   if (/(a quien le debo|quien le debo|a quienes le debo|who do i owe)/.test(folded) && !/(mas|most)/.test(folded)) {
-    const cardsOwe = cardsOf(c.state).map((card) => ({ name: card.name, bal: cardFigures(c.state, card, c.today).balance })).filter((x) => x.bal > 0);
-    if (!owe.length && !cardsOwe.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, "No le debes a nadie anotado: ni préstamos recibidos ni saldos de tarjeta vivos.", "You owe nobody recorded: no live loans taken and no card balances."), pieces: [], note: null, source: ["cobros.debo"], lines: 0 };
-    if (owe.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, `Le debes a ${owe.length} persona${owe.length === 1 ? "" : "s"}: en total ${c.money(owe.reduce((a, p) => a + p.left, 0))}. El mayor: ${owe[0].name}, ${c.money(owe[0].left)}.`, `You owe ${owe.length} ${owe.length === 1 ? "person" : "people"}: ${c.money(owe.reduce((a, p) => a + p.left, 0))} in total. The biggest: ${owe[0].name}, ${c.money(owe[0].left)}.`), pieces: owe.slice(0, 4).map((p) => ({ label: p.name, minor: p.left })), note: null, source: ["cobros.debo"], lines: owe.reduce((a, p) => a + p.active, 0) };
+    /* OLA 44 (D1): también los saldos de líneas de deuda. */
+    const lineCardsOwe = lineDebtLines(c.state, c.today).map((line) => ({ name: line.concept || "Créditos", bal: convertMinor(line.balanceMinor as number, line.balanceCurrency || line.currency, c.display, c.rateE4) })).filter((x) => x.bal > 0);
+    const cardsOwe = [...cardsOf(c.state).map((card) => ({ name: card.name, bal: cardFigures(c.state, card, c.today).balance })), ...lineCardsOwe].filter((x) => x.bal > 0);
+    if (!owe.length && !cardsOwe.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, "No le debes a nadie anotado: ni préstamos recibidos ni saldos de tarjeta o de líneas de deuda vivos.", "You owe nobody recorded: no live loans taken and no card or debt-line balances."), pieces: [], note: null, source: ["cobros.debo"], lines: 0 };
+    /* OLA 44 (D1): personas Y tarjetas en la misma respuesta — la
+     * rama vieja devolvía solo las personas cuando había de las
+     * dos, y las tarjetas desaparecían de la respuesta. */
+    const peoplePart = owe.length ? L(c.lang, `Le debes a ${owe.length} persona${owe.length === 1 ? "" : "s"}: en total ${c.money(owe.reduce((a, p) => a + p.left, 0))}. El mayor: ${owe[0].name}, ${c.money(owe[0].left)}.`, `You owe ${owe.length} ${owe.length === 1 ? "person" : "people"}: ${c.money(owe.reduce((a, p) => a + p.left, 0))} in total. The biggest: ${owe[0].name}, ${c.money(owe[0].left)}.`) : "";
+    const cardsPart = cardsOwe.length ? L(c.lang, `En tarjetas y saldos de deuda debes ${c.money(cardsOwe.reduce((a, x) => a + x.bal, 0))}: ${cardsOwe.slice(0, 3).map((x) => `«${x.name}» ${c.money(x.bal)}`).join(", ")}.`, `On cards and debt balances you owe ${c.money(cardsOwe.reduce((a, x) => a + x.bal, 0))}: ${cardsOwe.slice(0, 3).map((x) => `"${x.name}" ${c.money(x.bal)}`).join(", ")}.`) : "";
+    return { kind: "answer", family: "deudas", verdict: [peoplePart, cardsPart].filter(Boolean).join(" "), pieces: [...owe.slice(0, 3).map((p) => ({ label: p.name, minor: p.left })), ...cardsOwe.slice(0, 3).map((x) => ({ label: x.name, minor: x.bal }))], note: null, source: ["cobros.debo", "cobros.tarjetas"], lines: owe.reduce((a, p) => a + p.active, 0) };
   }
   if (/(le debo|debo a|cuanto debo|i owe)/.test(folded)) {
     const p = findIn(owe);
@@ -3041,17 +6122,28 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
     // la preposición y la rama del total moría en silencio. La
     // preposición se busca como palabra entera.
     if (/(en total|total|todo)/.test(folded) || !/\s(a|al|hacia)\s/.test(folded)) {
-      const cards = cardsOf(c.state).map((card) => ({ name: card.name, bal: cardFigures(c.state, card, c.today).balance })).filter((x) => x.bal > 0);
-      const peopleTotal = owe.reduce((a, p) => a + p.left, 0);
-      const cardTotal = cards.reduce((a, x) => a + x.bal, 0);
-      const total = peopleTotal + cardTotal;
+      /* OLA 44 (D1) · LA DEUDA SE CUENTA DE UNA SOLA FUENTE: la
+       * rama vieja sumaba personas + tarjetas del registro y no
+       * veía ni los préstamos de entidades ni los saldos anotados
+       * en líneas de deuda — el mismo libro oía «no debes nada»
+       * aquí y «$24 de interés sobre tu tarjeta de $1,200» en la
+       * Ola 40. La fuente es netBalance/totalDebt de debts.ts, la
+       * que la app misma llama LA única: préstamos recibidos +
+       * tarjetas + saldos en líneas, cada parte con su nombre. */
+      const nb = netBalance(c.state, c.today);
+      const total = nb.owe;
+      const parts: string[] = [];
+      if (nb.loans > 0) parts.push(L(c.lang, `${c.money(nb.loans)} en préstamos`, `${c.money(nb.loans)} in loans`));
+      if (nb.cards > 0) parts.push(L(c.lang, `${c.money(nb.cards)} en tarjetas`, `${c.money(nb.cards)} on cards`));
+      if (nb.lines > 0) parts.push(L(c.lang, `${c.money(nb.lines)} en saldos anotados en líneas de deuda`, `${c.money(nb.lines)} in balances recorded on debt lines`));
+      const topDebts = planDebts(c.state, c.today).filter((d) => d.left > 0).sort((a, b) => b.left - a.left).slice(0, 4);
       return {
         kind: "answer", family: "deudas",
         verdict: total > 0
-          ? L(c.lang, `En total debes ${c.money(total)}: ${c.money(peopleTotal)} en préstamos recibidos y ${c.money(cardTotal)} en tarjetas.`, `In total you owe ${c.money(total)}: ${c.money(peopleTotal)} in loans taken and ${c.money(cardTotal)} on cards.`)
-          : L(c.lang, "No debes nada anotado: ni préstamos recibidos ni saldos de tarjeta vivos.", "You owe nothing recorded: no live loans taken and no card balances."),
-        pieces: [...owe.slice(0, 3).map((p) => ({ label: p.name, minor: p.left })), ...cards.slice(0, 3).map((x) => ({ label: x.name, minor: x.bal }))],
-        note: null, source: ["cobros.debo"], lines: owe.reduce((a, p) => a + p.active, 0),
+          ? L(c.lang, `En total debes ${c.money(total)}: ${parts.join(", ")}.`, `In total you owe ${c.money(total)}: ${parts.join(", ")}.`)
+          : L(c.lang, "No debes nada anotado: ni préstamos recibidos, ni saldos de tarjeta, ni saldos anotados en líneas de deuda.", "You owe nothing recorded: no loans taken, no card balances, and no balances recorded on debt lines."),
+        pieces: topDebts.map((d) => ({ label: d.name, minor: d.left })),
+        note: null, source: ["cobros.debo", "cobros.tarjetas"], lines: owe.reduce((a, p) => a + p.active, 0),
       };
     }
     return null;
@@ -3059,6 +6151,20 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
   if (/(quien me debe|a quien le preste|who owes me)/.test(folded) && !/(mas|most)/.test(folded)) {
     if (!owed.length) return { kind: "answer", family: "deudas", verdict: L(c.lang, "Nadie te debe nada anotado: no hay préstamos dados vivos.", "Nobody owes you anything recorded: there are no live loans given."), pieces: [], note: null, source: ["cobros.mideben"], lines: 0 };
     return { kind: "answer", family: "deudas", verdict: L(c.lang, `Te deben ${owed.length} persona${owed.length === 1 ? "" : "s"}: en total ${c.money(owed.reduce((a, p) => a + p.left, 0))}. El mayor: ${owed[0].name}, ${c.money(owed[0].left)}.`, `${owed.length} ${owed.length === 1 ? "person owes" : "people owe"} you: ${c.money(owed.reduce((a, p) => a + p.left, 0))} in total. The biggest: ${owed[0].name}, ${c.money(owed[0].left)}.`), pieces: owed.slice(0, 4).map((p) => ({ label: p.name, minor: p.left })), note: null, source: ["cobros.mideben"], lines: owed.reduce((a, p) => a + p.active, 0) };
+  }
+  /* OLA 46 (F4) · LO QUE ME DEBEN, EN TOTAL Y EN VOZ LLANA: el
+   * «quién» vivía y el «cuánto» callaba — la misma familia, la
+   * otra mitad de la pregunta. El total es el de netBalance
+   * (préstamos dados + las recompensas que el banco te guarda),
+   * la fuente única de la Ola 44. */
+  if (/(cuanto me deben|cuanto me debe\b|how much am i owed|how much do (they|people) owe me)/.test(folded) && !/(mas|most)/.test(folded)) {
+    const nb = netBalance(c.state, c.today);
+    if (nb.owed <= 0) return { kind: "answer", family: "deudas", verdict: L(c.lang, "Nadie te debe nada anotado: no hay préstamos dados vivos ni recompensas por cobrar en tu libro.", "Nobody owes you anything recorded: no live loans given and no rewards to collect in your book."), pieces: [], note: null, source: ["cobros.mideben"], lines: 0 };
+    const people = owed.filter((p) => p.left > 0);
+    const parts: string[] = [];
+    if (nb.lent > 0) parts.push(L(c.lang, `${c.money(nb.lent)} en préstamos dados (${people.length} persona${people.length === 1 ? "" : "s"})`, `${c.money(nb.lent)} in loans given (${people.length} ${people.length === 1 ? "person" : "people"})`));
+    if (nb.rewards > 0) parts.push(L(c.lang, `${c.money(nb.rewards)} en recompensas que tu banco te guarda`, `${c.money(nb.rewards)} in rewards your bank holds for you`));
+    return { kind: "answer", family: "deudas", verdict: L(c.lang, `Te deben ${c.money(nb.owed)} en total: ${parts.join(" y ")}.`, `You are owed ${c.money(nb.owed)} in total: ${parts.join(" and ")}.`), pieces: people.slice(0, 4).map((p) => ({ label: p.name, minor: p.left })), note: null, source: ["cobros.mideben"], lines: owed.reduce((a, p) => a + p.active, 0) };
   }
   return null;
 }
@@ -3190,6 +6296,16 @@ function sintesisAnswer(c: Ctx, folded: string): BankResult | null {
         { label: L(c.lang, "El cierre del mes pasado", "Last month's close"), minor: lastTotal },
       ],
       note: L(c.lang, "El supuesto, dicho: la proyección estira tu ritmo medido de estos días hasta fin de mes — si el ritmo cambia, el cierre cambia. Es una síntesis: pasado medido y futuro proyectado, cruzados a la vista.", "The assumption, stated: the projection stretches your measured pace of these days to month's end — if the pace changes, the close changes. It's a synthesis: measured past and projected future, crossed in plain sight."),
+      graph: [
+        {
+          id: "cierre-proyectado", label: L(c.lang, "El cierre proyectado", "The projected close"), minor: projected, tense: "proyectado", flow: "flujo", currency: c.display,
+          assumption: { text: L(c.lang, "si el ritmo medido de estos días sigue hasta fin de mes", "if the measured pace of these days holds to month's end"), origin: "regla" },
+          children: [
+            { id: "gasto-hasta-hoy", label: L(c.lang, "El gasto hasta hoy", "Spending so far"), minor: soFar, tense: "medido", flow: "flujo", currency: c.display, sign: 1 },
+          ],
+        },
+        { id: "cierre-pasado", label: L(c.lang, "El cierre del mes pasado", "Last month's close"), minor: lastTotal, tense: "medido", flow: "flujo", currency: c.display },
+      ],
       source: ["historial.stream", "asesor.lectura"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
     };
@@ -3440,17 +6556,43 @@ function spendByCategory(c: Ctx, monthKey: string, filter?: ((l: Line) => boolea
 }
 
 /** El total de historia de un período (el pool de historiaAnswer,
- * intacto) — lo que desplazar y estrechar recomputan sobre el marco. */
-function historiaPool(c: Ctx, p: Period, income: boolean, filter: ((l: Line) => boolean) | null): { total: number; lines: number; byCat: Map<string, number> } {
-  const pool = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
+ * intacto) — lo que desplazar y estrechar recomputan sobre el marco.
+ * OLA 34 (Familia 1): el pool también sabe EXCLUIR — con el
+ * predicado del ciudadano excluido, el total, las líneas y el
+ * reparto salen NETOS de él, y la suma y el conteo excluidos viajan
+ * al lado (exclTotal/exclLines) para que el veredicto los nombre,
+ * como historiaAnswer nombra su resta. Sin predicado, la forma es
+ * la de siempre, campo por campo. */
+function historiaPool(c: Ctx, p: Period, income: boolean, filter: ((l: Line) => boolean) | null, exclFn?: ((l: Line) => boolean) | null): { total: number; lines: number; byCat: Map<string, number>; exclTotal: number; exclLines: number } {
+  const poolAll = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
   const byCat = new Map<string, number>();
   let total = 0;
-  for (const l of pool) {
+  let exclTotal = 0;
+  let exclLines = 0;
+  let lines = 0;
+  for (const l of poolAll) {
     const v = view(c, l);
+    if (exclFn && exclFn(l)) { exclTotal += v; exclLines++; continue; }
     total += v;
+    lines++;
     if (v !== 0) byCat.set(l.categoryId, (byCat.get(l.categoryId) ?? 0) + v);
   }
-  return { total, lines: pool.length, byCat };
+  return { total, lines, byCat, exclTotal, exclLines };
+}
+
+/** El predicado de la exclusión que el marco guarda, reconstruido
+ * del ciudadano por su nombre — la misma vara con que el filtro se
+ * reconstruye de su descriptor. Si el ciudadano ya no vive en el
+ * libro, no hay predicado: la exclusión murió con él. */
+function frameExclusionFn(c: Ctx, ex: AskFrameExclusion | null | undefined): ((l: Line) => boolean) | null {
+  if (!ex) return null;
+  return citizenByName(c.state, c.names, ex.folded)?.fn ?? null;
+}
+
+/** La frase de la resta, en la forma de historiaAnswer: la
+ * exclusión aplicada se nombra con su cifra, o no se dice. */
+function frameExclText(c: Ctx, ex: AskFrameExclusion | null | undefined, exclTotal: number): string {
+  return ex ? L(c.lang, ` Sin contar «${ex.display}» (${c.money(exclTotal)}).`, ` Not counting "${ex.display}" (${c.money(exclTotal)}).`) : "";
 }
 
 type CatDiff = { id: string; d: number };
@@ -3541,9 +6683,13 @@ function explicarCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): Ba
   };
 }
 
-function descomponerPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>): BankResult {
+function descomponerPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>, exclF?: { display: string; folded: string; fn: (l: Line) => boolean } | null): BankResult {
   const fn = f.filter ? filterFromDesc(c, f.filter) : null;
-  const { byCat, lines } = historiaPool(c, f.period, f.income, fn);
+  // OLA 34 (Familia 1): el reparto también es neto de la exclusión
+  // — la del marco, o la nueva que el seguimiento trae — o la
+  // descomposición contaría al ciudadano que la pregunta dejó
+  // fuera y la partición no cerraría contra el total del marco.
+  const { byCat, lines } = historiaPool(c, f.period, f.income, fn, exclF ? exclF.fn : frameExclusionFn(c, f.exclusion));
   const rows = [...byCat.entries()].map(([id, minor]) => ({ id, minor })).filter((x) => x.minor !== 0).sort((a, b) => b.minor - a.minor);
   const head = L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}${f.filter ? `, en ${f.filter.label}` : ""}`, `Following your question — in ${f.period.label}${f.filter ? `, on ${f.filter.label}` : ""}`);
   if (!rows.length) {
@@ -3578,18 +6724,25 @@ function desplazarCompare(c: Ctx, f: Extract<AskFrame, { kind: "compare2" }>): B
   };
 }
 
-function desplazarPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>): BankResult | null {
+function desplazarPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>, exclF?: { display: string; folded: string; fn: (l: Line) => boolean } | null): BankResult | null {
   if (f.period.kind !== "month") return null;
   const nk = prevKey(f.period.key);
   const label = monthNameF(c, nk);
   const period: Period = { kind: "month", key: nk, label };
   const fn = f.filter ? filterFromDesc(c, f.filter) : null;
-  const { total, lines } = historiaPool(c, period, f.income, fn);
-  const nf: AskFrame = { kind: "period1", period, income: f.income, filter: f.filter, total };
+  // OLA 34 (Familia 1, Q34-1): EL DESPLAZAMIENTO NO PIERDE LA
+  // EXCLUSIÓN — la que el seguimiento trae manda (reemplaza a la
+  // del marco, como la reescritura fusionada hace por su camino);
+  // sin exclusión nueva, la del marco viaja con él. El total sale
+  // neto y la resta se nombra: el marco, su horquilla y la cifra
+  // cuentan la misma historia.
+  const ex: AskFrameExclusion | null = exclF ? { folded: exclF.folded, display: exclF.display } : f.exclusion ?? null;
+  const { total, lines, exclTotal } = historiaPool(c, period, f.income, fn, exclF ? exclF.fn : frameExclusionFn(c, f.exclusion));
+  const nf: AskFrame = { kind: "period1", period, income: f.income, filter: f.filter, total, exclusion: ex };
   return {
     kind: "answer", family: "historia",
-    verdict: L(c.lang, `Siguiendo tu pregunta — en ${label} ${f.income ? "entraron" : "gastaste"} ${c.money(total)}${f.filter ? ` en ${f.filter.label}` : ""} — de ${lines} líneas.`, `Following your question — in ${label} ${f.income ? `${c.money(total)} came in` : `you spent ${c.money(total)}`}${f.filter ? ` on ${f.filter.label}` : ""} — from ${lines} lines.`),
-    pieces: [{ label, minor: total }],
+    verdict: L(c.lang, `Siguiendo tu pregunta — en ${label} ${f.income ? "entraron" : "gastaste"} ${c.money(total)}${f.filter ? ` en ${f.filter.label}` : ""} — de ${lines} líneas.${frameExclText(c, ex, exclTotal)}`, `Following your question — in ${label} ${f.income ? `${c.money(total)} came in` : `you spent ${c.money(total)}`}${f.filter ? ` on ${f.filter.label}` : ""} — from ${lines} lines.${frameExclText(c, ex, exclTotal)}`),
+    pieces: [{ label, minor: total }, ...(ex ? [{ label: L(c.lang, `Fuera de la cuenta: ${ex.display}`, `Left out: ${ex.display}`), minor: -exclTotal }] : [])],
     note: null, source: ["libros.lineas", "historial.stream"], lines, frame: nf,
   };
 }
@@ -3628,7 +6781,8 @@ function estrecharAprendido(c: Ctx, f: AskFrame, learned: LearnedAlias): BankRes
       note: null, source: ["libros.lineas", "libros.neto"], lines: 0, frame: f,
     };
   }
-  const { total, lines } = historiaPool(c, f.period, f.income, fn);
+  // OLA 34 (Familia 1): también neto de la exclusión del marco.
+  const { total, lines } = historiaPool(c, f.period, f.income, fn, frameExclusionFn(c, f.exclusion));
   return {
     kind: "answer", family: "historia",
     verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, solo en «${learned.word}»: ${c.money(total)}.`, `Following your question — in ${f.period.label}, only on "${learned.word}": ${c.money(total)}.`),
@@ -3650,11 +6804,15 @@ function estrechar(c: Ctx, f: AskFrame, hit: FilterHit): BankResult {
       note: null, source: ["libros.lineas", "libros.neto"], lines: 0, frame: nf,
     };
   }
-  const { total, lines } = historiaPool(c, f.period, f.income, hit.fn);
+  // OLA 34 (Familia 1): el estrechamiento también es neto de la
+  // exclusión del marco — su total es el del ámbito nuevo SIN el
+  // ciudadano excluido, y la resta se nombra como en las demás
+  // caras del marco.
+  const { total, lines, exclTotal } = historiaPool(c, f.period, f.income, hit.fn, frameExclusionFn(c, f.exclusion));
   const nf: AskFrame = { ...f, filter: hit.desc, total };
   return {
     kind: "answer", family: "historia",
-    verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, solo en ${hit.desc.label}: ${c.money(total)}.`, `Following your question — in ${f.period.label}, only on ${hit.desc.label}: ${c.money(total)}.`),
+    verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, solo en ${hit.desc.label}: ${c.money(total)}.${frameExclText(c, f.exclusion, exclTotal)}`, `Following your question — in ${f.period.label}, only on ${hit.desc.label}: ${c.money(total)}.${frameExclText(c, f.exclusion, exclTotal)}`),
     pieces: [{ label: hit.desc.label, minor: total }],
     note: null, source: ["libros.lineas", "historial.stream"], lines, frame: nf,
   };
@@ -3713,17 +6871,45 @@ function ensanchar(c: Ctx, f: AskFrame): BankResult {
       note: null, source: ["libros.lineas", "libros.neto"], lines: 0, frame: nf,
     };
   }
-  const { total, lines } = historiaPool(c, f.period, f.income, null);
+  // OLA 34 (Familia 1): ensanchar quita el FILTRO, no la exclusión
+  // — el total ensanchado sigue neto del ciudadano excluido y la
+  // resta se nombra; el marco conserva su exclusión.
+  const { total, lines, exclTotal } = historiaPool(c, f.period, f.income, null, frameExclusionFn(c, f.exclusion));
   const nf: AskFrame = { ...f, filter: null, total };
   return {
     kind: "answer", family: "historia",
-    verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, en total${f.filter ? `, sin quedarnos en ${f.filter.label}` : ""}: ${f.income ? `entraron ${c.money(total)}` : `gastaste ${c.money(total)}`} — de ${lines} líneas.`, `Following your question — in ${f.period.label}, in total${f.filter ? `, not just ${f.filter.label}` : ""}: ${f.income ? `${c.money(total)} came in` : `you spent ${c.money(total)}`} — from ${lines} lines.`),
+    verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, en total${f.filter ? `, sin quedarnos en ${f.filter.label}` : ""}: ${f.income ? `entraron ${c.money(total)}` : `gastaste ${c.money(total)}`} — de ${lines} líneas.${frameExclText(c, f.exclusion, exclTotal)}`, `Following your question — in ${f.period.label}, in total${f.filter ? `, not just ${f.filter.label}` : ""}: ${f.income ? `${c.money(total)} came in` : `you spent ${c.money(total)}`} — from ${lines} lines.${frameExclText(c, f.exclusion, exclTotal)}`),
     pieces: [{ label: f.period.label, minor: total }],
     note: null, source: ["libros.lineas", "historial.stream"], lines, frame: nf,
   };
 }
 const RE_PROJECT_F = /(mes que viene|proximo mes|mes siguiente|next month|si sigo asi|sigo asi|seguir asi|keep (going|spending) like this|will i keep)/;
 const RE_ANCHOR_F = /(este mes|mes pasado|esta semana|semana pasada|este ano|this month|last month|this week|last week|this year)/;
+
+/** OLA 34 (Familia 1, Q34-1): EXCLUIR SOBRE EL MARCO — el verbo
+ * que §20 no tenía. La exclusión es un eje del marco (su ranura,
+ * arriba): un seguimiento que trae «sin X» no estrecha A X ni sirve
+ * el total bruto — sirve ESTE marco sin ese ciudadano, con la resta
+ * nombrada, y el marco nuevo guarda la exclusión que mandó (la
+ * nueva reemplaza a la vieja, como en la reescritura). Con
+ * ensanchar en la misma frase, el filtro también cae: la exclusión
+ * es el eje que manda en ese turno. */
+function excluirSeguimiento(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>, excl: { display: string; folded: string; fn: (l: Line) => boolean }, widen: boolean): BankResult {
+  const filter = widen ? null : f.filter;
+  const fn = filter ? filterFromDesc(c, filter) : null;
+  const { total, lines, exclTotal } = historiaPool(c, f.period, f.income, fn, excl.fn);
+  const ex: AskFrameExclusion = { folded: excl.folded, display: excl.display };
+  const nf: AskFrame = { ...f, filter, total, exclusion: ex };
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}${filter ? `, en ${filter.label}` : ""} ${f.income ? "entraron" : "gastaste"} ${c.money(total)} — de ${lines} líneas.${frameExclText(c, ex, exclTotal)}`, `Following your question — in ${f.period.label}${filter ? `, on ${filter.label}` : ""} ${f.income ? `${c.money(total)} came in` : `you spent ${c.money(total)}`} — from ${lines} lines.${frameExclText(c, ex, exclTotal)}`),
+    pieces: [{ label: f.period.label, minor: total }, { label: L(c.lang, `Fuera de la cuenta: ${excl.display}`, `Left out: ${excl.display}`), minor: -exclTotal }],
+    note: lines === 0
+      ? L(c.lang, "Ninguna línea cae en ese período con esa exclusión: el cero también es la respuesta del libro.", "No line falls in that period with that exclusion: the zero is the book's answer too.")
+      : null,
+    source: ["libros.lineas", "historial.stream"], lines, frame: nf,
+  };
+}
 
 /** EL RESOLVEDOR DEL SEGUIMIENTO: la caja lo intenta contra el marco
  * vivo ANTES de la cascada. Devuelve la respuesta de seguimiento o
@@ -3761,10 +6947,18 @@ export function answerFollowUp(
     learned: learned ?? [],
   };
   if (frame) {
+    // OLA 34 (Familia 1, Q34-1): LA EXCLUSIÓN QUE EL SEGUIMIENTO
+    // TRAE se lee ANTES que cualquier verbo — §20 no consultaba la
+    // palabra «sin» en ninguna parte: el desplazamiento servía el
+    // total bruto y el estrechamiento convertía «sin la casa» en
+    // «solo en Casa», la negación leída como su contrario. Ahora el
+    // eje manda: desplaza con el desplazamiento, se sirve con su
+    // verbo propio y jamás llega a la puerta de estrechar.
+    const exclF = exclusionIn(state, names, folded);
     // Proyectar y desplazar traen su propio ancla: van primero.
     if (RE_PROJECT_F.test(folded) && !(frame.kind === "period1" && frame.income)) return proyectarSeguimiento(c, frame);
     if (RE_SHIFT_F.test(folded)) {
-      const r = frame.kind === "compare2" ? desplazarCompare(c, frame) : desplazarPeriod(c, frame);
+      const r = frame.kind === "compare2" ? desplazarCompare(c, frame) : desplazarPeriod(c, frame, exclF);
       if (r) return r;
     }
     // Explicar solo vive sobre una comparación (L-S3: su lectura
@@ -3775,10 +6969,20 @@ export function answerFollowUp(
     if (RE_ANCHOR_F.test(folded)) return null;
     // OLA 28 (Familia 2, E28-1): ENSANCHAR va antes que descomponer
     // y que estrechar — «¿Y en total?» no nombra un sujeto nuevo ni
-    // pide la descomposición: pide ESTE marco sin su filtro.
-    if (RE_WIDEN_F.test(folded)) return ensanchar(c, frame);
+    // pide la descomposición: pide ESTE marco sin su filtro. Con
+    // exclusión en la frase manda el verbo de excluir (que también
+    // ensancha): ensanchar a secas serviría al ciudadano excluido.
+    if (RE_WIDEN_F.test(folded) && !exclF) return ensanchar(c, frame);
     if (RE_DECOMP_F.test(folded)) {
-      return frame.kind === "compare2" ? descomponerCompare(c, frame) : descomponerPeriod(c, frame);
+      return frame.kind === "compare2" ? descomponerCompare(c, frame) : descomponerPeriod(c, frame, exclF);
+    }
+    // OLA 34 (Familia 1): EXCLUIR — el seguimiento que trae «sin X»
+    // se sirve sobre el marco, neto y nombrado. Sobre una
+    // comparación §20 no computa exclusiones: cede el turno (la
+    // cascada y su reparación juzgan), jamás lo estrecha a X.
+    if (exclF) {
+      if (frame.kind !== "period1") return null;
+      return excluirSeguimiento(c, frame, exclF, RE_WIDEN_F.test(folded));
     }
     // Estrechar: nombra un sujeto y no trae ni monto ni ancla propia.
     if (!/cuanto|how much/.test(folded) && (words <= 7 || /^y /.test(folded) || /solo|only/.test(folded))) {
@@ -3851,6 +7055,16 @@ export type ConvoFrame = {
   pieces: BankPiece[];
   source: string[];
   verdict: string;
+  // OLA 27: el grafo que la respuesta declaró (si declaró) y el nodo
+  // que el último ¿por qué? dejó abierto — el descenso continúa ahí.
+  graph?: AskNode[];
+  whyId?: string;
+  // OLA 28: la horquilla se nombra por sus ejes (la pila que la caja
+  // guarda se navega por este nombre) y las reparaciones se cuentan
+  // sobre el marco.
+  forkName?: string;
+  exclusionName?: string;
+  repairs?: number;
 };
 
 const FRAME_PERIODS = [
@@ -3859,11 +7073,46 @@ const FRAME_PERIODS = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
   "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
   "hoy", "ayer", "today", "yesterday", "last month", "this month", "last week", "this week",
+  // OLA 33 (Familia 2, Q33-2): LA FUENTE ÚNICA TAMBIÉN ES DEL MARCO
+  // — la Cura 32 unió tres oídos (puerta, marcador, caminata) en
+  // PERIOD_HALF_ALL, pero el marco guardaba su período con una
+  // cuarta lista, propia y anterior, que no conocía las mitades con
+  // ordinal: tras «la primera quincena» el marco nacía SIN
+  // periodPhrase y «¿Y la segunda quincena?» moría en unknown,
+  // exactamente en las frases que la Ola 32 acababa de enseñar a las
+  // otras tres puertas. Las frases de la quincena entran aquí DESDE
+  // LA FUENTE (PERIOD_HALF_ALL, de la más larga a la más corta, tras
+  // las entradas de siempre, que conservan su precedencia: «la
+  // quincena pasada» sigue mandando sobre «quincena pasada»), y con
+  // ellas la forma corta de la semana («la semana»), que tampoco
+  // estaba: «¿Y la semana?» sobre un marco de «esta semana» moría
+  // igual. El vocabulario de período del marco ES el de la casa.
+  ...[...PERIOD_HALF_ALL].sort((a, b) => b.length - a.length),
+  "la semana",
+  // OLA 34 (Familia 7, Q34-7): LA FORMA CORTA INGLESA TAMBIÉN —
+  // la Cura 33 añadió «la semana» y declaró «the week» sin medir;
+  // medida en la Ola 34, moría en unknown (ni la reparación la
+  // oía: followUpShaped lee esta misma lista). El vocabulario de
+  // período del marco es uno en los dos idiomas.
+  "the week",
 ];
 function periodPhraseIn(folded: string): string | null {
   for (const p of FRAME_PERIODS) if (new RegExp(`(^|[^a-z0-9])${p}([^a-z0-9]|$)`).test(folded)) return p;
   return null;
 }
+/** OLA 33 (Familia 4, Q33-4): DOS FORMAS DEL MISMO PERÍODO — la
+ * frase se compara sin su cabeza demostrativa o articulo («esta
+ * semana» ~ «la semana», «el mes pasado» ~ «mes pasado», «esta
+ * quincena» ~ «quincena»): la cabeza nombra la misma cosa con otra
+ * ropa y no es parte del período. El núcleo manda; la cabeza sola
+ * jamás iguala dos períodos distintos («la semana pasada» no es
+ * «la semana»: sus núcleos difieren). */
+const PERIOD_HEAD_WORDS = new Set(["esta", "este", "la", "el", "this", "the"]);
+const periodPhraseCore = (p: string): string => {
+  const toks = p.split(/\s+/);
+  return toks.length > 1 && PERIOD_HEAD_WORDS.has(toks[0]) ? toks.slice(1).join(" ") : p;
+};
+const samePeriodPhrase = (a: string, b: string): boolean => a === b || periodPhraseCore(a) === periodPhraseCore(b);
 /** OLA 31 (Familia 4, Q31-3 del Asesor): LA PALABRA ENTERA, TAMBIÉN
  * EN EL MARCO — los detectores del ConvoFrame casaban por SUBCADENA
  * (`folded.includes(f)`): «¿cuánto mandé esta semana?» paría un
@@ -3880,36 +7129,142 @@ function periodPhraseIn(folded: string): string | null {
  * cascada fresca, que sirve a la persona nombrada o calla honesto. */
 const wholeWordIn = (folded: string, needle: string): boolean =>
   new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded);
-function framePersonIn(state: LedgerState, folded: string, today = ""): string | null {
+/** OLA 32 (Familia 2, Q32-2): LA COSTURA TAMBIÉN COSE POR PALABRA
+ * ENTERA — la Cura 31 llevó la palabra entera a los DETECTORES del
+ * marco, pero la REESCRITURA sustituyó el eje con String.replace
+ * (primera ocurrencia, subcadena): tras «¿cuánto mandé por el
+ * rosario a Rosa?», «¿Y Ana?» cosía la «rosa» de «rosario» y servía
+ * a Rosa como si fuera Ana, y el marco guardaba la pregunta cosida
+ * «…por el anario a rosa», que el «¿Por qué?» citaba al usuario como
+ * si fuera la suya. La sustitución reemplaza la palabra o frase
+ * ENTERA del eje — la primera ocurrencia con bordes no
+ * alfanuméricos, la misma vara de wholeWordIn — y si el eje no
+ * aparece entero en la pregunta guardada, la pregunta no se toca. */
+const replaceWholeWord = (text: string, needle: string, replacement: string): string => {
+  const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`), (_m, a: string, b: string) => `${a}${replacement}${b}`);
+};
+/** OLA 33 (Familia 1, Q33-1): EL DETECTOR PREFIERE LA COINCIDENCIA
+ * MÁS LARGA — los detectores del marco devolvían el PRIMER acierto
+ * por palabra entera en el orden de las listas del libro, mientras
+ * los escaneos que SIRVEN (remitPersonOf, filterHitOf) prefieren el
+ * nombre completo: con «Ana» antes que «Ana María» en la lista, la
+ * pregunta por Ana María servía sus $260 y el marco nacía con
+ * personName «ana» — la costura cosía «rosa maria» (la palabra
+ * fabricada de Q32-2, vuelta por la puerta del detector), «¿Y
+ * Ana?» servía en silencio lo de Ana María, «¿Y Casa Grande?»
+ * sobre un marco de Casa moría, y el comportamiento dependía del
+ * orden interno del libro, que el usuario no ve ni manda. La vara
+ * es una sola, la de los escaneos: entre todos los aciertos por
+ * palabra entera manda el MÁS LARGO; a igual largo, la forma de
+ * nombre completo manda sobre la de primer nombre; a igual todo,
+ * el orden de la lista desempata como siempre. El acierto lleva
+ * además la IDENTIDAD — el nombre completo plegado de la persona —
+ * que el eco de la Familia 4 consume: el marco describe a la
+ * persona que la pantalla enseña, no a una más corta que comparte
+ * su primera palabra. */
+type FramePersonHit = { form: string; full: string };
+function framePersonHit(state: LedgerState, folded: string, today = ""): FramePersonHit | null {
   const people: Array<{ name: string }> = [...peopleOf(state, "owed", today || undefined), ...peopleOf(state, "owe", today || undefined), ...(state.remitPeople ?? [])];
+  let best: { form: string; full: string; len: number; fullForm: boolean } | null = null;
+  const consider = (form: string, full: string) => {
+    const fullForm = form === full;
+    if (!best || form.length > best.len || (form.length === best.len && fullForm && !best.fullForm)) {
+      best = { form, full, len: form.length, fullForm };
+    }
+  };
   for (const p of people) {
     const f = foldQ(p.name);
-    if (f.length >= 3 && wholeWordIn(folded, f)) return f;
+    if (f.length >= 3 && wholeWordIn(folded, f)) consider(f, f);
     const first = f.split(/\s+/)[0];
-    if (first.length >= 4 && wholeWordIn(folded, first)) return first;
+    if (first !== f && first.length >= 4 && wholeWordIn(folded, first)) consider(first, f);
+  }
+  return best ? { form: (best as { form: string }).form, full: (best as { full: string }).full } : null;
+}
+function framePersonIn(state: LedgerState, folded: string, today = ""): string | null {
+  return framePersonHit(state, folded, today)?.form ?? null;
+}
+/** OLA 33 (Familia 4, Q33-4): LA IDENTIDAD DE UNA FORMA GUARDADA —
+ * el nombre completo plegado de la persona que una forma del marco
+ * nombra. La forma completa se reconoce a sí misma; la forma corta
+ * se resuelve a su persona con la misma vara del detector (el
+ * nombre completo manda; a igual todo, el orden de la lista). Sin
+ * persona viva que la reclame, null — y el eco cae a la comparación
+ * de cadenas de siempre. */
+function framePersonFull(state: LedgerState, form: string, today = ""): string | null {
+  const people: Array<{ name: string }> = [...peopleOf(state, "owed", today || undefined), ...peopleOf(state, "owe", today || undefined), ...(state.remitPeople ?? [])];
+  for (const p of people) if (foldQ(p.name) === form) return form;
+  for (const p of people) {
+    const f = foldQ(p.name);
+    if (f.split(/\s+/)[0] === form) return f;
   }
   return null;
 }
 function frameAccountIn(state: LedgerState, names: Namer, key: string, folded: string): string | null {
   const stock = savingsStock(state, key);
+  // OLA 33 (Familia 1, Q33-1): la cuenta, la misma vara — la
+  // coincidencia más larga manda («Casa Grande» sobre «casa»),
+  // no la primera de la lista.
+  let best: string | null = null;
   for (const h of hostAccounts(state, key, stock)) {
     const nm = foldQ(names.sub(h.id) || h.id);
-    if (nm.length >= 3 && wholeWordIn(folded, nm)) return nm;
+    if (nm.length >= 3 && wholeWordIn(folded, nm) && (!best || nm.length > best.length)) best = nm;
   }
-  return null;
+  return best;
+}
+
+/** OLA 34 (Familia 10, Q34-2-Cara): LA PERSONA DENTRO DEL NOMBRE
+ * DE LA CUENTA NO ES PERSONA DEL MARCO — «¿cuánto tengo en el
+ * Fondo Rosa?» paría un marco con personName «rosa» (la remitente
+ * Rosa es palabra entera dentro del nombre de la cuenta) y el eje
+ * de persona cosía «fondo ana» al cambiar el token DENTRO del
+ * nombre. La guarda es de posición: la forma de persona solo es
+ * persona del marco si aparece también FUERA del nombre de la
+ * cuenta en la misma pregunta; si su única aparición vive dentro
+ * del nombre, el marco nace sin persona — cambiar de persona sobre
+ * un marco de cuenta es cambiar de cuenta o morir honesto, nunca
+ * coser dentro del nombre. */
+function personInsideAccountOnly(folded: string, person: string, account: string): boolean {
+  if (!wholeWordIn(account, person)) return false;
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const am = new RegExp(`(^|[^a-z0-9])${esc(account)}([^a-z0-9]|$)`).exec(folded);
+  if (!am) return false;
+  const aFrom = am.index + am[1].length;
+  const aTo = aFrom + account.length;
+  const re = new RegExp(`(^|[^a-z0-9])${esc(person)}([^a-z0-9]|$)`, "g");
+  let m: RegExpExecArray | null;
+  let seen = false;
+  while ((m = re.exec(folded)) !== null) {
+    seen = true;
+    const pFrom = m.index + m[1].length;
+    const pTo = pFrom + person.length;
+    if (pFrom < aFrom || pTo > aTo) return false;
+  }
+  return seen;
 }
 
 function buildConvoFrame(state: LedgerState, key: string, names: Namer, raw: string, today: string, result: Extract<BankResult, { kind: "answer" }>): ConvoFrame {
   const folded = foldQ(raw);
+  const period = periodPhraseIn(folded) ?? undefined;
+  const excl = exclusionIn(state, names, folded);
+  const account = frameAccountIn(state, names, key, folded);
+  const person = framePersonIn(state, folded, today);
   return {
     question: folded,
     family: String(result.family),
-    periodPhrase: periodPhraseIn(folded) ?? undefined,
-    personName: framePersonIn(state, folded, today) ?? undefined,
-    accountName: frameAccountIn(state, names, key, folded) ?? undefined,
+    periodPhrase: period,
+    // OLA 34 (Familia 10): el marco de la cuenta no nace con la
+    // persona que su nombre contiene.
+    personName: person && account && personInsideAccountOnly(folded, person, account) ? undefined : person ?? undefined,
+    accountName: account ?? undefined,
     pieces: result.pieces.slice(0, 5),
     source: result.source,
     verdict: result.verdict,
+    graph: result.graph,
+    // OLA 28: la horquilla se nombra por sus ejes — la pila que la
+    // caja guarda se navega por este nombre.
+    ...(excl ? { exclusionName: excl.folded } : {}),
+    ...((period || excl) ? { forkName: [period, excl ? `sin ${excl.folded}` : null].filter(Boolean).join(" · ") } : {}),
   };
 }
 
@@ -3927,48 +7282,204 @@ export function convoAfterFollowUp(state: LedgerState, key: string, names: Namer
   const newPeriod = periodPhraseIn(folded);
   let question = prev.question;
   if (newPeriod && prev.periodPhrase && question.includes(prev.periodPhrase)) {
-    question = question.replace(prev.periodPhrase, newPeriod);
+    // OLA 32 (Familia 2): la costura de esta pregunta citada cose
+    // por palabra entera, como la de followUpRewrite — la pregunta
+    // que el marco guarda sigue siendo la del usuario.
+    question = replaceWholeWord(question, prev.periodPhrase, newPeriod);
   } else if (newPeriod && !prev.periodPhrase) {
     question = `${question} (${newPeriod})`;
   }
+  // OLA 34 (Familia 1): la exclusión que el seguimiento trae y §20
+  // aplicó manda en el nombre — la horquilla nombra la exclusión
+  // DE LA CIFRA EN PANTALLA, no la del marco anterior: con la
+  // exclusión guardada en el AskFrame, la costura la lee del turno
+  // (la nueva) o la conserva (la de siempre), como el motor hizo.
+  const exclNow = exclusionIn(state, names, folded);
+  const exclName = exclNow ? exclNow.folded : prev.exclusionName;
+  // OLA 34 (Familia 10): la misma guarda de nacimiento — la persona
+  // que el turno nombra solo dentro del nombre de una cuenta no
+  // entra al marco; sin persona nueva, la del marco sigue.
+  const acctNow = frameAccountIn(state, names, key, folded);
+  const persNow = framePersonIn(state, folded, today);
   return {
     question,
     family: String(result.family),
     periodPhrase: newPeriod ?? prev.periodPhrase,
-    personName: framePersonIn(state, folded, today) ?? prev.personName,
-    accountName: frameAccountIn(state, names, key, folded) ?? prev.accountName,
+    personName: persNow && acctNow && personInsideAccountOnly(folded, persNow, acctNow) ? prev.personName : persNow ?? prev.personName,
+    accountName: acctNow ?? prev.accountName,
     pieces: result.pieces.slice(0, 5),
     source: result.source,
     verdict: result.verdict,
+    // OLA 27: el grafo de la respuesta nueva manda; si no declara, el
+    // del marco anterior sigue vivo (y con él, el nodo abierto).
+    graph: result.graph ?? prev.graph,
+    whyId: result.graph ? undefined : prev.whyId,
+    // OLA 28: la horquilla se re-nombra con el período cosido y la
+    // exclusión que la respuesta aplicó.
+    exclusionName: exclName,
+    forkName: (newPeriod ?? prev.periodPhrase) || exclName
+      ? [(newPeriod ?? prev.periodPhrase), exclName ? `sin ${exclName}` : null].filter(Boolean).join(" · ")
+      : prev.forkName,
   };
 }
 
-const FOLLOWUP_STOP = new Set(["y", "no", "en", "de", "a", "el", "la", "los", "las", "un", "una", "que", "tal", "comparado", "comparada", "con", "por", "favor", "oye", "oiga", "and", "what", "about", "the"]);
-function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, lang: Lang, today: string): { question: string; echo: string } | null {
+const FOLLOWUP_STOP = new Set(["y", "no", "en", "de", "a", "el", "la", "los", "las", "un", "una", "que", "tal", "comparado", "comparada", "con", "por", "favor", "oye", "oiga", "and", "what", "about", "the", "sin", "without"]);
+/* OLA 28 · LA PILA DE MARCOS — la sustitución crece de UN eje a N
+ * (GUS, 1977: la sobre-respuesta se absorbe entera). El seguimiento
+ * puede traer el período Y la exclusión en un solo turno («¿y el mes
+ * pasado sin la camisa?»): cada eje nombrado se aplica, cada cambio
+ * se hace eco, y la horquilla nueva se nombra por sus ejes (fork)
+ * para que la caja la guarde en la pila y el usuario vuelva a ella
+ * por nombre. La exclusión («sin X») vive en v1 sobre los totales de
+ * historia — la única familia que la computa — y su ciudadano lo
+ * resuelve el mismo escaneo del libro. La forma sigue siendo SOLO
+ * ejes: quitados los ejes y las muletillas, no puede quedar una
+ * pregunta nueva escondida.
+ * EN EL CANON la reescritura conserva sus curas posteriores: la
+ * costura y el retiro son por PALABRA ENTERA (Ola 32, Familia 2) y
+ * el eco solo nace por eje que CAMBIÓ de verdad (Q32-3) — un eje que
+ * nombra el valor que el marco ya lleva no es cambio; si ningún eje
+ * cambió, la pregunta se sirve tal cual y sin nota. La precedencia
+ * de detección del canon se conserva (el período tapa a la persona
+ * y la persona a la cuenta); la exclusión es independiente. Y una
+ * exclusión anterior solo se retira cuando llega su reemplazo: un
+ * seguimiento de período no pierde la exclusión que el marco trae. */
+function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, lang: Lang, today: string): { question: string; echo: string | null; fork?: string } | null {
   const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
   if (f.split(/\s+/).length > 7 && !/^no\b/.test(f)) return null;
   const p2 = periodPhraseIn(f);
-  const person2 = p2 ? null : framePersonIn(state, f, today);
-  const acct2 = !p2 && !person2 ? frameAccountIn(state, names, key, f) : null;
-  const axisPhrase = p2 ?? person2 ?? acct2;
-  if (!axisPhrase) return null;
-  // La forma debe ser SOLO el eje: quitado el eje y las muletillas, no
-  // puede quedar una pregunta nueva escondida en el seguimiento.
-  const rest = f.replace(axisPhrase, " ").split(/\s+/).filter((w) => w && !FOLLOWUP_STOP.has(w));
-  if (rest.length) return null;
-  if (p2) {
-    const q = frame.periodPhrase ? frame.question.replace(frame.periodPhrase, p2) : `${frame.question} ${p2}`;
-    return { question: q, echo: L(lang, `cambié solo el período, a «${p2}»`, `I changed only the period, to "${p2}"`) };
+  const exclM = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(f);
+  const excl = exclM ? citizenByName(state, names, exclM[1]) : null;
+  if (exclM && !excl) return null;
+  if (excl && frame.family !== "historia") return null;
+  // OLA 33 (Familia 1): la detección de la persona se apoya en el
+  // acierto con identidad (framePersonHit): la coincidencia más
+  // larga manda y el acierto lleva el nombre completo, que la rama
+  // de persona del eco compara contra el del marco (Familia 4).
+  let personHit = p2 ? null : framePersonHit(state, f, today);
+  let person2 = personHit?.form ?? null;
+  let acct2 = !p2 && !person2 ? frameAccountIn(state, names, key, f) : null;
+  let reroutedWord: string | null = null;
+  // OLA 34 (Familia 10, Q34-2-Cara): LA «PERSONA» QUE SOLO VIVE
+  // DENTRO DEL NOMBRE DE LA CUENTA DEL MARCO ES LA CUENTA — con el
+  // marco ya curado al nacer (sin personName espuria), «¿Y Rosa?»
+  // sobre el marco del Fondo Rosa nombra a la CUENTA por su pieza:
+  // el acierto de persona se re-ruta al eje de cuenta, que no
+  // cambia nada y re-sirve el fondo limpio. Y con un marco nacido
+  // antes de la guarda, el eje de persona jamás cose dentro del
+  // nombre: si la persona del marco solo aparece dentro de su
+  // cuenta en la pregunta guardada, la reescritura muere honesta.
+  if (person2 && !frame.personName && frame.accountName && wholeWordIn(frame.accountName, person2)) {
+    reroutedWord = person2;
+    acct2 = frame.accountName;
+    person2 = null;
+    personHit = null;
   }
-  if (person2) {
-    if (!frame.personName) return null;
-    return { question: frame.question.replace(frame.personName, person2), echo: L(lang, `cambié solo la persona, a «${person2}»`, `I changed only the person, to "${person2}"`) };
+  if (person2 && frame.personName && frame.accountName && personInsideAccountOnly(frame.question, frame.personName, frame.accountName)) return null;
+  if (!p2 && !excl && !person2 && !acct2) return null;
+  if (person2 && !frame.personName) return null;
+  if (acct2 && !frame.accountName) return null;
+  // La forma debe ser SOLO ejes: quitados los ejes y las muletillas,
+  // no puede quedar una pregunta nueva escondida en el seguimiento.
+  // OLA 32 (Familia 2): el eje se quita por palabra entera, como se cose.
+  let rest = f;
+  if (p2) rest = replaceWholeWord(rest, p2, " ");
+  if (exclM) rest = rest.replace(exclM[0], " ");
+  if (person2) rest = replaceWholeWord(rest, person2, " ");
+  if (acct2) rest = replaceWholeWord(rest, acct2, " ");
+  if (reroutedWord) rest = replaceWholeWord(rest, reroutedWord, " ");
+  if (rest.split(/\s+/).filter((w) => w && !FOLLOWUP_STOP.has(w)).length) return null;
+  // LOS CAMBIOS (Q32-3): un eje solo cambia si su valor difiere del
+  // que el marco ya trae. Sin cambios, la pregunta se sirve tal cual.
+  const parts: Array<{ solo: string; plain: string }> = [];
+  const forkParts: string[] = [];
+  let q = frame.question;
+  if (excl && frame.exclusionName && frame.exclusionName !== excl.folded) {
+    const idx = q.lastIndexOf(" sin ");
+    if (idx >= 0 && q.slice(idx + 5).replace(/^(el|la|los|las) /, "").startsWith(frame.exclusionName)) q = q.slice(0, idx).trim();
   }
-  if (acct2) {
-    if (!frame.accountName) return null;
-    return { question: frame.question.replace(frame.accountName, acct2), echo: L(lang, `cambié solo la cuenta, a «${acct2}»`, `I changed only the account, to "${acct2}"`) };
+  // OLA 33 (Familia 4, Q33-4): la frase de período se compara SIN
+  // su cabeza demostrativa — «esta semana» y «la semana» son el
+  // mismo período en dos formas, y «el mes pasado» y «mes pasado»
+  // también: nombrar el mismo período con su otra forma no es un
+  // cambio y no nace nota (samePeriodPhrase incluye la igualdad de
+  // cadenas de la Cura 32 como piso).
+  if (p2 && !(frame.periodPhrase && samePeriodPhrase(frame.periodPhrase, p2))) {
+    const qBefore = q;
+    // OLA 34 (Familia 6, Q34-6): LA FRASE DE PERÍODO ENTERA SE
+    // SUSTITUYE — la pregunta de dos piezas («la primera quincena
+    // de octubre») guarda UN eje (el mes) y la costura vieja
+    // reemplazaba ESE, dejando la mitad vieja en pie delante de la
+    // nueva: fabricaba «la primera quincena de segunda quincena»,
+    // servía la primera mitad anunciando la segunda y el porqué
+    // citaba la fabricación. Si el seguimiento trae una MITAD y la
+    // pregunta guardada trae la suya (con el mes como eje del
+    // marco), la mitad se sustituye por la mitad — la frase entera,
+    // con su mes, queda la verdadera — y el servicio cae en la
+    // lectura de siempre de mitad-de-mes-nombrado.
+    const p2IsHalf = PERIOD_HALF_ALL.some((h) => samePeriodPhrase(h, p2));
+    const halfInQ = p2IsHalf && frame.periodPhrase && REMIT_MONTH_WORDS.has(frame.periodPhrase)
+      ? [...PERIOD_HALF_ALL].sort((a, b) => b.length - a.length).find((h) => wholeWordIn(q, h) && !samePeriodPhrase(h, p2))
+      : undefined;
+    q = halfInQ
+      ? replaceWholeWord(q, halfInQ, p2)
+      : frame.periodPhrase ? replaceWholeWord(q, frame.periodPhrase, p2) : `${q} ${p2}`;
+    if (q === qBefore) return null;
+    parts.push({ solo: L(lang, `cambié solo el período, a «${p2}»`, `I changed only the period, to "${p2}"`), plain: L(lang, `el período a «${p2}»`, `the period to "${p2}"`) });
+    forkParts.push(p2);
   }
-  return null;
+  // OLA 33 (Familia 4, Q33-4): EL ECO COMPARA LA PERSONA, NO LA
+  // CADENA — las dos formas del detector (nombre completo / primer
+  // nombre) de la MISMA persona no se reconocían entre sí: «¿Y
+  // Juan?» sobre el marco de «Juan Pérez» servía lo correcto con la
+  // nota de un cambio que no ocurrió. La comparación es de
+  // identidad: el nombre completo de la persona del marco
+  // (framePersonFull) contra el del acierto nuevo; si la identidad
+  // no se puede resolver, manda la comparación de cadenas de
+  // siempre. (La cuenta no tiene segunda forma: su comparación
+  // queda como está.)
+  // OLA 34 (Familia 3, Q34-3): EL DESEMPATE DEL NOMBRE CORTO LO
+  // CONSULTA EL MARCO — la identidad que framePersonFull asigna a
+  // la forma corta es la del PRIMER homónimo de la lista, así que
+  // «¿Y Juan?» sobre el marco de Juan Pérez servía a Juan Gómez
+  // cuando Gómez iba primero, con la nota de un cambio pedido por
+  // nadie. Si la forma del acierto es el primer nombre de la
+  // persona DEL MARCO, la identidad es la del marco: no hay cambio
+  // de persona, no hay eco y se sirve a quien la conversación
+  // trae. La resolución global solo arbitra cuando el marco no
+  // desempata. LA VARA EXACTA: la forma corta que NO ES EL NOMBRE
+  // COMPLETO DE NADIE (el acierto la ata a un apellido ajeno:
+  // full ≠ form) es la que el marco desempata; la forma que SÍ es
+  // el nombre entero de otra persona del libro («Ana» junto a
+  // «Ana María», cerca de la Ola 33) es una ciudadana con derecho
+  // propio a ser pedida — ahí el cambio es verdadero y su eco
+  // también.
+  const frameFull34 = person2 && frame.personName ? framePersonFull(state, frame.personName, today) : null;
+  const hitIsFramePerson = !!(personHit && frameFull34 && personHit.form === frameFull34.split(/\s+/)[0] && personHit.full !== personHit.form);
+  if (person2 && frame.personName !== person2 && !hitIsFramePerson && !(personHit && framePersonFull(state, frame.personName as string, today) === personHit.full)) {
+    const q2 = replaceWholeWord(q, frame.personName as string, person2);
+    if (q2 === q) return null;
+    q = q2;
+    parts.push({ solo: L(lang, `cambié solo la persona, a «${person2}»`, `I changed only the person, to "${person2}"`), plain: L(lang, `la persona a «${person2}»`, `the person to "${person2}"`) });
+    forkParts.push(person2);
+  }
+  if (acct2 && frame.accountName !== acct2) {
+    const q2 = replaceWholeWord(q, frame.accountName as string, acct2);
+    if (q2 === q) return null;
+    q = q2;
+    parts.push({ solo: L(lang, `cambié solo la cuenta, a «${acct2}»`, `I changed only the account, to "${acct2}"`), plain: L(lang, `la cuenta a «${acct2}»`, `the account to "${acct2}"`) });
+    forkParts.push(acct2);
+  }
+  if (excl && frame.exclusionName !== excl.folded) {
+    q = `${q} sin ${excl.folded}`;
+    parts.push({ solo: L(lang, `excluí solo «${excl.display}»`, `I left out only "${excl.display}"`), plain: L(lang, `la exclusión de «${excl.display}»`, `the exclusion of "${excl.display}"`) });
+    forkParts.push(`sin ${excl.folded}`);
+  }
+  if (!parts.length) return { question: frame.question, echo: null, fork: frame.forkName };
+  const echo = parts.length === 1
+    ? parts[0].solo
+    : L(lang, `cambié ${parts.slice(0, -1).map((p) => p.plain).join(", ")} y ${parts[parts.length - 1].plain}`, `I changed ${parts.slice(0, -1).map((p) => p.plain).join(", ")} and ${parts[parts.length - 1].plain}`);
+  return { question: q, echo, fork: forkParts.join(" · ") };
 }
 
 /* OLA 24 · EL OÍDO FINO — el normalizador morfológico del español de
@@ -4057,13 +7568,77 @@ function convoFrameFloor(frame: ConvoFrame): { reached: (m: BookMode) => boolean
 /* OLA 21 · ¿POR QUÉ? — el despliegue de la procedencia. El marco de la
  * Ola 19 ya guarda las piezas y la fuente de la última respuesta: esta
  * familia solo las abre. Sin marco, lo dice: primero la cifra, luego
- * su porqué — y conserva el marco nulo para no fabricarse uno. */
-function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, mode?: BookMode): BankResult {
+ * su porqué — y conserva el marco nulo para no fabricarse uno.
+ * OLA 32 (Familia 4, Q32-4): EL PORQUÉ NO CORTA EL HILO §20 — el
+ * porqué conservaba su ConvoFrame (convo: frame) pero no devolvía
+ * ningún AskFrame, y la caja reemplaza el suyo con r.frame ?? null
+ * tras cada respuesta: preguntar «¿por qué?» cerraba el hilo del
+ * §20 en silencio y el estrechamiento siguiente moría en unknown.
+ * El porqué no es una pregunta fresca (L-S4 gobierna las frescas):
+ * es un meta-turno sobre la respuesta que sigue en pantalla, y la
+ * casa ya curó esta forma para el otro meta-verbo («el verbo que
+ * carga el hilo no lo corta», Cura 31 Familia 5). La caja enhebra
+ * su marco §20 vivo y esta familia lo devuelve intacto en sus tres
+ * salidas: el hilo no muere por preguntar por qué. */
+/* OLA 27 · EL GRAFO — las cercas del tipo y los paseos. El rango de
+ * un tiempo: medido es lo más firme; una proyección en cualquier
+ * insumo ablanda todo lo que cuelga de ella. */
+const TENSE_RANK: Record<AskTense, number> = { medido: 0, stock: 1, proyectado: 2 };
+function walkNodes(roots: AskNode[]): Array<{ node: AskNode; parent: AskNode | null }> {
+  const out: Array<{ node: AskNode; parent: AskNode | null }> = [];
+  const go = (n: AskNode, p: AskNode | null) => { out.push({ node: n, parent: p }); for (const ch of n.children ?? []) go(ch, n); };
+  for (const r of roots) go(r, null);
+  return out;
+}
+function findNode(roots: AskNode[], id: string): AskNode | null {
+  return walkNodes(roots).find((e) => e.node.id === id)?.node ?? null;
+}
+/** Las cercas del grafo: devuelve las violaciones (vacío = válido).
+ * (1) TIEMPO: un nodo no puede declararse más firme que su insumo
+ * más blando. (2) MONEDA: una arista no cambia de moneda sin pasar
+ * por un nodo de conversión (su id lo dice). (3) STOCK×FLUJO: un
+ * hijo de naturaleza distinta a la del padre exige que el padre
+ * declare el cruce en su supuesto — en silencio, no se suma. */
+export function validateGraph(roots: AskNode[]): string[] {
+  const bad: string[] = [];
+  for (const { node: n } of walkNodes(roots)) {
+    for (const ch of n.children ?? []) {
+      if (TENSE_RANK[ch.tense] > TENSE_RANK[n.tense]) bad.push(`tiempo: «${n.id}» se dice ${n.tense} pero come de «${ch.id}» (${ch.tense})`);
+      if (ch.currency !== n.currency && !/conv|tasa|cambio/.test(ch.id) && !/conv|tasa|cambio/.test(n.id)) bad.push(`moneda: «${ch.id}» (${ch.currency}) entra en «${n.id}» (${n.currency}) sin nodo de conversión`);
+      if (ch.flow !== n.flow && !n.assumption) bad.push(`stock×flujo: «${ch.id}» (${ch.flow}) entra en «${n.id}» (${n.flow}) sin supuesto declarado`);
+    }
+  }
+  return bad;
+}
+function tenseWord(lang: Lang, n: AskNode): string {
+  if (n.tense === "proyectado") return L(lang, "una proyección: lo que sería si el supuesto se cumple, no lo que hay", "a projection: what would be if the assumption holds, not what there is");
+  if (n.tense === "stock") return L(lang, "un saldo: lo que hay en este momento, medido de tu libro", "a balance: what there is right now, measured from your book");
+  return n.flow === "flujo"
+    ? L(lang, "un flujo medido: dinero que ya se movió, contado línea por línea", "a measured flow: money that already moved, counted line by line")
+    : L(lang, "una cifra medida de tu libro, tal como está anotada", "a figure measured from your book, just as recorded");
+}
+function originWord(lang: Lang, o: "usuario" | "libro" | "regla"): string {
+  return o === "usuario" ? L(lang, "vino de ti, de tu pregunta", "it came from you, from your question")
+    : o === "libro" ? L(lang, "vino de tu libro, de una cifra anotada", "it came from your book, from a recorded figure")
+    : L(lang, "es la regla que define el cálculo", "it's the rule that defines the calculation");
+}
+function graphAssumptions(roots: AskNode[]): Array<{ node: AskNode; text: string; origin: "usuario" | "libro" | "regla" }> {
+  const out: Array<{ node: AskNode; text: string; origin: "usuario" | "libro" | "regla" }> = [];
+  const seen = new Set<string>();
+  for (const { node: n } of walkNodes(roots)) {
+    if (n.assumption && !seen.has(n.assumption.text)) { seen.add(n.assumption.text); out.push({ node: n, text: n.assumption.text, origin: n.assumption.origin }); }
+  }
+  return out;
+}
+
+function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, mode?: BookMode, askFrame?: AskFrame | null, raw = ""): BankResult {
+  const keep = askFrame ? { frame: askFrame } : {};
   if (!frame) {
     return {
       kind: "answer", family: "porque",
       verdict: L(lang, "Todavía no hay una cifra que explicar en esta conversación: pregúntame primero la cifra y te enseño de dónde sale, pieza por pieza.", "There's no figure to explain yet in this conversation: ask me the figure first and I'll show you where it comes from, piece by piece."),
       pieces: [], note: null, source: [], lines: 0, convo: null,
+      ...keep,
     };
   }
   // OLA 31 (Familia 3, Q31-2): EL PORQUÉ RE-JUZGA EL PISO AL TURNO EN
@@ -4087,10 +7662,59 @@ function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, 
         verdict: floor.verdict(lang),
         pieces: [], note: null, source: frame.source, lines: 0,
         convo: frame,
+        ...keep,
       };
     }
   }
   const disp = state.settings.display;
+  // OLA 27: si la respuesta nació con grafo, el despliegue es POR
+  // NODO y recursivo — la pregunta nombra el nodo (por su rótulo o
+  // por su cifra), o desciende desde el último nodo desplegado a su
+  // pieza mayor; una hoja se dice hoja: es el dato mismo de tu libro.
+  // Va DESPUÉS del re-juicio del piso: lo que el piso niega a la
+  // pregunta directa, el grafo tampoco lo despliega un turno después.
+  if (frame.graph && frame.graph.length) {
+    const roots = frame.graph;
+    const foldedQ = foldQ(raw);
+    const flat = walkNodes(roots).map((e) => e.node);
+    let target: AskNode | undefined;
+    const asked = amountsIn(raw).filter((a) => a.currency === disp).map((a) => a.minor);
+    if (asked.length) target = flat.find((n) => asked.some((m) => Math.abs(m - n.minor) <= 1));
+    if (!target) target = flat.find((n) => foldQ(n.label).split(/\s+/).filter((w) => w.length >= 4).some((w) => new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`).test(foldedQ)));
+    if (!target && frame.whyId) {
+      const prev = findNode(roots, frame.whyId);
+      const kids = prev?.children ?? [];
+      if (prev && kids.length) target = kids.reduce((a, b) => (Math.abs(b.minor) > Math.abs(a.minor) ? b : a));
+      else if (prev) target = prev;
+    }
+    const t: AskNode = target ?? roots[0];
+    const money = (m: number) => formatMoney(m, disp, lang);
+    const door = frame.source[0] ? [{ id: "goto", label: L(lang, "Ver su fuente", "See its source"), target: frame.source[0] }] : undefined;
+    if (!t.children || !t.children.length) {
+      return {
+        kind: "answer", family: "porque",
+        verdict: L(lang, `«${t.label}» (${money(t.minor)}) ya no sale de otra cuenta: es ${tenseWord(lang, t)} — es el dato mismo.`, `"${t.label}" (${money(t.minor)}) doesn't come from another calculation: it is ${tenseWord(lang, t)} — the datum itself.`),
+        pieces: [{ label: t.label, minor: t.minor }],
+        note: frame.source.length ? L(lang, `Su fuente en tu libro: ${frame.source.join(", ")}.`, `Its source in your book: ${frame.source.join(", ")}.`) : null,
+        source: frame.source, lines: 0, ...(door ? { actions: door } : {}),
+        convo: { ...frame, whyId: t.id },
+        ...keep,
+      };
+    }
+    const parts = t.children.map((ch) => `${ch.sign === -1 ? "−" : "+"} «${ch.label}» ${money(ch.minor)}`).join(" ");
+    return {
+      kind: "answer", family: "porque",
+      verdict: L(lang, `«${t.label}» (${money(t.minor)}) es ${tenseWord(lang, t)}. Sale de ${parts}.`, `"${t.label}" (${money(t.minor)}) is ${tenseWord(lang, t)}. It comes from ${parts}.`),
+      pieces: t.children.map((ch) => ({ label: ch.label, minor: (ch.sign === -1 ? -1 : 1) * ch.minor })),
+      note: [
+        t.assumption ? L(lang, `Su supuesto: ${t.assumption.text} — ${originWord(lang, t.assumption.origin)}.`, `Its assumption: ${t.assumption.text} — ${originWord(lang, t.assumption.origin)}.`) : null,
+        L(lang, "Puedes seguir preguntando «¿por qué?» sobre cualquiera de estas piezas, o nombrar la cifra que quieras abrir.", "You can keep asking 'why?' about any of these pieces, or name the figure you want opened."),
+      ].filter(Boolean).join(" "),
+      source: frame.source, lines: t.children.length, ...(door ? { actions: door } : {}),
+      convo: { ...frame, whyId: t.id },
+      ...keep,
+    };
+  }
   const counted = frame.pieces.length
     ? frame.pieces.map((p) => `${p.label} ${formatMoney(p.minor, disp, lang)}`).join(" · ")
     : frame.verdict;
@@ -4104,6 +7728,116 @@ function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, 
     source: frame.source, lines: frame.pieces.length,
     ...(frame.source[0] ? { actions: [{ id: "goto", label: L(lang, "Ver su fuente", "See its source"), target: frame.source[0] }] } : {}),
     convo: frame,
+    ...keep,
+  };
+}
+
+/* OLA 27 · EL LIBRO DE SUPUESTOS Y LA ABLACIÓN — «¿qué asumiste?»
+ * lista los supuestos del grafo con su origen; «¿y sin ese supuesto?»
+ * recalcula sin el nodo: si el supuesto vino del usuario (un monto
+ * traído), la cifra sin él es aritmética exacta sobre el mismo grafo;
+ * si el supuesto es la REGLA que define el cálculo, se dice que sin
+ * él no hay esa cifra — y se ofrece la cifra medida que sí hay. Sin
+ * grafo o sin supuestos, se dice tal cual. En el canon vive sobre el
+ * ConvoFrame, como el porqué. */
+function supuestosResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, ablate: boolean, askFrame?: AskFrame | null): BankResult {
+  const keep = askFrame ? { frame: askFrame } : {};
+  const disp = state.settings.display;
+  const money = (m: number) => formatMoney(m, disp, lang);
+  if (!frame?.graph?.length) {
+    return {
+      kind: "answer", family: "porque",
+      verdict: L(lang, "Esa respuesta no traía supuestos que mostrar: pregúntame primero una cifra con un «si» o una proyección, y te enseño qué asumí para darla.", "That answer carried no assumptions to show: first ask me a figure with an 'if' or a projection, and I'll show you what I assumed to give it."),
+      pieces: [], note: null, source: [], lines: 0, convo: frame ?? null,
+      ...keep,
+    };
+  }
+  const assumptions = graphAssumptions(frame.graph);
+  if (!assumptions.length) {
+    return {
+      kind: "answer", family: "porque",
+      verdict: L(lang, "Para esa cifra no asumí nada: cada pieza salió medida de tu libro, sin «si» y sin proyección.", "For that figure I assumed nothing: every piece came measured from your book, with no 'if' and no projection."),
+      pieces: [], note: null, source: frame.source, lines: 0, convo: frame,
+      ...keep,
+    };
+  }
+  if (!ablate) {
+    const list = assumptions.map((a) => `«${a.text}» (${originWord(lang, a.origin)})`).join("; ");
+    return {
+      kind: "answer", family: "porque",
+      verdict: L(lang, `Para darte esa cifra asumí esto: ${list}.`, `To give you that figure I assumed this: ${list}.`),
+      pieces: assumptions.map((a) => ({ label: a.node.label, minor: a.node.minor })),
+      note: L(lang, "Si quieres, pregúntame «¿y sin ese supuesto?» y te recalculo la cifra sin él.", "If you like, ask me 'and without that assumption?' and I'll recompute the figure without it."),
+      source: frame.source, lines: 0, convo: frame,
+      ...keep,
+    };
+  }
+  // LA ABLACIÓN: primero los supuestos del USUARIO (aritmética sobre
+  // el grafo); si solo hay de regla, la honestidad de la definición.
+  for (const root of frame.graph) {
+    for (const ch of root.children ?? []) {
+      if (ch.assumption?.origin === "usuario") {
+        const without = root.minor - (ch.sign === -1 ? -1 : 1) * ch.minor;
+        return {
+          kind: "answer", family: "porque",
+          verdict: L(lang, `Sin ese supuesto —${ch.assumption.text}— la cifra sería ${money(without)}: es «${root.label}» sin «${ch.label}». El supuesto era tuyo; la resta es exacta.`, `Without that assumption —${ch.assumption.text}— the figure would be ${money(without)}: it's "${root.label}" without "${ch.label}". The assumption was yours; the subtraction is exact.`),
+          pieces: [{ label: root.label, minor: without }],
+          note: null, source: frame.source, lines: 0, convo: frame,
+          ...keep,
+        };
+      }
+    }
+  }
+  const ruleAsm = assumptions.find((a) => a.origin === "regla");
+  if (ruleAsm) {
+    const m: AskNode | null = walkNodes(frame.graph).map((e) => e.node).find((n) => n.tense !== "proyectado" && !n.assumption) ?? null;
+    return {
+      kind: "answer", family: "porque",
+      verdict: L(lang, `Ese supuesto no se puede quitar como se quita un monto: «${ruleAsm.text}» es la regla que define la cifra — sin él, esa cifra no existe.${m ? ` Lo que sí hay, medido, es «${m.label}»: ${money(m.minor)}.` : ""}`, `That assumption can't be removed the way an amount can: "${ruleAsm.text}" is the rule that defines the figure — without it, that figure doesn't exist.${m ? ` What there is, measured, is "${m.label}": ${money(m.minor)}.` : ""}`),
+      pieces: m ? [{ label: m.label, minor: m.minor }] : [],
+      note: null, source: frame.source, lines: 0, convo: frame,
+      ...keep,
+    };
+  }
+  return {
+    kind: "answer", family: "porque",
+    verdict: L(lang, "Esa respuesta no traía supuestos que mostrar: pregúntame primero una cifra con un «si» o una proyección, y te enseño qué asumí para darla.", "That answer carried no assumptions to show: first ask me a figure with an 'if' or a projection, and I'll show you what I assumed to give it."),
+    pieces: [], note: null, source: [], lines: 0, convo: frame,
+    ...keep,
+  };
+}
+
+/* OLA 49 (F6) · EL RENDIMIENTO — «¿cuánto interés he ganado en
+ * mis ahorros?» se desviaba al stock: contestaba otra pregunta.
+ * El libro anota lo que el usuario aparta, no lo que el banco le
+ * paga encima — salvo que el usuario lo anote como ingreso. La
+ * forma completa: si hay líneas de ingreso cuyo nombre habla de
+ * intereses o rendimiento, se suman y se responde de verdad; si
+ * no las hay, la respuesta es de la familia falta: la parte que
+ * SÍ se puede contar (el stock de hoy) y el dato ausente con su
+ * nombre y su remedio — anótalo como ingreso «Intereses» y aquí
+ * se suma solo. */
+function rendimientoAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(cuanto (interes|rendimiento)|interes (ganado|de mis ahorros|en mis ahorros)|rendimiento de (mis )?ahorros|he ganado (en|de) intereses|interest (have i|did i) earn|earned on my savings|yield on my savings|what interest have i earned)/.test(folded)) return null;
+  const yieldLines = allLines(c).filter((l) => l.active && l.kind.startsWith("income") && /(interes|rendimiento|yield|interest)/.test(foldQ(l.concept || "")));
+  const stock = savingsStock(c.state, c.key);
+  if (yieldLines.length) {
+    const sum = yieldLines.reduce((a, l) => a + view(c, l), 0);
+    return {
+      kind: "answer", family: "falta",
+      verdict: L(c.lang, `De intereses y rendimiento tienes anotados ${c.money(sum)} — de ${yieldLines.length} línea${yieldLines.length === 1 ? "" : "s"} de ingreso con ese nombre. Tu stock de ahorros hoy es ${c.money(stock.total)}: lo ganado encima es lo que esas líneas dicen, ni un centavo inventado.`, `In interest and yield you have ${c.money(sum)} recorded — from ${yieldLines.length} income line${yieldLines.length === 1 ? "" : "s"} under that name. Your savings stock today is ${c.money(stock.total)}: what was earned on top is what those lines say, not an invented cent.`),
+      pieces: [{ label: L(c.lang, "Intereses anotados", "Recorded interest"), minor: sum }],
+      note: null, source: ["ahorros.stock", "libros.lineas"], lines: yieldLines.length,
+      actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
+    };
+  }
+  return {
+    kind: "answer", family: "falta",
+    verdict: L(c.lang, `Eso tu libro no lo guarda: tus líneas de ahorro anotan lo que TÚ apartaste — hoy ${c.money(stock.total)} — y no lo que el banco te haya pagado encima. El dato que falta tiene nombre: el rendimiento. Si tu banco te pagó intereses y los anotas como una línea de ingreso llamada «Intereses», aquí se suman solos.`, `Your book doesn't hold that: your savings lines record what YOU set aside — ${c.money(stock.total)} today — not what the bank may have paid you on top. The missing datum has a name: the yield. If your bank paid you interest and you record it as an income line called "Interest", it adds up here on its own.`),
+    pieces: [{ label: L(c.lang, "En ahorros (lo apartado)", "In savings (what you set aside)"), minor: stock.total }],
+    note: L(c.lang, "Sin ese dato, cualquier «interés ganado» que te diera sería una invención con tu tasa supuesta: eso no se hace.", "Without that datum, any 'interest earned' I gave you would be an invention with an assumed rate: that's not done."),
+    source: ["ahorros.stock", "libros.lineas"], lines: 0,
+    actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
   };
 }
 
@@ -4116,9 +7850,10 @@ function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, 
 function faltaAnswer(c: Ctx, folded: string): BankResult | null {
   if (/(patrimonio|valor neto|cuanto valgo|cuanto vale lo mio|net worth|what am i worth)/.test(folded)) {
     const stock = savingsStock(c.state, c.key);
-    const owePeople = peopleOf(c.state, "owe", c.today).reduce((a, p) => a + p.left, 0);
-    const cardBal = cardsOf(c.state).reduce((a, card) => a + cardFigures(c.state, card, c.today).balance, 0);
-    const debts = owePeople + cardBal;
+    /* OLA 44 (D1): el patrimonio resta LA deuda única de debts.ts
+     * (totalDebt), no la suma ciega de personas + registro que
+     * dejaba fuera préstamos de entidades y saldos en líneas. */
+    const debts = totalDebt(c.state, c.today);
     return {
       kind: "answer", family: "falta",
       verdict: L(c.lang, `De lo que tu libro sí guarda: tienes ${c.money(stock.total)} en ahorros y debes ${c.money(debts)} — eso da ${c.money(stock.total - debts)}. Pero tu patrimonio entero suma también el valor de tus bienes (tu casa, tu carro, lo que tengas), y tu libro no guarda valores de bienes: si me dijeras cuánto valen, te doy tu patrimonio neto completo.`, `From what your book does hold: you have ${c.money(stock.total)} in savings and you owe ${c.money(debts)} — that gives ${c.money(stock.total - debts)}. But your whole net worth also adds the value of your things (your house, your car, whatever you own), and your book doesn't hold values for things: tell me what they're worth and I'll give you your full net worth.`),
@@ -4177,6 +7912,7 @@ export function answerBankQuestion(
   mode?: BookMode,
   learned?: LearnedAlias[],
   convo?: ConvoFrame | null,
+  askFrame?: AskFrame | null,
 ): BankResult {
   const withConvo = (r: BankResult, sourceRaw: string): BankResult =>
     r.kind === "answer" && !("convo" in r) ? { ...r, convo: buildConvoFrame(state, key, names, sourceRaw, today, r) } : r;
@@ -4188,8 +7924,20 @@ export function answerBankQuestion(
   if (!pin) {
     const bare = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
     if (/^(y )?(por que|porque)$/.test(bare)
-      || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(foldQ(raw))) {
-      return porqueResult(state, convo ?? null, lang, mode);
+      || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(foldQ(raw))
+      // OLA 27: con grafo vivo, un «¿por qué…?» corto y con blanco
+      // («¿por qué el ritmo?», «¿por qué $75?») interroga al grafo.
+      || (convo?.graph?.length && /(por que|porque|why)/.test(foldQ(raw)) && bare.split(/\s+/).length <= 7)) {
+      return porqueResult(state, convo ?? null, lang, mode, askFrame ?? null, raw);
+    }
+  }
+  // OLA 27 · EL LIBRO DE SUPUESTOS: «¿qué asumiste?» y la ablación
+  // («¿y sin ese supuesto?») interrogan el grafo del marco, como el
+  // porqué — van con él, antes del seguimiento.
+  if (!pin && convo) {
+    const fs = foldQ(raw);
+    if (/(que asum|que supuest|con que supuest|sin (ese|el) supuesto|sin asumir|what did you assume|what assumption|without that assumption)/.test(fs)) {
+      return supuestosResult(state, convo, lang, /(sin (ese|el) supuesto|sin asumir|without that assumption)/.test(fs), askFrame ?? null);
     }
   }
   // OLA 19: el seguimiento se reescribe sobre el marco ANTES que
@@ -4200,8 +7948,17 @@ export function answerBankQuestion(
     if (rw) {
       const r = answerSingle(state, key, lang, names, rw.question, parseCtx, today, undefined, mode, learned);
       if (r.kind === "answer") {
+        // OLA 28: la horquilla nueva se nombra por los ejes que el
+        // seguimiento cambió — la pila de la caja la guarda por ese
+        // nombre (el nombre que buildConvoFrame deriva de la
+        // pregunta queda como respaldo).
+        const nf = buildConvoFrame(state, key, names, rw.question, today, r);
+        const convo: ConvoFrame = rw.fork ? { ...nf, forkName: rw.fork } : nf;
+        // OLA 32 (Familia 3, Q32-3): sin cambio de eje no hay nota de
+        // cambio — la respuesta se sirve tal cual, sin el eco.
+        if (rw.echo === null) return { ...r, convo };
         const echo = L(lang, `Viene de tu pregunta anterior: ${rw.echo}.`, `From your previous question: ${rw.echo}.`);
-        return { ...r, note: r.note ? `${echo} ${r.note}` : echo, convo: buildConvoFrame(state, key, names, rw.question, today, r) };
+        return { ...r, note: r.note ? `${echo} ${r.note}` : echo, convo };
       }
     }
   }
@@ -4233,7 +7990,45 @@ export function answerBankQuestion(
       // Ninguna pata respondió: la pregunta entera merece su oportunidad.
     }
   }
-  return withConvo(answerSingle(state, key, lang, names, raw, parseCtx, today, pin, mode, learned), raw);
+  const single = answerSingle(state, key, lang, names, raw, parseCtx, today, pin, mode, learned);
+  // OLA 28 · EL PRESUPUESTO DE REPARACIÓN: si la frase tenía forma de
+  // seguimiento y ni la reescritura ni el motor la pudieron servir,
+  // el silencio se convierte en reparación CONTADA sobre el marco:
+  // la primera vez se explican los ejes que sí se pueden cambiar; a
+  // la segunda, el camino deja de ser verbal — la puerta del área
+  // donde la cifra vive. Una pregunta nueva que el motor SÍ responde
+  // jamás pasa por aquí: la reparación solo sustituye al silencio.
+  if (single.kind === "unknown" && convo && !pin && followUpShaped(raw)) {
+    return repairResult(convo, lang, askFrame ?? null);
+  }
+  return withConvo(single, raw);
+}
+
+/* ¿Tiene esta frase forma de seguimiento? Corta, y abre con «y»/«no»
+ * o nombra un eje (período, exclusión). Sin esa forma, un silencio es
+ * solo un silencio y sigue su camino de siempre. */
+function followUpShaped(raw: string): boolean {
+  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (f.split(/\s+/).length > 8) return false;
+  return /^(y|no)\b/.test(f) || periodPhraseIn(f) !== null || /\bsin [a-z]/.test(f);
+}
+
+function repairResult(frame: ConvoFrame, lang: Lang, askFrame?: AskFrame | null): BankResult {
+  const keep = askFrame ? { frame: askFrame } : {};
+  const repairs = (frame.repairs ?? 0) + 1;
+  const exhausted = repairs >= 2;
+  return {
+    kind: "answer", family: "porque",
+    verdict: exhausted
+      ? L(lang, `Llevamos ${repairs} intentos de ajustar tu pregunta anterior («${frame.question}») y no logro aplicarlo con palabras. El camino seguro es tocar la cifra donde vive: abre su área y desde ahí la ves entera — la puerta está abajo.`, `We've made ${repairs} attempts to adjust your previous question ("${frame.question}") and I can't apply it in words. The sure path is to tap the figure where it lives: open its area and see it whole — the door is below.`)
+      : L(lang, `Eso suena a un ajuste sobre tu pregunta anterior («${frame.question}»), pero no logro aplicarlo tal como vino. Los ejes que sí puedo cambiar de una pregunta son el período («¿y el mes pasado?»), la persona o la cuenta si la pregunta las traía, o excluir un concepto de un total («sin la casa»). Dímelo en esa forma y lo recalculo.`, `That sounds like an adjustment to your previous question ("${frame.question}"), but I can't apply it as it came. The axes I can change on a question are the period ("and last month?"), the person or account if the question carried them, or leaving a concept out of a total ("without the house"). Say it in that shape and I'll recompute it.`),
+    pieces: frame.pieces,
+    note: null,
+    source: frame.source, lines: 0,
+    ...(exhausted && frame.source[0] ? { actions: [{ id: "goto", label: L(lang, "Abrir donde vive la cifra", "Open where the figure lives"), target: frame.source[0] }] } : {}),
+    convo: { ...frame, repairs },
+    ...keep,
+  };
 }
 
 function answerSingle(
@@ -4290,6 +8085,35 @@ function answerSingle(
     }
     return { kind: "unknown" };
   }
+  // 0- · OLA 37 · LA CAPACIDAD: «¿podría asumir el gasto?» con sus
+  // montos (de una vez y los que se repiten) se juzga ANTES que el
+  // hipotético y que el delegado — el delegado tomaba solo el primer
+  // monto y decía «sí» a planes que no caben. ASIENTO DE CANON: en
+  // la copia esta llamada abre answerSingle; aquí se sienta DESPUÉS
+  // de la costura 0r, porque el Camino (§19.1) es trabajo asentado
+  // de canon y su territorio no se toca — las voces de la capacidad
+  // no pisan las del alcance (sin montos no hay capacidad que juzgar
+  // contra una fecha, y con montos la pregunta ya no es del Camino).
+  const cap = capacidadAnswer(c, folded, raw);
+  if (cap) return cap;
+
+  // 0a2 · OLA 42 · EL COSTO DE VIDA Y LAS PROPORCIONES: voces
+  // estrechas y cercadas (vivir, la parte de lo que gano, cuánto
+  // cuesta X al mes, ¿me alcanza con lo que gano?) — antes que
+  // gustos, cuyo need-amount se quedaba con la última.
+  {
+    const cv = costoVidaAnswer(c, folded);
+    if (cv) return cv;
+  }
+
+  // 0a3 · OLA 46 (F1) · EL TOTAL DE TODO: «¿cuánto dinero tengo en
+  // total?» — la suma de las tres bolsas (queda + ahorros + lo que
+  // me deben), con su borde declarado. Su puerta trae «en total»:
+  // la queda a secas sigue siendo del delegado.
+  {
+    const tt = totalTodoAnswer(c, folded);
+    if (tt) return tt;
+  }
   // 0b · HIPOTÉTICOS Y CALCULADORA (ola 4): «si…» con números TRAÍDOS
   // manda sobre las familias del libro — la pregunta no habla de lo
   // anotado sino de un escenario, y responderla con la queda a secas
@@ -4302,9 +8126,13 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, raw, pin?.accountId);
     if (h) return h;
+    // OLA 43: la sensibilidad del INGRESO — el hipotético solo
+    // sustituía gastos; la baja del sueldo es su espejo.
+    const is43 = ingresoSensibilidadAnswer(c, folded, raw);
+    if (is43) return is43;
     const conv = conversorAnswer(c, folded, raw);
     if (conv) return conv;
     const tasa = tasaAnswer(c, folded);
@@ -4331,6 +8159,10 @@ function answerSingle(
     // contrafactual devuelve null y ella sigue dueña de su casa.
     const cf = contrafactualAnswer(c, folded, raw);
     if (cf) return cf;
+    // OLA 43: el contrafactual del INGRESO — «si no me entra el
+    // negocio» es el espejo de «si dejo de gastar en…».
+    const ic43 = ingresoContrafactualAnswer(c, folded);
+    if (ic43) return ic43;
     const calc = calculadoraAnswer(c, folded, raw);
     if (calc) return calc;
     // OLA 8: el contrafactual MIDE el monto en el historial en vez de
@@ -4380,7 +8212,12 @@ function answerSingle(
   // «guardó» (dinero) y «¿cómo guardo una pregunta?» (la especie de
   // la Ola 26 de arriba) — la forma exacta separa los dos mundos
   // sin tocar el objeto-guardia que ya manda.
-  if (!isFreeTrap && !esGuardarPregunta && ((/(ahorr|guardad|guarde|apartad|aparte|colchon|fondo|savings|save|set aside|cushion|emergency fund)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded))) {
+  if (!isFreeTrap && !esGuardarPregunta && ((/(ahorr|guardad|guarde|apartad|aparte|colchon|fondo|savings|saving|save|set aside|cushion|emergency fund)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta|puedo|podria|deberia|conviene|bien|sacar|retirar|should|can i|am i)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded))) {
+    // OLA 49 (F6): el rendimiento se juzga antes que el stock —
+    // «¿cuánto interés he ganado en mis ahorros?» no es una
+    // pregunta por el stock, y recibirlo era contestar otra cosa.
+    const rd = rendimientoAnswer(c, folded);
+    if (rd) return rd;
     // LA GUARDA DE HORIZONTE (ola 9, CAZA-TIEMPO clase 4; doctrina de
     // Oscar 2026-11-21: los tres tiempos no se mezclan sin intención).
     // «¿Cuánto tendré ahorrado en 6 meses si sigo así?» recibía el stock
@@ -4422,7 +8259,7 @@ function answerSingle(
         source: ["ahorros.stock", "ahorros.mes"], lines: 0,
       };
     }
-    return ahorrosAnswer(c, folded);
+    return ahorrosAnswer(c, folded, raw);
   }
   // 1b · LA REGLA (ola 12): los tres cubos contra la 50·30·20 — antes
   // de gustos, que es su cubo suelto (reglaAnswer cede ante «gustos»).
@@ -4470,18 +8307,80 @@ function answerSingle(
     const r = frecuenciaAnswer(c, folded);
     if (r) return r;
   }
+  // 4b9 · LA COLA LARGA (ola 35): el estado del ítem, la identidad
+  // del cargo y la ausencia en el libro — las preguntas de
+  // BANKING77 que no piden cálculo. Antes de las deudas planas:
+  // «¿cómo va el préstamo de Carlos?» no es «¿cuánto debo?».
+  {
+    const es = estadoAnswer(c, folded);
+    if (es) return es;
+    const idn = identidadAnswer(c, folded, raw);
+    if (idn) return idn;
+    const au = ausenciaAnswer(c, folded);
+    if (au) return au;
+  }
   // 4c · DEUDAS PLANAS (ola 9, CAZA-DIARIA C5): «¿cuánto debo en
   // total?», «¿cuánto me debe Ana?», «¿a quién le presté?» — sin
   // superlativo ni «cuántas»: la puerta llana de peopleOf/loansOf/
   // tarjetas, con la contradicción de dirección dicha.
+  // OLA 31: el comparador de órdenes se juzga antes que las deudas
+  // planas — su puerta («qué orden», «avalancha») es inconfundible.
+  {
+    // OLA 34: la tanda (el objeto que no existe — FALTA lo nombra)
+    // y la antigüedad (las cubetas de edad) se juzgan antes: sus
+    // puertas son inconfundibles y ninguna debe caer en las deudas
+    // planas ni disfrazarse de otra familia.
+    const td = tandaAnswer(c, folded);
+    if (td) return td;
+    const ag = antiguedadAnswer(c, folded);
+    if (ag) return ag;
+    // OLA 40: las prioridades y el interés se juzgan antes — sus
+    // puertas («qué pago primero», «cuánto pago de intereses», «o
+    // guardo») son inconfundibles y la historia desviaba el interés.
+    const pri = prioridadesAnswer(c, folded, raw);
+    if (pri) return pri;
+    const cmp = comparadorAnswer(c, folded, raw);
+    if (cmp) return cmp;
+  }
   {
     const r = deudasAnswer(c, folded);
     if (r) return r;
   }
+  // 4c1 · LA DERIVA (ola 33): «¿algo cambió?», «¿hay algo raro?» —
+  // las candidatas medidas del libro, antes que historia las
+  // desvíe a un total.
+  {
+    const dv = derivaAnswer(c, folded);
+    if (dv) return dv;
+  }
+  // EL KIT DEL INGRESO (OLA 30): su voz (piso, estable, volátil) manda
+  // sobre la historia — «¿cuánto gano al mes?» no trae esa voz y
+  // sigue siendo de historia.
+  {
+    // OLA 48 (F2): la cadencia del ingreso se juzga antes — su
+    // puerta («cada cuánto me pagan») es inconfundible.
+    const cd = cadenciaIngresoAnswer(c, folded);
+    if (cd) return cd;
+    const iv = ingresoVolatilAnswer(c, folded);
+    if (iv) return iv;
+  }
+  // 4d- · LA FACTIBILIDAD (ola 29): la prueba sobre lo anotado —
+  // «¿me alcanza el mes?», el pago en su día, el punto bajo de 13
+  // semanas — antes de la verificación, cuyas formas (la de hoy, la
+  // de la cuota nombrada) son otras y quedan intactas: esta puerta
+  // pide monto + día, o el mes entero, o el punto bajo.
+  {
+    const f = factibilidadAnswer(c, folded, raw);
+    if (f) return f;
+  }
   // 4d · PROMEDIO Y PRECIO DEL TIEMPO (ola 12): el ritmo diario, el
   // promedio verdadero, el gasto seguro de hoy y el precio en días de
   // trabajo — antes de historia, cuya puerta también los rozaba.
+  // La VERIFICACIÓN de la Ola 25 abre el paso: trae el monto y pide
+  // el veredicto, antes de que el promedio responda otra cosa.
   {
+    const v = verificacionAnswer(c, folded, raw);
+    if (v) return v;
     const r = promedioAnswer(c, folded);
     if (r) return r;
     const pt = precioTiempoAnswer(c, folded, raw);
@@ -4511,7 +8410,23 @@ function answerSingle(
   // gano…?», «¿cuánto ME entró?», «¿cuánto pago de Internet?», «¿cuánto
   // costaron los zapatos?»). El período resuelto manda: sin período
   // nombrado, es el mes en curso, que es lo que el presente pregunta.
-  if (/(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago)|cuanto me (entro|entra)|cuanto (pago|cuesta|cuestan|costaron|costo) |how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|how much (did i earn|do i earn|have i earned|has come in|came in))/.test(folded)) return historiaAnswer(c, folded);
+  // OLA 34 · LAS RELACIONES DE ALLEN: dos ciudadanos nombrados y
+  // su relación en el tiempo, antes de que historia los sume.
+  {
+    const al = allenAnswer(c, folded);
+    if (al) return al;
+  }
+  if (/(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago|pague|he pagado)|cuanto me (entro|entra)|cuanto (pago|cuesta|cuestan|costaron|costo) |cuanto (fue|es|ha sido) lo que (gaste|gano|pague|compre|entro|recibi)|how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|gasto hormiga|gastos (chicos|pequenos|menores)|how much (did i earn|do i earn|have i earned|has come in|came in)|how much (tax|did i pay in tax))/.test(folded)) {
+    // OLA 47 (F5): la comparación anual se juzga antes que la
+    // historia plana — su mitad comparativa se perdía en silencio.
+    const aa = anoContraAnoAnswer(c, folded);
+    if (aa) return aa;
+    // OLA 48 (F3): el gasto por umbral (el gasto hormiga) también —
+    // su forma no es la suma plana del período.
+    const um = umbralAnswer(c, folded, raw);
+    if (um) return um;
+    return historiaAnswer(c, folded);
+  }
   // 6 · RECENCIA (lo último…).
   // OLA 28 (Familia 1, Q28-2 + E28-4): la puerta aprende las formas
   // inglesas de lo último que la familia ya servía por dentro —
@@ -4599,7 +8514,23 @@ function answerSingle(
   // OLA 28 (Familia 2, E28-2): «¿cuál es mi patrón de remesas?» entra
   // — la puerta no oía ni «cuál» ni «patrón», y la canónica del
   // puente moría antes de llegar al patrón que nombra.
-  if (/(remesa|remittance)/.test(folded) && /(cuando|quien|cuanto|cual|ritmo|patron|pattern|when|who|which|how much)/.test(folded)) return remesasAnswer(c);
+  // OLA 26 (U8): la puerta oye también el participio + la persona +
+  // el «cuánto» («¿cuánto he enviado a mamá…?», «¿cuánto le mandé
+  // a…?»): la pregunta persona × período de la familia, que caía
+  // entre familias. El presente con monto («envío 50 a mamá») NO
+  // entra: es intención, de acciones (8b) — el participio y el
+  // «cuánto» son la marca.
+  {
+    const personNamed = remitByPerson(c.state, c.key).rows.some((r) => {
+      if (!r.person) return false;
+      const f = foldQ(r.person.name).trim();
+      return f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded);
+    });
+    if ((/(remesa|remittance)/.test(folded) && /(cuando|quien|cuanto|cual|ritmo|patron|pattern|when|who|which|how much|cuesta|costo|margen|comision|fee|cost|margin)/.test(folded))
+      || (personNamed && /(enviado|envie|mande|mandado|he enviado|sent)/.test(folded) && /(cuanto|how much)/.test(folded))) {
+      return remesasAnswer(c, folded);
+    }
+  }
   // 8b · ACCIONES (ola 5): la intención de enviar propone la acción —
   // tras el patrón de remesas, que es una pregunta; esto es un hacer.
   {
@@ -4708,19 +8639,39 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
   const hasDigit = /\d/.test(folded);
   const G: Array<[RegExp, BankFamilyId | "aprendizaje"]> = [
     [/(por que (dices|dijiste|sale|es)|de donde (sale|viene) (ese|esa|el|la|este|esta)|como calculaste|why do you say|where does (that|the) (number|figure|total) come from)/, "porque"],
+    [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month)/, "factibilidad"],
+    [/(algo (cambio|raro|nuevo)|que cambio|deberia saber|what changed|anything (unusual|off|new|change|changed))/, "deriva"],
+    [/\b(tanda|rosca)\b/, "falta"],
+    [/(cuanto (interes|rendimiento).{0,40}(ahorr|ganado)|interes ganado|interest have i earned|earned on my savings)/, "falta"],
+    [/(cuanto pague de|cuanto he pagado de|how much tax did i pay|how much did i pay in (taxes|tax))/, "historia"],
+    [/(que tan viej|antiguedad|desde cuando|how old|age of (my|the) debt)/, "deudas"],
+    [/(antes o despues|que (fue|paso) primero|which came first|before or after)/, "historia"],
+    [/(cuesta|cuestan|costo|margen|comision).{0,24}(remesa|envio|enviar|mandar)|(remesa|envio).{0,24}(cuesta|cuestan|costo|margen|comision)/, "remesas"],
+    [/(que (me )?falta|que no aparece|what('s| is) missing|anything missing|what (hasn|haven)|shown up)/, "ausencia"],
+    [/(que es (este|ese|esta|un|una)|what is (this|that))/, "identidad"],
+    [/(como va (el|la|mi|tu)|como esta (el|la|mi) (prestamo|deuda|tarjeta|cuenta|saldo)|estado de|how is|status of)/, "ya-pague"],
+    [/((ingreso|gano|sueldo|salario).{0,24}(piso|estable|volatil|mes malo|peor mes|floor|stable|volatile)|piso de (mi )?ingreso|income floor)/, "ingreso"],
+    [/(cada cuanto (me pagan|me entra|recibo|cobro)|cada cuanto es mi pago|how often do i get paid)/, "ingreso"],
+    [/(gasto hormiga|gastos (chicos|pequenos)|gastado en cosas de menos de|how much (is|are) my ant spending|spent on things under)/, "historia"],
     [/(patrimonio|valor neto|net worth|puntaje de credito|score de credito|credit score)/, "falta"],
     [/(que no (puedes|puedo)|no (puedes|podrias) hacer|tus limites|limitaciones|what can'?t you)/, "limites"],
     [/(que (puedes|puedo|puede) hacer|que sabes hacer|para que sirves|what can you do|what can the advisor do|tus funciones|que funciones tienes)/, "capacidades"],
     [/(que has aprendido|lo que has aprendido|tus patrones|aprendido de mi)/, "aprendizaje"],
     [/(si (dejo|dejara|dejas) de|si no (gastara|comprara|fuera|gastase)|dejara de gastar)/, "contrafactual"],
-    [/(cuanto (me dura|dura) (mi|el|lo)|meses (puedo vivir|de respaldo)|sin trabajo|sin ingresos|me despiden|pierdo mi trabajo|fondo de emergencia|mi colchon)/, "respaldo"],
+    [/(cuanto (me dura|dura) (mi|el|lo)|meses (puedo vivir|de respaldo)|sin trabajo|sin ingresos|me despiden|pierdo mi trabajo|fondo de emergencia|mi colchon|cuanto tiempo aguanto|aguanto sin|lose my job|lost my job|how long could i go|without income)/, "respaldo"],
     [/(tardaria|tardare|cuanto (necesito|debo|tengo) que ahorrar|cuanto (debo|necesito) ahorrar|cuanto ahorrar|quiero (juntar|ahorrar|reunir)|juntar \d|meta de ahorro)/, "meta"],
     [/(en (cordobas|dolares|euros)|a (cordobas|dolares)|tipo de cambio|a como esta el cambio|cuanto (es|son) .{0,30}(dolares|cordobas|euros|pesos))/, "conversor"],
     [/(cuando (vence|es|cae|toca)|en cuantos dias|cuantos dias (faltan|quedan|para)|que dia (es|sera|cumple))/, "calendario"],
     [/(de que cuenta (saco|pago|tomo)|cual cuenta (uso|conviene)|de donde saco)/, "cuenta-origen"],
-    [/(50.?30.?20|la regla|deberia gastar en|cuanto deberia (gastar|ahorrar))/, "regla"],
+    [/(50.?30.?20|la regla|the rule|deberia gastar en|cuanto deberia (gastar|ahorrar))/, "regla"],
+    [/(cuanto necesito (al mes|para vivir)|necesito para vivir|cuanto (me )?cuesta vivir|que (porcentaje|parte) de (lo que gano|mi sueldo|mi salario)|cuanto (me |nos )?(cuesta|cuestan) .{1,30} al mes|cuanto gastamos en|me alcanza con lo que gano|alcanza mi sueldo|how much do i need to live|what (percentage|share) of my income|how much does .{1,30} cost)/, "promedio"],
+    [/(cuanto (dinero )?tengo en total|todo mi dinero|how much money do i have in total)/, "total"],
     [/(promedio|gasto fijo|cuanto puedo gastar hoy|seguro gastar)/, "promedio"],
     [/(gustos|antojos|puedo gastar|darme el gusto|capricho)/, "gustos"],
+    // OLA 25: la verificación nombra «promedio» en el oído — DESPUÉS
+    // de gustos, como en la copia: «¿cuánto tengo para gastar en
+    // gustos?» es de gustos, no de la verificación.
+    [/(tengo|puedo|alcanza|me alcanza|have|can i).{0,24}(para gastar|gastar.{0,24}hoy|to spend|spend.{0,24}today)/, "promedio"],
     [/(cuantas|cuantos) (cuotas|tarjetas|cuentas|prestamos|deudas|suscripciones)/, "conteo"],
     [/(ultima vez|cuando fue la ultima|la ultima (cosa|compra|vez)|ultima remesa|last time|last (remittance|amount|send|sent)|last (get|got) paid)/, "recencia"],
     [/(ha subido|subio de precio|subieron los precios|(subio|subieron).{0,24}suscripcion|no se cobro|no me cobraron|al ano en suscripciones|cuanto.*al ano.*suscripcion|subscription.{0,24}(go up|went up|goes up)|which subscription|didnt charge|did not charge|subscriptions? cost)/, "series"],
@@ -4733,12 +8684,14 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(quiero (enviar|mandar)|voy a (enviar|mandar)|necesito (enviar|mandar)|^(envia|manda|enviar|mandar)\b|remesa (a|para|de)|envio (a|para|de))/, "acciones"],
     [/(a estas alturas|voy (mejor|peor)|a este ritmo|como voy (este|el) mes)/, "sintesis"],
     [/(quien (me debe|gasta|debe) mas|a quien le debo mas|who owes me (the )?most)/, "ranking"],
+    [/(cuanto pago de interes|cual deuda (me )?(sale|es)|que pago primero|completa o (el )?minimo|que pasa si no pago|what should i pay first|which debt costs|how much interest do i pay)/, "deudas"],
+    [/(avalancha|bola de nieve|avalanche|snowball|que orden|en que orden|cual orden)/, "deudas"],
     [/(debo|deuda|prestamo|me debe|me deben|le debo|saldo de (mi|la) tarjeta|i owe|owes me)/, "deudas"],
     [/(mas (grande|caro|alto)|menor (gasto|compra|ingreso)|mayor (gasto|compra|ingreso)|biggest|largest|smallest|gasto mas (grande|caro)|compra mas (grande|cara))/, "extremos"],
     [/(mas que|menos que|diferencia (entre|de)|mejor (mes|que)|peor (mes|que)|comparad|versus)/, "comparar"],
     [/(ahorr|tendre ahorrado|tendria ahorrado|cuanto tengo en|mi cuenta de ahorros)/, "ahorros"],
     [/(cuanto (mande|envie|enviado|enviando)|how much did i (send|sent)).{0,40}(semana|mes|ano|week|month|year|quincena)/, "remesas-periodo"],
-    [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
+    [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido)|cuanto (fue|es) lo que (gaste|gano|pague|compre)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
   ];
   // La confirmación exige su cifra: sin dígito no hay afirmación que juzgar.
   if (hasDigit && /(verdad|es cierto|es verdad|no es asi|is it true)/.test(folded)) return { isQuestion, family: "confirmacion" };

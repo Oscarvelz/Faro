@@ -126,6 +126,9 @@ strong.s2-out { color: var(--c); }
 
 /* What-if */
 .s2-whatif { display: grid; gap: 8px; padding: 14px; border-radius: 20px; border: 1px dashed color-mix(in oklab, #ffd98a 45%, var(--line)); background: radial-gradient(120% 90% at 100% 0%, color-mix(in oklab, #ffd98a 9%, transparent), transparent 60%); }
+/* 1.3.430: el candadito de esta palanca, bajo el riel, con su nota. */
+.s2-whatif-lockrow { display: flex; align-items: center; gap: 10px; }
+.s2-whatif .lever-note { margin: 0; font-size: .82rem; opacity: .85; }
 .s2-whatif-q { margin: 0; font-size: .9rem; color: var(--muted); }
 .s2-whatif-amt { font-size: 1.9rem; line-height: 1; }
 .s2-whatif input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 99px; background: linear-gradient(90deg, #ffd98a var(--p), color-mix(in oklab, var(--fg) 12%, transparent) var(--p)); outline: none; margin: 8px 0; }

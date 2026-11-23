@@ -5,7 +5,7 @@ import { Signature } from "./signature";
 import { acceptInvite, acceptTransfer, fetchSharedBook, leaveMembership, listMemberships, type Membership } from "@/spa/cloud";
 import { makeNamer } from "@/lib/faro/defaults";
 import { categoryTotal, explainLines, scopeFilter } from "@/lib/faro/world";
-import { passiveRecordFromCopy, withPassiveRecord } from "@/lib/faro/exit";
+import { passiveRecordFromCopy, passiveRecordsOf, withPassiveRecord } from "@/lib/faro/exit";
 import { uid } from "@/lib/faro/money";
 import type { LedgerState } from "@/lib/faro/types";
 import "./share-mesa.css";
@@ -37,7 +37,7 @@ function asBook(x: unknown): LedgerState | null {
  * y el servidor lo comprueba — la ley de la C1).
  */
 export function SharedWithMe() {
-  const { lang, userId, fmt, commit } = useFaro();
+  const { lang, userId, fmt, commitFlushed } = useFaro();
   const [rows, setRows] = useState<Membership[] | null | undefined>(undefined);
   const [open, setOpen] = useState<OpenBook | null>(null);
   const [month, setMonth] = useState<string>("");
@@ -101,7 +101,23 @@ export function SharedWithMe() {
     if (kind === "passive" && scoped) {
       const record = passiveRecordFromCopy(scoped, m.bookOwner, lang === "en" ? "en" : "es", new Date().toISOString(), uid());
       if (!record) { setNote("record-failed"); return; }
-      commit((s) => withPassiveRecord(s, record), L(lang, "Registro del libro compartido guardado", "Shared-book record kept"));
+      // OLA 32 (Familia 9, Q32-1 de Cara): LA MEMBRESÍA SE CIERRA
+      // CUANDO EL FOLIO YA ESTÁ EN DISCO — la ley de la Ola 31
+      // («aterriza en el Archivo ANTES de que el acceso muera»)
+      // valía en orden de programa, pero el commit es estado de
+      // React y la escritura del pack corre en el efecto posterior:
+      // la caza midió faro_leave saliendo con el folio aún ausente
+      // del pack guardado (~200–300 ms después aterrizaba). La
+      // ceremonia espera la escritura asentada y juzga el pack
+      // escrito: si el folio no aterrizó, el desenlace es el de la
+      // puerta que rehúsa — «record-failed», la persona sigue
+      // dentro y lo sabe — y la salida no se anuncia.
+      const landed = await commitFlushed(
+        (s) => withPassiveRecord(s, record),
+        L(lang, "Registro del libro compartido guardado", "Shared-book record kept"),
+        (l) => passiveRecordsOf(l).some((r) => r.id === record.id),
+      );
+      if (!landed) { setNote("record-failed"); return; }
     }
     const ok = await leaveMembership(m.id);
     if (!ok) { setNote("leave-failed"); return; }

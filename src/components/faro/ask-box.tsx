@@ -195,7 +195,10 @@ export function AskBox() {
     // OLA 27 (Familia 9, F27-2): el seguimiento recibe LOS MISMOS
     // patrones que la cascada — su ctx ya no nace con learned vacío.
     const fu = pin ? null : answerFollowUp(session.ledger, key, lang, names, clean, ctx(), todayLocal(), frame, mode, patterns);
-    const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode, patterns, convo);
+    // OLA 32 (Familia 4, Q32-4): la caja enhebra también su marco §20
+    // vivo a la cascada — el turno del «¿por qué?» lo devuelve intacto
+    // (porqueResult lo conserva), en vez de cerrarlo con r.frame ?? null.
+    const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode, patterns, convo, frame);
     setResult(r);
     if (r.kind === "answer") {
       setFrame(r.frame ?? null);

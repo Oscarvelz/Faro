@@ -88,7 +88,12 @@ test("libro397 · la vista compartida no escribe en el libro ajeno: recorta ante
   // guardar el registro pasivo en el libro PROPIO de quien se va, por
   // la puerta de exit.ts. La ley afinada: ese es el único commit, y
   // pasa por withPassiveRecord.
-  const commits = src.match(/commit\(/g) ?? [];
+  // OLA 32 (Familia 9, Q32-1 de Cara): esa única escritura viaja
+  // ahora por commitFlushed — el envoltorio que espera a que el pack
+  // escrito en disco lleve el folio antes de que la ceremonia cierre
+  // la membresía. La ley no cambia: una sola escritura en la vista, y
+  // es el registro pasivo; la cuenta lee las dos formas del nombre.
+  const commits = src.match(/commit(Flushed)?\(/g) ?? [];
   assert.equal(commits.length, 1, "un solo commit en la vista: el registro pasivo de la salida");
   assert.ok(src.includes("withPassiveRecord"), "y pasa por la puerta de las salidas");
 });

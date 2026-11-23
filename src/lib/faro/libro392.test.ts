@@ -177,7 +177,18 @@ describe("libro compartido · C3: el papel del servidor y la costura", () => {
   });
 
   it("el empalme deja intacto lo fuera del alcance y las lápidas no salen de él", () => {
-    assert.match(sql, /where not \(cats \? \(l ->> 'categoryId'\)\)/);
+    // OLA 32 (Familia 6, G32-2): el predicado de «kept» juzga la
+    // categoría AUSENTE como fuera de alcance — con el «not (cats ?
+    // …)» de tres valores, la línea sin categoryId no era kept ni
+    // mine y se evaporaba, contra el título mismo de esta cerca. La
+    // aguja se re-apunta a la forma que cumple lo que el título dice.
+    // OLA 33 (Familia 7, G33-2): la aguja se re-apunta OTRA VEZ, por
+    // la misma regla — el predicado ya no casa por el texto que
+    // «->>» fabrica: faro_cat_in juzga el TIPO antes que el texto
+    // (la ley de G31-2 en el último campo), y «kept» lo envuelve en
+    // el mismo coalesce de la Cura 32. La forma clavada es la que
+    // cumple el título también para el categoryId no textual.
+    assert.match(sql, /where coalesce\(public\.faro_cat_in\(cats, l\), false\) is not true/);
     assert.match(sql, /kept \|\| mine/);
     // Una línea guardada fuera del alcance protege su id de duplicados.
     assert.match(sql, /jsonb_array_elements\(kept\) k where k ->> 'id' = l ->> 'id'/);
