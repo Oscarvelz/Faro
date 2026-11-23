@@ -4004,4 +4004,4 @@ Oscar (19:38–19:41 EST, tres fotos; la última con su flecha roja de la ficha 
 
 **Verificación.** Banco `scenario-427` en Cyberpunk (el tema de su foto), pack 407: para los TRES lentes, el color computado de la cabecera es idéntico al del rótulo de su ficha — Gastaré rgb(255, 122, 0), Tengo rgb(0, 230, 122), Pagos rgb(255, 0, 60) — y la fuente computada también (Rajdhani, la display del tema), con su ícono presente en la marca; la foto de Gastaré, verificada a ojo, enseña la cabecera naranja con su flecha, como la ficha. Focalizadas 9/9 (421 enmendada + 423 enmendada + 427 nueva). Suite completa: 3.249/3.249. tsc: los 3 errores de siempre. Build: entry `index-qoUfDUVk.js`.
 
-**Datos de publicación.** PENDIENTE.
+**Datos de publicación.** Fuente `a050bfe8` (11 archivos). Rama principal: 43 archivos, cola `a75d29f6`. Barrido en vivo: 28/28 idénticos; el sw vivo lee `faro-1.3.427` y el índice vivo referencia `index-qoUfDUVk.js`. Snapshot: `~/workspace/faro-427-dist-snapshot`.
