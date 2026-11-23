@@ -4541,11 +4541,14 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       <section key={lens} data-anchor="desk-list" className={`card span-all swipe-pane${lensSwapped.current ? " is-swap" : ""}${ringFresh() ? " is-ring" : ""}`} data-dir={flowDir < 0 ? "-1" : "1"}>
         {/* 1.3.421 (Oscar, con fotos): el espacio desplegado lleva el nombre
             de su ficha por cabecera — la lista de un lente se abre con
-            «Tengo» / «Gastaré» / «Pagos», no con una descripción suelta. */}
+            «Tengo» / «Gastaré» / «Pagos», no con una descripción suelta.
+            1.3.427 (Oscar, 19:38–19:41, tres fotos más): la cabecera lleva
+            la CARA de su ficha — el mismo ícono en su marca, la misma
+            fuente y el mismo color que el rótulo de la ficha (su
+            «lens-kicker»), no un título genérico con barrita. */}
         {lensMode !== "all" ? (
           <p className={`desk-focus-head is-${lensMode}${lensMode === "debt" ? ` tone-${summary.tone}` : ""}`} data-anchor="desk-focus-head">
-            <span className={`desk-focus-bar is-${lensMode}${lensMode === "debt" ? ` tone-${summary.tone}` : ""}`} aria-hidden />
-            <strong>{t(lensMode === "have" ? "desk.have" : lensMode === "debt" ? "desk.debt" : "desk.spend")}</strong>
+            <span className="lens-kicker"><span className="lens-mark">{lensMode === "have" ? <ArrowDownLeft className="size-[18px]" /> : lensMode === "debt" ? <CreditCard className="size-[18px]" /> : <ArrowUpRight className="size-[18px]" />}</span><span>{t(lensMode === "have" ? "desk.have" : lensMode === "debt" ? "desk.debt" : "desk.spend")}</span></span>
           </p>
         ) : null}
         {lensMode === "debt" ? (

@@ -181,6 +181,13 @@ html[data-theme="tron"] .lens.is-debt { box-shadow: inset 0 -2px 0 #ff2a2a, 0 6p
 html[data-theme="tron"] .lens.is-have .lens-kicker { color: #6fe2fa !important; }
 html[data-theme="tron"] .lens.is-spend .lens-kicker { color: #ffad4d !important; }
 html[data-theme="tron"] .lens.is-debt .lens-kicker { color: #ff5a4e !important; text-shadow: 0 0 8px rgba(255, 42, 42, .5); }
+/* 1.3.427: la cabecera del lente desplegado viste el color del rótulo
+   de su ficha — las gemelas de las tres reglas de arriba, con el
+   espaciado del rótulo tron. */
+html[data-theme="tron"] .desk-focus-head .lens-kicker { letter-spacing: .12em; }
+html[data-theme="tron"] .desk-focus-head.is-have .lens-kicker { color: #6fe2fa !important; }
+html[data-theme="tron"] .desk-focus-head.is-spend .lens-kicker { color: #ffad4d !important; }
+html[data-theme="tron"] .desk-focus-head.is-debt .lens-kicker { color: #ff5a4e !important; text-shadow: 0 0 8px rgba(255, 42, 42, .5); }
 /* Corner buttons: one light per side. Tengo teal, Gastaré Clu orange, Pagos Ares red. */
 html[data-theme="tron"] .lens-corner { border: 0 !important; color: #021014 !important; }
 html[data-theme="tron"] .lens-corner svg { color: #021014 !important; stroke: #021014; }

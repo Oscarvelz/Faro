@@ -7,6 +7,11 @@
  * nombre de la ficha; y la vista de un bolsillo de Ahorros se encabezaba
  * con su clase («Proyectos») y no con su nombre. La 421 pone el nombre
  * por cabecera en los dos espacios.
+ *
+ * ENMIENDA 1.3.427 (Oscar, 19:38–19:41, tres fotos más): la cabecera ya
+ * no es barrita + nombre — lleva la CARA de la ficha (su rótulo
+ * «lens-kicker» con su ícono, su fuente y su color). Las clavijas de la
+ * barrita se retiran de esta cerca; la cara vive en captura427.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -22,8 +27,9 @@ test("421 · la lista de un lente se abre con el nombre de la ficha", () => {
   for (const key of ['"desk.have"', '"desk.debt"', '"desk.spend"']) {
     assert.ok(screens.includes(key), `el nombre sale de la misma llave de la ficha: ${key}`);
   }
-  const head = screens.slice(screens.indexOf("desk-focus-head"), screens.indexOf("desk-focus-head") + 500);
-  assert.ok(head.includes("desk-focus-bar"), "la barra viste el tono de la ficha");
+  const head = screens.slice(screens.indexOf("desk-focus-head"), screens.indexOf("desk-focus-head") + 700);
+  assert.ok(head.includes("lens-kicker"), "la cabecera lleva el rótulo de su ficha (enmienda 427)");
+  assert.ok(head.includes("lens-mark"), "el rótulo lleva su marca con el ícono (enmienda 427)");
   assert.ok(head.includes("tone-${summary.tone}"), "Pagos viste el tono de su semáforo");
 });
 
@@ -33,7 +39,7 @@ test("421 · la vista de un bolsillo se encabeza con su nombre, no con su clase"
 });
 
 test("421 · la cabecera tiene su forma en styles.css", () => {
-  for (const pin of [".desk-focus-head", ".desk-focus-bar", ".desk-focus-bar.is-have", ".desk-focus-bar.is-debt.tone-warn"]) {
+  for (const pin of [".desk-focus-head", ".desk-focus-head .lens-kicker", ".desk-focus-head .lens-mark"]) {
     assert.ok(styles.includes(pin), `falta la regla ${pin}`);
   }
 });

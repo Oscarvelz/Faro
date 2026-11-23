@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.427",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "La cabecera del lente, con la cara de su ficha", en: "The lens header, wearing its tile's face" },
+    points: {
+      es: [
+        "Al desplegar Tengo, Gastaré o Pagos, la cabecera de abajo ya no es un título común: lleva el mismo ícono, la misma fuente y el mismo color que la ficha que tocaste.",
+        "Cada lente se reconoce por su cara también abajo — el verde de Tengo, el ámbar de Gastaré y el rojo de Pagos, en cada tema.",
+      ],
+      en: [
+        "When you open Have, Will spend or Payments, the header below is no longer a plain title: it wears the same icon, the same font and the same color as the tile you tapped.",
+        "Each lens is recognizable by its face below too — Have's green, Will spend's amber and Payments' red, in every theme.",
+      ],
+    },
+    topic: "lentes",
+  },
+  {
     version: "1.3.425",
     date: "2026-11-22",
     level: "menor",

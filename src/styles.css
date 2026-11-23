@@ -3622,22 +3622,21 @@ html[data-theme="tron"] .quick-hello::before { background: radial-gradient(70% 1
 .year-srow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 10px; }
 .year-srow + .year-srow { border-top: 1px solid color-mix(in oklab, var(--line) 55%, transparent); }
 .year-srow.is-total { font-weight: 600; }
-/* 1.3.421: el espacio desplegado lleva el nombre de su ficha por cabecera
-   (la barra viste el tono propio de la ficha, como en su tarjeta). */
-.desk-focus-head { display: flex; align-items: center; gap: 9px; margin: 0 0 10px; }
-.desk-focus-head strong { font-size: 1.06rem; font-weight: 700; letter-spacing: .01em; }
-.desk-focus-bar { flex: none; width: 5px; height: 20px; border-radius: 99px; background: var(--fg); }
-.desk-focus-bar.is-have { background: var(--accent); }
-.desk-focus-bar.is-debt.tone-good { background: var(--good); }
-.desk-focus-bar.is-debt.tone-warn { background: var(--warn); }
-.desk-focus-bar.is-debt.tone-bad { background: var(--bad); }
-/* 1.3.423 (Oscar, 18:02 — CONSISTENCIA, principio de la ley de
-   envoltorio): el NOMBRE de la cabecera viste el mismo color que su
-   ficha lleva al seleccionarla en Central — la cabecera entera refleja
-   la ficha elegida, no solo la barrita. */
-.desk-focus-head.is-have strong { color: var(--accent); }
-.desk-focus-head.is-spend strong { color: var(--fg); }
-.desk-focus-head.is-debt strong { color: var(--fg); }
-.desk-focus-head.is-debt.tone-good strong { color: var(--good); }
-.desk-focus-head.is-debt.tone-warn strong { color: var(--warn); }
-.desk-focus-head.is-debt.tone-bad strong { color: var(--bad); }
+/* 1.3.421: el espacio desplegado lleva el nombre de su ficha por cabecera.
+   1.3.427 (Oscar, 19:38–19:41 — CONSISTENCIA llevada a la cara): la
+   cabecera lleva la CARA de su ficha — el mismo ícono en su marca, la
+   misma fuente y el mismo color que el rótulo de la ficha (su
+   «lens-kicker»), en tamaño de cabecera. La barrita de la 421 y el
+   nombre en token de tema de la 423 quedan retirados: el color de cada
+   lente sale de las reglas gemelas de abajo y de los archivos de tema
+   (cyberpunk.css, tron.css), que espejan una a una las del rótulo de
+   la ficha — si el rótulo cambia de color, la cabecera cambia con él. */
+.desk-focus-head { display: flex; align-items: center; margin: 0 0 10px; }
+.desk-focus-head .lens-kicker { display: flex; align-items: center; gap: 7px; text-transform: uppercase; letter-spacing: .03em; font-weight: 600; font-size: 1.05rem; line-height: 1.2; color: var(--muted); }
+.desk-focus-head .lens-mark { display: inline-grid; place-items: center; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"], [data-theme="cyberpunk"]) .desk-focus-head.is-have .lens-kicker { color: #eef7f2; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"], [data-theme="cyberpunk"]) .desk-focus-head.is-spend .lens-kicker { color: #f8f1e6; }
+html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [data-theme="oceano"], [data-theme="sunset"], [data-theme="tinta"], [data-theme="bosque"], [data-theme="humo"], [data-theme="ion-noche"], [data-theme="tron"], [data-theme="cyberpunk"]) .desk-focus-head.is-debt .lens-kicker { color: #f8eceb; }
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .desk-focus-head.is-have .lens-kicker { color: #163028; }
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .desk-focus-head.is-spend .lens-kicker { color: #2a261e; }
+html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-theme="marfil"], [data-theme="niebla"], [data-theme="piedra"], [data-theme="ion"]) .desk-focus-head.is-debt .lens-kicker { color: #4a1814; }

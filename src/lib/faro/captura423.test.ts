@@ -12,6 +12,13 @@
  * las toco y bajo… el nuevo texto indicador refleja que la ficha está
  * seleccionada». El NOMBRE de la cabecera de lente (1.3.421) viste el
  * color exacto de su ficha seleccionada, como ya hacía la barrita.
+ *
+ * ENMIENDA 1.3.427 (Oscar, 19:38–19:41): aquello no bastó — la cabecera
+ * seguía siendo un título genérico. La 427 la viste con la cara entera
+ * de la ficha (ícono, fuente y color de su rótulo «lens-kicker»); las
+ * reglas del nombre de la 423 y la barrita de la 421 quedan retiradas,
+ * y la tercera prueba de esta cerca clava la retirada. La cara vive en
+ * captura427.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -37,14 +44,9 @@ test("423 · la cabecera entera lleva la clase de su lente y su tono", () => {
 });
 
 test("423 · el nombre viste el color exacto de su ficha seleccionada", () => {
-  for (const pin of [
-    ".desk-focus-head.is-have strong { color: var(--accent); }",
-    ".desk-focus-head.is-spend strong { color: var(--fg); }",
-    ".desk-focus-head.is-debt strong { color: var(--fg); }",
-    ".desk-focus-head.is-debt.tone-good strong { color: var(--good); }",
-    ".desk-focus-head.is-debt.tone-warn strong { color: var(--warn); }",
-    ".desk-focus-head.is-debt.tone-bad strong { color: var(--bad); }",
-  ]) assert.ok(styles.includes(pin), `falta la regla: ${pin}`);
-  // La barrita de la 421 no se toca: sigue vistiendo los mismos tokens.
-  assert.ok(styles.includes(".desk-focus-bar.is-have { background: var(--accent); }"), "la barrita conserva su color");
+  // Enmienda 1.3.427: las reglas del nombre en <strong> y la barrita
+  // quedaron retiradas — la cabecera lleva la cara de la ficha (cerca 427).
+  assert.ok(!styles.includes(".desk-focus-head.is-have strong"), "las reglas del nombre de la 423 están retiradas");
+  assert.ok(!styles.includes(".desk-focus-head.is-debt.tone-bad strong"), "ningún tono pinta el nombre por su cuenta");
+  assert.ok(!styles.includes(".desk-focus-bar"), "la barrita de la 421 también se retiró");
 });
