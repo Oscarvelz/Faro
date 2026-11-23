@@ -4039,3 +4039,11 @@ Cuarta de la cadena: la Cura de la Ola 32 de Modos, en once familias. El vocabul
 **Verificación.** La cerca `modos-ola32` y las de Novedades/versión, verdes sobre el build (33/33 focalizadas); la suite completa de la cadena firmó 3.492/3.492 en la corrida de reanudación. Build: entry `index-CtOKnUMe.js`, sin `pack.json`.
 
 **Datos de publicación.** Fuente `cce1dc5d` (Novedades + sello; el código viajó en la fuente integrada `5b4cf44b`). Rama principal: 43 archivos, cola `cafabe8c`. Barrido en vivo: 28/28 idénticos; el sw vivo lee `faro-1.3.431` y el índice vivo referencia `index-CtOKnUMe.js`; la rama confirma los mismos datos por la API de contenidos. Snapshot: `~/workspace/faro-431-dist-snapshot`.
+---
+## 1.3.432 — «Faro escucha mejor tus avisos de pago» (2026-11-23)
+
+Quinta de la cadena: el banco del oyente (Ola 8 del banco, permanente), construido con especímenes reales del teléfono de Oscar y la ley contra el sobreajuste — las formas se clavan como CLASES, nunca como sus apps. Tres formas: (1) el aviso de billetera que nombra la tarjeta — el título es la tarjeta usada, no el comercio; el comercio abre el cuerpo y el código de tienda que lo sigue es ruido; (2) el aviso del emisor con dos montos — el pagado es el movimiento y el saldo disponible jamás nace, ni como monto elegido ni como borrador; la oferta («5% back») es ruido; (3) la colisión — billetera y emisor del mismo pago son UN movimiento ante la recogida (mismo comercio, monto y moneda, a diez minutos o menos); dos pagos de verdad, no. Novedades 432 menor, sin puerta inventada.
+
+**Verificación.** La cerca `oyente` y las de Novedades/versión, verdes sobre el build (15/15 focalizadas); la suite completa de la cadena firmó 3.492/3.492 en la corrida de reanudación. Build: entry `index-C6Rj9GC3.js`, sin `pack.json`.
+
+**Datos de publicación.** Fuente `9fbc3120` (Novedades + sello; el código viajó en la fuente integrada `5b4cf44b`). Rama principal: 43 archivos, cola `10d34861`. Barrido en vivo: 28/28 idénticos; el sw vivo lee `faro-1.3.432` y el índice vivo referencia `index-C6Rj9GC3.js`; la rama confirma los mismos datos por la API de contenidos. Snapshot: `~/workspace/faro-432-dist-snapshot`.
