@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.431",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "El Asesor, más fino en cada modo", en: "The Advisor, sharper in every mode" },
+    points: {
+      es: [
+        "El Asesor entiende más formas de hablar del tiempo: «la primera quincena», «la segunda quincena» y sus hermanas en inglés ya sirven su período, en Esencial, Ritmo y Completo por igual.",
+        "Los seguimientos cambian de persona o de período por palabra entera — una palabra parecida dentro de otra ya no se toca —, el aviso de cambio solo aparece cuando algo cambió de verdad, y el «¿Por qué?» ya no corta el hilo de la conversación.",
+      ],
+      en: [
+        "The Advisor understands more ways of speaking about time: \"the first half of the month\", \"the second half\" and their Spanish sisters now serve their period, in Essential, Rhythm and Complete alike.",
+        "Follow-ups switch person or period by whole word — a similar word inside another is never touched —, the change note only appears when something truly changed, and \"Why?\" no longer cuts the conversation's thread.",
+      ],
+    },
+  },
+  {
     version: "1.3.430",
     date: "2026-11-23",
     level: "menor",
