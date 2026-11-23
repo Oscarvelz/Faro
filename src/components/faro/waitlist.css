@@ -2,7 +2,15 @@
    cuenta atrás — la firma de esta lista. El color es del tema
    (var(--accent)); la forma es de la espera. Nada de casillas ni barras:
    eso es la lista-plan. */
-.wl-section { display: flex; flex-direction: column; gap: 10px; }
+/* 1.3.424 (Oscar, 2026-11-22): la sección entera es una bandeja hundida
+   de la casa — el título, el subtítulo y el estado vacío ya no quedan
+   sueltos sobre el fondo; las tarjetas de deseos, con su superficie
+   propia, se levantan sobre la bandeja. */
+.wl-section {
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  background: color-mix(in oklab, var(--fg) 3%, transparent);
+}
 .wl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .wl-title { display: inline-flex; align-items: center; gap: 6px; font-size: 1.15rem; }
 .wl-sub { font-size: .86rem; opacity: .75; margin: 0; }

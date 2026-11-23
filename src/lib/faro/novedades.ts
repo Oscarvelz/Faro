@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.424",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "Tres rincones, con su envoltorio", en: "Three corners, wrapped" },
+    points: {
+      es: [
+        "La Lista de espera ahora vive en su propia bandeja: el título y sus tarjetas ya no quedan sueltos sobre el fondo.",
+        "En la vista del año, las filas de lo guardado y los meses respiran: ya no pegan contra los bordes de la tabla.",
+        "El Saldo proyectado lleva su relleno: el texto ya no corre de borde a borde ni la última línea se corta.",
+      ],
+      en: [
+        "The Waiting list now lives in its own tray: its title and cards no longer sit loose on the background.",
+        "In the year view, the saved rows and the months breathe: they no longer hug the table's edges.",
+        "The Projected balance carries its padding: the text no longer runs edge to edge nor clips its last line.",
+      ],
+    },
+    topic: "lista-espera",
+  },
+  {
     version: "1.3.423",
     date: "2026-11-22",
     level: "menor",

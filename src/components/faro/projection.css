@@ -2,7 +2,9 @@
    la izquierda, el evento con su fuente, la cifra a la derecha. El día
    más apretado se marca con el acento del tema, nunca con rojo ni
    verde: el futuro no se pinta, se lee. */
-.proj-card { display: flex; flex-direction: column; gap: 8px; }
+/* 1.3.424 (Oscar, 2026-11-22): la tarjeta respira — su contenido ya no
+   corre de borde a borde ni la última línea se corta: relleno de la casa. */
+.proj-card { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; }
 .proj-tight { font-size: .92rem; margin: 0; opacity: .9; }
 .proj-figs { display: flex; align-items: stretch; gap: 8px; }
 .proj-fig {
