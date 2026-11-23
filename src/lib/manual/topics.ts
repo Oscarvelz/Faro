@@ -2565,6 +2565,7 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         title: ["Consejo de Personas", "People advice"],
         sum: ["Un aviso antes de cada cumpleaños.", "A heads-up before each birthday."],
         what: ["Si un cumpleaños u otra fecha llega en 30 días, dice cuánto diste la vez pasada y cuánto apartar por semana. Si no, cuánto llevas en regalos este año.", "If a birthday or other date comes within 30 days, it says what you gave last time and how much to set aside weekly. If not, what gifts took this year."],
+        how: ["El cumpleaños también tiene su tarjeta en [[Central]]: aparece tres días antes, se despliega con lo básico y se retira sola al pasar el día.", "The birthday also has its own card on [[Central]]: it appears three days ahead, opens with the basics and retires on its own after the day."],
         bubble: ["Si una fecha de alguien llega en 30 días, dice cuánto diste la vez pasada y cuánto apartar por semana; si no, tus regalos del año.", "If someone's date comes within 30 days, it says what you gave last time and what to set aside weekly; if not, your gifts this year."],
         go: { screen: "advice", anchor: "advice-people", where: ["Asesor, abajo", "Advisor, bottom"] },
       },

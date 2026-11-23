@@ -1,6 +1,7 @@
 import { AreaAdvisor } from "./area-advisor";
 import { useTabletOne as useTabletOneAA } from "./book-side";
 import { DueAlertsCard } from "./due-alerts";
+import { BirthdayCards } from "./birthday-card";
 import { YearAnnouncementCard } from "./bitacora";
 import type { AreaId } from "@/lib/faro/area-advice";
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
@@ -3663,6 +3664,8 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       {/* 1.3.381 (Oscar): la tarjeta de pagos que se acercan vive ARRIBA
           de las fichas, para que estas se desplieguen normalmente. */}
       <DueAlertsCard />
+      {/* 1.3.425 (Oscar): el cumpleaños, en Central, con su propio acabado. */}
+      <BirthdayCards />
       <div className="lenses" data-focus={btnOn ?? cardOn ?? undefined}>
         <div className="lens-wrap">
           <Hint topic="tengo" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />

@@ -1,0 +1,76 @@
+/* 1.3.425 — la tarjeta del cumpleaños en Central: acabado especial,
+   celebratorio, con los tokens del tema (nunca un color propio). */
+.bday-card {
+  border: 1.5px solid color-mix(in oklab, var(--accent) 55%, var(--line));
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: linear-gradient(160deg,
+    color-mix(in oklab, var(--accent) 12%, var(--surface)),
+    color-mix(in oklab, var(--accent) 4%, var(--surface)));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.bday-card.is-today {
+  border-color: color-mix(in oklab, var(--accent) 75%, var(--line));
+  background: linear-gradient(160deg,
+    color-mix(in oklab, var(--accent) 18%, var(--surface)),
+    color-mix(in oklab, var(--accent) 6%, var(--surface)));
+}
+.bday-head { display: flex; align-items: center; gap: 11px; min-width: 0; }
+/* El medallón NO viste el acento del tema (Oscar, 2026-11-22 19:28:
+   «volver al color amarillo como que aburre también para el pastel»):
+   viste el color de la PERSONA, con la receta de su cara en Personas
+   (tinte del tono sobre la superficie, el tono mezclado con el frente
+   y su anillo) — el cumpleaños es de ella, no del tema. */
+.bday-pic {
+  flex: none;
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  display: grid; place-items: center;
+  color: color-mix(in oklab, var(--pp) 70%, var(--fg));
+  background: color-mix(in oklab, var(--pp) 22%, var(--surface));
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--pp) 55%, transparent);
+}
+.bday-pic svg { width: 22px; height: 22px; }
+.bday-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  background: none; border: 0; padding: 0;
+  font: inherit; color: inherit; text-align: left;
+  cursor: pointer;
+}
+.bday-kick {
+  font-size: .68rem; font-weight: 750;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent);
+}
+.bday-name { font-size: 1.12rem; line-height: 1.15; overflow-wrap: anywhere; }
+.bday-sub { font-size: .86rem; opacity: .78; }
+.bday-chev { flex: none; width: 18px; height: 18px; opacity: .55; transition: transform .2s ease; }
+.bday-chev.is-open { transform: rotate(180deg); }
+.bday-x {
+  flex: none;
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+  background: transparent;
+  color: inherit; opacity: .75;
+  cursor: pointer;
+}
+.bday-x:hover { opacity: 1; }
+.bday-body {
+  border-top: 1px dashed color-mix(in oklab, var(--accent) 35%, transparent);
+  padding-top: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.bday-row {
+  margin: 0;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  font-size: .92rem;
+}
+.bday-row em { font-style: normal; opacity: .65; }
+.bday-row strong { text-align: right; }
+.bday-note { margin: 0; font-size: .9rem; opacity: .78; }

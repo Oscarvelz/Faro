@@ -387,6 +387,9 @@ export const FEATURES = {
   /* Ola 6 (1.3.356): la tarjeta de Central con los pagos que se acercan
    * es información esencial — ver lo que va a salir es Esencial. */
   "central.due-alerts": E,
+  /* 1.3.425 (Oscar): la tarjeta del cumpleaños en Central es información
+   * esencial — saber que una fecha de alguien llega es Esencial. */
+  "central.birthday": E,
   "debt.facts": E, "cobros.owed-side": E, "cobros.owe-side": E, "cobros.timeline": R,
   "cobros.quick-list": R, "cobros.quick-add": R, "cobros.archive": R, "cobros.see-all": R,
   /* §1.4 Libros — máquina común (el escaneo al añadir es scan.receipt) */

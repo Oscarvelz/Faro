@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.425",
+    date: "2026-11-22",
+    level: "menor",
+    title: { es: "El cumpleaños, en Central", en: "The birthday, on Central" },
+    points: {
+      es: [
+        "Cuando el cumpleaños de alguien llega en tres días o menos, Central lo anuncia con su propia tarjeta, de acabado especial: dice quién es y cuándo cumple.",
+        "Al tocarla se despliega con lo básico: la fecha, la edad que cumple, lo que ya anotaste para este cumpleaños y lo del pasado.",
+        "La tarjeta permanece el día del cumpleaños y se retira sola al pasar; también puedes quitarla con la ✕ cuando quieras.",
+        "El pastel de la tarjeta viste el color de la persona, como su cara en Personas — no el color de siempre. Y de paso: el botón «Verlo» de tu año en Faro ya no lleva texto blanco sobre la píldora de acento.",
+      ],
+      en: [
+        "When someone's birthday is three days away or less, Central announces it with its own card, specially finished: it says who it is and when the day falls.",
+        "Tap it and it opens with the basics: the date, the age they turn, what you already noted for this birthday and last year's.",
+        "The card stays through the birthday itself and retires on its own after; you can also dismiss it with the ✕ anytime.",
+        "The card's cake wears the person's own color, like their face in People — not the usual theme color. And while at it: the “See it” button on your year in Faro no longer puts white text on the accent pill.",
+      ],
+    },
+    topic: "asesor-personas",
+  },
+  {
     version: "1.3.424",
     date: "2026-11-22",
     level: "menor",

@@ -185,6 +185,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["advisor.ask-scenarios", C], // 1.3.345 — Ola 5a: los escenarios del Asesor, declarados con la caja; su motor llega en 5b
   ["settings.due-alerts", E], // 1.3.356 — Ola 6: el interruptor de los avisos de pagos, con su fila
   ["central.due-alerts", E], // 1.3.356 — Ola 6: la tarjeta de Central que anuncia los pagos
+  ["central.birthday", E], // 1.3.425 — la tarjeta del cumpleaños en Central: información esencial
   ["editor.autopay", R], // 1.3.356 — Ola 6: el pago automático se configura en el editor de la cuota
   ["advisor.waitlist", E], // 1.3.360 — 5c: la lista de espera del Asesor; anotar y decidir un deseo es declarar, declarado antes que la superficie
   ["settings.wait-time", R], // 1.3.360 — 5c: el plazo de la espera se configura en Ajustes; configurar es administrar (Ritmo)
