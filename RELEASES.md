@@ -3968,3 +3968,18 @@ Dos curas de acabado, las dos de fotos de Oscar del mismo día.
 **Verificación.** Focalizadas 25/25 (423 + 421 + 411 + 417 + novedades346 + captura379) y la base de Pagos quedó clavada en la cerca 423. Banco `scenario-423a`: HAVE nombre = barrita = acento del tema; SPEND nombre = barrita = frente; DEBT (neutral) nombre = barrita = frente. Banco `scenario-423b` a 320 px: `flex-wrap: wrap` computado, el efecto envuelto en su línea y a 15 px dentro del borde. Suite completa: 3,237/3,237 en verde (suite423.log, SUITE_EXIT=0; el delta sobre la 422 son los 3 its de captura423). tsc: los 3 errores de siempre. Build: entry `index-Dwfc7vPS.js`.
 
 **Datos de publicación.** Dist publicado en `main`: 43 archivos, cola `ab23f55be9798e8de37a1f3daa8f0620f2bff92f`. Barrido del precache vivo: 28/28 idénticos; sw vivo `faro-1.3.423`. Fuente: `5909b3621fbbfe44ca5183b9a8b87915ebd0d02a`. Snapshot: `~/workspace/faro-423-dist-snapshot`.
+## 1.3.424 — «Tres rincones, con su envoltorio» (2026-11-22)
+
+Oscar (17:39 EST, tres fotos): «Estos son algunos espacios donde hace falta trabajo. El texto está suelto o pegado literalmente al borde de la tabla. Un problema real sobre el saldo proyectado día a día. Usa la ley de envoltorio para elevar su dignidad al estilo de Faro y sus temas.» Tres asientos, tres curas de puro acabado — ningún motor se tocó.
+
+**La Lista de espera gana su bandeja.** Su sección era una columna desnuda sobre el fondo de la pila del Asesor: el título, el subtítulo y el estado vacío quedaban sueltos; solo los deseos llevaban tarjeta. La sección es ahora una bandeja hundida de la casa (borde `var(--line)`, radio 14, relleno 14, fondo al 3 % del frente) y las tarjetas de deseos, con su superficie propia, se levantan sobre ella.
+
+**La vista del año respira.** En Estudio, las filas de «Guardado al cerrar el año» llevaban 5 px verticales y 2 laterales — el texto pegaba al borde de la tabla — y los meses 6 y 8. Ahora: filas a 7 px por 10, meses a 8 por 10. Los retoques cyberpunk de esas reglas (color de borde, radio) no se tocaron.
+
+**El Saldo proyectado lleva su relleno.** Su tarjeta era la única de la pila sin relleno: el `.advice-card` base no da ninguno y las demás tarjetas lo reciben de su envoltorio interior; la proyección pone su contenido directo, así que el texto corría de borde a borde y la última línea se cortaba contra el borde inferior. La tarjeta lleva ahora el relleno de la casa (14 · 16 · 16).
+
+**Manual:** sin cambios — ola de presentación pura, como la 423; las superficies ya están descritas en sus temas («lista-espera», «saldo-proyectado»).
+
+**Verificación.** Focalizadas 12/12 (captura424 nueva, 3 its; novedades346 y captura385 sin deuda — la 424 es menor). Banco `scenario-424` (pack 407): año — padding computado de fila 7px 10px y de mes 8px 10px; Lista de espera — bandeja computada (relleno 14, borde 1px sólido, fondo al 3 %, radio 14) y su foto la muestra entera dentro de su tarjeta; Saldo proyectado — relleno computado 14px 16px 16px y su foto muestra el texto respirando por los cuatro lados. Suite completa: 3.240/3.240, exit 0 (delta sobre la 423 = los 3 its de captura424). tsc: los 3 errores de siempre. Build: entry `index-B6x4SNRv.js`.
+
+**Datos de publicación.** Fuente `033854cb` (8 archivos). Rama principal: 43 archivos, cola `2cee4bb2`. Barrido en vivo: 28/28 idénticos; el sw vivo lee `faro-1.3.424` y el índice vivo referencia `index-B6x4SNRv.js`. Snapshot: `~/workspace/faro-424-dist-snapshot`.
