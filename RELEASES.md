@@ -3995,4 +3995,4 @@ Oscar (17:40–17:41 EST, con foto): la tarjeta de cumpleaños del Asesor se des
 
 **Verificación.** Banco `scenario-425` (pack 425: Mamá con cumpleaños el 24 de noviembre, $24.57 anotados para esta vuelta y $30.00 el cumpleaños pasado): la tarjeta rindió «✦ CUMPLEAÑOS · Mamá · Cumple en 2 días» y el cuerpo «Fecha: martes, 24 de noviembre · Cumple 66 años · Ya anotaste $24.57 · El cumpleaños pasado $30.00»; la ✕ la retiró (sonda tras la ✕: GONE). Tras las correcciones, re-banco sobre el build final: el medallón rindió en el color de Mamá y las cifras se conservaron; fotos verificadas a ojo. Focalizadas: 166/166 y la cerca 425 extendida 6/6. Suite completa: 3.246/3.246. tsc: los 3 errores de siempre. Build: entry `index-D2d7ShXO.js`.
 
-**Datos de publicación.** PENDIENTE.
+**Datos de publicación.** Fuente `28e2c245` (13 archivos). Rama principal: 43 archivos, cola `62c37d1c`. Barrido en vivo: 28/28 idénticos; el sw vivo lee `faro-1.3.425` y el índice vivo referencia `index-D2d7ShXO.js`. Snapshot: `~/workspace/faro-425-dist-snapshot`.
