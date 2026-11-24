@@ -3454,6 +3454,39 @@ describe("banco · ola 48 — la cadencia del ingreso y el gasto por umbral (F2 
 });
 
 
+describe("banco · ola 52 — el extremo por abajo oye «más chico» (la Caza III, agenda d)", () => {
+  it("«¿Cuál fue mi gasto más chico este mes?» responde el menor, no el silencio", () => {
+    const ledger = fixture();
+    const r = ask(ledger, "¿Cuál fue mi gasto más chico este mes?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "extremos");
+    assert.ok(r.verdict.includes("más pequeño"), r.verdict);
+    assert.ok(r.verdict.includes("$24.57"), r.verdict);
+  });
+
+  it("el par mínimo se separa: más chico y más grande dan veredictos distintos", () => {
+    const ledger = fixture();
+    const a = ask(ledger, "¿Cuál fue mi gasto más grande este mes?");
+    const b = ask(ledger, "¿Cuál fue mi gasto más chico este mes?");
+    assert.equal(a.kind, "answer");
+    assert.equal(b.kind, "answer");
+    if (a.kind !== "answer" || b.kind !== "answer") return;
+    assert.ok(a.verdict.includes("$170.00"), a.verdict);
+    assert.notEqual(a.verdict, b.verdict);
+  });
+
+  it("«más chica» también oye, sobre las compras — y el adjetivo concuerda", () => {
+    const r = ask(fixture(), "¿Cuál fue mi compra más chica?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "extremos");
+    assert.ok(r.verdict.includes("«Camisa»"), r.verdict);
+    assert.ok(r.verdict.includes("$50.00"), r.verdict);
+    assert.ok(r.verdict.includes("compra más pequeña"), r.verdict);
+  });
+});
+
 describe("banco · ola 51 — la costura bilingüe (la Caza III, agenda b)", () => {
   function libroCostura51(concepto: string): LedgerState {
     const l = createInitial("es", "oscuro");

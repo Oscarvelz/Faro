@@ -1317,14 +1317,23 @@ function extremosAnswer(c: Ctx, folded: string): BankResult | null {
   // «mi compra más cara» moría porque la puerta solo oía «caro»:
   // la compra es femenina y su superlativo también.
   const max = /(mas grande|mayor|mas car[oa]|mas alt[oa]|biggest|largest|most expensive|highest)/.test(folded);
-  const min = /(mas pequen[oa]|menor|mas barat[oa]|mas baj[oa]|smallest|cheapest|lowest)/.test(folded);
+  // OLA 52 (la Caza III): el extremo por abajo no oía «más chico» —
+  // la forma hablada de media América para «el menor» — y la
+  // pregunta caía en silencio (el único par confundido de la
+  // batería de vecinos). «Más chico/a» y «más reducido/a» entran,
+  // en el estilo con género de la casa.
+  const min = /(mas pequen[oa]|menor|mas barat[oa]|mas baj[oa]|mas chic[oa]|mas reducid[oa]|smallest|cheapest|lowest)/.test(folded);
   if (!max && !min) return null;
   let pool = allLines(c);
   let noun = L(c.lang, "gasto", "expense");
+  // OLA 52: el adjetivo del mínimo concuerda con el sustantivo —
+  // «tu compra más pequeña», no «más pequeño» (la concordancia que
+  // la E28-2 dio a la puerta, ahora también en el veredicto).
+  let fem = false;
   if (/ingreso|entrada|earned|income/.test(folded)) { pool = pool.filter((l) => l.kind.startsWith("income")); noun = L(c.lang, "ingreso", "income"); }
   else if (/remesa|envio|sent|remittance/.test(folded)) { pool = pool.filter((l) => roleOf(c.state, l.categoryId) === "remittance"); noun = L(c.lang, "envío de remesa", "remittance send"); }
-  else if (/cuota|suscripcion|subscription/.test(folded)) { pool = pool.filter((l) => l.kind === "subscription"); noun = L(c.lang, "cuota", "due"); }
-  else if (/compra|purchase|bought/.test(folded)) { pool = pool.filter((l) => l.kind === "purchase"); noun = L(c.lang, "compra", "purchase"); }
+  else if (/cuota|suscripcion|subscription/.test(folded)) { pool = pool.filter((l) => l.kind === "subscription"); noun = L(c.lang, "cuota", "due"); fem = c.lang === "es"; }
+  else if (/compra|purchase|bought/.test(folded)) { pool = pool.filter((l) => l.kind === "purchase"); noun = L(c.lang, "compra", "purchase"); fem = c.lang === "es"; }
   else if (/gasto|gasto|spend|expense|he hecho/.test(folded)) { pool = pool.filter((l) => isOut(l) && roleOf(c.state, l.categoryId) !== "savings"); }
   else return null;
   if (/este mes|this month/.test(folded)) pool = pool.filter((l) => l.monthKey === c.key);
@@ -1336,7 +1345,7 @@ function extremosAnswer(c: Ctx, folded: string): BankResult | null {
   const scope = /este mes|this month/.test(folded) ? L(c.lang, "este mes", "this month") : /este ano|this year/.test(folded) ? L(c.lang, "este año", "this year") : L(c.lang, "en todo tu historial", "in your whole history");
   return {
     kind: "answer", family: "extremos",
-    verdict: L(c.lang, `Tu ${noun} ${max ? "más grande" : "más pequeño"} ${scope} fue «${pick.concept}»: ${c.money(view(c, pick))}, el ${fmtFecha(c, lineDate(pick))}.`, `Your ${max ? "biggest" : "smallest"} ${noun} ${scope} was "${pick.concept}": ${c.money(view(c, pick))}, on ${fmtFecha(c, lineDate(pick))}.`),
+    verdict: L(c.lang, `Tu ${noun} ${max ? "más grande" : (fem ? "más pequeña" : "más pequeño")} ${scope} fue «${pick.concept}»: ${c.money(view(c, pick))}, el ${fmtFecha(c, lineDate(pick))}.`, `Your ${max ? "biggest" : "smallest"} ${noun} ${scope} was "${pick.concept}": ${c.money(view(c, pick))}, on ${fmtFecha(c, lineDate(pick))}.`),
     pieces: [
       { label: pick.concept, minor: view(c, pick) },
       // OLA 26 (U3): el segundo también tiene nombre — una pieza que
@@ -8739,7 +8748,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(cuanto pago de interes|cual deuda (me )?(sale|es)|que pago primero|completa o (el )?minimo|que pasa si no pago|what should i pay first|which debt costs|how much interest do i pay)/, "deudas"],
     [/(avalancha|bola de nieve|avalanche|snowball|que orden|en que orden|cual orden)/, "deudas"],
     [/(debo|deuda|prestamo|me debe|me deben|le debo|saldo de (mi|la) tarjeta|i owe|owes me)/, "deudas"],
-    [/(mas (grande|caro|alto)|menor (gasto|compra|ingreso)|mayor (gasto|compra|ingreso)|biggest|largest|smallest|gasto mas (grande|caro)|compra mas (grande|cara))/, "extremos"],
+    [/(mas (grande|caro|alto|chico|chica)|menor (gasto|compra|ingreso)|mayor (gasto|compra|ingreso)|biggest|largest|smallest|gasto mas (grande|caro)|compra mas (grande|cara))/, "extremos"],
     [/(mas que|menos que|diferencia (entre|de)|mejor (mes|que)|peor (mes|que)|comparad|versus)/, "comparar"],
     [/(ahorr|tendre ahorrado|tendria ahorrado|cuanto tengo en|mi cuenta de ahorros)/, "ahorros"],
     [/(cuanto (mande|envie|enviado|enviando)|how much did i (send|sent)).{0,40}(semana|mes|ano|week|month|year|quincena)/, "remesas-periodo"],

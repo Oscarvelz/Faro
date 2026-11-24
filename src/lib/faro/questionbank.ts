@@ -201,7 +201,7 @@ export const QUESTION_BANK: BankFamily[] = [
     source: ["historial.stream", "libros.lineas"],
     axes: ["extremo (mayor × menor) × clase (gasto × compra × ingreso × remesa × cuota) × alcance (historial × este mes × este año)"],
     canonical: {
-      es: ["¿Cuál ha sido el gasto más grande que he hecho?", "¿Cuál ha sido el gasto más pequeño que he hecho?", "¿Cuál fue mi compra más cara?", "¿Cuál ha sido mi ingreso más grande?"],
+      es: ["¿Cuál ha sido el gasto más grande que he hecho?", "¿Cuál ha sido el gasto más pequeño que he hecho?", "¿Cuál fue mi compra más cara?", "¿Cuál ha sido mi ingreso más grande?", "¿Cuál fue mi gasto más chico este mes?"],
       en: ["What has been my biggest expense?", "What was my smallest expense?", "What was my most expensive purchase?"],
     },
     answerShape: "La línea extrema del stream (por monto en moneda de vista), con concepto, monto y fecha, y su escolta: la segunda, para que el extremo se vea contra algo.",

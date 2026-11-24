@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.439",
+    date: "2026-11-24",
+    level: "menor",
+    title: { es: "El extremo por abajo oye «más chico»", en: "The low end hears “smallest” in your words" },
+    points: {
+      es: [
+        "«¿Cuál fue mi gasto más chico este mes?» ya tiene respuesta: el Asesor oye «más chico» y «más chica» como lo que son — el menor — en vez de quedarse en silencio.",
+        "Y el adjetivo concuerda con lo que nombra: «tu compra más pequeña», «tu cuota más pequeña», no un masculino prestado.",
+      ],
+      en: [
+        "“What was my smallest expense this month?” — asked your way, as “más chico” — now gets an answer: the Advisor hears those words as the minimum they mean instead of staying silent.",
+        "And the adjective agrees with what it names: “your smallest purchase”, with the grammar to match.",
+      ],
+    },
+  },
+  {
     version: "1.3.438",
     date: "2026-11-23",
     level: "menor",
